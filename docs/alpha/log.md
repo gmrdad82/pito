@@ -157,3 +157,11 @@
 - Created PlaylistItem model: belongs_to playlist + video, unique youtube_playlist_item_id, unique [playlist_id, video_id]
 - Added has_many :playlists on Channel, has_many :playlist_items/playlists on Video
 - 59 specs, 0 failures
+
+---
+
+**Step 12: SavedView model** — completed
+
+- SavedView: kind enum (channels/videos), url, name, position, unique index on [kind, url]
+- display_name method returns "Kind: name"
+- 65 specs, 0 failures

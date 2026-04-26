@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_04_26_221958) do
+ActiveRecord::Schema[8.1].define(version: 2026_04_26_222411) do
   create_table "app_settings", charset: "utf8mb4", collation: "utf8mb4_unicode_ci", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "key"
@@ -64,6 +64,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_26_221958) do
     t.string "youtube_playlist_id", null: false
     t.index ["channel_id"], name: "index_playlists_on_channel_id"
     t.index ["youtube_playlist_id"], name: "index_playlists_on_youtube_playlist_id", unique: true
+  end
+
+  create_table "saved_views", charset: "utf8mb4", collation: "utf8mb4_unicode_ci", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.integer "kind", null: false
+    t.string "name", null: false
+    t.integer "position", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.string "url", null: false
+    t.index ["kind", "url"], name: "index_saved_views_on_kind_and_url", unique: true
   end
 
   create_table "video_stats", charset: "utf8mb4", collation: "utf8mb4_unicode_ci", force: :cascade do |t|
