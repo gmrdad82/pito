@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_04_26_222647) do
+ActiveRecord::Schema[8.1].define(version: 2026_04_26_223653) do
   create_table "app_settings", charset: "utf8mb4", collation: "utf8mb4_unicode_ci", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "key"
@@ -118,6 +118,25 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_26_222647) do
     t.index ["video_id"], name: "index_video_stats_on_video_id"
   end
 
+  create_table "video_uploads", charset: "utf8mb4", collation: "utf8mb4_unicode_ci", force: :cascade do |t|
+    t.bigint "bytes_sent", default: 0, null: false
+    t.bigint "channel_id", null: false
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.text "error_message"
+    t.string "file_name", null: false
+    t.bigint "file_size", null: false
+    t.integer "privacy_status", default: 0
+    t.string "resumable_uri"
+    t.integer "status", default: 0, null: false
+    t.string "title", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "video_id"
+    t.string "youtube_video_id"
+    t.index ["channel_id"], name: "index_video_uploads_on_channel_id"
+    t.index ["video_id"], name: "index_video_uploads_on_video_id"
+  end
+
   create_table "videos", charset: "utf8mb4", collation: "utf8mb4_unicode_ci", force: :cascade do |t|
     t.integer "category_id"
     t.bigint "channel_id", null: false
@@ -145,5 +164,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_26_222647) do
   add_foreign_key "playlist_items", "videos"
   add_foreign_key "playlists", "channels"
   add_foreign_key "video_stats", "videos"
+  add_foreign_key "video_uploads", "channels"
+  add_foreign_key "video_uploads", "videos"
   add_foreign_key "videos", "channels"
 end
