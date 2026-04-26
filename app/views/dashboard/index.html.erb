@@ -1,42 +1,7 @@
 <h1>dashboard</h1>
 
-<% if @videos.any? %>
-  <p class="text-muted" style="margin-bottom: 6px;"><%= @video_count %> videos across <%= @channel_count %> channels</p>
-
-  <div data-controller="sortable-table">
-    <table data-sortable-table-target="table">
-      <thead>
-        <tr>
-          <th class="sortable" data-action="click->sortable-table#sort" data-column="0" data-sort-type="string">title</th>
-          <th class="sortable" data-action="click->sortable-table#sort" data-column="1" data-sort-type="string">channel</th>
-          <th class="sortable num" data-action="click->sortable-table#sort" data-column="2" data-sort-type="number">views</th>
-          <th>trend</th>
-          <th class="sortable num" data-action="click->sortable-table#sort" data-column="4" data-sort-type="number">likes</th>
-          <th class="sortable num" data-action="click->sortable-table#sort" data-column="5" data-sort-type="number">comments</th>
-          <th class="sortable num" data-action="click->sortable-table#sort" data-column="6" data-sort-type="number">watch time</th>
-          <th class="sortable" data-action="click->sortable-table#sort" data-column="7" data-sort-type="string">privacy</th>
-          <th class="sortable" data-action="click->sortable-table#sort" data-column="8" data-sort-type="date">published</th>
-          <th class="sortable num" data-action="click->sortable-table#sort" data-column="9" data-sort-type="number">duration</th>
-        </tr>
-      </thead>
-      <tbody>
-        <% @videos.each do |video| %>
-          <tr>
-            <td style="max-width: 280px; overflow: hidden; text-overflow: ellipsis;"><%= video.title %></td>
-            <td><%= video.channel.title %></td>
-            <td class="num"><%= number_with_delimiter(video.total_views) %></td>
-            <td><%= view_trend_indicator(video) %></td>
-            <td class="num"><%= number_with_delimiter(video.total_likes) %></td>
-            <td class="num"><%= number_with_delimiter(video.total_comments) %></td>
-            <td class="num"><%= number_with_delimiter(video.total_watch_time) %>m</td>
-            <td><%= video.privacy_status&.sub("_video", "") || "—" %></td>
-            <td><%= video.published_at&.strftime("%Y-%m-%d") %></td>
-            <td class="num"><%= format_duration(video.duration_seconds) %></td>
-          </tr>
-        <% end %>
-      </tbody>
-    </table>
-  </div>
+<% if @video_count > 0 %>
+  <p class="text-muted"><%= @video_count %> videos across <%= @channel_count %> channels</p>
 <% else %>
   <p class="text-muted">no videos yet. run <code>bin/rails db:seed</code> to load sample data.</p>
 <% end %>
