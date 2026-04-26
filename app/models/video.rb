@@ -2,6 +2,8 @@ class Video < ApplicationRecord
   belongs_to :channel
 
   has_many :video_stats, dependent: :destroy
+  has_many :playlist_items, dependent: :destroy
+  has_many :playlists, through: :playlist_items
 
   enum :privacy_status, { public_video: 0, unlisted: 1, private_video: 2 }
 

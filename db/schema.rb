@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_04_26_221542) do
+ActiveRecord::Schema[8.1].define(version: 2026_04_26_221958) do
   create_table "app_settings", charset: "utf8mb4", collation: "utf8mb4_unicode_ci", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "key"
@@ -36,6 +36,34 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_26_221542) do
     t.bigint "view_count"
     t.string "youtube_channel_id"
     t.index ["youtube_channel_id"], name: "index_channels_on_youtube_channel_id", unique: true
+  end
+
+  create_table "playlist_items", charset: "utf8mb4", collation: "utf8mb4_unicode_ci", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.bigint "playlist_id", null: false
+    t.integer "position", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.bigint "video_id", null: false
+    t.string "youtube_playlist_item_id", null: false
+    t.index ["playlist_id", "video_id"], name: "index_playlist_items_on_playlist_id_and_video_id", unique: true
+    t.index ["playlist_id"], name: "index_playlist_items_on_playlist_id"
+    t.index ["video_id"], name: "index_playlist_items_on_video_id"
+    t.index ["youtube_playlist_item_id"], name: "index_playlist_items_on_youtube_playlist_item_id", unique: true
+  end
+
+  create_table "playlists", charset: "utf8mb4", collation: "utf8mb4_unicode_ci", force: :cascade do |t|
+    t.bigint "channel_id", null: false
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.integer "item_count", default: 0, null: false
+    t.integer "privacy_status"
+    t.datetime "published_at"
+    t.string "thumbnail_url"
+    t.string "title", null: false
+    t.datetime "updated_at", null: false
+    t.string "youtube_playlist_id", null: false
+    t.index ["channel_id"], name: "index_playlists_on_channel_id"
+    t.index ["youtube_playlist_id"], name: "index_playlists_on_youtube_playlist_id", unique: true
   end
 
   create_table "video_stats", charset: "utf8mb4", collation: "utf8mb4_unicode_ci", force: :cascade do |t|
@@ -77,6 +105,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_26_221542) do
     t.index ["youtube_video_id"], name: "index_videos_on_youtube_video_id", unique: true
   end
 
+  add_foreign_key "playlist_items", "playlists"
+  add_foreign_key "playlist_items", "videos"
+  add_foreign_key "playlists", "channels"
   add_foreign_key "video_stats", "videos"
   add_foreign_key "videos", "channels"
 end
