@@ -198,3 +198,17 @@
 - Restyled nav convention: `[ ]` wraps entire nav group, not individual links — `[ Channels · Videos · Settings ]`
 - Footer: small nav `[ Home · Channels · Videos · Settings ]` + logo © year copyright line
 - 88 specs, 0 failures
+
+---
+
+**Step 16: Confirmation dialog + lowercase tone** — completed
+
+- Stimulus confirm-dialog controller with `<dialog>` element, Esc/click-outside to close
+- Shared partial `_confirm_dialog.html.erb` with `destructive: true` option for red confirm button
+- Dialog positioned at top of viewport (below navbar), centered horizontally
+- Buttons grouped as `[ confirm · cancel ]` — confirm bold blue, destructive red, cancel blue
+- All UI copy switched to lowercase casual tone (wanna, can't, etc.)
+- Added "home" to top navbar
+- Footer copyright link clickable, version lowercase
+- Settings labels lowercase (keep YouTube, OAuth, URI, ID)
+- 88 specs, 0 failures

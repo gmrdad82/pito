@@ -10,9 +10,9 @@ RSpec.describe "Navigation", type: :request do
     it "GET #{path} includes top nav links" do
       get path
       body = response.body
-      expect(body).to include("Channels")
-      expect(body).to include("Videos")
-      expect(body).to include("Settings")
+      expect(body).to include("channels")
+      expect(body).to include("videos")
+      expect(body).to include("settings")
       expect(body).to include("Pito")
     end
   end

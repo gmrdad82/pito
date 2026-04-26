@@ -21,7 +21,7 @@
         <a href="/" style="text-decoration: none; display: flex; align-items: center; line-height: 0;" aria-label="Dashboard">
           <img src="/Pito.png" alt="Pito" class="header-logo">
         </a>
-        <nav style="display: flex; align-items: center;">[&nbsp; <%= nav_link "Channels", channels_path %> &nbsp;<span class="text-muted">&middot;</span>&nbsp; <%= nav_link "Videos", videos_path %> &nbsp;<span class="text-muted">&middot;</span>&nbsp; <%= nav_link "Settings", settings_path %> &nbsp;]</nav>
+        <nav style="display: flex; align-items: center;">[&nbsp; <%= nav_link "home", root_path %> &nbsp;<span class="text-muted">&middot;</span>&nbsp; <%= nav_link "channels", channels_path %> &nbsp;<span class="text-muted">&middot;</span>&nbsp; <%= nav_link "videos", videos_path %> &nbsp;<span class="text-muted">&middot;</span>&nbsp; <%= nav_link "settings", settings_path %> &nbsp;]</nav>
       </div>
     </header>
 
@@ -41,10 +41,10 @@
     </div>
 
     <footer style="border-top: 1px solid #ddd; padding: 8px 12px; margin-top: 24px;">
-      <nav style="font-size: 10px; margin-bottom: 6px;">[ <%= nav_link "Home", root_path %> <span class="text-muted">&middot;</span> <%= nav_link "Channels", channels_path %> <span class="text-muted">&middot;</span> <%= nav_link "Videos", videos_path %> <span class="text-muted">&middot;</span> <%= nav_link "Settings", settings_path %> ]</nav>
+      <nav style="font-size: 10px; margin-bottom: 6px;">[ <%= nav_link "home", root_path %> <span class="text-muted">&middot;</span> <%= nav_link "channels", channels_path %> <span class="text-muted">&middot;</span> <%= nav_link "videos", videos_path %> <span class="text-muted">&middot;</span> <%= nav_link "settings", settings_path %> ]</nav>
       <div class="text-muted" style="display: flex; justify-content: space-between; align-items: center; font-size: 10px;">
-        <span style="display: flex; align-items: center; gap: 4px;"><img src="/Pito.png" alt="Pito" style="height: 10px; width: auto; display: block; position: relative; top: -1px;"> &copy; <%= Date.current.year %>. All rights reserved.</span>
-        <span>Version 0.0.1.alpha</span>
+        <a href="/" style="display: flex; align-items: center; gap: 4px; text-decoration: none; color: inherit;"><img src="/Pito.png" alt="Pito" style="height: 10px; width: auto; display: block; position: relative; top: -1px;"> &copy; <%= Date.current.year %>. all rights reserved.</a>
+        <span>version 0.0.1.alpha</span>
       </div>
     </footer>
   </body>

@@ -1,3 +1,21 @@
 <% breadcrumb ["Dashboard", root_path], ["Channels", channels_path], ["My Channel", "#"], "Video Details" %>
 <h1>Dashboard</h1>
-<p class="text-muted">No channels connected yet. <a href="/settings">Configure OAuth credentials</a>, then <a href="/channels">connect a channel</a>.</p>
+<p class="text-muted">no channels connected yet. <a href="/settings">configure OAuth credentials</a>, then <a href="/channels">connect a channel</a>.</p>
+
+<div data-controller="confirm-dialog"
+     data-confirm-dialog-title-value="save changes?"
+     data-confirm-dialog-message-value="you've got unsaved work here.">
+  <p style="margin-top: 12px;">
+    [ <a href="#" data-action="confirm-dialog#open">test confirmation dialog</a> ]
+  </p>
+  <%= render "shared/confirm_dialog" %>
+</div>
+
+<div data-controller="confirm-dialog"
+     data-confirm-dialog-title-value="wanna delete this?"
+     data-confirm-dialog-message-value="this can't be undone.">
+  <p style="margin-top: 6px;">
+    [ <a href="#" data-action="confirm-dialog#open" class="text-danger">test destructive dialog</a> ]
+  </p>
+  <%= render "shared/confirm_dialog", destructive: true %>
+</div>
