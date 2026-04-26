@@ -49,3 +49,26 @@
 - Sidekiq Web protected with HTTP basic auth via rails credentials, not left open
 - CI test job uses env vars for DB config (no master key needed in CI)
 - Separate .env.development/.env.test files instead of single .env
+
+---
+
+**Step 3: Models + migrations + encrypted attrs + factories + model specs** — completed
+
+- Created 6 migrations: AppSetting, Channel, Video, VideoStat, Production, Note
+- Added 7th migration: `owned` boolean on channels (default false) to distinguish owned channels (with OAuth/private analytics) from public competitor channels (public data only via API key)
+- Configured Active Record Encryption (keys in credentials) for: AppSetting.value (deterministic), Channel.oauth_access_token, Channel.oauth_refresh_token
+- Model validations: presence, uniqueness (with DB-level unique indexes)
+- Enums: Production.status (idea/in_progress/published/archived), Note.kind (idea/log/todo/reference)
+- Associations: Channel has_many Videos → has_many VideoStats; Video has_one Production (optional)
+- Scopes: Channel.owned, Channel.public_only
+- Class methods: AppSetting.get(key), AppSetting.set(key, value)
+- Created FactoryBot factories for all 6 models with traits (:owned for Channel, :with_video for Production)
+- 45 specs (27 model + 16 navigation + 2 Sidekiq), 0 failures
+- Updated layout: "P" logo in header, added footer with © year
+- RuboCop clean
+
+**Decisions:**
+- `owned` boolean (default false) instead of separate table or STI — simpler, same schema works for both channel types
+- AppSetting.value encrypted with `deterministic: true` so we can query by encrypted value (needed for lookups)
+- Production belongs_to :video is optional (can plan a production before filming/uploading)
+- VideoStat uniqueness scoped to [video_id, date] — one stats row per video per day

@@ -31,7 +31,7 @@ bundle exec rubocop # Lint
 - Commit with meaningful 1-line messages. No AI authoring mentions.
 - Always push immediately after committing.
 - Do NOT commit until user has tested and validated the changes.
-- Git workflow: feature branches → PR into master. No direct work on master.
+- Git workflow: feature branches → PR into main. No direct work on main.
 - After each build step: update `docs/plan.md` (mark done), append to `docs/log.md`, create `docs/testing/step-NN.md` with verification instructions.
 - Every step must include RSpec specs and manual testing instructions (browser/console where applicable).
 
@@ -46,8 +46,8 @@ bundle exec rubocop # Lint
 - `.env.development` / `.env.test` — per-environment infrastructure connection info ONLY (host/port for MySQL, Redis URL). No secrets. Gitignored.
 - `.env.example` — template for the above. Committed.
 - `rails credentials:edit` — MySQL database/username/password per environment, Sidekiq web auth.
-- `config/master.key` — on disk, gitignored. Never in .env.
-- CI uses its own env vars defined in `.github/workflows/ci.yml` (no master key needed).
+- `config/main.key` — on disk, gitignored. Never in .env.
+- CI uses its own env vars defined in `.github/workflows/ci.yml` (no main key needed).
 - `AppSetting` table — YouTube OAuth config (client_id, client_secret, redirect_uri). Managed via web UI.
 - Per-channel OAuth tokens stored encrypted on Channel rows.
 
