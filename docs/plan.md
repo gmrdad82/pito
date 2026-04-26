@@ -10,9 +10,9 @@
 ## Phase 1 — Purge + Visual Overhaul
 
 - [x] **Step 5:** Purge Production, Notes, Compare — down-migrations, remove models/factories/specs/controllers/views/routes/nav links
-- [ ] **Step 6:** Visual baseline — Verdana 12px, color palette (blue links, red danger), compact spacing, bracketed link convention `[ Link ]`
-- [ ] **Step 7:** Header + nav overhaul — Pito.png logo + "Pito" linking to /, nav `[ Channels ] · [ Videos ] · [ Settings ]`, remove icon.png/icon.svg, footer with ©
-- [ ] **Step 8:** Unified button style — `.btn-link` class for buttons-as-links, bold for submit/primary, red for destructive, remove all bordered-rectangle button CSS
+- [x] **Step 6:** Visual baseline — Verdana 12px, color palette, compact spacing, bracketed nav/buttons, header logo, footer with version
+- [x] **Step 7:** _(merged into Step 6)_ Header + nav overhaul — logo, bracketed nav, footer
+- [x] **Step 8:** _(merged into Step 6)_ Unified button style — bracketed lowercase bold buttons, blue hover
 
 ## Phase 2 — Schema + Models
 
