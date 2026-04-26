@@ -21,7 +21,7 @@
 - [x] **Step 11:** Playlist + PlaylistItem models — migrations, associations, validations, factories, model specs
 - [x] **Step 12:** SavedView model — kind enum (channels/videos), url, position, unique index on [kind, url], display_name method, factory, model specs
 - [x] **Step 13:** BulkOperation + BulkOperationItem models — kind enum, status enum, parameters/target_video_ids/dry_run_preview (json), per-item status tracking, factories, model specs
-- [ ] **Step 14:** VideoUpload model — belongs_to channel, optional video, status enum, resumable upload fields, factory, model specs
+- [x] **Step 14:** VideoUpload model (lightweight) — metadata tracker only, no file bytes on backend; belongs_to channel, optional video, status enum, resumable upload URI, title/description/privacy, factory, model specs
 
 ## Phase 3 — Core UI Components
 
@@ -96,13 +96,15 @@
 - [ ] **Step 56:** ThumbnailChangesController — action screen for changing thumbnails
 - [ ] **Step 57:** PlaylistAdditionsController — action screen for adding videos to playlists
 
-## Phase 13 — Video Upload
+## Phase 13 — Video Upload (client-side direct to YouTube)
 
-- [ ] **Step 58:** Youtube::VideoUploader service — resumable upload via videos.insert, WebMock specs
-- [ ] **Step 59:** Upload page — `/videos/upload` with breadcrumb, file picker, channel selector, metadata form
-- [ ] **Step 60:** Resumable upload Stimulus controller — chunked client-side upload, progress tracking
-- [ ] **Step 61:** UploadToYoutubeJob — server-side resumable upload to YouTube, chunk progress updates, resumption on failure
-- [ ] **Step 62:** Upload progress UI — sticky bottom bar with active uploads, per-upload text progress, expandable
+Upload architecture: browser uploads directly to YouTube API via resumable upload. Backend never touches file bytes — only provides the resumable URI (using channel's OAuth token) and tracks upload status. Each connected channel also gets a direct YouTube Studio link as fallback.
+
+- [ ] **Step 58:** Youtube::ResumableUploadInitiator service — uses channel OAuth token to get resumable upload URI from YouTube, WebMock specs
+- [ ] **Step 59:** Upload page — `/videos/upload`, channel selector, file picker, metadata form (title/description/privacy/tags)
+- [ ] **Step 60:** Client-side upload Stimulus controller — browser streams file directly to YouTube via resumable URI, chunked with progress bar
+- [ ] **Step 61:** Upload status tracking — VideoUpload record updated via Turbo Stream, completion links to synced Video
+- [ ] **Step 62:** YouTube Studio links — per-channel `[ YouTube Studio ]` link on channel detail (studio.youtube.com/channel/{id})
 
 ## Phase 14 — Search (Meilisearch)
 

@@ -4,6 +4,7 @@ class Channel < ApplicationRecord
 
   has_many :videos, dependent: :destroy
   has_many :playlists, dependent: :destroy
+  has_many :video_uploads, dependent: :destroy
 
   scope :connected, -> { where(connected: true) }
   scope :public_only, -> { where(connected: false) }

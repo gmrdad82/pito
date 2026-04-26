@@ -173,3 +173,15 @@
 - BulkOperation: kind enum (update_metadata/update_privacy/add_to_playlist/remove_from_playlist), status enum with prefix (pending/running/completed/failed), JSON fields for parameters/target_video_ids/dry_run_preview
 - BulkOperationItem: belongs_to bulk_operation + video, status enum with prefix (pending/succeeded/failed), unique [bulk_operation_id, video_id]
 - 74 specs, 0 failures
+
+---
+
+**Step 14: VideoUpload model (lightweight)** — completed
+
+- VideoUpload: metadata tracker only — backend never touches file bytes
+- Upload architecture decision: browser uploads directly to YouTube via resumable URI, backend provides URI using channel OAuth token and tracks status
+- Fields: channel (required), video (optional, linked after completion), status enum (pending/uploading/processing/completed/failed), privacy_status enum with prefix, title, file_name, file_size, bytes_sent, resumable_uri, youtube_video_id, error_message
+- progress_percent method for UI progress bar
+- Updated Phase 13 plan to reflect client-side direct upload approach
+- YouTube Studio fallback links planned per connected channel
+- 84 specs, 0 failures
