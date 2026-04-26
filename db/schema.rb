@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_04_26_151250) do
+ActiveRecord::Schema[8.1].define(version: 2026_04_26_213600) do
   create_table "app_settings", charset: "utf8mb4", collation: "utf8mb4_unicode_ci", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "key"
@@ -36,30 +36,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_26_151250) do
     t.bigint "view_count"
     t.string "youtube_channel_id"
     t.index ["youtube_channel_id"], name: "index_channels_on_youtube_channel_id", unique: true
-  end
-
-  create_table "notes", charset: "utf8mb4", collation: "utf8mb4_unicode_ci", force: :cascade do |t|
-    t.text "body"
-    t.datetime "created_at", null: false
-    t.integer "kind"
-    t.string "title"
-    t.datetime "updated_at", null: false
-  end
-
-  create_table "productions", charset: "utf8mb4", collation: "utf8mb4_unicode_ci", force: :cascade do |t|
-    t.integer "cost_cents"
-    t.datetime "created_at", null: false
-    t.float "editing_hours"
-    t.float "filming_hours"
-    t.text "notes"
-    t.float "other_hours"
-    t.float "script_hours"
-    t.integer "status"
-    t.float "thumbnail_hours"
-    t.string "title"
-    t.datetime "updated_at", null: false
-    t.bigint "video_id"
-    t.index ["video_id"], name: "index_productions_on_video_id"
   end
 
   create_table "video_stats", charset: "utf8mb4", collation: "utf8mb4_unicode_ci", force: :cascade do |t|
@@ -96,7 +72,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_26_151250) do
     t.index ["youtube_video_id"], name: "index_videos_on_youtube_video_id", unique: true
   end
 
-  add_foreign_key "productions", "videos"
   add_foreign_key "video_stats", "videos"
   add_foreign_key "videos", "channels"
 end

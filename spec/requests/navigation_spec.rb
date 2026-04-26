@@ -1,7 +1,7 @@
 require "rails_helper"
 
 RSpec.describe "Navigation", type: :request do
-  %w[/ /channels /compare /productions /notes /settings].each do |path|
+  %w[/ /channels /videos /settings].each do |path|
     it "GET #{path} returns 200" do
       get path
       expect(response).to have_http_status(:ok)
@@ -10,14 +10,20 @@ RSpec.describe "Navigation", type: :request do
     it "GET #{path} includes top nav links" do
       get path
       body = response.body
-      expect(body).to include("Dashboard")
       expect(body).to include("Channels")
-      expect(body).to include("Compare")
-      expect(body).to include("Production")
-      expect(body).to include("Notes")
+      expect(body).to include("Videos")
       expect(body).to include("Settings")
-      expect(body).to include("Sidekiq")
+      expect(body).to include("Pito")
     end
+  end
+
+  it "does not include purged nav items" do
+    get "/"
+    body = response.body
+    expect(body).not_to include("Compare")
+    expect(body).not_to include("Production")
+    expect(body).not_to include("Notes")
+    expect(body).not_to include("Sidekiq</a>")
   end
 
   describe "GET /sidekiq" do

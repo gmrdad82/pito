@@ -9,7 +9,7 @@
 
 ## Phase 1 — Purge + Visual Overhaul
 
-- [ ] **Step 5:** Purge Production, Notes, Compare — down-migrations, remove models/factories/specs/controllers/views/routes/nav links
+- [x] **Step 5:** Purge Production, Notes, Compare — down-migrations, remove models/factories/specs/controllers/views/routes/nav links
 - [ ] **Step 6:** Visual baseline — Verdana 12px, color palette (blue links, red danger), compact spacing, bracketed link convention `[ Link ]`
 - [ ] **Step 7:** Header + nav overhaul — Pito.png logo + "Pito" linking to /, nav `[ Channels ] · [ Videos ] · [ Settings ]`, remove icon.png/icon.svg, footer with ©
 - [ ] **Step 8:** Unified button style — `.btn-link` class for buttons-as-links, bold for submit/primary, red for destructive, remove all bordered-rectangle button CSS
@@ -114,9 +114,26 @@
 - [ ] **Step 68:** SearchController#show — channel + video sections, independent pagination, highlighting, empty/error states
 - [ ] **Step 69:** Settings search section — include-channels toggle, engine display, `[ Reindex all ]` via ReindexingsController action screen
 
-## Phase 15 — Finalize
+## Phase 15 — Finalize (pre-MCP)
 
 - [ ] **Step 70:** sidekiq-cron schedule — recurring sync jobs in config/sidekiq_cron.yml
 - [ ] **Step 71:** Mobile responsiveness — single column stack, header wrap, table horizontal scroll, pane stacking
 - [ ] **Step 72:** Accessibility audit — skip-to-content link, aria attributes, focus rings, heading hierarchy, WCAG AA contrast
 - [ ] **Step 73:** Final polish — README update, bin/setup improvements, cleanup
+
+## Phase 16 — MCP Server (Model Context Protocol)
+
+- [ ] **Step 74:** JSON serializers for read controllers (channels, videos, search, workspaces, bulk operations)
+- [ ] **Step 75:** Mcp::InternalFetcher — in-process URL → JSON dispatch, specs
+- [ ] **Step 76:** Mcp::Tools::FetchAppData — wraps InternalFetcher with MCP input/output, specs
+- [ ] **Step 77:** Mcp::Tools::ProposeAction — action catalog, target validation, dry-check, URL building, specs
+- [ ] **Step 78:** Mcp::Resources — catalog + renderer, static Markdown loading, dynamic user-context + state resources
+- [ ] **Step 79:** Static MCP documentation — overview, url-patterns, data-shapes, actions, conventions (checkpoint: user review)
+- [ ] **Step 80:** Mcp::ProtocolHandler — JSON-RPC 2.0 dispatch for MCP methods (initialize, tools/list, tools/call, resources/list, resources/read)
+- [ ] **Step 81:** Mcp::ServerController — POST /mcp endpoint, streaming, auth enforcement
+- [ ] **Step 82:** McpAccessToken + McpClient models — migrations, factories, specs
+- [ ] **Step 83:** OAuth 2.1 authorization server — DCR, authorize, token, revoke endpoints + .well-known metadata
+- [ ] **Step 84:** Settings MCP section — user context editor, public URL, token list, dev token mode
+- [ ] **Step 85:** Token revocation action screen
+- [ ] **Step 86:** MCP end-to-end integration test
+- [ ] **Step 87:** README MCP section — Cloudflare Tunnel setup, connector configuration

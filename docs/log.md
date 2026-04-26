@@ -88,3 +88,22 @@
 **Decisions:**
 - Single form with all three OAuth fields rather than individual key/value CRUD — simpler UX for a fixed set of settings
 - CI encryption keys hardcoded in test.rb behind ENV["CI"] guard — these are throwaway test keys, not real secrets
+
+---
+
+**Step 5: Purge Production, Notes, Compare + nav overhaul** — completed
+
+- Dropped productions and notes tables (reversible down-migration)
+- Removed Production, Note models, factories, specs, controllers, views
+- Removed Compare controller, view, route
+- Removed icon.png and icon.svg (replaced by Pito.png)
+- New header: Pito.png logo + "Pito" text (both link to /), nav `Channels · Videos · Settings`
+- Removed Dashboard, Compare, Production, Notes, Sidekiq from nav
+- Added Videos controller + placeholder view
+- Favicon now uses Pito.png
+- Removed has_one :production from Video model
+- 43 specs, 0 failures
+
+**Decisions:**
+- Sidekiq Web stays mounted at /sidekiq with auth but is not linked from anywhere in the UI — admin-only tool
+- Logo links to / (Dashboard) with aria-label, no separate Dashboard nav link needed
