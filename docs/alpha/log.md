@@ -165,3 +165,11 @@
 - SavedView: kind enum (channels/videos), url, name, position, unique index on [kind, url]
 - display_name method returns "Kind: name"
 - 65 specs, 0 failures
+
+---
+
+**Step 13: BulkOperation + BulkOperationItem models** — completed
+
+- BulkOperation: kind enum (update_metadata/update_privacy/add_to_playlist/remove_from_playlist), status enum with prefix (pending/running/completed/failed), JSON fields for parameters/target_video_ids/dry_run_preview
+- BulkOperationItem: belongs_to bulk_operation + video, status enum with prefix (pending/succeeded/failed), unique [bulk_operation_id, video_id]
+- 74 specs, 0 failures
