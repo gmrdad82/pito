@@ -10,7 +10,7 @@ body {
 }
 
 /* Headings — compact */
-h1 { font-size: 15px; font-weight: bold; }
+h1 { font-size: 18px; font-weight: bold; }
 h2 { font-size: 14px; font-weight: bold; }
 h3 { font-size: 13px; font-weight: bold; }
 h4 { font-size: 13px; font-weight: bold; font-style: italic; }
@@ -79,7 +79,7 @@ th.sortable {
 }
 th.sortable::after {
   content: " \2195";
-  color: transparent;
+  color: #999;
   font-weight: bold;
 }
 th.sortable:hover {
@@ -87,6 +87,13 @@ th.sortable:hover {
 }
 th.sort-asc::after { content: " \2191"; color: #1a1a1a; }
 th.sort-desc::after { content: " \2193"; color: #1a1a1a; }
+
+/* Action column — tight, no extra padding */
+th.col-action, td.col-action {
+  width: 1%;
+  white-space: nowrap;
+  padding: 4px 4px;
+}
 
 /* Numeric cells */
 .num {
