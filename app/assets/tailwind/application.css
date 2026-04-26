@@ -3,17 +3,17 @@
 /* Base typography: Verdana 12px, line-height 1.4 */
 body {
   font-family: Verdana, Geneva, sans-serif;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.4;
   color: #1a1a1a;
   background: #ffffff;
 }
 
 /* Headings — compact */
-h1 { font-size: 14px; font-weight: bold; }
-h2 { font-size: 13px; font-weight: bold; }
-h3 { font-size: 12px; font-weight: bold; }
-h4 { font-size: 12px; font-weight: bold; font-style: italic; }
+h1 { font-size: 15px; font-weight: bold; }
+h2 { font-size: 14px; font-weight: bold; }
+h3 { font-size: 13px; font-weight: bold; }
+h4 { font-size: 13px; font-weight: bold; font-style: italic; }
 h1, h2, h3, h4 { margin-top: 2px; margin-bottom: 1px; }
 h1:first-child, h2:first-child, h3:first-child, h4:first-child { margin-top: 0; }
 
@@ -29,6 +29,16 @@ a:hover {
   color: #0000ff;
 }
 
+/* Bracketed links: [ text ] — whole thing is clickable, only text is underlined */
+a.bracketed {
+  text-decoration: none;
+}
+a.bracketed .bl {
+  text-decoration: underline;
+}
+a.bracketed:visited { color: #0000cc; }
+a.bracketed:visited .bl { color: #0000cc; }
+
 /* Danger / destructive: YouTube red */
 .text-danger { color: #cc0000; }
 a.text-danger { color: #cc0000; }
@@ -41,16 +51,18 @@ a.text-danger:hover { color: #990000; }
 table {
   border-collapse: collapse;
   width: 100%;
-  font-size: 12px;
+  font-size: 13px;
 }
 th, td {
   text-align: left;
-  padding: 2px 6px;
-  line-height: 1.3;
-  border-bottom: 1px solid #dddddd;
+  padding: 4px 8px;
+  line-height: 1.4;
+  border: 1px solid #dddddd;
+  white-space: nowrap;
 }
 th {
   font-weight: 600;
+  font-size: 14px;
   background: #f4f4f4;
 }
 tr:nth-child(even) {
@@ -60,11 +72,32 @@ tr:hover {
   background-color: #f0f0f0;
 }
 
+/* Sortable headers */
+th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+th.sortable::after {
+  content: " \2195";
+  color: transparent;
+  font-weight: bold;
+}
+th.sortable:hover {
+  background: #e8e8e8;
+}
+th.sort-asc::after { content: " \2191"; color: #1a1a1a; }
+th.sort-desc::after { content: " \2193"; color: #1a1a1a; }
+
 /* Numeric cells */
 .num {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+
+/* Indicator cells — trend arrows */
+.indicator-up { color: #2e7d32; }
+.indicator-down { color: #cc0000; }
+.indicator-flat { color: #555555; }
 
 /* Forms */
 form {

@@ -13,8 +13,23 @@ RSpec.describe "Navigation", type: :request do
       expect(body).to include("channels")
       expect(body).to include("videos")
       expect(body).to include("settings")
-      expect(body).to include("Pito")
+      expect(body).to include("pito")
     end
+  end
+
+  it "GET /channels has page-specific title" do
+    get "/channels"
+    expect(response.body).to include("<title>channels ~ pito</title>")
+  end
+
+  it "GET /videos has page-specific title" do
+    get "/videos"
+    expect(response.body).to include("<title>videos ~ pito</title>")
+  end
+
+  it "GET /settings has page-specific title" do
+    get "/settings"
+    expect(response.body).to include("<title>settings ~ pito</title>")
   end
 
   it "does not include purged nav items" do

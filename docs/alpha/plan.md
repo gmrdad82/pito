@@ -6,85 +6,75 @@
 - [x] **Step 2:** Initial layout + top nav + Sidekiq Web with auth
 - [x] **Step 3:** Initial models + migrations + encrypted attributes + factories + model specs
 - [x] **Step 4 (partial):** Settings page for OAuth credentials — form works, needs expansion
-
-## Phase 1 — Purge + Visual Overhaul
-
-- [x] **Step 5:** Purge Production, Notes, Compare — down-migrations, remove models/factories/specs/controllers/views/routes/nav links
+- [x] **Step 5:** Purge Production, Notes, Compare
 - [x] **Step 6:** Visual baseline — Verdana 12px, color palette, compact spacing, bracketed nav/buttons, header logo, footer with version
-- [x] **Step 7:** _(merged into Step 6)_ Header + nav overhaul — logo, bracketed nav, footer
-- [x] **Step 8:** _(merged into Step 6)_ Unified button style — bracketed lowercase bold buttons, blue hover
+- [x] **Step 7:** _(merged into Step 6)_
+- [x] **Step 8:** _(merged into Step 6)_
+- [x] **Step 9:** Channel schema update — replace `owned` with `connected`
+- [x] **Step 10:** Video schema additions — privacy_status enum, scheduled_publish_at, category, language, made_for_kids
+- [x] **Step 11:** Playlist + PlaylistItem models
+- [x] **Step 12:** SavedView model
+- [x] **Step 13:** BulkOperation + BulkOperationItem models
+- [x] **Step 14:** VideoUpload model (lightweight)
+- [x] **Step 15:** Breadcrumb helper + nav/footer restyle
+- [x] **Step 16:** Custom confirmation dialog + lowercase tone
+- [x] **Step 17:** Table component + Dashboard — sortable headers ↑↓, zebra rows, indicator cells ▲▼, seed data, bracketed link rework, page titles, font bump to 13px
 
-## Phase 2 — Schema + Models
+## Phase 4 — Picker Pages
 
-- [x] **Step 9:** Channel schema update — replace `owned` with `connected` (boolean, default false), migration + model + factory + spec update
-- [x] **Step 10:** Video schema additions — add scheduled_publish_at, privacy_status (enum), category_id, default_language, made_for_kids (boolean), migration + model + factory + spec
-- [x] **Step 11:** Playlist + PlaylistItem models — migrations, associations, validations, factories, model specs
-- [x] **Step 12:** SavedView model — kind enum (channels/videos), url, position, unique index on [kind, url], display_name method, factory, model specs
-- [x] **Step 13:** BulkOperation + BulkOperationItem models — kind enum, status enum, parameters/target_video_ids/dry_run_preview (json), per-item status tracking, factories, model specs
-- [x] **Step 14:** VideoUpload model (lightweight) — metadata tracker only, no file bytes on backend; belongs_to channel, optional video, status enum, resumable upload URI, title/description/privacy, factory, model specs
+- [ ] **Step 19:** Channels picker — `/channels`, channels table with `[ open ]` per row, `[ + add channel ]` (register by ID/URL), request specs
+- [ ] **Step 20:** Channels picker bulk mode — `[ bulk ]` toggle, checkbox column, header checkbox, `[ open N channels ]`, `[ delete ]` link to action screen, Stimulus controller
+- [ ] **Step 21:** Videos picker — `/videos`, videos table with `[ open ]` per row, `[ + add video ]`, request specs
+- [ ] **Step 22:** Videos picker bulk mode — same pattern as channels, Stimulus controller
 
-## Phase 3 — Core UI Components
+## Phase 5 — Action Screen Framework
 
-- [x] **Step 15:** Breadcrumb helper + nav/footer restyle — breadcrumbs with `/` separator, `[ ]` wraps entire nav groups, footer nav + logo copyright
-- [x] **Step 16:** Custom confirmation dialog + nav restyle + lowercase tone — Stimulus `<dialog>`, destructive variant, `[ ]` wraps nav groups, all copy lowercase
-- [ ] **Step 17:** Excel-like table component — sticky header, sticky first col, zebra rows, sortable headers with ↑↓, scroll container
-- [ ] **Step 18:** Table enhancements — dense-mode toggle (localStorage), column visibility popover (localStorage), numeric right-alignment, indicator cells (▲▼)
+- [ ] **Step 23:** Action screen shared partial — breadcrumb slot, heading, preview table, parameters form slot, sticky footer with submit/cancel
+- [ ] **Step 24:** DeletionsController — first action screen end-to-end, routes, dry-run preview, transactional local delete, single + bulk, request specs
+- [ ] **Step 25:** BulkOperationsController#show — progress page for async operations, Turbo Stream broadcasts from Sidekiq jobs, request specs
 
-## Phase 4 — Settings + OAuth
+## Phase 6 — Workspaces
 
-- [ ] **Step 19:** Settings page expansion — max_panes (default 5), max_concurrent_uploads (default 2) in AppSetting, form sections with labels/hints
-- [ ] **Step 20:** OAuth service objects — Youtube::OauthClient for token exchange/refresh, WebMock-stubbed specs
-- [ ] **Step 21:** Channel OAuth connect — full-page sub-page `/channels/:id/oauth/connect` with breadcrumb, initiates OAuth flow, stores tokens on Channel, sets connected=true
-- [ ] **Step 22:** Channel OAuth disconnect — action screen at `/channel_disconnections/new?targets=channel:ID`, dry-run preview, revokes tokens, sets connected=false
+- [ ] **Step 26:** Channels workspace — single pane at `/channels?panes=UCabc`, full-width channel detail with video table, request specs
+- [ ] **Step 27:** Channels multi-pane — 2+ panes side-by-side, pane toolbar (× ⇄ ▸), `[ + ]` add pane popover, max_panes enforcement
+- [ ] **Step 28:** Resizable pane dividers — Stimulus controller for drag-resize between panes
+- [ ] **Step 29:** Videos workspace — single pane at `/videos?panes=vid1`, video detail layout (player area + side metadata + stats), request specs
+- [ ] **Step 30:** Videos multi-pane — 2+ panes side-by-side, same controls as channels
+- [ ] **Step 31:** Cross-workspace navigation — video click in channel pane → `/videos?panes=vid`, channel name click in video pane → `/channels?panes=UC...`
 
-## Phase 5 — Sync
+## Phase 7 — URL State + Edge Cases
 
-- [ ] **Step 23:** Youtube::ChannelFetcher service — fetch channel metadata via Data API, WebMock specs
-- [ ] **Step 24:** Youtube::VideoFetcher service — fetch video list + metadata for a channel, WebMock specs
-- [ ] **Step 25:** Youtube::AnalyticsFetcher service — fetch daily stats per video via Analytics API, WebMock specs
-- [ ] **Step 26:** Youtube::PlaylistManager service — fetch playlists + items, WebMock specs
-- [ ] **Step 27:** SyncChannelJob — orchestrates channel metadata + video list sync, job specs with Sidekiq::Testing
-- [ ] **Step 28:** SyncVideoStatsJob — daily stats sync (last 30 days, idempotent), job specs
-- [ ] **Step 29:** SyncPlaylistsJob — playlist + items sync, job specs
+- [ ] **Step 32:** URL state encoding — sort/filter in URL per pane, Cache-Control: no-store on workspace pages
+- [ ] **Step 33:** Missing entity handling — MissingPane placeholder when pane ID doesn't resolve, warning notice per pane, `[ × remove ]` link
 
-## Phase 6 — Action Screen Framework
+## Phase 8 — Saved Views
 
-- [ ] **Step 30:** Action screen shared partial — breadcrumb slot, heading, preview table, parameters form slot, sticky footer with submit/cancel
-- [ ] **Step 31:** DeletionsController — first action screen end-to-end, routes, dry-run preview, transactional local delete, single + bulk, request specs
-- [ ] **Step 32:** BulkOperationsController#show — progress page for async operations, Turbo Stream broadcasts from Sidekiq jobs, request specs
+- [ ] **Step 34:** Saved Views CRUD — `[ save view ]` in workspace pane strip, POST /saved_views, idempotent, flash notice
+- [ ] **Step 35:** Saved Views on picker pages — section above entity list, computed display_name, `[ delete ]` via action screen
+- [ ] **Step 36:** Saved Views edge cases — [deleted] labels for missing entities, position ordering
 
-## Phase 7 — Picker Pages
+## Phase 9 — Charts
 
-- [ ] **Step 33:** Channels picker — `/channels` (no panes), channels table with `[ Open ]` per row, `[ + Add channel ]` (register by ID/URL), request specs
-- [ ] **Step 34:** Channels picker bulk mode — `[ bulk ]` toggle, checkbox column, States 1-4, header checkbox, `[ Open N channels ]`, `[ delete ]` link to action screen, Stimulus controller
-- [ ] **Step 35:** Videos picker — `/videos` (no panes), videos table with `[ Open ]` per row, `[ + Add video ]`, request specs
-- [ ] **Step 36:** Videos picker bulk mode — same pattern as channels, Stimulus controller
+- [ ] **Step 37:** Chart.js global config — animation:false, pointRadius:0, borderWidth:1.5, LTTB decimation, crosshair tooltip, legend below
+- [ ] **Step 38:** Video stats charts — views/likes/comments over time on Video pane, Chartkick + Groupdate
+- [ ] **Step 39:** Chart toolbar — time-range selectors `[ 7d ] · [ 30d ] · [ 90d ] · [ 1y ] · [ all ]`, CSV export
 
-## Phase 8 — Workspaces
+## Phase 10 — Settings + OAuth (local data only until this point)
 
-- [ ] **Step 37:** Channels workspace — single pane at `/channels?panes=UCabc`, full-width channel detail with video table, request specs
-- [ ] **Step 38:** Channels multi-pane — 2+ panes side-by-side, pane toolbar (× ⇄ ▸), `[ + ]` add pane popover, max_panes enforcement
-- [ ] **Step 39:** Resizable pane dividers — Stimulus controller for drag-resize between panes
-- [ ] **Step 40:** Videos workspace — single pane at `/videos?panes=vid1`, video detail layout (player area + side metadata + stats), request specs
-- [ ] **Step 41:** Videos multi-pane — 2+ panes side-by-side, same controls as channels
-- [ ] **Step 42:** Cross-workspace navigation — video click in channel pane → `/videos?panes=vid`, channel name click in video pane → `/channels?panes=UC...`
+- [ ] **Step 40:** Settings page expansion — max_panes (default 5), max_concurrent_uploads (default 2) in AppSetting, form sections
+- [ ] **Step 41:** OAuth service objects — Youtube::OauthClient for token exchange/refresh, WebMock-stubbed specs
+- [ ] **Step 42:** Channel OAuth connect — `/channels/:id/oauth/connect` with breadcrumb, initiates OAuth flow, stores tokens, sets connected=true
+- [ ] **Step 43:** Channel OAuth disconnect — action screen, dry-run preview, revokes tokens, sets connected=false
 
-## Phase 9 — URL State + Edge Cases
+## Phase 11 — Sync
 
-- [ ] **Step 43:** URL state encoding — sort/filter in URL per pane, dense/columns in localStorage, Cache-Control: no-store on workspace pages
-- [ ] **Step 44:** Missing entity handling — MissingPane placeholder when pane ID doesn't resolve, warning notice per pane, `[ × Remove ]` link
-
-## Phase 10 — Saved Views
-
-- [ ] **Step 45:** Saved Views CRUD — `[ Save view ]` in workspace pane strip, POST /saved_views, idempotent (no-op if URL already saved), flash notice
-- [ ] **Step 46:** Saved Views on picker pages — section above entity list, computed display_name ([C] Title1 · Title2 +N more), `[ Delete ]` via action screen
-- [ ] **Step 47:** Saved Views edge cases — [deleted] labels for missing entities, all-panes-deleted still shown, position ordering
-
-## Phase 11 — Charts
-
-- [ ] **Step 48:** Chart.js global config — animation:false, pointRadius:0, borderWidth:1.5, LTTB decimation, crosshair tooltip, legend below
-- [ ] **Step 49:** Video stats charts — views/likes/comments over time on Video pane, Chartkick + Groupdate
-- [ ] **Step 50:** Chart toolbar — time-range selectors `[ 7d ] · [ 30d ] · [ 90d ] · [ 1y ] · [ all ]`, CSV export
+- [ ] **Step 44:** Youtube::ChannelFetcher service — fetch channel metadata via Data API, WebMock specs
+- [ ] **Step 45:** Youtube::VideoFetcher service — fetch video list + metadata for a channel, WebMock specs
+- [ ] **Step 46:** Youtube::AnalyticsFetcher service — fetch daily stats per video via Analytics API, WebMock specs
+- [ ] **Step 47:** Youtube::PlaylistManager service — fetch playlists + items, WebMock specs
+- [ ] **Step 48:** SyncChannelJob — orchestrates channel metadata + video list sync, job specs
+- [ ] **Step 49:** SyncVideoStatsJob — daily stats sync (last 30 days, idempotent), job specs
+- [ ] **Step 50:** SyncPlaylistsJob — playlist + items sync, job specs
 
 ## Phase 12 — Video Management Action Screens
 
@@ -114,7 +104,7 @@ Upload architecture: browser uploads directly to YouTube API via resumable uploa
 - [ ] **Step 66:** SearchIndexJob + SearchRemoveJob + ReindexJob — async indexing, specs with Sidekiq::Testing
 - [ ] **Step 67:** Navbar search input — form in header, GET /search, style to match
 - [ ] **Step 68:** SearchController#show — channel + video sections, independent pagination, highlighting, empty/error states
-- [ ] **Step 69:** Settings search section — include-channels toggle, engine display, `[ Reindex all ]` via ReindexingsController action screen
+- [ ] **Step 69:** Settings search section — include-channels toggle, engine display, `[ reindex all ]` via ReindexingsController action screen
 
 ## Phase 15 — Finalize (pre-MCP)
 

@@ -212,3 +212,20 @@
 - Footer copyright link clickable, version lowercase
 - Settings labels lowercase (keep YouTube, OAuth, URI, ID)
 - 88 specs, 0 failures
+
+---
+
+**Step 17: Table component + Dashboard** — completed
+
+- Sortable table Stimulus controller — client-side sort by string, number, or date; click header to toggle ↑↓
+- Table CSS: zebra rows, vertical borders, 13px body / 14px headers, padding 4px 8px
+- Sortable headers reserve arrow space (transparent `↕`) to prevent column width shift
+- Indicator cells: ▲ green (>5% up), ▼ red (>5% down), — flat; compares recent 3 days vs older 3 days
+- Duration formatting helper (H:MM:SS or M:SS)
+- Dashboard controller loads videos with aggregated stats (SUM views/likes/comments/watch_time)
+- Dashboard view: video table with 10 columns, summary line ("N videos across M channels")
+- Seed data: 3 channels (2 connected, 1 public), 75 videos with 7-30 days of daily stats each
+- Bracketed link rework: `[ text ]` is entire clickable link, only inner text underlined; current page shown as `[ page ]` in bold; applies to navbar, footer, breadcrumbs, dialog buttons, submit buttons
+- Page titles: `pito ~ best YouTube tool` (home), `channels ~ pito` (subpages)
+- Base font bumped from 12px to 13px site-wide, headings 15/14/13px, footer 11px
+- 97 specs, 0 failures

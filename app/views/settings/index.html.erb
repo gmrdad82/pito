@@ -1,4 +1,5 @@
-<h1>Settings</h1>
+<% content_for(:title, "settings") %>
+<h1>settings</h1>
 
 <div style="max-width: 480px;">
 <%= form_with url: settings_path, method: :patch do |f| %>
@@ -24,6 +25,6 @@
     </div>
   </fieldset>
 
-  [ <button type="submit">save</button> ]
+  <button type="submit">[ save ]</button>
 <% end %>
 </div>
