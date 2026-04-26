@@ -148,3 +148,12 @@
 - Enum: privacy_status — public_video (0), unlisted (1), private_video (2)
 - Factory traits: :unlisted, :private_video, :scheduled
 - 47 specs, 0 failures
+
+---
+
+**Step 11: Playlist + PlaylistItem models** — completed
+
+- Created Playlist model: belongs_to channel, has_many playlist_items/videos, privacy_status enum, unique youtube_playlist_id
+- Created PlaylistItem model: belongs_to playlist + video, unique youtube_playlist_item_id, unique [playlist_id, video_id]
+- Added has_many :playlists on Channel, has_many :playlist_items/playlists on Video
+- 59 specs, 0 failures

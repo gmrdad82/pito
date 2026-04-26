@@ -3,6 +3,7 @@ class Channel < ApplicationRecord
   encrypts :oauth_refresh_token
 
   has_many :videos, dependent: :destroy
+  has_many :playlists, dependent: :destroy
 
   scope :connected, -> { where(connected: true) }
   scope :public_only, -> { where(connected: false) }
