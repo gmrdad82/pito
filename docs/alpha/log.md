@@ -185,3 +185,16 @@
 - Updated Phase 13 plan to reflect client-side direct upload approach
 - YouTube Studio fallback links planned per connected channel
 - 84 specs, 0 failures
+
+---
+
+## 2026-04-27
+
+**Step 15: Breadcrumb helper + nav/footer restyle** — completed
+
+- `breadcrumb` helper: views declare crumbs, layout renders only when present
+- Supports linked segments (array `[label, path]`) and plain text (last = bold), `/` separator
+- 32-char truncation per segment
+- Restyled nav convention: `[ ]` wraps entire nav group, not individual links — `[ Channels · Videos · Settings ]`
+- Footer: small nav `[ Home · Channels · Videos · Settings ]` + logo © year copyright line
+- 88 specs, 0 failures
