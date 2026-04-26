@@ -30,6 +30,8 @@ bundle exec rubocop # Lint
 - Never modify files outside this repository folder.
 - Commit with meaningful 1-line messages. No AI authoring mentions.
 - Always push immediately after committing.
+- Do NOT commit until user has tested and validated the changes.
+- Git workflow: feature branches → PR into master. No direct work on master.
 - After each build step: update `docs/plan.md` (mark done), append to `docs/log.md`, create `docs/testing/step-NN.md` with verification instructions.
 - Every step must include RSpec specs and manual testing instructions (browser/console where applicable).
 
