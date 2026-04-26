@@ -1,0 +1,12 @@
+# Recurring jobs — loaded by config/initializers/sidekiq.rb
+# Uncomment when sync jobs are implemented (Step 6)
+#
+# sync_channels:
+#   cron: "0 */6 * * *"
+#   class: SyncChannelJob
+#   description: "Sync all connected channel metadata and video lists"
+#
+# sync_video_stats:
+#   cron: "30 */6 * * *"
+#   class: SyncVideoStatsJob
+#   description: "Sync daily stats for recent videos"

@@ -4,46 +4,60 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Pito — a personal tool to track and organize YouTube activity across 3 channels.
+Pito — a single-tenant Rails 8 web app for tracking and analyzing YouTube activity across multiple channels. Runs locally as a personal tool.
 
 ## Tech Stack
 
-- **Docs/Specs:** Markdown files
-- **Code:** Ruby scripts (when needed)
-- **Database:** SQLite (when needed)
+- **Rails 8.1** with Hotwire (Turbo + Stimulus), ERB views, Tailwind CSS
+- **MySQL 8** (Docker) — primary datastore
+- **Redis 7** (Docker) — Sidekiq queue + Rails cache store
+- **Sidekiq** + **sidekiq-cron** for background jobs
+- **Chartkick + Groupdate** for charts
+- **google-apis-youtube_v3** and **google-apis-youtube_analytics_v2** for YouTube APIs
+- **RSpec** with FactoryBot, Faker, Shoulda Matchers, WebMock
+
+## Commands
+
+```bash
+bin/setup          # Install deps, start Docker, prepare DB
+bin/dev            # Start Docker services + Puma + Sidekiq + Tailwind watcher
+bundle exec rspec  # Run test suite
+bundle exec rubocop # Lint
+```
 
 ## Rules
 
 - Never modify files outside this repository folder.
 - Commit with meaningful 1-line messages. No AI authoring mentions.
-- Push on session close.
+- Always push immediately after committing.
+- After each build step: update `docs/plan.md` (mark done), append to `docs/log.md`, create `docs/testing/step-NN.md` with verification instructions.
+- Every step must include RSpec specs and manual testing instructions (browser/console where applicable).
 
-## Routing — How to Navigate This Repo
+## Build Tracking
 
-- **Channel-specific work** → `docs/channels/<channel-name>/` (profile, style, history, planning)
-- **Shared workflows** → `docs/workflow/`
-- **Tool/app specs** → `docs/tools/`
-- **Code** → `scripts/`
-- **Skills & routing logic** → `docs/skills/overview.md`
+- **`docs/plan.md`** — 12-step build plan with checkboxes
+- **`docs/log.md`** — chronological session log (what was done, decisions made)
+- **`docs/testing/step-NN.md`** — per-step testing/verification instructions
 
-**Critical:** Never mix channel-specific content across channels. When working on a channel, consult ONLY that channel's folder. When building tools, keep them channel-agnostic.
+## Configuration Strategy
 
-## Structure
+- `.env` — infrastructure connection info ONLY (host/port for MySQL, Redis URL). No secrets.
+- `rails credentials:edit` — MySQL database/username/password per environment.
+- `config/master.key` — on disk, gitignored. Never in .env.
+- `AppSetting` table — YouTube OAuth config (client_id, client_secret, redirect_uri). Managed via web UI.
+- Per-channel OAuth tokens stored encrypted on Channel rows.
 
-```
-docs/
-  purpose.md                    — project goals
-  progress.md                   — session log
-  skills/overview.md            — skill areas and routing rules
-  channels/
-    catalin-ilinca/             — story/personal channel
-      profile.md, style.md, history.md, planning.md
-    witty-gaming/               — gaming super super-cuts with voice
-      profile.md, style.md, history.md, planning.md
-    micless-gaming/             — gaming super-cuts, no voice
-      profile.md, style.md, history.md, planning.md
-  workflow/
-    gaming-pipeline.md          — OBS → DaVinci → export pipeline
-  tools/
-    README.md                   — tooling plans and principles
-```
+## Visual Style
+
+Craigslist-inspired: white background, black text, blue underlined links (#0000cc), hairline borders, information-dense, no shadows/gradients/rounded corners/big buttons. System sans-serif, 12-14px base.
+
+## Architecture Notes
+
+- YouTube API calls isolated in service objects under `app/services/youtube/`
+- All YouTube config is web-managed (AppSetting + Channel encrypted attrs) — no YouTube secrets in env/credentials
+- Single-tenant now, architecture leaves room for multi-tenant later
+- Sidekiq Web mounted at /sidekiq (unauthenticated in V1)
+
+## Project Docs (pre-Rails, in _temp/)
+
+Original planning docs moved to `_temp/` during Rails setup. Contains channel profiles, style guides, workflow docs, and skills overview to be integrated into the app later.
