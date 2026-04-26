@@ -9,8 +9,7 @@
 
     <%= yield :head %>
 
-    <link rel="icon" href="/icon.png" type="image/png">
-    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="icon" href="/Pito.png" type="image/png">
 
     <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
     <%= javascript_importmap_tags %>
@@ -19,21 +18,15 @@
   <body class="bg-white text-black font-sans text-sm leading-tight">
     <header class="border-b border-gray-200 py-2 px-4">
       <div class="max-w-6xl mx-auto flex flex-wrap items-baseline gap-x-1">
-        <a href="/" class="font-bold text-base no-underline text-black mr-3">P</a>
+        <a href="/" class="no-underline mr-3" aria-label="Dashboard">
+          <img src="/Pito.png" alt="Pito" class="inline-block" style="height: 20px; width: auto; vertical-align: baseline;">
+        </a>
         <nav class="flex flex-wrap items-baseline gap-x-1 text-xs">
-          <%= nav_link "Dashboard", root_path %>
-          <span class="text-gray-400">&middot;</span>
           <%= nav_link "Channels", channels_path %>
           <span class="text-gray-400">&middot;</span>
-          <%= nav_link "Compare", compare_path %>
-          <span class="text-gray-400">&middot;</span>
-          <%= nav_link "Production", productions_path %>
-          <span class="text-gray-400">&middot;</span>
-          <%= nav_link "Notes", notes_path %>
+          <%= nav_link "Videos", videos_path %>
           <span class="text-gray-400">&middot;</span>
           <%= nav_link "Settings", settings_path %>
-          <span class="text-gray-400">&middot;</span>
-          <%= nav_link "Sidekiq", sidekiq_web_path %>
         </nav>
       </div>
     </header>

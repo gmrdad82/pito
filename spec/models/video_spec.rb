@@ -6,7 +6,6 @@ RSpec.describe Video, type: :model do
   describe "associations" do
     it { is_expected.to belong_to(:channel) }
     it { is_expected.to have_many(:video_stats).dependent(:destroy) }
-    it { is_expected.to have_one(:production).dependent(:nullify) }
   end
 
   describe "validations" do

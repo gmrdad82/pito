@@ -14,9 +14,7 @@ Rails.application.routes.draw do
   root "dashboard#index"
 
   resources :channels, only: [ :index ]
-  get "compare", to: "compare#index"
-  resources :productions, only: [ :index ]
-  resources :notes, only: [ :index ]
+  resources :videos, only: [ :index ]
   get "settings", to: "settings#index"
   patch "settings", to: "settings#update"
 
