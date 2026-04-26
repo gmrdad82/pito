@@ -15,36 +15,39 @@
     <%= javascript_importmap_tags %>
   </head>
 
-  <body class="bg-white text-black font-sans text-sm leading-tight">
-    <header class="border-b border-gray-200 py-2 px-4">
-      <div class="max-w-6xl mx-auto flex flex-wrap items-baseline gap-x-1">
-        <a href="/" class="no-underline mr-3" aria-label="Dashboard">
-          <img src="/Pito.png" alt="Pito" class="inline-block" style="height: 20px; width: auto; vertical-align: baseline;">
+  <body>
+    <header style="position: fixed; top: 0; left: 0; right: 0; height: 32px; background: #fff; border-bottom: 1px solid #ddd; padding: 0 12px; z-index: 100;">
+      <div style="display: flex; align-items: center; height: 32px; gap: 6px;">
+        <a href="/" style="text-decoration: none; display: flex; align-items: center; line-height: 0;" aria-label="Dashboard">
+          <img src="/Pito.png" alt="Pito" class="header-logo">
         </a>
-        <nav class="flex flex-wrap items-baseline gap-x-1 text-xs">
+        <nav style="display: flex; align-items: center; gap: 4px;">
           <%= nav_link "Channels", channels_path %>
-          <span class="text-gray-400">&middot;</span>
+          <span class="text-muted">&middot;</span>
           <%= nav_link "Videos", videos_path %>
-          <span class="text-gray-400">&middot;</span>
+          <span class="text-muted">&middot;</span>
           <%= nav_link "Settings", settings_path %>
         </nav>
       </div>
     </header>
 
-    <% if flash[:notice] %>
-      <div class="max-w-6xl mx-auto px-4 pt-2 text-xs text-green-800"><%= flash[:notice] %></div>
-    <% end %>
-    <% if flash[:alert] %>
-      <div class="max-w-6xl mx-auto px-4 pt-2 text-xs text-red-800"><%= flash[:alert] %></div>
-    <% end %>
+    <div style="padding-top: 36px;">
+      <% if flash[:notice] %>
+        <div class="flash-notice" style="max-width: 900px; margin: 4px auto 0; padding: 4px 12px;"><%= flash[:notice] %></div>
+      <% end %>
+      <% if flash[:alert] %>
+        <div class="flash-error" style="max-width: 900px; margin: 4px auto 0; padding: 4px 12px;"><%= flash[:alert] %></div>
+      <% end %>
 
-    <main class="max-w-6xl mx-auto px-4 py-3">
-      <%= yield %>
-    </main>
+      <main style="padding: 8px 12px;">
+        <%= yield %>
+      </main>
+    </div>
 
-    <footer class="border-t border-gray-200 py-2 px-4 mt-6">
-      <div class="max-w-6xl mx-auto text-xs text-gray-500">
-        &copy; <%= Date.current.year %> Pito
+    <footer style="border-top: 1px solid #ddd; padding: 8px 12px; margin-top: 24px;">
+      <div class="text-muted" style="display: flex; justify-content: space-between;">
+        <span>&copy; <%= Date.current.year %> Pito. All rights reserved.</span>
+        <span>Version 0.0.1.alpha</span>
       </div>
     </footer>
   </body>

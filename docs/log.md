@@ -107,3 +107,22 @@
 **Decisions:**
 - Sidekiq Web stays mounted at /sidekiq with auth but is not linked from anywhere in the UI — admin-only tool
 - Logo links to / (Dashboard) with aria-label, no separate Dashboard nav link needed
+
+---
+
+**Step 6: Visual baseline** — completed (also covers Steps 7-8)
+
+- Rewrote `app/assets/tailwind/application.css`: Verdana 12px base, compact headings (14/13/12px), blue links (#0000cc), visited (#551a8b), YouTube red for danger only (#cc0000), muted #555
+- Dense tables with zebra rows, plain form inputs with blue focus outline
+- Bracketed submit buttons: lowercase bold 13px, no border/background, blue on hover (`[ save ]`)
+- Fixed 32px header: Pito.png logo (14px, nudged up 1px for alignment) + bracketed nav `[ Channels ] · [ Videos ] · [ Settings ]`
+- Bracketed nav links: underline on text only (brackets/spaces outside `<a>` tag)
+- Footer: copyright left, "Version 0.0.1.alpha" right
+- Settings form constrained to 480px max-width
+- Added `.rubocop.yml` exclusion for `app/assets/**/*` (CSS files were parsed as Ruby)
+- 43 specs, 0 failures
+
+**Decisions:**
+- Merged Steps 7 (header/nav) and 8 (button style) into Step 6 since the visual overhaul naturally covered all three
+- Used `!important` on `.header-logo` to override Tailwind preflight's `height: auto` on images
+- Wrapped settings form in constraining div rather than inline style on form (Tailwind preflight interference)

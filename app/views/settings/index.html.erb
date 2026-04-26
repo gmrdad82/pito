@@ -1,27 +1,29 @@
-<h1 class="text-base font-bold mb-2">Settings</h1>
+<h1>Settings</h1>
 
-<%= form_with url: settings_path, method: :patch, class: "max-w-lg" do |f| %>
-  <fieldset class="mb-4">
-    <legend class="font-bold text-sm mb-2">YouTube OAuth</legend>
+<div style="max-width: 480px;">
+<%= form_with url: settings_path, method: :patch do |f| %>
+  <fieldset class="border-hairline" style="padding: 8px; margin-bottom: 8px;">
+    <legend><h2>YouTube OAuth</h2></legend>
 
-    <div class="mb-2">
-      <label for="settings_youtube_client_id" class="block text-xs font-semibold mb-0.5">Client ID</label>
+    <div style="margin-bottom: 6px;">
+      <label for="settings_youtube_client_id" style="display: block; font-weight: bold; margin-bottom: 1px;">Client ID</label>
       <input type="text" name="settings[youtube_client_id]" id="settings_youtube_client_id"
              value="<%= @settings['youtube_client_id'] %>" autocomplete="off">
     </div>
 
-    <div class="mb-2">
-      <label for="settings_youtube_client_secret" class="block text-xs font-semibold mb-0.5">Client Secret</label>
+    <div style="margin-bottom: 6px;">
+      <label for="settings_youtube_client_secret" style="display: block; font-weight: bold; margin-bottom: 1px;">Client Secret</label>
       <input type="password" name="settings[youtube_client_secret]" id="settings_youtube_client_secret"
              value="<%= @settings['youtube_client_secret'] %>" autocomplete="off">
     </div>
 
-    <div class="mb-2">
-      <label for="settings_youtube_redirect_uri" class="block text-xs font-semibold mb-0.5">Redirect URI</label>
+    <div style="margin-bottom: 6px;">
+      <label for="settings_youtube_redirect_uri" style="display: block; font-weight: bold; margin-bottom: 1px;">Redirect URI</label>
       <input type="text" name="settings[youtube_redirect_uri]" id="settings_youtube_redirect_uri"
              value="<%= @settings['youtube_redirect_uri'] %>" autocomplete="off">
     </div>
   </fieldset>
 
-  <button type="submit">Save</button>
+  <button type="submit">[ save ]</button>
 <% end %>
+</div>
