@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_04_26_221118) do
+ActiveRecord::Schema[8.1].define(version: 2026_04_26_221542) do
   create_table "app_settings", charset: "utf8mb4", collation: "utf8mb4_unicode_ci", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "key"
@@ -57,12 +57,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_26_221118) do
   end
 
   create_table "videos", charset: "utf8mb4", collation: "utf8mb4_unicode_ci", force: :cascade do |t|
+    t.integer "category_id"
     t.bigint "channel_id", null: false
     t.datetime "created_at", null: false
+    t.string "default_language"
     t.text "description"
     t.integer "duration_seconds"
     t.datetime "last_synced_at"
+    t.boolean "made_for_kids", default: false, null: false
+    t.integer "privacy_status"
     t.datetime "published_at"
+    t.datetime "scheduled_publish_at"
     t.json "tags"
     t.string "thumbnail_url"
     t.string "title"

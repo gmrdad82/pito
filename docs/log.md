@@ -139,3 +139,12 @@
 - Removed `docs/testing/` folder — testing instructions provided in conversation/PR instead
 - Updated CLAUDE.md to remove testing folder references
 - 43 specs, 0 failures
+
+---
+
+**Step 10: Video schema additions** — completed
+
+- Added columns: scheduled_publish_at (datetime), privacy_status (integer enum), category_id (integer), default_language (string), made_for_kids (boolean, default false)
+- Enum: privacy_status — public_video (0), unlisted (1), private_video (2)
+- Factory traits: :unlisted, :private_video, :scheduled
+- 47 specs, 0 failures

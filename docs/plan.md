@@ -17,7 +17,7 @@
 ## Phase 2 — Schema + Models
 
 - [x] **Step 9:** Channel schema update — replace `owned` with `connected` (boolean, default false), migration + model + factory + spec update
-- [ ] **Step 10:** Video schema additions — add scheduled_publish_at, privacy_status (enum), category_id, default_language, made_for_kids (boolean), migration + model + factory + spec
+- [x] **Step 10:** Video schema additions — add scheduled_publish_at, privacy_status (enum), category_id, default_language, made_for_kids (boolean), migration + model + factory + spec
 - [ ] **Step 11:** Playlist + PlaylistItem models — migrations, associations, validations, factories, model specs
 - [ ] **Step 12:** SavedView model — kind enum (channels/videos), url, position, unique index on [kind, url], display_name method, factory, model specs
 - [ ] **Step 13:** BulkOperation + BulkOperationItem models — kind enum, status enum, parameters/target_video_ids/dry_run_preview (json), per-item status tracking, factories, model specs
