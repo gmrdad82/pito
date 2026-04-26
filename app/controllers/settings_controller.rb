@@ -12,6 +12,6 @@ class SettingsController < ApplicationController
         AppSetting.set(key, value)
       end
     end
-    redirect_to settings_path, notice: "Settings saved."
+    redirect_to settings_path, notice: "settings saved."
   end
 end

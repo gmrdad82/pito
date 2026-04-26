@@ -26,7 +26,7 @@
 ## Phase 3 — Core UI Components
 
 - [x] **Step 15:** Breadcrumb helper + nav/footer restyle — breadcrumbs with `/` separator, `[ ]` wraps entire nav groups, footer nav + logo copyright
-- [ ] **Step 16:** Custom confirmation dialog — Stimulus + `<dialog>`, for transient confirmations only (discard unsaved changes), focus trap, Esc close
+- [x] **Step 16:** Custom confirmation dialog + nav restyle + lowercase tone — Stimulus `<dialog>`, destructive variant, `[ ]` wraps nav groups, all copy lowercase
 - [ ] **Step 17:** Excel-like table component — sticky header, sticky first col, zebra rows, sortable headers with ↑↓, scroll container
 - [ ] **Step 18:** Table enhancements — dense-mode toggle (localStorage), column visibility popover (localStorage), numeric right-alignment, indicator cells (▲▼)
 

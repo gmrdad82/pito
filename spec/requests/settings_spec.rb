@@ -9,9 +9,9 @@ RSpec.describe "Settings", type: :request do
 
     it "shows the OAuth form fields" do
       get settings_path
-      expect(response.body).to include("Client ID")
-      expect(response.body).to include("Client Secret")
-      expect(response.body).to include("Redirect URI")
+      expect(response.body).to include("client ID")
+      expect(response.body).to include("client secret")
+      expect(response.body).to include("redirect URI")
     end
 
     it "displays existing values" do
@@ -57,7 +57,7 @@ RSpec.describe "Settings", type: :request do
         settings: { youtube_client_id: "x", youtube_client_secret: "", youtube_redirect_uri: "" }
       }
       follow_redirect!
-      expect(response.body).to include("Settings saved.")
+      expect(response.body).to include("settings saved.")
     end
   end
 end

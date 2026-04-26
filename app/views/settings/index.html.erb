@@ -6,24 +6,24 @@
     <legend><h2>YouTube OAuth</h2></legend>
 
     <div style="margin-bottom: 6px;">
-      <label for="settings_youtube_client_id" style="display: block; font-weight: bold; margin-bottom: 1px;">Client ID</label>
+      <label for="settings_youtube_client_id" style="display: block; font-weight: bold; margin-bottom: 1px;">client ID</label>
       <input type="text" name="settings[youtube_client_id]" id="settings_youtube_client_id"
              value="<%= @settings['youtube_client_id'] %>" autocomplete="off">
     </div>
 
     <div style="margin-bottom: 6px;">
-      <label for="settings_youtube_client_secret" style="display: block; font-weight: bold; margin-bottom: 1px;">Client Secret</label>
+      <label for="settings_youtube_client_secret" style="display: block; font-weight: bold; margin-bottom: 1px;">client secret</label>
       <input type="password" name="settings[youtube_client_secret]" id="settings_youtube_client_secret"
              value="<%= @settings['youtube_client_secret'] %>" autocomplete="off">
     </div>
 
     <div style="margin-bottom: 6px;">
-      <label for="settings_youtube_redirect_uri" style="display: block; font-weight: bold; margin-bottom: 1px;">Redirect URI</label>
+      <label for="settings_youtube_redirect_uri" style="display: block; font-weight: bold; margin-bottom: 1px;">redirect URI</label>
       <input type="text" name="settings[youtube_redirect_uri]" id="settings_youtube_redirect_uri"
              value="<%= @settings['youtube_redirect_uri'] %>" autocomplete="off">
     </div>
   </fieldset>
 
-  <button type="submit">[ save ]</button>
+  [ <button type="submit">save</button> ]
 <% end %>
 </div>
