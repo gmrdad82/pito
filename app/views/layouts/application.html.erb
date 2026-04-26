@@ -32,14 +32,13 @@
     </header>
 
     <div style="padding-top: 36px;">
-      <% if flash[:notice] %>
-        <div class="flash-notice" style="max-width: 900px; margin: 4px auto 0; padding: 4px 12px;"><%= flash[:notice] %></div>
-      <% end %>
-      <% if flash[:alert] %>
-        <div class="flash-error" style="max-width: 900px; margin: 4px auto 0; padding: 4px 12px;"><%= flash[:alert] %></div>
-      <% end %>
-
       <main style="padding: 8px 12px;">
+        <% if flash[:notice] %>
+          <div class="flash-notice" style="margin-bottom: 8px; padding: 4px 8px;"><%= flash[:notice] %></div>
+        <% end %>
+        <% if flash[:alert] %>
+          <div class="flash-error" style="margin-bottom: 8px; padding: 4px 8px;"><%= flash[:alert] %></div>
+        <% end %>
         <%= yield %>
       </main>
     </div>

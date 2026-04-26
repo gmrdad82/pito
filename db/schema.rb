@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_04_26_213600) do
+ActiveRecord::Schema[8.1].define(version: 2026_04_26_221118) do
   create_table "app_settings", charset: "utf8mb4", collation: "utf8mb4_unicode_ci", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "key"
@@ -20,6 +20,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_26_213600) do
   end
 
   create_table "channels", charset: "utf8mb4", collation: "utf8mb4_unicode_ci", force: :cascade do |t|
+    t.boolean "connected", default: false, null: false
     t.datetime "created_at", null: false
     t.text "description"
     t.datetime "last_synced_at"
@@ -27,7 +28,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_26_213600) do
     t.datetime "oauth_expires_at"
     t.text "oauth_refresh_token"
     t.string "oauth_scopes"
-    t.boolean "owned", default: false, null: false
     t.integer "subscriber_count"
     t.string "thumbnail_url"
     t.string "title"

@@ -32,14 +32,13 @@ bundle exec rubocop # Lint
 - Always push immediately after committing. Always pull with --rebase.
 - Do NOT commit until user has tested and validated the changes.
 - Git workflow: feature branches (step-XX) → PR into main. No direct work on main.
-- After each build step: update `docs/plan.md` (mark done), append to `docs/log.md`, create `docs/testing/step-NN.md` with verification instructions.
-- Every step must include RSpec specs and manual testing instructions (browser/console where applicable).
+- After each build step: update `docs/plan.md` (mark done), append to `docs/log.md`.
+- Every step must include RSpec specs. Provide manual testing instructions in conversation, not in files.
 
 ## Build Tracking
 
-- **`docs/plan.md`** — build plan with checkboxes (23 steps)
+- **`docs/plan.md`** — build plan with checkboxes
 - **`docs/log.md`** — chronological session log (what was done, decisions made)
-- **`docs/testing/step-NN.md`** — per-step testing/verification instructions
 
 ## Configuration Strategy
 

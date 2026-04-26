@@ -14,14 +14,14 @@ RSpec.describe Channel, type: :model do
   end
 
   describe "scopes" do
-    it ".owned returns only owned channels" do
-      owned = create(:channel, :owned)
+    it ".connected returns only connected channels" do
+      connected = create(:channel, :connected)
       _public = create(:channel)
-      expect(Channel.owned).to eq([ owned ])
+      expect(Channel.connected).to eq([ connected ])
     end
 
-    it ".public_only returns only non-owned channels" do
-      _owned = create(:channel, :owned)
+    it ".public_only returns only non-connected channels" do
+      _connected = create(:channel, :connected)
       public_ch = create(:channel)
       expect(Channel.public_only).to eq([ public_ch ])
     end

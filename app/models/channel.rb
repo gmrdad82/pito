@@ -4,8 +4,8 @@ class Channel < ApplicationRecord
 
   has_many :videos, dependent: :destroy
 
-  scope :owned, -> { where(owned: true) }
-  scope :public_only, -> { where(owned: false) }
+  scope :connected, -> { where(connected: true) }
+  scope :public_only, -> { where(connected: false) }
 
   validates :youtube_channel_id, presence: true, uniqueness: true
   validates :title, presence: true

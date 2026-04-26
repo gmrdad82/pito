@@ -126,3 +126,16 @@
 - Merged Steps 7 (header/nav) and 8 (button style) into Step 6 since the visual overhaul naturally covered all three
 - Used `!important` on `.header-logo` to override Tailwind preflight's `height: auto` on images
 - Wrapped settings form in constraining div rather than inline style on form (Tailwind preflight interference)
+
+---
+
+**Step 9: Channel schema update + housekeeping** — completed
+
+- Renamed `owned` column to `connected` on channels table (rename migration)
+- Updated Channel model: scopes `connected` and `public_only` use `connected` column
+- Updated factory: `:connected` trait replaces `:owned`
+- Updated specs to match new naming
+- Moved flash notices inside `<main>` so they align with page content
+- Removed `docs/testing/` folder — testing instructions provided in conversation/PR instead
+- Updated CLAUDE.md to remove testing folder references
+- 43 specs, 0 failures

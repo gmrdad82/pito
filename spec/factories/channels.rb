@@ -7,10 +7,10 @@ FactoryBot.define do
     subscriber_count { Faker::Number.between(from: 100, to: 1_000_000) }
     video_count { Faker::Number.between(from: 1, to: 500) }
     view_count { Faker::Number.between(from: 1_000, to: 100_000_000) }
-    owned { false }
+    connected { false }
 
-    trait :owned do
-      owned { true }
+    trait :connected do
+      connected { true }
     end
   end
 end
