@@ -10,13 +10,37 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_04_26_222411) do
+ActiveRecord::Schema[8.1].define(version: 2026_04_26_222647) do
   create_table "app_settings", charset: "utf8mb4", collation: "utf8mb4_unicode_ci", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "key"
     t.datetime "updated_at", null: false
     t.text "value"
     t.index ["key"], name: "index_app_settings_on_key", unique: true
+  end
+
+  create_table "bulk_operation_items", charset: "utf8mb4", collation: "utf8mb4_unicode_ci", force: :cascade do |t|
+    t.bigint "bulk_operation_id", null: false
+    t.datetime "created_at", null: false
+    t.text "error_message"
+    t.integer "status", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.bigint "video_id", null: false
+    t.index ["bulk_operation_id", "video_id"], name: "index_bulk_operation_items_on_bulk_operation_id_and_video_id", unique: true
+    t.index ["bulk_operation_id"], name: "index_bulk_operation_items_on_bulk_operation_id"
+    t.index ["video_id"], name: "index_bulk_operation_items_on_video_id"
+  end
+
+  create_table "bulk_operations", charset: "utf8mb4", collation: "utf8mb4_unicode_ci", force: :cascade do |t|
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.json "dry_run_preview"
+    t.integer "kind", null: false
+    t.json "parameters"
+    t.datetime "started_at"
+    t.integer "status", default: 0, null: false
+    t.json "target_video_ids"
+    t.datetime "updated_at", null: false
   end
 
   create_table "channels", charset: "utf8mb4", collation: "utf8mb4_unicode_ci", force: :cascade do |t|
@@ -115,6 +139,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_26_222411) do
     t.index ["youtube_video_id"], name: "index_videos_on_youtube_video_id", unique: true
   end
 
+  add_foreign_key "bulk_operation_items", "bulk_operations"
+  add_foreign_key "bulk_operation_items", "videos"
   add_foreign_key "playlist_items", "playlists"
   add_foreign_key "playlist_items", "videos"
   add_foreign_key "playlists", "channels"
