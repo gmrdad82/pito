@@ -1,0 +1,33 @@
+<dialog data-add-pane-target="dialog" data-action="click->add-pane#clickOutside" class="pane-dialog">
+  <div style="padding: 12px; min-width: 400px; max-width: 600px;">
+    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
+      <h2>add a channel</h2>
+      <a href="#" class="bracketed" data-action="click->add-pane#close">[ <span class="bl">close</span> ]</a>
+    </div>
+    <% if available_channels.any? %>
+      <table>
+        <thead>
+          <tr>
+            <th class="col-action"></th>
+            <th>title</th>
+            <th class="num">subscribers</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% available_channels.each do |channel| %>
+            <tr>
+              <td class="col-action">
+                <% new_ids = [current_ids, channel.id].reject(&:blank?).join(",") %>
+                <%= link_to "#{panes_channels_path}?ids=#{new_ids}", class: "bracketed" do %>[ <span class="bl">add</span> ]<% end %>
+              </td>
+              <td><%= channel.title %></td>
+              <td class="num"><%= number_with_delimiter(channel.subscriber_count || 0) %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    <% else %>
+      <p class="text-muted">no more channels to add.</p>
+    <% end %>
+  </div>
+</dialog>

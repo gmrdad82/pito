@@ -4,6 +4,8 @@
 puts "seeding app settings..."
 AppSetting.set("max_panes", "5")
 puts "  max_panes = 5"
+AppSetting.set("pane_title_length", "14")
+puts "  pane_title_length = 14"
 
 puts "seeding channels..."
 

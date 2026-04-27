@@ -13,7 +13,11 @@ Rails.application.routes.draw do
 
   root "dashboard#index"
 
-  resources :channels, only: [ :index ]
+  resources :channels, only: [ :index, :show ] do
+    collection do
+      get :panes
+    end
+  end
   resources :videos, only: [ :index ]
   get "settings", to: "settings#index"
   patch "settings", to: "settings#update"

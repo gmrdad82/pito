@@ -24,8 +24,8 @@
 
 - [x] **Step 19:** Channels + Videos picker pages — `/channels` and `/videos` tables with `[ open ]` per row, `[ add channel ]` / `[ add video ]`, sortable headers, request specs
 - [x] **Step 20:** Bulk mode for Channels + Videos pickers — `[ bulk ]` toggle, checkbox column, header checkbox, bulk actions bar (open/delete/cancel), Stimulus controller
-- [ ] **Step 21:** _(merged into Step 19)_
-- [ ] **Step 22:** _(merged into Step 20)_
+- [x] **Step 21:** _(merged into Step 19)_
+- [x] **Step 22:** _(merged into Step 20)_
 
 ## Phase 5 — Workspaces (moved before Action Screens)
 

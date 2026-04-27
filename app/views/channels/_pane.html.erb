@@ -1,0 +1,69 @@
+<div class="pane" style="flex: 1; min-width: 0;">
+  <table class="detail-table" style="margin-bottom: 8px;">
+    <tr>
+      <td class="text-muted" style="padding-right: 12px;">youtube ID</td>
+      <td><%= channel.youtube_channel_id %></td>
+    </tr>
+    <tr>
+      <td class="text-muted" style="padding-right: 12px;">connected</td>
+      <td><%= channel.connected? ? "yes" : "no" %></td>
+    </tr>
+    <tr>
+      <td class="text-muted" style="padding-right: 12px;">subscribers</td>
+      <td><%= number_with_delimiter(channel.subscriber_count || 0) %></td>
+    </tr>
+    <tr>
+      <td class="text-muted" style="padding-right: 12px;">total views</td>
+      <td><%= number_with_delimiter(channel.view_count || 0) %></td>
+    </tr>
+    <% if channel.description.present? %>
+      <tr>
+        <td class="text-muted" style="padding-right: 12px;">description</td>
+        <td><%= channel.description %></td>
+      </tr>
+    <% end %>
+  </table>
+
+  <h2>videos (<%= channel.videos.count %>)</h2>
+
+  <% videos = channel.videos
+      .left_joins(:video_stats)
+      .select(
+        "videos.*",
+        "COALESCE(SUM(video_stats.views), 0) AS total_views",
+        "COALESCE(SUM(video_stats.likes), 0) AS total_likes"
+      )
+      .group("videos.id")
+      .order(published_at: :desc) %>
+
+  <% if videos.any? %>
+    <div data-controller="sortable-table" data-sortable-table-id-value="<%= channel.id %>">
+      <table data-sortable-table-target="table">
+        <thead>
+          <tr>
+            <th class="sortable" data-action="click->sortable-table#sort" data-sort-type="string">title</th>
+            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="number">views</th>
+            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="number">likes</th>
+            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="string">privacy</th>
+            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="date">published</th>
+            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="number">duration</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% videos.each do |video| %>
+            <tr>
+              <td style="max-width: 280px; overflow: hidden; text-overflow: ellipsis;"><%= video.title %></td>
+              <td class="num"><%= number_with_delimiter(video.total_views) %></td>
+              <td class="num"><%= number_with_delimiter(video.total_likes) %></td>
+              <td class="num"><%= video.privacy_status&.sub("_video", "") || "—" %></td>
+              <td class="num"><%= video.published_at&.strftime("%Y-%m-%d") %></td>
+              <td class="num"><%= format_duration(video.duration_seconds) %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% else %>
+    <p class="text-muted">no videos yet.</p>
+  <% end %>
+</div>

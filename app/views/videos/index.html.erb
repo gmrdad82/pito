@@ -30,7 +30,7 @@
             <th class="sortable" data-action="click->sortable-table#sort" data-sort-type="string">title</th>
             <th class="sortable" data-action="click->sortable-table#sort" data-sort-type="string">channel</th>
             <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="number">views</th>
-            <th>trend</th>
+            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="number">trend</th>
             <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="number">likes</th>
             <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="number">comments</th>
             <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="number">watch time</th>
@@ -49,10 +49,10 @@
               <td style="max-width: 280px; overflow: hidden; text-overflow: ellipsis;"><%= video.title %></td>
               <td><%= video.channel.title %></td>
               <td class="num"><%= number_with_delimiter(video.total_views) %></td>
-              <td><%= view_trend_indicator(video) %></td>
+              <td class="num"><%= view_trend_indicator(video) %></td>
               <td class="num"><%= number_with_delimiter(video.total_likes) %></td>
               <td class="num"><%= number_with_delimiter(video.total_comments) %></td>
-              <td class="num"><%= number_with_delimiter(video.total_watch_time) %>m</td>
+              <td class="num"><span data-sort-value="<%= video.total_watch_time %>"><%= format_watch_time(video.total_watch_time) %></span></td>
               <td class="num"><%= video.privacy_status&.sub("_video", "") || "—" %></td>
               <td class="num"><%= video.published_at&.strftime("%Y-%m-%d") %></td>
               <td class="num"><%= format_duration(video.duration_seconds) %></td>
