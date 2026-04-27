@@ -57,13 +57,14 @@ Future phases (e.g. `docs/beta/`) will follow the same structure.
 
 ## Visual Style
 
-Craigslist / 2000s tool aesthetic with modern build:
-- **Font:** Verdana 12px base, line-height 1.4
-- **Colors:** white bg (#fff), text #1a1a1a, links blue (#0000cc), danger/destructive YouTube red (#cc0000), muted #555, borders #ddd
-- **Bracketed link convention:** all links wrapped in `[ ]` — e.g. `[ Channels ] · [ Videos ]`
-- **Layout:** full width, compact spacing, no shadows/gradients/rounded corners, no icon fonts (HTML entities only)
-- **Header:** fixed, Pito.png logo + "Pito" + nav links, 32px height
-- **Navigation:** `[ Channels ] · [ Videos ] · [ Settings ]` — logo/name link to Dashboard
+See `docs/design.md` for the full design system. Key rules:
+
+- **Font:** monospace (`ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace`), 13px base
+- **Colors:** white bg, text #1a1a1a, links #0000cc, muted #555, borders #ddd
+- **Red (#cc0000) is ONLY for destructive/dangerous actions** — never in charts, indicators, or decorative elements
+- **Bracketed link convention:** all clickable elements use `[ label ]` — links, buttons, chart legends
+- **Cursor:** `cursor: pointer` on all clickable elements (links, buttons, submit, chart legends)
+- **Charts:** no animation, no red, crosshair on line charts, bracketed colored legend labels
 - **Sidekiq Web** at /sidekiq with HTTP basic auth, no link in nav or Settings
 
 ## Architecture Notes

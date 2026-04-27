@@ -80,6 +80,18 @@ RSpec.describe "Videos", type: :request do
         expect(response.body).to include(video2.title)
       end
     end
+
+    context "JSON format" do
+      let!(:channel) { create(:channel) }
+      let!(:video) { create(:video, channel: channel) }
+
+      it "returns video list as JSON" do
+        get videos_path(format: :json)
+        json = JSON.parse(response.body)
+        expect(json).to be_an(Array)
+        expect(json.first).to include("id", "title", "channel_title")
+      end
+    end
   end
 
   describe "GET /videos/:id (show)" do
@@ -119,6 +131,12 @@ RSpec.describe "Videos", type: :request do
     it "returns 404 for unknown video" do
       get video_path(id: 99999)
       expect(response).to have_http_status(:not_found)
+    end
+
+    it "returns detail JSON" do
+      get video_path(video, format: :json)
+      json = JSON.parse(response.body)
+      expect(json).to include("id", "title", "description", "stats")
     end
   end
 

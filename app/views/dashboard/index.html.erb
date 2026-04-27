@@ -1,7 +1,39 @@
+<% content_for(:head) do %>
+  <meta name="turbo-cache-control" content="no-cache">
+<% end %>
+
 <h1>dashboard</h1>
 
 <% if @video_count > 0 %>
-  <p class="text-muted"><%= @video_count %> videos across <%= @channel_count %> channels</p>
+  <p class="text-muted" style="margin-bottom: 8px;"><%= @video_count %> videos across <%= @channel_count %> channels</p>
+
+  <%= render(ChartToolbarComponent.new(current_range: @range, base_path: root_path)) %>
+
+  <div style="display: flex; gap: 24px; flex-wrap: wrap;">
+    <div style="flex: 1; min-width: 400px;">
+      <div style="margin-bottom: 24px;" data-sync-group="dashboard">
+        <h3>daily views</h3>
+        <%= line_chart @daily_views, height: "250px", colors: %w[#0000cc], library: { datasets: { pointHoverRadius: 4 } } %>
+      </div>
+
+      <div style="margin-bottom: 24px;" data-sync-group="dashboard">
+        <h3>views by channel</h3>
+        <%= line_chart @views_by_channel, height: "250px", colors: [ "#0000cc", "#2e7d32", "#8b5cf6" ], library: { datasets: { pointHoverRadius: 4 } } %>
+      </div>
+    </div>
+
+    <div style="flex: 1; min-width: 400px;">
+      <div style="margin-bottom: 24px;">
+        <h3>top videos by views</h3>
+        <%= bar_chart @top_videos.map { |v| [ truncate(v.title, length: 40, omission: "…"), v.total_views ] }, height: "250px", colors: [ "#0000cc" ], library: { interaction: { mode: "nearest", intersect: true }, plugins: { crosshair: false } } %>
+      </div>
+
+      <div style="margin-bottom: 24px;" data-sync-group="dashboard">
+        <h3>daily engagement</h3>
+        <%= line_chart @daily_engagement, height: "250px", colors: [ "#0000cc", "#d97706" ], library: { datasets: { pointHoverRadius: 4 } } %>
+      </div>
+    </div>
+  </div>
 <% else %>
   <p class="text-muted">no videos yet. run <code>bin/rails db:seed</code> to load sample data.</p>
 <% end %>

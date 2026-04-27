@@ -1,53 +1,134 @@
 @import "tailwindcss";
 
-/* Base typography: Verdana 12px, line-height 1.4 */
+/* Color tokens */
+:root {
+  --color-bg: #ffffff;
+  --color-bg-alt: #fafafa;
+  --color-bg-hover: #f0f0f0;
+  --color-bg-header: #f4f4f4;
+  --color-bg-header-hover: #e8e8e8;
+  --color-text: #1a1a1a;
+  --color-text-bold: #1a1a1a;
+  --color-link: #0000cc;
+  --color-link-hover: #0000ff;
+  --color-danger: #cc0000;
+  --color-danger-hover: #990000;
+  --color-muted: #555555;
+  --color-border: #dddddd;
+  --color-input-border: #999999;
+  --color-success: #2e7d32;
+  --color-fail: #cc0000;
+  --color-flash-notice-bg: #eef4fb;
+  --color-flash-notice-border: #b6cce4;
+  --color-flash-notice-text: #1a3a5a;
+  --color-flash-success-bg: #eef7ee;
+  --color-flash-success-border: #bcd9bc;
+  --color-flash-success-text: #1f5a1f;
+  --color-flash-warning-bg: #fdf6e3;
+  --color-flash-warning-border: #e0c97a;
+  --color-flash-warning-text: #6a5210;
+  --color-flash-error-bg: #fbeeee;
+  --color-flash-error-border: #e0b6b6;
+  --color-flash-error-text: #7a1f1f;
+  --color-backdrop: rgba(0, 0, 0, 0.3);
+  --color-chart-1: #0000cc;
+  --color-chart-2: #2e7d32;
+  --color-chart-3: #8b5cf6;
+  --color-chart-4: #d97706;
+  --color-chart-5: #0891b2;
+  --color-chart-grid: #eeeeee;
+  --color-tooltip-bg: rgba(0, 0, 0, 0.8);
+  --color-tooltip-text: #ffffff;
+}
+
+[data-theme="dark"] {
+  --color-bg: #282a36;
+  --color-bg-alt: #21222c;
+  --color-bg-hover: #44475a;
+  --color-bg-header: #343746;
+  --color-bg-header-hover: #44475a;
+  --color-text: #f8f8f2;
+  --color-text-bold: #f8f8f2;
+  --color-link: #bd93f9;
+  --color-link-hover: #d4b8ff;
+  --color-danger: #ff5555;
+  --color-danger-hover: #ff6e6e;
+  --color-muted: #6272a4;
+  --color-border: #44475a;
+  --color-input-border: #6272a4;
+  --color-success: #50fa7b;
+  --color-fail: #ff5555;
+  --color-flash-notice-bg: #282a36;
+  --color-flash-notice-border: #6272a4;
+  --color-flash-notice-text: #8be9fd;
+  --color-flash-success-bg: #282a36;
+  --color-flash-success-border: #50fa7b;
+  --color-flash-success-text: #50fa7b;
+  --color-flash-warning-bg: #282a36;
+  --color-flash-warning-border: #ffb86c;
+  --color-flash-warning-text: #ffb86c;
+  --color-flash-error-bg: #282a36;
+  --color-flash-error-border: #ff5555;
+  --color-flash-error-text: #ff5555;
+  --color-backdrop: rgba(0, 0, 0, 0.6);
+  --color-chart-1: #bd93f9;
+  --color-chart-2: #50fa7b;
+  --color-chart-3: #ff79c6;
+  --color-chart-4: #ffb86c;
+  --color-chart-5: #8be9fd;
+  --color-chart-grid: #44475a;
+  --color-tooltip-bg: rgba(68, 71, 90, 0.95);
+  --color-tooltip-text: #f8f8f2;
+}
+
+/* Base typography */
 body {
   font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
   font-size: 13px;
   line-height: 1.4;
-  color: #1a1a1a;
-  background: #ffffff;
+  color: var(--color-text);
+  background: var(--color-bg);
 }
 
 /* Headings — compact */
-h1 { font-size: 18px; font-weight: bold; }
-h2 { font-size: 14px; font-weight: bold; }
-h3 { font-size: 13px; font-weight: bold; }
+h1 { font-size: 18px; font-weight: bold; color: var(--color-text-bold); }
+h2 { font-size: 14px; font-weight: bold; color: var(--color-text-bold); }
+h3 { font-size: 13px; font-weight: bold; color: var(--color-text-bold); }
 h4 { font-size: 13px; font-weight: bold; font-style: italic; }
 h1, h2, h3, h4 { margin-top: 2px; margin-bottom: 1px; }
 h1:first-child, h2:first-child, h3:first-child, h4:first-child { margin-top: 0; }
 
 /* Links: blue, no underline, bold */
 a {
-  color: #0000cc;
+  color: var(--color-link);
   text-decoration: none;
   font-weight: bold;
 }
 a:visited {
-  color: #0000cc;
+  color: var(--color-link);
 }
 a:hover {
-  color: #0000ff;
+  color: var(--color-link-hover);
 }
 
 /* Bracketed links: [ text ] — whole thing is clickable */
-a.bracketed:visited, a.bracketed:visited .bl { color: #0000cc; }
+a.bracketed:visited, a.bracketed:visited .bl { color: var(--color-link); }
 
-/* Danger / destructive: YouTube red */
-.text-danger { color: #cc0000; }
-a.text-danger { color: #cc0000; }
-a.text-danger:hover { color: #990000; }
+/* Danger / destructive */
+.text-danger { color: var(--color-danger); }
+a.text-danger { color: var(--color-danger); }
+a.text-danger:hover { color: var(--color-danger-hover); }
 a.text-danger.bracketed, a.text-danger.bracketed:visited,
-a.text-danger.bracketed .bl, a.text-danger.bracketed:visited .bl { color: #cc0000; }
-a.text-danger.bracketed:hover, a.text-danger.bracketed:hover .bl { color: #990000; }
+a.text-danger.bracketed .bl, a.text-danger.bracketed:visited .bl { color: var(--color-danger); }
+a.text-danger.bracketed:hover, a.text-danger.bracketed:hover .bl { color: var(--color-danger-hover); }
 
 /* Muted text */
-.text-muted { color: #555555; }
+.text-muted { color: var(--color-muted); }
 
 /* Pane container — side-by-side panes with dividers */
 .pane-container {
   display: flex;
-  margin: 0 -12px; /* bleed into main padding */
+  margin: 0 -12px;
   overflow-x: auto;
   padding-top: 3px;
 }
@@ -56,7 +137,7 @@ a.text-danger.bracketed:hover, a.text-danger.bracketed:hover .bl { color: #99000
   padding: 0 12px;
 }
 .pane-wrapper + .pane-wrapper {
-  border-left: 2px solid #ddd;
+  border-left: 2px solid var(--color-border);
   padding-left: 16px;
 }
 
@@ -87,19 +168,20 @@ th, td {
   text-align: left;
   padding: 4px 8px;
   line-height: 1.4;
-  border: 1px solid #dddddd;
+  border: 1px solid var(--color-border);
   white-space: nowrap;
 }
 th {
   font-weight: 600;
   font-size: 14px;
-  background: #f4f4f4;
+  background: var(--color-bg-header);
+  color: var(--color-text-bold);
 }
 tr:nth-child(even) {
-  background-color: #fafafa;
+  background-color: var(--color-bg-alt);
 }
 tr:hover {
-  background-color: #f0f0f0;
+  background-color: var(--color-bg-hover);
 }
 
 /* Sortable headers */
@@ -116,11 +198,11 @@ th.sortable::after {
   line-height: 0.8;
   vertical-align: middle;
   text-align: center;
-  color: #0000cc;
+  color: var(--color-link);
   font-weight: bold;
 }
 th.sortable:hover {
-  background: #e8e8e8;
+  background: var(--color-bg-header-hover);
 }
 th.sort-asc::after { content: "\25B2"; font-size: 13px; line-height: 1.4; }
 th.sort-desc::after { content: "\25BC"; font-size: 13px; line-height: 1.4; }
@@ -139,9 +221,9 @@ th.col-action, td.col-action {
 }
 
 /* Indicator cells — trend arrows */
-.indicator-up { color: #2e7d32; }
-.indicator-down { color: #cc0000; }
-.indicator-flat { color: #555555; }
+.indicator-up { color: var(--color-success); }
+.indicator-down { color: var(--color-danger); }
+.indicator-flat { color: var(--color-muted); }
 
 /* Forms */
 form {
@@ -157,18 +239,25 @@ input[type="number"],
 input[type="search"],
 textarea,
 select {
-  border: 1px solid #999999;
+  border: 1px solid var(--color-input-border);
   padding: 3px 5px;
   font: inherit;
   border-radius: 2px;
   width: 100%;
+  background: var(--color-bg);
+  color: var(--color-text);
 }
 input:focus,
 textarea:focus,
 select:focus {
-  outline: 2px solid #0000cc;
+  outline: 2px solid var(--color-link);
   outline-offset: 1px;
-  border-color: #0000cc;
+  border-color: var(--color-link);
+}
+
+/* All buttons get pointer cursor */
+button, .btn-submit {
+  cursor: pointer;
 }
 
 /* Bracketed submit buttons — [ Save ] style */
@@ -181,26 +270,26 @@ button[type="submit"] {
   font-size: 13px;
   font-weight: bold;
   cursor: pointer;
-  color: #0000cc;
+  color: var(--color-link);
 }
 input[type="submit"]:hover,
 button[type="submit"]:hover {
-  color: #0000ff;
+  color: var(--color-link-hover);
 }
 input[type="submit"].btn-danger,
 button[type="submit"].btn-danger {
-  color: #cc0000;
+  color: var(--color-danger);
 }
 input[type="submit"].btn-danger:hover,
 button[type="submit"].btn-danger:hover {
-  color: #990000;
+  color: var(--color-danger-hover);
 }
 
 /* Flash notices */
-.flash-notice { background: #eef4fb; border: 1px solid #b6cce4; color: #1a3a5a; padding: 4px 8px; font-size: 12px; }
-.flash-success { background: #eef7ee; border: 1px solid #bcd9bc; color: #1f5a1f; padding: 4px 8px; font-size: 12px; }
-.flash-warning { background: #fdf6e3; border: 1px solid #e0c97a; color: #6a5210; padding: 4px 8px; font-size: 12px; }
-.flash-error { background: #fbeeee; border: 1px solid #e0b6b6; color: #7a1f1f; padding: 4px 8px; font-size: 12px; }
+.flash-notice { background: var(--color-flash-notice-bg); border: 1px solid var(--color-flash-notice-border); color: var(--color-flash-notice-text); padding: 4px 8px; font-size: 12px; }
+.flash-success { background: var(--color-flash-success-bg); border: 1px solid var(--color-flash-success-border); color: var(--color-flash-success-text); padding: 4px 8px; font-size: 12px; }
+.flash-warning { background: var(--color-flash-warning-bg); border: 1px solid var(--color-flash-warning-border); color: var(--color-flash-warning-text); padding: 4px 8px; font-size: 12px; }
+.flash-error { background: var(--color-flash-error-bg); border: 1px solid var(--color-flash-error-border); color: var(--color-flash-error-text); padding: 4px 8px; font-size: 12px; }
 
 /* Header logo */
 .header-logo {
@@ -213,7 +302,7 @@ button[type="submit"].btn-danger:hover {
 
 /* Confirmation dialog */
 dialog {
-  border: 1px solid #999999;
+  border: 1px solid var(--color-input-border);
   padding: 12px 16px;
   max-width: 400px;
   width: 100%;
@@ -223,9 +312,11 @@ dialog {
   left: 50%;
   transform: translateX(-50%);
   margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
 }
 dialog::backdrop {
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--color-backdrop);
 }
 dialog .dialog-title {
   font-weight: bold;
@@ -234,27 +325,27 @@ dialog .dialog-title {
 }
 dialog .dialog-message {
   margin-bottom: 10px;
-  color: #555555;
+  color: var(--color-muted);
 }
 dialog button {
   cursor: pointer;
   background: none;
   border: none;
   font: inherit;
-  color: #0000cc;
+  color: var(--color-link);
 }
 dialog button:hover {
-  color: #0000ff;
+  color: var(--color-link-hover);
 }
 dialog button.dialog-confirm {
   font-weight: bold;
 }
 dialog button.dialog-destructive {
-  color: #cc0000;
+  color: var(--color-danger);
   font-weight: bold;
 }
 dialog button.dialog-destructive:hover {
-  color: #990000;
+  color: var(--color-danger-hover);
 }
 
 dialog.pane-dialog {
@@ -266,8 +357,8 @@ dialog.pane-dialog {
 .action-screen-footer {
   position: sticky;
   bottom: 0;
-  background: #ffffff;
-  border-top: 1px solid #dddddd;
+  background: var(--color-bg);
+  border-top: 1px solid var(--color-border);
   padding: 8px 0;
   display: flex;
   align-items: center;
@@ -289,8 +380,8 @@ dialog.pane-dialog {
   font-family: monospace;
   letter-spacing: -1px;
 }
-.dot-done { color: #2e7d32; }
-.dot-fail { color: #cc0000; }
+.dot-done { color: var(--color-success); }
+.dot-fail { color: var(--color-fail); }
 
 /* Hairline borders */
-.border-hairline { border: 1px solid #dddddd; }
+.border-hairline { border: 1px solid var(--color-border); }

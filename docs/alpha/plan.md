@@ -48,11 +48,13 @@
 
 - [x] **Step 34–36 (combined):** SavedViewsController (create/destroy), `[ save view ]` on workspace pages, saved views section on picker pages, entity_labels with [deleted] annotations, position ordering, idempotent save, Videos workspace (show + panes + pane partial + add dialog), breadcrumb actions (`[ delete ]` on show, `[ save view ]` / `[ delete saved view ]` on panes), request + model + component specs
 
-## Phase 9 — Charts
+## Phase 9 — Charts, Decorators, JSON Responses
 
-- [ ] **Step 37:** Chart.js global config — animation:false, pointRadius:0, borderWidth:1.5, LTTB decimation, crosshair tooltip, legend below
-- [ ] **Step 38:** Video stats charts — views/likes/comments over time on Video pane, Chartkick + Groupdate
-- [ ] **Step 39:** Chart toolbar — time-range selectors `[ 7d ] · [ 30d ] · [ 90d ] · [ 1y ] · [ all ]`, CSV export
+- [x] **Step 37–39 (combined):** Draper decorators (Video, Channel, VideoStat), Chart.js global config, Chartkick dashboard with 4 charts (daily views, views by channel, top videos, daily engagement), ChartToolbarComponent with time-range selectors `[ 7d ] · [ 30d ] · [ 90d ] · [ 1y ] · [ all ]`, JSON responses on dashboard/channels/videos controllers, improved seed data with realistic trends (90 days, decay curves, viral spikes), decorator + component + request specs
+
+## Phase 9b — Dark Mode, Design System, Polish
+
+- [x] **Step 40 (combined):** Dark mode with Dracula-inspired dark theme, CSS custom properties for all colors, theme toggle `[ dark ]` / `[ light ]` in navbar, AppSetting persistence (light/dark/auto), Stimulus theme controller with localStorage + server sync, flash prevention `<script>` in `<head>`, Chart.js theme-aware recoloring (`recolorCharts()`), synced crosshair plugin across dashboard charts, `docs/design.md` comprehensive design system document, page width constraints (channels 900px, videos 1400px), Sidekiq testing API update, bold chart legend labels, theme endpoint specs
 
 ## Phase 10 — Settings + OAuth (local data only until this point)
 

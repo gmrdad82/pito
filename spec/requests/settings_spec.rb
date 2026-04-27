@@ -19,6 +19,14 @@ RSpec.describe "Settings", type: :request do
       get settings_path
       expect(response.body).to include("test-client-id")
     end
+
+    it "shows the theme selector" do
+      get settings_path
+      expect(response.body).to include("appearance")
+      expect(response.body).to include("light")
+      expect(response.body).to include("dark")
+      expect(response.body).to include("auto (system)")
+    end
   end
 
   describe "PATCH /settings" do
@@ -58,6 +66,31 @@ RSpec.describe "Settings", type: :request do
       }
       follow_redirect!
       expect(response.body).to include("settings saved.")
+    end
+  end
+
+  describe "PATCH /settings/theme" do
+    it "sets theme to dark" do
+      patch settings_theme_path, params: { theme: "dark" }, as: :json
+      expect(response).to have_http_status(:ok)
+      expect(AppSetting.get("theme")).to eq("dark")
+    end
+
+    it "sets theme to light" do
+      patch settings_theme_path, params: { theme: "light" }, as: :json
+      expect(response).to have_http_status(:ok)
+      expect(AppSetting.get("theme")).to eq("light")
+    end
+
+    it "sets theme to auto" do
+      patch settings_theme_path, params: { theme: "auto" }, as: :json
+      expect(response).to have_http_status(:ok)
+      expect(AppSetting.get("theme")).to eq("auto")
+    end
+
+    it "rejects invalid theme values" do
+      patch settings_theme_path, params: { theme: "neon" }, as: :json
+      expect(response).to have_http_status(:unprocessable_content)
     end
   end
 end

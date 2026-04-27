@@ -1,44 +1,28 @@
 # Pito
 
-Personal YouTube analytics tool. Tracks video performance across multiple channels, logs production effort, and shows simple comparisons.
+Personal YouTube management tool. Tracks video performance across multiple channels, manages workspaces, and provides analytics dashboards.
 
 Single-tenant, runs locally.
 
-## Prerequisites
+## Requirements
 
-- Ruby 3.4.9 (managed via mise — see `mise.toml`)
+- Ruby 3.4.9 (via [mise](https://mise.jdx.dev/) — see `mise.toml`)
 - Docker & Docker Compose
 - Bundler
 
 ## Setup
 
-1. Clone and install dependencies:
+```bash
+cp .env.example .env.development
+cp .env.example .env.test
+bin/setup
+```
+
+Configure MySQL credentials:
 
 ```bash
-bundle install
+EDITOR=vim bin/rails credentials:edit
 ```
-
-2. Copy environment file:
-
-```bash
-cp .env.example .env
-```
-
-`.env` contains infrastructure connection info only (no secrets):
-
-```
-MYSQL_HOST=127.0.0.1
-MYSQL_PORT=3307
-REDIS_URL=redis://127.0.0.1:6380/0
-```
-
-3. Configure MySQL credentials via Rails encrypted credentials:
-
-```bash
-EDITOR=vim rails credentials:edit
-```
-
-Add this block:
 
 ```yaml
 mysql:
@@ -52,46 +36,23 @@ mysql:
     password: ""
 ```
 
-4. Run setup (starts Docker, prepares DB):
+## Run
 
 ```bash
-bin/setup
+bin/dev            # starts Docker, Puma, Sidekiq, Tailwind
 ```
-
-5. Start the app:
-
-```bash
-bin/dev
-```
-
-This starts Docker services (MySQL, Redis), then Puma, Sidekiq, and Tailwind watcher.
 
 Open http://localhost:3000
 
-## Google Cloud Setup (for YouTube API)
+Seed sample data: `bin/rails db:seed`
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a project (or use existing)
-3. Enable **YouTube Data API v3** and **YouTube Analytics API**
-4. Create **OAuth 2.0 Client ID** (Web application)
-5. Set redirect URI to `http://localhost:3000/oauth/google/callback`
-6. Open the app → **Settings** → paste Client ID, Client Secret, and Redirect URI
-7. Go to **Channels** → **Connect a channel** → authorize via Google
-
-## Running Tests
+## Test
 
 ```bash
 bundle exec rspec
-```
-
-## Linting
-
-```bash
 bundle exec rubocop
 ```
 
-## Background Jobs
+## License
 
-Sidekiq dashboard: http://localhost:3000/sidekiq
-
-Recurring sync jobs are configured in `config/sidekiq_cron.yml`.
+All rights reserved. This is proprietary software. Unauthorized copying, distribution, or use is strictly prohibited.

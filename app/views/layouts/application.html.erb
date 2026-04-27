@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html data-theme-preference="<%= AppSetting.get('theme') || 'auto' %>">
   <head>
     <title><%= content_for?(:title) ? "#{yield(:title)} ~ pito" : "pito ~ best YouTube tool" %></title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -12,16 +12,26 @@
     <link rel="icon" href="/Pito.png" type="image/png">
 
     <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
+    <script>
+      (function() {
+        var s = localStorage.getItem("pito-theme");
+        if (s === "light" || s === "dark") { document.documentElement.setAttribute("data-theme", s); return; }
+        var p = document.documentElement.dataset.themePreference;
+        if (p === "light" || p === "dark") { document.documentElement.setAttribute("data-theme", p); return; }
+        document.documentElement.setAttribute("data-theme", window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      })();
+    </script>
     <%= javascript_importmap_tags %>
   </head>
 
   <body>
-    <header style="position: fixed; top: 0; left: 0; right: 0; height: 32px; background: #fff; border-bottom: 1px solid #ddd; padding: 0 12px; z-index: 100;">
+    <header style="position: fixed; top: 0; left: 0; right: 0; height: 32px; background: var(--color-bg); border-bottom: 1px solid var(--color-border); padding: 0 12px; z-index: 100;" data-controller="theme">
       <div style="display: flex; align-items: center; height: 32px; gap: 6px;">
         <a href="/" style="text-decoration: none; display: flex; align-items: center; line-height: 0;" aria-label="Dashboard">
           <img src="/Pito.png" alt="Pito" class="header-logo">
         </a>
         <nav style="display: flex; align-items: center; gap: 4px;"><%= nav_link "home", root_path %> <span class="text-muted">&middot;</span> <%= nav_link "channels", channels_path %> <span class="text-muted">&middot;</span> <%= nav_link "videos", videos_path %> <span class="text-muted">&middot;</span> <%= nav_link "settings", settings_path %></nav>
+        <a href="#" class="bracketed" style="margin-left: auto;" data-action="click->theme#toggle" data-theme-target="toggle">[ <span class="bl" data-theme-target="label">dark</span> ]</a>
       </div>
     </header>
 
@@ -40,10 +50,10 @@
       </main>
     </div>
 
-    <footer style="border-top: 1px solid #ddd; padding: 8px 12px; margin-top: 24px;">
+    <footer style="border-top: 1px solid var(--color-border); padding: 8px 12px; margin-top: 24px;">
       <div style="display: flex; align-items: center; gap: 4px; font-size: 11px; flex-wrap: wrap;">
         <%= nav_link "home", root_path %> <span class="text-muted">&middot;</span> <%= nav_link "channels", channels_path %> <span class="text-muted">&middot;</span> <%= nav_link "videos", videos_path %> <span class="text-muted">&middot;</span> <%= nav_link "settings", settings_path %> <span class="text-muted">&middot;</span>
-        <a href="/" style="display: flex; align-items: center; gap: 4px; text-decoration: none; color: inherit;"><img src="/Pito.png" alt="Pito" style="height: 11px; width: auto; display: block; position: relative; top: -1px;"></a>
+        <a href="/" style="display: flex; align-items: center; gap: 4px; text-decoration: none; color: inherit;"><img src="/Pito.png" alt="Pito" style="height: 10px; width: auto; display: block; position: relative; top: -1px;"></a>
         <span class="text-muted">&copy; <%= Date.current.year %> &mdash; all rights reserved.</span>
         <span class="text-muted" style="margin-left: auto;">v0.0.1.alpha2</span>
       </div>

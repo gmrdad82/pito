@@ -1,0 +1,6 @@
+<div style="margin-bottom: 12px; display: flex; align-items: baseline; gap: 4px;">
+  <% ranges.each_with_index do |range, i| %>
+    <% if i > 0 %><span class="text-muted">&middot;</span><% end %>
+    <%= render(BracketedLinkComponent.new(label: range, href: path_for(range), active: active?(range))) %>
+  <% end %>
+</div>

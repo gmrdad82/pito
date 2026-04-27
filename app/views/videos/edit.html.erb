@@ -3,7 +3,8 @@
 
 <h1>edit video</h1>
 
-<%= form_with(model: @video, style: "max-width: 480px;") do |f| %>
+<div style="max-width: 480px;">
+<%= form_with(model: @video) do |f| %>
   <% if @video.errors.any? %>
     <div class="flash-error" style="margin-bottom: 8px; padding: 4px 8px;">
       <% @video.errors.full_messages.each do |msg| %>
@@ -37,3 +38,4 @@
     <%= render(BracketedLinkComponent.new(label: "cancel", href: video_path(@video))) %>
   </div>
 <% end %>
+</div>

@@ -9,12 +9,22 @@ class ChannelsController < ApplicationController
       )
       .group("channels.id")
       .order(title: :asc)
+
+    respond_to do |format|
+      format.html
+      format.json { render json: @channels.map { |c| ChannelDecorator.new(c).as_summary_json } }
+    end
   end
 
   def show
     @channel = Channel.find(params[:id])
     @max_panes = max_panes
     @available_channels = Channel.where.not(id: @channel.id).order(title: :asc)
+
+    respond_to do |format|
+      format.html
+      format.json { render json: ChannelDecorator.new(@channel).as_detail_json }
+    end
   end
 
   def edit

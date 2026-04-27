@@ -13,12 +13,22 @@ class VideosController < ApplicationController
       .group("videos.id")
       .order(published_at: :desc)
     @max_panes = max_panes
+
+    respond_to do |format|
+      format.html
+      format.json { render json: @videos.map { |v| VideoDecorator.new(v).as_summary_json } }
+    end
   end
 
   def show
     @video = Video.find(params[:id])
     @max_panes = max_panes
     @available_videos = Video.where.not(id: @video.id).order(title: :asc).limit(50)
+
+    respond_to do |format|
+      format.html
+      format.json { render json: VideoDecorator.new(@video).as_detail_json }
+    end
   end
 
   def edit

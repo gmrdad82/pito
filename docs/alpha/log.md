@@ -318,3 +318,49 @@
 - `content_for(:breadcrumb_actions)` slot in layout for per-page breadcrumb actions
 - `CGI.unescape` on URLs in SavedViewsController and panes lookups (Rails encodes commas as %2C)
 - 247 specs, 0 failures
+
+---
+
+**Step 37–39 (combined): Charts, Decorators, JSON Responses** — completed
+
+- Installed Draper 4.0.6 for decorator pattern
+- Created decorators: `ApplicationDecorator` (base), `VideoDecorator`, `ChannelDecorator`, `VideoStatDecorator`
+  - Decorators provide `as_summary_json` / `as_detail_json` for JSON API responses
+  - `VideoDecorator` handles computed columns (`total_views` etc.) from controller queries
+- Chart.js global config: monospace font, 11px, #555 color, legend bottom, point radius 0, line width 1.5, animations kept
+- Dashboard rebuilt with 4 Chartkick charts:
+  - Daily views (line), views by channel (multi-series line), top 10 videos (bar), daily engagement (likes + comments line)
+  - `ChartToolbarComponent` — `[ 7d ] · [ 30d ] · [ 90d ] · [ 1y ] · [ all ]` range selector using BracketedLinkComponent
+  - Groupdate `group_by_day` for zero-filled date series
+  - `data-turbo-cache="false"` to avoid stale chart caching
+- JSON responses added to dashboard, channels (index/show), videos (index/show) via `respond_to`
+- Improved seeds: 90 days of stats per video, exponential decay from publish, channel growth profiles (growing/steady/declining), viral spikes (10% chance), weekend bumps, correlated likes/comments/shares/watch_time
+- Channel and video edit pages (`[ edit ]` in breadcrumb actions)
+- Breadcrumb action labels shortened: `[ save ]` not `[ save view ]`, `[ delete ]` not `[ delete saved view ]`
+- 281 specs, 0 failures
+
+---
+
+**Step 40 (combined): Dark Mode, Design System, Polish** — completed
+
+- Dark mode with Dracula-inspired color palette:
+  - Background #282a36, foreground #f8f8f2, links #bd93f9 (purple), muted #6272a4 (comment), borders #44475a (current line)
+  - Success #50fa7b (green), danger #ff5555 (red)
+  - Chart colors: purple, green, pink, orange, cyan (all Dracula palette)
+- All CSS colors converted to custom properties (`var(--color-xxx)`) — `:root` for light, `[data-theme="dark"]` for dark
+- Fixed inline hardcoded colors: footer border `#ddd` → `var(--color-border)`, BracketedLinkComponent active `#1a1a1a` → `var(--color-text-bold)`
+- Theme toggle `[ dark ]` / `[ light ]` in navbar header (right-aligned with `margin-left: auto`)
+- AppSetting `theme` with 3 values: light, dark, auto (match system)
+- `PATCH /settings/theme` endpoint in SettingsController
+- Stimulus theme controller (`theme_controller.js`): localStorage + server persistence via fetch, system media query listener
+- Priority: localStorage > server AppSetting > system preference (for "auto")
+- Flash prevention: inline `<script>` in `<head>` applies theme before body renders (avoids white flash in dark mode)
+- Chart.js theme adaptation: `recolorCharts()` function reads `--color-chart-N` CSS variables, applies to all Chartkick charts, also updates grid lines, axis labels, and tooltip colors. Called on DOMContentLoaded and after theme toggle.
+- Synced crosshair plugin: charts with `data-sync-group="dashboard"` share hover position — hovering chart 1 shows crosshair on charts 3 and 4 at the same date. Uses `afterEvent` hook to broadcast index to siblings.
+- Chart legend fix: hidden items keep `[ brackets ]` and bold, just muted color. Bold set globally via `Chart.defaults.plugins.legend.labels.font`.
+- Page width constraints: channels picker `max-width: 900px`, videos picker `max-width: 1400px`
+- Sidekiq testing: replaced deprecated `require "sidekiq/testing"` with `Sidekiq.testing!(:fake)`
+- Created comprehensive `docs/design.md`: typography, all color tokens (light + dark), color rules, dark mode implementation, interactive elements, chart conventions, layout rules
+- Updated CLAUDE.md to reference design doc
+- 4 new theme endpoint specs (dark, light, auto, invalid)
+- 285 specs, 0 failures

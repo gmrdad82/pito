@@ -32,6 +32,7 @@ Rails.application.routes.draw do
   end
   get "settings", to: "settings#index"
   patch "settings", to: "settings#update"
+  patch "settings/theme", to: "settings#update_theme"
 
   get "up" => "rails/health#show", as: :rails_health_check
 end

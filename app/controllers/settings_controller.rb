@@ -6,6 +6,7 @@ class SettingsController < ApplicationController
     @settings = (OAUTH_KEYS + GENERAL_KEYS).index_with { |key| AppSetting.get(key) }
     @max_panes_default = ENV.fetch("MAX_PANES", 3).to_i
     @pane_title_length_default = ENV.fetch("PANE_TITLE_LENGTH", 14).to_i
+    @theme = AppSetting.get("theme") || "auto"
   end
 
   def update
@@ -21,6 +22,19 @@ class SettingsController < ApplicationController
       end
     end
 
+    theme = params.dig(:settings, :theme)
+    AppSetting.set("theme", theme) if %w[light dark auto].include?(theme)
+
     redirect_to settings_path, notice: "settings saved."
+  end
+
+  def update_theme
+    theme = params[:theme]
+    if %w[light dark auto].include?(theme)
+      AppSetting.set("theme", theme)
+      head :ok
+    else
+      head :unprocessable_entity
+    end
   end
 end
