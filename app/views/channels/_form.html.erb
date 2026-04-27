@@ -1,0 +1,13 @@
+<%= form_with(model: channel) do |f| %>
+  <% if channel.errors.any? %>
+    <div class="flash-error" style="margin-bottom: 8px; padding: 4px 8px;">couldn't <%= channel.new_record? ? "create" : "update" %> — check the fields below.</div>
+  <% end %>
+
+  <%= render(FormFieldComponent.new(form: f, field: :title)) %>
+  <%= render(FormFieldComponent.new(form: f, field: :description, type: :text_area)) %>
+
+  <div style="display: flex; gap: 6px;">
+    <button type="submit" class="btn-submit">[<b>save</b>]</button>
+    <%= render(BracketedLinkComponent.new(label: "cancel", href: cancel_path)) %>
+  </div>
+<% end %>

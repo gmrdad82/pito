@@ -17,9 +17,9 @@ RSpec.describe "Channels", type: :request do
       expect(response.body).to include("no channels yet")
     end
 
-    it "includes actions toggle link" do
+    it "includes bulk toggle link" do
       get channels_path
-      expect(response.body).to include("actions")
+      expect(response.body).to include("bulk")
     end
 
     context "with channels" do
@@ -125,6 +125,34 @@ RSpec.describe "Channels", type: :request do
       get channel_path(channel, format: :json)
       json = JSON.parse(response.body)
       expect(json).to include("id", "title", "description", "videos")
+    end
+  end
+
+  describe "GET /channels/new" do
+    it "returns 200" do
+      get new_channel_path
+      expect(response).to have_http_status(:ok)
+    end
+
+    it "shows add form" do
+      get new_channel_path
+      expect(response.body).to include("new channel")
+    end
+  end
+
+  describe "POST /channels" do
+    it "creates channel and redirects" do
+      post channels_path, params: { channel: { title: "new channel" } }
+      channel = Channel.last
+      expect(response).to redirect_to(channel_path(channel))
+      expect(channel.title).to eq("new channel")
+      expect(channel.youtube_channel_id).to start_with("local_")
+    end
+
+    it "re-renders new on invalid data" do
+      post channels_path, params: { channel: { title: "" } }
+      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response.body).to include("couldn't create")
     end
   end
 
@@ -269,7 +297,7 @@ RSpec.describe "Channels", type: :request do
 
     it "includes minus link per pane" do
       get "#{panes_channels_path}?ids=#{channel1.id},#{channel2.id}"
-      expect(response.body).to include("&minus;")
+      expect(response.body).to include("−")
     end
 
     it "minus link on 2-pane redirects to show" do

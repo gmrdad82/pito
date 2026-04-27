@@ -3,14 +3,14 @@ require "rails_helper"
 RSpec.describe BreadcrumbComponent, type: :component do
   it "renders a single crumb as active" do
     render_inline(described_class.new(crumbs: [ "home" ]))
-    expect(page).to have_css("span", text: "[ home ]")
+    expect(page).to have_css("span", text: "[home]")
     expect(page).to have_no_css("a")
   end
 
   it "renders multiple crumbs with separator" do
     render_inline(described_class.new(crumbs: [ [ "channels", "/channels" ], "delete" ]))
-    expect(page).to have_link("[ channels ]", href: "/channels")
-    expect(page).to have_css("span", text: "[ delete ]")
+    expect(page).to have_link("[channels]", href: "/channels")
+    expect(page).to have_css("span", text: "[delete]")
     expect(page).to have_css("span.text-muted", text: "/")
   end
 

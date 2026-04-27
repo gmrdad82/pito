@@ -31,6 +31,20 @@ class VideosController < ApplicationController
     end
   end
 
+  def new
+    @video = Video.new
+  end
+
+  def create
+    @video = Video.new(video_params)
+    @video.youtube_video_id ||= "local_#{SecureRandom.hex(8)}"
+    if @video.save
+      redirect_to video_path(@video), notice: "video created."
+    else
+      render :new, status: :unprocessable_entity
+    end
+  end
+
   def edit
     @video = Video.find(params[:id])
   end
@@ -71,6 +85,6 @@ class VideosController < ApplicationController
   end
 
   def video_params
-    params.require(:video).permit(:title, :description, :privacy_status, :category_id, :default_language, :made_for_kids, :tags)
+    params.require(:video).permit(:title, :description, :privacy_status, :category_id, :default_language, :made_for_kids, :tags, :channel_id)
   end
 end

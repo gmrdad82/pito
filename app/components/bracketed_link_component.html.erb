@@ -1,5 +1,5 @@
 <% if active? %>
-<span style="font-weight: bold; color: var(--color-text-bold);">[ <%= @label %> ]</span>
+<span style="font-weight: bold; color: var(--color-text-bold);">[<%= @label %>]</span>
 <% else %>
-<%= link_to @href, class: css_classes, data: html_data do %>[ <span class="bl"><%= @label %></span> ]<% end %>
+<%= link_to @href, class: css_classes, data: html_data do %>[<span class="bl"><%= @label %></span>]<% end %>
 <% end %>

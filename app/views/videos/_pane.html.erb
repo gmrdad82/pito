@@ -35,11 +35,11 @@
       <table data-sortable-table-target="table">
         <thead>
           <tr>
-            <th class="sortable" data-action="click->sortable-table#sort" data-sort-type="date">date</th>
-            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="number">views</th>
-            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="number">likes</th>
-            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="number">comments</th>
-            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="number">watch time</th>
+            <%= render(SortableHeaderComponent.new(label: "date", sort_type: "date")) %>
+            <%= render(SortableHeaderComponent.new(label: "views", sort_type: "number", numeric: true)) %>
+            <%= render(SortableHeaderComponent.new(label: "likes", sort_type: "number", numeric: true)) %>
+            <%= render(SortableHeaderComponent.new(label: "chats", sort_type: "number", numeric: true)) %>
+            <%= render(SortableHeaderComponent.new(label: "watch", sort_type: "number", numeric: true)) %>
           </tr>
         </thead>
         <tbody>
@@ -49,7 +49,7 @@
               <td class="num"><%= number_with_delimiter(stat.views) %></td>
               <td class="num"><%= number_with_delimiter(stat.likes) %></td>
               <td class="num"><%= number_with_delimiter(stat.comments) %></td>
-              <td class="num"><span data-sort-value="<%= stat.watch_time_minutes %>"><%= format_watch_time(stat.watch_time_minutes) %></span></td>
+              <td class="num"><span data-sort-value="<%= stat.watch_time_minutes.to_f.round %>"><%= format_watch_time(stat.watch_time_minutes) %></span></td>
             </tr>
           <% end %>
         </tbody>

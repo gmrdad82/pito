@@ -68,7 +68,8 @@ Tooltip: `--color-tooltip-bg` / `--color-tooltip-text` adapt per theme.
 
 ## Dark Mode
 
-- Toggle button in navbar: `[ dark ]` / `[ light ]` — shows the opposite of current theme
+- Toggle: `(n)` keycap in navbar — Dracula bg color in light mode, white in dark mode
+- Keyboard shortcut: press `n` to toggle (disabled in inputs/textareas)
 - Three-value AppSetting: `light`, `dark`, `auto` (match system)
 - Priority: localStorage > server AppSetting > system preference
 - Flash prevention: inline `<script>` in `<head>` applies theme before body renders
@@ -76,15 +77,38 @@ Tooltip: `--color-tooltip-bg` / `--color-tooltip-text` adapt per theme.
 - Chart recoloring: `window.recolorCharts()` called after theme toggle, reads CSS vars
 - Server persistence: `PATCH /settings/theme` via fetch
 
+## Keyboard Shortcuts
+
+- `n` — toggle dark/light theme
+- `/` — focus search input
+- `?` — show keyboard shortcuts dialog
+- All shortcuts disabled when typing in inputs, textareas, selects, or contenteditable
+
 ## Interactive Elements
 
 ### Bracketed Links / Buttons
 
-All clickable elements use the `[ label ]` convention:
-- **Linked:** `<a class="bracketed">[ <span class="bl">label</span> ]</a>` — theme link color, bold
-- **Active (current page):** `<span style="font-weight: bold; color: var(--color-text-bold);">[ label ]</span>` — bold, not a link
+All clickable elements use the `[label]` convention (no spaces inside brackets):
+- **Component:** `BracketedLinkComponent` — use this instead of inline HTML
+- **Linked:** renders `<a class="bracketed">[<span class="bl">label</span>]</a>` — theme link color, bold
+- **Active (current page):** renders `<span style="font-weight: bold;">[label]</span>` — bold, not a link
 - **Destructive:** adds `text-danger` class (danger color)
-- **Labels:** use the shortest clear verb — `[ save ]` not `[ save view ]`, `[ delete ]` not `[ delete saved view ]`
+- **Labels:** use the shortest clear verb — `[save]` not `[save view]`, `[delete]` not `[delete saved view]`
+- **Separator dots:** use `<span class="text-muted">&middot;</span>` between adjacent bracketed links
+
+### Keycaps
+
+Keyboard shortcut indicators use `(key)` style via `.keycap` CSS class:
+- Parentheses generated via `::before`/`::after` pseudo-elements
+- Bold, link-colored, pointer cursor
+- Theme toggle keycap uses theme-aware colors (`.keycap-theme`)
+
+### Checkboxes
+
+Markdown-style checkboxes via `CheckboxComponent`:
+- Unchecked: `[ ]`, Checked: `[x]`, Indeterminate: `[-]`
+- Hidden native `<input>`, styled via `.md-check-indicator::before`
+- Optional muted label via `.md-check-label`
 
 ### Cursor
 
@@ -93,34 +117,111 @@ All clickable elements use the `[ label ]` convention:
 
 ### Chart Legends
 
-- Legends use bracketed label style: `[ likes ]`, `[ comments ]`
+- Legends use bracketed label style: `[likes]`, `[chats]`
 - **Active (visible):** bold, colored in the dataset's chart color, `cursor: pointer`
 - **Hidden (toggled off):** bold, bracketed, muted color (`--color-muted`), `cursor: pointer`
 - No color boxes/swatches — the colored text itself indicates the series
 - Clicking toggles dataset visibility (Chart.js default behavior)
-- Font weight set globally via `Chart.defaults.plugins.legend.labels.font`
 
-## Charts
+## Tables
 
-- **Animation:** disabled (snappy rendering)
-- **Font:** same monospace as site, 11px
-- **Line width:** 1.5px, point radius 0 (hover radius 8)
-- **Legend:** bottom position, bracketed labels (see above)
-- **Crosshair:** vertical dashed hairline on hover with colored dots at intersections (line charts only, opt-out with `plugins: { crosshair: false }`)
-- **Synced crosshair:** charts in the same `data-sync-group` share hover position. Dashboard syncs daily views, views by channel, and daily engagement.
-- **Tooltip:** shows all datasets at hovered x position (`interaction.mode: "index"`)
-- **Colors:** never red. Use `--color-chart-N` variables. JS `recolorCharts()` applies them after render and on theme toggle.
-- **Grid lines:** use `--color-chart-grid` for theme adaptation
-- **Tooltip styling:** uses `--color-tooltip-bg` and `--color-tooltip-text`
+### Column Headers
+
+Short labels for compact display:
+
+| Data | Header |
+|------|--------|
+| subscribers | subs |
+| connected/OAuth | OAuth |
+| comments | chats |
+| watch time | watch |
+| privacy status | state |
+| published date | date |
+| duration | length |
+| title, channel, views, likes, trend, videos | unchanged |
+
+### Sortable Headers
+
+- **Component:** `SortableHeaderComponent` — renders `<th>` with sort data attributes
+- Sort arrows (▲▼) positioned absolutely at the right edge of the cell, touching the column separator
+- Active sort shows single arrow (▲ or ▼)
+- Tables use `width: auto` — no unnecessary whitespace
+
+### Table Layout
+
+- `border-collapse: collapse`, 13px font
+- `width: auto` — tables hug their content
+- Header background: `--color-bg-header`
+- Alternating row colors: `--color-bg-alt`
+- Hover: `--color-bg-hover`
+- `white-space: nowrap` on all cells
+
+## Forms
+
+### Form Fields
+
+- **Component:** `FormFieldComponent` — handles label, input, and per-field error display
+- Supports types: `:text_field`, `:text_area`, `:select`, `:collection_select`
+- **Labels:** bold, block display, 2px bottom margin
+- **Inputs:** full width, 1px solid border (`--color-input-border`), 2px border-radius
+- **Error state:** red border (`--color-danger`) on invalid field, red error text below (12px)
+- **Flash error:** "couldn't create" or "couldn't update" depending on context
+- Form partials (`_form.html.erb`) shared between new and edit views
+- Form container: `max-width: 480px`
+- Submit + cancel: flex row with 6px gap — `[save]` button + `[cancel]` link
+
+### Flash Messages
+
+- Simple, non-formal language
+- Success: "channel created.", "video updated.", "settings saved."
+- Error: "couldn't create — check the fields below.", "couldn't update — check the fields below."
+- Notices: blue-tinted background, errors: red-tinted background
+
+## Panes (Multi-item View)
+
+### Desktop
+
+- Side-by-side flex layout with 2px solid vertical dividers
+- Reorder arrows: ◀ ▶ positioned at divider edges
+
+### Mobile
+
+- Stacked vertically with 1px hairline separator, 20px gap
+- Reorder arrows: ▼ (upper pane, tip down) and ▲ (lower pane, tip up) — centered horizontally, tip-to-tip on the hairline
+- Desktop arrows (◀ ▶) hidden on mobile, mobile arrows (▲ ▼) hidden on desktop
 
 ## Layout
 
 - Full width for data-heavy pages (videos), constrained for sparse pages (channels: 900px, forms: 480px)
 - No shadows, gradients, rounded corners
 - No icon fonts — HTML entities only (▲ ▼ ◀ ▶ − + ×)
-- Header: fixed, 32px height, theme toggle on right
+- Header: fixed, 32px height, `(n)` keycap theme toggle on right
 - Multi-column: flex-wrap with min-width for responsive stacking
 - Dashboard: 2-column flex layout with 400px min-width per column
+
+## Mobile Responsiveness
+
+- `.hide-mobile` — hidden below 768px (home nav link, search button, copyright text)
+- `.show-mobile` — shown only below 768px
+- Search input shrinks to 180px on mobile
+- Tables get horizontal scroll
+- Panes stack vertically with reorder arrows adapted
+- Dashboard charts go full width
+
+## ViewComponents
+
+All reusable UI elements are ViewComponents with specs:
+
+| Component | Purpose |
+|-----------|---------|
+| `BracketedLinkComponent` | `[label]` links and active states |
+| `BreadcrumbComponent` | Breadcrumb navigation with `/` separators |
+| `CheckboxComponent` | Markdown-style `[ ]`/`[x]`/`[-]` checkboxes |
+| `ChartToolbarComponent` | Range selector (7d, 30d, 90d, 1y, all) |
+| `FormFieldComponent` | Form fields with labels, inputs, and error display |
+| `SavedViewsSectionComponent` | Saved views dialog trigger and list |
+| `SortableHeaderComponent` | Table `<th>` with sort arrows and data attributes |
+| `StatusIndicatorComponent` | Trend indicators (▲ ▼ —) |
 
 ## Aesthetic
 

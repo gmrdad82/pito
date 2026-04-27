@@ -1,5 +1,12 @@
 # Recurring jobs — loaded by config/initializers/sidekiq.rb
-# Uncomment when sync jobs are implemented (Step 6)
+
+reindex_search:
+  cron: "0 4 * * *"
+  class: ReindexAllJob
+  queue: search
+  description: "Reindex all channels and videos in Meilisearch"
+
+# YouTube sync jobs — uncomment when beta YouTube integration is implemented
 #
 # sync_channels:
 #   cron: "0 */6 * * *"

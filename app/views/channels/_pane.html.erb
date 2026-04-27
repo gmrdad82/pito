@@ -41,12 +41,12 @@
       <table data-sortable-table-target="table">
         <thead>
           <tr>
-            <th class="sortable" data-action="click->sortable-table#sort" data-sort-type="string">title</th>
-            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="number">views</th>
-            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="number">likes</th>
-            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="string">privacy</th>
-            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="date">published</th>
-            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="number">duration</th>
+            <%= render(SortableHeaderComponent.new(label: "title", sort_type: "string")) %>
+            <%= render(SortableHeaderComponent.new(label: "views", sort_type: "number", numeric: true)) %>
+            <%= render(SortableHeaderComponent.new(label: "likes", sort_type: "number", numeric: true)) %>
+            <%= render(SortableHeaderComponent.new(label: "state", sort_type: "string", numeric: true)) %>
+            <%= render(SortableHeaderComponent.new(label: "date", sort_type: "date", numeric: true)) %>
+            <%= render(SortableHeaderComponent.new(label: "length", sort_type: "number", numeric: true)) %>
           </tr>
         </thead>
         <tbody>

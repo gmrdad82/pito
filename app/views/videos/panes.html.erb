@@ -4,7 +4,7 @@
   <% if @saved_view %>
     <%= render(BracketedLinkComponent.new(label: "delete", href: saved_view_path(@saved_view), destructive: true, method: :delete, confirm: "delete this saved view?")) %>
   <% else %>
-    <%= button_to saved_views_path, params: { saved_view: { kind: "videos", url: request.fullpath, name: pane_breadcrumb_label(@panes.compact, trunc_length: @pane_title_length) } }, form: { style: "display: inline;", data: { turbo: false } } do %>[ <span class="bl">save</span> ]<% end %>
+    <%= button_to saved_views_path, params: { saved_view: { kind: "videos", url: request.fullpath, name: pane_breadcrumb_label(@panes.compact, trunc_length: @pane_title_length) } }, form: { style: "display: inline;", data: { turbo: false } } do %>[<span class="bl">save</span>]<% end %>
   <% end %>
 <% end %>
 
@@ -13,7 +13,7 @@
 
 <div data-controller="add-pane">
   <div style="margin-bottom: 6px;">
-    <h1 style="display: inline;">videos (<%= @panes.compact.size %>)</h1><% if @available_videos&.any? %> <span style="position: relative; top: -2px;"><span class="text-muted">&middot;</span> <a href="#" class="bracketed" data-action="click->add-pane#open">[ <span class="bl">+</span> ]</a></span><% end %>
+    <h1 style="display: inline;">videos (<%= @panes.compact.size %>)</h1><% if @available_videos&.any? %> <span style="position: relative; top: -2px;"><span class="text-muted">&middot;</span> <%= render(BracketedLinkComponent.new(label: "+", href: "#", data: { action: "click->add-pane#open" })) %></span><% end %>
   </div>
 
   <div class="pane-container">
@@ -23,10 +23,12 @@
           <% if i > 0 %>
             <% swapped = pane_ids.dup; swapped[i], swapped[i-1] = swapped[i-1], swapped[i] %>
             <%= link_to "◀", "#{panes_videos_path}?ids=#{swapped.join(',')}", class: "pane-arrow pane-arrow-left", title: "move left" %>
+            <%= link_to "▲", "#{panes_videos_path}?ids=#{swapped.join(',')}", class: "pane-arrow pane-arrow-up", title: "move up" %>
           <% end %>
           <% if i < @panes.compact.size - 1 %>
             <% swapped = pane_ids.dup; swapped[i], swapped[i+1] = swapped[i+1], swapped[i] %>
             <%= link_to "▶", "#{panes_videos_path}?ids=#{swapped.join(',')}", class: "pane-arrow pane-arrow-right", title: "move right" %>
+            <%= link_to "▼", "#{panes_videos_path}?ids=#{swapped.join(',')}", class: "pane-arrow pane-arrow-down", title: "move down" %>
           <% end %>
           <div style="display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px;">
             <h2><%= video.title %></h2>

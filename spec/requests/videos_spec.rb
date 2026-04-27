@@ -19,7 +19,7 @@ RSpec.describe "Videos", type: :request do
 
     it "includes bulk toggle link" do
       get videos_path
-      expect(response.body).to include("actions")
+      expect(response.body).to include("bulk")
     end
 
     context "with videos" do
@@ -137,6 +137,36 @@ RSpec.describe "Videos", type: :request do
       get video_path(video, format: :json)
       json = JSON.parse(response.body)
       expect(json).to include("id", "title", "description", "stats")
+    end
+  end
+
+  describe "GET /videos/new" do
+    it "returns 200" do
+      get new_video_path
+      expect(response).to have_http_status(:ok)
+    end
+
+    it "shows add form" do
+      get new_video_path
+      expect(response.body).to include("new video")
+    end
+  end
+
+  describe "POST /videos" do
+    let!(:channel) { create(:channel) }
+
+    it "creates video and redirects" do
+      post videos_path, params: { video: { title: "new video", channel_id: channel.id } }
+      video = Video.last
+      expect(response).to redirect_to(video_path(video))
+      expect(video.title).to eq("new video")
+      expect(video.youtube_video_id).to start_with("local_")
+    end
+
+    it "re-renders new on invalid data" do
+      post videos_path, params: { video: { title: "" } }
+      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response.body).to include("couldn't create")
     end
   end
 

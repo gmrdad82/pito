@@ -4,6 +4,15 @@ Personal YouTube management tool. Tracks video performance across multiple chann
 
 Single-tenant, runs locally.
 
+## Stack
+
+- Ruby 3.4.9, Rails 8.1 with Hotwire (Turbo + Stimulus), ERB, Tailwind CSS
+- MySQL 8 (Docker) — primary datastore
+- Redis 7 (Docker) — Sidekiq queue + cache
+- Meilisearch v1.13 (Docker) — full-text search
+- Sidekiq + sidekiq-cron — background jobs
+- Chartkick + Chart.js — charts and analytics
+
 ## Requirements
 
 - Ruby 3.4.9 (via [mise](https://mise.jdx.dev/) — see `mise.toml`)
@@ -18,7 +27,7 @@ cp .env.example .env.test
 bin/setup
 ```
 
-Configure MySQL credentials:
+Configure credentials:
 
 ```bash
 EDITOR=vim bin/rails credentials:edit
@@ -34,17 +43,34 @@ mysql:
     database: pito_test
     username: root
     password: ""
+sidekiq:
+  development:
+    username: admin
+    password: admin
+  production:
+    username: admin
+    password: changeme
+```
+
+Seed sample data:
+
+```bash
+bin/rails db:seed
 ```
 
 ## Run
 
 ```bash
-bin/dev            # starts Docker, Puma, Sidekiq, Tailwind
+bin/dev
 ```
+
+Starts Docker services (MySQL, Redis, Meilisearch), Puma, Sidekiq, and Tailwind watcher.
 
 Open http://localhost:3000
 
-Seed sample data: `bin/rails db:seed`
+## Search
+
+Meilisearch powers full-text search across channels and videos. After seeding data, click `[ reindex ]` on the settings page to index all records.
 
 ## Test
 

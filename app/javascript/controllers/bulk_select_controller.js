@@ -71,11 +71,11 @@ export default class extends Controller {
         const link = document.createElement("a")
         link.href = deleteUrl
         link.className = "bracketed text-danger"
-        const bracket = document.createTextNode("[ ")
+        const bracket = document.createTextNode("[")
         const span = document.createElement("span")
         span.className = "bl"
         span.textContent = `delete ${count}`
-        const bracketEnd = document.createTextNode(" ]")
+        const bracketEnd = document.createTextNode("]")
         link.appendChild(bracket)
         link.appendChild(span)
         link.appendChild(bracketEnd)
@@ -111,12 +111,12 @@ export default class extends Controller {
     const link = document.createElement("a")
     link.href = href
     link.className = className
-    link.appendChild(document.createTextNode("[ "))
+    link.appendChild(document.createTextNode("["))
     const span = document.createElement("span")
     span.className = "bl"
     span.textContent = label
     link.appendChild(span)
-    link.appendChild(document.createTextNode(" ]"))
+    link.appendChild(document.createTextNode("]"))
     el.replaceChildren(link)
   }
 }

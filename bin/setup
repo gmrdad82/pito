@@ -20,8 +20,9 @@ FileUtils.chdir APP_ROOT do
   loop do
     mysql_healthy = `docker compose ps --format json mysql 2>/dev/null`.include?('"healthy"')
     redis_healthy = `docker compose ps --format json redis 2>/dev/null`.include?('"healthy"')
+    meili_healthy = `docker compose ps --format json meilisearch 2>/dev/null`.include?('"healthy"')
 
-    if mysql_healthy && redis_healthy
+    if mysql_healthy && redis_healthy && meili_healthy
       puts "All services healthy."
       break
     end

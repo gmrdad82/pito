@@ -1,11 +1,11 @@
 <span data-controller="saved-views">
-  <a href="#" class="bracketed" data-action="click->saved-views#open">[ <span class="bl">saved views</span> ]</a>
+  <%= render(BracketedLinkComponent.new(label: "saved views", href: "#", data: { action: "click->saved-views#open" })) %>
 
   <dialog data-saved-views-target="dialog" data-action="click->saved-views#clickOutside" class="pane-dialog">
     <div style="padding: 12px; min-width: 400px; max-width: 90vw; width: max-content;">
       <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
         <h2>saved views</h2>
-        <a href="#" class="bracketed" data-action="click->saved-views#close">[ <span class="bl">close</span> ]</a>
+        <%= render(BracketedLinkComponent.new(label: "close", href: "#", data: { action: "click->saved-views#close" })) %>
       </div>
       <% @saved_views.each do |view| %>
         <div style="display: flex; align-items: baseline; gap: 6px; margin-top: 4px; white-space: nowrap;">

@@ -6,7 +6,8 @@ RSpec.describe ApplicationHelper, type: :helper do
       allow(helper).to receive(:current_page?).with("/channels").and_return(false)
       result = helper.nav_link("channels", "/channels")
       expect(result).to include("<a")
-      expect(result).to include("[ ")
+      expect(result).to include("[<span")
+      expect(result).to include("channels</span>]")
       expect(result).to include("channels")
       expect(result).to include("/channels")
       expect(result).to include("bracketed")
@@ -16,7 +17,7 @@ RSpec.describe ApplicationHelper, type: :helper do
       allow(helper).to receive(:current_page?).with("/").and_return(true)
       result = helper.nav_link("home", "/")
       expect(result).to include("<span")
-      expect(result).to include("[ home ]")
+      expect(result).to include("[home]")
       expect(result).to include("font-weight: bold")
       expect(result).not_to include("<a")
     end

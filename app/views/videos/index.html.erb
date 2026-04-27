@@ -3,8 +3,11 @@
 <div style="max-width: 1400px;" data-controller="bulk-select" data-bulk-select-max-panes-value="<%= @max_panes %>" data-bulk-select-entity-name-value="videos" data-bulk-select-panes-path-value="/videos/panes" data-bulk-select-delete-type-value="video">
   <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;">
     <h1>videos</h1>
+    <span class="text-muted">&middot;</span>
+    <%= render(BracketedLinkComponent.new(label: "add", href: new_video_path)) %>
     <span data-bulk-select-target="bulkToggle">
-      <a href="#" class="bracketed" data-action="click->bulk-select#enterBulk">[ <span class="bl">actions</span> ]</a>
+      <span class="text-muted">&middot;</span>
+      <%= render(BracketedLinkComponent.new(label: "bulk", href: "#", data: { action: "click->bulk-select#enterBulk" })) %>
     </span>
     <span style="margin-left: auto;"><%= render(SavedViewsSectionComponent.new(saved_views: @saved_views || SavedView.none, kind: "videos")) %></span>
   </div>
@@ -17,7 +20,7 @@
         <span data-bulk-select-target="count" hidden></span>
         <span data-bulk-select-target="deleteAction" hidden></span>
         &middot;
-        <a href="#" class="bracketed" data-action="click->bulk-select#exitBulk">[ <span class="bl">cancel</span> ]</a>
+        <%= render(BracketedLinkComponent.new(label: "cancel", href: "#", data: { action: "click->bulk-select#exitBulk" })) %>
       </div>
 
       <table data-sortable-table-target="table">
@@ -26,17 +29,17 @@
             <th class="col-action" data-bulk-select-target="bulkCol" hidden>
               <%= render(CheckboxComponent.new(data: { bulk_select_target: "headerCheckbox", action: "change->bulk-select#toggleAll" })) %>
             </th>
-            <th class="col-action" data-bulk-select-target="actionCol"><a href="#" class="bracketed">[ <span class="bl">add</span> ]</a></th>
-            <th class="sortable" data-action="click->sortable-table#sort" data-sort-type="string">title</th>
-            <th class="sortable" data-action="click->sortable-table#sort" data-sort-type="string">channel</th>
-            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="number">views</th>
-            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="number">trend</th>
-            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="number">likes</th>
-            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="number">comments</th>
-            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="number">watch time</th>
-            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="string">privacy</th>
-            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="date">published</th>
-            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="number">duration</th>
+            <th class="col-action" data-bulk-select-target="actionCol"></th>
+            <%= render(SortableHeaderComponent.new(label: "title", sort_type: "string")) %>
+            <%= render(SortableHeaderComponent.new(label: "channel", sort_type: "string")) %>
+            <%= render(SortableHeaderComponent.new(label: "views", sort_type: "number", numeric: true)) %>
+            <%= render(SortableHeaderComponent.new(label: "trend", sort_type: "number", numeric: true)) %>
+            <%= render(SortableHeaderComponent.new(label: "likes", sort_type: "number", numeric: true)) %>
+            <%= render(SortableHeaderComponent.new(label: "chats", sort_type: "number", numeric: true)) %>
+            <%= render(SortableHeaderComponent.new(label: "watch", sort_type: "number", numeric: true)) %>
+            <%= render(SortableHeaderComponent.new(label: "state", sort_type: "string", numeric: true)) %>
+            <%= render(SortableHeaderComponent.new(label: "date", sort_type: "date", numeric: true)) %>
+            <%= render(SortableHeaderComponent.new(label: "length", sort_type: "number", numeric: true)) %>
           </tr>
         </thead>
         <tbody>
@@ -52,7 +55,7 @@
               <td class="num"><%= view_trend_indicator(video) %></td>
               <td class="num"><%= number_with_delimiter(video.total_likes) %></td>
               <td class="num"><%= number_with_delimiter(video.total_comments) %></td>
-              <td class="num"><span data-sort-value="<%= video.total_watch_time %>"><%= format_watch_time(video.total_watch_time) %></span></td>
+              <td class="num"><span data-sort-value="<%= video.total_watch_time.to_i %>"><%= format_watch_time(video.total_watch_time) %></span></td>
               <td class="num"><%= video.privacy_status&.sub("_video", "") || "—" %></td>
               <td class="num"><%= video.published_at&.strftime("%Y-%m-%d") %></td>
               <td class="num"><%= format_duration(video.duration_seconds) %></td>

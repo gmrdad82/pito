@@ -3,8 +3,11 @@
 <div style="max-width: 900px;" data-controller="bulk-select" data-bulk-select-max-panes-value="<%= max_panes %>" data-bulk-select-entity-name-value="channels" data-bulk-select-panes-path-value="<%= panes_channels_path %>" data-bulk-select-delete-type-value="channel">
   <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;">
     <h1>channels</h1>
+    <span class="text-muted">&middot;</span>
+    <%= render(BracketedLinkComponent.new(label: "add", href: new_channel_path)) %>
     <span data-bulk-select-target="bulkToggle">
-      <a href="#" class="bracketed" data-action="click->bulk-select#enterBulk">[ <span class="bl">actions</span> ]</a>
+      <span class="text-muted">&middot;</span>
+      <%= render(BracketedLinkComponent.new(label: "bulk", href: "#", data: { action: "click->bulk-select#enterBulk" })) %>
     </span>
     <span style="margin-left: auto;"><%= render(SavedViewsSectionComponent.new(saved_views: @saved_views || SavedView.none, kind: "channels")) %></span>
   </div>
@@ -17,7 +20,7 @@
         <span data-bulk-select-target="count" hidden></span>
         <span data-bulk-select-target="deleteAction" hidden></span>
         &middot;
-        <a href="#" class="bracketed" data-action="click->bulk-select#exitBulk">[ <span class="bl">cancel</span> ]</a>
+        <%= render(BracketedLinkComponent.new(label: "cancel", href: "#", data: { action: "click->bulk-select#exitBulk" })) %>
       </div>
 
       <table data-sortable-table-target="table">
@@ -26,12 +29,12 @@
             <th class="col-action" data-bulk-select-target="bulkCol" hidden>
               <%= render(CheckboxComponent.new(data: { bulk_select_target: "headerCheckbox", action: "change->bulk-select#toggleAll" })) %>
             </th>
-            <th class="col-action" data-bulk-select-target="actionCol"><a href="#" class="bracketed">[ <span class="bl">add</span> ]</a></th>
-            <th class="sortable" data-action="click->sortable-table#sort" data-sort-type="string">title</th>
-            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="string">connected</th>
-            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="number">subscribers</th>
-            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="number">videos</th>
-            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="number">views</th>
+            <th class="col-action" data-bulk-select-target="actionCol"></th>
+            <%= render(SortableHeaderComponent.new(label: "title", sort_type: "string")) %>
+            <%= render(SortableHeaderComponent.new(label: "OAuth", sort_type: "string", numeric: true)) %>
+            <%= render(SortableHeaderComponent.new(label: "subs", sort_type: "number", numeric: true)) %>
+            <%= render(SortableHeaderComponent.new(label: "videos", sort_type: "number", numeric: true)) %>
+            <%= render(SortableHeaderComponent.new(label: "views", sort_type: "number", numeric: true)) %>
           </tr>
         </thead>
         <tbody>

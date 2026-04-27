@@ -27,6 +27,20 @@ class ChannelsController < ApplicationController
     end
   end
 
+  def new
+    @channel = Channel.new
+  end
+
+  def create
+    @channel = Channel.new(channel_params)
+    @channel.youtube_channel_id ||= "local_#{SecureRandom.hex(8)}"
+    if @channel.save
+      redirect_to channel_path(@channel), notice: "channel created."
+    else
+      render :new, status: :unprocessable_entity
+    end
+  end
+
   def edit
     @channel = Channel.find(params[:id])
   end

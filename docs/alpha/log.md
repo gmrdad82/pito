@@ -424,3 +424,40 @@ Specs:
 - `spec/jobs/search_index_job_spec.rb`, `search_remove_job_spec.rb`, `reindex_all_job_spec.rb`
 - `spec/requests/search_spec.rb`, updated `settings_spec.rb`, `deletions_spec.rb`
 - `spec/components/checkbox_component_spec.rb`, updated `saved_views_section_component_spec.rb`
+
+---
+
+### Session 2
+
+**Phase 15: Cleanup + Polish** — completed
+
+Version + footer:
+- Created `VERSION` file (`0.0.1.alpha3`)
+- `version_label` helper reads VERSION + git SHA, renders `v0.0.1.alpha3 · abc1234` in footer
+- SHA is a blue clickable link to the GitHub commit page (opens in new tab)
+
+Sidekiq-cron:
+- Enabled daily Meilisearch reindex at 4am (`ReindexAllJob` on `:search` queue)
+- YouTube sync jobs remain commented, deferred to beta
+
+Mobile responsiveness:
+- Header: `min-height` + `flex-wrap` so nav wraps on narrow screens
+- Tables: `display: block; overflow-x: auto` for horizontal scroll
+- Panes: stack vertically with border-top divider instead of border-left
+- Dashboard charts: force full width on mobile
+- Reduced main padding on mobile
+
+README:
+- Added full stack description (MySQL, Redis, Meilisearch, Sidekiq, Chartkick)
+- Added search section with reindex instructions
+- Added credentials section with Sidekiq auth example
+
+bin/setup:
+- Added Meilisearch healthcheck to Docker wait loop
+
+Plan reorganization:
+- Moved YouTube phases (OAuth, Sync, Video Management, Upload) to `docs/beta/plan.md`
+- Created `docs/beta/log.md`
+- Alpha plan now only has completed phases + Phase 16 (MCP)
+
+349 specs, 0 failures

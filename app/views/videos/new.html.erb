@@ -1,0 +1,8 @@
+<% content_for(:title, "add video") %>
+<% breadcrumb(["videos", videos_path], "add video") %>
+
+<h1>new video</h1>
+
+<div style="max-width: 480px;">
+  <%= render "videos/form", video: @video, cancel_path: videos_path %>
+</div>

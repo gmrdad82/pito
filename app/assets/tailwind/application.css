@@ -153,6 +153,9 @@ a.text-danger.bracketed:hover, a.text-danger.bracketed:hover .bl { color: var(--
 .pane-arrow-right {
   right: 4px;
 }
+.pane-arrow-up, .pane-arrow-down {
+  display: none;
+}
 
 /* Detail tables — key/value, no borders */
 table.detail-table { width: auto; }
@@ -161,7 +164,7 @@ table.detail-table td { border: none; padding: 1px 0; }
 /* Dense tables */
 table {
   border-collapse: collapse;
-  width: 100%;
+  width: auto;
   font-size: 13px;
 }
 th, td {
@@ -188,15 +191,19 @@ tr:hover {
 th.sortable {
   cursor: pointer;
   user-select: none;
+  position: relative;
+  padding-right: 18px;
 }
 th.sortable::after {
   content: "\25B2\A\25BC";
   white-space: pre;
-  display: inline-block;
+  position: absolute;
+  right: 1px;
+  top: 50%;
+  transform: translateY(-50%);
   width: 14px;
   font-size: 10px;
   line-height: 0.8;
-  vertical-align: middle;
   text-align: center;
   color: var(--color-link);
   font-weight: bold;
@@ -204,8 +211,8 @@ th.sortable::after {
 th.sortable:hover {
   background: var(--color-bg-header-hover);
 }
-th.sort-asc::after { content: "\25B2"; font-size: 13px; line-height: 1.4; }
-th.sort-desc::after { content: "\25BC"; font-size: 13px; line-height: 1.4; }
+th.sort-asc::after { content: "\25B2"; font-size: 13px; line-height: 1; }
+th.sort-desc::after { content: "\25BC"; font-size: 13px; line-height: 1; }
 
 /* Action column — tight, no extra padding */
 th.col-action, td.col-action {
@@ -407,3 +414,77 @@ dialog.pane-dialog {
 .md-check input:checked ~ .md-check-indicator::before { content: "[x]"; }
 .md-check input:indeterminate ~ .md-check-indicator::before { content: "[-]"; }
 .md-check-label { color: var(--color-muted); }
+
+/* Keycap — keyboard shortcut indicator */
+.keycap {
+  font-weight: bold;
+  text-decoration: none;
+  cursor: pointer;
+  color: var(--color-link);
+}
+.keycap:hover { color: var(--color-link-hover); }
+.keycap::before { content: "("; }
+.keycap::after { content: ")"; }
+
+/* Theme toggle keycap: Dracula bg color in light mode, white in dark mode */
+.keycap-theme { color: #282a36; }
+.keycap-theme:hover { color: #44475a; }
+[data-theme="dark"] .keycap-theme { color: #f8f8f2; }
+[data-theme="dark"] .keycap-theme:hover { color: #ffffff; }
+
+/* Mobile utilities */
+.hide-mobile { }
+.show-mobile { display: none !important; }
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .hide-mobile { display: none !important; }
+  .show-mobile { display: inline !important; }
+
+  /* Search input: shrink to fit */
+  .search-input { width: 180px !important; min-width: 80px; }
+  .search-form { flex-shrink: 1; min-width: 0; margin-left: 2px !important; }
+
+  /* Tables: horizontal scroll */
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Panes: stack vertically */
+  .pane-container {
+    flex-direction: column;
+    margin: 0;
+  }
+  .pane-wrapper + .pane-wrapper {
+    border-left: none;
+    border-top: 1px solid var(--color-border);
+    padding-left: 12px;
+    margin-top: 20px;
+    padding-top: 20px;
+  }
+  .pane-arrow-left, .pane-arrow-right { display: none; }
+  .pane-arrow-up, .pane-arrow-down {
+    display: inline;
+    position: absolute;
+    z-index: 99;
+    left: 50%;
+    transform: translateX(-50%);
+    line-height: 1;
+  }
+  /* ▼ lives in the upper pane — tip points down, touching the border */
+  .pane-arrow-down { top: auto; bottom: -23px; }
+  /* ▲ lives in the lower pane — tip points up, touching the border */
+  .pane-arrow-up { top: -2px; }
+
+  /* Dashboard charts: full width stack */
+  div[style*="display: flex"][style*="flex-wrap: wrap"] > div {
+    min-width: 100% !important;
+  }
+
+  /* Reduce main padding */
+  main {
+    padding: 6px 8px !important;
+  }
+}

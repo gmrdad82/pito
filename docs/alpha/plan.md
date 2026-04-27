@@ -56,73 +56,17 @@
 
 - [x] **Step 40 (combined):** Dark mode with Dracula-inspired dark theme, CSS custom properties for all colors, theme toggle `[ dark ]` / `[ light ]` in navbar, AppSetting persistence (light/dark/auto), Stimulus theme controller with localStorage + server sync, flash prevention `<script>` in `<head>`, Chart.js theme-aware recoloring (`recolorCharts()`), synced crosshair plugin across dashboard charts, `docs/design.md` comprehensive design system document, page width constraints (channels 900px, videos 1400px), Sidekiq testing API update, bold chart legend labels, theme endpoint specs
 
-## Phase 10 — Settings + OAuth (deferred — YouTube integration later)
-
-- [x] **Step 40:** Settings page — max_panes already implemented (AppSetting + settings UI + ENV fallback). max_concurrent_uploads deferred to upload phase.
-- [ ] **Step 41:** OAuth service objects — Youtube::OauthClient for token exchange/refresh, WebMock-stubbed specs
-- [ ] **Step 42:** Channel OAuth connect — `/channels/:id/oauth/connect` with breadcrumb, initiates OAuth flow, stores tokens, sets connected=true
-- [ ] **Step 43:** Channel OAuth disconnect — action screen, dry-run preview, revokes tokens, sets connected=false
-
-## Phase 11 — Sync (deferred — YouTube integration later)
-
-- [ ] **Step 44:** Youtube::ChannelFetcher service — fetch channel metadata via Data API, WebMock specs
-- [ ] **Step 45:** Youtube::VideoFetcher service — fetch video list + metadata for a channel, WebMock specs
-- [ ] **Step 46:** Youtube::AnalyticsFetcher service — fetch daily stats per video via Analytics API, WebMock specs
-- [ ] **Step 47:** Youtube::PlaylistManager service — fetch playlists + items, WebMock specs
-- [ ] **Step 48:** SyncChannelJob — orchestrates channel metadata + video list sync, job specs
-- [ ] **Step 49:** SyncVideoStatsJob — daily stats sync (last 30 days, idempotent), job specs
-- [ ] **Step 50:** SyncPlaylistsJob — playlist + items sync, job specs
-
-## Phase 12 — Video Management Action Screens (deferred — YouTube integration later)
-
-- [ ] **Step 51:** Youtube::VideoUpdater service — update title/description/tags/category/privacy/schedule via Data API, WebMock specs
-- [ ] **Step 52:** Youtube::ThumbnailUpdater service — set custom thumbnail, WebMock specs
-- [ ] **Step 53:** MetadataEditsController — action screen for editing video metadata (bulk: prefix/suffix, tags add/remove, category set)
-- [ ] **Step 54:** SchedulingsController — action screen for scheduling publish (bulk: stagger option)
-- [ ] **Step 55:** PrivacyChangesController — action screen for changing privacy status
-- [ ] **Step 56:** ThumbnailChangesController — action screen for changing thumbnails
-- [ ] **Step 57:** PlaylistAdditionsController — action screen for adding videos to playlists
-
-## Phase 13 — Video Upload (deferred — YouTube integration later)
-
-Upload architecture: browser uploads directly to YouTube API via resumable upload. Backend never touches file bytes — only provides the resumable URI (using channel's OAuth token) and tracks upload status. Each connected channel also gets a direct YouTube Studio link as fallback.
-
-- [ ] **Step 58:** Youtube::ResumableUploadInitiator service — uses channel OAuth token to get resumable upload URI from YouTube, WebMock specs
-- [ ] **Step 59:** Upload page — `/videos/upload`, channel selector, file picker, metadata form (title/description/privacy/tags)
-- [ ] **Step 60:** Client-side upload Stimulus controller — browser streams file directly to YouTube via resumable URI, chunked with progress bar
-- [ ] **Step 61:** Upload status tracking — VideoUpload record updated via Turbo Stream, completion links to synced Video
-- [ ] **Step 62:** YouTube Studio links — per-channel `[ YouTube Studio ]` link on channel detail (studio.youtube.com/channel/{id})
-
 ## Phase 14 — Bigger Seed + Meilisearch Search + UI Polish
 
 - [x] **Step 40 (combined):** Bigger seed data (10 channels, 270 videos), Meilisearch search stack, UI polish
-  - Seed: 10 channels across diverse niches, 270 videos with varied categories/languages/privacy, 90 days of stats
-  - Meilisearch Docker service (v1.13, port 7700), `meilisearch` gem (direct HTTP)
-  - `Search::Engine` abstract interface + `Search::MeilisearchEngine` implementation
-  - `Searchable` concern on Channel/Video with `searchable`/`filterable` macros + after_commit callbacks
-  - `SearchIndexJob`, `SearchRemoveJob`, `ReindexAllJob` on dedicated `:search` queue
-  - `SearchController#show` — combined channels + videos results with highlighting, HTML + JSON
-  - Navbar search input (200px) with `[ search ]` button, separator dot
-  - Settings page split: form with `[ save ]` above `<hr>`, search status + `[ reindex ]` below
-  - Saved views as `[ saved views ]` modal dialog (width: max-content)
-  - Clean deletion URLs (`/deletions/:type/:ids` path segments)
-  - `BulkDeleteJob` on dedicated `:bulk_deletion` queue, 3s delay
-  - Deletion breadcrumbs show item count ("delete 3 videos")
-  - `CheckboxComponent` — markdown-style `[ ]`/`[x]`/`[-]` with optional muted label
-  - Chart sync checkboxes on dashboard line charts (per-chart toggle)
-  - Separator dots (`·`) between all adjacent bracketed links/actions
-  - Link alignment nudges next to h1/h2 headings
-  - Fixed Stimulus controllers (restored `eagerLoadControllersFrom` for importmap compatibility)
-  - Replaced all `innerHTML` with safe DOM methods in `bulk_select_controller.js`
-  - Sidekiq queue separation: default, bulk_deletion, search (`config/sidekiq.yml`)
-  - Comprehensive specs across all new code
 
-## Phase 15 — Finalize (pre-MCP)
+## Phase 15 — Cleanup + Polish (pre-MCP)
 
-- [ ] **Step 70:** sidekiq-cron schedule — recurring sync jobs in config/sidekiq_cron.yml
-- [ ] **Step 71:** Mobile responsiveness — single column stack, header wrap, table horizontal scroll, pane stacking
-- [ ] **Step 72:** Accessibility audit — skip-to-content link, aria attributes, focus rings, heading hierarchy, WCAG AA contrast
-- [ ] **Step 73:** Final polish — README update, bin/setup improvements, cleanup
+- [x] **Step 70:** VERSION file + dynamic footer — version read from `VERSION`, clickable git SHA in footer, bumped to v0.0.1.alpha3
+- [x] **Step 71:** sidekiq-cron schedule — daily Meilisearch reindex at 4am, YouTube sync jobs commented for beta
+- [x] **Step 72:** Mobile responsiveness — header wraps, tables horizontal scroll, panes stack vertically, charts full width
+- [x] **Step 73:** Final polish — README update with full stack description, bin/setup Meilisearch healthcheck, cleanup
+- [x] Moved YouTube-related phases (OAuth, Sync, Video Management, Upload) to `docs/beta/plan.md`
 
 ## Phase 16 — MCP Server (Model Context Protocol)
 

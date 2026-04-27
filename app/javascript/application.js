@@ -29,7 +29,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const hidden = meta.hidden
       const color = ds.borderColor || ds.backgroundColor
       return {
-        text: `[ ${ds.label} ]`,
+        text: `[${ds.label}]`,
         fillStyle: "transparent",
         strokeStyle: "transparent",
         lineWidth: 0,

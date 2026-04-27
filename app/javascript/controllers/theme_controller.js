@@ -4,32 +4,40 @@ import { Controller } from "@hotwired/stimulus"
 // Reads initial preference from data-theme-preference on <html>.
 // Falls back to localStorage, then system preference.
 export default class extends Controller {
-  static targets = ["label", "toggle"]
+  static targets = ["toggle"]
 
   connect() {
     this.applyTheme()
     this.mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
     this.mediaQuery.addEventListener("change", this.onSystemChange)
+    this.boundKeydown = this.onKeydown.bind(this)
+    document.addEventListener("keydown", this.boundKeydown)
   }
 
   disconnect() {
     this.mediaQuery?.removeEventListener("change", this.onSystemChange)
+    document.removeEventListener("keydown", this.boundKeydown)
+  }
+
+  onKeydown(event) {
+    if (event.target.matches("input, textarea, select, [contenteditable]")) return
+    if (event.metaKey || event.ctrlKey || event.altKey) return
+    if (event.key === "n") {
+      event.preventDefault()
+      this.doToggle()
+    }
   }
 
   toggle(event) {
     event.preventDefault()
+    this.doToggle()
+  }
+
+  doToggle() {
     const current = this.effectiveTheme()
     const next = current === "dark" ? "light" : "dark"
     localStorage.setItem("pito-theme", next)
     this.applyTheme({ syncRadio: true })
-
-    // Show loader while saving
-    if (this.hasToggleTarget) {
-      this.toggleTarget.textContent = ""
-      const loader = document.createElement("span")
-      loader.className = "dot-loader"
-      this.toggleTarget.appendChild(loader)
-    }
 
     // Persist to server
     fetch("/settings/theme", {
@@ -39,9 +47,6 @@ export default class extends Controller {
         "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]')?.content
       },
       body: JSON.stringify({ theme: next })
-    }).then(() => {
-      this.restoreToggle()
-      this.showFlash(`theme changed to ${next}.`)
     })
   }
 
@@ -49,9 +54,6 @@ export default class extends Controller {
     const theme = this.effectiveTheme()
     document.documentElement.setAttribute("data-theme", theme)
     document.documentElement.dataset.themePreference = localStorage.getItem("pito-theme") || "auto"
-    if (this.hasLabelTarget) {
-      this.labelTarget.textContent = theme === "dark" ? "light" : "dark"
-    }
     if (window.recolorCharts) setTimeout(window.recolorCharts, 50)
 
     // Only sync radio buttons when triggered by the toggle button
@@ -63,23 +65,6 @@ export default class extends Controller {
     }
   }
 
-  restoreToggle() {
-    if (!this.hasToggleTarget) return
-    const theme = this.effectiveTheme()
-    const label = theme === "dark" ? "light" : "dark"
-    this.toggleTarget.textContent = ""
-
-    const openBracket = document.createTextNode("[ ")
-    const span = document.createElement("span")
-    span.className = "bl"
-    span.dataset.themeTarget = "label"
-    span.textContent = label
-    const closeBracket = document.createTextNode(" ]")
-
-    this.toggleTarget.appendChild(openBracket)
-    this.toggleTarget.appendChild(span)
-    this.toggleTarget.appendChild(closeBracket)
-  }
 
   effectiveTheme() {
     const stored = localStorage.getItem("pito-theme")

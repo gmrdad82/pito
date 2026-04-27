@@ -3,20 +3,20 @@ require "rails_helper"
 RSpec.describe BracketedLinkComponent, type: :component do
   it "renders a linked bracketed link" do
     render_inline(described_class.new(label: "open", href: "/channels/1"))
-    expect(page).to have_link("[ open ]", href: "/channels/1")
+    expect(page).to have_link("[open]", href: "/channels/1")
     expect(page).to have_css("a.bracketed")
     expect(page).to have_css("span.bl", text: "open")
   end
 
   it "renders active state as bold span" do
     render_inline(described_class.new(label: "home", active: true))
-    expect(page).to have_css("span", text: "[ home ]")
+    expect(page).to have_css("span", text: "[home]")
     expect(page).to have_no_css("a")
   end
 
   it "renders active when href is nil" do
     render_inline(described_class.new(label: "home"))
-    expect(page).to have_css("span", text: "[ home ]")
+    expect(page).to have_css("span", text: "[home]")
     expect(page).to have_no_css("a")
   end
 

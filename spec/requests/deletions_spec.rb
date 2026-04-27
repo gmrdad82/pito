@@ -19,11 +19,11 @@ RSpec.describe "Deletions", type: :request do
         expect(response.body).to include("delete 2 channels")
       end
 
-      it "shows preview table with video count and subscribers" do
+      it "shows preview table with video count and subs" do
         create(:video, channel: channel)
         get deletions_path(type: "channel", ids: channel.id)
         expect(response.body).to include("videos")
-        expect(response.body).to include("subscribers")
+        expect(response.body).to include("subs")
       end
 
       it "shows breadcrumb with cancel link" do

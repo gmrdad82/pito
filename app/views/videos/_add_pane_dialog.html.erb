@@ -2,7 +2,7 @@
   <div style="padding: 12px; min-width: 400px; max-width: 600px;">
     <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
       <h2>add a video</h2>
-      <a href="#" class="bracketed" data-action="click->add-pane#close">[ <span class="bl">close</span> ]</a>
+      <%= render(BracketedLinkComponent.new(label: "close", href: "#", data: { action: "click->add-pane#close" })) %>
     </div>
     <% if available_videos.any? %>
       <table>

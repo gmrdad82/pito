@@ -43,6 +43,7 @@ module ApplicationHelper
 
   def format_watch_time(minutes)
     return "—" unless minutes&.positive?
+    minutes = minutes.round
     hours = minutes / 60
     mins = minutes % 60
     if hours > 0
@@ -57,6 +58,28 @@ module ApplicationHelper
     when "channel" then channels_path
     when "video" then videos_path
     else root_path
+    end
+  end
+
+  def app_version
+    @_app_version ||= Rails.root.join("VERSION").read.strip
+  end
+
+  def git_sha
+    @_git_sha ||= begin
+      sha = `git rev-parse --short HEAD 2>/dev/null`.strip
+      sha.present? ? sha : nil
+    end
+  end
+
+  def version_label
+    sha = git_sha
+    version = "v#{app_version}"
+    if sha
+      repo_url = "https://github.com/gmrdad82/pito/commit/#{sha}"
+      "#{version} · #{link_to(sha, repo_url, target: '_blank', rel: 'noopener')}".html_safe
+    else
+      version
     end
   end
 

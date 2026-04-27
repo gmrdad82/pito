@@ -15,11 +15,11 @@ RSpec.describe ChartToolbarComponent, type: :component do
 
   it "renders inactive ranges as links" do
     render_inline(described_class.new(current_range: "7d", base_path: "/"))
-    expect(page).to have_link("[ 30d ]", href: "/?range=30d")
+    expect(page).to have_link("[30d]", href: "/?range=30d")
   end
 
   it "builds correct paths" do
     render_inline(described_class.new(current_range: "30d", base_path: "/dashboard"))
-    expect(page).to have_link("[ 7d ]", href: "/dashboard?range=7d")
+    expect(page).to have_link("[7d]", href: "/dashboard?range=7d")
   end
 end
