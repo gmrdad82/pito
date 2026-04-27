@@ -1,0 +1,5 @@
+<% if active? %>
+<span style="font-weight: bold; color: #1a1a1a;">[ <%= @label %> ]</span>
+<% else %>
+<%= link_to @href, class: css_classes, data: html_data do %>[ <span class="bl"><%= @label %></span> ]<% end %>
+<% end %>

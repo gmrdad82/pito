@@ -1,0 +1,61 @@
+<div class="pane" style="flex: 1; min-width: 0;">
+  <table class="detail-table" style="margin-bottom: 8px;">
+    <tr>
+      <td class="text-muted" style="padding-right: 12px;">youtube ID</td>
+      <td><%= video.youtube_video_id %></td>
+    </tr>
+    <tr>
+      <td class="text-muted" style="padding-right: 12px;">channel</td>
+      <td><%= video.channel.title %></td>
+    </tr>
+    <tr>
+      <td class="text-muted" style="padding-right: 12px;">privacy</td>
+      <td><%= video.privacy_status&.sub("_video", "") || "—" %></td>
+    </tr>
+    <tr>
+      <td class="text-muted" style="padding-right: 12px;">published</td>
+      <td><%= video.published_at&.strftime("%Y-%m-%d %H:%M") || "—" %></td>
+    </tr>
+    <tr>
+      <td class="text-muted" style="padding-right: 12px;">duration</td>
+      <td><%= format_duration(video.duration_seconds) %></td>
+    </tr>
+    <% if video.description.present? %>
+      <tr>
+        <td class="text-muted" style="padding-right: 12px;">description</td>
+        <td><%= video.description %></td>
+      </tr>
+    <% end %>
+  </table>
+
+  <% stats = video.video_stats.order(date: :desc).limit(30) %>
+  <% if stats.any? %>
+    <h3>recent stats (<%= stats.size %> days)</h3>
+    <div data-controller="sortable-table" data-sortable-table-id-value="<%= video.id %>">
+      <table data-sortable-table-target="table">
+        <thead>
+          <tr>
+            <th class="sortable" data-action="click->sortable-table#sort" data-sort-type="date">date</th>
+            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="number">views</th>
+            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="number">likes</th>
+            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="number">comments</th>
+            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="number">watch time</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% stats.each do |stat| %>
+            <tr>
+              <td><%= stat.date.strftime("%Y-%m-%d") %></td>
+              <td class="num"><%= number_with_delimiter(stat.views) %></td>
+              <td class="num"><%= number_with_delimiter(stat.likes) %></td>
+              <td class="num"><%= number_with_delimiter(stat.comments) %></td>
+              <td class="num"><span data-sort-value="<%= stat.watch_time_minutes %>"><%= format_watch_time(stat.watch_time_minutes) %></span></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% else %>
+    <p class="text-muted">no stats yet.</p>
+  <% end %>
+</div>

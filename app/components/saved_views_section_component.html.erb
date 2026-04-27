@@ -1,0 +1,16 @@
+<div style="margin-bottom: 12px;">
+  <h3>saved views</h3>
+  <% @saved_views.each do |view| %>
+    <div style="display: flex; align-items: baseline; gap: 6px; margin-top: 2px;">
+      <%= render(BracketedLinkComponent.new(label: "open", href: view.url)) %>
+      <%= render(BracketedLinkComponent.new(
+        label: "delete",
+        href: helpers.saved_view_path(view),
+        destructive: true,
+        method: :delete,
+        confirm: "delete this saved view?"
+      )) %>
+      <span><%= view.display_name_with_deletions %></span>
+    </div>
+  <% end %>
+</div>

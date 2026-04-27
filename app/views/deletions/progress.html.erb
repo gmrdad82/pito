@@ -64,5 +64,5 @@
 </table>
 
 <div style="margin-top: 12px;">
-  <%= link_to @cancel_path, class: "bracketed" do %>[ <span class="bl">back</span> ]<% end %>
+  <%= render(BracketedLinkComponent.new(label: "back", href: @cancel_path)) %>
 </div>

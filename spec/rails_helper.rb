@@ -4,6 +4,7 @@ require_relative "../config/environment"
 abort("The Rails environment is running in production mode!") if Rails.env.production?
 require "rspec/rails"
 require "webmock/rspec"
+require "capybara/rspec"
 require "sidekiq/testing"
 Sidekiq::Testing.fake!
 
@@ -23,6 +24,8 @@ RSpec.configure do |config|
 
   config.include FactoryBot::Syntax::Methods
   config.include ActiveJob::TestHelper
+  config.include ViewComponent::TestHelpers, type: :component
+  config.include Capybara::RSpecMatchers, type: :component
 
   config.before(:each) { Sidekiq::Worker.clear_all }
 end

@@ -1,5 +1,9 @@
 <% content_for(:title, @channel.title) %>
 <% breadcrumb(["channels", channels_path], @channel.title) %>
+<% content_for(:breadcrumb_actions) do %>
+  <%= render(BracketedLinkComponent.new(label: "edit", href: edit_channel_path(@channel))) %>
+  <%= render(BracketedLinkComponent.new(label: "delete", href: "/deletions?type=channel&ids=#{@channel.id}&ref=#{CGI.escape(request.fullpath)}", destructive: true)) %>
+<% end %>
 
 <div data-controller="add-pane">
   <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;">

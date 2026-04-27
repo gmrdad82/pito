@@ -1,0 +1,57 @@
+<% content_for(:title, "videos") %>
+<% breadcrumb(["videos", videos_path], pane_breadcrumb_label(@panes.compact, trunc_length: @pane_title_length)) %>
+<% content_for(:breadcrumb_actions) do %>
+  <% if @saved_view %>
+    <%= render(BracketedLinkComponent.new(label: "delete", href: saved_view_path(@saved_view), destructive: true, method: :delete, confirm: "delete this saved view?")) %>
+  <% else %>
+    <%= button_to saved_views_path, params: { saved_view: { kind: "videos", url: request.fullpath, name: pane_breadcrumb_label(@panes.compact, trunc_length: @pane_title_length) } }, form: { style: "display: inline;", data: { turbo: false } } do %>[ <span class="bl">save</span> ]<% end %>
+  <% end %>
+<% end %>
+
+<% pane_ids = @panes.compact.map(&:id) %>
+<% current_ids = pane_ids.join(",") %>
+
+<div data-controller="add-pane">
+  <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;">
+    <h1>videos (<%= @panes.compact.size %>)</h1>
+    <% if @available_videos&.any? %>
+      <a href="#" class="bracketed" data-action="click->add-pane#open">[ <span class="bl">+</span> ]</a>
+    <% end %>
+  </div>
+
+  <div class="pane-container">
+    <% @panes.each_with_index do |video, i| %>
+      <% if video %>
+        <div class="pane-wrapper" style="position: relative;">
+          <% if i > 0 %>
+            <% swapped = pane_ids.dup; swapped[i], swapped[i-1] = swapped[i-1], swapped[i] %>
+            <%= link_to "◀", "#{panes_videos_path}?ids=#{swapped.join(',')}", class: "pane-arrow pane-arrow-left", title: "move left" %>
+          <% end %>
+          <% if i < @panes.compact.size - 1 %>
+            <% swapped = pane_ids.dup; swapped[i], swapped[i+1] = swapped[i+1], swapped[i] %>
+            <%= link_to "▶", "#{panes_videos_path}?ids=#{swapped.join(',')}", class: "pane-arrow pane-arrow-right", title: "move right" %>
+          <% end %>
+          <div style="display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px;">
+            <h2><%= truncate(video.title, length: @pane_title_length, omission: "…") %></h2>
+            <%= render(BracketedLinkComponent.new(label: "focus", href: video_path(video))) %>
+            <% remaining_ids = pane_ids.reject { |id| id == video.id } %>
+            <% if remaining_ids.size > 1 %>
+              <%= render(BracketedLinkComponent.new(label: "−", href: "#{panes_videos_path}?ids=#{remaining_ids.join(',')}")) %>
+            <% elsif remaining_ids.size == 1 %>
+              <%= render(BracketedLinkComponent.new(label: "−", href: video_path(remaining_ids.first))) %>
+            <% end %>
+          </div>
+          <%= render "videos/pane", video: video %>
+        </div>
+      <% else %>
+        <div class="pane-wrapper">
+          <p class="text-muted" style="padding: 8px;">video not found.</p>
+        </div>
+      <% end %>
+    <% end %>
+  </div>
+
+  <% if @available_videos&.any? %>
+    <%= render "videos/add_pane_dialog", available_videos: @available_videos, current_ids: current_ids %>
+  <% end %>
+</div>

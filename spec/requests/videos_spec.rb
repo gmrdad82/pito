@@ -66,5 +66,167 @@ RSpec.describe "Videos", type: :request do
         expect(response.body).to include('data-bulk-select-max-panes-value="3"')
       end
     end
+
+    context "with saved views" do
+      let!(:channel) { create(:channel) }
+      let!(:video1) { create(:video, channel: channel) }
+      let!(:video2) { create(:video, channel: channel) }
+      let!(:saved_view) { create(:saved_view, kind: :videos, name: "test", url: "/videos/panes?ids=#{video1.id},#{video2.id}") }
+
+      it "renders saved views section" do
+        get videos_path
+        expect(response.body).to include("saved views")
+        expect(response.body).to include(video1.title)
+        expect(response.body).to include(video2.title)
+      end
+    end
+  end
+
+  describe "GET /videos/:id (show)" do
+    let!(:channel) { create(:channel) }
+    let!(:video) { create(:video, channel: channel, published_at: 1.day.ago, duration_seconds: 300) }
+
+    it "returns 200" do
+      get video_path(video)
+      expect(response).to have_http_status(:ok)
+    end
+
+    it "displays video detail" do
+      get video_path(video)
+      expect(response.body).to include(video.title)
+      expect(response.body).to include(video.youtube_video_id)
+    end
+
+    it "shows breadcrumb" do
+      get video_path(video)
+      expect(response.body).to include("videos")
+      expect(response.body).to include(video.title)
+    end
+
+    it "includes delete link in breadcrumb actions" do
+      get video_path(video)
+      expect(response.body).to include("delete")
+      expect(response.body).to include("/deletions")
+    end
+
+    it "includes add pane dialog when other videos exist" do
+      create(:video, channel: channel)
+      get video_path(video)
+      expect(response.body).to include("add a video")
+      expect(response.body).to include('data-controller="add-pane"')
+    end
+
+    it "returns 404 for unknown video" do
+      get video_path(id: 99999)
+      expect(response).to have_http_status(:not_found)
+    end
+  end
+
+  describe "GET /videos/:id/edit" do
+    let!(:channel) { create(:channel) }
+    let!(:video) { create(:video, channel: channel) }
+
+    it "returns 200" do
+      get edit_video_path(video)
+      expect(response).to have_http_status(:ok)
+    end
+
+    it "shows edit form" do
+      get edit_video_path(video)
+      expect(response.body).to include("edit video")
+      expect(response.body).to include(video.title)
+    end
+  end
+
+  describe "PATCH /videos/:id" do
+    let!(:channel) { create(:channel) }
+    let!(:video) { create(:video, channel: channel, title: "old title") }
+
+    it "updates video and redirects" do
+      patch video_path(video), params: { video: { title: "new title" } }
+      expect(response).to redirect_to(video_path(video))
+      expect(video.reload.title).to eq("new title")
+    end
+
+    it "re-renders edit on invalid data" do
+      patch video_path(video), params: { video: { title: "" } }
+      expect(response).to have_http_status(:unprocessable_entity)
+    end
+  end
+
+  describe "GET /videos/panes (multi-pane)" do
+    let!(:channel) { create(:channel) }
+    let!(:video1) { create(:video, channel: channel) }
+    let!(:video2) { create(:video, channel: channel) }
+
+    it "redirects to show when single ID" do
+      get panes_videos_path(ids: video1.id)
+      expect(response).to redirect_to(video_path(video1))
+    end
+
+    it "redirects to index when no IDs" do
+      get panes_videos_path(ids: "")
+      expect(response).to redirect_to(videos_path)
+    end
+
+    it "renders multi-pane view with comma-separated IDs" do
+      get "#{panes_videos_path}?ids=#{video1.id},#{video2.id}"
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include(video1.youtube_video_id)
+      expect(response.body).to include(video2.youtube_video_id)
+    end
+
+    it "includes focus link per pane" do
+      get "#{panes_videos_path}?ids=#{video1.id},#{video2.id}"
+      expect(response.body).to include("focus")
+    end
+
+    it "includes reorder arrows" do
+      get "#{panes_videos_path}?ids=#{video1.id},#{video2.id}"
+      expect(response.body).to include("◀")
+      expect(response.body).to include("▶")
+    end
+
+    it "includes minus link per pane" do
+      get "#{panes_videos_path}?ids=#{video1.id},#{video2.id}"
+      expect(response.body).to include("−")
+    end
+
+    it "handles unknown IDs gracefully" do
+      get "#{panes_videos_path}?ids=#{video1.id},99999"
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include(video1.title)
+      expect(response.body).to include("video not found")
+    end
+
+    it "includes add pane dialog with available videos" do
+      video3 = create(:video, channel: channel)
+      get "#{panes_videos_path}?ids=#{video1.id},#{video2.id}"
+      expect(response.body).to include("add a video")
+      expect(response.body).to include(video3.title)
+    end
+
+    it "shows save button when no saved view exists" do
+      get "#{panes_videos_path}?ids=#{video1.id},#{video2.id}"
+      expect(response.body).to include(">save<")
+    end
+
+    it "shows delete link when saved view exists" do
+      url = "/videos/panes?ids=#{video1.id},#{video2.id}"
+      create(:saved_view, kind: :videos, name: "test view", url: url)
+      get "#{panes_videos_path}?ids=#{video1.id},#{video2.id}"
+      expect(response.body).to include("text-danger")
+    end
+
+    it "reorder arrow swaps adjacent IDs in URL" do
+      get "#{panes_videos_path}?ids=#{video1.id},#{video2.id}"
+      expect(response.body).to include("ids=#{video2.id},#{video1.id}")
+    end
+
+    it "minus link on 2-pane redirects to show" do
+      get "#{panes_videos_path}?ids=#{video1.id},#{video2.id}"
+      expect(response.body).to include(video_path(video2))
+      expect(response.body).to include(video_path(video1))
+    end
   end
 end

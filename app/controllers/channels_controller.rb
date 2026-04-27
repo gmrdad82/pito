@@ -1,6 +1,7 @@
 class ChannelsController < ApplicationController
   def index
     @max_panes = max_panes
+    @saved_views = SavedView.channels.ordered
     @channels = Channel.left_joins(:videos)
       .select(
         "channels.*",
@@ -16,6 +17,19 @@ class ChannelsController < ApplicationController
     @available_channels = Channel.where.not(id: @channel.id).order(title: :asc)
   end
 
+  def edit
+    @channel = Channel.find(params[:id])
+  end
+
+  def update
+    @channel = Channel.find(params[:id])
+    if @channel.update(channel_params)
+      redirect_to channel_path(@channel), notice: "channel updated."
+    else
+      render :edit, status: :unprocessable_entity
+    end
+  end
+
   def panes
     ids = params[:ids].to_s.split(/[\s,+]+/).reject(&:blank?)
 
@@ -29,6 +43,7 @@ class ChannelsController < ApplicationController
     @panes = @current_ids.map { |id| Channel.find_by(id: id) }
     @pane_title_length = pane_title_length
     @available_channels = Channel.where.not(id: @current_ids).order(title: :asc) if @panes.compact.size < @max_panes
+    @saved_view = SavedView.find_by(kind: :channels, url: CGI.unescape(request.fullpath))
   end
 
   private
@@ -39,5 +54,9 @@ class ChannelsController < ApplicationController
 
   def pane_title_length
     (AppSetting.get("pane_title_length") || ENV.fetch("PANE_TITLE_LENGTH", 14)).to_i
+  end
+
+  def channel_params
+    params.require(:channel).permit(:title, :description)
   end
 end

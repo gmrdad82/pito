@@ -49,6 +49,19 @@ RSpec.describe "Channels", type: :request do
         expect(response.body).to include('data-bulk-select-max-panes-value="3"')
       end
     end
+
+    context "with saved views" do
+      let!(:channel1) { create(:channel) }
+      let!(:channel2) { create(:channel) }
+      let!(:saved_view) { create(:saved_view, kind: :channels, name: "test", url: "/channels/panes?ids=#{channel1.id},#{channel2.id}") }
+
+      it "renders saved views section" do
+        get channels_path
+        expect(response.body).to include("saved views")
+        expect(response.body).to include(channel1.title)
+        expect(response.body).to include(channel2.title)
+      end
+    end
   end
 
   describe "GET /channels/:id (show)" do
@@ -79,6 +92,12 @@ RSpec.describe "Channels", type: :request do
       expect(response.body).to include(channel.title)
     end
 
+    it "includes delete link in breadcrumb actions" do
+      get channel_path(channel)
+      expect(response.body).to include("delete")
+      expect(response.body).to include("/deletions")
+    end
+
     it "includes add pane dialog when other channels exist" do
       create(:channel)
       get channel_path(channel)
@@ -89,6 +108,36 @@ RSpec.describe "Channels", type: :request do
     it "returns 404 for unknown channel" do
       get channel_path(id: 99999)
       expect(response).to have_http_status(:not_found)
+    end
+  end
+
+  describe "GET /channels/:id/edit" do
+    let!(:channel) { create(:channel) }
+
+    it "returns 200" do
+      get edit_channel_path(channel)
+      expect(response).to have_http_status(:ok)
+    end
+
+    it "shows edit form" do
+      get edit_channel_path(channel)
+      expect(response.body).to include("edit channel")
+      expect(response.body).to include(channel.title)
+    end
+  end
+
+  describe "PATCH /channels/:id" do
+    let!(:channel) { create(:channel, title: "old title") }
+
+    it "updates channel and redirects" do
+      patch channel_path(channel), params: { channel: { title: "new title" } }
+      expect(response).to redirect_to(channel_path(channel))
+      expect(channel.reload.title).to eq("new title")
+    end
+
+    it "re-renders edit on invalid data" do
+      patch channel_path(channel), params: { channel: { title: "" } }
+      expect(response).to have_http_status(:unprocessable_entity)
     end
   end
 
@@ -221,6 +270,18 @@ RSpec.describe "Channels", type: :request do
     it "reorder arrow swaps adjacent IDs in URL" do
       get "#{panes_channels_path}?ids=#{channel1.id},#{channel2.id}"
       expect(response.body).to include("ids=#{channel2.id},#{channel1.id}")
+    end
+
+    it "shows save button when no saved view exists" do
+      get "#{panes_channels_path}?ids=#{channel1.id},#{channel2.id}"
+      expect(response.body).to include(">save<")
+    end
+
+    it "shows delete link when saved view exists" do
+      url = "/channels/panes?ids=#{channel1.id},#{channel2.id}"
+      create(:saved_view, kind: :channels, name: "test view", url: url)
+      get "#{panes_channels_path}?ids=#{channel1.id},#{channel2.id}"
+      expect(response.body).to include("text-danger")
     end
   end
 end

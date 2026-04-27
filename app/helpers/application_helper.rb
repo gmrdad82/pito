@@ -2,37 +2,30 @@ module ApplicationHelper
   def nav_link(label, path)
     prefix = path.chomp("/")
     active = current_page?(path) || (prefix.present? && request.path.start_with?(prefix + "/"))
-    if active
-      tag.span("[ #{label} ]", style: "font-weight: bold; color: #1a1a1a;")
-    else
-      link_to(path, class: "bracketed") do
-        "[ ".html_safe + tag.span(label, class: "bl") + " ]".html_safe
-      end
-    end
+    render(BracketedLinkComponent.new(label: label, href: path, active: active))
   end
 
   def breadcrumb(*crumbs)
     content_for(:breadcrumbs) do
-      separator = tag.span(" / ", class: "text-muted")
-      safe_join(crumbs.map.with_index { |crumb, i| breadcrumb_segment(crumb, last: i == crumbs.size - 1) }, separator)
+      render(BreadcrumbComponent.new(crumbs: crumbs))
     end
   end
 
   def view_trend_indicator(video)
     stats = video.video_stats.order(date: :desc).limit(7).pluck(:views)
-    return tag.span("—", class: "indicator-flat") if stats.size < 2
+    return render(StatusIndicatorComponent.new(kind: :flat, text: "—")) if stats.size < 2
 
     recent = stats.first(3).sum.to_f / [ stats.first(3).size, 1 ].max
     older = stats.last(3).sum.to_f / [ stats.last(3).size, 1 ].max
-    return tag.span("—", class: "indicator-flat") if older.zero?
+    return render(StatusIndicatorComponent.new(kind: :flat, text: "—")) if older.zero?
 
     change = ((recent - older) / older * 100).round(0)
     if change > 5
-      tag.span("#{change}% ▲", class: "indicator-up", data: { sort_value: change })
+      render(StatusIndicatorComponent.new(kind: :up, text: "#{change}% ▲", sort_value: change))
     elsif change < -5
-      tag.span("#{change.abs}% ▼", class: "indicator-down", data: { sort_value: change })
+      render(StatusIndicatorComponent.new(kind: :down, text: "#{change.abs}% ▼", sort_value: change))
     else
-      tag.span("— flat", class: "indicator-flat", data: { sort_value: 0 })
+      render(StatusIndicatorComponent.new(kind: :flat, text: "— flat", sort_value: 0))
     end
   end
 
@@ -81,19 +74,5 @@ module ApplicationHelper
     labels << "+#{extra} more" if extra > 0
 
     labels.join(" · ")
-  end
-
-  private
-
-  def breadcrumb_segment(crumb, last: false)
-    label, path = crumb.is_a?(Array) ? crumb : [ crumb, nil ]
-    truncated = truncate(label.to_s, length: last ? 80 : 32)
-    if last
-      tag.span("[ #{truncated} ]", style: "font-weight: bold; color: #1a1a1a;")
-    else
-      link_to(path || "#", class: "bracketed") do
-        "[ ".html_safe + tag.span(truncated, class: "bl") + " ]".html_safe
-      end
-    end
   end
 end

@@ -21,6 +21,6 @@
   <div class="action-screen-footer">
     <button type="submit" class="<%= destructive ? 'btn-danger' : '' %>"><%= submit_label %></button>
     <span class="text-muted">&middot;</span>
-    <%= link_to cancel_path, class: "bracketed" do %>[ <span class="bl">cancel</span> ]<% end %>
+    <%= render(BracketedLinkComponent.new(label: "cancel", href: cancel_path)) %>
   </div>
 <% end %>

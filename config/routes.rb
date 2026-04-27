@@ -13,12 +13,17 @@ Rails.application.routes.draw do
 
   root "dashboard#index"
 
-  resources :channels, only: [ :index, :show ] do
+  resources :channels, only: [ :index, :show, :edit, :update ] do
     collection do
       get :panes
     end
   end
-  resources :videos, only: [ :index ]
+  resources :videos, only: [ :index, :show, :edit, :update ] do
+    collection do
+      get :panes
+    end
+  end
+  resources :saved_views, only: [ :create, :destroy ]
   resource :deletions, only: [ :show, :create ]
   resources :bulk_operations, only: [ :show ] do
     member do

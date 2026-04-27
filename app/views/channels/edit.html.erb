@@ -1,0 +1,29 @@
+<% content_for(:title, "edit #{@channel.title}") %>
+<% breadcrumb(["channels", channels_path], [@channel.title, channel_path(@channel)], "edit") %>
+
+<h1>edit channel</h1>
+
+<%= form_with(model: @channel, style: "max-width: 480px;") do |f| %>
+  <% if @channel.errors.any? %>
+    <div class="flash-error" style="margin-bottom: 8px; padding: 4px 8px;">
+      <% @channel.errors.full_messages.each do |msg| %>
+        <p><%= msg %></p>
+      <% end %>
+    </div>
+  <% end %>
+
+  <div style="margin-bottom: 8px;">
+    <%= f.label :title, style: "display: block; margin-bottom: 2px;" %>
+    <%= f.text_field :title, style: "width: 100%;" %>
+  </div>
+
+  <div style="margin-bottom: 8px;">
+    <%= f.label :description, style: "display: block; margin-bottom: 2px;" %>
+    <%= f.text_area :description, rows: 4, style: "width: 100%;" %>
+  </div>
+
+  <div style="display: flex; gap: 6px;">
+    <button type="submit" class="btn-submit">[ <b>save</b> ]</button>
+    <%= render(BracketedLinkComponent.new(label: "cancel", href: channel_path(@channel))) %>
+  </div>
+<% end %>

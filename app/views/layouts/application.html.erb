@@ -28,7 +28,7 @@
     <div style="padding-top: 36px;">
       <main style="padding: 8px 12px;">
         <% if content_for?(:breadcrumbs) %>
-          <nav style="margin-bottom: 6px;"><%= yield :breadcrumbs %></nav>
+          <nav style="margin-bottom: 6px; display: flex; align-items: baseline; gap: 6px;"><%= yield :breadcrumbs %><% if content_for?(:breadcrumb_actions) %><span class="text-muted">&middot;</span><%= yield :breadcrumb_actions %><% end %></nav>
         <% end %>
         <% if flash[:notice] %>
           <div class="flash-notice" style="margin-bottom: 8px; padding: 4px 8px;"><%= flash[:notice] %></div>

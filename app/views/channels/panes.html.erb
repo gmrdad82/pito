@@ -1,5 +1,12 @@
 <% content_for(:title, "channels") %>
 <% breadcrumb(["channels", channels_path], pane_breadcrumb_label(@panes.compact, trunc_length: @pane_title_length)) %>
+<% content_for(:breadcrumb_actions) do %>
+  <% if @saved_view %>
+    <%= render(BracketedLinkComponent.new(label: "delete", href: saved_view_path(@saved_view), destructive: true, method: :delete, confirm: "delete this saved view?")) %>
+  <% else %>
+    <%= button_to saved_views_path, params: { saved_view: { kind: "channels", url: request.fullpath, name: pane_breadcrumb_label(@panes.compact, trunc_length: @pane_title_length) } }, form: { style: "display: inline;", data: { turbo: false } } do %>[ <span class="bl">save</span> ]<% end %>
+  <% end %>
+<% end %>
 
 <% pane_ids = @panes.compact.map(&:id) %>
 <% current_ids = pane_ids.join(",") %>

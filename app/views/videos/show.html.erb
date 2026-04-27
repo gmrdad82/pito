@@ -1,0 +1,21 @@
+<% content_for(:title, @video.title) %>
+<% breadcrumb(["videos", videos_path], @video.title) %>
+<% content_for(:breadcrumb_actions) do %>
+  <%= render(BracketedLinkComponent.new(label: "edit", href: edit_video_path(@video))) %>
+  <%= render(BracketedLinkComponent.new(label: "delete", href: "/deletions?type=video&ids=#{@video.id}&ref=#{CGI.escape(request.fullpath)}", destructive: true)) %>
+<% end %>
+
+<div data-controller="add-pane">
+  <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;">
+    <h1><%= @video.title %></h1>
+    <% if @available_videos.any? %>
+      <a href="#" class="bracketed" data-action="click->add-pane#open">[ <span class="bl">+</span> ]</a>
+    <% end %>
+  </div>
+
+  <%= render "videos/pane", video: @video %>
+
+  <% if @available_videos.any? %>
+    <%= render "videos/add_pane_dialog", available_videos: @available_videos, current_ids: @video.id.to_s %>
+  <% end %>
+</div>

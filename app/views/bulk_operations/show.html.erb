@@ -29,9 +29,9 @@
         <td><%= item.target_type %></td>
         <td>
           <% if item.status_succeeded? %>
-            <span class="indicator-up">succeeded</span>
+            <%= render(StatusIndicatorComponent.new(kind: :up, text: "succeeded")) %>
           <% elsif item.status_failed? %>
-            <span class="indicator-down">failed</span>
+            <%= render(StatusIndicatorComponent.new(kind: :down, text: "failed")) %>
           <% else %>
             <span class="text-muted">pending</span>
           <% end %>
@@ -43,5 +43,5 @@
 </table>
 
 <div style="margin-top: 12px;">
-  <%= link_to root_path, class: "bracketed" do %>[ <span class="bl">home</span> ]<% end %>
+  <%= render(BracketedLinkComponent.new(label: "home", href: root_path)) %>
 </div>

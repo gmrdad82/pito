@@ -1,0 +1,39 @@
+<% content_for(:title, "edit #{@video.title}") %>
+<% breadcrumb(["videos", videos_path], [@video.title, video_path(@video)], "edit") %>
+
+<h1>edit video</h1>
+
+<%= form_with(model: @video, style: "max-width: 480px;") do |f| %>
+  <% if @video.errors.any? %>
+    <div class="flash-error" style="margin-bottom: 8px; padding: 4px 8px;">
+      <% @video.errors.full_messages.each do |msg| %>
+        <p><%= msg %></p>
+      <% end %>
+    </div>
+  <% end %>
+
+  <div style="margin-bottom: 8px;">
+    <%= f.label :title, style: "display: block; margin-bottom: 2px;" %>
+    <%= f.text_field :title, style: "width: 100%;" %>
+  </div>
+
+  <div style="margin-bottom: 8px;">
+    <%= f.label :description, style: "display: block; margin-bottom: 2px;" %>
+    <%= f.text_area :description, rows: 4, style: "width: 100%;" %>
+  </div>
+
+  <div style="margin-bottom: 8px;">
+    <%= f.label :privacy_status, style: "display: block; margin-bottom: 2px;" %>
+    <%= f.select :privacy_status, Video.privacy_statuses.keys.map { |k| [k.sub("_video", ""), k] }, {}, style: "width: 100%;" %>
+  </div>
+
+  <div style="margin-bottom: 8px;">
+    <%= f.label :tags, style: "display: block; margin-bottom: 2px;" %>
+    <%= f.text_field :tags, style: "width: 100%;" %>
+  </div>
+
+  <div style="display: flex; gap: 6px;">
+    <button type="submit" class="btn-submit">[ <b>save</b> ]</button>
+    <%= render(BracketedLinkComponent.new(label: "cancel", href: video_path(@video))) %>
+  </div>
+<% end %>

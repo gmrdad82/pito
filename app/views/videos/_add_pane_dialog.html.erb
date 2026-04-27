@@ -1,0 +1,33 @@
+<dialog data-add-pane-target="dialog" data-action="click->add-pane#clickOutside" class="pane-dialog">
+  <div style="padding: 12px; min-width: 400px; max-width: 600px;">
+    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
+      <h2>add a video</h2>
+      <a href="#" class="bracketed" data-action="click->add-pane#close">[ <span class="bl">close</span> ]</a>
+    </div>
+    <% if available_videos.any? %>
+      <table>
+        <thead>
+          <tr>
+            <th class="col-action"></th>
+            <th>title</th>
+            <th>channel</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% available_videos.each do |video| %>
+            <tr>
+              <td class="col-action">
+                <% new_ids = [current_ids, video.id].reject(&:blank?).join(",") %>
+                <%= render(BracketedLinkComponent.new(label: "add", href: "#{panes_videos_path}?ids=#{new_ids}")) %>
+              </td>
+              <td><%= truncate(video.title, length: 40, omission: "…") %></td>
+              <td><%= video.channel.title %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    <% else %>
+      <p class="text-muted">no more videos to add.</p>
+    <% end %>
+  </div>
+</dialog>

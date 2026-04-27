@@ -293,3 +293,28 @@
 - Buttons: blue by default (#0000cc), `.btn-danger` for destructive red (#cc0000)
 - CSS: `.action-screen-footer` sticky bottom, `.dot-loader` bounce animation, `.dot-done` / `.dot-fail` status colors
 - 180 specs, 0 failures
+
+---
+
+**ViewComponent foundation + Step 34–36 (combined): Saved Views** — completed
+
+- Installed `view_component` (4.8.0) and `capybara` (3.40.0) gems
+- Created 4 ViewComponents:
+  - `BracketedLinkComponent` — the `[ label ]` pattern with active, destructive, method, confirm, data attrs support
+  - `BreadcrumbComponent` — renders crumb segments with `/` separator, truncation, delegates to BracketedLinkComponent
+  - `StatusIndicatorComponent` — trend arrows (up/down/flat), dot-loader/done/fail with CSS variable animation delay
+  - `SavedViewsSectionComponent` — renders saved views list with `[ open ]` + `[ delete ]` links, conditional render
+- Refactored `nav_link` and `breadcrumb` helpers to delegate rendering to components (active-detection logic stays in helper)
+- Refactored `view_trend_indicator` to use StatusIndicatorComponent
+- Removed `breadcrumb_segment` private helper (logic moved into BreadcrumbComponent)
+- Refactored inline bracketed links in action_screen, bulk_operations/show, deletions/progress, channels/_picker
+- SavedView model enhancements: `.ordered` scope, `entity_labels`, `display_name_with_deletions`, `extract_ids_from_url`
+- `SavedViewsController` — create (auto-position, idempotent duplicate handling), destroy (redirects to picker)
+- `[ save view ]` / `[ delete saved view ]` in breadcrumb actions on panes pages (channels + videos)
+- `[ delete ]` link in breadcrumb actions on show pages (channels + videos)
+- No `[ save view ]` on single-entity show pages (only on multi-pane workspaces)
+- SavedViewsSectionComponent rendered on channels picker and videos index (above table)
+- Videos workspace: show, panes, _pane partial, _add_pane_dialog — mirrors channels workspace pattern
+- `content_for(:breadcrumb_actions)` slot in layout for per-page breadcrumb actions
+- `CGI.unescape` on URLs in SavedViewsController and panes lookups (Rails encodes commas as %2C)
+- 247 specs, 0 failures

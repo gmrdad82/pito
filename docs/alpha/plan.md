@@ -40,11 +40,13 @@
 
 - [x] **Step 23–25, 32–33 (combined):** Action screen shared partial, DeletionsController (preview + progress), BulkDeleteJob with Turbo Stream broadcasts, polymorphic BulkOperationItem, terminal-style progress bar, bounce loader animation, ActionCable/Redis for cross-process broadcasts, comprehensive request specs
 
-## Phase 8 — Saved Views
+## Phase 7 — ViewComponent Foundation
 
-- [ ] **Step 34:** Saved Views CRUD — `[ save view ]` in workspace pane strip, POST /saved_views, idempotent, flash notice
-- [ ] **Step 35:** Saved Views on picker pages — section above entity list, computed display_name, `[ delete ]` via action screen
-- [ ] **Step 36:** Saved Views edge cases — [deleted] labels for missing entities, position ordering
+- [x] **Step (new):** ViewComponent gem + BracketedLinkComponent, BreadcrumbComponent, StatusIndicatorComponent, SavedViewsSectionComponent — component specs, refactored helpers to delegate rendering
+
+## Phase 8 — Saved Views + Videos Workspace
+
+- [x] **Step 34–36 (combined):** SavedViewsController (create/destroy), `[ save view ]` on workspace pages, saved views section on picker pages, entity_labels with [deleted] annotations, position ordering, idempotent save, Videos workspace (show + panes + pane partial + add dialog), breadcrumb actions (`[ delete ]` on show, `[ save view ]` / `[ delete saved view ]` on panes), request + model + component specs
 
 ## Phase 9 — Charts
 

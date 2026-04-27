@@ -8,6 +8,8 @@
     </span>
   </div>
 
+  <%= render(SavedViewsSectionComponent.new(saved_views: @saved_views || SavedView.none, kind: "videos")) %>
+
   <% if @videos.any? %>
     <div data-controller="sortable-table">
       <div data-bulk-select-target="actions" hidden style="margin-bottom: 6px;">
@@ -44,7 +46,7 @@
               <td class="col-action" data-bulk-select-target="bulkCol" hidden>
                 <input type="checkbox" value="<%= video.id %>" data-bulk-select-target="checkbox" data-action="change->bulk-select#toggle">
               </td>
-              <td class="col-action" data-bulk-select-target="actionCol"><a href="#" class="bracketed">[ <span class="bl">open</span> ]</a></td>
+              <td class="col-action" data-bulk-select-target="actionCol"><%= render(BracketedLinkComponent.new(label: "open", href: video_path(video))) %></td>
               <td style="max-width: 280px; overflow: hidden; text-overflow: ellipsis;"><%= video.title %></td>
               <td><%= video.channel.title %></td>
               <td class="num"><%= number_with_delimiter(video.total_views) %></td>

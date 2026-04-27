@@ -42,7 +42,7 @@ RSpec.describe ApplicationHelper, type: :helper do
       long_label = "A" * 50
       helper.breadcrumb([ long_label, "/somewhere" ], "last")
       html = helper.content_for(:breadcrumbs)
-      expect(html).to include("A" * 29 + "...")
+      expect(html).to include("A" * 31 + "…")
     end
 
     it "renders nothing when not called" do
