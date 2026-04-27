@@ -1,37 +1,57 @@
 <% content_for(:title, "channels") %>
 
-<div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
-  <h1>channels</h1>
-  <a href="#" class="bracketed">[ <span class="bl">add channel</span> ]</a>
-</div>
-
-<% if @channels.any? %>
-  <div data-controller="sortable-table">
-    <table data-sortable-table-target="table">
-      <thead>
-        <tr>
-          <th class="sortable" data-action="click->sortable-table#sort" data-column="0" data-sort-type="string">title</th>
-          <th class="sortable num" data-action="click->sortable-table#sort" data-column="1" data-sort-type="string">connected</th>
-          <th class="sortable num" data-action="click->sortable-table#sort" data-column="2" data-sort-type="number">subscribers</th>
-          <th class="sortable num" data-action="click->sortable-table#sort" data-column="3" data-sort-type="number">videos</th>
-          <th class="sortable num" data-action="click->sortable-table#sort" data-column="4" data-sort-type="number">views</th>
-          <th class="col-action"></th>
-        </tr>
-      </thead>
-      <tbody>
-        <% @channels.each do |channel| %>
-          <tr>
-            <td><%= channel.title %></td>
-            <td class="num"><%= channel.connected? ? "yes" : "no" %></td>
-            <td class="num"><%= number_with_delimiter(channel.subscriber_count || 0) %></td>
-            <td class="num"><%= number_with_delimiter(channel.videos_count) %></td>
-            <td class="num"><%= number_with_delimiter(channel.view_count || 0) %></td>
-            <td class="col-action"><a href="#" class="bracketed">[ <span class="bl">open</span> ]</a></td>
-          </tr>
-        <% end %>
-      </tbody>
-    </table>
+<div data-controller="bulk-select" data-bulk-select-max-panes-value="<%= @max_panes %>" data-bulk-select-entity-name-value="channels">
+  <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;">
+    <h1>channels</h1>
+    <span data-bulk-select-target="bulkToggle">
+      <a href="#" class="bracketed" data-action="click->bulk-select#enterBulk">[ <span class="bl">actions</span> ]</a>
+    </span>
   </div>
-<% else %>
-  <p class="text-muted">no channels yet.</p>
-<% end %>
+
+  <% if @channels.any? %>
+    <div data-controller="sortable-table">
+      <div data-bulk-select-target="actions" hidden style="margin-bottom: 6px;">
+        <span data-bulk-select-target="openHint"></span>
+        <span data-bulk-select-target="openAction" hidden></span>
+        <span data-bulk-select-target="count" hidden></span>
+        &middot;
+        <a href="#" class="bracketed text-danger">[ <span class="bl">delete</span> ]</a>
+        &middot;
+        <a href="#" class="bracketed" data-action="click->bulk-select#exitBulk">[ <span class="bl">cancel</span> ]</a>
+      </div>
+
+      <table data-sortable-table-target="table">
+        <thead>
+          <tr>
+            <th class="col-action" data-bulk-select-target="bulkCol" hidden>
+              <input type="checkbox" data-bulk-select-target="headerCheckbox" data-action="change->bulk-select#toggleAll">
+            </th>
+            <th class="col-action" data-bulk-select-target="actionCol"><a href="#" class="bracketed">[ <span class="bl">add</span> ]</a></th>
+            <th class="sortable" data-action="click->sortable-table#sort" data-sort-type="string">title</th>
+            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="string">connected</th>
+            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="number">subscribers</th>
+            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="number">videos</th>
+            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="number">views</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @channels.each do |channel| %>
+            <tr>
+              <td class="col-action" data-bulk-select-target="bulkCol" hidden>
+                <input type="checkbox" value="<%= channel.youtube_channel_id %>" data-bulk-select-target="checkbox" data-action="change->bulk-select#toggle">
+              </td>
+              <td class="col-action" data-bulk-select-target="actionCol"><a href="#" class="bracketed">[ <span class="bl">open</span> ]</a></td>
+              <td><%= channel.title %></td>
+              <td class="num"><%= channel.connected? ? "yes" : "no" %></td>
+              <td class="num"><%= number_with_delimiter(channel.subscriber_count || 0) %></td>
+              <td class="num"><%= number_with_delimiter(channel.videos_count) %></td>
+              <td class="num"><%= number_with_delimiter(channel.view_count || 0) %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% else %>
+    <p class="text-muted">no channels yet.</p>
+  <% end %>
+</div>

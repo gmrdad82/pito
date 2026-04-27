@@ -22,18 +22,12 @@
 
 ## Phase 4 — Picker Pages
 
-- [ ] **Step 19:** Channels picker — `/channels`, channels table with `[ open ]` per row, `[ + add channel ]` (register by ID/URL), request specs
-- [ ] **Step 20:** Channels picker bulk mode — `[ bulk ]` toggle, checkbox column, header checkbox, `[ open N channels ]`, `[ delete ]` link to action screen, Stimulus controller
-- [ ] **Step 21:** Videos picker — `/videos`, videos table with `[ open ]` per row, `[ + add video ]`, request specs
-- [ ] **Step 22:** Videos picker bulk mode — same pattern as channels, Stimulus controller
+- [x] **Step 19:** Channels + Videos picker pages — `/channels` and `/videos` tables with `[ open ]` per row, `[ add channel ]` / `[ add video ]`, sortable headers, request specs
+- [x] **Step 20:** Bulk mode for Channels + Videos pickers — `[ bulk ]` toggle, checkbox column, header checkbox, bulk actions bar (open/delete/cancel), Stimulus controller
+- [ ] **Step 21:** _(merged into Step 19)_
+- [ ] **Step 22:** _(merged into Step 20)_
 
-## Phase 5 — Action Screen Framework
-
-- [ ] **Step 23:** Action screen shared partial — breadcrumb slot, heading, preview table, parameters form slot, sticky footer with submit/cancel
-- [ ] **Step 24:** DeletionsController — first action screen end-to-end, routes, dry-run preview, transactional local delete, single + bulk, request specs
-- [ ] **Step 25:** BulkOperationsController#show — progress page for async operations, Turbo Stream broadcasts from Sidekiq jobs, request specs
-
-## Phase 6 — Workspaces
+## Phase 5 — Workspaces (moved before Action Screens)
 
 - [ ] **Step 26:** Channels workspace — single pane at `/channels?panes=UCabc`, full-width channel detail with video table, request specs
 - [ ] **Step 27:** Channels multi-pane — 2+ panes side-by-side, pane toolbar (× ⇄ ▸), `[ + ]` add pane popover, max_panes enforcement
@@ -41,6 +35,12 @@
 - [ ] **Step 29:** Videos workspace — single pane at `/videos?panes=vid1`, video detail layout (player area + side metadata + stats), request specs
 - [ ] **Step 30:** Videos multi-pane — 2+ panes side-by-side, same controls as channels
 - [ ] **Step 31:** Cross-workspace navigation — video click in channel pane → `/videos?panes=vid`, channel name click in video pane → `/channels?panes=UC...`
+
+## Phase 6 — Action Screen Framework
+
+- [ ] **Step 23:** Action screen shared partial — breadcrumb slot, heading, preview table, parameters form slot, sticky footer with submit/cancel
+- [ ] **Step 24:** DeletionsController — first action screen end-to-end, routes, dry-run preview, transactional local delete, single + bulk, request specs
+- [ ] **Step 25:** BulkOperationsController#show — progress page for async operations, Turbo Stream broadcasts from Sidekiq jobs, request specs
 
 ## Phase 7 — URL State + Edge Cases
 

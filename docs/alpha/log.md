@@ -229,3 +229,27 @@
 - Page titles: `pito ~ best YouTube tool` (home), `channels ~ pito` (subpages)
 - Base font bumped from 12px to 13px site-wide, headings 15/14/13px, footer 11px
 - 97 specs, 0 failures
+
+---
+
+**Step 19: Channels + Videos picker pages** — completed
+
+- Channels picker at `/channels`: sortable table (title, connected, subscribers, videos, views), `[ open ]` per row, `[ add channel ]`
+- Videos picker at `/videos`: sortable table (title, channel, views, trend, likes, comments, watch time, privacy, published, duration), `[ open ]` per row, `[ add video ]`
+- Dashboard simplified to video/channel counts (table moved to Videos page)
+- Table polish: sort arrows always visible (#999 muted, dark when active), tight `col-action` class for action columns, right-aligned dates/booleans/privacy, h1 bumped to 18px
+- Sortable controller switched from `data-column` index to `indexOf(th)` so column shifts (bulk mode) work automatically
+- 109 specs → 18 request specs for channels/videos/dashboard
+
+---
+
+**Step 20: Bulk mode for Channels + Videos pickers** — completed
+
+- `[ bulk ]` toggle on both picker pages, swaps `[ open ]` column for checkbox column
+- Header checkbox with select-all / indeterminate state
+- Bulk actions bar: "N selected — [ open ] · [ delete ] · [ cancel ]"
+- Shared `bulk_select_controller.js` Stimulus controller: enterBulk/exitBulk toggle visibility of checkbox vs action columns
+- `[ open ]` and `[ delete ]` bulk actions are placeholder links (wired in workspace/action screen phases)
+- Merged step 22 (videos bulk mode) into step 20
+- Phase reorder: workspaces (phase 5) now come before action screens (phase 6)
+- 45 specs, 0 failures

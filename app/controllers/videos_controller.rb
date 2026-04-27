@@ -11,5 +11,6 @@ class VideosController < ApplicationController
       )
       .group("videos.id")
       .order(published_at: :desc)
+    @max_panes = (AppSetting.get("max_panes") || ENV.fetch("MAX_PANES", 3)).to_i
   end
 end

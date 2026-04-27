@@ -43,6 +43,9 @@ a.bracketed:visited .bl { color: #0000cc; }
 .text-danger { color: #cc0000; }
 a.text-danger { color: #cc0000; }
 a.text-danger:hover { color: #990000; }
+a.text-danger.bracketed, a.text-danger.bracketed:visited,
+a.text-danger.bracketed .bl, a.text-danger.bracketed:visited .bl { color: #cc0000; }
+a.text-danger.bracketed:hover, a.text-danger.bracketed:hover .bl { color: #990000; }
 
 /* Muted text */
 .text-muted { color: #555555; }

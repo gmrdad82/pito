@@ -1,6 +1,10 @@
 # Seed data for development — run with: bin/rails db:seed
 # Idempotent: safe to run multiple times
 
+puts "seeding app settings..."
+AppSetting.set("max_panes", "5")
+puts "  max_panes = 5"
+
 puts "seeding channels..."
 
 channels_data = [

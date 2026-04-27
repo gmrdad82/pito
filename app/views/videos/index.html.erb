@@ -1,47 +1,67 @@
 <% content_for(:title, "videos") %>
 
-<div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
-  <h1>videos</h1>
-  <a href="#" class="bracketed">[ <span class="bl">add video</span> ]</a>
-</div>
-
-<% if @videos.any? %>
-  <div data-controller="sortable-table">
-    <table data-sortable-table-target="table">
-      <thead>
-        <tr>
-          <th class="sortable" data-action="click->sortable-table#sort" data-column="0" data-sort-type="string">title</th>
-          <th class="sortable" data-action="click->sortable-table#sort" data-column="1" data-sort-type="string">channel</th>
-          <th class="sortable num" data-action="click->sortable-table#sort" data-column="2" data-sort-type="number">views</th>
-          <th>trend</th>
-          <th class="sortable num" data-action="click->sortable-table#sort" data-column="4" data-sort-type="number">likes</th>
-          <th class="sortable num" data-action="click->sortable-table#sort" data-column="5" data-sort-type="number">comments</th>
-          <th class="sortable num" data-action="click->sortable-table#sort" data-column="6" data-sort-type="number">watch time</th>
-          <th class="sortable num" data-action="click->sortable-table#sort" data-column="7" data-sort-type="string">privacy</th>
-          <th class="sortable num" data-action="click->sortable-table#sort" data-column="8" data-sort-type="date">published</th>
-          <th class="sortable num" data-action="click->sortable-table#sort" data-column="9" data-sort-type="number">duration</th>
-          <th class="col-action"></th>
-        </tr>
-      </thead>
-      <tbody>
-        <% @videos.each do |video| %>
-          <tr>
-            <td style="max-width: 280px; overflow: hidden; text-overflow: ellipsis;"><%= video.title %></td>
-            <td><%= video.channel.title %></td>
-            <td class="num"><%= number_with_delimiter(video.total_views) %></td>
-            <td><%= view_trend_indicator(video) %></td>
-            <td class="num"><%= number_with_delimiter(video.total_likes) %></td>
-            <td class="num"><%= number_with_delimiter(video.total_comments) %></td>
-            <td class="num"><%= number_with_delimiter(video.total_watch_time) %>m</td>
-            <td class="num"><%= video.privacy_status&.sub("_video", "") || "—" %></td>
-            <td class="num"><%= video.published_at&.strftime("%Y-%m-%d") %></td>
-            <td class="num"><%= format_duration(video.duration_seconds) %></td>
-            <td class="col-action"><a href="#" class="bracketed">[ <span class="bl">open</span> ]</a></td>
-          </tr>
-        <% end %>
-      </tbody>
-    </table>
+<div data-controller="bulk-select" data-bulk-select-max-panes-value="<%= @max_panes %>" data-bulk-select-entity-name-value="videos">
+  <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;">
+    <h1>videos</h1>
+    <span data-bulk-select-target="bulkToggle">
+      <a href="#" class="bracketed" data-action="click->bulk-select#enterBulk">[ <span class="bl">actions</span> ]</a>
+    </span>
   </div>
-<% else %>
-  <p class="text-muted">no videos yet.</p>
-<% end %>
+
+  <% if @videos.any? %>
+    <div data-controller="sortable-table">
+      <div data-bulk-select-target="actions" hidden style="margin-bottom: 6px;">
+        <span data-bulk-select-target="openHint"></span>
+        <span data-bulk-select-target="openAction" hidden></span>
+        <span data-bulk-select-target="count" hidden></span>
+        &middot;
+        <a href="#" class="bracketed text-danger">[ <span class="bl">delete</span> ]</a>
+        &middot;
+        <a href="#" class="bracketed" data-action="click->bulk-select#exitBulk">[ <span class="bl">cancel</span> ]</a>
+      </div>
+
+      <table data-sortable-table-target="table">
+        <thead>
+          <tr>
+            <th class="col-action" data-bulk-select-target="bulkCol" hidden>
+              <input type="checkbox" data-bulk-select-target="headerCheckbox" data-action="change->bulk-select#toggleAll">
+            </th>
+            <th class="col-action" data-bulk-select-target="actionCol"><a href="#" class="bracketed">[ <span class="bl">add</span> ]</a></th>
+            <th class="sortable" data-action="click->sortable-table#sort" data-sort-type="string">title</th>
+            <th class="sortable" data-action="click->sortable-table#sort" data-sort-type="string">channel</th>
+            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="number">views</th>
+            <th>trend</th>
+            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="number">likes</th>
+            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="number">comments</th>
+            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="number">watch time</th>
+            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="string">privacy</th>
+            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="date">published</th>
+            <th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="number">duration</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @videos.each do |video| %>
+            <tr>
+              <td class="col-action" data-bulk-select-target="bulkCol" hidden>
+                <input type="checkbox" value="<%= video.youtube_video_id %>" data-bulk-select-target="checkbox" data-action="change->bulk-select#toggle">
+              </td>
+              <td class="col-action" data-bulk-select-target="actionCol"><a href="#" class="bracketed">[ <span class="bl">open</span> ]</a></td>
+              <td style="max-width: 280px; overflow: hidden; text-overflow: ellipsis;"><%= video.title %></td>
+              <td><%= video.channel.title %></td>
+              <td class="num"><%= number_with_delimiter(video.total_views) %></td>
+              <td><%= view_trend_indicator(video) %></td>
+              <td class="num"><%= number_with_delimiter(video.total_likes) %></td>
+              <td class="num"><%= number_with_delimiter(video.total_comments) %></td>
+              <td class="num"><%= number_with_delimiter(video.total_watch_time) %>m</td>
+              <td class="num"><%= video.privacy_status&.sub("_video", "") || "—" %></td>
+              <td class="num"><%= video.published_at&.strftime("%Y-%m-%d") %></td>
+              <td class="num"><%= format_duration(video.duration_seconds) %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% else %>
+    <p class="text-muted">no videos yet.</p>
+  <% end %>
+</div>

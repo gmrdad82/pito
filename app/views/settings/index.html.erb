@@ -25,6 +25,19 @@
     </div>
   </fieldset>
 
+  <fieldset class="border-hairline" style="padding: 8px; margin-bottom: 8px;">
+    <legend><h2>workspaces</h2></legend>
+
+    <div style="margin-bottom: 6px;">
+      <label for="settings_max_panes" style="display: block; font-weight: bold; margin-bottom: 1px;">max panes</label>
+      <input type="number" name="settings[max_panes]" id="settings_max_panes"
+             value="<%= @settings['max_panes'] %>" min="1" max="10"
+             placeholder="<%= @max_panes_default %>" autocomplete="off"
+             style="width: 80px;">
+      <span class="text-muted">default: <%= @max_panes_default %> (from env)</span>
+    </div>
+  </fieldset>
+
   <button type="submit">[ save ]</button>
 <% end %>
 </div>

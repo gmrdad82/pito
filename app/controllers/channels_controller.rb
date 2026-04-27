@@ -7,5 +7,6 @@ class ChannelsController < ApplicationController
       )
       .group("channels.id")
       .order(title: :asc)
+    @max_panes = (AppSetting.get("max_panes") || ENV.fetch("MAX_PANES", 3)).to_i
   end
 end

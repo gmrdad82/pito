@@ -5,7 +5,8 @@ export default class extends Controller {
 
   sort(event) {
     const th = event.currentTarget
-    const column = parseInt(th.dataset.column)
+    const allThs = Array.from(th.parentElement.children)
+    const column = allThs.indexOf(th)
     const type = th.dataset.sortType || "string"
     const tbody = this.tableTarget.querySelector("tbody")
     const rows = Array.from(tbody.querySelectorAll("tr"))
