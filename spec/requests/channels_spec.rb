@@ -1,7 +1,7 @@
 require "rails_helper"
 
 RSpec.describe "Channels", type: :request do
-  describe "GET /channels" do
+  describe "GET /channels (picker)" do
     it "returns 200" do
       get channels_path
       expect(response).to have_http_status(:ok)
@@ -17,7 +17,7 @@ RSpec.describe "Channels", type: :request do
       expect(response.body).to include("no channels yet")
     end
 
-    it "includes bulk toggle link" do
+    it "includes actions toggle link" do
       get channels_path
       expect(response.body).to include("actions")
     end
@@ -31,12 +31,11 @@ RSpec.describe "Channels", type: :request do
         expect(response.body).to include(channel.title)
         expect(response.body).to include("1,000")
         expect(response.body).to include("50,000")
-        expect(response.body).to include("yes")
       end
 
-      it "includes open link per row" do
+      it "open link points to show page" do
         get channels_path
-        expect(response.body).to include("open")
+        expect(response.body).to include("/channels/#{channel.id}")
       end
 
       it "includes add link in table header" do
@@ -44,27 +43,184 @@ RSpec.describe "Channels", type: :request do
         expect(response.body).to include(">add<")
       end
 
-      it "shows video count" do
-        get channels_path
-        expect(response.body).to include(">1<")
-      end
-
-      it "renders bulk select checkboxes (hidden by default)" do
+      it "renders bulk select controls" do
         get channels_path
         expect(response.body).to include('data-bulk-select-target="checkbox"')
-        expect(response.body).to include('data-bulk-select-target="headerCheckbox"')
-      end
-
-      it "renders bulk actions bar (hidden by default)" do
-        get channels_path
-        expect(response.body).to include('data-bulk-select-target="actions"')
-        expect(response.body).to include("delete")
-      end
-
-      it "passes max_panes value to bulk-select controller" do
-        get channels_path
         expect(response.body).to include('data-bulk-select-max-panes-value="3"')
       end
+    end
+  end
+
+  describe "GET /channels/:id (show)" do
+    let!(:channel) { create(:channel, :connected, subscriber_count: 5000, view_count: 100_000) }
+    let!(:video) { create(:video, channel: channel, published_at: 1.day.ago, duration_seconds: 300) }
+
+    it "returns 200" do
+      get channel_path(channel)
+      expect(response).to have_http_status(:ok)
+    end
+
+    it "displays channel detail" do
+      get channel_path(channel)
+      expect(response.body).to include(channel.title)
+      expect(response.body).to include(channel.youtube_channel_id)
+      expect(response.body).to include("5,000")
+      expect(response.body).to include("100,000")
+    end
+
+    it "displays channel videos" do
+      get channel_path(channel)
+      expect(response.body).to include(video.title)
+    end
+
+    it "shows breadcrumb" do
+      get channel_path(channel)
+      expect(response.body).to include("channels")
+      expect(response.body).to include(channel.title)
+    end
+
+    it "includes add pane dialog when other channels exist" do
+      create(:channel)
+      get channel_path(channel)
+      expect(response.body).to include("add a channel")
+      expect(response.body).to include('data-controller="add-pane"')
+    end
+
+    it "returns 404 for unknown channel" do
+      get channel_path(id: 99999)
+      expect(response).to have_http_status(:not_found)
+    end
+  end
+
+  describe "GET /channels/panes (multi-pane)" do
+    let!(:channel1) { create(:channel) }
+    let!(:channel2) { create(:channel) }
+
+    it "redirects to show when single ID" do
+      get panes_channels_path(ids: channel1.id)
+      expect(response).to redirect_to(channel_path(channel1))
+    end
+
+    it "redirects to index when no IDs" do
+      get panes_channels_path(ids: "")
+      expect(response).to redirect_to(channels_path)
+    end
+
+    it "renders multi-pane view with space-separated IDs" do
+      get panes_channels_path(ids: "#{channel1.id} #{channel2.id}")
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include(channel1.title)
+      expect(response.body).to include(channel2.title)
+    end
+
+    it "renders multi-pane view with comma-separated IDs" do
+      get "#{panes_channels_path}?ids=#{channel1.id},#{channel2.id}"
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include(channel1.title)
+      expect(response.body).to include(channel2.title)
+    end
+
+    it "renders multi-pane view with plus-separated IDs" do
+      get panes_channels_path(ids: "#{channel1.id}+#{channel2.id}")
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include(channel1.title)
+      expect(response.body).to include(channel2.title)
+    end
+
+    it "renders multi-pane view with mixed separators" do
+      channel3 = create(:channel)
+      get "#{panes_channels_path}?ids=#{channel1.id},#{channel2.id}+#{channel3.id}"
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include(channel1.title)
+      expect(response.body).to include(channel2.title)
+      expect(response.body).to include(channel3.title)
+    end
+
+    it "ignores blank segments from consecutive separators" do
+      get "#{panes_channels_path}?ids=#{channel1.id},,#{channel2.id}"
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include(channel1.title)
+      expect(response.body).to include(channel2.title)
+    end
+
+    it "generates comma-separated URLs in pane links" do
+      get "#{panes_channels_path}?ids=#{channel1.id},#{channel2.id}"
+      expect(response.body).to include("ids=#{channel2.id},#{channel1.id}")
+    end
+
+    it "handles unknown IDs gracefully" do
+      get "#{panes_channels_path}?ids=#{channel1.id},99999"
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include(channel1.title)
+      expect(response.body).to include("channel not found")
+    end
+
+    it "limits panes to max_panes" do
+      ids = 6.times.map { create(:channel).id }
+      get "#{panes_channels_path}?ids=#{ids.join(',')}"
+      expect(response).to have_http_status(:ok)
+    end
+
+    it "includes focus link per pane" do
+      get panes_channels_path(ids: "#{channel1.id} #{channel2.id}")
+      expect(response.body).to include("focus")
+    end
+
+    it "includes add pane dialog with available channels" do
+      channel3 = create(:channel)
+      get "#{panes_channels_path}?ids=#{channel1.id},#{channel2.id}"
+      expect(response.body).to include("add a channel")
+      expect(response.body).to include(channel3.title)
+    end
+
+    it "redirects single comma-separated ID to show" do
+      get "#{panes_channels_path}?ids=#{channel1.id}"
+      expect(response).to redirect_to(channel_path(channel1))
+    end
+
+    it "redirects when IDs param is just separators" do
+      get "#{panes_channels_path}?ids=,,+"
+      expect(response).to redirect_to(channels_path)
+    end
+
+    it "deduplicates display but preserves URL order" do
+      get "#{panes_channels_path}?ids=#{channel1.id},#{channel2.id},#{channel1.id}"
+      expect(response).to have_http_status(:ok)
+    end
+
+    it "strips whitespace around IDs" do
+      get panes_channels_path(ids: " #{channel1.id} , #{channel2.id} ")
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include(channel1.title)
+      expect(response.body).to include(channel2.title)
+    end
+
+    it "includes reorder arrows" do
+      get "#{panes_channels_path}?ids=#{channel1.id},#{channel2.id}"
+      expect(response.body).to include("◀")
+      expect(response.body).to include("▶")
+    end
+
+    it "includes minus link per pane" do
+      get "#{panes_channels_path}?ids=#{channel1.id},#{channel2.id}"
+      expect(response.body).to include("&minus;")
+    end
+
+    it "minus link on 2-pane redirects to show" do
+      get "#{panes_channels_path}?ids=#{channel1.id},#{channel2.id}"
+      expect(response.body).to include(channel_path(channel2))
+      expect(response.body).to include(channel_path(channel1))
+    end
+
+    it "minus link on 3+ pane links to panes with remaining IDs" do
+      channel3 = create(:channel)
+      get "#{panes_channels_path}?ids=#{channel1.id},#{channel2.id},#{channel3.id}"
+      expect(response.body).to include("ids=#{channel2.id},#{channel3.id}")
+    end
+
+    it "reorder arrow swaps adjacent IDs in URL" do
+      get "#{panes_channels_path}?ids=#{channel1.id},#{channel2.id}"
+      expect(response.body).to include("ids=#{channel2.id},#{channel1.id}")
     end
   end
 end

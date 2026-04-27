@@ -1,0 +1,50 @@
+<% content_for(:title, "channels") %>
+<% breadcrumb(["channels", channels_path], pane_breadcrumb_label(@panes.compact, trunc_length: @pane_title_length)) %>
+
+<% pane_ids = @panes.compact.map(&:id) %>
+<% current_ids = pane_ids.join(",") %>
+
+<div data-controller="add-pane">
+  <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;">
+    <h1>channels (<%= @panes.compact.size %>)</h1>
+    <% if @available_channels&.any? %>
+      <a href="#" class="bracketed" data-action="click->add-pane#open">[ <span class="bl">+</span> ]</a>
+    <% end %>
+  </div>
+
+  <div class="pane-container">
+    <% @panes.each_with_index do |channel, i| %>
+      <% if channel %>
+        <div class="pane-wrapper" style="position: relative;">
+          <% if i > 0 %>
+            <% swapped = pane_ids.dup; swapped[i], swapped[i-1] = swapped[i-1], swapped[i] %>
+            <%= link_to "◀", "#{panes_channels_path}?ids=#{swapped.join(',')}", class: "pane-arrow pane-arrow-left", title: "move left" %>
+          <% end %>
+          <% if i < @panes.compact.size - 1 %>
+            <% swapped = pane_ids.dup; swapped[i], swapped[i+1] = swapped[i+1], swapped[i] %>
+            <%= link_to "▶", "#{panes_channels_path}?ids=#{swapped.join(',')}", class: "pane-arrow pane-arrow-right", title: "move right" %>
+          <% end %>
+          <div style="display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px;">
+            <h2><%= channel.title %></h2>
+            <%= link_to channel_path(channel), class: "bracketed", style: "font-size: 12px;" do %>[ <span class="bl">focus</span> ]<% end %>
+            <% remaining_ids = pane_ids.reject { |id| id == channel.id } %>
+            <% if remaining_ids.size > 1 %>
+              <%= link_to "#{panes_channels_path}?ids=#{remaining_ids.join(',')}", class: "bracketed", style: "font-size: 12px;" do %>[ <span class="bl">&minus;</span> ]<% end %>
+            <% elsif remaining_ids.size == 1 %>
+              <%= link_to channel_path(remaining_ids.first), class: "bracketed", style: "font-size: 12px;" do %>[ <span class="bl">&minus;</span> ]<% end %>
+            <% end %>
+          </div>
+          <%= render "channels/pane", channel: channel %>
+        </div>
+      <% else %>
+        <div class="pane-wrapper">
+          <p class="text-muted" style="padding: 8px;">channel not found.</p>
+        </div>
+      <% end %>
+    <% end %>
+  </div>
+
+  <% if @available_channels&.any? %>
+    <%= render "channels/add_pane_dialog", available_channels: @available_channels, current_ids: current_ids %>
+  <% end %>
+</div>

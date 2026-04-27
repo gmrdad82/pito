@@ -1,6 +1,8 @@
 module ApplicationHelper
   def nav_link(label, path)
-    if current_page?(path)
+    prefix = path.chomp("/")
+    active = current_page?(path) || (prefix.present? && request.path.start_with?(prefix + "/"))
+    if active
       tag.span("[ #{label} ]", style: "font-weight: bold; color: #1a1a1a;")
     else
       link_to(path, class: "bracketed") do
@@ -26,11 +28,11 @@ module ApplicationHelper
 
     change = ((recent - older) / older * 100).round(0)
     if change > 5
-      tag.span("▲ #{change}%", class: "indicator-up")
+      tag.span("#{change}% ▲", class: "indicator-up", data: { sort_value: change })
     elsif change < -5
-      tag.span("▼ #{change.abs}%", class: "indicator-down")
+      tag.span("#{change.abs}% ▼", class: "indicator-down", data: { sort_value: change })
     else
-      tag.span("— flat", class: "indicator-flat")
+      tag.span("— flat", class: "indicator-flat", data: { sort_value: 0 })
     end
   end
 
@@ -46,13 +48,40 @@ module ApplicationHelper
     end
   end
 
+  def format_watch_time(minutes)
+    return "—" unless minutes&.positive?
+    hours = minutes / 60
+    mins = minutes % 60
+    if hours > 0
+      "#{number_with_delimiter(hours)}h #{mins}m"
+    else
+      "#{mins}m"
+    end
+  end
+
+  def pane_breadcrumb_label(panes, show: 3, trunc_length: 14)
+    return panes.first.title if panes.size == 1
+
+    shown = panes.first(show)
+    extra = panes.size - show
+
+    labels = shown.map do |pane|
+      name = pane.respond_to?(:title) ? pane.title : "unknown"
+      truncate(name, length: trunc_length, omission: "…")
+    end
+
+    labels << "+#{extra} more" if extra > 0
+
+    labels.join(" · ")
+  end
+
   private
 
   def breadcrumb_segment(crumb, last: false)
     label, path = crumb.is_a?(Array) ? crumb : [ crumb, nil ]
-    truncated = truncate(label.to_s, length: 32)
+    truncated = truncate(label.to_s, length: last ? 80 : 32)
     if last
-      tag.span(truncated, style: "font-weight: bold; color: #1a1a1a;")
+      tag.span("[ #{truncated} ]", style: "font-weight: bold; color: #1a1a1a;")
     else
       link_to(path || "#", class: "bracketed") do
         "[ ".html_safe + tag.span(truncated, class: "bl") + " ]".html_safe

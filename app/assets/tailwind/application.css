@@ -2,7 +2,7 @@
 
 /* Base typography: Verdana 12px, line-height 1.4 */
 body {
-  font-family: Verdana, Geneva, sans-serif;
+  font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
   font-size: 13px;
   line-height: 1.4;
   color: #1a1a1a;
@@ -17,27 +17,21 @@ h4 { font-size: 13px; font-weight: bold; font-style: italic; }
 h1, h2, h3, h4 { margin-top: 2px; margin-bottom: 1px; }
 h1:first-child, h2:first-child, h3:first-child, h4:first-child { margin-top: 0; }
 
-/* Links: blue, underlined */
+/* Links: blue, no underline, bold */
 a {
   color: #0000cc;
-  text-decoration: underline;
+  text-decoration: none;
+  font-weight: bold;
 }
 a:visited {
-  color: #551a8b;
+  color: #0000cc;
 }
 a:hover {
   color: #0000ff;
 }
 
-/* Bracketed links: [ text ] — whole thing is clickable, only text is underlined */
-a.bracketed {
-  text-decoration: none;
-}
-a.bracketed .bl {
-  text-decoration: underline;
-}
-a.bracketed:visited { color: #0000cc; }
-a.bracketed:visited .bl { color: #0000cc; }
+/* Bracketed links: [ text ] — whole thing is clickable */
+a.bracketed:visited, a.bracketed:visited .bl { color: #0000cc; }
 
 /* Danger / destructive: YouTube red */
 .text-danger { color: #cc0000; }
@@ -49,6 +43,39 @@ a.text-danger.bracketed:hover, a.text-danger.bracketed:hover .bl { color: #99000
 
 /* Muted text */
 .text-muted { color: #555555; }
+
+/* Pane container — side-by-side panes with dividers */
+.pane-container {
+  display: flex;
+  margin: 0 -12px; /* bleed into main padding */
+  overflow-x: auto;
+  padding-top: 3px;
+}
+.pane-wrapper {
+  flex: 1 0 auto;
+  padding: 0 12px;
+}
+.pane-wrapper + .pane-wrapper {
+  border-left: 2px solid #ddd;
+  padding-left: 16px;
+}
+
+/* Pane reorder arrows — positioned at divider edges */
+.pane-arrow {
+  position: absolute;
+  top: -7px;
+  z-index: 99;
+}
+.pane-arrow-left {
+  left: 4px;
+}
+.pane-arrow-right {
+  right: 4px;
+}
+
+/* Detail tables — key/value, no borders */
+table.detail-table { width: auto; }
+table.detail-table td { border: none; padding: 1px 0; }
 
 /* Dense tables */
 table {
@@ -81,15 +108,22 @@ th.sortable {
   user-select: none;
 }
 th.sortable::after {
-  content: " \2195";
-  color: #999;
+  content: "\25B2\A\25BC";
+  white-space: pre;
+  display: inline-block;
+  width: 14px;
+  font-size: 10px;
+  line-height: 0.8;
+  vertical-align: middle;
+  text-align: center;
+  color: #0000cc;
   font-weight: bold;
 }
 th.sortable:hover {
   background: #e8e8e8;
 }
-th.sort-asc::after { content: " \2191"; color: #1a1a1a; }
-th.sort-desc::after { content: " \2193"; color: #1a1a1a; }
+th.sort-asc::after { content: "\25B2"; font-size: 13px; line-height: 1.4; }
+th.sort-desc::after { content: "\25BC"; font-size: 13px; line-height: 1.4; }
 
 /* Action column — tight, no extra padding */
 th.col-action, td.col-action {
@@ -213,6 +247,11 @@ dialog button.dialog-destructive {
 }
 dialog button.dialog-destructive:hover {
   color: #990000;
+}
+
+dialog.pane-dialog {
+  max-width: 600px;
+  padding: 0;
 }
 
 /* Hairline borders */
