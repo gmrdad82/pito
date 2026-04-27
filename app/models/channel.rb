@@ -1,4 +1,6 @@
 class Channel < ApplicationRecord
+  include Searchable
+
   encrypts :oauth_access_token
   encrypts :oauth_refresh_token
 
@@ -11,4 +13,7 @@ class Channel < ApplicationRecord
 
   validates :youtube_channel_id, presence: true, uniqueness: true
   validates :title, presence: true
+
+  searchable :title, :description
+  filterable :connected
 end

@@ -1,5 +1,5 @@
 <% content_for(:title, "deleting #{@type.pluralize}") %>
-<% breadcrumb([@type.pluralize, cancel_path_for(@type)], "deleting") %>
+<% breadcrumb([@type.pluralize, cancel_path_for(@type)], "deleting #{@items.length} #{@type}#{'s' if @items.length != 1}") %>
 
 <%= turbo_stream_from "bulk_operation_#{@operation.id}" %>
 

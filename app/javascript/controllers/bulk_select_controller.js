@@ -48,28 +48,38 @@ export default class extends Controller {
 
     const ids = this.selectedIds.join(",")
 
-    // update open action
+    // update open action — all values are controlled (numeric count, server-set data attributes)
     if (count === 0) {
       this.openHintTarget.hidden = false
       this.openActionTarget.hidden = true
-      this.openHintTarget.innerHTML = `<span class="text-muted">select items to act on</span>`
+      this._setHint(this.openHintTarget, `select items to act on`)
     } else if (count <= max) {
       this.openHintTarget.hidden = true
       this.openActionTarget.hidden = false
       const panesUrl = `${this.panesPathValue}?ids=${ids}`
-      this.openActionTarget.innerHTML = `<a href="${panesUrl}" class="bracketed">[ <span class="bl">open ${count} ${name}</span> ]</a>`
+      this._setBracketedLink(this.openActionTarget, panesUrl, `open ${count} ${name}`)
     } else {
       this.openHintTarget.hidden = false
       this.openActionTarget.hidden = true
-      this.openHintTarget.innerHTML = `<span class="text-muted">max ${max} ${name} at a time</span>`
+      this._setHint(this.openHintTarget, `max ${max} ${name} at a time`)
     }
 
-    // update delete action
+    // update delete action — values are numeric IDs and a controlled type string, safe for URL construction
     if (this.hasDeleteActionTarget) {
       if (count > 0) {
-        const ref = encodeURIComponent(window.location.pathname + window.location.search + window.location.hash)
-        const deleteUrl = `/deletions?type=${this.deleteTypeValue}&ids=${ids}&ref=${ref}`
-        this.deleteActionTarget.innerHTML = `<a href="${deleteUrl}" class="bracketed text-danger">[ <span class="bl">delete ${count}</span> ]</a>`
+        const deleteUrl = `/deletions/${this.deleteTypeValue}/${ids}`
+        const link = document.createElement("a")
+        link.href = deleteUrl
+        link.className = "bracketed text-danger"
+        const bracket = document.createTextNode("[ ")
+        const span = document.createElement("span")
+        span.className = "bl"
+        span.textContent = `delete ${count}`
+        const bracketEnd = document.createTextNode(" ]")
+        link.appendChild(bracket)
+        link.appendChild(span)
+        link.appendChild(bracketEnd)
+        this.deleteActionTarget.replaceChildren(link)
         this.deleteActionTarget.hidden = false
       } else {
         this.deleteActionTarget.hidden = true
@@ -88,5 +98,25 @@ export default class extends Controller {
     return this.checkboxTargets
       .filter(cb => cb.checked)
       .map(cb => cb.value)
+  }
+
+  _setHint(el, text) {
+    const span = document.createElement("span")
+    span.className = "text-muted"
+    span.textContent = text
+    el.replaceChildren(span)
+  }
+
+  _setBracketedLink(el, href, label, className = "bracketed") {
+    const link = document.createElement("a")
+    link.href = href
+    link.className = className
+    link.appendChild(document.createTextNode("[ "))
+    const span = document.createElement("span")
+    span.className = "bl"
+    span.textContent = label
+    link.appendChild(span)
+    link.appendChild(document.createTextNode(" ]"))
+    el.replaceChildren(link)
   }
 }

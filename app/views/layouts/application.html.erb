@@ -31,6 +31,11 @@
           <img src="/Pito.png" alt="Pito" class="header-logo">
         </a>
         <nav style="display: flex; align-items: center; gap: 4px;"><%= nav_link "home", root_path %> <span class="text-muted">&middot;</span> <%= nav_link "channels", channels_path %> <span class="text-muted">&middot;</span> <%= nav_link "videos", videos_path %> <span class="text-muted">&middot;</span> <%= nav_link "settings", settings_path %></nav>
+        <span class="text-muted" style="margin-left: 6px;">&middot;</span>
+        <%= form_with url: search_path, method: :get, style: "display: flex; align-items: center; gap: 4px; margin-left: 4px;", data: { turbo_action: "replace" } do %>
+          <input type="text" name="q" value="<%= params[:q] %>" placeholder="search..." autocomplete="off" style="width: 200px; height: 22px; font-size: 13px; padding: 0 6px; border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-text); font-family: inherit;">
+          <button type="submit" class="bracketed" style="white-space: nowrap;">[ <span class="bl">search</span> ]</button>
+        <% end %>
         <a href="#" class="bracketed" style="margin-left: auto;" data-action="click->theme#toggle" data-theme-target="toggle">[ <span class="bl" data-theme-target="label">dark</span> ]</a>
       </div>
     </header>

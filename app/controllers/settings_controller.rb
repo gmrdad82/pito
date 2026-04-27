@@ -7,6 +7,11 @@ class SettingsController < ApplicationController
     @max_panes_default = ENV.fetch("MAX_PANES", 3).to_i
     @pane_title_length_default = ENV.fetch("PANE_TITLE_LENGTH", 14).to_i
     @theme = AppSetting.get("theme") || "auto"
+    @search_healthy = Search.engine.healthy?
+    @search_stats = Search.engine.index_stats
+  rescue StandardError
+    @search_healthy = false
+    @search_stats = {}
   end
 
   def update
@@ -36,5 +41,10 @@ class SettingsController < ApplicationController
     else
       head :unprocessable_entity
     end
+  end
+
+  def reindex
+    ReindexAllJob.perform_later
+    redirect_to settings_path, notice: "reindex started."
   end
 end

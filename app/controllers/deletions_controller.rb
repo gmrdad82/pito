@@ -1,14 +1,14 @@
 class DeletionsController < ApplicationController
   before_action :load_items
 
-  # GET /deletions?type=channel&ids=1,2,3
+  # GET /deletions/:type/:ids
   def show
-    @cancel_path = cancel_path_with_ref
+    @cancel_path = cancel_path
   end
 
-  # POST /deletions?type=channel&ids=1,2,3
+  # POST /deletions/:type/:ids
   def create
-    @cancel_path = cancel_path_with_ref
+    @cancel_path = cancel_path
 
     @operation = BulkOperation.create!(kind: :bulk_delete, status: :pending, started_at: Time.current)
     @items.each do |item|
@@ -20,7 +20,7 @@ class DeletionsController < ApplicationController
       )
     end
 
-    BulkDeleteJob.perform_in(5.seconds, @operation.id)
+    BulkDeleteJob.perform_in(3.seconds, @operation.id)
 
     render :progress
   end
@@ -29,7 +29,7 @@ class DeletionsController < ApplicationController
 
   def load_items
     @type = params[:type].to_s
-    ids = params[:ids].to_s.split(/[\s,+]+/).reject(&:blank?)
+    ids = params[:ids].to_s.split(",").reject(&:blank?)
 
     @items = case @type
     when "channel" then Channel.where(id: ids).order(title: :asc)
@@ -54,7 +54,7 @@ class DeletionsController < ApplicationController
       redirect_to cancel_path, alert: "nothing to delete."
     end
 
-    @cancel_path = cancel_path_with_ref
+    @cancel_path = cancel_path
   end
 
   def cancel_path
@@ -63,9 +63,5 @@ class DeletionsController < ApplicationController
     when "video"   then videos_path
     else root_path
     end
-  end
-
-  def cancel_path_with_ref
-    params[:ref].presence || cancel_path
   end
 end

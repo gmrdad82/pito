@@ -1,0 +1,6 @@
+---
+:queues:
+  - default
+  - bulk_deletion
+  - search
+:concurrency: 5

@@ -1,5 +1,5 @@
 <% content_for(:title, "delete #{@type.pluralize}") %>
-<% breadcrumb([@type.pluralize, cancel_path_for(@type)], "delete") %>
+<% breadcrumb([@type.pluralize, cancel_path_for(@type)], "delete #{@items.length} #{@type}#{'s' if @items.length != 1}") %>
 
 <div id="delete-content">
   <div style="margin-bottom: 8px;">
@@ -62,7 +62,7 @@
     <%= render "shared/action_screen",
       submit_label: "[ delete ]",
       cancel_path: @cancel_path,
-      form_url: "/deletions?type=#{@type}&ids=#{@items.map(&:id).join(",")}&ref=#{ERB::Util.url_encode(@cancel_path)}",
+      form_url: "/deletions/#{@type}/#{@items.map(&:id).join(",")}",
       destructive: true %>
   </div>
 </div>

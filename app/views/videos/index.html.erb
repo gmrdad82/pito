@@ -6,9 +6,8 @@
     <span data-bulk-select-target="bulkToggle">
       <a href="#" class="bracketed" data-action="click->bulk-select#enterBulk">[ <span class="bl">actions</span> ]</a>
     </span>
+    <span style="margin-left: auto;"><%= render(SavedViewsSectionComponent.new(saved_views: @saved_views || SavedView.none, kind: "videos")) %></span>
   </div>
-
-  <%= render(SavedViewsSectionComponent.new(saved_views: @saved_views || SavedView.none, kind: "videos")) %>
 
   <% if @videos.any? %>
     <div data-controller="sortable-table">
@@ -25,7 +24,7 @@
         <thead>
           <tr>
             <th class="col-action" data-bulk-select-target="bulkCol" hidden>
-              <input type="checkbox" data-bulk-select-target="headerCheckbox" data-action="change->bulk-select#toggleAll">
+              <%= render(CheckboxComponent.new(data: { bulk_select_target: "headerCheckbox", action: "change->bulk-select#toggleAll" })) %>
             </th>
             <th class="col-action" data-bulk-select-target="actionCol"><a href="#" class="bracketed">[ <span class="bl">add</span> ]</a></th>
             <th class="sortable" data-action="click->sortable-table#sort" data-sort-type="string">title</th>
@@ -44,7 +43,7 @@
           <% @videos.each do |video| %>
             <tr>
               <td class="col-action" data-bulk-select-target="bulkCol" hidden>
-                <input type="checkbox" value="<%= video.id %>" data-bulk-select-target="checkbox" data-action="change->bulk-select#toggle">
+                <%= render(CheckboxComponent.new(value: video.id, data: { bulk_select_target: "checkbox", action: "change->bulk-select#toggle" })) %>
               </td>
               <td class="col-action" data-bulk-select-target="actionCol"><%= render(BracketedLinkComponent.new(label: "open", href: video_path(video))) %></td>
               <td style="max-width: 280px; overflow: hidden; text-overflow: ellipsis;"><%= video.title %></td>

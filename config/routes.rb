@@ -24,15 +24,18 @@ Rails.application.routes.draw do
     end
   end
   resources :saved_views, only: [ :create, :destroy ]
-  resource :deletions, only: [ :show, :create ]
+  get "deletions/:type/:ids", to: "deletions#show", as: :deletions
+  post "deletions/:type/:ids", to: "deletions#create"
   resources :bulk_operations, only: [ :show ] do
     member do
       get :status
     end
   end
+  get "search", to: "search#show"
   get "settings", to: "settings#index"
   patch "settings", to: "settings#update"
   patch "settings/theme", to: "settings#update_theme"
+  post "settings/reindex", to: "settings#reindex"
 
   get "up" => "rails/health#show", as: :rails_health_check
 end

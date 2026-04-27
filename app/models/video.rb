@@ -1,4 +1,6 @@
 class Video < ApplicationRecord
+  include Searchable
+
   belongs_to :channel
 
   has_many :video_stats, dependent: :destroy
@@ -9,4 +11,7 @@ class Video < ApplicationRecord
 
   validates :youtube_video_id, presence: true, uniqueness: true
   validates :title, presence: true
+
+  searchable :title, :description, :tags, :category_id, :default_language
+  filterable :channel_id, :privacy_status
 end

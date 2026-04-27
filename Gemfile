@@ -27,6 +27,9 @@ gem "google-apis-youtube_analytics_v2"
 gem "chartkick"
 gem "groupdate"
 
+# Search
+gem "meilisearch"
+
 # Environment
 gem "dotenv-rails"
 

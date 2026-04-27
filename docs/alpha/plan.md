@@ -93,19 +93,29 @@ Upload architecture: browser uploads directly to YouTube API via resumable uploa
 - [ ] **Step 61:** Upload status tracking — VideoUpload record updated via Turbo Stream, completion links to synced Video
 - [ ] **Step 62:** YouTube Studio links — per-channel `[ YouTube Studio ]` link on channel detail (studio.youtube.com/channel/{id})
 
-## Pre-Phase 14 — Bigger Seed Data
+## Phase 14 — Bigger Seed + Meilisearch Search + UI Polish
 
-- [ ] **Step (new):** Expand seed data — more channels (8-10), more videos (200+), varied categories/languages/privacy states, richer stat distributions. Enough data to stress-test search, tables, and panes.
-
-## Phase 14 — Search (Meilisearch)
-
-- [ ] **Step 63:** Meilisearch Docker service — add to docker-compose, healthcheck, update bin/dev, .env.example additions
-- [ ] **Step 64:** Search::Engine interface + Search::MeilisearchEngine — pluggable engine, full method coverage, specs against real Meilisearch
-- [ ] **Step 65:** Searchable concern — include in Channel/Video, declare fields, after_commit callbacks
-- [ ] **Step 66:** SearchIndexJob + SearchRemoveJob + ReindexJob — async indexing, specs with Sidekiq::Testing
-- [ ] **Step 67:** Navbar search input — form in header, GET /search, style to match
-- [ ] **Step 68:** SearchController#show — channel + video sections, independent pagination, highlighting, empty/error states
-- [ ] **Step 69:** Settings search section — include-channels toggle, engine display, `[ reindex all ]` via ReindexingsController action screen
+- [x] **Step 40 (combined):** Bigger seed data (10 channels, 270 videos), Meilisearch search stack, UI polish
+  - Seed: 10 channels across diverse niches, 270 videos with varied categories/languages/privacy, 90 days of stats
+  - Meilisearch Docker service (v1.13, port 7700), `meilisearch` gem (direct HTTP)
+  - `Search::Engine` abstract interface + `Search::MeilisearchEngine` implementation
+  - `Searchable` concern on Channel/Video with `searchable`/`filterable` macros + after_commit callbacks
+  - `SearchIndexJob`, `SearchRemoveJob`, `ReindexAllJob` on dedicated `:search` queue
+  - `SearchController#show` — combined channels + videos results with highlighting, HTML + JSON
+  - Navbar search input (200px) with `[ search ]` button, separator dot
+  - Settings page split: form with `[ save ]` above `<hr>`, search status + `[ reindex ]` below
+  - Saved views as `[ saved views ]` modal dialog (width: max-content)
+  - Clean deletion URLs (`/deletions/:type/:ids` path segments)
+  - `BulkDeleteJob` on dedicated `:bulk_deletion` queue, 3s delay
+  - Deletion breadcrumbs show item count ("delete 3 videos")
+  - `CheckboxComponent` — markdown-style `[ ]`/`[x]`/`[-]` with optional muted label
+  - Chart sync checkboxes on dashboard line charts (per-chart toggle)
+  - Separator dots (`·`) between all adjacent bracketed links/actions
+  - Link alignment nudges next to h1/h2 headings
+  - Fixed Stimulus controllers (restored `eagerLoadControllersFrom` for importmap compatibility)
+  - Replaced all `innerHTML` with safe DOM methods in `bulk_select_controller.js`
+  - Sidekiq queue separation: default, bulk_deletion, search (`config/sidekiq.yml`)
+  - Comprehensive specs across all new code
 
 ## Phase 15 — Finalize (pre-MCP)
 

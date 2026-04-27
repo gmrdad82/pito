@@ -113,6 +113,7 @@ GEM
     cronex (0.15.0)
       tzinfo
       unicode (>= 0.4.4.5)
+    csv (3.3.5)
     date (3.5.1)
     debug (1.11.1)
       irb (~> 1.10)
@@ -182,6 +183,10 @@ GEM
     groupdate (6.8.0)
       activesupport (>= 7.2)
     hashdiff (1.2.1)
+    httparty (0.24.2)
+      csv
+      mini_mime (>= 1.0.0)
+      multi_xml (>= 0.5.2)
     i18n (1.14.8)
       concurrent-ruby (~> 1.0)
     importmap-rails (2.2.3)
@@ -214,6 +219,8 @@ GEM
       net-smtp
     marcel (1.1.0)
     matrix (0.4.3)
+    meilisearch (0.33.0)
+      httparty (~> 0.24)
     method_source (1.1.0)
     mini_mime (1.1.5)
     minitest (6.0.5)
@@ -221,6 +228,8 @@ GEM
       prism (~> 1.5)
     msgpack (1.8.0)
     multi_json (1.20.1)
+    multi_xml (0.8.1)
+      bigdecimal (>= 3.1, < 5)
     mysql2 (0.5.7)
       bigdecimal
     net-http (0.9.1)
@@ -472,6 +481,7 @@ DEPENDENCIES
   groupdate
   importmap-rails
   jbuilder
+  meilisearch
   mysql2 (~> 0.5)
   propshaft
   pry-rails

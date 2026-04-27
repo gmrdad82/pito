@@ -385,3 +385,25 @@ dialog.pane-dialog {
 
 /* Hairline borders */
 .border-hairline { border: 1px solid var(--color-border); }
+
+/* Markdown-style checkbox: [ ] / [x] / [-] with optional muted label */
+.md-check {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.md-check input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.md-check-indicator { font-weight: bold; }
+.md-check-indicator::before { content: "[ ]"; }
+.md-check input:checked ~ .md-check-indicator::before { content: "[x]"; }
+.md-check input:indeterminate ~ .md-check-indicator::before { content: "[-]"; }
+.md-check-label { color: var(--color-muted); }

@@ -90,3 +90,36 @@
 
   <button type="submit">[ save ]</button>
 <% end %>
+
+<hr style="border: none; border-top: 1px solid var(--color-border); margin: 12px 0;">
+
+<div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start;">
+  <div style="flex: 1; min-width: 280px; max-width: 480px;">
+    <fieldset class="border-hairline" style="padding: 8px; margin-bottom: 8px;">
+      <legend><h2>search</h2></legend>
+
+      <div style="margin-bottom: 6px;">
+        <label style="display: block; font-weight: bold; margin-bottom: 1px;">engine</label>
+        <span>meilisearch</span>
+        <% if @search_healthy %>
+          <span style="color: var(--color-success);">▲ connected</span>
+        <% else %>
+          <span class="text-danger">▽ disconnected</span>
+        <% end %>
+      </div>
+
+      <% if @search_stats.any? %>
+        <div style="margin-bottom: 6px;">
+          <label style="display: block; font-weight: bold; margin-bottom: 1px;">indexed documents</label>
+          <% @search_stats.each do |index_name, count| %>
+            <span class="text-muted"><%= index_name %>: <%= count %></span><br>
+          <% end %>
+        </div>
+      <% end %>
+    </fieldset>
+  </div>
+</div>
+
+<%= form_with url: settings_reindex_path, method: :post, style: "display: inline;" do %>
+  <button type="submit">[ reindex ]</button>
+<% end %>

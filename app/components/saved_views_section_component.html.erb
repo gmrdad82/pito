@@ -1,16 +1,25 @@
-<div style="margin-bottom: 12px;">
-  <h3>saved views</h3>
-  <% @saved_views.each do |view| %>
-    <div style="display: flex; align-items: baseline; gap: 6px; margin-top: 2px;">
-      <%= render(BracketedLinkComponent.new(label: "open", href: view.url)) %>
-      <%= render(BracketedLinkComponent.new(
-        label: "delete",
-        href: helpers.saved_view_path(view),
-        destructive: true,
-        method: :delete,
-        confirm: "delete this saved view?"
-      )) %>
-      <span><%= view.display_name_with_deletions %></span>
+<span data-controller="saved-views">
+  <a href="#" class="bracketed" data-action="click->saved-views#open">[ <span class="bl">saved views</span> ]</a>
+
+  <dialog data-saved-views-target="dialog" data-action="click->saved-views#clickOutside" class="pane-dialog">
+    <div style="padding: 12px; min-width: 400px; max-width: 90vw; width: max-content;">
+      <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
+        <h2>saved views</h2>
+        <a href="#" class="bracketed" data-action="click->saved-views#close">[ <span class="bl">close</span> ]</a>
+      </div>
+      <% @saved_views.each do |view| %>
+        <div style="display: flex; align-items: baseline; gap: 6px; margin-top: 4px; white-space: nowrap;">
+          <%= render(BracketedLinkComponent.new(label: "open", href: view.url)) %>
+          <%= render(BracketedLinkComponent.new(
+            label: "delete",
+            href: helpers.saved_view_path(view),
+            destructive: true,
+            method: :delete,
+            confirm: "delete this saved view?"
+          )) %>
+          <span><%= view.display_name_with_deletions %></span>
+        </div>
+      <% end %>
     </div>
-  <% end %>
-</div>
+  </dialog>
+</span>

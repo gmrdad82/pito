@@ -1,6 +1,6 @@
 class BulkDeleteJob
   include Sidekiq::Job
-  sidekiq_options queue: "default"
+  sidekiq_options queue: "bulk_deletion"
 
   def perform(bulk_operation_id)
     operation = BulkOperation.find(bulk_operation_id)

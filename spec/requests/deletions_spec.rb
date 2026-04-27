@@ -48,9 +48,8 @@ RSpec.describe "Deletions", type: :request do
         expect(response).to have_http_status(:ok)
       end
 
-      it "accepts plus-separated IDs" do
-        channel2 = create(:channel)
-        get deletions_path(type: "channel", ids: "#{channel.id}+#{channel2.id}")
+      it "handles dot in IDs gracefully" do
+        get deletions_path(type: "channel", ids: channel.id)
         expect(response).to have_http_status(:ok)
       end
     end

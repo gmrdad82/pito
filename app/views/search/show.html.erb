@@ -1,0 +1,77 @@
+<% content_for(:title, "search") %>
+<% content_for(:breadcrumbs) do %>
+  <span class="text-muted">search</span>
+<% end %>
+
+<% if @query.blank? %>
+  <p class="text-muted">enter a search query above.</p>
+<% else %>
+  <p class="text-muted" style="margin-bottom: 8px;">
+    results for "<%= @query %>" &mdash;
+    <%= @channels[:total] %> channel<%= @channels[:total] == 1 ? "" : "s" %>,
+    <%= @videos[:total] %> video<%= @videos[:total] == 1 ? "" : "s" %>
+    <span class="text-muted" style="font-size: 11px;">(<%= @channels[:took_ms] + @videos[:took_ms] %>ms)</span>
+  </p>
+
+  <% if @channels[:total] > 0 %>
+    <h2 style="margin-bottom: 4px;">channels</h2>
+    <table class="data-table" style="margin-bottom: 12px; max-width: 900px;">
+      <thead>
+        <tr>
+          <th>title</th>
+          <th>description</th>
+          <th style="text-align: right;">subscribers</th>
+          <th>connected</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @channels[:hits].each do |hit| %>
+          <% channel = hit[:record] %>
+          <% next unless channel %>
+          <tr>
+            <td><%= hit.dig(:highlights, "title")&.html_safe || channel.title %></td>
+            <td class="text-muted"><%= truncate(hit.dig(:highlights, "description")&.html_safe || channel.description, length: 80) %></td>
+            <td style="text-align: right;"><%= number_with_delimiter(channel.subscriber_count) %></td>
+            <td><%= channel.connected? ? "▲" : "▽" %></td>
+            <td><%= link_to "[ open ]", channel_path(channel), class: "bracketed" %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  <% end %>
+
+  <% if @videos[:total] > 0 %>
+    <h2 style="margin-bottom: 4px;">videos</h2>
+    <table class="data-table" style="margin-bottom: 12px; max-width: 1400px;">
+      <thead>
+        <tr>
+          <th>title</th>
+          <th>channel</th>
+          <th>privacy</th>
+          <th>language</th>
+          <th style="text-align: right;">duration</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @videos[:hits].each do |hit| %>
+          <% video = hit[:record] %>
+          <% next unless video %>
+          <tr>
+            <td><%= hit.dig(:highlights, "title")&.html_safe || video.title %></td>
+            <td class="text-muted"><%= video.channel.title %></td>
+            <td><%= video.privacy_status.gsub("_", " ") %></td>
+            <td><%= video.default_language %></td>
+            <td style="text-align: right;"><%= video.duration_seconds ? "#{video.duration_seconds / 60}:#{format('%02d', video.duration_seconds % 60)}" : "—" %></td>
+            <td><%= link_to "[ open ]", video_path(video), class: "bracketed" %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  <% end %>
+
+  <% if @channels[:total] == 0 && @videos[:total] == 0 %>
+    <p class="text-muted">no results found for "<%= @query %>".</p>
+  <% end %>
+<% end %>

@@ -1,6 +1,12 @@
 require "rails_helper"
 
 RSpec.describe "Settings", type: :request do
+  let(:search_engine) { instance_double(Search::MeilisearchEngine, healthy?: true, index_stats: {}) }
+
+  before do
+    allow(Search).to receive(:engine).and_return(search_engine)
+  end
+
   describe "GET /settings" do
     it "returns 200" do
       get settings_path
@@ -66,6 +72,42 @@ RSpec.describe "Settings", type: :request do
       }
       follow_redirect!
       expect(response.body).to include("settings saved.")
+    end
+  end
+
+  describe "GET /settings search section" do
+    let(:engine) { instance_double(Search::MeilisearchEngine) }
+
+    before do
+      allow(Search).to receive(:engine).and_return(engine)
+    end
+
+    it "shows search engine status when healthy" do
+      allow(engine).to receive(:healthy?).and_return(true)
+      allow(engine).to receive(:index_stats).and_return({ "channels_test" => 10, "videos_test" => 50 })
+      get settings_path
+      expect(response.body).to include("meilisearch")
+      expect(response.body).to include("connected")
+    end
+
+    it "shows disconnected when unhealthy" do
+      allow(engine).to receive(:healthy?).and_return(false)
+      allow(engine).to receive(:index_stats).and_return({})
+      get settings_path
+      expect(response.body).to include("disconnected")
+    end
+  end
+
+  describe "POST /settings/reindex" do
+    it "enqueues ReindexAllJob and redirects" do
+      post settings_reindex_path
+      expect(response).to redirect_to(settings_path)
+      follow_redirect!
+      expect(response.body).to include("reindex started")
+    end
+
+    it "enqueues the job" do
+      expect { post settings_reindex_path }.to have_enqueued_job(ReindexAllJob)
     end
   end
 

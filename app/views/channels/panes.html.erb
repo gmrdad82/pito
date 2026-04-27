@@ -12,11 +12,8 @@
 <% current_ids = pane_ids.join(",") %>
 
 <div data-controller="add-pane">
-  <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;">
-    <h1>channels (<%= @panes.compact.size %>)</h1>
-    <% if @available_channels&.any? %>
-      <a href="#" class="bracketed" data-action="click->add-pane#open">[ <span class="bl">+</span> ]</a>
-    <% end %>
+  <div style="margin-bottom: 6px;">
+    <h1 style="display: inline;">channels (<%= @panes.compact.size %>)</h1><% if @available_channels&.any? %> <span style="position: relative; top: -2px;"><span class="text-muted">&middot;</span> <a href="#" class="bracketed" data-action="click->add-pane#open">[ <span class="bl">+</span> ]</a></span><% end %>
   </div>
 
   <div class="pane-container">
@@ -33,13 +30,16 @@
           <% end %>
           <div style="display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px;">
             <h2><%= channel.title %></h2>
+            <span style="position: relative; top: -1px;"><span class="text-muted">&middot;</span>
             <%= link_to channel_path(channel), class: "bracketed", style: "font-size: 12px;" do %>[ <span class="bl">focus</span> ]<% end %>
             <% remaining_ids = pane_ids.reject { |id| id == channel.id } %>
             <% if remaining_ids.size > 1 %>
+              <span class="text-muted">&middot;</span>
               <%= link_to "#{panes_channels_path}?ids=#{remaining_ids.join(',')}", class: "bracketed", style: "font-size: 12px;" do %>[ <span class="bl">&minus;</span> ]<% end %>
             <% elsif remaining_ids.size == 1 %>
+              <span class="text-muted">&middot;</span>
               <%= link_to channel_path(remaining_ids.first), class: "bracketed", style: "font-size: 12px;" do %>[ <span class="bl">&minus;</span> ]<% end %>
-            <% end %>
+            <% end %></span>
           </div>
           <%= render "channels/pane", channel: channel %>
         </div>

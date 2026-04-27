@@ -375,3 +375,52 @@
 - Marked Phases 10–13 as deferred (YouTube integration later)
 - Added "Pre-Phase 14 — Bigger Seed Data" step to plan
 - Reordered plan: bigger seed → search (Phase 14) → finalize (Phase 15) → MCP (Phase 16)
+
+## 2026-04-27
+
+### Session 1
+
+**Phase 14: Bigger seed + Meilisearch search + UI polish** — completed
+
+Seed data:
+- Expanded to 10 channels (tech, gaming, cooking, music, fitness, travel, etc.) and 270 videos
+- Varied categories, languages, privacy states, durations, 90 days of stats with realistic distributions
+
+Meilisearch search stack:
+- Added Meilisearch v1.13 Docker service (port 7700) to docker-compose.yml
+- Added `meilisearch` gem for direct HTTP client (not meilisearch-rails)
+- `Search::Engine` abstract interface with `index`, `remove`, `reindex_all`, `search`, `healthy?`, `index_stats`
+- `Search::MeilisearchEngine` implementation using `Meilisearch::Client`, snake_case params, `find_in_batches` reindexing
+- `Search` module with `engine`/`reset_engine!` accessor, AppSetting-based engine selection
+- `Searchable` concern: `searchable(*fields)`, `filterable(*fields)` class macros, after_commit callbacks
+- Channel: searchable title/description, filterable connected
+- Video: searchable title/description/tags/category_id/default_language, filterable channel_id/privacy_status
+- `SearchIndexJob`, `SearchRemoveJob`, `ReindexAllJob` on `:search` queue
+- `SearchController#show` — searches both Channel and Video, combined results with highlighting, HTML + JSON
+- Navbar: search input (200px) + `[ search ]` button with separator dot, theme toggle pushed far right
+
+Settings + Sidekiq:
+- Settings page split with `<hr>`: form with `[ save ]` above, search status + `[ reindex ]` below
+- Sidekiq queue separation: `default`, `bulk_deletion`, `search` via `config/sidekiq.yml`
+- `BulkDeleteJob` moved to `:bulk_deletion` queue
+
+UI polish:
+- Saved views: changed from inline list to `[ saved views ]` link + `<dialog>` modal, `width: max-content` with `white-space: nowrap`
+- Clean deletion URLs: `/deletions/:type/:ids` path segments (was query params)
+- Deletion breadcrumbs now show "delete 3 videos" / "deleting 3 videos"
+- Deletion delay reduced from 5s to 3s
+- `CheckboxComponent` (ViewComponent): markdown-style `[ ]`/`[x]`/`[-]` with bold indicator and optional muted label
+- Replaced all native checkboxes in videos/channels tables with CheckboxComponent
+- Dashboard chart sync: `[ ] sync` / `[x] sync` checkbox per line chart, `chart_sync_controller.js` toggles `data-sync-group`
+- Separator dots (`·`) between all adjacent bracketed links (breadcrumb actions, title + `[+]`, pane headers, chart titles)
+- Link alignment: `position: relative; top: -2px` next to h1, `-1px` next to h2
+- Fixed Stimulus controllers: restored `eagerLoadControllersFrom` (importmap-compatible) after `stimulus:manifest:update` broke relative imports
+- Replaced all `innerHTML` with safe DOM methods in `bulk_select_controller.js` (createElement/textContent/replaceChildren)
+- `saved_views_controller.js` — new Stimulus controller for dialog open/close/clickOutside
+
+Specs:
+- `spec/services/search/engine_spec.rb`, `search/meilisearch_engine_spec.rb`, `search_spec.rb`
+- `spec/models/concerns/searchable_spec.rb`
+- `spec/jobs/search_index_job_spec.rb`, `search_remove_job_spec.rb`, `reindex_all_job_spec.rb`
+- `spec/requests/search_spec.rb`, updated `settings_spec.rb`, `deletions_spec.rb`
+- `spec/components/checkbox_component_spec.rb`, updated `saved_views_section_component_spec.rb`

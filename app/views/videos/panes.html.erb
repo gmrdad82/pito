@@ -12,11 +12,8 @@
 <% current_ids = pane_ids.join(",") %>
 
 <div data-controller="add-pane">
-  <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;">
-    <h1>videos (<%= @panes.compact.size %>)</h1>
-    <% if @available_videos&.any? %>
-      <a href="#" class="bracketed" data-action="click->add-pane#open">[ <span class="bl">+</span> ]</a>
-    <% end %>
+  <div style="margin-bottom: 6px;">
+    <h1 style="display: inline;">videos (<%= @panes.compact.size %>)</h1><% if @available_videos&.any? %> <span style="position: relative; top: -2px;"><span class="text-muted">&middot;</span> <a href="#" class="bracketed" data-action="click->add-pane#open">[ <span class="bl">+</span> ]</a></span><% end %>
   </div>
 
   <div class="pane-container">
@@ -32,14 +29,17 @@
             <%= link_to "▶", "#{panes_videos_path}?ids=#{swapped.join(',')}", class: "pane-arrow pane-arrow-right", title: "move right" %>
           <% end %>
           <div style="display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px;">
-            <h2><%= truncate(video.title, length: @pane_title_length, omission: "…") %></h2>
+            <h2><%= video.title %></h2>
+            <span style="position: relative; top: -1px;"><span class="text-muted">&middot;</span>
             <%= render(BracketedLinkComponent.new(label: "focus", href: video_path(video))) %>
             <% remaining_ids = pane_ids.reject { |id| id == video.id } %>
             <% if remaining_ids.size > 1 %>
+              <span class="text-muted">&middot;</span>
               <%= render(BracketedLinkComponent.new(label: "−", href: "#{panes_videos_path}?ids=#{remaining_ids.join(',')}")) %>
             <% elsif remaining_ids.size == 1 %>
+              <span class="text-muted">&middot;</span>
               <%= render(BracketedLinkComponent.new(label: "−", href: video_path(remaining_ids.first))) %>
-            <% end %>
+            <% end %></span>
           </div>
           <%= render "videos/pane", video: video %>
         </div>

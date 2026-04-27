@@ -9,15 +9,15 @@
 
   <%= render(ChartToolbarComponent.new(current_range: @range, base_path: root_path)) %>
 
-  <div style="display: flex; gap: 24px; flex-wrap: wrap;">
+  <div style="display: flex; gap: 24px; flex-wrap: wrap;" data-controller="chart-sync">
     <div style="flex: 1; min-width: 400px;">
-      <div style="margin-bottom: 24px;" data-sync-group="dashboard">
-        <h3>daily views</h3>
+      <div style="margin-bottom: 24px;" data-chart-sync-target="chart">
+        <h3 style="display: flex; align-items: baseline; gap: 4px;">daily views <span class="text-muted">&middot;</span> <%= render(CheckboxComponent.new(label: "sync", data: { action: "change->chart-sync#toggle" })) %></h3>
         <%= line_chart @daily_views, height: "250px", colors: %w[#0000cc], library: { datasets: { pointHoverRadius: 4 } } %>
       </div>
 
-      <div style="margin-bottom: 24px;" data-sync-group="dashboard">
-        <h3>views by channel</h3>
+      <div style="margin-bottom: 24px;" data-chart-sync-target="chart">
+        <h3 style="display: flex; align-items: baseline; gap: 4px;">views by channel <span class="text-muted">&middot;</span> <%= render(CheckboxComponent.new(label: "sync", data: { action: "change->chart-sync#toggle" })) %></h3>
         <%= line_chart @views_by_channel, height: "250px", colors: [ "#0000cc", "#2e7d32", "#8b5cf6" ], library: { datasets: { pointHoverRadius: 4 } } %>
       </div>
     </div>
@@ -28,8 +28,8 @@
         <%= bar_chart @top_videos.map { |v| [ truncate(v.title, length: 40, omission: "…"), v.total_views ] }, height: "250px", colors: [ "#0000cc" ], library: { interaction: { mode: "nearest", intersect: true }, plugins: { crosshair: false } } %>
       </div>
 
-      <div style="margin-bottom: 24px;" data-sync-group="dashboard">
-        <h3>daily engagement</h3>
+      <div style="margin-bottom: 24px;" data-chart-sync-target="chart">
+        <h3 style="display: flex; align-items: baseline; gap: 4px;">daily engagement <span class="text-muted">&middot;</span> <%= render(CheckboxComponent.new(label: "sync", data: { action: "change->chart-sync#toggle" })) %></h3>
         <%= line_chart @daily_engagement, height: "250px", colors: [ "#0000cc", "#d97706" ], library: { datasets: { pointHoverRadius: 4 } } %>
       </div>
     </div>

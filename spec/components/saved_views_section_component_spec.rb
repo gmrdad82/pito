@@ -10,9 +10,10 @@ RSpec.describe SavedViewsSectionComponent, type: :component do
     view = create(:saved_view, kind: :channels, url: "/channels/1", name: "my channel")
     render_inline(described_class.new(saved_views: SavedView.channels.ordered, kind: "channels"))
 
-    expect(page).to have_css("h3", text: "saved views")
+    expect(page).to have_css("h2", text: "saved views")
     expect(page).to have_link("[ open ]", href: "/channels/1")
     expect(page).to have_css("a.text-danger")
+    expect(page).to have_css("dialog")
   end
 
   it "shows display name with deletions" do
