@@ -39,7 +39,7 @@ Rails.application.routes.draw do
 
   # MCP HTTP transport (served by dedicated Puma on port 3001)
   require_relative "../app/mcp/pito_server"
-  require_relative "../app/mcp/mcp_rack_app"
+  require_relative "../app/mcp/rack_app"
   mount Mcp::RackApp.new => "/mcp"
 
   get "up" => "rails/health#show", as: :rails_health_check

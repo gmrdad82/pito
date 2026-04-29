@@ -165,7 +165,7 @@ Adds: `description`, `thumbnail_url`, `last_synced_at`, `videos` (array of video
 ```
 app/mcp/
   pito_server.rb          # Server builder + stdio launcher
-  mcp_rack_app.rb         # Rack app wrapping HTTP transport + bearer auth
+  rack_app.rb             # Rack app wrapping HTTP transport
   tools/
     list_channels.rb      # list_channels
     get_channel.rb        # get_channel
