@@ -23,6 +23,7 @@ Pito — a single-tenant Rails 8 web app for tracking, analyzing, and managing Y
 bin/setup          # Install deps, start Docker, prepare DB
 bin/dev            # Start Docker services + Puma + Sidekiq + Tailwind watcher
 bin/mcp            # Start MCP server (stdio transport, separate process)
+bin/mcp-web        # Start MCP HTTP server (dedicated Puma on port 3001)
 bundle exec rspec  # Run test suite
 bundle exec rubocop # Lint
 ```

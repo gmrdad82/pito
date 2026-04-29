@@ -1,17 +1,19 @@
 # MCP Server
 
-Pito exposes a Model Context Protocol (MCP) server for AI assistants to interact with the app programmatically.
+Pito exposes a Model Context Protocol (MCP) server for AI assistants to interact with the app programmatically. Two transports are available: stdio for local Claude Code usage, and HTTP for remote access (Claude Mobile, other MCP clients).
 
 ## Architecture
 
-- **Transport:** stdio (stdin/stdout JSON-RPC 2.0)
-- **Process:** `bin/mcp` — boots Rails, runs as standalone process (separate from Puma)
 - **Gem:** `mcp` (official Ruby MCP SDK, v0.14.0+)
-- **No auth** for local stdio — auth will be added for HTTP transport later
+- **Transports:** stdio (local) and Streamable HTTP (remote)
+- **Auth:** none for stdio (local trust), bearer token for HTTP
+- **Process isolation:** stdio runs as standalone process; HTTP runs on a dedicated Puma (port 3001), separate from the web app (port 3000)
 
 The MCP server loads Rails models, decorators, and services directly (in-process). It does not make HTTP requests to the web app.
 
-## Setup
+## Stdio Transport (Local)
+
+For Claude Code and local MCP clients. No authentication — inherits trust from the local machine.
 
 ```bash
 # Add to Claude Code (from project root)
@@ -20,6 +22,60 @@ claude mcp add pito -- /full/path/to/pito/bin/mcp
 # Debug mode (shows Rails boot output on stderr)
 MCP_DEBUG=1 bin/mcp
 ```
+
+## HTTP Transport (Remote)
+
+For Claude Mobile, remote MCP clients, and tunnel access. Runs on a dedicated Puma process (port 3001) to avoid interfering with the web app.
+
+### Starting the server
+
+```bash
+bin/mcp-web                    # Starts on port 3001
+MCP_PORT=3002 bin/mcp-web      # Custom port
+```
+
+The endpoint is `POST /mcp`. All requests require a bearer token.
+
+### Token management
+
+```bash
+# Generate a new token (plaintext shown once, copy immediately)
+bin/rails mcp:generate_token[my-claude-mobile]
+
+# List all tokens
+bin/rails mcp:list_tokens
+
+# Revoke a token by ID
+bin/rails mcp:revoke_token[1]
+```
+
+### Testing with curl
+
+```bash
+curl -X POST http://localhost:3001/mcp \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json' \
+  -H 'Authorization: Bearer YOUR_TOKEN' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"curl","version":"1.0"}}}'
+```
+
+### Scaling
+
+The MCP HTTP server is a standard Puma process. Scale it independently:
+
+- **Threads:** `MCP_THREADS=10 bin/mcp-web`
+- **Workers:** `MCP_WORKERS=2 bin/mcp-web`
+- **Horizontal:** run multiple instances behind a load balancer (each needs DB + Redis access)
+
+### Tunnel access (Cloudflare Tunnel)
+
+To expose pito MCP over the internet (e.g., for Claude Mobile):
+
+1. Install `cloudflared` and authenticate
+2. Create a tunnel pointing `mcp.pitomd.com` → `http://localhost:3001`
+3. Configure Claude Mobile with the MCP endpoint URL and bearer token
+
+See the Cloudflare Tunnel docs for setup details.
 
 ## Tools
 
@@ -95,11 +151,21 @@ Adds: `description`, `thumbnail_url`, `tags`, `category_id`, `default_language`,
 ### Channel Detail (extends summary)
 Adds: `description`, `thumbnail_url`, `last_synced_at`, `videos` (array of video summaries).
 
+## Token Model
+
+`McpAccessToken` stores bearer tokens for HTTP transport authentication:
+
+- Tokens are hashed with HMAC-SHA256 (using `secret_key_base` as pepper) — plaintext is never stored
+- `last_token_preview` stores the last 4 characters for identification
+- `last_used_at` is touched on each successful authentication
+- Tokens can be revoked (sets `revoked_at`, excluded from auth)
+
 ## File Structure
 
 ```
 app/mcp/
   pito_server.rb          # Server builder + stdio launcher
+  mcp_rack_app.rb         # Rack app wrapping HTTP transport + bearer auth
   tools/
     list_channels.rb      # list_channels
     get_channel.rb        # get_channel
@@ -120,5 +186,10 @@ app/mcp/
     app_status.rb         # pito://status
     design_doc.rb         # pito://design
     mcp_doc.rb            # pito://mcp
+app/models/
+  mcp_access_token.rb     # Bearer token model (SHA256 hashed)
 bin/mcp                   # Stdio entry point
+bin/mcp-web               # HTTP entry point (dedicated Puma on port 3001)
+config/puma_mcp.rb        # Puma config for MCP HTTP server
+lib/tasks/mcp.rake        # Token management rake tasks
 ```

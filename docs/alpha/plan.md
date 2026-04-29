@@ -74,6 +74,6 @@
 
 - [x] **Step 74:** `mcp` gem (v0.14.0), `bin/mcp` stdio entry point, 15 tools (list/get/create/update/delete for channels, videos, saved views + dashboard, search, settings), 3 resources (design doc, app status, mcp doc), 38 specs, `docs/mcp.md`
 
-### Step 2 — HTTP transport + tunnel (pending)
+### Step 2 — HTTP transport + tunnel (done)
 
-- [ ] **Step 75:** `POST /mcp` endpoint (Streamable HTTP), bearer token auth, `McpAccessToken` model, settings UI for token management, tunnel-ready
+- [x] **Step 75:** `POST /mcp` endpoint (Streamable HTTP), `McpAccessToken` model, dedicated Puma on port 3001, rake tasks for token management, Cloudflare Tunnel (`mcp.pitomd.com` + `app.pitomd.com`), auth removed for alpha (OAuth deferred to beta)
