@@ -15,12 +15,15 @@ Pito — a single-tenant Rails 8 web app for tracking, analyzing, and managing Y
 - **Chartkick + Groupdate + Chart.js** for charts
 - **google-apis-youtube_v3** and **google-apis-youtube_analytics_v2** for YouTube APIs
 - **RSpec** with FactoryBot, Faker, Shoulda Matchers, WebMock
+- **MCP** (Model Context Protocol) server via `mcp` gem — see `docs/mcp.md`
 
 ## Commands
 
 ```bash
 bin/setup          # Install deps, start Docker, prepare DB
 bin/dev            # Start Docker services + Puma + Sidekiq + Tailwind watcher
+bin/mcp            # Start MCP server (stdio transport, separate process)
+bin/mcp-web        # Start MCP HTTP server (dedicated Puma on port 3001)
 bundle exec rspec  # Run test suite
 bundle exec rubocop # Lint
 ```

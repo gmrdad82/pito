@@ -1,3 +1,5 @@
 web: bin/rails server -p 3000
+mcp: bin/mcp-web
 worker: bundle exec sidekiq -C config/sidekiq.yml
 css: bin/rails tailwindcss:watch
+tunnel: cloudflared tunnel run pito

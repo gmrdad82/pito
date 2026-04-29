@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Starts the MCP HTTP server on a dedicated Puma process (port 3001).
+# This is separate from the web app Puma (port 3000).
+#
+# Usage:
+#   bin/mcp-web                    # Starts on port 3001
+#   MCP_PORT=3002 bin/mcp-web      # Custom port
+#
+# The MCP endpoint is at POST /mcp and requires a bearer token.
+# Generate tokens with: bin/rails mcp:generate_token
+
+set -euo pipefail
+
+export PORT="${MCP_PORT:-3001}"
+
+exec bundle exec puma -C config/puma_mcp.rb

@@ -39,6 +39,10 @@ module Pito
     # Don't generate system test files.
     config.generators.system_tests = nil
 
+    # Exclude app/mcp from Zeitwerk autoloading — files are required explicitly
+    # because the Mcp namespace conflicts with the mcp gem's MCP constant.
+    Rails.autoloaders.main.ignore(Rails.root.join("app/mcp"))
+
     # Use Sidekiq for background jobs
     config.active_job.queue_adapter = :sidekiq
   end

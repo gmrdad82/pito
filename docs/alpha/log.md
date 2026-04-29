@@ -1,5 +1,20 @@
 # Log
 
+## 2026-04-27
+
+### Session — Phase 16 Step 1: MCP stdio server
+
+- Added `mcp` gem (v0.14.0, official Ruby MCP SDK)
+- Created `bin/mcp` — standalone stdio process, boots Rails, does not touch Puma
+- 15 tools covering full app functionality: list/get/create/update/delete for channels, videos, saved views + dashboard analytics, search, settings management
+- 3 resources: design doc, app status, mcp documentation
+- Created `docs/mcp.md` with tool catalog, data shapes, architecture
+- Updated CLAUDE.md with MCP references
+- Fixed json-schema MultiJSON deprecation (initializer)
+- 38 new specs, 404 total passing
+- Decision: no auth for local stdio (auth deferred to Step 2 HTTP transport)
+- Decision: stdio transport is inherently a separate process (not in Procfile) — MCP client launches it on-demand
+
 ## 2026-04-26
 
 ### Session 1
@@ -461,3 +476,35 @@ Plan reorganization:
 - Alpha plan now only has completed phases + Phase 16 (MCP)
 
 349 specs, 0 failures
+
+---
+
+### Session — Phase 16 Step 2: MCP HTTP transport
+
+- `McpAccessToken` model with HMAC-SHA256 hashing (pepper = `secret_key_base`), `generate!`, `authenticate` (constant-time compare + touch `last_used_at`), `revoke!`
+- `Mcp::RackApp` — Rack middleware wrapping `StreamableHTTPTransport` with bearer token auth, mounted at `POST /mcp`
+- Dedicated Puma process via `bin/mcp-web` (port 3001) — completely separate from web app Puma (port 3000), no interference
+- `config/puma_mcp.rb` — 1 worker, 5 threads, preload_app, configurable via `MCP_PORT`/`MCP_WORKERS`/`MCP_THREADS` env vars
+- Rake tasks: `mcp:generate_token[name]`, `mcp:list_tokens`, `mcp:revoke_token[id]`
+- Fixed `json-schema` MultiJSON deprecation warning (require before setting flag)
+- Fixed annotation naming: `read_only_hint`/`destructive_hint` (snake_case, not camelCase)
+- Fixed empty `required: []` in JSON Schema (violates draft-04 minimum items)
+- Updated `docs/mcp.md` with HTTP transport section (setup, token management, curl examples, scaling, tunnel access)
+- Updated CLAUDE.md with `bin/mcp-web` command
+- 21 new specs (12 model + 9 request), 425 total passing
+- Decision: separate Puma process for MCP HTTP (not mounted in web app Puma) — avoids resource contention, scales independently
+- Decision: SHA256+pepper for token hashing (not BCrypt) — API tokens need fast auth, not slow password hashing
+- Decision: no scopes on tokens, no settings UI for token management — rake tasks suffice for single-tenant
+
+---
+
+### Session — Phase 16 finalization: tunnel + auth removal
+
+- Cloudflare Tunnel setup: `cloudflared tunnel create pito`, DNS routes for `app.pitomd.com` → localhost:3000, `mcp.pitomd.com` → localhost:3001
+- Added `mcp` and `tunnel` processes to `Procfile.dev` — `bin/dev` now starts web, mcp, sidekiq, tailwind, and cloudflared
+- Added `app.pitomd.com` and `mcp.pitomd.com` to `config.hosts` in development.rb (Rails host authorization)
+- Removed bearer token auth from `Mcp::RackApp` — MCP endpoint is open for alpha (seed data only, OAuth deferred to beta)
+- Claude Connectors (claude.ai) doesn't support bearer tokens, only OAuth — drove the decision to remove auth for now
+- Switched Claude Code MCP from stdio to HTTP via tunnel (`mcp.pitomd.com`)
+- Removed 5 auth specs, 420 total passing
+- Decision: auth-free MCP for alpha is acceptable — only seed data exposed, OAuth will be implemented in beta

@@ -37,5 +37,9 @@ Rails.application.routes.draw do
   patch "settings/theme", to: "settings#update_theme"
   post "settings/reindex", to: "settings#reindex"
 
+  # MCP HTTP transport (served by dedicated Puma on port 3001)
+  require_relative "../app/mcp/rack_app"
+  mount Mcp::RackApp.new => "/mcp"
+
   get "up" => "rails/health#show", as: :rails_health_check
 end

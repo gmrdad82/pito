@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe Search::MeilisearchEngine do
+RSpec.describe Search::MeilisearchEngine, skip: ENV["CI"].present? && "requires Meilisearch" do
   let(:engine) { described_class.new }
   let(:channel) { create(:channel, title: "code kitchen", description: "ruby tutorials") }
   let(:video) { create(:video, channel: channel, title: "rails deep dive", description: "learning rails", tags: %w[ruby rails]) }

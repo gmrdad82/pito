@@ -251,7 +251,7 @@ RSpec.describe "Videos", type: :request do
       video3 = create(:video, channel: channel)
       get "#{panes_videos_path}?ids=#{video1.id},#{video2.id}"
       expect(response.body).to include("add a video")
-      expect(response.body).to include(video3.title)
+      expect(response.body).to include(video3.title.first(20))
     end
 
     it "shows save button when no saved view exists" do

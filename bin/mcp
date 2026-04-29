@@ -1,0 +1,23 @@
+#!/usr/bin/env ruby
+# MCP (Model Context Protocol) server for pito
+# Runs over stdio — reads JSON-RPC from stdin, writes responses to stdout.
+# This is a standalone process that boots Rails but does NOT start Puma.
+#
+# Usage:
+#   bin/mcp
+#
+# Configure in Claude Code:
+#   claude mcp add pito -- /path/to/pito/bin/mcp
+
+# Suppress noisy Rails/gem output on stderr during boot
+$stderr = File.open(File::NULL, "w") unless ENV["MCP_DEBUG"]
+
+ENV["RAILS_ENV"] ||= "development"
+require_relative "../config/environment"
+
+# Restore stderr after boot if needed for error reporting
+$stderr = STDERR if ENV["MCP_DEBUG"]
+
+require_relative "../app/mcp/pito_server"
+
+Mcp::PitoServer.start_stdio

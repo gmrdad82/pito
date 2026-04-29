@@ -70,17 +70,10 @@
 
 ## Phase 16 — MCP Server (Model Context Protocol)
 
-- [ ] **Step 74:** JSON serializers for read controllers (channels, videos, search, workspaces, bulk operations)
-- [ ] **Step 75:** Mcp::InternalFetcher — in-process URL → JSON dispatch, specs
-- [ ] **Step 76:** Mcp::Tools::FetchAppData — wraps InternalFetcher with MCP input/output, specs
-- [ ] **Step 77:** Mcp::Tools::ProposeAction — action catalog, target validation, dry-check, URL building, specs
-- [ ] **Step 78:** Mcp::Resources — catalog + renderer, static Markdown loading, dynamic user-context + state resources
-- [ ] **Step 79:** Static MCP documentation — overview, url-patterns, data-shapes, actions, conventions (checkpoint: user review)
-- [ ] **Step 80:** Mcp::ProtocolHandler — JSON-RPC 2.0 dispatch for MCP methods (initialize, tools/list, tools/call, resources/list, resources/read)
-- [ ] **Step 81:** Mcp::ServerController — POST /mcp endpoint, streaming, auth enforcement
-- [ ] **Step 82:** McpAccessToken + McpClient models — migrations, factories, specs
-- [ ] **Step 83:** OAuth 2.1 authorization server — DCR, authorize, token, revoke endpoints + .well-known metadata
-- [ ] **Step 84:** Settings MCP section — user context editor, public URL, token list, dev token mode
-- [ ] **Step 85:** Token revocation action screen
-- [ ] **Step 86:** MCP end-to-end integration test
-- [ ] **Step 87:** README MCP section — Cloudflare Tunnel setup, connector configuration
+### Step 1 — Local stdio server (done)
+
+- [x] **Step 74:** `mcp` gem (v0.14.0), `bin/mcp` stdio entry point, 15 tools (list/get/create/update/delete for channels, videos, saved views + dashboard, search, settings), 3 resources (design doc, app status, mcp doc), 38 specs, `docs/mcp.md`
+
+### Step 2 — HTTP transport + tunnel (done)
+
+- [x] **Step 75:** `POST /mcp` endpoint (Streamable HTTP), `McpAccessToken` model, dedicated Puma on port 3001, rake tasks for token management, Cloudflare Tunnel (`mcp.pitomd.com` + `app.pitomd.com`), auth removed for alpha (OAuth deferred to beta)

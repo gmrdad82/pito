@@ -57,3 +57,6 @@ gem "view_component", "~> 4.8"
 gem "capybara", "~> 3.40", group: :test
 
 gem "draper", "~> 4.0"
+
+# MCP (Model Context Protocol) server
+gem "mcp"
