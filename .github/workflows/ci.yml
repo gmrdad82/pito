@@ -70,15 +70,16 @@ jobs:
     runs-on: ubuntu-latest
 
     services:
-      mysql:
-        image: mysql:8
+      postgres:
+        image: pgvector/pgvector:pg17
         env:
-          MYSQL_ALLOW_EMPTY_PASSWORD: yes
-          MYSQL_DATABASE: pito_test
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_USER: pito
+          POSTGRES_DB: pito_test
         ports:
-          - 3306:3306
+          - 5432:5432
         options: >-
-          --health-cmd="mysqladmin ping -h localhost"
+          --health-cmd="pg_isready -U pito -d pito_test"
           --health-interval=5s
           --health-timeout=5s
           --health-retries=10
@@ -94,11 +95,8 @@ jobs:
 
     env:
       RAILS_ENV: test
-      MYSQL_HOST: 127.0.0.1
-      MYSQL_PORT: 3306
-      MYSQL_DATABASE: pito_test
-      MYSQL_USERNAME: root
-      MYSQL_PASSWORD: ""
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: 5432
       REDIS_URL: redis://127.0.0.1:6379/0
 
     steps:

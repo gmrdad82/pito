@@ -40,7 +40,8 @@ class DeletionsController < ApplicationController
                             "COALESCE(SUM(video_stats.views), 0) AS total_views",
                             "COALESCE(SUM(video_stats.likes), 0) AS total_likes",
                             "COALESCE(SUM(video_stats.comments), 0) AS total_comments",
-                            "COALESCE(CAST(SUM(video_stats.watch_time_minutes) AS SIGNED), 0) AS total_watch_time"
+                            # CAST AS BIGINT is Postgres-portable. MySQL used SIGNED; replaced during Phase 2.
+                            "COALESCE(CAST(SUM(video_stats.watch_time_minutes) AS BIGINT), 0) AS total_watch_time"
                           )
                           .where(id: ids)
                           .group("videos.id")

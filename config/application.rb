@@ -39,6 +39,12 @@ module Pito
     # Don't generate system test files.
     config.generators.system_tests = nil
 
+    # Postgres timezone defaults — Phase 2.
+    # Postgres stores timestamps as timestamptz; pin Rails to UTC so Groupdate
+    # aggregates render predictably across both Pumas and Sidekiq workers.
+    config.time_zone = "UTC"
+    config.active_record.default_timezone = :utc
+
     # Exclude app/mcp from Zeitwerk autoloading — files are required explicitly
     # because the Mcp namespace conflicts with the mcp gem's MCP constant.
     Rails.autoloaders.main.ignore(Rails.root.join("app/mcp"))

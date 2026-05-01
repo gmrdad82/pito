@@ -9,7 +9,7 @@ fi
 
 # --- Ensure Compose services are up and healthy ---
 TIMEOUT=60
-SERVICES="mysql redis"
+SERVICES="postgres redis meilisearch"
 
 # Start services if not already running
 docker compose up -d

@@ -235,8 +235,6 @@ GEM
     multi_json (1.20.1)
     multi_xml (0.8.1)
       bigdecimal (>= 3.1, < 5)
-    mysql2 (0.5.7)
-      bigdecimal
     net-http (0.9.1)
       uri (>= 0.11.1)
     net-imap (0.6.4)
@@ -266,6 +264,11 @@ GEM
     parser (3.3.11.1)
       ast (~> 2.4.1)
       racc
+    pg (1.6.3)
+    pg (1.6.3-aarch64-linux)
+    pg (1.6.3-aarch64-linux-musl)
+    pg (1.6.3-x86_64-linux)
+    pg (1.6.3-x86_64-linux-musl)
     pp (0.6.3)
       prettyprint
     prettyprint (0.2.0)
@@ -488,7 +491,7 @@ DEPENDENCIES
   jbuilder
   mcp
   meilisearch
-  mysql2 (~> 0.5)
+  pg (~> 1.5)
   propshaft
   pry-rails
   puma (>= 5.0)

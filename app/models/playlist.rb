@@ -6,6 +6,6 @@ class Playlist < ApplicationRecord
 
   enum :privacy_status, { public_playlist: 0, unlisted: 1, private_playlist: 2 }
 
-  validates :youtube_playlist_id, presence: true, uniqueness: true
+  validates :youtube_playlist_id, presence: true, uniqueness: { case_sensitive: false }
   validates :title, presence: true
 end

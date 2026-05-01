@@ -18,11 +18,11 @@ FileUtils.chdir APP_ROOT do
   timeout = 60
   elapsed = 0
   loop do
-    mysql_healthy = `docker compose ps --format json mysql 2>/dev/null`.include?('"healthy"')
+    postgres_healthy = `docker compose ps --format json postgres 2>/dev/null`.include?('"healthy"')
     redis_healthy = `docker compose ps --format json redis 2>/dev/null`.include?('"healthy"')
     meili_healthy = `docker compose ps --format json meilisearch 2>/dev/null`.include?('"healthy"')
 
-    if mysql_healthy && redis_healthy && meili_healthy
+    if postgres_healthy && redis_healthy && meili_healthy
       puts "All services healthy."
       break
     end
@@ -35,23 +35,23 @@ FileUtils.chdir APP_ROOT do
     elapsed += 2
   end
 
-  # Check if credentials have MySQL config
+  # Check if credentials have Postgres config
   begin
     creds = Rails rescue nil
-    unless system("bin/rails runner 'Rails.application.credentials.dig(:mysql, :development, :database)' 2>/dev/null")
-      puts "\n⚠  MySQL credentials not configured yet."
-      puts "   Run: EDITOR=vim rails credentials:edit"
-      puts "   Add this block:"
+    unless system("bin/rails runner 'Rails.application.credentials.dig(:postgres, :development, :database)' 2>/dev/null")
+      puts "\n!  Postgres credentials not configured yet."
+      puts "   Run: bin/rails credentials:edit --environment development"
+      puts "   Add a :postgres block with this shape:"
       puts ""
-      puts "   mysql:"
+      puts "   postgres:"
       puts "     development:"
       puts "       database: pito_development"
-      puts "       username: root"
-      puts "       password: \"\""
+      puts "       username: pito"
+      puts "       password: <your-password>"
       puts "     test:"
       puts "       database: pito_test"
-      puts "       username: root"
-      puts "       password: \"\""
+      puts "       username: pito"
+      puts "       password: <your-password>"
       puts ""
     end
   rescue

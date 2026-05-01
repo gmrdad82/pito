@@ -9,7 +9,7 @@ class Video < ApplicationRecord
 
   enum :privacy_status, { public_video: 0, unlisted: 1, private_video: 2 }
 
-  validates :youtube_video_id, presence: true, uniqueness: true
+  validates :youtube_video_id, presence: true, uniqueness: { case_sensitive: false }
   validates :title, presence: true
 
   searchable :title, :description, :tags, :category_id, :default_language

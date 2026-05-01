@@ -10,8 +10,14 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_04_28_151207) do
-  create_table "app_settings", charset: "utf8mb4", collation: "utf8mb4_unicode_ci", force: :cascade do |t|
+ActiveRecord::Schema[8.1].define(version: 2026_05_01_165846) do
+  # These are extensions that must be enabled in order to support this database
+  enable_extension "citext"
+  enable_extension "pg_catalog.plpgsql"
+  enable_extension "pgcrypto"
+  enable_extension "vector"
+
+  create_table "app_settings", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "key"
     t.datetime "updated_at", null: false
@@ -19,7 +25,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_28_151207) do
     t.index ["key"], name: "index_app_settings_on_key", unique: true
   end
 
-  create_table "bulk_operation_items", charset: "utf8mb4", collation: "utf8mb4_unicode_ci", force: :cascade do |t|
+  create_table "bulk_operation_items", force: :cascade do |t|
     t.bigint "bulk_operation_id", null: false
     t.datetime "created_at", null: false
     t.text "error_message"
@@ -34,19 +40,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_28_151207) do
     t.index ["video_id"], name: "index_bulk_operation_items_on_video_id"
   end
 
-  create_table "bulk_operations", charset: "utf8mb4", collation: "utf8mb4_unicode_ci", force: :cascade do |t|
+  create_table "bulk_operations", force: :cascade do |t|
     t.datetime "completed_at"
     t.datetime "created_at", null: false
-    t.json "dry_run_preview"
+    t.jsonb "dry_run_preview"
     t.integer "kind", null: false
-    t.json "parameters"
+    t.jsonb "parameters"
     t.datetime "started_at"
     t.integer "status", default: 0, null: false
-    t.json "target_video_ids"
+    t.jsonb "target_video_ids"
     t.datetime "updated_at", null: false
   end
 
-  create_table "channels", charset: "utf8mb4", collation: "utf8mb4_unicode_ci", force: :cascade do |t|
+  create_table "channels", force: :cascade do |t|
     t.boolean "connected", default: false, null: false
     t.datetime "created_at", null: false
     t.text "description"
@@ -65,7 +71,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_28_151207) do
     t.index ["youtube_channel_id"], name: "index_channels_on_youtube_channel_id", unique: true
   end
 
-  create_table "mcp_access_tokens", charset: "utf8mb4", collation: "utf8mb4_unicode_ci", force: :cascade do |t|
+  create_table "mcp_access_tokens", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "last_token_preview", null: false
     t.datetime "last_used_at"
@@ -76,7 +82,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_28_151207) do
     t.index ["token_digest"], name: "index_mcp_access_tokens_on_token_digest", unique: true
   end
 
-  create_table "playlist_items", charset: "utf8mb4", collation: "utf8mb4_unicode_ci", force: :cascade do |t|
+  create_table "playlist_items", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.bigint "playlist_id", null: false
     t.integer "position", default: 0, null: false
@@ -89,7 +95,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_28_151207) do
     t.index ["youtube_playlist_item_id"], name: "index_playlist_items_on_youtube_playlist_item_id", unique: true
   end
 
-  create_table "playlists", charset: "utf8mb4", collation: "utf8mb4_unicode_ci", force: :cascade do |t|
+  create_table "playlists", force: :cascade do |t|
     t.bigint "channel_id", null: false
     t.datetime "created_at", null: false
     t.text "description"
@@ -104,17 +110,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_28_151207) do
     t.index ["youtube_playlist_id"], name: "index_playlists_on_youtube_playlist_id", unique: true
   end
 
-  create_table "saved_views", charset: "utf8mb4", collation: "utf8mb4_unicode_ci", force: :cascade do |t|
+  create_table "saved_views", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.integer "kind", null: false
     t.string "name", null: false
     t.integer "position", default: 0, null: false
     t.datetime "updated_at", null: false
-    t.string "url", null: false
+    t.citext "url", null: false
     t.index ["kind", "url"], name: "index_saved_views_on_kind_and_url", unique: true
   end
 
-  create_table "video_stats", charset: "utf8mb4", collation: "utf8mb4_unicode_ci", force: :cascade do |t|
+  create_table "video_stats", force: :cascade do |t|
     t.float "average_view_duration_seconds"
     t.float "average_view_percentage"
     t.integer "comments"
@@ -132,7 +138,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_28_151207) do
     t.index ["video_id"], name: "index_video_stats_on_video_id"
   end
 
-  create_table "video_uploads", charset: "utf8mb4", collation: "utf8mb4_unicode_ci", force: :cascade do |t|
+  create_table "video_uploads", force: :cascade do |t|
     t.bigint "bytes_sent", default: 0, null: false
     t.bigint "channel_id", null: false
     t.datetime "created_at", null: false
@@ -151,7 +157,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_28_151207) do
     t.index ["video_id"], name: "index_video_uploads_on_video_id"
   end
 
-  create_table "videos", charset: "utf8mb4", collation: "utf8mb4_unicode_ci", force: :cascade do |t|
+  create_table "videos", force: :cascade do |t|
     t.integer "category_id"
     t.bigint "channel_id", null: false
     t.datetime "created_at", null: false
@@ -163,7 +169,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_28_151207) do
     t.integer "privacy_status"
     t.datetime "published_at"
     t.datetime "scheduled_publish_at"
-    t.json "tags"
+    t.jsonb "tags"
     t.string "thumbnail_url"
     t.string "title"
     t.datetime "updated_at", null: false

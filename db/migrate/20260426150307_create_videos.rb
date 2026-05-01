@@ -8,7 +8,7 @@ class CreateVideos < ActiveRecord::Migration[8.1]
       t.datetime :published_at
       t.integer :duration_seconds
       t.string :thumbnail_url
-      t.json :tags
+      t.jsonb :tags
       t.datetime :last_synced_at
 
       t.timestamps

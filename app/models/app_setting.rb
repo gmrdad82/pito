@@ -1,7 +1,7 @@
 class AppSetting < ApplicationRecord
   encrypts :value, deterministic: true
 
-  validates :key, presence: true, uniqueness: true
+  validates :key, presence: true, uniqueness: { case_sensitive: false }
   validates :value, presence: true
 
   def self.get(key)

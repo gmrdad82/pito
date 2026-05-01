@@ -27,7 +27,7 @@ RSpec.describe Mcp::Tools::CreateVideo do
 
     video = Video.last
     expect(video.privacy_status).to eq("unlisted")
-    expect(video.tags).to eq("tag1,tag2")
+    expect(video.tags).to eq([ "tag1", "tag2" ])
     expect(video.default_language).to eq("es")
   end
 

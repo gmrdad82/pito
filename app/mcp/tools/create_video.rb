@@ -26,7 +26,7 @@ module Mcp
           channel_id: channel_id,
           description: description,
           privacy_status: privacy_status,
-          tags: tags,
+          tags: tags.to_s.split(",").map(&:strip).reject(&:blank?),
           category_id: category_id,
           default_language: default_language
         )

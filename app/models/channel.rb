@@ -11,7 +11,7 @@ class Channel < ApplicationRecord
   scope :connected, -> { where(connected: true) }
   scope :public_only, -> { where(connected: false) }
 
-  validates :youtube_channel_id, presence: true, uniqueness: true
+  validates :youtube_channel_id, presence: true, uniqueness: { case_sensitive: false }
   validates :title, presence: true
 
   searchable :title, :description

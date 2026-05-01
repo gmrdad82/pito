@@ -9,7 +9,7 @@ Pito — a single-tenant Rails 8 web app for tracking, analyzing, and managing Y
 ## Tech Stack
 
 - **Rails 8.1** with Hotwire (Turbo + Stimulus), ERB views, Tailwind CSS
-- **MySQL 8** (Docker) — primary datastore, utf8mb4
+- **Postgres 17** + pgvector/pgcrypto/citext (Docker) — primary datastore
 - **Redis 7** (Docker) — Sidekiq queue + Rails cache store
 - **Sidekiq** + **sidekiq-cron** for background jobs
 - **Chartkick + Groupdate + Chart.js** for charts
@@ -50,9 +50,9 @@ Future phases (e.g. `docs/beta/`) will follow the same structure.
 
 ## Configuration Strategy
 
-- `.env.development` / `.env.test` — per-environment infrastructure connection info ONLY (host/port for MySQL, Redis URL). No secrets. Gitignored.
+- `.env.development` / `.env.test` — per-environment infrastructure connection info ONLY (host/port for Postgres, Redis URL). No secrets. Gitignored. `MYSQL_*` keys are still present during the Phase 2 cutover window and are removed in the post-verification cleanup pass.
 - `.env.example` — template for the above. Committed.
-- `rails credentials:edit` — MySQL database/username/password per environment, Sidekiq web auth, Active Record Encryption keys.
+- `rails credentials:edit` — Postgres database/username/password per environment, Sidekiq web auth, Active Record Encryption keys. The legacy `:mysql` block stays alongside `:postgres` until the Phase 2 cleanup pass.
 - `config/master.key` — on disk, gitignored. Never in .env.
 - CI uses its own env vars defined in `.github/workflows/ci.yml` (no master key needed).
 - `AppSetting` table — YouTube OAuth config (client_id, client_secret, redirect_uri), max_panes, max_concurrent_uploads. Managed via web UI.
