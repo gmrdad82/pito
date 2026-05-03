@@ -8,7 +8,7 @@ RSpec.describe "Deletions", type: :request do
       it "returns 200 with valid channel IDs" do
         get deletions_path(type: "channel", ids: channel.id)
         expect(response).to have_http_status(:ok)
-        expect(response.body).to include(channel.title)
+        expect(response.body).to include(channel.channel_url)
         expect(response.body).to include("delete 1 channel")
       end
 
@@ -19,11 +19,11 @@ RSpec.describe "Deletions", type: :request do
         expect(response.body).to include("delete 2 channels")
       end
 
-      it "shows preview table with video count and subs" do
+      it "shows preview table with video count and url" do
         create(:video, channel: channel)
         get deletions_path(type: "channel", ids: channel.id)
         expect(response.body).to include("videos")
-        expect(response.body).to include("subs")
+        expect(response.body).to include("url")
       end
 
       it "shows breadcrumb with cancel link" do
@@ -48,7 +48,7 @@ RSpec.describe "Deletions", type: :request do
         expect(response).to have_http_status(:ok)
       end
 
-      it "handles dot in IDs gracefully" do
+      it "handles single ID gracefully" do
         get deletions_path(type: "channel", ids: channel.id)
         expect(response).to have_http_status(:ok)
       end
@@ -64,9 +64,9 @@ RSpec.describe "Deletions", type: :request do
         expect(response.body).to include("delete 1 video")
       end
 
-      it "shows channel name in preview" do
+      it "shows channel url in preview" do
         get deletions_path(type: "video", ids: video.id)
-        expect(response.body).to include(video.channel.title)
+        expect(response.body).to include(video.channel.channel_url)
       end
     end
 
@@ -126,6 +126,95 @@ RSpec.describe "Deletions", type: :request do
         post deletions_path(type: "channel", ids: "99999")
         expect(response).to redirect_to(channels_path)
       end
+    end
+  end
+
+  describe "GET /deletions (preview, JSON)" do
+    let!(:channel) { create(:channel) }
+
+    it "returns the BulkOperationResponse preview shape for channels" do
+      channel2 = create(:channel)
+      get deletions_path(type: "channel", ids: "#{channel.id},#{channel2.id}", format: :json)
+
+      expect(response).to have_http_status(:ok)
+      expect(response.media_type).to eq("application/json")
+
+      data = JSON.parse(response.body)
+      expect(data["mode"]).to eq("preview")
+      expect(data["total"]).to eq(2)
+      expect(data["syncable"]).to match_array([ channel.id, channel2.id ])
+      expect(data["skipped"]).to eq([])
+      expect(data["operation_id"]).to be_nil
+      expect(data["message"]).to be_a(String)
+    end
+
+    it "returns BulkOperationResponse preview for a single video" do
+      video = create(:video)
+      get deletions_path(type: "video", ids: video.id, format: :json)
+
+      expect(response).to have_http_status(:ok)
+      data = JSON.parse(response.body)
+      expect(data["mode"]).to eq("preview")
+      expect(data["total"]).to eq(1)
+      expect(data["syncable"]).to eq([ video.id ])
+      expect(data["skipped"]).to eq([])
+      expect(data["operation_id"]).to be_nil
+    end
+
+    it "returns 422 JSON for unknown type" do
+      get deletions_path(type: "invalid", ids: "1", format: :json)
+      expect(response).to have_http_status(:unprocessable_entity)
+      expect(JSON.parse(response.body)).to include("error")
+    end
+
+    it "returns 422 JSON when no items match" do
+      get deletions_path(type: "channel", ids: "99999", format: :json)
+      expect(response).to have_http_status(:unprocessable_entity)
+      expect(JSON.parse(response.body)).to include("error")
+    end
+  end
+
+  describe "POST /deletions (enqueue, JSON)" do
+    let!(:channel) { create(:channel) }
+
+    it "creates a bulk operation and returns the BulkOperationResponse enqueued shape" do
+      expect {
+        post deletions_path(type: "channel", ids: channel.id, format: :json)
+      }.to change(BulkOperation, :count).by(1)
+        .and change(BulkDeleteJob.jobs, :size).by(1)
+
+      expect(response).to have_http_status(:accepted)
+      expect(response.media_type).to eq("application/json")
+
+      operation = BulkOperation.last
+      data = JSON.parse(response.body)
+      expect(data["mode"]).to eq("enqueued")
+      expect(data["total"]).to eq(1)
+      expect(data["syncable"]).to eq([])
+      expect(data["skipped"]).to eq([])
+      expect(data["operation_id"]).to eq(operation.id)
+      expect(data["status_url"]).to eq(status_bulk_operation_path(operation, format: :json))
+      expect(data["message"]).to match(/Bulk delete queued/i)
+    end
+
+    it "succeeds without an authenticity token (CSRF skipped for JSON)" do
+      ActionController::Base.allow_forgery_protection = true
+      begin
+        post deletions_path(type: "channel", ids: channel.id, format: :json)
+        expect(response).to have_http_status(:accepted)
+      ensure
+        ActionController::Base.allow_forgery_protection = false
+      end
+    end
+
+    it "returns 422 JSON for unknown type" do
+      post deletions_path(type: "invalid", ids: "1", format: :json)
+      expect(response).to have_http_status(:unprocessable_entity)
+    end
+
+    it "returns 422 JSON when no items match" do
+      post deletions_path(type: "channel", ids: "99999", format: :json)
+      expect(response).to have_http_status(:unprocessable_entity)
     end
   end
 end

@@ -6,6 +6,11 @@ reindex_search:
   queue: search
   description: "Reindex all channels and videos in Meilisearch"
 
+sync_starred_channels:
+  cron: "0 0 * * *"   # daily at midnight UTC
+  class: SyncStarredChannelsJob
+  description: "Re-sync every starred channel daily"
+
 # YouTube sync jobs — uncomment when beta YouTube integration is implemented
 #
 # sync_channels:

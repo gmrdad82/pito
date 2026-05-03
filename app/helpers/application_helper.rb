@@ -84,18 +84,24 @@ module ApplicationHelper
   end
 
   def pane_breadcrumb_label(panes, show: 3, trunc_length: 14)
-    return panes.first.title if panes.size == 1
+    return label_for_pane(panes.first) if panes.size == 1
 
     shown = panes.first(show)
     extra = panes.size - show
 
     labels = shown.map do |pane|
-      name = pane.respond_to?(:title) ? pane.title : "unknown"
-      truncate(name, length: trunc_length, omission: "…")
+      truncate(label_for_pane(pane), length: trunc_length, omission: "…")
     end
 
     labels << "+#{extra} more" if extra > 0
 
     labels.join(" · ")
+  end
+
+  def label_for_pane(pane)
+    return "unknown" if pane.nil?
+    return pane.title if pane.respond_to?(:title) && pane.try(:title).present?
+    return "##{pane.id}" if pane.respond_to?(:id)
+    "unknown"
   end
 end

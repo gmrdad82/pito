@@ -38,7 +38,7 @@ module Mcp
           videos: Video.count,
           video_stats_entries: VideoStat.count,
           saved_views: SavedView.count,
-          search_healthy: search_healthy,
+          search_healthy: YesNo.to_yes_no(search_healthy),
           search_stats: search_stats,
           settings: {
             max_panes: AppSetting.get("max_panes") || "(default: 3)",

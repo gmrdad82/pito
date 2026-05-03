@@ -2,7 +2,25 @@
 <% breadcrumb(["videos", videos_path], pane_breadcrumb_label(@panes.compact, trunc_length: @pane_title_length)) %>
 <% content_for(:breadcrumb_actions) do %>
   <% if @saved_view %>
-    <%= render(BracketedLinkComponent.new(label: "delete", href: saved_view_path(@saved_view), destructive: true, method: :delete, confirm: "delete this saved view?")) %>
+    <% saved_view_modal_id = "confirm-saved-view-#{@saved_view.id}" %>
+    <%= render(BracketedLinkComponent.new(
+      label: "delete",
+      href: "#",
+      destructive: true,
+      data: {
+        controller: "modal-trigger",
+        action: "click->modal-trigger#open",
+        modal_trigger_target_id_value: saved_view_modal_id
+      }
+    )) %>
+    <%= render(ConfirmModalComponent.new(
+      id: saved_view_modal_id,
+      title: "delete this saved view?",
+      confirm_path: saved_view_path(@saved_view),
+      confirm_method: :delete,
+      confirm_label: "delete",
+      destructive: true
+    )) %>
   <% else %>
     <%= button_to saved_views_path, params: { saved_view: { kind: "videos", url: request.fullpath, name: pane_breadcrumb_label(@panes.compact, trunc_length: @pane_title_length) } }, form: { style: "display: inline;", data: { turbo: false } } do %>[<span class="bl">save</span>]<% end %>
   <% end %>

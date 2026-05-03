@@ -1,7 +1,7 @@
 require "rails_helper"
 
 RSpec.describe FormFieldComponent, type: :component do
-  let(:channel) { Channel.new(title: "") }
+  let(:video) { Video.new(title: "") }
   let(:template) { ActionView::Base.empty }
 
   def build_form(model)
@@ -9,14 +9,14 @@ RSpec.describe FormFieldComponent, type: :component do
   end
 
   it "renders a text field with label" do
-    form = build_form(Channel.new)
+    form = build_form(Video.new)
     render_inline(described_class.new(form: form, field: :title))
     expect(page).to have_css("label", text: "title")
     expect(page).to have_css("input[type='text']")
   end
 
   it "renders a text area" do
-    form = build_form(Channel.new)
+    form = build_form(Video.new)
     render_inline(described_class.new(form: form, field: :description, type: :text_area))
     expect(page).to have_css("label", text: "description")
     expect(page).to have_css("textarea")
@@ -31,15 +31,15 @@ RSpec.describe FormFieldComponent, type: :component do
   end
 
   it "shows error message and red border on invalid field" do
-    channel.validate
-    form = build_form(channel)
+    video.validate
+    form = build_form(video)
     render_inline(described_class.new(form: form, field: :title))
     expect(page).to have_css("span.text-danger", text: "can't be blank")
     expect(page).to have_css("input[style*='border-color']")
   end
 
   it "does not show error styling on valid field" do
-    form = build_form(Channel.new(title: "ok"))
+    form = build_form(Video.new(title: "ok"))
     render_inline(described_class.new(form: form, field: :title))
     expect(page).to have_no_css("span.text-danger")
   end

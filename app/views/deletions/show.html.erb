@@ -12,11 +12,11 @@
       <tr>
         <th class="col-action"></th>
         <% if @type == "channel" %>
-          <th>title</th>
-          <th class="num">OAuth</th>
-          <th class="num">subs</th>
+          <th>url</th>
+          <th class="num">starred</th>
+          <th class="num">connected</th>
+          <th class="num">last sync</th>
           <th class="num">videos</th>
-          <th class="num">views</th>
         <% else %>
           <th>title</th>
           <th>channel</th>
@@ -36,14 +36,22 @@
         <tr>
           <td class="col-action">&nbsp;&nbsp;&nbsp;&nbsp;</td>
           <% if @type == "channel" %>
-            <td><%= item.title %></td>
+            <td title="<%= item.channel_url %>" style="max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><%= item.channel_url %></td>
+            <td class="num"><%= item.star? ? "yes" : "no" %></td>
             <td class="num"><%= item.connected? ? "yes" : "no" %></td>
-            <td class="num"><%= number_with_delimiter(item.subscriber_count || 0) %></td>
+            <td class="num">
+              <% if item.syncing? %>
+                <strong>syncing</strong>
+              <% elsif item.last_synced_at.present? %>
+                <%= compact_time_ago(item.last_synced_at) %>
+              <% else %>
+                —
+              <% end %>
+            </td>
             <td class="num"><%= item.videos.count %></td>
-            <td class="num"><%= number_with_delimiter(item.view_count || 0) %></td>
           <% else %>
             <td style="max-width: 280px; overflow: hidden; text-overflow: ellipsis;"><%= item.title %></td>
-            <td><%= item.channel.title %></td>
+            <td><%= item.channel.channel_url %></td>
             <td class="num"><%= number_with_delimiter(item.total_views) %></td>
             <td class="num"><%= view_trend_indicator(item) %></td>
             <td class="num"><%= number_with_delimiter(item.total_likes) %></td>

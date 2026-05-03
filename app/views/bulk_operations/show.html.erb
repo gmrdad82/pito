@@ -32,6 +32,8 @@
             <%= render(StatusIndicatorComponent.new(kind: :up, text: "succeeded")) %>
           <% elsif item.status_failed? %>
             <%= render(StatusIndicatorComponent.new(kind: :down, text: "failed")) %>
+          <% elsif item.status_skipped? %>
+            <span class="bracketed text-danger">[ skip ]</span>
           <% else %>
             <span class="text-muted">pending</span>
           <% end %>

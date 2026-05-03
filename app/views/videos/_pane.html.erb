@@ -6,7 +6,7 @@
     </tr>
     <tr>
       <td class="text-muted" style="padding-right: 12px;">channel</td>
-      <td><%= video.channel.title %></td>
+      <td><%= truncate(video.channel.channel_url, length: 50, omission: "…") %></td>
     </tr>
     <tr>
       <td class="text-muted" style="padding-right: 12px;">privacy</td>

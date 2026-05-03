@@ -8,14 +8,26 @@
         <%= render(BracketedLinkComponent.new(label: "close", href: "#", data: { action: "click->saved-views#close" })) %>
       </div>
       <% @saved_views.each do |view| %>
+        <% modal_id = "confirm-saved-view-#{view.id}" %>
         <div style="display: flex; align-items: baseline; gap: 6px; margin-top: 4px; white-space: nowrap;">
           <%= render(BracketedLinkComponent.new(label: "open", href: view.url)) %>
           <%= render(BracketedLinkComponent.new(
             label: "delete",
-            href: helpers.saved_view_path(view),
+            href: "#",
             destructive: true,
-            method: :delete,
-            confirm: "delete this saved view?"
+            data: {
+              controller: "modal-trigger",
+              action: "click->modal-trigger#open",
+              modal_trigger_target_id_value: modal_id
+            }
+          )) %>
+          <%= render(ConfirmModalComponent.new(
+            id: modal_id,
+            title: "delete this saved view?",
+            confirm_path: helpers.saved_view_path(view),
+            confirm_method: :delete,
+            confirm_label: "delete",
+            destructive: true
           )) %>
           <span><%= view.display_name_with_deletions %></span>
         </div>

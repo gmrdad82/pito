@@ -111,6 +111,53 @@ RSpec.describe "Settings", type: :request do
     end
   end
 
+  describe "GET /settings.json" do
+    it "returns 200 with the public-safe settings JSON" do
+      get settings_path(format: :json)
+      expect(response).to have_http_status(:ok)
+      expect(response.media_type).to eq("application/json")
+    end
+
+    it "responds with the AppSettings shape pito-sh expects" do
+      AppSetting.set("max_panes", "5")
+      AppSetting.set("pane_title_length", "20")
+      AppSetting.set("theme", "dark")
+      get settings_path(format: :json)
+
+      json = response.parsed_body
+      expect(json.keys).to match_array(%w[max_panes pane_title_length theme])
+      expect(json["max_panes"]).to eq(5)
+      expect(json["pane_title_length"]).to eq(20)
+      expect(json["theme"]).to eq("dark")
+    end
+
+    it "falls back to env defaults when AppSetting rows are absent" do
+      get settings_path(format: :json)
+      json = response.parsed_body
+      expect(json["max_panes"]).to be_a(Integer).and(be > 0)
+      expect(json["pane_title_length"]).to be_a(Integer).and(be > 0)
+      expect(json["theme"]).to eq("auto")
+    end
+
+    it "does not leak the OAuth client secret or other private credentials" do
+      AppSetting.set("youtube_client_secret", "super-secret")
+      AppSetting.set("youtube_client_id", "client-id")
+      AppSetting.set("youtube_redirect_uri", "http://example.test/cb")
+      get settings_path(format: :json)
+      body = response.body
+      expect(body).not_to include("super-secret")
+      expect(body).not_to include("client-id")
+      expect(body).not_to include("http://example.test/cb")
+    end
+
+    it "is reachable without an authentication token" do
+      # Pito's JSON API is open in this phase; the endpoint must answer 200
+      # with no Authorization header set. (Mirrors pito-sh's current call.)
+      get settings_path(format: :json)
+      expect(response).to have_http_status(:ok)
+    end
+  end
+
   describe "PATCH /settings/theme" do
     it "sets theme to dark" do
       patch settings_theme_path, params: { theme: "dark" }, as: :json

@@ -2,5 +2,6 @@
 :queues:
   - default
   - bulk_deletion
+  - bulk_sync
   - search
 :concurrency: 5

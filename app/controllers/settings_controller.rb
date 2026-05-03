@@ -7,11 +7,18 @@ class SettingsController < ApplicationController
     @max_panes_default = ENV.fetch("MAX_PANES", 3).to_i
     @pane_title_length_default = ENV.fetch("PANE_TITLE_LENGTH", 14).to_i
     @theme = AppSetting.get("theme") || "auto"
-    @search_healthy = Search.engine.healthy?
-    @search_stats = Search.engine.index_stats
-  rescue StandardError
-    @search_healthy = false
-    @search_stats = {}
+    begin
+      @search_healthy = Search.engine.healthy?
+      @search_stats = Search.engine.index_stats
+    rescue StandardError
+      @search_healthy = false
+      @search_stats = {}
+    end
+
+    respond_to do |format|
+      format.html
+      format.json { render json: settings_json }
+    end
   end
 
   def update
@@ -46,5 +53,18 @@ class SettingsController < ApplicationController
   def reindex
     ReindexAllJob.perform_later
     redirect_to settings_path, notice: "reindex started."
+  end
+
+  private
+
+  # Public-safe subset of AppSetting values exposed to the JSON API. The
+  # OAuth client secret and other credentials are intentionally excluded.
+  # pito-sh's `AppSettings` Rust struct binds to these three fields.
+  def settings_json
+    {
+      max_panes: (AppSetting.get("max_panes") || @max_panes_default).to_i,
+      pane_title_length: (AppSetting.get("pane_title_length") || @pane_title_length_default).to_i,
+      theme: @theme
+    }
   end
 end

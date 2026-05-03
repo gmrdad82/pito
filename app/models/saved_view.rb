@@ -28,11 +28,20 @@ class SavedView < ApplicationRecord
 
     ids.map do |id|
       entity = existing[id.to_i]
-      { id: id, title: entity&.title || "[deleted]", deleted: entity.nil? }
+      { id: id, title: label_for(entity) || "[deleted]", deleted: entity.nil? }
     end
   end
 
   private
+
+  def label_for(entity)
+    return nil if entity.nil?
+
+    case kind
+    when "channels" then entity.id.to_s
+    when "videos"   then entity.title
+    end
+  end
 
   def extract_ids_from_url
     uri = URI.parse(url)

@@ -7,7 +7,9 @@
 
 ## What It Is
 
-A place to share personal stories and thoughts in a creative format. Talking head with slides or outdoor footage. Topics are whatever comes to mind, explored through video.
+A place to share personal stories and thoughts in a creative format. Talking
+head with slides or outdoor footage. Topics are whatever comes to mind, explored
+through video.
 
 ## Why
 

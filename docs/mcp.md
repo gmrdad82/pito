@@ -1,19 +1,25 @@
 # MCP Server
 
-Pito exposes a Model Context Protocol (MCP) server for AI assistants to interact with the app programmatically. Two transports are available: stdio for local Claude Code usage, and HTTP for remote access (Claude Mobile, other MCP clients).
+Pito exposes a Model Context Protocol (MCP) server for AI assistants to interact
+with the app programmatically. Two transports are available: stdio for local
+Claude Code usage, and HTTP for remote access (Claude Mobile, other MCP
+clients).
 
 ## Architecture
 
 - **Gem:** `mcp` (official Ruby MCP SDK, v0.14.0+)
 - **Transports:** stdio (local) and Streamable HTTP (remote)
 - **Auth:** none for stdio (local trust), bearer token for HTTP
-- **Process isolation:** stdio runs as standalone process; HTTP runs on a dedicated Puma (port 3001), separate from the web app (port 3000)
+- **Process isolation:** stdio runs as standalone process; HTTP runs on a
+  dedicated Puma (port 3001), separate from the web app (port 3000)
 
-The MCP server loads Rails models, decorators, and services directly (in-process). It does not make HTTP requests to the web app.
+The MCP server loads Rails models, decorators, and services directly
+(in-process). It does not make HTTP requests to the web app.
 
 ## Stdio Transport (Local)
 
-For Claude Code and local MCP clients. No authentication — inherits trust from the local machine.
+For Claude Code and local MCP clients. No authentication — inherits trust from
+the local machine.
 
 ```bash
 # Add to Claude Code (from project root)
@@ -25,7 +31,8 @@ MCP_DEBUG=1 bin/mcp
 
 ## HTTP Transport (Remote)
 
-For Claude Mobile, remote MCP clients, and tunnel access. Runs on a dedicated Puma process (port 3001) to avoid interfering with the web app.
+For Claude Mobile, remote MCP clients, and tunnel access. Runs on a dedicated
+Puma process (port 3001) to avoid interfering with the web app.
 
 ### Starting the server
 
@@ -65,7 +72,8 @@ The MCP HTTP server is a standard Puma process. Scale it independently:
 
 - **Threads:** `MCP_THREADS=10 bin/mcp-web`
 - **Workers:** `MCP_WORKERS=2 bin/mcp-web`
-- **Horizontal:** run multiple instances behind a load balancer (each needs DB + Redis access)
+- **Horizontal:** run multiple instances behind a load balancer (each needs DB +
+  Redis access)
 
 ### Tunnel access (Cloudflare Tunnel)
 
@@ -81,53 +89,157 @@ See the Cloudflare Tunnel docs for setup details.
 
 ### Read Tools
 
-| Tool | Description |
-|------|-------------|
-| `list_channels` | All channels with subscriber/video/view counts |
-| `get_channel` | Channel detail + video list (by ID) |
-| `list_videos` | All videos with stats, optional channel_id filter and limit |
-| `get_video` | Video detail + 30-day stat history (by ID) |
-| `get_dashboard` | Analytics: daily views, views by channel, top videos, engagement. Supports ranges: 7d, 30d, 90d, 1y, all |
-| `search` | Full-text search across channels and videos via Meilisearch |
-| `list_saved_views` | All saved workspace views, optional kind filter |
-| `manage_settings` | View current settings (no args) or update max_panes, pane_title_length, theme |
+| Tool               | Description                                                                                                                                                                     |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `list_channels`    | List channels by URL with optional filters (`star`, `connected`, `syncing`) and pagination (`limit`, `offset`). Returns summary JSON per channel.                               |
+| `get_channel`      | Channel detail JSON by ID (id, channel_url, star, connected, syncing, last_synced_at, video_count, timestamps).                                                                 |
+| `list_videos`      | All videos with stats, optional `channel_id` filter and limit                                                                                                                   |
+| `get_video`        | Video detail + 30-day stat history (by ID)                                                                                                                                      |
+| `get_dashboard`    | Analytics: daily views, views by channel, top videos, engagement. Supports ranges: 7d, 30d, 90d, 1y, all                                                                        |
+| `search`           | Full-text search across videos via Meilisearch. Channels are not searchable in this phase (no `title`/`description`); their searchable surface returns once YouTube sync ships. |
+| `list_saved_views` | All saved workspace views, optional kind filter                                                                                                                                 |
+| `manage_settings`  | View current settings (no args) or update max_panes, pane_title_length, theme                                                                                                   |
 
 ### Write Tools
 
-| Tool | Description |
-|------|-------------|
-| `create_channel` | Create channel (title required, description optional) |
-| `update_channel` | Update channel title/description (by ID) |
-| `create_video` | Create video (title + channel_id required, plus description/privacy/tags/category/language) |
-| `update_video` | Update video metadata (by ID) |
-| `delete_records` | Delete channels or videos by type + IDs array. Channels cascade-delete videos. Marked destructive. |
-| `create_saved_view` | Save a pane layout (kind + name + IDs array) |
-| `delete_saved_view` | Delete a saved view (by ID). Marked destructive. |
+| Tool                | Description                                                                                                                                                                        |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `create_channel`    | Create a channel from a canonical YouTube channel URL (`https://www.youtube.com/channel/UC...`). Only `channel_url` is accepted. After save, an initial `ChannelSync` is enqueued. |
+| `update_channel`    | Update a channel's `star` and/or `connected` flags. The `channel_url` is **locked** once set and cannot be changed (refused with a structured error).                              |
+| `create_video`      | Create video (title + channel_id required, plus description/privacy/tags/category/language)                                                                                        |
+| `update_video`      | Update video metadata (by ID)                                                                                                                                                      |
+| `delete_records`    | Generic two-step bulk deleter for `channel` or `video`. See "Two-step confirmation pattern" below.                                                                                 |
+| `sync_records`      | Generic two-step bulk syncer for `channel` (videos coming later). See "Two-step confirmation pattern" below.                                                                       |
+| `create_saved_view` | Save a pane layout (kind + name + IDs array)                                                                                                                                       |
+| `delete_saved_view` | Delete a saved view (by ID). Marked destructive.                                                                                                                                   |
+
+The Channel-specific bulk tools (`bulk_delete_channels`, `bulk_sync_channels`)
+were dropped in favour of the generic `delete_records` + `sync_records` shape.
+The two-step confirm flow is the same; the dispatch is by `type` parameter.
+
+## Two-step confirmation pattern
+
+Destructive and sync MCP tools (`delete_records`, `sync_records`) require **two
+calls**:
+
+1. **Preview call** — invoke without `confirm: true` (or with `confirm: false`).
+   The tool returns a structured preview and creates **no** state. No
+   `BulkOperation` row, no Sidekiq job.
+2. **Execute call** — invoke with `confirm: true`. The tool creates a
+   `BulkOperation`, creates per-target `BulkOperationItem` rows, enqueues the
+   job, and returns `{ operation_id, status_url, ... }`.
+
+Both calls accept the same input shape:
+`{ type: "channel" | "video", ids: [int, ...], confirm?: bool }`. Single-record
+actions are a one-element `ids` array (bulk-as-foundation pattern).
+
+### `delete_records` — preview response
+
+```json
+{
+  "preview_url": "/deletions/channel/1,2,3",
+  "type": "channel",
+  "total": 3,
+  "items": [
+    { "id": 1, "label": "https://www.youtube.com/channel/UC..." },
+    { "id": 2, "label": "https://www.youtube.com/channel/UC..." }
+  ],
+  "not_found_ids": [3],
+  "message": "Preview only — call again with confirm: true to execute."
+}
+```
+
+### `delete_records` — execute response
+
+```json
+{
+  "operation_id": 42,
+  "status_url": "/bulk_operations/42",
+  "enqueued": true,
+  "type": "channel",
+  "total": 2,
+  "not_found_ids": [3],
+  "message": "Bulk delete queued. Poll status_url for progress."
+}
+```
+
+### `sync_records` — preview response
+
+The preview partitions ids into `syncable`, `skipped` (already syncing), and
+`not_found_ids`:
+
+```json
+{
+  "preview_url": "/syncs/channel/1,2,3",
+  "type": "channel",
+  "total": 3,
+  "syncable": [
+    { "id": 1, "label": "https://www.youtube.com/channel/UC..." }
+  ],
+  "skipped": [
+    { "id": 2, "label": "https://www.youtube.com/channel/UC...", "reason": "already syncing" }
+  ],
+  "not_found_ids": [3],
+  "message": "Preview only — call again with confirm: true to execute."
+}
+```
+
+### `sync_records` — execute response
+
+```json
+{
+  "operation_id": 43,
+  "status_url": "/bulk_operations/43",
+  "enqueued": true,
+  "type": "channel",
+  "total": 2,
+  "syncable_count": 1,
+  "skipped_count": 1,
+  "not_found_ids": [3],
+  "message": "Bulk sync queued. Poll status_url for progress."
+}
+```
+
+## Action confirmation as a resource
+
+The `preview_url` returned by `delete_records` and `sync_records` (e.g.
+`/deletions/channel/1,2,3`, `/syncs/channel/1,2,3`) is also a fully-functional
+web URL. The user (or Claude, via a browser handoff) can navigate to it and
+submit the confirmation form there instead of calling the tool a second time.
+The web flow and the MCP flow share the controller, the view, and the resulting
+`BulkOperation` row.
 
 ## Resources
 
-| URI | Description |
-|-----|-------------|
-| `pito://design` | Design system document (docs/design.md) |
+| URI             | Description                                     |
+| --------------- | ----------------------------------------------- |
+| `pito://design` | Design system document (docs/design.md)         |
 | `pito://status` | Live app state: counts, search health, settings |
-| `pito://mcp` | This document |
+| `pito://mcp`    | This document                                   |
 
 ## Data Shapes
 
 ### Channel Summary
+
 ```json
 {
   "id": 1,
-  "youtube_channel_id": "UC...",
-  "title": "Channel Name",
+  "channel_url": "https://www.youtube.com/channel/UC2T-WgvF-DQQfFNQieoRuQQ",
+  "star": false,
   "connected": true,
-  "subscriber_count": 50000,
-  "video_count": 120,
-  "view_count": 1000000
+  "syncing": false,
+  "last_synced_at": "2026-05-01T12:00:00Z",
+  "created_at": "2026-04-15T09:00:00Z",
+  "updated_at": "2026-05-01T12:00:00Z"
 }
 ```
 
+### Channel Detail (extends summary)
+
+Adds: `video_count`.
+
 ### Video Summary
+
 ```json
 {
   "id": 1,
@@ -146,16 +258,17 @@ See the Cloudflare Tunnel docs for setup details.
 ```
 
 ### Video Detail (extends summary)
-Adds: `description`, `thumbnail_url`, `tags`, `category_id`, `default_language`, `made_for_kids`, `last_synced_at`, `stats` (array of daily entries with date/views/likes/comments/shares/watch_time_minutes).
 
-### Channel Detail (extends summary)
-Adds: `description`, `thumbnail_url`, `last_synced_at`, `videos` (array of video summaries).
+Adds: `description`, `thumbnail_url`, `tags`, `category_id`, `default_language`,
+`made_for_kids`, `last_synced_at`, `stats` (array of daily entries with
+date/views/likes/comments/shares/watch_time_minutes).
 
 ## Token Model
 
 `McpAccessToken` stores bearer tokens for HTTP transport authentication:
 
-- Tokens are hashed with HMAC-SHA256 (using `secret_key_base` as pepper) — plaintext is never stored
+- Tokens are hashed with HMAC-SHA256 (using `secret_key_base` as pepper) —
+  plaintext is never stored
 - `last_token_preview` stores the last 4 characters for identification
 - `last_used_at` is touched on each successful authentication
 - Tokens can be revoked (sets `revoked_at`, excluded from auth)
@@ -169,15 +282,16 @@ app/mcp/
   tools/
     list_channels.rb      # list_channels
     get_channel.rb        # get_channel
-    list_videos.rb        # list_videos
-    get_video.rb          # get_video
-    get_dashboard.rb      # get_dashboard
-    search_content.rb     # search
     create_channel.rb     # create_channel
     update_channel.rb     # update_channel
+    list_videos.rb        # list_videos
+    get_video.rb          # get_video
     create_video.rb       # create_video
     update_video.rb       # update_video
-    delete_records.rb     # delete_records
+    get_dashboard.rb      # get_dashboard
+    search_content.rb     # search
+    delete_records.rb     # delete_records (two-step confirm)
+    sync_records.rb       # sync_records  (two-step confirm)
     manage_settings.rb    # manage_settings
     list_saved_views.rb   # list_saved_views
     create_saved_view.rb  # create_saved_view

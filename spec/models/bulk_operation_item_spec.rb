@@ -15,6 +15,13 @@ RSpec.describe BulkOperationItem, type: :model do
   end
 
   describe "enums" do
-    it { is_expected.to define_enum_for(:status).with_values(pending: 0, succeeded: 1, failed: 2).with_prefix(:status) }
+    it { is_expected.to define_enum_for(:status).with_values(pending: 0, succeeded: 1, failed: 2, skipped: 3).with_prefix(:status) }
+
+    it "accepts skipped (3) as a valid status" do
+      item = create(:bulk_operation_item, status: :skipped)
+      expect(item).to be_valid
+      expect(item.status).to eq("skipped")
+      expect(BulkOperationItem.statuses["skipped"]).to eq(3)
+    end
   end
 end

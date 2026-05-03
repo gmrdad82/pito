@@ -1,14 +1,26 @@
-<% content_for(:title, @channel.title) %>
-<% breadcrumb(["channels", channels_path], @channel.title) %>
+<% page_label = "channel ##{@channel.id}" %>
+<% content_for(:title, page_label) %>
+<% breadcrumb(["channels", channels_path], page_label) %>
 <% content_for(:breadcrumb_actions) do %>
   <%= render(BracketedLinkComponent.new(label: "edit", href: edit_channel_path(@channel))) %>
+  <span class="text-muted">&middot;</span>
+  <%= render(BracketedLinkComponent.new(label: "sync", href: "/syncs/channel/#{@channel.id}")) %>
   <span class="text-muted">&middot;</span>
   <%= render(BracketedLinkComponent.new(label: "delete", href: "/deletions/channel/#{@channel.id}", destructive: true)) %>
 <% end %>
 
 <div data-controller="add-pane">
   <div style="margin-bottom: 6px;">
-    <h1 style="display: inline;"><%= @channel.title %></h1><% if @available_channels.any? %> <span style="position: relative; top: -2px;"><span class="text-muted">&middot;</span> <%= render(BracketedLinkComponent.new(label: "+", href: "#", data: { action: "click->add-pane#open" })) %></span><% end %>
+    <h1 style="display: inline;">channel #<%= @channel.id %></h1>
+    <% if @channel.syncing? %>
+      <span class="text-muted" style="margin-left: 8px;">[syncing]</span>
+    <% end %>
+    <% if @available_channels.any? %>
+      <span style="position: relative; top: -2px;">
+        <span class="text-muted">&middot;</span>
+        <%= render(BracketedLinkComponent.new(label: "+", href: "#", data: { action: "click->add-pane#open" })) %>
+      </span>
+    <% end %>
   </div>
 
   <%= render "channels/pane", channel: @channel %>

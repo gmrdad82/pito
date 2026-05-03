@@ -1,0 +1,90 @@
+<% content_for(:title, "sync #{@type.pluralize}") %>
+<% breadcrumb([@type.pluralize, cancel_path_for(@type)], "sync #{@items.length} #{@type}#{'s' if @items.length != 1}") %>
+
+<% all_skipped = (@already_syncing || []).length == @items.length %>
+<% any_skipped = (@already_syncing || []).length > 0 %>
+
+<div id="sync-content">
+  <div style="margin-bottom: 8px;">
+    <h1>sync <%= @items.length %> <%= @type %><%= 's' if @items.length != 1 %></h1>
+    <p class="text-muted" style="margin-top: 2px;">just kicking off the sync — won't take long.</p>
+    <% if any_skipped && !all_skipped %>
+      <p class="text-muted" style="margin-top: 2px;">still on it from earlier — we'll skip the highlighted ones.</p>
+    <% end %>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th class="col-action"></th>
+        <% if @type == "channel" %>
+          <th>url</th>
+          <th class="num">starred</th>
+          <th class="num">connected</th>
+          <th class="num">last sync</th>
+        <% else %>
+          <th>title</th>
+          <th>channel</th>
+        <% end %>
+      </tr>
+    </thead>
+    <tbody>
+      <% @items.each do |item| %>
+        <% skipped = @already_syncing_ids&.include?(item.id) %>
+        <tr>
+          <td class="col-action">
+            <% if skipped %>
+              <span class="bracketed text-danger">[ skip ]</span>
+            <% else %>
+              &nbsp;&nbsp;&nbsp;&nbsp;
+            <% end %>
+          </td>
+          <% if @type == "channel" %>
+            <td title="<%= item.channel_url %>" style="max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+              <% if skipped %>
+                <span class="text-muted"><%= item.channel_url %></span>
+              <% else %>
+                <%= item.channel_url %>
+              <% end %>
+            </td>
+            <td class="num"><%= item.star? ? "yes" : "no" %></td>
+            <td class="num"><%= item.connected? ? "yes" : "no" %></td>
+            <td class="num">
+              <% if item.syncing? %>
+                <strong>syncing</strong>
+              <% elsif item.last_synced_at.present? %>
+                <%= compact_time_ago(item.last_synced_at) %>
+              <% else %>
+                —
+              <% end %>
+            </td>
+          <% else %>
+            <td style="max-width: 280px; overflow: hidden; text-overflow: ellipsis;"><%= item.title %></td>
+            <td><%= item.channel&.channel_url %></td>
+          <% end %>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+
+  <% if any_skipped %>
+    <p class="text-muted" style="margin-top: 8px;">
+      <%= @already_syncing.length %> <%= @type %><%= 's' if @already_syncing.length != 1 %> will be skipped (already syncing).
+    </p>
+  <% end %>
+
+  <div id="action-footer">
+    <% if all_skipped %>
+      <p class="text-muted" style="margin-top: 12px;">nothing to do — every selected <%= @type %> is already syncing.</p>
+      <div style="margin-top: 8px;">
+        <%= render(BracketedLinkComponent.new(label: "back", href: @cancel_path)) %>
+      </div>
+    <% else %>
+      <%= render "shared/action_screen",
+        submit_label: "[sync]",
+        cancel_path: @cancel_path,
+        form_url: "/syncs/#{@type}/#{@items.map(&:id).join(",")}",
+        destructive: false %>
+    <% end %>
+  </div>
+</div>

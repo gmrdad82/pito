@@ -13,19 +13,36 @@ Rails.application.routes.draw do
 
   root "dashboard#index"
 
-  resources :channels, only: [ :index, :show, :new, :create, :edit, :update ] do
+  # JSON-only alias for the dashboard. The pito-sh terminal client expects to
+  # GET /dashboard.json (rather than /.json), so we expose a named route that
+  # routes to the same controller action.
+  get "dashboard", to: "dashboard#index", as: :dashboard
+
+  resources :channels, only: [ :index, :show, :new, :create, :edit, :update, :destroy ] do
     collection do
       get :panes
+    end
+    member do
+      # Nested videos endpoint used by pito-sh: /channels/:id/videos.json
+      # returns the videos belonging to the channel as a JSON array.
+      get :videos
     end
   end
   resources :videos, only: [ :index, :show, :new, :create, :edit, :update ] do
     collection do
       get :panes
     end
+    member do
+      # Nested stats endpoint used by pito-sh: /videos/:id/stats.json returns
+      # the per-day VideoStat rows for the video as a JSON array.
+      get :stats
+    end
   end
-  resources :saved_views, only: [ :create, :destroy ]
+  resources :saved_views, only: [ :index, :create, :destroy ]
   get "deletions/:type/:ids", to: "deletions#show", as: :deletions
   post "deletions/:type/:ids", to: "deletions#create"
+  get "syncs/:type/:ids", to: "syncs#show", as: :syncs
+  post "syncs/:type/:ids", to: "syncs#create"
   resources :bulk_operations, only: [ :show ] do
     member do
       get :status

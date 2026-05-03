@@ -1,27 +1,45 @@
 <div class="pane" style="flex: 1; min-width: 0;">
   <table class="detail-table" style="margin-bottom: 8px;">
     <tr>
-      <td class="text-muted" style="padding-right: 12px;">youtube ID</td>
-      <td><%= channel.youtube_channel_id %></td>
+      <td class="text-muted" style="padding-right: 12px;">url</td>
+      <td>
+        <span style="word-break: break-all;"><%= channel.channel_url %></span>
+        <span class="text-muted">&middot;</span>
+        <%= render(BracketedLinkComponent.new(label: "view", href: channel.channel_url, target: "_blank", rel: "noopener noreferrer")) %>
+      </td>
+    </tr>
+    <tr>
+      <td class="text-muted" style="padding-right: 12px;">starred</td>
+      <td>
+        <%= channel.star? ? "yes" : "no" %>
+        <%= form_with(model: channel, html: { style: "display: inline; margin-left: 8px;" }) do |f| %>
+          <%= f.hidden_field :star, value: channel.star? ? "no" : "yes" %>
+          <button type="submit" class="bracketed" style="background: none; border: none; cursor: pointer; padding: 0; color: inherit; font: inherit;">
+            [<%= channel.star? ? "unstar" : "star" %>]
+          </button>
+        <% end %>
+      </td>
     </tr>
     <tr>
       <td class="text-muted" style="padding-right: 12px;">connected</td>
-      <td><%= channel.connected? ? "yes" : "no" %></td>
+      <td>
+        <%= channel.connected? ? "yes" : "no" %>
+        <%= form_with(model: channel, html: { style: "display: inline; margin-left: 8px;" }) do |f| %>
+          <%= f.hidden_field :connected, value: channel.connected? ? "no" : "yes" %>
+          <button type="submit" class="bracketed" style="background: none; border: none; cursor: pointer; padding: 0; color: inherit; font: inherit;">
+            [<%= channel.connected? ? "disconnect" : "connect" %>]
+          </button>
+        <% end %>
+      </td>
     </tr>
     <tr>
-      <td class="text-muted" style="padding-right: 12px;">subscribers</td>
-      <td><%= number_with_delimiter(channel.subscriber_count || 0) %></td>
+      <td class="text-muted" style="padding-right: 12px;">syncing</td>
+      <td><%= channel.syncing? ? "yes" : "no" %></td>
     </tr>
     <tr>
-      <td class="text-muted" style="padding-right: 12px;">total views</td>
-      <td><%= number_with_delimiter(channel.view_count || 0) %></td>
+      <td class="text-muted" style="padding-right: 12px;">last sync</td>
+      <td><%= compact_time_ago(channel.last_synced_at) %></td>
     </tr>
-    <% if channel.description.present? %>
-      <tr>
-        <td class="text-muted" style="padding-right: 12px;">description</td>
-        <td><%= channel.description %></td>
-      </tr>
-    <% end %>
   </table>
 
   <h2>videos (<%= channel.videos.count %>)</h2>

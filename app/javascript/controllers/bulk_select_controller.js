@@ -3,8 +3,8 @@ import { Controller } from "@hotwired/stimulus"
 export default class extends Controller {
   static targets = ["checkbox", "headerCheckbox", "actions", "count",
                      "bulkCol", "actionCol", "bulkToggle", "openAction", "openHint",
-                     "deleteAction"]
-  static values = { maxPanes: Number, entityName: String, panesPath: String, deleteType: String }
+                     "overMaxHint", "deleteAction", "syncAction"]
+  static values = { maxPanes: Number, entityName: String, panesPath: String, deleteType: String, syncType: String }
 
   enterBulk(event) {
     event.preventDefault()
@@ -41,7 +41,6 @@ export default class extends Controller {
   updateActions() {
     const count = this.selectedIds.length
     const max = this.maxPanesValue
-    const name = this.entityNameValue
 
     // update count display
     this.countTarget.textContent = count
@@ -57,11 +56,18 @@ export default class extends Controller {
       this.openHintTarget.hidden = true
       this.openActionTarget.hidden = false
       const panesUrl = `${this.panesPathValue}?ids=${ids}`
-      this._setBracketedLink(this.openActionTarget, panesUrl, `open ${count} ${name}`)
+      this._setBracketedLink(this.openActionTarget, panesUrl, `open ${count}`)
     } else {
-      this.openHintTarget.hidden = false
-      this.openActionTarget.hidden = true
-      this._setHint(this.openHintTarget, `max ${max} ${name} at a time`)
+      // Over max: render [open N] as muted, bold, non-clickable so layout stays
+      // stable. The helpful subtext lives below the action bar in the view.
+      this.openHintTarget.hidden = true
+      this.openActionTarget.hidden = false
+      this._setMutedBracketed(this.openActionTarget, `open ${count}`)
+    }
+
+    // over-max subtext only appears when selection exceeds max-panes
+    if (this.hasOverMaxHintTarget) {
+      this.overMaxHintTarget.hidden = count <= max
     }
 
     // update delete action — values are numeric IDs and a controlled type string, safe for URL construction
@@ -83,6 +89,28 @@ export default class extends Controller {
         this.deleteActionTarget.hidden = false
       } else {
         this.deleteActionTarget.hidden = true
+      }
+    }
+
+    // update sync action — non-destructive (no text-danger class), same URL shape pattern as delete
+    if (this.hasSyncActionTarget) {
+      if (count > 0) {
+        const syncUrl = `/syncs/${this.syncTypeValue}/${ids}`
+        const link = document.createElement("a")
+        link.href = syncUrl
+        link.className = "bracketed"
+        const bracket = document.createTextNode("[")
+        const span = document.createElement("span")
+        span.className = "bl"
+        span.textContent = `sync ${count}`
+        const bracketEnd = document.createTextNode("]")
+        link.appendChild(bracket)
+        link.appendChild(span)
+        link.appendChild(bracketEnd)
+        this.syncActionTarget.replaceChildren(link)
+        this.syncActionTarget.hidden = false
+      } else {
+        this.syncActionTarget.hidden = true
       }
     }
 
@@ -118,5 +146,15 @@ export default class extends Controller {
     link.appendChild(span)
     link.appendChild(document.createTextNode("]"))
     el.replaceChildren(link)
+  }
+
+  // Renders [label] as muted, bold, non-clickable text — used when an action
+  // is over its limit (e.g., open N when N exceeds max-panes). Bold preserves
+  // visual weight so the bar doesn't shift when toggling between modes.
+  _setMutedBracketed(el, label) {
+    const span = document.createElement("span")
+    span.className = "bracketed-muted"
+    span.textContent = `[${label}]`
+    el.replaceChildren(span)
   }
 }

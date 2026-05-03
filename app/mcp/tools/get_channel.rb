@@ -2,7 +2,7 @@ module Mcp
   module Tools
     class GetChannel < MCP::Tool
       tool_name "get_channel"
-      description "Get detailed info for a channel including description, stats, and its video list."
+      description "Get the full detail JSON for a channel: id, channel_url, star, connected, syncing, last_synced_at, timestamps."
 
       input_schema(
         type: "object",

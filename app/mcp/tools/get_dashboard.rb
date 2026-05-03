@@ -22,9 +22,11 @@ module Mcp
 
         daily_views = VideoStat.where(date: date_range).group_by_day(:date).sum(:views)
 
+        # Group by channel id (post-revamp Channels no longer carry a title).
+        # The view layer renders these against the Channel.id → channel_url map.
         views_by_channel = VideoStat.joins(video: :channel)
           .where(date: date_range)
-          .group("channels.title")
+          .group("channels.id")
           .sum(:views)
 
         top_videos = Video.joins(:video_stats)

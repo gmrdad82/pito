@@ -58,11 +58,18 @@ RSpec.describe "BulkOperations", type: :request do
       expect(response).to have_http_status(:ok)
 
       data = JSON.parse(response.body)
+      expect(data["id"]).to eq(operation.id)
+      expect(data["kind"]).to eq("bulk_delete")
       expect(data["status"]).to eq("pending")
       expect(data["total"]).to eq(1)
       expect(data["current"]).to eq(0)
+      expect(data["completed_at"]).to be_nil
       expect(data["items"].length).to eq(1)
-      expect(data["items"].first["status"]).to eq("pending")
+      item = data["items"].first
+      expect(item["status"]).to eq("pending")
+      expect(item["target_id"]).to eq(video.id)
+      expect(item["target_type"]).to eq("Video")
+      expect(item).to have_key("error_message")
     end
 
     it "reflects completed state when job finishes before cable connects" do
@@ -73,7 +80,24 @@ RSpec.describe "BulkOperations", type: :request do
       data = JSON.parse(response.body)
       expect(data["status"]).to eq("completed")
       expect(data["current"]).to eq(1)
+      expect(data["completed_at"]).to be_present
       expect(data["items"].first["status"]).to eq("succeeded")
+    end
+
+    it "counts skipped items toward current progress" do
+      operation.bulk_operation_items.create!(target_type: "Video", target_id: 99_999, status: :skipped, error_message: "already syncing")
+      get status_bulk_operation_path(operation, format: :json)
+      data = JSON.parse(response.body)
+      expect(data["total"]).to eq(2)
+      expect(data["current"]).to eq(1)
+    end
+
+    it "exposes error_message on failed items" do
+      operation.bulk_operation_items.create!(target_type: "Video", target_id: 12_345, status: :failed, error_message: "boom")
+      get status_bulk_operation_path(operation, format: :json)
+      data = JSON.parse(response.body)
+      failed = data["items"].find { |i| i["status"] == "failed" }
+      expect(failed["error_message"]).to eq("boom")
     end
 
     it "returns 404 for unknown operation" do

@@ -1,16 +1,6 @@
 require "rails_helper"
 
 RSpec.describe Searchable do
-  describe "Channel searchable configuration" do
-    it "defines searchable fields" do
-      expect(Channel.searchable_fields).to eq([ :title, :description ])
-    end
-
-    it "defines filterable fields" do
-      expect(Channel.filterable_fields).to eq([ :connected ])
-    end
-  end
-
   describe "Video searchable configuration" do
     it "defines searchable fields" do
       expect(Video.searchable_fields).to eq([ :title, :description, :tags, :category_id, :default_language ])
@@ -21,24 +11,36 @@ RSpec.describe Searchable do
     end
   end
 
-  describe "after_commit callbacks" do
-    it "enqueues SearchIndexJob on create" do
+  describe "Channel does not include Searchable (Phase A → B removed it)" do
+    it "does not respond to .searchable_fields" do
+      expect(Channel).not_to respond_to(:searchable_fields)
+    end
+
+    it "does not enqueue SearchIndexJob on create" do
       expect {
         create(:channel)
+      }.not_to have_enqueued_job(SearchIndexJob)
+    end
+  end
+
+  describe "Video after_commit callbacks" do
+    it "enqueues SearchIndexJob on create" do
+      expect {
+        create(:video)
       }.to have_enqueued_job(SearchIndexJob)
     end
 
     it "enqueues SearchIndexJob on update" do
-      channel = create(:channel)
+      video = create(:video)
       expect {
-        channel.update!(title: "new title")
+        video.update!(title: "new title")
       }.to have_enqueued_job(SearchIndexJob)
     end
 
     it "enqueues SearchRemoveJob on destroy" do
-      channel = create(:channel)
+      video = create(:video)
       expect {
-        channel.destroy!
+        video.destroy!
       }.to have_enqueued_job(SearchRemoveJob)
     end
   end

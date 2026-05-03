@@ -5,7 +5,8 @@
 
   <%= render(FormFieldComponent.new(form: f, field: :title)) %>
   <% if video.new_record? %>
-    <%= render(FormFieldComponent.new(form: f, field: :channel_id, label: "channel", type: :collection_select, collection: Channel.order(:title), prompt: "select a channel...")) %>
+    <% channel_options = Channel.order(:channel_url).map { |c| Struct.new(:id, :title).new(c.id, truncate(c.channel_url, length: 50, omission: "…")) } %>
+    <%= render(FormFieldComponent.new(form: f, field: :channel_id, label: "channel", type: :collection_select, collection: channel_options, prompt: "select a channel...")) %>
   <% end %>
   <%= render(FormFieldComponent.new(form: f, field: :description, type: :text_area)) %>
   <%= render(FormFieldComponent.new(form: f, field: :privacy_status, type: :select, options: Video.privacy_statuses.keys.map { |k| [k.sub("_video", ""), k] })) %>

@@ -1,4 +1,10 @@
 class VideosController < ApplicationController
+  # JSON endpoints are unauthenticated for the single-user dev environment
+  # behind the Cloudflare tunnel. Phase 3 Auth Foundation will add API token
+  # auth. CSRF is skipped only for JSON requests so the HTML form path keeps
+  # its authenticity-token check.
+  skip_before_action :verify_authenticity_token, if: -> { request.format.json? }
+
   def index
     @saved_views = SavedView.videos.ordered
     @videos = Video.includes(:channel)
@@ -59,6 +65,24 @@ class VideosController < ApplicationController
     end
   end
 
+  # GET /videos/:id/stats(.json)
+  #
+  # Returns the per-day VideoStat rows for the video as a JSON array. Used by
+  # pito-sh to render per-video stats charts. The shape matches the Rust
+  # `VideoStat` struct: date, views, likes, comments, watch_time_minutes.
+  def stats
+    @video = Video.find(params[:id])
+    @stats = @video.video_stats.order(date: :desc)
+
+    respond_to do |format|
+      format.html { redirect_to video_path(@video) }
+      format.json do
+        payload = @stats.map { |s| video_stat_json(s) }
+        render json: payload
+      end
+    end
+  end
+
   def panes
     ids = params[:ids].to_s.split(/[\s,+]+/).reject(&:blank?)
 
@@ -87,5 +111,18 @@ class VideosController < ApplicationController
 
   def video_params
     params.require(:video).permit(:title, :description, :privacy_status, :category_id, :default_language, :made_for_kids, :tags, :channel_id)
+  end
+
+  # Per-day stat shape consumed by pito-sh (Rust `VideoStat` struct).
+  # We coerce numerics explicitly so JSON encoding is stable across DB
+  # adapters that may return BigDecimal or string values.
+  def video_stat_json(stat)
+    {
+      date: stat.date.iso8601,
+      views: stat.views.to_i,
+      likes: stat.likes.to_i,
+      comments: stat.comments.to_i,
+      watch_time_minutes: stat.watch_time_minutes.to_f
+    }
   end
 end

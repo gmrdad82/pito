@@ -1,6 +1,8 @@
 # History — MicLessGaming
 
 ## Published
-| # | Title | Date | Notes |
-|---|-------|------|-------|
+
+| #   | Title | Date | Notes |
+| --- | ----- | ---- | ----- |
+
 (no videos yet)

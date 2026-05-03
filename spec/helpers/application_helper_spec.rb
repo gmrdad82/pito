@@ -74,30 +74,35 @@ RSpec.describe ApplicationHelper, type: :helper do
   end
 
   describe "#pane_breadcrumb_label" do
-    it "returns full title for single pane" do
-      channel = build(:channel, title: "my channel")
-      expect(helper.pane_breadcrumb_label([ channel ])).to eq("my channel")
+    let(:video1) { build_stubbed(:video, title: "alpha", channel: build_stubbed(:channel)) }
+    let(:video2) { build_stubbed(:video, title: "beta", channel: build_stubbed(:channel)) }
+
+    it "returns full title for single video pane" do
+      expect(helper.pane_breadcrumb_label([ video1 ])).to eq("alpha")
     end
 
     it "joins multiple panes with dot separator" do
-      channels = [ build(:channel, title: "alpha"), build(:channel, title: "beta") ]
-      result = helper.pane_breadcrumb_label(channels)
+      result = helper.pane_breadcrumb_label([ video1, video2 ])
       expect(result).to include("alpha")
       expect(result).to include("·")
       expect(result).to include("beta")
     end
 
     it "truncates long names with ellipsis" do
-      channel = build(:channel, title: "a very long channel name here")
-      channels = [ channel, build(:channel, title: "other") ]
-      result = helper.pane_breadcrumb_label(channels)
+      long = build_stubbed(:video, title: "a very long video name here", channel: build_stubbed(:channel))
+      result = helper.pane_breadcrumb_label([ long, video2 ])
       expect(result).to include("…")
     end
 
     it "shows +N more for excess panes" do
-      channels = 5.times.map { |i| build(:channel, title: "ch#{i}") }
-      result = helper.pane_breadcrumb_label(channels)
+      videos = 5.times.map { |i| build_stubbed(:video, title: "v#{i}", channel: build_stubbed(:channel)) }
+      result = helper.pane_breadcrumb_label(videos)
       expect(result).to include("+2 more")
+    end
+
+    it "falls back to id-only label for channels (no title column)" do
+      channel = build_stubbed(:channel)
+      expect(helper.pane_breadcrumb_label([ channel ])).to eq("##{channel.id}")
     end
   end
 end

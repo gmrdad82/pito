@@ -114,6 +114,33 @@ a:hover {
 /* Bracketed links: [ text ] — whole thing is clickable */
 a.bracketed:visited, a.bracketed:visited .bl { color: var(--color-link); }
 
+/* Muted bracketed text — disabled/over-limit state. Bold to preserve weight,
+   no link styling, default cursor (not clickable). */
+.bracketed-muted {
+  font-weight: bold;
+  color: var(--color-muted);
+  cursor: default;
+  user-select: none;
+}
+
+/* Filter chip — bracketed-checkbox style link. Whole chip is clickable;
+   clicking toggles a URL parameter. Visual-only [x] / [ ] indicator (no
+   real form input) so we don't double-handle the click. */
+a.filter-chip,
+a.filter-chip:visited {
+  color: var(--color-link);
+  text-decoration: none;
+  font-weight: bold;
+  white-space: nowrap;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+a.filter-chip:hover { color: var(--color-link-hover); }
+.md-check-static { font-weight: bold; }
+.md-check-static-label { font-weight: bold; }
+
 /* Danger / destructive */
 .text-danger { color: var(--color-danger); }
 a.text-danger { color: var(--color-danger); }
@@ -360,6 +387,48 @@ dialog.pane-dialog {
   padding: 0;
 }
 
+dialog.confirm-modal {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
+  padding: 0;
+  max-width: 420px;
+  width: 100%;
+}
+dialog.confirm-modal::backdrop {
+  background: var(--color-backdrop);
+}
+.confirm-modal-inner {
+  padding: 12px 16px;
+}
+.confirm-modal-actions {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 10px;
+}
+.confirm-modal-actions form {
+  display: inline;
+}
+.confirm-modal-actions button {
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--color-link);
+  font-weight: bold;
+}
+.confirm-modal-actions button:hover {
+  color: var(--color-link-hover);
+}
+.confirm-modal-actions button.text-danger {
+  color: var(--color-danger);
+}
+.confirm-modal-actions button.text-danger:hover {
+  color: var(--color-danger-hover);
+}
+
 /* Action screen sticky footer */
 .action-screen-footer {
   position: sticky;
@@ -414,6 +483,13 @@ dialog.pane-dialog {
 .md-check input:checked ~ .md-check-indicator::before { content: "[x]"; }
 .md-check input:indeterminate ~ .md-check-indicator::before { content: "[-]"; }
 .md-check-label { color: var(--color-muted); }
+
+/* Link variant — used for filter chips and chart-sync toggles. Brackets
+   and label render in the design-system link color (blue). */
+.md-check-link .md-check-indicator,
+.md-check-link .md-check-label { color: var(--color-link); font-weight: bold; }
+.md-check-link:hover .md-check-indicator,
+.md-check-link:hover .md-check-label { color: var(--color-link-hover); }
 
 /* Keycap — keyboard shortcut indicator */
 .keycap {

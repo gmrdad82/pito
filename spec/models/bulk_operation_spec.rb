@@ -13,7 +13,13 @@ RSpec.describe BulkOperation, type: :model do
   end
 
   describe "enums" do
-    it { is_expected.to define_enum_for(:kind).with_values(update_metadata: 0, update_privacy: 1, add_to_playlist: 2, remove_from_playlist: 3, bulk_delete: 4) }
+    it { is_expected.to define_enum_for(:kind).with_values(update_metadata: 0, update_privacy: 1, add_to_playlist: 2, remove_from_playlist: 3, bulk_delete: 4, bulk_sync: 5) }
+
+    it "accepts bulk_sync (5) as a valid kind" do
+      op = build(:bulk_operation, kind: :bulk_sync)
+      expect(op).to be_valid
+      expect(BulkOperation.kinds["bulk_sync"]).to eq(5)
+    end
     it { is_expected.to define_enum_for(:status).with_values(pending: 0, running: 1, completed: 2, failed: 3).with_prefix(:status) }
   end
 end

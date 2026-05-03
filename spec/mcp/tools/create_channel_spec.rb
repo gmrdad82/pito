@@ -2,20 +2,40 @@ require "rails_helper"
 require_relative "../../../app/mcp/tools/create_channel"
 
 RSpec.describe Mcp::Tools::CreateChannel do
-  it "creates a channel" do
-    result = described_class.call(title: "test channel", description: "a test")
+  let!(:tenant) { create(:tenant) }
+  let(:valid_url) { "https://www.youtube.com/channel/UC2T-WgvF-DQQfFNQieoRuQQ" }
+
+  it "creates a channel from a valid URL" do
+    result = described_class.call(channel_url: valid_url)
 
     expect(Channel.count).to eq(1)
     channel = Channel.last
-    expect(channel.title).to eq("test channel")
-    expect(channel.youtube_channel_id).to start_with("local_")
+    expect(channel.channel_url).to eq(valid_url)
+    expect(channel.tenant_id).to eq(tenant.id)
     expect(result.content.first[:text]).to include("channel created")
   end
 
-  it "returns error for blank title" do
-    result = described_class.call(title: "")
+  it "returns a structured error with the example URL when format is invalid" do
+    result = described_class.call(channel_url: "https://youtube.com/@somehandle")
 
     expect(result.to_h[:isError]).to be true
-    expect(result.content.first[:text]).to include("couldn't create")
+    expect(result.content.first[:text]).to include("invalid channel_url")
+    expect(result.content.first[:text]).to include("https://www.youtube.com/channel/UC2T-WgvF-DQQfFNQieoRuQQ")
+    expect(Channel.count).to eq(0)
+  end
+
+  it "rejects an empty channel_url" do
+    result = described_class.call(channel_url: "")
+    expect(result.to_h[:isError]).to be true
+    expect(result.content.first[:text]).to include("invalid channel_url")
+  end
+
+  it "returns a uniqueness error when the URL already exists" do
+    create(:channel, channel_url: valid_url, tenant: tenant)
+
+    result = described_class.call(channel_url: valid_url)
+
+    expect(result.to_h[:isError]).to be true
+    expect(result.content.first[:text]).to match(/couldn't create|taken|already/i)
   end
 end

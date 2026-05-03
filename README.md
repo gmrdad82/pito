@@ -1,6 +1,7 @@
 # Pito
 
-Personal YouTube management tool. Tracks video performance across multiple channels, manages workspaces, and provides analytics dashboards.
+Personal YouTube management tool. Tracks video performance across multiple
+channels, manages workspaces, and provides analytics dashboards.
 
 Single-tenant, runs locally.
 
@@ -64,13 +65,15 @@ bin/rails db:seed
 bin/dev
 ```
 
-Starts Docker services (Postgres, Redis, Meilisearch), Puma, Sidekiq, and Tailwind watcher.
+Starts Docker services (Postgres, Redis, Meilisearch), Puma, Sidekiq, and
+Tailwind watcher.
 
 Open http://localhost:3000
 
 ## Search
 
-Meilisearch powers full-text search across channels and videos. After seeding data, click `[ reindex ]` on the settings page to index all records.
+Meilisearch powers full-text search across channels and videos. After seeding
+data, click `[ reindex ]` on the settings page to index all records.
 
 ## Test
 
@@ -81,4 +84,5 @@ bundle exec rubocop
 
 ## License
 
-All rights reserved. This is proprietary software. Unauthorized copying, distribution, or use is strictly prohibited.
+All rights reserved. This is proprietary software. Unauthorized copying,
+distribution, or use is strictly prohibited.

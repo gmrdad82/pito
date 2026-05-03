@@ -1,8 +1,9 @@
-<% content_for(:title, "edit #{@channel.title}") %>
-<% breadcrumb(["channels", channels_path], [@channel.title, channel_path(@channel)], "edit") %>
+<% page_label = "channel ##{@channel.id}" %>
+<% content_for(:title, "edit #{page_label}") %>
+<% breadcrumb(["channels", channels_path], [page_label, channel_path(@channel)], "edit") %>
 
 <h1>edit channel</h1>
 
-<div style="max-width: 480px;">
+<div style="max-width: 560px;">
   <%= render "channels/form", channel: @channel, cancel_path: channel_path(@channel) %>
 </div>

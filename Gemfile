@@ -33,6 +33,9 @@ gem "meilisearch"
 # Environment
 gem "dotenv-rails"
 
+# Use Active Model has_secure_password
+gem "bcrypt", "~> 3.1.7"
+
 group :development, :test do
   gem "debug", platforms: %i[ mri windows ], require: "debug/prelude"
   gem "bundler-audit", require: false

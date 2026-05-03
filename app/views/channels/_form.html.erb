@@ -3,8 +3,26 @@
     <div class="flash-error" style="margin-bottom: 8px; padding: 4px 8px;">couldn't <%= channel.new_record? ? "create" : "update" %> — check the fields below.</div>
   <% end %>
 
-  <%= render(FormFieldComponent.new(form: f, field: :title)) %>
-  <%= render(FormFieldComponent.new(form: f, field: :description, type: :text_area)) %>
+  <% if channel.new_record? %>
+    <div style="margin-bottom: 8px;">
+      <label for="channel_channel_url">youtube channel url</label>
+      <%= f.text_field :channel_url,
+            placeholder: "https://www.youtube.com/channel/UC2T-WgvF-DQQfFNQieoRuQQ",
+            pattern: "https://www\\.youtube\\.com/channel/UC[A-Za-z0-9_-]{22}",
+            required: true,
+            style: "width: 100%; max-width: 480px;" %>
+      <p class="text-muted" style="margin-top: 4px; font-size: 11px;">
+        must match
+        <code>https://www.youtube.com/channel/UC&lt;22 chars&gt;</code>
+      </p>
+    </div>
+  <% else %>
+    <div style="margin-bottom: 8px;">
+      <label>youtube channel url</label>
+      <input type="text" value="<%= channel.channel_url %>" readonly disabled style="width: 100%; max-width: 480px;">
+      <p class="text-muted" style="margin-top: 4px; font-size: 11px;">url is locked after creation.</p>
+    </div>
+  <% end %>
 
   <div style="display: flex; gap: 6px;">
     <button type="submit" class="btn-submit">[<b>save</b>]</button>

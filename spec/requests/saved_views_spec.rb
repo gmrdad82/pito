@@ -1,6 +1,46 @@
 require "rails_helper"
 
 RSpec.describe "SavedViews", type: :request do
+  describe "GET /saved_views.json" do
+    let!(:channel_view) do
+      create(:saved_view, kind: :channels, name: "starred", url: "/channels?star=yes", position: 0)
+    end
+    let!(:video_view) do
+      create(:saved_view, kind: :videos, name: "recent", url: "/videos", position: 1)
+    end
+
+    it "returns 200 with all saved views as a JSON array" do
+      get saved_views_path(format: :json)
+      expect(response).to have_http_status(:ok)
+      expect(response.media_type).to eq("application/json")
+      json = response.parsed_body
+      expect(json).to be_an(Array)
+      expect(json.size).to eq(2)
+    end
+
+    it "returns the SavedView shape pito-sh expects" do
+      get saved_views_path(format: :json)
+      json = response.parsed_body
+      row = json.first
+      expect(row.keys).to match_array(%w[id kind name url])
+      expect(row["kind"]).to be_a(String)
+      expect(row["name"]).to be_a(String)
+      expect(row["url"]).to be_a(String)
+      expect(row["id"]).to be_a(Integer)
+    end
+
+    it "respects the `ordered` scope (position asc, created_at desc)" do
+      get saved_views_path(format: :json)
+      json = response.parsed_body
+      expect(json.map { |v| v["id"] }).to eq([ channel_view.id, video_view.id ])
+    end
+
+    it "is reachable without an authentication token" do
+      get saved_views_path(format: :json)
+      expect(response).to have_http_status(:ok)
+    end
+  end
+
   describe "POST /saved_views" do
     it "creates a saved view and redirects to its URL" do
       expect {

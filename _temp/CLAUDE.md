@@ -1,6 +1,7 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with
+code in this repository.
 
 ## Project
 
@@ -20,13 +21,16 @@ Pito — a personal tool to track and organize YouTube activity across 3 channel
 
 ## Routing — How to Navigate This Repo
 
-- **Channel-specific work** → `docs/channels/<channel-name>/` (profile, style, history, planning)
+- **Channel-specific work** → `docs/channels/<channel-name>/` (profile, style,
+  history, planning)
 - **Shared workflows** → `docs/workflow/`
 - **Tool/app specs** → `docs/tools/`
 - **Code** → `scripts/`
 - **Skills & routing logic** → `docs/skills/overview.md`
 
-**Critical:** Never mix channel-specific content across channels. When working on a channel, consult ONLY that channel's folder. When building tools, keep them channel-agnostic.
+**Critical:** Never mix channel-specific content across channels. When working
+on a channel, consult ONLY that channel's folder. When building tools, keep them
+channel-agnostic.
 
 ## Structure
 

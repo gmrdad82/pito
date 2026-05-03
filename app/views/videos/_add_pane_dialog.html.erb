@@ -21,7 +21,7 @@
                 <%= render(BracketedLinkComponent.new(label: "add", href: "#{panes_videos_path}?ids=#{new_ids}")) %>
               </td>
               <td><%= truncate(video.title, length: 40, omission: "…") %></td>
-              <td><%= video.channel.title %></td>
+              <td><%= truncate(video.channel.channel_url, length: 40, omission: "…") %></td>
             </tr>
           <% end %>
         </tbody>

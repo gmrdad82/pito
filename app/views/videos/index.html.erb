@@ -50,7 +50,7 @@
               </td>
               <td class="col-action" data-bulk-select-target="actionCol"><%= render(BracketedLinkComponent.new(label: "open", href: video_path(video))) %></td>
               <td style="max-width: 280px; overflow: hidden; text-overflow: ellipsis;"><%= video.title %></td>
-              <td><%= video.channel.title %></td>
+              <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;"><%= truncate(video.channel.channel_url, length: 30, omission: "…") %></td>
               <td class="num"><%= number_with_delimiter(video.total_views) %></td>
               <td class="num"><%= view_trend_indicator(video) %></td>
               <td class="num"><%= number_with_delimiter(video.total_likes) %></td>

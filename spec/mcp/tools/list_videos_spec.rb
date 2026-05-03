@@ -13,7 +13,7 @@ RSpec.describe Mcp::Tools::ListVideos do
 
     expect(data.size).to eq(1)
     expect(data.first["title"]).to eq(video.title)
-    expect(data.first["total_views"]).to eq(500)
+    expect(data.first["views"]).to eq(500)
   end
 
   it "filters by channel_id" do

@@ -15,11 +15,13 @@
 3. **Trim the fat** — arrive at a supercut with both audio tracks
 
 ### Export 1 → MicLessGaming
+
 - Strip the voiceover track
 - Export the gameplay supercut as-is
 - No intro, no outro, no commentary — just gameplay moments
 
 ### Export 2 → Witty Gaming
+
 - Go deeper into the supercut — cut even more
 - Keep only the funniest voiceover moments
 - Pitch/process the voice (style TBD — funnier, maybe cartoonish)

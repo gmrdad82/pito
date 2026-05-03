@@ -1,6 +1,8 @@
 # History — Witty Gaming
 
 ## Published
-| # | Title | Date | Notes |
-|---|-------|------|-------|
+
+| #   | Title | Date | Notes |
+| --- | ----- | ---- | ----- |
+
 (no videos yet)

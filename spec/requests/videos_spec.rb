@@ -30,7 +30,8 @@ RSpec.describe "Videos", type: :request do
       it "displays the video table" do
         get videos_path
         expect(response.body).to include(video.title)
-        expect(response.body).to include(channel.title)
+        # channel column shows truncated channel_url; assert the truncated stem is present
+        expect(response.body).to include(channel.channel_url[0, 29])
         expect(response.body).to include("500")
       end
 
@@ -89,7 +90,7 @@ RSpec.describe "Videos", type: :request do
         get videos_path(format: :json)
         json = JSON.parse(response.body)
         expect(json).to be_an(Array)
-        expect(json.first).to include("id", "title", "channel_title")
+        expect(json.first).to include("id", "title", "channel_url")
       end
     end
   end
@@ -199,6 +200,60 @@ RSpec.describe "Videos", type: :request do
     it "re-renders edit on invalid data" do
       patch video_path(video), params: { video: { title: "" } }
       expect(response).to have_http_status(:unprocessable_entity)
+    end
+  end
+
+  describe "GET /videos/:id/stats (nested stats)" do
+    let!(:channel) { create(:channel) }
+    let!(:video) { create(:video, channel: channel) }
+    let!(:stat_today) do
+      create(:video_stat, video: video, date: Date.current,
+             views: 500, likes: 25, comments: 3, watch_time_minutes: 120.5)
+    end
+    let!(:stat_yesterday) do
+      create(:video_stat, video: video, date: Date.current - 1,
+             views: 200, likes: 10, comments: 1, watch_time_minutes: 60.0)
+    end
+
+    it "returns 200 with the stats array as JSON" do
+      get stats_video_path(video, format: :json)
+      expect(response).to have_http_status(:ok)
+      expect(response.media_type).to eq("application/json")
+      json = response.parsed_body
+      expect(json).to be_an(Array)
+      expect(json.size).to eq(2)
+    end
+
+    it "returns the per-day VideoStat shape pito-sh expects" do
+      get stats_video_path(video, format: :json)
+      row = response.parsed_body.first
+      expect(row.keys).to match_array(%w[date views likes comments watch_time_minutes])
+      expect(row["date"]).to match(/\A\d{4}-\d{2}-\d{2}\z/)
+      expect(row["views"]).to be_a(Integer)
+      expect(row["likes"]).to be_a(Integer)
+      expect(row["comments"]).to be_a(Integer)
+      expect(row["watch_time_minutes"]).to be_a(Float)
+    end
+
+    it "orders stats most-recent-first" do
+      get stats_video_path(video, format: :json)
+      dates = response.parsed_body.map { |r| r["date"] }
+      expect(dates).to eq(dates.sort.reverse)
+    end
+
+    it "returns 404 for an unknown video" do
+      get stats_video_path(id: 99999, format: :json)
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it "is reachable without an authentication token" do
+      get stats_video_path(video, format: :json)
+      expect(response).to have_http_status(:ok)
+    end
+
+    it "redirects HTML requests to the video show page" do
+      get stats_video_path(video)
+      expect(response).to redirect_to(video_path(video))
     end
   end
 

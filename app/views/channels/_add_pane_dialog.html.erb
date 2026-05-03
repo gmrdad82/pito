@@ -1,5 +1,5 @@
 <dialog data-add-pane-target="dialog" data-action="click->add-pane#clickOutside" class="pane-dialog">
-  <div style="padding: 12px; min-width: 400px; max-width: 600px;">
+  <div style="padding: 12px; min-width: 480px; max-width: 720px;">
     <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
       <h2>add a channel</h2>
       <%= render(BracketedLinkComponent.new(label: "close", href: "#", data: { action: "click->add-pane#close" })) %>
@@ -9,8 +9,8 @@
         <thead>
           <tr>
             <th class="col-action"></th>
-            <th>title</th>
-            <th class="num">subs</th>
+            <th>url</th>
+            <th class="num">starred</th>
           </tr>
         </thead>
         <tbody>
@@ -20,8 +20,8 @@
                 <% new_ids = [current_ids, channel.id].reject(&:blank?).join(",") %>
                 <%= render(BracketedLinkComponent.new(label: "add", href: "#{panes_channels_path}?ids=#{new_ids}")) %>
               </td>
-              <td><%= channel.title %></td>
-              <td class="num"><%= number_with_delimiter(channel.subscriber_count || 0) %></td>
+              <td style="max-width: 480px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><%= channel.channel_url %></td>
+              <td class="num"><%= channel.star? ? "yes" : "no" %></td>
             </tr>
           <% end %>
         </tbody>

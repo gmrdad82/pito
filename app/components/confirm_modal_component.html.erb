@@ -1,0 +1,17 @@
+<dialog id="<%= @id %>" class="confirm-modal"
+        data-controller="confirm-modal"
+        data-action="click->confirm-modal#clickOutside keydown->confirm-modal#keydown">
+  <div class="confirm-modal-inner">
+    <div class="dialog-title"><%= @title %></div>
+    <% if @body.present? %>
+      <div class="dialog-message"><%= @body %></div>
+    <% end %>
+    <div class="confirm-modal-actions">
+      <%= form_with url: @confirm_path, method: @confirm_method, data: { turbo: false }, html: { style: "display: inline;" } do %>
+        <button type="submit" class="<%= confirm_button_classes %>">[<span class="bl"><%= @confirm_label %></span>]</button>
+      <% end %>
+      <span class="text-muted">&middot;</span>
+      <button type="button" class="bracketed" data-action="confirm-modal#close">[<span class="bl"><%= @cancel_label %></span>]</button>
+    </div>
+  </div>
+</dialog>

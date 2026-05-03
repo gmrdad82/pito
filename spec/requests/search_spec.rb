@@ -32,30 +32,17 @@ RSpec.describe "Search", type: :request do
     end
 
     context "with a query" do
-      let(:channel) { create(:channel, title: "code kitchen") }
+      let(:channel) { create(:channel) }
       let(:video) { create(:video, channel: channel, title: "rails tutorial") }
 
       before { channel; video }
-
-      it "returns channel results" do
-        channel_hits = {
-          hits: [ { id: channel.id, record: channel, highlights: { "title" => "<mark>code</mark> kitchen" }, score: nil } ],
-          total: 1, took_ms: 2.5
-        }
-        allow(engine).to receive(:search).and_return(channel_hits, empty_results)
-
-        get search_path, params: { q: "code" }
-        expect(response).to have_http_status(:ok)
-        expect(response.body).to include("<mark>code</mark> kitchen")
-        expect(response.body).to include("1 channel")
-      end
 
       it "returns video results" do
         video_hits = {
           hits: [ { id: video.id, record: video, highlights: { "title" => "<mark>rails</mark> tutorial" }, score: nil } ],
           total: 1, took_ms: 1.3
         }
-        allow(engine).to receive(:search).and_return(empty_results, video_hits)
+        allow(engine).to receive(:search).and_return(video_hits)
 
         get search_path, params: { q: "rails" }
         expect(response.body).to include("<mark>rails</mark> tutorial")
@@ -92,17 +79,57 @@ RSpec.describe "Search", type: :request do
     end
 
     context "JSON format" do
-      it "returns JSON" do
+      it "returns JSON in the flat shape pito-sh expects" do
         allow(engine).to receive(:search).and_return(empty_results)
 
         get search_path, params: { q: "test" }, as: :json
         expect(response).to have_http_status(:ok)
         json = response.parsed_body
         expect(json["query"]).to eq("test")
-        expect(json).to have_key("channels")
         expect(json).to have_key("videos")
-        expect(json["channels"]).to have_key("total")
-        expect(json["videos"]).to have_key("total")
+        expect(json["videos"]).to be_an(Array)
+        expect(json).to have_key("video_total")
+        expect(json).to have_key("took_ms")
+        expect(json["video_total"]).to be_a(Integer)
+        expect(json["took_ms"]).to be_a(Numeric)
+      end
+
+      it "returns each hit as { record: <Video summary>, highlights }" do
+        channel = create(:channel)
+        video = create(:video, channel: channel, title: "rails tutorial")
+        hits = {
+          hits: [ { id: video.id, record: video, highlights: { "title" => "<mark>rails</mark>" }, score: nil } ],
+          total: 1, took_ms: 1.3
+        }
+        allow(engine).to receive(:search).and_return(hits)
+
+        get search_path, params: { q: "rails" }, as: :json
+        json = response.parsed_body
+        hit = json["videos"].first
+        expect(hit).to include("record", "highlights")
+        expect(hit["record"]).to include("id", "title", "views")
+        expect(hit["record"]["id"]).to eq(video.id)
+        expect(hit["highlights"]).to eq("title" => "<mark>rails</mark>")
+      end
+
+      it "does not include channels key" do
+        allow(engine).to receive(:search).and_return(empty_results)
+
+        get search_path, params: { q: "test" }, as: :json
+        json = response.parsed_body
+        expect(json).not_to have_key("channels")
+      end
+
+      it "drops hits whose backing Video row is missing (Rust record field is non-nullable)" do
+        hits = {
+          hits: [ { id: 99_999, record: nil, highlights: { "title" => "stale" }, score: nil } ],
+          total: 1, took_ms: 0.5
+        }
+        allow(engine).to receive(:search).and_return(hits)
+
+        get search_path, params: { q: "stale" }, as: :json
+        json = response.parsed_body
+        expect(json["videos"]).to eq([])
       end
     end
   end

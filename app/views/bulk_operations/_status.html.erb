@@ -1,8 +1,21 @@
+<%
+  kind = operation.kind
+  completed_msg = case kind
+                  when "bulk_sync" then "completed — all items synced successfully."
+                  when "bulk_delete" then "completed — all items deleted successfully."
+                  else "completed."
+                  end
+  failed_msg = case kind
+               when "bulk_sync" then "failed — one or more items could not be synced."
+               when "bulk_delete" then "failed — transaction rolled back, no changes were made."
+               else "failed."
+               end
+%>
 <div id="operation_progress" style="margin-top: 2px;">
   <% if status == "completed" %>
-    <span class="indicator-up">completed — all items deleted successfully.</span>
+    <span class="indicator-up"><%= completed_msg %></span>
   <% elsif status == "failed" %>
-    <span class="indicator-down">failed — transaction rolled back, no changes were made.</span>
+    <span class="indicator-down"><%= failed_msg %></span>
   <% else %>
     <span class="text-muted">processing...</span>
   <% end %>

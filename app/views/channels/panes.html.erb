@@ -1,10 +1,30 @@
 <% content_for(:title, "channels") %>
-<% breadcrumb(["channels", channels_path], pane_breadcrumb_label(@panes.compact, trunc_length: @pane_title_length)) %>
+<% pane_label = ->(c) { c ? "##{c.id}" : "?" } %>
+<% pane_breadcrumb = @panes.compact.map { |c| pane_label.call(c) }.join(" + ") %>
+<% breadcrumb(["channels", channels_path], pane_breadcrumb) %>
 <% content_for(:breadcrumb_actions) do %>
   <% if @saved_view %>
-    <%= render(BracketedLinkComponent.new(label: "delete", href: saved_view_path(@saved_view), destructive: true, method: :delete, confirm: "delete this saved view?")) %>
+    <% saved_view_modal_id = "confirm-saved-view-#{@saved_view.id}" %>
+    <%= render(BracketedLinkComponent.new(
+      label: "delete",
+      href: "#",
+      destructive: true,
+      data: {
+        controller: "modal-trigger",
+        action: "click->modal-trigger#open",
+        modal_trigger_target_id_value: saved_view_modal_id
+      }
+    )) %>
+    <%= render(ConfirmModalComponent.new(
+      id: saved_view_modal_id,
+      title: "delete this saved view?",
+      confirm_path: saved_view_path(@saved_view),
+      confirm_method: :delete,
+      confirm_label: "delete",
+      destructive: true
+    )) %>
   <% else %>
-    <%= button_to saved_views_path, params: { saved_view: { kind: "channels", url: request.fullpath, name: pane_breadcrumb_label(@panes.compact, trunc_length: @pane_title_length) } }, form: { style: "display: inline;", data: { turbo: false } } do %>[<span class="bl">save</span>]<% end %>
+    <%= button_to saved_views_path, params: { saved_view: { kind: "channels", url: request.fullpath, name: pane_breadcrumb } }, form: { style: "display: inline;", data: { turbo: false } } do %>[<span class="bl">save</span>]<% end %>
   <% end %>
 <% end %>
 
@@ -13,7 +33,13 @@
 
 <div data-controller="add-pane">
   <div style="margin-bottom: 6px;">
-    <h1 style="display: inline;">channels (<%= @panes.compact.size %>)</h1><% if @available_channels&.any? %> <span style="position: relative; top: -2px;"><span class="text-muted">&middot;</span> <%= render(BracketedLinkComponent.new(label: "+", href: "#", data: { action: "click->add-pane#open" })) %></span><% end %>
+    <h1 style="display: inline;">channels (<%= @panes.compact.size %>)</h1>
+    <% if @available_channels&.any? %>
+      <span style="position: relative; top: -2px;">
+        <span class="text-muted">&middot;</span>
+        <%= render(BracketedLinkComponent.new(label: "+", href: "#", data: { action: "click->add-pane#open" })) %>
+      </span>
+    <% end %>
   </div>
 
   <div class="pane-container">
@@ -31,7 +57,7 @@
             <%= link_to "▼", "#{panes_channels_path}?ids=#{swapped.join(',')}", class: "pane-arrow pane-arrow-down", title: "move down" %>
           <% end %>
           <div style="display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px;">
-            <h2><%= channel.title %></h2>
+            <h2>channel #<%= channel.id %></h2>
             <span style="position: relative; top: -1px;"><span class="text-muted">&middot;</span>
             <%= render(BracketedLinkComponent.new(label: "focus", href: channel_path(channel))) %>
             <% remaining_ids = pane_ids.reject { |id| id == channel.id } %>

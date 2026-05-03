@@ -31,12 +31,12 @@ RSpec.describe SavedView, type: :model do
   end
 
   describe "#entity_labels" do
-    it "returns labels for existing channels" do
+    it "returns channel id strings as labels for existing channels" do
       channel = create(:channel)
       view = build(:saved_view, kind: :channels, url: "/channels/panes?ids=#{channel.id}")
       labels = view.entity_labels
       expect(labels.size).to eq(1)
-      expect(labels.first[:title]).to eq(channel.title)
+      expect(labels.first[:title]).to eq(channel.id.to_s)
       expect(labels.first[:deleted]).to be false
     end
 
@@ -47,14 +47,14 @@ RSpec.describe SavedView, type: :model do
       expect(labels.first[:deleted]).to be true
     end
 
-    it "handles single entity URLs" do
+    it "handles single entity URLs (channels)" do
       channel = create(:channel)
       view = build(:saved_view, kind: :channels, url: "/channels/#{channel.id}")
       expect(view.entity_labels.size).to eq(1)
-      expect(view.entity_labels.first[:title]).to eq(channel.title)
+      expect(view.entity_labels.first[:title]).to eq(channel.id.to_s)
     end
 
-    it "handles video kind" do
+    it "handles video kind (still uses title)" do
       video = create(:video)
       view = build(:saved_view, kind: :videos, url: "/videos/panes?ids=#{video.id}")
       expect(view.entity_labels.first[:title]).to eq(video.title)
@@ -67,17 +67,17 @@ RSpec.describe SavedView, type: :model do
   end
 
   describe "#display_name_with_deletions" do
-    it "shows entity titles joined with +" do
-      c1 = create(:channel, title: "Alpha")
-      c2 = create(:channel, title: "Beta")
+    it "joins channel ids with +" do
+      c1 = create(:channel)
+      c2 = create(:channel)
       view = build(:saved_view, kind: :channels, url: "/channels/panes?ids=#{c1.id},#{c2.id}", name: "test")
-      expect(view.display_name_with_deletions).to eq("Alpha + Beta")
+      expect(view.display_name_with_deletions).to eq("#{c1.id} + #{c2.id}")
     end
 
-    it "shows [deleted] for missing entities" do
-      channel = create(:channel, title: "Alpha")
+    it "shows [deleted] for missing channels" do
+      channel = create(:channel)
       view = build(:saved_view, kind: :channels, url: "/channels/panes?ids=#{channel.id},99999", name: "test")
-      expect(view.display_name_with_deletions).to eq("Alpha + [deleted]")
+      expect(view.display_name_with_deletions).to eq("#{channel.id} + [deleted]")
     end
 
     it "falls back to name when no IDs in URL" do

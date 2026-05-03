@@ -1,6 +1,6 @@
 <% content_for(:title, "channels") %>
 
-<div style="max-width: 900px;" data-controller="bulk-select" data-bulk-select-max-panes-value="<%= max_panes %>" data-bulk-select-entity-name-value="channels" data-bulk-select-panes-path-value="<%= panes_channels_path %>" data-bulk-select-delete-type-value="channel">
+<div style="max-width: 1100px;" data-controller="bulk-select" data-bulk-select-max-panes-value="<%= max_panes %>" data-bulk-select-entity-name-value="channels" data-bulk-select-panes-path-value="<%= panes_channels_path %>" data-bulk-select-delete-type-value="channel" data-bulk-select-sync-type-value="channel">
   <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;">
     <h1>channels</h1>
     <span class="text-muted">&middot;</span>
@@ -12,15 +12,31 @@
     <span style="margin-left: auto;"><%= render(SavedViewsSectionComponent.new(saved_views: @saved_views || SavedView.none, kind: "channels")) %></span>
   </div>
 
+  <% filters = @filters || [] %>
+  <div style="margin-bottom: 6px; display: flex; gap: 10px; align-items: baseline;">
+    <span class="text-muted">filter:</span>
+    <%= render(FilterChipComponent.new(label: "starred", param: "star", current_params: request.query_parameters)) %>
+    <%= render(FilterChipComponent.new(label: "connected", param: "connected", current_params: request.query_parameters)) %>
+    <%= render(FilterChipComponent.new(label: "syncing", param: "syncing", current_params: request.query_parameters)) %>
+    <% if filters.any? %>
+      <span class="text-muted">&middot;</span>
+      <%= render(BracketedLinkComponent.new(label: "clear", href: channels_path)) %>
+    <% end %>
+  </div>
+
   <% if channels.any? %>
     <div data-controller="sortable-table">
-      <div data-bulk-select-target="actions" hidden style="margin-bottom: 6px;">
-        <span data-bulk-select-target="openHint"></span>
-        <span data-bulk-select-target="openAction" hidden></span>
-        <span data-bulk-select-target="count" hidden></span>
-        <span data-bulk-select-target="deleteAction" hidden></span>
-        &middot;
-        <%= render(BracketedLinkComponent.new(label: "cancel", href: "#", data: { action: "click->bulk-select#exitBulk" })) %>
+      <div data-bulk-select-target="actions" hidden style="margin-bottom: 2px;">
+        <div style="display: flex; gap: 6px; align-items: baseline;">
+          <span data-bulk-select-target="openHint"></span>
+          <span data-bulk-select-target="openAction" hidden></span>
+          <span data-bulk-select-target="count" hidden></span>
+          <span data-bulk-select-target="syncAction" hidden></span>
+          <span data-bulk-select-target="deleteAction" hidden></span>
+          &middot;
+          <%= render(BracketedLinkComponent.new(label: "cancel", href: "#", data: { action: "click->bulk-select#exitBulk" })) %>
+        </div>
+        <div data-bulk-select-target="overMaxHint" hidden class="text-muted" style="font-size: 12px; margin-top: 2px;">max <%= max_panes %> channels at a time can be opened in split view</div>
       </div>
 
       <table data-sortable-table-target="table">
@@ -30,11 +46,10 @@
               <%= render(CheckboxComponent.new(data: { bulk_select_target: "headerCheckbox", action: "change->bulk-select#toggleAll" })) %>
             </th>
             <th class="col-action" data-bulk-select-target="actionCol"></th>
-            <%= render(SortableHeaderComponent.new(label: "title", sort_type: "string")) %>
-            <%= render(SortableHeaderComponent.new(label: "OAuth", sort_type: "string", numeric: true)) %>
-            <%= render(SortableHeaderComponent.new(label: "subs", sort_type: "number", numeric: true)) %>
-            <%= render(SortableHeaderComponent.new(label: "videos", sort_type: "number", numeric: true)) %>
-            <%= render(SortableHeaderComponent.new(label: "views", sort_type: "number", numeric: true)) %>
+            <%= render(SortableHeaderComponent.new(label: "url", sort_type: "string")) %>
+            <th class="col-action">YouTube</th>
+            <%= render(SortableHeaderComponent.new(label: "starred", sort_type: "string", numeric: true)) %>
+            <%= render(SortableHeaderComponent.new(label: "last sync", sort_type: "date", numeric: true)) %>
           </tr>
         </thead>
         <tbody>
@@ -46,11 +61,20 @@
               <td class="col-action" data-bulk-select-target="actionCol">
                 <%= render(BracketedLinkComponent.new(label: "open", href: channel_path(channel))) %>
               </td>
-              <td><%= channel.title %></td>
-              <td class="num"><%= channel.connected? ? "yes" : "no" %></td>
-              <td class="num"><%= number_with_delimiter(channel.subscriber_count || 0) %></td>
-              <td class="num"><%= number_with_delimiter(channel.videos_count) %></td>
-              <td class="num"><%= number_with_delimiter(channel.view_count || 0) %></td>
+              <td style="max-width: 480px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><%= channel.channel_url %></td>
+              <td class="col-action">
+                <%= render(BracketedLinkComponent.new(label: "view", href: channel.channel_url, target: "_blank", rel: "noopener noreferrer")) %>
+              </td>
+              <td class="num"><%= channel.star? ? "yes" : "no" %></td>
+              <td class="num">
+                <% if channel.syncing? %>
+                  <strong>syncing</strong>
+                <% elsif channel.last_synced_at.present? %>
+                  <%= compact_time_ago(channel.last_synced_at) %>
+                <% else %>
+                  —
+                <% end %>
+              </td>
             </tr>
           <% end %>
         </tbody>

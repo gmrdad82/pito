@@ -61,7 +61,7 @@ export default class extends Controller {
   }
 
   _applyState(data) {
-    const { status, current, total, items } = data
+    const { kind, status, current, total, items } = data
 
     // Update per-item status indicators
     items.forEach(item => {
@@ -72,6 +72,8 @@ export default class extends Controller {
         el.innerHTML = `<span class="dot-done">done</span>`
       } else if (item.status === "failed" && !el.querySelector(".dot-fail")) {
         el.innerHTML = `<span class="dot-fail">fail</span>`
+      } else if (item.status === "skipped" && !el.querySelector(".skip-badge")) {
+        el.innerHTML = `<span class="bracketed text-danger skip-badge">[ skip ]</span>`
       }
     })
 
@@ -80,9 +82,15 @@ export default class extends Controller {
     if (!progressEl) return
 
     if (status === "completed") {
-      progressEl.innerHTML = `<span class="indicator-up">completed — all items deleted successfully.</span>`
+      const msg = kind === "bulk_sync"
+        ? "completed — all items synced successfully."
+        : "completed — all items deleted successfully."
+      progressEl.innerHTML = `<span class="indicator-up">${msg}</span>`
     } else if (status === "failed") {
-      progressEl.innerHTML = `<span class="indicator-down">failed — transaction rolled back, no changes were made.</span>`
+      const msg = kind === "bulk_sync"
+        ? "failed — one or more items could not be synced."
+        : "failed — transaction rolled back, no changes were made."
+      progressEl.innerHTML = `<span class="indicator-down">${msg}</span>`
     } else if (current > 0) {
       const barWidth = 30
       const filled = Math.round((current / total) * barWidth)

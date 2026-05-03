@@ -1,12 +1,27 @@
 class DeletionsController < ApplicationController
+  include Confirmable
+
+  # JSON endpoints are unauthenticated for the single-user dev environment
+  # behind the Cloudflare tunnel. Phase 3 Auth Foundation will add API token
+  # auth. CSRF is skipped only for JSON POSTs so the HTML form path keeps its
+  # authenticity-token check.
+  skip_before_action :verify_authenticity_token, if: -> { request.format.json? }
+
   before_action :load_items
 
-  # GET /deletions/:type/:ids
+  # GET /deletions/:type/:ids(.json)
   def show
     @cancel_path = cancel_path
+
+    respond_to do |format|
+      format.html # renders show.html.erb (existing behavior)
+      format.json do
+        render json: bulk_preview_json
+      end
+    end
   end
 
-  # POST /deletions/:type/:ids
+  # POST /deletions/:type/:ids(.json)
   def create
     @cancel_path = cancel_path
 
@@ -22,47 +37,44 @@ class DeletionsController < ApplicationController
 
     BulkDeleteJob.perform_in(3.seconds, @operation.id)
 
-    render :progress
+    respond_to do |format|
+      format.html { render :progress }
+      format.json do
+        render json: bulk_enqueued_json, status: :accepted
+      end
+    end
   end
 
   private
 
-  def load_items
-    @type = params[:type].to_s
-    ids = params[:ids].to_s.split(",").reject(&:blank?)
-
-    @items = case @type
-    when "channel" then Channel.where(id: ids).order(title: :asc)
-    when "video"   then Video.includes(:channel)
-                          .left_joins(:video_stats)
-                          .select(
-                            "videos.*",
-                            "COALESCE(SUM(video_stats.views), 0) AS total_views",
-                            "COALESCE(SUM(video_stats.likes), 0) AS total_likes",
-                            "COALESCE(SUM(video_stats.comments), 0) AS total_comments",
-                            # CAST AS BIGINT is Postgres-portable. MySQL used SIGNED; replaced during Phase 2.
-                            "COALESCE(CAST(SUM(video_stats.watch_time_minutes) AS BIGINT), 0) AS total_watch_time"
-                          )
-                          .where(id: ids)
-                          .group("videos.id")
-                          .order(title: :asc)
-    else
-      redirect_to root_path, alert: "unknown type."
-      return
-    end
-
-    if @items.empty?
-      redirect_to cancel_path, alert: "nothing to delete."
-    end
-
-    @cancel_path = cancel_path
+  def action_verb
+    "delete"
   end
 
-  def cancel_path
-    case @type
-    when "channel" then channels_path
-    when "video"   then videos_path
-    else root_path
-    end
+  # Preview shape — mirrors pito-sh's `BulkOperationResponse` Rust struct.
+  # For deletions every item is "syncable" (i.e. eligible for the action);
+  # delete has no skip semantics.
+  def bulk_preview_json
+    {
+      mode: "preview",
+      total: @items.length,
+      syncable: @items.map(&:id),
+      skipped: [],
+      operation_id: nil,
+      message: "delete #{@items.length} #{@type}#{'s' if @items.length != 1}"
+    }
+  end
+
+  # Execute shape — same union type as the preview, with mode "enqueued".
+  def bulk_enqueued_json
+    {
+      mode: "enqueued",
+      total: @items.length,
+      syncable: [],
+      skipped: [],
+      operation_id: @operation.id,
+      message: "Bulk delete queued. Poll status_url for progress.",
+      status_url: status_bulk_operation_path(@operation, format: :json)
+    }
   end
 end

@@ -55,7 +55,7 @@ RSpec.describe "MCP HTTP Transport", type: :request do
     end
 
     it "calls a tool successfully" do
-      create(:channel, title: "test channel")
+      channel = create(:channel)
 
       post "/mcp", params: init_payload, headers: headers
       session_id = response.headers["Mcp-Session-Id"]
@@ -74,7 +74,7 @@ RSpec.describe "MCP HTTP Transport", type: :request do
       expect(response).to have_http_status(:ok)
       data = JSON.parse(response.body)
       content = data["result"]["content"].first["text"]
-      expect(content).to include("test channel")
+      expect(content).to include(channel.channel_url)
     end
   end
 end

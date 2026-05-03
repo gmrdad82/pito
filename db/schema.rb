@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_01_165846) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_01_220626) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -53,22 +53,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_01_165846) do
   end
 
   create_table "channels", force: :cascade do |t|
+    t.string "channel_url", null: false
     t.boolean "connected", default: false, null: false
     t.datetime "created_at", null: false
-    t.text "description"
     t.datetime "last_synced_at"
-    t.text "oauth_access_token"
-    t.datetime "oauth_expires_at"
-    t.text "oauth_refresh_token"
-    t.string "oauth_scopes"
-    t.integer "subscriber_count"
-    t.string "thumbnail_url"
-    t.string "title"
+    t.boolean "star", default: false, null: false
+    t.boolean "syncing", default: false, null: false
+    t.bigint "tenant_id", null: false
     t.datetime "updated_at", null: false
-    t.integer "video_count"
-    t.bigint "view_count"
-    t.string "youtube_channel_id"
-    t.index ["youtube_channel_id"], name: "index_channels_on_youtube_channel_id", unique: true
+    t.index ["channel_url"], name: "index_channels_on_channel_url", unique: true
+    t.index ["last_synced_at"], name: "index_channels_on_last_synced_at"
+    t.index ["tenant_id", "connected"], name: "index_channels_on_tenant_id_and_connected"
+    t.index ["tenant_id", "star"], name: "index_channels_on_tenant_id_and_star"
+    t.index ["tenant_id", "syncing"], name: "index_channels_on_tenant_id_and_syncing"
+    t.index ["tenant_id"], name: "index_channels_on_tenant_id"
   end
 
   create_table "mcp_access_tokens", force: :cascade do |t|
@@ -118,6 +116,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_01_165846) do
     t.datetime "updated_at", null: false
     t.citext "url", null: false
     t.index ["kind", "url"], name: "index_saved_views_on_kind_and_url", unique: true
+  end
+
+  create_table "tenants", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "name", null: false
+    t.datetime "updated_at", null: false
+  end
+
+  create_table "users", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.citext "email", null: false
+    t.string "password_digest", null: false
+    t.bigint "tenant_id", null: false
+    t.datetime "updated_at", null: false
+    t.citext "username", null: false
+    t.index ["email"], name: "index_users_on_email", unique: true
+    t.index ["tenant_id"], name: "index_users_on_tenant_id"
+    t.index ["username"], name: "index_users_on_username", unique: true
   end
 
   create_table "video_stats", force: :cascade do |t|
@@ -180,9 +196,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_01_165846) do
 
   add_foreign_key "bulk_operation_items", "bulk_operations"
   add_foreign_key "bulk_operation_items", "videos"
+  add_foreign_key "channels", "tenants"
   add_foreign_key "playlist_items", "playlists"
   add_foreign_key "playlist_items", "videos"
   add_foreign_key "playlists", "channels"
+  add_foreign_key "users", "tenants"
   add_foreign_key "video_stats", "videos"
   add_foreign_key "video_uploads", "channels"
   add_foreign_key "video_uploads", "videos"

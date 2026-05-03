@@ -17,14 +17,15 @@ class VideoDecorator < ApplicationDecorator
       youtube_video_id: youtube_video_id,
       title: title,
       channel_id: channel_id,
-      channel_title: channel.title,
+      channel_url: channel&.channel_url,
       privacy_status: formatted_privacy,
-      published_at: published_at&.iso8601,
+      views: total_views_value,
+      likes: total_likes_value,
+      comments: total_comments_value,
+      watch_time_minutes: total_watch_time_value,
       duration_seconds: duration_seconds,
-      total_views: total_views_value,
-      total_likes: total_likes_value,
-      total_comments: total_comments_value,
-      total_watch_time: total_watch_time_value
+      published_at: published_at&.iso8601,
+      trend: nil
     }
   end
 
@@ -35,7 +36,7 @@ class VideoDecorator < ApplicationDecorator
       tags: tags,
       category_id: category_id,
       default_language: default_language,
-      made_for_kids: made_for_kids,
+      made_for_kids: YesNo.to_yes_no(made_for_kids),
       last_synced_at: last_synced_at&.iso8601,
       stats: video_stats.order(date: :desc).limit(30).map { |s| VideoStatDecorator.new(s).as_json_entry }
     )
@@ -56,6 +57,7 @@ class VideoDecorator < ApplicationDecorator
   end
 
   def total_watch_time_value
-    respond_to?(:total_watch_time) ? total_watch_time.to_i : video_stats.sum(:watch_time_minutes)
+    raw = respond_to?(:total_watch_time) ? total_watch_time : video_stats.sum(:watch_time_minutes)
+    raw.to_f
   end
 end
