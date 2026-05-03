@@ -1,18 +1,12 @@
-# CLAUDE.md
+# Pito — Monolith
 
-This file provides guidance to Claude Code (claude.ai/code) when working with
-code in this repository.
+A unified Ruby on Rails application plus two companion clients (Rust `pito` CLI,
+Cloudflare Pages landing page) plus development knowledge base.
 
-## Project
-
-Pito — a single-tenant Rails 8 web app for tracking, analyzing, and managing
-YouTube activity across multiple channels. Runs locally as a personal tool.
-Architecture leaves room for future multi-tenancy but does not implement it now.
-
-## Tech Stack
+## Tech stack
 
 - **Rails 8.1** with Hotwire (Turbo + Stimulus), ERB views, Tailwind CSS
-- **Postgres 17** + pgvector/pgcrypto/citext (Docker) — primary datastore
+- **Postgres 17** + pgvector / pgcrypto / citext (Docker) — primary datastore
 - **Redis 7** (Docker) — Sidekiq queue + Rails cache store
 - **Sidekiq** + **sidekiq-cron** for background jobs
 - **Chartkick + Groupdate + Chart.js** for charts
@@ -20,91 +14,152 @@ Architecture leaves room for future multi-tenancy but does not implement it now.
   YouTube APIs
 - **RSpec** with FactoryBot, Faker, Shoulda Matchers, WebMock
 - **MCP** (Model Context Protocol) server via `mcp` gem — see `docs/mcp.md`
+- **Rust** (Ratatui) for the unified `pito` CLI binary (TUI default, subcommands
+  for footage import and other surfaces)
+- **Cloudflare Pages** for the marketing site under `extras/website/`
+
+## Layout
+
+- `app/`, `bin/`, `config/`, `db/`, `public/`, `spec/`, `vendor/` — Rails app at
+  the repo root
+- `lib/` — Rails-only library code
+- `extras/`
+  - `cli/` — Rust `pito` CLI binary. Default (no args) launches the TUI;
+    subcommands include `pito footage` (Phase 4) for footage import. Style:
+    `claude` binary — `pito help`, `pito version`, etc.
+  - `website/` — Cloudflare Pages landing page
+- `docs/`
+  - `architecture.md`, `design.md`, `mcp.md`, `setup.md`, `auth.md` — product
+    docs
+  - `plans/{alpha,beta}/` — phase plans
+  - `decisions/` — append-only architectural decision records (ADRs)
+  - `orchestration/` — agents catalog, lanes, follow-ups, playbooks, sync
+    scripts
+  - `conversations/` — durable session summaries
+- `.claude-config/` — Claude Code agent / command / skill definitions, synced
+  with `~/.claude/`
+- Root configs: `Gemfile`, `Cargo.toml` (workspace), `.editorconfig`,
+  `.prettierrc.json`, `.gitignore`, `CLAUDE.md`
 
 ## Commands
 
 ```bash
-bin/setup          # Install deps, start Docker, prepare DB
-bin/dev            # Start Docker services + Puma + Sidekiq + Tailwind watcher
-bin/mcp            # Start MCP server (stdio transport, separate process)
-bin/mcp-web        # Start MCP HTTP server (dedicated Puma on port 3001)
-bundle exec rspec  # Run test suite
+bin/setup           # Install deps, start Docker, prepare DB
+bin/dev             # Start Docker services + Puma + Sidekiq + Tailwind watcher
+bin/mcp             # Start MCP server (stdio transport, separate process)
+bin/mcp-web         # Start MCP HTTP server (dedicated Puma on port 3001)
+bundle exec rspec   # Run test suite
 bundle exec rubocop # Lint
 ```
 
-## Role discipline
+## Workflow rules
 
-Every actor working in this repo operates strictly within its declared role.
-Subagents do not commit, do not edit files outside their declared scope, and do
-not cross into other agents' work. When work falls outside an actor's role, STOP
-and report — the architect dispatches the correct agent.
-
-Canonical reference: `pito-dev-kb/orchestration/agents.md` and
-`pito-dev-kb/.claude-config/agents/`.
-
-## Rules
-
-- Never modify files outside this repository folder.
 - Commit directly to `main` with one-line meaningful messages.
-- No branches, no PRs in early stages.
+- No branches, no PRs in the early stages.
 - The architect commits and pushes after the user validates a manual playbook.
-- No Co-Authored-By, no multi-line bodies, no AI authoring mentions.
-- Do NOT commit until user has tested and validated the changes.
-- Every step must include RSpec specs. Provide manual testing instructions in
-  conversation, not in files.
-- **No JS `alert` / `confirm` / `prompt` / `data-turbo-confirm`** — anywhere.
-  The action confirmation page framework (`shared/_action_screen.html.erb` +
-  `DeletionsController` / `SyncsController` + `Confirmable` concern) is the
-  canonical pattern.
-- **Bulk-as-foundation** — single-record destructive or sync actions are bulk
-  operations with a one-element ids list. Applies across web
-  (`/deletions/:type/:ids`, `/syncs/:type/:ids`), MCP (`delete_records`,
-  `sync_records` with `confirm: bool`), and the terminal app (in-TUI
-  confirmation).
+- Always pull with `--rebase`.
 - Markdown files wrap at 80 chars (`prose-wrap: always`). Use
   `prettier --write '**/*.md'` to apply, or rely on editor integration via
   `.prettierrc.json`.
+- No Co-Authored-By, no AI authorship mentions, no multi-line bodies in commits.
+- Do NOT commit until the user has tested and validated the changes.
+- Every Rails step must include RSpec specs. Provide manual testing instructions
+  in conversation, not in files.
+- Rust crates include tests for new functionality.
 
-## Build Tracking
+## Agent orchestration
 
-Planning lives in the sibling `pito-dev-kb` repo
-(`pito-dev-kb/plans/<generation>/<phase>/`). This repo only contains its own
-runtime docs under `docs/` (`architecture.md`, `setup.md`, `mcp.md`,
-`design.md`).
+This monolith operates as a **master agent** coordinating specialized subagents.
+The master agent (architect) plans, delegates, reviews, and commits — it does
+NOT write code or project markdown directly. Subagents stay strictly within
+their declared file scope under this repository.
 
-## Configuration Strategy
+The master agent's role:
+
+1. **Plan** — understand the big picture, break work into parallelizable units
+2. **Delegate** — spawn named subagents for isolated file sets (e.g., "cli:
+   dashboard charts", "rails: channel sync job")
+3. **Review** — after implementation agents finish, spawn a reviewer / QA agent
+4. **Iterate** — fix issues with targeted agents (parallel if isolated, single
+   if integration)
+5. **Commit** — only after the user has tested and validated
+
+When a task expects output outside an actor's role, the actor STOPs and reports.
+The master agent dispatches the correct subagent. Silent scope expansion is
+treated as a process failure, not a feature.
+
+Subagents do NOT commit or push. They only write code and files. The master
+commits after the user validates.
+
+Maximize parallelism: spawn multiple agents when they touch distinct files.
+
+Canonical reference: `docs/orchestration/agents.md` and
+`.claude-config/agents/`.
+
+## Role discipline
+
+Every actor in this workspace operates strictly within its declared role. The
+master agent plans, dispatches, reviews, and commits — it does NOT write code or
+edit project markdown directly. Subagents stay in their declared file scope and
+do not cross into other agents' work.
+
+When a task expects output outside an actor's role, the actor STOPs and reports.
+
+## Hard rules
+
+- **No JavaScript `alert` / `confirm` / `prompt` / `data-turbo-confirm`**
+  anywhere. All destructive or significant actions go through the action
+  confirmation page framework (`shared/_action_screen.html.erb` +
+  `DeletionsController` / `SyncsController` + `Confirmable` concern for the
+  Rails app; in-TUI confirmation overlay for the `pito` CLI; two-step `confirm`
+  flag for MCP).
+- **Bulk-as-foundation** — single-record destructive or sync actions are bulk
+  operations with a one-element ids list. URL pattern `/<action>s/:type/:ids`
+  accepts 1 or N. Applies across web (`/deletions/:type/:ids`,
+  `/syncs/:type/:ids`), MCP (`delete_records`, `sync_records` with
+  `confirm: bool`), and the `pito` CLI (in-TUI confirmation).
+- **Yes / no for external booleans** — boolean values at every external boundary
+  (URL params, JSON, MCP I/O, Rust client wire format) use `"yes"` / `"no"`
+  strings — never `true` / `false` / `0` / `1`. Internal storage stays Boolean.
+  Convert at every boundary.
+- **Secrets** (passwords, API keys, tokens) live exclusively in
+  `Rails.application.credentials`. Never in `.env*` files. Per-environment
+  nested structure (mirror the `:postgres` block).
+
+## Configuration strategy
 
 - `.env.development` / `.env.test` — per-environment infrastructure connection
-  info ONLY (host/port for Postgres, Redis URL). No secrets. Gitignored.
+  info ONLY (host / port for Postgres, Redis URL). No secrets. Gitignored.
 - `.env.example` — template for the above. Committed.
-- `rails credentials:edit` — Postgres database/username/password per environment
-  (`:postgres` block), the seed-time tenant/user (`:owner` block — see
-  `docs/setup.md`), Sidekiq web auth, Active Record Encryption keys.
-- `config/master.key` — on disk, gitignored. Never in .env.
+- `rails credentials:edit` — Postgres database / username / password per
+  environment (`:postgres` block), the seed-time tenant / user (`:owner` block —
+  see `docs/setup.md`), Sidekiq web auth, Active Record Encryption keys.
+- `config/master.key` — on disk, gitignored. Never in `.env`.
 - CI uses its own env vars defined in `.github/workflows/ci.yml` (no master key
   needed).
-- `AppSetting` table — `max_panes`, `pane_title_length`, theme. Managed via web
-  UI. (YouTube OAuth config returns once the OAuth phase ships.)
+- `AppSetting` table — `max_panes`, `pane_title_length`, theme. Managed via the
+  web UI. (YouTube OAuth config returns once the OAuth phase ships.)
 
-## Visual Style
+## Visual style
 
 See `docs/design.md` for the full design system. Key rules:
 
 - **Font:** monospace
   (`ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace`),
   13px base
-- **Colors:** white bg, text #1a1a1a, links #0000cc, muted #555, borders #ddd
-- **Red (#cc0000) is ONLY for destructive/dangerous actions** — never in charts,
-  indicators, or decorative elements
+- **Colors:** white bg, text `#1a1a1a`, links `#0000cc`, muted `#555`, borders
+  `#ddd`
+- **Red (`#cc0000`) is ONLY for destructive / dangerous actions** — never in
+  charts, indicators, or decorative elements
 - **Bracketed link convention:** all clickable elements use `[ label ]` — links,
   buttons, chart legends
 - **Cursor:** `cursor: pointer` on all clickable elements (links, buttons,
   submit, chart legends)
 - **Charts:** no animation, no red, crosshair on line charts, bracketed colored
   legend labels
-- **Sidekiq Web** at /sidekiq with HTTP basic auth, no link in nav or Settings
+- **Sidekiq Web** at `/sidekiq` with HTTP basic auth, no link in nav or Settings
 
-## Architecture Notes
+## Architecture notes
 
 - `Tenant` and `User` exist as **seeded singletons** at the schema level only —
   no signup, no login, no session, no token, no UI. `Current.tenant` /
@@ -128,8 +183,32 @@ See `docs/design.md` for the full design system. Key rules:
 - See `docs/architecture.md` for the full topology, `docs/mcp.md` for the MCP
   tool surface, and `docs/setup.md` for first-run setup.
 
-## Project Docs (pre-Rails, in \_temp/)
+## Active follow-ups
 
-Original planning docs moved to `_temp/` during Rails setup. Contains channel
-profiles, style guides, workflow docs, and skills overview to be integrated into
-the app later.
+Tracked in `docs/orchestration/follow-ups.md`:
+
+1. Channel Revamp post-commit cleanup (orphaned `_confirm_dialog` partial +
+   Stimulus controller + unused `BracketedLinkComponent` `confirm:` kwarg)
+2. Rails-app keyboard shortcuts (mirror `pito` CLI schema)
+3. `pito` CLI screen layout parity with Rails
+4. `pito` CLI Dependabot alert #1
+
+These are queued AFTER Phase 4 completes.
+
+## Glossary
+
+- **Pito** — the application.
+- **Alpha** — concluded multi-front exploratory phase.
+- **Beta** — current build phase. Plans live in `docs/plans/beta/`.
+- **Theta** — conditional future phase (distribution, marketing, multi-tenancy).
+- **Tenant** — an isolated unit of data ownership. Currently 1.
+- **MCP** — Model Context Protocol.
+- **Web Puma** — the Rails Puma process serving `app.pitomd.com`.
+- **MCP Puma** — the separate Rails Puma process serving `mcp.pitomd.com`.
+- **Voyage** — Voyage AI. Anthropic-recommended embedding provider.
+- **pgvector** — Postgres extension for vector storage.
+- **Meilisearch** — keyword + hybrid search engine.
+- **`pito`** — unified Rust CLI binary at `extras/cli/`. Default mode is the TUI
+  client; subcommands (`pito footage`, `pito help`, `pito version`, future ones)
+  extend the surface.
+- **pitomd.com** — production domain.
