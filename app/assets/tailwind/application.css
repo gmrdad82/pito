@@ -39,6 +39,11 @@
   --color-chart-grid: #eeeeee;
   --color-tooltip-bg: rgba(0, 0, 0, 0.8);
   --color-tooltip-text: #ffffff;
+  /* Item 7 — keycap color tokens. Distinct from --color-link so keyboard
+     shortcut indicators (`(n)`, `(/)`, `(?)`) don't compete visually with
+     blue action links. Purple reads on light bg, contrasts against blue. */
+  --color-keycap: #6f42c1;
+  --color-keycap-hover: #553098;
 }
 
 [data-theme="dark"] {
@@ -79,6 +84,10 @@
   --color-chart-grid: #44475a;
   --color-tooltip-bg: rgba(68, 71, 90, 0.95);
   --color-tooltip-text: #f8f8f2;
+  /* Item 7 — Dracula purple for keycaps in dark mode. Hover lifts to a
+     brighter tint in line with the existing --color-link-hover treatment. */
+  --color-keycap: #bd93f9;
+  --color-keycap-hover: #d4b8ff;
 }
 
 /* Base typography */
@@ -90,11 +99,18 @@ body {
   background: var(--color-bg);
 }
 
-/* Headings — compact */
+/* Headings — compact.
+   Phase 4 §10 rule 6: user content NEVER muted, NEVER italic. The
+   global `h4` rule no longer carries `font-style: italic`; if a site
+   wants italic decoration on an `<h4>`, opt in explicitly via
+   `.h4-emphasis`. User-supplied `<h4>` content can also opt in to
+   `.h4-content` for clarity, though the default is now safe (no italic). */
 h1 { font-size: 18px; font-weight: bold; color: var(--color-text-bold); }
 h2 { font-size: 14px; font-weight: bold; color: var(--color-text-bold); }
 h3 { font-size: 13px; font-weight: bold; color: var(--color-text-bold); }
-h4 { font-size: 13px; font-weight: bold; font-style: italic; }
+h4 { font-size: 13px; font-weight: bold; }
+h4.h4-emphasis { font-style: italic; }
+h4.h4-content { font-style: normal; color: var(--color-text); }
 h1, h2, h3, h4 { margin-top: 2px; margin-bottom: 1px; }
 h1:first-child, h2:first-child, h3:first-child, h4:first-child { margin-top: 0; }
 
@@ -149,8 +165,49 @@ a.text-danger.bracketed, a.text-danger.bracketed:visited,
 a.text-danger.bracketed .bl, a.text-danger.bracketed:visited .bl { color: var(--color-danger); }
 a.text-danger.bracketed:hover, a.text-danger.bracketed:hover .bl { color: var(--color-danger-hover); }
 
-/* Muted text */
-.text-muted { color: var(--color-muted); }
+/* Muted text — Phase 4 §10 rule 3: muted is a color, not a weight.
+   Two weights only (bold + normal). `.text-muted` is the default
+   normal-weight muted; `.text-muted-bold` is the bold variant. */
+.text-muted { color: var(--color-muted); font-weight: 400; }
+.text-muted-bold { color: var(--color-muted); font-weight: 700; }
+
+/* Phase 4 §10 rule 4: hints, captions, form helper text are muted +
+   italic. Per-field errors stay danger-colored — they are not hints. */
+.form-hint, .caption {
+  color: var(--color-muted);
+  font-style: italic;
+}
+
+/* Phase 4 §10 cleanup: form labels — bold, block-level. Replaces the
+   inline `display: block; margin-bottom: 2px; font-weight: bold;`
+   triplet repeated across `form_field_component` and
+   `settings/index.html.erb`. */
+.form-label {
+  display: block;
+  margin-bottom: 2px;
+  font-weight: 700;
+}
+
+/* Phase 4 §10 cleanup: bracketed-link active state. Replaces the
+   inline `style="font-weight: bold; color: var(--color-text-bold);"`
+   on the active-state span in `bracketed_link_component`. */
+.bracketed-active {
+  font-weight: 700;
+  color: var(--color-text-bold);
+}
+
+/* Phase B — bulk-select toolbar. Each `.action` span carries its own
+   leading `.action-sep` dot (`·`); the controller hides the separator
+   on whichever action is currently first-visible so we never get the
+   dangling `· [ cancel ]` artefact when zero items are selected. The
+   server-rendered initial state ships with every separator hidden so
+   page-load before-JS shows clean text; the controller takes over once
+   bulk mode is entered. */
+.bulk-toolbar { display: flex; align-items: baseline; gap: 6px; }
+.bulk-toolbar .action { display: inline-flex; align-items: baseline; gap: 6px; }
+.bulk-toolbar .action[hidden] { display: none; }
+.bulk-toolbar .action-sep { color: var(--color-muted); }
+.bulk-toolbar .action-sep[hidden] { display: none; }
 
 /* Pane container — side-by-side panes with dividers */
 .pane-container {
@@ -160,12 +217,32 @@ a.text-danger.bracketed:hover, a.text-danger.bracketed:hover .bl { color: var(--
   padding-top: 3px;
 }
 .pane-wrapper {
-  flex: 1 0 auto;
+  width: 454px;
+  flex: 0 0 454px;
   padding: 0 12px;
 }
 .pane-wrapper + .pane-wrapper {
   border-left: 2px solid var(--color-border);
   padding-left: 16px;
+}
+
+/* Phase 4 §9.3 — Saved-views chip lists scroll horizontally on desktop AND
+   mobile. `flex-wrap: nowrap` is deliberate: the mobile responsiveness rule
+   that forces 100% width on flex-wrap children would defeat horizontal
+   scroll if `wrap` crept in. */
+.saved-views-list {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 16px;
+  overflow-x: auto;
+  max-width: 100%;
+}
+.saved-views-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 /* Pane reorder arrows — positioned at divider edges */
@@ -201,16 +278,25 @@ th, td {
   border: 1px solid var(--color-border);
   white-space: nowrap;
 }
-th {
-  font-weight: 600;
+/* Phase 4 §10 rule 7: table headers muted + bold; row values normal +
+   default text color. Header background and font-size unchanged. */
+thead th {
+  color: var(--color-muted);
+  font-weight: 700;
   font-size: 14px;
   background: var(--color-bg-header);
-  color: var(--color-text-bold);
 }
-tr:nth-child(even) {
+tbody td {
+  color: var(--color-text);
+  font-weight: 400;
+}
+table:not(.detail-table) tr:nth-child(even) {
   background-color: var(--color-bg-alt);
 }
-tr:hover {
+/* Hover highlight applies to data tables only. Detail tables (key/value
+   layouts and small forms — see `table.detail-table` above) opt out so
+   their rows don't visually flash during editing. */
+table:not(.detail-table) tr:hover {
   background-color: var(--color-bg-hover);
 }
 
@@ -319,11 +405,52 @@ button[type="submit"].btn-danger:hover {
   color: var(--color-danger-hover);
 }
 
-/* Flash notices */
+/* Flash notices — inline (in-page) variant. Still used by per-form status
+   strips (e.g. `_form.html.erb` "couldn't save" banners). The layout-level
+   flash uses the `.toast-*` variants below instead. */
 .flash-notice { background: var(--color-flash-notice-bg); border: 1px solid var(--color-flash-notice-border); color: var(--color-flash-notice-text); padding: 4px 8px; font-size: 12px; }
 .flash-success { background: var(--color-flash-success-bg); border: 1px solid var(--color-flash-success-border); color: var(--color-flash-success-text); padding: 4px 8px; font-size: 12px; }
 .flash-warning { background: var(--color-flash-warning-bg); border: 1px solid var(--color-flash-warning-border); color: var(--color-flash-warning-text); padding: 4px 8px; font-size: 12px; }
 .flash-error { background: var(--color-flash-error-bg); border: 1px solid var(--color-flash-error-border); color: var(--color-flash-error-text); padding: 4px 8px; font-size: 12px; }
+
+/* Toast notifications — fixed top-right, no layout shift, auto-dismiss via
+   `toast_controller.js`. Pill-shaped, monospace-friendly, uses the same
+   `--color-flash-*` tokens as the inline flash strips (so dark / light
+   themes flip for free). */
+.toast-container {
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: none;
+  max-width: calc(100vw - 16px);
+}
+.toast {
+  pointer-events: auto;
+  padding: 4px 10px;
+  border: 1px solid;
+  border-radius: 2px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.toast.dismissing {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+.toast-notice  { background: var(--color-flash-notice-bg);  border-color: var(--color-flash-notice-border);  color: var(--color-flash-notice-text); }
+.toast-success { background: var(--color-flash-success-bg); border-color: var(--color-flash-success-border); color: var(--color-flash-success-text); }
+.toast-warning { background: var(--color-flash-warning-bg); border-color: var(--color-flash-warning-border); color: var(--color-flash-warning-text); }
+.toast-error,
+.toast-alert   { background: var(--color-flash-error-bg);   border-color: var(--color-flash-error-border);   color: var(--color-flash-error-text); }
 
 /* Header logo */
 .header-logo {
@@ -482,7 +609,7 @@ dialog.confirm-modal::backdrop {
 .md-check-indicator::before { content: "[ ]"; }
 .md-check input:checked ~ .md-check-indicator::before { content: "[x]"; }
 .md-check input:indeterminate ~ .md-check-indicator::before { content: "[-]"; }
-.md-check-label { color: var(--color-muted); }
+.md-check-label { color: var(--color-muted); font-weight: 700; }
 
 /* Link variant — used for filter chips and chart-sync toggles. Brackets
    and label render in the design-system link color (blue). */
@@ -491,22 +618,121 @@ dialog.confirm-modal::backdrop {
 .md-check-link:hover .md-check-indicator,
 .md-check-link:hover .md-check-label { color: var(--color-link-hover); }
 
-/* Keycap — keyboard shortcut indicator */
+/* Markdown-style radio: ( ) / (x). Mirrors `.md-check` but with parens
+   instead of brackets — used for radio groups in forms (theme picker,
+   Voyage per-target flags). The native <input type="radio"> is hidden
+   and the <label> wrapper passes the click through to the input, so
+   form submission still uses native radio behavior. No JS. */
+.md-radio {
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  white-space: nowrap;
+  align-items: baseline;
+  gap: 4px;
+  display: inline-flex;
+}
+.md-radio input[type="radio"] {
+  opacity: 0;
+  pointer-events: none;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+.md-radio-indicator {
+  font-weight: 700;
+}
+.md-radio-indicator::before {
+  content: "( )";
+}
+.md-radio input:checked ~ .md-radio-indicator::before {
+  content: "(x)";
+}
+.md-radio-label {
+  color: var(--color-muted);
+  font-weight: 700;
+}
+.md-radio-link .md-radio-indicator,
+.md-radio-link .md-radio-label {
+  color: var(--color-link);
+  font-weight: 700;
+}
+.md-radio-link:hover .md-radio-indicator,
+.md-radio-link:hover .md-radio-label {
+  color: var(--color-link-hover);
+}
+
+/* Keycap — keyboard shortcut indicator.
+   Item 7 — keycaps use a dedicated --color-keycap (purple) so they pop
+   without competing with the action-link blue. Letter only — no parens
+   wrapping, so they don't read as radio-button options. Used app-wide
+   for every keyboard-shortcut surface. */
 .keycap {
   font-weight: bold;
   text-decoration: none;
   cursor: pointer;
-  color: var(--color-link);
+  color: var(--color-keycap);
 }
-.keycap:hover { color: var(--color-link-hover); }
-.keycap::before { content: "("; }
-.keycap::after { content: ")"; }
+.keycap:hover { color: var(--color-keycap-hover); }
 
-/* Theme toggle keycap: Dracula bg color in light mode, white in dark mode */
-.keycap-theme { color: #282a36; }
-.keycap-theme:hover { color: #44475a; }
-[data-theme="dark"] .keycap-theme { color: #f8f8f2; }
-[data-theme="dark"] .keycap-theme:hover { color: #ffffff; }
+/* Item 1 — Code-block: bordered block with monospace command + inline
+   [ copy ] link. Used in empty-state captions where we surface a CLI
+   command for the user to run. The .code-block container is flex, so
+   the [ copy ] link rides next to the command without ellipsis-ing. */
+.code-block {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--color-bg-alt);
+  border: 1px solid var(--color-border);
+  font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
+  font-size: 13px;
+  margin: 4px 0;
+}
+.code-block code {
+  flex: 1;
+  background: transparent;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+/* GitHub-style `$` prompt prefix. Visual only — `user-select: none`
+   keeps it out of clipboard copies, and it lives OUTSIDE the
+   `data-clipboard-copy-target="source"` element so the controller
+   never reads it either way. */
+.code-prompt {
+  color: var(--color-muted);
+  font-weight: bold;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Generic success-color text utility — used by clipboard-copy controller
+   when flashing `[ copied ]`, and available for any future success cue. */
+.text-success { color: var(--color-success); }
+
+/* Item 4 — URL ellipsis truncation. Wraps a single-line value; the
+   ellipsis (…) replaces the overflow. Requires a flex parent with
+   `min-width: 0` so the truncated child can shrink below its content
+   width. */
+.truncate-url {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+/* Item 3 — Zebra panes. Even-indexed pane wrappers in a .pane-container
+   get the alt background for visual rhythm. Applies automatically to
+   /channels and /videos panes-view (variable count) AND the project show
+   page (Footage default, Notes alt, Timelines default). The rule is
+   placed below the .pane-wrapper definition so it inherits the existing
+   padding / border-left + flex sizing. */
+.pane-container > .pane-wrapper:nth-child(even) {
+  background-color: var(--color-bg-alt);
+}
 
 /* Mobile utilities */
 .hide-mobile { }
@@ -528,31 +754,26 @@ dialog.confirm-modal::backdrop {
     -webkit-overflow-scrolling: touch;
   }
 
-  /* Panes: stack vertically */
+  /* Phase 4 §9.2 — Panes: horizontal scroll with snap on mobile.
+     Drops the previous vertical-stack layout. One pane per viewport,
+     swipe to navigate.
+     Item 5 — left/right reorder arrows STAY visible on mobile (same
+     top-corner positions as desktop) as discoverability cues + tap
+     targets. The vertical pane-arrow-up/down variants remain hidden
+     on mobile (and globally — see the base rule above). */
   .pane-container {
-    flex-direction: column;
     margin: 0;
+    scroll-snap-type: x mandatory;
   }
-  .pane-wrapper + .pane-wrapper {
-    border-left: none;
-    border-top: 1px solid var(--color-border);
-    padding-left: 12px;
-    margin-top: 20px;
-    padding-top: 20px;
+  .pane-wrapper {
+    min-width: 88vw;
+    flex: 0 0 88vw;
+    scroll-snap-align: start;
   }
-  .pane-arrow-left, .pane-arrow-right { display: none; }
-  .pane-arrow-up, .pane-arrow-down {
-    display: inline;
-    position: absolute;
-    z-index: 99;
-    left: 50%;
-    transform: translateX(-50%);
-    line-height: 1;
+  .pane-arrow-up,
+  .pane-arrow-down {
+    display: none;
   }
-  /* ▼ lives in the upper pane — tip points down, touching the border */
-  .pane-arrow-down { top: auto; bottom: -23px; }
-  /* ▲ lives in the lower pane — tip points up, touching the border */
-  .pane-arrow-up { top: -2px; }
 
   /* Dashboard charts: full width stack */
   div[style*="display: flex"][style*="flex-wrap: wrap"] > div {

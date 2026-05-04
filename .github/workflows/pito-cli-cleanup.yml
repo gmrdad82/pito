@@ -1,0 +1,30 @@
+name: Cleanup pito CLI releases
+
+# Trigger off the publish workflow finishing (success OR failure) rather than
+# off CI. The release backlog only changes when `Publish pito CLI` runs, so
+# tying cleanup to that workflow avoids needless cleanup runs on PR-only or
+# docs-only pushes that don't produce releases. Implementer note (from spec
+# §12.5): the spec offered both this option and triggering off CI; chose the
+# publish workflow because it is the single source of release growth.
+on:
+  workflow_run:
+    workflows: ["Publish pito CLI"]
+    types: [completed]
+
+# Deleting releases / tags requires write to the repo.
+permissions:
+  contents: write
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    # Only prune when the publishing run actually succeeded — no point pruning
+    # if no new release was added.
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - uses: dev-drprasad/delete-older-releases@v0.3.4
+        with:
+          keep_latest: 5
+          delete_tag_pattern: ^pito-
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

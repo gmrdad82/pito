@@ -66,6 +66,41 @@ RSpec.describe "Videos", type: :request do
         get videos_path
         expect(response.body).to include('data-bulk-select-max-panes-value="3"')
       end
+
+      it "renders the panes-specific openHint and openAction targets (regression for panes-optional refactor)" do
+        get videos_path
+        expect(response.body).to include('data-bulk-select-target="openHint"')
+        expect(response.body).to include('data-bulk-select-target="openAction"')
+        expect(response.body).to include('data-bulk-select-panes-path-value="/videos/panes"')
+      end
+
+      it "renders the universal count target alongside the panes-specific targets" do
+        get videos_path
+        expect(response.body).to include('data-bulk-select-target="count"')
+      end
+
+      # Phase B — leading-separator pattern. Each `.action` span carries
+      # its own `.action-sep` dot; the JS controller hides the dot on
+      # whichever action is first-visible, so the toolbar never starts
+      # with a dangling `· [ cancel ]`.
+      it "renders the bulk-toolbar leading-separator pattern" do
+        get videos_path
+        expect(response.body).to include("bulk-toolbar")
+        expect(response.body).to match(/<span class="action-sep" hidden>/)
+      end
+
+      it "ships with every leading separator hidden in the static initial render" do
+        get videos_path
+        html = Nokogiri::HTML.fragment(response.body)
+        actions = html.css('[data-bulk-select-target="actions"]').first
+        expect(actions).not_to be_nil, "expected the bulk-select actions container in markup"
+        separators = actions.css(".action-sep")
+        expect(separators).not_to be_empty, "expected at least one .action-sep dot inside the toolbar"
+        separators.each do |sep|
+          expect(sep["hidden"]).not_to be_nil,
+            "expected .action-sep to ship with the `hidden` attribute, got: #{sep.to_html}"
+        end
+      end
     end
 
     context "with saved views" do

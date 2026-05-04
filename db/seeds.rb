@@ -6,13 +6,26 @@ AppSetting.set("max_panes", "5")
 AppSetting.set("pane_title_length", "14")
 puts "  max_panes = 5, pane_title_length = 14"
 
-# Phase 4 §3.5 (2026-05-04 post-review refinement) — Voyage call gating.
-# Defaults to `false` everywhere; production flips it `true` so Notes::EmbedJob
-# fires on real notes. Idempotent — re-running seeds does not toggle dev/test
-# rows that the user has flipped manually.
-if Rails.env.production? && AppSetting.exists?
-  AppSetting.first.update!(voyage_embeddings_enabled: true)
-  puts "  voyage_embeddings_enabled = true (production)"
+# Phase 4 §3.5 (Phase B revamp, 2026-05-04) — Voyage AppSetting bootstrap.
+# The key is sourced from Rails credentials during seeding so initial
+# deployments work without manual UI entry. Once the app reaches Hetzner
+# (Phase 16), credentials will hold the key only as a bootstrap fallback,
+# and the UI becomes the authoritative source. Idempotent — re-running
+# seeds does NOT clobber a key the user has already set, and the flag
+# only flips on in production once the key is present.
+if AppSetting.exists?
+  setting = AppSetting.first
+  if setting.voyage_api_key.blank?
+    creds_key = Rails.application.credentials.dig(:voyage, Rails.env.to_sym, :api_key)
+    if creds_key.present?
+      setting.update!(voyage_api_key: creds_key)
+      puts "  voyage_api_key seeded from credentials"
+    end
+  end
+  if Rails.env.production? && setting.voyage_api_key.present? && !setting.voyage_index_project_notes
+    setting.update!(voyage_index_project_notes: true)
+    puts "  voyage_index_project_notes = true (production)"
+  end
 end
 
 # ---------------------------------------------------------------------------

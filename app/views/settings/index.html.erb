@@ -21,85 +21,70 @@
   })();
 </script>
 
-<%= form_with url: settings_path, method: :patch do |f| %>
-  <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start;">
-    <div style="flex: 1; min-width: 280px; max-width: 480px;">
-      <fieldset class="border-hairline" style="padding: 8px; margin-bottom: 8px;">
-        <legend><h2>workspaces</h2></legend>
-
-        <div style="margin-bottom: 6px;">
-          <label for="settings_pane_title_length" style="display: block; font-weight: bold; margin-bottom: 1px;">pane title truncation</label>
-          <input type="number" name="settings[pane_title_length]" id="settings_pane_title_length"
-                 value="<%= @settings['pane_title_length'] %>" min="6" max="50"
-                 placeholder="<%= @pane_title_length_default %>" autocomplete="off"
-                 style="width: 80px; text-align: right;">
-          <span class="text-muted">default: <%= @pane_title_length_default %> chars</span>
-        </div>
-
-        <div style="margin-bottom: 6px;">
-          <label for="settings_max_panes" style="display: block; font-weight: bold; margin-bottom: 1px;">max panes</label>
-          <input type="number" name="settings[max_panes]" id="settings_max_panes"
-                 value="<%= @settings['max_panes'] %>" min="1" max="10"
-                 placeholder="<%= @max_panes_default %>" autocomplete="off"
-                 style="width: 80px; text-align: right;">
-          <span class="text-muted">default: <%= @max_panes_default %></span>
-        </div>
-      </fieldset>
-    </div>
-
-    <div style="flex: 1; min-width: 280px; max-width: 480px;">
-      <fieldset class="border-hairline" style="padding: 8px; margin-bottom: 8px;">
+<%# Phase B (2026-05-04) — Settings now sits inside the project-wide
+    `.pane-container` + `.pane-wrapper` idiom so it inherits the global
+    fixed-454px sizing, horizontal scroll, and even-row zebra alternation.
+    Each fieldset is its own pane with its own per-section form. %>
+<div class="pane-container">
+  <div class="pane-wrapper">
+    <%= form_with url: settings_path, method: :patch do |f| %>
+      <input type="hidden" name="section" value="appearance">
+      <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
         <legend><h2>appearance</h2></legend>
 
         <div style="margin-bottom: 6px;">
-          <label style="display: block; font-weight: bold; margin-bottom: 1px;">theme</label>
+          <label class="form-label">theme</label>
           <div style="display: flex; gap: 12px;">
             <% %w[light dark auto].each do |opt| %>
-              <label style="cursor: pointer;">
+              <label class="md-radio">
                 <input type="radio" name="settings[theme]" value="<%= opt %>" <%= "checked" if @theme == opt %>>
-                <%= opt %><%= " (system)" if opt == "auto" %>
+                <span class="md-radio-indicator"></span>
+                <span class="md-radio-label"><%= opt %><%= " (system)" if opt == "auto" %></span>
               </label>
             <% end %>
           </div>
         </div>
+
+        <button type="submit">[ save ]</button>
       </fieldset>
-
-      <fieldset class="border-hairline" style="padding: 8px; margin-bottom: 8px;">
-        <legend><h2>YouTube OAuth</h2></legend>
-
-        <div style="margin-bottom: 6px;">
-          <label for="settings_youtube_client_id" style="display: block; font-weight: bold; margin-bottom: 1px;">client ID</label>
-          <input type="text" name="settings[youtube_client_id]" id="settings_youtube_client_id"
-                 value="<%= @settings['youtube_client_id'] %>" autocomplete="off">
-        </div>
-
-        <div style="margin-bottom: 6px;">
-          <label for="settings_youtube_client_secret" style="display: block; font-weight: bold; margin-bottom: 1px;">client secret</label>
-          <input type="password" name="settings[youtube_client_secret]" id="settings_youtube_client_secret"
-                 value="<%= @settings['youtube_client_secret'] %>" autocomplete="off">
-        </div>
-
-        <div style="margin-bottom: 6px;">
-          <label for="settings_youtube_redirect_uri" style="display: block; font-weight: bold; margin-bottom: 1px;">redirect URI</label>
-          <input type="text" name="settings[youtube_redirect_uri]" id="settings_youtube_redirect_uri"
-                 value="<%= @settings['youtube_redirect_uri'] %>" autocomplete="off">
-        </div>
-      </fieldset>
-    </div>
+    <% end %>
   </div>
 
-  <button type="submit">[save]</button>
-<% end %>
+  <div class="pane-wrapper">
+    <%= form_with url: settings_path, method: :patch do |f| %>
+      <input type="hidden" name="section" value="workspaces">
+      <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
+        <legend><h2>workspaces</h2></legend>
 
-<hr style="border: none; border-top: 1px solid var(--color-border); margin: 12px 0;">
+        <div style="margin-bottom: 6px;">
+          <label for="settings_pane_title_length" class="form-label">pane title truncation</label>
+          <input type="number" name="settings[pane_title_length]" id="settings_pane_title_length"
+                 value="<%= @settings['pane_title_length'] %>" min="6" max="50"
+                 placeholder="<%= @pane_title_length_default %>" autocomplete="off"
+                 style="width: 80px; text-align: right;">
+          <span class="form-hint">default: <%= @pane_title_length_default %> chars.</span>
+        </div>
 
-<div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start;">
-  <div style="flex: 1; min-width: 280px; max-width: 480px;">
-    <fieldset class="border-hairline" style="padding: 8px; margin-bottom: 8px;">
+        <div style="margin-bottom: 6px;">
+          <label for="settings_max_panes" class="form-label">max panes</label>
+          <input type="number" name="settings[max_panes]" id="settings_max_panes"
+                 value="<%= @settings['max_panes'] %>" min="1" max="10"
+                 placeholder="<%= @max_panes_default %>" autocomplete="off"
+                 style="width: 80px; text-align: right;">
+          <span class="form-hint">default: <%= @max_panes_default %>.</span>
+        </div>
+
+        <button type="submit">[ save ]</button>
+      </fieldset>
+    <% end %>
+  </div>
+
+  <div class="pane-wrapper">
+    <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
       <legend><h2>search</h2></legend>
 
       <div style="margin-bottom: 6px;">
-        <label style="display: block; font-weight: bold; margin-bottom: 1px;">engine</label>
+        <label class="form-label">engine</label>
         <span>meilisearch</span>
         <% if @search_healthy %>
           <span style="color: var(--color-success);">▲ connected</span>
@@ -110,16 +95,122 @@
 
       <% if @search_stats.any? %>
         <div style="margin-bottom: 6px;">
-          <label style="display: block; font-weight: bold; margin-bottom: 1px;">indexed documents</label>
+          <label class="form-label">indexed documents</label>
           <% @search_stats.each do |index_name, count| %>
-            <span class="text-muted"><%= index_name %>: <%= count %></span><br>
+            <% next if index_name.end_with?("_test") %>
+            <% display_name = index_name.sub(/_(development|production)\z/, "") %>
+            <span class="text-muted"><%= display_name %>: <%= number_with_delimiter(count) %></span><br>
           <% end %>
         </div>
       <% end %>
+
+      <%= render(BracketedLinkComponent.new(
+        label: "reindex",
+        href: "#",
+        data: {
+          controller: "modal-trigger",
+          action: "click->modal-trigger#open",
+          modal_trigger_target_id_value: "reindex_meilisearch_modal"
+        }
+      )) %>
+      <%= render(ConfirmModalComponent.new(
+        id: "reindex_meilisearch_modal",
+        title: "reindex Meilisearch?",
+        body: "this re-indexes all configured targets. it can take a while on large corpora and adds load to the search service.",
+        confirm_path: settings_reindex_path,
+        confirm_method: :post,
+        confirm_label: "reindex",
+        cancel_label: "cancel",
+        destructive: false
+      )) %>
     </fieldset>
   </div>
-</div>
 
-<%= form_with url: settings_reindex_path, method: :post, style: "display: inline;" do %>
-  <button type="submit">[reindex]</button>
-<% end %>
+  <div class="pane-wrapper">
+    <%= form_with url: settings_path, method: :patch do |f| %>
+      <input type="hidden" name="section" value="youtube_oauth">
+      <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
+        <legend><h2>YouTube OAuth</h2></legend>
+
+        <div style="margin-bottom: 6px;">
+          <label for="settings_youtube_client_id" class="form-label">client ID</label>
+          <input type="text" name="settings[youtube_client_id]" id="settings_youtube_client_id"
+                 value="<%= @settings['youtube_client_id'] %>" autocomplete="off">
+        </div>
+
+        <div style="margin-bottom: 6px;">
+          <label for="settings_youtube_client_secret" class="form-label">client secret</label>
+          <input type="password" name="settings[youtube_client_secret]" id="settings_youtube_client_secret"
+                 value="<%= @settings['youtube_client_secret'] %>" autocomplete="off">
+        </div>
+
+        <div style="margin-bottom: 6px;">
+          <label for="settings_youtube_redirect_uri" class="form-label">redirect URI</label>
+          <input type="text" name="settings[youtube_redirect_uri]" id="settings_youtube_redirect_uri"
+                 value="<%= @settings['youtube_redirect_uri'] %>" autocomplete="off">
+        </div>
+
+        <button type="submit">[ save ]</button>
+      </fieldset>
+    <% end %>
+  </div>
+
+  <div class="pane-wrapper">
+    <%= form_with url: settings_path, method: :patch do |f| %>
+      <input type="hidden" name="section" value="voyage">
+      <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
+        <legend><h2>Voyage AI</h2></legend>
+
+        <div style="margin-bottom: 6px;">
+          <label for="settings_voyage_api_key" class="form-label">API key</label>
+          <input type="password" name="settings[voyage_api_key]" id="settings_voyage_api_key"
+                 value="" autocomplete="off"
+                 placeholder="<%= @voyage_configured ? 'key configured (•••••••)' : 'no key configured' %>">
+          <% if @voyage_configured %>
+            <span class="form-hint">leave blank to keep current; submit to replace.</span>
+          <% else %>
+            <span class="form-hint">paste your Voyage AI API key.</span>
+          <% end %>
+        </div>
+
+        <% if @voyage_configured %>
+          <div style="margin-bottom: 6px;">
+            <label class="md-check">
+              <input type="checkbox" name="settings[clear_voyage_api_key]" value="yes">
+              <span class="md-check-indicator"></span>
+              <span class="md-check-label">clear stored key</span>
+            </label>
+            <div class="form-hint">disables Voyage indexing if any flag is on.</div>
+          </div>
+        <% end %>
+
+        <%# Phase B polish (2026-05-04) — per-target flags only render once a
+            key is configured. Without a key, the model validation rejects any
+            "yes" submission, so showing them in a doomed state is just visual
+            noise. The status indicator above stays informational regardless.
+        %>
+        <% if AppSetting.voyage_configured? %>
+          <div style="margin-bottom: 6px;">
+            <label class="form-label">indexes</label>
+            <div style="display: flex; align-items: baseline; gap: 12px;">
+              <span class="text-muted">project notes</span>
+              <% %w[yes no].each do |opt| %>
+                <label class="md-radio">
+                  <input type="radio" name="settings[voyage_index_project_notes]" value="<%= opt %>" <%= "checked" if (@voyage_indexing_project_notes ? "yes" : "no") == opt %>>
+                  <span class="md-radio-indicator"></span>
+                  <span class="md-radio-label"><%= opt %></span>
+                </label>
+              <% end %>
+            </div>
+            <%# Future per-target rows stack vertically under the same Index
+                heading — same flex-row shape as above, one row per target
+                (video notes, video metadata, channel metadata, etc.). Mirrors
+                Meilisearch's "indexed documents" heading + per-index list. %>
+          </div>
+        <% end %>
+
+        <button type="submit">[ save ]</button>
+      </fieldset>
+    <% end %>
+  </div>
+</div>

@@ -2,36 +2,41 @@
   <%= render(BracketedLinkComponent.new(label: "saved views", href: "#", data: { action: "click->saved-views#open" })) %>
 
   <dialog data-saved-views-target="dialog" data-action="click->saved-views#clickOutside" class="pane-dialog">
-    <div style="padding: 12px; min-width: 400px; max-width: 90vw; width: max-content;">
+    <div style="padding: 12px; min-width: 320px; max-width: 90vw; width: max-content;">
       <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
         <h2>saved views</h2>
         <%= render(BracketedLinkComponent.new(label: "close", href: "#", data: { action: "click->saved-views#close" })) %>
       </div>
-      <% @saved_views.each do |view| %>
-        <% modal_id = "confirm-saved-view-#{view.id}" %>
-        <div style="display: flex; align-items: baseline; gap: 6px; margin-top: 4px; white-space: nowrap;">
-          <%= render(BracketedLinkComponent.new(label: "open", href: view.url)) %>
-          <%= render(BracketedLinkComponent.new(
-            label: "delete",
-            href: "#",
-            destructive: true,
-            data: {
-              controller: "modal-trigger",
-              action: "click->modal-trigger#open",
-              modal_trigger_target_id_value: modal_id
-            }
-          )) %>
-          <%= render(ConfirmModalComponent.new(
-            id: modal_id,
-            title: "delete this saved view?",
-            confirm_path: helpers.saved_view_path(view),
-            confirm_method: :delete,
-            confirm_label: "delete",
-            destructive: true
-          )) %>
-          <span><%= view.display_name_with_deletions %></span>
-        </div>
-      <% end %>
+      <%# Phase 4 §9.3 — chip list scrolls horizontally on desktop and mobile.
+        flex-wrap: nowrap is deliberate; see CSS comment in
+        application.css. %>
+      <div class="saved-views-list">
+        <% @saved_views.each do |view| %>
+          <% modal_id = "confirm-saved-view-#{view.id}" %>
+          <div class="saved-views-row">
+            <%= render(BracketedLinkComponent.new(label: "open", href: view.url)) %>
+            <%= render(BracketedLinkComponent.new(
+              label: "delete",
+              href: "#",
+              destructive: true,
+              data: {
+                controller: "modal-trigger",
+                action: "click->modal-trigger#open",
+                modal_trigger_target_id_value: modal_id
+              }
+            )) %>
+            <%= render(ConfirmModalComponent.new(
+              id: modal_id,
+              title: "delete this saved view?",
+              confirm_path: helpers.saved_view_path(view),
+              confirm_method: :delete,
+              confirm_label: "delete",
+              destructive: true
+            )) %>
+            <span><%= view.display_name_with_deletions %></span>
+          </div>
+        <% end %>
+      </div>
     </div>
   </dialog>
 </span>

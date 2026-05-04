@@ -1,12 +1,12 @@
 <% content_for(:title, "sync #{@type.pluralize}") %>
-<% breadcrumb([@type.pluralize, cancel_path_for(@type)], "sync #{@items.length} #{@type}#{'s' if @items.length != 1}") %>
+<% breadcrumb([@type.pluralize, cancel_path_for(@type)], "sync #{number_with_delimiter(@items.length)} #{@type}#{'s' if @items.length != 1}") %>
 
 <% all_skipped = (@already_syncing || []).length == @items.length %>
 <% any_skipped = (@already_syncing || []).length > 0 %>
 
 <div id="sync-content">
   <div style="margin-bottom: 8px;">
-    <h1>sync <%= @items.length %> <%= @type %><%= 's' if @items.length != 1 %></h1>
+    <h1>sync <%= number_with_delimiter(@items.length) %> <%= @type %><%= 's' if @items.length != 1 %></h1>
     <p class="text-muted" style="margin-top: 2px;">just kicking off the sync — won't take long.</p>
     <% if any_skipped && !all_skipped %>
       <p class="text-muted" style="margin-top: 2px;">still on it from earlier — we'll skip the highlighted ones.</p>
@@ -17,14 +17,19 @@
     <thead>
       <tr>
         <th class="col-action"></th>
-        <% if @type == "channel" %>
+        <% case @type %>
+        <% when "channel" %>
           <th>url</th>
           <th class="num">starred</th>
           <th class="num">connected</th>
           <th class="num">last sync</th>
-        <% else %>
+        <% when "video" %>
           <th>title</th>
           <th>channel</th>
+        <% when "project", "collection" %>
+          <th>name</th>
+        <% when "game", "note", "timeline" %>
+          <th>title</th>
         <% end %>
       </tr>
     </thead>
@@ -39,7 +44,8 @@
               &nbsp;&nbsp;&nbsp;&nbsp;
             <% end %>
           </td>
-          <% if @type == "channel" %>
+          <% case @type %>
+          <% when "channel" %>
             <td title="<%= item.channel_url %>" style="max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
               <% if skipped %>
                 <span class="text-muted"><%= item.channel_url %></span>
@@ -58,9 +64,13 @@
                 —
               <% end %>
             </td>
-          <% else %>
+          <% when "video" %>
             <td style="max-width: 280px; overflow: hidden; text-overflow: ellipsis;"><%= item.title %></td>
             <td><%= item.channel&.channel_url %></td>
+          <% when "project", "collection" %>
+            <td><%= item.name %></td>
+          <% when "game", "note", "timeline" %>
+            <td><%= item.title %></td>
           <% end %>
         </tr>
       <% end %>
@@ -69,7 +79,7 @@
 
   <% if any_skipped %>
     <p class="text-muted" style="margin-top: 8px;">
-      <%= @already_syncing.length %> <%= @type %><%= 's' if @already_syncing.length != 1 %> will be skipped (already syncing).
+      <%= number_with_delimiter(@already_syncing.length) %> <%= @type %><%= 's' if @already_syncing.length != 1 %> will be skipped (already syncing).
     </p>
   <% end %>
 

@@ -56,6 +56,12 @@ pub struct MockClient {
     operations: RefCell<HashMap<u64, MockOperation>>,
 }
 
+impl Default for MockClient {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MockClient {
     pub fn new() -> Self {
         Self {
@@ -680,11 +686,7 @@ impl PitoClient for MockClient {
             let message = if syncable.is_empty() {
                 "Nothing to sync".to_string()
             } else {
-                format!(
-                    "{} of {} channel(s) will be synced",
-                    syncable.len(),
-                    total
-                )
+                format!("{} of {} channel(s) will be synced", syncable.len(), total)
             };
             Ok(BulkOperationResponse {
                 mode: ResponseMode::Preview,
@@ -856,9 +858,7 @@ mod tests {
     #[test]
     fn bulk_delete_confirm_removes_channels() {
         let client = MockClient::new();
-        let resp = client
-            .bulk_delete_channels(&[1], true)
-            .expect("confirm");
+        let resp = client.bulk_delete_channels(&[1], true).expect("confirm");
         assert_eq!(resp.mode, ResponseMode::Enqueued);
         assert!(resp.operation_id.is_some());
         assert!(client.get_channel(1).is_err());
@@ -870,15 +870,23 @@ mod tests {
         // same client must not include the deleted ids — this is what backs
         // the TUI refresh after a delete confirm.
         let client = MockClient::new();
-        let before: Vec<u64> = client.get_channels().unwrap().iter().map(|c| c.id).collect();
+        let before: Vec<u64> = client
+            .get_channels()
+            .unwrap()
+            .iter()
+            .map(|c| c.id)
+            .collect();
         assert!(before.contains(&1));
         assert!(before.contains(&3));
 
-        let _ = client
-            .bulk_delete_channels(&[1, 3], true)
-            .expect("confirm");
+        let _ = client.bulk_delete_channels(&[1, 3], true).expect("confirm");
 
-        let after: Vec<u64> = client.get_channels().unwrap().iter().map(|c| c.id).collect();
+        let after: Vec<u64> = client
+            .get_channels()
+            .unwrap()
+            .iter()
+            .map(|c| c.id)
+            .collect();
         assert!(!after.contains(&1));
         assert!(!after.contains(&3));
         assert_eq!(after.len(), before.len() - 2);
@@ -904,9 +912,7 @@ mod tests {
         // the post-confirm channel state is no-longer-syncing with a fresh
         // last_synced_at.
         let client = MockClient::new();
-        let resp = client
-            .bulk_sync_channels(&[1], true)
-            .expect("confirm");
+        let resp = client.bulk_sync_channels(&[1], true).expect("confirm");
         assert_eq!(resp.mode, ResponseMode::Enqueued);
         let chan = client.get_channel(1).expect("get channel 1");
         assert!(!chan.syncing);
@@ -918,9 +924,7 @@ mod tests {
         // Channel 2 is seeded as syncing — the preview marks it as skipped, and
         // confirm should not touch its state.
         let client = MockClient::new();
-        let _ = client
-            .bulk_sync_channels(&[2], true)
-            .expect("confirm");
+        let _ = client.bulk_sync_channels(&[2], true).expect("confirm");
         let chan = client.get_channel(2).expect("get channel 2");
         assert!(chan.syncing, "already-syncing channels stay syncing");
     }
@@ -929,9 +933,7 @@ mod tests {
     fn update_channel_toggles_star() {
         let client = MockClient::new();
         let before = client.get_channel(2).unwrap().star;
-        let updated = client
-            .update_channel(2, Some(!before))
-            .expect("update");
+        let updated = client.update_channel(2, Some(!before)).expect("update");
         assert_eq!(updated.star, !before);
     }
 

@@ -26,17 +26,33 @@
 
   <% if channels.any? %>
     <div data-controller="sortable-table">
+      <%# Phase B — bulk toolbar uses the leading-separator pattern.
+          Each `.action` span carries an `.action-sep` `&middot;` that
+          the controller hides on whichever action is first-visible.
+          See bulk_select_controller.js#_updateSeparators. %>
       <div data-bulk-select-target="actions" hidden style="margin-bottom: 2px;">
-        <div style="display: flex; gap: 6px; align-items: baseline;">
-          <span data-bulk-select-target="openHint"></span>
-          <span data-bulk-select-target="openAction" hidden></span>
-          <span data-bulk-select-target="count" hidden></span>
-          <span data-bulk-select-target="syncAction" hidden></span>
-          <span data-bulk-select-target="deleteAction" hidden></span>
-          &middot;
-          <%= render(BracketedLinkComponent.new(label: "cancel", href: "#", data: { action: "click->bulk-select#exitBulk" })) %>
+        <div class="bulk-toolbar">
+          <span class="action" data-bulk-select-target="openHint">
+            <span class="action-sep" hidden>&middot;</span>
+          </span>
+          <span class="action" data-bulk-select-target="openAction" hidden>
+            <span class="action-sep" hidden>&middot;</span>
+          </span>
+          <span class="action" data-bulk-select-target="count" hidden>
+            <span class="action-sep" hidden>&middot;</span>
+          </span>
+          <span class="action" data-bulk-select-target="syncAction" hidden>
+            <span class="action-sep" hidden>&middot;</span>
+          </span>
+          <span class="action" data-bulk-select-target="deleteAction" hidden>
+            <span class="action-sep" hidden>&middot;</span>
+          </span>
+          <span class="action">
+            <span class="action-sep" hidden>&middot;</span>
+            <%= render(BracketedLinkComponent.new(label: "cancel", href: "#", data: { action: "click->bulk-select#exitBulk" })) %>
+          </span>
         </div>
-        <div data-bulk-select-target="overMaxHint" hidden class="text-muted" style="font-size: 12px; margin-top: 2px;">max <%= max_panes %> channels at a time can be opened in split view</div>
+        <div data-bulk-select-target="overMaxHint" hidden class="form-hint" style="font-size: 12px; margin-top: 2px;">max <%= max_panes %> channels at a time can be opened in split view.</div>
       </div>
 
       <table data-sortable-table-target="table">

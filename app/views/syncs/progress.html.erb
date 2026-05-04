@@ -1,13 +1,13 @@
 <% content_for(:title, "syncing #{@type.pluralize}") %>
-<% breadcrumb([@type.pluralize, cancel_path_for(@type)], "syncing #{@items.length} #{@type}#{'s' if @items.length != 1}") %>
+<% breadcrumb([@type.pluralize, cancel_path_for(@type)], "syncing #{number_with_delimiter(@items.length)} #{@type}#{'s' if @items.length != 1}") %>
 
 <%= turbo_stream_from "bulk_operation_#{@operation.id}" %>
 
 <div style="margin-bottom: 8px;" data-controller="operation-progress" data-operation-progress-url-value="<%= status_bulk_operation_path(@operation, format: :json) %>" data-operation-progress-total-value="<%= @items.length %>">
-  <h1>syncing <%= @items.length %> <%= @type %><%= 's' if @items.length != 1 %></h1>
+  <h1>syncing <%= number_with_delimiter(@items.length) %> <%= @type %><%= 's' if @items.length != 1 %></h1>
   <div id="operation_progress" style="margin-top: 2px;">
     <% bar_width = 30 %>
-    <span class="text-muted">[<%= "." * bar_width %>] 0/<%= @items.length %></span>
+    <span class="text-muted">[<%= "." * bar_width %>] 0/<%= number_with_delimiter(@items.length) %></span>
   </div>
 </div>
 

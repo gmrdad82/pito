@@ -1,13 +1,16 @@
 <div class="pane" style="flex: 1; min-width: 0;">
+  <%# URL row lives OUTSIDE the detail-table because <td> sizes to content
+      and won't honor `min-width: 0` for ellipsis truncation. Flex row
+      with `min-width: 0` on the truncating child does the right thing —
+      the URL collapses to `…` when the pane is narrower than the URL,
+      and `[ view ]` stays visible at the right edge. %>
+  <div style="display: flex; align-items: baseline; gap: 6px; min-width: 0; max-width: 100%; margin-bottom: 4px;">
+    <span class="text-muted" style="flex-shrink: 0;">url</span>
+    <a href="<%= channel.channel_url %>" target="_blank" rel="noopener noreferrer" class="truncate-url" style="flex: 1; min-width: 0;"><%= channel.channel_url %></a>
+    <span class="text-muted" style="flex-shrink: 0;">&middot;</span>
+    <%= render(BracketedLinkComponent.new(label: "view", href: channel.channel_url, target: "_blank", rel: "noopener noreferrer")) %>
+  </div>
   <table class="detail-table" style="margin-bottom: 8px;">
-    <tr>
-      <td class="text-muted" style="padding-right: 12px;">url</td>
-      <td>
-        <span style="word-break: break-all;"><%= channel.channel_url %></span>
-        <span class="text-muted">&middot;</span>
-        <%= render(BracketedLinkComponent.new(label: "view", href: channel.channel_url, target: "_blank", rel: "noopener noreferrer")) %>
-      </td>
-    </tr>
     <tr>
       <td class="text-muted" style="padding-right: 12px;">starred</td>
       <td>
@@ -42,7 +45,7 @@
     </tr>
   </table>
 
-  <h2>videos (<%= channel.videos.count %>)</h2>
+  <h2>videos (<%= number_with_delimiter(channel.videos.count) %>)</h2>
 
   <% videos = channel.videos
       .left_joins(:video_stats)
@@ -82,6 +85,6 @@
       </table>
     </div>
   <% else %>
-    <p class="text-muted">no videos yet.</p>
+    <p class="caption">no videos yet.</p>
   <% end %>
 </div>

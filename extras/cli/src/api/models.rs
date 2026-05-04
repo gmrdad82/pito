@@ -222,8 +222,7 @@ mod tests {
             created_at: "2026-01-01T00:00:00Z".to_string(),
             updated_at: "2026-01-01T00:00:00Z".to_string(),
         };
-        let value: serde_json::Value =
-            serde_json::to_value(&original).expect("serialize to value");
+        let value: serde_json::Value = serde_json::to_value(&original).expect("serialize to value");
         assert_eq!(value["star"], serde_json::json!("yes"));
         assert_eq!(value["connected"], serde_json::json!("no"));
         assert_eq!(value["syncing"], serde_json::json!("yes"));

@@ -7,19 +7,43 @@ RSpec.describe ApplicationHelper, type: :helper do
       result = helper.nav_link("channels", "/channels")
       expect(result).to include("<a")
       expect(result).to include("[<span")
-      expect(result).to include("channels</span>]")
-      expect(result).to include("channels")
+      expect(result).to include("channels</span>")
       expect(result).to include("/channels")
       expect(result).to include("bracketed")
+    end
+
+    # Item 6 — On desktop, the full word renders inside .hide-mobile;
+    # on mobile, the short label renders inside .show-mobile. Both
+    # variants always live in the DOM so the toggle is pure CSS.
+    it "renders both desktop full label and mobile short label spans" do
+      allow(helper).to receive(:current_page?).with("/channels").and_return(false)
+      result = helper.nav_link("channels", "/channels", short: "C")
+      expect(result).to include('<span class="hide-mobile">channels</span>')
+      expect(result).to include('<span class="show-mobile">C</span>')
+    end
+
+    it "defaults the short label to the uppercased first character of the full label" do
+      allow(helper).to receive(:current_page?).with("/projects").and_return(false)
+      result = helper.nav_link("projects", "/projects")
+      expect(result).to include('<span class="show-mobile">P</span>')
     end
 
     it "returns a bracketed bold span when on the current page" do
       allow(helper).to receive(:current_page?).with("/").and_return(true)
       result = helper.nav_link("home", "/")
-      expect(result).to include("<span")
-      expect(result).to include("[home]")
-      expect(result).to include("font-weight: bold")
+      expect(result).to include("bracketed-active")
+      expect(result).to include("home")
       expect(result).not_to include("<a")
+    end
+
+    it "treats short: '' as desktop-only — no mobile label rendered" do
+      # Used for the [home] nav link: the logo image already routes
+      # home, so on mobile we omit the bracketed label entirely. The
+      # helper still emits the desktop label inside .hide-mobile.
+      allow(helper).to receive(:current_page?).with("/").and_return(false)
+      result = helper.nav_link("home", "/", short: "")
+      expect(result).to include('<span class="hide-mobile">home</span>')
+      expect(result).not_to include('class="show-mobile"')
     end
   end
 
@@ -29,7 +53,7 @@ RSpec.describe ApplicationHelper, type: :helper do
       html = helper.content_for(:breadcrumbs)
       expect(html).to include("bracketed")
       expect(html).to include("channels")
-      expect(html).to include("font-weight: bold")
+      expect(html).to include("bracketed-active")
       expect(html).to include("details")
     end
 
@@ -51,25 +75,34 @@ RSpec.describe ApplicationHelper, type: :helper do
     end
   end
 
-  describe "#format_watch_time" do
+  describe "#format_video_watch_time" do
     it "returns dash for nil" do
-      expect(helper.format_watch_time(nil)).to eq("—")
+      expect(helper.format_video_watch_time(nil)).to eq("—")
     end
 
     it "returns dash for zero" do
-      expect(helper.format_watch_time(0)).to eq("—")
+      expect(helper.format_video_watch_time(0)).to eq("—")
     end
 
-    it "formats minutes only when under an hour" do
-      expect(helper.format_watch_time(45)).to eq("45m")
+    it "rounds sub-30-minute totals to 0h" do
+      expect(helper.format_video_watch_time(15)).to eq("0h")
     end
 
-    it "formats hours and minutes" do
-      expect(helper.format_watch_time(125)).to eq("2h 5m")
+    it "rounds 30+ minutes up to 1h" do
+      expect(helper.format_video_watch_time(30)).to eq("1h")
+      expect(helper.format_video_watch_time(45)).to eq("1h")
     end
 
-    it "formats large values with delimiter" do
-      expect(helper.format_watch_time(72_060)).to eq("1,201h 0m")
+    it "rounds to nearest hour (half-up)" do
+      expect(helper.format_video_watch_time(89)).to eq("1h")
+      expect(helper.format_video_watch_time(90)).to eq("2h")
+      expect(helper.format_video_watch_time(125)).to eq("2h")
+    end
+
+    it "formats large values with comma delimiter and h suffix" do
+      expect(helper.format_video_watch_time(72_060)).to eq("1,201h")
+      expect(helper.format_video_watch_time(1_066_983)).to eq("17,783h")
+      expect(helper.format_video_watch_time(1_066_983 + 30)).to eq("17,784h")
     end
   end
 

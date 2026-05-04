@@ -1,5 +1,5 @@
 <div style="margin-bottom: 8px;">
-  <%= @form.label @field, @label, style: "display: block; margin-bottom: 2px; font-weight: bold;" %>
+  <%= @form.label @field, @label, class: "form-label" %>
   <% case @type %>
   <% when :text_field %>
     <%= @form.text_field @field, style: "width: 100%;#{error_style}" %>

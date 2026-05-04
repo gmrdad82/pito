@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_04_000010) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_04_000011) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -50,7 +50,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_04_000010) do
     t.string "key"
     t.datetime "updated_at", null: false
     t.text "value"
-    t.boolean "voyage_embeddings_enabled", default: false, null: false
+    t.text "voyage_api_key"
+    t.boolean "voyage_index_project_notes", default: false, null: false
     t.index ["key"], name: "index_app_settings_on_key", unique: true
   end
 

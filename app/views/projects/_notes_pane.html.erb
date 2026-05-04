@@ -1,0 +1,55 @@
+<%# Phase 4 §9.1, §6.4 — Notes pane on the project show page.
+  Locals: project, notes, locked (Boolean — tenant-wide notes-syncing lock)
+%>
+
+<div style="display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px;">
+  <h2>notes (<%= number_with_delimiter(notes.size) %>)</h2>
+  <% if locked %>
+    <span class="text-muted">&middot;</span>
+    <span class="bracketed-muted">[ add ]</span>
+  <% else %>
+    <span class="text-muted">&middot;</span>
+    <%= button_to project_notes_path(project), form: { style: "display: inline;", data: { turbo: false } }, class: "bracketed", method: :post do %>[<span class="bl">add</span>]<% end %>
+  <% end %>
+  <span class="text-muted">&middot;</span>
+  <% if locked %>
+    <span class="bracketed-muted">[ scan ]</span>
+  <% else %>
+    <%= button_to scan_notes_path, form: { style: "display: inline;", data: { turbo: false } }, class: "bracketed", method: :post do %>[<span class="bl">scan</span>]<% end %>
+  <% end %>
+</div>
+
+<% if locked %>
+  <div class="flash-warning" style="margin-bottom: 8px;">
+    notes are syncing — try again in a moment.
+  </div>
+<% end %>
+
+<% if notes.any? %>
+  <table>
+    <thead>
+      <tr>
+        <th class="col-action"></th>
+        <th>title</th>
+        <th>last modified</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% notes.each do |note| %>
+        <tr>
+          <td class="col-action">
+            <% if locked %>
+              <span class="bracketed-muted">[ edit ]</span>
+            <% else %>
+              <%= render(BracketedLinkComponent.new(label: "edit", href: edit_note_path(note))) %>
+            <% end %>
+          </td>
+          <td><%= note.title %></td>
+          <td class="num"><%= compact_time_ago(note.last_modified_at) %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% else %>
+  <p class="text-muted">no notes yet.</p>
+<% end %>

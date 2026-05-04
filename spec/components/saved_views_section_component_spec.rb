@@ -36,6 +36,12 @@ RSpec.describe SavedViewsSectionComponent, type: :component do
     )
   end
 
+  it "wraps the rows in a saved-views-list flex container (Phase 4 §9.3)" do
+    create(:saved_view, kind: :channels, url: "/channels/1", name: "my channel")
+    render_inline(described_class.new(saved_views: SavedView.channels.ordered, kind: "channels"))
+    expect(page).to have_css(".saved-views-list .saved-views-row")
+  end
+
   it "shows display name with deletions" do
     channel = create(:channel)
     create(:saved_view, kind: :channels, url: "/channels/panes?ids=#{channel.id},99999", name: "mixed")

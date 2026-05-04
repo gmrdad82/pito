@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# bin/parallel_setup
+#
+# Provision per-process Postgres test databases used by `parallel_rspec`.
+#
+# parallel_tests creates one DB per CPU core, suffixed by TEST_ENV_NUMBER
+# (`pito_test`, `pito_test_2`, ..., `pito_test_<N>`). After running this once
+# the parallel runner is good to go:
+#
+#     bundle exec parallel_rspec spec/
+#
+# Re-run any time the schema changes; `parallel:load_schema` is idempotent.
+
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+bundle exec rake parallel:create parallel:load_schema

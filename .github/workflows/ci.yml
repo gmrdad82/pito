@@ -6,6 +6,16 @@ on:
   push:
     branches: [main]
 
+# Minimum permissions for the workflow. `dorny/paths-filter@v3` calls
+# `listFiles` on the pull-request, which requires `pull-requests: read`.
+# Dependabot PRs run with a restricted GITHUB_TOKEN that defaults to
+# `contents: read` only, so without this block the `changes` job fails with
+# "Resource not accessible by integration". Granting the minimum needed:
+# `contents: read` for checkout, `pull-requests: read` for paths-filter.
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   changes:
     runs-on: ubuntu-latest
@@ -84,6 +94,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install system packages (ffmpeg, imagemagick, libvips)
+        # ffmpeg / ffprobe — pito footage subcommand integration tests.
+        # imagemagick — historical Active Storage variant pipeline.
+        # libvips — image_processing gem auto-loads ruby-vips at first variant
+        # generation (Game cover-art specs). Without libvips the Rails boot
+        # path is fine but variant code raises at first use.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg imagemagick libvips42
+
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
@@ -112,10 +132,16 @@ jobs:
         run: bin/importmap audit
 
       - name: Set up database
-        run: bin/rails db:create db:migrate
+        run: bin/rails db:create db:migrate db:seed
+
+      - name: Set up parallel test databases
+        # parallel_tests creates `pito_test`, `pito_test2`, ... one per CPU.
+        # `parallel:create` is a no-op for the existing `pito_test` provisioned
+        # by the previous step; `parallel:load_schema` populates each DB.
+        run: bundle exec rake parallel:create parallel:load_schema
 
       - name: Run RSpec
-        run: bundle exec rspec
+        run: bundle exec parallel_rspec spec/
 
   cli:
     needs: changes

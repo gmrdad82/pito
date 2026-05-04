@@ -117,6 +117,29 @@ RSpec.describe "Channels", type: :request do
         expect(response.body).to include('data-bulk-select-target="checkbox"')
         expect(response.body).to include('data-bulk-select-max-panes-value="3"')
       end
+
+      # Phase B — leading-separator pattern. Each `.action` span carries
+      # its own `.action-sep` dot; the JS controller hides the dot on
+      # whichever action is first-visible, so the toolbar never starts
+      # with a dangling `· [ cancel ]`.
+      it "renders the bulk-toolbar leading-separator pattern" do
+        get channels_path
+        expect(response.body).to include("bulk-toolbar")
+        expect(response.body).to match(/<span class="action-sep" hidden>/)
+      end
+
+      it "ships with every leading separator hidden in the static initial render" do
+        get channels_path
+        html = Nokogiri::HTML.fragment(response.body)
+        actions = html.css('[data-bulk-select-target="actions"]').first
+        expect(actions).not_to be_nil, "expected the bulk-select actions container in markup"
+        separators = actions.css(".action-sep")
+        expect(separators).not_to be_empty, "expected at least one .action-sep dot inside the toolbar"
+        separators.each do |sep|
+          expect(sep["hidden"]).not_to be_nil,
+            "expected .action-sep to ship with the `hidden` attribute, got: #{sep.to_html}"
+        end
+      end
     end
 
     context "filters" do

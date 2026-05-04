@@ -5,7 +5,7 @@
 #                    (with type-appropriate eager loading), redirects on
 #                    unknown type or empty result.
 #   - cancel_path  : index path for the type (channels_path / videos_path /
-#                    root_path).
+#                    projects_path / collections_path / games_path / root_path).
 #   - model_for    : type → ActiveRecord class dispatch helper.
 #   - label_for    : human-friendly label per item, used by both HTML preview
 #                    rows and the JSON preview shape.
@@ -14,7 +14,11 @@
 module Confirmable
   extend ActiveSupport::Concern
 
-  TYPES = %w[channel video].freeze
+  # Phase B post-validation: extended to cover Project Workspace types so
+  # `[delete]` links from project / collection / game show pages route
+  # cleanly through the deletions framework. Footage stays out — its
+  # delete flow (if any) is owned by the importer surface, not the web UI.
+  TYPES = %w[channel video project collection game note timeline].freeze
 
   private
 
@@ -45,16 +49,29 @@ module Confirmable
 
   def cancel_path
     case @type
-    when "channel" then channels_path
-    when "video"   then videos_path
+    when "channel"    then channels_path
+    when "video"      then videos_path
+    when "project"    then projects_path
+    when "collection" then collections_path
+    when "game"       then games_path
+    # Notes and timelines have no top-level user-facing index — they are
+    # rendered inside the project show page. Cancel returns to the
+    # projects index, which is the closest reasonable parent.
+    when "note"       then projects_path
+    when "timeline"   then projects_path
     else root_path
     end
   end
 
   def model_for(type)
     case type
-    when "channel" then Channel
-    when "video"   then Video
+    when "channel"    then Channel
+    when "video"      then Video
+    when "project"    then Project
+    when "collection" then Collection
+    when "game"       then Game
+    when "note"       then Note
+    when "timeline"   then Timeline
     end
   end
 
@@ -62,6 +79,7 @@ module Confirmable
   # syncs need to render the preview rows. Channels are ordered by URL (the
   # only stable display attribute now that `title` is gone). Videos retain
   # the aggregated stats projection so the deletion preview can show totals.
+  # Phase 4 types order by their human-facing display column.
   def scope_for(type, ids)
     case type
     when "channel"
@@ -79,15 +97,31 @@ module Confirmable
            .where(id: ids)
            .group("videos.id")
            .order(title: :asc)
+    when "project"
+      Project.where(id: ids).order(name: :asc)
+    when "collection"
+      Collection.where(id: ids).order(name: :asc)
+    when "game"
+      Game.where(id: ids).order(title: :asc)
+    when "note"
+      Note.includes(:project).where(id: ids).order(title: :asc)
+    when "timeline"
+      Timeline.includes(:project).where(id: ids).order(title: :asc)
     end
   end
 
   # Display label used by JSON preview responses (and mirrored by the HTML
-  # views): channel_url for channels, title for videos.
+  # views): channel_url for channels, title for videos, name for
+  # projects/collections, title for games/notes/timelines.
   def label_for(item)
     case item
-    when Channel then item.channel_url
-    when Video   then item.title
+    when Channel    then item.channel_url
+    when Video      then item.title
+    when Project    then item.name
+    when Collection then item.name
+    when Game       then item.title
+    when Note       then item.title
+    when Timeline   then item.title
     else item.to_s
     end
   end

@@ -10,7 +10,7 @@ RSpec.describe ChartToolbarComponent, type: :component do
 
   it "marks active range as bold" do
     render_inline(described_class.new(current_range: "7d", base_path: "/"))
-    expect(page).to have_css("span[style*='font-weight: bold']", text: /7d/)
+    expect(page).to have_css("span.bracketed-active", text: /7d/)
   end
 
   it "renders inactive ranges as links" do

@@ -3,8 +3,8 @@
 # subdirectories per project).
 #
 # `embedding` is a pgvector(1024) column; populated by Notes::EmbedJob (Phase
-# B) only when AppSetting.voyage_embeddings_enabled? is true. Stays NULL in
-# dev/test by default.
+# B) only when AppSetting.voyage_indexing_project_notes? is true AND
+# AppSetting.voyage_configured? is true. Stays NULL in dev/test by default.
 class Note < ApplicationRecord
   TITLE_MAX_LENGTH = 80
 
@@ -22,4 +22,20 @@ class Note < ApplicationRecord
   validates :last_modified_at, presence: true
 
   attribute :title, :string, default: "Untitled note"
+
+  # Phase B (2026-05-04) — on-disk cleanup. When a Note is destroyed
+  # (directly OR via Project#destroy → `dependent: :destroy`), delete the
+  # underlying markdown file. `NotesFilesystem.delete` is a no-op if the
+  # file is already missing, so this is safe to invoke unconditionally.
+  # Errors are logged and swallowed so a missing-file race never stops
+  # the DB-side destroy from completing.
+  before_destroy :delete_note_file
+
+  private
+
+  def delete_note_file
+    NotesFilesystem.delete(self)
+  rescue StandardError => e
+    Rails.logger.warn("Note##{id} file delete failed: #{e.class}: #{e.message}")
+  end
 end

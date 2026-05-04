@@ -36,8 +36,8 @@ impl HttpClient {
     /// Build an HTTP client. Reads `PITO_API_URL` from the environment;
     /// callers normally call [`dotenvy::dotenv`] before constructing.
     pub fn new() -> Self {
-        let base_url = std::env::var("PITO_API_URL")
-            .unwrap_or_else(|_| DEFAULT_BASE_URL.to_string());
+        let base_url =
+            std::env::var("PITO_API_URL").unwrap_or_else(|_| DEFAULT_BASE_URL.to_string());
         Self::with_base_url(base_url)
     }
 
@@ -321,7 +321,10 @@ mod tests {
         // construct directly with the default. The runtime path
         // (HttpClient::new) is exercised manually via cargo run.
         let client = HttpClient::with_base_url(DEFAULT_BASE_URL);
-        assert_eq!(client.url("/channels.json"), "https://app.pitomd.com/channels.json");
+        assert_eq!(
+            client.url("/channels.json"),
+            "https://app.pitomd.com/channels.json"
+        );
     }
 
     #[test]
@@ -368,10 +371,7 @@ mod tests {
     fn bulk_operation_status_url_includes_id_segment() {
         let client = HttpClient::with_base_url("https://app.pitomd.com");
         let url = client.url(&format!("/bulk_operations/{}/status.json", 42));
-        assert_eq!(
-            url,
-            "https://app.pitomd.com/bulk_operations/42/status.json"
-        );
+        assert_eq!(url, "https://app.pitomd.com/bulk_operations/42/status.json");
     }
 
     #[test]

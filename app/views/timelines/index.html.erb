@@ -1,0 +1,29 @@
+<% content_for(:title, "timelines") %>
+
+<div style="max-width: 1100px;">
+  <h1>timelines</h1>
+  <p class="text-muted" style="margin-bottom: 8px;">timelines are scoped per project — open a project to see its timelines pane.</p>
+
+  <% if @timelines.any? %>
+    <table>
+      <thead>
+        <tr>
+          <th>title</th>
+          <th>project</th>
+          <th>state</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @timelines.each do |timeline| %>
+          <tr>
+            <td><%= link_to timeline.title, timeline_path(timeline) %></td>
+            <td><%= timeline.project.name %></td>
+            <td><%= timeline.state %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  <% else %>
+    <p class="text-muted">no timelines yet.</p>
+  <% end %>
+</div>
