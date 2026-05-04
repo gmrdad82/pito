@@ -217,6 +217,92 @@ The web flow and the MCP flow share the controller, the view, and the resulting
 | `pito://status` | Live app state: counts, search health, settings |
 | `pito://mcp`    | This document                                   |
 
+## Dev KB surface
+
+Three tools open a bidirectional dev-KB channel between the desktop session
+(Claude Code, file-system access) and remote sessions (Claude Mobile over
+`mcp.pitomd.com`). The substrate is the `docs/` markdown tree already in this
+repo. Mobile **reads** the docs tree to recover session context and curated
+reference material; Mobile **captures** on-the-road thoughts as timestamped
+markdown notes; the next desktop session **curates / promotes** those notes.
+
+| Tool        | Description                                                                                                                                                                                                                               |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `list_docs` | List markdown files under `docs/` (and `CLAUDE.md` when matched). Args: `name_pattern` (glob, default `"*.md"`), `prefix` (relative to `docs/`, default `""`), `sort` (`mtime_desc` / `mtime_asc` / `path`), `limit` (1–500, default 50). |
+| `read_doc`  | Read a single markdown file by repo-relative path. Path must end in `.md` and resolve to either `CLAUDE.md` or somewhere under `docs/`.                                                                                                   |
+| `save_note` | Append a timestamped markdown note to `docs/notes/`. Server generates the filename `<YYYY-MM-DD-HH-MM-SS>-<slug>.md` (UTC). `content` is required and written verbatim. `slug` is optional and sanitized server-side.                     |
+
+### `list_docs` — return shape
+
+```json
+[
+  {
+    "path": "docs/plans/beta/03-channel-revamp/log.md",
+    "last_modified_at": "2026-05-01T12:00:00Z",
+    "size_bytes": 4321,
+    "first_heading": "Channel revamp — implementation log"
+  }
+]
+```
+
+`first_heading` is the first `# H1` line of the file (empty string if the file
+has no H1) — handy preview without forcing a `read_doc` round trip.
+
+`CLAUDE.md` is included in the listing when the caller passes `prefix == ""` (or
+omits it) and `name_pattern` matches `CLAUDE.md`.
+
+### `read_doc` — return shape
+
+```json
+{
+  "path": "docs/design.md",
+  "content": "# Design system\n…",
+  "last_modified_at": "2026-05-01T12:00:00Z"
+}
+```
+
+### `save_note` — return shape
+
+```json
+{
+  "path": "docs/notes/2026-05-04-12-30-45-hello-world.md",
+  "saved_at": "2026-05-04T12:30:45Z"
+}
+```
+
+The `slug` is sanitized to `[a-z0-9-]`: lowercase, spaces collapse to single
+hyphens, every other character is dropped, runs of hyphens collapse, leading /
+trailing hyphens are stripped, and the result is capped at 50 characters. If
+sanitization yields an empty string (e.g. `"!!!"`), the slug falls back to
+`note`. The slug is a filename hint only — it never affects the write directory.
+
+Sub-second collisions (two saves with the same slug in the same second) get a
+`-2`, `-3`, … suffix appended before `.md`.
+
+### Path safety (read side)
+
+`list_docs` and `read_doc` share a single validator (`DevDocPath.resolve`). The
+validator runs purely lexical / structural checks BEFORE any filesystem access —
+no stat, no read, no glob until the path is cleared. Rejections:
+
+- Absolute paths (start with `/`).
+- Paths whose `Pathname#cleanpath` contains `..` segments.
+- Non-`.md` extensions (e.g. `Gemfile`, `notes.txt`, `notes` with no extension).
+- Paths that don't resolve to either `Rails.root.join("CLAUDE.md")` or a
+  descendant of `Rails.root.join("docs")`.
+
+### Write confinement
+
+`save_note` is the only writer in the Dev KB surface. It writes exclusively to
+`docs/notes/` (created on first use). The slug is sanitized but never
+participates in the path computation — the write directory is hard-coded. There
+is no `write_doc`, no `delete_doc`, no `rename_doc`. Curation, promotion, edits,
+and moves stay desktop concerns. Mobile **captures**; desktop **curates**.
+
+The asymmetry is intentional: it keeps the mobile blast radius small and keeps
+the desktop session as the single point of curation — the place where notes get
+promoted into logs, ADRs, or specs.
+
 ## Data Shapes
 
 ### Channel Summary
@@ -296,10 +382,15 @@ app/mcp/
     list_saved_views.rb   # list_saved_views
     create_saved_view.rb  # create_saved_view
     delete_saved_view.rb  # delete_saved_view
+    list_docs.rb          # list_docs (Dev KB)
+    read_doc.rb           # read_doc  (Dev KB)
+    save_note.rb          # save_note (Dev KB)
   resources/
     app_status.rb         # pito://status
     design_doc.rb         # pito://design
     mcp_doc.rb            # pito://mcp
+app/lib/
+  dev_doc_path.rb         # Read-side path safety for list_docs / read_doc
 app/models/
   mcp_access_token.rb     # Bearer token model (SHA256 hashed)
 bin/mcp                   # Stdio entry point
