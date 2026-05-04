@@ -36,6 +36,25 @@ gem "dotenv-rails"
 # Use Active Model has_secure_password
 gem "bcrypt", "~> 3.1.7"
 
+# Phase 4 — Project Workspace
+# image_processing: Active Storage variant pipeline (Game cover art).
+# Backed by ruby-vips (libvips) — see config.active_storage.variant_processor
+# in config/application.rb. Spec §5 explicitly forbids mini_magick.
+gem "image_processing", "~> 1.14"
+# ruby-vips eagerly opens libvips.so.42 at require time. We pin it for the
+# bundle (image_processing transitively requires it), but skip the auto-
+# require: image_processing/vips.rb pulls it on-demand the moment a variant
+# is generated. This keeps Rails bootable on hosts without libvips installed
+# (Phase A has no variant code paths exercised in specs); install
+# libvips at the system level before Phase B's cover-art tests run.
+gem "ruby-vips", "~> 2.2", require: false
+# aasm: state machines for Timeline (editing/exported/uploaded) and Video.
+gem "aasm", "~> 5.5"
+# commonmarker: GFM markdown rendering for note bodies (Phase B helper).
+gem "commonmarker", "~> 2.4"
+# neighbor: Active Record bridge for pgvector cosine queries on notes.embedding.
+gem "neighbor", "~> 0.6"
+
 group :development, :test do
   gem "debug", platforms: %i[ mri windows ], require: "debug/prelude"
   gem "bundler-audit", require: false

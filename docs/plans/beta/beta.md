@@ -447,8 +447,7 @@ opens.
      replaces the original Auth Foundation slot for this number)
 - 4. **Project Workspace** — `04-project-workspace/` (to be created)
 - 5. Auth Foundation — `03-auth-foundation/plan.md`
-- 6. Auth UI + Multi-User Readiness —
-     `12-auth-ui-multi-user-readiness/plan.md`
+- 6. Auth UI + Multi-User Readiness — `12-auth-ui-multi-user-readiness/plan.md`
 - 7. Google OAuth + YouTube API Foundation —
      `07-google-oauth-youtube-foundation/plan.md`
 - 8. YouTube Data Sync — `08-youtube-data-sync/plan.md`
@@ -464,11 +463,11 @@ opens.
 
 Paused / dropped (not active phases):
 
-- Original Phase 4 — Terminal App `pito-sh` — `04-terminal-app/plan.md`
-  (PAUSED; will return to dictate the keyboard shortcut schema in a later phase)
+- Original Phase 4 — Terminal App `pito-sh` — `04-terminal-app/plan.md` (PAUSED;
+  will return to dictate the keyboard shortcut schema in a later phase)
 - Original Phase 9 — YouTube KB + Production Notes —
-  `09-youtube-kb-production-notes/plan.md` (DROPPED 2026-05-03; channel/
-  video notes reuse the Phase 4 — Project Workspace project-notes pattern)
+  `09-youtube-kb-production-notes/plan.md` (DROPPED 2026-05-03; channel/ video
+  notes reuse the Phase 4 — Project Workspace project-notes pattern)
 
 ---
 

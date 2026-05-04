@@ -228,9 +228,9 @@ deeper check on 2026-05-03.
 **Summary:**
 
 The migration spec
-(`docs/plans/beta/04-project-workspace/specs/monolith-migration.md` lines
-58–59) said `Procfile.dev`, `bin/dev`, and "the Rails controller path that
-builds / serves the binary" should reference `extras/cli/target/release/pito`.
+(`docs/plans/beta/04-project-workspace/specs/monolith-migration.md` lines 58–59)
+said `Procfile.dev`, `bin/dev`, and "the Rails controller path that builds /
+serves the binary" should reference `extras/cli/target/release/pito`.
 
 Current state as of 2026-05-03:
 
@@ -290,8 +290,8 @@ All are comments — no behavior change.
   these files.
 - Audit the rest of the repo (`app/`, `lib/`, `spec/`, `config/`) for any other
   `pito-sh` stragglers and update them in the same pass.
-- Keep historical references intact in `docs/plans/`, `docs/conversations/`,
-  and ADR Context blocks — those are append-only history.
+- Keep historical references intact in `docs/plans/`, `docs/conversations/`, and
+  ADR Context blocks — those are append-only history.
 
 **Verification before implementation:**
 
@@ -299,6 +299,45 @@ All are comments — no behavior change.
   return zero matches after the sweep.
 - Full RSpec suite + Rubocop remain green (comments-only changes should not
   affect either, but verify).
+
+### Test suite parallelization via `parallel_tests` gem
+
+**Trigger:** Architect surfaced 2026-05-04. RSpec suite is now 855 examples /
+27.4s and growing fast as Phase 4 lands. User asked about parallelization during
+the Phase A review and asked it be queued as a follow-up.
+
+**Source:** Mid-Phase-4 conversation between user and architect after Phase A
+reviewer pass. The user floated the idea ("paralellie somehow the spec / test
+check phase, maybe split somehow on model, controllers, something or
+alphabetically...") and accepted the architect's recommendation of the
+`parallel_tests` gem.
+
+**Summary:**
+
+Add `parallel_tests` to the `:development, :test` group. Configure to spawn N
+processes (default = CPU count, or pinned via `PARALLEL_TEST_PROCESSORS`), with
+per-process Postgres databases (`pito_test_1`, `pito_test_2`, etc.) created via
+`parallel_tests:setup`. Splits specs alphabetically by filename (default) or by
+runtime if `--group-by runtime` is used. Typical 3–5× speedup on multi-core
+hosts. CI's `rails` job in `.github/workflows/ci.yml` should also opt in via
+`bundle exec parallel_rspec spec/` (or equivalent) once verified locally.
+
+**Action:**
+
+1. Add `gem "parallel_tests"` to `:development, :test` group in `Gemfile`.
+2. Configure `config/database.yml` test block with
+   `<%= ENV["TEST_ENV_NUMBER"] %>` suffix on `database:`.
+3. Add `bin/parallel_setup` script (or the equivalent rake task wiring) to
+   create per-process databases.
+4. Update CI `rails` job to invoke `parallel_rspec` instead of `rspec`.
+5. Verify locally: `bundle exec parallel_rspec spec/` runs green, and
+   `RAILS_ENV=test bin/rails db:drop` cleanly drops all `pito_test_*` databases.
+
+**Verification:**
+
+Local runtime delta documented in `docs/plans/beta/04-project-workspace/log.md`.
+CI runtime delta visible in the next `rails` job run on `main`. No new flakiness
+over a 5-run sample.
 
 ## Done
 

@@ -2,9 +2,13 @@ test:
   service: Disk
   root: <%= Rails.root.join("tmp/storage") %>
 
+# Phase 4 §5 — `local` reads from the dedicated assets volume. Defaults to
+# /var/lib/pito-assets so the production disk service maps to the Hetzner
+# managed volume without code changes; PITO_ASSETS_PATH overrides for dev
+# (typically a path inside the repo or a Docker named volume mount).
 local:
   service: Disk
-  root: <%= Rails.root.join("storage") %>
+  root: <%= ENV.fetch("PITO_ASSETS_PATH", "/var/lib/pito-assets") %>
 
 # Use bin/rails credentials:edit to set the AWS secrets (as aws:access_key_id|secret_access_key)
 # amazon:

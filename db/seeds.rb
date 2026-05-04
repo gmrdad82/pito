@@ -6,6 +6,15 @@ AppSetting.set("max_panes", "5")
 AppSetting.set("pane_title_length", "14")
 puts "  max_panes = 5, pane_title_length = 14"
 
+# Phase 4 §3.5 (2026-05-04 post-review refinement) — Voyage call gating.
+# Defaults to `false` everywhere; production flips it `true` so Notes::EmbedJob
+# fires on real notes. Idempotent — re-running seeds does not toggle dev/test
+# rows that the user has flipped manually.
+if Rails.env.production? && AppSetting.exists?
+  AppSetting.first.update!(voyage_embeddings_enabled: true)
+  puts "  voyage_embeddings_enabled = true (production)"
+end
+
 # ---------------------------------------------------------------------------
 # Owner credentials (Tenant + User)
 # ---------------------------------------------------------------------------
@@ -209,4 +218,64 @@ seedable_channels.each_with_index do |channel, channel_idx|
 end
 
 puts "  #{video_count} videos with stats"
+
+# ---------------------------------------------------------------------------
+# Phase 4 — Project Workspace sample data
+# ---------------------------------------------------------------------------
+#
+# Seeds one Collection, one Game (with cover art attached from
+# spec/fixtures/files/cover_art.jpg), one Project that references the Game and
+# the Collection, one Note (`last_modified_at` mirrors the row's creation), and
+# one Timeline in the initial `editing` state. Idempotent — `find_or_*` calls
+# guard against repeat runs.
+
+puts "seeding project workspace sample..."
+
+collection = Collection.find_or_create_by!(tenant: tenant, name: "Demo Collection")
+
+game = Game.find_or_initialize_by(tenant: tenant, title: "Demo Game")
+game.collection ||= collection
+game.publisher  ||= "Demo Studios"
+game.platforms = [ { "platform" => "PS5", "owned" => true, "recorded_on" => true } ] if game.platforms.blank?
+game.save!
+
+cover_fixture_path = Rails.root.join("spec/fixtures/files/cover_art.jpg")
+if cover_fixture_path.exist? && !game.cover_art.attached?
+  game.cover_art.attach(
+    io: File.open(cover_fixture_path),
+    filename: "cover_art.jpg",
+    content_type: "image/jpeg"
+  )
+end
+
+project = Project.find_or_initialize_by(tenant: tenant, name: "Demo Project")
+project.concept ||= "Walkthrough of demo game with commentary."
+project.save!
+
+# Polymorphic references — Project -> Game and Project -> Collection.
+ProjectReference.find_or_create_by!(
+  project: project, tenant: tenant,
+  referenceable_type: "Game", referenceable_id: game.id
+)
+ProjectReference.find_or_create_by!(
+  project: project, tenant: tenant,
+  referenceable_type: "Collection", referenceable_id: collection.id
+)
+
+# Sample Note — disk file is NOT created here (NoteSyncJob does that in
+# Phase B). The DB row alone is enough for Phase A's smoke test.
+Note.find_or_create_by!(
+  tenant: tenant, project: project, path: "demo-note.md"
+) do |note|
+  note.title = "Demo note"
+  note.last_modified_at = Time.current
+end
+
+# Sample Timeline in the initial state (aasm `editing`).
+Timeline.find_or_create_by!(tenant: tenant, project: project, title: "Demo Timeline") do |t|
+  t.state = :editing
+end
+
+puts "  1 collection, 1 game (with cover art), 1 project (2 references), 1 note, 1 timeline"
+
 puts "done!"
