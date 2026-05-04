@@ -70,6 +70,71 @@ RSpec.describe "Deletions", type: :request do
       end
     end
 
+    context "projects" do
+      let!(:project) { create(:project, name: "Demo project") }
+
+      it "returns 200 with valid project IDs and renders the preview" do
+        get deletions_path(type: "project", ids: project.id)
+        expect(response).to have_http_status(:ok)
+        expect(response.body).to include("Demo project")
+        expect(response.body).to include("delete 1 project")
+      end
+
+      it "shows the cancel breadcrumb back to projects index" do
+        get deletions_path(type: "project", ids: project.id)
+        expect(response.body).to include("projects")
+      end
+
+      it "redirects to projects index when no items found" do
+        get deletions_path(type: "project", ids: "99999")
+        expect(response).to redirect_to(projects_path)
+      end
+    end
+
+    context "collections" do
+      let!(:collection) { create(:collection, name: "Action games") }
+
+      it "returns 200 with valid collection IDs and renders the preview" do
+        get deletions_path(type: "collection", ids: collection.id)
+        expect(response).to have_http_status(:ok)
+        expect(response.body).to include("Action games")
+        expect(response.body).to include("delete 1 collection")
+      end
+    end
+
+    context "games" do
+      let!(:game) { create(:game, title: "Elden Ring") }
+
+      it "returns 200 with valid game IDs and renders the preview" do
+        get deletions_path(type: "game", ids: game.id)
+        expect(response).to have_http_status(:ok)
+        expect(response.body).to include("Elden Ring")
+        expect(response.body).to include("delete 1 game")
+      end
+    end
+
+    context "notes" do
+      let!(:note) { create(:note, title: "intro draft") }
+
+      it "returns 200 with valid note IDs and renders the preview" do
+        get deletions_path(type: "note", ids: note.id)
+        expect(response).to have_http_status(:ok)
+        expect(response.body).to include("intro draft")
+        expect(response.body).to include("delete 1 note")
+      end
+    end
+
+    context "timelines" do
+      let!(:timeline) { create(:timeline, title: "ep01 cut") }
+
+      it "returns 200 with valid timeline IDs and renders the preview" do
+        get deletions_path(type: "timeline", ids: timeline.id)
+        expect(response).to have_http_status(:ok)
+        expect(response.body).to include("ep01 cut")
+        expect(response.body).to include("delete 1 timeline")
+      end
+    end
+
     context "invalid type" do
       it "redirects to root" do
         get deletions_path(type: "invalid", ids: "1")
@@ -111,6 +176,86 @@ RSpec.describe "Deletions", type: :request do
           post deletions_path(type: "video", ids: video.id)
         }.to change(BulkOperation, :count).by(1)
           .and change(BulkDeleteJob.jobs, :size).by(1)
+      end
+    end
+
+    context "projects" do
+      let!(:project) { create(:project) }
+
+      it "creates a bulk operation for project deletion" do
+        expect {
+          post deletions_path(type: "project", ids: project.id)
+        }.to change(BulkOperation, :count).by(1)
+          .and change(BulkDeleteJob.jobs, :size).by(1)
+
+        operation = BulkOperation.last
+        expect(operation.bulk_operation_items.count).to eq(1)
+        item = operation.bulk_operation_items.first
+        expect(item.target_type).to eq("Project")
+        expect(item.target_id).to eq(project.id)
+      end
+
+      it "executes BulkDeleteJob and destroys the project" do
+        post deletions_path(type: "project", ids: project.id)
+        operation = BulkOperation.last
+
+        expect {
+          BulkDeleteJob.new.perform(operation.id)
+        }.to change(Project, :count).by(-1)
+
+        expect(operation.reload.status).to eq("completed")
+      end
+    end
+
+    context "collections" do
+      let!(:collection) { create(:collection) }
+
+      it "creates a bulk operation and destroys the collection on perform" do
+        post deletions_path(type: "collection", ids: collection.id)
+        operation = BulkOperation.last
+
+        expect {
+          BulkDeleteJob.new.perform(operation.id)
+        }.to change(Collection, :count).by(-1)
+      end
+    end
+
+    context "games" do
+      let!(:game) { create(:game) }
+
+      it "creates a bulk operation and destroys the game on perform" do
+        post deletions_path(type: "game", ids: game.id)
+        operation = BulkOperation.last
+
+        expect {
+          BulkDeleteJob.new.perform(operation.id)
+        }.to change(Game, :count).by(-1)
+      end
+    end
+
+    context "notes" do
+      let!(:note) { create(:note) }
+
+      it "creates a bulk operation and destroys the note on perform" do
+        post deletions_path(type: "note", ids: note.id)
+        operation = BulkOperation.last
+
+        expect {
+          BulkDeleteJob.new.perform(operation.id)
+        }.to change(Note, :count).by(-1)
+      end
+    end
+
+    context "timelines" do
+      let!(:timeline) { create(:timeline) }
+
+      it "creates a bulk operation and destroys the timeline on perform" do
+        post deletions_path(type: "timeline", ids: timeline.id)
+        operation = BulkOperation.last
+
+        expect {
+          BulkDeleteJob.new.perform(operation.id)
+        }.to change(Timeline, :count).by(-1)
       end
     end
 

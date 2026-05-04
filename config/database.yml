@@ -17,7 +17,10 @@ development:
 
 test:
   <<: *default
-  database: <%= Rails.application.credentials.dig(:postgres, :test, :database) || "pito_test" %>
+  # parallel_tests appends TEST_ENV_NUMBER ("", "2", "3", ...) to suffix per-process
+  # databases (`pito_test`, `pito_test_2`, ...). Single-process `bundle exec rspec`
+  # leaves TEST_ENV_NUMBER unset and therefore lands on the unsuffixed db.
+  database: <%= (Rails.application.credentials.dig(:postgres, :test, :database) || "pito_test") + ENV.fetch("TEST_ENV_NUMBER", "") %>
   username: <%= Rails.application.credentials.dig(:postgres, :test, :username) || "pito" %>
   password: <%= Rails.application.credentials.dig(:postgres, :test, :password) || "" %>
 

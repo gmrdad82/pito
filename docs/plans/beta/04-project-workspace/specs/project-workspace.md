@@ -213,27 +213,53 @@ vector sim). pgvector handles `<=>` cosine similarity for "similar projects" /
 future "similar notes" / "similar videos" features:
 `Note.order(Arel.sql("embedding <=> ?", v)).limit(N)`.
 
-**Voyage call gating (2026-05-03 amendment, 2026-05-04 pivoted to AppSetting).**
-Voyage credentials are present in Rails credentials and connectivity has been
-verified, but production-volume calls must stay off until real notes start
-flowing. The flag lives on the existing `app_settings` table as a Boolean column
-`voyage_embeddings_enabled` (default `false`, non-null). Phase A migration adds
-the column; production seeds set the value to `true` for the singleton record;
-dev/test default to `false`. The flag is runtime-mutable via the Settings UI
-(Phase B) — no Rails restart needed. `Notes::EmbedJob` (Phase B) reads
-`AppSetting.voyage_embeddings_enabled?` and short-circuits when false: the note
-record still saves, Meilisearch still indexes the text body (BM25 only — no
-embedding payload), `notes.embedding` stays NULL, no HTTP call to Voyage, no
-tokens billed.
+**Voyage call gating (2026-05-03 amendment, 2026-05-04 pivoted to AppSetting,
+2026-05-04 revamped to encrypted key + per-target flags).** Voyage credentials
+live on the existing `app_settings` table as an encrypted column
+`voyage_api_key` (Active Record Encryption, probabilistic). The key is
+UI-editable via the Settings page (rotates without deploy). On fresh installs /
+first seed, the key is bootstrapped from
+`Rails.application.credentials.dig(:voyage, Rails.env.to_sym, :api_key)` if
+present — credentials remain a fallback path until Hetzner ships (Phase 16), at
+which point the AppSetting column becomes the sole authoritative source.
 
-Per project rule, the external boundary (form/JSON/MCP) uses `"yes"`/`"no"`
-strings; internal storage stays Boolean. The previous `PITO_VOYAGE_ENABLED`
-env-var and `Rails.application.config.voyage_embeddings_enabled` paths are
-SUPERSEDED — both have been removed.
+Per-target Boolean flags control what gets indexed. Phase 4 ships one flag —
+`voyage_index_project_notes` — defaulting to `false` in all environments.
+Production seeds flip it to `true` once a key is in place. Future index targets
+add their own flags (e.g. `voyage_index_video_notes`,
+`voyage_index_channel_metadata`); the surface scales by adding columns, not by
+overloading the existing flag.
+
+A model-level validation links the flags to the key: setting any
+`voyage_index_*` flag to `true` requires `voyage_api_key` to be present;
+clearing the key while any flag is `true` also fails. The two failure modes
+share the same error: "Voyage API key required to enable &lt;target&gt;
+indexing."
+
+`Notes::EmbedJob` does a runtime dual-check —
+`AppSetting.voyage_indexing_project_notes? && AppSetting.voyage_configured?` —
+before any Voyage HTTP call. Either condition false → short-circuit: the note
+record still saves, Meilisearch still indexes the text body (BM25 only — no
+embedding payload), `notes.embedding` stays NULL, no tokens billed. The
+dual-check is intentional belt-and-suspenders; the validation prevents the
+broken state at the form boundary, and the job protects against migration drift
+/ direct-SQL writes / future bypass paths.
+
+Per project rule, the external boundary (form / JSON / MCP) uses `"yes"` /
+`"no"` strings for the flag values; internal storage stays Boolean. The Voyage
+API key is a string at the form boundary (sensitive input — password-style,
+redacted on display); never serialized to JSON responses, never echoed back in
+the HTML body.
 
 A one-shot rake task `bin/rails voyage:smoke_test` (Phase B) performs a single
 1-token embedding call, prints HTTP status + embedding dimension + tokens
 billed, and exits. Lets the user re-verify the key without flipping the flag.
+
+The previous `Rails.application.config.voyage_embeddings_enabled` /
+`PITO_VOYAGE_ENABLED` env-var paths are SUPERSEDED — both have been removed. The
+previous single `AppSetting.voyage_embeddings_enabled?` flag is also SUPERSEDED
+— replaced by per-target `AppSetting.voyage_indexing_<target>?` accessors and
+the `AppSetting.voyage_configured?` helper.
 
 ### 3.6 `timelines`
 
@@ -510,7 +536,7 @@ Install:
 
 ### 7.3 Diff classification
 
-1. `GET /projects/<id>/footage.json` for existing rows.
+1. `GET /api/projects/<id>/footages.json` for existing rows.
 2. Identity = `local_path`.
 3. Classify per file:
    - **Add:** file on disk, no DB record with that path.
@@ -533,12 +559,20 @@ per-row indicators (`[done]`/`[fail]`/`[skip]`), top-level gauge, final summary
 
 Sequential, one item at a time; on error, mark item failed and continue.
 
-- Add: `POST /projects/<id>/footage.json`.
-- Change: `PATCH /footages/<id>.json`.
-- Delete: `DELETE /footages/<id>.json`.
+- Add: `POST /api/projects/<id>/footages.json`.
+- Change: `PATCH /footages/<id>.json` (unchanged — top-level).
+- Delete: `DELETE /footages/<id>.json` (unchanged — top-level).
 
 Booleans serialize as `"yes"`/`"no"` per the project-wide rule (reuse the shared
 `yes_no` helper from the `pito` CLI's API layer — see §19).
+
+**(2026-05-04 amendment.)** The collection actions (`POST` index → create, `GET`
+index) are namespaced under `/api/` and route to
+`app/controllers/api/footages_controller.rb`. The member actions (`PATCH`,
+`DELETE`) live at the top level and route to
+`app/controllers/footages_controller.rb` because they share the URL surface with
+the HTML edit/destroy flow. The asymmetry is intentional but worth revisiting —
+see follow-ups.
 
 ### 7.6 Tests
 
@@ -1000,15 +1034,26 @@ Sibling spec: `specs/mcp-dev-kb-surface.md`. Recorded in `additions.md` as a
 
 ### Phase B — parallel (after Phase A on `main`)
 
-| Workstream                       | Owner agent | Scope                                           |
-| -------------------------------- | ----------- | ----------------------------------------------- |
-| Controllers, views, Stimulus     | pito-rails  | Controllers, ERB, panes, CodeMirror, nav update |
-| `NoteSyncJob` + cron + lock UX   | pito-rails  | Job + sidekiq.yml + view-side disabled state    |
-| `pito footage` subcommand (Rust) | cli-impl    | `extras/cli/src/footage/**` + tests             |
-| GitHub Actions (single workflow) | pito-rails  | `.github/workflows/ci.yml` + cleanup workflow   |
-| Design refresh (design.md)       | docs-keeper | 7 rules + panes + saved views                   |
-| ADR 0001 addendum                | docs-keeper | One-line carve-out                              |
-| Phase log                        | docs-keeper | `04-project-workspace/log.md`                   |
+| Workstream                            | Owner agent | Scope                                                                                                                                                                                                                                                            |
+| ------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Controllers, views, Stimulus          | pito-rails  | Controllers, ERB, panes, CodeMirror, nav update                                                                                                                                                                                                                  |
+| `NoteSyncJob` + cron + lock UX        | pito-rails  | Job + sidekiq.yml + view-side disabled state                                                                                                                                                                                                                     |
+| `pito footage` subcommand (Rust)      | cli-impl    | `extras/cli/src/footage/**` + tests                                                                                                                                                                                                                              |
+| GitHub Actions (single workflow)      | pito-rails  | `.github/workflows/ci.yml` + cleanup workflow                                                                                                                                                                                                                    |
+| Design refresh (design.md)            | docs-keeper | 7 rules + panes + saved views                                                                                                                                                                                                                                    |
+| ADR 0001 addendum                     | docs-keeper | One-line carve-out                                                                                                                                                                                                                                               |
+| Phase log                             | docs-keeper | `04-project-workspace/log.md`                                                                                                                                                                                                                                    |
+| `parallel_tests` test parallelization | pito-rails  | Add `parallel_tests` gem to `:development, :test`. Per-process Postgres DBs (`pito_test_<N>`). `bundle exec parallel_rspec spec/`. CI `rails` job uses parallel runner. Combined with the GitHub Actions workstream since both touch `.github/workflows/ci.yml`. |
+
+The `parallel_tests` workstream lands alongside the GitHub Actions workstream
+because both edit `.github/workflows/ci.yml` (the `rails` job invocation changes
+from `bundle exec rspec` to `bundle exec parallel_rspec`). Local setup creates
+per-process Postgres DBs via `parallel_tests:setup`. Spec distribution defaults
+to alphabetical-by-filename; `--group-by runtime` can be evaluated later if
+balance becomes an issue. Sequential Phase A baseline: 855 examples in ~27s;
+target post-parallelization: ~7-10s on a 4-core host. The previous follow-up
+entry on this topic has been promoted into this Phase B workstream —
+`follow-ups.md` no longer contains it.
 
 Reviewer agent runs after Phase B converges. Manual test playbook lands in
 `docs/orchestration/playbooks/<date>-project-workspace.md`.
@@ -1044,13 +1089,22 @@ Reviewer agent runs after Phase B converges. Manual test playbook lands in
       `filename="pito"`.
 - [ ] `Notes::EmbedJob` dual-writes the Voyage embedding to BOTH Meilisearch and
       the `notes.embedding` pgvector column on note create/update.
-- [ ] `Notes::EmbedJob` no-ops when `AppSetting.voyage_embeddings_enabled?` is
-      false (default in development and test): note save and Meilisearch
-      text-only indexing still complete cleanly, no Voyage HTTP call fires,
-      `notes.embedding` stays NULL. The flag is runtime-mutable via Settings UI
-      / direct AppSetting update in any environment.
+- [ ] `Notes::EmbedJob` no-ops when AppSetting Voyage gating (key + per-target
+      flag) is not satisfied — specifically, when
+      `AppSetting.voyage_indexing_project_notes?` is false OR
+      `AppSetting.voyage_configured?` is false (default in development and
+      test): note save and Meilisearch text-only indexing still complete
+      cleanly, no Voyage HTTP call fires, `notes.embedding` stays NULL. The flag
+      and key are runtime-mutable via Settings UI / direct AppSetting update in
+      any environment.
 - [ ] `bin/rails voyage:smoke_test` (Phase B) runs a single 1-token embedding
       call, prints HTTP status + embedding dimension + tokens billed, and exits.
+- [ ] Validation rejects enabling any `voyage_index_*` flag without a key, AND
+      rejects clearing the key while any flag is true. Settings UI surfaces the
+      validation error in flash.
+- [ ] `voyage_api_key` is encrypted at rest (Active Record Encryption); raw DB
+      blob is ciphertext, not the plaintext key. Settings page response body
+      never carries the plaintext.
 - [ ] `pito version` and `pito --version` print `pito <7-char-sha>` for both dev
       and CI builds. Served binary filename remains `pito` in all paths (dev
       `send_file`, prod GitHub Release asset stream).

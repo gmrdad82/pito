@@ -1,0 +1,36 @@
+<% content_for(:title, "games") %>
+
+<div style="max-width: 1100px;">
+  <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;">
+    <h1>games</h1>
+    <span class="text-muted">&middot;</span>
+    <%= button_to games_path, form: { style: "display: inline;", data: { turbo: false } }, class: "bracketed", method: :post do %>[<span class="bl">add</span>]<% end %>
+  </div>
+
+  <% if @games.any? %>
+    <table>
+      <thead>
+        <tr>
+          <th class="col-action"></th>
+          <th>title</th>
+          <th>publisher</th>
+          <th>platforms</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @games.each do |game| %>
+          <tr>
+            <td class="col-action">
+              <%= render(BracketedLinkComponent.new(label: "open", href: game_path(game))) %>
+            </td>
+            <td><%= game.title %></td>
+            <td><%= game.publisher || "—" %></td>
+            <td><%= Array(game.platforms).map { |p| p["platform"] }.compact.join(", ") %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  <% else %>
+    <p class="text-muted">no games yet.</p>
+  <% end %>
+</div>

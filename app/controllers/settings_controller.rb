@@ -7,6 +7,8 @@ class SettingsController < ApplicationController
     @max_panes_default = ENV.fetch("MAX_PANES", 3).to_i
     @pane_title_length_default = ENV.fetch("PANE_TITLE_LENGTH", 14).to_i
     @theme = AppSetting.get("theme") || "auto"
+    @voyage_configured = AppSetting.voyage_configured?
+    @voyage_indexing_project_notes = AppSetting.voyage_indexing_project_notes?
     begin
       @search_healthy = Search.engine.healthy?
       @search_stats = Search.engine.index_stats
@@ -21,21 +23,29 @@ class SettingsController < ApplicationController
     end
   end
 
+  # Phase B refinement (2026-05-04) — per-fieldset saves. Each fieldset on the
+  # Settings page submits its own form with a hidden `section` field. The
+  # action only touches the keys belonging to that section, leaving the others
+  # untouched. Without `section` (legacy callers, e.g. tests written before
+  # the refactor), we fall through to the original "update everything we
+  # see" behavior — preserves backward compatibility.
   def update
-    OAUTH_KEYS.each do |key|
-      value = params.dig(:settings, key).presence
-      AppSetting.set(key, value) if value
-    end
-
-    GENERAL_KEYS.each do |key|
-      value = params.dig(:settings, key).presence
-      if value
-        AppSetting.set(key, value)
+    case params[:section]
+    when "workspaces"
+      update_general
+    when "appearance"
+      update_appearance
+    when "youtube_oauth"
+      update_oauth
+    when "voyage"
+      result = update_voyage
+      if result.is_a?(String)
+        redirect_to settings_path, alert: result
+        return
       end
+    else
+      update_legacy
     end
-
-    theme = params.dig(:settings, :theme)
-    AppSetting.set("theme", theme) if %w[light dark auto].include?(theme)
 
     redirect_to settings_path, notice: "settings saved."
   end
@@ -56,6 +66,79 @@ class SettingsController < ApplicationController
   end
 
   private
+
+  def update_general
+    GENERAL_KEYS.each do |key|
+      value = params.dig(:settings, key).presence
+      AppSetting.set(key, value) if value
+    end
+  end
+
+  def update_appearance
+    theme = params.dig(:settings, :theme)
+    AppSetting.set("theme", theme) if %w[light dark auto].include?(theme)
+  end
+
+  def update_oauth
+    OAUTH_KEYS.each do |key|
+      value = params.dig(:settings, key).presence
+      AppSetting.set(key, value) if value
+    end
+  end
+
+  # Voyage fieldset — Phase B revamp (2026-05-04). Three optional inputs:
+  #
+  #   - `voyage_api_key` (text): when blank AND `clear_voyage_api_key` is not
+  #     "yes", the existing key is left untouched (no clobber on empty
+  #     submit). When non-blank, replaces the key.
+  #   - `clear_voyage_api_key` ("yes" / anything else): explicit clear.
+  #     Setting it "yes" forces voyage_api_key to nil. The model validation
+  #     prevents this when `voyage_index_project_notes` is on.
+  #   - `voyage_index_project_notes` ("yes" / "no"): per-target flag. Only
+  #     "yes" / "no" are honored — other values leave the flag unchanged
+  #     (matches the project's external-boolean rule).
+  #
+  # Returns the validation error string when the model rejects the update;
+  # the caller surfaces it via flash[:alert]. Returns nil on success.
+  def update_voyage
+    if AppSetting.none?
+      AppSetting.set("pane_title_length", ENV.fetch("PANE_TITLE_LENGTH", 14).to_s)
+    end
+    setting = AppSetting.first
+
+    attrs = {}
+
+    raw_clear = params.dig(:settings, :clear_voyage_api_key).to_s
+    raw_key = params.dig(:settings, :voyage_api_key).to_s
+
+    if raw_clear == "yes"
+      attrs[:voyage_api_key] = nil
+    elsif raw_key.strip.present?
+      attrs[:voyage_api_key] = raw_key.strip
+    end
+
+    raw_flag = params.dig(:settings, :voyage_index_project_notes).to_s
+    if %w[yes no].include?(raw_flag)
+      attrs[:voyage_index_project_notes] = (raw_flag == "yes")
+    end
+
+    return if attrs.empty?
+
+    setting.assign_attributes(attrs)
+    if setting.save
+      nil
+    else
+      setting.errors.full_messages.first || "Voyage settings invalid."
+    end
+  end
+
+  # Legacy single-form behavior — preserved so callers without a section
+  # parameter still work (existing MCP-style or scripted PATCH callers).
+  def update_legacy
+    update_oauth
+    update_general
+    update_appearance
+  end
 
   # Public-safe subset of AppSetting values exposed to the JSON API. The
   # OAuth client secret and other credentials are intentionally excluded.

@@ -2,6 +2,7 @@ mod api;
 mod app;
 mod cli;
 mod commands;
+mod footage;
 mod keys;
 mod theme;
 mod ui;

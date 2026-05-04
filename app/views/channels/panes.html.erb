@@ -33,7 +33,7 @@
 
 <div data-controller="add-pane">
   <div style="margin-bottom: 6px;">
-    <h1 style="display: inline;">channels (<%= @panes.compact.size %>)</h1>
+    <h1 style="display: inline;">channels (<%= number_with_delimiter(@panes.compact.size) %>)</h1>
     <% if @available_channels&.any? %>
       <span style="position: relative; top: -2px;">
         <span class="text-muted">&middot;</span>

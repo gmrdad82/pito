@@ -5,7 +5,7 @@
 <h1>dashboard</h1>
 
 <% if @video_count > 0 %>
-  <p class="text-muted" style="margin-bottom: 8px;"><%= @video_count %> videos across <%= @channel_count %> channels</p>
+  <p class="caption" style="margin-bottom: 8px;"><%= number_with_delimiter(@video_count) %> videos across <%= number_with_delimiter(@channel_count) %> channels.</p>
 
   <%= render(ChartToolbarComponent.new(current_range: @range, base_path: root_path)) %>
 
@@ -17,7 +17,7 @@
           <span class="text-muted">&middot;</span>
           <%= render(CheckboxComponent.new(label: "sync", variant: :link, data: { "chart-sync-target": "checkbox", "chart-id": "daily-views", action: "change->chart-sync#toggle" })) %>
         </h3>
-        <%= line_chart @daily_views, height: "250px", colors: %w[#0000cc], library: { datasets: { pointHoverRadius: 4 } } %>
+        <%= line_chart @daily_views, height: "250px", colors: chart_palette(1), thousands: ",", library: { datasets: { pointHoverRadius: 4 } } %>
       </div>
 
       <div style="margin-bottom: 24px;" data-chart-id="views-by-channel" data-chart-sync-target="chart">
@@ -26,7 +26,7 @@
           <span class="text-muted">&middot;</span>
           <%= render(CheckboxComponent.new(label: "sync", variant: :link, data: { "chart-sync-target": "checkbox", "chart-id": "views-by-channel", action: "change->chart-sync#toggle" })) %>
         </h3>
-        <%= line_chart @views_by_channel, height: "250px", colors: [ "#0000cc", "#2e7d32", "#8b5cf6" ], library: { datasets: { pointHoverRadius: 4 } } %>
+        <%= line_chart @views_by_channel, height: "250px", colors: chart_palette(3), thousands: ",", library: { datasets: { pointHoverRadius: 4 } } %>
       </div>
     </div>
 
@@ -35,7 +35,7 @@
         <h3>
           <span>top videos by views</span>
         </h3>
-        <%= bar_chart @top_videos.map { |v| [ truncate(v.title, length: 40, omission: "…"), v.total_views ] }, height: "250px", colors: [ "#0000cc" ], library: { interaction: { mode: "nearest", intersect: true }, plugins: { crosshair: false } } %>
+        <%= bar_chart @top_videos.map { |v| [ truncate(v.title, length: 40, omission: "…"), v.total_views ] }, height: "250px", colors: chart_palette(1), thousands: ",", library: { interaction: { mode: "nearest", intersect: true }, plugins: { crosshair: false } } %>
       </div>
 
       <div style="margin-bottom: 24px;" data-chart-id="daily-engagement" data-chart-sync-target="chart">
@@ -44,10 +44,15 @@
           <span class="text-muted">&middot;</span>
           <%= render(CheckboxComponent.new(label: "sync", variant: :link, data: { "chart-sync-target": "checkbox", "chart-id": "daily-engagement", action: "change->chart-sync#toggle" })) %>
         </h3>
-        <%= line_chart @daily_engagement, height: "250px", colors: [ "#0000cc", "#d97706" ], library: { datasets: { pointHoverRadius: 4 } } %>
+        <%= line_chart @daily_engagement, height: "250px", colors: [ chart_palette[0], chart_palette[3] ], thousands: ",", library: { datasets: { pointHoverRadius: 4 } } %>
       </div>
     </div>
   </div>
 <% else %>
-  <p class="text-muted">no videos yet. run <code>bin/rails db:seed</code> to load sample data.</p>
+  <p class="text-muted">no videos yet. run:</p>
+  <div data-controller="clipboard-copy" class="code-block">
+    <span class="code-prompt" aria-hidden="true">$</span>
+    <code data-clipboard-copy-target="source">bin/rails db:seed</code>
+    <a href="#" data-action="click->clipboard-copy#copy" class="bracketed">[<span class="bl">copy</span>]</a>
+  </div>
 <% end %>

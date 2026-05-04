@@ -60,6 +60,9 @@ module Pito
 
     # Voyage AI embedding call gating moved to AppSetting (DB-backed) so the
     # Settings UI flips it at runtime without a Rails restart. See
-    # `AppSetting.voyage_embeddings_enabled?`.
+    # `AppSetting.voyage_configured?` (key) and
+    # `AppSetting.voyage_indexing_project_notes?` (per-target flag) — the
+    # 2026-05-04 Phase B revamp split the original single Boolean into the
+    # encrypted key column + per-target flag pair.
   end
 end

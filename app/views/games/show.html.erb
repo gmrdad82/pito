@@ -1,0 +1,38 @@
+<% content_for(:title, @game.title) %>
+<% breadcrumb(["games", games_path], @game.title) %>
+
+<h1><%= @game.title %></h1>
+
+<%= form_with(model: @game, url: game_path(@game), method: :patch, html: { multipart: true }) do |f| %>
+  <table class="detail-table" style="margin-bottom: 8px;">
+    <tr>
+      <td class="text-muted" style="padding-right: 12px;">title</td>
+      <td><%= f.text_field :title, style: "width: 320px;" %></td>
+    </tr>
+    <tr>
+      <td class="text-muted" style="padding-right: 12px;">publisher</td>
+      <td><%= f.text_field :publisher, style: "width: 320px;" %></td>
+    </tr>
+    <tr>
+      <td class="text-muted" style="padding-right: 12px;">collection</td>
+      <td><%= f.collection_select :collection_id, Collection.order(:name), :id, :name, include_blank: "—" %></td>
+    </tr>
+    <tr>
+      <td class="text-muted" style="padding-right: 12px; vertical-align: top;">platforms</td>
+      <td>
+        <%= text_area_tag "game[platforms_json]", JSON.pretty_generate(@game.platforms || []), rows: 5, style: "width: 100%; max-width: 480px; font-family: ui-monospace, monospace;" %>
+        <p class="text-muted" style="font-size: 11px; margin-top: 4px;">json array of <code>{platform, owned, recorded_on}</code> entries.</p>
+      </td>
+    </tr>
+    <tr>
+      <td class="text-muted" style="padding-right: 12px; vertical-align: top;">cover art</td>
+      <td>
+        <% if @game.cover_art.attached? %>
+          <p class="text-muted" style="margin-bottom: 4px;">attached: <%= @game.cover_art.filename %></p>
+        <% end %>
+        <%= f.file_field :cover_art, accept: "image/*" %>
+      </td>
+    </tr>
+  </table>
+  <button type="submit">[<b>save</b>]</button>
+<% end %>

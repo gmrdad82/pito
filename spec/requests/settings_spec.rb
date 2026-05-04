@@ -33,6 +33,74 @@ RSpec.describe "Settings", type: :request do
       expect(response.body).to include("dark")
       expect(response.body).to include("auto (system)")
     end
+
+    it "shows the Voyage AI fieldset with the current flag value" do
+      AppSetting.set("max_panes", "5")
+      AppSetting.first.update!(
+        voyage_api_key: "vk_test",
+        voyage_index_project_notes: true
+      )
+      get settings_path
+      expect(response.body).to include("Voyage AI")
+      expect(response.body).to include("project notes")
+      # The "yes" radio for voyage_index_project_notes is checked
+      expect(response.body).to match(/<input type="radio" name="settings\[voyage_index_project_notes\]" value="yes"[^>]*\bchecked\b/)
+    end
+
+    it "renders four independent forms (workspaces, appearance, oauth, voyage)" do
+      get settings_path
+      # Each per-section form carries a hidden `section` field.
+      expect(response.body).to include('value="workspaces"')
+      expect(response.body).to include('value="appearance"')
+      expect(response.body).to include('value="youtube_oauth"')
+      expect(response.body).to include('value="voyage"')
+    end
+
+    # Phase B polish (2026-05-04) — the per-target Voyage flag radios are
+    # only useful once a key is configured (model validation rejects "yes"
+    # without one). Hide them when the key is blank.
+    it "hides the Voyage per-target flag radios when no key is configured" do
+      get settings_path
+      expect(AppSetting.voyage_configured?).to be(false)
+      expect(response.body).not_to include('name="settings[voyage_index_project_notes]"')
+    end
+
+    it "shows the Voyage per-target flag radios once a key is configured" do
+      AppSetting.set("max_panes", "5")
+      AppSetting.first.update!(voyage_api_key: "vk_test")
+      get settings_path
+      expect(AppSetting.voyage_configured?).to be(true)
+      expect(response.body).to include('name="settings[voyage_index_project_notes]"')
+    end
+
+    # Phase B polish — theme is the first form field encountered on the
+    # page. Asserting via DOM order: the appearance fieldset's theme radios
+    # appear before the workspaces fieldset's pane_title_length input.
+    it "renders the theme radios before the pane_title_length input" do
+      get settings_path
+      theme_position = response.body.index('name="settings[theme]"')
+      pane_position = response.body.index("settings_pane_title_length")
+      expect(theme_position).not_to be_nil
+      expect(pane_position).not_to be_nil
+      expect(theme_position).to be < pane_position
+    end
+
+    # Phase B polish — reindex is no longer a direct POST button but a
+    # bracketed link that opens a ConfirmModalComponent dialog. The form
+    # is rendered inside the dialog, not in the fieldset top-level.
+    it "renders the reindex action as a modal trigger + ConfirmModalComponent" do
+      get settings_path
+      expect(response.body).to include('id="reindex_meilisearch_modal"')
+      expect(response.body).to include("modal-trigger")
+      expect(response.body).to include("reindex Meilisearch?")
+    end
+
+    it "uses the .md-radio CSS pattern for the theme radio group" do
+      get settings_path
+      expect(response.body).to include('class="md-radio"')
+      expect(response.body).to include("md-radio-indicator")
+      expect(response.body).to include("md-radio-label")
+    end
   end
 
   describe "PATCH /settings" do
@@ -72,6 +140,158 @@ RSpec.describe "Settings", type: :request do
       }
       follow_redirect!
       expect(response.body).to include("settings saved.")
+    end
+  end
+
+  # Phase B refinement (2026-05-04) — per-fieldset submits. Each fieldset has
+  # its own form with a hidden `section` field. PATCH-ing a single section
+  # MUST NOT touch fields that belong to other sections.
+  describe "PATCH /settings (per-section submits)" do
+    it "workspaces section saves only general keys, leaves theme/oauth alone" do
+      AppSetting.set("theme", "dark")
+      AppSetting.set("youtube_client_id", "keep-id")
+      patch settings_path, params: {
+        section: "workspaces",
+        settings: { pane_title_length: "20", max_panes: "7" }
+      }
+      expect(AppSetting.get("pane_title_length")).to eq("20")
+      expect(AppSetting.get("max_panes")).to eq("7")
+      expect(AppSetting.get("theme")).to eq("dark")
+      expect(AppSetting.get("youtube_client_id")).to eq("keep-id")
+    end
+
+    it "appearance section saves only the theme, leaves general/oauth alone" do
+      AppSetting.set("max_panes", "9")
+      AppSetting.set("youtube_client_id", "keep-id")
+      patch settings_path, params: {
+        section: "appearance",
+        settings: { theme: "light" }
+      }
+      expect(AppSetting.get("theme")).to eq("light")
+      expect(AppSetting.get("max_panes")).to eq("9")
+      expect(AppSetting.get("youtube_client_id")).to eq("keep-id")
+    end
+
+    it "youtube_oauth section saves only oauth keys, leaves general/theme alone" do
+      AppSetting.set("max_panes", "9")
+      AppSetting.set("theme", "dark")
+      patch settings_path, params: {
+        section: "youtube_oauth",
+        settings: {
+          youtube_client_id: "new-id",
+          youtube_client_secret: "new-secret",
+          youtube_redirect_uri: "http://example.test/cb"
+        }
+      }
+      expect(AppSetting.get("youtube_client_id")).to eq("new-id")
+      expect(AppSetting.get("youtube_client_secret")).to eq("new-secret")
+      expect(AppSetting.get("youtube_redirect_uri")).to eq("http://example.test/cb")
+      expect(AppSetting.get("max_panes")).to eq("9")
+      expect(AppSetting.get("theme")).to eq("dark")
+    end
+
+    # Phase 4 §3.5 (Phase B revamp, 2026-05-04) — voyage section now accepts
+    # a key + per-target flag. The model validation enforces that flipping
+    # the flag on requires a non-blank key; clearing the key while the flag
+    # is on fails. yes/no boundary strings still apply on the flag.
+
+    it "voyage section saves the API key + flag together" do
+      AppSetting.set("max_panes", "5")
+      patch settings_path, params: {
+        section: "voyage",
+        settings: {
+          voyage_api_key: "vk_my_real_key",
+          voyage_index_project_notes: "yes"
+        }
+      }
+      AppSetting.first.reload
+      expect(AppSetting.voyage_configured?).to be(true)
+      expect(AppSetting.first.voyage_api_key).to eq("vk_my_real_key")
+      expect(AppSetting.voyage_indexing_project_notes?).to be(true)
+    end
+
+    it "voyage section rejects flag=yes when no key is configured" do
+      AppSetting.set("max_panes", "5")
+      patch settings_path, params: {
+        section: "voyage",
+        settings: { voyage_index_project_notes: "yes" }
+      }
+      expect(AppSetting.voyage_indexing_project_notes?).to be(false)
+      expect(flash[:alert]).to include("Voyage API key required")
+    end
+
+    it "voyage section leaves an existing key untouched when input is blank" do
+      AppSetting.set("max_panes", "5")
+      AppSetting.first.update!(voyage_api_key: "vk_existing")
+      patch settings_path, params: {
+        section: "voyage",
+        settings: { voyage_api_key: "", voyage_index_project_notes: "no" }
+      }
+      expect(AppSetting.first.reload.voyage_api_key).to eq("vk_existing")
+      expect(AppSetting.voyage_indexing_project_notes?).to be(false)
+    end
+
+    it "voyage section ignores flag values other than 'yes' / 'no'" do
+      AppSetting.set("max_panes", "5")
+      AppSetting.first.update!(
+        voyage_api_key: "vk", voyage_index_project_notes: true
+      )
+      patch settings_path, params: {
+        section: "voyage",
+        settings: { voyage_index_project_notes: "true" }
+      }
+      # Boolean "true" is not "yes" — the boundary rule rejects it; flag is
+      # left untouched.
+      expect(AppSetting.voyage_indexing_project_notes?).to be(true)
+    end
+
+    it "voyage section clears the key when clear_voyage_api_key=yes and flag is off" do
+      AppSetting.set("max_panes", "5")
+      AppSetting.first.update!(
+        voyage_api_key: "vk_to_clear", voyage_index_project_notes: false
+      )
+      patch settings_path, params: {
+        section: "voyage",
+        settings: { clear_voyage_api_key: "yes" }
+      }
+      expect(AppSetting.first.reload.voyage_api_key).to be_nil
+      expect(AppSetting.voyage_indexing_project_notes?).to be(false)
+    end
+
+    it "voyage section refuses to clear the key while flag is on" do
+      AppSetting.set("max_panes", "5")
+      AppSetting.first.update!(
+        voyage_api_key: "vk_protected", voyage_index_project_notes: true
+      )
+      patch settings_path, params: {
+        section: "voyage",
+        settings: { clear_voyage_api_key: "yes" }
+      }
+      expect(AppSetting.first.reload.voyage_api_key).to eq("vk_protected")
+      expect(flash[:alert]).to include("Voyage API key required")
+    end
+
+    it "voyage section bootstraps an AppSetting row when the table is empty" do
+      AppSetting.delete_all
+      patch settings_path, params: {
+        section: "voyage",
+        settings: {
+          voyage_api_key: "vk_bootstrap",
+          voyage_index_project_notes: "yes"
+        }
+      }
+      expect(AppSetting.voyage_configured?).to be(true)
+      expect(AppSetting.voyage_indexing_project_notes?).to be(true)
+    end
+
+    it "GET /settings does not leak the plaintext API key in the response body" do
+      AppSetting.set("max_panes", "5")
+      AppSetting.first.update!(
+        voyage_api_key: "vk_super_secret_plaintext",
+        voyage_index_project_notes: true
+      )
+      get settings_path
+      expect(response.body).not_to include("vk_super_secret_plaintext")
     end
   end
 

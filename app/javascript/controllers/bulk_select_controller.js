@@ -4,7 +4,17 @@ export default class extends Controller {
   static targets = ["checkbox", "headerCheckbox", "actions", "count",
                      "bulkCol", "actionCol", "bulkToggle", "openAction", "openHint",
                      "overMaxHint", "deleteAction", "syncAction"]
-  static values = { maxPanes: Number, entityName: String, panesPath: String, deleteType: String, syncType: String }
+  // `maxPanes` and `panesPath` are panes-specific. Screens without an
+  // "open in N panes" flow (e.g. /projects) omit the corresponding data
+  // attributes on the controller root; defaults below keep the controller
+  // safe when the open-related branches are never reached.
+  static values = {
+    maxPanes: { type: Number, default: 0 },
+    entityName: String,
+    panesPath: { type: String, default: "" },
+    deleteType: String,
+    syncType: String
+  }
 
   enterBulk(event) {
     event.preventDefault()
@@ -13,6 +23,7 @@ export default class extends Controller {
     this.bulkToggleTarget.hidden = true
     this.actionsTarget.hidden = false
     this.updateActions()
+    this._updateSeparators()
   }
 
   exitBulk(event) {
@@ -26,6 +37,7 @@ export default class extends Controller {
       this.headerCheckboxTarget.checked = false
       this.headerCheckboxTarget.indeterminate = false
     }
+    this._updateSeparators()
   }
 
   toggle() {
@@ -42,27 +54,33 @@ export default class extends Controller {
     const count = this.selectedIds.length
     const max = this.maxPanesValue
 
-    // update count display
-    this.countTarget.textContent = count
+    // update count display (universal — every bulk-select picker shows it).
+    // Use the `_replaceActionContent` shim so the leading `.action-sep`
+    // dot stays put — `textContent =` would wipe it.
+    this._replaceActionContent(this.countTarget, document.createTextNode(String(count)))
 
     const ids = this.selectedIds.join(",")
 
-    // update open action — all values are controlled (numeric count, server-set data attributes)
-    if (count === 0) {
-      this.openHintTarget.hidden = false
-      this.openActionTarget.hidden = true
-      this._setHint(this.openHintTarget, `select items to act on`)
-    } else if (count <= max) {
-      this.openHintTarget.hidden = true
-      this.openActionTarget.hidden = false
-      const panesUrl = `${this.panesPathValue}?ids=${ids}`
-      this._setBracketedLink(this.openActionTarget, panesUrl, `open ${count}`)
-    } else {
-      // Over max: render [open N] as muted, bold, non-clickable so layout stays
-      // stable. The helpful subtext lives below the action bar in the view.
-      this.openHintTarget.hidden = true
-      this.openActionTarget.hidden = false
-      this._setMutedBracketed(this.openActionTarget, `open ${count}`)
+    // update open action — panes-specific. Screens without an "open in N
+    // panes" flow (e.g. /projects) omit the openHint / openAction targets
+    // entirely; the controller silently skips this branch.
+    if (this.hasOpenHintTarget && this.hasOpenActionTarget) {
+      if (count === 0) {
+        this.openHintTarget.hidden = false
+        this.openActionTarget.hidden = true
+        this._setHint(this.openHintTarget, `select items to act on`)
+      } else if (count <= max) {
+        this.openHintTarget.hidden = true
+        this.openActionTarget.hidden = false
+        const panesUrl = `${this.panesPathValue}?ids=${ids}`
+        this._setBracketedLink(this.openActionTarget, panesUrl, `open ${count}`)
+      } else {
+        // Over max: render [open N] as muted, bold, non-clickable so layout stays
+        // stable. The helpful subtext lives below the action bar in the view.
+        this.openHintTarget.hidden = true
+        this.openActionTarget.hidden = false
+        this._setMutedBracketed(this.openActionTarget, `open ${count}`)
+      }
     }
 
     // over-max subtext only appears when selection exceeds max-panes
@@ -85,7 +103,7 @@ export default class extends Controller {
         link.appendChild(bracket)
         link.appendChild(span)
         link.appendChild(bracketEnd)
-        this.deleteActionTarget.replaceChildren(link)
+        this._replaceActionContent(this.deleteActionTarget, link)
         this.deleteActionTarget.hidden = false
       } else {
         this.deleteActionTarget.hidden = true
@@ -107,7 +125,7 @@ export default class extends Controller {
         link.appendChild(bracket)
         link.appendChild(span)
         link.appendChild(bracketEnd)
-        this.syncActionTarget.replaceChildren(link)
+        this._replaceActionContent(this.syncActionTarget, link)
         this.syncActionTarget.hidden = false
       } else {
         this.syncActionTarget.hidden = true
@@ -120,6 +138,12 @@ export default class extends Controller {
       this.headerCheckboxTarget.checked = count > 0 && count === total
       this.headerCheckboxTarget.indeterminate = count > 0 && count < total
     }
+
+    // Recompute separator visibility — the leading visible action drops
+    // its dot, every subsequent visible action keeps it. Hides the
+    // dangling-`·` artefact when the first visible action is, say,
+    // `[ cancel ]` with no other action visible alongside it.
+    this._updateSeparators()
   }
 
   get selectedIds() {
@@ -128,11 +152,22 @@ export default class extends Controller {
       .map(cb => cb.value)
   }
 
+  // Internal helper — replace the action-target's content while preserving
+  // the leading `.action-sep` (the dot that the bulk-toolbar pattern uses
+  // to separate adjacent visible actions). The setter helpers below all
+  // route through this so a `replaceChildren` doesn't wipe the separator.
+  _replaceActionContent(el, ...nodes) {
+    const sep = el.querySelector(".action-sep")
+    el.replaceChildren()
+    if (sep) el.appendChild(sep)
+    nodes.forEach(n => el.appendChild(n))
+  }
+
   _setHint(el, text) {
     const span = document.createElement("span")
     span.className = "text-muted"
     span.textContent = text
-    el.replaceChildren(span)
+    this._replaceActionContent(el, span)
   }
 
   _setBracketedLink(el, href, label, className = "bracketed") {
@@ -145,7 +180,7 @@ export default class extends Controller {
     span.textContent = label
     link.appendChild(span)
     link.appendChild(document.createTextNode("]"))
-    el.replaceChildren(link)
+    this._replaceActionContent(el, link)
   }
 
   // Renders [label] as muted, bold, non-clickable text — used when an action
@@ -155,6 +190,22 @@ export default class extends Controller {
     const span = document.createElement("span")
     span.className = "bracketed-muted"
     span.textContent = `[${label}]`
-    el.replaceChildren(span)
+    this._replaceActionContent(el, span)
+  }
+
+  // Toggle `.action-sep` separators so the leading visible action drops
+  // its dot. Each `.action` span owns a leading `<span class="action-sep">·</span>`;
+  // hiding the action hides its separator (CSS), and we additionally hide
+  // the separator on whichever action is currently first-visible to avoid
+  // a leading dangling `·`. No-op when the actions toolbar isn't on the
+  // page (e.g., the controller wires up but bulk mode hasn't been entered
+  // yet on a page that doesn't show the actions container).
+  _updateSeparators() {
+    if (!this.hasActionsTarget) return
+    const visible = this.actionsTarget.querySelectorAll(".action:not([hidden])")
+    visible.forEach((el, idx) => {
+      const sep = el.querySelector(".action-sep")
+      if (sep) sep.hidden = (idx === 0)
+    })
   }
 }

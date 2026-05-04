@@ -30,7 +30,7 @@
 
   <% stats = video.video_stats.order(date: :desc).limit(30) %>
   <% if stats.any? %>
-    <h3>recent stats (<%= stats.size %> days)</h3>
+    <h3>recent stats (<%= number_with_delimiter(stats.size) %> days)</h3>
     <div data-controller="sortable-table" data-sortable-table-id-value="<%= video.id %>">
       <table data-sortable-table-target="table">
         <thead>
@@ -49,7 +49,7 @@
               <td class="num"><%= number_with_delimiter(stat.views) %></td>
               <td class="num"><%= number_with_delimiter(stat.likes) %></td>
               <td class="num"><%= number_with_delimiter(stat.comments) %></td>
-              <td class="num"><span data-sort-value="<%= stat.watch_time_minutes.to_f.round %>"><%= format_watch_time(stat.watch_time_minutes) %></span></td>
+              <td class="num"><span data-sort-value="<%= stat.watch_time_minutes.to_f.round %>"><%= format_video_watch_time(stat.watch_time_minutes) %></span></td>
             </tr>
           <% end %>
         </tbody>

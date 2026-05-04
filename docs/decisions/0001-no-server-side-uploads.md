@@ -62,3 +62,13 @@ commands. There is no upload form factor outside the browser.
   that defines the skip mechanism
 - `docs/plans/beta/11-video-workflow-features/` — phase that consumes this
   decision
+
+## Addendum (2026-05-04)
+
+**Image assets excepted (2026-05-04).** Phase 4 — Project Workspace — introduces
+server-side image uploads (Game cover art) via Active Storage with libvips
+variant generation. The original prohibition stands for **video bytes**: video
+files never touch the Pito server. ffprobe runs client-side via the
+`pito footage` subcommand; only metadata travels over the wire. See
+`docs/plans/beta/04-project-workspace/specs/project-workspace.md` §5 for the
+Active Storage configuration and §7 for the ffprobe / metadata wire contract.

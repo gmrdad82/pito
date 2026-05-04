@@ -11,6 +11,16 @@ sync_starred_channels:
   class: SyncStarredChannelsJob
   description: "Re-sync every starred channel daily"
 
+# Phase 4 §6.3 — reconcile project notes filesystem ↔ DB rows. Walks the
+# notes volume per tenant, adds/changes/deletes, enqueues Notes::EmbedJob
+# on changes. Tenant-wide lock auto-clears in the job's `ensure` block.
+note_sync:
+  cron: "*/5 * * * *"
+  class: NoteSyncJob
+  description: "Reconcile note files with DB rows; enqueue embeds on change"
+  args:
+    - 1   # default singleton tenant id; multi-tenant mode swaps this
+
 # YouTube sync jobs — uncomment when beta YouTube integration is implemented
 #
 # sync_channels:

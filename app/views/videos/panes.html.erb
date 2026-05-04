@@ -31,7 +31,7 @@
 
 <div data-controller="add-pane">
   <div style="margin-bottom: 6px;">
-    <h1 style="display: inline;">videos (<%= @panes.compact.size %>)</h1><% if @available_videos&.any? %> <span style="position: relative; top: -2px;"><span class="text-muted">&middot;</span> <%= render(BracketedLinkComponent.new(label: "+", href: "#", data: { action: "click->add-pane#open" })) %></span><% end %>
+    <h1 style="display: inline;">videos (<%= number_with_delimiter(@panes.compact.size) %>)</h1><% if @available_videos&.any? %> <span style="position: relative; top: -2px;"><span class="text-muted">&middot;</span> <%= render(BracketedLinkComponent.new(label: "+", href: "#", data: { action: "click->add-pane#open" })) %></span><% end %>
   </div>
 
   <div class="pane-container">

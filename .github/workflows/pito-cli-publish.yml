@@ -1,0 +1,51 @@
+name: Publish pito CLI
+
+on:
+  push:
+    branches: [main]
+
+# Serialize publish runs per-ref so two close-together pushes don't race on
+# tag creation. `cancel-in-progress: false` keeps every commit publishable —
+# we don't want a fast follow-up push to drop the binary for the prior commit.
+concurrency:
+  group: pito-cli-publish-${{ github.ref }}
+  cancel-in-progress: false
+
+# `softprops/action-gh-release` needs `contents: write` to push the tag and
+# upload the release asset. Everything else stays read-only.
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Compute short SHA
+        id: sha
+        # ${GITHUB_SHA:0:7} gives the 7-char prefix consistent with the rest
+        # of the project (matches `git log --abbrev-commit` defaults).
+        run: |
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "tag_name=pito-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Build pito CLI (release)
+        run: cargo build --release --manifest-path extras/cli/Cargo.toml
+
+      - name: Stage release artifact
+        run: |
+          mkdir -p dist
+          cp extras/cli/target/release/pito dist/pito
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.sha.outputs.tag_name }}
+          name: pito ${{ steps.sha.outputs.short_sha }}
+          files: dist/pito

@@ -58,4 +58,88 @@ RSpec.describe Project, type: :model do
       expect(project.collections).to be_empty
     end
   end
+
+  # Phase B (2026-05-04) — cascade-delete verification. Project destroy
+  # tears down notes, footages, timelines, and project_references at the
+  # DB level, AND removes the per-project notes directory on disk.
+  describe "cascade destroy" do
+    let(:tenant) { create(:tenant) }
+    let(:project) { create(:project, tenant: tenant) }
+    let(:tmp_root) do
+      Rails.root.join("tmp", "test-pito-notes", SecureRandom.hex(6)).to_s
+    end
+
+    before do
+      @prev_root = ENV["PITO_NOTES_PATH"]
+      ENV["PITO_NOTES_PATH"] = tmp_root
+    end
+
+    after do
+      ENV["PITO_NOTES_PATH"] = @prev_root
+      FileUtils.remove_entry(tmp_root) if File.exist?(tmp_root)
+    end
+
+    it "destroys associated notes, footages, timelines (DB side)" do
+      note = create(:note, project: project, tenant: tenant, path: "n.md")
+      footage = create(:footage, project: project, tenant: tenant)
+      timeline = create(:timeline, project: project, tenant: tenant)
+
+      expect { project.destroy! }.to change(Note, :count).by(-1)
+        .and change(Footage, :count).by(-1)
+        .and change(Timeline, :count).by(-1)
+
+      expect(Note.where(id: note.id)).to be_empty
+      expect(Footage.where(id: footage.id)).to be_empty
+      expect(Timeline.where(id: timeline.id)).to be_empty
+    end
+
+    it "removes the per-project notes directory on disk" do
+      note = create(:note, project: project, tenant: tenant, path: "n.md")
+      NotesFilesystem.write(note, "hello")
+      project_dir = NotesFilesystem.project_dir(project)
+      expect(File.directory?(project_dir)).to be true
+
+      project.destroy!
+
+      expect(File.directory?(project_dir)).to be false
+    end
+
+    it "is a no-op on disk when the project has no notes folder yet" do
+      project_dir = NotesFilesystem.project_dir(project)
+      expect(File.directory?(project_dir)).to be false
+      expect { project.destroy! }.not_to raise_error
+    end
+  end
+
+  # Phase B (2026-05-04) — Note#before_destroy removes the underlying
+  # markdown file. Verified independently of the project cascade so a
+  # solo `note.destroy` (e.g. via NotesController#destroy) is also clean.
+  describe "Note destroy file cleanup" do
+    let(:tenant) { create(:tenant) }
+    let(:project) { create(:project, tenant: tenant) }
+    let(:tmp_root) do
+      Rails.root.join("tmp", "test-pito-notes", SecureRandom.hex(6)).to_s
+    end
+
+    before do
+      @prev_root = ENV["PITO_NOTES_PATH"]
+      ENV["PITO_NOTES_PATH"] = tmp_root
+    end
+
+    after do
+      ENV["PITO_NOTES_PATH"] = @prev_root
+      FileUtils.remove_entry(tmp_root) if File.exist?(tmp_root)
+    end
+
+    it "removes the on-disk file when the note is destroyed directly" do
+      note = create(:note, project: project, tenant: tenant, path: "solo.md")
+      NotesFilesystem.write(note, "body")
+      file_path = NotesFilesystem.absolute_path_for(note)
+      expect(File.exist?(file_path)).to be true
+
+      note.destroy!
+
+      expect(File.exist?(file_path)).to be false
+    end
+  end
 end

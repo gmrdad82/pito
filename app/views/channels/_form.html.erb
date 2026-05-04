@@ -11,16 +11,16 @@
             pattern: "https://www\\.youtube\\.com/channel/UC[A-Za-z0-9_-]{22}",
             required: true,
             style: "width: 100%; max-width: 480px;" %>
-      <p class="text-muted" style="margin-top: 4px; font-size: 11px;">
+      <p class="form-hint" style="margin-top: 4px; font-size: 11px;">
         must match
-        <code>https://www.youtube.com/channel/UC&lt;22 chars&gt;</code>
+        <code>https://www.youtube.com/channel/UC&lt;22 chars&gt;</code>.
       </p>
     </div>
   <% else %>
     <div style="margin-bottom: 8px;">
       <label>youtube channel url</label>
       <input type="text" value="<%= channel.channel_url %>" readonly disabled style="width: 100%; max-width: 480px;">
-      <p class="text-muted" style="margin-top: 4px; font-size: 11px;">url is locked after creation.</p>
+      <p class="form-hint" style="margin-top: 4px; font-size: 11px;">url is locked after creation.</p>
     </div>
   <% end %>
 

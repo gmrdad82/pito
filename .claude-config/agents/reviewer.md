@@ -96,6 +96,26 @@ Cover happy path first, then edge cases that the spec's Acceptance section calle
 Commands to roll back local state if the user wants to retry from scratch (db reset, branch checkout, fixtures rerun).
 ```
 
+### Playbook ending: User Validation section
+
+**Playbook ending: User Validation section.** Every playbook ends with a
+top-level `## User Validation` section. Steps inside it are pure UI/UX
+walkthrough — visiting URLs, clicking links, checking visual state, reading
+flash messages, observing form behavior. NO command-line prerequisites, NO
+`bin/rails`, NO `bundle exec`, NO file-system probes, NO log-tail diffs. The
+user reads this section without leaving the browser. Code-level prereqs (running
+`bin/dev`, seeding the DB, environment-variable setup) live in the EARLIER
+`## Manual test steps` section as a setup preamble — keep them out of
+`## User Validation`.
+
+Each User Validation step is one sentence framing what the user does, followed
+by what they should see. Pass/fail is observable from the browser alone.
+
+If the playbook covers a backend-only change with no UI surface, write "(this
+change has no user-facing surface; validation is via gates and the manual test
+steps above)" in the section body. Don't omit the section heading itself — the
+heading is structural.
+
 ### Bracket conventions in playbooks
 
 When writing playbook steps that reference UI actions or links:

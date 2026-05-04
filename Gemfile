@@ -68,6 +68,11 @@ group :development, :test do
   gem "faker"
   gem "shoulda-matchers"
   gem "webmock"
+  # parallel_tests: per-CPU Postgres test DBs (`pito_test`, `pito_test_2`, ...)
+  # plus the `parallel_rspec` runner. Run `bin/parallel_setup` once after a
+  # fresh checkout, then `bundle exec parallel_rspec spec/`. CI's `rails` job
+  # uses the same pair; see .github/workflows/ci.yml.
+  gem "parallel_tests"
 end
 
 group :development do

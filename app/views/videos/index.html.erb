@@ -14,13 +14,27 @@
 
   <% if @videos.any? %>
     <div data-controller="sortable-table">
-      <div data-bulk-select-target="actions" hidden style="margin-bottom: 6px;">
-        <span data-bulk-select-target="openHint"></span>
-        <span data-bulk-select-target="openAction" hidden></span>
-        <span data-bulk-select-target="count" hidden></span>
-        <span data-bulk-select-target="deleteAction" hidden></span>
-        &middot;
-        <%= render(BracketedLinkComponent.new(label: "cancel", href: "#", data: { action: "click->bulk-select#exitBulk" })) %>
+      <%# Phase B — bulk toolbar uses the leading-separator pattern.
+          Each `.action` span carries an `.action-sep` `&middot;` that
+          the controller hides on whichever action is first-visible.
+          See bulk_select_controller.js#_updateSeparators. %>
+      <div data-bulk-select-target="actions" hidden class="bulk-toolbar" style="margin-bottom: 6px;">
+        <span class="action" data-bulk-select-target="openHint">
+          <span class="action-sep" hidden>&middot;</span>
+        </span>
+        <span class="action" data-bulk-select-target="openAction" hidden>
+          <span class="action-sep" hidden>&middot;</span>
+        </span>
+        <span class="action" data-bulk-select-target="count" hidden>
+          <span class="action-sep" hidden>&middot;</span>
+        </span>
+        <span class="action" data-bulk-select-target="deleteAction" hidden>
+          <span class="action-sep" hidden>&middot;</span>
+        </span>
+        <span class="action">
+          <span class="action-sep" hidden>&middot;</span>
+          <%= render(BracketedLinkComponent.new(label: "cancel", href: "#", data: { action: "click->bulk-select#exitBulk" })) %>
+        </span>
       </div>
 
       <table data-sortable-table-target="table">
@@ -55,7 +69,7 @@
               <td class="num"><%= view_trend_indicator(video) %></td>
               <td class="num"><%= number_with_delimiter(video.total_likes) %></td>
               <td class="num"><%= number_with_delimiter(video.total_comments) %></td>
-              <td class="num"><span data-sort-value="<%= video.total_watch_time.to_i %>"><%= format_watch_time(video.total_watch_time) %></span></td>
+              <td class="num"><span data-sort-value="<%= video.total_watch_time.to_i %>"><%= format_video_watch_time(video.total_watch_time) %></span></td>
               <td class="num"><%= video.privacy_status&.sub("_video", "") || "—" %></td>
               <td class="num"><%= video.published_at&.strftime("%Y-%m-%d") %></td>
               <td class="num"><%= format_duration(video.duration_seconds) %></td>

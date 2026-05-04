@@ -300,44 +300,315 @@ All are comments — no behavior change.
 - Full RSpec suite + Rubocop remain green (comments-only changes should not
   affect either, but verify).
 
-### Test suite parallelization via `parallel_tests` gem
+### Footage API surface symmetry — namespace member actions under `/api/`
 
-**Trigger:** Architect surfaced 2026-05-04. RSpec suite is now 855 examples /
-27.4s and growing fast as Phase 4 lands. User asked about parallelization during
-the Phase A review and asked it be queued as a follow-up.
+**Trigger:** Reviewer surfaced 2026-05-04 during Phase B review.
 
-**Source:** Mid-Phase-4 conversation between user and architect after Phase A
-reviewer pass. The user floated the idea ("paralellie somehow the spec / test
-check phase, maybe split somehow on model, controllers, something or
-alphabetically...") and accepted the architect's recommendation of the
-`parallel_tests` gem.
+**Source:** Reviewer playbook
+`docs/orchestration/playbooks/2026-05-04-phase-4-project-workspace.md`
+non-blocking concern.
 
 **Summary:**
 
-Add `parallel_tests` to the `:development, :test` group. Configure to spawn N
-processes (default = CPU count, or pinned via `PARALLEL_TEST_PROCESSORS`), with
-per-process Postgres databases (`pito_test_1`, `pito_test_2`, etc.) created via
-`parallel_tests:setup`. Splits specs alphabetically by filename (default) or by
-runtime if `--group-by runtime` is used. Typical 3–5× speedup on multi-core
-hosts. CI's `rails` job in `.github/workflows/ci.yml` should also opt in via
-`bundle exec parallel_rspec spec/` (or equivalent) once verified locally.
+The footage JSON API has asymmetric URL surface. Collection actions (POST + GET)
+live at `/api/projects/:project_id/footages.json` and route to
+`app/controllers/api/footages_controller.rb`. Member actions (PATCH + DELETE)
+live at top-level `/footages/:id.json` and route to
+`app/controllers/footages_controller.rb` because they share the URL surface with
+the HTML edit/destroy flow. The Rust importer client
+(`extras/cli/src/footage/api/client.rs`) handles the asymmetry, but it's
+confusing and would simplify if all four actions lived under `/api/`.
 
 **Action:**
 
-1. Add `gem "parallel_tests"` to `:development, :test` group in `Gemfile`.
-2. Configure `config/database.yml` test block with
-   `<%= ENV["TEST_ENV_NUMBER"] %>` suffix on `database:`.
-3. Add `bin/parallel_setup` script (or the equivalent rake task wiring) to
-   create per-process databases.
-4. Update CI `rails` job to invoke `parallel_rspec` instead of `rspec`.
-5. Verify locally: `bundle exec parallel_rspec spec/` runs green, and
-   `RAILS_ENV=test bin/rails db:drop` cleanly drops all `pito_test_*` databases.
+- Move the JSON formats of `update` and `destroy` from `FootagesController` to
+  `Api::FootagesController` (member actions). Update routes so
+  `PATCH /api/footages/:id.json` and `DELETE /api/footages/:id.json` exist
+  alongside the existing collection actions. Keep the HTML edit/destroy flow at
+  top-level (`PATCH /footages/:id` HTML, no .json variant). Update the Rust
+  client's PATCH and DELETE URL paths to match. Refresh the spec §7.5 amendment
+  to reflect the symmetric design.
 
 **Verification:**
 
-Local runtime delta documented in `docs/plans/beta/04-project-workspace/log.md`.
-CI runtime delta visible in the next `rails` job run on `main`. No new flakiness
-over a 5-run sample.
+- `cargo test` in `extras/cli/` green.
+- `bundle exec rspec spec/requests/api/footages_spec.rb` covers all four CRUD
+  methods.
+- End-to-end: `pito footage import` creates / updates / deletes against
+  `bin/dev` without 404s.
+
+### CodeMirror 6 importmap pinning
+
+**Trigger:** Reviewer surfaced 2026-05-04 during Phase B review. Implementation
+choice during `pito-rails #app` deferred CM6 packaging.
+
+**Source:** Phase 4 spec §9.5 + log.md `### Phase B — App code` entry.
+
+**Summary:**
+
+The Stimulus `codemirror_controller.js` mounts CM6 in markdown mode on a
+`<textarea>`. The current implementation uses dynamic imports with a textarea
+fallback so the surface is usable today even without CM6 packages pinned. To get
+the actual CodeMirror 6 editor surface (markdown highlighting, line numbers, the
+editing UX the spec describes), pin the four CM6 packages in
+`config/importmap.rb` and verify the controller's dynamic import resolves to the
+pinned modules.
+
+**Action:**
+
+- Add `pin "codemirror"` (or whichever exact package name is current), plus the
+  markdown mode + view + state + commands packages, to `config/importmap.rb`.
+  Test that the controller upgrades from textarea fallback to full CM6 in
+  `bin/dev`. Take a smoke screenshot of a footage description edit + a note edit
+  before committing.
+
+**Verification:**
+
+- Open a project's notes pane in `bin/dev`. The note editor renders CM6 (line
+  numbers visible, markdown syntax highlighting active). Same for the footage
+  description edit form. Existing system specs still green.
+
+### Agent definition sync — install monolith renames into `~/.claude/`
+
+**Trigger:** Architect noticed 2026-05-04 during Phase B closing review. Quiet
+drift between `.claude-config/agents/` (repo) and `~/.claude/agents/` (runtime).
+
+**Source:** Mid-Phase-4 conversation between user and architect during Phase B
+reviewer pass. Confirmed via `ls .claude-config/agents/` vs
+`ls ~/.claude/agents/`.
+
+**Summary:** During the monolith pivot the four `pito-*` agent files were
+renamed to `<lane>-impl` style and a new `website-impl` agent was added. Those
+changes landed in `.claude-config/agents/` (the repo source of truth) but were
+never installed into `~/.claude/agents/` (the Claude Code runtime). The runtime
+still has the legacy `pito-mcp.md`, `pito-rails.md`, `pito-sh-impl.md` from the
+four-repo era. All Phase 4 dispatches in this session ran via the legacy names
+because those are what's actually live; the renamed files in the repo have been
+inert. Functionally it works (legacy files still describe the agents correctly),
+but post-monolith updates to the renamed files don't reach the runtime, and the
+new `website-impl` agent isn't available at all.
+
+**Action:** Three steps, run from `/home/catalin/Dev/pito/`:
+
+1. `./docs/orchestration/scripts/install-claude-config.sh` — installs the new
+   and renamed files (`cli-impl.md`, `mcp-impl.md`, `rails-impl.md`,
+   `website-impl.md`) into `~/.claude/agents/`. The script is mtime-safe and
+   idempotent; it never deletes.
+2. Manually remove the orphaned legacy files (the script doesn't auto-delete to
+   protect user-installed agents):
+   ```
+   rm ~/.claude/agents/pito-mcp.md \
+      ~/.claude/agents/pito-rails.md \
+      ~/.claude/agents/pito-sh-impl.md
+   ```
+3. Restart Claude Code so the agent registry picks up the new names.
+
+**Verification:** New session opens with `cli-impl`, `mcp-impl`, `rails-impl`,
+and `website-impl` available as `subagent_type` values. Old `pito-*` names no
+longer match. `ls ~/.claude/agents/` shows nine files matching
+`.claude-config/agents/`. Architect dispatches in the next session use the
+renamed names without falling back to legacy stubs.
+
+> **Timing.** Run AT THE END of the current session (after the Phase B commit +
+> push) OR AS THE FIRST THING in the next session — either path ensures the next
+> session starts with synced agent definitions. Don't run mid-session: a partial
+> registry refresh while agent dispatches are in flight could confuse Claude
+> Code's name resolution.
+
+> **Future enhancement (separate follow-up if it sticks):** add a `--prune` flag
+> to `install-claude-config.sh` that deletes `~/.claude/agents/*.md` files
+> without a counterpart in `.claude-config/`. Gated behind the flag because the
+> script's current "never deletes" property protects user-installed agents that
+> don't live in this repo.
+
+### Meilisearch indexing parity with Voyage per-target flags
+
+**Trigger:** User surfaced 2026-05-04 alongside the Voyage AppSetting revamp
+dispatch (project-workspace log entry: "Voyage revamp: encrypted key on
+AppSetting + per-target flags").
+
+**Source:** Mid-Phase-4 conversation — the same shape the user wanted for Voyage
+(per-target Boolean flags instead of a single all-or-nothing boolean) should
+apply to Meilisearch indexing.
+
+**Summary:** Meilisearch currently indexes channels and videos via background
+jobs (the existing pre-Phase-4 search infrastructure). Phase 4 added
+project-notes indexing on top, dual-writing alongside the Voyage pgvector
+pipeline. As more index targets land (notes from videos, video metadata
+enrichment, channel metadata enrichment), the indexing surface needs the same
+per-target on/off control Voyage just got. Today's `[ reindex ]` button on the
+search fieldset is all-or-nothing: it triggers a sweep without distinguishing
+which target. The user wants per-target reindex buttons + per-target enable
+flags so we can develop / tune one index target without disturbing others.
+
+**Action:** Add per-target Boolean columns to AppSetting matching the Voyage
+shape — e.g., `meilisearch_index_channels`, `meilisearch_index_videos`,
+`meilisearch_index_project_notes` (more added as new index targets ship). Update
+the existing Meilisearch reindex job(s) to honor those flags (if a target's flag
+is false, skip its reindex sweep). Update the `search` fieldset on the Settings
+page to expose per-target toggles AND per-target `[ reindex <target> ]` buttons.
+Pick a representation for the indexed-document counts shown today — they
+currently display per-index (channels_development, channels_test,
+videos_development, videos_test). When project-notes-indexing lands its own
+count, surface it the same way.
+
+**Verification:**
+
+1. Toggling `meilisearch_index_channels` to false then triggering channel sync
+   (or hitting the channels reindex job directly) does NOT touch Meilisearch.
+2. Per-target `[ reindex ]` button under the search fieldset reindexes only that
+   target.
+3. The all-or-nothing `[ reindex ]` button is removed (or repurposed as "reindex
+   all enabled targets").
+4. Specs cover each target's no-op branch (flag false → no Meilisearch HTTP) and
+   active branch.
+5. The `voyage:smoke_test` rake task gets a `meilisearch:smoke_test` sibling
+   that probes connectivity without doing a full reindex.
+6. Settings UI displays the indexed-document counts per target alongside the
+   toggle.
+
+> **Pairs with the Voyage revamp.** This follow-up should be tackled together
+> with — or shortly after — the Voyage AppSetting revamp lands, so the Settings
+> page's "search" and "voyage" fieldsets stay structurally parallel. Both use
+> per-target Boolean flags; both surface per-target action buttons; both share
+> the same UI affordances.
+
+### Re-prefix Pito agents with `pito-*` for multi-project clarity
+
+- **Trigger:** User surfaced 2026-05-04 after evaluating a parallel Claude-agent
+  setup in another project (Fepra) that prefixes all its agents with `fepra-*`.
+- **Source:** Mid-Phase-4 conversation between user and architect. Fepra's
+  analysis flagged the prefix as collision-avoidance against the OLD `pito-*`
+  allow-list; with pito's monolith rename to unprefixed names (`architect-spec`,
+  `cli-impl`, etc.), there's no collision today, BUT the asymmetric naming makes
+  `~/.claude/agents/` harder to grok at a glance — `architect-spec.md` is
+  anonymously pito's; `fepra-architect.md` is explicitly fepra's.
+- **Summary:** Re-prefix Pito's nine agents to `pito-*` so cross-project
+  ownership is grep-able and future projects can join the host shell without
+  contention. Renames: `architect-spec` → `pito-architect-spec`; `audit-state` →
+  `pito-audit-state`; `cli-impl` → `pito-cli-impl`; `docs-keeper` →
+  `pito-docs-keeper`; `mcp-impl` → `pito-mcp-impl`; `rails-impl` →
+  `pito-rails-impl`; `reviewer` → `pito-reviewer`; `security-auditor` →
+  `pito-security-auditor`; `website-impl` → `pito-website-impl`. (Or pick a
+  shorter prefix like `p-` if `pito-` feels long — implementer's call.) Update
+  every `subagent_type:` reference in `CLAUDE.md`,
+  `docs/orchestration/agents.md`, all dispatch documentation in the architect's
+  playbook, and any `.claude-config/commands/` or `.claude-config/skills/` that
+  reference agent names. Run `install-claude-config.sh` to install the renamed
+  files into `~/.claude/agents/`. Manually delete the orphaned unprefixed files
+  from `~/.claude/agents/` (the install script doesn't auto-delete — see the
+  related `--prune` follow-up).
+- **Action:**
+  1. Rename files in `<repo>/.claude-config/agents/` (`git mv` to preserve
+     history).
+  2. Update agent self-references inside the renamed files (each file's
+     frontmatter `name:` field, and any `Subagent reference:` cross-pointers in
+     the prompt body).
+  3. Sweep `CLAUDE.md`, `docs/orchestration/agents.md`,
+     `docs/orchestration/lanes.md`, `docs/orchestration/follow-ups.md`,
+     `docs/plans/beta/<phase>/log.md` and update mentions where they appear in
+     user-facing copy. Don't rewrite historical log entries — those are frozen
+     records of past dispatches that used the old names.
+  4. Run `./docs/orchestration/scripts/install-claude-config.sh --yes` to
+     install the renamed files into `~/.claude/agents/`.
+  5. After confirming the new names work in a fresh Claude Code session,
+     manually delete the orphaned unprefixed files from `~/.claude/agents/` (or
+     use the `--prune` flag if the related follow-up has landed by then).
+- **Verification:** A new Claude Code session in `~/Dev/pito/` opens with
+  `pito-architect-spec`, `pito-cli-impl`, etc. available as `subagent_type`
+  values. The unprefixed names no longer match.
+  `ls ~/.claude/agents/ | grep pito-` shows nine files. Architect dispatches in
+  the next session use the prefixed names without falling back to the old
+  unprefixed stubs.
+
+> **Timing.** Bundle with the next agent-sync pass — not urgent. Coordinate with
+> the `--prune` follow-up so both edits land in one cycle and the orphaned
+> unprefixed files get cleaned up automatically.
+
+### Implement `--prune` flag on `install-claude-config.sh`
+
+- **Trigger:** User surfaced 2026-05-04 alongside the agent re-prefix follow-up.
+  Originally captured as a future enhancement sub-bullet under the agent-sync
+  follow-up; promoted to its own entry now that Fepra and future multi-project
+  sync make it more pressing.
+- **Source:** Architect's evaluation of Fepra's parallel Claude setup. The
+  accumulating-orphans problem is generic to any repo with a sync script that
+  "never deletes" — Fepra will hit it too once their script lands.
+- **Summary:** Add a `--prune` flag to
+  `docs/orchestration/scripts/install-claude-config.sh` that deletes any
+  `~/.claude/agents/<name>.md` (and `commands/`, `skills/`) that doesn't have a
+  counterpart in this repo's `.claude-config/`. Critical safety property: the
+  prune is scoped to THIS repo's allow-list — `--prune` from pito's script never
+  touches `fepra-*.md` or any other project's files. Implementation: collect the
+  source file names from `<repo>/.claude-config/{agents,commands,skills}/`; for
+  each `~/.claude/{agents,commands,skills}/` file, if its name matches a "this
+  could plausibly belong to this repo" pattern (e.g. unprefixed for current pito
+  naming, or `pito-*` after the re-prefix follow-up), AND it's NOT in the source
+  list, delete it. Files that match neither pattern (e.g. `fepra-*.md`) are LEFT
+  ALONE. The current "never deletes" property is preserved by default; `--prune`
+  is opt-in.
+- **Action:**
+  1. Update `install-claude-config.sh` to accept a `--prune` flag.
+  2. Define the "this repo's namespace" predicate. Today: any unprefixed name.
+     Post-rename: `^pito-`. Capture in a top-of-script variable so it's easy to
+     update.
+  3. The prune step runs AFTER the install step so the new files are guaranteed
+     to exist before potentially-orphaned old files are removed.
+  4. Add a `--dry-run` interaction with `--prune`: print which files WOULD be
+     deleted, exit without deleting.
+  5. Update the script header comment + the `README.md` in the same directory.
+- **Verification:** Running `install-claude-config.sh --prune --dry-run` from a
+  checkout that has dropped `mcp-impl.md` (e.g. mid-rename) prints
+  `WOULD DELETE ~/.claude/agents/mcp-impl.md` and exits without changing
+  anything. Running `--prune` (no dry-run) actually deletes it. Files matching
+  `fepra-*.md` are NEVER listed as deletion candidates regardless of flag
+  combinations.
+
+> **Timing.** Pair with the agent re-prefix follow-up — the prune step handles
+> the cleanup of unprefixed orphans automatically once both land.
+
+### `pito footage import` runtime validation against live `app.pitomd.com`
+
+- **Trigger:** User surfaced 2026-05-04 during Phase B end-of-validation
+  walkthrough. Running
+  `pito footage import --project 5 --path /home/catalin/Footage` in the terminal
+  returned `error: GET existing footage for project 5`. Cloudflared tunnel logs
+  showed `stream X canceled by remote with error code 0` against the upstream
+  Rails server.
+- **Source:** Mid-Phase-4 conversation between user and architect after the
+  Phase B body was ready to commit. The Rust client's URL contract was corrected
+  mid-session (`/projects/<id>/footage.json` →
+  `/api/projects/<id>/footages.json`) — see the post-review fixes in
+  `docs/plans/beta/04-project-workspace/log.md`. The local binary the user was
+  running pre-dates that fix.
+- **Summary:** The Rust source code IS correct as of the Phase B commit; the
+  in-flight binary on the user's machine was built BEFORE the URL contract
+  correction. After the Phase B commit lands and the `pito-cli-publish.yml`
+  workflow runs on `main`, a fresh `pito-<short-sha>` release ships with the
+  corrected URLs. The user needs to download that fresh binary (via the
+  `[ download cli ]` link on a project's footage pane in production, OR a fresh
+  local `cargo build --release` from `extras/cli/`) before retrying the import
+  flow.
+- **Action:**
+  1. Wait for Phase B commit + push to fire
+     `.github/workflows/pito-cli-publish.yml`.
+  2. Verify the workflow created `pito-<sha>` release with the binary.
+  3. Either download via `[ download cli ]` from the production dashboard, or
+     rebuild locally via
+     `cargo build --release --manifest-path extras/cli/Cargo.toml`.
+  4. Re-run `pito footage import --project <id> --path <dir>` against `bin/dev`
+     first (lower stakes), then against `app.pitomd.com`.
+- **Verification:**
+  1. The `GET` to `/api/projects/<id>/footages.json` returns 200 with the
+     existing-footage list (empty array on first run).
+  2. The TUI confirmation overlay renders the per-file diff classification
+     (additions / changes / deletions).
+  3. Confirming via `y` posts each file via
+     `POST /api/projects/<id>/ footages.json` (collection action) and the rows
+     appear in the Project's Footage pane after the run completes.
+  4. If the Cloudflared tunnel still surfaces stream-cancel errors, investigate
+     as a separate concern — possibly request body size limits, timeout, or
+     Rails-side strong-params rejection.
 
 ## Done
 

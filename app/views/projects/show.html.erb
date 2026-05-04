@@ -1,0 +1,40 @@
+<% page_label = @project.name %>
+<% content_for(:title, page_label) %>
+<% breadcrumb(["projects", projects_path], page_label) %>
+<% content_for(:breadcrumb_actions) do %>
+  <%= render(BracketedLinkComponent.new(label: "delete", href: "/deletions/project/#{@project.id}", destructive: true)) %>
+<% end %>
+
+<div style="margin-bottom: 6px;">
+  <h1 style="display: inline;"><%= @project.name %></h1>
+</div>
+
+<%= form_with(model: @project, url: project_path(@project), method: :patch) do |f| %>
+  <table class="detail-table" style="margin-bottom: 8px;">
+    <tr>
+      <td class="text-muted" style="padding-right: 12px;">name</td>
+      <td>
+        <%= f.text_field :name, style: "width: 320px;" %>
+      </td>
+    </tr>
+    <tr>
+      <td class="text-muted" style="padding-right: 12px; vertical-align: top;">concept</td>
+      <td>
+        <%= f.text_area :concept, rows: 3, style: "width: 100%; max-width: 600px;" %>
+      </td>
+    </tr>
+  </table>
+  <button type="submit">[<b>save</b>]</button>
+<% end %>
+
+<div class="pane-container" style="margin-top: 16px;">
+  <div class="pane-wrapper">
+    <%= render "projects/footage_pane", project: @project, footages: @footages %>
+  </div>
+  <div class="pane-wrapper">
+    <%= render "projects/notes_pane", project: @project, notes: @notes, locked: @notes_locked %>
+  </div>
+  <div class="pane-wrapper">
+    <%= render "projects/timelines_pane", project: @project, timelines: @timelines %>
+  </div>
+</div>

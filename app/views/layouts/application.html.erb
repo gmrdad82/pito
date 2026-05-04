@@ -30,9 +30,9 @@
         <a href="/" style="text-decoration: none; display: flex; align-items: center; line-height: 0;" aria-label="Dashboard">
           <img src="/Pito.png" alt="Pito" class="header-logo">
         </a>
-        <nav style="display: flex; align-items: center; gap: 4px;"><span class="hide-mobile"><%= nav_link "home", root_path %> <span class="text-muted">&middot;</span> </span><%= nav_link "channels", channels_path %> <span class="text-muted">&middot;</span> <%= nav_link "videos", videos_path %> <span class="text-muted">&middot;</span> <%= nav_link "settings", settings_path %></nav>
-        <span class="text-muted hide-mobile" style="margin-left: 6px;">&middot;</span>
-        <%= form_with url: search_path, method: :get, class: "search-form", style: "display: flex; align-items: center; gap: 4px; margin-left: 4px;", data: { turbo_action: "replace" } do %>
+        <nav style="display: flex; align-items: center; gap: 4px;"><span class="hide-mobile"><%= nav_link "home", root_path %> <span class="text-muted">&middot;</span> </span><%= nav_link "channels", channels_path, short: "C" %> <span class="text-muted">&middot;</span> <%= nav_link "videos", videos_path, short: "V" %> <span class="text-muted">&middot;</span> <%= nav_link "projects", projects_path, short: "P" %> <span class="text-muted">&middot;</span> <%= nav_link "settings", settings_path, short: "S" %></nav>
+        <span class="text-muted hide-mobile">&middot;</span>
+        <%= form_with url: search_path, method: :get, class: "search-form", style: "display: flex; align-items: center; gap: 4px;", data: { turbo_action: "replace" } do %>
           <input type="text" name="q" value="<%= params[:q] %>" placeholder="search..." autocomplete="off" class="search-input" style="width: 200px; height: 22px; font-size: 13px; padding: 0 6px; border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-text); font-family: inherit;">
           <button type="submit" class="bracketed hide-mobile" style="white-space: nowrap;">[<span class="bl">search</span>]</button>
         <% end %>
@@ -40,16 +40,12 @@
       </div>
     </header>
 
+    <%= render "shared/flash_toasts" %>
+
     <div style="padding-top: 36px;">
       <main style="padding: 8px 12px;">
         <% if content_for?(:breadcrumbs) %>
           <nav style="margin-bottom: 6px; display: flex; align-items: baseline; gap: 6px;"><%= yield :breadcrumbs %><% if content_for?(:breadcrumb_actions) %><span class="text-muted">&middot;</span><%= yield :breadcrumb_actions %><% end %></nav>
-        <% end %>
-        <% if flash[:notice] %>
-          <div class="flash-notice" style="margin-bottom: 8px; padding: 4px 8px;"><%= flash[:notice] %></div>
-        <% end %>
-        <% if flash[:alert] %>
-          <div class="flash-error" style="margin-bottom: 8px; padding: 4px 8px;"><%= flash[:alert] %></div>
         <% end %>
         <%= yield %>
       </main>
@@ -57,7 +53,7 @@
 
     <footer style="border-top: 1px solid var(--color-border); padding: 8px 12px; margin-top: 24px;">
       <div style="display: flex; align-items: center; gap: 4px; font-size: 11px; flex-wrap: wrap;">
-        <span class="hide-mobile"><%= nav_link "home", root_path %> <span class="text-muted">&middot;</span> </span><%= nav_link "channels", channels_path %> <span class="text-muted">&middot;</span> <%= nav_link "videos", videos_path %> <span class="text-muted">&middot;</span> <%= nav_link "settings", settings_path %> <span class="text-muted">&middot;</span>
+        <span class="hide-mobile"><%= nav_link "home", root_path %> <span class="text-muted">&middot;</span> </span><%= nav_link "channels", channels_path, short: "C" %> <span class="text-muted">&middot;</span> <%= nav_link "videos", videos_path, short: "V" %> <span class="text-muted">&middot;</span> <%= nav_link "projects", projects_path, short: "P" %> <span class="text-muted">&middot;</span> <%= nav_link "settings", settings_path, short: "S" %> <span class="text-muted">&middot;</span>
         <a href="/" style="display: flex; align-items: center; gap: 4px; text-decoration: none; color: inherit;"><img src="/Pito.png" alt="Pito" style="height: 10px; width: auto; display: block; position: relative; top: -1px;"></a>
         <span class="text-muted">&copy; <%= Date.current.year %><span class="hide-mobile"> &mdash; all rights reserved.</span></span>
         <span class="text-muted" style="margin-left: auto;"><%= version_label %></span>
@@ -76,7 +72,7 @@
             <tr><td><span class="keycap">/</span></td><td>focus search</td></tr>
             <tr><td><span class="keycap">?</span></td><td>show this dialog</td></tr>
           </table>
-          <p class="text-muted" style="margin-top: 8px; font-size: 11px;">shortcuts are disabled when typing in inputs.</p>
+          <p class="form-hint" style="margin-top: 8px; font-size: 11px;">shortcuts are disabled when typing in inputs.</p>
         </div>
       </dialog>
     </div>

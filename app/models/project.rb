@@ -23,4 +23,18 @@ class Project < ApplicationRecord
   # this keeps Project.new (no name) rendering the same default in spec
   # introspection without going through the DB.
   attribute :name, :string, default: "Untitled project"
+
+  # Phase B (2026-05-04) — after every Note has been destroyed (and each
+  # one's on-disk file removed via Note#before_destroy), nuke the now-empty
+  # per-project notes directory. Runs after the DB transaction commits so
+  # we never orphan a directory deletion if the destroy is rolled back.
+  after_destroy_commit :delete_notes_directory
+
+  private
+
+  def delete_notes_directory
+    NotesFilesystem.delete_project_dir(self)
+  rescue StandardError => e
+    Rails.logger.warn("Project##{id} notes dir cleanup failed: #{e.class}: #{e.message}")
+  end
 end

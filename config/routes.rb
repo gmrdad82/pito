@@ -38,16 +38,23 @@ Rails.application.routes.draw do
       get :stats
     end
   end
-  # Phase 4 — Project Workspace. Phase A lands the route shells so
-  # `projects_path` and friends resolve before Phase B's nav/header edits
-  # fire. Controller bodies (other than the importer download stub) are
-  # Phase B work.
-  resources :projects
+  # Phase 4 — Project Workspace. Phase A landed the route shells; Phase B
+  # fills in the controller bodies and adds nested create routes for notes
+  # and timelines (default-create lives on the parent project — §6.2/§11.1).
+  resources :projects do
+    resources :notes, only: [ :create ]
+    resources :timelines, only: [ :create ]
+  end
   resources :collections
   resources :games
-  resources :footages
-  resources :notes
-  resources :timelines
+  resources :footages, only: [ :index, :show, :edit, :update, :destroy ]
+  resources :notes, only: [ :index, :show, :edit, :update, :destroy ] do
+    collection do
+      # Phase 4 §6.4 — `[ scan now ]` enqueues NoteSyncJob.
+      post :scan
+    end
+  end
+  resources :timelines, only: [ :index, :show, :update, :destroy ]
 
   # Importer download endpoint — single controller, branches on Rails.env
   # in Phase B. Route shell lands now (§14 step 8 ordering); controller body

@@ -1,13 +1,13 @@
 <% content_for(:title, "deleting #{@type.pluralize}") %>
-<% breadcrumb([@type.pluralize, cancel_path_for(@type)], "deleting #{@items.length} #{@type}#{'s' if @items.length != 1}") %>
+<% breadcrumb([@type.pluralize, cancel_path_for(@type)], "deleting #{number_with_delimiter(@items.length)} #{@type}#{'s' if @items.length != 1}") %>
 
 <%= turbo_stream_from "bulk_operation_#{@operation.id}" %>
 
 <div style="margin-bottom: 8px;" data-controller="operation-progress" data-operation-progress-url-value="<%= status_bulk_operation_path(@operation, format: :json) %>" data-operation-progress-total-value="<%= @items.length %>">
-  <h1>deleting <%= @items.length %> <%= @type %><%= 's' if @items.length != 1 %></h1>
+  <h1>deleting <%= number_with_delimiter(@items.length) %> <%= @type %><%= 's' if @items.length != 1 %></h1>
   <div id="operation_progress" style="margin-top: 2px;">
     <% bar_width = 30 %>
-    <span class="text-muted">[<%= "." * bar_width %>] 0/<%= @items.length %></span>
+    <span class="text-muted">[<%= "." * bar_width %>] 0/<%= number_with_delimiter(@items.length) %></span>
   </div>
 </div>
 
@@ -42,14 +42,14 @@
           <td title="<%= item.channel_url %>" style="max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><%= item.channel_url %></td>
           <td class="num"><%= item.star? ? "yes" : "no" %></td>
           <td class="num"><%= item.connected? ? "yes" : "no" %></td>
-          <td class="num"><%= item.videos.count %></td>
+          <td class="num"><%= number_with_delimiter(item.videos.count) %></td>
         <% elsif @type == "video" && item %>
           <td style="max-width: 280px; overflow: hidden; text-overflow: ellipsis;"><%= item.title %></td>
           <td><%= item.channel&.channel_url %></td>
           <td class="num"><%= number_with_delimiter(item.total_views) %></td>
           <td class="num"><%= number_with_delimiter(item.total_likes) %></td>
           <td class="num"><%= number_with_delimiter(item.total_comments) %></td>
-          <td class="num"><%= format_watch_time(item.total_watch_time) %></td>
+          <td class="num"><%= format_video_watch_time(item.total_watch_time) %></td>
           <td class="num"><%= item.privacy_status&.sub("_video", "") || "—" %></td>
           <td class="num"><%= item.published_at&.strftime("%Y-%m-%d") %></td>
           <td class="num"><%= format_duration(item.duration_seconds) %></td>

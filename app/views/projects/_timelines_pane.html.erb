@@ -1,0 +1,32 @@
+<%# Phase 4 §9.1, §11.1 — Timelines pane on the project show page.
+  Locals: project, timelines
+%>
+
+<div style="display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px;">
+  <h2>timelines (<%= number_with_delimiter(timelines.size) %>)</h2>
+  <span class="text-muted">&middot;</span>
+  <%= button_to project_timelines_path(project), form: { style: "display: inline;", data: { turbo: false } }, class: "bracketed", method: :post do %>[<span class="bl">add</span>]<% end %>
+</div>
+
+<% if timelines.any? %>
+  <table>
+    <thead>
+      <tr>
+        <th>title</th>
+        <th>state</th>
+        <th>created</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% timelines.each do |timeline| %>
+        <tr>
+          <td><%= timeline.title %></td>
+          <td><%= timeline.state %></td>
+          <td class="num"><%= timeline.created_at.strftime("%Y-%m-%d") %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% else %>
+  <p class="text-muted">no timelines yet.</p>
+<% end %>

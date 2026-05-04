@@ -1,0 +1,25 @@
+<% content_for(:title, @footage.filename) %>
+<% breadcrumb(["projects", projects_path], [@footage.project.name, project_path(@footage.project)], @footage.filename) %>
+<% content_for(:breadcrumb_actions) do %>
+  <%= render(BracketedLinkComponent.new(label: "edit", href: edit_footage_path(@footage))) %>
+<% end %>
+
+<h1><%= @footage.filename %></h1>
+
+<table class="detail-table">
+  <tr><td class="text-muted">kind</td><td><%= @footage.kind %></td></tr>
+  <tr><td class="text-muted">source</td><td><%= @footage.source %></td></tr>
+  <tr><td class="text-muted">platform</td><td><%= @footage.platform || "—" %></td></tr>
+  <tr><td class="text-muted">local path</td><td><%= @footage.local_path %></td></tr>
+  <tr><td class="text-muted">nas path</td><td><%= @footage.nas_path || "—" %></td></tr>
+  <tr><td class="text-muted">duration</td><td><%= format_duration(@footage.duration_seconds) %></td></tr>
+  <tr><td class="text-muted">resolution</td><td><%= @footage.resolution || "—" %></td></tr>
+  <tr><td class="text-muted">fps</td><td><%= @footage.fps || "—" %></td></tr>
+  <tr><td class="text-muted">codec</td><td><%= @footage.codec || "—" %></td></tr>
+  <tr><td class="text-muted">bit depth</td><td><%= @footage.bit_depth %></td></tr>
+  <tr><td class="text-muted">color profile</td><td><%= @footage.color_profile || "—" %></td></tr>
+  <tr><td class="text-muted">orientation</td><td><%= @footage.orientation || "—" %></td></tr>
+  <tr><td class="text-muted">audio tracks</td><td><%= @footage.audio_track_count || 0 %></td></tr>
+  <tr><td class="text-muted">commentary</td><td><%= YesNo.to_yes_no(@footage.has_commentary_track) %></td></tr>
+  <tr><td class="text-muted">recorded at</td><td><%= @footage.recorded_at&.strftime("%Y-%m-%d %H:%M") || "—" %></td></tr>
+</table>

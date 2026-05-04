@@ -1,9 +1,9 @@
 <% content_for(:title, "delete #{@type.pluralize}") %>
-<% breadcrumb([@type.pluralize, cancel_path_for(@type)], "delete #{@items.length} #{@type}#{'s' if @items.length != 1}") %>
+<% breadcrumb([@type.pluralize, cancel_path_for(@type)], "delete #{number_with_delimiter(@items.length)} #{@type}#{'s' if @items.length != 1}") %>
 
 <div id="delete-content">
   <div style="margin-bottom: 8px;">
-    <h1>delete <%= @items.length %> <%= @type %><%= 's' if @items.length != 1 %></h1>
+    <h1>delete <%= number_with_delimiter(@items.length) %> <%= @type %><%= 's' if @items.length != 1 %></h1>
     <p class="text-muted" style="margin-top: 2px;">this will permanently remove <%= @items.length == 1 ? 'this' : 'these' %> <%= @type %><%= 's' if @items.length != 1 %> and all associated data.</p>
   </div>
 
@@ -11,13 +11,14 @@
     <thead>
       <tr>
         <th class="col-action"></th>
-        <% if @type == "channel" %>
+        <% case @type %>
+        <% when "channel" %>
           <th>url</th>
           <th class="num">starred</th>
           <th class="num">connected</th>
           <th class="num">last sync</th>
           <th class="num">videos</th>
-        <% else %>
+        <% when "video" %>
           <th>title</th>
           <th>channel</th>
           <th class="num">views</th>
@@ -28,6 +29,26 @@
           <th class="num">state</th>
           <th class="num">date</th>
           <th class="num">length</th>
+        <% when "project" %>
+          <th>name</th>
+          <th class="num">footage</th>
+          <th class="num">notes</th>
+          <th class="num">timelines</th>
+        <% when "collection" %>
+          <th>name</th>
+          <th class="num">games</th>
+        <% when "game" %>
+          <th>title</th>
+          <th>publisher</th>
+          <th>collection</th>
+        <% when "note" %>
+          <th>title</th>
+          <th>project</th>
+          <th class="num">last modified</th>
+        <% when "timeline" %>
+          <th>title</th>
+          <th>project</th>
+          <th class="num">state</th>
         <% end %>
       </tr>
     </thead>
@@ -35,7 +56,8 @@
       <% @items.each do |item| %>
         <tr>
           <td class="col-action">&nbsp;&nbsp;&nbsp;&nbsp;</td>
-          <% if @type == "channel" %>
+          <% case @type %>
+          <% when "channel" %>
             <td title="<%= item.channel_url %>" style="max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><%= item.channel_url %></td>
             <td class="num"><%= item.star? ? "yes" : "no" %></td>
             <td class="num"><%= item.connected? ? "yes" : "no" %></td>
@@ -48,18 +70,38 @@
                 —
               <% end %>
             </td>
-            <td class="num"><%= item.videos.count %></td>
-          <% else %>
+            <td class="num"><%= number_with_delimiter(item.videos.count) %></td>
+          <% when "video" %>
             <td style="max-width: 280px; overflow: hidden; text-overflow: ellipsis;"><%= item.title %></td>
             <td><%= item.channel.channel_url %></td>
             <td class="num"><%= number_with_delimiter(item.total_views) %></td>
             <td class="num"><%= view_trend_indicator(item) %></td>
             <td class="num"><%= number_with_delimiter(item.total_likes) %></td>
             <td class="num"><%= number_with_delimiter(item.total_comments) %></td>
-            <td class="num"><%= format_watch_time(item.total_watch_time) %></td>
+            <td class="num"><%= format_video_watch_time(item.total_watch_time) %></td>
             <td class="num"><%= item.privacy_status&.sub("_video", "") || "—" %></td>
             <td class="num"><%= item.published_at&.strftime("%Y-%m-%d") %></td>
             <td class="num"><%= format_duration(item.duration_seconds) %></td>
+          <% when "project" %>
+            <td><%= item.name %></td>
+            <td class="num"><%= number_with_delimiter(item.footages.count) %></td>
+            <td class="num"><%= number_with_delimiter(item.notes.count) %></td>
+            <td class="num"><%= number_with_delimiter(item.timelines.count) %></td>
+          <% when "collection" %>
+            <td><%= item.name %></td>
+            <td class="num"><%= number_with_delimiter(item.games.count) %></td>
+          <% when "game" %>
+            <td><%= item.title %></td>
+            <td><%= item.publisher || "—" %></td>
+            <td><%= item.collection&.name || "—" %></td>
+          <% when "note" %>
+            <td><%= item.title %></td>
+            <td><%= item.project.name %></td>
+            <td class="num"><%= item.last_modified_at&.strftime("%Y-%m-%d %H:%M") %></td>
+          <% when "timeline" %>
+            <td><%= item.title %></td>
+            <td><%= item.project.name %></td>
+            <td class="num"><%= item.state %></td>
           <% end %>
         </tr>
       <% end %>

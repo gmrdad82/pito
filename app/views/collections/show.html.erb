@@ -1,0 +1,23 @@
+<% content_for(:title, @collection.name) %>
+<% breadcrumb(["collections", collections_path], @collection.name) %>
+
+<h1><%= @collection.name %></h1>
+
+<%= form_with(model: @collection, url: collection_path(@collection), method: :patch) do |f| %>
+  <div style="margin-bottom: 8px;">
+    <label>name</label>
+    <%= f.text_field :name, style: "width: 320px;" %>
+  </div>
+  <button type="submit">[<b>save</b>]</button>
+<% end %>
+
+<h2 style="margin-top: 16px;">games (<%= number_with_delimiter(@games.size) %>)</h2>
+<% if @games.any? %>
+  <ul>
+    <% @games.each do |game| %>
+      <li><%= link_to game.title, game_path(game) %></li>
+    <% end %>
+  </ul>
+<% else %>
+  <p class="text-muted">no games in this collection yet.</p>
+<% end %>
