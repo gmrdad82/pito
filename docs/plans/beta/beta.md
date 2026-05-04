@@ -446,28 +446,28 @@ opens.
 - 3. Channel Revamp — `03-channel-revamp/specs/channel-revamp.md` (folder
      replaces the original Auth Foundation slot for this number)
 - 4. **Project Workspace** — `04-project-workspace/` (to be created)
-- 5. Auth Foundation — `03-auth-foundation/03-plan.md`
+- 5. Auth Foundation — `03-auth-foundation/plan.md`
 - 6. Auth UI + Multi-User Readiness —
-     `12-auth-ui-multi-user-readiness/12-plan.md`
+     `12-auth-ui-multi-user-readiness/plan.md`
 - 7. Google OAuth + YouTube API Foundation —
      `07-google-oauth-youtube-foundation/plan.md`
 - 8. YouTube Data Sync — `08-youtube-data-sync/plan.md`
 - 9. Voyage Embeddings + Hybrid Search —
-     `10-voyage-embeddings-hybrid-search/10-plan.md`
-- 10. Video Workflow Features — `11-video-workflow-features/11-plan.md`
-- 11. App Stats / Observability — `13-app-stats-observability/13-plan.md`
-- 12. Backup / Restore Tooling — `14-backup-restore-tooling/14-plan.md`
-- 13. Slack Probe — `05-slack-probe/05-plan.md`
-- 14. Landing Page Tooling — `06-landing-page/06-plan.md`
-- 15. Security Hardening Pass — `15-security-hardening-pass/15-plan.md`
-- 16. Hetzner Deployment — `16-hetzner-deployment/16-plan.md`
+     `10-voyage-embeddings-hybrid-search/plan.md`
+- 10. Video Workflow Features — `11-video-workflow-features/plan.md`
+- 11. App Stats / Observability — `13-app-stats-observability/plan.md`
+- 12. Backup / Restore Tooling — `14-backup-restore-tooling/plan.md`
+- 13. Slack Probe — `05-slack-probe/plan.md`
+- 14. Landing Page Tooling — `06-landing-page/plan.md`
+- 15. Security Hardening Pass — `15-security-hardening-pass/plan.md`
+- 16. Hetzner Deployment — `16-hetzner-deployment/plan.md`
 
 Paused / dropped (not active phases):
 
-- Original Phase 4 — Terminal App `pito-sh` — `04-terminal-app/04-plan.md`
+- Original Phase 4 — Terminal App `pito-sh` — `04-terminal-app/plan.md`
   (PAUSED; will return to dictate the keyboard shortcut schema in a later phase)
 - Original Phase 9 — YouTube KB + Production Notes —
-  `09-youtube-kb-production-notes/09-plan.md` (DROPPED 2026-05-03; channel/
+  `09-youtube-kb-production-notes/plan.md` (DROPPED 2026-05-03; channel/
   video notes reuse the Phase 4 — Project Workspace project-notes pattern)
 
 ---

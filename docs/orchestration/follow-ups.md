@@ -186,6 +186,120 @@ remote:      https://github.com/gmrdad82/pito/security/dependabot/1
 hygiene rather than letting it sit. Same approach for any future Dependabot
 alerts on the `pito` repo.
 
+### CI cli job working-directory
+
+**Trigger:** any future CI sweep, OR the next time `.github/workflows/ci.yml` is
+touched. Queued for the post-Phase-4 follow-up sweep.
+
+**Source:** reviewer playbook
+`docs/orchestration/playbooks/2026-05-04-monolith-pivot.md` concern #4.
+
+**Summary:**
+
+`.github/workflows/ci.yml` sets `working-directory: extras/cli` for the cli job.
+That works for `cargo build` / `cargo test` / `cargo clippy` / `cargo audit`,
+but it means workspace-root clippy is never exercised in CI. Workspace-wide
+changes (e.g. a workspace `Cargo.toml` at the repo root) won't be linted.
+
+**Action:**
+
+- Consider running `cargo clippy --workspace -- -D warnings` from the repo root
+  in CI, in addition to the existing per-crate run under `extras/cli`.
+- Decide whether to keep both (per-crate AND workspace) or replace the per-crate
+  invocation with the workspace one.
+
+**Verification before implementation:**
+
+- Confirm the workspace topology at the time of implementation — if `extras/cli`
+  is still the only Rust crate, the workspace clippy run is equivalent and the
+  per-crate one can be dropped.
+- Run the proposed CI command locally first to ensure it passes on a clean
+  checkout.
+
+### Procfile.dev / bin/dev / Rails controller wiring for the `pito` binary
+
+**Trigger:** during Phase 4 (Project Workspace), OR the next time the Rails app
+needs to serve / rebuild the `pito` CLI binary for download.
+
+**Source:** reviewer playbook
+`docs/orchestration/playbooks/2026-05-04-monolith-pivot.md` concern #6, plus a
+deeper check on 2026-05-03.
+
+**Summary:**
+
+The migration spec
+(`docs/plans/beta/04-project-workspace/specs/monolith-migration.md` lines
+58–59) said `Procfile.dev`, `bin/dev`, and "the Rails controller path that
+builds / serves the binary" should reference `extras/cli/target/release/pito`.
+
+Current state as of 2026-05-03:
+
+- `Procfile.dev` lists web / mcp / worker / css / tunnel only.
+- `bin/dev` does Docker + foreman only.
+- A repo-wide grep for `extras/cli/target` returns zero hits in Rails / config /
+  bin / Procfile / yml.
+
+Nothing references the new binary location.
+
+**Action:**
+
+- Decide whether the Rails app needs a route to serve / rebuild the `pito`
+  binary for download.
+- If yes: wire `Procfile.dev`, `bin/dev`, and the responsible Rails controller
+  to the new path (`extras/cli/target/release/pito`).
+- If no: drop the spec line — it was overstated. Note the resolution in the
+  Phase 4 log.
+
+**Verification before implementation:**
+
+- Re-read the migration spec section to confirm intent.
+- Confirm with the user / architect which direction (wire it, or drop the spec
+  line) is correct before coding.
+
+### Stale `pito-sh` comments in Rails app
+
+**Trigger:** post-Phase-4 follow-up sweep, OR any time one of the listed
+controllers / config files is touched substantively.
+
+**Source:** spotted on 2026-05-03 while investigating the Procfile/bin/dev
+wiring follow-up above.
+
+**Summary:**
+
+14+ files still reference `pito-sh` (the old terminal-app name, now `pito` /
+`extras/cli/`). Confirmed hits as of 2026-05-03:
+
+- `app/controllers/saved_views_controller.rb:10,57`
+- `app/controllers/channels_controller.rb:114`
+- `app/controllers/videos_controller.rb:71,116`
+- `app/controllers/deletions_controller.rb:54`
+- `app/controllers/settings_controller.rb:62`
+- `app/controllers/bulk_operations_controller.rb:9`
+- `app/controllers/application_controller.rb:9`
+- `app/controllers/dashboard_controller.rb:69`
+- `app/controllers/search_controller.rb:24`
+- `app/controllers/syncs_controller.rb:77`
+- `config/routes.rb:16,26,36`
+- `config/environments/development.rb:86`
+
+All are comments — no behavior change.
+
+**Action:**
+
+- Sweep `pito-sh` → `pito` (or "pito CLI" where the noun form is needed) across
+  these files.
+- Audit the rest of the repo (`app/`, `lib/`, `spec/`, `config/`) for any other
+  `pito-sh` stragglers and update them in the same pass.
+- Keep historical references intact in `docs/plans/`, `docs/conversations/`,
+  and ADR Context blocks — those are append-only history.
+
+**Verification before implementation:**
+
+- `grep -rn "pito-sh" app/ lib/ spec/ config/ bin/ Procfile* extras/` should
+  return zero matches after the sweep.
+- Full RSpec suite + Rubocop remain green (comments-only changes should not
+  affect either, but verify).
+
 ## Done
 
 (Items move here after they ship, with commit hash + date.)

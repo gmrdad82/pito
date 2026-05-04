@@ -206,6 +206,31 @@ vector sim). pgvector handles `<=>` cosine similarity for "similar projects" /
 future "similar notes" / "similar videos" features:
 `Note.order(Arel.sql("embedding <=> ?", v)).limit(N)`.
 
+**Voyage call gating (2026-05-03 amendment).** Voyage credentials are present in
+Rails credentials and connectivity has been verified end-to-end (1 token billed,
+1024-dim embedding returned for `voyage-3` — matches the `vector(1024)` pin
+above). Production-volume calls stay OFF until real notes start flowing; the
+user does not want Voyage charged for seed / dummy data during development.
+
+- A boolean flag `Rails.application.config.voyage_embeddings_enabled` controls
+  the live call. Defaults: `false` in `development`, `false` in `test`, `true`
+  in `production`. Defined in `config/application.rb` (or per-env initializers
+  if cleaner — implementer's call).
+- `PITO_VOYAGE_ENABLED=true` env var overrides the default in any environment,
+  so the user can exercise the real path in dev on demand without editing
+  config.
+- When the flag is off, `Notes::EmbedJob` short-circuits: the Note record still
+  saves, Meilisearch still indexes the text body (BM25 only — no embedding
+  payload), and `notes.embedding` stays NULL. No HTTP call to Voyage. No tokens
+  billed.
+- pgvector cosine queries against a NULL-heavy column return zero rows — that
+  is acceptable in dev; the search / similarity UX surface is Phases 9–10
+  anyway.
+- A one-shot rake task `bin/rails voyage:smoke_test` performs a single
+  1-token embedding call, prints HTTP status + embedding dimension + tokens
+  billed, and exits. Lets the user re-verify the key any time without seeding
+  records or flipping the flag.
+
 ### 3.6 `timelines`
 
 | Column           | Type    | Notes                                    |
@@ -388,6 +413,28 @@ follows the `claude` style — `pito` (no args) launches the TUI client,
 `pito help` / `pito version` print metadata, `pito footage <subcommand>` drives
 the importer.
 
+**Version output — short Git SHA (2026-05-03 amendment).** Currently
+`extras/cli/src/commands/version.rs` prints `pito 0.1.0` from
+`env!("CARGO_PKG_VERSION")`. That is replaced — the semver number goes away
+entirely, NOT appended.
+
+- `pito --version` and `pito version` print `pito <7-char-sha>`, e.g.
+  `pito a2b3c4d`. Both invocations share one code path.
+- Mechanism: a `build.rs` (or the `vergen` crate with the `git2` feature —
+  cli-impl picks at implementation time and captures the choice as a
+  non-blocking decision in the session report) captures the short SHA at
+  compile time. Local dev: `git rev-parse --short HEAD`. CI: read `GITHUB_SHA`
+  env var and slice to 7 chars. Either path exposes the value via
+  `env!("PITO_BUILD_SHA")` (or equivalent constant), which `version.rs` prints.
+- Edge cases — left to cli-impl during implementation, do not over-pin here:
+  dirty working tree (uncommitted changes) might append a `-dirty` suffix;
+  outside a git repo (e.g. someone unpacks the binary outside source control)
+  might print `pito unknown`. cli-impl picks the resolution and records it.
+- Served binary filename is unaffected: the build artifact and the file the
+  user downloads are both literally `pito` — no `-<sha>` suffix on the
+  filename. The SHA appears ONLY in version output and in the GitHub Release
+  tag (`pito-<sha>`). See §8.1 for the served-filename rule.
+
 ### 7.1 CLI
 
 ```
@@ -501,6 +548,12 @@ branches on `Rails.env`: production → §8.3, otherwise → §8.2. Both paths s
 with `Content-Disposition: attachment; filename="pito"` and
 `application/octet-stream`. The `[ download cli ]` link on the project footage
 pane points at this single action — no view-side env branching.
+
+**Served filename is `pito` (2026-05-03 amendment, restating).** The download
+filename stays `pito` regardless of what `pito version` prints. The short SHA
+(see §7) lives in version output and in the GitHub Release tag (`pito-<sha>`)
+ONLY. `Content-Disposition: attachment; filename="pito"` is the contract on
+both the dev and prod download paths.
 
 ### 8.2 Development path
 
@@ -900,6 +953,16 @@ raises clearly on missing keys is acceptable.
 
 ## 14. Implementation steps
 
+### Step 0 — MCP Dev KB surface (precedes Phase A)
+
+Three MCP tools (`list_docs`, `read_doc`, `save_note`) expose the `docs/`
+tree to Claude Mobile and capture on-the-road notes into `docs/notes/`.
+Lands BEFORE Phase A so the conversation flow between Desktop and Mobile
+is open by the time Phase A's foundation work begins. Owner: `mcp-impl`
+(single-agent dispatch). Sibling spec:
+`specs/mcp-dev-kb-surface.md`. Recorded in `additions.md` as a
+2026-05-04 scope addition.
+
 ### Phase A — foundation (sequential, pito-rails)
 
 1. `add_notes_syncing_at_to_tenants` migration → tenant holds sync lock state.
@@ -970,6 +1033,16 @@ Reviewer agent runs after Phase B converges. Manual test playbook lands in
       `filename="pito"`.
 - [ ] `Notes::EmbedJob` dual-writes the Voyage embedding to BOTH Meilisearch and
       the `notes.embedding` pgvector column on note create/update.
+- [ ] `Notes::EmbedJob` no-ops when `Rails.application.config.voyage_embeddings_enabled`
+      is false (default in development and test): note save and Meilisearch
+      text-only indexing still complete cleanly, no Voyage HTTP call fires,
+      `notes.embedding` stays NULL. `PITO_VOYAGE_ENABLED=true` overrides the
+      default in any environment.
+- [ ] `bin/rails voyage:smoke_test` runs a single 1-token embedding call,
+      prints HTTP status + embedding dimension + tokens billed, and exits.
+- [ ] `pito version` and `pito --version` print `pito <7-char-sha>` for both
+      dev and CI builds. Served binary filename remains `pito` in all paths
+      (dev `send_file`, prod GitHub Release asset stream).
 - [ ] `aasm` machines on Timeline (editing → exported → uploaded) and Video
       (scheduled → published → unpublished) reject invalid transitions.
 - [ ] design.md captures the 7 rules with code snippets.

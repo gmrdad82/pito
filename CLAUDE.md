@@ -67,6 +67,33 @@ bundle exec rubocop # Lint
   in conversation, not in files.
 - Rust crates include tests for new functionality.
 
+## Logging convention
+
+Every implementation session ends with `docs/plans/beta/<NN-phase>/log.md`
+updated. The log captures: what we discussed in the session, what was
+implemented, which files changed, and links to the plan / spec / decisions it
+referenced. Mobile Claude reads logs via the MCP `list_docs` tool to recover
+session context — sorted by mtime, the newest log answers "what was I working
+on last session"; the full set answers "what have we worked on from the
+start". Desktop architect appends to logs after the user validates work.
+
+## MCP Dev KB surface (Mobile interop)
+
+Three MCP tools expose the `docs/` tree to Claude Mobile:
+
+- `list_docs` — list markdown files. Filter by `name_pattern` (e.g. `log.md`,
+  `*.md`) and `prefix` (e.g. `plans/beta/`, `decisions/`); sort by mtime.
+- `read_doc` — read a single `.md` file under `docs/` or `CLAUDE.md`.
+- `save_note` — drop markdown into `docs/notes/`. Filename is server-generated
+  as `YYYY-MM-DD-HH-MM-SS-<slug>.md`. No overwrite; multiple captures of the
+  same thought are fine; Desktop curates and prunes later.
+
+Mobile is read + capture; Desktop is curate + commit. Edits, deletes, renames,
+file moves all happen via Desktop. When the auth phase (Phase 12) lands, this
+surface gets a `dev:*` MCP scope.
+
+Spec: `docs/plans/beta/04-project-workspace/specs/mcp-dev-kb-surface.md`.
+
 ## Agent orchestration
 
 This monolith operates as a **master agent** coordinating specialized subagents.
