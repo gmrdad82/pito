@@ -6,6 +6,24 @@ RSpec.describe Tenant, type: :model do
   describe "associations" do
     it { is_expected.to have_many(:users).dependent(:destroy) }
     it { is_expected.to have_many(:channels).dependent(:destroy) }
+
+    # Phase 4 — Project Workspace associations.
+    it { is_expected.to have_many(:projects).dependent(:destroy) }
+    it { is_expected.to have_many(:collections).dependent(:destroy) }
+    it { is_expected.to have_many(:games).dependent(:destroy) }
+    it { is_expected.to have_many(:footages).dependent(:destroy) }
+    it { is_expected.to have_many(:notes).dependent(:destroy) }
+    it { is_expected.to have_many(:timelines).dependent(:destroy) }
+  end
+
+  describe "notes_syncing_at column (Phase 4 §3.7)" do
+    it "exists and is nullable" do
+      tenant = create(:tenant)
+      expect(tenant.notes_syncing_at).to be_nil
+
+      tenant.update!(notes_syncing_at: Time.current)
+      expect(tenant.reload.notes_syncing_at).to be_present
+    end
   end
 
   describe "validations" do

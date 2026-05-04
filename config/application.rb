@@ -51,5 +51,15 @@ module Pito
 
     # Use Sidekiq for background jobs
     config.active_job.queue_adapter = :sidekiq
+
+    # Active Storage variant processor — Phase 4 §5. Use ruby-vips (libvips)
+    # explicitly. ImageMagick v7.1.2 deprecated the `convert` alias that
+    # mini_magick relies on, so mini_magick emits warnings on every variant.
+    # ruby-vips is faster, lower-memory, and sidesteps the warning entirely.
+    config.active_storage.variant_processor = :vips
+
+    # Voyage AI embedding call gating moved to AppSetting (DB-backed) so the
+    # Settings UI flips it at runtime without a Rails restart. See
+    # `AppSetting.voyage_embeddings_enabled?`.
   end
 end

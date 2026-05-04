@@ -38,6 +38,31 @@ Rails.application.routes.draw do
       get :stats
     end
   end
+  # Phase 4 — Project Workspace. Phase A lands the route shells so
+  # `projects_path` and friends resolve before Phase B's nav/header edits
+  # fire. Controller bodies (other than the importer download stub) are
+  # Phase B work.
+  resources :projects
+  resources :collections
+  resources :games
+  resources :footages
+  resources :notes
+  resources :timelines
+
+  # Importer download endpoint — single controller, branches on Rails.env
+  # in Phase B. Route shell lands now (§14 step 8 ordering); controller body
+  # is part of Phase B's CLI build/distribution workstream.
+  get "footage/importer/download",
+      to: "footage_importer/downloads#show",
+      as: :footage_importer_download
+
+  # Nested JSON API for the importer (Phase B). Route shell only.
+  namespace :api do
+    resources :projects, only: [] do
+      resources :footages, only: [ :index, :create ]
+    end
+  end
+
   resources :saved_views, only: [ :index, :create, :destroy ]
   get "deletions/:type/:ids", to: "deletions#show", as: :deletions
   post "deletions/:type/:ids", to: "deletions#create"

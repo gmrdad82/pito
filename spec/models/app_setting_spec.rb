@@ -42,4 +42,48 @@ RSpec.describe AppSetting, type: :model do
       expect(AppSetting.get("existing")).to eq("new")
     end
   end
+
+  # Phase 4 §3.5 (2026-05-04 post-review refinement) — Voyage call gating
+  # lives on the first AppSetting row (the de-facto singleton seeded in
+  # db/seeds.rb). Replaces the previous Rails.application.config flag.
+  describe "voyage_embeddings_enabled column" do
+    it "defaults to false on a freshly created row" do
+      setting = create(:app_setting)
+      expect(setting.voyage_embeddings_enabled).to be(false)
+    end
+
+    it "is updatable without raising" do
+      setting = create(:app_setting)
+      expect { setting.update!(voyage_embeddings_enabled: true) }.not_to raise_error
+      expect(setting.reload.voyage_embeddings_enabled).to be(true)
+    end
+  end
+
+  describe ".voyage_embeddings_enabled?" do
+    it "returns false when no AppSetting row exists" do
+      AppSetting.delete_all
+      expect(AppSetting.voyage_embeddings_enabled?).to be(false)
+    end
+
+    it "returns the singleton's column value when the row exists" do
+      AppSetting.delete_all
+      create(:app_setting, key: "max_panes", value: "5", voyage_embeddings_enabled: true)
+      expect(AppSetting.voyage_embeddings_enabled?).to be(true)
+    end
+
+    it "returns false when the singleton's column is false" do
+      AppSetting.delete_all
+      create(:app_setting, key: "max_panes", value: "5", voyage_embeddings_enabled: false)
+      expect(AppSetting.voyage_embeddings_enabled?).to be(false)
+    end
+
+    it "is idempotent across repeated flips" do
+      AppSetting.delete_all
+      setting = create(:app_setting, key: "max_panes", value: "5")
+      setting.update!(voyage_embeddings_enabled: true)
+      expect(AppSetting.voyage_embeddings_enabled?).to be(true)
+      setting.update!(voyage_embeddings_enabled: false)
+      expect(AppSetting.voyage_embeddings_enabled?).to be(false)
+    end
+  end
 end

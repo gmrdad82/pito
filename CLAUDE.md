@@ -73,9 +73,9 @@ Every implementation session ends with `docs/plans/beta/<NN-phase>/log.md`
 updated. The log captures: what we discussed in the session, what was
 implemented, which files changed, and links to the plan / spec / decisions it
 referenced. Mobile Claude reads logs via the MCP `list_docs` tool to recover
-session context — sorted by mtime, the newest log answers "what was I working
-on last session"; the full set answers "what have we worked on from the
-start". Desktop architect appends to logs after the user validates work.
+session context — sorted by mtime, the newest log answers "what was I working on
+last session"; the full set answers "what have we worked on from the start".
+Desktop architect appends to logs after the user validates work.
 
 Decisions live in `log.md` by default. An ADR under `docs/decisions/` is
 reserved for moments when a decision produces a durable artifact (a new

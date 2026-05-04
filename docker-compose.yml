@@ -47,3 +47,11 @@ volumes:
   postgres_data:
   redis_data:
   meilisearch_data:
+  # Phase 4 §6.1 + §5 — named volumes for project notes (markdown files on
+  # disk) and Active Storage assets (game cover art, future channel
+  # banners/avatars). Currently unmounted — Rails runs natively on the dev
+  # host and reads PITO_NOTES_PATH / PITO_ASSETS_PATH env vars. The volume
+  # declarations live here so the names are reserved for when Rails moves
+  # into a container (Hetzner cutover, Phase 16).
+  pito_notes:
+  pito_assets:
