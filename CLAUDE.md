@@ -77,6 +77,13 @@ session context — sorted by mtime, the newest log answers "what was I working
 on last session"; the full set answers "what have we worked on from the
 start". Desktop architect appends to logs after the user validates work.
 
+Decisions live in `log.md` by default. An ADR under `docs/decisions/` is
+reserved for moments when a decision produces a durable artifact (a new
+top-level reference doc like `design.md`, `architecture.md`, `mcp.md`, or a
+structural commitment that warrants its own page). Routine choices made in the
+flow of a session — picking a library, naming a flag, deferring an edge case —
+stay in the session log.
+
 ## MCP Dev KB surface (Mobile interop)
 
 Three MCP tools expose the `docs/` tree to Claude Mobile:
@@ -91,6 +98,11 @@ Three MCP tools expose the `docs/` tree to Claude Mobile:
 Mobile is read + capture; Desktop is curate + commit. Edits, deletes, renames,
 file moves all happen via Desktop. When the auth phase (Phase 12) lands, this
 surface gets a `dev:*` MCP scope.
+
+**Notes commit lifecycle.** Every Desktop commit runs `git add docs/notes/`
+before staging the rest of the change so notes Mobile dropped since the last
+commit land in history. Pruning stale notes also happens on Desktop, in flow
+with the user, before staging.
 
 Spec: `docs/plans/beta/04-project-workspace/specs/mcp-dev-kb-surface.md`.
 
