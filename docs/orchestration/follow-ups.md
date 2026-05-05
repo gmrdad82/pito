@@ -701,4 +701,24 @@ count, surface it the same way.
 
 ## Done
 
-(Items move here after they ship, with commit hash + date.)
+### Non-default, pito-specific ports for Postgres / Redis / Meilisearch / Puma
+
+**Shipped:** `185c016` on 2026-05-05.
+
+Local services moved to pito-specific high ports (Web 3027, MCP 3028, Postgres
+54327, Redis 64527, Meilisearch 7727), all 127.0.0.1-bound and env-overridable.
+"27" suffix marker keeps them distinct from fepra's "18" family. Cloudflare
+tunnel `~/.cloudflared/config.yml` was repointed to 127.0.0.1:3027 / 3028 by the
+user out-of-band (config lives outside the repo). Bonus: `parallel_tests` worker
+count capped at 8 via `PARALLEL_TEST_PROCESSORS=8` in CI yml,
+`bin/parallel_setup`, and a new `bin/test` wrapper.
+
+### Dedicated, pito-identifiable Docker volumes for Postgres / Redis / Meilisearch
+
+**Shipped:** `185c016` on 2026-05-05.
+
+Volumes named `pito-postgres-data`, `pito-redis-data`, `pito-meilisearch-data`
+with explicit `name:` overrides on the top-level compose `volumes:` block to
+prevent docker's project-prefix doubling. Old underscore-named volumes
+(`pito_postgres_data` etc.) dropped during the swap; data was re-seeded via
+`bin/setup`.
