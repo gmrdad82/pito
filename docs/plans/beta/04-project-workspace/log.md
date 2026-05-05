@@ -2399,171 +2399,155 @@ strftime-formatted timestamps in notes with a human helper.
 
 ### Phase B post-commit — Note revamp + bulk on notes + inline-delete + double-delete consolidation (2026-05-04)
 
-After Phase B body landed (commit `11d2cbb`), the user signed off four
-related polish items. They land as new work on top of `11d2cbb`; the
-master commit comes later, after manual playbook validation.
+After Phase B body landed (commit `11d2cbb`), the user signed off four related
+polish items. They land as new work on top of `11d2cbb`; the master commit comes
+later, after manual playbook validation.
 
 **Item 1 — Note revamp: single screen, two panes, no title input.**
 
-The note editor is now a single page (`GET /notes/:id`) instead of three
-(show / edit / new). Two panes side-by-side at 454px each (matches the
-global `.pane-wrapper` width):
+The note editor is now a single page (`GET /notes/:id`) instead of three (show /
+edit / new). Two panes side-by-side at 454px each (matches the global
+`.pane-wrapper` width):
 
 - Left pane: rendered markdown preview. Server-side first paint via
-  `commonmarker` (already in `Gemfile.lock`); client-side live updates on
-  every `input` event via `marked@15.0.7` + `dompurify@3.2.4` (both
-  pinned via importmap on the jsDelivr ESM bundles — the `marked` choice
-  was made over `markdown-it` for size, GFM support out of the box, and
-  ESM-clean shape).
-- Right pane: source `<textarea>` (the form's actual input). Status bar
-  at the bottom-right of the source pane reads `<chars> chars · <words>
-  words` and updates live; server-side counts come from the new
-  `chars_count` / `words_count` columns and `number_with_delimiter`.
-- Title is auto-derived from the body's first ATX H1 in
-  `NotesController#update` (no title input on the form). Even if a
-  malicious client sends `note[title]`, it's ignored — the spec covers
-  that path.
+  `commonmarker` (already in `Gemfile.lock`); client-side live updates on every
+  `input` event via `marked@15.0.7` + `dompurify@3.2.4` (both pinned via
+  importmap on the jsDelivr ESM bundles — the `marked` choice was made over
+  `markdown-it` for size, GFM support out of the box, and ESM-clean shape).
+- Right pane: source `<textarea>` (the form's actual input). Status bar at the
+  bottom-right of the source pane reads `<chars> chars · <words> words` and
+  updates live; server-side counts come from the new `chars_count` /
+  `words_count` columns and `number_with_delimiter`.
+- Title is auto-derived from the body's first ATX H1 in `NotesController#update`
+  (no title input on the form). Even if a malicious client sends `note[title]`,
+  it's ignored — the spec covers that path.
 
 Routes: dropped `GET /notes/:id/edit`. `resources :notes` now lists
-`only: [ :index, :show, :update, :destroy ]`. The show route IS the
-editor. `app/views/notes/edit.html.erb` was deleted; `notes/show.html.erb`
-renders the new two-pane layout.
+`only: [ :index, :show, :update, :destroy ]`. The show route IS the editor.
+`app/views/notes/edit.html.erb` was deleted; `notes/show.html.erb` renders the
+new two-pane layout.
 
-Migration `20260504000012_add_counts_to_notes.rb` adds the two integer
-columns (`null: false, default: 0`) and backfills existing notes by
-reading the body off disk via `NotesFilesystem.read`. Verified
-reversible: `rake db:rollback STEP=1` then `db:migrate` round-trips
-cleanly.
+Migration `20260504000012_add_counts_to_notes.rb` adds the two integer columns
+(`null: false, default: 0`) and backfills existing notes by reading the body off
+disk via `NotesFilesystem.read`. Verified reversible: `rake db:rollback STEP=1`
+then `db:migrate` round-trips cleanly.
 
 `Note#before_save :recompute_counts` reads from a non-persisted
-`attr_accessor :body_for_counts` that the controller assigns before
-`save!`. Char count uses `body.chars.size` (codepoints), not
-`body.bytesize`. Word count uses `body.scan(/\S+/).size`.
+`attr_accessor :body_for_counts` that the controller assigns before `save!`.
+Char count uses `body.chars.size` (codepoints), not `body.bytesize`. Word count
+uses `body.scan(/\S+/).size`.
 
 **`unsaved-form` Stimulus controller + `beforeunload` carve-out.**
 
-New `app/javascript/controllers/unsaved_form_controller.js` snapshots
-the form's serialized state on connect, marks dirty on `input`/`change`,
-and on the window `beforeunload` event sets `event.returnValue = ""` to
-trigger the browser-native "Leave site?" dialog. On `submit` it clears
-the dirty flag before the navigation so a successful redirect doesn't
-re-trigger the guard. Wired into the note editor as
-`<form data-controller="markdown-editor unsaved-form">`. Reusable on
+New `app/javascript/controllers/unsaved_form_controller.js` snapshots the form's
+serialized state on connect, marks dirty on `input`/`change`, and on the window
+`beforeunload` event sets `event.returnValue = ""` to trigger the browser-native
+"Leave site?" dialog. On `submit` it clears the dirty flag before the navigation
+so a successful redirect doesn't re-trigger the guard. Wired into the note
+editor as `<form data-controller="markdown-editor unsaved-form">`. Reusable on
 any other form via the same data-controller attribute.
 
-CLAUDE.md "Hard rules" section was extended with a sub-bullet documenting
-the carve-out: `beforeunload` is allowed for unsaved-changes navigation
-guards because the browser renders the dialog itself; the page does not
-interrupt user action mid-click. JS `confirm` / `alert` / `prompt`
-remain forbidden.
+CLAUDE.md "Hard rules" section was extended with a sub-bullet documenting the
+carve-out: `beforeunload` is allowed for unsaved-changes navigation guards
+because the browser renders the dialog itself; the page does not interrupt user
+action mid-click. JS `confirm` / `alert` / `prompt` remain forbidden.
 
 **Item 2 — Bulk-select on the notes pane.**
 
-Wrapped the notes pane in `app/views/projects/_notes_pane.html.erb` with
-the `bulk-select` Stimulus controller (panes-optional shape — only the
-`deleteAction` target is wired, no `openAction` / `syncAction`). Mirrors
-the `/projects` index pattern. The `Confirmable` allowlist already
-covers `note`, so `/deletions/note/<comma-ids>` works without controller
-changes.
+Wrapped the notes pane in `app/views/projects/_notes_pane.html.erb` with the
+`bulk-select` Stimulus controller (panes-optional shape — only the
+`deleteAction` target is wired, no `openAction` / `syncAction`). Mirrors the
+`/projects` index pattern. The `Confirmable` allowlist already covers `note`, so
+`/deletions/note/<comma-ids>` works without controller changes.
 
-Pane table now also surfaces the new `chars` / `words` columns alongside
-`title` and `last modified` — the user requested this stat-line shape
-mirroring the Meilisearch "indexed documents" pattern.
+Pane table now also surfaces the new `chars` / `words` columns alongside `title`
+and `last modified` — the user requested this stat-line shape mirroring the
+Meilisearch "indexed documents" pattern.
 
 **Item 3 — Inline-confirm `[ delete ]` sweep.**
 
 Per-screen audit of every `BracketedLinkComponent.new(label: "delete"`:
 
-- `notes/show.html.erb` (new note editor) — `ConfirmModalComponent`
-  modal. Decision: keep modal. The page-redirect feels heavyweight
-  relative to a single in-flight note delete; the modal keeps the user
-  in context.
-- `projects/show.html.erb` — already routes to `/deletions/project/:id`
-  (action confirmation page). No change.
-- `channels/show.html.erb` — already routes to `/deletions/channel/:id`.
-  No change.
-- `videos/show.html.erb` — already routes to `/deletions/video/:id`.
-  No change.
-- `footages/show.html.erb`, `games/show.html.erb`,
-  `collections/show.html.erb`, `timelines/show.html.erb` — no
-  `[ delete ]` button at all (delete flow is owned by the parent
-  surface or the importer for footage). No drift.
+- `notes/show.html.erb` (new note editor) — `ConfirmModalComponent` modal.
+  Decision: keep modal. The page-redirect feels heavyweight relative to a single
+  in-flight note delete; the modal keeps the user in context.
+- `projects/show.html.erb` — already routes to `/deletions/project/:id` (action
+  confirmation page). No change.
+- `channels/show.html.erb` — already routes to `/deletions/channel/:id`. No
+  change.
+- `videos/show.html.erb` — already routes to `/deletions/video/:id`. No change.
+- `footages/show.html.erb`, `games/show.html.erb`, `collections/show.html.erb`,
+  `timelines/show.html.erb` — no `[ delete ]` button at all (delete flow is
+  owned by the parent surface or the importer for footage). No drift.
 
-Conclusion: no drift to fix. The note editor's modal is the only
-delete that doesn't go through `/deletions/...`, and that's deliberate
-per the dispatch (consistent with the new note revamp).
+Conclusion: no drift to fix. The note editor's modal is the only delete that
+doesn't go through `/deletions/...`, and that's deliberate per the dispatch
+(consistent with the new note revamp).
 
 **Item 4 — Note destroy double-delete consolidation.**
 
 Removed the explicit `NotesFilesystem.delete(@note)` call from
-`NotesController#destroy`. The `Note#before_destroy :delete_note_file`
-callback (added in the previous Phase B post-validation pass) is the
-single source of truth. Covers direct destroys, `dependent: :destroy`
-cascades from `Project#destroy`, console-driven destroys, and bulk
-delete jobs uniformly.
+`NotesController#destroy`. The `Note#before_destroy :delete_note_file` callback
+(added in the previous Phase B post-validation pass) is the single source of
+truth. Covers direct destroys, `dependent: :destroy` cascades from
+`Project#destroy`, console-driven destroys, and bulk delete jobs uniformly.
 
-The existing `DELETE /notes/:id` request spec still asserts the file is
-gone after destroy — proving the callback path works end-to-end.
+The existing `DELETE /notes/:id` request spec still asserts the file is gone
+after destroy — proving the callback path works end-to-end.
 
 **Files touched.**
 
 - `db/migrate/20260504000012_add_counts_to_notes.rb` — new (Item 1).
 - `db/schema.rb` — regenerated (Item 1).
-- `app/models/note.rb` — `body_for_counts` accessor + `before_save
-  :recompute_counts` (Item 1).
-- `app/controllers/notes_controller.rb` — show is the editor; update
-  derives title from body; destroy drops the explicit file delete
-  (Items 1 + 4).
+- `app/models/note.rb` — `body_for_counts` accessor +
+  `before_save :recompute_counts` (Item 1).
+- `app/controllers/notes_controller.rb` — show is the editor; update derives
+  title from body; destroy drops the explicit file delete (Items 1 + 4).
 - `config/routes.rb` — drop `:edit` from `resources :notes` (Item 1).
-- `config/importmap.rb` — pin `marked@15.0.7`, `dompurify@3.2.4`
-  (Item 1).
-- `app/javascript/controllers/markdown_editor_controller.js` — new
-  (Item 1).
-- `app/javascript/controllers/unsaved_form_controller.js` — new
-  (Item 1, reusable carve-out).
+- `config/importmap.rb` — pin `marked@15.0.7`, `dompurify@3.2.4` (Item 1).
+- `app/javascript/controllers/markdown_editor_controller.js` — new (Item 1).
+- `app/javascript/controllers/unsaved_form_controller.js` — new (Item 1,
+  reusable carve-out).
 - `app/views/notes/show.html.erb` — new (Item 1).
 - `app/views/notes/edit.html.erb` — deleted (Item 1).
-- `app/views/notes/index.html.erb` — `note_path` instead of
-  `edit_note_path` (Item 1).
-- `app/views/projects/_notes_pane.html.erb` — bulk-select wrapper +
-  chars/words columns + `note_path` (Items 1 + 2).
-- `app/helpers/application_helper.rb` — `render_markdown` SSR helper
+- `app/views/notes/index.html.erb` — `note_path` instead of `edit_note_path`
   (Item 1).
-- `app/assets/tailwind/application.css` — `.markdown-preview` + `.markdown-status`
-  styles (Item 1).
+- `app/views/projects/_notes_pane.html.erb` — bulk-select wrapper + chars/words
+  columns + `note_path` (Items 1 + 2).
+- `app/helpers/application_helper.rb` — `render_markdown` SSR helper (Item 1).
+- `app/assets/tailwind/application.css` — `.markdown-preview` +
+  `.markdown-status` styles (Item 1).
 - `CLAUDE.md` — `beforeunload` carve-out documented (Item 1).
-- `spec/models/note_spec.rb` — `chars_count` / `words_count` recomputation
-  spec (+4 examples).
+- `spec/models/note_spec.rb` — `chars_count` / `words_count` recomputation spec
+  (+4 examples).
 - `spec/requests/notes_spec.rb` — route shape rewrites + editor markup
-  + bulk-select markup + auto-derived title (+10 examples; net delta
-  vs. previous file).
+  - bulk-select markup + auto-derived title (+10 examples; net delta vs.
+    previous file).
 
-**Spec count.** Baseline 1042 / 0. After changes: 1056 / 0. Delta = +14
-examples (Item 1 = +13 model/request, Item 2 = bulk markup folded into
-the same request file).
+**Spec count.** Baseline 1042 / 0. After changes: 1056 / 0. Delta = +14 examples
+(Item 1 = +13 model/request, Item 2 = bulk markup folded into the same request
+file).
 
 **Brakeman.** `bin/brakeman --no-pager -q` — 0 warnings, 0 errors.
 
-**RuboCop.** Clean on every changed Ruby file (controllers / models /
-helpers / config / migrations / specs).
+**RuboCop.** Clean on every changed Ruby file (controllers / models / helpers /
+config / migrations / specs).
 
-**Migration verification.** `bin/rails db:rollback STEP=1` then
-`db:migrate` round-trips cleanly. Test schema regenerated via
-`db:test:prepare`.
+**Migration verification.** `bin/rails db:rollback STEP=1` then `db:migrate`
+round-trips cleanly. Test schema regenerated via `db:test:prepare`.
 
-**Spec ambiguity resolved.** The dispatch suggested a Capybara +
-headless Chrome system spec for the live preview. The repo has no
-system-spec setup (no `spec/system/`, no Capybara driver pinned, no
-Chrome / chromedriver in CI). Adding that infrastructure was out of
-scope for this dispatch; instead, the request spec asserts every
-`data-controller` / `data-*-target` data attribute the live editor
-needs is present in the rendered markup. The actual live render is
-exercised by the model spec (counts) + the JS controller code review.
-This was the single deviation; flagged for the user to decide whether
-to add system-spec infra in a later session.
+**Spec ambiguity resolved.** The dispatch suggested a Capybara + headless Chrome
+system spec for the live preview. The repo has no system-spec setup (no
+`spec/system/`, no Capybara driver pinned, no Chrome / chromedriver in CI).
+Adding that infrastructure was out of scope for this dispatch; instead, the
+request spec asserts every `data-controller` / `data-*-target` data attribute
+the live editor needs is present in the rendered markup. The actual live render
+is exercised by the model spec (counts) + the JS controller code review. This
+was the single deviation; flagged for the user to decide whether to add
+system-spec infra in a later session.
 
-**Library choice.** Chose `marked` over `markdown-it`: smaller, GFM
-support out of the box, ESM module that imports cleanly via importmap.
-Paired with `dompurify` for sanitization (marked does NOT sanitize on
-its own — DOMPurify runs over the rendered HTML before injection). Both
-pinned to specific versions on jsDelivr.
+**Library choice.** Chose `marked` over `markdown-it`: smaller, GFM support out
+of the box, ESM module that imports cleanly via importmap. Paired with
+`dompurify` for sanitization (marked does NOT sanitize on its own — DOMPurify
+runs over the rendered HTML before injection). Both pinned to specific versions
+on jsDelivr.

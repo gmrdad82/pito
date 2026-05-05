@@ -391,8 +391,8 @@ are space-separated, order is irrelevant.
 
 **Behavior.** On `connect`, the controller serializes every named
 input/textarea/select/checkbox into a snapshot string. Every `input` and
-`change` event inside the form re-serializes and flips an internal `_dirty`
-flag if the result diverges from the snapshot. On `beforeunload`, if dirty, the
+`change` event inside the form re-serializes and flips an internal `_dirty` flag
+if the result diverges from the snapshot. On `beforeunload`, if dirty, the
 handler calls `event.preventDefault()` AND assigns `event.returnValue = ""` —
 both are required (preventDefault for the HTML Living Standard / current
 Chromium, returnValue for legacy WebKit). On `submit`, `_dirty` is cleared
@@ -413,8 +413,8 @@ close, or reload, which is the gap this controller fills.
 substantial free-form text fields, markdown editors, multi-line note bodies,
 future settings sections with rich text. Do NOT apply to short single-field
 forms (search box, channel-add URL field, simple toggles); the friction of the
-leave-site dialog outweighs the value of the small amount of input that would
-be lost.
+leave-site dialog outweighs the value of the small amount of input that would be
+lost.
 
 Currently wired on:
 

@@ -154,10 +154,10 @@ When a task expects output outside an actor's role, the actor STOPs and reports.
   flag for MCP).
   - **Exception — `beforeunload` is allowed for unsaved-changes navigation
     guards.** The browser-native "Leave site?" dialog triggered by setting
-    `event.returnValue` is NOT the same as JS `confirm()`. The browser
-    renders the dialog itself; the page does not interrupt user action mid-
-    click. Use the `unsaved-form` Stimulus controller; never call
-    `window.confirm` / `alert` / `prompt` directly.
+    `event.returnValue` is NOT the same as JS `confirm()`. The browser renders
+    the dialog itself; the page does not interrupt user action mid- click. Use
+    the `unsaved-form` Stimulus controller; never call `window.confirm` /
+    `alert` / `prompt` directly.
 - **Bulk-as-foundation** — single-record destructive or sync actions are bulk
   operations with a one-element ids list. URL pattern `/<action>s/:type/:ids`
   accepts 1 or N. Applies across web (`/deletions/:type/:ids`,

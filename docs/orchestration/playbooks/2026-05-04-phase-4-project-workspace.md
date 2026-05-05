@@ -907,13 +907,13 @@ Timelines). NOTE: post-Phase-B-2 the detail table at the top of show is gone
 `tr:hover` exclusion from `detail-table` rows is moot for projects but still
 applies to other detail tables (channel show etc.) — confirmed visually.
 
-[x] 12. **Notes pane — create + edit + lock UX.** Note editor revamp landed
-in Phase B-2: `GET /notes/:id` opens a single-screen two-pane editor (rendered
+[x] 12. **Notes pane — create + edit + lock UX.** Note editor revamp landed in
+Phase B-2: `GET /notes/:id` opens a single-screen two-pane editor (rendered
 markdown preview | source textarea) with live preview via marked + DOMPurify,
-`unsaved-form` Stimulus controller for navigation guard, and char/word counts
-in the status bar below the source pane. Lock UX (banner + disabled chips +
-423 + stale-lock shield) verified earlier in Phase B; revamp did not regress
-that path.
+`unsaved-form` Stimulus controller for navigation guard, and char/word counts in
+the status bar below the source pane. Lock UX (banner + disabled chips + 423 +
+stale-lock shield) verified earlier in Phase B; revamp did not regress that
+path.
 
 [x] 13. **Project delete confirmation page.** From the project show page, the
 breadcrumb action area now reads `[ edit ] · [ delete ]`; clicking `[ delete ]`
