@@ -2764,8 +2764,7 @@ classifies them as `[chg]`, the user confirms, and the PATCH lands
   `prompt(` anywhere in `app/`.
 - Migrations reversibility — `db:rollback STEP=2` + `db:migrate` clean.
 
-**Commit.** Will land as `<commit-hash-placeholder>` after the architect runs
-`git commit` post-validation.
+**Commit.** Landed as `dd84eea` on 2026-05-06.
 
 ### Decisions captured
 
