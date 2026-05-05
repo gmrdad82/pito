@@ -6,15 +6,14 @@ Project-scoped overrides for the Rust agent in pito. Base template:
 ## Pito specifics
 
 - Crate path: `extras/cli/`. Single binary: `pito`.
-- Default mode (no args): Ratatui TUI. Subcommands styled after the
-  `claude` binary — `pito footage`, `pito help`, `pito version`, future
-  surfaces.
+- Default mode (no args): Ratatui TUI. Subcommands styled after the `claude`
+  binary — `pito footage`, `pito help`, `pito version`, future surfaces.
 - TUI uses Ratatui + the JSON / ActionCable client layer.
 - Subcommands use clap-derive plus per-subcommand modules.
 - Footage import client at `extras/cli/src/footage/` — JSON API hits
   `/api/projects/<id>/footages.json`.
-- Browser-only flows (e.g. video uploads) get recorded under
-  `docs/decisions/` rather than implemented.
+- Browser-only flows (e.g. video uploads) get recorded under `docs/decisions/`
+  rather than implemented.
 - Gates: `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`,
   `cargo test`. CI runs from `extras/cli/` working directory.
 

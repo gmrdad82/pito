@@ -613,95 +613,91 @@ count, surface it the same way.
 ### Validate and commit Phase B-2 (note revamp + bulk on notes + inline-delete + double-delete consolidation)
 
 - **Trigger:** User opted to defer validation + commit of the Phase B-2 body
-  while continuing iteration on other surfaces. Phase B-2 landed as
-  uncommitted working-tree changes on top of `11d2cbb` (the Phase B
-  commit on `main`).
+  while continuing iteration on other surfaces. Phase B-2 landed as uncommitted
+  working-tree changes on top of `11d2cbb` (the Phase B commit on `main`).
 - **Source:** Mid-Phase-B-2 conversation between user and architect on
-  2026-05-04 after the rails-impl dispatch reported clean
-  (1042 → 1056 / 0, +14 specs, Brakeman 0, RuboCop 0, migration
-  `20260504000012_add_counts_to_notes` reversible).
+  2026-05-04 after the rails-impl dispatch reported clean (1042 → 1056 / 0, +14
+  specs, Brakeman 0, RuboCop 0, migration `20260504000012_add_counts_to_notes`
+  reversible).
 - **Summary:** The note editor was rewritten as a single `GET /notes/:id`
-  two-pane page (rendered markdown preview | source textarea), with live
-  preview via `marked@15.0.7` + `dompurify@3.2.4` (importmap-pinned),
-  char/word counts as model columns + status bar at the bottom of the
-  source pane, an `unsaved-form` Stimulus controller that triggers the
-  browser's native `beforeunload` "Leave site?" dialog (documented as a
-  carve-out in `CLAUDE.md` under the "no JS confirms" hard rule), bulk-
-  select on the notes pane (delete only), and consolidation of the
-  destroy double-delete (the explicit `NotesFilesystem.delete` call in
-  `NotesController#destroy` was removed; the `before_destroy` callback
-  is now the single source of truth). The `[ delete ]` audit found no
-  drift to fix on other edit screens.
+  two-pane page (rendered markdown preview | source textarea), with live preview
+  via `marked@15.0.7` + `dompurify@3.2.4` (importmap-pinned), char/word counts
+  as model columns + status bar at the bottom of the source pane, an
+  `unsaved-form` Stimulus controller that triggers the browser's native
+  `beforeunload` "Leave site?" dialog (documented as a carve-out in `CLAUDE.md`
+  under the "no JS confirms" hard rule), bulk- select on the notes pane (delete
+  only), and consolidation of the destroy double-delete (the explicit
+  `NotesFilesystem.delete` call in `NotesController#destroy` was removed; the
+  `before_destroy` callback is now the single source of truth). The `[ delete ]`
+  audit found no drift to fix on other edit screens.
 - **Action:**
-  1. Walk through the new note editor in `bin/dev` — `GET /notes/:id`
-     opens the editor; type in the source pane and watch the rendered
-     pane update live; verify char/word counts increment in the status
-     bar; verify the `[ delete ]` button opens `ConfirmModalComponent`.
-  2. Verify the auto-derived title — type `# My new note` as the first
-     line; save; the breadcrumb / pane row updates to "My new note".
-  3. Verify `unsaved-form` — make a change without saving, try to
-     navigate away; the browser's native unsaved-changes prompt should
-     fire. Save first, then navigate; no prompt.
-  4. Verify bulk-select on the project's notes pane — `[ bulk ]` toggle
-     reveals checkboxes; selecting two notes + clicking the bulk delete
-     action routes to `/deletions/note/<id1>,<id2>`.
-  5. Verify cascading delete — destroy a project, confirm the note
-     files under `<PITO_NOTES_PATH>/<tenant_id>/projects/<project_id>/`
-     are gone (single source of truth via the `before_destroy`
-     callback + `after_destroy_commit` directory cleanup).
-  6. If everything passes, commit + push as a follow-up commit on
-     `main`. Suggested message:
+  1. Walk through the new note editor in `bin/dev` — `GET /notes/:id` opens the
+     editor; type in the source pane and watch the rendered pane update live;
+     verify char/word counts increment in the status bar; verify the
+     `[ delete ]` button opens `ConfirmModalComponent`.
+  2. Verify the auto-derived title — type `# My new note` as the first line;
+     save; the breadcrumb / pane row updates to "My new note".
+  3. Verify `unsaved-form` — make a change without saving, try to navigate away;
+     the browser's native unsaved-changes prompt should fire. Save first, then
+     navigate; no prompt.
+  4. Verify bulk-select on the project's notes pane — `[ bulk ]` toggle reveals
+     checkboxes; selecting two notes + clicking the bulk delete action routes to
+     `/deletions/note/<id1>,<id2>`.
+  5. Verify cascading delete — destroy a project, confirm the note files under
+     `<PITO_NOTES_PATH>/<tenant_id>/projects/<project_id>/` are gone (single
+     source of truth via the `before_destroy` callback + `after_destroy_commit`
+     directory cleanup).
+  6. If everything passes, commit + push as a follow-up commit on `main`.
+     Suggested message:
      `Phase B post-commit: note revamp, bulk on notes, double-delete consolidation`.
-- **Verification:** RSpec suite green at 1056 / 0 (already verified by
-  the dispatch). Post-commit, the user re-runs the manual flow above
-  against `bin/dev` to confirm UX actually behaves as the specs assert.
-- **Cross-reference:** `docs/plans/beta/04-project-workspace/log.md`'s
-  `### Phase B post-commit — Note revamp + bulk on notes + inline-delete
-  + double-delete consolidation (2026-05-04)` subsection captures the
-  full diff narrative.
+- **Verification:** RSpec suite green at 1056 / 0 (already verified by the
+  dispatch). Post-commit, the user re-runs the manual flow above against
+  `bin/dev` to confirm UX actually behaves as the specs assert.
+- **Cross-reference:** `docs/plans/beta/04-project-workspace/log.md`'s `###
+  Phase B post-commit — Note revamp + bulk on notes + inline-delete
+  - double-delete consolidation (2026-05-04)` subsection captures the full diff
+    narrative.
 
 ### `pito` CLI footage handling end-to-end review
 
-- **Trigger:** User surfaced 2026-05-04 after the Phase B post-commit
-  cycle (note editor revamp, project concept drop, modal footer, pane
-  background color). The Rails surface for projects has changed
-  shape — `Project#concept` is gone, the show page is title + 3 panes,
-  edit page is name-only — and we want to confirm the `pito` CLI
-  footage import flow still works end-to-end against the new shape.
+- **Trigger:** User surfaced 2026-05-04 after the Phase B post-commit cycle
+  (note editor revamp, project concept drop, modal footer, pane background
+  color). The Rails surface for projects has changed shape — `Project#concept`
+  is gone, the show page is title + 3 panes, edit page is name-only — and we
+  want to confirm the `pito` CLI footage import flow still works end-to-end
+  against the new shape.
 - **Source:** Mid-Phase-B-2 conversation between user and architect.
-- **Summary:** The Rust client at `extras/cli/src/footage/api/client.rs`
-  hits `/api/projects/<id>/footages.json` for the existing-footage
-  list and posts new files to the same collection. None of those
-  endpoints are affected by the project rework, but the CLI also reads
-  project metadata (name) for the import-confirmation overlay; verify
-  the JSON shape still matches what the Rust client expects after the
-  `concept` column drop. Plus walk the full happy path: list, classify
-  (add / change / delete), confirm, post.
+- **Summary:** The Rust client at `extras/cli/src/footage/api/client.rs` hits
+  `/api/projects/<id>/footages.json` for the existing-footage list and posts new
+  files to the same collection. None of those endpoints are affected by the
+  project rework, but the CLI also reads project metadata (name) for the
+  import-confirmation overlay; verify the JSON shape still matches what the Rust
+  client expects after the `concept` column drop. Plus walk the full happy path:
+  list, classify (add / change / delete), confirm, post.
 - **Action:**
   1. Re-read `extras/cli/src/footage/api/client.rs` and any models in
-     `extras/cli/src/api/models.rs` that deserialize project payloads.
-     Confirm none of them reference a `concept` field.
+     `extras/cli/src/api/models.rs` that deserialize project payloads. Confirm
+     none of them reference a `concept` field.
   2. Build a fresh release binary:
      `cargo build --release --manifest-path extras/cli/Cargo.toml`.
-  3. Run `pito footage import --project <id> --path <dir>` against
-     `bin/dev` first; expect the existing-footage GET to 200, the diff
-     classification overlay to render, confirmation via `y` to POST
-     each file successfully.
-  4. Repeat against `app.pitomd.com` (production) once the Phase B-2
-     commit is merged and `pito-cli-publish.yml` has built a fresh
-     release tagged `pito-<sha>`.
-  5. If the production run surfaces any 4xx / 5xx, capture the request
-     URL + body + Rails log line and triage as a separate concern.
+  3. Run `pito footage import --project <id> --path <dir>` against `bin/dev`
+     first; expect the existing-footage GET to 200, the diff classification
+     overlay to render, confirmation via `y` to POST each file successfully.
+  4. Repeat against `app.pitomd.com` (production) once the Phase B-2 commit is
+     merged and `pito-cli-publish.yml` has built a fresh release tagged
+     `pito-<sha>`.
+  5. If the production run surfaces any 4xx / 5xx, capture the request URL +
+     body + Rails log line and triage as a separate concern.
 - **Verification:**
   1. Local (`bin/dev`): one full add + change + delete cycle.
   2. Production (`app.pitomd.com`): one full add cycle from the user's
      `~/Footage` directory.
-  3. The Footage pane on the project show page reflects the new rows
-     after each run completes.
-- **Cross-reference:** related to the existing
-  `pito footage import` runtime validation against live app.pitomd.com
-  follow-up above — that one focused on the URL contract; this one is
-  the broader regression check after the project rework.
+  3. The Footage pane on the project show page reflects the new rows after each
+     run completes.
+- **Cross-reference:** related to the existing `pito footage import` runtime
+  validation against live app.pitomd.com follow-up above — that one focused on
+  the URL contract; this one is the broader regression check after the project
+  rework.
 
 ## Done
 
