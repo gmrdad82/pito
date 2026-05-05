@@ -24,6 +24,10 @@ class ProjectsController < ApplicationController
     @notes_locked = NotesLockGuard.locked?(@project.tenant)
   end
 
+  def edit
+    @project = Project.find(params[:id])
+  end
+
   def create
     project = Project.new(tenant: default_tenant)
     project.save!
@@ -35,7 +39,7 @@ class ProjectsController < ApplicationController
     if @project.update(update_params)
       redirect_to project_path(@project), notice: "project updated."
     else
-      render :show, status: :unprocessable_entity
+      render :edit, status: :unprocessable_entity
     end
   end
 
@@ -48,7 +52,7 @@ class ProjectsController < ApplicationController
   private
 
   def update_params
-    params.require(:project).permit(:name, :concept)
+    params.require(:project).permit(:name)
   end
 
   def default_tenant

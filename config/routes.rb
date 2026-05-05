@@ -48,7 +48,10 @@ Rails.application.routes.draw do
   resources :collections
   resources :games
   resources :footages, only: [ :index, :show, :edit, :update, :destroy ]
-  resources :notes, only: [ :index, :show, :edit, :update, :destroy ] do
+  # Phase B post-commit (2026-05-04) — Note revamp. The note editor is now
+  # a single screen (no /edit) — `GET /notes/:id` renders the two-pane
+  # editor directly. `/edit` and `/new` are intentionally absent.
+  resources :notes, only: [ :index, :show, :update, :destroy ] do
     collection do
       # Phase 4 §6.4 — `[ scan now ]` enqueues NoteSyncJob.
       post :scan

@@ -16,7 +16,7 @@
       <tbody>
         <% @notes.each do |note| %>
           <tr>
-            <td><%= link_to note.title, edit_note_path(note) %></td>
+            <td><%= link_to note.title, note_path(note) %></td>
             <td><%= note.project.name %></td>
             <td class="num"><%= note.last_modified_at.strftime("%Y-%m-%d %H:%M") %></td>
           </tr>

@@ -375,6 +375,60 @@ should reject `bar_chart` / `line_chart` / `column_chart` / `area_chart` /
   the fields below."
 - Notices: blue-tinted background, errors: red-tinted background
 
+### Unsaved-changes navigation guard
+
+Forms whose loss would cost the user real typed content opt into a navigation
+guard via the `unsaved-form` Stimulus controller. The controller composes
+alongside whatever feature controllers the form already needs — multiple values
+are space-separated, order is irrelevant.
+
+```erb
+<%= form_with(model: @note,
+              url: note_path(@note),
+              method: :patch,
+              data: { controller: "markdown-editor unsaved-form" }) do |f| %>
+```
+
+**Behavior.** On `connect`, the controller serializes every named
+input/textarea/select/checkbox into a snapshot string. Every `input` and
+`change` event inside the form re-serializes and flips an internal `_dirty`
+flag if the result diverges from the snapshot. On `beforeunload`, if dirty, the
+handler calls `event.preventDefault()` AND assigns `event.returnValue = ""` —
+both are required (preventDefault for the HTML Living Standard / current
+Chromium, returnValue for legacy WebKit). On `submit`, `_dirty` is cleared
+before the navigation fires so a successful redirect doesn't re-trigger the
+prompt.
+
+**Carve-out from the no-JS-confirms rule.** This is THE documented exception to
+the "no `alert` / `confirm` / `prompt` / `data-turbo-confirm`" hard rule (see
+`CLAUDE.md` → Hard rules). The browser-native "Leave site?" dialog raised by
+`beforeunload` is structurally different from `window.confirm()` — the browser
+renders the dialog itself, and the page never interrupts a user action
+mid-click. The action-confirmation framework (`ConfirmModalComponent`,
+`shared/_action_screen.html.erb`, `DeletionsController` / `SyncsController`)
+covers in-page destructive intent; it cannot cover off-page navigation, tab
+close, or reload, which is the gap this controller fills.
+
+**When to apply.** Any form where losing typed input would be costly —
+substantial free-form text fields, markdown editors, multi-line note bodies,
+future settings sections with rich text. Do NOT apply to short single-field
+forms (search box, channel-add URL field, simple toggles); the friction of the
+leave-site dialog outweighs the value of the small amount of input that would
+be lost.
+
+Currently wired on:
+
+- `app/views/notes/show.html.erb` — note editor (markdown body textarea).
+
+Consider when these land: any future bulk-edit forms; future settings sections
+that grow into long-form input; any future composition surface (drafts,
+multi-paragraph descriptions, project-level prose fields).
+
+**Browser-text caveat.** The dialog string is browser-controlled. The empty
+string we assign to `returnValue` is ignored by Chromium and Firefox; older
+WebKit may still surface it. Don't try to customize it — there is no portable
+way to.
+
 ## Panes (Multi-item View)
 
 ### Desktop

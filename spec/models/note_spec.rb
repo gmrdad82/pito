@@ -48,4 +48,36 @@ RSpec.describe Note, type: :model do
       expect(Note).to respond_to(:nearest_neighbors)
     end
   end
+
+  describe "chars_count / words_count recomputation" do
+    let(:tenant)  { create(:tenant) }
+    let(:project) { create(:project, tenant: tenant) }
+    let(:note)    { create(:note, project: project, tenant: tenant) }
+
+    it "stays at 0 / 0 when body_for_counts is not assigned" do
+      expect(note.chars_count).to eq(0)
+      expect(note.words_count).to eq(0)
+    end
+
+    it "recomputes from body_for_counts on save" do
+      note.body_for_counts = "# Hello\n\nWorld and again"
+      note.save!
+      expect(note.chars_count).to eq("# Hello\n\nWorld and again".chars.size)
+      expect(note.words_count).to eq(5) # "#", "Hello", "World", "and", "again"
+    end
+
+    it "treats an empty body as zero" do
+      note.body_for_counts = ""
+      note.save!
+      expect(note.chars_count).to eq(0)
+      expect(note.words_count).to eq(0)
+    end
+
+    it "counts unicode codepoints, not bytes" do
+      note.body_for_counts = "héllo"
+      note.save!
+      expect(note.chars_count).to eq(5)
+      expect(note.words_count).to eq(1)
+    end
+  end
 end

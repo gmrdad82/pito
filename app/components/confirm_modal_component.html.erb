@@ -6,7 +6,7 @@
     <% if @body.present? %>
       <div class="dialog-message"><%= @body %></div>
     <% end %>
-    <div class="confirm-modal-actions">
+    <div class="confirm-modal-actions modal-footer">
       <%= form_with url: @confirm_path, method: @confirm_method, data: { turbo: false }, html: { style: "display: inline;" } do %>
         <button type="submit" class="<%= confirm_button_classes %>">[<span class="bl"><%= @confirm_label %></span>]</button>
       <% end %>

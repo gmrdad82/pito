@@ -261,9 +261,7 @@ if cover_fixture_path.exist? && !game.cover_art.attached?
   )
 end
 
-project = Project.find_or_initialize_by(tenant: tenant, name: "Demo Project")
-project.concept ||= "Walkthrough of demo game with commentary."
-project.save!
+project = Project.find_or_create_by!(tenant: tenant, name: "Demo Project")
 
 # Polymorphic references — Project -> Game and Project -> Collection.
 ProjectReference.find_or_create_by!(

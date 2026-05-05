@@ -2,11 +2,8 @@
   <%= render(BracketedLinkComponent.new(label: "saved views", href: "#", data: { action: "click->saved-views#open" })) %>
 
   <dialog data-saved-views-target="dialog" data-action="click->saved-views#clickOutside" class="pane-dialog">
-    <div style="padding: 12px; min-width: 320px; max-width: 90vw; width: max-content;">
-      <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
-        <h2>saved views</h2>
-        <%= render(BracketedLinkComponent.new(label: "close", href: "#", data: { action: "click->saved-views#close" })) %>
-      </div>
+    <div style="padding: 12px; min-width: 480px; max-width: 90vw;">
+      <h2 style="margin-bottom: 8px;">saved views</h2>
       <%# Phase 4 §9.3 — chip list scrolls horizontally on desktop and mobile.
         flex-wrap: nowrap is deliberate; see CSS comment in
         application.css. %>
@@ -36,6 +33,9 @@
             <span><%= view.display_name_with_deletions %></span>
           </div>
         <% end %>
+      </div>
+      <div class="modal-footer">
+        <%= render(BracketedLinkComponent.new(label: "close", href: "#", data: { action: "click->saved-views#close" })) %>
       </div>
     </div>
   </dialog>

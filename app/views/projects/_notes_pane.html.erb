@@ -1,55 +1,96 @@
 <%# Phase 4 §9.1, §6.4 — Notes pane on the project show page.
+  Phase B post-commit (2026-05-04):
+    - `[ edit ]` now points to `note_path(note)` (the show route IS the
+      editor; no /edit segment).
+    - Columns include chars / words counts (mirror of the editor's
+      live status bar).
+    - Bulk-select toggle on the pane header — only DELETE is wired
+      (notes don't have an open/sync flow). Mirrors the /projects
+      index pattern via the panes-optional `bulk-select` controller.
   Locals: project, notes, locked (Boolean — tenant-wide notes-syncing lock)
 %>
 
-<div style="display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px;">
-  <h2>notes (<%= number_with_delimiter(notes.size) %>)</h2>
+<div data-controller="bulk-select" data-bulk-select-entity-name-value="notes" data-bulk-select-delete-type-value="note">
+  <div style="display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px;">
+    <h2>notes (<%= number_with_delimiter(notes.size) %>)</h2>
+    <% if locked %>
+      <span class="text-muted">&middot;</span>
+      <span class="bracketed-muted">[ add ]</span>
+    <% else %>
+      <span class="text-muted">&middot;</span>
+      <%= button_to project_notes_path(project), form: { style: "display: inline;", data: { turbo: false } }, class: "bracketed", method: :post do %>[<span class="bl">add</span>]<% end %>
+    <% end %>
+    <span class="text-muted">&middot;</span>
+    <% if locked %>
+      <span class="bracketed-muted">[ scan ]</span>
+    <% else %>
+      <%= button_to scan_notes_path, form: { style: "display: inline;", data: { turbo: false } }, class: "bracketed", method: :post do %>[<span class="bl">scan</span>]<% end %>
+    <% end %>
+    <% if notes.any? %>
+      <span data-bulk-select-target="bulkToggle">
+        <span class="text-muted">&middot;</span>
+        <%= render(BracketedLinkComponent.new(label: "bulk", href: "#", data: { action: "click->bulk-select#enterBulk" })) %>
+      </span>
+    <% end %>
+  </div>
+
   <% if locked %>
-    <span class="text-muted">&middot;</span>
-    <span class="bracketed-muted">[ add ]</span>
-  <% else %>
-    <span class="text-muted">&middot;</span>
-    <%= button_to project_notes_path(project), form: { style: "display: inline;", data: { turbo: false } }, class: "bracketed", method: :post do %>[<span class="bl">add</span>]<% end %>
+    <div class="flash-warning" style="margin-bottom: 8px;">
+      notes are syncing — try again in a moment.
+    </div>
   <% end %>
-  <span class="text-muted">&middot;</span>
-  <% if locked %>
-    <span class="bracketed-muted">[ scan ]</span>
+
+  <% if notes.any? %>
+    <%# Phase B post-commit — bulk toolbar. Same leading-separator pattern
+        as the /projects index. Only DELETE is wired. %>
+    <div data-bulk-select-target="actions" hidden class="bulk-toolbar" style="margin-bottom: 6px;">
+      <span class="action" data-bulk-select-target="count" hidden>
+        <span class="action-sep" hidden>&middot;</span>
+      </span>
+      <span class="action" data-bulk-select-target="deleteAction" hidden>
+        <span class="action-sep" hidden>&middot;</span>
+      </span>
+      <span class="action">
+        <span class="action-sep" hidden>&middot;</span>
+        <%= render(BracketedLinkComponent.new(label: "cancel", href: "#", data: { action: "click->bulk-select#exitBulk" })) %>
+      </span>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th class="col-action" data-bulk-select-target="bulkCol" hidden>
+            <%= render(CheckboxComponent.new(data: { bulk_select_target: "headerCheckbox", action: "change->bulk-select#toggleAll" })) %>
+          </th>
+          <th class="col-action" data-bulk-select-target="actionCol"></th>
+          <th>title</th>
+          <th class="num">chars</th>
+          <th class="num">words</th>
+          <th>last modified</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% notes.each do |note| %>
+          <tr>
+            <td class="col-action" data-bulk-select-target="bulkCol" hidden>
+              <%= render(CheckboxComponent.new(value: note.id, data: { bulk_select_target: "checkbox", action: "change->bulk-select#toggle" })) %>
+            </td>
+            <td class="col-action" data-bulk-select-target="actionCol">
+              <% if locked %>
+                <span class="bracketed-muted">[ edit ]</span>
+              <% else %>
+                <%= render(BracketedLinkComponent.new(label: "edit", href: note_path(note))) %>
+              <% end %>
+            </td>
+            <td><%= note.title %></td>
+            <td class="num"><%= number_with_delimiter(note.chars_count) %></td>
+            <td class="num"><%= number_with_delimiter(note.words_count) %></td>
+            <td class="num"><%= compact_time_ago(note.last_modified_at) %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
   <% else %>
-    <%= button_to scan_notes_path, form: { style: "display: inline;", data: { turbo: false } }, class: "bracketed", method: :post do %>[<span class="bl">scan</span>]<% end %>
+    <p class="text-muted">no notes yet.</p>
   <% end %>
 </div>
-
-<% if locked %>
-  <div class="flash-warning" style="margin-bottom: 8px;">
-    notes are syncing — try again in a moment.
-  </div>
-<% end %>
-
-<% if notes.any? %>
-  <table>
-    <thead>
-      <tr>
-        <th class="col-action"></th>
-        <th>title</th>
-        <th>last modified</th>
-      </tr>
-    </thead>
-    <tbody>
-      <% notes.each do |note| %>
-        <tr>
-          <td class="col-action">
-            <% if locked %>
-              <span class="bracketed-muted">[ edit ]</span>
-            <% else %>
-              <%= render(BracketedLinkComponent.new(label: "edit", href: edit_note_path(note))) %>
-            <% end %>
-          </td>
-          <td><%= note.title %></td>
-          <td class="num"><%= compact_time_ago(note.last_modified_at) %></td>
-        </tr>
-      <% end %>
-    </tbody>
-  </table>
-<% else %>
-  <p class="text-muted">no notes yet.</p>
-<% end %>

@@ -151,6 +151,32 @@ RSpec.describe "Projects", type: :request do
       get project_path(project)
       expect(response.body.scan(/class="pane-wrapper"/).size).to eq(3)
     end
+
+    it "renders [edit] and [delete] in the breadcrumb actions" do
+      get project_path(project)
+      expect(response.body).to include('class="bl">edit</span>')
+      expect(response.body).to include('class="bl">delete</span>')
+      expect(response.body).to include(edit_project_path(project))
+    end
+
+    it "does not render an inline edit form on the show page" do
+      get project_path(project)
+      # No name input field on show — editing happens on /projects/:id/edit
+      expect(response.body).not_to include('name="project[name]"')
+    end
+  end
+
+  describe "GET /projects/:id/edit" do
+    let!(:project) { create(:project, name: "Some project") }
+
+    it "returns 200 and renders a form with the name field" do
+      get edit_project_path(project)
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include('name="project[name]"')
+      expect(response.body).to include("Some project")
+      # cancel link points back to show
+      expect(response.body).to include(project_path(project))
+    end
   end
 
   describe "PATCH /projects/:id (rename)" do
