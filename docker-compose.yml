@@ -1,15 +1,21 @@
 # Bridge networking restored after Docker iptables rebuild on 2026-05-01.
+#
+# Host-side ports use the "27" suffix (3027/3028 web, 54327 postgres,
+# 64527 redis, 7727 meilisearch) so this stack can run alongside other
+# local projects (e.g. client on 3018 / 64518) without collisions.
+# Container-side ports stay default — only the host mapping shifts.
+# All host bindings are pinned to 127.0.0.1 (never 0.0.0.0).
 services:
   postgres:
     image: pgvector/pgvector:pg17
     ports:
-      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-54327}:5432"
     environment:
       POSTGRES_USER: pito
       POSTGRES_DB: pito_development
       POSTGRES_HOST_AUTH_METHOD: trust
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - pito-postgres-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
       interval: 5s
@@ -19,9 +25,9 @@ services:
   redis:
     image: redis:7
     ports:
-      - "127.0.0.1:${REDIS_PORT:-6380}:6379"
+      - "127.0.0.1:${REDIS_PORT:-64527}:6379"
     volumes:
-      - redis_data:/data
+      - pito-redis-data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -31,9 +37,9 @@ services:
   meilisearch:
     image: getmeili/meilisearch:v1.13
     ports:
-      - "127.0.0.1:${MEILISEARCH_PORT:-7700}:7700"
+      - "127.0.0.1:${MEILISEARCH_PORT:-7727}:7700"
     volumes:
-      - meilisearch_data:/meili_data
+      - pito-meilisearch-data:/meili_data
     environment:
       MEILI_ENV: development
       MEILI_NO_ANALYTICS: "true"
@@ -44,14 +50,22 @@ services:
       retries: 10
 
 volumes:
-  postgres_data:
-  redis_data:
-  meilisearch_data:
+  # Explicit `name:` overrides bypass docker-compose's project-prefix so the
+  # listed volume name matches the YAML key exactly (avoids the doubled
+  # `pito_pito-...` form that compose generates by default).
+  pito-postgres-data:
+    name: pito-postgres-data
+  pito-redis-data:
+    name: pito-redis-data
+  pito-meilisearch-data:
+    name: pito-meilisearch-data
   # Phase 4 §6.1 + §5 — named volumes for project notes (markdown files on
   # disk) and Active Storage assets (game cover art, future channel
   # banners/avatars). Currently unmounted — Rails runs natively on the dev
   # host and reads PITO_NOTES_PATH / PITO_ASSETS_PATH env vars. The volume
   # declarations live here so the names are reserved for when Rails moves
   # into a container (Hetzner cutover, Phase 16).
-  pito_notes:
-  pito_assets:
+  pito-notes:
+    name: pito-notes
+  pito-assets:
+    name: pito-assets

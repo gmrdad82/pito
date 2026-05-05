@@ -26,7 +26,7 @@ Rails.application.configure do
   end
 
   # Use Redis for caching in development
-  config.cache_store = :redis_cache_store, { url: ENV.fetch("REDIS_URL", "redis://127.0.0.1:6380/0") }
+  config.cache_store = :redis_cache_store, { url: ENV.fetch("REDIS_URL", "redis://127.0.0.1:64527/0") }
 
   # Store uploaded files on the local file system (see config/storage.yml for options).
   config.active_storage.service = :local

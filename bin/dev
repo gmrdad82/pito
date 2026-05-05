@@ -51,8 +51,10 @@ if ! gem list foreman -i --silent; then
   gem install foreman
 fi
 
-# Default to port 3000 if not specified
-export PORT="${PORT:-3000}"
+# Default web Puma port (3027). The "27" suffix marker keeps pito clear of
+# other local projects (e.g. client on 3018). Override with PORT=... if
+# something else is already bound.
+export PORT="${PORT:-3027}"
 
 # Let the debug gem allow remote connections,
 # but avoid loading until `debugger` is called

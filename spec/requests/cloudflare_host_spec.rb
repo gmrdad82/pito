@@ -1,8 +1,8 @@
 require "rails_helper"
 
 # Smoke tests for the Cloudflare-tunneled hostnames (app.pitomd.com and
-# mcp.pitomd.com). The tunnel forwards public requests to localhost:3000
-# (web) and localhost:3001 (MCP); Rails sees the public Host header.
+# mcp.pitomd.com). The tunnel forwards public requests to localhost:3027
+# (web) and localhost:3028 (MCP); Rails sees the public Host header.
 #
 # These specs exercise development-time host authorization and the
 # canonical default_url_options hookup. They run in test env, where

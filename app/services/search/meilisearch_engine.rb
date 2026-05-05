@@ -2,7 +2,7 @@ module Search
   class MeilisearchEngine < Engine
     def initialize(url: nil, api_key: nil)
       @client = Meilisearch::Client.new(
-        url || ENV.fetch("MEILISEARCH_URL", "http://127.0.0.1:7700"),
+        url || ENV.fetch("MEILISEARCH_URL", "http://127.0.0.1:7727"),
         api_key
       )
     end

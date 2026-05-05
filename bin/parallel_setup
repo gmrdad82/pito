@@ -3,15 +3,21 @@
 #
 # Provision per-process Postgres test databases used by `parallel_rspec`.
 #
-# parallel_tests creates one DB per CPU core, suffixed by TEST_ENV_NUMBER
-# (`pito_test`, `pito_test_2`, ..., `pito_test_<N>`). After running this once
-# the parallel runner is good to go:
+# parallel_tests creates one DB per process suffixed by TEST_ENV_NUMBER
+# (`pito_test`, `pito_test_2`, ..., `pito_test_<N>`). We cap N at 8 via
+# PARALLEL_TEST_PROCESSORS so local machines with high core counts (and
+# GitHub CI runners) don't over-provision DBs the suite never uses. The
+# same cap is applied in `.github/workflows/ci.yml` and `bin/test`.
 #
-#     bundle exec parallel_rspec spec/
+# After running this once the parallel runner is good to go:
+#
+#     bin/test                   # or: bundle exec parallel_rspec spec/
 #
 # Re-run any time the schema changes; `parallel:load_schema` is idempotent.
 
 set -euo pipefail
+
+export PARALLEL_TEST_PROCESSORS=8
 
 cd "$(dirname "$0")/.."
 

@@ -6,7 +6,7 @@ default: &default
   adapter: postgresql
   encoding: unicode
   host: <%= ENV.fetch("POSTGRES_HOST", "127.0.0.1") %>
-  port: <%= ENV.fetch("POSTGRES_PORT", 5433).to_i %>
+  port: <%= ENV.fetch("POSTGRES_PORT", 54327).to_i %>
   pool: <%= [ENV.fetch("RAILS_MAX_THREADS", 5).to_i, ENV.fetch("MCP_THREADS", 5).to_i, ENV.fetch("SIDEKIQ_CONCURRENCY", 5).to_i].max %>
 
 development:

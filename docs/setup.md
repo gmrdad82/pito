@@ -31,6 +31,10 @@ docker compose ps
 Expected: `pito-postgres-1`, `pito-redis-1`, `pito-meilisearch-1` all
 `(healthy)`.
 
+Volumes are named with the `pito-` prefix (`pito-postgres-data`,
+`pito-redis-data`, `pito-meilisearch-data`) so they're easy to spot in
+`docker volume ls` next to other projects' volumes.
+
 ## 3. Configure credentials
 
 Pito reads two blocks from Rails encrypted credentials: `:postgres` (database
@@ -99,12 +103,26 @@ cp .env.example .env.development
 cp .env.example .env.test
 ```
 
-The defaults expect Postgres on `127.0.0.1:5433`, Redis on `:6380`, Meilisearch
-on `:7700`. Override `POSTGRES_HOST`/`POSTGRES_PORT` if your host already runs
-Postgres on `5432`.
+Pito services bind to `127.0.0.1` on high ports with a `27` suffix marker so
+they don't collide with other local projects. See "Local services & ports" below
+for the table. Every port is env-overridable (`POSTGRES_PORT`, `REDIS_PORT`,
+`MEILISEARCH_PORT`, `PORT`, `MCP_PORT`).
 
 Optional: set a single `DATABASE_URL` instead of discrete keys (commented in
 `.env.example`).
+
+### Local services & ports
+
+| Service     | Port  | Bound to    | Override env       |
+| ----------- | ----- | ----------- | ------------------ |
+| Web Puma    | 3027  | `127.0.0.1` | `PORT`             |
+| MCP Puma    | 3028  | `127.0.0.1` | `MCP_PORT`         |
+| Postgres    | 54327 | `127.0.0.1` | `POSTGRES_PORT`    |
+| Redis       | 64527 | `127.0.0.1` | `REDIS_PORT`       |
+| Meilisearch | 7727  | `127.0.0.1` | `MEILISEARCH_PORT` |
+
+The `27` suffix is the pito marker — distinct from sibling projects. Edit
+`.env.development` / `.env.test` to override.
 
 ## 5. Database create + migrate + seed
 
@@ -120,7 +138,7 @@ in the intersection). Re-running is idempotent.
 Confirm extensions are enabled:
 
 ```bash
-psql -h 127.0.0.1 -p 5433 -U pito pito_development -c "\dx"
+psql -h 127.0.0.1 -p 54327 -U pito pito_development -c "\dx"
 ```
 
 Expected output lists `pgcrypto`, `citext`, `vector`.
@@ -131,8 +149,28 @@ Expected output lists `pgcrypto`, `citext`, `vector`.
 bin/dev
 ```
 
-This runs `Procfile.dev`: Web Puma (3000), MCP Puma (3001), Sidekiq, Tailwind
+This runs `Procfile.dev`: Web Puma (3027), MCP Puma (3028), Sidekiq, Tailwind
 watcher, and the cloudflared tunnel.
+
+### Cloudflare tunnel ingress
+
+The tunnel that fronts `app.pitomd.com` and `mcp.pitomd.com` lives outside this
+repo at `~/.cloudflared/config.yml`. Whenever pito's local ports change, point
+the tunnel ingress at the new ports:
+
+```yaml
+ingress:
+  - hostname: app.pitomd.com
+    service: http://127.0.0.1:3027
+  - hostname: mcp.pitomd.com
+    service: http://127.0.0.1:3028
+  - service: http_status:404
+```
+
+Restart cloudflared after editing — either `cloudflared tunnel run <name>`
+directly, or restart `bin/dev` if the tunnel runs under foreman via
+`Procfile.dev`. This is a manual step the developer takes whenever ports change;
+pito does not manage the tunnel config.
 
 ## Connection pool considerations
 

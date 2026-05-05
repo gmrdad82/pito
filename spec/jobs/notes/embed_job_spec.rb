@@ -15,7 +15,7 @@ RSpec.describe Notes::EmbedJob, type: :job do
 
     # Allow Meilisearch upsert HTTP traffic to fail silently — most specs
     # focus on the Voyage gate, not the search path.
-    stub_request(:post, /127\.0\.0\.1:7700/).to_return(status: 200)
+    stub_request(:post, /127\.0\.0\.1:7727/).to_return(status: 200)
   end
 
   after do

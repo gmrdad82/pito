@@ -8,7 +8,10 @@ rather than rewrite.
 
 Pito's primary relational store is Postgres 17 via the `pgvector/pgvector:pg17`
 Docker image. Running on `127.0.0.1` and (in development) listening on host port
-`5433` so it never collides with a host-installed Postgres on `5432`.
+`54327` so it never collides with a host-installed Postgres on `5432` or with
+sibling projects on neighbouring ports. The `27` suffix is pito's port marker;
+see `docs/setup.md` for the full local port table. Data is persisted in the
+`pito-postgres-data` Docker volume.
 
 ### Extensions
 
@@ -204,22 +207,22 @@ Concurrency 5 (`config/sidekiq.yml`). Web UI at `/sidekiq` with HTTP basic auth.
 
 ## Search — Meilisearch 1.13
 
-Search index lives in Meilisearch (`meilisearch_data` Docker volume). Reindex is
-auto-enqueued via the `Searchable` concern on every save/destroy. `Searchable`
-is included by `Video` only (Phase 3 dropped `Channel`). The search controller
-and the `search` MCP tool only query videos.
+Search index lives in Meilisearch (`pito-meilisearch-data` Docker volume).
+Reindex is auto-enqueued via the `Searchable` concern on every save/destroy.
+`Searchable` is included by `Video` only (Phase 3 dropped `Channel`). The search
+controller and the `search` MCP tool only query videos.
 
 ## Background jobs — Sidekiq
 
-Backed by Redis (`redis:7` Docker volume `redis_data`). See "Sidekiq queues"
-above.
+Backed by Redis (`redis:7` Docker volume `pito-redis-data`). See "Sidekiq
+queues" above.
 
 ## Process model — dual Puma + worker
 
 `Procfile.dev` declares:
 
-- `web` — Web Puma on port 3000 (3 threads).
-- `mcp` — MCP HTTP Puma on port 3001 (5 threads).
+- `web` — Web Puma on port 3027 (3 threads).
+- `mcp` — MCP HTTP Puma on port 3028 (5 threads).
 - `worker` — Sidekiq.
 - `css` — Tailwind watcher.
 - `tunnel` — cloudflared tunnel exposing `app.pitomd.com` and `mcp.pitomd.com`.

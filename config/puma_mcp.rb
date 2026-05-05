@@ -1,7 +1,7 @@
 # Puma config for MCP HTTP server (separate process from web app)
 # Started via: bin/mcp-web
 
-port ENV.fetch("MCP_PORT", 3001)
+port ENV.fetch("MCP_PORT", 3028)
 environment ENV.fetch("RAILS_ENV", "development")
 workers ENV.fetch("MCP_WORKERS", 1).to_i
 threads_count = ENV.fetch("MCP_THREADS", 5).to_i

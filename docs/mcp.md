@@ -11,7 +11,7 @@ clients).
 - **Transports:** stdio (local) and Streamable HTTP (remote)
 - **Auth:** none for stdio (local trust), bearer token for HTTP
 - **Process isolation:** stdio runs as standalone process; HTTP runs on a
-  dedicated Puma (port 3001), separate from the web app (port 3000)
+  dedicated Puma (port 3028), separate from the web app (port 3027)
 
 The MCP server loads Rails models, decorators, and services directly
 (in-process). It does not make HTTP requests to the web app.
@@ -32,13 +32,13 @@ MCP_DEBUG=1 bin/mcp
 ## HTTP Transport (Remote)
 
 For Claude Mobile, remote MCP clients, and tunnel access. Runs on a dedicated
-Puma process (port 3001) to avoid interfering with the web app.
+Puma process (port 3028) to avoid interfering with the web app.
 
 ### Starting the server
 
 ```bash
-bin/mcp-web                    # Starts on port 3001
-MCP_PORT=3002 bin/mcp-web      # Custom port
+bin/mcp-web                    # Starts on port 3028
+MCP_PORT=3029 bin/mcp-web      # Custom port
 ```
 
 The endpoint is `POST /mcp`. All requests require a bearer token.
@@ -59,7 +59,7 @@ bin/rails mcp:revoke_token[1]
 ### Testing with curl
 
 ```bash
-curl -X POST http://localhost:3001/mcp \
+curl -X POST http://localhost:3028/mcp \
   -H 'Content-Type: application/json' \
   -H 'Accept: application/json' \
   -H 'Authorization: Bearer YOUR_TOKEN' \
@@ -80,7 +80,8 @@ The MCP HTTP server is a standard Puma process. Scale it independently:
 To expose pito MCP over the internet (e.g., for Claude Mobile):
 
 1. Install `cloudflared` and authenticate
-2. Create a tunnel pointing `mcp.pitomd.com` → `http://localhost:3001`
+2. Create a tunnel pointing `mcp.pitomd.com` → `http://127.0.0.1:3028` (see
+   `docs/setup.md` for the canonical `~/.cloudflared/config.yml` shape)
 3. Configure Claude Mobile with the MCP endpoint URL and bearer token
 
 See the Cloudflare Tunnel docs for setup details.
@@ -394,7 +395,7 @@ app/lib/
 app/models/
   mcp_access_token.rb     # Bearer token model (SHA256 hashed)
 bin/mcp                   # Stdio entry point
-bin/mcp-web               # HTTP entry point (dedicated Puma on port 3001)
+bin/mcp-web               # HTTP entry point (dedicated Puma on port 3028)
 config/puma_mcp.rb        # Puma config for MCP HTTP server
 lib/tasks/mcp.rake        # Token management rake tasks
 ```

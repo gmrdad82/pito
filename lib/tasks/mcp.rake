@@ -11,7 +11,7 @@ namespace :mcp do
     puts plaintext
     puts ""
     puts "test with:"
-    puts "  curl -X POST http://localhost:3001/mcp \\"
+    puts "  curl -X POST http://localhost:3028/mcp \\"
     puts "    -H 'Content-Type: application/json' \\"
     puts "    -H 'Accept: application/json' \\"
     puts "    -H 'Authorization: Bearer #{plaintext}' \\"

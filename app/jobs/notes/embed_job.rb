@@ -95,7 +95,7 @@ module Notes
     # for now this writes if the host is reachable and silently swallows the
     # error otherwise (WebMock-friendly under specs).
     def upsert_search(note, body, embedding:)
-      url = ENV.fetch("MEILISEARCH_URL", "http://127.0.0.1:7700")
+      url = ENV.fetch("MEILISEARCH_URL", "http://127.0.0.1:7727")
       uri = URI.parse("#{url}/indexes/notes_#{Rails.env}/documents")
 
       doc = {
