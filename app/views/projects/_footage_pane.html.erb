@@ -1,6 +1,23 @@
 <%# Phase 4 §9.1 — Footage pane on the project show page.
-  Locals: project, footages
+  Wave 2 (2026-05-05) revamp:
+    - Expanded column set: filename, game, resolution, fps, bit depth,
+      duration, filesize, source. The `kind` column is gone; it's an
+      internal-only enum (a_roll vs b_roll) that's not directly user-
+      facing in the workspace.
+    - Conditional filter chips: render only when the project's footage
+      varies on a given dimension (> 1 distinct value). Mirrors the
+      `/channels` filter-chip pattern (UI shape + `[clear]` link).
+    - Sortable columns via URL state (`?sort=...&dir=...`). The headers
+      link back to the project show with the toggled direction so the
+      view stays bookmarkable + shareable.
+  Locals:
+    project, footages, filter_options, active_filters, sort, dir
 %>
+
+<% sort       ||= "local_path" %>
+<% dir        ||= "asc" %>
+<% filter_options ||= {} %>
+<% active_filters ||= [] %>
 
 <div style="display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px;">
   <h2>footage (<%= number_with_delimiter(footages.size) %>)</h2>
@@ -8,27 +25,78 @@
   <%= render(BracketedLinkComponent.new(label: "download cli", href: footage_importer_download_path)) %>
 </div>
 
+<%# Filter chips. Each dimension's chip group renders only when the
+    project's footage has > 1 distinct value for it. The `[clear]` link
+    renders when any filter is active and routes back to the project
+    show page with no query string (mirrors `/channels`). %>
+<% chip_groups = filter_options.reject { |_, opts| opts.blank? } %>
+<% if chip_groups.any? || active_filters.any? %>
+  <div style="margin-bottom: 8px; display: flex; flex-direction: column; gap: 4px;">
+    <% chip_groups.each do |dim, options| %>
+      <div style="display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap;">
+        <span class="text-muted"><%= dim %>:</span>
+        <% options.each do |opt| %>
+          <%= render(FilterChipComponent.new(
+            label: opt[:label],
+            param: dim.to_s,
+            value: opt[:value],
+            current_params: request.query_parameters
+          )) %>
+        <% end %>
+      </div>
+    <% end %>
+    <% if active_filters.any? %>
+      <div>
+        <%= render(BracketedLinkComponent.new(label: "clear", href: project_path(project))) %>
+      </div>
+    <% end %>
+  </div>
+<% end %>
+
 <% if footages.any? %>
+  <% sort_link = ->(label, key) {
+    next_dir = (sort == key && dir == "asc") ? "desc" : "asc"
+    href = project_path(project, request.query_parameters.merge(sort: key, dir: next_dir))
+    arrow = if sort == key
+      dir == "asc" ? " ▲" : " ▼"
+    else
+      ""
+    end
+    link_to("#{label}#{arrow}".html_safe, href)
+  } %>
   <table>
     <thead>
       <tr>
-        <th class="col-action"></th>
-        <th>filename</th>
-        <th>kind</th>
-        <th>resolution</th>
-        <th>duration</th>
+        <th><%= sort_link.call("filename", "filename") %></th>
+        <th><%= sort_link.call("game", "game") %></th>
+        <th><%= sort_link.call("resolution", "resolution") %></th>
+        <th class="num"><%= sort_link.call("fps", "fps") %></th>
+        <th class="num"><%= sort_link.call("bit depth", "bit_depth") %></th>
+        <th class="num"><%= sort_link.call("duration", "duration_seconds") %></th>
+        <th class="num"><%= sort_link.call("filesize", "filesize_bytes") %></th>
+        <th><%= sort_link.call("source", "source") %></th>
       </tr>
     </thead>
     <tbody>
       <% footages.each do |footage| %>
+        <% head, tail = filename_split(footage.filename) %>
         <tr>
-          <td class="col-action">
-            <%= render(BracketedLinkComponent.new(label: "edit", href: edit_footage_path(footage))) %>
+          <td class="filename-cell" title="<%= footage.filename %>">
+            <%= link_to edit_footage_path(footage) do %>
+              <% if tail.empty? %>
+                <%= head %>
+              <% else %>
+                <span class="filename-head"><%= head %></span><span class="filename-tail"><%= tail %></span>
+              <% end %>
+            <% end %>
           </td>
-          <td><%= footage.filename %></td>
-          <td><%= footage.kind %></td>
-          <td><%= footage.resolution || "—" %></td>
-          <td class="num"><%= format_duration(footage.duration_seconds) %></td>
+          <td><%= footage.game ? footage.game.title : FootageHelper::EMPTY_VALUE %></td>
+          <td><%= footage.resolution || FootageHelper::EMPTY_VALUE %></td>
+          <td class="num"><%= footage.fps ? footage.fps.to_f.to_s : FootageHelper::EMPTY_VALUE %></td>
+          <td class="num"><%= footage.bit_depth ? "#{footage.bit_depth}-bit" : FootageHelper::EMPTY_VALUE %></td>
+          <td class="num"><%= human_duration(footage.duration_seconds) %></td>
+          <td class="num"><%= human_filesize(footage.filesize_bytes) %></td>
+          <td><%= footage.source || FootageHelper::EMPTY_VALUE %></td>
         </tr>
       <% end %>
     </tbody>

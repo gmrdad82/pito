@@ -1,6 +1,6 @@
 <%# Phase 4 §9.1, §6.4 — Notes pane on the project show page.
   Phase B post-commit (2026-05-04):
-    - `[ edit ]` now points to `note_path(note)` (the show route IS the
+    - `[e]` now points to `note_path(note)` (the show route IS the
       editor; no /edit segment).
     - Columns include chars / words counts (mirror of the editor's
       live status bar).
@@ -15,10 +15,10 @@
     <h2>notes (<%= number_with_delimiter(notes.size) %>)</h2>
     <% if locked %>
       <span class="text-muted">&middot;</span>
-      <span class="bracketed-muted">[ add ]</span>
+      <span class="bracketed-muted">[+]</span>
     <% else %>
       <span class="text-muted">&middot;</span>
-      <%= button_to project_notes_path(project), form: { style: "display: inline;", data: { turbo: false } }, class: "bracketed", method: :post do %>[<span class="bl">add</span>]<% end %>
+      <%= button_to project_notes_path(project), form: { style: "display: inline;", data: { turbo: false } }, class: "bracketed", method: :post do %>[<span class="bl">+</span>]<% end %>
     <% end %>
     <span class="text-muted">&middot;</span>
     <% if locked %>
@@ -62,7 +62,6 @@
           <th class="col-action" data-bulk-select-target="bulkCol" hidden>
             <%= render(CheckboxComponent.new(data: { bulk_select_target: "headerCheckbox", action: "change->bulk-select#toggleAll" })) %>
           </th>
-          <th class="col-action" data-bulk-select-target="actionCol"></th>
           <th>title</th>
           <th class="num">chars</th>
           <th class="num">words</th>
@@ -75,14 +74,13 @@
             <td class="col-action" data-bulk-select-target="bulkCol" hidden>
               <%= render(CheckboxComponent.new(value: note.id, data: { bulk_select_target: "checkbox", action: "change->bulk-select#toggle" })) %>
             </td>
-            <td class="col-action" data-bulk-select-target="actionCol">
+            <td>
               <% if locked %>
-                <span class="bracketed-muted">[ edit ]</span>
+                <%= note.title %>
               <% else %>
-                <%= render(BracketedLinkComponent.new(label: "edit", href: note_path(note))) %>
+                <%= link_to note.title, note_path(note) %>
               <% end %>
             </td>
-            <td><%= note.title %></td>
             <td class="num"><%= number_with_delimiter(note.chars_count) %></td>
             <td class="num"><%= number_with_delimiter(note.words_count) %></td>
             <td class="num"><%= compact_time_ago(note.last_modified_at) %></td>

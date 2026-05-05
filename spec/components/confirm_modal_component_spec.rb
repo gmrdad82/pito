@@ -29,7 +29,9 @@ RSpec.describe ConfirmModalComponent, type: :component do
     ))
 
     expect(page).to have_css('button[type="submit"].bracketed.text-danger')
-    expect(page).to have_css('button[type="submit"]', text: "delete")
+    # Default confirm label collapsed from "delete" to "-" as part of the
+    # site-wide bracket-link relabel pass.
+    expect(page).to have_css('button[type="submit"]', text: "-")
   end
 
   it "renders a non-destructive confirm button when destructive: false" do

@@ -12,7 +12,7 @@
 <%# Editor: textarea on the right (rows=18 ≈ 360px baseline, grows via
     `field-sizing: content`), rendered preview on the left (flex-stretches
     to match). chars/words status floats below the pane-container, out
-    of flow so it never displaces the [save] / [cancel] / [delete] row. %>
+    of flow so it never displaces the [update] / [cancel] / [-] row. %>
 <%= form_with(model: @note,
               url: note_path(@note),
               method: :patch,
@@ -37,12 +37,12 @@
   </div>
 
   <div style="display: flex; gap: 6px; align-items: baseline;">
-    <button type="submit">[<b>save</b>]</button>
+    <button type="submit">[<b>update</b>]</button>
     <span class="text-muted">&middot;</span>
     <%= render(BracketedLinkComponent.new(label: "cancel", href: project_path(@project))) %>
     <span class="text-muted">&middot;</span>
     <%= render(BracketedLinkComponent.new(
-      label: "delete",
+      label: "-",
       href: "#",
       destructive: true,
       data: {
@@ -56,7 +56,7 @@
       title: "delete this note?",
       confirm_path: note_path(@note),
       confirm_method: :delete,
-      confirm_label: "delete",
+      confirm_label: "-",
       destructive: true
     )) %>
   </div>

@@ -13,7 +13,7 @@
         <th class="col-action"></th>
         <% case @type %>
         <% when "channel" %>
-          <th>url</th>
+          <th>URL</th>
           <th class="num">starred</th>
           <th class="num">connected</th>
           <th class="num">last sync</th>
@@ -110,7 +110,7 @@
 
   <div id="action-footer">
     <%= render "shared/action_screen",
-      submit_label: "[delete]",
+      submit_label: "[-]",
       cancel_path: @cancel_path,
       form_url: "/deletions/#{@type}/#{@items.map(&:id).join(",")}",
       destructive: true %>

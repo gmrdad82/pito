@@ -7,7 +7,7 @@ class Timeline < ApplicationRecord
   include AASM
 
   belongs_to :tenant
-  belongs_to :project
+  belongs_to :project, counter_cache: true
   belongs_to :video, optional: true
 
   validates :title, presence: true, length: { maximum: 255 }

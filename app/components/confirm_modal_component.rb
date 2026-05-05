@@ -1,6 +1,6 @@
 class ConfirmModalComponent < ViewComponent::Base
   def initialize(id:, title:, confirm_path:, confirm_method: :delete,
-                 body: nil, confirm_label: "delete",
+                 body: nil, confirm_label: "-",
                  cancel_label: "cancel", destructive: true)
     @id = id
     @title = title

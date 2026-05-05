@@ -23,7 +23,7 @@ RSpec.describe "Deletions", type: :request do
         create(:video, channel: channel)
         get deletions_path(type: "channel", ids: channel.id)
         expect(response.body).to include("videos")
-        expect(response.body).to include("url")
+        expect(response.body).to include("<th>URL</th>")
       end
 
       it "shows breadcrumb with cancel link" do

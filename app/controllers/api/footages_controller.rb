@@ -42,7 +42,7 @@ module Api
       permitted = params.require(:footage).permit(
         :kind, :source, :game_id, :platform,
         :description, :nas_path, :recorded_at,
-        :local_path, :filename,
+        :local_path, :filename, :filesize_bytes,
         :resolution, :fps, :duration_seconds,
         :codec, :bit_depth, :color_profile,
         :aspect_ratio, :orientation,
@@ -76,14 +76,15 @@ module Api
         recorded_at: footage.recorded_at&.iso8601,
         duration_seconds: footage.duration_seconds,
         resolution: footage.resolution,
-        fps: footage.fps&.to_s,
+        fps: footage.fps&.to_f,
         codec: footage.codec,
         bit_depth: footage.bit_depth,
         color_profile: footage.color_profile,
         aspect_ratio: footage.aspect_ratio,
         orientation: footage.orientation,
         audio_track_count: footage.audio_track_count,
-        has_commentary_track: YesNo.to_yes_no(footage.has_commentary_track)
+        has_commentary_track: YesNo.to_yes_no(footage.has_commentary_track),
+        filesize_bytes: footage.filesize_bytes
       }
     end
   end

@@ -1,7 +1,7 @@
 <% content_for(:title, @footage.filename) %>
 <% breadcrumb(["projects", projects_path], [@footage.project.name, project_path(@footage.project)], @footage.filename) %>
 <% content_for(:breadcrumb_actions) do %>
-  <%= render(BracketedLinkComponent.new(label: "edit", href: edit_footage_path(@footage))) %>
+  <%= render(BracketedLinkComponent.new(label: "e", href: edit_footage_path(@footage))) %>
 <% end %>
 
 <h1><%= @footage.filename %></h1>

@@ -337,6 +337,24 @@ should reject `bar_chart` / `line_chart` / `column_chart` / `area_chart` /
 `pie_chart` calls in ERB without a `thousands:` option, mirroring the
 `number_with_delimiter` lint spec at `spec/lint/numeric_formatting_spec.rb`.
 
+## Copy
+
+### URL casing
+
+In user-facing copy — view labels, page text, table headers, button text,
+tooltips, error messages, breadcrumb labels — write `URL` always uppercase.
+Never `url`, `Url`, `Urls`, etc. The full word is always uppercased; embedded
+forms like `URLs` (plural) keep the all-caps. Mixed-case forms are not allowed
+in user copy.
+
+This rule is for user copy only. Routes, Rails URL helpers, database column
+names, Ruby method / variable / symbol identifiers, JSON keys, HTML data
+attribute keys, and Stimulus controller action names follow standard snake_case
+/ kebab-case conventions and remain lowercase as Rails / web standards dictate.
+
+Mnemonic: a user reading `url` thinks of the technical lowercase identifier;
+`URL` is the noun in English. Pito surfaces the noun.
+
 ## Forms
 
 ### Form Fields

@@ -247,6 +247,10 @@ fn insert_probe_fields(footage: &mut serde_json::Map<String, Value>, probed: &Pr
         "recorded_at",
         r.recorded_at.as_ref().map(|s| json!(s)),
     );
+    // `filesize_bytes` is sent unconditionally so the server can clear a stale
+    // value: `Some(n)` becomes the integer; `None` becomes JSON `null`,
+    // matching how the rest of the symmetric metadata travels.
+    footage.insert("filesize_bytes".to_string(), json!(probed.filesize_bytes));
 }
 
 fn insert_optional(map: &mut serde_json::Map<String, Value>, key: &str, value: Option<Value>) {
@@ -302,6 +306,7 @@ mod tests {
     fn probed() -> ProbedFile {
         ProbedFile {
             local_path: "/footage/a.mp4".to_string(),
+            filesize_bytes: Some(2048),
             filename: "a.mp4".to_string(),
             report: baseline_report(),
         }
@@ -434,5 +439,42 @@ mod tests {
         assert_eq!(inner["bit_depth"], json!(8));
         assert_eq!(inner["has_commentary_track"], json!("yes"));
         assert_eq!(inner["filename"], json!("a.mp4"));
+    }
+
+    #[test]
+    fn create_body_includes_filesize_bytes_when_set() {
+        let body = build_create_body(&probed(), &args());
+        let inner = body.get("footage").unwrap();
+        assert_eq!(inner["filesize_bytes"], json!(2048));
+    }
+
+    #[test]
+    fn create_body_serializes_filesize_bytes_as_null_when_unset() {
+        // Production code always populates filesize_bytes, but the wire
+        // contract must round-trip None as JSON `null` so the server can
+        // distinguish "unknown" from "zero bytes".
+        let mut p = probed();
+        p.filesize_bytes = None;
+        let body = build_create_body(&p, &args());
+        let inner = body.get("footage").unwrap();
+        assert_eq!(inner["filesize_bytes"], json!(null));
+    }
+
+    #[test]
+    fn update_body_includes_filesize_bytes() {
+        // PATCH carries filesize_bytes alongside the other probe metadata so
+        // re-encodes / truncations get reflected on the server.
+        let body = build_update_body(&probed());
+        let inner = body.get("footage").unwrap();
+        assert_eq!(inner["filesize_bytes"], json!(2048));
+    }
+
+    #[test]
+    fn update_body_serializes_filesize_bytes_as_null_when_unset() {
+        let mut p = probed();
+        p.filesize_bytes = None;
+        let body = build_update_body(&p);
+        let inner = body.get("footage").unwrap();
+        assert_eq!(inner["filesize_bytes"], json!(null));
     }
 }

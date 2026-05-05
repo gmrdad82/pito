@@ -344,6 +344,32 @@ th.col-action, td.col-action {
   font-variant-numeric: tabular-nums;
 }
 
+/* Middle-truncated filename cells. Used on the project show page's
+   footage pane (`_footage_pane.html.erb`) where long, OBS-style
+   filenames share a fixed-width column. Two spans, flex-row, the
+   head (leading portion) shrinks with `text-overflow: ellipsis`
+   while the tail (`…23-34-48.mkv`-style suffix) stays pinned so the
+   unique trailing identifier is always visible. The cell also carries
+   a `title="<full filename>"` for hover-reveal. Mirrors the CLI TUI
+   `middle_truncate` helper at
+   `extras/cli/src/footage/ui/confirmation.rs`. */
+.filename-cell {
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
+}
+.filename-head {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.filename-tail {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 /* Indicator cells — trend arrows */
 .indicator-up { color: var(--color-success); }
 .indicator-down { color: var(--color-danger); }

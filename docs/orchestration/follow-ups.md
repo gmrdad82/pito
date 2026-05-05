@@ -699,6 +699,248 @@ count, surface it the same way.
   the URL contract; this one is the broader regression check after the project
   rework.
 
+### `fps` BigDecimal → string serialization in non-API FootagesController
+
+**Trigger:** post-validation of the API-side fix shipped 2026-05-05, OR the next
+time `app/controllers/footages_controller.rb` is touched substantively.
+
+**Source:** Reviewer follow-up on `aebcd7d7` rails dispatch (fps API fix). Same
+symptom is latent in the non-API web controller; only the API was in scope for
+the immediate fix because the field bug surfaced via the Rust CLI.
+
+**Summary:**
+
+`app/controllers/footages_controller.rb:122` has the same shape as the API
+controller had on line 79 before the 2026-05-05 fix:
+
+`fps: footage.fps&.to_s`
+
+`Footage.fps` is `BigDecimal` (column type `numeric(6,3)`); `to_s` produces a
+string like `"60.0"`. Any JSON consumer expecting a number breaks the same way
+the Rust CLI did against the API endpoint. The web controller's `footage_json`
+is consumed by inline edit / show paths and possibly Stimulus controllers.
+
+**Action:**
+
+1. Change `to_s` → `to_f` on the same line.
+2. Audit the existing JS / Stimulus consumers of `/footages/:id.json` (or
+   wherever `footage_json` is rendered) and confirm none of them are parsing
+   `fps` as a string. Switch any string-shaped consumer to read it as a number.
+3. Update the corresponding `spec/requests/footages_spec.rb` (or system spec) to
+   assert numeric, mirroring the change made to
+   `spec/requests/api/footages_spec.rb`.
+
+**Verification:**
+
+- `bundle exec rspec` green at full suite count (currently 1061 → still 1061
+  modulo any spec assertion tweaks).
+- Smoke:
+  `curl -sS http://127.0.0.1:3027/footages/1.json | python3 -c 'import json,sys;d=json.load(sys.stdin);print(type(d["fps"]).__name__)'`
+  → prints `float` (was `str`).
+- Manual: open a project's footage row inline-edit in the browser, confirm the
+  fps value renders correctly and isn't broken by the type change.
+
+### `pito footage import` reports "X failed" when server actually succeeded
+
+**Trigger:** next CLI polish pass touching the footage import command, OR a
+dedicated reliability sweep on the CLI's API result handling.
+
+**Source:** Surfaced 2026-05-05 during first real-data validation run against
+project 1 ("Ghost 'n Goblins Resurrection"). The 4 footage rows were created
+successfully on the Rails side (HTTP 201, rows visible in the DB), but the CLI
+reported `0 added, 0 changed, 0 deleted, 4 failed`. Root cause was an unrelated
+wire-format mismatch (`fps` BigDecimal `to_s` vs. CLI `Option<f64>`) in the
+response payload — the CLI's `resp.json()` decode failed AFTER the row was
+already created server-side, and the CLI counted the decode failure as a create
+failure.
+
+**Summary:**
+
+In `extras/cli/src/commands/footage.rs` (and any sibling result-collection
+code), a POST that returns 2xx but whose response body fails to decode is
+currently classified as a failure. This is misleading: the row IS in the
+database, but the user thinks nothing landed and may run the import again hoping
+for a different outcome (which then re-creates duplicates or hits the
+existing-record diff path inconsistently).
+
+**Action:**
+
+1. In the create / update result handler, distinguish between:
+   - HTTP non-2xx → genuine server failure (count as failed).
+   - HTTP 2xx + decode failure → operation succeeded server-side but the client
+     couldn't parse the response. Either count as success (with a warning) OR
+     introduce a new "succeeded, response unparseable" state.
+2. Update the summary line at the end of `pito footage import` to use the new
+   classification.
+3. Add unit tests covering both branches (mock a 2xx with malformed body; mock a
+   4xx).
+
+**Verification:**
+
+- `cargo test --manifest-path extras/cli/Cargo.toml` green; the new
+  decode-fail-but-2xx test passes.
+- Manual: contrive a wire-format mismatch (revert the `fps to_f` fix on a
+  branch, then run `pito footage import` against that branch) → CLI reports "4
+  added (with response parse warning)" or similar, NOT "4 failed".
+
+### Wire footage bulk-mode (Confirmable::TYPES + delete behavior)
+
+**Trigger:** when project page footage table needs always-on checkboxes matching
+the channels/videos pattern, OR a dedicated "bulk operations on footage" feature
+pass.
+
+**Source:** Surfaced 2026-05-06 by the Wave 2 Lane F architect dispatch. The
+dispatch deferred the footage-table bulk shape because (a) `Footage` is not in
+`Confirmable::TYPES` (currently
+`%w[channel video project collection game note timeline]`) so
+`/deletions/footage/:ids` would 404, and (b) the project-side decision of what
+footage delete actually does — DB row only, or also the on-disk file via the
+importer — needs spec confirmation.
+
+**Items:**
+
+1. Add `"footage"` to `Confirmable::TYPES`.
+2. Add `cancel_path` / `model_for` / `scope_for` / `label_for` cases for
+   `footage` in `Confirmable`.
+3. Decide what footage delete means semantically: DB row only (preserves the
+   `.mkv` file on disk) vs. DB row + on-disk file (matches the importer delete
+   classification). Document the decision in this file before coding.
+4. Mirror the always-on checkbox shape on `_footage_pane.html.erb` once the
+   backend works.
+5. Spec: `/deletions/footage/:ids` round-trip via `DeletionsController`.
+
+**Verification before coding:**
+
+- Confirm decision #3 with the user.
+- Read `Confirmable::TYPES` consumers to make sure adding `"footage"` doesn't
+  surprise an unrelated controller.
+
+### Footage source column sorts by enum integer, not alphabetical
+
+**Trigger:** if the `Footage.sources` enum grows beyond `obs` / `camera`, OR a
+dedicated "footage table polish" pass.
+
+**Source:** Surfaced 2026-05-06 during Wave 2 Lane F. Today the source column
+header sorts by the enum's integer value (`obs(0)`, `camera(1)`), which happens
+to be alphabetical-by-coincidence with two values. Adding a third value (e.g.,
+`screen`) breaks the visual alphabetical assumption.
+
+**Action:**
+
+- Either map source to its string label in the `ORDER BY` clause (joined via the
+  enum's reverse-lookup), or guarantee enum values are added in alphabetical
+  order (fragile).
+- Specs: a sort with three+ source values that asserts alphabetical ordering.
+
+### Pre-existing rustfmt drift in extras/cli/
+
+**Trigger:** next time the affected files are touched substantively, OR a
+dedicated CLI hygiene pass.
+
+**Source:** Flagged 2026-05-06 by Wave 2 Lane E. `cargo fmt --check` over the
+workspace flags drift in:
+
+- `extras/cli/src/app.rs`
+- `extras/cli/src/commands/tui.rs`
+- `extras/cli/src/keys.rs`
+- `extras/cli/src/ui/dashboard.rs`
+- `extras/cli/src/ui/mod.rs`
+- `extras/cli/src/ui/operation_progress.rs`
+- `extras/cli/src/ui/videos.rs`
+- `extras/cli/src/widgets/mod.rs`
+
+None introduced by today's work; these were already drifted before Wave 2.
+
+**Action:** `cargo fmt --manifest-path extras/cli/Cargo.toml` over the workspace
+at a quiet moment. Verify clippy + tests stay green post-format.
+
+### Videos new form `[add]` rebadge mirror
+
+**Trigger:** next time `app/views/videos/_form.html.erb` (or its equivalent) is
+touched, OR a dedicated copy-sweep pass.
+
+**Source:** Surfaced 2026-05-06 during Wave 1.5 after the channels new form was
+branched on `channel.new_record?` to render `[add]` on create vs. the
+post-Wave-1 `[update]` glyph. The same correction needs mirroring on the videos
+new form so create reads as `[add]` and update reads as `[update]`. Wave 1.5
+landed the channels half but did not touch videos in this dispatch.
+
+**Action:**
+
+- Branch the videos form's submit button on `video.new_record?`: `[add]` when
+  new, `[update]` otherwise.
+- Update any associated request-spec assertions that check the button label.
+- Verify the form is consistent with the channels analogue.
+
+**Verification:**
+
+- `bundle exec rspec spec/requests/videos_spec.rb` green.
+- Manual: `/videos/new` shows `[add]`; `/videos/:id/edit` shows `[update]`.
+
+### projects_controller.rb sort allowlist patterns repeat
+
+**Trigger:** dedicated controller-cleanup pass, OR if the SQL allowlist pattern
+needs a third site (then DRY).
+
+**Source:** Reviewer 2026-05-06. Both `#sort_clause` (index) and
+`ordered_footages` (show) inline-build `Arel.sql("#{column} #{direction}")` from
+frozen-hash allowlists. The pattern is repeated to dodge a Brakeman
+flow-analysis false positive (passing the sanitized strings across method
+boundaries trips the SQL-injection warning). Mirrors `ChannelsController`.
+
+**Action:** when a third controller needs the same shape, factor into a shared
+helper that Brakeman accepts. Until then, keep inline.
+
+### Filter chip group component — share between channels and footage
+
+**Trigger:** dedicated UI-component-DRY pass, OR if a third filter-chip surface
+lands.
+
+**Source:** Reviewer 2026-05-06. The footage filter chips (Wave 2 Lane F) and
+the channels filter chips share the same conceptual shape: chip per distinct
+value, `[clear]` link, URL-state serialization. Currently implemented as two
+separate ERB blocks.
+
+**Action:** introduce a `FilterChipGroupComponent` that takes the dimension +
+values + current selection + clear path. Migrate channels and footage to it.
+Test the component in isolation.
+
+### request.query_parameters.merge(sort:, dir:) mixes string + symbol keys
+
+**Trigger:** next time the projects controller's URL helpers are touched.
+
+**Source:** Reviewer 2026-05-06. Works in practice (Rails normalizes), but the
+mixed key types are subtle and could trip a future `.deep_symbolize_keys` or
+`.with_indifferent_access` consumer.
+
+**Action:** stringify the keys (`merge("sort" => sort, "dir" => dir)`) for
+explicitness. One-line fix.
+
+### .filename-cell display: flex on <td> — narrow viewport eyeball
+
+**Trigger:** any responsive / mobile pass on the project show page.
+
+**Source:** Reviewer 2026-05-06. Modern browsers handle `display: flex` on
+`<td>` correctly, but it's not the most-tested CSS path. At very narrow
+viewports the head/tail spans may overlap or wrap unexpectedly.
+
+**Action:** test at 360px / 480px / 720px viewport widths, capture screenshots,
+fix any overlap or wrapping with a media-query if needed.
+
+### bulk_select_controller.js legacy comments mislead
+
+**Trigger:** next time the controller is touched, OR a JS hygiene pass.
+
+**Source:** Reviewer 2026-05-06. The controller has comments describing
+`enterBulk` / `exitBulk` / `bulkToggle` as "temporary legacy hooks" — but the
+notes pane and `/projects` index intentionally keep the toggle pattern (those
+pages don't have always-on checkboxes today). The comments are misleading.
+
+**Action:** either tighten the comments to "kept for the toggle-mode surfaces"
+OR migrate notes pane and projects index to always-on shape and remove the
+legacy hooks entirely. Probably the latter, as a follow-up to the footage
+bulk-mode entry above.
+
 ## Done
 
 ### Non-default, pito-specific ports for Postgres / Redis / Meilisearch / Puma

@@ -2551,3 +2551,246 @@ of the box, ESM module that imports cleanly via importmap. Paired with
 `dompurify` for sanitization (marked does NOT sanitize on its own — DOMPurify
 runs over the rendered HTML before injection). Both pinned to specific versions
 on jsDelivr.
+
+## 2026-05-05 — Footage filename middle-truncation (Project show pane)
+
+**State at start.** CLI TUI footage import dialog landed a `middle_truncate`
+helper earlier today (`extras/cli/src/footage/ui/confirmation.rs`) so long
+OBS-style filenames keep their unique trailing timestamp + `.mkv` extension
+visible in the confirmation list. The Rails project show page's footage pane had
+not yet adopted the same treatment — its `<td>` for filename was inheriting the
+table's `white-space: nowrap` + the 454px `.pane-wrapper` width, which silently
+end-truncated paths like
+`Ghost 'n Goblins Resurrection - 2026-04-23 23-34-48.mkv` to
+`Ghost 'n Goblins Resurrection - 2026-04-23 23-34`. Four rows in a row looked
+identical.
+
+**Decision.** Mirror the CLI fix on the web side, but use a pure-CSS flex /
+two-span pattern (zero JS). The view splits each filename into a shrinkable
+`.filename-head` (with `text-overflow: ellipsis`) and a pinned `.filename-tail`.
+The cell carries a `title="<full filename>"` for hover reveal. Ellipsis is the
+Unicode `\u{2026}` rendered by the browser (no literal character in the markup —
+the head's CSS `text-overflow: ellipsis` does it).
+
+**Tail length.** Fixed 23 characters. Covers the trailing
+` - YYYY-MM-DD HH-MM-SS.mkv` segment OBS produces. Filenames at or below 23
+chars render as a single span (no split, no ellipsis). No per-extension
+heuristics — kept simple per the dispatch.
+
+**Files touched.**
+
+- `app/helpers/footage_helper.rb` (new) — `FootageHelper#filename_split`
+  helper + `FOOTAGE_FILENAME_TAIL = 23` constant.
+- `app/views/projects/_footage_pane.html.erb` — filename `<td>` now carries
+  `class="filename-cell"` + `title=` and emits a head/tail span pair when the
+  filename exceeds the tail length.
+- `app/assets/tailwind/application.css` — new `.filename-cell` /
+  `.filename-head` / `.filename-tail` rules slotted in next to `.num`,
+  cross-referenced to the CLI helper in the comment.
+- `spec/helpers/footage_helper_spec.rb` (new) — 6 examples covering short /
+  exact-length / OBS-style long / custom tail / multibyte / nil-coercion paths.
+- `spec/requests/projects_spec.rb` — 2 new examples on the project show page
+  asserting both the long-filename split + the short-filename single-span
+  fallback.
+
+**Spec count.** Baseline 1061 / 0. After changes: 1069 / 0. Delta = +8 examples
+(6 helper + 2 request).
+
+**Brakeman.** `bundle exec brakeman -q -w2` — 0 warnings, 0 errors.
+
+**RuboCop.** Clean on every changed Ruby file
+(`bundle exec rubocop app/helpers/footage_helper.rb spec/helpers/footage_helper_spec.rb spec/requests/projects_spec.rb`).
+
+**No plan checkbox ticked.** This dispatch was a UX follow-up driven by a user
+screenshot, not an entry under
+`docs/plans/beta/04-project-workspace/additions.md`. No checkbox applies.
+
+**Manual verification handed back to the user.** Restart `bin/dev` so the
+Tailwind watcher picks up the new `.filename-*` rules, then load
+`https://app.pitomd.com/projects/1` — the four Ghost 'n Goblins rows should show
+distinct trailing timestamps + `.mkv`, and hovering any filename should surface
+the full path in a tooltip.
+
+## 2026-05-06 — UX polish wave (settings redesign · project page redesign · channels/videos list polish · projects index expansion · CLI filesize)
+
+Consolidates four parallel-lane entries originally appended by individual
+implementer agents (Lane G channels/videos polish, Lane F project show revamp,
+Lane H projects index expansion, F2 strong-params patch) plus the Wave 1 + Wave
+1.5 polish that landed earlier in the day. The narrative below is in
+chronological / dependency order so the history is auditable months later.
+Reviewer playbook:
+`docs/orchestration/playbooks/2026-05-06-wave1-wave2-polish.md`. Security
+playbook:
+`docs/orchestration/playbooks/security-2026-05-06-wave1-wave2-polish.md`.
+
+### Wave 1 — site-wide bracketed-link relabel + settings restructure (parallel landed)
+
+- **Bracket-link relabel sweep.** `[add]` → `[+]`, `[delete]` → `[-]`, `[edit]`
+  → `[e]`, `[open]` → `[o]`, `[view]` → `[v]`, `[save]` → `[update]` across
+  breadcrumbs, action rows, and inline cells. The relabel is the single source
+  of truth — Wave 1.5 below corrects the few places where the new glyphs
+  misfired.
+- **URL casing copy sweep.** Tab `<title>` strings, breadcrumb labels, and page
+  headings normalized to lowercase so `app.pitomd.com/channels` shows
+  `pito · channels` (not `Channels`). Mirrors the production URL casing rule.
+- **Tab `<title>` SafeBuffer fix.** A regression in the title helper was
+  emitting the SafeBuffer wrapper class name (e.g.
+  `#<ActiveSupport::SafeBuffer:0x…>`) instead of the rendered string in some
+  paths. Helper now coerces to plain string before render.
+- **Settings page restructured into 3-row layout.** Row 1 splits 50/50
+  (appearance | workspaces). Row 2 splits 50/50 (YouTube | Voyage). Row 3 spans
+  full-width (search). Mirrors the same shape Wave 2 Lane F applies to the
+  project show page.
+- **`filesize_bytes` column on `footages`.** New `bigint` column +
+  `FootageHelper#human_filesize` for the project-show table. Zero / nil render
+  as the em-dash placeholder convention. JSON serialization includes it
+  (read-side); strong-params would be patched in F2 below.
+- **`docs/design.md` — Copy > URL casing rule.** Captures the lowercase rule so
+  future surfaces don't drift.
+
+### Wave 1.5 — corrections after user feedback
+
+- **Channels new form `[add]` (branched on `channel.new_record?`).** The Wave 1
+  relabel had collapsed both create and update to `[update]` / `[+]`; user
+  feedback called out that the form's submit button on `new` reads more
+  naturally as `[add]` (the create verb). The form partial now branches: `[add]`
+  when `channel.new_record?`, `[update]` otherwise.
+- **Breadcrumb cleanup.** `[add channel]` → `[+]` on the `/channels` breadcrumb
+  actions row (relabel was inconsistent — Wave 1 missed the spelled-out
+  variant).
+- **Saved-view buttons reverted to `[save]`.** Saved-view "create" / "update"
+  were renamed `[update]` in Wave 1 but the saved-view UX only has one verb
+  (capture-and-store), so `[save]` is the correct label. Reverted both surfaces.
+- **Footage + notes panes drop `[e]` column.** The per-row `[e]` action column
+  on the project show page is replaced by making the filename (footage) and
+  title (notes) cells clickable. The cells now route to the edit page; the
+  column is gone. Footage edit page already existed — routes / controller
+  required no change.
+
+### Wave 2 — feature-bundle parallel landing
+
+Three lanes ran in parallel against the post-Wave-1.5 working tree:
+
+**Lane E — CLI `filesize_bytes` capture.** `extras/cli/src/footage/probe.rs`
+gained an `fs::metadata().len()` read on probe; the value is sent on POST +
+PATCH bodies (`extras/cli/src/footage/api/client.rs`). The diff classifier
+(`extras/cli/src/footage/diff.rs`) compares
+`record.filesize_bytes != probed.filesize_bytes` so a row with mismatched size
+classifies as `[chg]`. Tests added on the CLI side: 192 unit + 11 integration
+green.
+
+**Lane F — Project show redesign.** Show page restructured into a two-row
+stacked layout (row 1: timelines | notes 50/50; row 2: footage full-width)
+matching the Wave 1 settings shape. Footage table grew to eight columns:
+`filename, game, resolution, fps, bit depth, duration, filesize, source` (`kind`
+retired from the view, kept on the model). Conditional filter chips render only
+on dimensions where the project's footage varies (>1 distinct value). Sort moved
+to URL state via `?sort=&dir=`, mirroring `ChannelsController#index`'s
+allowlist + inline-ternary direction sanitize. Brakeman-trick: the inline
+ternary is repeated inside `Arel.sql(...)` so flow analysis sees the allowlist
+literals — same shape used in `ChannelsController#sort_clause`.
+`app/helpers/footage_helper.rb#human_duration` added (`"10m 22s"` /
+`"1h 30m 15s"` / `"45s"`, em-dash placeholder for nil / non-positive). Footage
+bulk shape deferred — `Footage` is not in `Confirmable::TYPES`, so
+`/deletions/footage/:ids` would 404. Filed as follow-up A in
+`docs/orchestration/follow-ups.md`. Source-column sort orders by enum integer;
+with two values today (`obs(0)`, `camera(1)`) the visual order happens to match
+alphabetical, but adding a third value breaks the assumption. Filed as follow-up
+B.
+
+**Lane G — Channels + videos list polish.** Always-on checkboxes with a real
+select-all header (`[ ]` / `[x]` / indeterminate). `[bulk]` toggle and
+`[cancel]` exit dropped. `[v]` YouTube external-link column folded into the URL
+cell (the URL text itself is now the
+`<a target="_blank" rel="noopener noreferrer">` link). Workspace add-pane glyph
+migrated `[+]` → `[/]` on channel + video show + panes pages so it disambiguates
+from the add-record `[+]`. Add-channel + add-video modals capped at
+`max-height: 80vh` with internal `overflow-y: auto`; `[close]` moved to a
+`.modal-footer` hairline at the bottom (matches saved-views and confirm modals).
+`bulk_select_controller.js` change is additive — the existing `enterBulk` /
+`exitBulk` / `bulkToggle` surface stays callable for the views that still wire
+it (notes pane, projects index). Filed as follow-up I (legacy comments mislead).
+
+**Lane H — `/projects` index expansion.** Counter-cache columns added to
+`projects`: `footages_count`, `notes_count`, `timelines_count` (integer, default
+0, NOT NULL). Migration pair: column add + backfill via
+`Project.reset_counters`. Models wired (`Footage`, `Note`, `Timeline`
+`belongs_to :project, counter_cache: true`). Index controller accepts
+`?sort=&dir=` against an `ALLOWED_SORTS` allowlist
+(`name, created_at, footages_count, notes_count, timelines_count`), default
+`created_at DESC`, mirroring `ChannelsController#sort_clause` shape. View grew
+to seven columns: bulk-checkbox, open-action, name (link to show), created
+(`compact_time_ago`), footages, notes, timelines. Active header carries `▲` /
+`▼` indicator. Migration round-trips clean (`db:migrate` → `db:rollback STEP=2`
+→ `db:migrate`). Backfill on the dev DB filled Project 1 with `4 / 1 / 0`.
+
+### F2 patch — strong-params permit list (post-security-review)
+
+Security review F2 flagged a functional gap: the Rust CLI sends `filesize_bytes`
+on both POST create and PATCH update payloads, but neither Rails strong-params
+permit list included it. `footage_json` already serialized `filesize_bytes` on
+the way out, so specs caught the response shape but not the round-trip; every
+importer write left `filesize_bytes: NULL` in Postgres. Patch:
+
+- `app/controllers/api/footages_controller.rb#build_create_attrs` —
+  `:filesize_bytes` added to the permit list.
+- `app/controllers/footages_controller.rb#build_update_attrs` —
+  `:filesize_bytes` added to the JSON-branch permit list. The HTML-branch list
+  is unchanged: filesize is importer-owned, never user-edited via the form.
+- Round-trip specs added: a POST spec asserting `filesize_bytes: 1234` survives
+  create and lands on the row, and a PATCH spec asserting `filesize_bytes: 5678`
+  survives JSON update. Live smoke against `bin/dev`:
+  `POST /api/projects/1/footages.json` with `filesize_bytes: 98765` returned the
+  row with `filesize_bytes: 98765` (was `null` before the fix).
+
+The four importer-touched rows on Project 1 carry `filesize_bytes: NULL` because
+they were created under the broken permit list. Re-running
+`pito footage import --project 1 --path "..."` with the rebuilt CLI binary
+classifies them as `[chg]`, the user confirms, and the PATCH lands
+`filesize_bytes` for each row.
+
+### Verification
+
+- `bundle exec rspec` — **1153 examples, 0 failures**.
+- `bundle exec rubocop` — clean (285 files, 0 offenses).
+- `bin/brakeman -q` — 0 errors, 0 security warnings.
+- `cargo test --manifest-path extras/cli/Cargo.toml` — 192 unit + 11
+  integration, 0 failures.
+- `cargo clippy --all-targets -- -D warnings` (extras/cli) — clean.
+- `cargo fmt --check` — pre-existing drift in
+  `extras/cli/src/{app,commands/tui,keys,ui/dashboard,ui/mod,ui/operation_progress,ui/videos,widgets/mod}.rs`.
+  None introduced today; filed as follow-up C.
+- Hard-rules audit — no `data-turbo-confirm` / `window.confirm` / `alert(` /
+  `prompt(` anywhere in `app/`.
+- Migrations reversibility — `db:rollback STEP=2` + `db:migrate` clean.
+
+**Commit.** Will land as `<commit-hash-placeholder>` after the architect runs
+`git commit` post-validation.
+
+### Decisions captured
+
+- **Always-on checkboxes are the canonical bulk shape.** Toggle-mode surfaces
+  (notes pane, projects index) keep the legacy hooks for now. Migrating them is
+  a separate follow-up.
+- **Filter chips on the project show page reuse `FilterChipComponent`.** No new
+  component minted today; sharing a `FilterChipGroupComponent` with `/channels`
+  is filed as follow-up F.
+- **Footage sort allowlist is repeated, not DRY.** Both `#sort_clause` (index)
+  and `ordered_footages` (show) inline-build the
+  `Arel.sql("#{column} #{direction}")` to keep Brakeman flow-analysis happy.
+  Filed as follow-up E to consolidate when a third call site appears.
+- **`[/]` (split) is the workspace add-pane glyph.** The add-record `[+]` stays
+  as is. Disambiguation is by glyph, not label.
+- **CLI `filesize_bytes` is sourced from `fs::metadata().len()`.** No separate
+  ffprobe call needed; the OS-level metadata read is cheap.
+
+### Open documentation gaps for the next session
+
+- Reviewer surfaced two minor concerns (`.filename-cell` flex on `<td>` at
+  narrow viewport — follow-up H; `request.query_parameters.merge(sort:, dir:)`
+  mixes string + symbol keys — follow-up G).
+- The previously-deferred Phase B-2 validation + commit follow-up still has not
+  been actioned; this consolidated entry does not change its status.
+- The settings restructure landed in Wave 1 but the screenshot-walkthrough the
+  user requested is queued as a manual step the architect runs before
+  committing.

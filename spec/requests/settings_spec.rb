@@ -101,6 +101,52 @@ RSpec.describe "Settings", type: :request do
       expect(response.body).to include("md-radio-indicator")
       expect(response.body).to include("md-radio-label")
     end
+
+    # Phase B revamp (2026-05-05) — settings page restructured from a 5-pane
+    # horizontal strip into a 3-row stacked layout. Rows 1 + 2 hold two 50/50
+    # cells; row 3 is full-width. Each cell still wears the pane visual style
+    # (`var(--color-pane-bg)` background). Per-section submit buttons read
+    # `[update]` (no inner spaces), aligning with the site-wide label revamp.
+    it "uses [update] (no inner spaces) on every per-section submit button" do
+      AppSetting.set("max_panes", "5")
+      AppSetting.first.update!(voyage_api_key: "vk_test")
+      get settings_path
+      # All four per-section forms render the same updated button text.
+      expect(response.body.scan("[update]").length).to be >= 4
+      # The pre-revamp `[ save ]` text is gone everywhere on the page.
+      expect(response.body).not_to include("[ save ]")
+    end
+
+    it "renders each section cell on the pane background" do
+      get settings_path
+      # The cells reuse the existing `--color-pane-bg` token; no new CSS.
+      expect(response.body).to include("var(--color-pane-bg)")
+    end
+
+    it "renders rows 1 and 2 as two-column grids" do
+      get settings_path
+      # Two grids = two 2-col rows (appearance|workspaces, oauth|voyage).
+      grid_hits = response.body.scan("grid-template-columns: 1fr 1fr").length
+      expect(grid_hits).to eq(2)
+    end
+
+    # Row order: row 1 (appearance, workspaces), row 2 (oauth, voyage),
+    # row 3 (search). Asserting via DOM order keeps the structure intact.
+    it "orders the sections appearance -> workspaces -> oauth -> voyage -> search" do
+      get settings_path
+      idx_appearance = response.body.index('value="appearance"')
+      idx_workspaces = response.body.index('value="workspaces"')
+      idx_oauth      = response.body.index('value="youtube_oauth"')
+      idx_voyage     = response.body.index('value="voyage"')
+      idx_search     = response.body.index("<h2>search</h2>")
+
+      expect([ idx_appearance, idx_workspaces, idx_oauth, idx_voyage, idx_search ])
+        .to all(be_a(Integer))
+      expect(idx_appearance).to be < idx_workspaces
+      expect(idx_workspaces).to be < idx_oauth
+      expect(idx_oauth).to be < idx_voyage
+      expect(idx_voyage).to be < idx_search
+    end
   end
 
   describe "PATCH /settings" do

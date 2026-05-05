@@ -17,9 +17,12 @@ RSpec.describe "Channels", type: :request do
       expect(response.body).to include("no channels yet")
     end
 
-    it "includes bulk toggle link" do
+    it "does not render the legacy [bulk] toggle (always-on checkboxes)" do
       get channels_path
-      expect(response.body).to include("bulk")
+      # Phase B polish (2026-05-05) — checkboxes are always on; the
+      # `[bulk]` enter / `[cancel]` exit toggles are gone.
+      expect(response.body).not_to match(/\[\s*<span class="bl">bulk<\/span>\s*\]/)
+      expect(response.body).not_to include('data-bulk-select-target="bulkToggle"')
     end
 
     context "with channels" do
@@ -30,9 +33,9 @@ RSpec.describe "Channels", type: :request do
         expect(response.body).to include(channel.channel_url)
       end
 
-      it "renders the YouTube column header (formerly view)" do
+      it "does not render the YouTube column header (folded into the URL link)" do
         get channels_path
-        expect(response.body).to include(">YouTube<")
+        expect(response.body).not_to match(/<th[^>]*>\s*YouTube\s*</)
       end
 
       it "does not render an OAuth column header" do
@@ -46,15 +49,25 @@ RSpec.describe "Channels", type: :request do
         expect(response.body).not_to match(/<th[^>]*>\s*syncing\s*</)
       end
 
-      it "displays 5 data columns (open, url, YouTube, starred, last sync) plus action col" do
+      it "displays 5 columns (select, open, URL, starred, last sync)" do
         get channels_path
-        # Count <th> elements between <thead><tr> and </tr>. Strip bulk col
-        # since it's hidden by default. The visible header tr contains:
-        # action col + url + YouTube + starred + last sync = 5 visible <th>
-        # plus 1 hidden bulk-select header (still present in DOM).
+        # Phase B polish (2026-05-05) — select-all + open + URL + starred
+        # + last sync. YouTube column folded into the URL <a> link.
         thead = response.body.match(/<thead>(.*?)<\/thead>/m)[1]
-        # 6 total <th> (1 hidden bulk col + 5 visible)
-        expect(thead.scan(/<th\b/).size).to eq(6)
+        expect(thead.scan(/<th\b/).size).to eq(5)
+      end
+
+      it "renders a non-sortable URL header (URL is the YouTube link itself)" do
+        get channels_path
+        thead = response.body.match(/<thead>(.*?)<\/thead>/m)[1]
+        expect(thead).to match(/<th>URL<\/th>/)
+        expect(thead).not_to match(/<th[^>]*data-action="click->sortable-table#sort"[^>]*>URL/)
+      end
+
+      it "renders the URL cell as an external YouTube link with target=_blank" do
+        get channels_path
+        # The URL text itself is now the external link (no separate [v]).
+        expect(response.body).to match(/<a href="#{Regexp.escape(channel.channel_url)}" target="_blank" rel="noopener noreferrer">#{Regexp.escape(channel.channel_url)}<\/a>/)
       end
 
       it "renders a sortable starred column header (lowercase, no star icon)" do
@@ -106,16 +119,22 @@ RSpec.describe "Channels", type: :request do
         expect(response.body).to include("/channels/#{channel.id}")
       end
 
-      it "renders the [view] external link with target=_blank" do
+      it "no longer ships a separate [v] action column (folded into the URL link)" do
         get channels_path
-        expect(response.body).to include(">view<")
+        # The URL cell IS the external link now; no standalone `[v]`
+        # button exists in the row markup.
+        expect(response.body).not_to include('class="bl">v</span>')
+        # target=_blank still appears via the URL <a> tag, just not via [v].
         expect(response.body).to include('target="_blank"')
       end
 
-      it "renders bulk select controls" do
+      it "renders always-on bulk select controls (no toggle)" do
         get channels_path
         expect(response.body).to include('data-bulk-select-target="checkbox"')
+        expect(response.body).to include('data-bulk-select-target="headerCheckbox"')
         expect(response.body).to include('data-bulk-select-max-panes-value="3"')
+        # Header + row checkboxes ship without `hidden` (always visible now).
+        expect(response.body).not_to match(/data-bulk-select-target="bulkCol"\s+hidden/)
       end
 
       # Phase B — leading-separator pattern. Each `.action` span carries
@@ -228,9 +247,9 @@ RSpec.describe "Channels", type: :request do
       expect(response.body).to include(channel.channel_url)
     end
 
-    it "renders [view] external link" do
+    it "renders [v] external link" do
       get channel_path(channel)
-      expect(response.body).to include(">view<")
+      expect(response.body).to include('class="bl">v</span>')
       expect(response.body).to include('target="_blank"')
     end
 
@@ -315,14 +334,21 @@ RSpec.describe "Channels", type: :request do
       expect(response.body).to include("pattern=")
     end
 
-    it "renders only URL field + save/cancel (no starred/connected checkboxes)" do
+    it "renders only URL field + add/cancel (no starred/connected checkboxes)" do
       get new_channel_path
       expect(response.body).not_to match(/name="channel\[star\]"/)
       expect(response.body).not_to match(/name="channel\[connected\]"/)
       expect(response.body).not_to match(/>\s*starred\s*<\/label>/)
       expect(response.body).not_to match(/>\s*connected\s*<\/label>/)
-      expect(response.body).to include("save")
+      expect(response.body).to include("[<b>add</b>]")
+      expect(response.body).not_to include("[<b>update</b>]")
       expect(response.body).to include("cancel")
+    end
+
+    it "renders the breadcrumb tail as [add] (no entity word)" do
+      get new_channel_path
+      expect(response.body).to include('<span class="bracketed-active">[add]</span>')
+      expect(response.body).not_to include('[add channel]')
     end
   end
 
@@ -378,14 +404,15 @@ RSpec.describe "Channels", type: :request do
       expect(response.body).to include(channel.channel_url)
     end
 
-    it "renders only locked URL + save/cancel (no starred/connected checkboxes)" do
+    it "renders only locked URL + update/cancel (no starred/connected checkboxes)" do
       get edit_channel_path(channel)
-      expect(response.body).to include("url is locked after creation.")
+      expect(response.body).to include("URL is locked after creation.")
       expect(response.body).not_to match(/name="channel\[star\]"\s+type="checkbox"/)
       expect(response.body).not_to match(/name="channel\[connected\]"\s+type="checkbox"/)
       expect(response.body).not_to match(/>\s*starred\s*<\/label>/)
       expect(response.body).not_to match(/>\s*connected\s*<\/label>/)
-      expect(response.body).to include("save")
+      expect(response.body).to include("[<b>update</b>]")
+      expect(response.body).not_to include("[<b>add</b>]")
       expect(response.body).to include("cancel")
     end
   end
@@ -573,6 +600,12 @@ RSpec.describe "Channels", type: :request do
       get "#{panes_channels_path}?ids=#{channel1.id},99999"
       expect(response).to have_http_status(:ok)
       expect(response.body).to include("channel not found")
+    end
+
+    it "shows save button when no saved view exists" do
+      get "#{panes_channels_path}?ids=#{channel1.id},#{channel2.id}"
+      expect(response.body).to include('class="bl">save</span>')
+      expect(response.body).not_to include('class="bl">update</span>')
     end
 
     it "renders a confirm modal (no data-turbo-confirm) for the saved-view delete" do

@@ -176,7 +176,7 @@ fn push_section(
         Style::default().fg(theme.fg).add_modifier(Modifier::BOLD),
     )));
     for path in paths.iter() {
-        let label = truncate(path, label_budget);
+        let label = middle_truncate(path, label_budget);
         lines.push(Line::from(vec![
             Span::raw("    "),
             Span::styled(format!("{} ", bullet), Style::default().fg(bullet_color)),
@@ -216,16 +216,44 @@ fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
     horizontal[0]
 }
 
-fn truncate(s: &str, max: usize) -> String {
-    let chars: Vec<char> = s.chars().collect();
-    if chars.len() <= max {
-        s.to_string()
-    } else if max <= 3 {
-        chars.iter().take(max).collect()
-    } else {
-        let prefix: String = chars.iter().take(max - 3).collect();
-        format!("{}...", prefix)
+/// Middle-truncate a string to `max` display characters using a single-char
+/// Unicode ellipsis (`\u{2026}`) so both the head (directory hint) and the
+/// tail (filename / timestamp) remain visible.
+///
+/// Behavior:
+/// - If the string already fits, it is returned unchanged.
+/// - If `max == 0`, the empty string is returned.
+/// - If `max == 1`, just the ellipsis is returned (no head / tail room).
+/// - Otherwise, one character is reserved for the ellipsis and the remaining
+///   width is split between a head (~45%) and a tail (~55%) — the tail wins
+///   ties so the unique trailing portion (filename + timestamp) survives.
+///
+/// Width is measured in Unicode scalar values (`char` count), matching the
+/// other truncation helpers in this crate. Ratatui renders each `char` as
+/// one cell for the typical Latin / digit / punctuation paths the import
+/// flow encounters; this is the same model the surrounding code already
+/// assumes.
+fn middle_truncate(s: &str, max: usize) -> String {
+    let char_count = s.chars().count();
+    if char_count <= max {
+        return s.to_string();
     }
+    if max == 0 {
+        return String::new();
+    }
+    if max == 1 {
+        return "\u{2026}".to_string();
+    }
+    // Reserve one cell for the ellipsis. Bias the split so the tail is at
+    // least as long as the head (tail wins on odd remainders).
+    let remaining = max - 1;
+    let head_len = remaining * 45 / 100;
+    let tail_len = remaining - head_len;
+
+    let chars: Vec<char> = s.chars().collect();
+    let head: String = chars.iter().take(head_len).collect();
+    let tail: String = chars.iter().skip(char_count - tail_len).collect();
+    format!("{}\u{2026}{}", head, tail)
 }
 
 #[cfg(test)]
@@ -237,6 +265,7 @@ mod tests {
     fn probed(path: &str) -> ProbedFile {
         ProbedFile {
             local_path: path.to_string(),
+            filesize_bytes: Some(1024),
             filename: std::path::Path::new(path)
                 .file_name()
                 .map(|s| s.to_string_lossy().into_owned())
@@ -275,6 +304,7 @@ mod tests {
             orientation: None,
             audio_track_count: 1,
             has_commentary_track: false,
+            filesize_bytes: Some(1024),
         }
     }
 
@@ -333,5 +363,71 @@ mod tests {
         };
         assert_eq!(key_outcome('y', &s), ConfirmationOutcome::Cancel);
         assert_eq!(key_outcome('n', &s), ConfirmationOutcome::Cancel);
+    }
+
+    #[test]
+    fn middle_truncate_passthrough_when_shorter_than_max() {
+        let s = "/short/path.mkv";
+        assert_eq!(middle_truncate(s, 100), s);
+    }
+
+    #[test]
+    fn middle_truncate_passthrough_when_exactly_at_max() {
+        let s = "abcdef"; // 6 chars
+        assert_eq!(middle_truncate(s, 6), s);
+    }
+
+    #[test]
+    fn middle_truncate_one_char_over_inserts_ellipsis() {
+        let s = "abcdefg"; // 7 chars, max 6 -> remaining 5, head=2, tail=3
+        let out = middle_truncate(s, 6);
+        assert_eq!(out, "ab\u{2026}efg");
+        assert_eq!(out.chars().count(), 6);
+    }
+
+    #[test]
+    fn middle_truncate_long_path_keeps_head_and_tail() {
+        let s = "/home/catalin/FootageExtra/Projects/Ghost 'n Goblins Resurrection - 2026-04-23 23-11-43.mkv";
+        let out = middle_truncate(s, 60);
+        assert_eq!(out.chars().count(), 60);
+        assert!(out.contains('\u{2026}'));
+        // Head should preserve the directory prefix start.
+        assert!(out.starts_with("/home/catalin"));
+        // Tail should preserve the unique timestamp + extension.
+        assert!(out.ends_with("23-11-43.mkv"));
+    }
+
+    #[test]
+    fn middle_truncate_handles_multibyte_characters() {
+        // Mix of multibyte (apostrophe-equivalent + accented chars) plus a
+        // tail we expect to survive. Slicing by byte count would corrupt the
+        // string; slicing by char must not.
+        let s = "café/Ghost 'n Goblins/Résumé - 2026-04-23 23-11-43.mkv";
+        let out = middle_truncate(s, 30);
+        assert_eq!(out.chars().count(), 30);
+        assert!(out.contains('\u{2026}'));
+        assert!(out.ends_with("23-11-43.mkv"));
+        // Ensure we produced valid UTF-8 (round-trip via &str).
+        let _: &str = out.as_str();
+    }
+
+    #[test]
+    fn middle_truncate_max_zero_returns_empty() {
+        // Documented edge case: zero width yields the empty string.
+        assert_eq!(middle_truncate("anything", 0), "");
+    }
+
+    #[test]
+    fn middle_truncate_max_one_returns_just_ellipsis() {
+        // Documented edge case: only the ellipsis fits.
+        assert_eq!(middle_truncate("anything", 1), "\u{2026}");
+    }
+
+    #[test]
+    fn middle_truncate_max_two_yields_ellipsis_plus_tail_char() {
+        // remaining = 1, head = 0, tail = 1.
+        let out = middle_truncate("abcdef", 2);
+        assert_eq!(out, "\u{2026}f");
+        assert_eq!(out.chars().count(), 2);
     }
 }

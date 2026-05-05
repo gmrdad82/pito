@@ -20,7 +20,7 @@ class Note < ApplicationRecord
   has_neighbors :embedding
 
   belongs_to :tenant
-  belongs_to :project
+  belongs_to :project, counter_cache: true
 
   validates :path, presence: true,
                    uniqueness: { scope: :tenant_id }

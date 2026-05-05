@@ -4,7 +4,7 @@
   <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;">
     <h1>collections</h1>
     <span class="text-muted">&middot;</span>
-    <%= button_to collections_path, form: { style: "display: inline;", data: { turbo: false } }, class: "bracketed", method: :post do %>[<span class="bl">add</span>]<% end %>
+    <%= button_to collections_path, form: { style: "display: inline;", data: { turbo: false } }, class: "bracketed", method: :post do %>[<span class="bl">+</span>]<% end %>
   </div>
 
   <% if @collections.any? %>
@@ -20,7 +20,7 @@
         <% @collections.each do |collection| %>
           <tr>
             <td class="col-action">
-              <%= render(BracketedLinkComponent.new(label: "open", href: collection_path(collection))) %>
+              <%= render(BracketedLinkComponent.new(label: "o", href: collection_path(collection))) %>
             </td>
             <td><%= collection.name %></td>
             <td class="num"><%= number_with_delimiter(collection.games.count) %></td>

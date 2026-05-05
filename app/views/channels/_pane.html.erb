@@ -3,12 +3,12 @@
       and won't honor `min-width: 0` for ellipsis truncation. Flex row
       with `min-width: 0` on the truncating child does the right thing —
       the URL collapses to `…` when the pane is narrower than the URL,
-      and `[ view ]` stays visible at the right edge. %>
+      and `[ v ]` stays visible at the right edge. %>
   <div style="display: flex; align-items: baseline; gap: 6px; min-width: 0; max-width: 100%; margin-bottom: 4px;">
-    <span class="text-muted" style="flex-shrink: 0;">url</span>
+    <span class="text-muted" style="flex-shrink: 0;">URL</span>
     <a href="<%= channel.channel_url %>" target="_blank" rel="noopener noreferrer" class="truncate-url" style="flex: 1; min-width: 0;"><%= channel.channel_url %></a>
     <span class="text-muted" style="flex-shrink: 0;">&middot;</span>
-    <%= render(BracketedLinkComponent.new(label: "view", href: channel.channel_url, target: "_blank", rel: "noopener noreferrer")) %>
+    <%= render(BracketedLinkComponent.new(label: "v", href: channel.channel_url, target: "_blank", rel: "noopener noreferrer")) %>
   </div>
   <table class="detail-table" style="margin-bottom: 8px;">
     <tr>

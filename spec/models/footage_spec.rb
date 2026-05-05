@@ -103,4 +103,28 @@ RSpec.describe Footage, type: :model do
       expect(footage.tenant_id).to eq(tenant.id)
     end
   end
+
+  # Phase 4 Wave 2 — `/projects` index revamp. The project row's
+  # `footages_count` is the source of truth for both the display and the
+  # SQL-side sort, so the counter must increment on create and decrement on
+  # destroy.
+  describe "counter_cache on project" do
+    let(:project) { create(:project) }
+
+    it "increments project.footages_count when a footage is created" do
+      expect {
+        create(:footage, project: project, tenant: project.tenant)
+      }.to change { project.reload.footages_count }.from(0).to(1)
+    end
+
+    it "decrements project.footages_count when a footage is destroyed" do
+      footage = create(:footage, project: project, tenant: project.tenant)
+      project.reload
+      expect(project.footages_count).to eq(1)
+
+      expect {
+        footage.destroy!
+      }.to change { project.reload.footages_count }.from(1).to(0)
+    end
+  end
 end

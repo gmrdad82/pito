@@ -4,11 +4,7 @@
   <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;">
     <h1>channels</h1>
     <span class="text-muted">&middot;</span>
-    <%= render(BracketedLinkComponent.new(label: "add", href: new_channel_path)) %>
-    <span data-bulk-select-target="bulkToggle">
-      <span class="text-muted">&middot;</span>
-      <%= render(BracketedLinkComponent.new(label: "bulk", href: "#", data: { action: "click->bulk-select#enterBulk" })) %>
-    </span>
+    <%= render(BracketedLinkComponent.new(label: "+", href: new_channel_path)) %>
     <span style="margin-left: auto;"><%= render(SavedViewsSectionComponent.new(saved_views: @saved_views || SavedView.none, kind: "channels")) %></span>
   </div>
 
@@ -26,11 +22,12 @@
 
   <% if channels.any? %>
     <div data-controller="sortable-table">
-      <%# Phase B — bulk toolbar uses the leading-separator pattern.
+      <%# Phase B polish (2026-05-05) — bulk toolbar is always rendered.
           Each `.action` span carries an `.action-sep` `&middot;` that
           the controller hides on whichever action is first-visible.
-          See bulk_select_controller.js#_updateSeparators. %>
-      <div data-bulk-select-target="actions" hidden style="margin-bottom: 2px;">
+          Action targets (open / count / sync / delete) self-hide when
+          selection count is zero; see bulk_select_controller.js. %>
+      <div data-bulk-select-target="actions" style="margin-bottom: 2px;">
         <div class="bulk-toolbar">
           <span class="action" data-bulk-select-target="openHint">
             <span class="action-sep" hidden>&middot;</span>
@@ -47,10 +44,6 @@
           <span class="action" data-bulk-select-target="deleteAction" hidden>
             <span class="action-sep" hidden>&middot;</span>
           </span>
-          <span class="action">
-            <span class="action-sep" hidden>&middot;</span>
-            <%= render(BracketedLinkComponent.new(label: "cancel", href: "#", data: { action: "click->bulk-select#exitBulk" })) %>
-          </span>
         </div>
         <div data-bulk-select-target="overMaxHint" hidden class="form-hint" style="font-size: 12px; margin-top: 2px;">max <%= max_panes %> channels at a time can be opened in split view.</div>
       </div>
@@ -58,12 +51,11 @@
       <table data-sortable-table-target="table">
         <thead>
           <tr>
-            <th class="col-action" data-bulk-select-target="bulkCol" hidden>
+            <th class="col-action">
               <%= render(CheckboxComponent.new(data: { bulk_select_target: "headerCheckbox", action: "change->bulk-select#toggleAll" })) %>
             </th>
-            <th class="col-action" data-bulk-select-target="actionCol"></th>
-            <%= render(SortableHeaderComponent.new(label: "url", sort_type: "string")) %>
-            <th class="col-action">YouTube</th>
+            <th class="col-action"></th>
+            <th>URL</th>
             <%= render(SortableHeaderComponent.new(label: "starred", sort_type: "string", numeric: true)) %>
             <%= render(SortableHeaderComponent.new(label: "last sync", sort_type: "date", numeric: true)) %>
           </tr>
@@ -71,15 +63,14 @@
         <tbody>
           <% channels.each do |channel| %>
             <tr>
-              <td class="col-action" data-bulk-select-target="bulkCol" hidden>
+              <td class="col-action">
                 <%= render(CheckboxComponent.new(value: channel.id, data: { bulk_select_target: "checkbox", action: "change->bulk-select#toggle" })) %>
               </td>
-              <td class="col-action" data-bulk-select-target="actionCol">
-                <%= render(BracketedLinkComponent.new(label: "open", href: channel_path(channel))) %>
-              </td>
-              <td style="max-width: 480px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><%= channel.channel_url %></td>
               <td class="col-action">
-                <%= render(BracketedLinkComponent.new(label: "view", href: channel.channel_url, target: "_blank", rel: "noopener noreferrer")) %>
+                <%= render(BracketedLinkComponent.new(label: "o", href: channel_path(channel))) %>
+              </td>
+              <td style="max-width: 480px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                <a href="<%= channel.channel_url %>" target="_blank" rel="noopener noreferrer"><%= channel.channel_url %></a>
               </td>
               <td class="num"><%= channel.star? ? "yes" : "no" %></td>
               <td class="num">

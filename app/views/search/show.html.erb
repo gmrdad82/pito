@@ -35,7 +35,7 @@
             <td><%= video.privacy_status.gsub("_", " ") %></td>
             <td><%= video.default_language %></td>
             <td style="text-align: right;"><%= video.duration_seconds ? "#{video.duration_seconds / 60}:#{format('%02d', video.duration_seconds % 60)}" : "—" %></td>
-            <td><%= link_to "[ open ]", video_path(video), class: "bracketed" %></td>
+            <td><%= link_to "[o]", video_path(video), class: "bracketed" %></td>
           </tr>
         <% end %>
       </tbody>

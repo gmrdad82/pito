@@ -358,6 +358,16 @@ pub fn file_mtime_iso(file: &Path) -> Result<String> {
     Ok(dt.format("%Y-%m-%dT%H:%M:%SZ").to_string())
 }
 
+/// Helper used by the importer to read a file's size in bytes. Returns
+/// `ProbeError::Failed` on any IO error so the caller treats permission /
+/// vanished-file conditions as a per-file probe failure (same idiom as
+/// `probe_file`).
+pub fn file_size_bytes(file: &Path) -> Result<u64, ProbeError> {
+    let meta = std::fs::metadata(file)
+        .map_err(|e| ProbeError::Failed(format!("read filesize of {}: {}", file.display(), e)))?;
+    Ok(meta.len())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -602,5 +612,30 @@ mod tests {
         assert_eq!(gcd(1920, 1080), 120);
         assert_eq!(gcd(1080, 1920), 120);
         assert_eq!(gcd(7, 13), 1);
+    }
+
+    #[test]
+    fn file_size_bytes_matches_metadata_for_fixture_file() {
+        // Write a tiny fixture, read the size through the helper, confirm
+        // the byte count matches what the OS reports.
+        use std::io::Write;
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("fixture.bin");
+        let payload: &[u8] = b"hello-pito-filesize";
+        let mut f = std::fs::File::create(&path).expect("create fixture");
+        f.write_all(payload).expect("write fixture");
+        f.sync_all().expect("sync fixture");
+        let size = file_size_bytes(&path).expect("read size");
+        assert_eq!(size, payload.len() as u64);
+    }
+
+    #[test]
+    fn file_size_bytes_fails_when_file_missing() {
+        // The probe pipeline's fail-fast idiom — vanished files surface as
+        // ProbeError::Failed rather than silently producing None / 0.
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("does-not-exist.bin");
+        let err = file_size_bytes(&path).unwrap_err();
+        assert!(matches!(err, ProbeError::Failed(_)));
     }
 }

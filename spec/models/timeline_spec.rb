@@ -23,6 +23,29 @@ RSpec.describe Timeline, type: :model do
     end
   end
 
+  # Phase 4 Wave 2 — `/projects` index revamp. Mirrors footages_count /
+  # notes_count: timeline lifecycle drives the project row's count column.
+  describe "counter_cache on project" do
+    let(:tenant)  { create(:tenant) }
+    let(:project) { create(:project, tenant: tenant) }
+
+    it "increments project.timelines_count when a timeline is created" do
+      expect {
+        create(:timeline, project: project, tenant: tenant)
+      }.to change { project.reload.timelines_count }.from(0).to(1)
+    end
+
+    it "decrements project.timelines_count when a timeline is destroyed" do
+      timeline = create(:timeline, project: project, tenant: tenant)
+      project.reload
+      expect(project.timelines_count).to eq(1)
+
+      expect {
+        timeline.destroy!
+      }.to change { project.reload.timelines_count }.from(1).to(0)
+    end
+  end
+
   describe "aasm state machine" do
     let(:timeline) { create(:timeline) }
 

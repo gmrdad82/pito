@@ -6,7 +6,7 @@
   <% if @saved_view %>
     <% saved_view_modal_id = "confirm-saved-view-#{@saved_view.id}" %>
     <%= render(BracketedLinkComponent.new(
-      label: "delete",
+      label: "-",
       href: "#",
       destructive: true,
       data: {
@@ -20,7 +20,7 @@
       title: "delete this saved view?",
       confirm_path: saved_view_path(@saved_view),
       confirm_method: :delete,
-      confirm_label: "delete",
+      confirm_label: "-",
       destructive: true
     )) %>
   <% else %>
@@ -37,7 +37,7 @@
     <% if @available_channels&.any? %>
       <span style="position: relative; top: -2px;">
         <span class="text-muted">&middot;</span>
-        <%= render(BracketedLinkComponent.new(label: "+", href: "#", data: { action: "click->add-pane#open" })) %>
+        <%= render(BracketedLinkComponent.new(label: "/", href: "#", data: { action: "click->add-pane#open" })) %>
       </span>
     <% end %>
   </div>

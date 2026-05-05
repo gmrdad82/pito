@@ -4,21 +4,18 @@
   <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;">
     <h1>videos</h1>
     <span class="text-muted">&middot;</span>
-    <%= render(BracketedLinkComponent.new(label: "add", href: new_video_path)) %>
-    <span data-bulk-select-target="bulkToggle">
-      <span class="text-muted">&middot;</span>
-      <%= render(BracketedLinkComponent.new(label: "bulk", href: "#", data: { action: "click->bulk-select#enterBulk" })) %>
-    </span>
+    <%= render(BracketedLinkComponent.new(label: "+", href: new_video_path)) %>
     <span style="margin-left: auto;"><%= render(SavedViewsSectionComponent.new(saved_views: @saved_views || SavedView.none, kind: "videos")) %></span>
   </div>
 
   <% if @videos.any? %>
     <div data-controller="sortable-table">
-      <%# Phase B — bulk toolbar uses the leading-separator pattern.
+      <%# Phase B polish (2026-05-05) — bulk toolbar is always rendered.
           Each `.action` span carries an `.action-sep` `&middot;` that
           the controller hides on whichever action is first-visible.
-          See bulk_select_controller.js#_updateSeparators. %>
-      <div data-bulk-select-target="actions" hidden class="bulk-toolbar" style="margin-bottom: 6px;">
+          Action targets (open / count / delete) self-hide when
+          selection count is zero; see bulk_select_controller.js. %>
+      <div data-bulk-select-target="actions" class="bulk-toolbar" style="margin-bottom: 6px;">
         <span class="action" data-bulk-select-target="openHint">
           <span class="action-sep" hidden>&middot;</span>
         </span>
@@ -31,21 +28,17 @@
         <span class="action" data-bulk-select-target="deleteAction" hidden>
           <span class="action-sep" hidden>&middot;</span>
         </span>
-        <span class="action">
-          <span class="action-sep" hidden>&middot;</span>
-          <%= render(BracketedLinkComponent.new(label: "cancel", href: "#", data: { action: "click->bulk-select#exitBulk" })) %>
-        </span>
       </div>
 
       <table data-sortable-table-target="table">
         <thead>
           <tr>
-            <th class="col-action" data-bulk-select-target="bulkCol" hidden>
+            <th class="col-action">
               <%= render(CheckboxComponent.new(data: { bulk_select_target: "headerCheckbox", action: "change->bulk-select#toggleAll" })) %>
             </th>
-            <th class="col-action" data-bulk-select-target="actionCol"></th>
+            <th class="col-action"></th>
             <%= render(SortableHeaderComponent.new(label: "title", sort_type: "string")) %>
-            <%= render(SortableHeaderComponent.new(label: "channel", sort_type: "string")) %>
+            <th>channel</th>
             <%= render(SortableHeaderComponent.new(label: "views", sort_type: "number", numeric: true)) %>
             <%= render(SortableHeaderComponent.new(label: "trend", sort_type: "number", numeric: true)) %>
             <%= render(SortableHeaderComponent.new(label: "likes", sort_type: "number", numeric: true)) %>
@@ -59,12 +52,14 @@
         <tbody>
           <% @videos.each do |video| %>
             <tr>
-              <td class="col-action" data-bulk-select-target="bulkCol" hidden>
+              <td class="col-action">
                 <%= render(CheckboxComponent.new(value: video.id, data: { bulk_select_target: "checkbox", action: "change->bulk-select#toggle" })) %>
               </td>
-              <td class="col-action" data-bulk-select-target="actionCol"><%= render(BracketedLinkComponent.new(label: "open", href: video_path(video))) %></td>
+              <td class="col-action"><%= render(BracketedLinkComponent.new(label: "o", href: video_path(video))) %></td>
               <td style="max-width: 280px; overflow: hidden; text-overflow: ellipsis;"><%= video.title %></td>
-              <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;"><%= truncate(video.channel.channel_url, length: 30, omission: "…") %></td>
+              <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;">
+                <a href="<%= video.channel.channel_url %>" target="_blank" rel="noopener noreferrer"><%= truncate(video.channel.channel_url, length: 30, omission: "…") %></a>
+              </td>
               <td class="num"><%= number_with_delimiter(video.total_views) %></td>
               <td class="num"><%= view_trend_indicator(video) %></td>
               <td class="num"><%= number_with_delimiter(video.total_likes) %></td>

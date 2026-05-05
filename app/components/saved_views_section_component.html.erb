@@ -11,9 +11,9 @@
         <% @saved_views.each do |view| %>
           <% modal_id = "confirm-saved-view-#{view.id}" %>
           <div class="saved-views-row">
-            <%= render(BracketedLinkComponent.new(label: "open", href: view.url)) %>
+            <%= render(BracketedLinkComponent.new(label: "o", href: view.url)) %>
             <%= render(BracketedLinkComponent.new(
-              label: "delete",
+              label: "-",
               href: "#",
               destructive: true,
               data: {
@@ -27,7 +27,7 @@
               title: "delete this saved view?",
               confirm_path: helpers.saved_view_path(view),
               confirm_method: :delete,
-              confirm_label: "delete",
+              confirm_label: "-",
               destructive: true
             )) %>
             <span><%= view.display_name_with_deletions %></span>
