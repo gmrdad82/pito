@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_04_000011) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_04_233708) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -163,6 +163,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_04_000011) do
   end
 
   create_table "notes", force: :cascade do |t|
+    t.integer "chars_count", default: 0, null: false
     t.datetime "created_at", null: false
     t.vector "embedding", limit: 1024
     t.datetime "last_modified_at", null: false
@@ -171,6 +172,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_04_000011) do
     t.bigint "tenant_id", null: false
     t.string "title", default: "Untitled note", null: false
     t.datetime "updated_at", null: false
+    t.integer "words_count", default: 0, null: false
     t.index ["project_id"], name: "index_notes_on_project_id"
     t.index ["tenant_id", "path"], name: "index_notes_on_tenant_id_and_path", unique: true
     t.index ["tenant_id"], name: "index_notes_on_tenant_id"
@@ -218,7 +220,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_04_000011) do
   end
 
   create_table "projects", force: :cascade do |t|
-    t.text "concept"
     t.datetime "created_at", null: false
     t.string "name", default: "Untitled project", null: false
     t.bigint "tenant_id", null: false

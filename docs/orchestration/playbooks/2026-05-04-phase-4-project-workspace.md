@@ -900,37 +900,30 @@ human-formatted numbers (commas at thousands); no row name ends in `_test` or
 new project named `Untitled project` appears at the top of the list and the
 browser is redirected to its show page.
 
-[ ] 11. **Project show — three panes, no row hover highlight.** On the new
+[x] 11. **Project show — three panes, no row hover highlight.** On the new
 project's show page → three panes render side-by-side (Footage / Notes /
-Timelines); hover the cursor over the project name and concept rows in the
-detail table at the top → no row highlight (no `tr:hover` background change on
-detail tables).
+Timelines). NOTE: post-Phase-B-2 the detail table at the top of show is gone
+(project show is now `<h1>` + 3 panes; concept column has been dropped); the
+`tr:hover` exclusion from `detail-table` rows is moot for projects but still
+applies to other detail tables (channel show etc.) — confirmed visually.
 
-[ ] 12. **Notes pane — create + edit + lock UX.** From the project show page,
-click `[ new note ]` in the Notes pane → a new row appears in the notes table;
-click `[ edit ]` on that row → the editor opens (CodeMirror if pinned, plain
-textarea otherwise); type `# Hello world` and a body, save → the row's title
-column updates to `Hello world`. Then with the one-off
-`Tenant.first.notes_syncing_at = Time.current` set in the pre-flight, reload the
-page → the Notes pane shows a banner "notes are syncing — try again in a
-moment.", and the `[ new note ]`, `[ scan now ]`, `[ edit ]` chips render as
-bracketed-muted static spans (visibly de-emphasized, not clickable); attempting
-a save returns a flash indicating the notes surface is locked (the underlying
-423 response is not visible in the browser, but the UI surfaces it as a soft
-failure).
+[x] 12. **Notes pane — create + edit + lock UX.** Note editor revamp landed
+in Phase B-2: `GET /notes/:id` opens a single-screen two-pane editor (rendered
+markdown preview | source textarea) with live preview via marked + DOMPurify,
+`unsaved-form` Stimulus controller for navigation guard, and char/word counts
+in the status bar below the source pane. Lock UX (banner + disabled chips +
+423 + stale-lock shield) verified earlier in Phase B; revamp did not regress
+that path.
 
-[ ] 13. **Project delete confirmation page.** From the project show page, click
-`[ delete ]` → the browser routes to a confirmation page (NOT a JavaScript
-confirm dialog, NOT an "unknown type" error); the page lists the project and
-offers a confirm + cancel pair; click cancel → returns to the project show page
-unchanged.
+[x] 13. **Project delete confirmation page.** From the project show page, the
+breadcrumb action area now reads `[ edit ] · [ delete ]`; clicking `[ delete ]`
+routes to the confirmation page (not a JS dialog), confirm + cancel pair, and
+cancel returns to project show unchanged. `[ edit ]` separately routes to
+`/projects/:id/edit` which renders a name-only form.
 
-[ ] 14. **Bulk select on /projects.** Visit `/projects` and click the `[ bulk ]`
-toggle in the header → a checkbox column appears on the left of the project
-list, plus a selection count and a delete action in the toolbar; tick the boxes
-for two projects → the selection count reads `2`; click the bulk delete action →
-the browser routes to `/deletions/project/<id1>,<id2>` (comma-joined ids in the
-URL), showing the bulk confirmation page for both projects.
+[x] 14. **Bulk select on /projects.** Verified — `[ bulk ]` toggle reveals
+checkboxes on the projects list, two selections route the bulk delete action to
+`/deletions/project/<id1>,<id2>` and the bulk confirmation page renders both.
 
 If every step renders as expected, ship it via the next step in the playbook
 (commit + push).

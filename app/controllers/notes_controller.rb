@@ -16,7 +16,7 @@
 class NotesController < ApplicationController
   skip_before_action :verify_authenticity_token, if: -> { request.format.json? }
 
-  before_action :set_note, only: [ :show, :edit, :update, :destroy ]
+  before_action :set_note, only: [ :show, :update, :destroy ]
   before_action :reject_if_notes_syncing,
                 only: [ :create, :update, :destroy ]
 
@@ -38,11 +38,11 @@ class NotesController < ApplicationController
     )
   end
 
+  # Phase B post-commit (2026-05-04) — Note revamp. The show route IS the
+  # editor. Two panes (rendered preview / source textarea) and a status bar
+  # of chars/words. The title is auto-derived from the body's first ATX H1
+  # in `update`; there is no title input on the form.
   def show
-    redirect_to project_path(@note.project)
-  end
-
-  def edit
     @project = @note.project
     @body = NotesFilesystem.read(@note)
   end
@@ -65,32 +65,37 @@ class NotesController < ApplicationController
       NotesFilesystem.write(note, "")
     end
 
-    redirect_to edit_note_path(note), notice: "note created."
+    # Phase B post-commit — single canonical editor URL is the show route.
+    redirect_to note_path(note), notice: "note created."
   rescue ActiveRecord::RecordInvalid, IOError, Errno::EACCES => e
     Rails.logger.warn("Note create failed: #{e.class}: #{e.message}")
     redirect_to project_path(project), alert: "couldn't create note."
   end
 
+  # Phase B post-commit (2026-05-04) — title is no longer accepted as input.
+  # It is derived from the body's first ATX H1 (or the fallback). The
+  # filename can change as a side effect of a title change; that path
+  # rename still flows through NotesFilesystem.
   def update
     body = params.dig(:note, :body).to_s
-    new_title = params.dig(:note, :title).to_s
 
     Note.transaction do
-      # Title rename → slugify + rename file. Body update writes contents.
-      if new_title.present? && new_title != @note.title
-        truncated = new_title[0, Note::TITLE_MAX_LENGTH]
+      derived_title = NoteTitleParser.parse(body)
+      truncated = derived_title[0, Note::TITLE_MAX_LENGTH]
+
+      # If the derived title changed and produces a new on-disk path,
+      # rename the file. Falls back silently if the slug matches.
+      if truncated != @note.title
         new_path = NotesFilesystem.slug_filename(truncated)
         if new_path != @note.path
           NotesFilesystem.rename(@note, new_path)
           @note.path = new_path
         end
         @note.title = truncated
-      else
-        # Pull title from the body's first ATX H1, falling back to "Untitled note".
-        @note.title = NoteTitleParser.parse(body)
       end
 
       NotesFilesystem.write(@note, body)
+      @note.body_for_counts = body
       @note.last_modified_at = Time.current
       @note.save!
     end
@@ -98,14 +103,16 @@ class NotesController < ApplicationController
     redirect_to project_path(@note.project), notice: "note saved."
   rescue ActiveRecord::RecordInvalid, IOError, Errno::EACCES => e
     Rails.logger.warn("Note update failed: #{e.class}: #{e.message}")
-    redirect_to edit_note_path(@note), alert: "couldn't save note."
+    redirect_to note_path(@note), alert: "couldn't save note."
   end
 
+  # Phase B post-commit (2026-05-04) — Item 4. The on-disk cleanup is
+  # owned by Note's `before_destroy :delete_note_file` callback (handles
+  # Project#destroy → `dependent: :destroy` cascades, console-driven
+  # destroys, bulk-delete jobs). The controller no longer calls
+  # NotesFilesystem.delete explicitly; one source of truth.
   def destroy
-    Note.transaction do
-      NotesFilesystem.delete(@note)
-      @note.destroy!
-    end
+    @note.destroy!
     redirect_to project_path(@note.project), notice: "note deleted."
   end
 

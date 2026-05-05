@@ -1,0 +1,63 @@
+<%# Phase B post-commit (2026-05-04) — Note revamp.
+  Single-screen editor: rendered preview pane + source textarea pane,
+  side-by-side at 454px each (matches the global pane width). Title is
+  not editable (auto-derived from the body's first ATX H1 server-side).
+  Status bar at the bottom-right of the source pane shows live char/word
+  counts (mirrored client-side via the markdown-editor controller; the
+  server-side counts on the project show table reflect the last save).
+%>
+<% content_for(:title, @note.title) %>
+<% breadcrumb(["projects", projects_path], [@project.name, project_path(@project)], @note.title) %>
+
+<%# Editor: textarea on the right (rows=18 ≈ 360px baseline, grows via
+    `field-sizing: content`), rendered preview on the left (flex-stretches
+    to match). chars/words status floats below the pane-container, out
+    of flow so it never displaces the [save] / [cancel] / [delete] row. %>
+<%= form_with(model: @note,
+              url: note_path(@note),
+              method: :patch,
+              data: { controller: "markdown-editor unsaved-form" }) do |f| %>
+  <div class="pane-container" style="margin-bottom: 16px;">
+    <div class="pane-wrapper">
+      <div class="markdown-preview"
+           data-markdown-editor-target="preview"><%= render_markdown(@body) %></div>
+    </div>
+    <div class="pane-wrapper">
+      <%= text_area_tag "note[body]", @body,
+            id: "note_body",
+            data: { markdown_editor_target: "source", action: "input->markdown-editor#onInput" },
+            class: "note-editor-source",
+            style: "width: 100%; font-family: ui-monospace, monospace; font-size: 13px;" %>
+      <div class="markdown-status caption">
+        <span data-markdown-editor-target="charCount"><%= number_with_delimiter(@note.chars_count) %></span> chars
+        &middot;
+        <span data-markdown-editor-target="wordCount"><%= number_with_delimiter(@note.words_count) %></span> words
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; gap: 6px; align-items: baseline;">
+    <button type="submit">[<b>save</b>]</button>
+    <span class="text-muted">&middot;</span>
+    <%= render(BracketedLinkComponent.new(label: "cancel", href: project_path(@project))) %>
+    <span class="text-muted">&middot;</span>
+    <%= render(BracketedLinkComponent.new(
+      label: "delete",
+      href: "#",
+      destructive: true,
+      data: {
+        controller: "modal-trigger",
+        action: "click->modal-trigger#open",
+        modal_trigger_target_id_value: "confirm-note-#{@note.id}"
+      }
+    )) %>
+    <%= render(ConfirmModalComponent.new(
+      id: "confirm-note-#{@note.id}",
+      title: "delete this note?",
+      confirm_path: note_path(@note),
+      confirm_method: :delete,
+      confirm_label: "delete",
+      destructive: true
+    )) %>
+  </div>
+<% end %>

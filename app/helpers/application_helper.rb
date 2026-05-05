@@ -146,4 +146,24 @@ module ApplicationHelper
   def chart_palette(count = CHART_PALETTE.length)
     CHART_PALETTE.first(count)
   end
+
+  # Phase B post-commit (2026-05-04) — Note revamp. Server-side markdown
+  # rendering used as the SSR fallback for the note editor's preview pane:
+  # the page paints with the rendered HTML; `marked.js` then takes over on
+  # `input` events client-side and updates the same node live. Commonmarker
+  # already ships with the repo (Gemfile.lock); we use its plain
+  # `to_html` with safe defaults — the `unsafe_` extensions are NOT enabled,
+  # so raw HTML in the source is escaped.
+  def render_markdown(text)
+    return "".html_safe if text.blank?
+
+    # `hardbreaks: true` makes a single `\n` render as `<br>` instead of
+    # collapsing into the surrounding paragraph (CommonMark default). Matches
+    # the `breaks: true` flag set on `marked` client-side so SSR and live
+    # rendering produce identical output.
+    Commonmarker.to_html(
+      text.to_s,
+      options: { render: { hardbreaks: true } }
+    ).html_safe
+  end
 end
