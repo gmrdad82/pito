@@ -2,11 +2,11 @@
 <% content_for(:title, page_label) %>
 <% breadcrumb(["channels", channels_path], page_label) %>
 <% content_for(:breadcrumb_actions) do %>
-  <%= render(BracketedLinkComponent.new(label: "edit", href: edit_channel_path(@channel))) %>
+  <%= render(BracketedLinkComponent.new(label: "e", href: edit_channel_path(@channel))) %>
   <span class="text-muted">&middot;</span>
   <%= render(BracketedLinkComponent.new(label: "sync", href: "/syncs/channel/#{@channel.id}")) %>
   <span class="text-muted">&middot;</span>
-  <%= render(BracketedLinkComponent.new(label: "delete", href: "/deletions/channel/#{@channel.id}", destructive: true)) %>
+  <%= render(BracketedLinkComponent.new(label: "-", href: "/deletions/channel/#{@channel.id}", destructive: true)) %>
 <% end %>
 
 <div data-controller="add-pane">
@@ -18,7 +18,7 @@
     <% if @available_channels.any? %>
       <span style="position: relative; top: -2px;">
         <span class="text-muted">&middot;</span>
-        <%= render(BracketedLinkComponent.new(label: "+", href: "#", data: { action: "click->add-pane#open" })) %>
+        <%= render(BracketedLinkComponent.new(label: "/", href: "#", data: { action: "click->add-pane#open" })) %>
       </span>
     <% end %>
   </div>

@@ -10,12 +10,32 @@
   targets. The Stimulus controller guards every panes-specific access
   with `has*Target` checks, so the open-related branch is silently
   skipped here. The `count` target stays — it's universal.
+
+  Phase 4 Wave 2 — sortable column headers. Each `<th>` for a sortable
+  column is a `link_to` that flips the URL's `sort` / `dir` params,
+  mirroring the URL-state pattern `ChannelsController` exposes via
+  `ALLOWED_SORTS` + `sort_clause`. Default sort is `created_at DESC`.
+  Counter caches (`footages_count` / `notes_count` / `timelines_count`)
+  power both the displayed counts and the SQL-side `ORDER BY`.
+%>
+<%
+  current_sort = @sort
+  current_dir = @dir
+  sort_link = ->(label, key) {
+    next_dir = (current_sort == key && current_dir == "asc") ? "desc" : "asc"
+    indicator = if current_sort == key
+                  current_dir == "asc" ? " ▲" : " ▼"
+                else
+                  ""
+                end
+    link_to "#{label}#{indicator}", projects_path(sort: key, dir: next_dir)
+  }
 %>
 <div style="max-width: 1100px;" data-controller="bulk-select" data-bulk-select-entity-name-value="projects" data-bulk-select-delete-type-value="project">
   <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;">
     <h1>projects</h1>
     <span class="text-muted">&middot;</span>
-    <%= button_to projects_path, form: { style: "display: inline;", data: { turbo: false } }, class: "bracketed", method: :post do %>[<span class="bl">add</span>]<% end %>
+    <%= button_to projects_path, form: { style: "display: inline;", data: { turbo: false } }, class: "bracketed", method: :post do %>[<span class="bl">+</span>]<% end %>
     <span data-bulk-select-target="bulkToggle">
       <span class="text-muted">&middot;</span>
       <%= render(BracketedLinkComponent.new(label: "bulk", href: "#", data: { action: "click->bulk-select#enterBulk" })) %>
@@ -47,8 +67,11 @@
             <%= render(CheckboxComponent.new(data: { bulk_select_target: "headerCheckbox", action: "change->bulk-select#toggleAll" })) %>
           </th>
           <th class="col-action" data-bulk-select-target="actionCol"></th>
-          <th>name</th>
-          <th>created</th>
+          <th class="sortable"><%= sort_link.call("name", "name") %></th>
+          <th class="sortable num"><%= sort_link.call("created", "created_at") %></th>
+          <th class="sortable num"><%= sort_link.call("footages", "footages_count") %></th>
+          <th class="sortable num"><%= sort_link.call("notes", "notes_count") %></th>
+          <th class="sortable num"><%= sort_link.call("timelines", "timelines_count") %></th>
         </tr>
       </thead>
       <tbody>
@@ -58,10 +81,13 @@
               <%= render(CheckboxComponent.new(value: project.id, data: { bulk_select_target: "checkbox", action: "change->bulk-select#toggle" })) %>
             </td>
             <td class="col-action" data-bulk-select-target="actionCol">
-              <%= render(BracketedLinkComponent.new(label: "open", href: project_path(project))) %>
+              <%= render(BracketedLinkComponent.new(label: "o", href: project_path(project))) %>
             </td>
-            <td><%= project.name %></td>
-            <td class="num"><%= project.created_at.strftime("%Y-%m-%d") %></td>
+            <td><%= link_to project.name, project_path(project) %></td>
+            <td class="num"><%= compact_time_ago(project.created_at) %></td>
+            <td class="num"><%= project.footages_count %></td>
+            <td class="num"><%= project.notes_count %></td>
+            <td class="num"><%= project.timelines_count %></td>
           </tr>
         <% end %>
       </tbody>

@@ -4,7 +4,7 @@
   <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;">
     <h1>games</h1>
     <span class="text-muted">&middot;</span>
-    <%= button_to games_path, form: { style: "display: inline;", data: { turbo: false } }, class: "bracketed", method: :post do %>[<span class="bl">add</span>]<% end %>
+    <%= button_to games_path, form: { style: "display: inline;", data: { turbo: false } }, class: "bracketed", method: :post do %>[<span class="bl">+</span>]<% end %>
   </div>
 
   <% if @games.any? %>
@@ -21,7 +21,7 @@
         <% @games.each do |game| %>
           <tr>
             <td class="col-action">
-              <%= render(BracketedLinkComponent.new(label: "open", href: game_path(game))) %>
+              <%= render(BracketedLinkComponent.new(label: "o", href: game_path(game))) %>
             </td>
             <td><%= game.title %></td>
             <td><%= game.publisher || "—" %></td>

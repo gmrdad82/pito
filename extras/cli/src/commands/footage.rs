@@ -212,7 +212,9 @@ fn scan_directory(dir: &Path) -> Result<Vec<PathBuf>> {
 }
 
 /// Probe one file. Falls back to file mtime for `recorded_at` if ffprobe
-/// didn't return one.
+/// didn't return one. `filesize_bytes` comes from `std::fs::metadata` and
+/// fail-fasts the same way ffprobe IO failures do — a missing file or a
+/// permission denied is a per-file error, not a silent `None`.
 fn probe_one(ffprobe_path: &Path, file: &Path) -> Result<ProbedFile, ProbeError> {
     let mut report = ffprobe::probe_file(ffprobe_path, file)?;
     if report.recorded_at.is_none()
@@ -220,8 +222,10 @@ fn probe_one(ffprobe_path: &Path, file: &Path) -> Result<ProbedFile, ProbeError>
     {
         report.recorded_at = Some(iso);
     }
+    let filesize_bytes = ffprobe::file_size_bytes(file)?;
     Ok(ProbedFile {
         local_path: file.to_string_lossy().into_owned(),
+        filesize_bytes: Some(filesize_bytes),
         filename: file
             .file_name()
             .map(|s| s.to_string_lossy().into_owned())

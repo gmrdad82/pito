@@ -141,6 +141,14 @@ fn differs(record: &FootageRecord, probed: &ProbedFile) -> bool {
     if record.filename != probed.filename {
         return true;
     }
+    // `filesize_bytes` is a metadata fact, not a UI edit. Any divergence —
+    // including a 1-byte delta — counts as a Change. Re-encodes / truncations
+    // /trailer rewrites all show up here. We treat the absence of a server-side
+    // value (`None`, e.g. legacy rows pre-Wave-1C) as "needs sync" once the
+    // probe knows the size, so the importer backfills the column on first run.
+    if record.filesize_bytes != probed.filesize_bytes {
+        return true;
+    }
     false
 }
 
@@ -177,6 +185,7 @@ mod tests {
     fn probed(local_path: &str) -> ProbedFile {
         ProbedFile {
             local_path: local_path.to_string(),
+            filesize_bytes: Some(1024),
             filename: std::path::Path::new(local_path)
                 .file_name()
                 .map(|s| s.to_string_lossy().into_owned())
@@ -201,6 +210,7 @@ mod tests {
             orientation: p.report.orientation.map(|o| o.as_wire().to_string()),
             audio_track_count: p.report.audio_track_count,
             has_commentary_track: p.report.has_commentary_track,
+            filesize_bytes: p.filesize_bytes,
         }
     }
 
@@ -265,6 +275,32 @@ mod tests {
         p.report.audio_track_count = 1;
         p.report.has_commentary_track = false;
         let r = record(1, "/footage/a.mp4");
+        let entries = classify(vec![p], vec![r]);
+        assert_eq!(entries.len(), 1);
+        assert!(matches!(entries[0], DiffEntry::Change(_)));
+    }
+
+    #[test]
+    fn classifies_change_when_filesize_bytes_differs() {
+        // A re-encode / truncation changes the on-disk size while the path
+        // stays put — must classify as Change so the importer PATCHes the row.
+        let mut p = probed("/footage/a.mp4");
+        p.filesize_bytes = Some(100);
+        let mut r = record(1, "/footage/a.mp4");
+        r.filesize_bytes = Some(200);
+        let entries = classify(vec![p], vec![r]);
+        assert_eq!(entries.len(), 1);
+        assert!(matches!(entries[0], DiffEntry::Change(_)));
+    }
+
+    #[test]
+    fn classifies_change_when_filesize_bytes_appears() {
+        // Legacy rows from before Wave 1C have filesize_bytes = None on the
+        // server. First run after the column lands should backfill — i.e.
+        // classify as Change so the PATCH carries the new size.
+        let p = probed("/footage/a.mp4");
+        let mut r = record(1, "/footage/a.mp4");
+        r.filesize_bytes = None;
         let entries = classify(vec![p], vec![r]);
         assert_eq!(entries.len(), 1);
         assert!(matches!(entries[0], DiffEntry::Change(_)));

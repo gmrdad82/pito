@@ -21,6 +21,12 @@ pub struct ProbedFile {
     /// Canonical absolute path (or whatever string the caller chose as
     /// identity). The diff stage matches on this exact string.
     pub local_path: String,
+    /// File size in bytes from `std::fs::metadata`. Captured at probe time
+    /// alongside the other file-system facts so the diff sees a stable
+    /// snapshot. `None` only in test fixtures or when the file vanished
+    /// between the directory scan and the probe — production code populates
+    /// this field unconditionally.
+    pub filesize_bytes: Option<u64>,
     pub filename: String,
     pub report: ProbeReport,
 }
@@ -59,6 +65,10 @@ pub struct FootageRecord {
     pub audio_track_count: u32,
     #[serde(default, with = "crate::api::yes_no")]
     pub has_commentary_track: bool,
+    /// File size in bytes. `#[serde(default)]` so older API responses without
+    /// the column still parse to `None`.
+    #[serde(default)]
+    pub filesize_bytes: Option<u64>,
 }
 
 fn default_bit_depth() -> u32 {
@@ -108,6 +118,7 @@ mod tests {
             orientation: Some("landscape".to_string()),
             audio_track_count: 1,
             has_commentary_track: false,
+            filesize_bytes: None,
         };
         let value: serde_json::Value = serde_json::to_value(&r).expect("serialize");
         assert_eq!(value["has_commentary_track"], serde_json::json!("no"));
@@ -129,6 +140,35 @@ mod tests {
         assert!(parsed.color_profile.is_none());
         // bit_depth default is 8 to match Rails column default.
         assert_eq!(parsed.bit_depth, 8);
+    }
+
+    #[test]
+    fn footage_record_decodes_filesize_bytes_when_present() {
+        let json = r#"{
+            "id": 11,
+            "local_path": "/footage/big.mp4",
+            "filename": "big.mp4",
+            "audio_track_count": 0,
+            "has_commentary_track": "no",
+            "filesize_bytes": 12345
+        }"#;
+        let parsed: FootageRecord = serde_json::from_str(json).expect("decode");
+        assert_eq!(parsed.filesize_bytes, Some(12345));
+    }
+
+    #[test]
+    fn footage_record_defaults_filesize_bytes_to_none_when_absent() {
+        // Older responses (pre-Wave-1C) don't carry the field; #[serde(default)]
+        // must let them parse cleanly to None rather than failing.
+        let json = r#"{
+            "id": 12,
+            "local_path": "/footage/legacy.mp4",
+            "filename": "legacy.mp4",
+            "audio_track_count": 0,
+            "has_commentary_track": "no"
+        }"#;
+        let parsed: FootageRecord = serde_json::from_str(json).expect("decode");
+        assert!(parsed.filesize_bytes.is_none());
     }
 
     #[test]

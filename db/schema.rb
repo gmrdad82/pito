@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_04_233708) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_06_011258) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -118,6 +118,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_04_233708) do
     t.text "description"
     t.integer "duration_seconds"
     t.string "filename", null: false
+    t.bigint "filesize_bytes"
     t.decimal "fps", precision: 6, scale: 3
     t.bigint "game_id"
     t.boolean "has_commentary_track", default: false, null: false
@@ -221,8 +222,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_04_233708) do
 
   create_table "projects", force: :cascade do |t|
     t.datetime "created_at", null: false
+    t.integer "footages_count", default: 0, null: false
     t.string "name", default: "Untitled project", null: false
+    t.integer "notes_count", default: 0, null: false
     t.bigint "tenant_id", null: false
+    t.integer "timelines_count", default: 0, null: false
     t.datetime "updated_at", null: false
     t.index ["tenant_id", "name"], name: "index_projects_on_tenant_id_and_name"
     t.index ["tenant_id"], name: "index_projects_on_tenant_id"

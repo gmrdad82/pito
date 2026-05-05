@@ -5,7 +5,7 @@
 
   <% if channel.new_record? %>
     <div style="margin-bottom: 8px;">
-      <label for="channel_channel_url">youtube channel url</label>
+      <label for="channel_channel_url">youtube channel URL</label>
       <%= f.text_field :channel_url,
             placeholder: "https://www.youtube.com/channel/UC2T-WgvF-DQQfFNQieoRuQQ",
             pattern: "https://www\\.youtube\\.com/channel/UC[A-Za-z0-9_-]{22}",
@@ -18,14 +18,14 @@
     </div>
   <% else %>
     <div style="margin-bottom: 8px;">
-      <label>youtube channel url</label>
+      <label>youtube channel URL</label>
       <input type="text" value="<%= channel.channel_url %>" readonly disabled style="width: 100%; max-width: 480px;">
-      <p class="form-hint" style="margin-top: 4px; font-size: 11px;">url is locked after creation.</p>
+      <p class="form-hint" style="margin-top: 4px; font-size: 11px;">URL is locked after creation.</p>
     </div>
   <% end %>
 
   <div style="display: flex; gap: 6px;">
-    <button type="submit" class="btn-submit">[<b>save</b>]</button>
+    <button type="submit" class="btn-submit">[<b><%= channel.new_record? ? "add" : "update" %></b>]</button>
     <%= render(BracketedLinkComponent.new(label: "cancel", href: cancel_path)) %>
   </div>
 <% end %>

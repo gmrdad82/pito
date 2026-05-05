@@ -4,6 +4,13 @@ export default class extends Controller {
   static targets = ["checkbox", "headerCheckbox", "actions", "count",
                      "bulkCol", "actionCol", "bulkToggle", "openAction", "openHint",
                      "overMaxHint", "deleteAction", "syncAction"]
+  // Phase B polish (2026-05-05) — checkboxes are always-on now. The
+  // `bulkCol` / `actionCol` / `bulkToggle` / `enterBulk` / `exitBulk`
+  // surface area stays for backward-compat with any view still wiring
+  // it (Lane F's footage table, etc.) but the always-on flow does not
+  // need them. The connect() hook drives the initial action-bar state
+  // off zero-selection so [open N] / [sync N] / [delete N] are hidden
+  // until the user ticks at least one row.
   // `maxPanes` and `panesPath` are panes-specific. Screens without an
   // "open in N panes" flow (e.g. /projects) omit the corresponding data
   // attributes on the controller root; defaults below keep the controller
@@ -16,22 +23,32 @@ export default class extends Controller {
     syncType: String
   }
 
+  // Always-on flow: prime the action-bar visibility on connect so
+  // [open N] / [sync N] / [delete N] start hidden (count = 0) and the
+  // header checkbox reflects the (empty) selection.
+  connect() {
+    this.updateActions()
+  }
+
+  // Legacy entry points retained for any view still wiring `[bulk]` /
+  // `[cancel]`. Always-on views drop the wiring entirely; these stay
+  // callable so partial migrations don't break.
   enterBulk(event) {
-    event.preventDefault()
+    if (event) event.preventDefault()
     this.bulkColTargets.forEach(el => el.hidden = false)
     this.actionColTargets.forEach(el => el.hidden = true)
-    this.bulkToggleTarget.hidden = true
-    this.actionsTarget.hidden = false
+    if (this.hasBulkToggleTarget) this.bulkToggleTarget.hidden = true
+    if (this.hasActionsTarget) this.actionsTarget.hidden = false
     this.updateActions()
     this._updateSeparators()
   }
 
   exitBulk(event) {
-    event.preventDefault()
+    if (event) event.preventDefault()
     this.bulkColTargets.forEach(el => el.hidden = true)
     this.actionColTargets.forEach(el => el.hidden = false)
-    this.bulkToggleTarget.hidden = false
-    this.actionsTarget.hidden = true
+    if (this.hasBulkToggleTarget) this.bulkToggleTarget.hidden = false
+    if (this.hasActionsTarget) this.actionsTarget.hidden = true
     this.checkboxTargets.forEach(cb => cb.checked = false)
     if (this.hasHeaderCheckboxTarget) {
       this.headerCheckboxTarget.checked = false

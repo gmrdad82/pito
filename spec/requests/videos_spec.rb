@@ -17,9 +17,12 @@ RSpec.describe "Videos", type: :request do
       expect(response.body).to include("no videos yet")
     end
 
-    it "includes bulk toggle link" do
+    it "does not render the legacy [bulk] toggle (always-on checkboxes)" do
       get videos_path
-      expect(response.body).to include("bulk")
+      # Phase B polish (2026-05-05) — checkboxes are always on; the
+      # `[bulk]` enter / `[cancel]` exit toggles are gone.
+      expect(response.body).not_to match(/\[\s*<span class="bl">bulk<\/span>\s*\]/)
+      expect(response.body).not_to include('data-bulk-select-target="bulkToggle"')
     end
 
     context "with videos" do
@@ -35,14 +38,14 @@ RSpec.describe "Videos", type: :request do
         expect(response.body).to include("500")
       end
 
-      it "includes open link per row" do
+      it "includes [o] link per row" do
         get videos_path
-        expect(response.body).to include("open")
+        expect(response.body).to include('class="bl">o</span>')
       end
 
-      it "includes add link in table header" do
+      it "includes [+] link in table header" do
         get videos_path
-        expect(response.body).to include(">add<")
+        expect(response.body).to include('class="bl">+</span>')
       end
 
       it "shows duration" do
@@ -50,10 +53,19 @@ RSpec.describe "Videos", type: :request do
         expect(response.body).to include("10:00")
       end
 
-      it "renders bulk select checkboxes (hidden by default)" do
+      it "renders always-on bulk select checkboxes (no hidden bulkCol)" do
         get videos_path
         expect(response.body).to include('data-bulk-select-target="checkbox"')
         expect(response.body).to include('data-bulk-select-target="headerCheckbox"')
+        # Phase B polish (2026-05-05) — the bulkCol td/th targets are not
+        # hidden anymore (they were hidden behind the [bulk] toggle).
+        expect(response.body).not_to match(/data-bulk-select-target="bulkCol"\s+hidden/)
+      end
+
+      it "renders the channel-URL cell as an external YouTube link with target=_blank" do
+        get videos_path
+        # The channel-URL text is now the external link itself.
+        expect(response.body).to include(%(href="#{channel.channel_url}" target="_blank" rel="noopener noreferrer"))
       end
 
       it "renders bulk actions bar (hidden by default)" do
@@ -151,9 +163,9 @@ RSpec.describe "Videos", type: :request do
       expect(response.body).to include(video.title)
     end
 
-    it "includes delete link in breadcrumb actions" do
+    it "includes [-] delete link in breadcrumb actions" do
       get video_path(video)
-      expect(response.body).to include("delete")
+      expect(response.body).to include('class="bl">-</span>')
       expect(response.body).to include("/deletions")
     end
 
@@ -346,7 +358,8 @@ RSpec.describe "Videos", type: :request do
 
     it "shows save button when no saved view exists" do
       get "#{panes_videos_path}?ids=#{video1.id},#{video2.id}"
-      expect(response.body).to include(">save<")
+      expect(response.body).to include('class="bl">save</span>')
+      expect(response.body).not_to include('class="bl">update</span>')
     end
 
     it "shows delete link when saved view exists" do

@@ -48,6 +48,7 @@ fn baseline_report() -> ProbeReport {
 fn probed(local_path: &str) -> ProbedFile {
     ProbedFile {
         local_path: local_path.to_string(),
+        filesize_bytes: Some(4096),
         filename: std::path::Path::new(local_path)
             .file_name()
             .map(|s| s.to_string_lossy().into_owned())
@@ -72,6 +73,7 @@ fn record(id: u64, local_path: &str) -> FootageRecord {
         orientation: p.report.orientation.map(|o| o.as_wire().to_string()),
         audio_track_count: p.report.audio_track_count,
         has_commentary_track: p.report.has_commentary_track,
+        filesize_bytes: p.filesize_bytes,
     }
 }
 

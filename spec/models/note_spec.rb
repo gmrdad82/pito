@@ -49,6 +49,29 @@ RSpec.describe Note, type: :model do
     end
   end
 
+  # Phase 4 Wave 2 — `/projects` index revamp. The project row's
+  # `notes_count` powers the display + sort; counter must keep in sync.
+  describe "counter_cache on project" do
+    let(:tenant)  { create(:tenant) }
+    let(:project) { create(:project, tenant: tenant) }
+
+    it "increments project.notes_count when a note is created" do
+      expect {
+        create(:note, project: project, tenant: tenant)
+      }.to change { project.reload.notes_count }.from(0).to(1)
+    end
+
+    it "decrements project.notes_count when a note is destroyed" do
+      note = create(:note, project: project, tenant: tenant)
+      project.reload
+      expect(project.notes_count).to eq(1)
+
+      expect {
+        note.destroy!
+      }.to change { project.reload.notes_count }.from(1).to(0)
+    end
+  end
+
   describe "chars_count / words_count recomputation" do
     let(:tenant)  { create(:tenant) }
     let(:project) { create(:project, tenant: tenant) }

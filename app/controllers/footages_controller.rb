@@ -83,7 +83,7 @@ class FootagesController < ApplicationController
           :codec, :bit_depth, :color_profile,
           :aspect_ratio, :orientation,
           :audio_track_count, :has_commentary_track,
-          :filename, :local_path
+          :filename, :local_path, :filesize_bytes
         )
       else
         params.require(:footage).permit(
@@ -126,7 +126,8 @@ class FootagesController < ApplicationController
       aspect_ratio: footage.aspect_ratio,
       orientation: footage.orientation,
       audio_track_count: footage.audio_track_count,
-      has_commentary_track: YesNo.to_yes_no(footage.has_commentary_track)
+      has_commentary_track: YesNo.to_yes_no(footage.has_commentary_track),
+      filesize_bytes: footage.filesize_bytes
     }
   end
 end

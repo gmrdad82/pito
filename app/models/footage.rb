@@ -2,7 +2,7 @@
 # importer (Phase B). All ffprobe-derived fields are nullable so a row can
 # land minimally then get hydrated as the importer fills in details.
 class Footage < ApplicationRecord
-  belongs_to :project
+  belongs_to :project, counter_cache: true
   belongs_to :game, optional: true
   belongs_to :tenant, optional: true
 

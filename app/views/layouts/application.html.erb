@@ -1,7 +1,15 @@
 <!DOCTYPE html>
 <html data-theme-preference="<%= AppSetting.get('theme') || 'auto' %>">
   <head>
-    <title><%= content_for?(:title) ? "#{yield(:title)} ~ pito" : "pito ~ best YouTube tool" %></title>
+    <%# Title is built with `safe_join` rather than string interpolation so
+        HTML entities embedded in the page title (e.g. `&#39;` from an
+        apostrophe in a project name) survive untouched. `content_for(:title,
+        value)` HTML-escapes the value into a SafeBuffer; a plain
+        "#{yield} ~ pito" interpolation drops the safe-buffer status, then
+        `<%%= %>` re-escapes the buffer, producing `&amp;#39;` (visible as
+        `&#39;` in the browser tab). `safe_join` keeps the SafeBuffer
+        contract end-to-end. %>
+    <title><%= content_for?(:title) ? safe_join([yield(:title), " ~ pito"]) : "pito ~ best YouTube tool" %></title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="application-name" content="Pito">
     <%= csrf_meta_tags %>

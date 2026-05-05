@@ -2,23 +2,40 @@
 <% content_for(:title, page_label) %>
 <% breadcrumb(["projects", projects_path], page_label) %>
 <% content_for(:breadcrumb_actions) do %>
-  <%= render(BracketedLinkComponent.new(label: "edit", href: edit_project_path(@project))) %>
+  <%= render(BracketedLinkComponent.new(label: "e", href: edit_project_path(@project))) %>
   <span class="text-muted">&middot;</span>
-  <%= render(BracketedLinkComponent.new(label: "delete", href: "/deletions/project/#{@project.id}", destructive: true)) %>
+  <%= render(BracketedLinkComponent.new(label: "-", href: "/deletions/project/#{@project.id}", destructive: true)) %>
 <% end %>
 
 <div style="margin-bottom: 6px;">
   <h1 style="display: inline;"><%= @project.name %></h1>
 </div>
 
-<div class="pane-container" style="margin-top: 16px;">
-  <div class="pane-wrapper">
-    <%= render "projects/footage_pane", project: @project, footages: @footages %>
+<%# Phase 4 Wave 2 (2026-05-05) — Project show revamp. Two-row stacked layout
+    matching the Settings revamp shape: row 1 splits 50/50 (timelines | notes),
+    row 2 spans full width (footage). Each cell wears the pane visual style —
+    `var(--color-pane-bg)` background + 12px padding + a hairline divider
+    between adjacent cells in the same row — so density and chrome match the
+    rest of the app without introducing per-page CSS classes. %>
+<div style="display: flex; flex-direction: column; margin-top: 16px;">
+  <%# Row 1 — timelines | notes %>
+  <div style="display: grid; grid-template-columns: 1fr 1fr;">
+    <div style="background: var(--color-pane-bg); padding: 12px;">
+      <%= render "projects/timelines_pane", project: @project, timelines: @timelines %>
+    </div>
+    <div style="background: var(--color-pane-bg); padding: 12px; border-left: 2px solid var(--color-border);">
+      <%= render "projects/notes_pane", project: @project, notes: @notes, locked: @notes_locked %>
+    </div>
   </div>
-  <div class="pane-wrapper">
-    <%= render "projects/notes_pane", project: @project, notes: @notes, locked: @notes_locked %>
-  </div>
-  <div class="pane-wrapper">
-    <%= render "projects/timelines_pane", project: @project, timelines: @timelines %>
+
+  <%# Row 2 — footage (full width) %>
+  <div style="background: var(--color-pane-bg); padding: 12px;">
+    <%= render "projects/footage_pane",
+               project: @project,
+               footages: @footages,
+               filter_options: @footage_filter_options,
+               active_filters: @footage_active_filters,
+               sort: @footage_sort,
+               dir: @footage_dir %>
   </div>
 </div>
