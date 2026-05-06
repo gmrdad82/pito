@@ -7,7 +7,19 @@
   --color-bg-hover: #f0f0f0;
   --color-bg-header: #f4f4f4;
   --color-bg-header-hover: #e8e8e8;
-  --color-pane-bg: #f4f6f8;
+  /* Pane background tokens — Phase B revamp (2026-05-05).
+     Three-tone system: A and B alternate inside paired-pane layouts (zebra
+     rhythm), `-wide` is reserved for full-width / standalone panes so a
+     pane that stands alone reads as visually distinct from the alternating
+     pair. `-pane-bg` stays as an alias for `-pane-bg-a` for back-compat
+     with any inline-styled cell that hasn't migrated to the new tokens.
+     Tightened 2026-05-05 — the three tones sit much closer together so
+     `-wide` reads as a sibling of A/B (subtle cool tint, between A and B
+     in luminance) rather than a noticeably different hue. */
+  --color-pane-bg-a: #f4f6f8;
+  --color-pane-bg-b: #f0f2f5;
+  --color-pane-bg-wide: #f2f4f7;
+  --color-pane-bg: var(--color-pane-bg-a);
   --color-text: #1a1a1a;
   --color-text-bold: #1a1a1a;
   --color-link: #0000cc;
@@ -53,7 +65,16 @@
   --color-bg-hover: #44475a;
   --color-bg-header: #343746;
   --color-bg-header-hover: #44475a;
-  --color-pane-bg: #2f3142;
+  /* Dark-mode pane tokens — same three-tone system as light. A keeps the
+     existing pane bg; B nudges slightly lighter (zebra distinction);
+     `-wide` sits between A and B with a faint cool tint so a standalone
+     pane reads as distinct without going darker than A or competing for
+     attention. Tightened 2026-05-05 — earlier values had `-wide` darker
+     than `-a`, which read as a hierarchy switch rather than a sibling. */
+  --color-pane-bg-a: #2f3142;
+  --color-pane-bg-b: #34364a;
+  --color-pane-bg-wide: #313346;
+  --color-pane-bg: var(--color-pane-bg-a);
   --color-text: #f8f8f2;
   --color-text-bold: #f8f8f2;
   --color-link: #bd93f9;
@@ -220,10 +241,11 @@ a.text-danger.bracketed:hover, a.text-danger.bracketed:hover .bl { color: var(--
   overflow-x: auto;
 }
 .pane-wrapper {
-  width: 454px;
-  flex: 0 0 454px;
+  flex: 1 1 50%;
+  min-width: 0;
+  max-width: 600px;
   padding: 12px 12px;
-  background: var(--color-pane-bg);
+  background: var(--color-pane-bg-a);
 }
 .pane-wrapper + .pane-wrapper {
   border-left: 2px solid var(--color-border);
@@ -252,7 +274,7 @@ a.text-danger.bracketed:hover, a.text-danger.bracketed:hover .bl { color: var(--
 /* Pane reorder arrows — positioned at divider edges */
 .pane-arrow {
   position: absolute;
-  top: -7px;
+  top: -3px;
   z-index: 99;
 }
 .pane-arrow-left {
@@ -304,7 +326,20 @@ table:not(.detail-table) tr:hover {
   background-color: var(--color-bg-hover);
 }
 
-/* Sortable headers */
+/* Sortable headers.
+   The neutral up/down indicator is drawn by the `::after` pseudo-element
+   on every `th.sortable`. When the column is the active sort, the
+   server-rendered link gets a `.sort-asc` / `.sort-desc` class (via
+   `ApplicationHelper#sort_link_to`) and emits the directional arrow
+   inline as text — `:has()` lets us suppress the neutral pseudo-element
+   on the active column so only ONE indicator renders. Without the
+   `:has()` suppression, the active column shows both the inline arrow
+   AND the CSS up/down stack at once (the dual-arrow bug).
+   The legacy `th.sort-asc` / `th.sort-desc` classes (set by the
+   client-side `sortable_table_controller.js` on click) are preserved
+   below for tables that opt into in-page JS sorting (channel + video
+   panes); those replace the neutral indicator entirely so the same
+   one-indicator rule holds. */
 th.sortable {
   cursor: pointer;
   user-select: none;
@@ -328,6 +363,17 @@ th.sortable::after {
 th.sortable:hover {
   background: var(--color-bg-header-hover);
 }
+/* Suppress the neutral indicator on URL-driven sort headers (server
+   sets `sort-asc` / `sort-desc` on the inner `<a>` via
+   `sort_link_to`). The directional arrow rides inline inside the link
+   text, so no CSS-rendered glyph is needed. */
+th.sortable:has(> a.sort-asc)::after,
+th.sortable:has(> a.sort-desc)::after {
+  content: none;
+}
+/* JS-driven client-side sortable tables (channel + video panes) flip
+   `sort-asc` / `sort-desc` on the `<th>` itself. Replace the neutral
+   stack with a single directional glyph. */
 th.sort-asc::after { content: "\25B2"; font-size: 13px; line-height: 1; }
 th.sort-desc::after { content: "\25BC"; font-size: 13px; line-height: 1; }
 
@@ -344,30 +390,28 @@ th.col-action, td.col-action {
   font-variant-numeric: tabular-nums;
 }
 
-/* Middle-truncated filename cells. Used on the project show page's
-   footage pane (`_footage_pane.html.erb`) where long, OBS-style
-   filenames share a fixed-width column. Two spans, flex-row, the
-   head (leading portion) shrinks with `text-overflow: ellipsis`
-   while the tail (`…23-34-48.mkv`-style suffix) stays pinned so the
-   unique trailing identifier is always visible. The cell also carries
-   a `title="<full filename>"` for hover-reveal. Mirrors the CLI TUI
+/* Footage table on the project show page (`_footage_pane.html.erb`).
+   `table-layout: fixed` + a `<colgroup>` with explicit widths is what
+   makes `max-width` / `width` on cells actually bind — under the default
+   `auto` layout, cells stretch to content regardless of declared widths
+   and the filename text bleeds into neighboring columns. */
+table.footage-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+/* Footage filename cell. Truncation is done server-side via
+   `FootageHelper#filename_truncate_middle` (fixed `<head>…<tail>` form
+   with a Unicode ellipsis), so the cell no longer needs a flex
+   two-span layout. `overflow: hidden` is kept defensively — with a
+   bounded 21-char string it shouldn't trigger, but it guards against
+   future filename width regressions binding under
+   `table-layout: fixed`. The full filename is mirrored to a `title`
+   attribute on the cell for hover-reveal. Mirrors the CLI TUI
    `middle_truncate` helper at
    `extras/cli/src/footage/ui/confirmation.rs`. */
 .filename-cell {
-  display: flex;
-  align-items: baseline;
-  min-width: 0;
-}
-.filename-head {
-  flex: 0 1 auto;
-  min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.filename-tail {
-  flex: 0 0 auto;
-  white-space: nowrap;
 }
 
 /* Indicator cells — trend arrows */
@@ -765,14 +809,23 @@ dialog.confirm-modal::backdrop {
   vertical-align: bottom;
 }
 
-/* Item 3 — Zebra panes. Even-indexed pane wrappers in a .pane-container
-   get the alt background for visual rhythm. Applies automatically to
-   /channels and /videos panes-view (variable count) AND the project show
-   page (Footage default, Notes alt, Timelines default). The rule is
-   placed below the .pane-wrapper definition so it inherits the existing
-   padding / border-left + flex sizing. */
+/* Item 3 — Zebra panes. Three-tone system (Phase B 2026-05-05):
+   - Odd-indexed pane wrappers stay on `--color-pane-bg-a` (pane base).
+   - Even-indexed pane wrappers shift to `--color-pane-bg-b` (zebra sibling).
+   - A pane that's the ONLY child of `.pane-container` reads as a
+     standalone / wide pane and uses `--color-pane-bg-wide` (complementary
+     tone, slight cool shift) so it never gets mistaken for the A side of
+     a paired layout.
+   The :only-child override is placed AFTER the nth-child(even) rule so
+   the cascade resolves the right way for a single-pane container. */
 .pane-container > .pane-wrapper:nth-child(even) {
-  background-color: var(--color-bg-alt);
+  background-color: var(--color-pane-bg-b);
+}
+.pane-container > .pane-wrapper:only-child {
+  background-color: var(--color-pane-bg-wide);
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: 100%;
 }
 
 /* Phase B post-commit (2026-05-04) — Note revamp.
@@ -782,10 +835,11 @@ dialog.confirm-modal::backdrop {
    pane, mirroring the Meilisearch stat-line pattern.
 
    .markdown-preview enforces sane defaults so commonmarker / marked
-   output renders cleanly inside the 454px pane: tight margins on
-   block elements, monospace `code` blocks, mute the muted-but-still
-   readable font weight on rendered headings (the page already uses
-   monospace; rendered <h1>..<h6> use the same family).
+   output renders cleanly inside a pane (now flex-sized 50% up to a
+   600px cap, was a flat 640px): tight margins on block elements,
+   monospace `code` blocks, mute the muted-but-still readable font
+   weight on rendered headings (the page already uses monospace;
+   rendered <h1>..<h6> use the same family).
 */
 .markdown-preview {
   font-family: var(--font-mono, ui-monospace);

@@ -1,15 +1,26 @@
 <%# Phase 4 §9.1 — Footage pane on the project show page.
   Wave 2 (2026-05-05) revamp:
-    - Expanded column set: filename, game, resolution, fps, bit depth,
-      duration, filesize, source. The `kind` column is gone; it's an
-      internal-only enum (a_roll vs b_roll) that's not directly user-
-      facing in the workspace.
+    - Expanded column set: filename, game, resolution, fps, bit,
+      duration, size, source. (Headers `bit` and `size` were
+      shortened from `bit depth` / `filesize` in a 2026-05-06 polish
+      pass; the underlying sort keys remain `bit_depth` /
+      `filesize_bytes` and the data values remain `8-bit`, `1.05 GB`,
+      etc.) The `kind` column is gone; it's an internal-only enum
+      (a_roll vs b_roll) that's not directly user-facing in the
+      workspace.
     - Conditional filter chips: render only when the project's footage
       varies on a given dimension (> 1 distinct value). Mirrors the
       `/channels` filter-chip pattern (UI shape + `[clear]` link).
     - Sortable columns via URL state (`?sort=...&dir=...`). The headers
       link back to the project show with the toggled direction so the
       view stays bookmarkable + shareable.
+    - Headers carry `class="sortable"` so the shared CSS treatment
+      applies (cursor: pointer, ▲▼ neutral indicator on inactive
+      columns, hover background, single-arrow override on the active
+      column). Mirrors the `_notes_pane.html.erb` and `/projects`
+      index conventions. URL params stay namespaced as plain
+      `sort` / `dir` (no `footage_` prefix) — the notes table uses
+      `notes_sort` / `notes_dir` to coexist on the same page.
   Locals:
     project, footages, filter_options, active_filters, sort, dir
 %>
@@ -54,49 +65,42 @@
 <% end %>
 
 <% if footages.any? %>
-  <% sort_link = ->(label, key) {
-    next_dir = (sort == key && dir == "asc") ? "desc" : "asc"
-    href = project_path(project, request.query_parameters.merge(sort: key, dir: next_dir))
-    arrow = if sort == key
-      dir == "asc" ? " ▲" : " ▼"
-    else
-      ""
-    end
-    link_to("#{label}#{arrow}".html_safe, href)
-  } %>
-  <table>
+  <table class="footage-table">
+    <colgroup>
+      <col style="width: 180px;"><%# filename %>
+      <col style="width: 100px;"><%# game %>
+      <col style="width: 110px;"><%# resolution %>
+      <col style="width: 48px;"> <%# fps %>
+      <col style="width: 80px;"> <%# bit %>
+      <col style="width: 80px;"> <%# duration %>
+      <col style="width: 80px;"> <%# size %>
+      <col style="width: 80px;"> <%# source %>
+    </colgroup>
     <thead>
       <tr>
-        <th><%= sort_link.call("filename", "filename") %></th>
-        <th><%= sort_link.call("game", "game") %></th>
-        <th><%= sort_link.call("resolution", "resolution") %></th>
-        <th class="num"><%= sort_link.call("fps", "fps") %></th>
-        <th class="num"><%= sort_link.call("bit depth", "bit_depth") %></th>
-        <th class="num"><%= sort_link.call("duration", "duration_seconds") %></th>
-        <th class="num"><%= sort_link.call("filesize", "filesize_bytes") %></th>
-        <th><%= sort_link.call("source", "source") %></th>
+        <th class="sortable"><%= sort_link_to("filename", "filename", current_sort: sort, current_dir: dir) %></th>
+        <th class="sortable"><%= sort_link_to("game", "game", current_sort: sort, current_dir: dir) %></th>
+        <th class="sortable"><%= sort_link_to("resolution", "resolution", current_sort: sort, current_dir: dir) %></th>
+        <th class="sortable num"><%= sort_link_to("fps", "fps", current_sort: sort, current_dir: dir) %></th>
+        <th class="sortable num"><%= sort_link_to("bit", "bit_depth", current_sort: sort, current_dir: dir) %></th>
+        <th class="sortable num"><%= sort_link_to("duration", "duration_seconds", current_sort: sort, current_dir: dir) %></th>
+        <th class="sortable num"><%= sort_link_to("size", "filesize_bytes", current_sort: sort, current_dir: dir) %></th>
+        <th class="sortable"><%= sort_link_to("source", "source", current_sort: sort, current_dir: dir) %></th>
       </tr>
     </thead>
     <tbody>
       <% footages.each do |footage| %>
-        <% head, tail = filename_split(footage.filename) %>
         <tr>
           <td class="filename-cell" title="<%= footage.filename %>">
-            <%= link_to edit_footage_path(footage) do %>
-              <% if tail.empty? %>
-                <%= head %>
-              <% else %>
-                <span class="filename-head"><%= head %></span><span class="filename-tail"><%= tail %></span>
-              <% end %>
-            <% end %>
+            <%= link_to filename_truncate_middle(footage.filename), edit_footage_path(footage) %>
           </td>
           <td><%= footage.game ? footage.game.title : FootageHelper::EMPTY_VALUE %></td>
           <td><%= footage.resolution || FootageHelper::EMPTY_VALUE %></td>
-          <td class="num"><%= footage.fps ? footage.fps.to_f.to_s : FootageHelper::EMPTY_VALUE %></td>
+          <td class="num"><%= human_fps(footage.fps) %></td>
           <td class="num"><%= footage.bit_depth ? "#{footage.bit_depth}-bit" : FootageHelper::EMPTY_VALUE %></td>
           <td class="num"><%= human_duration(footage.duration_seconds) %></td>
           <td class="num"><%= human_filesize(footage.filesize_bytes) %></td>
-          <td><%= footage.source || FootageHelper::EMPTY_VALUE %></td>
+          <td><%= human_source(footage.source) %></td>
         </tr>
       <% end %>
     </tbody>

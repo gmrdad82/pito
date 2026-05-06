@@ -23,14 +23,24 @@
 
 <%# Phase B revamp (2026-05-05) — Settings switched from a 5-pane horizontal
     strip to a 3-row stacked layout. Rows 1 and 2 hold two 50/50 cells; row 3
-    is full-width. Each cell still wears the pane visual style — the
-    var(--color-pane-bg) background, 12px padding, and a hairline divider
-    between adjacent cells in the same row — so the content density and
-    chrome match the rest of the app. Per-section forms are preserved. %>
-<div style="display: flex; flex-direction: column;">
-  <%# Row 1 — appearance | workspaces %>
+    is full-width. Each cell wears the pane visual style — a pane-bg token,
+    12px padding, and a hairline divider between adjacent cells in the same
+    row — so the content density and chrome match the rest of the app.
+    Per-section forms are preserved.
+
+    Three-tone background system (Phase B 2026-05-05):
+    - Rows 1 + 2 alternate A | B inside their 50/50 grid.
+    - Row 3 stands alone full-width and uses `-wide`.
+    - 12px vertical gap between rows so the color rhythm reads cleanly.
+
+    The page intentionally goes edge-to-edge — no centering wrapper, no
+    max-width cap. Settings panes left-align with the page heading and the
+    rest of the workspace, matching project show's full-width behavior.
+%>
+<div style="display: flex; flex-direction: column; gap: 12px;">
+  <%# Row 1 — appearance (A) | workspaces (B) %>
   <div style="display: grid; grid-template-columns: 1fr 1fr;">
-    <div style="background: var(--color-pane-bg); padding: 12px;">
+    <div style="background: var(--color-pane-bg-a); padding: 12px;">
       <%= form_with url: settings_path, method: :patch do |f| %>
         <input type="hidden" name="section" value="appearance">
         <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
@@ -54,7 +64,7 @@
       <% end %>
     </div>
 
-    <div style="background: var(--color-pane-bg); padding: 12px; border-left: 2px solid var(--color-border);">
+    <div style="background: var(--color-pane-bg-b); padding: 12px; border-left: 2px solid var(--color-border);">
       <%= form_with url: settings_path, method: :patch do |f| %>
         <input type="hidden" name="section" value="workspaces">
         <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
@@ -84,9 +94,9 @@
     </div>
   </div>
 
-  <%# Row 2 — YouTube OAuth | Voyage AI %>
+  <%# Row 2 — YouTube OAuth (A) | Voyage AI (B) %>
   <div style="display: grid; grid-template-columns: 1fr 1fr;">
-    <div style="background: var(--color-pane-bg); padding: 12px;">
+    <div style="background: var(--color-pane-bg-a); padding: 12px;">
       <%= form_with url: settings_path, method: :patch do |f| %>
         <input type="hidden" name="section" value="youtube_oauth">
         <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
@@ -118,7 +128,7 @@
       <% end %>
     </div>
 
-    <div style="background: var(--color-pane-bg); padding: 12px; border-left: 2px solid var(--color-border);">
+    <div style="background: var(--color-pane-bg-b); padding: 12px; border-left: 2px solid var(--color-border);">
       <%= form_with url: settings_path, method: :patch do |f| %>
         <input type="hidden" name="section" value="voyage">
         <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
@@ -179,8 +189,8 @@
     </div>
   </div>
 
-  <%# Row 3 — search (full width) %>
-  <div style="background: var(--color-pane-bg); padding: 12px;">
+  <%# Row 3 — search (full width, wide tone) %>
+  <div style="background: var(--color-pane-bg-wide); padding: 12px;">
     <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
       <legend><h2>search</h2></legend>
 

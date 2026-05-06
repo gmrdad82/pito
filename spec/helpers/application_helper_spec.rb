@@ -138,4 +138,145 @@ RSpec.describe ApplicationHelper, type: :helper do
       expect(helper.pane_breadcrumb_label([ channel ])).to eq("##{channel.id}")
     end
   end
+
+  describe "#sort_link_to" do
+    # The helper merges the sort + dir params into the existing query
+    # string. The default param names are `sort` / `dir` (matches the
+    # legacy callers); pages with two independently sortable tables
+    # pass custom names (e.g. `notes_sort` / `notes_dir`) to keep each
+    # table's URL state distinct.
+    #
+    # `link_to` builds URLs through `url_for`, which needs a known
+    # route. We point the controller at `/projects` (a real route) and
+    # stub `request.query_parameters` so the merge logic is
+    # deterministic.
+    before do
+      controller.request.path_parameters = { controller: "projects", action: "index" }
+      allow(helper.request).to receive(:query_parameters).and_return({})
+    end
+
+    it "uses the default `sort` / `dir` param names when not specified" do
+      result = helper.sort_link_to("name", "name", current_sort: "created_at", current_dir: "desc")
+      expect(result).to include("sort=name")
+      expect(result).to include("dir=asc")
+      expect(result).not_to include("notes_sort")
+    end
+
+    it "honors custom `sort_param` / `dir_param` kwargs" do
+      result = helper.sort_link_to("title", "title",
+        current_sort: "last_modified", current_dir: "desc",
+        sort_param: "notes_sort", dir_param: "notes_dir")
+      expect(result).to include("notes_sort=title")
+      expect(result).to include("notes_dir=asc")
+      # Must not leak the default param names through.
+      expect(result).not_to match(/[?&]sort=/)
+      expect(result).not_to match(/[?&]dir=/)
+    end
+
+    it "renders an ascending arrow on the active column when current_dir is asc" do
+      result = helper.sort_link_to("name", "name", current_sort: "name", current_dir: "asc")
+      expect(result).to include("▲")
+    end
+
+    it "renders a descending arrow on the active column when current_dir is desc" do
+      result = helper.sort_link_to("name", "name", current_sort: "name", current_dir: "desc")
+      expect(result).to include("▼")
+    end
+
+    it "renders no arrow on inactive columns" do
+      result = helper.sort_link_to("created", "created_at", current_sort: "name", current_dir: "asc")
+      expect(result).not_to include("▲")
+      expect(result).not_to include("▼")
+    end
+
+    # Dual-arrow bug fix (2026-05-06). The active column's link gets a
+    # `sort-asc` / `sort-desc` class so the CSS `:has()` rule can
+    # suppress the neutral `::after` indicator on that header. Inactive
+    # columns must NOT carry the class — otherwise the CSS would
+    # suppress the neutral indicator everywhere and inactive headers
+    # would show no arrow at all.
+    it "stamps a `sort-asc` class on the active link when current_dir is asc" do
+      result = helper.sort_link_to("name", "name", current_sort: "name", current_dir: "asc")
+      expect(result).to include('class="sort-asc"')
+    end
+
+    it "stamps a `sort-desc` class on the active link when current_dir is desc" do
+      result = helper.sort_link_to("name", "name", current_sort: "name", current_dir: "desc")
+      expect(result).to include('class="sort-desc"')
+    end
+
+    it "does not stamp a sort-{asc,desc} class on inactive columns" do
+      result = helper.sort_link_to("created", "created_at", current_sort: "name", current_dir: "asc")
+      expect(result).not_to include("sort-asc")
+      expect(result).not_to include("sort-desc")
+    end
+
+    it "preserves existing query parameters when building the link" do
+      allow(helper.request).to receive(:query_parameters).and_return({ "sort" => "duration_seconds", "dir" => "desc" })
+      result = helper.sort_link_to("title", "title",
+        current_sort: "last_modified", current_dir: "desc",
+        sort_param: "notes_sort", dir_param: "notes_dir")
+      expect(result).to include("sort=duration_seconds")
+      expect(result).to include("dir=desc")
+      expect(result).to include("notes_sort=title")
+      expect(result).to include("notes_dir=asc")
+    end
+  end
+
+  # Server-side fixed-length middle truncation. Returns a single
+  # string with a Unicode ellipsis (U+2026) joining the head and tail
+  # halves. Used by the `/channels` and `/videos` URL cells (e.g.
+  # `https://…jF7eS8r1`) and, via delegation, by the project show
+  # footage filename column (`FootageHelper#filename_truncate_middle`).
+  describe "#middle_truncate" do
+    it "returns the input as-is when it is shorter than head + 1 + tail" do
+      expect(helper.middle_truncate("short", head: 8, tail: 8)).to eq("short")
+    end
+
+    it "returns the input as-is when length equals exactly head + 1 + tail (boundary)" do
+      # 8 + 1 + 8 = 17 — a 17-char string already fits without truncation.
+      str = "a" * 17
+      expect(helper.middle_truncate(str, head: 8, tail: 8)).to eq(str)
+    end
+
+    it "truncates the canonical YouTube channel URL to `https://…jF7eS8r1`" do
+      url = "https://www.youtube.com/channel/UClSHvsAVzQ_GYsDjF7eS8r1"
+      expect(helper.middle_truncate(url, head: 8, tail: 8)).to eq("https://…jF7eS8r1")
+    end
+
+    it "uses the U+2026 horizontal-ellipsis character (NOT three ASCII dots)" do
+      url = "https://www.youtube.com/channel/UClSHvsAVzQ_GYsDjF7eS8r1"
+      result = helper.middle_truncate(url, head: 8, tail: 8)
+      expect(result).to include("…")
+      expect(result).not_to include("...")
+    end
+
+    it "honors custom head / tail lengths" do
+      # 29-char input, head=5 / tail=4. head+1+tail=10, so truncation
+      # fires. Output: first 5 chars + ellipsis + last 4 chars.
+      expect(helper.middle_truncate("hello-world-and-then-some.mkv", head: 5, tail: 4))
+        .to eq("hello….mkv")
+    end
+
+    it "produces a result of length head + 1 + tail when truncating" do
+      url = "https://www.youtube.com/channel/UClSHvsAVzQ_GYsDjF7eS8r1"
+      expect(helper.middle_truncate(url, head: 8, tail: 8).length).to eq(17)
+    end
+
+    it "preserves multibyte characters in head / tail slices" do
+      str = "café-prefix-tail-café"
+      result = helper.middle_truncate(str, head: 4, tail: 4)
+      expect(result).to start_with("café")
+      expect(result).to end_with("café")
+      expect(result).to include("…")
+    end
+
+    it "returns an empty string for nil input" do
+      expect(helper.middle_truncate(nil, head: 8, tail: 8)).to eq("")
+    end
+
+    it "returns an empty string for a blank input" do
+      expect(helper.middle_truncate("", head: 8, tail: 8)).to eq("")
+    end
+  end
 end

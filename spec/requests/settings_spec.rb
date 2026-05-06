@@ -117,10 +117,26 @@ RSpec.describe "Settings", type: :request do
       expect(response.body).not_to include("[ save ]")
     end
 
-    it "renders each section cell on the pane background" do
+    it "renders each section cell on a pane-bg token" do
       get settings_path
-      # The cells reuse the existing `--color-pane-bg` token; no new CSS.
-      expect(response.body).to include("var(--color-pane-bg)")
+      # The cells use the three-tone pane-bg system: A and B alternate
+      # inside paired rows, `-wide` covers the full-width row.
+      expect(response.body).to include("var(--color-pane-bg-a)")
+      expect(response.body).to include("var(--color-pane-bg-b)")
+      expect(response.body).to include("var(--color-pane-bg-wide)")
+    end
+
+    # Phase B revamp (2026-05-05) — paired rows alternate A | B; the full-
+    # width row uses `-wide`. The exact mapping: appearance=A, workspaces=B,
+    # youtube_oauth=A, voyage=B, search=wide. Assert each section sits on
+    # the right token by checking DOM ordering of bg + section markers.
+    it "applies A | B alternation to paired rows and -wide to row 3" do
+      get settings_path
+      body = response.body
+      # Two A cells (rows 1+2 left), two B cells (rows 1+2 right), one wide.
+      expect(body.scan("var(--color-pane-bg-a)").length).to eq(2)
+      expect(body.scan("var(--color-pane-bg-b)").length).to eq(2)
+      expect(body.scan("var(--color-pane-bg-wide)").length).to eq(1)
     end
 
     it "renders rows 1 and 2 as two-column grids" do
@@ -128,6 +144,22 @@ RSpec.describe "Settings", type: :request do
       # Two grids = two 2-col rows (appearance|workspaces, oauth|voyage).
       grid_hits = response.body.scan("grid-template-columns: 1fr 1fr").length
       expect(grid_hits).to eq(2)
+    end
+
+    # Phase B revamp (2026-05-05) — settings page goes edge-to-edge,
+    # matching project show. The previous centered max-width wrapper
+    # (Wave 3I) was reverted so settings panes left-align with the title
+    # and the rest of the workspace. Assert the wrapper is gone.
+    it "does not wrap the section stack in a centered max-width container" do
+      get settings_path
+      expect(response.body).not_to match(/max-width:\s*880px;\s*margin:\s*0 auto/)
+    end
+
+    # Phase B revamp — vertical gap between stacked rows so the three
+    # background tones (A | B / A | B / wide) read as distinct bands.
+    it "applies a 12px gap between stacked rows" do
+      get settings_path
+      expect(response.body).to match(/flex-direction:\s*column;\s*gap:\s*12px/)
     end
 
     # Row order: row 1 (appearance, workspaces), row 2 (oauth, voyage),

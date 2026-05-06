@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_06_011258) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_06_105253) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -164,7 +164,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_06_011258) do
   end
 
   create_table "notes", force: :cascade do |t|
-    t.integer "chars_count", default: 0, null: false
     t.datetime "created_at", null: false
     t.vector "embedding", limit: 1024
     t.datetime "last_modified_at", null: false
@@ -222,9 +221,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_06_011258) do
 
   create_table "projects", force: :cascade do |t|
     t.datetime "created_at", null: false
+    t.integer "footage_duration_seconds", default: 0, null: false
     t.integer "footages_count", default: 0, null: false
     t.string "name", default: "Untitled project", null: false
     t.integer "notes_count", default: 0, null: false
+    t.integer "notes_words_total", default: 0, null: false
     t.bigint "tenant_id", null: false
     t.integer "timelines_count", default: 0, null: false
     t.datetime "updated_at", null: false

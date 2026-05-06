@@ -21,7 +21,7 @@
   </div>
 
   <% if channels.any? %>
-    <div data-controller="sortable-table">
+    <div>
       <%# Phase B polish (2026-05-05) — bulk toolbar is always rendered.
           Each `.action` span carries an `.action-sep` `&middot;` that
           the controller hides on whichever action is first-visible.
@@ -48,16 +48,47 @@
         <div data-bulk-select-target="overMaxHint" hidden class="form-hint" style="font-size: 12px; margin-top: 2px;">max <%= max_panes %> channels at a time can be opened in split view.</div>
       </div>
 
-      <table data-sortable-table-target="table">
+      <%# Sortable column headers — server-side sort via `?sort=<key>&dir=<asc|desc>`.
+          `sort_link_to` builds a link that merges the new sort params into
+          `request.query_parameters`, so active filter chips (`?starred=yes`,
+          `?connected=yes`, etc.) are preserved across header clicks.
+          Mirrors the `/projects` index pattern; replaces the prior
+          client-side `sortable-table` Stimulus controller, which still
+          serves the per-pane video tables. %>
+      <%# Table sizing — the URL column is server-side middle-truncated to
+          a fixed head…tail form (~17 chars), so the table no longer needs
+          to stretch to viewport width. Explicit colgroup widths plus
+          `table-layout: fixed; width: 480px;` size the table to its
+          content (40 + 60 + 200 + 80 + 100 = 480 px). `width: auto` is
+          NOT enough under `table-layout: fixed`: per CSS spec the table
+          stretches to fill its containing block and dumps the slack on
+          the last column, so an explicit width is required. The header
+          text "starred" was shortened to "star" in a 2026-05-06 polish
+          to mirror the [star] / [unstar] action vocabulary used
+          elsewhere; the underlying sort key stays `starred`. %>
+      <table style="table-layout: fixed; width: 480px;">
+        <colgroup>
+          <col style="width: 40px;">  <%# selection checkbox %>
+          <col style="width: 60px;">  <%# Name (id) %>
+          <col style="width: 200px;"> <%# URL (truncated) %>
+          <col style="width: 80px;">  <%# star %>
+          <col style="width: 100px;"> <%# last sync %>
+        </colgroup>
         <thead>
           <tr>
             <th class="col-action">
               <%= render(CheckboxComponent.new(data: { bulk_select_target: "headerCheckbox", action: "change->bulk-select#toggleAll" })) %>
             </th>
-            <th class="col-action"></th>
+            <%# Name column — placeholder for the YouTube channel title once
+                sync lands. For now the cell renders `channel.id` linked to
+                the show page so the column has stable content. The legacy
+                `[o]` action column was dropped (2026-05-05 polish): the
+                Name cell IS the show-page link, so a separate open-action
+                cell was redundant. %>
+            <th class="sortable"><%= sort_link_to("Name", "id", current_sort: @sort, current_dir: @dir) %></th>
             <th>URL</th>
-            <%= render(SortableHeaderComponent.new(label: "starred", sort_type: "string", numeric: true)) %>
-            <%= render(SortableHeaderComponent.new(label: "last sync", sort_type: "date", numeric: true)) %>
+            <th class="sortable num"><%= sort_link_to("star", "starred", current_sort: @sort, current_dir: @dir) %></th>
+            <th class="sortable num"><%= sort_link_to("last sync", "last_synced_at", current_sort: @sort, current_dir: @dir) %></th>
           </tr>
         </thead>
         <tbody>
@@ -66,11 +97,16 @@
               <td class="col-action">
                 <%= render(CheckboxComponent.new(value: channel.id, data: { bulk_select_target: "checkbox", action: "change->bulk-select#toggle" })) %>
               </td>
-              <td class="col-action">
-                <%= render(BracketedLinkComponent.new(label: "o", href: channel_path(channel))) %>
-              </td>
-              <td style="max-width: 480px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                <a href="<%= channel.channel_url %>" target="_blank" rel="noopener noreferrer"><%= channel.channel_url %></a>
+              <td><%= link_to channel.id, channel_path(channel) %></td>
+              <%# URL cell — server-side middle-truncated to a fixed
+                  `<head>…<tail>` string (e.g. `https://…jF7eS8r1`) so
+                  the unique channel ID at the end of the YouTube URL
+                  stays visible without overflowing the column. Same
+                  shape as the footage filename column — both delegate
+                  to `ApplicationHelper#middle_truncate`. The `<td>`
+                  carries the full URL via `title=` for hover-reveal. %>
+              <td title="<%= channel.channel_url %>">
+                <%= link_to middle_truncate(channel.channel_url, head: 8, tail: 8), channel.channel_url, target: "_blank", rel: "noopener noreferrer" %>
               </td>
               <td class="num"><%= channel.star? ? "yes" : "no" %></td>
               <td class="num">

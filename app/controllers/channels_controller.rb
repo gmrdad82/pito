@@ -6,12 +6,16 @@ class ChannelsController < ApplicationController
   skip_before_action :verify_authenticity_token, if: -> { request.format.json? }
 
   ALLOWED_SORTS = {
+    "id" => "channels.id",
     "created_at" => "channels.created_at",
     "updated_at" => "channels.updated_at",
     "last_synced_at" => "channels.last_synced_at",
-    "channel_url" => "channels.channel_url"
+    "channel_url" => "channels.channel_url",
+    "starred" => "channels.star"
   }.freeze
   ALLOWED_DIRS = %w[asc desc].freeze
+  DEFAULT_SORT = "created_at"
+  DEFAULT_DIR = "desc"
 
   def index
     @max_panes = max_panes
@@ -24,6 +28,8 @@ class ChannelsController < ApplicationController
 
     @channels = scope.order(sort_clause)
     @filters = active_filters
+    @sort = sanitized_sort_key
+    @dir = sanitized_dir
 
     respond_to do |format|
       format.html
@@ -207,9 +213,18 @@ class ChannelsController < ApplicationController
     Tenant.order(:id).first || Tenant.create!(name: "Primary")
   end
 
+  def sanitized_sort_key
+    ALLOWED_SORTS.key?(params[:sort]) ? params[:sort] : DEFAULT_SORT
+  end
+
+  def sanitized_dir
+    requested = params[:dir]&.downcase
+    ALLOWED_DIRS.include?(requested) ? requested : DEFAULT_DIR
+  end
+
   def sort_clause
-    column = ALLOWED_SORTS[params[:sort]] || ALLOWED_SORTS["created_at"]
-    direction = ALLOWED_DIRS.include?(params[:dir]&.downcase) ? params[:dir].downcase : "desc"
+    column = ALLOWED_SORTS[params[:sort]] || ALLOWED_SORTS[DEFAULT_SORT]
+    direction = ALLOWED_DIRS.include?(params[:dir]&.downcase) ? params[:dir].downcase : DEFAULT_DIR
     Arel.sql("#{column} #{direction}")
   end
 end

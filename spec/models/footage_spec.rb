@@ -127,4 +127,81 @@ RSpec.describe Footage, type: :model do
       }.to change { project.reload.footages_count }.from(1).to(0)
     end
   end
+
+  # Phase 4 Wave 3.5+ — `/projects` index aggregates. The new
+  # `footage_duration_seconds` column on `projects` caches the SUM of
+  # each project's footage durations so the index can render a duration
+  # rather than a row count. The cache is maintained by after_save /
+  # after_destroy callbacks here.
+  describe "project.footage_duration_seconds aggregate cache" do
+    let(:project) { create(:project) }
+
+    it "increases by a new footage's duration on create" do
+      expect {
+        create(:footage, project: project, tenant: project.tenant, duration_seconds: 600)
+      }.to change { project.reload.footage_duration_seconds }.from(0).to(600)
+    end
+
+    it "ignores nil-duration footages (treats nil as 0)" do
+      create(:footage, project: project, tenant: project.tenant, duration_seconds: 600)
+      project.reload
+      expect {
+        create(:footage, project: project, tenant: project.tenant, duration_seconds: nil)
+      }.not_to change { project.reload.footage_duration_seconds }
+    end
+
+    it "decreases by a destroyed footage's duration" do
+      a = create(:footage, project: project, tenant: project.tenant, duration_seconds: 600)
+      create(:footage, project: project, tenant: project.tenant, duration_seconds: 200)
+      project.reload
+      expect(project.footage_duration_seconds).to eq(800)
+
+      expect {
+        a.destroy!
+      }.to change { project.reload.footage_duration_seconds }.from(800).to(200)
+    end
+
+    it "recomputes when an existing footage's duration changes" do
+      footage = create(:footage, project: project, tenant: project.tenant, duration_seconds: 600)
+      project.reload
+      expect(project.footage_duration_seconds).to eq(600)
+
+      footage.update!(duration_seconds: 900)
+      expect(project.reload.footage_duration_seconds).to eq(900)
+    end
+
+    it "does not recompute when an unrelated column changes" do
+      footage = create(:footage, project: project, tenant: project.tenant, duration_seconds: 600)
+      project.reload
+      expect(project.footage_duration_seconds).to eq(600)
+
+      # Touch a column that does NOT affect the duration sum. The callback
+      # is gated by `saved_change_to_duration_seconds_or_project?`; this
+      # save should leave the cache alone.
+      expect {
+        footage.update!(filename: "renamed.mp4")
+      }.not_to change { project.reload.footage_duration_seconds }
+    end
+
+    it "refreshes both projects when a footage moves between projects" do
+      old_project = project
+      new_project = create(:project, tenant: project.tenant)
+      footage = create(:footage, project: old_project, tenant: old_project.tenant, duration_seconds: 600)
+      old_project.reload
+      expect(old_project.footage_duration_seconds).to eq(600)
+
+      footage.update!(project: new_project)
+      expect(old_project.reload.footage_duration_seconds).to eq(0)
+      expect(new_project.reload.footage_duration_seconds).to eq(600)
+    end
+
+    it "no-ops cleanly when the parent project is destroyed (cascade)" do
+      create(:footage, project: project, tenant: project.tenant, duration_seconds: 600)
+      project.reload
+      # Destroying the project cascades to its footages via dependent: :destroy.
+      # The footage's after_destroy fires after the project row is gone;
+      # the callback must silently no-op (Project.find_by => nil).
+      expect { project.destroy! }.not_to raise_error
+    end
+  end
 end

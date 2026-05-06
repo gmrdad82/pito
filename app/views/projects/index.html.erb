@@ -15,21 +15,29 @@
   column is a `link_to` that flips the URL's `sort` / `dir` params,
   mirroring the URL-state pattern `ChannelsController` exposes via
   `ALLOWED_SORTS` + `sort_clause`. Default sort is `created_at DESC`.
-  Counter caches (`footages_count` / `notes_count` / `timelines_count`)
-  power both the displayed counts and the SQL-side `ORDER BY`.
+
+  Wave 3.5+ aggregates revamp (2026-05-06):
+  - The `footages` column became `footage` (singular header) and now
+    renders `human_duration(project.footage_duration_seconds)` —
+    summed total of the project's footage durations.
+  - The `notes` column keeps the `notes` header (still concept-correct)
+    but renders `project.notes_words_total` — summed word count across
+    all of the project's notes.
+  - Both new values are kept up-to-date by after_save / after_destroy
+    callbacks on `Footage` / `Note`. Sort keys map to the new aggregate
+    columns (`footage_duration_seconds`, `notes_words_total`).
+  - The `timelines` column is unchanged (still the counter cache; no
+    timeline-specific aggregate yet).
 %>
+<%# Sort headers use the shared `sort_link_to` helper so the active
+    column's link picks up the `.sort-{asc,desc}` class — the CSS
+    `:has()` rule then suppresses the neutral up/down `::after` glyph
+    on this column, leaving just the inline `▲` / `▼`. Without the
+    helper (or its class), the active header renders both indicators
+    at once (the dual-arrow bug). %>
 <%
   current_sort = @sort
   current_dir = @dir
-  sort_link = ->(label, key) {
-    next_dir = (current_sort == key && current_dir == "asc") ? "desc" : "asc"
-    indicator = if current_sort == key
-                  current_dir == "asc" ? " ▲" : " ▼"
-                else
-                  ""
-                end
-    link_to "#{label}#{indicator}", projects_path(sort: key, dir: next_dir)
-  }
 %>
 <div style="max-width: 1100px;" data-controller="bulk-select" data-bulk-select-entity-name-value="projects" data-bulk-select-delete-type-value="project">
   <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;">
@@ -66,12 +74,11 @@
           <th class="col-action" data-bulk-select-target="bulkCol" hidden>
             <%= render(CheckboxComponent.new(data: { bulk_select_target: "headerCheckbox", action: "change->bulk-select#toggleAll" })) %>
           </th>
-          <th class="col-action" data-bulk-select-target="actionCol"></th>
-          <th class="sortable"><%= sort_link.call("name", "name") %></th>
-          <th class="sortable num"><%= sort_link.call("created", "created_at") %></th>
-          <th class="sortable num"><%= sort_link.call("footages", "footages_count") %></th>
-          <th class="sortable num"><%= sort_link.call("notes", "notes_count") %></th>
-          <th class="sortable num"><%= sort_link.call("timelines", "timelines_count") %></th>
+          <th class="sortable"><%= sort_link_to("name", "name", current_sort: current_sort, current_dir: current_dir) %></th>
+          <th class="sortable num"><%= sort_link_to("created", "created_at", current_sort: current_sort, current_dir: current_dir) %></th>
+          <th class="sortable num"><%= sort_link_to("footage", "footage_duration_seconds", current_sort: current_sort, current_dir: current_dir) %></th>
+          <th class="sortable num"><%= sort_link_to("notes", "notes_words_total", current_sort: current_sort, current_dir: current_dir) %></th>
+          <th class="sortable num"><%= sort_link_to("timelines", "timelines_count", current_sort: current_sort, current_dir: current_dir) %></th>
         </tr>
       </thead>
       <tbody>
@@ -80,13 +87,10 @@
             <td class="col-action" data-bulk-select-target="bulkCol" hidden>
               <%= render(CheckboxComponent.new(value: project.id, data: { bulk_select_target: "checkbox", action: "change->bulk-select#toggle" })) %>
             </td>
-            <td class="col-action" data-bulk-select-target="actionCol">
-              <%= render(BracketedLinkComponent.new(label: "o", href: project_path(project))) %>
-            </td>
             <td><%= link_to project.name, project_path(project) %></td>
             <td class="num"><%= compact_time_ago(project.created_at) %></td>
-            <td class="num"><%= project.footages_count %></td>
-            <td class="num"><%= project.notes_count %></td>
+            <td class="num"><%= human_duration(project.footage_duration_seconds) %></td>
+            <td class="num"><%= NoteHelper.human_words(project.notes_words_total) %></td>
             <td class="num"><%= project.timelines_count %></td>
           </tr>
         <% end %>

@@ -33,14 +33,62 @@ RSpec.describe "Videos", type: :request do
       it "displays the video table" do
         get videos_path
         expect(response.body).to include(video.title)
-        # channel column shows truncated channel_url; assert the truncated stem is present
-        expect(response.body).to include(channel.channel_url[0, 29])
+        # Channel column now uses server-side middle-truncation: the
+        # link text is `https://…<tail>`. The full channel URL still
+        # appears in the cell `title` attribute and the link's `href`,
+        # so asserting via `include` against the full URL is reliable.
+        expect(response.body).to include(channel.channel_url)
         expect(response.body).to include("500")
       end
 
-      it "includes [o] link per row" do
+      # Phase 4 post-Wave-3K polish — the legacy `[o]` open-action column
+      # was dropped from the row. The Name cell IS the show-page link,
+      # making a separate `[o]` cell redundant. Asserting absence here so
+      # the column doesn't sneak back in via stray markup.
+      it "no longer ships a separate [o] open-action column" do
         get videos_path
-        expect(response.body).to include('class="bl">o</span>')
+        expect(response.body).not_to include('class="bl">o</span>')
+      end
+
+      # Phase 4 Wave 3 — Name column. Placeholder for the YouTube video
+      # title once sync lands. The cell currently renders `video.id` as a
+      # link to the show page so the column has stable content. Header is
+      # a server-side sort link (`?sort=id&dir=<asc|desc>`), aligning with
+      # the `/projects` index pattern.
+      it "renders a Name column header at column 2 (after the checkbox)" do
+        get videos_path
+        thead = response.body.match(/<thead>(.*?)<\/thead>/m)[1]
+        ths = Nokogiri::HTML.fragment(thead).css("th")
+        # Column 1 is the select-all checkbox; column 2 must be `Name`.
+        expect(ths[1].text.strip).to start_with("Name")
+      end
+
+      it "renders the Name header as a server-side sort link with sort + dir params" do
+        get videos_path
+        html = Nokogiri::HTML.fragment(response.body)
+        link = html.css("thead a").find { |a| a.text.strip.start_with?("Name") }
+        expect(link).not_to be_nil
+        # Default state is `published_at desc`, so clicking Name should
+        # request `id asc`.
+        expect(link["href"]).to include("sort=id")
+        expect(link["href"]).to include("dir=asc")
+        expect(link.to_html).not_to include("click->sortable-table#sort")
+      end
+
+      it "renders the Name cell as a link to the video show page" do
+        get videos_path
+        html = Nokogiri::HTML.fragment(response.body)
+        row = html.css("tbody tr").first
+        # Column index 1 (0-based) — second <td>, after the checkbox cell.
+        name_cell = row.css("td")[1]
+        link = name_cell.css("a").first
+        expect(link).not_to be_nil
+        expect(link["href"]).to eq(video_path(video))
+        expect(link.text.strip).to eq(video.id.to_s)
+      end
+
+      it "exposes `id` in VideosController::ALLOWED_SORTS so server-side sort honors it" do
+        expect(VideosController::ALLOWED_SORTS).to include("id" => "videos.id")
       end
 
       it "includes [+] link in table header" do
@@ -64,8 +112,46 @@ RSpec.describe "Videos", type: :request do
 
       it "renders the channel-URL cell as an external YouTube link with target=_blank" do
         get videos_path
-        # The channel-URL text is now the external link itself.
-        expect(response.body).to include(%(href="#{channel.channel_url}" target="_blank" rel="noopener noreferrer"))
+        # The channel-URL text is now the external link itself. Asserting
+        # via Nokogiri instead of attribute order — `link_to` doesn't
+        # guarantee any particular attribute ordering, and post-
+        # consolidation the helper signature changed which reordered
+        # them in the rendered output.
+        html = Nokogiri::HTML.fragment(response.body)
+        link = html.css("a").find { |a| a["href"] == channel.channel_url && a["target"] == "_blank" }
+        expect(link).not_to be_nil
+        expect(link["rel"]).to eq("noopener noreferrer")
+      end
+
+      # Post-consolidation — channel column middle-truncation. Returns
+      # a single fixed-length string `<head>…<tail>` (e.g.
+      # `https://…jF7eS8r1`) so the unique channel ID at the end of
+      # `https://www.youtube.com/channel/<id>` stays visible. The
+      # `<td>` carries the full URL via `title=` for hover-reveal.
+      # Same shape as the `/channels` URL column and the footage
+      # filename column.
+      it "renders the channel-URL cell as a single truncated text node with a title attribute" do
+        get videos_path
+        html = Nokogiri::HTML.fragment(response.body)
+        row = html.css("tbody tr").first
+        # Cells: checkbox / Name / title / channel / views / ...
+        # — channel column is index 3.
+        channel_cell = row.css("td")[3]
+        expect(channel_cell["title"]).to eq(channel.channel_url)
+        link = channel_cell.css("a").first
+        expect(link).not_to be_nil
+        expect(link["href"]).to eq(channel.channel_url)
+        expect(link["target"]).to eq("_blank")
+        expect(link["rel"]).to eq("noopener noreferrer")
+        # The link's text is the head/tail string with a U+2026
+        # ellipsis joining them.
+        expect(link.text).to start_with("https://")
+        expect(link.text).to include("…")
+        expect(link.text.length).to eq(8 + 1 + 8) # head + ellipsis + tail
+        expect(link.text).to end_with(channel.channel_url[-8..])
+        # No two-span flex markup left over from the prior pattern.
+        expect(channel_cell.css(".middle-truncate-head")).to be_empty
+        expect(channel_cell.css(".middle-truncate-tail")).to be_empty
       end
 
       it "renders bulk actions bar (hidden by default)" do
@@ -112,6 +198,127 @@ RSpec.describe "Videos", type: :request do
           expect(sep["hidden"]).not_to be_nil,
             "expected .action-sep to ship with the `hidden` attribute, got: #{sep.to_html}"
         end
+      end
+    end
+
+    # Phase 4 Wave 3 — server-side sort via `?sort=<key>&dir=<asc|desc>`.
+    # Replaces the client-side Stimulus `sortable-table` controller for
+    # the index view (the controller still serves the per-pane tables).
+    # Mirrors `/projects` URL-state sort.
+    context "URL-state sort" do
+      let!(:channel) { create(:channel) }
+      let!(:older_video) do
+        create(:video, channel: channel, title: "Aardvark",
+               published_at: 5.days.ago)
+      end
+      let!(:newer_video) do
+        create(:video, channel: channel, title: "Zebra",
+               published_at: 1.day.ago)
+      end
+
+      it "defaults to published_at DESC (most recent first)" do
+        get videos_path
+        html = Nokogiri::HTML.fragment(response.body)
+        # Tbody rows are in current sort order; the title cell is the 3rd td
+        # (index 2) — col 0 = checkbox, col 1 = Name, col 2 = title.
+        titles = html.css("tbody tr").map { |tr| tr.css("td")[2]&.text&.strip }.compact
+        expect(titles.first).to eq("Zebra")
+        expect(titles.last).to eq("Aardvark")
+      end
+
+      it "sorts by title ASC when called with ?sort=title&dir=asc" do
+        get videos_path, params: { sort: "title", dir: "asc" }
+        html = Nokogiri::HTML.fragment(response.body)
+        titles = html.css("tbody tr").map { |tr| tr.css("td")[2]&.text&.strip }.compact
+        expect(titles).to eq([ "Aardvark", "Zebra" ])
+      end
+
+      it "sorts by title DESC when called with ?sort=title&dir=desc" do
+        get videos_path, params: { sort: "title", dir: "desc" }
+        html = Nokogiri::HTML.fragment(response.body)
+        titles = html.css("tbody tr").map { |tr| tr.css("td")[2]&.text&.strip }.compact
+        expect(titles).to eq([ "Zebra", "Aardvark" ])
+      end
+
+      it "sorts by id ASC when called with ?sort=id&dir=asc" do
+        get videos_path, params: { sort: "id", dir: "asc" }
+        html = Nokogiri::HTML.fragment(response.body)
+        # Name column (index 1) — links contain the id text.
+        ids = html.css("tbody tr").map { |tr| tr.css("td")[1].text.strip }
+        expect(ids).to eq(ids.sort_by(&:to_i))
+      end
+
+      it "renders the active-sort indicator (▼) on the active column header" do
+        get videos_path, params: { sort: "title", dir: "desc" }
+        html = Nokogiri::HTML.fragment(response.body)
+        link = html.css("thead a").find { |a| a.text.strip.start_with?("title") }
+        expect(link.text).to include("▼")
+      end
+
+      it "renders the active-sort indicator (▲) when dir=asc" do
+        get videos_path, params: { sort: "title", dir: "asc" }
+        html = Nokogiri::HTML.fragment(response.body)
+        link = html.css("thead a").find { |a| a.text.strip.start_with?("title") }
+        expect(link.text).to include("▲")
+      end
+
+      it "renders sort links for Name / title / date headers" do
+        get videos_path
+        html = Nokogiri::HTML.fragment(response.body)
+        links = html.css("thead a").map { |a| a.text.strip.gsub(/[▲▼]/, "").strip }
+        expect(links).to include("Name", "title", "date")
+      end
+
+      it "leaves aggregate columns (views / trend / likes / chats / watch / state / length) as plain headers" do
+        get videos_path
+        html = Nokogiri::HTML.fragment(response.body)
+        thead = html.css("thead")
+        # No <a> wrapping the aggregate column labels.
+        %w[views trend likes chats watch state length].each do |label|
+          th = thead.css("th").find { |t| t.text.strip == label }
+          expect(th).not_to be_nil, "expected a <th> for #{label}"
+          expect(th.css("a")).to be_empty, "did not expect a sort link inside the #{label} header"
+        end
+      end
+
+      it "leaves the channel column as a plain header (not sortable)" do
+        get videos_path
+        html = Nokogiri::HTML.fragment(response.body)
+        th = html.css("thead th").find { |t| t.text.strip == "channel" }
+        expect(th).not_to be_nil
+        expect(th.css("a")).to be_empty
+      end
+
+      it "ignores unknown sort keys and falls back to published_at" do
+        get videos_path, params: { sort: "drop_table_videos", dir: "asc" }
+        expect(response).to have_http_status(:ok)
+        html = Nokogiri::HTML.fragment(response.body)
+        # Default fallback is published_at + caller's `dir=asc`. Older first
+        # under ASC.
+        titles = html.css("tbody tr").map { |tr| tr.css("td")[2]&.text&.strip }.compact
+        expect(titles.first).to eq("Aardvark")
+      end
+
+      it "ignores unknown dir values and falls back to desc" do
+        get videos_path, params: { sort: "title", dir: "sideways" }
+        expect(response).to have_http_status(:ok)
+        html = Nokogiri::HTML.fragment(response.body)
+        titles = html.css("tbody tr").map { |tr| tr.css("td")[2]&.text&.strip }.compact
+        # title desc → Zebra first.
+        expect(titles).to eq([ "Zebra", "Aardvark" ])
+      end
+
+      it "toggles direction when the same column is clicked twice" do
+        get videos_path
+        html = Nokogiri::HTML.fragment(response.body)
+        link = html.css("thead a").find { |a| a.text.strip.start_with?("title") }
+        # Default state is published_at desc — title link should request asc.
+        expect(link["href"]).to include("dir=asc")
+
+        get videos_path, params: { sort: "title", dir: "asc" }
+        html = Nokogiri::HTML.fragment(response.body)
+        link = html.css("thead a").find { |a| a.text.strip.start_with?("title") }
+        expect(link["href"]).to include("dir=desc")
       end
     end
 
@@ -185,6 +392,17 @@ RSpec.describe "Videos", type: :request do
       get video_path(video, format: :json)
       json = JSON.parse(response.body)
       expect(json).to include("id", "title", "description", "stats")
+    end
+
+    # Phase B revamp (2026-05-05) — single-pane show wraps the pane in
+    # the standard pane-container/pane-wrapper scaffolding so the global
+    # `:only-child` CSS rule paints the wrapper with `--color-pane-bg-wide`
+    # (the standalone tone), reading as visually distinct from the A/B
+    # alternation used in multi-pane workspace views.
+    it "wraps the single pane in pane-container > pane-wrapper" do
+      get video_path(video)
+      expect(response.body).to include('<div class="pane-container">')
+      expect(response.body).to match(/<div class="pane-container">\s*<div class="pane-wrapper">/)
     end
   end
 
@@ -324,6 +542,19 @@ RSpec.describe "Videos", type: :request do
       expect(response).to have_http_status(:ok)
       expect(response.body).to include(video1.youtube_video_id)
       expect(response.body).to include(video2.youtube_video_id)
+    end
+
+    # Phase B revamp (2026-05-05) — multi-pane view emits N pane-wrappers
+    # in a single pane-container. The global CSS handles A/B alternation
+    # via `:nth-child(odd)`/`:nth-child(even)`; the view itself stays
+    # markup-only and the browser paints them. Asserting via marker count
+    # keeps the test decoupled from per-pane decoration.
+    it "renders one .pane-wrapper per video inside a single .pane-container" do
+      get "#{panes_videos_path}?ids=#{video1.id},#{video2.id}"
+      containers = response.body.scan(/class="pane-container"/).size
+      wrappers   = response.body.scan(/class="pane-wrapper"/).size
+      expect(containers).to eq(1)
+      expect(wrappers).to eq(2)
     end
 
     it "includes focus link per pane" do

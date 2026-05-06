@@ -37,7 +37,7 @@
     <% if @available_channels&.any? %>
       <span style="position: relative; top: -2px;">
         <span class="text-muted">&middot;</span>
-        <%= render(BracketedLinkComponent.new(label: "/", href: "#", data: { action: "click->add-pane#open" })) %>
+        <%= render(BracketedLinkComponent.new(label: "|", href: "#", data: { action: "click->add-pane#open" })) %>
       </span>
     <% end %>
   </div>

@@ -941,6 +941,115 @@ OR migrate notes pane and projects index to always-on shape and remove the
 legacy hooks entirely. Probably the latter, as a follow-up to the footage
 bulk-mode entry above.
 
+### Migrate /channels + /videos sort from URL hash to query params
+
+**Trigger:** when channels or videos lists need server-side filtering /
+pagination, OR a dedicated "sort consistency" pass.
+
+**Source:** Surfaced 2026-05-06 during Wave 3 Lane K. Today `/channels` and
+`/videos` persist sort state in the URL HASH (`#0=name_asc`) via a client-side
+`sortable-table` Stimulus controller. `/projects` index and `/projects/:id`
+footage table use server-side query params (`?sort=...&dir=...`) via the
+controller's `ALLOWED_SORTS` allowlist. Inconsistency.
+
+**Items:**
+
+1. Wire `ChannelsController#index` to consume `params[:sort]` and `params[:dir]`
+   via the existing `ALLOWED_SORTS` / `ALLOWED_DIRS` constants (mirror
+   `ProjectsController#index`).
+2. Same for `VideosController#index` (the constants exist but no consumer).
+3. Replace the `sortable-table` Stimulus controller invocations on the index
+   views with plain `link_to` headers carrying `sort=col&dir=asc/desc` in the
+   URL.
+4. Update specs to assert query-param URLs and server-side sorted result sets.
+5. (Optional) Keep the Stimulus controller for non-index pages if any rely on
+   it; otherwise delete.
+
+**Why now:** when `/channels` grows past a few dozen entries, server-side
+pagination becomes useful; that requires server-side sort. Aligns the URL state
+across the whole app.
+
+### Meilisearch test isolation — wait_for_tasks race condition
+
+**Trigger:** dedicated test-stability pass, OR after a related Meilisearch spec
+failure recurs.
+
+**Source:** Reviewer 2026-05-06. The Wave 2 commit `dd84eea` reported 1153/0
+specs, but later runs (Wave 3I + Wave 3K) reported 2 occasional failures in
+`spec/services/search/meilisearch_engine_spec.rb` (`#remove`, `#reindex_all`).
+Pre-existing. The Wave 3 reviewer's full-suite runs (parallel + serial) didn't
+reproduce the failure but identified the likely cause: the spec's
+`wait_for_tasks` helper at
+`spec/services/search/meilisearch_engine_spec.rb:137-146` reads the **global**
+`client.tasks["results"]` list. Under load it may report `pending.empty?`
+prematurely and let an example proceed before the `before`-block's
+`delete_all_documents` task has actually been enqueued.
+
+**Items:**
+
+1. Scope `wait_for_tasks` to the specific `videos_test` index by `indexUid`
+   rather than reading the global tasks list.
+2. Add a ceiling timeout (e.g., 10s) so a hung Meilisearch task can't silently
+   lock the whole suite.
+3. (Optional) Force per-spec teardown via an
+   `after(:each) { client.delete_all_documents }` if the index pollution recurs.
+
+### docs/design.md:463 still references --color-bg-alt for the zebra rule
+
+**Trigger:** trivial to fix in any docs pass.
+
+**Source:** Reviewer 2026-05-06 during Wave 3 Lane I review. The zebra rule on
+`tbody tr:nth-child(even)` was migrated from `--color-bg-alt` to
+`--color-pane-bg-b` as part of unifying the pane-bg system. The design doc still
+mentions the old token.
+
+**Action:** update `docs/design.md` line 463 (or wherever the zebra rule is
+described) to reference `--color-pane-bg-b`.
+
+### --color-pane-bg single-token alias has no consumers post-Wave-3
+
+**Trigger:** trivial CSS hygiene.
+
+**Source:** Reviewer 2026-05-06. Wave 3 Lane I migrated all callers of the
+legacy `--color-pane-bg` token to the new `-a` / `-b` / `-wide` tokens. The
+alias `--color-pane-bg: var(--color-pane-bg-a)` was kept defensively but
+currently has zero `app/` callers.
+
+**Action:** `grep -rn "color-pane-bg)" app/` to confirm zero matches, then drop
+the alias from `app/assets/tailwind/application.css`. Defer if the codebase
+grows back into needing the singular token.
+
+### bulk_select_controller.js comments mislead post-notes-always-on
+
+**Trigger:** next time the controller is touched, OR a JS hygiene pass.
+
+**Source:** Reviewer 2026-05-06. The previous follow-up ("legacy comments
+mislead") said "the notes pane and `/projects` index intentionally keep the
+toggle pattern". After Wave 3 Lane J, the notes pane no longer uses toggle mode
+— only the project SHOW footage pane retains it (and that's deferred until
+`Confirmable::TYPES` is extended for footage).
+
+**Action:** update the controller's leading comment to reflect that the toggle
+hooks (`enterBulk` / `exitBulk` / `bulkToggle`) are kept for the footage pane
+only, until Wave 2 Lane F's deferred footage bulk-mode follow-up lands.
+
+### Wave 3 :only-child rule expands single-pane mobile from 88vw to 100vw
+
+**Trigger:** mobile UX pass on /channels/:id and /videos/:id.
+
+**Source:** Wave 3 post-patch CSS reviewer note 2026-05-06. The
+`.pane-container > .pane-wrapper:only-child` override sets
+`width: 100%; flex: 1 1 auto; max-width: 100%`. On mobile, the existing media
+query at `app/assets/tailwind/application.css:903` redefines `.pane-wrapper` to
+`flex: 0 0 88vw` for swipe-to-navigate panes. The cascade order makes
+`:only-child` more specific, so a lone pane on mobile now stretches edge-to-edge
+(was 88vw with 6vw padding either side).
+
+**Action:** decide if the visual expansion is desired. If not, wrap the override
+in the same desktop media query as the rest of the `:only-child` rule. The
+current behavior is full-edge on mobile lone panes — likely fine for show pages
+but worth user eyeball.
+
 ## Done
 
 ### Non-default, pito-specific ports for Postgres / Redis / Meilisearch / Puma

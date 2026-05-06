@@ -5,6 +5,24 @@ class VideosController < ApplicationController
   # its authenticity-token check.
   skip_before_action :verify_authenticity_token, if: -> { request.format.json? }
 
+  # Server-side sort allowlist consumed by `#index`. Mirrors
+  # `ChannelsController::ALLOWED_SORTS` so the index view's link-style
+  # column headers can request `?sort=<key>&dir=<asc|desc>` and the
+  # controller resolves the key to a vetted SQL fragment. Default sort
+  # stays `published_at DESC` (most-recent-first) to match the prior
+  # hard-coded order. The JSON endpoint also benefits from honoring
+  # caller-supplied sort.
+  ALLOWED_SORTS = {
+    "id" => "videos.id",
+    "created_at" => "videos.created_at",
+    "updated_at" => "videos.updated_at",
+    "published_at" => "videos.published_at",
+    "title" => "videos.title"
+  }.freeze
+  ALLOWED_DIRS = %w[asc desc].freeze
+  DEFAULT_SORT = "published_at"
+  DEFAULT_DIR = "desc"
+
   def index
     @saved_views = SavedView.videos.ordered
     @videos = Video.includes(:channel)
@@ -18,7 +36,9 @@ class VideosController < ApplicationController
         "COALESCE(CAST(SUM(video_stats.watch_time_minutes) AS BIGINT), 0) AS total_watch_time"
       )
       .group("videos.id")
-      .order(published_at: :desc)
+      .order(sort_clause)
+    @sort = sanitized_sort_key
+    @dir = sanitized_dir
     @max_panes = max_panes
 
     respond_to do |format|
@@ -111,6 +131,26 @@ class VideosController < ApplicationController
 
   def video_params
     params.require(:video).permit(:title, :description, :privacy_status, :category_id, :default_language, :made_for_kids, :tags, :channel_id)
+  end
+
+  def sanitized_sort_key
+    ALLOWED_SORTS.key?(params[:sort]) ? params[:sort] : DEFAULT_SORT
+  end
+
+  def sanitized_dir
+    requested = params[:dir]&.downcase
+    ALLOWED_DIRS.include?(requested) ? requested : DEFAULT_DIR
+  end
+
+  def sort_clause
+    # Both fragments are derived from frozen allowlists (ALLOWED_SORTS /
+    # ALLOWED_DIRS); they never contain user input. The local-variable
+    # binding mirrors `ChannelsController#sort_clause` and
+    # `ProjectsController#sort_clause` so Brakeman's SQL check resolves the
+    # literals through the allowlist constants.
+    column = ALLOWED_SORTS[params[:sort]] || ALLOWED_SORTS[DEFAULT_SORT]
+    direction = ALLOWED_DIRS.include?(params[:dir]&.downcase) ? params[:dir].downcase : DEFAULT_DIR
+    Arel.sql("#{column} #{direction}")
   end
 
   # Per-day stat shape consumed by pito-sh (Rust `VideoStat` struct).
