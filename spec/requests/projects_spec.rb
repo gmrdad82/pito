@@ -118,6 +118,32 @@ RSpec.describe "Projects", type: :request do
         expect(link["href"]).to eq(project_path(project_a))
       end
 
+      # Turbo Frames bugfix (2026-05-06) — the project name link sits
+      # INSIDE `<turbo-frame id='projects-index-table'>`, but it points
+      # at the show page, which has no matching frame. Without
+      # `data-turbo-frame=_top` Turbo would scope the navigation to the
+      # frame and render "Content missing". The `_top` keyword tells
+      # Turbo to navigate the whole page instead — escape the frame.
+      it "stamps data-turbo-frame=_top on the project name link (escape the frame on row click)" do
+        get projects_path
+        html = Nokogiri::HTML.fragment(response.body)
+        link = html.css("tbody tr a").find { |a| a.text.strip == "Alpha" }
+        expect(link).not_to be_nil
+        expect(link["data-turbo-frame"]).to eq("_top")
+      end
+
+      it "does NOT stamp data-turbo-frame=_top on sort header links (they stay frame-scoped)" do
+        get projects_path
+        html = Nokogiri::HTML.fragment(response.body)
+        sort_links = html.css("turbo-frame#projects-index-table thead a")
+        expect(sort_links).not_to be_empty
+        sort_links.each do |a|
+          expect(a["data-turbo-frame"]).not_to eq("_top"),
+            "sort link #{a.text.strip.inspect} must stay frame-scoped, not escape to _top"
+          expect(a["data-turbo-frame"]).to eq("projects-index-table")
+        end
+      end
+
       it "renders the created column with the compact_time_ago helper output" do
         get projects_path
         html = Nokogiri::HTML.fragment(response.body)
@@ -228,6 +254,47 @@ RSpec.describe "Projects", type: :request do
         html = Nokogiri::HTML.fragment(response.body)
         name_link = html.css("thead a").find { |a| a.text.strip.start_with?("name") }
         expect(name_link["href"]).to include("dir=desc")
+      end
+    end
+
+    # Polish-3 (2026-05-06) — Turbo Frame wrapper around the projects
+    # index table. Sort-header clicks target the frame so only the
+    # table re-renders. Combined with `data-turbo-action=advance`, the
+    # URL still updates and back/forward navigation works. The frame
+    # element must exist on every render (including the empty state)
+    # or Turbo aborts the swap and falls back to full navigation.
+    describe "turbo-frame wrapper" do
+      it "wraps the empty state in <turbo-frame id='projects-index-table'>" do
+        get projects_path
+        html = Nokogiri::HTML.fragment(response.body)
+        frame = html.css("turbo-frame#projects-index-table").first
+        expect(frame).not_to be_nil
+      end
+
+      context "with projects" do
+        let!(:project) { create(:project, name: "Alpha") }
+
+        it "wraps the table inside <turbo-frame id='projects-index-table'>" do
+          get projects_path
+          html = Nokogiri::HTML.fragment(response.body)
+          frame = html.css("turbo-frame#projects-index-table").first
+          expect(frame).not_to be_nil
+          expect(frame.css("table")).not_to be_empty
+          expect(project.persisted?).to be true
+        end
+
+        it "stamps data-turbo-frame=projects-index-table on every sort link" do
+          get projects_path
+          html = Nokogiri::HTML.fragment(response.body)
+          sort_links = html.css("turbo-frame#projects-index-table thead a")
+          expect(sort_links).not_to be_empty
+          sort_links.each do |a|
+            expect(a["data-turbo-frame"]).to eq("projects-index-table"),
+              "expected data-turbo-frame on sort link #{a.text.strip.inspect}"
+            expect(a["data-turbo-action"]).to eq("advance"),
+              "expected data-turbo-action=advance on sort link #{a.text.strip.inspect}"
+          end
+        end
       end
     end
 
@@ -355,6 +422,104 @@ RSpec.describe "Projects", type: :request do
       expect(response.body).to include("timelines")
     end
 
+    # Polish-3 (2026-05-06) — both the footage and notes tables on the
+    # project show page sit inside Turbo Frames. Sort headers / filter
+    # chips / `[clear]` for footage target `footage-table`; sort headers
+    # for the notes table target `notes-table`. The frames must coexist
+    # so each table can re-render independently without affecting the
+    # other (and without re-running the whole show page).
+    describe "turbo-frame wrappers (footage + notes)" do
+      it "renders <turbo-frame id='footage-table'> on the show page" do
+        get project_path(project)
+        html = Nokogiri::HTML.fragment(response.body)
+        frame = html.css("turbo-frame#footage-table").first
+        expect(frame).not_to be_nil
+      end
+
+      it "renders <turbo-frame id='notes-table'> on the show page" do
+        get project_path(project)
+        html = Nokogiri::HTML.fragment(response.body)
+        frame = html.css("turbo-frame#notes-table").first
+        expect(frame).not_to be_nil
+      end
+
+      context "with footage and notes" do
+        let!(:footage) { create(:footage, project: project, tenant: project.tenant, filename: "clip.mkv") }
+        let!(:note) { create(:note, project: project, tenant: project.tenant, title: "my note") }
+
+        it "houses the footage table inside <turbo-frame id='footage-table'>" do
+          get project_path(project)
+          html = Nokogiri::HTML.fragment(response.body)
+          frame = html.css("turbo-frame#footage-table").first
+          expect(frame).not_to be_nil
+          # The footage table is the one whose thead carries `filename`.
+          headers = frame.css("table thead th").map { |th| th.text.strip.gsub(/[▲▼]/, "").strip }
+          expect(headers).to include("filename")
+        end
+
+        it "houses the notes table inside <turbo-frame id='notes-table'>" do
+          get project_path(project)
+          html = Nokogiri::HTML.fragment(response.body)
+          frame = html.css("turbo-frame#notes-table").first
+          expect(frame).not_to be_nil
+          headers = frame.css("table thead th").map { |th| th.text.strip.gsub(/[▲▼]/, "").strip }
+          expect(headers).to include("title")
+        end
+
+        it "stamps data-turbo-frame=footage-table on every footage sort link" do
+          get project_path(project)
+          html = Nokogiri::HTML.fragment(response.body)
+          links = html.css("turbo-frame#footage-table thead a")
+          expect(links).not_to be_empty
+          links.each do |a|
+            expect(a["data-turbo-frame"]).to eq("footage-table")
+            expect(a["data-turbo-action"]).to eq("advance")
+          end
+        end
+
+        it "stamps data-turbo-frame=notes-table on every notes sort link" do
+          get project_path(project)
+          html = Nokogiri::HTML.fragment(response.body)
+          links = html.css("turbo-frame#notes-table thead a")
+          expect(links).not_to be_empty
+          links.each do |a|
+            expect(a["data-turbo-frame"]).to eq("notes-table")
+            expect(a["data-turbo-action"]).to eq("advance")
+          end
+        end
+      end
+
+      context "with footage variation that triggers filter chips" do
+        let!(:obs_clip)    { create(:footage, project: project, tenant: project.tenant, filename: "obs.mkv", source: :obs) }
+        let!(:camera_clip) { create(:footage, project: project, tenant: project.tenant, filename: "cam.mkv", source: :camera) }
+
+        it "stamps data-turbo-frame=footage-table on every footage filter chip" do
+          get project_path(project)
+          html = Nokogiri::HTML.fragment(response.body)
+          chips = html.css("turbo-frame#footage-table a.filter-chip")
+          expect(chips).not_to be_empty
+          chips.each do |a|
+            expect(a["data-turbo-frame"]).to eq("footage-table"),
+              "expected data-turbo-frame on chip #{a.text.strip.inspect}"
+            expect(a["data-turbo-action"]).to eq("advance"),
+              "expected data-turbo-action=advance on chip #{a.text.strip.inspect}"
+          end
+          expect([ obs_clip, camera_clip ].all?(&:persisted?)).to be true
+        end
+
+        it "stamps data-turbo-frame=footage-table on the [clear] link when a filter is active" do
+          get project_path(project), params: { source: "obs" }
+          html = Nokogiri::HTML.fragment(response.body)
+          frame = html.css("turbo-frame#footage-table").first
+          expect(frame).not_to be_nil
+          clear_link = frame.css("a.bracketed").find { |a| a.css("span.bl").any? { |s| s.text.strip == "clear" } }
+          expect(clear_link).not_to be_nil, "expected a [ clear ] link inside the footage frame"
+          expect(clear_link["data-turbo-frame"]).to eq("footage-table")
+          expect(clear_link["data-turbo-action"]).to eq("advance")
+        end
+      end
+    end
+
     # Phase B revamp (2026-05-06) — show page is a `.pane-row` of three
     # panes that wrap to a new row when the viewport runs out. The first
     # two panes are 640px (zebra A/B); the third is `.pane--wide` (1280px,
@@ -400,6 +565,30 @@ RSpec.describe "Projects", type: :request do
         expect(link.text.strip).to eq("clip.mkv")
       end
 
+      # Turbo Frames bugfix (2026-05-06) — filename link sits inside
+      # `<turbo-frame id='footage-table'>` but the edit page has no
+      # matching frame. Stamp `data-turbo-frame=_top` so the click
+      # escapes the frame and does a full-page navigation.
+      it "stamps data-turbo-frame=_top on the filename link (escape the frame on row click)" do
+        get project_path(project)
+        html = Nokogiri::HTML.fragment(response.body)
+        cell = html.css("td.filename-cell").find { |td| td["title"] == "clip.mkv" }
+        link = cell.css("a").first
+        expect(link["data-turbo-frame"]).to eq("_top")
+      end
+
+      it "does NOT stamp data-turbo-frame=_top on footage sort header links (they stay frame-scoped)" do
+        get project_path(project)
+        html = Nokogiri::HTML.fragment(response.body)
+        sort_links = html.css("turbo-frame#footage-table thead a")
+        expect(sort_links).not_to be_empty
+        sort_links.each do |a|
+          expect(a["data-turbo-frame"]).not_to eq("_top"),
+            "footage sort link #{a.text.strip.inspect} must stay frame-scoped, not escape to _top"
+          expect(a["data-turbo-frame"]).to eq("footage-table")
+        end
+      end
+
       it "does not render a separate [e] BracketedLinkComponent column for footage" do
         get project_path(project)
         html = Nokogiri::HTML.fragment(response.body)
@@ -431,6 +620,30 @@ RSpec.describe "Projects", type: :request do
         link = notes_table.css("tbody tr").first.css("a").find { |a| a["href"] == note_path(note) }
         expect(link).not_to be_nil
         expect(link.text.strip).to eq("my note")
+      end
+
+      # Turbo Frames bugfix (2026-05-06) — note title link sits inside
+      # `<turbo-frame id='notes-table'>` but the note show page has no
+      # matching frame. Stamp `data-turbo-frame=_top` so the click
+      # escapes the frame and does a full-page navigation.
+      it "stamps data-turbo-frame=_top on the note title link (escape the frame on row click)" do
+        get project_path(project)
+        html = Nokogiri::HTML.fragment(response.body)
+        notes_table = html.css("table").find { |t| t.css("th").map(&:text).map(&:strip).include?("title") }
+        link = notes_table.css("tbody tr").first.css("a").find { |a| a["href"] == note_path(note) }
+        expect(link["data-turbo-frame"]).to eq("_top")
+      end
+
+      it "does NOT stamp data-turbo-frame=_top on notes sort header links (they stay frame-scoped)" do
+        get project_path(project)
+        html = Nokogiri::HTML.fragment(response.body)
+        sort_links = html.css("turbo-frame#notes-table thead a")
+        expect(sort_links).not_to be_empty
+        sort_links.each do |a|
+          expect(a["data-turbo-frame"]).not_to eq("_top"),
+            "notes sort link #{a.text.strip.inspect} must stay frame-scoped, not escape to _top"
+          expect(a["data-turbo-frame"]).to eq("notes-table")
+        end
       end
 
       it "does not render a separate [e] BracketedLinkComponent column for notes" do
@@ -835,6 +1048,75 @@ RSpec.describe "Projects", type: :request do
       get project_path(project)
       # No name input field on show — editing happens on /projects/:id/edit
       expect(response.body).not_to include('name="project[name]"')
+    end
+
+    describe "note title middle-truncation in the notes pane" do
+      # Mirror of the footage filename pattern (server-side fixed-length
+      # middle truncation via `ApplicationHelper#middle_truncate`). Note
+      # titles use balanced `head: 10, tail: 10` defaults — note titles
+      # don't carry an extension, so an even split reads better than the
+      # filename `8 / 12` shape. The cell's `title` attribute carries the
+      # full title for hover-reveal; the link text is the compact form.
+      let(:long_title)  { "A Very Long Lorem Ipsum Note" }
+      let(:short_title) { "Hi" }
+
+      it "truncates long titles to head…tail with a Unicode ellipsis" do
+        note = create(:note, project: project, tenant: project.tenant, title: long_title)
+        get project_path(project)
+        html = Nokogiri::HTML.fragment(response.body)
+        notes_table = html.css("table").find { |t| t.css("th").map(&:text).map(&:strip).include?("title") }
+        expect(notes_table).not_to be_nil
+        link = notes_table.css("tbody tr a").find { |a| a["href"] == note_path(note) }
+        expect(link).not_to be_nil
+        # head=10, tail=10 → "A Very Lon" + "…" + "Ipsum Note"
+        expect(link.text.strip).to eq("A Very Lon…Ipsum Note")
+      end
+
+      it "preserves the full title in the cell's title attribute for hover-reveal" do
+        note = create(:note, project: project, tenant: project.tenant, title: long_title)
+        get project_path(project)
+        html = Nokogiri::HTML.fragment(response.body)
+        notes_table = html.css("table").find { |t| t.css("th").map(&:text).map(&:strip).include?("title") }
+        cell = notes_table.css("tbody tr td").find { |td| td["title"] == long_title }
+        expect(cell).not_to be_nil, "expected a <td> carrying title=#{long_title.inspect}"
+        expect(cell["title"]).to eq(long_title)
+      end
+
+      it "renders short titles untouched (length ≤ head + 1 + tail = 21)" do
+        note = create(:note, project: project, tenant: project.tenant, title: short_title)
+        get project_path(project)
+        html = Nokogiri::HTML.fragment(response.body)
+        notes_table = html.css("table").find { |t| t.css("th").map(&:text).map(&:strip).include?("title") }
+        link = notes_table.css("tbody tr a").find { |a| a["href"] == note_path(note) }
+        expect(link).not_to be_nil
+        expect(link.text.strip).to eq(short_title)
+        # No ellipsis on a short title.
+        expect(link.text).not_to include("…")
+      end
+
+      it "carries the full short title on the cell's title attribute too" do
+        note = create(:note, project: project, tenant: project.tenant, title: short_title)
+        get project_path(project)
+        html = Nokogiri::HTML.fragment(response.body)
+        notes_table = html.css("table").find { |t| t.css("th").map(&:text).map(&:strip).include?("title") }
+        cell = notes_table.css("tbody tr td").find { |td| td["title"] == short_title }
+        expect(cell).not_to be_nil
+        expect(cell["title"]).to eq(short_title)
+        expect(note.persisted?).to be true
+      end
+
+      it "renders titles exactly at the threshold (21 chars) untouched" do
+        # head + 1 + tail = 21 — the helper returns the input unchanged.
+        edge_title = "abcdefghijklmnopqrstu" # 21 chars exactly
+        note = create(:note, project: project, tenant: project.tenant, title: edge_title)
+        get project_path(project)
+        html = Nokogiri::HTML.fragment(response.body)
+        notes_table = html.css("table").find { |t| t.css("th").map(&:text).map(&:strip).include?("title") }
+        link = notes_table.css("tbody tr a").find { |a| a["href"] == note_path(note) }
+        expect(link).not_to be_nil
+        expect(link.text.strip).to eq(edge_title)
+        expect(link.text).not_to include("…")
+      end
     end
 
     describe "footage filename middle-truncation" do

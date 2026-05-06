@@ -32,6 +32,12 @@ RSpec.describe "Navigation", type: :request do
     expect(response.body).to include("<title>settings ~ pito</title>")
   end
 
+  it "renders Turbo morph meta tags for in-place page refresh" do
+    get "/"
+    expect(response.body).to include('name="turbo-refresh-method" content="morph"')
+    expect(response.body).to include('name="turbo-refresh-scroll" content="preserve"')
+  end
+
   it "does not include purged nav items" do
     get "/"
     body = response.body

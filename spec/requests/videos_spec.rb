@@ -89,6 +89,19 @@ RSpec.describe "Videos", type: :request do
         expect(link.text.strip).to eq(video.id.to_s)
       end
 
+      # Turbo Frames bugfix (2026-05-06) — the video id link sits
+      # INSIDE `<turbo-frame id='videos-index-table'>` but the show
+      # page has no matching frame. Stamp `data-turbo-frame=_top` so
+      # the click escapes the frame and does a full-page navigation.
+      it "stamps data-turbo-frame=_top on the video name link (escape the frame on row click)" do
+        get videos_path
+        html = Nokogiri::HTML.fragment(response.body)
+        row = html.css("tbody tr").first
+        name_cell = row.css("td")[1]
+        link = name_cell.css("a").first
+        expect(link["data-turbo-frame"]).to eq("_top")
+      end
+
       it "exposes `id` in VideosController::ALLOWED_SORTS so server-side sort honors it" do
         expect(VideosController::ALLOWED_SORTS).to include("id" => "videos.id")
       end
@@ -327,6 +340,94 @@ RSpec.describe "Videos", type: :request do
         html = Nokogiri::HTML.fragment(response.body)
         link = html.css("thead a").find { |a| a.text.strip.start_with?("title") }
         expect(link["href"]).to include("dir=desc")
+      end
+    end
+
+    # Polish-3 (2026-05-06) — Turbo Frame wrapper around the videos
+    # table. Sort-header clicks target this frame so only the table
+    # re-renders on the page (combined with `data-turbo-action=advance`
+    # so the URL still updates). The frame element must be present on
+    # every render — even the empty state — or Turbo aborts the swap
+    # and falls back to a full-page navigation.
+    describe "turbo-frame wrapper" do
+      it "wraps the page output in <turbo-frame id='videos-index-table'> in the empty state" do
+        get videos_path
+        html = Nokogiri::HTML.fragment(response.body)
+        frame = html.css("turbo-frame#videos-index-table").first
+        expect(frame).not_to be_nil, "expected <turbo-frame id='videos-index-table'> on the empty state"
+      end
+
+      context "with videos" do
+        let!(:channel) { create(:channel) }
+        let!(:video) { create(:video, channel: channel, title: "framed", published_at: 1.day.ago, duration_seconds: 60) }
+
+        it "wraps the page output in <turbo-frame id='videos-index-table'> with rows" do
+          get videos_path
+          html = Nokogiri::HTML.fragment(response.body)
+          frame = html.css("turbo-frame#videos-index-table").first
+          expect(frame).not_to be_nil
+          # Table sits inside the frame.
+          expect(frame.css("table")).not_to be_empty
+        end
+
+        it "stamps data-turbo-frame=videos-index-table on every sort link" do
+          get videos_path
+          html = Nokogiri::HTML.fragment(response.body)
+          sort_links = html.css("turbo-frame#videos-index-table thead a")
+          expect(sort_links).not_to be_empty
+          sort_links.each do |a|
+            expect(a["data-turbo-frame"]).to eq("videos-index-table"),
+              "expected data-turbo-frame=videos-index-table on sort link #{a.text.strip.inspect}"
+            expect(a["data-turbo-action"]).to eq("advance"),
+              "expected data-turbo-action=advance on sort link #{a.text.strip.inspect}"
+          end
+        end
+
+        # Inverse of the row-link `_top` rule: sort header clicks should
+        # re-render the frame, NOT escape to a full-page navigation.
+        # Regression guard against widening sort scope by accident.
+        it "does NOT stamp data-turbo-frame=_top on any sort header link" do
+          get videos_path
+          html = Nokogiri::HTML.fragment(response.body)
+          sort_links = html.css("turbo-frame#videos-index-table thead a")
+          expect(sort_links).not_to be_empty
+          sort_links.each do |a|
+            expect(a["data-turbo-frame"]).not_to eq("_top"),
+              "sort link #{a.text.strip.inspect} must stay frame-scoped, not escape to _top"
+          end
+        end
+
+        # Polish (2026-05-05) — horizontal-scroll wrapper localizes the
+        # scrollbar to the table region instead of the body. The
+        # wrapper sits INSIDE the turbo-frame and contains the table;
+        # the bulk toolbar stays OUTSIDE the wrapper so it remains
+        # aligned with the leftmost column on initial render.
+        it "wraps the table in a .themed-scroll-x container with overflow-x: auto inside the turbo-frame" do
+          get videos_path
+          html = Nokogiri::HTML.fragment(response.body)
+          frame = html.css("turbo-frame#videos-index-table").first
+          expect(frame).not_to be_nil
+          wrapper = frame.css("div.themed-scroll-x").first
+          expect(wrapper).not_to be_nil, "expected a .themed-scroll-x wrapper inside the turbo-frame"
+          expect(wrapper["style"].to_s).to include("overflow-x: auto")
+          expect(wrapper["style"].to_s).to include("max-width: 100%")
+          # The table must live INSIDE the scroll wrapper.
+          expect(wrapper.css("table")).not_to be_empty,
+            "expected the videos <table> to live inside .themed-scroll-x"
+        end
+
+        it "keeps the bulk toolbar outside the .themed-scroll-x wrapper" do
+          get videos_path
+          html = Nokogiri::HTML.fragment(response.body)
+          frame = html.css("turbo-frame#videos-index-table").first
+          wrapper = frame.css("div.themed-scroll-x").first
+          # The bulk toolbar (the actions container) must NOT sit
+          # inside the horizontal-scroll wrapper — otherwise it would
+          # scroll horizontally with the table and lose its alignment
+          # with the leftmost column on initial render.
+          expect(wrapper.css('[data-bulk-select-target="actions"]')).to be_empty,
+            "did not expect the bulk toolbar to live inside .themed-scroll-x"
+        end
       end
     end
 

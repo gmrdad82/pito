@@ -63,4 +63,26 @@ RSpec.describe FilterChipComponent, type: :component do
     render_inline(described_class.new(label: "starred", param: "star"))
     expect(page).to have_css("a.filter-chip")
   end
+
+  # Polish-3 (2026-05-06) — opt-in Turbo Frame navigation. When the
+  # `frame:` kwarg is set, the chip carries
+  # `data-turbo-frame="<id>"` + `data-turbo-action="advance"` so a
+  # click only swaps the matching frame on the page (rather than
+  # navigating the whole page) AND updates the URL bar so back /
+  # forward and deep-linking still work.
+  describe "frame: kwarg (Turbo Frame opt-in)" do
+    it "does not emit data-turbo-frame when frame: is not given" do
+      render_inline(described_class.new(label: "starred", param: "star"))
+      anchor = page.find("a.filter-chip")
+      expect(anchor["data-turbo-frame"]).to be_nil
+      expect(anchor["data-turbo-action"]).to be_nil
+    end
+
+    it "emits data-turbo-frame=<id> + data-turbo-action=advance when frame: is set" do
+      render_inline(described_class.new(label: "starred", param: "star", frame: "footage-table"))
+      anchor = page.find("a.filter-chip")
+      expect(anchor["data-turbo-frame"]).to eq("footage-table")
+      expect(anchor["data-turbo-action"]).to eq("advance")
+    end
+  end
 end

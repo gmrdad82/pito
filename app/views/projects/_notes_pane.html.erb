@@ -51,51 +51,59 @@
     </div>
   <% end %>
 
-  <% if notes.any? %>
-    <%# Phase B polish (2026-05-05) — bulk toolbar always rendered.
-        Each `.action` span carries an `.action-sep` `&middot;` that the
-        controller hides on whichever action is first-visible. The
-        `deleteAction` target self-hides at zero selection. %>
-    <div data-bulk-select-target="actions" class="bulk-toolbar" style="margin-bottom: 6px;">
-      <span class="action" data-bulk-select-target="count" hidden>
-        <span class="action-sep" hidden>&middot;</span>
-      </span>
-      <span class="action" data-bulk-select-target="deleteAction" hidden>
-        <span class="action-sep" hidden>&middot;</span>
-      </span>
-    </div>
+  <%# Turbo-frame wrapper (polish-3, 2026-05-06): notes table sits
+      inside `<turbo-frame id="notes-table">` so a sort-header click
+      only re-renders this frame's content. The frame is always
+      present (including the empty state) so Turbo can find it in the
+      response. Sort links carry `data-turbo-frame="notes-table"` +
+      `data-turbo-action="advance"` via `sort_link_to(frame:)`. %>
+  <%= turbo_frame_tag "notes-table" do %>
+    <% if notes.any? %>
+      <%# Phase B polish (2026-05-05) — bulk toolbar always rendered.
+          Each `.action` span carries an `.action-sep` `&middot;` that the
+          controller hides on whichever action is first-visible. The
+          `deleteAction` target self-hides at zero selection. %>
+      <div data-bulk-select-target="actions" class="bulk-toolbar" style="margin-bottom: 6px;">
+        <span class="action" data-bulk-select-target="count" hidden>
+          <span class="action-sep" hidden>&middot;</span>
+        </span>
+        <span class="action" data-bulk-select-target="deleteAction" hidden>
+          <span class="action-sep" hidden>&middot;</span>
+        </span>
+      </div>
 
-    <table>
-      <thead>
-        <tr>
-          <th class="col-action">
-            <%= render(CheckboxComponent.new(data: { bulk_select_target: "headerCheckbox", action: "change->bulk-select#toggleAll" })) %>
-          </th>
-          <th class="sortable"><%= sort_link_to("title", "title", current_sort: sort, current_dir: dir, sort_param: "notes_sort", dir_param: "notes_dir") %></th>
-          <th class="sortable num"><%= sort_link_to("words", "words", current_sort: sort, current_dir: dir, sort_param: "notes_sort", dir_param: "notes_dir") %></th>
-          <th class="sortable num"><%= sort_link_to("last modified", "last_modified", current_sort: sort, current_dir: dir, sort_param: "notes_sort", dir_param: "notes_dir") %></th>
-        </tr>
-      </thead>
-      <tbody>
-        <% notes.each do |note| %>
+      <table>
+        <thead>
           <tr>
-            <td class="col-action">
-              <%= render(CheckboxComponent.new(value: note.id, data: { bulk_select_target: "checkbox", action: "change->bulk-select#toggle" })) %>
-            </td>
-            <td>
-              <% if locked %>
-                <%= note.title %>
-              <% else %>
-                <%= link_to note.title, note_path(note) %>
-              <% end %>
-            </td>
-            <td class="num"><%= NoteHelper.human_words(note.words_count) %></td>
-            <td class="num"><%= compact_time_ago(note.last_modified_at) %></td>
+            <th class="col-action">
+              <%= render(CheckboxComponent.new(data: { bulk_select_target: "headerCheckbox", action: "change->bulk-select#toggleAll" })) %>
+            </th>
+            <th class="sortable"><%= sort_link_to("title", "title", current_sort: sort, current_dir: dir, sort_param: "notes_sort", dir_param: "notes_dir", frame: "notes-table") %></th>
+            <th class="sortable num"><%= sort_link_to("words", "words", current_sort: sort, current_dir: dir, sort_param: "notes_sort", dir_param: "notes_dir", frame: "notes-table") %></th>
+            <th class="sortable num"><%= sort_link_to("last modified", "last_modified", current_sort: sort, current_dir: dir, sort_param: "notes_sort", dir_param: "notes_dir", frame: "notes-table") %></th>
           </tr>
-        <% end %>
-      </tbody>
-    </table>
-  <% else %>
-    <p class="text-muted">no notes yet.</p>
+        </thead>
+        <tbody>
+          <% notes.each do |note| %>
+            <tr>
+              <td class="col-action">
+                <%= render(CheckboxComponent.new(value: note.id, data: { bulk_select_target: "checkbox", action: "change->bulk-select#toggle" })) %>
+              </td>
+              <td title="<%= note.title %>">
+                <% if locked %>
+                  <%= middle_truncate(note.title, head: 10, tail: 10) %>
+                <% else %>
+                  <%= link_to middle_truncate(note.title, head: 10, tail: 10), note_path(note), data: { turbo_frame: "_top" } %>
+                <% end %>
+              </td>
+              <td class="num"><%= NoteHelper.human_words(note.words_count) %></td>
+              <td class="num"><%= compact_time_ago(note.last_modified_at) %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    <% else %>
+      <p class="text-muted">no notes yet.</p>
+    <% end %>
   <% end %>
 </div>

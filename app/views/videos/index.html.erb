@@ -9,6 +9,13 @@
     <span style="margin-left: auto;"><%= render(SavedViewsSectionComponent.new(saved_views: @saved_views || SavedView.none, kind: "videos")) %></span>
   </div>
 
+  <%# Turbo-frame wrapper (polish-3, 2026-05-06): the bulk toolbar +
+      videos table sit inside `<turbo-frame id="videos-index-table">`
+      so a sort-header click only re-renders the frame's content. The
+      frame element exists on every render (including the empty state)
+      so Turbo can match it in the response and skip the fall-back to
+      a full-page navigation. %>
+  <%= turbo_frame_tag "videos-index-table" do %>
   <% if @videos.any? %>
     <div>
       <%# Phase B polish (2026-05-05) — bulk toolbar is always rendered.
@@ -47,6 +54,17 @@
           in 200 px. `width: auto` is NOT enough under
           `table-layout: fixed` — see /channels picker partial for the
           longer note. There is no `starred` column on videos. %>
+      <%# Horizontal-scroll wrapper (2026-05-05): the videos table is
+          wider than narrower laptop viewports. Wrapping it in a
+          `.themed-scroll-x` div with `overflow-x: auto; max-width: 100%;`
+          localizes the horizontal scrollbar to the table region instead
+          of the body. The Webkit `::-webkit-scrollbar:horizontal`
+          global rule (8px, muted thumb) themes Chromium / Safari
+          automatically; the `.themed-scroll-x` class wires Firefox's
+          `scrollbar-width: thin` + `scrollbar-color`. The bulk toolbar
+          stays OUTSIDE the wrapper so it remains aligned with the
+          leftmost column on initial render. %>
+      <div class="themed-scroll-x" style="overflow-x: auto; max-width: 100%;">
       <table style="table-layout: fixed; width: 1220px;">
         <colgroup>
           <col style="width: 40px;">  <%# selection checkbox %>
@@ -74,8 +92,8 @@
                 Name cell IS the show-page link, so a separate open-action
                 cell was redundant. Lowercase `name` mirrors the
                 design-system convention (same as `/channels`). %>
-            <th class="sortable"><%= sort_link_to("name", "id", current_sort: @sort, current_dir: @dir) %></th>
-            <th class="sortable"><%= sort_link_to("title", "title", current_sort: @sort, current_dir: @dir) %></th>
+            <th class="sortable"><%= sort_link_to("name", "id", current_sort: @sort, current_dir: @dir, frame: "videos-index-table") %></th>
+            <th class="sortable"><%= sort_link_to("title", "title", current_sort: @sort, current_dir: @dir, frame: "videos-index-table") %></th>
             <th>channel</th>
             <th class="num">views</th>
             <th class="num">trend</th>
@@ -83,7 +101,7 @@
             <th class="num">chats</th>
             <th class="num">watch</th>
             <th class="num">state</th>
-            <th class="sortable num"><%= sort_link_to("date", "published_at", current_sort: @sort, current_dir: @dir) %></th>
+            <th class="sortable num"><%= sort_link_to("date", "published_at", current_sort: @sort, current_dir: @dir, frame: "videos-index-table") %></th>
             <th class="num">length</th>
           </tr>
         </thead>
@@ -93,7 +111,7 @@
               <td class="col-action">
                 <%= render(CheckboxComponent.new(value: video.id, data: { bulk_select_target: "checkbox", action: "change->bulk-select#toggle" })) %>
               </td>
-              <td><%= link_to video.id, video_path(video) %></td>
+              <td><%= link_to video.id, video_path(video), data: { turbo_frame: "_top" } %></td>
               <td style="overflow: hidden; text-overflow: ellipsis;"><%= video.title %></td>
               <%# Channel column — server-side middle-truncated to a
                   fixed `<head>…<tail>` string (e.g. `https://…jF7eS8r1`).
@@ -114,8 +132,10 @@
           <% end %>
         </tbody>
       </table>
+      </div>
     </div>
   <% else %>
     <p class="text-muted">no videos yet.</p>
+  <% end %>
   <% end %>
 </div>

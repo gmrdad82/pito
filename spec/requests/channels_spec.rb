@@ -109,6 +109,19 @@ RSpec.describe "Channels", type: :request do
         expect(link.text.strip).to eq(channel.id.to_s)
       end
 
+      # Turbo Frames bugfix (2026-05-06) — the channel id link sits
+      # INSIDE `<turbo-frame id='channels-index-table'>` but the show
+      # page has no matching frame. Stamp `data-turbo-frame=_top` so
+      # the click escapes the frame and does a full-page navigation.
+      it "stamps data-turbo-frame=_top on the channel name link (escape the frame on row click)" do
+        get channels_path
+        html = Nokogiri::HTML.fragment(response.body)
+        row = html.css("tbody tr").first
+        name_cell = row.css("td")[1]
+        link = name_cell.css("a").first
+        expect(link["data-turbo-frame"]).to eq("_top")
+      end
+
       it "exposes `id` in ChannelsController::ALLOWED_SORTS so server-side sort honors it" do
         # The Name column header sort link uses `?sort=id`; the constant
         # mapping must include the key for that URL to round-trip.
@@ -457,6 +470,88 @@ RSpec.describe "Channels", type: :request do
         expect(row["star"]).to eq("yes")
         expect(row["connected"]).to eq("no")
         expect(row["syncing"]).to eq("no")
+      end
+    end
+
+    # Polish-3 (2026-05-06) — Turbo Frame wrapper around the channels
+    # table + bulk toolbar. Sort-header clicks and filter-chip toggles
+    # target this frame so only the table region re-renders on the
+    # page. Combined with `data-turbo-action=advance`, the URL still
+    # updates and back/forward navigation works. The frame element must
+    # be present on every render (including the empty state) so Turbo
+    # can match the response and skip the fall-back to a full-page
+    # navigation.
+    describe "turbo-frame wrapper" do
+      it "wraps the empty state in <turbo-frame id='channels-index-table'>" do
+        get channels_path
+        html = Nokogiri::HTML.fragment(response.body)
+        frame = html.css("turbo-frame#channels-index-table").first
+        expect(frame).not_to be_nil
+      end
+
+      context "with channels" do
+        let!(:channel) { create(:channel) }
+
+        it "wraps the table inside <turbo-frame id='channels-index-table'>" do
+          get channels_path
+          html = Nokogiri::HTML.fragment(response.body)
+          frame = html.css("turbo-frame#channels-index-table").first
+          expect(frame).not_to be_nil
+          expect(frame.css("table")).not_to be_empty
+        end
+
+        it "stamps data-turbo-frame=channels-index-table on every sort link" do
+          get channels_path
+          html = Nokogiri::HTML.fragment(response.body)
+          sort_links = html.css("turbo-frame#channels-index-table thead a")
+          expect(sort_links).not_to be_empty
+          sort_links.each do |a|
+            expect(a["data-turbo-frame"]).to eq("channels-index-table"),
+              "expected data-turbo-frame on sort link #{a.text.strip.inspect}"
+            expect(a["data-turbo-action"]).to eq("advance"),
+              "expected data-turbo-action=advance on sort link #{a.text.strip.inspect}"
+          end
+        end
+
+        # Inverse of the row-link `_top` rule: sort header clicks should
+        # re-render the frame, NOT escape to a full-page navigation.
+        # Regression guard against widening sort scope by accident.
+        it "does NOT stamp data-turbo-frame=_top on any sort header link" do
+          get channels_path
+          html = Nokogiri::HTML.fragment(response.body)
+          sort_links = html.css("turbo-frame#channels-index-table thead a")
+          expect(sort_links).not_to be_empty
+          sort_links.each do |a|
+            expect(a["data-turbo-frame"]).not_to eq("_top"),
+              "sort link #{a.text.strip.inspect} must stay frame-scoped, not escape to _top"
+          end
+        end
+
+        it "stamps data-turbo-frame=channels-index-table on every filter chip" do
+          get channels_path
+          html = Nokogiri::HTML.fragment(response.body)
+          chips = html.css("a.filter-chip")
+          expect(chips).not_to be_empty
+          chips.each do |a|
+            expect(a["data-turbo-frame"]).to eq("channels-index-table"),
+              "expected data-turbo-frame on filter chip #{a.text.strip.inspect}"
+            expect(a["data-turbo-action"]).to eq("advance"),
+              "expected data-turbo-action=advance on filter chip #{a.text.strip.inspect}"
+          end
+        end
+
+        it "stamps data-turbo-frame=channels-index-table on the [clear] link when a filter is active" do
+          starred = create(:channel, :starred)
+          get channels_path, params: { star: "yes" }
+          html = Nokogiri::HTML.fragment(response.body)
+          # The `[clear]` link is a BracketedLinkComponent; its rendered
+          # markup is `<a class="bracketed">[<span class="bl">clear</span>]</a>`.
+          clear_link = html.css("a.bracketed").find { |a| a.css("span.bl").any? { |s| s.text.strip == "clear" } }
+          expect(clear_link).not_to be_nil, "expected a [ clear ] link with at least one channel filter active"
+          expect(clear_link["data-turbo-frame"]).to eq("channels-index-table")
+          expect(clear_link["data-turbo-action"]).to eq("advance")
+          expect(starred.persisted?).to be true
+        end
       end
     end
   end

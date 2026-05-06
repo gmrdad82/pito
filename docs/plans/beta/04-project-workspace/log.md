@@ -3742,3 +3742,69 @@ workspace each fit two panes side-by-side.
 ### Open issues
 
 - None.
+
+## 2026-05-05 — /videos table: localize horizontal scrollbar
+
+The `/videos` index table (`width: 1220px`) was wider than narrower laptop
+viewports, which dragged the horizontal scrollbar to the BODY — the bar sat at
+the very bottom of the page (below the footer) and the entire body scrolled
+sideways. User wanted the scrollbar localized to the table region, themed via
+the existing global Webkit + Firefox `.themed-scroll-x` rules.
+
+Wrapped the `<table>` in a `<div class="themed-scroll-x" style="overflow-x:
+auto; max-width: 100%;">` INSIDE the existing `<turbo-frame
+id="videos-index-table">` and AFTER the bulk-toolbar `<div>`. The wrapper
+becomes the horizontal-scroll container; the body no longer overflows. The
+Webkit `::-webkit-scrollbar:horizontal` global rule themes Chromium / Safari
+automatically (8px, muted thumb); the `.themed-scroll-x` class wires Firefox's
+`scrollbar-width: thin; scrollbar-color: var(--color-muted) var(--color-bg)`.
+
+The bulk toolbar stays OUTSIDE the wrapper so it remains anchored to the
+leftmost column on initial render — once the user scrolls the table right,
+the toolbar does NOT scroll with it. That tradeoff is acceptable: the toolbar
+spans the full table width visually only at the leftmost position, but the
+selection-count + action labels are short text, not column-aligned controls,
+so the offset doesn't break anything.
+
+### `/channels` audit
+
+Skipped intentionally. The channels picker table is `width: 480px`, far
+narrower than any realistic viewport (smallest laptop is ~1280px, smallest
+common phone is ~360px and the table has its own mobile layout). It does
+NOT overflow, so a wrapper there would only add markup without changing
+behavior. If a future column expansion pushes channels past viewport width,
+revisit.
+
+### Files touched
+
+- `app/views/videos/index.html.erb` — wrapped the `<table>` in a
+  `.themed-scroll-x` div; comment block above explains the wrapper's role
+  and why the bulk toolbar is deliberately kept outside.
+- `spec/requests/videos_spec.rb` — added two assertions inside the
+  existing `turbo-frame wrapper / with videos` describe block:
+  - `wraps the table in a .themed-scroll-x container with overflow-x:
+    auto inside the turbo-frame`
+  - `keeps the bulk toolbar outside the .themed-scroll-x wrapper`
+
+### Verification
+
+- `bundle exec rspec spec/requests/videos_spec.rb spec/requests/channels_spec.rb`
+  — `176 examples, 0 failures` (75 videos + 101 channels).
+- `bundle exec rubocop spec/requests/videos_spec.rb` — clean.
+- `bundle exec brakeman -q -w2` — `0 security warnings`.
+- Smoke (deferred to user, `bin/dev` running):
+  - `https://app.pitomd.com/videos` on a viewport narrower than 1220px:
+    horizontal scrollbar appears BELOW the table region (before the
+    footer), themed at 8px with muted thumb. Body has NO horizontal
+    scroll. Vertical scroll on the body still works normally.
+  - The themed scrollbar respects light + dark themes (track stays
+    `--color-bg`, thumb `--color-muted`).
+
+### Open issues
+
+- The bulk toolbar does NOT scroll with the table. If the user scrolls the
+  videos table right, the toolbar stays anchored at the leftmost column.
+  That's the intended tradeoff per the spec ("the bulk toolbar / select-
+  items-to-act-on row stays outside the scroll wrapper"); flagging here
+  in case a future polish pass wants the toolbar to live INSIDE the
+  wrapper instead.

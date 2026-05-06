@@ -522,6 +522,37 @@ This rule is global — it overrides any per-page styling that previously allowe
 the row to wrap. The component (`SavedViewsSectionComponent`) emits both
 classes; pages that compose saved-views inline must use the same shape.
 
+### Horizontal scrollbars
+
+Pito uses a themed horizontal scrollbar in place of the browser default for any
+container that scrolls horizontally. The convention:
+
+- **Height**: 8px (thinner than the browser default ~16px).
+- **Track**: `var(--color-bg)` — blends with the page background.
+- **Thumb**: `var(--color-muted)` — visible but subtle.
+- **Thumb hover**: `var(--color-text)` — clearly indicates interactivity.
+- **Thumb border-radius**: 4px.
+
+Implementation in `app/assets/tailwind/application.css`:
+
+- **Webkit / Blink** (Chrome, Brave, Safari): styled globally via
+  `::-webkit-scrollbar:horizontal` so every horizontal scrollbar app-wide picks
+  up the theme automatically. Vertical scrollbars (body, modals, textareas) keep
+  the browser default.
+- **Firefox**:
+  `scrollbar-width: thin; scrollbar-color: var(--color-muted) var(--color-bg)`
+  applied per-container (Firefox has no `:horizontal` pseudo). Currently applied
+  to `.pane-strip`, `.saved-views-list`, `.markdown-preview pre`, and the mobile
+  `<table>` rule.
+- **Mobile iOS Safari**: ignores both — uses the native overlay scrollbar
+  (acceptable; matches mobile expectations).
+
+For new horizontal-scroll containers, add the `.themed-scroll-x` utility class
+to opt into Firefox theming. Webkit theming is already automatic. Where a
+container overflows in only one axis, scope the rule to that axis
+(`::-webkit-scrollbar:horizontal`); where it overflows in both, applying the
+theming to both is acceptable for consistency.
+
 ## Dashboard Charts
 
 Chart colors **never** use inline hex literals. The dashboard reads its palette

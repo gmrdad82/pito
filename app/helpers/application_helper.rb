@@ -114,13 +114,31 @@ module ApplicationHelper
   # absolute-positioned `::after`, same `right: 1px` offset, same
   # font-size). Inline-text arrows produced misaligned glyphs and a
   # trailing space artefact next to active headers.
-  def sort_link_to(label, key, current_sort:, current_dir:, sort_param: "sort", dir_param: "dir")
+  #
+  # `frame:` opts the link into Turbo Frame navigation. When set, the
+  # link carries `data-turbo-frame="<frame-id>"` so Turbo only swaps
+  # the matching `<turbo-frame>` element from the response (rather than
+  # navigating the whole page) AND `data-turbo-action="advance"` so the
+  # browser URL still updates and back/forward navigation works. The
+  # frame on the page MUST share its `id` with the frame in the
+  # response — otherwise Turbo aborts the swap and falls back to a
+  # full-page navigation. Combined with morph (set globally in the
+  # layout's `<meta name="turbo-refresh-method" content="morph">`), a
+  # framed sort click preserves scroll position and form state while
+  # only the frame's contents re-render.
+  def sort_link_to(label, key, current_sort:, current_dir:, sort_param: "sort", dir_param: "dir", frame: nil)
     next_dir = (current_sort == key && current_dir == "asc") ? "desc" : "asc"
     active = current_sort == key
+    data = {}
+    if frame
+      data[:turbo_frame] = frame
+      data[:turbo_action] = "advance"
+    end
     link_to(
       label,
       request.query_parameters.merge(sort_param => key, dir_param => next_dir),
-      class: active ? "sort-#{current_dir}" : nil
+      class: active ? "sort-#{current_dir}" : nil,
+      data: data
     )
   end
 
