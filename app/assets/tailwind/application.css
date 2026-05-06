@@ -305,6 +305,42 @@ a.text-danger.bracketed:hover, a.text-danger.bracketed:hover .bl { color: var(--
   gap: 0;
 }
 
+/* Themed horizontal scrollbars — sitewide.
+   Webkit/Blink: `::-webkit-scrollbar:horizontal` scopes the rules to
+   horizontal scrollbars only, so vertical scrollbars (body, modals,
+   textareas) keep the browser default. Verified support in Chromium /
+   Safari.
+   Firefox: `scrollbar-width` + `scrollbar-color` is the CSS standard
+   but has no horizontal-only form. We apply it per-container via the
+   selector list below (and the `.themed-scroll-x` utility class for
+   future opt-ins) so vertical Firefox scrollbars stay default.
+   Mobile iOS Safari: ignores both — native overlay scrollbar wins,
+   which is the right UX for mobile. */
+::-webkit-scrollbar:horizontal {
+  height: 8px;
+}
+::-webkit-scrollbar-track:horizontal {
+  background: var(--color-bg);
+}
+::-webkit-scrollbar-thumb:horizontal {
+  background: var(--color-muted);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:horizontal:hover {
+  background: var(--color-text);
+}
+
+/* Firefox per-container theming for every site-wide horizontal-scroll
+   surface. Add new containers to this list (or apply
+   `.themed-scroll-x`) when introducing horizontal overflow. */
+.pane-strip,
+.saved-views-list,
+.markdown-preview pre,
+.themed-scroll-x {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-muted) var(--color-bg);
+}
+
 /* Phase 4 §9.3 — Saved-views chip lists scroll horizontally on desktop AND
    mobile. `flex-wrap: nowrap` is deliberate: the mobile responsiveness rule
    that forces 100% width on flex-wrap children would defeat horizontal
@@ -398,7 +434,26 @@ th.sortable {
   cursor: pointer;
   user-select: none;
   position: relative;
+  /* Click-target fix (2026-05-06 polish-3): the entire <th> should sort,
+     not just the text. The base `<th>` padding (4px 8px) moves to the
+     inner <a> below; the th itself goes to padding 0 so the link can
+     fill the cell. The 18px right-padding reserve for the ::after
+     indicator also moves onto the link. */
+  padding: 0;
+}
+/* Make the inner sort link fill the full cell so clicking anywhere on
+   the header (including the empty space around the label and the area
+   where the ::after sort indicator sits) triggers the sort. The `::after`
+   indicator stays on `th.sortable` (positioned relative to the th,
+   right: 1px) — the link sits inside the th and shares the same right
+   padding reserve, so the indicator visually sits inside the link area
+   without overlapping the text. */
+th.sortable > a {
+  display: block;
+  padding: 4px 8px;
   padding-right: 18px;
+  text-decoration: none;
+  color: inherit;
 }
 th.sortable::after {
   content: "\25B2\A\25BC";
@@ -413,6 +468,10 @@ th.sortable::after {
   text-align: center;
   color: var(--color-link);
   font-weight: bold;
+  /* The indicator sits visually inside the link's right-padding reserve;
+     keep clicks on the indicator passing through to the underlying link
+     so the entire cell behaves as one click target. */
+  pointer-events: none;
 }
 th.sortable:hover {
   background: var(--color-bg-header-hover);
@@ -1010,11 +1069,15 @@ textarea.note-editor-source {
   .search-input { width: 180px !important; min-width: 80px; }
   .search-form { flex-shrink: 1; min-width: 0; margin-left: 2px !important; }
 
-  /* Tables: horizontal scroll */
+  /* Tables: horizontal scroll. Firefox theming is opt-in per container
+     (no `:horizontal` form for `scrollbar-width`); Webkit is covered by
+     the global `::-webkit-scrollbar:horizontal` rule above. */
   table {
     display: block;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-muted) var(--color-bg);
   }
 
   /* Phase 4 §9.2 — Panes: horizontal scroll with snap on mobile.

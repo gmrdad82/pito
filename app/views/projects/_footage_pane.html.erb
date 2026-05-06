@@ -36,80 +36,93 @@
   <%= render(BracketedLinkComponent.new(label: "download cli", href: footage_importer_download_path)) %>
 </div>
 
-<%# Filter chips. Each dimension's chip group renders only when the
-    project's footage has > 1 distinct value for it. The `[clear]` link
-    renders when any filter is active and routes back to the project
-    show page with no query string (mirrors `/channels`). %>
-<% chip_groups = filter_options.reject { |_, opts| opts.blank? } %>
-<% if chip_groups.any? || active_filters.any? %>
-  <div style="margin-bottom: 8px; display: flex; flex-direction: column; gap: 4px;">
-    <% chip_groups.each do |dim, options| %>
-      <div style="display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap;">
-        <span class="text-muted"><%= dim %>:</span>
-        <% options.each do |opt| %>
-          <%= render(FilterChipComponent.new(
-            label: opt[:label],
-            param: dim.to_s,
-            value: opt[:value],
-            current_params: request.query_parameters
-          )) %>
-        <% end %>
-      </div>
-    <% end %>
-    <% if active_filters.any? %>
-      <div>
-        <%= render(BracketedLinkComponent.new(label: "clear", href: project_path(project))) %>
-      </div>
-    <% end %>
-  </div>
-<% end %>
-
-<% if footages.any? %>
-  <table class="footage-table">
-    <colgroup>
-      <col style="width: 180px;"><%# filename %>
-      <col style="width: 100px;"><%# game %>
-      <col style="width: 110px;"><%# resolution %>
-      <col style="width: 48px;"> <%# fps %>
-      <col style="width: 80px;"> <%# bit %>
-      <col style="width: 80px;"> <%# duration %>
-      <col style="width: 80px;"> <%# size %>
-      <col style="width: 80px;"> <%# source %>
-    </colgroup>
-    <thead>
-      <tr>
-        <th class="sortable"><%= sort_link_to("filename", "filename", current_sort: sort, current_dir: dir) %></th>
-        <th class="sortable"><%= sort_link_to("game", "game", current_sort: sort, current_dir: dir) %></th>
-        <th class="sortable"><%= sort_link_to("resolution", "resolution", current_sort: sort, current_dir: dir) %></th>
-        <th class="sortable num"><%= sort_link_to("fps", "fps", current_sort: sort, current_dir: dir) %></th>
-        <th class="sortable num"><%= sort_link_to("bit", "bit_depth", current_sort: sort, current_dir: dir) %></th>
-        <th class="sortable num"><%= sort_link_to("duration", "duration_seconds", current_sort: sort, current_dir: dir) %></th>
-        <th class="sortable num"><%= sort_link_to("size", "filesize_bytes", current_sort: sort, current_dir: dir) %></th>
-        <th class="sortable"><%= sort_link_to("source", "source", current_sort: sort, current_dir: dir) %></th>
-      </tr>
-    </thead>
-    <tbody>
-      <% footages.each do |footage| %>
-        <tr>
-          <td class="filename-cell" title="<%= footage.filename %>">
-            <%= link_to filename_truncate_middle(footage.filename), edit_footage_path(footage) %>
-          </td>
-          <td><%= footage.game ? footage.game.title : FootageHelper::EMPTY_VALUE %></td>
-          <td><%= footage.resolution || FootageHelper::EMPTY_VALUE %></td>
-          <td class="num"><%= human_fps(footage.fps) %></td>
-          <td class="num"><%= footage.bit_depth ? "#{footage.bit_depth}-bit" : FootageHelper::EMPTY_VALUE %></td>
-          <td class="num"><%= human_duration(footage.duration_seconds) %></td>
-          <td class="num"><%= human_filesize(footage.filesize_bytes) %></td>
-          <td><%= human_source(footage.source) %></td>
-        </tr>
+<%# Turbo-frame wrapper (polish-3, 2026-05-06): the entire filter-chip
+    row + footage table sits inside `<turbo-frame id="footage-table">`
+    so a sort-header click, a filter-chip toggle, or a `[clear]` click
+    only re-renders this frame's content rather than the whole project
+    show page. The frame element exists on every render — including
+    the empty state — so Turbo can find it in the response and the
+    swap doesn't fall back to a full navigation. Sort links carry
+    `data-turbo-frame="footage-table"` + `data-turbo-action="advance"`
+    via `sort_link_to(frame:)`; filter chips and `[clear]` carry the
+    same attribute via component `data:` kwargs. %>
+<%= turbo_frame_tag "footage-table" do %>
+  <%# Filter chips. Each dimension's chip group renders only when the
+      project's footage has > 1 distinct value for it. The `[clear]` link
+      renders when any filter is active and routes back to the project
+      show page with no query string (mirrors `/channels`). %>
+  <% chip_groups = filter_options.reject { |_, opts| opts.blank? } %>
+  <% if chip_groups.any? || active_filters.any? %>
+    <div style="margin-bottom: 8px; display: flex; flex-direction: column; gap: 4px;">
+      <% chip_groups.each do |dim, options| %>
+        <div style="display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap;">
+          <span class="text-muted"><%= dim %>:</span>
+          <% options.each do |opt| %>
+            <%= render(FilterChipComponent.new(
+              label: opt[:label],
+              param: dim.to_s,
+              value: opt[:value],
+              current_params: request.query_parameters,
+              frame: "footage-table"
+            )) %>
+          <% end %>
+        </div>
       <% end %>
-    </tbody>
-  </table>
-<% else %>
-  <p class="text-muted">no footage yet. run:</p>
-  <div data-controller="clipboard-copy" class="code-block">
-    <span class="code-prompt" aria-hidden="true">$</span>
-    <code data-clipboard-copy-target="source">pito footage import --project <%= project.id %> --path &lt;dir&gt;</code>
-    <a href="#" data-action="click->clipboard-copy#copy" class="bracketed">[<span class="bl">copy</span>]</a>
-  </div>
+      <% if active_filters.any? %>
+        <div>
+          <%= render(BracketedLinkComponent.new(label: "clear", href: project_path(project), data: { turbo_frame: "footage-table", turbo_action: "advance" })) %>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+
+  <% if footages.any? %>
+    <table class="footage-table">
+      <colgroup>
+        <col style="width: 180px;"><%# filename %>
+        <col style="width: 100px;"><%# game %>
+        <col style="width: 110px;"><%# resolution %>
+        <col style="width: 48px;"> <%# fps %>
+        <col style="width: 80px;"> <%# bit %>
+        <col style="width: 80px;"> <%# duration %>
+        <col style="width: 80px;"> <%# size %>
+        <col style="width: 80px;"> <%# source %>
+      </colgroup>
+      <thead>
+        <tr>
+          <th class="sortable"><%= sort_link_to("filename", "filename", current_sort: sort, current_dir: dir, frame: "footage-table") %></th>
+          <th class="sortable"><%= sort_link_to("game", "game", current_sort: sort, current_dir: dir, frame: "footage-table") %></th>
+          <th class="sortable"><%= sort_link_to("resolution", "resolution", current_sort: sort, current_dir: dir, frame: "footage-table") %></th>
+          <th class="sortable num"><%= sort_link_to("fps", "fps", current_sort: sort, current_dir: dir, frame: "footage-table") %></th>
+          <th class="sortable num"><%= sort_link_to("bit", "bit_depth", current_sort: sort, current_dir: dir, frame: "footage-table") %></th>
+          <th class="sortable num"><%= sort_link_to("duration", "duration_seconds", current_sort: sort, current_dir: dir, frame: "footage-table") %></th>
+          <th class="sortable num"><%= sort_link_to("size", "filesize_bytes", current_sort: sort, current_dir: dir, frame: "footage-table") %></th>
+          <th class="sortable"><%= sort_link_to("source", "source", current_sort: sort, current_dir: dir, frame: "footage-table") %></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% footages.each do |footage| %>
+          <tr>
+            <td class="filename-cell" title="<%= footage.filename %>">
+              <%= link_to filename_truncate_middle(footage.filename), edit_footage_path(footage), data: { turbo_frame: "_top" } %>
+            </td>
+            <td><%= footage.game ? footage.game.title : FootageHelper::EMPTY_VALUE %></td>
+            <td><%= footage.resolution || FootageHelper::EMPTY_VALUE %></td>
+            <td class="num"><%= human_fps(footage.fps) %></td>
+            <td class="num"><%= footage.bit_depth ? "#{footage.bit_depth}-bit" : FootageHelper::EMPTY_VALUE %></td>
+            <td class="num"><%= human_duration(footage.duration_seconds) %></td>
+            <td class="num"><%= human_filesize(footage.filesize_bytes) %></td>
+            <td><%= human_source(footage.source) %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  <% else %>
+    <p class="text-muted">no footage yet. run:</p>
+    <div data-controller="clipboard-copy" class="code-block">
+      <span class="code-prompt" aria-hidden="true">$</span>
+      <code data-clipboard-copy-target="source">pito footage import --project <%= project.id %> --path &lt;dir&gt;</code>
+      <a href="#" data-action="click->clipboard-copy#copy" class="bracketed">[<span class="bl">copy</span>]</a>
+    </div>
+  <% end %>
 <% end %>

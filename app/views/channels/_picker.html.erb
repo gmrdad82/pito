@@ -12,14 +12,21 @@
   <% filters = @filters || [] %>
   <div class="dot-list" style="margin-bottom: 6px; gap: 10px;">
     <span class="text-muted">filter:</span>
-    <%= render(FilterChipComponent.new(label: "starred", param: "star", current_params: request.query_parameters)) %>
-    <%= render(FilterChipComponent.new(label: "connected", param: "connected", current_params: request.query_parameters)) %>
-    <%= render(FilterChipComponent.new(label: "syncing", param: "syncing", current_params: request.query_parameters)) %>
+    <%= render(FilterChipComponent.new(label: "starred", param: "star", current_params: request.query_parameters, frame: "channels-index-table")) %>
+    <%= render(FilterChipComponent.new(label: "connected", param: "connected", current_params: request.query_parameters, frame: "channels-index-table")) %>
+    <%= render(FilterChipComponent.new(label: "syncing", param: "syncing", current_params: request.query_parameters, frame: "channels-index-table")) %>
     <% if filters.any? %>
-      <%= render(BracketedLinkComponent.new(label: "clear", href: channels_path)) %>
+      <%= render(BracketedLinkComponent.new(label: "clear", href: channels_path, data: { turbo_frame: "channels-index-table", turbo_action: "advance" })) %>
     <% end %>
   </div>
 
+  <%# Turbo-frame wrapper (polish-3, 2026-05-06): the bulk toolbar +
+      channels table sit inside `<turbo-frame id="channels-index-table">`
+      so a sort-header click or filter-chip toggle only re-renders the
+      frame's content. The frame element exists on every render
+      (including the empty state) so Turbo can match it in the response
+      and skip the fall-back to a full-page navigation. %>
+  <%= turbo_frame_tag "channels-index-table" do %>
   <% if channels.any? %>
     <div>
       <%# Phase B polish (2026-05-05) — bulk toolbar is always rendered.
@@ -88,10 +95,10 @@
                 (lowercase) — Pito's design uses lowercase column labels
                 throughout (mirrors `last sync`, `star`, `URL` is the
                 acronym exception). %>
-            <th class="sortable"><%= sort_link_to("name", "id", current_sort: @sort, current_dir: @dir) %></th>
+            <th class="sortable"><%= sort_link_to("name", "id", current_sort: @sort, current_dir: @dir, frame: "channels-index-table") %></th>
             <th>URL</th>
-            <th class="sortable num"><%= sort_link_to("star", "starred", current_sort: @sort, current_dir: @dir) %></th>
-            <th class="sortable num"><%= sort_link_to("last sync", "last_synced_at", current_sort: @sort, current_dir: @dir) %></th>
+            <th class="sortable num"><%= sort_link_to("star", "starred", current_sort: @sort, current_dir: @dir, frame: "channels-index-table") %></th>
+            <th class="sortable num"><%= sort_link_to("last sync", "last_synced_at", current_sort: @sort, current_dir: @dir, frame: "channels-index-table") %></th>
           </tr>
         </thead>
         <tbody>
@@ -100,7 +107,7 @@
               <td class="col-action">
                 <%= render(CheckboxComponent.new(value: channel.id, data: { bulk_select_target: "checkbox", action: "change->bulk-select#toggle" })) %>
               </td>
-              <td><%= link_to channel.id, channel_path(channel) %></td>
+              <td><%= link_to channel.id, channel_path(channel), data: { turbo_frame: "_top" } %></td>
               <%# URL cell — server-side middle-truncated to a fixed
                   `<head>…<tail>` string (e.g. `https://…jF7eS8r1`) so
                   the unique channel ID at the end of the YouTube URL
@@ -128,5 +135,6 @@
     </div>
   <% else %>
     <p class="text-muted">no channels yet.</p>
+  <% end %>
   <% end %>
 </div>

@@ -239,6 +239,48 @@ RSpec.describe ApplicationHelper, type: :helper do
       expect(result).to include("notes_sort=title")
       expect(result).to include("notes_dir=asc")
     end
+
+    # Polish-3 (2026-05-06) — opt-in Turbo Frame navigation. When the
+    # `frame:` kwarg is set, the rendered link carries
+    # `data-turbo-frame="<id>"` (so Turbo only swaps that frame on the
+    # page) and `data-turbo-action="advance"` (so the URL bar still
+    # updates and back/forward navigation works). When `frame:` is
+    # absent — the legacy call shape — neither attribute is emitted,
+    # and the link behaves as a normal full-page navigation.
+    describe "frame: kwarg (Turbo Frame opt-in)" do
+      it "does not emit data-turbo-frame when frame: is not given" do
+        result = helper.sort_link_to("name", "name", current_sort: "name", current_dir: "asc")
+        a = Nokogiri::HTML.fragment(result).css("a").first
+        expect(a["data-turbo-frame"]).to be_nil
+        expect(a["data-turbo-action"]).to be_nil
+      end
+
+      it "emits data-turbo-frame=<id> when frame: is set" do
+        result = helper.sort_link_to("name", "name", current_sort: "name", current_dir: "asc",
+                                     frame: "footage-table")
+        a = Nokogiri::HTML.fragment(result).css("a").first
+        expect(a["data-turbo-frame"]).to eq("footage-table")
+      end
+
+      it "emits data-turbo-action=advance alongside data-turbo-frame so the URL bar updates" do
+        result = helper.sort_link_to("name", "name", current_sort: "name", current_dir: "asc",
+                                     frame: "footage-table")
+        a = Nokogiri::HTML.fragment(result).css("a").first
+        expect(a["data-turbo-action"]).to eq("advance")
+      end
+
+      it "carries the frame attributes on inactive columns too (every header is framed)" do
+        # The frame swap is a per-page contract: every sort header in a
+        # framed table must carry `data-turbo-frame`, otherwise the
+        # inactive headers would do a full-page navigation while the
+        # active one swaps frames. Both states must opt in.
+        result = helper.sort_link_to("created", "created_at",
+          current_sort: "name", current_dir: "asc", frame: "projects-index-table")
+        a = Nokogiri::HTML.fragment(result).css("a").first
+        expect(a["data-turbo-frame"]).to eq("projects-index-table")
+        expect(a["data-turbo-action"]).to eq("advance")
+      end
+    end
   end
 
   # Server-side fixed-length middle truncation. Returns a single
