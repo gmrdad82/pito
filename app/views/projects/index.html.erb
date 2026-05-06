@@ -31,10 +31,12 @@
 %>
 <%# Sort headers use the shared `sort_link_to` helper so the active
     column's link picks up the `.sort-{asc,desc}` class — the CSS
-    `:has()` rule then suppresses the neutral up/down `::after` glyph
-    on this column, leaving just the inline `▲` / `▼`. Without the
-    helper (or its class), the active header renders both indicators
-    at once (the dual-arrow bug). %>
+    `:has()` rule then swaps the neutral `▲\A▼` `::after` stack on
+    that column for a single directional glyph (▲ or ▼) rendered in
+    the SAME pseudo-element. Active and inactive headers share one
+    rendering pipeline, so they line up at the pixel level. The link
+    text itself is just the bare label — no inline arrow, no trailing
+    space artefact next to the active column. %>
 <%
   current_sort = @sort
   current_dir = @dir

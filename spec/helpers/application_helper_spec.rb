@@ -173,20 +173,38 @@ RSpec.describe ApplicationHelper, type: :helper do
       expect(result).not_to match(/[?&]dir=/)
     end
 
-    it "renders an ascending arrow on the active column when current_dir is asc" do
+    # Polish-2 (2026-05-06): the directional arrow is rendered exclusively
+    # via the CSS `::after` pseudo-element on the parent `<th>` (driven by
+    # the `sort-asc` / `sort-desc` class on the active link — see the
+    # `:has()` rule in `app/assets/tailwind/application.css`). The link
+    # text itself is just the label, with no inline ▲ / ▼ glyph and no
+    # trailing space. Rendering arrows via CSS keeps active and inactive
+    # headers pixel-aligned (both use the same `::after` slot).
+    it "does not render an inline ▲ / ▼ glyph in the link text on the active column (asc)" do
       result = helper.sort_link_to("name", "name", current_sort: "name", current_dir: "asc")
-      expect(result).to include("▲")
+      expect(result).not_to include("▲")
+      expect(result).not_to include("▼")
     end
 
-    it "renders a descending arrow on the active column when current_dir is desc" do
+    it "does not render an inline ▲ / ▼ glyph in the link text on the active column (desc)" do
       result = helper.sort_link_to("name", "name", current_sort: "name", current_dir: "desc")
-      expect(result).to include("▼")
+      expect(result).not_to include("▲")
+      expect(result).not_to include("▼")
     end
 
     it "renders no arrow on inactive columns" do
       result = helper.sort_link_to("created", "created_at", current_sort: "name", current_dir: "asc")
       expect(result).not_to include("▲")
       expect(result).not_to include("▼")
+    end
+
+    it "renders the link text as the bare label (no trailing space, no glyph) on the active column" do
+      # The trailing-space + inline-glyph artefact is exactly the misalignment
+      # the CSS-pseudo-element approach fixes. Lock the contract: the link's
+      # text content is the label and nothing else.
+      result = helper.sort_link_to("duration", "duration", current_sort: "duration", current_dir: "asc")
+      link_text = Nokogiri::HTML.fragment(result).css("a").first.text
+      expect(link_text).to eq("duration")
     end
 
     # Dual-arrow bug fix (2026-05-06). The active column's link gets a

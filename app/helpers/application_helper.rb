@@ -76,9 +76,13 @@ module ApplicationHelper
 
   # Render a sortable column header as a `link_to` whose URL flips the
   # `sort` / `dir` query params while preserving every other URL param
-  # (filter chips, saved-view selectors, etc.). The active sort column
-  # gets a leading-arrow indicator (`▲` for asc, `▼` for desc); other
-  # columns render their plain label.
+  # (filter chips, saved-view selectors, etc.). The active sort column's
+  # link carries a `.sort-asc` / `.sort-desc` class; the directional
+  # arrow is rendered exclusively by CSS via the `::after`
+  # pseudo-element on the parent `th.sortable` (see the `:has()` rule
+  # in `app/assets/tailwind/application.css`). The link text itself is
+  # ALWAYS just the bare label — active and inactive headers share the
+  # same rendering pipeline so they line up at the pixel level.
   #
   # Used by the index pages whose order is driven by URL state — see
   # `ChannelsController` and `VideosController`. The `/projects` index
@@ -97,20 +101,24 @@ module ApplicationHelper
   # table's URL state distinct while preserving the other's params on
   # each click.
   #
-  # Dual-arrow fix (2026-05-06): the active column's link now carries a
-  # `.sort-asc` / `.sort-desc` class. The `th.sortable::after` neutral
-  # indicator is rendered by CSS unconditionally on every sortable
-  # header; the `:has(a.sort-asc | a.sort-desc)` rule in
-  # `app/assets/tailwind/application.css` suppresses that pseudo-element
-  # on the active column so only the inline arrow remains. Without the
-  # class, the active header rendered both the inline directional arrow
-  # AND the CSS neutral up/down stack at once.
+  # Dual-arrow fix (2026-05-06, refined 2026-05-06 polish-2): the active
+  # column's link carries a `.sort-asc` / `.sort-desc` class. The
+  # `th.sortable::after` neutral indicator is rendered by CSS
+  # unconditionally on every sortable header; the
+  # `:has(a.sort-asc | a.sort-desc)` rule in
+  # `app/assets/tailwind/application.css` overrides the neutral
+  # `▲\A▼` stack with a single directional glyph (`▲` or `▼`) on the
+  # active column. The arrow is NOT rendered as inline text inside the
+  # link — it rides exclusively through the CSS pseudo-element so the
+  # active and inactive states share the same rendering pipeline (same
+  # absolute-positioned `::after`, same `right: 1px` offset, same
+  # font-size). Inline-text arrows produced misaligned glyphs and a
+  # trailing space artefact next to active headers.
   def sort_link_to(label, key, current_sort:, current_dir:, sort_param: "sort", dir_param: "dir")
     next_dir = (current_sort == key && current_dir == "asc") ? "desc" : "asc"
     active = current_sort == key
-    indicator = active ? (current_dir == "asc" ? " ▲" : " ▼") : ""
     link_to(
-      "#{label}#{indicator}",
+      label,
       request.query_parameters.merge(sort_param => key, dir_param => next_dir),
       class: active ? "sort-#{current_dir}" : nil
     )

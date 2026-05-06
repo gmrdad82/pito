@@ -49,41 +49,47 @@ RSpec.describe "Channels", type: :request do
         expect(response.body).not_to match(/<th[^>]*>\s*syncing\s*</)
       end
 
-      it "displays 5 columns (select, Name, URL, star, last sync)" do
+      it "displays 5 columns (select, name, URL, star, last sync)" do
         get channels_path
-        # Phase B polish (2026-05-05) — select-all + Name + URL + star +
-        # last sync. The Name column is a YouTube-sync placeholder rendering
+        # Phase B polish (2026-05-05) — select-all + name + URL + star +
+        # last sync. The name column is a YouTube-sync placeholder rendering
         # `channel.id` as a link until sync populates real titles. The
         # legacy `[o]` open-action column was dropped (post-Wave-3K polish):
-        # the Name cell IS the show-page link, so a separate column was
+        # the name cell IS the show-page link, so a separate column was
         # redundant. Header text "starred" was shortened to "star" in a
         # 2026-05-06 polish; the underlying sort key stays `starred`.
+        # The `Name` header was lowercased to `name` in the 2026-05-06
+        # polish-2 pass to match the rest of the design-system column
+        # labels (lowercase by convention).
         thead = response.body.match(/<thead>(.*?)<\/thead>/m)[1]
         expect(thead.scan(/<th\b/).size).to eq(5)
       end
 
-      # Phase 4 Wave 3 — Name column. Placeholder for the YouTube channel
+      # Phase 4 Wave 3 — name column. Placeholder for the YouTube channel
       # title once sync lands. The cell currently renders `channel.id` as a
       # link to the show page so the column has stable content. Header is a
       # server-side sort link (`?sort=id&dir=<asc|desc>`), aligning with the
       # `/projects` index pattern.
-      it "renders a Name column header at column 2 (after the checkbox)" do
+      it "renders a lowercase `name` column header at column 2 (after the checkbox)" do
         get channels_path
         thead = response.body.match(/<thead>(.*?)<\/thead>/m)[1]
         # Pull the <th> elements in order. Column 1 is the select-all
-        # checkbox header; column 2 must be `Name`.
+        # checkbox header; column 2 must be `name` (lowercase).
         ths = Nokogiri::HTML.fragment(thead).css("th")
         expect(ths.length).to eq(5)
-        # The header text reads "Name" (with an optional ▲/▼ when active).
-        expect(ths[1].text.strip).to start_with("Name")
+        # The header text reads "name" — the directional arrow now rides
+        # via CSS `::after`, so the link text is just the label.
+        expect(ths[1].text.strip).to eq("name")
+        # And NOT the legacy "Name" capitalization.
+        expect(ths[1].text.strip).not_to start_with("Name")
       end
 
-      it "renders the Name header as a server-side sort link with sort + dir params" do
+      it "renders the name header as a server-side sort link with sort + dir params" do
         get channels_path
         html = Nokogiri::HTML.fragment(response.body)
-        link = html.css("thead a").find { |a| a.text.strip.start_with?("Name") }
+        link = html.css("thead a").find { |a| a.text.strip == "name" }
         expect(link).not_to be_nil
-        # Default state is `created_at desc`, so clicking Name should request
+        # Default state is `created_at desc`, so clicking name should request
         # `id asc`.
         expect(link["href"]).to include("sort=id")
         expect(link["href"]).to include("dir=asc")
@@ -91,7 +97,7 @@ RSpec.describe "Channels", type: :request do
         expect(link.to_html).not_to include("click->sortable-table#sort")
       end
 
-      it "renders the Name cell as a link to the channel show page" do
+      it "renders the name cell as a link to the channel show page" do
         get channels_path
         html = Nokogiri::HTML.fragment(response.body)
         row = html.css("tbody tr").first
@@ -294,18 +300,30 @@ RSpec.describe "Channels", type: :request do
         expect(ids).to eq(ids.sort_by(&:to_i).reverse)
       end
 
-      it "renders the active-sort indicator (▼) on the active column header" do
+      # Polish-2 (2026-05-06) — active-column indicator now rendered via
+      # CSS `::after` on the parent `<th>`, driven by the `sort-asc` /
+      # `sort-desc` class on the inner `<a>`. The link text is just the
+      # bare label so active and inactive headers line up identically.
+      it "stamps a `sort-desc` class on the active column link when dir=desc" do
         get channels_path, params: { sort: "id", dir: "desc" }
         html = Nokogiri::HTML.fragment(response.body)
-        link = html.css("thead a").find { |a| a.text.strip.start_with?("Name") }
-        expect(link.text).to include("▼")
+        link = html.css("thead a").find { |a| a.text.strip == "name" }
+        expect(link["class"].to_s.split).to include("sort-desc")
       end
 
-      it "renders the active-sort indicator (▲) when dir=asc" do
+      it "stamps a `sort-asc` class on the active column link when dir=asc" do
         get channels_path, params: { sort: "id", dir: "asc" }
         html = Nokogiri::HTML.fragment(response.body)
-        link = html.css("thead a").find { |a| a.text.strip.start_with?("Name") }
-        expect(link.text).to include("▲")
+        link = html.css("thead a").find { |a| a.text.strip == "name" }
+        expect(link["class"].to_s.split).to include("sort-asc")
+      end
+
+      it "does not render an inline ▲ / ▼ glyph in the active link's text" do
+        get channels_path, params: { sort: "id", dir: "desc" }
+        html = Nokogiri::HTML.fragment(response.body)
+        link = html.css("thead a").find { |a| a.text.strip == "name" }
+        expect(link.text).not_to include("▲")
+        expect(link.text).not_to include("▼")
       end
 
       it "ignores unknown sort keys and falls back to created_at" do
@@ -326,17 +344,17 @@ RSpec.describe "Channels", type: :request do
       end
 
       it "toggles direction when the same column is clicked twice" do
-        # First request — default state. The Name link should request `asc`.
+        # First request — default state. The name link should request `asc`.
         get channels_path
         html = Nokogiri::HTML.fragment(response.body)
-        link = html.css("thead a").find { |a| a.text.strip.start_with?("Name") }
+        link = html.css("thead a").find { |a| a.text.strip == "name" }
         expect(link["href"]).to include("dir=asc")
 
         # Second request — caller is now on `sort=id dir=asc`. The link should
         # offer the opposite direction.
         get channels_path, params: { sort: "id", dir: "asc" }
         html = Nokogiri::HTML.fragment(response.body)
-        link = html.css("thead a").find { |a| a.text.strip.start_with?("Name") }
+        link = html.css("thead a").find { |a| a.text.strip == "name" }
         expect(link["href"]).to include("dir=desc")
       end
 

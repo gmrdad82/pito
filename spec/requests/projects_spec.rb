@@ -149,12 +149,21 @@ RSpec.describe "Projects", type: :request do
         expect(names).to eq([ "Bravo", "Alpha" ])
       end
 
-      it "marks the active sort column with a direction indicator" do
+      it "marks the active sort column with a sort-{dir} class on the link" do
+        # Polish-2 (2026-05-06): the directional arrow is rendered via
+        # the CSS `::after` pseudo-element on the parent `<th>` (the
+        # `:has()` rule swaps the neutral `▲\A▼` stack for a single
+        # glyph when the link carries `.sort-asc` / `.sort-desc`). The
+        # link text is just the bare label so active and inactive
+        # headers line up identically at the pixel level.
         get projects_path
         html = Nokogiri::HTML.fragment(response.body)
-        active_header = html.css("thead a").find { |a| a.text.strip.start_with?("created") }
-        # Default is created_at desc → indicator is the ▼ glyph.
-        expect(active_header.text).to include("▼")
+        active_link = html.css("thead a").find { |a| a.text.strip == "created" }
+        # Default is created_at desc → class is sort-desc.
+        expect(active_link["class"].to_s.split).to include("sort-desc")
+        # And the link text carries no inline glyph anymore.
+        expect(active_link.text).not_to include("▼")
+        expect(active_link.text).not_to include("▲")
       end
 
       it "applies ?sort=footage_duration_seconds&dir=desc" do
@@ -546,11 +555,15 @@ RSpec.describe "Projects", type: :request do
         expect(lm_link["href"]).to include("notes_dir=asc")
       end
 
-      it "renders the descending arrow on the default `last_modified desc` sort" do
+      it "stamps a `sort-desc` class on the active link under the default `last_modified desc` sort" do
+        # Polish-2 (2026-05-06) — directional arrow now via CSS `::after`
+        # on the parent `<th>`, driven by the `sort-asc` / `sort-desc`
+        # class on the inner `<a>`. Assert on the class, not the rendered
+        # text — the link no longer carries an inline ▲ / ▼ glyph.
         get project_path(project)
         html = Nokogiri::HTML.fragment(response.body)
-        lm_th = notes_table_for(html).css("thead th").find { |th| th.text.include?("last modified") }
-        expect(lm_th.text).to include("▼")
+        lm_link = notes_table_for(html).css("thead a").find { |a| a.text.strip == "last modified" }
+        expect(lm_link["class"].to_s.split).to include("sort-desc")
       end
 
       # Dual-arrow bug fix (2026-05-06). The CSS `th.sortable::after`
@@ -1065,18 +1078,21 @@ RSpec.describe "Projects", type: :request do
           expect(filenames).to eq([ "long.mkv", "medium.mkv", "short.mkv" ])
         end
 
-        it "renders an ascending arrow when the active sort is asc" do
+        # Polish-2 (2026-05-06) — directional arrow now via CSS `::after`
+        # on the parent `<th>`, driven by the `sort-asc` / `sort-desc`
+        # class on the inner `<a>`. Assert on the class, not the text.
+        it "stamps a `sort-asc` class on the active link when dir=asc" do
           get project_path(project), params: { sort: "duration_seconds", dir: "asc" }
           html = Nokogiri::HTML.fragment(response.body)
-          duration_th = html.css("thead th").find { |th| th.text.include?("duration") }
-          expect(duration_th.text).to include("▲")
+          duration_link = html.css("thead a").find { |a| a.text.strip == "duration" }
+          expect(duration_link["class"].to_s.split).to include("sort-asc")
         end
 
-        it "renders a descending arrow when the active sort is desc" do
+        it "stamps a `sort-desc` class on the active link when dir=desc" do
           get project_path(project), params: { sort: "duration_seconds", dir: "desc" }
           html = Nokogiri::HTML.fragment(response.body)
-          duration_th = html.css("thead th").find { |th| th.text.include?("duration") }
-          expect(duration_th.text).to include("▼")
+          duration_link = html.css("thead a").find { |a| a.text.strip == "duration" }
+          expect(duration_link["class"].to_s.split).to include("sort-desc")
         end
 
         it "ignores unknown sort columns and falls back to the default" do
@@ -1154,25 +1170,32 @@ RSpec.describe "Projects", type: :request do
             expect(filenames).to eq([ "long.mkv", "medium.mkv", "short.mkv" ])
           end
 
-          it "renders the ▲ arrow on the active fps header when sort=fps&dir=asc" do
+          it "stamps a `sort-asc` class on the active fps link when sort=fps&dir=asc" do
+            # Polish-2 (2026-05-06) — directional arrow rendered via CSS
+            # `::after` on the parent `<th>`, driven by the `sort-asc` /
+            # `sort-desc` class on the inner `<a>`. Assert on the class.
             get project_path(project), params: { sort: "fps", dir: "asc" }
             html = Nokogiri::HTML.fragment(response.body)
-            fps_th = footage_table(html).css("thead th").find { |th| th.text.strip.gsub(/[▲▼]/, "").strip == "fps" }
-            expect(fps_th).not_to be_nil
-            expect(fps_th.text).to include("▲")
+            fps_link = footage_table(html).css("thead a").find { |a| a.text.strip == "fps" }
+            expect(fps_link).not_to be_nil
+            expect(fps_link["class"].to_s.split).to include("sort-asc")
           end
 
           it "ignores ?sort=drop_table and falls back to the local_path default safely" do
             # `local_path` is the default — alphabetical by import path.
             # The factory's filenames double as their local_path tail, so
             # `long.mkv` < `medium.mkv` < `short.mkv` alphabetically.
+            # `local_path` is NOT a header in the table (default-only
+            # sort key), so when an unknown sort key falls back to it,
+            # NO header link should carry the active sort class.
             get project_path(project), params: { sort: "drop_table_footages" }
             expect(response).to have_http_status(:ok)
             html = Nokogiri::HTML.fragment(response.body)
-            footage_th_with_arrow = footage_table(html).css("thead th").find { |th| th.text.match?(/[▲▼]/) }
-            # No allowlisted match → no active header (every header
-            # renders without an arrow on fallback).
-            expect(footage_th_with_arrow).to be_nil
+            footage_link_with_active_class = footage_table(html).css("thead a").find do |a|
+              klass = a["class"].to_s.split
+              klass.include?("sort-asc") || klass.include?("sort-desc")
+            end
+            expect(footage_link_with_active_class).to be_nil
           end
 
           it "sort_link_to URLs preserve unrelated query params (notes_sort / notes_dir)" do

@@ -84,8 +84,11 @@
                 the show page so the column has stable content. The legacy
                 `[o]` action column was dropped (2026-05-05 polish): the
                 Name cell IS the show-page link, so a separate open-action
-                cell was redundant. %>
-            <th class="sortable"><%= sort_link_to("Name", "id", current_sort: @sort, current_dir: @dir) %></th>
+                cell was redundant. The header text reads `name`
+                (lowercase) — Pito's design uses lowercase column labels
+                throughout (mirrors `last sync`, `star`, `URL` is the
+                acronym exception). %>
+            <th class="sortable"><%= sort_link_to("name", "id", current_sort: @sort, current_dir: @dir) %></th>
             <th>URL</th>
             <th class="sortable num"><%= sort_link_to("star", "starred", current_sort: @sort, current_dir: @dir) %></th>
             <th class="sortable num"><%= sort_link_to("last sync", "last_synced_at", current_sort: @sort, current_dir: @dir) %></th>

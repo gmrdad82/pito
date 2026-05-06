@@ -71,8 +71,9 @@
                 the show page so the column has stable content. The legacy
                 `[o]` action column was dropped (2026-05-05 polish): the
                 Name cell IS the show-page link, so a separate open-action
-                cell was redundant. %>
-            <th class="sortable"><%= sort_link_to("Name", "id", current_sort: @sort, current_dir: @dir) %></th>
+                cell was redundant. Lowercase `name` mirrors the
+                design-system convention (same as `/channels`). %>
+            <th class="sortable"><%= sort_link_to("name", "id", current_sort: @sort, current_dir: @dir) %></th>
             <th class="sortable"><%= sort_link_to("title", "title", current_sort: @sort, current_dir: @dir) %></th>
             <th>channel</th>
             <th class="num">views</th>

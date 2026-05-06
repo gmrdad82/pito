@@ -41,7 +41,7 @@ jobs:
       - name: Stage release artifact
         run: |
           mkdir -p dist
-          cp extras/cli/target/release/pito dist/pito
+          cp target/release/pito dist/pito
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2

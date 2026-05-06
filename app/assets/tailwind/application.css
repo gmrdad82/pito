@@ -329,12 +329,13 @@ table:not(.detail-table) tr:hover {
 /* Sortable headers.
    The neutral up/down indicator is drawn by the `::after` pseudo-element
    on every `th.sortable`. When the column is the active sort, the
-   server-rendered link gets a `.sort-asc` / `.sort-desc` class (via
-   `ApplicationHelper#sort_link_to`) and emits the directional arrow
-   inline as text — `:has()` lets us suppress the neutral pseudo-element
-   on the active column so only ONE indicator renders. Without the
-   `:has()` suppression, the active column shows both the inline arrow
-   AND the CSS up/down stack at once (the dual-arrow bug).
+   server-rendered link picks up a `.sort-asc` / `.sort-desc` class (via
+   `ApplicationHelper#sort_link_to`) and the `:has()` rule below swaps
+   the neutral two-glyph stack for a single directional glyph rendered
+   in the SAME pseudo-element. Both states share one rendering pipeline
+   (same absolute-positioned `::after`, same offset, same font sizing),
+   so active and inactive headers line up identically — no stray
+   trailing whitespace, no inline-text glyph drifting next to the label.
    The legacy `th.sort-asc` / `th.sort-desc` classes (set by the
    client-side `sortable_table_controller.js` on click) are preserved
    below for tables that opt into in-page JS sorting (channel + video
@@ -363,13 +364,22 @@ th.sortable::after {
 th.sortable:hover {
   background: var(--color-bg-header-hover);
 }
-/* Suppress the neutral indicator on URL-driven sort headers (server
-   sets `sort-asc` / `sort-desc` on the inner `<a>` via
-   `sort_link_to`). The directional arrow rides inline inside the link
-   text, so no CSS-rendered glyph is needed. */
-th.sortable:has(> a.sort-asc)::after,
+/* Active URL-driven sort headers (server stamps `sort-asc` / `sort-desc`
+   on the inner `<a>` via `sort_link_to`). Override the neutral
+   two-glyph stack with a single directional arrow rendered in the same
+   pseudo-element so the indicator's position is pixel-identical to the
+   inactive state. Bumped to a 13px glyph (was the 10px stack) so the
+   active arrow reads at the same visual weight as JS-driven sort
+   headers below. */
+th.sortable:has(> a.sort-asc)::after {
+  content: "\25B2";
+  font-size: 13px;
+  line-height: 1;
+}
 th.sortable:has(> a.sort-desc)::after {
-  content: none;
+  content: "\25BC";
+  font-size: 13px;
+  line-height: 1;
 }
 /* JS-driven client-side sortable tables (channel + video panes) flip
    `sort-asc` / `sort-desc` on the `<th>` itself. Replace the neutral
@@ -899,10 +909,66 @@ textarea.note-editor-source {
   padding-left: 8px;
   color: var(--color-muted);
 }
+/* Note editor — overflow override so the sticky words status pins to the
+   viewport's bottom (not the pane-container's, which would be a no-op
+   when its bottom edge is itself off-screen). The default
+   `.pane-container { overflow-x: auto }` rule combined with the spec's
+   computed-value behavior (one axis non-visible forces the other to
+   `auto`) makes the container a scroll container in both axes — that
+   traps `position: sticky` inside a region that has no internal scroll,
+   so nothing ever pins. `overflow: visible` here lets sticky propagate
+   up to the viewport.
+
+   Only applied to the note editor instance — every other pane-container
+   in the app (channels, videos, projects panes) keeps the original
+   horizontal-scroll behavior. Scoped to the desktop breakpoint so the
+   mobile override (which keeps `overflow-x: auto` for scroll-snap
+   between panes) isn't broken. */
+@media (min-width: 769px) {
+  .pane-container--note-editor {
+    overflow: visible;
+  }
+}
+
+/* Source pane on /notes/:id — flex column so the .markdown-status can
+   sit naturally at the end of the pane (after the textarea) AND
+   align-self to the right edge. The textarea grows with content; the
+   status sticks to the viewport bottom while any part of this wrapper
+   is on screen. */
+.pane-wrapper--note-source {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Words counter — sticks to the bottom of the source pane while the
+   user scrolls a long note. Spans the full width of the pane (negative
+   margins cancel the wrapper's asymmetric left/right padding: 16px on
+   the left because of `.pane-wrapper + .pane-wrapper { padding-left }`,
+   12px on the right) with the text right-aligned. Opaque background
+   matches the right pane's tone (`--color-pane-bg-b`, since the source
+   pane is the second / even child of `.pane-container`) so scrolled-up
+   content doesn't bleed through; top border separates it from the
+   textarea above.
+
+   `margin-top: auto` pushes the bar to the bottom of the source pane
+   when the pane is stretched taller than its textarea (e.g. short note
+   with a tall preview on the left). Combined with `position: sticky;
+   bottom: 0`, the bar then pins to the viewport bottom while any part
+   of the source pane is on screen.
+
+   Without the `.pane-container--note-editor { overflow: visible }`
+   override above, sticky would be trapped inside the pane-container's
+   scroll context and never pin to the viewport. */
 .markdown-status {
-  margin-top: 4px;
   font-size: 11px;
   text-align: right;
+  position: sticky;
+  bottom: 0;
+  background: var(--color-pane-bg-b);
+  border-top: 1px solid var(--color-border);
+  padding: 4px 12px;
+  margin: auto -12px -12px -16px;
+  z-index: 1;
 }
 
 /* Mobile utilities */

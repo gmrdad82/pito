@@ -16,9 +16,10 @@
       view stays bookmarkable + shareable.
     - Headers carry `class="sortable"` so the shared CSS treatment
       applies (cursor: pointer, ▲▼ neutral indicator on inactive
-      columns, hover background, single-arrow override on the active
-      column). Mirrors the `_notes_pane.html.erb` and `/projects`
-      index conventions. URL params stay namespaced as plain
+      columns, hover background, single directional glyph on the
+      active column rendered via the same CSS `::after`
+      pseudo-element). Mirrors the `_notes_pane.html.erb` and
+      `/projects` index conventions. URL params stay namespaced as plain
       `sort` / `dir` (no `footage_` prefix) — the notes table uses
       `notes_sort` / `notes_dir` to coexist on the same page.
   Locals:

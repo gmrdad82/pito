@@ -14,4 +14,4 @@ pin "Chart.bundle", to: "Chart.bundle.js"
 # default — `dompurify` runs over the rendered HTML before injection.
 # Pinned via jsDelivr ESM bundles for importmap compatibility.
 pin "marked", to: "https://cdn.jsdelivr.net/npm/marked@15.0.7/lib/marked.esm.js"
-pin "dompurify", to: "https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.es.mjs"
+pin "dompurify", to: "https://cdn.jsdelivr.net/npm/dompurify@3.4.2/dist/purify.es.mjs"

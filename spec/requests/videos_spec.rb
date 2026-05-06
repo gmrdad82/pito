@@ -50,32 +50,34 @@ RSpec.describe "Videos", type: :request do
         expect(response.body).not_to include('class="bl">o</span>')
       end
 
-      # Phase 4 Wave 3 — Name column. Placeholder for the YouTube video
+      # Phase 4 Wave 3 — name column. Placeholder for the YouTube video
       # title once sync lands. The cell currently renders `video.id` as a
       # link to the show page so the column has stable content. Header is
       # a server-side sort link (`?sort=id&dir=<asc|desc>`), aligning with
-      # the `/projects` index pattern.
-      it "renders a Name column header at column 2 (after the checkbox)" do
+      # the `/projects` index pattern. Header text was lowercased from
+      # `Name` to `name` in the 2026-05-06 polish-2 pass to match the
+      # rest of the design-system column labels.
+      it "renders a lowercase `name` column header at column 2 (after the checkbox)" do
         get videos_path
         thead = response.body.match(/<thead>(.*?)<\/thead>/m)[1]
         ths = Nokogiri::HTML.fragment(thead).css("th")
-        # Column 1 is the select-all checkbox; column 2 must be `Name`.
-        expect(ths[1].text.strip).to start_with("Name")
+        # Column 1 is the select-all checkbox; column 2 must be `name`.
+        expect(ths[1].text.strip).to eq("name")
       end
 
-      it "renders the Name header as a server-side sort link with sort + dir params" do
+      it "renders the name header as a server-side sort link with sort + dir params" do
         get videos_path
         html = Nokogiri::HTML.fragment(response.body)
-        link = html.css("thead a").find { |a| a.text.strip.start_with?("Name") }
+        link = html.css("thead a").find { |a| a.text.strip == "name" }
         expect(link).not_to be_nil
-        # Default state is `published_at desc`, so clicking Name should
+        # Default state is `published_at desc`, so clicking name should
         # request `id asc`.
         expect(link["href"]).to include("sort=id")
         expect(link["href"]).to include("dir=asc")
         expect(link.to_html).not_to include("click->sortable-table#sort")
       end
 
-      it "renders the Name cell as a link to the video show page" do
+      it "renders the name cell as a link to the video show page" do
         get videos_path
         html = Nokogiri::HTML.fragment(response.body)
         row = html.css("tbody tr").first
@@ -248,25 +250,31 @@ RSpec.describe "Videos", type: :request do
         expect(ids).to eq(ids.sort_by(&:to_i))
       end
 
-      it "renders the active-sort indicator (▼) on the active column header" do
+      # Polish-2 (2026-05-06) — active-column indicator now rendered via
+      # CSS `::after` on the parent `<th>`, driven by the `sort-asc` /
+      # `sort-desc` class on the inner `<a>`. The link text is just the
+      # bare label.
+      it "stamps a `sort-desc` class on the active column link when dir=desc" do
         get videos_path, params: { sort: "title", dir: "desc" }
         html = Nokogiri::HTML.fragment(response.body)
-        link = html.css("thead a").find { |a| a.text.strip.start_with?("title") }
-        expect(link.text).to include("▼")
+        link = html.css("thead a").find { |a| a.text.strip == "title" }
+        expect(link["class"].to_s.split).to include("sort-desc")
       end
 
-      it "renders the active-sort indicator (▲) when dir=asc" do
+      it "stamps a `sort-asc` class on the active column link when dir=asc" do
         get videos_path, params: { sort: "title", dir: "asc" }
         html = Nokogiri::HTML.fragment(response.body)
-        link = html.css("thead a").find { |a| a.text.strip.start_with?("title") }
-        expect(link.text).to include("▲")
+        link = html.css("thead a").find { |a| a.text.strip == "title" }
+        expect(link["class"].to_s.split).to include("sort-asc")
       end
 
-      it "renders sort links for Name / title / date headers" do
+      it "renders sort links for name / title / date headers" do
         get videos_path
         html = Nokogiri::HTML.fragment(response.body)
-        links = html.css("thead a").map { |a| a.text.strip.gsub(/[▲▼]/, "").strip }
-        expect(links).to include("Name", "title", "date")
+        links = html.css("thead a").map { |a| a.text.strip }
+        # `Name` was lowercased to `name` in the 2026-05-06 polish-2 pass
+        # to match the rest of Pito's column-label convention.
+        expect(links).to include("name", "title", "date")
       end
 
       it "leaves aggregate columns (views / trend / likes / chats / watch / state / length) as plain headers" do
