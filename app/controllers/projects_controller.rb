@@ -14,11 +14,18 @@ class ProjectsController < ApplicationController
 
   # Phase 4 Wave 2 — sortable `/projects` index. URL params drive the order
   # so the view stays bookmarkable / shareable, mirroring `ChannelsController`.
+  #
+  # Wave 3.5+ aggregates revamp (2026-05-06): the index footage / notes
+  # columns now sort by the cached aggregate values
+  # (`footage_duration_seconds`, `notes_words_total`) rather than the raw
+  # row counts. The counter caches stay on the model for the show-page
+  # `(N)` headings and any future use; they're just no longer wired into
+  # this allowlist.
   ALLOWED_SORTS = {
     "name" => "projects.name",
     "created_at" => "projects.created_at",
-    "footages_count" => "projects.footages_count",
-    "notes_count" => "projects.notes_count",
+    "footage_duration_seconds" => "projects.footage_duration_seconds",
+    "notes_words_total" => "projects.notes_words_total",
     "timelines_count" => "projects.timelines_count"
   }.freeze
   ALLOWED_DIRS = %w[asc desc].freeze
@@ -48,6 +55,18 @@ class ProjectsController < ApplicationController
   # footage has > 1 distinct value for the dimension.
   FOOTAGE_FILTER_DIMENSIONS = %i[game fps resolution bit_depth source].freeze
 
+  # Notes table sort. Lives alongside the footage table on the same
+  # show page, so URL params are namespaced (`notes_sort` / `notes_dir`)
+  # to keep each table's URL state independent. `last_modified` is the
+  # default — most-recently-modified first matches the legacy ordering.
+  NOTES_SORT_COLUMNS = {
+    "title"         => "notes.title",
+    "words"         => "notes.words_count",
+    "last_modified" => "notes.last_modified_at"
+  }.freeze
+  NOTES_DEFAULT_SORT = "last_modified".freeze
+  NOTES_DEFAULT_DIR  = "desc".freeze
+
   def index
     @projects = Project.order(sort_clause)
     @sort = sanitized_sort_key
@@ -56,7 +75,9 @@ class ProjectsController < ApplicationController
 
   def show
     @project = Project.find(params[:id])
-    @notes = @project.notes.order(last_modified_at: :desc)
+    @notes_sort = sanitized_notes_sort_key
+    @notes_dir  = sanitized_notes_dir
+    @notes = @project.notes.order(notes_order_clause)
     @timelines = @project.timelines.order(created_at: :desc)
     @notes_locked = NotesLockGuard.locked?(@project.tenant)
 
@@ -172,10 +193,13 @@ class ProjectsController < ApplicationController
     options[:bit_depth] = bit_depths.size > 1 ? bit_depths.map { |b| { value: b.to_s, label: "#{b}-bit" } } : []
 
     # source — enum, surfaced as the string accessor (`obs` / `camera`).
+    # The chip label uses `FootageHelper#human_source` so the user-facing
+    # text matches the table column (`OBS` / `Camera`); the URL value
+    # stays the raw enum string so filter URLs remain canonical.
     sources = scope.distinct.pluck(:source).compact.sort
     # `source` is an enum integer column; `pluck(:source)` returns the
     # mapped string thanks to ActiveRecord's enum decoding. Stable sort.
-    options[:source] = sources.size > 1 ? sources.map { |s| { value: s, label: s } } : []
+    options[:source] = sources.size > 1 ? sources.map { |s| { value: s, label: helpers.human_source(s) } } : []
 
     options
   end
@@ -222,5 +246,26 @@ class ProjectsController < ApplicationController
 
   def active_footage_filters
     FOOTAGE_FILTER_DIMENSIONS.select { |k| params[k].present? }
+  end
+
+  # ---- Notes table helpers ----------------------------------------------
+
+  def sanitized_notes_sort_key
+    NOTES_SORT_COLUMNS.key?(params[:notes_sort]) ? params[:notes_sort] : NOTES_DEFAULT_SORT
+  end
+
+  def sanitized_notes_dir
+    requested = params[:notes_dir]&.downcase
+    ALLOWED_DIRS.include?(requested) ? requested : NOTES_DEFAULT_DIR
+  end
+
+  def notes_order_clause
+    # Both fragments derive from frozen allowlists (NOTES_SORT_COLUMNS,
+    # ALLOWED_DIRS) and never contain user input. The inline-ternary
+    # shape mirrors `ChannelsController#sort_clause` so Brakeman's flow
+    # analysis trusts the literals through the allowlist.
+    column = NOTES_SORT_COLUMNS[params[:notes_sort]] || NOTES_SORT_COLUMNS[NOTES_DEFAULT_SORT]
+    direction = ALLOWED_DIRS.include?(params[:notes_dir]&.downcase) ? params[:notes_dir].downcase : NOTES_DEFAULT_DIR
+    Arel.sql("#{column} #{direction}")
   end
 end

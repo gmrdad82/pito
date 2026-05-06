@@ -2793,3 +2793,619 @@ classifies them as `[chg]`, the user confirms, and the PATCH lands
 - The settings restructure landed in Wave 1 but the screenshot-walkthrough the
   user requested is queued as a manual step the architect runs before
   committing.
+
+## 2026-05-06 — Wave 3 + 3.5 + 4 + 4.5 consolidated polish (pane colors · always-on bulk · list table polish · note words rework · URL + filename middle-truncation · helper unification · navbar gap)
+
+A multi-step in-flight wave that landed across several rails-only parallel
+dispatches on top of `dd84eea`. View-dominant, plus one schema change
+(`chars_count` drop) and one one-shot data backfill on `notes`. No MCP, auth, or
+Rust touched. Reviewer playbooks under
+`docs/orchestration/playbooks/2026-05-06-wave3-*.md`.
+
+The narrative below is in chronological / dependency order; a single final
+consolidation pass collapses the per-dispatch logging into this unified entry.
+
+### Wave 3 — 3-color pane system · notes always-on · list table polish
+
+**Lane I — 3-color pane token system.** Three CSS pane-bg tokens replaced the
+singular `--color-pane-bg`:
+
+- `--color-pane-bg-a` — odd / first-row tone.
+- `--color-pane-bg-b` — even / alternating tone (also drives the table zebra
+  rule on `tbody tr:nth-child(even)`).
+- `--color-pane-bg-wide` — full-row / `:only-child` tone for solo panes and
+  full-width rows.
+
+Light hex `#f4f6f8` / `#eef0f3` / `#eef2f7`; dark hex `#2f3142` / `#353748` /
+`#2d3344`. Applied across project show, settings index, channels show, videos
+show via existing `.pane-wrapper` selectors plus `:nth-child(even)` and
+`:only-child` modifiers. 12px gap between stacked rows; settings rows capped at
+`max-width: 880px` and centered. Reviewer post-patch extended the `:only-child`
+rule to `flex: 1 1 auto; width: 100%; max-width: 100%` so lone panes restore
+full container width while keeping the wide tone.
+
+**Lane J — Project notes pane always-on bulk.** Dropped the `[bulk]` toggle and
+`[cancel]` link from the project notes pane; removed `hidden` from the checkbox
+cells. Header select-all + bulk toolbar render always; self-hide is driven by
+the existing `bulk-select` Stimulus controller's count-based visibility. No JS
+controller changes — markup-only.
+
+**Lane K — Channels + videos + projects list table polish.** Inserted `Name`
+column at position 2 on `/channels` and `/videos` (cell:
+`link_to channel.id, channel_path(channel)` — integer PK becomes a row-show
+link). `ChannelsController::ALLOWED_SORTS` gained `"id" => "channels.id"`.
+`VideosController` gained forward-looking `ALLOWED_SORTS` / `ALLOWED_DIRS`
+constants (parity with channels). The `/projects` index dropped its `[o]` action
+column.
+
+### Wave 3.5 — Notes pane: drop chars, right-align last modified, sortable headers
+
+Project show notes pane:
+
+- Dropped the `<th>chars</th>` header and per-row chars cell. Table is now
+  `select / title / words / last modified` (4 columns).
+- `words` and `last modified` carry the shared `.num` class on header AND row
+  (right-aligned, tabular-nums). No new CSS class.
+- Sortable headers: `title` (`notes.title`), `words` (`notes.words_count`),
+  `last_modified` (`notes.last_modified_at`). `▲` / `▼` arrow indicator on the
+  active column. Default sort `last_modified desc`.
+- `ApplicationHelper#sort_link_to` extended with `sort_param:` / `dir_param:`
+  kwargs (defaults `"sort"` / `"dir"`) so the notes pane's `notes_sort` /
+  `notes_dir` URL namespace coexists with the footage table's default `sort` /
+  `dir` on the same show page. `request.query_parameters.merge(...)` semantics
+  keep both alive across clicks.
+- `ProjectsController#show` wired through `NOTES_SORT_COLUMNS` /
+  `NOTES_DEFAULT_SORT` / `NOTES_DEFAULT_DIR` constants and a
+  `sanitized_notes_sort_key` / `sanitized_notes_dir` / `notes_order_clause`
+  private trio (same allowlist + inline-ternary shape used for the footage table
+  to keep Brakeman happy).
+
+### Wave 4 — Note chars/words rework + footage filename fixed-truncate
+
+**Note chars/words rework (Wave 4 sibling dispatch).**
+
+- Migration `20260506000001_remove_chars_count_from_notes.rb` removed the
+  `chars_count` column from `notes`. Reversible: `down` re-adds the column with
+  the original `null: false, default: 0`.
+- The note editor's status bar dropped the chars indicator; only `<words> words`
+  remains.
+- `Note#calculate_word_count` (since superseded — see Wave 4.5 below) became
+  markdown-aware: render to HTML via Commonmarker, strip tags, tokenize
+  `\p{Word}+`. `# Hi\nHow are you all doing?` reports 6 words (the `#` heading
+  marker is consumed by the markdown render and never reaches the tokenizer).
+  Code-fence content DOES contribute (the text inside the fence renders as plain
+  text inside `<pre><code>`), so ` ```\nfoo\n``` ` counts as 1 word.
+
+**Footage filename fixed-truncate (Wave 4 sibling dispatch).** Replaced the
+earlier CSS-flex two-span pattern (`filename_split` returning a `[head, tail]`
+tuple keyed off `FOOTAGE_FILENAME_TAIL = 23`) with a server-side fixed-length
+form. New `FootageHelper#filename_truncate_middle` returns a single string
+`<head>…<tail>` (8 + 1 + 12 = 21 chars by default) with a Unicode ellipsis
+(U+2026) — never three ASCII dots. OBS-style filenames now render as
+`Ghost 'n…23-11-43.mkv`. The view dropped the `.filename-head` /
+`.filename-tail` spans; the `<td>` keeps the full filename in `title=` for
+hover-reveal.
+
+### Wave 4.5 — `[o]` drop · URL middle-truncation · navbar gap
+
+**`[o]` drop on `/channels` and `/videos`.** Mirrored the `/projects` Wave 3K
+polish — the Name cell IS the show-page link, so a separate `[o]` open-action
+cell was redundant. Channel picker column count 6 → 5 (select / Name / URL /
+starred / last sync). Video index 13 → 12 (select / Name / title / channel /
+views / trend / likes / chats / watch / state / date / length).
+
+**URL column middle-truncation on `/channels` and `/videos`.** Long YouTube
+channel URLs were overflowing on narrow viewports. First landed as a CSS-flex
+two-span pattern with a `ApplicationHelper#middle_truncate(str, tail:)`
+returning `[head, tail]` plus a `.middle-truncate-cell` /
+`.middle-truncate-head` / `.middle-truncate-tail` CSS triplet. (The final
+consolidation pass below reshaped this — see Wave 4.5 consolidation — into a
+single fixed-length string mirroring the footage filename approach.)
+
+**Navbar-to-heading gap.** Header is `position: fixed; height: 32px;` so the
+wrapper `padding-top: 32px` is the floor (anything less puts content under the
+navbar). Tightened the inner `<main>` from `padding: 8px 12px` to
+`padding: 0 12px 8px 12px` so the visible gap on pages without a breadcrumb is
+~0px and on pages with one is ~16-22px (breadcrumb line + its
+`margin-bottom: 6px`).
+
+### Wave 4.5 consolidation — generic `middle_truncate` · `NoteHelper.word_count` · words backfill
+
+Final pass over the in-flight bundle to unify primitives and clean up loose
+ends.
+
+**Generic `ApplicationHelper#middle_truncate(str, head:, tail:)`.** Refactored
+from the `[head, tail]` tuple shape introduced in Wave 4.5 to a single-string
+form returning `<head>…<tail>` (Unicode ellipsis, U+2026).
+`FootageHelper#filename_truncate_middle` is now a thin wrapper that pins the
+footage-specific defaults (8 / 12) and delegates. The `/channels` URL column and
+the `/videos` channel-URL column adopted the same single-string shape — link
+text now reads e.g. `https://…jF7eS8r1` (head=8 / tail=8) with the full URL on
+the `<td>`'s `title` attribute. The `.middle-truncate-cell` /
+`.middle-truncate-head` / `.middle-truncate-tail` CSS triplet was deleted (no
+consumers remained); the markup is a single inline text node now.
+
+**`NoteHelper.word_count` extraction.** The markdown-aware tokenizer moved out
+of the `Note` model and into a dedicated `NoteHelper` module under
+`app/helpers/`. The model's `before_save :recompute_counts` delegates via
+`NoteHelper.word_count(body_for_counts)`. Implementation unchanged (Commonmarker
+→ strip_tags → `\p{Word}+`); only the home moved. `Note.calculate_word_count`
+was deleted (no other callers post-grep). The `markdown_editor_controller.js`
+doc comment updated to reference the new helper name.
+
+**Backfill migration.** New
+`db/migrate/20260506011259_backfill_note_words_count.rb` recomputes
+`notes.words_count` against the markdown-aware tokenizer for existing rows. The
+original `20260504000012_add_counts_to_notes` backfill used a whitespace
+tokenizer (`body.scan(/\S+/).size`); switching the algorithm changes counts on
+existing rows (the user's "Hi" note moves from `7` to `6`). One-way migration:
+`down` is a documented no-op. Smoke against the dev DB:
+`Note.find_by(title: "Hi").words_count` reads `6` after the migration runs (was
+`7`).
+
+**Breadcrumb gap audit.** Verified the Wave 4.5 analysis. Wrapper
+`padding-top: 32px` (header clearance, immutable). `<main>`
+`padding: 0 12px 8px 12px` (zero top). `h1:first-child { margin-top: 0; }`
+already in place; `<nav>` (breadcrumb) carries no default browser margin. Net
+visible gap from header bottom to first content row is ~0px on pages without a
+breadcrumb and ~16-22px on pages with one (breadcrumb line height ~16px + its
+inline `margin-bottom: 6px`). No additional sources of vertical space found;
+accepted Wave 4.5's analysis without further change.
+
+### Verification
+
+- `bundle exec rspec` — **1280 examples, 0 failures** (full suite).
+- `bundle exec rubocop` on every changed Ruby file: 11 files, 0 offenses.
+- `bin/brakeman -q -w2` — **0 errors, 0 security warnings**.
+- Hard-rules audit — no `data-turbo-confirm` / `window.confirm` / `alert(` /
+  `prompt(` introduced; the only legacy hit remains the documented
+  `unsaved_form_controller.js` `beforeunload` carve-out.
+- Migration round-trip: `20260506011259` is data-only, `down` is a no-op by
+  design; the chars-drop migration `20260506000001` was already verified
+  reversible by the Wave 4 sibling dispatch.
+- Smoke (`bin/dev`): `Note.find_by(title: "Hi").words_count` reads `6` (was `7`
+  under the legacy whitespace tokenizer).
+
+### Files touched (cumulative across the wave)
+
+- `app/helpers/application_helper.rb` — `sort_link_to` `sort_param:` /
+  `dir_param:` kwargs; `middle_truncate(head:, tail:)` generic single-string
+  helper with shared `ELLIPSIS` constant.
+- `app/helpers/footage_helper.rb` — `filename_truncate_middle` delegates to
+  `middle_truncate`; `FILENAME_HEAD` / `FILENAME_TAIL` constants pin defaults.
+- `app/helpers/note_helper.rb` (new) — `word_count(body)` markdown- aware
+  tokenizer.
+- `app/models/note.rb` — `recompute_counts` delegates to
+  `NoteHelper.word_count`; `calculate_word_count` class method removed.
+- `app/javascript/controllers/markdown_editor_controller.js` — doc comment now
+  references `NoteHelper.word_count`.
+- `app/controllers/projects_controller.rb` — notes-table `NOTES_SORT_COLUMNS`
+  constant + sanitization helpers.
+- `app/views/projects/show.html.erb` — passes notes-pane `sort` / `dir` locals.
+- `app/views/projects/_notes_pane.html.erb` — chars column drop, `.num` on words
+  / last-modified headers, sortable links via namespaced `notes_sort` /
+  `notes_dir`.
+- `app/views/channels/_picker.html.erb` — `[o]` column drop, URL cell as a
+  single-string truncated link with `title=<full URL>`.
+- `app/views/videos/index.html.erb` — `[o]` column drop, channel URL cell same
+  shape.
+- `app/views/layouts/application.html.erb` — `<main>` padding `0 12px 8px 12px`;
+  comment captures the rationale.
+- `app/assets/tailwind/application.css` — `.middle-truncate-*` triplet removed;
+  pane-bg 3-color tokens; `:only-child` full-width override.
+- `db/migrate/20260506000001_remove_chars_count_from_notes.rb` (new) — drop
+  `notes.chars_count`, reversible.
+- `db/migrate/20260506011259_backfill_note_words_count.rb` (new) — one-way data
+  backfill via `NoteHelper.word_count`.
+- `db/schema.rb` — regenerated.
+- `spec/helpers/application_helper_spec.rb` — `#middle_truncate` describe
+  rewritten for single-string return; `#sort_link_to` describe; `#nav_link` etc.
+  unchanged.
+- `spec/helpers/footage_helper_spec.rb` — pre-existing
+  `filename_truncate_middle` describe still passes through delegation.
+- `spec/helpers/note_helper_spec.rb` (new) — 10 examples covering empty / blank
+  / plain prose / heading / list / code-fence / emphasis-link / unicode /
+  module_function shape.
+- `spec/models/note_spec.rb` — replaced the old class-level
+  `.calculate_word_count` describe with an integration describe that asserts
+  `body_for_counts` → `NoteHelper.word_count` → save delegation, plus a sentinel
+  that `.calculate_word_count` no longer exists.
+- `spec/requests/channels_spec.rb` — column count 6 → 5; URL cell asserted as a
+  single truncated text node with `title=<full URL>` (no two-span markup).
+- `spec/requests/videos_spec.rb` — `[o]` regression spec, `td[3]` → `td[2]`
+  shifts, channel URL cell same single-string assertion; pre-existing
+  `target=_blank` assertion rewritten via Nokogiri to cope with `link_to`'s
+  attribute order.
+- `spec/requests/projects_spec.rb` — notes pane column drop + alignment + sort
+  describe (19 examples).
+
+**Commit.** `<commit-hash-placeholder>` on 2026-05-06 (architect replaces
+post-commit).
+
+### Open issues
+
+- `Project#name` JSON serialization unchanged; the CLI footage end-to-end review
+  remains queued under `docs/orchestration/follow-ups.md`.
+- Reviewer follow-ups from earlier waves (mixed string / symbol query-param
+  keys; `.filename-cell` flex-on-`<td>` mobile eyeball; bulk_select_controller
+  comments) untouched — see follow-ups file.
+
+## Wave 4.6 polish — table widths, header renames, navbar gap (2026-05-06)
+
+Four discrete polish items from the user, addressed in one pass.
+
+### What changed
+
+1. **Footage table headers + fps width.** `_footage_pane.html.erb` colgroup
+   tightened: fps `60px` → `48px`. Header "bit depth" → "bit", "filesize" →
+   "size". Underlying sort keys (`bit_depth`, `filesize_bytes`) and cell
+   data (`8-bit`, `1.05 GB`) unchanged. `<col>` comments updated.
+2. **Channels list — explicit width + "starred" → "star".** `_picker.html.erb`
+   gains a `<colgroup>` (40 / 60 / 200 / 80 / 100 = 480 px) and an explicit
+   `table-layout: fixed; width: 480px` on the table. `width: auto` is NOT
+   sufficient under fixed table layout — the table stretches to the
+   containing block and dumps the slack on the last column, so an
+   explicit width is required. Header text "starred" → "star"; sort key
+   stays `starred`. Measured: rendered table is 481 px wide (1 px border
+   overhead).
+3. **Videos list — same treatment.** `index.html.erb` gains a 12-column
+   `<colgroup>` (40 / 60 / 280 / 200 / 80 / 60 / 80 / 80 / 80 / 80 / 100 /
+   80 = 1220 px) and an explicit `table-layout: fixed; width: 1220px`.
+   Measured: rendered table is 1221 px wide. The title `<td>`'s redundant
+   `max-width: 280px` inline style was dropped (the colgroup binds the
+   width under fixed layout). Videos has no `starred` column; nothing to
+   rename.
+4. **Navbar → page-heading gap (the "80-100 px gap" the user reported).**
+   ROOT CAUSE: a malformed ERB comment in `application.html.erb` was
+   spilling raw text into `<head>` between `<head>` and `<title>`. The
+   comment contained the literal token sequence `<%%= %>`, and Rails ERB
+   terminates `<%# ... %>` blocks at the FIRST `%>` it sees, regardless
+   of context. So the comment closed early at the embedded `%>`,
+   dumping three lines of explanation text into the live document.
+   Browsers (Chromium, observed via headless Brave) reject non-whitespace
+   text immediately after `<head>` and force-close `<head>`, then
+   reparse `<title>` / `<meta>` / `<link>` / `<script>` / `<header>` /
+   the wrapper `<div>` as `<body>` children. The stray text became a
+   non-zero text-node inside `<body>` that pushed the wrapper down by
+   ~18 px (visible as the "gap" below the fixed navbar). Fix: rewrite
+   the comment to avoid both backticks-with-`%>` literals AND any
+   `<%%=` / `%>` token sequences inside the comment block.
+
+### Measurements
+
+Headless Brave (`/opt/brave-bin/brave --headless=new`) driving the
+DevTools Protocol over a local debugging port, reading
+`getBoundingClientRect()` on the rendered page.
+
+| Page                | Before fix         | After fix          |
+| ------------------- | ------------------ | ------------------ |
+| `/channels`         | nav→h1 = 18.19 px  | nav→h1 = 0.00 px   |
+| `/videos`           | (same as above)    | nav→h1 = 0.00 px   |
+| `/projects/1`       | nav→breadcrumb 18  | nav→breadcrumb 0   |
+
+The user-reported 80-100 px gap was ~18 px in our headless measurement
+(18 px is the height of one wrapped `<text>` node at 13 px font-size
+× 1.4 line-height). The user's larger visual estimate likely included
+the breadcrumb itself plus its `margin-bottom: 6px` plus the h1's own
+line height, all stacked on top of the broken-comment text node.
+Either way: with the comment fixed, the gap drops to **0 px** on
+pages without a breadcrumb and **~26 px** on pages with one (purely
+the breadcrumb itself + its margin), exactly matching the layout
+documented in the wrapper-padding comment.
+
+### Verification
+
+- `bundle exec rspec` — 1280 examples, 0 failures.
+- `bundle exec rubocop` — 289 files, no offenses.
+- `bin/brakeman -q` — 0 errors, 0 warnings.
+- Live smoke via headless Brave on `https://app.pitomd.com/` :
+  - `/channels` table width 481 px, headers `<empty> / Name / URL /
+    star / last sync` at 40 / 60 / 200 / 80 / 100. Heading flush
+    under navbar.
+  - `/videos` table width 1221 px, all 12 column widths exactly as
+    declared. Heading flush under navbar.
+  - `/projects/1` footage table headers read `filename / game /
+    resolution / fps / bit / duration / size / source`. fps column
+    proportionally tighter (~83 → ~66 px on a 1307 px-wide table —
+    fps's share of the colgroup-sum dropped from 7.79 % to 6.33 %).
+
+### Files touched
+
+- `app/views/layouts/application.html.erb` — rewrote the title-block
+  ERB comment to avoid embedded `%>` token sequences (the actual
+  navbar-gap fix).
+- `app/views/projects/_footage_pane.html.erb` — fps `60px` → `48px`,
+  header text "bit depth" → "bit", "filesize" → "size", sort keys
+  unchanged. Block comment updated.
+- `app/views/channels/_picker.html.erb` — `<colgroup>` added,
+  `table-layout: fixed; width: 480px`, header "starred" → "star".
+- `app/views/videos/index.html.erb` — `<colgroup>` added,
+  `table-layout: fixed; width: 1220px`, redundant inline
+  `max-width: 280px` on title cell dropped.
+- `spec/requests/channels_spec.rb` — column-count test name updated
+  (5 cols still); `starred` → `star` header-text assertions in two
+  describe blocks; sort key stays `starred`.
+- `spec/requests/projects_spec.rb` — footage-headers expectation
+  updated to the new short labels.
+
+### Hard-rules audit
+
+- No JS `alert` / `confirm` / `prompt` / `data-turbo-confirm`
+  introduced.
+- No new boolean URL params; existing `?star=yes` filter unchanged.
+- Secrets policy — N/A (UI / spec changes only).
+- No cross-stack files touched (`extras/cli/`, `extras/website/`,
+  `docs/decisions/` all untouched).
+
+### Open issues (post-Wave 4.6)
+
+- The two earlier "Wave 4 / Wave 4.5" claims that the gap was 0-22 px
+  were partially correct — they computed the layout math correctly,
+  but did not account for the broken comment producing a stray text
+  node. Now resolved end-to-end.
+- Pre-existing follow-ups from prior waves (mixed string / symbol
+  query-param keys; `.filename-cell` flex-on-`<td>` mobile eyeball;
+  bulk_select_controller comments) still queued — see
+  `docs/orchestration/follow-ups.md`.
+
+## 2026-05-06 — Wave 3.5+ — `/projects` index aggregate caches
+
+**Driver.** Replace count-of-rows on `/projects` with summed
+aggregates so the index renders information-dense values
+(footage **duration** sum, notes **word** sum) instead of bare row
+counts. Avoid recomputing on every render by caching the sums on the
+`projects` table and maintaining them via callbacks on `Footage` /
+`Note`.
+
+### What changed
+
+- **Two new aggregate-cache columns on `projects`**
+  (`footage_duration_seconds`, `notes_words_total`, both
+  `integer NOT NULL DEFAULT 0`) added by
+  `db/migrate/20260506105252_add_aggregate_caches_to_projects.rb`.
+  The existing counter caches (`footages_count`, `notes_count`,
+  `timelines_count`) stay; the show-page `(N)` headings still use
+  them.
+- **Backfill migration**
+  `db/migrate/20260506105253_backfill_project_aggregate_caches.rb`
+  walks every project via `find_each(batch_size: 200)` and writes the
+  initial values from
+  `project.footages.sum(:duration_seconds)` and
+  `project.notes.sum(:words_count)`. Rollback is a documented no-op
+  (the columns themselves are dropped by rolling back the prior
+  migration; zeroing them adds nothing).
+- **`Footage` callbacks.** `after_save :recompute_project_footage_duration,
+  if: :saved_change_relevant_to_footage_duration?` plus a sibling
+  `after_save :refresh_previous_project_footage_duration,
+  if: :saved_change_to_project_id?` plus
+  `after_destroy :recompute_project_footage_duration`. The save
+  callback is gated on `duration_seconds` or `project_id` actually
+  having changed — touching unrelated columns (e.g. a filename
+  rename) skips the recompute. The previous-project refresh handles
+  the "footage moved between projects" case so the OLD project's
+  cache stops including the moved row's duration. Both lookups go
+  through `Project.find_by(id: ...)` (NOT `Project.find`) so the
+  `Project#destroy` cascade — which fires the footage's after_destroy
+  AFTER the project row is already gone — silently no-ops instead of
+  raising `ActiveRecord::RecordNotFound`.
+- **`Note` callbacks.** Same shape as `Footage` but for
+  `notes_words_total` driven by `words_count`. The existing
+  `before_save :recompute_counts` (which derives `words_count` from
+  `body_for_counts`) feeds into `saved_change_to_words_count?`, so
+  the cache refresh fires whenever the markdown body actually
+  changes the word total.
+- **Controller allowlist.** `ProjectsController::ALLOWED_SORTS` now
+  exposes `footage_duration_seconds` and `notes_words_total` (in
+  place of `footages_count` / `notes_count`). `timelines_count` and
+  the `name` / `created_at` keys are unchanged. Default sort stays
+  `created_at desc`.
+- **View swap.** `app/views/projects/index.html.erb`:
+  - Header `footages` → `footage` (singular).
+  - Cell value `project.footages_count` → `human_duration(project.
+    footage_duration_seconds)`. The helper already returns
+    `EMPTY_VALUE` (em-dash) for nil/zero.
+  - Cell value `project.notes_count` → `project.notes_words_total`.
+    Header stays `notes` (still concept-correct — it's a count of
+    something note-shaped, just now words instead of rows).
+  - Sort keys updated to point at the new columns.
+  - The `timelines` column is unchanged.
+
+### Files touched
+
+- `db/migrate/20260506105252_add_aggregate_caches_to_projects.rb`
+  (NEW).
+- `db/migrate/20260506105253_backfill_project_aggregate_caches.rb`
+  (NEW).
+- `db/schema.rb` — autogenerated; both new columns appear inside
+  `create_table "projects"`.
+- `app/models/footage.rb` — three new callbacks + two private
+  helpers (`recompute_project_footage_duration`,
+  `refresh_previous_project_footage_duration`,
+  `saved_change_relevant_to_footage_duration?`).
+- `app/models/note.rb` — three new callbacks + two private helpers,
+  same shape.
+- `app/controllers/projects_controller.rb` — `ALLOWED_SORTS`
+  allowlist update + comment clarifying the aggregates revamp.
+- `app/views/projects/index.html.erb` — header rename, cell value
+  swap, sort key update, block comment.
+- `spec/models/footage_spec.rb` — new "project.footage_duration_
+  seconds aggregate cache" describe block: create / nil-duration /
+  destroy / update / unrelated-column-no-op / project-move /
+  cascade-no-op.
+- `spec/models/note_spec.rb` — symmetric describe block for
+  `notes_words_total` covering the same six scenarios.
+- `spec/requests/projects_spec.rb` — "expanded index columns +
+  sort" describe block updated: header expectation `footages` →
+  `footage`, value expectation `["4", "1", "0"]` → `["34m 18s",
+  "6", "0"]`, and the two `?sort=…` request specs updated to the
+  new sort keys.
+
+### Backfill verification (Project 1)
+
+- `Project.find(1).name` → `Ghost 'n Goblins Resurrection`.
+- Raw footage durations: `[622, 186, 573, 677]` → SUM `2058`.
+- `footage_duration_seconds` after migration: `2058` → renders as
+  `34m 18s` via `FootageHelper#human_duration`.
+- Raw note words: `[6]` → SUM `6`.
+- `notes_words_total` after migration: `6`.
+
+### Verification
+
+- `bundle exec rspec` — `1293 examples, 0 failures`.
+- Targeted run (`footage_spec` / `note_spec` /
+  `requests/projects_spec`) — `145 examples, 0 failures`.
+- `bundle exec rubocop` (changed `.rb` files) — clean.
+- `bundle exec brakeman -q -w2` — `0 security warnings`.
+- Migration cycle (`db:rollback STEP=2` then `db:migrate` on the
+  test DB) — clean revert + re-apply, no errors.
+
+### Hard-rules audit
+
+- No JS `alert` / `confirm` / `prompt` / `data-turbo-confirm`
+  introduced.
+- No new boolean URL params.
+- No secrets touched (column-only schema work + view + spec changes).
+- No cross-stack files touched (`extras/cli/`, `extras/website/`,
+  `docs/decisions/` all untouched).
+- File scope respected — only `app/`, `db/migrate/`, `spec/`, plus
+  this log entry.
+
+### Edge case: cascading destroy
+
+`Project#destroy` cascades to footages / notes via
+`dependent: :destroy`. By the time a child's `after_destroy` fires,
+the parent project row is already gone from the DB; `Project.find(
+project_id)` would raise `ActiveRecord::RecordNotFound`. Fixed
+preemptively by using `Project.find_by(id: project_id)` and
+returning early on `nil`, with a regression test on each model
+(`expect { project.destroy! }.not_to raise_error` after a child
+exists).
+
+### Open issues
+
+- None new. The follow-ups list at
+  `docs/orchestration/follow-ups.md` is unchanged by this session.
+
+## 2026-05-06 — Notes pane polish: dual-arrow sort fix + words `Nw` cell
+
+### Discussion
+
+User flagged two bugs on `/projects/:id` notes pane:
+
+1. The active sort column header rendered BOTH the inline directional
+   arrow (`▲` / `▼`) AND the neutral CSS up/down stack (`▲\A▼`,
+   visually `↕`). Inactive headers correctly showed only the neutral
+   indicator.
+2. The `words` column rendered the raw integer (`6`, `6225`) instead
+   of the `Nw` shape (`6w`, `6,225w`) used by the `/projects` index
+   notes column.
+
+### Root cause (dual-arrow)
+
+Two rendering paths laid arrows on top of each other:
+
+- `app/assets/tailwind/application.css` — `th.sortable::after` paints
+  the neutral `▲\A▼` glyph on every sortable header. The CSS expected
+  the active column to switch via `th.sort-asc` / `th.sort-desc`
+  modifier classes.
+- `ApplicationHelper#sort_link_to` — the helper renders the
+  directional arrow inline as text inside the `<a>`, but never adds
+  the modifier class to the parent `<th>` (and can't, since it
+  controls only the link, not the cell).
+
+So URL-driven server-rendered sortable tables painted both: inline
+arrow from helper text + neutral pseudo-element from CSS. The
+client-side JS-driven channel/video-pane tables work correctly because
+`sortable_table_controller.js` flips `sort-asc` / `sort-desc` on the
+`<th>` directly, replacing the neutral indicator.
+
+### Scope
+
+The bug existed on every URL-driven sortable header that wraps the
+helper output (or its inline-lambda equivalent) inside
+`<th class="sortable">`. Tables affected:
+
+- `/channels` picker — Name / star / last sync.
+- `/videos` index — Name / title / date.
+- `/projects` index — name / created / footage / notes / timelines.
+- `/projects/:id` notes pane — title / words / last modified.
+
+NOT affected:
+
+- `/projects/:id` footage pane (uses bare `<th>` — no `sortable`
+  class, so no `::after` pseudo-element rendered at all; only the
+  inline arrow ships).
+- Channel + video pane tables (in-page JS sort already toggles
+  `sort-asc` / `sort-desc` on `<th>`).
+
+Fix is global — one helper change + one CSS change covers every
+URL-driven case.
+
+### Fix
+
+- `app/helpers/application_helper.rb` — `sort_link_to` now stamps
+  `class: "sort-asc"` / `class: "sort-desc"` on the active column's
+  `<a>` (in addition to the existing inline arrow text). Inactive
+  columns get no class.
+- `app/assets/tailwind/application.css` — added a CSS `:has()` rule:
+  ```css
+  th.sortable:has(> a.sort-asc)::after,
+  th.sortable:has(> a.sort-desc)::after { content: none; }
+  ```
+  Suppresses the neutral pseudo-element on the active column while
+  leaving inactive columns unchanged. The legacy `th.sort-asc` /
+  `th.sort-desc` rules (used by the JS-driven sortable tables) are
+  preserved with a clarifying comment.
+- `app/views/projects/index.html.erb` — migrated from a duplicated
+  inline `sort_link` lambda to the shared `sort_link_to` helper, so
+  the projects index gets the same fix without copy-paste drift.
+- `app/views/projects/_notes_pane.html.erb` — words cell switched
+  from `number_with_delimiter(note.words_count)` to
+  `NoteHelper.human_words(note.words_count)`.
+- `:has()` browser support: Chrome 105+, Firefox 121+, Safari 15.4+
+  (current stable across all majors). Acceptable for this app.
+
+### Tests
+
+- `spec/helpers/application_helper_spec.rb` — three new specs lock
+  in the class contract (`sort-asc` / `sort-desc` on active links,
+  no class on inactive).
+- `spec/requests/projects_spec.rb` — five new specs:
+  - `sort-desc` class on the default `last_modified desc` notes
+    header link.
+  - `sort-asc` class on the active `notes_dir=asc` link.
+  - No `sort-{asc,desc}` class on inactive notes columns.
+  - Words cell renders `100w` for the Alpha note (words_count: 100).
+  - Words cell renders `6,225w` for a 6225-word note (locks in the
+    comma delimiter + `w` suffix shape).
+
+### Verification
+
+- `bundle exec rspec` — `1317 examples, 0 failures`.
+- `bundle exec rubocop` — `291 files inspected, no offenses
+  detected`.
+- `bundle exec brakeman -q -w2` — `0 security warnings`.
+
+### Hard-rules audit
+
+- No JS `alert` / `confirm` / `prompt` / `data-turbo-confirm`
+  introduced.
+- No new boolean URL params.
+- No secrets touched.
+- No cross-stack files touched (`extras/cli/`, `extras/website/`
+  untouched).
+- File scope respected — `app/`, `spec/`, plus this log entry.
+
+### Files touched
+
+- `app/helpers/application_helper.rb`
+- `app/assets/tailwind/application.css`
+- `app/views/projects/index.html.erb`
+- `app/views/projects/_notes_pane.html.erb`
+- `spec/helpers/application_helper_spec.rb`
+- `spec/requests/projects_spec.rb`
+
+### Open issues
+
+- None.
+

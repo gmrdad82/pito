@@ -1,18 +1,20 @@
 <%# Phase B post-commit (2026-05-04) — Note revamp.
   Single-screen editor: rendered preview pane + source textarea pane,
-  side-by-side at 454px each (matches the global pane width). Title is
+  side-by-side at 640px each (matches the global pane width). Title is
   not editable (auto-derived from the body's first ATX H1 server-side).
-  Status bar at the bottom-right of the source pane shows live char/word
-  counts (mirrored client-side via the markdown-editor controller; the
-  server-side counts on the project show table reflect the last save).
+  Status bar at the bottom-right of the source pane shows the live
+  word count, mirrored client-side via the markdown-editor controller;
+  the server-side count on the project show table reflects the last
+  save. Word count is markdown-aware — `# Hi\nHow are you?` reports 4
+  words because the rendered HTML strips the `#` heading marker.
 %>
 <% content_for(:title, @note.title) %>
 <% breadcrumb(["projects", projects_path], [@project.name, project_path(@project)], @note.title) %>
 
 <%# Editor: textarea on the right (rows=18 ≈ 360px baseline, grows via
     `field-sizing: content`), rendered preview on the left (flex-stretches
-    to match). chars/words status floats below the pane-container, out
-    of flow so it never displaces the [update] / [cancel] / [-] row. %>
+    to match). Words status floats below the pane-container, out of
+    flow so it never displaces the [update] / [cancel] / [-] row. %>
 <%= form_with(model: @note,
               url: note_path(@note),
               method: :patch,
@@ -29,8 +31,6 @@
             class: "note-editor-source",
             style: "width: 100%; font-family: ui-monospace, monospace; font-size: 13px;" %>
       <div class="markdown-status caption">
-        <span data-markdown-editor-target="charCount"><%= number_with_delimiter(@note.chars_count) %></span> chars
-        &middot;
         <span data-markdown-editor-target="wordCount"><%= number_with_delimiter(@note.words_count) %></span> words
       </div>
     </div>

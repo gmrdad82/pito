@@ -49,32 +49,136 @@ RSpec.describe "Channels", type: :request do
         expect(response.body).not_to match(/<th[^>]*>\s*syncing\s*</)
       end
 
-      it "displays 5 columns (select, open, URL, starred, last sync)" do
+      it "displays 5 columns (select, Name, URL, star, last sync)" do
         get channels_path
-        # Phase B polish (2026-05-05) — select-all + open + URL + starred
-        # + last sync. YouTube column folded into the URL <a> link.
+        # Phase B polish (2026-05-05) — select-all + Name + URL + star +
+        # last sync. The Name column is a YouTube-sync placeholder rendering
+        # `channel.id` as a link until sync populates real titles. The
+        # legacy `[o]` open-action column was dropped (post-Wave-3K polish):
+        # the Name cell IS the show-page link, so a separate column was
+        # redundant. Header text "starred" was shortened to "star" in a
+        # 2026-05-06 polish; the underlying sort key stays `starred`.
         thead = response.body.match(/<thead>(.*?)<\/thead>/m)[1]
         expect(thead.scan(/<th\b/).size).to eq(5)
+      end
+
+      # Phase 4 Wave 3 — Name column. Placeholder for the YouTube channel
+      # title once sync lands. The cell currently renders `channel.id` as a
+      # link to the show page so the column has stable content. Header is a
+      # server-side sort link (`?sort=id&dir=<asc|desc>`), aligning with the
+      # `/projects` index pattern.
+      it "renders a Name column header at column 2 (after the checkbox)" do
+        get channels_path
+        thead = response.body.match(/<thead>(.*?)<\/thead>/m)[1]
+        # Pull the <th> elements in order. Column 1 is the select-all
+        # checkbox header; column 2 must be `Name`.
+        ths = Nokogiri::HTML.fragment(thead).css("th")
+        expect(ths.length).to eq(5)
+        # The header text reads "Name" (with an optional ▲/▼ when active).
+        expect(ths[1].text.strip).to start_with("Name")
+      end
+
+      it "renders the Name header as a server-side sort link with sort + dir params" do
+        get channels_path
+        html = Nokogiri::HTML.fragment(response.body)
+        link = html.css("thead a").find { |a| a.text.strip.start_with?("Name") }
+        expect(link).not_to be_nil
+        # Default state is `created_at desc`, so clicking Name should request
+        # `id asc`.
+        expect(link["href"]).to include("sort=id")
+        expect(link["href"]).to include("dir=asc")
+        # No more client-side Stimulus action attribute on the header.
+        expect(link.to_html).not_to include("click->sortable-table#sort")
+      end
+
+      it "renders the Name cell as a link to the channel show page" do
+        get channels_path
+        html = Nokogiri::HTML.fragment(response.body)
+        row = html.css("tbody tr").first
+        # Column index 1 (0-based) — second <td>, after the checkbox cell.
+        name_cell = row.css("td")[1]
+        link = name_cell.css("a").first
+        expect(link).not_to be_nil
+        expect(link["href"]).to eq(channel_path(channel))
+        expect(link.text.strip).to eq(channel.id.to_s)
+      end
+
+      it "exposes `id` in ChannelsController::ALLOWED_SORTS so server-side sort honors it" do
+        # The Name column header sort link uses `?sort=id`; the constant
+        # mapping must include the key for that URL to round-trip.
+        expect(ChannelsController::ALLOWED_SORTS).to include("id" => "channels.id")
       end
 
       it "renders a non-sortable URL header (URL is the YouTube link itself)" do
         get channels_path
         thead = response.body.match(/<thead>(.*?)<\/thead>/m)[1]
         expect(thead).to match(/<th>URL<\/th>/)
-        expect(thead).not_to match(/<th[^>]*data-action="click->sortable-table#sort"[^>]*>URL/)
+        # No <a> inside the URL <th> (sortable headers wrap the label in <a>).
+        url_th = Nokogiri::HTML.fragment(thead).css("th").find { |th| th.text.strip == "URL" }
+        expect(url_th.css("a")).to be_empty
       end
 
       it "renders the URL cell as an external YouTube link with target=_blank" do
         get channels_path
         # The URL text itself is now the external link (no separate [v]).
-        expect(response.body).to match(/<a href="#{Regexp.escape(channel.channel_url)}" target="_blank" rel="noopener noreferrer">#{Regexp.escape(channel.channel_url)}<\/a>/)
+        # Post-consolidation: the link text is a server-side
+        # middle-truncated single string (`https://…<tail>`) — same
+        # shape used by the footage filename column and the videos
+        # channel-URL column.
+        html = Nokogiri::HTML.fragment(response.body)
+        link = html.css("a").find { |a| a["href"] == channel.channel_url }
+        expect(link).not_to be_nil
+        expect(link["target"]).to eq("_blank")
+        expect(link["rel"]).to eq("noopener noreferrer")
+        # The link text is the truncated form, not the raw URL.
+        expect(link.text).to include("…")
       end
 
-      it "renders a sortable starred column header (lowercase, no star icon)" do
+      # Post-consolidation — URL cell middle-truncation. Returns a
+      # single fixed-length string `<head>…<tail>` (e.g.
+      # `https://…jF7eS8r1` for an 8/8 split) so the unique channel ID
+      # at the end of `https://www.youtube.com/channel/<id>` stays
+      # visible without spanning the column. The `<td>` wears a
+      # `title=<full URL>` for hover-reveal. Same shape as the videos
+      # channel-URL column and the footage filename column.
+      it "renders the URL cell as a single truncated text node with a title attribute" do
         get channels_path
-        thead = response.body.match(/<thead>(.*?)<\/thead>/m)[1]
-        expect(thead).to match(/<th class="sortable num" data-action="click->sortable-table#sort" data-sort-type="string">starred<\/th>/)
-        expect(thead).not_to include("★")
+        html = Nokogiri::HTML.fragment(response.body)
+        # Locate the URL <td> — third cell in the first body row
+        # (checkbox / Name / URL / star / last sync).
+        row = html.css("tbody tr").first
+        url_cell = row.css("td")[2]
+        expect(url_cell["title"]).to eq(channel.channel_url)
+        link = url_cell.css("a").first
+        expect(link).not_to be_nil
+        expect(link["href"]).to eq(channel.channel_url)
+        # The link's text is the head/tail string with a U+2026
+        # ellipsis joining them.
+        expect(link.text).to start_with("https://")
+        expect(link.text).to include("…")
+        expect(link.text.length).to eq(8 + 1 + 8) # head + ellipsis + tail
+        expect(link.text).to end_with(channel.channel_url[-8..])
+        # No two-span flex markup left over from the prior pattern.
+        expect(url_cell.css(".middle-truncate-head")).to be_empty
+        expect(url_cell.css(".middle-truncate-tail")).to be_empty
+      end
+
+      it "renders a sortable star column header (lowercase, no star icon)" do
+        # Header text was shortened from "starred" to "star" (2026-05-06
+        # polish) to mirror the [star] / [unstar] action vocabulary used
+        # elsewhere; the underlying sort key stays `starred`.
+        get channels_path
+        html = Nokogiri::HTML.fragment(response.body)
+        link = html.css("thead a").find { |a| a.text.strip.start_with?("star") }
+        expect(link).not_to be_nil
+        expect(link.text.strip).to start_with("star")
+        expect(link.text.strip).not_to include("starred")
+        expect(link["href"]).to include("sort=starred")
+        # Wrapped in the right `<th class="sortable num">` for layout.
+        expect(link.parent.name).to eq("th")
+        expect(link.parent["class"]).to include("sortable")
+        expect(link.parent["class"]).to include("num")
+        expect(response.body).not_to include("★")
       end
 
       it "renders starred cells as yes/no text (no star icon)" do
@@ -158,6 +262,111 @@ RSpec.describe "Channels", type: :request do
           expect(sep["hidden"]).not_to be_nil,
             "expected .action-sep to ship with the `hidden` attribute, got: #{sep.to_html}"
         end
+      end
+    end
+
+    # Phase 4 Wave 3 — server-side sort via `?sort=<key>&dir=<asc|desc>`.
+    # Replaces the client-side Stimulus `sortable-table` controller for the
+    # index view (the controller still serves the per-pane video tables).
+    # Mirrors `/projects` URL-state sort.
+    context "URL-state sort" do
+      let!(:older) { create(:channel, created_at: 2.days.ago) }
+      let!(:newer) { create(:channel, created_at: 1.day.ago) }
+
+      it "defaults to created_at DESC (newest first)" do
+        get channels_path
+        html = Nokogiri::HTML.fragment(response.body)
+        ids = html.css("tbody tr td a").map { |a| a.text.strip }.select { |t| t.match?(/\A\d+\z/) }.uniq
+        expect(ids).to eq([ newer.id.to_s, older.id.to_s ])
+      end
+
+      it "sorts by id ASC when called with ?sort=id&dir=asc" do
+        get channels_path, params: { sort: "id", dir: "asc" }
+        html = Nokogiri::HTML.fragment(response.body)
+        ids = html.css("tbody tr td a").map { |a| a.text.strip }.select { |t| t.match?(/\A\d+\z/) }.uniq
+        expect(ids).to eq(ids.sort_by(&:to_i))
+      end
+
+      it "sorts by id DESC when called with ?sort=id&dir=desc" do
+        get channels_path, params: { sort: "id", dir: "desc" }
+        html = Nokogiri::HTML.fragment(response.body)
+        ids = html.css("tbody tr td a").map { |a| a.text.strip }.select { |t| t.match?(/\A\d+\z/) }.uniq
+        expect(ids).to eq(ids.sort_by(&:to_i).reverse)
+      end
+
+      it "renders the active-sort indicator (▼) on the active column header" do
+        get channels_path, params: { sort: "id", dir: "desc" }
+        html = Nokogiri::HTML.fragment(response.body)
+        link = html.css("thead a").find { |a| a.text.strip.start_with?("Name") }
+        expect(link.text).to include("▼")
+      end
+
+      it "renders the active-sort indicator (▲) when dir=asc" do
+        get channels_path, params: { sort: "id", dir: "asc" }
+        html = Nokogiri::HTML.fragment(response.body)
+        link = html.css("thead a").find { |a| a.text.strip.start_with?("Name") }
+        expect(link.text).to include("▲")
+      end
+
+      it "ignores unknown sort keys and falls back to created_at" do
+        get channels_path, params: { sort: "drop_table_channels", dir: "asc" }
+        expect(response).to have_http_status(:ok)
+        html = Nokogiri::HTML.fragment(response.body)
+        # Default fallback is created_at + caller's `dir=asc` — older first.
+        ids = html.css("tbody tr td a").map { |a| a.text.strip }.select { |t| t.match?(/\A\d+\z/) }.uniq
+        expect(ids.first).to eq(older.id.to_s)
+      end
+
+      it "ignores unknown dir values and falls back to desc" do
+        get channels_path, params: { sort: "id", dir: "sideways" }
+        expect(response).to have_http_status(:ok)
+        html = Nokogiri::HTML.fragment(response.body)
+        ids = html.css("tbody tr td a").map { |a| a.text.strip }.select { |t| t.match?(/\A\d+\z/) }.uniq
+        expect(ids).to eq(ids.sort_by(&:to_i).reverse)
+      end
+
+      it "toggles direction when the same column is clicked twice" do
+        # First request — default state. The Name link should request `asc`.
+        get channels_path
+        html = Nokogiri::HTML.fragment(response.body)
+        link = html.css("thead a").find { |a| a.text.strip.start_with?("Name") }
+        expect(link["href"]).to include("dir=asc")
+
+        # Second request — caller is now on `sort=id dir=asc`. The link should
+        # offer the opposite direction.
+        get channels_path, params: { sort: "id", dir: "asc" }
+        html = Nokogiri::HTML.fragment(response.body)
+        link = html.css("thead a").find { |a| a.text.strip.start_with?("Name") }
+        expect(link["href"]).to include("dir=desc")
+      end
+
+      # Filter + sort interaction. Filter chips emit URLs like `?starred=yes`;
+      # sort header links must merge BOTH filter params AND new sort params
+      # so neither dimension clobbers the other.
+      it "preserves filter params when re-sorting (filter + sort both apply)" do
+        starred1 = create(:channel, :starred, created_at: 4.days.ago)
+        starred2 = create(:channel, :starred, created_at: 3.days.ago)
+
+        get channels_path, params: { star: "yes", sort: "id", dir: "asc" }
+        expect(response).to have_http_status(:ok)
+        # Only starred channels render — filter applied.
+        expect(response.body).to include(starred1.channel_url)
+        expect(response.body).to include(starred2.channel_url)
+        expect(response.body).not_to include(older.channel_url)
+        expect(response.body).not_to include(newer.channel_url)
+
+        # Header sort links carry the active `star=yes` filter alongside
+        # the next-direction sort params, so re-clicking a header preserves
+        # the filter. The header text reads "star" (shortened from
+        # "starred" in the 2026-05-06 polish) but the sort key stays
+        # `starred` — that's the column name in the database.
+        html = Nokogiri::HTML.fragment(response.body)
+        link = html.css("thead a").find { |a| a.text.strip.start_with?("star") }
+        expect(link["href"]).to include("star=yes")
+        expect(link["href"]).to include("sort=starred")
+        # Currently sorting by id asc, not by starred — so star header
+        # offers `dir=asc` (its first click direction).
+        expect(link["href"]).to include("dir=asc")
       end
     end
 
@@ -318,6 +527,17 @@ RSpec.describe "Channels", type: :request do
       expect(header_section).not_to include("[unstar]")
       expect(header_section).not_to include("[connect]")
       expect(header_section).not_to include("[disconnect]")
+    end
+
+    # Phase B revamp (2026-05-05) — single-pane show wraps the pane in
+    # the standard pane-container/pane-wrapper scaffolding so the global
+    # `:only-child` rule paints the wrapper with `--color-pane-bg-wide`
+    # (the standalone tone), reading as visually distinct from the A/B
+    # alternation used in multi-pane workspace views.
+    it "wraps the single pane in pane-container > pane-wrapper" do
+      get channel_path(channel)
+      expect(response.body).to include('<div class="pane-container">')
+      expect(response.body).to match(/<div class="pane-container">\s*<div class="pane-wrapper">/)
     end
   end
 
@@ -606,6 +826,20 @@ RSpec.describe "Channels", type: :request do
       get "#{panes_channels_path}?ids=#{channel1.id},#{channel2.id}"
       expect(response.body).to include('class="bl">save</span>')
       expect(response.body).not_to include('class="bl">update</span>')
+    end
+
+    # Phase B revamp (2026-05-05) — multi-pane view emits N pane-wrappers
+    # in a single pane-container. The global CSS handles A/B alternation
+    # via `:nth-child(odd)`/`:nth-child(even)`; the view itself stays
+    # markup-only — every pane carries `class="pane-wrapper"` and the
+    # browser paints them. Asserting via the marker count keeps the test
+    # decoupled from the per-pane decoration (arrows, headings).
+    it "renders one .pane-wrapper per channel inside a single .pane-container" do
+      get "#{panes_channels_path}?ids=#{channel1.id},#{channel2.id}"
+      containers = response.body.scan(/class="pane-container"/).size
+      wrappers   = response.body.scan(/class="pane-wrapper"/).size
+      expect(containers).to eq(1)
+      expect(wrappers).to eq(2)
     end
 
     it "renders a confirm modal (no data-turbo-confirm) for the saved-view delete" do

@@ -14,22 +14,34 @@
 <%# Phase 4 Wave 2 (2026-05-05) — Project show revamp. Two-row stacked layout
     matching the Settings revamp shape: row 1 splits 50/50 (timelines | notes),
     row 2 spans full width (footage). Each cell wears the pane visual style —
-    `var(--color-pane-bg)` background + 12px padding + a hairline divider
-    between adjacent cells in the same row — so density and chrome match the
-    rest of the app without introducing per-page CSS classes. %>
-<div style="display: flex; flex-direction: column; margin-top: 16px;">
-  <%# Row 1 — timelines | notes %>
+    pane-bg token + 12px padding + a hairline divider between adjacent cells
+    in the same row — so density and chrome match the rest of the app without
+    introducing per-page CSS classes.
+
+    Three-tone background system (Phase B revamp 2026-05-05):
+    - Row 1 alternates A | B (timelines = A, notes = B).
+    - Row 2 stands alone full-width and uses `-wide` so it reads as
+      distinct from the A/B pair above.
+    A 12px gap between rows lets the color separation breathe so the
+    boundary between the paired row and the wide row is unambiguous. %>
+<div style="display: flex; flex-direction: column; gap: 12px; margin-top: 16px;">
+  <%# Row 1 — timelines (A) | notes (B) %>
   <div style="display: grid; grid-template-columns: 1fr 1fr;">
-    <div style="background: var(--color-pane-bg); padding: 12px;">
+    <div style="background: var(--color-pane-bg-a); padding: 12px;">
       <%= render "projects/timelines_pane", project: @project, timelines: @timelines %>
     </div>
-    <div style="background: var(--color-pane-bg); padding: 12px; border-left: 2px solid var(--color-border);">
-      <%= render "projects/notes_pane", project: @project, notes: @notes, locked: @notes_locked %>
+    <div style="background: var(--color-pane-bg-b); padding: 12px; border-left: 2px solid var(--color-border);">
+      <%= render "projects/notes_pane",
+                 project: @project,
+                 notes: @notes,
+                 locked: @notes_locked,
+                 sort: @notes_sort,
+                 dir: @notes_dir %>
     </div>
   </div>
 
-  <%# Row 2 — footage (full width) %>
-  <div style="background: var(--color-pane-bg); padding: 12px;">
+  <%# Row 2 — footage (full width, wide tone) %>
+  <div style="background: var(--color-pane-bg-wide); padding: 12px;">
     <%= render "projects/footage_pane",
                project: @project,
                footages: @footages,

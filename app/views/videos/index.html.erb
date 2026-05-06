@@ -9,7 +9,7 @@
   </div>
 
   <% if @videos.any? %>
-    <div data-controller="sortable-table">
+    <div>
       <%# Phase B polish (2026-05-05) — bulk toolbar is always rendered.
           Each `.action` span carries an `.action-sep` `&middot;` that
           the controller hides on whichever action is first-visible.
@@ -30,23 +30,59 @@
         </span>
       </div>
 
-      <table data-sortable-table-target="table">
+      <%# Sortable column headers — server-side sort via `?sort=<key>&dir=<asc|desc>`.
+          Only columns whose key lives in `VideosController::ALLOWED_SORTS`
+          render as sort links (Name / title / date). Aggregate columns
+          (views / trend / likes / chats / watch) and computed cells
+          (channel / state / length) stay as plain `<th>` text — adding
+          them to the allowlist is a forward-looking item and would need
+          ORDER BY on the SUM expression for the aggregates. %>
+      <%# Table sizing — explicit colgroup widths plus
+          `table-layout: fixed; width: 1220px;` so the table sizes to its
+          content (40 + 60 + 280 + 200 + 80 + 60 + 80 + 80 + 80 + 80 +
+          100 + 80 = 1220 px) rather than stretching to viewport width.
+          Mirrors the /channels polish (2026-05-06): the channel-URL
+          column is server-side middle-truncated, so it fits comfortably
+          in 200 px. `width: auto` is NOT enough under
+          `table-layout: fixed` — see /channels picker partial for the
+          longer note. There is no `starred` column on videos. %>
+      <table style="table-layout: fixed; width: 1220px;">
+        <colgroup>
+          <col style="width: 40px;">  <%# selection checkbox %>
+          <col style="width: 60px;">  <%# Name (id) %>
+          <col style="width: 280px;"> <%# title %>
+          <col style="width: 200px;"> <%# channel URL (truncated) %>
+          <col style="width: 80px;">  <%# views %>
+          <col style="width: 60px;">  <%# trend %>
+          <col style="width: 80px;">  <%# likes %>
+          <col style="width: 80px;">  <%# chats %>
+          <col style="width: 80px;">  <%# watch %>
+          <col style="width: 80px;">  <%# state %>
+          <col style="width: 100px;"> <%# date %>
+          <col style="width: 80px;">  <%# length %>
+        </colgroup>
         <thead>
           <tr>
             <th class="col-action">
               <%= render(CheckboxComponent.new(data: { bulk_select_target: "headerCheckbox", action: "change->bulk-select#toggleAll" })) %>
             </th>
-            <th class="col-action"></th>
-            <%= render(SortableHeaderComponent.new(label: "title", sort_type: "string")) %>
+            <%# Name column — placeholder for the YouTube video title once
+                sync lands. For now the cell renders `video.id` linked to
+                the show page so the column has stable content. The legacy
+                `[o]` action column was dropped (2026-05-05 polish): the
+                Name cell IS the show-page link, so a separate open-action
+                cell was redundant. %>
+            <th class="sortable"><%= sort_link_to("Name", "id", current_sort: @sort, current_dir: @dir) %></th>
+            <th class="sortable"><%= sort_link_to("title", "title", current_sort: @sort, current_dir: @dir) %></th>
             <th>channel</th>
-            <%= render(SortableHeaderComponent.new(label: "views", sort_type: "number", numeric: true)) %>
-            <%= render(SortableHeaderComponent.new(label: "trend", sort_type: "number", numeric: true)) %>
-            <%= render(SortableHeaderComponent.new(label: "likes", sort_type: "number", numeric: true)) %>
-            <%= render(SortableHeaderComponent.new(label: "chats", sort_type: "number", numeric: true)) %>
-            <%= render(SortableHeaderComponent.new(label: "watch", sort_type: "number", numeric: true)) %>
-            <%= render(SortableHeaderComponent.new(label: "state", sort_type: "string", numeric: true)) %>
-            <%= render(SortableHeaderComponent.new(label: "date", sort_type: "date", numeric: true)) %>
-            <%= render(SortableHeaderComponent.new(label: "length", sort_type: "number", numeric: true)) %>
+            <th class="num">views</th>
+            <th class="num">trend</th>
+            <th class="num">likes</th>
+            <th class="num">chats</th>
+            <th class="num">watch</th>
+            <th class="num">state</th>
+            <th class="sortable num"><%= sort_link_to("date", "published_at", current_sort: @sort, current_dir: @dir) %></th>
+            <th class="num">length</th>
           </tr>
         </thead>
         <tbody>
@@ -55,10 +91,14 @@
               <td class="col-action">
                 <%= render(CheckboxComponent.new(value: video.id, data: { bulk_select_target: "checkbox", action: "change->bulk-select#toggle" })) %>
               </td>
-              <td class="col-action"><%= render(BracketedLinkComponent.new(label: "o", href: video_path(video))) %></td>
-              <td style="max-width: 280px; overflow: hidden; text-overflow: ellipsis;"><%= video.title %></td>
-              <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;">
-                <a href="<%= video.channel.channel_url %>" target="_blank" rel="noopener noreferrer"><%= truncate(video.channel.channel_url, length: 30, omission: "…") %></a>
+              <td><%= link_to video.id, video_path(video) %></td>
+              <td style="overflow: hidden; text-overflow: ellipsis;"><%= video.title %></td>
+              <%# Channel column — server-side middle-truncated to a
+                  fixed `<head>…<tail>` string (e.g. `https://…jF7eS8r1`).
+                  Same shape as the `/channels` URL column. Full URL is
+                  preserved on the `<td>`'s `title` attribute. %>
+              <td title="<%= video.channel.channel_url %>">
+                <%= link_to middle_truncate(video.channel.channel_url, head: 8, tail: 8), video.channel.channel_url, target: "_blank", rel: "noopener noreferrer" %>
               </td>
               <td class="num"><%= number_with_delimiter(video.total_views) %></td>
               <td class="num"><%= view_trend_indicator(video) %></td>

@@ -79,8 +79,13 @@ RSpec.describe "Notes", type: :request do
       expect(response.body).to include('data-controller="markdown-editor unsaved-form"')
       expect(response.body).to include('data-markdown-editor-target="source"')
       expect(response.body).to include('data-markdown-editor-target="preview"')
-      expect(response.body).to include('data-markdown-editor-target="charCount"')
       expect(response.body).to include('data-markdown-editor-target="wordCount"')
+    end
+
+    it "does NOT render a chars status" do
+      get note_path(note)
+      expect(response.body).not_to include('data-markdown-editor-target="charCount"')
+      expect(response.body).not_to match(/<span[^>]*>[^<]*<\/span>\s*chars/)
     end
 
     it "does NOT render a title input" do
@@ -124,12 +129,18 @@ RSpec.describe "Notes", type: :request do
       expect(note.path).to eq("renamed.md")
     end
 
-    it "recomputes chars_count / words_count" do
-      body = "# Hi\n\nfoo bar baz"
-      patch note_path(note), params: { note: { body: body } }
+    it "recomputes words_count via the markdown-aware tokenizer" do
+      # Body: `# Hi\n\nfoo bar baz`. The `#` heading marker is consumed
+      # by Commonmarker; tokens are: Hi, foo, bar, baz → 4 words.
+      patch note_path(note), params: { note: { body: "# Hi\n\nfoo bar baz" } }
       note.reload
-      expect(note.chars_count).to eq(body.chars.size)
-      expect(note.words_count).to eq(5) # "#", "Hi", "foo", "bar", "baz"
+      expect(note.words_count).to eq(4)
+    end
+
+    it "ignores markdown syntax when counting words" do
+      # User's example: `# Hi\nHow are you all doing?` → 6 words.
+      patch note_path(note), params: { note: { body: "# Hi\nHow are you all doing?" } }
+      expect(note.reload.words_count).to eq(6)
     end
 
     context "when the lock is fresh" do
@@ -190,18 +201,28 @@ RSpec.describe "Notes", type: :request do
       expect(response.body).to include('data-bulk-select-delete-type-value="note"')
     end
 
-    it "shows the [ bulk ] toggle when notes exist" do
+    it "renders always-on bulk-select markup (no [bulk] toggle)" do
+      # Phase B polish (2026-05-05) — checkboxes are always rendered;
+      # the `[bulk]` enter / `[cancel]` exit toggles are gone in the
+      # notes pane (mirrors Lane G's /channels and /videos shape).
       get project_path(project)
-      # data-action is HTML-escaped in attribute values: `>` -> `&gt;`
-      expect(response.body).to include('click-&gt;bulk-select#enterBulk')
+      expect(response.body).not_to include('click-&gt;bulk-select#enterBulk')
+      expect(response.body).not_to include('click-&gt;bulk-select#exitBulk')
+      expect(response.body).not_to include('data-bulk-select-target="bulkToggle"')
+      # Header + per-row checkboxes ship in the DOM (always-on).
+      expect(response.body).to include('data-bulk-select-target="headerCheckbox"')
+      expect(response.body).to include('change-&gt;bulk-select#toggleAll')
+      expect(response.body).to include('data-bulk-select-target="checkbox"')
     end
 
-    it "renders chars / words columns reflecting the saved counts" do
+    it "renders the words column reflecting the saved count (chars dropped)" do
       patch note_path(note), params: { note: { body: "# Title\n\nfoo bar" } }
       get project_path(project)
-      # `chars` and `words` are part of the `<th>` headers
-      expect(response.body).to match(/<th class="num">chars<\/th>/)
-      expect(response.body).to match(/<th class="num">words<\/th>/)
+      # `words` is part of the `<th>` headers; `chars` is gone after the
+      # 2026-05-06 cleanup.
+      expect(response.body).to include(">words</a>").or include(">words</")
+      expect(response.body).not_to match(/<th[^>]*>chars<\/th>/)
+      expect(response.body).not_to match(/<th[^>]*>chars/)
     end
   end
 end

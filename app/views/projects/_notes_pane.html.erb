@@ -2,13 +2,33 @@
   Phase B post-commit (2026-05-04):
     - `[e]` now points to `note_path(note)` (the show route IS the
       editor; no /edit segment).
-    - Columns include chars / words counts (mirror of the editor's
-      live status bar).
-    - Bulk-select toggle on the pane header — only DELETE is wired
-      (notes don't have an open/sync flow). Mirrors the /projects
-      index pattern via the panes-optional `bulk-select` controller.
-  Locals: project, notes, locked (Boolean — tenant-wide notes-syncing lock)
+    - Columns include the words count (mirror of the editor's live
+      status bar) rendered through `NoteHelper.human_words` so the cell
+      reads `6w` / `6,225w` (with the same `Nw` shape used by the
+      `/projects` index notes column). Chars was dropped 2026-05-06.
+  Phase B polish (2026-05-05) — always-on bulk shape:
+    - `[bulk]` toggle and `[cancel]` link removed; checkboxes are
+      always rendered.
+    - Header `[ ]` / `[x]` select-all checkbox toggles every row.
+    - `[delete N]` action self-hides at zero selection via the
+      `bulk-select` Stimulus controller.
+  Wave 3.5 follow-up (2026-05-06):
+    - Title / words / last modified are sortable column headers,
+      namespaced to `notes_sort` / `notes_dir` so this table's URL
+      state coexists with the footage table's `sort` / `dir` on the
+      same show page.
+    - `words` and `last modified` use the shared `.num` class on both
+      header and cell — right-aligned, tabular-nums (numeric / date-
+      like values read better right-aligned).
+    - Default sort: `last_modified desc` (most recently modified
+      first — matches the legacy ordering).
+  Locals:
+    project, notes, locked (Boolean — tenant-wide notes-syncing
+    lock), sort, dir
 %>
+
+<% sort ||= "last_modified" %>
+<% dir  ||= "desc" %>
 
 <div data-controller="bulk-select" data-bulk-select-entity-name-value="notes" data-bulk-select-delete-type-value="note">
   <div style="display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px;">
@@ -26,12 +46,6 @@
     <% else %>
       <%= button_to scan_notes_path, form: { style: "display: inline;", data: { turbo: false } }, class: "bracketed", method: :post do %>[<span class="bl">scan</span>]<% end %>
     <% end %>
-    <% if notes.any? %>
-      <span data-bulk-select-target="bulkToggle">
-        <span class="text-muted">&middot;</span>
-        <%= render(BracketedLinkComponent.new(label: "bulk", href: "#", data: { action: "click->bulk-select#enterBulk" })) %>
-      </span>
-    <% end %>
   </div>
 
   <% if locked %>
@@ -41,37 +55,34 @@
   <% end %>
 
   <% if notes.any? %>
-    <%# Phase B post-commit — bulk toolbar. Same leading-separator pattern
-        as the /projects index. Only DELETE is wired. %>
-    <div data-bulk-select-target="actions" hidden class="bulk-toolbar" style="margin-bottom: 6px;">
+    <%# Phase B polish (2026-05-05) — bulk toolbar always rendered.
+        Each `.action` span carries an `.action-sep` `&middot;` that the
+        controller hides on whichever action is first-visible. The
+        `deleteAction` target self-hides at zero selection. %>
+    <div data-bulk-select-target="actions" class="bulk-toolbar" style="margin-bottom: 6px;">
       <span class="action" data-bulk-select-target="count" hidden>
         <span class="action-sep" hidden>&middot;</span>
       </span>
       <span class="action" data-bulk-select-target="deleteAction" hidden>
         <span class="action-sep" hidden>&middot;</span>
       </span>
-      <span class="action">
-        <span class="action-sep" hidden>&middot;</span>
-        <%= render(BracketedLinkComponent.new(label: "cancel", href: "#", data: { action: "click->bulk-select#exitBulk" })) %>
-      </span>
     </div>
 
     <table>
       <thead>
         <tr>
-          <th class="col-action" data-bulk-select-target="bulkCol" hidden>
+          <th class="col-action">
             <%= render(CheckboxComponent.new(data: { bulk_select_target: "headerCheckbox", action: "change->bulk-select#toggleAll" })) %>
           </th>
-          <th>title</th>
-          <th class="num">chars</th>
-          <th class="num">words</th>
-          <th>last modified</th>
+          <th class="sortable"><%= sort_link_to("title", "title", current_sort: sort, current_dir: dir, sort_param: "notes_sort", dir_param: "notes_dir") %></th>
+          <th class="sortable num"><%= sort_link_to("words", "words", current_sort: sort, current_dir: dir, sort_param: "notes_sort", dir_param: "notes_dir") %></th>
+          <th class="sortable num"><%= sort_link_to("last modified", "last_modified", current_sort: sort, current_dir: dir, sort_param: "notes_sort", dir_param: "notes_dir") %></th>
         </tr>
       </thead>
       <tbody>
         <% notes.each do |note| %>
           <tr>
-            <td class="col-action" data-bulk-select-target="bulkCol" hidden>
+            <td class="col-action">
               <%= render(CheckboxComponent.new(value: note.id, data: { bulk_select_target: "checkbox", action: "change->bulk-select#toggle" })) %>
             </td>
             <td>
@@ -81,8 +92,7 @@
                 <%= link_to note.title, note_path(note) %>
               <% end %>
             </td>
-            <td class="num"><%= number_with_delimiter(note.chars_count) %></td>
-            <td class="num"><%= number_with_delimiter(note.words_count) %></td>
+            <td class="num"><%= NoteHelper.human_words(note.words_count) %></td>
             <td class="num"><%= compact_time_ago(note.last_modified_at) %></td>
           </tr>
         <% end %>

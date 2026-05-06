@@ -8,10 +8,18 @@
 
 <div data-controller="add-pane">
   <div style="margin-bottom: 6px;">
-    <h1 style="display: inline;"><%= @video.title %></h1><% if @available_videos.any? %> <span style="position: relative; top: -2px;"><span class="text-muted">&middot;</span> <%= render(BracketedLinkComponent.new(label: "/", href: "#", data: { action: "click->add-pane#open" })) %></span><% end %>
+    <h1 style="display: inline;"><%= @video.title %></h1><% if @available_videos.any? %> <span style="position: relative; top: -2px;"><span class="text-muted">&middot;</span> <%= render(BracketedLinkComponent.new(label: "|", href: "#", data: { action: "click->add-pane#open" })) %></span><% end %>
   </div>
 
-  <%= render "videos/pane", video: @video %>
+  <%# Phase B revamp (2026-05-05) — wrap the single pane in the standard
+      pane-container/pane-wrapper scaffolding so the global pane-bg
+      styling applies. With one child, the CSS `:only-child` rule paints
+      the wrapper with `--color-pane-bg-wide` (standalone tone). %>
+  <div class="pane-container">
+    <div class="pane-wrapper">
+      <%= render "videos/pane", video: @video %>
+    </div>
+  </div>
 
   <% if @available_videos.any? %>
     <%= render "videos/add_pane_dialog", available_videos: @available_videos, current_ids: @video.id.to_s %>

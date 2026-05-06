@@ -18,12 +18,20 @@
     <% if @available_channels.any? %>
       <span style="position: relative; top: -2px;">
         <span class="text-muted">&middot;</span>
-        <%= render(BracketedLinkComponent.new(label: "/", href: "#", data: { action: "click->add-pane#open" })) %>
+        <%= render(BracketedLinkComponent.new(label: "|", href: "#", data: { action: "click->add-pane#open" })) %>
       </span>
     <% end %>
   </div>
 
-  <%= render "channels/pane", channel: @channel %>
+  <%# Phase B revamp (2026-05-05) — wrap the single pane in the standard
+      pane-container/pane-wrapper scaffolding so the global pane-bg
+      styling applies. With one child, the CSS `:only-child` rule paints
+      the wrapper with `--color-pane-bg-wide` (standalone tone). %>
+  <div class="pane-container">
+    <div class="pane-wrapper">
+      <%= render "channels/pane", channel: @channel %>
+    </div>
+  </div>
 
   <% if @available_channels.any? %>
     <%= render "channels/add_pane_dialog", available_channels: @available_channels, current_ids: @channel.id.to_s %>

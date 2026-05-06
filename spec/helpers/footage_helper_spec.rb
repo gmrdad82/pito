@@ -53,45 +53,155 @@ RSpec.describe FootageHelper, type: :helper do
     end
   end
 
-  describe "#filename_split" do
-    it "returns the full filename and empty tail when shorter than the tail length" do
-      expect(helper.filename_split("clip.mp4")).to eq([ "clip.mp4", "" ])
+  describe "#human_fps" do
+    # Industry-standard fps values + integer-equivalent collapse. Mirrors
+    # the project workspace footage table's fps column rendering.
+    {
+      nil               => "—",
+      0                 => "—",
+      0.0               => "—",
+      -1                => "—",
+      24                => "24",
+      24.0              => "24",
+      30                => "30",
+      30.0              => "30",
+      60                => "60",
+      60.0              => "60",
+      120               => "120",
+      23.976            => "23.97",
+      29.97             => "29.97",
+      59.94             => "59.94",
+      50.5              => "50.50",
+      48.123            => "48.12"
+    }.each do |input, expected|
+      it "renders #{input.inspect} as #{expected.inspect}" do
+        expect(helper.human_fps(input)).to eq(expected)
+      end
     end
 
-    it "returns the full filename and empty tail when exactly at the tail length" do
-      name = "a" * FootageHelper::FOOTAGE_FILENAME_TAIL
-      expect(helper.filename_split(name)).to eq([ name, "" ])
+    it "handles BigDecimal('60.000') as `60` (integer-equivalent collapse)" do
+      # Real Footage rows store fps as a `decimal` column → BigDecimal.
+      # BigDecimal('60.000').to_f returns 60.0; the integer-equivalent
+      # branch fires within the ±0.001 tolerance and the value renders
+      # as the integer string.
+      expect(helper.human_fps(BigDecimal("60.000"))).to eq("60")
     end
 
-    it "splits OBS-style filenames so the timestamp + extension stay in the tail" do
-      name = "Ghost 'n Goblins Resurrection - 2026-04-23 23-34-48.mkv"
-      head, tail = helper.filename_split(name)
-      # Default tail is 23 characters — covers ` - YYYY-MM-DD HH-MM-SS.mkv`
-      # tail end. The seconds + extension must end up in the tail span.
-      expect(tail.length).to eq(FootageHelper::FOOTAGE_FILENAME_TAIL)
-      expect(tail).to end_with("23-34-48.mkv")
-      expect(head + tail).to eq(name)
-      expect(head).to start_with("Ghost 'n Goblins")
+    it "handles BigDecimal('29.970') as `29.97` (industry-standard match)" do
+      # 29.97 NTSC. The fuzzy match tolerates BigDecimal noise.
+      expect(helper.human_fps(BigDecimal("29.970"))).to eq("29.97")
     end
 
-    it "honors a custom tail length" do
-      head, tail = helper.filename_split("hello-world.mkv", tail: 4)
-      expect(tail).to eq(".mkv")
-      expect(head).to eq("hello-world")
+    it "handles BigDecimal('23.976') as `23.97`" do
+      expect(helper.human_fps(BigDecimal("23.976"))).to eq("23.97")
+    end
+  end
+
+  describe "#human_source" do
+    {
+      nil      => "—",
+      ""       => "—",
+      "obs"    => "OBS",
+      "camera" => "Camera"
+    }.each do |input, expected|
+      it "renders #{input.inspect} as #{expected.inspect}" do
+        expect(helper.human_source(input)).to eq(expected)
+      end
     end
 
-    it "handles multibyte head portions without losing characters" do
-      # The head contains a multi-byte character; splitting must not
-      # corrupt the string — the concatenation of head + tail must
-      # equal the original input byte-for-byte.
-      name = "Café session – 2026-04-23 23-34-48.mkv"
-      head, tail = helper.filename_split(name)
-      expect(head + tail).to eq(name)
-      expect(tail).to end_with("23-34-48.mkv")
+    it "falls back to titleize for unknown enum values" do
+      # New enum members render via `titleize` until they get a canonical
+      # entry in `SOURCE_LABELS`. Keeps the surface stable when the schema
+      # gains a value before the label table catches up.
+      expect(helper.human_source("screen_recorder")).to eq("Screen Recorder")
     end
 
-    it "coerces non-string input via to_s (defensive — nil renders as empty)" do
-      expect(helper.filename_split(nil)).to eq([ "", "" ])
+    it "coerces non-string input via to_s" do
+      expect(helper.human_source(:obs)).to eq("OBS")
+    end
+  end
+
+  describe "#filename_truncate_middle" do
+    # Server-side fixed-length middle truncation. Replaces the prior
+    # `filename_split` two-span CSS-flex pattern. Defaults are
+    # head=8 / tail=12 / ellipsis=`…` (Unicode U+2026, single character).
+    # Output: `<first 8 chars>…<last 12 chars>` for inputs longer than
+    # `head + 1 + tail` = 21 chars; otherwise the input is returned as-is.
+
+    it "returns the full filename when shorter than head + 1 + tail" do
+      expect(helper.filename_truncate_middle("clip.mkv")).to eq("clip.mkv")
+    end
+
+    it "returns the full filename when exactly at the boundary (21 chars)" do
+      # Default boundary is 8 + 1 + 12 = 21 chars. At-or-below renders
+      # as-is; the truncation branch only fires for length > 21.
+      name = "a" * 21
+      expect(name.length).to eq(21)
+      expect(helper.filename_truncate_middle(name)).to eq(name)
+    end
+
+    it "truncates a 22-character filename (one over the boundary)" do
+      # 22 chars trips the truncation branch. Output is 8 + 1 + 12 = 21
+      # chars: first 8 + ellipsis + last 12.
+      name = "a" * 22
+      result = helper.filename_truncate_middle(name)
+      expect(result).to eq("#{'a' * 8}…#{'a' * 12}")
+      expect(result.length).to eq(21)
+    end
+
+    it "renders the user's example exactly as `Ghost 'n…23-11-43.mkv`" do
+      # The defining example from the spec: a 55-char OBS-style filename
+      # collapses to a 21-char compact form.
+      name = "Ghost 'n Goblins Resurrection - 2026-04-23 23-11-43.mkv"
+      expect(name.length).to eq(55)
+      expect(helper.filename_truncate_middle(name)).to eq("Ghost 'n…23-11-43.mkv")
+    end
+
+    it "uses a Unicode ellipsis (U+2026), not three ASCII dots" do
+      name = "Ghost 'n Goblins Resurrection - 2026-04-23 23-11-43.mkv"
+      result = helper.filename_truncate_middle(name)
+      expect(result).to include("…")
+      expect(result).not_to include("...")
+      # Confirm exact codepoint at the seam (after the 8-char head).
+      expect(result[8].ord).to eq(0x2026)
+    end
+
+    it "honors custom head / tail args" do
+      name = "abcdefghij-1234567890.mkv" # 25 chars
+      # head=4 / tail=8 -> first 4 + … + last 8 = 13 chars output.
+      result = helper.filename_truncate_middle(name, head: 4, tail: 8)
+      expect(result).to eq("abcd…7890.mkv")
+      expect(result.length).to eq(13)
+    end
+
+    it "honors custom head / tail args at their boundary (no truncation)" do
+      # head=4 / tail=8 -> boundary is 13. A 13-char input renders as-is.
+      expect(helper.filename_truncate_middle("clip-1234.mkv", head: 4, tail: 8)).to eq("clip-1234.mkv")
+    end
+
+    it "handles multibyte / unicode filenames without UTF-8 boundary corruption" do
+      # Ruby String#[] is character-based on UTF-8 strings; the helper
+      # must not slice mid-codepoint. Each multi-byte char survives as
+      # a single character in the output and the result stays valid
+      # UTF-8 end-to-end.
+      name = "Café-session-é-2026-04-23-23-34-48.mkv" # 38 chars
+      result = helper.filename_truncate_middle(name)
+      expect(result.length).to eq(21)
+      # head = first 8 characters of "Café-session-..." -> "Café-ses"
+      expect(result).to start_with("Café-ses")
+      expect(result).to include("…")
+      # tail = last 12 characters -> "3-23-34-48.mkv" trailing slice.
+      expect(result).to end_with(name[-12..])
+      expect(result.encoding).to eq(Encoding::UTF_8)
+      expect(result).to be_valid_encoding
+    end
+
+    it "returns empty string for nil input" do
+      expect(helper.filename_truncate_middle(nil)).to eq("")
+    end
+
+    it "returns empty string for empty input" do
+      expect(helper.filename_truncate_middle("")).to eq("")
     end
   end
 end
