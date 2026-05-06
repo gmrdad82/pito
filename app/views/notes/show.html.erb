@@ -22,12 +22,12 @@
               url: note_path(@note),
               method: :patch,
               data: { controller: "markdown-editor unsaved-form" }) do |f| %>
-  <div class="pane-container pane-container--note-editor" style="margin-bottom: 16px;">
-    <div class="pane-wrapper">
+  <div class="pane-row pane-container--note-editor" style="margin-bottom: 16px;">
+    <div class="pane">
       <div class="markdown-preview"
            data-markdown-editor-target="preview"><%= render_markdown(@body) %></div>
     </div>
-    <div class="pane-wrapper pane-wrapper--note-source">
+    <div class="pane pane--note-source">
       <%= text_area_tag "note[body]", @body,
             id: "note_body",
             data: { markdown_editor_target: "source", action: "input->markdown-editor#onInput" },
@@ -39,11 +39,9 @@
     </div>
   </div>
 
-  <div style="display: flex; gap: 6px; align-items: baseline;">
+  <div class="dot-list">
     <button type="submit">[<b>update</b>]</button>
-    <span class="text-muted">&middot;</span>
     <%= render(BracketedLinkComponent.new(label: "cancel", href: project_path(@project))) %>
-    <span class="text-muted">&middot;</span>
     <%= render(BracketedLinkComponent.new(
       label: "-",
       href: "#",

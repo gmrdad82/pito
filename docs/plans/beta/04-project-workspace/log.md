@@ -3491,3 +3491,254 @@ column. Fixing #1 also resolves the perceived #3 / #4 / #5.
 
 - None. No plan checkbox tied to this fix; it's a follow-up polish on top of the
   `634b304` polish bundle.
+
+## 2026-05-06 — Pane system v2 + sitewide separator drop + YouTube heading rename
+
+**State at start:** Phase 4 Wave 3 polish committed (`edbf2fa`); the pane
+system used `.pane-wrapper` / `.pane-container` with a clamp/min-max sizing
+model and a `:only-child` override for the standalone-pane tone. Settings and
+project show used inline `var(--color-pane-bg-*)` styling on per-row grid
+cells. Sitewide bracketed-link rows used `<span class="text-muted">·</span>`
+glyphs as visual separators between `[ link ]` actions. The settings YouTube
+section's `<h2>` read "YouTube OAuth".
+
+**Goal:** simplify the pane layout to two pane classes + two container modes,
+drop the manual `·` separators in favor of a `.dot-list` class with native
+flex `gap`, drop the redundant `[v]` link next to channel/video URLs, and
+rename "YouTube OAuth" to "YouTube".
+
+### Pane system rewrite
+
+- New CSS rules in `app/assets/tailwind/application.css`:
+  - `.pane` — fixed 640px, `--color-pane-bg-a` (odd-indexed) / `-b` (even).
+  - `.pane--wide` — fixed 1280px, `--color-pane-bg-wide` (always wide tone,
+    overrides zebra).
+  - `.pane-row` — flex container with `flex-wrap: wrap` (settings, project
+    show, notes editor — wraps to next row when viewport runs out).
+  - `.pane-strip` — flex container with `flex-wrap: nowrap` and
+    `overflow-x: auto` (channels / videos workspaces — horizontal scroll).
+  - Mobile (`@media (max-width: 768px)`): every pane collapses to 88vw;
+    `.pane-strip` becomes a scroll-snap surface.
+- Dropped:
+  - `.pane-wrapper { flex: 1 1 0; ... padding ... background ... }`
+  - `.pane-wrapper + .pane-wrapper { border-left ... padding-left ... }`
+  - `.pane-container { display: flex; margin: 0 -12px; overflow-x: auto }`
+  - `.pane-container > .pane-wrapper:nth-child(even) { background ... }`
+  - `.pane-container > .pane-wrapper:only-child { ... width: 100%; ... }`
+  - The mobile media query block that pinned `.pane-wrapper` to 88vw +
+    scroll-snap on `.pane-container`.
+- Kept (renamed scope): the desktop-only `.pane-container--note-editor
+  { overflow: visible }` rule is preserved (now sits on a `.pane-row` parent
+  via the same modifier class) so the note editor's sticky words counter
+  still pins to the viewport. The `.pane-wrapper--note-source` rule was
+  renamed to `.pane--note-source` and stays as a flex-column shim so the
+  status bar can `margin-top: auto` to the bottom of the source pane.
+- The zebra `tbody tr:nth-child(even)` rule was untouched (separate concern;
+  table zebra, not pane zebra).
+
+### Markup migration
+
+- `app/views/channels/panes.html.erb` — top-level container is `.pane-strip`,
+  each child is the partial which now produces a `.pane` root. The per-pane
+  heading + reorder arrows are captured into a `header:` local passed to the
+  partial so both `panes.html.erb` (with header) and `show.html.erb` (without
+  header) share one `.pane` root.
+- `app/views/channels/show.html.erb` — `.pane-strip` containing the partial
+  (single 640px pane). The `[ syncing ]` indicator and pane-add `[ | ]` link
+  are inline in the page heading via `.dot-list`.
+- `app/views/channels/_pane.html.erb` — root is `<div class="pane">` with
+  optional `header:` / `pane_extra_class:` / `pane_style:` locals. The `[v]`
+  bracketed link next to the URL row was dropped — the URL text itself is
+  the external link with `target="_blank"`. The trailing `&middot;` between
+  the URL and `[v]` is gone.
+- `app/views/videos/panes.html.erb`, `show.html.erb`, `_pane.html.erb` —
+  symmetric updates to the channels triplet.
+- `app/views/notes/show.html.erb` — container is
+  `<div class="pane-row pane-container--note-editor">`. Both source and
+  preview panes are `.pane`. The `pane--note-source` modifier on the source
+  pane keeps the flex-column shim. Action row at the bottom becomes a
+  `.dot-list` (was inline-flex with `·` separators).
+- `app/views/settings/index.html.erb` — replaced the 3-row grid (rows 1+2
+  paired 50/50, row 3 full-width) with a single `.pane-row` of five `.pane`
+  children. Order: appearance, workspaces, YouTube, Voyage AI, search. CSS
+  `:nth-child` zebra paints them automatically (1=A, 2=B, 3=A, 4=B, 5=A).
+  The "YouTube OAuth" `<h2>` was renamed to "YouTube". Hidden form
+  `section` field stays `youtube_oauth` (internal identifier, not
+  user-facing copy).
+- `app/views/projects/show.html.erb` — replaced the 2-row grid with a single
+  `.pane-row` containing three panes: timelines (`.pane`), notes (`.pane`),
+  footage (`.pane pane--wide`). Wide pane keeps the wide background via the
+  CSS rule `.pane--wide:nth-child(even) { background: ...wide }`.
+
+### Sitewide `·` removal
+
+Replaced manual `<span class="text-muted">&middot;</span>` separators with a
+new `.dot-list` class:
+
+```css
+.dot-list {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+```
+
+Rendered items sit naturally inside; the gap rhythm comes from the container,
+not from inline glyphs. Wraps when the row runs out of room.
+
+40 `&middot;` instances removed across:
+
+- `app/views/layouts/application.html.erb` (navbar, footer, breadcrumb / breadcrumb-actions seam)
+- `app/views/channels/_pane.html.erb`, `show.html.erb`, `panes.html.erb`, `_picker.html.erb`
+- `app/views/videos/_pane.html.erb` (no dot in original), `show.html.erb`, `panes.html.erb`, `index.html.erb`
+- `app/views/notes/show.html.erb`
+- `app/views/projects/show.html.erb`, `index.html.erb`, `_timelines_pane.html.erb`, `_notes_pane.html.erb`, `_footage_pane.html.erb`
+- `app/views/dashboard/index.html.erb`
+- `app/views/collections/index.html.erb`, `games/index.html.erb`
+- `app/views/shared/_action_screen.html.erb`, `_confirm_dialog.html.erb`
+- `app/components/chart_toolbar_component.html.erb`, `confirm_modal_component.html.erb`
+
+Untouched (per directive):
+
+- `&middot;` glyphs inside `.bulk-toolbar > .action-sep` spans (JS-managed
+  by `bulk_select_controller.js`; the controller hides/shows these based on
+  selection state).
+- ` / ` separators in `BreadcrumbComponent` (path notation, different
+  concept).
+- `·` in prose-like helper output: `ApplicationHelper#version_label`
+  (`v0.0.1 · sha`) and `ApplicationHelper#pane_breadcrumb_label` (joined
+  pane labels in the breadcrumb tail). These are inline text strings, not
+  visual separators between bracketed links; they read as prose-list
+  punctuation and stay.
+
+### Spec updates
+
+- `spec/requests/channels_spec.rb`:
+  - `[v] external link` test rewritten to assert the URL `<a target="_blank">`
+    is the external link (no separate `[v]`).
+  - "wraps the single pane in pane-container > pane-wrapper" rewritten to
+    "wraps the single pane in pane-strip > pane".
+  - Multi-pane container/wrapper count test rewritten to count `.pane-strip`
+    + `.pane` children.
+- `spec/requests/videos_spec.rb` — symmetric rewrites of the show + panes
+  container assertions (no `[v]` regression test exists for videos; the
+  partial never carried one).
+- `spec/requests/settings_spec.rb` — replaced the row-1/row-2 grid +
+  inline-pane-bg assertions with a single check that the page renders one
+  `.pane-row` with five `.pane` children, plus a negative assertion that
+  the page no longer paints sections with inline pane-bg tokens (CSS
+  `:nth-child` zebra handles it).
+- `spec/requests/projects_spec.rb` — replaced the 3-cell A/B/wide
+  inline-styling assertion + 12px gap assertion with a `.pane-row`
+  cardinality check (3 panes, 1 of which is `.pane pane--wide`) plus a
+  negative assertion that no inline pane-bg tokens are rendered.
+
+### Verification
+
+- `bundle exec rspec` — `1317 examples, 0 failures`.
+- `bundle exec rubocop` — `291 files inspected, no offenses detected`.
+- `bin/brakeman -q -w2` — `0 security warnings`.
+
+### Smoke (manual, deferred to user)
+
+- `https://app.pitomd.com/channels/panes?ids=...` (4 panes, 1280px laptop):
+  horizontal scroll, panes alternate A/B colors, 640px each.
+- `https://app.pitomd.com/channels/1` (single pane): 640px, left-anchored,
+  whitespace to the right.
+- `https://app.pitomd.com/notes/2` (long Lorem): 2 panes 640px each, sticky
+  words counter still pins bottom-right of source pane.
+- `https://app.pitomd.com/settings` on 1280px: 5 boxes wrap as 2/2/1, all
+  640px, alternating colors. Heading reads "settings"; YouTube box reads
+  "YouTube" (no "OAuth").
+- `https://app.pitomd.com/projects/1`: timelines + notes + footage panes
+  laid out (timelines/notes 640 each, footage 1280 wide tone). On a 1280px
+  viewport the wide pane wraps to row 2 because 640+640=1280 already fills
+  row 1; on a 1920px viewport all three sit on one row if it fits, otherwise
+  the wide one wraps.
+- Top breadcrumb: no `·` between items, ~5px gap.
+- URL row in any channel pane: no `[v]` link.
+
+### Hard-rules audit
+
+- No JS `alert` / `confirm` / `prompt` / `data-turbo-confirm` introduced.
+- No new boolean URL params.
+- No secrets touched.
+- No cross-stack files touched (`extras/cli/`, `extras/website/`, `docs/`
+  outside this log entry).
+- File scope respected — `app/`, `spec/`, plus this log entry. The settings
+  hidden field `value="youtube_oauth"` was deliberately left untouched
+  because it's the controller's section identifier, not user-facing copy.
+
+### Files touched
+
+- `app/assets/tailwind/application.css`
+- `app/views/layouts/application.html.erb`
+- `app/views/channels/_pane.html.erb`, `panes.html.erb`, `show.html.erb`, `_picker.html.erb`
+- `app/views/videos/_pane.html.erb`, `panes.html.erb`, `show.html.erb`, `index.html.erb`
+- `app/views/notes/show.html.erb`
+- `app/views/settings/index.html.erb`
+- `app/views/projects/show.html.erb`, `index.html.erb`, `_timelines_pane.html.erb`, `_notes_pane.html.erb`, `_footage_pane.html.erb`
+- `app/views/dashboard/index.html.erb`
+- `app/views/collections/index.html.erb`, `games/index.html.erb`
+- `app/views/shared/_action_screen.html.erb`, `_confirm_dialog.html.erb`
+- `app/components/chart_toolbar_component.html.erb`, `confirm_modal_component.html.erb`
+- `spec/requests/channels_spec.rb`, `videos_spec.rb`, `settings_spec.rb`, `projects_spec.rb`
+
+### Open issues
+
+- None blocking. The `.dot-list` class is `inline-flex`; in places where
+  it's nested inside a `<nav>` (footer, navbar) it sits as a flex item in
+  the parent flex container, which is fine. If any future page wants a
+  block-level dot-list, that page can add `display: flex` inline.
+- The `pane-container--note-editor` class name kept its legacy `pane-container`
+  prefix on purpose — it's a single-instance modifier targeted at the note
+  editor's `.pane-row` parent, and renaming it would require coordinating
+  with the markdown-editor Stimulus controller binding. Deferred to a
+  future rename pass if it ever bothers anyone.
+
+## 2026-05-06 — Pane width tweak: 640/1280 → 600/1200
+
+CSS-only follow-up to the "Pane system v2" entry above. The new 640px base
+width was too wide for typical 1280px laptop viewports — `2 × 640 = 1280`
+exactly, and the `<main>` horizontal padding pushed the second pane onto a
+new row (flex-wrap triggered). Lowered the base to 600px; the wide variant
+follows at 1200px. On 1280px laptops the settings page now wraps as 2/2/1
+(was all-stacked), the project show page lays out top row 2 panes + bottom
+row footage (was wrapping prematurely), and notes editor + channels
+workspace each fit two panes side-by-side.
+
+### Files touched
+
+- `app/assets/tailwind/application.css` — `.pane` flex/width 640 → 600,
+  `.pane--wide` flex/width 1280 → 1200, plus the leading comment block
+  updated from "fixed 640px-wide" / "double-width 1280px" to "600px" /
+  "1200px". The `.markdown-preview` block's "was a flat 640px" comment
+  is intentional history of an earlier `.markdown-preview` width and
+  was left intact.
+
+### Untouched (per spec)
+
+- `:nth-child(even)` zebra rule on `.pane`.
+- `.pane--wide:nth-child(even)` background override.
+- Mobile media query (`@media (max-width: 768px)`) — panes still collapse
+  to 88vw, scroll-snap unchanged.
+- `.pane-row` / `.pane-strip` container modes.
+- Markup. No view files touched.
+
+### Verification
+
+- `bundle exec rspec` — `1317 examples, 0 failures`.
+- `bundle exec rubocop` — `291 files inspected, no offenses detected`.
+- Smoke (deferred to user, `bin/dev` running):
+  - `https://app.pitomd.com/settings` on 1280px laptop: 5 panes wrap as
+    2/2/1, each 600px.
+  - `https://app.pitomd.com/projects/1`: top row 2 panes side-by-side,
+    bottom row footage wide (1200px).
+  - `https://app.pitomd.com/notes/2`: 2 panes side-by-side.
+  - `https://app.pitomd.com/channels/panes?ids=38,53,94,46`: 2 panes
+    visible, scroll for the other 2.
+
+### Open issues
+
+- None.

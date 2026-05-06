@@ -2,9 +2,10 @@
 
 <div style="max-width: 1400px;" data-controller="bulk-select" data-bulk-select-max-panes-value="<%= @max_panes %>" data-bulk-select-entity-name-value="videos" data-bulk-select-panes-path-value="/videos/panes" data-bulk-select-delete-type-value="video">
   <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;">
-    <h1>videos</h1>
-    <span class="text-muted">&middot;</span>
-    <%= render(BracketedLinkComponent.new(label: "+", href: new_video_path)) %>
+    <div class="dot-list">
+      <h1>videos</h1>
+      <%= render(BracketedLinkComponent.new(label: "+", href: new_video_path)) %>
+    </div>
     <span style="margin-left: auto;"><%= render(SavedViewsSectionComponent.new(saved_views: @saved_views || SavedView.none, kind: "videos")) %></span>
   </div>
 

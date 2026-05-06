@@ -355,31 +355,28 @@ RSpec.describe "Projects", type: :request do
       expect(response.body).to include("timelines")
     end
 
-    # Wave 2 (2026-05-05) — show page restructured into a 2-row layout
-    # (timelines | notes on row 1, footage full-width on row 2). Each
-    # cell uses an inline pane-bg token + 12px padding treatment Settings
-    # adopted in the same Wave; the legacy `.pane-wrapper` class is gone
-    # from this view.
-    #
-    # Phase B revamp (2026-05-05) — the three cells now wear the three
-    # tones of the pane-bg system:
-    # - timelines (row 1 left)  -> --color-pane-bg-a
-    # - notes     (row 1 right) -> --color-pane-bg-b
-    # - footage   (row 2 full)  -> --color-pane-bg-wide
-    it "renders the two-row layout with three pane cells (A | B / wide)" do
+    # Phase B revamp (2026-05-06) — show page is a `.pane-row` of three
+    # panes that wrap to a new row when the viewport runs out. The first
+    # two panes are 640px (zebra A/B); the third is `.pane--wide` (1280px,
+    # always wide tone). No inline pane-bg tokens — the global `.pane` /
+    # `.pane--wide` rules handle backgrounds.
+    it "renders a .pane-row with three panes (timelines, notes, footage--wide)" do
       get project_path(project)
       body = response.body
-      expect(body.scan(/background:\s*var\(--color-pane-bg-a\)/).size).to eq(1)
-      expect(body.scan(/background:\s*var\(--color-pane-bg-b\)/).size).to eq(1)
-      expect(body.scan(/background:\s*var\(--color-pane-bg-wide\)/).size).to eq(1)
+      expect(body.scan(/class="pane-row"/).size).to eq(1)
+      # Three panes total; the third also carries the `--wide` modifier.
+      expect(body.scan(/class="pane(?:\s[^"]*)?"/).size).to eq(3)
+      expect(body.scan(/class="pane pane--wide"/).size).to eq(1)
     end
 
-    # Phase B revamp — vertical gap between row 1 (paired) and row 2
-    # (wide) so the color separation reads cleanly. The gap lives on the
-    # parent flex container, not as per-row margins.
-    it "applies a 12px gap between row 1 and row 2" do
+    # Phase B revamp (2026-05-06) — no inline pane-bg styling. The CSS
+    # `.pane:nth-child(even)` and `.pane--wide` rules paint backgrounds.
+    it "does not paint cells with inline pane-bg tokens" do
       get project_path(project)
-      expect(response.body).to match(/flex-direction:\s*column;\s*gap:\s*12px/)
+      body = response.body
+      expect(body).not_to include("var(--color-pane-bg-a)")
+      expect(body).not_to include("var(--color-pane-bg-b)")
+      expect(body).not_to include("var(--color-pane-bg-wide)")
     end
 
     it "renders [e] and [-] in the breadcrumb actions" do

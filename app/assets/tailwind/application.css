@@ -232,24 +232,77 @@ a.text-danger.bracketed:hover, a.text-danger.bracketed:hover .bl { color: var(--
 .bulk-toolbar .action-sep { color: var(--color-muted); }
 .bulk-toolbar .action-sep[hidden] { display: none; }
 
-/* Pane container — side-by-side panes with dividers. The wrapper gets
-   vertical padding so content (pane heading, table, textarea, etc.)
-   breathes from the pane's top edge instead of touching it. */
-.pane-container {
-  display: flex;
-  margin: 0 -12px;
-  overflow-x: auto;
+/* Phase B revamp (2026-05-06) — Inline list with consistent gap. Replaces
+   the manual `<span class="text-muted">·</span>` separators that used to
+   sit between bracketed action links sitewide. Items inside the list
+   render naturally; the gap rhythm comes from the container, not from
+   inline glyphs. Wraps when the row runs out of room. */
+.dot-list {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  flex-wrap: wrap;
 }
-.pane-wrapper {
-  flex: 1 1 50%;
-  min-width: 0;
-  max-width: 600px;
-  padding: 12px 12px;
+
+/* Pane system — Phase B revamp (2026-05-06). Two classes for panes,
+   two container modes:
+   - `.pane`        — fixed 452px-wide pane. Odd-indexed siblings paint
+                      with `--color-pane-bg-a`; even-indexed siblings
+                      flip to `--color-pane-bg-b` (zebra rhythm).
+   - `.pane--wide`  — double-width 904px pane on `--color-pane-bg-wide`,
+                      regardless of position.
+   - `.pane-row`    — flex container that wraps to the next row when the
+                      viewport runs out (settings, project show, notes
+                      editor). Adjacent panes in the same row touch
+                      horizontally (column-gap: 0) so their zebra
+                      backgrounds stay flush; wrapped rows get a 12px
+                      vertical breathing space (row-gap: 12px).
+   - `.pane-strip`  — flex container that does NOT wrap; horizontal
+                      overflow scrolls (channels / videos workspaces).
+   Mobile (<= 768px) collapses every pane to 88vw and turns `.pane-strip`
+   into a scroll-snap surface.
+   Widths tightened 2026-05-05 — was 600px / 1200px, then 540px / 1080px,
+   then 480px / 960px, then 440px / 880px, then 460px / 920px, then
+   450px / 900px, then 456px / 912px, then 454px / 908px; nudged to
+   452px / 904px so two side-by-side panes still fit on narrower laptop
+   viewports while keeping a touch of breathing room (2 × 452 + main
+   padding ≈ 928px, fits viewports ≥ ~955px).
+*/
+.pane {
+  flex: 0 0 452px;
+  width: 452px;
+  padding: 12px;
   background: var(--color-pane-bg-a);
 }
-.pane-wrapper + .pane-wrapper {
-  border-left: 2px solid var(--color-border);
-  padding-left: 16px;
+
+.pane:nth-child(even) {
+  background: var(--color-pane-bg-b);
+}
+
+.pane--wide {
+  flex: 0 0 904px;
+  width: 904px;
+  background: var(--color-pane-bg-wide);
+}
+
+/* A wide pane keeps its wide background regardless of position so the
+   nth-child(even) zebra rule above doesn't override it. */
+.pane--wide:nth-child(even) {
+  background: var(--color-pane-bg-wide);
+}
+
+.pane-row {
+  display: flex;
+  flex-wrap: wrap;
+  row-gap: 12px;
+  column-gap: 0;
+}
+
+.pane-strip {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 0;
 }
 
 /* Phase 4 §9.3 — Saved-views chip lists scroll horizontally on desktop AND
@@ -819,25 +872,6 @@ dialog.confirm-modal::backdrop {
   vertical-align: bottom;
 }
 
-/* Item 3 — Zebra panes. Three-tone system (Phase B 2026-05-05):
-   - Odd-indexed pane wrappers stay on `--color-pane-bg-a` (pane base).
-   - Even-indexed pane wrappers shift to `--color-pane-bg-b` (zebra sibling).
-   - A pane that's the ONLY child of `.pane-container` reads as a
-     standalone / wide pane and uses `--color-pane-bg-wide` (complementary
-     tone, slight cool shift) so it never gets mistaken for the A side of
-     a paired layout.
-   The :only-child override is placed AFTER the nth-child(even) rule so
-   the cascade resolves the right way for a single-pane container. */
-.pane-container > .pane-wrapper:nth-child(even) {
-  background-color: var(--color-pane-bg-b);
-}
-.pane-container > .pane-wrapper:only-child {
-  background-color: var(--color-pane-bg-wide);
-  flex: 1 1 auto;
-  width: 100%;
-  max-width: 100%;
-}
-
 /* Phase B post-commit (2026-05-04) — Note revamp.
    Two-pane editor on /notes/:id — preview pane (markdown rendered) +
    source pane (textarea + status bar). Heights match so the panes
@@ -910,20 +944,17 @@ textarea.note-editor-source {
   color: var(--color-muted);
 }
 /* Note editor — overflow override so the sticky words status pins to the
-   viewport's bottom (not the pane-container's, which would be a no-op
-   when its bottom edge is itself off-screen). The default
-   `.pane-container { overflow-x: auto }` rule combined with the spec's
-   computed-value behavior (one axis non-visible forces the other to
-   `auto`) makes the container a scroll container in both axes — that
-   traps `position: sticky` inside a region that has no internal scroll,
-   so nothing ever pins. `overflow: visible` here lets sticky propagate
-   up to the viewport.
+   viewport's bottom (not the pane-row's, which would be a no-op when its
+   bottom edge is itself off-screen). `.pane-row` is `display: flex` with
+   `flex-wrap: wrap`; `overflow: visible` keeps sticky propagating up to
+   the viewport. Scoped to the desktop breakpoint so the mobile override
+   (which collapses panes to 88vw) isn't broken.
 
-   Only applied to the note editor instance — every other pane-container
-   in the app (channels, videos, projects panes) keeps the original
-   horizontal-scroll behavior. Scoped to the desktop breakpoint so the
-   mobile override (which keeps `overflow-x: auto` for scroll-snap
-   between panes) isn't broken. */
+   Only applied to the note editor instance via the `pane-container--note-editor`
+   modifier on the `.pane-row` parent — every other pane row in the app
+   keeps the default `overflow: visible` from `.pane-row` already. Kept
+   explicit here so future changes to `.pane-row` don't quietly regress
+   the sticky behavior. */
 @media (min-width: 769px) {
   .pane-container--note-editor {
     overflow: visible;
@@ -933,20 +964,19 @@ textarea.note-editor-source {
 /* Source pane on /notes/:id — flex column so the .markdown-status can
    sit naturally at the end of the pane (after the textarea) AND
    align-self to the right edge. The textarea grows with content; the
-   status sticks to the viewport bottom while any part of this wrapper
-   is on screen. */
-.pane-wrapper--note-source {
+   status sticks to the viewport bottom while any part of this pane is
+   on screen. */
+.pane--note-source {
   display: flex;
   flex-direction: column;
 }
 
 /* Words counter — sticks to the bottom of the source pane while the
    user scrolls a long note. Spans the full width of the pane (negative
-   margins cancel the wrapper's asymmetric left/right padding: 16px on
-   the left because of `.pane-wrapper + .pane-wrapper { padding-left }`,
-   12px on the right) with the text right-aligned. Opaque background
-   matches the right pane's tone (`--color-pane-bg-b`, since the source
-   pane is the second / even child of `.pane-container`) so scrolled-up
+   12px margins on each side cancel the pane's symmetric 12px padding)
+   with the text right-aligned. Opaque background matches the source
+   pane's tone (`--color-pane-bg-b`, since the source pane is the
+   second / even child of `.pane-row` in the editor) so scrolled-up
    content doesn't bleed through; top border separates it from the
    textarea above.
 
@@ -954,11 +984,7 @@ textarea.note-editor-source {
    when the pane is stretched taller than its textarea (e.g. short note
    with a tall preview on the left). Combined with `position: sticky;
    bottom: 0`, the bar then pins to the viewport bottom while any part
-   of the source pane is on screen.
-
-   Without the `.pane-container--note-editor { overflow: visible }`
-   override above, sticky would be trapped inside the pane-container's
-   scroll context and never pin to the viewport. */
+   of the source pane is on screen. */
 .markdown-status {
   font-size: 11px;
   text-align: right;
@@ -967,7 +993,7 @@ textarea.note-editor-source {
   background: var(--color-pane-bg-b);
   border-top: 1px solid var(--color-border);
   padding: 4px 12px;
-  margin: auto -12px -12px -16px;
+  margin: auto -12px -12px -12px;
   z-index: 1;
 }
 
@@ -992,19 +1018,21 @@ textarea.note-editor-source {
   }
 
   /* Phase 4 §9.2 — Panes: horizontal scroll with snap on mobile.
-     Drops the previous vertical-stack layout. One pane per viewport,
-     swipe to navigate.
+     Single column, panes scale to viewport width.
      Item 5 — left/right reorder arrows STAY visible on mobile (same
      top-corner positions as desktop) as discoverability cues + tap
      targets. The vertical pane-arrow-up/down variants remain hidden
      on mobile (and globally — see the base rule above). */
-  .pane-container {
-    margin: 0;
+  .pane,
+  .pane--wide {
+    flex: 0 0 88vw;
+    width: 88vw;
+  }
+  .pane-strip {
     scroll-snap-type: x mandatory;
   }
-  .pane-wrapper {
-    min-width: 88vw;
-    flex: 0 0 88vw;
+  .pane-strip > .pane,
+  .pane-strip > .pane--wide {
     scroll-snap-align: start;
   }
   .pane-arrow-up,

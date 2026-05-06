@@ -2,10 +2,9 @@
         data-action="click->confirm-dialog#clickOutside keydown->confirm-dialog#keydown">
   <div data-role="title" class="dialog-title"></div>
   <div data-role="message" class="dialog-message"></div>
-  <div>
+  <div class="dot-list">
     <button type="button" data-action="confirm-dialog#confirm"
             class="<%= local_assigns[:destructive] ? 'dialog-destructive' : 'dialog-confirm' %>">[confirm]</button>
-    <span class="text-muted">&middot;</span>
     <button type="button" data-action="confirm-dialog#cancel">[cancel]</button>
   </div>
 </dialog>

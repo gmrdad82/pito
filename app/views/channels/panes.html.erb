@@ -32,20 +32,21 @@
 <% current_ids = pane_ids.join(",") %>
 
 <div data-controller="add-pane">
-  <div style="margin-bottom: 6px;">
+  <div class="dot-list" style="margin-bottom: 6px;">
     <h1 style="display: inline;">channels (<%= number_with_delimiter(@panes.compact.size) %>)</h1>
     <% if @available_channels&.any? %>
-      <span style="position: relative; top: -2px;">
-        <span class="text-muted">&middot;</span>
-        <%= render(BracketedLinkComponent.new(label: "|", href: "#", data: { action: "click->add-pane#open" })) %>
-      </span>
+      <%= render(BracketedLinkComponent.new(label: "|", href: "#", data: { action: "click->add-pane#open" })) %>
     <% end %>
   </div>
 
-  <div class="pane-container">
+  <div class="pane-strip">
     <% @panes.each_with_index do |channel, i| %>
       <% if channel %>
-        <div class="pane-wrapper" style="position: relative;">
+        <%# Build the per-pane heading + reorder-arrow chrome and pass it
+            into the partial via the `header:` local. The partial itself
+            emits the `.pane` root, so heading + arrows live INSIDE the
+            pane (no double-wrapping). %>
+        <% pane_header = capture do %>
           <% if i > 0 %>
             <% swapped = pane_ids.dup; swapped[i], swapped[i-1] = swapped[i-1], swapped[i] %>
             <%= link_to "◀", "#{panes_channels_path}?ids=#{swapped.join(',')}", class: "pane-arrow pane-arrow-left", title: "move left" %>
@@ -56,23 +57,20 @@
             <%= link_to "▶", "#{panes_channels_path}?ids=#{swapped.join(',')}", class: "pane-arrow pane-arrow-right", title: "move right" %>
             <%= link_to "▼", "#{panes_channels_path}?ids=#{swapped.join(',')}", class: "pane-arrow pane-arrow-down", title: "move down" %>
           <% end %>
-          <div style="display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px;">
+          <div class="dot-list" style="margin-bottom: 4px;">
             <h2>channel #<%= channel.id %></h2>
-            <span style="position: relative; top: -1px;"><span class="text-muted">&middot;</span>
             <%= render(BracketedLinkComponent.new(label: "focus", href: channel_path(channel))) %>
             <% remaining_ids = pane_ids.reject { |id| id == channel.id } %>
             <% if remaining_ids.size > 1 %>
-              <span class="text-muted">&middot;</span>
               <%= render(BracketedLinkComponent.new(label: "−", href: "#{panes_channels_path}?ids=#{remaining_ids.join(',')}")) %>
             <% elsif remaining_ids.size == 1 %>
-              <span class="text-muted">&middot;</span>
               <%= render(BracketedLinkComponent.new(label: "−", href: channel_path(remaining_ids.first))) %>
-            <% end %></span>
+            <% end %>
           </div>
-          <%= render "channels/pane", channel: channel %>
-        </div>
+        <% end %>
+        <%= render "channels/pane", channel: channel, header: pane_header, pane_style: "position: relative;" %>
       <% else %>
-        <div class="pane-wrapper">
+        <div class="pane">
           <p class="text-muted" style="padding: 8px;">channel not found.</p>
         </div>
       <% end %>

@@ -474,10 +474,15 @@ RSpec.describe "Channels", type: :request do
       expect(response.body).to include(channel.channel_url)
     end
 
-    it "renders [v] external link" do
+    it "renders the channel URL as an external (target=_blank) link" do
+      # Phase B revamp (2026-05-06) — the standalone `[v]` BracketedLink
+      # next to the URL row was dropped; the URL text itself is the
+      # external link, which already has `target="_blank"`. No separate
+      # `[v]` action is rendered.
       get channel_path(channel)
-      expect(response.body).to include('class="bl">v</span>')
+      expect(response.body).not_to include('class="bl">v</span>')
       expect(response.body).to include('target="_blank"')
+      expect(response.body).to include(channel.channel_url)
     end
 
     it "includes sync link" do
@@ -547,15 +552,14 @@ RSpec.describe "Channels", type: :request do
       expect(header_section).not_to include("[disconnect]")
     end
 
-    # Phase B revamp (2026-05-05) — single-pane show wraps the pane in
-    # the standard pane-container/pane-wrapper scaffolding so the global
-    # `:only-child` rule paints the wrapper with `--color-pane-bg-wide`
-    # (the standalone tone), reading as visually distinct from the A/B
-    # alternation used in multi-pane workspace views.
-    it "wraps the single pane in pane-container > pane-wrapper" do
+    # Phase B revamp (2026-05-06) — single-pane show wraps the pane in a
+    # `.pane-strip` (no-wrap horizontal flex) holding a single `.pane`
+    # (640px). The new pane system uses zebra alternation rather than a
+    # `:only-child` flag; with one pane the odd-index rule applies.
+    it "wraps the single pane in pane-strip > pane" do
       get channel_path(channel)
-      expect(response.body).to include('<div class="pane-container">')
-      expect(response.body).to match(/<div class="pane-container">\s*<div class="pane-wrapper">/)
+      expect(response.body).to include('<div class="pane-strip">')
+      expect(response.body).to match(/<div class="pane-strip">\s*<[^>]*class="pane[^"]*"/)
     end
   end
 
@@ -846,18 +850,18 @@ RSpec.describe "Channels", type: :request do
       expect(response.body).not_to include('class="bl">update</span>')
     end
 
-    # Phase B revamp (2026-05-05) — multi-pane view emits N pane-wrappers
-    # in a single pane-container. The global CSS handles A/B alternation
-    # via `:nth-child(odd)`/`:nth-child(even)`; the view itself stays
-    # markup-only — every pane carries `class="pane-wrapper"` and the
-    # browser paints them. Asserting via the marker count keeps the test
-    # decoupled from the per-pane decoration (arrows, headings).
-    it "renders one .pane-wrapper per channel inside a single .pane-container" do
+    # Phase B revamp (2026-05-06) — multi-pane view emits N `.pane`
+    # children inside a single `.pane-strip`. The global CSS handles A/B
+    # alternation via `:nth-child(odd)`/`:nth-child(even)`; the view
+    # itself stays markup-only — every pane carries `class="pane"` and
+    # the browser paints them. Asserting via the marker count keeps the
+    # test decoupled from per-pane decoration (arrows, headings).
+    it "renders one .pane per channel inside a single .pane-strip" do
       get "#{panes_channels_path}?ids=#{channel1.id},#{channel2.id}"
-      containers = response.body.scan(/class="pane-container"/).size
-      wrappers   = response.body.scan(/class="pane-wrapper"/).size
-      expect(containers).to eq(1)
-      expect(wrappers).to eq(2)
+      strips = response.body.scan(/class="pane-strip"/).size
+      panes = response.body.scan(/class="pane(?:\s[^"]*)?"/).size
+      expect(strips).to eq(1)
+      expect(panes).to eq(2)
     end
 
     it "renders a confirm modal (no data-turbo-confirm) for the saved-view delete" do

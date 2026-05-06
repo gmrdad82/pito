@@ -2,9 +2,8 @@
   Locals: project, timelines
 %>
 
-<div style="display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px;">
+<div class="dot-list" style="margin-bottom: 4px;">
   <h2>timelines (<%= number_with_delimiter(timelines.size) %>)</h2>
-  <span class="text-muted">&middot;</span>
   <%= button_to project_timelines_path(project), form: { style: "display: inline;", data: { turbo: false } }, class: "bracketed", method: :post do %>[<span class="bl">+</span>]<% end %>
 </div>
 

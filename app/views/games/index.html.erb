@@ -1,9 +1,8 @@
 <% content_for(:title, "games") %>
 
 <div style="max-width: 1100px;">
-  <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;">
+  <div class="dot-list" style="margin-bottom: 6px;">
     <h1>games</h1>
-    <span class="text-muted">&middot;</span>
     <%= button_to games_path, form: { style: "display: inline;", data: { turbo: false } }, class: "bracketed", method: :post do %>[<span class="bl">+</span>]<% end %>
   </div>
 

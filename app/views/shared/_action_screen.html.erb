@@ -19,8 +19,9 @@
   <% end %>
 
   <div class="action-screen-footer">
-    <button type="submit" class="<%= destructive ? 'btn-danger' : '' %>"><%= submit_label %></button>
-    <span class="text-muted">&middot;</span>
-    <%= render(BracketedLinkComponent.new(label: "cancel", href: cancel_path)) %>
+    <div class="dot-list">
+      <button type="submit" class="<%= destructive ? 'btn-danger' : '' %>"><%= submit_label %></button>
+      <%= render(BracketedLinkComponent.new(label: "cancel", href: cancel_path)) %>
+    </div>
   </div>
 <% end %>

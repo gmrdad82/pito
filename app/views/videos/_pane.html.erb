@@ -1,4 +1,11 @@
-<div class="pane" style="flex: 1; min-width: 0;">
+<%# Phase B revamp (2026-05-06) — root is the `.pane` (640px, alternating
+    A/B zebra background). Optional `header:` local lets the panes.html.erb
+    workspace inject the per-pane heading + reorder arrows. %>
+<% header = local_assigns[:header] %>
+<% pane_extra_class = local_assigns.fetch(:pane_extra_class, "") %>
+<% pane_style = local_assigns.fetch(:pane_style, nil) %>
+<div class="pane <%= pane_extra_class %>"<%= pane_style ? " style=\"#{pane_style}\"".html_safe : "" %>>
+  <%= header %>
   <table class="detail-table" style="margin-bottom: 8px;">
     <tr>
       <td class="text-muted" style="padding-right: 12px;">youtube ID</td>

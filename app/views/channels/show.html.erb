@@ -2,33 +2,29 @@
 <% content_for(:title, page_label) %>
 <% breadcrumb(["channels", channels_path], page_label) %>
 <% content_for(:breadcrumb_actions) do %>
-  <%= render(BracketedLinkComponent.new(label: "e", href: edit_channel_path(@channel))) %>
-  <span class="text-muted">&middot;</span>
-  <%= render(BracketedLinkComponent.new(label: "sync", href: "/syncs/channel/#{@channel.id}")) %>
-  <span class="text-muted">&middot;</span>
-  <%= render(BracketedLinkComponent.new(label: "-", href: "/deletions/channel/#{@channel.id}", destructive: true)) %>
+  <div class="dot-list">
+    <%= render(BracketedLinkComponent.new(label: "e", href: edit_channel_path(@channel))) %>
+    <%= render(BracketedLinkComponent.new(label: "sync", href: "/syncs/channel/#{@channel.id}")) %>
+    <%= render(BracketedLinkComponent.new(label: "-", href: "/deletions/channel/#{@channel.id}", destructive: true)) %>
+  </div>
 <% end %>
 
 <div data-controller="add-pane">
-  <div style="margin-bottom: 6px;">
+  <div class="dot-list" style="margin-bottom: 6px;">
     <h1 style="display: inline;">channel #<%= @channel.id %></h1>
     <% if @channel.syncing? %>
-      <span class="text-muted" style="margin-left: 8px;">[syncing]</span>
+      <span class="text-muted">[syncing]</span>
     <% end %>
     <% if @available_channels.any? %>
-      <span style="position: relative; top: -2px;">
-        <span class="text-muted">&middot;</span>
-        <%= render(BracketedLinkComponent.new(label: "|", href: "#", data: { action: "click->add-pane#open" })) %>
-      </span>
+      <%= render(BracketedLinkComponent.new(label: "|", href: "#", data: { action: "click->add-pane#open" })) %>
     <% end %>
   </div>
 
-  <%# Phase B revamp (2026-05-05) — wrap the single pane in the standard
-      pane-container/pane-wrapper scaffolding so the global pane-bg
-      styling applies. With one child, the CSS `:only-child` rule paints
-      the wrapper with `--color-pane-bg-wide` (standalone tone). %>
-  <div class="pane-container">
-    <div class="pane-wrapper">
+  <%# Phase B revamp (2026-05-06) — single pane on the show page sits
+      in a `.pane-strip` (no wrap). The pane is fixed 640px wide and
+      paints with `--color-pane-bg-a` (odd index). %>
+  <div class="pane-strip">
+    <div class="pane">
       <%= render "channels/pane", channel: @channel %>
     </div>
   </div>

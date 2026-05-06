@@ -1,14 +1,17 @@
-<div class="pane" style="flex: 1; min-width: 0;">
-  <%# URL row lives OUTSIDE the detail-table because <td> sizes to content
-      and won't honor `min-width: 0` for ellipsis truncation. Flex row
-      with `min-width: 0` on the truncating child does the right thing —
-      the URL collapses to `…` when the pane is narrower than the URL,
-      and `[ v ]` stays visible at the right edge. %>
+<%# Phase B revamp (2026-05-06) — root is the `.pane` (640px, alternating
+    A/B zebra background). Optional `header:` local lets the panes.html.erb
+    workspace inject the per-pane heading + reorder arrows; show.html.erb
+    omits it (the page-level h1 covers naming there). %>
+<% header = local_assigns[:header] %>
+<% pane_extra_class = local_assigns.fetch(:pane_extra_class, "") %>
+<% pane_style = local_assigns.fetch(:pane_style, nil) %>
+<div class="pane <%= pane_extra_class %>"<%= pane_style ? " style=\"#{pane_style}\"".html_safe : "" %>>
+  <%= header %>
+  <%# URL row. The URL is itself an external link; no separate `[v]`
+      action. Clicking the URL text opens the channel in a new tab. %>
   <div style="display: flex; align-items: baseline; gap: 6px; min-width: 0; max-width: 100%; margin-bottom: 4px;">
     <span class="text-muted" style="flex-shrink: 0;">URL</span>
     <a href="<%= channel.channel_url %>" target="_blank" rel="noopener noreferrer" class="truncate-url" style="flex: 1; min-width: 0;"><%= channel.channel_url %></a>
-    <span class="text-muted" style="flex-shrink: 0;">&middot;</span>
-    <%= render(BracketedLinkComponent.new(label: "v", href: channel.channel_url, target: "_blank", rel: "noopener noreferrer")) %>
   </div>
   <table class="detail-table" style="margin-bottom: 8px;">
     <tr>

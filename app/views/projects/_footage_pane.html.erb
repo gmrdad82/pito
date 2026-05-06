@@ -31,9 +31,8 @@
 <% filter_options ||= {} %>
 <% active_filters ||= [] %>
 
-<div style="display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px;">
+<div class="dot-list" style="margin-bottom: 4px;">
   <h2>footage (<%= number_with_delimiter(footages.size) %>)</h2>
-  <span class="text-muted">&middot;</span>
   <%= render(BracketedLinkComponent.new(label: "download cli", href: footage_importer_download_path)) %>
 </div>
 

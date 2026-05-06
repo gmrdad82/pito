@@ -39,11 +39,9 @@
         <a href="/" style="text-decoration: none; display: flex; align-items: center; line-height: 0;" aria-label="Dashboard">
           <img src="/Pito.png" alt="Pito" class="header-logo">
         </a>
-        <nav style="display: flex; align-items: center; gap: 4px;"><span class="hide-mobile"><%= nav_link "home", root_path %> <span class="text-muted">&middot;</span> </span><%= nav_link "channels", channels_path, short: "C" %> <span class="text-muted">&middot;</span> <%= nav_link "videos", videos_path, short: "V" %> <span class="text-muted">&middot;</span> <%= nav_link "projects", projects_path, short: "P" %> <span class="text-muted">&middot;</span> <%= nav_link "settings", settings_path, short: "S" %></nav>
-        <span class="text-muted hide-mobile">&middot;</span>
+        <nav class="dot-list"><span class="hide-mobile"><%= nav_link "home", root_path %></span><%= nav_link "channels", channels_path, short: "C" %><%= nav_link "videos", videos_path, short: "V" %><%= nav_link "projects", projects_path, short: "P" %><%= nav_link "settings", settings_path, short: "S" %></nav>
         <%= form_with url: search_path, method: :get, class: "search-form", style: "display: flex; align-items: center; gap: 4px;", data: { turbo_action: "replace" } do %>
           <input type="text" name="q" value="<%= params[:q] %>" placeholder="search..." autocomplete="off" class="search-input" style="width: 200px; height: 22px; font-size: 13px; padding: 0 6px; border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-text); font-family: inherit;">
-          <button type="submit" class="bracketed hide-mobile" style="white-space: nowrap;">[<span class="bl">search</span>]</button>
         <% end %>
         <a href="#" class="keycap keycap-theme" style="margin-left: auto;" data-action="click->theme#toggle" data-theme-target="toggle">n</a>
       </div>
@@ -66,7 +64,7 @@
     <div style="padding-top: 32px;">
       <main style="padding: 16px 12px 8px 12px;">
         <% if content_for?(:breadcrumbs) %>
-          <nav style="margin-bottom: 6px; display: flex; align-items: baseline; gap: 6px;"><%= yield :breadcrumbs %><% if content_for?(:breadcrumb_actions) %><span class="text-muted">&middot;</span><%= yield :breadcrumb_actions %><% end %></nav>
+          <nav class="dot-list" style="margin-bottom: 6px;"><%= yield :breadcrumbs %><% if content_for?(:breadcrumb_actions) %><%= yield :breadcrumb_actions %><% end %></nav>
         <% end %>
         <%= yield %>
       </main>
@@ -74,8 +72,10 @@
 
     <footer style="border-top: 1px solid var(--color-border); padding: 8px 12px; margin-top: 24px;">
       <div style="display: flex; align-items: center; gap: 4px; font-size: 11px; flex-wrap: wrap;">
-        <span class="hide-mobile"><%= nav_link "home", root_path %> <span class="text-muted">&middot;</span> </span><%= nav_link "channels", channels_path, short: "C" %> <span class="text-muted">&middot;</span> <%= nav_link "videos", videos_path, short: "V" %> <span class="text-muted">&middot;</span> <%= nav_link "projects", projects_path, short: "P" %> <span class="text-muted">&middot;</span> <%= nav_link "settings", settings_path, short: "S" %> <span class="text-muted">&middot;</span>
-        <a href="/" style="display: flex; align-items: center; gap: 4px; text-decoration: none; color: inherit;"><img src="/Pito.png" alt="Pito" style="height: 10px; width: auto; display: block; position: relative; top: -1px;"></a>
+        <div class="dot-list">
+          <span class="hide-mobile"><%= nav_link "home", root_path %></span><%= nav_link "channels", channels_path, short: "C" %><%= nav_link "videos", videos_path, short: "V" %><%= nav_link "projects", projects_path, short: "P" %><%= nav_link "settings", settings_path, short: "S" %>
+          <a href="/" style="display: flex; align-items: center; gap: 4px; text-decoration: none; color: inherit;"><img src="/Pito.png" alt="Pito" style="height: 10px; width: auto; display: block; position: relative; top: -1px;"></a>
+        </div>
         <span class="text-muted">&copy; <%= Date.current.year %><span class="hide-mobile"> &mdash; all rights reserved.</span></span>
         <span class="text-muted" style="margin-left: auto;"><%= version_label %></span>
       </div>

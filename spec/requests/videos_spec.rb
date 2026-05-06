@@ -402,15 +402,13 @@ RSpec.describe "Videos", type: :request do
       expect(json).to include("id", "title", "description", "stats")
     end
 
-    # Phase B revamp (2026-05-05) — single-pane show wraps the pane in
-    # the standard pane-container/pane-wrapper scaffolding so the global
-    # `:only-child` CSS rule paints the wrapper with `--color-pane-bg-wide`
-    # (the standalone tone), reading as visually distinct from the A/B
-    # alternation used in multi-pane workspace views.
-    it "wraps the single pane in pane-container > pane-wrapper" do
+    # Phase B revamp (2026-05-06) — single-pane show wraps the pane in a
+    # `.pane-strip` (no-wrap horizontal flex) holding a single `.pane`
+    # (640px).
+    it "wraps the single pane in pane-strip > pane" do
       get video_path(video)
-      expect(response.body).to include('<div class="pane-container">')
-      expect(response.body).to match(/<div class="pane-container">\s*<div class="pane-wrapper">/)
+      expect(response.body).to include('<div class="pane-strip">')
+      expect(response.body).to match(/<div class="pane-strip">\s*<[^>]*class="pane[^"]*"/)
     end
   end
 
@@ -552,17 +550,16 @@ RSpec.describe "Videos", type: :request do
       expect(response.body).to include(video2.youtube_video_id)
     end
 
-    # Phase B revamp (2026-05-05) — multi-pane view emits N pane-wrappers
-    # in a single pane-container. The global CSS handles A/B alternation
-    # via `:nth-child(odd)`/`:nth-child(even)`; the view itself stays
-    # markup-only and the browser paints them. Asserting via marker count
-    # keeps the test decoupled from per-pane decoration.
-    it "renders one .pane-wrapper per video inside a single .pane-container" do
+    # Phase B revamp (2026-05-06) — multi-pane view emits N `.pane`
+    # children inside a single `.pane-strip`. The global CSS handles A/B
+    # alternation via `:nth-child(odd)`/`:nth-child(even)`; the view
+    # itself stays markup-only and the browser paints them.
+    it "renders one .pane per video inside a single .pane-strip" do
       get "#{panes_videos_path}?ids=#{video1.id},#{video2.id}"
-      containers = response.body.scan(/class="pane-container"/).size
-      wrappers   = response.body.scan(/class="pane-wrapper"/).size
-      expect(containers).to eq(1)
-      expect(wrappers).to eq(2)
+      strips = response.body.scan(/class="pane-strip"/).size
+      panes = response.body.scan(/class="pane(?:\s[^"]*)?"/).size
+      expect(strips).to eq(1)
+      expect(panes).to eq(2)
     end
 
     it "includes focus link per pane" do

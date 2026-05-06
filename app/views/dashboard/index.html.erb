@@ -12,18 +12,16 @@
   <div data-controller="chart-sync" style="display: flex; gap: 24px; flex-wrap: wrap;">
     <div style="flex: 1; min-width: 400px;">
       <div style="margin-bottom: 24px;" data-chart-id="daily-views" data-chart-sync-target="chart">
-        <h3 style="display: flex; align-items: baseline; gap: 4px;">
+        <h3 class="dot-list">
           <span>daily views</span>
-          <span class="text-muted">&middot;</span>
           <%= render(CheckboxComponent.new(label: "sync", variant: :link, data: { "chart-sync-target": "checkbox", "chart-id": "daily-views", action: "change->chart-sync#toggle" })) %>
         </h3>
         <%= line_chart @daily_views, height: "250px", colors: chart_palette(1), thousands: ",", library: { datasets: { pointHoverRadius: 4 } } %>
       </div>
 
       <div style="margin-bottom: 24px;" data-chart-id="views-by-channel" data-chart-sync-target="chart">
-        <h3 style="display: flex; align-items: baseline; gap: 4px;">
+        <h3 class="dot-list">
           <span>views by channel</span>
-          <span class="text-muted">&middot;</span>
           <%= render(CheckboxComponent.new(label: "sync", variant: :link, data: { "chart-sync-target": "checkbox", "chart-id": "views-by-channel", action: "change->chart-sync#toggle" })) %>
         </h3>
         <%= line_chart @views_by_channel, height: "250px", colors: chart_palette(3), thousands: ",", library: { datasets: { pointHoverRadius: 4 } } %>
@@ -39,9 +37,8 @@
       </div>
 
       <div style="margin-bottom: 24px;" data-chart-id="daily-engagement" data-chart-sync-target="chart">
-        <h3 style="display: flex; align-items: baseline; gap: 4px;">
+        <h3 class="dot-list">
           <span>daily engagement</span>
-          <span class="text-muted">&middot;</span>
           <%= render(CheckboxComponent.new(label: "sync", variant: :link, data: { "chart-sync-target": "checkbox", "chart-id": "daily-engagement", action: "change->chart-sync#toggle" })) %>
         </h3>
         <%= line_chart @daily_engagement, height: "250px", colors: [ chart_palette[0], chart_palette[3] ], thousands: ",", library: { datasets: { pointHoverRadius: 4 } } %>
