@@ -174,17 +174,15 @@ and MCP HTTP require explicit bearer tokens.
 ### Models and migrations
 
 - [x] Migration: create `tenants` table (`slug` citext unique, `name`,
-      timestamps) — Channel Revamp delivered name-only; 5A added `slug`
-      (citext, unique, NOT NULL) via
-      `20260507000001_add_slug_to_tenants.rb` and the matching seed
-      backfill from `:owner.tenant_slug` (fallback `"primary"`)
+      timestamps) — Channel Revamp delivered name-only; 5A added `slug` (citext,
+      unique, NOT NULL) via `20260507000001_add_slug_to_tenants.rb` and the
+      matching seed backfill from `:owner.tenant_slug` (fallback `"primary"`)
 - [x] Migration: create `users` table with `tenant_id` FK, `email` citext
       (unique within tenant), `password_digest`, `name`, `role` (default
       `'owner'`), timestamps — delivered in Channel Revamp with
-      `username + email + password_digest`. 5A formally drops `name` and
-      `role` from the spec (single-user world), and locks
-      `email`/`username` global uniqueness as a deliberate departure
-      revisited at Theta multi-tenancy
+      `username + email + password_digest`. 5A formally drops `name` and `role`
+      from the spec (single-user world), and locks `email`/`username` global
+      uniqueness as a deliberate departure revisited at Theta multi-tenancy
 - [x] `Tenant` model: `has_many :users`, `has_many :api_tokens`, validations on
       slug and name — Channel Revamp delivered associations + name validation;
       5A adds `slug` validation (presence, format, length, uniqueness via
@@ -197,31 +195,31 @@ and MCP HTTP require explicit bearer tokens.
       to the seeded tenant + user (delivered in 5A — videos, playlists,
       playlist_items, video_stats, video_uploads, saved_views, bulk_operations,
       bulk_operation_items each get the three-step add-reference / backfill /
-      not-null sequence. `footages.tenant_id` was tightened from nullable to
-      NOT NULL in the same batch. `mcp_access_tokens` → `api_tokens` got its
+      not-null sequence. `footages.tenant_id` was tightened from nullable to NOT
+      NULL in the same batch. `mcp_access_tokens` → `api_tokens` got its
       `tenant_id` (plus `user_id`, scopes, expires_at) from 5B's rename
       migration)
-- [x] Add `belongs_to :tenant` to every affected model — delivered in 5A via
-      the `BelongsToTenant` concern (next checkbox); the concern declares the
+- [x] Add `belongs_to :tenant` to every affected model — delivered in 5A via the
+      `BelongsToTenant` concern (next checkbox); the concern declares the
       association so every tenanted model gets it uniformly
 - [x] Add the `belongs_to_tenant` concern (or equivalent) and apply uniformly
       (delivered in 5A — `app/models/concerns/belongs_to_tenant.rb` declares
       `belongs_to :tenant`, validates `tenant_id` presence, and a
       `default_scope` keyed on `Current.tenant_id` that raises
-      `BelongsToTenant::TenantContextMissing` when Current is unset.
-      Included in: Channel, Video, Playlist, PlaylistItem, VideoStat,
-      VideoUpload, SavedView, BulkOperation, BulkOperationItem, Project,
-      Collection, Game, Footage, Note, Timeline, ProjectReference. Tenant
-      and User intentionally do NOT include it.)
+      `BelongsToTenant::TenantContextMissing` when Current is unset. Included
+      in: Channel, Video, Playlist, PlaylistItem, VideoStat, VideoUpload,
+      SavedView, BulkOperation, BulkOperationItem, Project, Collection, Game,
+      Footage, Note, Timeline, ProjectReference. Tenant and User intentionally
+      do NOT include it.)
 - [x] Migration: drop the Alpha-era token table (whatever it was called) and
       create `api_tokens` with the full Beta schema. No data preservation needed
-      — Alpha tokens are not contracts. (5B: `mcp_access_tokens` was renamed
-      and extended via two migrations rather than dropped — preserves the
-      working rake-task CRUD path; spec §5 locks this rename-and-extend path)
+      — Alpha tokens are not contracts. (5B: `mcp_access_tokens` was renamed and
+      extended via two migrations rather than dropped — preserves the working
+      rake-task CRUD path; spec §5 locks this rename-and-extend path)
 - [x] `ApiToken` model: associations, token digest, scope validation, expiry
       helper (delivered in 5B: `belongs_to :tenant, :user`; HMAC-SHA256 with
-      pepper credential; `scopes_subset_of_catalog`; `revoked? / expired? /
-      usable?`; `touch_used!`)
+      pepper credential; `scopes_subset_of_catalog`;
+      `revoked? / expired? /     usable?`; `touch_used!`)
 - [x] Add `Current` model with `tenant`, `user`, `token` attributes — delivered
       in Channel Revamp; `before_action :set_current_tenant_and_user` populates
       from `Tenant.first` / `User.first` singletons
@@ -253,17 +251,17 @@ and MCP HTTP require explicit bearer tokens.
       `Api::FootagesController` is the only `Api::*` controller in Phase B's
       scope; concern mixed in)
 - [x] Apply to every MCP HTTP transport endpoint in MCP Puma (delivered in 5B:
-      `Mcp::RackApp#call` invokes `Api::TokenAuthenticator` before delegating
-      to the transport)
+      `Mcp::RackApp#call` invokes `Api::TokenAuthenticator` before delegating to
+      the transport)
 - [x] Constant-time digest comparison (delivered in 5B: HMAC-SHA256 with the
       `:tokens.pepper` credential; `ActiveSupport::SecurityUtils.secure_compare`
       in both `ApiToken.authenticate` and `Api::TokenAuthenticator`)
-- [x] Update `last_used_at` on success (delivered in 5B:
-      `ApiToken#touch_used!` via `update_columns`)
+- [x] Update `last_used_at` on success (delivered in 5B: `ApiToken#touch_used!`
+      via `update_columns`)
 - [x] Basic Rack::Attack throttle on failed lookups (5 per minute per IP) — full
-      rate limiting is Phase 15 (delivered in 5B at the spec's locked rate of
-      10 per 5 minutes per IP via `ApiAuthThrottle` + Rack::Attack blocklist;
-      see `config/initializers/rack_attack.rb`)
+      rate limiting is Phase 15 (delivered in 5B at the spec's locked rate of 10
+      per 5 minutes per IP via `ApiAuthThrottle` + Rack::Attack blocklist; see
+      `config/initializers/rack_attack.rb`)
 - [x] Specs covering: missing token, invalid token, revoked token, expired
       token, valid token with required scope, valid token without required scope
       (delivered in 5B: `spec/lib/api/token_authenticator_spec.rb`,
@@ -281,10 +279,10 @@ and MCP HTTP require explicit bearer tokens.
       `Mcp::RackApp#call` populates `Current` from the token, then resets in
       `ensure`)
 - [~] Tool specs assert scope rejection: a token without the right scope is
-      rejected before any work happens (delivered in 5B at the rack-app level
-      via `spec/requests/mcp/rack_app_auth_spec.rb`'s scope-enforcement
-      example; per-tool scope-reject examples remain a follow-up since the
-      scope check is uniform across all tools)
+  rejected before any work happens (delivered in 5B at the rack-app level via
+  `spec/requests/mcp/rack_app_auth_spec.rb`'s scope-enforcement example;
+  per-tool scope-reject examples remain a follow-up since the scope check is
+  uniform across all tools)
 
 ### Seeds
 
@@ -293,21 +291,21 @@ and MCP HTTP require explicit bearer tokens.
       `:owner.tenant_slug` (fallback `"primary"`)
 - [x] Seed one User (the user's own account, role `owner`, password from Rails
       credentials) — delivered with `username + email + password_digest` from
-      `:owner` credentials. 5A formally drops the `role` column; the seed has
-      no `role` reference
+      `:owner` credentials. 5A formally drops the `role` column; the seed has no
+      `role` reference
 - [x] Seed a default `ApiToken` for development with
       `dev:read dev:write yt:read yt:write project:read project:write` scopes
-      (no `yt:destructive` by default; user opts in). Delivered in 5C — `db/seeds.rb`
-      mints a `name: "dev"` token guarded by `ApiToken.exists?(name: "dev",
-      tenant_id: tenant.id)`; plaintext is printed inside a banner on the run that
-      actually mints. Idempotent on subsequent runs.
+      (no `yt:destructive` by default; user opts in). Delivered in 5C —
+      `db/seeds.rb` mints a `name: "dev"` token guarded by
+      `ApiToken.exists?(name: "dev",     tenant_id: tenant.id)`; plaintext is
+      printed inside a banner on the run that actually mints. Idempotent on
+      subsequent runs.
 - [x] All existing seed records get `tenant_id` and `user_id` assigned to the
-      seeded tenant + user — 5A wraps the seed body in
-      `Current.tenant = tenant` and stamps `tenant: tenant` on the video and
-      video_stat seeds (channels were already tenanted in Channel Revamp,
-      Phase 4 fixtures were tenanted from day one). `user_id` plumbing is
-      deferred to a later phase since no surviving model carries `user_id`
-      yet
+      seeded tenant + user — 5A wraps the seed body in `Current.tenant = tenant`
+      and stamps `tenant: tenant` on the video and video_stat seeds (channels
+      were already tenanted in Channel Revamp, Phase 4 fixtures were tenanted
+      from day one). `user_id` plumbing is deferred to a later phase since no
+      surviving model carries `user_id` yet
 
 ### Settings UI (minimal)
 
@@ -318,15 +316,14 @@ and MCP HTTP require explicit bearer tokens.
       bracketed link per active row routes to the action confirmation page.
 - [x] Generate token form: name input + scope checkboxes grouped by namespace —
       delivered in 5C: `app/views/settings/tokens/_form.html.erb` iterates
-      `Scopes::DESCRIPTIONS.group_by { |scope, _| scope.split(":").first }`
-      and renders one `md-check` per scope under per-namespace `<fieldset>`s
+      `Scopes::DESCRIPTIONS.group_by { |scope, _| scope.split(":").first }` and
+      renders one `md-check` per scope under per-namespace `<fieldset>`s
       (`dev:`, `yt:`, `website:`, `project:`).
 - [x] Token creation response shows plaintext exactly once with a clear "save
       now, won't show again" notice — delivered in 5C:
-      `app/views/settings/tokens/create.html.erb` renders `@plaintext` inside
-      a `<pre class="code-block">` framed by a `flash-warning` block.
-      Subsequent index visits never re-display the plaintext (only the last-4
-      preview).
+      `app/views/settings/tokens/create.html.erb` renders `@plaintext` inside a
+      `<pre class="code-block">` framed by a `flash-warning` block. Subsequent
+      index visits never re-display the plaintext (only the last-4 preview).
 - [x] Revoke action sets `revoked_at`; subsequent uses of the token return 401
       (deferred to future Auth Foundation phase) — delivered in 5C:
       `Settings::TokensController#destroy` calls `@token.revoke!` (which sets
@@ -342,32 +339,32 @@ and MCP HTTP require explicit bearer tokens.
 ### Documentation
 
 - [x] Update `pito/docs/architecture.md`: auth section, multi-tenant scoping
-      pattern, token lifecycle, the `belongs_to_tenant` concern — delivered
-      in 5C: rewrote the "Tenant + User schema" section as
-      "Tenant + User + ApiToken schema (Phase 3 — Auth Foundation)", adding
-      explicit subsections for Schema, Current, BelongsToTenant, and the
-      `Current.token` flow. Removed the false "auth deferred" claim from the
-      "Things explicitly NOT in scope" section.
+      pattern, token lifecycle, the `belongs_to_tenant` concern — delivered in
+      5C: rewrote the "Tenant + User schema" section as "Tenant + User +
+      ApiToken schema (Phase 3 — Auth Foundation)", adding explicit subsections
+      for Schema, Current, BelongsToTenant, and the `Current.token` flow.
+      Removed the false "auth deferred" claim from the "Things explicitly NOT in
+      scope" section.
 - [x] Update `pito/docs/mcp.md`: scope requirements per tool, scope catalog
-      reference — delivered in 5C: added a Scope-per-tool table covering all
-      19 tools with required scope + Channel-Revamp notes; updated the
-      Architecture and Token Model sections to match Step B reality; replaced
-      the stale `mcp:*` rake task surface with `tokens:*` (the Step B
-      rename); refreshed the File Structure section to reflect
-      `app/models/api_token.rb`, `app/lib/scopes.rb`, the auth concern, the
-      rack-attack initializer, and the auth-audit logger.
+      reference — delivered in 5C: added a Scope-per-tool table covering all 19
+      tools with required scope + Channel-Revamp notes; updated the Architecture
+      and Token Model sections to match Step B reality; replaced the stale
+      `mcp:*` rake task surface with `tokens:*` (the Step B rename); refreshed
+      the File Structure section to reflect `app/models/api_token.rb`,
+      `app/lib/scopes.rb`, the auth concern, the rack-attack initializer, and
+      the auth-audit logger.
 - [x] Add `pito/docs/auth.md`: authoritative reference for the auth model —
-      delivered in 5C: 11 sections per spec §6.6 (Model overview, Scope
-      catalog, Tool/endpoint scope map, Request flow with ASCII diagram,
+      delivered in 5C: 11 sections per spec §6.6 (Model overview, Scope catalog,
+      Tool/endpoint scope map, Request flow with ASCII diagram,
       `belongs_to_tenant` enforcement, Token lifecycle, Bootstrap ceremony,
-      Audit log, Throttling, Departures from the original Phase 3 plan,
-      Future phase hooks).
+      Audit log, Throttling, Departures from the original Phase 3 plan, Future
+      phase hooks).
 - [~] Update `pito/docs/design.md` with the token UI patterns if visually
-      distinct from existing forms — not needed; the token UI uses existing
-      design-system primitives (bracketed-link styling, action-screen
-      framework for revoke confirmation, `md-check` for scope checkboxes,
-      `flash-warning` for the show-once notice, `code-block` for the
-      plaintext display). Nothing visually distinct to document.
+  distinct from existing forms — not needed; the token UI uses existing
+  design-system primitives (bracketed-link styling, action-screen framework for
+  revoke confirmation, `md-check` for scope checkboxes, `flash-warning` for the
+  show-once notice, `code-block` for the plaintext display). Nothing visually
+  distinct to document.
 
 ### Validation
 
@@ -385,26 +382,25 @@ and MCP HTTP require explicit bearer tokens.
       `spec/initializers/rack_attack_spec.rb`)
 - [x] Cross-tenant leak spec: create a second tenant + user via factory; assert
       all queries scoped to `Current.tenant` exclude the other tenant's records
-      (delivered in 5A — `spec/models/cross_tenant_leak_spec.rb` builds a
-      full two-tenant fixture, asserts count + symmetry under Current=tenant_a
-      and Current=tenant_b across all 16 tenanted models, locks
-      RecordNotFound on cross-tenant `find`, asserts
-      TenantContextMissing under `Current.reset`, and locks
-      `Model.unscoped` as the documented escape hatch)
+      (delivered in 5A — `spec/models/cross_tenant_leak_spec.rb` builds a full
+      two-tenant fixture, asserts count + symmetry under Current=tenant_a and
+      Current=tenant_b across all 16 tenanted models, locks RecordNotFound on
+      cross-tenant `find`, asserts TenantContextMissing under `Current.reset`,
+      and locks `Model.unscoped` as the documented escape hatch)
 - [x] Web UI works as before (the seeded user is implicitly current) — verified
       in Channel Revamp manual playbook
 - [x] MCP HTTP requires valid token with the right scope; rejects insufficient
       scope (delivered in 5B: `Mcp::RackApp` rejects unauthenticated with 401;
       every tool's `call` rejects insufficient scope with the
       `insufficient_scope` envelope)
-- [x] Both Web Puma and MCP Puma honor the same auth concern (delivered in
-      5B: `Api::TokenAuthenticator` is the shared engine — controllers mix in
+- [x] Both Web Puma and MCP Puma honor the same auth concern (delivered in 5B:
+      `Api::TokenAuthenticator` is the shared engine — controllers mix in
       `Api::AuthConcern`, the rack app calls the authenticator inline)
 - [x] Brakeman, bundler-audit, Dependabot — clean — verified by Channel Revamp
       security-auditor; 5B re-verified Brakeman: 0 warnings (rack-attack 6.8.0
       added)
 - [~] `pito/docs/design.md` updated for any UI changes — not needed (5C used
-      only existing design-system primitives; see Documentation section).
+  only existing design-system primitives; see Documentation section).
 
 ---
 

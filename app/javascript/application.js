@@ -17,35 +17,63 @@ document.addEventListener("DOMContentLoaded", () => {
   Chart.defaults.elements.point.hitRadius = 8
   Chart.defaults.elements.line.borderWidth = 1.5
 
-  // Legend: bracketed colored labels, no color boxes
-  Chart.defaults.plugins.legend.position = "bottom"
-  Chart.defaults.plugins.legend.labels.boxWidth = 0
-  Chart.defaults.plugins.legend.labels.boxHeight = 0
-  Chart.defaults.plugins.legend.labels.padding = 10
-  Chart.defaults.plugins.legend.labels.font = { weight: "bold" }
-  Chart.defaults.plugins.legend.labels.generateLabels = (chart) => {
-    return chart.data.datasets.map((ds, i) => {
-      const meta = chart.getDatasetMeta(i)
-      const hidden = meta.hidden
-      const color = ds.borderColor || ds.backgroundColor
-      return {
-        text: `[${ds.label}]`,
-        fillStyle: "transparent",
-        strokeStyle: "transparent",
-        lineWidth: 0,
-        hidden: false,
-        datasetIndex: i,
-        fontColor: hidden ? (getComputedStyle(document.documentElement).getPropertyValue("--color-muted").trim() || "#888888") : color,
-        font: { weight: "bold" }
-      }
-    })
+  // Legend: rendered as HTML below the canvas (NOT inside it). Keeping the
+  // legend out of the canvas means a chart with many series does not shrink
+  // its plot area — every chart canvas keeps the same fixed height set via
+  // Chartkick `height:`, and the legend wraps to as many rows as it needs
+  // below the chart card. Bracketed [label] convention, colored per series.
+  Chart.defaults.plugins.legend.display = false
+
+  function ensureLegendContainer(chart) {
+    // Mount the legend as a sibling of the Chartkick wrapper (which is the
+    // canvas's parent element). This way the canvas stays at the height the
+    // wrapper enforces, and the legend lives outside that wrapper so it
+    // can grow freely below.
+    const wrapper = chart.canvas.parentElement
+    if (!wrapper || !wrapper.parentElement) return null
+    const host = wrapper.parentElement
+    let legend = host.querySelector(":scope > .chart-html-legend")
+    if (!legend) {
+      legend = document.createElement("div")
+      legend.className = "chart-html-legend"
+      host.insertBefore(legend, wrapper.nextSibling)
+    }
+    return legend
   }
-  Chart.defaults.plugins.legend.onHover = (event) => {
-    event.native.target.style.cursor = "pointer"
+
+  const htmlLegendPlugin = {
+    id: "htmlLegend",
+    afterUpdate(chart) {
+      const legend = ensureLegendContainer(chart)
+      if (!legend) return
+      const mutedColor = getComputedStyle(document.documentElement)
+        .getPropertyValue("--color-muted").trim() || "#888888"
+
+      // Wipe and re-render
+      while (legend.firstChild) legend.removeChild(legend.firstChild)
+
+      chart.data.datasets.forEach((ds, i) => {
+        const meta = chart.getDatasetMeta(i)
+        const hidden = meta.hidden
+        const color = ds.borderColor || ds.backgroundColor || mutedColor
+        const item = document.createElement("a")
+        item.href = "#"
+        item.className = "chart-html-legend__item"
+        item.textContent = `[${ds.label}]`
+        item.style.color = hidden ? mutedColor : color
+        item.dataset.hidden = hidden ? "yes" : "no"
+        item.addEventListener("click", (e) => {
+          e.preventDefault()
+          const isHidden = chart.getDatasetMeta(i).hidden
+          chart.setDatasetVisibility(i, isHidden) // toggle
+          chart.update()
+        })
+        legend.appendChild(item)
+      })
+    }
   }
-  Chart.defaults.plugins.legend.onLeave = (event) => {
-    event.native.target.style.cursor = "default"
-  }
+
+  Chart.register(htmlLegendPlugin)
 
   // Synced crosshair state — charts in the same group share hover index
   const syncState = {} // { groupName: { index, sourceChartId } }
