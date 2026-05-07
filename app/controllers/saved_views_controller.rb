@@ -7,7 +7,7 @@ class SavedViewsController < ApplicationController
 
   # GET /saved_views.json
   #
-  # JSON-only listing consumed by the pito-sh terminal client at startup.
+  # JSON-only listing consumed by the pito CLI terminal client at startup.
   # No HTML view exists; HTML requests fall back to the index page of the
   # entity (channels) since the saved-views surface is rendered inline on
   # the channels and videos pages.
@@ -54,7 +54,7 @@ class SavedViewsController < ApplicationController
     params.require(:saved_view).permit(:kind, :url, :name)
   end
 
-  # Minimal JSON shape consumed by pito-sh. Matches the Rust `SavedView`
+  # Minimal JSON shape consumed by the pito CLI. Matches the Rust `SavedView`
   # model: id, kind, name, url. SavedView#ordered scope (position asc,
   # created_at desc) is preserved for stable client rendering.
   def saved_view_json(view)

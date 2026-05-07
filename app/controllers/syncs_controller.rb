@@ -74,7 +74,7 @@ class SyncsController < ApplicationController
     @already_syncing_ids = @already_syncing.map(&:id).to_set
   end
 
-  # Preview shape — mirrors pito-sh's `BulkOperationResponse` Rust struct.
+  # Preview shape — mirrors the pito CLI's `BulkOperationResponse` Rust struct.
   # `syncable` is a flat array of ids; `skipped` is `[{id, reason}, ...]`.
   def bulk_preview_json
     syncable = (@syncable || [])

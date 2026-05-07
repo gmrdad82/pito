@@ -83,7 +83,7 @@ Rails.application.configure do
   config.action_controller.raise_on_missing_callback_actions = true
 
   # Allow Cloudflare Tunnel hostnames. Rails 6+ rejects requests with unknown
-  # Host headers in development; pito-sh and any browser hitting the tunnel
+  # Host headers in development; the pito CLI and any browser hitting the tunnel
   # arrive here with Host: app.pitomd.com (or mcp.pitomd.com). "localhost",
   # "127.0.0.1", and "::1" are already in config.hosts by default.
   config.hosts << "app.pitomd.com"

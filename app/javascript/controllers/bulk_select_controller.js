@@ -4,13 +4,15 @@ export default class extends Controller {
   static targets = ["checkbox", "headerCheckbox", "actions", "count",
                      "bulkCol", "actionCol", "bulkToggle", "openAction", "openHint",
                      "overMaxHint", "deleteAction", "syncAction"]
-  // Phase B polish (2026-05-05) — checkboxes are always-on now. The
-  // `bulkCol` / `actionCol` / `bulkToggle` / `enterBulk` / `exitBulk`
-  // surface area stays for backward-compat with any view still wiring
-  // it (Lane F's footage table, etc.) but the always-on flow does not
-  // need them. The connect() hook drives the initial action-bar state
-  // off zero-selection so [open N] / [sync N] / [delete N] are hidden
-  // until the user ticks at least one row.
+  // Wave 3 Lane J (2026-05-06) — checkboxes are always-on for every
+  // bulk-select surface in the app today. The `bulkCol` / `actionCol`
+  // / `bulkToggle` / `enterBulk` / `exitBulk` toggle hooks are kept
+  // ONLY for the deferred footage bulk-mode follow-up (project SHOW
+  // footage pane), which still needs an explicit enter/exit toggle
+  // until `Confirmable::TYPES` is extended for footage. Drop these
+  // hooks once that follow-up lands. The connect() hook drives the
+  // initial action-bar state off zero-selection so [open N] / [sync N]
+  // / [delete N] are hidden until the user ticks at least one row.
   // `maxPanes` and `panesPath` are panes-specific. Screens without an
   // "open in N panes" flow (e.g. /projects) omit the corresponding data
   // attributes on the controller root; defaults below keep the controller

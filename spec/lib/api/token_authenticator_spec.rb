@@ -108,8 +108,11 @@ RSpec.describe Api::TokenAuthenticator do
       expect(env["pito.auth_failed"]).to be_nil
     end
 
-    it "returns auth_misconfigured when the pepper credential is missing" do
-      allow(Rails.application.credentials).to receive(:dig).with(:tokens, :pepper).and_return(nil)
+    it "returns auth_misconfigured when the resolved pepper is blank" do
+      # Stub the resolver — `.pepper` has a test-env fallback so a
+      # credentials-only stub is no longer enough to drive the
+      # misconfigured branch.
+      allow(ApiToken).to receive(:pepper).and_return(nil)
 
       result = described_class.call(env_for(authorization: "Bearer something"))
 

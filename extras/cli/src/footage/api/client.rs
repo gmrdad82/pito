@@ -2,25 +2,30 @@
 //! and request body assembly so the importer's main flow stays focused on
 //! diffing and progress.
 //!
-//! Endpoints (per spec §7.5, with the URL contract correction landed
-//! 2026-05-04 to match what Rails actually exposes):
+//! Endpoints (per spec §7.5, all served by `Api::FootagesController` with
+//! Bearer-token auth and `project:write` scope on writes):
 //!
-//! - `GET /api/projects/<id>/footages.json` — list existing rows
-//! - `POST /api/projects/<id>/footages.json` — create a new row from a
+//! - `GET    /api/projects/<id>/footages.json` — list existing rows
+//! - `POST   /api/projects/<id>/footages.json` — create a new row from a
 //!   `ProbedFile`
-//! - `PATCH /footages/<id>.json` — update probed metadata on an existing row
-//! - `DELETE /footages/<id>.json` — remove a row whose file disappeared
+//! - `PATCH  /api/footages/<id>.json` — update probed metadata on an existing
+//!   row
+//! - `DELETE /api/footages/<id>.json` — remove a row whose file disappeared
 //!
-//! Asymmetry note: collection actions (POST / GET) live under the `/api/`
-//! namespace and use the plural `footages`, while member actions (PATCH /
-//! DELETE) hit `/footages/:id.json` at the top level — those are served by
-//! `FootagesController` (not `Api::FootagesController`). API-surface symmetry
-//! is a separate follow-up; we mirror Rails as it is today.
+//! All four endpoints live under the `/api/` namespace; collection and member
+//! actions are symmetric. (Earlier revisions of the wire contract had member
+//! actions at the top level `/footages/:id.json` — Phase 5.5 moved them under
+//! `Api::FootagesController` with the rest of the surface.)
 //!
 //! Booleans across the wire use `"yes"`/`"no"` strings. We assemble the
 //! request bodies as `serde_json::Value` so the strong-params wrapper
 //! (`{"footage": { ... }}`) and the yes/no rule can be applied directly,
 //! mirroring `HttpClient::update_channel_body` in `src/api/http_client.rs`.
+//!
+//! Response decoding is forgiving: the apply layer treats an HTTP 2xx with an
+//! unparseable body as a success-with-warning rather than a failure, so a
+//! schema mismatch on the response side does not cause the CLI to falsely
+//! report that records weren't written. See [`ApplyOutcome`].
 
 use std::time::Duration;
 
@@ -41,9 +46,69 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
 pub struct FootageApiClient {
     base_url: String,
     client: reqwest::blocking::Client,
-    /// Optional bearer token. Reserved for the auth phase — not sent today.
-    #[allow(dead_code)]
+    /// Bearer token attached to every request. `None` is allowed for tests
+    /// that exercise pure URL / body assembly; member-action writes (PATCH /
+    /// DELETE on `/api/footages/:id.json`) refuse to hit the wire when the
+    /// token is missing — see [`require_token`].
     token: Option<String>,
+}
+
+/// Outcome of a single apply call (POST / PATCH).
+///
+/// HTTP non-2xx is reported as `Err(...)` and counted as a genuine failure.
+/// HTTP 2xx with a decodable body is `Decoded(record)`. HTTP 2xx with an
+/// unparseable body is `Unparseable { warning }` — the server accepted the
+/// write, so the CLI must classify it as a success even though the response
+/// payload was unusable; the `warning` string is surfaced on stderr at the
+/// end of the run.
+///
+/// The `Decoded` payload is not currently read by the importer — the apply
+/// step only cares about success/failure plus the optional warning — but it
+/// is exposed so that future callers (e.g. a server-side ID round-trip log)
+/// can recover the row without re-fetching. Tests pattern-match on it.
+#[derive(Debug, Clone)]
+pub enum ApplyOutcome {
+    /// HTTP 2xx + JSON parsed cleanly into a `FootageRecord`. Boxed because
+    /// the record is ~240B while `Unparseable` is only ~24B; clippy's
+    /// `large_enum_variant` lint flags the size skew.
+    Decoded(#[allow(dead_code)] Box<FootageRecord>),
+    /// HTTP 2xx but the response body could not be decoded. The write landed
+    /// on the server; the CLI logs the warning and counts the row as success.
+    Unparseable { warning: String },
+}
+
+impl ApplyOutcome {
+    /// True when the operation reached a 2xx server response. Failures land
+    /// on the `Err` arm of the surrounding `Result`, never here. Used by
+    /// integration tests as a single-call invariant gate.
+    #[allow(dead_code)]
+    pub fn is_success(&self) -> bool {
+        matches!(
+            self,
+            ApplyOutcome::Decoded(_) | ApplyOutcome::Unparseable { .. }
+        )
+    }
+
+    /// Optional warning to surface on stderr at the end of the run.
+    #[allow(dead_code)]
+    pub fn warning(&self) -> Option<&str> {
+        match self {
+            ApplyOutcome::Decoded(_) => None,
+            ApplyOutcome::Unparseable { warning } => Some(warning.as_str()),
+        }
+    }
+}
+
+/// Pre-flight check used by member-action writes. We only require the token
+/// at the moment we need it on the wire so tests that exercise pure URL /
+/// body builders without an env-configured token continue to work.
+fn require_token(token: Option<&str>) -> Result<&str> {
+    token.ok_or_else(|| {
+        anyhow!(
+            "PITO_API_TOKEN env var not set; cannot update/delete footage. \
+             Set it from your /settings/tokens page."
+        )
+    })
 }
 
 impl FootageApiClient {
@@ -96,77 +161,102 @@ impl FootageApiClient {
     /// `POST /api/projects/:project_id/footages.json` — body assembled from
     /// the probed file plus the per-run defaults (kind, source, description,
     /// optional game/platform/nas_path).
+    ///
+    /// Requires `PITO_API_TOKEN` (with the `project:write` scope) — this is a
+    /// write against the API surface.
     pub fn create_footage(
         &self,
         project_id: u64,
         probed: &ProbedFile,
         args: &FootageImportArgs,
-    ) -> Result<FootageRecord> {
+    ) -> Result<ApplyOutcome> {
+        let token = require_token(self.token.as_deref())?;
         let url = self.url(&format!("/api/projects/{}/footages.json", project_id));
         let body = build_create_body(probed, args);
         let resp = self
-            .post_json(&url, &body)
+            .client
+            .post(&url)
+            .header("Accept", "application/json")
+            .header("Content-Type", "application/json")
+            .header("Authorization", format!("Bearer {}", token))
+            .json(&body)
+            .send()
             .with_context(|| format!("POST {}", url))?;
-        let row: FootageRecord = resp.json().context("decode created footage")?;
-        Ok(row)
+        decode_apply_response(resp, "POST", &url)
     }
 
-    /// `PATCH /footages/:id.json` — only the probed metadata fields are sent.
-    /// User-managed columns (description, kind, source, game_id, platform)
-    /// are intentionally excluded so a re-run doesn't stomp UI edits.
-    pub fn update_footage(&self, existing_id: u64, probed: &ProbedFile) -> Result<FootageRecord> {
-        let url = self.url(&format!("/footages/{}.json", existing_id));
+    /// `PATCH /api/footages/:id.json` — only the probed metadata fields are
+    /// sent. User-managed columns (description, kind, source, game_id,
+    /// platform) are intentionally excluded so a re-run doesn't stomp UI
+    /// edits. Requires `PITO_API_TOKEN` with `project:write`.
+    pub fn update_footage(&self, existing_id: u64, probed: &ProbedFile) -> Result<ApplyOutcome> {
+        let token = require_token(self.token.as_deref())?;
+        let url = self.url(&format!("/api/footages/{}.json", existing_id));
         let body = build_update_body(probed);
-        let mut req = self
+        let resp = self
             .client
             .patch(&url)
             .header("Accept", "application/json")
             .header("Content-Type", "application/json")
-            .json(&body);
-        if let Some(t) = self.token.as_deref() {
-            req = req.header("Authorization", format!("Bearer {}", t));
-        }
-        let resp = req
+            .header("Authorization", format!("Bearer {}", token))
+            .json(&body)
             .send()
-            .with_context(|| format!("PATCH {}", url))?
-            .error_for_status()
-            .with_context(|| format!("status check PATCH {}", url))?;
-        let row: FootageRecord = resp.json().context("decode updated footage")?;
-        Ok(row)
+            .with_context(|| format!("PATCH {}", url))?;
+        decode_apply_response(resp, "PATCH", &url)
     }
 
-    /// `DELETE /footages/:id.json` — no body, no response payload. Returns
-    /// Ok(()) on 2xx; any other status surfaces as an error so the caller
-    /// marks the item failed.
+    /// `DELETE /api/footages/:id.json` — no body, no response payload.
+    /// Returns Ok(()) on 2xx; any other status surfaces as an error so the
+    /// caller marks the item failed. Requires `PITO_API_TOKEN` with
+    /// `project:write`.
     pub fn delete_footage(&self, existing_id: u64) -> Result<()> {
-        let url = self.url(&format!("/footages/{}.json", existing_id));
-        let mut req = self
+        let token = require_token(self.token.as_deref())?;
+        let url = self.url(&format!("/api/footages/{}.json", existing_id));
+        let resp = self
             .client
             .delete(&url)
-            .header("Accept", "application/json");
-        if let Some(t) = self.token.as_deref() {
-            req = req.header("Authorization", format!("Bearer {}", t));
-        }
-        let resp = req.send().with_context(|| format!("DELETE {}", url))?;
+            .header("Accept", "application/json")
+            .header("Authorization", format!("Bearer {}", token))
+            .send()
+            .with_context(|| format!("DELETE {}", url))?;
         let status = resp.status();
         if !status.is_success() {
             return Err(anyhow!("DELETE {} -> {}", url, status));
         }
         Ok(())
     }
+}
 
-    fn post_json(&self, url: &str, body: &Value) -> Result<reqwest::blocking::Response> {
-        let mut req = self
-            .client
-            .post(url)
-            .header("Accept", "application/json")
-            .header("Content-Type", "application/json")
-            .json(body);
-        if let Some(t) = self.token.as_deref() {
-            req = req.header("Authorization", format!("Bearer {}", t));
+/// Translate an HTTP response into an [`ApplyOutcome`]. Centralizes the
+/// "2xx-but-decode-failed" branch so create / update share the same recovery
+/// rule: HTTP non-2xx is a genuine failure, HTTP 2xx + decode failure is a
+/// success-with-warning.
+fn decode_apply_response(
+    resp: reqwest::blocking::Response,
+    verb: &str,
+    url: &str,
+) -> Result<ApplyOutcome> {
+    let status = resp.status();
+    if !status.is_success() {
+        return Err(anyhow!("{} {} -> {}", verb, url, status));
+    }
+    // Read the body once so we can fall back to a warning if JSON decoding
+    // fails. `Response::json` consumes the response, which would prevent us
+    // from constructing a useful warning string.
+    let body = resp
+        .text()
+        .with_context(|| format!("read {} {} body", verb, url))?;
+    match serde_json::from_str::<FootageRecord>(&body) {
+        Ok(row) => Ok(ApplyOutcome::Decoded(Box::new(row))),
+        Err(decode_err) => {
+            let preview: String = body.chars().take(120).collect();
+            let warning = format!(
+                "{verb} {url} -> {status} (server accepted the write, but \
+                 the response body could not be decoded: {decode_err}; body \
+                 preview: {preview:?})"
+            );
+            Ok(ApplyOutcome::Unparseable { warning })
         }
-        let resp = req.send()?.error_for_status()?;
-        Ok(resp)
     }
 }
 
@@ -314,16 +404,16 @@ mod tests {
 
     #[test]
     fn url_composition_matches_spec_paths() {
-        // Collection actions live under `/api/` with the plural `footages`;
-        // member actions (PATCH/DELETE) stay at the top level `/footages/:id`.
+        // All four endpoints live under `/api/` post-Phase-5.5; collection and
+        // member actions are symmetric.
         let c = FootageApiClient::with_base_url("https://app.pitomd.com", None);
         assert_eq!(
             c.url("/api/projects/3/footages.json"),
             "https://app.pitomd.com/api/projects/3/footages.json"
         );
         assert_eq!(
-            c.url("/footages/9.json"),
-            "https://app.pitomd.com/footages/9.json"
+            c.url("/api/footages/9.json"),
+            "https://app.pitomd.com/api/footages/9.json"
         );
     }
 
@@ -476,5 +566,65 @@ mod tests {
         let body = build_update_body(&p);
         let inner = body.get("footage").unwrap();
         assert_eq!(inner["filesize_bytes"], json!(null));
+    }
+
+    #[test]
+    fn require_token_errors_when_token_is_missing() {
+        // Member-action writes (and create) refuse to hit the wire without
+        // a token — fail fast with a clear message rather than relying on the
+        // server to return 401.
+        let err = require_token(None).expect_err("missing token must error");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("PITO_API_TOKEN"),
+            "error must mention the env var; got: {msg}"
+        );
+        assert!(
+            msg.contains("/settings/tokens"),
+            "error must point the user at the tokens page; got: {msg}"
+        );
+    }
+
+    #[test]
+    fn require_token_returns_token_when_present() {
+        let token = require_token(Some("abc123")).expect("token present");
+        assert_eq!(token, "abc123");
+    }
+
+    #[test]
+    fn apply_outcome_decoded_is_success_with_no_warning() {
+        let outcome = ApplyOutcome::Decoded(Box::new(FootageRecord {
+            id: 1,
+            local_path: "/x".to_string(),
+            filename: "x".to_string(),
+            duration_seconds: None,
+            resolution: None,
+            fps: None,
+            codec: None,
+            bit_depth: 8,
+            color_profile: None,
+            aspect_ratio: None,
+            orientation: None,
+            audio_track_count: 0,
+            has_commentary_track: false,
+            filesize_bytes: None,
+        }));
+        assert!(outcome.is_success());
+        assert!(outcome.warning().is_none());
+    }
+
+    #[test]
+    fn apply_outcome_unparseable_is_success_with_warning() {
+        let outcome = ApplyOutcome::Unparseable {
+            warning: "POST .../footages.json -> 201 (decode failed: ...)".to_string(),
+        };
+        assert!(
+            outcome.is_success(),
+            "2xx with bad body still counts as success"
+        );
+        assert!(
+            outcome.warning().is_some(),
+            "warning must be carried for stderr"
+        );
     }
 }

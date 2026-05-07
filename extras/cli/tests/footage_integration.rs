@@ -19,10 +19,15 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use pito::cli::{FootageImportArgs, FootageKindArg, FootageSourceArg};
-use pito::footage::api::client::FootageApiClient;
+use pito::footage::api::client::{ApplyOutcome, FootageApiClient};
 use pito::footage::api::models::{FootageRecord, ProbedFile};
 use pito::footage::diff::{DiffEntry, classify};
 use pito::footage::probe::ffprobe::{self, Orientation, ProbeReport};
+
+/// Test-only token with `project:write` scope. The CLI fail-fasts when
+/// `PITO_API_TOKEN` is unset, so every test that exercises a write hands a
+/// dummy token to `with_base_url`.
+const TEST_TOKEN: &str = "test-token-with-project-write-scope";
 use serde_json::json;
 use wiremock::matchers::{body_partial_json, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -219,23 +224,28 @@ fn happy_path_posts_creates_for_added_files() {
             .respond_with(ResponseTemplate::new(201).set_body_json(record(99, "/f/new.mp4")))
             .expect(1),
     );
-    let api = FootageApiClient::with_base_url(server.uri(), None);
+    let api = FootageApiClient::with_base_url(server.uri(), Some(TEST_TOKEN.to_string()));
 
-    let row = api
+    let outcome = api
         .create_footage(7, &probed("/f/new.mp4"), &args())
         .expect("create");
+    let row = match outcome {
+        ApplyOutcome::Decoded(r) => r,
+        ApplyOutcome::Unparseable { warning } => panic!("expected decoded record, got: {warning}"),
+    };
     assert_eq!(row.id, 99);
     assert_eq!(row.local_path, "/f/new.mp4");
 }
 
 #[test]
 fn happy_path_patches_changes_for_existing_rows() {
-    // PATCH /footages/<id>.json. Body must omit user-managed columns.
+    // PATCH /api/footages/<id>.json (Phase 5.5: under `Api::FootagesController`).
+    // Body must omit user-managed columns.
     let server = start_server();
     mount(
         server,
         Mock::given(method("PATCH"))
-            .and(path("/footages/55.json"))
+            .and(path("/api/footages/55.json"))
             .and(body_partial_json(json!({
                 "footage": {
                     "filename": "a.mp4",
@@ -247,11 +257,15 @@ fn happy_path_patches_changes_for_existing_rows() {
             .respond_with(ResponseTemplate::new(200).set_body_json(record(55, "/f/a.mp4")))
             .expect(1),
     );
-    let api = FootageApiClient::with_base_url(server.uri(), None);
+    let api = FootageApiClient::with_base_url(server.uri(), Some(TEST_TOKEN.to_string()));
 
     let mut p = probed("/f/a.mp4");
     p.report.resolution = Some("3840x2160".to_string());
-    let row = api.update_footage(55, &p).expect("update");
+    let outcome = api.update_footage(55, &p).expect("update");
+    let row = match outcome {
+        ApplyOutcome::Decoded(r) => r,
+        ApplyOutcome::Unparseable { warning } => panic!("expected decoded record, got: {warning}"),
+    };
     assert_eq!(row.id, 55);
 }
 
@@ -261,11 +275,11 @@ fn happy_path_deletes_for_removed_rows() {
     mount(
         server,
         Mock::given(method("DELETE"))
-            .and(path("/footages/77.json"))
+            .and(path("/api/footages/77.json"))
             .respond_with(ResponseTemplate::new(204))
             .expect(1),
     );
-    let api = FootageApiClient::with_base_url(server.uri(), None);
+    let api = FootageApiClient::with_base_url(server.uri(), Some(TEST_TOKEN.to_string()));
 
     api.delete_footage(77).expect("delete");
 }
@@ -303,7 +317,7 @@ fn partial_failure_does_not_abort_the_run() {
             .respond_with(ResponseTemplate::new(201).set_body_json(record(3, "/f/c.mp4")))
             .expect(1),
     );
-    let api = FootageApiClient::with_base_url(server.uri(), None);
+    let api = FootageApiClient::with_base_url(server.uri(), Some(TEST_TOKEN.to_string()));
 
     let mut succeeded = 0;
     let mut failed = 0;
@@ -450,7 +464,7 @@ fn create_body_matches_spec_wire_shape_with_optional_fields() {
             .respond_with(ResponseTemplate::new(201).set_body_json(record(101, "/f/x.mp4")))
             .expect(1),
     );
-    let api = FootageApiClient::with_base_url(server.uri(), None);
+    let api = FootageApiClient::with_base_url(server.uri(), Some(TEST_TOKEN.to_string()));
 
     let mut a = args();
     a.kind = FootageKindArg::BRoll;
@@ -460,8 +474,236 @@ fn create_body_matches_spec_wire_shape_with_optional_fields() {
     a.description = Some("tower demo".to_string());
     a.nas_path = Some("/nas/x.mp4".to_string());
 
-    let row = api
+    let outcome = api
         .create_footage(7, &probed("/f/x.mp4"), &a)
         .expect("create with full args");
+    let row = match outcome {
+        ApplyOutcome::Decoded(r) => r,
+        ApplyOutcome::Unparseable { warning } => panic!("expected decoded record, got: {warning}"),
+    };
     assert_eq!(row.id, 101);
+}
+
+// --- response decode / failure classification ------------------------------
+//
+// Phase 5.5 dispatch 2: distinguish HTTP failure from "server accepted, body
+// unparseable". The CLI must NOT classify a 2xx with a bad body as a failure —
+// the row landed on the server. We pin all three branches here so a future
+// refactor can't quietly regress the rule.
+
+#[test]
+fn create_treats_2xx_with_malformed_body_as_success_with_warning() {
+    // The server accepted the write (201) but returned a body that is not a
+    // FootageRecord. The CLI must treat this as a success-with-warning —
+    // `Ok(ApplyOutcome::Unparseable)` — and never as `Err(_)`.
+    let server = start_server();
+    mount(
+        server,
+        Mock::given(method("POST"))
+            .and(path("/api/projects/7/footages.json"))
+            .respond_with(
+                ResponseTemplate::new(201)
+                    .set_body_string("not-json-at-all{{{")
+                    .insert_header("Content-Type", "application/json"),
+            )
+            .expect(1),
+    );
+    let api = FootageApiClient::with_base_url(server.uri(), Some(TEST_TOKEN.to_string()));
+
+    let outcome = api
+        .create_footage(7, &probed("/f/new.mp4"), &args())
+        .expect("2xx with bad body must NOT be Err");
+    match outcome {
+        ApplyOutcome::Unparseable { warning } => {
+            assert!(
+                warning.contains("201"),
+                "warning should reference the status code; got: {warning}"
+            );
+            assert!(
+                warning.contains("could not be decoded")
+                    || warning.contains("decode")
+                    || warning.contains("expected"),
+                "warning should reference the decode failure; got: {warning}"
+            );
+        }
+        ApplyOutcome::Decoded(_) => panic!("malformed body must not decode cleanly"),
+    }
+}
+
+#[test]
+fn update_treats_2xx_with_malformed_body_as_success_with_warning() {
+    // PATCH on the new `/api/footages/<id>.json` URL: a 200 with a body the
+    // CLI can't decode is still a success — the write landed.
+    let server = start_server();
+    mount(
+        server,
+        Mock::given(method("PATCH"))
+            .and(path("/api/footages/55.json"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_string("<html>oops</html>")
+                    .insert_header("Content-Type", "text/html"),
+            )
+            .expect(1),
+    );
+    let api = FootageApiClient::with_base_url(server.uri(), Some(TEST_TOKEN.to_string()));
+
+    let outcome = api
+        .update_footage(55, &probed("/f/a.mp4"))
+        .expect("2xx with bad body must NOT be Err");
+    assert!(matches!(outcome, ApplyOutcome::Unparseable { .. }));
+    assert!(outcome.is_success(), "Unparseable still counts as success");
+}
+
+#[test]
+fn create_treats_4xx_as_genuine_failure() {
+    // 4xx (or any non-2xx) must surface as `Err(_)` so the importer marks
+    // the row failed and the run's exit code is 1.
+    let server = start_server();
+    mount(
+        server,
+        Mock::given(method("POST"))
+            .and(path("/api/projects/7/footages.json"))
+            .respond_with(ResponseTemplate::new(403).set_body_json(json!({
+                "error": "insufficient_scope",
+                "required": "project:write"
+            })))
+            .expect(1),
+    );
+    let api = FootageApiClient::with_base_url(server.uri(), Some(TEST_TOKEN.to_string()));
+
+    let result = api.create_footage(7, &probed("/f/new.mp4"), &args());
+    assert!(
+        result.is_err(),
+        "4xx must be classified as Err, not Unparseable"
+    );
+    let msg = result.unwrap_err().to_string();
+    assert!(
+        msg.contains("403"),
+        "error must carry the status code; got: {msg}"
+    );
+}
+
+#[test]
+fn create_treats_5xx_as_genuine_failure() {
+    // 5xx is the canonical "server-side write did not land" case — must be
+    // classified as a genuine failure, never Unparseable.
+    let server = start_server();
+    mount(
+        server,
+        Mock::given(method("POST"))
+            .and(path("/api/projects/7/footages.json"))
+            .respond_with(ResponseTemplate::new(500))
+            .expect(1),
+    );
+    let api = FootageApiClient::with_base_url(server.uri(), Some(TEST_TOKEN.to_string()));
+
+    let result = api.create_footage(7, &probed("/f/new.mp4"), &args());
+    assert!(result.is_err());
+}
+
+#[test]
+fn create_treats_2xx_with_valid_body_as_decoded_success() {
+    // Sanity: the canonical happy path stays `Decoded`. This complements the
+    // malformed-body and non-2xx cases above.
+    let server = start_server();
+    mount(
+        server,
+        Mock::given(method("POST"))
+            .and(path("/api/projects/7/footages.json"))
+            .respond_with(ResponseTemplate::new(201).set_body_json(record(202, "/f/ok.mp4")))
+            .expect(1),
+    );
+    let api = FootageApiClient::with_base_url(server.uri(), Some(TEST_TOKEN.to_string()));
+
+    let outcome = api
+        .create_footage(7, &probed("/f/ok.mp4"), &args())
+        .expect("happy path");
+    match outcome {
+        ApplyOutcome::Decoded(row) => assert_eq!(row.id, 202),
+        ApplyOutcome::Unparseable { warning } => {
+            panic!("expected Decoded on a clean body; got Unparseable: {warning}")
+        }
+    }
+}
+
+// --- token enforcement -----------------------------------------------------
+
+#[test]
+fn create_fails_fast_when_token_is_missing() {
+    // No token configured on the client → `create_footage` must NOT touch the
+    // wire. Stand up a server with no mocks; if any traffic landed it would
+    // 404, which we'd then misinterpret. The fail-fast happens before
+    // `send()`.
+    let server = start_server();
+    let api = FootageApiClient::with_base_url(server.uri(), None);
+
+    let result = api.create_footage(7, &probed("/f/x.mp4"), &args());
+    let err = result.expect_err("missing token must error before send");
+    let msg = err.to_string();
+    assert!(msg.contains("PITO_API_TOKEN"), "got: {msg}");
+    assert!(msg.contains("/settings/tokens"), "got: {msg}");
+
+    // No requests reached the wire.
+    let received = rt()
+        .block_on(server.received_requests())
+        .expect("requests recorded");
+    assert_eq!(
+        received.len(),
+        0,
+        "missing token must short-circuit before any HTTP traffic"
+    );
+}
+
+#[test]
+fn update_fails_fast_when_token_is_missing() {
+    let server = start_server();
+    let api = FootageApiClient::with_base_url(server.uri(), None);
+
+    let result = api.update_footage(55, &probed("/f/a.mp4"));
+    let err = result.expect_err("missing token must error before send");
+    assert!(err.to_string().contains("PITO_API_TOKEN"));
+
+    let received = rt()
+        .block_on(server.received_requests())
+        .expect("requests recorded");
+    assert_eq!(received.len(), 0);
+}
+
+#[test]
+fn delete_fails_fast_when_token_is_missing() {
+    let server = start_server();
+    let api = FootageApiClient::with_base_url(server.uri(), None);
+
+    let result = api.delete_footage(77);
+    let err = result.expect_err("missing token must error before send");
+    assert!(err.to_string().contains("PITO_API_TOKEN"));
+
+    let received = rt()
+        .block_on(server.received_requests())
+        .expect("requests recorded");
+    assert_eq!(received.len(), 0);
+}
+
+#[test]
+fn writes_attach_bearer_token_header() {
+    // Verify the wire shape: PATCH against the new `/api/footages/<id>.json`
+    // URL carries `Authorization: Bearer <token>`. This is the regression
+    // gate for the Phase 5.5 token-on-member-actions change.
+    let server = start_server();
+    mount(
+        server,
+        Mock::given(method("PATCH"))
+            .and(path("/api/footages/55.json"))
+            .and(wiremock::matchers::header(
+                "authorization",
+                format!("Bearer {}", TEST_TOKEN).as_str(),
+            ))
+            .respond_with(ResponseTemplate::new(200).set_body_json(record(55, "/f/a.mp4")))
+            .expect(1),
+    );
+    let api = FootageApiClient::with_base_url(server.uri(), Some(TEST_TOKEN.to_string()));
+
+    api.update_footage(55, &probed("/f/a.mp4"))
+        .expect("PATCH with bearer header");
 }

@@ -35,6 +35,12 @@ RSpec.describe "Project Workspace routes", type: :routing do
       expect(helpers.api_project_footages_path(7))
         .to eq("/api/projects/7/footages")
     end
+
+    it "exposes the symmetric API member helper api_footage_path" do
+      # Phase 5.5 — `/api/footages/:id` for PATCH/DELETE under
+      # `Api::FootagesController` so the importer's URL surface is symmetric.
+      expect(helpers.api_footage_path(9)).to eq("/api/footages/9")
+    end
   end
 
   describe "routes table introspection" do
@@ -66,6 +72,11 @@ RSpec.describe "Project Workspace routes", type: :routing do
 
     it "registers the nested API api_project_footages route" do
       expect(route_names).to include("api_project_footages")
+    end
+
+    it "registers the symmetric API member route api_footage" do
+      # Phase 5.5 — symmetric `/api/footages/:id` PATCH/DELETE.
+      expect(route_names).to include("api_footage")
     end
   end
 end

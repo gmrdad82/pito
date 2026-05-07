@@ -51,7 +51,7 @@ class DeletionsController < ApplicationController
     "delete"
   end
 
-  # Preview shape — mirrors pito-sh's `BulkOperationResponse` Rust struct.
+  # Preview shape — mirrors the pito CLI's `BulkOperationResponse` Rust struct.
   # For deletions every item is "syncable" (i.e. eligible for the action);
   # delete has no skip semantics.
   def bulk_preview_json

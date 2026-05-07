@@ -21,7 +21,7 @@ class SearchController < ApplicationController
 
   private
 
-  # Flat shape consumed by pito-sh's `SearchResults` Rust struct:
+  # Flat shape consumed by the pito CLI's `SearchResults` Rust struct:
   #   { query, videos: [SearchHit<Video>], video_total, took_ms }
   # where each SearchHit is { record: <Video summary>, highlights }.
   # Hits whose backing Video row no longer exists are dropped — the Rust

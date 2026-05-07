@@ -35,7 +35,7 @@ use crossterm::{
 use ratatui::{Terminal, backend::CrosstermBackend};
 
 use crate::cli::{FootageArgs, FootageCommand, FootageImportArgs};
-use crate::footage::api::client::FootageApiClient;
+use crate::footage::api::client::{ApplyOutcome, FootageApiClient};
 use crate::footage::api::models::ProbedFile;
 use crate::footage::diff::{DiffEntry, classify};
 use crate::footage::probe::ffprobe::{self, ProbeError};
@@ -172,11 +172,15 @@ fn run_import_inner(args: FootageImportArgs) -> Result<RunOutcome> {
 
     // 7. Apply.
     let progress_items = build_progress_items(&entries);
-    let final_state = run_apply(&api, args.project, entries, progress_items, &args)?;
+    let (final_state, warnings) = run_apply(&api, args.project, entries, progress_items, &args)?;
 
-    // 8. Print the canonical summary so non-TTY callers (CI, scripts) get a
-    //    machine-readable last line. The TUI overlay also prints it; this is
-    //    the line you'd grep for.
+    // 8. Print any decode-warning lines on stderr first, then the canonical
+    //    summary on stdout so non-TTY callers (CI, scripts) get a
+    //    machine-readable last line. The TUI overlay also prints the summary;
+    //    this is the line you'd grep for.
+    for w in warnings.iter() {
+        eprintln!("warning: {}", w);
+    }
     let counts = final_state.counts();
     println!("{}", counts.summary_line());
 
@@ -321,7 +325,7 @@ fn run_apply(
     entries: Vec<DiffEntry>,
     items: Vec<ProgressItem>,
     args: &FootageImportArgs,
-) -> Result<ProgressState> {
+) -> Result<(ProgressState, Vec<String>)> {
     enable_raw_mode().context("enable raw mode for progress")?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen).context("enter alternate screen")?;
@@ -331,6 +335,10 @@ fn run_apply(
 
     let mut state = ProgressState::new(items);
     let total = entries.len();
+    // Decode warnings from any 2xx-with-unparseable-body responses. We surface
+    // these on stderr after the run; they do NOT count as failures because the
+    // write landed on the server.
+    let mut warnings: Vec<String> = Vec::new();
 
     // First paint: every row pending.
     terminal
@@ -350,7 +358,12 @@ fn run_apply(
 
         let result = apply_entry(api, project_id, &entry, args);
         match result {
-            Ok(()) => state.items[idx].status = ItemStatus::Done,
+            Ok(maybe_warning) => {
+                state.items[idx].status = ItemStatus::Done;
+                if let Some(w) = maybe_warning {
+                    warnings.push(w);
+                }
+            }
             Err(e) => {
                 state.items[idx].status = ItemStatus::Failed;
                 state.items[idx].error = Some(e.to_string());
@@ -398,25 +411,43 @@ fn run_apply(
     disable_raw_mode().ok();
     execute!(terminal.backend_mut(), LeaveAlternateScreen).ok();
     terminal.show_cursor().ok();
-    Ok(state)
+    Ok((state, warnings))
 }
 
+/// Apply one diff entry. `Ok(Some(warning))` means the operation succeeded
+/// against the server but the response body could not be decoded — count as
+/// success in the summary, surface the warning to stderr at the end of the
+/// run. `Ok(None)` is a clean success. `Err(_)` is a genuine HTTP failure
+/// (non-2xx, network error, missing token, etc.) and is counted as failed.
 fn apply_entry(
     api: &FootageApiClient,
     project_id: u64,
     entry: &DiffEntry,
     args: &FootageImportArgs,
-) -> Result<()> {
+) -> Result<Option<String>> {
     match entry {
         DiffEntry::Add(probed) => api
             .create_footage(project_id, probed, args)
-            .map(|_| ())
+            .map(outcome_to_warning)
             .map_err(|e| anyhow!(e)),
         DiffEntry::Change(c) => api
             .update_footage(c.existing.id, &c.probed)
-            .map(|_| ())
+            .map(outcome_to_warning)
             .map_err(|e| anyhow!(e)),
-        DiffEntry::Delete(record) => api.delete_footage(record.id).map_err(|e| anyhow!(e)),
+        DiffEntry::Delete(record) => api
+            .delete_footage(record.id)
+            .map(|_| None)
+            .map_err(|e| anyhow!(e)),
+    }
+}
+
+/// Translate an [`ApplyOutcome`] into the apply layer's success-with-warning
+/// shape: `Decoded(_)` becomes `None`, `Unparseable { warning }` carries the
+/// warning string up to the run summary.
+fn outcome_to_warning(outcome: ApplyOutcome) -> Option<String> {
+    match outcome {
+        ApplyOutcome::Decoded(_) => None,
+        ApplyOutcome::Unparseable { warning } => Some(warning),
     }
 }
 
@@ -472,5 +503,38 @@ mod tests {
         // leak a non-zero exit on a clean run (or vice versa).
         assert_eq!(RunOutcome::Clean.exit_code(), 0);
         assert_eq!(RunOutcome::PartialFailure.exit_code(), 1);
+    }
+
+    #[test]
+    fn outcome_to_warning_returns_none_for_decoded() {
+        // 2xx + cleanly-decoded body: no warning, plain success.
+        let outcome = ApplyOutcome::Decoded(Box::new(crate::footage::api::models::FootageRecord {
+            id: 1,
+            local_path: "/x".to_string(),
+            filename: "x".to_string(),
+            duration_seconds: None,
+            resolution: None,
+            fps: None,
+            codec: None,
+            bit_depth: 8,
+            color_profile: None,
+            aspect_ratio: None,
+            orientation: None,
+            audio_track_count: 0,
+            has_commentary_track: false,
+            filesize_bytes: None,
+        }));
+        assert!(outcome_to_warning(outcome).is_none());
+    }
+
+    #[test]
+    fn outcome_to_warning_carries_string_for_unparseable() {
+        // 2xx + bad body: warning travels up to the run summary so we don't
+        // falsely classify the row as failed.
+        let outcome = ApplyOutcome::Unparseable {
+            warning: "PATCH .../footages/9.json -> 200 (decode failed)".to_string(),
+        };
+        let w = outcome_to_warning(outcome).expect("warning carried");
+        assert!(w.contains("decode failed"));
     }
 }
