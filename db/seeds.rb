@@ -78,35 +78,44 @@ unless ApiToken.exists?(name: "dev", tenant_id: tenant.id)
   Current.user = owner
   pepper = Rails.application.credentials.dig(:tokens, :pepper)
   if pepper.blank?
-    abort <<~MSG
+    if Rails.env.development?
+      # Local dev needs the pepper — halt with the helpful message so the
+      # user knows exactly which credential to add and how to generate it.
+      abort <<~MSG
 
-      ERROR: cannot seed dev token — :tokens.pepper credential is missing.
+        ERROR: cannot seed dev token — :tokens.pepper credential is missing.
 
-      Run: bin/rails credentials:edit
-      Add:
-        tokens:
-          pepper: <64-char hex>
+        Run: bin/rails credentials:edit
+        Add:
+          tokens:
+            pepper: <64-char hex>
 
-      Generate a value with: openssl rand -hex 32
-    MSG
+        Generate a value with: openssl rand -hex 32
+      MSG
+    else
+      # Test/CI/production-without-pepper: the dev token is a developer
+      # convenience, not a runtime requirement. Skip and warn so seeds run
+      # to completion (CI does not set master.key, by design).
+      warn "  WARNING: :tokens.pepper missing; skipping dev token seed (#{Rails.env})."
+    end
+  else
+    _token, plaintext = ApiToken.generate!(
+      tenant: tenant,
+      user:   owner,
+      name:   "dev",
+      scopes: [
+        Scopes::DEV_READ, Scopes::DEV_WRITE,
+        Scopes::YT_READ, Scopes::YT_WRITE,
+        Scopes::PROJECT_READ, Scopes::PROJECT_WRITE
+      ]
+    )
+    puts ""
+    puts "=" * 64
+    puts "Dev token minted (save this now — cannot be shown again):"
+    puts plaintext
+    puts "=" * 64
+    puts ""
   end
-
-  _token, plaintext = ApiToken.generate!(
-    tenant: tenant,
-    user:   owner,
-    name:   "dev",
-    scopes: [
-      Scopes::DEV_READ, Scopes::DEV_WRITE,
-      Scopes::YT_READ, Scopes::YT_WRITE,
-      Scopes::PROJECT_READ, Scopes::PROJECT_WRITE
-    ]
-  )
-  puts ""
-  puts "=" * 64
-  puts "Dev token minted (save this now — cannot be shown again):"
-  puts plaintext
-  puts "=" * 64
-  puts ""
 end
 
 # ---------------------------------------------------------------------------

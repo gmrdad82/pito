@@ -30,6 +30,21 @@ RSpec.describe "Footages", type: :request do
       expect(body["has_commentary_track"]).to eq("no")
     end
 
+    it "serializes fps as a JSON number (matching Rust CLI's Option<f64>)" do
+      footage.update!(fps: BigDecimal("60.0"))
+      get footage_path(footage), as: :json
+      body = JSON.parse(response.body)
+      expect(body["fps"]).to be_a(Numeric)
+      expect(body["fps"]).to eq(60.0)
+    end
+
+    it "serializes fps as null when nil" do
+      footage.update!(fps: nil)
+      get footage_path(footage), as: :json
+      body = JSON.parse(response.body)
+      expect(body["fps"]).to be_nil
+    end
+
     it "serializes filesize_bytes as null for rows the importer hasn't probed" do
       get footage_path(footage), as: :json
       body = JSON.parse(response.body)
@@ -50,42 +65,10 @@ RSpec.describe "Footages", type: :request do
       patch footage_path(footage), params: { footage: { description: "new description" } }
       expect(footage.reload.description).to eq("new description")
     end
-
-    it "accepts JSON with yes/no booleans for has_commentary_track" do
-      patch footage_path(footage),
-            params: {
-              footage: {
-                audio_track_count: 2,
-                has_commentary_track: "yes"
-              }
-            }.to_json,
-            headers: { "CONTENT_TYPE" => "application/json", "ACCEPT" => "application/json" }
-      expect(response).to have_http_status(:ok)
-      expect(footage.reload.has_commentary_track).to be true
-    end
-
-    it "rejects invalid yes/no values" do
-      patch footage_path(footage),
-            params: {
-              footage: { audio_track_count: 2, has_commentary_track: true }
-            }.to_json,
-            headers: { "CONTENT_TYPE" => "application/json", "ACCEPT" => "application/json" }
-      expect(response).to have_http_status(:unprocessable_entity)
-    end
-
-    it "persists filesize_bytes from the JSON update payload (round-trip)" do
-      patch footage_path(footage),
-            params: { footage: { filesize_bytes: 5678 } }.to_json,
-            headers: { "CONTENT_TYPE" => "application/json", "ACCEPT" => "application/json" }
-      expect(response).to have_http_status(:ok)
-      expect(footage.reload.filesize_bytes).to eq(5678)
-      body = JSON.parse(response.body)
-      expect(body["filesize_bytes"]).to eq(5678)
-    end
   end
 
   describe "DELETE /footages/:id" do
-    it "destroys the footage" do
+    it "destroys the footage (HTML)" do
       expect {
         delete footage_path(footage)
       }.to change(Footage, :count).by(-1)

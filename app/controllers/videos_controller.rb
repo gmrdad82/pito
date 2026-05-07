@@ -88,7 +88,7 @@ class VideosController < ApplicationController
   # GET /videos/:id/stats(.json)
   #
   # Returns the per-day VideoStat rows for the video as a JSON array. Used by
-  # pito-sh to render per-video stats charts. The shape matches the Rust
+  # the pito CLI to render per-video stats charts. The shape matches the Rust
   # `VideoStat` struct: date, views, likes, comments, watch_time_minutes.
   def stats
     @video = Video.find(params[:id])
@@ -153,7 +153,7 @@ class VideosController < ApplicationController
     Arel.sql("#{column} #{direction}")
   end
 
-  # Per-day stat shape consumed by pito-sh (Rust `VideoStat` struct).
+  # Per-day stat shape consumed by the pito CLI (Rust `VideoStat` struct).
   # We coerce numerics explicitly so JSON encoding is stable across DB
   # adapters that may return BigDecimal or string values.
   def video_stat_json(stat)

@@ -12,8 +12,9 @@ class ApplicationController < ActionController::Base
   before_action :set_current_tenant_and_user
 
   # Translate ActiveRecord::RecordNotFound into a clean JSON 404 for JSON
-  # requests so pito-sh (and any other JSON consumer) gets a parseable error
-  # body instead of an HTML error page. HTML still returns a plain 404 page.
+  # requests so the pito CLI (and any other JSON consumer) gets a parseable
+  # error body instead of an HTML error page. HTML still returns a plain 404
+  # page.
   rescue_from ActiveRecord::RecordNotFound, with: :render_not_found
 
   # Phase 3 — Step B. Auth errors raised from `Api::AuthConcern` /

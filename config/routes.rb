@@ -13,7 +13,7 @@ Rails.application.routes.draw do
 
   root "dashboard#index"
 
-  # JSON-only alias for the dashboard. The pito-sh terminal client expects to
+  # JSON-only alias for the dashboard. The pito CLI terminal client expects to
   # GET /dashboard.json (rather than /.json), so we expose a named route that
   # routes to the same controller action.
   get "dashboard", to: "dashboard#index", as: :dashboard
@@ -23,7 +23,7 @@ Rails.application.routes.draw do
       get :panes
     end
     member do
-      # Nested videos endpoint used by pito-sh: /channels/:id/videos.json
+      # Nested videos endpoint used by the pito CLI: /channels/:id/videos.json
       # returns the videos belonging to the channel as a JSON array.
       get :videos
     end
@@ -33,8 +33,8 @@ Rails.application.routes.draw do
       get :panes
     end
     member do
-      # Nested stats endpoint used by pito-sh: /videos/:id/stats.json returns
-      # the per-day VideoStat rows for the video as a JSON array.
+      # Nested stats endpoint used by the pito CLI: /videos/:id/stats.json
+      # returns the per-day VideoStat rows for the video as a JSON array.
       get :stats
     end
   end
@@ -66,11 +66,15 @@ Rails.application.routes.draw do
       to: "footage_importer/downloads#show",
       as: :footage_importer_download
 
-  # Nested JSON API for the importer (Phase B). Route shell only.
+  # Nested JSON API for the importer (Phase B). All four CRUD verbs live
+  # under `/api/` for symmetry — collection actions on the project-nested
+  # path, member actions on the flat `/api/footages/:id` path. The HTML
+  # edit/destroy flow stays at the top-level `/footages/:id` (no .json).
   namespace :api do
     resources :projects, only: [] do
       resources :footages, only: [ :index, :create ]
     end
+    resources :footages, only: [ :update, :destroy ]
   end
 
   resources :saved_views, only: [ :index, :create, :destroy ]

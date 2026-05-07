@@ -549,3 +549,153 @@ check needs Rails to boot.
   `BelongsToTenant` (it's filtered manually in the controller); the cross-tenant
   spec from 5A doesn't cover it. Tenant scoping in the new request specs
   (`other-tenant-token` example) covers the controller boundary instead.
+
+## 2026-05-05 — Phase 5.5 Dispatch 2 (CLI footage member-action URL + token + decode-warning)
+
+### Why
+
+Two paired changes in the `pito` CLI footage importer, mirroring the Rails-side
+move that landed earlier today:
+
+1. The Rails member actions `PATCH /footages/:id.json` and
+   `DELETE /footages/:id.json` (cookie-auth, top-level `FootagesController`)
+   moved under `Api::FootagesController` at `PATCH /api/footages/:id.json` /
+   `DELETE /api/footages/:id.json` with Bearer-token auth and `project:write`
+   scope. The collection actions (`POST` /
+   `GET /api/projects/:project_id/footages.json`) were already on the `Api::`
+   controller; this change finishes the symmetry. The CLI's client had to
+   follow.
+2. The CLI was incorrectly classifying any decode failure as a run failure, even
+   when the server returned 2xx. A schema mismatch on the response side would
+   falsely surface as "row failed" in the import summary, even though the record
+   had landed. The classification needed to split into two branches: HTTP
+   non-2xx → genuine failure, HTTP 2xx + decode failure → success-with-warning.
+
+### What changed
+
+`extras/cli/src/footage/api/client.rs`:
+
+- Doc comment block at the top rewritten to reflect the now-symmetric `/api/`
+  placement of all four endpoints (the prior block called out the asymmetry as a
+  known follow-up; that follow-up is what this dispatch retires).
+- `update_footage` URL: `/footages/{id}.json` → `/api/footages/{id}.json`.
+- `delete_footage` URL: `/footages/{id}.json` → `/api/footages/{id}.json`.
+- All three writes (POST / PATCH / DELETE) now require `PITO_API_TOKEN` and
+  short-circuit with a clear error message before any HTTP traffic when the env
+  var is missing. New private helper `require_token()` carries the fail-fast
+  behavior; the message points the user at `/settings/tokens`. The
+  `Authorization: Bearer <token>` header is now attached unconditionally on
+  writes (previously was added only when the token happened to be present).
+- New
+  `pub enum ApplyOutcome { Decoded(Box<FootageRecord>), Unparseable { warning: String } }`
+  returned from `create_footage` and `update_footage`. The `Decoded` variant is
+  boxed because clippy's `large_enum_variant` lint flags the size skew between
+  the ~240B record and the ~24B warning. `delete_footage` keeps `Result<()>`
+  since there's no body.
+- New `decode_apply_response()` helper centralizes the "2xx-but-decode-failed"
+  rule so create / update share it. HTTP non-2xx is `Err(_)`, HTTP 2xx + decode
+  failure is `Ok(Unparseable { warning })`, HTTP 2xx + clean decode is
+  `Ok(Decoded(record))`.
+
+`extras/cli/src/commands/footage.rs`:
+
+- `apply_entry` now returns `Result<Option<String>>` — `Ok(None)` is a clean
+  success, `Ok(Some(warning))` is success-with-warning, `Err(_)` is a genuine
+  failure.
+- `run_apply` collects the per-entry warnings into a `Vec<String>` and returns
+  `(ProgressState, Vec<String>)`.
+- `run_import_inner` prints any collected warnings on stderr (prefixed with
+  `warning: `) before printing the canonical summary line on stdout. Non-TTY
+  callers (CI, scripts) get warnings on stderr and the grep-friendly summary on
+  stdout, as before.
+- New `outcome_to_warning` helper translates `ApplyOutcome` into the apply
+  layer's success-with-warning shape.
+
+### Test results
+
+- `cargo test --manifest-path extras/cli/Cargo.toml` — **342 passed; 0 failed**
+  (124 bin + 198 lib + 20 integration + 0 doc).
+- `cargo clippy --manifest-path extras/cli/Cargo.toml --all-targets -- -D warnings`
+  — clean.
+- `cargo fmt --check` on the three changed files
+  (`rustfmt --check --edition 2024 src/commands/footage.rs src/footage/api/client.rs tests/footage_integration.rs`)
+  — clean. The full-crate `cargo fmt --check` reports a 923-line diff that is
+  entirely pre-existing on `main` (verified by stashing my changes and
+  re-running); not introduced here.
+- `cargo build --release --manifest-path extras/cli/Cargo.toml` — clean (binary
+  at `/home/catalin/Dev/pito/target/release/pito`, 7.0MB).
+
+### New tests
+
+Unit (`src/footage/api/client.rs`):
+
+- `require_token_errors_when_token_is_missing` — pins the "PITO_API_TOKEN" plus
+  "/settings/tokens" hint strings.
+- `require_token_returns_token_when_present`.
+- `apply_outcome_decoded_is_success_with_no_warning` — `Decoded` reports success
+  and no warning.
+- `apply_outcome_unparseable_is_success_with_warning` — `Unparseable` still
+  counts as success and carries a warning.
+
+Unit (`src/commands/footage.rs`):
+
+- `outcome_to_warning_returns_none_for_decoded`.
+- `outcome_to_warning_carries_string_for_unparseable`.
+
+Integration (`tests/footage_integration.rs`, run against wiremock):
+
+- `create_treats_2xx_with_malformed_body_as_success_with_warning` — POST with
+  body `"not-json-at-all{{{"` → `Ok(Unparseable)`, NOT `Err(_)`. Pins the
+  false-failure regression.
+- `update_treats_2xx_with_malformed_body_as_success_with_warning` — same, for
+  PATCH on `/api/footages/55.json`.
+- `create_treats_4xx_as_genuine_failure` — 403 with `insufficient_scope` JSON
+  body → `Err(_)`, error message includes "403".
+- `create_treats_5xx_as_genuine_failure` — 500 → `Err(_)`.
+- `create_treats_2xx_with_valid_body_as_decoded_success` — sanity gate so the
+  happy path stays `Decoded`.
+- `create_fails_fast_when_token_is_missing` — asserts no HTTP traffic reaches
+  the wiremock and the error message mentions both `PITO_API_TOKEN` and
+  `/settings/tokens`.
+- `update_fails_fast_when_token_is_missing` — same, for PATCH.
+- `delete_fails_fast_when_token_is_missing` — same, for DELETE.
+- `writes_attach_bearer_token_header` — wiremock matcher pins the literal
+  `Authorization: Bearer <token>` header on `PATCH /api/footages/55.json`.
+  Regression gate for the URL + token change.
+
+Existing tests updated:
+
+- `happy_path_patches_changes_for_existing_rows` — URL changed from
+  `/footages/55.json` to `/api/footages/55.json`; passes
+  `Some(TEST_TOKEN.to_string())` so the token-required PATCH reaches the wire.
+- `happy_path_deletes_for_removed_rows` — URL changed from `/footages/77.json`
+  to `/api/footages/77.json`; token added.
+- `happy_path_posts_creates_for_added_files` — token added (collection POST also
+  requires token now), unwraps `ApplyOutcome::Decoded`.
+- `partial_failure_does_not_abort_the_run` — token added.
+- `create_body_matches_spec_wire_shape_with_optional_fields` — token added,
+  unwraps `ApplyOutcome::Decoded`.
+- `url_composition_matches_spec_paths` (unit) — replaced `/footages/9.json`
+  assertion with `/api/footages/9.json`.
+
+### Files touched
+
+- `extras/cli/src/footage/api/client.rs` — URL changes, `ApplyOutcome` enum,
+  `require_token` helper, `decode_apply_response` helper, doc comment rewrite,
+  new unit tests.
+- `extras/cli/src/commands/footage.rs` — `apply_entry` return type, `run_apply`
+  returns warnings, stderr output of warnings, new unit tests.
+- `extras/cli/tests/footage_integration.rs` — URL updates, token in test client,
+  new tests for the four classification branches and the fail-fast token
+  enforcement.
+- `docs/plans/beta/03-auth-foundation/log.md` — this entry.
+
+### Out of scope
+
+- The Rails-side controller move (already landed in a prior dispatch).
+- Any CLI auth/identity code beyond reading `PITO_API_TOKEN` (per dispatch
+  constraints).
+- Pre-existing crate-wide `cargo fmt` drift in `app.rs` / `videos.rs` /
+  `widgets/mod.rs` / etc. — left untouched because it is not introduced by this
+  dispatch and reformatting them here would silently expand scope. Tracked
+  implicitly as a pre-existing follow-up.

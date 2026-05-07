@@ -1,11 +1,15 @@
 # Phase 4 §7.5 — JSON API for the `pito footage` importer.
 #
-# Routes:
-#   GET  /api/projects/:project_id/footages   — index, used for diff (§7.3)
-#   POST /api/projects/:project_id/footages   — create (importer "Add" branch)
+# Routes (all under `/api/` for surface symmetry — Phase 5.5 cleanup):
+#   GET    /api/projects/:project_id/footages.json — index, used for diff (§7.3)
+#   POST   /api/projects/:project_id/footages.json — create ("Add" branch)
+#   PATCH  /api/footages/:id.json                  — update probed metadata
+#   DELETE /api/footages/:id.json                  — remove a missing file
+#
+# The HTML edit / destroy flow stays at top-level
+# `/footages/:id` (no `.json`) and is served by `FootagesController`.
 #
 # Booleans serialize as "yes"/"no" per the project-wide rule (CLAUDE.md).
-# Update / Delete use the top-level FootagesController with JSON format.
 module Api
   class FootagesController < ApplicationController
     skip_before_action :verify_authenticity_token
@@ -20,7 +24,8 @@ module Api
     # the auth concern populates Current from the resolved token instead.
     skip_before_action :set_current_tenant_and_user
 
-    before_action :set_project
+    before_action :set_project, only: [ :index, :create ]
+    before_action :set_footage, only: [ :update, :destroy ]
 
     def index
       require_scope!(Scopes::PROJECT_READ)
@@ -45,10 +50,37 @@ module Api
       end
     end
 
+    def update
+      require_scope!(Scopes::PROJECT_WRITE)
+
+      attrs, error = build_update_attrs
+      if error
+        render json: { error: error }, status: :unprocessable_entity
+        return
+      end
+
+      if @footage.update(attrs)
+        render json: footage_json(@footage)
+      else
+        render json: { errors: @footage.errors.full_messages }, status: :unprocessable_entity
+      end
+    end
+
+    def destroy
+      require_scope!(Scopes::PROJECT_WRITE)
+
+      @footage.destroy!
+      head :no_content
+    end
+
     private
 
     def set_project
       @project = Project.find(params[:project_id])
+    end
+
+    def set_footage
+      @footage = Footage.find(params[:id])
     end
 
     def build_create_attrs
@@ -62,6 +94,26 @@ module Api
         :audio_track_count, :has_commentary_track
       )
 
+      coerce_yes_no_attrs(permitted)
+    end
+
+    def build_update_attrs
+      permitted = params.require(:footage).permit(
+        :kind, :source, :game_id, :platform,
+        :description, :nas_path, :recorded_at,
+        :resolution, :fps, :duration_seconds,
+        :codec, :bit_depth, :color_profile,
+        :aspect_ratio, :orientation,
+        :audio_track_count, :has_commentary_track,
+        :filename, :local_path, :filesize_bytes
+      )
+
+      coerce_yes_no_attrs(permitted)
+    end
+
+    # Validate and convert the `has_commentary_track` yes/no string into a
+    # Boolean. Returns [attrs, error] — error nil on success.
+    def coerce_yes_no_attrs(permitted)
       if permitted.key?(:has_commentary_track)
         raw = permitted[:has_commentary_track]
         unless YesNo.yes_no?(raw)

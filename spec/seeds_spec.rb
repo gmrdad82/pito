@@ -52,4 +52,29 @@ RSpec.describe "db/seeds.rb dev token mint", type: :model do
     expect { mint_dev_token(owner) }.not_to change { ApiToken.count }
     expect(ApiToken.where(name: "dev", tenant_id: tenant.id).count).to eq(1)
   end
+
+  # CI fix (post-32d7f84) — CI does not have `config/master.key`, so
+  # `:tokens.pepper` reads as nil. The dev token is a developer convenience,
+  # not a runtime requirement, so `db:seed` must finish under
+  # `RAILS_ENV=test` even with pepper missing. (Local development still
+  # halts with a helpful message — covered by the inverted guard in
+  # `db/seeds.rb`.)
+  describe "missing :tokens.pepper credential" do
+    before do
+      ApiToken.where(name: "dev").delete_all
+      # Stub only the `(:tokens, :pepper)` lookup; other credentials
+      # (notably `:owner`, `:postgres`) keep working so the rest of the
+      # seed body executes normally.
+      original = Rails.application.credentials.method(:dig)
+      allow(Rails.application.credentials).to receive(:dig) do |*args|
+        args == [ :tokens, :pepper ] ? nil : original.call(*args)
+      end
+    end
+
+    it "in Rails.env.test, warns and skips the dev token mint instead of raising" do
+      expect(Rails.env.test?).to be(true)
+      expect { Rails.application.load_seed }.not_to raise_error
+      expect(ApiToken.where(name: "dev", tenant_id: tenant.id)).to be_empty
+    end
+  end
 end

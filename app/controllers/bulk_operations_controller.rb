@@ -6,8 +6,8 @@ class BulkOperationsController < ApplicationController
 
   # GET /bulk_operations/:id/status.json
   #
-  # JSON endpoint consumed by the in-app Stimulus poller and by the pito-sh
-  # terminal client. Unauthenticated for the single-user dev environment
+  # JSON endpoint consumed by the in-app Stimulus poller and by the pito
+  # CLI terminal client. Unauthenticated for the single-user dev environment
   # behind the Cloudflare tunnel. Phase 3 Auth Foundation will add API token
   # auth.
   def status

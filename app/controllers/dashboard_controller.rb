@@ -66,7 +66,7 @@ class DashboardController < ApplicationController
   end
 
   # Convert a Groupdate `{ Date/Time => count }` hash into an array of
-  # `[iso_date_string, count]` tuples. Rust's pito-sh decoder expects
+  # `[iso_date_string, count]` tuples. The pito CLI's Rust decoder expects
   # `Vec<(String, u64)>` for these series.
   def hash_to_tuples(hash)
     hash.map do |key, value|

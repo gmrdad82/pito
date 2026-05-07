@@ -144,7 +144,7 @@ class SettingsController < ApplicationController
 
   # Public-safe subset of AppSetting values exposed to the JSON API. The
   # OAuth client secret and other credentials are intentionally excluded.
-  # pito-sh's `AppSettings` Rust struct binds to these three fields.
+  # The pito CLI's `AppSettings` Rust struct binds to these three fields.
   def settings_json
     {
       max_panes: (AppSetting.get("max_panes") || @max_panes_default).to_i,

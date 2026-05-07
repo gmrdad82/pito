@@ -118,4 +118,113 @@ RSpec.describe "API: Footages (importer)", type: :request do
       expect(body["filesize_bytes"]).to eq(1234)
     end
   end
+
+  # Phase 5.5 — symmetric member actions under `/api/`. The Rust importer's
+  # PATCH and DELETE land here so the surface stays consistent with collection
+  # actions; the HTML edit/destroy flow stays at top-level
+  # `/footages/:id` (no `.json`) and is tested in
+  # `spec/requests/footages_spec.rb`.
+  describe "PATCH /api/footages/:id" do
+    let!(:footage) { create(:footage, project: project, fps: BigDecimal("30.0")) }
+
+    it "updates probed metadata from JSON" do
+      patch api_footage_path(footage),
+            params: {
+              footage: {
+                resolution: "3840x2160",
+                fps: 59.94,
+                bit_depth: 10,
+                audio_track_count: 2,
+                has_commentary_track: "yes"
+              }
+            }.to_json,
+            headers: json_headers
+      expect(response).to have_http_status(:ok)
+      footage.reload
+      expect(footage.resolution).to eq("3840x2160")
+      expect(footage.fps.to_f).to eq(59.94)
+      expect(footage.bit_depth).to eq(10)
+      expect(footage.audio_track_count).to eq(2)
+      expect(footage.has_commentary_track).to be true
+    end
+
+    it "serializes fps as a JSON number on the response" do
+      patch api_footage_path(footage),
+            params: { footage: { fps: 24.0 } }.to_json,
+            headers: json_headers
+      expect(response).to have_http_status(:ok)
+      body = JSON.parse(response.body)
+      expect(body["fps"]).to be_a(Numeric)
+      expect(body["fps"]).to eq(24.0)
+    end
+
+    it "rejects invalid yes/no values for has_commentary_track" do
+      patch api_footage_path(footage),
+            params: {
+              footage: { audio_track_count: 2, has_commentary_track: true }
+            }.to_json,
+            headers: json_headers
+      expect(response).to have_http_status(:unprocessable_entity)
+    end
+
+    it "persists filesize_bytes from the JSON update payload (round-trip)" do
+      patch api_footage_path(footage),
+            params: { footage: { filesize_bytes: 5678 } }.to_json,
+            headers: json_headers
+      expect(response).to have_http_status(:ok)
+      expect(footage.reload.filesize_bytes).to eq(5678)
+      body = JSON.parse(response.body)
+      expect(body["filesize_bytes"]).to eq(5678)
+    end
+
+    it "rejects requests without a bearer token" do
+      patch api_footage_path(footage),
+            params: { footage: { resolution: "1280x720" } }.to_json,
+            headers: { "CONTENT_TYPE" => "application/json", "ACCEPT" => "application/json" }
+      expect(response).to have_http_status(:unauthorized)
+    end
+
+    it "rejects tokens missing the project:write scope" do
+      ro_pair = ApiToken.generate!(
+        tenant: auth_tenant, user: auth_user, name: "footages-ro",
+        scopes: [ Scopes::PROJECT_READ ]
+      )
+      ro_token = ro_pair.last
+      patch api_footage_path(footage),
+            params: { footage: { resolution: "1280x720" } }.to_json,
+            headers: {
+              "CONTENT_TYPE" => "application/json",
+              "ACCEPT" => "application/json",
+              "Authorization" => "Bearer #{ro_token}"
+            }
+      expect(response).to have_http_status(:forbidden)
+    end
+  end
+
+  describe "DELETE /api/footages/:id" do
+    let!(:footage) { create(:footage, project: project) }
+
+    it "destroys the footage and returns 204" do
+      expect {
+        delete api_footage_path(footage), headers: auth_headers_only
+      }.to change(Footage, :count).by(-1)
+      expect(response).to have_http_status(:no_content)
+    end
+
+    it "rejects requests without a bearer token" do
+      delete api_footage_path(footage)
+      expect(response).to have_http_status(:unauthorized)
+    end
+
+    it "rejects tokens missing the project:write scope" do
+      ro_pair = ApiToken.generate!(
+        tenant: auth_tenant, user: auth_user, name: "footages-ro",
+        scopes: [ Scopes::PROJECT_READ ]
+      )
+      ro_token = ro_pair.last
+      delete api_footage_path(footage),
+             headers: { "Authorization" => "Bearer #{ro_token}" }
+      expect(response).to have_http_status(:forbidden)
+    end
+  end
 end

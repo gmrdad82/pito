@@ -68,7 +68,14 @@ FileUtils.chdir APP_ROOT do
   # be computed against `nil`, breaking auth on first request — and the
   # `ApiToken.digest` call itself raises before mint. Check up front so
   # the failure message points the user at the fix.
-  unless system("bin/rails runner 'exit Rails.application.credentials.dig(:tokens, :pepper).present? ? 0 : 1' 2>/dev/null")
+  #
+  # CI / test environments never have `config/master.key` (by design), so
+  # the credential cannot be read there. The seed body skips the dev-token
+  # mint with a warning when `:tokens.pepper` is missing in non-development
+  # envs; mirror that here so `bin/setup` under `RAILS_ENV=test` does not
+  # block CI.
+  pepper_required = (ENV["RAILS_ENV"] || "development") == "development"
+  if pepper_required && !system("bin/rails runner 'exit Rails.application.credentials.dig(:tokens, :pepper).present? ? 0 : 1' 2>/dev/null")
     puts ""
     puts "!  Missing :tokens.pepper credential."
     puts ""

@@ -51,6 +51,16 @@ if ! gem list foreman -i --silent; then
   gem install foreman
 fi
 
+# --- Build pito CLI release binary (one-shot, non-fatal) ---
+# Procfile.dev is for long-lived processes only; cargo build exits 0 and would
+# trip foreman's process-death cascade. Run it here instead so the binary at
+# target/release/pito is current before the parade starts.
+echo "Building pito CLI release binary..."
+if ! cargo build --release --manifest-path extras/cli/Cargo.toml; then
+  echo "WARNING: cargo build failed; pito CLI binary may be stale."
+  echo "Continuing with foreman startup; rebuild manually when convenient."
+fi
+
 # Default web Puma port (3027). The "27" suffix marker keeps pito clear of
 # other local projects (e.g. fepra2 on 3018). Override with PORT=... if
 # something else is already bound.

@@ -170,9 +170,48 @@ RSpec.describe ApiToken, type: :model do
       expect(ApiToken.digest("hello")).not_to eq(ApiToken.digest("world"))
     end
 
-    it "raises Api::AuthConfigurationMissing when the pepper credential is absent" do
-      allow(Rails.application.credentials).to receive(:dig).with(:tokens, :pepper).and_return(nil)
+    it "raises Api::AuthConfigurationMissing when the resolved pepper is blank" do
+      # Stub the resolver — covers the production "no credential, no env,
+      # not test" terminal-nil path. Stubbing `dig` alone no longer suffices
+      # because `.pepper` falls back to a fixed string in `Rails.env.test?`.
+      allow(ApiToken).to receive(:pepper).and_return(nil)
       expect { ApiToken.digest("anything") }.to raise_error(Api::AuthConfigurationMissing)
+    end
+  end
+
+  describe ".pepper" do
+    it "returns the credential when set" do
+      allow(Rails.application.credentials).to receive(:dig).with(:tokens, :pepper).and_return("from-credential")
+      expect(ApiToken.pepper).to eq("from-credential")
+    end
+
+    it "falls back to PITO_TOKENS_PEPPER when the credential is absent" do
+      allow(Rails.application.credentials).to receive(:dig).with(:tokens, :pepper).and_return(nil)
+      original = ENV["PITO_TOKENS_PEPPER"]
+      ENV["PITO_TOKENS_PEPPER"] = "from-env"
+      expect(ApiToken.pepper).to eq("from-env")
+    ensure
+      ENV["PITO_TOKENS_PEPPER"] = original
+    end
+
+    it "falls back to a fixed test pepper in Rails.env.test? when neither credential nor env var is set" do
+      allow(Rails.application.credentials).to receive(:dig).with(:tokens, :pepper).and_return(nil)
+      original = ENV["PITO_TOKENS_PEPPER"]
+      ENV.delete("PITO_TOKENS_PEPPER")
+      expect(Rails.env.test?).to be(true)
+      expect(ApiToken.pepper).to eq("test-pepper-not-a-secret")
+    ensure
+      ENV["PITO_TOKENS_PEPPER"] = original
+    end
+
+    it "returns nil in non-test environments when neither credential nor env var is set" do
+      allow(Rails.application.credentials).to receive(:dig).with(:tokens, :pepper).and_return(nil)
+      original = ENV["PITO_TOKENS_PEPPER"]
+      ENV.delete("PITO_TOKENS_PEPPER")
+      allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new("production"))
+      expect(ApiToken.pepper).to be_nil
+    ensure
+      ENV["PITO_TOKENS_PEPPER"] = original
     end
   end
 end
