@@ -18,6 +18,11 @@ module Mcp
       )
 
       def self.call(updates: nil)
+        # Read with no args needs yt:read; mutating call needs yt:write.
+        required = updates.present? ? Scopes::YT_WRITE : Scopes::YT_READ
+        scope_err = Mcp::ToolAuth.require_scope!(required)
+        return scope_err if scope_err
+
         if updates.present?
           results = []
           updates.each do |key, value|

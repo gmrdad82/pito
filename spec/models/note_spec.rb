@@ -81,6 +81,11 @@ RSpec.describe Note, type: :model do
     let(:tenant)  { create(:tenant) }
     let(:project) { create(:project, tenant: tenant) }
 
+    # Phase 5A — re-pin Current.tenant onto the explicitly-created
+    # tenant so the BelongsToTenant default scope on Note/Project
+    # filters by the right tenant_id.
+    before { Current.tenant = tenant }
+
     it "increases by a new note's words_count on create" do
       expect {
         # `body_for_counts` triggers `recompute_counts` so words_count

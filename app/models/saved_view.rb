@@ -1,4 +1,6 @@
 class SavedView < ApplicationRecord
+  include BelongsToTenant
+
   enum :kind, { channels: 0, videos: 1 }
 
   validates :kind, presence: true

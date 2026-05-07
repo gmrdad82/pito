@@ -21,13 +21,16 @@
   })();
 </script>
 
-<%# Phase B revamp (2026-05-06) — Settings is a `.pane-row` of five 640px
-    panes that wrap to the next row when the viewport runs out. Zebra
-    alternation paints odd panes with `--color-pane-bg-a` and even panes
-    with `--color-pane-bg-b` (1=A, 2=B, 3=A, 4=B, 5=A). Per-section forms
-    are preserved.
+<%# Phase 3 — Step C (5c-settings-ui-and-docs.md) — Settings is a `.pane-row`
+    of six 452px panes that wrap to the next row when the viewport runs out.
+    Zebra alternation paints odd panes with `--color-pane-bg-a` and even
+    panes with `--color-pane-bg-b` (1=A, 2=B, 3=A, 4=B, 5=A, 6=B). Per-section
+    forms are preserved. The tokens pane is a stub linking to a dedicated
+    `/settings/tokens` page where the full CRUD lives — the token surface
+    has its own list / new / show-plaintext-once / revoke flow that doesn't
+    fit a single fieldset.
 
-    Order: appearance, workspaces, YouTube, Voyage AI, search.
+    Order: appearance, workspaces, YouTube, Voyage AI, search, tokens.
 %>
 <div class="pane-row">
   <%# Pane 1 — appearance (A) %>
@@ -224,6 +227,24 @@
         cancel_label: "cancel",
         destructive: false
       )) %>
+    </fieldset>
+  </div>
+
+  <%# Pane 6 — tokens (B) — Phase 3 Step C. Stub linking to /settings/tokens
+      where the full CRUD UI lives. %>
+  <div class="pane">
+    <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
+      <legend><h2>tokens</h2></legend>
+
+      <div style="margin-bottom: 6px;">
+        <label class="form-label">active</label>
+        <span><%= number_with_delimiter(@active_tokens_count) %></span>
+        <span class="form-hint" style="display: block;">
+          bearer tokens for the JSON API and MCP HTTP transport.
+        </span>
+      </div>
+
+      <%= render(BracketedLinkComponent.new(label: "manage tokens", href: settings_tokens_path)) %>
     </fieldset>
   </div>
 </div>

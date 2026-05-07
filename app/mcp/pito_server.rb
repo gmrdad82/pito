@@ -1,5 +1,6 @@
 require "mcp"
 require "mcp/server/transports/stdio_transport"
+require_relative "tool_auth"
 
 module Mcp
   class PitoServer

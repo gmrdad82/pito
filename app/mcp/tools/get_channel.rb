@@ -15,6 +15,9 @@ module Mcp
       annotations(read_only_hint: true)
 
       def self.call(id:)
+        scope_err = Mcp::ToolAuth.require_scope!(Scopes::YT_READ)
+        return scope_err if scope_err
+
         channel = Channel.find_by(id: id)
         return error_response("channel not found: #{id}") unless channel
 

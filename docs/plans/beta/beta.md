@@ -194,24 +194,25 @@ phase folders under `pito-dev-kb/plans/beta/<NN>-<slug>/` retain their
 Foundation" phase below maps to the existing folder `03-auth-foundation/`).
 Folders are not renumbered.
 
-| #   | Phase                                 | Adds capability                                                                                                                       | Status / Depends on                                               |
-| --- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| 1   | Dev KB Setup                          | Sibling repos exist; `dev:*` MCP tools online; mobile planning works                                                                  | done                                                              |
-| 2   | Postgres Migration                    | MySQL → Postgres 17 + pgvector extension installed                                                                                    | done                                                              |
-| 3   | Channel Revamp                        | Channel model rebuild; web + MCP + terminal parity; deletion/sync framework                                                           | done (was "Auth Foundation"; auth foundation deferred to phase 5) |
-| 4   | **Project Workspace**                 | Project, Game, Collection, Footage, Notes, Timeline; assets volume; footage importer (Rust binary); three-pane layout; design refresh | next active phase; depends on 3                                   |
-| 5   | Auth Foundation                       | User, Tenant, scoped tokens; header-based JSON auth on both Pumas; no UI                                                              | depends on 4 (was original phase 3)                               |
-| 6   | Auth UI + Multi-User Readiness        | Login UI, sessions, OAuth server (Doorkeeper), tenant-leak audit                                                                      | depends on 5 (was original phase 12)                              |
-| 7   | Google OAuth + YouTube API Foundation | Google sign-in; YouTube tokens; rate-limit-aware API client                                                                           | depends on 5 (was original phase 7)                               |
-| 8   | YouTube Data Sync                     | Auto-sync owned channels; on-demand external sync; quota tracking                                                                     | depends on 7 (was original phase 8)                               |
-| 9   | Voyage Embeddings + Hybrid Search     | Vectors in Postgres + Meilisearch; hybrid queries; related content                                                                    | depends on 8 (was original phase 10)                              |
-| 10  | Video Workflow Features               | Calendar, upload, metadata, scheduling, thumbnails, playlists                                                                         | depends on 8, 9 (was original phase 11)                           |
-| 11  | App Stats / Observability             | Stack health, both Pumas, DB, Voyage, YouTube quota, Sidekiq, audit logs                                                              | depends on 10 (was original phase 13)                             |
-| 12  | Backup / Restore Tooling              | Postgres dump, Meili snapshot, pgvector data, KB state, restore drill                                                                 | depends on 9 (was original phase 14)                              |
-| 13  | Slack Probe                           | Validate Slack as a fourth client — or drop                                                                                           | depends on 5 (was original phase 5)                               |
-| 14  | Landing Page Tooling                  | `pito-website` + Cloudflare Pages; `website:*` MCP tools                                                                              | depends on 1, 5 (was original phase 6)                            |
-| 15  | Security Hardening Pass               | Comprehensive Brakeman + bundler-audit + headers + rate limit on both Pumas                                                           | all prior (was original phase 15)                                 |
-| 16  | Hetzner Deployment                    | Production cutover; Kamal with two web roles + Sidekiq; backups; rollback                                                             | depends on 12, 15 (was original phase 16)                         |
+| #   | Phase                                 | Adds capability                                                                                                                                                 | Status / Depends on                                               |
+| --- | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| 1   | Dev KB Setup                          | Sibling repos exist; `dev:*` MCP tools online; mobile planning works                                                                                            | done                                                              |
+| 2   | Postgres Migration                    | MySQL → Postgres 17 + pgvector extension installed                                                                                                              | done                                                              |
+| 3   | Channel Revamp                        | Channel model rebuild; web + MCP + terminal parity; deletion/sync framework                                                                                     | done (was "Auth Foundation"; auth foundation deferred to phase 5) |
+| 4   | **Project Workspace**                 | Project, Game, Collection, Footage, Notes, Timeline; assets volume; footage importer (Rust binary); three-pane layout; design refresh                           | next active phase; depends on 3                                   |
+| 5   | Auth Foundation                       | User, Tenant, scoped tokens; header-based JSON auth on both Pumas; no UI                                                                                        | depends on 4 (was original phase 3)                               |
+| 5.5 | **Polish window**                     | Catch-up sweep of accumulated follow-ups from Phase 4 + earlier (UI polish, hygiene, deferred items). Not a feature phase — pure cleanup before Phase 6 starts. | depends on 5; blocks 6                                            |
+| 6   | Auth UI + Multi-User Readiness        | Login UI, sessions, OAuth server (Doorkeeper), tenant-leak audit                                                                                                | depends on 5 (was original phase 12)                              |
+| 7   | Google OAuth + YouTube API Foundation | Google sign-in; YouTube tokens; rate-limit-aware API client                                                                                                     | depends on 5 (was original phase 7)                               |
+| 8   | YouTube Data Sync                     | Auto-sync owned channels; on-demand external sync; quota tracking                                                                                               | depends on 7 (was original phase 8)                               |
+| 9   | Voyage Embeddings + Hybrid Search     | Vectors in Postgres + Meilisearch; hybrid queries; related content                                                                                              | depends on 8 (was original phase 10)                              |
+| 10  | Video Workflow Features               | Calendar, upload, metadata, scheduling, thumbnails, playlists                                                                                                   | depends on 8, 9 (was original phase 11)                           |
+| 11  | App Stats / Observability             | Stack health, both Pumas, DB, Voyage, YouTube quota, Sidekiq, audit logs                                                                                        | depends on 10 (was original phase 13)                             |
+| 12  | Backup / Restore Tooling              | Postgres dump, Meili snapshot, pgvector data, KB state, restore drill                                                                                           | depends on 9 (was original phase 14)                              |
+| 13  | Slack Probe                           | Validate Slack as a fourth client — or drop                                                                                                                     | depends on 5 (was original phase 5)                               |
+| 14  | Landing Page Tooling                  | `pito-website` + Cloudflare Pages; `website:*` MCP tools                                                                                                        | depends on 1, 5 (was original phase 6)                            |
+| 15  | Security Hardening Pass               | Comprehensive Brakeman + bundler-audit + headers + rate limit on both Pumas                                                                                     | all prior (was original phase 15)                                 |
+| 16  | Hetzner Deployment                    | Production cutover; Kamal with two web roles + Sidekiq; backups; rollback                                                                                       | depends on 12, 15 (was original phase 16)                         |
 
 ### Paused / dropped phases
 
@@ -228,16 +229,22 @@ Folders are not renumbered.
   `pito-dev-kb/plans/beta/09-youtube-kb-production-notes/` is preserved as the
   historical record (its first paragraph carries a "DROPPED" addendum).
 
-### Follow-ups queued after Phase 4
+### Phase 5.5 — Polish window
 
-The following items live in `pito-dev-kb/orchestration/follow-ups.md`. They are
-**cleanups, not phases** — interleaved into the work after Phase 4 — Project
-Workspace completes:
+Between Phase 5 (Auth Foundation) and Phase 6 (Auth UI), Pito takes a dedicated
+cleanup pass on accumulated follow-ups. This is **not a feature phase** — purely
+catch-up work that's been deferred while pushing through Phase 4 polish,
+deferred items from Phase 5 implementation, and any pre-existing entries in
+`docs/orchestration/follow-ups.md` that have aged into something worth tackling
+before the auth UI work begins.
 
-- Channel Revamp post-commit cleanup (orphaned confirm-dialog primitives)
-- Rails-app keyboard shortcuts (mirror pito-sh schema)
-- Terminal app screen layout parity with the Rails app
-- pito-sh Dependabot alert (low-severity)
+The current follow-up list lives in `docs/orchestration/follow-ups.md`. As Phase
+5.5 begins, that file's "## Open" section becomes the working backlog. Items
+resolved during the window move to "## Done" with the resolving commit hash;
+items that age into "wait until later" stay in Open with updated trigger notes.
+
+Phase 5.5 ends when the architect declares the Open list manageable enough to
+start Phase 6 cleanly. Realistically a few days to a week.
 
 ### Phase index history
 

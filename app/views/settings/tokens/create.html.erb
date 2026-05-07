@@ -1,0 +1,40 @@
+<% content_for(:title, "token created") %>
+<% breadcrumb(["settings", settings_path], ["tokens", settings_tokens_path], "created") %>
+
+<div style="margin-bottom: 8px;">
+  <h1>token created</h1>
+</div>
+
+<div class="flash-warning" style="margin-bottom: 12px;">
+  <strong>save this now &mdash; it cannot be shown again.</strong>
+  the plaintext below is the only copy. once you navigate away it is gone forever.
+  if you lose it, revoke this token and mint a new one.
+</div>
+
+<table class="detail-table" style="margin-bottom: 12px;">
+  <tr>
+    <td class="text-muted">name</td>
+    <td><strong><%= @token.name %></strong></td>
+  </tr>
+  <tr>
+    <td class="text-muted">scopes</td>
+    <td><code><%= Array(@token.scopes).join(", ") %></code></td>
+  </tr>
+  <tr>
+    <td class="text-muted">expires</td>
+    <td><%= @token.expires_at&.strftime("%Y-%m-%d %H:%M") || "never" %></td>
+  </tr>
+  <tr>
+    <td class="text-muted">preview</td>
+    <td><code>...<%= @token.last_token_preview %></code></td>
+  </tr>
+</table>
+
+<div style="margin-bottom: 8px;">
+  <label class="form-label">plaintext (copy now)</label>
+  <pre class="code-block" style="user-select: all; white-space: pre-wrap; word-break: break-all; padding: 8px;"><code><%= @plaintext %></code></pre>
+</div>
+
+<div class="dot-list" style="margin-top: 12px;">
+  <%= render(BracketedLinkComponent.new(label: "I have saved it", href: settings_tokens_path)) %>
+</div>

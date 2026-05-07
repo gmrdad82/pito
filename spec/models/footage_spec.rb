@@ -5,7 +5,18 @@ RSpec.describe Footage, type: :model do
     subject { build(:footage) }
     it { is_expected.to belong_to(:project) }
     it { is_expected.to belong_to(:game).optional }
-    it { is_expected.to belong_to(:tenant).optional }
+
+    # Phase 5A §5.2 — `footages.tenant_id` is now NOT NULL (the
+    # before_validation callback denormalizes from project, raising
+    # if both are absent). Use a direct declaration check instead of
+    # shoulda-matchers' "set to nil" probe — that probe never sees
+    # nil because the callback fills tenant_id from the factory's
+    # project.
+    it "declares belongs_to :tenant via the BelongsToTenant concern" do
+      reflection = Footage.reflect_on_association(:tenant)
+      expect(reflection).not_to be_nil
+      expect(reflection.macro).to eq(:belongs_to)
+    end
   end
 
   describe "enums" do
@@ -101,6 +112,29 @@ RSpec.describe Footage, type: :model do
       footage = build(:footage, project: project, tenant: nil)
       expect(footage.valid?).to be(true)
       expect(footage.tenant_id).to eq(tenant.id)
+    end
+
+    # Phase 5A §5.2 — tightened callback. Raises immediately when
+    # both `project` and `tenant_id` are absent so the row never
+    # reaches validation in a half-set state.
+    it "raises MissingProjectError when project is nil and tenant_id is unset" do
+      Current.reset
+      footage = Footage.unscoped.new(local_path: "/tmp/x.mp4", filename: "x.mp4")
+      expect { footage.valid? }.to raise_error(Footage::MissingProjectError)
+    end
+
+    it "does not raise when tenant_id is set explicitly even without a project" do
+      tenant = create(:tenant)
+      footage = Footage.unscoped.new(
+        tenant_id: tenant.id,
+        local_path: "/tmp/y.mp4",
+        filename: "y.mp4"
+      )
+      # The presence of tenant_id satisfies the loud-failure path.
+      # The row can still fail validation for other reasons (project
+      # association required by the underlying belongs_to), but the
+      # callback no longer raises.
+      expect { footage.valid? }.not_to raise_error
     end
   end
 

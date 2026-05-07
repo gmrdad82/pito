@@ -3,7 +3,25 @@ require "rails_helper"
 RSpec.describe ProjectReference, type: :model do
   describe "associations" do
     subject { build(:project_reference) }
-    it { is_expected.to belong_to(:tenant) }
+    # Phase 5A — `belong_to(:tenant)` was a `required: true` shoulda
+    # check, but the `before_validation :denormalize_tenant_from_project`
+    # callback fills `tenant_id` from `project` whenever it is missing,
+    # so the matcher's "set tenant to nil and expect invalid" probe
+    # never sees nil after validation runs. Assert the declarations
+    # explicitly instead.
+    it "declares belongs_to :tenant via the BelongsToTenant concern" do
+      reflection = ProjectReference.reflect_on_association(:tenant)
+      expect(reflection).not_to be_nil
+      expect(reflection.macro).to eq(:belongs_to)
+    end
+
+    it "validates tenant_id presence" do
+      ref = ProjectReference.unscoped.new
+      ref.tenant_id = nil
+      ref.valid?
+      expect(ref.errors[:tenant_id]).to include("can't be blank")
+    end
+
     it { is_expected.to belong_to(:project) }
     it { is_expected.to belong_to(:referenceable) }
   end
@@ -11,6 +29,11 @@ RSpec.describe ProjectReference, type: :model do
   describe "validations" do
     let(:tenant) { create(:tenant) }
     let(:project) { create(:project, tenant: tenant) }
+
+    # Phase 5A — re-pin Current.tenant onto the explicit `tenant`
+    # let so default-scoped validators (e.g. uniqueness queries)
+    # see the right rows.
+    before { Current.tenant = tenant }
 
     it "accepts a Game referenceable" do
       game = create(:game, tenant: tenant)
@@ -60,6 +83,11 @@ RSpec.describe ProjectReference, type: :model do
   describe "tenant denormalization (before_validation)" do
     let(:tenant) { create(:tenant) }
     let(:project) { create(:project, tenant: tenant) }
+
+    # Phase 5A — re-pin Current.tenant onto the explicit `tenant`
+    # let so default-scoped queries (e.g. find_by!) see the rows
+    # this block builds.
+    before { Current.tenant = tenant }
 
     it "fills tenant_id from project on Project#games <<" do
       game = create(:game, tenant: tenant)

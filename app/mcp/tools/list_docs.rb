@@ -19,6 +19,9 @@ module Mcp
       annotations(read_only_hint: true)
 
       def self.call(name_pattern: "*.md", prefix: "", sort: "mtime_desc", limit: 50)
+        scope_err = Mcp::ToolAuth.require_scope!(Scopes::DEV_READ)
+        return scope_err if scope_err
+
         name_pattern = name_pattern.to_s
         name_pattern = "*.md" if name_pattern.empty?
         prefix = prefix.to_s

@@ -21,6 +21,9 @@ module Mcp
       annotations(read_only_hint: false)
 
       def self.call(title:, channel_id:, description: nil, privacy_status: nil, tags: nil, category_id: nil, default_language: nil)
+        scope_err = Mcp::ToolAuth.require_scope!(Scopes::YT_WRITE)
+        return scope_err if scope_err
+
         video = Video.new(
           title: title,
           channel_id: channel_id,

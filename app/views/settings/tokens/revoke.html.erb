@@ -1,0 +1,40 @@
+<% content_for(:title, "revoke token") %>
+<% breadcrumb(["settings", settings_path], ["tokens", settings_tokens_path], "revoke") %>
+
+<div style="margin-bottom: 8px;">
+  <h1>revoke token</h1>
+  <p class="text-muted" style="margin-top: 2px;">
+    this sets <code>revoked_at</code> on the row. subsequent requests using this token return
+    <code>401 revoked_token</code>. the row stays in the database for audit trail.
+  </p>
+</div>
+
+<table class="detail-table" style="margin-bottom: 12px;">
+  <tr>
+    <td class="text-muted">name</td>
+    <td><strong><%= @token.name %></strong></td>
+  </tr>
+  <tr>
+    <td class="text-muted">scopes</td>
+    <td><code><%= Array(@token.scopes).join(", ") %></code></td>
+  </tr>
+  <tr>
+    <td class="text-muted">created</td>
+    <td><%= @token.created_at.strftime("%Y-%m-%d %H:%M") %></td>
+  </tr>
+  <tr>
+    <td class="text-muted">last used</td>
+    <td><%= @token.last_used_at&.strftime("%Y-%m-%d %H:%M") || "never" %></td>
+  </tr>
+  <tr>
+    <td class="text-muted">preview</td>
+    <td><code>...<%= @token.last_token_preview %></code></td>
+  </tr>
+</table>
+
+<%= render "shared/action_screen",
+  submit_label: "[revoke]",
+  cancel_path: settings_tokens_path,
+  form_url: settings_token_path(@token),
+  form_method: :delete,
+  destructive: true %>

@@ -9,6 +9,8 @@ class SettingsController < ApplicationController
     @theme = AppSetting.get("theme") || "auto"
     @voyage_configured = AppSetting.voyage_configured?
     @voyage_indexing_project_notes = AppSetting.voyage_indexing_project_notes?
+    # Phase 3 — Step C: tokens pane shows a count + link to the dedicated page.
+    @active_tokens_count = ApiToken.where(tenant_id: Current.tenant_id).active.count
     begin
       @search_healthy = Search.engine.healthy?
       @search_stats = Search.engine.index_stats

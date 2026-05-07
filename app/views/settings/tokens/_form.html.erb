@@ -1,0 +1,53 @@
+<%# Form partial for /settings/tokens/new — used by the controller's new action. %>
+<%
+  scope_groups = Scopes::DESCRIPTIONS.group_by { |scope, _desc| scope.split(":").first }
+  selected_scopes = Array(@token.scopes)
+%>
+<%= form_with url: settings_tokens_path, method: :post, scope: :token, data: { turbo: false } do |f| %>
+  <% if @token.errors.any? %>
+    <div class="flash-error" style="margin-bottom: 8px;">
+      <% @token.errors.full_messages.each do |msg| %>
+        <div><%= msg %></div>
+      <% end %>
+    </div>
+  <% end %>
+
+  <div style="margin-bottom: 12px;">
+    <label for="token_name" class="form-label">name</label>
+    <input type="text" name="token[name]" id="token_name"
+           value="<%= @token.name %>" required autocomplete="off"
+           style="max-width: 420px; width: 100%;">
+    <span class="form-hint" style="display: block;">a human-readable label (e.g. <code>cli</code>, <code>mobile-claude</code>).</span>
+  </div>
+
+  <div style="margin-bottom: 12px;">
+    <label class="form-label">scopes</label>
+    <% scope_groups.each do |namespace, scopes| %>
+      <fieldset style="border: none; padding: 4px 0; margin-bottom: 4px;">
+        <legend style="font-weight: bold;"><%= namespace %>:</legend>
+        <% scopes.each do |scope, desc| %>
+          <div style="margin-left: 12px;">
+            <label class="md-check">
+              <input type="checkbox" name="token[scopes][]" value="<%= scope %>" <%= "checked" if selected_scopes.include?(scope) %>>
+              <span class="md-check-indicator"></span>
+              <span class="md-check-label"><code><%= scope %></code> &mdash; <%= desc %></span>
+            </label>
+          </div>
+        <% end %>
+      </fieldset>
+    <% end %>
+  </div>
+
+  <div style="margin-bottom: 12px;">
+    <label for="token_expires_at" class="form-label">expires</label>
+    <input type="date" name="token[expires_at]" id="token_expires_at"
+           value="<%= @token.expires_at&.to_date %>" autocomplete="off"
+           style="max-width: 200px;">
+    <span class="form-hint" style="display: block;">leave blank for no expiry.</span>
+  </div>
+
+  <div class="dot-list">
+    <button type="submit">[create]</button>
+    <%= render(BracketedLinkComponent.new(label: "cancel", href: settings_tokens_path)) %>
+  </div>
+<% end %>

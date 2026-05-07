@@ -19,6 +19,9 @@ module Mcp
       annotations(read_only_hint: false)
 
       def self.call(content:, slug: nil)
+        scope_err = Mcp::ToolAuth.require_scope!(Scopes::DEV_WRITE)
+        return scope_err if scope_err
+
         if content.nil? || content.to_s.empty?
           return error_response("content is required")
         end

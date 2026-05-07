@@ -1,7 +1,7 @@
 require "rails_helper"
 
 RSpec.describe "Notes", type: :request do
-  let(:tenant) { create(:tenant) }
+  let(:tenant) { Tenant.first || create(:tenant) }
   let(:project) { create(:project, tenant: tenant) }
 
   let(:tmp_root) { Dir.mktmpdir("pito-notes-spec") }
@@ -175,7 +175,7 @@ RSpec.describe "Notes", type: :request do
   end
 
   describe "POST /notes/scan" do
-    let(:tenant) { create(:tenant) }
+    let(:tenant) { Tenant.first || create(:tenant) }
 
     it "enqueues NoteSyncJob" do
       tenant

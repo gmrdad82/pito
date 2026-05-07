@@ -1,0 +1,12 @@
+<% content_for(:title, "new token") %>
+<% breadcrumb(["settings", settings_path], ["tokens", settings_tokens_path], "new") %>
+
+<div style="margin-bottom: 8px;">
+  <h1>new token</h1>
+  <p class="text-muted" style="margin-top: 2px;">
+    pick the scopes this token should grant. plaintext appears once on the next page &mdash;
+    save it before you navigate away.
+  </p>
+</div>
+
+<%= render "form" %>

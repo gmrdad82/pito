@@ -15,6 +15,9 @@ module Mcp
       annotations(read_only_hint: true)
 
       def self.call(channel_id: nil, limit: 50)
+        scope_err = Mcp::ToolAuth.require_scope!(Scopes::YT_READ)
+        return scope_err if scope_err
+
         limit = [ [ limit.to_i, 1 ].max, 200 ].min
 
         scope = Video.includes(:channel)

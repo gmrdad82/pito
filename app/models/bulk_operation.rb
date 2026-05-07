@@ -1,5 +1,6 @@
 class BulkOperation < ApplicationRecord
   include Turbo::Broadcastable
+  include BelongsToTenant
 
   has_many :bulk_operation_items, dependent: :destroy
   has_many :videos, through: :bulk_operation_items

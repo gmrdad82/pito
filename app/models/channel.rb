@@ -1,11 +1,11 @@
 class Channel < ApplicationRecord
+  include BelongsToTenant
+
   # Raised when the locked channel_url is changed on update. Phase B's
   # controller layer rescues this and translates it to a 422 response.
   class UrlLockedError < ActiveRecord::ReadOnlyRecord; end
 
   CHANNEL_URL_REGEX = %r{\Ahttps://www\.youtube\.com/channel/UC[A-Za-z0-9_-]{22}\z}
-
-  belongs_to :tenant
 
   has_many :videos, dependent: :destroy
   has_many :playlists, dependent: :destroy

@@ -1,4 +1,6 @@
 class VideoUpload < ApplicationRecord
+  include BelongsToTenant
+
   belongs_to :channel
   belongs_to :video, optional: true
 

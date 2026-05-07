@@ -27,6 +27,13 @@ RSpec.configure do |config|
   config.include Capybara::RSpecMatchers, type: :component
 
   config.before(:each) { Sidekiq::Worker.clear_all }
+
+  # Reset Current after each example so request specs that populate it via
+  # ApplicationController#set_current_tenant_and_user (or any code that touches
+  # Current.* directly) do not leak tenant/user/token state into the next
+  # example. Without this, a stale Current.tenant from one spec can survive
+  # into another and mask bugs.
+  config.after(:each) { Current.reset }
 end
 
 Shoulda::Matchers.configure do |config|

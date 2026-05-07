@@ -1,4 +1,6 @@
 class PlaylistItem < ApplicationRecord
+  include BelongsToTenant
+
   belongs_to :playlist
   belongs_to :video
 

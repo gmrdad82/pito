@@ -10,14 +10,27 @@ module Api
   class FootagesController < ApplicationController
     skip_before_action :verify_authenticity_token
 
+    # Phase 3 — Step B. Bearer-token auth is required on every Api::*
+    # endpoint. The concern populates Current.tenant / Current.user from
+    # the resolved token; the cookie-only HTML routes do NOT include this
+    # concern (they remain on the seeded-singletons path).
+    include Api::AuthConcern
+
+    # Skip the cookie-based set_current_tenant_and_user before_action —
+    # the auth concern populates Current from the resolved token instead.
+    skip_before_action :set_current_tenant_and_user
+
     before_action :set_project
 
     def index
+      require_scope!(Scopes::PROJECT_READ)
       footages = @project.footages.order(:local_path)
       render json: footages.map { |f| footage_json(f) }
     end
 
     def create
+      require_scope!(Scopes::PROJECT_WRITE)
+
       attrs, error = build_create_attrs
       if error
         render json: { error: error }, status: :unprocessable_entity

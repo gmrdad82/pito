@@ -89,6 +89,20 @@ Rails.application.routes.draw do
   patch "settings/theme", to: "settings#update_theme"
   post "settings/reindex", to: "settings#reindex"
 
+  # Phase 3 — Step C (5c-settings-ui-and-docs.md). Token CRUD UI lives at
+  # `/settings/tokens` so it has its own list / new / show flow without
+  # cramming a 6th pane into the multi-section settings page. The
+  # `/settings/tokens/:id/revoke` GET renders the action confirmation
+  # screen (same UX pattern as `/deletions/:type/:ids`); the matching
+  # DELETE soft-deletes by setting `revoked_at`.
+  namespace :settings do
+    resources :tokens, only: %i[index new create destroy] do
+      member do
+        get :revoke
+      end
+    end
+  end
+
   # MCP HTTP transport (served by dedicated Puma on port 3028)
   require_relative "../app/mcp/rack_app"
   mount Mcp::RackApp.new => "/mcp"

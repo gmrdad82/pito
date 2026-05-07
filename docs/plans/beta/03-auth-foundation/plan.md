@@ -173,153 +173,238 @@ and MCP HTTP require explicit bearer tokens.
 
 ### Models and migrations
 
-- [~] Migration: create `tenants` table (`slug` citext unique, `name`,
-  timestamps) — delivered in Channel Revamp with `name` only (no `slug`); slug
-  deferred
-- [~] Migration: create `users` table with `tenant_id` FK, `email` citext
-  (unique within tenant), `password_digest`, `name`, `role` (default `'owner'`),
-  timestamps — delivered in Channel Revamp with
-  `username + email + password_digest` (no `name`, no `role`); email + username
-  globally unique (single-column), not scoped to tenant
+- [x] Migration: create `tenants` table (`slug` citext unique, `name`,
+      timestamps) — Channel Revamp delivered name-only; 5A added `slug`
+      (citext, unique, NOT NULL) via
+      `20260507000001_add_slug_to_tenants.rb` and the matching seed
+      backfill from `:owner.tenant_slug` (fallback `"primary"`)
+- [x] Migration: create `users` table with `tenant_id` FK, `email` citext
+      (unique within tenant), `password_digest`, `name`, `role` (default
+      `'owner'`), timestamps — delivered in Channel Revamp with
+      `username + email + password_digest`. 5A formally drops `name` and
+      `role` from the spec (single-user world), and locks
+      `email`/`username` global uniqueness as a deliberate departure
+      revisited at Theta multi-tenancy
 - [x] `Tenant` model: `has_many :users`, `has_many :api_tokens`, validations on
-      slug and name — delivered without `has_many :api_tokens` (no ApiToken in
-      this phase) and validates name only
+      slug and name — Channel Revamp delivered associations + name validation;
+      5A adds `slug` validation (presence, format, length, uniqueness via
+      citext); 5B added `has_many :api_tokens` via the rename
 - [~] `User` model: `belongs_to :tenant`, `has_secure_password`, validations,
   `has_many :api_tokens` — delivered without `has_many :api_tokens`; username
   regex `\A[A-Za-z][A-Za-z0-9]*\z` and `find_by_username_or_email` added
-- [ ] Migration: add `tenant_id` (and `user_id` where appropriate) to every
+- [x] Migration: add `tenant_id` (and `user_id` where appropriate) to every
       existing data-holding table; backfill existing rows in the same migration
-      to the seeded tenant + user (deferred to future Auth Foundation phase —
-      only `channels.tenant_id` was added in Channel Revamp;
-      videos/playlists/saved_views remain untenanted)
-- [~] Add `belongs_to :tenant` to every affected model — only
-  `Channel belongs_to :tenant` so far; remaining models deferred
-- [ ] Add the `belongs_to_tenant` concern (or equivalent) and apply uniformly
-      (deferred to future Auth Foundation phase)
-- [ ] Migration: drop the Alpha-era token table (whatever it was called) and
+      to the seeded tenant + user (delivered in 5A — videos, playlists,
+      playlist_items, video_stats, video_uploads, saved_views, bulk_operations,
+      bulk_operation_items each get the three-step add-reference / backfill /
+      not-null sequence. `footages.tenant_id` was tightened from nullable to
+      NOT NULL in the same batch. `mcp_access_tokens` → `api_tokens` got its
+      `tenant_id` (plus `user_id`, scopes, expires_at) from 5B's rename
+      migration)
+- [x] Add `belongs_to :tenant` to every affected model — delivered in 5A via
+      the `BelongsToTenant` concern (next checkbox); the concern declares the
+      association so every tenanted model gets it uniformly
+- [x] Add the `belongs_to_tenant` concern (or equivalent) and apply uniformly
+      (delivered in 5A — `app/models/concerns/belongs_to_tenant.rb` declares
+      `belongs_to :tenant`, validates `tenant_id` presence, and a
+      `default_scope` keyed on `Current.tenant_id` that raises
+      `BelongsToTenant::TenantContextMissing` when Current is unset.
+      Included in: Channel, Video, Playlist, PlaylistItem, VideoStat,
+      VideoUpload, SavedView, BulkOperation, BulkOperationItem, Project,
+      Collection, Game, Footage, Note, Timeline, ProjectReference. Tenant
+      and User intentionally do NOT include it.)
+- [x] Migration: drop the Alpha-era token table (whatever it was called) and
       create `api_tokens` with the full Beta schema. No data preservation needed
-      — Alpha tokens are not contracts. (deferred to future Auth Foundation
-      phase — `mcp_access_tokens` from a separate MCP HTTP transport phase
-      remains in place)
-- [ ] `ApiToken` model: associations, token digest, scope validation, expiry
-      helper (deferred to future Auth Foundation phase)
+      — Alpha tokens are not contracts. (5B: `mcp_access_tokens` was renamed
+      and extended via two migrations rather than dropped — preserves the
+      working rake-task CRUD path; spec §5 locks this rename-and-extend path)
+- [x] `ApiToken` model: associations, token digest, scope validation, expiry
+      helper (delivered in 5B: `belongs_to :tenant, :user`; HMAC-SHA256 with
+      pepper credential; `scopes_subset_of_catalog`; `revoked? / expired? /
+      usable?`; `touch_used!`)
 - [x] Add `Current` model with `tenant`, `user`, `token` attributes — delivered
       in Channel Revamp; `before_action :set_current_tenant_and_user` populates
       from `Tenant.first` / `User.first` singletons
 
 ### Scope catalog
 
-- [ ] Define scope catalog as a single Ruby constant or module — list of valid
-      scopes with descriptions (deferred to future Auth Foundation phase)
-- [ ] Add `require_scope!(scope)` helper used by both controllers and tools
-      (deferred to future Auth Foundation phase)
-- [ ] Map every existing MCP tool to its required scope (`yt:read`, `yt:write`,
-      or `yt:destructive`) (deferred to future Auth Foundation phase)
-- [ ] Phase 1's `dev:*` tools continue to require `dev:read`/`dev:write`; the
-      formalization is just listing them in the catalog (deferred to future Auth
-      Foundation phase)
-- [ ] Declare `website:read` and `website:write` in the catalog (no tools yet —
-      Phase 6 adds them) (deferred to future Auth Foundation phase)
+- [x] Define scope catalog as a single Ruby constant or module — list of valid
+      scopes with descriptions (delivered in 5B: `app/lib/scopes.rb` with
+      `Scopes::ALL` (9 entries) and `Scopes::DESCRIPTIONS`; both frozen)
+- [x] Add `require_scope!(scope)` helper used by both controllers and tools
+      (delivered in 5B: `Api::AuthConcern#require_scope!` for controllers,
+      `Mcp::ToolAuth.require_scope!` for tools — both honor `Current.token`)
+- [x] Map every existing MCP tool to its required scope (`yt:read`, `yt:write`,
+      or `yt:destructive`) (delivered in 5B: every tool's `call` enforces the
+      catalog scope — see report mapping)
+- [x] Phase 1's `dev:*` tools continue to require `dev:read`/`dev:write`; the
+      formalization is just listing them in the catalog (delivered in 5B:
+      `list_docs`/`read_doc` → `dev:read`, `save_note` → `dev:write`)
+- [x] Declare `website:read` and `website:write` in the catalog (no tools yet —
+      Phase 6 adds them) (delivered in 5B's `Scopes` module)
 
 ### JSON API auth concern
 
-- [ ] Implement `Api::AuthConcern` (or equivalent name) — bearer extraction,
-      lookup by digest, scope check, `Current` population (deferred to future
-      Auth Foundation phase)
-- [ ] Apply to every JSON endpoint in Web Puma's controllers (deferred to future
-      Auth Foundation phase)
-- [ ] Apply to every MCP HTTP transport endpoint in MCP Puma (deferred to future
-      Auth Foundation phase)
-- [ ] Constant-time digest comparison (deferred to future Auth Foundation phase
-      — partial: McpAccessToken from MCP HTTP transport phase already uses
-      HMAC-SHA256 secure compare)
-- [ ] Update `last_used_at` on success (deferred to future Auth Foundation phase
-      — partial: McpAccessToken already does this)
-- [ ] Basic Rack::Attack throttle on failed lookups (5 per minute per IP) — full
-      rate limiting is Phase 15 (deferred to future Auth Foundation phase)
-- [ ] Specs covering: missing token, invalid token, revoked token, expired
+- [x] Implement `Api::AuthConcern` (or equivalent name) — bearer extraction,
+      lookup by digest, scope check, `Current` population (delivered in 5B:
+      `Api::TokenAuthenticator` for the Rack-level path, `Api::AuthConcern`
+      controller mixin shared by both)
+- [x] Apply to every JSON endpoint in Web Puma's controllers (delivered in 5B:
+      `Api::FootagesController` is the only `Api::*` controller in Phase B's
+      scope; concern mixed in)
+- [x] Apply to every MCP HTTP transport endpoint in MCP Puma (delivered in 5B:
+      `Mcp::RackApp#call` invokes `Api::TokenAuthenticator` before delegating
+      to the transport)
+- [x] Constant-time digest comparison (delivered in 5B: HMAC-SHA256 with the
+      `:tokens.pepper` credential; `ActiveSupport::SecurityUtils.secure_compare`
+      in both `ApiToken.authenticate` and `Api::TokenAuthenticator`)
+- [x] Update `last_used_at` on success (delivered in 5B:
+      `ApiToken#touch_used!` via `update_columns`)
+- [x] Basic Rack::Attack throttle on failed lookups (5 per minute per IP) — full
+      rate limiting is Phase 15 (delivered in 5B at the spec's locked rate of
+      10 per 5 minutes per IP via `ApiAuthThrottle` + Rack::Attack blocklist;
+      see `config/initializers/rack_attack.rb`)
+- [x] Specs covering: missing token, invalid token, revoked token, expired
       token, valid token with required scope, valid token without required scope
-      (deferred to future Auth Foundation phase)
+      (delivered in 5B: `spec/lib/api/token_authenticator_spec.rb`,
+      `spec/requests/api/auth_concern_spec.rb`,
+      `spec/requests/mcp/rack_app_auth_spec.rb`)
 
 ### Existing MCP tool refactor
 
-- [ ] Each existing MCP tool calls `require_scope!('yt:read')` (or
+- [x] Each existing MCP tool calls `require_scope!('yt:read')` (or
       write/destructive as appropriate) at the top of its execute method
-      (deferred to future Auth Foundation phase — Channel-touching MCP tools
-      were refactored for the new shape but no scope enforcement yet)
-- [ ] Each tool sets `Current.tenant` and `Current.user` from the resolved token
-      (or relies on the auth concern having done so) (deferred to future Auth
-      Foundation phase — Current is set from `Tenant.first` / `User.first`
-      singletons in Channel Revamp)
-- [ ] Tool specs assert scope rejection: a token without the right scope is
-      rejected before any work happens (deferred to future Auth Foundation
-      phase)
+      (delivered in 5B: every tool's `call` opens with
+      `Mcp::ToolAuth.require_scope!(...)`; full mapping in 5B's session log)
+- [x] Each tool sets `Current.tenant` and `Current.user` from the resolved token
+      (or relies on the auth concern having done so) (delivered in 5B:
+      `Mcp::RackApp#call` populates `Current` from the token, then resets in
+      `ensure`)
+- [~] Tool specs assert scope rejection: a token without the right scope is
+      rejected before any work happens (delivered in 5B at the rack-app level
+      via `spec/requests/mcp/rack_app_auth_spec.rb`'s scope-enforcement
+      example; per-tool scope-reject examples remain a follow-up since the
+      scope check is uniform across all tools)
 
 ### Seeds
 
 - [x] Seed one Tenant (`slug: "primary"`, `name: <user's name or handle>`) —
-      delivered with `name` only (no slug); seed reads from `:owner` credentials
-      block
-- [~] Seed one User (the user's own account, role `owner`, password from Rails
-  credentials) — delivered with `username + email + password_digest` from
-  `:owner` credentials; no `role` column
-- [ ] Seed a default `ApiToken` for development with
-      `dev:read dev:write yt:read yt:write` scopes (no `yt:destructive` by
-      default; user opts in) (deferred to future Auth Foundation phase)
-- [~] All existing seed records get `tenant_id` and `user_id` assigned to the
-  seeded tenant + user — only Channel seeds got `tenant_id`;
-  videos/playlists/saved_views remain untenanted
+      Channel Revamp delivered name only; 5A added slug, sourced from
+      `:owner.tenant_slug` (fallback `"primary"`)
+- [x] Seed one User (the user's own account, role `owner`, password from Rails
+      credentials) — delivered with `username + email + password_digest` from
+      `:owner` credentials. 5A formally drops the `role` column; the seed has
+      no `role` reference
+- [x] Seed a default `ApiToken` for development with
+      `dev:read dev:write yt:read yt:write project:read project:write` scopes
+      (no `yt:destructive` by default; user opts in). Delivered in 5C — `db/seeds.rb`
+      mints a `name: "dev"` token guarded by `ApiToken.exists?(name: "dev",
+      tenant_id: tenant.id)`; plaintext is printed inside a banner on the run that
+      actually mints. Idempotent on subsequent runs.
+- [x] All existing seed records get `tenant_id` and `user_id` assigned to the
+      seeded tenant + user — 5A wraps the seed body in
+      `Current.tenant = tenant` and stamps `tenant: tenant` on the video and
+      video_stat seeds (channels were already tenanted in Channel Revamp,
+      Phase 4 fixtures were tenanted from day one). `user_id` plumbing is
+      deferred to a later phase since no surviving model carries `user_id`
+      yet
 
 ### Settings UI (minimal)
 
-- [ ] List tokens (name, scopes, last-used, created-at, revoke button) (deferred
-      to future Auth Foundation phase)
-- [ ] Generate token form: name input + scope checkboxes grouped by namespace
-      (deferred to future Auth Foundation phase)
-- [ ] Token creation response shows plaintext exactly once with a clear "save
-      now, won't show again" notice (deferred to future Auth Foundation phase)
-- [ ] Revoke action sets `revoked_at`; subsequent uses of the token return 401
-      (deferred to future Auth Foundation phase)
-- [ ] Apply the existing Pito design system (bracketed buttons, monospace,
-      dark/light theme) (deferred to future Auth Foundation phase)
+- [x] List tokens (name, scopes, last-used, created-at, revoke button) —
+      delivered in 5C: `Settings::TokensController#index` lists active tokens
+      first then revoked tokens grayed; columns: name, scopes, created_at,
+      last_used_at, expires_at, last_token_preview, status. `[ revoke ]`
+      bracketed link per active row routes to the action confirmation page.
+- [x] Generate token form: name input + scope checkboxes grouped by namespace —
+      delivered in 5C: `app/views/settings/tokens/_form.html.erb` iterates
+      `Scopes::DESCRIPTIONS.group_by { |scope, _| scope.split(":").first }`
+      and renders one `md-check` per scope under per-namespace `<fieldset>`s
+      (`dev:`, `yt:`, `website:`, `project:`).
+- [x] Token creation response shows plaintext exactly once with a clear "save
+      now, won't show again" notice — delivered in 5C:
+      `app/views/settings/tokens/create.html.erb` renders `@plaintext` inside
+      a `<pre class="code-block">` framed by a `flash-warning` block.
+      Subsequent index visits never re-display the plaintext (only the last-4
+      preview).
+- [x] Revoke action sets `revoked_at`; subsequent uses of the token return 401
+      (deferred to future Auth Foundation phase) — delivered in 5C:
+      `Settings::TokensController#destroy` calls `@token.revoke!` (which sets
+      `revoked_at = Time.current` via `update!`); the row stays. Step B's
+      `Api::TokenAuthenticator` already rejects revoked tokens with
+      `revoked_token` 401.
+- [x] Apply the existing Pito design system (bracketed buttons, monospace,
+      dark/light theme) — delivered in 5C: bracketed-link styling via
+      `BracketedLinkComponent`, monospace inherited from `body`, no JS confirm
+      (revoke goes through the action-screen framework), red only on the
+      `[ revoke ]` link and the `[revoke]` submit button.
 
 ### Documentation
 
-- [ ] Update `pito/docs/architecture.md`: auth section, multi-tenant scoping
-      pattern, token lifecycle, the `belongs_to_tenant` concern (deferred to
-      future Auth Foundation phase — Channel Revamp's tenant-scoping pass should
-      also touch this file in a follow-up docs pass)
-- [ ] Update `pito/docs/mcp.md`: scope requirements per tool, scope catalog
-      reference (deferred to future Auth Foundation phase — note: mcp.md is also
-      stale on Channel shape after Channel Revamp; flagged for follow-up)
-- [ ] Add `pito/docs/auth.md`: authoritative reference for the auth model —
-      User, Tenant, ApiToken, scopes, JSON API auth flow, dual-Puma auth sharing
-      (deferred to future Auth Foundation phase)
-- [ ] Update `pito/docs/design.md` with the token UI patterns if visually
-      distinct from existing forms (deferred to future Auth Foundation phase)
+- [x] Update `pito/docs/architecture.md`: auth section, multi-tenant scoping
+      pattern, token lifecycle, the `belongs_to_tenant` concern — delivered
+      in 5C: rewrote the "Tenant + User schema" section as
+      "Tenant + User + ApiToken schema (Phase 3 — Auth Foundation)", adding
+      explicit subsections for Schema, Current, BelongsToTenant, and the
+      `Current.token` flow. Removed the false "auth deferred" claim from the
+      "Things explicitly NOT in scope" section.
+- [x] Update `pito/docs/mcp.md`: scope requirements per tool, scope catalog
+      reference — delivered in 5C: added a Scope-per-tool table covering all
+      19 tools with required scope + Channel-Revamp notes; updated the
+      Architecture and Token Model sections to match Step B reality; replaced
+      the stale `mcp:*` rake task surface with `tokens:*` (the Step B
+      rename); refreshed the File Structure section to reflect
+      `app/models/api_token.rb`, `app/lib/scopes.rb`, the auth concern, the
+      rack-attack initializer, and the auth-audit logger.
+- [x] Add `pito/docs/auth.md`: authoritative reference for the auth model —
+      delivered in 5C: 11 sections per spec §6.6 (Model overview, Scope
+      catalog, Tool/endpoint scope map, Request flow with ASCII diagram,
+      `belongs_to_tenant` enforcement, Token lifecycle, Bootstrap ceremony,
+      Audit log, Throttling, Departures from the original Phase 3 plan,
+      Future phase hooks).
+- [~] Update `pito/docs/design.md` with the token UI patterns if visually
+      distinct from existing forms — not needed; the token UI uses existing
+      design-system primitives (bracketed-link styling, action-screen
+      framework for revoke confirmation, `md-check` for scope checkboxes,
+      `flash-warning` for the show-once notice, `code-block` for the
+      plaintext display). Nothing visually distinct to document.
 
 ### Validation
 
 - [x] All Alpha specs continue to pass with `Current.tenant` populated in test
       setup helpers — Channel Revamp set `Current.tenant = Tenant.first` via
       `before_action`; specs green
-- [~] New specs for `Tenant`, `User`, `ApiToken`, scope enforcement, `Current`
-  lifecycle, default scoping — Tenant + User specs delivered; ApiToken / scope /
-  default-scoping specs deferred
-- [ ] Cross-tenant leak spec: create a second tenant + user via factory; assert
+- [x] New specs for `Tenant`, `User`, `ApiToken`, scope enforcement, `Current`
+      lifecycle, default scoping — Tenant + User specs delivered in Channel
+      Revamp; `ApiToken` / `Scopes` / `Api::TokenAuthenticator` /
+      `Api::AuthConcern` / `rack-attack` specs delivered in 5B
+      (`spec/models/api_token_spec.rb`, `spec/lib/scopes_spec.rb`,
+      `spec/lib/api/token_authenticator_spec.rb`,
+      `spec/requests/api/auth_concern_spec.rb`,
+      `spec/requests/mcp/rack_app_auth_spec.rb`,
+      `spec/initializers/rack_attack_spec.rb`)
+- [x] Cross-tenant leak spec: create a second tenant + user via factory; assert
       all queries scoped to `Current.tenant` exclude the other tenant's records
-      (deferred to future Auth Foundation phase — single-tenant only for now)
+      (delivered in 5A — `spec/models/cross_tenant_leak_spec.rb` builds a
+      full two-tenant fixture, asserts count + symmetry under Current=tenant_a
+      and Current=tenant_b across all 16 tenanted models, locks
+      RecordNotFound on cross-tenant `find`, asserts
+      TenantContextMissing under `Current.reset`, and locks
+      `Model.unscoped` as the documented escape hatch)
 - [x] Web UI works as before (the seeded user is implicitly current) — verified
       in Channel Revamp manual playbook
-- [ ] MCP HTTP requires valid token with the right scope; rejects insufficient
-      scope (deferred to future Auth Foundation phase — MCP HTTP currently uses
-      `McpAccessToken` from a separate phase, no scopes)
-- [ ] Both Web Puma and MCP Puma honor the same auth concern (deferred to future
-      Auth Foundation phase)
+- [x] MCP HTTP requires valid token with the right scope; rejects insufficient
+      scope (delivered in 5B: `Mcp::RackApp` rejects unauthenticated with 401;
+      every tool's `call` rejects insufficient scope with the
+      `insufficient_scope` envelope)
+- [x] Both Web Puma and MCP Puma honor the same auth concern (delivered in
+      5B: `Api::TokenAuthenticator` is the shared engine — controllers mix in
+      `Api::AuthConcern`, the rack app calls the authenticator inline)
 - [x] Brakeman, bundler-audit, Dependabot — clean — verified by Channel Revamp
-      security-auditor
-- [ ] `pito/docs/design.md` updated for any UI changes (deferred to future Auth
-      Foundation phase)
+      security-auditor; 5B re-verified Brakeman: 0 warnings (rack-attack 6.8.0
+      added)
+- [~] `pito/docs/design.md` updated for any UI changes — not needed (5C used
+      only existing design-system primitives; see Documentation section).
 
 ---
 

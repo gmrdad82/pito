@@ -8,6 +8,12 @@ RSpec.describe NoteSyncJob, type: :job do
   let(:project_dir) { File.join(tmp_root, tenant.id.to_s, "projects", project.id.to_s) }
 
   before do
+    # Phase 5A — re-pin Current.tenant onto the explicitly-created
+    # tenant so spec-side assertions like `Note.count` (which apply
+    # the BelongsToTenant default scope) see the rows the job
+    # creates. The job itself also pins Current.tenant for the
+    # duration of `#perform`.
+    Current.tenant = tenant
     @prev_root = ENV["PITO_NOTES_PATH"]
     ENV["PITO_NOTES_PATH"] = tmp_root
     FileUtils.mkdir_p(project_dir)

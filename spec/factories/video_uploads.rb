@@ -1,6 +1,7 @@
 FactoryBot.define do
   factory :video_upload do
     channel
+    tenant { channel.tenant }
     video { nil }
     status { :pending }
     title { Faker::Lorem.sentence(word_count: 5) }

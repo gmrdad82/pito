@@ -10,6 +10,11 @@ mark it Done with the commit reference.
 
 ## Open
 
+> These items are the working backlog for **Phase 5.5 — Polish window**, which
+> runs after Phase 5 (Auth Foundation) lands and before Phase 6 (Auth UI)
+> begins. As items resolve during 5.5, they move to "## Done" with the resolving
+> commit hash. New entries continue to be added throughout Phase 5.
+
 ### Channel Revamp post-commit cleanup
 
 **Trigger:** after Channel Revamp phase commits have landed on `main` across all

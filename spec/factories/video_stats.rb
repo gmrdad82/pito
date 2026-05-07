@@ -1,6 +1,7 @@
 FactoryBot.define do
   factory :video_stat do
     video
+    tenant { video.tenant }
     sequence(:date) { |n| n.days.ago.to_date }
     views { Faker::Number.between(from: 0, to: 100_000) }
     likes { Faker::Number.between(from: 0, to: 5_000) }
