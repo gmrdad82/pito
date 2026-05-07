@@ -22,12 +22,21 @@ class NoteSyncJob
     tenant = Tenant.find_by(id: tenant_id)
     return unless tenant
 
+    # Phase 5A — set Current.tenant for the duration of this job so
+    # the `BelongsToTenant` default scope filters (e.g. on
+    # `tenant.projects.find_by`) see the right rows. The
+    # `Current.reset` in the ensure block keeps state from leaking
+    # into subsequent jobs on the same Sidekiq worker.
+    previous_tenant = Current.tenant
+    Current.tenant = tenant
+
     tenant.update!(notes_syncing_at: Time.current)
 
     reconcile_each_file(tenant)
     destroy_orphan_records(tenant)
   ensure
     Tenant.where(id: tenant_id).update_all(notes_syncing_at: nil)
+    Current.tenant = previous_tenant if defined?(previous_tenant)
   end
 
   private

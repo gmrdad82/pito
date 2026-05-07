@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_06_105253) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_07_100002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -45,6 +45,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_06_105253) do
     t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
   end
 
+  create_table "api_tokens", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "expires_at"
+    t.string "last_token_preview", null: false
+    t.datetime "last_used_at"
+    t.string "name", null: false
+    t.datetime "revoked_at"
+    t.jsonb "scopes", default: [], null: false
+    t.bigint "tenant_id", null: false
+    t.string "token_digest", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.index ["expires_at"], name: "index_api_tokens_on_expires_at"
+    t.index ["tenant_id"], name: "index_api_tokens_on_tenant_id"
+    t.index ["token_digest"], name: "index_api_tokens_on_token_digest", unique: true
+    t.index ["user_id"], name: "index_api_tokens_on_user_id"
+  end
+
   create_table "app_settings", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "key"
@@ -62,11 +80,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_06_105253) do
     t.integer "status", default: 0, null: false
     t.bigint "target_id"
     t.string "target_type"
+    t.bigint "tenant_id", null: false
     t.datetime "updated_at", null: false
     t.bigint "video_id"
     t.index ["bulk_operation_id", "video_id"], name: "index_bulk_operation_items_on_bulk_operation_id_and_video_id", unique: true
     t.index ["bulk_operation_id"], name: "index_bulk_operation_items_on_bulk_operation_id"
     t.index ["target_type", "target_id"], name: "index_bulk_operation_items_on_target_type_and_target_id"
+    t.index ["tenant_id"], name: "index_bulk_operation_items_on_tenant_id"
     t.index ["video_id"], name: "index_bulk_operation_items_on_video_id"
   end
 
@@ -79,7 +99,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_06_105253) do
     t.datetime "started_at"
     t.integer "status", default: 0, null: false
     t.jsonb "target_video_ids"
+    t.bigint "tenant_id", null: false
     t.datetime "updated_at", null: false
+    t.index ["tenant_id"], name: "index_bulk_operations_on_tenant_id"
   end
 
   create_table "channels", force: :cascade do |t|
@@ -131,7 +153,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_06_105253) do
     t.datetime "recorded_at"
     t.string "resolution"
     t.integer "source", null: false
-    t.bigint "tenant_id"
+    t.bigint "tenant_id", null: false
     t.datetime "updated_at", null: false
     t.index ["game_id"], name: "index_footages_on_game_id"
     t.index ["project_id"], name: "index_footages_on_project_id"
@@ -150,17 +172,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_06_105253) do
     t.index ["collection_id"], name: "index_games_on_collection_id"
     t.index ["tenant_id", "title"], name: "index_games_on_tenant_id_and_title"
     t.index ["tenant_id"], name: "index_games_on_tenant_id"
-  end
-
-  create_table "mcp_access_tokens", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.string "last_token_preview", null: false
-    t.datetime "last_used_at"
-    t.string "name", null: false
-    t.datetime "revoked_at"
-    t.string "token_digest", null: false
-    t.datetime "updated_at", null: false
-    t.index ["token_digest"], name: "index_mcp_access_tokens_on_token_digest", unique: true
   end
 
   create_table "notes", force: :cascade do |t|
@@ -182,11 +193,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_06_105253) do
     t.datetime "created_at", null: false
     t.bigint "playlist_id", null: false
     t.integer "position", default: 0, null: false
+    t.bigint "tenant_id", null: false
     t.datetime "updated_at", null: false
     t.bigint "video_id", null: false
     t.string "youtube_playlist_item_id", null: false
     t.index ["playlist_id", "video_id"], name: "index_playlist_items_on_playlist_id_and_video_id", unique: true
     t.index ["playlist_id"], name: "index_playlist_items_on_playlist_id"
+    t.index ["tenant_id"], name: "index_playlist_items_on_tenant_id"
     t.index ["video_id"], name: "index_playlist_items_on_video_id"
     t.index ["youtube_playlist_item_id"], name: "index_playlist_items_on_youtube_playlist_item_id", unique: true
   end
@@ -198,11 +211,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_06_105253) do
     t.integer "item_count", default: 0, null: false
     t.integer "privacy_status"
     t.datetime "published_at"
+    t.bigint "tenant_id", null: false
     t.string "thumbnail_url"
     t.string "title", null: false
     t.datetime "updated_at", null: false
     t.string "youtube_playlist_id", null: false
     t.index ["channel_id"], name: "index_playlists_on_channel_id"
+    t.index ["tenant_id"], name: "index_playlists_on_tenant_id"
     t.index ["youtube_playlist_id"], name: "index_playlists_on_youtube_playlist_id", unique: true
   end
 
@@ -238,16 +253,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_06_105253) do
     t.integer "kind", null: false
     t.string "name", null: false
     t.integer "position", default: 0, null: false
+    t.bigint "tenant_id", null: false
     t.datetime "updated_at", null: false
     t.citext "url", null: false
     t.index ["kind", "url"], name: "index_saved_views_on_kind_and_url", unique: true
+    t.index ["tenant_id"], name: "index_saved_views_on_tenant_id"
   end
 
   create_table "tenants", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "name", null: false
     t.datetime "notes_syncing_at"
+    t.citext "slug", null: false
     t.datetime "updated_at", null: false
+    t.index ["slug"], name: "index_tenants_on_slug", unique: true
   end
 
   create_table "timelines", force: :cascade do |t|
@@ -290,10 +309,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_06_105253) do
     t.integer "shares"
     t.integer "subscribers_gained"
     t.integer "subscribers_lost"
+    t.bigint "tenant_id", null: false
     t.datetime "updated_at", null: false
     t.bigint "video_id", null: false
     t.integer "views"
     t.float "watch_time_minutes"
+    t.index ["tenant_id"], name: "index_video_stats_on_tenant_id"
     t.index ["video_id", "date"], name: "index_video_stats_on_video_id_and_date", unique: true
     t.index ["video_id"], name: "index_video_stats_on_video_id"
   end
@@ -309,11 +330,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_06_105253) do
     t.integer "privacy_status", default: 0
     t.string "resumable_uri"
     t.integer "status", default: 0, null: false
+    t.bigint "tenant_id", null: false
     t.string "title", null: false
     t.datetime "updated_at", null: false
     t.bigint "video_id"
     t.string "youtube_video_id"
     t.index ["channel_id"], name: "index_video_uploads_on_channel_id"
+    t.index ["tenant_id"], name: "index_video_uploads_on_tenant_id"
     t.index ["video_id"], name: "index_video_uploads_on_video_id"
   end
 
@@ -330,18 +353,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_06_105253) do
     t.datetime "published_at"
     t.datetime "scheduled_publish_at"
     t.jsonb "tags"
+    t.bigint "tenant_id", null: false
     t.string "thumbnail_url"
     t.string "title"
     t.datetime "updated_at", null: false
     t.string "youtube_video_id"
     t.index ["channel_id"], name: "index_videos_on_channel_id"
+    t.index ["tenant_id"], name: "index_videos_on_tenant_id"
     t.index ["youtube_video_id"], name: "index_videos_on_youtube_video_id", unique: true
   end
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "api_tokens", "tenants"
+  add_foreign_key "api_tokens", "users"
   add_foreign_key "bulk_operation_items", "bulk_operations"
+  add_foreign_key "bulk_operation_items", "tenants"
   add_foreign_key "bulk_operation_items", "videos"
+  add_foreign_key "bulk_operations", "tenants"
   add_foreign_key "channels", "tenants"
   add_foreign_key "collections", "tenants"
   add_foreign_key "footages", "games"
@@ -352,17 +381,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_06_105253) do
   add_foreign_key "notes", "projects"
   add_foreign_key "notes", "tenants"
   add_foreign_key "playlist_items", "playlists"
+  add_foreign_key "playlist_items", "tenants"
   add_foreign_key "playlist_items", "videos"
   add_foreign_key "playlists", "channels"
+  add_foreign_key "playlists", "tenants"
   add_foreign_key "project_references", "projects"
   add_foreign_key "project_references", "tenants"
   add_foreign_key "projects", "tenants"
+  add_foreign_key "saved_views", "tenants"
   add_foreign_key "timelines", "projects"
   add_foreign_key "timelines", "tenants"
   add_foreign_key "timelines", "videos"
   add_foreign_key "users", "tenants"
+  add_foreign_key "video_stats", "tenants"
   add_foreign_key "video_stats", "videos"
   add_foreign_key "video_uploads", "channels"
+  add_foreign_key "video_uploads", "tenants"
   add_foreign_key "video_uploads", "videos"
   add_foreign_key "videos", "channels"
+  add_foreign_key "videos", "tenants"
 end

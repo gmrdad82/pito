@@ -37,8 +37,10 @@ Volumes are named with the `pito-` prefix (`pito-postgres-data`,
 
 ## 3. Configure credentials
 
-Pito reads two blocks from Rails encrypted credentials: `:postgres` (database
-connection) and `:owner` (seed-time tenant + user).
+Pito reads three blocks from Rails encrypted credentials: `:postgres` (database
+connection), `:owner` (seed-time tenant + user), and `:tokens.pepper` (HMAC
+key for API token digests). The `:tokens.pepper` is mandatory before
+`bin/setup`; the script halts with a walkthrough if it's absent.
 
 ### `:postgres` block
 
@@ -91,8 +93,31 @@ Repeat for the **test** environment so test seeds resolve cleanly:
 bin/rails credentials:edit --environment test
 ```
 
-The `:owner` block is the single source of truth for the seeded singletons. Auth
-is not wired yet — these values exist at the schema level only.
+The `:owner` block is the single source of truth for the seeded singletons.
+HTML routes still operate under the implicit single-user session
+(`Current.user = User.first`); login UI lands in Phase 6. JSON API and MCP
+HTTP transport require explicit bearer tokens (see `:tokens.pepper` below).
+
+### `:tokens.pepper` block
+
+The auth foundation HMACs every API token digest with a server-side pepper
+sourced from this credential. Without it, no token can be minted or
+authenticated. Generate a value once and store it:
+
+```bash
+bin/rails credentials:edit
+```
+
+Add (generate the value with `openssl rand -hex 32`):
+
+```yaml
+tokens:
+  pepper: <64-char hex>
+```
+
+The pepper is set once and rotated never (rotation invalidates every
+existing token; pair with mint+revoke ceremonies in a future phase). Full
+auth model: `docs/auth.md`.
 
 ## 4. Configure environment
 
@@ -131,9 +156,30 @@ bin/rails db:prepare
 bin/rails db:seed
 ```
 
-`db:seed` creates 1 Tenant + 1 User from the `:owner` credentials block, then
-100 sample Channels with a deterministic distribution (7 starred, 6 connected, 2
-in the intersection). Re-running is idempotent.
+`db:seed` creates 1 Tenant + 1 User from the `:owner` credentials block, mints
+a default `dev` API token (idempotent), then 100 sample Channels with a
+deterministic distribution (7 starred, 6 connected, 2 in the intersection).
+Re-running is idempotent.
+
+### Capture the dev token
+
+The seed prints the dev token plaintext to STDOUT inside a banner:
+
+```
+================================================================
+Dev token minted (save this now — cannot be shown again):
+<plaintext>
+================================================================
+```
+
+**Save this now** — it cannot be retrieved later. Drop it in your password
+manager labeled `pito-dev` or set it as `PITO_API_TOKEN` in your shell
+profile. The default scope set is
+`dev:read dev:write yt:read yt:write project:read project:write` (no
+`yt:destructive` or `website:*` — opt in by minting a separate token via
+`/settings/tokens`).
+
+If you lose it, revoke it via `/settings/tokens` and mint a new one.
 
 Confirm extensions are enabled:
 

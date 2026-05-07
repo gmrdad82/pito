@@ -117,16 +117,15 @@ RSpec.describe "Settings", type: :request do
       expect(response.body).not_to include("[ save ]")
     end
 
-    it "renders settings as a .pane-row of five .pane children" do
-      # Phase B revamp (2026-05-06) — settings switched from per-row inline
-      # `var(--color-pane-bg-*)` styling to the global `.pane` system.
-      # Five panes wrap inside a `.pane-row`; the global `:nth-child`
-      # zebra rule handles A/B alternation automatically (1=A, 2=B, 3=A,
-      # 4=B, 5=A — five panes total). No inline backgrounds in markup.
+    it "renders settings as a .pane-row of six .pane children" do
+      # Phase 3 — Step C (5c-settings-ui-and-docs.md) — sixth pane added
+      # for tokens. Six panes wrap inside a `.pane-row`; the global
+      # `:nth-child` zebra rule handles A/B alternation automatically
+      # (1=A, 2=B, 3=A, 4=B, 5=A, 6=B). No inline backgrounds in markup.
       get settings_path
       expect(response.body.scan(/class="pane-row"/).length).to eq(1)
       panes = response.body.scan(/class="pane(?:\s[^"]*)?"/).size
-      expect(panes).to eq(5)
+      expect(panes).to eq(6)
     end
 
     it "does not paint sections with inline pane-bg tokens (CSS handles zebra)" do
@@ -146,22 +145,30 @@ RSpec.describe "Settings", type: :request do
       expect(response.body).not_to match(/max-width:\s*880px;\s*margin:\s*0 auto/)
     end
 
-    # Row order: row 1 (appearance, workspaces), row 2 (oauth, voyage),
-    # row 3 (search). Asserting via DOM order keeps the structure intact.
-    it "orders the sections appearance -> workspaces -> oauth -> voyage -> search" do
+    # Row order: appearance, workspaces, oauth, voyage, search, tokens.
+    # Asserting via DOM order keeps the structure intact.
+    it "orders the sections appearance -> workspaces -> oauth -> voyage -> search -> tokens" do
       get settings_path
       idx_appearance = response.body.index('value="appearance"')
       idx_workspaces = response.body.index('value="workspaces"')
       idx_oauth      = response.body.index('value="youtube_oauth"')
       idx_voyage     = response.body.index('value="voyage"')
       idx_search     = response.body.index("<h2>search</h2>")
+      idx_tokens     = response.body.index("<h2>tokens</h2>")
 
-      expect([ idx_appearance, idx_workspaces, idx_oauth, idx_voyage, idx_search ])
+      expect([ idx_appearance, idx_workspaces, idx_oauth, idx_voyage, idx_search, idx_tokens ])
         .to all(be_a(Integer))
       expect(idx_appearance).to be < idx_workspaces
       expect(idx_workspaces).to be < idx_oauth
       expect(idx_oauth).to be < idx_voyage
       expect(idx_voyage).to be < idx_search
+      expect(idx_search).to be < idx_tokens
+    end
+
+    it "renders the tokens pane with a link to /settings/tokens" do
+      get settings_path
+      expect(response.body).to include("<h2>tokens</h2>")
+      expect(response.body).to include(settings_tokens_path)
     end
   end
 

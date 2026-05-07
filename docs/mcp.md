@@ -9,7 +9,10 @@ clients).
 
 - **Gem:** `mcp` (official Ruby MCP SDK, v0.14.0+)
 - **Transports:** stdio (local) and Streamable HTTP (remote)
-- **Auth:** none for stdio (local trust), bearer token for HTTP
+- **Auth:** none for stdio (local trust), bearer token for HTTP — enforced
+  at the rack-app layer with per-tool scope checks. See `docs/auth.md` for
+  the request flow, `docs/auth.md` §3 + the Scope-per-tool table below for
+  the per-tool scope map.
 - **Process isolation:** stdio runs as standalone process; HTTP runs on a
   dedicated Puma (port 3028), separate from the web app (port 3027)
 
@@ -45,16 +48,33 @@ The endpoint is `POST /mcp`. All requests require a bearer token.
 
 ### Token management
 
+The full auth model (digest semantics, scope catalog, request flow,
+audit log, throttling) lives in `docs/auth.md`. This section just lists the
+operational entry points.
+
+Web UI (recommended):
+
+- `/settings/tokens` — list, mint, revoke. Plaintext is shown exactly once
+  on the create-success page; copy it before navigating away.
+
+Rake (scriptable):
+
 ```bash
 # Generate a new token (plaintext shown once, copy immediately)
-bin/rails mcp:generate_token[my-claude-mobile]
+bin/rails 'tokens:create[my-claude-mobile,yt:read+yt:write]'
 
 # List all tokens
-bin/rails mcp:list_tokens
+bin/rails tokens:list
 
 # Revoke a token by ID
-bin/rails mcp:revoke_token[1]
+bin/rails 'tokens:revoke[1]'
 ```
+
+Scopes use `+` as the separator inside a Thor task arg (`,` is the arg
+boundary). The full scope catalog is enumerated in `docs/auth.md` §2.
+
+The `:tokens.pepper` credential must be set before the first mint — see
+`docs/setup.md` §3 for the credential ceremony.
 
 ### Testing with curl
 
@@ -88,7 +108,43 @@ See the Cloudflare Tunnel docs for setup details.
 
 ## Tools
 
-### Read Tools
+Authentication is enforced at the rack-app layer (`Mcp::RackApp` runs the
+shared `Api::TokenAuthenticator` before delegating to the streamable HTTP
+transport). Each tool's `call` method opens with
+`Mcp::ToolAuth.require_scope!(...)` to enforce per-tool scopes. See
+`docs/auth.md` §4 for the full request flow.
+
+### Scope-per-tool table
+
+| Tool                | Required scope            | Channel-Revamp note          |
+| ------------------- | ------------------------- | ---------------------------- |
+| `list_channels`     | `yt:read`                 |                              |
+| `get_channel`       | `yt:read`                 | Returns the post-Channel-Revamp shape (no `title`/`description`). |
+| `list_videos`       | `yt:read`                 |                              |
+| `get_video`         | `yt:read`                 |                              |
+| `get_dashboard`     | `yt:read`                 |                              |
+| `search`            | `yt:read`                 | Videos only; channels not searchable in this phase. |
+| `list_saved_views`  | `yt:read`                 |                              |
+| `manage_settings`   | `yt:read` / `yt:write`    | `yt:read` for view-only; `yt:write` when `updates` is present. |
+| `create_channel`    | `yt:write`                | Only `channel_url` accepted; an initial `ChannelSync` is enqueued. |
+| `update_channel`    | `yt:write`                | `channel_url` locked after create. |
+| `create_video`      | `yt:write`                |                              |
+| `update_video`      | `yt:write`                |                              |
+| `create_saved_view` | `yt:write`                |                              |
+| `delete_saved_view` | `yt:write`                |                              |
+| `sync_records`      | `yt:write`                | Two-step preview/execute.    |
+| `delete_records`    | `yt:destructive`          | Two-step preview/execute.    |
+| `list_docs`         | `dev:read`                | Dev KB.                      |
+| `read_doc`          | `dev:read`                | Dev KB.                      |
+| `save_note`         | `dev:write`               | Dev KB capture.              |
+
+A token without the right scope sees
+`{"error": "insufficient_scope", "required": "<scope>"}` (HTTP 403). A
+missing / invalid / revoked / expired token sees
+`{"error": "<reason>"}` (HTTP 401). See `docs/auth.md` §4 for the full
+envelope shapes.
+
+### Read Tools — descriptions
 
 | Tool               | Description                                                                                                                                                                     |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -101,7 +157,7 @@ See the Cloudflare Tunnel docs for setup details.
 | `list_saved_views` | All saved workspace views, optional kind filter                                                                                                                                 |
 | `manage_settings`  | View current settings (no args) or update max_panes, pane_title_length, theme                                                                                                   |
 
-### Write Tools
+### Write Tools — descriptions
 
 | Tool                | Description                                                                                                                                                                        |
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -352,13 +408,20 @@ date/views/likes/comments/shares/watch_time_minutes).
 
 ## Token Model
 
-`McpAccessToken` stores bearer tokens for HTTP transport authentication:
+`ApiToken` (renamed from the Alpha-era `McpAccessToken`) stores bearer
+tokens for both the JSON API and MCP HTTP transport. Full reference:
+`docs/auth.md`. Highlights:
 
-- Tokens are hashed with HMAC-SHA256 (using `secret_key_base` as pepper) —
-  plaintext is never stored
-- `last_token_preview` stores the last 4 characters for identification
-- `last_used_at` is touched on each successful authentication
-- Tokens can be revoked (sets `revoked_at`, excluded from auth)
+- Hashed with HMAC-SHA256 using the `:tokens.pepper` Rails credential —
+  plaintext is never stored.
+- `last_token_preview` stores the last 4 characters for identification.
+- `last_used_at` is touched on each successful authentication via
+  `update_columns` (no validation / callback overhead per request).
+- Soft-revoke: `revoked_at` is set; the row stays in the database for audit.
+- Optional `expires_at` is honored on every authenticate call (rejected as
+  `expired_token`); no automatic sweep yet.
+- Each token has a `tenant_id`, `user_id`, and a `scopes` jsonb array. The
+  scope catalog is `app/lib/scopes.rb`; see `docs/auth.md` §2.
 
 ## File Structure
 
@@ -393,9 +456,18 @@ app/mcp/
 app/lib/
   dev_doc_path.rb         # Read-side path safety for list_docs / read_doc
 app/models/
-  mcp_access_token.rb     # Bearer token model (SHA256 hashed)
+  api_token.rb            # Bearer token model (HMAC-SHA256 + pepper)
+app/lib/
+  scopes.rb               # Scope catalog (single source of truth)
+  api/
+    token_authenticator.rb  # Shared auth engine for both Pumas
+app/controllers/concerns/api/
+  auth_concern.rb         # Controller mixin (Web Puma path)
+config/initializers/
+  rack_attack.rb          # Per-IP failed-auth throttle
+  auth_audit_logger.rb    # log/auth_audit.log writer
 bin/mcp                   # Stdio entry point
 bin/mcp-web               # HTTP entry point (dedicated Puma on port 3028)
 config/puma_mcp.rb        # Puma config for MCP HTTP server
-lib/tasks/mcp.rake        # Token management rake tasks
+lib/tasks/tokens.rake     # Token management rake tasks
 ```

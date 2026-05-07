@@ -16,6 +16,9 @@ module Mcp
       annotations(read_only_hint: true)
 
       def self.call(range: "30d")
+        scope_err = Mcp::ToolAuth.require_scope!(Scopes::YT_READ)
+        return scope_err if scope_err
+
         range = "30d" unless RANGES.key?(range)
         days = RANGES[range]
         date_range = days ? (Date.current - days.days)..Date.current : (Date.new(2000)..Date.current)

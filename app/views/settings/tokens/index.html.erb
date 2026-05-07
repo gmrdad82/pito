@@ -1,0 +1,61 @@
+<% content_for(:title, "tokens") %>
+<% breadcrumb(["settings", settings_path], "tokens") %>
+
+<div style="margin-bottom: 8px;">
+  <h1>tokens</h1>
+  <p class="text-muted" style="margin-top: 2px;">
+    bearer tokens for the JSON API and MCP HTTP transport. plaintext is shown exactly once at creation.
+    revoking a token sets <code>revoked_at</code>; the row stays in the database for audit trail.
+  </p>
+</div>
+
+<div class="dot-list" style="margin-bottom: 12px;">
+  <%= render(BracketedLinkComponent.new(label: "new token", href: new_settings_token_path)) %>
+</div>
+
+<% if @active_tokens.any? || @revoked_tokens.any? %>
+  <table>
+    <thead>
+      <tr>
+        <th>name</th>
+        <th>scopes</th>
+        <th class="num">created</th>
+        <th class="num">last used</th>
+        <th class="num">expires</th>
+        <th>preview</th>
+        <th class="num">status</th>
+        <th class="col-action"></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @active_tokens.each do |token| %>
+        <tr>
+          <td><%= token.name %></td>
+          <td style="max-width: 360px; white-space: normal;"><code><%= Array(token.scopes).join(", ") %></code></td>
+          <td class="num"><%= token.created_at.strftime("%Y-%m-%d %H:%M") %></td>
+          <td class="num"><%= token.last_used_at&.strftime("%Y-%m-%d %H:%M") || "never" %></td>
+          <td class="num"><%= token.expires_at&.strftime("%Y-%m-%d") || "never" %></td>
+          <td><code>...<%= token.last_token_preview %></code></td>
+          <td class="num">active</td>
+          <td class="col-action">
+            <%= render(BracketedLinkComponent.new(label: "revoke", href: revoke_settings_token_path(token), destructive: true)) %>
+          </td>
+        </tr>
+      <% end %>
+      <% @revoked_tokens.each do |token| %>
+        <tr class="text-muted" style="opacity: 0.6;">
+          <td><%= token.name %></td>
+          <td style="max-width: 360px; white-space: normal;"><code><%= Array(token.scopes).join(", ") %></code></td>
+          <td class="num"><%= token.created_at.strftime("%Y-%m-%d %H:%M") %></td>
+          <td class="num"><%= token.last_used_at&.strftime("%Y-%m-%d %H:%M") || "never" %></td>
+          <td class="num"><%= token.expires_at&.strftime("%Y-%m-%d") || "never" %></td>
+          <td><code>...<%= token.last_token_preview %></code></td>
+          <td class="num">revoked <%= token.revoked_at.strftime("%Y-%m-%d") %></td>
+          <td class="col-action">&nbsp;</td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% else %>
+  <p class="text-muted">no tokens yet. click <code>[ new token ]</code> to mint one.</p>
+<% end %>

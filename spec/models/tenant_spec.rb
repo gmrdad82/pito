@@ -49,4 +49,51 @@ RSpec.describe Tenant, type: :model do
       expect(tenant.errors[:name]).to be_present
     end
   end
+
+  # Phase 5A §5.3 — `tenants.slug` is the canonical citext unique
+  # URL-safe identifier.
+  describe "slug validations (Phase 5A §5.3)" do
+    it "requires a slug" do
+      tenant = build(:tenant, slug: nil)
+      expect(tenant).not_to be_valid
+      expect(tenant.errors[:slug]).to include("can't be blank")
+    end
+
+    it "accepts a typical slug" do
+      expect(build(:tenant, slug: "primary")).to be_valid
+      expect(build(:tenant, slug: "team-alpha")).to be_valid
+      expect(build(:tenant, slug: "team_42")).to be_valid
+      expect(build(:tenant, slug: "0u812")).to be_valid
+    end
+
+    it "rejects slugs with uppercase letters" do
+      tenant = build(:tenant, slug: "Primary")
+      expect(tenant).not_to be_valid
+      expect(tenant.errors[:slug]).to be_present
+    end
+
+    it "rejects slugs that start with a hyphen or underscore" do
+      expect(build(:tenant, slug: "-primary")).not_to be_valid
+      expect(build(:tenant, slug: "_primary")).not_to be_valid
+    end
+
+    it "rejects slugs with spaces or punctuation" do
+      expect(build(:tenant, slug: "team alpha")).not_to be_valid
+      expect(build(:tenant, slug: "team!")).not_to be_valid
+      expect(build(:tenant, slug: "team.alpha")).not_to be_valid
+    end
+
+    it "rejects slugs longer than 60 characters" do
+      tenant = build(:tenant, slug: "a" * 61)
+      expect(tenant).not_to be_valid
+      expect(tenant.errors[:slug]).to be_present
+    end
+
+    it "is unique (case-insensitive via citext)" do
+      create(:tenant, slug: "shared-slug")
+      dup = build(:tenant, slug: "Shared-Slug")
+      expect(dup).not_to be_valid
+      expect(dup.errors[:slug]).to be_present
+    end
+  end
 end

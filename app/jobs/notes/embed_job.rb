@@ -37,8 +37,16 @@ module Notes
     VOYAGE_MODEL = "voyage-3".freeze
 
     def perform(note_id)
-      note = Note.find_by(id: note_id)
+      # Phase 5A — bypass the `BelongsToTenant` default scope for the
+      # initial lookup (Sidekiq workers start with no `Current.tenant`),
+      # then pin Current to the note's tenant for the remainder of the
+      # job. The `ensure` restore keeps state from leaking between
+      # jobs on the same worker process.
+      note = Note.unscoped.find_by(id: note_id)
       return unless note
+
+      previous_tenant = Current.tenant
+      Current.tenant = note.tenant
 
       body = NotesFilesystem.read(note)
 
@@ -52,6 +60,8 @@ module Notes
         # BM25 / text-only branch — no Voyage call, no vector write.
         upsert_search(note, body, embedding: nil)
       end
+    ensure
+      Current.tenant = previous_tenant if defined?(previous_tenant)
     end
 
     private

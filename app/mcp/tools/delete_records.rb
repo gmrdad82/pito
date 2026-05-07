@@ -31,6 +31,9 @@ module Mcp
       annotations(read_only_hint: false, destructive_hint: true)
 
       def self.call(type:, ids:, confirm: "no")
+        scope_err = Mcp::ToolAuth.require_scope!(Scopes::YT_DESTRUCTIVE)
+        return scope_err if scope_err
+
         ids = Array(ids).map(&:to_i).uniq
         return error_response("no IDs provided.") if ids.empty?
 

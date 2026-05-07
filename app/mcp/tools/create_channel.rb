@@ -20,6 +20,9 @@ module Mcp
       annotations(read_only_hint: false)
 
       def self.call(channel_url:)
+        scope_err = Mcp::ToolAuth.require_scope!(Scopes::YT_WRITE)
+        return scope_err if scope_err
+
         url = channel_url.to_s.strip
         unless url.match?(Channel::CHANNEL_URL_REGEX)
           return error_response(

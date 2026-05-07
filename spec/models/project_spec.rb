@@ -45,6 +45,11 @@ RSpec.describe Project, type: :model do
     let(:game)       { create(:game, tenant: tenant) }
     let(:collection) { create(:collection, tenant: tenant) }
 
+    # Phase 5A — re-pin Current.tenant onto the explicitly-created
+    # tenant so the BelongsToTenant default scope sees the rows
+    # this block builds.
+    before { Current.tenant = tenant }
+
     it "collects games and collections via project_references" do
       ProjectReference.create!(project: project, tenant: tenant, referenceable: game)
       ProjectReference.create!(project: project, tenant: tenant, referenceable: collection)
@@ -70,6 +75,10 @@ RSpec.describe Project, type: :model do
     end
 
     before do
+      # Phase 5A — re-pin Current.tenant onto the explicitly-created
+      # tenant so the cascade has_many associations (which apply
+      # the default scope) see this block's rows.
+      Current.tenant = tenant
       @prev_root = ENV["PITO_NOTES_PATH"]
       ENV["PITO_NOTES_PATH"] = tmp_root
     end

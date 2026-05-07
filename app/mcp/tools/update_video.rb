@@ -21,6 +21,9 @@ module Mcp
       annotations(read_only_hint: false)
 
       def self.call(id:, **fields)
+        scope_err = Mcp::ToolAuth.require_scope!(Scopes::YT_WRITE)
+        return scope_err if scope_err
+
         video = Video.find_by(id: id)
         return MCP::Tool::Response.new([ { type: "text", text: "video not found: #{id}" } ], error: true) unless video
 

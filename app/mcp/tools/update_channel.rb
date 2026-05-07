@@ -19,6 +19,9 @@ module Mcp
       CONNECTED_NOT_ALLOWED = "Cannot alter `connected` via MCP. The connected flag reflects OAuth state and is managed by the web UI's connect/disconnect action only."
 
       def self.call(id:, star: nil, **extras)
+        scope_err = Mcp::ToolAuth.require_scope!(Scopes::YT_WRITE)
+        return scope_err if scope_err
+
         # Defense in depth: if the client managed to bypass additionalProperties:
         # false and pass `connected:` anyway, reject the entire call. This must
         # come before any update so that star is NOT applied when connected is

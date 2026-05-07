@@ -15,6 +15,9 @@ module Mcp
       annotations(read_only_hint: true)
 
       def self.call(path:)
+        scope_err = Mcp::ToolAuth.require_scope!(Scopes::DEV_READ)
+        return scope_err if scope_err
+
         absolute = DevDocPath.resolve(path)
 
         unless absolute.file?

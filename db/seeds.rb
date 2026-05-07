@@ -40,14 +40,22 @@ if owner_creds.blank?
 end
 
 tenant_name = owner_creds&.dig(:tenant_name) || "Primary"
+tenant_slug = owner_creds&.dig(:tenant_slug).presence || "primary"
 owner_username = owner_creds&.dig(:username) || "owner"
 owner_email = owner_creds&.dig(:email) || "owner@example.test"
 owner_password = owner_creds&.dig(:password) || "change-me"
 
 puts "seeding tenant..."
 tenant = Tenant.find_or_initialize_by(name: tenant_name)
+tenant.slug = tenant_slug if tenant.slug.blank?
 tenant.save!
-puts "  tenant: #{tenant.name} (id=#{tenant.id})"
+puts "  tenant: #{tenant.name} (slug=#{tenant.slug}, id=#{tenant.id})"
+
+# Phase 5A — every read inside the seed body that touches a tenanted
+# model goes through `BelongsToTenant`'s default scope, which raises
+# unless `Current.tenant_id` is set. Pin it to the seed tenant up
+# front so subsequent `find_or_create_by` calls work.
+Current.tenant = tenant
 
 puts "seeding owner user..."
 owner = User.find_by(username: owner_username) || User.find_by(email: owner_email) || User.new
@@ -58,6 +66,48 @@ owner.password = owner_password
 owner.password_confirmation = owner_password
 owner.save!
 puts "  user: #{owner.username} <#{owner.email}> (id=#{owner.id})"
+
+# Phase 3 — Step C (5c-settings-ui-and-docs.md). Seed a default `dev` API
+# token so the install ceremony captures plaintext once. Idempotent — second
+# `db:seed` finds the existing row and is a no-op (the dev plaintext is gone
+# forever after the first run; revoke + mint a new one if you lost it).
+#
+# Default scope set: dev:* + yt:* (read+write) + project:* (read+write). No
+# `yt:destructive` by default — the user opts in by minting a separate token.
+unless ApiToken.exists?(name: "dev", tenant_id: tenant.id)
+  Current.user = owner
+  pepper = Rails.application.credentials.dig(:tokens, :pepper)
+  if pepper.blank?
+    abort <<~MSG
+
+      ERROR: cannot seed dev token — :tokens.pepper credential is missing.
+
+      Run: bin/rails credentials:edit
+      Add:
+        tokens:
+          pepper: <64-char hex>
+
+      Generate a value with: openssl rand -hex 32
+    MSG
+  end
+
+  _token, plaintext = ApiToken.generate!(
+    tenant: tenant,
+    user:   owner,
+    name:   "dev",
+    scopes: [
+      Scopes::DEV_READ, Scopes::DEV_WRITE,
+      Scopes::YT_READ, Scopes::YT_WRITE,
+      Scopes::PROJECT_READ, Scopes::PROJECT_WRITE
+    ]
+  )
+  puts ""
+  puts "=" * 64
+  puts "Dev token minted (save this now — cannot be shown again):"
+  puts plaintext
+  puts "=" * 64
+  puts ""
+end
 
 # ---------------------------------------------------------------------------
 # 100 channels with deterministic distribution
@@ -185,6 +235,7 @@ seedable_channels.each_with_index do |channel, channel_idx|
     video = Video.find_or_initialize_by(youtube_video_id: vid_id)
     video.assign_attributes(
       channel: channel,
+      tenant: tenant,
       title: title,
       description: "#{title}. published #{published.strftime('%Y-%m-%d')}.",
       published_at: published,
@@ -222,7 +273,7 @@ seedable_channels.each_with_index do |channel, channel_idx|
       watch_time = (views * video.duration_seconds / 60.0 * rand(0.25..0.65)).round
 
       VideoStat.find_or_initialize_by(video: video, date: date).tap do |stat|
-        stat.assign_attributes(views: views, likes: likes, comments: comments,
+        stat.assign_attributes(tenant: tenant, views: views, likes: likes, comments: comments,
                                shares: shares, watch_time_minutes: watch_time)
         stat.save!
       end

@@ -15,6 +15,11 @@ gem "bootsnap", require: false
 # Redis (for Rails cache store)
 gem "redis", ">= 4.0.1"
 
+# Phase 3 — Step B. Rack::Attack throttles failed bearer-token lookups
+# (10 failures / 5 min / IP). Backed by the Rails cache store (Redis in
+# dev/prod, MemoryStore in test).
+gem "rack-attack"
+
 # Background jobs
 gem "sidekiq"
 gem "sidekiq-cron"

@@ -1,6 +1,23 @@
 require "rails_helper"
 
 RSpec.describe "MCP HTTP Transport", type: :request do
+  let(:tenant) { Tenant.first || create(:tenant) }
+  let(:user)   { User.first  || create(:user, tenant: tenant) }
+
+  # Mint a token with both yt:* and dev:* scopes so all tools can be
+  # exercised. Tests that need to assert per-scope rejection mint a
+  # narrower token.
+  let(:auth_pair) do
+    ApiToken.generate!(
+      tenant: tenant, user: user, name: "mcp-http-spec",
+      scopes: [
+        Scopes::DEV_READ, Scopes::DEV_WRITE,
+        Scopes::YT_READ, Scopes::YT_WRITE, Scopes::YT_DESTRUCTIVE
+      ]
+    )
+  end
+  let(:plaintext) { auth_pair.last }
+
   let(:init_payload) do
     {
       jsonrpc: "2.0",
@@ -26,7 +43,8 @@ RSpec.describe "MCP HTTP Transport", type: :request do
   let(:headers) do
     {
       "Content-Type" => "application/json",
-      "Accept" => "application/json"
+      "Accept" => "application/json",
+      "Authorization" => "Bearer #{plaintext}"
     }
   end
 
@@ -55,7 +73,13 @@ RSpec.describe "MCP HTTP Transport", type: :request do
     end
 
     it "calls a tool successfully" do
-      channel = create(:channel)
+      # The factory's default-scope-driven uniqueness validation needs a
+      # tenant context. Request specs don't pre-populate Current, so set
+      # it for the factory call only — the auth concern repopulates from
+      # the resolved token on the actual request.
+      Current.tenant = tenant
+      channel = create(:channel, tenant: tenant)
+      Current.reset
 
       post "/mcp", params: init_payload, headers: headers
       session_id = response.headers["Mcp-Session-Id"]

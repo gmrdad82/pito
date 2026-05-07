@@ -1,6 +1,11 @@
 FactoryBot.define do
   factory :channel do
-    tenant
+    # Phase 5A — reuse Current.tenant if the example already pinned
+    # one (the default for non-request specs via support/tenant_context).
+    # That way factory-created channels live in the same tenant
+    # default-scope queries see, and existing specs keep passing
+    # without explicit tenant plumbing.
+    tenant { Current.tenant || association(:tenant) }
 
     # Deterministic 22-char base62 suffix per sequence index, padded with
     # alphanumerics. Stays inside the regex `\A[A-Za-z0-9_-]{22}\z`.

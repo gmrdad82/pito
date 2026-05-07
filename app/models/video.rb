@@ -1,5 +1,6 @@
 class Video < ApplicationRecord
   include Searchable
+  include BelongsToTenant
 
   belongs_to :channel
 

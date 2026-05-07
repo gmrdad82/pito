@@ -13,7 +13,8 @@ class Game < ApplicationRecord
     Mobile
   ].freeze
 
-  belongs_to :tenant
+  include BelongsToTenant
+
   belongs_to :collection, optional: true
 
   has_many :footages, dependent: :nullify

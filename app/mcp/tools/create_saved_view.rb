@@ -21,6 +21,9 @@ module Mcp
       annotations(read_only_hint: false)
 
       def self.call(kind:, name:, ids:)
+        scope_err = Mcp::ToolAuth.require_scope!(Scopes::YT_WRITE)
+        return scope_err if scope_err
+
         ids = Array(ids).map(&:to_i)
         return MCP::Tool::Response.new([ { type: "text", text: "at least 2 IDs required for a pane view." } ], error: true) if ids.size < 2
 

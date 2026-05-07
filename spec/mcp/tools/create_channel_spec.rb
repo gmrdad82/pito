@@ -2,7 +2,10 @@ require "rails_helper"
 require_relative "../../../app/mcp/tools/create_channel"
 
 RSpec.describe Mcp::Tools::CreateChannel do
-  let!(:tenant) { create(:tenant) }
+  # Phase 5A — reuse the auto-pinned default tenant (set by
+  # spec/support/tenant_context) so `Current.tenant` and `Tenant.first`
+  # point at the same row the test asserts against.
+  let!(:tenant) { Tenant.first || create(:tenant) }
   let(:valid_url) { "https://www.youtube.com/channel/UC2T-WgvF-DQQfFNQieoRuQQ" }
 
   it "creates a channel from a valid URL" do

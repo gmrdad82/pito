@@ -1,6 +1,7 @@
 FactoryBot.define do
   factory :video do
     channel
+    tenant { channel.tenant }
     sequence(:youtube_video_id) { |n| "vid_#{Faker::Alphanumeric.alphanumeric(number: 11)}#{n}" }
     title { Faker::Lorem.sentence(word_count: 5) }
     description { Faker::Lorem.paragraph }

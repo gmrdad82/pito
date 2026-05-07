@@ -13,4 +13,17 @@ class Tenant < ApplicationRecord
   has_many :timelines, dependent: :destroy
 
   validates :name, presence: true, length: { in: 3..30 }
+
+  # Phase 5A §5.3 — `slug` is the citext unique URL-safe identifier
+  # for the tenant. Single-tenant world today (`primary`); the format
+  # is enforced now so the schema is settled before multi-tenancy
+  # work in Theta.
+  SLUG_REGEX = /\A[a-z0-9][a-z0-9_-]*\z/
+
+  validates :slug,
+            presence: true,
+            length: { maximum: 60 },
+            format: { with: SLUG_REGEX,
+                      message: "may only contain lowercase letters, digits, hyphens, and underscores" },
+            uniqueness: { case_sensitive: false }
 end

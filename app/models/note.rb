@@ -19,7 +19,8 @@ class Note < ApplicationRecord
   # (Phases 9/10), but wiring it now keeps the model future-proof.
   has_neighbors :embedding
 
-  belongs_to :tenant
+  include BelongsToTenant
+
   belongs_to :project, counter_cache: true
 
   validates :path, presence: true,

@@ -4,7 +4,8 @@
 class ProjectReference < ApplicationRecord
   ALLOWED_TYPES = %w[Game Collection].freeze
 
-  belongs_to :tenant
+  include BelongsToTenant
+
   belongs_to :project
   belongs_to :referenceable, polymorphic: true
 
@@ -18,8 +19,24 @@ class ProjectReference < ApplicationRecord
 
   private
 
+  # Phase 5A — backfill `tenant_id` from the parent project when no
+  # explicit value was assigned by the caller.
+  #
+  # The `BelongsToTenant` default scope stamps `tenant_id` from
+  # `Current.tenant_id` on freshly built rows (Rails copies scope
+  # `where` conditions onto new-record attribute defaults). That
+  # stamp is indistinguishable on its own from an explicit assign,
+  # so we treat `tenant_id == Current.tenant_id` as "default stamp"
+  # and let `project.tenant_id` win in that case. An explicit
+  # tenant_id that disagrees with both Current AND the project flows
+  # through unchanged so the `tenant_must_match_project` validator
+  # can reject it.
   def denormalize_tenant_from_project
-    self.tenant_id ||= project&.tenant_id
+    return unless project
+
+    if tenant_id.nil? || tenant_id == Current.tenant_id
+      self.tenant_id = project.tenant_id
+    end
   end
 
   def referenceable_must_share_tenant
