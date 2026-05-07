@@ -24,8 +24,8 @@ Steps B and C build on a settled schema.
 
 ## 2. Depends on
 
-- Channel Revamp's `Tenant`, `User`, `Current`, and `before_action
-  :set_current_tenant_and_user` patch.
+- Channel Revamp's `Tenant`, `User`, `Current`, and
+  `before_action :set_current_tenant_and_user` patch.
 - Phase 4's project-workspace tables (`projects`, `collections`, `games`,
   `footages`, `notes`, `timelines`, `project_references`) — already tenanted
   from day one; this step does not touch their `tenant_id` columns.
@@ -37,10 +37,10 @@ Steps B and C build on a settled schema.
 - Step B (`5b-token-and-auth-concern.md`) — `ApiToken` needs `tenant_id` /
   `user_id` columns, which this step adds (alongside the rest of the
   data-holding tables).
-- Step C (`5c-settings-ui-and-docs.md`) — Settings UI for tokens depends on
-  a settled schema and the `belongs_to_tenant` enforcement spec being green.
-- Phase 6 onward — every later phase assumes `Current.tenant_id` reliably
-  scopes every model query.
+- Step C (`5c-settings-ui-and-docs.md`) — Settings UI for tokens depends on a
+  settled schema and the `belongs_to_tenant` enforcement spec being green.
+- Phase 6 onward — every later phase assumes `Current.tenant_id` reliably scopes
+  every model query.
 
 ## 4. Why now
 
@@ -76,9 +76,9 @@ Add `tenant_id` (`bigint`, NOT NULL, FK to `tenants`, indexed) to:
 - `bulk_operations` — backfill to the seeded tenant.
 - `bulk_operation_items` — backfill via `bulk_operation.tenant_id` (after
   `bulk_operations`).
-- `mcp_access_tokens` — backfill to the seeded tenant. (Step B renames the
-  table to `api_tokens` and adds further columns; this step only adds the
-  `tenant_id` column so the schema is uniform when Step B starts.)
+- `mcp_access_tokens` — backfill to the seeded tenant. (Step B renames the table
+  to `api_tokens` and adds further columns; this step only adds the `tenant_id`
+  column so the schema is uniform when Step B starts.)
 
 **Migration shape per table.** Three-step pattern, each as its own migration so
 rollback is cheap:
@@ -90,8 +90,8 @@ rollback is cheap:
    we're trying to update.
 3. `change_column_null :<table>, :tenant_id, false`.
 
-Each migration is reversible (`up` / `down` explicit; no `change` blocks for
-the backfill steps).
+Each migration is reversible (`up` / `down` explicit; no `change` blocks for the
+backfill steps).
 
 Index every `tenant_id` column. Composite indexes follow Phase 4's convention:
 `(tenant_id, <natural sort key>)` where one already exists scoped by something
@@ -108,8 +108,8 @@ NOT NULL. Decision: **make NOT NULL.** Steps:
    `project` — but tighten it: raise a clear error if `project` is also nil,
    rather than silently letting the row through.
 
-The callback is preserved (not dropped) because it's the convenience the
-Project Show flow relies on; the spec just wants it to fail loud.
+The callback is preserved (not dropped) because it's the convenience the Project
+Show flow relies on; the spec just wants it to fail loud.
 
 ### 5.3 Schema departures — formally decided
 
@@ -160,10 +160,9 @@ end
 ```
 
 **Locked decision — fail loud.** A query against a tenant-scoped model with no
-`Current.tenant_id` raises `BelongsToTenant::TenantContextMissing`. Bugs
-should be loud, not silent. Tests that need to bypass the scope use
-`Model.unscoped` explicitly — there is no `with_tenant_context_optional`
-escape hatch.
+`Current.tenant_id` raises `BelongsToTenant::TenantContextMissing`. Bugs should
+be loud, not silent. Tests that need to bypass the scope use `Model.unscoped`
+explicitly — there is no `with_tenant_context_optional` escape hatch.
 
 The concern is included in:
 
@@ -175,16 +174,16 @@ The concern is included in:
   `Note`, `Timeline`, `ProjectReference`.
 
 `Tenant` and `User` themselves do **not** include the concern — `Tenant` has no
-`tenant_id`, and `User` is the row that defines tenant membership for tokens
-and is queried by login flows that don't have a `Current` set yet.
+`tenant_id`, and `User` is the row that defines tenant membership for tokens and
+is queried by login flows that don't have a `Current` set yet.
 
 ### 5.5 Cross-tenant leak spec
 
 New shared spec under `spec/support/cross_tenant_leak_spec.rb` (or as a feature
 spec under `spec/system/`). Pattern:
 
-1. Two-tenant fixture: factory creates `tenant_a` and `tenant_b` with one
-   user each and one of every data-holding model in each tenant.
+1. Two-tenant fixture: factory creates `tenant_a` and `tenant_b` with one user
+   each and one of every data-holding model in each tenant.
 2. Set `Current.tenant = tenant_a`.
 3. For each tenanted model, assert `.count == 1` and the loaded row belongs to
    `tenant_a`.
@@ -204,15 +203,15 @@ inside one representative action.
 
 Update `db/seeds.rb`:
 
-- Tenant seed reads `:owner.tenant_slug` from credentials (fallback
-  `"primary"`) and sets `slug` at create time.
+- Tenant seed reads `:owner.tenant_slug` from credentials (fallback `"primary"`)
+  and sets `slug` at create time.
 - User seed unchanged in shape (`username`, `email`, `password_digest`); the
   removed `role` / `name` columns mean any seed code referencing them gets
   cleaned up.
 - Existing data-holding seeds (videos, playlists, saved_views, etc.) get
-  `tenant: Tenant.first` set explicitly. Run with `Current.tenant =
-  Tenant.first` wrapping the seed body so default-scoped reads inside the
-  seed file work.
+  `tenant: Tenant.first` set explicitly. Run with
+  `Current.tenant = Tenant.first` wrapping the seed body so default-scoped reads
+  inside the seed file work.
 
 ### 5.7 Factory updates
 
@@ -240,10 +239,10 @@ factories that already pass `tenant: ...` (Phase 4 ones) need no change.
 
 ## 7. Acceptance criteria
 
-- [ ] `tenant_id` exists, NOT NULL, indexed, with FK to `tenants` on every
-      table listed in §5.1.
-- [ ] `footages.tenant_id` is NOT NULL; the `before_validation` callback
-      raises if `project` is nil.
+- [ ] `tenant_id` exists, NOT NULL, indexed, with FK to `tenants` on every table
+      listed in §5.1.
+- [ ] `footages.tenant_id` is NOT NULL; the `before_validation` callback raises
+      if `project` is nil.
 - [ ] `tenants.slug` exists, citext, unique, NOT NULL; seeded tenant has its
       slug set from `:owner.tenant_slug` (or `"primary"`).
 - [ ] `users` table no longer has `role` or `name` columns.
@@ -259,8 +258,8 @@ factories that already pass `tenant: ...` (Phase 4 ones) need no change.
 - [ ] Seeds populate without error after `bin/rails db:reset`.
 - [ ] All previously-green RSpec specs (~1361) remain green.
 - [ ] New specs cover: `BelongsToTenant` default scope, the leak scenario, the
-      `tenants.slug` validation, the `footages` denormalization callback's
-      raise behavior.
+      `tenants.slug` validation, the `footages` denormalization callback's raise
+      behavior.
 - [ ] Brakeman, bundler-audit, Dependabot — clean.
 
 ---
@@ -271,24 +270,22 @@ Run after the implementer reports green:
 
 1. `bin/rails db:reset` — fresh DB, migrations apply forward, seeds populate.
 2. `bin/rails db:rollback STEP=<count of new migrations>` — every migration
-   rolls back cleanly. Re-run `bin/rails db:migrate` and `bin/rails db:seed`
-   to land back on the green state.
+   rolls back cleanly. Re-run `bin/rails db:migrate` and `bin/rails db:seed` to
+   land back on the green state.
 3. `bin/rails console` —
    - `Tenant.count` → `1`. `Tenant.first.slug` → `"primary"` (or whatever
      `:owner.tenant_slug` says).
    - `User.first.respond_to?(:role)` → `false`. Same for `:name`.
    - `Current.tenant = Tenant.first; Video.count` → integer (no raise).
-   - `Current.reset; Video.count` → raises `BelongsToTenant::
-     TenantContextMissing`.
-   - `Current.tenant = Tenant.first; Footage.new(project: nil).valid?` →
-     raises.
+   - `Current.reset; Video.count` → raises
+     `BelongsToTenant:: TenantContextMissing`.
+   - `Current.tenant = Tenant.first; Footage.new(project: nil).valid?` → raises.
 4. `bundle exec rspec` — green, including the new leak spec.
 5. `bundle exec rspec spec/<path-to-leak-spec>.rb` — green standalone.
-6. Visit `/`, `/channels`, `/videos`, `/saved_views` in the browser — all
-   load as before; the seeded user is implicitly current via the existing
+6. Visit `/`, `/channels`, `/videos`, `/saved_views` in the browser — all load
+   as before; the seeded user is implicitly current via the existing
    `before_action`.
-7. `bin/rails console` —
-   `t2 = Tenant.create!(name: "Test", slug: "test")`,
+7. `bin/rails console` — `t2 = Tenant.create!(name: "Test", slug: "test")`,
    `Current.tenant = t2; Video.count` → `0` (no leak from tenant_a).
 
 ---
@@ -297,18 +294,16 @@ Run after the implementer reports green:
 
 Implementer (Lane 1 rails-impl) touches:
 
-- `db/migrate/<timestamp>_*.rb` — one migration per table for the
-  three-step add-reference / backfill / set-not-null pattern. Plus one for
-  `tenants.slug`, one for the `footages` not-null tightening, and one for
-  the `users.role` + `users.name` drops.
+- `db/migrate/<timestamp>_*.rb` — one migration per table for the three-step
+  add-reference / backfill / set-not-null pattern. Plus one for `tenants.slug`,
+  one for the `footages` not-null tightening, and one for the `users.role` +
+  `users.name` drops.
 - `app/models/concerns/belongs_to_tenant.rb` — new.
-- `app/models/{video,playlist,playlist_item,video_stat,video_upload,
-  saved_view,bulk_operation,bulk_operation_item,mcp_access_token}.rb` —
-  include `BelongsToTenant`.
+- `app/models/{video,playlist,playlist_item,video_stat,video_upload, saved_view,bulk_operation,bulk_operation_item,mcp_access_token}.rb`
+  — include `BelongsToTenant`.
 - `app/models/footage.rb` — tighten `before_validation` callback.
 - `app/models/user.rb` — drop `role` / `name` references if present.
-- `db/seeds.rb` — tenant slug, `Current` wrap, drop `role` / `name`
-  references.
+- `db/seeds.rb` — tenant slug, `Current` wrap, drop `role` / `name` references.
 - `spec/factories/*.rb` — add `tenant` to every newly-tenanted factory.
 - `spec/support/cross_tenant_leak_spec.rb` (or `spec/system/...`) — new.
 - `spec/models/concerns/belongs_to_tenant_spec.rb` — new.
@@ -317,8 +312,9 @@ Implementer (Lane 1 rails-impl) touches:
 
 Out of bounds for this step:
 
-- `app/controllers/**` — controllers do not change. `before_action
-  :set_current_tenant_and_user` is the parallel patch's territory.
+- `app/controllers/**` — controllers do not change.
+  `before_action :set_current_tenant_and_user` is the parallel patch's
+  territory.
 - `app/mcp/**` — Step B owns the auth concern wiring into MCP.
 - `docs/**` — Step C owns the doc updates.
 - Anything under `extras/` — CLI / website are downstream consumers; they get
@@ -328,6 +324,6 @@ Out of bounds for this step:
 
 - Confirm the seed default `tenant_slug` is `"primary"` if `:owner.tenant_slug`
   is absent. (Plan says `"primary"`; credentials may or may not have the key.)
-- Confirm there is no caller of `User#role` or `User#name` left in the
-  codebase. A repo-wide grep at implementation start should confirm zero
-  hits before the migration drops the columns; any hit pauses the step.
+- Confirm there is no caller of `User#role` or `User#name` left in the codebase.
+  A repo-wide grep at implementation start should confirm zero hits before the
+  migration drops the columns; any hit pauses the step.

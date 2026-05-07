@@ -4,26 +4,30 @@
   is or isn't present. Each toast auto-dismisses (default 4s, see
   `toast_controller.js`) and can be clicked to dismiss immediately.
 
+  The `.toast-container` element is rendered unconditionally so client-side
+  Stimulus controllers (e.g. `clipboard_copy_controller#_flashToast`) can
+  append toasts on flash-less pages too — the empty container is invisible
+  thanks to its `display: flex; gap: 6px;` layout (no padding/border on the
+  container itself; only on `.toast` children).
+
   Note: alert and notice are the Rails-conventional flash types; success /
   warning / error are accepted too if a controller sets them. Anything else
   falls through to the notice styling.
 %>
-<% if flash.any? { |_, message| message.present? } %>
-  <div class="toast-container" aria-live="polite" aria-atomic="true">
-    <% flash.each do |type, message| %>
-      <% next if message.blank? %>
-      <%
-        toast_class =
-          case type.to_s
-          when "alert", "error" then "toast-error"
-          when "success"        then "toast-success"
-          when "warning"        then "toast-warning"
-          else                       "toast-notice"
-          end
-      %>
-      <div class="toast <%= toast_class %>" data-controller="toast" role="status">
-        <%= message %>
-      </div>
-    <% end %>
-  </div>
-<% end %>
+<div class="toast-container" aria-live="polite" aria-atomic="true">
+  <% flash.each do |type, message| %>
+    <% next if message.blank? %>
+    <%
+      toast_class =
+        case type.to_s
+        when "alert", "error" then "toast-error"
+        when "success"        then "toast-success"
+        when "warning"        then "toast-warning"
+        else                       "toast-notice"
+        end
+    %>
+    <div class="toast <%= toast_class %>" data-controller="toast" role="status">
+      <%= message %>
+    </div>
+  <% end %>
+</div>

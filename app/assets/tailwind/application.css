@@ -1056,6 +1056,32 @@ textarea.note-editor-source {
   z-index: 1;
 }
 
+/* Chart HTML legend — rendered as a sibling of the Chartkick wrapper so
+   the canvas plot area stays at a fixed height regardless of how many
+   series the chart has. Bracketed [label] design-system convention,
+   colored per series, click toggles visibility. */
+.chart-html-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  justify-content: center;
+  margin-top: 8px;
+  font-size: 11px;
+  font-weight: bold;
+  line-height: 1.4;
+}
+.chart-html-legend__item {
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.chart-html-legend__item:hover {
+  filter: brightness(1.15);
+}
+.chart-html-legend__item[data-hidden="yes"] {
+  text-decoration: line-through;
+}
+
 /* Mobile utilities */
 .hide-mobile { }
 .show-mobile { display: none !important; }

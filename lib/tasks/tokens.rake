@@ -64,11 +64,11 @@ namespace :tokens do
       tokens.each do |t|
         status = if t.revoked?
                    "revoked"
-                 elsif t.expired?
+        elsif t.expired?
                    "expired"
-                 else
+        else
                    "active"
-                 end
+        end
         last_used = t.last_used_at&.strftime("%Y-%m-%d %H:%M") || "never"
         scopes = Array(t.scopes).join("+")
         puts "#{t.id}. #{t.name} [#{scopes}] (#{status}) — ...#{t.last_token_preview} — last used: #{last_used}"

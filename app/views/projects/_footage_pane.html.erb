@@ -36,6 +36,18 @@
   <%= render(BracketedLinkComponent.new(label: "download cli", href: footage_importer_download_path)) %>
 </div>
 
+<%# Import snippet (2026-05-05 UX fix): always render the CLI import
+    command + [copy] button above the footage table, regardless of
+    whether the project already has footage. Sits OUTSIDE the turbo-
+    frame so a sort-header click or filter-chip toggle re-renders only
+    the table content, not this snippet. The empty-state branch below
+    keeps the "no footage yet" stub copy. %>
+<div data-controller="clipboard-copy" class="code-block" style="margin-bottom: 8px;">
+  <span class="code-prompt" aria-hidden="true">$</span>
+  <code data-clipboard-copy-target="source">pito footage import --project <%= project.id %> --path &lt;dir&gt;</code>
+  <a href="#" data-action="click->clipboard-copy#copy" class="bracketed">[<span class="bl">copy</span>]</a>
+</div>
+
 <%# Turbo-frame wrapper (polish-3, 2026-05-06): the entire filter-chip
     row + footage table sits inside `<turbo-frame id="footage-table">`
     so a sort-header click, a filter-chip toggle, or a `[clear]` click
@@ -118,11 +130,9 @@
       </tbody>
     </table>
   <% else %>
-    <p class="text-muted">no footage yet. run:</p>
-    <div data-controller="clipboard-copy" class="code-block">
-      <span class="code-prompt" aria-hidden="true">$</span>
-      <code data-clipboard-copy-target="source">pito footage import --project <%= project.id %> --path &lt;dir&gt;</code>
-      <a href="#" data-action="click->clipboard-copy#copy" class="bracketed">[<span class="bl">copy</span>]</a>
-    </div>
+    <%# Empty-state copy. The CLI import snippet renders above the
+        turbo-frame and is always visible, so this branch only carries
+        the "no footage yet" stub. %>
+    <p class="text-muted">no footage yet.</p>
   <% end %>
 <% end %>

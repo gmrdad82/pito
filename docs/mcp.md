@@ -9,10 +9,10 @@ clients).
 
 - **Gem:** `mcp` (official Ruby MCP SDK, v0.14.0+)
 - **Transports:** stdio (local) and Streamable HTTP (remote)
-- **Auth:** none for stdio (local trust), bearer token for HTTP — enforced
-  at the rack-app layer with per-tool scope checks. See `docs/auth.md` for
-  the request flow, `docs/auth.md` §3 + the Scope-per-tool table below for
-  the per-tool scope map.
+- **Auth:** none for stdio (local trust), bearer token for HTTP — enforced at
+  the rack-app layer with per-tool scope checks. See `docs/auth.md` for the
+  request flow, `docs/auth.md` §3 + the Scope-per-tool table below for the
+  per-tool scope map.
 - **Process isolation:** stdio runs as standalone process; HTTP runs on a
   dedicated Puma (port 3028), separate from the web app (port 3027)
 
@@ -48,14 +48,14 @@ The endpoint is `POST /mcp`. All requests require a bearer token.
 
 ### Token management
 
-The full auth model (digest semantics, scope catalog, request flow,
-audit log, throttling) lives in `docs/auth.md`. This section just lists the
-operational entry points.
+The full auth model (digest semantics, scope catalog, request flow, audit log,
+throttling) lives in `docs/auth.md`. This section just lists the operational
+entry points.
 
 Web UI (recommended):
 
-- `/settings/tokens` — list, mint, revoke. Plaintext is shown exactly once
-  on the create-success page; copy it before navigating away.
+- `/settings/tokens` — list, mint, revoke. Plaintext is shown exactly once on
+  the create-success page; copy it before navigating away.
 
 Rake (scriptable):
 
@@ -108,41 +108,39 @@ See the Cloudflare Tunnel docs for setup details.
 
 ## Tools
 
-Authentication is enforced at the rack-app layer (`Mcp::RackApp` runs the
-shared `Api::TokenAuthenticator` before delegating to the streamable HTTP
-transport). Each tool's `call` method opens with
-`Mcp::ToolAuth.require_scope!(...)` to enforce per-tool scopes. See
-`docs/auth.md` §4 for the full request flow.
+Authentication is enforced at the rack-app layer (`Mcp::RackApp` runs the shared
+`Api::TokenAuthenticator` before delegating to the streamable HTTP transport).
+Each tool's `call` method opens with `Mcp::ToolAuth.require_scope!(...)` to
+enforce per-tool scopes. See `docs/auth.md` §4 for the full request flow.
 
 ### Scope-per-tool table
 
-| Tool                | Required scope            | Channel-Revamp note          |
-| ------------------- | ------------------------- | ---------------------------- |
-| `list_channels`     | `yt:read`                 |                              |
-| `get_channel`       | `yt:read`                 | Returns the post-Channel-Revamp shape (no `title`/`description`). |
-| `list_videos`       | `yt:read`                 |                              |
-| `get_video`         | `yt:read`                 |                              |
-| `get_dashboard`     | `yt:read`                 |                              |
-| `search`            | `yt:read`                 | Videos only; channels not searchable in this phase. |
-| `list_saved_views`  | `yt:read`                 |                              |
-| `manage_settings`   | `yt:read` / `yt:write`    | `yt:read` for view-only; `yt:write` when `updates` is present. |
-| `create_channel`    | `yt:write`                | Only `channel_url` accepted; an initial `ChannelSync` is enqueued. |
-| `update_channel`    | `yt:write`                | `channel_url` locked after create. |
-| `create_video`      | `yt:write`                |                              |
-| `update_video`      | `yt:write`                |                              |
-| `create_saved_view` | `yt:write`                |                              |
-| `delete_saved_view` | `yt:write`                |                              |
-| `sync_records`      | `yt:write`                | Two-step preview/execute.    |
-| `delete_records`    | `yt:destructive`          | Two-step preview/execute.    |
-| `list_docs`         | `dev:read`                | Dev KB.                      |
-| `read_doc`          | `dev:read`                | Dev KB.                      |
-| `save_note`         | `dev:write`               | Dev KB capture.              |
+| Tool                | Required scope         | Channel-Revamp note                                                |
+| ------------------- | ---------------------- | ------------------------------------------------------------------ |
+| `list_channels`     | `yt:read`              |                                                                    |
+| `get_channel`       | `yt:read`              | Returns the post-Channel-Revamp shape (no `title`/`description`).  |
+| `list_videos`       | `yt:read`              |                                                                    |
+| `get_video`         | `yt:read`              |                                                                    |
+| `get_dashboard`     | `yt:read`              |                                                                    |
+| `search`            | `yt:read`              | Videos only; channels not searchable in this phase.                |
+| `list_saved_views`  | `yt:read`              |                                                                    |
+| `manage_settings`   | `yt:read` / `yt:write` | `yt:read` for view-only; `yt:write` when `updates` is present.     |
+| `create_channel`    | `yt:write`             | Only `channel_url` accepted; an initial `ChannelSync` is enqueued. |
+| `update_channel`    | `yt:write`             | `channel_url` locked after create.                                 |
+| `create_video`      | `yt:write`             |                                                                    |
+| `update_video`      | `yt:write`             |                                                                    |
+| `create_saved_view` | `yt:write`             |                                                                    |
+| `delete_saved_view` | `yt:write`             |                                                                    |
+| `sync_records`      | `yt:write`             | Two-step preview/execute.                                          |
+| `delete_records`    | `yt:destructive`       | Two-step preview/execute.                                          |
+| `list_docs`         | `dev:read`             | Dev KB.                                                            |
+| `read_doc`          | `dev:read`             | Dev KB.                                                            |
+| `save_note`         | `dev:write`            | Dev KB capture.                                                    |
 
 A token without the right scope sees
-`{"error": "insufficient_scope", "required": "<scope>"}` (HTTP 403). A
-missing / invalid / revoked / expired token sees
-`{"error": "<reason>"}` (HTTP 401). See `docs/auth.md` §4 for the full
-envelope shapes.
+`{"error": "insufficient_scope", "required": "<scope>"}` (HTTP 403). A missing /
+invalid / revoked / expired token sees `{"error": "<reason>"}` (HTTP 401). See
+`docs/auth.md` §4 for the full envelope shapes.
 
 ### Read Tools — descriptions
 
@@ -408,9 +406,9 @@ date/views/likes/comments/shares/watch_time_minutes).
 
 ## Token Model
 
-`ApiToken` (renamed from the Alpha-era `McpAccessToken`) stores bearer
-tokens for both the JSON API and MCP HTTP transport. Full reference:
-`docs/auth.md`. Highlights:
+`ApiToken` (renamed from the Alpha-era `McpAccessToken`) stores bearer tokens
+for both the JSON API and MCP HTTP transport. Full reference: `docs/auth.md`.
+Highlights:
 
 - Hashed with HMAC-SHA256 using the `:tokens.pepper` Rails credential —
   plaintext is never stored.
@@ -420,8 +418,8 @@ tokens for both the JSON API and MCP HTTP transport. Full reference:
 - Soft-revoke: `revoked_at` is set; the row stays in the database for audit.
 - Optional `expires_at` is honored on every authenticate call (rejected as
   `expired_token`); no automatic sweep yet.
-- Each token has a `tenant_id`, `user_id`, and a `scopes` jsonb array. The
-  scope catalog is `app/lib/scopes.rb`; see `docs/auth.md` §2.
+- Each token has a `tenant_id`, `user_id`, and a `scopes` jsonb array. The scope
+  catalog is `app/lib/scopes.rb`; see `docs/auth.md` §2.
 
 ## File Structure
 

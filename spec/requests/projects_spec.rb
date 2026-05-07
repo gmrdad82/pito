@@ -520,6 +520,83 @@ RSpec.describe "Projects", type: :request do
       end
     end
 
+    # 2026-05-05 UX fix — the footage pane's CLI import snippet
+    # (`pito footage import --project N --path <dir>` plus a `[copy]`
+    # bracketed link wired to the `clipboard-copy` Stimulus controller)
+    # used to render only in the empty-state branch. It now renders
+    # ALWAYS — both when the project has footage and when it doesn't —
+    # and sits outside the `<turbo-frame id='footage-table'>` so sort/
+    # filter swaps don't churn it. The expected literal command string
+    # interpolates the project's id verbatim and the `<dir>` placeholder
+    # is HTML-escaped because the source code emits it via `&lt;dir&gt;`.
+    describe "footage pane — CLI import snippet always visible" do
+      let(:expected_command) { "pito footage import --project #{project.id} --path &lt;dir&gt;" }
+
+      shared_examples "renders the CLI import snippet" do
+        it "renders the snippet's clipboard-copy controller block" do
+          html = Nokogiri::HTML.fragment(response.body)
+          block = html.css("div.code-block[data-controller='clipboard-copy']").first
+          expect(block).not_to be_nil, "expected a .code-block[data-controller=clipboard-copy] in the footage pane"
+        end
+
+        it "renders the literal `pito footage import` command in the snippet" do
+          # The HTML-escaped `&lt;dir&gt;` is what ERB emits; raw response
+          # body still carries the entity form.
+          expect(response.body).to include(expected_command)
+        end
+
+        it "renders the [copy] BracketedLink wired to clipboard-copy#copy" do
+          html = Nokogiri::HTML.fragment(response.body)
+          block = html.css("div.code-block[data-controller='clipboard-copy']").first
+          expect(block).not_to be_nil
+          copy_link = block.css("a.bracketed").find { |a| a.css("span.bl").any? { |s| s.text.strip == "copy" } }
+          expect(copy_link).not_to be_nil, "expected a [ copy ] bracketed link inside the snippet block"
+          expect(copy_link["data-action"]).to eq("click->clipboard-copy#copy")
+        end
+
+        it "places the snippet OUTSIDE the <turbo-frame id='footage-table'>" do
+          # The snippet has to live above the frame so sort-header /
+          # filter-chip swaps don't flicker it. Asserts the snippet
+          # block is not a descendant of the footage-table frame.
+          html = Nokogiri::HTML.fragment(response.body)
+          frame = html.css("turbo-frame#footage-table").first
+          expect(frame).not_to be_nil
+          inside_frame = frame.css("div.code-block[data-controller='clipboard-copy']")
+          expect(inside_frame).to be_empty, "the import snippet must sit outside <turbo-frame id='footage-table'>"
+        end
+      end
+
+      context "when the project has no footage (empty-state branch)" do
+        before { get project_path(project) }
+        include_examples "renders the CLI import snippet"
+
+        it "still renders the empty-state 'no footage yet' copy inside the frame" do
+          html = Nokogiri::HTML.fragment(response.body)
+          frame = html.css("turbo-frame#footage-table").first
+          expect(frame).not_to be_nil
+          expect(frame.text).to include("no footage yet")
+        end
+      end
+
+      context "when the project has footage (populated branch)" do
+        before do
+          create(:footage, project: project, tenant: project.tenant, filename: "clip-a.mkv")
+          create(:footage, project: project, tenant: project.tenant, filename: "clip-b.mkv")
+          get project_path(project)
+        end
+
+        include_examples "renders the CLI import snippet"
+
+        it "renders the footage table alongside the snippet" do
+          html = Nokogiri::HTML.fragment(response.body)
+          frame = html.css("turbo-frame#footage-table").first
+          expect(frame).not_to be_nil
+          headers = frame.css("table.footage-table thead th").map { |th| th.text.strip.gsub(/[▲▼]/, "").strip }
+          expect(headers).to include("filename")
+        end
+      end
+    end
+
     # Phase B revamp (2026-05-06) — show page is a `.pane-row` of three
     # panes that wrap to a new row when the viewport runs out. The first
     # two panes are 640px (zebra A/B); the third is `.pane--wide` (1280px,

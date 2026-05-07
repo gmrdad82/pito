@@ -1,9 +1,14 @@
 require "rails_helper"
 
 RSpec.describe "shared/_flash_toasts.html.erb", type: :view do
-  it "renders nothing when there are no flashes" do
+  it "renders an empty toast container when there are no flashes" do
+    # The container is rendered unconditionally so client-side Stimulus
+    # controllers (e.g. `clipboard_copy_controller#_flashToast`) can
+    # append toasts on flash-less pages too. The empty container has
+    # no visual footprint — its CSS only paints `.toast` children.
     render
-    expect(rendered).to be_blank
+    expect(rendered).to include("class=\"toast-container\"")
+    expect(rendered).not_to include("class=\"toast ")
   end
 
   it "renders a notice toast inside a fixed top-right container" do
@@ -52,10 +57,11 @@ RSpec.describe "shared/_flash_toasts.html.erb", type: :view do
     expect(rendered).to include("second")
   end
 
-  it "skips blank messages" do
+  it "skips blank messages but still emits the empty container" do
     flash[:notice] = ""
     render
-    expect(rendered).to be_blank
+    expect(rendered).to include("class=\"toast-container\"")
+    expect(rendered).not_to include("class=\"toast ")
   end
 
   it "uses position: fixed so the toast does not push content down" do

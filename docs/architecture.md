@@ -63,24 +63,22 @@ Phase 3 ships in three steps:
   Pumas, audit log, rack-attack throttle.
 - **Step C** — Settings UI for token CRUD, dev token seed, `docs/auth.md`.
 
-`docs/auth.md` is the authoritative reference for the auth model. This
-section captures the architectural high level; full request flow,
-scope-per-tool tables, and the bootstrap ceremony live in `docs/auth.md`.
+`docs/auth.md` is the authoritative reference for the auth model. This section
+captures the architectural high level; full request flow, scope-per-tool tables,
+and the bootstrap ceremony live in `docs/auth.md`.
 
 ### Schema
 
-- `tenants(id, slug citext UNIQUE NOT NULL, name, timestamps)`. `slug`
-  validates presence, length ≤ 60, format `\A[a-z0-9][a-z0-9_-]*\z`,
-  case-insensitive uniqueness. Seeded from `:owner.tenant_slug` credentials
-  (fallback `"primary"`).
-- `users(id, tenant_id, username citext, email citext, password_digest,
-  timestamps)`. `username` matches `\A[A-Za-z][A-Za-z0-9]*\z`. `username`
-  and `email` are **globally unique** (single-column unique indexes — see
-  `docs/auth.md` §10 for the rationale). `has_secure_password`;
-  `find_by_username_or_email(login)`.
-- `api_tokens(id, tenant_id, user_id, name, token_digest UNIQUE,
-  last_token_preview, scopes jsonb, expires_at, last_used_at, revoked_at,
-  timestamps)`. Digest is HMAC-SHA256 with the `:tokens.pepper` credential.
+- `tenants(id, slug citext UNIQUE NOT NULL, name, timestamps)`. `slug` validates
+  presence, length ≤ 60, format `\A[a-z0-9][a-z0-9_-]*\z`, case-insensitive
+  uniqueness. Seeded from `:owner.tenant_slug` credentials (fallback
+  `"primary"`).
+- `users(id, tenant_id, username citext, email citext, password_digest, timestamps)`.
+  `username` matches `\A[A-Za-z][A-Za-z0-9]*\z`. `username` and `email` are
+  **globally unique** (single-column unique indexes — see `docs/auth.md` §10 for
+  the rationale). `has_secure_password`; `find_by_username_or_email(login)`.
+- `api_tokens(id, tenant_id, user_id, name, token_digest UNIQUE, last_token_preview, scopes jsonb, expires_at, last_used_at, revoked_at, timestamps)`.
+  Digest is HMAC-SHA256 with the `:tokens.pepper` credential.
   `last_token_preview` stores the last 4 characters for identification.
   Plaintext is shown once at creation and never re-displayed.
 
@@ -88,10 +86,9 @@ scope-per-tool tables, and the bootstrap ceremony live in `docs/auth.md`.
 
 `ActiveSupport::CurrentAttributes` carries `:tenant`, `:user`, `:token`.
 
-- HTML routes — `ApplicationController` sets
-  `Current.tenant = Tenant.first` / `Current.user = User.first` in a
-  `before_action`. No login UI yet (Phase 6 adds it); the implicit single-user
-  session is the placeholder.
+- HTML routes — `ApplicationController` sets `Current.tenant = Tenant.first` /
+  `Current.user = User.first` in a `before_action`. No login UI yet (Phase 6
+  adds it); the implicit single-user session is the placeholder.
 - API routes — `Api::AuthConcern` (controllers) and `Mcp::RackApp` (the MCP
   Puma's rack app) populate `Current.token`, `Current.user`, `Current.tenant`
   from the resolved bearer token, then reset in an `ensure` block / Rack
@@ -99,8 +96,7 @@ scope-per-tool tables, and the bootstrap ceremony live in `docs/auth.md`.
 
 ### `BelongsToTenant`
 
-`app/models/concerns/belongs_to_tenant.rb` is included by every tenanted
-model:
+`app/models/concerns/belongs_to_tenant.rb` is included by every tenanted model:
 
 ```ruby
 include BelongsToTenant   # belongs_to :tenant; validates :tenant_id;
@@ -110,18 +106,17 @@ include BelongsToTenant   # belongs_to :tenant; validates :tenant_id;
 ```
 
 The default-scope raise is deliberate: bugs are loud, not silent. The escape
-hatch is `Model.unscoped` and is reserved for seed scripts, the
-authenticator's pre-Current digest lookup, and the cross-tenant leak spec.
+hatch is `Model.unscoped` and is reserved for seed scripts, the authenticator's
+pre-Current digest lookup, and the cross-tenant leak spec.
 
 ### `Current.token` flow
 
 For API and MCP requests, `Api::TokenAuthenticator` is the shared engine:
 extracts the bearer header, digests + looks up the row, validates
 revoked/expired status, populates `Current.token / user / tenant`, touches
-`last_used_at` via `update_columns`, writes a JSON line to
-`log/auth_audit.log`. Failures bump a per-IP rack-attack bucket (10 failures
-in 5 minutes triggers a 429). See `docs/auth.md` §4 for the full flow
-diagram.
+`last_used_at` via `update_columns`, writes a JSON line to `log/auth_audit.log`.
+Failures bump a per-IP rack-attack bucket (10 failures in 5 minutes triggers a
+429). See `docs/auth.md` §4 for the full flow diagram.
 
 ## Channel model (Phase 3 — Channel Revamp)
 
@@ -305,17 +300,16 @@ it only opts the chart in or out of the shared crosshair.
 ## Things explicitly NOT in scope (this phase)
 
 - **Login UI / session UI** — HTML routes still operate under the implicit
-  single-user session (`Current.user = User.first`). The login form,
-  password change, OAuth client flows (Doorkeeper) all land in Phase 6
-  / Phase 12.
+  single-user session (`Current.user = User.first`). The login form, password
+  change, OAuth client flows (Doorkeeper) all land in Phase 6 / Phase 12.
 - **Google OAuth for YouTube** — Phase 7 wires `GoogleIdentity`. Different
   model; the bearer-token surface here is unaffected.
 - **Real YouTube sync** — `ChannelSync` is a placeholder; no API calls. Comes
   back when the YouTube OAuth + API foundation phase ships.
 - **Multi-tenant admin tooling** — Theta. Two tenants in this codebase is
-  technically supported (the schema is multi-tenant; the cross-tenant leak
-  spec proves isolation), but there's no UI for switching or managing.
-- **Token expiry sweep** — `expires_at` is honored on every authenticate
-  call, but no background job marks/deletes expired rows. Phase 12 / 15.
+  technically supported (the schema is multi-tenant; the cross-tenant leak spec
+  proves isolation), but there's no UI for switching or managing.
+- **Token expiry sweep** — `expires_at` is honored on every authenticate call,
+  but no background job marks/deletes expired rows. Phase 12 / 15.
 - **Pepper rotation** — set once at install (§7 of `docs/auth.md`), never
   rotated automatically. Future phase.
