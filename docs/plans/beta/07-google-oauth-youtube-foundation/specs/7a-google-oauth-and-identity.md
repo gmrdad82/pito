@@ -2,8 +2,8 @@
 
 > First of three Phase 7 specs. Lands the OAuth plumbing and the encrypted
 > identity record before any YouTube API call is made. Sibling specs:
-> `7b-youtube-client-and-audit.md`, `7c-settings-youtube-ui.md`. Locked decisions
-> are pinned exactly — do not reinvent.
+> `7b-youtube-client-and-audit.md`, `7c-settings-youtube-ui.md`. Locked
+> decisions are pinned exactly — do not reinvent.
 
 ---
 
@@ -12,11 +12,10 @@
 Wire up the OmniAuth-based Google OAuth flow so a Pito `User` (Phase 5) can
 authorize the app against their Google account and have the resulting tokens
 persisted as an encrypted `GoogleIdentity` row. This step delivers the OAuth
-round-trip, the `GoogleIdentity` model + migration, the callback controller,
-the routes, and the credentials wiring. **It does not call the YouTube API**
-(7B) and **does not render any Settings UI** (7C). The sole user-visible
-surface here is the redirect chain `/auth/google → Google → callback →
-redirect target`.
+round-trip, the `GoogleIdentity` model + migration, the callback controller, the
+routes, and the credentials wiring. **It does not call the YouTube API** (7B)
+and **does not render any Settings UI** (7C). The sole user-visible surface here
+is the redirect chain `/auth/google → Google → callback → redirect target`.
 
 This spec also reserves — but does not light up — the dedicated **sign-in**
 entry point that Phase 12 (Auth UI) will surface. Phase 7 only needs the
@@ -30,20 +29,20 @@ Rails (Lane 1):
 - `Gemfile` — add `omniauth-google-oauth2`, `omniauth-rails_csrf_protection`.
 - `config/initializers/omniauth.rb` — register the Google provider, point at
   Rails credentials, configure state + PKCE.
-- `config/routes.rb` — `/auth/google`, `/auth/google/callback`,
-  `/auth/failure`, `/settings/youtube/connect` (redirector that re-enters
-  OmniAuth with the YouTube scope set).
+- `config/routes.rb` — `/auth/google`, `/auth/google/callback`, `/auth/failure`,
+  `/settings/youtube/connect` (redirector that re-enters OmniAuth with the
+  YouTube scope set).
 - `app/controllers/auth/google_callbacks_controller.rb` — callback handling,
   identity upsert, redirect dispatch.
-- `app/controllers/concerns/google_oauth_redirect.rb` — small helper to
-  compute return-to paths between the sign-in flow and the connect flow.
+- `app/controllers/concerns/google_oauth_redirect.rb` — small helper to compute
+  return-to paths between the sign-in flow and the connect flow.
 - `app/models/google_identity.rb` — model with encrypted token columns,
   associations, expiry helpers.
 - `db/migrate/<ts>_create_google_identities.rb` — table per §"Schema".
 - `config/credentials/development.yml.enc`, `config/credentials/test.yml.enc`,
   `config/credentials/production.yml.enc` — `:google` block per §"Credentials".
-- `.env.example` — note that no env var lives here for OAuth (credentials
-  only); document the redirect URI registered with Google.
+- `.env.example` — note that no env var lives here for OAuth (credentials only);
+  document the redirect URI registered with Google.
 - `spec/factories/google_identities.rb`
 - `spec/models/google_identity_spec.rb`
 - `spec/requests/auth/google_callbacks_spec.rb`
@@ -60,27 +59,27 @@ Cross-stack scope: Rails-only.
 
 `google_identities` — one row per (User, Google account) pair.
 
-| Column                 | Type      | Constraints                                            |
-| ---------------------- | --------- | ------------------------------------------------------ |
-| id                     | bigint    | pk                                                     |
-| tenant_id              | bigint    | not null, fk → tenants, default-scoped via `Current`   |
-| user_id                | bigint    | not null, fk → users                                   |
-| google_subject_id      | string    | not null, unique within (tenant_id)                    |
-| email                  | citext    | not null                                               |
-| access_token           | text      | not null, encrypted (Active Record Encryption)         |
-| refresh_token          | text      | nullable, encrypted (Google may omit on re-grant)      |
-| expires_at             | datetime  | not null                                               |
-| scopes                 | jsonb     | not null, default `[]`, array of granted scope strings |
-| needs_reauth           | boolean   | not null, default `false`                              |
-| last_refreshed_at      | datetime  | nullable                                               |
-| last_authorized_at     | datetime  | not null (set on every successful callback)            |
-| created_at, updated_at | datetime  | not null                                               |
+| Column                 | Type     | Constraints                                            |
+| ---------------------- | -------- | ------------------------------------------------------ |
+| id                     | bigint   | pk                                                     |
+| tenant_id              | bigint   | not null, fk → tenants, default-scoped via `Current`   |
+| user_id                | bigint   | not null, fk → users                                   |
+| google_subject_id      | string   | not null, unique within (tenant_id)                    |
+| email                  | citext   | not null                                               |
+| access_token           | text     | not null, encrypted (Active Record Encryption)         |
+| refresh_token          | text     | nullable, encrypted (Google may omit on re-grant)      |
+| expires_at             | datetime | not null                                               |
+| scopes                 | jsonb    | not null, default `[]`, array of granted scope strings |
+| needs_reauth           | boolean  | not null, default `false`                              |
+| last_refreshed_at      | datetime | nullable                                               |
+| last_authorized_at     | datetime | not null (set on every successful callback)            |
+| created_at, updated_at | datetime | not null                                               |
 
 Indexes:
 
 - `(tenant_id, google_subject_id)` unique.
-- `(tenant_id, user_id)` non-unique (a user may, in Theta, hold multiple
-  Google identities; Beta UI enforces one).
+- `(tenant_id, user_id)` non-unique (a user may, in Theta, hold multiple Google
+  identities; Beta UI enforces one).
 - `(tenant_id, needs_reauth)` partial where `needs_reauth = true` — fast lookup
   for the "needs reauth" banner check in 7C.
 
@@ -89,9 +88,9 @@ Encryption:
 - `encrypts :access_token`
 - `encrypts :refresh_token`
 - Deterministic encryption is **not** used; tokens are not searchable.
-- Active Record Encryption keys live in Rails credentials per environment;
-  reuse the keys established in Phase 5 / earlier. Do **not** generate a new
-  key for this phase.
+- Active Record Encryption keys live in Rails credentials per environment; reuse
+  the keys established in Phase 5 / earlier. Do **not** generate a new key for
+  this phase.
 
 Validation:
 
@@ -110,8 +109,8 @@ Helpers on `GoogleIdentity`:
 
 ## OAuth scopes
 
-Two scope sets are configured. The flow that triggers OmniAuth picks one set
-in the request phase via the `scope:` option.
+Two scope sets are configured. The flow that triggers OmniAuth picks one set in
+the request phase via the `scope:` option.
 
 **Sign-in scope set** (Phase 12 surfaces; Phase 7 just wires the route):
 
@@ -129,10 +128,10 @@ in the request phase via the `scope:` option.
 
 **Locked decision — minimum YouTube scopes for Beta.** The YouTube connection
 flow requests `youtube.readonly` and `yt-analytics.readonly` ONLY. The full
-`youtube` (write) and `youtube.upload` scopes are reserved for Phase 10
-(Video Workflow Features). Adding write scopes earlier triggers a Google
-re-consent screen later anyway, so we may as well stage it correctly. See
-"Open questions" §1 — confirm with user before building.
+`youtube` (write) and `youtube.upload` scopes are reserved for Phase 10 (Video
+Workflow Features). Adding write scopes earlier triggers a Google re-consent
+screen later anyway, so we may as well stage it correctly. See "Open questions"
+§1 — confirm with user before building.
 
 `access_type: "offline"` and `prompt: "consent"` are passed on every
 authorization request so Google reliably returns a refresh token.
@@ -149,8 +148,8 @@ GET  /settings/youtube/connect      → redirects into OmniAuth with YouTube sco
 
 The connect flow is implemented as a small Rails action (not an OmniAuth
 provider variant): it stores `session[:google_oauth_intent] = "youtube_connect"`
-and redirects to OmniAuth's request phase with `scope: <youtube scope set>`.
-The callback controller dispatches on the stashed intent.
+and redirects to OmniAuth's request phase with `scope: <youtube scope set>`. The
+callback controller dispatches on the stashed intent.
 
 `POST /auth/google` is also exposed because `omniauth-rails_csrf_protection`
 requires POST for the request phase from inside the app. The "Connect Google
@@ -166,19 +165,19 @@ csrf-protection bypass the gem warns about).
 Flow:
 
 1. Read `request.env["omniauth.auth"]` (the OmniAuth auth hash).
-2. Read `session.delete(:google_oauth_intent)` → `"youtube_connect"` or
-   `nil` (default sign-in flow).
+2. Read `session.delete(:google_oauth_intent)` → `"youtube_connect"` or `nil`
+   (default sign-in flow).
 3. Find or create `GoogleIdentity` keyed on `(tenant_id, google_subject_id)`:
    - On **create**: scope to `Current.user` (Phase 5 sets this; if for some
      reason `Current.user` is nil, redirect to `/` with a flash error).
    - On **update**: refresh `access_token`, `refresh_token` (only if Google
-     returned one — preserve previous on absence), `expires_at`, `scopes`
-     (union with existing), `last_authorized_at`, set `needs_reauth: false`.
+     returned one — preserve previous on absence), `expires_at`, `scopes` (union
+     with existing), `last_authorized_at`, set `needs_reauth: false`.
 4. Dispatch by intent:
    - `"youtube_connect"` → redirect to `/settings/youtube` (7C lights this up).
    - `nil` (sign-in) → redirect to `session.delete(:return_to) || root_path`.
-     Phase 12 will plug a real session establishment in here; Phase 7 leaves
-     a TODO comment and a passing spec that asserts the redirect target.
+     Phase 12 will plug a real session establishment in here; Phase 7 leaves a
+     TODO comment and a passing spec that asserts the redirect target.
 5. On `request.env["omniauth.auth"]` missing or `omniauth.error` present:
    redirect to `/auth/failure` with a flash describing the failure
    (`access_denied`, `invalid_credentials`, `timeout`, etc.).
@@ -202,8 +201,8 @@ google:
 
 Production and development share the redirect URI because the Cloudflare tunnel
 exposes the local Web Puma at `app.pitomd.com` (per the Phase 7 plan). The test
-environment uses OmniAuth's test mode and never reaches Google — credentials
-can be placeholder strings (`"test-client-id"`, `"test-client-secret"`).
+environment uses OmniAuth's test mode and never reaches Google — credentials can
+be placeholder strings (`"test-client-id"`, `"test-client-secret"`).
 
 ## Acceptance
 
@@ -213,47 +212,47 @@ can be placeholder strings (`"test-client-id"`, `"test-client-secret"`).
       and encryption per §"Schema".
 - [ ] `GoogleIdentity` model has the four helpers (`access_token_expired?`,
       `needs_reauth?`, `has_scope?`, `scope_string`) covered by specs.
-- [ ] `encrypts :access_token` and `encrypts :refresh_token` are in place;
-      a model spec asserts that `GoogleIdentity.last.access_token_before_type_cast`
-      (raw column read) is **not** equal to the plaintext value passed in.
+- [ ] `encrypts :access_token` and `encrypts :refresh_token` are in place; a
+      model spec asserts that
+      `GoogleIdentity.last.access_token_before_type_cast` (raw column read) is
+      **not** equal to the plaintext value passed in.
 - [ ] Routes per §"Routes" exist; `bin/rails routes | grep google` shows them.
 - [ ] `:google` credentials block exists in development, test, production
       encrypted credentials files (test values may be placeholders).
-- [ ] Callback creates a new `GoogleIdentity` on first authorization
-      (request spec with OmniAuth test mode).
+- [ ] Callback creates a new `GoogleIdentity` on first authorization (request
+      spec with OmniAuth test mode).
 - [ ] Callback updates an existing `GoogleIdentity` on re-authorization,
       preserving the previous `refresh_token` if Google omits it.
-- [ ] Callback unions newly granted scopes into the `scopes` jsonb array
-      rather than replacing.
+- [ ] Callback unions newly granted scopes into the `scopes` jsonb array rather
+      than replacing.
 - [ ] Callback resets `needs_reauth: false` on a successful re-authorization.
 - [ ] Callback redirects to `/settings/youtube` when the intent stash is
       `"youtube_connect"`, else to `root_path`.
-- [ ] Callback redirects to `/auth/failure` with a flash on
-      `omniauth.error` set.
-- [ ] State parameter validation is on (test by spoofing a mismatched state
-      and asserting OmniAuth rejects).
+- [ ] Callback redirects to `/auth/failure` with a flash on `omniauth.error`
+      set.
+- [ ] State parameter validation is on (test by spoofing a mismatched state and
+      asserting OmniAuth rejects).
 - [ ] Tenant-scoping spec: a `GoogleIdentity` created under tenant A is not
       visible to a `Current.tenant = B` query.
-- [ ] System spec drives the full flow in OmniAuth test mode end-to-end:
-      click `[ connect google ]` (rendered by 7C — for this spec, point at a
-      stub button) → mocked Google response → identity persisted → redirect.
-- [ ] No JS `alert` / `confirm` / `prompt` introduced (it shouldn't be —
-      OAuth is server redirects).
+- [ ] System spec drives the full flow in OmniAuth test mode end-to-end: click
+      `[ connect google ]` (rendered by 7C — for this spec, point at a stub
+      button) → mocked Google response → identity persisted → redirect.
+- [ ] No JS `alert` / `confirm` / `prompt` introduced (it shouldn't be — OAuth
+      is server redirects).
 - [ ] Brakeman clean (especially: callback CSRF, open redirect on
       `session[:return_to]`).
 
 ## Manual test recipe
 
-Prereq: the user has completed the Phase 7 plan's Google Cloud setup
-checklist (`docs/setup.md` will document this; see "Open questions" §3 for
-ownership).
+Prereq: the user has completed the Phase 7 plan's Google Cloud setup checklist
+(`docs/setup.md` will document this; see "Open questions" §3 for ownership).
 
-1. `bin/rails credentials:edit --environment development` — add the
-   `:google` block with the real client id / secret. Save.
+1. `bin/rails credentials:edit --environment development` — add the `:google`
+   block with the real client id / secret. Save.
 2. `bin/dev` — Web Puma + Sidekiq + Tailwind start.
-3. From the Cloudflare tunnel host: visit
-   `https://app.pitomd.com/auth/google` (dev-only direct GET — see
-   §"Routes"). The browser bounces to Google's consent screen.
+3. From the Cloudflare tunnel host: visit `https://app.pitomd.com/auth/google`
+   (dev-only direct GET — see §"Routes"). The browser bounces to Google's
+   consent screen.
 4. Approve. Browser returns to `https://app.pitomd.com/auth/google/callback`,
    which redirects to `/`.
 5. `bin/rails console` — confirm:
@@ -267,9 +266,8 @@ ownership).
    ```
 
 6. Visit `https://app.pitomd.com/settings/youtube/connect` — bounces back to
-   Google. Approve YouTube scopes. Returns to `/settings/youtube` (7C
-   surfaces a "not implemented" placeholder page in this spec; 7C makes it
-   real).
+   Google. Approve YouTube scopes. Returns to `/settings/youtube` (7C surfaces a
+   "not implemented" placeholder page in this spec; 7C makes it real).
 7. `bin/rails console`:
 
    ```ruby
@@ -281,8 +279,7 @@ ownership).
 
 8. Connect to psql; verify `SELECT access_token FROM google_identities` shows
    ciphertext, not the plaintext bearer token.
-9. `bundle exec rspec spec/models/google_identity_spec.rb
-   spec/requests/auth/google_callbacks_spec.rb spec/system/google_oauth_flow_spec.rb`
+9. `bundle exec rspec spec/models/google_identity_spec.rb spec/requests/auth/google_callbacks_spec.rb spec/system/google_oauth_flow_spec.rb`
    — all green.
 
 Teardown: `GoogleIdentity.destroy_all` in console (real disconnect-with-revoke
@@ -293,8 +290,8 @@ https://myaccount.google.com/permissions if you want to re-test from scratch.
 
 - Rails — **in scope**.
 - `pito` CLI (`extras/cli/`) — **skipped.** The CLI does not need a Google
-  identity in Phase 7. When Phase 8 (Data Sync) lands, the CLI may surface
-  sync state, but no OAuth flow runs through the CLI itself.
+  identity in Phase 7. When Phase 8 (Data Sync) lands, the CLI may surface sync
+  state, but no OAuth flow runs through the CLI itself.
 - MCP — **skipped.** No `yt:*` MCP tools call Google in Phase 7. (Phase 8
   introduces sync tools that consume `GoogleIdentity` server-side.)
 - Cloudflare Pages website — **skipped.** OAuth happens entirely on
@@ -304,25 +301,24 @@ https://myaccount.google.com/permissions if you want to re-test from scratch.
 
 1. **YouTube scope set.** Beta starts with `youtube.readonly` +
    `yt-analytics.readonly`. Phase 10 will need `youtube` (full read/write) +
-   `youtube.upload`. Should Phase 7 request the wider set up front to avoid
-   a re-consent later, or accept the re-consent in exchange for a smaller
-   blast radius now? The plan's `## In scope` says request the full set
-   (`youtube.readonly`, `youtube`, `yt-analytics.readonly`); this spec
-   defaults to the minimum and asks the master agent to confirm.
-2. **Refresh-token-absent on re-auth.** Google sometimes omits the refresh
-   token on a subsequent consent if the user previously granted offline
-   access. The spec preserves the previous refresh token in that case. Is
-   that the correct policy, or should we force `prompt: "consent"` to
-   guarantee a fresh refresh token on every re-auth (at the cost of an
-   extra user-visible consent screen)? Default in this spec: force
-   `prompt: "consent"`, accept the consent UX, refresh token is always
-   returned.
+   `youtube.upload`. Should Phase 7 request the wider set up front to avoid a
+   re-consent later, or accept the re-consent in exchange for a smaller blast
+   radius now? The plan's `## In scope` says request the full set
+   (`youtube.readonly`, `youtube`, `yt-analytics.readonly`); this spec defaults
+   to the minimum and asks the master agent to confirm.
+2. **Refresh-token-absent on re-auth.** Google sometimes omits the refresh token
+   on a subsequent consent if the user previously granted offline access. The
+   spec preserves the previous refresh token in that case. Is that the correct
+   policy, or should we force `prompt: "consent"` to guarantee a fresh refresh
+   token on every re-auth (at the cost of an extra user-visible consent screen)?
+   Default in this spec: force `prompt: "consent"`, accept the consent UX,
+   refresh token is always returned.
 3. **Google Cloud setup ownership.** The plan's `### Google Cloud setup`
    checklist lists six items. Are these the user's manual one-time tasks
-   (architect-spec records them in `docs/setup.md` for repeatability), or
-   should an agent automate any of them via `gcloud` CLI? Default
-   assumption: user does this by hand once, docs-keeper records the steps.
-4. **Sign-in flow target.** Phase 12 plugs real session establishment into
-   the sign-in callback path. Phase 7 leaves a TODO. Confirm the master
-   agent is OK with a TODO landing in this phase (alternative: gate the
-   sign-in route behind a feature flag until Phase 12).
+   (architect-spec records them in `docs/setup.md` for repeatability), or should
+   an agent automate any of them via `gcloud` CLI? Default assumption: user does
+   this by hand once, docs-keeper records the steps.
+4. **Sign-in flow target.** Phase 12 plugs real session establishment into the
+   sign-in callback path. Phase 7 leaves a TODO. Confirm the master agent is OK
+   with a TODO landing in this phase (alternative: gate the sign-in route behind
+   a feature flag until Phase 12).

@@ -170,6 +170,12 @@ jobs:
         run: cargo clippy --all-targets -- -D warnings
 
       - name: cargo audit
+        # The workspace lockfile lives at the repo root (`/Cargo.lock`), not
+        # under `extras/cli/`. `cargo build|test|clippy` walk up to find it,
+        # but `cargo audit` only reads `./Cargo.lock` from cwd. Override the
+        # job-level `working-directory: extras/cli` and run from the repo
+        # root so audit can locate the lockfile.
+        working-directory: ${{ github.workspace }}
         run: |
           cargo install --locked cargo-audit
           cargo audit
