@@ -32,11 +32,11 @@ puts u.sessions.unscoped.where(user_id: u.id).to_sql
 ```
 
 The `.unscoped + where(user_id:)` pattern was over-defensive copy-paste:
-`Current.user.sessions` already filters `WHERE user_id = ?` (association),
-and `BelongsToTenant`'s default scope adds `AND tenant_id = ?` — the natural
+`Current.user.sessions` already filters `WHERE user_id = ?` (association), and
+`BelongsToTenant`'s default scope adds `AND tenant_id = ?` — the natural
 association is **strictly more restrictive** than the workaround it replaced.
-The `.unscoped` opted OUT of the tenant filter the project's hard rule wants
-in place. The fix is to remove the workaround; no change to `BelongsToTenant`
+The `.unscoped` opted OUT of the tenant filter the project's hard rule wants in
+place. The fix is to remove the workaround; no change to `BelongsToTenant`
 itself was needed (the concern is correct as-is). The cross-tenant SQL
 verification confirms both `tenant_id` and `user_id` filters are now applied.
 
@@ -47,19 +47,18 @@ _Q1 — `Settings::SessionsController` `.unscoped` removal:_
 - `app/controllers/settings/sessions_controller.rb` — dropped the
   `.unscoped.where(user_id: Current.user.id)` chain from `#index`, `#revoke`,
   and `#destroy`. Now uses `Current.user.sessions.find(params[:id])` /
-  `Current.user.sessions.order(...)`. Header comment updated to record the
-  Phase 7.5 cleanup and the empirical reasoning.
+  `Current.user.sessions.order(...)`. Header comment updated to record the Phase
+  7.5 cleanup and the empirical reasoning.
 - `app/controllers/settings_controller.rb` — same pattern fix in the settings
   index pane's `@active_sessions_count` lookup; now
   `Current.user.sessions.where(revoked_at: nil).count`.
-- `spec/requests/settings/sessions_spec.rb` — added 3 cross-tenant /
-  cross-user regression specs ("does not surface another user's sessions in
-  the index", "raises RecordNotFound on revoke for a session belonging to
-  another user", "raises RecordNotFound on destroy for a session belonging
-  to another tenant"). The third spec plants a rogue Session row with
-  `Session.unscoped.create!` under a different tenant and asserts the
-  controller's natural scope hides it (returns 404 instead of touching the
-  row).
+- `spec/requests/settings/sessions_spec.rb` — added 3 cross-tenant / cross-user
+  regression specs ("does not surface another user's sessions in the index",
+  "raises RecordNotFound on revoke for a session belonging to another user",
+  "raises RecordNotFound on destroy for a session belonging to another tenant").
+  The third spec plants a rogue Session row with `Session.unscoped.create!`
+  under a different tenant and asserts the controller's natural scope hides it
+  (returns 404 instead of touching the row).
 
 _Q2 — `:unprocessable_entity` → `:unprocessable_content` broad sweep:_
 
@@ -81,9 +80,10 @@ _OmniAuth simplification:_
 - `config/initializers/omniauth.rb` — collapsed the
   `Rails.application.credentials.dig(:google_oauth, :client_id)` /
   `:client_secret` lookups into a single `credentials.google_oauth || {}`
-  binding with explicit early-fail (`raise "missing google_oauth credentials: …"`)
-  if either key is blank. The `:redirect_uri` lookup remains permissive — that
-  key IS optional in dev (the URL-string fallback is intentional, not dead).
+  binding with explicit early-fail
+  (`raise "missing google_oauth credentials: …"`) if either key is blank. The
+  `:redirect_uri` lookup remains permissive — that key IS optional in dev (the
+  URL-string fallback is intentional, not dead).
 
 _Channel Revamp orphan cleanup:_
 
@@ -91,14 +91,13 @@ _Channel Revamp orphan cleanup:_
 - DELETED `app/javascript/controllers/confirm_dialog_controller.js` (its
   Stimulus controller).
 - EDITED `app/components/bracketed_link_component.rb` — dropped the unused
-  `confirm:` kwarg from `#initialize`. Pre-deletion grep verified zero
-  callers in `app/` or `spec/` passed `confirm:` to the component.
+  `confirm:` kwarg from `#initialize`. Pre-deletion grep verified zero callers
+  in `app/` or `spec/` passed `confirm:` to the component.
 - EDITED `spec/components/bracketed_link_component_spec.rb` — dropped one
-  example asserting `confirm:` was accepted-and-ignored, simplified one
-  example that combined `destructive:` + `method:` + `confirm:` to the
-  two-arg variant.
-- `app/javascript/controllers/index.js` uses `eagerLoadControllersFrom` so
-  no manual registry entry needed unwiring.
+  example asserting `confirm:` was accepted-and-ignored, simplified one example
+  that combined `destructive:` + `method:` + `confirm:` to the two-arg variant.
+- `app/javascript/controllers/index.js` uses `eagerLoadControllersFrom` so no
+  manual registry entry needed unwiring.
 
 **Pipeline:**
 
@@ -112,45 +111,43 @@ _Channel Revamp orphan cleanup:_
 - Hard-rule greps:
   - `rg ':unprocessable_entity' app/` → zero matches.
   - `rg ':unprocessable_content' app/` → 26 matches.
-  - `grep -rn "_confirm_dialog\|confirm_dialog_controller" app/` → zero
-    matches.
+  - `grep -rn "_confirm_dialog\|confirm_dialog_controller" app/` → zero matches.
   - `grep -rn "BracketedLinkComponent.*confirm:" app/ spec/` → zero matches.
-- `bin/rails runner -e development 'puts "boot ok"'` and `-e test` both
-  print cleanly — no missing-credentials boot failure with the simplified
-  initializer; the early-fail path is exercised manually per the spec's
-  manual recipe.
+- `bin/rails runner -e development 'puts "boot ok"'` and `-e test` both print
+  cleanly — no missing-credentials boot failure with the simplified initializer;
+  the early-fail path is exercised manually per the spec's manual recipe.
 
 **Out of scope (intentionally not touched):**
 
 - Decorator slim resolution (Phase 7.5 spec 03).
 - CLI surfaces (Track B; spec 02 already landed).
 - Phase 5/6/7 OAuth surfaces (Api::AuthConcern, MCP RackApp, ApiToken,
-  GoogleIdentity, Doorkeeper, Youtube::*).
+  GoogleIdentity, Doorkeeper, Youtube::\*).
 - Phase 4 retracted features.
 - `BelongsToTenant` itself — the audit concluded it is correct as-is; the
   `.unscoped` workaround was the sole defect.
 
 **Open issues / follow-ups:**
 
-- None. The four items in this sweep all landed. The spec's "Follow-ups
-  created" section anticipated none, which matches the outcome.
+- None. The four items in this sweep all landed. The spec's "Follow-ups created"
+  section anticipated none, which matches the outcome.
 
 **Manual test plan handed back to the user:**
 
 1. `bin/dev` — Web Puma boots cleanly. No "missing google_oauth credentials"
    error.
 2. Sign in (`/login`), visit `/settings/sessions`, see your active sessions
-   listed with `(this session)` annotation. Open `[revoke]` on the
-   non-current row, confirm via the action screen, return to the index and
-   see it marked revoked.
-3. Visit `/settings/youtube`. Connect a Google account if not already
-   connected. Confirm OmniAuth still routes correctly.
+   listed with `(this session)` annotation. Open `[revoke]` on the non-current
+   row, confirm via the action screen, return to the index and see it marked
+   revoked.
+3. Visit `/settings/youtube`. Connect a Google account if not already connected.
+   Confirm OmniAuth still routes correctly.
 4. Disconnect the Google account, reconnect it. Both paths should behave
    identically to pre-sweep.
 5. (Optional) `bin/rails console` →
    `Rails.application.credentials.google_oauth.client_id` returns a non-nil
-   string. Temporarily move the key out of the credentials file (in a
-   scratch copy), boot the app, confirm Rails fails fast with the
+   string. Temporarily move the key out of the credentials file (in a scratch
+   copy), boot the app, confirm Rails fails fast with the
    `"missing google_oauth credentials"` message. Restore.
 
 ## References
@@ -159,7 +156,8 @@ _Channel Revamp orphan cleanup:_
   `docs/plans/beta/7.5-followups-and-foundations/specs/01-rails-hygiene-sweep.md`
 - Phase overview:
   `docs/plans/beta/7.5-followups-and-foundations/specs/00-phase-overview.md`
-- Sibling concern (root-caused, no change): `app/models/concerns/belongs_to_tenant.rb`
+- Sibling concern (root-caused, no change):
+  `app/models/concerns/belongs_to_tenant.rb`
 
 ## 2026-05-07 — Track C step 05 — `pito-assets` volume + `Pito::AssetsRoot`
 

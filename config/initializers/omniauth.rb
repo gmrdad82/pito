@@ -19,19 +19,26 @@ OmniAuth.config.on_failure = proc do |env|
   Auth::GoogleCallbacksController.action(:failure).call(env)
 end
 
-# Phase 7.5 — Step 01 hygiene sweep. Credentials are guaranteed populated
-# post-Phase-7 — the seed playbook walks the user through
-# `bin/rails credentials:edit` for the `:google_oauth` block before
-# anything else. Boot loudly with a clear message if either key is missing
-# rather than letting OmniAuth ride on `nil` and fail mysteriously at the
-# /auth/google entry point.
+# Phase 7.5 — Step 01 hygiene sweep. Three-tier resolver mirroring the
+# Phase 5 pepper pattern in `Pito::TokenDigest#pepper`: credentials first,
+# then ENV var, then a test-mode placeholder so CI can boot without
+# `master.key`. Boot loudly with a clear message if no tier resolves
+# rather than letting OmniAuth ride on `nil` and fail mysteriously at
+# the `/auth/google` entry point.
 google_oauth_credentials = Rails.application.credentials.google_oauth || {}
-google_oauth_client_id     = google_oauth_credentials[:client_id]
-google_oauth_client_secret = google_oauth_credentials[:client_secret]
+google_oauth_client_id =
+  google_oauth_credentials[:client_id] ||
+  ENV["PITO_GOOGLE_OAUTH_CLIENT_ID"] ||
+  (Rails.env.test? ? "test-google-oauth-client-id-not-a-secret" : nil)
+google_oauth_client_secret =
+  google_oauth_credentials[:client_secret] ||
+  ENV["PITO_GOOGLE_OAUTH_CLIENT_SECRET"] ||
+  (Rails.env.test? ? "test-google-oauth-client-secret-not-a-secret" : nil)
 
 if google_oauth_client_id.blank? || google_oauth_client_secret.blank?
   raise "missing google_oauth credentials: populate :google_oauth.client_id " \
-        "and :google_oauth.client_secret via `bin/rails credentials:edit`"
+        "and :google_oauth.client_secret via `bin/rails credentials:edit` " \
+        "(or set PITO_GOOGLE_OAUTH_CLIENT_ID / PITO_GOOGLE_OAUTH_CLIENT_SECRET)"
 end
 
 Rails.application.config.middleware.use OmniAuth::Builder do

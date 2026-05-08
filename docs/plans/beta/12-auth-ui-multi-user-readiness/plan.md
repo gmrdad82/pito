@@ -215,9 +215,9 @@ Theta will turn the flag on. Beta keeps single-user.
 - [x] Login form view matching `pito/docs/design.md` (bracketed buttons,
       monospace inputs)
 - [x] Generic error message on failed login
-- [x] Rack::Attack throttle on `/login`: 5 per IP per 5 minutes
-      (10/IP/5min, mirroring the Phase 5B failed-token-lookup pattern per the
-      6A locked decision)
+- [x] Rack::Attack throttle on `/login`: 5 per IP per 5 minutes (10/IP/5min,
+      mirroring the Phase 5B failed-token-lookup pattern per the 6A locked
+      decision)
 - [x] After login: redirect to intended URL preserved through the auth flow
 - [x] "Remember me" extends cookie expiry to 30 days
 - [x] Specs covering happy path, failed login, throttle, redirect preservation
@@ -237,13 +237,13 @@ Theta will turn the flag on. Beta keeps single-user.
 - [x] Migration: `sessions` table per the schema above
 - [x] Session cookie stores session ID; server-side User resolution
 - [x] Activity middleware updates `last_activity_at` (debounced, 5 min)
-- [x] Settings → Account → Active Sessions view
-      (lives at `/settings/sessions` — locked decision in 6A §5)
+- [x] Settings → Account → Active Sessions view (lives at `/settings/sessions` —
+      locked decision in 6A §5)
 - [x] Revoke action sets `revoked_at`; specs verify revoked sessions get 401 on
       next request
 - [ ] Optional UA parsing library (e.g., `useragent` gem) for friendly labels —
-      capture in `additions.md` if punted
-      (deferred per 6A §6.x — raw UA string for v1)
+      capture in `additions.md` if punted (deferred per 6A §6.x — raw UA string
+      for v1)
 - [x] Specs for session creation, expiry, revocation, activity update debouncing
 
 ### Settings → Account
@@ -273,18 +273,17 @@ Theta will turn the flag on. Beta keeps single-user.
 - [x] Configure scope mapping to Phase 3's catalog
 - [x] Configure PKCE-required for public clients
 - [x] Configure refresh token rotation
-- [x] Settings → "OAuth Applications" page (owner-only)
-      (`Current.user.present?` gating — owner role lands when multi-user
-      surfaces in a later step)
-- [ ] Pre-seeded `pito-sh` application registration
-      (deferred — seed mint of `pito-cli` is queued; the migration script
-      in `db/seeds.rb` was not extended in this dispatch to keep the seed
-      idempotency contract intact while the new tables stabilise)
+- [x] Settings → "OAuth Applications" page (owner-only) (`Current.user.present?`
+      gating — owner role lands when multi-user surfaces in a later step)
+- [ ] Pre-seeded `pito-sh` application registration (deferred — seed mint of
+      `pito-cli` is queued; the migration script in `db/seeds.rb` was not
+      extended in this dispatch to keep the seed idempotency contract intact
+      while the new tables stabilise)
 - [x] Authorization endpoint, token endpoint, refresh endpoint, revoke endpoint,
       introspect endpoint (Doorkeeper mounts all four)
 - [x] Specs cover full OAuth code+PKCE flow, refresh, revoke, introspect, scope
-      enforcement (introspect not yet covered — happy path covers
-      authorize / token / refresh / revoke)
+      enforcement (introspect not yet covered — happy path covers authorize /
+      token / refresh / revoke)
 
 ### `pito-sh` migration to Doorkeeper
 
