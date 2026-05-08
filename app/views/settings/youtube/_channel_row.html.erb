@@ -1,0 +1,41 @@
+<%# Phase 7 — Step C. One row per fetched YouTube channel.
+    Locals:
+      channel:   Hash from Youtube::Client (snake_case keys).
+      pito_channel: Channel record (or nil) matching the same URL. %>
+
+<% youtube_channel_id = channel[:id].to_s %>
+<% snippet = (channel[:snippet].is_a?(Hash) ? channel[:snippet] : {}) %>
+<% statistics = (channel[:statistics].is_a?(Hash) ? channel[:statistics] : {}) %>
+<% title = snippet[:title].to_s %>
+<% subscriber_count = statistics[:subscriber_count] || statistics["subscriberCount"] %>
+
+<tr>
+  <td style="font-family: monospace; font-size: 11px; color: #555;">
+    <%= youtube_channel_id %>
+  </td>
+  <td><%= title.presence || "(untitled)" %></td>
+  <td class="num">
+    <% if subscriber_count.present? %>
+      <%= number_with_delimiter(subscriber_count.to_i) %>
+    <% else %>
+      —
+    <% end %>
+  </td>
+  <td>
+    <% if pito_channel.present? && pito_channel.oauth_identity_id.present? %>
+      connected
+      <%= form_with url: deletions_path(type: "youtube_connection", ids: pito_channel.id),
+                    method: :get, data: { turbo: false },
+                    html: { style: "display: inline; margin-left: 8px;" } do %>
+        <button type="submit">[ disconnect ]</button>
+      <% end %>
+    <% else %>
+      <%= form_with url: settings_youtube_channels_path,
+                    method: :post, data: { turbo: false },
+                    html: { style: "display: inline;" } do %>
+        <input type="hidden" name="youtube_channel_id" value="<%= youtube_channel_id %>">
+        <button type="submit">[ connect ]</button>
+      <% end %>
+    <% end %>
+  </td>
+</tr>

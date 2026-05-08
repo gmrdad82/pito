@@ -24,7 +24,7 @@ class CollectionsController < ApplicationController
     if @collection.update(update_params)
       redirect_to collection_path(@collection), notice: "collection updated."
     else
-      render :show, status: :unprocessable_entity
+      render :show, status: :unprocessable_content
     end
   end
 

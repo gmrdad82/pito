@@ -88,8 +88,8 @@ impl Default for HttpClient {
 }
 
 impl PitoClient for HttpClient {
-    fn get_dashboard(&self, range: &str) -> Result<DashboardData> {
-        let url = self.url(&format!("/dashboard.json?range={}", range));
+    fn get_dashboard(&self) -> Result<DashboardData> {
+        let url = self.url("/dashboard.json");
         let response = self
             .client
             .get(&url)

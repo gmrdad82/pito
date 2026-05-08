@@ -1,6 +1,12 @@
 require "rails_helper"
 require_relative "../../../app/mcp/tools/update_channel"
 
+# Phase 7 Path A2 (literal full retract). The `connected` arg is gone
+# from update_channel — connection state is OAuth-managed via
+# /settings/youtube. additionalProperties: false on the schema rejects
+# unknown keys at the protocol layer; the tool body just no-ops on
+# anything other than `star` (and `channel_url` rejection survives as
+# defense in depth).
 RSpec.describe Mcp::Tools::UpdateChannel do
   it "updates star with yes string" do
     channel = create(:channel, star: false)
@@ -15,38 +21,6 @@ RSpec.describe Mcp::Tools::UpdateChannel do
     channel = create(:channel, :starred)
     described_class.call(id: channel.id, star: "no")
     expect(channel.reload.star).to eq(false)
-  end
-
-  it "rejects connected=yes with structured error and does NOT update connected" do
-    channel = create(:channel, connected: false)
-
-    result = described_class.call(id: channel.id, connected: "yes")
-
-    expect(result.to_h[:isError]).to be true
-    expect(result.content.first[:text]).to include("Cannot alter `connected` via MCP")
-    expect(channel.reload.connected).to eq(false)
-  end
-
-  it "rejects connected=no with structured error and does NOT update connected" do
-    channel = create(:channel, connected: true)
-
-    result = described_class.call(id: channel.id, connected: "no")
-
-    expect(result.to_h[:isError]).to be true
-    expect(result.content.first[:text]).to include("Cannot alter `connected` via MCP")
-    expect(channel.reload.connected).to eq(true)
-  end
-
-  it "rejects star+connected together atomically — neither field changes" do
-    channel = create(:channel, star: false, connected: false)
-
-    result = described_class.call(id: channel.id, star: "yes", connected: "yes")
-
-    expect(result.to_h[:isError]).to be true
-    expect(result.content.first[:text]).to include("Cannot alter `connected` via MCP")
-    channel.reload
-    expect(channel.star).to eq(false)
-    expect(channel.connected).to eq(false)
   end
 
   it "rejects star=true (raw boolean) with structured error" do
@@ -82,7 +56,7 @@ RSpec.describe Mcp::Tools::UpdateChannel do
   end
 
   it "returns error for missing channel" do
-    result = described_class.call(id: 99999, star: true)
+    result = described_class.call(id: 99999, star: "yes")
     expect(result.to_h[:isError]).to be true
     expect(result.content.first[:text]).to include("not found")
   end

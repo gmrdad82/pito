@@ -1,6 +1,7 @@
-<%# Phase B revamp (2026-05-06) — root is the `.pane` (640px, alternating
-    A/B zebra background). Optional `header:` local lets the panes.html.erb
-    workspace inject the per-pane heading + reorder arrows. %>
+<%# Phase 7 Path A2 (literal full retract). Video is a thin
+    YouTube-reference record. The pane shows id, youtube ID, channel
+    URL, last sync, oauth identity (if connected), and the recent
+    stats table. %>
 <% header = local_assigns[:header] %>
 <% pane_extra_class = local_assigns.fetch(:pane_extra_class, "") %>
 <% pane_style = local_assigns.fetch(:pane_style, nil) %>
@@ -13,26 +14,31 @@
     </tr>
     <tr>
       <td class="text-muted" style="padding-right: 12px;">channel</td>
-      <td><%= truncate(video.channel.channel_url, length: 50, omission: "…") %></td>
+      <td>
+        <a href="<%= video.channel.channel_url %>" target="_blank" rel="noopener noreferrer"><%= truncate(video.channel.channel_url, length: 50, omission: "…") %></a>
+      </td>
     </tr>
     <tr>
-      <td class="text-muted" style="padding-right: 12px;">privacy</td>
-      <td><%= video.privacy_status&.sub("_video", "") || "—" %></td>
+      <td class="text-muted" style="padding-right: 12px;">starred</td>
+      <td><%= video.star? ? "yes" : "no" %></td>
     </tr>
     <tr>
-      <td class="text-muted" style="padding-right: 12px;">published</td>
-      <td><%= video.published_at&.strftime("%Y-%m-%d %H:%M") || "—" %></td>
+      <td class="text-muted" style="padding-right: 12px;">connected</td>
+      <td>
+        <% if video.oauth_identity_id.present? %>
+          yes
+          <% if video.oauth_identity&.email.present? %>
+            <span class="text-muted">(<%= video.oauth_identity.email %>)</span>
+          <% end %>
+        <% else %>
+          no
+        <% end %>
+      </td>
     </tr>
     <tr>
-      <td class="text-muted" style="padding-right: 12px;">duration</td>
-      <td><%= format_duration(video.duration_seconds) %></td>
+      <td class="text-muted" style="padding-right: 12px;">last sync</td>
+      <td><%= compact_time_ago(video.last_synced_at) %></td>
     </tr>
-    <% if video.description.present? %>
-      <tr>
-        <td class="text-muted" style="padding-right: 12px;">description</td>
-        <td><%= video.description %></td>
-      </tr>
-    <% end %>
   </table>
 
   <% stats = video.video_stats.order(date: :desc).limit(30) %>

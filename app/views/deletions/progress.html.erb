@@ -21,15 +21,12 @@
         <th class="num">connected</th>
         <th class="num">videos</th>
       <% else %>
-        <th>title</th>
+        <th>youtube id</th>
         <th>channel</th>
         <th class="num">views</th>
         <th class="num">likes</th>
         <th class="num">chats</th>
         <th class="num">watch</th>
-        <th class="num">state</th>
-        <th class="num">date</th>
-        <th class="num">length</th>
       <% end %>
     </tr>
   </thead>
@@ -41,20 +38,17 @@
         <% if @type == "channel" && item %>
           <td title="<%= item.channel_url %>" style="max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><%= item.channel_url %></td>
           <td class="num"><%= item.star? ? "yes" : "no" %></td>
-          <td class="num"><%= item.connected? ? "yes" : "no" %></td>
+          <td class="num"><%= item.oauth_identity_id.present? ? "yes" : "no" %></td>
           <td class="num"><%= number_with_delimiter(item.videos.count) %></td>
         <% elsif @type == "video" && item %>
-          <td style="max-width: 280px; overflow: hidden; text-overflow: ellipsis;"><%= item.title %></td>
+          <td><%= item.youtube_video_id %></td>
           <td><%= item.channel&.channel_url %></td>
           <td class="num"><%= number_with_delimiter(item.total_views) %></td>
           <td class="num"><%= number_with_delimiter(item.total_likes) %></td>
           <td class="num"><%= number_with_delimiter(item.total_comments) %></td>
           <td class="num"><%= format_video_watch_time(item.total_watch_time) %></td>
-          <td class="num"><%= item.privacy_status&.sub("_video", "") || "—" %></td>
-          <td class="num"><%= item.published_at&.strftime("%Y-%m-%d") %></td>
-          <td class="num"><%= format_duration(item.duration_seconds) %></td>
         <% else %>
-          <td colspan="9">(unknown)</td>
+          <td colspan="6">(unknown)</td>
         <% end %>
       </tr>
     <% end %>

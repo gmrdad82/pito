@@ -75,21 +75,21 @@ fn handle_search_input(app: &mut App, key: KeyEvent) {
         KeyCode::Enter => {
             app.perform_search();
         }
-        KeyCode::Backspace
-            if app.search_state.cursor_pos > 0 => {
-                app.search_state.cursor_pos -= 1;
-                app.search_state.query.remove(app.search_state.cursor_pos);
-                app.perform_search();
-            }
+        KeyCode::Backspace if app.search_state.cursor_pos > 0 => {
+            app.search_state.cursor_pos -= 1;
+            app.search_state.query.remove(app.search_state.cursor_pos);
+            app.perform_search();
+        }
         KeyCode::Down => {
             app.search_state.selected_row += 1;
         }
-        KeyCode::Up
-            if app.search_state.selected_row > 0 => {
-                app.search_state.selected_row -= 1;
-            }
+        KeyCode::Up if app.search_state.selected_row > 0 => {
+            app.search_state.selected_row -= 1;
+        }
         KeyCode::Char(c) => {
-            app.search_state.query.insert(app.search_state.cursor_pos, c);
+            app.search_state
+                .query
+                .insert(app.search_state.cursor_pos, c);
             app.search_state.cursor_pos += 1;
             app.perform_search();
         }
@@ -98,44 +98,9 @@ fn handle_search_input(app: &mut App, key: KeyEvent) {
 }
 
 fn handle_normal(app: &mut App, key: KeyEvent) {
-    // Dashboard-specific range keys
-    if app.screen == Screen::Dashboard {
-        match key.code {
-            KeyCode::Char('1') => {
-                set_dashboard_range(app, 0);
-                return;
-            }
-            KeyCode::Char('2') => {
-                set_dashboard_range(app, 1);
-                return;
-            }
-            KeyCode::Char('3') => {
-                set_dashboard_range(app, 2);
-                return;
-            }
-            KeyCode::Char('4') => {
-                set_dashboard_range(app, 3);
-                return;
-            }
-            KeyCode::Char('5') => {
-                set_dashboard_range(app, 4);
-                return;
-            }
-            KeyCode::Char('h') | KeyCode::Left => {
-                if app.dashboard_state.range_index > 0 {
-                    set_dashboard_range(app, app.dashboard_state.range_index - 1);
-                }
-                return;
-            }
-            KeyCode::Char('l') | KeyCode::Right => {
-                if app.dashboard_state.range_index < crate::app::RANGES.len() - 1 {
-                    set_dashboard_range(app, app.dashboard_state.range_index + 1);
-                }
-                return;
-            }
-            _ => {}
-        }
-    }
+    // The dashboard collapsed to a counts-only summary in May 2026; the
+    // chart toolbar (and its 1..5 / h / l range keys) went away with it.
+    // Range-tied keybindings have intentionally been removed.
 
     // Channels-screen specific keys (must run before generic q/etc.)
     if app.screen == Screen::Channels {
@@ -262,7 +227,9 @@ fn handle_g_prefix(app: &mut App, key: KeyEvent) {
 
 fn handle_colon_prefix(app: &mut App, key: KeyEvent) {
     app.key_state = KeyState::Normal;
-    if let KeyCode::Char('q') = key.code { app.quit() }
+    if let KeyCode::Char('q') = key.code {
+        app.quit()
+    }
 }
 
 fn handle_filter_prefix(app: &mut App, key: KeyEvent) {
@@ -270,10 +237,12 @@ fn handle_filter_prefix(app: &mut App, key: KeyEvent) {
     if app.screen != Screen::Channels {
         return;
     }
+    // Path A2 retract: there's no `syncing` boolean on the wire any more, so
+    // the `f y` filter chip is gone. Only `f s` (starred) and `f c`
+    // (connected) remain.
     let next = match key.code {
         KeyCode::Char('s') => Some(ChannelFilter::Starred),
         KeyCode::Char('c') => Some(ChannelFilter::Connected),
-        KeyCode::Char('y') => Some(ChannelFilter::Syncing),
         _ => None,
     };
     if let Some(target) = next {
@@ -330,30 +299,29 @@ fn handle_move_down(app: &mut App) {
 
 fn handle_move_up(app: &mut App) {
     match app.screen {
-        Screen::Channels
-            if app.channels_state.selected > 0 => {
-                app.channels_state.selected -= 1;
-            }
-        Screen::Videos
-            if app.videos_state.selected > 0 => {
-                app.videos_state.selected -= 1;
-            }
+        Screen::Channels if app.channels_state.selected > 0 => {
+            app.channels_state.selected -= 1;
+        }
+        Screen::Videos if app.videos_state.selected > 0 => {
+            app.videos_state.selected -= 1;
+        }
         Screen::ChannelDetail => {
             if let Some(ref mut state) = app.channel_detail_state
-                && state.video_selected > 0 {
-                    state.video_selected -= 1;
-                }
+                && state.video_selected > 0
+            {
+                state.video_selected -= 1;
+            }
         }
         Screen::VideoDetail => {
             if let Some(ref mut state) = app.video_detail_state
-                && state.stats_selected > 0 {
-                    state.stats_selected -= 1;
-                }
-        }
-        Screen::SavedViews
-            if app.saved_views_state.selected > 0 => {
-                app.saved_views_state.selected -= 1;
+                && state.stats_selected > 0
+            {
+                state.stats_selected -= 1;
             }
+        }
+        Screen::SavedViews if app.saved_views_state.selected > 0 => {
+            app.saved_views_state.selected -= 1;
+        }
         _ => {}
     }
 }
@@ -399,14 +367,15 @@ fn handle_space(app: &mut App) {
         }
         Screen::Videos => {
             if app.videos_state.bulk_mode
-                && let Some(video) = app.videos_state.videos.get(app.videos_state.selected) {
-                    let id = video.id;
-                    if app.videos_state.selected_ids.contains(&id) {
-                        app.videos_state.selected_ids.retain(|&x| x != id);
-                    } else {
-                        app.videos_state.selected_ids.push(id);
-                    }
+                && let Some(video) = app.videos_state.videos.get(app.videos_state.selected)
+            {
+                let id = video.id;
+                if app.videos_state.selected_ids.contains(&id) {
+                    app.videos_state.selected_ids.retain(|&x| x != id);
+                } else {
+                    app.videos_state.selected_ids.push(id);
                 }
+            }
         }
         _ => {}
     }
@@ -450,14 +419,6 @@ fn handle_esc(app: &mut App) {
         _ => {
             app.overlay = None;
         }
-    }
-}
-
-fn set_dashboard_range(app: &mut App, index: usize) {
-    if index < crate::app::RANGES.len() {
-        app.dashboard_state.range_index = index;
-        app.dashboard_state.range = crate::app::RANGES[index].to_string();
-        app.reload_dashboard();
     }
 }
 

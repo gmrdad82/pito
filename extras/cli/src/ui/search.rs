@@ -25,15 +25,18 @@ pub struct SearchResultsData {
     pub took_ms: f64,
 }
 
+/// Path A2 retract: search hits no longer carry title / privacy / duration.
+/// The TUI shows the youtube id, the parent channel, and the running view
+/// count — what's actually on the wire.
 pub struct SearchVideoHit {
     /// Reserved for upcoming row-click navigation (Enter opens the video).
     #[allow(dead_code)]
     pub id: u64,
-    pub title: String,
+    pub youtube_video_id: String,
     pub channel_id: u64,
     pub channel_url: Option<String>,
-    pub privacy_status: String,
-    pub duration_seconds: u32,
+    pub star: bool,
+    pub views: u64,
 }
 
 /// Section selector. The Channels branch was dropped (see channel-revamp spec)
@@ -71,7 +74,10 @@ pub fn render(frame: &mut Frame, area: Rect, theme: &Theme, state: &SearchState)
     if let Some(ref results) = state.results {
         let summary = Line::from(vec![
             Span::styled("  results for ", Style::default().fg(theme.muted)),
-            Span::styled(format!("\"{}\"", state.query), Style::default().fg(theme.fg)),
+            Span::styled(
+                format!("\"{}\"", state.query),
+                Style::default().fg(theme.fg),
+            ),
             Span::styled(
                 format!(
                     " — {} video{} ({:.0}ms)",
@@ -134,8 +140,8 @@ fn render_results(
         Span::styled("  ", Style::default().fg(theme.muted)),
         Span::styled(
             format!(
-                "{:<24} {:<20} {:<6} {:>6}",
-                "title", "channel", "state", "length"
+                "{:<14} {:<22} {:<3} {:>10}",
+                "youtube id", "channel", "★", "views"
             ),
             Style::default().fg(theme.muted),
         ),
@@ -148,19 +154,21 @@ fn render_results(
 
     for (i, video) in results.videos.iter().enumerate() {
         let is_selected = i == state.selected_row;
-        let title_truncated = truncate_str(&video.title, 24);
+        let yt_truncated = truncate_str(&video.youtube_video_id, 14);
         let channel_label = video
             .channel_url
             .as_deref()
             .map(crate::ui::channel_detail::short_url)
             .unwrap_or_else(|| format!("#{}", video.channel_id));
-        let channel_truncated = truncate_str(&channel_label, 20);
-        let privacy = abbreviate_privacy(&video.privacy_status);
-        let duration = format_duration(video.duration_seconds);
+        let channel_truncated = truncate_str(&channel_label, 22);
+        let star_marker = if video.star { "★" } else { " " };
 
         let row_text = format!(
-            "{:<24} {:<20} {:<6} {:>6}",
-            title_truncated, channel_truncated, privacy, duration,
+            "{:<14} {:<22} {:<3} {:>10}",
+            yt_truncated,
+            channel_truncated,
+            star_marker,
+            format_number(video.views),
         );
 
         let style = if is_selected {
@@ -195,10 +203,19 @@ fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
     .split(popup_layout[1])[1]
 }
 
-fn format_duration(seconds: u32) -> String {
-    let m = seconds / 60;
-    let s = seconds % 60;
-    format!("{:02}:{:02}", m, s)
+fn format_number(n: u64) -> String {
+    if n == 0 {
+        return "0".to_string();
+    }
+    let s = n.to_string();
+    let mut result = String::with_capacity(s.len() + s.len() / 3);
+    for (i, ch) in s.chars().rev().enumerate() {
+        if i > 0 && i % 3 == 0 {
+            result.push(',');
+        }
+        result.push(ch);
+    }
+    result.chars().rev().collect()
 }
 
 fn truncate_str(s: &str, max: usize) -> String {
@@ -210,14 +227,5 @@ fn truncate_str(s: &str, max: usize) -> String {
     } else {
         let prefix: String = chars.iter().take(max - 3).collect();
         format!("{}...", prefix)
-    }
-}
-
-fn abbreviate_privacy(status: &str) -> &str {
-    match status {
-        "public" => "pub",
-        "private" => "priv",
-        "unlisted" => "unl",
-        _ => status,
     }
 }

@@ -1,5 +1,0 @@
-<div class="dot-list" style="margin-bottom: 12px;">
-  <% ranges.each do |range| %>
-    <%= render(BracketedLinkComponent.new(label: range, href: path_for(range), active: active?(range))) %>
-  <% end %>
-</div>

@@ -127,10 +127,7 @@ fn render_body(frame: &mut Frame, area: Rect, theme: &Theme, state: &Confirmatio
         let mut spans: Vec<Span> = Vec::new();
         spans.push(Span::raw("  "));
         if item.will_be_skipped {
-            spans.push(Span::styled(
-                "[skip] ",
-                Style::default().fg(theme.danger),
-            ));
+            spans.push(Span::styled("[skip] ", Style::default().fg(theme.danger)));
             spans.push(Span::styled(label, Style::default().fg(theme.muted)));
         } else {
             let bullet = match state.kind {
@@ -278,14 +275,8 @@ mod tests {
         };
         assert_eq!(key_outcome('y', &state), Some(ConfirmationOutcome::Proceed));
         assert_eq!(key_outcome('Y', &state), Some(ConfirmationOutcome::Proceed));
-        assert_eq!(
-            key_outcome('n', &state),
-            Some(ConfirmationOutcome::Cancel)
-        );
-        assert_eq!(
-            key_outcome(' ', &state),
-            Some(ConfirmationOutcome::Cancel)
-        );
+        assert_eq!(key_outcome('n', &state), Some(ConfirmationOutcome::Cancel));
+        assert_eq!(key_outcome(' ', &state), Some(ConfirmationOutcome::Cancel));
     }
 
     #[test]

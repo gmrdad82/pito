@@ -39,9 +39,12 @@ class SavedView < ApplicationRecord
   def label_for(entity)
     return nil if entity.nil?
 
+    # Phase 7 Path A2 — both Channel and Video are thin
+    # YouTube-reference records now. The id is the only stable
+    # display attribute on either class.
     case kind
     when "channels" then entity.id.to_s
-    when "videos"   then entity.title
+    when "videos"   then entity.id.to_s
     end
   end
 

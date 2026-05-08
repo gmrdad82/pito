@@ -1,9 +1,9 @@
 use ratatui::{
+    Frame,
     layout::Rect,
     style::Style,
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
-    Frame,
 };
 
 use crate::theme::Theme;
@@ -59,14 +59,20 @@ fn section_header<'a>(title: &'a str, theme: &Theme) -> Line<'a> {
 
 fn kv_line<'a>(key: &'a str, value: &'a str, theme: &Theme) -> Line<'a> {
     Line::from(vec![
-        Span::styled(format!("    {:<20} ", key), Style::default().fg(theme.muted)),
+        Span::styled(
+            format!("    {:<20} ", key),
+            Style::default().fg(theme.muted),
+        ),
         Span::styled(value, Style::default().fg(theme.fg)),
     ])
 }
 
 fn kv_line_span<'a>(key: &'a str, value: Span<'a>, theme: &Theme) -> Line<'a> {
     Line::from(vec![
-        Span::styled(format!("    {:<20} ", key), Style::default().fg(theme.muted)),
+        Span::styled(
+            format!("    {:<20} ", key),
+            Style::default().fg(theme.muted),
+        ),
         value,
     ])
 }

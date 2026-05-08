@@ -132,7 +132,9 @@ fn render_status_line(frame: &mut Frame, area: Rect, theme: &Theme, p: &Operatio
         Span::styled("status: ", Style::default().fg(theme.muted)),
         Span::styled(
             status.to_string(),
-            Style::default().fg(status_color).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(status_color)
+                .add_modifier(Modifier::BOLD),
         ),
         Span::raw("   "),
         Span::styled("progress: ", Style::default().fg(theme.muted)),
@@ -237,7 +239,13 @@ fn render_item_list(
 
     let mut lines: Vec<Line<'static>> = Vec::with_capacity(max_rendered + 1);
     for item in status.items.iter().take(max_rendered) {
-        lines.push(render_item_line(item, progress.tick, channels, theme, url_budget));
+        lines.push(render_item_line(
+            item,
+            progress.tick,
+            channels,
+            theme,
+            url_budget,
+        ));
     }
 
     if items_total > max_rendered {
@@ -291,11 +299,7 @@ fn lookup_url(target_id: u64, channels: &[ChannelRow]) -> String {
 
 /// Compute the indicator text + style for a single item. Pending items render
 /// as the active loader frame; terminal items render as a bracketed marker.
-pub fn render_item_indicator(
-    item: &BulkOperationItem,
-    tick: u8,
-    theme: &Theme,
-) -> (String, Style) {
+pub fn render_item_indicator(item: &BulkOperationItem, tick: u8, theme: &Theme) -> (String, Style) {
     match item.status.as_str() {
         "succeeded" => ("[done]".to_string(), Style::default().fg(theme.success)),
         "failed" => ("[fail]".to_string(), Style::default().fg(theme.danger)),
@@ -417,7 +421,6 @@ mod tests {
             channel_url: url.to_string(),
             star: false,
             connected: false,
-            syncing: false,
             last_synced_at: None,
         }
     }
@@ -602,11 +605,26 @@ mod tests {
             completed_at: None,
         });
         let channels = vec![
-            channel(10, "https://www.youtube.com/channel/UC_AAAAAAAAAAAAAAAAAAAA"),
-            channel(11, "https://www.youtube.com/channel/UC_BBBBBBBBBBBBBBBBBBBB"),
-            channel(12, "https://www.youtube.com/channel/UC_CCCCCCCCCCCCCCCCCCCC"),
-            channel(13, "https://www.youtube.com/channel/UC_DDDDDDDDDDDDDDDDDDDD"),
-            channel(14, "https://www.youtube.com/channel/UC_EEEEEEEEEEEEEEEEEEEE"),
+            channel(
+                10,
+                "https://www.youtube.com/channel/UC_AAAAAAAAAAAAAAAAAAAA",
+            ),
+            channel(
+                11,
+                "https://www.youtube.com/channel/UC_BBBBBBBBBBBBBBBBBBBB",
+            ),
+            channel(
+                12,
+                "https://www.youtube.com/channel/UC_CCCCCCCCCCCCCCCCCCCC",
+            ),
+            channel(
+                13,
+                "https://www.youtube.com/channel/UC_DDDDDDDDDDDDDDDDDDDD",
+            ),
+            channel(
+                14,
+                "https://www.youtube.com/channel/UC_EEEEEEEEEEEEEEEEEEEE",
+            ),
         ];
 
         let buf = render_to_buffer(&progress, &channels, 100, 30);
@@ -650,7 +668,11 @@ mod tests {
 
         let buf = render_to_buffer(&progress, &channels, 80, 24);
         let dump = buffer_to_string(&buf);
-        assert!(dump.contains("2/5"), "expected gauge label '2/5':\n{}", dump);
+        assert!(
+            dump.contains("2/5"),
+            "expected gauge label '2/5':\n{}",
+            dump
+        );
     }
 
     #[test]
@@ -658,8 +680,7 @@ mod tests {
         // With many items and a tight overlay height, the list should show a
         // "+N more" hint rather than overflowing past the overlay border.
         let mut progress = OperationProgress::new(1, "bulk_delete");
-        let items: Vec<BulkOperationItem> =
-            (0..20u64).map(|i| item(100 + i, "pending")).collect();
+        let items: Vec<BulkOperationItem> = (0..20u64).map(|i| item(100 + i, "pending")).collect();
         progress.last_status = Some(BulkOperationStatus {
             id: 1,
             kind: "bulk_delete".to_string(),

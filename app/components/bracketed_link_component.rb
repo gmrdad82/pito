@@ -1,18 +1,16 @@
 class BracketedLinkComponent < ViewComponent::Base
-  # `confirm:` is intentionally unused here. The project rule forbids
-  # `window.confirm` / `data-turbo-confirm`. Destructive flows go through
-  # either the action confirmation page framework (/deletions, /syncs) or
-  # an in-page modal via ConfirmModalComponent + modal-trigger controller.
-  # The kwarg is preserved so existing call sites do not raise; track
-  # for removal once all callers have migrated.
-  def initialize(label:, href: nil, destructive: false, method: nil, data: {}, active: false, confirm: nil, target: nil, rel: nil)
+  # Phase 7.5 — Step 01 hygiene sweep dropped the deprecated `confirm:`
+  # kwarg. The project rule forbids `window.confirm` / `data-turbo-confirm`;
+  # destructive flows go through either the action confirmation page
+  # framework (/deletions, /syncs) or an in-page modal via
+  # ConfirmModalComponent + modal-trigger controller.
+  def initialize(label:, href: nil, destructive: false, method: nil, data: {}, active: false, target: nil, rel: nil)
     @label = label
     @href = href
     @destructive = destructive
     @method = method
     @data = data
     @active = active
-    @confirm = confirm # deprecated, no longer rendered
     @target = target
     @rel = rel
   end

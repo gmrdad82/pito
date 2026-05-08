@@ -1,0 +1,68 @@
+<% content_for(:title, @application.name) %>
+<% breadcrumb(["settings", settings_path], ["oauth applications", settings_oauth_applications_path], @application.name) %>
+
+<div style="margin-bottom: 8px;">
+  <h1><%= @application.name %></h1>
+  <p class="text-muted" style="margin-top: 2px;">
+    read-only detail. revoke the application from the index to cascade-revoke
+    all of its tokens.
+  </p>
+</div>
+
+<table class="detail-table" style="margin-bottom: 12px;">
+  <tr>
+    <td class="text-muted">client_id</td>
+    <td><code><%= @application.uid %></code></td>
+  </tr>
+  <tr>
+    <td class="text-muted">redirect URIs</td>
+    <td>
+      <% @application.redirect_uri.to_s.split("\n").each do |uri| %>
+        <code><%= uri %></code><br>
+      <% end %>
+    </td>
+  </tr>
+  <tr>
+    <td class="text-muted">scopes</td>
+    <td><code><%= @application.scopes %></code></td>
+  </tr>
+  <tr>
+    <td class="text-muted">confidential</td>
+    <td><%= @application.confidential? ? "yes" : "no" %></td>
+  </tr>
+  <tr>
+    <td class="text-muted">created</td>
+    <td><%= @application.created_at.strftime("%Y-%m-%d %H:%M") %></td>
+  </tr>
+</table>
+
+<h2>active tokens (<%= number_with_delimiter(@active_tokens.count) %>)</h2>
+<% if @active_tokens.any? %>
+  <table>
+    <thead>
+      <tr>
+        <th class="num">resource owner</th>
+        <th>scopes</th>
+        <th class="num">created</th>
+        <th class="num">expires</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @active_tokens.each do |t| %>
+        <tr>
+          <td class="num"><%= t.resource_owner_id %></td>
+          <td><code><%= t.scopes %></code></td>
+          <td class="num"><%= t.created_at.strftime("%Y-%m-%d %H:%M") %></td>
+          <td class="num"><%= (t.created_at + (t.expires_in || 0)).strftime("%Y-%m-%d %H:%M") %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% else %>
+  <p class="text-muted">no active tokens.</p>
+<% end %>
+
+<div class="dot-list" style="margin-top: 12px;">
+  <%= render(BracketedLinkComponent.new(label: "back", href: settings_oauth_applications_path)) %>
+  <%= render(BracketedLinkComponent.new(label: "revoke application", href: revoke_settings_oauth_application_path(@application), destructive: true)) %>
+</div>

@@ -10,7 +10,8 @@
           <thead>
             <tr>
               <th class="col-action"></th>
-              <th>title</th>
+              <th>id</th>
+              <th>youtube id</th>
               <th>channel</th>
             </tr>
           </thead>
@@ -21,7 +22,8 @@
                   <% new_ids = [current_ids, video.id].reject(&:blank?).join(",") %>
                   <%= render(BracketedLinkComponent.new(label: "+", href: "#{panes_videos_path}?ids=#{new_ids}")) %>
                 </td>
-                <td><%= truncate(video.title, length: 40, omission: "…") %></td>
+                <td class="num"><%= video.id %></td>
+                <td><%= video.youtube_video_id %></td>
                 <td><%= truncate(video.channel.channel_url, length: 40, omission: "…") %></td>
               </tr>
             <% end %>

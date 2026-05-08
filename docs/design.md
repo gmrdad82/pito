@@ -145,6 +145,13 @@ Chart grid lines: `--color-chart-grid` (#eeeeee light, #44475a dark) Tooltip:
 - **Red is reserved for destructive/dangerous operations only.** Never use red
   in charts, indicators, or decorative elements. Red signals "this action is
   irreversible or harmful."
+- **Exception — failure-state banners.** Red is permitted for failure-state
+  banners (e.g., the `needs_reauth` Google identity banner introduced in Phase
+  7). Failure states are conceptually adjacent to destructive/dangerous outcomes
+  — they signal "something is wrong and your action is required to recover."
+  This carve-out is intentional and bounded; it does NOT extend to neutral
+  status indicators, decorative emphasis, or chart series. Originating decision:
+  `docs/plans/beta/07-google-oauth-youtube-foundation/specs/7c-settings-youtube-ui.md`.
 - Charts use the `--color-chart-N` palette. If more colors are needed, extend
   with non-red colors.
 - All inline styles must use CSS variables, not hex values, for theme

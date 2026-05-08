@@ -2,7 +2,7 @@ module Mcp
   module Tools
     class GetVideo < MCP::Tool
       tool_name "get_video"
-      description "Get detailed video info including description, tags, category, language, and last 30 days of daily stats."
+      description "Get detailed video info: id, youtube_video_id, channel, star, last_synced_at, and last 30 days of daily stats. Phase 7 Path A2: metadata fields (title, description, tags, etc.) are gone."
 
       input_schema(
         type: "object",

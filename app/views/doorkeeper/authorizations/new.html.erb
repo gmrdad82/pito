@@ -1,0 +1,52 @@
+<% content_for(:title, "authorize application") %>
+
+<div style="max-width: 560px; margin: 24px auto;">
+  <h1>authorize <%= @pre_auth.client.name %></h1>
+  <p class="text-muted" style="margin-top: 2px;">
+    <code><%= @pre_auth.client.name %></code> is requesting access to your pito
+    account. review the permissions below.
+  </p>
+
+  <% if @pre_auth.scopes.count > 0 %>
+    <div style="margin: 16px 0;">
+      <h2 style="margin-bottom: 6px;">requested scopes</h2>
+      <ul style="list-style: none; padding-left: 0;">
+        <% @pre_auth.scopes.each do |scope| %>
+          <li style="margin-bottom: 4px;">
+            <code><%= scope %></code>
+            <% if Scopes::DESCRIPTIONS[scope] %>
+              <span class="text-muted">&mdash; <%= Scopes::DESCRIPTIONS[scope] %></span>
+            <% end %>
+          </li>
+        <% end %>
+      </ul>
+    </div>
+  <% end %>
+
+  <table class="detail-table" style="margin-bottom: 16px;">
+    <tr>
+      <td class="text-muted">redirect URI</td>
+      <td><code><%= @pre_auth.redirect_uri %></code></td>
+    </tr>
+    <tr>
+      <td class="text-muted">client_id</td>
+      <td><code><%= @pre_auth.client.uid %></code></td>
+    </tr>
+  </table>
+
+  <%= form_tag oauth_authorization_path, method: :post, data: { turbo: false } do %>
+    <%= hidden_field_tag :client_id, @pre_auth.client.uid, id: nil %>
+    <%= hidden_field_tag :redirect_uri, @pre_auth.redirect_uri, id: nil %>
+    <%= hidden_field_tag :state, @pre_auth.state, id: nil %>
+    <%= hidden_field_tag :response_type, @pre_auth.response_type, id: nil %>
+    <%= hidden_field_tag :response_mode, @pre_auth.response_mode, id: nil %>
+    <%= hidden_field_tag :scope, @pre_auth.scope, id: nil %>
+    <%= hidden_field_tag :code_challenge, @pre_auth.code_challenge, id: nil %>
+    <%= hidden_field_tag :code_challenge_method, @pre_auth.code_challenge_method, id: nil %>
+
+    <div class="dot-list">
+      <button type="submit">[authorize]</button>
+      <%= render(BracketedLinkComponent.new(label: "cancel", href: root_path)) %>
+    </div>
+  <% end %>
+</div>

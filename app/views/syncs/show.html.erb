@@ -1,16 +1,15 @@
 <% content_for(:title, "sync #{@type.pluralize}") %>
 <% breadcrumb([@type.pluralize, cancel_path_for(@type)], "sync #{number_with_delimiter(@items.length)} #{@type}#{'s' if @items.length != 1}") %>
 
-<% all_skipped = (@already_syncing || []).length == @items.length %>
-<% any_skipped = (@already_syncing || []).length > 0 %>
+<%# Phase 7 Path A2 (literal full retract). The legacy `syncing` /
+    `connected` columns are gone; the partition into already-syncing
+    skipped rows goes away. The action button is always enabled when
+    there is at least one item. %>
 
 <div id="sync-content">
   <div style="margin-bottom: 8px;">
     <h1>sync <%= number_with_delimiter(@items.length) %> <%= @type %><%= 's' if @items.length != 1 %></h1>
     <p class="text-muted" style="margin-top: 2px;">just kicking off the sync — won't take long.</p>
-    <% if any_skipped && !all_skipped %>
-      <p class="text-muted" style="margin-top: 2px;">still on it from earlier — we'll skip the highlighted ones.</p>
-    <% end %>
   </div>
 
   <table>
@@ -21,10 +20,9 @@
         <% when "channel" %>
           <th>URL</th>
           <th class="num">starred</th>
-          <th class="num">connected</th>
           <th class="num">last sync</th>
         <% when "video" %>
-          <th>title</th>
+          <th>youtube id</th>
           <th>channel</th>
         <% when "project", "collection" %>
           <th>name</th>
@@ -35,37 +33,23 @@
     </thead>
     <tbody>
       <% @items.each do |item| %>
-        <% skipped = @already_syncing_ids&.include?(item.id) %>
         <tr>
-          <td class="col-action">
-            <% if skipped %>
-              <span class="bracketed text-danger">[ skip ]</span>
-            <% else %>
-              &nbsp;&nbsp;&nbsp;&nbsp;
-            <% end %>
-          </td>
+          <td class="col-action">&nbsp;&nbsp;&nbsp;&nbsp;</td>
           <% case @type %>
           <% when "channel" %>
             <td title="<%= item.channel_url %>" style="max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-              <% if skipped %>
-                <span class="text-muted"><%= item.channel_url %></span>
-              <% else %>
-                <%= item.channel_url %>
-              <% end %>
+              <%= item.channel_url %>
             </td>
             <td class="num"><%= item.star? ? "yes" : "no" %></td>
-            <td class="num"><%= item.connected? ? "yes" : "no" %></td>
             <td class="num">
-              <% if item.syncing? %>
-                <strong>syncing</strong>
-              <% elsif item.last_synced_at.present? %>
+              <% if item.last_synced_at.present? %>
                 <%= compact_time_ago(item.last_synced_at) %>
               <% else %>
                 —
               <% end %>
             </td>
           <% when "video" %>
-            <td style="max-width: 280px; overflow: hidden; text-overflow: ellipsis;"><%= item.title %></td>
+            <td><%= item.youtube_video_id %></td>
             <td><%= item.channel&.channel_url %></td>
           <% when "project", "collection" %>
             <td><%= item.name %></td>
@@ -77,24 +61,11 @@
     </tbody>
   </table>
 
-  <% if any_skipped %>
-    <p class="text-muted" style="margin-top: 8px;">
-      <%= number_with_delimiter(@already_syncing.length) %> <%= @type %><%= 's' if @already_syncing.length != 1 %> will be skipped (already syncing).
-    </p>
-  <% end %>
-
   <div id="action-footer">
-    <% if all_skipped %>
-      <p class="text-muted" style="margin-top: 12px;">nothing to do — every selected <%= @type %> is already syncing.</p>
-      <div style="margin-top: 8px;">
-        <%= render(BracketedLinkComponent.new(label: "back", href: @cancel_path)) %>
-      </div>
-    <% else %>
-      <%= render "shared/action_screen",
-        submit_label: "[sync]",
-        cancel_path: @cancel_path,
-        form_url: "/syncs/#{@type}/#{@items.map(&:id).join(",")}",
-        destructive: false %>
-    <% end %>
+    <%= render "shared/action_screen",
+      submit_label: "[sync]",
+      cancel_path: @cancel_path,
+      form_url: "/syncs/#{@type}/#{@items.map(&:id).join(",")}",
+      destructive: false %>
   </div>
 </div>

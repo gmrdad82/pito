@@ -1,0 +1,340 @@
+# Phase 7 — Step B (7b-youtube-client-and-audit.md). The single
+# rate-limit-aware YouTube client.
+#
+# Every YouTube Data v3 / YouTube Analytics v2 call from Pito
+# flows through this object. Callers receive Pito-shape Ruby
+# Hashes (snake_case keys) — never `Google::Apis::YoutubeV3::Channel`
+# structs.
+#
+# Lifecycle of a single call:
+#   1. Resolve endpoint key.
+#   2. `ensure_token_fresh!` — refresh if expires_at within 60s.
+#   3. Pre-call quota check; raise QuotaExhaustedError if budget
+#      would be exceeded.
+#   4. Execute via the underlying gem; wrap retry/backoff per the
+#      retry policy.
+#   5. Audit a single row (one row per logical call) reflecting
+#      the final outcome.
+#   6. Convert the response shape and return.
+require "google/apis/youtube_v3"
+require "google/apis/youtube_analytics_v2"
+require "google/apis/errors"
+
+module Youtube
+  class Client
+    include Auditor
+
+    KIND = "oauth"
+    MAX_5XX_ATTEMPTS = 3
+    RATE_LIMITED_DEFAULT_RETRY_AFTER = 5
+
+    def initialize(google_identity)
+      @identity = google_identity
+    end
+
+    # GET /youtube/v3/channels
+    def channels_list(mine: nil, ids: nil, parts: %i[snippet statistics],
+                      max_results: 50, page_token: nil)
+      perform("channels.list", "GET") do
+        svc = data_service
+        opts = {
+          max_results: max_results,
+          page_token: page_token
+        }
+        opts[:mine] = (mine ? true : false) unless mine.nil?
+        opts[:id] = Array(ids).join(",") if ids.present?
+
+        response = svc.list_channels(parts.map(&:to_s).join(","), **opts)
+        normalize_list(response)
+      end
+    end
+
+    # GET /youtube/v3/videos
+    def videos_list(ids:, parts: %i[snippet statistics contentDetails],
+                    max_results: 50, page_token: nil)
+      perform("videos.list", "GET") do
+        svc = data_service
+        response = svc.list_videos(
+          parts.map(&:to_s).join(","),
+          id: Array(ids).join(","),
+          max_results: max_results,
+          page_token: page_token
+        )
+        normalize_list(response)
+      end
+    end
+
+    # GET /youtube/v3/playlists
+    def playlists_list(channel_id:, parts: %i[snippet],
+                       max_results: 50, page_token: nil)
+      perform("playlists.list", "GET") do
+        svc = data_service
+        response = svc.list_playlists(
+          parts.map(&:to_s).join(","),
+          channel_id: channel_id,
+          max_results: max_results,
+          page_token: page_token
+        )
+        normalize_list(response)
+      end
+    end
+
+    # GET /youtubeAnalytics/v2/reports
+    def analytics_query(ids:, metrics:, start_date:, end_date:,
+                        dimensions: nil, filters: nil, sort: nil)
+      perform("reports.query", "GET") do
+        svc = analytics_service
+        response = svc.query_report(
+          ids: ids,
+          start_date: start_date,
+          end_date: end_date,
+          metrics: Array(metrics).join(","),
+          dimensions: dimensions ? Array(dimensions).join(",") : nil,
+          filters: filters,
+          sort: sort
+        )
+        normalize_analytics(response)
+      end
+    end
+
+    private
+
+    # Wrap an API-call yield block in: token-freshness, pre-call
+    # quota check, retry/backoff, single audit row write.
+    def perform(endpoint, http_method)
+      cost = Youtube::Quota.cost_for(endpoint)
+      started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      outcome = "success"
+      http_status = nil
+      error_message = nil
+      result = nil
+      raised = nil
+
+      begin
+        ensure_token_fresh!
+
+        if Youtube::Quota.budget_remaining(@identity) < cost
+          outcome = "quota_exceeded"
+          http_status = nil
+          err = Youtube::QuotaExhaustedError.new(
+            "daily quota exhausted (cost=#{cost}, remaining=#{Youtube::Quota.budget_remaining(@identity)})"
+          )
+          error_message = err.message
+          raised = err
+        else
+          result, outcome, http_status, error_message, raised = execute_with_retry { yield }
+        end
+      rescue Youtube::NeedsReauthError => e
+        # Token-refresh path raised needs-reauth before we made any
+        # API call. Audit it as auth_failed.
+        outcome = "auth_failed"
+        http_status = nil
+        error_message = e.message
+        raised = e
+      rescue Youtube::TransientError => e
+        outcome = "server_error"
+        http_status = nil
+        error_message = e.message
+        raised = e
+      ensure
+        elapsed_ms = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started) * 1000).to_i
+        write_audit_row(
+          endpoint: endpoint,
+          http_method: http_method,
+          kind: KIND,
+          identity: @identity,
+          user: @identity.user,
+          outcome: outcome,
+          http_status: http_status,
+          error_message: error_message,
+          duration_ms: elapsed_ms
+        )
+      end
+
+      raise raised if raised
+
+      result
+    end
+
+    # Run the API-call yield with retry/backoff. Returns
+    # `[result, outcome, http_status, error_message, raised_or_nil]`.
+    # When `raised_or_nil` is set the caller should re-raise after
+    # the audit-row write.
+    def execute_with_retry
+      attempts_5xx = 0
+      attempts_401 = 0
+      attempts_429 = 0
+
+      loop do
+        begin
+          return [ yield, "success", 200, nil, nil ]
+        rescue Google::Apis::AuthorizationError => e
+          attempts_401 += 1
+          if attempts_401 == 1
+            begin
+              Youtube::TokenRefresher.call(@identity)
+              next
+            rescue Youtube::NeedsReauthError => refresh_err
+              return [ nil, "auth_failed", nil, refresh_err.message, refresh_err ]
+            rescue Youtube::TransientError => refresh_err
+              return [ nil, "server_error", nil, refresh_err.message, refresh_err ]
+            end
+          end
+          @identity.update_columns(needs_reauth: true)
+          err = Youtube::NeedsReauthError.new("401 after refresh: #{e.message}")
+          return [ nil, "auth_failed", 401, e.message, err ]
+        rescue Google::Apis::RateLimitError => e
+          if quota_exhausted?(e)
+            err = Youtube::QuotaExhaustedError.new("Google reported quota exhaustion: #{e.message}")
+            return [ nil, "quota_exceeded", 403, e.message, err ]
+          end
+
+          attempts_429 += 1
+          if attempts_429 > 1
+            err = Youtube::TransientError.new("rate-limited: #{e.message}")
+            return [ nil, "rate_limited", 429, e.message, err ]
+          end
+          sleep(retry_after_seconds(e))
+          next
+        rescue Google::Apis::ServerError => e
+          attempts_5xx += 1
+          if attempts_5xx >= MAX_5XX_ATTEMPTS
+            err = Youtube::TransientError.new("5xx after #{attempts_5xx} attempts: #{e.message}")
+            return [ nil, "server_error", status_from(e), e.message, err ]
+          end
+          sleep(backoff_seconds(attempts_5xx))
+          next
+        rescue Google::Apis::ClientError => e
+          status = status_from(e) || 400
+          if status == 403 && quota_exhausted?(e)
+            err = Youtube::QuotaExhaustedError.new("403 quota exhausted: #{e.message}")
+            return [ nil, "quota_exceeded", status, e.message, err ]
+          elsif status == 401
+            attempts_401 += 1
+            if attempts_401 == 1
+              begin
+                Youtube::TokenRefresher.call(@identity)
+                next
+              rescue Youtube::NeedsReauthError => refresh_err
+                return [ nil, "auth_failed", nil, refresh_err.message, refresh_err ]
+              end
+            end
+            @identity.update_columns(needs_reauth: true)
+            err = Youtube::NeedsReauthError.new("401 after refresh: #{e.message}")
+            return [ nil, "auth_failed", 401, e.message, err ]
+          else
+            err = Youtube::PermanentError.new("client error #{status}: #{e.message}")
+            return [ nil, "client_error", status, e.message, err ]
+          end
+        rescue StandardError => e
+          if network_error?(e)
+            err = Youtube::TransientError.new("network error: #{e.class}: #{e.message}")
+            return [ nil, "network_error", nil, e.message, err ]
+          end
+          raise
+        end
+      end
+    end
+
+    def ensure_token_fresh!
+      return unless @identity.access_token_expired?
+
+      Youtube::TokenRefresher.call(@identity)
+    end
+
+    def data_service
+      svc = Google::Apis::YoutubeV3::YouTubeService.new
+      svc.authorization = build_oauth_credentials
+      svc
+    end
+
+    def analytics_service
+      svc = Google::Apis::YoutubeAnalyticsV2::YouTubeAnalyticsService.new
+      svc.authorization = build_oauth_credentials
+      svc
+    end
+
+    def build_oauth_credentials
+      identity = @identity
+      Class.new do
+        define_method(:apply!) do |headers|
+          headers["Authorization"] = "Bearer #{identity.access_token}"
+        end
+        define_method(:apply) do |headers|
+          h = headers.dup
+          apply!(h)
+          h
+        end
+      end.new
+    end
+
+    def normalize_list(response)
+      items = response.respond_to?(:items) ? Array(response.items) : Array(response[:items])
+      next_token = response.respond_to?(:next_page_token) ? response.next_page_token : response[:next_page_token]
+      {
+        items: items.map { |i| symbolize_struct(i) },
+        next_page_token: next_token
+      }
+    end
+
+    def normalize_analytics(response)
+      column_headers = response.respond_to?(:column_headers) ? Array(response.column_headers) : []
+      rows = response.respond_to?(:rows) ? Array(response.rows) : []
+      {
+        column_headers: column_headers.map { |h| symbolize_struct(h) },
+        rows: rows
+      }
+    end
+
+    def symbolize_struct(value)
+      case value
+      when nil, true, false, Numeric, String, Symbol, Time, Date, DateTime
+        value
+      when Hash
+        value.each_with_object({}) { |(k, v), h| h[k.to_sym] = symbolize_struct(v) }
+      when Array
+        value.map { |v| symbolize_struct(v) }
+      else
+        if value.respond_to?(:to_h)
+          symbolize_struct(value.to_h)
+        else
+          value
+        end
+      end
+    end
+
+    def status_from(error)
+      return error.status_code if error.respond_to?(:status_code) && error.status_code
+
+      if error.respond_to?(:body) && error.body.is_a?(String)
+        json = JSON.parse(error.body) rescue nil
+        return json.dig("error", "code") if json.is_a?(Hash)
+      end
+      nil
+    end
+
+    def quota_exhausted?(error)
+      body = error.respond_to?(:body) ? error.body.to_s : ""
+      body.include?("quotaExceeded") || body.include?("dailyLimitExceeded")
+    end
+
+    def network_error?(error)
+      [
+        ::Errno::ECONNREFUSED, ::Errno::ETIMEDOUT, ::Errno::EHOSTUNREACH,
+        ::SocketError, ::Net::OpenTimeout, ::Net::ReadTimeout, ::EOFError
+      ].any? { |klass| error.is_a?(klass) }
+    end
+
+    def backoff_seconds(attempt)
+      base = 2 ** (attempt - 1) # 1, 2, 4
+      jitter = base * 0.2 * (rand - 0.5) * 2
+      [ base + jitter, 0.05 ].max
+    end
+
+    def retry_after_seconds(error)
+      header_value = error.respond_to?(:header) ? error.header.to_s.to_i : 0
+      candidate = header_value > 0 ? header_value : RATE_LIMITED_DEFAULT_RETRY_AFTER
+      [ candidate, 30 ].min
+    end
+  end
+end

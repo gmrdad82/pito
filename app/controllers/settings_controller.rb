@@ -11,6 +11,21 @@ class SettingsController < ApplicationController
     @voyage_indexing_project_notes = AppSetting.voyage_indexing_project_notes?
     # Phase 3 — Step C: tokens pane shows a count + link to the dedicated page.
     @active_tokens_count = ApiToken.where(tenant_id: Current.tenant_id).active.count
+    # Phase 12 — Step A: sessions pane (active session count for the user).
+    # `Current.user.sessions` already filters by user_id; the BelongsToTenant
+    # default scope adds the tenant filter. That double filter is the
+    # desired behavior — see Settings::SessionsController for context on
+    # the Phase 7.5 cleanup that removed the `.unscoped` workaround.
+    @active_sessions_count = Current.user.present? ? Current.user.sessions.where(revoked_at: nil).count : 0
+    # Phase 12 — Step B: oauth applications pane (registered app count).
+    # OauthApplication does not include BelongsToTenant (Doorkeeper looks
+    # apps up from token/authorize endpoints where Current.tenant isn't
+    # set yet); scope explicitly here for the tenanted display.
+    @oauth_applications_count = defined?(OauthApplication) ? OauthApplication.where(tenant_id: Current.tenant_id).count : 0
+    # Phase 7 — Step C: Google pane reflecting connection state.
+    @google_identity = defined?(GoogleIdentity) && Current.user.present? ?
+      GoogleIdentity.where(user_id: Current.user.id).order(last_authorized_at: :desc).first :
+      nil
     begin
       @search_healthy = Search.engine.healthy?
       @search_stats = Search.engine.index_stats
@@ -58,7 +73,7 @@ class SettingsController < ApplicationController
       AppSetting.set("theme", theme)
       head :ok
     else
-      head :unprocessable_entity
+      head :unprocessable_content
     end
   end
 

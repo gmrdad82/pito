@@ -23,7 +23,7 @@ RSpec.describe Mcp::Tools::DeleteRecords do
       expect(Channel.count).to eq(2)
     end
 
-    it "returns a preview for videos with title labels" do
+    it "returns a preview for videos with youtube_video_id labels (post-A2)" do
       channel = create(:channel)
       video = create(:video, channel: channel)
 
@@ -32,7 +32,8 @@ RSpec.describe Mcp::Tools::DeleteRecords do
 
       expect(data["preview_url"]).to eq("/deletions/video/#{video.id}")
       expect(data["type"]).to eq("video")
-      expect(data["items"].first["label"]).to eq(video.title)
+      # Phase 7 Path A2 — Video has no title; the label collapses to youtube_video_id.
+      expect(data["items"].first["label"]).to eq(video.youtube_video_id)
     end
 
     it 'treats confirm: "no" the same as preview' do

@@ -32,8 +32,29 @@ Expected: `pito-postgres-1`, `pito-redis-1`, `pito-meilisearch-1` all
 `(healthy)`.
 
 Volumes are named with the `pito-` prefix (`pito-postgres-data`,
-`pito-redis-data`, `pito-meilisearch-data`) so they're easy to spot in
-`docker volume ls` next to other projects' volumes.
+`pito-redis-data`, `pito-meilisearch-data`, `pito-notes`, `pito-assets`)
+so they're easy to spot in `docker volume ls` next to other projects'
+volumes. The first three back the running services. `pito-notes` and
+`pito-assets` are reserved for the Hetzner cutover (Phase 16) — declared
+in `docker-compose.yml` so the names are pinned, currently unmounted
+because Rails runs natively on the dev host and reads `PITO_NOTES_PATH`
+/ `PITO_ASSETS_PATH` from the environment.
+
+`pito-assets` is the on-disk home for Pito-managed binary assets:
+Active Storage's `:local` service root (game cover art today, future
+channel banners / video thumbnails) and footage thumbnails (Phase 7.5
+§06). It is NOT a copy of source footage — `Footage#local_path`
+continues to point at the user's drive; only Pito-derived assets land
+under the volume. The `Pito::AssetsRoot` helper resolves absolute
+paths under the root for non-Active-Storage byte writes.
+
+`PITO_ASSETS_PATH` controls where the assets root resolves at runtime.
+The committed `.env.example` points at `tmp/pito-assets` for dev
+(relative paths anchor to the repo root). Production deployments mount
+the `pito-assets` Docker volume at `/var/lib/pito-assets` (the helper's
+default when the env var is unset). Tests stay on `:test` /
+`tmp/storage` for Active Storage isolation; the volume is unused in
+the test environment.
 
 ## 3. Configure credentials
 
@@ -235,3 +256,174 @@ bundle exec rspec
 
 The test database is created via `bin/rails db:test:prepare` (also called by
 `bin/setup`).
+
+## Google Cloud / OAuth Setup
+
+Phase 7 (Google OAuth + YouTube API foundation) requires a Google Cloud project
+with the YouTube APIs enabled and an OAuth 2.0 Web client configured. This is a
+**manual, one-shot setup** the user runs once during initial project bootstrap;
+the click-by-click steps below exist for repeatability on a fresh machine or a
+fresh Google account. Locked by decision 7.3 in
+`docs/plans/beta/07-google-oauth-youtube-foundation/specs/7a-google-oauth-and-identity.md`
+— sole-user / single-tenant Beta; automation via `gcloud` CLI is revisited
+if/when a team scales the project.
+
+This is a deployment-/credentials-time concern, not a first-boot concern — skip
+it until Phase 7 work is actually starting.
+
+### 1. Sign in to Google Cloud Console
+
+Visit https://console.cloud.google.com and sign in with the Google account that
+**owns the YouTube channels Pito will read**. The OAuth client lives under this
+account; the channels Pito syncs are the ones this account can administer.
+
+If Google offers the "$300 free credits" trial, **skip it** — not needed.
+YouTube Data API v3 and YouTube Analytics API v2 are free up to their daily
+quota; no billing account is required for Pito's read-only usage.
+
+### 2. Create the project
+
+APIs & Services → "Select a project" dropdown → **New Project**.
+
+- **Project name:** `pito` (lowercase).
+- **Project ID:** auto-assigned (e.g. `pito-495614` — yours will differ; cite
+  this value when configuring credentials in step 6).
+- **Organization:** none.
+- **Billing:** none.
+
+Click Create and wait for the project to provision.
+
+### 3. Enable the YouTube APIs
+
+APIs & Services → **Library** → search for and enable each:
+
+- **YouTube Data API v3** — channel / video / playlist read access.
+- **YouTube Analytics API** (v2) — per-video / per-channel analytics read.
+
+Both must show "API enabled" in their cards before continuing.
+
+### 4. Configure the OAuth consent screen ("Google Auth Platform")
+
+Google's late-2024 UI revamp split this surface across four tabs. Walk through
+each in order.
+
+#### Branding tab
+
+- **App name:** `pito` (lowercase).
+- **User support email:** your address.
+- **App logo:** optional, skip for sole-user setup.
+- **Authorized domain:** `pitomd.com`.
+- **Developer contact email:** your address.
+
+Save and continue.
+
+#### Audience tab
+
+- **User type:** **External**.
+- **Publishing status:** **Testing**. Stay in Testing forever for sole-user use
+  — see "Why Testing mode forever" below.
+- **Test users:** add your own Google email under "Test users". This is the
+  account that will be allowed through the consent screen.
+
+Save and continue.
+
+#### Data Access tab
+
+Declare two scopes Pito needs:
+
+- `https://www.googleapis.com/auth/youtube.readonly` — sensitive scope (channel
+  / video read).
+- `https://www.googleapis.com/auth/yt-analytics.readonly` — non-sensitive as of
+  Google's late-2024 reclassification (analytics read).
+
+No other scopes. Phase 7 is read-only by locked decision; write scopes
+(`youtube`, `youtube.upload`) wait for Phase 10.
+
+Save and continue.
+
+#### Clients tab
+
+Create the OAuth 2.0 Web Application client:
+
+- **Application type:** Web application.
+- **Name:** `pito-api`.
+- **Authorized JavaScript origins:** leave blank.
+- **Authorized redirect URIs:** `https://app.pitomd.com/auth/google/callback`. A
+  single redirect URI works for both dev and prod because dev uses the
+  Cloudflare tunnel mapping `app.pitomd.com` to localhost (see "Dev and prod
+  share OAuth credentials" below).
+
+Click Create. A modal shows the **Client ID** and **Client Secret** — these are
+shown **once**. Capture both before dismissing.
+
+### 5. Persist credentials into Rails
+
+The Phase 7 spec wires Pito to read OAuth credentials from
+`Rails.application.credentials.google_oauth`:
+
+```bash
+EDITOR=nano bin/rails credentials:edit
+```
+
+Add the `:google_oauth` block (paste the values captured in step 4 — yours will
+differ; the worked-example `project_id` is `pito-495614`):
+
+```yaml
+google_oauth:
+  project_id: pito-495614
+  client_id: <your client id>.apps.googleusercontent.com
+  client_secret: <your client secret>
+```
+
+The interactive `EDITOR=nano bin/rails credentials:edit` flow is the canonical
+instruction. (A Ruby-shim variant —
+`EDITOR='ruby /tmp/edit-creds.rb' bin/rails credentials:edit` — was used as a
+session-specific automation during the original walkthrough, but the simpler
+interactive flow is the recommended path for fresh setups.)
+
+Save and exit. The `master.key` decrypts the file at runtime.
+
+### Why Testing mode forever
+
+Pito runs as a single-user app for the foreseeable future, so the friction of
+publishing the OAuth consent screen for verification is not worth taking on.
+Specifically:
+
+- **100-test-user cap is irrelevant.** Testing mode caps at 100 test users; sole
+  user use never approaches it.
+- **No app verification overhead.** Publishing for verification means submitting
+  scopes for Google review (sensitive scopes especially), demonstrating a
+  privacy policy, etc. Testing mode bypasses all of it.
+- **7-day refresh-token TTL is fine.** Google expires refresh tokens issued by
+  Testing-mode apps after 7 days. Pito refreshes regularly during normal use, so
+  the TTL does not bite — Phase 7's `TokenRefresher` keeps the access token
+  alive on every API call, which in turn keeps the refresh token in active use.
+- **"Google hasn't verified this app" warning is acceptable.** It appears once
+  on initial consent and is a click-through ("Advanced" → "Go to pito (unsafe)")
+  for the test user. Sole user; sole click-through.
+
+#### When you'd actually need to publish
+
+Trigger conditions for moving to Published / verified status (Theta-phase
+concerns):
+
+- Multi-user expansion: Pito grows beyond a sole user (e.g., open beta, team
+  use).
+- Hitting the 100-test-user cap.
+- Removing the "Google hasn't verified this app" warning for non-test users.
+
+Until any of those land, Testing mode is the correct posture.
+
+### Dev and prod share OAuth credentials
+
+The single redirect URI `https://app.pitomd.com/auth/google/callback` works for
+both environments because the Cloudflare tunnel maps `app.pitomd.com` to
+`127.0.0.1:3027` (the local Web Puma) in development. The same OAuth client
+serves both dev OAuth and prod OAuth.
+
+**Tradeoff:** dev and prod share the client secret. Fine for sole user — the
+risk surface is just the local machine. If isolation is ever needed (multi-dev,
+CI smoke against a staging tunnel, etc.), register a **second** OAuth Web client
+in the same Google Cloud project with its own redirect URI (e.g.,
+`https://staging.pitomd.com/auth/google/callback`) and a separate
+`:google_oauth` credentials block per environment.

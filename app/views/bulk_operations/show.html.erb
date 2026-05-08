@@ -25,7 +25,9 @@
   <tbody>
     <% @items.each do |item| %>
       <tr id="item_<%= item.id %>">
-        <td><%= item.target&.try(:title) || "(deleted)" %></td>
+        <%# Phase 7 Path A2 — Video has no title; fall back to
+            youtube_video_id, then to channel_url, then to "(deleted)". %>
+        <td><%= item.target&.try(:title) || item.target&.try(:youtube_video_id) || item.target&.try(:channel_url) || "(deleted)" %></td>
         <td><%= item.target_type %></td>
         <td>
           <% if item.status_succeeded? %>

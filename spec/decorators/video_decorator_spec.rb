@@ -1,31 +1,34 @@
 require "rails_helper"
 
+# Phase 7 Path A2 (literal full retract). VideoDecorator collapses
+# around the surviving columns: id, youtube_video_id, channel_id,
+# channel_url, star, last_synced_at, plus aggregate stats and `trend`.
+# `formatted_duration` / `formatted_privacy` / `formatted_published_at`
+# are gone with the columns they read.
 RSpec.describe VideoDecorator do
   let(:channel) { create(:channel) }
-  let(:video) { create(:video, channel: channel, duration_seconds: 3661, privacy_status: :public_video, published_at: 2.days.ago) }
+  let(:video) { create(:video, channel: channel) }
   let(:decorator) { described_class.new(video) }
-
-  describe "#formatted_duration" do
-    it "returns formatted time" do
-      expect(decorator.formatted_duration).to eq("1:01:01")
-    end
-  end
-
-  describe "#formatted_privacy" do
-    it "strips _video suffix" do
-      expect(decorator.formatted_privacy).to eq("public")
-    end
-  end
 
   describe "#as_summary_json" do
     let(:json) { decorator.as_summary_json }
 
-    it "includes expected keys" do
+    it "includes expected post-A2 keys" do
       expect(json).to include(
-        :id, :youtube_video_id, :title, :channel_id, :channel_url,
-        :privacy_status, :views, :likes, :comments, :watch_time_minutes,
-        :duration_seconds, :published_at, :trend
+        :id, :youtube_video_id, :channel_id, :channel_url, :star,
+        :views, :likes, :comments, :watch_time_minutes,
+        :last_synced_at, :trend
       )
+    end
+
+    it "does NOT include legacy metadata keys" do
+      [
+        :title, :description, :tags, :privacy_status,
+        :duration_seconds, :published_at, :thumbnail_url,
+        :category_id, :default_language
+      ].each do |k|
+        expect(json).not_to have_key(k), "unexpected key #{k.inspect} in summary JSON"
+      end
     end
 
     it "includes channel url" do
@@ -51,8 +54,8 @@ RSpec.describe VideoDecorator do
 
     let(:json) { decorator.as_detail_json }
 
-    it "includes detail fields" do
-      expect(json).to include(:description, :thumbnail_url, :tags, :stats)
+    it "includes the surviving detail field (stats)" do
+      expect(json).to include(:stats)
     end
 
     it "includes stats array" do

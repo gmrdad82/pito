@@ -7,30 +7,38 @@ pub struct Channel {
     pub channel_url: String,
     #[serde(with = "crate::api::yes_no")]
     pub star: bool,
+    /// Derived server-side from `oauth_identity_id.present?`. Phase 7 Path A2
+    /// retired the boolean column on the Rails model; Channel JSON still
+    /// carries `connected` as the "yes" / "no" wire string so the CLI can
+    /// keep its read-only badge.
     #[serde(with = "crate::api::yes_no")]
     pub connected: bool,
-    #[serde(with = "crate::api::yes_no")]
-    pub syncing: bool,
     /// ISO timestamp string. None if the channel has never been synced.
     pub last_synced_at: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Video {
     pub id: u64,
     pub youtube_video_id: String,
-    pub title: String,
     pub channel_id: u64,
+    /// Convenience field: the parent channel's `channel_url`. Rails populates
+    /// it from `channel&.channel_url`; the CLI uses it for the channel column
+    /// in the videos list and search results.
     pub channel_url: Option<String>,
-    pub privacy_status: String,
+    #[serde(with = "crate::api::yes_no")]
+    pub star: bool,
     pub views: u64,
     pub likes: u64,
     pub comments: u64,
     pub watch_time_minutes: f64,
-    pub duration_seconds: Option<u32>,
-    pub published_at: Option<String>,
+    /// ISO timestamp string. None if the video has never been synced.
+    pub last_synced_at: Option<String>,
+    /// Direction-of-travel marker for the videos list. Rails always emits
+    /// `null` post Path A2 — kept as `Option<String>` so the CLI rendering
+    /// keeps the `—` placeholder when absent.
     pub trend: Option<String>,
 }
 
@@ -47,22 +55,9 @@ pub struct VideoStat {
 pub struct DashboardData {
     pub video_count: u64,
     pub channel_count: u64,
-    pub daily_views: Vec<(String, u64)>,
-    pub views_by_channel: Vec<(String, Vec<(String, u64)>)>,
-    pub top_videos: Vec<TopVideo>,
-    pub daily_engagement: DailyEngagement,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TopVideo {
-    pub title: String,
-    pub views: u64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DailyEngagement {
-    pub likes: Vec<(String, u64)>,
-    pub comments: Vec<(String, u64)>,
+    pub project_count: u64,
+    pub footage_count: u64,
+    pub note_count: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -155,7 +150,6 @@ mod tests {
             channel_url: "https://youtube.com/@example".to_string(),
             star: true,
             connected: false,
-            syncing: false,
             last_synced_at: Some("2026-04-30T10:00:00Z".to_string()),
             created_at: "2026-01-01T00:00:00Z".to_string(),
             updated_at: "2026-04-30T10:00:00Z".to_string(),
@@ -173,13 +167,32 @@ mod tests {
             "channel_url": "https://youtube.com/@a",
             "star": "no",
             "connected": "no",
-            "syncing": "no",
             "last_synced_at": null,
             "created_at": "2026-01-01T00:00:00Z",
             "updated_at": "2026-01-01T00:00:00Z"
         }"#;
         let parsed: Channel = serde_json::from_str(json).expect("deserialize");
         assert!(parsed.last_synced_at.is_none());
+    }
+
+    #[test]
+    fn channel_decodes_post_path_a2_shape_without_syncing_field() {
+        // Rails Path A2 retract: ChannelDecorator no longer emits `syncing`.
+        // Verify the Rust struct decodes the live wire shape cleanly.
+        let json = r#"{
+            "id": 42,
+            "tenant_id": 1,
+            "channel_url": "https://youtube.com/@x",
+            "star": "yes",
+            "connected": "no",
+            "last_synced_at": null,
+            "created_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-01T00:00:00Z"
+        }"#;
+        let parsed: Channel = serde_json::from_str(json).expect("deserialize");
+        assert_eq!(parsed.id, 42);
+        assert!(parsed.star);
+        assert!(!parsed.connected);
     }
 
     #[test]
@@ -198,7 +211,6 @@ mod tests {
             "channel_url": "https://youtube.com/@a",
             "star": "yes",
             "connected": "no",
-            "syncing": "yes",
             "last_synced_at": null,
             "created_at": "2026-01-01T00:00:00Z",
             "updated_at": "2026-01-01T00:00:00Z"
@@ -206,7 +218,6 @@ mod tests {
         let parsed: Channel = serde_json::from_str(json).expect("deserialize");
         assert!(parsed.star);
         assert!(!parsed.connected);
-        assert!(parsed.syncing);
     }
 
     #[test]
@@ -217,7 +228,6 @@ mod tests {
             channel_url: "https://youtube.com/@example".to_string(),
             star: true,
             connected: false,
-            syncing: true,
             last_synced_at: None,
             created_at: "2026-01-01T00:00:00Z".to_string(),
             updated_at: "2026-01-01T00:00:00Z".to_string(),
@@ -225,7 +235,6 @@ mod tests {
         let value: serde_json::Value = serde_json::to_value(&original).expect("serialize to value");
         assert_eq!(value["star"], serde_json::json!("yes"));
         assert_eq!(value["connected"], serde_json::json!("no"));
-        assert_eq!(value["syncing"], serde_json::json!("yes"));
     }
 
     #[test]
@@ -236,7 +245,6 @@ mod tests {
             channel_url: "https://youtube.com/@example".to_string(),
             star: true,
             connected: false,
-            syncing: false,
             last_synced_at: Some("2026-04-30T10:00:00Z".to_string()),
             created_at: "2026-01-01T00:00:00Z".to_string(),
             updated_at: "2026-04-30T10:00:00Z".to_string(),
@@ -245,7 +253,6 @@ mod tests {
         // Verify on-the-wire shape uses strings.
         assert!(s.contains("\"star\":\"yes\""));
         assert!(s.contains("\"connected\":\"no\""));
-        assert!(s.contains("\"syncing\":\"no\""));
         let parsed: Channel = serde_json::from_str(&s).expect("deserialize");
         assert_eq!(original, parsed);
     }
@@ -258,7 +265,6 @@ mod tests {
             "channel_url": "https://youtube.com/@a",
             "star": true,
             "connected": "no",
-            "syncing": "no",
             "last_synced_at": null,
             "created_at": "2026-01-01T00:00:00Z",
             "updated_at": "2026-01-01T00:00:00Z"
@@ -322,7 +328,6 @@ mod tests {
             "channel_url": "https://youtube.com/@a",
             "star": "true",
             "connected": "no",
-            "syncing": "no",
             "last_synced_at": null,
             "created_at": "2026-01-01T00:00:00Z",
             "updated_at": "2026-01-01T00:00:00Z"
@@ -337,6 +342,63 @@ mod tests {
             err_msg.contains("yes") && err_msg.contains("no"),
             "error should mention yes/no, got: {err_msg}"
         );
+    }
+
+    #[test]
+    fn video_decodes_post_path_a2_shape() {
+        // Rails Path A2 retract: VideoDecorator emits id, youtube_video_id,
+        // channel_id, channel_url, star, views, likes, comments,
+        // watch_time_minutes, last_synced_at, trend. No title, no privacy,
+        // no duration, no published_at.
+        let json = r#"{
+            "id": 11,
+            "youtube_video_id": "dQw4w9WgXcQ",
+            "channel_id": 1,
+            "channel_url": "https://youtube.com/@x",
+            "star": "no",
+            "views": 1234,
+            "likes": 56,
+            "comments": 7,
+            "watch_time_minutes": 89.5,
+            "last_synced_at": null,
+            "trend": null
+        }"#;
+        let parsed: Video = serde_json::from_str(json).expect("deserialize");
+        assert_eq!(parsed.id, 11);
+        assert_eq!(parsed.youtube_video_id, "dQw4w9WgXcQ");
+        assert_eq!(parsed.channel_id, 1);
+        assert_eq!(
+            parsed.channel_url.as_deref(),
+            Some("https://youtube.com/@x")
+        );
+        assert!(!parsed.star);
+        assert_eq!(parsed.views, 1234);
+        assert_eq!(parsed.likes, 56);
+        assert_eq!(parsed.comments, 7);
+        assert!((parsed.watch_time_minutes - 89.5).abs() < f64::EPSILON);
+        assert!(parsed.last_synced_at.is_none());
+        assert!(parsed.trend.is_none());
+    }
+
+    #[test]
+    fn video_round_trip_preserves_yes_no_for_star() {
+        let original = Video {
+            id: 11,
+            youtube_video_id: "dQw4w9WgXcQ".to_string(),
+            channel_id: 1,
+            channel_url: Some("https://youtube.com/@x".to_string()),
+            star: true,
+            views: 1,
+            likes: 2,
+            comments: 3,
+            watch_time_minutes: 4.0,
+            last_synced_at: Some("2026-04-30T10:00:00Z".to_string()),
+            trend: None,
+        };
+        let s = serde_json::to_string(&original).expect("serialize");
+        assert!(s.contains("\"star\":\"yes\""));
+        let parsed: Video = serde_json::from_str(&s).expect("deserialize");
+        assert_eq!(original, parsed);
     }
 }
 

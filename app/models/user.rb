@@ -3,6 +3,20 @@ class User < ApplicationRecord
 
   belongs_to :tenant
 
+  # Phase 12 — Step A. One row per active login. `dependent: :destroy`
+  # so deleting a user (a future Theta concern) also clears their
+  # session rows.
+  has_many :sessions, dependent: :destroy
+
+  # Phase 12 — Step A. The implicit pin (`User.first`) is replaced by a
+  # cookie-resolved current user. Authenticate via `User#authenticate`
+  # (provided by `has_secure_password`); minimum password length keeps
+  # Beta from accepting trivially short seeds without forcing a reset
+  # flow we have not built yet. The `password` accessor is transient
+  # (only present when a fresh password is being set), so the validation
+  # naturally only runs on create or password-change paths.
+  validates :password, length: { minimum: 8 }, if: -> { password.present? }
+
   USERNAME_REGEX = /\A[A-Za-z][A-Za-z0-9]*\z/
 
   validates :username,

@@ -66,6 +66,24 @@ Rack::Attack.blocklist("over-failed-auth-limit") do |req|
   ApiAuthThrottle.exhausted?(req.ip.to_s)
 end
 
+# Phase 12 — Step A (6a-sessions-and-login-ui.md). Failed-login throttle.
+# Same shape as the bearer-token bucket above (10 / 5min / IP) but keyed
+# off the `/login` POST surface only; successful logins do not burn the
+# bucket because `SessionThrottle.record_failure` is invoked from
+# `SessionsController` only on failure paths.
+Rack::Attack.blocklist("over-failed-login-limit") do |req|
+  next false unless req.path == "/login" && req.post?
+  SessionThrottle.exhausted?(req.ip.to_s)
+end
+
+# Phase 12 — Step B (6b-doorkeeper-oauth-server.md). OAuth `/oauth/token`
+# throttle: 30 requests per IP per 5 minutes. Higher than the login bucket
+# because legitimate clients legitimately retry on transient errors and
+# refresh inside the access-token TTL window.
+Rack::Attack.throttle("oauth/token", limit: 30, period: 5.minutes) do |req|
+  req.ip if req.path == "/oauth/token" && req.post?
+end
+
 Rack::Attack.blocklisted_responder = lambda do |_req|
   body = { error: "rate_limited", retry_after: ApiAuthThrottle::WINDOW.to_i }.to_json
   [

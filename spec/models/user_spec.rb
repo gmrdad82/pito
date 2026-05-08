@@ -5,6 +5,7 @@ RSpec.describe User, type: :model do
 
   describe "associations" do
     it { is_expected.to belong_to(:tenant) }
+    it { is_expected.to have_many(:sessions).dependent(:destroy) }
   end
 
   describe "validations" do
@@ -83,6 +84,26 @@ RSpec.describe User, type: :model do
       expect(user.password_digest).to be_present
       expect(user.authenticate("supersecret")).to eq(user)
       expect(user.authenticate("wrong")).to be(false)
+    end
+
+    # Phase 12 — Step A. The model gates on a minimum password length
+    # only when a fresh password is supplied (the `password` accessor
+    # is transient — present at create / change time, blank otherwise).
+    it "rejects passwords shorter than 8 characters" do
+      user = build(:user, password: "short", password_confirmation: "short")
+      expect(user).not_to be_valid
+      expect(user.errors[:password]).to be_present
+    end
+
+    it "accepts passwords of exactly 8 characters" do
+      user = build(:user, password: "exactly8", password_confirmation: "exactly8")
+      expect(user).to be_valid, "expected user with 8-char password to be valid: #{user.errors.full_messages}"
+    end
+
+    it "does not re-validate password length on a row whose password is untouched" do
+      user = create(:user, password: "long-enough", password_confirmation: "long-enough")
+      user.email = "rotated-#{SecureRandom.hex(3)}@example.test"
+      expect(user).to be_valid
     end
   end
 

@@ -46,7 +46,7 @@ class FootagesController < ApplicationController
       redirect_to project_path(@footage.project), notice: "footage updated."
     else
       @games = Game.where(tenant_id: @footage.tenant_id).order(:title)
-      render :edit, status: :unprocessable_entity
+      render :edit, status: :unprocessable_content
     end
   end
 

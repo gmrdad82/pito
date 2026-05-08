@@ -1,12 +1,13 @@
 use ratatui::{
+    Frame,
     layout::{Constraint, Layout, Rect},
     style::Style,
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
-    Frame,
 };
 
 use crate::theme::Theme;
+use crate::ui::channels::last_sync_cell;
 
 // --- Data types ---
 
@@ -17,18 +18,22 @@ pub struct VideoDetailState {
     pub stats_scroll: usize,
 }
 
+/// Path A2 retract: VideoInfo lost the title / privacy / published / duration
+/// fields when those columns left the wire. The detail screen now identifies
+/// the video by its youtube id and lists the surviving counts.
 pub struct VideoInfo {
     /// Reserved for upcoming row-click navigation (e.g. delete from detail).
     #[allow(dead_code)]
     pub id: u64,
     pub youtube_video_id: String,
-    pub title: String,
     pub channel_id: u64,
     pub channel_url: Option<String>,
-    pub privacy_status: String,
-    pub published_at: String,
-    pub duration_seconds: u32,
-    pub description: Option<String>,
+    pub star: bool,
+    pub views: u64,
+    pub likes: u64,
+    pub comments: u64,
+    pub watch_time_minutes: f64,
+    pub last_synced_at: Option<String>,
 }
 
 pub struct StatRow {
@@ -63,16 +68,10 @@ pub fn format_watch_time(minutes: f64) -> String {
     format!("{}h{:02}", hours, mins)
 }
 
-pub fn format_duration(seconds: u32) -> String {
-    let mins = seconds / 60;
-    let secs = seconds % 60;
-    format!("{}:{:02}", mins, secs)
-}
-
 // --- Render ---
 
 pub fn render(frame: &mut Frame, area: Rect, theme: &Theme, state: &VideoDetailState) {
-    let title = format!(" videos › {} ", state.video.title);
+    let title = format!(" videos › {} ", state.video.youtube_video_id);
     let block = Block::default()
         .title(Span::styled(title, Style::default().fg(theme.fg)))
         .borders(Borders::ALL)
@@ -93,7 +92,7 @@ pub fn render(frame: &mut Frame, area: Rect, theme: &Theme, state: &VideoDetailS
         Constraint::Length(1), // stats header label
         Constraint::Length(1), // stats table header
         Constraint::Length(1), // separator
-        Constraint::Min(0),   // stats rows
+        Constraint::Min(0),    // stats rows
     ])
     .split(inner);
 
@@ -121,30 +120,34 @@ fn render_metadata(frame: &mut Frame, area: Rect, theme: &Theme, state: &VideoDe
 
     let key_width = 14;
 
-    let description = video
-        .description
-        .as_deref()
-        .unwrap_or("—");
-    let desc_truncated = if description.chars().count() > (area.width as usize).saturating_sub(key_width + 2) {
-        let max = (area.width as usize).saturating_sub(key_width + 5);
-        format!("{}...", description.chars().take(max).collect::<String>())
-    } else {
-        description.to_string()
-    };
-
-    let duration_str = format_duration(video.duration_seconds);
     let channel_label = video
         .channel_url
         .as_deref()
         .map(crate::ui::channel_detail::short_url)
         .unwrap_or_else(|| format!("#{}", video.channel_id));
+    let star_label = if video.star { "yes" } else { "no" };
+    let last_sync = last_sync_cell(video.last_synced_at.as_deref());
+    let views_str = format_number(video.views);
+    let likes_str = format_number(video.likes);
+    let chats_str = format_number(video.comments);
+    let watch_str = format_watch_time(video.watch_time_minutes);
+    let totals_line = format!(
+        "{} views · {} likes · {} chats · {} watch",
+        views_str, likes_str, chats_str, watch_str
+    );
+
     let rows: Vec<Line> = vec![
-        make_kv_line("youtube id", &video.youtube_video_id, key_width, key_style, val_style),
+        make_kv_line(
+            "youtube id",
+            &video.youtube_video_id,
+            key_width,
+            key_style,
+            val_style,
+        ),
         make_kv_line("channel", &channel_label, key_width, key_style, val_style),
-        make_kv_line("privacy", &video.privacy_status, key_width, key_style, val_style),
-        make_kv_line("published", &video.published_at, key_width, key_style, val_style),
-        make_kv_line("duration", &duration_str, key_width, key_style, val_style),
-        make_kv_line("description", &desc_truncated, key_width, key_style, val_style),
+        make_kv_line("starred", star_label, key_width, key_style, val_style),
+        make_kv_line("totals", &totals_line, key_width, key_style, val_style),
+        make_kv_line("last sync", &last_sync, key_width, key_style, val_style),
     ];
 
     let paragraph = Paragraph::new(rows);
@@ -216,7 +219,10 @@ fn render_stats_rows(frame: &mut Frame, area: Rect, theme: &Theme, state: &Video
             Span::styled(format!("{:>8}", format_number(stat.views)), row_style),
             Span::styled(format!("{:>8}", format_number(stat.likes)), row_style),
             Span::styled(format!("{:>8}", format_number(stat.comments)), row_style),
-            Span::styled(format!("{:>8}", format_watch_time(stat.watch_time_minutes)), row_style),
+            Span::styled(
+                format!("{:>8}", format_watch_time(stat.watch_time_minutes)),
+                row_style,
+            ),
         ]);
 
         let row_area = Rect {

@@ -12,37 +12,15 @@
     <span class="caption" style="font-size: 11px;">(<%= number_with_delimiter(@videos[:took_ms]) %>ms)</span>
   </p>
 
-  <% if @videos[:total] > 0 %>
-    <h2 style="margin-bottom: 4px;">videos</h2>
-    <table class="data-table" style="margin-bottom: 12px; max-width: 1400px;">
-      <thead>
-        <tr>
-          <th>title</th>
-          <th>channel</th>
-          <th>state</th>
-          <th>language</th>
-          <th style="text-align: right;">length</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        <% @videos[:hits].each do |hit| %>
-          <% video = hit[:record] %>
-          <% next unless video %>
-          <tr>
-            <td><%= hit.dig(:highlights, "title")&.html_safe || video.title %></td>
-            <td class="text-muted"><%= video.channel.channel_url %></td>
-            <td><%= video.privacy_status.gsub("_", " ") %></td>
-            <td><%= video.default_language %></td>
-            <td style="text-align: right;"><%= video.duration_seconds ? "#{video.duration_seconds / 60}:#{format('%02d', video.duration_seconds % 60)}" : "—" %></td>
-            <td><%= link_to "[o]", video_path(video), class: "bracketed" %></td>
-          </tr>
-        <% end %>
-      </tbody>
-    </table>
-  <% end %>
-
-  <% if @videos[:total] == 0 %>
-    <p class="caption">no results found for "<%= @query %>".</p>
-  <% end %>
+  <%# Phase 7 Path A2 (literal full retract). Video search is a stub —
+      Video declares no `searchable :*` / `filterable :*` lines, so the
+      Meilisearch index for videos contains only the id column and
+      query-text matching is impossible. The surface remains
+      functional; it just returns zero results until Phase 8+ wires
+      real metadata back in. %>
+  <p class="caption">
+    video search is currently disabled (Phase 7 Path A2 retract). once
+    youtube sync ships and videos carry synced metadata again, this
+    surface will start returning matches.
+  </p>
 <% end %>

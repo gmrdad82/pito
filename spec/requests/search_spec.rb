@@ -1,5 +1,12 @@
 require "rails_helper"
 
+# Phase 7 Path A2 (literal full retract). Video search is stubbed:
+# Video declares no `searchable :*` / `filterable :*` lines, so the
+# Meilisearch index for videos contains only `id` and the surface
+# returns zero matches until Phase 8+ rebuilds metadata caching.
+# These specs assert the surface remains functional (renders the page,
+# returns JSON in the post-A2 shape) — they do NOT exercise actual
+# match/highlight rendering, since there is no metadata to match on.
 RSpec.describe "Search", type: :request do
   let(:engine) { double("search_engine") }
   let(:empty_results) { { hits: [], total: 0, took_ms: 0.1 } }
@@ -32,28 +39,12 @@ RSpec.describe "Search", type: :request do
     end
 
     context "with a query" do
-      let(:channel) { create(:channel) }
-      let(:video) { create(:video, channel: channel, title: "rails tutorial") }
-
-      before { channel; video }
-
-      it "returns video results" do
-        video_hits = {
-          hits: [ { id: video.id, record: video, highlights: { "title" => "<mark>rails</mark> tutorial" }, score: nil } ],
-          total: 1, took_ms: 1.3
-        }
-        allow(engine).to receive(:search).and_return(video_hits)
-
-        get search_path, params: { q: "rails" }
-        expect(response.body).to include("<mark>rails</mark> tutorial")
-        expect(response.body).to include("1 video")
-      end
-
-      it "shows no results message" do
+      it "renders the page and shows the post-A2 disabled-search caption" do
         allow(engine).to receive(:search).and_return(empty_results)
 
-        get search_path, params: { q: "nonexistent" }
-        expect(response.body).to include("no results found")
+        get search_path, params: { q: "anything" }
+        expect(response).to have_http_status(:ok)
+        expect(response.body).to include("video search is currently disabled")
       end
 
       it "preserves query in search input" do
@@ -94,24 +85,6 @@ RSpec.describe "Search", type: :request do
         expect(json["took_ms"]).to be_a(Numeric)
       end
 
-      it "returns each hit as { record: <Video summary>, highlights }" do
-        channel = create(:channel)
-        video = create(:video, channel: channel, title: "rails tutorial")
-        hits = {
-          hits: [ { id: video.id, record: video, highlights: { "title" => "<mark>rails</mark>" }, score: nil } ],
-          total: 1, took_ms: 1.3
-        }
-        allow(engine).to receive(:search).and_return(hits)
-
-        get search_path, params: { q: "rails" }, as: :json
-        json = response.parsed_body
-        hit = json["videos"].first
-        expect(hit).to include("record", "highlights")
-        expect(hit["record"]).to include("id", "title", "views")
-        expect(hit["record"]["id"]).to eq(video.id)
-        expect(hit["highlights"]).to eq("title" => "<mark>rails</mark>")
-      end
-
       it "does not include channels key" do
         allow(engine).to receive(:search).and_return(empty_results)
 
@@ -122,7 +95,7 @@ RSpec.describe "Search", type: :request do
 
       it "drops hits whose backing Video row is missing (Rust record field is non-nullable)" do
         hits = {
-          hits: [ { id: 99_999, record: nil, highlights: { "title" => "stale" }, score: nil } ],
+          hits: [ { id: 99_999, record: nil, highlights: {}, score: nil } ],
           total: 1, took_ms: 0.5
         }
         allow(engine).to receive(:search).and_return(hits)

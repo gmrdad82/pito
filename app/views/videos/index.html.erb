@@ -1,28 +1,21 @@
 <% content_for(:title, "videos") %>
 
-<div style="max-width: 1400px;" data-controller="bulk-select" data-bulk-select-max-panes-value="<%= @max_panes %>" data-bulk-select-entity-name-value="videos" data-bulk-select-panes-path-value="/videos/panes" data-bulk-select-delete-type-value="video">
+<%# Phase 7 Path A2 (literal full retract). Video is a thin
+    YouTube-reference record. The index renders id, youtube ID, channel
+    URL, aggregate stats (views/likes/comments/watch), star, and last
+    sync. The legacy [+] add button is gone — Videos are created via
+    the Phase 7C connect-channel flow, not via an in-app form. %>
+<div style="max-width: 1100px;" data-controller="bulk-select" data-bulk-select-max-panes-value="<%= @max_panes %>" data-bulk-select-entity-name-value="videos" data-bulk-select-panes-path-value="/videos/panes" data-bulk-select-delete-type-value="video">
   <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;">
     <div class="dot-list">
       <h1>videos</h1>
-      <%= render(BracketedLinkComponent.new(label: "+", href: new_video_path)) %>
     </div>
     <span style="margin-left: auto;"><%= render(SavedViewsSectionComponent.new(saved_views: @saved_views || SavedView.none, kind: "videos")) %></span>
   </div>
 
-  <%# Turbo-frame wrapper (polish-3, 2026-05-06): the bulk toolbar +
-      videos table sit inside `<turbo-frame id="videos-index-table">`
-      so a sort-header click only re-renders the frame's content. The
-      frame element exists on every render (including the empty state)
-      so Turbo can match it in the response and skip the fall-back to
-      a full-page navigation. %>
   <%= turbo_frame_tag "videos-index-table" do %>
   <% if @videos.any? %>
     <div>
-      <%# Phase B polish (2026-05-05) — bulk toolbar is always rendered.
-          Each `.action` span carries an `.action-sep` `&middot;` that
-          the controller hides on whichever action is first-visible.
-          Action targets (open / count / delete) self-hide when
-          selection count is zero; see bulk_select_controller.js. %>
       <div data-bulk-select-target="actions" class="bulk-toolbar" style="margin-bottom: 6px;">
         <span class="action" data-bulk-select-target="openHint">
           <span class="action-sep" hidden>&middot;</span>
@@ -38,71 +31,34 @@
         </span>
       </div>
 
-      <%# Sortable column headers — server-side sort via `?sort=<key>&dir=<asc|desc>`.
-          Only columns whose key lives in `VideosController::ALLOWED_SORTS`
-          render as sort links (Name / title / date). Aggregate columns
-          (views / trend / likes / chats / watch) and computed cells
-          (channel / state / length) stay as plain `<th>` text — adding
-          them to the allowlist is a forward-looking item and would need
-          ORDER BY on the SUM expression for the aggregates. %>
-      <%# Table sizing — explicit colgroup widths plus
-          `table-layout: fixed; width: 1220px;` so the table sizes to its
-          content (40 + 60 + 280 + 200 + 80 + 60 + 80 + 80 + 80 + 80 +
-          100 + 80 = 1220 px) rather than stretching to viewport width.
-          Mirrors the /channels polish (2026-05-06): the channel-URL
-          column is server-side middle-truncated, so it fits comfortably
-          in 200 px. `width: auto` is NOT enough under
-          `table-layout: fixed` — see /channels picker partial for the
-          longer note. There is no `starred` column on videos. %>
-      <%# Horizontal-scroll wrapper (2026-05-05): the videos table is
-          wider than narrower laptop viewports. Wrapping it in a
-          `.themed-scroll-x` div with `overflow-x: auto; max-width: 100%;`
-          localizes the horizontal scrollbar to the table region instead
-          of the body. The Webkit `::-webkit-scrollbar:horizontal`
-          global rule (8px, muted thumb) themes Chromium / Safari
-          automatically; the `.themed-scroll-x` class wires Firefox's
-          `scrollbar-width: thin` + `scrollbar-color`. The bulk toolbar
-          stays OUTSIDE the wrapper so it remains aligned with the
-          leftmost column on initial render. %>
       <div class="themed-scroll-x" style="overflow-x: auto; max-width: 100%;">
-      <table style="table-layout: fixed; width: 1220px;">
+      <table style="table-layout: fixed; width: 920px;">
         <colgroup>
           <col style="width: 40px;">  <%# selection checkbox %>
-          <col style="width: 60px;">  <%# Name (id) %>
-          <col style="width: 280px;"> <%# title %>
-          <col style="width: 200px;"> <%# channel URL (truncated) %>
+          <col style="width: 60px;">  <%# id %>
+          <col style="width: 160px;"> <%# youtube id %>
+          <col style="width: 200px;"> <%# channel URL %>
           <col style="width: 80px;">  <%# views %>
-          <col style="width: 60px;">  <%# trend %>
           <col style="width: 80px;">  <%# likes %>
           <col style="width: 80px;">  <%# chats %>
           <col style="width: 80px;">  <%# watch %>
-          <col style="width: 80px;">  <%# state %>
-          <col style="width: 100px;"> <%# date %>
-          <col style="width: 80px;">  <%# length %>
+          <col style="width: 60px;">  <%# star %>
+          <col style="width: 100px;"> <%# last sync %>
         </colgroup>
         <thead>
           <tr>
             <th class="col-action">
               <%= render(CheckboxComponent.new(data: { bulk_select_target: "headerCheckbox", action: "change->bulk-select#toggleAll" })) %>
             </th>
-            <%# Name column — placeholder for the YouTube video title once
-                sync lands. For now the cell renders `video.id` linked to
-                the show page so the column has stable content. The legacy
-                `[o]` action column was dropped (2026-05-05 polish): the
-                Name cell IS the show-page link, so a separate open-action
-                cell was redundant. Lowercase `name` mirrors the
-                design-system convention (same as `/channels`). %>
             <th class="sortable"><%= sort_link_to("name", "id", current_sort: @sort, current_dir: @dir, frame: "videos-index-table") %></th>
-            <th class="sortable"><%= sort_link_to("title", "title", current_sort: @sort, current_dir: @dir, frame: "videos-index-table") %></th>
+            <th>youtube id</th>
             <th>channel</th>
             <th class="num">views</th>
-            <th class="num">trend</th>
             <th class="num">likes</th>
             <th class="num">chats</th>
             <th class="num">watch</th>
-            <th class="num">state</th>
-            <th class="sortable num"><%= sort_link_to("date", "published_at", current_sort: @sort, current_dir: @dir, frame: "videos-index-table") %></th>
-            <th class="num">length</th>
+            <th class="sortable num"><%= sort_link_to("star", "starred", current_sort: @sort, current_dir: @dir, frame: "videos-index-table") %></th>
+            <th class="sortable num"><%= sort_link_to("last sync", "last_synced_at", current_sort: @sort, current_dir: @dir, frame: "videos-index-table") %></th>
           </tr>
         </thead>
         <tbody>
@@ -112,22 +68,22 @@
                 <%= render(CheckboxComponent.new(value: video.id, data: { bulk_select_target: "checkbox", action: "change->bulk-select#toggle" })) %>
               </td>
               <td><%= link_to video.id, video_path(video), data: { turbo_frame: "_top" } %></td>
-              <td style="overflow: hidden; text-overflow: ellipsis;"><%= video.title %></td>
-              <%# Channel column — server-side middle-truncated to a
-                  fixed `<head>…<tail>` string (e.g. `https://…jF7eS8r1`).
-                  Same shape as the `/channels` URL column. Full URL is
-                  preserved on the `<td>`'s `title` attribute. %>
+              <td style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="<%= video.youtube_video_id %>"><%= video.youtube_video_id %></td>
               <td title="<%= video.channel.channel_url %>">
                 <%= link_to middle_truncate(video.channel.channel_url, head: 8, tail: 8), video.channel.channel_url, target: "_blank", rel: "noopener noreferrer" %>
               </td>
               <td class="num"><%= number_with_delimiter(video.total_views) %></td>
-              <td class="num"><%= view_trend_indicator(video) %></td>
               <td class="num"><%= number_with_delimiter(video.total_likes) %></td>
               <td class="num"><%= number_with_delimiter(video.total_comments) %></td>
               <td class="num"><span data-sort-value="<%= video.total_watch_time.to_i %>"><%= format_video_watch_time(video.total_watch_time) %></span></td>
-              <td class="num"><%= video.privacy_status&.sub("_video", "") || "—" %></td>
-              <td class="num"><%= video.published_at&.strftime("%Y-%m-%d") %></td>
-              <td class="num"><%= format_duration(video.duration_seconds) %></td>
+              <td class="num"><%= video.star? ? "yes" : "no" %></td>
+              <td class="num">
+                <% if video.last_synced_at.present? %>
+                  <%= compact_time_ago(video.last_synced_at) %>
+                <% else %>
+                  —
+                <% end %>
+              </td>
             </tr>
           <% end %>
         </tbody>

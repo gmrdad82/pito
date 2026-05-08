@@ -20,10 +20,10 @@ RSpec.describe "FactoryBot Phase A factories" do
     end
 
     it "builds valid records for each trait" do
+      # Phase 7 Path A2 — `:syncing` and `:fully_loaded` traits are
+      # gone with the columns they targeted.
       expect(FactoryBot.build(:channel, :starred)).to be_valid
       expect(FactoryBot.build(:channel, :connected)).to be_valid
-      expect(FactoryBot.build(:channel, :syncing)).to be_valid
-      expect(FactoryBot.build(:channel, :fully_loaded)).to be_valid
     end
   end
 end

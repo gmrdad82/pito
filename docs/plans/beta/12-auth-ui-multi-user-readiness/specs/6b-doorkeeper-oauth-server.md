@@ -91,22 +91,23 @@ CRUD UI under Settings.
 - **Gem: `doorkeeper`.** Use the canonical
   [doorkeeper-gem/doorkeeper](https://github.com/doorkeeper-gem/doorkeeper) gem.
   Pin to the latest 5.x release at implementation time. Do NOT hand-roll OAuth.
-- **Grant types enabled:** Authorization Code (with PKCE required for public
-  clients) + Refresh Token. **Disable** Implicit, Resource Owner Password
-  Credentials, and Client Credentials in v1. Reasoning: Authorization Code+PKCE
-  covers every Beta use case (CLI, future mobile, future browser); Implicit is
-  deprecated; ROPC is dangerous; Client Credentials (M2M) is real but unused
-  right now and adding it expands the threat surface without a caller. **Capture
-  as Open Question:** if the user wants Client Credentials for some future M2M
-  case (e.g., a Sidekiq worker on a separate host), enable then.
+- **Grant types: Authorization Code + PKCE ONLY.** Authorization Code (with PKCE
+  required for public clients) + Refresh Token. **Disable** Implicit, Resource
+  Owner Password Credentials, AND Client Credentials. The MCP surface uses Phase
+  5 ApiTokens (PAT-style), not Client Credentials, because MCP traffic is
+  human-delegated, not headless-service traffic. There is no machine-to-machine
+  grant in this phase. Reasoning: Authorization Code+PKCE covers every Beta use
+  case (CLI, future mobile, future browser); Implicit is deprecated; ROPC is
+  dangerous; Client Credentials is rejected outright on the threat-model grounds
+  above (and revisited only if a real headless-service caller emerges).
 - **PKCE: required for public clients, optional for confidential.** Doorkeeper's
   `force_pkce` option is enabled. Public clients (`pito-cli`, future mobile)
   declare `confidential: false`; confidential clients (none in v1) can skip
   PKCE. Default new-app registration is `confidential: false` to nudge toward
   PKCE.
-- **Access token TTL: 1 hour.** Refresh token TTL: 30 days. Refresh token
-  rotation: enabled (every refresh issues a new refresh token, old one revoked
-  immediately). Mirrors the Phase 6 plan recommendations.
+- **Token TTLs: 2h access / 14d refresh.** Access token TTL is 2 hours; refresh
+  token TTL is 14 days. Refresh token rotation: enabled (every refresh issues a
+  new refresh token, old one revoked immediately).
 - **Manual `ApiToken` TTL stays unchanged.** Phase 5's manual tokens remain
   non-expiring by default with optional `expires_at`. The policy difference
   between manual and OAuth tokens is documented in `docs/auth.md` (Step C of
@@ -152,7 +153,8 @@ CRUD UI under Settings.
 - **Throttling.** Apply the existing `rack-attack` infrastructure to
   `/oauth/token` (token exchange + refresh). Limit: 30 requests per IP per 5
   minutes. Higher than the login throttle (10 / 5min) because legitimate clients
-  may retry on transient errors and refreshing happens hourly.
+  may retry on transient errors and refreshing happens within the access-token
+  TTL window.
 
 ---
 
@@ -217,16 +219,17 @@ Doorkeeper.configure do
   default_scopes Scopes::DEV_READ
   optional_scopes(*Scopes::ALL.reject { |s| s == Scopes::DEV_READ })
 
-  # Grant flows
+  # Grant flows — Authorization Code + PKCE only.
+  # Client Credentials intentionally NOT enabled (MCP uses Phase 5 ApiTokens).
   grant_flows %w[authorization_code]
   use_refresh_token
   reuse_access_token
   enforce_configured_scopes
   force_pkce  # required for public clients
 
-  # Token TTLs
-  access_token_expires_in 1.hour
-  refresh_token_expires_in 30.days
+  # Token TTLs — 2h access / 14d refresh
+  access_token_expires_in 2.hours
+  refresh_token_expires_in 14.days
 
   # Custom models: tenant-aware subclasses
   application_class "OauthApplication"
@@ -487,7 +490,9 @@ Step C's `docs/auth.md` update enumerates them in the audit log section.
   coexist forever (or until a future phase deprecates one).
 - **Tenant-leak audit** — Step C.
 - **Multi-user invitation flow** — Step C.
-- **Client Credentials grant** — captured in Open Questions; not enabled in v1.
+- **Client Credentials grant (M2M)** — locked out. The MCP surface uses Phase 5
+  ApiTokens (PAT-style); MCP traffic is human-delegated, not headless service
+  traffic. No M2M caller in this phase.
 - **OAuth application icons / branding** — Theta concern.
 - **Admin role / per-application ownership** — single-user Beta; not surfaced.
 - **Rate limit tuning** — initial limits set by this step are a starting point;
@@ -506,9 +511,10 @@ Step C's `docs/auth.md` update enumerates them in the audit log section.
       indexed).
 - [ ] `OauthApplication`, `OauthAccessToken`, `OauthAccessGrant` custom models
       include `BelongsToTenant`.
-- [ ] Doorkeeper configured: Auth Code + Refresh only, PKCE enforced for public
-      clients, scopes mapped to `Scopes::ALL`, access token TTL 1h, refresh
-      token TTL 30d, refresh rotation enabled.
+- [ ] Doorkeeper configured: Authorization Code + PKCE only (Client Credentials
+      explicitly NOT enabled), Refresh Token enabled, scopes mapped to
+      `Scopes::ALL`, access token TTL 2h, refresh token TTL 14d, refresh
+      rotation enabled.
 - [ ] `GET /oauth/authorize` redirects to `/login` when unauthenticated; renders
       the styled consent screen when authenticated.
 - [ ] `POST /oauth/authorize` issues a code and redirects to the registered
@@ -579,7 +585,8 @@ Step C's `docs/auth.md` update enumerates them in the audit log section.
      -d "code=<code>" \
      -d "code_verifier=$verifier"
    ```
-   → 200 with `{access_token, refresh_token, expires_in, scope}`.
+   → 200 with `{access_token, refresh_token, expires_in, scope}`. `expires_in`
+   is approximately 7200 (2 hours).
 9. Use the access token against a JSON endpoint:
    ```bash
    curl -i -H "Authorization: Bearer <access_token>" \
@@ -664,35 +671,34 @@ Out of bounds for this step:
   C owns the doc updates.
 - `app/lib/scopes.rb` — Phase 5 owns; this step references.
 
-## 11. Open questions
+## 11. Decisions (locked)
 
-- **Client Credentials grant (M2M).** Spec disables it in v1. The user should
-  confirm: any future M2M case (a Sidekiq worker on a separate host calling the
-  JSON API on behalf of "the system", not a user) that wants Client Credentials?
-  If yes, enable; if no, punt to Theta. **Default if not answered: keep
-  disabled.**
-- **Doorkeeper plaintext access tokens.** Doorkeeper stores access tokens
-  plaintext in `oauth_access_tokens.token`. This is a documented Doorkeeper
-  trade-off. Spec accepts it. The user should acknowledge: Pito's threat model
-  allows this (DB compromise = full breach regardless; the digest on `ApiToken`
-  is defense-in-depth, not a hard requirement). If the user disagrees, options
-  are (a) override Doorkeeper's storage with a hashed variant — increases
-  ongoing maintenance, or (b) drop Doorkeeper and hand-roll — rejected upstream.
-  Spec assumes (acknowledged, accepted).
-- **Pre-seeded `pito-cli` redirect URIs.** Spec proposes `http://127.0.0.1`
-  (loopback wildcard) + `urn:ietf:wg:oauth:2.0:oob` (OOB copy-paste). Confirm
-  whether OOB is wanted or just loopback. (OOB is deprecated by RFC 8252 but
-  occasionally useful.)
-- **CLI follow-up sequencing.** After Step B ships, the Rust CLI still uses
-  manual `ApiToken` paste. Confirm whether the CLI migration to OAuth is part of
-  Phase 6 (then it's a fourth sub-step 6D), or punted to a Phase 7+ polish
-  window. Spec defers.
-- **Consent screen "remember this app for 30 days" checkbox.** Doorkeeper
-  supports skipping consent on subsequent grants for the same scopes
-  (`skip_authorization` block). Spec disables in v1 (always show consent).
-  Confirm or relax.
-- **Application admin gating.** Spec uses `Current.user.present?` as the
-  placeholder admin check. Confirm: in single-user Beta, is "any logged-in user
-  can manage applications" acceptable, or do we want the placeholder to fail
-  closed (only the seeded owner)? **Default: any logged-in user, since there is
-  one.**
+The following decisions are confirmed and pinned. Implementation does not
+re-litigate them.
+
+- **Grant types** — Authorization Code + PKCE ONLY (plus Refresh Token for
+  rotation). NO Client Credentials grant in this phase. The MCP surface uses
+  Phase 5 ApiTokens (PAT-style), not Client Credentials, because MCP traffic is
+  human-delegated, not headless service traffic. Implicit and Resource Owner
+  Password Credentials are also disabled.
+- **Token TTLs** — 2 hours access token, 14 days refresh token. Refresh token
+  rotation is enabled (every refresh issues a new refresh token, old one revoked
+  immediately).
+
+Implementer notes for ergonomics (not architectural decisions, just
+implementation guidance):
+
+- The pre-seeded `pito-cli` application uses a loopback `redirect_uri`
+  (`http://127.0.0.1`) with an OOB fallback (`urn:ietf:wg:oauth:2.0:oob`).
+  Implementer wires both unless Doorkeeper's loopback handling needs only one.
+- Doorkeeper stores access tokens plaintext in `oauth_access_tokens.token`. The
+  hashing on `ApiToken` is defense-in-depth narrower than what Doorkeeper
+  provides; the threat model accepts this (DB compromise = full breach
+  regardless). Document in Step C's `docs/auth.md` update.
+- Application admin gating uses `Current.user.present?` as a placeholder in
+  single-user Beta (one user, no role surface). Step C documents the migration
+  path when multi-user lands.
+- Consent screen does not offer a "remember this app for 30 days" checkbox in v1
+  (`skip_authorization` always returns false). Future polish concern.
+- CLI migration to OAuth (loopback PKCE flow on the client side) is a follow-up
+  dispatch, not part of Phase 6.

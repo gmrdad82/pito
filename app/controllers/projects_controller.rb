@@ -112,7 +112,7 @@ class ProjectsController < ApplicationController
     if @project.update(update_params)
       redirect_to project_path(@project), notice: "project updated."
     else
-      render :edit, status: :unprocessable_entity
+      render :edit, status: :unprocessable_content
     end
   end
 

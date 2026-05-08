@@ -1,0 +1,61 @@
+# Phase 7 — Step B (7b-youtube-client-and-audit.md). YouTube /
+# YouTube Analytics quota cost map and per-identity daily budget.
+#
+# Per https://developers.google.com/youtube/v3/determine_quota_cost,
+# costs are pinned to the documented unit costs (rounded up where
+# the cost varies by `part`). Decision 7B-quota: per-identity
+# tracking; Beta is single-user single-tenant single-project so
+# per-identity / per-tenant / per-project converge.
+module Youtube
+  module Quota
+    COSTS = {
+      "channels.list"      => 1,
+      "videos.list"        => 1,
+      "playlists.list"     => 1,
+      "playlistItems.list" => 1,
+      "search.list"        => 100,
+      "subscriptions.list" => 1,
+      "captions.list"      => 50,
+      # YouTube Analytics v2:
+      "reports.query"      => 1,
+      # OAuth2 revoke endpoint — billed at 0 (not part of YouTube
+      # quota) but written to the audit table for completeness.
+      "oauth2.revoke"      => 0
+    }.freeze
+
+    DEFAULT_DAILY_BUDGET_UNITS = 10_000
+
+    module_function
+
+    # Resolve the cost for `endpoint`. Raises
+    # `Youtube::UnknownEndpointError` if the endpoint is missing —
+    # treat as a programming error.
+    def cost_for(endpoint)
+      COSTS.fetch(endpoint.to_s) do
+        raise Youtube::UnknownEndpointError, "unknown endpoint: #{endpoint.inspect}"
+      end
+    end
+
+    # Configurable via `Rails.application.config.youtube_daily_budget_units`
+    # so the manual-test recipe can knock it down to zero to force
+    # `QuotaExhaustedError`.
+    def daily_budget_units
+      Rails.application.config.respond_to?(:youtube_daily_budget_units) &&
+        Rails.application.config.youtube_daily_budget_units || DEFAULT_DAILY_BUDGET_UNITS
+    end
+
+    # Remaining budget for `google_identity` today. Sums
+    # OAuth-client units only (PublicClient has its own bucket
+    # under `client_kind: "public"`, deferred to Phase 8).
+    def budget_remaining(google_identity)
+      used = YoutubeApiCall.unscoped.today
+        .where(
+          tenant_id: google_identity.tenant_id,
+          google_identity_id: google_identity.id,
+          client_kind: "oauth"
+        )
+        .sum(:units)
+      daily_budget_units - used.to_i
+    end
+  end
+end

@@ -94,6 +94,36 @@ FileUtils.chdir APP_ROOT do
     exit 1
   end
 
+  # Phase 7.5 §05 — `pito-assets` volume root. Active Storage's `:local`
+  # service and the `Pito::AssetsRoot` helper both resolve their on-disk
+  # root from `PITO_ASSETS_PATH` (defaulting to `/var/lib/pito-assets` in
+  # production). On a dev box the committed `.env.example` points at
+  # `tmp/pito-assets`. Create the directory up front so first-write paths
+  # (`bin/rails console` smoke checks, the seed-time game cover_art) don't
+  # blow up on a missing parent. Relative env values anchor to the repo
+  # root; absolute values are honored verbatim. The `/var/lib/pito-assets`
+  # default is skipped when not writable (production sets it up via the
+  # Docker volume mount, not `bin/setup`).
+  raw_assets_path = ENV.fetch("PITO_ASSETS_PATH", "/var/lib/pito-assets")
+  resolved_assets_path =
+    if File.absolute_path?(raw_assets_path)
+      raw_assets_path
+    else
+      File.expand_path(raw_assets_path, APP_ROOT)
+    end
+  default_in_use = ENV["PITO_ASSETS_PATH"].nil? || ENV["PITO_ASSETS_PATH"].to_s.empty?
+  parent = File.dirname(resolved_assets_path)
+  if default_in_use && !File.writable?(parent)
+    puts "\n== Skipping pito-assets path =="
+    puts "   PITO_ASSETS_PATH is unset and the default (#{resolved_assets_path}) is"
+    puts "   not writable. Production deployments mount the `pito-assets` Docker"
+    puts "   volume at this location; for dev, set PITO_ASSETS_PATH to a writable"
+    puts "   directory (see .env.example)."
+  else
+    FileUtils.mkdir_p(resolved_assets_path)
+    puts "\n== Pito assets root ready at #{resolved_assets_path} =="
+  end
+
   puts "\n== Removing old logs and tempfiles =="
   system! "bin/rails log:clear tmp:clear"
 

@@ -11,6 +11,22 @@ Rails.application.routes.draw do
   end
   mount Sidekiq::Web => "/sidekiq"
 
+  # Phase 12 — Step A (6a-sessions-and-login-ui.md) — login + logout.
+  # `/login` is the user-facing convention; `DELETE /session` is the
+  # singleton current-session endpoint. The plural management surface
+  # (`/settings/sessions`) is handled below in the settings namespace.
+  get "/login",    to: "sessions#new",     as: :login
+  post "/login",   to: "sessions#create"
+  delete "/session", to: "sessions#destroy", as: :session_logout
+
+  # Phase 12 — Step B (6b-doorkeeper-oauth-server.md). Doorkeeper mounts
+  # `/oauth/authorize`, `/oauth/token`, `/oauth/revoke`, `/oauth/introspect`.
+  # We skip the bundled applications admin and replace it with our own UI
+  # under `/settings/oauth_applications`.
+  use_doorkeeper do
+    skip_controllers :applications, :authorized_applications
+  end
+
   root "dashboard#index"
 
   # JSON-only alias for the dashboard. The pito CLI terminal client expects to
@@ -28,7 +44,11 @@ Rails.application.routes.draw do
       get :videos
     end
   end
-  resources :videos, only: [ :index, :show, :new, :create, :edit, :update ] do
+  # Phase 7 Path A2 (literal full retract). Video CRUD is hidden — Video
+  # becomes a thin YouTube-reference record created only via the Phase
+  # 7C connect-channel sync flow (or future Phase 8+ paths). The form
+  # routes (:new / :create / :edit / :update) are intentionally absent.
+  resources :videos, only: [ :index, :show, :destroy ] do
     collection do
       get :panes
     end
@@ -78,8 +98,40 @@ Rails.application.routes.draw do
   end
 
   resources :saved_views, only: [ :index, :create, :destroy ]
+
+  # Phase 7 — Step A (7a-google-oauth-and-identity.md). OmniAuth-
+  # driven Google OAuth flow. `/auth/google_oauth2` is the request
+  # phase (POST per `omniauth-rails_csrf_protection`; the bare GET
+  # is allowed in development for direct address-bar entry). The
+  # callback dispatches between the sign-in branch (placeholder TODO
+  # until Phase 12 surfaces real session establishment) and the
+  # YouTube-connect branch (forwarded to `/settings/youtube`).
+  # The OmniAuth `callback_path` is set to `/auth/google/callback`
+  # (matching the URI registered with the Google Cloud Console).
+  # The `redirect URI` Google bounces back to is owned by the
+  # OmniAuth middleware; this route receives the request after
+  # OmniAuth has placed the auth hash in env.
+  match "/auth/google/callback",
+        to: "auth/google_callbacks#create",
+        via: %i[get post],
+        as: :google_oauth_callback
+  get "/auth/failure", to: "auth/google_callbacks#failure", as: :google_oauth_failure
+  # Dev-only direct entry point for browser address-bar testing.
+  # Production uses `button_to` (POST) from `Settings::YoutubeController#connect`.
+  if Rails.env.development?
+    get "/auth/google", to: redirect("/auth/google_oauth2"), as: :google_oauth_start
+  end
+
   get "deletions/:type/:ids", to: "deletions#show", as: :deletions
   post "deletions/:type/:ids", to: "deletions#create"
+  # Phase 7 — Step C. Disconnect of a YouTube connection follows the
+  # `bulk-as-foundation` rule: single-channel disconnect is `:ids`
+  # = one id; multi is N. The DELETE verb completes the action
+  # screen confirmed at GET .../show above (the youtube_connection
+  # type is dispatched specially inside DeletionsController).
+  delete "deletions/youtube_connection/:ids",
+         to: "deletions#destroy_youtube_connection",
+         as: :youtube_connection_disconnect
   get "syncs/:type/:ids", to: "syncs#show", as: :syncs
   post "syncs/:type/:ids", to: "syncs#create"
   resources :bulk_operations, only: [ :show ] do
@@ -105,6 +157,37 @@ Rails.application.routes.draw do
         get :revoke
       end
     end
+
+    # Phase 12 — Step A (6a-sessions-and-login-ui.md). Active Sessions
+    # management mirrors the tokens shape: index, member revoke (action
+    # screen), member destroy (the actual revoke).
+    resources :sessions, only: %i[index destroy] do
+      member do
+        get :revoke
+      end
+    end
+
+    # Phase 12 — Step B (6b-doorkeeper-oauth-server.md). OAuth
+    # application admin. `:show` exposes the read-only detail; the
+    # `create` action renders the show-secrets-once page rather than
+    # redirecting (matching the `/settings/tokens` ceremony). The
+    # `revoke` member route renders the action-screen confirmation
+    # before the actual DELETE.
+    resources :oauth_applications, only: %i[index new create show destroy] do
+      member do
+        get :revoke
+      end
+    end
+
+    # Phase 7 — Step C (7c-settings-youtube-ui.md). Settings → YouTube
+    # surface. `show` lists the connected identity + the user's
+    # YouTube channels; `connect` is the request-phase entry point
+    # for the OmniAuth dance (POST + button_to from the show page);
+    # `channels` connects a single channel into Pito's Channel table
+    # by youtube_channel_id.
+    get  "/youtube",          to: "youtube#show",     as: :youtube
+    post "/youtube/connect",  to: "youtube#connect",  as: :youtube_connect
+    post "/youtube/channels", to: "youtube#channels", as: :youtube_channels
   end
 
   # MCP HTTP transport (served by dedicated Puma on port 3028)

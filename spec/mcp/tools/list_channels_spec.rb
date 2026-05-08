@@ -16,11 +16,13 @@ RSpec.describe Mcp::Tools::ListChannels do
 
     expect(data.size).to eq(1)
     row = data.first
-    expect(row.keys).to include("id", "channel_url", "star", "connected", "syncing", "last_synced_at", "created_at", "updated_at")
+    # Phase 7 Path A2 — `syncing` is dropped from the JSON shape;
+    # `connected` is derived from oauth_identity_id.
+    expect(row.keys).to include("id", "channel_url", "star", "connected", "last_synced_at", "created_at", "updated_at")
+    expect(row).not_to have_key("syncing")
     expect(row["channel_url"]).to eq(channel.channel_url)
     expect(row["star"]).to eq("no")
     expect(row["connected"]).to eq("no")
-    expect(row["syncing"]).to eq("no")
   end
 
   it "filters by star=yes" do
@@ -55,16 +57,9 @@ RSpec.describe Mcp::Tools::ListChannels do
     expect(data.first["id"]).to eq(connected.id)
   end
 
-  it "filters by syncing=yes" do
-    syncing = create(:channel, :syncing)
-    create(:channel)
-
-    result = described_class.call(syncing: "yes")
-    data = JSON.parse(result.content.first[:text])
-
-    expect(data.size).to eq(1)
-    expect(data.first["id"]).to eq(syncing.id)
-  end
+  # Phase 7 Path A2 — the `syncing` column / filter is gone. Tool no
+  # longer accepts a `syncing:` arg; the schema would reject it (or
+  # it falls into **_extras and is ignored at the engine).
 
   it "combines filters (intersection)" do
     create(:channel, :starred)
@@ -89,14 +84,20 @@ RSpec.describe Mcp::Tools::ListChannels do
     expect(result.to_h[:isError]).to be true
   end
 
-  it "schema declares star/connected/syncing as enum yes/no strings" do
+  it "schema declares star/connected as enum yes/no strings" do
     schema = described_class.input_schema.to_h
     props = schema[:properties] || schema["properties"]
-    %i[star connected syncing].each do |key|
+    %i[star connected].each do |key|
       entry = props[key] || props[key.to_s]
       expect((entry[:type] || entry["type"]).to_s).to eq("string")
       expect((entry[:enum] || entry["enum"]).map(&:to_s)).to contain_exactly("yes", "no")
     end
+  end
+
+  it "schema does NOT declare a syncing arg (column dropped in Path A2)" do
+    schema = described_class.input_schema.to_h
+    props = schema[:properties] || schema["properties"]
+    expect(props.keys.map(&:to_s)).not_to include("syncing")
   end
 
   it "respects limit and offset" do

@@ -28,6 +28,12 @@ gem "sidekiq-cron"
 gem "google-apis-youtube_v3"
 gem "google-apis-youtube_analytics_v2"
 
+# Phase 7 — Step A (7a-google-oauth-and-identity.md). OmniAuth-based
+# Google OAuth flow. `omniauth-rails_csrf_protection` is required by
+# OmniAuth 2.x to keep request-phase routes POST-only (CVE-2015-9284).
+gem "omniauth-google-oauth2"
+gem "omniauth-rails_csrf_protection"
+
 # Charts
 gem "chartkick"
 gem "groupdate"
@@ -92,3 +98,8 @@ gem "draper", "~> 4.0"
 
 # MCP (Model Context Protocol) server
 gem "mcp"
+
+# Phase 12 — Step B (6b-doorkeeper-oauth-server.md). OAuth 2.0 authorization
+# server. Authorization Code + PKCE only; Client Credentials and ROPC are
+# disabled in `config/initializers/doorkeeper.rb` per the locked decisions.
+gem "doorkeeper", "~> 5.8"

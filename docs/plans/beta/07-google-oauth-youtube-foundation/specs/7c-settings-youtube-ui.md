@@ -64,6 +64,10 @@ Documentation (parallel docs-keeper dispatch — out of this spec's lane):
 
 - `docs/design.md` — Settings → YouTube section: bracketed table layout,
   `[ connect ]` / `[ disconnect ]` row actions, `needs reauth` banner shape.
+  Also: append a one-line note to the color section documenting the carve-out
+  for failure-state banners (red allowed; see §"Decisions (locked)" below). This
+  is a TODO-on-implementation handed to the docs-keeper dispatch — this spec
+  does NOT edit `docs/design.md` directly.
 
 Cross-stack scope: Rails-only.
 
@@ -166,7 +170,7 @@ Settings → YouTube
 When `GoogleIdentity#needs_reauth?` is true, prepend the banner partial:
 
 ```
-  ┌─ banner (red text on white per design.md destructive policy) ─────┐
+  ┌─ banner (red text on white per design.md failure-state carve-out) ─┐
   │  Your Google grant was revoked. Pito can no longer fetch YouTube  │
   │  data for this account.                                            │
   │                                                                    │
@@ -174,11 +178,11 @@ When `GoogleIdentity#needs_reauth?` is true, prepend the banner partial:
   └────────────────────────────────────────────────────────────────────┘
 ```
 
-The banner is **informational** in tone, not a destructive-action UI — red text
-is allowed because the situation itself is a failure state per `docs/design.md`
-(clarify in design.md update if needed). The `[ reconnect ]` button POSTs to
-`/settings/youtube/connect` (same endpoint as the initial connect; the OAuth
-flow re-grants).
+The banner is **informational** in tone, not a destructive-action UI. Red is
+allowed because `needs_reauth` is a **failure state**, and the docs-keeper-owned
+design.md carve-out covers it (see §"Decisions (locked)" for the carve-out
+reasoning). The `[ reconnect ]` button POSTs to `/settings/youtube/connect`
+(same endpoint as the initial connect; the OAuth flow re-grants).
 
 ### Data fetched on show
 
@@ -255,9 +259,10 @@ Per `CLAUDE.md`'s bulk-as-foundation + `Confirmable` rules:
 3. Update each Channel: `oauth_identity_id: nil`, `connected: false`.
 4. For each `identity_id` in `affected_identity_ids`: if no remaining `Channel`
    row references it, call `Google::RevokeToken.call(identity)`.
-5. After revoke: destroy the `GoogleIdentity` row (rationale: a revoked grant is
-   unusable; keeping the encrypted tokens around is a security hygiene loss).
-   The user re-authorizes from scratch next time.
+5. After revoke: destroy the `GoogleIdentity` row. **Locked decision — destroy
+   the row.** Audit trail of "this user once authorized at <timestamp>" lives in
+   `youtube_api_calls`, not on the identity row; keeping the identity around
+   with cleared tokens would be dead-row noise.
 6. Redirect to `/settings/youtube` with flash "Disconnected N channel(s)."
 
 `Google::RevokeToken.call(identity)`:
@@ -267,9 +272,14 @@ Per `CLAUDE.md`'s bulk-as-foundation + `Confirmable` rules:
 - Audit one `YoutubeApiCall` row: `endpoint: "oauth2.revoke"`,
   `http_method: "POST"`, `units: 0`, `outcome: "success"` / `"client_error"`
   based on response.
-- On failure: log a warning and proceed with destroying the `GoogleIdentity`
-  anyway. Google's documentation says revocation is best-effort; the tokens
-  become useless once we delete them locally.
+- **Locked decision — already-revoked disconnect is idempotent.** If Google
+  returns "token already invalid" (the grant was revoked from
+  https://myaccount.google.com/permissions before the user clicked disconnect),
+  swallow the error and destroy the local row anyway. Reasoning: the local
+  tokens are useless once destroyed; failing the disconnect because Google can't
+  double-revoke would strand the user with a needs_reauth row they can't clear.
+  Audit row records the outcome (`client_error` with `error_message` containing
+  the response).
 
 ## Acceptance
 
@@ -283,8 +293,9 @@ Per `CLAUDE.md`'s bulk-as-foundation + `Confirmable` rules:
       no `GoogleIdentity`.
 - [ ] `/settings/youtube` renders the connected state with a list of YouTube
       channels fetched via `YouTube::Client#channels_list`.
-- [ ] `/settings/youtube` renders the `needs_reauth` banner when
-      `@identity.needs_reauth?` is true and **does not** call the YouTube API.
+- [ ] `/settings/youtube` renders the `needs_reauth` banner (red text, per the
+      failure-state carve-out) when `@identity.needs_reauth?` is true and **does
+      not** call the YouTube API.
 - [ ] On `QuotaExhaustedError` / `TransientError`, the page renders with a red
       note and a fallback channel list (just the already-connected `Channel`
       rows). No 500.
@@ -305,6 +316,9 @@ Per `CLAUDE.md`'s bulk-as-foundation + `Confirmable` rules:
       reference it; if other channels do, the identity is preserved.
 - [ ] Disconnect calls `Google::RevokeToken` exactly once per orphaned identity;
       one `YoutubeApiCall` row recorded per revoke.
+- [ ] Disconnect against an already-revoked grant succeeds: `RevokeToken`
+      swallows the "token already invalid" error, audits the failure, and the
+      local `GoogleIdentity` is still destroyed.
 - [ ] Bulk disconnect works: 2+ channel ids in `:ids`, all transition atomically
       (single transaction).
 - [ ] No JS `alert` / `confirm` / `prompt` / `data-turbo-confirm`. The
@@ -319,7 +333,8 @@ Per `CLAUDE.md`'s bulk-as-foundation + `Confirmable` rules:
       → see flash → channel back to disconnected state.
 - [ ] Brakeman clean. bundler-audit clean.
 - [ ] `docs/design.md` updated by the parallel docs-keeper dispatch with the
-      Settings → YouTube section.
+      Settings → YouTube section AND the failure-state banner carve-out note in
+      the color section.
 
 ## Manual test recipe
 
@@ -366,8 +381,14 @@ Prereq: 7A and 7B landed and validated.
      unavailable right now: quota exceeded" and the fallback channel list
      (already-connected channels only).
    - Reset: `Rails.application.config.youtube_daily_budget_units = 10_000`.
-9. `bundle exec rspec spec/requests/settings/youtube_spec.rb spec/system/settings_youtube_spec.rb spec/services/youtube/disconnect_channel_spec.rb spec/services/google/revoke_token_spec.rb`
-   — all green.
+9. Already-revoked disconnect path:
+   - Revoke the grant via https://myaccount.google.com/permissions.
+   - In `bin/rails console`, call
+     `YouTube::DisconnectChannel.call(channel_ids: [Channel.connected.first.id])`.
+   - The local `GoogleIdentity` is destroyed; the audit row records
+     `outcome: "client_error"` for the revoke call. No exception bubbles up.
+10. `bundle exec rspec spec/requests/settings/youtube_spec.rb spec/system/settings_youtube_spec.rb spec/services/youtube/disconnect_channel_spec.rb spec/services/google/revoke_token_spec.rb`
+    — all green.
 
 Teardown:
 
@@ -386,35 +407,41 @@ Teardown:
   (Phase 8 may add `yt:write` tools that wrap `DisconnectChannel`.)
 - Cloudflare Pages website — **skipped.**
 
-## Open questions
+## Decisions (locked)
 
-1. **Connection model: single `GoogleIdentity` per User, or one per channel?**
-   This spec assumes **one identity per user** (Beta UI enforces it, schema
-   allows N). All connected Channels share the same identity. This matches the
-   plan. Confirm with the master agent that "one identity, N channels" is the
-   desired model — alternatives:
-   - "One identity per channel" (more granular revocation, more consent
-     friction).
-   - "Multiple identities per user" (Theta concern). Default: one per user.
-2. **Banner color.** This spec uses red text (`#cc0000`) on the `needs_reauth`
-   banner. `docs/design.md` reserves red for destructive actions only. The
-   banner describes a **failure state**, not a destructive action — strictly
-   speaking it might violate the rule. Alternatives: keep the banner in the
-   muted gray (`#555`) with no color, or carve out a "failure state" exemption
-   in `docs/design.md`. The docs-keeper dispatch should decide; this spec
-   defaults to red and asks for the design exemption.
-3. **Destroy `GoogleIdentity` on full disconnect, or just clear tokens?** This
-   spec destroys. Alternative: keep the row, null out the encrypted token
-   columns, set `needs_reauth: true`. Destroying loses the historical "this user
-   once authorized at <timestamp>" trail; clearing keeps it but leaves dead
-   rows. Default: destroy.
-4. **Storage of YouTube channel/video IDs.** This spec stores them on the
-   existing `Channel` table via `channel_url`. The plan's `oauth_identity_id`
-   addition to `channels` is the entire schema change for connection state.
-   Phase 8 will add separate tables (videos, stats); they belong to a Channel,
-   not to a GoogleIdentity. Confirm this layering is correct.
-5. **Disconnect during `needs_reauth` state.** If the grant is already revoked
-   on Google's side, calling `oauth2/revoke` will return an error. This spec's
-   `RevokeToken.call` swallows the error and still destroys the identity
-   locally. Confirm this is the right policy (alternative: skip the revoke call
-   entirely when `needs_reauth?` is true).
+The following decisions are confirmed and pinned. Implementation does not
+re-litigate them.
+
+- **`needs_reauth` banner color** — red (`#cc0000`), with a documented exemption
+  in `docs/design.md`'s "red is destructive only" rule. Carve-out reasoning: red
+  is reserved for destructive / dangerous actions AND failure states;
+  `needs_reauth` is a failure state, not a decorative element. The banner
+  communicates "the system is broken in a way you need to fix"; red is the right
+  signal.
+
+  **TODO-on-implementation:** the docs-keeper dispatch that lands when this spec
+  ships must add a one-line note to `docs/design.md`'s color section documenting
+  the failure-state carve-out (red is allowed for failure-state banners, not
+  just destructive actions). This spec does NOT edit `docs/design.md` directly —
+  that's the docs-keeper's lane.
+
+Implementer notes for ergonomics (not architectural decisions, just
+implementation guidance, locked at the spec level by 7A / 7B but worth restating
+here):
+
+- **Connection model** — one `GoogleIdentity` per user (locked in 7A; schema
+  permits N, Beta UI enforces 1). All connected Channels share the identity.
+- **Disconnect lifecycle** — destroy the `GoogleIdentity` row on full disconnect
+  (last channel referencing the identity is disconnected). Historical "this user
+  once authorized at <timestamp>" trail lives in `youtube_api_calls`, not on the
+  identity row. Reasoning: a destroyed row is cleaner than a row with cleared
+  encrypted tokens and a lingering FK.
+- **Already-revoked disconnect** — idempotent. If Google's `oauth2/revoke`
+  returns "token already invalid" (because the user revoked at
+  myaccount.google.com first), swallow the error, audit the failure, destroy the
+  local row anyway. Locking this prevents the user from being stranded with an
+  unclearable `needs_reauth` row.
+- **Per-channel data storage** — handled by 7B's additive `Channel` migration
+  - `Video` redesign. 7C's only schema delta is `oauth_identity_id` +
+    `connected` on `Channel` (the connection-state pair). Everything else lives
+    in 7B.

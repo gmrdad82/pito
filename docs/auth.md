@@ -22,6 +22,28 @@ If you came here looking for something specific:
 - "What's the `belongs_to_tenant` raise about?" → §5.
 - "Why does the schema look different from the original Phase 3 plan?" → §10.
 
+## Auth surfaces overview
+
+This document is authoritative for **bearer ApiTokens** (Phase 5 Auth
+Foundation). After Phases 6 and 7 landed, the auth landscape now spans four
+surfaces. ApiTokens are one of four; the other three are documented elsewhere.
+Use this map to find the right authority for the surface you care about:
+
+| #   | Surface                   | Mechanism                                            | Authoritative reference                                                                                                                                                                                                |
+| --- | ------------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Browser → Rails           | Cookie + DB-backed sessions (per-session revocation) | Spec: `docs/plans/beta/12-auth-ui-multi-user-readiness/specs/6a-sessions-and-login-ui.md`. Live code: `app/controllers/concerns/sessions/auth_concern.rb`. Revocation UI at `/settings/sessions`.                      |
+| 2   | MCP / `pito` CLI → Rails  | Bearer ApiTokens (HMAC-digested, scoped, revocable)  | The rest of this document (`docs/auth.md`). Live code: `app/lib/api/token_authenticator.rb`, `app/models/api_token.rb`.                                                                                                |
+| 3   | 3rd-party clients → Rails | Doorkeeper-issued OAuth (Authorization Code + PKCE)  | Spec: `docs/plans/beta/12-auth-ui-multi-user-readiness/specs/6b-doorkeeper-oauth-server.md`. Live config: `config/initializers/doorkeeper.rb`. Tokens are 2h access / 14d refresh.                                     |
+| 4   | Pito → Google (YouTube)   | OAuth-delegated `GoogleIdentity` (encrypted at rest) | `docs/architecture.md` "Google OAuth + YouTube API foundation (Phase 7)" section. Live code: `app/models/google_identity.rb`. Scopes: `youtube.readonly` + `yt-analytics.readonly`. `needs_reauth` flag drives banner. |
+
+The four surfaces are independent. A request from a browser session (#1) cannot
+authenticate as an ApiToken (#2); a Doorkeeper access token (#3) does not grant
+Google API access (#4). Each surface has its own credential type, lifetime, and
+revocation path.
+
+The remainder of this document focuses on surface #2 (bearer ApiTokens) — that
+is the original Phase 5 Auth Foundation.
+
 ## 1. Model overview
 
 Four moving parts:

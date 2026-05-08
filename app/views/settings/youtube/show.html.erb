@@ -1,0 +1,103 @@
+<% content_for(:title, "settings — youtube") %>
+
+<h1>settings &rarr; youtube</h1>
+
+<% if @identity.present? && @identity.needs_reauth? %>
+  <%= render "settings/youtube/needs_reauth_banner" %>
+<% end %>
+
+<% if @identity.nil? %>
+  <%# Empty state — no Google identity connected. %>
+  <div class="pane" style="margin-top: 12px; padding: 16px;">
+    <p>no google account connected.</p>
+
+    <%= form_with url: settings_youtube_connect_path, method: :post,
+                  data: { turbo: false } do %>
+      <button type="submit">[ connect google account ]</button>
+    <% end %>
+
+    <p class="text-muted" style="margin-top: 8px;">
+      pito requests <code>youtube.readonly</code> and
+      <code>yt-analytics.readonly</code>. read-only — pito cannot
+      upload, edit, or delete your videos with these scopes.
+    </p>
+  </div>
+<% else %>
+  <%# Connected state. %>
+  <div class="pane" style="margin-top: 12px; padding: 16px;">
+    <p><strong>connected as:</strong> <%= @identity.email %></p>
+    <p class="text-muted">
+      last authorized: <%= @identity.last_authorized_at.strftime("%Y-%m-%d %H:%M %Z") %>
+      <% if @identity.last_refreshed_at.present? %>
+        &middot; last refreshed: <%= @identity.last_refreshed_at.strftime("%Y-%m-%d %H:%M %Z") %>
+      <% end %>
+    </p>
+    <p class="text-muted">
+      scopes: <%= Array(@identity.scopes).join(", ") %>
+    </p>
+
+    <div class="dot-list" style="margin-top: 8px;">
+      <%= form_with url: settings_youtube_connect_path, method: :post,
+                    data: { turbo: false }, html: { style: "display: inline;" } do %>
+        <button type="submit">[ reconnect ]</button>
+      <% end %>
+    </div>
+  </div>
+
+  <% if @youtube_error.present? %>
+    <div class="flash-error" style="margin: 12px 0; padding: 10px 12px; border: 1px solid #cc0000; color: #cc0000;">
+      youtube api unavailable right now: <%= @youtube_error %>.
+      showing already-connected channels only.
+    </div>
+  <% end %>
+
+  <h2 style="margin-top: 16px;">your youtube channels</h2>
+
+  <% pito_channels_by_url = Channel.where(channel_url: @youtube_channels.map { |c| "https://www.youtube.com/channel/#{c[:id]}" }).index_by(&:channel_url) %>
+
+  <% if @youtube_channels.any? %>
+    <table>
+      <thead>
+        <tr>
+          <th>channel id</th>
+          <th>title</th>
+          <th class="num">subscribers</th>
+          <th>state</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @youtube_channels.each do |channel| %>
+          <% url = "https://www.youtube.com/channel/#{channel[:id]}" %>
+          <%= render "settings/youtube/channel_row",
+                     channel: channel,
+                     pito_channel: pito_channels_by_url[url] %>
+        <% end %>
+      </tbody>
+    </table>
+  <% elsif @youtube_error.present? %>
+    <%# Fallback to listing already-connected channels in pito. %>
+    <% fallback = Channel.where(oauth_identity_id: @identity.id).order(channel_url: :asc) %>
+    <% if fallback.any? %>
+      <table>
+        <thead>
+          <tr>
+            <th>channel url</th>
+            <th class="num">connected</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% fallback.each do |c| %>
+            <tr>
+              <td style="font-family: monospace;"><%= c.channel_url %></td>
+              <td class="num">yes</td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    <% else %>
+      <p class="text-muted">no channels available right now.</p>
+    <% end %>
+  <% else %>
+    <p class="text-muted">no channels found under this google account.</p>
+  <% end %>
+<% end %>

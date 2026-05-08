@@ -15,6 +15,40 @@ mark it Done with the commit reference.
 > begins. As items resolve during 5.5, they move to "## Done" with the resolving
 > commit hash. New entries continue to be added throughout Phase 5.
 
+### Phase 6 deviation acknowledgment — DB-backed sessions vs. cookie_store (decision 6.1)
+
+**Trigger:** N/A — informational. Captured here so future readers don't
+re-litigate the locked decision when they notice the discrepancy between
+decision 6.1 and the running code.
+
+**Source:** Phase 6 implementation pass; the deviation was accepted in flow
+because pure `cookie_store` is incompatible with the `/settings/sessions`
+per-session revocation requirement.
+
+**Summary:**
+
+Phase 6 (Auth UI) decision 6.1 locks `cookie_store` as the session backend.
+Implementation actually shipped DB-backed sessions following the Rails 8
+generated-auth pattern (a `sessions` table with `user_id`, IP, user agent,
+created/updated timestamps; the cookie carries a session token that resolves to
+a row).
+
+The deviation is **accepted**, not a bug to fix:
+
+- Pure `cookie_store` is stateless on the server. Revoking a single active
+  session from `/settings/sessions` ("sign out other devices") is not possible
+  without a server-side record to delete.
+- DB-backed sessions are the Rails 8 generated-auth default for exactly this
+  reason; per-session revocation is the headline UX of `/settings/sessions`.
+- Cookie integrity / signing still applies (the session token is signed); the
+  only change is where the source of truth lives.
+
+**Action:** none. This entry exists so a future reader who diffs decision 6.1
+against the running code can read this paragraph and move on, instead of
+"fixing" the divergence and breaking `/settings/sessions`. If the locked
+decision needs formal amendment, that is the architect's call (likely a
+follow-up commit to the Phase 6 spec or an ADR under `docs/decisions/`).
+
 ### Channel Revamp post-commit cleanup
 
 **Trigger:** after Channel Revamp phase commits have landed on `main` across all
@@ -162,10 +196,11 @@ Known discrepancies as of 2026-05-03 (Channel Revamp validation):
 This follow-up is about parity, not feature parity. It strictly aligns the
 EXISTING screens.
 
-### `pito` CLI Dependabot alert #1 (low severity)
+### `pito` CLI Dependabot alert #1 (low severity) — `lru` + `paste` advisories via `ratatui 0.29.0`
 
 **Trigger:** the next time the `pito` CLI is touched, OR a dedicated
-dependency-hygiene pass.
+dependency-hygiene pass. Pairs naturally with the deferred `ratatui 0.30`
+upgrade — both advisories resolve through the same dependency tree bump.
 
 **Items:**
 
@@ -178,18 +213,34 @@ remote: GitHub found 1 vulnerability on gmrdad82/pito's default branch (1 low).
 remote:      https://github.com/gmrdad82/pito/security/dependabot/1
 ```
 
+`cargo audit` (run 2026-05-07) surfaces two advisories on transitive
+dependencies that ride through `ratatui 0.29.0`'s tree:
+
+- **`lru`** — `RUSTSEC-2026-0002` (current advisory ID; the older one expired).
+- **`paste 1.0.15`** — `RUSTSEC-2024-0436` (unmaintained).
+
+Both crates resolve via the same deferred `ratatui 0.30` upgrade — bumping
+ratatui drags new lockfile entries that drop the affected `lru` and `paste`
+versions in one move.
+
 **Actions:**
 
-1. Visit the Dependabot alert in the `pito` repo's Security tab to identify the
-   vulnerable crate and the recommended fix version.
-2. Bump the affected dependency in `extras/cli/Cargo.toml` to the patched
-   version. Run `cargo update` to refresh `Cargo.lock`.
-3. `cargo check --all-targets` and `cargo test` must pass after the bump.
-4. Commit + push to `main`. Verify the alert clears on GitHub.
+1. Visit the Dependabot alert in the `pito` repo's Security tab to confirm the
+   advisory IDs match the `cargo audit` output above.
+2. Bump `ratatui` in `extras/cli/Cargo.toml` to `0.30.x` (verify the latest
+   minor at the time of the bump). Run `cargo update` to refresh `Cargo.lock`.
+3. Re-run `cargo audit` and confirm both `RUSTSEC-2026-0002` and
+   `RUSTSEC-2024-0436` are gone. If either persists, identify the residual path
+   with `cargo tree --invert lru` / `cargo tree --invert paste` and bump the
+   closer dependency.
+4. `cargo check --all-targets` and `cargo test` must pass after the bump.
+5. Commit + push to `main`. Verify the GitHub Dependabot alert clears.
 
 **Note:** low severity, not blocking — but worth clearing during normal dev
 hygiene rather than letting it sit. Same approach for any future Dependabot
 alerts on the `pito` repo.
+
+**Source:** `cargo audit` output as run on 2026-05-07.
 
 ### CI cli job working-directory
 
@@ -1055,7 +1106,83 @@ in the same desktop media query as the rest of the `:only-child` rule. The
 current behavior is full-edge on mobile lone panes — likely fine for show pages
 but worth user eyeball.
 
+### OmniAuth scope-walk fallback simplification in `config/initializers/omniauth.rb`
+
+**Trigger:** Phase 7.5 polish window. Captured 2026-05-07 by the Phase 6+7+A2
+reviewer playbook.
+
+**Source:** Phase 6+7+Path-A2 reviewer playbook
+`docs/orchestration/playbooks/playbook-2026-05-07-phase-6-and-7-and-pathA2.md`,
+Should-Fix #4.
+
+**Summary:**
+
+The OmniAuth initializer at `config/initializers/omniauth.rb` has
+belt-and-suspenders fallbacks for the credentials path (each scope walked
+through a chain of nil-safe lookups so OmniAuth keeps booting if the
+`google_oauth` block is partially populated). Reviewer flagged as unnecessarily
+defensive — once
+`Rails.application.credentials.google_oauth.{client_id, client_secret}` are
+guaranteed to be set (and they are, by the Phase 6 setup preamble), the fallback
+branches are dead code.
+
+**Action:** simplify to a single direct lookup with an early-fail (raise during
+boot) if either credential is missing. Cleanup, not behavioral change.
+
+**Verification:**
+
+- `bundle exec rspec` green.
+- `bin/dev` boots cleanly with the credentials populated.
+- Removing one of the credential keys causes Rails boot to fail loudly with a
+  clear message, instead of silently falling through nil-safe walks.
+
 ## Done
+
+### Decorator slim question — re-evaluate Channel/Video summary JSON shape post-Path-A2
+
+**Resolution:** Keep decorators as-is. The Path A2 directive was about not
+pre-committing to a YouTube-metadata cache; aggregating computed values from
+intentional sources (oauth presence derivation, joined `video_stats` rollups) is
+fundamentally different and provides legitimate API value. Spec 03
+(`docs/plans/beta/7.5-followups-and-foundations/specs/03-decorator-slim-resolution.md`)
+is the durable record of the decision.
+
+**Date resolved:** 2026-05-07.
+
+**Trigger:** Phase 7.5 polish window. Captured 2026-05-07 by the Phase 6+7+A2
+reviewer playbook so the question doesn't have to be re-derived from scratch.
+
+**Source:** Phase 6+7+Path-A2 reviewer playbook
+`docs/orchestration/playbooks/playbook-2026-05-07-phase-6-and-7-and-pathA2.md`.
+
+**Summary:**
+
+The Rails Path A2 retract slimmed the `Channel` and `Video` models to
+`{url, star, oauth_identity_id, last_synced_at}` (plus the surviving columns)
+but the matching decorators still emit a wider shape:
+
+- `ChannelDecorator#as_summary_json` emits `connected` (derived from
+  `oauth_identity_id.present?`) alongside the surviving model fields.
+- `VideoDecorator#as_summary_json` emits `views` / `likes` / `comments` /
+  `watch_time_minutes` / `trend` (computed by joining the surviving
+  `video_stats` table).
+
+The CLI's matching Rust structs in `extras/cli/src/api/models.rs` were aligned
+to the wire shape, not the model.
+
+**Question to revisit:** should the decorators be slimmed further to match the
+model (full Path A2 symmetry — drop the derived/joined fields), or kept as-is
+(storage stays thin, the API layer continues to aggregate)?
+
+**Master agent's lean:** keep decorators as-is. The Path A2 directive was about
+not pre-committing to a YouTube-metadata cache; aggregating computed values from
+intentional sources (oauth presence, the surviving `video_stats` table) is
+fundamentally different. Captured here so 7.5 doesn't re-derive the question.
+
+**Action:** in 7.5, confirm the master agent's lean (or flip it) and document
+the resolution. If the lean holds, this entry closes with a one-line note in
+`## Done` and no code change. If flipped, dispatch a rails-impl pass to slim the
+two decorator methods + update specs + update the Rust structs to match.
 
 ### Non-default, pito-specific ports for Postgres / Redis / Meilisearch / Puma
 

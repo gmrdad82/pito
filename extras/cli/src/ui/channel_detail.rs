@@ -24,20 +24,22 @@ pub struct ChannelInfo {
     pub channel_url: String,
     pub star: bool,
     pub connected: bool,
-    pub syncing: bool,
     pub last_synced_at: Option<String>,
 }
 
+/// Per-video row on the channel detail screen. Path A2 retract: Video has no
+/// title / privacy / duration / published metadata anymore, so the row shows
+/// the youtube id, the star marker, and the surviving counts.
 pub struct ChannelVideoRow {
     /// Reserved for upcoming row-click navigation (Enter opens video detail).
     #[allow(dead_code)]
     pub id: u64,
-    pub title: String,
+    pub youtube_video_id: String,
+    pub star: bool,
     pub views: u64,
     pub likes: u64,
-    pub privacy_status: String,
-    pub published_at: String,
-    pub duration_seconds: u32,
+    pub comments: u64,
+    pub last_synced_at: Option<String>,
 }
 
 pub fn render(frame: &mut Frame, area: Rect, theme: &Theme, state: &ChannelDetailState) {
@@ -59,8 +61,12 @@ pub fn render(frame: &mut Frame, area: Rect, theme: &Theme, state: &ChannelDetai
     ])
     .split(inner);
 
-    // Actions row. `connected` is intentionally not in the legend — it's
-    // OAuth-managed and only the web UI can toggle it.
+    // Actions row. Mirrors the Rails breadcrumb-actions row at the top of
+    // `channels/show.html.erb` — only the bracketed action links live up here.
+    // `(s) star` is intentionally NOT in the keystroke hint legend: the
+    // star/unstar action is exposed inline next to the `Starred` KV row
+    // below, so duplicating it at the top is noise. `connected` is also
+    // omitted because it's OAuth-managed and only the web UI can toggle it.
     let actions = Line::from(vec![
         Span::raw("  "),
         Span::styled("[view]", Style::default().fg(theme.accent)),
@@ -70,7 +76,7 @@ pub fn render(frame: &mut Frame, area: Rect, theme: &Theme, state: &ChannelDetai
         Span::styled("[delete]", Style::default().fg(theme.danger)),
         Span::raw("    "),
         Span::styled(
-            "(v) view  (Y) sync  (D) delete  (s) star",
+            "(v) view  (Y) sync  (D) delete",
             Style::default().fg(theme.muted),
         ),
     ]);
@@ -93,10 +99,9 @@ fn render_kv_pairs(frame: &mut Frame, area: Rect, theme: &Theme, state: &Channel
     let star_span = bool_span("yes", "no", state.channel.star, theme);
     let connected_span = bool_span("yes", "no", state.channel.connected, theme);
 
-    let last_sync = last_sync_cell(
-        state.channel.syncing,
-        state.channel.last_synced_at.as_deref(),
-    );
+    // Path A2 retract: there's no in-flight `syncing` flag from the wire any
+    // more, so the cell is just the relative time.
+    let last_sync = last_sync_cell(state.channel.last_synced_at.as_deref());
 
     // Action label describes the OPPOSITE of the current state — the action
     // pressing the key will perform. Only `Starred` carries an inline action;
@@ -132,8 +137,8 @@ fn render_video_table(frame: &mut Frame, area: Rect, theme: &Theme, state: &Chan
         Span::styled("  ", Style::default().fg(theme.muted)),
         Span::styled(
             format!(
-                "{:<22} {:>7} {:>6} {:<5} {:<11} {:>6}",
-                "title", "views", "likes", "state", "date", "length"
+                "{:<14} {:<3} {:>8} {:>7} {:>7} {:<11}",
+                "youtube id", "★", "views", "likes", "chats", "last sync"
             ),
             Style::default().fg(theme.muted),
         ),
@@ -150,18 +155,18 @@ fn render_video_table(frame: &mut Frame, area: Rect, theme: &Theme, state: &Chan
         let idx = state.video_scroll + i;
         let is_selected = idx == state.video_selected;
 
-        let title_truncated = truncate_str(&video.title, 22);
-        let duration = format_duration(video.duration_seconds);
-        let privacy = abbreviate_privacy(&video.privacy_status);
+        let yt_truncated = truncate_str(&video.youtube_video_id, 14);
+        let star_marker = if video.star { "★" } else { " " };
+        let last_sync = last_sync_cell(video.last_synced_at.as_deref());
 
         let row_text = format!(
-            "{:<22} {:>7} {:>6} {:<5} {:<11} {:>6}",
-            title_truncated,
+            "{:<14} {:<3} {:>8} {:>7} {:>7} {:<11}",
+            yt_truncated,
+            star_marker,
             format_number(video.views),
             format_number(video.likes),
-            privacy,
-            &video.published_at,
-            duration,
+            format_number(video.comments),
+            last_sync,
         );
 
         let style = if is_selected {
@@ -211,7 +216,10 @@ fn kv_line_span_action<'a>(
         Span::styled(format!("  {:<14} ", key), Style::default().fg(theme.muted)),
         value,
         Span::raw("    "),
-        Span::styled(format!("[{}]", keystroke), Style::default().fg(theme.accent)),
+        Span::styled(
+            format!("[{}]", keystroke),
+            Style::default().fg(theme.accent),
+        ),
         Span::raw(" "),
         Span::styled(action_label, Style::default().fg(theme.muted)),
     ])
@@ -240,12 +248,6 @@ fn format_number(n: u64) -> String {
     result.chars().rev().collect()
 }
 
-fn format_duration(seconds: u32) -> String {
-    let m = seconds / 60;
-    let s = seconds % 60;
-    format!("{:02}:{:02}", m, s)
-}
-
 fn truncate_str(s: &str, max: usize) -> String {
     let chars: Vec<char> = s.chars().collect();
     if chars.len() <= max {
@@ -255,15 +257,6 @@ fn truncate_str(s: &str, max: usize) -> String {
     } else {
         let prefix: String = chars.iter().take(max - 3).collect();
         format!("{}...", prefix)
-    }
-}
-
-fn abbreviate_privacy(status: &str) -> &str {
-    match status {
-        "public" => "pub",
-        "private" => "priv",
-        "unlisted" => "unl",
-        _ => status,
     }
 }
 
@@ -291,6 +284,8 @@ pub fn open_in_browser(url: &str) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::theme::{Theme, ThemeMode};
+    use ratatui::{Terminal, backend::TestBackend};
 
     #[test]
     fn short_url_strips_known_prefixes() {
@@ -306,5 +301,92 @@ mod tests {
             short_url("ftp://example.com/x"),
             "ftp://example.com/x".to_string()
         );
+    }
+
+    fn sample_state() -> ChannelDetailState {
+        ChannelDetailState {
+            channel: ChannelInfo {
+                id: 7,
+                tenant_id: 1,
+                channel_url: "https://youtube.com/@sample".to_string(),
+                star: false,
+                connected: false,
+                last_synced_at: None,
+            },
+            videos: vec![],
+            video_selected: 0,
+            video_scroll: 0,
+            flash: None,
+        }
+    }
+
+    /// Render the channel detail screen and capture the rendered text. Used by
+    /// the layout-parity tests below to assert presence/absence of specific
+    /// substrings in the action legend.
+    fn render_to_string(state: &ChannelDetailState) -> String {
+        let theme = Theme::from_mode(ThemeMode::Dark);
+        let backend = TestBackend::new(120, 20);
+        let mut terminal = Terminal::new(backend).expect("test backend");
+        terminal
+            .draw(|frame| {
+                render(frame, frame.area(), &theme, state);
+            })
+            .expect("draw");
+        let buf = terminal.backend().buffer().clone();
+        let mut rendered = String::new();
+        for y in 0..buf.area.height {
+            for x in 0..buf.area.width {
+                rendered.push_str(buf[(x, y)].symbol());
+            }
+            rendered.push('\n');
+        }
+        rendered
+    }
+
+    #[test]
+    fn action_legend_omits_star_keystroke_hint() {
+        // Layout-parity sweep (Phase 7.5): the top action legend mirrors the
+        // Rails breadcrumb-actions row, which only renders bracketed action
+        // links. The `(s) star` hint at the top was redundant — star/unstar
+        // is exposed inline next to the `Starred` KV row below — so it was
+        // removed during the parity sweep.
+        let rendered = render_to_string(&sample_state());
+        assert!(
+            !rendered.contains("(s) star"),
+            "(s) star keystroke hint must not appear at the top of channel detail; got:\n{}",
+            rendered
+        );
+        // The remaining keystroke hints stay so users can still discover the
+        // top-level actions.
+        assert!(
+            rendered.contains("(v) view"),
+            "(v) view hint should remain, got:\n{}",
+            rendered
+        );
+        assert!(
+            rendered.contains("(Y) sync"),
+            "(Y) sync hint should remain, got:\n{}",
+            rendered
+        );
+        assert!(
+            rendered.contains("(D) delete"),
+            "(D) delete hint should remain, got:\n{}",
+            rendered
+        );
+    }
+
+    #[test]
+    fn action_legend_keeps_bracketed_action_labels() {
+        // The bracketed `[view] [sync] [delete]` labels remain — they are the
+        // CLI's analog to the Rails breadcrumb's `[e] [sync] [-]` action row.
+        let rendered = render_to_string(&sample_state());
+        for label in ["[view]", "[sync]", "[delete]"] {
+            assert!(
+                rendered.contains(label),
+                "expected bracketed action label {} to remain in legend, got:\n{}",
+                label,
+                rendered
+            );
+        }
     }
 }

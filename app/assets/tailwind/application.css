@@ -818,8 +818,8 @@ dialog.confirm-modal::backdrop {
 .md-check input:indeterminate ~ .md-check-indicator::before { content: "[-]"; }
 .md-check-label { color: var(--color-muted); font-weight: 700; }
 
-/* Link variant — used for filter chips and chart-sync toggles. Brackets
-   and label render in the design-system link color (blue). */
+/* Link variant — used for filter chips. Brackets and label render in
+   the design-system link color (blue). */
 .md-check-link .md-check-indicator,
 .md-check-link .md-check-label { color: var(--color-link); font-weight: bold; }
 .md-check-link:hover .md-check-indicator,

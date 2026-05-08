@@ -7,10 +7,25 @@ class DeletionsController < ApplicationController
   # authenticity-token check.
   skip_before_action :verify_authenticity_token, if: -> { request.format.json? }
 
-  before_action :load_items
+  # `youtube_connection` is dispatched through a dedicated path that
+  # does not need the standard `Confirmable#load_items` wiring (its
+  # "items" are channels-with-an-identity, not a record-deletion
+  # target). Skip the before_action for those actions OR when the
+  # type-param is `youtube_connection` on the GET show route.
+  before_action :load_items, except: %i[destroy_youtube_connection],
+                              unless: :youtube_connection_type?
+
+  def youtube_connection_type?
+    params[:type].to_s == "youtube_connection"
+  end
 
   # GET /deletions/:type/:ids(.json)
   def show
+    if params[:type].to_s == "youtube_connection"
+      show_youtube_connection
+      return
+    end
+
     @cancel_path = cancel_path
 
     respond_to do |format|
@@ -19,6 +34,36 @@ class DeletionsController < ApplicationController
         render json: bulk_preview_json
       end
     end
+  end
+
+  # GET /deletions/youtube_connection/:ids — confirmation page.
+  # The cancel path is /settings/youtube; the confirmed action
+  # POSTs to `destroy_youtube_connection`.
+  def show_youtube_connection
+    ids = params[:ids].to_s.split(",").reject(&:blank?).map(&:to_i)
+    @channels = Channel.where(id: ids).where.not(oauth_identity_id: nil).to_a
+    @cancel_path = settings_youtube_path
+
+    if @channels.empty?
+      redirect_to @cancel_path, alert: "nothing to disconnect."
+      return
+    end
+
+    render :show_youtube_connection
+  end
+
+  # DELETE /deletions/youtube_connection/:ids
+  def destroy_youtube_connection
+    ids = params[:ids].to_s.split(",").reject(&:blank?).map(&:to_i)
+    if ids.empty?
+      redirect_to settings_youtube_path, alert: "nothing to disconnect."
+      return
+    end
+
+    result = Youtube::DisconnectChannel.call(channel_ids: ids)
+    n = result.disconnected_channel_ids.length
+    redirect_to settings_youtube_path,
+                notice: "disconnected #{n} channel#{'s' if n != 1}."
   end
 
   # POST /deletions/:type/:ids(.json)

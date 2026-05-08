@@ -30,11 +30,6 @@ RSpec.describe BracketedLinkComponent, type: :component do
     expect(page).to have_css('a[data-turbo-method="delete"]')
   end
 
-  it "does NOT emit data-turbo-confirm even when confirm: is passed (deprecated)" do
-    render_inline(described_class.new(label: "delete", href: "/items/1", confirm: "are you sure?"))
-    expect(page).to have_no_css("a[data-turbo-confirm]")
-  end
-
   it "passes through custom data attributes" do
     render_inline(described_class.new(label: "act", href: "/x", data: { action: "click->ctrl#do" }))
     expect(page).to have_css('a[data-action="click->ctrl#do"]')
@@ -43,7 +38,7 @@ RSpec.describe BracketedLinkComponent, type: :component do
   it "combines destructive and method without emitting data-turbo-confirm" do
     render_inline(described_class.new(
       label: "destroy", href: "/items/1",
-      destructive: true, method: :delete, confirm: "really?"
+      destructive: true, method: :delete
     ))
     expect(page).to have_css('a.text-danger[data-turbo-method="delete"]')
     expect(page).to have_no_css("a[data-turbo-confirm]")

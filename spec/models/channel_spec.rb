@@ -69,20 +69,23 @@ RSpec.describe Channel, type: :model do
       expect(Channel.starred).to eq([ starred ])
     end
 
-    it ".connected returns only connected channels" do
+    it ".connected returns only channels with an oauth_identity" do
       connected = create(:channel, :connected)
       _other    = create(:channel)
       expect(Channel.connected).to eq([ connected ])
     end
+  end
 
-    it ".syncing returns only syncing channels" do
-      syncing = create(:channel, :syncing)
-      _other  = create(:channel)
-      expect(Channel.syncing).to eq([ syncing ])
+  describe "Phase 7 — oauth_identity association" do
+    it "permits a NULL oauth_identity_id" do
+      channel = create(:channel)
+      expect(channel.oauth_identity).to be_nil
     end
 
-    it "does not define .public_only" do
-      expect(Channel).not_to respond_to(:public_only)
+    it "associates a GoogleIdentity to the Channel" do
+      identity = create(:google_identity)
+      channel = create(:channel, oauth_identity: identity)
+      expect(channel.reload.oauth_identity).to eq(identity)
     end
   end
 end

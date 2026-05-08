@@ -1,13 +1,17 @@
 require "rails_helper"
 
+# Phase 7 Path A2 (literal full retract). Video declares no
+# `searchable :*` / `filterable :*` lines; the index/remove hooks
+# still fire (the Searchable concern is still included), but the
+# index document only has `id` and queries return zero matches.
 RSpec.describe Searchable do
   describe "Video searchable configuration" do
-    it "defines searchable fields" do
-      expect(Video.searchable_fields).to eq([ :title, :description, :tags, :category_id, :default_language ])
+    it "defines an empty searchable_fields array" do
+      expect(Video.searchable_fields).to eq([])
     end
 
-    it "defines filterable fields" do
-      expect(Video.filterable_fields).to eq([ :channel_id, :privacy_status ])
+    it "defines an empty filterable_fields array" do
+      expect(Video.filterable_fields).to eq([])
     end
   end
 
@@ -23,7 +27,7 @@ RSpec.describe Searchable do
     end
   end
 
-  describe "Video after_commit callbacks" do
+  describe "Video after_commit callbacks (Searchable concern stays included)" do
     it "enqueues SearchIndexJob on create" do
       expect {
         create(:video)
@@ -33,7 +37,7 @@ RSpec.describe Searchable do
     it "enqueues SearchIndexJob on update" do
       video = create(:video)
       expect {
-        video.update!(title: "new title")
+        video.update!(star: true)
       }.to have_enqueued_job(SearchIndexJob)
     end
 

@@ -1,0 +1,14 @@
+<% content_for(:title, "authorization error") %>
+
+<div style="max-width: 560px; margin: 24px auto;">
+  <h1>authorization error</h1>
+  <p class="text-muted" style="margin-top: 2px;">
+    the authorization server rejected the request.
+  </p>
+
+  <pre style="white-space: pre-wrap; word-wrap: break-word;"><%= (local_assigns[:error_response] ? error_response : @pre_auth.error_response).body[:error_description] %></pre>
+
+  <div class="dot-list">
+    <%= render(BracketedLinkComponent.new(label: "back to home", href: root_path)) %>
+  </div>
+</div>

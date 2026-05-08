@@ -22,9 +22,8 @@ class ChannelsController < ApplicationController
     @saved_views = SavedView.channels.ordered
 
     scope = Channel.all
-    scope = scope.where(star: true)      if filter_on?(:star)
-    scope = scope.where(connected: true) if filter_on?(:connected)
-    scope = scope.where(syncing: true)   if filter_on?(:syncing)
+    scope = scope.where(star: true)                 if filter_on?(:star)
+    scope = scope.where.not(oauth_identity_id: nil) if filter_on?(:connected)
 
     @channels = scope.order(sort_clause)
     @filters = active_filters
@@ -53,11 +52,11 @@ class ChannelsController < ApplicationController
   end
 
   def create
-    bool_attrs, error = coerce_yes_no_attrs(%i[star connected])
+    bool_attrs, error = coerce_yes_no_attrs(%i[star])
     if error
       respond_to do |format|
         format.html { redirect_to channels_path, alert: error }
-        format.json { render json: { errors: [ error ] }, status: :unprocessable_entity }
+        format.json { render json: { errors: [ error ] }, status: :unprocessable_content }
       end
       return
     end
@@ -71,8 +70,8 @@ class ChannelsController < ApplicationController
       end
     else
       respond_to do |format|
-        format.html { render :new, status: :unprocessable_entity }
-        format.json { render json: { errors: @channel.errors.full_messages }, status: :unprocessable_entity }
+        format.html { render :new, status: :unprocessable_content }
+        format.json { render json: { errors: @channel.errors.full_messages }, status: :unprocessable_content }
       end
     end
   end
@@ -88,7 +87,7 @@ class ChannelsController < ApplicationController
     if error
       respond_to do |format|
         format.html { redirect_to channel_path(@channel), alert: error }
-        format.json { render json: { errors: [ error ] }, status: :unprocessable_entity }
+        format.json { render json: { errors: [ error ] }, status: :unprocessable_content }
       end
       return
     end
@@ -100,8 +99,8 @@ class ChannelsController < ApplicationController
       end
     else
       respond_to do |format|
-        format.html { render :edit, status: :unprocessable_entity }
-        format.json { render json: { errors: @channel.errors.full_messages }, status: :unprocessable_entity }
+        format.html { render :edit, status: :unprocessable_content }
+        format.json { render json: { errors: @channel.errors.full_messages }, status: :unprocessable_content }
       end
     end
   end
@@ -133,7 +132,7 @@ class ChannelsController < ApplicationController
         "COALESCE(CAST(SUM(video_stats.watch_time_minutes) AS BIGINT), 0) AS total_watch_time"
       )
       .group("videos.id")
-      .order(published_at: :desc)
+      .order(created_at: :desc)
 
     respond_to do |format|
       format.html { redirect_to channel_path(@channel) }
@@ -175,7 +174,7 @@ class ChannelsController < ApplicationController
   # "yes"/"no" (see app/lib/yes_no.rb). Returns [attrs, error].
   # `error` is non-nil when an invalid value was supplied.
   def coerce_update_attrs
-    coerce_yes_no_attrs(%i[star connected])
+    coerce_yes_no_attrs(%i[star])
   end
 
   # Generic yes/no coercion for the `:channel` params block. Reads only the
@@ -205,7 +204,7 @@ class ChannelsController < ApplicationController
   end
 
   def active_filters
-    %i[star connected syncing].select { |k| filter_on?(k) }
+    %i[star connected].select { |k| filter_on?(k) }
   end
 
   def default_tenant

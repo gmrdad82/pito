@@ -5,22 +5,18 @@ class VideosController < ApplicationController
   # its authenticity-token check.
   skip_before_action :verify_authenticity_token, if: -> { request.format.json? }
 
-  # Server-side sort allowlist consumed by `#index`. Mirrors
-  # `ChannelsController::ALLOWED_SORTS` so the index view's link-style
-  # column headers can request `?sort=<key>&dir=<asc|desc>` and the
-  # controller resolves the key to a vetted SQL fragment. Default sort
-  # stays `published_at DESC` (most-recent-first) to match the prior
-  # hard-coded order. The JSON endpoint also benefits from honoring
-  # caller-supplied sort.
+  # Phase 7 Path A2 (literal full retract). Sort allowlist drops the
+  # title and published_at keys (those columns are gone). Default sort
+  # is now `created_at desc` — newest Video rows first.
   ALLOWED_SORTS = {
     "id" => "videos.id",
     "created_at" => "videos.created_at",
     "updated_at" => "videos.updated_at",
-    "published_at" => "videos.published_at",
-    "title" => "videos.title"
+    "last_synced_at" => "videos.last_synced_at",
+    "starred" => "videos.star"
   }.freeze
   ALLOWED_DIRS = %w[asc desc].freeze
-  DEFAULT_SORT = "published_at"
+  DEFAULT_SORT = "created_at"
   DEFAULT_DIR = "desc"
 
   def index
@@ -50,7 +46,7 @@ class VideosController < ApplicationController
   def show
     @video = Video.find(params[:id])
     @max_panes = max_panes
-    @available_videos = Video.where.not(id: @video.id).order(title: :asc).limit(50)
+    @available_videos = Video.where.not(id: @video.id).order(created_at: :desc).limit(50)
 
     respond_to do |format|
       format.html
@@ -58,30 +54,12 @@ class VideosController < ApplicationController
     end
   end
 
-  def new
-    @video = Video.new
-  end
-
-  def create
-    @video = Video.new(video_params)
-    @video.youtube_video_id ||= "local_#{SecureRandom.hex(8)}"
-    if @video.save
-      redirect_to video_path(@video), notice: "video created."
-    else
-      render :new, status: :unprocessable_entity
-    end
-  end
-
-  def edit
+  def destroy
     @video = Video.find(params[:id])
-  end
-
-  def update
-    @video = Video.find(params[:id])
-    if @video.update(video_params)
-      redirect_to video_path(@video), notice: "video updated."
-    else
-      render :edit, status: :unprocessable_entity
+    @video.destroy
+    respond_to do |format|
+      format.html { redirect_to videos_path, notice: "video deleted." }
+      format.json { head :no_content }
     end
   end
 
@@ -115,7 +93,7 @@ class VideosController < ApplicationController
     @current_ids = ids.first(@max_panes)
     @panes = @current_ids.map { |id| Video.find_by(id: id) }
     @pane_title_length = pane_title_length
-    @available_videos = Video.where.not(id: @current_ids).order(title: :asc).limit(50) if @panes.compact.size < @max_panes
+    @available_videos = Video.where.not(id: @current_ids).order(created_at: :desc).limit(50) if @panes.compact.size < @max_panes
     @saved_view = SavedView.find_by(kind: :videos, url: CGI.unescape(request.fullpath))
   end
 
@@ -127,10 +105,6 @@ class VideosController < ApplicationController
 
   def pane_title_length
     (AppSetting.get("pane_title_length") || ENV.fetch("PANE_TITLE_LENGTH", 14)).to_i
-  end
-
-  def video_params
-    params.require(:video).permit(:title, :description, :privacy_status, :category_id, :default_language, :made_for_kids, :tags, :channel_id)
   end
 
   def sanitized_sort_key

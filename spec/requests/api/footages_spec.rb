@@ -96,7 +96,7 @@ RSpec.describe "API: Footages (importer)", type: :request do
       post api_project_footages_path(project),
            params: { footage: bad }.to_json,
            headers: json_headers
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
     end
 
     it "denormalizes tenant_id from project" do
@@ -164,7 +164,7 @@ RSpec.describe "API: Footages (importer)", type: :request do
               footage: { audio_track_count: 2, has_commentary_track: true }
             }.to_json,
             headers: json_headers
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
     end
 
     it "persists filesize_bytes from the JSON update payload (round-trip)" do

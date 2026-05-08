@@ -94,12 +94,17 @@ RSpec.describe BulkSyncJob, type: :job do
     end
 
     context "mixed — skip + succeed in one operation" do
+      # Phase 7 Path A2 — the `:syncing` trait is gone; a "skipped"
+      # bulk_operation_item is now just an item created with
+      # status: :skipped (controllers no longer pre-skip on a
+      # `syncing` flag, but the BulkSyncJob still honors :skipped
+      # rows that arrive through other paths).
       let!(:syncable) { create(:channel) }
-      let!(:already_syncing) { create(:channel, :syncing) }
+      let!(:second_channel) { create(:channel) }
       let!(:operation) do
         op = create(:bulk_operation, kind: :bulk_sync, status: :pending)
         op.bulk_operation_items.create!(target: syncable, target_type: "Channel", target_id: syncable.id, status: :pending)
-        op.bulk_operation_items.create!(target: already_syncing, target_type: "Channel", target_id: already_syncing.id, status: :skipped, error_message: "already syncing")
+        op.bulk_operation_items.create!(target: second_channel, target_type: "Channel", target_id: second_channel.id, status: :skipped, error_message: "already syncing")
         op
       end
 

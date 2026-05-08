@@ -247,4 +247,72 @@
       <%= render(BracketedLinkComponent.new(label: "manage tokens", href: settings_tokens_path)) %>
     </fieldset>
   </div>
+
+  <%# Pane 7 — sessions (A) — Phase 12 Step A. List + revoke active logins. %>
+  <div class="pane">
+    <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
+      <legend><h2>sessions</h2></legend>
+
+      <div style="margin-bottom: 6px;">
+        <label class="form-label">active</label>
+        <span><%= number_with_delimiter(@active_sessions_count) %></span>
+        <span class="form-hint" style="display: block;">
+          one row per active browser login. revoke remotely from anywhere.
+        </span>
+      </div>
+
+      <%= render(BracketedLinkComponent.new(label: "manage sessions", href: settings_sessions_path)) %>
+    </fieldset>
+  </div>
+
+  <%# Pane 8 — oauth applications (B) — Phase 12 Step B. Doorkeeper-issued
+      tokens for third-party clients (the Rust CLI is the first consumer). %>
+  <div class="pane">
+    <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
+      <legend><h2>oauth applications</h2></legend>
+
+      <div style="margin-bottom: 6px;">
+        <label class="form-label">registered</label>
+        <span><%= number_with_delimiter(@oauth_applications_count) %></span>
+        <span class="form-hint" style="display: block;">
+          applications that can issue access tokens via authorization code + PKCE.
+        </span>
+      </div>
+
+      <%= render(BracketedLinkComponent.new(label: "manage applications", href: settings_oauth_applications_path)) %>
+    </fieldset>
+  </div>
+
+  <%# Pane 9 — google (A) — Phase 7 Step C. Google account connection state. %>
+  <div class="pane">
+    <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
+      <legend><h2>google</h2></legend>
+
+      <% if @google_identity.present? %>
+        <div style="margin-bottom: 6px;">
+          <label class="form-label">connected as</label>
+          <span><%= @google_identity.email %></span>
+        </div>
+        <div style="margin-bottom: 6px;">
+          <label class="form-label">last authorized</label>
+          <span class="text-muted"><%= @google_identity.last_authorized_at.strftime("%Y-%m-%d %H:%M %Z") %></span>
+        </div>
+        <% if @google_identity.needs_reauth? %>
+          <div style="margin-bottom: 6px; color: #cc0000;">
+            <strong>needs re-auth</strong>
+          </div>
+        <% end %>
+      <% else %>
+        <div style="margin-bottom: 6px;">
+          <label class="form-label">connected</label>
+          <span class="text-muted">no</span>
+          <span class="form-hint" style="display: block;">
+            connect a google account to fetch youtube channel and analytics data.
+          </span>
+        </div>
+      <% end %>
+
+      <%= render(BracketedLinkComponent.new(label: "manage youtube", href: settings_youtube_path)) %>
+    </fieldset>
+  </div>
 </div>

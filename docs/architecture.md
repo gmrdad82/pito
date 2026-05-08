@@ -297,15 +297,164 @@ by the crosshair plugin in `app/javascript/application.js` to share hover index
 across charts in the same group). Toggling `[ ] sync` does NOT hide the chart —
 it only opts the chart in or out of the shared crosshair.
 
+## Google OAuth + YouTube API foundation (Phase 7)
+
+Phase 7 introduces the third-party-API limb of Pito's auth surface: a delegation
+channel from Pito to Google, used by the YouTube Data and Analytics APIs. It is
+independent of the bearer-token and session surfaces — different flow, different
+model, different lifecycle.
+
+### Auth surface map
+
+Pito has three independent inbound auth surfaces and one outbound delegation,
+each with its own lifecycle and storage:
+
+- **Browser → Rails (Web Puma)** — cookie + DB-backed sessions. The `sessions`
+  table from Phase 6A holds the server-side session record; the cookie carries
+  only the session id. Login UI is the entry point.
+- **MCP / `pito` CLI → Rails (MCP Puma + API routes)** — bearer `ApiToken`s
+  (Phase 3 / Phase 5). Tokens are HMAC-digested at rest, scoped, and
+  authenticated by the shared `Api::TokenAuthenticator`.
+- **Third-party clients → Rails** — Doorkeeper-issued OAuth 2.0 tokens (Phase
+  6B). Pito acts as the OAuth provider. Same `Api::AuthConcern` consumes the
+  token; the storage and issuance flow differ.
+- **Pito → Google (outbound delegation)** — OAuth 2.0 authorization code flow. A
+  `GoogleIdentity` row holds the encrypted access + refresh tokens that let Pito
+  act on a user's behalf against the YouTube APIs.
+
+These surfaces do not share storage. A user can have zero or more of each. The
+single-user-today posture means in practice each row count is 0 or 1.
+
+### `GoogleIdentity` model
+
+`google_identities` belongs to a `User` and stores the materials needed to
+delegate against Google's APIs.
+
+- `access_token`, `refresh_token` — encrypted at rest via Active Record
+  Encryption (`encrypts :access_token, :refresh_token`). The Rails master key
+  decrypts; the database does not see plaintext.
+- `expires_at` — when the access token expires. The client refreshes proactively
+  when within a small grace window.
+- `needs_reauth` — boolean flag. Set to `true` when Google returns
+  `invalid_grant` on a refresh attempt (refresh token revoked, expired in
+  Testing-mode TTL, or the user revoked consent at Google's side). The Settings
+  UI surfaces a banner; the user clicks `[ reconnect ]` to walk the consent
+  screen again.
+- `scopes` — `jsonb` array of granted OAuth scopes (e.g.
+  `["youtube.readonly", "yt-analytics.readonly"]`).
+- Standard timestamps + `tenant_id` + `user_id`.
+
+**One-per-user (UI enforcement).** The schema permits N identities per user
+(future-proofing for separate brand accounts), but the Settings UI presents a
+single connection slot. Adding a new identity replaces the existing one in the
+displayed flow.
+
+**Disconnect destroys the row.** Per decision 7.13, `[ disconnect ]` from the
+Settings UI deletes the `GoogleIdentity` outright. There is no soft-delete or
+"keep tokens around for restore" — the consent grant is gone, the row is gone. A
+subsequent reconnect creates a fresh row.
+
+### YouTube client tier
+
+Two thin clients sit above the `google-apis-youtube_v3` and
+`google-apis-youtube_analytics_v2` gems. Both pin a single chokepoint for auth,
+audit, and quota; nothing in the rest of the codebase calls those gems directly.
+
+- **`Youtube::Client`** — OAuth-authenticated. Accepts a `GoogleIdentity` and
+  uses its access token (refreshing transparently when expired). Calls the
+  YouTube Data API v3 and the YouTube Analytics API. This is the path for any
+  channel or video the user owns — anything that requires reading
+  Analytics-level metrics.
+- **`Youtube::PublicClient`** — API-key-authenticated. Uses the
+  `:google_oauth.api_key` credential. Calls public-only endpoints on the Data
+  API. This is the path for tracked-but-not-owned content (Phase 8 — channels
+  and videos the user follows but does not own a YouTube account for). Analytics
+  is not reachable through the public client.
+
+**Quota chokepoint.** Per decision 7.5, every call routes through the client and
+increments a per-identity per-day budget. The client computes the call's
+declared cost (see `docs/youtube_quota.md` for the cost table), checks the
+remaining daily budget for that identity, and either proceeds or raises
+`Youtube::QuotaExhaustedError` (decision 7.6 — fail fast, no retries, no
+queueing in this phase).
+
+**Audit row.** Per decision 7.8, every call writes one row to
+`youtube_api_calls(tenant_id, user_id, google_identity_id, endpoint, quota_cost, outcome, http_status, error_class, created_at)`.
+Outcomes are `success`, `quota_exhausted`, `unauthorized`, `not_found`,
+`rate_limited`, `other_error`. The audit table is the source of truth for "how
+much quota did this identity burn today" and the basis for decision 7.5's
+per-identity budget calculation.
+
+**Refresh / `needs_reauth` flow.** When the access token expires, the client
+attempts a refresh. On `invalid_grant` (refresh token revoked, expired, or user
+removed consent), the client sets `needs_reauth = true` on the identity and
+re-raises so the caller can short-circuit. The UI banner picks up the flag on
+the next page load.
+
+### Channel / Video schema philosophy (post-Path-A)
+
+Pito stores `Channel` and `Video` as **thin YouTube-reference records**, not
+local caches of YouTube metadata. The columns are:
+
+- `Channel`: `id`, `tenant_id`, `url`, `star`, `oauth_identity_id` (FK to
+  `google_identities`, nullable), `last_synced_at`, timestamps.
+- `Video`: `id`, `tenant_id`, `url`, `star`, `oauth_identity_id` (FK to
+  `google_identities`, nullable), `last_synced_at`, timestamps.
+
+All previously-stored YouTube metadata columns — title, description,
+`subscriber_count`, `view_count`, `video_count`, `thumbnail_url`, `etag`,
+`youtube_channel_id`, and the rest — were dropped. Pito does **not** cache
+YouTube metadata in this phase. Displays that previously rendered a title or
+counter render the URL (or a URL-derived placeholder) and defer to Phase 8 to
+decide which fields, if any, are worth caching locally.
+
+This produces two kinds of records, distinguished by `oauth_identity_id`:
+
+- **Owned** (`oauth_identity_id NOT NULL`) — the FK points at the Google
+  identity that authorizes Pito to read Analytics for this channel/video. Sync
+  goes through `Youtube::Client`.
+- **Tracked** (`oauth_identity_id IS NULL`) — public-only content the user
+  follows. Sync (Phase 8) goes through `Youtube::PublicClient`. No Analytics.
+
+### Cloud Console linkage
+
+The click-by-click setup for the Google Cloud project, OAuth consent screen,
+test users, and OAuth Web client lives in `docs/setup.md` under "Google Cloud /
+OAuth Setup". Pito reads its credentials from
+`Rails.application.credentials.google_oauth`:
+
+- `:google_oauth.project_id` — Cloud project identifier (informational; used in
+  error messages).
+- `:google_oauth.client_id` / `:google_oauth.client_secret` — OAuth Web
+  Application credentials. Drive the authorization-code flow.
+- `:google_oauth.api_key` — API key. Drives `Youtube::PublicClient`.
+
+The same OAuth client serves dev (`127.0.0.1:3027` via the cloudflared tunnel to
+`app.pitomd.com`) and prod. See `docs/setup.md` for the rationale and the
+multi-environment escape hatch (a second OAuth client in the same project for
+staging or CI tunnels).
+
+### Test fixture strategy
+
+Phase 7 specs run against WebMock stubs that mirror canned response shapes — no
+live calls in CI, no recorded cassettes yet. Per decision 7.16, VCR cassettes
+are deferred to a post-implementation recording session against a real YouTube
+account once the OAuth flow has been walked end-to-end at least once. Until
+then, the canned shapes are conservative copies of the documented response
+shapes from Google's API reference.
+
+When the recording session lands, the WebMock stubs flip to VCR cassettes
+without changing the spec assertions — the response shapes are the contract, not
+the wire bytes.
+
 ## Things explicitly NOT in scope (this phase)
 
 - **Login UI / session UI** — HTML routes still operate under the implicit
   single-user session (`Current.user = User.first`). The login form, password
   change, OAuth client flows (Doorkeeper) all land in Phase 6 / Phase 12.
-- **Google OAuth for YouTube** — Phase 7 wires `GoogleIdentity`. Different
-  model; the bearer-token surface here is unaffected.
-- **Real YouTube sync** — `ChannelSync` is a placeholder; no API calls. Comes
-  back when the YouTube OAuth + API foundation phase ships.
+- **Real YouTube sync** — `ChannelSync` is a placeholder; no API calls. The
+  Phase 7 foundation (OAuth + `YouTube::Client` + audit + quota tracking) is in
+  place; per-record sync jobs that exercise it land in Phase 8.
 - **Multi-tenant admin tooling** — Theta. Two tenants in this codebase is
   technically supported (the schema is multi-tenant; the cross-tenant leak spec
   proves isolation), but there's no UI for switching or managing.

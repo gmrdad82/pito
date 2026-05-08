@@ -2,17 +2,19 @@ require "rails_helper"
 require_relative "../../../app/mcp/tools/get_channel"
 
 RSpec.describe Mcp::Tools::GetChannel do
-  it "returns channel detail in the new shape" do
+  it "returns channel detail in the post-A2 shape" do
     channel = create(:channel, :starred, :connected)
 
     result = described_class.call(id: channel.id)
     data = JSON.parse(result.content.first[:text])
 
+    # Phase 7 Path A2 — `connected` is derived from oauth_identity_id;
+    # `syncing` is dropped from the JSON wire shape.
     expect(data["id"]).to eq(channel.id)
     expect(data["channel_url"]).to eq(channel.channel_url)
     expect(data["star"]).to eq("yes")
     expect(data["connected"]).to eq("yes")
-    expect(data["syncing"]).to eq("no")
+    expect(data).not_to have_key("syncing")
     expect(data.keys).to include("last_synced_at", "created_at", "updated_at")
   end
 

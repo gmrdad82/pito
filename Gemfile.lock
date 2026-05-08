@@ -128,6 +128,8 @@ GEM
       reline (>= 0.3.8)
     declarative (0.0.20)
     diff-lcs (1.6.2)
+    doorkeeper (5.9.0)
+      railties (>= 5)
     dotenv (3.2.0)
     dotenv-rails (3.2.0)
       dotenv (= 3.2.0)
@@ -197,6 +199,8 @@ GEM
     groupdate (6.8.0)
       activesupport (>= 7.2)
     hashdiff (1.2.1)
+    hashie (5.1.0)
+      logger
     httparty (0.24.2)
       csv
       mini_mime (>= 1.0.0)
@@ -280,6 +284,30 @@ GEM
       racc (~> 1.4)
     nokogiri (1.19.3-x86_64-linux-musl)
       racc (~> 1.4)
+    oauth2 (2.0.18)
+      faraday (>= 0.17.3, < 4.0)
+      jwt (>= 1.0, < 4.0)
+      logger (~> 1.2)
+      multi_xml (~> 0.5)
+      rack (>= 1.2, < 4)
+      snaky_hash (~> 2.0, >= 2.0.3)
+      version_gem (~> 1.1, >= 1.1.9)
+    omniauth (2.1.4)
+      hashie (>= 3.4.6)
+      logger
+      rack (>= 2.2.3)
+      rack-protection
+    omniauth-google-oauth2 (1.2.2)
+      jwt (>= 2.9.2)
+      oauth2 (~> 2.0)
+      omniauth (~> 2.0)
+      omniauth-oauth2 (~> 1.8)
+    omniauth-oauth2 (1.9.0)
+      oauth2 (>= 2.0.2, < 3)
+      omniauth (~> 2.0)
+    omniauth-rails_csrf_protection (2.0.1)
+      actionpack (>= 4.2)
+      omniauth (~> 2.0)
     os (1.1.4)
     parallel (2.1.0)
     parallel_tests (5.7.0)
@@ -317,6 +345,10 @@ GEM
     rack (3.2.6)
     rack-attack (6.8.0)
       rack (>= 1.0, < 4)
+    rack-protection (4.2.1)
+      base64 (>= 0.1.0)
+      logger (>= 1.6.0)
+      rack (>= 3.0.0, < 4)
     rack-session (2.1.2)
       base64 (>= 0.1.0)
       rack (>= 3.0.0)
@@ -444,6 +476,9 @@ GEM
       faraday (>= 0.17.5, < 3.a)
       jwt (>= 1.5, < 4.0)
       multi_json (~> 1.10)
+    snaky_hash (2.0.3)
+      hashie (>= 0.1.0, < 6)
+      version_gem (>= 1.1.8, < 3)
     stimulus-rails (1.3.4)
       railties (>= 6.0.0)
     stringio (3.2.0)
@@ -471,6 +506,7 @@ GEM
     unicode-emoji (4.2.0)
     uri (1.1.1)
     useragent (0.16.11)
+    version_gem (1.1.9)
     view_component (4.8.0)
       actionview (>= 7.1.0)
       activesupport (>= 7.1.0)
@@ -511,6 +547,7 @@ DEPENDENCIES
   chartkick
   commonmarker (~> 2.4)
   debug
+  doorkeeper (~> 5.8)
   dotenv-rails
   draper (~> 4.0)
   factory_bot_rails
@@ -524,6 +561,8 @@ DEPENDENCIES
   mcp
   meilisearch
   neighbor (~> 0.6)
+  omniauth-google-oauth2
+  omniauth-rails_csrf_protection
   parallel_tests
   pg (~> 1.5)
   propshaft

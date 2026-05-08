@@ -2,7 +2,7 @@ module Mcp
   module Tools
     class SyncRecords < MCP::Tool
       tool_name "sync_records"
-      description "Generic two-step bulk syncer for channels (videos coming later). The URL `/syncs/:type/:ids` is the canonical confirmation resource — this tool mirrors it. Without `confirm: \"yes\"` returns a preview partitioning ids into syncable / skipped / not_found (no state change). With `confirm: \"yes\"` creates a BulkOperation (kind: bulk_sync), pre-marks already-syncing items as :skipped, enqueues BulkSyncJob, and returns operation_id + status_url. Single-record sync is a one-element ids array."
+      description "Generic two-step bulk syncer for channels (videos coming later). The URL `/syncs/:type/:ids` is the canonical confirmation resource — this tool mirrors it. Without `confirm: \"yes\"` returns a preview partitioning ids into syncable / not_found (no state change). With `confirm: \"yes\"` creates a BulkOperation (kind: bulk_sync), enqueues BulkSyncJob, and returns operation_id + status_url. Single-record sync is a one-element ids array."
 
       input_schema(
         type: "object",
@@ -56,14 +56,13 @@ module Mcp
         syncable = []
         skipped  = []
 
+        # Phase 7 Path A2: the legacy `syncing` boolean is gone — Phase
+        # 8+ will own in-flight state via the BulkOperation surface
+        # itself. Until then, every found record is syncable.
         ids.each do |id|
           record = found_by_id[id]
-          next if record.nil? # not_found tracked separately
-          if record.respond_to?(:syncing?) && record.syncing?
-            skipped << { id: record.id, label: label_for(record, type), reason: "already syncing" }
-          else
-            syncable << { id: record.id, label: label_for(record, type) }
-          end
+          next if record.nil?
+          syncable << { id: record.id, label: label_for(record, type) }
         end
 
         preview_url = "/syncs/#{type}/#{ids.join(',')}"
@@ -142,7 +141,7 @@ module Mcp
       def self.label_for(record, type)
         case type
         when "channel" then record.channel_url
-        when "video"   then record.title
+        when "video"   then record.youtube_video_id
         end
       end
 

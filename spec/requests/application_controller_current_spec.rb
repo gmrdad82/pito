@@ -1,32 +1,40 @@
 require "rails_helper"
 
-# Phase 5A — ApplicationController populates Current.tenant /
-# Current.user via `before_action :set_current_tenant_and_user`. This
-# spec locks that contract: Current is set to `Tenant.first` /
-# `User.first` before the action body runs, and the request completes
-# normally as long as a tenant exists.
+# Phase 12 — Step A (6a-sessions-and-login-ui.md). Cookie-session auth
+# replaced the implicit `before_action :set_current_tenant_and_user`
+# pin. After a successful auth the controller pins
+# `Current.session / .user / .tenant` from the resolved row; without
+# a session cookie HTML routes redirect to /login.
+#
+# Phase 5A's spec (Tenant.first / User.first being assigned) is no
+# longer the contract — the auth concern owns the assignment.
 RSpec.describe "ApplicationController Current population", type: :request do
-  describe "before_action :set_current_tenant_and_user" do
-    context "when a tenant and user exist" do
-      let!(:tenant) { Tenant.first || create(:tenant) }
-      let!(:user)   { User.first   || create(:user, tenant: tenant) }
+  describe "with a valid session cookie" do
+    let!(:user) { Current.user || create(:user, tenant: Current.tenant) }
 
-      it "assigns Current.tenant to Tenant.first during the request" do
-        get root_path
-        # After Current.reset (in the after(:each) hook) the value is cleared,
-        # so we capture during the request via the controller. Easiest stable
-        # check: the request succeeds AND Tenant.first is what we expect.
-        expect(response).to have_http_status(:ok)
-        expect(Tenant.first).to eq(tenant)
-      end
+    it "responds 200 to / when signed in" do
+      sign_in_as(user)
+      get root_path
+      expect(response).to have_http_status(:ok)
+    end
+  end
 
-      it "actually sets Current.tenant before the action body runs" do
-        # Spy on the assignment so we know the before_action fired with the
-        # right value. We assert the setter is called with Tenant.first.
-        expect(Current).to receive(:tenant=).with(Tenant.first).and_call_original
-        expect(Current).to receive(:user=).with(User.first).and_call_original
-        get root_path
-      end
+  describe "without a session cookie", :unauthenticated do
+    it "redirects HTML routes to /login" do
+      get root_path
+      expect(response).to have_http_status(:found)
+      expect(response).to redirect_to(login_path)
+    end
+
+    it "preserves the intended URL via a signed cookie" do
+      get channels_path
+      expect(response).to redirect_to(login_path)
+      # The signed cookie is set on the response; subsequent followups
+      # would read it back. Set-Cookie may be a single string or an
+      # Array of strings depending on Rack version; flatten to a string
+      # for the substring check.
+      set_cookie_header = Array(response.headers["Set-Cookie"]).flatten.join("\n")
+      expect(set_cookie_header).to include(Sessions::AuthConcern::INTENDED_URL_COOKIE.to_s)
     end
   end
 

@@ -1,15 +1,15 @@
-<% content_for(:title, @video.title) %>
-<% breadcrumb(["videos", videos_path], @video.title) %>
+<% page_label = "video ##{@video.id}" %>
+<% content_for(:title, page_label) %>
+<% breadcrumb(["videos", videos_path], page_label) %>
 <% content_for(:breadcrumb_actions) do %>
   <div class="dot-list">
-    <%= render(BracketedLinkComponent.new(label: "e", href: edit_video_path(@video))) %>
     <%= render(BracketedLinkComponent.new(label: "-", href: "/deletions/video/#{@video.id}", destructive: true)) %>
   </div>
 <% end %>
 
 <div data-controller="add-pane">
   <div class="dot-list" style="margin-bottom: 6px;">
-    <h1 style="display: inline;"><%= @video.title %></h1>
+    <h1 style="display: inline;">video #<%= @video.id %></h1>
     <% if @available_videos.any? %>
       <%= render(BracketedLinkComponent.new(label: "|", href: "#", data: { action: "click->add-pane#open" })) %>
     <% end %>

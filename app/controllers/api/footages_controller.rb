@@ -12,17 +12,19 @@
 # Booleans serialize as "yes"/"no" per the project-wide rule (CLAUDE.md).
 module Api
   class FootagesController < ApplicationController
-    skip_before_action :verify_authenticity_token
+    # Phase 12 — Step A. The cookie-session before_action defaults to
+    # redirecting unauthenticated callers to /login. JSON / API surfaces
+    # bypass that redirect entirely — `Api::AuthConcern` (below) handles
+    # bearer-token auth and returns a 401 JSON envelope.
+    skip_before_action :authenticate_session!
+    # CSRF protection is irrelevant for bearer-only JSON endpoints.
+    skip_before_action :verify_authenticity_token, raise: false
 
     # Phase 3 — Step B. Bearer-token auth is required on every Api::*
     # endpoint. The concern populates Current.tenant / Current.user from
     # the resolved token; the cookie-only HTML routes do NOT include this
     # concern (they remain on the seeded-singletons path).
     include Api::AuthConcern
-
-    # Skip the cookie-based set_current_tenant_and_user before_action —
-    # the auth concern populates Current from the resolved token instead.
-    skip_before_action :set_current_tenant_and_user
 
     before_action :set_project, only: [ :index, :create ]
     before_action :set_footage, only: [ :update, :destroy ]
@@ -38,7 +40,7 @@ module Api
 
       attrs, error = build_create_attrs
       if error
-        render json: { error: error }, status: :unprocessable_entity
+        render json: { error: error }, status: :unprocessable_content
         return
       end
 
@@ -46,7 +48,7 @@ module Api
       if footage.save
         render json: footage_json(footage), status: :created
       else
-        render json: { errors: footage.errors.full_messages }, status: :unprocessable_entity
+        render json: { errors: footage.errors.full_messages }, status: :unprocessable_content
       end
     end
 
@@ -55,14 +57,14 @@ module Api
 
       attrs, error = build_update_attrs
       if error
-        render json: { error: error }, status: :unprocessable_entity
+        render json: { error: error }, status: :unprocessable_content
         return
       end
 
       if @footage.update(attrs)
         render json: footage_json(@footage)
       else
-        render json: { errors: @footage.errors.full_messages }, status: :unprocessable_entity
+        render json: { errors: @footage.errors.full_messages }, status: :unprocessable_content
       end
     end
 

@@ -116,7 +116,7 @@ module Mcp
       def self.label_for(record, type)
         case type
         when "channel" then record.channel_url
-        when "video"   then record.title
+        when "video"   then record.youtube_video_id
         end
       end
 

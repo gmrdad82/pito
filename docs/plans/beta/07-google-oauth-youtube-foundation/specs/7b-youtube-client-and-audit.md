@@ -19,6 +19,11 @@ enforces a daily quota budget per identity, and applies exponential backoff on
 fills in `PublicClient`'s actual call methods; Phase 7 just establishes the seam
 so audit-table consumers (Phase 11 observability) can rely on a stable schema.
 
+This spec also lands the **per-channel data storage** changes that lay the
+foundation for sync work: additive columns on `Channel` and a redesign of
+`Video` so the YouTube payload has somewhere real to land. Analytics aggregate
+tables are explicitly Phase 8, not Phase 7.
+
 This spec does **not** call the YouTube API from any controller, job, or MCP
 tool yet. It builds the client, exercises it through specs (with VCR), and
 provides a dev-console smoke path. 7C consumes it once for the
@@ -36,7 +41,13 @@ Rails (Lane 1):
 - `app/services/youtube/errors.rb` — `QuotaExhaustedError`, `NeedsReauthError`,
   `TransientError`, `PermanentError` (subclasses of `YouTube::Error`).
 - `app/models/youtube_api_call.rb` — audit model.
+- `app/models/channel.rb` — additive metadata columns (see §"Channel storage").
+- `app/models/video.rb` — redesigned schema (see §"Video storage").
 - `db/migrate/<ts>_create_youtube_api_calls.rb`.
+- `db/migrate/<ts>_add_youtube_metadata_to_channels.rb` — additive `Channel`
+  columns.
+- `db/migrate/<ts>_redesign_videos_for_youtube.rb` — `Video` schema rework
+  (drop/rename placeholder columns, add the new YouTube-shaped columns).
 - `Gemfile` — confirm `google-apis-youtube_v3`,
   `google-apis-youtube_analytics_v2` are present (Alpha already pulled them in
   per `CLAUDE.md`; verify versions are current and not Dependabot-flagged).
@@ -47,8 +58,10 @@ Rails (Lane 1):
 - `spec/services/youtube/quota_spec.rb`
 - `spec/services/youtube/token_refresher_spec.rb`
 - `spec/models/youtube_api_call_spec.rb`
+- `spec/models/channel_spec.rb` — extend for new columns.
+- `spec/models/video_spec.rb` — extend for redesigned schema.
 - `spec/support/vcr.rb` — VCR + WebMock configuration with sensitive-data
-  filters per §"VCR cassette policy".
+  filters per §"Test fixture strategy".
 - `spec/fixtures/vcr_cassettes/youtube/*.yml` — recorded once against a real
   account, scrubbed.
 
@@ -62,7 +75,89 @@ Cross-stack scope: Rails-only.
 
 ## Schema
 
-`youtube_api_calls` — append-only audit log. One row per API call attempt.
+### Per-channel data storage — locked decision
+
+The Phase 7 storage strategy **layers on existing tables**, not greenfield
+redesign:
+
+- `Channel` is extended **additively** with YouTube metadata columns. No
+  destructive change to the existing placeholder columns; the connection / sync
+  state from Phase 4 stays in place.
+- `Video` is redesigned. The current `Video` placeholder columns are
+  dropped/renamed to make room for the real YouTube-shaped schema (this is
+  acceptable because the placeholder data has no production value).
+- **Analytics aggregate tables** (`youtube_analytics_daily` or similar) are
+  **Phase 8**, NOT Phase 7. Phase 7 builds the client + audit + per-channel /
+  per-video metadata foundation. Phase 8 layers daily aggregates on top.
+
+#### `channels` (additive migration)
+
+Add the following columns to the existing `channels` table:
+
+| Column           | Type     | Notes                                          |
+| ---------------- | -------- | ---------------------------------------------- |
+| title            | string   | nullable until first sync                      |
+| description      | text     | nullable                                       |
+| subscriber_count | bigint   | nullable                                       |
+| video_count      | integer  | nullable                                       |
+| view_count       | bigint   | nullable                                       |
+| thumbnail_url    | string   | nullable                                       |
+| etag             | string   | nullable; YouTube ETag for conditional fetches |
+| synced_at        | datetime | nullable                                       |
+
+The existing `channel_url`, `connected`, `last_synced_at`, `oauth_identity_id`
+(added in 7C), and `prevent_url_change` rule are unchanged. The new columns are
+purely additive — no destructive migration on the placeholder columns.
+
+`SavedView` labels currently use `Channel#id.to_s` as a placeholder (`CLAUDE.md`
+notes this); once `title` is populated by the first sync, `SavedView` can
+transition to using `title` for display. That transition is out of scope for
+this spec — the column lands here, the consumer change lands in a follow-up.
+
+#### `videos` (redesigned migration)
+
+The current `Video` schema is placeholder. Replace it with a YouTube-shaped
+schema. The migration drops/renames placeholder columns as appropriate and adds
+the following:
+
+| Column           | Type     | Notes                                             |
+| ---------------- | -------- | ------------------------------------------------- |
+| id               | bigint   | pk                                                |
+| tenant_id        | bigint   | not null, fk → tenants                            |
+| channel_id       | bigint   | not null, fk → channels                           |
+| youtube_video_id | string   | not null, unique within (tenant_id, channel_id)   |
+| title            | string   | not null                                          |
+| description      | text     | nullable                                          |
+| published_at     | datetime | not null                                          |
+| duration_seconds | integer  | nullable                                          |
+| view_count       | bigint   | nullable                                          |
+| like_count       | bigint   | nullable                                          |
+| comment_count    | bigint   | nullable                                          |
+| thumbnail_url    | string   | nullable                                          |
+| privacy_status   | string   | nullable; `"public"` / `"unlisted"` / `"private"` |
+| etag             | string   | nullable; YouTube ETag                            |
+| synced_at        | datetime | nullable                                          |
+| created_at       | datetime | not null                                          |
+| updated_at       | datetime | not null                                          |
+
+Indexes:
+
+- `(tenant_id, channel_id, youtube_video_id)` unique.
+- `(tenant_id, channel_id, published_at DESC)` — index for the channel video
+  feed.
+- `(tenant_id, privacy_status)` — filter for public-only listings.
+
+Because the placeholder `Video` data is non-production, the migration is a clean
+redesign rather than a multi-step expand-contract. Implementer drops placeholder
+columns in the same migration the new ones are added.
+
+Phase 8 may add aggregate tables (`youtube_analytics_daily` or similar) for
+day-by-day metrics; those are explicitly out of scope for Phase 7.
+
+### `youtube_api_calls` — append-only audit log
+
+One row per API call attempt (per logical call — see §"Per-attempt audit rows"
+lock).
 
 | Column             | Type     | Constraints                                        |
 | ------------------ | -------- | -------------------------------------------------- |
@@ -150,8 +245,9 @@ DAILY_BUDGET_UNITS -
 ```
 
 Public-client budget tracking is bucketed separately under
-`google_identity_id IS NULL AND client_kind = "public"` — Phase 8 finalizes the
-public-key budget value.
+`google_identity_id IS NULL AND client_kind = "public"`. Phase 7 leaves the
+public-key budget number unset (Phase 8 finalizes it); the audit rows still land
+for Phase 11 to consume.
 
 ## `YouTube::Client` contract
 
@@ -227,9 +323,19 @@ Refresh is invoked:
   purposes; final outcome `"network_error"`.
 
 The retry loop **always** writes exactly one `YoutubeApiCall` row per logical
-API call (the row reflects the final outcome). Per-attempt rows are out of
-scope; if Phase 11 observability needs them later, add a
-`youtube_api_call_attempts` table at that time.
+API call (the row reflects the final outcome). **Locked decision — audit
+granularity is one row per logical API call.** Per-attempt detail (e.g., a 5xx +
+retry that ultimately succeeded is currently invisible) is reserved for Phase 11
+observability; if it's needed then, add a `youtube_api_call_attempts` table at
+that time.
+
+### Burst handling: fail-fast
+
+**Locked decision — fail-fast `QuotaExhaustedError` on burst / quota
+exhaustion.** No retry/backoff/queueing for quota in Phase 7. The caller (a
+controller, the `Settings::YoutubeController#show` action, eventually a sync
+job) decides what to do. Phase 8's sync jobs may layer queue-and-retry-tomorrow
+semantics on top of `QuotaExhaustedError`; that's Phase 8's concern, not 7B's.
 
 ## `YouTube::PublicClient` skeleton
 
@@ -255,15 +361,32 @@ Out of Phase 7 scope (Phase 8 finishes):
 
 - The full method surface (`videos_list`, `playlists_list`, etc.) on
   `PublicClient`.
-- A separate quota budget for public calls (Phase 8 picks the number; this spec
-  leaves `PublicClient` unbounded — every call lands in the audit table, but the
-  pre-call budget check is skipped).
+- A separate quota budget for public calls. **Locked decision — public-key
+  (unauthenticated) quota tracking is deferred to Phase 8.** `PublicClient` in
+  Phase 7 has no pre-call budget check; every call lands in the audit table, but
+  the budget value itself is Phase 8's call.
 
-## VCR cassette policy
+## Test fixture strategy
 
-`spec/support/vcr.rb`:
+VCR cassettes are the source of truth for replayable spec runs. Recording is a
+**one-shot** done by the user against their real Google account; cassettes are
+then committed and replayed in CI without network.
 
-- Configure WebMock; allow connections only to `localhost`.
+Sensitive-data filters strip:
+
+- `Authorization: Bearer ya29.…` headers (OAuth access tokens).
+- Refresh tokens (request bodies of the `oauth2.googleapis.com/token` endpoint).
+- `client_secret=…` in form bodies.
+- `key=AIza…` query parameters (public API keys).
+- Set-Cookie headers (privacy hygiene; not strictly secret).
+
+Channel metadata (titles, descriptions, channel IDs, video IDs) is
+**non-sensitive** — these are publicly visible on YouTube. The cassettes commit
+channel metadata as-is so spec assertions are deterministic.
+
+`spec/support/vcr.rb` configuration:
+
+- WebMock allows connections only to `localhost`.
 - VCR record mode: `:none` in CI, `:new_episodes` locally for fresh recordings,
   switched via `VCR_RECORD` env var.
 - `filter_sensitive_data("<GOOGLE_BEARER_TOKEN>")` — captures the
@@ -275,8 +398,7 @@ Out of Phase 7 scope (Phase 8 finishes):
 - `filter_sensitive_data("<YOUTUBE_PUBLIC_API_KEY>")` — captures the `key=...`
   query parameter.
 - `filter_sensitive_data("<GOOGLE_SUBJECT_ID>")` — captures the user's Google
-  numeric ID. (Not strictly secret, but a privacy hygiene win and trivial to
-  redact.)
+  numeric ID. (Not strictly secret, but a privacy hygiene win.)
 - `before_record` hook strips `Set-Cookie` headers entirely.
 
 Cassette naming:
@@ -289,15 +411,36 @@ are **synthetic** — created by hand to mock Google's error response shapes. Th
 `happy_path` cassettes are recorded once against the user's real account, then
 committed.
 
-**Locked decision — channel metadata in cassettes is OK.** Channel titles,
-descriptions, video IDs are public anyway. The cassette filter list above covers
-everything sensitive. Do not over-filter; the cassettes need to be deterministic
-for spec assertions.
+**Confirmation Gate (retained):** after the first cassette recording session,
+the user confirms cassettes are clean (no bearer tokens / refresh tokens /
+client secrets / API keys leak through) before the implementation lands. The
+acceptance includes a grep check that runs at spec time; the confirmation gate
+is a process-level checkpoint above that.
+
+## `google-apis-youtube_v3` pin
+
+**Locked decision — pin to the latest stable release of `google-apis-youtube_v3`
+(and `google-apis-youtube_analytics_v2`) at implementation time, verified clean
+against `bundler-audit`.** The 7B implementation log records the chosen
+versions.
+
+## PubSubHubbub for new uploads
+
+**Locked decision — deferred to Phase 8.** Webhook / PubSubHubbub subscriptions
+for new-upload notifications are not in Phase 7. Phase 7 ships polling-grade
+infrastructure; Phase 8 may layer push notifications on top.
 
 ## Acceptance
 
 - [ ] Migration creates `youtube_api_calls` with all columns, types, indexes per
       §"Schema".
+- [ ] Additive migration on `channels` adds `title`, `description`,
+      `subscriber_count`, `video_count`, `view_count`, `thumbnail_url`, `etag`,
+      `synced_at`. No existing column dropped or renamed.
+- [ ] `videos` redesign migration drops/renames placeholder columns and adds the
+      YouTube-shaped columns per §"`videos` (redesigned migration)". FK to
+      `Channel` exists; uniqueness on
+      `(tenant_id, channel_id,     youtube_video_id)` is enforced.
 - [ ] `YoutubeApiCall` model: default-scoped to `Current.tenant`, validates
       `outcome` and `client_kind` inclusion, `today` scope works.
 - [ ] `YouTube::Quota::COSTS` is frozen; `cost_for("channels.list") == 1`;
@@ -311,27 +454,35 @@ for spec assertions.
 - [ ] `YouTube::Client#channels_list(mine: true)` returns Pito-shape
       `{ items: [...], next_page_token: ... }` — never a Google gem struct.
 - [ ] Pre-call quota check refuses calls when budget < cost; one audit row with
-      `outcome: "quota_exceeded"`, `http_status: nil` is written.
+      `outcome: "quota_exceeded"`, `http_status: nil` is written; raises
+      `QuotaExhaustedError` (fail-fast, no retry).
 - [ ] On expired access token, `Client` refreshes, retries, and succeeds; one
-      audit row with `outcome: "success"`.
+      audit row with `outcome: "success"` (one row per logical call).
 - [ ] On 401 mid-call, `Client` refreshes once, retries once; second 401 →
       `auth_failed`, `needs_reauth: true`, raises `NeedsReauthError`.
 - [ ] On 5xx, `Client` retries up to 3 times with backoff; final failure →
-      `server_error`, `TransientError`.
+      `server_error`, `TransientError`. One audit row per logical call (the
+      retry-and-recover case writes a single `outcome: "success"` row, not one
+      per attempt).
 - [ ] On 403 `quotaExceeded`, `Client` does not retry; one row with
       `outcome: "quota_exceeded"`, raises `QuotaExhaustedError`.
 - [ ] `YouTube::PublicClient.new#configured?` is false when the API key is
       blank; methods raise `NotConfiguredError`.
 - [ ] When `public_api_key` is set, `PublicClient#channels_list` writes one
       audit row with `client_kind: "public"`, `google_identity_id: nil`,
-      `user_id: nil`.
+      `user_id: nil`. No pre-call budget check (deferred to Phase 8).
 - [ ] VCR cassettes for the happy paths are committed and contain no bearer
       tokens, refresh tokens, client secrets, or API keys (verify by grepping
-      `spec/fixtures/vcr_cassettes/youtube/`).
+      `spec/fixtures/vcr_cassettes/youtube/`). Channel metadata is present and
+      committed as-is.
+- [ ] User-side confirmation gate: cassettes reviewed once and confirmed clean
+      before merge.
+- [ ] `google-apis-youtube_v3` and `google-apis-youtube_analytics_v2` pinned to
+      a current stable release; `bundler-audit` clean; Dependabot clean.
 - [ ] Tenant-scoping spec: `YoutubeApiCall` rows from tenant A are not visible
       under `Current.tenant = B`.
 - [ ] No JS `alert` / `confirm` / `prompt` introduced.
-- [ ] Brakeman clean. bundler-audit clean (verify no advisories on
+- [ ] Brakeman clean. bundler-audit clean (no advisories on
       `omniauth-google-oauth2`, `google-apis-youtube_v3`,
       `google-apis-youtube_analytics_v2`).
 
@@ -392,7 +543,7 @@ placeholder for now (Phase 8 fills it).
    - `identity.reload.needs_reauth?` => `true`.
    - 7C surfaces this in the UI; here we only check the column.
 
-7. `bundle exec rspec spec/services/youtube/ spec/models/youtube_api_call_spec.rb`
+7. `bundle exec rspec spec/services/youtube/ spec/models/youtube_api_call_spec.rb spec/models/channel_spec.rb spec/models/video_spec.rb`
    — all green. Cassettes replay from disk; no network hits.
 
 8. `grep -RE "ya29\.|1//[0-9A-Za-z_-]{40,}|AIza[0-9A-Za-z_-]{35}" spec/fixtures/vcr_cassettes/`
@@ -413,29 +564,46 @@ continuing to 7C.
   expansion.
 - Cloudflare Pages website — **skipped.**
 
-## Open questions
+## Decisions (locked)
 
-1. **Quota strategy: per-identity, per-tenant, or per-Google-Cloud-project?**
-   This spec defaults to **per-identity** for OAuth calls (the daily 10k units
-   are scoped per Google Cloud project, not per OAuth user — but Beta is
-   single-user, single-tenant, single-project, so all three strategies
-   converge). Phase 11 / Theta may need to revisit when a tenant has multiple
-   identities all hammering one Cloud project. Default: per-identity, document
-   the assumption in `docs/youtube_quota.md`.
-2. **Burst handling.** This spec implements "fail fast on quota exhaustion" —
-   `QuotaExhaustedError` is raised, the caller decides what to do. Phase 8's
-   sync jobs may want a "queue and retry tomorrow" strategy. Default: Phase 7
-   fails fast; Phase 8 chooses its retry semantics on top.
-3. **Public-key quota number.** The plan defers this to Phase 8. `PublicClient`
-   in Phase 7 has no pre-call budget check. Confirm this is acceptable.
-4. **Per-attempt audit rows.** This spec writes one row per logical call (final
-   outcome). Phase 11 observability may want per-attempt detail (a 5xx + retry
-   that ultimately succeeded is currently invisible). Default: one row per call;
-   revisit in Phase 11 with a separate attempts table if needed.
-5. **`google-apis-youtube_v3` version pin.** The Alpha codebase pulled in a
-   specific version; verify `bundler-audit` and Dependabot are clean, and pin to
-   a current-as-of-Phase-7 patch version to keep VCR cassettes stable. Surface
-   the chosen version in the 7B implementation log.
-6. **Webhook / PubSubHubbub subscriptions for new uploads.** Out of scope for
-   Phase 7 (and the plan agrees). Confirm — the plan's "Out of scope" list does
-   not mention PubSubHubbub explicitly; this spec records the defer.
+The following decisions are confirmed and pinned. Implementation does not
+re-litigate them.
+
+- **Quota strategy** — per-identity. Daily 10k units are scoped per Google Cloud
+  project; Beta is single-user, single-tenant, single-project, so per-identity,
+  per-tenant, and per-project converge. Per-identity is the source of truth in
+  Phase 7; Phase 11 / Theta revisits if a tenant ever runs multiple identities
+  against one Cloud project.
+- **Burst handling** — fail-fast `QuotaExhaustedError`. No retry / backoff /
+  queueing logic for quota in Phase 7. Phase 8's sync jobs choose retry
+  semantics on top of the raised error.
+- **Public-key (unauthenticated) quota tracking** — deferred to Phase 8.
+  `PublicClient` in Phase 7 has no pre-call budget check; calls land in the
+  audit table for Phase 11 to consume.
+- **Audit granularity** — one row per logical API call (final outcome).
+  Per-attempt detail is Phase 11 work; if needed then, a separate
+  `youtube_api_call_attempts` table layers on.
+- **`google-apis-youtube_v3` pin** — latest stable at implementation time,
+  verified clean against `bundler-audit`. Same pin policy for
+  `google-apis-youtube_analytics_v2`. The 7B implementation log records the
+  chosen versions.
+- **PubSubHubbub for new uploads** — deferred to Phase 8.
+- **Per-channel data storage** — layer on existing tables, not greenfield
+  redesign:
+  - `Channel` extends additively with: `title`, `description`,
+    `subscriber_count`, `video_count`, `view_count`, `thumbnail_url`, `etag`,
+    `synced_at`. Additive migration; no destructive change to placeholder
+    columns.
+  - `Video` is redesigned: `youtube_video_id`, `title`, `description`,
+    `published_at`, `duration_seconds`, `view_count`, `like_count`,
+    `comment_count`, `thumbnail_url`, `privacy_status`, `etag`, `synced_at`, FK
+    to `Channel`. Current placeholder columns get dropped / renamed as
+    appropriate (placeholder data has no production value).
+  - Analytics aggregate tables (`youtube_analytics_daily` or similar) are Phase
+    8, NOT Phase 7.
+- **Test fixture / VCR strategy** — cassettes recorded once against the user's
+  real Google account by the user; sensitive-data filters strip
+  `Authorization: Bearer ...`, refresh tokens, API keys, and client secret.
+  Channel metadata (title, description, IDs) is non-sensitive and gets committed
+  to fixtures as-is. Confirmation Gate retained: user reviews cassettes after
+  first recording and confirms clean before merge.

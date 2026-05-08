@@ -2,7 +2,7 @@ module Mcp
   module Tools
     class ListVideos < MCP::Tool
       tool_name "list_videos"
-      description "List all videos with stats (views, likes, comments, watch time). Optionally filter by channel_id."
+      description "List videos with stats (views, likes, comments, watch time). Optionally filter by channel_id. Phase 7 Path A2: Video is a thin YouTube-reference record; metadata fields (title, description, tags, etc.) are gone."
 
       input_schema(
         type: "object",
@@ -31,7 +31,7 @@ module Mcp
             "COALESCE(CAST(SUM(video_stats.watch_time_minutes) AS BIGINT), 0) AS total_watch_time"
           )
           .group("videos.id")
-          .order(published_at: :desc)
+          .order(created_at: :desc)
           .limit(limit)
 
         scope = scope.where(channel_id: channel_id) if channel_id.present?

@@ -60,7 +60,8 @@ RSpec.describe "Deletions", type: :request do
       it "returns 200 with valid video IDs" do
         get deletions_path(type: "video", ids: video.id)
         expect(response).to have_http_status(:ok)
-        expect(response.body).to include(video.title)
+        # Phase 7 Path A2 — Video has no title; the row identifies via youtube_video_id.
+        expect(response.body).to include(video.youtube_video_id)
         expect(response.body).to include("delete 1 video")
       end
 
@@ -308,13 +309,13 @@ RSpec.describe "Deletions", type: :request do
 
     it "returns 422 JSON for unknown type" do
       get deletions_path(type: "invalid", ids: "1", format: :json)
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
       expect(JSON.parse(response.body)).to include("error")
     end
 
     it "returns 422 JSON when no items match" do
       get deletions_path(type: "channel", ids: "99999", format: :json)
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
       expect(JSON.parse(response.body)).to include("error")
     end
   end
@@ -354,12 +355,12 @@ RSpec.describe "Deletions", type: :request do
 
     it "returns 422 JSON for unknown type" do
       post deletions_path(type: "invalid", ids: "1", format: :json)
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
     end
 
     it "returns 422 JSON when no items match" do
       post deletions_path(type: "channel", ids: "99999", format: :json)
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
     end
   end
 end

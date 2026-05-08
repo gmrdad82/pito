@@ -1,7 +1,8 @@
-<%# Phase B revamp (2026-05-06) — root is the `.pane` (640px, alternating
-    A/B zebra background). Optional `header:` local lets the panes.html.erb
-    workspace inject the per-pane heading + reorder arrows; show.html.erb
-    omits it (the page-level h1 covers naming there). %>
+<%# Phase 7 Path A2 (literal full retract). Channel is now a thin
+    YouTube-reference record. The pane shows URL + star toggle + last
+    sync + (when connected) the email of the Google identity that
+    authorized the sync. Connect/disconnect happens at /settings/youtube,
+    not via inline pane toggle. %>
 <% header = local_assigns[:header] %>
 <% pane_extra_class = local_assigns.fetch(:pane_extra_class, "") %>
 <% pane_style = local_assigns.fetch(:pane_style, nil) %>
@@ -29,18 +30,15 @@
     <tr>
       <td class="text-muted" style="padding-right: 12px;">connected</td>
       <td>
-        <%= channel.connected? ? "yes" : "no" %>
-        <%= form_with(model: channel, html: { style: "display: inline; margin-left: 8px;" }) do |f| %>
-          <%= f.hidden_field :connected, value: channel.connected? ? "no" : "yes" %>
-          <button type="submit" class="bracketed" style="background: none; border: none; cursor: pointer; padding: 0; color: inherit; font: inherit;">
-            [<%= channel.connected? ? "disconnect" : "connect" %>]
-          </button>
+        <% if channel.oauth_identity_id.present? %>
+          yes
+          <% if channel.oauth_identity&.email.present? %>
+            <span class="text-muted">(<%= channel.oauth_identity.email %>)</span>
+          <% end %>
+        <% else %>
+          no
         <% end %>
       </td>
-    </tr>
-    <tr>
-      <td class="text-muted" style="padding-right: 12px;">syncing</td>
-      <td><%= channel.syncing? ? "yes" : "no" %></td>
     </tr>
     <tr>
       <td class="text-muted" style="padding-right: 12px;">last sync</td>
@@ -58,30 +56,26 @@
         "COALESCE(SUM(video_stats.likes), 0) AS total_likes"
       )
       .group("videos.id")
-      .order(published_at: :desc) %>
+      .order(created_at: :desc) %>
 
   <% if videos.any? %>
     <div data-controller="sortable-table" data-sortable-table-id-value="<%= channel.id %>">
       <table data-sortable-table-target="table">
         <thead>
           <tr>
-            <%= render(SortableHeaderComponent.new(label: "title", sort_type: "string")) %>
+            <%= render(SortableHeaderComponent.new(label: "id", sort_type: "number", numeric: true)) %>
+            <%= render(SortableHeaderComponent.new(label: "youtube id", sort_type: "string")) %>
             <%= render(SortableHeaderComponent.new(label: "views", sort_type: "number", numeric: true)) %>
             <%= render(SortableHeaderComponent.new(label: "likes", sort_type: "number", numeric: true)) %>
-            <%= render(SortableHeaderComponent.new(label: "state", sort_type: "string", numeric: true)) %>
-            <%= render(SortableHeaderComponent.new(label: "date", sort_type: "date", numeric: true)) %>
-            <%= render(SortableHeaderComponent.new(label: "length", sort_type: "number", numeric: true)) %>
           </tr>
         </thead>
         <tbody>
           <% videos.each do |video| %>
             <tr>
-              <td style="max-width: 280px; overflow: hidden; text-overflow: ellipsis;"><%= video.title %></td>
+              <td class="num"><%= link_to video.id, video_path(video), data: { turbo_frame: "_top" } %></td>
+              <td><%= video.youtube_video_id %></td>
               <td class="num"><%= number_with_delimiter(video.total_views) %></td>
               <td class="num"><%= number_with_delimiter(video.total_likes) %></td>
-              <td class="num"><%= video.privacy_status&.sub("_video", "") || "—" %></td>
-              <td class="num"><%= video.published_at&.strftime("%Y-%m-%d") %></td>
-              <td class="num"><%= format_duration(video.duration_seconds) %></td>
             </tr>
           <% end %>
         </tbody>

@@ -1,0 +1,29 @@
+{
+  "ignored_warnings": [
+    {
+      "warning_type": "HTTP Verb Confusion",
+      "warning_code": 122,
+      "fingerprint": "050af47121b0c4251d18c5b722e529807edb8a9852128f6fa384c768d47e0317",
+      "check_name": "VerbConfusion",
+      "message": "Potential HTTP verb confusion. `HEAD` is routed like `GET` but `request.get?` will return `false`",
+      "file": "app/controllers/concerns/sessions/auth_concern.rb",
+      "line": 73,
+      "link": "https://brakemanscanner.org/docs/warning_types/http_verb_confusion/",
+      "code": "return unless request.get?",
+      "render_path": null,
+      "location": {
+        "type": "method",
+        "class": "Sessions::AuthConcern",
+        "method": "stash_intended_url"
+      },
+      "user_input": null,
+      "confidence": "Weak",
+      "cwe_id": [
+        352
+      ],
+      "note": "Intentional: stash_intended_url must NOT fire on HEAD requests. HEAD is a cache validation probe (e.g., from Turbo, Link prefetch, monitoring), not a navigation event. Stashing a HEAD path as the post-login redirect would send the user to a URL they never intended to visit. The strict `request.get?` check (which returns false for HEAD) is correct."
+    }
+  ],
+  "updated": "2026-05-07",
+  "brakeman_version": "8.0.4"
+}

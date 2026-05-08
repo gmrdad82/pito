@@ -17,7 +17,6 @@ pub enum ChannelFilter {
     None,
     Starred,
     Connected,
-    Syncing,
 }
 
 // --- Data types ---
@@ -45,7 +44,6 @@ pub struct ChannelRow {
     pub channel_url: String,
     pub star: bool,
     pub connected: bool,
-    pub syncing: bool,
     pub last_synced_at: Option<String>,
 }
 
@@ -111,29 +109,24 @@ pub fn connected_indicator(connected: bool) -> &'static str {
     if connected { "o" } else { "-" }
 }
 
-/// Combined last-sync cell: "syncing" while a sync is running, otherwise the
-/// relative time, otherwise an em-dash.
-pub fn last_sync_cell(syncing: bool, last_synced_at: Option<&str>) -> String {
-    if syncing {
-        "syncing".to_string()
-    } else if last_synced_at.is_some() {
+/// Last-sync cell text. Rails no longer emits a server-side `syncing`
+/// boolean (Path A2 retract), so this is just the relative time when known
+/// and an em-dash otherwise.
+pub fn last_sync_cell(last_synced_at: Option<&str>) -> String {
+    if last_synced_at.is_some() {
         format_relative_time(last_synced_at)
     } else {
         "\u{2014}".to_string()
     }
 }
 
-/// Same as [`last_sync_cell`] but, when `animate` is true, decorates the
-/// "syncing" text with one to three trailing dots based on `tick` to give the
-/// user a subtle pulse while pito polls the API. The decoration is purely
-/// cosmetic — the text stays under the column width.
-pub fn last_sync_cell_animated(
-    syncing: bool,
-    last_synced_at: Option<&str>,
-    animate: bool,
-    tick: u8,
-) -> String {
-    if syncing && animate {
+/// Same as [`last_sync_cell`] but, when `animate` is true, replaces the cell
+/// content with `syncing` plus one to three trailing dots based on `tick` to
+/// give the user a subtle pulse while pito polls the API after a sync
+/// confirm. The decoration is purely cosmetic — the text stays under the
+/// column width.
+pub fn last_sync_cell_animated(last_synced_at: Option<&str>, animate: bool, tick: u8) -> String {
+    if animate {
         let dots = match tick % 4 {
             0 => "",
             1 => ".",
@@ -142,7 +135,7 @@ pub fn last_sync_cell_animated(
         };
         format!("syncing{}", dots)
     } else {
-        last_sync_cell(syncing, last_synced_at)
+        last_sync_cell(last_synced_at)
     }
 }
 
@@ -209,13 +202,13 @@ fn render_toolbar(frame: &mut Frame, area: Rect, theme: &Theme, state: &Channels
     ];
     if let Some(ref flash) = state.flash {
         left_spans.push(Span::raw("  "));
-        left_spans.push(Span::styled(flash.clone(), Style::default().fg(theme.danger)));
+        left_spans.push(Span::styled(
+            flash.clone(),
+            Style::default().fg(theme.danger),
+        ));
     }
 
-    let used: usize = left_spans
-        .iter()
-        .map(|s| s.content.chars().count())
-        .sum();
+    let used: usize = left_spans.iter().map(|s| s.content.chars().count()).sum();
     if used < left_max {
         left_spans.push(Span::raw(" ".repeat(left_max - used)));
     }
@@ -238,8 +231,6 @@ fn render_filter_row(frame: &mut Frame, area: Rect, theme: &Theme, state: &Chann
         chip("starred (f s)", state.filter == ChannelFilter::Starred),
         Span::raw(" "),
         chip("connected (f c)", state.filter == ChannelFilter::Connected),
-        Span::raw(" "),
-        chip("syncing (f y)", state.filter == ChannelFilter::Syncing),
     ]);
     frame.render_widget(Paragraph::new(line), area);
 }
@@ -276,7 +267,6 @@ pub fn visible_channels(state: &ChannelsState) -> Vec<&ChannelRow> {
             ChannelFilter::None => true,
             ChannelFilter::Starred => c.star,
             ChannelFilter::Connected => c.connected,
-            ChannelFilter::Syncing => c.syncing,
         })
         .collect()
 }
@@ -319,28 +309,25 @@ fn render_rows(
         spans.push(Span::styled(pad_right(&url, 40), row_style));
 
         let star_style = if channel.star {
-            Style::default().fg(theme.orange).bg(if is_cursor {
-                theme.border
-            } else {
-                theme.bg
-            })
+            Style::default()
+                .fg(theme.orange)
+                .bg(if is_cursor { theme.border } else { theme.bg })
         } else {
             row_style
         };
-        spans.push(Span::styled(pad_center(star_indicator(channel.star), 7), star_style));
+        spans.push(Span::styled(
+            pad_center(star_indicator(channel.star), 7),
+            star_style,
+        ));
 
         let conn_style = if channel.connected {
-            Style::default().fg(theme.success).bg(if is_cursor {
-                theme.border
-            } else {
-                theme.bg
-            })
+            Style::default()
+                .fg(theme.success)
+                .bg(if is_cursor { theme.border } else { theme.bg })
         } else {
-            Style::default().fg(theme.muted).bg(if is_cursor {
-                theme.border
-            } else {
-                theme.bg
-            })
+            Style::default()
+                .fg(theme.muted)
+                .bg(if is_cursor { theme.border } else { theme.bg })
         };
         spans.push(Span::styled(
             pad_center(connected_indicator(channel.connected), 5),
@@ -348,24 +335,16 @@ fn render_rows(
         ));
 
         let is_polled = sync_anim.ids.contains(&channel.id);
-        let last_sync_style = if channel.syncing {
-            // Use a slightly different shade for the rows pito is actively
-            // polling vs. server-side syncing we found out about passively
-            // (e.g. seed channel #2). Both stay in the cyan family — this is a
-            // subtle hint, not a flashing animation.
-            let fg = if is_polled { theme.accent } else { theme.cyan };
-            Style::default().fg(fg).bg(if is_cursor {
-                theme.border
-            } else {
-                theme.bg
-            })
+        let last_sync_style = if is_polled {
+            Style::default()
+                .fg(theme.accent)
+                .bg(if is_cursor { theme.border } else { theme.bg })
         } else {
             row_style
         };
         spans.push(Span::styled(
             pad_left(
                 &last_sync_cell_animated(
-                    channel.syncing,
                     channel.last_synced_at.as_deref(),
                     is_polled,
                     sync_anim.tick,
@@ -449,20 +428,12 @@ mod tests {
         Utc.with_ymd_and_hms(2026, 4, 30, 10, 0, 0).unwrap()
     }
 
-    fn row(
-        id: u64,
-        url: &str,
-        star: bool,
-        connected: bool,
-        syncing: bool,
-        last_sync: Option<&str>,
-    ) -> ChannelRow {
+    fn row(id: u64, url: &str, star: bool, connected: bool, last_sync: Option<&str>) -> ChannelRow {
         ChannelRow {
             id,
             channel_url: url.to_string(),
             star,
             connected,
-            syncing,
             last_synced_at: last_sync.map(|s| s.to_string()),
         }
     }
@@ -490,39 +461,46 @@ mod tests {
     }
 
     #[test]
-    fn last_sync_cell_when_syncing() {
-        assert_eq!(last_sync_cell(true, None), "syncing");
-        // Even if last_synced_at is set, an in-flight sync wins.
-        assert_eq!(last_sync_cell(true, Some("2026-04-30T09:55:00Z")), "syncing");
-    }
-
-    #[test]
-    fn last_sync_cell_when_idle_and_never_synced() {
-        assert_eq!(last_sync_cell(false, None), "\u{2014}");
-    }
-
-    #[test]
-    fn last_sync_cell_animated_pulses_through_dots() {
-        // Tick 0 → no dots, 1 → ".", 2 → "..", 3 → "...", then wraps.
-        assert_eq!(last_sync_cell_animated(true, None, true, 0), "syncing");
-        assert_eq!(last_sync_cell_animated(true, None, true, 1), "syncing.");
-        assert_eq!(last_sync_cell_animated(true, None, true, 2), "syncing..");
-        assert_eq!(last_sync_cell_animated(true, None, true, 3), "syncing...");
-        assert_eq!(last_sync_cell_animated(true, None, true, 4), "syncing");
-    }
-
-    #[test]
-    fn last_sync_cell_animated_falls_back_when_not_animating() {
-        // animate=false: same as the static cell — even when syncing is true.
-        assert_eq!(
-            last_sync_cell_animated(true, Some("2026-04-30T09:55:00Z"), false, 7),
-            "syncing"
+    fn last_sync_cell_when_known() {
+        // Path A2: there's no in-flight `syncing` flag from the wire any more.
+        // The cell renders the relative time when known (anything other than
+        // "never" / em-dash) and the em-dash placeholder when not.
+        let cell = last_sync_cell(Some("2026-04-30T09:55:00Z"));
+        assert!(
+            cell.starts_with("~") && cell.ends_with(" ago"),
+            "expected a relative-time string, got {:?}",
+            cell
         );
-        // Idle channels never animate regardless of the flag.
-        assert_eq!(
-            last_sync_cell_animated(false, None, true, 2),
-            "\u{2014}"
+    }
+
+    #[test]
+    fn last_sync_cell_when_never_synced() {
+        assert_eq!(last_sync_cell(None), "\u{2014}");
+    }
+
+    #[test]
+    fn last_sync_cell_animated_pulses_through_dots_while_polling() {
+        // Tick 0 → no dots, 1 → ".", 2 → "..", 3 → "...", then wraps. The
+        // animation kicks in based on `animate` (CLI-local polling state),
+        // not on a wire field.
+        assert_eq!(last_sync_cell_animated(None, true, 0), "syncing");
+        assert_eq!(last_sync_cell_animated(None, true, 1), "syncing.");
+        assert_eq!(last_sync_cell_animated(None, true, 2), "syncing..");
+        assert_eq!(last_sync_cell_animated(None, true, 3), "syncing...");
+        assert_eq!(last_sync_cell_animated(None, true, 4), "syncing");
+    }
+
+    #[test]
+    fn last_sync_cell_animated_falls_back_when_not_polling() {
+        // animate=false: same as the static cell. We assert on the structural
+        // shape rather than a specific bucket so the test isn't time-sensitive.
+        let cell = last_sync_cell_animated(Some("2026-04-30T09:55:00Z"), false, 7);
+        assert!(
+            cell.starts_with("~") && cell.ends_with(" ago"),
+            "expected a relative-time string, got {:?}",
+            cell
         );
+        assert_eq!(last_sync_cell_animated(None, false, 2), "\u{2014}");
     }
 
     #[test]
@@ -585,9 +563,9 @@ mod tests {
     fn filter_starred_subset() {
         let s = state(
             vec![
-                row(1, "a", true, false, false, None),
-                row(2, "b", false, true, false, None),
-                row(3, "c", true, true, false, None),
+                row(1, "a", true, false, None),
+                row(2, "b", false, true, None),
+                row(3, "c", true, true, None),
             ],
             ChannelFilter::Starred,
         );
@@ -597,13 +575,13 @@ mod tests {
     }
 
     #[test]
-    fn filter_syncing_subset() {
+    fn filter_connected_subset() {
         let s = state(
             vec![
-                row(1, "a", false, false, false, None),
-                row(2, "b", false, false, true, None),
+                row(1, "a", false, false, None),
+                row(2, "b", false, true, None),
             ],
-            ChannelFilter::Syncing,
+            ChannelFilter::Connected,
         );
         assert_eq!(visible_channels(&s).len(), 1);
     }
@@ -633,8 +611,8 @@ mod tests {
     fn filter_none_returns_all() {
         let s = state(
             vec![
-                row(1, "a", false, false, false, None),
-                row(2, "b", false, false, false, None),
+                row(1, "a", false, false, None),
+                row(2, "b", false, false, None),
             ],
             ChannelFilter::None,
         );

@@ -38,7 +38,7 @@ class Settings::TokensController < ApplicationController
       rescue ArgumentError
         @token = ApiToken.new(name: name, scopes: raw_scopes)
         @token.errors.add(:expires_at, "is not a valid date")
-        render :new, status: :unprocessable_entity
+        render :new, status: :unprocessable_content
         return
       end
     end

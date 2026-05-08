@@ -1,0 +1,15 @@
+<%# Phase 7 — Step C. needs_reauth banner.
+    Locked decision (7C-banner-color) — red allowed; this is a
+    failure-state banner, not a destructive-action UI. The
+    docs-keeper dispatch has a TODO to land a one-line note in
+    docs/design.md's color section documenting the carve-out. %>
+
+<div class="flash-error" style="margin: 12px 0; padding: 10px 12px; border: 1px solid #cc0000; color: #cc0000;">
+  <strong>your google grant was revoked.</strong>
+  pito can no longer fetch youtube data for this account.
+
+  <%= form_with url: settings_youtube_connect_path, method: :post,
+                data: { turbo: false }, html: { style: "display: inline; margin-left: 12px;" } do %>
+    <button type="submit">[ reconnect google account ]</button>
+  <% end %>
+</div>

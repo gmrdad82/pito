@@ -1,12 +1,18 @@
 require "rails_helper"
 
+# Phase 7 Path A2 (literal full retract). Video declares no
+# `searchable :*` / `filterable :*` lines, so the Meilisearch index
+# for videos has no searchable text and queries return no matches.
+# These specs assert the engine surface stays functional (healthy?,
+# index/remove without raising, reindex_all idempotent, empty
+# searches return zero) — the actual match/highlight surface returns
+# once Phase 8+ rebuilds metadata caching.
 RSpec.describe Search::MeilisearchEngine, skip: ENV["CI"].present? && "requires Meilisearch" do
   let(:engine) { described_class.new }
   let(:channel) { create(:channel) }
-  let(:video) { create(:video, channel: channel, title: "rails deep dive", description: "learning rails", tags: %w[ruby rails]) }
+  let(:video) { create(:video, channel: channel) }
 
   before do
-    # Clean test indexes
     client = engine.instance_variable_get(:@client)
     begin
       client.index("videos_test").delete_all_documents
@@ -27,13 +33,8 @@ RSpec.describe Search::MeilisearchEngine, skip: ENV["CI"].present? && "requires 
   end
 
   describe "#index" do
-    it "indexes a video" do
-      engine.index(video)
-      wait_for_tasks
-
-      result = engine.search(Video, "rails deep dive")
-      expect(result[:hits].size).to eq(1)
-      expect(result[:hits].first[:id]).to eq(video.id)
+    it "indexes a video without raising (id-only document)" do
+      expect { engine.index(video) }.not_to raise_error
     end
 
     it "skips records without searchable_fields" do
@@ -43,15 +44,10 @@ RSpec.describe Search::MeilisearchEngine, skip: ENV["CI"].present? && "requires 
   end
 
   describe "#remove" do
-    it "removes a video from the index" do
+    it "removes a video from the index without raising" do
       engine.index(video)
       wait_for_tasks
-
-      engine.remove(video)
-      wait_for_tasks
-
-      result = engine.search(Video, "rails deep dive")
-      expect(result[:hits]).to be_empty
+      expect { engine.remove(video) }.not_to raise_error
     end
 
     it "does not raise for missing records" do
@@ -60,16 +56,13 @@ RSpec.describe Search::MeilisearchEngine, skip: ENV["CI"].present? && "requires 
   end
 
   describe "#reindex_all" do
-    it "indexes all videos" do
-      create(:video, channel: channel, title: "another video", description: "test")
-      engine.reindex_all(Video)
+    it "reindexes without raising" do
+      create(:video, channel: channel)
+      expect { engine.reindex_all(Video) }.not_to raise_error
       wait_for_tasks
-
-      result = engine.search(Video, "")
-      expect(result[:total]).to eq(Video.count)
     end
 
-    it "replaces existing documents" do
+    it "is idempotent (re-running does not change row count)" do
       engine.reindex_all(Video)
       wait_for_tasks
       count_before = engine.search(Video, "")[:total]
@@ -82,38 +75,25 @@ RSpec.describe Search::MeilisearchEngine, skip: ENV["CI"].present? && "requires 
     end
   end
 
-  describe "#search" do
+  describe "#search (post-A2: returns zero matches by design)" do
     before do
-      # Force lazy lets to create records before reindexing
       channel
       video
       engine.reindex_all(Video)
       wait_for_tasks
     end
 
-    it "returns hits with highlights" do
-      result = engine.search(Video, "rails")
-      expect(result[:hits]).to be_an(Array)
+    it "returns the engine envelope shape" do
+      result = engine.search(Video, "anything")
+      expect(result).to have_key(:hits)
       expect(result).to have_key(:total)
       expect(result).to have_key(:took_ms)
+      expect(result[:hits]).to be_an(Array)
     end
 
-    it "returns record objects" do
-      result = engine.search(Video, video.title)
-      hit = result[:hits].find { |h| h[:id] == video.id }
-      expect(hit).not_to be_nil
-      expect(hit[:record]).to eq(video)
-    end
-
-    it "supports pagination" do
+    it "supports pagination without raising" do
       result = engine.search(Video, "", page: 1, per_page: 1)
       expect(result[:hits].size).to be <= 1
-    end
-
-    it "supports filters on videos" do
-      result = engine.search(Video, "", filters: { channel_id: channel.id })
-      ids = result[:hits].map { |h| h[:id] }
-      expect(ids).to include(video.id)
     end
 
     it "returns empty results for non-matching query" do
@@ -136,7 +116,6 @@ RSpec.describe Search::MeilisearchEngine, skip: ENV["CI"].present? && "requires 
 
   def wait_for_tasks
     client = engine.instance_variable_get(:@client)
-    # Wait for all tasks to complete
     loop do
       tasks = client.tasks["results"]
       pending = tasks.select { |t| %w[enqueued processing].include?(t["status"]) }

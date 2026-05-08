@@ -66,7 +66,6 @@ pub fn render(frame: &mut Frame, area: Rect, theme: &Theme) {
         shortcut_line("Y", "sync selection (or current row)", theme),
         shortcut_line("f s", "filter: starred (toggle)", theme),
         shortcut_line("f c", "filter: connected (toggle)", theme),
-        shortcut_line("f y", "filter: syncing (toggle)", theme),
         Line::from(""),
         Line::from(vec![
             Span::raw("  "),
@@ -139,4 +138,58 @@ fn sized_rect(area: Rect) -> Rect {
         .flex(Flex::Center)
         .split(vertical[0]);
     horizontal[0]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::theme::ThemeMode;
+    use ratatui::{Terminal, backend::TestBackend};
+
+    fn render_to_string() -> String {
+        let theme = Theme::from_mode(ThemeMode::Dark);
+        let backend = TestBackend::new(120, 60);
+        let mut terminal = Terminal::new(backend).expect("test backend");
+        terminal
+            .draw(|frame| {
+                render(frame, frame.area(), &theme);
+            })
+            .expect("draw");
+        let buf = terminal.backend().buffer().clone();
+        let mut rendered = String::new();
+        for y in 0..buf.area.height {
+            for x in 0..buf.area.width {
+                rendered.push_str(buf[(x, y)].symbol());
+            }
+            rendered.push('\n');
+        }
+        rendered
+    }
+
+    #[test]
+    fn help_does_not_advertise_retired_filter_y_shortcut() {
+        // Path A2 retract: Rails dropped the server-side `syncing` boolean,
+        // and `keys.rs::handle_filter_prefix` no longer accepts `f y`. The
+        // help overlay must not advertise a shortcut that does nothing —
+        // surfaced during the Phase 7.5 parity sweep.
+        let rendered = render_to_string();
+        assert!(
+            !rendered.contains("filter: syncing"),
+            "help overlay must not list the retired `f y` filter shortcut, got:\n{}",
+            rendered
+        );
+    }
+
+    #[test]
+    fn help_still_lists_starred_and_connected_filters() {
+        let rendered = render_to_string();
+        assert!(
+            rendered.contains("filter: starred"),
+            "help should list `f s` filter: starred"
+        );
+        assert!(
+            rendered.contains("filter: connected"),
+            "help should list `f c` filter: connected"
+        );
+    }
 }

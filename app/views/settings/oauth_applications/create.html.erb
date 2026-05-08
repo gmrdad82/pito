@@ -1,0 +1,45 @@
+<% content_for(:title, "application created") %>
+<% breadcrumb(["settings", settings_path], ["oauth applications", settings_oauth_applications_path], "created") %>
+
+<div style="margin-bottom: 8px;">
+  <h1>application created</h1>
+  <p class="text-muted" style="margin-top: 2px;">
+    save these credentials now. <code>client_secret</code> cannot be shown again
+    &mdash; if you lose it, revoke this application and register a new one.
+  </p>
+</div>
+
+<table class="detail-table" style="margin-bottom: 12px;">
+  <tr>
+    <td class="text-muted">name</td>
+    <td><strong><%= @application.name %></strong></td>
+  </tr>
+  <tr>
+    <td class="text-muted">client_id</td>
+    <td><code><%= @plaintext_uid %></code></td>
+  </tr>
+  <tr>
+    <td class="text-muted">client_secret</td>
+    <td><code><%= @plaintext_secret %></code></td>
+  </tr>
+  <tr>
+    <td class="text-muted">redirect URIs</td>
+    <td>
+      <% @application.redirect_uri.to_s.split("\n").each do |uri| %>
+        <code><%= uri %></code><br>
+      <% end %>
+    </td>
+  </tr>
+  <tr>
+    <td class="text-muted">scopes</td>
+    <td><code><%= @application.scopes %></code></td>
+  </tr>
+  <tr>
+    <td class="text-muted">confidential</td>
+    <td><%= @application.confidential? ? "yes" : "no" %></td>
+  </tr>
+</table>
+
+<div class="dot-list">
+  <%= render(BracketedLinkComponent.new(label: "I have saved them", href: settings_oauth_applications_path)) %>
+</div>

@@ -11,11 +11,11 @@ pub mod video_detail;
 pub mod videos;
 
 use ratatui::{
+    Frame,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::Style,
     text::{Line, Span},
     widgets::Paragraph,
-    Frame,
 };
 
 use crate::app::{App, KeyState, Overlay, Screen};
@@ -31,7 +31,7 @@ pub fn render(frame: &mut Frame, app: &App) {
 
     let layout = Layout::vertical([
         Constraint::Length(1), // header
-        Constraint::Min(0),   // body
+        Constraint::Min(0),    // body
         Constraint::Length(1), // footer
     ])
     .split(frame.area());
@@ -94,10 +94,7 @@ fn render_header(frame: &mut Frame, area: Rect, app: &App) {
         Span::styled("(?)", Style::default().fg(theme.muted)),
         Span::raw(" help "),
     ];
-    let right_width: usize = right_spans
-        .iter()
-        .map(|s| s.content.chars().count())
-        .sum();
+    let right_width: usize = right_spans.iter().map(|s| s.content.chars().count()).sum();
     let right_width = right_width.min(area.width as usize) as u16;
 
     // Split the bar so left can grow and right always reserves exactly the

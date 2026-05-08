@@ -1,9 +1,9 @@
 use ratatui::{
+    Frame,
     layout::{Constraint, Layout, Rect},
     style::Style,
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
-    Frame,
 };
 
 use crate::theme::Theme;
@@ -24,23 +24,20 @@ pub struct VideosState {
     pub scroll_offset: usize,
 }
 
+/// Path A2 retract: VideoRow lost the title / privacy / published / duration
+/// columns when those fields left the wire. The row now identifies the video
+/// by `youtube_video_id`, with a star marker and the surviving counts.
 pub struct VideoRow {
     pub id: u64,
-    pub title: String,
+    pub youtube_video_id: String,
     /// The channel id this video belongs to (matches saved-views convention).
     pub channel_id: u64,
+    pub star: bool,
     pub views: u64,
     pub trend: String,
     pub likes: u64,
     pub comments: u64,
     pub watch_time_minutes: f64,
-    pub privacy_status: String,
-    /// Populated from the API; reserved for the upcoming video detail revamp.
-    #[allow(dead_code)]
-    pub published_at: String,
-    /// Populated from the API; reserved for the upcoming video detail revamp.
-    #[allow(dead_code)]
-    pub duration_seconds: u32,
 }
 
 #[derive(Clone, Copy)]
@@ -74,18 +71,6 @@ pub fn format_watch_time(minutes: f64) -> String {
     format!("{}h{:02}m", hours, mins)
 }
 
-fn abbreviate_privacy(status: &str) -> &str {
-    match status {
-        "public" => "pub",
-        "unlisted" => "unl",
-        "private" => "pri",
-        s if s.starts_with("pub") => "pub",
-        s if s.starts_with("unl") => "unl",
-        s if s.starts_with("pri") => "pri",
-        _ => status,
-    }
-}
-
 fn trend_indicator(trend: &str) -> &str {
     match trend {
         "up" => "▲",
@@ -97,33 +82,39 @@ fn trend_indicator(trend: &str) -> &str {
 // --- Column widths ---
 
 struct Columns {
-    title: u16,
+    youtube_id: u16,
     channel: u16,
+    star: u16,
     views: u16,
     trend: u16,
     likes: u16,
     comments: u16,
     watch: u16,
-    state: u16,
 }
 
 impl Columns {
     fn compute(width: u16, bulk_mode: bool) -> Self {
         let prefix = if bulk_mode { 4 } else { 2 }; // "> " or "[ ] "
-        let fixed = 8 + 3 + 8 + 8 + 6 + 5; // views, trend, likes, comments, watch, state
+        let star = 3;
+        let views = 8;
+        let trend = 3;
+        let likes = 8;
+        let comments = 8;
+        let watch = 6;
+        let fixed = star + views + trend + likes + comments + watch;
         let remaining = width.saturating_sub(prefix + fixed + 2); // 2 for border padding
-        let channel = remaining.clamp(8, 14);
-        let title = remaining.saturating_sub(channel);
+        let channel = remaining.clamp(8, 16);
+        let youtube_id = remaining.saturating_sub(channel);
 
         Self {
-            title,
+            youtube_id,
             channel,
-            views: 8,
-            trend: 3,
-            likes: 8,
-            comments: 8,
-            watch: 6,
-            state: 5,
+            star,
+            views,
+            trend,
+            likes,
+            comments,
+            watch,
         }
     }
 }
@@ -148,7 +139,7 @@ pub fn render(frame: &mut Frame, area: Rect, theme: &Theme, state: &VideosState)
         Constraint::Length(1), // spacer
         Constraint::Length(1), // header
         Constraint::Length(1), // separator
-        Constraint::Min(0),   // rows
+        Constraint::Min(0),    // rows
     ])
     .split(inner);
 
@@ -176,7 +167,13 @@ fn render_toolbar(frame: &mut Frame, area: Rect, theme: &Theme, state: &VideosSt
     frame.render_widget(Paragraph::new(line), area);
 }
 
-fn render_table_header(frame: &mut Frame, area: Rect, theme: &Theme, state: &VideosState, width: u16) {
+fn render_table_header(
+    frame: &mut Frame,
+    area: Rect,
+    theme: &Theme,
+    state: &VideosState,
+    width: u16,
+) {
     let cols = Columns::compute(width, state.bulk_mode);
     let style = Style::default().fg(theme.muted);
 
@@ -188,14 +185,17 @@ fn render_table_header(frame: &mut Frame, area: Rect, theme: &Theme, state: &Vid
         spans.push(Span::styled("  ", style));
     }
 
-    spans.push(Span::styled(pad_right("title", cols.title), style));
+    spans.push(Span::styled(
+        pad_right("youtube id", cols.youtube_id),
+        style,
+    ));
     spans.push(Span::styled(pad_right("channel", cols.channel), style));
+    spans.push(Span::styled(pad_center("★", cols.star), style));
     spans.push(Span::styled(pad_left("views", cols.views), style));
     spans.push(Span::styled(pad_center("trend", cols.trend), style));
     spans.push(Span::styled(pad_left("likes", cols.likes), style));
     spans.push(Span::styled(pad_left("chats", cols.comments), style));
     spans.push(Span::styled(pad_left("watch", cols.watch), style));
-    spans.push(Span::styled(pad_right("state", cols.state), style));
 
     frame.render_widget(Paragraph::new(Line::from(spans)), area);
 }
@@ -239,9 +239,9 @@ fn render_rows(frame: &mut Frame, area: Rect, theme: &Theme, state: &VideosState
             spans.push(Span::styled(cursor, row_style));
         }
 
-        // Title (truncated)
-        let title = truncate(&video.title, cols.title as usize);
-        spans.push(Span::styled(pad_right(&title, cols.title), row_style));
+        // Youtube id (truncated)
+        let yt = truncate(&video.youtube_video_id, cols.youtube_id as usize);
+        spans.push(Span::styled(pad_right(&yt, cols.youtube_id), row_style));
 
         // Channel id (matches saved-view convention; full URL lives on channel detail)
         let channel = format!("#{}", video.channel_id);
@@ -249,6 +249,17 @@ fn render_rows(frame: &mut Frame, area: Rect, theme: &Theme, state: &VideosState
             pad_right(&truncate(&channel, cols.channel as usize), cols.channel),
             row_style,
         ));
+
+        // Star marker
+        let star_marker = if video.star { "★" } else { " " };
+        let star_style = if video.star {
+            Style::default()
+                .fg(theme.orange)
+                .bg(if is_selected { theme.border } else { theme.bg })
+        } else {
+            row_style
+        };
+        spans.push(Span::styled(pad_center(star_marker, cols.star), star_style));
 
         // Views (right-aligned)
         spans.push(Span::styled(
@@ -259,8 +270,16 @@ fn render_rows(frame: &mut Frame, area: Rect, theme: &Theme, state: &VideosState
         // Trend indicator
         let trend_str = trend_indicator(&video.trend);
         let trend_style = match video.trend.as_str() {
-            "up" => Style::default().fg(theme.success).bg(if is_selected { theme.border } else { theme.bg }),
-            _ => Style::default().fg(theme.muted).bg(if is_selected { theme.border } else { theme.bg }),
+            "up" => Style::default().fg(theme.success).bg(if is_selected {
+                theme.border
+            } else {
+                theme.bg
+            }),
+            _ => Style::default().fg(theme.muted).bg(if is_selected {
+                theme.border
+            } else {
+                theme.bg
+            }),
         };
         spans.push(Span::styled(pad_center(trend_str, cols.trend), trend_style));
 
@@ -279,12 +298,6 @@ fn render_rows(frame: &mut Frame, area: Rect, theme: &Theme, state: &VideosState
         // Watch time
         spans.push(Span::styled(
             pad_left(&format_watch_time(video.watch_time_minutes), cols.watch),
-            row_style,
-        ));
-
-        // Privacy state
-        spans.push(Span::styled(
-            pad_right(abbreviate_privacy(&video.privacy_status), cols.state),
             row_style,
         ));
 

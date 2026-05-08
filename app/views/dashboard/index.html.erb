@@ -7,44 +7,7 @@
 <% if @video_count > 0 %>
   <p class="caption" style="margin-bottom: 8px;"><%= number_with_delimiter(@video_count) %> videos across <%= number_with_delimiter(@channel_count) %> channels.</p>
 
-  <%= render(ChartToolbarComponent.new(current_range: @range, base_path: root_path)) %>
-
-  <div data-controller="chart-sync" style="display: flex; gap: 24px; flex-wrap: wrap;">
-    <div style="flex: 1; min-width: 400px;">
-      <div style="margin-bottom: 24px;" data-chart-id="daily-views" data-chart-sync-target="chart">
-        <h3 class="dot-list">
-          <span>daily views</span>
-          <%= render(CheckboxComponent.new(label: "sync", variant: :link, data: { "chart-sync-target": "checkbox", "chart-id": "daily-views", action: "change->chart-sync#toggle" })) %>
-        </h3>
-        <%= line_chart @daily_views, height: "250px", colors: chart_palette(1), thousands: ",", library: { datasets: { pointHoverRadius: 4 } } %>
-      </div>
-
-      <div style="margin-bottom: 24px;" data-chart-id="views-by-channel" data-chart-sync-target="chart">
-        <h3 class="dot-list">
-          <span>views by channel</span>
-          <%= render(CheckboxComponent.new(label: "sync", variant: :link, data: { "chart-sync-target": "checkbox", "chart-id": "views-by-channel", action: "change->chart-sync#toggle" })) %>
-        </h3>
-        <%= line_chart @views_by_channel, height: "250px", colors: chart_palette(3), thousands: ",", library: { datasets: { pointHoverRadius: 4 } } %>
-      </div>
-    </div>
-
-    <div style="flex: 1; min-width: 400px;">
-      <div style="margin-bottom: 24px;" data-chart-id="top-videos">
-        <h3>
-          <span>top videos by views</span>
-        </h3>
-        <%= bar_chart @top_videos.map { |v| [ truncate(v.title, length: 40, omission: "…"), v.total_views ] }, height: "250px", colors: chart_palette(1), thousands: ",", library: { interaction: { mode: "nearest", intersect: true }, plugins: { crosshair: false } } %>
-      </div>
-
-      <div style="margin-bottom: 24px;" data-chart-id="daily-engagement" data-chart-sync-target="chart">
-        <h3 class="dot-list">
-          <span>daily engagement</span>
-          <%= render(CheckboxComponent.new(label: "sync", variant: :link, data: { "chart-sync-target": "checkbox", "chart-id": "daily-engagement", action: "change->chart-sync#toggle" })) %>
-        </h3>
-        <%= line_chart @daily_engagement, height: "250px", colors: [ chart_palette[0], chart_palette[3] ], thousands: ",", library: { datasets: { pointHoverRadius: 4 } } %>
-      </div>
-    </div>
-  </div>
+  <p class="caption">[ dashboard reset — charts return with intentional metrics in a later phase. ]</p>
 <% else %>
   <p class="text-muted">no videos yet. run:</p>
   <div data-controller="clipboard-copy" class="code-block">

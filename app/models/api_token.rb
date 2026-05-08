@@ -89,37 +89,23 @@ class ApiToken < ApplicationRecord
     update_columns(last_used_at: Time.current)
   end
 
-  # Resolve the HMAC pepper. Three-tier fallback so CI (which has no
-  # `config/master.key`) can still run the ApiToken specs while production
-  # remains fail-fast:
-  #
-  #   1. `Rails.application.credentials.dig(:tokens, :pepper)` — canonical
-  #      production source.
-  #   2. `ENV["PITO_TOKENS_PEPPER"]` — escape hatch for environments that
-  #      provision secrets via env (CI deploy preview, hosted runners that
-  #      can't ship the master key).
-  #   3. A fixed, well-known string — ONLY when `Rails.env.test?`. Lets
-  #      the test suite compute deterministic digests without a master key.
-  #
-  # In production with no credential and no env var, this returns nil and
-  # `digest` raises `Api::AuthConfigurationMissing` — preserving the
-  # original loud-failure contract.
+  # Resolve the HMAC pepper. Phase 12 Step A moved the resolution into
+  # `Pito::TokenDigest.pepper` so the digest helper is shared by
+  # `ApiToken` and `Session`. This wrapper is preserved for the legacy
+  # callers (specs and the rake CRUD task) that referenced
+  # `ApiToken.pepper` directly.
   def self.pepper
-    Rails.application.credentials.dig(:tokens, :pepper) ||
-      ENV["PITO_TOKENS_PEPPER"] ||
-      (Rails.env.test? ? "test-pepper-not-a-secret" : nil)
+    Pito::TokenDigest.pepper
   end
 
   # HMAC-SHA256 digest with a server-side pepper. The pepper is required:
-  # if it is unresolvable (see `.pepper`), the auth concern raises a clear
-  # error rather than silently digesting with `nil` (which would still be
-  # deterministic but would make the database trivially auditable by anyone
-  # who knows the algorithm).
+  # if it is unresolvable, `Pito::TokenDigest.call` raises
+  # `Api::AuthConfigurationMissing` — preserving the original
+  # loud-failure contract. `ApiToken.pepper` is passed through so
+  # callers (including specs) can stub `ApiToken.pepper` to drive
+  # the digest path.
   def self.digest(plaintext)
-    pepper_value = pepper
-    raise Api::AuthConfigurationMissing, "tokens.pepper credential is not set" if pepper_value.blank?
-
-    OpenSSL::HMAC.hexdigest("SHA256", pepper_value, plaintext.to_s)
+    Pito::TokenDigest.call(plaintext, pepper: pepper)
   end
 
   private

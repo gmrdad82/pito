@@ -54,10 +54,10 @@ RSpec.describe SavedView, type: :model do
       expect(view.entity_labels.first[:title]).to eq(channel.id.to_s)
     end
 
-    it "handles video kind (still uses title)" do
+    it "handles video kind (uses id since title is gone post-A2)" do
       video = create(:video)
       view = build(:saved_view, kind: :videos, url: "/videos/panes?ids=#{video.id}")
-      expect(view.entity_labels.first[:title]).to eq(video.title)
+      expect(view.entity_labels.first[:title]).to eq(video.id.to_s)
     end
 
     it "returns empty for URLs without IDs" do

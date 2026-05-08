@@ -1,0 +1,13 @@
+<% content_for(:title, "new oauth application") %>
+<% breadcrumb(["settings", settings_path], ["oauth applications", settings_oauth_applications_path], "new") %>
+
+<div style="margin-bottom: 8px;">
+  <h1>new oauth application</h1>
+  <p class="text-muted" style="margin-top: 2px;">
+    pick the scopes this application can request. <code>client_id</code> and
+    <code>client_secret</code> appear once on the next page &mdash; save them
+    before you navigate away.
+  </p>
+</div>
+
+<%= render "form" %>

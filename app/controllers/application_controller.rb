@@ -5,11 +5,13 @@ class ApplicationController < ActionController::Base
   # Changes to the importmap will invalidate the etag for HTML responses
   stale_when_importmap_changes
 
-  # Populate Current with the seeded singleton tenant / user before every
-  # request, per docs/architecture.md. This is the placeholder implementation
-  # for the single-tenant single-user world; Phase 5 replaces it with proper
-  # tenant/user resolution from a session or token.
-  before_action :set_current_tenant_and_user
+  # Phase 12 — Step A (6a-sessions-and-login-ui.md). Cookie-backed
+  # session auth replaces the implicit `set_current_tenant_and_user`
+  # pin. Anonymous-allowed actions (the login form, OAuth's pre-login
+  # entry point) declare themselves via `allow_anonymous` at the class
+  # level. The concern owns the `before_action`, the unauthenticated
+  # redirect, and the `Current` reset.
+  include Sessions::AuthConcern
 
   # Translate ActiveRecord::RecordNotFound into a clean JSON 404 for JSON
   # requests so the pito CLI (and any other JSON consumer) gets a parseable
@@ -25,11 +27,6 @@ class ApplicationController < ActionController::Base
   rescue_from Api::Forbidden,    with: :render_api_forbidden
 
   private
-
-  def set_current_tenant_and_user
-    Current.tenant = Tenant.first
-    Current.user   = User.first
-  end
 
   def render_not_found
     respond_to do |format|

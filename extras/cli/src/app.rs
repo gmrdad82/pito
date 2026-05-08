@@ -8,15 +8,13 @@ use crate::theme::{Theme, ThemeMode};
 use crate::ui::channel_detail::{ChannelDetailState, ChannelInfo, ChannelVideoRow};
 use crate::ui::channels::{ChannelFilter, ChannelRow, ChannelsState};
 use crate::ui::confirmation::{
-    ConfirmationItem, ConfirmationKind, ConfirmationState, ConfirmationOutcome,
+    ConfirmationItem, ConfirmationKind, ConfirmationOutcome, ConfirmationState,
 };
 use crate::ui::saved_views::{SavedViewRow, SavedViewsState};
 use crate::ui::search::{SearchSection, SearchState};
 use crate::ui::settings::SettingsState;
 use crate::ui::video_detail::VideoDetailState;
 use crate::ui::videos::{SortDirection, VideoRow, VideosState};
-
-pub const RANGES: &[&str] = &["7d", "30d", "90d", "1y", "all"];
 
 /// Default settings used when `/settings.json` fails. We never want a missing
 /// settings endpoint to block the rest of the TUI from rendering, so the
@@ -36,13 +34,9 @@ pub fn empty_dashboard_data() -> DashboardData {
     DashboardData {
         video_count: 0,
         channel_count: 0,
-        daily_views: vec![],
-        views_by_channel: vec![],
-        top_videos: vec![],
-        daily_engagement: crate::api::models::DailyEngagement {
-            likes: vec![],
-            comments: vec![],
-        },
+        project_count: 0,
+        footage_count: 0,
+        note_count: 0,
     }
 }
 
@@ -72,13 +66,15 @@ pub fn log_error(scope: &str, err: &dyn std::fmt::Display) {
 
 fn error_log_dir() -> PathBuf {
     if let Ok(xdg) = std::env::var("XDG_CACHE_HOME")
-        && !xdg.is_empty() {
-            return PathBuf::from(xdg).join("pito");
-        }
+        && !xdg.is_empty()
+    {
+        return PathBuf::from(xdg).join("pito");
+    }
     if let Ok(home) = std::env::var("HOME")
-        && !home.is_empty() {
-            return PathBuf::from(home).join(".cache").join("pito");
-        }
+        && !home.is_empty()
+    {
+        return PathBuf::from(home).join(".cache").join("pito");
+    }
     PathBuf::from("/tmp").join("pito")
 }
 
@@ -167,12 +163,9 @@ impl OperationProgress {
             tick: 0,
         }
     }
-
 }
 
 pub struct DashboardState {
-    pub range: String,
-    pub range_index: usize,
     pub data: DashboardData,
     /// Brief flash message shown on the dashboard toolbar (e.g. used to
     /// surface a fetch failure when the underlying endpoint returns 406/500).
@@ -245,7 +238,7 @@ impl App {
         // Using `?` here would cascade — that's the bug class we explicitly
         // avoid.
         let mut dashboard_flash: Option<String> = None;
-        let dashboard_data = match client.get_dashboard("30d") {
+        let dashboard_data = match client.get_dashboard() {
             Ok(data) => data,
             Err(e) => {
                 log_error("startup get_dashboard", &e);
@@ -254,8 +247,6 @@ impl App {
             }
         };
         let dashboard_state = DashboardState {
-            range: "30d".to_string(),
-            range_index: 1,
             data: dashboard_data,
             flash: dashboard_flash,
         };
@@ -277,7 +268,6 @@ impl App {
                     channel_url: c.channel_url.clone(),
                     star: c.star,
                     connected: c.connected,
-                    syncing: c.syncing,
                     last_synced_at: c.last_synced_at.clone(),
                 })
                 .collect(),
@@ -303,16 +293,14 @@ impl App {
                 .iter()
                 .map(|v| VideoRow {
                     id: v.id,
-                    title: v.title.clone(),
+                    youtube_video_id: v.youtube_video_id.clone(),
                     channel_id: v.channel_id,
+                    star: v.star,
                     views: v.views,
                     trend: v.trend.clone().unwrap_or_else(|| "flat".to_string()),
                     likes: v.likes,
                     comments: v.comments,
                     watch_time_minutes: v.watch_time_minutes,
-                    privacy_status: v.privacy_status.clone(),
-                    published_at: v.published_at.clone().unwrap_or_default(),
-                    duration_seconds: v.duration_seconds.unwrap_or(0),
                 })
                 .collect(),
             selected: 0,
@@ -404,17 +392,22 @@ impl App {
         self.running = false;
     }
 
+    /// Re-fetch the dashboard counts. Currently has no runtime trigger — the
+    /// chart range selector that called this on every key press was retired
+    /// when the dashboard collapsed to counts-only in May 2026. Kept because
+    /// it's exercised by tests and will be the obvious entry point if a manual
+    /// refresh keybinding is wired up later.
+    #[allow(dead_code)]
     pub fn reload_dashboard(&mut self) {
-        match self.client.get_dashboard(&self.dashboard_state.range) {
+        match self.client.get_dashboard() {
             Ok(data) => {
                 self.dashboard_state.data = data;
                 self.dashboard_state.flash = None;
             }
             Err(e) => {
                 log_error("reload_dashboard", &e);
-                self.dashboard_state.flash =
-                    Some(format!("dashboard fetch failed: {}", e));
-                // Keep the previous data so the chart doesn't blank.
+                self.dashboard_state.flash = Some(format!("dashboard fetch failed: {}", e));
+                // Keep the previous counts so the summary doesn't blank.
             }
         }
     }
@@ -429,7 +422,6 @@ impl App {
                         channel_url: c.channel_url.clone(),
                         star: c.star,
                         connected: c.connected,
-                        syncing: c.syncing,
                         last_synced_at: c.last_synced_at.clone(),
                     })
                     .collect();
@@ -443,15 +435,17 @@ impl App {
                 // Don't blank the existing channels list — leave the previous
                 // snapshot in place and surface the failure on the flash slot.
                 log_error("refresh_channels", &e);
-                self.channels_state.flash =
-                    Some(format!("channels fetch failed: {}", e));
+                self.channels_state.flash = Some(format!("channels fetch failed: {}", e));
             }
         }
     }
 
     pub fn open_channel_detail(&mut self, channel_id: u64) {
         if let Ok(channel) = self.client.get_channel(channel_id) {
-            let videos = self.client.get_channel_videos(channel_id).unwrap_or_default();
+            let videos = self
+                .client
+                .get_channel_videos(channel_id)
+                .unwrap_or_default();
             self.channel_detail_state = Some(ChannelDetailState {
                 channel: ChannelInfo {
                     id: channel.id,
@@ -459,19 +453,18 @@ impl App {
                     channel_url: channel.channel_url,
                     star: channel.star,
                     connected: channel.connected,
-                    syncing: channel.syncing,
                     last_synced_at: channel.last_synced_at,
                 },
                 videos: videos
                     .iter()
                     .map(|v| ChannelVideoRow {
                         id: v.id,
-                        title: v.title.clone(),
+                        youtube_video_id: v.youtube_video_id.clone(),
+                        star: v.star,
                         views: v.views,
                         likes: v.likes,
-                        privacy_status: v.privacy_status.clone(),
-                        published_at: v.published_at.clone().unwrap_or_default(),
-                        duration_seconds: v.duration_seconds.unwrap_or(0),
+                        comments: v.comments,
+                        last_synced_at: v.last_synced_at.clone(),
                     })
                     .collect(),
                 video_selected: 0,
@@ -484,17 +477,17 @@ impl App {
 
     pub fn refresh_channel_detail(&mut self, channel_id: u64) {
         if let Ok(channel) = self.client.get_channel(channel_id)
-            && let Some(ref mut state) = self.channel_detail_state {
-                state.channel = ChannelInfo {
-                    id: channel.id,
-                    tenant_id: channel.tenant_id,
-                    channel_url: channel.channel_url,
-                    star: channel.star,
-                    connected: channel.connected,
-                    syncing: channel.syncing,
-                    last_synced_at: channel.last_synced_at,
-                };
-            }
+            && let Some(ref mut state) = self.channel_detail_state
+        {
+            state.channel = ChannelInfo {
+                id: channel.id,
+                tenant_id: channel.tenant_id,
+                channel_url: channel.channel_url,
+                star: channel.star,
+                connected: channel.connected,
+                last_synced_at: channel.last_synced_at,
+            };
+        }
     }
 
     pub fn open_video_detail(&mut self, video_id: u64) {
@@ -505,13 +498,14 @@ impl App {
                 video: VideoInfo {
                     id: video.id,
                     youtube_video_id: video.youtube_video_id,
-                    title: video.title,
                     channel_id: video.channel_id,
                     channel_url: video.channel_url,
-                    privacy_status: video.privacy_status,
-                    published_at: video.published_at.unwrap_or_default(),
-                    duration_seconds: video.duration_seconds.unwrap_or(0),
-                    description: None,
+                    star: video.star,
+                    views: video.views,
+                    likes: video.likes,
+                    comments: video.comments,
+                    watch_time_minutes: video.watch_time_minutes,
+                    last_synced_at: video.last_synced_at,
                 },
                 stats: stats
                     .iter()
@@ -543,11 +537,11 @@ impl App {
                     .iter()
                     .map(|hit| SearchVideoHit {
                         id: hit.record.id,
-                        title: hit.record.title.clone(),
+                        youtube_video_id: hit.record.youtube_video_id.clone(),
                         channel_id: hit.record.channel_id,
                         channel_url: hit.record.channel_url.clone(),
-                        privacy_status: hit.record.privacy_status.clone(),
-                        duration_seconds: hit.record.duration_seconds.unwrap_or(0),
+                        star: hit.record.star,
+                        views: hit.record.views,
                     })
                     .collect(),
                 video_total: results.video_total,
@@ -579,8 +573,7 @@ impl App {
             }
             Err(e) => {
                 log_error("toggle_star_for_selected_channel", &e);
-                self.channels_state.flash =
-                    Some(format!("star update failed: {}", e));
+                self.channels_state.flash = Some(format!("star update failed: {}", e));
             }
         }
     }
@@ -738,8 +731,7 @@ impl App {
         let resp = match response {
             Ok(r) => r,
             Err(e) => {
-                self.channels_state.flash =
-                    Some(format!("Action failed: {}", e));
+                self.channels_state.flash = Some(format!("Action failed: {}", e));
                 return;
             }
         };
@@ -766,9 +758,10 @@ impl App {
             // Kick off post-sync polling so the rows transition from
             // `syncing` → idle automatically without a manual refresh.
             if let Some(ids) = sync_target_ids
-                && !ids.is_empty() {
-                    self.sync_polling = Some(SyncPolling::new(ids));
-                }
+                && !ids.is_empty()
+            {
+                self.sync_polling = Some(SyncPolling::new(ids));
+            }
 
             // Arm bulk-operation progress overlay if the backend returned an
             // operation_id. The overlay renders over the active screen and
@@ -896,18 +889,21 @@ impl App {
                 }
             }
 
-            // Stop polling if no affected channel is still syncing, or if we
-            // hit the deadline.
-            let any_syncing = self
-                .channels_state
-                .channels
-                .iter()
-                .any(|c| affected.contains(&c.id) && c.syncing);
+            // Stop polling once the first refresh lands. Path A2 retract:
+            // Rails JSON no longer carries a server-side `syncing` boolean,
+            // so we can't watch it flip back. The bulk-operation progress
+            // overlay (`OperationProgress`) is the durable terminal-state
+            // signal; the sync_polling window's only remaining job is to
+            // animate the row indicator on the affected rows during the
+            // first refetch after confirm. Single-tick clear matches the
+            // near-instant completion of `ChannelSync` in production.
             let now = Instant::now();
-            if !any_syncing || now >= self.sync_polling.as_ref().unwrap().deadline {
+            if now >= self.sync_polling.as_ref().unwrap().deadline {
                 self.sync_polling = None;
                 return Duration::from_millis(250);
             }
+            self.sync_polling = None;
+            return Duration::from_millis(250);
         }
 
         // While polling, prefer a short sleep so the dot animation feels
@@ -985,7 +981,10 @@ mod tests {
         // mirroring near-instant Rails job completion. The first tick
         // refetches and stops polling.
         let _ = app.tick();
-        assert!(app.sync_polling.is_none(), "polling should clear once nothing remains syncing");
+        assert!(
+            app.sync_polling.is_none(),
+            "polling should clear once nothing remains syncing"
+        );
     }
 
     #[test]
@@ -1208,8 +1207,8 @@ mod tests {
             inner: MockClient,
         }
         impl PitoClient for UpdateFailingClient {
-            fn get_dashboard(&self, range: &str) -> Result<DashboardData> {
-                self.inner.get_dashboard(range)
+            fn get_dashboard(&self) -> Result<DashboardData> {
+                self.inner.get_dashboard()
             }
             fn get_channels(&self) -> Result<Vec<Channel>> {
                 self.inner.get_channels()
@@ -1359,10 +1358,10 @@ mod tests {
 
     use crate::api::client::MockClient;
     use crate::api::models::{
-        AppSettings, BulkOperationResponse, BulkOperationStatus, Channel, DashboardData,
-        SavedView, SearchResults, Video, VideoStat,
+        AppSettings, BulkOperationResponse, BulkOperationStatus, Channel, DashboardData, SavedView,
+        SearchResults, Video, VideoStat,
     };
-    use anyhow::{anyhow, Result};
+    use anyhow::{Result, anyhow};
     use std::cell::Cell;
 
     /// What endpoint a `FailingClient` should fail. The remaining endpoints
@@ -1392,11 +1391,11 @@ mod tests {
     }
 
     impl PitoClient for FailingClient {
-        fn get_dashboard(&self, range: &str) -> Result<DashboardData> {
+        fn get_dashboard(&self) -> Result<DashboardData> {
             if matches!(self.fail, FailEndpoint::Dashboard) {
                 return Err(anyhow!("simulated 500 on dashboard"));
             }
-            self.inner.get_dashboard(range)
+            self.inner.get_dashboard()
         }
         fn get_channels(&self) -> Result<Vec<Channel>> {
             if matches!(self.fail, FailEndpoint::Channels) {
@@ -1438,11 +1437,7 @@ mod tests {
         ) -> Result<BulkOperationResponse> {
             self.inner.bulk_delete_channels(ids, confirm)
         }
-        fn bulk_sync_channels(
-            &self,
-            ids: &[u64],
-            confirm: bool,
-        ) -> Result<BulkOperationResponse> {
+        fn bulk_sync_channels(&self, ids: &[u64], confirm: bool) -> Result<BulkOperationResponse> {
             self.inner.bulk_sync_channels(ids, confirm)
         }
         fn create_channel(&self, url: &str) -> Result<Channel> {
@@ -1552,8 +1547,8 @@ mod tests {
     }
 
     impl PitoClient for FailOnSecondChannelsClient {
-        fn get_dashboard(&self, range: &str) -> Result<DashboardData> {
-            self.inner.get_dashboard(range)
+        fn get_dashboard(&self) -> Result<DashboardData> {
+            self.inner.get_dashboard()
         }
         fn get_channels(&self) -> Result<Vec<Channel>> {
             let n = self.calls.get() + 1;
@@ -1594,11 +1589,7 @@ mod tests {
         ) -> Result<BulkOperationResponse> {
             self.inner.bulk_delete_channels(ids, confirm)
         }
-        fn bulk_sync_channels(
-            &self,
-            ids: &[u64],
-            confirm: bool,
-        ) -> Result<BulkOperationResponse> {
+        fn bulk_sync_channels(&self, ids: &[u64], confirm: bool) -> Result<BulkOperationResponse> {
             self.inner.bulk_sync_channels(ids, confirm)
         }
         fn create_channel(&self, url: &str) -> Result<Channel> {
@@ -1644,13 +1635,13 @@ mod tests {
             calls: Cell<u32>,
         }
         impl PitoClient for FailDashboardOnReload {
-            fn get_dashboard(&self, range: &str) -> Result<DashboardData> {
+            fn get_dashboard(&self) -> Result<DashboardData> {
                 let n = self.calls.get() + 1;
                 self.calls.set(n);
                 if n == 2 {
                     return Err(anyhow!("simulated 500 on dashboard reload"));
                 }
-                self.inner.get_dashboard(range)
+                self.inner.get_dashboard()
             }
             fn get_channels(&self) -> Result<Vec<Channel>> {
                 self.inner.get_channels()

@@ -1,24 +1,26 @@
 require "rails_helper"
 require_relative "../../../app/mcp/tools/sync_records"
 
+# Phase 7 Path A2 (literal full retract). The legacy `syncing`
+# boolean is gone — Phase 8+ will own in-flight state via the
+# BulkOperation surface itself. The "already syncing — skipped"
+# pre-mark logic is retired; every found record is just `pending`.
 RSpec.describe Mcp::Tools::SyncRecords do
   describe "preview (no confirm)" do
-    it "partitions ids into syncable / skipped / not_found" do
-      idle = create(:channel)
-      syncing = create(:channel, :syncing)
+    it "partitions ids into syncable / not_found (skipped is empty)" do
+      a = create(:channel)
+      b = create(:channel)
 
       expect {
-        result = described_class.call(type: "channel", ids: [ idle.id, syncing.id, 99999 ])
+        result = described_class.call(type: "channel", ids: [ a.id, b.id, 99999 ])
         data = JSON.parse(result.content.first[:text])
 
-        expect(data["preview_url"]).to eq("/syncs/channel/#{idle.id},#{syncing.id},99999")
+        expect(data["preview_url"]).to eq("/syncs/channel/#{a.id},#{b.id},99999")
         expect(data["type"]).to eq("channel")
         expect(data["total"]).to eq(3)
-        expect(data["syncable"].map { |c| c["id"] }).to eq([ idle.id ])
-        expect(data["syncable"].first["label"]).to eq(idle.channel_url)
-        expect(data["skipped"].map { |c| c["id"] }).to eq([ syncing.id ])
-        expect(data["skipped"].first["reason"]).to eq("already syncing")
-        expect(data["skipped"].first["label"]).to eq(syncing.channel_url)
+        expect(data["syncable"].map { |c| c["id"] }).to contain_exactly(a.id, b.id)
+        expect(data["syncable"].first["label"]).to be_a(String)
+        expect(data["skipped"]).to eq([])
         expect(data["not_found_ids"]).to eq([ 99999 ])
         expect(data["message"]).to include("Preview only")
       }.not_to change(BulkOperation, :count)
@@ -34,33 +36,28 @@ RSpec.describe Mcp::Tools::SyncRecords do
 
   describe 'confirm: "yes"' do
     it "creates a BulkOperation (kind: bulk_sync) and enqueues BulkSyncJob" do
-      idle = create(:channel)
-      syncing = create(:channel, :syncing)
+      a = create(:channel)
+      b = create(:channel)
 
       BulkSyncJob.jobs.clear if defined?(BulkSyncJob)
 
       expect {
-        result = described_class.call(type: "channel", ids: [ idle.id, syncing.id ], confirm: "yes")
+        result = described_class.call(type: "channel", ids: [ a.id, b.id ], confirm: "yes")
         data = JSON.parse(result.content.first[:text])
 
         expect(data["enqueued"]).to eq(true)
         expect(data["operation_id"]).to be_present
         expect(data["status_url"]).to include("/bulk_operations/")
         expect(data["type"]).to eq("channel")
-        expect(data["syncable_count"]).to eq(1)
-        expect(data["skipped_count"]).to eq(1)
+        expect(data["syncable_count"]).to eq(2)
+        expect(data["skipped_count"]).to eq(0)
         expect(data["not_found_ids"]).to eq([])
       }.to change(BulkOperation, :count).by(1)
 
       operation = BulkOperation.last
       expect(operation.kind).to eq("bulk_sync")
       expect(operation.bulk_operation_items.count).to eq(2)
-
-      idle_item = operation.bulk_operation_items.find_by(target_id: idle.id)
-      syncing_item = operation.bulk_operation_items.find_by(target_id: syncing.id)
-      expect(idle_item.status).to eq("pending")
-      expect(syncing_item.status).to eq("skipped")
-      expect(syncing_item.error_message).to eq("already syncing")
+      expect(operation.bulk_operation_items.pluck(:status).uniq).to eq([ "pending" ])
 
       expect(BulkSyncJob.jobs.size).to eq(1)
       expect(BulkSyncJob.jobs.first["args"]).to eq([ operation.id ])
@@ -71,26 +68,10 @@ RSpec.describe Mcp::Tools::SyncRecords do
       expect(result.to_h[:isError]).to be true
     end
 
-    it "creates an operation when all ids are already syncing (all items pre-marked skipped)" do
-      a = create(:channel, :syncing)
-      b = create(:channel, :syncing)
-
-      expect {
-        result = described_class.call(type: "channel", ids: [ a.id, b.id ], confirm: "yes")
-        data = JSON.parse(result.content.first[:text])
-
-        expect(data["syncable_count"]).to eq(0)
-        expect(data["skipped_count"]).to eq(2)
-      }.to change(BulkOperation, :count).by(1)
-
-      operation = BulkOperation.last
-      expect(operation.bulk_operation_items.pluck(:status).uniq).to eq([ "skipped" ])
-    end
-
     it "tracks not_found_ids alongside syncable items" do
-      idle = create(:channel)
+      a = create(:channel)
 
-      result = described_class.call(type: "channel", ids: [ idle.id, 99999 ], confirm: "yes")
+      result = described_class.call(type: "channel", ids: [ a.id, 99999 ], confirm: "yes")
       data = JSON.parse(result.content.first[:text])
 
       expect(data["syncable_count"]).to eq(1)

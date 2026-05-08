@@ -84,23 +84,21 @@ rabbit hole.
 
 ## 5. Locked decisions
 
-- **Session storage: server-side row, signed-cookie token.** A `sessions` table
-  holds one row per active session; the cookie holds the session's `token` (not
-  its database id, not the user id). Token is `SecureRandom.urlsafe_base64(32)`.
-  Server-side resolution looks up the row by token. **Do not** use Rails'
-  default in-cookie session store for user identity; cookies hold one
-  short-lived opaque token only. Reasoning: server-side rows make remote
-  revocation trivial (the Active Sessions list deletes a row; the next request
-  from that browser hits a missing row and is logged out), give us a real audit
-  trail (IP, UA, last-activity), and leave the door open to future per-session
-  expirations / 2FA factor binding. A signed cookie wrapping a user id has none
-  of those properties.
-- **Cookie attributes.** `httponly: true`, `same_site: :lax`,
-  `secure: Rails.env.production? || Rails.env.development?` (dev runs under
-  HTTPS via Cloudflare tunnel — the default is `secure: true` in both prod and
-  dev; tests run plain HTTP and skip the flag). Cookie name: `pito_session`.
-  **Do NOT** wait for Phase 15's hardening pass to add `httponly` / `secure` —
-  they are day-one defaults here.
+- **Session storage: Rails `cookie_store` (default).** The Rails default
+  `cookie_store` session store is used; the `sessions` table described below
+  layers on top to give us server-side revocation, an Active Sessions index, and
+  an audit trail. The cookie carries the session's opaque `token` (not the
+  database id, not the user id); server-side resolution looks up the row by
+  token. Reasoning: server-side rows make remote revocation trivial (the Active
+  Sessions list deletes a row; the next request from that browser hits a missing
+  row and is logged out), give us a real audit trail (IP, UA, last-activity),
+  and leave the door open to future per-session expirations / 2FA factor
+  binding. Token shape: `SecureRandom.urlsafe_base64(32)`.
+- **Cookie attributes: `Secure; HttpOnly; SameSite=Lax`.** All three are day-one
+  defaults, not deferred to Phase 15. `secure: true` in production AND
+  development (dev runs under HTTPS via the Cloudflare tunnel; the tunnel is
+  always on for the user's workflow). Tests run plain HTTP and skip the flag.
+  Cookie name: `pito_session`.
 - **Session lifetime.** Session-only (browser close = cookie expires) unless
   "Remember me" was ticked, in which case the cookie's `expires` is set to 30
   days from creation. The server-side row has no `expires_at` in v1; revocation
@@ -110,32 +108,39 @@ rabbit hole.
   before-action updates `last_activity_at` only if it's been ≥ 5 minutes since
   the last update. Avoids one DB write per request.
 - **Login throttle: 10 failed attempts per IP per 5 minutes.** Mirrors the Phase
-  5 bearer-token throttle (10 / 5min). Reuse the existing `rack-attack`
-  initializer; add a discriminator on the `/login` POST path. Successful logins
-  do not count.
+  5B failed-token-lookup throttle pattern (10 / 5min). Reuse the existing
+  `rack-attack` initializer; add a discriminator on the `/login` POST path so
+  the failed-login bucket is separate from the failed-token bucket. Successful
+  logins do not count.
 - **Generic error message on failed login.** "Invalid email or password." Same
   string regardless of whether the email exists. Never reveal account existence.
 - **Logout is `DELETE /session`.** Singular resource (one current session).
   CSRF-protected by Rails defaults. The form is a `button_to` rendering a hidden
   `_method=delete`.
-- **Routes:** `/login` (GET, POST) and `/session` (DELETE). Underlying
-  controller is `SessionsController` (plural class, singular resource — the
-  standard Rails idiom). **Locked over `/sessions/new`.** Reasoning: `/login` is
-  the user-facing convention every other product uses; the Settings page lists
-  active sessions at `/settings/sessions`, not `/sessions`, so the namespace
-  doesn't collide.
+- **Routes: `/login` and `/oauth/authorize`.** Underlying controller is
+  `SessionsController` (plural class, singular resource — the standard Rails
+  idiom). **Locked over `/sessions/new` and `/auth/...`.** Reasoning: `/login`
+  is the user-facing convention every other product uses; `/oauth/authorize` is
+  the canonical OAuth endpoint Step B mounts. The Settings page lists active
+  sessions at `/settings/sessions`, not `/sessions`, so the namespace doesn't
+  collide.
 - **Active Sessions UI lives at `/settings/sessions`.** Mirrors Phase 5's
   `/settings/tokens` shape — its own dedicated nav entry, its own index page.
   `[ revoke ]` per row goes through the existing `Confirmable` framework. The
   current session row is highlighted with a "(this session)" annotation.
-- **No password change form in this step.** Phase 5 left `User` with
-  `has_secure_password` plus seeded credentials; the user logs in with the
-  seed-time password. Changing it is a Step A.5 / 6A.5 deliverable alongside
-  password reset.
+- **No password reset / email verification in this step.** Password reset is
+  **deferred** (no transactional email yet — Pito has no SMTP wiring). Email
+  verification is **deferred** (single user in Beta — there is no signup flow to
+  verify against). Both land in a follow-up sub-step (6A.5) once SMTP is wired.
+  Phase 5 left `User` with `has_secure_password` plus seeded credentials; the
+  user logs in with the seed-time password.
+- **No tenant signup UI.** Single tenant in Beta — the seeded `Tenant.first` is
+  the only tenant. No tenant signup / multi-tenant onboarding surface lands in
+  this step (or Phase 6 at all).
 - **UA / IP display: store strings, defer prettifying.** `sessions.ip` is
   `inet`; `sessions.user_agent` is `text`. The index renders them raw in v1
-  (e.g., "192.168.1.42" / `Mozilla/5.0 (...)`). Optional UA-parser gem is
-  captured in Open Questions, not blocking.
+  (e.g., "192.168.1.42" / `Mozilla/5.0 (...)`). A UA-parser gem (`useragent` or
+  similar) is a future polish, not blocking.
 - **`Current.session` attribute.** Add to `app/models/current.rb`. The HTML auth
   concern populates it; controllers can read it for the "(this session)"
   annotation in the index.
@@ -367,7 +372,8 @@ endpoint, `/settings/sessions` is the plural management surface.)
 
 ### 6.9 `rack-attack` extension
 
-Extend `config/initializers/rack_attack.rb` with one new throttle:
+Extend `config/initializers/rack_attack.rb` with one new throttle, mirroring the
+Phase 5B failed-token-lookup throttle pattern:
 
 ```ruby
 Rack::Attack.throttle("login/failed", limit: 10, period: 5.minutes) do |req|
@@ -497,23 +503,28 @@ C (this phase's docs sub-step) owns the doc edits; Step A just emits them:
 
 ## 7. Out of scope
 
-- **Password reset** — sub-step 6A.5, after SMTP wiring.
+- **Password reset** — sub-step 6A.5, after SMTP wiring. Locked decision: no
+  password reset in Phase 6 (no transactional email yet).
+- **Email verification** — deferred; single user in Beta, no signup flow to
+  verify against.
 - **Email change confirmation flow** — sub-step 6A.5.
 - **Password change form (in Settings)** — sub-step 6A.5. (User can change via
   `bin/rails credentials:edit` and re-seed in v1; ugly but acceptable for
   single-user Beta.)
+- **Tenant signup UI** — single tenant in Beta; no multi-tenant onboarding
+  surface.
 - **Doorkeeper / OAuth server** — Step B.
 - **Multi-user invitation flow** — Step C.
 - **2FA / TOTP / WebAuthn** — Theta.
 - **Email-based magic links** — out of scope, possibly never.
 - **Background sweep of stale `sessions` rows** — Phase 11 / 15 (the audit /
   observability phases).
-- **UA parser library** — Open Question; if punted, no work here.
+- **UA parser library** — future polish; v1 renders raw UA strings.
 - **Public signup** — Theta.
 - **`docs/auth.md` updates** — owned by Step C's docs deliverable (which is
   sequenced after the implementations, same as Phase 5 Step C).
-- **CSP, HSTS, full security headers** — Phase 15. Cookie hardening (`httponly`,
-  `secure`, `samesite`) is in scope here; the rest is not.
+- **CSP, HSTS, full security headers** — Phase 15. Cookie hardening
+  (`Secure; HttpOnly; SameSite=Lax`) is in scope here; the rest is not.
 
 ---
 
@@ -530,10 +541,10 @@ C (this phase's docs sub-step) owns the doc edits; Step A just emits them:
       redirects unauthenticated HTML requests to `/login`, preserves the
       intended URL via a signed cookie, and resets `Current` on response.
 - [ ] `GET /login` renders the login form. `POST /login` creates a session on
-      valid credentials, sets the `pito_session` cookie (`httponly`,
-      `samesite=lax`, `secure` outside test), redirects to the intended URL or
-      `/`. Wrong credentials and unknown email both render the generic error
-      message.
+      valid credentials, sets the `pito_session` cookie
+      (`Secure; HttpOnly; SameSite=Lax`; `secure` skipped only in test),
+      redirects to the intended URL or `/`. Wrong credentials and unknown email
+      both render the generic error message.
 - [ ] `DELETE /session` revokes the current session and clears the cookie.
 - [ ] "Remember me" form field uses `"yes"` / `"no"` wire strings; `"yes"`
       extends cookie expires to 30 days.
@@ -542,8 +553,9 @@ C (this phase's docs sub-step) owns the doc edits; Step A just emits them:
       session signs the user out.
 - [ ] `[ logout ]` link in the top-right nav of every authenticated page;
       renders as `button_to method: :delete`, no JS confirm.
-- [ ] `rack-attack` throttles `POST /login` failures at 10 per IP per 5 minutes;
-      11th attempt returns 429.
+- [ ] `rack-attack` throttles `POST /login` failures at 10 per IP per 5 minutes
+      (mirroring Phase 5B's failed-token-lookup throttle); 11th attempt
+      returns 429.
 - [ ] Audit log file receives one JSON line per session event listed in §6.14.
 - [ ] `Current.reset` runs after every HTML response.
 - [ ] All previously-green specs remain green (the `tenant_context` hook + the
@@ -567,8 +579,8 @@ C (this phase's docs sub-step) owns the doc edits; Step A just emits them:
    `tail log/auth_audit.log` shows
    `{"event":"session.login.failed","reason":"wrong_password",...}`.
 5. Submit correct credentials → 302 back to `/` (or wherever the intended URL
-   pointed). A `pito_session` cookie is set (`httponly`, `secure`,
-   `samesite=lax`). Devtools confirms.
+   pointed). A `pito_session` cookie is set (`Secure; HttpOnly; SameSite=Lax`).
+   Devtools confirms.
 6. `bin/rails console` —
    `Session.last.attributes.slice("user_id","ip","remember","last_activity_at","revoked_at")`
    → ip set, remember `false`, last_activity_at within seconds, no revoked_at.
@@ -643,32 +655,40 @@ Out of bounds for this step:
 - `extras/cli/**`, `extras/website/**` — out of scope; CLI and website do not
   consume the cookie session.
 
-## 11. Open questions
+## 11. Decisions (locked)
 
-- **Password reset / email change scheduling.** This spec defers both to
-  "sub-step 6A.5" gated on SMTP wiring. The user should confirm whether to land
-  6A.5 inside Phase 6 (delays the phase, enables full flows) or punt to a Phase
-  6.5 polish window (ships 6A faster, leaves a hole until then). The spec
-  assumes punt-to-6.5 unless told otherwise.
-- **UA parser gem (`useragent`).** Add now for friendly session labels ("Firefox
-  on Linux"), or punt to a follow-up entry? The spec writes raw strings in v1
-  either way.
-- **Cookie `secure` flag in dev.** Spec assumes `secure: true` in dev because
-  dev runs under HTTPS via the Cloudflare tunnel. If the user occasionally runs
-  `bin/dev` against `http://localhost:3027` directly (no tunnel), `secure: true`
-  will silently drop the cookie and log-in won't work. Confirm: is the tunnel
-  always on, or do we need a `secure: Rails.env.production?` carve-out?
-- **`/login` vs `/sessions/new` route.** Spec locks `/login`. Confirm this
-  matches the user's preference — the alternative is the strict Rails-RESTful
-  `/sessions/new`.
-- **Bearer-or-cookie dispatch shape.** When `ApplicationController` needs to
-  handle both auth styles, where does the dispatch live? Two options: (a) HTML
-  controllers include `Sessions::AuthConcern`, JSON controllers include
-  `Api::AuthConcern`, the parent does nothing; or (b) the parent runs both
-  concerns and lets the first one populate `Current` win. Spec assumes (a) —
-  explicit per-controller — but flags this for confirmation.
-- **`sign_in_as` helper in request specs.** Concrete implementation question for
-  the implementer: does the helper set the cookie via
-  `ActionDispatch::Cookies::SignedCookieJar` directly, or does it POST to
-  `/login` per-spec? Trade-off between speed (direct cookie set) and realism
-  (POST round-trip). Spec accepts either; implementer picks.
+The following decisions are confirmed and pinned. Implementation does not
+re-litigate them.
+
+- **Session storage** — Rails `cookie_store` (the default), with the server-side
+  `sessions` table layered on top for revocation, the Active Sessions index, and
+  audit. Cookie carries an opaque token; server-side row is the source of truth
+  for "is this session still valid?".
+- **Password reset** — deferred. No transactional email infrastructure yet;
+  password reset is a sub-step 6A.5 deliverable gated on SMTP wiring.
+- **Email verification** — deferred. Single user in Beta; no signup flow to
+  verify against.
+- **Routing** — `/login` (GET, POST) and `/oauth/authorize` (Step B mounts the
+  OAuth endpoint). NOT `/sessions/new`, NOT `/auth/...`. The Settings page
+  manages active sessions at `/settings/sessions` (no namespace collision).
+- **Session cookie attributes** — `Secure; HttpOnly; SameSite=Lax`. All three on
+  by default in production AND development (dev runs under HTTPS via the
+  Cloudflare tunnel, always on). Tests skip `Secure` because they run plain
+  HTTP.
+- **Failed-login rate limit** — `rack-attack` throttle on `POST /login` with
+  `pito.auth_failed=true`, 10 per IP per 5 minutes. Mirrors the Phase 5B
+  failed-token-lookup throttle pattern (same period, same response shape).
+  Successful logins do not count.
+- **Tenant signup UI** — none. Single tenant in Beta; the seeded `Tenant.first`
+  is the only tenant. No multi-tenant onboarding surface lands in this step.
+
+Implementer notes for ergonomics (not architectural decisions, just
+implementation guidance):
+
+- The `sign_in_as(user)` request-spec helper may set the cookie directly via
+  `ActionDispatch::Cookies::SignedCookieJar` or POST to `/login` — implementer
+  picks based on speed vs realism trade-off.
+- `Api::AuthConcern` and `Sessions::AuthConcern` stay separate; the dispatch
+  ("bearer header → bearer; cookie → session; neither → redirect or 401") is a
+  base helper in `ApplicationController`. Per-controller include shape is
+  implementer's call as long as the contract holds.

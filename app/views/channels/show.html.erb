@@ -12,9 +12,6 @@
 <div data-controller="add-pane">
   <div class="dot-list" style="margin-bottom: 6px;">
     <h1 style="display: inline;">channel #<%= @channel.id %></h1>
-    <% if @channel.syncing? %>
-      <span class="text-muted">[syncing]</span>
-    <% end %>
     <% if @available_channels.any? %>
       <%= render(BracketedLinkComponent.new(label: "|", href: "#", data: { action: "click->add-pane#open" })) %>
     <% end %>

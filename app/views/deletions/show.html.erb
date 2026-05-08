@@ -19,16 +19,13 @@
           <th class="num">last sync</th>
           <th class="num">videos</th>
         <% when "video" %>
-          <th>title</th>
+          <th>youtube id</th>
           <th>channel</th>
           <th class="num">views</th>
-          <th class="num">trend</th>
           <th class="num">likes</th>
           <th class="num">chats</th>
           <th class="num">watch</th>
-          <th class="num">state</th>
-          <th class="num">date</th>
-          <th class="num">length</th>
+          <th class="num">starred</th>
         <% when "project" %>
           <th>name</th>
           <th class="num">footage</th>
@@ -60,11 +57,9 @@
           <% when "channel" %>
             <td title="<%= item.channel_url %>" style="max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><%= item.channel_url %></td>
             <td class="num"><%= item.star? ? "yes" : "no" %></td>
-            <td class="num"><%= item.connected? ? "yes" : "no" %></td>
+            <td class="num"><%= item.oauth_identity_id.present? ? "yes" : "no" %></td>
             <td class="num">
-              <% if item.syncing? %>
-                <strong>syncing</strong>
-              <% elsif item.last_synced_at.present? %>
+              <% if item.last_synced_at.present? %>
                 <%= compact_time_ago(item.last_synced_at) %>
               <% else %>
                 —
@@ -72,16 +67,13 @@
             </td>
             <td class="num"><%= number_with_delimiter(item.videos.count) %></td>
           <% when "video" %>
-            <td style="max-width: 280px; overflow: hidden; text-overflow: ellipsis;"><%= item.title %></td>
+            <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;"><%= item.youtube_video_id %></td>
             <td><%= item.channel.channel_url %></td>
             <td class="num"><%= number_with_delimiter(item.total_views) %></td>
-            <td class="num"><%= view_trend_indicator(item) %></td>
             <td class="num"><%= number_with_delimiter(item.total_likes) %></td>
             <td class="num"><%= number_with_delimiter(item.total_comments) %></td>
             <td class="num"><%= format_video_watch_time(item.total_watch_time) %></td>
-            <td class="num"><%= item.privacy_status&.sub("_video", "") || "—" %></td>
-            <td class="num"><%= item.published_at&.strftime("%Y-%m-%d") %></td>
-            <td class="num"><%= format_duration(item.duration_seconds) %></td>
+            <td class="num"><%= item.star? ? "yes" : "no" %></td>
           <% when "project" %>
             <td><%= item.name %></td>
             <td class="num"><%= number_with_delimiter(item.footages.count) %></td>

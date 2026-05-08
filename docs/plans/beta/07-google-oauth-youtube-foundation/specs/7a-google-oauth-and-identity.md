@@ -21,6 +21,8 @@ This spec also reserves — but does not light up — the dedicated **sign-in**
 entry point that Phase 12 (Auth UI) will surface. Phase 7 only needs the
 **connection** entry point (used by 7C); the sign-in route exists as a thin
 wrapper requesting only userinfo scopes, so Phase 12 inherits a working flow.
+For Phase 7 itself, the sign-in callback path leaves a TODO and redirects to
+`root_path` — real session establishment is Phase 12 work.
 
 ## Files touched
 
@@ -51,6 +53,9 @@ Rails (Lane 1):
 Documentation (parallel docs-keeper dispatch — out of this spec's lane):
 
 - `docs/setup.md` — Google Cloud project bootstrap steps for fresh installs.
+  **Manual one-shot setup**, click-by-click instructions captured for
+  repeatability. Sole user (single-tenant Beta); automation revisits if/when a
+  team scales.
 - `docs/architecture.md` — "Google OAuth" subsection wired into the auth map.
 
 Cross-stack scope: Rails-only.
@@ -78,8 +83,8 @@ Cross-stack scope: Rails-only.
 Indexes:
 
 - `(tenant_id, google_subject_id)` unique.
-- `(tenant_id, user_id)` non-unique (a user may, in Theta, hold multiple Google
-  identities; Beta UI enforces one).
+- `(tenant_id, user_id)` non-unique (the schema permits N identities per user to
+  keep options open for Theta; the Beta UI in 7C enforces 1).
 - `(tenant_id, needs_reauth)` partial where `needs_reauth = true` — fast lookup
   for the "needs reauth" banner check in 7C.
 
@@ -126,15 +131,18 @@ the request phase via the `scope:` option.
 - `https://www.googleapis.com/auth/youtube.readonly`
 - `https://www.googleapis.com/auth/yt-analytics.readonly`
 
-**Locked decision — minimum YouTube scopes for Beta.** The YouTube connection
-flow requests `youtube.readonly` and `yt-analytics.readonly` ONLY. The full
-`youtube` (write) and `youtube.upload` scopes are reserved for Phase 10 (Video
-Workflow Features). Adding write scopes earlier triggers a Google re-consent
-screen later anyway, so we may as well stage it correctly. See "Open questions"
-§1 — confirm with user before building.
+**Locked decision — Beta YouTube scopes are read-only.** The YouTube connection
+flow requests `youtube.readonly` and `yt-analytics.readonly` ONLY. No write
+scope (`youtube`, `youtube.upload`) in Phase 7. Write scopes are reserved for
+the phase that actually needs them (Phase 10 — Video Workflow Features); the
+re-consent screen at that point is acceptable cost.
 
 `access_type: "offline"` and `prompt: "consent"` are passed on every
-authorization request so Google reliably returns a refresh token.
+authorization request. **Locked decision — `prompt: "consent"` always.** This
+guarantees Google returns a refresh token on every reconnect, even if the user
+previously granted offline access. The cost is one extra consent screen on
+re-auth; the benefit is deterministic refresh-token semantics (no "Google
+sometimes omits the refresh token" branch in `TokenRefresher`).
 
 ## Routes
 
@@ -170,14 +178,16 @@ Flow:
 3. Find or create `GoogleIdentity` keyed on `(tenant_id, google_subject_id)`:
    - On **create**: scope to `Current.user` (Phase 5 sets this; if for some
      reason `Current.user` is nil, redirect to `/` with a flash error).
-   - On **update**: refresh `access_token`, `refresh_token` (only if Google
-     returned one — preserve previous on absence), `expires_at`, `scopes` (union
-     with existing), `last_authorized_at`, set `needs_reauth: false`.
+   - On **update**: refresh `access_token`, `refresh_token` (Google returns one
+     on every reconnect because we force `prompt: "consent"`), `expires_at`,
+     `scopes` (union with existing), `last_authorized_at`, set
+     `needs_reauth: false`.
 4. Dispatch by intent:
    - `"youtube_connect"` → redirect to `/settings/youtube` (7C lights this up).
-   - `nil` (sign-in) → redirect to `session.delete(:return_to) || root_path`.
-     Phase 12 will plug a real session establishment in here; Phase 7 leaves a
-     TODO comment and a passing spec that asserts the redirect target.
+   - `nil` (sign-in) → **placeholder for Phase 7**: leave a TODO comment at the
+     dispatch and redirect to `root_path`. Real session establishment lands in
+     Phase 12. A passing spec asserts the redirect target is `root_path` and a
+     TODO marker exists in the source.
 5. On `request.env["omniauth.auth"]` missing or `omniauth.error` present:
    redirect to `/auth/failure` with a flash describing the failure
    (`access_denied`, `invalid_credentials`, `timeout`, etc.).
@@ -221,13 +231,17 @@ be placeholder strings (`"test-client-id"`, `"test-client-secret"`).
       encrypted credentials files (test values may be placeholders).
 - [ ] Callback creates a new `GoogleIdentity` on first authorization (request
       spec with OmniAuth test mode).
-- [ ] Callback updates an existing `GoogleIdentity` on re-authorization,
-      preserving the previous `refresh_token` if Google omits it.
+- [ ] Callback updates an existing `GoogleIdentity` on re-authorization; because
+      `prompt: "consent"` is forced, the refresh token is always present in the
+      auth hash and is rewritten on every reconnect.
 - [ ] Callback unions newly granted scopes into the `scopes` jsonb array rather
       than replacing.
 - [ ] Callback resets `needs_reauth: false` on a successful re-authorization.
 - [ ] Callback redirects to `/settings/youtube` when the intent stash is
-      `"youtube_connect"`, else to `root_path`.
+      `"youtube_connect"`.
+- [ ] Callback redirects to `root_path` when the intent stash is nil (sign-in
+      flow); a TODO marker is present in the controller pointing at Phase 12
+      session establishment.
 - [ ] Callback redirects to `/auth/failure` with a flash on `omniauth.error`
       set.
 - [ ] State parameter validation is on (test by spoofing a mismatched state and
@@ -244,8 +258,9 @@ be placeholder strings (`"test-client-id"`, `"test-client-secret"`).
 
 ## Manual test recipe
 
-Prereq: the user has completed the Phase 7 plan's Google Cloud setup checklist
-(`docs/setup.md` will document this; see "Open questions" §3 for ownership).
+Prereq: the user has completed the Google Cloud setup checklist documented in
+`docs/setup.md`. This is a manual one-shot the user runs once during initial
+project bootstrap; the steps live in the doc for repeatability.
 
 1. `bin/rails credentials:edit --environment development` — add the `:google`
    block with the real client id / secret. Save.
@@ -254,7 +269,8 @@ Prereq: the user has completed the Phase 7 plan's Google Cloud setup checklist
    (dev-only direct GET — see §"Routes"). The browser bounces to Google's
    consent screen.
 4. Approve. Browser returns to `https://app.pitomd.com/auth/google/callback`,
-   which redirects to `/`.
+   which redirects to `/` (the placeholder sign-in target until Phase 12 lights
+   up real session establishment).
 5. `bin/rails console` — confirm:
 
    ```ruby
@@ -297,28 +313,32 @@ https://myaccount.google.com/permissions if you want to re-test from scratch.
 - Cloudflare Pages website — **skipped.** OAuth happens entirely on
   `app.pitomd.com`.
 
-## Open questions
+## Decisions (locked)
 
-1. **YouTube scope set.** Beta starts with `youtube.readonly` +
-   `yt-analytics.readonly`. Phase 10 will need `youtube` (full read/write) +
-   `youtube.upload`. Should Phase 7 request the wider set up front to avoid a
-   re-consent later, or accept the re-consent in exchange for a smaller blast
-   radius now? The plan's `## In scope` says request the full set
-   (`youtube.readonly`, `youtube`, `yt-analytics.readonly`); this spec defaults
-   to the minimum and asks the master agent to confirm.
-2. **Refresh-token-absent on re-auth.** Google sometimes omits the refresh token
-   on a subsequent consent if the user previously granted offline access. The
-   spec preserves the previous refresh token in that case. Is that the correct
-   policy, or should we force `prompt: "consent"` to guarantee a fresh refresh
-   token on every re-auth (at the cost of an extra user-visible consent screen)?
-   Default in this spec: force `prompt: "consent"`, accept the consent UX,
-   refresh token is always returned.
-3. **Google Cloud setup ownership.** The plan's `### Google Cloud setup`
-   checklist lists six items. Are these the user's manual one-time tasks
-   (architect-spec records them in `docs/setup.md` for repeatability), or should
-   an agent automate any of them via `gcloud` CLI? Default assumption: user does
-   this by hand once, docs-keeper records the steps.
-4. **Sign-in flow target.** Phase 12 plugs real session establishment into the
-   sign-in callback path. Phase 7 leaves a TODO. Confirm the master agent is OK
-   with a TODO landing in this phase (alternative: gate the sign-in route behind
-   a feature flag until Phase 12).
+The following decisions are confirmed and pinned. Implementation does not
+re-litigate them.
+
+- **OAuth scopes for Phase 7** — `youtube.readonly` and `yt-analytics.readonly`
+  ONLY (plus the userinfo scopes `openid email profile`). NO write scope
+  (`youtube`, `youtube.upload`) in Phase 7. Write scopes land in Phase 10 (Video
+  Workflow Features). The re-consent screen at that point is the accepted cost.
+- **Refresh-token re-grant policy** — `prompt: "consent"` is passed on EVERY
+  authorization request. This guarantees Google returns a refresh token on every
+  reconnect, eliminating the "Google sometimes omits the refresh token" branch
+  in `TokenRefresher`. The cost is one extra consent screen on re-auth; the
+  benefit is deterministic refresh semantics.
+- **Google Cloud project setup** — manual, one-shot. The user completes the
+  Google Cloud setup checklist by hand once during initial project bootstrap.
+  Click-by-click instructions live in `docs/setup.md` for repeatability. Sole
+  user / single-tenant Beta; automation via `gcloud` CLI is revisited if/when a
+  team scales the project.
+- **Sign-in flow target during Phase 7** — TODO placeholder. The callback's
+  sign-in branch redirects to `root_path` and leaves a TODO marker in the source
+  pointing at Phase 12. Real session establishment (signing the user into a Pito
+  session, populating `Current.user`, redirecting to the intended URL) lands in
+  Phase 12 (Auth UI) — that's the phase that owns the user-facing session
+  lifecycle.
+- **Connection model** — one `GoogleIdentity` per User. The schema permits N
+  (the `(tenant_id, user_id)` index is non-unique to keep options open for
+  Theta), but the Beta UI in 7C enforces 1: at most one identity per user is
+  surfaced and reachable.

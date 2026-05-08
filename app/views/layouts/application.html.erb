@@ -45,7 +45,14 @@
         <%= form_with url: search_path, method: :get, class: "search-form", style: "display: flex; align-items: center; gap: 4px;", data: { turbo_action: "replace" } do %>
           <input type="text" name="q" value="<%= params[:q] %>" placeholder="search..." autocomplete="off" class="search-input" style="width: 200px; height: 22px; font-size: 13px; padding: 0 6px; border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-text); font-family: inherit;">
         <% end %>
-        <a href="#" class="keycap keycap-theme" style="margin-left: auto;" data-action="click->theme#toggle" data-theme-target="toggle">n</a>
+        <% if Current.user.present? %>
+          <%= button_to session_logout_path,
+                method: :delete,
+                form: { style: "margin-left: auto; display: inline;" },
+                class: "bracketed",
+                style: "background: none; border: none; padding: 0; font: inherit; color: inherit; cursor: pointer;" do %>[<span class="bl">logout</span>]<% end %>
+        <% end %>
+        <a href="#" class="keycap keycap-theme" style="<%= Current.user.present? ? "" : "margin-left: auto;" %>" data-action="click->theme#toggle" data-theme-target="toggle">n</a>
       </div>
     </header>
 

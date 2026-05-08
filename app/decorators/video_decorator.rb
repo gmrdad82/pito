@@ -1,43 +1,27 @@
 class VideoDecorator < ApplicationDecorator
-  def formatted_duration
-    h.format_duration(duration_seconds)
-  end
-
-  def formatted_privacy
-    privacy_status&.sub("_video", "") || "—"
-  end
-
-  def formatted_published_at
-    published_at&.strftime("%Y-%m-%d %H:%M")
-  end
-
+  # Phase 7 Path A2 (literal full retract). Video is now a thin
+  # YouTube-reference record: id, channel_id, youtube_video_id, star,
+  # oauth_identity_id, last_synced_at, timestamps. All title /
+  # description / tags / privacy / metadata is gone. JSON surface
+  # collapses around the surviving columns.
   def as_summary_json
     {
       id: id,
       youtube_video_id: youtube_video_id,
-      title: title,
       channel_id: channel_id,
       channel_url: channel&.channel_url,
-      privacy_status: formatted_privacy,
+      star: YesNo.to_yes_no(star),
       views: total_views_value,
       likes: total_likes_value,
       comments: total_comments_value,
       watch_time_minutes: total_watch_time_value,
-      duration_seconds: duration_seconds,
-      published_at: published_at&.iso8601,
+      last_synced_at: last_synced_at&.iso8601,
       trend: nil
     }
   end
 
   def as_detail_json
     as_summary_json.merge(
-      description: description,
-      thumbnail_url: thumbnail_url,
-      tags: tags,
-      category_id: category_id,
-      default_language: default_language,
-      made_for_kids: YesNo.to_yes_no(made_for_kids),
-      last_synced_at: last_synced_at&.iso8601,
       stats: video_stats.order(date: :desc).limit(30).map { |s| VideoStatDecorator.new(s).as_json_entry }
     )
   end

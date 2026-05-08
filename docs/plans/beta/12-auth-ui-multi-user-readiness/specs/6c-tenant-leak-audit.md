@@ -131,6 +131,10 @@ on every layer."
   surfaces as 404 via Rails' default `rescue_from`). 404 — not 403 — is the
   decision. Reasoning: 403 leaks the existence of the record; 404 implies "no
   such resource for you," matching the default-scope contract.
+- **JSON error envelope on tenant boundary violations: `{ error: "not_found" }`
+  with HTTP 404.** Never 403; 403 leaks the existence of the resource. Both
+  cross-tenant id access and "record does not exist" return identical responses,
+  so a probing client cannot distinguish the two.
 - **JSON / MCP leak specs use bearer tokens minted in `before` blocks.** A
   helper `bearer_for(user, scopes:)` mints a manual `ApiToken` with the
   requested scopes for the given user, returns the plaintext, and registers
@@ -155,6 +159,12 @@ on every layer."
   user A, dispatches through `Mcp::RackApp`, asserts the response payload
   contains no tenant B ids. Reasoning: tool-class unit specs bypass
   `Api::AuthConcern`; Rack-level specs exercise the full auth chain.
+- **Multi-user UI sequencing: deferred to Phase 6.5.** Phase 6 just lays the
+  readiness foundation: `BelongsToTenant` fail-loud, password column,
+  Doorkeeper, audit. The user-facing multi-user surface (Settings → Users page,
+  invitation flow, role gating) is sequenced as a separate Phase 6.5 step so
+  Step C's audit deliverable ships clean. Captured as a follow-up entry on Step
+  C close-out.
 - **Documentation lives in two places.** A new top-level
   `docs/plans/beta/12-auth-ui-multi-user-readiness/security.md` enumerates the
   audit results (which models / controllers / jobs / MCP tools were audited,
@@ -162,10 +172,9 @@ on every layer."
   "Tenant isolation guarantees" section summarizing the runtime contract for
   downstream readers.
 - **No new gem.** Step C does not add `flipper-rails` or any feature-flag
-  library. Phase 12's "Multi-user UI (flag-gated)" plan section is out-of-scope
-  here and captured as a follow-up. Step C closes Phase 6 on the audit
-  deliverable; the multi-user UI is sequenced separately so it doesn't bloat
-  Step C's surface area.
+  library. Phase 6.5's "Multi-user UI (flag-gated)" plan section is out-of-scope
+  here. Step C closes Phase 6 on the audit deliverable; the multi-user UI is
+  sequenced separately so it doesn't bloat Step C's surface area.
 
 ---
 
@@ -304,10 +313,10 @@ Anticipated HTML controllers (subject to inventory verification):
 actual controller inventory.
 
 JSON-API controllers — same pattern using `bearer_for(user_a)` and
-`bearer_for(user_b)`. Asserts 404 (or 403 with an explicit `tenant_mismatch`
-reason — implementer picks based on the existing JSON error envelope; spec
-accepts either as long as the chosen shape is consistent across all JSON leak
-specs).
+`bearer_for(user_b)`. The locked tenant-boundary error envelope is
+`{ error: "not_found" }` with HTTP 404 (never 403). Cross-tenant id access and
+genuinely-missing-record both return the identical response, so a probing client
+cannot distinguish the two.
 
 `/deletions/:type/:ids` — when `:ids` includes records from BOTH tenants, the
 action returns 404 (treats the whole batch as missing) and writes NOTHING to
@@ -504,6 +513,8 @@ C own jointly). Contents:
 - The MCP / API auth dispatch contract (every authenticated request has a
   resolvable tenant or fails closed).
 - The `unscoped` justification convention.
+- The locked tenant-boundary JSON envelope (`{ error: "not_found" }` with HTTP
+  404; never 403).
 - A reference to `spec/leaks/` as the executable form of the contract.
 
 Cross-link from `docs/architecture.md` (the §Auth section gets a one-line
@@ -516,19 +527,29 @@ events from Phase 5 / Phase 6 A / B all carry `tenant_id` in their JSON payload
 (cross-checked via `spec/leaks/audit_log_spec.rb`). Any event missing
 `tenant_id` is fixed in Step C.
 
-### 6.10 Follow-up: multi-user UI (NOT in Step C)
+### 6.10 Multi-user UI — NOT in Step C, sequenced as Phase 6.5
 
 The phase plan's "Multi-user UI (flag-gated)" section is **explicitly deferred**
-to a future step (Phase 6.5 or Phase 12 polish) so Step C ships with a tight
-focus on the audit. Captured as Open Question.
+to Phase 6.5. Step C ships with a tight focus on the audit. Phase 6 just lays
+the readiness foundation:
+
+- `BelongsToTenant` fail-loud (Phase 5).
+- Password column on `users` (Phase 5).
+- Doorkeeper OAuth server (Phase 6B).
+- Tenant-leak audit (this step).
+
+The user-facing multi-user surface (Settings → Users index, invitation flow,
+role gating, account-removal flow) is sequenced as Phase 6.5 so Step C closes
+clean. A follow-up entry lands on `docs/orchestration/follow-ups.md` at Step C
+close-out.
 
 ---
 
 ## 7. Out of scope
 
-- **Multi-user invitation flow / Settings → Users page / `flipper-rails` gem** —
-  deferred to a separate step; Phase 6 closes on the audit, not on multi-user
-  UI.
+- **Multi-user UI sequencing (Phase 6.5)** — Settings → Users page, invitation
+  flow, `flipper-rails` gem. Deferred to Phase 6.5 by locked decision; Phase 6
+  closes on the audit foundation.
 - **Public signup** — Theta.
 - **2FA / TOTP / WebAuthn** — Theta.
 - **Account deletion / data export** — Theta (GDPR concerns require real
@@ -563,7 +584,8 @@ focus on the audit. Captured as Open Question.
       `spec/leaks/requests/`. The spec asserts cross-tenant id access returns
       404 across index / show / update / destroy.
 - [ ] Every JSON-API controller has a leak spec — both manual `ApiToken` and
-      Doorkeeper-issued bearer cases.
+      Doorkeeper-issued bearer cases. Cross-tenant id access returns the locked
+      envelope: `{ error: "not_found" }` with HTTP 404.
 - [ ] Every Sidekiq job under `app/jobs/` has a leak spec. The spec asserts
       `perform(tenant_id, ...)` only touches that tenant's records.
 - [ ] Every MCP tool registered in `Mcp::RackApp` has a leak spec under
@@ -584,7 +606,8 @@ focus on the audit. Captured as Open Question.
 - [ ] `docs/plans/beta/12-auth-ui-multi-user-readiness/security.md` exists and
       lists every audited unit, findings, fixes, and any follow-ups.
 - [ ] `docs/auth.md` §12 "Tenant isolation guarantees" exists and is
-      cross-linked from `docs/architecture.md`.
+      cross-linked from `docs/architecture.md`. Includes the locked
+      `{ error: "not_found" }` / 404 envelope rule.
 - [ ] All previously-green specs remain green.
 - [ ] Full `bundle exec rspec` (including `spec/leaks`) completes in <90s on the
       developer's laptop. (Soft target; if exceeded, implementer consolidates
@@ -608,8 +631,8 @@ focus on the audit. Captured as Open Question.
 5. Same for `/projects/<id>`, `/footages/<id>`, `/videos/<id>` — every tenanted
    resource. Each returns 404.
 6. Mint an `ApiToken` for the seeded owner via `/settings/tokens`. `curl` the
-   JSON API for a record id owned by the new tenant — expect 404 (or the chosen
-   JSON error envelope).
+   JSON API for a record id owned by the new tenant — expect 404 with
+   `{"error":"not_found"}`.
 7. From the same `bin/rails console`, run a job manually with the wrong tenant
    id: `ChannelSync.new.perform(Tenant.last.id, Channel.first.id)`. Inspect
    `Channel.first.reload.last_synced_at` — expect unchanged (the job should
@@ -645,6 +668,8 @@ Implementer (Lane 1 rails-impl) touches:
   - Adjust any job whose `perform` signature lacks `tenant_id` as the first arg,
     where the refactor is trivial. Non-trivial refactors land as follow-ups.
   - Backfill `tenant_id` into any audit log event payload that lacks it.
+  - Confirm cross-tenant boundary errors render as `{ error: "not_found" }` with
+    HTTP 404 across every JSON controller.
 - `lib/` — same scope as `app/`.
 - `config/` — same scope as `app/`. Initializers that read `Tenant.first` /
   `User.first` at boot are flagged and refactored.
@@ -658,8 +683,8 @@ Implementer (Lane 1 rails-impl) touches:
 
 Out of bounds for this step:
 
-- `app/views/**` — Step C does not touch the user-facing UI. Multi-user UI is a
-  follow-up.
+- `app/views/**` — Step C does not touch the user-facing UI. Multi-user UI is
+  Phase 6.5.
 - `app/controllers/sessions_controller.rb`,
   `app/controllers/concerns/sessions/auth_concern.rb` — owned by Step A.
 - `config/initializers/doorkeeper.rb`, `app/models/oauth_*.rb` — owned by Step
@@ -670,38 +695,40 @@ Out of bounds for this step:
 - `app/lib/scopes.rb`, `Pito::TokenDigest`, `ApiToken`, `Session` model
   internals — owned by earlier phases / steps.
 
-## 11. Open questions
+## 11. Decisions (locked)
 
-- **Multi-user UI sequencing.** The phase plan's "Multi-user UI (flag-gated)"
-  section is deferred. Confirm whether to land it as a Phase 6.5 sub-step
-  (delays Phase 6 close) or punt to a Phase 12 polish window after Phase 7
-  (Phase 6 closes faster, multi-user UI lands when there's a clearer driver).
-  **Default if not answered: punt to Phase 6.5 polish, file follow-up entry.**
-- **JSON error envelope for cross-tenant id leaks.** Spec accepts either 404 or
-  403-with-`tenant_mismatch` reason; implementer picks one shape and uses it
-  consistently across every JSON leak spec. Confirm: is there a preference?
-  **Default: 404 (matches HTML behavior, matches default-scope contract —
-  pretend the record doesn't exist).**
-- **Cross-tenant `delete_records` MCP tool batches.** The MCP `delete_records`
-  tool takes a list of ids. Spec assumes a batch containing at least one id from
-  a different tenant fails closed (entire batch rejected, no partial writes).
-  Confirm shape.
-- **Fixture cleanup strategy.** Spec assumes RSpec's transactional fixtures wrap
-  each example so the two-tenant data is rolled back between specs. Confirm: is
-  there a `:truncation` strategy already in use for any spec type that
-  conflicts? **Default: rely on transactional fixtures; if a spec requires
-  truncation, opt in explicitly per file.**
-- **Job audit findings — refactor vs follow-up boundary.** Spec defines "trivial
-  = changing the perform signature; non-trivial = changing the job's tenant
-  model." Confirm the boundary. If a job's redesign is in scope, Step C scope
-  inflates; if not, it stays a follow-up.
-- **`security.md` location.** Spec places it under
-  `docs/plans/beta/12-auth-ui-multi-user-readiness/security.md`. Alternative: a
-  top-level `docs/security.md` that future phases extend. Confirm: phase-scoped
-  (matches plan §"Multi-tenant audit") or cross-cutting top-level doc.
-  **Default: phase-scoped per the plan text.**
-- **Audit log `tenant_id` backfill scope.** Spec assumes adding `tenant_id` to
-  event payloads that lack it is in scope (small surgical change). If any event
-  source is in a third-party gem (e.g., Doorkeeper notifications), confirm the
-  implementer is allowed to wrap the subscriber to enrich the payload.
-  **Default: yes, enrich at the subscriber.**
+The following decisions are confirmed and pinned. Implementation does not
+re-litigate them.
+
+- **JSON error envelope on tenant boundary violations** —
+  `{ error: "not_found" }` with HTTP 404. NEVER 403. Reasoning: 403 leaks the
+  existence of the resource; 404 makes cross-tenant access indistinguishable
+  from genuinely-missing-record. Both HTML and JSON surfaces enforce this; HTML
+  uses Rails' default `RecordNotFound → 404` rescue, JSON renders the locked
+  envelope.
+- **Multi-user UI sequencing** — deferred to Phase 6.5. Phase 6 just lays the
+  readiness foundation: `BelongsToTenant` fail-loud (Phase 5), password column
+  (Phase 5), Doorkeeper OAuth (Phase 6B), tenant-leak audit (this step). The
+  user-facing multi-user surface (Settings → Users, invitation flow, role
+  gating) is its own phase. Step C close-out files a follow-up entry pointing at
+  Phase 6.5.
+
+Implementer notes for ergonomics (not architectural decisions, just
+implementation guidance):
+
+- The two-tenant fixture relies on RSpec's transactional fixtures to roll back
+  data between examples. If a spec type requires truncation, opt in explicitly
+  per file.
+- MCP `delete_records` batches that contain ids from multiple tenants fail
+  closed (entire batch rejected, no partial writes) — same shape as the HTML
+  `/deletions/:type/:ids` rule.
+- Job audit "trivial vs non-trivial" boundary: changing the `perform` signature
+  is trivial (in-scope for Step C); changing a job's tenant model (e.g., a job
+  that intentionally spans tenants by design) is non-trivial and becomes a
+  follow-up.
+- `security.md` lives under
+  `docs/plans/beta/12-auth-ui-multi-user-readiness/security.md` (phase-scoped,
+  matching the plan's "Multi-tenant audit" entry). If a future cross-cutting
+  `docs/security.md` becomes useful, it's a separate move.
+- Audit log subscribers may enrich payloads to include `tenant_id` when the
+  upstream gem (e.g., Doorkeeper) doesn't ship it natively; that's in scope.

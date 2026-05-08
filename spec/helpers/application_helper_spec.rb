@@ -107,35 +107,46 @@ RSpec.describe ApplicationHelper, type: :helper do
   end
 
   describe "#pane_breadcrumb_label" do
-    let(:video1) { build_stubbed(:video, title: "alpha", channel: build_stubbed(:channel)) }
-    let(:video2) { build_stubbed(:video, title: "beta", channel: build_stubbed(:channel)) }
+    # Phase 7 Path A2 — Video has no title column; the helper falls
+    # back to "##{id}" for both Channel and Video panes. Project
+    # (which has `name`, not `title`) also falls back to id since the
+    # helper specifically checks for `title`. We exercise the helper
+    # via Note (which has a `title`) for the "renders title" path,
+    # and via channel/video for the id-fallback path.
+    let(:note1) { build_stubbed(:note, title: "alpha") }
+    let(:note2) { build_stubbed(:note, title: "beta") }
 
-    it "returns full title for single video pane" do
-      expect(helper.pane_breadcrumb_label([ video1 ])).to eq("alpha")
+    it "returns full title for single note pane" do
+      expect(helper.pane_breadcrumb_label([ note1 ])).to eq("alpha")
     end
 
     it "joins multiple panes with dot separator" do
-      result = helper.pane_breadcrumb_label([ video1, video2 ])
+      result = helper.pane_breadcrumb_label([ note1, note2 ])
       expect(result).to include("alpha")
       expect(result).to include("·")
       expect(result).to include("beta")
     end
 
     it "truncates long names with ellipsis" do
-      long = build_stubbed(:video, title: "a very long video name here", channel: build_stubbed(:channel))
-      result = helper.pane_breadcrumb_label([ long, video2 ])
+      long = build_stubbed(:note, title: "a very long note name here")
+      result = helper.pane_breadcrumb_label([ long, note2 ])
       expect(result).to include("…")
     end
 
     it "shows +N more for excess panes" do
-      videos = 5.times.map { |i| build_stubbed(:video, title: "v#{i}", channel: build_stubbed(:channel)) }
-      result = helper.pane_breadcrumb_label(videos)
+      notes = 5.times.map { |i| build_stubbed(:note, title: "v#{i}") }
+      result = helper.pane_breadcrumb_label(notes)
       expect(result).to include("+2 more")
     end
 
     it "falls back to id-only label for channels (no title column)" do
       channel = build_stubbed(:channel)
       expect(helper.pane_breadcrumb_label([ channel ])).to eq("##{channel.id}")
+    end
+
+    it "falls back to id-only label for videos (no title column post-A2)" do
+      video = build_stubbed(:video)
+      expect(helper.pane_breadcrumb_label([ video ])).to eq("##{video.id}")
     end
   end
 

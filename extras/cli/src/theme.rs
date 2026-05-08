@@ -24,7 +24,6 @@ pub struct Theme {
     pub accent: Color,
     pub success: Color,
     pub danger: Color,
-    pub pink: Color,
     pub orange: Color,
     pub cyan: Color,
 }
@@ -46,7 +45,6 @@ impl Theme {
             accent: Color::Rgb(189, 147, 249),
             success: Color::Rgb(80, 250, 123),
             danger: Color::Rgb(255, 85, 85),
-            pink: Color::Rgb(255, 121, 198),
             orange: Color::Rgb(255, 184, 108),
             cyan: Color::Rgb(139, 233, 253),
         }
@@ -61,7 +59,6 @@ impl Theme {
             accent: Color::Rgb(130, 80, 200),
             success: Color::Rgb(30, 150, 60),
             danger: Color::Rgb(200, 50, 50),
-            pink: Color::Rgb(200, 80, 150),
             orange: Color::Rgb(200, 130, 50),
             cyan: Color::Rgb(50, 150, 180),
         }

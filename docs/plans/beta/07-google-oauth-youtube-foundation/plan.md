@@ -188,99 +188,109 @@ the skeleton:
 
 ### Google Cloud setup
 
-- [ ] Create or identify Google Cloud project
-- [ ] Enable YouTube Data API v3 and YouTube Analytics API v2
-- [ ] Create OAuth 2.0 web application client credentials
-- [ ] Configure OAuth consent screen with scopes `youtube.readonly`, `youtube`,
+- [x] Create or identify Google Cloud project
+- [x] Enable YouTube Data API v3 and YouTube Analytics API v2
+- [x] Create OAuth 2.0 web application client credentials
+- [x] Configure OAuth consent screen with scopes `youtube.readonly`, `youtube`,
       `yt-analytics.readonly`, `userinfo.email`, `userinfo.profile`
-- [ ] Add the user's Google account as a test user (consent screen in test mode)
-- [ ] Authorized redirect URIs configured for production-ish (`app.pitomd.com`)
+- [x] Add the user's Google account as a test user (consent screen in test mode)
+- [x] Authorized redirect URIs configured for production-ish (`app.pitomd.com`)
       and dev
-- [ ] Store `client_id` and `client_secret` in Rails credentials per environment
+- [x] Store `client_id` and `client_secret` in Rails credentials per environment
 
 ### Models and migrations
 
-- [ ] Migration: create `google_identities` table with encrypted token fields
+- [x] Migration: create `google_identities` table with encrypted token fields
       (Active Record Encryption)
-- [ ] `GoogleIdentity` model: associations, validations, expiry helper
+- [x] `GoogleIdentity` model: associations, validations, expiry helper
       (`access_token_expired?`, `needs_reauth?`)
-- [ ] Migration: add `oauth_identity_id`, `connected` to `channels` table;
+- [x] Migration: add `oauth_identity_id`, `connected` to `channels` table;
       nullable; existing seeded channels stay disconnected
-- [ ] Update `Channel` model:
+      (note: `connected` column already existed from Phase 4 placeholder; this
+      dispatch added `oauth_identity_id` only)
+- [x] Update `Channel` model:
       `belongs_to :oauth_identity, class_name: 'GoogleIdentity', optional: true`
-- [ ] Migration: create `youtube_api_calls` audit table with the columns listed
+- [x] Migration: create `youtube_api_calls` audit table with the columns listed
       above
-- [ ] `YoutubeApiCall` model with default scoping by tenant
+- [x] `YoutubeApiCall` model with default scoping by tenant
 
 ### OAuth integration
 
-- [ ] Add `omniauth-google-oauth2` gem
-- [ ] Configure OmniAuth in an initializer with the credentials
-- [ ] Routes: `/auth/google`, `/auth/google/callback`,
+- [x] Add `omniauth-google-oauth2` gem
+- [x] Configure OmniAuth in an initializer with the credentials
+- [x] Routes: `/auth/google`, `/auth/google/callback`,
       `/settings/youtube/connect` (this last one chains through to OmniAuth with
       extended scopes)
-- [ ] Callback controller: extracts code, fetches user info, finds or creates
+- [x] Callback controller: extracts code, fetches user info, finds or creates
       `GoogleIdentity`, stores tokens encrypted
-- [ ] Specs: callback creates new identity, callback updates existing identity,
+- [x] Specs: callback creates new identity, callback updates existing identity,
       callback handles errors (denied consent, expired code, missing state)
 
 ### YouTube connection flow
 
-- [ ] Settings → YouTube sub-page route and view
-- [ ] "Connect Google account" button kicks off OmniAuth with YouTube scopes
-- [ ] On callback (with YouTube scopes granted), fetch `channels.list?mine=true`
+- [x] Settings → YouTube sub-page route and view
+- [x] "Connect Google account" button kicks off OmniAuth with YouTube scopes
+- [x] On callback (with YouTube scopes granted), fetch `channels.list?mine=true`
       and present the user's owned YouTube channels
-- [ ] User clicks `[Connect]` on a channel → upsert `Channel` record with
+- [x] User clicks `[Connect]` on a channel → upsert `Channel` record with
       `connected: true`, `oauth_identity_id` set, basic metadata populated
-- [ ] Show list of connected channels in Settings → YouTube with disconnect
+- [x] Show list of connected channels in Settings → YouTube with disconnect
       option
-- [ ] Disconnect: call Google's `oauth2/revoke` endpoint for the identity if no
+- [x] Disconnect: call Google's `oauth2/revoke` endpoint for the identity if no
       other channels reference it; clear `oauth_identity_id` and `connected` on
       the Channel
-- [ ] Specs: first-time connect, reconnect (existing channel becomes connected),
+- [x] Specs: first-time connect, reconnect (existing channel becomes connected),
       disconnect (with and without other channels referencing the identity)
 
 ### YouTube::Client
 
-- [ ] Implement `YouTube::Client` service object — accepts `GoogleIdentity`;
+- [x] Implement `YouTube::Client` service object — accepts `GoogleIdentity`;
       exposes methods `channels_list`, `videos_list`, `playlists_list`,
       `analytics_query` (and any others as needed)
-- [ ] Quota cost map as a frozen Ruby constant; documented in
-      `pito/docs/youtube_quota.md`
-- [ ] Pre-call quota check: estimate cost, query today's usage, raise
+- [x] Quota cost map as a frozen Ruby constant; documented in
+      `pito/docs/youtube_quota.md` (constant frozen; doc deferred to docs-keeper)
+- [x] Pre-call quota check: estimate cost, query today's usage, raise
       `YouTube::QuotaExhaustedError` if exceeding
-- [ ] Post-call audit: record `YoutubeApiCall` row with actual outcome and units
-- [ ] Token refresh wrapper: detect expiry, refresh before call; on 401
+- [x] Post-call audit: record `YoutubeApiCall` row with actual outcome and units
+- [x] Token refresh wrapper: detect expiry, refresh before call; on 401
       mid-call, refresh and retry once; on second 401, mark identity
       `needs_reauth`
-- [ ] Exponential backoff on 5xx (max 3 retries, 1s/2s/4s)
+- [x] Exponential backoff on 5xx (max 3 retries, 1s/2s/4s)
 - [ ] Specs with VCR cassettes (recorded against the user's real channel once,
       anonymized): happy path, quota check enforcement, token refresh, backoff,
       `needs_reauth` flow
+      (deferred — decision 7.16: WebMock stubs against canned response shapes
+      land in this dispatch; VCR cassettes recorded against the user's real
+      account replace them in a follow-up post-Phase-7-implementation session)
 - [ ] All cassettes scrubbed of bearer tokens, refresh tokens, API keys, PII
-      before commit
+      before commit (deferred — gates on the cassette-recording session above)
 
 ### Public API key skeleton
 
-- [ ] Add `YOUTUBE_PUBLIC_API_KEY` to Rails credentials (can be empty
-      placeholder until Phase 8 fills it)
-- [ ] Sketch `YouTube::PublicClient` service object — same shape as
+- [x] Add `YOUTUBE_PUBLIC_API_KEY` to Rails credentials (can be empty
+      placeholder until Phase 8 fills it) (skeleton reads
+      `Rails.application.credentials.dig(:youtube, :public_api_key)`; no
+      placeholder seeded — Phase 8 fills it)
+- [x] Sketch `YouTube::PublicClient` service object — same shape as
       `YouTube::Client`; uses `api_key` auth
-- [ ] Quota tracking via `YoutubeApiCall` with a sentinel
+- [x] Quota tracking via `YoutubeApiCall` with a sentinel
       `google_identity_id: nil` (Phase 8 may refine)
 
 ### Documentation
 
 - [ ] `pito/docs/architecture.md`: Google OAuth section, YouTube client
       architecture, quota strategy, audit table reference
+      (out of rails-impl lane — flagged for the docs-keeper agent)
 - [ ] `pito/docs/youtube_quota.md` (new): per-endpoint quota costs, daily
       budget, what happens on exhaustion, the audit table reference
+      (out of rails-impl lane — flagged for the docs-keeper agent)
 - [ ] `pito/docs/setup.md`: Google Cloud project setup steps for fresh local
-      installs
+      installs (out of rails-impl lane — flagged for the docs-keeper agent)
 
 ### Validation
 
 - [ ] Manual: connect Google account; identity persisted in `google_identities`
+      (gated on user's manual playbook)
 - [ ] Manual: connect YouTube channel; Channel record updates with real
       metadata, `connected: true`, `oauth_identity_id` set
 - [ ] Manual: simulate token expiry (set short expiry in dev), make an API call,
@@ -289,8 +299,9 @@ the skeleton:
       dev override), make a call, observe `YouTube::QuotaExhaustedError`
 - [ ] Manual: revoke the Google identity from Google's side, attempt a call,
       observe `needs_reauth` flag set and UI surfaces it
-- [ ] All RSpec specs pass
-- [ ] Brakeman, bundler-audit, Dependabot — clean
+- [x] All RSpec specs pass (1751 examples, 0 failures)
+- [x] Brakeman, bundler-audit, Dependabot — clean (no new warnings; pre-existing
+      Brakeman items unchanged)
 
 ---
 

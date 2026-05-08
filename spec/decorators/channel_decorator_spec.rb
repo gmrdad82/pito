@@ -1,17 +1,27 @@
 require "rails_helper"
 
+# Phase 7 Path A2 (literal full retract). The `connected` and
+# `syncing` placeholder booleans are gone; `connected` is now a
+# derived "yes" / "no" string in the JSON wire shape (true when
+# `oauth_identity_id` is set), and `syncing` is dropped entirely.
 RSpec.describe ChannelDecorator do
-  let(:channel) { create(:channel, :fully_loaded) }
-  let(:decorator) { described_class.new(channel) }
-
   describe "#as_summary_json" do
+    let(:identity) { create(:google_identity) }
+    let(:channel) do
+      create(:channel,
+             :starred,
+             oauth_identity: identity,
+             last_synced_at: Time.current)
+    end
+    let(:decorator) { described_class.new(channel) }
     let(:json) { decorator.as_summary_json }
 
-    it "includes the new schema keys" do
+    it "includes the post-A2 schema keys" do
       expect(json).to include(
-        :id, :tenant_id, :channel_url, :star, :connected, :syncing,
+        :id, :tenant_id, :channel_url, :star, :connected,
         :last_synced_at, :created_at, :updated_at
       )
+      expect(json).not_to have_key(:syncing)
     end
 
     it "exposes tenant_id (required by the pito-sh Channel struct)" do
@@ -22,7 +32,6 @@ RSpec.describe ChannelDecorator do
     it "exposes the boolean flags as yes/no strings (boundary convention)" do
       expect(json[:star]).to eq("yes")
       expect(json[:connected]).to eq("yes")
-      expect(json[:syncing]).to eq("yes")
     end
 
     it "renders 'no' strings for false flags" do
@@ -30,7 +39,6 @@ RSpec.describe ChannelDecorator do
       plain_json = described_class.new(plain).as_summary_json
       expect(plain_json[:star]).to eq("no")
       expect(plain_json[:connected]).to eq("no")
-      expect(plain_json[:syncing]).to eq("no")
     end
 
     it "renders timestamps in ISO 8601" do
@@ -41,12 +49,15 @@ RSpec.describe ChannelDecorator do
   end
 
   describe "#as_detail_json" do
-    before { create(:video, channel: channel) }
-
+    let(:channel) { create(:channel) }
+    let(:decorator) { described_class.new(channel) }
     let(:json) { decorator.as_detail_json }
 
+    before { create(:video, channel: channel) }
+
     it "includes summary keys plus video_count" do
-      expect(json).to include(:id, :tenant_id, :channel_url, :star, :connected, :syncing, :video_count)
+      expect(json).to include(:id, :tenant_id, :channel_url, :star, :connected, :video_count)
+      expect(json).not_to have_key(:syncing)
     end
 
     it "counts associated videos" do
@@ -55,6 +66,8 @@ RSpec.describe ChannelDecorator do
   end
 
   describe "schema cleanup" do
+    let(:decorator) { described_class.new(create(:channel)) }
+
     it "no longer responds to formatted_subscriber_count" do
       expect(decorator).not_to respond_to(:formatted_subscriber_count)
     end

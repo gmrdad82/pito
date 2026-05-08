@@ -29,7 +29,7 @@ module Confirmable
     unless TYPES.include?(@type)
       respond_to do |format|
         format.html { redirect_to root_path, alert: "unknown type." }
-        format.json { render json: { error: "unknown type" }, status: :unprocessable_entity }
+        format.json { render json: { error: "unknown type" }, status: :unprocessable_content }
       end
       return
     end
@@ -39,7 +39,7 @@ module Confirmable
     if ids.empty? || @items.blank? || (@items.respond_to?(:empty?) && @items.empty?)
       respond_to do |format|
         format.html { redirect_to cancel_path, alert: "nothing to #{action_verb}." }
-        format.json { render json: { error: "nothing to #{action_verb}" }, status: :unprocessable_entity }
+        format.json { render json: { error: "nothing to #{action_verb}" }, status: :unprocessable_content }
       end
       return
     end
@@ -85,6 +85,8 @@ module Confirmable
     when "channel"
       Channel.where(id: ids).order(channel_url: :asc)
     when "video"
+      # Phase 7 Path A2 — Video has no `title` to order by. Order by
+      # youtube_video_id (stable, monotonic enough for preview rows).
       Video.includes(:channel)
            .left_joins(:video_stats)
            .select(
@@ -96,7 +98,7 @@ module Confirmable
            )
            .where(id: ids)
            .group("videos.id")
-           .order(title: :asc)
+           .order(youtube_video_id: :asc)
     when "project"
       Project.where(id: ids).order(name: :asc)
     when "collection"
@@ -116,7 +118,7 @@ module Confirmable
   def label_for(item)
     case item
     when Channel    then item.channel_url
-    when Video      then item.title
+    when Video      then item.youtube_video_id
     when Project    then item.name
     when Collection then item.name
     when Game       then item.title

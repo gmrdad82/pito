@@ -14,7 +14,6 @@
     <span class="text-muted">filter:</span>
     <%= render(FilterChipComponent.new(label: "starred", param: "star", current_params: request.query_parameters, frame: "channels-index-table")) %>
     <%= render(FilterChipComponent.new(label: "connected", param: "connected", current_params: request.query_parameters, frame: "channels-index-table")) %>
-    <%= render(FilterChipComponent.new(label: "syncing", param: "syncing", current_params: request.query_parameters, frame: "channels-index-table")) %>
     <% if filters.any? %>
       <%= render(BracketedLinkComponent.new(label: "clear", href: channels_path, data: { turbo_frame: "channels-index-table", turbo_action: "advance" })) %>
     <% end %>
@@ -120,9 +119,7 @@
               </td>
               <td class="num"><%= channel.star? ? "yes" : "no" %></td>
               <td class="num">
-                <% if channel.syncing? %>
-                  <strong>syncing</strong>
-                <% elsif channel.last_synced_at.present? %>
+                <% if channel.last_synced_at.present? %>
                   <%= compact_time_ago(channel.last_synced_at) %>
                 <% else %>
                   —

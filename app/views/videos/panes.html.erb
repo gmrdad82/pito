@@ -52,7 +52,7 @@
             <%= link_to "▼", "#{panes_videos_path}?ids=#{swapped.join(',')}", class: "pane-arrow pane-arrow-down", title: "move down" %>
           <% end %>
           <div class="dot-list" style="margin-bottom: 4px;">
-            <h2><%= video.title %></h2>
+            <h2>video #<%= video.id %></h2>
             <%= render(BracketedLinkComponent.new(label: "focus", href: video_path(video))) %>
             <% remaining_ids = pane_ids.reject { |id| id == video.id } %>
             <% if remaining_ids.size > 1 %>

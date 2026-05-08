@@ -43,10 +43,17 @@ RSpec.describe "Channels", type: :request do
         expect(response.body).not_to match(/<th[^>]*>\s*OAuth\s*</)
       end
 
+      # Phase 7 Path A2 — `syncing` is gone entirely (column dropped)
       it "does not render a separate syncing column header" do
         get channels_path
-        # last sync remains, syncing-as-its-own-header is gone
         expect(response.body).not_to match(/<th[^>]*>\s*syncing\s*</)
+      end
+
+      # Phase 7 Path A2 — `connected` filter chip stays (derived from
+      # oauth_identity_id), `syncing` filter chip is gone.
+      it "does not render the syncing filter chip" do
+        get channels_path
+        expect(response.body).not_to match(/md-check-static-label">syncing/)
       end
 
       it "displays 5 columns (select, name, URL, star, last sync)" do
@@ -432,7 +439,8 @@ RSpec.describe "Channels", type: :request do
       end
 
       it "combines star=yes and connected=yes (AND-logic)" do
-        both = create(:channel, star: true, connected: true)
+        identity = create(:google_identity)
+        both = create(:channel, star: true, oauth_identity: identity)
         get channels_path, params: { star: "yes", connected: "yes" }
         expect(response.body).to include(both.channel_url)
         expect(response.body).not_to include(starred.channel_url)
@@ -442,8 +450,9 @@ RSpec.describe "Channels", type: :request do
 
       it "renders FilterChipComponent for each filter" do
         get channels_path
-        # Three filter chips: starred, connected, syncing
-        expect(response.body.scan(/class="filter-chip"/).size).to be >= 3
+        # Phase 7 Path A2 — two filter chips: starred, connected
+        # (syncing chip retired with the column drop).
+        expect(response.body.scan(/class="filter-chip"/).size).to be >= 2
         expect(response.body).to include("md-check-static")
         expect(response.body).to include("md-check-static-label")
       end
@@ -465,11 +474,13 @@ RSpec.describe "Channels", type: :request do
         json = JSON.parse(response.body)
         expect(json).to be_an(Array)
         row = json.first
-        expect(row).to include("id", "tenant_id", "channel_url", "star", "connected", "syncing")
+        # Phase 7 Path A2 — `connected` is derived from oauth_identity_id;
+        # `syncing` field is dropped from the JSON wire shape.
+        expect(row).to include("id", "tenant_id", "channel_url", "star", "connected")
+        expect(row).not_to have_key("syncing")
         expect(row["tenant_id"]).to be_a(Integer)
         expect(row["star"]).to eq("yes")
         expect(row["connected"]).to eq("no")
-        expect(row["syncing"]).to eq("no")
       end
     end
 
@@ -598,11 +609,12 @@ RSpec.describe "Channels", type: :request do
     it "returns detail JSON with yes/no strings for boolean flags" do
       get channel_path(channel, format: :json)
       json = JSON.parse(response.body)
-      expect(json).to include("id", "tenant_id", "channel_url", "star", "connected", "syncing", "video_count")
+      # Phase 7 Path A2 — `connected` is derived; `syncing` is dropped.
+      expect(json).to include("id", "tenant_id", "channel_url", "star", "connected", "video_count")
+      expect(json).not_to have_key("syncing")
       expect(json["tenant_id"]).to be_a(Integer)
       expect(json["star"]).to eq("no")
       expect(json["connected"]).to eq("no")
-      expect(json["syncing"]).to eq("no")
     end
 
     it "returns JSON 404 for unknown channel (not HTML)" do
@@ -625,21 +637,24 @@ RSpec.describe "Channels", type: :request do
       expect(response.body).to match(/starred<\/td>\s*<td>\s*yes\s*<form[^>]*>.*?\[unstar\].*?<\/form>\s*<\/td>/m)
     end
 
-    it "renders inline [connect] toggle next to the connected row" do
+    # Phase 7 Path A2 — inline [connect]/[disconnect] toggle on the
+    # channel show page is retired. Connection state is OAuth-managed
+    # at /settings/youtube; the show page just displays the current
+    # state ("yes"/"no") with no inline action.
+    it "displays the connected state without an inline toggle" do
       get channel_path(channel)
-      expect(response.body).to match(/connected<\/td>\s*<td>\s*no\s*<form[^>]*>.*?\[connect\].*?<\/form>\s*<\/td>/m)
+      expect(response.body).to match(/connected<\/td>\s*<td>\s*\n?\s*no\b/)
+      expect(response.body).not_to match(/connected<\/td>\s*<td>\s*no\s*<form/m)
     end
 
-    it "renders inline [disconnect] when channel is already connected" do
+    it "shows 'yes' when the channel has an oauth_identity" do
       connected = create(:channel, :connected)
       get channel_path(connected)
-      expect(response.body).to match(/connected<\/td>\s*<td>\s*yes\s*<form[^>]*>.*?\[disconnect\].*?<\/form>\s*<\/td>/m)
+      expect(response.body).to match(/connected<\/td>\s*<td>\s*\n?\s*yes\b/)
     end
 
     it "does not render the legacy top-of-page star/connect action bar" do
       get channel_path(channel)
-      # The toggles moved inline into the table; the top-of-page action row
-      # above the pane should no longer include them.
       header_section = response.body.split('<table class="detail-table"').first
       expect(header_section).not_to include("[star]")
       expect(header_section).not_to include("[unstar]")
@@ -708,7 +723,7 @@ RSpec.describe "Channels", type: :request do
 
     it "returns 422 on invalid URL" do
       post channels_path, params: { channel: { channel_url: "not-a-url" } }
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
     end
 
     it "returns JSON 201 on success" do
@@ -720,7 +735,7 @@ RSpec.describe "Channels", type: :request do
 
     it "returns JSON 422 with errors on invalid input" do
       post channels_path(format: :json), params: { channel: { channel_url: "" } }
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
       json = JSON.parse(response.body)
       expect(json["errors"]).to be_an(Array)
     end
@@ -757,15 +772,17 @@ RSpec.describe "Channels", type: :request do
   describe "PATCH /channels/:id" do
     let!(:channel) { create(:channel) }
 
-    it "permits star and connected as yes/no strings" do
-      patch channel_path(channel), params: { channel: { star: "yes", connected: "yes" } }
+    # Phase 7 Path A2 — the `connected` boolean is gone; only `star`
+    # is mutable through PATCH /channels/:id. Connection state is
+    # OAuth-managed at /settings/youtube.
+    it "permits star as a yes/no string" do
+      patch channel_path(channel), params: { channel: { star: "yes" } }
       expect(response).to redirect_to(channel_path(channel))
       channel.reload
       expect(channel.star).to be(true)
-      expect(channel.connected).to be(true)
     end
 
-    it "silently ignores channel_url changes (boundary coercion only reads star/connected)" do
+    it "silently ignores channel_url changes (boundary coercion only reads star)" do
       patch channel_path(channel), params: { channel: { channel_url: other_valid_url, star: "yes" } }
       channel.reload
       expect(channel.channel_url).not_to eq(other_valid_url)
@@ -796,19 +813,19 @@ RSpec.describe "Channels", type: :request do
 
     it "JSON rejects raw boolean true with 422" do
       patch channel_path(channel, format: :json), params: { channel: { star: true } }
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
       channel.reload
       expect(channel.star).to be(false)
     end
 
     it "JSON rejects star=\"1\" with 422 (legacy values not accepted)" do
       patch channel_path(channel, format: :json), params: { channel: { star: "1" } }
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
     end
 
     it "JSON rejects star=\"true\" with 422" do
       patch channel_path(channel, format: :json), params: { channel: { star: "true" } }
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
     end
 
     it "JSON ignores absent star field (no-op update succeeds)" do
@@ -871,9 +888,9 @@ RSpec.describe "Channels", type: :request do
   describe "GET /channels/:id/videos (nested videos)" do
     let!(:channel) { create(:channel) }
     let!(:other_channel) { create(:channel) }
-    let!(:video1) { create(:video, channel: channel, title: "first") }
-    let!(:video2) { create(:video, channel: channel, title: "second") }
-    let!(:other_video) { create(:video, channel: other_channel, title: "other") }
+    let!(:video1) { create(:video, channel: channel) }
+    let!(:video2) { create(:video, channel: channel) }
+    let!(:other_video) { create(:video, channel: other_channel) }
 
     it "returns 200 JSON with only the videos for that channel" do
       get videos_channel_path(channel, format: :json)
@@ -881,19 +898,28 @@ RSpec.describe "Channels", type: :request do
       expect(response.media_type).to eq("application/json")
       json = response.parsed_body
       expect(json).to be_an(Array)
-      titles = json.map { |v| v["title"] }
-      expect(titles).to contain_exactly("first", "second")
-      expect(titles).not_to include("other")
+      youtube_ids = json.map { |v| v["youtube_video_id"] }
+      expect(youtube_ids).to contain_exactly(video1.youtube_video_id, video2.youtube_video_id)
+      expect(youtube_ids).not_to include(other_video.youtube_video_id)
     end
 
+    # Phase 7 Path A2 — Video JSON summary collapses around the
+    # surviving columns: id, youtube_video_id, channel_id, channel_url,
+    # star, last_synced_at, plus aggregate stats and `trend`. Title /
+    # description / privacy_status / published_at / duration_seconds
+    # are gone.
     it "returns the video summary shape pito-sh expects" do
       get videos_channel_path(channel, format: :json)
       row = response.parsed_body.first
       expect(row).to include(
-        "id", "youtube_video_id", "title", "channel_id", "channel_url",
-        "privacy_status", "published_at", "duration_seconds",
-        "views", "likes", "comments", "watch_time_minutes", "trend"
+        "id", "youtube_video_id", "channel_id", "channel_url",
+        "star", "views", "likes", "comments", "watch_time_minutes",
+        "last_synced_at", "trend"
       )
+      expect(row).not_to have_key("title")
+      expect(row).not_to have_key("privacy_status")
+      expect(row).not_to have_key("published_at")
+      expect(row).not_to have_key("duration_seconds")
     end
 
     it "returns 404 for an unknown channel" do

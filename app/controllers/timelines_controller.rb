@@ -38,7 +38,7 @@ class TimelinesController < ApplicationController
     if @timeline.update(update_params)
       redirect_to project_path(@timeline.project), notice: "timeline updated."
     else
-      render :show, status: :unprocessable_entity
+      render :show, status: :unprocessable_content
     end
   end
 
@@ -83,10 +83,11 @@ class TimelinesController < ApplicationController
     end
   end
 
-  # Phase 4 §11.1 hand-off: when `upload!` fires, the caller passes a
-  # YouTube URL and the transition creates or links a Video. Phase 7 will
-  # replace this stub with real YouTube metadata sync; for now we record
-  # the URL in a placeholder Video tied to a sentinel channel.
+  # Phase 7 Path A2 (literal full retract). When `upload!` fires, the
+  # caller passes a YouTube URL and the transition creates or links a
+  # Video. Video is now a thin YouTube-reference record (no title/
+  # description/etc.); we just stamp the youtube_video_id on the row.
+  # Phase 8+ will populate metadata when real YouTube sync ships.
   def link_or_create_video_for_upload(youtube_url)
     return if youtube_url.blank?
 
@@ -95,7 +96,6 @@ class TimelinesController < ApplicationController
 
     video = Video.find_or_initialize_by(youtube_video_id: youtube_id)
     if video.new_record?
-      video.title = "Pending sync — #{youtube_id}"
       video.channel ||= Channel.first
       return unless video.channel # nothing to attach to yet
       video.save!
