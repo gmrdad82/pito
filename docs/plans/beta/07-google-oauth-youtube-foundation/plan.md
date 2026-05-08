@@ -205,9 +205,9 @@ the skeleton:
 - [x] `GoogleIdentity` model: associations, validations, expiry helper
       (`access_token_expired?`, `needs_reauth?`)
 - [x] Migration: add `oauth_identity_id`, `connected` to `channels` table;
-      nullable; existing seeded channels stay disconnected
-      (note: `connected` column already existed from Phase 4 placeholder; this
-      dispatch added `oauth_identity_id` only)
+      nullable; existing seeded channels stay disconnected (note: `connected`
+      column already existed from Phase 4 placeholder; this dispatch added
+      `oauth_identity_id` only)
 - [x] Update `Channel` model:
       `belongs_to :oauth_identity, class_name: 'GoogleIdentity', optional: true`
 - [x] Migration: create `youtube_api_calls` audit table with the columns listed
@@ -248,7 +248,8 @@ the skeleton:
       exposes methods `channels_list`, `videos_list`, `playlists_list`,
       `analytics_query` (and any others as needed)
 - [x] Quota cost map as a frozen Ruby constant; documented in
-      `pito/docs/youtube_quota.md` (constant frozen; doc deferred to docs-keeper)
+      `pito/docs/youtube_quota.md` (constant frozen; doc deferred to
+      docs-keeper)
 - [x] Pre-call quota check: estimate cost, query today's usage, raise
       `YouTube::QuotaExhaustedError` if exceeding
 - [x] Post-call audit: record `YoutubeApiCall` row with actual outcome and units
@@ -258,10 +259,10 @@ the skeleton:
 - [x] Exponential backoff on 5xx (max 3 retries, 1s/2s/4s)
 - [ ] Specs with VCR cassettes (recorded against the user's real channel once,
       anonymized): happy path, quota check enforcement, token refresh, backoff,
-      `needs_reauth` flow
-      (deferred — decision 7.16: WebMock stubs against canned response shapes
-      land in this dispatch; VCR cassettes recorded against the user's real
-      account replace them in a follow-up post-Phase-7-implementation session)
+      `needs_reauth` flow (deferred — decision 7.16: WebMock stubs against
+      canned response shapes land in this dispatch; VCR cassettes recorded
+      against the user's real account replace them in a follow-up
+      post-Phase-7-implementation session)
 - [ ] All cassettes scrubbed of bearer tokens, refresh tokens, API keys, PII
       before commit (deferred — gates on the cassette-recording session above)
 
@@ -279,11 +280,11 @@ the skeleton:
 ### Documentation
 
 - [ ] `pito/docs/architecture.md`: Google OAuth section, YouTube client
-      architecture, quota strategy, audit table reference
-      (out of rails-impl lane — flagged for the docs-keeper agent)
+      architecture, quota strategy, audit table reference (out of rails-impl
+      lane — flagged for the docs-keeper agent)
 - [ ] `pito/docs/youtube_quota.md` (new): per-endpoint quota costs, daily
-      budget, what happens on exhaustion, the audit table reference
-      (out of rails-impl lane — flagged for the docs-keeper agent)
+      budget, what happens on exhaustion, the audit table reference (out of
+      rails-impl lane — flagged for the docs-keeper agent)
 - [ ] `pito/docs/setup.md`: Google Cloud project setup steps for fresh local
       installs (out of rails-impl lane — flagged for the docs-keeper agent)
 

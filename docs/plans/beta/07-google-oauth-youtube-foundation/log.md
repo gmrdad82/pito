@@ -782,8 +782,7 @@ record):
 - **views by channel** — multi-series `line_chart` of per-channel
   `VideoStat.sum(:views)` grouped by `(channel_id, date)`. Series labels were
   `"channel #<id>"` placeholders post Path A2 (Channel lost its synced title).
-- **daily engagement** — two-series `line_chart` of likes + comments daily
-  sums.
+- **daily engagement** — two-series `line_chart` of likes + comments daily sums.
 - **chart toolbar** — `[ 7d / 30d / 90d / 1y / all ]` bracketed range selector.
 - **per-chart `[ ] sync` checkboxes** — bracketed `CheckboxComponent`s wired
   into a `chart-sync` Stimulus controller that persisted crosshair-sync opt-in
@@ -791,13 +790,12 @@ record):
 
 Files modified or deleted in this dispatch:
 
-- `app/views/dashboard/index.html.erb` — three chart blocks, the
-  `chart-sync` wrapper, the `ChartToolbarComponent` render, and the per-chart
-  `[ sync ]` checkboxes are gone. The data branch now renders one bracketed
-  placeholder line:
-  `[ dashboard reset — charts return with intentional metrics in a later
-  phase. ]`. The empty-state branch (`bin/rails db:seed` copy block) is
-  unchanged.
+- `app/views/dashboard/index.html.erb` — three chart blocks, the `chart-sync`
+  wrapper, the `ChartToolbarComponent` render, and the per-chart `[ sync ]`
+  checkboxes are gone. The data branch now renders one bracketed placeholder
+  line:
+  `[ dashboard reset — charts return with intentional metrics in a later phase. ]`.
+  The empty-state branch (`bin/rails db:seed` copy block) is unchanged.
 - `app/controllers/dashboard_controller.rb` — `RANGES`, `@daily_views`,
   `@views_by_channel`, `@daily_engagement`, `@range`, `date_range`,
   `hash_to_tuples`, and `views_by_channel_tuples` deleted. The action now sets
@@ -818,8 +816,8 @@ Files modified or deleted in this dispatch:
   `daily engagement`, `top videos`) and the counts-only JSON shape.
 - `spec/mcp/tools/get_dashboard_spec.rb` — collapsed to two specs covering the
   new five-count payload (populated + empty-state).
-- `app/assets/tailwind/application.css` — comment on the `.md-check-link`
-  rule no longer mentions chart-sync (filter chips are the remaining user).
+- `app/assets/tailwind/application.css` — comment on the `.md-check-link` rule
+  no longer mentions chart-sync (filter chips are the remaining user).
 
 Plumbing left intact (per the user's "remember what we had" directive — these
 are design-system surfaces that may serve future, different metrics):
@@ -851,18 +849,17 @@ Cross-stack contract (post-sweep) — `/dashboard.json` returns:
 }
 ```
 
-Test result delta vs. the 1686/0/0 Path-A2 baseline: the chart-toolbar
-component spec (4 examples) is gone; the dashboard request spec was rewritten
-(13 examples down to 8); the get_dashboard MCP spec was rewritten (4 examples
-down to 2). Net change: -11 examples. Full suite stays green; rubocop clean;
-brakeman unchanged.
+Test result delta vs. the 1686/0/0 Path-A2 baseline: the chart-toolbar component
+spec (4 examples) is gone; the dashboard request spec was rewritten (13 examples
+down to 8); the get_dashboard MCP spec was rewritten (4 examples down to 2). Net
+change: -11 examples. Full suite stays green; rubocop clean; brakeman unchanged.
 
 Manual test plan addendum:
 
 1. Visit `/` — confirm the page renders with the bracketed placeholder line and
    no charts / no `[ 7d / 30d / 90d ]` toolbar.
-2. `curl -s http://localhost:3000/dashboard.json | jq` — confirm the response
-   is exactly `{"video_count": <N>, "channel_count": <N>}`.
+2. `curl -s http://localhost:3000/dashboard.json | jq` — confirm the response is
+   exactly `{"video_count": <N>, "channel_count": <N>}`.
 3. Run the `pito` CLI (separate dispatch) against the running Rails server —
    confirm the dashboard screen renders the five-counts block without
    deserialization errors.
@@ -875,106 +872,103 @@ their decorators (`as_summary_json` / `as_detail_json`) emit the trimmed wire
 shape. The CLI's matching Rust structs in `extras/cli/src/api/models.rs` were
 still demanding the dropped metadata (`syncing` on Channel; `title`,
 `privacy_status`, `duration_seconds`, `published_at` on Video) and would have
-failed to deserialize against the live Rails server. This dispatch retracts
-the structs in lockstep and slims every TUI consumer that touched the dropped
+failed to deserialize against the live Rails server. This dispatch retracts the
+structs in lockstep and slims every TUI consumer that touched the dropped
 fields.
 
 What landed:
 
 - `extras/cli/src/api/models.rs`:
-  - `Channel`: dropped `syncing`. Kept `id`, `tenant_id`, `channel_url`,
-    `star`, `connected`, `last_synced_at`, `created_at`, `updated_at` —
-    matches the live `ChannelDecorator#as_summary_json` shape (note: Rails
-    still emits `connected` as a derived `"yes"` / `"no"` string from
-    `oauth_identity_id.present?`, and still emits `tenant_id`, so both stay
-    on the struct).
+  - `Channel`: dropped `syncing`. Kept `id`, `tenant_id`, `channel_url`, `star`,
+    `connected`, `last_synced_at`, `created_at`, `updated_at` — matches the live
+    `ChannelDecorator#as_summary_json` shape (note: Rails still emits
+    `connected` as a derived `"yes"` / `"no"` string from
+    `oauth_identity_id.present?`, and still emits `tenant_id`, so both stay on
+    the struct).
   - `Video`: dropped `title`, `privacy_status`, `duration_seconds`,
     `published_at`. Added `star` (yes/no) and `last_synced_at` (which
     `VideoDecorator` does emit). Kept `youtube_video_id`, `channel_id`,
-    `channel_url`, `views`, `likes`, `comments`, `watch_time_minutes`,
-    `trend` (Rails emits `trend: nil` post-A2; the field stays
-    `Option<String>` so the CLI gracefully falls back to the `—` placeholder
-    forever).
-  - The struct's `oauth_identity_id` field that the dispatch goal mentioned
-    is NOT on the struct — Rails hides the FK behind the derived `connected`
-    boolean. Per the spec's overriding directive ("Match the Rust structs
-    to whatever Rails actually emits"), the wire shape wins.
+    `channel_url`, `views`, `likes`, `comments`, `watch_time_minutes`, `trend`
+    (Rails emits `trend: nil` post-A2; the field stays `Option<String>` so the
+    CLI gracefully falls back to the `—` placeholder forever).
+  - The struct's `oauth_identity_id` field that the dispatch goal mentioned is
+    NOT on the struct — Rails hides the FK behind the derived `connected`
+    boolean. Per the spec's overriding directive ("Match the Rust structs to
+    whatever Rails actually emits"), the wire shape wins.
 - `extras/cli/src/api/client.rs` (MockClient):
   - `seed_channels`: `syncing` field removed; the previous "channel 2 is
-    mid-sync" fixture state migrates to a CLI-local `syncing_ids` HashSet
-    on `MockClient` so the bulk-sync "skipped already syncing" test branch
-    keeps working without a wire field that no longer exists.
+    mid-sync" fixture state migrates to a CLI-local `syncing_ids` HashSet on
+    `MockClient` so the bulk-sync "skipped already syncing" test branch keeps
+    working without a wire field that no longer exists.
   - `seed_videos`: rewritten as a thin `VideoSeed` struct table — 17 video
-    fixtures with youtube id, channel id, star, counts, last_synced_at,
-    no titles or privacy or durations.
-  - `bulk_sync_channels`: skip-detection now reads the `syncing_ids` set
-    instead of `c.syncing`; `update_channel` no longer touches the field;
+    fixtures with youtube id, channel id, star, counts, last_synced_at, no
+    titles or privacy or durations.
+  - `bulk_sync_channels`: skip-detection now reads the `syncing_ids` set instead
+    of `c.syncing`; `update_channel` no longer touches the field;
     `bulk_delete_channels` clears the marker for any deleted ids.
   - `search`: filter substring now matches on `youtube_video_id` and
     `channel_url` instead of the gone `title` field. Mock unit test updated.
 - `extras/cli/src/ui/channels.rs`:
   - `ChannelRow` drops `syncing`. The "syncing" animated indicator on the
-    last-sync column is now driven entirely by the CLI-local
-    `SyncAnim::ids` (post-confirm polling window) — there is no longer a
-    server-side sync flag the wire could pass.
-  - `ChannelFilter::Syncing` is gone (`f y` filter chip removed). Only
-    `f s` (starred) and `f c` (connected) remain.
-  - `last_sync_cell` and `last_sync_cell_animated` lose their `syncing:
-    bool` parameter — the animation hooks off the CLI-local polling state.
-  - Tests rewritten: time-sensitive bucket assertions replaced with
-    structural checks so the suite isn't fragile against the wall clock.
+    last-sync column is now driven entirely by the CLI-local `SyncAnim::ids`
+    (post-confirm polling window) — there is no longer a server-side sync flag
+    the wire could pass.
+  - `ChannelFilter::Syncing` is gone (`f y` filter chip removed). Only `f s`
+    (starred) and `f c` (connected) remain.
+  - `last_sync_cell` and `last_sync_cell_animated` lose their `syncing: bool`
+    parameter — the animation hooks off the CLI-local polling state.
+  - Tests rewritten: time-sensitive bucket assertions replaced with structural
+    checks so the suite isn't fragile against the wall clock.
 - `extras/cli/src/ui/channel_detail.rs`:
-  - `ChannelInfo` drops `syncing`. The "Last sync" KV row prints the
-    relative time straight from `last_synced_at` (em-dash placeholder when
-    null).
-  - `ChannelVideoRow` is now `id, youtube_video_id, star, views, likes,
-    comments, last_synced_at` — title / privacy / published / duration
-    columns are gone. Per-row layout shows youtube id + star marker +
-    counts + last sync.
+  - `ChannelInfo` drops `syncing`. The "Last sync" KV row prints the relative
+    time straight from `last_synced_at` (em-dash placeholder when null).
+  - `ChannelVideoRow` is now
+    `id, youtube_video_id, star, views, likes, comments, last_synced_at` — title
+    / privacy / published / duration columns are gone. Per-row layout shows
+    youtube id + star marker + counts + last sync.
 - `extras/cli/src/ui/videos.rs`:
   - `VideoRow` drops `title`, `privacy_status`, `published_at`,
     `duration_seconds`. Adds `star`. Columns reshuffled: `youtube id`,
-    `channel`, `★`, `views`, `trend`, `likes`, `chats`, `watch`. Trend
-    column stays (Rails always emits null but we render `—`).
+    `channel`, `★`, `views`, `trend`, `likes`, `chats`, `watch`. Trend column
+    stays (Rails always emits null but we render `—`).
 - `extras/cli/src/ui/video_detail.rs`:
   - `VideoInfo` rewritten around the survivors: `id`, `youtube_video_id`,
     `channel_id`, `channel_url`, `star`, `views`, `likes`, `comments`,
     `watch_time_minutes`, `last_synced_at`. The screen title becomes
-    `videos › <youtube_video_id>`. Metadata pane shows youtube id,
-    channel, starred, totals (views · likes · chats · watch), last sync.
-    The recent-stats table (powered by VideoStat) is unchanged — that
-    endpoint still emits per-day rows.
+    `videos › <youtube_video_id>`. Metadata pane shows youtube id, channel,
+    starred, totals (views · likes · chats · watch), last sync. The recent-stats
+    table (powered by VideoStat) is unchanged — that endpoint still emits
+    per-day rows.
 - `extras/cli/src/ui/search.rs`:
   - `SearchVideoHit`: dropped `title`, `privacy_status`, `duration_seconds`.
     Added `youtube_video_id`, `star`, `views`. Result rows render
     `youtube id  channel  ★  views`.
-- `extras/cli/src/ui/operation_progress.rs`: test fixture `channel()` no
-  longer sets the gone `syncing` field.
+- `extras/cli/src/ui/operation_progress.rs`: test fixture `channel()` no longer
+  sets the gone `syncing` field.
 - `extras/cli/src/app.rs`:
   - All transformations (`with_client`, `refresh_channels`,
     `open_channel_detail`, `refresh_channel_detail`, `open_video_detail`,
-    `perform_search`) updated to build the new TUI structs from the new
-    API structs.
-  - `tick`'s post-sync polling loop no longer reads `c.syncing` to decide
-    when to stop. The bulk-operation progress overlay is the durable
-    terminal-state signal for the user; the `SyncPolling` window's only
-    remaining job is animating the row indicator on the affected rows
-    during the first refetch after confirm. Single-tick clear matches
-    near-instant `ChannelSync` completion in production. Deadline still
-    enforced.
-- `extras/cli/src/keys.rs`: `f y` filter binding removed alongside the
-  retired `ChannelFilter::Syncing` variant.
+    `perform_search`) updated to build the new TUI structs from the new API
+    structs.
+  - `tick`'s post-sync polling loop no longer reads `c.syncing` to decide when
+    to stop. The bulk-operation progress overlay is the durable terminal-state
+    signal for the user; the `SyncPolling` window's only remaining job is
+    animating the row indicator on the affected rows during the first refetch
+    after confirm. Single-tick clear matches near-instant `ChannelSync`
+    completion in production. Deadline still enforced.
+- `extras/cli/src/keys.rs`: `f y` filter binding removed alongside the retired
+  `ChannelFilter::Syncing` variant.
 
 How the screens look now:
 
 - **Channels list:** URL · star · connected · last sync. Star and connected
-  badges live; the syncing column is gone — the syncing animation only
-  fires while the CLI is polling after a sync confirm.
-- **Videos list:** youtube id · channel id · ★ · views · trend · likes ·
-  chats · watch. No more title / privacy / duration — the row is identified
-  by its YouTube id.
-- **Channel detail:** unchanged KV pairs minus the syncing line; per-video
-  rows show youtube id + star + counts + last sync.
+  badges live; the syncing column is gone — the syncing animation only fires
+  while the CLI is polling after a sync confirm.
+- **Videos list:** youtube id · channel id · ★ · views · trend · likes · chats ·
+  watch. No more title / privacy / duration — the row is identified by its
+  YouTube id.
+- **Channel detail:** unchanged KV pairs minus the syncing line; per-video rows
+  show youtube id + star + counts + last sync.
 - **Video detail:** title bar reads `videos › <youtube_video_id>`; metadata
   shows youtube id, channel, starred, totals line, last sync. Per-day stats
   table is untouched.
@@ -982,21 +976,19 @@ How the screens look now:
 
 Tests / lints / fmt:
 
-- 127 lib + 202 bin + 20 integration = 349 tests pass (delta vs the
-  previous 343-test baseline: +6 examples, all on the slimmed model
-  shapes).
+- 127 lib + 202 bin + 20 integration = 349 tests pass (delta vs the previous
+  343-test baseline: +6 examples, all on the slimmed model shapes).
 - `cargo clippy --all-targets --all-features -- -D warnings` clean.
-- `cargo fmt --check` clean on every touched file (pre-existing fmt drift
-  in unrelated files left alone per the established convention).
+- `cargo fmt --check` clean on every touched file (pre-existing fmt drift in
+  unrelated files left alone per the established convention).
 
 Cross-stack ambiguity surfaced:
 
-- The dispatch goal's "Final shapes" block listed `oauth_identity_id` on
-  Channel and dropped `tenant_id`, `connected`, `views/likes/comments/etc.`
-  from Video. Rails actually emits `tenant_id` and `connected` on Channel
-  and the full count set on Video. The dispatch's overriding directive
-  ("Match the Rust structs to whatever Rails actually emits") settles the
-  contradiction in favor of the wire shape; the goal's "Final shapes" was
-  a more aggressive trim than the decorators landed. If the Rails dispatch
-  intends to slim the decorators further, the CLI follows in a subsequent
-  pass.
+- The dispatch goal's "Final shapes" block listed `oauth_identity_id` on Channel
+  and dropped `tenant_id`, `connected`, `views/likes/comments/etc.` from Video.
+  Rails actually emits `tenant_id` and `connected` on Channel and the full count
+  set on Video. The dispatch's overriding directive ("Match the Rust structs to
+  whatever Rails actually emits") settles the contradiction in favor of the wire
+  shape; the goal's "Final shapes" was a more aggressive trim than the
+  decorators landed. If the Rails dispatch intends to slim the decorators
+  further, the CLI follows in a subsequent pass.

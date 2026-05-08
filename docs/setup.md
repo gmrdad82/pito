@@ -32,29 +32,26 @@ Expected: `pito-postgres-1`, `pito-redis-1`, `pito-meilisearch-1` all
 `(healthy)`.
 
 Volumes are named with the `pito-` prefix (`pito-postgres-data`,
-`pito-redis-data`, `pito-meilisearch-data`, `pito-notes`, `pito-assets`)
-so they're easy to spot in `docker volume ls` next to other projects'
-volumes. The first three back the running services. `pito-notes` and
-`pito-assets` are reserved for the Hetzner cutover (Phase 16) — declared
-in `docker-compose.yml` so the names are pinned, currently unmounted
-because Rails runs natively on the dev host and reads `PITO_NOTES_PATH`
-/ `PITO_ASSETS_PATH` from the environment.
+`pito-redis-data`, `pito-meilisearch-data`, `pito-notes`, `pito-assets`) so
+they're easy to spot in `docker volume ls` next to other projects' volumes. The
+first three back the running services. `pito-notes` and `pito-assets` are
+reserved for the Hetzner cutover (Phase 16) — declared in `docker-compose.yml`
+so the names are pinned, currently unmounted because Rails runs natively on the
+dev host and reads `PITO_NOTES_PATH` / `PITO_ASSETS_PATH` from the environment.
 
-`pito-assets` is the on-disk home for Pito-managed binary assets:
-Active Storage's `:local` service root (game cover art today, future
-channel banners / video thumbnails) and footage thumbnails (Phase 7.5
-§06). It is NOT a copy of source footage — `Footage#local_path`
-continues to point at the user's drive; only Pito-derived assets land
-under the volume. The `Pito::AssetsRoot` helper resolves absolute
-paths under the root for non-Active-Storage byte writes.
+`pito-assets` is the on-disk home for Pito-managed binary assets: Active
+Storage's `:local` service root (game cover art today, future channel banners /
+video thumbnails) and footage thumbnails (Phase 7.5 §06). It is NOT a copy of
+source footage — `Footage#local_path` continues to point at the user's drive;
+only Pito-derived assets land under the volume. The `Pito::AssetsRoot` helper
+resolves absolute paths under the root for non-Active-Storage byte writes.
 
-`PITO_ASSETS_PATH` controls where the assets root resolves at runtime.
-The committed `.env.example` points at `tmp/pito-assets` for dev
-(relative paths anchor to the repo root). Production deployments mount
-the `pito-assets` Docker volume at `/var/lib/pito-assets` (the helper's
-default when the env var is unset). Tests stay on `:test` /
-`tmp/storage` for Active Storage isolation; the volume is unused in
-the test environment.
+`PITO_ASSETS_PATH` controls where the assets root resolves at runtime. The
+committed `.env.example` points at `tmp/pito-assets` for dev (relative paths
+anchor to the repo root). Production deployments mount the `pito-assets` Docker
+volume at `/var/lib/pito-assets` (the helper's default when the env var is
+unset). Tests stay on `:test` / `tmp/storage` for Active Storage isolation; the
+volume is unused in the test environment.
 
 ## 3. Configure credentials
 
