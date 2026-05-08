@@ -80,7 +80,10 @@ RSpec.describe "Settings::Sessions", type: :request do
 
       get settings_sessions_path
       expect(response).to have_http_status(:ok)
-      expect(response.body).not_to include(other_record.id.to_s)
+      # Use the unique `user_agent` string as the rendered-row marker
+      # — checking for the bare numeric id is brittle (small integers
+      # appear in many incidental contexts: widths, color hexes, etc.).
+      expect(response.body).not_to include("OtherUser")
     end
 
     it "raises RecordNotFound on revoke for a session belonging to another user" do
