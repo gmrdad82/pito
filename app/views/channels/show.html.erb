@@ -4,12 +4,15 @@
 <% content_for(:breadcrumb_actions) do %>
   <div class="dot-list">
     <%= render(BracketedLinkComponent.new(label: "e", href: edit_channel_path(@channel))) %>
-    <%= render(BracketedLinkComponent.new(label: "sync", href: "/syncs/channel/#{@channel.id}")) %>
-    <%= render(BracketedLinkComponent.new(label: "-", href: "/deletions/channel/#{@channel.id}", destructive: true)) %>
+    <%= render(BracketedLinkComponent.new(label: "sync", href: "/syncs/channel/#{@channel.id}", data: { keyboard_page_action: "sync" })) %>
+    <%= render(BracketedLinkComponent.new(label: "-", href: "/deletions/channel/#{@channel.id}", destructive: true, data: { keyboard_page_action: "delete" })) %>
   </div>
 <% end %>
 
-<div data-controller="add-pane">
+<%# `data-keyboard-external-url` lets the global keyboard controller
+    open the channel's underlying URL in a new tab when the user
+    presses `v` on the detail page (mirrors the CLI binding). %>
+<div data-controller="add-pane" data-keyboard-external-url="<%= @channel.channel_url %>">
   <div class="dot-list" style="margin-bottom: 6px;">
     <h1 style="display: inline;">channel #<%= @channel.id %></h1>
     <% if @available_channels.any? %>

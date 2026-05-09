@@ -58,6 +58,19 @@ RSpec.describe "Footages", type: :request do
       body = JSON.parse(response.body)
       expect(body["filesize_bytes"]).to eq(12_345)
     end
+
+    # Phase 7.5 §06 — Scrub layout. The HTML show page renders a
+    # `data-controller="footage-scrub"` container with the manifest URL,
+    # master / thumb URL templates, and the duration value. Stimulus
+    # picks it up client-side; we assert the markup is present so a
+    # template regression is caught at the request-spec level.
+    it "renders the footage-scrub Stimulus container in the HTML show page" do
+      get footage_path(footage)
+      expect(response.body).to include('data-controller="footage-scrub"')
+      expect(response.body).to include('data-footage-scrub-manifest-url-value')
+      expect(response.body).to include('data-footage-scrub-master-url-template-value')
+      expect(response.body).to include('data-footage-scrub-thumb-url-template-value')
+    end
   end
 
   describe "PATCH /footages/:id" do

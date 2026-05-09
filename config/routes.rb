@@ -11,6 +11,42 @@ Rails.application.routes.draw do
   end
   mount Sidekiq::Web => "/sidekiq"
 
+  # Phase 7.5 — MCP OAuth discovery metadata. Two public, unauthenticated
+  # JSON endpoints Claude.ai's MCP custom connector probes:
+  #   - RFC 8414 — `/.well-known/oauth-authorization-server`
+  #   - RFC 9728 — `/.well-known/oauth-protected-resource`
+  # See `app/controllers/well_known_controller.rb`. Both are routed on
+  # the same Rails app served by `app.pitomd.com` AND `mcp.pitomd.com`,
+  # so a probe to either subdomain reaches the same controller. The
+  # JSON `issuer` / `resource` values are hardcoded from
+  # `Pito::PublicHosts`, NOT derived from `request.host`.
+  get "/.well-known/oauth-authorization-server",
+      to: "well_known#oauth_authorization_server",
+      as: :oauth_authorization_server_metadata,
+      defaults: { format: "json" }
+  get "/.well-known/oauth-protected-resource",
+      to: "well_known#oauth_protected_resource",
+      as: :oauth_protected_resource_metadata,
+      defaults: { format: "json" }
+  # RFC 9728 §3.1 — per-resource metadata path mirrors the resource path.
+  # Claude.ai's MCP connector probes `/.well-known/oauth-protected-resource/mcp`
+  # after token exchange to verify the MCP resource is properly configured.
+  # Returns the same metadata as the un-suffixed endpoint above.
+  get "/.well-known/oauth-protected-resource/mcp",
+      to: "well_known#oauth_protected_resource",
+      as: :oauth_protected_resource_metadata_mcp,
+      defaults: { format: "json" }
+
+  # Phase 7.5 — MCP custom-connector icon discovery. Some clients
+  # (and OS-level icon scrapers) ONLY check `/favicon.ico`. Pito ships
+  # the brand mark as `public/Pito.png` and intentionally does NOT
+  # carry a `.ico` binary in the repo — a 301 redirect to `/Pito.png`
+  # is enough for clients that follow redirects, and the modern PNG
+  # asset stays the single source of truth. `ActionDispatch::Static`
+  # runs before the router, so this route only fires when no
+  # `public/favicon.ico` file exists (which is the steady state).
+  get "/favicon.ico", to: redirect("/Pito.png", status: 301)
+
   # Phase 12 — Step A (6a-sessions-and-login-ui.md) — login + logout.
   # `/login` is the user-facing convention; `DELETE /session` is the
   # singleton current-session endpoint. The plural management surface
@@ -68,6 +104,36 @@ Rails.application.routes.draw do
   resources :collections
   resources :games
   resources :footages, only: [ :index, :show, :edit, :update, :destroy ]
+
+  # Phase 7.5 §06 — Footage thumbnails experiment.
+  #
+  # Three public-read endpoints that the scrub UI (web Stimulus controller
+  # AND `pito` CLI's `extras/cli/src/api/thumbnails.rs`) hit. Auth is
+  # intentionally absent — the wire shape is anchored by
+  # `extras/cli/tests/thumbnails_integration.rs`, which sends NO
+  # `Authorization` header. Theta-phase multi-tenant work will need to
+  # scope these by tenant; for the single-tenant phase the assumption is
+  # that thumbnails are user-owned derived assets not worth gating.
+  #
+  # The `:filename` constraint enforces the `HH-MM-SS` shape at the router
+  # level so path-traversal candidates (`../etc/passwd`) never reach the
+  # action. The action layer reapplies the regex as defense-in-depth.
+  get "/footages/:id/frames.json",
+      to: "footages#frames",
+      as: :footage_frames,
+      defaults: { format: "json" }
+
+  get "/footages/:footage_id/frames/m/:filename.jpg",
+      to: "footages#frame_master",
+      as: :footage_frame_master,
+      constraints: { filename: /\d{2}-\d{2}-\d{2}/ },
+      defaults: { format: "jpg" }
+
+  get "/footages/:footage_id/frames/t/:filename.jpg",
+      to: "footages#frame_thumb",
+      as: :footage_frame_thumb,
+      constraints: { filename: /\d{2}-\d{2}-\d{2}/ },
+      defaults: { format: "jpg" }
   # Phase B post-commit (2026-05-04) — Note revamp. The note editor is now
   # a single screen (no /edit) — `GET /notes/:id` renders the two-pane
   # editor directly. `/edit` and `/new` are intentionally absent.
@@ -94,7 +160,14 @@ Rails.application.routes.draw do
     resources :projects, only: [] do
       resources :footages, only: [ :index, :create ]
     end
-    resources :footages, only: [ :update, :destroy ]
+    resources :footages, only: [ :update, :destroy ] do
+      member do
+        # Phase 7.5 §06 — bulk frame upload from the importer. Bearer-
+        # authenticated via `Api::AuthConcern`. CLI integration tests
+        # do NOT anchor this URL; chosen for `/api/` consistency.
+        patch :frames, action: :update_frames
+      end
+    end
   end
 
   resources :saved_views, only: [ :index, :create, :destroy ]
@@ -190,9 +263,29 @@ Rails.application.routes.draw do
     post "/youtube/channels", to: "youtube#channels", as: :youtube_channels
   end
 
-  # MCP HTTP transport (served by dedicated Puma on port 3028)
+  # MCP HTTP transport (served by dedicated Puma on port 3028).
+  #
+  # A single `Mcp::RackApp` instance is reused across mount points so
+  # the in-memory transport state (session IDs etc.) is consistent
+  # regardless of which path a client lands on. Two routes target it:
+  #
+  #   1. `POST /mcp` on any host — the canonical endpoint advertised
+  #      in `/.well-known/oauth-protected-resource`'s `resource` field
+  #      and pinned by `extras/cli/tests/`.
+  #   2. `POST /` on `mcp.pitomd.com` — root-path alias for clients
+  #      (Claude.ai's MCP custom connector being the motivating one)
+  #      that POST directly to the connector URL the user typed,
+  #      ignoring the metadata's `resource` value. Without this alias
+  #      such clients get 404s. Constrained to the MCP host so the
+  #      web app's `root "dashboard#index"` (GET /) is unaffected and
+  #      `app.pitomd.com` does NOT leak the MCP endpoint at /.
   require_relative "../app/mcp/rack_app"
-  mount Mcp::RackApp.new => "/mcp"
+  mcp_rack_app = Mcp::RackApp.new
+  mount mcp_rack_app => "/mcp"
+
+  constraints host: "mcp.pitomd.com" do
+    match "/", to: mcp_rack_app, via: :post, as: :mcp_root
+  end
 
   get "up" => "rails/health#show", as: :rails_health_check
 end

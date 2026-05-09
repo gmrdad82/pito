@@ -23,9 +23,25 @@ module Mcp
       result = Api::TokenAuthenticator.call(env)
       return result.to_rack_response if result.failure?
 
-      Current.token  = result.token
-      Current.tenant = result.token.tenant
-      Current.user   = result.token.user
+      token  = result.token
+      tenant = token.tenant
+      user   = token.user
+
+      # Phase 7.5 — defense-in-depth tenant boundary check. ApiToken
+      # has matching `tenant_id` and `user.tenant_id` by construction;
+      # for Doorkeeper-issued OAuth tokens the resource owner is set
+      # at consent time so the same invariant holds. If a row mutation
+      # somehow desyncs the two (manual SQL, future cross-tenant
+      # plumbing), refuse the request rather than serve cross-tenant.
+      if user.nil? || user.tenant_id != tenant&.id
+        return Api::TokenAuthenticator::Result
+          .new(failure_reason: "invalid_token")
+          .to_rack_response
+      end
+
+      Current.token  = token
+      Current.tenant = tenant
+      Current.user   = user
 
       @transport.call(env)
     ensure

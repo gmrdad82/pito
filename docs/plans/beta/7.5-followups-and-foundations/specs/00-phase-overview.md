@@ -1,5 +1,8 @@
 # Phase 7.5 — Follow-ups Sweep + Concept Foundations
 
+> **Note:** This file is the original architect-written phase overview. The
+> canonical Phase 7.5 plan lives at [`../plan.md`](../plan.md).
+
 > **Status:** specs landed by architect-spec on 2026-05-07. The master agent
 > hoists this overview into `plan.md` once the user resolves the open questions
 > surfaced below; sub-specs may be refined before implementation dispatches kick

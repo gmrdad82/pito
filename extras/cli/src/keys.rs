@@ -130,6 +130,11 @@ fn handle_normal(app: &mut App, key: KeyEvent) {
         }
     }
 
+    // FootageDetail screen specific keys (must run before generic q/etc.)
+    if app.screen == Screen::FootageDetail && handle_footage_detail_key(app, key) {
+        return;
+    }
+
     // ChannelDetail screen specific keys
     if app.screen == Screen::ChannelDetail {
         match key.code {
@@ -174,6 +179,12 @@ fn handle_normal(app: &mut App, key: KeyEvent) {
             Screen::Dashboard => app.quit(),
             Screen::ChannelDetail => app.screen = Screen::Channels,
             Screen::VideoDetail => app.screen = Screen::Videos,
+            Screen::FootageDetail => {
+                app.footage_detail_state = None;
+                app.footage_detail_rects = None;
+                app.footage_detail_preview = None;
+                app.screen = Screen::Dashboard;
+            }
             _ => app.screen = Screen::Dashboard,
         },
         KeyCode::Char(':') => {
@@ -211,6 +222,79 @@ fn handle_normal(app: &mut App, key: KeyEvent) {
         }
         _ => {}
     }
+}
+
+/// Handle keyboard scrub on the footage detail screen. Returns `true` when
+/// the key was consumed (so `handle_normal` shouldn't fall through to its
+/// generic `q` / Esc / arrow handling).
+///
+/// The bindings mirror the spec's keyboard-fallback list for terminals
+/// without mouse support:
+///
+/// - `h` / `←` — step backward one frame.
+/// - `l` / `→` — step forward one frame.
+/// - `H` — jump 10 frames backward.
+/// - `L` — jump 10 frames forward.
+/// - `g` — jump to first frame (Home).
+/// - `G` — jump to last frame (End).
+/// - `Space` — recenter the strip under the playhead.
+fn handle_footage_detail_key(app: &mut App, key: KeyEvent) -> bool {
+    let consumed = {
+        let Some(ref mut state) = app.footage_detail_state else {
+            return false;
+        };
+        match key.code {
+            KeyCode::Char('h') | KeyCode::Left => {
+                state.step(-1);
+                true
+            }
+            KeyCode::Char('l') | KeyCode::Right => {
+                state.step(1);
+                true
+            }
+            KeyCode::Char('H') => {
+                state.step(-10);
+                true
+            }
+            KeyCode::Char('L') => {
+                state.step(10);
+                true
+            }
+            KeyCode::Char('g') => {
+                // `g` is also the navigation prefix; on the footage detail
+                // screen it doubles as "jump to start" since the user already
+                // navigated INTO the screen and a top-level g+key destination
+                // here would surprise them.
+                state.jump_to_start();
+                true
+            }
+            KeyCode::Char('G') => {
+                state.jump_to_end();
+                true
+            }
+            KeyCode::Char(' ') => {
+                state.recenter_strip();
+                true
+            }
+            KeyCode::Home => {
+                state.jump_to_start();
+                true
+            }
+            KeyCode::End => {
+                state.jump_to_end();
+                true
+            }
+            _ => false,
+        }
+    };
+    if consumed {
+        // Every key that walks `active_timestamp_seconds` triggers a fresh
+        // image fetch via the cache layer. The recenter-strip key (Space)
+        // is a no-op for the preview but cheap to early-out inside
+        // `refresh_active_preview_protocol`.
+        app.refresh_active_preview_protocol();
+    }
+    consumed
 }
 
 fn handle_g_prefix(app: &mut App, key: KeyEvent) {

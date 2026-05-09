@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_07_400002) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_07_400003) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -141,6 +141,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_07_400002) do
     t.string "filename", null: false
     t.bigint "filesize_bytes"
     t.decimal "fps", precision: 6, scale: 3
+    t.datetime "frames_extracted_at"
     t.bigint "game_id"
     t.boolean "has_commentary_track", default: false, null: false
     t.integer "kind", null: false

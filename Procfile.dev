@@ -3,3 +3,4 @@ mcp: bin/mcp-web
 worker: bundle exec sidekiq -C config/sidekiq.yml
 css: bin/rails tailwindcss:watch
 tunnel: cloudflared tunnel run pito
+website: cd extras/website && mise exec node@22 -- npm run dev

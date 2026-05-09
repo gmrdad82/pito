@@ -85,4 +85,21 @@ RSpec.describe FilterChipComponent, type: :component do
       expect(anchor["data-turbo-action"]).to eq("advance")
     end
   end
+
+  # Phase 7.5 — Step 04. The keyboard controller's `f s` / `f c`
+  # bindings click the filter chip whose `data-keyboard-filter-chip`
+  # matches the chip label. Tagging is by visible label so Rails
+  # mirrors the CLI's `f s` (starred) / `f c` (connected) without
+  # leaking the URL `param` name (which is `star`, not `starred`).
+  describe "keyboard hook" do
+    it "carries data-keyboard-filter-chip=<label> for the keyboard controller" do
+      render_inline(described_class.new(label: "starred", param: "star"))
+      expect(page).to have_css('a.filter-chip[data-keyboard-filter-chip="starred"]')
+    end
+
+    it "uses the connected label for the connected chip" do
+      render_inline(described_class.new(label: "connected", param: "connected"))
+      expect(page).to have_css('a.filter-chip[data-keyboard-filter-chip="connected"]')
+    end
+  end
 end

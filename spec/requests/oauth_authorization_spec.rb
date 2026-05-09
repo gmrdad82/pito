@@ -52,6 +52,32 @@ RSpec.describe "OAuth authorization", type: :request do
       expect(response.body).to include(application.name)
     end
 
+    # Phase 7.5 connector hardening — the consent page must render
+    # inside Pito's `application` layout, not Doorkeeper's bundled
+    # `doorkeeper/application` layout. We verify three layout markers
+    # that ONLY exist in Pito's layout: the `data-theme-preference`
+    # html-tag attribute, the page title's `~ pito` suffix, and the
+    # `application-name` meta tag. If any of these are missing we are
+    # back to Doorkeeper's bundled chrome.
+    #
+    # See `config/initializers/doorkeeper_layout.rb`.
+    it "renders inside Pito's application layout (data-theme-preference + title + meta)" do
+      sign_in_as(user)
+      get "/oauth/authorize", params: {
+        response_type: "code",
+        client_id: application.uid,
+        redirect_uri: application.redirect_uri,
+        scope: Scopes::DEV_READ,
+        code_challenge: code_challenge,
+        code_challenge_method: "S256"
+      }
+
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include("data-theme-preference=")
+      expect(response.body).to match(/<title>[^<]*~ pito<\/title>/)
+      expect(response.body).to include('<meta name="application-name" content="Pito">')
+    end
+
     it "rejects an authorization request without PKCE for a public client" do
       sign_in_as(user)
       get "/oauth/authorize", params: {

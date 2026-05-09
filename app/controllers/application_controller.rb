@@ -37,6 +37,12 @@ class ApplicationController < ActionController::Base
   end
 
   def render_api_unauthorized(error)
+    # Phase 7.5 — MCP OAuth discovery. Mirror the Rack-app 401 by
+    # advertising the OAuth metadata locations on every controller
+    # 401, so Claude.ai's MCP custom connector and any other
+    # OAuth-aware bearer client can discover the dance from a single
+    # rejected call regardless of which surface refused them.
+    response.headers["WWW-Authenticate"] = Api::TokenAuthenticator.www_authenticate_header
     render json: { error: error.reason }, status: :unauthorized
   end
 

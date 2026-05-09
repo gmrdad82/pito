@@ -2,6 +2,7 @@ pub mod channel_detail;
 pub mod channels;
 pub mod confirmation;
 pub mod dashboard;
+pub mod footage_detail;
 pub mod help;
 pub mod operation_progress;
 pub mod saved_views;
@@ -20,7 +21,7 @@ use ratatui::{
 
 use crate::app::{App, KeyState, Overlay, Screen};
 
-pub fn render(frame: &mut Frame, app: &App) {
+pub fn render(frame: &mut Frame, app: &mut App) {
     let theme = app.theme();
 
     // Set background
@@ -67,7 +68,7 @@ pub fn render(frame: &mut Frame, app: &App) {
     }
 }
 
-fn render_header(frame: &mut Frame, area: Rect, app: &App) {
+fn render_header(frame: &mut Frame, area: Rect, app: &mut App) {
     let theme = app.theme();
     let screen_label = match app.screen {
         Screen::Dashboard => "[dashboard]",
@@ -77,6 +78,7 @@ fn render_header(frame: &mut Frame, area: Rect, app: &App) {
         Screen::VideoDetail => "[video]",
         Screen::SavedViews => "[saved views]",
         Screen::Settings => "[settings]",
+        Screen::FootageDetail => "[footage]",
     };
 
     // Brand + current screen, anchored to the left edge.
@@ -114,7 +116,7 @@ fn render_header(frame: &mut Frame, area: Rect, app: &App) {
     );
 }
 
-fn render_body(frame: &mut Frame, area: Rect, app: &App) {
+fn render_body(frame: &mut Frame, area: Rect, app: &mut App) {
     let theme = app.theme();
     match app.screen {
         Screen::Dashboard => dashboard::render(frame, area, &theme, &app.dashboard_state),
@@ -138,10 +140,21 @@ fn render_body(frame: &mut Frame, area: Rect, app: &App) {
         }
         Screen::SavedViews => saved_views::render(frame, area, &theme, &app.saved_views_state),
         Screen::Settings => settings::render(frame, area, &theme, &app.settings_state),
+        Screen::FootageDetail => {
+            if let Some(ref state) = app.footage_detail_state {
+                let capability = app.terminal_capability;
+                // Borrow the live image protocol mutably for the duration of
+                // the render. The protocol's internal cache mutates as
+                // ratatui-image encodes for the current rect.
+                let preview = app.footage_detail_preview.as_mut();
+                let rects = footage_detail::render(frame, area, &theme, state, capability, preview);
+                app.footage_detail_rects = Some(rects);
+            }
+        }
     }
 }
 
-fn render_footer(frame: &mut Frame, area: Rect, app: &App) {
+fn render_footer(frame: &mut Frame, area: Rect, app: &mut App) {
     let theme = app.theme();
 
     let state_hint = match app.key_state {

@@ -11,7 +11,13 @@
 <% destructive = local_assigns.fetch(:destructive, false) %>
 <% form_method = local_assigns.fetch(:form_method, :post) %>
 
-<%= form_with url: form_url, method: form_method, data: { turbo: false } do |f| %>
+<%# `data-keyboard-confirmation` flags this form for the global
+    keyboard controller so pressing `y` on the action confirmation
+    page submits it; `data-keyboard-confirmation-cancel` on the cancel
+    link lets `Esc` and the "any other key" CLI behaviour route to
+    the cancel target. Mirrors the CLI's `handle_confirmation_input`
+    in `extras/cli/src/keys.rs`. %>
+<%= form_with url: form_url, method: form_method, data: { turbo: false, keyboard_confirmation: "true" } do |f| %>
   <% if content_for?(:action_screen_params) %>
     <div style="margin-bottom: 12px;">
       <%= yield :action_screen_params %>
@@ -21,7 +27,7 @@
   <div class="action-screen-footer">
     <div class="dot-list">
       <button type="submit" class="<%= destructive ? 'btn-danger' : '' %>"><%= submit_label %></button>
-      <%= render(BracketedLinkComponent.new(label: "cancel", href: cancel_path)) %>
+      <%= render(BracketedLinkComponent.new(label: "cancel", href: cancel_path, data: { keyboard_confirmation_cancel: "true" })) %>
     </div>
   </div>
 <% end %>

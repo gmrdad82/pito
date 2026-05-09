@@ -1,0 +1,43 @@
+<%# Phase 7.5 — Step 04. Help overlay opened by `?` or the layout's
+    visible `[ ? ]` link. Mirrors the `pito` CLI help (Q6 strict mirror).
+    The dialog is the keyboard-controller's `dialog` target so
+    `keyboard#openHelp` can `showModal()` it. %>
+<dialog data-keyboard-target="dialog"
+        data-action="click->keyboard#clickOutside"
+        class="pane-dialog"
+        style="max-width: 560px;">
+  <div style="padding: 12px;">
+    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
+      <h2>keyboard shortcuts</h2>
+      <%= render(BracketedLinkComponent.new(label: "close", href: "#", data: { action: "click->keyboard#close" })) %>
+    </div>
+
+    <% sections.each do |section| %>
+      <div class="keyboard-shortcuts-section" style="margin-bottom: 10px;">
+        <div class="text-muted" style="margin-bottom: 4px;"><%= section.title %></div>
+        <table class="detail-table" style="width: 100%;">
+          <tbody>
+            <% section.rows.each do |row| %>
+              <tr>
+                <td style="width: 180px; vertical-align: top;">
+                  <% row.keys.split(" / ").each_with_index do |group, idx| %><%
+                    %><% if idx > 0 %> / <% end %><%
+                    %><% group.split(" ").each_with_index do |k, i| %><%
+                      %><% if i > 0 %><span class="text-muted"> </span><% end %><%
+                      %><span class="keycap"><%= k %></span><%
+                    %><% end %><%
+                  %><% end %>
+                </td>
+                <td><%= row.description %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
+
+    <p class="form-hint" style="margin-top: 8px; font-size: 11px;">
+      shortcuts are disabled while typing in inputs. press `?` again or `Esc` to close.
+    </p>
+  </div>
+</dialog>

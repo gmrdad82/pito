@@ -1,0 +1,39 @@
+name: Website CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "extras/website/**"
+      - ".github/workflows/website-ci.yml"
+  pull_request:
+    paths:
+      - "extras/website/**"
+      - ".github/workflows/website-ci.yml"
+
+jobs:
+  lint-and-audit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: extras/website
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: extras/website/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: npm audit (high severity gate)
+        run: npm audit --audit-level=high
+
+      - name: Astro check (typing + template lint)
+        run: npx astro check
+
+      - name: Build verification
+        run: npm run build

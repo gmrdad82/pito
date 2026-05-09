@@ -10,7 +10,7 @@
 </div>
 
 <div class="dot-list" style="margin-bottom: 12px;">
-  <%= render(BracketedLinkComponent.new(label: "new token", href: new_settings_token_path)) %>
+  <%= render(BracketedLinkComponent.new(label: "new", href: new_settings_token_path)) %>
 </div>
 
 <% if @active_tokens.any? || @revoked_tokens.any? %>
@@ -57,5 +57,5 @@
     </tbody>
   </table>
 <% else %>
-  <p class="text-muted">no tokens yet. click <code>[ new token ]</code> to mint one.</p>
+  <p class="text-muted">no tokens yet. click <code>[ new ]</code> to mint one.</p>
 <% end %>

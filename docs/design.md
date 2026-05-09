@@ -207,6 +207,33 @@ All clickable elements use the `[label]` convention (no spaces inside brackets):
 - **Separator dots:** use `<span class="text-muted">&middot;</span>` between
   adjacent bracketed links
 
+### Bracketed labels: minimum text
+
+Bracketed-link labels carry **the verb only** when context makes the noun
+obvious. Trust the user to know what kind of row they're looking at — the page
+heading, breadcrumb, and table headers already supply the context.
+
+**Yes:**
+
+- On `/settings/oauth_applications`: each row's destructive action is
+  `[revoke]`, not `[revoke application]`
+- On `/settings/sessions`: each row's destructive action is `[revoke]`
+- On `/settings/tokens`: `[new]`, `[create]`, `[revoke]`
+- On `/settings/youtube`: `[connect]`, `[reconnect]`
+
+**No:**
+
+- `[revoke application]`, `[delete channel]`, `[edit token]` — the noun is
+  redundant when the surrounding context is unambiguous.
+
+**Carve-out:** if a row hosts multiple action verbs targeting different nouns,
+keep the noun on each (`[edit channel]` and `[edit playlist]` could appear in
+the same row — disambiguation needed).
+
+This principle helps the `pito` CLI maintain visual parity — terminal real
+estate is precious; verbose labels burn cells. Mirror this on every keymap that
+surfaces a label.
+
 ### Keycaps
 
 Keyboard shortcut indicators use `(key)` style via `.keycap` CSS class:
@@ -453,6 +480,54 @@ multi-paragraph descriptions, project-level prose fields).
 string we assign to `returnValue` is ignored by Chromium and Firefox; older
 WebKit may still surface it. Don't try to customize it — there is no portable
 way to.
+
+## Framed blocks
+
+The `.framed-block` class wraps a region in a visually distinct bordered, tinted
+container so it reads as separate from the page background. Reserved for **"save
+this now" / one-time-reveal surfaces** — content the user must capture because
+it cannot be re-shown.
+
+**Visual properties.**
+
+- 1px `var(--color-border)` border
+- `var(--color-pane-bg)` background tint
+- 4px `border-radius`
+- 16px inner padding
+- 16px vertical outer margin (`margin: 16px 0`)
+
+```css
+.framed-block {
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  background: var(--color-pane-bg);
+  border-radius: 4px;
+}
+```
+
+**When to use.**
+
+- Highlighted content blocks where the visual frame helps the user register
+  "this is important / save this / one-time view".
+- OAuth applications post-create page — wraps the `client_id` + `client_secret`
+  credentials list (the secret is shown exactly once and cannot be retrieved
+  later).
+- Future: API token plaintext displays, secret-shown-once flows, game cover-art
+  reveals, any other capture-now surface.
+
+**When NOT to use.**
+
+- Every block on a page. The frame is signal — overusing it degrades the signal
+  so nothing reads as important.
+- Routine read-only detail panels (use a plain `.detail-table` instead).
+- Decorative grouping. Frames mark capture-now content, not visual hierarchy.
+
+**Long-value buffer.** Inside a framed block, a `.code-block` row reserves
+`padding-right: 4px` on its inner `<code>` so long wrapping values
+(`client_secret` is 64 characters) don't run flush with the frame's right edge.
+Scoped to `.framed-block .code-block code` so the global `.code-block` behavior
+is unchanged elsewhere.
 
 ## Panes (Multi-item View)
 

@@ -3,11 +3,14 @@
 <% breadcrumb(["videos", videos_path], page_label) %>
 <% content_for(:breadcrumb_actions) do %>
   <div class="dot-list">
-    <%= render(BracketedLinkComponent.new(label: "-", href: "/deletions/video/#{@video.id}", destructive: true)) %>
+    <%= render(BracketedLinkComponent.new(label: "-", href: "/deletions/video/#{@video.id}", destructive: true, data: { keyboard_page_action: "delete" })) %>
   </div>
 <% end %>
 
-<div data-controller="add-pane">
+<%# `data-keyboard-external-url` lets the global keyboard controller
+    open the video's YouTube URL in a new tab when the user presses
+    `v` on the detail page (mirrors the CLI binding). %>
+<div data-controller="add-pane" data-keyboard-external-url="https://www.youtube.com/watch?v=<%= @video.youtube_video_id %>">
   <div class="dot-list" style="margin-bottom: 6px;">
     <h1 style="display: inline;">video #<%= @video.id %></h1>
     <% if @available_videos.any? %>

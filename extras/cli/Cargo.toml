@@ -13,7 +13,21 @@ path = "src/main.rs"
 
 [dependencies]
 ratatui = "0.30"
-crossterm = "0.28"
+# ratatui-image 10.x lines up with ratatui 0.30 + crossterm 0.29. The image
+# rendering powers the footage detail scrub screen (Phase 7.5 step 06).
+# Default features include `image-defaults` (full image format support) and
+# `crossterm` (event integration with the rest of the TUI loop).
+# `default-features = false` drops the `chafa-dyn` feature (which links
+# libchafa for higher-quality halfblocks). Plain `Halfblocks` rendering still
+# works without it; we trade visual fidelity in the fallback path for a
+# system-dep-free build. Keep `image-defaults` (full image format support) and
+# `crossterm` (event integration).
+ratatui-image = { version = "10", default-features = false, features = ["image-defaults", "crossterm"] }
+# image 0.25 is ratatui-image's transitive dep — pinned here so the cache
+# layer's downscale path can reach the same encoder/decoder surface without
+# version skew.
+image = "0.25"
+crossterm = "0.29"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

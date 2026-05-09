@@ -6,6 +6,30 @@
 
 <h1><%= @footage.filename %></h1>
 
+<%# Phase 7.5 §06 — DaVinci-style scrub layout. The Stimulus controller
+    fetches the manifest at `/footages/:id/frames.json` on connect, then
+    swaps the big preview's src as the cursor moves across it OR as the
+    strip scrolls under the fixed center playhead. Until the importer's
+    bulk-frame upload ships, the manifest is empty and the controller
+    renders a "no frames yet" placeholder.
+    The frame URL template uses sentinel placeholders the controller
+    rewrites client-side because Rails URL helpers can't emit a literal
+    `:tier` / `:timestamp` token. %>
+<div class="footage-scrub"
+     data-controller="footage-scrub"
+     data-footage-scrub-footage-id-value="<%= @footage.id %>"
+     data-footage-scrub-duration-seconds-value="<%= @footage.duration_seconds.to_i %>"
+     data-footage-scrub-manifest-url-value="<%= footage_frames_path(@footage) %>"
+     data-footage-scrub-master-url-template-value="<%= footage_frame_master_path(footage_id: @footage.id, filename: '00-00-00', format: 'jpg').sub('00-00-00', '%{timestamp}') %>"
+     data-footage-scrub-thumb-url-template-value="<%= footage_frame_thumb_path(footage_id: @footage.id, filename: '00-00-00', format: 'jpg').sub('00-00-00', '%{timestamp}') %>">
+  <div class="footage-scrub-preview">
+    <img data-footage-scrub-target="bigPreview" alt="footage preview">
+    <div data-footage-scrub-target="emptyState" class="footage-scrub-empty text-muted" hidden>no frames extracted yet.</div>
+  </div>
+  <div class="footage-scrub-playhead" aria-hidden="true">+</div>
+  <div data-footage-scrub-target="strip" class="footage-scrub-strip"></div>
+</div>
+
 <table class="detail-table">
   <tr><td class="text-muted">kind</td><td><%= @footage.kind %></td></tr>
   <tr><td class="text-muted">source</td><td><%= @footage.source %></td></tr>

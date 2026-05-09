@@ -7,7 +7,7 @@ RSpec.describe "Settings::Youtube", type: :request do
         get settings_youtube_path
         expect(response).to have_http_status(:ok)
         expect(response.body).to include("no google account connected")
-        expect(response.body).to include("[ connect google account ]")
+        expect(response.body).to include("[ connect ]")
       end
     end
 
@@ -21,7 +21,7 @@ RSpec.describe "Settings::Youtube", type: :request do
       it "renders the red banner" do
         get settings_youtube_path
         expect(response.body).to include("your google grant was revoked")
-        expect(response.body).to include("[ reconnect google account ]")
+        expect(response.body).to include("[ reconnect ]")
       end
 
       it "does NOT call the YouTube API" do
