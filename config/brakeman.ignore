@@ -1,6 +1,29 @@
 {
   "ignored_warnings": [
     {
+      "warning_type": "File Access",
+      "warning_code": 16,
+      "fingerprint": "4d586370565ad858623ed4e34fae39e1c97703ae2505563f20e37f124f373ba5",
+      "check_name": "SendFile",
+      "message": "Parameter value used in file name",
+      "file": "app/controllers/footages_controller.rb",
+      "line": 145,
+      "link": "https://brakemanscanner.org/docs/warning_types/file_access/",
+      "code": "send_file(Pito::AssetsRoot.path(\"footage_thumbs\", lookup_footage(params[:footage_id]).id.to_s, tier.to_s, \"#{params[:filename].to_s}.jpg\").to_s, :type => \"image/jpeg\", :disposition => \"inline\")",
+      "render_path": null,
+      "location": {
+        "type": "method",
+        "class": "FootagesController",
+        "method": "serve_frame"
+      },
+      "user_input": "params[:filename]",
+      "confidence": "Weak",
+      "cwe_id": [
+        22
+      ],
+      "note": "Defense-in-depth: (1) route constraint at config/routes.rb enforces /^\\d{2}-\\d{2}-\\d{2}$/ on :filename, rejecting path-traversal candidates BEFORE the action runs. (2) The action re-applies the same regex as defense-in-depth in case a future internal caller bypasses the router. (3) Pito::AssetsRoot.path runs cleanpath + containment, raising on any escape attempt. The Brakeman warning is a true false-positive — every layer rejects ../etc/passwd-style payloads. Verified by spec/requests/footages/frames_spec.rb."
+    },
+    {
       "warning_type": "HTTP Verb Confusion",
       "warning_code": 122,
       "fingerprint": "050af47121b0c4251d18c5b722e529807edb8a9852128f6fa384c768d47e0317",
