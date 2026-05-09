@@ -141,7 +141,7 @@ fn render_results(
         Span::styled(
             format!(
                 "{:<14} {:<22} {:<3} {:>10}",
-                "youtube id", "channel", "★", "views"
+                "YouTube id", "channel", "★", "views"
             ),
             Style::default().fg(theme.muted),
         ),

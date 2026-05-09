@@ -1,7 +1,7 @@
 # Phase 4 — Terminal App `pito-sh`
 
-> **Goal:** Build a terminal client for Pito in Rust + Ratatui. Visually
-> inspired by `btop`, `gitui`, and `bottom`. Operates against Pito's JSON API on
+> **Goal:** Build a terminal client for pito in Rust + Ratatui. Visually
+> inspired by `btop`, `gitui`, and `bottom`. Operates against pito's JSON API on
 > Web Puma using bearer-token auth from Phase 3. **This phase is also where the
 > design system converges across all clients** — web, MCP, terminal — because
 > the terminal is the most constraining surface and forces decisions that web
@@ -21,7 +21,7 @@ many new screens.
 
 The terminal app sits here, before YouTube API integration, for four reasons:
 
-1. **Design forcing function.** The user is design-sensitive about Pito's
+1. **Design forcing function.** The user is design-sensitive about pito's
    bracketed-link, monospace, retro aesthetic. Implementing it in a terminal
    forces decisions about color palette, spacing, focus indicators, keybindings,
    and chart rendering that should be locked **before** Phase 11 builds dozens
@@ -36,7 +36,7 @@ The terminal app sits here, before YouTube API integration, for four reasons:
    language from day one, documented in `pito/docs/design.md`. Phase 11 inherits
    the taxonomy; new screens just consume the existing keybindings.
 4. **It's a fun probe-style sub-project.** A pure Rust + Ratatui project is
-   small enough to scope but distinct enough to validate that Pito's API is
+   small enough to scope but distinct enough to validate that pito's API is
    genuinely client-agnostic. If `pito-sh` ends up something the user actually
    uses daily, great. If it ends up a "design alignment exercise that taught us
    things," also great — and the lessons survive in the API and design system
@@ -66,9 +66,9 @@ endpoints.)
 
 ### Auth flow
 
-The terminal app authenticates by acting as an OAuth-style client against Pito.
+The terminal app authenticates by acting as an OAuth-style client against pito.
 **In this phase**, the auth flow is a minimal authorization-code flow with PKCE
-that mints an `ApiToken` directly in Pito's database. **In Phase 12**, when
+that mints an `ApiToken` directly in pito's database. **In Phase 12**, when
 Doorkeeper is introduced, this flow gets replaced by standard OAuth 2.0
 endpoints and the app uses standard refresh tokens.
 
@@ -79,7 +79,7 @@ The Phase 4 flow:
 2. The user is already logged into the web app (single-user, seeded user
    implicitly current). The page asks them to confirm: "Authorize `pito-sh` with
    scopes `yt:read yt:write`?"
-3. On confirmation, Pito mints an `ApiToken` for the seeded user with the
+3. On confirmation, pito mints an `ApiToken` for the seeded user with the
    requested scopes and redirects to
    `http://localhost:<port>/callback?code=<code>`
 4. `pito-sh` is listening on that port; receives the code; exchanges it via
@@ -136,7 +136,7 @@ have a JSON responder, this phase adds one (it's a
 
 ### Theme
 
-Match Pito's web theme tokens (defined in `pito/docs/design.md`). Light theme
+Match pito's web theme tokens (defined in `pito/docs/design.md`). Light theme
 uses terminal defaults; dark theme uses the Dracula-inspired palette already
 documented. Pull theme tokens from `design.md` and translate to ANSI/RGB color
 codes. Keep one source of truth — the design.md tokens.
@@ -175,7 +175,7 @@ this phase. The terminal and web mirror each other.
 
 ### API surface verification
 
-Audit Pito's controllers: every screen the terminal renders needs a JSON
+Audit pito's controllers: every screen the terminal renders needs a JSON
 endpoint returning the data it needs. Existing controllers from Alpha typically
 respond only to HTML; this phase adds JSON responders to those that the terminal
 consumes. Document the JSON API endpoints used by `pito-sh` in a new
@@ -220,7 +220,7 @@ with a non-destructive token.
 - [ ] Initial commit: minimal hello-world that opens a terminal and quits
       cleanly
 
-### Pito side: CLI auth endpoints
+### pito side: CLI auth endpoints
 
 - [ ] `POST /auth/cli/start` — accepts `code_challenge` and `redirect_port`;
       creates a short-lived authorization code; returns the consent URL the
@@ -240,7 +240,7 @@ with a non-destructive token.
 ### Terminal side: auth flow
 
 - [ ] Spin up a one-shot HTTP server on a random localhost port (port range, not
-      fixed; pass to Pito as `redirect_port`)
+      fixed; pass to pito as `redirect_port`)
 - [ ] Generate PKCE verifier + challenge
 - [ ] Open browser via `xdg-open` (Linux); fallback to printing the URL
 - [ ] Receive callback, exchange code, store token
@@ -280,7 +280,7 @@ with a non-destructive token.
 
 ### API surface verification
 
-- [ ] Audit Pito controllers; identify endpoints the terminal needs
+- [ ] Audit pito controllers; identify endpoints the terminal needs
 - [ ] Add JSON responders to controllers missing them
       (`respond_to do |format| format.json`)
 - [ ] Endpoints follow the existing scope-enforcement pattern from Phase 3
@@ -303,7 +303,7 @@ with a non-destructive token.
 - [ ] `cargo test` — Rust tests pass
 - [ ] `cargo clippy -- -D warnings` — no warnings
 - [ ] `cargo fmt --check` — formatted
-- [ ] Pito Rails specs: all green (new JSON endpoints have specs)
+- [ ] pito Rails specs: all green (new JSON endpoints have specs)
 - [ ] Manual: launch `pito-sh`, complete auth flow, navigate all screens,
       perform CRUD on a channel, run bulk delete with progress
 - [ ] Manual: confirm shortcuts work identically in web and terminal where they
@@ -311,7 +311,7 @@ with a non-destructive token.
 - [ ] Manual: dark mode toggle (`n`) flips terminal theme
 - [ ] Manual: a destructive operation with a non-destructive token shows the
       clear "re-authorize with --destructive" message
-- [ ] Brakeman (Pito side), bundler-audit (Pito side), `cargo audit` (terminal
+- [ ] Brakeman (pito side), bundler-audit (pito side), `cargo audit` (terminal
       side) — clean
 - [ ] Dependabot reviewed after `pito-sh` deps added
 
@@ -319,7 +319,7 @@ with a non-destructive token.
 
 ## Specs requirements
 
-### Pito side
+### pito side
 
 - Request specs for new JSON endpoints (`/api/channels`, `/api/videos`,
   `/api/dashboard`, `/api/search`, `/auth/cli/*`). Auth and scope coverage on
@@ -350,10 +350,10 @@ with a non-destructive token.
   OAuth pattern; PKCE protects).
 - PKCE on the auth code flow (S256). Code single-use, 60-second expiry.
 - Bearer token in `Authorization` header, never in query params.
-- The Pito CLI auth endpoints are tenant-scoped — they mint tokens for the
+- The pito CLI auth endpoints are tenant-scoped — they mint tokens for the
   seeded user only. Multi-tenant CLI auth is a Theta concern.
-- Brakeman (Pito side): no new warnings.
-- bundler-audit (Pito side): clean.
+- Brakeman (pito side): no new warnings.
+- bundler-audit (pito side): clean.
 - `cargo audit` (terminal side): clean.
 - Dependabot: enabled on `pito-sh` repo.
 - `pito/docs/design.md`: terminal palette and keyboard shortcuts documented.

@@ -2,7 +2,7 @@
 
 > **Goal:** Add an in-app observability surface — health of the stack, both Puma
 > processes tracked separately, database usage, embedding cost, YouTube quota,
-> Sidekiq queue health, audit log summaries. Keep the user informed of what Pito
+> Sidekiq queue health, audit log summaries. Keep the user informed of what pito
 > is doing and what it's costing without ever leaving the app or relying on
 > external dashboards.
 
@@ -18,7 +18,7 @@ layer).
 
 ## Why Phase 13 is now
 
-Pito's footprint by Phase 12 includes: Postgres + pgvector, Meilisearch, Redis,
+pito's footprint by Phase 12 includes: Postgres + pgvector, Meilisearch, Redis,
 Sidekiq, Voyage API calls, YouTube API calls, KB filesystem reads/writes, OAuth
 identities, sessions, ApiTokens, Doorkeeper applications, Slack interactions (if
 survived), terminal app sessions. **Two Puma processes** serve two domains with
@@ -383,7 +383,7 @@ The user runs through this before commit:
   enable, gracefully omit the slow-query subsection with a note pointing at
   `setup.md` for instructions.
 - **Sidekiq stats are global, not per-tenant.** For single-tenant Beta this is
-  fine. Document the caveat for Theta — multi-tenant Pito would need either
+  fine. Document the caveat for Theta — multi-tenant pito would need either
   separate Sidekiq instances or per-tenant queue tagging.
 - **Cost projections are noisy mid-month.** Monthly cost projections based on
   partial-month data are unreliable in the first 5-7 days. Show a "low

@@ -10,7 +10,7 @@
 > Per-channel context (voice, audience, skills, strategy, progress), per-video
 > production notes (plan, notes, retro), and external research files. Extend the
 > `yt:*` MCP namespace from Phase 3 with markdown-file tools so Claude can read
-> and write KB content. The KB is what makes Pito "Claude-aware" of the user's
+> and write KB content. The KB is what makes pito "Claude-aware" of the user's
 > channels — relational data describes _what_ exists, the KB describes _how_ the
 > user thinks about it.
 
@@ -38,9 +38,9 @@ suggesting directions.
 
 1. The user can edit notes from anywhere with a text editor (or `yt:*` tools
    from Claude mobile)
-2. Files are diffable, searchable with grep, easy to back up via git push
-3. They survive Pito disasters — the data lives outside the database in a
-   separate git repo
+2. Files are diffable, searchable with grep, easy to back up via Git push
+3. They survive pito disasters — the data lives outside the database in a
+   separate Git repo
 4. They're excellent input for embeddings (Phase 10)
 5. The pattern is already proven by `dev:*` (Phase 1) and `website:*` (Phase 6)
    — third sandbox following the same shape
@@ -84,10 +84,10 @@ pito-yt-kb/
 
 ### Channel slug stability
 
-The KB folder name needs to be stable across channel renames in Pito. Two
+The KB folder name needs to be stable across channel renames in pito. Two
 options:
 
-- **A) Use Pito's `Channel.slug`** (changes if the channel is renamed in Pito) —
+- **A) Use pito's `Channel.slug`** (changes if the channel is renamed in pito) —
   folder rename required on slug change
 - **B) Use the YouTube channel ID** (`UC...`) — stable forever; folder names
   look ugly but are a non-issue since users rarely browse the file system
@@ -125,7 +125,7 @@ clear error.
 ### Templates
 
 When creating a new file, the MCP tool offers a starter template per `type`.
-Templates live in the Pito application repo
+Templates live in the pito application repo
 (`pito/lib/yt_kb_templates/<type>.md.erb`), are read-only (templates aren't
 editable through `yt:*` tools), and contain prompts/scaffolding to help the user
 think about the file's content:
@@ -202,7 +202,7 @@ designed: anything the user-as-creator does about their channels lives under
 
 The KB tools are most powerful through Claude (mobile or desktop) calling them
 directly. But the web app gets a UI surface too, so the user can edit context
-without leaving Pito:
+without leaving pito:
 
 - **Channel show page** — "Production Notes" panel listing the 5 channel-context
   files (voice, audience, skills, strategy, progress). Each section shows the
@@ -234,7 +234,7 @@ without leaving Pito:
 - Collaborative editing / real-time multi-user (single-user Beta)
 - Image attachments embedded in notes (markdown supports image links to external
   URLs; embedded image upload is out of scope)
-- Per-file git history view in UI (use GitHub directly)
+- Per-file Git history view in UI (use GitHub directly)
 - Markdown preview / syntax highlighting in the in-app editor (textarea is v1;
   richer editing tooling is post-Beta if desired)
 

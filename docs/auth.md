@@ -1,6 +1,6 @@
 # Auth
 
-The single source of truth for Pito's authentication and authorization model.
+The single source of truth for pito's authentication and authorization model.
 This phase is the **Auth Foundation**: schema-level multi-tenancy plus
 bearer-token auth + scopes for the JSON API and MCP HTTP transport. There is no
 login UI yet; HTML routes still operate under the implicit single-user session
@@ -34,7 +34,7 @@ Use this map to find the right authority for the surface you care about:
 | 1   | Browser → Rails           | Cookie + DB-backed sessions (per-session revocation) | Spec: `docs/plans/beta/12-auth-ui-multi-user-readiness/specs/6a-sessions-and-login-ui.md`. Live code: `app/controllers/concerns/sessions/auth_concern.rb`. Revocation UI at `/settings/sessions`.                      |
 | 2   | MCP / `pito` CLI → Rails  | Bearer ApiTokens (HMAC-digested, scoped, revocable)  | The rest of this document (`docs/auth.md`). Live code: `app/lib/api/token_authenticator.rb`, `app/models/api_token.rb`.                                                                                                |
 | 3   | 3rd-party clients → Rails | Doorkeeper-issued OAuth (Authorization Code + PKCE)  | Spec: `docs/plans/beta/12-auth-ui-multi-user-readiness/specs/6b-doorkeeper-oauth-server.md`. Live config: `config/initializers/doorkeeper.rb`. Tokens are 2h access / 14d refresh.                                     |
-| 4   | Pito → Google (YouTube)   | OAuth-delegated `GoogleIdentity` (encrypted at rest) | `docs/architecture.md` "Google OAuth + YouTube API foundation (Phase 7)" section. Live code: `app/models/google_identity.rb`. Scopes: `youtube.readonly` + `yt-analytics.readonly`. `needs_reauth` flag drives banner. |
+| 4   | pito → Google (YouTube)   | OAuth-delegated `GoogleIdentity` (encrypted at rest) | `docs/architecture.md` "Google OAuth + YouTube API foundation (Phase 7)" section. Live code: `app/models/google_identity.rb`. Scopes: `youtube.readonly` + `yt-analytics.readonly`. `needs_reauth` flag drives banner. |
 
 The four surfaces are independent. A request from a browser session (#1) cannot
 authenticate as an ApiToken (#2); a Doorkeeper access token (#3) does not grant

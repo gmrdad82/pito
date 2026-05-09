@@ -138,7 +138,7 @@ fn render_video_table(frame: &mut Frame, area: Rect, theme: &Theme, state: &Chan
         Span::styled(
             format!(
                 "{:<14} {:<3} {:>8} {:>7} {:>7} {:<11}",
-                "youtube id", "★", "views", "likes", "chats", "last sync"
+                "YouTube id", "★", "views", "likes", "chats", "last sync"
             ),
             Style::default().fg(theme.muted),
         ),

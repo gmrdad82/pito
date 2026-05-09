@@ -138,7 +138,7 @@ fn render_metadata(frame: &mut Frame, area: Rect, theme: &Theme, state: &VideoDe
 
     let rows: Vec<Line> = vec![
         make_kv_line(
-            "youtube id",
+            "YouTube id",
             &video.youtube_video_id,
             key_width,
             key_style,

@@ -84,7 +84,7 @@ navigation" phase.
 
 **Items:**
 
-The Pito Rails web app should adopt the same keyboard shortcut schema as the
+The pito Rails web app should adopt the same keyboard shortcut schema as the
 `pito` CLI. The CLI dictates the canonical shortcuts; the web app follows.
 Specifically:
 
@@ -529,7 +529,7 @@ count, surface it the same way.
 > per-target Boolean flags; both surface per-target action buttons; both share
 > the same UI affordances.
 
-### Re-prefix Pito agents with `pito-*` for multi-project clarity
+### Re-prefix pito agents with `pito-*` for multi-project clarity
 
 - **Trigger:** User surfaced 2026-05-04 after evaluating a parallel Claude-agent
   setup in another project (client) that prefixes all its agents with `client-*`.
@@ -539,7 +539,7 @@ count, surface it the same way.
   `cli-impl`, etc.), there's no collision today, BUT the asymmetric naming makes
   `~/.claude/agents/` harder to grok at a glance — `architect-spec.md` is
   anonymously pito's; `client-architect.md` is explicitly client's.
-- **Summary:** Re-prefix Pito's nine agents to `pito-*` so cross-project
+- **Summary:** Re-prefix pito's nine agents to `pito-*` so cross-project
   ownership is grep-able and future projects can join the host shell without
   contention. Renames: `architect-spec` → `pito-architect-spec`; `audit-state` →
   `pito-audit-state`; `cli-impl` → `pito-cli-impl`; `docs-keeper` →
@@ -1142,7 +1142,7 @@ boot) if either credential is missing. Cleanup, not behavioral change.
 
 **Resolution:** Keep decorators as-is. The Path A2 directive was about not
 pre-committing to a YouTube-metadata cache; aggregating computed values from
-intentional sources (oauth presence derivation, joined `video_stats` rollups) is
+intentional sources (OAuth presence derivation, joined `video_stats` rollups) is
 fundamentally different and provides legitimate API value. Spec 03
 (`docs/plans/beta/7.5-followups-and-foundations/specs/03-decorator-slim-resolution.md`)
 is the durable record of the decision.
@@ -1176,7 +1176,7 @@ model (full Path A2 symmetry — drop the derived/joined fields), or kept as-is
 
 **Master agent's lean:** keep decorators as-is. The Path A2 directive was about
 not pre-committing to a YouTube-metadata cache; aggregating computed values from
-intentional sources (oauth presence, the surviving `video_stats` table) is
+intentional sources (OAuth presence, the surviving `video_stats` table) is
 fundamentally different. Captured here so 7.5 doesn't re-derive the question.
 
 **Action:** in 7.5, confirm the master agent's lean (or flip it) and document

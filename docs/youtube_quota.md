@@ -1,6 +1,6 @@
 # YouTube API Quota
 
-Reference for how Pito spends its YouTube API quota and why the design choices
+Reference for how pito spends its YouTube API quota and why the design choices
 in Phase 7 (`Youtube::Client`, `Youtube::PublicClient`, the `youtube_api_calls`
 audit table, the per-identity daily budget) sit where they do. Read this
 alongside `docs/architecture.md` → "Google OAuth + YouTube API foundation (Phase
@@ -19,12 +19,12 @@ units**. Quota is shared across:
 The budget resets at midnight Pacific Time. It is per-project, not per-user and
 not per-identity.
 
-Pito's project is shared by every `GoogleIdentity` in the tenant plus every
+pito's project is shared by every `GoogleIdentity` in the tenant plus every
 `Youtube::PublicClient` call. The 10,000-unit budget covers the full surface.
 
 ## Cost table
 
-The endpoints Pito uses today (Phase 7) and tomorrow (Phase 8) are all in this
+The endpoints pito uses today (Phase 7) and tomorrow (Phase 8) are all in this
 list. Costs are documented by Google and may change without notice; treat the
 numbers as a stable approximation, not a contract.
 
@@ -38,12 +38,12 @@ numbers as a stable approximation, not a contract.
 
 Caching note: every call ALSO writes one row to `youtube_api_calls` with the
 declared `quota_cost`. The cost is recorded per-call, not derived later from a
-table inside Pito — if Google changes the cost of an endpoint, the change takes
+table inside pito — if Google changes the cost of an endpoint, the change takes
 effect when `Youtube::Client` is updated, not retroactively.
 
 ## Per-identity quota tracking (decision 7.5)
 
-The 10,000-unit project budget is shared, but Pito tracks usage **per identity
+The 10,000-unit project budget is shared, but pito tracks usage **per identity
 per day** so a future multi-user tenant can attribute and reason about its own
 slice. The check is:
 
@@ -89,10 +89,10 @@ there to budget against.
 ## 7-day refresh-token TTL in Testing mode
 
 Google issues refresh tokens that expire after 7 days when the OAuth consent
-screen is in **Testing** mode (the mode Pito ships in for the foreseeable future
+screen is in **Testing** mode (the mode pito ships in for the foreseeable future
 — see `docs/setup.md` "OAuth consent screen" for why publishing the consent
 screen is not worth the verification process for sole-user use). In practice
-this is irrelevant: Pito syncs regularly, the access token refreshes within its
+this is irrelevant: pito syncs regularly, the access token refreshes within its
 1-hour lifetime, and the refresh token gets re-issued long before the 7-day
 window closes. The `needs_reauth` flag exists to handle the edge case where the
 laptop sits closed for two weeks — the user clicks `[ reconnect ]` and re-walks
@@ -143,7 +143,7 @@ tier under real load. Three rules carry forward from this document:
 single page of search results burns 1% of the daily budget; a "discover by
 typing a channel name" UX would empty the budget in 100 typing sessions.
 
-Pito's UX is therefore built around **pasted URLs**, not search. The user adds a
+pito's UX is therefore built around **pasted URLs**, not search. The user adds a
 tracked channel by pasting `https://www.youtube.com/channel/UC...`, not by
 typing a name. Phase 8's add-channel flow validates and parses the URL; it never
 calls `search.list` to resolve a name to an id.

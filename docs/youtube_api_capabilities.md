@@ -1,6 +1,6 @@
 # YouTube API Capabilities
 
-Reference for what Pito's `Youtube::Client` and `Youtube::PublicClient` can and
+Reference for what pito's `Youtube::Client` and `Youtube::PublicClient` can and
 cannot do against the YouTube Data API v3 and the YouTube Analytics API v2. This
 doc seeds Phase 8 (sync) and the Channel/Video schema design.
 
@@ -34,7 +34,7 @@ dimension/metric query language that is strictly richer than the Data API's
 time, real-time, time-series.
 
 The two operationally important rules of thumb: (1) `search.list` costs 100
-units and is functionally banned in normal Pito flows; (2) channel _avatar_
+units and is functionally banned in normal pito flows; (2) channel _avatar_
 (profile picture) appears to have **no public write API** **[VERIFY]**, while
 banner image, watermark, video thumbnail, video metadata, captions, and
 playlists all do have write endpoints. The 14-day cooldown most builders
@@ -63,9 +63,9 @@ title field is updateable more freely **[VERIFY]**.
 | Statistics (`statistics.subscriberCount, viewCount, videoCount`)                                           | yes                                                 | **no — read-only**                                        | n/a           | 1 unit                 | n/a                                                                        | `subscriberCount` is rounded (3-significant-digit truncation) for channels above 1000 subs **[VERIFY]**. `hiddenSubscriberCount` flag also present.                                                                                                |
 | Topic categories (`topicDetails.topicCategories`)                                                          | yes                                                 | **no — read-only**                                        | n/a           | 1 unit                 | n/a                                                                        | Array of Wikipedia URLs. `topicIds` is also returned but largely deprecated **[VERIFY]**.                                                                                                                                                          |
 | Upload playlist ID (`contentDetails.relatedPlaylists.uploads`)                                             | yes                                                 | **no — read-only**                                        | n/a           | 1 unit                 | n/a                                                                        | THE most useful read field for sync — feed this id into `playlistItems.list` to walk every public upload by the channel. Free of `search.list` cost.                                                                                               |
-| Audit details (`auditDetails`)                                                                             | yes (owner only, special scope)                     | n/a                                                       | yes           | 4 units **[VERIFY]**   | n/a                                                                        | Used by MCN partners during audit; requires `youtubepartner-channel-audit` scope. Almost certainly out of scope for Pito.                                                                                                                          |
+| Audit details (`auditDetails`)                                                                             | yes (owner only, special scope)                     | n/a                                                       | yes           | 4 units **[VERIFY]**   | n/a                                                                        | Used by MCN partners during audit; requires `youtubepartner-channel-audit` scope. Almost certainly out of scope for pito.                                                                                                                          |
 | Status (`status.isLinked`, `longUploadsStatus`, `madeForKids`, `selfDeclaredMadeForKids`, `privacyStatus`) | yes                                                 | partial — `selfDeclaredMadeForKids` writable **[VERIFY]** | yes for write | 1 unit                 | 50 units **[VERIFY]**                                                      | `madeForKids` is computed; `selfDeclaredMadeForKids` is the user-set field.                                                                                                                                                                        |
-| Content owner details (`contentOwnerDetails`)                                                              | yes (CMS-linked only)                               | n/a                                                       | yes           | 1 unit                 | n/a                                                                        | YouTube CMS / partner-only; not relevant to Pito.                                                                                                                                                                                                  |
+| Content owner details (`contentOwnerDetails`)                                                              | yes (CMS-linked only)                               | n/a                                                       | yes           | 1 unit                 | n/a                                                                        | YouTube CMS / partner-only; not relevant to pito.                                                                                                                                                                                                  |
 
 Verify against:
 
@@ -130,7 +130,7 @@ shorthands for specific offset combinations; the API takes the raw ms values.
 | Content details — duration (`contentDetails.duration`)                      | yes                                             | **no — read-only**                               | n/a         | 1 unit                       | n/a                                                                                              | ISO 8601 duration string (e.g. `PT4M13S`). Computed at upload.                                                                                                                                    |
 | Content details — definition, dimension, caption flag                       | yes                                             | **no — read-only**                               | n/a         | 1 unit                       | n/a                                                                                              | `definition` (`hd`/`sd`), `dimension` (`2d`/`3d`), `caption` (`true`/`false` whether captions exist).                                                                                             |
 | Content details — region restriction                                        | yes                                             | yes                                              | yes         | 1 unit                       | 50 units **[VERIFY]**                                                                            | `regionRestriction.allowed` / `.blocked`. ISO country codes.                                                                                                                                      |
-| Live broadcast (`liveStreamingDetails`)                                     | yes                                             | indirectly via `liveBroadcasts` API              | yes         | 1 unit                       | varies                                                                                           | Live API is its own surface (`liveBroadcasts.*`, `liveStreams.*`); not in scope for Pito Phase 8.                                                                                                 |
+| Live broadcast (`liveStreamingDetails`)                                     | yes                                             | indirectly via `liveBroadcasts` API              | yes         | 1 unit                       | varies                                                                                           | Live API is its own surface (`liveBroadcasts.*`, `liveStreams.*`); not in scope for pito Phase 8.                                                                                                 |
 | End screens                                                                 | **no API** **[VERIFY]**                         | **no API** **[VERIFY]**                          | n/a         | n/a                          | n/a                                                                                              | YouTube Studio only. No public Data API v3 endpoint.                                                                                                                                              |
 | Cards                                                                       | **no API** **[VERIFY]**                         | **no API** **[VERIFY]**                          | n/a         | n/a                          | n/a                                                                                              | YouTube Studio only.                                                                                                                                                                              |
 | Insert (upload) — `videos.insert`                                           | n/a                                             | yes                                              | yes         | n/a                          | **1600 units**                                                                                   | Upload is _expensive_. Resumable upload protocol. ~256GB / 12hr limit.                                                                                                                            |
@@ -177,7 +177,7 @@ unavailable through the Data API at all (or is much coarser).
 | Subscribed status segmentation            | yes         | most reports                         | 1 unit     | Dimension `subscribedStatus` (`SUBSCRIBED` vs `UNSUBSCRIBED`).                                                     |
 
 Most Analytics queries cost **1 unit** per `reports.query` call **[VERIFY]** —
-this is what Pito's quota cost map already encodes. Some "advanced" reports
+this is what pito's quota cost map already encodes. Some "advanced" reports
 historically cost more **[VERIFY]**; the per-call cost should always be checked
 against the Analytics quota docs at implementation time.
 
@@ -192,7 +192,7 @@ Verify against:
 
 ## Public vs Owned access matrix
 
-A side-by-side comparison of what each Pito client tier can access.
+A side-by-side comparison of what each pito client tier can access.
 
 | Surface                                                          | `Youtube::PublicClient` (API key)            | `Youtube::Client` (OAuth, identity owns the resource) |
 | ---------------------------------------------------------------- | -------------------------------------------- | ----------------------------------------------------- |
@@ -217,7 +217,7 @@ A side-by-side comparison of what each Pito client tier can access.
 | PubSubHubbub subscription                                        | yes (no auth required for the hub itself)    | yes                                                   |
 | `search.list`                                                    | yes (100 units)                              | yes (100 units)                                       |
 
-OAuth scopes Pito would touch (matching `docs/architecture.md` §"GoogleIdentity
+OAuth scopes pito would touch (matching `docs/architecture.md` §"GoogleIdentity
 model"):
 
 - `https://www.googleapis.com/auth/youtube.readonly` — read access to owned
@@ -227,7 +227,7 @@ model"):
 - `https://www.googleapis.com/auth/youtube.force-ssl` — required for some write
   endpoints (captions, comments) **[VERIFY]**.
 - `https://www.googleapis.com/auth/youtubepartner` — content ID / partner
-  features (CMS). Out of scope for Pito.
+  features (CMS). Out of scope for pito.
 - `https://www.googleapis.com/auth/yt-analytics.readonly` — Analytics reports.
 - `https://www.googleapis.com/auth/yt-analytics-monetary.readonly` —
   monetization reports.
@@ -236,7 +236,7 @@ model"):
 
 ## Aggregation possibilities
 
-What Pito **can** derive from per-video data without an extra API call:
+What pito **can** derive from per-video data without an extra API call:
 
 - **Total video count** — already in `channels.statistics.videoCount`, but also
   derivable by counting `playlistItems` of the uploads playlist. The two may
@@ -253,9 +253,9 @@ What Pito **can** derive from per-video data without an extra API call:
   the relevant statistic. No API support for "give me my top 10" ranking outside
   the Analytics API.
 - **Engagement rate** — `(likes + comments) / views` per video; aggregate up.
-  Pito-owned metric, not a YouTube field.
+  pito-owned metric, not a YouTube field.
 
-What Pito **cannot** derive from per-video data — must come from Analytics or
+What pito **cannot** derive from per-video data — must come from Analytics or
 channel-level reads:
 
 - **Subscriber count history** — `channels.statistics.subscriberCount` is a
@@ -293,7 +293,7 @@ API key for the subscription itself** **[VERIFY]**.
   so your callback can verify they actually came from YouTube.
 - **What you receive**: an Atom XML push with the new video's ID, title,
   channel, publish timestamp, and a few other snippet-equivalent fields — but
-  **not** the full `videos.list` payload. After receiving a push, Pito would
+  **not** the full `videos.list` payload. After receiving a push, pito would
   still call `videos.list?id=...` (1 unit) to hydrate.
 - **Reliability**: the hub retries on callback failure but is not infinitely
   durable — sustained outages mean missed pushes. Treat PubSubHubbub as a
@@ -314,8 +314,8 @@ Verify against:
 ## Quota cost reference
 
 Reproduced from training-data recall — **VERIFY against the live quota cost page
-before relying on any single number**. Pito's frozen `Youtube::Quota::COSTS`
-hash already encodes the subset Pito actually calls.
+before relying on any single number**. pito's frozen `Youtube::Quota::COSTS`
+hash already encodes the subset pito actually calls.
 
 ### YouTube Data API v3
 
@@ -342,7 +342,7 @@ hash already encodes the subset Pito actually calls.
 | `playlistItems.insert`                    | 50                   |                                                                                                        |
 | `playlistItems.update`                    | 50                   |                                                                                                        |
 | `playlistItems.delete`                    | 50                   |                                                                                                        |
-| `search.list`                             | **100**              | Forbidden in normal Pito flows (`docs/youtube_quota.md`).                                              |
+| `search.list`                             | **100**              | Forbidden in normal pito flows (`docs/youtube_quota.md`).                                              |
 | `subscriptions.list`                      | 1                    |                                                                                                        |
 | `subscriptions.insert`                    | 50                   |                                                                                                        |
 | `subscriptions.delete`                    | 50                   |                                                                                                        |
@@ -364,7 +364,7 @@ hash already encodes the subset Pito actually calls.
 | `i18nRegions.list`                        | 1                    |                                                                                                        |
 | `videoAbuseReportReasons.list`            | 1                    |                                                                                                        |
 | `channelSections.*`                       | 1 (read), 50 (write) | Largely deprecated UX-side **[VERIFY]**.                                                               |
-| `liveBroadcasts.*`                        | varies               | Out of scope for Pito Phase 8.                                                                         |
+| `liveBroadcasts.*`                        | varies               | Out of scope for pito Phase 8.                                                                         |
 | `liveStreams.*`                           | varies               | Out of scope.                                                                                          |
 | `members.list` / `membershipsLevels.list` | 1                    | Channel memberships (Patreon-style).                                                                   |
 
@@ -390,9 +390,9 @@ Verify against:
 
 ---
 
-## Pito recommendations — top columns to add
+## pito recommendations — top columns to add
 
-> This section is **Pito-recommendation, not YouTube-fact.** It interprets the
+> This section is **pito-recommendation, not YouTube-fact.** It interprets the
 > capability matrix above against the Phase 7 schema (`docs/architecture.md`
 > §"Channel / Video schema philosophy" + spec 7B's column list) and proposes
 > what to add when Phase 8's sync work lands.
@@ -444,7 +444,7 @@ Spec 7B already has `youtube_video_id`, `title`, `description`, `published_at`,
 9. **`captions_available`** (boolean). `contentDetails.caption == "true"`.
 10. **`region_restriction`** (jsonb, nullable).
     `contentDetails.regionRestriction` — interesting for tracked content where
-    Pito users may want to flag geo-blocked items.
+    pito users may want to flag geo-blocked items.
 
 ### Owned-only video columns (for Analytics-rooted enrichment)
 
@@ -475,17 +475,17 @@ materially affects Phase 8 design:
 
 1. **Channel avatar**: is there ANY public Data API write path? If yes, name the
    endpoint, scope, quota cost, and image format. If no (likely), confirm and
-   bake "avatar = read-only" into Pito's UI affordances from day one.
+   bake "avatar = read-only" into pito's UI affordances from day one.
 2. **Title / handle 14-day cooldown**: which field carries the cooldown, and
-   does the API enforce it or only the Studio UI? Pito should warn the user
+   does the API enforce it or only the Studio UI? pito should warn the user
    before submitting a write that will be rejected.
 3. **Watermark cornerPosition values**: enumerate the exact valid string values.
-   Pito's UI radio buttons need the right labels.
+   pito's UI radio buttons need the right labels.
 4. **Watermark timing**: confirm the `offsetFromStart` / `offsetFromEnd` /
    `entireVideo` model and the exact field names (`offsetMs` vs `durationMs`).
 5. **Per-`part` quota**: does requesting
    `parts=snippet,statistics,brandingSettings,topicDetails` on `channels.list`
-   cost 1 unit or 4? Pito's daily-budget math depends on this.
+   cost 1 unit or 4? pito's daily-budget math depends on this.
 6. **`channels.update` write fields**: spec 7B treats it as a single-call write.
    Confirm which `parts` are mutable in one call — at minimum
    `brandingSettings`, `localizations`, `status` **[VERIFY]** — vs which require
@@ -494,7 +494,7 @@ materially affects Phase 8 design:
    Verify before designing a captions sync.
 8. **PubSubHubbub events**: confirm whether privacy flips (private→public)
    trigger pings and whether `videos.update` metadata edits trigger pings.
-   Pito's "is the cache stale" logic differs depending.
+   pito's "is the cache stale" logic differs depending.
 9. **`subscriberCount` precision**: is it always rounded for >1000 subs in the
    Data API? Is the exact count visible only via Analytics? This affects what
    the channel show page can claim.
@@ -504,10 +504,10 @@ materially affects Phase 8 design:
 
 ---
 
-## Pito callout — keep `search.list` out of normal flows
+## pito callout — keep `search.list` out of normal flows
 
 This bears repeating from `docs/youtube_quota.md`: `search.list` costs **100x**
-a `videos.list` call. Pito's discovery UX is **paste a URL**, never type a name.
+a `videos.list` call. pito's discovery UX is **paste a URL**, never type a name.
 Any Phase 8 design that wants to "find a channel by display name" must go
 through a YouTube redirect (the user clicks a link to YouTube, copies the URL
 back) rather than a `search.list` shortcut. The 10,000-unit project budget

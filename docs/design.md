@@ -387,7 +387,7 @@ attribute keys, and Stimulus controller action names follow standard snake_case
 / kebab-case conventions and remain lowercase as Rails / web standards dictate.
 
 Mnemonic: a user reading `url` thinks of the technical lowercase identifier;
-`URL` is the noun in English. Pito surfaces the noun.
+`URL` is the noun in English. pito surfaces the noun.
 
 ## Forms
 
@@ -606,7 +606,7 @@ classes; pages that compose saved-views inline must use the same shape.
 
 ### Horizontal scrollbars
 
-Pito uses a themed horizontal scrollbar in place of the browser default for any
+pito uses a themed horizontal scrollbar in place of the browser default for any
 container that scrolls horizontally. The convention:
 
 - **Height**: 8px (thinner than the browser default ~16px).

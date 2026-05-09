@@ -1,6 +1,6 @@
 # Phase 10 — Voyage Embeddings + Hybrid Search
 
-> **Goal:** Generate embeddings for all KB and YouTube content via Voyage AI.
+> **Goal:** Generate embeddings for all KB and YouTube content via Voyage.ai.
 > Store vectors in **both** Postgres (pgvector) for related-content SQL joins
 > and Meilisearch for hybrid keyword+vector search via the existing search bar.
 > One Voyage call per content change; dual-write to both stores; no redundant
@@ -11,7 +11,7 @@ channel/video data), Phase 9 (KB markdown structure populated).
 
 **Unblocks:** Phase 11 (workflow features can use "find related videos / notes"
 queries; Claude can suggest content directions based on semantic neighbors), and
-the qualitative leap from "Pito stores my data" to "Pito helps me think about my
+the qualitative leap from "pito stores my data" to "pito helps me think about my
 data."
 
 ---
@@ -19,7 +19,7 @@ data."
 ## Why Phase 10 is now
 
 Embeddings work best on real, settled content — not stub seeds. After Phase 9,
-Pito has:
+pito has:
 
 - Real channel metadata (titles, descriptions, branding)
 - Real video metadata (titles, descriptions, captions if available)
@@ -50,7 +50,7 @@ observability has the data it needs.
 
 ## In scope
 
-### Voyage AI integration
+### Voyage.ai integration
 
 - Add a Voyage HTTP client (no maintained Ruby gem at the time of writing; a
   thin wrapper around `Net::HTTP` or `Faraday` is the right shape)
@@ -80,7 +80,7 @@ observability has the data it needs.
 - Indexes:
   - **HNSW index** on each `embedding` column
     (`USING hnsw (embedding vector_cosine_ops)` with default parameters). HNSW
-    preferred over IVFFlat for accuracy at Pito's corpus size.
+    preferred over IVFFlat for accuracy at pito's corpus size.
   - Standard B-tree on `content_hash` for fast skip-on-no-change checks
   - Index on `kb_file_embeddings.path` for lookup
 
@@ -414,7 +414,7 @@ The user runs through this before commit:
 - **Meilisearch embedder feature compatibility.** User-supplied embedders is a
   relatively new Meilisearch feature; verify the running version supports it. If
   older, upgrade the Docker image as a sub-task of this phase.
-- **pgvector index choice.** HNSW is the recommendation for accuracy at Pito's
+- **pgvector index choice.** HNSW is the recommendation for accuracy at pito's
   corpus size. Default parameters (`m=16`, `ef_construction=64`) are fine.
   IVFFlat is faster to build but lower recall — not worth it here.
 - **KB file deletion sync.** When a KB file is deleted (`yt:delete_kb_file` from
@@ -441,7 +441,7 @@ Before executing, confirm with the user:
 1. The user has a Voyage account; API key is obtained; cost expectations are
    clear (~$5 backfill, pennies/day ongoing).
 2. `voyage-3` is the right model. Alternatives: `voyage-3-large` (better
-   quality, more expensive — overkill for Pito's use), `voyage-code-3`
+   quality, more expensive — overkill for pito's use), `voyage-code-3`
    (irrelevant). Stick with `voyage-3`.
 3. Meilisearch version supports user-supplied embedders. If not, upgrade the
    Docker image as part of this phase.

@@ -3,7 +3,7 @@
 > **Goal:** Ship a static landing page at `pitomd.com` (Cloudflare Pages,
 > single-branch deploy with PR previews on feature branches), and implement the
 > `website:*` MCP tool namespace declared in Phase 3 so the user can edit copy
-> and trigger deploys from inside Pito without leaving the app.
+> and trigger deploys from inside pito without leaving the app.
 
 **Repo:** `~/Dev/pito-website` (created in Phase 1).
 
@@ -21,7 +21,7 @@ markdown tools have two reference implementations to follow.
 The landing page is content-light infrastructure that:
 
 1. **Anchors the product visually.** `pitomd.com` should look unmistakably like
-   Pito — same monospace, bracketed-link aesthetic, same color tokens — so the
+   pito — same monospace, bracketed-link aesthetic, same color tokens — so the
    design language locked in Phase 4 extends to the public-facing surface. Doing
    this here, before Phase 11's many new screens, keeps the design discipline
    consistent.
@@ -34,7 +34,7 @@ The landing page is content-light infrastructure that:
    land in Phase 9, the pattern is well-tested with two reference
    implementations.
 4. **In-app editor is genuinely useful.** The user can tweak landing-page copy
-   from inside Pito's Settings without context-switching to a terminal.
+   from inside pito's Settings without context-switching to a terminal.
    Mobile-Claude can also edit landing copy (with appropriate scope), useful for
    catching typos on the go.
 
@@ -44,9 +44,9 @@ The landing page is content-light infrastructure that:
 
 ### `pito-website` static site
 
-- Single page (`index.html`) — hero, what Pito is, screenshots, contact /
+- Single page (`index.html`) — hero, what pito is, screenshots, contact /
   signup-waitlist (mailto for now)
-- Visual style identical to Pito web app: monospace, `[bracketed]` links,
+- Visual style identical to pito web app: monospace, `[bracketed]` links,
   light/dark theme via `prefers-color-scheme`, same color tokens as
   `pito/docs/design.md`
 - **No build step.** Pure HTML/CSS, no JS framework. CSS hand-written using the
@@ -73,7 +73,7 @@ The landing page is content-light infrastructure that:
 
 ### `website:*` MCP tool namespace
 
-Implemented in Pito, exposed via MCP Puma. Required scopes from the Phase 3
+Implemented in pito, exposed via MCP Puma. Required scopes from the Phase 3
 catalog:
 
 - `website:list_pages` — list editable files (HTML, CSS, JS, MD, TXT, common
@@ -163,7 +163,7 @@ uses MCP or the web UI:
 - [ ] Create `style.css` with custom properties matching `pito/docs/design.md`
       color tokens
 - [ ] Add `favicon.ico`, `robots.txt`, `sitemap.xml`
-- [ ] Add 2-4 screenshots of the Pito app (web UI, terminal app, dashboard) as
+- [ ] Add 2-4 screenshots of the pito app (web UI, terminal app, dashboard) as
       `.webp`
 - [ ] Test locally: `cd ~/Dev/pito-website && python3 -m http.server` — page
       renders, dark mode follows system preference
@@ -216,7 +216,7 @@ uses MCP or the web UI:
       `website:create_pr_branch`, displays preview URL
 - [ ] Status section: last commit info, links to GitHub and Cloudflare
       dashboards
-- [ ] Apply existing Pito design tokens (bracketed buttons, monospace,
+- [ ] Apply existing pito design tokens (bracketed buttons, monospace,
       dark/light theme)
 - [ ] Specs for the Settings UI controllers
 
@@ -234,7 +234,7 @@ uses MCP or the web UI:
 
 ### Validation
 
-- [ ] Visit `pitomd.com` over HTTPS — page loads, design matches Pito web app,
+- [ ] Visit `pitomd.com` over HTTPS — page loads, design matches pito web app,
       dark mode follows system preference
 - [ ] In-app: edit `index.html` → Save → Commit & Deploy → confirm production
       updates within 1-2 minutes
@@ -292,7 +292,7 @@ uses MCP or the web UI:
   invocation should not trigger).
 - bundler-audit: clean.
 - Dependabot: review.
-- `pito/docs/design.md`: landing page palette must match Pito web app palette.
+- `pito/docs/design.md`: landing page palette must match pito web app palette.
 
 ## Manual testing checklist
 
@@ -304,7 +304,7 @@ The user runs through this before commit:
    Pages deploys to `pitomd.com` within ~1 minute
 3. Visit `pitomd.com` over HTTPS in incognito — page loads, follows OS dark mode
    preference
-4. In Pito web Settings → Landing Page → see file list (`index.html`,
+4. In pito web Settings → Landing Page → see file list (`index.html`,
    `style.css`, etc.)
 5. Click `index.html` → editor opens with current content; modify the hero
    headline
@@ -335,7 +335,7 @@ The user runs through this before commit:
   unallocated (parked) or pointing somewhere — verify before pointing at Pages
   to avoid clobbering anything. The free tier covers this use case fully.
 - **Git from controller vs Sidekiq.** Running `git` synchronously in a
-  controller is fine for single-user with small commits (Pito's landing page is
+  controller is fine for single-user with small commits (pito's landing page is
   one HTML file plus a CSS file plus a few images — commits complete in
   milliseconds). If commits ever feel slow, move to a Sidekiq job. Document the
   threshold: commit + push completing >2s in development is the trigger to

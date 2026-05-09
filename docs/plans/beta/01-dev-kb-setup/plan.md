@@ -47,7 +47,7 @@ feature. It enables every feature that follows.
 ### Sibling repository creation
 
 Create three new private repositories on GitHub: `pito-dev-kb`, `pito-website`,
-`pito-sh`. Pito (`pito`) already exists from Alpha. Each new repository gets
+`pito-sh`. pito (`pito`) already exists from Alpha. Each new repository gets
 identical scaffolding (`README.md`, `CLAUDE.md`, `LICENSE.md`) with content
 distinct to its purpose. The license is the same private "not for sale, not for
 redistribution" notice across all repos.
@@ -58,7 +58,7 @@ no symlinks, no shared history. The user manages tabs in nvim with `:tcd` and
 
 ### Alpha record preservation
 
-The Pito repo currently has `pito/docs/alpha/plan.md` and
+The pito repo currently has `pito/docs/alpha/plan.md` and
 `pito/docs/alpha/log.md` containing the Alpha probe history. Beta treats these
 as preserved record, not active material. Move them:
 
@@ -70,7 +70,7 @@ Then delete `pito/docs/alpha/` from the application repo. Update
 instruction; replace it with a directive pointing at the active phase folder
 under `~/Dev/pito-dev-kb/plans/beta/<NN>-<slug>/`.
 
-The application repo's `docs/` directory continues to ship with Pito (it's the
+The application repo's `docs/` directory continues to ship with pito (it's the
 product-facing documentation: `design.md`, `mcp.md`, `architecture.md`,
 `setup.md`). Beta's planning churn lives in `pito-dev-kb/`, not in the product
 repo.
@@ -82,7 +82,7 @@ Beta (post-Alpha probe outcome). Setup covers a fresh local install on Linux
 
 ### `dev:*` MCP tool namespace
 
-Add a `dev:*` namespace to Pito's MCP server with these tools:
+Add a `dev:*` namespace to pito's MCP server with these tools:
 
 - `dev:list_files(subdir?)` — list `.md` files under `PITO_DEV_KB_PATH` or a
   subdirectory
@@ -280,7 +280,7 @@ paths relative to it.
 
 The user runs through this before commit:
 
-1. Start Pito locally (`bin/dev`). Both Puma processes (web + MCP) and Sidekiq
+1. Start pito locally (`bin/dev`). Both Puma processes (web + MCP) and Sidekiq
    come up cleanly.
 2. Open Settings → tokens (whatever the current path is). Generate a token named
    `mobile-dev` with scopes `dev:read`, `dev:write`. Copy the plaintext token
@@ -317,7 +317,7 @@ The user runs through this before commit:
 - **Cross-repo Git history for the alpha move.** History doesn't transfer
   cleanly between repos without `git filter-repo` or similar. Don't try. Just
   copy + commit; the alpha records are preserved as a snapshot in
-  `pito-dev-kb/plans/alpha/`, with the original Pito repo's Git history
+  `pito-dev-kb/plans/alpha/`, with the original pito repo's Git history
   retaining the historical commits for anyone who really wants to dig.
 - **Both Puma processes need the env var.** `PITO_DEV_KB_PATH` must be exported
   in the environment that starts _both_ Web Puma and MCP Puma. The `Procfile`

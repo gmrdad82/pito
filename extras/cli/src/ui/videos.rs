@@ -186,7 +186,7 @@ fn render_table_header(
     }
 
     spans.push(Span::styled(
-        pad_right("youtube id", cols.youtube_id),
+        pad_right("YouTube id", cols.youtube_id),
         style,
     ));
     spans.push(Span::styled(pad_right("channel", cols.channel), style));

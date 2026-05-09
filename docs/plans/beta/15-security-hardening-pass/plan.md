@@ -149,7 +149,7 @@ application's posture:
 9. **Logging failures** — security events logged appropriately (login attempts,
    token creation/revocation, scope denials, sandbox rejections, cross-tenant
    attempts)
-10. **SSRF** — external URL fetching audit. Pito makes outbound calls to YouTube
+10. **SSRF** — external URL fetching audit. pito makes outbound calls to YouTube
     API, Voyage API, Slack API, Anthropic API. All use known fixed URLs from
     credentials/constants — no user-supplied URLs reach the HTTP client. Verify.
 
@@ -162,10 +162,10 @@ attention") and a disposition.
 
 - **Assets:** user data (channels, videos, KB content), OAuth tokens (Google),
   API keys (Voyage, Anthropic, YouTube public, Slack), source code (five repos),
-  the Pito codebase itself running with the user's credentials, the Hetzner
+  the pito codebase itself running with the user's credentials, the Hetzner
   server (Phase 16)
 - **Threat actors:** external attacker (random scanning), targeted attacker
-  (someone who knows about Pito), compromised dependency (supply chain),
+  (someone who knows about pito), compromised dependency (supply chain),
   shoulder surfer / device theft, accidental insider (the user themselves making
   a mistake — relevant single-tenant)
 - **STRIDE analysis** per asset: Spoofing, Tampering, Repudiation, Information
@@ -248,7 +248,7 @@ server, valuable but not critical YouTube content."
 
 ### Out of scope
 
-- Penetration testing by external party (Theta concern if Pito ever has external
+- Penetration testing by external party (Theta concern if pito ever has external
   users)
 - Bug bounty program (Theta)
 - Automated DAST scanning in CI (overkill for single-user; document option for
@@ -451,7 +451,7 @@ The user runs through this before commit:
   reasoning in `security.md`.
 - **Threat model scope creep.** Keep it pragmatic. Single-user Beta doesn't need
   defense against nation-state actors. Document at the level appropriate for
-  Pito's actual threat surface — don't inflate the model just to look thorough.
+  pito's actual threat surface — don't inflate the model just to look thorough.
 - **Header ordering on Cloudflare.** Cloudflare may add or modify headers. Test
   both at the origin and through the Cloudflare proxy/CDN.
 - **Dual-Puma CSP differences.** Web Puma needs Hotwire-friendly CSP; MCP Puma

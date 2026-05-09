@@ -1,12 +1,12 @@
 # Architecture
 
-This document captures the runtime topology and the platform decisions Pito
+This document captures the runtime topology and the platform decisions pito
 relies on. It is the seed file from Phase 1 / Phase 2; further phases append
 rather than rewrite.
 
 ## Datastore — Postgres 17 (Phase 2)
 
-Pito's primary relational store is Postgres 17 via the `pgvector/pgvector:pg17`
+pito's primary relational store is Postgres 17 via the `pgvector/pgvector:pg17`
 Docker image. Running on `127.0.0.1` and (in development) listening on host port
 `54327` so it never collides with a host-installed Postgres on `5432` or with
 sibling projects on neighbouring ports. The `27` suffix is pito's port marker;
@@ -299,14 +299,14 @@ it only opts the chart in or out of the shared crosshair.
 
 ## Google OAuth + YouTube API foundation (Phase 7)
 
-Phase 7 introduces the third-party-API limb of Pito's auth surface: a delegation
-channel from Pito to Google, used by the YouTube Data and Analytics APIs. It is
+Phase 7 introduces the third-party-API limb of pito's auth surface: a delegation
+channel from pito to Google, used by the YouTube Data and Analytics APIs. It is
 independent of the bearer-token and session surfaces — different flow, different
 model, different lifecycle.
 
 ### Auth surface map
 
-Pito has three independent inbound auth surfaces and one outbound delegation,
+pito has three independent inbound auth surfaces and one outbound delegation,
 each with its own lifecycle and storage:
 
 - **Browser → Rails (Web Puma)** — cookie + DB-backed sessions. The `sessions`
@@ -316,10 +316,10 @@ each with its own lifecycle and storage:
   (Phase 3 / Phase 5). Tokens are HMAC-digested at rest, scoped, and
   authenticated by the shared `Api::TokenAuthenticator`.
 - **Third-party clients → Rails** — Doorkeeper-issued OAuth 2.0 tokens (Phase
-  6B). Pito acts as the OAuth provider. Same `Api::AuthConcern` consumes the
+  6B). pito acts as the OAuth provider. Same `Api::AuthConcern` consumes the
   token; the storage and issuance flow differ.
-- **Pito → Google (outbound delegation)** — OAuth 2.0 authorization code flow. A
-  `GoogleIdentity` row holds the encrypted access + refresh tokens that let Pito
+- **pito → Google (outbound delegation)** — OAuth 2.0 authorization code flow. A
+  `GoogleIdentity` row holds the encrypted access + refresh tokens that let pito
   act on a user's behalf against the YouTube APIs.
 
 These surfaces do not share storage. A user can have zero or more of each. The
@@ -393,7 +393,7 @@ the next page load.
 
 ### Channel / Video schema philosophy (post-Path-A)
 
-Pito stores `Channel` and `Video` as **thin YouTube-reference records**, not
+pito stores `Channel` and `Video` as **thin YouTube-reference records**, not
 local caches of YouTube metadata. The columns are:
 
 - `Channel`: `id`, `tenant_id`, `url`, `star`, `oauth_identity_id` (FK to
@@ -403,7 +403,7 @@ local caches of YouTube metadata. The columns are:
 
 All previously-stored YouTube metadata columns — title, description,
 `subscriber_count`, `view_count`, `video_count`, `thumbnail_url`, `etag`,
-`youtube_channel_id`, and the rest — were dropped. Pito does **not** cache
+`youtube_channel_id`, and the rest — were dropped. pito does **not** cache
 YouTube metadata in this phase. Displays that previously rendered a title or
 counter render the URL (or a URL-derived placeholder) and defer to Phase 8 to
 decide which fields, if any, are worth caching locally.
@@ -411,7 +411,7 @@ decide which fields, if any, are worth caching locally.
 This produces two kinds of records, distinguished by `oauth_identity_id`:
 
 - **Owned** (`oauth_identity_id NOT NULL`) — the FK points at the Google
-  identity that authorizes Pito to read Analytics for this channel/video. Sync
+  identity that authorizes pito to read Analytics for this channel/video. Sync
   goes through `Youtube::Client`.
 - **Tracked** (`oauth_identity_id IS NULL`) — public-only content the user
   follows. Sync (Phase 8) goes through `Youtube::PublicClient`. No Analytics.
@@ -420,7 +420,7 @@ This produces two kinds of records, distinguished by `oauth_identity_id`:
 
 The click-by-click setup for the Google Cloud project, OAuth consent screen,
 test users, and OAuth Web client lives in `docs/setup.md` under "Google Cloud /
-OAuth Setup". Pito reads its credentials from
+OAuth Setup". pito reads its credentials from
 `Rails.application.credentials.google_oauth`:
 
 - `:google_oauth.project_id` — Cloud project identifier (informational; used in

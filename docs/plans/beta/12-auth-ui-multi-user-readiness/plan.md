@@ -8,7 +8,7 @@
 > becomes provably ready for Theta.**
 
 **Depends on:** Phase 3 (auth foundation: User, Tenant, ApiToken, scope catalog,
-JSON API auth shared by both Pumas), Phase 11 (the workflow that proves Pito is
+JSON API auth shared by both Pumas), Phase 11 (the workflow that proves pito is
 "useful enough" to deserve a real login surface).
 
 **Unblocks:** Phase 13 (observability has user/tenant context for filtering
@@ -31,7 +31,7 @@ Phase 3 built the schema and the JSON API auth surface used by both Pumas. Phase
   can leak data across tenants — even though Beta only has one tenant in
   production
 
-Pito stops feeling like a single-user prototype and starts feeling like a real
+pito stops feeling like a single-user prototype and starts feeling like a real
 product, even though only one person uses it. The schema has been
 multi-tenant-ready since Phase 3; this phase proves the runtime path enforces
 what the schema implies.
@@ -143,7 +143,7 @@ automations, third parties in Theta) can plug into.
 ### Slack probe migration (if Phase 5 verdict was YES)
 
 - The `slack-bot` `ApiToken` from Phase 5 stays as-is — it's a long-lived
-  Pito-internal token, not user-facing OAuth
+  pito-internal token, not user-facing OAuth
 - If Slack is dropped (verdict NO), this section becomes a no-op
 
 ### Multi-tenant audit
@@ -292,9 +292,9 @@ Theta will turn the flag on. Beta keeps single-user.
 - [ ] Use the `oauth2` Rust crate (already pulled in Phase 4)
 - [ ] Add refresh token handling
 - [ ] Update `pito-sh/README.md` and `pito-sh/CLAUDE.md` with the new auth flow
-- [ ] Remove Phase 4's `/auth/cli/*` endpoints from Pito (or shim them with
+- [ ] Remove Phase 4's `/auth/cli/*` endpoints from pito (or shim them with
       deprecation warnings if a one-release transition is preferred)
-- [ ] Specs in both Pito and `pito-sh` for the new flow
+- [ ] Specs in both pito and `pito-sh` for the new flow
 
 ### Multi-tenant audit
 
@@ -437,7 +437,7 @@ The user runs through this before commit:
   separately if needed.
 - **Doorkeeper scopes vs. internal scopes.** Doorkeeper has its own scope model.
   Map directly onto Phase 3's catalog. Doorkeeper enforces scope at the
-  OAuth-token level; Pito's scope-checking helper from Phase 3 enforces at the
+  OAuth-token level; pito's scope-checking helper from Phase 3 enforces at the
   application level. Both must align — verify.
 - **Active sessions UX.** IP and user-agent strings are normal but ugly.
   Consider a small UA parser library (`useragent` gem) that maps to friendly

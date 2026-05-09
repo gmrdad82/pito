@@ -1,10 +1,10 @@
 # Phase 11 — Video Workflow Features
 
-> **Goal:** Build the production-side features that turn Pito from a tracking
+> **Goal:** Build the production-side features that turn pito from a tracking
 > tool into a content management workflow: production calendar with state
 > machine, browser-direct resumable upload, metadata management with sync
 > reconciliation, scheduling, thumbnail management, and playlists. By the end of
-> this phase, Pito is something the user actually uses to _produce_ content, not
+> this phase, pito is something the user actually uses to _produce_ content, not
 > just to _analyze_ it.
 
 **Depends on:** Phase 8 (real video data + sync infrastructure), Phase 10
@@ -17,19 +17,19 @@ jobs and quota burn from upload-heavy workflows).
 
 ## Why Phase 11 is now
 
-By Phase 11, Pito knows:
+By Phase 11, pito knows:
 
 - The user's owned channels and external reference channels (Phase 7-8)
 - All the videos and their stats, refreshed daily (Phase 8)
 - The user's KB context for each channel and video (Phase 9)
 - Semantic relationships between content via embeddings (Phase 10)
 
-Time to make Pito useful for **producing** new content, not just analyzing
+Time to make pito useful for **producing** new content, not just analyzing
 existing. Phase 11 adds the workflow layer.
 
 The phase is large but cohesive — every piece serves the production loop. The
 user has an idea, plans it, records, edits, uploads, schedules, monitors,
-retrospects. Pito should accompany every step. The Phase 4 design language
+retrospects. pito should accompany every step. The Phase 4 design language
 (locked across web/MCP/terminal/landing) carries through; new screens slot into
 existing patterns rather than introducing new vocabulary.
 
@@ -80,27 +80,27 @@ Ruby.
 ### Resumable browser upload (browser-direct to YouTube)
 
 This is the architecturally most interesting piece. The user's video file does
-**not** transit Pito's server — it goes directly from the user's browser to
-YouTube. Pito coordinates the upload session, tracks progress, and creates the
+**not** transit pito's server — it goes directly from the user's browser to
+YouTube. pito coordinates the upload session, tracks progress, and creates the
 `Video` record once YouTube confirms.
 
 **Flow:**
 
 1. User selects file in the browser via the upload form
-2. Browser POSTs to Pito (`POST /api/uploads`) with file metadata (size, type,
+2. Browser POSTs to pito (`POST /api/uploads`) with file metadata (size, type,
    title, description, privacy, etc.)
-3. Pito calls YouTube `videos.insert` with `uploadType=resumable` to receive a
+3. pito calls YouTube `videos.insert` with `uploadType=resumable` to receive a
    YouTube upload URL
-4. Pito creates a `VideoUpload` record (`id`, `production_id`, `video_id`
+4. pito creates a `VideoUpload` record (`id`, `production_id`, `video_id`
    nullable, `youtube_upload_url`, `status`, `bytes_uploaded`, `total_bytes`,
    `last_progress_at`)
-5. Pito returns the `VideoUpload` ID and the YouTube URL to the browser
+5. pito returns the `VideoUpload` ID and the YouTube URL to the browser
 6. Browser uploads chunks (1 MB recommended) directly to the YouTube URL
 7. After each chunk, browser POSTs progress to `/api/uploads/:id/progress`
    (server records `bytes_uploaded`)
 8. Browser persists upload state in `localStorage` so a tab refresh can resume
 9. On completion, browser POSTs to `/api/uploads/:id/complete` with YouTube's
-   response payload; Pito creates the `Video` record from the response and links
+   response payload; pito creates the `Video` record from the response and links
    it to the `VideoProduction`
 10. State machine transitions: `uploading` → `published` (or `scheduled` if
     `publishAt` was set)
@@ -110,9 +110,9 @@ YouTube. Pito coordinates the upload session, tracks progress, and creates the
 offset and resumes from there. If the YouTube upload URL has expired (typically
 24 hours), the user must re-initiate.
 
-**Bandwidth implication:** Pito server bandwidth is unaffected by upload size. A
+**Bandwidth implication:** pito server bandwidth is unaffected by upload size. A
 4 GB video transits browser → YouTube directly. This is the standard YouTube
-upload pattern; Pito just orchestrates.
+upload pattern; pito just orchestrates.
 
 ### Metadata management
 
@@ -121,7 +121,7 @@ publish time, thumbnail, playlists.
 
 **Sync reconciliation pattern:**
 
-- Pito's local copy of metadata (`Video` record) and YouTube's copy can drift if
+- pito's local copy of metadata (`Video` record) and YouTube's copy can drift if
   the user edits via YouTube Studio out of band
 - Each `Video` has `metadata_synced_at` and `metadata_locally_modified_at`
   columns
@@ -159,7 +159,7 @@ This avoids quota burn on every edit while keeping the user in control.
 
 - YouTube supports scheduled publish via `status.privacyStatus = 'private'` +
   `status.publishAt = ISO8601`
-- Pito UI: schedule field on the metadata form accepts a datetime
+- pito UI: schedule field on the metadata form accepts a datetime
 - Backend translates to YouTube's expected format and pushes via `videos.update`
 - The local `VideoProduction` records `target_publish_at` and stays in
   `scheduled` state until YouTube transitions it
@@ -193,10 +193,10 @@ This avoids quota burn on every edit while keeping the user in control.
     call) to generate a description draft
   - The user reviews and edits before save
 
-Pito itself does **not** call an LLM directly. The AI assistance is delivered
-through Claude clients calling Pito's MCP tools — the
+pito itself does **not** call an LLM directly. The AI assistance is delivered
+through Claude clients calling pito's MCP tools — the
 user-as-Claude-conversation pulls context, drafts, and writes back. This keeps
-Pito stateless on the LLM side and respects the user's existing Claude
+pito stateless on the LLM side and respects the user's existing Claude
 subscription costs.
 
 ### Out of scope
@@ -208,7 +208,7 @@ subscription costs.
 - YouTube Shorts-specific features (treated as regular videos; differentiation
   can come later if useful)
 - Multi-channel batch publishing (out of scope; one video at a time)
-- AI-generated metadata that isn't user-mediated (Pito does not call LLMs
+- AI-generated metadata that isn't user-mediated (pito does not call LLMs
   server-side; all AI assistance flows through user-driven Claude conversations
   via MCP)
 
@@ -240,7 +240,7 @@ subscription costs.
 
 - [ ] Migration: ensure `VideoUpload` exists with required columns
 - [ ] `POST /api/uploads` — initiates resumable session via YouTube API; returns
-      YouTube URL + Pito upload ID
+      YouTube URL + pito upload ID
 - [ ] `POST /api/uploads/:id/progress` — records `bytes_uploaded`
 - [ ] `POST /api/uploads/:id/complete` — creates `Video` from YouTube response,
       links to `VideoProduction`, transitions state
@@ -352,7 +352,7 @@ subscription costs.
   side effects (audit row, timestamps).
 - Upload flow: initiation, progress recording, completion, error recovery,
   resume after disconnect, expired URL handling.
-- Metadata sync reconciliation: Pito edit pushes to YouTube, out-of-band YouTube
+- Metadata sync reconciliation: pito edit pushes to YouTube, out-of-band YouTube
   edit detected and surfaced, drift resolution paths.
 - Thumbnail: image validation (pass and fail cases), dimensions resize, EXIF
   stripping, sandbox enforcement on KB folder write.
@@ -397,13 +397,13 @@ The user runs through this before commit:
 5. Edit title locally (no Push); verify YouTube unchanged; click Push; verify
    YouTube reflects within seconds
 6. Edit on YouTube Studio out of band; trigger a sync; verify drift banner
-   appears in Pito; choose Pull → local matches remote
+   appears in pito; choose Pull → local matches remote
 7. Upload custom 1280×720 thumbnail; verify YouTube updated; verify the
    configured video-notes folder records the file at
    `videos/.../thumbnails/<timestamp>.jpg` (originally under `pito-yt-kb`; the
    YouTube KB repo has been dropped — reuse the Phase 4 — Project Workspace
    project-notes pattern)
-8. Schedule a video for 2 minutes from now; wait; verify Pito's production
+8. Schedule a video for 2 minutes from now; wait; verify pito's production
    advances to `published` state after the scheduled time
 9. Create a playlist; add 3 videos via search-and-select; reorder via drag-drop;
    verify YouTube reflects
@@ -432,13 +432,13 @@ The user runs through this before commit:
   respect this; if a 1280×720 JPG exceeds 2 MB after resize, increase JPEG
   compression rather than rejecting.
 - **Scheduled publish edge cases.** YouTube can fail to publish at scheduled
-  time (rare but documented). Pito's reconciliation must detect and surface
+  time (rare but documented). pito's reconciliation must detect and surface
   failure (not silently leave the video in `scheduled` forever).
 - **YouTube quota cost of upload.** `videos.insert` is 1600 units. A power user
   uploading multiple times a day uses significant quota. Track in Phase 7's
   audit table; surface in Phase 13's observability.
 - **External playlist writes are not allowed.** Synced from external channels
-  but read-only in Pito's UI. Prevent the UI from offering edit actions on
+  but read-only in pito's UI. Prevent the UI from offering edit actions on
   external playlists; tool-side enforcement rejects with clear error.
 - **`aasm` adds a dependency.** It's mature and widely used. Plain Ruby state
   machine is feasible but `aasm` reads better for complex state spaces.
@@ -456,7 +456,7 @@ The user runs through this before commit:
 Before executing, confirm with the user:
 
 1. The user is OK with browser-direct upload (file content does not pass through
-   Pito server). This is the standard YouTube upload pattern — flagging it just
+   pito server). This is the standard YouTube upload pattern — flagging it just
    to be sure.
 2. The user accepts the quota cost of upload-heavy workflows (1600 units per
    upload). With the default 10k/day quota, that's ~6 uploads/day before
@@ -465,7 +465,7 @@ Before executing, confirm with the user:
    Ruby.
 4. Thumbnail processing library: `image_processing` + `ruby-vips`. Confirm or
    alternative.
-5. AI assistance is user-mediated only (Pito does not call LLMs server-side).
+5. AI assistance is user-mediated only (pito does not call LLMs server-side).
    Confirm.
 6. Phase 11's scope is large; the user is OK with this being a multi-session
    phase.

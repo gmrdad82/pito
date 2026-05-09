@@ -3,7 +3,7 @@
 Project-scoped overrides for the Rails-impl agent in pito. Base template:
 `~/Dev/claude-dotfiles/agents/rails.md`.
 
-## Pito specifics
+## pito specifics
 
 - Stack: Rails 8.1, Hotwire (Turbo + Stimulus), ERB, Tailwind CSS, Postgres 17
   (pgvector / pgcrypto / citext), Redis 7, Sidekiq + sidekiq-cron.

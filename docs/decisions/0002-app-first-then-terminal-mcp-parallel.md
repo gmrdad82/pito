@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-Pito ships the same product capability across three surfaces: a Rails web app, a
+pito ships the same product capability across three surfaces: a Rails web app, a
 terminal app (`pito-sh`), and an MCP tool namespace. We need a sequencing rule
 that lets us move fast without producing three forks of the same feature
 drifting apart.

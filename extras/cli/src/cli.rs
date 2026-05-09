@@ -3,7 +3,7 @@ use clap::{Parser, Subcommand};
 #[derive(Parser)]
 #[command(
     name = "pito",
-    about = "Pito CLI",
+    about = "pito CLI",
     version,
     disable_help_subcommand = true,
     disable_version_flag = false,

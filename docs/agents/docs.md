@@ -3,7 +3,7 @@
 Project-scoped overrides for the docs-keeper agent in pito. Base template:
 `~/Dev/claude-dotfiles/agents/docs.md`.
 
-## Pito specifics
+## pito specifics
 
 - Top-level reference docs: `docs/architecture.md`, `docs/design.md`,
   `docs/mcp.md`, `docs/setup.md`, `docs/auth.md`. Keep these current with

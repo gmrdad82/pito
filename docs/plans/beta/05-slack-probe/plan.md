@@ -1,6 +1,6 @@
 # Phase 5 — Slack Probe
 
-> **Goal:** Validate whether Slack is worth being a first-class Pito client
+> **Goal:** Validate whether Slack is worth being a first-class pito client
 > alongside web, MCP, and the terminal app. This is **explicitly a probe** in
 > the Beta-spirit-of-Alpha sense — structured to accept "no" cleanly. The phase
 > produces a concrete go/no-go verdict by end of week. If verdict is no,
@@ -70,7 +70,7 @@ maintenance surface, and Beta should only carry it if it earns its keep.
 - Single-tenant: auto-link the installation to the seeded tenant (Phase 3's
   seeded record)
 - Single-active-installation invariant for single-tenant Beta — only one Slack
-  workspace per Pito instance
+  workspace per pito instance
 
 ### Probe surface (deliberately small)
 
@@ -85,7 +85,7 @@ the verdict gate; if it isn't earning its keep, drop it.
   with bracketed links
 - **`/pito help`** — lists available commands
 - **DM the bot in natural language** — bot relays to a Claude conversation that
-  has Pito's MCP available; bot responds in the DM thread with the result. This
+  has pito's MCP available; bot responds in the DM thread with the result. This
   is the **most interesting test of the probe**: can Slack be a fourth Claude
   client?
 
@@ -110,7 +110,7 @@ runaway costs during testing.
 ### Auth coupling
 
 - The Slack workspace is tied to the seeded tenant (single-tenant Beta)
-- The `slack-bot` `ApiToken` lives in Pito's `api_tokens` table (Phase 3 model),
+- The `slack-bot` `ApiToken` lives in pito's `api_tokens` table (Phase 3 model),
   owned by the seeded user, with scopes `yt:read yt:write`
 - All Slack-driven actions through MCP are scope-checked exactly like any other
   MCP request (Phase 3's auth concern doesn't care that the token is being used
@@ -143,7 +143,7 @@ Every incoming Slack request must be signature-verified:
 ## Validation criteria — the verdict gate
 
 After implementation completes, the user spends **one work-week** using Slack as
-a Pito client. At the end of that week, evaluate against four axes:
+a pito client. At the end of that week, evaluate against four axes:
 
 1. **Utility.** Did Slack offer something genuinely useful that web/MCP/terminal
    didn't? Or did it duplicate existing surfaces with no marginal benefit?
@@ -358,7 +358,7 @@ this structure:
 ```markdown
 # Phase 5 — Dropped
 
-**Verdict:** NO. Slack is not a first-class Pito client.
+**Verdict:** NO. Slack is not a first-class pito client.
 **Date:** YYYY-MM-DD
 **Probe duration:** N days
 
@@ -397,7 +397,7 @@ this structure:
 
 ## Lessons learned
 
-(What did the probe teach us about Pito's API, about the JSON surface, about the value of conversational interfaces, about Slack as a platform?)
+(What did the probe teach us about pito's API, about the JSON surface, about the value of conversational interfaces, about Slack as a platform?)
 ```
 
 This template is referenced from this `plan.md` so Claude Code knows exactly

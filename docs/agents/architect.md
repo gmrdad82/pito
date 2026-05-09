@@ -3,7 +3,7 @@
 Project-scoped overrides for the architect agent in pito. Base template:
 `~/Dev/claude-dotfiles/agents/architect.md`.
 
-## Pito specifics
+## pito specifics
 
 - Phase plans live under `docs/plans/beta/<NN-phase>/`. The current phase is
   Phase 4 (Project Workspace) — see `docs/plans/beta/04-project-workspace/`.

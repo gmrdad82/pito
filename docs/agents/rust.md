@@ -3,7 +3,7 @@
 Project-scoped overrides for the Rust agent in pito. Base template:
 `~/Dev/claude-dotfiles/agents/rust.md`.
 
-## Pito specifics
+## pito specifics
 
 - Crate path: `extras/cli/`. Single binary: `pito`.
 - Default mode (no args): Ratatui TUI. Subcommands styled after the `claude`

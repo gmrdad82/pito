@@ -3,7 +3,7 @@
 Project-scoped overrides for the security-auditor agent in pito. Base template:
 `~/Dev/claude-dotfiles/agents/security.md`.
 
-## Pito specifics
+## pito specifics
 
 - Triggered after pito-reviewer reports clean and before the user merges
   sensitive changes (auth, scoped tokens, OAuth, MCP scope changes, rate
@@ -14,10 +14,10 @@ Project-scoped overrides for the security-auditor agent in pito. Base template:
   severity rubric (Critical / High / Medium / Low / Informational) and
   remediation recommendations.
 - Read-only on application code. Only writes the finding report.
-- Pito-specific concerns: `Current.tenant` / `Current.user` boundary enforcement
+- pito-specific concerns: `Current.tenant` / `Current.user` boundary enforcement
   (Tenant + User are seeded singletons today, but the pattern must hold for the
-  eventual multi-tenant phase). Encrypted attributes (AppSetting Voyage key) —
-  verify never logged or echoed.
+  eventual multi-tenant phase). Encrypted attributes (AppSetting Voyage.ai key)
+  — verify never logged or echoed.
 
 ## Out of scope
 

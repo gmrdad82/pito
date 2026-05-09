@@ -1,6 +1,6 @@
 # MCP Server
 
-Pito exposes a Model Context Protocol (MCP) server for AI assistants to interact
+pito exposes a Model Context Protocol (MCP) server for AI assistants to interact
 with the app programmatically. Two transports are available: stdio for local
 Claude Code usage, and HTTP for remote access (Claude Mobile, other MCP
 clients).

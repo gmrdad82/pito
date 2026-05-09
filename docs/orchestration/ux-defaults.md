@@ -1,4 +1,4 @@
-# Pito UX Defaults
+# pito UX Defaults
 
 Per-feature UX defaults the user has explicitly chosen. Future feature specs
 that touch any of these surfaces must bake the default in without re-asking.
@@ -68,7 +68,7 @@ slugs that ARE synced) are stable: do not bikeshed.
 
 No `window.alert`, `window.confirm`, `window.prompt`, no `data-turbo-confirm`,
 no `confirm:` link helper. Period. Across the Rails app, terminal app, MCP —
-every Pito surface.
+every pito surface.
 
 **Why:** the user wants consistent, professional UX. JS dialogs break flow,
 can't be styled, can't be tested cleanly, can't carry context (lists,
@@ -158,7 +158,7 @@ externally-visible form everywhere, including shareable URLs.
 
 ## Bracket conventions
 
-Two distinct bracket conventions exist in Pito's design language:
+Two distinct bracket conventions exist in pito's design language:
 
 ### Action labels: `[label]` (no inner spaces)
 

@@ -402,7 +402,7 @@ impl App {
             max_panes: settings.max_panes,
             pane_title_length: settings.pane_title_length,
             theme: settings.theme,
-            search_engine: "meilisearch".to_string(),
+            search_engine: "Meilisearch".to_string(),
             search_connected: true,
         };
 

@@ -1,9 +1,9 @@
 # Phase 16 — Hetzner Deployment
 
-> **Goal:** Move Pito off the laptop and onto Hetzner. Use Kamal 2.x for
+> **Goal:** Move pito off the laptop and onto Hetzner. Use Kamal 2.x for
 > orchestration. Configure DNS, secrets, monitoring, automated backups to
 > off-site, rollback procedure. Both Pumas (Web and MCP) deploy as separate
-> Kamal web roles. End the Beta with Pito running in production-grade
+> Kamal web roles. End the Beta with pito running in production-grade
 > infrastructure.
 
 **Depends on:** All prior phases. Especially Phase 14 (backup/restore tooling
@@ -11,7 +11,7 @@ proven via the mandatory drill) and Phase 15 (security hardening clean) — both
 must be complete before deploying real-world data to internet-facing
 infrastructure.
 
-**Unblocks:** Theta. From here, Pito is on real infrastructure; Theta begins
+**Unblocks:** Theta. From here, pito is on real infrastructure; Theta begins
 distribution thinking.
 
 ---
@@ -52,7 +52,7 @@ cleanly under Kamal's process management.
 
 ### Kamal 2.x deployment
 
-`config/deploy.yml` declares Pito as a multi-role service:
+`config/deploy.yml` declares pito as a multi-role service:
 
 - **Web role** — Web Puma serving `app.pitomd.com`. Worker count and thread
   count tuned per CX22 capacity.
@@ -84,7 +84,7 @@ deploys.
   `redis-cli ping`
 
 Volume backups handled by Phase 14's tooling running on the host server (cron +
-Pito CLI commands).
+pito CLI commands).
 
 ### Secrets management
 
@@ -117,18 +117,18 @@ Pito CLI commands).
 
 - **Hetzner-internal metrics dashboard** — comes free with the cloud server;
   CPU, memory, disk, network charts
-- **Pito-internal metrics** — `/stats` page (Phase 13); same as on the laptop,
+- **pito-internal metrics** — `/stats` page (Phase 13); same as on the laptop,
   just on production
 - **External pinger** — UptimeRobot or Better Stack (free tier sufficient)
   monitoring `https://app.pitomd.com/healthz` and
   `https://mcp.pitomd.com/healthz`. Email alert on downtime.
-- **Error tracking** — Sentry / GlitchTip (free tier). Pito reports server-side
+- **Error tracking** — Sentry / GlitchTip (free tier). pito reports server-side
   exceptions. Optional but recommended; if not configured, rely on logs.
 - **Hetzner email alerts** for high CPU / disk usage
 
 ### Logging
 
-- Pito logs to `/var/log/pito/` on the host (mounted as a Docker volume from
+- pito logs to `/var/log/pito/` on the host (mounted as a Docker volume from
   container)
 - `logrotate` configured: daily rotation, 30 days retention, gzipped past 7 days
   (matches Phase 13's log discipline)
@@ -155,7 +155,7 @@ Phase 14's tooling extends to production:
 
 A documented sequence, executed deliberately:
 
-1. Final laptop backup via `bin/pito backup:all` + manual git push of all KB
+1. Final laptop backup via `bin/pito backup:all` + manual Git push of all KB
    repos
 2. Provision Hetzner server, run `kamal setup`, verify all containers running
    cleanly
@@ -255,7 +255,7 @@ The retrospective marks the end of Beta.
 
 ### Kamal config
 
-- [ ] Add `kamal` gem to Pito
+- [ ] Add `kamal` gem to pito
 - [ ] `config/deploy.yml`: declare web role, mcp role, job role, all three
       accessories (postgres, meilisearch, redis)
 - [ ] `.kamal/secrets`: master key, all third-party API keys, BACKUP*REMOTE*\*
@@ -267,7 +267,7 @@ The retrospective marks the end of Beta.
 
 ### Database initial state
 
-- [ ] Take a fresh `pg_dump` of laptop Pito
+- [ ] Take a fresh `pg_dump` of laptop pito
 - [ ] Take a fresh Meili snapshot
 - [ ] On the server: `git clone` each KB repo into `/opt/pito-dev-kb` and
       `/opt/pito-website` (plus any project-notes roots from Phase 4 — Project
@@ -298,7 +298,7 @@ The retrospective marks the end of Beta.
 
 - [ ] UptimeRobot account; monitors for `https://app.pitomd.com/healthz` and
       `https://mcp.pitomd.com/healthz`; email alert configured
-- [ ] Sentry/GlitchTip set up; Pito reports exceptions; user verifies alert
+- [ ] Sentry/GlitchTip set up; pito reports exceptions; user verifies alert
       delivery via a deliberate test exception
 - [ ] Hetzner email alerts for high CPU / disk usage configured
 - [ ] Phase 13's `/stats` page accessible at `app.pitomd.com/stats`

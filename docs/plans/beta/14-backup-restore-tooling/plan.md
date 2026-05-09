@@ -1,7 +1,7 @@
 # Phase 14 — Backup / Restore Tooling
 
 > **Goal:** Build comprehensive backup and restore tooling for every piece of
-> state Pito accumulates: Postgres (relational + pgvector), Meilisearch indices,
+> state pito accumulates: Postgres (relational + pgvector), Meilisearch indices,
 > Redis (jobs in flight), KB filesystems, encrypted credentials. Test the
 > restore path end-to-end. By Phase 14, losing the laptop should be
 > inconvenient, not catastrophic. Tooling built once, tested locally, ports
@@ -58,14 +58,14 @@ completion.
 ### Meilisearch backup
 
 - Use Meilisearch's `POST /snapshots` snapshot API
-- Snapshots are written to Meili's data directory; a Pito script copies them
+- Snapshots are written to Meili's data directory; a pito script copies them
   into `~/Backups/pito/meilisearch/<ISO_timestamp>.snapshot`
 - Same retention policy as Postgres
 - Snapshot import on restore via Meili's `--import-snapshot` flag at startup
 
 ### Redis backup (low priority but tracked)
 
-- Pito's Redis stores Sidekiq state (queued jobs, retry sets) — recreatable but
+- pito's Redis stores Sidekiq state (queued jobs, retry sets) — recreatable but
   inconvenient if lost
 - Optional `BGSAVE` snapshot to RDB; copied to
   `~/Backups/pito/redis/<ISO_timestamp>.rdb`
@@ -76,7 +76,7 @@ completion.
 ### KB filesystem backup
 
 The KB roots (`pito-dev-kb`, `pito-website`, plus any project-notes roots
-introduced by Phase 4 — Project Workspace) are git repositories. **Pushing them
+introduced by Phase 4 — Project Workspace) are Git repositories. **Pushing them
 to GitHub is the backup.** No file copy needed. The original spec also listed
 `pito-yt-kb`; that repo has been dropped and channel-level notes will reuse the
 project-notes pattern from Phase 4.
@@ -85,7 +85,7 @@ project-notes pattern from Phase 4.
   clean?), `git log` (ahead of remote?), prints status table
 - Documentation explicitly states: "git push is your KB backup; this command
   confirms everything is committed and pushed"
-- The script does **not** auto-commit or auto-push. The user manages git cadence
+- The script does **not** auto-commit or auto-push. The user manages Git cadence
   manually (per `beta.md`'s working principles).
 
 ### Credentials backup
@@ -117,7 +117,7 @@ project-notes pattern from Phase 4.
   `pg_restore --list` for integrity verification
 - `bin/pito backup:meilisearch` — manual trigger
 - `bin/pito backup:redis` — manual trigger; best-effort
-- `bin/pito backup:kb_status` — KB git status check
+- `bin/pito backup:kb_status` — KB Git status check
 - `bin/pito backup:all` — runs Postgres + Meili + Redis + KB status sequentially
 - `bin/pito backup:list` — shows all backup files (path, size, age, retention
   bucket)
@@ -156,13 +156,13 @@ This is **not optional**. Until the drill succeeds, the phase is not done.
 
 1. Spin up a parallel test environment via Docker — separate Postgres container,
    separate Meili container, fresh data directories
-2. Take a current backup of the laptop's "production-like" Pito
+2. Take a current backup of the laptop's "production-like" pito
    (`bin/pito backup:all`)
 3. Configure the test environment to use copies of the KB roots
 4. Restore Postgres dump to test environment
 5. Restore Meili snapshot to test environment
 6. Run `bin/pito restore:check`
-7. Start a parallel Pito instance against the restored data
+7. Start a parallel pito instance against the restored data
 8. Verify: dashboard renders, search works, related-content queries work
    (pgvector indices intact), KB integration works, all token-based auth still
    works (encryption keys intact)
@@ -180,7 +180,7 @@ passes.
 - Cross-region replication (Theta scale concern)
 - Automated restore testing on a schedule (manual drill at end of Phase 14 is
   sufficient; Phase 16 may add CI-style restore drills if budget allows)
-- Application-level snapshot consistency (Pito doesn't have transactions
+- Application-level snapshot consistency (pito doesn't have transactions
   spanning Postgres + Meili + filesystem; eventual consistency between stores is
   acceptable)
 
@@ -276,7 +276,7 @@ passes.
 ### Restore drill
 
 - [ ] Set up parallel test environment via Docker compose with separate volumes
-- [ ] Take fresh backup of laptop Pito
+- [ ] Take fresh backup of laptop pito
 - [ ] Restore everything to the test environment
 - [ ] Verify dashboard, search, related queries, KB, auth all work
 - [ ] Document drill outcome in `log.md`: how long it took, what surprised, what
@@ -351,7 +351,7 @@ The user runs through this before commit:
      separate volumes)
    - Take a fresh backup
    - Restore Postgres + Meili + KB to test env
-   - Start Pito in test mode against restored data
+   - Start pito in test mode against restored data
    - Verify dashboard renders, channels list shows, search works,
      related-content queries return results (proves pgvector indices intact), KB
      content readable, MCP tool calls succeed (proves token encryption keys

@@ -3,7 +3,7 @@
 Project-scoped overrides for the audit-state agent in pito. Base template:
 `~/Dev/claude-dotfiles/agents/auditor.md`.
 
-## Pito specifics
+## pito specifics
 
 - Read-only gap report. Compares actual repo state against what phase plans
   claim is done.

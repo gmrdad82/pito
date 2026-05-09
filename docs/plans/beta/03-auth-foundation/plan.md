@@ -330,7 +330,7 @@ and MCP HTTP require explicit bearer tokens.
       `revoked_at = Time.current` via `update!`); the row stays. Step B's
       `Api::TokenAuthenticator` already rejects revoked tokens with
       `revoked_token` 401.
-- [x] Apply the existing Pito design system (bracketed buttons, monospace,
+- [x] Apply the existing pito design system (bracketed buttons, monospace,
       dark/light theme) — delivered in 5C: bracketed-link styling via
       `BracketedLinkComponent`, monospace inherited from `body`, no JS confirm
       (revoke goes through the action-screen framework), red only on the

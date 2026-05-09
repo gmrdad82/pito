@@ -19,7 +19,7 @@ role.
 - **Architect (parent Claude session):** plans, dispatches subagents, reviews
   outputs, commits + pushes after the user validates. Does NOT write code or
   edit project markdown directly. The architect's writes are limited to personal
-  memory under `~/.claude/projects/.../memory/` and git operations.
+  memory under `~/.claude/projects/.../memory/` and Git operations.
 - **Subagents:** each is defined for a specific role with declared inputs,
   outputs, file scope, and forbidden actions. They do not cross into other
   agents' work even when it would be convenient.

@@ -1,6 +1,6 @@
 # Setup
 
-End-to-end developer setup for Pito. Run these once on a fresh machine.
+End-to-end developer setup for pito. Run these once on a fresh machine.
 
 ## Prerequisites
 
@@ -39,11 +39,11 @@ reserved for the Hetzner cutover (Phase 16) — declared in `docker-compose.yml`
 so the names are pinned, currently unmounted because Rails runs natively on the
 dev host and reads `PITO_NOTES_PATH` / `PITO_ASSETS_PATH` from the environment.
 
-`pito-assets` is the on-disk home for Pito-managed binary assets: Active
+`pito-assets` is the on-disk home for pito-managed binary assets: Active
 Storage's `:local` service root (game cover art today, future channel banners /
 video thumbnails) and footage thumbnails (Phase 7.5 §06). It is NOT a copy of
 source footage — `Footage#local_path` continues to point at the user's drive;
-only Pito-derived assets land under the volume. The `Pito::AssetsRoot` helper
+only pito-derived assets land under the volume. The `Pito::AssetsRoot` helper
 resolves absolute paths under the root for non-Active-Storage byte writes.
 
 `PITO_ASSETS_PATH` controls where the assets root resolves at runtime. The
@@ -55,7 +55,7 @@ volume is unused in the test environment.
 
 ## 3. Configure credentials
 
-Pito reads three blocks from Rails encrypted credentials: `:postgres` (database
+pito reads three blocks from Rails encrypted credentials: `:postgres` (database
 connection), `:owner` (seed-time tenant + user), and `:tokens.pepper` (HMAC key
 for API token digests). The `:tokens.pepper` is mandatory before `bin/setup`;
 the script halts with a walkthrough if it's absent.
@@ -146,7 +146,7 @@ cp .env.example .env.development
 cp .env.example .env.test
 ```
 
-Pito services bind to `127.0.0.1` on high ports with a `27` suffix marker so
+pito services bind to `127.0.0.1` on high ports with a `27` suffix marker so
 they don't collide with other local projects. See "Local services & ports" below
 for the table. Every port is env-overridable (`POSTGRES_PORT`, `REDIS_PORT`,
 `MEILISEARCH_PORT`, `PORT`, `MCP_PORT`).
@@ -271,12 +271,12 @@ it until Phase 7 work is actually starting.
 ### 1. Sign in to Google Cloud Console
 
 Visit https://console.cloud.google.com and sign in with the Google account that
-**owns the YouTube channels Pito will read**. The OAuth client lives under this
-account; the channels Pito syncs are the ones this account can administer.
+**owns the YouTube channels pito will read**. The OAuth client lives under this
+account; the channels pito syncs are the ones this account can administer.
 
 If Google offers the "$300 free credits" trial, **skip it** — not needed.
 YouTube Data API v3 and YouTube Analytics API v2 are free up to their daily
-quota; no billing account is required for Pito's read-only usage.
+quota; no billing account is required for pito's read-only usage.
 
 ### 2. Create the project
 
@@ -326,7 +326,7 @@ Save and continue.
 
 #### Data Access tab
 
-Declare two scopes Pito needs:
+Declare two scopes pito needs:
 
 - `https://www.googleapis.com/auth/youtube.readonly` — sensitive scope (channel
   / video read).
@@ -355,7 +355,7 @@ shown **once**. Capture both before dismissing.
 
 ### 5. Persist credentials into Rails
 
-The Phase 7 spec wires Pito to read OAuth credentials from
+The Phase 7 spec wires pito to read OAuth credentials from
 `Rails.application.credentials.google_oauth`:
 
 ```bash
@@ -382,7 +382,7 @@ Save and exit. The `master.key` decrypts the file at runtime.
 
 ### Why Testing mode forever
 
-Pito runs as a single-user app for the foreseeable future, so the friction of
+pito runs as a single-user app for the foreseeable future, so the friction of
 publishing the OAuth consent screen for verification is not worth taking on.
 Specifically:
 
@@ -392,7 +392,7 @@ Specifically:
   scopes for Google review (sensitive scopes especially), demonstrating a
   privacy policy, etc. Testing mode bypasses all of it.
 - **7-day refresh-token TTL is fine.** Google expires refresh tokens issued by
-  Testing-mode apps after 7 days. Pito refreshes regularly during normal use, so
+  Testing-mode apps after 7 days. pito refreshes regularly during normal use, so
   the TTL does not bite — Phase 7's `TokenRefresher` keeps the access token
   alive on every API call, which in turn keeps the refresh token in active use.
 - **"Google hasn't verified this app" warning is acceptable.** It appears once
@@ -404,7 +404,7 @@ Specifically:
 Trigger conditions for moving to Published / verified status (Theta-phase
 concerns):
 
-- Multi-user expansion: Pito grows beyond a sole user (e.g., open beta, team
+- Multi-user expansion: pito grows beyond a sole user (e.g., open beta, team
   use).
 - Hitting the 100-test-user cap.
 - Removing the "Google hasn't verified this app" warning for non-test users.

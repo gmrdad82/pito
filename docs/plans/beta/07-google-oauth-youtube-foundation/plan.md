@@ -1,7 +1,7 @@
 # Phase 7 — Google OAuth + YouTube API Foundation
 
 > **Goal:** Wire up Google OAuth so the user can connect their Google account,
-> link YouTube channels, and have Pito hold encrypted access/refresh tokens.
+> link YouTube channels, and have pito hold encrypted access/refresh tokens.
 > Build a rate-limit-aware YouTube API client that handles the 10,000-unit daily
 > quota gracefully. **No actual data sync in this phase** — that's Phase 8. This
 > phase establishes the foundation; Phase 8 industrializes it.
@@ -26,7 +26,7 @@ By Phase 7, the application has:
 - Postgres with encrypted columns (Phase 2): OAuth tokens can be stored at rest
   with Active Record Encryption
 
-This is the moment Pito stops being fake-data-driven and starts being real. The
+This is the moment pito stops being fake-data-driven and starts being real. The
 phase is intentionally narrow: prove the user can connect their Google account,
 that we can fetch a single channel's metadata, and that quota tracking works
 end-to-end. The actual sync engine (which fetches lots of data continuously, on
@@ -56,7 +56,7 @@ originated.
 
 ### `GoogleIdentity` model
 
-This is the bridge between a Pito `User` (Phase 3) and a Google account. A user
+This is the bridge between a pito `User` (Phase 3) and a Google account. A user
 can have multiple Google identities (Theta might surface this; Beta starts with
 one).
 
@@ -164,7 +164,7 @@ the skeleton:
 - "Connect Google account" button → triggers the YouTube connection flow
 - After connection: list of YouTube channels under the account with `[Connect]`
   buttons per channel
-- After connecting a channel: it appears in Pito's `/channels` index with
+- After connecting a channel: it appears in pito's `/channels` index with
   `connected: true` indicator
 - Disconnect option per channel (revokes Google token for that identity if no
   other channels reference it)
@@ -348,7 +348,7 @@ the skeleton:
 The user runs through this before commit:
 
 1. Visit `app.pitomd.com/settings/youtube` — see "Connect Google account" button
-2. Click → redirected to Google consent → approve → return to Pito Settings →
+2. Click → redirected to Google consent → approve → return to pito Settings →
    YouTube
 3. See list of YouTube channels owned by the Google account (real data) with
    `[Connect]` buttons per channel
@@ -375,10 +375,10 @@ The user runs through this before commit:
 
 ## Challenges to anticipate
 
-- **Google OAuth consent screen approval.** Pito is in test mode for
+- **Google OAuth consent screen approval.** pito is in test mode for
   single-tenant Beta; only whitelisted users (the user themselves) can sign in.
   Production verification is a Theta concern (and only matters if Theta opens
-  Pito to others).
+  pito to others).
 - **YouTube quota costs are imprecise in docs.** Some endpoints documented as "1
   unit" vary by `part` parameter or response size. Conservative rounding: always
   round up. If actual usage diverges from estimates, the audit table reveals the
@@ -414,7 +414,7 @@ Before executing, confirm with the user:
 
 1. The user has access to Google Cloud Console and can create or use a project.
 2. Production redirect URI uses `app.pitomd.com/auth/google/callback` (already
-   aligned with Pito's domain plan from Alpha).
+   aligned with pito's domain plan from Alpha).
 3. Daily quota of 10,000 units is acceptable for early Beta. If higher quota is
    needed, the user must apply via Google's quota increase form (multi-week
    process; not blocking for development).

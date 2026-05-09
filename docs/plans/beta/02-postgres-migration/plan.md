@@ -1,7 +1,7 @@
 # Phase 2 — Postgres Migration
 
 > **Goal:** Replace MySQL 8 with Postgres 17 (using the `pgvector/pgvector:pg17`
-> Docker image) as Pito's relational database. Preserve all Alpha-era specs as
+> Docker image) as pito's relational database. Preserve all Alpha-era specs as
 > the regression baseline. Install the `pgvector` extension at migration time so
 > Phase 10 has zero infrastructure work later.
 
@@ -18,7 +18,7 @@ Phase 10 (vector storage co-located with relational data).
 Switching the relational store touches every model and every spec. Doing it
 before any new schema work — User, Tenant, ApiToken, Google identities, YouTube
 tokens, video metadata refactors, embeddings — is dramatically cheaper than
-doing it after. Pito at the start of Beta has **only seed data** in the dev
+doing it after. pito at the start of Beta has **only seed data** in the dev
 environment; there is no real user data to preserve. This is the cheapest moment
 the migration will ever happen.
 
@@ -130,7 +130,7 @@ either rewritten as adapter-agnostic or explicitly waived in `challenges.md`.
 
 - [x] Grep the codebase for MySQL-specific patterns: `mysql2`, `enum`
       declarations using MySQL syntax, MySQL-only data types, raw SQL with
-      backticks, `LIMIT` in `update_all`, FULLTEXT indexes (Pito uses
+      backticks, `LIMIT` in `update_all`, FULLTEXT indexes (pito uses
       Meilisearch, but verify no leftovers) (41 findings; three additional
       `CAST(... AS SIGNED)` surfaced mid-flight)
 - [x] Document findings in `challenges.md` — these are the items to verify
@@ -291,7 +291,7 @@ The user runs through this before commit:
 
 - **Case-insensitive uniqueness.** MySQL's default collation hides this;
   Postgres won't. Audit every `validates :foo, uniqueness: true` and any unique
-  index. For Pito, slugs and emails are the obvious candidates. Use `citext` for
+  index. For pito, slugs and emails are the obvious candidates. Use `citext` for
   emails and slugs; use `LOWER()` indexes or normalize-on-write for other cases.
 - **JSONB vs JSON.** Use `jsonb` for any new columns (better indexing, faster
   queries). Existing `json` columns from Alpha can stay as-is during the

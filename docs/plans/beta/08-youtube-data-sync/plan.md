@@ -18,7 +18,7 @@ Phase 13 (observability charts have real metrics to display).
 ## Why Phase 8 is now
 
 Phase 7 proved the connection works. Phase 8 industrializes it. By the end of
-this phase, the user's actual YouTube data lives in Pito and refreshes
+this phase, the user's actual YouTube data lives in pito and refreshes
 automatically. Every later phase assumes real data.
 
 The phase splits cleanly into two paths with different operational
@@ -27,7 +27,7 @@ characteristics:
 1. **Owned channel sync** — uses OAuth identities, runs on schedule (daily for
    stats, on-demand for manifest changes), can use deeper data (Analytics API)
 2. **External channel sync** — uses public API key, on-demand only (user pastes
-   a channel URL or video URL; Pito fetches public-only data), shallower data
+   a channel URL or video URL; pito fetches public-only data), shallower data
    set
 
 Different quota pools, different schedules, same `Channel` / `Video` /
@@ -354,9 +354,9 @@ The user runs through this before commit:
   many paginated requests. Batch `videos.list` calls (50 IDs each) to stay
   efficient. Document the worst-case quota cost in `youtube_quota.md`.
 - **Deleted or private videos.** Videos may be deleted, made private, or
-  otherwise become inaccessible after Pito has indexed them. The sync should
+  otherwise become inaccessible after pito has indexed them. The sync should
   detect missing videos in `videos.list` responses and mark them `unavailable`
-  rather than deleting from Pito (preserves history; the user might want to know
+  rather than deleting from pito (preserves history; the user might want to know
   what was there).
 - **Quota cost variation by `part` parameter.**
   `part=snippet,statistics,contentDetails` costs more than `part=snippet`.

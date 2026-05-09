@@ -1,11 +1,11 @@
 # Three-Lane Development Model
 
-This document is the authoritative description of how Pito features move from
+This document is the authoritative description of how pito features move from
 idea to shipped across the Rails app, the `pito` CLI, and the MCP surface.
 
 ## Why lanes exist
 
-Pito ships the same capability across three form factors: a Rails web app, the
+pito ships the same capability across three form factors: a Rails web app, the
 `pito` CLI binary at `extras/cli/`, and an MCP tool namespace. If we built each
 capability sequentially across all three surfaces, every phase would block on
 the slowest surface and we would lose months of calendar time to coordination.
@@ -23,7 +23,7 @@ truth.
 
 ## Lane 1 — app (Rails)
 
-Lane 1 is canonical. A feature does not exist in Pito until it exists in the
+Lane 1 is canonical. A feature does not exist in pito until it exists in the
 Rails app.
 
 ### Lane 1 contract
@@ -64,7 +64,7 @@ synchronization between the two.
 
 ## Lane 2b — MCP
 
-Lane 2b mirrors Lane 1 features as MCP tools so an LLM agent can drive Pito
+Lane 2b mirrors Lane 1 features as MCP tools so an LLM agent can drive pito
 programmatically. Tool definitions live inside the `pito` repo (the MCP server
 is part of the Rails app) and consume the same domain models and services Lane 1
 produced.

@@ -3,7 +3,7 @@
 Project-scoped overrides for the reviewer agent in pito. Base template:
 `~/Dev/claude-dotfiles/agents/reviewer.md`.
 
-## Pito specifics
+## pito specifics
 
 - Review pipeline: `bundle exec rubocop` (changed files), `bundle exec rspec`
   (relevant slice, read-only), `bundle exec brakeman -q`,

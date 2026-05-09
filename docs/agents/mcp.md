@@ -3,7 +3,7 @@
 Project-scoped overrides for the MCP-impl agent in pito. Base template:
 `~/Dev/claude-dotfiles/agents/mcp.md`.
 
-## Pito specifics
+## pito specifics
 
 - MCP server: stdio transport via `bin/mcp`, HTTP transport via `bin/mcp-web`
   (dedicated Puma on port 3028).
