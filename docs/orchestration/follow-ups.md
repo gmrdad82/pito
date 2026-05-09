@@ -1136,6 +1136,96 @@ boot) if either credential is missing. Cleanup, not behavioral change.
 - Removing one of the credential keys causes Rails boot to fail loudly with a
   clear message, instead of silently falling through nil-safe walks.
 
+### 2026-05-09 realignment — top-level direction map
+
+**Trigger:** read first thing in any session that touches the realignment work
+units (tenant drop, MCP scope simplification, Channel + Video edit surfaces,
+Analytics, Game model, Calendar, Notifications, CLI parity).
+
+**Source:** 2-hour Claude Mobile session on 2026-05-09 dropped 8 notes into
+`docs/notes/`; follow-up direction conversation locked the meta-decisions.
+
+**Summary:**
+
+The realignment is the foundational doc for the rest of beta. It categorizes
+every existing spec / phase / surface (keep / modify / drop / pending) and
+orders 12 work units the master agent dispatches over the coming months. Three
+ADRs lock the meta-decisions:
+
+- `docs/decisions/0003-drop-tenant-single-install-multi-user.md` — drop
+  `tenant_id` from every domain table; collapse to single-install, multi-user.
+- `docs/decisions/0004-mcp-scope-simplification-dev-app.md` — collapse 9 scopes
+  to 2 (`dev` + `app`); strip `dev` on release packaging.
+- `docs/decisions/0005-doorkeeper-stays-for-claude-mobile.md` — Doorkeeper
+  surface survives the tenant drop; Claude Mobile + Web MCP load-bearing.
+
+The top-level direction map at `docs/realignment-2026-05-09.md` is the
+authoritative reference. Per-phase additions / dropped tracking lives at:
+
+- `docs/plans/beta/12-auth-ui-multi-user-readiness/dropped.md`
+- `docs/plans/beta/07-google-oauth-youtube-foundation/additions.md`
+- `docs/plans/beta/07-google-oauth-youtube-foundation/dropped.md`
+- `docs/plans/beta/7.5-followups-and-foundations/additions.md`
+- `docs/plans/beta/7.5-followups-and-foundations/dropped.md`
+
+**Action:** the master agent's next concrete dispatch is **Tenant drop** — the
+first of the 12 ordered work units. After user reviews the realignment doc and
+resolves the open ambiguities listed there, dispatch `pito-architect-spec` to
+produce the implementation spec. Each subsequent work unit follows in roadmap
+order.
+
+**Open ambiguities for user (10 items, summarized):**
+
+1. Phase 7.5 pre-spec 08 (Timelines) — defer or resurrect?
+2. Phase 7.5 pre-spec 09 (MCP sync) — drop abstract framing or build state-
+   mirroring?
+3. Phase 7.5 pre-spec 10 (Terminal sync) — drop or build live state- mirroring?
+4. Token migration on scope simplification — rotate-on-deploy or in-place
+   rename?
+5. Calendar UI shape — full-page grid, list, both?
+6. Notifications "all users see all" or "per-user opt-in"?
+7. Pre-publish checklist scope — also for metadata edits?
+8. Phase numbering — where does the first new spec live in the docs tree?
+9. `Tenant` model — drop entirely vs. downgrade to `AppInstall` row?
+10. Path A2 reversal scope — owned only or owned + tracked?
+
+Full text in `docs/realignment-2026-05-09.md`.
+
+### Phase 7.5 pre-specs 08 / 09 / 10 close-out
+
+**Trigger:** after the user resolves open ambiguities 1-3 from the realignment
+doc.
+
+**Source:** 2026-05-09 realignment.
+
+**Summary:**
+
+Architect's recommendations for the three Phase 7.5 pre-specs that were "specced
+but not clarified":
+
+- 08 (Timelines) — defer to a post-YouTube-management work unit; the Timeline →
+  Video linkage's value depends on the Video metadata expansion landing first.
+- 09 (MCP sync) — drop the abstract framing; the per-domain MCP catalog
+  expansion (work unit 9 in the realignment) supersedes it.
+- 10 (Terminal sync) — drop in current form; the per-domain CLI parity (work
+  unit 10 in the realignment) absorbs the natural subcommand surface.
+
+If the user confirms the recommendations, dispatch `pito-docs-keeper` to close
+the three pre-spec files with one-line pointers to the realignment doc. If the
+user overrides any of them, dispatch `pito-architect-spec` to produce the real
+implementation spec.
+
+**Cross-reference:** `docs/realignment-2026-05-09.md`,
+`docs/plans/beta/7.5-followups-and-foundations/dropped.md`.
+
+**Resolution (2026-05-10):** user resolved all three. 08 dropped (Timeline model
+retired; replaced by direct `Video.project_id` in work unit 4). 09 + 10
+superseded by per-domain MCP / CLI coverage matrices declared inline in each
+domain spec. Pre-spec files closed with Resolution headers; this entry moves to
+`## Done` once the tenant-drop spec dispatch lands.
+
+### 2026-05-10: Realignment paperwork landed. Tenant-drop spec dispatch pending (target: `docs/plans/beta/08-tenant-drop/`).
+
 ## Done
 
 ### Decorator slim question — re-evaluate Channel/Video summary JSON shape post-Path-A2
