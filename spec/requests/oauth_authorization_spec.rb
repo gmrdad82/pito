@@ -75,7 +75,7 @@ RSpec.describe "OAuth authorization", type: :request do
       expect(response).to have_http_status(:ok)
       expect(response.body).to include("data-theme-preference=")
       expect(response.body).to match(/<title>[^<]*~ pito<\/title>/)
-      expect(response.body).to include('<meta name="application-name" content="Pito">')
+      expect(response.body).to include('<meta name="application-name" content="pito">')
     end
 
     it "rejects an authorization request without PKCE for a public client" do

@@ -34,14 +34,14 @@ RSpec.describe "Settings", type: :request do
       expect(response.body).to include("auto (system)")
     end
 
-    it "shows the Voyage AI fieldset with the current flag value" do
+    it "shows the Voyage.ai fieldset with the current flag value" do
       AppSetting.set("max_panes", "5")
       AppSetting.first.update!(
         voyage_api_key: "vk_test",
         voyage_index_project_notes: true
       )
       get settings_path
-      expect(response.body).to include("Voyage AI")
+      expect(response.body).to include("Voyage.ai")
       expect(response.body).to include("project notes")
       # The "yes" radio for voyage_index_project_notes is checked
       expect(response.body).to match(/<input type="radio" name="settings\[voyage_index_project_notes\]" value="yes"[^>]*\bchecked\b/)
@@ -378,7 +378,7 @@ RSpec.describe "Settings", type: :request do
       allow(engine).to receive(:healthy?).and_return(true)
       allow(engine).to receive(:index_stats).and_return({ "channels_test" => 10, "videos_test" => 50 })
       get settings_path
-      expect(response.body).to include("meilisearch")
+      expect(response.body).to include("Meilisearch")
       expect(response.body).to include("connected")
     end
 

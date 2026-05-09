@@ -99,7 +99,7 @@ RSpec.describe "Settings::Youtube", type: :request do
       it "renders the page with a red note (no 500)" do
         get settings_youtube_path
         expect(response).to have_http_status(:ok)
-        expect(response.body).to include("youtube api unavailable right now")
+        expect(response.body).to include("YouTube api unavailable right now")
         expect(response.body).to include("quota exceeded")
       end
     end

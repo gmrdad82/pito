@@ -1,9 +1,9 @@
-<% content_for(:title, "disconnect youtube channels") %>
+<% content_for(:title, "disconnect YouTube channels") %>
 
 <div id="delete-content">
-  <h1>disconnect <%= number_with_delimiter(@channels.length) %> youtube channel<%= "s" if @channels.length != 1 %>?</h1>
+  <h1>disconnect <%= number_with_delimiter(@channels.length) %> YouTube channel<%= "s" if @channels.length != 1 %>?</h1>
   <p class="text-muted" style="margin-top: 2px;">
-    this clears the youtube connection on these channels. channel
+    this clears the YouTube connection on these channels. channel
     records and their data stay. if no other connected channel uses
     the same google account, the google grant will also be revoked.
   </p>

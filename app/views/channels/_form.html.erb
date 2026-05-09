@@ -5,7 +5,7 @@
 
   <% if channel.new_record? %>
     <div style="margin-bottom: 8px;">
-      <label for="channel_channel_url">youtube channel URL</label>
+      <label for="channel_channel_url">YouTube channel URL</label>
       <%= f.text_field :channel_url,
             placeholder: "https://www.youtube.com/channel/UC2T-WgvF-DQQfFNQieoRuQQ",
             pattern: "https://www\\.youtube\\.com/channel/UC[A-Za-z0-9_-]{22}",
@@ -18,7 +18,7 @@
     </div>
   <% else %>
     <div style="margin-bottom: 8px;">
-      <label>youtube channel URL</label>
+      <label>YouTube channel URL</label>
       <input type="text" value="<%= channel.channel_url %>" readonly disabled style="width: 100%; max-width: 480px;">
       <p class="form-hint" style="margin-top: 4px; font-size: 11px;">URL is locked after creation.</p>
     </div>

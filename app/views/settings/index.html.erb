@@ -121,12 +121,12 @@
     <% end %>
   </div>
 
-  <%# Pane 4 — Voyage AI (B) %>
+  <%# Pane 4 — Voyage.ai (B) %>
   <div class="pane">
     <%= form_with url: settings_path, method: :patch do |f| %>
       <input type="hidden" name="section" value="voyage">
       <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
-        <legend><h2>Voyage AI</h2></legend>
+        <legend><h2>Voyage.ai</h2></legend>
 
         <div style="margin-bottom: 6px;">
           <label for="settings_voyage_api_key" class="form-label">API key</label>
@@ -137,7 +137,7 @@
           <% if @voyage_configured %>
             <span class="form-hint" style="display: block;">leave blank to keep current; submit to replace.</span>
           <% else %>
-            <span class="form-hint" style="display: block;">paste your Voyage AI API key.</span>
+            <span class="form-hint" style="display: block;">paste your Voyage.ai API key.</span>
           <% end %>
         </div>
 
@@ -148,7 +148,7 @@
               <span class="md-check-indicator"></span>
               <span class="md-check-label">clear stored key</span>
             </label>
-            <div class="form-hint">disables Voyage indexing if any flag is on.</div>
+            <div class="form-hint">disables Voyage.ai indexing if any flag is on.</div>
           </div>
         <% end %>
 
@@ -189,7 +189,7 @@
 
       <div style="margin-bottom: 6px;">
         <label class="form-label">engine</label>
-        <span>meilisearch</span>
+        <span>Meilisearch</span>
         <% if @search_healthy %>
           <span style="color: var(--color-success);">▲ connected</span>
         <% else %>
@@ -269,7 +269,7 @@
       tokens for third-party clients (the Rust CLI is the first consumer). %>
   <div class="pane">
     <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
-      <legend><h2>oauth applications</h2></legend>
+      <legend><h2>OAuth applications</h2></legend>
 
       <div style="margin-bottom: 6px;">
         <label class="form-label">registered</label>
@@ -307,12 +307,12 @@
           <label class="form-label">connected</label>
           <span class="text-muted">no</span>
           <span class="form-hint" style="display: block;">
-            connect a google account to fetch youtube channel and analytics data.
+            connect a google account to fetch YouTube channel and analytics data.
           </span>
         </div>
       <% end %>
 
-      <%= render(BracketedLinkComponent.new(label: "manage youtube", href: settings_youtube_path)) %>
+      <%= render(BracketedLinkComponent.new(label: "manage YouTube", href: settings_youtube_path)) %>
     </fieldset>
   </div>
 </div>

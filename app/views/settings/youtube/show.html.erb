@@ -1,6 +1,6 @@
-<% content_for(:title, "settings — youtube") %>
+<% content_for(:title, "settings — YouTube") %>
 
-<h1>settings &rarr; youtube</h1>
+<h1>settings &rarr; YouTube</h1>
 
 <% if @identity.present? && @identity.needs_reauth? %>
   <%= render "settings/youtube/needs_reauth_banner" %>
@@ -46,12 +46,12 @@
 
   <% if @youtube_error.present? %>
     <div class="flash-error" style="margin: 12px 0; padding: 10px 12px; border: 1px solid #cc0000; color: #cc0000;">
-      youtube api unavailable right now: <%= @youtube_error %>.
+      YouTube api unavailable right now: <%= @youtube_error %>.
       showing already-connected channels only.
     </div>
   <% end %>
 
-  <h2 style="margin-top: 16px;">your youtube channels</h2>
+  <h2 style="margin-top: 16px;">your YouTube channels</h2>
 
   <% pito_channels_by_url = Channel.where(channel_url: @youtube_channels.map { |c| "https://www.youtube.com/channel/#{c[:id]}" }).index_by(&:channel_url) %>
 
