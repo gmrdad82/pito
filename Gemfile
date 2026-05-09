@@ -90,7 +90,7 @@ group :development do
   gem "web-console"
 end
 
-gem "view_component", "~> 4.8"
+gem "view_component", "~> 4.9"
 
 gem "capybara", "~> 3.40", group: :test
 
