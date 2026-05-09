@@ -10,24 +10,30 @@
   </p>
 </div>
 
-<table class="detail-table" style="margin-bottom: 12px;">
-  <tr>
-    <td class="text-muted">name</td>
-    <td><strong><%= @application.name %></strong></td>
-  </tr>
-  <tr>
-    <td class="text-muted">client_id</td>
-    <td><code><%= @application.uid %></code></td>
-  </tr>
-  <tr>
-    <td class="text-muted">scopes</td>
-    <td><code><%= @application.scopes %></code></td>
-  </tr>
-  <tr>
-    <td class="text-muted">created</td>
-    <td><%= @application.created_at.strftime("%Y-%m-%d %H:%M") %></td>
-  </tr>
-</table>
+<%# Phase 7.5 — metadata block framed to read as a distinct
+    capture-the-details surface, mirroring the show + create pages.
+    `.framed-block` is defined in `app/assets/tailwind/application.css`
+    (see `docs/design.md` → Framed blocks). %>
+<div class="framed-block">
+  <table class="detail-table">
+    <tr>
+      <td class="text-muted">name</td>
+      <td><strong><%= @application.name %></strong></td>
+    </tr>
+    <tr>
+      <td class="text-muted">client_id</td>
+      <td><code><%= @application.uid %></code></td>
+    </tr>
+    <tr>
+      <td class="text-muted">scopes</td>
+      <td><code><%= @application.scopes %></code></td>
+    </tr>
+    <tr>
+      <td class="text-muted">created</td>
+      <td><%= @application.created_at.strftime("%Y-%m-%d %H:%M") %></td>
+    </tr>
+  </table>
+</div>
 
 <%= render "shared/action_screen",
   submit_label: "[revoke]",

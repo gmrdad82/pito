@@ -9,37 +9,75 @@
   </p>
 </div>
 
-<table class="detail-table" style="margin-bottom: 12px;">
-  <tr>
-    <td class="text-muted">name</td>
-    <td><strong><%= @application.name %></strong></td>
-  </tr>
-  <tr>
-    <td class="text-muted">client_id</td>
-    <td><code><%= @plaintext_uid %></code></td>
-  </tr>
-  <tr>
-    <td class="text-muted">client_secret</td>
-    <td><code><%= @plaintext_secret %></code></td>
-  </tr>
-  <tr>
-    <td class="text-muted">redirect URIs</td>
-    <td>
-      <% @application.redirect_uri.to_s.split("\n").each do |uri| %>
-        <code><%= uri %></code><br>
-      <% end %>
-    </td>
-  </tr>
-  <tr>
-    <td class="text-muted">scopes</td>
-    <td><code><%= @application.scopes %></code></td>
-  </tr>
-  <tr>
-    <td class="text-muted">confidential</td>
-    <td><%= @application.confidential? ? "yes" : "no" %></td>
-  </tr>
-</table>
+<%# Phase 7.5 — credentials block framed to read as the "save these
+    now" surface. The `.framed-block` design-system class (see
+    `docs/design.md` → Framed blocks) wraps the credentials list with a
+    bordered, tinted container so the one-time-only secrets register
+    visually as a thing the user must capture. Reusable beyond OAuth —
+    future API token plaintext displays, secret-shown-once flows, etc. %>
+<div class="framed-block">
+  <table class="detail-table">
+    <tr>
+      <td class="text-muted">name</td>
+      <td><strong><%= @application.name %></strong></td>
+    </tr>
+    <%# Phase 7.5 — `[copy]` affordance on the credentials. Same Stimulus
+        `clipboard-copy` controller used by the project footage-import
+        snippet (`projects/_footage_pane.html.erb`) and the dashboard
+        empty-state (`dashboard/index.html.erb`). The table cell wraps
+        the `<code>` element so the copy link rides next to the value
+        without disturbing the two-column detail-table layout. %>
+    <tr>
+      <td class="text-muted">client_id</td>
+      <td>
+        <span data-controller="clipboard-copy" class="code-block">
+          <code data-clipboard-copy-target="source"><%= @plaintext_uid %></code>
+          <a href="#" data-action="click->clipboard-copy#copy" class="bracketed">[<span class="bl">copy</span>]</a>
+        </span>
+      </td>
+    </tr>
+    <tr>
+      <td class="text-muted">client_secret</td>
+      <td>
+        <span data-controller="clipboard-copy" class="code-block">
+          <code data-clipboard-copy-target="source"><%= @plaintext_secret %></code>
+          <a href="#" data-action="click->clipboard-copy#copy" class="bracketed">[<span class="bl">copy</span>]</a>
+        </span>
+      </td>
+    </tr>
+    <tr>
+      <td class="text-muted">redirect URIs</td>
+      <td>
+        <% @application.redirect_uri.to_s.split("\n").each do |uri| %>
+          <code><%= uri %></code><br>
+        <% end %>
+      </td>
+    </tr>
+    <tr>
+      <td class="text-muted">scopes</td>
+      <td><code><%= @application.scopes %></code></td>
+    </tr>
+    <tr>
+      <td class="text-muted">confidential</td>
+      <td><%= @application.confidential? ? "yes" : "no" %></td>
+    </tr>
+    <%# Phase 7.5 — MCP server URL row. The value clients paste into
+        Claude.ai / Claude Desktop / any MCP-aware client to reach the
+        Pito MCP Puma. Sourced from `Pito::PublicHosts.mcp_base` so a
+        future host change propagates from one constant rather than
+        scattered string literals across views and metadata documents. %>
+    <tr>
+      <td class="text-muted">mcp server URL</td>
+      <td>
+        <span data-controller="clipboard-copy" class="code-block">
+          <code data-clipboard-copy-target="source"><%= "#{Pito::PublicHosts.mcp_base}/mcp" %></code>
+          <a href="#" data-action="click->clipboard-copy#copy" class="bracketed">[<span class="bl">copy</span>]</a>
+        </span>
+      </td>
+    </tr>
+  </table>
+</div>
 
 <div class="dot-list">
-  <%= render(BracketedLinkComponent.new(label: "I have saved them", href: settings_oauth_applications_path)) %>
+  <%= render(BracketedLinkComponent.new(label: "i got this!", href: settings_oauth_applications_path)) %>
 </div>

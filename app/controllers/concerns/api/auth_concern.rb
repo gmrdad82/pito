@@ -33,9 +33,22 @@ module Api
         return
       end
 
-      Current.token  = result.token
-      Current.tenant = result.token.tenant
-      Current.user   = result.token.user
+      token  = result.token
+      tenant = token.tenant
+      user   = token.user
+
+      # Phase 7.5 — defense-in-depth tenant boundary check (mirrors
+      # `Mcp::RackApp`). Both bearer surfaces refuse cross-tenant
+      # tokens even if the row state somehow desyncs `user.tenant_id`
+      # from `token.tenant_id`. Treated as `invalid_token` for the
+      # caller — no information leak about whether the row exists.
+      if user.nil? || user.tenant_id != tenant&.id
+        raise Api::Unauthorized.new(reason: "invalid_token")
+      end
+
+      Current.token  = token
+      Current.tenant = tenant
+      Current.user   = user
     end
 
     # Raise if the current token does not carry the given scope. The

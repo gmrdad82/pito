@@ -37,7 +37,18 @@ module Api
         when "auth_misconfigured" then 500
         else                            401
         end
-        [ status, { "Content-Type" => "application/json" }, [ body.to_json ] ]
+        headers = { "Content-Type" => "application/json" }
+
+        # RFC 9728 §5.3 — every 401 from a protected resource includes a
+        # `WWW-Authenticate: Bearer ...` challenge that points clients
+        # at the OAuth metadata documents. Claude.ai's MCP custom
+        # connector reads `as_uri` to discover the authorization server
+        # and `resource_uri` to discover the protected-resource doc.
+        if status == 401
+          headers["WWW-Authenticate"] = Api::TokenAuthenticator.www_authenticate_header
+        end
+
+        [ status, headers, [ body.to_json ] ]
       end
     end
 
@@ -45,6 +56,18 @@ module Api
 
     def self.call(env)
       new(env).call
+    end
+
+    # Single source of truth for the `WWW-Authenticate: Bearer ...`
+    # challenge header. Both the Rack response (`Result#to_rack_response`,
+    # used by `Mcp::RackApp`) and the Rails controller path
+    # (`Api::AuthConcern` rescue handler) emit the same header so MCP
+    # clients have a consistent discovery experience regardless of
+    # which authenticated surface refused them.
+    def self.www_authenticate_header
+      app = Pito::PublicHosts.app_base
+      mcp = Pito::PublicHosts.mcp_base
+      %(Bearer realm="pito", as_uri="#{app}/.well-known/oauth-authorization-server", resource_uri="#{mcp}/.well-known/oauth-protected-resource")
     end
 
     def initialize(env)
@@ -76,28 +99,58 @@ module Api
 
       token = ApiToken.unscoped.find_by(token_digest: digest)
 
-      unless token
-        return failure("invalid_token")
+      if token
+        # Constant-time compare — the DB lookup already keyed on the digest,
+        # but the spec's locked decision wires this in for any future code
+        # path that compares plaintext-to-plaintext.
+        unless ActiveSupport::SecurityUtils.secure_compare(token.token_digest, digest)
+          return failure("invalid_token")
+        end
+
+        if token.revoked?
+          return failure("revoked_token", token: token)
+        end
+
+        if token.expired?
+          return failure("expired_token", token: token)
+        end
+
+        token.touch_used!
+        audit("auth.success", token: token, scope_required: nil, result: "ok")
+        return Result.new(token: token, failure_reason: nil)
       end
 
-      # Constant-time compare — the DB lookup already keyed on the digest,
-      # but the spec's locked decision wires this in for any future code
-      # path that compares plaintext-to-plaintext.
-      unless ActiveSupport::SecurityUtils.secure_compare(token.token_digest, digest)
-        return failure("invalid_token")
+      # Phase 7.5 — Doorkeeper fallback. The plaintext bearer was not an
+      # `ApiToken` (no row matched the HMAC digest); try
+      # `OauthAccessToken.by_token` next so Claude.ai's MCP custom
+      # connector — which pulls Doorkeeper-issued access tokens via
+      # `/oauth/token` — can authenticate against `/mcp` and `Api::*`
+      # surfaces using the same bearer dispatch as ApiToken users.
+      #
+      # Distinct revoked / expired branches mirror the ApiToken paths so
+      # the existing 401 envelopes (`revoked_token`, `expired_token`)
+      # remain stable. Anything else maps to `invalid_token`.
+      oauth_token = lookup_oauth_token(plaintext)
+      if oauth_token
+        if oauth_token.revoked?
+          return failure("revoked_token", token: oauth_token)
+        end
+
+        if oauth_token.expired?
+          return failure("expired_token", token: oauth_token)
+        end
+
+        unless oauth_token.tenant_id.present? && oauth_token.resource_owner_id.present?
+          # Defense-in-depth: a token without a denormalized tenant or a
+          # resource owner cannot be safely dispatched. Treat as invalid.
+          return failure("invalid_token", token: oauth_token)
+        end
+
+        audit("auth.success", token: oauth_token, scope_required: nil, result: "ok")
+        return Result.new(token: oauth_token, failure_reason: nil)
       end
 
-      if token.revoked?
-        return failure("revoked_token", token: token)
-      end
-
-      if token.expired?
-        return failure("expired_token", token: token)
-      end
-
-      token.touch_used!
-      audit("auth.success", token: token, scope_required: nil, result: "ok")
-      Result.new(token: token, failure_reason: nil)
+      failure("invalid_token")
     end
 
     private
@@ -115,7 +168,7 @@ module Api
         ts: Time.now.utc.iso8601(3),
         event: event,
         token_id: token&.id,
-        token_name: token&.name,
+        token_name: token_label(token),
         ip: client_ip,
         route: route_label,
         scope_required: scope_required,
@@ -124,6 +177,30 @@ module Api
       AUTH_AUDIT_LOGGER.info(payload.to_json)
     rescue StandardError
       # Audit logging must never break the request path.
+      nil
+    end
+
+    # Best-effort human label for the audit row. `ApiToken` carries an
+    # operator-supplied `name`; Doorkeeper's `OauthAccessToken` carries
+    # an `application_id` instead — fall back to the application's name
+    # for OAuth, and `nil` if neither path is available.
+    def token_label(token)
+      return nil if token.nil?
+      return token.name if token.is_a?(ApiToken)
+      return token.application&.name if token.respond_to?(:application)
+
+      nil
+    end
+
+    # Doorkeeper bearer-token lookup. Returns the `OauthAccessToken`
+    # row (which subclasses `Doorkeeper::AccessToken`) or `nil`. Wrapped
+    # in a guard so request flows that pre-date Doorkeeper (e.g. specs
+    # that boot a stubbed environment) keep working without raising.
+    def lookup_oauth_token(plaintext)
+      return nil unless defined?(OauthAccessToken)
+
+      OauthAccessToken.by_token(plaintext)
+    rescue StandardError
       nil
     end
 

@@ -91,6 +91,7 @@
   <% if footages.any? %>
     <table class="footage-table">
       <colgroup>
+        <col style="width: 80px;"> <%# thumb (Phase 7.5 §06) %>
         <col style="width: 180px;"><%# filename %>
         <col style="width: 100px;"><%# game %>
         <col style="width: 110px;"><%# resolution %>
@@ -102,6 +103,7 @@
       </colgroup>
       <thead>
         <tr>
+          <th><%# thumb (not sortable) %></th>
           <th class="sortable"><%= sort_link_to("filename", "filename", current_sort: sort, current_dir: dir, frame: "footage-table") %></th>
           <th class="sortable"><%= sort_link_to("game", "game", current_sort: sort, current_dir: dir, frame: "footage-table") %></th>
           <th class="sortable"><%= sort_link_to("resolution", "resolution", current_sort: sort, current_dir: dir, frame: "footage-table") %></th>
@@ -115,6 +117,19 @@
       <tbody>
         <% footages.each do |footage| %>
           <tr>
+            <td class="footage-thumb-cell">
+              <%# Phase 7.5 §06 — median-frame thumb. The route falls through
+                  to a 404 (broken image) until the importer ships the bulk-
+                  frame upload that populates `<assets>/footage_thumbs/<id>/t/`.
+                  That's expected/intended for the experiment's first cut. %>
+              <% median_seconds = (footage.duration_seconds.to_i / 2) %>
+              <% timestamp_str = format("%02d-%02d-%02d", median_seconds / 3600, (median_seconds % 3600) / 60, median_seconds % 60) %>
+              <img class="footage-thumb"
+                   src="<%= footage_frame_thumb_path(footage_id: footage.id, filename: timestamp_str, format: 'jpg') %>"
+                   loading="lazy"
+                   width="64" height="36"
+                   alt="">
+            </td>
             <td class="filename-cell" title="<%= footage.filename %>">
               <%= link_to filename_truncate_middle(footage.filename), edit_footage_path(footage), data: { turbo_frame: "_top" } %>
             </td>

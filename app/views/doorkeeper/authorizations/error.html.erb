@@ -1,12 +1,25 @@
 <% content_for(:title, "authorization error") %>
+<% content_for(:hide_chrome, true) %>
 
-<div style="max-width: 560px; margin: 24px auto;">
+<%# Phase 7.5 — Doorkeeper authorization-error page restyled to match
+    Pito's design system. `:hide_chrome` strips the header/footer to
+    logo + theme toggle (mirrors `sessions/new.html.erb` and the
+    consent page next to it). The error description comes from
+    Doorkeeper as either `@pre_auth.error_response` (default flow) or a
+    local `error_response` (when the controller renders this template
+    with a non-pre-auth error). The error text renders muted in a
+    `<pre>` so multi-line bodies wrap cleanly without bleeding outside
+    the column. %>
+<%
+  description = (local_assigns[:error_response] ? error_response : @pre_auth.error_response).body[:error_description]
+%>
+<div style="max-width: 480px; margin: 24px 0;">
   <h1>authorization error</h1>
   <p class="text-muted" style="margin-top: 2px;">
     the authorization server rejected the request.
   </p>
 
-  <pre style="white-space: pre-wrap; word-wrap: break-word;"><%= (local_assigns[:error_response] ? error_response : @pre_auth.error_response).body[:error_description] %></pre>
+  <pre class="text-muted" style="white-space: pre-wrap; word-wrap: break-word; margin: 12px 0; font-family: inherit;"><%= description %></pre>
 
   <div class="dot-list">
     <%= render(BracketedLinkComponent.new(label: "back to home", href: root_path)) %>

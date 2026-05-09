@@ -60,9 +60,9 @@ RSpec.describe "Settings::Tokens", type: :request do
       expect(response.body).not_to include("other-tenant-token")
     end
 
-    it "shows a [ new token ] link" do
+    it "shows a [ new ] link" do
       get settings_tokens_path
-      expect(response.body).to include("new token")
+      expect(response.body).to include(">new<")
       expect(response.body).to include(new_settings_token_path)
     end
   end

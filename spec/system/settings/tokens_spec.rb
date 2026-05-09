@@ -26,7 +26,7 @@ RSpec.describe "Settings tokens flow", type: :system do
     expect(page).to have_current_path(settings_tokens_path)
     expect(page).to have_content("no tokens yet")
 
-    click_link "new token"
+    click_link "new"
     expect(page).to have_current_path(new_settings_token_path)
 
     fill_in "token[name]", with: "feature-spec-token"

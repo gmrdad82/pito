@@ -4,17 +4,22 @@ use std::time::{Duration, Instant};
 
 use crate::api::client::PitoClient;
 use crate::api::models::{AppSettings, BulkOperationStatus, DashboardData, ResponseMode};
+use crate::api::thumbnails::{Cache as ThumbnailCache, Tier};
 use crate::theme::{Theme, ThemeMode};
 use crate::ui::channel_detail::{ChannelDetailState, ChannelInfo, ChannelVideoRow};
 use crate::ui::channels::{ChannelFilter, ChannelRow, ChannelsState};
 use crate::ui::confirmation::{
     ConfirmationItem, ConfirmationKind, ConfirmationOutcome, ConfirmationState,
 };
+use crate::ui::footage_detail::{
+    FootageDetailState, PreviewProtocol, ScrubRects, TerminalCapability,
+};
 use crate::ui::saved_views::{SavedViewRow, SavedViewsState};
 use crate::ui::search::{SearchSection, SearchState};
 use crate::ui::settings::SettingsState;
 use crate::ui::video_detail::VideoDetailState;
 use crate::ui::videos::{SortDirection, VideoRow, VideosState};
+use ratatui_image::picker::Picker;
 
 /// Default settings used when `/settings.json` fails. We never want a missing
 /// settings endpoint to block the rest of the TUI from rendering, so the
@@ -181,6 +186,9 @@ pub enum Screen {
     VideoDetail,
     SavedViews,
     Settings,
+    /// Footage detail — DaVinci-style scrub UI for an imported footage.
+    /// Phase 7.5 step 06 (CLI half).
+    FootageDetail,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -209,6 +217,34 @@ pub struct App {
     pub channel_detail_state: Option<ChannelDetailState>,
     pub videos_state: VideosState,
     pub video_detail_state: Option<VideoDetailState>,
+    /// State for the footage detail scrub screen. Allocated lazily when the
+    /// user navigates into the footage detail surface; cleared on back-out
+    /// so the manifest doesn't outlive the navigation.
+    pub footage_detail_state: Option<FootageDetailState>,
+    /// Most-recently-rendered scrub rects (preview + strip). Captured by
+    /// `ui::render` so the mouse-event router knows which rects the cursor
+    /// lives in. `None` until the first frame renders the footage detail
+    /// screen.
+    pub footage_detail_rects: Option<ScrubRects>,
+    /// Terminal graphics capability detected once at boot. Used by the
+    /// footage detail screen to pick a render path; never re-detected per
+    /// frame (the user's terminal doesn't change underneath us).
+    pub terminal_capability: TerminalCapability,
+    /// Picker built once at boot from the detected capability. Used by the
+    /// footage detail screen to convert decoded `DynamicImage` bytes into a
+    /// `StatefulProtocol` ready for `ratatui-image::StatefulImage`. `None`
+    /// only on `TextOnly` terminals (where image rendering is skipped).
+    pub thumbnails_picker: Option<Picker>,
+    /// On-disk LRU cache for fetched master / thumb JPEGs.
+    pub thumbnails_cache: ThumbnailCache,
+    /// Base URL used to fetch the manifest + frames. Defaults to
+    /// `PITO_API_URL` (or `https://app.pitomd.com`); tests inject a wiremock
+    /// origin via `with_client_and_thumbnails_config`.
+    pub thumbnails_base_url: String,
+    /// Currently-loaded image protocol for the active scrub timestamp.
+    /// Rebuilt whenever `(footage_id, active_timestamp)` changes. `None`
+    /// before the first successful fetch and on text-only terminals.
+    pub footage_detail_preview: Option<PreviewProtocol>,
     pub search_state: SearchState,
     pub saved_views_state: SavedViewsState,
     pub settings_state: SettingsState,
@@ -229,8 +265,28 @@ pub struct App {
     client: Box<dyn PitoClient>,
 }
 
+/// Default thumbnails base URL when no explicit override is provided. Mirrors
+/// `HttpClient::DEFAULT_BASE_URL` — duplicated here to avoid pulling the
+/// `http_client` module into every test that constructs `App`.
+pub const DEFAULT_THUMBNAILS_BASE_URL: &str = "https://app.pitomd.com";
+
 impl App {
     pub fn with_client(client: Box<dyn PitoClient>) -> Self {
+        let base_url = std::env::var("PITO_API_URL")
+            .unwrap_or_else(|_| DEFAULT_THUMBNAILS_BASE_URL.to_string());
+        let cache = ThumbnailCache::new();
+        Self::with_client_and_thumbnails_config(client, base_url, cache)
+    }
+
+    /// Build the app with explicit thumbnails plumbing. Tests use this to
+    /// point the manifest / frame fetches at a wiremock origin and to redirect
+    /// the on-disk cache at a `tempfile::tempdir`. The `client` argument
+    /// behaves identically to `with_client`.
+    pub fn with_client_and_thumbnails_config(
+        client: Box<dyn PitoClient>,
+        thumbnails_base_url: impl Into<String>,
+        thumbnails_cache: ThumbnailCache,
+    ) -> Self {
         // Each per-endpoint fetch is wrapped in its own match block so a 406/500
         // on one endpoint cannot blank the state of another. Every error is
         // routed to the relevant screen's flash slot (if it has user-visible
@@ -369,6 +425,17 @@ impl App {
             channel_detail_state: None,
             videos_state,
             video_detail_state: None,
+            footage_detail_state: None,
+            footage_detail_rects: None,
+            // Tests construct App via this constructor; default to TextOnly
+            // so test runs never block on real stdio probing. The real CLI
+            // entry point (`commands::tui::run`) overrides this immediately
+            // after construction with the result of `capability::detect`.
+            terminal_capability: TerminalCapability::TextOnly,
+            thumbnails_picker: None,
+            thumbnails_cache,
+            thumbnails_base_url: thumbnails_base_url.into(),
+            footage_detail_preview: None,
             search_state,
             saved_views_state,
             settings_state,
@@ -378,6 +445,188 @@ impl App {
             operation_progress: None,
             client,
         }
+    }
+
+    /// Override the terminal capability after boot. Called from
+    /// `commands::tui::run` once detection has completed (which must happen
+    /// after `enable_raw_mode` + `EnterAlternateScreen` per the
+    /// ratatui-image contract).
+    ///
+    /// Also rebuilds `thumbnails_picker` to match — every capability except
+    /// `TextOnly` produces a usable Picker (the live render path falls back
+    /// gracefully to text when `thumbnails_picker` is `None`).
+    pub fn set_terminal_capability(&mut self, capability: TerminalCapability) {
+        self.terminal_capability = capability;
+        self.thumbnails_picker = match capability {
+            TerminalCapability::TextOnly => None,
+            // For graphics-capable terminals the real CLI replaces the picker
+            // via `set_terminal_capability_with_picker` below, which preserves
+            // the upstream Picker built from the live `from_query_stdio`
+            // probe (the latter carries the right font_size, is_tmux flag,
+            // etc.). Calling this method without a Picker means the App was
+            // constructed in tests / via a manual override; fall back to the
+            // halfblocks Picker so rendering still works in those paths.
+            _ => Some(crate::ui::footage_detail::capability::halfblocks_picker()),
+        };
+    }
+
+    /// Variant of `set_terminal_capability` that takes the upstream Picker
+    /// built by `Picker::from_query_stdio` so the live CLI keeps the correct
+    /// font_size / is_tmux flags. Tests call the simpler
+    /// `set_terminal_capability` and rely on the halfblocks fallback.
+    pub fn set_terminal_capability_with_picker(
+        &mut self,
+        capability: TerminalCapability,
+        picker: Picker,
+    ) {
+        self.terminal_capability = capability;
+        self.thumbnails_picker = match capability {
+            TerminalCapability::TextOnly => None,
+            _ => Some(picker),
+        };
+    }
+
+    /// Open the footage detail screen for the given id + label.
+    /// The label is what shows in the preview header (typically the
+    /// footage's filename or YouTube id).
+    ///
+    /// Synchronously fetches the manifest from
+    /// `GET /footages/:id/frames.json` and, on success, the active master
+    /// frame. Failures (network, 404, decode) surface in the screen's flash
+    /// slot and never panic — the screen still renders with the text
+    /// fallback so the user can navigate back out.
+    ///
+    /// The CLI doesn't yet ship a footage list / picker screen, so this
+    /// method is unreachable from the binary's runtime keymap today —
+    /// the screen is exercised by tests. Once a footage browser screen
+    /// lands the `Enter`-on-a-footage-row arm will call this.
+    #[allow(dead_code)]
+    pub fn open_footage_detail(&mut self, footage_id: u64, label: impl Into<String>) {
+        let mut state = FootageDetailState::new(footage_id, label);
+        // Manifest fetch happens inline. The synchronous tick loop blocks
+        // briefly here, which is acceptable per the dispatch's "synchronous
+        // fetch — prefetch can land later" decision.
+        match crate::api::thumbnails::fetch_manifest(&self.thumbnails_base_url, footage_id) {
+            Ok(manifest) => {
+                state.set_manifest(manifest);
+            }
+            Err(e) => {
+                log_error("open_footage_detail fetch_manifest", &e);
+                state.flash = Some(format!("frames manifest fetch failed: {}", e));
+            }
+        }
+        self.footage_detail_state = Some(state);
+        self.footage_detail_rects = None;
+        self.footage_detail_preview = None;
+        self.screen = Screen::FootageDetail;
+        // Once the manifest is set, kick off the active master fetch so the
+        // first frame the user sees is a real image (when graphics work) or
+        // the text fallback (when they don't).
+        self.refresh_active_preview_protocol();
+    }
+
+    /// Apply a manifest fetched from
+    /// `GET /footages/:id/frames.json` to the footage detail state. No-op
+    /// when the screen has been closed in the meantime.
+    ///
+    /// Used directly by tests; the runtime path goes through
+    /// `open_footage_detail` (which calls `fetch_manifest` itself).
+    #[allow(dead_code)]
+    pub fn apply_footage_manifest(&mut self, manifest: crate::api::thumbnails::Manifest) {
+        if let Some(ref mut s) = self.footage_detail_state {
+            s.set_manifest(manifest);
+        }
+        self.refresh_active_preview_protocol();
+    }
+
+    /// Fetch the master JPEG for the active scrub timestamp (cache-aware) and
+    /// rebuild the `StatefulProtocol` that backs the preview rendering. No-op
+    /// when:
+    ///
+    /// - The screen has been closed (`footage_detail_state` is `None`).
+    /// - The manifest is empty (no frames extracted server-side yet).
+    /// - The terminal capability is `TextOnly` (no protocol to build).
+    /// - The cached `(footage_id, timestamp)` matches the current preview
+    ///   already (avoids re-decoding on every keystroke).
+    ///
+    /// Errors are recorded to the on-disk debug log and surfaced in the
+    /// screen's flash slot. The fallback path keeps rendering text so the
+    /// user can still scrub.
+    pub fn refresh_active_preview_protocol(&mut self) {
+        let Some(state) = self.footage_detail_state.as_ref() else {
+            return;
+        };
+        let Some(ref manifest) = state.manifest else {
+            return;
+        };
+        if manifest.timestamps.is_empty() {
+            // Nothing to render — keep `footage_detail_preview` as `None` so
+            // the renderer falls back to the "no frames" placeholder.
+            self.footage_detail_preview = None;
+            return;
+        }
+        let footage_id = state.footage_id;
+        let timestamp = state.active_timestamp_seconds;
+
+        // Quick reuse path: the active timestamp didn't change since the
+        // last build. Saves a cache lookup AND a re-decode on every step().
+        if let Some(ref preview) = self.footage_detail_preview
+            && preview.matches(footage_id, timestamp)
+        {
+            return;
+        }
+
+        // No picker means TextOnly (or pre-detection); skip image work.
+        let Some(picker) = self.thumbnails_picker.clone() else {
+            return;
+        };
+
+        let base_url = self.thumbnails_base_url.clone();
+        let cache = self.thumbnails_cache.clone();
+        let bytes_result = cache.fetch_or_get(footage_id, Tier::Master, timestamp, || {
+            crate::api::thumbnails::fetch_frame_bytes(
+                &base_url,
+                footage_id,
+                Tier::Master,
+                timestamp,
+            )
+        });
+        let bytes = match bytes_result {
+            Ok(b) => b,
+            Err(e) => {
+                log_error("refresh_active_preview_protocol fetch_frame_bytes", &e);
+                if let Some(ref mut s) = self.footage_detail_state {
+                    s.flash = Some(format!("frame fetch failed: {}", e));
+                }
+                self.footage_detail_preview = None;
+                return;
+            }
+        };
+        match image::load_from_memory(&bytes) {
+            Ok(dyn_img) => {
+                let protocol = picker.new_resize_protocol(dyn_img);
+                self.footage_detail_preview =
+                    Some(PreviewProtocol::new(footage_id, timestamp, protocol));
+            }
+            Err(e) => {
+                log_error("refresh_active_preview_protocol decode", &e);
+                if let Some(ref mut s) = self.footage_detail_state {
+                    s.flash = Some(format!("frame decode failed: {}", e));
+                }
+                self.footage_detail_preview = None;
+            }
+        }
+    }
+
+    /// Stash the rects rendered for the active footage detail frame so the
+    /// mouse handler can route events to the scrub state.
+    ///
+    /// `ui::render` writes to the field directly, so this convenience helper
+    /// is currently used only by tests that want to seed rects without
+    /// going through a full render cycle.
+    #[allow(dead_code)]
+    pub fn record_footage_detail_rects(&mut self, rects: ScrubRects) {
+        self.footage_detail_rects = Some(rects);
     }
 
     pub fn theme(&self) -> Theme {
@@ -1765,5 +2014,553 @@ mod tests {
             }
         }
         let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    // --- Footage detail screen wiring --------------------------------------
+
+    /// Build an `App` with the thumbnails fetcher pinned to an
+    /// almost-certainly-closed localhost port. Lets unit tests assert the
+    /// "manifest fetch fails gracefully" path without hitting the network or
+    /// having to spin up a wiremock server (which lives in the integration
+    /// tests). The exact port is arbitrary; any TCP connection refused
+    /// surfaces as `Err` from `fetch_manifest`.
+    fn app_with_unreachable_thumbnails() -> App {
+        let dir = std::env::temp_dir().join(format!(
+            "pito-thumbs-{}-{}",
+            std::process::id(),
+            chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)
+        ));
+        let cache = crate::api::thumbnails::Cache::with_root(dir, 1_000_000);
+        App::with_client_and_thumbnails_config(
+            Box::new(MockClient::new()),
+            "http://127.0.0.1:1",
+            cache,
+        )
+    }
+
+    #[test]
+    fn open_footage_detail_seeds_state_and_navigates() {
+        let mut app = app_with_unreachable_thumbnails();
+        assert!(app.footage_detail_state.is_none());
+        app.open_footage_detail(42, "fixture.mp4");
+        assert_eq!(app.screen, Screen::FootageDetail);
+        let s = app.footage_detail_state.as_ref().expect("state seeded");
+        assert_eq!(s.footage_id, 42);
+        assert_eq!(s.label, "fixture.mp4");
+        // Manifest fetch fails (unreachable URL) → manifest stays None and
+        // the screen's flash slot records the failure for the user.
+        assert!(s.manifest.is_none());
+        let flash = s.flash.as_deref().expect("flash records fetch failure");
+        assert!(
+            flash.contains("manifest"),
+            "flash should mention the manifest, got: {}",
+            flash
+        );
+        // Rects are stamped by the renderer; not present until the first
+        // draw lands.
+        assert!(app.footage_detail_rects.is_none());
+        // No image protocol either — there are no bytes to decode.
+        assert!(app.footage_detail_preview.is_none());
+    }
+
+    #[test]
+    fn apply_footage_manifest_snaps_active_to_median() {
+        use crate::api::thumbnails::Manifest;
+        let mut app = app_with_unreachable_thumbnails();
+        app.open_footage_detail(42, "fixture.mp4");
+        app.apply_footage_manifest(Manifest {
+            duration_seconds: 240.0,
+            timestamps: vec![0, 60, 120, 180, 240],
+        });
+        let s = app.footage_detail_state.as_ref().unwrap();
+        // Median index = 5/2 = 2 → ts=120.
+        assert_eq!(s.active_timestamp_seconds, 120);
+        assert_eq!(s.manifest.as_ref().unwrap().timestamps.len(), 5);
+    }
+
+    #[test]
+    fn apply_footage_manifest_no_op_when_screen_closed() {
+        use crate::api::thumbnails::Manifest;
+        let mut app = app_with_unreachable_thumbnails();
+        // Never opened; apply must not panic.
+        app.apply_footage_manifest(Manifest {
+            duration_seconds: 240.0,
+            timestamps: vec![0, 60, 120],
+        });
+        assert!(app.footage_detail_state.is_none());
+    }
+
+    #[test]
+    fn set_terminal_capability_persists_for_render_path() {
+        let mut app = App::with_client(Box::new(MockClient::new()));
+        // Default after construction is TextOnly (so tests don't probe stdio).
+        assert_eq!(app.terminal_capability, TerminalCapability::TextOnly);
+        // TextOnly default produces no picker — image rendering is skipped.
+        assert!(app.thumbnails_picker.is_none());
+        app.set_terminal_capability(TerminalCapability::Halfblocks);
+        assert_eq!(app.terminal_capability, TerminalCapability::Halfblocks);
+        // Any non-TextOnly capability arms a picker so the live image render
+        // path has something to call `new_resize_protocol` on.
+        assert!(app.thumbnails_picker.is_some());
+    }
+
+    #[test]
+    fn set_terminal_capability_text_only_drops_picker() {
+        let mut app = App::with_client(Box::new(MockClient::new()));
+        app.set_terminal_capability(TerminalCapability::Kitty);
+        assert!(app.thumbnails_picker.is_some());
+        // Switching back to TextOnly must drop the picker — the live render
+        // path early-outs whenever the picker is `None`.
+        app.set_terminal_capability(TerminalCapability::TextOnly);
+        assert!(app.thumbnails_picker.is_none());
+    }
+
+    #[test]
+    fn footage_detail_q_returns_to_dashboard_and_clears_state() {
+        // The `q` keybinding on the FootageDetail screen must hand the user
+        // back to the dashboard AND drop the footage_detail_state so a
+        // subsequent navigation starts clean.
+        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+        let mut app = app_with_unreachable_thumbnails();
+        app.open_footage_detail(42, "fixture.mp4");
+        assert_eq!(app.screen, Screen::FootageDetail);
+
+        crate::keys::handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE),
+        );
+
+        assert_eq!(app.screen, Screen::Dashboard);
+        assert!(app.footage_detail_state.is_none());
+        assert!(app.footage_detail_rects.is_none());
+        assert!(app.footage_detail_preview.is_none());
+    }
+
+    #[test]
+    fn footage_detail_keyboard_step_walks_active_timestamp() {
+        use crate::api::thumbnails::Manifest;
+        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+        let mut app = app_with_unreachable_thumbnails();
+        app.open_footage_detail(42, "fixture.mp4");
+        app.apply_footage_manifest(Manifest {
+            duration_seconds: 240.0,
+            timestamps: vec![0, 60, 120, 180, 240],
+        });
+        // Median = 120.
+        fn active(app: &App) -> u64 {
+            app.footage_detail_state
+                .as_ref()
+                .unwrap()
+                .active_timestamp_seconds
+        }
+        assert_eq!(active(&app), 120);
+
+        // `l` steps forward.
+        crate::keys::handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('l'), KeyModifiers::NONE),
+        );
+        assert_eq!(active(&app), 180);
+        // `→` steps forward too.
+        crate::keys::handle_key(&mut app, KeyEvent::new(KeyCode::Right, KeyModifiers::NONE));
+        assert_eq!(active(&app), 240);
+        // `h` steps backward.
+        crate::keys::handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('h'), KeyModifiers::NONE),
+        );
+        assert_eq!(active(&app), 180);
+        // `g` jumps to start.
+        crate::keys::handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('g'), KeyModifiers::NONE),
+        );
+        assert_eq!(active(&app), 0);
+        // `G` jumps to end.
+        crate::keys::handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('G'), KeyModifiers::NONE),
+        );
+        assert_eq!(active(&app), 240);
+        // `H` jumps 10 cells back (saturates at 0 here — only 5 cells).
+        crate::keys::handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('H'), KeyModifiers::NONE),
+        );
+        assert_eq!(active(&app), 0);
+    }
+
+    // --- refresh_active_preview_protocol edge cases ------------------------
+
+    #[test]
+    fn refresh_active_preview_protocol_no_op_when_screen_closed() {
+        let mut app = app_with_unreachable_thumbnails();
+        // No footage detail state → must not panic and must not allocate a
+        // preview protocol.
+        app.refresh_active_preview_protocol();
+        assert!(app.footage_detail_preview.is_none());
+    }
+
+    #[test]
+    fn refresh_active_preview_protocol_no_op_with_empty_manifest() {
+        use crate::api::thumbnails::Manifest;
+        let mut app = app_with_unreachable_thumbnails();
+        app.set_terminal_capability(TerminalCapability::Halfblocks);
+        app.open_footage_detail(42, "fixture.mp4");
+        // Server returns no extracted frames yet — empty manifest.
+        app.apply_footage_manifest(Manifest {
+            duration_seconds: 0.0,
+            timestamps: vec![],
+        });
+        // Even with a graphics-capable picker armed, the empty manifest
+        // means there are no frames to fetch — preview stays None.
+        assert!(app.footage_detail_preview.is_none());
+    }
+
+    #[test]
+    fn refresh_active_preview_protocol_no_op_when_text_only() {
+        use crate::api::thumbnails::Manifest;
+        let mut app = app_with_unreachable_thumbnails();
+        // TextOnly capability: no Picker, no image work.
+        app.set_terminal_capability(TerminalCapability::TextOnly);
+        app.open_footage_detail(42, "fixture.mp4");
+        app.apply_footage_manifest(Manifest {
+            duration_seconds: 240.0,
+            timestamps: vec![0, 60, 120, 180, 240],
+        });
+        // No protocol allocated even though the manifest has timestamps.
+        assert!(app.footage_detail_preview.is_none());
+    }
+
+    #[test]
+    fn refresh_active_preview_protocol_records_flash_on_fetch_failure() {
+        use crate::api::thumbnails::Manifest;
+        let mut app = app_with_unreachable_thumbnails();
+        app.set_terminal_capability(TerminalCapability::Halfblocks);
+        app.open_footage_detail(42, "fixture.mp4");
+        // Apply a manifest synthetically so the fetch path fires (the
+        // initial `open_footage_detail` already failed and recorded a flash).
+        app.apply_footage_manifest(Manifest {
+            duration_seconds: 240.0,
+            timestamps: vec![0, 60, 120],
+        });
+        let s = app.footage_detail_state.as_ref().unwrap();
+        // The frame fetch hit the unreachable URL too — flash records the
+        // failure, and the preview slot stays empty so the renderer falls
+        // back to text.
+        let flash = s.flash.as_deref().unwrap_or("");
+        assert!(
+            flash.contains("frame") || flash.contains("manifest"),
+            "expected fetch-failure flash, got: {:?}",
+            flash
+        );
+        assert!(app.footage_detail_preview.is_none());
+    }
+
+    #[test]
+    fn refresh_active_preview_protocol_uses_cached_bytes() {
+        // Pre-seed the on-disk cache with a real JPEG so the fetch path
+        // doesn't need to hit the network. The result: a `PreviewProtocol`
+        // built for the active timestamp, with `matches` returning true.
+        use crate::api::thumbnails::{Cache, Manifest, Tier};
+        let dir = std::env::temp_dir().join(format!(
+            "pito-preview-{}-{}",
+            std::process::id(),
+            chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)
+        ));
+        let cache = Cache::with_root(&dir, 1_000_000);
+        // Encode a tiny JPEG via the `image` crate so the decoder accepts
+        // it. 4×4 RGB pixels are enough for ratatui-image to construct a
+        // halfblocks protocol.
+        let img = image::DynamicImage::new_rgb8(4, 4);
+        let mut buf: Vec<u8> = Vec::new();
+        let mut cursor = std::io::Cursor::new(&mut buf);
+        img.write_to(&mut cursor, image::ImageFormat::Jpeg)
+            .expect("encode JPEG");
+        cache.write(42, Tier::Master, 120, &buf).unwrap();
+
+        let mut app = App::with_client_and_thumbnails_config(
+            Box::new(MockClient::new()),
+            "http://127.0.0.1:1",
+            cache,
+        );
+        app.set_terminal_capability(TerminalCapability::Halfblocks);
+        app.open_footage_detail(42, "fixture.mp4");
+        // open_footage_detail's manifest fetch failed; supply one
+        // synthetically and re-trigger refresh_active_preview_protocol via
+        // apply_footage_manifest.
+        app.apply_footage_manifest(Manifest {
+            duration_seconds: 240.0,
+            timestamps: vec![0, 60, 120, 180, 240],
+        });
+        // Median = 120s → the cached frame at ts=120 is hit; the preview
+        // protocol must be allocated and tagged with (42, 120).
+        let preview = app
+            .footage_detail_preview
+            .as_ref()
+            .expect("preview protocol allocated from cache hit");
+        assert!(preview.matches(42, 120));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn refresh_active_preview_protocol_skips_rebuild_when_active_unchanged() {
+        // Calling refresh twice in a row when the state didn't change must
+        // be cheap (no fetch, no decode). We can't observe the fetcher
+        // skipping directly, but we can verify the preview's identity is
+        // stable across the second call.
+        use crate::api::thumbnails::{Cache, Manifest, Tier};
+        let dir = std::env::temp_dir().join(format!(
+            "pito-stable-{}-{}",
+            std::process::id(),
+            chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)
+        ));
+        let cache = Cache::with_root(&dir, 1_000_000);
+        let img = image::DynamicImage::new_rgb8(4, 4);
+        let mut buf: Vec<u8> = Vec::new();
+        let mut cursor = std::io::Cursor::new(&mut buf);
+        img.write_to(&mut cursor, image::ImageFormat::Jpeg).unwrap();
+        cache.write(42, Tier::Master, 120, &buf).unwrap();
+
+        let mut app = App::with_client_and_thumbnails_config(
+            Box::new(MockClient::new()),
+            "http://127.0.0.1:1",
+            cache,
+        );
+        app.set_terminal_capability(TerminalCapability::Halfblocks);
+        app.open_footage_detail(42, "fixture.mp4");
+        app.apply_footage_manifest(Manifest {
+            duration_seconds: 240.0,
+            timestamps: vec![0, 60, 120, 180, 240],
+        });
+        let first_id = app
+            .footage_detail_preview
+            .as_ref()
+            .map(|p| (p.footage_id(), p.timestamp_seconds()))
+            .unwrap();
+        // Second call without changing state: identity stays the same.
+        app.refresh_active_preview_protocol();
+        let second_id = app
+            .footage_detail_preview
+            .as_ref()
+            .map(|p| (p.footage_id(), p.timestamp_seconds()))
+            .unwrap();
+        assert_eq!(first_id, second_id);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Spin up a wiremock `MockServer` on a fresh runtime, run the async
+    /// setup closure to register stubs, and return the server URI. The
+    /// runtime lives in a parked background thread so the synchronous
+    /// `reqwest::blocking` path can run without colliding with the tokio
+    /// reactor that hosts wiremock.
+    fn start_wiremock_server<F, Fut>(setup: F) -> (String, std::thread::JoinHandle<()>)
+    where
+        F: FnOnce(wiremock::MockServer) -> Fut + Send + 'static,
+        Fut: std::future::Future<Output = wiremock::MockServer> + Send,
+    {
+        use std::sync::mpsc;
+        let (tx, rx) = mpsc::channel::<String>();
+        let handle = std::thread::spawn(move || {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("runtime");
+            rt.block_on(async move {
+                let server = wiremock::MockServer::start().await;
+                let server = setup(server).await;
+                tx.send(server.uri()).expect("send uri");
+                // Park the runtime alive — drop happens when the test
+                // thread joins us via JoinHandle, by which point the test
+                // is done with the server.
+                let () = std::future::pending().await;
+                drop(server);
+            });
+        });
+        let uri = rx.recv().expect("recv uri");
+        (uri, handle)
+    }
+
+    #[test]
+    fn open_footage_detail_drives_real_manifest_fetch_via_wiremock() {
+        // Integration-flavored unit test: stand up a wiremock server that
+        // returns the canonical manifest shape, point `App::with_client_and_
+        // thumbnails_config` at it, and confirm `open_footage_detail`
+        // populates the manifest synchronously. This exercises the full
+        // wire path (HTTP, JSON decode, state transition) without leaving
+        // the binary's test harness.
+        use crate::api::thumbnails::Cache;
+        use serde_json::json;
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, ResponseTemplate};
+
+        let (base_url, _server_thread) = start_wiremock_server(|server| async move {
+            Mock::given(method("GET"))
+                .and(path("/footages/77/frames.json"))
+                .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                    "duration_seconds": 240.0,
+                    "timestamps": [60, 120, 180]
+                })))
+                .mount(&server)
+                .await;
+            server
+        });
+
+        let dir = std::env::temp_dir().join(format!(
+            "pito-wiremock-{}-{}",
+            std::process::id(),
+            chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)
+        ));
+        let cache = Cache::with_root(&dir, 1_000_000);
+        let mut app =
+            App::with_client_and_thumbnails_config(Box::new(MockClient::new()), base_url, cache);
+        // TextOnly skips the frame fetch; manifest fetch still runs.
+        app.set_terminal_capability(TerminalCapability::TextOnly);
+        app.open_footage_detail(77, "fixture.mp4");
+
+        let s = app
+            .footage_detail_state
+            .as_ref()
+            .expect("state seeded after fetch");
+        let manifest = s
+            .manifest
+            .as_ref()
+            .expect("manifest populated by live fetch");
+        assert!((manifest.duration_seconds - 240.0).abs() < f64::EPSILON);
+        assert_eq!(manifest.timestamps, vec![60, 120, 180]);
+        // Median snap from `set_manifest`: 3 entries → index 1 → 120s.
+        assert_eq!(s.active_timestamp_seconds, 120);
+        // No flash on the success path.
+        assert!(s.flash.is_none(), "no flash expected, got: {:?}", s.flash);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn open_footage_detail_records_flash_on_404_manifest() {
+        // Mirror of the success test, but the server replies 404. The
+        // screen still opens (so the user can navigate back out), the
+        // manifest stays None, and the flash records the failure.
+        use crate::api::thumbnails::Cache;
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, ResponseTemplate};
+
+        let (base_url, _server_thread) = start_wiremock_server(|server| async move {
+            Mock::given(method("GET"))
+                .and(path("/footages/999/frames.json"))
+                .respond_with(ResponseTemplate::new(404))
+                .mount(&server)
+                .await;
+            server
+        });
+
+        let dir = std::env::temp_dir().join(format!(
+            "pito-wm404-{}-{}",
+            std::process::id(),
+            chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)
+        ));
+        let cache = Cache::with_root(&dir, 1_000_000);
+        let mut app =
+            App::with_client_and_thumbnails_config(Box::new(MockClient::new()), base_url, cache);
+        app.set_terminal_capability(TerminalCapability::TextOnly);
+        app.open_footage_detail(999, "missing.mp4");
+
+        let s = app.footage_detail_state.as_ref().unwrap();
+        assert!(s.manifest.is_none());
+        let flash = s.flash.as_deref().unwrap_or("");
+        assert!(
+            flash.contains("manifest"),
+            "expected manifest fetch flash, got: {:?}",
+            flash
+        );
+        // Screen is still open so the user can press `q` to back out.
+        assert_eq!(app.screen, Screen::FootageDetail);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn open_footage_detail_handles_empty_manifest() {
+        // Importer hasn't extracted frames yet — server returns an empty
+        // timestamps array. open_footage_detail should accept the manifest
+        // (no flash) and the renderer's "no frames" placeholder takes over.
+        use crate::api::thumbnails::Cache;
+        use serde_json::json;
+        use wiremock::matchers::{method, path};
+        use wiremock::{Mock, ResponseTemplate};
+
+        let (base_url, _server_thread) = start_wiremock_server(|server| async move {
+            Mock::given(method("GET"))
+                .and(path("/footages/7/frames.json"))
+                .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                    "duration_seconds": 0.0,
+                    "timestamps": []
+                })))
+                .mount(&server)
+                .await;
+            server
+        });
+
+        let dir = std::env::temp_dir().join(format!(
+            "pito-empty-{}-{}",
+            std::process::id(),
+            chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)
+        ));
+        let cache = Cache::with_root(&dir, 1_000_000);
+        let mut app =
+            App::with_client_and_thumbnails_config(Box::new(MockClient::new()), base_url, cache);
+        app.set_terminal_capability(TerminalCapability::Halfblocks);
+        app.open_footage_detail(7, "freshly-imported.mp4");
+
+        let s = app.footage_detail_state.as_ref().unwrap();
+        let manifest = s.manifest.as_ref().expect("empty manifest still applies");
+        assert!(manifest.timestamps.is_empty());
+        assert_eq!(s.active_timestamp_seconds, 0);
+        // No flash on success — empty timestamps is a valid response,
+        // not an error.
+        assert!(s.flash.is_none(), "no flash expected, got: {:?}", s.flash);
+        // No preview either — there's nothing to fetch.
+        assert!(app.footage_detail_preview.is_none());
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn refresh_active_preview_protocol_records_flash_on_decode_failure() {
+        // Pre-seed the cache with bytes that AREN'T a valid JPEG. The
+        // fetcher returns successfully (cache hit), but `image::load_from_
+        // memory` rejects the body. The screen surfaces the failure on the
+        // flash slot and clears the preview.
+        use crate::api::thumbnails::{Cache, Manifest, Tier};
+        let dir = std::env::temp_dir().join(format!(
+            "pito-decode-{}-{}",
+            std::process::id(),
+            chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)
+        ));
+        let cache = Cache::with_root(&dir, 1_000_000);
+        cache.write(42, Tier::Master, 120, b"not a jpeg").unwrap();
+        let mut app = App::with_client_and_thumbnails_config(
+            Box::new(MockClient::new()),
+            "http://127.0.0.1:1",
+            cache,
+        );
+        app.set_terminal_capability(TerminalCapability::Halfblocks);
+        app.open_footage_detail(42, "fixture.mp4");
+        app.apply_footage_manifest(Manifest {
+            duration_seconds: 240.0,
+            timestamps: vec![0, 60, 120, 180, 240],
+        });
+        assert!(app.footage_detail_preview.is_none());
+        let s = app.footage_detail_state.as_ref().unwrap();
+        let flash = s.flash.as_deref().unwrap_or("");
+        assert!(
+            flash.contains("decode") || flash.contains("frame"),
+            "expected decode-failure flash, got: {:?}",
+            flash
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

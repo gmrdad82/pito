@@ -676,9 +676,13 @@ RSpec.describe "Projects", type: :request do
         # were shortened from `bit depth` / `filesize` in a 2026-05-06
         # polish; the underlying sort keys (`bit_depth`, `filesize_bytes`)
         # are unchanged.
+        # Phase 7.5 §06 (2026-05-07) — a leading thumb column was added
+        # for the median-frame thumbnail; it has no header text and is
+        # NOT sortable. Filter it out before comparing against the
+        # sortable header list.
         footage_table = html.css("table").find { |t| t.css("th").map(&:text).map(&:strip).include?("filename") }
         expect(footage_table).not_to be_nil
-        headers = footage_table.css("thead th").map { |th| th.text.strip }
+        headers = footage_table.css("thead th").map { |th| th.text.strip }.reject(&:empty?)
         expect(headers).to eq([
           "filename", "game", "resolution", "fps",
           "bit", "duration", "size", "source"
@@ -1484,7 +1488,11 @@ RSpec.describe "Projects", type: :request do
           it "marks every footage <th> with class='sortable'" do
             get project_path(project)
             html = Nokogiri::HTML.fragment(response.body)
-            ths = footage_table(html).css("thead th")
+            # Phase 7.5 §06 (2026-05-07) — the leading thumb column has
+            # no header text and is intentionally NOT sortable. Restrict
+            # the parity check to the sortable headers (those that carry
+            # an `<a>` sort link).
+            ths = footage_table(html).css("thead th").select { |th| th.css("a").any? }
             expect(ths.size).to eq(8)
             ths.each do |th|
               expect(th["class"].to_s.split).to include("sortable"),
@@ -1495,7 +1503,8 @@ RSpec.describe "Projects", type: :request do
           it "wraps every footage header label in a clickable <a>" do
             get project_path(project)
             html = Nokogiri::HTML.fragment(response.body)
-            ths = footage_table(html).css("thead th")
+            # Phase 7.5 §06 — exclude the non-sortable thumb column.
+            ths = footage_table(html).css("thead th").select { |th| th.css("a").any? }
             expect(ths.size).to eq(8)
             ths.each do |th|
               link = th.css("a").first

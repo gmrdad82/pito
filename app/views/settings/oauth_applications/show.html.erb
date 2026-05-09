@@ -9,32 +9,60 @@
   </p>
 </div>
 
-<table class="detail-table" style="margin-bottom: 12px;">
-  <tr>
-    <td class="text-muted">client_id</td>
-    <td><code><%= @application.uid %></code></td>
-  </tr>
-  <tr>
-    <td class="text-muted">redirect URIs</td>
-    <td>
-      <% @application.redirect_uri.to_s.split("\n").each do |uri| %>
-        <code><%= uri %></code><br>
-      <% end %>
-    </td>
-  </tr>
-  <tr>
-    <td class="text-muted">scopes</td>
-    <td><code><%= @application.scopes %></code></td>
-  </tr>
-  <tr>
-    <td class="text-muted">confidential</td>
-    <td><%= @application.confidential? ? "yes" : "no" %></td>
-  </tr>
-  <tr>
-    <td class="text-muted">created</td>
-    <td><%= @application.created_at.strftime("%Y-%m-%d %H:%M") %></td>
-  </tr>
-</table>
+<%# Phase 7.5 — metadata block framed to read as a distinct
+    capture-the-details surface, mirroring the post-create page's
+    framing. `.framed-block` (see `docs/design.md` → Framed blocks)
+    also gives `code` inside `.code-block` a right-padding buffer so
+    long values like the 43-char Doorkeeper `uid` don't kiss the
+    frame edge. `client_secret` is intentionally absent here — it
+    surfaces exactly once on the create-success page and cannot be
+    retrieved later. %>
+<div class="framed-block">
+  <table class="detail-table">
+    <tr>
+      <td class="text-muted">client_id</td>
+      <td>
+        <span data-controller="clipboard-copy" class="code-block">
+          <code data-clipboard-copy-target="source"><%= @application.uid %></code>
+          <a href="#" data-action="click->clipboard-copy#copy" class="bracketed">[<span class="bl">copy</span>]</a>
+        </span>
+      </td>
+    </tr>
+    <tr>
+      <td class="text-muted">redirect URIs</td>
+      <td>
+        <% @application.redirect_uri.to_s.split("\n").each do |uri| %>
+          <code><%= uri %></code><br>
+        <% end %>
+      </td>
+    </tr>
+    <tr>
+      <td class="text-muted">scopes</td>
+      <td><code><%= @application.scopes %></code></td>
+    </tr>
+    <tr>
+      <td class="text-muted">confidential</td>
+      <td><%= @application.confidential? ? "yes" : "no" %></td>
+    </tr>
+    <%# Phase 7.5 — MCP server URL row, mirrored from the create-success
+        page so existing apps can re-find the URL without having to
+        register again. Sourced from `Pito::PublicHosts.mcp_base` for
+        single-source-of-truth host config. %>
+    <tr>
+      <td class="text-muted">mcp server URL</td>
+      <td>
+        <span data-controller="clipboard-copy" class="code-block">
+          <code data-clipboard-copy-target="source"><%= "#{Pito::PublicHosts.mcp_base}/mcp" %></code>
+          <a href="#" data-action="click->clipboard-copy#copy" class="bracketed">[<span class="bl">copy</span>]</a>
+        </span>
+      </td>
+    </tr>
+    <tr>
+      <td class="text-muted">created</td>
+      <td><%= @application.created_at.strftime("%Y-%m-%d %H:%M") %></td>
+    </tr>
+  </table>
+</div>
 
 <h2>active tokens (<%= number_with_delimiter(@active_tokens.count) %>)</h2>
 <% if @active_tokens.any? %>
@@ -64,5 +92,5 @@
 
 <div class="dot-list" style="margin-top: 12px;">
   <%= render(BracketedLinkComponent.new(label: "back", href: settings_oauth_applications_path)) %>
-  <%= render(BracketedLinkComponent.new(label: "revoke application", href: revoke_settings_oauth_application_path(@application), destructive: true)) %>
+  <%= render(BracketedLinkComponent.new(label: "revoke", href: revoke_settings_oauth_application_path(@application), destructive: true)) %>
 </div>

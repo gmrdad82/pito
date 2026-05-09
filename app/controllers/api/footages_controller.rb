@@ -27,7 +27,7 @@ module Api
     include Api::AuthConcern
 
     before_action :set_project, only: [ :index, :create ]
-    before_action :set_footage, only: [ :update, :destroy ]
+    before_action :set_footage, only: [ :update, :destroy, :update_frames ]
 
     def index
       require_scope!(Scopes::PROJECT_READ)
@@ -73,6 +73,52 @@ module Api
 
       @footage.destroy!
       head :no_content
+    end
+
+    # Phase 7.5 §06 — Bulk frame upload from the importer.
+    #
+    # The importer extracts the full frame set per footage (master 1280x720
+    # + thumb 320x180, letterboxed to 16:9) and PATCHes them here. Body
+    # shape (multipart):
+    #
+    #   frames[<HH-MM-SS>][master] => <JPEG file part>
+    #   frames[<HH-MM-SS>][thumb]  => <JPEG file part>
+    #
+    # Each part is written atomically to
+    # `<assets>/footage_thumbs/<footage_id>/{m,t}/<HH-MM-SS>.jpg`.
+    # Path-traversal defense is layered: the timestamp key must match
+    # `HH-MM-SS` (regex check) and `Pito::AssetsRoot.path` re-verifies
+    # cleanpath containment before any write.
+    #
+    # On success: stamps `frames_extracted_at` if any part was written and
+    # returns `{ "frames_uploaded": <int>, "footage_id": <int> }`. CLI
+    # integration tests do NOT anchor this URL (importer side ships in a
+    # later dispatch), so the URL is chosen for `/api/` consistency.
+    def update_frames
+      require_scope!(Scopes::PROJECT_WRITE)
+
+      uploads = params[:frames]
+      uploaded = 0
+
+      if uploads.is_a?(ActionController::Parameters) || uploads.is_a?(Hash)
+        uploads.each do |timestamp, files|
+          next unless timestamp.to_s.match?(/\A\d{2}-\d{2}-\d{2}\z/)
+          next unless files.is_a?(ActionController::Parameters) || files.is_a?(Hash)
+
+          if (master = files[:master]).present? && uploaded_file?(master)
+            write_frame(@footage, :m, timestamp.to_s, master)
+            uploaded += 1
+          end
+          if (thumb = files[:thumb]).present? && uploaded_file?(thumb)
+            write_frame(@footage, :t, timestamp.to_s, thumb)
+            uploaded += 1
+          end
+        end
+      end
+
+      @footage.update!(frames_extracted_at: Time.current) if uploaded.positive?
+
+      render json: { frames_uploaded: uploaded, footage_id: @footage.id }
     end
 
     private
@@ -125,6 +171,22 @@ module Api
       end
 
       [ permitted, nil ]
+    end
+
+    # Phase 7.5 §06 — Atomic write of an uploaded frame JPEG to its
+    # tier+timestamp path. The path resolves through `Pito::AssetsRoot`
+    # which enforces cleanpath containment, so a malicious `timestamp`
+    # that smuggled `..` through the regex would still be caught here.
+    def write_frame(footage, tier, timestamp, uploaded_file)
+      dir = Pito::AssetsRoot.ensure_dir!("footage_thumbs", footage.id.to_s, tier.to_s)
+      target = dir.join("#{timestamp}.jpg")
+      tmp = dir.join("#{timestamp}.jpg.tmp")
+      File.binwrite(tmp, uploaded_file.read)
+      File.rename(tmp, target)
+    end
+
+    def uploaded_file?(value)
+      value.respond_to?(:read)
     end
 
     def footage_json(footage)

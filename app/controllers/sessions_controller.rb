@@ -4,18 +4,19 @@
 # the user is authenticated). `destroy` is gated by the standard
 # session auth — the user must have a valid session to log out.
 #
-# The form posts `email`, `password`, `remember_me` (yes/no). Failure
-# paths emit a generic "invalid email or password." regardless of
-# whether the email matched a User row, plus a constant-time dummy
-# bcrypt compare so the response timing doesn't leak account existence.
-# Every failure flips `request.env["pito.auth_failed"] = true` so the
-# rack-attack throttle counts only failures.
+# The form posts `identifier` (email OR username), `password`,
+# `remember_me` (yes/no). Failure paths emit a generic "invalid email
+# or password." regardless of whether the identifier matched a User row,
+# plus a constant-time dummy bcrypt compare so the response timing
+# doesn't leak account existence. Every failure flips
+# `request.env["pito.auth_failed"] = true` so the rack-attack throttle
+# counts only failures.
 class SessionsController < ApplicationController
   allow_anonymous :new, :create
 
   # GET /login
   def new
-    @email = params[:email].to_s
+    @identifier = params[:identifier].to_s
   end
 
   # POST /login
@@ -25,22 +26,22 @@ class SessionsController < ApplicationController
       return
     end
 
-    email = params[:email].to_s.strip
+    identifier = params[:identifier].to_s.strip
     password = params[:password].to_s
     remember = params[:remember_me].to_s == "yes"
 
-    user = User.unscoped.find_by(email: email) if email.present?
+    user = User.unscoped.find_by_username_or_email(identifier) if identifier.present?
 
     if user.nil?
       bcrypt_dummy_compare
-      audit("session.login.failed", reason: "unknown_email", email_attempted: email)
-      mark_failure_and_render_invalid(email: email)
+      audit("session.login.failed", reason: "unknown_identifier", identifier_attempted: identifier)
+      mark_failure_and_render_invalid(identifier: identifier)
       return
     end
 
     unless user.authenticate(password)
-      audit("session.login.failed", reason: "wrong_password", email_attempted: email, user_id: user.id)
-      mark_failure_and_render_invalid(email: email)
+      audit("session.login.failed", reason: "wrong_password", identifier_attempted: identifier, user_id: user.id)
+      mark_failure_and_render_invalid(identifier: identifier)
       return
     end
 
@@ -84,7 +85,7 @@ class SessionsController < ApplicationController
 
   private
 
-  def mark_failure_and_render_invalid(email:)
+  def mark_failure_and_render_invalid(identifier:)
     request.env["pito.auth_failed"] = true
     SessionThrottle.record_failure(request.remote_ip)
 
@@ -93,7 +94,7 @@ class SessionsController < ApplicationController
       return
     end
 
-    @email = email
+    @identifier = identifier
     flash.now[:alert] = "invalid email or password."
     render :new, status: :unprocessable_content
   end

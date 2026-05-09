@@ -12,7 +12,7 @@
 </div>
 
 <div class="dot-list" style="margin-bottom: 12px;">
-  <%= render(BracketedLinkComponent.new(label: "new application", href: new_settings_oauth_application_path)) %>
+  <%= render(BracketedLinkComponent.new(label: "new", href: new_settings_oauth_application_path)) %>
 </div>
 
 <% if @applications.any? %>
@@ -32,10 +32,19 @@
       <% @applications.each do |app| %>
         <tr>
           <td><%= link_to app.name, settings_oauth_application_path(app) %></td>
-          <td><code><%= app.uid %></code></td>
-          <td style="max-width: 240px; white-space: normal;">
+          <%# Phase 7.5 — middle-truncate long values so the table fits
+              within typical laptop viewports. The 43-char Doorkeeper
+              `uid` is the worst offender; redirect URIs are next. Both
+              cells expose the full value via `title=` for hover-reveal;
+              the show page renders the untruncated values. Same shape
+              as the channel-picker URL column — all delegate to
+              `ApplicationHelper#middle_truncate`. Tighter params
+              (head/tail 8 / 12) trigger truncation more reliably for
+              typical OAuth callback URLs and Doorkeeper-issued ids. %>
+          <td title="<%= app.uid %>"><code><%= middle_truncate(app.uid, head: 8, tail: 8) %></code></td>
+          <td title="<%= app.redirect_uri %>">
             <% app.redirect_uri.to_s.split("\n").each do |uri| %>
-              <code><%= uri %></code><br>
+              <code><%= middle_truncate(uri, head: 12, tail: 12) %></code><br>
             <% end %>
           </td>
           <td style="max-width: 240px; white-space: normal;"><code><%= app.scopes %></code></td>
@@ -49,5 +58,5 @@
     </tbody>
   </table>
 <% else %>
-  <p class="text-muted">no applications yet. click <code>[ new application ]</code> to register one.</p>
+  <p class="text-muted">no applications yet. click <code>[ new ]</code> to register one.</p>
 <% end %>

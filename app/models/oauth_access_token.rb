@@ -23,6 +23,22 @@ class OauthAccessToken < Doorkeeper::AccessToken
 
   before_validation :denormalize_tenant_from_application
 
+  # Phase 7.5 — MCP OAuth bearer dispatch. The bearer auth path (both
+  # `Api::AuthConcern` and `Mcp::RackApp`) sets `Current.user =
+  # result.token.user`; `ApiToken` defines `belongs_to :user`, so we
+  # mirror the read shape here. Doorkeeper stores the resource owner as
+  # an opaque `resource_owner_id`; in Pito it is always a `User` row in
+  # the same tenant as the access token (the `resource_owner_authenticator`
+  # block in the Doorkeeper initializer pins `Current.user.id` at
+  # consent time), so we resolve it back to a `User` for downstream
+  # callers. Returns `nil` if the row was hard-deleted between consent
+  # and bearer use; the bearer dispatch treats that as `invalid_token`.
+  def user
+    return nil unless resource_owner_id.present?
+
+    User.find_by(id: resource_owner_id)
+  end
+
   private
 
   def denormalize_tenant_from_application
