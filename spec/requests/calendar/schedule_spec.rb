@@ -14,6 +14,36 @@ RSpec.describe "Calendar::Schedule", type: :request do
       expect(response.body).to include(">+<")
     end
 
+    # Regression: the [month] toggle link must target the canonical
+    # month URL directly — NOT `/calendar`, which is the
+    # view-persistence router. Routing it through `/calendar` lets a
+    # stale `pito-calendar-view = schedule` in localStorage redirect
+    # the user right back to schedule, making the click look broken.
+    # The link also carries the `persistMonth` Stimulus action so the
+    # view preference flips to "month" for next visits to `/calendar`.
+    it "[month] toggle targets the canonical month URL with persist action" do
+      get "/calendar/schedule"
+      now = Time.current
+      expected_href = "/calendar/month/#{now.year}/#{format('%02d', now.month)}"
+      expect(response.body).to match(
+        /href="#{Regexp.escape(expected_href)}"[^>]*data-action="click->calendar-view-router#persistMonth"[^>]*>\[<span class="bl">month/
+      )
+    end
+
+    it "[month] toggle is wrapped by a `calendar-view-router` controller mount" do
+      get "/calendar/schedule"
+      expect(response.body).to match(
+        %r{<span data-controller="calendar-view-router">\s*<a [^>]*href="/calendar/month/\d{4}/\d{2}"[^>]*>\[<span class="bl">month}
+      )
+    end
+
+    it "[month] toggle does NOT route through `/calendar` (the persistence router)" do
+      get "/calendar/schedule"
+      expect(response.body).not_to match(
+        /href="\/calendar"[^>]*>\[<span class="bl">month/
+      )
+    end
+
     it "with both past and future entries, renders the [today] divider" do
       create(:calendar_entry, :custom, starts_at: 5.days.ago, title: "past")
       create(:calendar_entry, :custom, starts_at: 5.days.from_now, title: "future")

@@ -1,10 +1,19 @@
 require "rails_helper"
 
 # Phase 16 §3 — System spec for the /notifications index.
-# Uses rack_test (HTTP-only, no JS) — Turbo Stream live updates are
-# covered by the request spec. The index spec asserts the SSR shape:
-# rows render, filters work, mark-read button POSTs and the row
-# flips read.
+# Uses rack_test (HTTP-only, no JS) — Turbo Stream live updates and
+# Stimulus-driven dynamic-button text are covered by request and unit
+# specs. The index spec asserts the SSR shape: rows render, the filter
+# checkbox toggles correctly, mark-all-read button POSTs, and the
+# cleanup caption is present.
+#
+# UX restructure 2026-05-10:
+#   - `[ all ]` / `[ unread ]` bracketed-link toggles replaced by a
+#     `[ ] unread` checkbox chip.
+#   - Per-row `[ mark read ]` action removed; bulk action covers it.
+#   - Notification rows open a modal (JS) — the link's href still
+#     points at the canonical /notifications/:id show URL so :rack_test
+#     follows it for fallback assertions.
 RSpec.describe "Notifications index", type: :system do
   include ActiveSupport::Testing::TimeHelpers
 
@@ -18,6 +27,11 @@ RSpec.describe "Notifications index", type: :system do
   it "shows the index heading" do
     visit "/notifications"
     expect(page).to have_selector("h1", text: "notifications")
+  end
+
+  it "renders the cleanup caption under the heading" do
+    visit "/notifications"
+    expect(page).to have_content("notifications are deleted 7 days after being read.")
   end
 
   it "renders rows when notifications exist" do
@@ -36,54 +50,58 @@ RSpec.describe "Notifications index", type: :system do
     expect(unread_pos).to be < read_pos
   end
 
-  it "click [ all ] navigates to ?filter=all (all is default)" do
-    create(:notification, :video_published)
-    visit "/notifications?filter=unread"
-    # The filter cluster is the second `.dot-list` on the page (the
-    # first is the inner wrapper for the notifications subroutes).
-    # Use within `[id^="notifications_list"]`'s container — the
-    # filter is in a sibling .dot-list. Match the filter `all` link
-    # by href.
-    click_link href: "/notifications"
-    expect(page.current_url).to match(/notifications\b/)
-    expect(page.current_url).not_to include("filter=unread")
+  it "renders the [ ] unread filter chip" do
+    visit "/notifications"
+    # FilterChipComponent emits `<a class="filter-chip">[ ] unread</a>`.
+    expect(page).to have_selector("a.filter-chip", text: /unread/i)
+    expect(page).to have_content("[ ]")
   end
 
-  it "click [ unread ] filters to unread only" do
+  it "click [ ] unread chip flips the URL to ?filter=unread" do
+    create(:notification, :video_published)
+    visit "/notifications"
+    find("a.filter-chip", text: /unread/i).click
+    expect(page.current_url).to include("filter=unread")
+  end
+
+  it "filter chip renders [x] when filter=unread is active" do
+    create(:notification, :video_published)
+    visit "/notifications?filter=unread"
+    expect(page).to have_selector("a.filter-chip .md-check-static", text: "[x]")
+  end
+
+  it "?filter=unread shows only unread rows" do
     unread_row = create(:notification, :video_published)
     read_row   = create(:notification, :read, :calendar_entry_firing)
-    visit "/notifications"
-    click_link href: "/notifications?filter=unread"
-    expect(page.current_url).to include("filter=unread")
+    visit "/notifications?filter=unread"
     expect(page.body).to include(ActionView::RecordIdentifier.dom_id(unread_row))
     expect(page.body).not_to include(ActionView::RecordIdentifier.dom_id(read_row))
   end
 
-  it "renders [ mark all read ] button when there are unread rows" do
+  it "renders [ mark all as read ] button when there are unread rows" do
     create(:notification, :video_published)
     visit "/notifications"
-    expect(page).to have_button("[mark all read]").or have_link("mark all read")
+    expect(page).to have_button("[mark all as read]")
   end
 
-  it "click [ mark all read ] flips every unread to read" do
+  it "click [ mark all as read ] flips every unread to read" do
     create(:notification, :video_published)
     create(:notification, :sync_error)
     visit "/notifications"
-    click_button("[mark all read]")
+    click_button("[mark all as read]")
     expect(Notification.unread.count).to eq(0)
   end
 
-  it "renders the per-row [ mark read ] action" do
+  it "renders a row checkbox for each unread notification" do
     create(:notification, :video_published)
     visit "/notifications"
-    expect(page).to have_button("[mark read]")
+    expect(page).to have_selector('input[type="checkbox"][data-bulk-select-target="checkbox"]')
   end
 
-  it "click per-row [ mark read ] flips that row to read" do
-    notif = create(:notification, :video_published)
+  it "does NOT render a row checkbox for read notifications" do
+    create(:notification, :read, :video_published)
     visit "/notifications"
-    first(:button, "[mark read]").click
-    expect(notif.reload.in_app_read_at).to be_present
+    expect(page).not_to have_selector('input[type="checkbox"][data-bulk-select-target="checkbox"]')
   end
 
   it "shows the webhook misconfigured banner when an unread row has last_error" do
@@ -96,6 +114,26 @@ RSpec.describe "Notifications index", type: :system do
     create(:notification, :video_published)
     visit "/notifications"
     expect(page).not_to have_content("webhook delivery failing")
+  end
+
+  it "row link points at /notifications/:id (modal-trigger fallback)" do
+    notif = create(:notification, :video_published)
+    visit "/notifications"
+    # The link carries `data-action="click->notification-modal#open"`
+    # so JS opens the modal; the href stays as the show path so a
+    # rack_test (no-JS) click follows it.
+    row_link = find("a.notification-title")
+    expect(row_link[:href]).to eq(notification_path(notif))
+    expect(row_link["data-action"]).to include("notification-modal#open")
+  end
+
+  it "renders the notification detail dialog at the bottom of the page" do
+    create(:notification, :video_published)
+    visit "/notifications"
+    # The modal mount is a single <dialog> with the
+    # notification_detail_frame Turbo Frame inside it.
+    expect(page).to have_selector('dialog[data-notification-modal-target="dialog"]', visible: :all)
+    expect(page).to have_selector('turbo-frame#notification_detail_frame', visible: :all)
   end
 
   it "does NOT include `data-turbo-confirm` anywhere" do

@@ -63,7 +63,7 @@
   </div>
 
   <div class="dot-list">
-    <button type="submit"><%= @entry.persisted? ? "[ save ]" : "[ create ]" %></button>
+    <button type="submit"><%= @entry.persisted? ? "[save]" : "[create]" %></button>
     <%= render(BracketedLinkComponent.new(label: "cancel",
           href: calendar_root_path)) %>
   </div>

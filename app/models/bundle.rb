@@ -22,6 +22,10 @@
 #     `igdb_source_type` (one local bundle per IGDB-source pair).
 #   - For `custom` bundles both columns are NULL.
 class Bundle < ApplicationRecord
+  # Phase 20 — friendly URLs. Name-derived slug + history-on-rename.
+  extend FriendlyId
+  friendly_id :slug_candidates, use: %i[slugged history finders]
+
   enum :bundle_type,
        { series: 0, collection: 1, genre: 2, custom: 3 },
        prefix: :type
@@ -98,7 +102,33 @@ class Bundle < ApplicationRecord
     false
   end
 
+  # Phase 20 — friendly URLs.
+  def slug_limit
+    80
+  end
+
+  def slug_candidates
+    [
+      normalized_name_slug,
+      [ normalized_name_slug, id ].compact.reject(&:blank?).join("-"),
+      "bundle-#{id}"
+    ]
+  end
+
+  def should_generate_new_friendly_id?
+    will_save_change_to_name? || super
+  end
+
+  def normalize_friendly_id(value)
+    Pito::SlugBuilder.build(value.to_s, limit: slug_limit).presence ||
+      "bundle-#{id || SecureRandom.hex(4)}"
+  end
+
   private
+
+  def normalized_name_slug
+    Pito::SlugBuilder.build(name.to_s, limit: slug_limit)
+  end
 
   def igdb_source_pair_consistency
     if type_custom? && (igdb_source_type.present? || igdb_source_id.present?)

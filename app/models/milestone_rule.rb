@@ -5,6 +5,10 @@
 # crosses the threshold per `direction`. Idempotent firing via the
 # `fired_at IS NULL` predicate. Re-arming requires explicit clearing.
 class MilestoneRule < ApplicationRecord
+  # Phase 20 — friendly URLs. Name-derived slug + history-on-rename.
+  extend FriendlyId
+  friendly_id :slug_candidates, use: %i[slugged history finders]
+
   belongs_to :created_by_user,
              class_name: "User",
              optional: true
@@ -85,7 +89,33 @@ class MilestoneRule < ApplicationRecord
     update!(fired_at: nil)
   end
 
+  # Phase 20 — friendly URLs.
+  def slug_limit
+    80
+  end
+
+  def slug_candidates
+    [
+      normalized_name_slug,
+      [ normalized_name_slug, id ].compact.reject(&:blank?).join("-"),
+      "milestone-rule-#{id}"
+    ]
+  end
+
+  def should_generate_new_friendly_id?
+    will_save_change_to_name? || super
+  end
+
+  def normalize_friendly_id(value)
+    Pito::SlugBuilder.build(value.to_s, limit: slug_limit).presence ||
+      "milestone-rule-#{id || SecureRandom.hex(4)}"
+  end
+
   private
+
+  def normalized_name_slug
+    Pito::SlugBuilder.build(name.to_s, limit: slug_limit)
+  end
 
   def scope_id_presence_matches_scope_type
     if install? && scope_id.present?

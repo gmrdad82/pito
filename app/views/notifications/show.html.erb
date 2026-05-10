@@ -2,104 +2,120 @@
 
 <%# Phase 16 §3 — Notification detail page.
     Master decisions 2026-05-10:
-      #6 source link label: `[ open ]` (NOT `[ open source ]`).
-      #7 back label: `[ back ]`.
+      #6 source link label: `[open]` (NOT `[open source]`).
+      #7 back label: `[back]`.
       #11 per-channel delivery state copy: `discord: pending` /
           `discord: <iso>` / `discord: disabled`.
       Hard rule (CLAUDE.md): F1 — `notification.url` validated by the
-      model. Default ERB `<%= %>` escaping is sufficient; never pass
-      it through `html_safe`. %>
+      model. Default ERB `<%%= %>` escaping is sufficient; never pass
+      it through `html_safe`.
 
-<div style="max-width: 800px;">
-  <div class="dot-list" style="margin-bottom: 12px;">
-    <%= render(BracketedLinkComponent.new(label: "back", href: notifications_path)) %>
-  </div>
+    UX restructure 2026-05-10: the detail page renders the same content
+    inside a Turbo Frame (`notification_detail_frame`) so the index can
+    open it as a modal. Direct navigation to `/notifications/:id` still
+    works — Turbo only swaps the frame content when a matching frame
+    requests it; otherwise the full document renders.
 
-  <h1 style="margin-bottom: 6px;"><%= @payload[:title] %></h1>
+    The frame's `[close]` button closes the modal (when the page is
+    rendered inside one) AND falls back to navigating to
+    `notifications_path` when the frame is the whole page (the
+    `notification-modal#close` action is a no-op outside a modal). %>
 
-  <div style="margin-bottom: 12px;" class="text-muted">
-    <span class="notification-severity-badge notification-severity-<%= @payload[:severity] %>"><%= @payload[:severity] %></span>
-    &middot;
-    <span title="<%= @payload[:fires_at_iso] %>"><%= @payload[:fires_at_relative] %></span>
-    &middot;
-    <span title="<%= @payload[:fires_at_iso] %>"><%= @payload[:fires_at_iso] %></span>
-  </div>
+<%= turbo_frame_tag "notification_detail_frame" do %>
+  <div style="max-width: 800px;">
+    <h1 style="margin-bottom: 6px;"><%= @payload[:title] %></h1>
 
-  <% if @payload[:body_html].present? %>
-    <div class="notification-body" style="margin-bottom: 16px;">
-      <%= @payload[:body_html] %>
+    <div style="margin-bottom: 12px;" class="text-muted">
+      <span class="notification-severity-badge notification-severity-<%= @payload[:severity] %>"><%= @payload[:severity] %></span>
+      &middot;
+      <span title="<%= @payload[:fires_at_iso] %>"><%= @payload[:fires_at_relative] %></span>
+      &middot;
+      <span title="<%= @payload[:fires_at_iso] %>"><%= @payload[:fires_at_iso] %></span>
     </div>
-  <% end %>
 
-  <% if @notification.url.present? %>
-    <%# F1 — `notification.url` is post-validated by the model
-        (`url_is_well_formed_when_present` rejects anything that's
-        not absolute http(s) or a leading-slash app path; the F1 fix
-        also rejects `//evil.com` and `/\evil.com`). Default ERB
-        `<%= %>` escaping is sufficient — we never pass `url` through
-        `html_safe`. %>
-    <div style="margin-bottom: 16px;">
-      <%= link_to @notification.url,
-            class: "bracketed",
-            data: {
-              controller: "notification-link",
-              "notification-link-mark-read-url-value": read_notification_path(@notification),
-              "notification-link-csrf-token-value": form_authenticity_token,
-              action: "click->notification-link#markReadAndNavigate"
-            } do %>[<span class="bl">open</span>]<% end %>
-      <span class="text-muted" style="margin-left: 6px;"><%= @notification.url %></span>
-    </div>
-  <% end %>
-
-  <%# Per-channel delivery state. `in_app: yes` because the row's
-      existence IS the in-app delivery. Discord / Slack render
-      `pending` while `<channel>_delivered_at` is NULL,
-      `<iso-timestamp>` once stamped, and `disabled` when the
-      AppSetting flag is false. %>
-  <%
-    discord_state =
-      if !AppSetting.discord_delivery_enabled?
-        "disabled"
-      elsif @notification.discord_delivered_at.present?
-        @notification.discord_delivered_at.utc.iso8601
-      else
-        "pending"
-      end
-    slack_state =
-      if !AppSetting.slack_delivery_enabled?
-        "disabled"
-      elsif @notification.slack_delivered_at.present?
-        @notification.slack_delivered_at.utc.iso8601
-      else
-        "pending"
-      end
-  %>
-  <div class="notification-delivery-state" style="margin-bottom: 12px;">
-    <div>in_app: yes</div>
-    <div>discord: <%= discord_state %></div>
-    <div>slack: <%= slack_state %></div>
-  </div>
-
-  <% if @notification.last_error.present? %>
-    <div class="notification-last-error" style="margin-bottom: 12px; color: var(--color-muted); border-left: 2px solid var(--color-border); padding-left: 8px;">
-      <strong>last error:</strong> <%= @notification.last_error %>
-    </div>
-  <% end %>
-
-  <div class="dot-list" style="margin-top: 16px;">
-    <% if @notification.unread? %>
-      <%= button_to read_notification_path(@notification),
-            method: :patch,
-            form: { style: "display: inline; margin: 0;" },
-            class: "bracketed",
-            style: "background: none; border: none; padding: 0; font: inherit; color: var(--color-link); cursor: pointer;" do %>[<span class="bl">mark read</span>]<% end %>
-    <% else %>
-      <%= button_to unread_notification_path(@notification),
-            method: :patch,
-            form: { style: "display: inline; margin: 0;" },
-            class: "bracketed",
-            style: "background: none; border: none; padding: 0; font: inherit; color: var(--color-link); cursor: pointer;" do %>[<span class="bl">mark unread</span>]<% end %>
+    <% if @payload[:body_html].present? %>
+      <div class="notification-body" style="margin-bottom: 16px;">
+        <%= @payload[:body_html] %>
+      </div>
     <% end %>
-    <%= render(BracketedLinkComponent.new(label: "back", href: notifications_path)) %>
+
+    <% if @notification.url.present? %>
+      <%# F1 — `notification.url` is post-validated by the model
+          (`url_is_well_formed_when_present` rejects anything that's
+          not absolute http(s) or a leading-slash app path; the F1 fix
+          also rejects `//evil.com` and `/\evil.com`). Default ERB
+          `<%%= %>` escaping is sufficient — we never pass `url` through
+          `html_safe`. %>
+      <div style="margin-bottom: 16px;">
+        <%= link_to @notification.url,
+              class: "bracketed",
+              data: {
+                controller: "notification-link",
+                "notification-link-mark-read-url-value": read_notification_path(@notification),
+                "notification-link-csrf-token-value": form_authenticity_token,
+                action: "click->notification-link#markReadAndNavigate"
+              } do %>[<span class="bl">open</span>]<% end %>
+        <span class="text-muted" style="margin-left: 6px;"><%= @notification.url %></span>
+      </div>
+    <% end %>
+
+    <%# Per-channel delivery state. `in_app: yes` because the row's
+        existence IS the in-app delivery. Discord / Slack render
+        `pending` while `<channel>_delivered_at` is NULL,
+        `<iso-timestamp>` once stamped, and `disabled` when the
+        AppSetting flag is false. %>
+    <%
+      discord_state =
+        if !AppSetting.discord_delivery_enabled?
+          "disabled"
+        elsif @notification.discord_delivered_at.present?
+          @notification.discord_delivered_at.utc.iso8601
+        else
+          "pending"
+        end
+      slack_state =
+        if !AppSetting.slack_delivery_enabled?
+          "disabled"
+        elsif @notification.slack_delivered_at.present?
+          @notification.slack_delivered_at.utc.iso8601
+        else
+          "pending"
+        end
+    %>
+    <div class="notification-delivery-state" style="margin-bottom: 12px;">
+      <div>in_app: yes</div>
+      <div>discord: <%= discord_state %></div>
+      <div>slack: <%= slack_state %></div>
+    </div>
+
+    <% if @notification.last_error.present? %>
+      <div class="notification-last-error" style="margin-bottom: 12px; color: var(--color-muted); border-left: 2px solid var(--color-border); padding-left: 8px;">
+        <strong>last error:</strong> <%= @notification.last_error %>
+      </div>
+    <% end %>
+
+    <div class="dot-list modal-footer" style="margin-top: 16px;">
+      <% if @notification.unread? %>
+        <%= button_to read_notification_path(@notification),
+              method: :patch,
+              form: { style: "display: inline; margin: 0;" },
+              class: "bracketed",
+              style: "background: none; border: none; padding: 0; font: inherit; color: var(--color-link); cursor: pointer;" do %>[<span class="bl">mark read</span>]<% end %>
+      <% else %>
+        <%= button_to unread_notification_path(@notification),
+              method: :patch,
+              form: { style: "display: inline; margin: 0;" },
+              class: "bracketed",
+              style: "background: none; border: none; padding: 0; font: inherit; color: var(--color-link); cursor: pointer;" do %>[<span class="bl">mark unread</span>]<% end %>
+      <% end %>
+      <%# `[back]` — when the detail is rendered inside the index modal,
+          `click->notification-modal#close` closes the dialog. When the
+          page is rendered standalone (direct link / JS off), the link's
+          href falls back to /notifications. The Stimulus action no-ops
+          outside a controller scope, so the href takes effect. %>
+      <%= link_to notifications_path,
+            class: "bracketed",
+            data: { action: "click->notification-modal#close" } do %>[<span class="bl">back</span>]<% end %>
+    </div>
   </div>
-</div>
+<% end %>

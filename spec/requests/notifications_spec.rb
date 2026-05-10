@@ -80,8 +80,10 @@ RSpec.describe "Notifications", type: :request do
 
     it "renders the unread badge in nav" do
       get "/notifications"
-      # 2 unread (unread_a, unread_b)
-      expect(response.body).to match(/\[\s*2\s*\]/)
+      # 2 unread (unread_a, unread_b). UX restructure 2026-05-10 — the
+      # badge is now a `<sup class="notifications-badge-count">N</sup>`
+      # next to `[notifications]`, no surrounding brackets.
+      expect(response.body).to match(/<sup[^>]*notifications-badge-count[^>]*>\s*2\s*<\/sup>/)
     end
 
     it "shows the empty-state copy when there are no rows" do
@@ -110,7 +112,7 @@ RSpec.describe "Notifications", type: :request do
 
     it "renders the back link" do
       get "/notifications/#{unread_a.id}"
-      expect(response.body).to match(/\[\s*<span class="bl">back<\/span>\s*\]/)
+      expect(response.body).to match(/\[<span class="bl">back<\/span>\]/)
     end
 
     it "renders [ mark read ] when unread" do
@@ -139,13 +141,13 @@ RSpec.describe "Notifications", type: :request do
     it "omits the [ open ] link when url is blank" do
       unread_a.update!(url: nil)
       get "/notifications/#{unread_a.id}"
-      expect(response.body).not_to match(/\[\s*<span class="bl">open<\/span>\s*\]/)
+      expect(response.body).not_to match(/\[<span class="bl">open<\/span>\]/)
     end
 
     it "renders the [ open ] link when url is present" do
       unread_a.update!(url: "https://example.com/x")
       get "/notifications/#{unread_a.id}"
-      expect(response.body).to match(/\[\s*<span class="bl">open<\/span>\s*\]/)
+      expect(response.body).to match(/\[<span class="bl">open<\/span>\]/)
     end
 
     it "does NOT include `data-turbo-confirm` anywhere on the detail page" do

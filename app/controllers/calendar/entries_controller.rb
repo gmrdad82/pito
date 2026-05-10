@@ -31,6 +31,22 @@ class Calendar::EntriesController < ApplicationController
   end
 
   def create
+    # Default-create (Projects pattern): when the request carries no
+    # `calendar_entry` payload, instantiate a milestone_manual entry
+    # with placeholder values and redirect straight to /edit. The `[+]`
+    # breadcrumb action posts here with no params; the user fills in
+    # real values in the edit form. Deep-link / programmatic access via
+    # the regular `new` form still POSTs the full payload and lands on
+    # the show page.
+    if params[:calendar_entry].blank?
+      @entry = CalendarEntry.new(default_create_attributes)
+      @entry.source = :manual
+      @entry.created_by_user = Current.user
+      @entry.save!
+      redirect_to edit_calendar_entry_path(@entry), notice: "calendar entry created."
+      return
+    end
+
     type = params.dig(:calendar_entry, :entry_type).to_s
     unless MANUAL_ENTRY_TYPES.include?(type)
       flash.now[:alert] = "this entry type is not user-creatable."
@@ -108,6 +124,24 @@ class Calendar::EntriesController < ApplicationController
 
   def load_entry
     @entry = CalendarEntry.find(params[:id])
+  end
+
+  # Default-create attributes for the no-params POST flow (Projects
+  # pattern). `milestone_manual` is the default type because it has the
+  # loosest validator shape (no required cross-references, no required
+  # metadata keys), so the row always saves on the first try and the
+  # user can switch type later in the edit form. `starts_at` defaults to
+  # the current time so the edit form's datetime picker pre-populates
+  # with a sensible value.
+  def default_create_attributes
+    {
+      entry_type: "milestone_manual",
+      title: "Untitled event",
+      starts_at: Time.current,
+      ends_at: nil,
+      all_day: false,
+      timezone: AppSetting.first&.timezone || "UTC"
+    }
   end
 
   def create_params(type)

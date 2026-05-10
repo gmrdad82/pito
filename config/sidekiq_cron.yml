@@ -53,6 +53,15 @@ notification_scheduler:
   class: NotificationSchedulerJob
   description: "Materialize ripe Notification rows + enqueue webhook deliveries"
 
+# Phase 16 §3 UX restructure 2026-05-10 — read-notification cleanup.
+# Daily at 03:30 UTC. Hard-deletes every Notification whose
+# `in_app_read_at` is non-NULL and older than 7 days. Retention
+# window lives on `NotificationCleanupJob::RETENTION_PERIOD`.
+notification_cleanup:
+  cron: "30 3 * * *"
+  class: NotificationCleanupJob
+  description: "Delete read notifications older than 7 days"
+
 # Phase 13.2 — Analytics sync engine. Nightly orchestrator at 04:00
 # UTC; retention curves refresh weekly on Mondays at 05:00 UTC.
 youtube_analytics_sync_nightly:
