@@ -158,10 +158,8 @@ fn render_toolbar(frame: &mut Frame, area: Rect, theme: &Theme, state: &VideosSt
     let line = Line::from(vec![
         Span::styled("[add]", Style::default().fg(theme.accent)),
         Span::raw(" "),
-        Span::styled("[bulk]", Style::default().fg(theme.accent)),
-        Span::raw(" "),
         Span::styled("[saved views]", Style::default().fg(theme.accent)),
-        Span::raw(" ".repeat((left_width.saturating_sub(28)) as usize)),
+        Span::raw(" ".repeat((left_width.saturating_sub(19)) as usize)),
         Span::styled(count, Style::default().fg(theme.muted)),
     ]);
 

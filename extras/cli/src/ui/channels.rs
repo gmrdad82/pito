@@ -194,11 +194,7 @@ fn render_toolbar(frame: &mut Frame, area: Rect, theme: &Theme, state: &Channels
     let right_w = right.len() as u16;
     let left_max = area.width.saturating_sub(right_w + 1) as usize;
 
-    let mut left_spans: Vec<Span> = vec![
-        Span::styled("[add]", Style::default().fg(theme.accent)),
-        Span::raw(" "),
-        Span::styled("[bulk]", Style::default().fg(theme.accent)),
-    ];
+    let mut left_spans: Vec<Span> = vec![Span::styled("[add]", Style::default().fg(theme.accent))];
     if let Some(ref flash) = state.flash {
         left_spans.push(Span::raw("  "));
         left_spans.push(Span::styled(
