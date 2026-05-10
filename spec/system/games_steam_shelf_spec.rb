@@ -10,7 +10,11 @@ RSpec.describe "Games steam-shelf", type: :system do
   it "renders the empty-state copy when no games exist" do
     visit games_path
     expect(page).to have_content("no games yet.")
-    expect(page).to have_content("type in the search box above")
+    # Phase 14 §1 polish (2026-05-10) — inline `_add_form` retired in
+    # favor of `[+]` next to the H1 + the layout-level IGDB-search
+    # modal (also reachable via `i` keypress).
+    expect(page).to have_content("[+]")
+    expect(page).to have_content("igdb")
   end
 
   context "with a populated library" do

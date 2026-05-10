@@ -47,11 +47,15 @@ RSpec.describe "Search", type: :request do
         expect(response.body).to include("video search is currently disabled")
       end
 
-      it "preserves query in search input" do
+      # Phase 14 §1 polish (2026-05-10) — the navbar `<input value=…>`
+      # was retired in favor of the `/`-keyed search modal, so this
+      # spec now asserts the query string echoes back in the results
+      # paragraph (`results for "<query>"`) instead of an input value.
+      it "echoes the query back in the results paragraph" do
         allow(engine).to receive(:search).and_return(empty_results)
 
         get search_path, params: { q: "test query" }
-        expect(response.body).to include('value="test query"')
+        expect(response.body).to include('results for "test query"')
       end
 
       it "supports pagination" do

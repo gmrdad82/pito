@@ -825,3 +825,172 @@ labels in `show.html.erb` was already present and was preserved untouched.
 **Open issues / blockers:** none. Promote `.pane-row--game-show` to a generic
 `.pane-row--nowrap` if a second page needs the same horizontal lock — the
 ruleset is generic; only the name is page-scoped today.
+
+---
+
+## 2026-05-10 — Modal restructure for search + IGDB add flow
+
+**Context:** dispatch from master-agent for a major UX restructure of the
+search + IGDB add flow. Six pieces of work:
+
+1. Remove the inline `<input class="search-input">` from the navbar.
+2. Add a `/` hotkey that opens a global **search modal**.
+3. Add an `i` hotkey that opens a global **IGDB-search modal** (the dispatch
+   originally suggested `Shift+/` / `?` but those conflict with the existing
+   help-modal hotkey; chose `i` as the next-best unbound single key —
+   surfaced as a hotkey decision in the report-back).
+4. Add a reusable **overwrite confirmation modal** that fires when an IGDB
+   search result row maps to a Game already in the library (the `[update]`
+   action) — Stimulus-driven, in-page, NO `window.confirm`.
+5. Drop the inline `_add_form` on `/games` and add `[+]` next to the H1
+   that opens the IGDB-search modal (channels / videos page parity).
+6. IGDB main-entries category filter — `Igdb::Client#search_games` defaults
+   to category in `(0,8,9,11)` (main game / remake / remaster / port) so
+   noise like "Pragmata Deluxe Edition" or "Red Dead Redemption II Ultimate
+   Edition" drops out. Opt-out via `include_editions: true`.
+7. MCP `igdb_search` tool: new `include_editions: "yes" | "no"` argument
+   defaulting to `"no"` (filtered). MCP I/O sticks to `yes/no` strings per
+   CLAUDE.md hard rule.
+8. `KeyboardShortcutsModalComponent`: surface the new `/` (open search
+   modal) and `i` (open igdb add-game modal) bindings in the help dialog's
+   general section; remove `/` from the list-pages section now that it's
+   global.
+
+**Files touched (high level):**
+
+New files:
+
+- `app/views/shared/_search_modal.html.erb` — global search dialog,
+  autofocus, submits to `/search`.
+- `app/views/shared/_igdb_search_modal.html.erb` — IGDB search dialog,
+  hosts the `igdb_search_results` Turbo Frame (now the single owner of
+  that frame id since `_add_form` was removed).
+- `app/views/shared/_igdb_overwrite_modal.html.erb` — reusable overwrite-
+  confirmation dialog; the form's `action` is set per-trigger by a
+  sibling Stimulus controller.
+- `app/javascript/controllers/global_search_modal_controller.js`
+- `app/javascript/controllers/igdb_search_modal_controller.js`
+- `app/javascript/controllers/igdb_overwrite_confirm_controller.js`
+- `app/javascript/controllers/igdb_overwrite_trigger_controller.js`
+- `spec/requests/global_search_modal_layout_spec.rb` — 25 examples locking
+  the layout-level integration contract on `/`, `/channels`, `/videos`,
+  `/games`, `/settings`.
+
+Edited files:
+
+- `app/views/layouts/application.html.erb` — removed the navbar `<input>`
+  + `<form>`; render the three new modal partials in the chrome.
+- `app/views/games/index.html.erb` — removed the `render "add_form"` and
+  the type-ahead `<input>`; added `[+]` (via `BracketedLinkComponent` +
+  `modal-trigger`) next to the H1. Updated empty-state copy.
+- `app/views/games/_add_form.html.erb` — deleted (now dead).
+- `app/views/games/_search_results.html.erb` — each row now renders
+  `[update]` (overwrite-confirm trigger) when the IGDB id already maps to
+  a local Game; otherwise `[add]` (default flow). Bulk lookup via
+  `Game.where(igdb_id: ids).index_by(&:igdb_id)` — no per-row N+1.
+- `app/services/igdb/client.rb` — added `GAME_CATEGORY_*` constants +
+  `DEFAULT_SEARCH_CATEGORIES = [0, 8, 9, 11]`. `search_games` accepts
+  `include_editions: false` (default) and filters by category set; setting
+  `true` drops the where-clause. Also added `"category"` to the fields
+  list so callers can inspect categories on hits.
+- `app/mcp/tools/igdb_search.rb` — new `include_editions` schema property
+  (`enum: ["yes", "no"]`, default `"no"`), `coerce_yes_no` helper, hands
+  the boolean off to the client. Errors out on a non-yes/no value.
+- `app/components/keyboard_shortcuts_modal_component.rb` — added `/` (open
+  search modal) and `i` (open igdb add-game modal) rows in the `general`
+  section; removed `/` from the `list pages` section (it's now global).
+- `app/javascript/controllers/keyboard_controller.js` — `/` and `i` now
+  resolve layout-level dialogs via `window.Stimulus`'s
+  `getControllerForElementAndIdentifier`, falling back to `showModal()`.
+  Replaces the previous `.search-input` focus.
+
+Spec deltas:
+
+- `spec/components/keyboard_shortcuts_modal_component_spec.rb` — assert
+  the new general-section rows; drop the now-orphan `/` keycap assertion
+  from the list-pages section.
+- `spec/services/igdb/client_spec.rb` — added 3 specs covering the
+  category-filter default, the `include_editions: true` opt-out, and the
+  presence of the `category` field in the Apicalypse body.
+- `spec/mcp/tools/igdb_search_spec.rb` — adjusted the existing `with`
+  matchers to include `include_editions: false`; added 3 specs covering
+  `"yes"` opt-in, default `"no"` filtered, and the invalid-value error
+  branch.
+- `spec/requests/games_spec.rb` — updated the empty-state copy assertion,
+  added 2 specs (`renders a [+] bracketed link wired to the IGDB-search
+  modal`, `does NOT render the retired inline igdb-search type-ahead
+  form`), and added a context block in `GET /games/search` that asserts
+  `[update]` (wired to `igdb-overwrite-trigger`) for in-library hits and
+  `[add]` for new ones.
+- `spec/system/games_steam_shelf_spec.rb` — updated the empty-state
+  Capybara assertion to match the new `[+]` / `igdb` copy.
+- `spec/requests/search_spec.rb` — replaced `preserves query in search
+  input` (depended on the retired navbar input) with `echoes the query
+  back in the results paragraph` (still asserts the query is reflected
+  back, but against the page's own copy).
+
+**Hotkey decision:** the dispatch suggested `Shift+/` / `?` for the IGDB
+modal, which conflicts with the existing `?` help-modal hotkey. Chose `i`
+(single-key, previously unbound) over the dispatch's secondary suggestions
+(`Shift+S` conflicts with the `s` row-star key; `g s` is already "go to
+saved views"). `i` is mnemonic for "igdb add game".
+
+**IGDB filter approach:** category in `(0,8,9,11)` =
+`main_game | remake | remaster | port`. The dispatch suggested
+`(0,8,9)`; added `port` (`11`) since canonical ports (e.g., a Switch
+port of a PC game) are legitimate "main entry" hits the user wants to
+find, and they don't introduce the "Deluxe Edition" duplication problem
+that `expanded_game | bundle | pack | update | dlc_addon | expansion`
+would. Surfaced as a small expansion of the dispatch's `(0,8,9)` set —
+master can dial it back if a user surfaces port-noise.
+
+**Quality gates:**
+
+- `bundle exec rspec` on the touched surface — 150 examples, 0 failures
+  across:
+  - `spec/services/igdb/client_spec.rb`
+  - `spec/mcp/tools/igdb_search_spec.rb`
+  - `spec/requests/games_spec.rb`
+  - `spec/requests/global_search_modal_layout_spec.rb` (new)
+  - `spec/components/keyboard_shortcuts_modal_component_spec.rb`
+  - `spec/system/games_steam_shelf_spec.rb`
+  - `spec/requests/search_spec.rb`
+- `bundle exec brakeman -q -w2` — 0 errors, 0 security warnings.
+- `bundle exec rubocop` on touched Ruby files (10 files) — clean.
+
+**Spec sweep — unrelated failures (NOT mine):** the full RSpec suite
+shows ~20 failures all rooted in a pre-existing `Channel.friendly.find`
+call that hits a missing `channels.url_slug` column (the parallel
+friendly_id rollout under `db/migrate/2026051019274{3..7}_*.rb` added
+the slug column to `projects` / `bundles` / `collections` /
+`milestone_rules` but NOT to `channels`). Failed specs include
+`analytics_*_spec`, `bundle_show_spec`, `calendar_edit_delete_spec`,
+`channels_*`, `videos_spec:135`, `notes_spec:76`,
+`keyboard_shortcuts_layout_spec:82`, `friendly_url_redirects_spec`, and
+`projects_spec:351`. All trace back to the missing migration. Surfaced
+as a blocker for the friendly_id agent; my modal restructure does not
+touch the channel slug surface.
+
+**Files deleted:** `app/views/games/_add_form.html.erb` (now dead — the
+modal owns the IGDB type-ahead surface).
+
+**Open issues / blockers / follow-ups for master:**
+
+- `app/javascript/controllers/igdb_search_controller.js` — the original
+  type-ahead controller is now orphaned (`_add_form` is gone). Left it
+  in place to keep the diff small; queue a cleanup follow-up.
+- Help-modal copy: the `i` keystroke fires globally; while focus sits in
+  an editable element the keyboard controller's `isEditableTarget`
+  guard suppresses it (so typing `i` in the modal's own input works).
+  No follow-up needed.
+- Channel `url_slug` column gap — surfaced above; not my lane.
+
+**Coordination:** parallel agents committed work to `main` during this
+session (`a2dc49a`, `6c3562c`, `271c7de`, …). My edits coexisted cleanly
+in the layout, the games index, and the IGDB surface; the parallel game-
+show / edit-split work landed already (`app/views/games/show.html.erb`
+carries the `pane-row--game-show` row + sync pane indicator), and this
+dispatch's `[resync]`-from-show contract still routes through
+`POST /games/:id/resync` (the new overwrite modal could be wired in
+from the show page later — left for a follow-up since the dispatch's
+"Move `[+]` to game page title" item targets `/games`, not `/games/:id`).
