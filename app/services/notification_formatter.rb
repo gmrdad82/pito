@@ -179,6 +179,48 @@ module NotificationFormatter
     Rails.application.credentials.dig(:notifications, :pito_avatar_url)
   end
 
+  # Phase 16 §2 security fix-forward (F1 / F2 — 2026-05-10 audit). URL
+  # scheme allowlist applied at every outbound boundary that renders a
+  # `[text](url)` markdown link to a downstream renderer (in-app HTML,
+  # MCP markdown, Discord embed description, Slack mrkdwn section).
+  #
+  # Allowed:
+  #   - `http://`, `https://` — the live source-helper surface today
+  #     (YouTube `watch_url`, IGDB url, app paths upgraded to absolute).
+  #   - `mailto:` — owner / support contact links in future templates.
+  #   - Leading-slash app paths (`/notifications/1`, `/videos/42`) —
+  #     the formatter's own template URLs. These never carry a scheme
+  #     so they bypass scheme matching entirely.
+  #
+  # Stripped (becomes bare text at the boundary):
+  #   - `javascript:`, `data:`, `vbscript:`, `file:`, `tel:`, `sms:`,
+  #     and every other Loofah-default-allowed scheme that pito does
+  #     not need.
+  #   - Empty / nil URLs.
+  ALLOWED_URL_SCHEMES = %w[http https mailto].freeze
+
+  def url_scheme_allowed?(url)
+    return false if url.nil?
+
+    str = url.to_s.strip
+    return false if str.empty?
+
+    # Leading-slash app paths have no scheme; they are always allowed
+    # because the formatter's own template URLs are leading-slash paths.
+    return true if str.start_with?("/") && !str.start_with?("//")
+
+    # Anything else needs a scheme that matches the allowlist. Parsing
+    # via URI is intentional — string-prefix matching would let
+    # `httpsfoo:` slip through. Bad URIs (malformed, no scheme) fail
+    # closed.
+    begin
+      uri = URI.parse(str)
+      ALLOWED_URL_SCHEMES.include?(uri.scheme&.downcase)
+    rescue URI::InvalidURIError
+      false
+    end
+  end
+
   # Resolve the per-kind template class. Raises a clear error for an
   # unknown event_type rather than `NoMethodError` on `nil.title`.
   def template_for(notification)

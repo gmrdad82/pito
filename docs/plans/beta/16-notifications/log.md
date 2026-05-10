@@ -620,135 +620,219 @@ smoke). Awaiting user validation before commit.
 
 ## Session 2026-05-10 — UX restructure (badge sup + modal + bulk + cleanup cron)
 
-User-driven UX restructure of the notification surface. Five concurrent
-changes, plus a cleanup cron job. No spec file under `specs/` — this is an
-in-flight refinement of Spec 03's UI tier.
+User-driven UX restructure of the notification surface. Five concurrent changes,
+plus a cleanup cron job. No spec file under `specs/` — this is an in-flight
+refinement of Spec 03's UI tier.
 
 ### Scope (per user request)
 
 1. **Unread badge.** Render the count as `<sup>N</sup>` next to
    `[notifications]` (no surrounding brackets). Hide entirely at zero.
-2. **Notification modal.** Clicking a row opens the show page inside an
-   in-page `<dialog>` via Turbo Frame; `/notifications/:id` stays as a
-   direct-link fallback. Closes on Escape, click outside, or `[back]`.
+2. **Notification modal.** Clicking a row opens the show page inside an in-page
+   `<dialog>` via Turbo Frame; `/notifications/:id` stays as a direct-link
+   fallback. Closes on Escape, click outside, or `[back]`.
 3. **Filter row.** Drop the `[ all ]` / `[ unread ]` bracketed-link toggles.
    Replace with a single `[ ] unread` `FilterChipComponent` chip; default
-   unchecked = show all; checked = `?filter=unread`. The
-   `[mark all as read]` button sits to its right.
-4. **Bulk select.** Each unread row gets a Stimulus `bulk-select`
-   checkbox in column 1 (read rows omit it). The wrapper carries
+   unchecked = show all; checked = `?filter=unread`. The `[mark all as read]`
+   button sits to its right.
+4. **Bulk select.** Each unread row gets a Stimulus `bulk-select` checkbox in
+   column 1 (read rows omit it). The wrapper carries
    `data-controller="bulk-select notifications-dynamic-button"`.
-5. **Dynamic button label.** A new
-   `notifications_dynamic_button_controller.js` watches every checkbox
-   change and swaps the button text + form action between
-   `[mark all as read]` -> `/notifications/mark_all_read` (default and
-   when ALL unread are selected) and `[mark <N> as read]` ->
+5. **Dynamic button label.** A new `notifications_dynamic_button_controller.js`
+   watches every checkbox change and swaps the button text + form action between
+   `[mark all as read]` -> `/notifications/mark_all_read` (default and when ALL
+   unread are selected) and `[mark <N> as read]` ->
    `/notifications/mark_read?ids=A,B,C` (partial selection).
 6. **Cleanup cron.** New `NotificationCleanupJob` deletes every read
-   notification whose `in_app_read_at` is older than 7 days. Cron entry
-   in `config/sidekiq_cron.yml` -> `notification_cleanup`, daily at
-   03:30 UTC.
-7. **Caption.** A muted note under the H1 reads "notifications are
-   deleted 7 days after being read." so the cron's data loss is
-   discoverable.
+   notification whose `in_app_read_at` is older than 7 days. Cron entry in
+   `config/sidekiq_cron.yml` -> `notification_cleanup`, daily at 03:30 UTC.
+7. **Caption.** A muted note under the H1 reads "notifications are deleted 7
+   days after being read." so the cron's data loss is discoverable.
 
 ### Files touched
 
 - `app/views/notifications/_badge.html.erb` — `<sup>N</sup>` shape.
 - `app/views/notifications/index.html.erb` — `bulk-select` +
-  `notifications-dynamic-button` controller wiring; FilterChipComponent
-  chip; cleanup caption; `<dialog>` mount with the
-  `notification_detail_frame` Turbo Frame.
+  `notifications-dynamic-button` controller wiring; FilterChipComponent chip;
+  cleanup caption; `<dialog>` mount with the `notification_detail_frame` Turbo
+  Frame.
 - `app/views/notifications/show.html.erb` — wraps the body in
   `turbo_frame_tag "notification_detail_frame"`; `[back]` carries
-  `click->notification-modal#close` so it closes the dialog when
-  rendered inside the modal AND falls back to `/notifications` when
-  rendered standalone.
-- `app/views/notifications/_notification.html.erb` — bulk-select
-  checkbox column 1 (unread only); row link carries
-  `click->notification-modal#open`; per-row `[mark read]` action
-  retired (covered by bulk button + modal `[mark read]`).
-- `app/javascript/controllers/notifications_dynamic_button_controller.js`
-  — new. Stimulus controller that swaps the button label + form action
-  based on selected checkbox count vs the page's total-unread.
-- `app/javascript/controllers/notification_modal_controller.js` — new.
-  Stimulus controller that opens the dialog and points the inner Turbo
-  Frame at the row's URL on click.
-- `app/jobs/notification_cleanup_job.rb` — new. Hard-deletes read
-  notifications older than `RETENTION_PERIOD = 7.days`. Uses
-  `delete_all` (skips per-row destroy callbacks; the badge re-renders
-  on the next page load anyway).
-- `config/sidekiq_cron.yml` — new `notification_cleanup` entry,
-  `30 3 * * *`.
-- `app/assets/tailwind/application.css` — `.notifications-badge-count`
-  rule (10px bold, `vertical-align: super`); wrapper switched from
-  `align-items: center` to `align-items: flex-start` so the sup hugs
-  the top of the nav line.
+  `click->notification-modal#close` so it closes the dialog when rendered inside
+  the modal AND falls back to `/notifications` when rendered standalone.
+- `app/views/notifications/_notification.html.erb` — bulk-select checkbox column
+  1 (unread only); row link carries `click->notification-modal#open`; per-row
+  `[mark read]` action retired (covered by bulk button + modal `[mark read]`).
+- `app/javascript/controllers/notifications_dynamic_button_controller.js` — new.
+  Stimulus controller that swaps the button label + form action based on
+  selected checkbox count vs the page's total-unread.
+- `app/javascript/controllers/notification_modal_controller.js` — new. Stimulus
+  controller that opens the dialog and points the inner Turbo Frame at the row's
+  URL on click.
+- `app/jobs/notification_cleanup_job.rb` — new. Hard-deletes read notifications
+  older than `RETENTION_PERIOD = 7.days`. Uses `delete_all` (skips per-row
+  destroy callbacks; the badge re-renders on the next page load anyway).
+- `config/sidekiq_cron.yml` — new `notification_cleanup` entry, `30 3 * * *`.
+- `app/assets/tailwind/application.css` — `.notifications-badge-count` rule
+  (10px bold, `vertical-align: super`); wrapper switched from
+  `align-items: center` to `align-items: flex-start` so the sup hugs the top of
+  the nav line.
 
 ### Specs added / updated
 
-- `spec/jobs/notification_cleanup_job_spec.rb` — NEW. 11 examples:
-  retention boundary, unread skip, no-op path, log line, cron yaml
-  registration.
-- `spec/system/notifications_dynamic_button_spec.rb` — NEW. 6 examples:
-  asserts the SSR scaffold (controller registration, value attributes,
-  form / label targets, hide-when-zero-unread).
+- `spec/jobs/notification_cleanup_job_spec.rb` — NEW. 11 examples: retention
+  boundary, unread skip, no-op path, log line, cron yaml registration.
+- `spec/system/notifications_dynamic_button_spec.rb` — NEW. 6 examples: asserts
+  the SSR scaffold (controller registration, value attributes, form / label
+  targets, hide-when-zero-unread).
 - `spec/system/notifications_modal_spec.rb` — NEW. 7 examples: dialog
-  + Turbo Frame mount, row link wiring, show-page frame wrap, back
-  link Stimulus action.
-- `spec/views/notifications/_badge_html_erb_spec.rb` — UPDATED. Asserts
-  `<sup>` shape; rejects the old `[ N ]` shape.
-- `spec/views/notifications/index_html_erb_spec.rb` — UPDATED. Drops
-  `[ all ]` / `[ unread ]` link assertions; asserts the FilterChipComponent
-  shape, dynamic-button wiring, modal mount, cleanup caption.
-- `spec/views/notifications/show_html_erb_spec.rb` — UPDATED. Bracket
-  regex tightened to `\[<span class="bl">…<\/span>\]`; new asserts on
-  Turbo Frame wrap + `[back]` Stimulus close action.
-- `spec/system/notifications_index_spec.rb` — UPDATED. Drops `[ all ]`
-  / `[ unread ]` link assertions; adds chip-click / chip-checked
-  assertions, row-checkbox shape, modal scaffolding, cleanup caption.
-- `spec/system/notifications_badge_live_update_spec.rb` — UPDATED.
-  Regex switched from `\[\s*N\s*\]` to the `<sup>` pattern.
-- `spec/requests/notifications_spec.rb` — UPDATED. Badge regex +
-  `[back]` / `[open]` regexes tightened.
+  - Turbo Frame mount, row link wiring, show-page frame wrap, back link Stimulus
+    action.
+- `spec/views/notifications/_badge_html_erb_spec.rb` — UPDATED. Asserts `<sup>`
+  shape; rejects the old `[ N ]` shape.
+- `spec/views/notifications/index_html_erb_spec.rb` — UPDATED. Drops `[ all ]` /
+  `[ unread ]` link assertions; asserts the FilterChipComponent shape,
+  dynamic-button wiring, modal mount, cleanup caption.
+- `spec/views/notifications/show_html_erb_spec.rb` — UPDATED. Bracket regex
+  tightened to `\[<span class="bl">…<\/span>\]`; new asserts on Turbo Frame
+  wrap + `[back]` Stimulus close action.
+- `spec/system/notifications_index_spec.rb` — UPDATED. Drops `[ all ]` /
+  `[ unread ]` link assertions; adds chip-click / chip-checked assertions,
+  row-checkbox shape, modal scaffolding, cleanup caption.
+- `spec/system/notifications_badge_live_update_spec.rb` — UPDATED. Regex
+  switched from `\[\s*N\s*\]` to the `<sup>` pattern.
+- `spec/requests/notifications_spec.rb` — UPDATED. Badge regex + `[back]` /
+  `[open]` regexes tightened.
 
 ### Quality gates
 
 - `spec/jobs/notification_cleanup_job_spec.rb` — 11 / 11 pass.
-- Notification surface sweep (jobs/specs/views/system + request +
-  model) — 510 / 510 pass, 0 failures.
+- Notification surface sweep (jobs/specs/views/system + request + model) — 510 /
+  510 pass, 0 failures.
 - `bundle exec rubocop` on the 10 new / changed Ruby files — clean.
 - `bundle exec brakeman -q -w2` — 0 security warnings.
-- Full suite — 2131 examples; 20 pre-existing failures in
-  `api/footages`, `calendar/month`, `channels/analytics`,
-  `analytics_flaw`. None touch the notification surface; they are
-  outside this lane.
+- Full suite — 2131 examples; 20 pre-existing failures in `api/footages`,
+  `calendar/month`, `channels/analytics`, `analytics_flaw`. None touch the
+  notification surface; they are outside this lane.
 
 ### Drift / surfaced
 
-1. **Per-row `[mark read]` retired.** The row partial no longer renders
-   a per-row `[mark read]` button — bulk + modal cover the flow.
-   `spec/system/notifications_index_spec.rb` no longer asserts the
-   per-row button. The PATCH `/notifications/:id/read` endpoint stays
-   for the modal's own `[mark read]` form.
-2. **Auto-mark-on-click stays via the modal.** Clicking a row opens
-   the modal AND fetches the show page through Turbo, which is
-   side-effect-free; the show page then renders the `[mark read]`
-   button. The original auto-mark-on-click semantic was tied to the
-   `[open]` link's `notification-link` Stimulus controller — that
-   still fires when the user clicks `[open]` from inside the modal.
-3. **Caption placement.** The cleanup caption sits under the H1 (not
-   in the lead paragraph slot) because the index page has no
-   `<p class="text-muted">` lead paragraph; adding one would expand
-   the caption convention beyond settings detail / show / new / edit
-   pages. Single-line muted note matches the existing tone.
+1. **Per-row `[mark read]` retired.** The row partial no longer renders a
+   per-row `[mark read]` button — bulk + modal cover the flow.
+   `spec/system/notifications_index_spec.rb` no longer asserts the per-row
+   button. The PATCH `/notifications/:id/read` endpoint stays for the modal's
+   own `[mark read]` form.
+2. **Auto-mark-on-click stays via the modal.** Clicking a row opens the modal
+   AND fetches the show page through Turbo, which is side-effect-free; the show
+   page then renders the `[mark read]` button. The original auto-mark-on-click
+   semantic was tied to the `[open]` link's `notification-link` Stimulus
+   controller — that still fires when the user clicks `[open]` from inside the
+   modal.
+3. **Caption placement.** The cleanup caption sits under the H1 (not in the lead
+   paragraph slot) because the index page has no `<p class="text-muted">` lead
+   paragraph; adding one would expand the caption convention beyond settings
+   detail / show / new / edit pages. Single-line muted note matches the existing
+   tone.
 
 ### Next steps
 
-- Manual playbook (user): verify badge sup renders correctly in dark
-  mode; click a row -> modal opens; check / uncheck a row -> button
-  text flips between `mark all as read` and `mark <N> as read`;
-  click `mark <N> as read` -> only selected rows flip; `[ ] unread`
-  chip toggles `?filter=unread`; cron job runs (sidekiq web at
-  `/sidekiq` shows `notification_cleanup` scheduled).
+- Manual playbook (user): verify badge sup renders correctly in dark mode; click
+  a row -> modal opens; check / uncheck a row -> button text flips between
+  `mark all as read` and `mark <N> as read`; click `mark <N> as read` -> only
+  selected rows flip; `[ ] unread` chip toggles `?filter=unread`; cron job runs
+  (sidekiq web at `/sidekiq` shows `notification_cleanup` scheduled).
+- Once validated, master commits + pushes.
+
+## 2026-05-10 — Spec 02/03 security audit fixes (F1 + F2 + F3)
+
+### Context
+
+Security review of Spec 02 (formatter) + Spec 03 (UI + MCP tools) returned
+verdict `CLEAR TO MERGE` with three Medium defense-in-depth findings. Fixed
+forward in a single rails-impl pass; no spec doc change.
+
+Reference:
+`docs/orchestration/playbooks/security-2026-05-10-phase-16-spec-02-and-03-notifications.md`.
+
+### What was implemented
+
+1. **F1 (MEDIUM) — in-app `event_payload` URL scheme allowlist.** Added
+   `NotificationFormatter::ALLOWED_URL_SCHEMES = %w[http https mailto]` and
+   `NotificationFormatter.url_scheme_allowed?(url)` helper. The helper accepts
+   `http://`, `https://`, `mailto:` schemes plus leading-slash app paths
+   (rejecting `//evil.com` protocol-relative). `InApp#render_body_html`
+   validates each `[text](url)` URL via the helper BEFORE writing the `<a>` tag
+   — bad-scheme URLs collapse to bare escaped text. Closes audit F4 as a side
+   effect (no empty `<a></a>` shell survives Loofah's `href`-only strip because
+   the `<a>` was never written).
+
+2. **F2 (MEDIUM) — outbound markdown URL scheme allowlist (MCP / Discord /
+   Slack).** Same allowlist applied at three additional formatter boundaries:
+   `Mcp#escape_body_preserving_links`, `Discord#escape_body_preserving_links`,
+   `Slack#rewrite_markdown_links`. The URL captured by the markdown regex's
+   `match[2]` group is scheme-checked; bad-scheme URLs collapse to bare
+   channel-escaped text rather than emitting `[text](javascript:…)`,
+   `<javascript:…|text>`, or similar to downstream renderers. The brief
+   confirmed option 1 (formatter boundary), not an inbound write-tool validator
+   — no such tool exists.
+
+3. **F3 (MEDIUM) — per-user 5s rate-limit lock on bulk mark-read.** Added a
+   `before_action :enforce_mark_read_rate_limit` on
+   `NotificationsController#mark_read` and `#mark_all_read`. Mirrors the Phase
+   13 analytics-refresh `Rails.cache.write(..., unless_exist: true)` pattern
+   with a per-user lock key (`notifications:mark_read:user:<id>`) and
+   `MARK_READ_RATE_LIMIT_TTL = 5.seconds`. HTML → 302 redirect + alert; JSON →
+   `429 + { error: "rate_limited", retry_after_seconds: 5 }`; Turbo Stream →
+   429 + plain-text body. Added `format.json { render json: { marked: N } }` to
+   both happy paths (the JSON branch was missing before).
+
+### Files touched
+
+- `app/services/notification_formatter.rb` — `ALLOWED_URL_SCHEMES` constant +
+  `url_scheme_allowed?` module function.
+- `app/services/notification_formatter/in_app.rb` — pre-validate URL inside
+  `render_body_html` before writing `<a>`.
+- `app/services/notification_formatter/mcp.rb` — scheme check inside
+  `escape_body_preserving_links`; bad-scheme → bare escaped text.
+- `app/services/notification_formatter/discord.rb` — same shape.
+- `app/services/notification_formatter/slack.rb` — same shape inside
+  `rewrite_markdown_links`.
+- `app/controllers/notifications_controller.rb` — `MARK_READ_RATE_LIMIT_TTL`
+  constant, `before_action :enforce_mark_read_rate_limit`, `format.json`
+  branches on mark_read / mark_all_read, `enforce_mark_read_rate_limit` private
+  helper.
+- `spec/services/notification_formatter/in_app_spec.rb` — F1 block: 12 examples.
+- `spec/services/notification_formatter/mcp_spec.rb` — F2 block: 11 examples.
+- `spec/services/notification_formatter/discord_spec.rb` — F2 block: 11
+  examples.
+- `spec/services/notification_formatter/slack_spec.rb` — F2 block: 11 examples.
+- `spec/requests/notifications_spec.rb` — F3 block: 12 examples covering lock
+  write, HTML alert redirect, JSON 429 envelope, lock expiry, shared key across
+  mark_read / mark_all_read.
+
+### Quality gates
+
+- `bundle exec rspec` on touched files — 125 formatter examples + 54 request
+  examples = 179 examples, 0 failures.
+- Notification-surface sweep (formatter + delivery + request + model) — 356
+  examples, 0 failures.
+- `bundle exec rubocop` on the 11 touched Ruby files — clean.
+- `bin/brakeman -q -w2` — 0 security warnings (pre-existing obsolete ignore
+  entries unrelated to this pass).
+
+### Note on regex shape
+
+The formatter's markdown link regex is `\[([^\[\]]*)\]\(([^()\s]+)\)`. The URL
+group rejects `(` and `)`, so attack payloads like `[x](javascript:alert(1))`
+never match as a markdown link in the first place — the parens disqualify them.
+The scheme allowlist neutralizes paren-free payloads (`javascript:alert@1`,
+`data:text/html,whatever`, `vbscript:msgbox`, `file:///etc/passwd`, `tel:+1234`,
+protocol-relative `//evil.com/x`). Spec shapes match this regex constraint.
+
+### Next steps
+
+- Manual playbook (user): no UI surface change. Spot-check that `/notifications`
+  index + show pages render normally; clicking a row opens the modal; bulk
+  mark-read still works under normal click cadence; double- clicking the bulk
+  button within 5s shows the slow-down alert.
 - Once validated, master commits + pushes.

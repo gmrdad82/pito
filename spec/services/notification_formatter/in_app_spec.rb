@@ -160,4 +160,103 @@ RSpec.describe NotificationFormatter::InApp do
         .to raise_error(ArgumentError, /no template/)
     end
   end
+
+  # Phase 16 §2 security fix-forward (F1 — 2026-05-10 audit). URL
+  # scheme allowlist on `[text](url)` markdown rendered into the
+  # in-app `body_html`. Bad-scheme URLs collapse to bare text rather
+  # than emitting an empty `<a></a>` shell (which Loofah's `href`
+  # strip would have left behind).
+  describe "F1 — URL scheme allowlist in render_body_html" do
+    let(:helper) { described_class }
+
+    def render(body)
+      helper.render_body_html(body)
+    end
+
+    it "strips javascript: scheme to bare text" do
+      # NOTE: the formatter's markdown regex `\[…\]\(…\)` rejects any
+      # URL containing `(` / `)`, so `javascript:alert(1)` never
+      # matches as a markdown link in the first place — it sits as
+      # raw escaped text. The exploit shape the scrubber actually
+      # neutralizes is a paren-free payload like
+      # `javascript:alert@1` or `javascript:void%200`.
+      html = render("see [click me](javascript:alert@1) now")
+      expect(html).to include("click me")
+      expect(html).not_to match(/href="javascript:/i)
+      expect(html).not_to include("<a ")
+    end
+
+    it "strips data: scheme to bare text" do
+      html = render("[xss](data:text/html,whatever)")
+      expect(html).to include("xss")
+      expect(html).not_to match(/href="data:/i)
+      expect(html).not_to include("<a ")
+    end
+
+    it "strips vbscript: scheme to bare text" do
+      html = render("[boom](vbscript:msgbox)")
+      expect(html).to include("boom")
+      expect(html).not_to include("vbscript:")
+      expect(html).not_to include("<a ")
+    end
+
+    it "strips file: scheme to bare text" do
+      html = render("[etc](file:///etc/passwd)")
+      expect(html).to include("etc")
+      expect(html).not_to include("file:")
+      expect(html).not_to include("<a ")
+    end
+
+    it "strips tel: scheme to bare text (not in allowlist)" do
+      html = render("[ring](tel:+1234)")
+      expect(html).to include("ring")
+      expect(html).not_to include("<a ")
+    end
+
+    it "preserves http:// links" do
+      html = render("see [docs](http://example.com/d)")
+      expect(html).to include(%(<a href="http://example.com/d">docs</a>))
+    end
+
+    it "preserves https:// links" do
+      html = render("see [docs](https://example.com/d)")
+      expect(html).to include(%(<a href="https://example.com/d">docs</a>))
+    end
+
+    it "preserves mailto: links" do
+      html = render("contact [owner](mailto:owner@example.com)")
+      expect(html).to include(%(<a href="mailto:owner@example.com">owner</a>))
+    end
+
+    it "preserves leading-slash app paths" do
+      html = render("open [video](/videos/42)")
+      expect(html).to include(%(<a href="/videos/42">video</a>))
+    end
+
+    it "strips an empty href to bare text" do
+      html = render("see [empty]()")
+      # The empty-URL link can't even match the regex (which requires
+      # at least one non-paren non-space char inside the parentheses),
+      # so the raw markdown passes through escaped — and the
+      # critical assertion is that no `<a>` tag with an empty href
+      # survives.
+      expect(html).not_to include(%(<a href="">))
+      expect(html).not_to include(%(<a href=""></a>))
+    end
+
+    it "strips protocol-relative //evil.com to bare text" do
+      # Per `url_scheme_allowed?`, a leading `/` followed by another
+      # `/` (protocol-relative) is rejected (no scheme parsed) — the
+      # check `start_with?("/") && !start_with?("//")` short-circuits.
+      html = render("[evil](//evil.com/x)")
+      expect(html).to include("evil")
+      expect(html).not_to include("<a ")
+    end
+
+    it "does not leave a dangling <a></a> shell when scheme is rejected" do
+      html = render("[x](javascript:1)")
+      expect(html).not_to include("<a")
+      expect(html).not_to include("</a>")
+    end
+  end
 end

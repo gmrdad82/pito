@@ -253,6 +253,151 @@ RSpec.describe "Notifications", type: :request do
     end
   end
 
+  # Phase 16 §3 security fix-forward (F3 — 2026-05-10 audit). 5-second
+  # per-user lock on `PATCH /notifications/mark_read` and
+  # `PATCH /notifications/mark_all_read`. Mirrors Phase 13's
+  # `analytics_refresh` cache-lock pattern.
+  describe "F3 — rate-limit cache lock on bulk mark-read endpoints" do
+    let(:memory_cache) { ActiveSupport::Cache::MemoryStore.new }
+
+    before do
+      allow(Rails).to receive(:cache).and_return(memory_cache)
+      # The Phase 12 `sign_in_as` helper in `spec/support/auth.rb`
+      # auto-signs the request before each example; `User.first` is
+      # the same auto-minted user for the duration of the spec so the
+      # lock key resolves identically across both requests below.
+    end
+
+    describe "PATCH /notifications/mark_read" do
+      it "writes a 5-second per-user lock on the first request (HTML)" do
+        patch "/notifications/mark_read", params: { ids: "#{unread_a.id}" }
+        user_id = User.first.id
+        expect(memory_cache.exist?("notifications:mark_read:user:#{user_id}")).to be(true)
+      end
+
+      it "succeeds when the lock is free (HTML, happy)" do
+        patch "/notifications/mark_read", params: { ids: "#{unread_a.id}" }
+        expect(response).to redirect_to(notifications_path)
+        expect(unread_a.reload.in_app_read_at).to be_present
+      end
+
+      it "redirects with an alert when the lock is held (HTML)" do
+        user_id = User.first.id
+        memory_cache.write("notifications:mark_read:user:#{user_id}", 1,
+                           expires_in: 5.seconds)
+
+        patch "/notifications/mark_read", params: { ids: "#{unread_a.id}" }
+        expect(response).to redirect_to(notifications_path)
+        follow_redirect!
+        expect(flash[:alert] || response.body).to match(/slow down|rate.?limit/i)
+      end
+
+      it "does NOT update rows when the lock is held (HTML)" do
+        user_id = User.first.id
+        memory_cache.write("notifications:mark_read:user:#{user_id}", 1,
+                           expires_in: 5.seconds)
+
+        expect {
+          patch "/notifications/mark_read", params: { ids: "#{unread_a.id}" }
+        }.not_to change { unread_a.reload.in_app_read_at }
+      end
+
+      it "returns 429 + rate_limited JSON envelope when the lock is held (JSON)" do
+        user_id = User.first.id
+        memory_cache.write("notifications:mark_read:user:#{user_id}", 1,
+                           expires_in: 5.seconds)
+
+        patch "/notifications/mark_read",
+              params: { ids: "#{unread_a.id}" },
+              headers: { "Accept" => "application/json" }
+        expect(response).to have_http_status(:too_many_requests)
+        body = JSON.parse(response.body)
+        expect(body["error"]).to eq("rate_limited")
+        expect(body["retry_after_seconds"]).to eq(5)
+      end
+
+      it "succeeds after the lock expires (HTML)" do
+        user_id = User.first.id
+        lock_key = "notifications:mark_read:user:#{user_id}"
+        memory_cache.write(lock_key, 1, expires_in: 5.seconds)
+        memory_cache.delete(lock_key)
+
+        patch "/notifications/mark_read", params: { ids: "#{unread_a.id}" }
+        expect(response).to redirect_to(notifications_path)
+        expect(unread_a.reload.in_app_read_at).to be_present
+      end
+    end
+
+    describe "PATCH /notifications/mark_all_read" do
+      it "writes a 5-second per-user lock on the first request (HTML)" do
+        patch "/notifications/mark_all_read"
+        user_id = User.first.id
+        expect(memory_cache.exist?("notifications:mark_read:user:#{user_id}")).to be(true)
+      end
+
+      it "succeeds when the lock is free (HTML, happy)" do
+        expect(Notification.unread.count).to eq(2)
+        patch "/notifications/mark_all_read"
+        expect(response).to redirect_to(notifications_path)
+        expect(Notification.unread.count).to eq(0)
+      end
+
+      it "redirects with an alert when the lock is held (HTML)" do
+        user_id = User.first.id
+        memory_cache.write("notifications:mark_read:user:#{user_id}", 1,
+                           expires_in: 5.seconds)
+
+        patch "/notifications/mark_all_read"
+        expect(response).to redirect_to(notifications_path)
+        follow_redirect!
+        expect(flash[:alert] || response.body).to match(/slow down|rate.?limit/i)
+      end
+
+      it "does NOT update rows when the lock is held (HTML)" do
+        user_id = User.first.id
+        memory_cache.write("notifications:mark_read:user:#{user_id}", 1,
+                           expires_in: 5.seconds)
+
+        expect {
+          patch "/notifications/mark_all_read"
+        }.not_to change { Notification.unread.count }
+      end
+
+      it "returns 429 + rate_limited JSON envelope when the lock is held (JSON)" do
+        user_id = User.first.id
+        memory_cache.write("notifications:mark_read:user:#{user_id}", 1,
+                           expires_in: 5.seconds)
+
+        patch "/notifications/mark_all_read",
+              headers: { "Accept" => "application/json" }
+        expect(response).to have_http_status(:too_many_requests)
+        body = JSON.parse(response.body)
+        expect(body["error"]).to eq("rate_limited")
+        expect(body["retry_after_seconds"]).to eq(5)
+      end
+
+      it "succeeds after the lock expires (HTML)" do
+        user_id = User.first.id
+        lock_key = "notifications:mark_read:user:#{user_id}"
+        memory_cache.write(lock_key, 1, expires_in: 5.seconds)
+        memory_cache.delete(lock_key)
+
+        patch "/notifications/mark_all_read"
+        expect(response).to redirect_to(notifications_path)
+        expect(Notification.unread.count).to eq(0)
+      end
+
+      it "shares the lock key with mark_read (both endpoints rate-limit together)" do
+        # First call to mark_read writes the lock.
+        patch "/notifications/mark_read", params: { ids: "#{unread_a.id}" }
+        # Immediately follow with mark_all_read → blocked.
+        patch "/notifications/mark_all_read",
+              headers: { "Accept" => "application/json" }
+        expect(response).to have_http_status(:too_many_requests)
+      end
+    end
+  end
+
   describe "auth boundary" do
     it "GET /notifications redirects to login when unauthenticated", :unauthenticated do
       get "/notifications"

@@ -31,6 +31,12 @@ module NotificationFormatter
 
     # Mirrors `Discord#escape_body_preserving_links` but reuses the
     # `:mcp` channel rule (which is the same set as Discord per Q11).
+    #
+    # Phase 16 §2 security fix-forward (F2 — 2026-05-10 audit). URL
+    # scheme allowlist applied at the markdown boundary. A bad-scheme
+    # `[text](javascript:alert(1))` in `event_payload` collapses to
+    # bare escaped `text` rather than emitting an unsanitized link
+    # the MCP host renderer would have to defend against.
     def escape_body_preserving_links(text)
       return "" if text.nil?
 
@@ -53,7 +59,11 @@ module NotificationFormatter
 
         link_text = NotificationFormatter.escape_for(match[1], channel: :mcp)
         link_url  = match[2]
-        buffer << "[#{link_text}](#{link_url})"
+        if NotificationFormatter.url_scheme_allowed?(link_url)
+          buffer << "[#{link_text}](#{link_url})"
+        else
+          buffer << link_text
+        end
 
         i = match.end(0)
       end

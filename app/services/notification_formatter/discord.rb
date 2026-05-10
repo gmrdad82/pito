@@ -61,6 +61,12 @@ module NotificationFormatter
     # markdown links (which we want Discord to render). Discord's
     # markdown also reads `*` / `_` / `~` / `` ` `` etc. as formatting,
     # so we escape those characters but leave the link syntax intact.
+    #
+    # Phase 16 §2 security fix-forward (F2 — 2026-05-10 audit). URL
+    # scheme allowlist applied at the markdown boundary. Discord's
+    # own renderer already strips unsupported protocols, but we strip
+    # them at pito's boundary for defense-in-depth so a bad-scheme URL
+    # never reaches the Discord API.
     def escape_body_preserving_links(text)
       return "" if text.nil?
 
@@ -83,7 +89,11 @@ module NotificationFormatter
 
         link_text = NotificationFormatter.escape_for(match[1], channel: :discord)
         link_url  = match[2]
-        buffer << "[#{link_text}](#{link_url})"
+        if NotificationFormatter.url_scheme_allowed?(link_url)
+          buffer << "[#{link_text}](#{link_url})"
+        else
+          buffer << link_text
+        end
 
         i = match.end(0)
       end

@@ -80,6 +80,12 @@ module NotificationFormatter
       end
     end
 
+    # Phase 16 §2 security fix-forward (F2 — 2026-05-10 audit). URL
+    # scheme allowlist applied at the markdown boundary. Slack accepts
+    # any URL inside `<url|text>` and renders it as a clickable link —
+    # `<javascript:alert(1)|click>` would reach the Slack client UI as
+    # a link the user could activate. Bad-scheme URLs collapse to
+    # bare escaped text at this boundary.
     def rewrite_markdown_links(text)
       return "" if text.nil?
 
@@ -102,7 +108,11 @@ module NotificationFormatter
 
         link_text = NotificationFormatter.escape_for(match[1], channel: :slack)
         link_url  = match[2]
-        buffer << "<#{link_url}|#{link_text}>"
+        if NotificationFormatter.url_scheme_allowed?(link_url)
+          buffer << "<#{link_url}|#{link_text}>"
+        else
+          buffer << link_text
+        end
 
         i = match.end(0)
       end
