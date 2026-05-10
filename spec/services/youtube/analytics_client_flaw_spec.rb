@@ -8,8 +8,8 @@ RSpec.describe Youtube::AnalyticsClient, "flaw / smuggle assertions" do
   let(:user)       { create(:user) }
   let(:connection) { create(:youtube_connection, user: user, access_token: "ya29.constructor-token") }
   let(:other_connection) { create(:youtube_connection, user: user, access_token: "ya29.foreign-token", google_subject_id: "subject-other-99") }
-  let(:channel)    { create(:channel, :connected, youtube_connection: connection) }
-  let(:foreign_channel) { create(:channel, :connected, youtube_connection: other_connection) }
+  let(:channel)    { create(:channel, youtube_connection: connection) }
+  let(:foreign_channel) { create(:channel, youtube_connection: other_connection) }
   let(:from)       { Date.current - 3 }
   let(:to)         { Date.current - 1 }
   let(:svc) { instance_double(Google::Apis::YoutubeAnalyticsV2::YouTubeAnalyticsService) }

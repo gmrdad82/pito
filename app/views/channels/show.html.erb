@@ -48,19 +48,6 @@
           </td>
         </tr>
         <tr>
-          <td class="text-muted" style="padding-right: 12px;">connected</td>
-          <td>
-            <% if @channel.youtube_connection_id.present? %>
-              yes
-              <% if @channel.youtube_connection&.email.present? %>
-                <span class="text-muted">(<%= @channel.youtube_connection.email %>)</span>
-              <% end %>
-            <% else %>
-              no
-            <% end %>
-          </td>
-        </tr>
-        <tr>
           <td class="text-muted" style="padding-right: 12px;">last sync</td>
           <td><%= compact_time_ago(@channel.last_synced_at) %></td>
         </tr>

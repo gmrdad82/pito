@@ -62,19 +62,6 @@
           <td><%= @video.star? ? "yes" : "no" %></td>
         </tr>
         <tr>
-          <td class="text-muted" style="padding-right: 12px; vertical-align: top;">connected</td>
-          <td>
-            <% if @video.youtube_connection_id.present? %>
-              yes
-              <% if @video.youtube_connection&.email.present? %>
-                <span class="text-muted">(<%= @video.youtube_connection.email %>)</span>
-              <% end %>
-            <% else %>
-              no
-            <% end %>
-          </td>
-        </tr>
-        <tr>
           <td class="text-muted" style="padding-right: 12px; vertical-align: top;">last sync</td>
           <td><%= compact_time_ago(@video.last_synced_at) %></td>
         </tr>

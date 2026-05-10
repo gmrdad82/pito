@@ -5,7 +5,7 @@ require "rails_helper"
 RSpec.describe Backfill::AnalyticsRange do
   let(:user)       { create(:user) }
   let(:connection) { create(:youtube_connection, user: user) }
-  let(:channel)    { create(:channel, :connected, youtube_connection: connection) }
+  let(:channel)    { create(:channel, youtube_connection: connection) }
   let(:video)      { create(:video, channel: channel, published_at: 30.days.ago) }
   let(:from)       { 30.days.ago.to_date }
   let(:to)         { 1.day.ago.to_date }
@@ -29,7 +29,7 @@ RSpec.describe Backfill::AnalyticsRange do
   end
 
   it "respects the channels: scope filter" do
-    other_channel = create(:channel, :connected, youtube_connection: connection)
+    other_channel = create(:channel, youtube_connection: connection)
     described_class.call(
       connection: connection, from: from, to: to,
       channels: [ channel ]

@@ -90,10 +90,11 @@ class Channel < ApplicationRecord
   has_many :top_videos_windows,        dependent: :delete_all
 
   # Phase 9 — GoogleIdentity → YoutubeConnection rename (ADR 0006).
-  # After Path A2's literal full retract, "connected" means
-  # `youtube_connection_id IS NOT NULL`; the placeholder `connected`
-  # boolean is gone. Optional because seeded channels and disconnected
-  # channels carry NULL here.
+  # Every channel is OAuth-linked in the post-cleanup world; the
+  # placeholder `connected` boolean is gone and so is the derived
+  # `connected` scope. Optional stays because the FK can be cleared
+  # via the YouTube disconnect flow before the channel record is
+  # destroyed.
   belongs_to :youtube_connection,
              optional: true,
              inverse_of: :channels
@@ -177,7 +178,6 @@ class Channel < ApplicationRecord
   after_touch :sync_calendar_entry
 
   scope :starred,   -> { where(star: true) }
-  scope :connected, -> { where.not(youtube_connection_id: nil) }
 
   # Phase 15 §1 — CalendarDerivable contract.
 

@@ -10,20 +10,16 @@ FactoryBot.define do
       "https://www.youtube.com/channel/UC#{(base + pad)[0, 22]}"
     end
 
-    # Phase 9 — GoogleIdentity → YoutubeConnection rename (ADR 0006).
     # Channel is a thin YouTube-reference record: channel_url, star,
-    # youtube_connection_id, last_synced_at. `connected` is derived
-    # from `youtube_connection_id IS NOT NULL`; `syncing` is gone
-    # (Phase 8+ owns in-flight state via BulkOperation rows).
+    # youtube_connection_id, last_synced_at. The legacy `connected`
+    # boolean was retired alongside its derived semantic surface; tests
+    # that need an OAuth-linked channel pass an explicit
+    # `youtube_connection:` association instead of relying on a trait.
     star { false }
     last_synced_at { nil }
 
     trait :starred do
       star { true }
-    end
-
-    trait :connected do
-      youtube_connection { association(:youtube_connection) }
     end
   end
 end

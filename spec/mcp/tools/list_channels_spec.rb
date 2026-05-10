@@ -16,13 +16,13 @@ RSpec.describe Mcp::Tools::ListChannels do
 
     expect(data.size).to eq(1)
     row = data.first
-    # Phase 9 — `syncing` is dropped from the JSON shape;
-    # `connected` is derived from youtube_connection_id.
-    expect(row.keys).to include("id", "channel_url", "star", "connected", "last_synced_at", "created_at", "updated_at")
+    # `syncing` and the derived `connected` field are both retired
+    # from the JSON shape.
+    expect(row.keys).to include("id", "channel_url", "star", "last_synced_at", "created_at", "updated_at")
     expect(row).not_to have_key("syncing")
+    expect(row).not_to have_key("connected")
     expect(row["channel_url"]).to eq(channel.channel_url)
     expect(row["star"]).to eq("no")
-    expect(row["connected"]).to eq("no")
   end
 
   it "filters by star=yes" do
@@ -46,31 +46,18 @@ RSpec.describe Mcp::Tools::ListChannels do
     expect(data.map { |r| r["id"] }).to eq([ plain.id ])
   end
 
-  it "filters by connected=yes" do
-    connected = create(:channel, :connected)
-    create(:channel)
-
-    result = described_class.call(connected: "yes")
-    data = JSON.parse(result.content.first[:text])
-
-    expect(data.size).to eq(1)
-    expect(data.first["id"]).to eq(connected.id)
+  # The `connected` filter was retired alongside the derived
+  # connected display surface — every channel is OAuth-linked by
+  # definition now. The schema rejects the arg at the protocol layer
+  # (`ArgumentError` from the keyword-argument signature).
+  it "rejects a `connected` keyword arg (filter retired)" do
+    expect { described_class.call(connected: "yes") }
+      .to raise_error(ArgumentError, /connected/)
   end
 
   # Phase 7 Path A2 — the `syncing` column / filter is gone. Tool no
   # longer accepts a `syncing:` arg; the schema would reject it (or
   # it falls into **_extras and is ignored at the engine).
-
-  it "combines filters (intersection)" do
-    create(:channel, :starred)
-    create(:channel, :connected)
-    both = create(:channel, :starred, :connected)
-
-    result = described_class.call(star: "yes", connected: "yes")
-    data = JSON.parse(result.content.first[:text])
-
-    expect(data.map { |r| r["id"] }).to eq([ both.id ])
-  end
 
   it "rejects star=true (raw boolean) with structured error" do
     create(:channel, :starred)
@@ -84,20 +71,24 @@ RSpec.describe Mcp::Tools::ListChannels do
     expect(result.to_h[:isError]).to be true
   end
 
-  it "schema declares star/connected as enum yes/no strings" do
+  it "schema declares star as an enum yes/no string" do
     schema = described_class.input_schema.to_h
     props = schema[:properties] || schema["properties"]
-    %i[star connected].each do |key|
-      entry = props[key] || props[key.to_s]
-      expect((entry[:type] || entry["type"]).to_s).to eq("string")
-      expect((entry[:enum] || entry["enum"]).map(&:to_s)).to contain_exactly("yes", "no")
-    end
+    entry = props[:star] || props["star"]
+    expect((entry[:type] || entry["type"]).to_s).to eq("string")
+    expect((entry[:enum] || entry["enum"]).map(&:to_s)).to contain_exactly("yes", "no")
   end
 
   it "schema does NOT declare a syncing arg (column dropped in Path A2)" do
     schema = described_class.input_schema.to_h
     props = schema[:properties] || schema["properties"]
     expect(props.keys.map(&:to_s)).not_to include("syncing")
+  end
+
+  it "schema does NOT declare a connected arg (derived surface retired)" do
+    schema = described_class.input_schema.to_h
+    props = schema[:properties] || schema["properties"]
+    expect(props.keys.map(&:to_s)).not_to include("connected")
   end
 
   it "respects limit and offset" do

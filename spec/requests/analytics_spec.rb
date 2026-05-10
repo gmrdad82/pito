@@ -64,7 +64,7 @@ RSpec.describe "Analytics dashboard (top-level)", type: :request do
     end
 
     context "channel cards" do
-      it "renders one card per connected channel" do
+      it "renders one card per channel" do
         connection_a = create(:youtube_connection)
         connection_b = create(:youtube_connection)
         create(:channel, youtube_connection: connection_a)
@@ -74,13 +74,17 @@ RSpec.describe "Analytics dashboard (top-level)", type: :request do
         expect(response.body.scan(/class="analytics-channel-card"/).size).to eq(2)
       end
 
-      it "skips channels where youtube_connection_id is nil" do
+      # Post-cleanup — every channel is OAuth-linked by definition,
+      # so analytics renders a card for every channel regardless of
+      # `youtube_connection_id`. Channels with no analytics rows for
+      # the chosen window collapse to the "no data" caption.
+      it "renders cards for channels even when youtube_connection_id is nil" do
         connection = create(:youtube_connection)
         create(:channel, youtube_connection: connection)
         create(:channel, youtube_connection: nil)
 
         get "/analytics"
-        expect(response.body.scan(/class="analytics-channel-card"/).size).to eq(1)
+        expect(response.body.scan(/class="analytics-channel-card"/).size).to eq(2)
       end
     end
 

@@ -1,10 +1,10 @@
 <% content_for(:title, "sync #{@type.pluralize}") %>
 <% breadcrumb([@type.pluralize, cancel_path_for(@type)], "sync #{number_with_delimiter(@items.length)} #{@type}#{'s' if @items.length != 1}") %>
 
-<%# Phase 7 Path A2 (literal full retract). The legacy `syncing` /
-    `connected` columns are gone; the partition into already-syncing
-    skipped rows goes away. The action button is always enabled when
-    there is at least one item. %>
+<%# Phase 7 Path A2 (literal full retract). The legacy `syncing`
+    column is gone; the partition into already-syncing skipped rows
+    goes away. The action button is always enabled when there is at
+    least one item. %>
 
 <div id="sync-content">
   <div style="margin-bottom: 8px;">

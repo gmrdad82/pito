@@ -34,7 +34,6 @@ module Mcp
         data = {
           version: File.read(Rails.root.join("VERSION")).strip,
           channels: Channel.count,
-          connected_channels: Channel.connected.count,
           videos: Video.count,
           video_stats_entries: VideoStat.count,
           saved_views: SavedView.count,

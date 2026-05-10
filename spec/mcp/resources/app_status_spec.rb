@@ -55,13 +55,16 @@ RSpec.describe Mcp::Resources::AppStatus do
     end
 
     it "encodes a JSON payload with version + counts + search health" do
+      connection = create(:youtube_connection)
       create(:channel)
-      create(:channel, :connected)
+      create(:channel, youtube_connection: connection)
       out = described_class.read("pito://status")
       payload = JSON.parse(out.first[:text])
 
       expect(payload["channels"]).to eq(2)
-      expect(payload["connected_channels"]).to eq(1)
+      # The derived `connected_channels` counter was retired alongside
+      # the rest of the connected display surface.
+      expect(payload).not_to have_key("connected_channels")
       expect(payload).to have_key("videos")
       expect(payload).to have_key("video_stats_entries")
       expect(payload).to have_key("saved_views")

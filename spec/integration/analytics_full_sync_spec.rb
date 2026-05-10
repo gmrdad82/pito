@@ -7,8 +7,8 @@ RSpec.describe "analytics full sync (integration)", type: :integration do
   let(:user)       { create(:user) }
   let(:connection) { create(:youtube_connection, user: user) }
   let(:other_connection) { create(:youtube_connection, user: user, google_subject_id: "subject-other-99") }
-  let(:channel)    { create(:channel, :connected, youtube_connection: connection) }
-  let(:other_channel) { create(:channel, :connected, youtube_connection: other_connection) }
+  let(:channel)    { create(:channel, youtube_connection: connection) }
+  let(:other_channel) { create(:channel, youtube_connection: other_connection) }
   let(:active_video) { create(:video, channel: channel, youtube_video_id: "vidactiv", published_at: 30.days.ago) }
   let(:inactive_video) { create(:video, channel: channel, youtube_video_id: "vidinact", published_at: 200.days.ago) }
   let(:other_video) { create(:video, channel: other_channel, youtube_video_id: "vidother", published_at: 30.days.ago) }

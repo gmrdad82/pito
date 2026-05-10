@@ -5,10 +5,10 @@ RSpec.describe YoutubeAnalyticsSync do
   let(:user)              { create(:user) }
   let(:active_connection) { create(:youtube_connection, user: user) }
   let(:reauth_connection) { create(:youtube_connection, :needs_reauth, user: user, google_subject_id: "needs-reauth-99") }
-  let(:active_channel) { create(:channel, :connected, youtube_connection: active_connection) }
+  let(:active_channel) { create(:channel, youtube_connection: active_connection) }
   let!(:active_video)  { create(:video, channel: active_channel, published_at: 30.days.ago) }
 
-  let(:reauth_channel) { create(:channel, :connected, youtube_connection: reauth_connection) }
+  let(:reauth_channel) { create(:channel, youtube_connection: reauth_connection) }
   let!(:reauth_video)  { create(:video, channel: reauth_channel, published_at: 5.days.ago) }
 
   before do
