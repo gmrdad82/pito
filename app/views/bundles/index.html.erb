@@ -1,0 +1,42 @@
+<%# Phase 14 §2 — Bundles index. Placeholder for the Steam-shelf-
+    style listing UX which lands in Spec 03. The current shape is a
+    plain `bundles` heading + table of (name, type, members, last sync)
+    + a `[ add bundle ]` link to the create form. %>
+<% content_for(:title, "bundles") %>
+
+<div style="max-width: 1100px;">
+  <div class="dot-list" style="margin-bottom: 6px;">
+    <h1>bundles</h1>
+    <%= render(BracketedLinkComponent.new(label: "add bundle", href: new_bundle_path)) %>
+  </div>
+
+  <% if @bundles.any? %>
+    <table>
+      <thead>
+        <tr>
+          <th>name</th>
+          <th>type</th>
+          <th class="num">members</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @bundles.each do |bundle| %>
+          <tr>
+            <td><%= link_to bundle.name, bundle_path(bundle), data: { turbo_frame: "_top" } %></td>
+            <td><%= bundle.bundle_type %></td>
+            <td class="num"><%= bundle.bundle_members.count %></td>
+            <td>
+              <%= render(BracketedLinkComponent.new(
+                label: "-",
+                href: deletions_path(type: "bundle", ids: bundle.id),
+                destructive: true)) %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  <% else %>
+    <p class="text-muted">no bundles yet. [ add bundle ] to create one.</p>
+  <% end %>
+</div>

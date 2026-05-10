@@ -49,6 +49,30 @@ class AppSetting < ApplicationRecord
     first&.voyage_index_project_notes || false
   end
 
+  # Phase 16 §1 — Discord webhook delivery is enabled iff the master
+  # toggle on the singleton is true AND the credentials carry a
+  # non-blank `notifications.discord_webhook_url`. Returns false (not
+  # nil) when no singleton exists or credentials are missing.
+  def self.discord_delivery_enabled?
+    return false unless first&.discord_enabled
+    notifications_credentials_value(:discord_webhook_url).to_s.strip != ""
+  end
+
+  # Phase 16 §1 — Slack webhook delivery is enabled iff the master
+  # toggle on the singleton is true AND the credentials carry a
+  # non-blank `notifications.slack_webhook_url`.
+  def self.slack_delivery_enabled?
+    return false unless first&.slack_enabled
+    notifications_credentials_value(:slack_webhook_url).to_s.strip != ""
+  end
+
+  # Read a key out of the optional `:notifications` credentials block.
+  # Returns nil when the block (or the key) is missing.
+  def self.notifications_credentials_value(key)
+    Rails.application.credentials.dig(:notifications, key)
+  end
+  private_class_method :notifications_credentials_value
+
   private
 
   def voyage_target_flags_require_key

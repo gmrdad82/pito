@@ -122,6 +122,29 @@ Rails.application.routes.draw do
   end
   resources :footages, only: [ :index, :show, :edit, :update, :destroy ]
 
+  # Phase 14 §2 — Bundles + composite covers. Full CRUD plus member
+  # add/remove, plus a `seed_from_igdb` action that hydrates an
+  # IGDB-source bundle from the IGDB API. Member URL shape is
+  # `/bundles/:bundle_id/members/:id` where `:id` is the GAME id (not
+  # the BundleMember id) per spec.
+  resources :bundles do
+    member do
+      post :seed_from_igdb
+    end
+    resources :members, only: [ :create, :destroy ],
+                        controller: "bundle_members"
+  end
+
+  # Phase 14 §2 — auth-gated composite cover serving. The `:filename`
+  # route constraint pins the shape so path-traversal candidates
+  # (`../etc/passwd`) never reach the controller (which reapplies the
+  # regex as defense-in-depth).
+  get "/composites/:filename.jpg",
+      to: "composites#show",
+      as: :composite_cover,
+      constraints: { filename: /[a-z_]+-\d+/ },
+      defaults: { format: "jpg" }
+
   # Phase 7.5 §06 — Footage thumbnails experiment.
   #
   # Three public-read endpoints that the scrub UI (web Stimulus controller

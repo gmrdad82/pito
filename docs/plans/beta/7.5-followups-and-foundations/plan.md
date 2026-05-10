@@ -1,5 +1,9 @@
 # Phase 7.5 — Follow-ups Sweep + Concept Foundations
 
+> **Status:** complete (closed by Phase 19; see
+> [`docs/plans/beta/19-phase-75-closeout/`](../19-phase-75-closeout/)). The
+> historical workstream tracker below remains frozen as a record of what landed.
+
 > **Goal:** Close the hygiene backlog accumulated through Phase 6 + 7 + Path A2,
 > land the concept foundations the user has decided are concrete (keyboard
 > shortcuts, `pito-assets` volume, footage thumbnails), and park the remaining

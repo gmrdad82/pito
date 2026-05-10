@@ -59,6 +59,23 @@ RSpec.describe "Videos", type: :request do
         expect(response.body).to include('data-bulk-select-target="checkbox"')
         expect(response.body).to include('data-bulk-select-target="headerCheckbox"')
       end
+
+      # Frame-escape regression guard (2026-05-10). The videos table
+      # sits inside `<turbo-frame id="videos-index-table">` so sortable
+      # headers can partial-swap. Without `data-turbo-frame="_top"`
+      # cascading on the bulk-toolbar actions container, the
+      # controller-injected `[open N]` / `[delete N]` links would
+      # navigate the click inside that frame — the panes workspace and
+      # the deletions confirmation page are full-page surfaces with no
+      # matching frame, so Turbo would render "Content missing".
+      it "stamps data-turbo-frame=_top on the bulk-toolbar actions container" do
+        get videos_path
+        html = Nokogiri::HTML.fragment(response.body)
+        actions = html.css('[data-bulk-select-target="actions"]').first
+        expect(actions).not_to be_nil, "expected the bulk-select actions container"
+        expect(actions["data-turbo-frame"]).to eq("_top"),
+          "bulk-toolbar must escape the videos-index-table frame so [open N] / [delete N] navigate full-page"
+      end
     end
 
     context "JSON format" do

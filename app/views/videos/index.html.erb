@@ -16,7 +16,15 @@
   <%= turbo_frame_tag "videos-index-table" do %>
   <% if @videos.any? %>
     <div>
-      <div data-bulk-select-target="actions" class="bulk-toolbar" style="margin-bottom: 6px;">
+      <%# `data-turbo-frame="_top"` cascades to the controller-injected
+          `[open N]` / `[delete N]` links so their clicks navigate
+          full-page to `/videos/panes` and `/deletions/video/:ids`
+          instead of being scoped to the enclosing
+          `videos-index-table` Turbo Frame. Both targets are full-page
+          surfaces (panes workspace, `shared/_action_screen.html.erb`)
+          and have no matching frame in their responses — without
+          `_top` Turbo shows "Content missing". %>
+      <div data-bulk-select-target="actions" class="bulk-toolbar" style="margin-bottom: 6px;" data-turbo-frame="_top">
         <span class="action" data-bulk-select-target="openHint">
           <span class="action-sep" hidden>&middot;</span>
         </span>

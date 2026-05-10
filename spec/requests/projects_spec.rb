@@ -388,6 +388,24 @@ RSpec.describe "Projects", type: :request do
               "expected .action-sep to ship with the `hidden` attribute, got: #{sep.to_html}"
           end
         end
+
+        # Frame-escape regression guard (2026-05-10). The projects table
+        # sits inside `<turbo-frame id="projects-index-table">` so
+        # sortable headers can partial-swap. Without `data-turbo-frame="_top"`
+        # cascading on the bulk-toolbar actions container, the
+        # controller-injected `[delete N]` link would navigate the click
+        # inside that frame — the deletions confirmation page (a full-
+        # page surface from `shared/_action_screen.html.erb`) has no
+        # matching frame in its response, so Turbo would render
+        # "Content missing".
+        it "stamps data-turbo-frame=_top on the bulk-toolbar actions container" do
+          get projects_path
+          html = Nokogiri::HTML.fragment(response.body)
+          actions = html.css('[data-bulk-select-target="actions"]').first
+          expect(actions).not_to be_nil, "expected the bulk-select actions container"
+          expect(actions["data-turbo-frame"]).to eq("_top"),
+            "bulk-toolbar must escape the projects-index-table frame so [delete N] navigates full-page"
+        end
       end
     end
   end
@@ -1105,6 +1123,23 @@ RSpec.describe "Projects", type: :request do
         expect(response.body).to include('data-bulk-select-target="actions"')
         expect(response.body).to match(/data-bulk-select-target="deleteAction"\s+hidden/)
         expect(response.body).to match(/data-bulk-select-target="count"\s+hidden/)
+      end
+
+      # Frame-escape regression guard (2026-05-10). The notes table sits
+      # inside `<turbo-frame id="notes-table">` so sortable headers can
+      # partial-swap. Without `data-turbo-frame="_top"` cascading on the
+      # bulk-toolbar actions container, the controller-injected
+      # `[delete N]` link would navigate the click inside that frame —
+      # the deletions confirmation page (a full-page surface from
+      # `shared/_action_screen.html.erb`) has no matching frame in its
+      # response, so Turbo would render "Content missing".
+      it "stamps data-turbo-frame=_top on the notes-pane bulk-toolbar actions container" do
+        get project_path(project)
+        html = Nokogiri::HTML.fragment(response.body)
+        actions = html.css("turbo-frame#notes-table").css('[data-bulk-select-target="actions"]').first
+        expect(actions).not_to be_nil, "expected the notes-pane bulk-select actions container"
+        expect(actions["data-turbo-frame"]).to eq("_top"),
+          "notes-pane bulk-toolbar must escape the notes-table frame so [delete N] navigates full-page"
       end
     end
 

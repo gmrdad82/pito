@@ -289,6 +289,24 @@ RSpec.describe "Channels", type: :request do
             "expected .action-sep to ship with the `hidden` attribute, got: #{sep.to_html}"
         end
       end
+
+      # Frame-escape regression guard (2026-05-10). The channels table
+      # sits inside `<turbo-frame id="channels-index-table">` so sortable
+      # headers and filter chips can partial-swap. Without
+      # `data-turbo-frame="_top"` cascading on the bulk-toolbar actions
+      # container, the controller-injected `[open N]` / `[sync N]` /
+      # `[delete N]` links would navigate the click inside that frame —
+      # those targets are full-page surfaces (panes workspace,
+      # `shared/_action_screen.html.erb`) and have no matching frame in
+      # their responses, so Turbo would render "Content missing".
+      it "stamps data-turbo-frame=_top on the bulk-toolbar actions container" do
+        get channels_path
+        html = Nokogiri::HTML.fragment(response.body)
+        actions = html.css('[data-bulk-select-target="actions"]').first
+        expect(actions).not_to be_nil, "expected the bulk-select actions container"
+        expect(actions["data-turbo-frame"]).to eq("_top"),
+          "bulk-toolbar must escape the channels-index-table frame so [open N] / [sync N] / [delete N] navigate full-page"
+      end
     end
 
     # Phase 4 Wave 3 — server-side sort via `?sort=<key>&dir=<asc|desc>`.

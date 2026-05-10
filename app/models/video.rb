@@ -21,6 +21,20 @@ class Video < ApplicationRecord
   has_many :playlist_videos, dependent: :destroy
   has_many :playlists, through: :playlist_videos
 
+  # Phase 13.1 — analytics tables. Cascade is delete_all because the
+  # rows are derived from the YouTube Analytics API; deleting the
+  # Video wipes them. Each FK is also ON DELETE CASCADE at the DB
+  # level (belt-and-suspenders).
+  has_many :video_dailies,                       dependent: :delete_all
+  has_many :video_daily_by_countries,            dependent: :delete_all
+  has_many :video_daily_by_device_types,         dependent: :delete_all
+  has_many :video_daily_by_operating_systems,    dependent: :delete_all
+  has_many :video_daily_by_traffic_sources,      dependent: :delete_all
+  has_many :video_daily_by_subscribed_statuses,  dependent: :delete_all
+  has_many :video_daily_by_age_group_genders,    dependent: :delete_all
+  has_many :video_window_summaries,              dependent: :delete_all
+  has_many :video_retentions,                    dependent: :delete_all
+
   # Phase 15 §1 — calendar entries cascade on host destroy. The FK is
   # ON DELETE CASCADE on the database level too (calendar_entries
   # migration), so this is documentation; Rails-side cascade is

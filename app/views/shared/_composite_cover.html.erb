@@ -1,0 +1,30 @@
+<%# Phase 14 §2 — composite cover renderer.
+    Locals:
+      bundle:  a Bundle record (or anything responding to
+               `composite_cover_url` and `name`).
+      size:    one of :full (600×800 native), :card (300×400),
+               :thumb (150×200). Defaults to :card.
+      alt:     optional alt text (defaults to bundle.name).
+
+    Falls back to `[no cover]` when `composite_cover_url` is blank
+    (cover not yet built — the BundleCoverBuild Sidekiq job will
+    populate it on the next change). %>
+<% size_token  = local_assigns.fetch(:size, :card) %>
+<% alt_text    = local_assigns.fetch(:alt, bundle.name) %>
+<% url         = bundle.composite_cover_url %>
+<%
+  width, height =
+    case size_token
+    when :full  then [ 600, 800 ]
+    when :card  then [ 300, 400 ]
+    when :thumb then [ 150, 200 ]
+    else             [ 300, 400 ]
+    end
+%>
+<% if url.present? %>
+  <%= image_tag url, alt: alt_text, loading: "lazy",
+                width: width, height: height,
+                style: "max-width: 100%; height: auto; display: block;" %>
+<% else %>
+  <span class="bracketed-active text-muted">[no cover]</span>
+<% end %>

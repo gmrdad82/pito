@@ -680,6 +680,16 @@ interpretations).
 
 **Delivers.** Phase 7.5 pre-specs 08 / 09 / 10 stop being open questions.
 
+**Resolution:** closed by Phase 19 close-out (2026-05-10). User confirmed all
+three architect recommendations. 08 / 09 / 10 pre-spec files were deleted on
+2026-05-10; the durable record lives in
+`docs/plans/beta/7.5-followups-and-foundations/dropped.md`. 07 (Games) is
+absorbed into work unit 6 (Game model expansion + IGDB sync) and its pre-spec
+file is preserved as historical reference. See
+`docs/plans/beta/19-phase-75-closeout/specs/01-closeout-and-followups-resolution.md`
+and the close-out commit on `main` (the user signs the close-out off as a
+single commit per the workflow rule).
+
 ### 12. Single-binary distribution + ONCE-style installer
 
 **Scope.** Per note 7, Option 1 (keep pito as a CLI / TUI app, add a ONCE-style

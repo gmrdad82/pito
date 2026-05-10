@@ -65,6 +65,23 @@ RSpec.describe "Games", type: :request do
         expect(response.body).to include("bulk-select-target=\"checkbox\"")
       end
 
+      # Frame-escape regression guard (2026-05-10). The games table sits
+      # inside `<turbo-frame id="games-index-table">` so sortable headers
+      # can partial-swap. Without `data-turbo-frame="_top"` cascading on
+      # the bulk-toolbar actions container, the controller-injected
+      # `[delete N]` link would navigate the click inside that frame —
+      # the deletions confirmation page (a full-page surface from
+      # `shared/_action_screen.html.erb`) has no matching frame in its
+      # response, so Turbo would render "Content missing".
+      it "stamps data-turbo-frame=_top on the bulk-toolbar actions container" do
+        get games_path
+        html = Nokogiri::HTML.fragment(response.body)
+        actions = html.css('[data-bulk-select-target="actions"]').first
+        expect(actions).not_to be_nil, "expected the bulk-select actions container"
+        expect(actions["data-turbo-frame"]).to eq("_top"),
+          "bulk-toolbar must escape the games-index-table frame so [delete N] navigates full-page"
+      end
+
       it "honors a sort=title param" do
         create(:game, :synced, title: "Aardvark", igdb_id: 1)
         get games_path, params: { sort: "title", dir: "asc" }

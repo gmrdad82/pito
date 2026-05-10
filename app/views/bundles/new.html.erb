@@ -1,0 +1,8 @@
+<%# Phase 14 §2 — new bundle form. %>
+<% content_for(:title, "new bundle") %>
+<% breadcrumb([ "bundles", bundles_path ], "new") %>
+
+<div style="max-width: 600px;">
+  <h1>new bundle</h1>
+  <%= render "form", bundle: @bundle, form_mode: :create %>
+</div>
