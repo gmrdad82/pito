@@ -19,6 +19,12 @@ class NotesController < ApplicationController
   before_action :set_note, only: [ :show, :update, :destroy ]
   before_action :reject_if_notes_syncing,
                 only: [ :create, :update, :destroy ]
+  # Phase 20 — friendly URLs. Note paths often end in `.md`; without
+  # this guard ActionDispatch parses `.md` as a Rails format token and
+  # the implicit HTML render 406s. We restore the format to whatever
+  # the `Accept` header asks for (HTML by default; JSON request specs
+  # set `ACCEPT: application/json` and that path stays unchanged).
+  before_action :restore_html_format, only: [ :show, :update, :destroy ]
 
   def index
     # Top-level list — kept for the Phase A routing helper. The project notes
@@ -125,6 +131,23 @@ class NotesController < ApplicationController
       @note = Note.find(key.to_i)
     else
       @note = Note.find_by!(path: key)
+    end
+  end
+
+  # Phase 20 — friendly URLs. When the URL has a `.md` extension (the
+  # common case — `Note#path` is the on-disk filename), the
+  # `ActionDispatch::Http::MimeNegotiation#format_from_path_extension`
+  # path resolves the format to `md`, which isn't a registered MIME
+  # type. The implicit HTML render then 406s. We fall back to whatever
+  # the `Accept` header asks for, defaulting to HTML so a plain
+  # browser GET resolves cleanly.
+  def restore_html_format
+    return if %i[html json].include?(request.format.to_sym)
+    accept = request.headers["Accept"].to_s
+    request.format = if accept.include?("application/json")
+                       :json
+    else
+                       :html
     end
   end
 

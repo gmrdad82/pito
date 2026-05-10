@@ -251,34 +251,36 @@ Files in `extras/cli/`:
 
 ## Acceptance
 
-- [ ] `friendly_id` gem added to `Gemfile` at `~> 5.5` (or current major) and
+- [x] `friendly_id` gem added to `Gemfile` at `~> 5.5` (or current major) and
       locked.
-- [ ] `config/initializers/friendly_id.rb` generated and committed; default
+- [x] `config/initializers/friendly_id.rb` generated and committed; default
       config retained.
-- [ ] `friendly_id_slugs` table migration generated and applied; the table is
+- [x] `friendly_id_slugs` table migration generated and applied; the table is
       populated by the `:history` module on first rename of a Project / Bundle /
       Collection / MilestoneRule.
-- [ ] `slug` columns added to `projects`, `bundles`, `collections`,
+- [x] `slug` columns added to `projects`, `bundles`, `collections`,
       `milestone_rules`. Each is `NOT NULL` with a unique index after backfill.
-- [ ] Existing rows in those four tables have backfilled slugs after the
+- [x] Existing rows in those four tables have backfilled slugs after the
       migration runs (no `NULL` slugs in the dev DB).
-- [ ] Channel, Video, Game, Footage, Project, Bundle, Collection, MilestoneRule
+- [x] Channel, Video, Game, Footage, Project, Bundle, Collection, MilestoneRule
       each `extend FriendlyId` and declare `friendly_id` with the locked source
-      column / option set.
-- [ ] `Note` controller switched to `Note.find_by!(path: params[:id])` where
+      column / option set. (Channel + Footage use a custom `Model.friendly`
+      finder rather than `extend FriendlyId` because their slug source is a
+      derived value, not a 1:1 column — per the locked decisions.)
+- [x] `Note` controller switched to `Note.find_by!(path: params[:id])` where
       applicable; no broken routes.
-- [ ] Every controller for a slugged resource calls
+- [x] Every controller for a slugged resource calls
       `Model.friendly.find(params[:id])` (and `params[:<resource>_id]` where
       nested) instead of `Model.find`.
-- [ ] GET requests for an integer-ID URL of a slugged resource respond 301 with
+- [x] GET requests for an integer-ID URL of a slugged resource respond 301 with
       `Location` set to the canonical slug URL (this applies to Channel, Video,
       Game, Footage, Project, Bundle, Collection, MilestoneRule).
-- [ ] After a rename, the old slug URL of a Project / Bundle / Collection /
+- [x] After a rename, the old slug URL of a Project / Bundle / Collection /
       MilestoneRule responds 301 with `Location` pointing at the new canonical
       slug URL (history module behaviour).
-- [ ] `to_param` returns the slug for every slugged record (verified via model
+- [x] `to_param` returns the slug for every slugged record (verified via model
       spec for each).
-- [ ] MCP tools that accept a resource ID accept either slug or integer ID; tool
+- [x] MCP tools that accept a resource ID accept either slug or integer ID; tool
       specs cover both inputs per tool.
 - [ ] `pito` CLI subcommands that accept a resource ID accept either slug or
       integer ID; the old `--*-id` flags continue to work as aliases for the new
@@ -287,9 +289,10 @@ Files in `extras/cli/`:
       ID where a slug or display name is available.
 - [ ] `docs/architecture.md` and `docs/mcp.md` updated per the "Docs touched"
       section above.
-- [ ] Test sweep below is fully implemented and green.
+- [x] Test sweep below is fully implemented and green.
 - [ ] `bundle exec rspec` green; `bundle exec rubocop` green; manual playbook
-      below verified by user.
+      below verified by user. (rspec + rubocop green this session;
+      `bundler-audit` + `brakeman` also clean. Manual playbook awaits user.)
 
 ---
 

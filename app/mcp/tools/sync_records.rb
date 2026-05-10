@@ -35,9 +35,11 @@ module Mcp
         return scope_err if scope_err
 
         # Phase 20 — friendly URLs. Translate slugs to integer ids before
-        # the bulk-sync pipeline.
-        raw_keys = Array(ids).map(&:to_s).reject(&:blank?).uniq
-        return error_response("no IDs provided.") if raw_keys.empty?
+        # the bulk-sync pipeline. Preserve input shape so integer-id
+        # callers see integer ids back in `not_found_ids`.
+        raw_inputs = Array(ids).reject { |x| x.nil? || x.to_s.empty? }.uniq
+        return error_response("no IDs provided.") if raw_inputs.empty?
+        raw_keys = raw_inputs.map(&:to_s)
 
         unless YesNo.yes_no?(confirm)
           return error_response("confirm must be 'yes' or 'no' (got #{confirm.inspect})")
@@ -53,16 +55,16 @@ module Mcp
 
         found_by_id = {}
         not_found_ids = []
-        raw_keys.each do |key|
+        raw_inputs.each do |input|
           record = begin
-            klass.friendly.find(key)
+            klass.friendly.find(input)
           rescue ActiveRecord::RecordNotFound
             nil
           end
           if record
             found_by_id[record.id] = record
           else
-            not_found_ids << key
+            not_found_ids << input
           end
         end
         ids = found_by_id.keys
@@ -136,7 +138,7 @@ module Mcp
         preview = {
           preview_url: preview_url,
           type: type,
-          total: ids.size,
+          total: raw_keys.size,
           syncable: syncable,
           skipped: skipped,
           not_found_ids: not_found_ids,
