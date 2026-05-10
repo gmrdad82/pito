@@ -57,11 +57,31 @@ Every implementation pass covers, at minimum:
 
 System specs are intentionally thin — slow and brittle.
 
+RSpec auto-migrates the **test** DB on each run via `maintain_test_schema!`.
+Applying a migration against the **dev** DB is a separate step — see rule F.
+
 ### E. Yes / no boundary
 
 External booleans (URL params, JSON, MCP I/O, CLI args, Rust client wire format)
 are `"yes"` / `"no"` strings — never `true` / `false` / `0` / `1`. Internal
 storage stays Boolean. Convert at every boundary. See `CLAUDE.md` hard rules.
+
+### F. Migrations: run them
+
+**Migrations: run them.** When this agent creates a `db/migrate/*.rb` file, it
+MUST run `bin/rails db:migrate` against the dev DB before reporting back. Test
+DB migration is automatic via RSpec. Dev DB does NOT auto-migrate — the user's
+`bin/dev` Puma reads from dev. If you don't migrate dev, the user hits broken
+routes / 500s on the next page load.
+
+Concrete:
+
+- After `add_column` / `create_table` / `rename_*`: run `bin/rails db:migrate`.
+- Verify with `bin/rails db:migrate:status` that no `down` rows remain.
+- If the migration fails (FK violation, NOT NULL on existing data, etc.), STOP
+  and report — don't paper over.
+- The master agent will tell the user to restart `bin/dev` after the commit
+  lands.
 
 ## pito specifics
 

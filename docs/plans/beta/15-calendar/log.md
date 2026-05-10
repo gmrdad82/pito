@@ -265,42 +265,43 @@ three minor concerns (3, 4, 6). Bundled the cheap-win fixes in this session.
   allowlist (otherwise the existing `metadata_changes_only_user_overrides?`
   check still applies). Three call sites updated:
   - `Calendar::Derivation#upsert_existing!` — allowlist is the explicit
-    `UPSERT_ALLOWED_ATTRIBUTES` constant: `%i[title description starts_at
-    ends_at state metadata source_ref release_precision
-    manual_date_override]`. Anything outside that set (e.g., a typed FK like
-    `video_id`) is rejected even on the service code path.
+    `UPSERT_ALLOWED_ATTRIBUTES` constant:
+    `%i[title description starts_at ends_at state metadata source_ref release_precision manual_date_override]`.
+    Anything outside that set (e.g., a typed FK like `video_id`) is rejected
+    even on the service code path.
   - `Calendar::EntriesController#note` — `bypass_readonly_for = [:metadata]`.
     The endpoint already only writes `user_overrides`, but the explicit scope
     keeps the bypass surface auditable.
-  - `DeletionsController#cancel_calendar_entry` — `bypass_readonly_for =
-    [:state]`. Soft-cancel only flips `state`; nothing else.
+  - `DeletionsController#cancel_calendar_entry` —
+    `bypass_readonly_for = [:state]`. Soft-cancel only flips `state`; nothing
+    else.
 - **F2 — milestone-firing race window.** Added migration
   `20260510183815_add_unique_index_calendar_entries_milestone_rule.rb` — a
   partial unique index on `calendar_entries(milestone_rule_id)` scoped
-  `WHERE entry_type = 6 AND source = 2`. Updated `MilestoneRule#fire!` to
-  rescue `ActiveRecord::RecordNotUnique` and re-read `fired_at`: if the
-  sibling caller already committed, the rescue returns the rule cleanly
-  (the firing is idempotent). If `fired_at` is somehow still nil after
-  reload (defensive branch — the surrounding transaction rolled back without
-  a sibling commit landing), the exception is re-raised so the caller can
-  decide.
+  `WHERE entry_type = 6 AND source = 2`. Updated `MilestoneRule#fire!` to rescue
+  `ActiveRecord::RecordNotUnique` and re-read `fired_at`: if the sibling caller
+  already committed, the rescue returns the rule cleanly (the firing is
+  idempotent). If `fired_at` is somehow still nil after reload (defensive branch
+  — the surrounding transaction rolled back without a sibling commit landing),
+  the exception is re-raised so the caller can decide.
 
 **Reviewer concerns closed**
 
 - **Concern 3** — `app/views/calendar/entries/show.html.erb` reminder copy is
   now the literal `[remind: t-7 t-1 t-0]`, not derived from
-  `@declarations.map { |d| d[:kind] }`. Visibility is gated on `@declarations.any?
-  { |d| d[:kind] == "game_release_upcoming" }` so the literal still only
-  appears for entries that genuinely have pre-release reminders.
-- **Concern 4** — Bracketed-link active-state divergence in the reminder
-  copy: removed the inner padding (`[ remind: ... ]` → `[remind: ...]`) in
-  both `show.html.erb` and `entry_row_component.html.erb`, matching the
-  canonical `[label]` form rendered by `BracketedLinkComponent`.
+  `@declarations.map { |d| d[:kind] }`. Visibility is gated on
+  `@declarations.any? { |d| d[:kind] == "game_release_upcoming" }` so the
+  literal still only appears for entries that genuinely have pre-release
+  reminders.
+- **Concern 4** — Bracketed-link active-state divergence in the reminder copy:
+  removed the inner padding (`[ remind: ... ]` → `[remind: ...]`) in both
+  `show.html.erb` and `entry_row_component.html.erb`, matching the canonical
+  `[label]` form rendered by `BracketedLinkComponent`.
 - **Concern 6** — Removed the `[note]` link from the read-only branch of
   `show.html.erb`. The link pointed at a `modal-trigger` whose target
   (`note-modal`) was never rendered on the page, so clicks were no-ops. The
-  PATCH `/calendar/entries/:id/note` endpoint is preserved (programmatic
-  callers — MCP / future Rust client — and a future UI revival).
+  PATCH `/calendar/entries/:id/note` endpoint is preserved (programmatic callers
+  — MCP / future Rust client — and a future UI revival).
 
 **Files touched**
 
@@ -310,33 +311,34 @@ three minor concerns (3, 4, 6). Bundled the cheap-win fixes in this session.
   `app/controllers/deletions_controller.rb`
 - Views / components: `app/views/calendar/entries/show.html.erb`,
   `app/components/entry_row_component.html.erb`
-- Migration: `db/migrate/20260510183815_add_unique_index_calendar_entries_milestone_rule.rb`
+- Migration:
+  `db/migrate/20260510183815_add_unique_index_calendar_entries_milestone_rule.rb`
 - Schema: `db/schema.rb` (regenerated)
 - Specs: `spec/models/calendar_entry_spec.rb` (added 4 cases for the scoped
   allowlist), `spec/models/milestone_rule_spec.rb` (added 4 cases for the F2
-  race-condition guard), `spec/services/calendar/derivation_spec.rb`
-  (no-bypass on user_overrides metadata write), `spec/components/entry_row_component_spec.rb`
-  (literal-form assertion), `spec/requests/calendar/entries_spec.rb`
-  (canonical literal + no-modal assertions),
-  `spec/models/channel_calendar_derivation_spec.rb` (comment refresh)
+  race-condition guard), `spec/services/calendar/derivation_spec.rb` (no-bypass
+  on user_overrides metadata write),
+  `spec/components/entry_row_component_spec.rb` (literal-form assertion),
+  `spec/requests/calendar/entries_spec.rb` (canonical literal + no-modal
+  assertions), `spec/models/channel_calendar_derivation_spec.rb` (comment
+  refresh)
 
 **Quality gates**
 
-- `bundle exec rspec spec/models spec/services spec/components spec/requests
-  spec/jobs spec/validators spec/helpers` — 3048 examples, 0 failures, 1
-  pending (pre-existing Phase 14 IGDB pending).
+- `bundle exec rspec spec/models spec/services spec/components spec/requests spec/jobs spec/validators spec/helpers`
+  — 3048 examples, 0 failures, 1 pending (pre-existing Phase 14 IGDB pending).
 - `bundle exec rubocop` — 795 files, no offenses.
 - `bundle exec brakeman -q -w2` — 0 security warnings, 0 errors. Two stale
-  ignore entries flagged as "Obsolete Ignore Entries"
-  (`4d586370...ba5`, `050af471...317`); pre-existing, unrelated to this
-  session, surfaced to master agent for cleanup.
+  ignore entries flagged as "Obsolete Ignore Entries" (`4d586370...ba5`,
+  `050af471...317`); pre-existing, unrelated to this session, surfaced to master
+  agent for cleanup.
 
 **Open issues**
 
-- The `[note]` modal markup for derived/auto entries remains unbuilt. The
-  PATCH endpoint stays in the controller; pick this up when the modal is
-  designed (use `ConfirmModalComponent` or a sibling `note-modal` partial).
-- `Calendar::Derivation::UPSERT_ALLOWED_ATTRIBUTES` is the source of truth
-  for which derived-entry attributes the service overwrites. If a future
-  spec adds a new column the service should write (e.g., a derived-entry
-  `priority`), update the constant alongside the schema change.
+- The `[note]` modal markup for derived/auto entries remains unbuilt. The PATCH
+  endpoint stays in the controller; pick this up when the modal is designed (use
+  `ConfirmModalComponent` or a sibling `note-modal` partial).
+- `Calendar::Derivation::UPSERT_ALLOWED_ATTRIBUTES` is the source of truth for
+  which derived-entry attributes the service overwrites. If a future spec adds a
+  new column the service should write (e.g., a derived-entry `priority`), update
+  the constant alongside the schema change.

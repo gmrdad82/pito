@@ -95,6 +95,10 @@ IDOR test obligations retired. Canonical decision:
   commitment). Routine choices live in `log.md`.
 - Phase log file: `docs/plans/beta/<NN-phase>/log.md` — append after the user
   validates, never silently rewrite history.
+- When the spec calls for a new migration, the rails-impl agent that implements
+  it runs `bin/rails db:migrate` against the dev DB after applying. Test DB
+  migration is automatic via RSpec; dev DB is not. See `docs/agents/rails.md`
+  rule F.
 
 ## Out of scope
 
