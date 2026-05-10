@@ -49,7 +49,7 @@ RSpec.describe "Projects", type: :request do
       it "drops the table's column count by 1 (from 7 to 6 thead cells)" do
         get projects_path
         html = Nokogiri::HTML.fragment(response.body)
-        # bulkCol(hidden) + name + created + footages + notes + timelines = 6.
+        # bulkCol(hidden) + name + created + footages + notes + videos = 6.
         expect(html.css("thead th").size).to eq(6)
       end
 
@@ -88,13 +88,15 @@ RSpec.describe "Projects", type: :request do
         )
       end
 
-      it "renders the four numeric columns (created / footage / notes / timelines)" do
+      it "renders the four numeric columns (created / footage / notes / videos)" do
         get projects_path
         html = Nokogiri::HTML.fragment(response.body)
         headers = html.css("thead th").map { |th| th.text.strip.gsub(/[▲▼]/, "").strip }
         # bulkCol header (empty), action col header (empty), then the five
         # data columns in order. `footage` is the new singular header.
-        expect(headers.last(5)).to eq([ "name", "created", "footage", "notes", "timelines" ])
+        # Phase 12 realignment (2026-05-10): `timelines` column retired,
+        # replaced with `videos` (Project.has_many :videos).
+        expect(headers.last(5)).to eq([ "name", "created", "footage", "notes", "videos" ])
       end
 
       it "renders the project's footage duration via human_duration and notes word total" do
@@ -105,8 +107,9 @@ RSpec.describe "Projects", type: :request do
         nums = row.css("td.num").map { |td| td.text.strip }
         # First .num is the relative time string; the trailing three are
         # human_duration(footage_duration_seconds) / human_words(notes_words_total) /
-        # timelines_count. 2058s -> "34m 18s"; 6 words -> "6w" (compact
-        # label with comma-delimited thousands for larger counts).
+        # project.videos.count. 2058s -> "34m 18s"; 6 words -> "6w" (compact
+        # label with comma-delimited thousands for larger counts). Alpha has
+        # no videos in this fixture, so the trailing column reads "0".
         expect(nums.last(3)).to eq([ "34m 18s", "6w", "0" ])
       end
 
@@ -606,12 +609,15 @@ RSpec.describe "Projects", type: :request do
       get project_path(project)
       body = response.body
       expect(body.scan(/class="pane-row"/).size).to eq(1)
-      # Three panes inside the .pane-row; the third also carries the
-      # `--wide` modifier. (Phase 12 added a fourth `.pane` below the
-      # row for the linked-videos listing — not counted here.)
-      pane_row_html = body[/<div class="pane-row"[^>]*>.*?<\/div>\s*<\/div>/m] || body
-      expect(pane_row_html.scan(/class="pane(?:\s[^"]*)?"/).size).to be >= 3
-      expect(body.scan(/class="pane pane--wide"/).size).to eq(1)
+      # Phase 12 added a fourth `.pane` below the row for the
+      # linked-videos listing — count `class="pane"` (no modifier) +
+      # `class="pane pane--wide"` separately so the math is robust to
+      # additions outside the .pane-row.
+      plain_panes = body.scan(/class="pane"/).size
+      wide_panes  = body.scan(/class="pane pane--wide"/).size
+      # Inside the row: 2 plain + 1 wide. Below the row: 1 plain (linked videos).
+      expect(plain_panes).to be >= 3
+      expect(wide_panes).to eq(1)
     end
 
     # Phase B revamp (2026-05-06) — no inline pane-bg styling. The CSS

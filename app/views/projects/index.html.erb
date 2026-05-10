@@ -26,8 +26,19 @@
   - Both new values are kept up-to-date by after_save / after_destroy
     callbacks on `Footage` / `Note`. Sort keys map to the new aggregate
     columns (`footage_duration_seconds`, `notes_words_total`).
-  - The `timelines` column is unchanged (still the counter cache; no
-    timeline-specific aggregate yet).
+
+  Phase 12 realignment (2026-05-10):
+  - The `timelines` column was retired alongside the Timeline model
+    (Resolved ambiguity #1). Replaced with a `videos` column that
+    counts the project's directly-associated Videos via the
+    `has_many :videos` link added in Phase 12 (Video.project_id is
+    nullable). Rendered as `project.videos.count` — no counter cache
+    yet, so this issues a COUNT(*) per row. The header is intentionally
+    NOT sortable in this dispatch: ALLOWED_SORTS is controller-owned
+    and adding a `videos_count` sort entry would require either a
+    counter-cache column on `projects` or a SQL subquery in the
+    controller — both out of scope here. Sortability returns when a
+    follow-up adds the counter cache.
 %>
 <%# Sort headers use the shared `sort_link_to` helper so the active
     column's link picks up the `.sort-{asc,desc}` class — the CSS
@@ -87,7 +98,7 @@
             <th class="sortable num"><%= sort_link_to("created", "created_at", current_sort: current_sort, current_dir: current_dir, frame: "projects-index-table") %></th>
             <th class="sortable num"><%= sort_link_to("footage", "footage_duration_seconds", current_sort: current_sort, current_dir: current_dir, frame: "projects-index-table") %></th>
             <th class="sortable num"><%= sort_link_to("notes", "notes_words_total", current_sort: current_sort, current_dir: current_dir, frame: "projects-index-table") %></th>
-            <th class="sortable num"><%= sort_link_to("timelines", "timelines_count", current_sort: current_sort, current_dir: current_dir, frame: "projects-index-table") %></th>
+            <th class="num">videos</th>
           </tr>
         </thead>
         <tbody>
@@ -100,7 +111,7 @@
               <td class="num"><%= compact_time_ago(project.created_at) %></td>
               <td class="num"><%= human_duration(project.footage_duration_seconds) %></td>
               <td class="num"><%= NoteHelper.human_words(project.notes_words_total) %></td>
-              <td class="num"><%= project.timelines_count %></td>
+              <td class="num"><%= project.videos.count %></td>
             </tr>
           <% end %>
         </tbody>

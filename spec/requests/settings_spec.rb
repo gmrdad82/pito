@@ -117,18 +117,20 @@ RSpec.describe "Settings", type: :request do
       expect(response.body).not_to include("[save]")
     end
 
-    it "renders settings as a .pane-row of nine .pane children" do
+    it "renders settings as a .pane-row of ten .pane children" do
       # Phase 3 — Step C (5c-settings-ui-and-docs.md) — sixth pane added
       # for tokens. Phase 12 Step A added a sessions pane and Phase 12
       # Step B added an oauth-applications pane, bringing the total to
       # eight. Phase 7 Step C added a "google" pane reflecting Google
-      # OAuth connection state, bringing the total to nine. The global
-      # `:nth-child` zebra rule continues to handle A/B alternation
-      # automatically — no inline backgrounds in markup.
+      # OAuth connection state, bringing the total to nine. Phase 12 also
+      # added a "user" pane for self-service email/password change,
+      # bringing the total to ten. The global `:nth-child` zebra rule
+      # continues to handle A/B alternation automatically — no inline
+      # backgrounds in markup.
       get settings_path
       expect(response.body.scan(/class="pane-row"/).length).to eq(1)
       panes = response.body.scan(/class="pane(?:\s[^"]*)?"/).size
-      expect(panes).to eq(9)
+      expect(panes).to eq(10)
     end
 
     it "does not paint sections with inline pane-bg tokens (CSS handles zebra)" do

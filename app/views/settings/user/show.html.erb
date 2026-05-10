@@ -1,0 +1,57 @@
+<% content_for(:title, "user") %>
+<% breadcrumb(["settings", settings_path], "user") %>
+
+<div style="margin-bottom: 8px;">
+  <h1>user</h1>
+  <p class="text-muted" style="margin-top: 2px;">
+    change your email or password.<br>
+    current password is required to authorize the change.
+  </p>
+</div>
+
+<div class="pane pane--standalone">
+  <%= form_with url: settings_user_path, method: :patch, scope: :user, data: { turbo: false } do |f| %>
+    <% if @user.errors.any? %>
+      <div class="flash-error" style="margin-bottom: 8px;">
+        <% @user.errors.full_messages.each do |msg| %>
+          <div><%= msg %></div>
+        <% end %>
+      </div>
+    <% end %>
+
+    <div style="margin-bottom: 12px;">
+      <label for="user_email" class="form-label">email</label>
+      <input type="email" name="user[email]" id="user_email"
+             value="<%= @user.email %>" required autocomplete="off"
+             style="max-width: 420px; width: 100%;">
+    </div>
+
+    <div style="margin-bottom: 12px;">
+      <label for="user_current_password" class="form-label">current password</label>
+      <input type="password" name="user[current_password]" id="user_current_password"
+             value="" required autocomplete="current-password"
+             style="max-width: 420px; width: 100%;">
+      <span class="form-hint" style="display: block;">required to authorize the change.</span>
+    </div>
+
+    <div style="margin-bottom: 12px;">
+      <label for="user_password" class="form-label">new password</label>
+      <input type="password" name="user[password]" id="user_password"
+             value="" autocomplete="new-password"
+             style="max-width: 420px; width: 100%;">
+      <span class="form-hint" style="display: block;">leave blank to keep current password.</span>
+    </div>
+
+    <div style="margin-bottom: 12px;">
+      <label for="user_password_confirmation" class="form-label">confirm new password</label>
+      <input type="password" name="user[password_confirmation]" id="user_password_confirmation"
+             value="" autocomplete="new-password"
+             style="max-width: 420px; width: 100%;">
+    </div>
+
+    <div class="dot-list">
+      <button type="submit">[update]</button>
+      <%= render(BracketedLinkComponent.new(label: "cancel", href: settings_path)) %>
+    </div>
+  <% end %>
+</div>

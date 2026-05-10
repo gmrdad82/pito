@@ -16,11 +16,12 @@ RSpec.describe "BulkOperations", type: :request do
     end
 
     it "shows items table" do
-      video = create(:video)
+      video = create(:video, title: "MyVid")
       operation.bulk_operation_items.create!(target: video, target_type: "Video", target_id: video.id, status: :succeeded)
       get bulk_operation_path(operation)
-      # Phase 7 Path A2 — Video has no title; surface label collapses to youtube_video_id.
-      expect(response.body).to include(video.youtube_video_id)
+      # Phase 12 — Video carries title again. The view surface prefers
+      # title; falls back to youtube_video_id only when title is blank.
+      expect(response.body).to include("MyVid")
       expect(response.body).to include("succeeded")
     end
 
