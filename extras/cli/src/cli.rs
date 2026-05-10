@@ -20,10 +20,16 @@ pub struct Cli {
 pub enum Commands {
     /// Configure local authentication state
     Auth(AuthArgs),
+    /// Read calendar entries / schedule / month grid (Phase 21)
+    Calendar(CalendarArgs),
     /// Import footage from local files
     Footage(FootageArgs),
+    /// Browse / inspect games (Phase 21)
+    Games(GamesArgs),
     /// Print help
     Help,
+    /// Read or modify notifications (Phase 21)
+    Notifications(NotificationsArgs),
     /// Search videos and channels
     Search(SearchArgs),
     /// List saved views
@@ -208,6 +214,358 @@ pub struct ViewsListArgs {
     #[arg(long, value_name = "N", default_value_t = 50)]
     pub limit: u32,
 
+    /// Emit JSON output instead of plaintext.
+    #[arg(long)]
+    pub json: bool,
+}
+
+// --- games (Phase 21) -------------------------------------------------------
+
+#[derive(clap::Args)]
+pub struct GamesArgs {
+    #[command(subcommand)]
+    pub command: GamesCommand,
+}
+
+#[derive(Subcommand)]
+pub enum GamesCommand {
+    /// List games (GET /games.json)
+    List(GamesListArgs),
+    /// Show a single game by slug or id (GET /games/:id.json)
+    Show(GamesShowArgs),
+    /// IGDB type-ahead search (GET /games/search.json?q=)
+    Search(GamesSearchArgs),
+    /// Enqueue an IGDB resync (POST /games/:id/resync.json)
+    Resync(GamesResyncArgs),
+}
+
+#[derive(clap::Args)]
+pub struct GamesListArgs {
+    /// Sort column passed to the server (e.g. release_year, title).
+    #[arg(long, value_name = "COL")]
+    pub sort: Option<String>,
+    /// Sort direction. Server understands `asc` / `desc`.
+    #[arg(long, value_name = "DIR")]
+    pub dir: Option<String>,
+    /// 1-indexed page number.
+    #[arg(long, value_name = "N")]
+    pub page: Option<u32>,
+    /// Filter by genre (server interprets the value).
+    #[arg(long, value_name = "VALUE")]
+    pub genre: Option<String>,
+    /// Filter by platform_owned id.
+    #[arg(long = "platform-owned", value_name = "VALUE")]
+    pub platform_owned: Option<String>,
+    /// Cap the result count in the rendered output (server-side pagination is unchanged).
+    #[arg(long, value_name = "N", default_value_t = 50)]
+    pub limit: u32,
+    /// Emit JSON output instead of plaintext.
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(clap::Args)]
+pub struct GamesShowArgs {
+    /// Slug (e.g. `the-witness`) or integer id (e.g. `42`). The server
+    /// 301s integer ids to the canonical slug; reqwest follows.
+    #[arg(value_name = "SLUG_OR_ID")]
+    pub slug_or_id: String,
+    /// Emit JSON output instead of plaintext.
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(clap::Args)]
+pub struct GamesSearchArgs {
+    /// Query string. Empty queries are accepted by the server.
+    #[arg(value_name = "QUERY")]
+    pub query: String,
+    /// Cap the rendered result count (server-side cap stays the same).
+    #[arg(long, value_name = "N", default_value_t = 50)]
+    pub limit: u32,
+    /// Emit JSON output instead of plaintext.
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(clap::Args)]
+pub struct GamesResyncArgs {
+    /// Slug or integer id of the game to resync.
+    #[arg(value_name = "SLUG_OR_ID")]
+    pub slug_or_id: String,
+    /// Confirmation gate. Pass `--confirm yes` to actually enqueue.
+    /// Without this flag, prints the preview and exits 0.
+    #[arg(long, value_name = "YES_OR_NO", value_enum)]
+    pub confirm: Option<YesNo>,
+    /// Emit JSON output instead of plaintext.
+    #[arg(long)]
+    pub json: bool,
+}
+
+// --- calendar (Phase 21) ----------------------------------------------------
+
+#[derive(clap::Args)]
+pub struct CalendarArgs {
+    #[command(subcommand)]
+    pub command: CalendarCommand,
+}
+
+#[derive(Subcommand)]
+pub enum CalendarCommand {
+    /// Paginated schedule (GET /calendar/schedule.json)
+    Schedule(CalendarScheduleArgs),
+    /// Month grid (GET /calendar/month/:year/:month.json)
+    Month(CalendarMonthArgs),
+    /// Show one entry (GET /calendar/entries/:id.json)
+    Show(CalendarShowArgs),
+    /// Create a manual entry (POST /calendar/entries.json)
+    Create(CalendarCreateArgs),
+    /// Update a manual entry (PATCH /calendar/entries/:id.json)
+    Update(CalendarUpdateArgs),
+    /// Set the user-override note (PATCH /calendar/entries/:id/note.json)
+    Note(CalendarNoteArgs),
+    /// Soft-cancel one or N entries (DELETE /deletions/calendar_entry/:ids.json)
+    Cancel(CalendarCancelArgs),
+}
+
+#[derive(clap::Args)]
+pub struct CalendarScheduleArgs {
+    /// Comma-separated entry-type filter (e.g. `video,game`).
+    #[arg(long, value_name = "CSV")]
+    pub types: Option<String>,
+    /// Filter by source (e.g. `derived`, `manual`).
+    #[arg(long, value_name = "VALUE")]
+    pub source: Option<String>,
+    /// Filter by state (e.g. `scheduled`).
+    #[arg(long, value_name = "VALUE")]
+    pub state: Option<String>,
+    /// 1-indexed page number.
+    #[arg(long, value_name = "N")]
+    pub page: Option<u32>,
+    /// Cap the rendered row count.
+    #[arg(long, value_name = "N", default_value_t = 50)]
+    pub limit: u32,
+    /// Emit JSON output instead of plaintext.
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(clap::Args)]
+pub struct CalendarMonthArgs {
+    /// Year (e.g. 2026).
+    #[arg(value_name = "YEAR")]
+    pub year: i32,
+    /// Month (1-12).
+    #[arg(value_name = "MONTH")]
+    pub month: u32,
+    /// Comma-separated entry-type filter.
+    #[arg(long, value_name = "CSV")]
+    pub types: Option<String>,
+    /// Filter by state.
+    #[arg(long, value_name = "VALUE")]
+    pub state: Option<String>,
+    /// Emit JSON output instead of plaintext.
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(clap::Args)]
+pub struct CalendarShowArgs {
+    /// Entry id.
+    #[arg(value_name = "ID")]
+    pub id: u64,
+    /// Emit JSON output instead of plaintext.
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(clap::Args)]
+pub struct CalendarCreateArgs {
+    /// Entry type. Must be one of MANUAL_ENTRY_TYPES on the server.
+    #[arg(long, value_name = "VALUE")]
+    pub entry_type: String,
+    /// Title.
+    #[arg(long, value_name = "TEXT")]
+    pub title: String,
+    /// ISO-8601 start timestamp (e.g. `2026-06-01T10:00:00Z`).
+    #[arg(long, value_name = "ISO8601")]
+    pub starts_at: String,
+    /// Optional ISO-8601 end timestamp.
+    #[arg(long, value_name = "ISO8601")]
+    pub ends_at: Option<String>,
+    /// IANA timezone (e.g. `Europe/Bucharest`).
+    #[arg(long, value_name = "TZ")]
+    pub timezone: Option<String>,
+    /// All-day flag. Wire format is `"yes"` / `"no"`.
+    #[arg(long, value_name = "YES_OR_NO", value_enum)]
+    pub all_day: Option<YesNo>,
+    /// Optional description.
+    #[arg(long, value_name = "TEXT")]
+    pub description: Option<String>,
+    /// Optional parent entry id (linkable manual entries).
+    #[arg(long, value_name = "ID")]
+    pub parent_entry_id: Option<u64>,
+    /// Emit JSON output instead of plaintext.
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(clap::Args)]
+pub struct CalendarUpdateArgs {
+    /// Entry id.
+    #[arg(value_name = "ID")]
+    pub id: u64,
+    /// New title.
+    #[arg(long, value_name = "TEXT")]
+    pub title: Option<String>,
+    /// New ISO-8601 starts_at.
+    #[arg(long, value_name = "ISO8601")]
+    pub starts_at: Option<String>,
+    /// New ISO-8601 ends_at.
+    #[arg(long, value_name = "ISO8601")]
+    pub ends_at: Option<String>,
+    /// New timezone.
+    #[arg(long, value_name = "TZ")]
+    pub timezone: Option<String>,
+    /// New all-day flag.
+    #[arg(long, value_name = "YES_OR_NO", value_enum)]
+    pub all_day: Option<YesNo>,
+    /// New description.
+    #[arg(long, value_name = "TEXT")]
+    pub description: Option<String>,
+    /// Emit JSON output instead of plaintext.
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(clap::Args)]
+pub struct CalendarNoteArgs {
+    /// Entry id.
+    #[arg(value_name = "ID")]
+    pub id: u64,
+    /// Note text. Empty string clears the note.
+    #[arg(long, value_name = "TEXT")]
+    pub note: String,
+    /// Emit JSON output instead of plaintext.
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(clap::Args)]
+pub struct CalendarCancelArgs {
+    /// One or more entry ids. Pass `--ids 12` or `--ids 12,55` for bulk.
+    #[arg(long, value_name = "CSV")]
+    pub ids: String,
+    /// Confirmation gate. Pass `--confirm yes` to actually soft-cancel.
+    /// Without this flag, prints the preview and exits 0.
+    #[arg(long, value_name = "YES_OR_NO", value_enum)]
+    pub confirm: Option<YesNo>,
+    /// Emit JSON output instead of plaintext.
+    #[arg(long)]
+    pub json: bool,
+}
+
+// --- notifications (Phase 21) -----------------------------------------------
+
+#[derive(clap::Args)]
+pub struct NotificationsArgs {
+    #[command(subcommand)]
+    pub command: NotificationsCommand,
+}
+
+#[derive(Subcommand)]
+pub enum NotificationsCommand {
+    /// Paginated list (GET /notifications.json)
+    List(NotificationsListArgs),
+    /// Show one notification (GET /notifications/:id.json)
+    Show(NotificationsShowArgs),
+    /// Unread badge (GET /notifications/badge.json)
+    Badge(NotificationsBadgeArgs),
+    /// Mark a notification read (PATCH /notifications/:id/read.json)
+    Read(NotificationsReadArgs),
+    /// Mark a notification unread (PATCH /notifications/:id/unread.json)
+    Unread(NotificationsUnreadArgs),
+    /// Bulk mark-read (PATCH /notifications/mark_read.json?ids=)
+    MarkRead(NotificationsMarkReadArgs),
+    /// Mark every notification read (PATCH /notifications/mark_all_read.json)
+    MarkAllRead(NotificationsMarkAllReadArgs),
+}
+
+#[derive(clap::Args)]
+pub struct NotificationsListArgs {
+    /// `unread` or `all`. Server default is `unread`.
+    #[arg(long, value_name = "VALUE")]
+    pub filter: Option<String>,
+    /// Filter by kind (e.g. `video_published`).
+    #[arg(long, value_name = "VALUE")]
+    pub kind: Option<String>,
+    /// Filter by severity (e.g. `success`, `warning`, `failure`).
+    #[arg(long, value_name = "VALUE")]
+    pub severity: Option<String>,
+    /// 1-indexed page number.
+    #[arg(long, value_name = "N")]
+    pub page: Option<u32>,
+    /// Cap the rendered row count.
+    #[arg(long, value_name = "N", default_value_t = 50)]
+    pub limit: u32,
+    /// Emit JSON output instead of plaintext.
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(clap::Args)]
+pub struct NotificationsShowArgs {
+    /// Notification id.
+    #[arg(value_name = "ID")]
+    pub id: u64,
+    /// Emit JSON output instead of plaintext.
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(clap::Args)]
+pub struct NotificationsBadgeArgs {
+    /// Emit JSON output instead of plaintext.
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(clap::Args)]
+pub struct NotificationsReadArgs {
+    /// Notification id.
+    #[arg(value_name = "ID")]
+    pub id: u64,
+    /// Emit JSON output instead of plaintext.
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(clap::Args)]
+pub struct NotificationsUnreadArgs {
+    /// Notification id.
+    #[arg(value_name = "ID")]
+    pub id: u64,
+    /// Emit JSON output instead of plaintext.
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(clap::Args)]
+pub struct NotificationsMarkReadArgs {
+    /// One or more notification ids. Pass `--ids 12,13`.
+    #[arg(long, value_name = "CSV")]
+    pub ids: String,
+    /// Emit JSON output instead of plaintext.
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(clap::Args)]
+pub struct NotificationsMarkAllReadArgs {
+    /// Confirmation gate. Pass `--confirm yes` to actually mark all read.
+    /// Without this flag, prints the preview (unread count) and exits 0.
+    #[arg(long, value_name = "YES_OR_NO", value_enum)]
+    pub confirm: Option<YesNo>,
     /// Emit JSON output instead of plaintext.
     #[arg(long)]
     pub json: bool,

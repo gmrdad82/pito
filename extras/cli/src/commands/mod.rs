@@ -1,6 +1,9 @@
 pub mod auth;
+pub mod calendar;
 pub mod footage;
+pub mod games;
 pub mod help;
+pub mod notifications;
 pub mod search;
 pub mod tui;
 pub mod version;

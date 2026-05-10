@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_10_192747) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_10_210002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -182,6 +182,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_192747) do
     t.check_constraint "ends_at IS NULL OR ends_at >= starts_at", name: "calendar_entries_ends_at_after_starts_at"
   end
 
+  create_table "channel_change_logs", force: :cascade do |t|
+    t.datetime "changed_at", null: false
+    t.bigint "changed_by_user_id", null: false
+    t.bigint "channel_id", null: false
+    t.datetime "created_at", null: false
+    t.string "field", null: false
+    t.string "new_value", null: false
+    t.string "old_value"
+    t.datetime "updated_at", null: false
+    t.index ["changed_at"], name: "index_channel_change_logs_on_changed_at"
+    t.index ["changed_by_user_id"], name: "index_channel_change_logs_on_changed_by_user_id"
+    t.index ["channel_id"], name: "index_channel_change_logs_on_channel_id"
+  end
+
   create_table "channel_dailies", force: :cascade do |t|
     t.bigint "ad_impressions"
     t.decimal "average_view_duration", precision: 10, scale: 2
@@ -260,13 +274,33 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_192747) do
   end
 
   create_table "channels", force: :cascade do |t|
+    t.string "avatar_url"
+    t.string "banner_url"
     t.string "channel_url", null: false
+    t.string "country", limit: 2
     t.datetime "created_at", null: false
+    t.string "default_language", limit: 10
+    t.text "description"
+    t.string "handle"
+    t.datetime "handle_changed_at"
+    t.boolean "hidden_subscriber_count", default: false, null: false
+    t.text "keywords"
     t.datetime "last_synced_at"
+    t.jsonb "links", default: [], null: false
+    t.datetime "published_at"
     t.boolean "star", default: false, null: false
+    t.bigint "subscriber_count"
+    t.string "title"
+    t.datetime "title_changed_at"
     t.datetime "updated_at", null: false
+    t.integer "video_count"
+    t.bigint "view_count"
+    t.integer "watermark_offset_ms"
+    t.string "watermark_timing"
+    t.string "watermark_url"
     t.bigint "youtube_connection_id"
     t.index ["channel_url"], name: "index_channels_on_channel_url", unique: true
+    t.index ["handle"], name: "index_channels_on_handle", where: "(handle IS NOT NULL)"
     t.index ["last_synced_at"], name: "index_channels_on_last_synced_at"
     t.index ["youtube_connection_id"], name: "index_channels_on_youtube_connection_id"
   end
@@ -986,6 +1020,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_192747) do
   add_foreign_key "calendar_entries", "projects", on_delete: :nullify
   add_foreign_key "calendar_entries", "users", column: "created_by_user_id", on_delete: :nullify
   add_foreign_key "calendar_entries", "videos", on_delete: :cascade
+  add_foreign_key "channel_change_logs", "channels", on_delete: :cascade
+  add_foreign_key "channel_change_logs", "users", column: "changed_by_user_id", on_delete: :restrict
   add_foreign_key "channel_dailies", "channels", on_delete: :cascade
   add_foreign_key "channel_window_summaries", "channels", on_delete: :cascade
   add_foreign_key "channels", "youtube_connections"
