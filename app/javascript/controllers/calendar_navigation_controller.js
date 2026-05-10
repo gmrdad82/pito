@@ -1,9 +1,16 @@
 import { Controller } from "@hotwired/stimulus"
 
-// Phase 15 §2 — keyboard shortcuts for the month grid:
+// Phase 15 §2 + calendar UX restructure — keyboard shortcuts for the
+// month grid plus localStorage persistence of the active calendar view.
+//
 //   `[` → prev month
 //   `]` → next month
 //   `t` → today
+//
+// On connect the controller writes `pito-calendar-view = "month"` so the
+// `/calendar` router page (calendar-view-router) lands the user back on
+// the month grid by default on a future visit. The schedule controller
+// has its own writer.
 //
 // Bindings are gated when focus sits inside an input / textarea / select
 // / contenteditable, mirroring the global keyboard controller's
@@ -12,12 +19,21 @@ export default class extends Controller {
   static values = {
     prevUrl: String,
     nextUrl: String,
-    todayUrl: String
+    todayUrl: String,
+    persistView: { type: String, default: "month" }
   }
 
   connect() {
     this.boundHandler = this.handleKey.bind(this)
     document.addEventListener("keydown", this.boundHandler)
+    try {
+      if (this.persistViewValue) {
+        localStorage.setItem("pito-calendar-view", this.persistViewValue)
+      }
+    } catch (_e) {
+      // localStorage unavailable (private mode quota / disabled). Persistence
+      // is best-effort; the URL remains the canonical source of truth.
+    }
   }
 
   disconnect() {

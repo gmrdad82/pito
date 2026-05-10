@@ -293,16 +293,17 @@ Rails.application.routes.draw do
       to: "youtube_connections/oauth_callbacks#failure",
       as: :youtube_connection_oauth_failure
 
-  # Phase 15 §2 — Calendar views. `/calendar` redirects to the current
-  # month; canonical URLs are `/calendar/month/:year/:month` and
-  # `/calendar/schedule`. Manual entries are CRUD'd under
-  # `/calendar/entries`. The note endpoint allows derived/auto entries
-  # to gain `metadata.user_overrides` notes (Open question #8 decision).
+  # Phase 15 §2 — Calendar views. `/calendar` renders a thin client-side
+  # router page (Phase 15 calendar UX restructure): a Stimulus
+  # controller reads localStorage `pito-calendar-view` and `replace`s the
+  # URL with the persisted view (`/calendar/schedule` or the current
+  # month grid). On fresh visits with no JS / no preference, the
+  # `<meta http-equiv="refresh">` fallback drops the user on the current
+  # month grid. Canonical URLs remain `/calendar/month/:year/:month`
+  # and `/calendar/schedule`. Manual entries are CRUD'd under
+  # `/calendar/entries`.
   get "/calendar",
-      to: redirect { |_p, _req|
-        now = Time.current
-        "/calendar/month/#{now.year}/#{now.month}"
-      },
+      to: "calendar/router#show",
       as: :calendar_root
   get "/calendar/month/:year/:month",
       to: "calendar/month#show",

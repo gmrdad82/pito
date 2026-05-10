@@ -32,19 +32,36 @@
        style="display: none;"></div>
 <% end %>
 
-<%# Row 1 — cover + read-only metadata. %>
-<div class="pane-row">
+<%# Row 1 — cover + read-only metadata. The `pane-row--game-show`
+    modifier flips this specific row to `flex-wrap: nowrap` so the
+    280px cover and 640px details panes stay side-by-side at standard
+    workspace widths instead of stacking. Narrower viewports get a
+    horizontal scrollbar instead of wrap. Rows 2 (sync) and 3 (linked
+    videos) keep the default `.pane-row` (single wide pane each, no
+    wrap concern).
+%>
+<div class="pane-row pane-row--game-show">
   <div class="pane pane--narrow">
     <%= render "shared/igdb_cover", game: @game, size: "t_cover_big" %>
 
     <h1 style="margin: 8px 0 4px 0;"><%= @game.title %></h1>
-    <p class="text-muted" style="margin: 0 0 8px 0;">
-      <% if @game.release_year %><%= @game.release_year %><% else %>—<% end %>
-      <% developer_names = @game.developers.map(&:name) %>
-      <% if developer_names.any? %> &middot; dev: <%= developer_names.join(", ") %><% end %>
-      <% publisher_names = @game.publishers.map(&:name) %>
-      <% if publisher_names.any? %> &middot; pub: <%= publisher_names.join(", ") %><% end %>
-    </p>
+    <%# Meta block: one label per line. Skip lines whose value is
+        missing entirely (no `pub: —` placeholder). Uses `<br>`
+        between lines inside one `<p class="text-muted">` so the
+        existing margin / lead-paragraph styling holds. %>
+    <%
+      meta_lines = []
+      meta_lines << "released: #{@game.release_year}" if @game.release_year
+      developer_names = @game.developers.map(&:name)
+      meta_lines << "dev: #{developer_names.join(", ")}" if developer_names.any?
+      publisher_names = @game.publishers.map(&:name)
+      meta_lines << "pub: #{publisher_names.join(", ")}" if publisher_names.any?
+    %>
+    <% if meta_lines.any? %>
+      <p class="text-muted" style="margin: 0 0 8px 0;">
+        <%= safe_join(meta_lines, tag.br) %>
+      </p>
+    <% end %>
   </div>
 
   <div class="pane pane--game-detail">
@@ -77,8 +94,8 @@
 
     <h2 style="margin-top: 16px;">genres / platforms</h2>
     <p>
-      <strong>genres:</strong> <%= @game.genres.map(&:name).join(", ").presence || "—" %><br>
-      <strong>platforms:</strong> <%= @game.platforms_available.map(&:name).join(", ").presence || "—" %>
+      <span class="text-muted">genres:</span> <%= @game.genres.map(&:name).join(", ").presence || "—" %><br>
+      <span class="text-muted">platforms:</span> <%= @game.platforms_available.map(&:name).join(", ").presence || "—" %>
     </p>
 
     <%# External store links. `[open on igdb]` was retired per spec —

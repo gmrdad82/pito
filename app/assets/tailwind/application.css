@@ -377,6 +377,21 @@ a.text-danger.bracketed:hover, a.text-danger.bracketed:hover .bl { color: var(--
   margin-bottom: 8px;
 }
 
+/* `.pane-row--game-show` — page-specific override for /games/:id row 1.
+   The cover (`pane--narrow`, 280px) + details (`pane--game-detail`,
+   640px) total 920px and were observed wrapping (stacking vertically)
+   on workspace viewports where the default `.pane-row` `flex-wrap: wrap`
+   kicked in earlier than expected. This modifier flips THIS row only
+   to `flex-wrap: nowrap` so the two panes stay side-by-side, with
+   `overflow-x: auto` so narrower viewports get a horizontal scrollbar
+   instead of a stacked layout. Scoped to the show page; rows 2 and 3
+   (sync / linked videos) carry a single wide pane each and keep the
+   default wrap behavior. Introduced 2026-05-10. */
+.pane-row--game-show {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+
 .pane-strip {
   display: flex;
   flex-wrap: nowrap;
@@ -1381,7 +1396,20 @@ textarea.note-editor-source {
    - Unread row: bold title; read row: muted (per master decision #6).
    The badge wrapper is also styled here so the live Turbo Stream
    replace target keeps a stable layout slot. */
-.notifications-badge { display: inline-flex; align-items: center; }
+.notifications-badge { display: inline-flex; align-items: flex-start; }
+/* UX restructure 2026-05-10 — unread count renders as a superscript next
+   to `[notifications]` in the navbar (no surrounding brackets). The
+   wrapper above keeps `align-items: flex-start` so the sup hugs the
+   top of the nav line. Slightly smaller font + raised baseline + bold
+   weight so a small `1` / `12` is legible against the nav link. */
+.notifications-badge-count {
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 700;
+  color: var(--color-link);
+  margin-left: 2px;
+  vertical-align: super;
+}
 .notification-row td { border-bottom: 1px solid var(--color-border); }
 .notification-row.notification-read .notification-title { color: var(--color-muted); font-weight: 400; }
 .notification-row.notification-unread .notification-title { font-weight: 700; }

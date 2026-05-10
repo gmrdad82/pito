@@ -8,6 +8,12 @@ RSpec.describe "Calendar::Schedule", type: :request do
       expect(response.body).to include("schedule")
     end
 
+    it "breadcrumb_actions slot carries [month] and [+] for the schedule view" do
+      get "/calendar/schedule"
+      expect(response.body).to include(">month<")
+      expect(response.body).to include(">+<")
+    end
+
     it "with both past and future entries, renders the [today] divider" do
       create(:calendar_entry, :custom, starts_at: 5.days.ago, title: "past")
       create(:calendar_entry, :custom, starts_at: 5.days.from_now, title: "future")
@@ -15,14 +21,51 @@ RSpec.describe "Calendar::Schedule", type: :request do
       expect(response.body).to include("[ today ]")
     end
 
-    it "filters by type=game" do
-      g = create(:game)
-      ce = create(:calendar_entry, :game_release, game: g, starts_at: 30.days.from_now, title: "released: g")
-      v = create(:video)
-      v.update!(privacy_status: :public, published_at: 1.day.ago, title: "v", category_id: "10")
-      get "/calendar/schedule?type=game"
-      expect(response.body).to include("released: g")
-      expect(response.body).not_to include("video published: v")
+    describe "?types= filter (calendar UX restructure)" do
+      it "filters by types=game (single kind)" do
+        g = create(:game)
+        ce = create(:calendar_entry, :game_release, game: g, starts_at: 30.days.from_now, title: "released: g")
+        v = create(:video)
+        v.update!(privacy_status: :public, published_at: 1.day.ago, title: "v", category_id: "10")
+        get "/calendar/schedule?types=game"
+        expect(response.body).to include("released: g")
+        expect(response.body).not_to include("video published: v")
+      end
+
+      it "filters by types=video,game (union)" do
+        g = create(:game)
+        create(:calendar_entry, :game_release, game: g, starts_at: 30.days.from_now, title: "g_in_union")
+        v = create(:video)
+        v.update!(privacy_status: :public, published_at: 1.day.ago, title: "v_in_union", category_id: "10")
+        create(:calendar_entry, :custom, title: "custom_excluded", starts_at: 1.day.from_now)
+        get "/calendar/schedule?types=video,game"
+        expect(response.body).to include("g_in_union")
+        expect(response.body).to include("video published: v_in_union")
+        expect(response.body).not_to include("custom_excluded")
+      end
+
+      it "no types param shows all kinds" do
+        v = create(:video)
+        v.update!(privacy_status: :public, published_at: 1.day.ago, title: "vshow", category_id: "10")
+        create(:calendar_entry, :custom, title: "cshow", starts_at: 1.day.from_now)
+        get "/calendar/schedule"
+        expect(response.body).to include("video published: vshow")
+        expect(response.body).to include("cshow")
+      end
+
+      it "empty types= renders no entries" do
+        create(:calendar_entry, :custom, title: "hidden_one", starts_at: 1.day.from_now)
+        get "/calendar/schedule?types="
+        expect(response.body).to include("no entries")
+        expect(response.body).not_to include("hidden_one")
+      end
+
+      it "types=zorblax (all invalid) renders no entries" do
+        create(:calendar_entry, :custom, title: "x", starts_at: 1.day.from_now)
+        get "/calendar/schedule?types=zorblax"
+        expect(response).to have_http_status(:ok)
+        expect(response.body).to include("no entries")
+      end
     end
 
     it "filters by source=manual" do
@@ -32,11 +75,6 @@ RSpec.describe "Calendar::Schedule", type: :request do
       get "/calendar/schedule?source=manual"
       expect(response.body).to include("podcast")
       expect(response.body).not_to include("video published: thevid")
-    end
-
-    it "sad: type=invalid redirects with flash" do
-      get "/calendar/schedule?type=zorblax"
-      expect(response).to redirect_to(calendar_schedule_path)
     end
 
     it "sad: source=invalid redirects with flash" do
