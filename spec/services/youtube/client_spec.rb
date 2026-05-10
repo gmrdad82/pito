@@ -214,4 +214,131 @@ RSpec.describe Youtube::Client do
       expect(YoutubeApiCall.unscoped.last.outcome).to eq("quota_exceeded")
     end
   end
+
+  # Bug-fix regression suite — Google returns 403 PERMISSION_DENIED with
+  # "Request had insufficient authentication scopes." when the stored
+  # token's scope set no longer matches what the called endpoint
+  # requires (the consent screen gained a scope after the connection
+  # was minted). Pito classifies this as needs-reauth, not permanent,
+  # so the manage page can surface [reconnect] instead of bubbling a
+  # 500 to the Rails error page.
+  describe "403 insufficient authentication scopes" do
+    let(:svc) { instance_double(Google::Apis::YoutubeV3::YouTubeService) }
+
+    before do
+      allow(svc).to receive(:authorization=)
+      stub_data_service(svc)
+    end
+
+    context "exact-message body shape from Google" do
+      before do
+        body = {
+          error: {
+            code: 403,
+            message: "Request had insufficient authentication scopes.",
+            errors: [ { reason: "insufficientPermissions",
+                        message: "Insufficient Permission" } ],
+            status: "PERMISSION_DENIED"
+          }
+        }.to_json
+        err = Google::Apis::ClientError.new(
+          "Request had insufficient authentication scopes.",
+          status_code: 403,
+          body: body
+        )
+        allow(svc).to receive(:list_channels).and_raise(err)
+      end
+
+      it "raises NeedsReauthError (not PermanentError)" do
+        expect {
+          described_class.new(connection).channels_list(mine: true)
+        }.to raise_error(Youtube::NeedsReauthError, /insufficient authentication scopes/i)
+      end
+
+      it "flips needs_reauth=true on the connection" do
+        expect {
+          described_class.new(connection).channels_list(mine: true) rescue nil
+        }.to change { connection.reload.needs_reauth? }.from(false).to(true)
+      end
+
+      it "audits one row with outcome=auth_failed and http_status=403" do
+        expect {
+          described_class.new(connection).channels_list(mine: true) rescue nil
+        }.to change { YoutubeApiCall.unscoped.count }.by(1)
+
+        row = YoutubeApiCall.unscoped.last
+        expect(row.outcome).to eq("auth_failed")
+        expect(row.http_status).to eq(403)
+      end
+    end
+
+    context "case-insensitive match" do
+      before do
+        err = Google::Apis::ClientError.new(
+          "PERMISSION_DENIED",
+          status_code: 403,
+          body: '{"error":{"code":403,"message":"Request had INSUFFICIENT AUTHENTICATION SCOPES."}}'
+        )
+        allow(svc).to receive(:list_channels).and_raise(err)
+      end
+
+      it "still raises NeedsReauthError regardless of casing" do
+        expect {
+          described_class.new(connection).channels_list(mine: true)
+        }.to raise_error(Youtube::NeedsReauthError)
+      end
+    end
+
+    context "match in the exception message (body absent)" do
+      before do
+        err = Google::Apis::ClientError.new(
+          "Request had insufficient authentication scopes.",
+          status_code: 403,
+          body: ""
+        )
+        allow(svc).to receive(:list_channels).and_raise(err)
+      end
+
+      it "raises NeedsReauthError when only the message carries the signal" do
+        expect {
+          described_class.new(connection).channels_list(mine: true)
+        }.to raise_error(Youtube::NeedsReauthError)
+      end
+    end
+  end
+
+  # Counter-test — a generic 403 (not quotaExceeded, not insufficient
+  # scopes) must continue to raise PermanentError. Guards against
+  # over-broadening the needs-reauth carve-out.
+  describe "403 other (non-quota, non-scopes)" do
+    let(:svc) { instance_double(Google::Apis::YoutubeV3::YouTubeService) }
+
+    before do
+      allow(svc).to receive(:authorization=)
+      stub_data_service(svc)
+
+      err = Google::Apis::ClientError.new(
+        "Forbidden",
+        status_code: 403,
+        body: '{"error":{"code":403,"message":"The caller does not have permission.","errors":[{"reason":"forbidden"}]}}'
+      )
+      allow(svc).to receive(:list_channels).and_raise(err)
+    end
+
+    it "raises PermanentError, audits outcome=client_error" do
+      expect {
+        described_class.new(connection).channels_list(mine: true)
+      }.to raise_error(Youtube::PermanentError, /client error 403/)
+
+      row = YoutubeApiCall.unscoped.last
+      expect(row.outcome).to eq("client_error")
+      expect(row.http_status).to eq(403)
+    end
+
+    it "does NOT flip needs_reauth=true" do
+      expect {
+        described_class.new(connection).channels_list(mine: true) rescue nil
+      }.not_to change { connection.reload.needs_reauth? }
+    end
+  end
 end

@@ -118,7 +118,17 @@ class Settings::YoutubeController < ApplicationController
   rescue Youtube::QuotaExhaustedError
     @youtube_channels = []
     @youtube_error = "quota exceeded"
-  rescue Youtube::TransientError, Youtube::NeedsReauthError => e
+  rescue Youtube::NeedsReauthError => e
+    # The client may have just flipped `needs_reauth: true` on the
+    # connection row (insufficient-scopes 403 or 401 after refresh).
+    # Reload the in-memory object so the view's `needs_reauth?` check
+    # renders the [reconnect] banner instead of "youtube api
+    # unavailable" — the latter is misleading; this is an auth-state
+    # problem the user can fix, not a transient outage.
+    @youtube_connection.reload
+    @youtube_channels = []
+    @youtube_error = e.class.name.demodulize.gsub(/error\z/i, "").downcase
+  rescue Youtube::TransientError => e
     @youtube_channels = []
     @youtube_error = e.class.name.demodulize.gsub(/error\z/i, "").downcase
   end

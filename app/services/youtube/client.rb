@@ -241,6 +241,17 @@ module Youtube
           if status == 403 && quota_exhausted?(e)
             err = Youtube::QuotaExhaustedError.new("403 quota exhausted: #{e.message}")
             return [ nil, "quota_exceeded", status, e.message, err ]
+          elsif status == 403 && insufficient_scopes?(e)
+            # Bug-fix path — the stored token's scope set no longer
+            # matches the scopes the API requires (Google added
+            # consent-screen scopes after this connection was minted).
+            # Classify as needs-reauth so the manage page can surface
+            # the [reconnect] flow instead of bubbling a hard 500.
+            @connection.update_columns(needs_reauth: true)
+            err = Youtube::NeedsReauthError.new(
+              "insufficient authentication scopes: #{e.message}"
+            )
+            return [ nil, "auth_failed", status, e.message, err ]
           elsif status == 401
             attempts_401 += 1
             if attempts_401 == 1
@@ -392,6 +403,21 @@ module Youtube
     def quota_exhausted?(error)
       body = error.respond_to?(:body) ? error.body.to_s : ""
       body.include?("quotaExceeded") || body.include?("dailyLimitExceeded")
+    end
+
+    # Detect the "insufficient authentication scopes" 403 — Google
+    # returns this when the stored token's scope set is missing one
+    # of the scopes the called endpoint requires (e.g., the consent
+    # screen gained `youtube.force-ssl` after the connection was
+    # minted). Treated as a needs-reauth situation (the user must
+    # re-authorize with the current scope set), not a permanent
+    # failure. Match is intentionally narrow — exact substring,
+    # case-insensitive — to avoid over-broadening the path.
+    def insufficient_scopes?(error)
+      body = error.respond_to?(:body) ? error.body.to_s : ""
+      message = error.respond_to?(:message) ? error.message.to_s : ""
+      haystack = "#{body}\n#{message}".downcase
+      haystack.include?("insufficient authentication scopes")
     end
 
     def network_error?(error)

@@ -23,8 +23,8 @@ RSpec.describe "Settings::Youtube", type: :request do
     context "with a YoutubeConnection in needs_reauth state" do
       before do
         @user = User.first
-        create(:youtube_connection, :needs_reauth, user: @user,
-                                                   email: "u@example.test")
+        @connection = create(:youtube_connection, :needs_reauth, user: @user,
+                                                                 email: "u@example.test")
       end
 
       it "renders the red banner" do
@@ -36,6 +36,30 @@ RSpec.describe "Settings::Youtube", type: :request do
       it "does NOT call the YouTube API" do
         expect(Youtube::Client).not_to receive(:new)
         get settings_youtube_path
+      end
+
+      # Bug-fix coverage — the manage page must keep rendering when the
+      # connection is in needs_reauth state, with the picker section
+      # replaced by a red `out of date or missing required scopes`
+      # note that points at the same [reconnect] flow.
+      it "renders 200 and replaces the picker with the scope-mismatch note" do
+        get settings_youtube_path
+        expect(response).to have_http_status(:ok)
+        expect(response.body).to include(
+          "your google authorization is out of date or missing required scopes"
+        )
+        expect(response.body).to include("[reconnect]")
+      end
+
+      it "still renders the `linked channels` listing (it does not depend on the API)" do
+        valid_url = "https://www.youtube.com/channel/UCyyyyyyyyyyyyyyyyyyyyyy"
+        Channel.create!(channel_url: valid_url,
+                        youtube_connection_id: @connection.id)
+
+        get settings_youtube_path
+        expect(response.body).to include("linked channels")
+        expect(response.body).to include("UCyyyyyyyyyyyyyyyyyyyyyy")
+        expect(response.body).to include("[disconnect]")
       end
     end
 
@@ -158,13 +182,47 @@ RSpec.describe "Settings::Youtube", type: :request do
       before do
         connection
         allow(Youtube::Client).to receive(:new).with(connection).and_return(client_double)
-        allow(client_double).to receive(:channels_list).and_raise(Youtube::NeedsReauthError)
+        # Simulate the bug-fix path — the client raises NeedsReauthError
+        # AND flips `needs_reauth: true` on the connection (matching
+        # the insufficient-scopes 403 branch in #execute_with_retry).
+        allow(client_double).to receive(:channels_list) do
+          connection.update_columns(needs_reauth: true)
+          raise Youtube::NeedsReauthError, "insufficient authentication scopes"
+        end
       end
 
-      it "renders the page without 500ing and surfaces the api error" do
+      it "renders the page without 500ing" do
         get settings_youtube_path
         expect(response).to have_http_status(:ok)
-        expect(response.body).to include("can't list channels to add")
+      end
+
+      it "renders the [reconnect] button and the red scope-mismatch note in the picker section" do
+        get settings_youtube_path
+        expect(response.body).to include("[reconnect]")
+        expect(response.body).to include(
+          "your google authorization is out of date or missing required scopes"
+        )
+      end
+
+      it "still renders the linked-channels listing (no API dependency)" do
+        valid_url = "https://www.youtube.com/channel/UCzzzzzzzzzzzzzzzzzzzzzz"
+        Channel.create!(channel_url: valid_url,
+                        youtube_connection_id: connection.id)
+
+        get settings_youtube_path
+        expect(response.body).to include("linked channels")
+        expect(response.body).to include("UCzzzzzzzzzzzzzzzzzzzzzz")
+        expect(response.body).to include("[disconnect]")
+      end
+
+      it "does NOT render the 'select channels to add' multi-select form" do
+        # The picker form depends on `@youtube_channels`, which is
+        # empty after the rescue. We want the red note in its place,
+        # not the misleading `no channels found under this google
+        # account` empty-state message.
+        get settings_youtube_path
+        expect(response.body).not_to include("no channels found under this google account")
+        expect(response.body).not_to match(/<form[^>]*action="#{Regexp.escape(settings_youtube_channels_path)}"/)
       end
     end
   end
