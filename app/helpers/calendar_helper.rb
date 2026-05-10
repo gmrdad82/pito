@@ -17,6 +17,9 @@ module CalendarHelper
   }.freeze
 
   # Maps the user-facing filter labels to their member entry_types.
+  # `"all"` is a synthetic master-toggle label used by the UI; it is not
+  # accepted in the `?types=` URL csv (validation drops it). The five
+  # individual labels are the only valid CSV members.
   ENTRY_KIND_FILTERS = {
     "all"       => nil,                                       # no filter
     "video"     => %w[video_published video_scheduled],
@@ -25,6 +28,85 @@ module CalendarHelper
     "purchase"  => %w[purchase_planned],
     "custom"    => %w[custom]
   }.freeze
+
+  # Individual kind labels (the 5 chips) — derived from
+  # ENTRY_KIND_FILTERS minus the synthetic "all" master.
+  CALENDAR_KIND_LABELS = (ENTRY_KIND_FILTERS.keys - [ "all" ]).freeze
+
+  # Parse the `?types=` URL parameter into the active kind labels.
+  #
+  # Returns:
+  #   :all   — param absent (default state — all 5 checked)
+  #   :none  — param present but empty / all-invalid (all 5 unchecked)
+  #   Array  — explicit subset of valid labels
+  def calendar_active_kinds(raw)
+    return :all if raw.nil?
+    values = raw.to_s.split(",").map(&:strip).reject(&:empty?)
+    return :none if values.empty?
+    kept = values.select { |v| CALENDAR_KIND_LABELS.include?(v) }
+    return :none if kept.empty?
+    kept
+  end
+
+  # Is the given individual kind label currently rendered as checked?
+  def calendar_kind_checked?(label, raw_types_param)
+    active = calendar_active_kinds(raw_types_param)
+    case active
+    when :all  then true
+    when :none then false
+    else            active.include?(label)
+    end
+  end
+
+  # Master-toggle "all types" checked state. Mirrors the spec: checked
+  # when the param is absent OR every individual label is in the csv.
+  def calendar_all_kinds_checked?(raw_types_param)
+    active = calendar_active_kinds(raw_types_param)
+    case active
+    when :all  then true
+    when :none then false
+    else            (CALENDAR_KIND_LABELS - active).empty?
+    end
+  end
+
+  # Build the URL for clicking an individual kind chip. Toggles the
+  # label's membership in the csv list. Other params on `current_params`
+  # (e.g. `state`, `source`, `page`) are preserved.
+  def calendar_kind_chip_href(label, raw_types_param, current_params:)
+    new_params = current_params.to_h.with_indifferent_access.except(:controller, :action, :year, :month).to_h.transform_keys(&:to_s)
+    case calendar_active_kinds(raw_types_param)
+    when :all
+      # Implicit "all" → flip this label off, leaving the other 4 explicit.
+      remaining = CALENDAR_KIND_LABELS - [ label ]
+      new_params["types"] = remaining.join(",")
+    when :none
+      # Implicit "none" → flip this label on, leaving the other 4 off.
+      new_params["types"] = label
+    else
+      values = calendar_active_kinds(raw_types_param)
+      if values.include?(label)
+        values = values - [ label ]
+      else
+        values = (values + [ label ]).uniq
+      end
+      new_params["types"] = values.join(",")
+    end
+    new_params.empty? ? "?" : "?#{new_params.to_query}"
+  end
+
+  # URL for the master `[all types]` synthetic toggle. Clicking flips
+  # between "all checked" and "all unchecked". Checked → unchecked sets
+  # `?types=` (empty). Unchecked → checked drops the `types` param so
+  # the URL reverts to the "no param = all" default.
+  def calendar_all_kinds_chip_href(raw_types_param, current_params:)
+    new_params = current_params.to_h.with_indifferent_access.except(:controller, :action, :year, :month).to_h.transform_keys(&:to_s)
+    if calendar_all_kinds_checked?(raw_types_param)
+      new_params["types"] = ""
+    else
+      new_params.delete("types")
+    end
+    new_params.empty? ? "?" : "?#{new_params.to_query}"
+  end
 
   # Build the Monday-first 6×7 (or 5×7) grid of Date objects covering
   # the given month. The leading dates are the previous-month tail
