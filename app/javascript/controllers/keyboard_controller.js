@@ -9,8 +9,8 @@ import { Controller } from "@hotwired/stimulus"
 // Bindings:
 //   Global
 //     ?           toggle help dialog
-//     n           toggle theme (handled by theme_controller — we still
-//                 surface it in the help dialog)
+//     t           toggle theme (handled by theme_controller — we still
+//                 surface it in the help dialog). Was `n` pre-redesign.
 //     /           focus the layout's search input
 //     Esc         close any open dialog / clear pending prefix
 //   Navigation (`g` prefix, ~1s timeout)

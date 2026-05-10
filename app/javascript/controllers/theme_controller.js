@@ -22,7 +22,12 @@ export default class extends Controller {
   onKeydown(event) {
     if (event.target.matches("input, textarea, select, [contenteditable]")) return
     if (event.metaKey || event.ctrlKey || event.altKey) return
-    if (event.key === "n") {
+    // Theme toggle keybind: `t`. Was `n` historically; moved to `t`
+    // alongside the navbar redesign that retired the visible `n` keycap
+    // affordance. The bracketed-link convention sweep treats theme
+    // toggling as a Settings affordance now, so the visible chrome is
+    // gone and only the keybind remains.
+    if (event.key === "t") {
       event.preventDefault()
       this.doToggle()
     }

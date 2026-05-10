@@ -58,41 +58,48 @@
 
   <body data-controller="keyboard">
     <header style="position: fixed; top: 0; left: 0; right: 0; height: 32px; background: var(--color-bg); border-bottom: 1px solid var(--color-border); padding: 0 12px; z-index: 100;" data-controller="theme">
-      <div style="display: flex; align-items: center; height: 32px; gap: 6px;">
+      <%# Header layout (2026-05-10 redesign):
+            [home] · [channels][videos] · [projects][games]   <fluid spacer>   |search|  · [settings][logout]
+          Groups are separated by a center-dot `·` (`.nav-sep`); items
+          within a group sit side-by-side. The `.nav-spacer` flex item
+          carries `flex: 1` so the right cluster (search + settings +
+          logout) right-anchors. The previous `n` keycap-theme toggle
+          was retired here; the theme keybind now lives on `t` and the
+          on-screen affordance is the Settings page. %>
+      <div style="display: flex; align-items: center; height: 32px; gap: 4px;">
         <a href="/" style="text-decoration: none; display: flex; align-items: center; line-height: 0;" aria-label="Dashboard">
           <img src="/Pito.png" alt="pito" class="header-logo">
         </a>
         <%# Chrome elements (nav, search, logout, keyboard help link) are
             suppressed on auth pages by setting
             `content_for(:hide_chrome, true)` from the page template. The
-            header logo and theme toggle remain visible so the brand and
-            the dark/light affordance are always available. The same flag
-            also gates the footer nav (see footer block below). %>
+            header logo remains visible so the brand is always available.
+            The same flag also gates the footer nav (see footer block
+            below). %>
         <% unless content_for?(:hide_chrome) %>
-          <nav class="dot-list"><span class="hide-mobile"><%= nav_link "home", root_path %></span><%= nav_link "channels", channels_path, short: "C" %><%= nav_link "videos", videos_path, short: "V" %><%= nav_link "projects", projects_path, short: "P" %><%= nav_link "settings", settings_path, short: "S" %></nav>
-          <%= form_with url: search_path, method: :get, class: "search-form", style: "display: flex; align-items: center; gap: 4px;", data: { turbo_action: "replace" } do %>
-            <input type="text" name="q" value="<%= params[:q] %>" placeholder="search..." autocomplete="off" class="search-input" style="width: 200px; height: 22px; font-size: 13px; padding: 0 6px; border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-text); font-family: inherit;">
-          <% end %>
-          <% if Current.user.present? %>
-            <%= button_to session_logout_path,
-                  method: :delete,
-                  form: { style: "margin-left: auto; display: inline;" },
-                  class: "bracketed",
-                  style: "background: none; border: none; padding: 0; font: inherit; color: inherit; cursor: pointer;" do %>[<span class="bl">logout</span>]<% end %>
-          <% end %>
-          <%# Visible affordance for the keyboard help modal (locked
-              decision: keyboard-only audience is small, the link prevents
-              the surface from being undiscoverable). Sits between the
-              logout button and the theme toggle, mirroring the spec's
-              "near the theme switcher" placement. The same modal is
-              opened by pressing `?`. When no user is signed in, this
-              link inherits the `margin-left: auto` previously carried by
-              the theme toggle so the right-cluster still right-anchors. %>
-          <span style="<%= Current.user.present? ? "" : "margin-left: auto;" %> display: inline-flex; align-items: center;">
-            <%= render(BracketedLinkComponent.new(label: "?", href: "#", data: { action: "click->keyboard#openHelp" }, active: false)) %>
-          </span>
+          <nav class="nav-row" style="display: flex; align-items: center; flex: 1; gap: 4px;">
+            <span class="nav-group hide-mobile"><%= nav_link "home", root_path %></span>
+            <span class="nav-sep hide-mobile" aria-hidden="true">·</span>
+            <span class="nav-group"><%= nav_link "channels", channels_path, short: "C" %><%= nav_link "videos", videos_path, short: "V" %></span>
+            <span class="nav-sep" aria-hidden="true">·</span>
+            <span class="nav-group"><%= nav_link "projects", projects_path, short: "P" %><%= nav_link "games", games_path, short: "G" %></span>
+            <span class="nav-spacer" style="flex: 1;"></span>
+            <%= form_with url: search_path, method: :get, class: "search-form", style: "display: flex; align-items: center; gap: 4px;", data: { turbo_action: "replace" } do %>
+              <input type="text" name="q" value="<%= params[:q] %>" placeholder="search..." autocomplete="off" class="search-input" style="width: 200px; height: 22px; font-size: 13px; padding: 0 6px; border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-text); font-family: inherit;">
+            <% end %>
+            <span class="nav-sep" aria-hidden="true">·</span>
+            <span class="nav-group">
+              <%= nav_link "settings", settings_path, short: "S" %><%
+                %><% if Current.user.present? %><%
+                  %><%= button_to session_logout_path,
+                        method: :delete,
+                        form: { style: "display: inline;" },
+                        class: "bracketed",
+                        style: "background: none; border: none; padding: 0; font: inherit; color: inherit; cursor: pointer;" do %>[<span class="bl">logout</span>]<% end %><%
+                %><% end %>
+            </span>
+          </nav>
         <% end %>
-        <a href="#" class="keycap keycap-theme" <%= 'style="margin-left: auto;"'.html_safe if content_for?(:hide_chrome) %> data-action="click->theme#toggle" data-theme-target="toggle">n</a>
       </div>
     </header>
 
@@ -119,20 +126,36 @@
       </main>
     </div>
 
-    <footer style="border-top: 1px solid var(--color-border); padding: 8px 12px; margin-top: 24px;">
-      <div style="display: flex; align-items: center; gap: 4px; font-size: 11px; flex-wrap: wrap;">
-        <div class="dot-list">
-          <% unless content_for?(:hide_chrome) %><span class="hide-mobile"><%= nav_link "home", root_path %></span><%= nav_link "channels", channels_path, short: "C" %><%= nav_link "videos", videos_path, short: "V" %><%= nav_link "projects", projects_path, short: "P" %><%= nav_link "settings", settings_path, short: "S" %><% end %>
-          <a href="/" style="display: flex; align-items: center; gap: 4px; text-decoration: none; color: inherit;"><img src="/Pito.png" alt="pito" style="height: 10px; width: auto; display: block; position: relative; top: -1px;"></a>
-        </div>
+    <%# Footer (2026-05-10 redesign): two rows. Row 1 mirrors the
+          header's left navigation —
+          [home] · [channels][videos] · [projects][games] — plus a [?]
+          help-modal trigger on the far right (header has [settings][logout]
+          there). Row 2 carries the copyright prose on the left and the
+          version + git-sha on the right. The `?` keyboard binding still
+          opens the same modal; the bracketed `[?]` is the discoverable
+          on-screen affordance. %>
+    <footer style="border-top: 1px solid var(--color-border); padding: 8px 12px; margin-top: 24px; font-size: 11px;">
+      <% unless content_for?(:hide_chrome) %>
+        <nav class="nav-row" style="display: flex; align-items: center; gap: 4px; margin-bottom: 4px;">
+          <span class="nav-group hide-mobile"><%= nav_link "home", root_path %></span>
+          <span class="nav-sep hide-mobile" aria-hidden="true">·</span>
+          <span class="nav-group"><%= nav_link "channels", channels_path, short: "C" %><%= nav_link "videos", videos_path, short: "V" %></span>
+          <span class="nav-sep" aria-hidden="true">·</span>
+          <span class="nav-group"><%= nav_link "projects", projects_path, short: "P" %><%= nav_link "games", games_path, short: "G" %></span>
+          <span class="nav-spacer" style="flex: 1;"></span>
+          <%= render(BracketedLinkComponent.new(label: "?", href: "#", data: { action: "click->keyboard#openHelp" }, active: false)) %>
+        </nav>
+      <% end %>
+      <div style="display: flex; align-items: center; gap: 4px;">
         <span class="text-muted">&copy; <%= Date.current.year %><span class="hide-mobile"> &mdash; all rights reserved.</span></span>
+        <a href="/" style="display: flex; align-items: center; gap: 4px; text-decoration: none; color: inherit; margin-left: 4px;" aria-label="pito"><img src="/Pito.png" alt="pito" style="height: 10px; width: auto; display: block; position: relative; top: -1px;"></a>
         <span class="text-muted" style="margin-left: auto;"><%= version_label %></span>
       </div>
     </footer>
 
     <%# Keyboard shortcuts help modal — opened by `?` keypress or the
-        `[ ? ]` link in the header. Mirrors `pito` CLI's help overlay
-        per locked decision Q6. The dialog is the keyboard
+        `[?]` link in the footer's nav row. Mirrors `pito` CLI's help
+        overlay per locked decision Q6. The dialog is the keyboard
         controller's `dialog` target; the controller is mounted on
         `<body>` so listeners live for the full page lifetime. %>
     <%= render(KeyboardShortcutsModalComponent.new) %>

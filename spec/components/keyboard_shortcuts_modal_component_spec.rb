@@ -12,7 +12,7 @@ RSpec.describe KeyboardShortcutsModalComponent, type: :component do
     expect(page).to have_css("dialog[data-action*='click->keyboard#clickOutside']")
   end
 
-  it "renders a [ close ] bracketed link wired to keyboard#close" do
+  it "renders a [close] bracketed link wired to keyboard#close" do
     render_inline(described_class.new)
     expect(page).to have_css('a.bracketed[data-action="click->keyboard#close"]', text: "close")
   end
@@ -20,11 +20,13 @@ RSpec.describe KeyboardShortcutsModalComponent, type: :component do
   describe "section coverage (mirrors CLI help.rs)" do
     before { render_inline(described_class.new) }
 
-    it "renders the general section with `?`, `q`, `n`, and `Esc`" do
+    it "renders the general section with `?`, `q`, `t`, and `Esc`" do
+      # Theme toggle was originally `n`; moved to `t` alongside the
+      # 2026-05-10 header redesign that retired the visible `n` keycap.
       section = page.find(".keyboard-shortcuts-section", text: /general/i)
       expect(section).to have_css("span.keycap", text: "?")
       expect(section).to have_css("span.keycap", text: "q")
-      expect(section).to have_css("span.keycap", text: "n")
+      expect(section).to have_css("span.keycap", text: "t")
       expect(section).to have_css("span.keycap", text: "Esc")
       expect(section).to have_text("toggle this help")
       expect(section).to have_text("toggle dark/light theme")

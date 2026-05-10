@@ -244,6 +244,35 @@ a.text-danger.bracketed:hover, a.text-danger.bracketed:hover .bl { color: var(--
   flex-wrap: wrap;
 }
 
+/* Header / footer navigation row (2026-05-10 redesign).
+   The header is a flex row built from three building blocks:
+   - `.nav-group` — a cluster of bracketed links that sit side-by-side
+     with no separator (e.g., `[channels][videos]`). Items inside
+     touch — no inline gap — so the bracket-pair reads as a tight unit.
+   - `.nav-sep`   — a center-dot `·` between groups. Muted color so it
+     reads as a passive separator, not an action.
+   - `.nav-spacer`— a `flex: 1` filler that pushes the right cluster
+     (search input, settings, logout in the header; `[?]` in the footer)
+     to the row's right edge.
+   `.nav-row` is the flex container itself; siblings already declare
+   `display: flex` inline, so this rule mostly carries the cross-cutting
+   alignment. Mobile keeps the same layout — `.hide-mobile`/`.show-mobile`
+   on individual `nav_link` calls collapses long labels to one-char
+   shorts at the 768px breakpoint, but the row structure is unchanged. */
+.nav-row {
+  align-items: center;
+}
+.nav-group {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0;
+}
+.nav-sep {
+  color: var(--color-muted);
+  font-weight: 400;
+  user-select: none;
+}
+
 /* Pane system — Phase B revamp (2026-05-06). Two classes for panes,
    two container modes:
    - `.pane`        — fixed 452px-wide pane. Odd-indexed siblings paint

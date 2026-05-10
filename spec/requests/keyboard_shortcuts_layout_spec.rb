@@ -2,7 +2,7 @@ require "rails_helper"
 
 # Phase 7.5 — Step 04. Layout-level integration. The keyboard
 # controller is mounted on `<body>` for the full page lifetime, the
-# help dialog renders once in the layout, and a `[ ? ]` bracketed
+# help dialog renders once in the layout, and a `[?]` bracketed
 # link sits in the header chrome so the surface is discoverable
 # without keyboard knowledge.
 #
@@ -28,8 +28,12 @@ RSpec.describe "Keyboard shortcuts layout integration", type: :request do
         expect(response.body).to include('class="pane-dialog"')
       end
 
-      it "GET #{path} renders the visible [ ? ] bracketed link in the header" do
+      it "GET #{path} renders the visible [?] bracketed link in page chrome" do
         get path
+        # The visible affordance moved from the header to the footer
+        # row 1 in the 2026-05-10 navbar redesign; what matters here is
+        # that the `[?]` link exists somewhere in the persistent chrome
+        # so keyboard-only users have a discoverable on-screen anchor.
         # ERB escapes `->` in attribute values to `-&gt;`; matching the
         # encoded form keeps the assertion grounded in real bytes.
         expect(response.body).to include('data-action="click-&gt;keyboard#openHelp"')

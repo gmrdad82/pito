@@ -5,7 +5,7 @@ class KeyboardShortcutsModalComponent < ViewComponent::Base
   # straight from `help.rs::render`. No web-only additions.
   #
   # Rendered once in the layout chrome; opened by `keyboard#openHelp`
-  # in response to `?` keypress or a click on the visible `[ ? ]` link.
+  # in response to `?` keypress or a click on the visible `[?]` link.
   Section = Struct.new(:title, :rows, keyword_init: true)
   Row = Struct.new(:keys, :description, keyword_init: true)
 
@@ -15,7 +15,7 @@ class KeyboardShortcutsModalComponent < ViewComponent::Base
       rows: [
         Row.new(keys: "?", description: "toggle this help"),
         Row.new(keys: "q", description: "back / close"),
-        Row.new(keys: "n", description: "toggle dark/light theme"),
+        Row.new(keys: "t", description: "toggle dark/light theme"),
         Row.new(keys: "Esc", description: "close overlay / clear filter / leave bulk")
       ]
     ),
