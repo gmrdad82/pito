@@ -494,3 +494,112 @@ right back — so the click looked dead.
    most-recently-toggled view (schedule) without flicker.
 5. Wipe `pito-calendar-view` from localStorage and visit `/calendar`
    again. Confirm it falls through to the current month grid.
+
+### 2026-05-10 — Calendar UX restructure (rails-impl agent)
+
+Per master-agent dispatch (no architect-written spec; the dispatch prompt was
+the contract). Restructured the calendar chrome to:
+
+1. **Move `[schedule]` / `[month]` toggle + `[+]` quick-add into the layout's
+   `:breadcrumb_actions` slot.** Each calendar page emits a `content_for
+   :breadcrumb_actions` block that the global `application.html.erb` already
+   yields trailing the breadcrumb crumbs (no layout edit required — the slot
+   was already wired). The dedicated shared partial
+   `app/views/shared/_dot_separator.html.erb` renders the muted `·` glyph
+   between the breadcrumb and the action cluster.
+
+2. **Persist the active calendar view in `localStorage` (`pito-calendar-view`).**
+   `/calendar` switched from a server-side redirect to a thin
+   `Calendar::RouterController#show` shell that mounts the
+   `calendar-view-router` Stimulus controller; the controller `replace`s the
+   URL with the saved view (schedule or the current month grid) and falls
+   through a `<meta http-equiv="refresh">` to the month grid for non-JS clients.
+   The `[schedule]` / `[month]` toggle links target the canonical view URLs
+   directly (NOT `/calendar`, which would let a stale preference swallow the
+   click) and carry a `persistMonth` / `persistSchedule` Stimulus action that
+   writes the new preference on click.
+
+3. **Rebuild the kind filter as a multi-value csv contract (`?types=`).**
+   The previous single-value `?type=video` contract is gone. The new shape:
+   - No `types` param  → all 5 kinds rendered (default = "all checked").
+   - `?types=a,b,c`    → only those kinds rendered (union of mapped
+     `entry_type` values).
+   - `?types=` (empty) → no kinds rendered ("all unchecked").
+   Validation drops unknown labels silently. A `[ ] all` synthetic master
+   toggle is checked when the param is absent OR every individual kind label
+   is in the csv; clicking it sets the URL to the "everything unchecked" /
+   "default = all checked" extreme. The 5 individual chips toggle their own
+   label in/out of the csv. URL is the single source of truth; clicking a chip
+   navigates rather than mutating client-side state.
+
+4. **Convert `[+]` to a `button_to` default-create (Projects pattern).** POSTs
+   to `/calendar/entries` with no payload; the controller's `create` action
+   already supported the default-create branch (seeds an "Untitled event"
+   milestone_manual entry, redirects to `/edit`).
+
+5. **Drop the inline `prev month` / `next month` labels** in favor of `[prev]`
+   / `[next]` (no-inner-space bracketed-link rule) aligned via
+   `justify-content: space-between` flex so prev anchors left, next anchors
+   right, `[today]` sits in the middle when not on the current month.
+
+6. **Tighten the schedule's "include cancelled" affordance** into a
+   `[ ] include cancelled` filter-chip-style checkbox (matching the type
+   filters' visual rhythm).
+
+**Files touched**
+
+- Controllers: `app/controllers/calendar/month_controller.rb`,
+  `app/controllers/calendar/schedule_controller.rb`,
+  `app/controllers/calendar/router_controller.rb` (new)
+- Helpers: `app/helpers/calendar_helper.rb` (new
+  `calendar_active_kinds` / `calendar_kind_checked?` /
+  `calendar_all_kinds_checked?` / `calendar_kind_chip_href` /
+  `calendar_all_kinds_chip_href`, `CALENDAR_KIND_LABELS` constant)
+- Components: `app/components/filter_chip_component.rb` (new opt-in `csv:`
+  multi-value mode; existing single-value contract preserved)
+- Views:
+  `app/views/calendar/month/show.html.erb`,
+  `app/views/calendar/month/_navigation.html.erb`,
+  `app/views/calendar/month/_filter_cluster.html.erb`,
+  `app/views/calendar/schedule/show.html.erb`,
+  `app/views/calendar/router/show.html.erb` (new),
+  `app/views/shared/_dot_separator.html.erb` (new)
+- JS:
+  `app/javascript/controllers/calendar_navigation_controller.js`,
+  `app/javascript/controllers/calendar_filter_controller.js`,
+  `app/javascript/controllers/calendar_view_router_controller.js` (new)
+- Routes: `config/routes.rb` (replaced the `/calendar` redirect with
+  the `calendar/router#show` mount; canonical URLs unchanged)
+- Specs:
+  `spec/requests/calendar/month_spec.rb` (rebuilt around `?types=` contract,
+  breadcrumb_actions assertions, default-create `[+]` form),
+  `spec/requests/calendar/schedule_spec.rb` (same),
+  `spec/requests/calendar/router_spec.rb` (new — router shell),
+  `spec/system/calendar_month_navigation_spec.rb`,
+  `spec/system/calendar_schedule_filter_spec.rb`,
+  `spec/components/filter_chip_component_spec.rb` (new csv-mode cases),
+  `spec/helpers/calendar_helper_spec.rb` (new helper cases)
+
+**Quality gates**
+
+- `bundle exec rspec spec/requests/calendar/ spec/system/calendar_*
+  spec/components/filter_chip_component_spec.rb
+  spec/components/bracketed_link_component_spec.rb
+  spec/helpers/calendar_helper_spec.rb` — 152 examples, 0 failures.
+- `bundle exec rubocop` on the changed Ruby files — 15 files, 0 offenses.
+- `bundle exec brakeman -q -w2` — 0 security warnings, 0 errors. Two stale
+  ignore entries flagged (`4d586370…ba5`, `050af471…317`) — pre-existing,
+  unrelated to this session.
+- Broader sweep (`spec/components spec/helpers spec/requests`) — 7
+  pre-existing failures unrelated to this session (notes editor / dashboard
+  five-count / bundle / channels / projects). Spot-confirmed via stash: the
+  same set fails without my changes.
+
+**Open issues**
+
+- The schedule view's `?source=<source>` filter is still a redirect-on-invalid
+  flash. Future polish: convert it to csv too (`?sources=manual,igdb`) for
+  consistency with `?types=`.
+- The keyboard `f <kind>` shortcuts (mirror of `[ ] all` / `[ ] video` etc.)
+  are not yet wired in the global keyboard controller. Follow-up if the
+  rails-app keyboard shortcut work-stream resumes.
