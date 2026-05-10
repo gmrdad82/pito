@@ -7,7 +7,7 @@ module Mcp
       input_schema(
         type: "object",
         properties: {
-          channel_id: { type: "integer", description: "Filter by channel ID (optional)" },
+          channel_id: { type: "string", description: "Filter by channel slug (UC-id) or integer id (as string, optional)" },
           limit: { type: "integer", description: "Max results (default 50, max 200)" }
         },
       )
@@ -34,7 +34,14 @@ module Mcp
           .order(created_at: :desc)
           .limit(limit)
 
-        scope = scope.where(channel_id: channel_id) if channel_id.present?
+        if channel_id.present?
+          channel = begin
+            Channel.friendly.find(channel_id)
+          rescue ActiveRecord::RecordNotFound
+            nil
+          end
+          scope = scope.where(channel_id: channel.id) if channel
+        end
 
         data = scope.map { |v| VideoDecorator.new(v).as_summary_json }
         MCP::Tool::Response.new([ { type: "text", text: JSON.pretty_generate(data) } ])
