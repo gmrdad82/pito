@@ -1,13 +1,22 @@
 require "rails_helper"
 
+# Settings → Google connection. This page is the SOLE entry point for
+# adding channels into pito: `[+]` on /channels and `[manage]` on the
+# Settings → Google card both land here. The URL-paste path is gone.
 RSpec.describe "Settings::Youtube", type: :request do
-  describe "GET /settings/youtube" do
+  describe "GET /settings/youtube (manage page)" do
     context "with no YoutubeConnection" do
       it "renders the empty state with a connect button" do
         get settings_youtube_path
         expect(response).to have_http_status(:ok)
         expect(response.body).to include("no google account connected")
         expect(response.body).to include("[connect]")
+      end
+
+      it "renders the `google connection` heading (not `YouTube`)" do
+        get settings_youtube_path
+        expect(response.body).to include("<h1>google connection</h1>")
+        expect(response.body).not_to include("<h1>YouTube</h1>")
       end
     end
 
@@ -43,26 +52,44 @@ RSpec.describe "Settings::Youtube", type: :request do
         allow(Youtube::Client).to receive(:new).with(connection).and_return(client_double)
         allow(client_double).to receive(:channels_list).and_return(
           items: [
-            { id: "UCabc", snippet: { title: "Main Channel" },
+            { id: "UCabc",
+              snippet: { title: "Main Channel",
+                         thumbnails: { default: { url: "https://yt3.example/avatar.png" } } },
               statistics: { subscriber_count: 1234 } }
           ],
           next_page_token: nil
         )
       end
 
-      it "renders the connected state with the email and the channel list" do
+      it "renders the connection metadata (email + scopes + last authorized)" do
         get settings_youtube_path
         expect(response.body).to include("u@example.test")
-        expect(response.body).to include("Main Channel")
-        expect(response.body).to include("UCabc")
+        expect(response.body).to include("connected as")
+        expect(response.body).to include("last authorized")
+        expect(response.body).to include("scopes")
       end
 
-      it "renders [connect] for unconnected channels" do
+      it "renders the `select channels to add` heading and the multi-select form" do
         get settings_youtube_path
-        expect(response.body).to include("[connect]")
+        expect(response.body).to include("select channels to add")
+        expect(response.body).to match(/<form[^>]*action="#{Regexp.escape(settings_youtube_channels_path)}"/)
+        expect(response.body).to include('name="youtube_channel_ids[]"')
+        expect(response.body).to include("[<b>add channels</b>]")
       end
 
-      it "renders [disconnect] for already-connected channels" do
+      it "renders one checkbox row per fetched YouTube channel" do
+        get settings_youtube_path
+        expect(response.body).to include("Main Channel")
+        expect(response.body).to include('value="UCabc"')
+        expect(response.body).to include("1,234")
+      end
+
+      it "renders the channel thumbnail when present" do
+        get settings_youtube_path
+        expect(response.body).to include("https://yt3.example/avatar.png")
+      end
+
+      it "renders already-linked channels with a disabled checkbox and `already added`" do
         valid_url = "https://www.youtube.com/channel/UCabcdefghijklmnopqrstuv"
         allow(client_double).to receive(:channels_list).and_return(
           items: [
@@ -76,7 +103,27 @@ RSpec.describe "Settings::Youtube", type: :request do
                         youtube_connection_id: connection.id)
 
         get settings_youtube_path
+        expect(response.body).to include("already added")
+        expect(response.body).to match(
+          /<input[^>]*name="youtube_channel_ids\[\]"[^>]*value="UCabcdefghijklmnopqrstuv"[^>]*disabled/
+        )
+      end
+
+      it "lists every channel currently linked to this connection" do
+        valid_url = "https://www.youtube.com/channel/UCxxxxxxxxxxxxxxxxxxxxxx"
+        Channel.create!(channel_url: valid_url,
+                        youtube_connection_id: connection.id)
+
+        get settings_youtube_path
+        expect(response.body).to include("linked channels")
+        expect(response.body).to include("UCxxxxxxxxxxxxxxxxxxxxxx")
         expect(response.body).to include("[disconnect]")
+      end
+
+      it "shows a muted note when no channels are linked yet" do
+        get settings_youtube_path
+        expect(response.body).to include("linked channels")
+        expect(response.body).to include("no channels linked yet")
       end
     end
 
@@ -100,6 +147,26 @@ RSpec.describe "Settings::Youtube", type: :request do
         expect(response.body).to include("quota exceeded")
       end
     end
+
+    context "when the YouTube API raises NeedsReauthError" do
+      let(:user) { User.first }
+      let(:connection) do
+        create(:youtube_connection, user: user)
+      end
+      let(:client_double) { instance_double(Youtube::Client) }
+
+      before do
+        connection
+        allow(Youtube::Client).to receive(:new).with(connection).and_return(client_double)
+        allow(client_double).to receive(:channels_list).and_raise(Youtube::NeedsReauthError)
+      end
+
+      it "renders the page without 500ing and surfaces the api error" do
+        get settings_youtube_path
+        expect(response).to have_http_status(:ok)
+        expect(response.body).to include("can't list channels to add")
+      end
+    end
   end
 
   describe "POST /settings/youtube/connect" do
@@ -110,51 +177,121 @@ RSpec.describe "Settings::Youtube", type: :request do
     end
   end
 
-  describe "POST /settings/youtube/channels" do
+  describe "POST /settings/youtube/channels (multi-select submit)" do
     let(:user) { User.first }
     let(:connection) do
       create(:youtube_connection, user: user)
     end
-    let(:client_double) { instance_double(Youtube::Client) }
 
-    before do
-      connection
-      allow(Youtube::Client).to receive(:new).with(connection).and_return(client_double)
-      allow(client_double).to receive(:channels_list).and_return(
-        items: [ { id: "UCabcdefghijklmnopqrstuv", snippet: { title: "My Channel" } } ],
-        next_page_token: nil
-      )
-    end
+    before { connection }
 
-    it "creates a Channel with youtube_connection_id set" do
+    it "creates Channels for every selected YouTube id" do
       expect {
         post settings_youtube_channels_path,
-             params: { youtube_channel_id: "UCabcdefghijklmnopqrstuv" }
-      }.to change { Channel.count }.by(1)
+             params: { youtube_channel_ids: %w[
+               UCaaaaaaaaaaaaaaaaaaaaaa
+               UCbbbbbbbbbbbbbbbbbbbbbb
+             ] }
+      }.to change { Channel.count }.by(2)
 
-      channel = Channel.last
-      expect(channel.channel_url).to eq("https://www.youtube.com/channel/UCabcdefghijklmnopqrstuv")
-      expect(channel.youtube_connection_id).to eq(connection.id)
-      expect(channel.last_synced_at).to be_present
+      urls = Channel.last(2).map(&:channel_url)
+      expect(urls).to include(
+        "https://www.youtube.com/channel/UCaaaaaaaaaaaaaaaaaaaaaa",
+        "https://www.youtube.com/channel/UCbbbbbbbbbbbbbbbbbbbbbb"
+      )
+      Channel.last(2).each do |c|
+        expect(c.youtube_connection_id).to eq(connection.id)
+        expect(c.last_synced_at).to be_present
+      end
     end
 
-    it "is idempotent: posting the same id twice does not create a duplicate" do
-      post settings_youtube_channels_path, params: { youtube_channel_id: "UCabcdefghijklmnopqrstuv" }
+    it "redirects to /channels with a flash showing N channels added" do
+      post settings_youtube_channels_path,
+           params: { youtube_channel_ids: %w[UCaaaaaaaaaaaaaaaaaaaaaa UCbbbbbbbbbbbbbbbbbbbbbb] }
+      expect(response).to redirect_to(channels_path)
+      expect(flash[:notice]).to eq("2 channels added.")
+    end
+
+    it "redirects with a singular flash when exactly one channel is added" do
+      post settings_youtube_channels_path,
+           params: { youtube_channel_ids: %w[UCaaaaaaaaaaaaaaaaaaaaaa] }
+      expect(response).to redirect_to(channels_path)
+      expect(flash[:notice]).to eq("1 channel added.")
+    end
+
+    it "is idempotent: re-posting an already-linked id is a no-op" do
+      post settings_youtube_channels_path,
+           params: { youtube_channel_ids: %w[UCaaaaaaaaaaaaaaaaaaaaaa] }
+
       expect {
-        post settings_youtube_channels_path, params: { youtube_channel_id: "UCabcdefghijklmnopqrstuv" }
+        post settings_youtube_channels_path,
+             params: { youtube_channel_ids: %w[UCaaaaaaaaaaaaaaaaaaaaaa] }
       }.not_to change { Channel.count }
-    end
 
-    it "redirects with a flash" do
-      post settings_youtube_channels_path, params: { youtube_channel_id: "UCabcdefghijklmnopqrstuv" }
       expect(response).to redirect_to(settings_youtube_path)
-      expect(flash[:notice]).to be_present
+      expect(flash[:notice]).to include("no new channels added")
     end
 
-    it "rejects when youtube_channel_id is missing" do
+    it "accepts the legacy scalar `youtube_channel_id` and still works" do
+      expect {
+        post settings_youtube_channels_path,
+             params: { youtube_channel_id: "UCaaaaaaaaaaaaaaaaaaaaaa" }
+      }.to change { Channel.count }.by(1)
+    end
+
+    it "rejects an empty selection with an alert" do
       post settings_youtube_channels_path, params: {}
       expect(response).to redirect_to(settings_youtube_path)
-      expect(flash[:alert]).to include("missing youtube_channel_id")
+      expect(flash[:alert]).to include("select at least one channel to add")
+    end
+
+    it "rejects an empty array selection with an alert" do
+      post settings_youtube_channels_path, params: { youtube_channel_ids: [] }
+      expect(response).to redirect_to(settings_youtube_path)
+      expect(flash[:alert]).to include("select at least one channel to add")
+    end
+
+    it "rejects when no YoutubeConnection is present" do
+      YoutubeConnection.delete_all
+      post settings_youtube_channels_path,
+           params: { youtube_channel_ids: %w[UCaaaaaaaaaaaaaaaaaaaaaa] }
+      expect(response).to redirect_to(settings_youtube_path)
+      expect(flash[:alert]).to include("google account is not connected")
+    end
+
+    it "rejects when the connection is in needs_reauth state" do
+      connection.update_columns(needs_reauth: true)
+      post settings_youtube_channels_path,
+           params: { youtube_channel_ids: %w[UCaaaaaaaaaaaaaaaaaaaaaa] }
+      expect(response).to redirect_to(settings_youtube_path)
+      expect(flash[:alert]).to include("google account is not connected")
+    end
+
+    it "links an existing un-linked channel to this connection (flaw: bypass attempt)" do
+      # Flaw scenario — a Channel row exists but is unlinked. A stale
+      # form submit (or a malicious POST replay) targeting that row's
+      # UC id should LINK it to the current connection, not duplicate
+      # the row, and not surface an error.
+      existing_url = "https://www.youtube.com/channel/UCcccccccccccccccccccccc"
+      existing = Channel.create!(channel_url: existing_url,
+                                 youtube_connection_id: nil)
+
+      expect {
+        post settings_youtube_channels_path,
+             params: { youtube_channel_ids: %w[UCcccccccccccccccccccccc] }
+      }.not_to change { Channel.count }
+
+      existing.reload
+      expect(existing.youtube_connection_id).to eq(connection.id)
+      expect(response).to redirect_to(channels_path)
+      expect(flash[:notice]).to eq("1 channel added.")
+    end
+
+    it "treats whitespace-only ids as empty selection" do
+      post settings_youtube_channels_path,
+           params: { youtube_channel_ids: [ "  ", "", nil ] }
+      expect(response).to redirect_to(settings_youtube_path)
+      expect(flash[:alert]).to include("select at least one channel to add")
     end
   end
 

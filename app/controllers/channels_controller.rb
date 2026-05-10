@@ -24,8 +24,7 @@ class ChannelsController < ApplicationController
     @saved_views = SavedView.channels.ordered
 
     scope = Channel.all
-    scope = scope.where(star: true)                 if filter_on?(:star)
-    scope = scope.where.not(youtube_connection_id: nil) if filter_on?(:connected)
+    scope = scope.where(star: true) if filter_on?(:star)
 
     @channels = scope.order(sort_clause)
     @filters = active_filters
@@ -48,34 +47,6 @@ class ChannelsController < ApplicationController
     respond_to do |format|
       format.html
       format.json { render json: ChannelDecorator.new(@channel).as_detail_json }
-    end
-  end
-
-  def new
-    @channel = Channel.new
-  end
-
-  def create
-    bool_attrs, error = coerce_yes_no_attrs(%i[star])
-    if error
-      respond_to do |format|
-        format.html { redirect_to channels_path, alert: error }
-        format.json { render json: { errors: [ error ] }, status: :unprocessable_content }
-      end
-      return
-    end
-
-    @channel = Channel.new(create_params.merge(bool_attrs))
-    if @channel.save
-      respond_to do |format|
-        format.html { redirect_to channel_path(@channel), notice: "channel created." }
-        format.json { render json: ChannelDecorator.new(@channel).as_detail_json, status: :created }
-      end
-    else
-      respond_to do |format|
-        format.html { render :new, status: :unprocessable_content }
-        format.json { render json: { errors: @channel.errors.full_messages }, status: :unprocessable_content }
-      end
     end
   end
 
@@ -190,10 +161,6 @@ class ChannelsController < ApplicationController
     (AppSetting.get("pane_title_length") || ENV.fetch("PANE_TITLE_LENGTH", 14)).to_i
   end
 
-  def create_params
-    params.require(:channel).permit(:channel_url)
-  end
-
   # External JSON / form bodies must communicate booleans as the strings
   # "yes"/"no" (see app/lib/yes_no.rb). Returns [attrs, error].
   # `error` is non-nil when an invalid value was supplied.
@@ -228,7 +195,7 @@ class ChannelsController < ApplicationController
   end
 
   def active_filters
-    %i[star connected].select { |k| filter_on?(k) }
+    %i[star].select { |k| filter_on?(k) }
   end
 
   def sanitized_sort_key

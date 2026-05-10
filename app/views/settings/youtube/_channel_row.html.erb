@@ -1,41 +1,54 @@
-<%# Phase 7 — Step C. One row per fetched YouTube channel.
+<%# Settings → Google manage page — one row per fetched YouTube
+    channel in the multi-select "select channels to add" form.
+
     Locals:
-      channel:   Hash from Youtube::Client (snake_case keys).
-      pito_channel: Channel record (or nil) matching the same URL. %>
+      channel:      Hash from Youtube::Client (snake_case keys).
+      pito_channel: Channel record (or nil) matching the same URL.
+
+    Already-linked channels render with a disabled checkbox and an
+    "already added" cell so the user sees the row but cannot
+    re-submit it. Unlinked rows render an enabled checkbox keyed by
+    the YouTube channel ID; ticked rows roll up into the form's
+    `youtube_channel_ids[]` array on submit. %>
 
 <% youtube_channel_id = channel[:id].to_s %>
 <% snippet = (channel[:snippet].is_a?(Hash) ? channel[:snippet] : {}) %>
 <% statistics = (channel[:statistics].is_a?(Hash) ? channel[:statistics] : {}) %>
 <% title = snippet[:title].to_s %>
+<% thumbnails = snippet[:thumbnails].is_a?(Hash) ? snippet[:thumbnails] : {} %>
+<% default_thumb = thumbnails[:default].is_a?(Hash) ? thumbnails[:default] : {} %>
+<% thumbnail_url = default_thumb[:url].to_s %>
 <% subscriber_count = statistics[:subscriber_count] || statistics["subscriberCount"] %>
+<% already_added = pito_channel.present? && pito_channel.youtube_connection_id.present? %>
 
 <tr>
-  <td style="font-family: monospace; font-size: 11px; color: #555;">
-    <%= youtube_channel_id %>
+  <td class="col-action" style="vertical-align: middle;">
+    <label class="md-check" style="margin: 0;">
+      <input type="checkbox"
+             name="youtube_channel_ids[]"
+             value="<%= youtube_channel_id %>"
+             <%= "disabled" if already_added %>>
+      <span class="md-check-indicator"></span>
+    </label>
   </td>
-  <td><%= title.presence || "(untitled)" %></td>
-  <td class="num">
+  <td style="vertical-align: middle;">
+    <% if thumbnail_url.present? %>
+      <img src="<%= thumbnail_url %>" alt=""
+           style="width: 28px; height: 28px; border-radius: 2px; vertical-align: middle;"
+           loading="lazy" referrerpolicy="no-referrer">
+    <% end %>
+  </td>
+  <td style="vertical-align: middle;"><%= title.presence || "(untitled)" %></td>
+  <td class="num" style="vertical-align: middle;">
     <% if subscriber_count.present? %>
       <%= number_with_delimiter(subscriber_count.to_i) %>
     <% else %>
       —
     <% end %>
   </td>
-  <td>
-    <% if pito_channel.present? && pito_channel.youtube_connection_id.present? %>
-      connected
-      <%= form_with url: deletions_path(type: "youtube_connection", ids: pito_channel.id),
-                    method: :get, data: { turbo: false },
-                    html: { style: "display: inline; margin-left: 8px;" } do %>
-        <button type="submit">[disconnect]</button>
-      <% end %>
-    <% else %>
-      <%= form_with url: settings_youtube_channels_path,
-                    method: :post, data: { turbo: false },
-                    html: { style: "display: inline;" } do %>
-        <input type="hidden" name="youtube_channel_id" value="<%= youtube_channel_id %>">
-        <button type="submit">[connect]</button>
-      <% end %>
+  <td style="vertical-align: middle;">
+    <% if already_added %>
+      <span class="text-muted">already added</span>
     <% end %>
   </td>
 </tr>

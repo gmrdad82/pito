@@ -1,31 +1,20 @@
 <%= form_with(model: channel) do |f| %>
   <% if channel.errors.any? %>
-    <div class="flash-error" style="margin-bottom: 8px; padding: 4px 8px;">couldn't <%= channel.new_record? ? "create" : "update" %> — check the fields below.</div>
+    <div class="flash-error" style="margin-bottom: 8px; padding: 4px 8px;">couldn't update — check the fields below.</div>
   <% end %>
 
-  <% if channel.new_record? %>
-    <div style="margin-bottom: 8px;">
-      <label for="channel_channel_url">YouTube channel URL</label>
-      <%= f.text_field :channel_url,
-            placeholder: "https://www.youtube.com/channel/UC2T-WgvF-DQQfFNQieoRuQQ",
-            pattern: "https://www\\.youtube\\.com/channel/UC[A-Za-z0-9_-]{22}",
-            required: true,
-            style: "width: 100%; max-width: 480px;" %>
-      <p class="form-hint" style="margin-top: 4px; font-size: 11px;">
-        must match
-        <code>https://www.youtube.com/channel/UC&lt;22 chars&gt;</code>.
-      </p>
-    </div>
-  <% else %>
-    <div style="margin-bottom: 8px;">
-      <label>YouTube channel URL</label>
-      <input type="text" value="<%= channel.channel_url %>" readonly disabled style="width: 100%; max-width: 480px;">
-      <p class="form-hint" style="margin-top: 4px; font-size: 11px;">URL is locked after creation.</p>
-    </div>
-  <% end %>
+  <%# Channels only enter the system via the Google OAuth + channel
+      selection flow at /settings/youtube. The URL-paste entry path
+      and its `new` form are gone; this partial only renders the edit
+      view, where the URL is locked. %>
+  <div style="margin-bottom: 8px;">
+    <label>YouTube channel URL</label>
+    <input type="text" value="<%= channel.channel_url %>" readonly disabled style="width: 100%; max-width: 480px;">
+    <p class="form-hint" style="margin-top: 4px; font-size: 11px;">URL is locked after creation.</p>
+  </div>
 
   <div style="display: flex; gap: 6px;">
-    <button type="submit" class="btn-submit">[<b><%= channel.new_record? ? "add" : "update" %></b>]</button>
+    <button type="submit" class="btn-submit">[<b>update</b>]</button>
     <%= render(BracketedLinkComponent.new(label: "cancel", href: cancel_path)) %>
   </div>
 <% end %>

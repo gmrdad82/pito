@@ -1,8 +1,8 @@
-<% content_for(:title, "YouTube") %>
-<% breadcrumb(["settings", settings_path], "YouTube") %>
+<% content_for(:title, "google connection") %>
+<% breadcrumb(["settings", settings_path], "google") %>
 
 <div style="margin-bottom: 8px;">
-  <h1>YouTube</h1>
+  <h1>google connection</h1>
 </div>
 
 <% if @youtube_connection.present? && @youtube_connection.needs_reauth? %>
@@ -11,7 +11,7 @@
 
 <% if @youtube_connection.nil? %>
   <%# Empty state — no Google account connected. %>
-  <div class="pane" style="margin-top: 12px; padding: 16px;">
+  <div class="pane pane--standalone" style="margin-top: 12px; padding: 16px; max-width: 60ch;">
     <p>no google account connected.</p>
 
     <%= form_with url: settings_youtube_connect_path, method: :post,
@@ -27,13 +27,8 @@
     </p>
   </div>
 <% else %>
-  <%# Connected state. Phase 12 UX sweep — label/value metadata rendered
-      as a `detail-table` inside the pane so the value column aligns with
-      the rest of pito's settings surfaces (mirrors `channels/_pane.html.erb`
-      and `videos/_pane.html.erb`). Label cells carry `padding-right: 12px;`
-      so labels don't kiss the values — the base `.detail-table td` rule
-      has `padding: 1px 0;` (no horizontal padding). %>
-  <div class="pane" style="margin-top: 12px; padding: 16px;">
+  <%# Connected state. Connection metadata pane. %>
+  <div class="pane pane--standalone" style="margin-top: 12px; padding: 16px; max-width: 60ch;">
     <table class="detail-table" style="margin-bottom: 8px;">
       <tr>
         <td class="text-muted" style="padding-right: 12px; vertical-align: top;">connected as</td>
@@ -63,60 +58,88 @@
     </div>
   </div>
 
-  <% if @youtube_error.present? %>
-    <div class="flash-error" style="margin: 12px 0; padding: 10px 12px; border: 1px solid #cc0000; color: #cc0000;">
-      YouTube api unavailable right now: <%= @youtube_error %>.
-      showing already-connected channels only.
-    </div>
-  <% end %>
-
-  <h2 style="margin-top: 16px;">your YouTube channels</h2>
-
-  <% pito_channels_by_url = Channel.where(channel_url: @youtube_channels.map { |c| "https://www.youtube.com/channel/#{c[:id]}" }).index_by(&:channel_url) %>
-
-  <% if @youtube_channels.any? %>
+  <%# Currently-linked channels — every Channel row whose
+      youtube_connection_id points at this connection. Surfaces the
+      install's already-added set so the user can disconnect any of
+      them via the existing /deletions/youtube_connection/:id action
+      screen (no JS confirm; hard rule). Empty list collapses the
+      section to a one-line muted note. %>
+  <% linked_channels = Channel.where(youtube_connection_id: @youtube_connection.id).order(:channel_url) %>
+  <h2 style="margin-top: 16px;">linked channels</h2>
+  <% if linked_channels.any? %>
     <table>
       <thead>
         <tr>
-          <th>channel id</th>
-          <th>title</th>
-          <th class="num">subscribers</th>
+          <th>channel</th>
           <th>state</th>
         </tr>
       </thead>
       <tbody>
-        <% @youtube_channels.each do |channel| %>
-          <% url = "https://www.youtube.com/channel/#{channel[:id]}" %>
-          <%= render "settings/youtube/channel_row",
-                     channel: channel,
-                     pito_channel: pito_channels_by_url[url] %>
+        <% linked_channels.each do |c| %>
+          <tr>
+            <td style="font-family: monospace;">
+              <%= link_to c.channel_url.sub(%r{\Ahttps?://(www\.)?youtube\.com/channel/}, ""),
+                          channel_path(c) %>
+            </td>
+            <td>
+              <%= form_with url: deletions_path(type: "youtube_connection", ids: c.id),
+                            method: :get, data: { turbo: false },
+                            html: { style: "display: inline;" } do %>
+                <button type="submit">[disconnect]</button>
+              <% end %>
+            </td>
+          </tr>
         <% end %>
       </tbody>
     </table>
-  <% elsif @youtube_error.present? %>
-    <%# Fallback to listing already-connected channels in pito. %>
-    <% fallback = Channel.where(youtube_connection_id: @youtube_connection.id).order(channel_url: :asc) %>
-    <% if fallback.any? %>
+  <% else %>
+    <p class="text-muted">no channels linked yet.</p>
+  <% end %>
+
+  <% if @youtube_error.present? %>
+    <div class="flash-error" style="margin: 12px 0; padding: 10px 12px; border: 1px solid #cc0000; color: #cc0000;">
+      YouTube api unavailable right now: <%= @youtube_error %>.
+      can't list channels to add right now.
+    </div>
+  <% end %>
+
+  <%# Channel-select picker — the multi-select form. Each row carries
+      a checkbox keyed by YouTube channel ID; ticked rows roll up into
+      `youtube_channel_ids[]` on submit. Rows already linked to this
+      connection render with a disabled checkbox and an "already
+      added" marker so the form can't re-submit them. %>
+  <h2 style="margin-top: 16px;">select channels to add</h2>
+
+  <% pito_channels_by_url = Channel.where(channel_url: @youtube_channels.map { |c| "https://www.youtube.com/channel/#{c[:id]}" }).index_by(&:channel_url) %>
+
+  <% if @youtube_channels.any? %>
+    <%= form_with url: settings_youtube_channels_path, method: :post,
+                  data: { turbo: false } do %>
       <table>
         <thead>
           <tr>
-            <th>channel url</th>
-            <th class="num">connected</th>
+            <th class="col-action"></th>
+            <th></th>
+            <th>title</th>
+            <th class="num">subscribers</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
-          <% fallback.each do |c| %>
-            <tr>
-              <td style="font-family: monospace;"><%= c.channel_url %></td>
-              <td class="num">yes</td>
-            </tr>
+          <% @youtube_channels.each do |channel| %>
+            <% url = "https://www.youtube.com/channel/#{channel[:id]}" %>
+            <%= render "settings/youtube/channel_row",
+                       channel: channel,
+                       pito_channel: pito_channels_by_url[url] %>
           <% end %>
         </tbody>
       </table>
-    <% else %>
-      <p class="text-muted">no channels available right now.</p>
+
+      <div style="margin-top: 8px;">
+        <button type="submit" class="btn-submit">[<b>add channels</b>]</button>
+      </div>
     <% end %>
-  <% else %>
+  <% elsif @youtube_error.blank? %>
     <p class="text-muted">no channels found under this google account.</p>
   <% end %>
 <% end %>

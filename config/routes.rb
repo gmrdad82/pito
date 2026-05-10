@@ -76,7 +76,7 @@ Rails.application.routes.draw do
   # and the four cross-video local rollups.
   resource :analytics, only: :show, controller: "analytics"
 
-  resources :channels, only: [ :index, :show, :new, :create, :edit, :update, :destroy ] do
+  resources :channels, only: [ :index, :show, :edit, :update, :destroy ] do
     collection do
       get :panes
     end

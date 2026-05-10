@@ -34,13 +34,25 @@ class Settings::YoutubeController < ApplicationController
                 status: :see_other
   end
 
-  # POST /settings/youtube/channels — connect a single YouTube
-  # channel by its YouTube channel ID.
+  # POST /settings/youtube/channels — connect one or more YouTube
+  # channels picked from the multi-select form on the manage page.
+  #
+  # Accepts either `youtube_channel_ids[]` (array of UC… IDs from
+  # the checkbox form) or the legacy single `youtube_channel_id`
+  # scalar (kept for backwards-compatibility with the CLI's older
+  # submit shape; deprecated for the web flow). Already-linked
+  # channels are filtered server-side: posting a UC id that is
+  # already linked to this connection is a no-op (no duplicate
+  # create, no flash error), so a stale form submission can't
+  # bypass the "already added" UI guard.
   def channels
-    youtube_channel_id = params[:youtube_channel_id].to_s.strip
-    if youtube_channel_id.blank?
+    requested_ids = Array(params[:youtube_channel_ids]).map { |s| s.to_s.strip }
+    requested_ids << params[:youtube_channel_id].to_s.strip if params[:youtube_channel_id].present?
+    requested_ids = requested_ids.reject(&:blank?).uniq
+
+    if requested_ids.empty?
       redirect_to settings_youtube_path,
-                  alert: "missing youtube_channel_id."
+                  alert: "select at least one channel to add."
       return
     end
 
@@ -51,24 +63,38 @@ class Settings::YoutubeController < ApplicationController
       return
     end
 
-    channel_url = "https://www.youtube.com/channel/#{youtube_channel_id}"
-    channel = Channel.find_or_initialize_by(channel_url: channel_url)
+    added_count = 0
+    requested_ids.each do |youtube_channel_id|
+      channel_url = "https://www.youtube.com/channel/#{youtube_channel_id}"
+      channel = Channel.find_or_initialize_by(channel_url: channel_url)
 
-    if channel.new_record?
-      channel.youtube_connection = connection
-      channel.last_synced_at = Time.current
-      channel.save!
-    else
-      # Existing row — only update the connection state. The
-      # `prevent_url_change` guard would reject any channel_url
-      # mutation; we never touch it.
-      channel.update_columns(
-        youtube_connection_id: connection.id,
-        last_synced_at: Time.current
-      )
+      if channel.new_record?
+        channel.youtube_connection = connection
+        channel.last_synced_at = Time.current
+        channel.save!
+        added_count += 1
+      elsif channel.youtube_connection_id != connection.id
+        # Existing row not linked to this connection — link it. The
+        # `prevent_url_change` guard would reject any channel_url
+        # mutation; we never touch it.
+        channel.update_columns(
+          youtube_connection_id: connection.id,
+          last_synced_at: Time.current
+        )
+        added_count += 1
+      end
+      # else: already linked to this connection — no-op, the form
+      # guard should have prevented this submit anyway.
     end
 
-    redirect_to settings_youtube_path, notice: "connected."
+    if added_count.zero?
+      redirect_to settings_youtube_path,
+                  notice: "no new channels added (already linked)."
+    else
+      noun = added_count == 1 ? "channel" : "channels"
+      redirect_to channels_path,
+                  notice: "#{added_count} #{noun} added."
+    end
   rescue Youtube::QuotaExhaustedError, Youtube::TransientError, Youtube::NeedsReauthError => e
     redirect_to settings_youtube_path,
                 alert: "youtube api unavailable right now (#{e.class.name.demodulize}). try again."

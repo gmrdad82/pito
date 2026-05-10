@@ -4,7 +4,10 @@
   <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;">
     <div class="dot-list">
       <h1>channels</h1>
-      <%= render(BracketedLinkComponent.new(label: "+", href: new_channel_path)) %>
+      <%# Channels enter the system via the Google OAuth + channel-
+          selection flow at /settings/youtube. The `[+]` link routes
+          to that same destination as Settings → Google → [manage]. %>
+      <%= render(BracketedLinkComponent.new(label: "+", href: settings_youtube_path)) %>
     </div>
     <span style="margin-left: auto;"><%= render(SavedViewsSectionComponent.new(saved_views: @saved_views || SavedView.none, kind: "channels")) %></span>
   </div>
@@ -18,7 +21,6 @@
   <div class="dot-list" style="margin-bottom: 2px; gap: 10px;">
     <span class="text-muted">filter:</span>
     <%= render(FilterChipComponent.new(label: "starred", param: "star", current_params: request.query_parameters, frame: "channels-index-table")) %>
-    <%= render(FilterChipComponent.new(label: "connected", param: "connected", current_params: request.query_parameters, frame: "channels-index-table")) %>
     <% if filters.any? %>
       <%= render(BracketedLinkComponent.new(label: "clear", href: channels_path, data: { turbo_frame: "channels-index-table", turbo_action: "advance" })) %>
     <% end %>
@@ -70,8 +72,8 @@
 
       <%# Sortable column headers — server-side sort via `?sort=<key>&dir=<asc|desc>`.
           `sort_link_to` builds a link that merges the new sort params into
-          `request.query_parameters`, so active filter chips (`?starred=yes`,
-          `?connected=yes`, etc.) are preserved across header clicks.
+          `request.query_parameters`, so active filter chips (`?star=yes`,
+          etc.) are preserved across header clicks.
           Mirrors the `/projects` index pattern; replaces the prior
           client-side `sortable-table` Stimulus controller, which still
           serves the per-pane video tables. %>
@@ -145,7 +147,11 @@
       </table>
     </div>
   <% else %>
-    <p class="text-muted">no channels yet.</p>
+    <p class="text-muted">
+      no channels yet.
+      <%= link_to "[add channels via google]", settings_youtube_path %>
+      to get started.
+    </p>
   <% end %>
   <% end %>
 </div>

@@ -49,11 +49,17 @@ RSpec.describe "Channels", type: :request do
         expect(response.body).not_to match(/<th[^>]*>\s*syncing\s*</)
       end
 
-      # Phase 9 — `connected` filter chip stays (derived from
-      # youtube_connection_id), `syncing` filter chip is gone.
+      # Post-cleanup — every channel is OAuth-linked by definition, so
+      # neither the legacy `syncing` filter chip nor the derived
+      # `connected` filter chip exists.
       it "does not render the syncing filter chip" do
         get channels_path
         expect(response.body).not_to match(/md-check-static-label">syncing/)
+      end
+
+      it "does not render the connected filter chip" do
+        get channels_path
+        expect(response.body).not_to match(/md-check-static-label">connected/)
       end
 
       it "displays 5 columns (select, name, URL, star, last sync)" do
@@ -429,9 +435,8 @@ RSpec.describe "Channels", type: :request do
     end
 
     context "filters" do
-      let!(:starred)   { create(:channel, :starred) }
-      let!(:connected) { create(:channel, :connected) }
-      let!(:plain)     { create(:channel) }
+      let!(:starred) { create(:channel, :starred) }
+      let!(:plain)   { create(:channel) }
 
       it "filters by star=yes" do
         get channels_path, params: { star: "yes" }
@@ -452,27 +457,21 @@ RSpec.describe "Channels", type: :request do
         expect(response.body).to include(plain.channel_url)
       end
 
-      it "filters by connected=yes" do
-        get channels_path, params: { connected: "yes" }
-        expect(response.body).to include(connected.channel_url)
-        expect(response.body).not_to include(starred.channel_url)
-      end
-
-      it "combines star=yes and connected=yes (AND-logic)" do
+      it "silently ignores connected=yes (the filter no longer exists)" do
         connection = create(:youtube_connection)
-        both = create(:channel, star: true, youtube_connection: connection)
-        get channels_path, params: { star: "yes", connected: "yes" }
-        expect(response.body).to include(both.channel_url)
-        expect(response.body).not_to include(starred.channel_url)
-        expect(response.body).not_to include(connected.channel_url)
-        expect(response.body).not_to include(plain.channel_url)
+        oauth_linked = create(:channel, youtube_connection: connection)
+        get channels_path, params: { connected: "yes" }
+        # All channels render — `connected` is no longer a filter key.
+        expect(response.body).to include(oauth_linked.channel_url)
+        expect(response.body).to include(starred.channel_url)
+        expect(response.body).to include(plain.channel_url)
       end
 
-      it "renders FilterChipComponent for each filter" do
+      it "renders FilterChipComponent for each remaining filter" do
         get channels_path
-        # Phase 7 Path A2 — two filter chips: starred, connected
-        # (syncing chip retired with the column drop).
-        expect(response.body.scan(/class="filter-chip"/).size).to be >= 2
+        # Post-cleanup — only the `starred` chip remains; the legacy
+        # `syncing` and the derived `connected` chips are both gone.
+        expect(response.body.scan(/class="filter-chip"/).size).to eq(1)
         expect(response.body).to include("md-check-static")
         expect(response.body).to include("md-check-static-label")
       end
@@ -494,14 +493,13 @@ RSpec.describe "Channels", type: :request do
         json = JSON.parse(response.body)
         expect(json).to be_an(Array)
         row = json.first
-        # Phase 9 — `connected` is derived from youtube_connection_id;
-        # `syncing` field is dropped from the JSON wire shape. Phase 8 —
-        # tenant drop: tenant_id no longer in the wire shape.
-        expect(row).to include("id", "channel_url", "star", "connected")
+        # The derived `connected` field and the legacy `syncing` field
+        # are both retired from the JSON wire shape.
+        expect(row).to include("id", "channel_url", "star")
         expect(row).not_to have_key("syncing")
         expect(row).not_to have_key("tenant_id")
+        expect(row).not_to have_key("connected")
         expect(row["star"]).to eq("yes")
-        expect(row["connected"]).to eq("no")
       end
     end
 
@@ -630,13 +628,13 @@ RSpec.describe "Channels", type: :request do
     it "returns detail JSON with yes/no strings for boolean flags" do
       get channel_path(channel, format: :json)
       json = JSON.parse(response.body)
-      # Phase 7 Path A2 — `connected` is derived; `syncing` is dropped.
-      # Phase 8 — tenant drop: tenant_id no longer in the wire shape.
-      expect(json).to include("id", "channel_url", "star", "connected", "video_count")
+      # The derived `connected` field and the legacy `syncing` /
+      # `tenant_id` fields are all retired from the JSON wire shape.
+      expect(json).to include("id", "channel_url", "star", "video_count")
       expect(json).not_to have_key("syncing")
       expect(json).not_to have_key("tenant_id")
+      expect(json).not_to have_key("connected")
       expect(json["star"]).to eq("no")
-      expect(json["connected"]).to eq("no")
     end
 
     it "returns JSON 404 for unknown channel (not HTML)" do
@@ -659,20 +657,20 @@ RSpec.describe "Channels", type: :request do
       expect(response.body).to match(/starred<\/td>\s*<td>\s*yes\s*<form[^>]*>.*?\[unstar\].*?<\/form>\s*<\/td>/m)
     end
 
-    # Phase 7 Path A2 — inline [connect]/[disconnect] toggle on the
-    # channel show page is retired. Connection state is OAuth-managed
-    # at /settings/youtube; the show page just displays the current
-    # state ("yes"/"no") with no inline action.
-    it "displays the connected state without an inline toggle" do
+    # The derived `connected` row was removed from the show-page detail
+    # pane alongside the rest of the per-channel connected surface —
+    # every channel is OAuth-linked by definition now. Connection
+    # metadata (Google account, scopes, last-authorized) lives at
+    # /settings/youtube.
+    it "does not render a `connected` row in the detail pane" do
       get channel_path(channel)
-      expect(response.body).to match(/connected<\/td>\s*<td>\s*\n?\s*no\b/)
-      expect(response.body).not_to match(/connected<\/td>\s*<td>\s*no\s*<form/m)
+      expect(response.body).not_to match(/<td[^>]*>connected<\/td>/)
     end
 
-    it "shows 'yes' when the channel has a youtube_connection" do
-      connected = create(:channel, :connected)
-      get channel_path(connected)
-      expect(response.body).to match(/connected<\/td>\s*<td>\s*\n?\s*yes\b/)
+    it "does not render an inline [connect] / [disconnect] toggle on the show page" do
+      get channel_path(channel)
+      expect(response.body).not_to include("[connect]")
+      expect(response.body).not_to include("[disconnect]")
     end
 
     it "does not render the legacy top-of-page star/connect action bar" do
@@ -686,9 +684,9 @@ RSpec.describe "Channels", type: :request do
 
     # 2026-05-10 — the show page splits into two side-by-side panes inside
     # a `.pane-row`: the left pane carries channel detail (URL, starred,
-    # connected, last sync), the right pane carries the videos list. The
-    # row uses `.pane-row` (wrapping flex) rather than `.pane-strip` so
-    # the videos pane drops below the detail pane on narrow viewports.
+    # last sync), the right pane carries the videos list. The row uses
+    # `.pane-row` (wrapping flex) rather than `.pane-strip` so the
+    # videos pane drops below the detail pane on narrow viewports.
     it "wraps the show layout in pane-row containing two .pane children" do
       get channel_path(channel)
       expect(response.body).to include('<div class="pane-row">')
@@ -718,88 +716,54 @@ RSpec.describe "Channels", type: :request do
     end
   end
 
-  describe "GET /channels/new" do
-    it "returns 200" do
-      get new_channel_path
-      expect(response).to have_http_status(:ok)
+  # The URL-paste entry path was dropped — channels enter the system
+  # exclusively through the Google OAuth + channel-selection flow at
+  # /settings/youtube. `GET /channels/new` and the user-facing
+  # `POST /channels` are no longer routed; the `new_channel_path`
+  # helper does not exist; the `[+]` button on /channels points to
+  # /settings/youtube.
+  describe "URL-paste entry path is dropped" do
+    it "does not expose the `new_channel_path` helper" do
+      expect(Rails.application.routes.url_helpers)
+        .not_to respond_to(:new_channel_path)
     end
 
-    it "shows the URL field with example placeholder" do
-      get new_channel_path
-      expect(response.body).to include("new channel")
-      expect(response.body).to include("https://www.youtube.com/channel/UC2T-WgvF-DQQfFNQieoRuQQ")
-      expect(response.body).to include("pattern=")
+    it "GET /channels/new no longer routes to channels#new" do
+      # The `:new` route was dropped from `resources :channels`. The
+      # remaining `/channels/:id` route is greedy enough to swallow
+      # `/channels/new` (with `id: "new"`), which then 404s in the
+      # show action when FriendlyId fails to resolve. Either way the
+      # URL-paste form is unreachable.
+      route = Rails.application.routes.recognize_path("/channels/new", method: :get)
+      expect(route[:action]).not_to eq("new")
+      expect(route[:action]).to eq("show")
+
+      # In the test env Rails' rescue_from converts RecordNotFound to
+      # a 404 by default; the URL-paste form is unreachable either
+      # way. Asserting the action != "new" is the real contract here.
     end
 
-    it "renders only URL field + add/cancel (no starred/connected checkboxes)" do
-      get new_channel_path
-      expect(response.body).not_to match(/name="channel\[star\]"/)
-      expect(response.body).not_to match(/name="channel\[connected\]"/)
-      expect(response.body).not_to match(/>\s*starred\s*<\/label>/)
-      expect(response.body).not_to match(/>\s*connected\s*<\/label>/)
-      expect(response.body).to include("[<b>add</b>]")
-      expect(response.body).not_to include("[<b>update</b>]")
-      expect(response.body).to include("cancel")
-    end
-
-    it "renders the breadcrumb tail as [add] (no entity word)" do
-      get new_channel_path
-      expect(response.body).to include('<span class="bracketed-active">[add]</span>')
-      expect(response.body).not_to include('[add channel]')
-    end
-
-    # 2026-05-10 — the canonical YouTube URL placeholder (56 chars) was
-    # being clipped by the form partial's 480px input cap. The new-channel
-    # page now wraps the form in a `.channel-new-form` container that
-    # widens the input to 60ch via a scoped style block. The same
-    # container also carries `.pane.pane--standalone` so the form sits on
-    # the pane background like other detail / form surfaces.
-    it "widens the URL input so the canonical placeholder fits" do
-      get new_channel_path
-      expect(response.body).to include("channel-new-form")
-      expect(response.body).to match(/\.channel-new-form\s+input\[type="text"\][^}]*max-width:\s*60ch/m)
-    end
-
-    it "wraps the form body in a `.pane.pane--standalone` container" do
-      get new_channel_path
-      expect(response.body).to match(/<div class="pane pane--standalone channel-new-form"/)
-    end
-  end
-
-  describe "POST /channels" do
-    it "creates a channel with a valid URL and redirects" do
+    it "does not match POST /channels under recognize_path" do
       expect {
-        post channels_path, params: { channel: { channel_url: valid_url } }
-      }.to change(Channel, :count).by(1)
-
-      channel = Channel.last
-      expect(response).to redirect_to(channel_path(channel))
-      expect(channel.channel_url).to eq(valid_url)
+        Rails.application.routes.recognize_path("/channels", method: :post)
+      }.to raise_error(ActionController::RoutingError)
     end
 
-    it "enqueues a ChannelSync job after create" do
-      expect {
-        post channels_path, params: { channel: { channel_url: valid_url } }
-      }.to change(ChannelSync.jobs, :size).by(1)
+    it "renders the [+] button on /channels pointing at /settings/youtube" do
+      get channels_path
+      # `BracketedLinkComponent.new(label: "+")` renders as
+      # `[<span class="bl">+</span>]` inside an `<a href="...">`.
+      expect(response.body).to match(
+        %r{<a[^>]*href="#{Regexp.escape(settings_youtube_path)}"[^>]*>\s*\[<span class="bl">\+</span>\]}
+      )
     end
 
-    it "returns 422 on invalid URL" do
-      post channels_path, params: { channel: { channel_url: "not-a-url" } }
-      expect(response).to have_http_status(:unprocessable_content)
-    end
-
-    it "returns JSON 201 on success" do
-      post channels_path(format: :json), params: { channel: { channel_url: valid_url } }
-      expect(response).to have_http_status(:created)
-      json = JSON.parse(response.body)
-      expect(json).to include("id", "channel_url")
-    end
-
-    it "returns JSON 422 with errors on invalid input" do
-      post channels_path(format: :json), params: { channel: { channel_url: "" } }
-      expect(response).to have_http_status(:unprocessable_content)
-      json = JSON.parse(response.body)
-      expect(json["errors"]).to be_an(Array)
+    it "renders the empty-state copy pointing at /settings/youtube" do
+      Channel.delete_all
+      get channels_path
+      expect(response.body).to include("no channels yet")
+      expect(response.body).to include("[add channels via google]")
+      expect(response.body).to include(settings_youtube_path)
     end
   end
 
@@ -903,16 +867,6 @@ RSpec.describe "Channels", type: :request do
           expect(response).to have_http_status(:ok)
           json = JSON.parse(response.body)
           expect(json["star"]).to eq("yes")
-        ensure
-          ActionController::Base.allow_forgery_protection = false
-        end
-      end
-
-      it "POST .json create succeeds without an authenticity token" do
-        ActionController::Base.allow_forgery_protection = true
-        begin
-          post channels_path(format: :json), params: { channel: { channel_url: valid_url } }
-          expect(response).to have_http_status(:created)
         ensure
           ActionController::Base.allow_forgery_protection = false
         end
@@ -1060,9 +1014,14 @@ RSpec.describe "Channels", type: :request do
   end
 
   describe "model callback integration" do
-    it "POST /channels enqueues exactly one ChannelSync" do
+    # Post URL-paste drop, channels enter the system through the
+    # /settings/youtube multi-select flow OR via direct Channel.create
+    # in services / MCP. The model callback that enqueues ChannelSync
+    # on create still fires whichever way the row is born; this spec
+    # exercises that boundary at the model layer (no HTTP).
+    it "Channel.create enqueues exactly one ChannelSync" do
       ChannelSync.clear
-      post channels_path, params: { channel: { channel_url: valid_url } }
+      Channel.create!(channel_url: valid_url)
       expect(ChannelSync.jobs.size).to eq(1)
       expect(ChannelSync.jobs.first["args"].first).to eq(Channel.last.id)
     end
