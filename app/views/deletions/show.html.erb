@@ -46,6 +46,10 @@
           <th>title</th>
           <th>project</th>
           <th class="num">state</th>
+        <% when "bundle" %>
+          <th>name</th>
+          <th>type</th>
+          <th class="num">members</th>
         <% end %>
       </tr>
     </thead>
@@ -94,6 +98,10 @@
             <td><%= item.title %></td>
             <td><%= item.project.name %></td>
             <td class="num"><%= item.state %></td>
+          <% when "bundle" %>
+            <td><%= item.name %></td>
+            <td><%= item.bundle_type %></td>
+            <td class="num"><%= number_with_delimiter(item.bundle_members.count) %></td>
           <% end %>
         </tr>
       <% end %>

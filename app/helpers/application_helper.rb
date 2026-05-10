@@ -166,6 +166,7 @@ module ApplicationHelper
     # the projects index, the closest reasonable parent.
     when "note"       then projects_path
     when "timeline"   then projects_path
+    when "bundle"     then bundles_path
     else root_path
     end
   end

@@ -92,7 +92,27 @@ lives in `docs/realignment-2026-05-09.md` and
   - **Cross-reference:** `docs/realignment-2026-05-09.md` (resolved ambiguities
     #3 + work unit 10).
 
+## 2026-05-10 — Final reconciliation
+
+The three pre-spec drops (08 / 09 / 10) are pinned. No additional drops landed
+between the 2026-05-10 deletion pass and the Phase 19 close-out. The Cassette-
+recording session, YouTube data sync engine, real `top videos` chart rebuild,
+URL-hash → query-param sort migration, filter chip group component, and
+Meilisearch indexing per-target flag parity remain **deferred** (not dropped) —
+they are tracked as carry-forwards in `docs/orchestration/follow-ups.md` per
+the close-out's follow-ups disposition table.
+
+- **Item:** no further drops; pre-specs 08 / 09 / 10 disposition confirmed.
+- **Rationale:** every other "Deferred workstream" listed in `plan.md` has a
+  current trigger condition and stays in the follow-ups backlog rather than
+  being dropped from the phase plan.
+- **Plan link:** `plan.md > Deferred workstreams` — items remain unchecked
+  intentionally; they are queued, not abandoned.
+- **Driver:** Phase 19 close-out spec
+  (`docs/plans/beta/19-phase-75-closeout/specs/01-closeout-and-followups-resolution.md`).
+
 ## Cross-references
 
+- `docs/plans/beta/19-phase-75-closeout/specs/01-closeout-and-followups-resolution.md`
 - `docs/realignment-2026-05-09.md`
 - `docs/orchestration/follow-ups.md`

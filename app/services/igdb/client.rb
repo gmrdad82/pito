@@ -148,6 +148,45 @@ module Igdb
       post("companies", body)
     end
 
+    # Phase 14 §2 — IGDB game-listing endpoints used by
+    # `Bundle#seed_from_igdb`. Each method takes the IGDB resource id
+    # and returns an array of `{ "id" => …, "name" => … }` hashes for
+    # every Game IGDB associates with that resource. The caller is
+    # responsible for adding any missing rows to the local Game
+    # library (typically via `GameIgdbSync` per id).
+    def fetch_games_for_franchise(franchise_id, limit: 500)
+      raise ArgumentError, "franchise_id must be a positive integer" unless valid_igdb_id?(franchise_id)
+
+      body = Apicalypse.new
+        .fields("id", "name", "slug")
+        .where("franchises = (#{franchise_id.to_i}) | franchise = #{franchise_id.to_i}")
+        .limit(limit)
+        .to_s
+      post("games", body)
+    end
+
+    def fetch_games_for_collection(collection_id, limit: 500)
+      raise ArgumentError, "collection_id must be a positive integer" unless valid_igdb_id?(collection_id)
+
+      body = Apicalypse.new
+        .fields("id", "name", "slug")
+        .where("collection = #{collection_id.to_i}")
+        .limit(limit)
+        .to_s
+      post("games", body)
+    end
+
+    def fetch_games_for_genre(genre_id, limit: 500)
+      raise ArgumentError, "genre_id must be a positive integer" unless valid_igdb_id?(genre_id)
+
+      body = Apicalypse.new
+        .fields("id", "name", "slug")
+        .where("genres = (#{genre_id.to_i})")
+        .limit(limit)
+        .to_s
+      post("games", body)
+    end
+
     private
 
     def valid_igdb_id?(value)

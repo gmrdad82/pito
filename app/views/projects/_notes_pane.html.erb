@@ -63,7 +63,15 @@
           Each `.action` span carries an `.action-sep` `&middot;` that the
           controller hides on whichever action is first-visible. The
           `deleteAction` target self-hides at zero selection. %>
-      <div data-bulk-select-target="actions" class="bulk-toolbar" style="margin-bottom: 6px;">
+      <%# `data-turbo-frame="_top"` cascades to the controller-injected
+          `[delete N]` link so its click navigates full-page to
+          `/deletions/note/:ids` instead of being scoped to the
+          enclosing `notes-table` Turbo Frame. The deletions
+          confirmation page is a full-page surface
+          (`shared/_action_screen.html.erb`) and has no matching frame
+          in its response — without `_top` Turbo shows "Content
+          missing". %>
+      <div data-bulk-select-target="actions" class="bulk-toolbar" style="margin-bottom: 6px;" data-turbo-frame="_top">
         <span class="action" data-bulk-select-target="count" hidden>
           <span class="action-sep" hidden>&middot;</span>
         </span>

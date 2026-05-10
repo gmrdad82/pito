@@ -16,6 +16,14 @@ class Channel < ApplicationRecord
   # CASCADE at the database level.
   has_many :calendar_entries, dependent: :destroy
 
+  # Phase 13.1 — analytics tables. Cascade is delete_all because the
+  # rows are derived from the YouTube Analytics API; deleting the
+  # Channel wipes them. Each FK is also ON DELETE CASCADE at the DB
+  # level (belt-and-suspenders).
+  has_many :channel_dailies,           dependent: :delete_all
+  has_many :channel_window_summaries,  dependent: :delete_all
+  has_many :top_videos_windows,        dependent: :delete_all
+
   # Phase 9 — GoogleIdentity → YoutubeConnection rename (ADR 0006).
   # After Path A2's literal full retract, "connected" means
   # `youtube_connection_id IS NOT NULL`; the placeholder `connected`

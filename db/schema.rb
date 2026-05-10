@@ -10,12 +10,16 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_10_140002) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_10_170001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
   enable_extension "vector"
+
+  # Custom types defined in this database.
+  # Note that some types may not work with other database engines. Be careful if changing database.
+  create_enum "analytics_window", ["7d", "28d", "90d", "lifetime"]
 
   create_table "active_storage_attachments", force: :cascade do |t|
     t.bigint "blob_id", null: false
@@ -63,7 +67,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_140002) do
 
   create_table "app_settings", force: :cascade do |t|
     t.datetime "created_at", null: false
+    t.boolean "discord_enabled", default: false, null: false
     t.string "key"
+    t.boolean "slack_enabled", default: false, null: false
     t.string "timezone", default: "UTC", null: false
     t.datetime "updated_at", null: false
     t.text "value"
@@ -97,6 +103,33 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_140002) do
     t.integer "status", default: 0, null: false
     t.jsonb "target_video_ids"
     t.datetime "updated_at", null: false
+  end
+
+  create_table "bundle_members", force: :cascade do |t|
+    t.bigint "bundle_id", null: false
+    t.datetime "created_at", null: false
+    t.bigint "game_id", null: false
+    t.integer "position", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.index ["bundle_id", "game_id"], name: "index_bundle_members_on_bundle_and_game", unique: true
+    t.index ["bundle_id", "position"], name: "index_bundle_members_on_bundle_and_position"
+    t.index ["bundle_id"], name: "index_bundle_members_on_bundle_id"
+    t.index ["game_id"], name: "index_bundle_members_on_game_id"
+  end
+
+  create_table "bundles", force: :cascade do |t|
+    t.integer "bundle_type", default: 0, null: false
+    t.string "composite_cover_checksum"
+    t.string "composite_cover_path"
+    t.datetime "created_at", null: false
+    t.bigint "igdb_source_id"
+    t.integer "igdb_source_type"
+    t.text "last_error"
+    t.string "name", null: false
+    t.datetime "updated_at", null: false
+    t.index ["bundle_type"], name: "index_bundles_on_bundle_type"
+    t.index ["igdb_source_id"], name: "index_bundles_on_igdb_source_id", where: "(igdb_source_id IS NOT NULL)"
+    t.index ["igdb_source_type", "igdb_source_id"], name: "index_bundles_on_igdb_source_pair", unique: true, where: "((igdb_source_type IS NOT NULL) AND (igdb_source_id IS NOT NULL))"
   end
 
   create_table "calendar_entries", force: :cascade do |t|
@@ -144,6 +177,83 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_140002) do
     t.index ["state"], name: "index_calendar_entries_on_state"
     t.index ["video_id"], name: "index_calendar_entries_on_video_id", where: "(video_id IS NOT NULL)"
     t.check_constraint "ends_at IS NULL OR ends_at >= starts_at", name: "calendar_entries_ends_at_after_starts_at"
+  end
+
+  create_table "channel_dailies", force: :cascade do |t|
+    t.bigint "ad_impressions"
+    t.decimal "average_view_duration", precision: 10, scale: 2
+    t.bigint "card_clicks", default: 0, null: false
+    t.bigint "card_impressions", default: 0, null: false
+    t.bigint "card_teaser_clicks", default: 0, null: false
+    t.bigint "card_teaser_impressions", default: 0, null: false
+    t.bigint "channel_id", null: false
+    t.bigint "comments", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.date "date", null: false
+    t.bigint "dislikes", default: 0, null: false
+    t.bigint "engaged_views", default: 0, null: false
+    t.decimal "estimated_ad_revenue", precision: 12, scale: 4
+    t.bigint "estimated_minutes_watched", default: 0, null: false
+    t.bigint "estimated_red_minutes_watched", default: 0, null: false
+    t.decimal "estimated_red_partner_revenue", precision: 12, scale: 4
+    t.decimal "estimated_revenue", precision: 12, scale: 4
+    t.decimal "gross_revenue", precision: 12, scale: 4
+    t.bigint "likes", default: 0, null: false
+    t.bigint "monetized_playbacks"
+    t.bigint "red_views", default: 0, null: false
+    t.bigint "shares", default: 0, null: false
+    t.bigint "subscribers_gained", default: 0, null: false
+    t.bigint "subscribers_lost", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.bigint "video_thumbnail_impressions", default: 0, null: false
+    t.bigint "videos_added_to_playlists", default: 0, null: false
+    t.bigint "videos_removed_from_playlists", default: 0, null: false
+    t.bigint "views", default: 0, null: false
+    t.index ["channel_id", "date"], name: "index_channel_dailies_on_channel_id_and_date", unique: true
+    t.index ["channel_id"], name: "index_channel_dailies_on_channel_id"
+    t.index ["date"], name: "index_channel_dailies_on_date"
+  end
+
+  create_table "channel_window_summaries", force: :cascade do |t|
+    t.bigint "ad_impressions"
+    t.decimal "average_view_duration", precision: 10, scale: 2
+    t.decimal "average_view_percentage", precision: 10, scale: 6
+    t.decimal "card_click_rate", precision: 10, scale: 6
+    t.bigint "card_clicks", default: 0, null: false
+    t.bigint "card_impressions", default: 0, null: false
+    t.decimal "card_teaser_click_rate", precision: 10, scale: 6
+    t.bigint "card_teaser_clicks", default: 0, null: false
+    t.bigint "card_teaser_impressions", default: 0, null: false
+    t.bigint "channel_id", null: false
+    t.bigint "comments", default: 0, null: false
+    t.decimal "cpm", precision: 12, scale: 4
+    t.datetime "created_at", null: false
+    t.bigint "dislikes", default: 0, null: false
+    t.bigint "engaged_views", default: 0, null: false
+    t.decimal "estimated_ad_revenue", precision: 12, scale: 4
+    t.bigint "estimated_minutes_watched", default: 0, null: false
+    t.bigint "estimated_red_minutes_watched", default: 0, null: false
+    t.decimal "estimated_red_partner_revenue", precision: 12, scale: 4
+    t.decimal "estimated_revenue", precision: 12, scale: 4
+    t.decimal "gross_revenue", precision: 12, scale: 4
+    t.bigint "likes", default: 0, null: false
+    t.bigint "monetized_playbacks"
+    t.decimal "playback_based_cpm", precision: 12, scale: 4
+    t.bigint "red_views", default: 0, null: false
+    t.bigint "shares", default: 0, null: false
+    t.bigint "subscribers_gained", default: 0, null: false
+    t.bigint "subscribers_lost", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.bigint "video_thumbnail_impressions", default: 0, null: false
+    t.decimal "video_thumbnail_impressions_click_rate", precision: 10, scale: 6
+    t.bigint "videos_added_to_playlists", default: 0, null: false
+    t.bigint "videos_removed_from_playlists", default: 0, null: false
+    t.bigint "views", default: 0, null: false
+    t.enum "window", null: false, enum_type: "analytics_window"
+    t.date "window_end", null: false
+    t.date "window_start", null: false
+    t.index ["channel_id", "window"], name: "idx_channel_window_summary_uniq", unique: true
+    t.index ["channel_id"], name: "index_channel_window_summaries_on_channel_id"
   end
 
   create_table "channels", force: :cascade do |t|
@@ -331,6 +441,41 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_140002) do
     t.index ["project_id"], name: "index_notes_on_project_id"
   end
 
+  create_table "notifications", force: :cascade do |t|
+    t.text "body"
+    t.datetime "created_at", null: false
+    t.bigint "created_by_user_id"
+    t.string "dedup_key"
+    t.datetime "discord_delivered_at"
+    t.jsonb "event_payload", default: {}, null: false
+    t.string "event_type", null: false
+    t.datetime "fires_at", null: false
+    t.datetime "in_app_read_at"
+    t.integer "kind", null: false
+    t.text "last_error"
+    t.integer "retry_count", default: 0, null: false
+    t.integer "severity", default: 0, null: false
+    t.datetime "slack_delivered_at"
+    t.bigint "source_calendar_entry_id"
+    t.bigint "source_milestone_rule_id"
+    t.string "title", null: false
+    t.datetime "updated_at", null: false
+    t.string "url"
+    t.index ["created_at"], name: "index_notifications_on_created_at"
+    t.index ["created_by_user_id"], name: "index_notifications_on_created_by_user_id", where: "(created_by_user_id IS NOT NULL)"
+    t.index ["event_type", "dedup_key"], name: "index_notifications_unique_dedup", unique: true, where: "(dedup_key IS NOT NULL)"
+    t.index ["event_type", "source_calendar_entry_id", "fires_at"], name: "index_notifications_unique_calendar_event", unique: true, where: "(source_calendar_entry_id IS NOT NULL)"
+    t.index ["event_type"], name: "index_notifications_on_event_type"
+    t.index ["fires_at"], name: "index_notifications_on_fires_at"
+    t.index ["in_app_read_at", "created_at"], name: "index_notifications_on_read_state_and_recency"
+    t.index ["in_app_read_at"], name: "index_notifications_on_unread", where: "(in_app_read_at IS NULL)"
+    t.index ["kind"], name: "index_notifications_on_kind"
+    t.index ["severity"], name: "index_notifications_on_severity"
+    t.index ["source_calendar_entry_id"], name: "index_notifications_on_source_calendar_entry_id", where: "(source_calendar_entry_id IS NOT NULL)"
+    t.index ["source_milestone_rule_id"], name: "index_notifications_on_source_milestone_rule_id", where: "(source_milestone_rule_id IS NOT NULL)"
+    t.check_constraint "source_calendar_entry_id IS NOT NULL OR dedup_key IS NOT NULL", name: "notifications_idempotency_keys_present"
+  end
+
   create_table "oauth_access_grants", force: :cascade do |t|
     t.bigint "application_id", null: false
     t.datetime "created_at", null: false
@@ -475,12 +620,162 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_140002) do
     t.index ["video_id"], name: "index_timelines_on_video_id"
   end
 
+  create_table "top_videos_windows", force: :cascade do |t|
+    t.decimal "average_view_duration", precision: 10, scale: 2
+    t.decimal "average_view_percentage", precision: 10, scale: 6
+    t.bigint "channel_id", null: false
+    t.bigint "comments", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.bigint "estimated_minutes_watched", default: 0, null: false
+    t.bigint "likes", default: 0, null: false
+    t.integer "rank", null: false
+    t.bigint "subscribers_gained", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.bigint "video_id", null: false
+    t.bigint "views", default: 0, null: false
+    t.enum "window", null: false, enum_type: "analytics_window"
+    t.index ["channel_id", "window", "rank"], name: "idx_top_videos_window_rank_uniq", unique: true
+    t.index ["channel_id", "window", "video_id"], name: "idx_top_videos_window_video_uniq", unique: true
+    t.index ["channel_id"], name: "index_top_videos_windows_on_channel_id"
+    t.index ["video_id"], name: "index_top_videos_windows_on_video_id"
+  end
+
   create_table "users", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.citext "email", null: false
     t.string "password_digest", null: false
     t.datetime "updated_at", null: false
     t.index ["email"], name: "index_users_on_email", unique: true
+  end
+
+  create_table "video_dailies", force: :cascade do |t|
+    t.bigint "ad_impressions"
+    t.decimal "average_view_duration", precision: 10, scale: 2
+    t.bigint "card_clicks", default: 0, null: false
+    t.bigint "card_impressions", default: 0, null: false
+    t.bigint "card_teaser_clicks", default: 0, null: false
+    t.bigint "card_teaser_impressions", default: 0, null: false
+    t.bigint "comments", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.date "date", null: false
+    t.bigint "dislikes", default: 0, null: false
+    t.bigint "engaged_views", default: 0, null: false
+    t.decimal "estimated_ad_revenue", precision: 12, scale: 4
+    t.bigint "estimated_minutes_watched", default: 0, null: false
+    t.bigint "estimated_red_minutes_watched", default: 0, null: false
+    t.decimal "estimated_red_partner_revenue", precision: 12, scale: 4
+    t.decimal "estimated_revenue", precision: 12, scale: 4
+    t.decimal "gross_revenue", precision: 12, scale: 4
+    t.bigint "likes", default: 0, null: false
+    t.bigint "monetized_playbacks"
+    t.bigint "red_views", default: 0, null: false
+    t.bigint "shares", default: 0, null: false
+    t.bigint "subscribers_gained", default: 0, null: false
+    t.bigint "subscribers_lost", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.bigint "video_id", null: false
+    t.bigint "video_thumbnail_impressions", default: 0, null: false
+    t.bigint "videos_added_to_playlists", default: 0, null: false
+    t.bigint "videos_removed_from_playlists", default: 0, null: false
+    t.bigint "views", default: 0, null: false
+    t.index ["date"], name: "index_video_dailies_on_date"
+    t.index ["video_id", "date"], name: "index_video_dailies_on_video_id_and_date", unique: true
+    t.index ["video_id"], name: "index_video_dailies_on_video_id"
+  end
+
+  create_table "video_daily_by_age_group_genders", force: :cascade do |t|
+    t.text "age_group", null: false
+    t.datetime "created_at", null: false
+    t.date "date", null: false
+    t.text "gender", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "video_id", null: false
+    t.decimal "viewer_percentage", precision: 10, scale: 6, default: "0.0", null: false
+    t.index ["video_id", "date", "age_group", "gender"], name: "idx_video_daily_by_age_gender_uniq", unique: true
+    t.index ["video_id"], name: "index_video_daily_by_age_group_genders_on_video_id"
+  end
+
+  create_table "video_daily_by_countries", force: :cascade do |t|
+    t.decimal "average_view_duration", precision: 10, scale: 2
+    t.decimal "average_view_percentage", precision: 10, scale: 6
+    t.text "country_code", null: false
+    t.datetime "created_at", null: false
+    t.date "date", null: false
+    t.bigint "estimated_minutes_watched", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.bigint "video_id", null: false
+    t.bigint "views", default: 0, null: false
+    t.index ["country_code"], name: "index_video_daily_by_countries_on_country_code"
+    t.index ["video_id", "date", "country_code"], name: "idx_video_daily_by_country_uniq", unique: true
+    t.index ["video_id"], name: "index_video_daily_by_countries_on_video_id"
+  end
+
+  create_table "video_daily_by_device_types", force: :cascade do |t|
+    t.decimal "average_view_duration", precision: 10, scale: 2
+    t.decimal "average_view_percentage", precision: 10, scale: 6
+    t.datetime "created_at", null: false
+    t.date "date", null: false
+    t.text "device_type", null: false
+    t.bigint "estimated_minutes_watched", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.bigint "video_id", null: false
+    t.bigint "views", default: 0, null: false
+    t.index ["video_id", "date", "device_type"], name: "idx_video_daily_by_device_type_uniq", unique: true
+    t.index ["video_id"], name: "index_video_daily_by_device_types_on_video_id"
+  end
+
+  create_table "video_daily_by_operating_systems", force: :cascade do |t|
+    t.decimal "average_view_duration", precision: 10, scale: 2
+    t.decimal "average_view_percentage", precision: 10, scale: 6
+    t.datetime "created_at", null: false
+    t.date "date", null: false
+    t.bigint "estimated_minutes_watched", default: 0, null: false
+    t.text "operating_system", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "video_id", null: false
+    t.bigint "views", default: 0, null: false
+    t.index ["video_id", "date", "operating_system"], name: "idx_video_daily_by_os_uniq", unique: true
+    t.index ["video_id"], name: "index_video_daily_by_operating_systems_on_video_id"
+  end
+
+  create_table "video_daily_by_subscribed_statuses", force: :cascade do |t|
+    t.decimal "average_view_percentage", precision: 10, scale: 6
+    t.datetime "created_at", null: false
+    t.date "date", null: false
+    t.bigint "estimated_minutes_watched", default: 0, null: false
+    t.text "subscribed_status", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "video_id", null: false
+    t.bigint "views", default: 0, null: false
+    t.index ["video_id", "date", "subscribed_status"], name: "idx_video_daily_by_subscribed_status_uniq", unique: true
+    t.index ["video_id"], name: "index_video_daily_by_subscribed_statuses_on_video_id"
+  end
+
+  create_table "video_daily_by_traffic_sources", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.date "date", null: false
+    t.bigint "estimated_minutes_watched", default: 0, null: false
+    t.text "traffic_source_type", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "video_id", null: false
+    t.bigint "video_thumbnail_impressions", default: 0, null: false
+    t.decimal "video_thumbnail_impressions_click_rate", precision: 10, scale: 6
+    t.bigint "views", default: 0, null: false
+    t.index ["video_id", "date", "traffic_source_type"], name: "idx_video_daily_by_traffic_source_uniq", unique: true
+    t.index ["video_id"], name: "index_video_daily_by_traffic_sources_on_video_id"
+  end
+
+  create_table "video_retentions", force: :cascade do |t|
+    t.decimal "audience_watch_ratio", precision: 10, scale: 6
+    t.timestamptz "computed_at", default: -> { "CURRENT_TIMESTAMP" }, null: false
+    t.decimal "elapsed_ratio_bucket", precision: 5, scale: 4, null: false
+    t.decimal "relative_retention_performance", precision: 10, scale: 6
+    t.bigint "started_watching", default: 0, null: false
+    t.bigint "stopped_watching", default: 0, null: false
+    t.bigint "total_segment_impressions", default: 0, null: false
+    t.bigint "video_id", null: false
+    t.index ["video_id", "elapsed_ratio_bucket"], name: "idx_video_retention_bucket_uniq", unique: true
+    t.index ["video_id"], name: "index_video_retentions_on_video_id"
   end
 
   create_table "video_stats", force: :cascade do |t|
@@ -518,6 +813,48 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_140002) do
     t.string "youtube_video_id"
     t.index ["channel_id"], name: "index_video_uploads_on_channel_id"
     t.index ["video_id"], name: "index_video_uploads_on_video_id"
+  end
+
+  create_table "video_window_summaries", force: :cascade do |t|
+    t.bigint "ad_impressions"
+    t.decimal "average_view_duration", precision: 10, scale: 2
+    t.decimal "average_view_percentage", precision: 10, scale: 6
+    t.decimal "card_click_rate", precision: 10, scale: 6
+    t.bigint "card_clicks", default: 0, null: false
+    t.bigint "card_impressions", default: 0, null: false
+    t.decimal "card_teaser_click_rate", precision: 10, scale: 6
+    t.bigint "card_teaser_clicks", default: 0, null: false
+    t.bigint "card_teaser_impressions", default: 0, null: false
+    t.bigint "comments", default: 0, null: false
+    t.decimal "cpm", precision: 12, scale: 4
+    t.datetime "created_at", null: false
+    t.bigint "dislikes", default: 0, null: false
+    t.bigint "engaged_views", default: 0, null: false
+    t.decimal "estimated_ad_revenue", precision: 12, scale: 4
+    t.bigint "estimated_minutes_watched", default: 0, null: false
+    t.bigint "estimated_red_minutes_watched", default: 0, null: false
+    t.decimal "estimated_red_partner_revenue", precision: 12, scale: 4
+    t.decimal "estimated_revenue", precision: 12, scale: 4
+    t.decimal "gross_revenue", precision: 12, scale: 4
+    t.bigint "likes", default: 0, null: false
+    t.bigint "monetized_playbacks"
+    t.decimal "playback_based_cpm", precision: 12, scale: 4
+    t.bigint "red_views", default: 0, null: false
+    t.bigint "shares", default: 0, null: false
+    t.bigint "subscribers_gained", default: 0, null: false
+    t.bigint "subscribers_lost", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.bigint "video_id", null: false
+    t.bigint "video_thumbnail_impressions", default: 0, null: false
+    t.decimal "video_thumbnail_impressions_click_rate", precision: 10, scale: 6
+    t.bigint "videos_added_to_playlists", default: 0, null: false
+    t.bigint "videos_removed_from_playlists", default: 0, null: false
+    t.bigint "views", default: 0, null: false
+    t.enum "window", null: false, enum_type: "analytics_window"
+    t.date "window_end", null: false
+    t.date "window_start", null: false
+    t.index ["video_id", "window"], name: "idx_video_window_summary_uniq", unique: true
+    t.index ["video_id"], name: "index_video_window_summaries_on_video_id"
   end
 
   create_table "videos", force: :cascade do |t|
@@ -599,6 +936,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_140002) do
   add_foreign_key "api_tokens", "users"
   add_foreign_key "bulk_operation_items", "bulk_operations"
   add_foreign_key "bulk_operation_items", "videos"
+  add_foreign_key "bundle_members", "bundles", on_delete: :cascade
+  add_foreign_key "bundle_members", "games", on_delete: :cascade
   add_foreign_key "calendar_entries", "calendar_entries", column: "parent_entry_id", on_delete: :nullify
   add_foreign_key "calendar_entries", "channels", on_delete: :cascade
   add_foreign_key "calendar_entries", "games", on_delete: :cascade
@@ -606,6 +945,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_140002) do
   add_foreign_key "calendar_entries", "projects", on_delete: :nullify
   add_foreign_key "calendar_entries", "users", column: "created_by_user_id", on_delete: :nullify
   add_foreign_key "calendar_entries", "videos", on_delete: :cascade
+  add_foreign_key "channel_dailies", "channels", on_delete: :cascade
+  add_foreign_key "channel_window_summaries", "channels", on_delete: :cascade
   add_foreign_key "channels", "youtube_connections"
   add_foreign_key "footages", "games"
   add_foreign_key "footages", "projects"
@@ -621,6 +962,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_140002) do
   add_foreign_key "games", "platforms", column: "platform_owned_id", on_delete: :nullify
   add_foreign_key "milestone_rules", "users", column: "created_by_user_id", on_delete: :nullify
   add_foreign_key "notes", "projects"
+  add_foreign_key "notifications", "calendar_entries", column: "source_calendar_entry_id", on_delete: :nullify
+  add_foreign_key "notifications", "milestone_rules", column: "source_milestone_rule_id", on_delete: :nullify
+  add_foreign_key "notifications", "users", column: "created_by_user_id", on_delete: :nullify
   add_foreign_key "oauth_access_grants", "oauth_applications", column: "application_id"
   add_foreign_key "oauth_access_tokens", "oauth_applications", column: "application_id"
   add_foreign_key "playlist_videos", "playlists"
@@ -630,9 +974,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_140002) do
   add_foreign_key "sessions", "users"
   add_foreign_key "timelines", "projects"
   add_foreign_key "timelines", "videos"
+  add_foreign_key "top_videos_windows", "channels", on_delete: :cascade
+  add_foreign_key "top_videos_windows", "videos", on_delete: :cascade
+  add_foreign_key "video_dailies", "videos", on_delete: :cascade
+  add_foreign_key "video_daily_by_age_group_genders", "videos", on_delete: :cascade
+  add_foreign_key "video_daily_by_countries", "videos", on_delete: :cascade
+  add_foreign_key "video_daily_by_device_types", "videos", on_delete: :cascade
+  add_foreign_key "video_daily_by_operating_systems", "videos", on_delete: :cascade
+  add_foreign_key "video_daily_by_subscribed_statuses", "videos", on_delete: :cascade
+  add_foreign_key "video_daily_by_traffic_sources", "videos", on_delete: :cascade
+  add_foreign_key "video_retentions", "videos", on_delete: :cascade
   add_foreign_key "video_stats", "videos"
   add_foreign_key "video_uploads", "channels"
   add_foreign_key "video_uploads", "videos"
+  add_foreign_key "video_window_summaries", "videos", on_delete: :cascade
   add_foreign_key "videos", "channels"
   add_foreign_key "videos", "projects", on_delete: :nullify
   add_foreign_key "videos", "youtube_connections"

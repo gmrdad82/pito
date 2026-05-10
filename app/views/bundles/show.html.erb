@@ -1,0 +1,101 @@
+<%# Phase 14 §2 — Bundle show. Two-pane layout: composite cover +
+    metadata on the left, member list + add-member form on the right.
+    Bracketed-link convention `[ label ]` — except for in-tag inline
+    links which use the no-padding form. The composite cover image
+    falls back to `[no cover]` when the build has not landed yet; the
+    "regenerating…" caption surfaces when a `BundleCoverBuild` job is
+    in flight (best-effort detection in fake-Sidekiq mode). %>
+<% content_for(:title, @bundle.name) %>
+<% breadcrumb([ "bundles", bundles_path ], @bundle.name) %>
+
+<% content_for(:breadcrumb_actions) do %>
+  <div class="dot-list">
+    <%= render(BracketedLinkComponent.new(label: "edit", href: edit_bundle_path(@bundle))) %>
+    <% if !@bundle.type_custom? && @bundle.igdb_source_id.present? %>
+      <%= button_to seed_from_igdb_bundle_path(@bundle),
+                    method: :post,
+                    class: "bracketed",
+                    form: { style: "display: inline; margin: 0;",
+                            data: { turbo: false } } do %>[<span class="bl">seed from igdb</span>]<% end %>
+    <% end %>
+    <%= render(BracketedLinkComponent.new(
+      label: "-",
+      href: deletions_path(type: "bundle", ids: @bundle.id),
+      destructive: true)) %>
+  </div>
+<% end %>
+
+<div class="pane-row">
+  <%# Left pane — composite cover + bundle metadata. %>
+  <div class="pane">
+    <%= render "shared/composite_cover", bundle: @bundle, size: :full %>
+
+    <h1 style="margin: 8px 0 4px 0;"><%= @bundle.name %></h1>
+    <p class="text-muted" style="margin: 0 0 8px 0;">
+      <%= @bundle.bundle_type %>
+      <% if @bundle.igdb_source_type.present? %>
+        &middot; igdb <%= @bundle.igdb_source_type %>: <%= @bundle.igdb_source_id %>
+      <% end %>
+      &middot; <%= @members.size %> member<%= 's' if @members.size != 1 %>
+    </p>
+
+    <% if @bundle.cover_rebuild_in_flight? %>
+      <p class="text-muted" style="margin: 4px 0;">regenerating…</p>
+    <% end %>
+
+    <% if @bundle.last_error.present? %>
+      <p class="text-danger" style="margin: 8px 0;">
+        couldn't build cover; will retry on next change.
+        <span class="text-muted">(<%= @bundle.last_error %>)</span>
+      </p>
+    <% end %>
+  </div>
+
+  <%# Right pane — member list + add-member form. %>
+  <div class="pane">
+    <h2 style="margin-top: 0;">members</h2>
+
+    <% if @members.any? %>
+      <table>
+        <thead>
+          <tr>
+            <th>game</th>
+            <th>release</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @members.each do |member| %>
+            <%= render "bundle_members/member_row", member: member, bundle: @bundle %>
+          <% end %>
+        </tbody>
+      </table>
+    <% else %>
+      <p class="text-muted">no members yet.</p>
+    <% end %>
+
+    <h2 style="margin-top: 16px;">add member</h2>
+    <p class="text-muted" style="margin: 0 0 4px 0; font-size: 11px;">
+      pick a game from your library.
+    </p>
+    <%= form_with url: bundle_members_path(@bundle), method: :post, local: true,
+                  data: { controller: "bundle-member-picker" } do |f| %>
+      <input type="search"
+             autocomplete="off"
+             data-bundle-member-picker-target="input"
+             data-action="input->bundle-member-picker#filter"
+             placeholder="search your games…"
+             style="width: 280px; padding: 4px 6px;
+                    font-family: ui-monospace, monospace; font-size: 13px;" />
+      <%= f.select :game_id,
+                   options_for_select(member_picker_options(@bundle)),
+                   { prompt: "—" },
+                   data: { bundle_member_picker_target: "select" } %>
+      <button type="submit" class="bracketed">[<span class="bl">add</span>]</button>
+      <p data-bundle-member-picker-target="empty" hidden
+         class="text-muted" style="margin-top: 4px; font-size: 11px;">
+        no games match
+      </p>
+    <% end %>
+  </div>
+</div>

@@ -32,8 +32,16 @@
       so the frame element exists on every render. %>
   <%= turbo_frame_tag "games-index-table" do %>
     <% if @games.any? %>
-      <%# Bulk toolbar — same leading-separator pattern projects uses. %>
-      <div data-bulk-select-target="actions" hidden class="bulk-toolbar" style="margin-bottom: 6px;">
+      <%# Bulk toolbar — same leading-separator pattern projects uses.
+          `data-turbo-frame="_top"` cascades to the controller-injected
+          `[delete N]` link so its click navigates full-page to
+          `/deletions/game/:ids` instead of being scoped to the
+          enclosing `games-index-table` Turbo Frame. Without it Turbo
+          tries to swap the deletions confirmation page (a full-page
+          surface — `shared/_action_screen.html.erb`) into the frame,
+          finds no matching `<turbo-frame id="games-index-table">` in
+          the response, and shows "Content missing". %>
+      <div data-bulk-select-target="actions" hidden class="bulk-toolbar" style="margin-bottom: 6px;" data-turbo-frame="_top">
         <span class="action" data-bulk-select-target="count" hidden>
           <span class="action-sep" hidden>&middot;</span>
         </span>

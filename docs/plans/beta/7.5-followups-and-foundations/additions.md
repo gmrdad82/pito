@@ -37,8 +37,31 @@ expansion + IGDB sync; Calendar; Notifications; MCP tool catalog expansion; CLI
 parity. Each gets its own architect- spec dispatch in the order specified in the
 realignment doc.
 
+## 2026-05-10 — Final reconciliation
+
+Phase 7.5 closes with **no items added to the phase itself** by the 2026-05-09
+realignment. Every realignment work unit lands as a downstream phase / spec, NOT
+as a retroactive Phase 7.5 line item. The phase's original tracks (A · B · C)
+shipped as scoped; the realignment sets up the work that follows 7.5, not work
+that joins it.
+
+Two in-flow dispatches landed during the Phase 7.5 window without their own
+numbered specs (MCP OAuth + bearer dispatch, Doorkeeper polish + OAuth UI
+polish, Doorkeeper consent restyle, MCP icon discovery). They are not phase
+additions — they are bundled in the close-out reconciliation table under
+"In-flow work outside the original plan" rather than rewriting `plan.md`.
+
+- **Item:** none — phase closes with original scope intact.
+- **Rationale:** realignment work units are downstream phases; in-flow
+  dispatches are tracked in the close-out reconciliation, not as plan
+  additions.
+- **Plan link:** none.
+- **Driver:** Phase 19 close-out spec
+  (`docs/plans/beta/19-phase-75-closeout/specs/01-closeout-and-followups-resolution.md`).
+
 ## Cross-references
 
+- `docs/plans/beta/19-phase-75-closeout/specs/01-closeout-and-followups-resolution.md`
 - `docs/realignment-2026-05-09.md`
 - `docs/decisions/0003-drop-tenant-single-install-multi-user.md`
 - `docs/decisions/0004-mcp-scope-simplification-dev-app.md`

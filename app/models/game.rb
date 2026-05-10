@@ -53,6 +53,20 @@ class Game < ApplicationRecord
   has_many :game_publishers, dependent: :destroy
   has_many :publishers, through: :game_publishers, source: :company
 
+  # Phase 14 §2 — Bundle membership. A Game can belong to many
+  # Bundles. Cascade-on-delete from games removes the join rows;
+  # `BundleCoverInvalidate` is enqueued from `after_update_commit`
+  # below when `cover_image_id` changes so every bundle the game
+  # belongs to gets its composite cover regenerated.
+  has_many :bundle_members, dependent: :destroy
+  has_many :bundles, through: :bundle_members
+
+  # Phase 14 §2 — fire `BundleCoverInvalidate` when `cover_image_id`
+  # changes. The job evicts the cached tile (so the next build
+  # re-downloads the new IGDB cover bytes) and enqueues a rebuild for
+  # every bundle the game belongs to.
+  after_update_commit :invalidate_bundle_covers_if_image_changed
+
   # Phase 4 legacy — kept for one phase, dropped in polish window.
   has_one_attached :cover_art
 
@@ -172,5 +186,15 @@ class Game < ApplicationRecord
   def mapped_release_precision
     return nil unless respond_to?(:release_precision)
     public_send(:release_precision)
+  end
+
+  # Phase 14 §2 — bundle cover invalidation hook. Passes the previous
+  # `cover_image_id` explicitly so the invalidator job (running in a
+  # separate Sidekiq process) can evict the now-stale tile from the
+  # cache without relying on `previous_changes`.
+  def invalidate_bundle_covers_if_image_changed
+    return unless saved_change_to_cover_image_id?
+    previous_cover_image_id = saved_change_to_cover_image_id.first
+    BundleCoverInvalidate.perform_async(id, previous_cover_image_id)
   end
 end
