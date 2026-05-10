@@ -17,7 +17,16 @@ class NotificationsController < ApplicationController
   SEVERITY_VALUES = Notification.severities.keys.freeze
   FILTER_VALUES   = %w[all unread].freeze
 
+  # Phase 16 §3 security fix-forward (F3 — 2026-05-10 audit). Per-user
+  # 5-second cache lock on the bulk mark-read collection endpoints
+  # prevents rapid-fire `update_all` + Turbo broadcast amplification.
+  # The lock key includes `Current.user.id` so two users can mark-read
+  # concurrently without contention; unauthenticated requests fall
+  # through to the auth boundary before this guard runs.
+  MARK_READ_RATE_LIMIT_TTL = 5.seconds
+
   before_action :set_notification, only: %i[show read unread]
+  before_action :enforce_mark_read_rate_limit, only: %i[mark_read mark_all_read]
 
   def index
     @filter   = FILTER_VALUES.include?(params[:filter].to_s) ? params[:filter] : "all"
@@ -85,6 +94,7 @@ class NotificationsController < ApplicationController
           locals: { unread_count: Notification.unread.count }
         )
       end
+      format.json { render json: { marked: n }, status: :ok }
     end
   end
 
@@ -101,6 +111,7 @@ class NotificationsController < ApplicationController
           locals: { unread_count: Notification.unread.count }
         )
       end
+      format.json { render json: { marked: n }, status: :ok }
     end
   end
 
@@ -152,5 +163,37 @@ class NotificationsController < ApplicationController
     )
   rescue StandardError => e
     Rails.logger.warn("NotificationsController: badge broadcast failed: #{e.class}: #{e.message}")
+  end
+
+  # Phase 16 §3 security fix-forward (F3 — 2026-05-10 audit). 5-second
+  # per-user lock on the bulk mark-read endpoints. `Rails.cache.write`
+  # with `unless_exist: true` is atomic on the Redis cache store and
+  # the in-memory test store. When the lock is already held:
+  #   - HTML → 302 + alert.
+  #   - JSON → 429 + `{ "error": "rate_limited", "retry_after_seconds": 5 }`.
+  #   - Turbo stream → 429 + plain-text "rate limited" body. Turbo
+  #     stops processing on non-2xx so the user sees the redirect-back
+  #     fallback in the rendered toast (the form's parent action).
+  def enforce_mark_read_rate_limit
+    return unless Current.user
+
+    lock_key = "notifications:mark_read:user:#{Current.user.id}"
+    return if Rails.cache.write(lock_key, 1, expires_in: MARK_READ_RATE_LIMIT_TTL, unless_exist: true)
+
+    respond_to do |format|
+      format.html do
+        redirect_to notifications_path,
+                    alert: "slow down — please wait a few seconds before marking more notifications."
+      end
+      format.turbo_stream do
+        render plain: "rate_limited", status: :too_many_requests
+      end
+      format.json do
+        render json: {
+          error: "rate_limited",
+          retry_after_seconds: MARK_READ_RATE_LIMIT_TTL.to_i
+        }, status: :too_many_requests
+      end
+    end
   end
 end

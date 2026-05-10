@@ -110,4 +110,72 @@ RSpec.describe NotificationFormatter::Mcp do
         .to raise_error(ArgumentError, /no template/)
     end
   end
+
+  # Phase 16 §2 security fix-forward (F2 — 2026-05-10 audit). URL
+  # scheme allowlist on `[text](url)` markdown emitted to MCP host
+  # renderers. Bad-scheme URLs collapse to bare escaped text.
+  describe "F2 — URL scheme allowlist in escape_body_preserving_links" do
+    def call(text)
+      described_class.escape_body_preserving_links(text)
+    end
+
+    it "strips javascript: scheme to bare text" do
+      # The markdown regex rejects parens inside the URL, so
+      # `javascript:alert(1)` never matches as a markdown link. The
+      # exploit shape the allowlist neutralizes is paren-free.
+      out = call("see [click me](javascript:alert@1) now")
+      expect(out).to include("click me")
+      expect(out).not_to include("](javascript")
+    end
+
+    it "strips data: scheme to bare text" do
+      out = call("[xss](data:text/html,whatever)")
+      expect(out).to include("xss")
+      expect(out).not_to include("](data")
+    end
+
+    it "strips vbscript: scheme to bare text" do
+      out = call("[boom](vbscript:msgbox)")
+      expect(out).to include("boom")
+      expect(out).not_to include("vbscript:")
+    end
+
+    it "strips file: scheme to bare text" do
+      out = call("[etc](file:///etc/passwd)")
+      expect(out).to include("etc")
+      expect(out).not_to include("file:")
+    end
+
+    it "strips tel: scheme to bare text (not in allowlist)" do
+      out = call("[ring](tel:+1234)")
+      expect(out).to include("ring")
+      expect(out).not_to include("](tel:")
+    end
+
+    it "preserves http:// links" do
+      out = call("see [docs](http://example.com/d)")
+      expect(out).to include("[docs](http://example.com/d)")
+    end
+
+    it "preserves https:// links" do
+      out = call("see [docs](https://example.com/d)")
+      expect(out).to include("[docs](https://example.com/d)")
+    end
+
+    it "preserves mailto: links" do
+      out = call("contact [owner](mailto:owner@example.com)")
+      expect(out).to include("[owner](mailto:owner@example.com)")
+    end
+
+    it "preserves leading-slash app paths" do
+      out = call("open [video](/videos/42)")
+      expect(out).to include("[video](/videos/42)")
+    end
+
+    it "strips protocol-relative //evil.com to bare text" do
+      out = call("[evil](//evil.com/x)")
+      expect(out).to include("evil")
+      expect(out).not_to include("](//evil.com")
+    end
+  end
 end

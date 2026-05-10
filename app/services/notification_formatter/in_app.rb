@@ -43,6 +43,13 @@ module NotificationFormatter
     # Convert the template's body string (which may include
     # `[text](url)` markdown) to HTML-safe HTML. Rails' `sanitize`
     # strips `<script>` and any tag/attribute outside the whitelist.
+    #
+    # Phase 16 §2 security fix-forward (F1 — 2026-05-10 audit). URL
+    # scheme allowlist enforced BEFORE the `<a>` tag is written. A
+    # `[text](javascript:alert(1))` or `[text](data:text/html,...)` in
+    # `event_payload` collapses to bare `text` rather than an empty
+    # `<a></a>` shell (which would survive Loofah's `href`-only strip
+    # and render as a dead underlined link — see audit F4).
     def render_body_html(text)
       return "".html_safe if text.blank?
 
@@ -50,11 +57,17 @@ module NotificationFormatter
       with_links = escaped.gsub(MARKDOWN_LINK_RE) do
         link_text = Regexp.last_match(1)
         link_url  = Regexp.last_match(2)
-        # `link_text` is already html_escaped (we ran html_escape on
-        # the whole string above). We escape the URL value once more
-        # because it sits in an HTML attribute.
-        attr_safe_url = ERB::Util.html_escape(link_url)
-        %(<a href="#{attr_safe_url}">#{link_text}</a>)
+        if NotificationFormatter.url_scheme_allowed?(link_url)
+          # `link_text` is already html_escaped (we ran html_escape on
+          # the whole string above). We escape the URL value once more
+          # because it sits in an HTML attribute.
+          attr_safe_url = ERB::Util.html_escape(link_url)
+          %(<a href="#{attr_safe_url}">#{link_text}</a>)
+        else
+          # Bad-scheme / empty URL — strip the link wrapping, keep the
+          # text. `link_text` is already html_escaped.
+          link_text
+        end
       end
 
       sanitizer.sanitize(

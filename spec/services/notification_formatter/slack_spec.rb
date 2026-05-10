@@ -197,6 +197,75 @@ RSpec.describe NotificationFormatter::Slack do
     end
   end
 
+  # Phase 16 §2 security fix-forward (F2 — 2026-05-10 audit). URL
+  # scheme allowlist on `[text](url)` markdown rewritten to Slack
+  # `<url|text>` syntax. Bad-scheme URLs collapse to bare escaped
+  # text — never reach Slack's link renderer.
+  describe "F2 — URL scheme allowlist in rewrite_markdown_links" do
+    def call(text)
+      described_class.rewrite_markdown_links(text)
+    end
+
+    it "strips javascript: scheme to bare text" do
+      # The markdown regex rejects parens inside the URL, so
+      # `javascript:alert(1)` never matches as a markdown link. The
+      # exploit shape the allowlist neutralizes is paren-free.
+      out = call("see [click me](javascript:alert@1) now")
+      expect(out).to include("click me")
+      expect(out).not_to include("<javascript:")
+    end
+
+    it "strips data: scheme to bare text" do
+      out = call("[xss](data:text/html,whatever)")
+      expect(out).to include("xss")
+      expect(out).not_to include("<data:")
+    end
+
+    it "strips vbscript: scheme to bare text" do
+      out = call("[boom](vbscript:msgbox)")
+      expect(out).to include("boom")
+      expect(out).not_to include("vbscript:")
+    end
+
+    it "strips file: scheme to bare text" do
+      out = call("[etc](file:///etc/passwd)")
+      expect(out).to include("etc")
+      expect(out).not_to include("file:")
+    end
+
+    it "strips tel: scheme to bare text (not in allowlist)" do
+      out = call("[ring](tel:+1234)")
+      expect(out).to include("ring")
+      expect(out).not_to include("<tel:")
+    end
+
+    it "preserves http:// links (Slack syntax)" do
+      out = call("see [docs](http://example.com/d)")
+      expect(out).to include("<http://example.com/d|docs>")
+    end
+
+    it "preserves https:// links (Slack syntax)" do
+      out = call("see [docs](https://example.com/d)")
+      expect(out).to include("<https://example.com/d|docs>")
+    end
+
+    it "preserves mailto: links (Slack syntax)" do
+      out = call("contact [owner](mailto:owner@example.com)")
+      expect(out).to include("<mailto:owner@example.com|owner>")
+    end
+
+    it "preserves leading-slash app paths (Slack syntax)" do
+      out = call("open [video](/videos/42)")
+      expect(out).to include("</videos/42|video>")
+    end
+
+    it "strips protocol-relative //evil.com to bare text" do
+      out = call("[evil](//evil.com/x)")
+      expect(out).to include("evil")
+      expect(out).not_to include("<//evil.com")
+    end
+  end
+
   # Build a minimum-viable notification for any kind.
   def build_notification_for_kind(kind, fires_at)
     case kind
