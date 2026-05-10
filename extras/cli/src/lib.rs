@@ -4,9 +4,13 @@
 //! a child process.
 //!
 //! Keep the public surface minimal: only what the integration tests need
-//! today (`footage`, `cli` arg types, `theme` for overlay tests).
+//! today (`footage`, `cli` arg types, `theme` for overlay tests, the
+//! Phase 18 plumbing modules `auth` / `confirm` / `output`).
 
 pub mod api;
+pub mod auth;
 pub mod cli;
+pub mod confirm;
 pub mod footage;
+pub mod output;
 pub mod theme;

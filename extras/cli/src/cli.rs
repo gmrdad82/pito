@@ -1,5 +1,7 @@
 use clap::{Parser, Subcommand};
 
+use crate::confirm::YesNo;
+
 #[derive(Parser)]
 #[command(
     name = "pito",
@@ -16,13 +18,75 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
+    /// Configure local authentication state
+    Auth(AuthArgs),
     /// Import footage from local files
     Footage(FootageArgs),
     /// Print help
     Help,
+    /// Search videos and channels
+    Search(SearchArgs),
+    /// List saved views
+    Views(ViewsArgs),
     /// Print version
     Version,
 }
+
+// --- auth -------------------------------------------------------------------
+
+#[derive(clap::Args)]
+pub struct AuthArgs {
+    #[command(subcommand)]
+    pub command: AuthCommand,
+}
+
+/// Subcommands of `pito auth`. Per the Phase 18 CLI parity spec
+/// (work unit 2): `login`, `logout`, `whoami`.
+#[derive(Subcommand)]
+pub enum AuthCommand {
+    /// Save server URL and token to ~/.config/pito/auth.toml
+    Login(AuthLoginArgs),
+    /// Delete ~/.config/pito/auth.toml
+    Logout(AuthLogoutArgs),
+    /// Show the resolved server URL and a token preview
+    Whoami(AuthWhoamiArgs),
+}
+
+#[derive(clap::Args)]
+pub struct AuthLoginArgs {
+    /// Server URL (e.g. https://app.pitomd.com). If omitted, prompted interactively.
+    #[arg(long, value_name = "URL")]
+    pub url: Option<String>,
+
+    /// API token. If omitted, prompted interactively.
+    #[arg(long, value_name = "TOKEN")]
+    pub token: Option<String>,
+
+    /// Emit JSON output instead of plaintext.
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(clap::Args)]
+pub struct AuthLogoutArgs {
+    /// Confirmation gate. Pass `--confirm yes` to actually delete the
+    /// auth file. Without this flag, prints the preview and exits 0.
+    #[arg(long, value_name = "YES_OR_NO", value_enum)]
+    pub confirm: Option<YesNo>,
+
+    /// Emit JSON output instead of plaintext.
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(clap::Args)]
+pub struct AuthWhoamiArgs {
+    /// Emit JSON output instead of plaintext.
+    #[arg(long)]
+    pub json: bool,
+}
+
+// --- footage ----------------------------------------------------------------
 
 #[derive(clap::Args)]
 pub struct FootageArgs {
@@ -105,4 +169,46 @@ impl FootageSourceArg {
             Self::Camera => "camera",
         }
     }
+}
+
+// --- search -----------------------------------------------------------------
+
+#[derive(clap::Args)]
+pub struct SearchArgs {
+    /// Search query string. Hits `GET /search.json?q=<query>`.
+    #[arg(value_name = "QUERY")]
+    pub query: String,
+
+    /// Cap the result count (per Phase 18 spec, default 50).
+    #[arg(long, value_name = "N", default_value_t = 50)]
+    pub limit: u32,
+
+    /// Emit JSON output instead of plaintext.
+    #[arg(long)]
+    pub json: bool,
+}
+
+// --- views ------------------------------------------------------------------
+
+#[derive(clap::Args)]
+pub struct ViewsArgs {
+    #[command(subcommand)]
+    pub command: ViewsCommand,
+}
+
+#[derive(Subcommand)]
+pub enum ViewsCommand {
+    /// List saved views (GET /saved_views.json)
+    List(ViewsListArgs),
+}
+
+#[derive(clap::Args)]
+pub struct ViewsListArgs {
+    /// Cap the result count (per Phase 18 spec, default 50).
+    #[arg(long, value_name = "N", default_value_t = 50)]
+    pub limit: u32,
+
+    /// Emit JSON output instead of plaintext.
+    #[arg(long)]
+    pub json: bool,
 }
