@@ -14,6 +14,7 @@ RSpec.describe NotificationDeliver do
       AppSetting.delete_all
       AppSetting.create!(key: "max_panes", value: "5", discord_enabled: true)
       url = "https://discord.com/api/webhooks/abc"
+      allow(Rails.application.credentials).to receive(:dig).and_return(nil)
       allow(Rails.application.credentials)
         .to receive(:dig).with(:notifications, :discord_webhook_url).and_return(url)
       stub_request(:post, url).to_return(status: 204, body: "")
@@ -26,6 +27,7 @@ RSpec.describe NotificationDeliver do
       AppSetting.delete_all
       AppSetting.create!(key: "max_panes", value: "5", slack_enabled: true)
       url = "https://hooks.slack.com/services/abc"
+      allow(Rails.application.credentials).to receive(:dig).and_return(nil)
       allow(Rails.application.credentials)
         .to receive(:dig).with(:notifications, :slack_webhook_url).and_return(url)
       stub_request(:post, url).to_return(status: 200, body: "ok")

@@ -87,7 +87,26 @@ class NotificationDeliveryChannel
     raise NotImplementedError
   end
 
+  # Subclass override: returns true iff the configured `webhook_url`
+  # points at a host the channel trusts. Default implementation rejects
+  # everything so subclasses MUST opt-in via an explicit allowlist.
+  def deliverable_url?(_url)
+    false
+  end
+
   private
+
+  # Hoisted from the per-channel `perform_post` so both Discord and
+  # Slack inherit identical timeout settings (F2). Tuned for webhook
+  # POSTs: short open / ssl handshake, longer read / write to allow
+  # the remote to ack a small JSON body.
+  def configure_http(http)
+    http.open_timeout  = 5
+    http.read_timeout  = 10
+    http.write_timeout = 10
+    http.ssl_timeout   = 5
+    http
+  end
 
   def already_delivered?(notification)
     notification.read_attribute(delivered_at_column).present?

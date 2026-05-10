@@ -8,6 +8,10 @@ RSpec.describe NotificationDeliveryChannel::Discord do
   before do
     AppSetting.delete_all
     AppSetting.create!(key: "max_panes", value: "5", discord_enabled: true)
+    # Default to nil for any credentials.dig call (e.g., the formatter
+    # looking up :pito_avatar_url) — then layer the discord webhook URL
+    # over the top.
+    allow(Rails.application.credentials).to receive(:dig).and_return(nil)
     allow(Rails.application.credentials)
       .to receive(:dig)
       .with(:notifications, :discord_webhook_url)
@@ -154,6 +158,78 @@ RSpec.describe NotificationDeliveryChannel::Discord do
       expect(notification.reload.discord_delivered_at).to be_nil
       expect(notification.reload.retry_count).to be >= 5
       expect(notification.reload.last_error).to include("500")
+    end
+  end
+
+  # F2 — timeouts MUST be set on every Net::HTTP instance so a hung
+  # webhook endpoint cannot wedge the delivery worker indefinitely.
+  describe "HTTP timeouts (audit F2)" do
+    it "sets open / read / write / ssl timeouts on the Net::HTTP instance" do
+      stub_request(:post, webhook_url).to_return(status: 204, body: "")
+      captured = nil
+      original_new = Net::HTTP.method(:new)
+      allow(Net::HTTP).to receive(:new) do |*args|
+        captured = original_new.call(*args)
+        captured
+      end
+      channel.deliver(notification)
+      expect(captured.open_timeout).to eq(5)
+      expect(captured.read_timeout).to eq(10)
+      expect(captured.write_timeout).to eq(10)
+      expect(captured.ssl_timeout).to eq(5)
+    end
+  end
+
+  # F3 — webhook URL must point at a Discord-owned host. A
+  # misconfigured credential pointing anywhere else (attacker domain,
+  # loopback, raw IP) must NOT result in a POST.
+  describe "webhook host allowlist (audit F3)" do
+    it "passes for a discord.com URL" do
+      expect(channel.deliverable_url?("https://discord.com/api/webhooks/1/x")).to be(true)
+    end
+
+    it "passes for a discordapp.com URL" do
+      expect(channel.deliverable_url?("https://discordapp.com/api/webhooks/1/x")).to be(true)
+    end
+
+    it "rejects an attacker-controlled host" do
+      expect(channel.deliverable_url?("https://attacker.com/foo")).to be(false)
+    end
+
+    it "rejects a loopback address" do
+      expect(channel.deliverable_url?("https://127.0.0.1/foo")).to be(false)
+    end
+
+    it "rejects an http (non-TLS) discord URL" do
+      expect(channel.deliverable_url?("http://discord.com/api/webhooks/1/x")).to be(false)
+    end
+
+    it "returns false on a malformed URI" do
+      expect(channel.deliverable_url?("ht!tp://[bad")).to be(false)
+    end
+
+    it "skips delivery (status :disabled) when configured URL is not allowlisted" do
+      bad = "https://attacker.com/api/webhooks/1/x"
+      allow(Rails.application.credentials)
+        .to receive(:dig)
+        .with(:notifications, :discord_webhook_url)
+        .and_return(bad)
+      # No HTTP stub registered — if the channel attempted a POST
+      # WebMock would raise, so the assertion that the result is
+      # `:skipped` doubles as proof we never sent a request.
+      result = channel.deliver(notification)
+      expect(result.status).to eq(:skipped)
+      expect(result.reason).to eq(:disabled)
+    end
+
+    it "logs a warning when configured URL fails the allowlist" do
+      bad = "https://attacker.com/api/webhooks/1/x"
+      allow(Rails.application.credentials)
+        .to receive(:dig)
+        .with(:notifications, :discord_webhook_url)
+        .and_return(bad)
+      expect(Rails.logger).to receive(:warn).with(/DISCORD_HOSTS allowlist/)
+      channel.deliver(notification)
     end
   end
 end

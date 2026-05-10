@@ -10,6 +10,17 @@ AppSetting.set("max_panes", "5")
 AppSetting.set("pane_title_length", "14")
 puts "  max_panes = 5, pane_title_length = 14"
 
+# Phase 13.2 — Analytics sync engine. The monetization flag is an
+# AppSetting (master-agent decision 8: schema-ready, sync-disabled by
+# default). Idempotent — only seed if the row is missing so existing
+# installs that have flipped it on don't get clobbered. Boolean
+# crosses the AppSetting key/value boundary as the canonical
+# yes/no string per CLAUDE.md.
+AppSetting.find_or_create_by!(key: "monetization_enabled") do |setting|
+  setting.value = "no"
+end
+puts "  monetization_enabled = no (initial)"
+
 # Phase 4 §3.5 (Phase B revamp, 2026-05-04) — Voyage AppSetting bootstrap.
 # The key is sourced from Rails credentials during seeding so initial
 # deployments work without manual UI entry. Once the app reaches Hetzner

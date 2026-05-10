@@ -84,6 +84,57 @@ RSpec.describe Notification, type: :model do
       expect(notif).not_to be_valid
     end
 
+    # Phase 16 audit F1 — open-redirect class. The APP_PATH_PATTERN
+    # accepts a leading slash but must reject a SECOND character that
+    # is `/` or `\`, which would otherwise let `//evil.com/x` (a
+    # protocol-relative URL) or `/\evil.com/x` (a backslash-bypass
+    # variant some browsers normalize to `//evil.com/x`) smuggle an
+    # external host past the validator.
+    describe "URL open-redirect protection (F1)" do
+      it "rejects a protocol-relative URL with leading double slash" do
+        notif = build(:notification, url: "//evil.com/x")
+        expect(notif).not_to be_valid
+        expect(notif.errors[:url]).to be_present
+      end
+
+      it "rejects a backslash-bypass variant" do
+        notif = build(:notification, url: "/\\evil.com/x")
+        expect(notif).not_to be_valid
+        expect(notif.errors[:url]).to be_present
+      end
+
+      it "rejects a leading double slash with no path tail" do
+        notif = build(:notification, url: "//evil.com")
+        expect(notif).not_to be_valid
+        expect(notif.errors[:url]).to be_present
+      end
+
+      it "still accepts an interior double slash inside an app path" do
+        notif = build(:notification, url: "/foo//bar")
+        expect(notif).to be_valid
+      end
+
+      it "rejects javascript: scheme" do
+        notif = build(:notification, url: "javascript:alert(1)")
+        expect(notif).not_to be_valid
+      end
+
+      it "rejects data: scheme" do
+        notif = build(:notification, url: "data:text/html,<script>1</script>")
+        expect(notif).not_to be_valid
+      end
+
+      it "rejects vbscript: scheme" do
+        notif = build(:notification, url: "vbscript:msgbox(1)")
+        expect(notif).not_to be_valid
+      end
+
+      it "rejects file: scheme" do
+        notif = build(:notification, url: "file:///etc/passwd")
+        expect(notif).not_to be_valid
+      end
+    end
+
     it "is invalid without fires_at" do
       notif = build(:notification, fires_at: nil)
       expect(notif).not_to be_valid
@@ -307,15 +358,26 @@ RSpec.describe Notification, type: :model do
       expect(n.created_by_user).to eq(user)
     end
 
-    it "source_calendar_entry deletion sets the FK to NULL" do
+    it "source_calendar_entry deletion cascades and removes the notification" do
+      # Phase 16 audit F4 — the original `:nullify` FK conflicted with
+      # the CHECK (`source_calendar_entry_id IS NOT NULL OR dedup_key
+      # IS NOT NULL`): a calendar-derived row with no `dedup_key` would
+      # raise on parent delete. Resolution: `:cascade`. Notifications
+      # tied to a calendar entry die with their source.
       entry = create(:calendar_entry)
-      # Carry a dedup_key alongside the FK so the CHECK constraint
-      # still holds after the FK is nullified by ON DELETE.
+      n = create(:notification, source_calendar_entry: entry, dedup_key: nil)
+      expect { entry.destroy }.not_to raise_error
+      expect(Notification.exists?(n.id)).to be(false)
+    end
+
+    it "source_calendar_entry deletion still cascades when dedup_key is present" do
+      # Even rows that carry both keys cascade — calendar-derived
+      # lifecycle wins regardless of the auxiliary dedup_key.
+      entry = create(:calendar_entry)
       n = create(:notification, source_calendar_entry: entry,
                                 dedup_key: "fk-cascade-test-#{SecureRandom.hex(4)}")
       expect { entry.destroy }.not_to raise_error
-      expect(Notification.exists?(n.id)).to be(true)
-      expect(n.reload.source_calendar_entry_id).to be_nil
+      expect(Notification.exists?(n.id)).to be(false)
     end
 
     it "source_milestone_rule deletion sets the FK to NULL" do

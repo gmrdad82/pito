@@ -53,7 +53,21 @@ notification_scheduler:
   class: NotificationSchedulerJob
   description: "Materialize ripe Notification rows + enqueue webhook deliveries"
 
-# YouTube sync jobs — uncomment when beta YouTube integration is implemented
+# Phase 13.2 — Analytics sync engine. Nightly orchestrator at 04:00
+# UTC; retention curves refresh weekly on Mondays at 05:00 UTC.
+youtube_analytics_sync_nightly:
+  cron: "0 4 * * *"
+  class: YoutubeAnalyticsSync
+  queue: analytics
+  description: "YouTube Analytics nightly sync — daily slices + window summaries"
+
+youtube_analytics_retention_weekly:
+  cron: "0 5 * * 1"
+  class: VideoRetentionSyncOrchestrator
+  queue: analytics
+  description: "YouTube Analytics weekly audience-retention refresh"
+
+# YouTube Data API v3 sync jobs — uncomment when beta YouTube integration is implemented
 #
 # sync_channels:
 #   cron: "0 */6 * * *"

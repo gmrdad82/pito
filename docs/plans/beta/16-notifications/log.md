@@ -195,3 +195,95 @@ Awaiting user validation before commit.
   Phase 7 / 12 / 13 jobs (`Youtube::TokenRefresher`, `VideoSyncBack`,
   analytics-sync engine). Best landed alongside Spec 02 / 03 so the
   full notification surface ships together.
+
+## 2026-05-10 — Spec 01 security audit fixes (F1–F4)
+
+### Context
+
+Security review of Spec 01 returned four findings rated HIGH / MEDIUM.
+Fixed forward in a single rails-impl pass; no new spec doc, only code
++ tests.
+
+### What was implemented
+
+1. **F1 (HIGH) — open-redirect via protocol-relative URL.**
+   `Notification::APP_PATH_PATTERN` was `\A/[^\s]*\z` — accepted
+   `//evil.com/x` and `/\evil.com/x`. Tightened to
+   `\A/(?![/\\])[^\s]*\z`: leading `/` required, second character must
+   not be `/` or `\`. Interior double slashes (`/foo//bar`) still pass.
+   Added eight regression tests covering the bypass shapes plus
+   explicit `javascript:` / `data:` / `vbscript:` / `file:` documenting
+   that the pattern shape rejects them.
+2. **F2 (MEDIUM) — outbound webhook timeouts.** Hoisted a
+   `configure_http(http)` helper onto the base
+   `NotificationDeliveryChannel` so Discord and Slack inherit
+   identical settings: `open_timeout=5`, `read_timeout=10`,
+   `write_timeout=10`, `ssl_timeout=5`. Both `perform_post`
+   implementations now call `configure_http(http)` before
+   `http.request`. Added per-channel specs that capture the `Net::HTTP`
+   instance and assert the four timeouts.
+3. **F3 (MEDIUM) — webhook host allowlist.** Each channel now
+   exposes `deliverable_url?(url)` (Discord:
+   `DISCORD_HOSTS = %w[discord.com discordapp.com]`, Slack:
+   `SLACK_HOSTS = %w[hooks.slack.com]`). `enabled?` now folds in the
+   allowlist plus a non-blank URL check; a misconfigured URL logs a
+   `Rails.logger.warn` once per delivery attempt and returns
+   `Result.new(status: :skipped, reason: :disabled)` (no POST is sent
+   — verified by the absence of a WebMock stub causing an error if the
+   path were exercised). Tests cover valid hosts, attacker-controlled
+   hosts, loopback, http-only, the wrong slack subdomain, malformed
+   URIs, and the warn log line.
+4. **F4 (MEDIUM) — CHECK vs cascade conflict.** New migration
+   `db/migrate/20260510190000_fix_notifications_calendar_entry_cascade.rb`
+   replaces the `:nullify` FK on `source_calendar_entry_id` with
+   `:cascade`. Without `dedup_key`, deleting a calendar entry would
+   NULL the FK and raise CHECK; cascade is the cleanest interpretation
+   — calendar-derived rows die with their source. The original
+   migration is NOT rewritten. Spec rewritten: the old "FK becomes
+   NULL" test is replaced by two cascade regression tests (with and
+   without an auxiliary `dedup_key`).
+
+### Files touched
+
+- `app/models/notification.rb` — `APP_PATH_PATTERN` tightened.
+- `app/services/notification_delivery_channel.rb` — `configure_http`
+  helper; `deliverable_url?` subclass interface (default false).
+- `app/services/notification_delivery_channel/discord.rb` — allowlist
+  constant, `enabled?` integration, `deliverable_url?`,
+  `perform_post` calls `configure_http`.
+- `app/services/notification_delivery_channel/slack.rb` — same shape
+  as Discord with `SLACK_HOSTS`.
+- `db/migrate/20260510190000_fix_notifications_calendar_entry_cascade.rb`
+  — new.
+- `db/schema.rb` — re-emitted by the migration (FK now `:cascade`).
+- `spec/models/notification_spec.rb` — F1 protection block + cascade
+  regression tests; old nullify test rewritten.
+- `spec/services/notification_delivery_channel/discord_spec.rb` — F2
+  timeouts block + F3 allowlist block.
+- `spec/services/notification_delivery_channel/slack_spec.rb` — same.
+
+### Test outcome
+
+`bundle exec rspec` for the in-scope files (notification model,
+delivery base, discord, slack, deliver job): 138 examples, 0
+failures. `bundle exec rubocop` clean across the changed files.
+`bundle exec brakeman -q -w2`: 0 security warnings.
+
+Three pre-existing failures elsewhere in the suite
+(`spec/requests/calendar/month_spec.rb:35`,
+`spec/requests/composites_spec.rb:28`,
+`spec/services/notification_formatter/discord_spec.rb:231`) are
+unrelated to this audit pass and live outside the strict scope
+declared by the task.
+
+### Open follow-ups
+
+- Spec 02's `notification_formatter/discord_spec.rb:231` script-tag
+  escape assertion is failing; that file is part of the in-progress
+  Spec 02 work, not Spec 01, and was excluded from this audit's scope.
+- The credentials block remains the same key shape
+  (`notifications.discord_webhook_url`,
+  `notifications.slack_webhook_url`); operators who configure a URL
+  outside the new allowlist will see delivery skipped and a warn line
+  rather than a POST. Manual playbook should mention this once Spec 02
+  / 03 assemble the user-facing settings page.

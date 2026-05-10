@@ -23,8 +23,14 @@
 class Notification < ApplicationRecord
   # Reject app-path values containing whitespace (we accept absolute
   # http(s) URLs OR leading-slash app paths only — master decision #7).
+  #
+  # The APP_PATH_PATTERN explicitly forbids a second `/` or `\` as the
+  # second character so protocol-relative URLs (`//evil.com/path`) and
+  # backslash-bypass variants (`/\evil.com/x`) cannot smuggle an
+  # external host past the validator (open-redirect class). Interior
+  # double-slashes (`/foo//bar`) are still allowed.
   ABSOLUTE_URL_PATTERN = %r{\Ahttps?://[^\s]+\z}
-  APP_PATH_PATTERN     = %r{\A/[^\s]*\z}
+  APP_PATH_PATTERN     = %r{\A/(?![/\\])[^\s]*\z}
 
   belongs_to :source_calendar_entry,
              class_name: "CalendarEntry",
