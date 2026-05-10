@@ -9,7 +9,8 @@
     <div class="h-64">
       <%= bar_chart data,
                     library: { animation: false },
-                    colors: chart_palette(1) %>
+                    colors: chart_palette(1),
+                    thousands: "," %>
     </div>
     <p class="caption">videos with declining CTR over the last 90 days.</p>
   <% else %>

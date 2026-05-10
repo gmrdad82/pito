@@ -9,7 +9,8 @@
     <div class="h-64">
       <%= bar_chart breakdown,
                     library: { animation: false },
-                    colors: chart_palette(1) %>
+                    colors: chart_palette(1),
+                    thousands: "," %>
     </div>
     <% if local_assigns[:caveat] && caveat %>
       <p class="caption analytics-caveat">

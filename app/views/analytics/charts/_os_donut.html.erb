@@ -9,7 +9,8 @@
       <%= pie_chart breakdown,
                     donut: true,
                     library: { animation: false },
-                    colors: chart_palette(5) %>
+                    colors: chart_palette(5),
+                    thousands: "," %>
     </div>
   <% else %>
     <p class="caption analytics-empty-state">
