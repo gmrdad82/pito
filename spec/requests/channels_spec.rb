@@ -724,6 +724,26 @@ RSpec.describe "Channels", type: :request do
       expect(response.body).to match(%r{\[<span class="bl">\+</span>\]})
       expect(response.body).not_to match(%r{\[<span class="bl">\|</span>\]})
     end
+
+    # Phase 21 — quick jump from the channel show to the videos picker
+    # pre-filtered by this channel. The link is a 1-line addition to
+    # the videos pane on the show page; the full channel-show revamp
+    # comes later. The link uses the slug (channel.to_param) so the
+    # videos picker's `?channel=` filter resolves via the canonical
+    # FriendlyId slug rather than the integer id.
+    it "renders [see all videos for this channel] inside the videos pane" do
+      get channel_path(channel)
+      expect(response.body).to include("see all videos for this channel")
+      expect(response.body).to include("href=\"#{videos_path(channel: channel.to_param)}\"")
+    end
+
+    it "scopes the [see all videos] link inside the second (videos) pane" do
+      get channel_path(channel)
+      panes = response.body.split('<div class="pane">')
+      expect(panes.length).to be >= 3
+      videos_pane_body = panes[2]
+      expect(videos_pane_body).to include("see all videos for this channel")
+    end
   end
 
   # The URL-paste entry path was dropped — channels enter the system

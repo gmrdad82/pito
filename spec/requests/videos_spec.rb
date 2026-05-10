@@ -95,6 +95,129 @@ RSpec.describe "Videos", type: :request do
         )
       end
     end
+
+    # Phase 21 — `?channel=<slug-or-id>` filter on the videos picker.
+    # The param resolves through `Channel.friendly.find` so callers may
+    # pass either the UC-id slug (canonical) or the integer id
+    # (backwards-compat). Unknown values 404 — silent empty renders
+    # would mask typo'd slugs as "this channel has no videos" and
+    # leave the user without a recovery affordance.
+    context "channel filter (?channel=<slug-or-id>)" do
+      let!(:channel_a) { create(:channel, title: "Channel A") }
+      let!(:channel_b) { create(:channel, title: "Channel B") }
+      let!(:video_a) { create(:video, channel: channel_a, title: "A-vid") }
+      let!(:video_b) { create(:video, channel: channel_b, title: "B-vid") }
+
+      it "filters by slug (channel.to_param)" do
+        get videos_path, params: { channel: channel_a.to_param }
+        expect(response).to have_http_status(:ok)
+        expect(response.body).to include(video_a.youtube_video_id)
+        expect(response.body).not_to include(video_b.youtube_video_id)
+      end
+
+      it "filters by integer id (backwards-compat)" do
+        get videos_path, params: { channel: channel_b.id.to_s }
+        expect(response).to have_http_status(:ok)
+        expect(response.body).to include(video_b.youtube_video_id)
+        expect(response.body).not_to include(video_a.youtube_video_id)
+      end
+
+      it "JSON shape filters too (the index respond_to JSON path)" do
+        get videos_path(format: :json), params: { channel: channel_a.to_param }
+        ids = JSON.parse(response.body).map { |row| row["youtube_video_id"] }
+        expect(ids).to include(video_a.youtube_video_id)
+        expect(ids).not_to include(video_b.youtube_video_id)
+      end
+
+      it "returns 404 for an unknown channel slug" do
+        get videos_path, params: { channel: "UC_does_not_exist_xxxxxxxxx" }
+        expect(response).to have_http_status(:not_found)
+      end
+
+      it "returns 404 for an unknown channel integer id" do
+        get videos_path, params: { channel: "99999" }
+        expect(response).to have_http_status(:not_found)
+      end
+
+      it "ignores a blank channel param (no filter, full list)" do
+        get videos_path, params: { channel: "" }
+        expect(response).to have_http_status(:ok)
+        expect(response.body).to include(video_a.youtube_video_id)
+        expect(response.body).to include(video_b.youtube_video_id)
+      end
+
+      it "renders the FilterChipComponent chip with the channel title (not raw id)" do
+        get videos_path, params: { channel: channel_a.to_param }
+        html = Nokogiri::HTML.fragment(response.body)
+        chip = html.css("a.filter-chip").find { |a| a.text.include?("channel:") }
+        expect(chip).not_to be_nil, "expected a filter-chip anchor referencing the channel filter"
+        expect(chip.text).to include("channel: Channel A")
+        # The chip shows as checked ([x]) since the filter is active.
+        expect(chip.text).to include("[x]")
+      end
+
+      it "falls back to the slug when channel.title is blank" do
+        nameless = create(:channel, title: nil)
+        create(:video, channel: nameless)
+        get videos_path, params: { channel: nameless.to_param }
+        html = Nokogiri::HTML.fragment(response.body)
+        chip = html.css("a.filter-chip").find { |a| a.text.include?("channel:") }
+        expect(chip).not_to be_nil
+        expect(chip.text).to include("channel: #{nameless.to_param}")
+      end
+
+      it "clear-chip href drops the channel param (preserves siblings)" do
+        get videos_path, params: { channel: channel_a.to_param, sort: "id", dir: "asc" }
+        html = Nokogiri::HTML.fragment(response.body)
+        chip = html.css("a.filter-chip").find { |a| a.text.include?("channel:") }
+        expect(chip).not_to be_nil
+        href = chip["href"]
+        # Toggle-off URL: the channel param is gone, other params survive.
+        expect(href).not_to include("channel=")
+        expect(href).to include("sort=id")
+        expect(href).to include("dir=asc")
+      end
+
+      it "does NOT render the filter row when ?channel is absent" do
+        get videos_path
+        expect(response.body).not_to include("class=\"text-muted\">filter:")
+      end
+
+      it "sort-header links preserve the channel param" do
+        get videos_path, params: { channel: channel_a.to_param }
+        html = Nokogiri::HTML.fragment(response.body)
+        sort_links = html.css("thead a")
+        expect(sort_links).not_to be_empty
+        # Every sortable header link must carry `?channel=<slug>` so a
+        # column click re-sorts WITHIN the filtered view rather than
+        # silently dropping back to the full table.
+        sort_links.each do |link|
+          expect(link["href"]).to include("channel=#{CGI.escape(channel_a.to_param)}"),
+            "sort link #{link.text.inspect} dropped ?channel — href=#{link["href"]}"
+        end
+      end
+
+      it "renders the standard empty state when the filter matches a channel with zero videos" do
+        empty = create(:channel, title: "Empty")
+        get videos_path, params: { channel: empty.to_param }
+        expect(response).to have_http_status(:ok)
+        expect(response.body).to include("no videos yet")
+        # Chip stays active so the user can clear it from the empty state.
+        expect(response.body).to include("channel: Empty")
+      end
+
+      it "combines with a star filter on the video rows (channel scope wins)" do
+        # `videos` controller doesn't expose a star filter chip yet, but
+        # adding one later must compose with ?channel. Smoke the URL by
+        # passing an unrelated param and confirming the channel scope
+        # still narrows the rows. (Guards against future filter combos
+        # silently bypassing the channel where-clause.)
+        get videos_path, params: { channel: channel_a.to_param, star: "yes" }
+        expect(response).to have_http_status(:ok)
+        expect(response.body).to include(video_a.youtube_video_id)
+        expect(response.body).not_to include(video_b.youtube_video_id)
+      end
+    end
   end
 
   describe "GET /videos/:id (show)" do
