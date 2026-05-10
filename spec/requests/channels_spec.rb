@@ -246,7 +246,9 @@ RSpec.describe "Channels", type: :request do
 
       it "open link points to show page" do
         get channels_path
-        expect(response.body).to include("/channels/#{channel.id}")
+        # Phase 20 — friendly URLs: links use the channel's slug
+        # (`to_param`), not the integer id.
+        expect(response.body).to include("/channels/#{channel.to_param}")
       end
 
       it "no longer ships a separate [v] action column (folded into the URL link)" do

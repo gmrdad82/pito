@@ -7,14 +7,14 @@ class Channel < ApplicationRecord
   # `channel_url` (the locked YouTube channel identifier). No new slug
   # column, no `:history` module per locked Phase 20 decision #3 — UC
   # ids are externally owned and the `channel_url` column is itself
-  # immutable post-create (`prevent_url_change`). `:finders` lets
-  # `Channel.friendly.find(slug_or_id)` accept either a slug or an
-  # integer ID for backwards compat. `to_param` falls back to
-  # `"channel-<id>"` when no UC-id is extractable (master decision #1
-  # in the Phase 20 spec).
-  extend FriendlyId
-  friendly_id :url_slug, use: :finders
-
+  # immutable post-create (`prevent_url_change`).
+  #
+  # Lookup goes through a custom `Channel.friendly` finder (rather than
+  # `friendly_id :col, use: :finders`) because the slug is derived from
+  # a portion of the `channel_url` column rather than a dedicated slug
+  # column — friendly_id's :finders module assumes a 1:1 column lookup.
+  # The finder accepts either a slug (UC-id), a `channel-<id>` fallback
+  # slug, or an integer id (backwards compat).
   def url_slug
     extracted = channel_url.to_s[%r{/channel/(UC[A-Za-z0-9_-]{22})}, 1]
     extracted.presence || (id ? "channel-#{id}" : nil)
@@ -22,6 +22,44 @@ class Channel < ApplicationRecord
 
   def to_param
     url_slug.presence || id&.to_s
+  end
+
+  def self.friendly
+    FriendlyFinder.new(self)
+  end
+
+  # Custom finder for Channel — slug is derived from the `channel_url`
+  # column. Resolution order:
+  #   1. Bare integer → `find_by(id:)` (backwards compat for legacy
+  #      bookmarks).
+  #   2. `channel-<n>` shape → resolve as integer id.
+  #   3. UC-id slug → `find_by("channel_url LIKE %/<slug>")`.
+  class FriendlyFinder
+    def initialize(scope)
+      @scope = scope
+    end
+
+    def find(input)
+      str = input.to_s
+      raise ActiveRecord::RecordNotFound, "Channel param can't be blank" if str.blank?
+
+      if str.match?(/\A\d+\z/)
+        record = @scope.find_by(id: str.to_i)
+        return record if record
+      end
+
+      m = str.match(/\Achannel-(\d+)\z/)
+      if m
+        record = @scope.find_by(id: m[1].to_i)
+        return record if record
+      end
+
+      record = @scope.find_by("channel_url LIKE ?", "%/channel/#{str}")
+      return record if record
+
+      raise ActiveRecord::RecordNotFound,
+            "Couldn't find Channel with slug or id=#{input.inspect}"
+    end
   end
 
   # Raised when the locked channel_url is changed on update. Phase B's

@@ -224,7 +224,19 @@ class VideosController < ApplicationController
     ids = params[:ids].to_s.split(/[\s,+]+/).reject(&:blank?)
 
     if ids.size <= 1
-      redirect_to ids.first ? video_path(ids.first) : videos_path
+      if ids.first
+        # Phase 20 — friendly URLs. Resolve the input (slug or integer
+        # id) to the canonical record so the redirect target is the
+        # slug URL, not whatever shape the caller passed in.
+        record = begin
+          Video.friendly.find(ids.first)
+        rescue ActiveRecord::RecordNotFound
+          nil
+        end
+        redirect_to record ? video_path(record) : videos_path
+      else
+        redirect_to videos_path
+      end
       return
     end
 

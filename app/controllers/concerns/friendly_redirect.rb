@@ -19,7 +19,13 @@ module FriendlyRedirect
 
     canonical = builder.call(record)
     return false if canonical.blank?
-    return false if request.path == canonical
+
+    # Compare the path used to address the resource (`params[:id]`) against
+    # the record's canonical `to_param`. Comparing `request.path` directly
+    # to the builder output would falsely fire for `.json` / other format
+    # requests because `request.path` includes the format extension while
+    # `model_path(record)` does not.
+    return false if params[:id].to_s == record.to_param.to_s
 
     redirect_to canonical, status: :moved_permanently
     true

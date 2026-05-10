@@ -147,7 +147,19 @@ class ChannelsController < ApplicationController
     ids = params[:ids].to_s.split(/[\s,+]+/).reject(&:blank?)
 
     if ids.size <= 1
-      redirect_to ids.first ? channel_path(ids.first) : channels_path
+      if ids.first
+        # Phase 20 — friendly URLs. Resolve the input (slug or integer
+        # id) to the canonical record so the redirect target is the
+        # slug URL.
+        record = begin
+          Channel.friendly.find(ids.first)
+        rescue ActiveRecord::RecordNotFound
+          nil
+        end
+        redirect_to record ? channel_path(record) : channels_path
+      else
+        redirect_to channels_path
+      end
       return
     end
 
