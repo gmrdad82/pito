@@ -97,7 +97,7 @@ module Api
           return Result.new(failure_reason: "auth_misconfigured")
         end
 
-      token = ApiToken.unscoped.find_by(token_digest: digest)
+      token = ApiToken.find_by(token_digest: digest)
 
       if token
         # Constant-time compare — the DB lookup already keyed on the digest,
@@ -140,9 +140,9 @@ module Api
           return failure("expired_token", token: oauth_token)
         end
 
-        unless oauth_token.tenant_id.present? && oauth_token.resource_owner_id.present?
-          # Defense-in-depth: a token without a denormalized tenant or a
-          # resource owner cannot be safely dispatched. Treat as invalid.
+        unless oauth_token.resource_owner_id.present?
+          # Defense-in-depth: a token without a resource owner cannot
+          # be safely dispatched. Treat as invalid.
           return failure("invalid_token", token: oauth_token)
         end
 

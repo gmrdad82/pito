@@ -475,10 +475,11 @@ RSpec.describe "Channels", type: :request do
         expect(json).to be_an(Array)
         row = json.first
         # Phase 7 Path A2 — `connected` is derived from oauth_identity_id;
-        # `syncing` field is dropped from the JSON wire shape.
-        expect(row).to include("id", "tenant_id", "channel_url", "star", "connected")
+        # `syncing` field is dropped from the JSON wire shape. Phase 8 —
+        # tenant drop: tenant_id no longer in the wire shape.
+        expect(row).to include("id", "channel_url", "star", "connected")
         expect(row).not_to have_key("syncing")
-        expect(row["tenant_id"]).to be_a(Integer)
+        expect(row).not_to have_key("tenant_id")
         expect(row["star"]).to eq("yes")
         expect(row["connected"]).to eq("no")
       end
@@ -610,9 +611,10 @@ RSpec.describe "Channels", type: :request do
       get channel_path(channel, format: :json)
       json = JSON.parse(response.body)
       # Phase 7 Path A2 — `connected` is derived; `syncing` is dropped.
-      expect(json).to include("id", "tenant_id", "channel_url", "star", "connected", "video_count")
+      # Phase 8 — tenant drop: tenant_id no longer in the wire shape.
+      expect(json).to include("id", "channel_url", "star", "connected", "video_count")
       expect(json).not_to have_key("syncing")
-      expect(json["tenant_id"]).to be_a(Integer)
+      expect(json).not_to have_key("tenant_id")
       expect(json["star"]).to eq("no")
       expect(json["connected"]).to eq("no")
     end

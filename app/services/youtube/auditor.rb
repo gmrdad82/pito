@@ -13,11 +13,7 @@ module Youtube
                         kind:, identity:,
                         http_status: nil, error_message: nil,
                         duration_ms: nil, user: nil)
-      tenant_id = identity&.tenant_id || Current.tenant&.id
-      return if tenant_id.nil?
-
-      YoutubeApiCall.unscoped.create!(
-        tenant_id: tenant_id,
+      YoutubeApiCall.create!(
         user_id: user&.id || identity&.user_id,
         google_identity_id: identity&.id,
         client_kind: kind,

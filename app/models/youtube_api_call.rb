@@ -4,8 +4,6 @@
 # collapses retries into the single row that reflects the eventual
 # success/failure (locked decision).
 class YoutubeApiCall < ApplicationRecord
-  include BelongsToTenant
-
   belongs_to :user, optional: true
   belongs_to :google_identity, optional: true
 

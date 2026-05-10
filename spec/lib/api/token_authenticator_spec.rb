@@ -1,8 +1,7 @@
 require "rails_helper"
 
 RSpec.describe Api::TokenAuthenticator do
-  let(:tenant) { Current.tenant || create(:tenant).tap { |t| Current.tenant = t } }
-  let(:user)   { Current.user   || create(:user, tenant: tenant).tap { |u| Current.user = u } }
+  let(:user) { Current.user || create(:user).tap { |u| Current.user = u } }
 
   def env_for(authorization: nil, path: "/mcp", method: "POST")
     env = {
@@ -45,7 +44,7 @@ RSpec.describe Api::TokenAuthenticator do
 
     it "returns failure with reason 'revoked_token' when the token is revoked" do
       record, plaintext = ApiToken.generate!(
-        tenant: tenant, user: user, name: "rv", scopes: [ Scopes::DEV_READ ]
+        user: user, name: "rv", scopes: [ Scopes::DEV_READ ]
       )
       record.revoke!
 
@@ -57,7 +56,7 @@ RSpec.describe Api::TokenAuthenticator do
 
     it "returns failure with reason 'expired_token' when the token has expired" do
       _record, plaintext = ApiToken.generate!(
-        tenant: tenant, user: user, name: "ex", scopes: [ Scopes::DEV_READ ],
+        user: user, name: "ex", scopes: [ Scopes::DEV_READ ],
         expires_at: 1.minute.ago
       )
 
@@ -69,7 +68,7 @@ RSpec.describe Api::TokenAuthenticator do
 
     it "returns success and the token on a valid, usable Bearer header" do
       record, plaintext = ApiToken.generate!(
-        tenant: tenant, user: user, name: "ok", scopes: [ Scopes::DEV_READ ]
+        user: user, name: "ok", scopes: [ Scopes::DEV_READ ]
       )
 
       result = described_class.call(env_for(authorization: "Bearer #{plaintext}"))
@@ -80,7 +79,7 @@ RSpec.describe Api::TokenAuthenticator do
 
     it "updates last_used_at on the token on success" do
       record, plaintext = ApiToken.generate!(
-        tenant: tenant, user: user, name: "u", scopes: [ Scopes::DEV_READ ]
+        user: user, name: "u", scopes: [ Scopes::DEV_READ ]
       )
 
       expect { described_class.call(env_for(authorization: "Bearer #{plaintext}")) }
@@ -99,7 +98,7 @@ RSpec.describe Api::TokenAuthenticator do
 
     it "does not set env['pito.auth_failed'] on success" do
       _record, plaintext = ApiToken.generate!(
-        tenant: tenant, user: user, name: "success-no-flag",
+        user: user, name: "success-no-flag",
         scopes: [ Scopes::DEV_READ ]
       )
 
@@ -127,7 +126,7 @@ RSpec.describe Api::TokenAuthenticator do
       end)
 
       _record, plaintext = ApiToken.generate!(
-        tenant: tenant, user: user, name: "audit",
+        user: user, name: "audit",
         scopes: [ Scopes::DEV_READ ]
       )
 

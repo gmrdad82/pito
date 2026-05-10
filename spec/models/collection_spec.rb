@@ -1,10 +1,13 @@
 require "rails_helper"
 
+# Phase 8 — tenant drop. Collection is install-wide.
 RSpec.describe Collection, type: :model do
   subject { build(:collection) }
 
   describe "associations" do
-    it { is_expected.to belong_to(:tenant) }
+    it "does not declare a tenant association" do
+      expect(Collection.reflect_on_association(:tenant)).to be_nil
+    end
     it { is_expected.to have_many(:games).dependent(:nullify) }
   end
 
@@ -15,8 +18,7 @@ RSpec.describe Collection, type: :model do
 
   describe "default name" do
     it 'defaults to "Untitled collection"' do
-      tenant = create(:tenant)
-      collection = Collection.create!(tenant: tenant)
+      collection = Collection.create!
       expect(collection.name).to eq("Untitled collection")
     end
   end

@@ -4,9 +4,12 @@
 # Replaces the implicit-pin `before_action :set_current_tenant_and_user`
 # with a real auth check: every HTML request must arrive with a valid
 # `pito_session` cookie. Successful resolution populates
-# `Current.session / .user / .tenant`. Unauthenticated requests are
+# `Current.session / .user`. Unauthenticated requests are
 # redirected to `/login` (with the intended URL stashed in a signed
 # cookie for post-login redirect).
+#
+# Phase 8 — tenant drop. `Current.tenant` is gone; the concern no
+# longer pins it.
 #
 # Allow-listed actions (the login form, the action-screen confirmation
 # pages for unauthenticated entry points, the OAuth /authorize screen
@@ -49,7 +52,6 @@ module Sessions
       if result.success?
         Current.session = result.session
         Current.user    = result.session.user
-        Current.tenant  = result.session.tenant
         result.session.touch_activity!
         return
       end

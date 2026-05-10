@@ -1,11 +1,8 @@
 require "rails_helper"
 require_relative "../../../app/mcp/tools/create_channel"
 
+# Phase 8 — tenant drop. Tools no longer reference a tenant.
 RSpec.describe Mcp::Tools::CreateChannel do
-  # Phase 5A — reuse the auto-pinned default tenant (set by
-  # spec/support/tenant_context) so `Current.tenant` and `Tenant.first`
-  # point at the same row the test asserts against.
-  let!(:tenant) { Tenant.first || create(:tenant) }
   let(:valid_url) { "https://www.youtube.com/channel/UC2T-WgvF-DQQfFNQieoRuQQ" }
 
   it "creates a channel from a valid URL" do
@@ -14,7 +11,6 @@ RSpec.describe Mcp::Tools::CreateChannel do
     expect(Channel.count).to eq(1)
     channel = Channel.last
     expect(channel.channel_url).to eq(valid_url)
-    expect(channel.tenant_id).to eq(tenant.id)
     expect(result.content.first[:text]).to include("channel created")
   end
 
@@ -34,7 +30,7 @@ RSpec.describe Mcp::Tools::CreateChannel do
   end
 
   it "returns a uniqueness error when the URL already exists" do
-    create(:channel, channel_url: valid_url, tenant: tenant)
+    create(:channel, channel_url: valid_url)
 
     result = described_class.call(channel_url: valid_url)
 

@@ -1,6 +1,10 @@
 # Phase 12 — Step A (6a-sessions-and-login-ui.md). Cookie-session
 # helpers for request and system specs.
 #
+# Phase 8 — tenant drop. The earlier `Current.tenant` pin is gone; the
+# helper now mints a User row directly when a spec needs an
+# already-signed-in caller.
+#
 # `sign_in_as(user)` mints a Session row and sets the `pito_session`
 # signed cookie. Because Rails' integration test cookie jar lacks a
 # `signed` accessor, we construct a minimal `ActionDispatch::Cookies::CookieJar`
@@ -47,28 +51,15 @@ RSpec.configure do |config|
 
   # Phase 12 — Step A. Existing HTML-request specs were written before
   # cookie-session auth gated every controller action. Default every
-  # request spec to "already signed in as the seeded user" so those
-  # specs continue to test what they were written to test (controller
-  # behavior, not the auth boundary). Specs that need to assert on the
-  # /login redirect or on an unauthenticated state set
+  # request spec to "already signed in as a freshly minted user" so
+  # those specs continue to test what they were written to test
+  # (controller behavior, not the auth boundary). Specs that need to
+  # assert on the /login redirect or on an unauthenticated state set
   # `metadata[:unauthenticated]` to `true`.
-  # Phase 12 — Step A. Existing HTML-request specs were written before
-  # cookie-session auth gated every controller action. Default every
-  # request spec to "already signed in as the seeded user". Specs that
-  # need to assert on the /login redirect or on an unauthenticated state
-  # set `metadata[:unauthenticated]` to `true`.
-  #
-  # The hook fires AFTER `tenant_context.rb`'s tenant pin (the support
-  # files load in alphabetic order, so we cannot rely on declaration
-  # order to put this hook second). We re-pin the tenant here as a
-  # belt-and-suspenders fallback before signing in.
   config.before(:each, type: :request) do |example|
     next if example.metadata[:unauthenticated]
 
-    Current.tenant ||= Tenant.first || FactoryBot.create(:tenant)
-
-    user = User.where(tenant_id: Current.tenant.id).first ||
-           FactoryBot.create(:user, tenant: Current.tenant)
+    user = User.first || FactoryBot.create(:user)
     sign_in_as(user)
   end
 
@@ -81,9 +72,7 @@ RSpec.configure do |config|
   config.before(:each, type: :system) do |example|
     next if example.metadata[:unauthenticated]
 
-    Current.tenant ||= Tenant.first || FactoryBot.create(:tenant)
-    user = User.where(tenant_id: Current.tenant.id).first ||
-           FactoryBot.create(:user, tenant: Current.tenant)
+    user = User.first || FactoryBot.create(:user)
 
     record, plaintext = Session.create_for!(
       user: user,

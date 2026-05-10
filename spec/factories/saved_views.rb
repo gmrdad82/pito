@@ -1,6 +1,5 @@
 FactoryBot.define do
   factory :saved_view do
-    tenant { Current.tenant || association(:tenant) }
     kind { :channels }
     sequence(:url) { |n| "/channels?view=#{n}" }
     sequence(:name) { |n| "View #{n}" }

@@ -8,6 +8,11 @@
 # every action requires a valid bearer token. Each action then calls
 # `require_scope!(Scopes::PROJECT_READ)` (or the matching scope) to enforce
 # permissions.
+#
+# Phase 8 — tenant drop. `Current.tenant` is gone. The defense-in-depth
+# cross-tenant check is gone too — there is only one install scope.
+# A token whose user row has been deleted is still rejected (treated
+# as `invalid_token`).
 module Api
   module AuthConcern
     extend ActiveSupport::Concern
@@ -33,22 +38,15 @@ module Api
         return
       end
 
-      token  = result.token
-      tenant = token.tenant
-      user   = token.user
+      token = result.token
+      user  = token.user
 
-      # Phase 7.5 — defense-in-depth tenant boundary check (mirrors
-      # `Mcp::RackApp`). Both bearer surfaces refuse cross-tenant
-      # tokens even if the row state somehow desyncs `user.tenant_id`
-      # from `token.tenant_id`. Treated as `invalid_token` for the
-      # caller — no information leak about whether the row exists.
-      if user.nil? || user.tenant_id != tenant&.id
+      if user.nil?
         raise Api::Unauthorized.new(reason: "invalid_token")
       end
 
-      Current.token  = token
-      Current.tenant = tenant
-      Current.user   = user
+      Current.token = token
+      Current.user  = user
     end
 
     # Raise if the current token does not carry the given scope. The

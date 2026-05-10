@@ -1,9 +1,13 @@
 require "rails_helper"
 
+# Phase 8 — tenant drop. `google_subject_id` uniqueness is install-wide
+# (the upstream Google ID is globally unique on its own).
 RSpec.describe GoogleIdentity, type: :model do
   describe "associations" do
-    it { is_expected.to belong_to(:tenant) }
     it { is_expected.to belong_to(:user) }
+    it "does not declare a tenant association" do
+      expect(GoogleIdentity.reflect_on_association(:tenant)).to be_nil
+    end
     it "has many channels (via oauth_identity_id)" do
       identity = create(:google_identity)
       channel = create(:channel, oauth_identity: identity)
@@ -31,7 +35,7 @@ RSpec.describe GoogleIdentity, type: :model do
       expect(identity).to be_valid
     end
 
-    it "enforces uniqueness of google_subject_id within tenant" do
+    it "enforces install-wide uniqueness of google_subject_id" do
       first = create(:google_identity)
       second = build(:google_identity, google_subject_id: first.google_subject_id)
       expect(second).not_to be_valid
@@ -97,17 +101,6 @@ RSpec.describe GoogleIdentity, type: :model do
     it "joins scopes with single spaces" do
       identity = build(:google_identity, scopes: %w[openid email profile])
       expect(identity.scope_string).to eq("openid email profile")
-    end
-  end
-
-  describe "tenant scoping" do
-    it "is not visible to a different tenant" do
-      tenant_a = Current.tenant
-      identity = create(:google_identity, tenant: tenant_a)
-
-      tenant_b = create(:tenant, slug: "other-tenant", name: "other")
-      Current.tenant = tenant_b
-      expect(GoogleIdentity.where(id: identity.id)).to be_empty
     end
   end
 end

@@ -21,9 +21,9 @@ module Api
     skip_before_action :verify_authenticity_token, raise: false
 
     # Phase 3 — Step B. Bearer-token auth is required on every Api::*
-    # endpoint. The concern populates Current.tenant / Current.user from
+    # endpoint. The concern populates Current.user / Current.token from
     # the resolved token; the cookie-only HTML routes do NOT include this
-    # concern (they remain on the seeded-singletons path).
+    # concern.
     include Api::AuthConcern
 
     before_action :set_project, only: [ :index, :create ]
@@ -44,7 +44,7 @@ module Api
         return
       end
 
-      footage = @project.footages.new(attrs.merge(tenant: @project.tenant))
+      footage = @project.footages.new(attrs)
       if footage.save
         render json: footage_json(footage), status: :created
       else
@@ -193,7 +193,6 @@ module Api
       {
         id: footage.id,
         project_id: footage.project_id,
-        tenant_id: footage.tenant_id,
         game_id: footage.game_id,
         kind: footage.kind,
         source: footage.source,

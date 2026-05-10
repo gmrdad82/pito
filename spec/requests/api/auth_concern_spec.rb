@@ -3,15 +3,12 @@ require "rails_helper"
 # Phase 3 — Step B (5b-token-and-auth-concern.md). End-to-end auth-concern
 # matrix exercised through `Api::FootagesController` — the only `Api::*`
 # controller in Phase B's scope.
+#
+# Phase 8 — tenant drop. Tokens own a User, not a tenant; the
+# defense-in-depth cross-tenant check is gone.
 RSpec.describe "Api::AuthConcern", type: :request do
-  let(:tenant) { Tenant.first || create(:tenant) }
-  let(:user)   { User.first  || create(:user, tenant: tenant) }
-  let!(:project) do
-    Current.tenant = tenant
-    p = create(:project, tenant: tenant)
-    Current.reset
-    p
-  end
+  let(:user) { User.first || create(:user) }
+  let!(:project) { create(:project) }
 
   let(:json_headers) do
     { "Content-Type" => "application/json", "Accept" => "application/json" }
@@ -23,7 +20,7 @@ RSpec.describe "Api::AuthConcern", type: :request do
 
   def with_token(scopes:, **opts)
     record, plaintext = ApiToken.generate!(
-      tenant: tenant, user: user, name: opts[:name] || "test", scopes: scopes,
+      user: user, name: opts[:name] || "test", scopes: scopes,
       expires_at: opts[:expires_at]
     )
     record.revoke! if opts[:revoked]
@@ -95,16 +92,27 @@ RSpec.describe "Api::AuthConcern", type: :request do
         expect(JSON.parse(response.body)).to be_an(Array)
       end
 
-      it "populates Current.tenant / Current.user / Current.token from the token" do
+      it "populates Current.user / Current.token but never Current.tenant" do
         plaintext = with_token(scopes: [ Scopes::PROJECT_READ ])
 
-        # Snoop on Current via a controller-after_action substitute: read
-        # the database side-effect (last_used_at bumped). For the actual
-        # Current.* assertion we use a stub on the inner authenticator.
         get api_project_footages_path(project), headers: auth_headers(plaintext)
 
-        # Token's last_used_at was bumped (proves auth path ran).
         expect(ApiToken.find_by(name: "test").last_used_at).to be_present
+      end
+    end
+
+    context "with a token whose user has been hard-deleted (flaw test)" do
+      it "returns 401 invalid_token" do
+        # The FK from api_tokens → users blocks a direct hard-delete; the
+        # only way the auth concern reaches the `user.nil?` branch in
+        # production is if a manual SQL delete drops the user row out
+        # from under a valid token. Stub the association to simulate.
+        plaintext = with_token(scopes: [ Scopes::PROJECT_READ ])
+        allow_any_instance_of(ApiToken).to receive(:user).and_return(nil)
+
+        get api_project_footages_path(project), headers: auth_headers(plaintext)
+        expect(response).to have_http_status(:unauthorized)
+        expect(JSON.parse(response.body)).to eq("error" => "invalid_token")
       end
     end
   end

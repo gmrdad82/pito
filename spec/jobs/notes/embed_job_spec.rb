@@ -1,9 +1,8 @@
 require "rails_helper"
 
 RSpec.describe Notes::EmbedJob, type: :job do
-  let!(:tenant) { create(:tenant) }
-  let!(:project) { create(:project, tenant: tenant) }
-  let!(:note) { create(:note, project: project, tenant: tenant, path: "alpha.md") }
+  let!(:project) { create(:project) }
+  let!(:note) { create(:note, project: project, path: "alpha.md") }
 
   let(:tmp_root) { Dir.mktmpdir("pito-notes-embed-spec") }
 

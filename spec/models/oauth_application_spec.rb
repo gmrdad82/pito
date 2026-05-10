@@ -1,18 +1,11 @@
 require "rails_helper"
 
+# Phase 8 — tenant drop. OauthApplication is now a thin Doorkeeper
+# subclass with no extra scoping.
 RSpec.describe OauthApplication, type: :model do
-  describe "associations" do
-    it { is_expected.to belong_to(:tenant) }
-  end
-
   describe "validations" do
     it "requires a name" do
       app = build(:oauth_application, name: nil)
-      expect(app).not_to be_valid
-    end
-
-    it "requires a tenant" do
-      app = build(:oauth_application, tenant: nil)
       expect(app).not_to be_valid
     end
 
@@ -32,6 +25,12 @@ RSpec.describe OauthApplication, type: :model do
       app = create(:oauth_application)
       expect(app.uid).to be_present
       expect(app.secret).to be_present
+    end
+  end
+
+  describe "Phase 8 — no tenant association" do
+    it "does not declare a tenant association" do
+      expect(OauthApplication.reflect_on_association(:tenant)).to be_nil
     end
   end
 end

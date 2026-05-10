@@ -1,7 +1,6 @@
 FactoryBot.define do
   factory :timeline do
     project
-    tenant { project.tenant }
     sequence(:title) { |n| "Timeline #{n}" }
     state { :editing }
 

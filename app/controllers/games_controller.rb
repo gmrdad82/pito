@@ -16,7 +16,7 @@ class GamesController < ApplicationController
   end
 
   def create
-    game = Game.new(tenant: default_tenant)
+    game = Game.new
     game.save!
     redirect_to game_path(game), notice: "game created."
   end
@@ -48,9 +48,5 @@ class GamesController < ApplicationController
   rescue JSON::ParserError
     permitted = params.require(:game).permit(:title, :publisher, :cover_art, :collection_id)
     permitted
-  end
-
-  def default_tenant
-    Tenant.order(:id).first || Tenant.create!(name: "Primary")
   end
 end

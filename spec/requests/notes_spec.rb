@@ -1,8 +1,9 @@
 require "rails_helper"
 
+# Phase 8 — tenant drop. Notes live install-wide; the lock is now an
+# AppSetting key managed by `NotesLockGuard`.
 RSpec.describe "Notes", type: :request do
-  let(:tenant) { Tenant.first || create(:tenant) }
-  let(:project) { create(:project, tenant: tenant) }
+  let(:project) { create(:project) }
 
   let(:tmp_root) { Dir.mktmpdir("pito-notes-spec") }
 
@@ -14,10 +15,9 @@ RSpec.describe "Notes", type: :request do
   after do
     ENV["PITO_NOTES_PATH"] = @prev_root
     FileUtils.remove_entry(tmp_root) if File.exist?(tmp_root)
+    NotesLockGuard.release!
   end
 
-  # Phase B post-commit (2026-05-04) — Note revamp.
-  # /notes/:id/edit and /notes/new are gone. The show route IS the editor.
   describe "deprecated routes" do
     it "has no edit_note_path helper" do
       expect(Rails.application.routes.url_helpers).not_to respond_to(:edit_note_path)
@@ -45,7 +45,7 @@ RSpec.describe "Notes", type: :request do
     end
 
     context "when the lock is fresh" do
-      before { tenant.update!(notes_syncing_at: 1.minute.ago) }
+      before { NotesLockGuard.acquire! }
 
       it "redirects with the syncing alert (HTML)" do
         post project_notes_path(project)
@@ -66,7 +66,7 @@ RSpec.describe "Notes", type: :request do
   end
 
   describe "GET /notes/:id (the editor — show route)" do
-    let!(:note) { create(:note, project: project, tenant: tenant) }
+    let!(:note) { create(:note, project: project) }
 
     before do
       FileUtils.mkdir_p(NotesFilesystem.root_for(note))
@@ -100,7 +100,7 @@ RSpec.describe "Notes", type: :request do
   end
 
   describe "PATCH /notes/:id (update)" do
-    let!(:note) { create(:note, project: project, tenant: tenant) }
+    let!(:note) { create(:note, project: project) }
 
     before do
       FileUtils.mkdir_p(NotesFilesystem.root_for(note))
@@ -110,14 +110,11 @@ RSpec.describe "Notes", type: :request do
     it "writes the body to disk and updates last_modified_at" do
       patch note_path(note), params: { note: { body: "# Hello\n\nWorld" } }
       note.reload
-      # Title rename causes a file rename — read from the new on-disk path.
       expect(File.read(NotesFilesystem.absolute_path_for(note))).to include("Hello")
       expect(note.title).to eq("Hello")
     end
 
     it "auto-derives title from the first ATX H1 — title param is ignored" do
-      # Even if a malicious client sends a `title` field, the server derives
-      # from the body. The form has no title input by design.
       patch note_path(note), params: { note: { title: "spoofed", body: "# Real Title\n\nbody" } }
       expect(note.reload.title).to eq("Real Title")
     end
@@ -130,21 +127,18 @@ RSpec.describe "Notes", type: :request do
     end
 
     it "recomputes words_count via the markdown-aware tokenizer" do
-      # Body: `# Hi\n\nfoo bar baz`. The `#` heading marker is consumed
-      # by Commonmarker; tokens are: Hi, foo, bar, baz → 4 words.
       patch note_path(note), params: { note: { body: "# Hi\n\nfoo bar baz" } }
       note.reload
       expect(note.words_count).to eq(4)
     end
 
     it "ignores markdown syntax when counting words" do
-      # User's example: `# Hi\nHow are you all doing?` → 6 words.
       patch note_path(note), params: { note: { body: "# Hi\nHow are you all doing?" } }
       expect(note.reload.words_count).to eq(6)
     end
 
     context "when the lock is fresh" do
-      before { tenant.update!(notes_syncing_at: 1.minute.ago) }
+      before { NotesLockGuard.acquire! }
 
       it "returns 423 Locked for JSON" do
         patch note_path(note),
@@ -158,7 +152,7 @@ RSpec.describe "Notes", type: :request do
   end
 
   describe "DELETE /notes/:id" do
-    let!(:note) { create(:note, project: project, tenant: tenant) }
+    let!(:note) { create(:note, project: project) }
 
     before do
       FileUtils.mkdir_p(NotesFilesystem.root_for(note))
@@ -175,10 +169,7 @@ RSpec.describe "Notes", type: :request do
   end
 
   describe "POST /notes/scan" do
-    let(:tenant) { Tenant.first || create(:tenant) }
-
     it "enqueues NoteSyncJob" do
-      tenant
       expect {
         post scan_notes_path
       }.to change(NoteSyncJob.jobs, :size).by(1)
@@ -186,7 +177,7 @@ RSpec.describe "Notes", type: :request do
   end
 
   describe "GET /projects/:id (notes pane bulk-select markup)" do
-    let!(:note) { create(:note, project: project, tenant: tenant) }
+    let!(:note) { create(:note, project: project) }
 
     before do
       FileUtils.mkdir_p(NotesFilesystem.root_for(note))
@@ -202,14 +193,10 @@ RSpec.describe "Notes", type: :request do
     end
 
     it "renders always-on bulk-select markup (no [bulk] toggle)" do
-      # Phase B polish (2026-05-05) — checkboxes are always rendered;
-      # the `[bulk]` enter / `[cancel]` exit toggles are gone in the
-      # notes pane (mirrors Lane G's /channels and /videos shape).
       get project_path(project)
       expect(response.body).not_to include('click-&gt;bulk-select#enterBulk')
       expect(response.body).not_to include('click-&gt;bulk-select#exitBulk')
       expect(response.body).not_to include('data-bulk-select-target="bulkToggle"')
-      # Header + per-row checkboxes ship in the DOM (always-on).
       expect(response.body).to include('data-bulk-select-target="headerCheckbox"')
       expect(response.body).to include('change-&gt;bulk-select#toggleAll')
       expect(response.body).to include('data-bulk-select-target="checkbox"')
@@ -218,8 +205,6 @@ RSpec.describe "Notes", type: :request do
     it "renders the words column reflecting the saved count (chars dropped)" do
       patch note_path(note), params: { note: { body: "# Title\n\nfoo bar" } }
       get project_path(project)
-      # `words` is part of the `<th>` headers; `chars` is gone after the
-      # 2026-05-06 cleanup.
       expect(response.body).to include(">words</a>").or include(">words</")
       expect(response.body).not_to match(/<th[^>]*>chars<\/th>/)
       expect(response.body).not_to match(/<th[^>]*>chars/)

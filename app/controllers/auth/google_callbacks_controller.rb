@@ -75,9 +75,10 @@ class Auth::GoogleCallbacksController < ApplicationController
   private
 
   # Find or create the GoogleIdentity row for `Current.user` keyed
-  # on `(tenant_id, google_subject_id)`. Returns nil if no current
-  # user is in scope (the connect flow expects a logged-in Pito
-  # user; OAuth without a Pito session is the Phase 12 surface).
+  # on `google_subject_id` (Phase 8 — tenant drop; subject IDs are
+  # globally unique). Returns nil if no current user is in scope (the
+  # connect flow expects a logged-in Pito user; OAuth without a Pito
+  # session is the Phase 12 surface).
   def upsert_identity_for_current_user(auth_hash)
     return nil unless Current.user.present?
 
@@ -88,8 +89,7 @@ class Auth::GoogleCallbacksController < ApplicationController
     subject_id = (auth_hash["uid"] || (auth_hash.respond_to?(:uid) ? auth_hash.uid : nil)).to_s
     granted_scopes = parse_granted_scopes(extra_raw, creds)
 
-    identity = GoogleIdentity.unscoped.find_or_initialize_by(
-      tenant_id: Current.tenant.id,
+    identity = GoogleIdentity.find_or_initialize_by(
       google_subject_id: subject_id
     )
 

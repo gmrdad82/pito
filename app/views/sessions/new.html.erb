@@ -10,9 +10,10 @@
 
   <%= form_with url: login_path, method: :post, scope: nil, data: { turbo: false } do %>
     <div style="margin-bottom: 12px;">
-      <label for="login_identifier" class="form-label">email or username</label>
-      <input type="text" name="identifier" id="login_identifier"
-             value="<%= @identifier %>" required autocomplete="username"
+      <label for="login_email" class="form-label">email</label>
+      <input type="email" name="email" id="login_email"
+             value="<%= @email %>" required autocomplete="email"
+             placeholder="you@example.com"
              style="width: 100%;">
     </div>
 

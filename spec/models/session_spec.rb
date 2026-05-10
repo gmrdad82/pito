@@ -1,9 +1,10 @@
 require "rails_helper"
 
+# Phase 12 — Step A. Phase 8 — tenant drop. Sessions are user-scoped
+# only; no `tenant_id` and no `unscoped` workaround in `create_for!`.
 RSpec.describe Session, type: :model do
   describe "associations" do
     it { is_expected.to belong_to(:user) }
-    it { is_expected.to belong_to(:tenant) }
   end
 
   describe "validations" do
@@ -27,11 +28,6 @@ RSpec.describe Session, type: :model do
       expect(record.token_digest).to eq(Pito::TokenDigest.call(plaintext))
     end
 
-    it "denormalizes the user's tenant onto the row" do
-      record, _plaintext = Session.create_for!(user: user, ip: nil, user_agent: nil, remember: false)
-      expect(record.tenant_id).to eq(user.tenant_id)
-    end
-
     it "stamps last_activity_at on creation" do
       record, _ = Session.create_for!(user: user, ip: nil, user_agent: nil, remember: false)
       expect(record.last_activity_at).to be_within(2.seconds).of(Time.current)
@@ -40,6 +36,13 @@ RSpec.describe Session, type: :model do
     it "respects remember=true" do
       record, _ = Session.create_for!(user: user, ip: nil, user_agent: nil, remember: true)
       expect(record.remember?).to be true
+    end
+
+    it "does not pass a tenant: keyword" do
+      # Defense-in-depth: the public signature is fixed at
+      # (user:, ip:, user_agent:, remember:). Adding tenant: would
+      # surface an ArgumentError; the test asserts via `parameters`.
+      expect(Session.method(:create_for!).parameters.map(&:last)).to match_array(%i[user ip user_agent remember])
     end
   end
 
@@ -95,23 +98,6 @@ RSpec.describe Session, type: :model do
       session = create(:session)
       Current.session = nil
       expect(session.current?).to be false
-    end
-  end
-
-  describe "BelongsToTenant integration" do
-    it "is scoped to Current.tenant" do
-      tenant_a = Current.tenant
-      tenant_b = create(:tenant)
-      user_b = create(:user, tenant: tenant_b)
-
-      Current.tenant = tenant_b
-      session_b = create(:session, tenant: tenant_b, user: user_b)
-
-      Current.tenant = tenant_a
-      expect(Session.where(id: session_b.id)).to be_empty
-
-      Current.tenant = tenant_b
-      expect(Session.where(id: session_b.id)).to include(session_b)
     end
   end
 end

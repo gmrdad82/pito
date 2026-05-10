@@ -9,9 +9,11 @@
 # carries the expiration (session-only or 30 days when "remember me" is
 # set). Periodic sweep of stale rows is a Phase 15 / observability
 # concern; keep the row around for the audit trail until revoked.
+#
+# Phase 8 — tenant drop. The `tenant_id` column and `BelongsToTenant`
+# default scope are gone; `Session.create_for!` is now a plain `create!`
+# (no `unscoped` workaround required).
 class Session < ApplicationRecord
-  include BelongsToTenant
-
   belongs_to :user
 
   validates :user_id, presence: true
@@ -23,16 +25,10 @@ class Session < ApplicationRecord
   # Mints a new session row for `user`, returns `[record, plaintext]`.
   # Plaintext is shown once and goes into the signed cookie; `token_digest`
   # is what the database stores. Mirrors `ApiToken.generate!`.
-  #
-  # `unscoped` for the create because the login path runs BEFORE a session
-  # exists (and therefore before `Current.tenant` is pinned by the auth
-  # concern). The new row's `tenant_id` is denormalized from `user.tenant`
-  # so the row's correctness is maintained regardless.
   def self.create_for!(user:, ip: nil, user_agent: nil, remember: false)
     plaintext = SecureRandom.urlsafe_base64(32)
-    record = unscoped.create!(
+    record = create!(
       user: user,
-      tenant: user.tenant,
       token_digest: Pito::TokenDigest.call(plaintext),
       ip: ip,
       user_agent: user_agent,
@@ -52,9 +48,7 @@ class Session < ApplicationRecord
 
   # Update `last_activity_at` only if it's been at least `ACTIVITY_DEBOUNCE`
   # since the last bump. Avoids one DB write per request. Uses
-  # `update_columns` to skip validations / callbacks / `updated_at` and to
-  # bypass the `BelongsToTenant` default scope (the row's tenant is
-  # already known; activity ticks must never trigger a tenant re-check).
+  # `update_columns` to skip validations / callbacks / `updated_at`.
   def touch_activity!
     return if last_activity_at.present? && last_activity_at >= ACTIVITY_DEBOUNCE.ago
 

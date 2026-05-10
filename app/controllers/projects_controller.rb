@@ -79,7 +79,7 @@ class ProjectsController < ApplicationController
     @notes_dir  = sanitized_notes_dir
     @notes = @project.notes.order(notes_order_clause)
     @timelines = @project.timelines.order(created_at: :desc)
-    @notes_locked = NotesLockGuard.locked?(@project.tenant)
+    @notes_locked = NotesLockGuard.locked?
 
     # Filter chip options come from the *unfiltered* set so a narrowed
     # view still shows every distinct value the user can pivot to. Chips
@@ -102,7 +102,7 @@ class ProjectsController < ApplicationController
   end
 
   def create
-    project = Project.new(tenant: default_tenant)
+    project = Project.new
     project.save!
     redirect_to project_path(project), notice: "project created."
   end
@@ -126,10 +126,6 @@ class ProjectsController < ApplicationController
 
   def update_params
     params.require(:project).permit(:name)
-  end
-
-  def default_tenant
-    Tenant.order(:id).first || Tenant.create!(name: "Primary")
   end
 
   def sanitized_sort_key

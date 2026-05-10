@@ -7,12 +7,12 @@
 #     the title from the first ATX `# heading` (§6.5), persists the title.
 #   - destroy: removes the file and destroys the record.
 #
-# Every mutating action checks the tenant-wide lock (§6.4): when
-# `tenant.notes_syncing_at` is fresh (≤ 5 min), we return 423 Locked with a
+# Every mutating action checks the install-wide lock (§6.4): when the
+# notes sync timestamp is fresh (≤ 5 min), we return 423 Locked with a
 # `{"error":"notes_syncing","retry_after":30}` JSON body.
 #
-# Filesystem layout:
-#   <PITO_NOTES_PATH>/<tenant_id>/projects/<project_id>/<file>.md
+# Filesystem layout (Phase 8 — tenant drop):
+#   <PITO_NOTES_PATH>/projects/<project_id>/<file>.md
 class NotesController < ApplicationController
   skip_before_action :verify_authenticity_token, if: -> { request.format.json? }
 
@@ -30,8 +30,7 @@ class NotesController < ApplicationController
   # Still subject to the lock on the next request: if the lock is fresh, the
   # banner stays up.
   def scan
-    tenant = Tenant.order(:id).first
-    NoteSyncJob.perform_async(tenant.id) if tenant
+    NoteSyncJob.perform_async
     redirect_back(
       fallback_location: root_path,
       notice: "notes scan enqueued."
@@ -49,7 +48,6 @@ class NotesController < ApplicationController
 
   def create
     project = Project.find(params[:project_id])
-    tenant = project.tenant
 
     timestamp = Time.current.to_i
     relative_path = "untitled-note-#{timestamp}.md"
@@ -57,7 +55,6 @@ class NotesController < ApplicationController
     note = nil
     Note.transaction do
       note = project.notes.create!(
-        tenant: tenant,
         path: relative_path,
         title: "Untitled note",
         last_modified_at: Time.current
@@ -122,12 +119,11 @@ class NotesController < ApplicationController
     @note = Note.find(params[:id])
   end
 
-  # Phase 4 §6.4 — return 423 Locked when the tenant's notes are syncing.
+  # Phase 4 §6.4 — return 423 Locked when notes are syncing install-wide.
   # Both HTML and JSON callers get a clear error response. The view-side
   # banner in `_notes_pane.html.erb` keeps the UI consistent.
   def reject_if_notes_syncing
-    tenant = NotesLockGuard.locked_tenant_for(self)
-    return unless tenant && NotesLockGuard.locked?(tenant)
+    return unless NotesLockGuard.locked?
 
     respond_to do |format|
       format.html do

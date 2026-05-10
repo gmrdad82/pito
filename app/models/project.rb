@@ -1,8 +1,6 @@
 # Phase 4 §3.1, §4 — workspace shell. References zero-or-more Games and
 # Collections via the polymorphic `project_references` join.
 class Project < ApplicationRecord
-  include BelongsToTenant
-
   has_many :project_references, dependent: :destroy
   has_many :games,
            through: :project_references,

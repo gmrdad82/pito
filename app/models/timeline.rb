@@ -5,7 +5,6 @@
 # Phase B's controller layer).
 class Timeline < ApplicationRecord
   include AASM
-  include BelongsToTenant
 
   belongs_to :project, counter_cache: true
   belongs_to :video, optional: true

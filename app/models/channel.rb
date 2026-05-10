@@ -1,6 +1,4 @@
 class Channel < ApplicationRecord
-  include BelongsToTenant
-
   # Raised when the locked channel_url is changed on update. Phase B's
   # controller layer rescues this and translates it to a 422 response.
   class UrlLockedError < ActiveRecord::ReadOnlyRecord; end

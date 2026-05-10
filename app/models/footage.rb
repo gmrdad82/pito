@@ -1,14 +1,11 @@
 # Phase 4 §3.4 — Footage holds probed metadata pushed by the `pito footage`
 # importer (Phase B). All ffprobe-derived fields are nullable so a row can
 # land minimally then get hydrated as the importer fills in details.
+#
+# Phase 8 — tenant drop. The `tenant_id` column and
+# `denormalize_tenant_from_project` callback are gone; `local_path`
+# uniqueness is install-wide.
 class Footage < ApplicationRecord
-  # Raised by `denormalize_tenant_from_project` when both `tenant_id`
-  # and `project` are absent (Phase 5A §5.2 — fail loud rather than
-  # let a row reach validation in a half-set state).
-  class MissingProjectError < StandardError; end
-
-  include BelongsToTenant
-
   belongs_to :project, counter_cache: true
   belongs_to :game, optional: true
 
@@ -16,15 +13,12 @@ class Footage < ApplicationRecord
   enum :source, { obs: 0, camera: 1 }, validate: true
   enum :orientation, { landscape: 0, portrait: 1 }
 
-  validates :local_path, presence: true,
-                         uniqueness: { scope: :tenant_id }
+  validates :local_path, presence: true, uniqueness: true
   validates :filename, presence: true
   validates :bit_depth, inclusion: { in: [ 8, 10, 12 ] }
   validates :platform, presence: true, if: :game_id?
   validate :platform_must_match_game_allowlist
   validate :commentary_track_consistency
-
-  before_validation :denormalize_tenant_from_project
 
   # Phase 4 Wave 3.5+ — `/projects` index aggregates. Keep the parent
   # project's `footage_duration_seconds` cache in sync whenever a footage's
@@ -43,36 +37,6 @@ class Footage < ApplicationRecord
   after_destroy :recompute_project_footage_duration
 
   private
-
-  # Phase 5A §5.2 — tightened denormalization. Two changes from the
-  # original `||=` shape:
-  #
-  #   1. When `project` is present, treat `tenant_id == Current.tenant_id`
-  #      as the `BelongsToTenant` default-scope stamp and let
-  #      `project.tenant_id` win. The default scope copies its `where`
-  #      conditions onto attribute defaults for new records, so a
-  #      bare `Footage.new(project: <project from a different tenant>)`
-  #      starts with `tenant_id = Current.tenant_id`, not nil — `||=`
-  #      would silently keep that wrong value.
-  #   2. When `project` is absent AND `tenant_id` is also absent, raise
-  #      immediately. The previous version silently let `tenant_id`
-  #      stay nil and relied on the model-level presence validation to
-  #      flag the row later, which produced confusing error trails.
-  #      With `tenant_id` now NOT NULL on the column itself, raising
-  #      here is the right loud-failure shape.
-  def denormalize_tenant_from_project
-    if project
-      if tenant_id.nil? || tenant_id == Current.tenant_id
-        self.tenant_id = project.tenant_id
-      end
-      return
-    end
-
-    return if tenant_id
-
-    raise MissingProjectError,
-          "Footage requires either a tenant_id or a project to derive it from"
-  end
 
   # Re-sums the parent project's footage durations and writes the cached
   # total via `update_columns` (skips validations / callbacks). Guarded

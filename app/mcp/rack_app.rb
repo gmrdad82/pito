@@ -7,9 +7,14 @@ module Mcp
   # Mounted at /mcp in routes.rb, served by a dedicated Puma process (bin/mcp-web).
   #
   # Phase 3 — Step B (5b-token-and-auth-concern.md). Bearer-token auth is
-  # now enforced via `Api::TokenAuthenticator`. Requests without a valid
+  # enforced via `Api::TokenAuthenticator`. Requests without a valid
   # token return 401; tokens that authenticate but lack the required
-  # scope are rejected by individual tools via `Mcp::ToolAuth.require_scope!`.
+  # scope are rejected by individual tools via
+  # `Mcp::ToolAuth.require_scope!`.
+  #
+  # Phase 8 — tenant drop (ADR 0003). The cross-tenant defense-in-depth
+  # check is gone (single install). A token whose user row has been
+  # deleted is still rejected as `invalid_token`.
   class RackApp
     def initialize
       server = PitoServer.build
@@ -23,25 +28,17 @@ module Mcp
       result = Api::TokenAuthenticator.call(env)
       return result.to_rack_response if result.failure?
 
-      token  = result.token
-      tenant = token.tenant
-      user   = token.user
+      token = result.token
+      user  = token.user
 
-      # Phase 7.5 — defense-in-depth tenant boundary check. ApiToken
-      # has matching `tenant_id` and `user.tenant_id` by construction;
-      # for Doorkeeper-issued OAuth tokens the resource owner is set
-      # at consent time so the same invariant holds. If a row mutation
-      # somehow desyncs the two (manual SQL, future cross-tenant
-      # plumbing), refuse the request rather than serve cross-tenant.
-      if user.nil? || user.tenant_id != tenant&.id
+      if user.nil?
         return Api::TokenAuthenticator::Result
           .new(failure_reason: "invalid_token")
           .to_rack_response
       end
 
-      Current.token  = token
-      Current.tenant = tenant
-      Current.user   = user
+      Current.token = token
+      Current.user  = user
 
       @transport.call(env)
     ensure

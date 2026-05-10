@@ -1,6 +1,4 @@
 class BulkOperationItem < ApplicationRecord
-  include BelongsToTenant
-
   belongs_to :bulk_operation
   belongs_to :video, optional: true
   belongs_to :target, polymorphic: true, optional: true
