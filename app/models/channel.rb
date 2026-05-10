@@ -71,6 +71,11 @@ class Channel < ApplicationRecord
   has_many :videos, dependent: :destroy
   has_many :playlists, dependent: :destroy
   has_many :video_uploads, dependent: :destroy
+  # Phase 7.5 §11a — append-only change history for the rate-limited
+  # title / handle fields. `dependent: :destroy` so dropping a channel
+  # also drops its history (the DB FK is `ON DELETE CASCADE` as well —
+  # belt and suspenders).
+  has_many :channel_change_logs, dependent: :destroy
   # Phase 15 §1 — calendar entries cascade. The FK is also ON DELETE
   # CASCADE at the database level.
   has_many :calendar_entries, dependent: :destroy
@@ -96,6 +101,56 @@ class Channel < ApplicationRecord
             presence: true,
             format: { with: CHANNEL_URL_REGEX },
             uniqueness: { case_sensitive: true }
+
+  # Phase 7.5 §11a — Channel resource columns. All editable fields
+  # allow blank because the columns are display-only placeholders until
+  # ChannelSync populates them on the first successful API roundtrip.
+  HANDLE_REGEX = /\A@[A-Za-z0-9._-]+\z/
+  COUNTRY_REGEX = /\A[A-Z]{2}\z/
+  # BCP-47 lite: primary subtag (2-3 lowercase letters) + optional
+  # region subtag (2 uppercase letters). Covers the vast majority of
+  # YouTube `defaultLanguage` values without pulling a full BCP-47
+  # parser into the model.
+  DEFAULT_LANGUAGE_REGEX = /\A[a-z]{2,3}(-[A-Z]{2})?\z/
+  WATERMARK_TIMINGS = %w[always entire_video offset_from_start offset_from_end].freeze
+  MAX_LINKS = 5
+  LINK_TITLE_MIN = 1
+  LINK_TITLE_MAX = 50
+  LINK_URL_REGEX = %r{\Ahttps?://[^\s]+\z}
+
+  validates :title,
+            length: { maximum: 100 },
+            allow_blank: true
+  validates :handle,
+            length: { minimum: 3, maximum: 30 },
+            format: { with: HANDLE_REGEX },
+            allow_blank: true
+  validates :description,
+            length: { maximum: 5000 },
+            allow_blank: true
+  validates :country,
+            format: { with: COUNTRY_REGEX },
+            allow_blank: true
+  validates :default_language,
+            format: { with: DEFAULT_LANGUAGE_REGEX },
+            allow_blank: true
+  validates :watermark_timing,
+            inclusion: { in: WATERMARK_TIMINGS },
+            allow_blank: true
+  validates :watermark_offset_ms,
+            numericality: { only_integer: true, greater_than_or_equal_to: 0 },
+            allow_blank: true
+  validates :subscriber_count,
+            numericality: { only_integer: true, greater_than_or_equal_to: 0 },
+            allow_blank: true
+  validates :view_count,
+            numericality: { only_integer: true, greater_than_or_equal_to: 0 },
+            allow_blank: true
+  validates :video_count,
+            numericality: { only_integer: true, greater_than_or_equal_to: 0 },
+            allow_blank: true
+
+  validate :links_shape
 
   before_update :prevent_url_change
 
@@ -144,7 +199,66 @@ class Channel < ApplicationRecord
     { channel_id: id }
   end
 
+  # Phase 7.5 §11a — 14-day rate-limit gate helpers. YouTube limits
+  # title and handle changes to 1 per 14 days; the edit form keys on
+  # these helpers to disable / re-enable the affected field.
+  TITLE_HANDLE_LOCK_WINDOW = 14.days
+
+  def title_locked?
+    title_changed_at.present? && title_changed_at > TITLE_HANDLE_LOCK_WINDOW.ago
+  end
+
+  def handle_locked?
+    handle_changed_at.present? && handle_changed_at > TITLE_HANDLE_LOCK_WINDOW.ago
+  end
+
+  def title_unlock_at
+    return nil unless title_locked?
+
+    title_changed_at + TITLE_HANDLE_LOCK_WINDOW
+  end
+
+  def handle_unlock_at
+    return nil unless handle_locked?
+
+    handle_changed_at + TITLE_HANDLE_LOCK_WINDOW
+  end
+
   private
+
+  # Phase 7.5 §11a — `links` JSON shape validator. Required structure:
+  # Array of Hashes with `title` (1..50) + `url` (https?://...); max 5
+  # entries. Anything else is rejected with a single error on `:links`.
+  def links_shape
+    value = links
+    return if value.blank? && value.is_a?(Array) # empty Array is valid
+
+    unless value.is_a?(Array)
+      errors.add(:links, "must be an array")
+      return
+    end
+
+    if value.size > MAX_LINKS
+      errors.add(:links, "may contain at most #{MAX_LINKS} entries")
+      return
+    end
+
+    value.each_with_index do |entry, idx|
+      unless entry.is_a?(Hash)
+        errors.add(:links, "entry #{idx} must be an object")
+        next
+      end
+      entry_title = entry["title"] || entry[:title]
+      entry_url = entry["url"] || entry[:url]
+      if entry_title.blank? || !entry_title.is_a?(String) ||
+         entry_title.length < LINK_TITLE_MIN || entry_title.length > LINK_TITLE_MAX
+        errors.add(:links, "entry #{idx} title must be 1..#{LINK_TITLE_MAX} characters")
+      end
+      if entry_url.blank? || !entry_url.is_a?(String) || !entry_url.match?(LINK_URL_REGEX)
+        errors.add(:links, "entry #{idx} url must be a valid http(s) URL")
+      end
+    end
+  end
 
   def prevent_url_change
     raise UrlLockedError, "channel_url is locked and cannot be changed" if channel_url_changed?

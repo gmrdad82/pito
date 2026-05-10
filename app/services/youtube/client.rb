@@ -51,6 +51,36 @@ module Youtube
       end
     end
 
+    # Phase 7.5 §11a — Channel sync foundation. Single-call channel
+    # fetch with the full part set the management surface needs to
+    # cache (snippet + statistics + brandingSettings + contentDetails +
+    # status). Returns a normalized snake_case Hash matching the spec's
+    # `Channel` cached-column shape. Routes through the same `perform`
+    # chokepoint as every other call so quota / refresh / audit
+    # semantics stay uniform; the audit endpoint key remains
+    # `channels.list` (cost 1).
+    #
+    # The `channel` argument is currently unused (the call is keyed by
+    # the connection's `mine: true`), but the signature accepts it so
+    # 11i's daily diff-check can call `fetch_channel(channel)` once per
+    # connected channel without surface churn.
+    FETCH_CHANNEL_PARTS = %i[snippet statistics brandingSettings contentDetails status].freeze
+
+    def fetch_channel(_channel = nil)
+      result = perform("channels.list", "GET") do
+        svc = data_service
+        response = svc.list_channels(
+          FETCH_CHANNEL_PARTS.map(&:to_s).join(","),
+          mine: true,
+          max_results: 1
+        )
+        normalize_list(response)
+      end
+
+      item = result[:items].first
+      normalize_channel_item(item)
+    end
+
     # GET /youtube/v3/videos
     def videos_list(ids:, parts: %i[snippet statistics contentDetails],
                     max_results: 50, page_token: nil)
@@ -254,6 +284,64 @@ module Youtube
 
     def analytics_service
       Youtube::ServiceFactory.analytics_service(@connection)
+    end
+
+    # Phase 7.5 §11a — translate one channels.list#item into the
+    # snake_case Hash shape Pito caches on `channels`. Tolerates a
+    # nil item (minimal-mine response) and missing sub-keys (e.g.
+    # `country` absent when the channel hasn't set one) by returning
+    # `nil` for the corresponding key.
+    def normalize_channel_item(item)
+      return empty_channel_hash if item.nil?
+
+      snippet  = item[:snippet]            || {}
+      stats    = item[:statistics]         || {}
+      branding = item[:branding_settings]  || {}
+      branding_channel = branding[:channel] || {}
+      branding_image   = branding[:image]   || {}
+      thumbnails = snippet[:thumbnails] || {}
+      default_thumb = thumbnails[:default] || {}
+
+      hidden_subs = stats[:hidden_subscriber_count]
+
+      {
+        title: snippet[:title],
+        handle: snippet[:custom_url],
+        description: snippet[:description],
+        country: snippet[:country],
+        default_language: snippet[:default_language],
+        keywords: branding_channel[:keywords],
+        banner_url: branding_image[:banner_external_url],
+        avatar_url: default_thumb[:url],
+        # `watermarks.set` is a separate Data API call; the
+        # `channels.list#brandingSettings` payload does NOT carry
+        # watermark metadata back. Surface as nil so the caller keeps
+        # any prior cached value untouched.
+        watermark_url: nil,
+        watermark_timing: nil,
+        watermark_offset_ms: nil,
+        # 11c populates fully via the edit form. The API stores the
+        # links array under a different shape (varies by branding
+        # version); 11a returns an empty array to keep `Channel#links`
+        # validity intact post-sync.
+        links: [],
+        subscriber_count: stats[:subscriber_count]&.to_i,
+        view_count: stats[:view_count]&.to_i,
+        video_count: stats[:video_count]&.to_i,
+        hidden_subscriber_count: hidden_subs ? true : false,
+        published_at: snippet[:published_at]
+      }
+    end
+
+    def empty_channel_hash
+      {
+        title: nil, handle: nil, description: nil, country: nil,
+        default_language: nil, keywords: nil, banner_url: nil,
+        avatar_url: nil, watermark_url: nil, watermark_timing: nil,
+        watermark_offset_ms: nil, links: [], subscriber_count: nil,
+        view_count: nil, video_count: nil, hidden_subscriber_count: false,
+        published_at: nil
+      }
     end
 
     def normalize_list(response)
