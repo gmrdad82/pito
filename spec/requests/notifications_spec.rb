@@ -93,6 +93,93 @@ RSpec.describe "Notifications", type: :request do
     end
   end
 
+  # Layout-level notifications modal (2026-05-10). `?modal=yes` or a
+  # request whose `Turbo-Frame` header matches the modal frame id flips
+  # the index into a layout-less, frame-wrapped response. The standalone
+  # `/notifications` page MUST keep its previous shape (every spec
+  # above this block asserts against the un-flipped DOM, which is the
+  # primary regression guard).
+  describe "GET /notifications?modal=yes (layout-level modal mode)" do
+    it "returns 200" do
+      get "/notifications?modal=yes"
+      expect(response).to have_http_status(:ok)
+    end
+
+    it "omits the layout (no header / footer chrome)" do
+      get "/notifications?modal=yes"
+      # The layout renders the `<header>` chrome and the keyboard
+      # shortcuts modal. Layout-less mode strips both.
+      expect(response.body).not_to include("<header")
+      expect(response.body).not_to include("keyboard-shortcuts-modal")
+    end
+
+    it "wraps the body in the matching Turbo Frame" do
+      get "/notifications?modal=yes"
+      # The index template emits a bare `<turbo-frame id="...">` open
+      # tag when in modal mode, with the H1 sitting inside it. The
+      # layout helper's empty frame (rendered into the standalone
+      # page) uses a different attribute order (`loading="lazy" ...
+      # id="..."`), so the bare-id substring is unique to modal mode.
+      body = response.body
+      frame_pos = body.index('<turbo-frame id="notifications_modal_frame"')
+      h1_pos    = body.index("<h1>notifications</h1>")
+      expect(frame_pos).not_to be_nil
+      expect(h1_pos).not_to be_nil
+      expect(frame_pos).to be < h1_pos
+    end
+
+    it "renders the heading + cleanup caption + filter chip inside the frame" do
+      get "/notifications?modal=yes"
+      expect(response.body).to include("<h1>notifications</h1>")
+      expect(response.body).to include("notifications are deleted 7 days after being read.")
+      expect(response.body).to match(/class="filter-chip"/)
+    end
+
+    it "renders the standard standalone page (with layout) when modal param is absent" do
+      get "/notifications"
+      expect(response.body).to include("<header")
+      expect(response.body).not_to include('<turbo-frame id="notifications_modal_frame"')
+    end
+
+    it "ignores stray modal values (yes/no boundary)" do
+      get "/notifications?modal=true" # NOT "yes" — must fall through.
+      # The standalone page renders WITH the layout, which renders the
+      # empty layout-level notifications-modal Turbo Frame too — so
+      # the discriminator is the layout `<header>` chrome, not the
+      # frame's presence.
+      expect(response.body).to include("<header")
+    end
+
+    it "treats a matching Turbo-Frame request header as modal context" do
+      get "/notifications", headers: { "Turbo-Frame" => "notifications_modal_frame" }
+      expect(response.body).to include('<turbo-frame id="notifications_modal_frame"')
+      expect(response.body).not_to include("<header")
+    end
+
+    it "ignores a non-matching Turbo-Frame header" do
+      # A non-matching `Turbo-Frame` header does NOT flip the index into
+      # modal-mode — the controller renders WITH the layout. (Turbo
+      # itself may post-process the response to extract only the
+      # requested frame, but that's its concern; the server-rendered
+      # body wraps the content in the standard layout, NOT in the
+      # notifications-modal Turbo Frame.)
+      get "/notifications", headers: { "Turbo-Frame" => "some_other_frame" }
+      expect(response.body).not_to include('<turbo-frame id="notifications_modal_frame">')
+    end
+
+    it "preserves filter / kind / severity inside modal mode" do
+      get "/notifications?modal=yes&filter=unread"
+      expect(response.body).to include(ActionView::RecordIdentifier.dom_id(unread_a))
+      expect(response.body).to include(ActionView::RecordIdentifier.dom_id(unread_b))
+      expect(response.body).not_to include(ActionView::RecordIdentifier.dom_id(read_a))
+    end
+
+    it "redirects to /login when unauthenticated", :unauthenticated do
+      get "/notifications?modal=yes"
+      expect(response).to redirect_to(login_path)
+    end
+  end
+
   describe "GET /notifications/:id" do
     it "returns 200 for a valid id (happy)" do
       get "/notifications/#{unread_a.id}"

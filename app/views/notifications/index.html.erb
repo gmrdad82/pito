@@ -19,9 +19,20 @@
 
     Index live-prepends new rows via `notifications_index` Turbo
     Stream subscription; the badge updates via the separate
-    `notifications_badge` stream. %>
+    `notifications_badge` stream.
+
+    Layout-level modal mode (2026-05-10): when `@modal` is set (the
+    controller flips it on `?modal=yes` or a matching `Turbo-Frame`
+    header), the body is wrapped in
+    `<turbo-frame id="notifications_modal_frame">` so the layout-level
+    `shared/_notifications_modal` dialog can pull the inbox into its
+    frame via `src=`. Outside modal mode neither open nor close tag is
+    emitted, so the standalone `/notifications` page keeps its exact
+    previous DOM — every existing index spec asserts against the same
+    shape it did before this change. %>
 <%= turbo_stream_from "notifications_index" %>
 
+<% if @modal %><turbo-frame id="notifications_modal_frame"><% end %>
 <div style="max-width: 1100px;"
      data-controller="bulk-select notifications-dynamic-button"
      data-bulk-select-entity-name-value="notifications"
@@ -106,3 +117,4 @@
     </dialog>
   </span>
 </div>
+<% if @modal %></turbo-frame><% end %>

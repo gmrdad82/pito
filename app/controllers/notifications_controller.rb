@@ -30,6 +30,17 @@ class NotificationsController < ApplicationController
   before_action :set_notification, only: %i[show read unread]
   before_action :enforce_mark_read_rate_limit, only: %i[mark_read mark_all_read]
 
+  # `modal=yes` (yes/no boundary, CLAUDE.md hard rule) OR a Turbo
+  # request whose `Turbo-Frame` header matches the layout-level
+  # notifications-modal frame opts the response into layout-less,
+  # frame-wrapped mode. The layout-level
+  # `shared/_notifications_modal` dialog hosts the matching
+  # `<turbo-frame id="notifications_modal_frame">`; Turbo finds it in
+  # the response and swaps in the inbox content. Direct navigation to
+  # `/notifications` (no `modal=yes`, no matching Turbo-Frame header)
+  # still renders the standard standalone page.
+  MODAL_FRAME_ID = "notifications_modal_frame".freeze
+
   def index
     @filter   = FILTER_VALUES.include?(params[:filter].to_s) ? params[:filter] : "all"
     @kind     = KIND_VALUES.include?(params[:kind].to_s) ? params[:kind] : nil
@@ -55,9 +66,16 @@ class NotificationsController < ApplicationController
     @notifications  = scope.offset((@page - 1) * PER_PAGE).limit(PER_PAGE)
     @unread_count   = Notification.unread.count
     @has_failures   = Notification.unread.where.not(last_error: [ nil, "" ]).exists?
+    @modal          = modal_index_context?
 
     respond_to do |format|
-      format.html
+      format.html do
+        if @modal
+          render :index, layout: false
+        else
+          render :index
+        end
+      end
       format.json { render :index }
     end
   end
@@ -153,6 +171,16 @@ class NotificationsController < ApplicationController
   end
 
   private
+
+  # `?modal=yes` (preferred — explicit, yes/no boundary) OR a Turbo
+  # request whose frame header matches the modal frame id (the Stimulus
+  # controller currently sets `src` with the query param, but the
+  # header path keeps the door open for future call sites that rely
+  # on plain `<turbo-frame src="/notifications">`).
+  def modal_index_context?
+    return true if params[:modal].to_s == "yes"
+    request.headers["Turbo-Frame"].to_s == MODAL_FRAME_ID
+  end
 
   def set_notification
     @notification = Notification.find(params[:id])
