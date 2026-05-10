@@ -731,11 +731,18 @@ RSpec.describe "Channels", type: :request do
     # 2026-05-10 — the canonical YouTube URL placeholder (56 chars) was
     # being clipped by the form partial's 480px input cap. The new-channel
     # page now wraps the form in a `.channel-new-form` container that
-    # widens the input to 60ch via a scoped style block.
+    # widens the input to 60ch via a scoped style block. The same
+    # container also carries `.pane.pane--standalone` so the form sits on
+    # the pane background like other detail / form surfaces.
     it "widens the URL input so the canonical placeholder fits" do
       get new_channel_path
-      expect(response.body).to include('class="channel-new-form"')
+      expect(response.body).to include("channel-new-form")
       expect(response.body).to match(/\.channel-new-form\s+input\[type="text"\][^}]*max-width:\s*60ch/m)
+    end
+
+    it "wraps the form body in a `.pane.pane--standalone` container" do
+      get new_channel_path
+      expect(response.body).to match(/<div class="pane pane--standalone channel-new-form"/)
     end
   end
 
