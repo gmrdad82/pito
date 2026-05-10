@@ -66,6 +66,13 @@
           .order(created_at: :desc) %>
 
       <h2>videos (<%= number_with_delimiter(@channel.videos.count) %>)</h2>
+      <%# Phase 21 — quick jump to the videos picker pre-filtered by this
+          channel. The `?channel=<slug>` param is read by
+          `VideosController#index` (Channel.friendly.find resolves slug-
+          or-id) and renders a clear-filter chip on the picker page. %>
+      <p style="margin: 0 0 8px 0;">
+        <%= render(BracketedLinkComponent.new(label: "see all videos for this channel", href: videos_path(channel: @channel.to_param))) %>
+      </p>
 
       <% if videos.any? %>
         <div data-controller="sortable-table" data-sortable-table-id-value="<%= @channel.id %>">
