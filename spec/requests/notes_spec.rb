@@ -176,6 +176,58 @@ RSpec.describe "Notes", type: :request do
     end
   end
 
+  # Phase 20 — friendly URLs. Notes use `path` as their natural identifier
+  # (no friendly_id wiring); routes use a `*path` glob so slash-bearing
+  # paths reach the controller intact. The controller's `set_note`
+  # supports both the new path-based key (`params[:path]`) and a legacy
+  # integer-id fallback (`params[:id]`) for older bookmarks.
+  #
+  # We test `set_note` at the unit level here — the integration-level
+  # `GET /notes/:id` tests above already exercise the responder layer,
+  # and Phase 20's actual change is the param resolution logic itself.
+  describe "Phase 20 — path-as-identifier resolution (NotesController#set_note)" do
+    let!(:nested_note) do
+      # Unique path so the spec resolves to exactly one record even when
+      # other test rows leak across runs (path uniqueness is per-project,
+      # not install-wide, so a leaked sibling Note on a different project
+      # would otherwise contaminate `find_by!(path:)`).
+      unique = "phase20-path-spec-#{SecureRandom.hex(4)}"
+      n = create(:note, project: project, path: "#{unique}/example.md")
+      FileUtils.mkdir_p(NotesFilesystem.root_for(n))
+      File.write(NotesFilesystem.absolute_path_for(n), "# Hello\n\nbody")
+      n
+    end
+
+    def with_controller_params(params_hash)
+      controller = NotesController.new
+      controller.params = ActionController::Parameters.new(params_hash)
+      controller
+    end
+
+    it "resolves a slash-bearing path through find_by!(path:)" do
+      controller = with_controller_params(path: nested_note.path)
+      controller.send(:set_note)
+      expect(controller.instance_variable_get(:@note)).to eq(nested_note)
+    end
+
+    it "resolves an integer-id key via the legacy fallback" do
+      controller = with_controller_params(id: nested_note.id.to_s)
+      controller.send(:set_note)
+      expect(controller.instance_variable_get(:@note)).to eq(nested_note)
+    end
+
+    it "raises RecordNotFound when the path matches no record" do
+      controller = with_controller_params(path: "no/such/note.md")
+      expect { controller.send(:set_note) }
+        .to raise_error(ActiveRecord::RecordNotFound)
+    end
+
+    it "Note#to_param returns the on-disk path verbatim (slashes preserved)" do
+      expect(nested_note.to_param).to eq(nested_note.path)
+      expect(nested_note.to_param).to include("/")
+    end
+  end
+
   describe "GET /projects/:id (notes pane bulk-select markup)" do
     let!(:note) { create(:note, project: project) }
 

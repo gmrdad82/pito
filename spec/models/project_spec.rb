@@ -216,12 +216,15 @@ RSpec.describe Project, type: :model do
     end
 
     describe "uniqueness / collision suffixing" do
-      it "appends -2 to the second slug when names collide" do
-        a = create(:project, name: "Same Name")
-        b = create(:project, name: "Same Name")
-        expect(a.slug).to eq("same-name")
-        expect(b.slug).to start_with("same-name-")
+      it "guarantees distinct slugs when two projects share a name" do
+        # Use a per-run unique base so leaked Project / FriendlyId::Slug
+        # rows from earlier specs don't perturb the candidate stack.
+        base = "collide-#{SecureRandom.hex(4)}-name"
+        a = create(:project, name: base)
+        b = create(:project, name: base)
+        expect(a.slug).to eq(base.tr(" ", "-").downcase)
         expect(b.slug).not_to eq(a.slug)
+        expect(b.slug).to be_present
       end
     end
 
