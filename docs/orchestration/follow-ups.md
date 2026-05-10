@@ -840,6 +840,65 @@ dispatch — never folded into the docs-keeper's commit.
 
 ### 2026-05-10: Realignment paperwork landed. Tenant-drop spec dispatch pending (target: `docs/plans/beta/08-tenant-drop/`). Phase 7.5 closed by the Phase 19 close-out commit.
 
+### Rails JSON endpoints for CLI/MCP parity (Phases 14/15/16)
+
+**Trigger:** AFTER Phase 20 friendly URLs work lands in main (currently in
+flight 2026-05-10 21:35). After the JSON endpoints land, the CLI parity agent
+(`pito-rust`) can add `pito games`, `pito calendar`, `pito notifications`
+subcommands; the MCP agent (`pito-mcp`) can add tool tools for the same
+surfaces.
+
+**Source:** 2026-05-10 CLI parity sweep — enumerated the missing Rails JSON
+endpoints the CLI / MCP surfaces need to add `games`, `calendar`, and
+`notifications` parity. The HTML surfaces ship in Phases 14 / 15 / 16; the JSON
+cousins are the gap.
+
+**Summary:**
+
+The CLI parity sweep on 2026-05-10 walked the Phase 14 (Games), Phase 15
+(Calendar), and Phase 16 (Notifications) surfaces and identified the JSON
+endpoints each Rails controller needs to grow before the CLI and MCP agents can
+pick up the parity work. The HTML controllers exist (or are scheduled) per the
+respective phase plans; this entry tracks the JSON cousins specifically.
+
+**Games (Phase 14)** — `app/controllers/games_controller.rb`
+
+- GET /games.json (list with sort + filter params)
+- GET /games/:id.json (full record incl. IGDB-sourced metadata)
+- POST /games/:id/resync.json (acknowledge enqueue)
+- GET /games/search.json?q= (IGDB type-ahead)
+
+**Calendar (Phase 15)** — `app/controllers/calendar/`
+
+- GET /calendar/schedule.json (paginated; mirror ?types/source/state/page
+  params)
+- GET /calendar/month/:year/:month.json (entries grouped by date for grid)
+- GET /calendar/entries/:id.json (detail incl. parent/child entries + dispatch
+  declarations)
+- POST /calendar/entries.json
+- PATCH /calendar/entries/:id.json
+- PATCH /calendar/entries/:id/note.json (read-only-bypass note endpoint)
+- DELETE /deletions/calendar_entry/:ids.json (soft-cancel)
+
+**Notifications (Phase 16)** — `app/controllers/notifications_controller.rb`
+
+- GET /notifications.json (paginated; ?filter=unread|all, ?kind=, ?severity=,
+  ?page=)
+- GET /notifications/:id.json (detail w/ NotificationFormatter::InApp payload)
+- Badge state surface (unread_count, has_failures)
+- PATCH actions already speak JSON via 204; need data response carrying new
+  state + unread_count
+
+**When to schedule:** AFTER Phase 20 friendly URLs work lands in main (currently
+in flight 2026-05-10 21:35). After the JSON endpoints land, the CLI parity agent
+(`pito-rust`) can add `pito games`, `pito calendar`, `pito notifications`
+subcommands; the MCP agent (`pito-mcp`) can add tool tools for the same
+surfaces.
+
+**Note:** Saved-views controller (`app/controllers/saved_views_controller.rb`)
+and search controller (`app/controllers/search_controller.rb`) are the existing
+JSON-rendering reference patterns. Use `.jbuilder` views for multi-field shapes.
+
 ## Done
 
 ### Channel Revamp post-commit cleanup
