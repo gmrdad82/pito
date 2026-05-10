@@ -214,9 +214,6 @@ fn handle_normal(app: &mut App, key: KeyEvent) {
         KeyCode::Char(' ') => {
             handle_space(app);
         }
-        KeyCode::Char('b') => {
-            handle_bulk_toggle(app);
-        }
         KeyCode::Esc => {
             handle_esc(app);
         }
@@ -430,15 +427,11 @@ fn handle_enter(app: &mut App) {
 }
 
 fn handle_space(app: &mut App) {
+    // Selection is always available — no bulk-mode gate. Space toggles the
+    // highlighted row's id in and out of `selected_ids`, matching the web
+    // side's always-on checkbox UX.
     match app.screen {
         Screen::Channels => {
-            // Space only toggles bulk selection while bulk mode is on — the
-            // `[ ]` checkbox column isn't rendered otherwise, so silently
-            // ignore the keypress to avoid invisible state changes. Press
-            // `b` to enter bulk mode.
-            if !app.channels_state.bulk_mode {
-                return;
-            }
             let visible = crate::ui::channels::visible_channels(&app.channels_state);
             if let Some(channel) = visible.get(app.channels_state.selected) {
                 let id = channel.id;
@@ -450,9 +443,7 @@ fn handle_space(app: &mut App) {
             }
         }
         Screen::Videos => {
-            if app.videos_state.bulk_mode
-                && let Some(video) = app.videos_state.videos.get(app.videos_state.selected)
-            {
+            if let Some(video) = app.videos_state.videos.get(app.videos_state.selected) {
                 let id = video.id;
                 if app.videos_state.selected_ids.contains(&id) {
                     app.videos_state.selected_ids.retain(|&x| x != id);
@@ -465,38 +456,20 @@ fn handle_space(app: &mut App) {
     }
 }
 
-fn handle_bulk_toggle(app: &mut App) {
-    match app.screen {
-        Screen::Channels => {
-            app.channels_state.bulk_mode = !app.channels_state.bulk_mode;
-            if !app.channels_state.bulk_mode {
-                app.channels_state.selected_ids.clear();
-            }
-        }
-        Screen::Videos => {
-            app.videos_state.bulk_mode = !app.videos_state.bulk_mode;
-            if !app.videos_state.bulk_mode {
-                app.videos_state.selected_ids.clear();
-            }
-        }
-        _ => {}
-    }
-}
-
 fn handle_esc(app: &mut App) {
     app.clear_flash();
     match app.screen {
         Screen::Channels => {
-            if app.channels_state.bulk_mode || !app.channels_state.selected_ids.is_empty() {
-                app.channels_state.bulk_mode = false;
+            // Esc cancels any in-flight selection first; if the selection set
+            // is already empty, fall through to clearing the active filter.
+            if !app.channels_state.selected_ids.is_empty() {
                 app.channels_state.selected_ids.clear();
             } else if app.channels_state.filter != ChannelFilter::None {
                 app.channels_state.filter = ChannelFilter::None;
             }
         }
         Screen::Videos => {
-            if app.videos_state.bulk_mode {
-                app.videos_state.bulk_mode = false;
+            if !app.videos_state.selected_ids.is_empty() {
                 app.videos_state.selected_ids.clear();
             }
         }
@@ -516,40 +489,12 @@ mod tests {
     }
 
     #[test]
-    fn space_does_nothing_when_bulk_mode_off_on_channels() {
-        // Bulk mode off → space must be a silent no-op so the user doesn't
-        // accumulate invisible selection state (the `[ ]` column isn't even
-        // drawn in this mode).
+    fn space_toggles_selection_on_channels() {
+        // Selection is always available (no bulk-mode gate). Space toggles
+        // the highlighted row's id in and out of `selected_ids`. Mirrors the
+        // web side's always-on checkbox UX.
         let mut app = App::with_client(Box::new(crate::api::client::MockClient::new()));
         app.screen = Screen::Channels;
-        app.channels_state.bulk_mode = false;
-        app.channels_state.selected_ids.clear();
-        // Sanity-check that there's at least one row to (not) toggle.
-        assert!(
-            !app.channels_state.channels.is_empty(),
-            "MockClient seed must include at least one channel for this test"
-        );
-        app.channels_state.selected = 0;
-
-        handle_key(&mut app, space_event());
-
-        assert!(
-            app.channels_state.selected_ids.is_empty(),
-            "space must not toggle selection while bulk mode is off"
-        );
-        assert!(
-            !app.channels_state.bulk_mode,
-            "space must not flip bulk_mode on as a side effect"
-        );
-    }
-
-    #[test]
-    fn space_toggles_selection_when_bulk_mode_on_for_channels() {
-        // Bulk mode on → space toggles the highlighted row's id in and out
-        // of `selected_ids` (the existing behaviour).
-        let mut app = App::with_client(Box::new(crate::api::client::MockClient::new()));
-        app.screen = Screen::Channels;
-        app.channels_state.bulk_mode = true;
         app.channels_state.selected_ids.clear();
         app.channels_state.selected = 0;
 
@@ -563,7 +508,7 @@ mod tests {
         assert_eq!(
             app.channels_state.selected_ids,
             vec![target_id],
-            "space must add the highlighted id when bulk_mode is on"
+            "space must add the highlighted id"
         );
 
         // A second space on the same row clears the selection — i.e., it's
@@ -572,6 +517,63 @@ mod tests {
         assert!(
             app.channels_state.selected_ids.is_empty(),
             "second space on the same row must remove the id"
+        );
+    }
+
+    #[test]
+    fn b_key_is_unbound_and_does_not_affect_selection() {
+        // The `b` keybinding for bulk-mode toggle is gone. Pressing it must
+        // not affect selection state — there's no bulk_mode field any more.
+        let mut app = App::with_client(Box::new(crate::api::client::MockClient::new()));
+        app.screen = Screen::Channels;
+        app.channels_state.selected_ids.clear();
+        app.channels_state.selected = 0;
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('b'), KeyModifiers::NONE),
+        );
+
+        assert!(
+            app.channels_state.selected_ids.is_empty(),
+            "`b` must not produce any selection state"
+        );
+    }
+
+    #[test]
+    fn esc_clears_selection_before_clearing_filter() {
+        // Esc on channels: first press clears an in-flight selection set;
+        // a second Esc with an empty selection clears the active filter.
+        let mut app = App::with_client(Box::new(crate::api::client::MockClient::new()));
+        app.screen = Screen::Channels;
+        app.channels_state.selected = 0;
+        app.channels_state.filter = ChannelFilter::Starred;
+
+        let visible = crate::ui::channels::visible_channels(&app.channels_state);
+        if visible.is_empty() {
+            // No starred rows in the seed → reset to None and add a fake id
+            // so we can still exercise the selection-clear branch.
+            app.channels_state.filter = ChannelFilter::None;
+        }
+        app.channels_state.selected_ids = vec![42];
+        app.channels_state.filter = ChannelFilter::Starred;
+
+        handle_key(&mut app, KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+        assert!(
+            app.channels_state.selected_ids.is_empty(),
+            "first Esc must clear the selection set"
+        );
+        assert_eq!(
+            app.channels_state.filter,
+            ChannelFilter::Starred,
+            "first Esc must leave the filter intact"
+        );
+
+        handle_key(&mut app, KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+        assert_eq!(
+            app.channels_state.filter,
+            ChannelFilter::None,
+            "second Esc must clear the active filter"
         );
     }
 }

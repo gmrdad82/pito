@@ -25,7 +25,6 @@ pub struct ChannelsState {
     pub channels: Vec<ChannelRow>,
     pub selected: usize,
     pub selected_ids: Vec<u64>,
-    pub bulk_mode: bool,
     /// Sorting feature stub — kept for the upcoming column-header sort flow.
     #[allow(dead_code)]
     pub sort_column: usize,
@@ -235,18 +234,17 @@ fn render_filter_row(frame: &mut Frame, area: Rect, theme: &Theme, state: &Chann
     frame.render_widget(Paragraph::new(line), area);
 }
 
-fn render_table_header(frame: &mut Frame, area: Rect, theme: &Theme, state: &ChannelsState) {
+fn render_table_header(frame: &mut Frame, area: Rect, theme: &Theme, _state: &ChannelsState) {
     let style = Style::default().fg(theme.muted);
-    let mut spans: Vec<Span> = Vec::new();
-    if state.bulk_mode {
-        spans.push(Span::styled("    ", style));
-    } else {
-        spans.push(Span::styled("  ", style));
-    }
-    spans.push(Span::styled(pad_right("url", 40), style));
-    spans.push(Span::styled(pad_center("starred", 7), style));
-    spans.push(Span::styled(pad_center("conn", 5), style));
-    spans.push(Span::styled(pad_left("last sync", 12), style));
+    // Checkboxes are always rendered, so the prefix column is always 4 cols
+    // wide ("[ ] " / "[x] ").
+    let spans: Vec<Span> = vec![
+        Span::styled("    ", style),
+        Span::styled(pad_right("url", 40), style),
+        Span::styled(pad_center("starred", 7), style),
+        Span::styled(pad_center("conn", 5), style),
+        Span::styled(pad_left("last sync", 12), style),
+    ];
     frame.render_widget(Paragraph::new(Line::from(spans)), area);
 }
 
@@ -297,13 +295,11 @@ fn render_rows(
         };
 
         let mut spans: Vec<Span> = Vec::new();
-        if state.bulk_mode {
-            let check = if is_checked { "[x] " } else { "[ ] " };
-            spans.push(Span::styled(check, row_style));
-        } else {
-            let cursor = if is_cursor { "> " } else { "  " };
-            spans.push(Span::styled(cursor, row_style));
-        }
+        // Always-on checkboxes (no bulk-mode gate). Mirrors the web side's
+        // always-on checkbox UX. The row highlight (background color) carries
+        // the cursor position; the `[ ]` / `[x]` marker carries selection.
+        let check = if is_checked { "[x] " } else { "[ ] " };
+        spans.push(Span::styled(check, row_style));
 
         let url = truncate(&channel.channel_url, 40);
         spans.push(Span::styled(pad_right(&url, 40), row_style));
@@ -443,7 +439,6 @@ mod tests {
             channels: rows,
             selected: 0,
             selected_ids: vec![],
-            bulk_mode: false,
             sort_column: 0,
             sort_direction: SortDirection::Asc,
             scroll_offset: 0,

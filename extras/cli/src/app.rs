@@ -329,7 +329,6 @@ impl App {
                 .collect(),
             selected: 0,
             selected_ids: Vec::new(),
-            bulk_mode: false,
             sort_column: 0,
             sort_direction: SortDirection::Asc,
             scroll_offset: 0,
@@ -361,7 +360,6 @@ impl App {
                 .collect(),
             selected: 0,
             selected_ids: Vec::new(),
-            bulk_mode: false,
             sort_column: 0,
             sort_direction: SortDirection::Asc,
             scroll_offset: 0,
@@ -988,9 +986,8 @@ impl App {
         // After successful enqueue, refresh local state.
         if resp.mode == ResponseMode::Enqueued {
             self.refresh_channels();
-            // Clear bulk selection
+            // Clear selection (always-on; the rows just toggled-off).
             self.channels_state.selected_ids.clear();
-            self.channels_state.bulk_mode = false;
 
             // If we came from the detail screen and the channel was deleted,
             // bounce back to the channels list.
@@ -1273,14 +1270,12 @@ mod tests {
     #[test]
     fn delete_confirm_clears_bulk_selection() {
         let mut app = App::with_client(Box::new(MockClient::new()));
-        app.channels_state.bulk_mode = true;
         app.channels_state.selected_ids = vec![1, 3];
 
         app.open_delete_confirmation(vec![1, 3]);
         app.resolve_confirmation(ConfirmationOutcome::Proceed);
 
         assert!(app.channels_state.selected_ids.is_empty());
-        assert!(!app.channels_state.bulk_mode);
         for id in [1u64, 3] {
             assert!(
                 !app.channels_state.channels.iter().any(|c| c.id == id),

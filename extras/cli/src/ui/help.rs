@@ -53,8 +53,7 @@ pub fn render(frame: &mut Frame, area: Rect, theme: &Theme) {
         shortcut_line("n", "toggle dark/light theme", theme),
         shortcut_line("/", "open search", theme),
         shortcut_line("j/k", "down/up", theme),
-        shortcut_line("space", "toggle bulk select on row (bulk mode only)", theme),
-        shortcut_line("b", "toggle bulk mode", theme),
+        shortcut_line("space", "toggle row selection", theme),
         Line::from(""),
         Line::from(Span::styled(
             " channels list",
