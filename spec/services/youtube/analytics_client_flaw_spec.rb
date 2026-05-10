@@ -12,10 +12,21 @@ RSpec.describe Youtube::AnalyticsClient, "flaw / smuggle assertions" do
   let(:foreign_channel) { create(:channel, :connected, youtube_connection: other_connection) }
   let(:from)       { Date.current - 3 }
   let(:to)         { Date.current - 1 }
-  let(:svc)        { instance_double(Google::Apis::YoutubeAnalyticsV2::YouTubeAnalyticsService) }
+  let(:svc) { instance_double(Google::Apis::YoutubeAnalyticsV2::YouTubeAnalyticsService) }
+  let(:client_options) do
+    Struct.new(:open_timeout_sec, :read_timeout_sec, :send_timeout_sec).new
+  end
 
   before do
+    # Phase 13 security fix-forward (F1) — service construction now flows
+    # through `Youtube::ServiceFactory.analytics_service`, which sets
+    # bounded HTTP timeouts via `svc.client_options.*=` before assigning
+    # the OAuth authorization adapter. The double therefore needs to
+    # accept `client_options` and `authorization=` so the factory can
+    # finish its work and hand back the same `svc` instance the spec
+    # asserts against.
     allow(Google::Apis::YoutubeAnalyticsV2::YouTubeAnalyticsService).to receive(:new).and_return(svc)
+    allow(svc).to receive(:client_options).and_return(client_options)
     allow(svc).to receive(:authorization=)
     allow(svc).to receive(:query_report).and_return(
       OpenStruct.new(

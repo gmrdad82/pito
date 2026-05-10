@@ -204,6 +204,13 @@ module Youtube
 
     # Run the query against the analytics service and translate
     # Google's response / error vocabulary into pito's typed shape.
+    #
+    # Phase 13 security fix-forward (F2) — a 401 mid-call triggers
+    # exactly one `Youtube::TokenRefresher.call(@connection)` and
+    # retries `query_report`. `needs_reauth: true` is only set when
+    # the refresh itself raises `Youtube::NeedsReauthError`, or when
+    # the retry attempt still surfaces a 401. The audit row reflects
+    # the post-retry outcome.
     def execute_query(query_label:, params:)
       validated = guard_mutual_exclusion(params)
       started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
@@ -214,16 +221,15 @@ module Youtube
 
       begin
         ensure_token_fresh!(@connection)
-        svc = analytics_service
-        response = svc.query_report(**validated)
+        response = query_report_with_retry(validated)
         result = normalize_response(response)
         outcome = OUTCOME_OK
         http_status = 200
       rescue Google::Apis::AuthorizationError => e
         outcome = OUTCOME_AUTH_FAILED
         http_status = status_from(e) || 401
-        raised = AuthError.new("analytics 401: #{e.message}")
-        @connection.update_columns(needs_reauth: true)
+        @connection.update_columns(needs_reauth: true) unless @connection.needs_reauth?
+        raised = AuthError.new("analytics 401 after refresh: #{e.message}")
       rescue Google::Apis::RateLimitError => e
         outcome = OUTCOME_RATE_LIMITED
         http_status = 429
@@ -237,8 +243,8 @@ module Youtube
         if status == 401
           outcome = OUTCOME_AUTH_FAILED
           http_status = 401
-          raised = AuthError.new("analytics 401: #{e.message}")
-          @connection.update_columns(needs_reauth: true)
+          @connection.update_columns(needs_reauth: true) unless @connection.needs_reauth?
+          raised = AuthError.new("analytics 401 after refresh: #{e.message}")
         elsif status == 429
           outcome = OUTCOME_RATE_LIMITED
           http_status = 429
@@ -286,6 +292,34 @@ module Youtube
       result
     end
 
+    # Phase 13 security fix-forward (F2) — issue `query_report` against
+    # a freshly-built analytics service. On a 401 (either
+    # `Google::Apis::AuthorizationError` or `Google::Apis::ClientError`
+    # with status 401), attempt `Youtube::TokenRefresher.call(@connection)`
+    # exactly once and re-issue the call. A second 401 propagates up so
+    # `execute_query`'s outer rescue chain marks the connection
+    # `needs_reauth: true`. Refresh failures propagate as
+    # `Youtube::NeedsReauthError` / `Youtube::TransientError` which are
+    # already mapped by the caller.
+    def query_report_with_retry(validated)
+      refreshed_once = false
+      begin
+        analytics_service.query_report(**validated)
+      rescue Google::Apis::AuthorizationError
+        raise if refreshed_once
+
+        refreshed_once = true
+        Youtube::TokenRefresher.call(@connection)
+        retry
+      rescue Google::Apis::ClientError => e
+        raise if refreshed_once || (status_from(e) || 400) != 401
+
+        refreshed_once = true
+        Youtube::TokenRefresher.call(@connection)
+        retry
+      end
+    end
+
     def guard_mutual_exclusion(params)
       AnalyticsQueryBuilder.assert_compatible!(
         metrics: params[:metrics],
@@ -294,10 +328,13 @@ module Youtube
       params
     end
 
+    # Phase 13 security fix-forward (F1) — service construction
+    # (timeouts + authorization adapter) is centralized in
+    # `Youtube::ServiceFactory` so all four OAuth-backed clients (this
+    # one, `Youtube::Client`, `Youtube::VideosClient`,
+    # `Youtube::VideosReader`) share the same bounded-timeout posture.
     def analytics_service
-      svc = Google::Apis::YoutubeAnalyticsV2::YouTubeAnalyticsService.new
-      svc.authorization = build_oauth_credentials(@connection)
-      svc
+      Youtube::ServiceFactory.analytics_service(@connection)
     end
 
     # Normalize the analytics response into

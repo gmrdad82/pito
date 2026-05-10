@@ -17,8 +17,12 @@ RSpec.describe Youtube::AnalyticsClient do
   let(:svc) { instance_double(Google::Apis::YoutubeAnalyticsV2::YouTubeAnalyticsService) }
 
   before do
-    allow(Google::Apis::YoutubeAnalyticsV2::YouTubeAnalyticsService).to receive(:new).and_return(svc)
-    allow(svc).to receive(:authorization=)
+    # Phase 13 security fix-forward (F1) — analytics service construction
+    # is routed through `Youtube::ServiceFactory.analytics_service` so the
+    # Phase 15 HTTP timeouts apply. Stub the factory directly (mirrors how
+    # `Youtube::Client` is specced) and assert the call in a dedicated
+    # example below.
+    allow(Youtube::ServiceFactory).to receive(:analytics_service).and_return(svc)
   end
 
   def stub_query(headers:, rows:)
@@ -187,19 +191,93 @@ RSpec.describe Youtube::AnalyticsClient do
     end
   end
 
+  # Phase 13 security fix-forward (F2) — `Youtube::AnalyticsClient`
+  # now mirrors `Youtube::Client`'s refresh-then-retry pattern. A 401
+  # mid-call attempts exactly one `Youtube::TokenRefresher.call` and
+  # retries the underlying `query_report`. `needs_reauth: true` is only
+  # set when the refresh itself raises `Youtube::NeedsReauthError`, or
+  # when the retry attempt still surfaces a 401. The audit row reflects
+  # the post-retry outcome.
   describe "auth failure (HTTP 401)" do
-    before { stub_query_to_raise(Google::Apis::AuthorizationError.new("token expired")) }
+    describe "happy path — 401 then refresh succeeds then retry succeeds" do
+      before do
+        # First call raises 401; second call (the retry) succeeds.
+        response = OpenStruct.new(
+          column_headers: [ OpenStruct.new(name: "day"), OpenStruct.new(name: "views") ],
+          rows: [ [ "2026-05-09", 1000 ] ]
+        )
+        call_count = 0
+        allow(svc).to receive(:query_report) do
+          call_count += 1
+          if call_count == 1
+            raise Google::Apis::AuthorizationError.new("token expired")
+          else
+            response
+          end
+        end
+        allow(Youtube::TokenRefresher).to receive(:call).with(connection).and_return(connection)
+      end
 
-    it "raises AuthError on HTTP 401" do
-      expect {
+      it "calls Youtube::TokenRefresher exactly once and retries the query_report call" do
         described_class.new(connection: connection).channel_daily(
           channel: channel, from: from, to: to
         )
-      }.to raise_error(Youtube::AnalyticsClient::AuthError)
+        expect(Youtube::TokenRefresher).to have_received(:call).with(connection).once
+        expect(svc).to have_received(:query_report).twice
+      end
+
+      it "does NOT flip connection.needs_reauth when the retry succeeds" do
+        expect {
+          described_class.new(connection: connection).channel_daily(
+            channel: channel, from: from, to: to
+          )
+        }.not_to change { connection.reload.needs_reauth }.from(false)
+      end
+
+      it "returns the parsed rows from the retry attempt" do
+        result = described_class.new(connection: connection).channel_daily(
+          channel: channel, from: from, to: to
+        )
+        expect(result[:rows]).to eq([ [ "2026-05-09", 1000 ] ])
+      end
+
+      it "writes an audit row with outcome: 'succeeded' (post-retry outcome)" do
+        described_class.new(connection: connection).channel_daily(
+          channel: channel, from: from, to: to
+        )
+        row = YoutubeApiCall.unscoped.last
+        expect(row.outcome).to eq("succeeded")
+      end
     end
 
-    it "flips connection.needs_reauth to true on AuthError" do
-      expect {
+    describe "sad path — 401 then TokenRefresher raises NeedsReauthError" do
+      before do
+        stub_query_to_raise(Google::Apis::AuthorizationError.new("token expired"))
+        allow(Youtube::TokenRefresher).to receive(:call).with(connection)
+          .and_raise(Youtube::NeedsReauthError.new("invalid_grant — refresh token revoked"))
+      end
+
+      it "raises AuthError when the refresh signals NeedsReauthError" do
+        expect {
+          described_class.new(connection: connection).channel_daily(
+            channel: channel, from: from, to: to
+          )
+        }.to raise_error(Youtube::AnalyticsClient::AuthError)
+      end
+
+      it "flips connection.needs_reauth to true" do
+        expect {
+          begin
+            described_class.new(connection: connection).channel_daily(
+              channel: channel, from: from, to: to
+            )
+          rescue Youtube::AnalyticsClient::AuthError
+            # expected
+          end
+        }.to change { connection.reload.needs_reauth }.from(false).to(true)
+      end
+
+      it "does NOT retry the query_report call when the refresh fails" do
         begin
           described_class.new(connection: connection).channel_daily(
             channel: channel, from: from, to: to
@@ -207,19 +285,161 @@ RSpec.describe Youtube::AnalyticsClient do
         rescue Youtube::AnalyticsClient::AuthError
           # expected
         end
-      }.to change { connection.reload.needs_reauth }.from(false).to(true)
+        expect(svc).to have_received(:query_report).once
+      end
+
+      it "writes an audit row with outcome: 'auth_failed'" do
+        begin
+          described_class.new(connection: connection).channel_daily(
+            channel: channel, from: from, to: to
+          )
+        rescue Youtube::AnalyticsClient::AuthError
+          # expected
+        end
+        row = YoutubeApiCall.unscoped.last
+        expect(row.outcome).to eq("auth_failed")
+      end
     end
 
-    it "writes an audit row with outcome: 'auth_failed'" do
-      begin
+    describe "sad path — 401 then TokenRefresher raises TransientError" do
+      before do
+        stub_query_to_raise(Google::Apis::AuthorizationError.new("token expired"))
+        allow(Youtube::TokenRefresher).to receive(:call).with(connection)
+          .and_raise(Youtube::TransientError.new("Google token endpoint 503"))
+      end
+
+      it "raises TransientError so Sidekiq retries" do
+        expect {
+          described_class.new(connection: connection).channel_daily(
+            channel: channel, from: from, to: to
+          )
+        }.to raise_error(Youtube::AnalyticsClient::TransientError)
+      end
+
+      it "does NOT flip connection.needs_reauth" do
+        expect {
+          begin
+            described_class.new(connection: connection).channel_daily(
+              channel: channel, from: from, to: to
+            )
+          rescue Youtube::AnalyticsClient::TransientError
+            # expected
+          end
+        }.not_to change { connection.reload.needs_reauth }.from(false)
+      end
+    end
+
+    describe "edge — 401 then refresh succeeds then second 401 on retry" do
+      before do
+        stub_query_to_raise(Google::Apis::AuthorizationError.new("still 401"))
+        allow(Youtube::TokenRefresher).to receive(:call).with(connection).and_return(connection)
+      end
+
+      it "raises AuthError after the retry attempt" do
+        expect {
+          described_class.new(connection: connection).channel_daily(
+            channel: channel, from: from, to: to
+          )
+        }.to raise_error(Youtube::AnalyticsClient::AuthError)
+      end
+
+      it "flips connection.needs_reauth to true after the retry 401" do
+        expect {
+          begin
+            described_class.new(connection: connection).channel_daily(
+              channel: channel, from: from, to: to
+            )
+          rescue Youtube::AnalyticsClient::AuthError
+            # expected
+          end
+        }.to change { connection.reload.needs_reauth }.from(false).to(true)
+      end
+
+      it "attempts the refresh exactly once and the query exactly twice" do
+        begin
+          described_class.new(connection: connection).channel_daily(
+            channel: channel, from: from, to: to
+          )
+        rescue Youtube::AnalyticsClient::AuthError
+          # expected
+        end
+        expect(Youtube::TokenRefresher).to have_received(:call).with(connection).once
+        expect(svc).to have_received(:query_report).twice
+      end
+
+      it "writes an audit row with outcome: 'auth_failed'" do
+        begin
+          described_class.new(connection: connection).channel_daily(
+            channel: channel, from: from, to: to
+          )
+        rescue Youtube::AnalyticsClient::AuthError
+          # expected
+        end
+        row = YoutubeApiCall.unscoped.last
+        expect(row.outcome).to eq("auth_failed")
+      end
+    end
+
+    describe "edge — ClientError with status 401 follows the same retry path" do
+      before do
+        err = Google::Apis::ClientError.new("token expired", status_code: 401)
+        # First call 401; second call (retry) succeeds.
+        response = OpenStruct.new(
+          column_headers: [ OpenStruct.new(name: "day") ],
+          rows: [ [ "2026-05-09" ] ]
+        )
+        call_count = 0
+        allow(svc).to receive(:query_report) do
+          call_count += 1
+          if call_count == 1
+            raise err
+          else
+            response
+          end
+        end
+        allow(Youtube::TokenRefresher).to receive(:call).with(connection).and_return(connection)
+      end
+
+      it "retries after refresh and returns the successful rows" do
+        result = described_class.new(connection: connection).channel_daily(
+          channel: channel, from: from, to: to
+        )
+        expect(result[:rows]).to eq([ [ "2026-05-09" ] ])
+        expect(Youtube::TokenRefresher).to have_received(:call).once
+      end
+
+      it "does NOT flip connection.needs_reauth when the retry succeeds" do
+        expect {
+          described_class.new(connection: connection).channel_daily(
+            channel: channel, from: from, to: to
+          )
+        }.not_to change { connection.reload.needs_reauth }.from(false)
+      end
+    end
+  end
+
+  # Phase 13 security fix-forward (F1) — `Youtube::AnalyticsClient`
+  # routes service construction through `Youtube::ServiceFactory.analytics_service`
+  # (which applies the Phase 15 open / read / send timeouts) rather
+  # than `Google::Apis::YoutubeAnalyticsV2::YouTubeAnalyticsService.new`
+  # inline.
+  describe "service construction via ServiceFactory (F1)" do
+    it "obtains the analytics service from Youtube::ServiceFactory" do
+      stub_query(headers: %w[day views], rows: [ [ "2026-05-09", 1 ] ])
+      described_class.new(connection: connection).channel_daily(
+        channel: channel, from: from, to: to
+      )
+      expect(Youtube::ServiceFactory).to have_received(:analytics_service).with(connection)
+    end
+
+    it "surfaces a ServiceFactory error to the caller" do
+      allow(Youtube::ServiceFactory).to receive(:analytics_service)
+        .and_raise(StandardError.new("factory blew up"))
+      expect {
         described_class.new(connection: connection).channel_daily(
           channel: channel, from: from, to: to
         )
-      rescue Youtube::AnalyticsClient::AuthError
-        # expected
-      end
-      row = YoutubeApiCall.unscoped.last
-      expect(row.outcome).to eq("auth_failed")
+      }.to raise_error(StandardError, /factory blew up/)
     end
   end
 

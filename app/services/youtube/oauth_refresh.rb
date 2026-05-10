@@ -9,6 +9,14 @@
 # within the skew window. The refresher itself owns the HTTP POST to
 # `https://oauth2.googleapis.com/token` and the `needs_reauth` flip on
 # `invalid_grant`.
+#
+# Phase 13 security fix-forward (F1) — the old `build_oauth_credentials`
+# helper was removed from this module. `Youtube::ServiceFactory` is the
+# single source for OAuth-authorized service construction (see
+# `ServiceFactory.data_service` / `ServiceFactory.analytics_service`),
+# and every OAuth-backed client routes through it. The factory owns its
+# own copy of the authorization-adapter helper so callers never bypass
+# the Phase 15 HTTP timeouts.
 module Youtube
   module OauthRefresh
     private
@@ -17,23 +25,6 @@ module Youtube
       return unless connection.access_token_expired?
 
       Youtube::TokenRefresher.call(connection)
-    end
-
-    # Build a Google authorization adapter that always returns the
-    # connection's current `access_token` value (so a refresh applied
-    # mid-call is visible on the next attempt).
-    def build_oauth_credentials(connection)
-      bound_connection = connection
-      Class.new do
-        define_method(:apply!) do |headers|
-          headers["Authorization"] = "Bearer #{bound_connection.access_token}"
-        end
-        define_method(:apply) do |headers|
-          h = headers.dup
-          apply!(h)
-          h
-        end
-      end.new
     end
   end
 end
