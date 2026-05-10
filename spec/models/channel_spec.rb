@@ -10,7 +10,7 @@ RSpec.describe Channel, type: :model do
     it { is_expected.to have_many(:videos).dependent(:destroy) }
     it { is_expected.to have_many(:playlists).dependent(:destroy) }
     it { is_expected.to have_many(:video_uploads).dependent(:destroy) }
-    it { is_expected.to have_many(:channel_change_logs).dependent(:destroy) }
+    it { is_expected.to have_many(:channel_change_logs).dependent(:delete_all) }
 
     it "destroys channel_change_logs when the channel is destroyed" do
       user = create(:user)
@@ -136,8 +136,8 @@ RSpec.describe Channel, type: :model do
         channel.handle = "novalid"
         expect(channel).not_to be_valid
       end
-      it "rejects a too-short handle" do
-        channel.handle = "@ab"
+      it "rejects a too-short handle (`@a` is 2 chars)" do
+        channel.handle = "@a"
         expect(channel).not_to be_valid
       end
       it "rejects a too-long handle (>30)" do

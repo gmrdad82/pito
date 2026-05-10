@@ -72,10 +72,11 @@ class Channel < ApplicationRecord
   has_many :playlists, dependent: :destroy
   has_many :video_uploads, dependent: :destroy
   # Phase 7.5 §11a — append-only change history for the rate-limited
-  # title / handle fields. `dependent: :destroy` so dropping a channel
-  # also drops its history (the DB FK is `ON DELETE CASCADE` as well —
-  # belt and suspenders).
-  has_many :channel_change_logs, dependent: :destroy
+  # title / handle fields. `dependent: :delete_all` because
+  # ChannelChangeLog is read-only at the model layer (raises
+  # `ActiveRecord::ReadOnlyRecord` on `destroy`); the DB FK is
+  # `ON DELETE CASCADE` so the rows still get cleaned up.
+  has_many :channel_change_logs, dependent: :delete_all
   # Phase 15 §1 — calendar entries cascade. The FK is also ON DELETE
   # CASCADE at the database level.
   has_many :calendar_entries, dependent: :destroy

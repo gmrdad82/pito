@@ -1936,3 +1936,114 @@ prettier-clean across all updated markdown files.
   in `docs/realignment-2026-05-09.md`).
 
 **Phase 7.5 is complete; next dispatch is the Phase 8 tenant-drop spec.**
+
+## 2026-05-10 — Step 11a — Channel schema + sync foundation
+
+Spec:
+[`specs/11a-channel-schema-and-sync.md`](specs/11a-channel-schema-and-sync.md).
+Parent spec:
+[`specs/11-channel-management-and-preview.md`](specs/11-channel-management-and-preview.md)
+(locked decisions D1–D23, including D21 — no `watermark_position` column).
+
+**Implementation:**
+
+- 3 migrations (timestamps `20260510210000` / `…01` / `…02`) applied to dev DB
+  cleanly and to test DB via `db:schema:load`. Reversibility proven by rollback
+  specs under `spec/migrations/`.
+- `Channel` model gains every editable / display-only column (title, handle,
+  description, country, default_language, keywords, banner_url, avatar_url,
+  watermark_url, watermark_timing, watermark_offset_ms, links jsonb,
+  subscriber_count, view_count, video_count, hidden_subscriber_count,
+  published_at, title_changed_at, handle_changed_at) with the validator suite
+  the spec lists (length / format / inclusion / numericality / custom links
+  shape). 14-day rate-limit gate helpers (`title_locked?` / `handle_locked?` /
+  `*_unlock_at`) implemented with the boundary-correct comparison
+  (`> 14.days.ago`, exclusive — at exactly 14d the lock has expired).
+- `ChannelChangeLog` new model: `belongs_to :channel`, `:changed_by_user`,
+  inclusion validator on `field` (`%w[title handle]`), presence on `new_value`
+  - `changed_at`, `recent` scope, append-only enforcement via
+    `def readonly?; persisted?; end` (raises `ActiveRecord::ReadOnlyRecord` on
+    `update!` / `destroy`). DB FK is `ON DELETE CASCADE` to channels;
+    `dependent: :delete_all` on the parent association so cascade actually fires
+    (the read-only override would otherwise raise on `dependent: :destroy`).
+- `Youtube::Client#fetch_channel(channel)` extends the client with the
+  full-part-set channel pull (snippet + statistics + brandingSettings +
+  contentDetails + status). Routes through the existing `perform` chokepoint so
+  quota / refresh / audit posture is uniform; returns the normalized snake_case
+  Hash the spec documents.
+- `ChannelSync` rewrite: replaces the Path A2 placeholder no-op with the real
+  fetch + persist path. Channel without `youtube_connection_id` and missing
+  channel both no-op. NeedsReauth / Transient / Quota errors re-raise to let
+  Sidekiq retry; PermanentError is logged and swallowed; RecordInvalid rolls
+  back the transaction so a wonky API payload (e.g. 101-char title) leaves
+  `last_synced_at` untouched.
+
+**Note on `add_title_to_videos`:** the `videos.title` column already exists on
+schema (added by Phase 12's `expand_videos_for_data_api_v3` as
+`string, limit: 100, default: "", null: false`). The 11a spec's "Files touched"
+stipulates the migration becomes a no-op and the agent reports rather than
+silently skipping. The migration ships as a true no-op `change` block with a
+comment block flagging the discrepancy. Empty-string default is semantically
+equivalent to nil for the preview's "untitled placeholder" behavior — Video
+presenters render "untitled" on blank as well as nil.
+
+**Files changed (high level):**
+
+- 3 migrations under `db/migrate/2026051021000{0,1,2}_*.rb`.
+- `app/models/channel.rb` — validators / helpers / association extension.
+- `app/models/channel_change_log.rb` — new.
+- `app/jobs/channel_sync.rb` — placeholder replaced with real path.
+- `app/services/youtube/client.rb` — `#fetch_channel` extension +
+  `normalize_channel_item` helper.
+- `db/schema.rb` — auto-regenerated.
+
+**Specs added (this session):**
+
+- `spec/migrations/add_channel_resource_fields_spec.rb` — 5 examples.
+- `spec/migrations/create_channel_change_logs_spec.rb` — 9 examples.
+- `spec/migrations/add_title_to_videos_spec.rb` — 2 examples.
+- `spec/models/channel_spec.rb` — extended with ~60 new examples (every new
+  validator happy + sad + edge per project's spec-pyramid directive, the
+  14-day-gate helpers at the 13d 23h / exactly 14d / 14d 1m boundary, the
+  `links` shape validator's seven failure modes, the `delete_all` cascade).
+- `spec/models/channel_change_log_spec.rb` — 18 examples.
+- `spec/services/youtube/client_fetch_channel_spec.rb` — 12 examples covering
+  happy + 401-once-then-refresh + 401-after-refresh + 429 retry-then-fail +
+  403-quota + 5xx-exhausted + minimal-snippet edge + hidden-subscriber-count
+  edge + handle-absent edge.
+- `spec/jobs/channel_sync_spec.rb` — replaced placeholder spec; 9 examples
+  covering all eight code paths the spec enumerates plus a single-transaction
+  smoke check.
+
+**Spec count delta:** roughly +115 examples (3 migration files +
+ChannelChangeLog + Channel-extended + Client#fetch_channel + ChannelSync
+rewrite). Full suite ran 4569 examples (3 pre-existing flakes in calendar /
+composites system specs unrelated to this spec — they pass in isolation; they
+reproduce only under full-suite load and are not introduced by this work).
+
+**Gates:**
+
+- `bundle exec rspec` — every spec touched by this dispatch is green
+  (services/youtube + jobs + models + migrations spec dirs all clean; full suite
+  is 4569 / 4566 passing with the three unrelated flakes noted above).
+- `bundle exec rubocop` — clean across every touched file.
+- `bin/brakeman -q -w2` — no warnings; obsolete-ignore entries unchanged from
+  prior committed state.
+
+**Plan checkbox tick:** none. `plan.md` for Phase 7.5 carries no 11 / 11a
+checkbox — the spec landed AFTER the phase was closed by Phase 19. The follow-up
+tracking for the Channel Management surface lives in the parent spec (`11`);
+subsequent dispatches (11b–11i) will add their own checkboxes under whichever
+phase they ship into.
+
+**Manual test recipe** (from the spec, summarized — user runs after the master
+commits): `bin/rails db:migrate` clean, `db:rollback STEP=3` clean, re-migrate,
+`bin/rails console` and confirm `ChannelSync.new.perform(id)` on a connected
+channel populates the new columns and stamps `last_synced_at`, then walk the
+no-connection / missing-channel / change-log read-only / 14-day-helpers paths.
+
+**Open issues:** none. The 11a spec's "Open questions" section already locks
+every decision; the Q1 (title/handle live-API editability), Q4 (watermark timing
+live-API option set), and Q9 (avatar editability) research dispatches run BEFORE
+11c (edit form), not before 11a — 11a's columns exist regardless of the
+outcomes.
