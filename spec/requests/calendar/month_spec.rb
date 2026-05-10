@@ -46,6 +46,41 @@ RSpec.describe "Calendar::Month", type: :request do
       expect(response.body).to include(">+<")
     end
 
+    # Phase 15 calendar UX restructure — breadcrumb segment flip
+    # (2026-05-10). On the month view the active-view label is the
+    # current month name (e.g. `[may 2026]`), rendered as plain text
+    # via `<span class="bracketed-active">`. The `[schedule]` segment
+    # is the link toggle to the schedule view (asserted elsewhere).
+    it "[may 2026] active label is a plain span (no link)" do
+      get "/calendar/month/2026/05"
+      expect(response.body).to match(
+        %r{<span class="bracketed-active">\[may 2026\]</span>}
+      )
+      # And critically, no `<a>` tag wraps the `may 2026` label.
+      expect(response.body).not_to match(
+        %r{<a [^>]*>\[<span class="bl">may 2026</span>\]</a>}
+      )
+    end
+
+    # Placement check: the rendered breadcrumb row reads
+    # `[calendar] / [may 2026] · [schedule] [+]`. Locking the document
+    # order catches a future refactor that misplaces a slot (e.g.
+    # drops the active label out of the breadcrumbs slot).
+    it "renders breadcrumb segments in [calendar] / [may 2026] · [schedule] [+] order" do
+      get "/calendar/month/2026/05"
+      cal_pos      = response.body.index('<span class="bl">calendar</span>')
+      month_pos    = response.body.index('<span class="bracketed-active">[may 2026]</span>')
+      schedule_pos = response.body.index('<span class="bl">schedule</span>')
+      plus_pos     = response.body.index('<span class="bl">+</span>')
+      expect(cal_pos).not_to be_nil
+      expect(month_pos).not_to be_nil
+      expect(schedule_pos).not_to be_nil
+      expect(plus_pos).not_to be_nil
+      expect(cal_pos).to be < month_pos
+      expect(month_pos).to be < schedule_pos
+      expect(schedule_pos).to be < plus_pos
+    end
+
     # Regression: the [schedule] toggle link must target
     # `/calendar/schedule` directly, NOT `/calendar` (which is the
     # view-persistence router). It also carries the `persistSchedule`

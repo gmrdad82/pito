@@ -1,26 +1,38 @@
 <% content_for(:title, "calendar ~ schedule") %>
-<% breadcrumb([ "calendar", calendar_root_path ], "schedule") %>
 
-<%# Phase 15 calendar UX restructure — Row 1 actions move into the
-    layout's `:breadcrumb_actions` slot. The middle toggle reads
-    [month] (links back to the month grid). [+] opens the manual entry
-    quick-add.
+<%# Phase 15 calendar UX restructure — breadcrumb segment flip
+    (2026-05-10). The breadcrumb keeps the layout
+    `[calendar] / [may YYYY] · [schedule] [+]`, but on the schedule
+    view the active label is `[schedule]` (plain text) and the
+    `[may YYYY]` segment becomes the toggle link back to the month
+    grid. The month view inverts these roles (see
+    `calendar/month/_navigation`).
 
-    The [month] link targets the canonical month URL directly (NOT
-    `/calendar`, which is the view-persistence router). Bouncing
-    through the router would let a stale `pito-calendar-view = schedule`
-    in localStorage immediately redirect the user back to schedule,
-    making the click look broken. The `persistMonth` Stimulus action
-    writes the new preference so a subsequent fresh `/calendar` visit
-    honors the toggle. %>
+    The `[may YYYY]` link targets the canonical month URL directly
+    (NOT `/calendar`, which is the view-persistence router). Bouncing
+    through the router would let a stale `pito-calendar-view =
+    schedule` in localStorage immediately redirect the user back to
+    schedule, making the click look broken. The `persistMonth`
+    Stimulus action writes the new preference so a subsequent fresh
+    `/calendar` visit honors the toggle.
+
+    The breadcrumb is hand-rolled rather than going through the
+    `breadcrumb()` helper because the trailing segment is a LINK on
+    this page (not the active label) — the helper's
+    `BreadcrumbComponent` renders the last crumb as active by
+    convention, which is correct for the month view but inverted
+    here. %>
+<% _now = Time.current %>
+<% content_for :breadcrumbs do %>
+  <%= render(BracketedLinkComponent.new(label: "calendar",
+        href: calendar_root_path)) %><span class="text-muted"> / </span><span data-controller="calendar-view-router"><%= render(BracketedLinkComponent.new(label: calendar_month_heading(_now.year, _now.month),
+        href: calendar_month_path(_now.year, format('%02d', _now.month)),
+        data: { action: "click->calendar-view-router#persistMonth" })) %></span>
+<% end %>
+
 <% content_for :breadcrumb_actions do %>
-  <% _now = Time.current %>
   <%= render "shared/dot_separator" %>
-  <span data-controller="calendar-view-router">
-    <%= render(BracketedLinkComponent.new(label: "month",
-          href: calendar_month_path(_now.year, format('%02d', _now.month)),
-          data: { action: "click->calendar-view-router#persistMonth" })) %>
-  </span>
+  <%= render(BracketedLinkComponent.new(label: "schedule", active: true)) %>
   <%# Default-create (Projects pattern): POSTs to `/calendar/entries`
       with no payload. The controller seeds an "Untitled event"
       milestone_manual entry and redirects to /edit. `data-turbo: false`

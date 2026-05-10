@@ -29,17 +29,24 @@ RSpec.describe "Calendar schedule filters", type: :system do
     expect(page.current_url).to include("state=all")
   end
 
-  it "[month] in the breadcrumb actions links to the canonical month URL" do
-    # The toggle now targets `/calendar/month/<year>/<month>` directly
+  it "[<current-month>] in the breadcrumb links to the canonical month URL" do
+    # Phase 15 calendar UX restructure — breadcrumb segment flip
+    # (2026-05-10). The breadcrumb's middle segment is the
+    # current-month label (e.g. `[may 2026]`) and is the toggle link
+    # back to the month grid. The active-view label is the trailing
+    # `[schedule]` segment, rendered as plain text.
+    #
+    # The toggle targets `/calendar/month/<year>/<month>` directly
     # (not `/calendar`, which is the view-persistence router). Routing
     # through the router would let a stale `pito-calendar-view`
     # localStorage value redirect the user back to schedule, making
     # the click look broken to the user.
     visit "/calendar/schedule"
-    within("nav.dot-list") do
-      click_link "month"
-    end
     now = Time.current
+    month_label = Date.new(now.year, now.month, 1).strftime("%b %Y").downcase
+    within("nav.dot-list") do
+      click_link month_label
+    end
     expect(page).to have_current_path(
       "/calendar/month/#{now.year}/#{format('%02d', now.month)}"
     )
