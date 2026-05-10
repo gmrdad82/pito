@@ -63,22 +63,33 @@ class GamesController < ApplicationController
     scope = scope.where(platform_owned_id: @filter[:platform_owned_id])                    if @filter[:platform_owned_id]
 
     @all_games = scope.order(Arel.sql("release_year DESC NULLS LAST"))
+
+    respond_to do |format|
+      format.html
+      format.json do
+        # Phase 21 — JSON parity. The JSON branch returns the filtered
+        # / sorted `@all_games` collection along with the sort+filter
+        # echo so the caller can verify what it asked for.
+        @json_games = @all_games.order(sort_clause)
+        @json_sort  = { key: sanitized_sort_key, dir: sanitized_dir }
+      end
+    end
   end
 
   def show
     @game = Game.friendly.find(params[:id])
-    # rubocop:disable Style/RedundantReturn -- The `return` keyword guards
-    # against a future DoubleRenderError if any code is added below the
-    # canonical-slug redirect. Today the `show` action body ends here
-    # (Rails implicit-renders `show.html.erb`), so rubocop sees the
-    # `return` as redundant — but the guard mirrors the pattern used by
-    # every other `friendly`-backed controller (channels, videos,
-    # footages, bundles, collections, projects) and keeps the surface
-    # safe to extend without re-deriving the rule.
-    return if redirect_to_canonical_slug!(@game) { |g| game_path(g) }
-    # rubocop:enable Style/RedundantReturn
+    # Preserve the request format on the canonical-slug redirect so a
+    # `GET /games/42.json` 301s to `/games/the-witness.json`, not
+    # `/games/the-witness` (which would 406 the JSON caller).
+    return if redirect_to_canonical_slug!(@game) { |g|
+      request.format.json? ? game_path(g, format: :json) : game_path(g)
+    }
 
     # show.html.erb reads @game directly; nothing else to set up here.
+    respond_to do |format|
+      format.html
+      format.json { render :show }
+    end
   end
 
   # Phase 14 §1 polish (2026-05-10) — show / edit split. The form
@@ -96,16 +107,28 @@ class GamesController < ApplicationController
     end
 
     @results = []
+    @search_error = nil
+    @took_ms = 0.0
     if @query.present?
+      started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       begin
         @results = Igdb::Client.new.search_games(@query, limit: 10)
       rescue Igdb::Client::Error => e
-        @search_error = "igdb error: #{e.message}"
+        @search_error = { kind: "upstream_unavailable", message: e.message }
       end
+      @took_ms = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started_at) * 1000).round(1)
     end
 
-    render partial: "search_results",
-           locals: { results: @results, query: @query, search_error: @search_error }
+    respond_to do |format|
+      format.html do
+        # Legacy HTML branch (Turbo Frame) renders only the partial. The
+        # JSON branch returns the structured envelope.
+        legacy_error = @search_error.is_a?(Hash) ? "igdb error: #{@search_error[:message]}" : nil
+        render partial: "search_results",
+               locals: { results: @results, query: @query, search_error: legacy_error }
+      end
+      format.json { render :search }
+    end
   end
 
   def create
@@ -166,12 +189,25 @@ class GamesController < ApplicationController
   # if the user re-clicks. Otherwise it enqueues `GameIgdbSync` —
   # the job itself rechecks the flag and self-locks via update_column.
   def resync
-    game = Game.friendly.find(params[:id])
-    if game.resyncing?
-      redirect_to game_path(game), notice: "already resyncing." and return
+    @game = Game.friendly.find(params[:id])
+    if @game.resyncing?
+      respond_to do |format|
+        format.html { redirect_to game_path(@game), notice: "already resyncing." }
+        format.json do
+          render json: {
+            game_id: @game.id,
+            resyncing: YesNo.to_yes_no(true),
+            error: "already_resyncing"
+          }, status: :conflict
+        end
+      end
+      return
     end
-    GameIgdbSync.perform_async(game.id)
-    redirect_to game_path(game), notice: "refreshing from igdb…"
+    @enqueued_jid = GameIgdbSync.perform_async(@game.id)
+    respond_to do |format|
+      format.html { redirect_to game_path(@game), notice: "refreshing from igdb…" }
+      format.json { render :resync, status: :accepted }
+    end
   end
 
   private

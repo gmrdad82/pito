@@ -13,6 +13,8 @@ class Calendar::ScheduleController < ApplicationController
 
   PAGE_SIZE = 50
 
+  skip_before_action :verify_authenticity_token, if: -> { request.format.json? }
+
   def show
     @install_tz = AppSetting.first&.timezone || "UTC"
 
@@ -44,6 +46,11 @@ class Calendar::ScheduleController < ApplicationController
     @today = Time.current
     @selected_source = params[:source]
     @show_cancelled = params[:state] == "all"
+
+    respond_to do |format|
+      format.html
+      format.json { render :show }
+    end
   end
 
   private

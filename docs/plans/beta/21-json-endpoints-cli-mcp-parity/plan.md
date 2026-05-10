@@ -58,13 +58,13 @@ See `specs/01-rails-json-endpoints.md` for the full breakdown.
 
 ## Phase checkboxes
 
-- [ ] Spec drafted: `specs/01-rails-json-endpoints.md`
-- [ ] Spec validated by user
-- [ ] Rails-impl lane: GamesController JSON branches + jbuilder
+- [x] Spec drafted: `specs/01-rails-json-endpoints.md`
+- [x] Spec validated by user
+- [x] Rails-impl lane: GamesController JSON branches + jbuilder
   views + specs
-- [ ] Rails-impl lane: Calendar controllers JSON branches +
+- [x] Rails-impl lane: Calendar controllers JSON branches +
   jbuilder views + specs
-- [ ] Rails-impl lane: NotificationsController JSON branches +
+- [x] Rails-impl lane: NotificationsController JSON branches +
   jbuilder views + specs
 - [ ] Reviewer pass: every endpoint covered by request + view spec
 - [ ] Manual test recipe walked end-to-end (curl)

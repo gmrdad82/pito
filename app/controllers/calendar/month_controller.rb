@@ -15,6 +15,8 @@
 class Calendar::MonthController < ApplicationController
   include CalendarHelper
 
+  skip_before_action :verify_authenticity_token, if: -> { request.format.json? }
+
   def show
     year  = params[:year].to_i
     month = params[:month].to_i
@@ -56,6 +58,11 @@ class Calendar::MonthController < ApplicationController
     @next_year, @next_month = next_month(year, month)
     @today = Time.current.in_time_zone(@install_tz).to_date
     @on_current_month = (@today.year == year && @today.month == month)
+
+    respond_to do |format|
+      format.html
+      format.json { render :show }
+    end
   end
 
   private
