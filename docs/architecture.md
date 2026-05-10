@@ -20,7 +20,7 @@ three extensions at the database level:
 
 - `pgcrypto` — `gen_random_uuid()` and other crypto helpers.
 - `citext` — case-insensitive text type. Used by `saved_views.url` and by
-  `users.username` / `users.email`.
+  `users.email`.
 - `vector` — pgvector. Installed but no columns yet. Phase 10 (embeddings) adds
   the first vector column.
 
@@ -41,8 +41,8 @@ own.
 ### Credentials
 
 Postgres credentials live in Rails encrypted credentials under the `:postgres`
-block (`development` and `test` sub-keys). The seed-time tenant/user values live
-under the `:owner` block (see `setup.md`).
+block (`development` and `test` sub-keys). The seed-time owner credentials live
+under the `:owner` block (`{ email, password }`; see `setup.md`).
 
 `.env.development` / `.env.test` carry connection metadata only
 (`POSTGRES_HOST`, `POSTGRES_PORT`). Database name, username, and password live
@@ -53,15 +53,17 @@ exclusively in Rails encrypted credentials. No secrets in env files.
 All JSON columns use `jsonb` (better indexing, faster queries). `t.json` is
 forbidden in new migrations.
 
-## Tenant + User + ApiToken schema (Phase 3 — Auth Foundation)
+## Single-install, multi-user — User + ApiToken schema
 
-Phase 3 ships in three steps:
-
-- **Step A** — schema-level multi-tenancy: `Tenant`, `User`, the
-  `BelongsToTenant` concern, multi-tenant columns on every data-holding model.
-- **Step B** — `ApiToken`, scope catalog, shared `Api::AuthConcern` for both
-  Pumas, audit log, rack-attack throttle.
-- **Step C** — Settings UI for token CRUD, dev token seed, `docs/auth.md`.
+pito is a **single-install, multi-user** application (ADR 0003). The whole
+database belongs to one install; every authenticated user has install-wide
+read/write access. There is no `Tenant` model, no `tenant_id` columns on domain
+tables, and no per-user data isolation. Multi-user exists purely as
+authentication ergonomics — "more than one person can log in" — not as a
+boundary. The 12-rule IDOR specification originally drafted for a multi-tenant
+shape is archived as a future-SaaS reference at
+`docs/decisions/archives/idor-spec.md`; if pito ever pivots to multi-tenancy at
+pito.com, that document is the starting point for re-introducing tenant columns.
 
 `docs/auth.md` is the authoritative reference for the auth model. This section
 captures the architectural high level; full request flow, scope-per-tool tables,
@@ -69,72 +71,55 @@ and the bootstrap ceremony live in `docs/auth.md`.
 
 ### Schema
 
-- `tenants(id, slug citext UNIQUE NOT NULL, name, timestamps)`. `slug` validates
-  presence, length ≤ 60, format `\A[a-z0-9][a-z0-9_-]*\z`, case-insensitive
-  uniqueness. Seeded from `:owner.tenant_slug` credentials (fallback
-  `"primary"`).
-- `users(id, tenant_id, username citext, email citext, password_digest, timestamps)`.
-  `username` matches `\A[A-Za-z][A-Za-z0-9]*\z`. `username` and `email` are
-  **globally unique** (single-column unique indexes — see `docs/auth.md` §10 for
-  the rationale). `has_secure_password`; `find_by_username_or_email(login)`.
-- `api_tokens(id, tenant_id, user_id, name, token_digest UNIQUE, last_token_preview, scopes jsonb, expires_at, last_used_at, revoked_at, timestamps)`.
+- `users(id, email citext UNIQUE NOT NULL, password_digest, timestamps)`. Auth-
+  only model; no `username`, no `tenant_id`, no `admin`, no role column. Email
+  is case-insensitive unique via citext. `has_secure_password`. Login is
+  email-and-password (Phase 8).
+- `api_tokens(id, user_id, name, token_digest UNIQUE, last_token_preview, scopes jsonb, expires_at, last_used_at, revoked_at, timestamps)`.
   Digest is HMAC-SHA256 with the `:tokens.pepper` credential.
   `last_token_preview` stores the last 4 characters for identification.
   Plaintext is shown once at creation and never re-displayed.
 
 ### `Current`
 
-`ActiveSupport::CurrentAttributes` carries `:tenant`, `:user`, `:token`.
+`ActiveSupport::CurrentAttributes` carries `:user`, `:token`, `:session`.
 
-- HTML routes — `ApplicationController` sets `Current.tenant = Tenant.first` /
-  `Current.user = User.first` in a `before_action`. No login UI yet (Phase 6
-  adds it); the implicit single-user session is the placeholder.
-- API routes — `Api::AuthConcern` (controllers) and `Mcp::RackApp` (the MCP
-  Puma's rack app) populate `Current.token`, `Current.user`, `Current.tenant`
-  from the resolved bearer token, then reset in an `ensure` block / Rack
-  `after_action`.
+- HTML routes — `Sessions::AuthConcern` resolves the cookie-backed session and
+  sets `Current.user` / `Current.session` for the duration of the request.
+  Unauthenticated requests redirect to `/login`.
+- API / MCP routes — `Api::AuthConcern` (controllers) and `Mcp::RackApp` (the
+  MCP Puma's rack app) populate `Current.token` / `Current.user` from the
+  resolved bearer token, then reset in an `ensure` block / Rack `after_action`.
 
-### `BelongsToTenant`
-
-`app/models/concerns/belongs_to_tenant.rb` is included by every tenanted model:
-
-```ruby
-include BelongsToTenant   # belongs_to :tenant; validates :tenant_id;
-                          # default_scope { where(tenant_id: Current.tenant_id) }
-                          # — raises BelongsToTenant::TenantContextMissing
-                          # when Current.tenant_id is nil.
-```
-
-The default-scope raise is deliberate: bugs are loud, not silent. The escape
-hatch is `Model.unscoped` and is reserved for seed scripts, the authenticator's
-pre-Current digest lookup, and the cross-tenant leak spec.
+There is no `Current.tenant`; the install is the implicit scope.
 
 ### `Current.token` flow
 
 For API and MCP requests, `Api::TokenAuthenticator` is the shared engine:
 extracts the bearer header, digests + looks up the row, validates
-revoked/expired status, populates `Current.token / user / tenant`, touches
-`last_used_at` via `update_columns`, writes a JSON line to `log/auth_audit.log`.
-Failures bump a per-IP rack-attack bucket (10 failures in 5 minutes triggers a
-429). See `docs/auth.md` §4 for the full flow diagram.
+revoked/expired status, populates `Current.token / user`, touches `last_used_at`
+via `update_columns`, writes a JSON line to `log/auth_audit.log`. Failures bump
+a per-IP rack-attack bucket (10 failures in 5 minutes triggers a 429). See
+`docs/auth.md` §5 for the full flow diagram.
 
 ## Channel model (Phase 3 — Channel Revamp)
 
 The Alpha-era `Channel` was rewritten. Surviving columns:
 
-- `id`, `tenant_id` (FK NOT NULL), `channel_url` (string, case-sensitive, unique
-  B-tree)
+- `id`, `channel_url` (string, case-sensitive, unique B-tree)
 - `star` (bool default false), `connected` (bool default false), `syncing` (bool
   default false)
 - `last_synced_at` (timestamp), `created_at`, `updated_at`
 
-Indexes: unique on `channel_url`; secondary on `last_synced_at`, `tenant_id`,
-and `(tenant_id, star)`, `(tenant_id, connected)`, `(tenant_id, syncing)`.
+Phase 7 adds `oauth_identity_id` (FK to `google_identities`, nullable) for the
+YouTube OAuth connection (renamed in Phase 9 per ADR 0006).
+
+Indexes: unique on `channel_url`; secondary on `last_synced_at` and
+`oauth_identity_id`.
 
 Behaviour:
 
-- `belongs_to :tenant`. `has_many :videos`, `:playlists`, `:video_uploads` (all
-  dependent: :destroy).
+- `has_many :videos`, `:playlists`, `:video_uploads` (all dependent: :destroy).
 - `channel_url` validation:
   `\Ahttps://www\.youtube\.com/channel/UC[A-Za-z0-9_-]{22}\z` — only the
   canonical immutable form.
@@ -304,6 +289,12 @@ channel from pito to Google, used by the YouTube Data and Analytics APIs. It is
 independent of the bearer-token and session surfaces — different flow, different
 model, different lifecycle.
 
+Per ADR 0006, sign-in is **local-only** (email + password). Google OAuth is
+**channel-only**: the OAuth dance authorizes pito to talk to YouTube on behalf
+of the install, never as an identity provider. The `GoogleIdentity` model is
+slated to be renamed (e.g. `YoutubeConnection`) in Phase 9; the rename is out of
+scope for this section.
+
 ### Auth surface map
 
 pito has three independent inbound auth surfaces and one outbound delegation,
@@ -311,19 +302,20 @@ each with its own lifecycle and storage:
 
 - **Browser → Rails (Web Puma)** — cookie + DB-backed sessions. The `sessions`
   table from Phase 6A holds the server-side session record; the cookie carries
-  only the session id. Login UI is the entry point.
+  only the session id. Login is email + password (Phase 8).
 - **MCP / `pito` CLI → Rails (MCP Puma + API routes)** — bearer `ApiToken`s
   (Phase 3 / Phase 5). Tokens are HMAC-digested at rest, scoped, and
   authenticated by the shared `Api::TokenAuthenticator`.
 - **Third-party clients → Rails** — Doorkeeper-issued OAuth 2.0 tokens (Phase
   6B). pito acts as the OAuth provider. Same `Api::AuthConcern` consumes the
-  token; the storage and issuance flow differ.
+  token; the storage and issuance flow differ. Doorkeeper survives the tenant
+  drop (ADR 0005) because Claude Mobile's Authorization Code + PKCE flow is
+  load-bearing.
 - **pito → Google (outbound delegation)** — OAuth 2.0 authorization code flow. A
   `GoogleIdentity` row holds the encrypted access + refresh tokens that let pito
-  act on a user's behalf against the YouTube APIs.
+  act against the YouTube APIs on the install's behalf.
 
-These surfaces do not share storage. A user can have zero or more of each. The
-single-user-today posture means in practice each row count is 0 or 1.
+These surfaces do not share storage.
 
 ### `GoogleIdentity` model
 
@@ -342,12 +334,12 @@ delegate against Google's APIs.
   screen again.
 - `scopes` — `jsonb` array of granted OAuth scopes (e.g.
   `["youtube.readonly", "yt-analytics.readonly"]`).
-- Standard timestamps + `tenant_id` + `user_id`.
+- Standard timestamps + `user_id`. `google_subject_id` carries a global unique
+  index (Google subject IDs are globally unique).
 
-**One-per-user (UI enforcement).** The schema permits N identities per user
-(future-proofing for separate brand accounts), but the Settings UI presents a
-single connection slot. Adding a new identity replaces the existing one in the
-displayed flow.
+**One-per-install (UI enforcement).** The schema permits N identities, but the
+Settings UI presents a single connection slot. Adding a new identity replaces
+the existing one in the displayed flow.
 
 **Disconnect destroys the row.** Per decision 7.13, `[ disconnect ]` from the
 Settings UI deletes the `GoogleIdentity` outright. There is no soft-delete or
@@ -379,7 +371,7 @@ remaining daily budget for that identity, and either proceeds or raises
 queueing in this phase).
 
 **Audit row.** Per decision 7.8, every call writes one row to
-`youtube_api_calls(tenant_id, user_id, google_identity_id, endpoint, quota_cost, outcome, http_status, error_class, created_at)`.
+`youtube_api_calls(user_id, google_identity_id, endpoint, quota_cost, outcome, http_status, error_class, created_at)`.
 Outcomes are `success`, `quota_exhausted`, `unauthorized`, `not_found`,
 `rate_limited`, `other_error`. The audit table is the source of truth for "how
 much quota did this identity burn today" and the basis for decision 7.5's
@@ -396,25 +388,23 @@ the next page load.
 pito stores `Channel` and `Video` as **thin YouTube-reference records**, not
 local caches of YouTube metadata. The columns are:
 
-- `Channel`: `id`, `tenant_id`, `url`, `star`, `oauth_identity_id` (FK to
+- `Channel`: `id`, `url`, `star`, `oauth_identity_id` (FK to
   `google_identities`, nullable), `last_synced_at`, timestamps.
-- `Video`: `id`, `tenant_id`, `url`, `star`, `oauth_identity_id` (FK to
-  `google_identities`, nullable), `last_synced_at`, timestamps.
+- `Video`: `id`, `url`, `star`, `oauth_identity_id` (FK to `google_identities`,
+  nullable), `last_synced_at`, timestamps.
 
 All previously-stored YouTube metadata columns — title, description,
 `subscriber_count`, `view_count`, `video_count`, `thumbnail_url`, `etag`,
 `youtube_channel_id`, and the rest — were dropped. pito does **not** cache
 YouTube metadata in this phase. Displays that previously rendered a title or
-counter render the URL (or a URL-derived placeholder) and defer to Phase 8 to
-decide which fields, if any, are worth caching locally.
+counter render the URL (or a URL-derived placeholder); a follow-up phase decides
+which fields, if any, are worth caching locally.
 
-This produces two kinds of records, distinguished by `oauth_identity_id`:
-
-- **Owned** (`oauth_identity_id NOT NULL`) — the FK points at the Google
-  identity that authorizes pito to read Analytics for this channel/video. Sync
-  goes through `Youtube::Client`.
-- **Tracked** (`oauth_identity_id IS NULL`) — public-only content the user
-  follows. Sync (Phase 8) goes through `Youtube::PublicClient`. No Analytics.
+Per ADR 0003 ("Owned vs. tracked framing retired"), the earlier `Path A2`
+distinction between **owned** (OAuth-connected) and **tracked** (public-only)
+records collapses with the single-install positioning: every `Channel` and
+`Video` in pito is an owned record by definition. Sync goes through
+`Youtube::Client` against the install's `GoogleIdentity`.
 
 ### Cloud Console linkage
 
@@ -449,16 +439,17 @@ the wire bytes.
 
 ## Things explicitly NOT in scope (this phase)
 
-- **Login UI / session UI** — HTML routes still operate under the implicit
-  single-user session (`Current.user = User.first`). The login form, password
-  change, OAuth client flows (Doorkeeper) all land in Phase 6 / Phase 12.
 - **Real YouTube sync** — `ChannelSync` is a placeholder; no API calls. The
   Phase 7 foundation (OAuth + `YouTube::Client` + audit + quota tracking) is in
-  place; per-record sync jobs that exercise it land in Phase 8.
-- **Multi-tenant admin tooling** — Theta. Two tenants in this codebase is
-  technically supported (the schema is multi-tenant; the cross-tenant leak spec
-  proves isolation), but there's no UI for switching or managing.
+  place; per-record sync jobs that exercise it land in a later phase.
+- **Multi-tenant SaaS** — explicitly off the roadmap (ADR 0003). pito is
+  positioned as a single-install creator workflow. The IDOR specification
+  drafted for a multi-tenant shape is archived at
+  `docs/decisions/archives/idor-spec.md` as a future-SaaS reference.
+- **User-creation UI / invite flow** — the seed mints a single owner User from
+  the `:owner` credentials block; additional users today need a manual row
+  insert. A simple invite surface may land in a later phase.
 - **Token expiry sweep** — `expires_at` is honored on every authenticate call,
-  but no background job marks/deletes expired rows. Phase 12 / 15.
+  but no background job marks/deletes expired rows. Future phase.
 - **Pepper rotation** — set once at install (§7 of `docs/auth.md`), never
   rotated automatically. Future phase.

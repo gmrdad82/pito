@@ -11,10 +11,14 @@ clients).
 - **Transports:** stdio (local) and Streamable HTTP (remote)
 - **Auth:** none for stdio (local trust), bearer token for HTTP — enforced at
   the rack-app layer with per-tool scope checks. See `docs/auth.md` for the
-  request flow, `docs/auth.md` §3 + the Scope-per-tool table below for the
+  request flow and `docs/auth.md` §4 + the Scope-per-tool table below for the
   per-tool scope map.
 - **Process isolation:** stdio runs as standalone process; HTTP runs on a
   dedicated Puma (port 3028), separate from the web app (port 3027)
+- **Scope:** every MCP request operates on the install (single-install,
+  multi-user per ADR 0003). There is no tenant boundary; access control is
+  per-scope (`dev:*` / `yt:*` / `project:*` / `website:*` today, collapsing to
+  `dev` + `app` per ADR 0004 in a later dispatch).
 
 The MCP server loads Rails models, decorators, and services directly
 (in-process). It does not make HTTP requests to the web app.
@@ -71,7 +75,7 @@ bin/rails 'tokens:revoke[1]'
 ```
 
 Scopes use `+` as the separator inside a Thor task arg (`,` is the arg
-boundary). The full scope catalog is enumerated in `docs/auth.md` §2.
+boundary). The full scope catalog is enumerated in `docs/auth.md` §3.
 
 The `:tokens.pepper` credential must be set before the first mint — see
 `docs/setup.md` §3 for the credential ceremony.
@@ -110,8 +114,13 @@ See the Cloudflare Tunnel docs for setup details.
 
 Authentication is enforced at the rack-app layer (`Mcp::RackApp` runs the shared
 `Api::TokenAuthenticator` before delegating to the streamable HTTP transport).
-Each tool's `call` method opens with `Mcp::ToolAuth.require_scope!(...)` to
-enforce per-tool scopes. See `docs/auth.md` §4 for the full request flow.
+The bearer token resolves to a `User`; `Current.user` and `Current.token` are
+populated for the request, then reset in an `ensure` block. There is no
+`Current.tenant` — Phase 8 removed the tenant boundary along with the
+cross-tenant defense-in-depth check that previously lived inside
+`app/mcp/rack_app.rb`. Each tool's `call` method opens with
+`Mcp::ToolAuth.require_scope!(...)` to enforce per-tool scopes. See
+`docs/auth.md` §5 for the full request flow.
 
 ### Scope-per-tool table
 
@@ -140,7 +149,7 @@ enforce per-tool scopes. See `docs/auth.md` §4 for the full request flow.
 A token without the right scope sees
 `{"error": "insufficient_scope", "required": "<scope>"}` (HTTP 403). A missing /
 invalid / revoked / expired token sees `{"error": "<reason>"}` (HTTP 401). See
-`docs/auth.md` §4 for the full envelope shapes.
+`docs/auth.md` §5 for the full envelope shapes.
 
 ### Read Tools — descriptions
 
@@ -418,8 +427,8 @@ Highlights:
 - Soft-revoke: `revoked_at` is set; the row stays in the database for audit.
 - Optional `expires_at` is honored on every authenticate call (rejected as
   `expired_token`); no automatic sweep yet.
-- Each token has a `tenant_id`, `user_id`, and a `scopes` jsonb array. The scope
-  catalog is `app/lib/scopes.rb`; see `docs/auth.md` §2.
+- Each token has a `user_id` and a `scopes` jsonb array. The scope catalog is
+  `app/lib/scopes.rb`; see `docs/auth.md` §3.
 
 ## File Structure
 

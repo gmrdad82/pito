@@ -177,8 +177,9 @@ When a task expects output outside an actor's role, the actor STOPs and reports.
   info ONLY (host / port for Postgres, Redis URL). No secrets. Gitignored.
 - `.env.example` — template for the above. Committed.
 - `rails credentials:edit` — Postgres database / username / password per
-  environment (`:postgres` block), the seed-time tenant / user (`:owner` block —
-  see `docs/setup.md`), Sidekiq web auth, Active Record Encryption keys.
+  environment (`:postgres` block), the seed-time owner email + password
+  (`:owner` block — see `docs/setup.md`), Sidekiq web auth, Active Record
+  Encryption keys.
 - `config/master.key` — on disk, gitignored. Never in `.env`.
 - CI uses its own env vars defined in `.github/workflows/ci.yml` (no master key
   needed).
@@ -206,15 +207,22 @@ See `docs/design.md` for the full design system. Key rules:
 
 ## Architecture notes
 
-- `Tenant` and `User` exist as **seeded singletons** at the schema level only —
-  no signup, no login, no session, no token, no UI. `Current.tenant` /
-  `Current.user` are set in a `before_action` to `Tenant.first` / `User.first`.
-  Auth Foundation is deferred to a later phase.
-- `Channel` is tenant-scoped. Columns:
-  `id, tenant_id, channel_url, star, connected, syncing, last_synced_at, timestamps`.
-  The URL is **locked after create** (`before_update :prevent_url_change`); only
-  `star` and `connected` are mutable. There are no per-channel OAuth columns in
-  this phase.
+- pito is **single-install, multi-user** (ADR 0003). The whole database belongs
+  to one install; there is no `Tenant` model and no `tenant_id` columns on
+  domain tables. Anyone authenticated has full read/write access to everything
+  in the install. Multi-user is auth-only ergonomics ("more than one person can
+  log in"), not data isolation.
+- `User` is the auth-only owner of sessions and tokens. Columns:
+  `id, email (citext, unique, NOT NULL), password_digest, created_at, updated_at`.
+  No `username`, no `tenant_id`, no `admin`. Login is **email + password**
+  (Phase 8); `Current.user` carries the authenticated user for the duration of a
+  request.
+- `Channel` columns:
+  `id, channel_url, star, connected, syncing, last_synced_at, timestamps` (plus
+  Phase 7 `oauth_identity_id` once the YouTube-connection rename lands per ADR
+  0006). The URL is **locked after create**
+  (`before_update :prevent_url_change`); only `star` and `connected` are
+  mutable. There are no per-channel OAuth columns in this phase.
 - `ChannelSync` (`app/jobs/channel_sync.rb`, flat name) is a placeholder job: it
   flips `syncing` true, no-ops, then flips `syncing` false and stamps
   `last_synced_at` in an `ensure` block. Real YouTube API work lands when the
@@ -245,8 +253,7 @@ These are queued AFTER Phase 4 completes.
 - **Pito** — the application.
 - **Alpha** — concluded multi-front exploratory phase.
 - **Beta** — current build phase. Plans live in `docs/plans/beta/`.
-- **Theta** — conditional future phase (distribution, marketing, multi-tenancy).
-- **Tenant** — an isolated unit of data ownership. Currently 1.
+- **Theta** — conditional future phase (distribution, marketing).
 - **MCP** — Model Context Protocol.
 - **Web Puma** — the Rails Puma process serving `app.pitomd.com`.
 - **MCP Puma** — the separate Rails Puma process serving `mcp.pitomd.com`.
