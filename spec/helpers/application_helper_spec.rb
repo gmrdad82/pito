@@ -45,6 +45,43 @@ RSpec.describe ApplicationHelper, type: :helper do
       expect(result).to include('<span class="hide-mobile">home</span>')
       expect(result).not_to include('class="show-mobile"')
     end
+
+    # The notifications navbar entry passes a `data: { action: ... }`
+    # hash so its bracketed link carries a Stimulus open hook. Helpers
+    # render `data-*` attributes from `data:` hashes via `link_to`.
+    # `link_to` HTML-escapes attribute values, so `->` is rendered as
+    # `-&gt;` — parsing the result with Nokogiri returns the original
+    # un-escaped form, which is what the browser sees and what
+    # Stimulus reads at the DOM layer.
+    it "forwards a data: hash onto the anchor element" do
+      allow(helper).to receive(:current_page?).with("/notifications").and_return(false)
+      result = helper.nav_link(
+        "notifications", "/notifications", short: "N",
+        data: { action: "click->notifications-modal#open" }
+      )
+      anchor = Nokogiri::HTML.fragment(result).at_css("a")
+      expect(anchor["data-action"]).to eq("click->notifications-modal#open")
+    end
+
+    it "omits data-* attributes when no data: hash is passed" do
+      allow(helper).to receive(:current_page?).with("/channels").and_return(false)
+      result = helper.nav_link("channels", "/channels")
+      expect(result).not_to include("data-action")
+    end
+
+    it "drops the data: hash on the active-page span (no href to hook anyway)" do
+      # On the notifications page itself, the helper renders a
+      # `<span class="bracketed bracketed-active">` instead of an `<a>`
+      # — there's no element to attach a click handler to, and the
+      # span wouldn't open a modal pointing at the page it's on.
+      allow(helper).to receive(:current_page?).with("/notifications").and_return(true)
+      result = helper.nav_link(
+        "notifications", "/notifications", short: "N",
+        data: { action: "click->notifications-modal#open" }
+      )
+      expect(result).to include("bracketed-active")
+      expect(result).not_to include("data-action")
+    end
   end
 
   describe "#breadcrumb" do

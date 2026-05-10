@@ -6,7 +6,7 @@ module ApplicationHelper
   # `[home]` on mobile entirely (the logo image already routes home) when
   # `short:` is the empty string — the helper short-circuits and returns
   # an empty wrapper that lays out only on desktop.
-  def nav_link(label, path, short: nil)
+  def nav_link(label, path, short: nil, data: nil)
     short = short.nil? ? label[0].to_s.upcase : short
     prefix = path.chomp("/")
     active = current_page?(path) || (prefix.present? && request.path.start_with?(prefix + "/"))
@@ -26,7 +26,14 @@ module ApplicationHelper
         ("[" + label_html + "]").html_safe
       end
     else
-      link_to(path, class: "bracketed") do
+      # `data:` is forwarded to the underlying `link_to` so callers can
+      # wire Stimulus `data-action` / `data-controller` declarations onto
+      # the bracketed link without abandoning the helper (used by the
+      # navbar `[notifications]` entry to open the layout-level
+      # notifications modal in lieu of a full-page navigation).
+      opts = { class: "bracketed" }
+      opts[:data] = data if data.present?
+      link_to(path, opts) do
         ("[<span class=\"bl\">" + label_html + "</span>]").html_safe
       end
     end
