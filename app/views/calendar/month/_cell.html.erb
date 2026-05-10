@@ -1,0 +1,22 @@
+<%# Phase 15 §2 — single grid cell with chips. %>
+<%
+  is_today = (date == @today)
+  in_month = (date.month == @month)
+  cell_entries = @buckets[date] || []
+  cell_class = [ "calendar-cell" ]
+  cell_class << "today" if is_today
+  cell_class << "out-of-month" unless in_month
+%>
+<td class="<%= cell_class.join(' ') %>" style="vertical-align: top; padding: 4px; border: 1px solid var(--color-border); width: 14.2857%; height: 90px; <%= 'outline: 1px solid var(--color-border);' if is_today %>">
+  <div style="font-size: 11px; opacity: <%= in_month ? '1' : '0.4' %>;">
+    <%= date.day %><% if is_today %> <span class="text-muted">today</span><% end %>
+  </div>
+  <% cell_entries.first(3).each do |entry| %>
+    <%= render(EntryChipComponent.new(entry: entry)) %>
+  <% end %>
+  <% if cell_entries.length > 3 %>
+    <%= render(BracketedLinkComponent.new(
+      label: "+#{cell_entries.length - 3} more",
+      href: calendar_schedule_path)) %>
+  <% end %>
+</td>

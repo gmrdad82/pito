@@ -32,18 +32,20 @@
       </div>
 
       <div class="themed-scroll-x" style="overflow-x: auto; max-width: 100%;">
-      <table style="table-layout: fixed; width: 920px;">
+      <table style="table-layout: fixed; width: 1080px;">
         <colgroup>
           <col style="width: 40px;">  <%# selection checkbox %>
           <col style="width: 60px;">  <%# id %>
           <col style="width: 160px;"> <%# youtube id %>
-          <col style="width: 200px;"> <%# channel URL %>
+          <col style="width: 180px;"> <%# channel URL %>
+          <col style="width: 80px;">  <%# privacy %>
           <col style="width: 80px;">  <%# views %>
           <col style="width: 80px;">  <%# likes %>
           <col style="width: 80px;">  <%# chats %>
           <col style="width: 80px;">  <%# watch %>
           <col style="width: 60px;">  <%# star %>
           <col style="width: 100px;"> <%# last sync %>
+          <col style="width: 60px;">  <%# edit %>
         </colgroup>
         <thead>
           <tr>
@@ -53,12 +55,14 @@
             <th class="sortable"><%= sort_link_to("name", "id", current_sort: @sort, current_dir: @dir, frame: "videos-index-table") %></th>
             <th>YouTube id</th>
             <th>channel</th>
+            <th class="sortable"><%= sort_link_to("privacy", "privacy_status", current_sort: @sort, current_dir: @dir, frame: "videos-index-table") %></th>
             <th class="num">views</th>
             <th class="num">likes</th>
             <th class="num">chats</th>
             <th class="num">watch</th>
             <th class="sortable num"><%= sort_link_to("star", "starred", current_sort: @sort, current_dir: @dir, frame: "videos-index-table") %></th>
             <th class="sortable num"><%= sort_link_to("last sync", "last_synced_at", current_sort: @sort, current_dir: @dir, frame: "videos-index-table") %></th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -72,6 +76,12 @@
               <td title="<%= video.channel.channel_url %>">
                 <%= link_to middle_truncate(video.channel.channel_url, head: 8, tail: 8), video.channel.channel_url, target: "_blank", rel: "noopener noreferrer" %>
               </td>
+              <td>
+                <%= video.privacy_status %>
+                <% if video.imported? %>
+                  <span class="text-muted" style="font-size: 11px;">imported</span>
+                <% end %>
+              </td>
               <td class="num"><%= number_with_delimiter(video.total_views) %></td>
               <td class="num"><%= number_with_delimiter(video.total_likes) %></td>
               <td class="num"><%= number_with_delimiter(video.total_comments) %></td>
@@ -84,6 +94,7 @@
                   —
                 <% end %>
               </td>
+              <td><%= render(BracketedLinkComponent.new(label: "edit", href: edit_video_path(video))) %></td>
             </tr>
           <% end %>
         </tbody>

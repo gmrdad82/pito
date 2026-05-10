@@ -80,11 +80,12 @@ Rails.application.routes.draw do
       get :videos
     end
   end
-  # Phase 7 Path A2 (literal full retract). Video CRUD is hidden — Video
-  # becomes a thin YouTube-reference record created only via the Phase
-  # 7C connect-channel sync flow (or future Phase 8+ paths). The form
-  # routes (:new / :create / :edit / :update) are intentionally absent.
-  resources :videos, only: [ :index, :show, :destroy ] do
+  # Phase 12 — Path A2 retracted. Video gets back the writable subset
+  # of YouTube Data API v3 fields plus the four-item pre-publish
+  # checklist gating publish-state transitions. Edit / update fly the
+  # writable subset; publish / schedule are dedicated paths so the
+  # checklist gate cannot be bypassed.
+  resources :videos, only: [ :index, :show, :edit, :update, :destroy ] do
     collection do
       get :panes
     end
@@ -92,6 +93,12 @@ Rails.application.routes.draw do
       # Nested stats endpoint used by the pito CLI: /videos/:id/stats.json
       # returns the per-day VideoStat rows for the video as a JSON array.
       get :stats
+      # Phase 12 — pre-publish checklist gate + publish / schedule
+      # actions. The GET renders a Turbo Frame partial; the PATCHes
+      # are the actual privacy_status transition surface.
+      get   :pre_publish_checklist
+      patch :publish
+      patch :schedule
     end
   end
   # Phase 4 — Project Workspace. Phase A landed the route shells; Phase B
@@ -102,7 +109,17 @@ Rails.application.routes.draw do
     resources :timelines, only: [ :create ]
   end
   resources :collections
-  resources :games
+  # Phase 14 §1 — IGDB-backed game model. `:search` (collection) is the
+  # type-ahead endpoint that POSTs to IGDB for matches; `:resync` is
+  # the per-game IGDB re-sync trigger. Existing CRUD remains.
+  resources :games do
+    collection do
+      get :search
+    end
+    member do
+      post :resync
+    end
+  end
   resources :footages, only: [ :index, :show, :edit, :update, :destroy ]
 
   # Phase 7.5 §06 — Footage thumbnails experiment.
@@ -189,8 +206,50 @@ Rails.application.routes.draw do
       to: "youtube_connections/oauth_callbacks#failure",
       as: :youtube_connection_oauth_failure
 
+  # Phase 15 §2 — Calendar views. `/calendar` redirects to the current
+  # month; canonical URLs are `/calendar/month/:year/:month` and
+  # `/calendar/schedule`. Manual entries are CRUD'd under
+  # `/calendar/entries`. The note endpoint allows derived/auto entries
+  # to gain `metadata.user_overrides` notes (Open question #8 decision).
+  get "/calendar",
+      to: redirect { |_p, _req|
+        now = Time.current
+        "/calendar/month/#{now.year}/#{now.month}"
+      },
+      as: :calendar_root
+  get "/calendar/month/:year/:month",
+      to: "calendar/month#show",
+      as: :calendar_month,
+      constraints: { year: /\d{4}/, month: /\d{1,2}/ }
+  get "/calendar/schedule",
+      to: "calendar/schedule#show",
+      as: :calendar_schedule
+  scope "/calendar" do
+    resources :entries,
+              controller: "calendar/entries",
+              as: :calendar_entries,
+              only: %i[new create show edit update] do
+      collection do
+        get :quick_add
+      end
+      member do
+        # PATCH /calendar/entries/:id/note — derived/auto entries can
+        # gain metadata.user_overrides notes through this endpoint.
+        patch :note
+      end
+    end
+  end
+
   get "deletions/:type/:ids", to: "deletions#show", as: :deletions
   post "deletions/:type/:ids", to: "deletions#create"
+  # Phase 15 §2 — DELETE /deletions/calendar_entry/:ids flips state to
+  # :cancelled (soft-cancel per Q5). Routed through DeletionsController.
+  # `defaults: { type: "calendar_entry" }` so `Confirmable#load_items`
+  # finds the type for the bulk-load + scope filter.
+  delete "deletions/calendar_entry/:ids",
+         to: "deletions#cancel_calendar_entry",
+         defaults: { type: "calendar_entry" },
+         as: :calendar_entry_cancellation
   # Phase 7 — Step C. Disconnect of a YouTube connection follows the
   # `bulk-as-foundation` rule: single-channel disconnect is `:ids`
   # = one id; multi is N. The DELETE verb completes the action

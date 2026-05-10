@@ -74,6 +74,19 @@ module ApplicationHelper
     "#{number_with_delimiter(hours)}h"
   end
 
+  # Phase 14 §1 — time-to-beat formatter. IGDB returns seconds; we
+  # display "Xh Ym" (or "—" when the field is nil / non-positive).
+  def format_seconds(seconds)
+    return "—" unless seconds.is_a?(Integer) && seconds.positive?
+    hours = seconds / 3600
+    minutes = (seconds % 3600) / 60
+    if hours.positive?
+      minutes.zero? ? "#{hours}h" : "#{hours}h #{minutes}m"
+    else
+      "#{minutes}m"
+    end
+  end
+
   # Render a sortable column header as a `link_to` whose URL flips the
   # `sort` / `dir` query params while preserving every other URL param
   # (filter chips, saved-view selectors, etc.). The active sort column's

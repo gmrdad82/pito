@@ -1,0 +1,21 @@
+<%# Phase 14 §1 — IGDB type-ahead add form.
+    Renders the search input + a Turbo Frame for results. The
+    `igdb-search` Stimulus controller wires debounced input events
+    to `GET /games/search?q=…`, which renders the
+    `_search_results.html.erb` partial inside the same frame.
+%>
+<div data-controller="igdb-search"
+     data-igdb-search-url-value="<%= search_games_path %>"
+     style="margin-bottom: 12px;">
+  <input type="search"
+         placeholder="search igdb…"
+         autocomplete="off"
+         data-igdb-search-target="input"
+         data-action="input->igdb-search#search"
+         style="width: 320px; padding: 4px 6px;
+                font-family: ui-monospace, monospace; font-size: 13px;" />
+  <span class="text-muted" style="margin-left: 8px;">[search igdb]</span>
+  <div style="margin-top: 8px;">
+    <%= turbo_frame_tag "igdb_search_results" %>
+  </div>
+</div>

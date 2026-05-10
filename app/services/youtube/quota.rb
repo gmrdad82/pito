@@ -15,6 +15,7 @@ module Youtube
     COSTS = {
       "channels.list"      => 1,
       "videos.list"        => 1,
+      "videos.update"      => 50, # Phase 12 — read-modify-write sync-back cost.
       "playlists.list"     => 1,
       "playlistItems.list" => 1,
       "search.list"        => 100,

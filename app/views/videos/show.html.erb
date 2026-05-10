@@ -3,6 +3,7 @@
 <% breadcrumb(["videos", videos_path], page_label) %>
 <% content_for(:breadcrumb_actions) do %>
   <div class="dot-list">
+    <%= render(BracketedLinkComponent.new(label: "e", href: edit_video_path(@video))) %>
     <%= render(BracketedLinkComponent.new(label: "-", href: "/deletions/video/#{@video.id}", destructive: true, data: { keyboard_page_action: "delete" })) %>
   </div>
 <% end %>
@@ -17,6 +18,21 @@
       <%= render(BracketedLinkComponent.new(label: "|", href: "#", data: { action: "click->add-pane#open" })) %>
     <% end %>
   </div>
+
+  <% if @video.title.present? %>
+    <p style="margin-bottom: 4px;"><strong><%= @video.title %></strong></p>
+  <% end %>
+  <% if @video.project.present? %>
+    <p style="margin-bottom: 4px;">part of project: <%= link_to @video.project.name, project_path(@video.project) %></p>
+  <% end %>
+  <% if @video.imported? %>
+    <p class="text-muted" style="margin-bottom: 4px;">imported</p>
+  <% end %>
+  <% if @video.last_sync_error.present? %>
+    <p class="flash-error" style="margin-bottom: 8px; padding: 4px 8px;">
+      youtube sync failed: <%= @video.last_sync_error %>
+    </p>
+  <% end %>
 
   <%# Phase B layout fix (2026-05-10) — the show page splits into two
       panes inside a `.pane-strip`: detail on the left (`.pane`, 452px)

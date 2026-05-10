@@ -1,4 +1,8 @@
 class Channel < ApplicationRecord
+  # Phase 15 §1 — Calendar derivation hooks. Channel derives a single
+  # `channel_published` entry keyed on `created_at`.
+  include CalendarDerivable
+
   # Raised when the locked channel_url is changed on update. Phase B's
   # controller layer rescues this and translates it to a 422 response.
   class UrlLockedError < ActiveRecord::ReadOnlyRecord; end
@@ -8,6 +12,9 @@ class Channel < ApplicationRecord
   has_many :videos, dependent: :destroy
   has_many :playlists, dependent: :destroy
   has_many :video_uploads, dependent: :destroy
+  # Phase 15 §1 — calendar entries cascade. The FK is also ON DELETE
+  # CASCADE at the database level.
+  has_many :calendar_entries, dependent: :destroy
 
   # Phase 9 — GoogleIdentity → YoutubeConnection rename (ADR 0006).
   # After Path A2's literal full retract, "connected" means
@@ -34,8 +41,43 @@ class Channel < ApplicationRecord
   after_create_commit :enqueue_initial_sync
   after_update_commit :enqueue_sync_on_star
 
+  # Phase 15 §1 — Calendar derivation. Always derives once per channel
+  # (keyed on `created_at`). Re-derive only when an attribute the entry
+  # surfaces changes — currently just `channel_url` (the title fallback).
+  # Single `after_save_commit` declaration: registering the same filter
+  # via two `after_*_commit` lines merges them in Rails 8.1 (the second
+  # call overrides the first), so we use one combined hook.
+  CALENDAR_DERIVATION_FIELDS = %w[channel_url created_at].freeze
+
+  after_save_commit :sync_calendar_entry, if: :calendar_attributes_changed?
+
   scope :starred,   -> { where(star: true) }
   scope :connected, -> { where.not(youtube_connection_id: nil) }
+
+  # Phase 15 §1 — CalendarDerivable contract.
+
+  def calendar_entry_type
+    :channel_published
+  end
+
+  def calendar_entry_attributes
+    {
+      title: "channel joined: #{channel_url}",
+      starts_at: created_at,
+      all_day: true,
+      channel_id: id,
+      state: CalendarEntry.states[:occurred],
+      metadata: {}
+    }
+  end
+
+  def calendar_entry_source_ref
+    { channel_id: id }
+  end
+
+  def calendar_attributes_changed?
+    saved_changes.keys.any? { |k| CALENDAR_DERIVATION_FIELDS.include?(k) }
+  end
 
   private
 

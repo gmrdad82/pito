@@ -42,7 +42,7 @@ RSpec.describe "Syncs", type: :request do
 
       it "does NOT render a [skip] badge (the syncing column is gone)" do
         get syncs_path(type: "channel", ids: channel.id)
-        expect(response.body).not_to include("[ skip ]")
+        expect(response.body).not_to include("[skip]")
       end
     end
 

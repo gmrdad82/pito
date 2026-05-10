@@ -1,0 +1,38 @@
+<%# Phase 14 §1 — IGDB type-ahead results.
+    Locals:
+      results:       Array of IGDB game hashes (id, name, slug,
+                     cover.image_id, first_release_date)
+      query:         the (sanitized) query string the user typed
+      search_error:  optional error string from the IGDB client
+%>
+<%= turbo_frame_tag "igdb_search_results" do %>
+  <% if search_error.present? %>
+    <p class="text-danger"><%= search_error %></p>
+  <% elsif query.blank? %>
+    <p class="text-muted">type to search igdb.</p>
+  <% elsif results.empty? %>
+    <p class="text-muted">no results for '<%= query %>'.</p>
+  <% else %>
+    <ul class="igdb-search-results" style="list-style: none; padding: 0; margin: 0;">
+      <% results.each do |row| %>
+        <% release_year = row["first_release_date"].present? ? Time.at(row["first_release_date"]).utc.year : nil %>
+        <% cover_image_id = row.dig("cover", "image_id") %>
+        <li style="display: flex; gap: 8px; align-items: center; padding: 4px 0; border-bottom: 1px solid #ddd;">
+          <% if cover_image_id.present? %>
+            <%= image_tag "https://images.igdb.com/igdb/image/upload/t_cover_small/#{cover_image_id}.jpg",
+                          alt: row["name"], loading: "lazy",
+                          style: "width: 45px; height: auto;" %>
+          <% else %>
+            <span class="text-muted" style="display: inline-block; width: 45px; text-align: center;">[?]</span>
+          <% end %>
+          <span style="flex: 1;"><%= row["name"] %><% if release_year %> <span class="text-muted">(<%= release_year %>)</span><% end %></span>
+          <%= button_to games_path,
+                        params: { game: { igdb_id: row["id"] } },
+                        method: :post,
+                        class: "bracketed",
+                        form: { style: "display: inline; margin: 0;", data: { turbo: false } } do %>[<span class="bl">add</span>]<% end %>
+        </li>
+      <% end %>
+    </ul>
+  <% end %>
+<% end %>

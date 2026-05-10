@@ -18,7 +18,7 @@ module Confirmable
   # `[delete]` links from project / collection / game show pages route
   # cleanly through the deletions framework. Footage stays out — its
   # delete flow (if any) is owned by the importer surface, not the web UI.
-  TYPES = %w[channel video project collection game note timeline].freeze
+  TYPES = %w[channel video project collection game note timeline calendar_entry].freeze
 
   private
 
@@ -59,6 +59,9 @@ module Confirmable
     # projects index, which is the closest reasonable parent.
     when "note"       then projects_path
     when "timeline"   then projects_path
+    # Phase 15 §2 — calendar entries cancel back to the schedule view
+    # (the closest surface that always renders).
+    when "calendar_entry" then calendar_schedule_path
     else root_path
     end
   end
@@ -72,6 +75,7 @@ module Confirmable
     when "game"       then Game
     when "note"       then Note
     when "timeline"   then Timeline
+    when "calendar_entry" then CalendarEntry
     end
   end
 
@@ -109,6 +113,11 @@ module Confirmable
       Note.includes(:project).where(id: ids).order(title: :asc)
     when "timeline"
       Timeline.includes(:project).where(id: ids).order(title: :asc)
+    when "calendar_entry"
+      # Phase 15 §2 — exclude derived/auto entries from manual cancel.
+      # The schedule / month views do not render the [cancel] link on
+      # those rows; this guard is defense-in-depth for direct URL hits.
+      CalendarEntry.where(id: ids).where(source: :manual).order(starts_at: :asc)
     end
   end
 
@@ -124,6 +133,7 @@ module Confirmable
     when Game       then item.title
     when Note       then item.title
     when Timeline   then item.title
+    when CalendarEntry then item.title
     else item.to_s
     end
   end

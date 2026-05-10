@@ -27,14 +27,14 @@
       <%= form_with url: deletions_path(type: "youtube_connection", ids: pito_channel.id),
                     method: :get, data: { turbo: false },
                     html: { style: "display: inline; margin-left: 8px;" } do %>
-        <button type="submit">[ disconnect ]</button>
+        <button type="submit">[disconnect]</button>
       <% end %>
     <% else %>
       <%= form_with url: settings_youtube_channels_path,
                     method: :post, data: { turbo: false },
                     html: { style: "display: inline;" } do %>
         <input type="hidden" name="youtube_channel_id" value="<%= youtube_channel_id %>">
-        <button type="submit">[ connect ]</button>
+        <button type="submit">[connect]</button>
       <% end %>
     <% end %>
   </td>

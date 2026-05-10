@@ -5,8 +5,8 @@ RSpec.describe Playlist, type: :model do
 
   describe "associations" do
     it { is_expected.to belong_to(:channel) }
-    it { is_expected.to have_many(:playlist_items).dependent(:destroy) }
-    it { is_expected.to have_many(:videos).through(:playlist_items) }
+    it { is_expected.to have_many(:playlist_videos).dependent(:destroy) }
+    it { is_expected.to have_many(:videos).through(:playlist_videos) }
   end
 
   describe "validations" do

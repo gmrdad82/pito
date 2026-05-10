@@ -1,0 +1,13 @@
+<%# Phase 15 §2 — entry kind filter chips. %>
+<div class="dot-list" style="margin-bottom: 8px;" data-controller="calendar-filter">
+  <% %w[all video game milestone purchase custom].each do |kind| %>
+    <% href = url_for(year: @year, month: @month, type: (kind == "all" ? nil : kind)) %>
+    <% label = "[ #{kind == 'all' ? 'all types' : kind} ]" %>
+    <% if @selected_filter == kind %>
+      <span class="bracketed bracketed-active"><%= label %></span>
+    <% else %>
+      <%= render(BracketedLinkComponent.new(label: kind == "all" ? "all types" : kind,
+            href: href)) %>
+    <% end %>
+  <% end %>
+</div>

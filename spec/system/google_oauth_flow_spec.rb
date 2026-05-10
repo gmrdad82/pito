@@ -42,7 +42,7 @@ RSpec.describe "Google OAuth flow", type: :system do
     expect(page).to have_content("no google account connected")
 
     expect {
-      click_button "[ connect ]"
+      click_button "[connect]"
     }.to change { YoutubeConnection.unscoped.count }.by(1)
 
     expect(page).to have_current_path(settings_youtube_path)

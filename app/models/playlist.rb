@@ -1,8 +1,11 @@
 class Playlist < ApplicationRecord
   belongs_to :channel
 
-  has_many :playlist_items, dependent: :destroy
-  has_many :videos, through: :playlist_items
+  # Phase 12 — playlist_items renamed to playlist_videos. Note 1
+  # terminology: a "playlist video" is a single (playlist, video,
+  # position) join row.
+  has_many :playlist_videos, dependent: :destroy
+  has_many :videos, through: :playlist_videos
 
   enum :privacy_status, { public_playlist: 0, unlisted: 1, private_playlist: 2 }
 

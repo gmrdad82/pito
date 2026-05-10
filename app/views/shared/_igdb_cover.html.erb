@@ -1,0 +1,15 @@
+<%# Phase 14 §1 — IGDB cover renderer.
+    Locals:
+      game:       a Game record (or anything responding to cover_url)
+      size:       one of Game::COVER_SIZES; defaults to t_cover_big
+      alt:        optional alt text (defaults to game.title)
+%>
+<% size_token = local_assigns.fetch(:size, "t_cover_big") %>
+<% alt_text   = local_assigns.fetch(:alt, game.title) %>
+<% url        = game.cover_url(size: size_token) %>
+<% if url.present? %>
+  <%= image_tag url, alt: alt_text, loading: "lazy",
+                style: "max-width: 100%; height: auto; display: block;" %>
+<% else %>
+  <span class="bracketed-active text-muted">[no cover]</span>
+<% end %>

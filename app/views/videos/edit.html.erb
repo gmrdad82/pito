@@ -1,0 +1,8 @@
+<% page_label = "video ##{@video.id}" %>
+<% content_for(:title, "edit #{page_label}") %>
+<% breadcrumb(["videos", videos_path], [page_label, video_path(@video)], "edit") %>
+
+<div style="max-width: 560px;">
+  <h1>edit video</h1>
+  <%= render "videos/form", video: @video %>
+</div>

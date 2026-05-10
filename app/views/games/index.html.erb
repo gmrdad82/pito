@@ -6,14 +6,17 @@
     <%= button_to games_path, form: { style: "display: inline;", data: { turbo: false } }, class: "bracketed", method: :post do %>[<span class="bl">+</span>]<% end %>
   </div>
 
+  <%= render "add_form" %>
+
   <% if @games.any? %>
     <table>
       <thead>
         <tr>
           <th class="col-action"></th>
           <th>title</th>
-          <th>publisher</th>
-          <th>platforms</th>
+          <th>release</th>
+          <th>rating</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
@@ -23,13 +26,21 @@
               <%= render(BracketedLinkComponent.new(label: "o", href: game_path(game))) %>
             </td>
             <td><%= game.title %></td>
-            <td><%= game.publisher || "—" %></td>
-            <td><%= Array(game.platforms).map { |p| p["platform"] }.compact.join(", ") %></td>
+            <td><%= game.release_year || "—" %></td>
+            <td><%= game.igdb_rating ? "#{game.igdb_rating.to_i} / 100" : "—" %></td>
+            <td>
+              <% if game.igdb_id.present? %>
+                <%= button_to "[resync]", resync_game_path(game),
+                              method: :post,
+                              class: "bracketed",
+                              form: { style: "display: inline; margin: 0;", data: { turbo: false } } %>
+              <% end %>
+            </td>
           </tr>
         <% end %>
       </tbody>
     </table>
   <% else %>
-    <p class="text-muted">no games yet.</p>
+    <p class="text-muted">no games yet. [search igdb] to add one.</p>
   <% end %>
 </div>

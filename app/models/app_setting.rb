@@ -22,6 +22,10 @@ class AppSetting < ApplicationRecord
   # targets (videos, channels, ...) can extend it without renaming.
   validate :voyage_target_flags_require_key
 
+  # Phase 15 §1 — Calendar Data Model. The install-level timezone seeds
+  # `calendar_entries.timezone` on insert. Validate as a real IANA name.
+  validate :timezone_must_be_iana
+
   def self.get(key)
     find_by(key: key)&.value
   end
@@ -53,5 +57,11 @@ class AppSetting < ApplicationRecord
 
     errors.add(:voyage_api_key,
                "Voyage API key required to enable project-notes indexing.")
+  end
+
+  def timezone_must_be_iana
+    return if timezone.blank?
+    return if ActiveSupport::TimeZone[timezone].present?
+    errors.add(:timezone, "is not a valid IANA timezone")
   end
 end
