@@ -80,4 +80,60 @@ RSpec.describe Igdb::TokenCache do
       expect(tc.token).to eq("tok-Y")
     end
   end
+
+  # Phase 14 audit F1 — Twitch token acquisition is the auth bootstrap
+  # for every IGDB call; a hang on `id.twitch.tv/oauth2/token` would
+  # wedge a Sidekiq worker the same way a hang on `api.igdb.com`
+  # would. Mirrors the HTTP-timeouts spec block in
+  # `spec/services/igdb/client_spec.rb`.
+  describe "HTTP timeouts (audit F1)" do
+    it "sets open / read / write timeouts on the Net::HTTP instance" do
+      stub_request(:post, %r{id\.twitch\.tv/oauth2/token})
+        .to_return(status: 200, body: { access_token: "tok-T", expires_in: 5_184_000 }.to_json)
+
+      captured = nil
+      original_start = Net::HTTP.method(:start)
+      allow(Net::HTTP).to receive(:start) do |host, port, opts = {}, &block|
+        original_start.call(host, port, opts) do |http|
+          captured = http
+          block.call(http)
+        end
+      end
+
+      described_class.new(cache: cache).token
+
+      expect(captured).to be_a(Net::HTTP)
+      expect(captured.open_timeout).to  eq(Igdb::TokenCache::OPEN_TIMEOUT_SEC)
+      expect(captured.read_timeout).to  eq(Igdb::TokenCache::READ_TIMEOUT_SEC)
+      expect(captured.write_timeout).to eq(Igdb::TokenCache::WRITE_TIMEOUT_SEC)
+    end
+
+    it "uses SSL because the Twitch token URL is HTTPS" do
+      stub_request(:post, %r{id\.twitch\.tv/oauth2/token})
+        .to_return(status: 200, body: { access_token: "tok-S", expires_in: 5_184_000 }.to_json)
+
+      captured = nil
+      original_start = Net::HTTP.method(:start)
+      allow(Net::HTTP).to receive(:start) do |host, port, opts = {}, &block|
+        original_start.call(host, port, opts) do |http|
+          captured = http
+          block.call(http)
+        end
+      end
+
+      described_class.new(cache: cache).token
+
+      expect(captured.use_ssl?).to be(true)
+    end
+
+    it "surfaces a hung connection as Net::OpenTimeout to the caller" do
+      # Sad-path proof: when the underlying connection raises a timeout
+      # error, it bubbles up the stack instead of getting swallowed.
+      stub_request(:post, %r{id\.twitch\.tv/oauth2/token}).to_timeout
+
+      expect { described_class.new(cache: cache).token }.to raise_error(
+        an_instance_of(Net::OpenTimeout).or(an_instance_of(Net::ReadTimeout))
+      )
+    end
+  end
 end
