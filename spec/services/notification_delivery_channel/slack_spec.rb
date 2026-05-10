@@ -8,6 +8,10 @@ RSpec.describe NotificationDeliveryChannel::Slack do
   before do
     AppSetting.delete_all
     AppSetting.create!(key: "max_panes", value: "5", slack_enabled: true)
+    # Default to nil for any credentials.dig call (e.g., the formatter
+    # looking up :pito_avatar_url) — then layer the slack webhook URL
+    # over the top.
+    allow(Rails.application.credentials).to receive(:dig).and_return(nil)
     allow(Rails.application.credentials)
       .to receive(:dig)
       .with(:notifications, :slack_webhook_url)
@@ -98,6 +102,73 @@ RSpec.describe NotificationDeliveryChannel::Slack do
       result = channel.deliver(notification)
       expect(result.status).to eq(:skipped)
       expect(result.reason).to eq(:already_delivered)
+    end
+  end
+
+  # F2 — verify HTTP timeouts apply identically through the shared
+  # `configure_http` helper.
+  describe "HTTP timeouts (audit F2)" do
+    it "sets open / read / write / ssl timeouts on the Net::HTTP instance" do
+      stub_request(:post, webhook_url).to_return(status: 200, body: "ok")
+      captured = nil
+      original_new = Net::HTTP.method(:new)
+      allow(Net::HTTP).to receive(:new) do |*args|
+        captured = original_new.call(*args)
+        captured
+      end
+      channel.deliver(notification)
+      expect(captured.open_timeout).to eq(5)
+      expect(captured.read_timeout).to eq(10)
+      expect(captured.write_timeout).to eq(10)
+      expect(captured.ssl_timeout).to eq(5)
+    end
+  end
+
+  # F3 — webhook URL must point at hooks.slack.com.
+  describe "webhook host allowlist (audit F3)" do
+    it "passes for a hooks.slack.com URL" do
+      expect(channel.deliverable_url?("https://hooks.slack.com/services/T/B/x")).to be(true)
+    end
+
+    it "rejects an attacker-controlled host" do
+      expect(channel.deliverable_url?("https://attacker.com/foo")).to be(false)
+    end
+
+    it "rejects loopback" do
+      expect(channel.deliverable_url?("https://127.0.0.1/foo")).to be(false)
+    end
+
+    it "rejects slack.com (only the webhooks subdomain is trusted)" do
+      expect(channel.deliverable_url?("https://slack.com/api/foo")).to be(false)
+    end
+
+    it "rejects an http (non-TLS) slack URL" do
+      expect(channel.deliverable_url?("http://hooks.slack.com/services/T/B/x")).to be(false)
+    end
+
+    it "returns false on a malformed URI" do
+      expect(channel.deliverable_url?("ht!tp://[bad")).to be(false)
+    end
+
+    it "skips delivery (status :disabled) when configured URL is not allowlisted" do
+      bad = "https://attacker.com/services/T/B/x"
+      allow(Rails.application.credentials)
+        .to receive(:dig)
+        .with(:notifications, :slack_webhook_url)
+        .and_return(bad)
+      result = channel.deliver(notification)
+      expect(result.status).to eq(:skipped)
+      expect(result.reason).to eq(:disabled)
+    end
+
+    it "logs a warning when configured URL fails the allowlist" do
+      bad = "https://attacker.com/services/T/B/x"
+      allow(Rails.application.credentials)
+        .to receive(:dig)
+        .with(:notifications, :slack_webhook_url)
+        .and_return(bad)
+      expect(Rails.logger).to receive(:warn).with(/SLACK_HOSTS allowlist/)
+      channel.deliver(notification)
     end
   end
 end

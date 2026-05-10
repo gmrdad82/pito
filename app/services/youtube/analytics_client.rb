@@ -27,6 +27,21 @@ module Youtube
   class AnalyticsClient
     include Youtube::OauthRefresh
 
+    # Typed exceptions raised by the client. Each maps to a specific
+    # retry-or-fail policy in the spec's error-handling matrix.
+    #
+    # - `AuthError`     — HTTP 401. Job sets `connection.needs_reauth = true`
+    #                     and exits cleanly. Sidekiq does NOT retry.
+    # - `RateLimitError` — HTTP 429. Sidekiq retries with exponential backoff.
+    # - `TransientError` — HTTP 5xx, network timeouts. Sidekiq retries.
+    # - `PermanentError` — HTTP 4xx other than 401/429, malformed responses.
+    #                     Sidekiq does NOT retry.
+    class Error          < StandardError; end
+    class AuthError      < Error; end
+    class RateLimitError < Error; end
+    class TransientError < Error; end
+    class PermanentError < Error; end
+
     AUDIT_KIND = YoutubeApiCall::KIND_ANALYTICS_V2
     AUDIT_ENDPOINT = "reports.query".freeze
 

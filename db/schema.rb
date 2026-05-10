@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_10_180000) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_10_190000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -982,7 +982,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_180000) do
   add_foreign_key "games", "platforms", column: "platform_owned_id", on_delete: :nullify
   add_foreign_key "milestone_rules", "users", column: "created_by_user_id", on_delete: :nullify
   add_foreign_key "notes", "projects"
-  add_foreign_key "notifications", "calendar_entries", column: "source_calendar_entry_id", on_delete: :nullify
+  add_foreign_key "notifications", "calendar_entries", column: "source_calendar_entry_id", on_delete: :cascade
   add_foreign_key "notifications", "milestone_rules", column: "source_milestone_rule_id", on_delete: :nullify
   add_foreign_key "notifications", "users", column: "created_by_user_id", on_delete: :nullify
   add_foreign_key "oauth_access_grants", "oauth_applications", column: "application_id"
