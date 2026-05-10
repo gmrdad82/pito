@@ -127,6 +127,28 @@ RSpec.describe "Games", type: :request do
     end
   end
 
+  describe "GET /games/:id" do
+    let!(:game) { create(:game, :synced, title: "Zelda BotW") }
+
+    it "renders 200" do
+      get game_path(game)
+      expect(response).to have_http_status(:ok)
+    end
+
+    # Phase 14 §1 polish (2026-05-10) — show page now uses the canonical
+    # `.pane-row > .pane` two-pane layout (mirrors channels/videos).
+    it "renders inside a `.pane-row` of `.pane` children" do
+      get game_path(game)
+      expect(response.body).to include("pane-row")
+      expect(response.body.scan('class="pane"').size).to be >= 2
+    end
+
+    it "splits the re-sync caveat onto two lines via <br>" do
+      get game_path(game)
+      expect(response.body).to include("re-syncing overwrites igdb-sourced fields.<br>")
+    end
+  end
+
   describe "POST /games with igdb_id" do
     before do
       GameIgdbSync.clear
