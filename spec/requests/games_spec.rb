@@ -3,6 +3,8 @@ require "ostruct"
 
 RSpec.describe "Games", type: :request do
   describe "GET /games" do
+    # Phase 14 §3 — Steam-shelf rewrite. The flat sortable table was
+    # replaced with shelf rows + a wrapping all-games grid.
     it "returns 200" do
       get games_path
       expect(response).to have_http_status(:ok)
@@ -14,85 +16,96 @@ RSpec.describe "Games", type: :request do
       expect(response.body).to include("type in the search box above")
     end
 
-    # Phase 14 §1 polish (2026-05-10) — the legacy `[search igdb]`
-    # sibling button on the add form was dropped. The input submits on
-    # Enter; only the placeholder still mentions IGDB. The button-shaped
-    # `[search igdb]` chip should NOT be present anywhere on the page.
     it "does not render a [search igdb] chip on the add form" do
       get games_path
       expect(response.body).not_to include("[search igdb]")
     end
 
-    context "with at least one row" do
-      let!(:game) do
+    context "with a populated library" do
+      let!(:zelda) do
         create(:game, :synced, title: "Zelda BotW", igdb_id: 7346,
-               release_year: 2017, igdb_rating: 95.0)
+               release_year: 2017, igdb_rating: 95.0,
+               played_at: 2.weeks.ago)
       end
 
-      it "links the row's title directly to the show page" do
+      it "links a tile to the game show page" do
         get games_path
-        expect(response.body).to include(%(href="#{game_path(game)}"))
+        expect(response.body).to include(%(href="#{game_path(zelda)}"))
         expect(response.body).to include("Zelda BotW")
       end
 
-      # The `[o]` open-action column was retired in the same polish
-      # pass — the title cell IS the link, mirroring channels/videos.
-      it "does not render a separate [o] open-action column" do
+      it "renders the recently-played shelf when at least one game has played_at" do
         get games_path
-        expect(response.body).not_to include(">o<")
+        expect(response.body).to include(">recently played<")
       end
 
-      it "renders sortable headers (name / release / rating / played / last sync)" do
+      it "does NOT render the recently-played shelf when no game has played_at" do
+        zelda.update_column(:played_at, nil)
         get games_path
-        expect(response.body).to include("class=\"sortable")
-        expect(response.body).to include(">name<")
-        expect(response.body).to include(">release<")
-        expect(response.body).to include(">rating<")
-        expect(response.body).to include(">played<")
-        expect(response.body).to include(">last sync<")
+        expect(response.body).not_to include(">recently played<")
       end
 
-      it "renders a [bulk] toggle next to [+]" do
+      it "renders the bundles shelf when at least one bundle exists" do
+        create(:bundle, name: "Soulslikes")
         get games_path
-        expect(response.body).to include("bulk-select-target=\"bulkToggle\"")
-        expect(response.body).to include(">bulk<")
+        expect(response.body).to include(">bundles<")
       end
 
-      it "renders bulk-select checkbox columns (initially hidden)" do
+      it "does NOT render the bundles shelf when no bundle exists" do
         get games_path
-        expect(response.body).to include("bulk-select-target=\"bulkCol\"")
-        expect(response.body).to include("bulk-select-target=\"headerCheckbox\"")
-        expect(response.body).to include("bulk-select-target=\"checkbox\"")
+        # The `bundles` shelf-heading would appear inside the [see all] /
+        # heading region — its absence is expected on a no-bundle install.
+        expect(response.body.scan(">bundles<").length).to eq(0)
       end
 
-      # Frame-escape regression guard (2026-05-10). The games table sits
-      # inside `<turbo-frame id="games-index-table">` so sortable headers
-      # can partial-swap. Without `data-turbo-frame="_top"` cascading on
-      # the bulk-toolbar actions container, the controller-injected
-      # `[delete N]` link would navigate the click inside that frame —
-      # the deletions confirmation page (a full-page surface from
-      # `shared/_action_screen.html.erb`) has no matching frame in its
-      # response, so Turbo would render "Content missing".
-      it "stamps data-turbo-frame=_top on the bulk-toolbar actions container" do
+      it "renders the all-games section heading" do
         get games_path
-        html = Nokogiri::HTML.fragment(response.body)
-        actions = html.css('[data-bulk-select-target="actions"]').first
-        expect(actions).not_to be_nil, "expected the bulk-select actions container"
-        expect(actions["data-turbo-frame"]).to eq("_top"),
-          "bulk-toolbar must escape the games-index-table frame so [delete N] navigates full-page"
+        expect(response.body).to include(">all games<")
       end
 
-      it "honors a sort=title param" do
-        create(:game, :synced, title: "Aardvark", igdb_id: 1)
-        get games_path, params: { sort: "title", dir: "asc" }
+      it "stamps a steam-shelf Stimulus controller on each shelf" do
+        get games_path
+        expect(response.body).to include('data-controller="steam-shelf"')
+      end
+
+      it "renders [see all] links on per-genre shelves" do
+        genre = Genre.create!(igdb_id: 999, name: "Adventure")
+        zelda.genres << genre
+        get games_path
+        expect(response.body).to include("?genre=#{genre.id}")
+        expect(response.body).to include(">see all<")
+      end
+
+      it "renders [see all] links on per-platform shelves" do
+        platform = Platform.create!(igdb_id: 998, name: "Switch")
+        zelda.update!(platform_owned: platform)
+        get games_path
+        expect(response.body).to include("?platform_owned=#{platform.id}")
+      end
+    end
+
+    describe "filter routes" do
+      let!(:zelda)   { create(:game, :synced, title: "Zelda", release_year: 2017) }
+      let!(:elden)   { create(:game, :synced, title: "Elden Ring", release_year: 2022) }
+      let(:adventure) { Genre.create!(igdb_id: 1001, name: "Adventure") }
+      let(:rpg)       { Genre.create!(igdb_id: 1002, name: "RPG") }
+
+      before do
+        zelda.genres << adventure
+        elden.genres << rpg
+      end
+
+      it "filters /games?genre=<id> to that genre's games" do
+        get games_path, params: { genre: adventure.id }
+        expect(response.body).to include("Zelda")
+        expect(response.body).not_to include(">Elden Ring<")
+      end
+
+      it "drops invalid genre ids silently (no filter applied)" do
+        get games_path, params: { genre: "evil; DROP TABLE games" }
         expect(response).to have_http_status(:ok)
-        # Aardvark should appear before Zelda BotW.
-        expect(response.body.index("Aardvark")).to be < response.body.index("Zelda BotW")
-      end
-
-      it "ignores an unknown sort key (falls back to default)" do
-        get games_path, params: { sort: "evil_column; DROP TABLE games --" }
-        expect(response).to have_http_status(:ok)
+        expect(response.body).to include("Zelda")
+        expect(response.body).to include("Elden Ring")
       end
     end
   end

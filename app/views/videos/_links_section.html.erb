@@ -1,0 +1,86 @@
+<%# Phase 14 §3 — linked games / bundles fieldset on the video edit
+    form. Surfaces:
+      - the current set of links (each row delegates to
+        `video_game_links/_link_row`).
+      - an inline `[ add link ]` picker (Stimulus
+        `link-picker` controller filters the option list).
+
+    `[remove]` per row routes through the shared
+    `/deletions/video_game_link/:ids` action screen rather than
+    DELETE-ing directly (CLAUDE.md hard rule — no JS confirms).
+
+    Locals:
+      video             the parent Video.
+      links             enumerable of VideoGameLink rows on this video.
+      pickable_games    Game records the picker draws from.
+      pickable_bundles  Bundle records the picker draws from.
+%>
+<fieldset style="margin-top: 16px;">
+  <legend>linked games / bundles</legend>
+
+  <% if links.any? %>
+    <table class="detail-table" style="margin-bottom: 12px;">
+      <thead>
+        <tr>
+          <th>kind</th>
+          <th>target</th>
+          <th class="num">primary</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% links.each do |link| %>
+          <%= render "video_game_links/link_row", link: link, video: video %>
+        <% end %>
+      </tbody>
+    </table>
+  <% else %>
+    <p class="text-muted" style="margin-bottom: 8px;">no links yet.</p>
+  <% end %>
+
+  <%# Picker — type to filter, click an option to submit a link
+      create. Hidden options carry the type / id; the picker keeps a
+      single `<select>` per kind so the option list stays small. %>
+  <div class="link-picker" data-controller="link-picker"
+       style="border: 1px solid #ddd; padding: 8px; margin-top: 8px;">
+    <p style="margin: 0 0 6px 0; font-weight: bold;">[ add link ]</p>
+    <input type="search"
+           data-link-picker-target="input"
+           data-action="input->link-picker#filter"
+           placeholder="type to filter games &amp; bundles"
+           style="width: 100%; max-width: 320px; margin-bottom: 6px;">
+
+    <p data-link-picker-target="empty" hidden class="text-muted" style="margin: 0 0 6px 0; font-size: 11px;">
+      no games match
+    </p>
+
+    <ul style="list-style: none; padding: 0; margin: 0; max-height: 240px; overflow-y: auto;">
+      <% pickable_games.each do |g| %>
+        <li data-link-picker-target="option" data-search-text="<%= g.title %>" style="padding: 2px 0;">
+          <%= form_with url: video_links_path(video), method: :post, local: true do %>
+            <input type="hidden" name="link_type" value="game">
+            <input type="hidden" name="linked_id" value="<%= g.id %>">
+            <input type="hidden" name="is_primary" value="no">
+            <button type="submit" class="bracketed" style="background: none; border: none; padding: 0; cursor: pointer;">
+              [<span class="bl">game</span>]
+              <%= g.title %><% if g.release_year %> (<%= g.release_year %>)<% end %>
+            </button>
+          <% end %>
+        </li>
+      <% end %>
+      <% pickable_bundles.each do |b| %>
+        <li data-link-picker-target="option" data-search-text="<%= b.name %>" style="padding: 2px 0;">
+          <%= form_with url: video_links_path(video), method: :post, local: true do %>
+            <input type="hidden" name="link_type" value="bundle">
+            <input type="hidden" name="linked_id" value="<%= b.id %>">
+            <input type="hidden" name="is_primary" value="no">
+            <button type="submit" class="bracketed" style="background: none; border: none; padding: 0; cursor: pointer;">
+              [<span class="bl">bundle</span>]
+              <%= b.name %>
+            </button>
+          <% end %>
+        </li>
+      <% end %>
+    </ul>
+  </div>
+</fieldset>

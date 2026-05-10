@@ -17,8 +17,11 @@ class BundleMember < ApplicationRecord
 
   before_validation :assign_position, on: :create
 
-  after_create_commit  :enqueue_cover_rebuild
-  after_destroy_commit :enqueue_cover_rebuild
+  # A single `after_commit` (rather than two `after_*_commit` calls of
+  # the same method name) — Rails registers two same-named callbacks
+  # as ONE entry with a UNION of `:if` filters, producing an
+  # impossible "create AND destroy in the same transaction" gate.
+  after_commit :enqueue_cover_rebuild, on: %i[create destroy]
 
   private
 

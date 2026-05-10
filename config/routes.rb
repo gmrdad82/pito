@@ -106,6 +106,13 @@ Rails.application.routes.draw do
       # mutation through the regular update path.
       patch :unpublish
     end
+    # Phase 14 §3 — game / bundle attribution links nested under the
+    # parent video. RESTful create / update / destroy; the bracketed
+    # `[remove]` button on the edit form routes through the shared
+    # `/deletions/video_game_link/:ids` action screen rather than
+    # hitting `destroy` directly (no JS confirms — CLAUDE.md hard rule).
+    resources :links, only: %i[create update destroy],
+                      controller: "video_game_links"
   end
   # Phase 4 — Project Workspace. Phase A landed the route shells; Phase B
   # fills in the controller bodies and adds nested create routes for notes

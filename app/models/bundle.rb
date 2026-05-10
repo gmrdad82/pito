@@ -33,6 +33,11 @@ class Bundle < ApplicationRecord
   has_many :bundle_members, -> { order(:position) }, dependent: :destroy
   has_many :games, through: :bundle_members
 
+  # Phase 14 §3 — video attribution. CASCADE on the FK plus `dependent:
+  # :destroy` so the AR callbacks fire when the bundle is destroyed.
+  has_many :video_game_links, dependent: :destroy
+  has_many :videos, through: :video_game_links
+
   validates :name, presence: true, length: { maximum: 255 }
   validates :bundle_type, presence: true
   validates :igdb_source_id,

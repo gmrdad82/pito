@@ -33,12 +33,34 @@ class GamesController < ApplicationController
   DEFAULT_SORT = "created_at"
   DEFAULT_DIR = "desc"
 
+  # Phase 14 §3 — Steam-shelf shelf width and "see all" filter cap.
+  SHELF_LIMIT = 12
+  GENRE_SHELF_CAP = 8
+
   skip_before_action :verify_authenticity_token, if: -> { request.format.json? }
 
+  # Phase 14 §3 — Steam-shelf rewrite. The flat sortable table is gone.
+  # The action exposes shelf-shaped collections plus a filtered
+  # `all_games` page so `?genre=<id>` / `?platform_owned=<id>` "see
+  # all" links land on a fully-listed surface.
   def index
-    @games = Game.order(sort_clause)
-    @sort = sanitized_sort_key
-    @dir = sanitized_dir
+    @bundles_shelf   = Bundle.order(updated_at: :desc).limit(10)
+    @recently_played = Game.where.not(played_at: nil).order(played_at: :desc).limit(SHELF_LIMIT)
+
+    @genres_shelves = Genre.joins(:games).distinct.order(:name).limit(GENRE_SHELF_CAP).map do |g|
+      [ g, g.games.order(Arel.sql("igdb_rating DESC NULLS LAST")).limit(SHELF_LIMIT) ]
+    end
+
+    @platforms_shelves = Platform.joins(:games_owning).distinct.order(:name).map do |p|
+      [ p, p.games_owning.order(Arel.sql("release_year DESC NULLS LAST")).limit(SHELF_LIMIT) ]
+    end
+
+    @filter = sanitized_filter
+    scope = Game.all
+    scope = scope.joins(:game_genres).where(game_genres: { genre_id: @filter[:genre_id] }) if @filter[:genre_id]
+    scope = scope.where(platform_owned_id: @filter[:platform_owned_id])                    if @filter[:platform_owned_id]
+
+    @all_games = scope.order(Arel.sql("release_year DESC NULLS LAST"))
   end
 
   def show
@@ -148,5 +170,18 @@ class GamesController < ApplicationController
     column = ALLOWED_SORTS[params[:sort]] || ALLOWED_SORTS[DEFAULT_SORT]
     direction = ALLOWED_DIRS.include?(params[:dir]&.downcase) ? params[:dir].downcase : DEFAULT_DIR
     Arel.sql("#{column} #{direction} NULLS LAST")
+  end
+
+  # Phase 14 §3 — `/games?genre=<id>` and `/games?platform_owned=<id>`
+  # filter routes power the per-shelf "[see all]" link. Both inputs
+  # are integer ids; missing / non-positive values are dropped so
+  # arbitrary `?genre=evil` strings reduce to "no filter applied".
+  def sanitized_filter
+    filter = {}
+    genre_id = params[:genre].to_i
+    platform_id = params[:platform_owned].to_i
+    filter[:genre_id] = genre_id if genre_id.positive?
+    filter[:platform_owned_id] = platform_id if platform_id.positive?
+    filter
   end
 end

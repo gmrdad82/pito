@@ -332,17 +332,14 @@ RSpec.describe "Videos", type: :request do
         expect(video.reload.last_sync_error).to be_nil
       end
 
-      it "rejects privacy_status=public in update params (422)" do
+      # The `update` smuggle guard rejects `privacy_status` in either
+      # direction. The forward direction (private → public/unlisted)
+      # belongs to `:publish`; the reverse direction (public/unlisted
+      # → private) belongs to the dedicated `:unpublish` action.
+      # Coverage for the unpublish direction lives in the
+      # `PATCH /videos/:id/unpublish` describe block below.
+      it "rejects privacy_status in update params (422)" do
         patch video_path(video), params: { video: { privacy_status: "public" } }
-        expect(response).to have_http_status(:unprocessable_content)
-      end
-
-      it "rejects privacy_status=private in update params (422)" do
-        # Even the unpublish direction is blocked from `update` — the
-        # dedicated `PATCH /videos/:id/unpublish` route is the only
-        # surface that flips a video back to private.
-        public_video = create(:video, :public, channel: channel)
-        patch video_path(public_video), params: { video: { privacy_status: "private" } }
         expect(response).to have_http_status(:unprocessable_content)
       end
 

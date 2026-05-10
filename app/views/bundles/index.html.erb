@@ -1,7 +1,9 @@
-<%# Phase 14 §2 — Bundles index. Placeholder for the Steam-shelf-
-    style listing UX which lands in Spec 03. The current shape is a
-    plain `bundles` heading + table of (name, type, members, last sync)
-    + a `[ add bundle ]` link to the create form. %>
+<%# Phase 14 §3 — Steam-shelf revamp of `/bundles`.
+    Flat wrapping grid of bundle composite covers. Each tile renders the
+    composite + bundle name + member count via `bundles/_tile`. The
+    table-shape from §2 is gone.
+
+    Empty-state copy carries through from §2 / master-agent decision #10. %>
 <% content_for(:title, "bundles") %>
 
 <div style="max-width: 1100px;">
@@ -11,31 +13,12 @@
   </div>
 
   <% if @bundles.any? %>
-    <table>
-      <thead>
-        <tr>
-          <th>name</th>
-          <th>type</th>
-          <th class="num">members</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        <% @bundles.each do |bundle| %>
-          <tr>
-            <td><%= link_to bundle.name, bundle_path(bundle), data: { turbo_frame: "_top" } %></td>
-            <td><%= bundle.bundle_type %></td>
-            <td class="num"><%= bundle.bundle_members.count %></td>
-            <td>
-              <%= render(BracketedLinkComponent.new(
-                label: "-",
-                href: deletions_path(type: "bundle", ids: bundle.id),
-                destructive: true)) %>
-            </td>
-          </tr>
-        <% end %>
-      </tbody>
-    </table>
+    <div class="bundles-grid"
+         style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-top: 8px;">
+      <% @bundles.each do |bundle| %>
+        <%= render "bundles/tile", bundle: bundle %>
+      <% end %>
+    </div>
   <% else %>
     <p class="text-muted">no bundles yet. [ add bundle ] to create one.</p>
   <% end %>

@@ -2,6 +2,10 @@ require "rails_helper"
 
 RSpec.describe "Bundles", type: :request do
   describe "GET /bundles" do
+    # Phase 14 §3 — Steam-shelf revamp. The table-shape was replaced
+    # with a wrapping tile grid. Empty-state copy and the existence of
+    # tile rows is what the spec asserts; the grid layout is verified
+    # via the `bundles-grid` class on the wrapping container.
     it "returns 200 and renders the index" do
       get bundles_path
       expect(response).to have_http_status(:ok)
@@ -14,10 +18,18 @@ RSpec.describe "Bundles", type: :request do
       expect(response.body).to include("[ add bundle ]")
     end
 
-    it "lists existing bundles" do
+    it "lists existing bundles as tiles" do
       create(:bundle, name: "Soulslikes")
       get bundles_path
       expect(response.body).to include("Soulslikes")
+      expect(response.body).to include("bundles-grid")
+    end
+
+    it "renders [no cover] em-dash fallback when composite_cover_path is blank" do
+      create(:bundle, name: "Untiled")
+      get bundles_path
+      expect(response.body).to include("Untiled")
+      expect(response.body).to include("—")
     end
   end
 
