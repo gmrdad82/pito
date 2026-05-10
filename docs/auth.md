@@ -1,79 +1,127 @@
 # Auth
 
 The single source of truth for pito's authentication and authorization model.
-This phase is the **Auth Foundation**: schema-level multi-tenancy plus
-bearer-token auth + scopes for the JSON API and MCP HTTP transport. There is no
-login UI yet; HTML routes still operate under the implicit single-user session
-(`Current.user = User.first`). Phase 6 lands the login surface on top of this
-foundation.
+pito is a **single-install, multi-user** application (ADR 0003): the whole
+database belongs to one install, every authenticated user has install-wide
+read/write access, and there is no per-user data isolation. Authentication is
+mandatory at every endpoint, every MCP tool, and every controller action.
 
-The pieces are split across three steps:
+Four surfaces gate access to the install:
 
-- **Step A** — schema (Tenant, User, `BelongsToTenant`).
-- **Step B** — `ApiToken`, scope catalog, `Api::AuthConcern`, audit log,
-  rack-attack throttle.
-- **Step C** — Settings UI for token CRUD, dev token seed, this document.
+- **Browser → Rails (Web Puma)** — cookie + DB-backed sessions; login is email +
+  password (Phase 8).
+- **MCP / `pito` CLI → Rails (MCP Puma + API routes)** — bearer `ApiToken`s
+  (HMAC-digested, scoped, revocable).
+- **Third-party clients → Rails** — Doorkeeper-issued OAuth 2.0 tokens
+  (Authorization Code + PKCE; Phase 6B).
+- **pito → Google (outbound delegation)** — OAuth-delegated `GoogleIdentity` for
+  YouTube API access (Phase 7; channel-only OAuth per ADR 0006).
 
 If you came here looking for something specific:
 
+- "How do I log in?" → §1 (login flow).
 - "How do I generate a dev token?" → §7.
-- "Which scope does my MCP tool require?" → §3.
-- "How does a request flow through auth?" → §4.
-- "What's the `belongs_to_tenant` raise about?" → §5.
-- "Why does the schema look different from the original Phase 3 plan?" → §10.
+- "Which scope does my MCP tool require?" → §4.
+- "How does a request flow through auth?" → §5.
 
 ## Auth surfaces overview
 
-This document is authoritative for **bearer ApiTokens** (Phase 5 Auth
-Foundation). After Phases 6 and 7 landed, the auth landscape now spans four
-surfaces. ApiTokens are one of four; the other three are documented elsewhere.
-Use this map to find the right authority for the surface you care about:
+This document is authoritative for **email + password login** (surface #1, §1
+below) and **bearer ApiTokens** (surface #2, the rest of the document — the
+original Phase 5 Auth Foundation). Surfaces #3 and #4 are documented elsewhere.
 
-| #   | Surface                   | Mechanism                                            | Authoritative reference                                                                                                                                                                                                |
-| --- | ------------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Browser → Rails           | Cookie + DB-backed sessions (per-session revocation) | Spec: `docs/plans/beta/12-auth-ui-multi-user-readiness/specs/6a-sessions-and-login-ui.md`. Live code: `app/controllers/concerns/sessions/auth_concern.rb`. Revocation UI at `/settings/sessions`.                      |
-| 2   | MCP / `pito` CLI → Rails  | Bearer ApiTokens (HMAC-digested, scoped, revocable)  | The rest of this document (`docs/auth.md`). Live code: `app/lib/api/token_authenticator.rb`, `app/models/api_token.rb`.                                                                                                |
-| 3   | 3rd-party clients → Rails | Doorkeeper-issued OAuth (Authorization Code + PKCE)  | Spec: `docs/plans/beta/12-auth-ui-multi-user-readiness/specs/6b-doorkeeper-oauth-server.md`. Live config: `config/initializers/doorkeeper.rb`. Tokens are 2h access / 14d refresh.                                     |
-| 4   | pito → Google (YouTube)   | OAuth-delegated `GoogleIdentity` (encrypted at rest) | `docs/architecture.md` "Google OAuth + YouTube API foundation (Phase 7)" section. Live code: `app/models/google_identity.rb`. Scopes: `youtube.readonly` + `yt-analytics.readonly`. `needs_reauth` flag drives banner. |
+| #   | Surface                   | Mechanism                                            | Authoritative reference                                                                                                                                                                                                                   |
+| --- | ------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Browser → Rails           | Cookie + DB-backed sessions (email + password)       | §1 below for the login flow + rate-limit + audit shape. Live code: `app/controllers/sessions_controller.rb`, `app/controllers/concerns/sessions/auth_concern.rb`. Revocation UI at `/settings/sessions`.                                  |
+| 2   | MCP / `pito` CLI → Rails  | Bearer ApiTokens (HMAC-digested, scoped, revocable)  | The rest of this document (`docs/auth.md`). Live code: `app/lib/api/token_authenticator.rb`, `app/models/api_token.rb`.                                                                                                                   |
+| 3   | 3rd-party clients → Rails | Doorkeeper-issued OAuth (Authorization Code + PKCE)  | Spec: `docs/plans/beta/12-auth-ui-multi-user-readiness/specs/6b-doorkeeper-oauth-server.md`. Live config: `config/initializers/doorkeeper.rb`. Tokens are 2h access / 14d refresh. Stays per ADR 0005.                                    |
+| 4   | pito → Google (YouTube)   | OAuth-delegated `GoogleIdentity` (encrypted at rest) | `docs/architecture.md` "Google OAuth + YouTube API foundation (Phase 7)" section. Live code: `app/models/google_identity.rb`. Channel-only OAuth per ADR 0006 (no "Sign in with Google"); rename to `YoutubeConnection` lands in Phase 9. |
 
 The four surfaces are independent. A request from a browser session (#1) cannot
 authenticate as an ApiToken (#2); a Doorkeeper access token (#3) does not grant
 Google API access (#4). Each surface has its own credential type, lifetime, and
 revocation path.
 
-The remainder of this document focuses on surface #2 (bearer ApiTokens) — that
-is the original Phase 5 Auth Foundation.
+## 1. Login flow (email + password)
 
-## 1. Model overview
+The login form at `/login` accepts a single `email` field plus `password` and
+submits to `SessionsController#create`. There is no "username" path and no "Sign
+in with Google" alternative — Phase 8 dropped the `username` column from `users`
+(ADR 0003 + 0006), and ADR 0006 narrowed Google OAuth to channel connection
+only.
 
-Four moving parts:
+### Model
+
+- `User` — auth-only model. Columns:
+  `id, email (citext, unique, NOT NULL), password_digest, created_at, updated_at`.
+  No `username`, no `tenant_id`, no `admin`. `has_secure_password`.
+- `Session` — DB-backed session record (Phase 6A). Carries the cookie's session
+  id, the user reference, IP / user-agent metadata, and supports per-session
+  revocation via `/settings/sessions`.
+
+### Flow
 
 ```
-Tenant ──< User ──< ApiToken
-                       │
-                       └── scopes: ["dev:read", "yt:write", ...]
+POST /login (email, password)
+   │
+   ├── User.find_by(email: <stripped, downcased>)
+   ├── If found: user.authenticate(password)        → bcrypt compare
+   │   If not found: bcrypt_dummy_compare(password) → constant-time, same wall-cost
+   │
+   ├── Both branches return the same generic
+   │   "invalid email or password." flash on failure
+   │   (no oracle on whether the email exists).
+   │
+   ▼ on success
+   Session.create_for!(user:) — issues cookie
+   redirect_to <intended_path> || root_path
+```
+
+The bcrypt-dummy-compare on the no-such-email branch closes the timing oracle
+that previously distinguished "no such email" from "wrong password" via wall-
+clock latency (Phase 8 F1 fix).
+
+### Rate limit
+
+`SessionThrottle` blocklists IPs that fail login more than **10 times in 5
+minutes**. The bucket is keyed on the request IP. A blocklisted request returns
+the form re-rendered with a throttling notice; the bucket clears as it ages out.
+Rate limiting is per-IP (not per-email) so spammers cannot lock a victim out by
+guessing their email; comprehensive rate-limit hardening is a later phase.
+
+### Audit log
+
+Every login attempt — success or failure — writes a JSON line to
+`log/auth_audit.log`. The payload includes `email_attempted` (renamed from the
+pre-Phase-8 `identifier_attempted`), the outcome, and request metadata. See §8
+for the full event catalog.
+
+## 2. ApiToken model overview
+
+Three moving parts:
+
+```
+User ──< ApiToken
+              │
+              └── scopes: ["dev:read", "yt:write", ...]
 
 Current   (ActiveSupport::CurrentAttributes)
-  ├── tenant
   ├── user
+  ├── session
   └── token         ← set by Api::TokenAuthenticator on every API request
 ```
 
-- `Tenant` — isolation unit. One row in this phase. Has a `slug` (citext,
-  unique) and a `name`. No `belongs_to_tenant` itself (a tenant has no parent
-  tenant).
-- `User` — owner of tokens. One row in this phase, seeded from the `:owner`
-  credentials block. Uses `has_secure_password`. `username` and `email` are
-  globally unique (deliberate departure — see §10).
+- `User` — owner of tokens (see §1). Seeded from the `:owner` credentials block
+  (`{ email, password }`).
 - `ApiToken` — bearer credential. Stored as an HMAC-SHA256 digest with a
   server-side `:tokens.pepper` credential; plaintext is shown once at creation
   and never persisted. Has a `name`, a `scopes` jsonb array, optional
   `expires_at`, and a soft-revoke `revoked_at`.
-- `Current` — `ActiveSupport::CurrentAttributes`. Carries `tenant`, `user`,
+- `Current` — `ActiveSupport::CurrentAttributes`. Carries `user`, `session`,
   `token` for the duration of a request (or job, or rake task). Reset on every
-  response and between every spec example.
+  response and between every spec example. There is no `Current.tenant`.
 
-## 2. Scope catalog
+## 3. Scope catalog
 
 Authoritative source: `app/lib/scopes.rb`. Listed below as a reference; if the
 two diverge, the file wins.
@@ -94,7 +142,7 @@ Naming pattern: `<namespace>:<permission>`. Adding a new scope means editing
 `Scopes::ALL` and `Scopes::DESCRIPTIONS` and ticking the corresponding tools'
 `require_scope!` calls.
 
-## 3. Tool / endpoint scope map
+## 4. Tool / endpoint scope map
 
 Every MCP tool's `call` method opens with `Mcp::ToolAuth.require_scope!(...)`.
 Every JSON controller action declares its required scope via `require_scope!`
@@ -132,12 +180,12 @@ from `Api::AuthConcern`.
 | `GET /api/projects/:project_id/footages`  | `project:read`  |
 | `POST /api/projects/:project_id/footages` | `project:write` |
 
-The HTML routes (`/channels`, `/videos`, `/projects`, `/settings`, etc.) do not
-require bearer tokens in this phase — they operate under the implicit
-single-user session via `ApplicationController#set_current_tenant_and_user`.
-Phase 6 adds the login UI and gates these routes behind a real session.
+HTML routes (`/channels`, `/videos`, `/projects`, `/settings`, etc.) are gated
+by `Sessions::AuthConcern`: an authenticated cookie session is required, and
+unauthenticated requests redirect to `/login` with the intended URL stashed.
+Bearer tokens are for surfaces #2 and #3 only.
 
-## 4. Request flow
+## 5. Request flow (bearer tokens)
 
 Both Pumas (Web on 3027, MCP on 3028) share the same auth engine
 (`Api::TokenAuthenticator`).
@@ -162,9 +210,8 @@ Api::TokenAuthenticator.authenticate(env)
    │
    ▼ on SUCCESS
    token.touch_used!                    # update_columns(last_used_at: now)
-   Current.token  = token
-   Current.user   = token.user
-   Current.tenant = token.tenant
+   Current.token = token
+   Current.user  = token.user
    AUTH_AUDIT_LOGGER.info(auth.success)
    return Result.success(token)
    │
@@ -202,33 +249,13 @@ delegates to the streamable HTTP transport, and resets in an `ensure` block.
 Per-tool scope enforcement happens inside each tool's `call` method via
 `Mcp::ToolAuth.require_scope!`.
 
-## 5. `belongs_to_tenant` enforcement
-
-`app/models/concerns/belongs_to_tenant.rb` is included by every tenanted model.
-It declares:
-
-- `belongs_to :tenant`
-- `validates :tenant_id, presence: true`
-- `default_scope { where(tenant_id: Current.tenant_id) }` — the scope is applied
-  **always**, and **raises** `BelongsToTenant::TenantContextMissing` when
-  `Current.tenant_id` is nil. Bugs are loud; missing tenant context is never
-  silent.
-
-The escape hatch is `Model.unscoped`. Use it in the rare cases where the caller
-intentionally needs to see across tenants — seed scripts, the authenticator's
-pre-Current digest lookup, the cross-tenant leak spec. In application code there
-are no legitimate callers.
-
-`Tenant` and `User` deliberately do NOT include the concern. Tenant has no
-parent; User is queried by future login flows that don't yet have a tenant pin.
-
 ## 6. Token lifecycle
 
 ```
 Settings::TokensController#create   |   bin/rails 'tokens:create[name,...]'
                               │
                               ▼
-            ApiToken.generate!(tenant:, user:, name:, scopes:, expires_at: nil)
+            ApiToken.generate!(user:, name:, scopes:, expires_at: nil)
               ─ generates SecureRandom.urlsafe_base64(32) plaintext
               ─ stores HMAC-SHA256 digest + last 4 chars
               ─ returns [record, plaintext]
@@ -305,7 +332,7 @@ against `log/auth_audit.log`. Format: one JSON line per event.
 
 Event types:
 
-- `auth.success` — successful authenticate.
+- `auth.success` — successful bearer authenticate.
 - `auth.missing_token` — no Authorization header (or no Bearer prefix).
 - `auth.invalid_token` — digest didn't match any row.
 - `auth.revoked_token` — row found, but `revoked_at` is set.
@@ -313,6 +340,13 @@ Event types:
 - `auth.misconfigured` — `:tokens.pepper` credential absent.
 - `token.created` — Settings UI minted a new token.
 - `token.revoked` — Settings UI revoked a token.
+- `session.create.success` — successful login. Payload includes
+  `email_attempted`.
+- `session.create.failure` — failed login. Payload includes `email_attempted`
+  and a generic failure reason. The reason does NOT distinguish "no such email"
+  from "wrong password" — the bcrypt-dummy-compare path produces the same
+  outcome shape on either branch (Phase 8 F1 fix).
+- `session.destroy` — logout.
 
 Rotation is host-side (logrotate); out of scope for this phase.
 
@@ -321,68 +355,26 @@ Rails request cycle; the controllers write from inside.
 
 ## 9. Throttling
 
-`config/initializers/rack_attack.rb` blocklists IPs that fail authentication
-more than 10 times in 5 minutes. The bucket is keyed on the request IP and
-incremented from inside `Api::TokenAuthenticator` whenever it returns a failure.
+Two independent throttles defend the install:
 
-A blocklisted request returns `429 {"error": "too_many_requests"}`. The
-blocklist is per-IP and not per-token (you can't burn through a token's budget
-by spamming). HTML routes are exempt — only `/api/*` and `/mcp` are gated.
+- **`SessionThrottle`** — gates the login form. Blocklists IPs that fail login
+  more than 10 times in 5 minutes (see §1).
+- **`config/initializers/rack_attack.rb`** — gates bearer-token surfaces.
+  Blocklists IPs that fail bearer authentication more than 10 times in 5
+  minutes; incremented from inside `Api::TokenAuthenticator` whenever it returns
+  a failure. A blocklisted request returns `429 {"error": "too_many_requests"}`.
+  Only `/api/*` and `/mcp` are gated; HTML routes go through `SessionThrottle`.
 
-Comprehensive rate limiting is Phase 15.
+Both buckets are per-IP, not per-credential. Comprehensive rate-limit hardening
+is a later phase.
 
-## 10. Departures from the original Phase 3 plan
+## 10. Future phase hooks
 
-Four schema decisions diverge from the locked Phase 3 (Auth Foundation) plan
-that pre-dates the Channel Revamp pivot. Each is a deliberate choice; future
-phases can revisit.
-
-### `users.email` and `users.username` are globally unique
-
-The original plan specified per-tenant uniqueness (a UNIQUE index on
-`(tenant_id, email)`). Channel Revamp shipped a global UNIQUE index on `email`
-and on `username` instead. With one tenant in the system, the practical behavior
-is identical; the global indexes are simpler to reason about and support the
-future "log in by username/email anywhere on the app" shape without reaching
-into the URL for a tenant slug.
-
-The trade-off: when multi-tenancy lands at Theta, two tenants can't share a
-username or email. Theta's spec will revisit; until then, single-tenant makes
-the question moot.
-
-### `users.role` and `users.name` are dropped
-
-The plan had `role` (string, default `"owner"`) and `name`. Single-user world
-makes the role column dead weight (every row is `"owner"`); username + email
-cover every display need without `name`. Both columns are absent from the
-shipped schema. When auth grows roles (admin / member / etc. in a future phase),
-the column comes back via a migration.
-
-### `tenants.slug` was added late
-
-The original plan didn't specify a `slug`. Channel Revamp shipped tenants with
-`name` only; Step A added `slug` (citext, unique, NOT NULL) so URLs like
-`/<tenant_slug>/...` are achievable when multi-tenancy lands. The seed backfills
-slug from `:owner.tenant_slug` (fallback `"primary"`).
-
-### `mcp_access_tokens` was renamed, not dropped
-
-The plan said the Alpha-era token table would be dropped and replaced with a
-fresh `api_tokens` table. Step B chose to rename (`rename_table`) and extend
-(`add_column tenant_id, user_id, scopes, expires_at`) instead. Rationale:
-preserves the working `bin/rails tokens:*` rake task path; rolling back the
-rename is cheaper than rolling back a drop+create+migrate cycle. Existing rows
-backfilled to `Tenant.first` / `User.first` and the dev:\* scope set.
-
-## 11. Future phase hooks
-
-| Phase    | What it adds                                                                                                    |
-| -------- | --------------------------------------------------------------------------------------------------------------- |
-| Phase 6  | Activates `website:*` tools (landing-page editor).                                                              |
-| Phase 7  | Google OAuth tokens tied to Users (different model: `GoogleIdentity`); doesn't change the bearer-token surface. |
-| Phase 12 | Login form + session UI on top of this foundation. Doorkeeper for OAuth client flows. Token expiry automation.  |
-| Phase 15 | Hardens rate limits beyond the basic rack-attack rule.                                                          |
-| Theta    | Multi-tenant admin tooling, per-tenant uniqueness revisit.                                                      |
+| Phase    | What it adds                                                                                                                          |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Phase 9  | Renames `GoogleIdentity` → `YoutubeConnection` (channel-only OAuth per ADR 0006). Bearer-token surface unaffected.                    |
+| Phase 12 | Hardens auth UI: token expiry automation, session management improvements, multi-user readiness on top of the single-install posture. |
+| Phase 15 | Hardens rate limits beyond the current `SessionThrottle` + `rack-attack` rules.                                                       |
 
 When a phase touches the auth surface, the `Scopes` module is the place to add
 new entries; `Api::AuthConcern` and `Mcp::ToolAuth.require_scope!` are the

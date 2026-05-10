@@ -56,9 +56,9 @@ volume is unused in the test environment.
 ## 3. Configure credentials
 
 pito reads three blocks from Rails encrypted credentials: `:postgres` (database
-connection), `:owner` (seed-time tenant + user), and `:tokens.pepper` (HMAC key
-for API token digests). The `:tokens.pepper` is mandatory before `bin/setup`;
-the script halts with a walkthrough if it's absent.
+connection), `:owner` (seed-time owner email + password), and `:tokens.pepper`
+(HMAC key for API token digests). The `:tokens.pepper` is mandatory before
+`bin/setup`; the script halts with a walkthrough if it's absent.
 
 ### `:postgres` block
 
@@ -85,9 +85,10 @@ postgres:
 
 ### `:owner` block
 
-`db/seeds.rb` reads `Rails.application.credentials.owner` to seed the
-workspace's single Tenant + User. If the block is missing, seeds fall back to
-placeholder values and print a warning.
+`db/seeds.rb` reads `Rails.application.credentials.owner` to seed the install's
+owner User. pito is single-install, multi-user (ADR 0003) — the seed mints one
+User; additional users today need a manual row insert. If the block is missing,
+seeding fails with a clear error.
 
 Edit the **development** credentials:
 
@@ -99,8 +100,6 @@ Add:
 
 ```yaml
 owner:
-  tenant_name: <your-tenant-name>
-  username: <your-username>      # alphanumeric, must start with a letter
   email: <your-email>
   password: <your-password>
 ```
@@ -111,10 +110,10 @@ Repeat for the **test** environment so test seeds resolve cleanly:
 bin/rails credentials:edit --environment test
 ```
 
-The `:owner` block is the single source of truth for the seeded singletons. HTML
-routes still operate under the implicit single-user session
-(`Current.user = User.first`); login UI lands in Phase 6. JSON API and MCP HTTP
-transport require explicit bearer tokens (see `:tokens.pepper` below).
+The `:owner` block is the single source of truth for the seeded owner User. HTML
+routes are gated by `Sessions::AuthConcern` (login at `/login`, see
+`docs/auth.md` §1). JSON API and MCP HTTP transport require explicit bearer
+tokens (see `:tokens.pepper` below).
 
 ### `:tokens.pepper` block
 
@@ -174,10 +173,25 @@ bin/rails db:prepare
 bin/rails db:seed
 ```
 
-`db:seed` creates 1 Tenant + 1 User from the `:owner` credentials block, mints a
-default `dev` API token (idempotent), then 100 sample Channels with a
-deterministic distribution (7 starred, 6 connected, 2 in the intersection).
-Re-running is idempotent.
+`db:seed` creates 1 User from the `:owner` credentials block, mints a default
+`dev` API token (idempotent), then 100 sample Channels with a deterministic
+distribution (7 starred, 6 connected, 2 in the intersection). Re-running is
+idempotent.
+
+### Destructive-and-reseed migration posture
+
+Per ADR 0003 + ADR 0006, the Phase 8 tenant drop is a **destructive-and-
+reseed** migration. No production data exists; pito has not shipped to anyone
+outside the developer's machine. To reach the post-Phase-8 shape from a pre-
+Phase-8 database, drop and reseed:
+
+```bash
+bin/rails db:drop db:create db:migrate db:seed
+```
+
+This is the canonical recovery path whenever the schema lurches significantly in
+Beta. Migration `down` paths are present for Rails bookkeeping but do not
+restore prior data; rollback is not a supported workflow in Beta.
 
 ### Capture the dev token
 
@@ -262,8 +276,10 @@ with the YouTube APIs enabled and an OAuth 2.0 Web client configured. This is a
 the click-by-click steps below exist for repeatability on a fresh machine or a
 fresh Google account. Locked by decision 7.3 in
 `docs/plans/beta/07-google-oauth-youtube-foundation/specs/7a-google-oauth-and-identity.md`
-— sole-user / single-tenant Beta; automation via `gcloud` CLI is revisited
-if/when a team scales the project.
+— sole-user / single-install Beta; automation via `gcloud` CLI is revisited
+if/when distribution scales the project. Per ADR 0006, Google OAuth is
+channel-only (no "Sign in with Google"); local password auth is the canonical
+login path.
 
 This is a deployment-/credentials-time concern, not a first-boot concern — skip
 it until Phase 7 work is actually starting.
