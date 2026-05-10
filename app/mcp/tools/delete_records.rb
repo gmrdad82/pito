@@ -4,6 +4,11 @@ module Mcp
       tool_name "delete_records"
       description "Generic two-step bulk deleter for channels or videos. The URL `/deletions/:type/:ids` is the canonical confirmation resource — this tool mirrors it. Without `confirm: \"yes\"` returns a structured preview (no state change). With `confirm: \"yes\"` creates a BulkOperation, enqueues BulkDeleteJob, and returns operation_id + status_url. Single-record delete is a one-element ids array. Cascading deletes apply (channels destroy their videos)."
 
+      # Phase 20 — friendly URLs. `ids` accepts a heterogeneous list of
+      # slugs and integer ids (each item rendered as a string by the
+      # JSON-RPC schema). The previous integer-only contract still works
+      # because integer-shaped strings round-trip through
+      # `Model.friendly.find` to the canonical record.
       input_schema(
         type: "object",
         properties: {
@@ -14,9 +19,9 @@ module Mcp
           },
           ids: {
             type: "array",
-            items: { type: "integer" },
+            items: { type: "string" },
             minItems: 1,
-            description: "Record IDs to delete (1 or more)"
+            description: "Record slugs or integer ids (1 or more, mix allowed)"
           },
           confirm: {
             type: "string",
@@ -34,8 +39,13 @@ module Mcp
         scope_err = Mcp::ToolAuth.require_scope!(Scopes::APP)
         return scope_err if scope_err
 
-        ids = Array(ids).map(&:to_i).uniq
-        return error_response("no IDs provided.") if ids.empty?
+        # Phase 20 — friendly URLs. Each `ids` entry is a string. We
+        # resolve each through `Model.friendly.find` to translate slugs
+        # to integer ids before the bulk-delete pipeline (which keys on
+        # integer ids end-to-end). Unknown / not-found entries are
+        # surfaced via `not_found_ids`.
+        raw_keys = Array(ids).map(&:to_s).reject(&:blank?).uniq
+        return error_response("no IDs provided.") if raw_keys.empty?
 
         unless YesNo.yes_no?(confirm)
           return error_response("confirm must be 'yes' or 'no' (got #{confirm.inspect})")
@@ -45,9 +55,21 @@ module Mcp
         klass = model_for(type)
         return error_response("unknown type: #{type}") unless klass
 
-        records = klass.where(id: ids)
-        found_by_id = records.index_by(&:id)
-        not_found_ids = ids - found_by_id.keys
+        found_by_id = {}
+        not_found_ids = []
+        raw_keys.each do |key|
+          record = begin
+            klass.friendly.find(key)
+          rescue ActiveRecord::RecordNotFound
+            nil
+          end
+          if record
+            found_by_id[record.id] = record
+          else
+            not_found_ids << key
+          end
+        end
+        ids = found_by_id.keys
 
         items = ids.filter_map do |id|
           record = found_by_id[id]
@@ -55,7 +77,7 @@ module Mcp
           { id: record.id, label: label_for(record, type) }
         end
 
-        preview_url = "/deletions/#{type}/#{ids.join(',')}"
+        preview_url = "/deletions/#{type}/#{raw_keys.join(',')}"
 
         if confirmed
           if items.empty?

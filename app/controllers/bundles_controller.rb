@@ -14,12 +14,16 @@
 # routed but redirects through the action screen, matching the
 # project's "no JS confirms" rule.
 class BundlesController < ApplicationController
+  include FriendlyRedirect
+
   def index
     @bundles = Bundle.order(created_at: :desc)
   end
 
   def show
-    @bundle = Bundle.find(params[:id])
+    @bundle = Bundle.friendly.find(params[:id])
+    return if redirect_to_canonical_slug!(@bundle) { |b| bundle_path(b) }
+
     @members = @bundle.bundle_members.includes(:game).order(:position)
   end
 
@@ -37,11 +41,11 @@ class BundlesController < ApplicationController
   end
 
   def edit
-    @bundle = Bundle.find(params[:id])
+    @bundle = Bundle.friendly.find(params[:id])
   end
 
   def update
-    @bundle = Bundle.find(params[:id])
+    @bundle = Bundle.friendly.find(params[:id])
     if @bundle.update(update_params)
       redirect_to bundle_path(@bundle), notice: "bundle updated."
     else
@@ -54,7 +58,7 @@ class BundlesController < ApplicationController
   # destructive-action posture (no JS confirms; everything goes
   # through the shared `_action_screen` partial).
   def destroy
-    @bundle = Bundle.find(params[:id])
+    @bundle = Bundle.friendly.find(params[:id])
     redirect_to deletions_path(type: "bundle", ids: @bundle.id)
   end
 
@@ -65,7 +69,7 @@ class BundlesController < ApplicationController
   # any not-yet-member games to the bundle. Additive only — never
   # removes existing members.
   def seed_from_igdb
-    @bundle = Bundle.find(params[:id])
+    @bundle = Bundle.friendly.find(params[:id])
 
     if @bundle.type_custom? || @bundle.igdb_source_type.blank? || @bundle.igdb_source_id.blank?
       redirect_to bundle_path(@bundle),

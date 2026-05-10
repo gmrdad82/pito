@@ -17,6 +17,8 @@
 # JSON write paths (PATCH / DELETE) live under `Api::FootagesController` for
 # surface symmetry with collection actions.
 class FootagesController < ApplicationController
+  include FriendlyRedirect
+
   # Phase 7.5 §06 — Footage thumbnails. The three frame-streaming
   # endpoints (manifest JSON, master JPEG, thumb JPEG) are public-read.
   # The CLI's wire-shape contract — anchored by
@@ -38,6 +40,8 @@ class FootagesController < ApplicationController
   end
 
   def show
+    return if redirect_to_canonical_slug!(@footage) { |f| footage_path(f) }
+
     respond_to do |format|
       format.html
       format.json { render json: footage_json(@footage) }
@@ -104,7 +108,7 @@ class FootagesController < ApplicationController
   private
 
   def set_footage
-    @footage = Footage.find(params[:id])
+    @footage = Footage.friendly.find(params[:id])
   end
 
   # Phase 7.5 §06 — Public-read frame endpoints have no cookie session.
@@ -112,7 +116,7 @@ class FootagesController < ApplicationController
   # `BelongsToTenant` default scope; with the tenant drop the default
   # scope is gone and a plain `find` is sufficient.
   def lookup_footage(id)
-    Footage.find(id)
+    Footage.friendly.find(id)
   end
 
   # Phase 7.5 §06 — Stream a single frame from the assets root. `tier` is

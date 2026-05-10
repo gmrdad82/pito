@@ -4,10 +4,16 @@ module Mcp
       tool_name "get_channel"
       description "Get the full detail JSON for a channel: id, channel_url, star, connected (derived from youtube_connection), last_synced_at, video_count, timestamps."
 
+      # Phase 20 — friendly URLs. `id` accepts either a slug (UC-id /
+      # `channel-<id>` fallback) or an integer id as a string. Schema is
+      # `string` so the JSON-RPC input validator accepts both shapes.
       input_schema(
         type: "object",
         properties: {
-          id: { type: "integer", description: "Channel ID" }
+          id: {
+            type: "string",
+            description: "Channel slug (UC-id) or integer id (as string)"
+          }
         },
         required: [ "id" ]
       )
@@ -18,7 +24,11 @@ module Mcp
         scope_err = Mcp::ToolAuth.require_scope!(Scopes::APP)
         return scope_err if scope_err
 
-        channel = Channel.find_by(id: id)
+        channel = begin
+          Channel.friendly.find(id)
+        rescue ActiveRecord::RecordNotFound
+          nil
+        end
         return error_response("channel not found: #{id}") unless channel
 
         data = ChannelDecorator.new(channel).as_detail_json

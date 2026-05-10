@@ -19,7 +19,9 @@ RSpec.describe "Calendar quick-add", type: :system do
     fill_in "calendar_entry_starts_at", with: 1.day.from_now.strftime("%Y-%m-%dT%H:%M")
     choose "calendar_entry_entry_type_milestone_manual"
     choose "calendar_entry_all_day_no"
-    click_button "[ create ]"
+    # Bracketed-link convention: no inner spaces (`[create]` not
+    # `[ create ]`). See `docs/agents/rails.md` rule A.
+    click_button "[create]"
     expect(page).to have_content("calendar entry created")
     expect(page).to have_content("podcast appearance")
   end

@@ -18,7 +18,14 @@ class BundleMembersController < ApplicationController
   before_action :load_bundle
 
   def create
-    game = Game.find_by(id: params[:game_id])
+    # Phase 20 — friendly URLs. The hidden field on the add-member form
+    # currently sends an integer Game id, but the boundary accepts a
+    # slug too so future form refactors don't have to thread the change.
+    game = begin
+      Game.friendly.find(params[:game_id])
+    rescue ActiveRecord::RecordNotFound
+      nil
+    end
     if game.nil?
       redirect_to bundle_path(@bundle), alert: "game not found.",
                   status: :see_other
@@ -56,6 +63,6 @@ class BundleMembersController < ApplicationController
   private
 
   def load_bundle
-    @bundle = Bundle.find(params[:bundle_id])
+    @bundle = Bundle.friendly.find(params[:bundle_id])
   end
 end

@@ -1,4 +1,6 @@
 class ChannelsController < ApplicationController
+  include FriendlyRedirect
+
   # JSON endpoints are unauthenticated for the single-user dev environment
   # behind the Cloudflare tunnel. Phase 3 Auth Foundation will add API token
   # auth. CSRF is skipped only for JSON requests so the HTML form path keeps
@@ -37,7 +39,9 @@ class ChannelsController < ApplicationController
   end
 
   def show
-    @channel = Channel.find(params[:id])
+    @channel = Channel.friendly.find(params[:id])
+    return if redirect_to_canonical_slug!(@channel) { |c| channel_path(c) }
+
     @max_panes = max_panes
     @available_channels = Channel.where.not(id: @channel.id).order(:channel_url)
 
@@ -76,11 +80,11 @@ class ChannelsController < ApplicationController
   end
 
   def edit
-    @channel = Channel.find(params[:id])
+    @channel = Channel.friendly.find(params[:id])
   end
 
   def update
-    @channel = Channel.find(params[:id])
+    @channel = Channel.friendly.find(params[:id])
 
     attrs, error = coerce_update_attrs
     if error
@@ -105,7 +109,7 @@ class ChannelsController < ApplicationController
   end
 
   def destroy
-    @channel = Channel.find(params[:id])
+    @channel = Channel.friendly.find(params[:id])
     @channel.destroy
     respond_to do |format|
       format.html { redirect_to channels_path, notice: "channel deleted." }
@@ -120,7 +124,7 @@ class ChannelsController < ApplicationController
   # VideosController#index so the same Rust `Video` struct decodes either
   # response.
   def videos
-    @channel = Channel.find(params[:id])
+    @channel = Channel.friendly.find(params[:id])
     @videos = @channel.videos
       .left_joins(:video_stats)
       .select(
@@ -149,9 +153,18 @@ class ChannelsController < ApplicationController
 
     @max_panes = max_panes
     @current_ids = ids.first(@max_panes)
-    @panes = @current_ids.map { |id| Channel.find_by(id: id) }
+    # Phase 20 — friendly URLs. Pane keys arrive as either integer ids
+    # (legacy bookmarks) or UC-id slugs. `friendly.find` resolves both;
+    # we swallow `RecordNotFound` so a missing pane shows up as nil and
+    # the view renders a placeholder instead of 500ing the row.
+    @panes = @current_ids.map do |key|
+      Channel.friendly.find(key)
+    rescue ActiveRecord::RecordNotFound
+      nil
+    end
+    @resolved_pane_ids = @panes.compact.map(&:id)
     @pane_title_length = pane_title_length
-    @available_channels = Channel.where.not(id: @current_ids).order(:channel_url) if @panes.compact.size < @max_panes
+    @available_channels = Channel.where.not(id: @resolved_pane_ids).order(:channel_url) if @panes.compact.size < @max_panes
     @saved_view = SavedView.find_by(kind: :channels, url: CGI.unescape(request.fullpath))
   end
 

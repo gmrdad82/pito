@@ -9,7 +9,9 @@ RSpec.describe "Calendar edit / cancel", type: :system do
     visit calendar_entry_path(ce)
     click_link "edit"
     fill_in "calendar_entry_title", with: "new name"
-    click_button "[ save ]"
+    # Bracketed-link convention: no inner spaces (`[save]` not
+    # `[ save ]`). See `docs/agents/rails.md` rule A.
+    click_button "[save]"
     expect(ce.reload.title).to eq("new name")
   end
 

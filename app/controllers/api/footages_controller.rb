@@ -124,11 +124,11 @@ module Api
     private
 
     def set_project
-      @project = Project.find(params[:project_id])
+      @project = Project.friendly.find(params[:project_id])
     end
 
     def set_footage
-      @footage = Footage.find(params[:id])
+      @footage = Footage.friendly.find(params[:id])
     end
 
     def build_create_attrs

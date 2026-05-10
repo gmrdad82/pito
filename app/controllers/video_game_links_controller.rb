@@ -86,7 +86,7 @@ class VideoGameLinksController < ApplicationController
   private
 
   def load_video
-    @video = Video.find(params[:video_id])
+    @video = Video.friendly.find(params[:video_id])
   end
 
   def uniqueness_violation?(link)

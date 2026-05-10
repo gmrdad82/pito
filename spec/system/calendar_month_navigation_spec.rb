@@ -45,11 +45,15 @@ RSpec.describe "Calendar month navigation", type: :system do
     expect(page).to have_current_path("/calendar/schedule")
   end
 
-  it "[+] in the breadcrumb actions links to the new entry form" do
+  it "[+] in the breadcrumb actions submits the default-create form (POST /calendar/entries)" do
+    # The [+] action is a `button_to` (Projects-pattern default-create):
+    # POSTs to /calendar/entries with no payload, the controller
+    # seeds an "Untitled event" milestone_manual entry, and redirects
+    # to /edit. Capybara's `click_button "+"` triggers the form submit.
     visit "/calendar/month/2026/05"
-    within("nav.dot-list") do
-      click_link "+"
-    end
-    expect(page).to have_current_path("/calendar/entries/new")
+    expect {
+      within("nav.dot-list") { click_button "+" }
+    }.to change { CalendarEntry.count }.by(1)
+    expect(page.current_path).to match(%r{\A/calendar/entries/\d+/edit\z})
   end
 end

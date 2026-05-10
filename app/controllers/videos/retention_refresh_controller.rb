@@ -5,7 +5,7 @@
 # dedicated refresh endpoint distinct from the V1-V8 sync trigger.
 class Videos::RetentionRefreshController < ApplicationController
   def create
-    video = Video.find(params[:video_id])
+    video = Video.friendly.find(params[:video_id])
     connection = video.channel&.youtube_connection
 
     if connection.nil? || connection.needs_reauth?

@@ -14,9 +14,9 @@ module Mcp
           },
           ids: {
             type: "array",
-            items: { type: "integer" },
+            items: { type: "string" },
             minItems: 1,
-            description: "Record IDs to sync (1 or more)"
+            description: "Record slugs or integer ids (1 or more, mix allowed)"
           },
           confirm: {
             type: "string",
@@ -34,8 +34,10 @@ module Mcp
         scope_err = Mcp::ToolAuth.require_scope!(Scopes::APP)
         return scope_err if scope_err
 
-        ids = Array(ids).map(&:to_i).uniq
-        return error_response("no IDs provided.") if ids.empty?
+        # Phase 20 — friendly URLs. Translate slugs to integer ids before
+        # the bulk-sync pipeline.
+        raw_keys = Array(ids).map(&:to_s).reject(&:blank?).uniq
+        return error_response("no IDs provided.") if raw_keys.empty?
 
         unless YesNo.yes_no?(confirm)
           return error_response("confirm must be 'yes' or 'no' (got #{confirm.inspect})")
@@ -49,9 +51,21 @@ module Mcp
         klass = model_for(type)
         return error_response("unknown type: #{type}") unless klass
 
-        records = klass.where(id: ids)
-        found_by_id = records.index_by(&:id)
-        not_found_ids = ids - found_by_id.keys
+        found_by_id = {}
+        not_found_ids = []
+        raw_keys.each do |key|
+          record = begin
+            klass.friendly.find(key)
+          rescue ActiveRecord::RecordNotFound
+            nil
+          end
+          if record
+            found_by_id[record.id] = record
+          else
+            not_found_ids << key
+          end
+        end
+        ids = found_by_id.keys
 
         syncable = []
         skipped  = []
@@ -65,7 +79,7 @@ module Mcp
           syncable << { id: record.id, label: label_for(record, type) }
         end
 
-        preview_url = "/syncs/#{type}/#{ids.join(',')}"
+        preview_url = "/syncs/#{type}/#{raw_keys.join(',')}"
 
         if confirmed
           if syncable.empty? && skipped.empty?

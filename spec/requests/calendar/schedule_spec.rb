@@ -25,8 +25,13 @@ RSpec.describe "Calendar::Schedule", type: :request do
       get "/calendar/schedule"
       now = Time.current
       expected_href = "/calendar/month/#{now.year}/#{format('%02d', now.month)}"
+      # ERB escapes `->` in the rendered `data-action` to `-&gt;`.
+      # Rails `link_to` attribute ordering is not strictly guaranteed,
+      # so assert the three required pieces (href, class, data-action)
+      # all live on the same single `<a>` tag whose body is the
+      # `[month]` label, without pinning their order.
       expect(response.body).to match(
-        /href="#{Regexp.escape(expected_href)}"[^>]*data-action="click->calendar-view-router#persistMonth"[^>]*>\[<span class="bl">month/
+        %r{<a\b(?=[^>]*\bhref="#{Regexp.escape(expected_href)}")(?=[^>]*\bclass="bracketed")(?=[^>]*\bdata-action="click-&gt;calendar-view-router#persistMonth")[^>]*>\[<span class="bl">month}
       )
     end
 
@@ -40,7 +45,7 @@ RSpec.describe "Calendar::Schedule", type: :request do
     it "[month] toggle does NOT route through `/calendar` (the persistence router)" do
       get "/calendar/schedule"
       expect(response.body).not_to match(
-        /href="\/calendar"[^>]*>\[<span class="bl">month/
+        %r{<a [^>]*href="/calendar"[^>]*>\[<span class="bl">month}
       )
     end
 

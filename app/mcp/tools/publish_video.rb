@@ -4,10 +4,11 @@ module Mcp
       tool_name "publish_video"
       description "Publish a private video, OR schedule a future publish. Requires the four pre-publish-checklist booleans + pre_publish_checked_at to be set first (call pre_publish_check_video). target=public|unlisted|scheduled."
 
+      # Phase 20 — friendly URLs. `id` accepts slug or integer-id string.
       input_schema(
         type: "object",
         properties: {
-          id:         { type: "integer", description: "Video ID" },
+          id:         { type: "string", description: "Video slug (youtube_video_id) or integer id (as string)" },
           target:     { type: "string", enum: [ "public", "unlisted", "scheduled" ] },
           publish_at: { type: "string", description: "ISO 8601 timestamp; required when target=scheduled." },
           confirm:    { type: "string", enum: [ "yes", "no" ] }
@@ -22,7 +23,11 @@ module Mcp
         scope_err = Mcp::ToolAuth.require_scope!(Scopes::APP)
         return scope_err if scope_err
 
-        video = Video.find_by(id: id)
+        video = begin
+          Video.friendly.find(id)
+        rescue ActiveRecord::RecordNotFound
+          nil
+        end
         return error_response("video not found: #{id}") unless video
 
         unless %w[public unlisted scheduled].include?(target.to_s)

@@ -6,6 +6,21 @@ class Video < ApplicationRecord
   # `publish_at`. See §"Services: derivation".
   include CalendarDerivable
 
+  # Phase 20 — friendly URLs. Video URLs reuse the existing
+  # `youtube_video_id` column (the externally-owned, URL-safe YouTube
+  # identifier). No new slug column, no `:history` module per locked
+  # Phase 20 decision #3 — youtube_video_id is immutable post-sync.
+  # `:finders` lets `Video.friendly.find(slug_or_id)` accept either a
+  # slug or an integer ID for backwards compat. `to_param` falls back
+  # to `id.to_s` when `youtube_video_id` is somehow absent (defensive;
+  # the column is `presence: true` validated).
+  extend FriendlyId
+  friendly_id :youtube_video_id, use: :finders
+
+  def to_param
+    youtube_video_id.presence || id&.to_s
+  end
+
   # Phase 12 — video schema expansion + edit surface + pre-publish
   # checklist. The Path A2 thin retract is reversed: Video carries the
   # YouTube Data API v3 writable subset (title, description, tags,

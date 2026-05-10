@@ -47,7 +47,7 @@ class NotesController < ApplicationController
   end
 
   def create
-    project = Project.find(params[:project_id])
+    project = Project.friendly.find(params[:project_id])
 
     timestamp = Time.current.to_i
     relative_path = "untitled-note-#{timestamp}.md"
@@ -115,8 +115,17 @@ class NotesController < ApplicationController
 
   private
 
+  # Phase 20 — friendly URLs. Notes route by their on-disk `path`
+  # (slash-bearing). The router's `*path` glob delivers the param under
+  # `params[:path]`; the controller falls back to `params[:id]` when a
+  # legacy integer-id URL is hit (existing bookmarks / log lines).
   def set_note
-    @note = Note.find(params[:id])
+    key = params[:path].presence || params[:id].to_s
+    if key.match?(/\A\d+\z/) && Note.where(id: key.to_i).exists?
+      @note = Note.find(key.to_i)
+    else
+      @note = Note.find_by!(path: key)
+    end
   end
 
   # Phase 4 §6.4 — return 423 Locked when notes are syncing install-wide.

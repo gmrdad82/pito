@@ -6,10 +6,11 @@ module Mcp
       tool_name "game_update_local"
       description "Update local-only game fields (platform_owned_id, played_at, notes, hours_of_footage_manual)."
 
+      # Phase 20 — friendly URLs. `id` accepts slug or integer-id string.
       input_schema(
         type: "object",
         properties: {
-          id: { type: "integer" },
+          id: { type: "string", description: "Game slug (igdb_slug) or integer id (as string)" },
           platform_owned_id: { type: [ "integer", "null" ] },
           played_at: { type: [ "string", "null" ], description: "ISO date (YYYY-MM-DD) or null." },
           notes: { type: [ "string", "null" ] },
@@ -28,7 +29,11 @@ module Mcp
 
         return error_response("confirm must be 'yes' or 'no' (got #{confirm.inspect})") unless YesNo.yes_no?(confirm)
 
-        game = Game.find_by(id: id)
+        game = begin
+          Game.friendly.find(id)
+        rescue ActiveRecord::RecordNotFound
+          nil
+        end
         return error_response("game not found: #{id}") unless game
 
         attrs = {}

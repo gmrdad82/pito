@@ -1,5 +1,12 @@
 require "rails_helper"
 
+# Phase 16 §3 UX restructure 2026-05-10:
+#   - `[ all ]` / `[ unread ]` bracketed-link toggles -> `[ ] unread`
+#     FilterChipComponent.
+#   - Per-row `[ mark read ]` action removed.
+#   - Notification detail opens in an in-page modal (Turbo Frame inside
+#     a `<dialog>` mounted on the index).
+#   - Caption under the H1 explains the cleanup behaviour.
 RSpec.describe "notifications/index.html.erb", type: :view do
   before do
     assign(:notifications, [])
@@ -17,37 +24,57 @@ RSpec.describe "notifications/index.html.erb", type: :view do
     expect(rendered).to include("notifications")
   end
 
+  it "renders the cleanup caption under the heading" do
+    render
+    expect(rendered).to include("notifications are deleted 7 days after being read.")
+  end
+
   it "renders the empty state when no notifications" do
     render
     expect(rendered).to include("no notifications yet.")
   end
 
-  it "renders the [ all ] / [ unread ] filter cluster" do
+  it "renders the [ ] unread filter chip" do
     render
-    # `all` is the active filter — renders as bracketed-active text.
-    # `unread` is the inactive filter — renders as a link with a
-    # bracketed `<span class="bl">unread</span>` inner. We match on the
-    # presence of both labels inside the dot-list.
-    expect(rendered).to include('class="bracketed bracketed-active">[ all ]</span>')
-    expect(rendered).to match(/<a class="bracketed" href="\/notifications\?filter=unread">\[<span class="bl">unread<\/span>\]<\/a>/)
+    expect(rendered).to match(/<a[^>]*class="filter-chip"[^>]*>.*\[\s*\].*unread/m)
   end
 
-  it "marks the active filter as bracketed-active" do
+  it "renders [x] when filter=unread is active" do
     assign(:filter, "unread")
+    # FilterChipComponent reads from `request.query_parameters` for its
+    # `checked?` calculation -- push the param onto the test request.
+    controller.request.query_parameters[:filter] = "unread"
     render
-    expect(rendered).to match(/<span class="bracketed bracketed-active">\[\s*unread\s*\]<\/span>/)
+    expect(rendered).to include("[x]")
   end
 
-  it "shows the [ mark all read ] button when unread_count > 0" do
+  it "shows the [ mark all as read ] button when unread_count > 0" do
     assign(:notifications, [ build_stubbed(:notification, :video_published) ])
     assign(:unread_count, 1)
     render
-    expect(rendered).to include("mark all read")
+    expect(rendered).to include("mark all as read")
   end
 
-  it "hides the [ mark all read ] button when unread_count == 0" do
+  it "hides the [ mark all as read ] button when unread_count == 0" do
     render
-    expect(rendered).not_to include("mark all read")
+    expect(rendered).not_to include("mark all as read")
+  end
+
+  it "wires the dynamic-button Stimulus controller on the wrapper" do
+    assign(:notifications, [ build_stubbed(:notification, :video_published) ])
+    assign(:unread_count, 1)
+    render
+    expect(rendered).to include('data-controller="bulk-select notifications-dynamic-button"')
+    expect(rendered).to include('data-notifications-dynamic-button-mark-all-url-value="/notifications/mark_all_read"')
+    expect(rendered).to include('data-notifications-dynamic-button-mark-read-url-value="/notifications/mark_read"')
+    expect(rendered).to include('data-notifications-dynamic-button-total-unread-value="1"')
+  end
+
+  it "renders the notification-detail modal mount" do
+    render
+    expect(rendered).to include('data-controller="notification-modal"')
+    expect(rendered).to include('data-notification-modal-target="dialog"')
+    expect(rendered).to include('id="notification_detail_frame"')
   end
 
   it "shows the webhook misconfigured banner when @has_failures is true" do

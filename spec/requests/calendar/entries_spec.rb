@@ -16,6 +16,52 @@ RSpec.describe "Calendar::Entries", type: :request do
     end
   end
 
+  # Default-create flow (Projects pattern). The breadcrumb `[+]` link
+  # POSTs to `/calendar/entries` with no payload; the controller seeds
+  # an "Untitled event" milestone_manual entry and redirects to /edit
+  # so the user fills in real values in the existing edit form.
+  describe "POST /calendar/entries (default-create — no params)" do
+    it "creates a milestone_manual entry with placeholder values" do
+      expect {
+        post "/calendar/entries"
+      }.to change(CalendarEntry, :count).by(1)
+
+      ce = CalendarEntry.last
+      expect(ce.entry_type).to eq("milestone_manual")
+      expect(ce.title).to eq("Untitled event")
+      expect(ce.starts_at).to be_present
+      expect(ce.ends_at).to be_nil
+      expect(ce.all_day).to eq(false)
+      expect(ce.timezone).to eq("UTC")
+      expect(ce.source).to eq("manual")
+    end
+
+    it "redirects to the edit page (not show)" do
+      post "/calendar/entries"
+      expect(response).to redirect_to(edit_calendar_entry_path(CalendarEntry.last))
+    end
+
+    it "honors AppSetting timezone when present" do
+      # `AppSetting.first` is the install-level singleton — seed-created
+      # in the test DB (id=1) — and its `timezone` column drives the
+      # default for new calendar entries. Update the existing row rather
+      # than `create!`-ing a new one so `AppSetting.first` actually
+      # picks up the new value (it orders by primary key).
+      seed = AppSetting.first || AppSetting.create!(key: "_install", value: "x")
+      seed.update!(timezone: "Europe/Bucharest")
+      post "/calendar/entries"
+      expect(CalendarEntry.last.timezone).to eq("Europe/Bucharest")
+    end
+
+    it "edit page pre-populates with the placeholder values" do
+      post "/calendar/entries"
+      follow_redirect!
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include("Untitled event")
+      expect(response.body).to include("UTC")
+    end
+  end
+
   describe "POST /calendar/entries" do
     it "happy: persists a milestone_manual entry" do
       params = {

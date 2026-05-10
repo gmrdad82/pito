@@ -31,6 +31,13 @@ class Note < ApplicationRecord
 
   attribute :title, :string, default: "Untitled note"
 
+  # Phase 20 — friendly URLs. Note URLs key on the on-disk `path`
+  # (possibly slash-bearing). `to_param` returns the path verbatim;
+  # the router's `*path` glob delivers it back unchanged.
+  def to_param
+    path
+  end
+
   # Phase B post-commit (2026-05-04) — words_count refresh.
   # The controller assigns `note.body_for_counts = body` before save; if
   # nothing was passed we keep the existing value.

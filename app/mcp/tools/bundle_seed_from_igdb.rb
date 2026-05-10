@@ -10,10 +10,11 @@ module Mcp
       tool_name "bundle_seed_from_igdb"
       description "Seed a non-custom bundle's membership from IGDB. Additive only."
 
+      # Phase 20 — friendly URLs. `id` accepts slug or integer-id string.
       input_schema(
         type: "object",
         properties: {
-          id: { type: "integer", description: "Bundle id" },
+          id: { type: "string", description: "Bundle slug or integer id (as string)" },
           confirm: { type: "string", enum: [ "yes", "no" ] }
         },
         required: [ "id" ],
@@ -28,7 +29,11 @@ module Mcp
 
         return error_response("confirm must be 'yes' or 'no' (got #{confirm.inspect})") unless YesNo.yes_no?(confirm)
 
-        bundle = Bundle.find_by(id: id)
+        bundle = begin
+          Bundle.friendly.find(id)
+        rescue ActiveRecord::RecordNotFound
+          nil
+        end
         return error_response("bundle not found: #{id}") unless bundle
         if bundle.type_custom? || bundle.igdb_source_type.blank? || bundle.igdb_source_id.blank?
           return error_response("bundle has no IGDB source configured (custom bundles cannot be seeded).")

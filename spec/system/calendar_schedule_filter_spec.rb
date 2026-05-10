@@ -45,11 +45,15 @@ RSpec.describe "Calendar schedule filters", type: :system do
     )
   end
 
-  it "[+] in the breadcrumb actions links to the new entry form" do
+  it "[+] in the breadcrumb actions submits the default-create form (POST /calendar/entries)" do
+    # `[+]` is a `button_to` default-create (Projects pattern); the
+    # controller seeds an "Untitled event" milestone_manual entry and
+    # redirects to /edit. Capybara's `click_button "+"` submits the
+    # surrounding form.
     visit "/calendar/schedule"
-    within("nav.dot-list") do
-      click_link "+"
-    end
-    expect(page).to have_current_path("/calendar/entries/new")
+    expect {
+      within("nav.dot-list") { click_button "+" }
+    }.to change { CalendarEntry.count }.by(1)
+    expect(page.current_path).to match(%r{\A/calendar/entries/\d+/edit\z})
   end
 end

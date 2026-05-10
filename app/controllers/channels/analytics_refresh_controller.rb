@@ -9,7 +9,7 @@
 # decision 7).
 class Channels::AnalyticsRefreshController < ApplicationController
   def create
-    channel = Channel.find(params[:channel_id])
+    channel = Channel.friendly.find(params[:channel_id])
     connection = channel.youtube_connection
 
     if connection.nil? || connection.needs_reauth?
