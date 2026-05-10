@@ -660,6 +660,27 @@ table.footage-table {
   background: var(--color-bg);
 }
 
+/* Avatar thumbnail — circular, tightly cropped channel/user avatar.
+   Used by the `/settings/youtube` channel-picker rows; reusable wherever a
+   small circular avatar belongs next to a row label. 32×32 keeps it
+   readable alongside the 13px base font without dominating the row;
+   `object-fit: cover` crops non-square source thumbnails (YouTube
+   default avatars are 88×88 square, but we don't depend on that). The
+   parent `<td>` should carry `.avatar-cell` so the column doesn't
+   stretch to absorb whitespace around the image. */
+.avatar-cell {
+  width: 1%;
+  padding: 2px 4px;
+  vertical-align: middle;
+}
+.avatar-thumb {
+  display: block;
+  width: 32px;
+  height: 32px;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
 /* Phase 7.5 §06 — Footage detail page scrub layout. DaVinci-style:
    big preview area on top (16:9), fixed center playhead glyph, then a
    horizontally-scrolling film strip. The strip uses `scroll-snap-type`
