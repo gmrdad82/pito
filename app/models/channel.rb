@@ -42,14 +42,16 @@ class Channel < ApplicationRecord
   after_update_commit :enqueue_sync_on_star
 
   # Phase 15 §1 — Calendar derivation. Always derives once per channel
-  # (keyed on `created_at`). Re-derive only when an attribute the entry
-  # surfaces changes — currently just `channel_url` (the title fallback).
+  # (keyed on `created_at`). The Calendar::Derivation upsert is
+  # idempotent (no-ops when the existing row matches), so we fire the
+  # hook on every save / touch — that way `Channel.first.touch` from
+  # the manual playbook reliably brings up a derived entry on
+  # pre-existing seed rows.
+  #
   # Single `after_save_commit` declaration: registering the same filter
-  # via two `after_*_commit` lines merges them in Rails 8.1 (the second
-  # call overrides the first), so we use one combined hook.
-  CALENDAR_DERIVATION_FIELDS = %w[channel_url created_at].freeze
-
-  after_save_commit :sync_calendar_entry, if: :calendar_attributes_changed?
+  # via two `after_*_commit` lines merges them in Rails 8.1.
+  after_save_commit :sync_calendar_entry
+  after_touch :sync_calendar_entry
 
   scope :starred,   -> { where(star: true) }
   scope :connected, -> { where.not(youtube_connection_id: nil) }
@@ -73,10 +75,6 @@ class Channel < ApplicationRecord
 
   def calendar_entry_source_ref
     { channel_id: id }
-  end
-
-  def calendar_attributes_changed?
-    saved_changes.keys.any? { |k| CALENDAR_DERIVATION_FIELDS.include?(k) }
   end
 
   private

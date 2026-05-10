@@ -144,8 +144,13 @@ RSpec.describe ApplicationHelper, type: :helper do
       expect(helper.pane_breadcrumb_label([ channel ])).to eq("##{channel.id}")
     end
 
-    it "falls back to id-only label for videos (no title column post-A2)" do
-      video = build_stubbed(:video)
+    it "uses the video title when present (Phase 12 — title column restored)" do
+      video = build_stubbed(:video, title: "MyVid")
+      expect(helper.pane_breadcrumb_label([ video ])).to eq("MyVid")
+    end
+
+    it "falls back to id-only label for videos with no title" do
+      video = build_stubbed(:video, title: "")
       expect(helper.pane_breadcrumb_label([ video ])).to eq("##{video.id}")
     end
   end

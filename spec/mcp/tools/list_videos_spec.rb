@@ -4,17 +4,17 @@ require_relative "../../../app/mcp/tools/list_videos"
 RSpec.describe Mcp::Tools::ListVideos do
   let!(:channel) { create(:channel) }
 
-  it "returns all videos with stats (post-A2 shape)" do
-    video = create(:video, channel: channel)
+  it "returns all videos with stats (Phase 12 shape)" do
+    video = create(:video, channel: channel, title: "MyVid")
     create(:video_stat, video: video, date: Date.current, views: 500)
 
     result = described_class.call
     data = JSON.parse(result.content.first[:text])
 
     expect(data.size).to eq(1)
-    # Phase 7 Path A2 — Video JSON has no title; identify by youtube_video_id.
     expect(data.first["youtube_video_id"]).to eq(video.youtube_video_id)
-    expect(data.first).not_to have_key("title")
+    # Phase 12 — Video carries title again (writable subset restored).
+    expect(data.first["title"]).to eq("MyVid")
     expect(data.first["views"]).to eq(500)
   end
 

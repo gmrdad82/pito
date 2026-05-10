@@ -48,7 +48,7 @@
     work. %>
 <% linked_videos = @project.videos.order(Arel.sql("published_at DESC NULLS LAST")) %>
 <div class="pane" style="margin-top: 16px; max-width: 1280px;">
-  <h2>linked videos (<%= linked_videos.size %>)</h2>
+  <h2>linked videos (<%= number_with_delimiter(linked_videos.size) %>)</h2>
   <% if linked_videos.any? %>
     <table>
       <thead>

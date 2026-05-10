@@ -10,15 +10,26 @@ RSpec.describe Channel, type: :model do
       expect(ce.all_day).to be(true)
     end
 
-    it "does NOT re-derive on irrelevant attribute changes" do
+    it "is idempotent on re-sync — substantive attrs unchanged" do
       ch = create(:channel)
       ce = CalendarEntry.where(channel_id: ch.id, entry_type: :channel_published).first
-      original_updated_at = ce.updated_at
-      sleep(0.01)
-
-      # `last_synced_at` is not in CALENDAR_DERIVATION_FIELDS.
+      original_attrs = ce.attributes.except("updated_at")
+      ch.touch
       ch.update!(last_synced_at: Time.current)
-      expect(ce.reload.updated_at).to be_within(1.second).of(original_updated_at)
+      ce.reload
+      # `updated_at` shifts on the upsert (the service writes through
+      # bypass_readonly + save!); the substantive attributes do not.
+      expect(ce.attributes.except("updated_at")).to eq(original_attrs)
+    end
+
+    it "Channel.first.touch brings up a channel_published entry on a pre-existing channel" do
+      # Simulates the manual playbook step on a seeded channel with no
+      # prior derived entry.
+      ch = create(:channel)
+      CalendarEntry.where(channel_id: ch.id).delete_all
+      expect(CalendarEntry.where(channel_id: ch.id).count).to eq(0)
+      ch.touch
+      expect(CalendarEntry.where(channel_id: ch.id, entry_type: :channel_published).count).to eq(1)
     end
 
     it "cascades the calendar entry on Channel.destroy" do

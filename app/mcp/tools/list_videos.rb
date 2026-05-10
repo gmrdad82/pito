@@ -2,7 +2,7 @@ module Mcp
   module Tools
     class ListVideos < MCP::Tool
       tool_name "list_videos"
-      description "List videos with stats (views, likes, comments, watch time). Optionally filter by channel_id. Phase 7 Path A2: Video is a thin YouTube-reference record; metadata fields (title, description, tags, etc.) are gone."
+      description "List videos with stats (views, likes, comments, watch time) plus title and privacy_status. Optionally filter by channel_id."
 
       input_schema(
         type: "object",
