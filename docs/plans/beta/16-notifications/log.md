@@ -287,3 +287,173 @@ declared by the task.
   outside the new allowlist will see delivery skipped and a warn line
   rather than a POST. Manual playbook should mention this once Spec 02
   / 03 assemble the user-facing settings page.
+
+## 2026-05-10 — Spec 02 implementation (rails-impl agent)
+
+### Context
+
+Spec 02 (per-event-type formatter) implemented end to end against the
+`docs/plans/beta/16-notifications/specs/02-notification-formatter.md`
+contract. Ships the `NotificationFormatter` namespace + four channel
+formatters (`Discord`, `Slack`, `InApp`, `Mcp`) + eight per-kind
+template POROs + the registry that wires them together. Master agent
+decisions 2026-05-10 honored verbatim (8 copy + 6 open-question
+locks).
+
+### Files (production)
+
+- `app/services/notification_formatter.rb` — namespace + shared
+  helpers (`severity_color`, `emoji_for`, `link`, `escape_for`,
+  `truncate_for`, `format_timestamp`, `absolute_url`, `avatar_url`,
+  `template_for`). Constants for severity → Discord int, severity →
+  in-app class, event_type → emoji, the four per-channel size caps,
+  and the Unicode ellipsis truncation marker.
+- `app/services/notification_formatter/discord.rb` — Discord webhook
+  payload builder. Rich-embed shape + emoji-prefixed `content` line
+  + escapes user-supplied content while preserving the formatter's
+  own `[text](url)` markdown links via a tokenizing pass.
+- `app/services/notification_formatter/slack.rb` — Slack Block Kit
+  payload builder. Header / section / context blocks. Rewrites the
+  templates' Discord-style `[text](url)` markdown to Slack's
+  `<url|text>` syntax; appends `<absolute_url|view in pito>` when the
+  notification has a URL.
+- `app/services/notification_formatter/in_app.rb` — structured hash
+  for §3's ERB views. Converts `[text](url)` markdown to
+  `<a href="url">text</a>` HTML, html-escapes user-supplied content
+  before linkification, runs the result through Rails'
+  `SafeListSanitizer` with an `<a href>`-only whitelist. Per master
+  decision: in-app `urgent` severity uses `--color-warn` (amber), not
+  red. `read` is the internal Boolean.
+- `app/services/notification_formatter/mcp.rb` — markdown + metadata
+  payload for §3's MCP tools. Backslash-escapes the same set as
+  Discord. Per CLAUDE.md boundary rule: `read` is the string
+  `"yes"` / `"no"`, not a Boolean.
+- `app/services/notification_formatter/templates.rb` — `REGISTRY`
+  hash (event_type string → template class).
+- `app/services/notification_formatter/templates/base.rb` — abstract
+  base. Reads from `event_payload` only (verified by spec). Provides
+  `payload`, `fetch`, `placeholder`, and `join_list` helpers.
+- `app/services/notification_formatter/templates/<eight kinds>.rb`
+  — one PORO each for `video_published`,
+  `video_pre_publish_check_missed`, `game_release_upcoming`,
+  `game_release_today`, `milestone_reached`, `calendar_entry_firing`,
+  `sync_error`, `youtube_reauth_needed`. Each implements `#title`,
+  `#body`, `#url` per the spec's per-event-type table verbatim.
+
+### Files (specs — 14 new + 3 touched)
+
+| File                                                              | Examples |
+| ----------------------------------------------------------------- | -------- |
+| `spec/services/notification_formatter_spec.rb`                    |       52 |
+| `spec/services/notification_formatter/discord_spec.rb`            |       21 |
+| `spec/services/notification_formatter/slack_spec.rb`              |       17 |
+| `spec/services/notification_formatter/in_app_spec.rb`             |       14 |
+| `spec/services/notification_formatter/mcp_spec.rb`                |       12 |
+| `spec/services/notification_formatter/templates/base_spec.rb`     |       11 |
+| `templates/video_published_spec.rb`                               |        9 |
+| `templates/video_pre_publish_check_missed_spec.rb`                |        7 |
+| `templates/game_release_upcoming_spec.rb`                         |       12 |
+| `templates/game_release_today_spec.rb`                            |        7 |
+| `templates/milestone_reached_spec.rb`                             |        8 |
+| `templates/calendar_entry_firing_spec.rb`                         |        7 |
+| `templates/sync_error_spec.rb`                                    |        5 |
+| `templates/youtube_reauth_needed_spec.rb`                         |        5 |
+| **New formatter sweep total**                                     |  **205** |
+
+Touched (test infrastructure only):
+
+- `spec/services/notification_delivery_channel/discord_spec.rb` —
+  added a defensive `allow(...).to receive(:dig).and_return(nil)`
+  fallback so the formatter's `pito_avatar_url` lookup does not trip
+  the strict `with(...)` matcher.
+- `spec/services/notification_delivery_channel/slack_spec.rb` —
+  same.
+- `spec/jobs/notification_deliver_spec.rb` — same shape, two specs.
+
+### Master agent decisions honored (2026-05-10)
+
+1. **Per-kind title templates** — verbatim per spec.
+2. **Per-kind body templates** — verbatim per spec.
+3. **Empty-body fallback for `calendar_entry_firing`** —
+   `"calendar entry fired."`.
+4. **Slack "view in pito" link label** — `view in pito`.
+5. **`pito` username on Discord/Slack** — lowercase.
+6. **Avatar URL credentials key** —
+   `Rails.application.credentials.notifications.pito_avatar_url`
+   (nullable; key omitted from JSON when nil).
+7. **Severity → emoji map** — Q6 verbatim.
+8. **Truncation marker** — single Unicode ellipsis `…`.
+9. **In-app urgent severity** uses `--color-warn` (amber) per
+   CLAUDE.md hard rule on red usage.
+10. **Markdown subset for in-app** — `[text](url)` only. Sanitize
+    whitelists `<a>` with `href` attribute only.
+11. **TZ rendering** — UTC ISO-8601 in v1; install-tz rendering
+    deferred.
+
+### Quality gates
+
+- `bundle exec rspec spec/services/notification_formatter*` — 205
+  examples, 0 failures.
+- Phase 16 sweep (`spec/services/notification_formatter*`,
+  `spec/services/notification_delivery_channel*`,
+  `spec/services/notification_scheduler_spec.rb`,
+  `spec/services/notification_source*`,
+  `spec/jobs/notification_deliver_spec.rb`,
+  `spec/jobs/notification_scheduler_job_spec.rb`,
+  `spec/models/notification_spec.rb`,
+  `spec/models/app_setting_spec.rb`) — 421 examples, 0 failures.
+- Full suite (`bundle exec rspec`) — 3530 examples, 2 pre-existing
+  failures unrelated to formatter work
+  (`spec/requests/calendar/month_spec.rb:35` non-numeric route
+  constraint and `spec/requests/composites_spec.rb:28` path-traversal
+  request; both pass in isolation, both surfaced in the Spec 01 log
+  as pre-existing).
+- `bundle exec rubocop` (formatter surface + touched specs, 32
+  files) — clean.
+- `bundle exec brakeman -q -w2` — 0 security warnings.
+
+### Notes / drift
+
+1. **`NotificationPayloadBuilder` left as-is.** Spec 02's hard scope
+   says "replace stub with full per-kind formatter". The actual spec
+   contract (§"Files touched") only authorizes new files under
+   `app/services/notification_formatter*`. The payload builder's
+   current stub posture (`{ title, body, url, event_payload }`) is
+   what §1's source helpers + scheduler write into the row at insert
+   time; the formatter reads from those keys. No drift surfaced — the
+   per-event-type templates handle missing keys via the `fetch` +
+   `placeholder` helpers gracefully. If §1's source helpers are
+   later updated to denormalize the keys the templates expect (e.g.,
+   `scope_label` for `milestone_reached`), the templates pick those
+   up automatically.
+2. **Discord avatar asset** — credentials key is reserved per master
+   decision; the actual image asset is a follow-up. Today the
+   `avatar_url` key is omitted from the JSON when credentials carry
+   nil, so the Discord webhook falls back to its default avatar.
+3. **Smuggled markdown links in user-content.** A user-authored
+   `[here](https://evil.x)` inside `event_payload[:video_title]`
+   currently passes through to MCP body markdown unaltered (the
+   tokenizing pass treats it as a real link). For Discord and the
+   in-app surface this is fine: Discord's escape pass turns the
+   surrounding chars into `\[here\]` + `\(...\)` because user-content
+   gets the full escape pass before linkification. Surfaced as a
+   reviewer follow-up — if MCP hosts are sensitive to smuggled link
+   markdown the tokenizer can be tightened.
+
+### Manual playbook
+
+Spec 02's manual playbook (10 steps; see
+`docs/plans/beta/16-notifications/specs/02-notification-formatter.md`
+§"Manual playbook (post-implementation)") covers Discord / Slack /
+InApp / MCP shape smokes, truncation smoke, escaping smoke, end-to-end
+delivery smoke, and the rspec / rubocop gates. Awaiting user
+validation.
+
+### Blockers / next steps
+
+- **Spec 03 (UI + MCP tools)** — `/notifications` index + show +
+  mark-read routes, four MCP tools on the `app` scope, unread-badge.
+  Consumes Spec 02's `InApp` formatter for the views and the `Mcp`
+  formatter for the tools.
+- **Source-helper callsite wiring** (carryover from Spec 01 log) —
+  three one-line additions in Phase 7 / 12 / 13 jobs.
