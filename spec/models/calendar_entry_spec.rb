@@ -297,12 +297,35 @@ RSpec.describe CalendarEntry, type: :model do
       expect(manual.save).to be(true)
     end
 
-    it "Calendar::Derivation can bypass via the `bypass_readonly` flag" do
-      # The service writes through the bypass; simulate by setting
-      # the flag directly on the model instance.
-      derived.bypass_readonly = true
+    it "Calendar::Derivation can bypass specific attributes via `bypass_readonly_for`" do
+      # The service writes through a scoped allowlist; simulate by
+      # setting the flag directly on the model instance.
+      derived.bypass_readonly_for = [ :title ]
       derived.title = "service-driven update"
       expect(derived.save).to be(true)
+    end
+
+    it "rejects writes to attributes outside `bypass_readonly_for`" do
+      # Phase 15 security audit F1: confirm the scoped allowlist does
+      # NOT short-circuit writes to other attributes. A bypass for
+      # `:title` should NOT permit a `:description` write.
+      derived.bypass_readonly_for = [ :title ]
+      derived.title = "allowed change"
+      derived.description = "snuck-in change"
+      expect(derived.save).to be(false)
+      expect(derived.errors[:base]).to be_present
+    end
+
+    it "ignores `bypass_readonly_for = nil` (no allowlist => normal enforcement)" do
+      derived.bypass_readonly_for = nil
+      derived.title = "denied"
+      expect(derived.save).to be(false)
+    end
+
+    it "ignores `bypass_readonly_for = []` (empty allowlist => normal enforcement)" do
+      derived.bypass_readonly_for = []
+      derived.title = "denied"
+      expect(derived.save).to be(false)
     end
   end
 

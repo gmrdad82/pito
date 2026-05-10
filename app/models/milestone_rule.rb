@@ -40,6 +40,15 @@ class MilestoneRule < ApplicationRecord
   # `fired_at`. Both writes happen in a single transaction so a failure
   # in either rolls back both. Raises on a second call (idempotency
   # check). Re-arm via `re_arm!` to clear `fired_at`.
+  #
+  # Phase 15 security audit F2 — race-condition guard. The model-level
+  # `fired_at IS NULL` check is not safe under concurrent fire! calls
+  # (two callers can both pass the check before either commits). The
+  # database carries the final word via a partial unique index on
+  # `(milestone_rule_id) WHERE entry_type = 6 AND source = 2`. When
+  # the index trips, we treat the constraint violation as the no-op
+  # the model intends: re-read `fired_at`; if a sibling caller already
+  # committed, the rule is fired and we return cleanly.
   def fire!(metric_value:, fired_at: Time.current)
     raise "already fired" if self.fired_at.present?
 
@@ -62,6 +71,14 @@ class MilestoneRule < ApplicationRecord
                     user_overrides: {} }
       )
     end
+  rescue ActiveRecord::RecordNotUnique
+    # A sibling caller raced us to the partial unique index. Re-read
+    # the rule; if it's already fired, treat this call as a successful
+    # no-op. If `fired_at` is still nil somehow (transaction rolled
+    # back without persisting), let the original exception bubble.
+    reload
+    return self if self.fired_at.present?
+    raise
   end
 
   def re_arm!

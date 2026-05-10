@@ -42,12 +42,13 @@
   </p>
 <% end %>
 
+<%# Phase 15 reviewer concern 6 — the `[note]` link previously pointed
+    at a `modal-trigger` whose target (`note-modal`) is not yet rendered
+    on this page. Removed until the modal markup is built; the
+    PATCH /calendar/entries/:id/note endpoint stays in place for
+    programmatic callers (MCP / Rust client) and a future UI revival. %>
 <div class="dot-list" style="margin-top: 16px;">
-  <% if @entry.read_only? %>
-    <%= render(BracketedLinkComponent.new(label: "note",
-          href: "#",
-          data: { action: "click->modal-trigger#open", modal_trigger_id: "note-modal" })) %>
-  <% else %>
+  <% unless @entry.read_only? %>
     <%= render(BracketedLinkComponent.new(label: "edit",
           href: edit_calendar_entry_path(@entry))) %>
     <%= render(BracketedLinkComponent.new(label: "cancel",
@@ -58,8 +59,12 @@
         href: calendar_root_path)) %>
 </div>
 
-<% if @declarations.any? %>
+<%# Phase 15 reviewer concerns 3 + 4 — reminder copy is the canonical
+    `[remind: t-7 t-1 t-0]` literal (no inner padding, no derivation
+    from `@declarations.map { |d| d[:kind] }`). The schedule view's
+    EntryRowComponent already renders the literal; this matches it. %>
+<% if @declarations.any? { |d| d[:kind] == "game_release_upcoming" } %>
   <p class="text-muted" style="margin-top: 16px;">
-    [ remind: <%= @declarations.map { |d| d[:kind] }.uniq.join(' ') %> ]
+    [remind: t-7 t-1 t-0]
   </p>
 <% end %>

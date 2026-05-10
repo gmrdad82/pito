@@ -88,7 +88,11 @@ class Calendar::EntriesController < ApplicationController
   # metadata.user_overrides notes through this endpoint without
   # violating the read-only enforcement (open-question #8 decision).
   def note
-    @entry.bypass_readonly = true
+    # Phase 15 security audit F1: scope the read-only bypass to the
+    # `metadata` attribute only. The `metadata_changes_only_user_overrides?`
+    # check still runs underneath; the allowlist just exempts the
+    # metadata column from the whole-record forbidden-changes check.
+    @entry.bypass_readonly_for = [ :metadata ]
     note_text = params.dig(:calendar_entry, :note).to_s
     new_meta = (@entry.metadata || {}).deep_dup
     new_meta["user_overrides"] ||= {}

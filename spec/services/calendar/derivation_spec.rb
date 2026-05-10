@@ -34,9 +34,10 @@ RSpec.describe Calendar::Derivation do
       it "preserves metadata.user_overrides on overwrite" do
         video.update!(privacy_status: :public, published_at: 1.day.ago, title: "x", category_id: "10")
         ce = CalendarEntry.where(video_id: video.id, entry_type: :video_published).first
-        ce.bypass_readonly = true
         meta = ce.metadata.deep_dup
         meta["user_overrides"] = { "note" => "manually added" }
+        # No bypass needed — this metadata change only touches
+        # user_overrides, which the read-only check explicitly allows.
         ce.update!(metadata: meta)
 
         video.update!(title: "renamed")

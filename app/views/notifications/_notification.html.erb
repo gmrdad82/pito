@@ -1,0 +1,40 @@
+<%# Phase 16 §3 — Notification row partial. Rendered by the index
+    AND the live Turbo Stream broadcast on insert / read-state
+    flip. The wrapper carries `id` from `dom_id(notification)` so
+    `broadcast_replace_to` finds the row and swaps it in place.
+
+    Master decision 2026-05-10 #11 (severity badge): lowercase text —
+    `info` / `success` / `warn` / `urgent`. Master decision #6 (unread
+    visual): bold title for unread; muted for read. Master decision #3
+    (mark-read label): `[ mark read ]`. The `[ mark read ]` button is
+    suppressed once the row is read. The `[ mark unread ]` action is
+    NOT exposed on the row (only on the detail page) — keeping the row
+    actions minimal. %>
+<%
+  payload = NotificationFormatter::InApp.payload_for(notification)
+%>
+<tr id="<%= dom_id(notification) %>" class="notification-row <%= notification.read? ? 'notification-read' : 'notification-unread' %>">
+  <td style="padding: 4px 8px; vertical-align: top; white-space: nowrap;">
+    <span class="notification-glyph" aria-hidden="true"><%= payload[:glyph] %></span>
+  </td>
+  <td style="padding: 4px 8px; vertical-align: top;">
+    <%= link_to notification_path(notification), class: "notification-title #{notification.read? ? 'text-muted' : ''}", style: notification.read? ? 'font-weight: 400;' : 'font-weight: 700;' do %>
+      <%= payload[:title] %>
+    <% end %>
+  </td>
+  <td style="padding: 4px 8px; vertical-align: top; white-space: nowrap;">
+    <span class="notification-severity-badge notification-severity-<%= payload[:severity] %>"><%= payload[:severity] %></span>
+  </td>
+  <td style="padding: 4px 8px; vertical-align: top; white-space: nowrap;" class="text-muted">
+    <%= payload[:fires_at_relative] %>
+  </td>
+  <td style="padding: 4px 8px; vertical-align: top; white-space: nowrap;">
+    <% if notification.unread? %>
+      <%= button_to read_notification_path(notification),
+            method: :patch,
+            form: { style: "display: inline; margin: 0;" },
+            class: "bracketed",
+            style: "background: none; border: none; padding: 0; font: inherit; color: var(--color-link); cursor: pointer;" do %>[<span class="bl">mark read</span>]<% end %>
+    <% end %>
+  </td>
+</tr>

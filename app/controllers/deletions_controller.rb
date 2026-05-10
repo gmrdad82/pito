@@ -87,7 +87,9 @@ class DeletionsController < ApplicationController
 
     n = @items.length
     @items.each do |entry|
-      entry.bypass_readonly = true if entry.derived_or_auto?
+      # Phase 15 security audit F1: scoped allowlist instead of whole-
+      # record bypass. Soft-cancel only flips `state`; nothing else.
+      entry.bypass_readonly_for = [ :state ] if entry.derived_or_auto?
       entry.update!(state: :cancelled)
     end
 

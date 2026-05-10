@@ -168,6 +168,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_190000) do
     t.index ["game_id"], name: "index_calendar_entries_on_game_id", where: "(game_id IS NOT NULL)"
     t.index ["metadata"], name: "index_calendar_entries_on_metadata", using: :gin
     t.index ["milestone_rule_id"], name: "index_calendar_entries_on_milestone_rule_id", where: "(milestone_rule_id IS NOT NULL)"
+    t.index ["milestone_rule_id"], name: "index_calendar_entries_unique_milestone_rule", unique: true, where: "((entry_type = 6) AND (source = 2))"
     t.index ["parent_entry_id"], name: "index_calendar_entries_on_parent_entry_id", where: "(parent_entry_id IS NOT NULL)"
     t.index ["project_id"], name: "index_calendar_entries_on_project_id", where: "(project_id IS NOT NULL)"
     t.index ["source"], name: "index_calendar_entries_on_source"

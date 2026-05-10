@@ -1,0 +1,69 @@
+<% content_for(:title, "notifications") %>
+
+<%# Phase 16 §3 — Notification inbox.
+    Master decisions 2026-05-10:
+      #1 heading: `notifications`
+      #2 empty state: `no notifications yet.`
+      #5 mark-all-read label: `[ mark all read ]`
+      #8 filter labels: `[ all ]` / `[ unread ]`
+      #12 webhook misconfigured banner.
+    Index live-prepends new rows via `notifications_index` Turbo
+    Stream subscription; the badge updates via the separate
+    `notifications_badge` stream. %>
+<%= turbo_stream_from "notifications_index" %>
+
+<div style="max-width: 1100px;">
+  <h1>notifications</h1>
+
+  <% if @has_failures %>
+    <div class="webhook-failure-banner" style="border: 1px solid var(--color-border); padding: 6px 10px; margin: 8px 0; color: var(--color-muted);">
+      webhook delivery failing — see notification detail.
+    </div>
+  <% end %>
+
+  <%# Filter cluster — `[ all ]` / `[ unread ]`. Active filter
+      renders as the bracketed-active span (no link); inactive
+      renders as a bracketed link. %>
+  <div class="dot-list" style="margin: 8px 0;">
+    <% if @filter == "all" %>
+      <span class="bracketed bracketed-active">[ all ]</span>
+    <% else %>
+      <%= render(BracketedLinkComponent.new(label: "all", href: url_for(filter: nil, page: nil))) %>
+    <% end %>
+    <% if @filter == "unread" %>
+      <span class="bracketed bracketed-active">[ unread ]</span>
+    <% else %>
+      <%= render(BracketedLinkComponent.new(label: "unread", href: url_for(filter: "unread", page: nil))) %>
+    <% end %>
+    <span class="nav-spacer" style="flex: 1;"></span>
+    <% if @unread_count > 0 %>
+      <%= button_to mark_all_read_notifications_path,
+            method: :patch,
+            form: { style: "display: inline; margin: 0;" },
+            class: "bracketed",
+            style: "background: none; border: none; padding: 0; font: inherit; color: var(--color-link); cursor: pointer;" do %>[<span class="bl">mark all read</span>]<% end %>
+    <% end %>
+  </div>
+
+  <% if @notifications.empty? && @page == 1 %>
+    <p class="text-muted">no notifications yet.</p>
+  <% else %>
+    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+      <tbody id="notifications_list">
+        <%= render partial: "notification", collection: @notifications, as: :notification %>
+      </tbody>
+    </table>
+
+    <% if @total_pages > 1 %>
+      <div class="dot-list" style="margin-top: 12px;">
+        <% if @page > 1 %>
+          <%= render(BracketedLinkComponent.new(label: "prev page", href: url_for(page: @page - 1))) %>
+        <% end %>
+        <span>page <%= @page %> / <%= @total_pages %></span>
+        <% if @page < @total_pages %>
+          <%= render(BracketedLinkComponent.new(label: "next page", href: url_for(page: @page + 1))) %>
+        <% end %>
+      </div>
+    <% end %>
+  <% end %>
+</div>

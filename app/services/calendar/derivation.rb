@@ -116,13 +116,29 @@ module Calendar
           .first
       end
 
+      # Phase 15 security audit F1: scoped bypass allowlist replaces the
+      # whole-record `bypass_readonly = true` short-circuit. The
+      # derivation overwrites the canonical authored fields while
+      # `metadata.user_overrides` is preserved by `merged_metadata`.
+      UPSERT_ALLOWED_ATTRIBUTES = %i[
+        title
+        description
+        starts_at
+        ends_at
+        state
+        metadata
+        source_ref
+        release_precision
+        manual_date_override
+      ].freeze
+
       def upsert_existing!(existing, attrs, _ref)
         preserved = (existing.metadata || {})["user_overrides"] || {}
         merged_metadata = (attrs[:metadata] || {})
                             .stringify_keys
                             .merge("user_overrides" => preserved)
         new_attrs = attrs.merge(metadata: merged_metadata)
-        existing.bypass_readonly = true
+        existing.bypass_readonly_for = UPSERT_ALLOWED_ATTRIBUTES
         existing.assign_attributes(new_attrs)
         existing.save!
         existing

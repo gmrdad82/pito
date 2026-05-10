@@ -67,11 +67,18 @@ class CalendarEntry < ApplicationRecord
   before_validation :stamp_install_timezone, on: :create
 
   # Read-only enforcement: derived / auto entries reject writes to
-  # anything except `metadata.user_overrides`. The Calendar::Derivation
-  # service bypasses by setting `@bypass_readonly = true` before its
-  # `save!`; that flag is process-local on the record instance and is
-  # never persisted.
-  attr_accessor :bypass_readonly
+  # anything except `metadata.user_overrides`. Service / controller code
+  # opts specific attributes out of the check by setting
+  # `bypass_readonly_for` to an Array of attribute names (Symbols or
+  # Strings) before `save!`. The flag is process-local on the record
+  # instance and is never persisted.
+  #
+  # Whole-record bypass was removed in Phase 15 security audit F1: a
+  # blanket `bypass_readonly = true` short-circuit lets any other
+  # attribute on the record sneak through if a caller forgets to
+  # restrict the change set. The scoped allowlist forces every bypass
+  # site to be explicit about which attributes it intends to mutate.
+  attr_accessor :bypass_readonly_for
   before_save :reject_writes_to_derived_outside_user_overrides
 
   # ──── Scopes ───────────────────────────────────────────────────────
@@ -162,16 +169,22 @@ class CalendarEntry < ApplicationRecord
   def reject_writes_to_derived_outside_user_overrides
     return unless derived_or_auto?
     return if new_record?
-    return if bypass_readonly
 
-    forbidden_changes = changes.keys - %w[updated_at metadata]
-    return if forbidden_changes.empty? && metadata_changes_only_user_overrides?
+    allowlist = Array(bypass_readonly_for).map(&:to_s)
+    forbidden_changes = changes.keys - %w[updated_at metadata] - allowlist
 
-    if !forbidden_changes.empty? || !metadata_changes_only_user_overrides?
-      errors.add(:base,
-                 "derived / auto entries are read-only outside metadata.user_overrides")
-      throw(:abort)
-    end
+    metadata_ok =
+      if allowlist.include?("metadata")
+        true
+      else
+        metadata_changes_only_user_overrides?
+      end
+
+    return if forbidden_changes.empty? && metadata_ok
+
+    errors.add(:base,
+               "derived / auto entries are read-only outside metadata.user_overrides")
+    throw(:abort)
   end
 
   def metadata_changes_only_user_overrides?

@@ -83,6 +83,18 @@
             <span class="nav-group"><%= nav_link "channels", channels_path, short: "C" %><%= nav_link "videos", videos_path, short: "V" %></span>
             <span class="nav-sep" aria-hidden="true">·</span>
             <span class="nav-group"><%= nav_link "projects", projects_path, short: "P" %><%= nav_link "games", games_path, short: "G" %></span>
+            <span class="nav-sep" aria-hidden="true">·</span>
+            <%# Phase 16 §3 — notifications nav link + live unread badge.
+                The badge wrapper carries `id="notifications_badge"` so
+                Turbo Stream broadcasts (`broadcast_replace_to`) target
+                it directly. The page-level subscription is mounted
+                here so every page (not just /notifications) receives
+                the live-update. %>
+            <span class="nav-group">
+              <%= nav_link "notifications", notifications_path, short: "N" %>
+              <%= turbo_stream_from "notifications_badge" %>
+              <%= render "notifications/badge", unread_count: Notification.unread.count %>
+            </span>
             <span class="nav-spacer" style="flex: 1;"></span>
             <%= form_with url: search_path, method: :get, class: "search-form", style: "display: flex; align-items: center; gap: 4px;", data: { turbo_action: "replace" } do %>
               <input type="text" name="q" value="<%= params[:q] %>" placeholder="search..." autocomplete="off" class="search-input" style="width: 200px; height: 22px; font-size: 13px; padding: 0 6px; border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-text); font-family: inherit;">
@@ -142,6 +154,8 @@
           <span class="nav-group"><%= nav_link "channels", channels_path, short: "C" %><%= nav_link "videos", videos_path, short: "V" %></span>
           <span class="nav-sep" aria-hidden="true">·</span>
           <span class="nav-group"><%= nav_link "projects", projects_path, short: "P" %><%= nav_link "games", games_path, short: "G" %></span>
+          <span class="nav-sep" aria-hidden="true">·</span>
+          <span class="nav-group"><%= nav_link "notifications", notifications_path, short: "N" %></span>
           <span class="nav-spacer" style="flex: 1;"></span>
           <%= render(BracketedLinkComponent.new(label: "?", href: "#", data: { action: "click->keyboard#openHelp" }, active: false)) %>
         </nav>

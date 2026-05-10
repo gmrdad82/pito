@@ -41,12 +41,14 @@ RSpec.describe EntryRowComponent, type: :component do
       expect(page).to have_content("↳")
     end
 
-    it "renders [ remind: t-7 t-1 t-0 ] for future game_release entries when show_reminder is true" do
+    it "renders [remind: t-7 t-1 t-0] (canonical no-padding form) for future game_release entries when show_reminder is true" do
       entry = create(:calendar_entry, :game_release,
                      starts_at: 30.days.from_now,
                      release_precision: :day)
       render_inline(described_class.new(entry: entry, show_reminder: true))
-      expect(page).to have_content("remind:")
+      expect(page).to have_content("[remind: t-7 t-1 t-0]")
+      # Phase 15 reviewer concern 4 — canonical form has no inner spaces.
+      expect(page).not_to have_content("[ remind:")
     end
 
     it "does NOT render the reminder copy for past game_release entries" do

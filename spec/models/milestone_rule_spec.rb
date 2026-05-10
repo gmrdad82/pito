@@ -108,6 +108,117 @@ RSpec.describe MilestoneRule, type: :model do
       expect { rule.fire!(metric_value: 150) }.to raise_error(ActiveRecord::RecordInvalid)
       expect(rule.reload.fired_at).to be_nil
     end
+
+    # Phase 15 security audit F2 — race window between the model-level
+    # `fired_at IS NULL` check and the calendar_entry insert.
+    describe "concurrent firing (F2 race-condition guard)" do
+      it "the partial unique index prevents two milestone_auto entries for one rule" do
+        # Direct manual insert path simulates a sibling fire! that
+        # already committed. The second insert must trip the partial
+        # unique index `index_calendar_entries_unique_milestone_rule`.
+        rule.update!(fired_at: Time.current)
+        CalendarEntry.create!(
+          entry_type: :milestone_auto,
+          source: :auto,
+          state: :occurred,
+          title: rule.name,
+          starts_at: Time.current,
+          all_day: false,
+          timezone: "UTC",
+          milestone_rule_id: rule.id,
+          source_ref: { milestone_rule_id: rule.id, metric_value_at_fire: 1 },
+          metadata: { metric_value_at_fire: 1, user_overrides: {} }
+        )
+
+        expect {
+          CalendarEntry.create!(
+            entry_type: :milestone_auto,
+            source: :auto,
+            state: :occurred,
+            title: rule.name,
+            starts_at: Time.current,
+            all_day: false,
+            timezone: "UTC",
+            milestone_rule_id: rule.id,
+            source_ref: { milestone_rule_id: rule.id, metric_value_at_fire: 2 },
+            metadata: { metric_value_at_fire: 2, user_overrides: {} }
+          )
+        }.to raise_error(ActiveRecord::RecordNotUnique)
+
+        expect(
+          CalendarEntry.where(milestone_rule_id: rule.id, entry_type: :milestone_auto).count
+        ).to eq(1)
+      end
+
+      it "the partial unique index does NOT block a second auto entry on a DIFFERENT rule" do
+        # The index is scoped per `milestone_rule_id`. Two distinct
+        # rules can each have their own milestone_auto entry.
+        rule.update!(fired_at: Time.current)
+        CalendarEntry.create!(
+          entry_type: :milestone_auto,
+          source: :auto,
+          state: :occurred,
+          title: rule.name,
+          starts_at: Time.current,
+          all_day: false,
+          timezone: "UTC",
+          milestone_rule_id: rule.id,
+          source_ref: { milestone_rule_id: rule.id, metric_value_at_fire: 1 },
+          metadata: { metric_value_at_fire: 1, user_overrides: {} }
+        )
+
+        other_rule = create(:milestone_rule, name: "other", fired_at: Time.current)
+        expect {
+          CalendarEntry.create!(
+            entry_type: :milestone_auto,
+            source: :auto,
+            state: :occurred,
+            title: other_rule.name,
+            starts_at: Time.current,
+            all_day: false,
+            timezone: "UTC",
+            milestone_rule_id: other_rule.id,
+            source_ref: { milestone_rule_id: other_rule.id, metric_value_at_fire: 5 },
+            metadata: { metric_value_at_fire: 5, user_overrides: {} }
+          )
+        }.not_to raise_error
+      end
+
+      it "fire! rescues RecordNotUnique and returns the rule when a sibling already committed" do
+        # Simulate a concurrent fire!: the calendar_entry insert trips
+        # the partial unique index, and the sibling caller's `fired_at`
+        # is visible on the next reload. Under RSpec's transactional
+        # fixtures we can't truly cross-transaction; we stub `reload`
+        # to return a rule with `fired_at` already stamped — exactly
+        # the production state after the sibling's commit lands.
+        sibling_fired_at = 5.minutes.ago
+        allow(CalendarEntry).to receive(:create!).and_raise(
+          ActiveRecord::RecordNotUnique, "duplicate key value"
+        )
+        allow(rule).to receive(:reload) do
+          rule.fired_at = sibling_fired_at
+          rule
+        end
+
+        result = rule.fire!(metric_value: 99)
+        expect(result).to eq(rule)
+        expect(rule.fired_at).to be_within(2.seconds).of(sibling_fired_at)
+      end
+
+      it "fire! re-raises RecordNotUnique when fired_at is still nil after reload" do
+        # Defensive branch: if the index trips but `fired_at` was never
+        # persisted (e.g., the surrounding transaction rolled back the
+        # update! and the only thing left is the raw exception), let
+        # the exception bubble so the caller can retry.
+        allow(CalendarEntry).to receive(:create!).and_raise(
+          ActiveRecord::RecordNotUnique, "duplicate"
+        )
+        # The default reload will pull a row whose `fired_at` was just
+        # rolled back by the savepoint -> nil. The rescue branch must
+        # re-raise.
+        expect { rule.fire!(metric_value: 99) }.to raise_error(ActiveRecord::RecordNotUnique)
+      end
+    end
   end
 
   describe "#re_arm!" do

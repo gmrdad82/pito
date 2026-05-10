@@ -18,7 +18,8 @@ RSpec.describe Channel, type: :model do
       ch.update!(last_synced_at: Time.current)
       ce.reload
       # `updated_at` shifts on the upsert (the service writes through
-      # bypass_readonly + save!); the substantive attributes do not.
+      # the scoped `bypass_readonly_for` allowlist + save!); the
+      # substantive attributes do not.
       expect(ce.attributes.except("updated_at")).to eq(original_attrs)
     end
 

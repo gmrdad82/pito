@@ -1341,3 +1341,31 @@ textarea.note-editor-source {
     padding: 6px 8px !important;
   }
 }
+
+/* Phase 16 §3 — Notification surface tokens.
+   - Severity badge: lowercase text per master decision #10
+     (`info` / `success` / `warn` / `urgent`).
+   - Per CLAUDE.md hard rule: red is reserved for destructive/dangerous
+     actions only — `urgent` therefore maps to `--color-warn` (amber),
+     NOT `--color-error`. Mirrors the formatter's `IN_APP_SEVERITY_CLASSES`.
+   - Unread row: bold title; read row: muted (per master decision #6).
+   The badge wrapper is also styled here so the live Turbo Stream
+   replace target keeps a stable layout slot. */
+.notifications-badge { display: inline-flex; align-items: center; }
+.notification-row td { border-bottom: 1px solid var(--color-border); }
+.notification-row.notification-read .notification-title { color: var(--color-muted); font-weight: 400; }
+.notification-row.notification-unread .notification-title { font-weight: 700; }
+.notification-glyph { font-size: 13px; }
+.notification-severity-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border: 1px solid var(--color-border);
+  font-size: 12px;
+  text-transform: lowercase;
+}
+.notification-severity-info    { color: var(--color-link); }
+.notification-severity-success { color: var(--color-success, #2e7d32); }
+.notification-severity-warn    { color: var(--color-warn,    #d97706); }
+.notification-severity-urgent  { color: var(--color-warn,    #d97706); }
+.notification-body a { color: var(--color-link); }
+

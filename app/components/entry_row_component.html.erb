@@ -9,7 +9,9 @@
       <span><%= title %></span>
     </a>
     <% if show_reminder_copy? %>
-      <span class="text-muted" style="margin-left: 8px;">[ remind: t-7 t-1 t-0 ]</span>
+      <%# Phase 15 reviewer concern 4 — canonical bracketed form with
+          no inner padding. %>
+      <span class="text-muted" style="margin-left: 8px;">[remind: t-7 t-1 t-0]</span>
     <% end %>
   </td>
   <td><%= state_label %></td>

@@ -1,0 +1,18 @@
+<%# Phase 16 §3 — Unread badge fragment. Rendered next to the
+    `notifications` nav link AND broadcast in place via Turbo Stream
+    on every `Notification.after_create_commit` /
+    `after_update_commit` (read-state flip). The wrapper element
+    carries the stable `dom_id "notifications_badge"` Turbo Stream
+    targets — the wrapper renders even at zero so a flip from
+    1 → 0 swaps `[ 1 ]` for an empty container in place (no
+    DOM-disappear).
+
+    Per master decision 2026-05-10 #9: format is `[ N ]`. Per
+    `docs/design.md`: monospace + lowercase + bracketed convention.
+    Inline color via `var(--color-link)` mirrors the `[ N ]`
+    counter the rest of the nav uses for active links. %>
+<span id="notifications_badge" class="notifications-badge">
+  <% if unread_count.to_i > 0 %>
+    <span class="bracketed bracketed-active" style="color: var(--color-link);" aria-label="<%= unread_count %> unread notifications">[ <%= unread_count %> ]</span>
+  <% end %>
+</span>

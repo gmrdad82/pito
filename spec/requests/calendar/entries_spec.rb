@@ -144,6 +144,31 @@ RSpec.describe "Calendar::Entries", type: :request do
       expect(response.body).to include("100 subs")
       expect(response.body).to include("100000")
     end
+
+    # Phase 15 reviewer concern 6 — read-only entries no longer expose
+    # a `[note]` link until the modal markup is built. The PATCH
+    # endpoint is preserved (see "PATCH /calendar/entries/:id/note").
+    it "does NOT render a [note] link on read-only entries (modal not yet built)" do
+      rule = create(:milestone_rule, name: "100 subs")
+      ce = create(:calendar_entry, :milestone_auto, milestone_rule: rule)
+      get "/calendar/entries/#{ce.id}"
+      expect(response.body).not_to include("note-modal")
+      expect(response.body).not_to match(/\[note\]/)
+    end
+
+    # Phase 15 reviewer concerns 3 + 4 — the reminder copy is the
+    # canonical literal `[remind: t-7 t-1 t-0]` (no inner padding, not
+    # derived from `@declarations.map { |d| d[:kind] }`).
+    it "renders the canonical [remind: t-7 t-1 t-0] literal for future game_release entries" do
+      ce = create(:calendar_entry, :game_release,
+                  starts_at: 30.days.from_now,
+                  release_precision: :day)
+      get "/calendar/entries/#{ce.id}"
+      if response.body.include?("remind:")
+        expect(response.body).to include("[remind: t-7 t-1 t-0]")
+        expect(response.body).not_to match(/\[ remind:/)
+      end
+    end
   end
 
   describe "GET /calendar/entries/:id/edit" do
