@@ -22,7 +22,17 @@
 class YoutubeConnections::OauthCallbacksController < ApplicationController
   include YoutubeConnectionOauthRedirect
 
-  STALE_INTENT_FLASH = "sign-in via google is not supported. log in with email and password.".freeze
+  STALE_INTENT_FLASH = "sign-in via Google is not supported. log in with email and password.".freeze
+
+  # Flash copy for the partial-grant sad path. The user reached the
+  # Google consent screen and dismissed one or more YouTube scopes;
+  # the token we received works for whatever was granted, but pito's
+  # YouTube surfaces need the full required set. Tone mirrors the
+  # missing-scopes copy in `_needs_reauth_banner.html.erb`.
+  PARTIAL_GRANT_FLASH = "Google account connected, but some required " \
+                        "scopes were not granted. click [reconnect] " \
+                        "and leave every box checked on the Google " \
+                        "consent screen.".freeze
 
   # `failure` is allowed before sign-in (auth flow can fail upstream
   # of any session creation). `create` is NOT allow_anonymous: the
@@ -65,18 +75,34 @@ class YoutubeConnections::OauthCallbacksController < ApplicationController
                          alert: "session expired. please sign in and retry.")
     end
 
+    missing = missing_required_scopes(connection)
+    if missing.any?
+      # Partial grant — Google's consent screen lets the user uncheck
+      # individual scopes, so a "success" callback can still leave the
+      # token unable to drive the YouTube surfaces. Flip needs_reauth
+      # back on (the upsert defaulted it false) so the manage page
+      # renders the missing-scopes banner copy, and explain in flash.
+      connection.update_columns(needs_reauth: true)
+      audit("youtube_connection.callback.partial_grant",
+            user_id: connection.user_id,
+            connection_id: connection.id,
+            missing_scopes: missing)
+      flash[:alert] = PARTIAL_GRANT_FLASH
+      return redirect_to redirect_target_for_intent(intent)
+    end
+
     audit("youtube_connection.callback.succeeded",
           user_id: connection.user_id,
           connection_id: connection.id)
-    flash[:notice] = "google account connected."
+    flash[:notice] = "Google account connected."
     redirect_to redirect_target_for_intent(intent)
   end
 
   # GET /auth/failure
   def failure
     @reason = params[:message].to_s.presence || "auth_failed"
-    flash.now[:alert] ||= "google sign-in failed (#{@reason})."
-    render plain: "google sign-in failed: #{@reason}", status: :unauthorized
+    flash.now[:alert] ||= "Google sign-in failed (#{@reason})."
+    render plain: "Google sign-in failed: #{@reason}", status: :unauthorized
   end
 
   private
@@ -104,12 +130,27 @@ class YoutubeConnections::OauthCallbacksController < ApplicationController
     connection.access_token       = creds["token"]
     connection.refresh_token      = creds["refresh_token"] || connection.refresh_token
     connection.expires_at         = expiry_from_credentials(creds)
-    connection.scopes             = (Array(connection.scopes) + granted_scopes).uniq
+    # The current grant is the source of truth — the stored array reflects
+    # the scope set actually attached to this access token, not a stale
+    # historical union. The post-upsert partial-grant check (see #create)
+    # uses this same list to detect missing required scopes.
+    connection.scopes             = granted_scopes.uniq
     connection.needs_reauth       = false
     connection.last_authorized_at = Time.current
 
     connection.save!
     connection
+  end
+
+  # Return the subset of PITO_GOOGLE_OAUTH_REQUIRED_YOUTUBE_SCOPES that
+  # did NOT make it onto this connection's stored scopes array. An
+  # empty array means the grant covered everything pito needs; a
+  # non-empty array means the user dismissed at least one scope on the
+  # Google consent screen and the surface should prompt to reconnect.
+  def missing_required_scopes(connection)
+    required = Array(PITO_GOOGLE_OAUTH_REQUIRED_YOUTUBE_SCOPES)
+    granted = Array(connection.scopes)
+    required - granted
   end
 
   # Build the granted-scope list from the auth hash. OmniAuth

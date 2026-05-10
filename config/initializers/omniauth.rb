@@ -7,10 +7,23 @@
 # project's confidential web app client stores its secret server-side,
 # but PKCE is a free defense-in-depth.
 #
-# The provider-level default scope set is the lightweight sign-in
-# profile (`openid email profile`); `Settings::YoutubeController#connect`
-# overrides at the request phase with the YouTube scopes via session-
-# stashed params.
+# Scope strategy — single set, requested every time. Pito's only Google
+# OAuth flow is the YouTube-connection handshake (the sign-in branch was
+# retired in ADR 0006). The provider asks for the full YouTube scope
+# set on every `/auth/google_oauth2` request so the resulting access
+# token can drive every API surface pito uses:
+#
+#   * `openid email profile`           — user identity in the auth hash
+#   * `youtube.readonly`               — channels.list, videos.list,
+#                                        playlists.list
+#   * `yt-analytics.readonly`          — youtubeAnalytics.reports.query
+#   * `youtube.force-ssl`              — videos.update sync-back (Phase
+#                                        12), channels.update / banner /
+#                                        watermark writes (Phase 11+)
+#
+# The consent screen surfaces all of them once; subsequent reconnect
+# flows use the same set so tokens minted under an earlier (narrower)
+# scope set are upgraded the next time the user clicks `[reconnect]`.
 
 OmniAuth.config.allowed_request_methods = [ :post, :get ]
 OmniAuth.config.silence_get_warning = true
@@ -44,15 +57,40 @@ if google_oauth_client_id.blank? || google_oauth_client_secret.blank?
         "(or set PITO_GOOGLE_OAUTH_CLIENT_ID / PITO_GOOGLE_OAUTH_CLIENT_SECRET)"
 end
 
+# Single scope set requested every time — see the scope strategy
+# block in the file header. Listed as a constant rather than inlined
+# so request specs and callback specs can reference the canonical set
+# without duplicating the string.
+PITO_GOOGLE_OAUTH_SCOPES = %w[
+  openid
+  email
+  profile
+  https://www.googleapis.com/auth/youtube.readonly
+  https://www.googleapis.com/auth/yt-analytics.readonly
+  https://www.googleapis.com/auth/youtube.force-ssl
+].freeze
+
+# Subset of PITO_GOOGLE_OAUTH_SCOPES the controller treats as
+# load-bearing for the YouTube surface. Missing any of these in the
+# callback's granted-scopes list flips the connection to
+# `needs_reauth: true` so the user is prompted to re-consent with the
+# full set (Google's consent screen lets the user uncheck individual
+# scopes).
+PITO_GOOGLE_OAUTH_REQUIRED_YOUTUBE_SCOPES = %w[
+  https://www.googleapis.com/auth/youtube.readonly
+  https://www.googleapis.com/auth/yt-analytics.readonly
+  https://www.googleapis.com/auth/youtube.force-ssl
+].freeze
+
 Rails.application.config.middleware.use OmniAuth::Builder do
   provider :google_oauth2,
            google_oauth_client_id,
            google_oauth_client_secret,
            {
-             # Default scope set is the lightweight sign-in profile;
-             # `Settings::YoutubeController#connect` overrides via
-             # session-stashed params in the request-phase rewrite.
-             scope: "openid email profile",
+             # Full scope set requested every authorization round.
+             # `Settings::YoutubeController#connect` only stashes an
+             # intent in session — no request-phase scope override.
+             scope: PITO_GOOGLE_OAUTH_SCOPES.join(" "),
              access_type: "offline",
              prompt: "consent",
              skip_jwt: true,

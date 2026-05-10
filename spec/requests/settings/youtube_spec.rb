@@ -9,13 +9,13 @@ RSpec.describe "Settings::Youtube", type: :request do
       it "renders the empty state with a connect button" do
         get settings_youtube_path
         expect(response).to have_http_status(:ok)
-        expect(response.body).to include("no google account connected")
+        expect(response.body).to include("no Google account connected")
         expect(response.body).to include("[connect]")
       end
 
-      it "renders the `google connection` heading (not `YouTube`)" do
+      it "renders the `Google connection` heading (not `YouTube`)" do
         get settings_youtube_path
-        expect(response.body).to include("<h1>google connection</h1>")
+        expect(response.body).to include("<h1>Google connection</h1>")
         expect(response.body).not_to include("<h1>YouTube</h1>")
       end
     end
@@ -29,7 +29,7 @@ RSpec.describe "Settings::Youtube", type: :request do
 
       it "renders the red banner" do
         get settings_youtube_path
-        expect(response.body).to include("your google grant was revoked")
+        expect(response.body).to include("your Google grant was revoked")
         expect(response.body).to include("[reconnect]")
       end
 
@@ -39,16 +39,27 @@ RSpec.describe "Settings::Youtube", type: :request do
       end
 
       # Bug-fix coverage — the manage page must keep rendering when the
-      # connection is in needs_reauth state, with the picker section
-      # replaced by a red `out of date or missing required scopes`
-      # note that points at the same [reconnect] flow.
-      it "renders 200 and replaces the picker with the scope-mismatch note" do
+      # connection is in needs_reauth state. The top banner carries the
+      # `[reconnect]` CTA; the picker section collapses to a muted
+      # "channel list will return after [reconnect]" note (no second
+      # red banner — Phase 10 polish consolidated to one CTA).
+      it "renders 200 and collapses the picker to a muted reconnect note" do
         get settings_youtube_path
         expect(response).to have_http_status(:ok)
-        expect(response.body).to include(
-          "your google authorization is out of date or missing required scopes"
-        )
+        expect(response.body).to include("channel list will return after")
         expect(response.body).to include("[reconnect]")
+      end
+
+      it "renders exactly one [reconnect] CTA (top banner only)" do
+        get settings_youtube_path
+        # The banner CTA is a real submit button — exactly one occurrence.
+        button_count = response.body.scan(/<button[^>]*type="submit"[^>]*>\[reconnect\]/).size
+        expect(button_count).to eq(1)
+      end
+
+      it "does NOT leak the raw `needsreauth` error token in copy" do
+        get settings_youtube_path
+        expect(response.body).not_to include("needsreauth")
       end
 
       it "still renders the `linked channels` listing (it does not depend on the API)" do
@@ -60,6 +71,30 @@ RSpec.describe "Settings::Youtube", type: :request do
         expect(response.body).to include("linked channels")
         expect(response.body).to include("UCyyyyyyyyyyyyyyyyyyyyyy")
         expect(response.body).to include("[disconnect]")
+      end
+    end
+
+    # Phase 10 polish — copy differentiation. When `needs_reauth?` is
+    # true AND the required `youtube.readonly` scope is missing from the
+    # granted-scopes array, the banner reads "missing the scopes pito
+    # needs" rather than the default "grant was revoked" message.
+    context "with a YoutubeConnection in needs_reauth state missing required scopes" do
+      before do
+        @user = User.first
+        @connection = create(:youtube_connection, :needs_reauth, user: @user,
+                                                                 email: "u@example.test",
+                                                                 scopes: %w[openid email profile])
+      end
+
+      it "renders the missing-scopes variant of the banner" do
+        get settings_youtube_path
+        expect(response.body).to include("missing the scopes pito needs")
+        expect(response.body).to include("[reconnect]")
+      end
+
+      it "does NOT render the revoked-grant copy" do
+        get settings_youtube_path
+        expect(response.body).not_to include("your Google grant was revoked")
       end
     end
 
@@ -91,6 +126,34 @@ RSpec.describe "Settings::Youtube", type: :request do
         expect(response.body).to include("connected as")
         expect(response.body).to include("last authorized")
         expect(response.body).to include("scopes")
+      end
+
+      # Phase 10 polish — pane width.
+      it "wraps the connection metadata in a `pane--wide` pane" do
+        get settings_youtube_path
+        expect(response.body).to match(/<div class="pane pane--wide"/)
+      end
+
+      # Phase 10 polish — scopes rendered one-per-line (not comma-separated).
+      it "renders each scope on its own <li> with the trailing segment bolded" do
+        get settings_youtube_path
+        # Vertical list shape — at least one <li> with a <strong> short label.
+        expect(response.body).to match(/<li[^>]*>\s*<code><strong>youtube\.readonly<\/strong><\/code>/)
+        expect(response.body).to match(/<li[^>]*>\s*<code><strong>yt-analytics\.readonly<\/strong><\/code>/)
+        # The full URL still appears (muted) below each short label.
+        expect(response.body).to include("https://www.googleapis.com/auth/youtube.readonly")
+        # No comma-joined collapse.
+        expect(response.body).not_to match(
+          %r{openid,\s*email,\s*profile,\s*https://www\.googleapis\.com/auth/youtube\.readonly}
+        )
+      end
+
+      # Phase 10 polish — no duplicate [reconnect] CTA inside the pane on
+      # a healthy connection (the previous layout offered one even when
+      # the top banner was absent).
+      it "does NOT render a [reconnect] button when the connection is healthy" do
+        get settings_youtube_path
+        expect(response.body).not_to include("[reconnect]")
       end
 
       it "renders the `select channels to add` heading and the multi-select form" do
@@ -196,12 +259,20 @@ RSpec.describe "Settings::Youtube", type: :request do
         expect(response).to have_http_status(:ok)
       end
 
-      it "renders the [reconnect] button and the red scope-mismatch note in the picker section" do
+      it "renders the [reconnect] button in the top banner and the muted picker note" do
         get settings_youtube_path
         expect(response.body).to include("[reconnect]")
-        expect(response.body).to include(
-          "your google authorization is out of date or missing required scopes"
-        )
+        # The picker section collapses to a muted "channel list will return"
+        # note — no second red banner.
+        expect(response.body).to include("channel list will return after")
+      end
+
+      it "does NOT leak the raw `needsreauth` error token in copy" do
+        # The controller's rescue path may stash `"needsreauth"` in
+        # `@youtube_error`; the view must NOT surface that token to the
+        # user. The needs_reauth top banner is the human-facing message.
+        get settings_youtube_path
+        expect(response.body).not_to include("needsreauth")
       end
 
       it "still renders the linked-channels listing (no API dependency)" do
@@ -218,10 +289,10 @@ RSpec.describe "Settings::Youtube", type: :request do
       it "does NOT render the 'select channels to add' multi-select form" do
         # The picker form depends on `@youtube_channels`, which is
         # empty after the rescue. We want the red note in its place,
-        # not the misleading `no channels found under this google
+        # not the misleading `no channels found under this Google
         # account` empty-state message.
         get settings_youtube_path
-        expect(response.body).not_to include("no channels found under this google account")
+        expect(response.body).not_to include("no channels found under this Google account")
         expect(response.body).not_to match(/<form[^>]*action="#{Regexp.escape(settings_youtube_channels_path)}"/)
       end
     end
@@ -314,7 +385,7 @@ RSpec.describe "Settings::Youtube", type: :request do
       post settings_youtube_channels_path,
            params: { youtube_channel_ids: %w[UCaaaaaaaaaaaaaaaaaaaaaa] }
       expect(response).to redirect_to(settings_youtube_path)
-      expect(flash[:alert]).to include("google account is not connected")
+      expect(flash[:alert]).to include("Google account is not connected")
     end
 
     it "rejects when the connection is in needs_reauth state" do
@@ -322,7 +393,7 @@ RSpec.describe "Settings::Youtube", type: :request do
       post settings_youtube_channels_path,
            params: { youtube_channel_ids: %w[UCaaaaaaaaaaaaaaaaaaaaaa] }
       expect(response).to redirect_to(settings_youtube_path)
-      expect(flash[:alert]).to include("google account is not connected")
+      expect(flash[:alert]).to include("Google account is not connected")
     end
 
     it "links an existing un-linked channel to this connection (flaw: bypass attempt)" do

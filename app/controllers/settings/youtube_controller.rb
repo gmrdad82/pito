@@ -59,7 +59,7 @@ class Settings::YoutubeController < ApplicationController
     connection = current_youtube_connection
     if connection.nil? || connection.needs_reauth?
       redirect_to settings_youtube_path,
-                  alert: "google account is not connected."
+                  alert: "Google account is not connected."
       return
     end
 

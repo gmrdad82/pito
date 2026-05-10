@@ -714,6 +714,16 @@ RSpec.describe "Channels", type: :request do
       videos_pane_body = panes[2]
       expect(videos_pane_body).to match(/<h2>videos \(\d/)
     end
+
+    # Copy fix (2026-05-10) — the heading row's add-pane trigger renders
+    # as `[+]` (not `[|]`). The action is unchanged (opens the add-pane
+    # modal via `click->add-pane#open`); only the displayed glyph is `+`.
+    it "renders the heading-row add-pane trigger as [+] (not [|])" do
+      create(:channel) # ensure @available_channels.any? so the button renders
+      get channel_path(channel)
+      expect(response.body).to match(%r{\[<span class="bl">\+</span>\]})
+      expect(response.body).not_to match(%r{\[<span class="bl">\|</span>\]})
+    end
   end
 
   # The URL-paste entry path was dropped — channels enter the system
@@ -762,7 +772,7 @@ RSpec.describe "Channels", type: :request do
       Channel.delete_all
       get channels_path
       expect(response.body).to include("no channels yet")
-      expect(response.body).to include("[add channels via google]")
+      expect(response.body).to include("[add channels via Google]")
       expect(response.body).to include(settings_youtube_path)
     end
   end

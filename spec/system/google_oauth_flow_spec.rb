@@ -18,7 +18,16 @@ RSpec.describe "Google OAuth flow", type: :system do
         expires_at: 1.hour.from_now.to_i
       },
       extra: { raw_info: {
-        scope: "openid email profile https://www.googleapis.com/auth/youtube.readonly"
+        # Full pito scope set — happy path. The partial-grant branch
+        # in `YoutubeConnections::OauthCallbacksController#create` is
+        # covered in the request spec; here we just want the connect
+        # → callback → /settings/youtube round-trip to complete cleanly.
+        scope: [
+          "openid", "email", "profile",
+          "https://www.googleapis.com/auth/youtube.readonly",
+          "https://www.googleapis.com/auth/yt-analytics.readonly",
+          "https://www.googleapis.com/auth/youtube.force-ssl"
+        ].join(" ")
       } }
     )
 
@@ -39,7 +48,7 @@ RSpec.describe "Google OAuth flow", type: :system do
 
   it "lets the user connect their Google account from settings → youtube" do
     visit settings_youtube_path
-    expect(page).to have_content("no google account connected")
+    expect(page).to have_content("no Google account connected")
 
     expect {
       click_button "[connect]"

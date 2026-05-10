@@ -217,3 +217,89 @@ After validation, dispatch:
   Stimulus refactor).
 - TUI Ratatui overlay (rust agent).
 - Both can land in parallel; the schema is the contract.
+
+## Locked decisions (2026-05-11 — user confirms)
+
+After review of the Mobile note
+(`docs/notes/2026-05-10-22-29-58-reply-to-keybindings-and-future-development.md`),
+these are the locked answers:
+
+### Keybinding revisions
+
+- **A1 — bulk-mode toggle dropped.** ✅ Already done. TUI `b` keybind,
+  `space (bulk mode only)` gate, Rails keymap mirror all removed. Checkboxes
+  always visible.
+- **A2 — `f` per-surface filter sub-scheme.** ✅ Lock in schema. Surfaces with
+  filterable lists declare `f` with their filter keys.
+- **A3 — `s` per-surface sort sub-scheme.** ✅ Lock. Lowercase `s` = sort
+  globally. The earlier proposal had `s` for "bulk sync" on Channels root —
+  that's RETIRED. Bulk sync stays as an always-on action button on the page; no
+  `s` keybind at root.
+- **A4 — multi-table pages add an extra level for table-target selection.** ✅
+  Lock.
+- **A5 — REDEFINED. `|` is NOT split-view toggle.** Instead, `|` opens the
+  current-list operations menu:
+  - `l` — show modal listing all saved views
+  - `+` — show the add-X modal for the current surface (e.g., on `/channels`,
+    opens the multi-select add-channels modal; on `/games`, opens IGDB add)
+- **A6 — Analytics out of leader.** ✅ Confirmed.
+
+### Product direction
+
+- **B1 — Videos get `+` (upload to YouTube) AND `[import]` (pull existing from
+  YouTube).** Two separate flows. No collision. `+` and `[import]` both ship.
+- **B2 — Daily sync = diff + notification.** ✅ Already locked in Step 11 for
+  Channels. To widen: same pattern applies to Videos (new sub-spec needed;
+  covers both resources or a sibling 11j for videos).
+- **B3 — Sync NEVER overwrites — diff dialog with bidirectional resolution.** ✅
+  Already locked in Step 11 D20 + 11i for Channels. Widen to Videos same way.
+- **B4 — Games stay IGDB-only.** ✅ No change.
+- **B5 — DB reset + seed workflow.** ⏸ Deferred. User wants to validate other
+  things first.
+- **B6 — Videos import flow (ImportJob + modal).** Major spec to write later.
+
+### Channel show page revamp (locked direction)
+
+Channel show page (`/channels/:slug`) will display:
+
+1. Banner
+2. Avatar
+3. Title
+4. Handle
+5. Link to YouTube channel
+6. Link to YouTube Studio
+7. Description
+8. Links (jsonb array of `{ title, url }`)
+9. Analytics section
+10. Videos section: starred first, then latest, up to ~30, with `[see all]` link
+    to `/videos?channel=<slug>`
+
+Depends on:
+
+- Step 11 schema (banner_url, avatar_url, title, handle, description, links
+  columns) — already landed (11a)
+- Sync populating the columns — depends on OmniAuth scope fix (in flight) + user
+  re-authorizing
+- `/videos?channel=<slug>` filter — being added in parallel dispatch
+
+### Copy fixes locked
+
+- `[|]` icon on channel show heading → `[+]` (replaces the icon character;
+  semantic stays the same: opens add-channel modal). Dispatched.
+- "Google" canonical capital case in user-facing copy — dispatched.
+
+### Conflict resolution summary
+
+The earlier `s` collision noted in the Mobile reply (lowercase `s` = sort
+globally vs `s` = bulk sync on channels) is resolved by retiring `s = bulk sync`
+at root. Bulk sync is still triggerable from the always-on action toolbar; it
+just doesn't get a leader-key entry.
+
+### Dispatch priorities (user-confirmed)
+
+1. Currently in flight: OmniAuth scopes fix, view polish on `/settings/youtube`,
+   brand casing sweep, channel-show `[|]` → `[+]`, `/videos?channel=` filter.
+2. Once OmniAuth scopes lands + user re-auths: real channel sync populates
+   columns → channel show revamp lands cleanly.
+3. After validation: B5 DB reset, B6 ImportJob spec, channel-show revamp
+   implementation.

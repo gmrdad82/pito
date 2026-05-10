@@ -38,7 +38,7 @@ RSpec.describe "Add channels via Google", type: :system do
     # `[+]` on the picker is the canonical entry point.
     click_link "[+]"
     expect(page).to have_current_path(settings_youtube_path)
-    expect(page).to have_content("google connection")
+    expect(page).to have_content("Google connection")
     expect(page).to have_content("select channels to add")
 
     # The two stubbed channels render with enabled checkboxes.

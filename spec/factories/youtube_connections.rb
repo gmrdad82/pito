@@ -10,12 +10,18 @@ FactoryBot.define do
     refresh_token { "1//test-refresh-token-#{SecureRandom.hex(16)}" }
     expires_at { 1.hour.from_now }
     scopes do
+      # Mirrors PITO_GOOGLE_OAUTH_SCOPES (config/initializers/omniauth.rb)
+      # so factory-built connections look like ones minted by the live
+      # OAuth handshake — read scopes for channels.list / videos.list /
+      # analytics.reports plus the force-ssl write scope used by
+      # videos.update (Phase 12) and the channel-edit writes (Phase 11+).
       %w[
         openid
         email
         profile
         https://www.googleapis.com/auth/youtube.readonly
         https://www.googleapis.com/auth/yt-analytics.readonly
+        https://www.googleapis.com/auth/youtube.force-ssl
       ]
     end
     needs_reauth { false }

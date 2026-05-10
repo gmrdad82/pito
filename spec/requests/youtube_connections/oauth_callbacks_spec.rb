@@ -9,6 +9,29 @@ require "rails_helper"
 # when the callback path is hit. The integration-test client then
 # follows the chain via `follow_redirect!`.
 RSpec.describe "YoutubeConnections::OauthCallbacks", type: :request do
+  # Sanity guard: the callback controller's `missing_required_scopes`
+  # method references the bare top-level constant. The constant is
+  # defined in `config/initializers/omniauth.rb`; if it ever drifts
+  # (renamed, namespaced, deleted) the reconnect path raises NameError
+  # in production. Lock the definition site and the contents here.
+  describe "PITO_GOOGLE_OAUTH_REQUIRED_YOUTUBE_SCOPES constant" do
+    it "is defined at the top level" do
+      expect(defined?(PITO_GOOGLE_OAUTH_REQUIRED_YOUTUBE_SCOPES)).to eq("constant")
+    end
+
+    it "contains the three YouTube scope URLs pito needs" do
+      expect(PITO_GOOGLE_OAUTH_REQUIRED_YOUTUBE_SCOPES).to contain_exactly(
+        "https://www.googleapis.com/auth/youtube.readonly",
+        "https://www.googleapis.com/auth/yt-analytics.readonly",
+        "https://www.googleapis.com/auth/youtube.force-ssl"
+      )
+    end
+
+    it "is frozen so a runtime mutation can't drift the required set" do
+      expect(PITO_GOOGLE_OAUTH_REQUIRED_YOUTUBE_SCOPES).to be_frozen
+    end
+  end
+
   before do
     OmniAuth.config.test_mode = true
     OmniAuth.config.failure_raise_out_environments = []
@@ -17,6 +40,20 @@ RSpec.describe "YoutubeConnections::OauthCallbacks", type: :request do
   after do
     OmniAuth.config.test_mode = false
     OmniAuth.config.mock_auth[:google_oauth2] = nil
+  end
+
+  # Default mock hash returns the FULL pito scope set so the
+  # partial-grant guard in the controller does NOT fire on these
+  # baseline assertions. Sad-path tests below override `extra.raw_info.scope`
+  # to simulate a user dismissing one or more scopes on the consent
+  # screen.
+  let(:full_granted_scope_string) do
+    [
+      "openid", "email", "profile",
+      "https://www.googleapis.com/auth/youtube.readonly",
+      "https://www.googleapis.com/auth/yt-analytics.readonly",
+      "https://www.googleapis.com/auth/youtube.force-ssl"
+    ].join(" ")
   end
 
   let(:auth_hash) do
@@ -29,7 +66,7 @@ RSpec.describe "YoutubeConnections::OauthCallbacks", type: :request do
         refresh_token: "1//test-refresh-token",
         expires_at: 1.hour.from_now.to_i
       },
-      extra: { raw_info: { scope: "openid email profile" } }
+      extra: { raw_info: { scope: full_granted_scope_string } }
     )
   end
 
@@ -73,6 +110,22 @@ RSpec.describe "YoutubeConnections::OauthCallbacks", type: :request do
         expect(raw).not_to include("ya29.test-access-token")
       end
 
+      it "persists every YouTube scope the consent screen returned (full pito scope set)" do
+        run_oauth_dance(intent: :youtube_connect)
+        connection = YoutubeConnection.unscoped.last
+        expect(connection.scopes).to include(
+          "https://www.googleapis.com/auth/youtube.readonly",
+          "https://www.googleapis.com/auth/yt-analytics.readonly",
+          "https://www.googleapis.com/auth/youtube.force-ssl"
+        )
+      end
+
+      it "leaves needs_reauth false when the grant covers every required scope" do
+        run_oauth_dance(intent: :youtube_connect)
+        connection = YoutubeConnection.unscoped.last
+        expect(connection.needs_reauth?).to be(false)
+      end
+
       it "refreshes the existing connection on re-authorization (NO new row)" do
         existing = create(:youtube_connection,
                           google_subject_id: "1099876543210123456789",
@@ -106,24 +159,99 @@ RSpec.describe "YoutubeConnections::OauthCallbacks", type: :request do
         expect(YoutubeConnection.unscoped.where(user_id: user.id).count).to eq(2)
       end
 
-      it "unions newly granted scopes into the existing scopes array" do
+      it "replaces the stored scopes with the current grant (no stale union)" do
+        # Approach B (config/initializers/omniauth.rb scope-strategy
+        # block): every authorization round returns the full scope set,
+        # so the stored array reflects the current token's grant — not
+        # a historical union. A previous narrow scope set must NOT
+        # mask a present-day missing scope.
         existing = create(:youtube_connection,
                           google_subject_id: "1099876543210123456789",
                           email: "user@example.com",
-                          scopes: %w[openid email profile])
-        OmniAuth.config.mock_auth[:google_oauth2] = OmniAuth::AuthHash.new(auth_hash.merge(
-          extra: { raw_info: {
-            scope: "openid email profile https://www.googleapis.com/auth/youtube.readonly"
-          } }
-        ))
-
+                          scopes: %w[
+                            openid email profile
+                            https://www.googleapis.com/auth/youtube.readonly
+                            https://www.googleapis.com/auth/yt-analytics.readonly
+                            https://www.googleapis.com/auth/youtube.force-ssl
+                            https://www.googleapis.com/auth/legacy-scope-from-history
+                          ])
+        # Callback returns only the current (full) scope set — the
+        # legacy "history" scope is NOT in the new grant.
         run_oauth_dance(intent: :youtube_connect)
 
         existing.reload
         expect(existing.scopes).to include(
           "openid", "email", "profile",
-          "https://www.googleapis.com/auth/youtube.readonly"
+          "https://www.googleapis.com/auth/youtube.readonly",
+          "https://www.googleapis.com/auth/yt-analytics.readonly",
+          "https://www.googleapis.com/auth/youtube.force-ssl"
         )
+        expect(existing.scopes).not_to include(
+          "https://www.googleapis.com/auth/legacy-scope-from-history"
+        )
+      end
+    end
+
+    context "with the youtube_connect intent stashed and a PARTIAL scope grant" do
+      # Google's consent screen lets the user uncheck individual
+      # scopes. The callback hash still says "success" but the token
+      # is missing one or more scopes pito needs.
+      let(:partial_auth_hash) do
+        OmniAuth::AuthHash.new(
+          provider: "google_oauth2",
+          uid: "1099876543210123456789",
+          info: { email: "user@example.com", name: "Sample User" },
+          credentials: {
+            token: "ya29.test-access-token",
+            refresh_token: "1//test-refresh-token",
+            expires_at: 1.hour.from_now.to_i
+          },
+          extra: { raw_info: {
+            # User unchecked youtube.force-ssl on the consent screen.
+            scope: "openid email profile " \
+                   "https://www.googleapis.com/auth/youtube.readonly " \
+                   "https://www.googleapis.com/auth/yt-analytics.readonly"
+          } }
+        )
+      end
+
+      before { OmniAuth.config.mock_auth[:google_oauth2] = partial_auth_hash }
+
+      it "still creates the YoutubeConnection row" do
+        expect {
+          run_oauth_dance(intent: :youtube_connect)
+        }.to change { YoutubeConnection.unscoped.count }.by(1)
+      end
+
+      it "flips needs_reauth back to true so the manage page shows the missing-scopes banner" do
+        run_oauth_dance(intent: :youtube_connect)
+        connection = YoutubeConnection.unscoped.last
+        expect(connection.needs_reauth?).to be(true)
+      end
+
+      it "stores ONLY the partially granted scopes (no force-ssl)" do
+        run_oauth_dance(intent: :youtube_connect)
+        connection = YoutubeConnection.unscoped.last
+        expect(connection.scopes).to include(
+          "https://www.googleapis.com/auth/youtube.readonly",
+          "https://www.googleapis.com/auth/yt-analytics.readonly"
+        )
+        expect(connection.scopes).not_to include(
+          "https://www.googleapis.com/auth/youtube.force-ssl"
+        )
+      end
+
+      it "redirects back to /settings/youtube with the partial-grant flash" do
+        run_oauth_dance(intent: :youtube_connect)
+        expect(response).to redirect_to(settings_youtube_path)
+        expect(flash[:alert]).to eq(
+          YoutubeConnections::OauthCallbacksController::PARTIAL_GRANT_FLASH
+        )
+      end
+
+      it "does NOT leave the success flash in place" do
+        run_oauth_dance(intent: :youtube_connect)
+        expect(flash[:notice]).to be_blank
       end
     end
 
@@ -133,8 +261,11 @@ RSpec.describe "YoutubeConnections::OauthCallbacks", type: :request do
       it "redirects to the failure path with the locked stale-intent flash copy" do
         run_oauth_dance(intent: :no_intent)
         expect(response).to redirect_to(youtube_connection_oauth_failure_path)
+        # Reference the constant directly so the brand-casing
+        # sweep (lowercase → capital `Google`) doesn't double-touch
+        # the spec.
         expect(flash[:alert]).to eq(
-          "sign-in via google is not supported. log in with email and password."
+          YoutubeConnections::OauthCallbacksController::STALE_INTENT_FLASH
         )
       end
 
@@ -155,7 +286,7 @@ RSpec.describe "YoutubeConnections::OauthCallbacks", type: :request do
           run_oauth_dance(intent: :youtube_connect)
         }.not_to change { YoutubeConnection.unscoped.count }
 
-        expect(response.body).to include("google sign-in failed")
+        expect(response.body).to match(/[gG]oogle sign-in failed/)
       end
     end
 
@@ -184,7 +315,7 @@ RSpec.describe "YoutubeConnections::OauthCallbacks", type: :request do
     it "renders a non-200 response with the failure reason" do
       get youtube_connection_oauth_failure_path, params: { message: "access_denied" }
       expect(response).to have_http_status(:unauthorized)
-      expect(response.body).to include("google sign-in failed")
+      expect(response.body).to include("Google sign-in failed")
       expect(response.body).to include("access_denied")
     end
   end

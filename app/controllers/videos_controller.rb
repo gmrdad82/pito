@@ -31,7 +31,20 @@ class VideosController < ApplicationController
 
   def index
     @saved_views = SavedView.videos.ordered
-    @videos = Video.includes(:channel)
+
+    # Phase 21 — `?channel=<slug-or-id>` filter chip on the videos
+    # picker. Resolution mirrors ChannelsController#show (slug-or-id
+    # via `Channel.friendly.find`). Unknown channel = 404 so the
+    # filter chip can't silently render an empty table for a typo'd
+    # slug. `@filter_channel` is exposed to the view so the active
+    # chip can label itself with the channel's title (falling back
+    # to the slug).
+    @filter_channel = nil
+    if params[:channel].present?
+      @filter_channel = Channel.friendly.find(params[:channel])
+    end
+
+    scope = Video.includes(:channel)
       .left_joins(:video_stats)
       .select(
         "videos.*",
@@ -42,7 +55,8 @@ class VideosController < ApplicationController
         "COALESCE(CAST(SUM(video_stats.watch_time_minutes) AS BIGINT), 0) AS total_watch_time"
       )
       .group("videos.id")
-      .order(sort_clause)
+    scope = scope.where(channel_id: @filter_channel.id) if @filter_channel
+    @videos = scope.order(sort_clause)
     @sort = sanitized_sort_key
     @dir = sanitized_dir
     @max_panes = max_panes

@@ -1,15 +1,38 @@
 <%# Phase 7 — Step C. needs_reauth banner.
     Locked decision (7C-banner-color) — red allowed; this is a
-    failure-state banner, not a destructive-action UI. The
-    docs-keeper dispatch has a TODO to land a one-line note in
-    docs/design.md's color section documenting the carve-out. %>
+    failure-state banner, not a destructive-action UI. Documented in
+    docs/design.md (color carve-out).
+
+    Phase 10 polish — consolidated to the single top-of-page reconnect
+    surface. The pane-internal `[reconnect]` button and the
+    picker-section red banner are gone; this is the only `[reconnect]`
+    CTA on the page. Two copy variants based on what we can detect:
+
+      1. needs_reauth + missing the required `youtube.readonly` scope
+         → "missing the scopes pito needs"
+      2. needs_reauth (default / revoked grant)
+         → "Google grant was revoked"
+
+    No internal error-class tokens (`needsreauth`, `transient`) leak
+    into the copy. %>
+
+<% required_scope = "https://www.googleapis.com/auth/youtube.readonly" %>
+<% missing_scope = !@youtube_connection.has_scope?(required_scope) %>
 
 <div class="flash-error" style="margin: 12px 0; padding: 10px 12px; border: 1px solid #cc0000; color: #cc0000;">
-  <strong>your google grant was revoked.</strong>
-  pito can no longer fetch YouTube data for this account.
-
-  <%= form_with url: settings_youtube_connect_path, method: :post,
-                data: { turbo: false }, html: { style: "display: inline; margin-left: 12px;" } do %>
-    <button type="submit">[reconnect]</button>
+  <% if missing_scope %>
+    <strong>your Google authorization is missing the scopes pito needs.</strong>
+    <%= form_with url: settings_youtube_connect_path, method: :post,
+                  data: { turbo: false }, html: { style: "display: inline; margin-left: 12px;" } do %>
+      <button type="submit">[reconnect]</button>
+    <% end %>
+    <span style="margin-left: 4px;">to grant them.</span>
+  <% else %>
+    <strong>your Google grant was revoked.</strong>
+    pito can no longer fetch YouTube data for this account.
+    <%= form_with url: settings_youtube_connect_path, method: :post,
+                  data: { turbo: false }, html: { style: "display: inline; margin-left: 12px;" } do %>
+      <button type="submit">[reconnect]</button>
+    <% end %>
   <% end %>
 </div>

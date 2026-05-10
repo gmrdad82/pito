@@ -1,10 +1,20 @@
-<% content_for(:title, "google connection") %>
-<% breadcrumb(["settings", settings_path], "google") %>
+<% content_for(:title, "Google connection") %>
+<% breadcrumb(["settings", settings_path], "Google") %>
 
 <div style="margin-bottom: 8px;">
-  <h1>google connection</h1>
+  <h1>Google connection</h1>
 </div>
 
+<%# Phase 10 polish — single consolidated top-of-page reconnect banner.
+    The pane-internal `[reconnect]` button and the picker-section red
+    banner are gone (the top banner is the primary CTA). Two copy
+    variants live in the partial (revoked grant vs. missing scopes);
+    transient API errors render their own muted note further down.
+
+    `@youtube_error` carrying an auth-state token like "needsreauth"
+    is suppressed here — when `needs_reauth?` is true the user already
+    sees the top banner. Only genuine transient errors (quota, 5xx)
+    surface a secondary muted note in the picker section. %>
 <% if @youtube_connection.present? && @youtube_connection.needs_reauth? %>
   <%= render "settings/youtube/needs_reauth_banner" %>
 <% end %>
@@ -12,7 +22,7 @@
 <% if @youtube_connection.nil? %>
   <%# Empty state — no Google account connected. %>
   <div class="pane pane--standalone" style="margin-top: 12px; padding: 16px; max-width: 60ch;">
-    <p>no google account connected.</p>
+    <p>no Google account connected.</p>
 
     <%= form_with url: settings_youtube_connect_path, method: :post,
                   data: { turbo: false } do %>
@@ -27,34 +37,52 @@
     </p>
   </div>
 <% else %>
-  <%# Connected state. Connection metadata pane. %>
-  <div class="pane pane--standalone" style="margin-top: 12px; padding: 16px; max-width: 60ch;">
-    <table class="detail-table" style="margin-bottom: 8px;">
-      <tr>
-        <td class="text-muted" style="padding-right: 12px; vertical-align: top;">connected as</td>
-        <td><strong><%= @youtube_connection.email %></strong></td>
-      </tr>
-      <tr>
-        <td class="text-muted" style="padding-right: 12px; vertical-align: top;">last authorized</td>
-        <td><%= @youtube_connection.last_authorized_at.strftime("%Y-%m-%d %H:%M %Z") %></td>
-      </tr>
-      <% if @youtube_connection.last_refreshed_at.present? %>
-        <tr>
-          <td class="text-muted" style="padding-right: 12px; vertical-align: top;">last refreshed</td>
-          <td><%= @youtube_connection.last_refreshed_at.strftime("%Y-%m-%d %H:%M %Z") %></td>
-        </tr>
-      <% end %>
-      <tr>
-        <td class="text-muted" style="padding-right: 12px; vertical-align: top;">scopes</td>
-        <td><%= Array(@youtube_connection.scopes).join(", ") %></td>
-      </tr>
-    </table>
+  <%# Connected state. Connection metadata pane.
 
-    <div class="dot-list" style="margin-top: 8px;">
-      <%= form_with url: settings_youtube_connect_path, method: :post,
-                    data: { turbo: false }, html: { style: "display: inline;" } do %>
-        <button type="submit">[reconnect]</button>
-      <% end %>
+      Width — `.pane.pane--wide` (904px) replaces the previous
+      `pane--standalone` + `max-width: 60ch` constraint. The pane
+      carries the scopes list (one per line, full URL under each
+      label) and email addresses that would otherwise wrap or truncate
+      in a narrow column.
+
+      `[reconnect]` lives ONLY in the top banner now (when
+      `needs_reauth?`). The pane no longer offers a duplicate. %>
+  <div class="pane-row">
+    <div class="pane pane--wide" style="padding: 16px;">
+      <table class="detail-table" style="margin-bottom: 0;">
+        <tr>
+          <td class="text-muted" style="padding-right: 12px; vertical-align: top;">connected as</td>
+          <td><strong><%= @youtube_connection.email %></strong></td>
+        </tr>
+        <tr>
+          <td class="text-muted" style="padding-right: 12px; vertical-align: top;">last authorized</td>
+          <td><%= @youtube_connection.last_authorized_at.strftime("%Y-%m-%d %H:%M %Z") %></td>
+        </tr>
+        <% if @youtube_connection.last_refreshed_at.present? %>
+          <tr>
+            <td class="text-muted" style="padding-right: 12px; vertical-align: top;">last refreshed</td>
+            <td><%= @youtube_connection.last_refreshed_at.strftime("%Y-%m-%d %H:%M %Z") %></td>
+          </tr>
+        <% end %>
+        <tr>
+          <td class="text-muted" style="padding-right: 12px; vertical-align: top;">scopes</td>
+          <td>
+            <%# Each scope on its own row. The trailing path segment is
+                bolded (the readable name the user thinks of —
+                `youtube.readonly`); the full URL sits muted below for
+                disambiguation without drowning the surface. %>
+            <ul style="list-style: none; padding: 0; margin: 0;">
+              <% Array(@youtube_connection.scopes).each do |scope| %>
+                <% short = scope.to_s.split("/").last.presence || scope.to_s %>
+                <li style="margin-bottom: 4px;">
+                  <code><strong><%= short %></strong></code><br>
+                  <span class="text-muted" style="font-size: 0.85em;"><%= scope %></span>
+                </li>
+              <% end %>
+            </ul>
+          </td>
+        </tr>
+      </table>
     </div>
   </div>
 
@@ -96,13 +124,6 @@
     <p class="text-muted">no channels linked yet.</p>
   <% end %>
 
-  <% if @youtube_error.present? %>
-    <div class="flash-error" style="margin: 12px 0; padding: 10px 12px; border: 1px solid #cc0000; color: #cc0000;">
-      YouTube api unavailable right now: <%= @youtube_error %>.
-      can't list channels to add right now.
-    </div>
-  <% end %>
-
   <%# Channel-select picker — the multi-select form. Each row carries
       a checkbox keyed by YouTube channel ID; ticked rows roll up into
       `youtube_channel_ids[]` on submit. Rows already linked to this
@@ -112,23 +133,32 @@
 
   <% if @youtube_connection.needs_reauth? %>
     <%# Auth-state failure (insufficient scopes, refresh-token
-        revoked, …). The picker can't render rows because the API
-        call needed to fetch them just failed. Replace it with a red
-        prompt that points back at the same [reconnect] flow the
-        top-of-page banner exposes. The linked-channels section above
-        renders unaffected — those rows come from the local Channels
-        table, not the YouTube API. %>
-    <div class="flash-error"
-         style="margin: 12px 0; padding: 10px 12px; border: 1px solid #cc0000; color: #cc0000;">
-      <span>your google authorization is out of date or missing required scopes.</span>
-      <%= form_with url: settings_youtube_connect_path, method: :post,
-                    data: { turbo: false },
-                    html: { style: "display: inline; margin-left: 12px;" } do %>
-        <button type="submit">[reconnect]</button>
-      <% end %>
-      <span>to refresh.</span>
-    </div>
+        revoked, …). The top banner already carries the `[reconnect]`
+        CTA — here we collapse the picker to a small muted note
+        instead of a third red full-width banner. The linked-channels
+        section above renders unaffected — those rows come from the
+        local Channels table, not the YouTube API. %>
+    <p class="text-muted">
+      channel list will return after <strong>[reconnect]</strong> above.
+    </p>
   <% else %>
+    <% if @youtube_error.present? %>
+      <%# Transient API failure (quota exhausted, 5xx). The error
+          string is human-readable here (e.g. "quota exceeded"); the
+          legacy `needsreauth` / `transient` class-name leak is
+          shielded by the `needs_reauth?` guard above. Map the
+          remaining internal token "transient" to a clean phrase
+          before display. %>
+      <% human_error = case @youtube_error.to_s
+                       when "transient" then "service temporarily unavailable"
+                       else @youtube_error.to_s
+                       end %>
+      <div class="flash-error" style="margin: 12px 0; padding: 10px 12px; border: 1px solid #cc0000; color: #cc0000;">
+        YouTube api unavailable right now: <%= human_error %>.
+        can't list channels to add right now.
+      </div>
+    <% end %>
+
     <% pito_channels_by_url = Channel.where(channel_url: @youtube_channels.map { |c| "https://www.youtube.com/channel/#{c[:id]}" }).index_by(&:channel_url) %>
 
     <% if @youtube_channels.any? %>
@@ -159,7 +189,7 @@
         </div>
       <% end %>
     <% elsif @youtube_error.blank? %>
-      <p class="text-muted">no channels found under this google account.</p>
+      <p class="text-muted">no channels found under this Google account.</p>
     <% end %>
   <% end %>
 <% end %>
