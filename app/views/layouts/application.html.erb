@@ -56,7 +56,7 @@
     <%= javascript_importmap_tags %>
   </head>
 
-  <body data-controller="keyboard">
+  <body data-controller="keyboard notifications-modal">
     <header style="position: fixed; top: 0; left: 0; right: 0; height: 32px; background: var(--color-bg); border-bottom: 1px solid var(--color-border); padding: 0 12px; z-index: 100;" data-controller="theme">
       <%# Header layout (2026-05-10 redesign, refined 2026-05-10 follow-up):
             [home][calendar] · [channels][videos] · [projects][notifications]
@@ -99,7 +99,14 @@
                 here so every page (not just /notifications) receives
                 the live-update. %>
             <span class="nav-group">
-              <%= nav_link "notifications", notifications_path, short: "N" %>
+              <%# The `[notifications]` link opens a layout-level modal
+                  (`shared/_notifications_modal`) instead of navigating
+                  to the full `/notifications` page. `data-action` wires
+                  the click handler; the `href` stays as the canonical
+                  notifications path so JS-off users get the standalone
+                  page as a fallback. %>
+              <%= nav_link "notifications", notifications_path, short: "N",
+                           data: { action: "click->notifications-modal#open" } %>
               <%= turbo_stream_from "notifications_badge" %>
               <%= render "notifications/badge", unread_count: Notification.unread.count %>
             </span>
@@ -144,12 +151,13 @@
 
     <%# Footer (2026-05-10 redesign): two rows. Row 1 mirrors the
           header's left navigation —
-          [home][calendar] · [channels][videos] · [projects][games] — plus a [?]
+          [home][calendar] · [channels][videos] · [projects][games] — plus a [_]
           help-modal trigger on the far right (header has [settings][logout]
           there). Row 2 carries the copyright prose on the left and the
           version + git-sha on the right. The `?` keyboard binding still
-          opens the same modal; the bracketed `[?]` is the discoverable
-          on-screen affordance. %>
+          opens the same modal; the bracketed `[_]` is the discoverable
+          on-screen affordance — `_` stands for SPACE = leader, per the
+          locked keybindings unified-schema decision. %>
     <footer style="border-top: 1px solid var(--color-border); padding: 8px 12px; margin-top: 24px; font-size: 11px;">
       <% unless content_for?(:hide_chrome) %>
         <nav class="nav-row" style="display: flex; align-items: center; gap: 4px; margin-bottom: 4px;">
@@ -159,9 +167,10 @@
           <span class="nav-sep" aria-hidden="true">·</span>
           <span class="nav-group"><%= nav_link "projects", projects_path, short: "P" %><%= nav_link "games", games_path, short: "G" %></span>
           <span class="nav-sep" aria-hidden="true">·</span>
-          <span class="nav-group"><%= nav_link "notifications", notifications_path, short: "N" %></span>
+          <span class="nav-group"><%= nav_link "notifications", notifications_path, short: "N",
+                           data: { action: "click->notifications-modal#open" } %></span>
           <span class="nav-spacer" style="flex: 1;"></span>
-          <%= render(BracketedLinkComponent.new(label: "?", href: "#", data: { action: "click->keyboard#openHelp" }, active: false)) %>
+          <%= render(BracketedLinkComponent.new(label: "_", href: "#", data: { action: "click->keyboard#openHelp" }, active: false)) %>
         </nav>
       <% end %>
       <div style="display: flex; align-items: center; gap: 4px;">
@@ -172,10 +181,12 @@
     </footer>
 
     <%# Keyboard shortcuts help modal — opened by `?` keypress or the
-        `[?]` link in the footer's nav row. Mirrors `pito` CLI's help
-        overlay per locked decision Q6. The dialog is the keyboard
-        controller's `dialog` target; the controller is mounted on
-        `<body>` so listeners live for the full page lifetime. %>
+        `[_]` link in the footer's nav row (the `_` glyph stands for
+        SPACE = leader per the locked keybindings unified-schema
+        decision). Mirrors `pito` CLI's help overlay per locked
+        decision Q6. The dialog is the keyboard controller's `dialog`
+        target; the controller is mounted on `<body>` so listeners
+        live for the full page lifetime. %>
     <%= render(KeyboardShortcutsModalComponent.new) %>
 
     <%# Global search modal — opened by `/` keypress (handled by
@@ -202,5 +213,15 @@
         Stimulus controller's `pathValue`, so the same dialog
         body serves every game id. %>
     <%= render "shared/igdb_overwrite_modal" %>
+
+    <%# Notifications modal — opened by the navbar `[notifications]`
+        link (`data-action="click->notifications-modal#open"`). The
+        modal loads `/notifications?modal=yes` into its Turbo Frame
+        so the full inbox (heading, cleanup caption, filter chip,
+        list, bulk actions, dynamic mark-button, nested detail
+        modal) renders inside the dialog. The standalone
+        `/notifications` page still serves direct URLs for JS-off
+        fallback. %>
+    <%= render "shared/notifications_modal" %>
   </body>
 </html>
