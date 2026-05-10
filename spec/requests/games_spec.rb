@@ -175,6 +175,48 @@ RSpec.describe "Games", type: :request do
       get search_games_path, params: { q: "xyznonexistent" }
       expect(response.body).to include("no results for 'xyznonexistent'")
     end
+
+    # Phase 14 §1 polish (2026-05-10) — IGDB result rows differentiate
+    # between "not in library" (renders `[add]` button posting to
+    # /games) and "already in library" (renders `[update]` link wired
+    # to the overwrite-confirmation modal).
+    context "when an IGDB hit already maps to a local Game" do
+      before do
+        create(:game, :synced, igdb_id: 7346, title: "Zelda BotW")
+        stub_request(:post, %r{id\.twitch\.tv/oauth2/token})
+          .to_return(status: 200, body: { access_token: "T", expires_in: 5_184_000 }.to_json)
+        stub_request(:post, "https://api.igdb.com/v4/games")
+          .to_return(status: 200, body: search_payload.to_json)
+      end
+
+      it "renders [update] (NOT [add]) for that row" do
+        get search_games_path, params: { q: "zelda" }
+        expect(response.body).to match(/\[<span class="bl">update<\/span>\]/)
+        expect(response.body).not_to match(/\[<span class="bl">add<\/span>\]/)
+      end
+
+      it "wires [update] to the overwrite-confirmation trigger" do
+        get search_games_path, params: { q: "zelda" }
+        expect(response.body).to include('data-controller="igdb-overwrite-trigger"')
+        local_game = Game.find_by(igdb_id: 7346)
+        expect(response.body).to include(%(data-igdb-overwrite-trigger-path-value="#{resync_game_path(local_game)}"))
+      end
+    end
+
+    context "when an IGDB hit is NOT in the library" do
+      before do
+        stub_request(:post, %r{id\.twitch\.tv/oauth2/token})
+          .to_return(status: 200, body: { access_token: "T", expires_in: 5_184_000 }.to_json)
+        stub_request(:post, "https://api.igdb.com/v4/games")
+          .to_return(status: 200, body: search_payload.to_json)
+      end
+
+      it "renders [add] (NOT [update]) for that row" do
+        get search_games_path, params: { q: "zelda" }
+        expect(response.body).to match(/\[<span class="bl">add<\/span>\]/)
+        expect(response.body).not_to match(/\[<span class="bl">update<\/span>\]/)
+      end
+    end
   end
 
   describe "GET /games/:id" do
@@ -212,6 +254,18 @@ RSpec.describe "Games", type: :request do
       expect(response.body).to include("pane pane--narrow")
       expect(response.body).to include("pane pane--game-detail")
       expect(response.body).to include("pane pane--wide")
+    end
+
+    # Layout fix (2026-05-10) — row 1 (cover + details) was observed
+    # stacking instead of rendering side-by-side. The page-specific
+    # `pane-row--game-show` modifier flips that row to `flex-wrap:
+    # nowrap` so the two panes stay on the same horizontal line at
+    # workspace widths; narrower viewports get horizontal scroll instead
+    # of a stacked column. Assert the modifier is rendered so the fix
+    # doesn't silently regress.
+    it "marks row 1 with `pane-row--game-show` to prevent wrap" do
+      get game_path(game)
+      expect(response.body).to include("pane-row pane-row--game-show")
     end
 
     it "splits the re-sync caveat onto two lines via <br>" do

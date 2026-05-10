@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<%# Phase 15 calendar UX restructure — `/calendar` thin router page.
+    A no-chrome shell that hands off to the JS view-router: the
+    Stimulus controller reads localStorage and `replace`s to the
+    persisted view, otherwise the meta-refresh fallback lands on the
+    current month grid. Skipping the application layout keeps this
+    page free of nav / footer flash during the redirect (a fresh
+    chrome paint would briefly show before the JS replace fires). %>
+<html data-theme-preference="<%= AppSetting.get('theme') || 'auto' %>">
+  <head>
+    <meta charset="utf-8">
+    <title>calendar ~ pito</title>
+    <%# Server-side fallback for non-JS visits / failed Stimulus boot:
+        meta-refresh to the current month grid after a tiny delay.
+        The Stimulus controller will normally win this race and replace
+        the URL before the meta-refresh fires. %>
+    <meta http-equiv="refresh" content="1; url=<%= @month_path %>">
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+    <%= javascript_importmap_tags %>
+  </head>
+  <body data-controller="calendar-view-router"
+        data-calendar-view-router-month-path-value="<%= @month_path %>"
+        data-calendar-view-router-schedule-path-value="<%= @schedule_path %>">
+    <noscript>
+      <p>Loading calendar… <a href="<%= @month_path %>">[continue]</a></p>
+    </noscript>
+  </body>
+</html>

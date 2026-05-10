@@ -670,3 +670,158 @@ details, sync, linked videos) is preserved untouched.
 **Open issues / blockers:** none. Page-specific name `.pane--game-detail`
 chosen per spec; promote to a generic `.pane--medium` if a second page
 adopts the same 640px geometry.
+
+### 2026-05-10 — Game show / edit split + async resync mutex + animated indicator
+
+**Discussion:** User wanted a clean split between read-only show and
+editable form on the game detail surface, plus an async-and-locked
+resync flow with a moving text indicator while the IGDB sync job is in
+flight. The previous show page mixed read-only metadata with the local-
+fields form on the same screen and surfaced `[resync]` in the breadcrumb
+action strip; the split keeps the breadcrumb action strip on `[edit]` /
+`[-]` only and pulls the resync surface into a dedicated row-2 sync
+pane so the indicator can replace the link without re-flowing the
+breadcrumb.
+
+**Implemented:**
+
+- `db/migrate/20260510192742_add_resyncing_to_games.rb` — new boolean
+  `games.resyncing`, `null: false, default: false`. Backs the mutex
+  flag the job and controller flip. Migration applied to dev and test
+  DBs locally.
+- `app/jobs/game_igdb_sync.rb` — `resyncing` mutex via
+  `update_column` at start, `Game.where(...).update_all(resyncing:
+  false)` in `ensure` so a crash inside `SyncGame` still releases the
+  lock. Duplicate-enqueue guard returns early when the row is already
+  resyncing without re-clearing the flag (only the running worker
+  releases it).
+- `app/controllers/games_controller.rb` — `edit` action added; `update`
+  re-renders `:edit` on validation failure (form moved off `show`).
+  `resync` checks `game.resyncing?` and no-ops with an
+  "already resyncing." flash if the previous job is still in flight.
+- `app/views/games/show.html.erb` — full rewrite as a read-only surface.
+  Three rows: row 1 (narrow cover pane + read-only metadata pane),
+  row 2 (standalone sync pane — last-synced + caveat +
+  `[resync]` button OR animated `sync-indicator`), row 3 (standalone
+  linked-videos pane). `[open on igdb]` retired per spec; breadcrumb
+  action strip is `[edit]` + `[-]` only. The row-1 right pane
+  modifier (`pane--game-detail`) is owned by the sibling lane that
+  added the 640px modifier; this lane left it untouched.
+- `app/views/games/edit.html.erb` — new screen carrying the local-only
+  form (platform owned, played on, notes, footage hours). Layout
+  mirrors the show page (narrow cover + wide form pane). `[update]`
+  / `[cancel]` at the bottom of the form. NO sync pane, NO linked
+  videos.
+- `app/javascript/controllers/sync_indicator_controller.js` — new
+  Stimulus controller. Cycles 4-frame `=---  -=--  --=-  ---=`
+  text every 200ms. Frames + interval come from data attributes.
+- `app/javascript/controllers/auto_refresh_controller.js` — new
+  Stimulus controller. Polls page reload every ~5s while the
+  resyncing flag is set so the show page picks up the cleared flag
+  without a manual refresh. Mounted only when `resyncing?` is true.
+- `spec/jobs/game_igdb_sync_spec.rb` — added `resyncing mutex`
+  describe block (5 cases): flag is true while syncing, cleared after
+  success, cleared after non-retryable error, cleared after retryable
+  re-raise (ensure block), early-return preserves the lock on
+  duplicate enqueue.
+- `spec/models/game_spec.rb` — added `#resyncing?` describe block
+  (default false, mutable via `update_column`).
+- `spec/requests/games_spec.rb` — show specs: `[edit]` in breadcrumb,
+  no inline form, no `[open on igdb]`, sync-indicator + auto-refresh
+  while resyncing, `[resync]` button + no auto-refresh otherwise.
+  Edit specs: 200, form fields, `[update]` / `[cancel]`, no sync
+  pane, no linked videos pane (heading-only check), narrow + wide
+  pane layout. Resync spec: no-op + flash when `resyncing?` is true.
+
+**Files touched:**
+
+- `db/migrate/20260510192742_add_resyncing_to_games.rb` (new)
+- `db/schema.rb` (regenerated)
+- `app/jobs/game_igdb_sync.rb`
+- `app/controllers/games_controller.rb`
+- `app/views/games/show.html.erb`
+- `app/views/games/edit.html.erb` (new)
+- `app/javascript/controllers/sync_indicator_controller.js` (new)
+- `app/javascript/controllers/auto_refresh_controller.js` (new)
+- `spec/jobs/game_igdb_sync_spec.rb`
+- `spec/models/game_spec.rb`
+- `spec/requests/games_spec.rb`
+
+**Quality gates:**
+
+- `bundle exec rspec spec/jobs/game_igdb_sync_spec.rb spec/models/game_spec.rb spec/requests/games_spec.rb` —
+  124 examples, 0 failures (with the unstaged IGDB-overwrite-trigger
+  test additions from a sibling lane mixed in: 127 examples, 0
+  failures).
+- `bundle exec rspec` (full suite) — 3848 examples, 8 failures, all
+  pre-existing and unrelated to this lane (calendar, oauth scope clip,
+  composites filename traversal).
+- `bundle exec rubocop` (touched Ruby) — clean.
+- `bundle exec brakeman -q -w2` — 0 errors, 0 warnings.
+- Migration verified against dev and test DBs.
+
+**Coordination:** while this dispatch was in flight, sibling agents
+landed `.pane--game-detail` (commit `6e4f092`) and project-show
+videos pane (`269d63f`). The parent session committed the merged
+result; this session's outputs match the committed state. The
+unstaged `spec/requests/games_spec.rb` additions visible at session
+end are owned by the IGDB-overwrite-trigger lane (search-results
+`[update]` vs `[add]` row differentiation) — NOT this lane.
+
+**Open issues / blockers:** none. Pre-existing full-suite failures
+queued in their respective phases (calendar, oauth scope clip,
+composites traversal).
+
+### 2026-05-10 — Game show row-1 wrap fix (`pane-row--game-show` modifier)
+
+**Discussion:** User reported the game show page's row 1 was rendering with
+the cover pane (`pane--narrow`, 280px) and the details pane
+(`pane--game-detail`, 640px) stacked vertically instead of side-by-side. Total
+row width is 920px, which should fit comfortably at workspace widths (1100px+),
+but the global `.pane-row` carries `flex-wrap: wrap` and was kicking in earlier
+than expected on the user's viewport. Fix per direct dispatch: scope a
+`flex-wrap: nowrap` override to this row only via a page-specific modifier so
+other pages aren't affected; narrower viewports get horizontal scroll instead
+of wrap.
+
+**Implemented:**
+
+- `app/assets/tailwind/application.css` — new `.pane-row--game-show` modifier
+  (`flex-wrap: nowrap; overflow-x: auto;`) added immediately after the base
+  `.pane-row` rule, with a comment explaining scope, motivation, and the
+  promote-to-generic path if a second page adopts the same constraint.
+- `app/views/games/show.html.erb` — row 1 wrapper changed from
+  `<div class="pane-row">` to `<div class="pane-row pane-row--game-show">`,
+  with a comment block explaining why this row gets the modifier and rows 2
+  (sync) and 3 (linked videos) do not (each carries a single wide pane and has
+  no wrap concern).
+- `spec/requests/games_spec.rb` — added a regression assertion in the
+  `GET /games/:id` describe block: `it "marks row 1 with
+  pane-row--game-show to prevent wrap"`. Documents the fix and locks it
+  against silent reversion.
+
+**Files touched:**
+
+- `app/assets/tailwind/application.css`
+- `app/views/games/show.html.erb`
+- `spec/requests/games_spec.rb`
+
+**Quality gates:**
+
+- `bundle exec rspec spec/requests/games_spec.rb` — 58 examples, 0 failures
+  (the new regression spec passes; pre-existing 57 stay green; no spec needed
+  rework).
+- `bundle exec brakeman -q -w2` — 0 errors, 0 security warnings.
+- Visual: not re-verified by this agent (no system spec changes); user to
+  confirm row 1 renders side-by-side at typical workspace widths and that
+  narrow viewports get a horizontal scrollbar on row 1 only.
+
+**Coordination:** isolated change. Did not touch unrelated unstaged work
+(`calendar/router_controller.rb`, `calendar_navigation_controller.js`, etc.)
+that was already in the working tree at session start. The unstaged
+`<strong>` → `<span class="text-muted">` swap on the genres / platforms
+labels in `show.html.erb` was already present and was preserved untouched.
+
+**Open issues / blockers:** none. Promote `.pane-row--game-show` to a generic
+`.pane-row--nowrap` if a second page needs the same horizontal lock — the
+ruleset is generic; only the name is page-scoped today.

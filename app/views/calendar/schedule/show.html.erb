@@ -1,24 +1,39 @@
 <% content_for(:title, "calendar ~ schedule") %>
 <% breadcrumb([ "calendar", calendar_root_path ], "schedule") %>
 
-<div data-controller="calendar-filter">
-  <div class="dot-list" style="margin-bottom: 6px;">
-    <%= render(BracketedLinkComponent.new(label: "month",
-          href: calendar_root_path)) %>
-    <span class="nav-spacer" style="flex: 1;"></span>
-    <%= render(BracketedLinkComponent.new(label: "add entry",
-          href: new_calendar_entry_path)) %>
-  </div>
+<%# Phase 15 calendar UX restructure — Row 1 actions move into the
+    layout's `:breadcrumb_actions` slot. The middle toggle reads
+    [month] (links back to the month grid). [+] opens the manual entry
+    quick-add. %>
+<% content_for :breadcrumb_actions do %>
+  <%= render "shared/dot_separator" %>
+  <%= render(BracketedLinkComponent.new(label: "month",
+        href: calendar_root_path)) %>
+  <%= render(BracketedLinkComponent.new(label: "+",
+        href: new_calendar_entry_path)) %>
+<% end %>
 
+<div data-controller="calendar-filter"
+     data-calendar-filter-view-value="schedule">
+  <%# Row 2 — entry kind filter chips. Same synthetic master + 5
+      individual chips as the month grid. %>
   <div class="dot-list" style="margin-bottom: 8px;">
-    <% %w[all video game milestone purchase custom].each do |kind| %>
-      <% href = url_for(type: (kind == "all" ? nil : kind), source: @selected_source) %>
-      <% if @selected_filter == kind %>
-        <span class="bracketed bracketed-active">[ <%= kind == 'all' ? 'all types' : kind %> ]</span>
-      <% else %>
-        <%= render(BracketedLinkComponent.new(label: kind == "all" ? "all types" : kind,
-              href: href)) %>
-      <% end %>
+    <% raw_types = params[:types] %>
+    <a href="<%= calendar_all_kinds_chip_href(raw_types, current_params: request.query_parameters) %>"
+       class="filter-chip"
+       data-keyboard-filter-chip="all types"
+       data-calendar-filter-target="masterToggle">
+      <span class="md-check-static"><%= calendar_all_kinds_checked?(raw_types) ? "[x]" : "[ ]" %></span>
+      <span class="md-check-static-label">all types</span>
+    </a>
+    <% CalendarHelper::CALENDAR_KIND_LABELS.each do |label| %>
+      <a href="<%= calendar_kind_chip_href(label, raw_types, current_params: request.query_parameters) %>"
+         class="filter-chip"
+         data-keyboard-filter-chip="<%= label %>"
+         data-calendar-filter-target="kindToggle">
+        <span class="md-check-static"><%= calendar_kind_checked?(label, raw_types) ? "[x]" : "[ ]" %></span>
+        <span class="md-check-static-label"><%= label %></span>
+      </a>
     <% end %>
     <span class="nav-spacer" style="flex: 1;"></span>
     <% if @show_cancelled %>
