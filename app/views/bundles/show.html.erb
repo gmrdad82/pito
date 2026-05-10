@@ -26,8 +26,11 @@
 <% end %>
 
 <div class="pane-row">
-  <%# Left pane — composite cover + bundle metadata. %>
-  <div class="pane">
+  <%# Left pane — composite cover + bundle metadata. `pane--narrow`
+      (280px) snugs the cover column so the right pane's member table +
+      add-member form get the breathing room they need. Width revamp
+      2026-05-10 — mirrors /games/:id. %>
+  <div class="pane pane--narrow">
     <%= render "shared/composite_cover", bundle: @bundle, size: :full %>
 
     <h1 style="margin: 8px 0 4px 0;"><%= @bundle.name %></h1>
@@ -51,8 +54,10 @@
     <% end %>
   </div>
 
-  <%# Right pane — member list + add-member form. %>
-  <div class="pane">
+  <%# Right pane — member list + add-member form. `pane--wide` (904px)
+      keeps the search input, the picker dropdown, and the add-member
+      table visible together without horizontal scroll. %>
+  <div class="pane pane--wide">
     <h2 style="margin-top: 0;">members</h2>
 
     <% if @members.any? %>

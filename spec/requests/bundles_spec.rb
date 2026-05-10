@@ -64,6 +64,16 @@ RSpec.describe "Bundles", type: :request do
       get "/bundles/999999"
       expect(response).to have_http_status(:not_found)
     end
+
+    # Layout revamp (2026-05-10) — left pane uses `pane--narrow`
+    # (cover hugs ~280px) and right pane uses `pane--wide` (904px so the
+    # member table + add-member form get breathing room). Mirrors
+    # /games/:id.
+    it "uses the narrow + wide pane modifiers for the cover / members split" do
+      get bundle_path(bundle)
+      expect(response.body).to include("pane pane--narrow")
+      expect(response.body).to include("pane pane--wide")
+    end
   end
 
   describe "GET /bundles/new" do

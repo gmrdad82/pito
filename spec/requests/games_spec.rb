@@ -167,10 +167,25 @@ RSpec.describe "Games", type: :request do
 
     # Phase 14 §1 polish (2026-05-10) — show page now uses the canonical
     # `.pane-row > .pane` two-pane layout (mirrors channels/videos).
+    # Layout revamp (2026-05-10) — left pane carries `pane--narrow`
+    # (280px, hugs the cover) and right pane carries `pane--wide` (904px,
+    # so form-field hints stay on one line). The pane-count assertion
+    # below tolerates either modifier by matching `class="pane ..."` or
+    # `class="pane"` — both forms are valid `.pane` elements.
     it "renders inside a `.pane-row` of `.pane` children" do
       get game_path(game)
       expect(response.body).to include("pane-row")
-      expect(response.body.scan('class="pane"').size).to be >= 2
+      pane_open_tags = response.body.scan(/class="pane(?:\s[^"]*)?"/).size
+      expect(pane_open_tags).to be >= 2
+    end
+
+    # Layout revamp (2026-05-10) — assert the narrow + wide modifiers
+    # actually land in the rendered markup so the column proportions
+    # don't silently revert to the default 452/452 split.
+    it "uses the narrow + wide pane modifiers for the cover / form split" do
+      get game_path(game)
+      expect(response.body).to include("pane pane--narrow")
+      expect(response.body).to include("pane pane--wide")
     end
 
     it "splits the re-sync caveat onto two lines via <br>" do

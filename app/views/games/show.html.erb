@@ -22,8 +22,12 @@
 <div class="pane-row">
   <%# Left pane — cover art + heading + IGDB-side context. The cover
       fills the pane width (`max-width: 100%` is on the shared
-      `_igdb_cover` partial) so the column reads as a Steam-style card. %>
-  <div class="pane">
+      `_igdb_cover` partial) so the column reads as a Steam-style card.
+      `pane--narrow` (280px) hugs the cover at roughly its native IGDB
+      `t_cover_big` aspect (264×374) so the column doesn't waste space;
+      the right pane gets `pane--wide` (904px) to keep form labels +
+      hint text on one line. Width revamp 2026-05-10. %>
+  <div class="pane pane--narrow">
     <%= render "shared/igdb_cover", game: @game, size: "t_cover_big" %>
 
     <h1 style="margin: 8px 0 4px 0;"><%= @game.title %></h1>
@@ -70,8 +74,11 @@
 
   <%# Right pane — ratings, time-to-beat, genres / platforms, the local-
       fields form, and sync metadata. The re-sync caveat is split onto
-      two lines via `<br>` to honor the one-sentence-per-line rule. %>
-  <div class="pane">
+      two lines via `<br>` to honor the one-sentence-per-line rule.
+      `pane--wide` (904px) keeps the "leave blank to compute from linked
+      videos." hint visible next to the manual-hours field instead of
+      truncating. %>
+  <div class="pane pane--wide">
     <p class="text-muted" style="margin: 0 0 8px 0; font-size: 11px;">
       re-syncing overwrites igdb-sourced fields.<br>
       local notes, played-on, footage hours, and platform-owned survive.

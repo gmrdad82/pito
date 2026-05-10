@@ -320,6 +320,18 @@ a.text-danger.bracketed:hover, a.text-danger.bracketed:hover .bl { color: var(--
   background: var(--color-pane-bg-wide);
 }
 
+/* `.pane--narrow` — half-width 280px pane for left columns whose payload
+   is intrinsically narrow (e.g. an IGDB cover at ~256px wide). Pairs with
+   `.pane--wide` on detail pages where the right pane carries form fields
+   and metadata that would otherwise truncate inside the default 452px
+   slot. Background follows the zebra rhythm via the base `.pane` rule
+   (odd → bg-a, even → bg-b); we only override flex and width here.
+   Introduced 2026-05-10 for /games/:id and /bundles/:id show pages. */
+.pane--narrow {
+  flex: 0 0 280px;
+  width: 280px;
+}
+
 /* `.pane--standalone` — the pane look (elevated `--color-pane-bg-a`
    background + 12px padding) for full-width single-column surfaces that
    are NOT part of a `.pane-row` workspace grid. Drops the fixed
@@ -1315,7 +1327,8 @@ textarea.note-editor-source {
      targets. The vertical pane-arrow-up/down variants remain hidden
      on mobile (and globally — see the base rule above). */
   .pane,
-  .pane--wide {
+  .pane--wide,
+  .pane--narrow {
     flex: 0 0 88vw;
     width: 88vw;
   }
@@ -1323,7 +1336,8 @@ textarea.note-editor-source {
     scroll-snap-type: x mandatory;
   }
   .pane-strip > .pane,
-  .pane-strip > .pane--wide {
+  .pane-strip > .pane--wide,
+  .pane-strip > .pane--narrow {
     scroll-snap-align: start;
   }
   .pane-arrow-up,
