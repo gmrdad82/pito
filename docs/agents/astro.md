@@ -86,8 +86,12 @@ Dependabot updates npm deps weekly via `.github/dependabot.yml`.
 - **No JavaScript** beyond the inline theme-toggle script in `Base.astro`. If a
   page needs interactivity, prefer CSS-only solutions; only use Astro islands as
   a last resort.
-- **Bracketed-link convention:** `[ label ]` for clickable elements, matching
-  the Rails app. Minimal text — assume context from the surrounding page.
+- **Bracketed-link convention:** `[label]` for clickable elements (no inner
+  padding spaces), matching the Rails app's 2026-05-10 tightening. Examples:
+  `[home]`, `[connect]`, `[add]`. Drop redundant nouns when surrounding context
+  supplies them. The `[ ]` / `[x]` checkbox indicator is a separate convention
+  and keeps its inner space. Canonical: `docs/design.md` → "Bracketed Links /
+  Buttons" and "Bracketed labels: minimum text".
 - **No red on decorative elements.** `--color-danger` is in the token set but is
   reserved for failure states only, never for emphasis or branding.
 - **No analytics, no tracking, no third-party JS.** Marketing site stays

@@ -240,6 +240,27 @@ This principle helps the `pito` CLI maintain visual parity — terminal real
 estate is precious; verbose labels burn cells. Mirror this on every keymap that
 surfaces a label.
 
+### Lead paragraphs — one sentence per line
+
+The muted lead paragraph that sits under each page H1 splits one sentence per
+line — never a chunky body of text. Use `<br>` between sentences inside one
+`<p class="text-muted">` so the existing margin styling holds and the sentences
+read as a stack rather than wrapped paragraph prose.
+
+```erb
+<h1>Add channel</h1>
+<p class="text-muted">
+  Paste a YouTube channel URL.<br>
+  Pito locks the URL after create.<br>
+  Only the star and connected flags stay editable.
+</p>
+```
+
+Apply on every settings detail page and every `new` / `show` / `edit` page that
+has explanatory prose under the heading. The convention is intentional: each
+sentence reads as its own atomic claim, and the user can scan the stanza without
+parsing wrap behavior.
+
 ### Keycaps
 
 Keyboard shortcut indicators use `(key)` style via `.keycap` CSS class:
@@ -537,6 +558,25 @@ is unchanged elsewhere.
 
 ## Panes (Multi-item View)
 
+### Pane primitives
+
+Three primitives, all driven by `--color-pane-bg-a` with zebra
+`:nth-child(even)` swap on multi-pane rows:
+
+- `.pane` — fixed-width workspace column (`flex: 0 0 452px`). Used inside
+  `.pane-row` for the channels / videos workspace and the settings index grid.
+  Background `--color-pane-bg-a`; even-indexed siblings swap to the alternate
+  tone for the zebra.
+- `.pane.pane--standalone` — full-width single-column container with the same
+  pane background but no fixed width. Used for full-width data-display surfaces:
+  oauth_applications create / show / revoke, doorkeeper authorizations new /
+  show / error, settings/tokens create / revoke, settings/sessions revoke. Form
+  pages also use it.
+- `.pane--wide` — fixed 904px workspace double-column variant.
+
+`.framed-block` is now orphaned; `pane--standalone` replaced it. New work
+reaches for `pane--standalone` instead of resurrecting `framed-block`.
+
 ### Desktop
 
 - Side-by-side flex layout with 2px solid vertical dividers
@@ -568,7 +608,7 @@ horizontally, snapping one pane at a time into view.
 - Pure CSS — no Stimulus controller. Native scroll-snap on iOS Safari, Android
   Chrome, and desktop browsers is sufficient.
 - Reorder arrows still adapt per breakpoint — desktop ◀ ▶ at the divider edges,
-  mobile arrows hidden inside the snap row (reorder via the `[ panes ]` dialog
+  mobile arrows hidden inside the snap row (reorder via the `[panes]` dialog
   instead).
 
 ## Layout
