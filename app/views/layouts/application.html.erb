@@ -60,17 +60,20 @@
     <header style="position: fixed; top: 0; left: 0; right: 0; height: 32px; background: var(--color-bg); border-bottom: 1px solid var(--color-border); padding: 0 12px; z-index: 100;" data-controller="theme">
       <%# Header layout (2026-05-10 redesign, refined 2026-05-10 follow-up):
             [home][calendar] · [channels][videos] · [projects][notifications]
-            <fluid spacer>   · [settings][logout]
-          Groups are separated by a center-dot `·` (`.nav-sep`); items
-          within a group sit side-by-side. The `.nav-spacer` flex item
-          carries `flex: 1` so the right cluster (settings + logout)
-          right-anchors. The inline search input that used to sit in
-          the right cluster was retired in favor of a `/`-keyed
-          search modal (`shared/_search_modal`); the IGDB-search modal
-          opens on `i` (`shared/_igdb_search_modal`). The previous `n`
-          keycap-theme toggle was retired earlier; the theme keybind
-          now lives on `t` and the on-screen affordance is the
-          Settings page. %>
+            <fluid spacer>     [settings][logout]
+          Left and middle groups are separated by a center-dot `·`
+          (`.nav-sep`); items within a group sit side-by-side. The
+          `.nav-spacer` flex item carries `flex: 1` so the right
+          cluster (settings + logout) right-anchors against the
+          edge of the navbar — there is intentionally NO separator
+          between the spacer and the right cluster (the spacer
+          itself is the visual separator). The inline search input
+          that used to sit in the right cluster was retired in
+          favor of a `/`-keyed search modal (`shared/_search_modal`);
+          the IGDB-search modal opens on `i`
+          (`shared/_igdb_search_modal`). The previous `n` keycap-theme
+          toggle was retired earlier; the theme keybind now lives on
+          `t` and the on-screen affordance is the Settings page. %>
       <div style="display: flex; align-items: center; height: 32px; gap: 4px;">
         <a href="/" style="text-decoration: none; display: flex; align-items: center; line-height: 0;" aria-label="Dashboard">
           <img src="/Pito.png" alt="pito" class="header-logo">
@@ -101,7 +104,6 @@
               <%= render "notifications/badge", unread_count: Notification.unread.count %>
             </span>
             <span class="nav-spacer" style="flex: 1;"></span>
-            <span class="nav-sep" aria-hidden="true">·</span>
             <span class="nav-group">
               <%= nav_link "settings", settings_path, short: "S" %><%
                 %><% if Current.user.present? %><%
