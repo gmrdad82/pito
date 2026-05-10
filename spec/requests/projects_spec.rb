@@ -49,7 +49,7 @@ RSpec.describe "Projects", type: :request do
       it "drops the table's column count by 1 (from 7 to 6 thead cells)" do
         get projects_path
         html = Nokogiri::HTML.fragment(response.body)
-        # bulkCol(hidden) + name + created + footages + notes + videos = 6.
+        # bulkCol(always-on) + name + created + footages + notes + videos = 6.
         expect(html.css("thead th").size).to eq(6)
       end
 
@@ -92,7 +92,7 @@ RSpec.describe "Projects", type: :request do
         get projects_path
         html = Nokogiri::HTML.fragment(response.body)
         headers = html.css("thead th").map { |th| th.text.strip.gsub(/[▲▼]/, "").strip }
-        # bulkCol header (empty), action col header (empty), then the five
+        # bulkCol header (empty — hosts select-all checkbox), then the five
         # data columns in order. `footage` is the new singular header.
         # Phase 12 realignment (2026-05-10): `timelines` column retired,
         # replaced with `videos` (Project.has_many :videos).
@@ -331,34 +331,66 @@ RSpec.describe "Projects", type: :request do
         end
       end
 
-      it "renders the [bulk] toggle link" do
+      # Always-on bulk shape (2026-05-10) — `/projects` matches `/channels`
+      # and `/videos`: checkboxes render from page load, no `[bulk]` toggle
+      # in the breadcrumb, no `[cancel]` action, no `bulkCol` target wiring.
+      it "does not render a [bulk] toggle link in the breadcrumb" do
         get projects_path
-        expect(response.body).to include('data-bulk-select-target="bulkToggle"')
-        expect(response.body).to include("click-&gt;bulk-select#enterBulk")
+        expect(response.body).not_to include('data-bulk-select-target="bulkToggle"')
+        expect(response.body).not_to include("click-&gt;bulk-select#enterBulk")
+        html = Nokogiri::HTML.fragment(response.body)
+        breadcrumb = html.css(".dot-list").first
+        expect(breadcrumb).not_to be_nil, "expected the breadcrumb dot-list at the top of /projects"
+        expect(breadcrumb.css('[class="bl"]').map { |n| n.text.strip }).not_to include("bulk")
       end
 
       context "with projects" do
         let!(:project_a) { create(:project, name: "Alpha") }
         let!(:project_b) { create(:project, name: "Bravo") }
 
-        it "renders the bulk-mode action toolbar (hidden by default)" do
+        it "renders the bulk-mode action toolbar always-visible (actions self-hide until count > 0)" do
           get projects_path
           expect(response.body).to include('data-bulk-select-target="actions"')
           expect(response.body).to include('data-bulk-select-target="count"')
           expect(response.body).to include('data-bulk-select-target="deleteAction"')
+          # The actions container itself must NOT carry the `hidden`
+          # attribute — its inner `.action` spans self-hide via
+          # `bulk_select_controller#updateActions` instead.
+          html = Nokogiri::HTML.fragment(response.body)
+          actions = html.css('[data-bulk-select-target="actions"]').first
+          expect(actions["hidden"]).to be_nil,
+            "expected the actions container to be always-visible (no `hidden` attr), got: #{actions.to_html}"
+          # The deleteAction + count spans START hidden — count = 0 on a
+          # fresh page load, so neither shows until the user ticks a row.
+          expect(response.body).to match(/data-bulk-select-target="count"\s+hidden/)
+          expect(response.body).to match(/data-bulk-select-target="deleteAction"\s+hidden/)
         end
 
-        it "renders the bulk-select header + per-row checkbox columns (hidden by default)" do
+        it "renders the bulk-select header + per-row checkbox cells always-visible" do
           get projects_path
           expect(response.body).to include('data-bulk-select-target="headerCheckbox"')
-          expect(response.body).to include('data-bulk-select-target="bulkCol"')
+          # No `bulkCol` target wiring (channels/videos parity — the toggle
+          # mechanism is gone, so the gating target goes with it).
+          expect(response.body).not_to include('data-bulk-select-target="bulkCol"')
           # one checkbox per project row
           expect(response.body.scan('data-bulk-select-target="checkbox"').size).to eq(2)
+          # Every `col-action` cell — header + per-row — must render WITHOUT
+          # the `hidden` attribute that the legacy bulk-mode toggle used.
+          html = Nokogiri::HTML.fragment(response.body)
+          html.css("td.col-action, th.col-action").each do |cell|
+            expect(cell["hidden"]).to be_nil,
+              "expected `col-action` cell to render without `hidden` (always-on), got: #{cell.to_html}"
+          end
         end
 
-        it "wires the cancel link to exitBulk" do
+        it "does not wire a cancel link (exitBulk is gone alongside enterBulk)" do
           get projects_path
-          expect(response.body).to include("click-&gt;bulk-select#exitBulk")
+          expect(response.body).not_to include("click-&gt;bulk-select#exitBulk")
+          # No [cancel] BracketedLinkComponent anywhere in the actions toolbar.
+          html = Nokogiri::HTML.fragment(response.body)
+          actions = html.css('[data-bulk-select-target="actions"]').first
+          expect(actions).not_to be_nil
+          expect(actions.css('[class="bl"]').map { |n| n.text.strip }).not_to include("cancel")
         end
 
         # Phase B — leading-separator pattern. Each `.action` span carries
