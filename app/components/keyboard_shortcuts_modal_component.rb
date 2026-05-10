@@ -5,7 +5,9 @@ class KeyboardShortcutsModalComponent < ViewComponent::Base
   # straight from `help.rs::render`. No web-only additions.
   #
   # Rendered once in the layout chrome; opened by `keyboard#openHelp`
-  # in response to `?` keypress or a click on the visible `[?]` link.
+  # in response to `?` keypress or a click on the visible `[_]` link
+  # (the `_` glyph stands for SPACE = leader per the locked keybindings
+  # unified-schema decision).
   Section = Struct.new(:title, :rows, keyword_init: true)
   Row = Struct.new(:keys, :description, keyword_init: true)
 
