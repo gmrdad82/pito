@@ -1,6 +1,9 @@
-<% content_for(:title, "settings — YouTube") %>
+<% content_for(:title, "YouTube") %>
+<% breadcrumb(["settings", settings_path], "YouTube") %>
 
-<h1>settings &rarr; YouTube</h1>
+<div style="margin-bottom: 8px;">
+  <h1>YouTube</h1>
+</div>
 
 <% if @youtube_connection.present? && @youtube_connection.needs_reauth? %>
   <%= render "settings/youtube/needs_reauth_banner" %>
@@ -18,8 +21,9 @@
 
     <p class="text-muted" style="margin-top: 8px;">
       pito requests <code>youtube.readonly</code> and
-      <code>yt-analytics.readonly</code>. read-only — pito cannot
-      upload, edit, or delete your videos with these scopes.
+      <code>yt-analytics.readonly</code>.<br>
+      read-only — pito cannot upload, edit, or delete your videos with
+      these scopes.
     </p>
   </div>
 <% else %>
