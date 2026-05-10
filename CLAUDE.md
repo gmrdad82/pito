@@ -218,11 +218,12 @@ See `docs/design.md` for the full design system. Key rules:
   (Phase 8); `Current.user` carries the authenticated user for the duration of a
   request.
 - `Channel` columns:
-  `id, channel_url, star, connected, syncing, last_synced_at, timestamps` (plus
-  Phase 7 `oauth_identity_id` once the YouTube-connection rename lands per ADR
-  0006). The URL is **locked after create**
-  (`before_update :prevent_url_change`); only `star` and `connected` are
-  mutable. There are no per-channel OAuth columns in this phase.
+  `id, channel_url, star, connected, syncing, last_synced_at, youtube_connection_id, timestamps`.
+  `youtube_connection_id` (FK to `youtube_connections`, nullable) was added in
+  Phase 7 as `oauth_identity_id` and renamed in Phase 9 per ADR 0006. The URL is
+  **locked after create** (`before_update :prevent_url_change`); only `star` and
+  `connected` are mutable. There are no other per-channel OAuth columns in this
+  phase.
 - `ChannelSync` (`app/jobs/channel_sync.rb`, flat name) is a placeholder job: it
   flips `syncing` true, no-ops, then flips `syncing` false and stamps
   `last_synced_at` in an `ensure` block. Real YouTube API work lands when the
