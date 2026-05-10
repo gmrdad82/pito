@@ -30,13 +30,13 @@ module Api
     before_action :set_footage, only: [ :update, :destroy, :update_frames ]
 
     def index
-      require_scope!(Scopes::PROJECT_READ)
+      require_scope!(Scopes::APP)
       footages = @project.footages.order(:local_path)
       render json: footages.map { |f| footage_json(f) }
     end
 
     def create
-      require_scope!(Scopes::PROJECT_WRITE)
+      require_scope!(Scopes::APP)
 
       attrs, error = build_create_attrs
       if error
@@ -53,7 +53,7 @@ module Api
     end
 
     def update
-      require_scope!(Scopes::PROJECT_WRITE)
+      require_scope!(Scopes::APP)
 
       attrs, error = build_update_attrs
       if error
@@ -69,7 +69,7 @@ module Api
     end
 
     def destroy
-      require_scope!(Scopes::PROJECT_WRITE)
+      require_scope!(Scopes::APP)
 
       @footage.destroy!
       head :no_content
@@ -95,7 +95,7 @@ module Api
     # integration tests do NOT anchor this URL (importer side ships in a
     # later dispatch), so the URL is chosen for `/api/` consistency.
     def update_frames
-      require_scope!(Scopes::PROJECT_WRITE)
+      require_scope!(Scopes::APP)
 
       uploads = params[:frames]
       uploaded = 0

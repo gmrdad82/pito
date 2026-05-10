@@ -76,7 +76,7 @@ RSpec.describe "Settings::OauthApplications", type: :request do
           oauth_application: {
             name: "new-app",
             redirect_uri: "http://127.0.0.1:8765/callback",
-            scopes: [ Scopes::DEV_READ, Scopes::PROJECT_READ ],
+            scopes: [ Scopes::DEV, Scopes::APP ],
             confidential: "no"
           }
         }
@@ -157,7 +157,7 @@ RSpec.describe "Settings::OauthApplications", type: :request do
       token = OauthAccessToken.create!(
         application: app,
         resource_owner_id: user.id,
-        scopes: Scopes::DEV_READ,
+        scopes: Scopes::DEV,
         expires_in: 7200
       )
 

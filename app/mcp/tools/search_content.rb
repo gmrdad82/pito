@@ -17,7 +17,7 @@ module Mcp
       annotations(read_only_hint: true)
 
       def self.call(query:, page: 1, per_page: 20)
-        scope_err = Mcp::ToolAuth.require_scope!(Scopes::YT_READ)
+        scope_err = Mcp::ToolAuth.require_scope!(Scopes::APP)
         return scope_err if scope_err
 
         per_page = [ [ per_page.to_i, 1 ].max, 50 ].min

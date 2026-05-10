@@ -17,7 +17,7 @@ module Mcp
       annotations(read_only_hint: false)
 
       def self.call(id:, star: nil, **extras)
-        scope_err = Mcp::ToolAuth.require_scope!(Scopes::YT_WRITE)
+        scope_err = Mcp::ToolAuth.require_scope!(Scopes::APP)
         return scope_err if scope_err
 
         # Defense in depth: if the client managed to pass channel_url through

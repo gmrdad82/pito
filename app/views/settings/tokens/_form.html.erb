@@ -1,6 +1,7 @@
-<%# Form partial for /settings/tokens/new — used by the controller's new action. %>
+<%# Form partial for /settings/tokens/new — used by the controller's new action.
+    Phase 10 — the catalog is flat (`dev` + `app`); the per-namespace fieldset
+    grouping from the 9-scope era is gone. %>
 <%
-  scope_groups = Scopes::DESCRIPTIONS.group_by { |scope, _desc| scope.split(":").first }
   selected_scopes = Array(@token.scopes)
 %>
 <%= form_with url: settings_tokens_path, method: :post, scope: :token, data: { turbo: false } do |f| %>
@@ -22,19 +23,14 @@
 
   <div style="margin-bottom: 12px;">
     <label class="form-label">scopes</label>
-    <% scope_groups.each do |namespace, scopes| %>
-      <fieldset style="border: none; padding: 4px 0; margin-bottom: 4px;">
-        <legend style="font-weight: bold;"><%= namespace %>:</legend>
-        <% scopes.each do |scope, desc| %>
-          <div style="margin-left: 12px;">
-            <label class="md-check">
-              <input type="checkbox" name="token[scopes][]" value="<%= scope %>" <%= "checked" if selected_scopes.include?(scope) %>>
-              <span class="md-check-indicator"></span>
-              <span class="md-check-label"><code><%= scope %></code> &mdash; <%= desc %></span>
-            </label>
-          </div>
-        <% end %>
-      </fieldset>
+    <% Scopes::DESCRIPTIONS.each do |scope, desc| %>
+      <div style="margin-left: 4px; padding: 2px 0;">
+        <label class="md-check">
+          <input type="checkbox" name="token[scopes][]" value="<%= scope %>" <%= "checked" if selected_scopes.include?(scope) %>>
+          <span class="md-check-indicator"></span>
+          <span class="md-check-label"><code><%= scope %></code> &mdash; <%= desc %></span>
+        </label>
+      </div>
     <% end %>
   </div>
 

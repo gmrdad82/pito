@@ -63,7 +63,7 @@ RSpec.describe "Mcp::RackApp OAuth bearer acceptance", type: :request do
     end
 
     it "pins Current.user from the OAuth token's owner" do
-      token = mint_oauth_token(scopes: [ Scopes::YT_READ ])
+      token = mint_oauth_token(scopes: [ Scopes::APP ])
       headers = base_headers.merge("Authorization" => "Bearer #{token.token}")
 
       post "/mcp", params: init_payload, headers: headers
@@ -110,8 +110,8 @@ RSpec.describe "Mcp::RackApp OAuth bearer acceptance", type: :request do
   end
 
   describe "scope enforcement on a tool" do
-    it "rejects a dev:read-only OAuth token when calling a yt:read tool" do
-      token = mint_oauth_token(scopes: [ Scopes::DEV_READ ])
+    it "rejects a dev-only OAuth token when calling an app-scoped tool" do
+      token = mint_oauth_token(scopes: [ Scopes::DEV ])
       headers = base_headers.merge("Authorization" => "Bearer #{token.token}")
 
       post "/mcp", params: init_payload, headers: headers
@@ -131,7 +131,7 @@ RSpec.describe "Mcp::RackApp OAuth bearer acceptance", type: :request do
 
       expect(data["result"]["isError"]).to be true
       expect(payload["error"]).to eq("insufficient_scope")
-      expect(payload["required"]).to eq("yt:read")
+      expect(payload["required"]).to eq("app")
     end
   end
 

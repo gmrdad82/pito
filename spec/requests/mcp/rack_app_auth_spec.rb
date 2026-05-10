@@ -44,7 +44,7 @@ RSpec.describe "Mcp::RackApp authentication", type: :request do
   describe "revoked token" do
     it "returns 401 with {error: revoked_token}" do
       record, plaintext = ApiToken.generate!(
-        user: user, name: "rv", scopes: [ Scopes::DEV_READ ]
+        user: user, name: "rv", scopes: [ Scopes::DEV ]
       )
       record.revoke!
 
@@ -60,7 +60,7 @@ RSpec.describe "Mcp::RackApp authentication", type: :request do
   describe "expired token" do
     it "returns 401 with {error: expired_token}" do
       _record, plaintext = ApiToken.generate!(
-        user: user, name: "ex", scopes: [ Scopes::DEV_READ ],
+        user: user, name: "ex", scopes: [ Scopes::DEV ],
         expires_at: 1.minute.ago
       )
 
@@ -105,9 +105,9 @@ RSpec.describe "Mcp::RackApp authentication", type: :request do
   end
 
   describe "scope enforcement on a tool" do
-    it "rejects a dev:read-only token when calling a yt:read tool" do
+    it "rejects a dev-only token when calling an app-scoped tool" do
       _record, plaintext = ApiToken.generate!(
-        user: user, name: "narrow", scopes: [ Scopes::DEV_READ ]
+        user: user, name: "narrow", scopes: [ Scopes::DEV ]
       )
 
       headers = base_headers.merge("Authorization" => "Bearer #{plaintext}")
@@ -128,7 +128,7 @@ RSpec.describe "Mcp::RackApp authentication", type: :request do
 
       expect(data["result"]["isError"]).to be true
       expect(payload["error"]).to eq("insufficient_scope")
-      expect(payload["required"]).to eq("yt:read")
+      expect(payload["required"]).to eq("app")
     end
   end
 

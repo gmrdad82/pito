@@ -6,7 +6,7 @@
 #
 # `before_action :authenticate_api_token!` is wired in automatically so
 # every action requires a valid bearer token. Each action then calls
-# `require_scope!(Scopes::PROJECT_READ)` (or the matching scope) to enforce
+# `require_scope!(Scopes::APP)` (or the matching scope) to enforce
 # permissions.
 #
 # Phase 8 — tenant drop. `Current.tenant` is gone. The defense-in-depth

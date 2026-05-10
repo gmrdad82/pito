@@ -64,5 +64,14 @@ module Pito
     # `AppSetting.voyage_indexing_project_notes?` (per-target flag) — the
     # 2026-05-04 Phase B revamp split the original single Boolean into the
     # encrypted key column + per-target flag pair.
+
+    # Phase 10 — MCP scope simplification (ADR 0004). Strip-on-release
+    # flag for the `dev` scope. Declared at application load (before
+    # any initializer runs) so `config/initializers/doorkeeper.rb` and
+    # `config/initializers/doorkeeper_scope_clip.rb` see the value when
+    # they touch `Scopes::ALL`. Per-environment overrides live in
+    # `config/environments/{development,test,production}.rb`.
+    config.x.mcp = ActiveSupport::OrderedOptions.new
+    config.x.mcp.expose_dev_scope = true
   end
 end

@@ -8,7 +8,7 @@ FactoryBot.define do
   factory :api_token do
     user
     sequence(:name) { |n| "token-#{n}" }
-    scopes { [ Scopes::DEV_READ, Scopes::DEV_WRITE ] }
+    scopes { [ Scopes::DEV, Scopes::APP ] }
 
     # Set the digest from a freshly-minted plaintext so the row is
     # internally consistent (digest = HMAC(pepper, plaintext)). Specs

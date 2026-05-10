@@ -11,7 +11,7 @@ RSpec.describe "API: Footage frames bulk upload", type: :request do
   let(:auth_pair) do
     ApiToken.generate!(
       user: auth_user, name: "frames-spec",
-      scopes: [ Scopes::PROJECT_READ, Scopes::PROJECT_WRITE ]
+      scopes: [ Scopes::APP ]
     )
   end
   let(:auth_token) { auth_pair.last }
@@ -107,10 +107,10 @@ RSpec.describe "API: Footage frames bulk upload", type: :request do
       expect(response).to have_http_status(:unauthorized)
     end
 
-    it "returns 403 when the token lacks the project:write scope" do
+    it "returns 403 when the token lacks the app scope" do
       ro_pair = ApiToken.generate!(
         user: auth_user, name: "frames-ro",
-        scopes: [ Scopes::PROJECT_READ ]
+        scopes: [ Scopes::DEV ]
       )
       ro_token = ro_pair.last
 

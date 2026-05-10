@@ -35,12 +35,33 @@ module Mcp
       "0.0.0"
     end
 
+    # Phase 10 — strip-on-release. The three dev-KB tools (`list_docs`,
+    # `read_doc`, `save_note`) are gated behind
+    # `Rails.application.config.x.mcp.expose_dev_scope`. Production
+    # builds set the flag to `false`, so the tools are NOT registered
+    # and `tools/list` does not advertise them. Defense-in-depth pairs
+    # with the per-tool `require_scope!(Scopes::DEV)` check inside
+    # each tool — even if the flag is misconfigured at build time, a
+    # call against the disabled scope still fails closed.
+    DEV_TOOL_NAMES = %w[list_docs read_doc save_note].freeze
+
     def self.register_tools(server)
       Dir[Rails.root.join("app/mcp/tools/*.rb")].sort.each { |f| require f }
 
-      Tools.constants.filter_map { |c| Tools.const_get(c) }
+      tools = Tools.constants.filter_map { |c| Tools.const_get(c) }
         .select { |c| c.is_a?(Class) && c < MCP::Tool }
-        .each { |tool| server.tools[tool.name_value] = tool }
+
+      unless dev_scope_exposed?
+        tools = tools.reject { |t| DEV_TOOL_NAMES.include?(t.name_value.to_s) }
+      end
+
+      tools.each { |tool| server.tools[tool.name_value] = tool }
+    end
+
+    def self.dev_scope_exposed?
+      return true unless Rails.application.config.x.respond_to?(:mcp)
+      flag = Rails.application.config.x.mcp&.expose_dev_scope
+      flag.nil? ? true : flag
     end
 
     def self.register_resources(server)

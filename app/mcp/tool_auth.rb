@@ -12,7 +12,7 @@
 #
 # Usage:
 #   def self.call(...)
-#     err = Mcp::ToolAuth.require_scope!(Scopes::DEV_READ)
+#     err = Mcp::ToolAuth.require_scope!(Scopes::DEV)
 #     return err if err
 #     ...
 #   end

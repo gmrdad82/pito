@@ -12,7 +12,7 @@ RSpec.describe "OAuth authorization", type: :request do
       :oauth_application,
       name: "test-cli",
       redirect_uri: "http://127.0.0.1:8765/callback",
-      scopes: "#{Scopes::DEV_READ} #{Scopes::PROJECT_READ}",
+      scopes: "#{Scopes::DEV} #{Scopes::APP}",
       confidential: false
     )
   end
@@ -26,7 +26,7 @@ RSpec.describe "OAuth authorization", type: :request do
         response_type: "code",
         client_id: application.uid,
         redirect_uri: application.redirect_uri,
-        scope: Scopes::DEV_READ,
+        scope: Scopes::DEV,
         code_challenge: code_challenge,
         code_challenge_method: "S256"
       }
@@ -42,7 +42,7 @@ RSpec.describe "OAuth authorization", type: :request do
         response_type: "code",
         client_id: application.uid,
         redirect_uri: application.redirect_uri,
-        scope: Scopes::DEV_READ,
+        scope: Scopes::DEV,
         code_challenge: code_challenge,
         code_challenge_method: "S256"
       }
@@ -66,7 +66,7 @@ RSpec.describe "OAuth authorization", type: :request do
         response_type: "code",
         client_id: application.uid,
         redirect_uri: application.redirect_uri,
-        scope: Scopes::DEV_READ,
+        scope: Scopes::DEV,
         code_challenge: code_challenge,
         code_challenge_method: "S256"
       }
@@ -83,7 +83,7 @@ RSpec.describe "OAuth authorization", type: :request do
         response_type: "code",
         client_id: application.uid,
         redirect_uri: application.redirect_uri,
-        scope: Scopes::DEV_READ
+        scope: Scopes::DEV
       }
       # Doorkeeper's force_pkce returns either a redirect with error
       # query string or renders an error page. Both are non-200; we
@@ -101,7 +101,7 @@ RSpec.describe "OAuth authorization", type: :request do
         redirect_uri: application.redirect_uri,
         state: "abc",
         response_type: "code",
-        scope: Scopes::DEV_READ,
+        scope: Scopes::DEV,
         code_challenge: code_challenge,
         code_challenge_method: "S256"
       }

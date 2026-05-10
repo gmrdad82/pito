@@ -12,7 +12,10 @@ require Rails.root.join("app/lib/scopes.rb")
 #     Implicit, ROPC, AND Client Credentials are explicitly disabled.
 #   - 2h access token TTL, 14d refresh token TTL.
 #   - PKCE forced for public clients (the seeded `pito-cli` is public).
-#   - `Scopes::ALL` is the single source of truth (Phase 5 catalog).
+#   - `Scopes::ALL` is the single source of truth. Catalog: `dev` + `app`.
+#     `dev` is stripped from the catalog when
+#     `Rails.application.config.x.mcp.expose_dev_scope == false`
+#     (production). Per ADR 0004.
 #   - Resource owner = the cookie-resolved current user (Phase 12 Step A).
 #     `/oauth/authorize` redirects to `/login` if there is no session.
 #
@@ -91,10 +94,15 @@ Doorkeeper.configure do
   # is created.
   use_refresh_token
 
-  # Scopes — sourced from Phase 5 `Scopes::ALL` catalog. `dev:read` is
-  # the default if a client requests no explicit scopes.
-  default_scopes Scopes::DEV_READ
-  optional_scopes(*(Scopes::ALL - [ Scopes::DEV_READ ]))
+  # Scopes — sourced from `Scopes::ALL`. Both `dev` and `app` are
+  # advertised as defaults so a client requesting no explicit scope
+  # parameter receives every scope the application is whitelisted for
+  # (still clipped by the soft-clip monkey-patch). With only two
+  # entries there is no fine-grained read/write opt-in to represent;
+  # treating both as defaults matches the new catalog's intent.
+  # `Scopes::ALL` already reflects the strip-on-release flag.
+  default_scopes(*Scopes::ALL)
+  optional_scopes
 
   # Forbid creating an application with a scope outside the catalog.
   enforce_configured_scopes

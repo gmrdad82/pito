@@ -58,9 +58,14 @@ puts "  user: #{owner.email} (id=#{owner.id})"
 # `db:seed` finds the existing row and is a no-op (the dev plaintext is gone
 # forever after the first run; revoke + mint a new one if you lost it).
 #
-# Default scope set: dev:* + yt:* (read+write) + project:* (read+write). No
-# `yt:destructive` by default — the user opts in by minting a separate token.
-unless ApiToken.exists?(name: "dev")
+# Phase 10 — MCP scope simplification (ADR 0004). The dev token now
+# carries the full `Scopes::ALL` set (`["dev", "app"]` in development).
+# Skipped entirely in production: a production install does not want a
+# "dev" token sitting in the database — the operator mints their own
+# via `/settings/tokens` with the `app` scope only.
+if Rails.env.production?
+  puts "  skipping dev token seed (production env)."
+elsif !ApiToken.exists?(name: "dev")
   Current.user = owner
   pepper = Rails.application.credentials.dig(:tokens, :pepper)
   if pepper.blank?
@@ -88,11 +93,7 @@ unless ApiToken.exists?(name: "dev")
     _token, plaintext = ApiToken.generate!(
       user:   owner,
       name:   "dev",
-      scopes: [
-        Scopes::DEV_READ, Scopes::DEV_WRITE,
-        Scopes::YT_READ, Scopes::YT_WRITE,
-        Scopes::PROJECT_READ, Scopes::PROJECT_WRITE
-      ]
+      scopes: Scopes::ALL.dup
     )
     puts ""
     puts "=" * 64

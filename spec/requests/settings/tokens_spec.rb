@@ -18,22 +18,22 @@ RSpec.describe "Settings::Tokens", type: :request do
       token, = ApiToken.generate!(
         user: user,
         name: "alpha-token",
-        scopes: [ Scopes::DEV_READ ]
+        scopes: [ Scopes::DEV ]
       )
       get settings_tokens_path
       expect(response.body).to include("alpha-token")
-      expect(response.body).to include("dev:read")
+      expect(response.body).to include("dev")
       expect(response.body).to include("...#{token.last_token_preview}")
     end
 
     it "lists revoked tokens grayed and after active ones" do
       _active, = ApiToken.generate!(
         user: user,
-        name: "still-good", scopes: [ Scopes::DEV_READ ]
+        name: "still-good", scopes: [ Scopes::DEV ]
       )
       revoked, = ApiToken.generate!(
         user: user,
-        name: "old-revoked", scopes: [ Scopes::DEV_READ ]
+        name: "old-revoked", scopes: [ Scopes::DEV ]
       )
       revoked.revoke!
 
@@ -66,12 +66,12 @@ RSpec.describe "Settings::Tokens", type: :request do
       end
     end
 
-    it "groups checkboxes by scope namespace" do
+    # Phase 10 — the catalog has only two flat entries (`dev` + `app`);
+    # there is no per-namespace grouping anymore.
+    it "renders the dev and app scope checkboxes" do
       get new_settings_token_path
-      expect(response.body).to match(/<legend[^>]*>\s*dev:\s*<\/legend>/)
-      expect(response.body).to match(/<legend[^>]*>\s*yt:\s*<\/legend>/)
-      expect(response.body).to match(/<legend[^>]*>\s*project:\s*<\/legend>/)
-      expect(response.body).to match(/<legend[^>]*>\s*website:\s*<\/legend>/)
+      expect(response.body).to include('value="dev"')
+      expect(response.body).to include('value="app"')
     end
 
     it "shows the name input + expires_at date input" do
@@ -84,7 +84,7 @@ RSpec.describe "Settings::Tokens", type: :request do
   describe "POST /settings/tokens" do
     it "mints a token and shows the plaintext exactly once" do
       post settings_tokens_path, params: {
-        token: { name: "cli", scopes: [ Scopes::DEV_READ, Scopes::YT_READ ] }
+        token: { name: "cli", scopes: [ Scopes::DEV, Scopes::APP ] }
       }
       expect(response).to have_http_status(:ok)
       expect(response.body).to match(/<pre[^>]*class="[^"]*code-block[^"]*"[^>]*>\s*<code>[A-Za-z0-9_\-]{40,}<\/code>/)
@@ -94,17 +94,17 @@ RSpec.describe "Settings::Tokens", type: :request do
     it "creates the ApiToken with the chosen scopes" do
       expect {
         post settings_tokens_path, params: {
-          token: { name: "cli2", scopes: [ Scopes::DEV_READ, Scopes::YT_READ ] }
+          token: { name: "cli2", scopes: [ Scopes::DEV, Scopes::APP ] }
         }
       }.to change { ApiToken.count }.by(1)
       token = ApiToken.order(:created_at).last
       expect(token.name).to eq("cli2")
-      expect(token.scopes).to match_array([ Scopes::DEV_READ, Scopes::YT_READ ])
+      expect(token.scopes).to match_array([ Scopes::DEV, Scopes::APP ])
     end
 
     it "does not display the plaintext on subsequent index visits" do
       post settings_tokens_path, params: {
-        token: { name: "ephemeral", scopes: [ Scopes::DEV_READ ] }
+        token: { name: "ephemeral", scopes: [ Scopes::DEV ] }
       }
       response_body_1 = response.body
       plaintext_match = response_body_1.match(/<code>([A-Za-z0-9_\-]{40,})<\/code>/)
@@ -138,7 +138,7 @@ RSpec.describe "Settings::Tokens", type: :request do
     it "rejects a blank name" do
       expect {
         post settings_tokens_path, params: {
-          token: { name: "", scopes: [ Scopes::DEV_READ ] }
+          token: { name: "", scopes: [ Scopes::DEV ] }
         }
       }.not_to change { ApiToken.count }
       expect(response).to have_http_status(:unprocessable_content)
@@ -146,7 +146,7 @@ RSpec.describe "Settings::Tokens", type: :request do
 
     it "accepts an optional expires_at and stores it" do
       post settings_tokens_path, params: {
-        token: { name: "expiring", scopes: [ Scopes::DEV_READ ], expires_at: "2027-01-01" }
+        token: { name: "expiring", scopes: [ Scopes::DEV ], expires_at: "2027-01-01" }
       }
       token = ApiToken.where(name: "expiring").last
       expect(token.expires_at).not_to be_nil
@@ -156,7 +156,7 @@ RSpec.describe "Settings::Tokens", type: :request do
     it "rejects a malformed expires_at" do
       expect {
         post settings_tokens_path, params: {
-          token: { name: "bad-date", scopes: [ Scopes::DEV_READ ], expires_at: "not-a-date" }
+          token: { name: "bad-date", scopes: [ Scopes::DEV ], expires_at: "not-a-date" }
         }
       }.not_to change { ApiToken.count }
       expect(response).to have_http_status(:unprocessable_content)
@@ -167,7 +167,7 @@ RSpec.describe "Settings::Tokens", type: :request do
     let(:token) do
       record, = ApiToken.generate!(
         user: user,
-        name: "to-revoke", scopes: [ Scopes::DEV_READ ]
+        name: "to-revoke", scopes: [ Scopes::DEV ]
       )
       record
     end
@@ -197,7 +197,7 @@ RSpec.describe "Settings::Tokens", type: :request do
     let!(:token) do
       record, = ApiToken.generate!(
         user: user,
-        name: "to-revoke", scopes: [ Scopes::DEV_READ ]
+        name: "to-revoke", scopes: [ Scopes::DEV ]
       )
       record
     end

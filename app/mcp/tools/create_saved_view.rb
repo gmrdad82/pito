@@ -21,7 +21,7 @@ module Mcp
       annotations(read_only_hint: false)
 
       def self.call(kind:, name:, ids:)
-        scope_err = Mcp::ToolAuth.require_scope!(Scopes::YT_WRITE)
+        scope_err = Mcp::ToolAuth.require_scope!(Scopes::APP)
         return scope_err if scope_err
 
         ids = Array(ids).map(&:to_i)

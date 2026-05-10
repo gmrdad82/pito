@@ -30,8 +30,8 @@ RSpec.describe "Settings tokens flow", type: :system do
     expect(page).to have_current_path(new_settings_token_path)
 
     fill_in "token[name]", with: "feature-spec-token"
-    check Scopes::DEV_READ
-    check Scopes::YT_READ
+    check Scopes::DEV
+    check Scopes::APP
     click_button "[create]"
 
     # Plaintext-once page.
@@ -54,7 +54,7 @@ RSpec.describe "Settings tokens flow", type: :system do
   it "revokes a token via the action confirmation flow (no JS confirm)" do
     record, = ApiToken.generate!(
       user: user,
-      name: "to-be-revoked", scopes: [ Scopes::DEV_READ ]
+      name: "to-be-revoked", scopes: [ Scopes::DEV ]
     )
 
     visit settings_tokens_path

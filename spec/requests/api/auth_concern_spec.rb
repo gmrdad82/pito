@@ -6,6 +6,11 @@ require "rails_helper"
 #
 # Phase 8 — tenant drop. Tokens own a User, not a tenant; the
 # defense-in-depth cross-tenant check is gone.
+#
+# Phase 10 — MCP scope simplification (ADR 0004). The 9-scope catalog
+# collapses to `dev` + `app`; the previous read-vs-write reject matrix
+# (project:read vs project:write) becomes a `dev`-only-token vs
+# `app`-token matrix.
 RSpec.describe "Api::AuthConcern", type: :request do
   let(:user) { User.first || create(:user) }
   let!(:project) { create(:project) }
@@ -49,7 +54,7 @@ RSpec.describe "Api::AuthConcern", type: :request do
 
     context "with a revoked token" do
       it "returns 401 with {error: revoked_token}" do
-        plaintext = with_token(scopes: [ Scopes::PROJECT_READ ], revoked: true)
+        plaintext = with_token(scopes: [ Scopes::APP ], revoked: true)
 
         get api_project_footages_path(project), headers: auth_headers(plaintext)
 
@@ -60,7 +65,7 @@ RSpec.describe "Api::AuthConcern", type: :request do
 
     context "with an expired token" do
       it "returns 401 with {error: expired_token}" do
-        plaintext = with_token(scopes: [ Scopes::PROJECT_READ ], expires_at: 1.minute.ago)
+        plaintext = with_token(scopes: [ Scopes::APP ], expires_at: 1.minute.ago)
 
         get api_project_footages_path(project), headers: auth_headers(plaintext)
 
@@ -69,22 +74,22 @@ RSpec.describe "Api::AuthConcern", type: :request do
       end
     end
 
-    context "with a token that lacks project:read" do
-      it "returns 403 with {error: insufficient_scope, required: project:read}" do
-        plaintext = with_token(scopes: [ Scopes::DEV_READ ])
+    context "with a token that lacks the app scope" do
+      it "returns 403 with {error: insufficient_scope, required: app}" do
+        plaintext = with_token(scopes: [ Scopes::DEV ])
 
         get api_project_footages_path(project), headers: auth_headers(plaintext)
 
         expect(response).to have_http_status(:forbidden)
         body = JSON.parse(response.body)
         expect(body["error"]).to eq("insufficient_scope")
-        expect(body["required"]).to eq("project:read")
+        expect(body["required"]).to eq("app")
       end
     end
 
-    context "with a token that has project:read" do
+    context "with a token that has the app scope" do
       it "returns 200 and renders the JSON list" do
-        plaintext = with_token(scopes: [ Scopes::PROJECT_READ ])
+        plaintext = with_token(scopes: [ Scopes::APP ])
 
         get api_project_footages_path(project), headers: auth_headers(plaintext)
 
@@ -93,7 +98,7 @@ RSpec.describe "Api::AuthConcern", type: :request do
       end
 
       it "populates Current.user / Current.token but never Current.tenant" do
-        plaintext = with_token(scopes: [ Scopes::PROJECT_READ ])
+        plaintext = with_token(scopes: [ Scopes::APP ])
 
         get api_project_footages_path(project), headers: auth_headers(plaintext)
 
@@ -107,7 +112,7 @@ RSpec.describe "Api::AuthConcern", type: :request do
         # only way the auth concern reaches the `user.nil?` branch in
         # production is if a manual SQL delete drops the user row out
         # from under a valid token. Stub the association to simulate.
-        plaintext = with_token(scopes: [ Scopes::PROJECT_READ ])
+        plaintext = with_token(scopes: [ Scopes::APP ])
         allow_any_instance_of(ApiToken).to receive(:user).and_return(nil)
 
         get api_project_footages_path(project), headers: auth_headers(plaintext)
@@ -129,9 +134,9 @@ RSpec.describe "Api::AuthConcern", type: :request do
       }
     end
 
-    context "with project:read but not project:write" do
-      it "returns 403 with {error: insufficient_scope, required: project:write}" do
-        plaintext = with_token(scopes: [ Scopes::PROJECT_READ ])
+    context "with a dev-only token" do
+      it "returns 403 with {error: insufficient_scope, required: app}" do
+        plaintext = with_token(scopes: [ Scopes::DEV ])
 
         post api_project_footages_path(project),
              params: create_attrs.to_json,
@@ -140,13 +145,13 @@ RSpec.describe "Api::AuthConcern", type: :request do
         expect(response).to have_http_status(:forbidden)
         body = JSON.parse(response.body)
         expect(body["error"]).to eq("insufficient_scope")
-        expect(body["required"]).to eq("project:write")
+        expect(body["required"]).to eq("app")
       end
     end
 
-    context "with project:write" do
+    context "with an app-scoped token" do
       it "creates the footage and returns 201" do
-        plaintext = with_token(scopes: [ Scopes::PROJECT_WRITE ])
+        plaintext = with_token(scopes: [ Scopes::APP ])
 
         post api_project_footages_path(project),
              params: create_attrs.to_json,

@@ -18,9 +18,8 @@ module Mcp
       )
 
       def self.call(updates: nil)
-        # Read with no args needs yt:read; mutating call needs yt:write.
-        required = updates.present? ? Scopes::YT_WRITE : Scopes::YT_READ
-        scope_err = Mcp::ToolAuth.require_scope!(required)
+        # Phase 10 — single `Scopes::APP` gate (read+write collapsed).
+        scope_err = Mcp::ToolAuth.require_scope!(Scopes::APP)
         return scope_err if scope_err
 
         if updates.present?

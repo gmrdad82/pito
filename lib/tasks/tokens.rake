@@ -11,7 +11,10 @@
 #
 # Scopes are passed as a `+`-separated list (Thor disallows commas inside
 # task args without escaping). Example:
-#   bin/rails "tokens:create[dev-default,dev:read+dev:write]"
+#   bin/rails "tokens:create[dev-default,dev+app]"
+#
+# Phase 10 — the catalog collapsed from 9 to 2 (`dev` + `app`); old
+# string forms like `dev:read` are no longer valid scope values.
 #
 # Plaintext is shown once and then unreachable; copy it before closing
 # the terminal.
@@ -19,7 +22,7 @@ namespace :tokens do
   desc "Generate a new API token. Usage: tokens:create[name,scope1+scope2+...]"
   task :create, [ :name, :scopes ] => :environment do |_t, args|
     name   = (args[:name] || "default").to_s
-    scopes = (args[:scopes] || "dev:read+dev:write").to_s.split("+").map(&:strip).reject(&:empty?)
+    scopes = (args[:scopes] || "dev+app").to_s.split("+").map(&:strip).reject(&:empty?)
 
     user = User.first
 

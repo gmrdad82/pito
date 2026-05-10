@@ -17,7 +17,7 @@ module Mcp
       annotations(read_only_hint: true)
 
       def self.call(star: nil, connected: nil, limit: 50, offset: 0)
-        scope_err = Mcp::ToolAuth.require_scope!(Scopes::YT_READ)
+        scope_err = Mcp::ToolAuth.require_scope!(Scopes::APP)
         return scope_err if scope_err
 
         limit = [ [ limit.to_i, 1 ].max, 200 ].min

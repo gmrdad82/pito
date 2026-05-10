@@ -10,7 +10,7 @@ RSpec.describe "API: Footages (importer)", type: :request do
   let(:auth_pair) do
     ApiToken.generate!(
       user: auth_user, name: "footages-spec",
-      scopes: [ Scopes::PROJECT_READ, Scopes::PROJECT_WRITE ]
+      scopes: [ Scopes::APP ]
     )
   end
   let(:auth_token) { auth_pair.last }
@@ -184,10 +184,10 @@ RSpec.describe "API: Footages (importer)", type: :request do
       expect(response).to have_http_status(:unauthorized)
     end
 
-    it "rejects tokens missing the project:write scope" do
+    it "rejects tokens missing the app scope" do
       ro_pair = ApiToken.generate!(
         user: auth_user, name: "footages-ro",
-        scopes: [ Scopes::PROJECT_READ ]
+        scopes: [ Scopes::DEV ]
       )
       ro_token = ro_pair.last
       patch api_footage_path(footage),
@@ -216,10 +216,10 @@ RSpec.describe "API: Footages (importer)", type: :request do
       expect(response).to have_http_status(:unauthorized)
     end
 
-    it "rejects tokens missing the project:write scope" do
+    it "rejects tokens missing the app scope" do
       ro_pair = ApiToken.generate!(
         user: auth_user, name: "footages-ro",
-        scopes: [ Scopes::PROJECT_READ ]
+        scopes: [ Scopes::DEV ]
       )
       ro_token = ro_pair.last
       delete api_footage_path(footage),

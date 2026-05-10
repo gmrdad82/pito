@@ -16,28 +16,18 @@ RSpec.describe "db/seeds.rb", type: :model do
     ApiToken.generate!(
       user:   owner,
       name:   "dev",
-      scopes: [
-        Scopes::DEV_READ, Scopes::DEV_WRITE,
-        Scopes::YT_READ, Scopes::YT_WRITE,
-        Scopes::PROJECT_READ, Scopes::PROJECT_WRITE
-      ]
+      scopes: Scopes::ALL.dup
     )
   end
 
   describe "dev token mint" do
-    it "mints a dev token with the locked default scope set" do
+    it "mints the dev ApiToken with scopes ['dev', 'app']" do
       owner = User.first || create(:user)
       record, _plaintext = mint_dev_token(owner)
 
       expect(record).to be_present
       expect(record.name).to eq("dev")
-      expect(record.scopes).to match_array([
-        Scopes::DEV_READ, Scopes::DEV_WRITE,
-        Scopes::YT_READ, Scopes::YT_WRITE,
-        Scopes::PROJECT_READ, Scopes::PROJECT_WRITE
-      ])
-      expect(record.scopes).not_to include(Scopes::YT_DESTRUCTIVE)
-      expect(record.scopes).not_to include(Scopes::WEBSITE_READ, Scopes::WEBSITE_WRITE)
+      expect(record.scopes).to match_array([ Scopes::DEV, Scopes::APP ])
     end
 
     it "is idempotent — a second mint attempt is a no-op" do

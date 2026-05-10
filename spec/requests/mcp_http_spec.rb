@@ -3,16 +3,13 @@ require "rails_helper"
 RSpec.describe "MCP HTTP Transport", type: :request do
   let(:user) { User.first || create(:user) }
 
-  # Mint a token with both yt:* and dev:* scopes so all tools can be
-  # exercised. Tests that need to assert per-scope rejection mint a
-  # narrower token.
+  # Mint a token with both `dev` and `app` scopes so every tool is
+  # exercisable. Tests that need to assert per-scope rejection mint a
+  # narrower token. Phase 10 — 2-scope catalog.
   let(:auth_pair) do
     ApiToken.generate!(
       user: user, name: "mcp-http-spec",
-      scopes: [
-        Scopes::DEV_READ, Scopes::DEV_WRITE,
-        Scopes::YT_READ, Scopes::YT_WRITE, Scopes::YT_DESTRUCTIVE
-      ]
+      scopes: Scopes::ALL.dup
     )
   end
   let(:plaintext) { auth_pair.last }

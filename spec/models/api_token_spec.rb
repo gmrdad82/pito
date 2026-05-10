@@ -18,7 +18,7 @@ RSpec.describe ApiToken, type: :model do
     end
 
     it "rejects scopes not in the catalog" do
-      token = build(:api_token, scopes: [ "yt:read", "fake:scope" ])
+      token = build(:api_token, scopes: [ "app", "fake:scope" ])
       expect(token).not_to be_valid
       expect(token.errors[:scopes].first).to include("fake:scope")
     end
@@ -27,6 +27,77 @@ RSpec.describe ApiToken, type: :model do
       token = build(:api_token, scopes: [])
       expect(token).not_to be_valid
       expect(token.errors[:scopes]).to be_present
+    end
+
+    # Phase 10 — MCP scope simplification (ADR 0004). The 2-scope
+    # catalog and the strip-on-release validation.
+    describe "Phase 10 — 2-scope catalog" do
+      it "accepts scopes: ['dev']" do
+        expect(build(:api_token, scopes: [ Scopes::DEV ])).to be_valid
+      end
+
+      it "accepts scopes: ['app']" do
+        expect(build(:api_token, scopes: [ Scopes::APP ])).to be_valid
+      end
+
+      it "accepts scopes: ['dev', 'app']" do
+        expect(build(:api_token, scopes: [ Scopes::DEV, Scopes::APP ])).to be_valid
+      end
+
+      it "rejects scopes: ['foo'] (unknown)" do
+        token = build(:api_token, scopes: [ "foo" ])
+        expect(token).not_to be_valid
+        expect(token.errors[:scopes].first).to include("foo")
+      end
+
+      it "rejects scopes: ['dev:read'] (legacy 9-scope string)" do
+        token = build(:api_token, scopes: [ "dev:read" ])
+        expect(token).not_to be_valid
+        expect(token.errors[:scopes].first).to include("dev:read")
+      end
+
+      it "rejects scopes: ['yt:read'] (legacy 9-scope string)" do
+        token = build(:api_token, scopes: [ "yt:read" ])
+        expect(token).not_to be_valid
+        expect(token.errors[:scopes].first).to include("yt:read")
+      end
+
+      it "accepts scopes: ['dev', 'dev'] (dedup is implicit at JSON storage)" do
+        # The model accepts duplicate entries; the validation only
+        # checks subset membership. Doorkeeper applications behave
+        # the same way (their scope string is space-joined).
+        expect(build(:api_token, scopes: [ Scopes::DEV, Scopes::DEV ])).to be_valid
+      end
+    end
+
+    describe "Phase 10 — strip-on-release dev_scope_only_when_exposed validation" do
+      around do |example|
+        original = Rails.application.config.x.mcp.expose_dev_scope
+        Rails.application.config.x.mcp.expose_dev_scope = false
+        example.run
+      ensure
+        Rails.application.config.x.mcp.expose_dev_scope = original
+      end
+
+      it "rejects scopes: ['dev'] when expose_dev_scope is false" do
+        # The catalog-subset check fires first because `Scopes::ALL`
+        # is captured at boot. The dev_scope_only_when_exposed
+        # validation guarantees rejection even if a runtime stub of
+        # `Scopes::ALL` would otherwise let the row through.
+        token = build(:api_token, scopes: [ Scopes::DEV ])
+        expect(token).not_to be_valid
+        expect(token.errors[:scopes].join).to match(/dev/)
+      end
+
+      it "rejects scopes: ['dev', 'app'] when expose_dev_scope is false" do
+        token = build(:api_token, scopes: [ Scopes::DEV, Scopes::APP ])
+        expect(token).not_to be_valid
+        expect(token.errors[:scopes].join).to match(/dev/)
+      end
+
+      it "accepts scopes: ['app'] when expose_dev_scope is false" do
+        expect(build(:api_token, scopes: [ Scopes::APP ])).to be_valid
+      end
     end
   end
 
@@ -48,12 +119,12 @@ RSpec.describe ApiToken, type: :model do
       record, plaintext = ApiToken.generate!(
         user: user,
         name: "test",
-        scopes: [ Scopes::DEV_READ ]
+        scopes: [ Scopes::DEV ]
       )
 
       expect(record).to be_persisted
       expect(record.name).to eq("test")
-      expect(record.scopes).to eq([ Scopes::DEV_READ ])
+      expect(record.scopes).to eq([ Scopes::DEV ])
       expect(record.user_id).to eq(user.id)
       expect(record.last_token_preview).to eq(plaintext.last(4))
       expect(record.token_digest).to eq(ApiToken.digest(plaintext))
@@ -65,7 +136,7 @@ RSpec.describe ApiToken, type: :model do
       future = 30.days.from_now
       record, _ = ApiToken.generate!(
         user: user,
-        name: "expiring", scopes: [ Scopes::DEV_READ ],
+        name: "expiring", scopes: [ Scopes::DEV ],
         expires_at: future
       )
       expect(record.expires_at).to be_within(1.second).of(future)
@@ -82,7 +153,7 @@ RSpec.describe ApiToken, type: :model do
 
     it "returns the token for valid plaintext" do
       _record, plaintext = ApiToken.generate!(
-        user: user, name: "auth", scopes: [ Scopes::DEV_READ ]
+        user: user, name: "auth", scopes: [ Scopes::DEV ]
       )
 
       result = ApiToken.authenticate(plaintext)
@@ -92,7 +163,7 @@ RSpec.describe ApiToken, type: :model do
 
     it "updates last_used_at on success" do
       record, plaintext = ApiToken.generate!(
-        user: user, name: "usage", scopes: [ Scopes::DEV_READ ]
+        user: user, name: "usage", scopes: [ Scopes::DEV ]
       )
 
       expect { ApiToken.authenticate(plaintext) }
@@ -110,7 +181,7 @@ RSpec.describe ApiToken, type: :model do
 
     it "returns nil for revoked token" do
       record, plaintext = ApiToken.generate!(
-        user: user, name: "revoked", scopes: [ Scopes::DEV_READ ]
+        user: user, name: "revoked", scopes: [ Scopes::DEV ]
       )
       record.revoke!
 
@@ -119,7 +190,7 @@ RSpec.describe ApiToken, type: :model do
 
     it "returns nil for expired token" do
       record, plaintext = ApiToken.generate!(
-        user: user, name: "expired", scopes: [ Scopes::DEV_READ ],
+        user: user, name: "expired", scopes: [ Scopes::DEV ],
         expires_at: 1.hour.ago
       )
       expect(record.expired?).to be true
@@ -132,14 +203,14 @@ RSpec.describe ApiToken, type: :model do
     let(:user) { create(:user) }
 
     it "is usable when neither revoked nor expired" do
-      record, _ = ApiToken.generate!(user: user, name: "ok", scopes: [ Scopes::DEV_READ ])
+      record, _ = ApiToken.generate!(user: user, name: "ok", scopes: [ Scopes::DEV ])
       expect(record.revoked?).to be false
       expect(record.expired?).to be false
       expect(record.usable?).to be true
     end
 
     it "is not usable when revoked" do
-      record, _ = ApiToken.generate!(user: user, name: "rv", scopes: [ Scopes::DEV_READ ])
+      record, _ = ApiToken.generate!(user: user, name: "rv", scopes: [ Scopes::DEV ])
       record.revoke!
       expect(record.revoked?).to be true
       expect(record.usable?).to be false
@@ -147,7 +218,7 @@ RSpec.describe ApiToken, type: :model do
 
     it "is not usable when expired" do
       record, _ = ApiToken.generate!(
-        user: user, name: "ex", scopes: [ Scopes::DEV_READ ],
+        user: user, name: "ex", scopes: [ Scopes::DEV ],
         expires_at: 5.minutes.ago
       )
       expect(record.expired?).to be true

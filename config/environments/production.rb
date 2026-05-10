@@ -87,4 +87,10 @@ Rails.application.configure do
   #
   # Skip DNS rebinding protection for the default health check endpoint.
   # config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
+
+  # Phase 10 — MCP scope simplification (ADR 0004). Strip the `dev`
+  # scope from the catalog and the dev-KB tools from the MCP server in
+  # production builds. Operators expose dev tooling explicitly via
+  # their own dev environment, never on a production install.
+  config.x.mcp.expose_dev_scope = false
 end
