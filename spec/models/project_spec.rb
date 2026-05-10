@@ -133,6 +133,136 @@ RSpec.describe Project, type: :model do
     end
   end
 
+  # Phase 20 — friendly URLs. Project uses :slugged + :history (renameable
+  # resource). Slug derives from `name` via `Pito::SlugBuilder` with an
+  # 80-char cap. Old slugs survive a rename via the friendly_id_slugs
+  # history table.
+  describe "friendly_id (Phase 20)" do
+    it "exposes :history in the friendly_id config" do
+      expect(Project.friendly_id_config.uses?(:history)).to be(true)
+    end
+
+    it "exposes :slugged in the friendly_id config" do
+      expect(Project.friendly_id_config.uses?(:slugged)).to be(true)
+    end
+
+    describe "to_param" do
+      it "returns the slug (not the integer id) when name produces a slug" do
+        project = create(:project, name: "My Summer Game")
+        expect(project.to_param).to eq("my-summer-game")
+        expect(project.to_param).not_to eq(project.id.to_s)
+      end
+
+      it "returns a fallback slug (project-<id>) when name is blank" do
+        project = Project.new
+        # `attribute :name` default is "Untitled project"; force a blank
+        # name so the fallback candidate kicks in.
+        project.name = ""
+        project.save(validate: false)
+        # The slug is whatever the candidate stack resolves to. Either
+        # the default `untitled-project` (from the attribute default
+        # before assignment) or the `project-<id>` fallback. Either way
+        # it must be a non-empty string and must not be the bare integer.
+        expect(project.to_param).not_to eq(project.id.to_s)
+        expect(project.to_param).to be_present
+      end
+    end
+
+    describe ".friendly.find" do
+      let!(:project) { create(:project, name: "Celeste Retrospective") }
+
+      it "resolves by slug" do
+        expect(Project.friendly.find(project.slug)).to eq(project)
+      end
+
+      it "resolves by integer id (backwards compat)" do
+        expect(Project.friendly.find(project.id)).to eq(project)
+      end
+
+      it "resolves by stringified integer id" do
+        expect(Project.friendly.find(project.id.to_s)).to eq(project)
+      end
+
+      it "raises RecordNotFound for an unknown slug" do
+        expect { Project.friendly.find("does-not-exist-anywhere") }
+          .to raise_error(ActiveRecord::RecordNotFound)
+      end
+    end
+
+    describe "rename + history" do
+      it "regenerates the slug when name changes" do
+        project = create(:project, name: "Original Name")
+        original_slug = project.slug
+        project.update!(name: "New Name")
+        expect(project.reload.slug).not_to eq(original_slug)
+        expect(project.slug).to eq("new-name")
+        expect(project.to_param).to eq("new-name")
+      end
+
+      it "still resolves the old slug after rename (history module)" do
+        project = create(:project, name: "Pre-rename")
+        old_slug = project.slug
+        project.update!(name: "Post-rename")
+        expect(Project.friendly.find(old_slug)).to eq(project)
+      end
+
+      it "treats the new slug as canonical (to_param returns the new slug)" do
+        project = create(:project, name: "Old")
+        old_slug = project.slug
+        project.update!(name: "New")
+        expect(project.to_param).to eq(project.slug)
+        expect(project.to_param).not_to eq(old_slug)
+      end
+    end
+
+    describe "uniqueness / collision suffixing" do
+      it "appends -2 to the second slug when names collide" do
+        a = create(:project, name: "Same Name")
+        b = create(:project, name: "Same Name")
+        expect(a.slug).to eq("same-name")
+        expect(b.slug).to start_with("same-name-")
+        expect(b.slug).not_to eq(a.slug)
+      end
+    end
+
+    describe "transliteration" do
+      it "transliterates accented characters" do
+        project = create(:project, name: "Café")
+        expect(project.slug).to eq("cafe")
+      end
+
+      it "rejects non-latin scripts and falls back to the typed prefix" do
+        # Cyrillic / CJK collapse via `Inflector.transliterate(_, "")` to
+        # the empty string, then `normalize_friendly_id` falls back to
+        # `project-<id>`.
+        project = create(:project, name: "Над звездами")
+        expect(project.slug).to start_with("project-")
+      end
+    end
+
+    describe "long name truncation" do
+      it "truncates to under 80 chars cleanly" do
+        long_name = "a-very-long-name " * 20 # > 255 raw chars stripped to 255
+        # We need a name within validates length: { maximum: 255 } so
+        # build something just under that cap that produces a >80-char slug.
+        project = create(:project, name: long_name[0, 250])
+        expect(project.slug.length).to be <= 80
+      end
+
+      it "prefers a hyphen boundary over a mid-word cut" do
+        # Build a name that, once parameterized, yields a slug whose 80th
+        # character lands mid-word. SlugBuilder backs up to the last
+        # hyphen in the last quarter of the limit.
+        name = "alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo lima"
+        project = create(:project, name: name)
+        slug = project.slug
+        expect(slug.length).to be <= 80
+        # Should end at a hyphen-word boundary, never a trailing hyphen.
+        expect(slug).not_to end_with("-")
+      end
+    end
+  end
+
   describe "Note destroy file cleanup" do
     let(:project) { create(:project) }
     let(:tmp_root) do

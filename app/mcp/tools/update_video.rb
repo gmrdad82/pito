@@ -12,7 +12,7 @@ module Mcp
           description:                 { type: "string" },
           tags:                        { type: "array", items: { type: "string" } },
           category_id:                 { type: "string" },
-          project_id:                  { type: [ "integer", "null" ] },
+          project_id:                  { type: [ "string", "null" ], description: "Project slug or integer id (as string, or null to clear)" },
           self_declared_made_for_kids: { type: "string", enum: [ "yes", "no" ] },
           contains_synthetic_media:    { type: "string", enum: [ "yes", "no" ] },
           star:                        { type: "string", enum: [ "yes", "no" ] },
@@ -52,7 +52,23 @@ module Mcp
         attrs[:description]                 = input[:description]                 if input.key?(:description)
         attrs[:tags]                        = Array(input[:tags])                 if input.key?(:tags)
         attrs[:category_id]                 = input[:category_id]                 if input.key?(:category_id)
-        attrs[:project_id]                  = input[:project_id]                  if input.key?(:project_id)
+        if input.key?(:project_id)
+          # Phase 20 — friendly URLs. project_id may arrive as a slug,
+          # an integer id, or nil. Resolve to an integer id (or nil to
+          # clear the relation).
+          raw = input[:project_id]
+          if raw.nil?
+            attrs[:project_id] = nil
+          else
+            project = begin
+              Project.friendly.find(raw)
+            rescue ActiveRecord::RecordNotFound
+              nil
+            end
+            return error_response("project not found: #{raw}") unless project
+            attrs[:project_id] = project.id
+          end
+        end
         attrs[:self_declared_made_for_kids] = YesNo.from_yes_no(input[:self_declared_made_for_kids]) if input.key?(:self_declared_made_for_kids)
         attrs[:contains_synthetic_media]    = YesNo.from_yes_no(input[:contains_synthetic_media])    if input.key?(:contains_synthetic_media)
         attrs[:star]                        = YesNo.from_yes_no(input[:star])                       if input.key?(:star)
