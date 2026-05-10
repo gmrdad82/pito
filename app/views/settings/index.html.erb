@@ -21,19 +21,20 @@
   })();
 </script>
 
-<%# Phase 3 — Step C (5c-settings-ui-and-docs.md) — Settings is a `.pane-row`
-    of six 452px panes that wrap to the next row when the viewport runs out.
-    Zebra alternation paints odd panes with `--color-pane-bg-a` and even
-    panes with `--color-pane-bg-b` (1=A, 2=B, 3=A, 4=B, 5=A, 6=B). Per-section
-    forms are preserved. The tokens pane is a stub linking to a dedicated
-    `/settings/tokens` page where the full CRUD lives — the token surface
-    has its own list / new / show-plaintext-once / revoke flow that doesn't
-    fit a single fieldset.
-
-    Order: appearance, workspaces, YouTube, Voyage AI, search, tokens.
+<%# Phase 12 polish (2026-05-10) — settings page reorganized into five
+    paired rows. Each `.pane-row` holds the panes that belong together
+    visually. Row 4 ("user") is a single-pane row: the right side of
+    the row stays empty by design. Row 5 collapses OAuth applications
+    and tokens into ONE pane separated by a hairline so the two
+    related token-issuance surfaces stay near each other; sessions
+    sits next to it. Compact-prose pattern: counts read as terse
+    sentences ("1 active token", "no active sessions") instead of a
+    big number + label header — see the spec at the dispatch root.
 %>
+
+<%# Row 1 — appearance | workspaces %>
 <div class="pane-row">
-  <%# Pane 1 — appearance (A) %>
+  <%# appearance %>
   <div class="pane">
     <%= form_with url: settings_path, method: :patch do |f| %>
       <input type="hidden" name="section" value="appearance">
@@ -58,7 +59,7 @@
     <% end %>
   </div>
 
-  <%# Pane 2 — workspaces (B) %>
+  <%# workspaces %>
   <div class="pane">
     <%= form_with url: settings_path, method: :patch do |f| %>
       <input type="hidden" name="section" value="workspaces">
@@ -87,8 +88,42 @@
       </fieldset>
     <% end %>
   </div>
+</div>
 
-  <%# Pane 3 — YouTube (A) %>
+<%# Row 2 — Google | YouTube %>
+<div class="pane-row">
+  <%# Google — connection state for Google account / YouTube data scope. %>
+  <div class="pane">
+    <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
+      <legend><h2>Google</h2></legend>
+
+      <% if @youtube_connection.present? %>
+        <p>connected: yes</p>
+        <p class="text-muted">
+          <%= @youtube_connection.email %><br>
+          last authorized <%= @youtube_connection.last_authorized_at.strftime("%Y-%m-%d %H:%M %Z") %>
+        </p>
+        <% if @youtube_connection.needs_reauth? %>
+          <p class="text-danger"><strong>needs re-auth</strong></p>
+        <% end %>
+      <% else %>
+        <p>connected: no</p>
+      <% end %>
+
+      <p class="text-muted">
+        connect a Google account to fetch YouTube channel and analytics data.
+      </p>
+
+      <%= render(BracketedLinkComponent.new(label: "manage", href: settings_youtube_path)) %>
+    </fieldset>
+  </div>
+
+  <%# YouTube — OAuth client credentials form. The client secret field
+      is masked the same way Voyage.ai's API key is: blank input with a
+      placeholder reflecting the configured / not-configured state. The
+      stored value is encrypted at rest (AppSetting#value uses Active
+      Record Encryption) so the only place it could leak is the form
+      itself — the placeholder pattern keeps it off-screen. %>
   <div class="pane">
     <%= form_with url: settings_path, method: :patch do |f| %>
       <input type="hidden" name="section" value="youtube_oauth">
@@ -105,8 +140,14 @@
         <div style="margin-bottom: 6px;">
           <label for="settings_youtube_client_secret" class="form-label">client secret</label>
           <input type="password" name="settings[youtube_client_secret]" id="settings_youtube_client_secret"
-                 value="<%= @settings['youtube_client_secret'] %>" autocomplete="off"
+                 value="" autocomplete="off"
+                 placeholder="<%= @youtube_client_secret_configured ? 'secret configured (•••••••)' : 'no secret configured' %>"
                  style="max-width: 420px; width: 100%;">
+          <% if @youtube_client_secret_configured %>
+            <span class="form-hint" style="display: block;">leave blank to keep current; submit to replace.</span>
+          <% else %>
+            <span class="form-hint" style="display: block;">paste your Google OAuth client secret.</span>
+          <% end %>
         </div>
 
         <div style="margin-bottom: 6px;">
@@ -120,75 +161,16 @@
       </fieldset>
     <% end %>
   </div>
+</div>
 
-  <%# Pane 4 — Voyage.ai (B) %>
-  <div class="pane">
-    <%= form_with url: settings_path, method: :patch do |f| %>
-      <input type="hidden" name="section" value="voyage">
-      <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
-        <legend><h2>Voyage.ai</h2></legend>
-
-        <div style="margin-bottom: 6px;">
-          <label for="settings_voyage_api_key" class="form-label">API key</label>
-          <input type="password" name="settings[voyage_api_key]" id="settings_voyage_api_key"
-                 value="" autocomplete="off"
-                 placeholder="<%= @voyage_configured ? 'key configured (•••••••)' : 'no key configured' %>"
-                 style="max-width: 420px; width: 100%;">
-          <% if @voyage_configured %>
-            <span class="form-hint" style="display: block;">leave blank to keep current; submit to replace.</span>
-          <% else %>
-            <span class="form-hint" style="display: block;">paste your Voyage.ai API key.</span>
-          <% end %>
-        </div>
-
-        <% if @voyage_configured %>
-          <div style="margin-bottom: 6px;">
-            <label class="md-check">
-              <input type="checkbox" name="settings[clear_voyage_api_key]" value="yes">
-              <span class="md-check-indicator"></span>
-              <span class="md-check-label">clear stored key</span>
-            </label>
-            <div class="form-hint">disables Voyage.ai indexing if any flag is on.</div>
-          </div>
-        <% end %>
-
-        <%# Phase B polish (2026-05-04) — per-target flags only render once a
-            key is configured. Without a key, the model validation rejects any
-            "yes" submission, so showing them in a doomed state is just visual
-            noise. The status indicator above stays informational regardless.
-        %>
-        <% if AppSetting.voyage_configured? %>
-          <div style="margin-bottom: 6px;">
-            <label class="form-label">indexes</label>
-            <div style="display: flex; align-items: baseline; gap: 12px;">
-              <span class="text-muted">project notes</span>
-              <% %w[yes no].each do |opt| %>
-                <label class="md-radio">
-                  <input type="radio" name="settings[voyage_index_project_notes]" value="<%= opt %>" <%= "checked" if (@voyage_indexing_project_notes ? "yes" : "no") == opt %>>
-                  <span class="md-radio-indicator"></span>
-                  <span class="md-radio-label"><%= opt %></span>
-                </label>
-              <% end %>
-            </div>
-            <%# Future per-target rows stack vertically under the same Index
-                heading — same flex-row shape as above, one row per target
-                (video notes, video metadata, channel metadata, etc.). Mirrors
-                Meilisearch's "indexed documents" heading + per-index list. %>
-          </div>
-        <% end %>
-
-        <button type="submit">[update]</button>
-      </fieldset>
-    <% end %>
-  </div>
-
-  <%# Pane 5 — search (A) %>
+<%# Row 3 — search | Voyage.ai %>
+<div class="pane-row">
+  <%# search %>
   <div class="pane">
     <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
       <legend><h2>search</h2></legend>
 
       <div style="margin-bottom: 6px;">
-        <label class="form-label">engine</label>
         <span>Meilisearch</span>
         <% if @search_healthy %>
           <span style="color: var(--color-success);">▲ connected</span>
@@ -230,89 +212,154 @@
     </fieldset>
   </div>
 
-  <%# Pane 6 — tokens (B) — Phase 3 Step C. Stub linking to /settings/tokens
-      where the full CRUD UI lives. %>
+  <%# Voyage.ai %>
   <div class="pane">
+    <%= form_with url: settings_path, method: :patch do |f| %>
+      <input type="hidden" name="section" value="voyage">
+      <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
+        <legend><h2>Voyage.ai</h2></legend>
+
+        <div style="margin-bottom: 6px;">
+          <label for="settings_voyage_api_key" class="form-label">API key</label>
+          <input type="password" name="settings[voyage_api_key]" id="settings_voyage_api_key"
+                 value="" autocomplete="off"
+                 placeholder="<%= @voyage_configured ? 'key configured (•••••••)' : 'no key configured' %>"
+                 style="max-width: 420px; width: 100%;">
+          <% if @voyage_configured %>
+            <span class="form-hint" style="display: block;">leave blank to keep current; submit to replace.</span>
+          <% else %>
+            <span class="form-hint" style="display: block;">paste your Voyage.ai API key.</span>
+          <% end %>
+        </div>
+
+        <% if @voyage_configured %>
+          <div style="margin-bottom: 6px;">
+            <label class="md-check">
+              <input type="checkbox" name="settings[clear_voyage_api_key]" value="yes">
+              <span class="md-check-indicator"></span>
+              <span class="md-check-label">clear stored key</span>
+            </label>
+            <div class="form-hint">disables Voyage.ai indexing if any flag is on.</div>
+          </div>
+        <% end %>
+
+        <% if AppSetting.voyage_configured? %>
+          <div style="margin-bottom: 6px;">
+            <label class="form-label">indexes</label>
+            <div style="display: flex; align-items: baseline; gap: 12px;">
+              <span class="text-muted">project notes</span>
+              <% %w[yes no].each do |opt| %>
+                <label class="md-radio">
+                  <input type="radio" name="settings[voyage_index_project_notes]" value="<%= opt %>" <%= "checked" if (@voyage_indexing_project_notes ? "yes" : "no") == opt %>>
+                  <span class="md-radio-indicator"></span>
+                  <span class="md-radio-label"><%= opt %></span>
+                </label>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+
+        <button type="submit">[update]</button>
+      </fieldset>
+    <% end %>
+  </div>
+</div>
+
+<%# Row 4 — user (single pane; right side intentionally empty). %>
+<div class="pane-row">
+  <div class="pane">
+    <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
+      <legend><h2>user</h2></legend>
+
+      <p><%= Current.user&.email %></p>
+      <p class="text-muted">
+        change your email or password.<br>
+        current password is required.
+      </p>
+
+      <%= render(BracketedLinkComponent.new(label: "edit account", href: settings_user_path)) %>
+    </fieldset>
+  </div>
+</div>
+
+<%# Row 5 — OAuth applications + tokens (combined pane) | sessions. %>
+<div class="pane-row">
+  <%# Combined OAuth applications + tokens. Two related token-issuance
+      surfaces share one pane separated by a horizontal hairline. Each
+      sub-section follows the compact prose pattern: count + state on
+      a single line, then a one-sentence-per-line helper paragraph,
+      then the bracketed manage link. %>
+  <div class="pane">
+    <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
+      <legend><h2>OAuth applications</h2></legend>
+
+      <p>
+        <% if @oauth_applications_count.zero? %>
+          no OAuth applications
+        <% elsif @oauth_applications_count == 1 %>
+          1 OAuth application
+        <% else %>
+          <%= number_with_delimiter(@oauth_applications_count) %> OAuth applications
+        <% end %>
+      </p>
+      <p class="text-muted">
+        applications that issue access tokens via authorization code + PKCE.
+      </p>
+
+      <%= render(BracketedLinkComponent.new(label: "manage applications", href: settings_oauth_applications_path)) %>
+    </fieldset>
+
+    <hr class="hairline">
+
     <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
       <legend><h2>tokens</h2></legend>
 
-      <div style="margin-bottom: 6px;">
-        <label class="form-label">active</label>
-        <span><%= number_with_delimiter(@active_tokens_count) %></span>
-        <span class="form-hint" style="display: block;">
-          bearer tokens for the JSON API and MCP HTTP transport.
-        </span>
-      </div>
+      <p>
+        <% if @active_tokens_count.zero? && @revoked_tokens_count.zero? %>
+          no active tokens
+        <% else %>
+          <%
+            active_label = @active_tokens_count == 1 ? "1 active token" :
+              "#{number_with_delimiter(@active_tokens_count)} active tokens"
+            active_label = "no active tokens" if @active_tokens_count.zero?
+          %>
+          <% if @revoked_tokens_count.positive? %>
+            <%= @active_tokens_count.zero? ? "0 active" : "#{number_with_delimiter(@active_tokens_count)} active" %>
+            ·
+            <%= number_with_delimiter(@revoked_tokens_count) %> revoked
+          <% else %>
+            <%= active_label %>
+          <% end %>
+        <% end %>
+      </p>
+      <p class="text-muted">
+        bearer tokens for the JSON API and MCP HTTP transport.
+      </p>
 
       <%= render(BracketedLinkComponent.new(label: "manage tokens", href: settings_tokens_path)) %>
     </fieldset>
   </div>
 
-  <%# Pane 7 — sessions (A) — Phase 12 Step A. List + revoke active logins. %>
+  <%# sessions — active browser logins. %>
   <div class="pane">
     <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
       <legend><h2>sessions</h2></legend>
 
-      <div style="margin-bottom: 6px;">
-        <label class="form-label">active</label>
-        <span><%= number_with_delimiter(@active_sessions_count) %></span>
-        <span class="form-hint" style="display: block;">
-          one row per active browser login. revoke remotely from anywhere.
-        </span>
-      </div>
+      <p>
+        <% if @active_sessions_count.zero? %>
+          no active sessions
+        <% elsif @active_sessions_count == 1 %>
+          1 active session
+        <% else %>
+          <%= number_with_delimiter(@active_sessions_count) %> active sessions
+        <% end %>
+      </p>
+      <p class="text-muted">
+        one row per active browser login.<br>
+        revoke remotely from anywhere.
+      </p>
 
       <%= render(BracketedLinkComponent.new(label: "manage sessions", href: settings_sessions_path)) %>
-    </fieldset>
-  </div>
-
-  <%# Pane 8 — oauth applications (B) — Phase 12 Step B. Doorkeeper-issued
-      tokens for third-party clients (the Rust CLI is the first consumer). %>
-  <div class="pane">
-    <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
-      <legend><h2>OAuth applications</h2></legend>
-
-      <div style="margin-bottom: 6px;">
-        <label class="form-label">registered</label>
-        <span><%= number_with_delimiter(@oauth_applications_count) %></span>
-        <span class="form-hint" style="display: block;">
-          applications that can issue access tokens via authorization code + PKCE.
-        </span>
-      </div>
-
-      <%= render(BracketedLinkComponent.new(label: "manage applications", href: settings_oauth_applications_path)) %>
-    </fieldset>
-  </div>
-
-  <%# Pane 9 — google (A) — Phase 9 (ADR 0006). Google account connection state. %>
-  <div class="pane">
-    <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
-      <legend><h2>google</h2></legend>
-
-      <% if @youtube_connection.present? %>
-        <div style="margin-bottom: 6px;">
-          <label class="form-label">connected as</label>
-          <span><%= @youtube_connection.email %></span>
-        </div>
-        <div style="margin-bottom: 6px;">
-          <label class="form-label">last authorized</label>
-          <span class="text-muted"><%= @youtube_connection.last_authorized_at.strftime("%Y-%m-%d %H:%M %Z") %></span>
-        </div>
-        <% if @youtube_connection.needs_reauth? %>
-          <div style="margin-bottom: 6px; color: #cc0000;">
-            <strong>needs re-auth</strong>
-          </div>
-        <% end %>
-      <% else %>
-        <div style="margin-bottom: 6px;">
-          <label class="form-label">connected</label>
-          <span class="text-muted">no</span>
-          <span class="form-hint" style="display: block;">
-            connect a google account to fetch YouTube channel and analytics data.
-          </span>
-        </div>
-      <% end %>
-
-      <%= render(BracketedLinkComponent.new(label: "manage YouTube", href: settings_youtube_path)) %>
     </fieldset>
   </div>
 </div>

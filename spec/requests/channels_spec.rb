@@ -950,18 +950,15 @@ RSpec.describe "Channels", type: :request do
     # star, last_synced_at, plus aggregate stats and `trend`. Title /
     # description / privacy_status / published_at / duration_seconds
     # are gone.
-    it "returns the video summary shape pito-sh expects" do
+    it "returns the video summary shape pito-sh expects (Phase 12 expanded)" do
       get videos_channel_path(channel, format: :json)
       row = response.parsed_body.first
       expect(row).to include(
         "id", "youtube_video_id", "channel_id", "channel_url",
+        "title", "privacy_status", "published_at",
         "star", "views", "likes", "comments", "watch_time_minutes",
-        "last_synced_at", "trend"
+        "last_synced_at", "imported", "trend"
       )
-      expect(row).not_to have_key("title")
-      expect(row).not_to have_key("privacy_status")
-      expect(row).not_to have_key("published_at")
-      expect(row).not_to have_key("duration_seconds")
     end
 
     it "returns 404 for an unknown channel" do

@@ -1,17 +1,17 @@
 require "rails_helper"
 
-# Phase 7 Path A2 (literal full retract). Video declares no
-# `searchable :*` / `filterable :*` lines; the index/remove hooks
-# still fire (the Searchable concern is still included), but the
-# index document only has `id` and queries return zero matches.
+# Phase 12 — Video re-declares searchable / filterable fields now
+# that the writable subset (title, description, tags, privacy_status,
+# category_id) is back. Meilisearch indexing is still a follow-up; the
+# concern stays declarative.
 RSpec.describe Searchable do
   describe "Video searchable configuration" do
-    it "defines an empty searchable_fields array" do
-      expect(Video.searchable_fields).to eq([])
+    it "declares title and description as searchable" do
+      expect(Video.searchable_fields).to eq([ :title, :description ])
     end
 
-    it "defines an empty filterable_fields array" do
-      expect(Video.filterable_fields).to eq([])
+    it "declares filterable fields for the new metadata columns" do
+      expect(Video.filterable_fields).to include(:privacy_status, :category_id, :channel_id, :project_id)
     end
   end
 

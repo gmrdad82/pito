@@ -278,6 +278,16 @@ Rails.application.routes.draw do
   # screen (same UX pattern as `/deletions/:type/:ids`); the matching
   # DELETE soft-deletes by setting `revoked_at`.
   namespace :settings do
+    # Phase 12 — user account self-service. The authenticated user can
+    # change their own email or password. `current_password` is required
+    # to authorize either mutation. No delete-account, no create-user,
+    # no password-recovery flow (deferred). Singular `resource` so the
+    # URL is `/settings/user` (not `/settings/users/:id`) — there is
+    # only ever one "self" record per session. Pinned to the singular
+    # `Settings::UserController` (Rails would otherwise pluralize a
+    # singular `resource` to `Settings::UsersController`).
+    resource :user, only: %i[show update], controller: "user"
+
     resources :tokens, only: %i[index new create destroy] do
       member do
         get :revoke
