@@ -342,3 +342,155 @@ three minor concerns (3, 4, 6). Bundled the cheap-win fixes in this session.
   which derived-entry attributes the service overwrites. If a future spec adds a
   new column the service should write (e.g., a derived-entry `priority`), update
   the constant alongside the schema change.
+
+## 2026-05-10 — Default-create entry flow (rails-impl, Projects pattern)
+
+**Spec slug:** ad-hoc — no formal feature spec; user request to mirror the
+`/projects` `[+]` default-create UX onto the calendar breadcrumb `[+]`.
+
+**Why**
+
+The previous flow forced the user to fill out a multi-field form (type / title /
+description / starts_at / ends_at / all_day / timezone) before any row existed.
+The Projects index already takes the opposite stance — `[+]` POSTs immediately
+and lands the user on the edit page where real values are filled in. This
+session ports that pattern to calendar entries so the breadcrumb `[+]` is a
+one-click action that always succeeds.
+
+**Files touched (high level)**
+
+- `app/controllers/calendar/entries_controller.rb` — `create` short-circuits
+  when `params[:calendar_entry]` is blank: builds a `milestone_manual` entry
+  with `title="Untitled event"`, `starts_at=Time.current`, `ends_at=nil`,
+  `all_day=false`, `timezone=AppSetting.first&.timezone || "UTC"`, saves, and
+  redirects to `edit_calendar_entry_path`. Original payload-bearing flow (form
+  POST, deep links, `quick_add`) is preserved verbatim.
+- `app/views/calendar/month/_navigation.html.erb` — `[+]` swapped from a
+  `BracketedLinkComponent` (GET to `new_calendar_entry_path`) to a `button_to`
+  POST against `calendar_entries_path` with `data-turbo: false` so the redirect
+  lands on the edit page. Markup mirrors the `/projects` index `[+]` exactly.
+- `app/views/calendar/schedule/show.html.erb` — same swap as the month nav.
+- `app/views/calendar/entries/_form.html.erb` — submit button copy tightened
+  from `[ create ]` / `[ save ]` to `[create]` / `[save]` per
+  `docs/agents/rails.md` rule A. The cancel link already uses
+  `BracketedLinkComponent` (no inner spaces) and was untouched.
+- `app/views/calendar/entries/new.html.erb` — left in place. The form still
+  works for deep-link / programmatic access; `[+]` just streamlines past it.
+
+**Specs added / updated**
+
+- `spec/requests/calendar/entries_spec.rb` — new
+  `describe "POST /calendar/entries (default-create — no params)"` block: 4
+  examples covering (1) row shape after no-params POST, (2) redirect to
+  `/edit`, (3) `AppSetting.first.timezone` honored, (4) edit page
+  pre-populates with the placeholder values.
+- `spec/requests/calendar/month_spec.rb` — `[+] link points at the new
+  calendar entry path` rewritten to `[+] is a POST button_to to
+  /calendar/entries (default-create per Projects pattern)`. Asserts
+  `<form action="/calendar/entries" method="post" data-turbo="false">`
+  wrapping a `[<span class="bl">+</span>]` `<button class="bracketed">`.
+- `spec/system/calendar_quick_add_spec.rb` — `click_button "[ create ]"` →
+  `click_button "[create]"`.
+- `spec/system/calendar_edit_delete_spec.rb` — `click_button "[ save ]"` →
+  `click_button "[save]"`.
+
+**Quality gates**
+
+- `bundle exec rspec spec/requests/calendar/ spec/system/calendar_quick_add_spec.rb`:
+  75 examples, 0 failures.
+- `bundle exec rspec spec/requests/calendar/ spec/requests/projects_spec.rb`:
+  213 examples, 0 failures.
+- `bundle exec brakeman -q -w2`: 0 security warnings.
+- `spec/system/calendar_edit_delete_spec.rb`: pre-existing failure on the
+  `[note]` link assertion (already documented in this log under "Phase 15
+  reviewer concern 6 — read-only entries no longer expose a `[note]` link
+  until the modal markup is built"). Untouched by this session.
+
+**Open issues**
+
+- None new. The `[note]` modal markup for read-only entries remains the
+  pre-existing follow-up; not in scope for this session.
+
+---
+
+## 2026-05-10 — `[month]` toggle dead-click regression fix (rails-impl)
+
+**User report.** Visiting `/calendar/schedule` and clicking `[month]` did
+nothing.
+
+**Spec slug:** ad-hoc — no formal feature spec; targeted regression fix
+delegated by the master agent.
+
+**Root cause.** The schedule view's `[month]` link targeted
+`calendar_root_path` (`/calendar`). `/calendar` is the
+`Calendar::RouterController#show` page that reads the `pito-calendar-view`
+localStorage key on connect and `window.location.replace`s back to either
+the schedule or the month grid. Once the user had any state where the
+router decided to land them back on schedule, the toggle bounced the user
+right back — so the click looked dead.
+
+**Fix.**
+
+- `app/views/calendar/schedule/show.html.erb` — `[month]` now targets the
+  canonical month URL directly (`/calendar/month/<year>/<month>` for the
+  current month), bypassing the router. It also carries
+  `data-action="click->calendar-view-router#persistMonth"` so the
+  preference flips to `"month"` for subsequent fresh visits to `/calendar`.
+- `app/views/calendar/month/_navigation.html.erb` — `[schedule]` already
+  targeted `calendar_schedule_path` correctly; added the symmetric
+  `data-action="click->calendar-view-router#persistSchedule"` so the
+  preference flips to `"schedule"`.
+- Both toggles are wrapped in
+  `<span data-controller="calendar-view-router">` so the action descriptor
+  finds an ancestor controller (the breadcrumb-actions slot lives in the
+  layout's `<nav>`, outside any view-level controller mount).
+- `app/javascript/controllers/calendar_view_router_controller.js` —
+  extended with `persistMonth` / `persistSchedule` action methods
+  (best-effort writes; localStorage failure does not block navigation).
+  `connect()` clarified: only redirects when a corresponding `*PathValue`
+  is wired, so mounting the controller on a regular calendar view (without
+  `month-path-value` / `schedule-path-value`) is a safe no-op.
+
+**Files touched**
+
+- Views: `app/views/calendar/schedule/show.html.erb`,
+  `app/views/calendar/month/_navigation.html.erb`
+- Stimulus: `app/javascript/controllers/calendar_view_router_controller.js`
+- Specs: `spec/requests/calendar/schedule_spec.rb` (3 new cases: canonical
+  href + persist action, span wrapper, NOT routed through `/calendar`),
+  `spec/requests/calendar/month_spec.rb` (2 new cases: canonical href +
+  persist action, span wrapper),
+  `spec/system/calendar_schedule_filter_spec.rb` (existing `[month]`
+  click-through case retargeted to assert the canonical month URL)
+
+**Quality gates**
+
+- `bundle exec rspec spec/requests/calendar/` — 72 examples, 0 failures.
+- `bundle exec rspec spec/system/calendar_schedule_filter_spec.rb:32
+  spec/system/calendar_month_navigation_spec.rb:40` — 2 examples,
+  0 failures (the two toggle-link click-through system cases).
+- `bin/brakeman -q -w2` — 0 security warnings, 0 errors.
+
+**Open issues**
+
+- The pre-existing `[+] in the breadcrumb actions links to the new entry
+  form` system specs (in both `calendar_schedule_filter_spec.rb` and
+  `calendar_month_navigation_spec.rb`) fail because the sibling
+  default-create change flipped the breadcrumb `[+]` from a link to a
+  `button_to`; the system specs still call `click_link "+"`. Out of this
+  lane's scope — already surfaced as a follow-up to the agent that owns
+  the `[+]` migration.
+
+**Manual playbook**
+
+1. Open `/calendar/schedule` in a browser. Confirm `[month]` click lands
+   on `/calendar/month/<current-year>/<current-month>` and the page
+   renders the month grid.
+2. Open DevTools → Application → Local Storage → site origin. Confirm
+   `pito-calendar-view = "month"` after the click.
+3. Click `[schedule]` from the month view. Confirm it lands on
+   `/calendar/schedule` and `pito-calendar-view = "schedule"`.
+4. Visit `/calendar` directly. Confirm it now resolves to the
+   most-recently-toggled view (schedule) without flicker.
+5. Wipe `pito-calendar-view` from localStorage and visit `/calendar`
+   again. Confirm it falls through to the current month grid.

@@ -7,10 +7,12 @@ module Mcp
       tool_name "game_destroy"
       description "Destroy a game. Cascades through join tables (genres, platforms, bundles, video links)."
 
+      # Phase 20 — friendly URLs. `id` accepts slug (`igdb_slug`) or
+      # integer id as a string.
       input_schema(
         type: "object",
         properties: {
-          id: { type: "integer" },
+          id: { type: "string", description: "Game slug (igdb_slug) or integer id (as string)" },
           confirm: { type: "string", enum: [ "yes", "no" ] }
         },
         required: [ "id" ],
@@ -25,7 +27,11 @@ module Mcp
 
         return error_response("confirm must be 'yes' or 'no' (got #{confirm.inspect})") unless YesNo.yes_no?(confirm)
 
-        game = Game.find_by(id: id)
+        game = begin
+          Game.friendly.find(id)
+        rescue ActiveRecord::RecordNotFound
+          nil
+        end
         return error_response("game not found: #{id}") unless game
 
         if YesNo.from_yes_no(confirm) == false

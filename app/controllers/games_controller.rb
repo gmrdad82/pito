@@ -12,6 +12,8 @@
 #   - `destroy` — Phase 4 carryover.
 #   - `resync`  — `POST /games/:id/resync` enqueues `GameIgdbSync`.
 class GamesController < ApplicationController
+  include FriendlyRedirect
+
   MAX_QUERY_LENGTH = 100
 
   # Phase 14 §1 polish (2026-05-10) — sortable columns on /games. Mirrors
@@ -64,7 +66,19 @@ class GamesController < ApplicationController
   end
 
   def show
-    @game = Game.find(params[:id])
+    @game = Game.friendly.find(params[:id])
+    # rubocop:disable Style/RedundantReturn -- The `return` keyword guards
+    # against a future DoubleRenderError if any code is added below the
+    # canonical-slug redirect. Today the `show` action body ends here
+    # (Rails implicit-renders `show.html.erb`), so rubocop sees the
+    # `return` as redundant — but the guard mirrors the pattern used by
+    # every other `friendly`-backed controller (channels, videos,
+    # footages, bundles, collections, projects) and keeps the surface
+    # safe to extend without re-deriving the rule.
+    return if redirect_to_canonical_slug!(@game) { |g| game_path(g) }
+    # rubocop:enable Style/RedundantReturn
+
+    # show.html.erb reads @game directly; nothing else to set up here.
   end
 
   # Phase 14 §1 polish (2026-05-10) — show / edit split. The form
@@ -72,7 +86,7 @@ class GamesController < ApplicationController
   # `/games/:id/edit` screen so the show page reads as canonical
   # read-only metadata.
   def edit
-    @game = Game.find(params[:id])
+    @game = Game.friendly.find(params[:id])
   end
 
   def search
@@ -131,7 +145,7 @@ class GamesController < ApplicationController
   end
 
   def update
-    @game = Game.find(params[:id])
+    @game = Game.friendly.find(params[:id])
     if @game.update(local_only_params)
       redirect_to game_path(@game), notice: "game updated."
     else
@@ -140,7 +154,7 @@ class GamesController < ApplicationController
   end
 
   def destroy
-    game = Game.find(params[:id])
+    game = Game.friendly.find(params[:id])
     game.destroy!
     redirect_to games_path, notice: "game deleted."
   end
@@ -152,7 +166,7 @@ class GamesController < ApplicationController
   # if the user re-clicks. Otherwise it enqueues `GameIgdbSync` —
   # the job itself rechecks the flag and self-locks via update_column.
   def resync
-    game = Game.find(params[:id])
+    game = Game.friendly.find(params[:id])
     if game.resyncing?
       redirect_to game_path(game), notice: "already resyncing." and return
     end

@@ -17,9 +17,20 @@ RSpec.describe "notifications/show.html.erb", type: :view do
     expect(rendered).to include(payload[:title])
   end
 
-  it "renders [ back ]" do
+  it "renders [back]" do
     render
-    expect(rendered).to match(/\[\s*<span class="bl">back<\/span>\s*\]/)
+    expect(rendered).to match(/\[<span class="bl">back<\/span>\]/)
+  end
+
+  it "wires the modal-close Stimulus action on [back]" do
+    render
+    # `>` gets HTML-entity encoded inside attribute values.
+    expect(rendered).to include("notification-modal#close")
+  end
+
+  it "wraps the body in the notification_detail_frame Turbo Frame" do
+    render
+    expect(rendered).to include('id="notification_detail_frame"')
   end
 
   it "renders [ mark read ] when unread" do
@@ -42,16 +53,16 @@ RSpec.describe "notifications/show.html.erb", type: :view do
     expect(rendered).to match(/slack:\s+(pending|disabled|\d{4}-\d{2}-\d{2})/)
   end
 
-  it "renders [ open ] when url is present" do
+  it "renders [open] when url is present" do
     notification.update!(url: "https://example.com/x")
     render
-    expect(rendered).to match(/\[\s*<span class="bl">open<\/span>\s*\]/)
+    expect(rendered).to match(/\[<span class="bl">open<\/span>\]/)
   end
 
-  it "omits [ open ] when url is blank" do
+  it "omits [open] when url is blank" do
     notification.update!(url: nil)
     render
-    expect(rendered).not_to match(/\[\s*<span class="bl">open<\/span>\s*\]/)
+    expect(rendered).not_to match(/\[<span class="bl">open<\/span>\]/)
   end
 
   it "shows last_error when non-blank" do
@@ -60,7 +71,7 @@ RSpec.describe "notifications/show.html.erb", type: :view do
     expect(rendered).to include("boom: HTTP 502")
   end
 
-  it "wires the notification-link Stimulus controller on [ open ]" do
+  it "wires the notification-link Stimulus controller on [open]" do
     notification.update!(url: "https://example.com/x")
     render
     expect(rendered).to include('data-controller="notification-link"')

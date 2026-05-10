@@ -24,6 +24,20 @@ class Game < ApplicationRecord
   # user-set `starts_at`.
   include CalendarDerivable
 
+  # Phase 20 — friendly URLs. Game URLs reuse the existing `igdb_slug`
+  # column (no new slug column, no `:history` module per locked Phase
+  # 20 decision #3 — IGDB owns the slug, so it never changes
+  # locally). `:finders` lets `Game.friendly.find(slug_or_id)` accept
+  # either a slug or an integer ID for backwards compat. `to_param`
+  # falls back to `id.to_s` when `igdb_slug` is missing (legacy / not
+  # yet synced rows) so the route helpers always emit a usable URL.
+  extend FriendlyId
+  friendly_id :igdb_slug, use: :finders
+
+  def to_param
+    igdb_slug.presence || id&.to_s
+  end
+
   # Phase 14 §1 — whitelist of IGDB cover-image size tokens.
   COVER_SIZES = %w[
     t_thumb t_cover_small t_cover_big t_screenshot_med t_screenshot_big

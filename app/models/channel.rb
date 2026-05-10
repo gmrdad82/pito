@@ -3,6 +3,27 @@ class Channel < ApplicationRecord
   # `channel_published` entry keyed on `created_at`.
   include CalendarDerivable
 
+  # Phase 20 — friendly URLs. Channel URLs reuse the UC-id portion of
+  # `channel_url` (the locked YouTube channel identifier). No new slug
+  # column, no `:history` module per locked Phase 20 decision #3 — UC
+  # ids are externally owned and the `channel_url` column is itself
+  # immutable post-create (`prevent_url_change`). `:finders` lets
+  # `Channel.friendly.find(slug_or_id)` accept either a slug or an
+  # integer ID for backwards compat. `to_param` falls back to
+  # `"channel-<id>"` when no UC-id is extractable (master decision #1
+  # in the Phase 20 spec).
+  extend FriendlyId
+  friendly_id :url_slug, use: :finders
+
+  def url_slug
+    extracted = channel_url.to_s[%r{/channel/(UC[A-Za-z0-9_-]{22})}, 1]
+    extracted.presence || (id ? "channel-#{id}" : nil)
+  end
+
+  def to_param
+    url_slug.presence || id&.to_s
+  end
+
   # Raised when the locked channel_url is changed on update. Phase B's
   # controller layer rescues this and translates it to a 422 response.
   class UrlLockedError < ActiveRecord::ReadOnlyRecord; end

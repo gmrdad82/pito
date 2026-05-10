@@ -2,6 +2,8 @@
 # destructive actions delegated to /deletions/:type/:ids (consistent with the
 # rest of the project per CLAUDE.md "bulk-as-foundation").
 class CollectionsController < ApplicationController
+  include FriendlyRedirect
+
   skip_before_action :verify_authenticity_token, if: -> { request.format.json? }
 
   def index
@@ -9,7 +11,9 @@ class CollectionsController < ApplicationController
   end
 
   def show
-    @collection = Collection.find(params[:id])
+    @collection = Collection.friendly.find(params[:id])
+    return if redirect_to_canonical_slug!(@collection) { |c| collection_path(c) }
+
     @games = @collection.games.order(:title)
   end
 
@@ -20,7 +24,7 @@ class CollectionsController < ApplicationController
   end
 
   def update
-    @collection = Collection.find(params[:id])
+    @collection = Collection.friendly.find(params[:id])
     if @collection.update(update_params)
       redirect_to collection_path(@collection), notice: "collection updated."
     else
@@ -29,7 +33,7 @@ class CollectionsController < ApplicationController
   end
 
   def destroy
-    collection = Collection.find(params[:id])
+    collection = Collection.friendly.find(params[:id])
     collection.destroy!
     redirect_to collections_path, notice: "collection deleted."
   end

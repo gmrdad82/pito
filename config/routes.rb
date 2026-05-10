@@ -219,11 +219,22 @@ Rails.application.routes.draw do
   # Phase B post-commit (2026-05-04) — Note revamp. The note editor is now
   # a single screen (no /edit) — `GET /notes/:id` renders the two-pane
   # editor directly. `/edit` and `/new` are intentionally absent.
-  resources :notes, only: [ :index, :show, :update, :destroy ] do
+  #
+  # Phase 20 — friendly URLs. Notes resolve by their on-disk `path`
+  # (which can include slashes when nested). Routes use a `*path` glob
+  # so `/notes/projects/foo/bar.md` reaches the controller intact. Bulk
+  # actions still go through `/deletions/note/:ids` (numeric ids).
+  resources :notes, only: %i[index] do
     collection do
       # Phase 4 §6.4 — `[ scan now ]` enqueues NoteSyncJob.
       post :scan
     end
+  end
+  scope :notes, as: :note do
+    get    "/*path", to: "notes#show",    constraints: { path: /.+/ }, format: false
+    patch  "/*path", to: "notes#update",  constraints: { path: /.+/ }, format: false
+    put    "/*path", to: "notes#update",  constraints: { path: /.+/ }, format: false
+    delete "/*path", to: "notes#destroy", constraints: { path: /.+/ }, format: false
   end
   resources :timelines, only: [ :index, :show, :update, :destroy ]
 

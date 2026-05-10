@@ -53,8 +53,13 @@ RSpec.describe "Calendar::Month", type: :request do
     # toggle.
     it "[schedule] toggle targets /calendar/schedule with persist action" do
       get "/calendar/month/2026/05"
+      # ERB escapes `->` in the rendered `data-action` to `-&gt;`.
+      # Rails `link_to` attribute ordering is not strictly guaranteed,
+      # so assert the three required pieces (href, class, data-action)
+      # all live on the same single `<a>` tag whose body is the
+      # `[schedule]` label, without pinning their order.
       expect(response.body).to match(
-        %r{href="/calendar/schedule"[^>]*data-action="click->calendar-view-router#persistSchedule"[^>]*>\[<span class="bl">schedule}
+        %r{<a\b(?=[^>]*\bhref="/calendar/schedule")(?=[^>]*\bclass="bracketed")(?=[^>]*\bdata-action="click-&gt;calendar-view-router#persistSchedule")[^>]*>\[<span class="bl">schedule}
       )
     end
 
@@ -65,9 +70,16 @@ RSpec.describe "Calendar::Month", type: :request do
       )
     end
 
-    it "[+] link points at the new calendar entry path" do
+    it "[+] is a POST `button_to` to /calendar/entries (default-create per Projects pattern)" do
       get "/calendar/month/2026/05"
-      expect(response.body).to match(/href="\/calendar\/entries\/new"[^>]*>\[<span class="bl">\+/)
+      # `button_to` renders a `<form method="post">` wrapping a
+      # `<button class="bracketed">`. The form's `action` is the create
+      # endpoint and the `data-turbo="false"` attribute forces a full
+      # navigation so the controller redirect lands on the edit page.
+      expect(response.body).to include(%(action="/calendar/entries"))
+      expect(response.body).to match(
+        %r{<form[^>]*data-turbo="false"[^>]*method="post"[^>]*action="/calendar/entries"[^>]*>\s*<button[^>]*class="bracketed"[^>]*>\[<span class="bl">\+</span>\]</button>\s*</form>}
+      )
     end
 
     it "sad: invalid month redirects to /calendar with flash" do

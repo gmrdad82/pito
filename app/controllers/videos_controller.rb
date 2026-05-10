@@ -1,4 +1,6 @@
 class VideosController < ApplicationController
+  include FriendlyRedirect
+
   # JSON endpoints are unauthenticated for the single-user dev environment
   # behind the Cloudflare tunnel. Phase 3 Auth Foundation will add API token
   # auth. CSRF is skipped only for JSON requests so the HTML form path keeps
@@ -52,6 +54,8 @@ class VideosController < ApplicationController
   end
 
   def show
+    return if redirect_to_canonical_slug!(@video) { |v| video_path(v) }
+
     @max_panes = max_panes
     @available_videos = Video.where.not(id: @video.id).order(created_at: :desc).limit(50)
 
@@ -226,16 +230,24 @@ class VideosController < ApplicationController
 
     @max_panes = max_panes
     @current_ids = ids.first(@max_panes)
-    @panes = @current_ids.map { |id| Video.find_by(id: id) }
+    # Phase 20 — friendly URLs. Pane keys arrive as either integer ids
+    # or slug strings (`youtube_video_id`). `friendly.find` resolves
+    # both; missing keys collapse to nil for placeholder rendering.
+    @panes = @current_ids.map do |key|
+      Video.friendly.find(key)
+    rescue ActiveRecord::RecordNotFound
+      nil
+    end
+    @resolved_pane_ids = @panes.compact.map(&:id)
     @pane_title_length = pane_title_length
-    @available_videos = Video.where.not(id: @current_ids).order(created_at: :desc).limit(50) if @panes.compact.size < @max_panes
+    @available_videos = Video.where.not(id: @resolved_pane_ids).order(created_at: :desc).limit(50) if @panes.compact.size < @max_panes
     @saved_view = SavedView.find_by(kind: :videos, url: CGI.unescape(request.fullpath))
   end
 
   private
 
   def load_video
-    @video = Video.find(params[:id])
+    @video = Video.friendly.find(params[:id])
   end
 
   # Phase 14 §3 — populate the edit-form view bag with the projects

@@ -4,10 +4,11 @@ module Mcp
       tool_name "pre_publish_check_video"
       description "Run the four-item pre-publish checklist for a video. Sets game_ok, age_ok, paid_promotion_ok, end_screen_ok and stamps pre_publish_checked_at. Does NOT publish — that's publish_video."
 
+      # Phase 20 — friendly URLs. `id` accepts slug or integer-id string.
       input_schema(
         type: "object",
         properties: {
-          id:                { type: "integer", description: "Video ID" },
+          id:                { type: "string", description: "Video slug (youtube_video_id) or integer id (as string)" },
           game_ok:           { type: "string", enum: [ "yes", "no" ] },
           age_ok:            { type: "string", enum: [ "yes", "no" ] },
           paid_promotion_ok: { type: "string", enum: [ "yes", "no" ] },
@@ -24,7 +25,11 @@ module Mcp
         scope_err = Mcp::ToolAuth.require_scope!(Scopes::APP)
         return scope_err if scope_err
 
-        video = Video.find_by(id: id)
+        video = begin
+          Video.friendly.find(id)
+        rescue ActiveRecord::RecordNotFound
+          nil
+        end
         return error_response("video not found: #{id}") unless video
 
         { game_ok: game_ok, age_ok: age_ok,

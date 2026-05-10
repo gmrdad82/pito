@@ -9,7 +9,7 @@ class Channels::AnalyticsController < ApplicationController
   include AnalyticsWindow
 
   def show
-    @channel = Channel.find(params[:channel_id])
+    @channel = Channel.friendly.find(params[:channel_id])
     @decorator = Analytics::ChannelDecorator.new(@channel)
     @window = current_window
     @window_start, @window_end = window_dates(@window)

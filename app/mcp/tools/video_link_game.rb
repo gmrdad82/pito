@@ -5,11 +5,12 @@ module Mcp
       tool_name "video_link_game"
       description "Link a video to a game. is_primary is a 'yes'/'no' analytics-weighting hint."
 
+      # Phase 20 — friendly URLs. Both ids accept slug or integer-id string.
       input_schema(
         type: "object",
         properties: {
-          video_id: { type: "integer" },
-          game_id: { type: "integer" },
+          video_id: { type: "string", description: "Video slug (youtube_video_id) or integer id (as string)" },
+          game_id: { type: "string", description: "Game slug (igdb_slug) or integer id (as string)" },
           is_primary: { type: "string", enum: [ "yes", "no" ] },
           confirm: { type: "string", enum: [ "yes", "no" ] }
         },
@@ -26,9 +27,17 @@ module Mcp
         return error_response("confirm must be 'yes' or 'no' (got #{confirm.inspect})") unless YesNo.yes_no?(confirm)
         return error_response("is_primary must be 'yes' or 'no' (got #{is_primary.inspect})") unless YesNo.yes_no?(is_primary)
 
-        video = Video.find_by(id: video_id)
+        video = begin
+          Video.friendly.find(video_id)
+        rescue ActiveRecord::RecordNotFound
+          nil
+        end
         return error_response("video not found: #{video_id}") unless video
-        game = Game.find_by(id: game_id)
+        game = begin
+          Game.friendly.find(game_id)
+        rescue ActiveRecord::RecordNotFound
+          nil
+        end
         return error_response("game not found: #{game_id}") unless game
 
         if video.video_game_links.exists?(game_id: game.id)

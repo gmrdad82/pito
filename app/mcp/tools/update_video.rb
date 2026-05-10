@@ -7,7 +7,7 @@ module Mcp
       input_schema(
         type: "object",
         properties: {
-          id:                          { type: "integer", description: "Video ID" },
+          id:                          { type: "string", description: "Video slug (youtube_video_id) or integer id (as string)" },
           title:                       { type: "string" },
           description:                 { type: "string" },
           tags:                        { type: "array", items: { type: "string" } },
@@ -28,7 +28,11 @@ module Mcp
         scope_err = Mcp::ToolAuth.require_scope!(Scopes::APP)
         return scope_err if scope_err
 
-        video = Video.find_by(id: id)
+        video = begin
+          Video.friendly.find(id)
+        rescue ActiveRecord::RecordNotFound
+          nil
+        end
         return error_response("video not found: #{id}") unless video
 
         # Reject smuggle attempts explicitly.

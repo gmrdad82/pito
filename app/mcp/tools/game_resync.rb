@@ -5,10 +5,11 @@ module Mcp
       tool_name "game_resync"
       description "Re-pull IGDB-sourced fields for a game. Local-only fields survive."
 
+      # Phase 20 — friendly URLs. `id` accepts slug or integer-id string.
       input_schema(
         type: "object",
         properties: {
-          id:      { type: "integer", description: "Local Game id" },
+          id:      { type: "string", description: "Game slug (igdb_slug) or integer id (as string)" },
           confirm: { type: "string", enum: [ "yes", "no" ] }
         },
         required: [ "id" ],
@@ -23,7 +24,11 @@ module Mcp
 
         return error_response("confirm must be 'yes' or 'no' (got #{confirm.inspect})") unless YesNo.yes_no?(confirm)
 
-        game = Game.find_by(id: id)
+        game = begin
+          Game.friendly.find(id)
+        rescue ActiveRecord::RecordNotFound
+          nil
+        end
         return error_response("game not found: #{id}") unless game
         return error_response("game has no igdb_id; use game_add_from_igdb instead.") if game.igdb_id.blank?
 

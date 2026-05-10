@@ -8,8 +8,8 @@ module Mcp
       input_schema(
         type: "object",
         properties: {
-          bundle_id: { type: "integer" },
-          game_id: { type: "integer" },
+          bundle_id: { type: "string", description: "Bundle slug or integer id (as string)" },
+          game_id: { type: "string", description: "Game slug (igdb_slug) or integer id (as string)" },
           confirm: { type: "string", enum: [ "yes", "no" ] }
         },
         required: [ "bundle_id", "game_id" ],
@@ -24,9 +24,19 @@ module Mcp
 
         return error_response("confirm must be 'yes' or 'no' (got #{confirm.inspect})") unless YesNo.yes_no?(confirm)
 
-        bundle = Bundle.find_by(id: bundle_id)
+        bundle = begin
+          Bundle.friendly.find(bundle_id)
+        rescue ActiveRecord::RecordNotFound
+          nil
+        end
         return error_response("bundle not found: #{bundle_id}") unless bundle
-        member = bundle.bundle_members.find_by(game_id: game_id)
+        game = begin
+          Game.friendly.find(game_id)
+        rescue ActiveRecord::RecordNotFound
+          nil
+        end
+        return error_response("game not found: #{game_id}") unless game
+        member = bundle.bundle_members.find_by(game_id: game.id)
         return error_response("game not a member of this bundle.") unless member
 
         if YesNo.from_yes_no(confirm) == false

@@ -8,7 +8,7 @@ class Videos::AnalyticsController < ApplicationController
   include AnalyticsWindow
 
   def show
-    @video = Video.find(params[:video_id])
+    @video = Video.friendly.find(params[:video_id])
     @decorator = Analytics::VideoDecorator.new(@video)
     @window = current_window
     @window_start, @window_end = window_dates(@window)

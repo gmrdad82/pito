@@ -10,6 +10,8 @@
 # Destructive actions route through the existing /deletions/:type/:ids
 # framework — there is no inline delete button on this controller.
 class ProjectsController < ApplicationController
+  include FriendlyRedirect
+
   skip_before_action :verify_authenticity_token, if: -> { request.format.json? }
 
   # Phase 4 Wave 2 — sortable `/projects` index. URL params drive the order
@@ -74,7 +76,9 @@ class ProjectsController < ApplicationController
   end
 
   def show
-    @project = Project.find(params[:id])
+    @project = Project.friendly.find(params[:id])
+    return if redirect_to_canonical_slug!(@project) { |p| project_path(p) }
+
     @notes_sort = sanitized_notes_sort_key
     @notes_dir  = sanitized_notes_dir
     @notes = @project.notes.order(notes_order_clause)
@@ -98,7 +102,7 @@ class ProjectsController < ApplicationController
   end
 
   def edit
-    @project = Project.find(params[:id])
+    @project = Project.friendly.find(params[:id])
   end
 
   def create
@@ -108,7 +112,7 @@ class ProjectsController < ApplicationController
   end
 
   def update
-    @project = Project.find(params[:id])
+    @project = Project.friendly.find(params[:id])
     if @project.update(update_params)
       redirect_to project_path(@project), notice: "project updated."
     else
@@ -117,7 +121,7 @@ class ProjectsController < ApplicationController
   end
 
   def destroy
-    project = Project.find(params[:id])
+    project = Project.friendly.find(params[:id])
     project.destroy!
     redirect_to projects_path, notice: "project deleted."
   end

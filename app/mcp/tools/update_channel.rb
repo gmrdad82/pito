@@ -4,10 +4,11 @@ module Mcp
       tool_name "update_channel"
       description "Update star (favorite flag) on a channel. Connection state is OAuth-managed via /settings/youtube and cannot be altered via MCP. The channel_url is locked once set and cannot be changed via this tool."
 
+      # Phase 20 — friendly URLs. `id` accepts a slug or integer id.
       input_schema(
         type: "object",
         properties: {
-          id:   { type: "integer", description: "Channel ID" },
+          id:   { type: "string", description: "Channel slug (UC-id) or integer id (as string)" },
           star: { type: "string", enum: [ "yes", "no" ], description: "Star (favorite) flag — 'yes' or 'no'" }
         },
         required: [ "id" ],
@@ -26,7 +27,11 @@ module Mcp
           return error_response("channel_url cannot be changed once set.")
         end
 
-        channel = Channel.find_by(id: id)
+        channel = begin
+          Channel.friendly.find(id)
+        rescue ActiveRecord::RecordNotFound
+          nil
+        end
         return error_response("channel not found: #{id}") unless channel
 
         attrs = {}
