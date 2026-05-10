@@ -16,6 +16,14 @@ module Composite
     TILE_SIZE = "t_cover_big" # 227×320 per IGDB CDN
     BASE_URL  = "https://images.igdb.com/igdb/image/upload".freeze
 
+    # Phase 14 audit F2 — bounded HTTP timeouts so a hung IGDB CDN
+    # response cannot wedge a `BundleCoverBuild` worker indefinitely.
+    # Mirrors `Igdb::Client`'s F1 timeouts and the webhook-style
+    # 5 / 10 / 5 tuning landed elsewhere.
+    OPEN_TIMEOUT_SEC  = 5
+    READ_TIMEOUT_SEC  = 10
+    WRITE_TIMEOUT_SEC = 5
+
     def fetch(cover_image_id)
       raise ArgumentError, "cover_image_id required" if cover_image_id.blank?
 
@@ -44,7 +52,16 @@ module Composite
 
     def download(cover_image_id)
       uri = URI("#{BASE_URL}/#{TILE_SIZE}/#{cover_image_id}.jpg")
-      response = Net::HTTP.get_response(uri)
+      # Phase 14 audit F2 — explicit `Net::HTTP.start` block so we can
+      # set bounded open / read / write timeouts. `Net::HTTP.get_response`
+      # defaults to 60s open + 60s read, which is long enough to wedge
+      # a `BundleCoverBuild` worker on a hung CDN edge.
+      response = Net::HTTP.start(uri.host, uri.port, use_ssl: true) do |http|
+        http.open_timeout  = OPEN_TIMEOUT_SEC
+        http.read_timeout  = READ_TIMEOUT_SEC
+        http.write_timeout = WRITE_TIMEOUT_SEC
+        http.get(uri.request_uri)
+      end
       unless response.is_a?(Net::HTTPSuccess)
         raise TileFetchError,
               "IGDB CDN returned #{response.code} for #{cover_image_id}"

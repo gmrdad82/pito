@@ -38,6 +38,16 @@ module Igdb
 
     BASE_URL = "https://api.igdb.com/v4".freeze
 
+    # Phase 14 audit F1 — bounded HTTP timeouts so a hung IGDB endpoint
+    # cannot wedge a Sidekiq worker indefinitely. Mirrors the pattern in
+    # `Youtube::ServiceFactory` (open/read/send) and
+    # `NotificationDeliveryChannel#configure_http` (open/read/write/ssl).
+    # Values match the webhook-style 5s open / 10s read / 5s write tuning
+    # the audit landed elsewhere.
+    OPEN_TIMEOUT_SEC  = 5
+    READ_TIMEOUT_SEC  = 10
+    WRITE_TIMEOUT_SEC = 5
+
     # Steam = 1, GOG = 5, Epic Games Store = 26 per IGDB
     # external-game enum docs (https://api-docs.igdb.com).
     EXTERNAL_GAME_CATEGORY_STEAM = 1
@@ -242,7 +252,18 @@ module Igdb
         "Content-Type"  => "text/plain",
         "Accept"        => "application/json"
       }
-      Net::HTTP.post(uri, body, headers)
+      # Phase 14 audit F1 — explicit `Net::HTTP.start` block so we can
+      # set bounded open / read / write timeouts. `Net::HTTP.post`
+      # defaults to 60s open + 60s read, which is long enough to wedge
+      # a Sidekiq worker on a hung IGDB endpoint.
+      Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https") do |http|
+        http.open_timeout  = OPEN_TIMEOUT_SEC
+        http.read_timeout  = READ_TIMEOUT_SEC
+        http.write_timeout = WRITE_TIMEOUT_SEC
+        request = Net::HTTP::Post.new(uri.request_uri, headers)
+        request.body = body
+        http.request(request)
+      end
     end
 
     def handle_response(response, endpoint, body, retry_on_401:)
