@@ -28,24 +28,23 @@
 This phase ships as three feature specs to keep each implementation lane
 self-contained and reviewable:
 
-1. `specs/01-data-model-and-igdb-client.md` — schema (games + reference
-   tables), IGDB v4 client, Twitch OAuth credentials, on-demand sync,
-   nightly refresh, last-write-wins semantics.
-2. `specs/02-bundles-and-composite-covers.md` — bundle model, bundle
-   members, composite cover builder via libvips, on-disk storage at flat
-   `composites/` path, regen triggers.
-3. `specs/03-steam-shelf-ui-and-video-game-links.md` — Steam-shelf-style
-   listing UI for games and bundles, the `video_game_link` join table, MCP
-   + CLI coverage matrix.
+1. `specs/01-data-model-and-igdb-client.md` — schema (games + reference tables),
+   IGDB v4 client, Twitch OAuth credentials, on-demand sync, nightly refresh,
+   last-write-wins semantics.
+2. `specs/02-bundles-and-composite-covers.md` — bundle model, bundle members,
+   composite cover builder via libvips, on-disk storage at flat `composites/`
+   path, regen triggers.
+3. `specs/03-steam-shelf-ui-and-video-game-links.md` — Steam-shelf-style listing
+   UI for games and bundles, the `video_game_link` join table, MCP
+   - CLI coverage matrix.
 
 Each spec carries its own acceptance / test sweep / manual playbook.
 
 ## Next
 
-Master agent dispatches `pito-rails-impl` against the three specs in order
-once the user signs off. Spec 1 is the foundation (Spec 2 adds composite
-covers on top of Spec 1's models; Spec 3 surfaces both via UI / cross-
-links).
+Master agent dispatches `pito-rails-impl` against the three specs in order once
+the user signs off. Spec 1 is the foundation (Spec 2 adds composite covers on
+top of Spec 1's models; Spec 3 surfaces both via UI / cross- links).
 
 ## Sessions
 

@@ -8,18 +8,17 @@ Architect spec landed at
 The spec covers:
 
 - Removing the dormant sign-in-with-Google branch from
-  `Auth::GoogleCallbacksController#create` and the `GoogleOauthRedirect`
-  helper so `/auth/google/callback` exists exclusively for the
-  channel-connection flow.
-- Renaming `GoogleIdentity` → `YoutubeConnection` (model, table,
-  factories, every reference site).
+  `Auth::GoogleCallbacksController#create` and the `GoogleOauthRedirect` helper
+  so `/auth/google/callback` exists exclusively for the channel-connection flow.
+- Renaming `GoogleIdentity` → `YoutubeConnection` (model, table, factories,
+  every reference site).
 - Renaming the Channel/Video association column `oauth_identity_id` →
   `youtube_connection_id` and the matching helpers.
-- Extending `User` from `has_one :google_identity` (implicit via the
-  current uniqueness constraint per user) to
+- Extending `User` from `has_one :google_identity` (implicit via the current
+  uniqueness constraint per user) to
   `has_many :youtube_connections, dependent: :destroy`.
-- Reseeding via the destructive-and-reseed posture inherited from
-  ADR 0003 (Phase 8) — no production data, no backfill.
+- Reseeding via the destructive-and-reseed posture inherited from ADR 0003
+  (Phase 8) — no production data, no backfill.
 - Full RSpec sweep + new test cases covering the rename and the
   channel-connection flow's edges.
 
