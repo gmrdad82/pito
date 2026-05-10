@@ -206,34 +206,34 @@ model + IGDB client. Spec 03 (Steam-shelf + `video_game_link` + MCP tools)
 remains deferred and is unblocked by this work.
 
 **Master-agent decisions honored verbatim:** all 12 copy decisions and 10
-open-question decisions from `specs/02-bundles-and-composite-covers.md`
-§"Master agent decisions (2026-05-10)". Notable: `bundle_type` is immutable
-post-create (strong-params drop on update); composite covers built async via
-Sidekiq (`BundleCoverBuild`); `last_error` text column on bundles surfaces
-inline on the show page; `before_destroy` sweeps the on-disk cover file plus
-a follow-up `pito:bundles:reap_orphans` rake task; `/composites/:filename.jpg`
-route is auth-gated through `Sessions::AuthConcern`. Bracketed-link copy
-matches CLAUDE.md `[ label ]` convention.
+open-question decisions from `specs/02-bundles-and-composite-covers.md` §"Master
+agent decisions (2026-05-10)". Notable: `bundle_type` is immutable post-create
+(strong-params drop on update); composite covers built async via Sidekiq
+(`BundleCoverBuild`); `last_error` text column on bundles surfaces inline on the
+show page; `before_destroy` sweeps the on-disk cover file plus a follow-up
+`pito:bundles:reap_orphans` rake task; `/composites/:filename.jpg` route is
+auth-gated through `Sessions::AuthConcern`. Bracketed-link copy matches
+CLAUDE.md `[ label ]` convention.
 
 **Migration applied:**
 
-- `20260510160000_create_bundles.rb` — `bundles` (12 columns: bundle_type
-  enum, name, igdb_source_type/id pair, composite_cover_path / checksum,
-  last_error, timestamps; three indexes incl. composite-unique on the
-  igdb_source pair) and `bundle_members` (bundle_id, game_id, position,
-  composite-unique on (bundle_id, game_id), composite-btree on
-  (bundle_id, position), FK cascade on both sides).
+- `20260510160000_create_bundles.rb` — `bundles` (12 columns: bundle_type enum,
+  name, igdb_source_type/id pair, composite_cover_path / checksum, last_error,
+  timestamps; three indexes incl. composite-unique on the igdb_source pair) and
+  `bundle_members` (bundle_id, game_id, position, composite-unique on
+  (bundle_id, game_id), composite-btree on (bundle_id, position), FK cascade on
+  both sides).
 
 **Files added:**
 
 - Models — `app/models/bundle.rb` (enum dispatch, validations,
   `composite_cover_url`, `needs_cover_rebuild?`, `cover_rebuild_in_flight?`,
-  before_destroy sweep), `app/models/bundle_member.rb` (position auto-assign,
-  uniqueness, after_*_commit cover-rebuild enqueue).
+  before*destroy sweep), `app/models/bundle_member.rb` (position auto-assign,
+  uniqueness, after*\*\_commit cover-rebuild enqueue).
 - Game model edit — `has_many :bundle_members` / `:bundles`,
-  `after_update_commit :invalidate_bundle_covers_if_image_changed` passing
-  the previous `cover_image_id` explicitly so the Sidekiq job can evict the
-  stale tile across a process boundary.
+  `after_update_commit :invalidate_bundle_covers_if_image_changed` passing the
+  previous `cover_image_id` explicitly so the Sidekiq job can evict the stale
+  tile across a process boundary.
 - Services under `app/services/composite/` — `Composite::Builder` (orchestrator
   with libvips JPEG output to `<assets>/composites/<type>-<id>.jpg`),
   `Composite::TileCache` (227×320 IGDB CDN cache + evict + TileFetchError),
@@ -241,56 +241,57 @@ matches CLAUDE.md `[ label ]` convention.
   `Composite::LayoutChooser` (1/2/3/4/5-9/10+ dispatch), six layout templates
   under `Composite::Layout::` (Single, Pair, Netflix, Quad, NineGrid,
   NineGridWithOverflow with libvips text overlay for the "+N" caption).
-- Jobs — `BundleCoverBuild` (Sidekiq, retry 5; stamps `last_error` and
-  re-raises on TileFetchError / StandardError so Sidekiq retries fire),
-  `BundleCoverInvalidate` (evicts the previous cover_image_id's tile,
-  enqueues a rebuild for every bundle the game belongs to).
-- Controllers — `BundlesController` (full RESTful + `seed_from_igdb` with
-  IGDB franchise/collection/genre dispatch + last_error stamping),
+- Jobs — `BundleCoverBuild` (Sidekiq, retry 5; stamps `last_error` and re-raises
+  on TileFetchError / StandardError so Sidekiq retries fire),
+  `BundleCoverInvalidate` (evicts the previous cover_image_id's tile, enqueues a
+  rebuild for every bundle the game belongs to).
+- Controllers — `BundlesController` (full RESTful + `seed_from_igdb` with IGDB
+  franchise/collection/genre dispatch + last_error stamping),
   `BundleMembersController` (POST / DELETE on `/bundles/:bundle_id/members`,
   `:id` segment is the GAME id per spec), `CompositesController` (auth-gated
   `send_file` for `/composites/:filename.jpg` with regex defense-in-depth).
-- IGDB client extensions — `fetch_games_for_franchise`, `fetch_games_for_collection`,
-  `fetch_games_for_genre` on `Igdb::Client` for the seed_from_igdb flow.
+- IGDB client extensions — `fetch_games_for_franchise`,
+  `fetch_games_for_collection`, `fetch_games_for_genre` on `Igdb::Client` for
+  the seed_from_igdb flow.
 - Confirmable wiring — registered `bundle` in `Confirmable::TYPES`, plus
   `cancel_path`, `model_for`, `scope_for`, `label_for` dispatch arms;
   `application_helper#cancel_path_for` arm; deletions show.html.erb adds a
   `bundle` row template.
-- Routes — `resources :bundles do member do post :seed_from_igdb; end;
-  resources :members, only: [ :create, :destroy ], controller: "bundle_members"; end`
-  + `GET /composites/:filename.jpg` with regex constraint.
+- Routes —
+  `resources :bundles do member do post :seed_from_igdb; end; resources :members, only: [ :create, :destroy ], controller: "bundle_members"; end`
+  - `GET /composites/:filename.jpg` with regex constraint.
 - Views — `bundles/{index,show,new,edit,_form}.html.erb`,
   `bundle_members/_member_row.html.erb`, `shared/_composite_cover.html.erb`
   (full / card / thumb sizes; falls back to `[no cover]`).
-- Helpers — `BundlesHelper#member_picker_options` (local Game library
-  dropdown source per master-agent decision #4).
+- Helpers — `BundlesHelper#member_picker_options` (local Game library dropdown
+  source per master-agent decision #4).
 - Stimulus — `bundle_member_picker_controller.js` (case-insensitive substring
   filter on the `<select>` options + `[no games match]` empty caption).
 - Rake — `lib/tasks/bundles.rake` `pito:bundles:reap_orphans`.
-- Test fixture — `spec/fixtures/files/cover_tile.jpg` (227×320 JPEG seeded
-  via libvips for the layout / builder integration paths).
+- Test fixture — `spec/fixtures/files/cover_tile.jpg` (227×320 JPEG seeded via
+  libvips for the layout / builder integration paths).
 
 **Specs added (152 examples in the bundle/composite set, all green):**
 
-- `spec/models/bundle_spec.rb` — 32 examples (associations, enums,
-  validations including all igdb_source consistency cases + uniqueness
-  scope, scopes, composite_cover_url, needs_cover_rebuild? edge cases,
-  callbacks, before_destroy file sweep).
+- `spec/models/bundle_spec.rb` — 32 examples (associations, enums, validations
+  including all igdb_source consistency cases + uniqueness scope, scopes,
+  composite_cover_url, needs_cover_rebuild? edge cases, callbacks,
+  before_destroy file sweep).
 - `spec/models/bundle_member_spec.rb` — 11 examples.
-- `spec/models/game_spec.rb` — 3 new examples (bundle membership, hook
-  fires on `cover_image_id` change, hook does NOT fire on other column
-  changes; passes the previous cover_image_id as the second arg).
+- `spec/models/game_spec.rb` — 3 new examples (bundle membership, hook fires on
+  `cover_image_id` change, hook does NOT fire on other column changes; passes
+  the previous cover_image_id as the second arg).
 - `spec/services/composite/checksum_spec.rb` — 6 examples.
 - `spec/services/composite/layout_chooser_spec.rb` — 11 examples.
-- `spec/services/composite/layout/{single,pair,netflix,quad,nine_grid,
-  nine_grid_with_overflow}_spec.rb` — 20 examples total (output dimension
-  + tile-count guard per layout).
-- `spec/services/composite/tile_cache_spec.rb` — 8 examples (cache miss /
-  hit / WebMock no-second-call / TileFetchError / blank guard / evict).
-- `spec/services/composite/builder_spec.rb` — 13 examples (full pipeline
-  with stubbed TileCache returning the fixture image; layouts 1-4 + 9 + 10;
-  empty member set; nil-cover filtering; canonical filename; idempotent
-  rebuild; last_error clear on success).
+- `spec/services/composite/layout/{single,pair,netflix,quad,nine_grid, nine_grid_with_overflow}_spec.rb`
+  — 20 examples total (output dimension
+  - tile-count guard per layout).
+- `spec/services/composite/tile_cache_spec.rb` — 8 examples (cache miss / hit /
+  WebMock no-second-call / TileFetchError / blank guard / evict).
+- `spec/services/composite/builder_spec.rb` — 13 examples (full pipeline with
+  stubbed TileCache returning the fixture image; layouts 1-4 + 9 + 10; empty
+  member set; nil-cover filtering; canonical filename; idempotent rebuild;
+  last_error clear on success).
 - `spec/jobs/bundle_cover_build_spec.rb` — 6 examples.
 - `spec/jobs/bundle_cover_invalidate_spec.rb` — 6 examples.
 - `spec/requests/bundles_spec.rb` — 26 examples (index/show/new/create with
@@ -298,8 +299,8 @@ matches CLAUDE.md `[ label ]` convention.
   seed_from_igdb with WebMock-stubbed Igdb::Client for franchise/collection/
   genre + idempotency + API failure path).
 - `spec/requests/bundle_members_spec.rb` — 5 examples.
-- `spec/requests/composites_spec.rb` — 4 examples (file present, file
-  missing, regex defense, unauthenticated redirect to /login).
+- `spec/requests/composites_spec.rb` — 4 examples (file present, file missing,
+  regex defense, unauthenticated redirect to /login).
 - `spec/system/bundle_show_spec.rb` — 4 Capybara smokes (placeholder, add,
   remove, [seed from igdb] visibility).
 - Factories — `spec/factories/bundles.rb` (default custom + :series /
@@ -308,42 +309,39 @@ matches CLAUDE.md `[ label ]` convention.
 
 **Implementation decisions by the agent:**
 
-- `BundleCoverInvalidate` accepts `(game_id, previous_cover_image_id = nil)`
-  as positional args (the spec's "explicit argument shape" alternative). The
-  Game callback passes `saved_change_to_cover_image_id.first` — `previous_changes`
+- `BundleCoverInvalidate` accepts `(game_id, previous_cover_image_id = nil)` as
+  positional args (the spec's "explicit argument shape" alternative). The Game
+  callback passes `saved_change_to_cover_image_id.first` — `previous_changes`
   would be gone by the time the Sidekiq process picks the job up.
 - `Composite::Builder` truncates to 9 tiles when the layout is
-  `NineGridWithOverflow` (10+ members). The full member count flows through
-  to the layout via `total_member_count:` so the "+N" caption math stays
-  correct.
+  `NineGridWithOverflow` (10+ members). The full member count flows through to
+  the layout via `total_member_count:` so the "+N" caption math stays correct.
 - `Composite::Layout::NineGridWithOverflow` builds the overlay as a 4-band
-  sRGB+alpha image and uses `composite2(... :over)` for the alpha blend.
-  The first attempt with raw `bandjoin` + alpha-as-band hit
-  `vips_colourspace: no known route from 'multiband' to 'srgb'`; the fix
-  is the explicit `copy(interpretation: :srgb)` after each bandjoin.
-- `Bundle#cover_rebuild_in_flight?` is best-effort and only returns true
-  in `Sidekiq::Testing.fake?` mode (queue introspection is cheap there);
-  in Sidekiq-real-server mode it returns false so the show page does NOT
-  pretend to know what's queued. This is conservative — false negatives
-  are harmless ("regenerating…" text just won't render).
-- `seed_from_igdb` fetches IGDB seed games and creates local Game rows for
-  any IGDB id missing from the library, then enqueues `GameIgdbSync` per
-  newly-created game so the metadata hydrates in the background. Avoids
-  the "user must manually add each member first" footgun.
-- The Phase 4 legacy `[search igdb]` chip on `/games` and the new bundle
-  picker are deliberately separate flows. The bundle add-member form pulls
-  from the local Game library only (master decision #4); growing the
-  library still happens through Spec 01's IGDB add-game flow.
+  sRGB+alpha image and uses `composite2(... :over)` for the alpha blend. The
+  first attempt with raw `bandjoin` + alpha-as-band hit
+  `vips_colourspace: no known route from 'multiband' to 'srgb'`; the fix is the
+  explicit `copy(interpretation: :srgb)` after each bandjoin.
+- `Bundle#cover_rebuild_in_flight?` is best-effort and only returns true in
+  `Sidekiq::Testing.fake?` mode (queue introspection is cheap there); in
+  Sidekiq-real-server mode it returns false so the show page does NOT pretend to
+  know what's queued. This is conservative — false negatives are harmless
+  ("regenerating…" text just won't render).
+- `seed_from_igdb` fetches IGDB seed games and creates local Game rows for any
+  IGDB id missing from the library, then enqueues `GameIgdbSync` per
+  newly-created game so the metadata hydrates in the background. Avoids the
+  "user must manually add each member first" footgun.
+- The Phase 4 legacy `[search igdb]` chip on `/games` and the new bundle picker
+  are deliberately separate flows. The bundle add-member form pulls from the
+  local Game library only (master decision #4); growing the library still
+  happens through Spec 01's IGDB add-game flow.
 
 **Quality gates:**
 
-- `bundle exec rspec spec/models/bundle_spec.rb spec/models/bundle_member_spec.rb
-  spec/services/composite/ spec/jobs/bundle_cover_build_spec.rb
-  spec/jobs/bundle_cover_invalidate_spec.rb spec/requests/bundles_spec.rb
-  spec/requests/bundle_members_spec.rb spec/requests/composites_spec.rb
-  spec/system/bundle_show_spec.rb` — 152 examples, 0 failures.
+- `bundle exec rspec spec/models/bundle_spec.rb spec/models/bundle_member_spec.rb spec/services/composite/ spec/jobs/bundle_cover_build_spec.rb spec/jobs/bundle_cover_invalidate_spec.rb spec/requests/bundles_spec.rb spec/requests/bundle_members_spec.rb spec/requests/composites_spec.rb spec/system/bundle_show_spec.rb`
+  — 152 examples, 0 failures.
 - Adjacent suites (`spec/services/igdb/`, `spec/models/game_spec.rb`,
-  `spec/requests/games_spec.rb`, `spec/controllers/concerns/confirmable_spec.rb`,
+  `spec/requests/games_spec.rb`,
+  `spec/controllers/concerns/confirmable_spec.rb`,
   `spec/requests/deletions_spec.rb`) — green, 188 + 37 examples respectively.
 - `bundle exec rubocop` (touched files only) — clean.
 - `bundle exec brakeman -q -w2` — 0 errors, 0 security warnings.
@@ -353,10 +351,10 @@ matches CLAUDE.md `[ label ]` convention.
 - Steam-shelf `/bundles` UX overhaul — Spec 03.
 - `video_game_link` join + analytics attribution — Spec 03.
 - 16 MCP `bundle_*` / `bundle_member_*` tools — Spec 03.
-- Drag-sort UI for member ordering — polish dispatch (server-side
-  position support ships here; UX deferred).
-- libvips version pinning — no pin per master-agent decision #10; the
-  user's system install is the source of truth.
+- Drag-sort UI for member ordering — polish dispatch (server-side position
+  support ships here; UX deferred).
+- libvips version pinning — no pin per master-agent decision #10; the user's
+  system install is the source of truth.
 
 **Manual playbook (post-merge):**
 
@@ -364,25 +362,260 @@ matches CLAUDE.md `[ label ]` convention.
 2. Visit `/bundles`. Confirm the empty-state copy
    `no bundles yet. [ add bundle ] to create one.`.
 3. Click `[ add bundle ]`. Pick `bundle_type: custom`, name "Soulslikes". Save.
-4. From the bundle show page, add 3 games via the picker. Confirm 3 member
-   rows appear. Confirm a `BundleCoverBuild` enqueues (sidekiq dashboard).
-   Within ~3-5s confirm the composite cover image renders 600×800 with
-   the Netflix layout.
+4. From the bundle show page, add 3 games via the picker. Confirm 3 member rows
+   appear. Confirm a `BundleCoverBuild` enqueues (sidekiq dashboard). Within
+   ~3-5s confirm the composite cover image renders 600×800 with the Netflix
+   layout.
 5. Add a 4th game; confirm the Quad layout renders.
-6. Remove the first game via `[remove]`; confirm cover regenerates back
-   to Netflix.
-7. Test the IGDB-seeded path: create a `series` bundle pointing at a
-   real franchise id (`igdb_source_type: franchise`,
-   `igdb_source_id: <id>`). Click `[ seed from igdb ]`. Confirm members
-   populate.
-8. Re-sync a member game (Spec 01's `[resync]` button). If IGDB returns
-   a different `cover_image_id`, confirm `BundleCoverInvalidate` fires
-   and the bundle's cover regenerates with the new tile.
-9. Delete the bundle via `[ - ]`. Confirm action-screen, submit. Verify
-   the bundle row + members are gone AND the on-disk file at
+6. Remove the first game via `[remove]`; confirm cover regenerates back to
+   Netflix.
+7. Test the IGDB-seeded path: create a `series` bundle pointing at a real
+   franchise id (`igdb_source_type: franchise`, `igdb_source_id: <id>`). Click
+   `[ seed from igdb ]`. Confirm members populate.
+8. Re-sync a member game (Spec 01's `[resync]` button). If IGDB returns a
+   different `cover_image_id`, confirm `BundleCoverInvalidate` fires and the
+   bundle's cover regenerates with the new tile.
+9. Delete the bundle via `[ - ]`. Confirm action-screen, submit. Verify the
+   bundle row + members are gone AND the on-disk file at
    `<PITO_ASSETS_PATH>/composites/<type>-<id>.jpg` is removed.
-10. `bin/rails pito:bundles:reap_orphans` — confirm "reaped 0" on a
-    healthy install.
+10. `bin/rails pito:bundles:reap_orphans` — confirm "reaped 0" on a healthy
+    install.
 
 **Open issues / blockers:** none for Spec 02. Spec 03 (Steam-shelf +
 `video_game_link` + 16 MCP tools) ready for separate dispatch.
+
+### 2026-05-10 — Spec 03 implementation (Steam-shelf + `video_game_link` + MCP tools)
+
+**Dispatch:** `pito-rails-impl`. Single rails lane. Builds on Spec 01 (Game /
+IGDB) and Spec 02 (Bundle / composite covers). Phase 12
+(`videos.duration_seconds`) now in main, so the footage-cache recompute side of
+`VideoGameLink` is unblocked.
+
+**Master-agent decisions honored verbatim:** all 12 copy decisions and 10
+open-question decisions from `specs/03-steam-shelf-ui-and-video-game-links.md`
+§"Master agent decisions (2026-05-10)". Notable: bracketed labels with no inner
+spaces (`[label]`), `[see all]` link, `★` primary badge, `[add link]` button (no
+`+`), `[remove]` verb-only; pane integration skipped in v1 (listing pages only);
+multiple primaries per video allowed; `igdb_search` MCP tool ships as thin
+proxy; `created_by_user_id` audit column on `video_game_link`; limit-12 +
+`[see all]` filter routes (`/games?genre=<id>` / `/games?platform_owned=<id>`);
+no shelf caching in v1; multi-user concurrency 422 surfaces as a clean
+`already linked.` flash; permissions: anyone signed in;
+`hours_of_footage_cached` recomputes on Video destroy via the
+`dependent: :destroy` cascade through `VideoGameLink`'s `after_commit`;
+analytics MCP tools out of scope (Phase 13).
+
+**Migration applied:**
+
+- `20260510180000_create_video_game_links.rb` — `video_game_links` table (8
+  columns: video_id, link_type enum, game_id, bundle_id, is_primary,
+  created_by_user_id, timestamps). 7 indexes — `link_type`, `is_primary`
+  (partial WHERE true), `created_by_user_id`, `video_id`, plus two
+  composite-unique partial indexes
+  `(video_id, game_id) WHERE game_id IS NOT NULL` and
+  `(video_id, bundle_id) WHERE bundle_id IS NOT NULL`. Four FKs (`video`,
+  `game`, `bundle` cascade; `created_by_user` nullify). Postgres CHECK
+  constraint `video_game_links_exactly_one_target` enforces the
+  exactly-one-target invariant at the DB layer (defense-in-depth alongside the
+  AR `exactly_one_target` validator).
+
+**Files added:**
+
+- Models — `app/models/video_game_link.rb` (enum, validations, `target` helper,
+  `recompute_game_footage_cache` callback, `stamp_created_by_user`
+  before_validation). Light edits to `video.rb` (has_many `video_game_links` +
+  `linked_games` / `linked_bundles` through joins + `linked_to_game` /
+  `linked_to_bundle` scopes), `game.rb` (has_many video_game_links
+  - videos), `bundle.rb` (has_many video_game_links + videos).
+- Controller — `video_game_links_controller.rb` (POST / PATCH / DELETE nested
+  under `/videos/:video_id/links`). `GamesController#index` rewritten to load
+  shelf-shaped collections + filter route support (`/games?genre=<id>` /
+  `/games?platform_owned=<id>`). `VideosController#edit` now loads link-fieldset
+  view bag (`@video_links`, `@link_pickable_games`, `@link_pickable_bundles`).
+- Confirmable wiring — `video_game_link` added to `Confirmable::TYPES`
+  - dispatch arms (`cancel_path`, `model_for`, `scope_for`, `label_for`);
+    `application_helper#cancel_path_for` arm; deletions show.html.erb gains a
+    `video_game_link` row template.
+- Routes —
+  `resources :videos do resources :links, only: %i[create update destroy], controller: "video_game_links" end`.
+- Views — `games/index.html.erb` heavy rewrite (Steam-shelf shape: bundles row,
+  recently-played, per-genre rows, per-platform rows, all-games grid). New
+  partials: `games/_shelf.html.erb`, `games/_tile.html.erb`,
+  `bundles/_tile.html.erb`, `videos/_links_section.html.erb`,
+  `video_game_links/_link_row.html.erb`. `bundles/index.html.erb` rewritten to
+  flat tile grid. `games/show.html.erb` and `bundles/show.html.erb` gain a
+  "linked videos" section.
+- Stimulus — `steam_shelf_controller.js` (mouse-wheel-to-horizontal +
+  click-and-drag scroll), `link_picker_controller.js` (case-insensitive
+  substring filter on the picker option list with empty-state caption).
+- MCP tools (17 total — 16 spec'd + bonus `igdb_search`): five game tools
+  (`game_search`, `game_add_from_igdb`, `game_resync`, `game_update_local`,
+  `game_destroy`); seven bundle tools (`bundle_search`, `bundle_create`,
+  `bundle_update`, `bundle_destroy`, `bundle_member_add`,
+  `bundle_member_remove`, `bundle_seed_from_igdb`); four video-link tools
+  (`video_link_game`, `video_link_bundle`, `video_unlink`,
+  `video_link_set_primary`); plus `igdb_search` (thin IGDB live-search proxy per
+  master-agent decision #3). Every tool gates on `Scopes::APP`. Every write tool
+  implements two-step `confirm: yes/no` and rejects boolean smuggling at the
+  boundary.
+- Factory — `spec/factories/video_game_links.rb` (default game link
+  - `:bundle` and `:primary` traits).
+
+**Specs added (and existing specs extended):**
+
+- `spec/models/video_game_link_spec.rb` (new) — 31 examples: associations, enum,
+  `exactly_one_target` validator (7 cases), uniqueness (4 cases), `is_primary`
+  default + multiple primaries allowed, `target` helper, `created_by_user_id`
+  audit stamping, footage-cache recompute (rounding 0.16 → 0, 2.0 → 2, sums,
+  decrease on destroy, bundle links don't touch game cache), DB-level CHECK
+  constraint integrity, cascade-on-delete (game destroyed, bundle destroyed,
+  video destroyed → cache recomputed).
+- `spec/models/video_spec.rb` (additive) — `video_game_links` / `linked_games` /
+  `linked_bundles` associations + `linked_to_game` / `linked_to_bundle` scopes.
+- `spec/models/game_spec.rb` (additive) — `video_game_links` / `videos`
+  associations + `hours_of_footage` precedence (manual vs cached) + recompute on
+  link create / destroy.
+- `spec/models/bundle_spec.rb` (additive) — `video_game_links` / `videos`
+  associations.
+- `spec/requests/games_spec.rb` (heavy rewrite of GET /games) — 37 examples
+  covering Steam-shelf shape (bundles shelf, recently-played, per-genre /
+  per-platform shelves, all-games heading, `data-controller="steam-shelf"`,
+  `[see all]` link routes), filter routes, query injection guard.
+- `spec/requests/bundles_spec.rb` (additive) — bundles-grid wrapper + `—`
+  em-dash placeholder fallback.
+- `spec/requests/video_game_links_spec.rb` (new) — 18 examples: POST game /
+  bundle paths, `is_primary=yes/no` persisted, duplicate rejection (clean
+  "already linked." flash), nonexistent linked_id 404, smuggle guards
+  (game_id+bundle_id, link_type=garbage), PATCH flip semantics (yes/no + boolean
+  smuggle reject + 404), DELETE direct + via `/deletions/video_game_link/:id`
+  action screen, multi-user removal (User B can remove User A's link per ADR
+  0003).
+- `spec/system/games_steam_shelf_spec.rb` (new) — 6 Capybara smokes (empty
+  state, bundles shelf, recently-played shelf, per-genre `[see all]` link,
+  all-games heading, tile click navigates to game show).
+- `spec/system/video_link_picker_spec.rb` (new) — 4 Capybara smokes (empty
+  state, add via picker, [remove] action-screen flow, duplicate add → "already
+  linked." flash).
+- 17 MCP tool specs
+  (`spec/mcp/tools/{game,bundle,video_link, video_unlink,igdb_search}_*_spec.rb`)
+  — every write tool covers preview / apply / boolean-confirm-smuggle / 404 /
+  scope-gate. `bundle_seed_from_igdb_spec` stubs `Igdb::Client` for the
+  WebMock-free path; `igdb_search_spec` does the same.
+
+**Implementation decisions by the agent:**
+
+- **`after_commit` callback bug fixed in two models.** Rails 8.1 registers a
+  SECOND `after_*_commit :method_name` for the same method as a UNION of `:if`
+  filters on the SAME callback entry — not as two separate entries. The result:
+  a callback gated on
+  `transaction_include_any_action?(:create) AND transaction_include_any_action?(:destroy)`
+  never fires. Both `VideoGameLink#recompute_game_footage_cache` and the
+  pre-existing `BundleMember#enqueue_cover_rebuild` exhibited this shape. Fixed
+  by collapsing each pair into a single
+  `after_commit :foo, on: %i[create destroy]`. The Phase 14 §2 bundle-member
+  spec only passed by accident — `let(:bundle)` was lazy-evaluating AFTER
+  `BundleCoverBuild.clear`, so the bundle's own `after_save`
+  `enqueue_cover_build_if_changed` was the row surfacing in the assertion (not
+  the bundle_member callback). Fix is invisible to existing call sites; both
+  specs (incl. the pre-existing `bundle_member_spec.rb`) stay green.
+- **`Game#videos` polymorphism.**
+  `Game.has_many :videos, through: :video_game_links` works because the join
+  model carries a bare `belongs_to :video`. The same association does NOT cause
+  `Bundle#videos` to leak game-scoped rows (the AR through-join picks up the
+  link row's join condition).
+- **`VideoGameLink#stamp_created_by_user` runs
+  `before_validation, on: :create`** — `Current.user` is a thread-local
+  `ActiveSupport::CurrentAttributes`, set by either `Sessions::AuthConcern`
+  (HTML) or `Api::AuthConcern` (MCP), so the audit column populates on every
+  entry path. MCP tool specs that don't go through a controller still see a
+  stamped value because `spec/support/api_token_context.rb` populates
+  `Current.user` per example.
+- **Smuggle guards in `VideoGameLinksController`.** When `link_type=game` is
+  sent with `bundle_id` (or vice-versa), the controller rejects with
+  `cannot smuggle bundle_id on a game link.` Independent of the AR
+  `exactly_one_target` validator (which catches the raw-SQL path); both layers
+  are defense-in-depth.
+- **`video_unlink` MCP tool is bulk-by-default.** A single-id list is the same
+  surface as the bulk path (CLAUDE.md bulk-as-foundation rule). Includes a
+  `not_found` array in the response payload so callers can audit which ids were
+  no-ops.
+- **Picker draws from local Game / Bundle.** Per the spec's "out of scope" item:
+  the link picker does NOT call IGDB live search. To grow the library, users go
+  through Spec 01's add-game flow first. The picker's `link-picker` Stimulus
+  controller is a pure UI affordance (no `confirm()` / `alert()` / `prompt()`).
+- **`/games?genre=<id>` filter route added** rather than deferring per Open
+  Questions #5. Cheap (one query parameter); makes the `[see all]` link land
+  somewhere useful out of the box. Invalid / non-positive values are silently
+  dropped so injection candidates reduce to "no filter applied".
+- **No CSS file additions.** Inline `style=""` attributes on shelf / tile / grid
+  containers carry the layout primitives. Per `docs/design.md`: monospace 13px
+  (already global), no animation, no red unless destructive, `cursor: pointer`.
+  The shelf row uses `overflow-x: auto`; the all-games grid uses
+  `display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr))`.
+
+**Quality gates:**
+
+- `bundle exec rspec spec/models/video_game_link_spec.rb spec/models/{video,game,bundle,bundle_member}_spec.rb spec/requests/{games,bundles,video_game_links}_spec.rb spec/system/{games_steam_shelf,video_link_picker,bundle_show}_spec.rb spec/mcp/tools/`
+  — 566 examples, 0 failures.
+- Full suite (`bundle exec rspec`) — 3158 examples, 2 failures, 1 pending. Both
+  failures (`spec/requests/calendar/month_spec.rb:35`,
+  `spec/requests/composites_spec.rb:28`) are pre-existing test-isolation flakes;
+  both pass when re-run individually
+  (`bundle exec rspec spec/requests/calendar/month_spec.rb:35 spec/requests/composites_spec.rb:28`
+  → 0 failures). Not introduced by this work.
+- `bundle exec rubocop` (touched files only — 56 files) — clean.
+- `bundle exec brakeman -q -w2` — 0 errors, 0 security warnings.
+
+**MCP tool catalog delta:** 17 new tools registered — verified via
+`Mcp::PitoServer.build.tools.keys` (37 total post-Spec-03, was 20 pre-Spec-03).
+All gate on `Scopes::APP`; every write tool implements two-step
+`confirm: yes/no` and rejects boolean smuggling.
+
+**Spec file delta:** 28 new spec files (+ 4 additive edits to existing ones).
+
+**NOT in scope (deferred):**
+
+- Pane integration for Games / Bundles (master-agent decision #1 — skip in v1).
+- Analytics aggregations (subs gained per game, etc.) — Phase 13 catalog
+  dispatch.
+- IGDB live search inside the link picker (master-agent decision — picker draws
+  from local library only). The `igdb_search` MCP tool covers the conversational
+  use case.
+- CLI parity for the 17 new tools — work unit 10 (separate dispatch).
+- `docs/mcp.md` scope-per-tool table update — owned by the docs agent
+  post-validation. Implementation agent does NOT edit `docs/` outside `log.md`
+  per role discipline.
+
+**Manual playbook (post-merge):**
+
+1. `bin/rails db:migrate` (already migrated locally).
+2. Visit `/games`. With ≥1 IGDB-synced game and ≥1 bundle, confirm the bundles
+   shelf at top, then per-genre / per-platform shelves, then the all-games grid.
+   Hover a tile — confirm the title + release-year + IGDB rating in the `title`
+   attribute.
+3. Click `[see all]` on a per-genre shelf. Confirm the URL becomes
+   `/games?genre=<id>` and the all-games grid shows only that genre's games.
+4. Visit `/bundles`. Confirm the wrapping tile grid (no table).
+5. Edit a video at `/videos/:id/edit`. Scroll to the "linked games / bundles"
+   fieldset. Type a game name in the picker; click the `[game]` row. Confirm a
+   link row appears above. Click `[★]` to flip primary; confirm the badge
+   updates.
+6. Add a bundle link via the same picker. Confirm both kinds coexist. Click
+   `[remove]` on one; confirm the action-screen page; submit; confirm the row is
+   gone.
+7. Open the linked game's show page. Confirm the "linked videos" section lists
+   the video; if the link is primary, confirm the `[★]` badge.
+8. Verify game footage cache. Set the linked video's `duration_seconds` to e.g.
+   7200, save. Re-link. Confirm `Game#hours_of_footage_cached` rounds to 2.
+9. MCP smoke (from Claude Mobile or curl):
+   - `game_search { q: "zelda" }` → returns matches.
+   - `game_add_from_igdb { igdb_id: 7346, confirm: "no" }` → preview.
+   - `game_add_from_igdb { igdb_id: 7346, confirm: "yes" }` → game added.
+   - `video_link_game { video_id, game_id, confirm: "no" }` → preview.
+   - `video_link_game { video_id, game_id, confirm: "yes" }` → link created.
+   - `igdb_search { q: "Hollow Knight Silksong" }` → IGDB live hits.
+10. `bundle exec rspec` from a clean state (DB reset between runs) → green.
+
+**Open issues / blockers:** none. Phase 14 — Spec 01 + Spec 02 + Spec 03 —
+complete. Reviewer agent dispatch optional. Phase 13 (analytics catalog) is the
+next dispatch that depends on Phase 14's data tier.

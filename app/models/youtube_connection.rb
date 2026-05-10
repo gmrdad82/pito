@@ -58,6 +58,11 @@ class YoutubeConnection < ApplicationRecord
 
   before_validation :default_scopes_to_empty_array
 
+  # Phase 13.2 — Analytics sync engine. The orchestrator iterates the
+  # connections that the Analytics API can be called against (per Q3,
+  # active = `needs_reauth: false`).
+  scope :active, -> { where(needs_reauth: false) }
+
   # Returns true when the access token is expired or about to expire
   # within `skew`. Default skew is 60 seconds — enough to survive a
   # single round-trip without a 401 storm.
