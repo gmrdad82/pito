@@ -176,6 +176,23 @@ RSpec.describe "Settings::Youtube", type: :request do
         expect(response.body).to include("https://yt3.example/avatar.png")
       end
 
+      # Styling pass — the avatar `<img>` carries the `.avatar-thumb`
+      # class (CSS-rounded circle, `object-fit: cover`, fixed 32×32) and
+      # its `<td>` carries `.avatar-cell` so the column doesn't absorb
+      # whitespace around the image. Asserting both class names guards
+      # against silent regressions if the row partial gets restructured.
+      # The regex is attribute-order-independent (the image tag may have
+      # `src` before `class` or vice versa).
+      it "renders the avatar with the rounded `.avatar-thumb` class in a tight `.avatar-cell` td" do
+        get settings_youtube_path
+        expect(response.body).to match(
+          %r{<td class="avatar-cell">\s*<img[^>]*\bclass="avatar-thumb"}m
+        )
+        expect(response.body).to match(
+          %r{<img[^>]*src="https://yt3\.example/avatar\.png"[^>]*\bclass="avatar-thumb"|<img[^>]*\bclass="avatar-thumb"[^>]*src="https://yt3\.example/avatar\.png"}
+        )
+      end
+
       it "renders already-linked channels with a disabled checkbox and `already added`" do
         valid_url = "https://www.youtube.com/channel/UCabcdefghijklmnopqrstuv"
         allow(client_double).to receive(:channels_list).and_return(
