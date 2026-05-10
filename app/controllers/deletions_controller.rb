@@ -82,19 +82,48 @@ class DeletionsController < ApplicationController
   # DELETE /deletions/calendar_entry/:ids — Phase 15 §2.
   # Flips state to :cancelled (soft-cancel per Q5). Bulk-as-foundation
   # — `:ids` accepts 1 or N comma-separated ids.
+  #
+  # Phase 21 — JSON parity. JSON branch returns the minimal
+  # `{ cancelled: [{ id, state }], skipped: [{ id, reason }] }` shape
+  # (locked decision #4).
   def cancel_calendar_entry
     return if performed?
 
-    n = @items.length
+    requested_ids = params[:ids].to_s.split(",").reject(&:blank?).map(&:to_i).reject(&:zero?).uniq
+    loaded_ids = @items.map(&:id)
+
+    @cancelled = []
+    @skipped = []
+
     @items.each do |entry|
+      if entry.cancelled?
+        @skipped << { id: entry.id, reason: "already_cancelled" }
+        next
+      end
+
       # Phase 15 security audit F1: scoped allowlist instead of whole-
       # record bypass. Soft-cancel only flips `state`; nothing else.
       entry.bypass_readonly_for = [ :state ] if entry.derived_or_auto?
       entry.update!(state: :cancelled)
+      @cancelled << { id: entry.id, state: entry.state }
     end
 
-    redirect_to calendar_schedule_path,
-                notice: "cancelled #{n} calendar entr#{n == 1 ? 'y' : 'ies'}."
+    # IDs requested but not in the manual-source scope load
+    # (derived/auto entries or non-existent ids) — surface them as
+    # skipped with a reason. The HTML flow does not distinguish; only
+    # the JSON branch needs this.
+    (requested_ids - loaded_ids).each do |missing_id|
+      @skipped << { id: missing_id, reason: "not_user_cancellable" }
+    end
+
+    respond_to do |format|
+      format.html do
+        n = @cancelled.length
+        redirect_to calendar_schedule_path,
+                    notice: "cancelled #{n} calendar entr#{n == 1 ? 'y' : 'ies'}."
+      end
+      format.json { render :cancel_calendar_entry }
+    end
   end
 
   # POST /deletions/:type/:ids(.json)

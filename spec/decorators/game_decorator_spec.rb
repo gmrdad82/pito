@@ -1,0 +1,111 @@
+require "rails_helper"
+
+# Phase 21 — JSON Endpoints for CLI / MCP Parity. The decorator owns the
+# JSON wire shape for games (summary + detail). Boundary booleans
+# serialize as "yes"/"no" strings (CLAUDE.md hard rule); timestamps as
+# ISO-8601.
+RSpec.describe GameDecorator do
+  let(:game) do
+    create(
+      :game,
+      :synced,
+      title: "The Witness",
+      release_year: 2016,
+      igdb_rating: 87.4,
+      played_at: Date.new(2024, 1, 12),
+      resyncing: false
+    )
+  end
+  let(:decorator) { described_class.new(game) }
+
+  describe "#as_summary_json" do
+    let(:json) { decorator.as_summary_json }
+
+    it "carries the row-level keys" do
+      expect(json.keys).to match_array(
+        %i[id slug title release_year igdb_rating platform_owned_id
+           played_at cover_image_id resyncing igdb_synced_at created_at]
+      )
+    end
+
+    it "serializes resyncing as the yes/no string" do
+      expect(json[:resyncing]).to eq("no")
+
+      game.update_column(:resyncing, true)
+      expect(described_class.new(game.reload).as_summary_json[:resyncing]).to eq("yes")
+    end
+
+    it "serializes igdb_rating as a Float (Rust f64)" do
+      expect(json[:igdb_rating]).to be_a(Float)
+      expect(json[:igdb_rating]).to be_within(0.01).of(87.4)
+    end
+
+    it "serializes timestamps as ISO-8601" do
+      expect(json[:igdb_synced_at]).to match(/\A\d{4}-\d{2}-\d{2}T/)
+      expect(json[:created_at]).to match(/\A\d{4}-\d{2}-\d{2}T/)
+    end
+
+    it "serializes played_at (a Date) as ISO-8601" do
+      expect(json[:played_at]).to eq("2024-01-12")
+    end
+
+    it "exposes the IGDB slug" do
+      expect(json[:slug]).to eq(game.igdb_slug)
+    end
+
+    it "emits null (not 0 / not empty) when associations are absent" do
+      bare = create(:game, title: "Bare")
+      summary = described_class.new(bare).as_summary_json
+      expect(summary[:platform_owned_id]).to be_nil
+      expect(summary[:cover_image_id]).to be_nil
+      expect(summary[:igdb_synced_at]).to be_nil
+    end
+  end
+
+  describe "#as_detail_json" do
+    let(:json) { decorator.as_detail_json }
+
+    it "includes every summary key" do
+      expect(json).to include(*decorator.as_summary_json.keys)
+    end
+
+    it "adds the detail-only fields" do
+      expect(json).to include(
+        :igdb_id, :summary, :release_date, :igdb_rating_count,
+        :aggregated_rating, :total_rating, :total_rating_count,
+        :ttb_main_seconds, :ttb_extras_seconds, :ttb_completionist_seconds,
+        :external_steam_app_id, :external_gog_id, :external_epic_id,
+        :notes, :hours_of_footage_manual, :hours_of_footage_cached,
+        :manual_date_override, :last_sync_error, :genres,
+        :platforms_owning, :updated_at
+      )
+    end
+
+    it "serializes manual_date_override as yes/no" do
+      expect(json[:manual_date_override]).to eq("no")
+    end
+
+    it "renders genres as a list of { id, name } hashes" do
+      genre = create(:genre, name: "Puzzle")
+      game.genres << genre
+      detail = described_class.new(game.reload).as_detail_json
+      expect(detail[:genres]).to include(id: genre.id, name: "Puzzle")
+    end
+
+    it "renders platforms_owning when platform_owned is set" do
+      platform = create(:platform, name: "Steam")
+      game.update!(platform_owned: platform)
+      detail = described_class.new(game.reload).as_detail_json
+      expect(detail[:platforms_owning]).to eq([ { id: platform.id, name: "Steam" } ])
+    end
+
+    it "renders platforms_owning as [] when no platform_owned" do
+      expect(json[:platforms_owning]).to eq([])
+    end
+
+    it "coerces decimal ratings to Float" do
+      expect(json[:total_rating]).to be_a(Float) if json[:total_rating]
+      expect(json[:aggregated_rating]).to be_a(Float) if json[:aggregated_rating]
+    end
+  end
+end

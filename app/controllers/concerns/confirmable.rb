@@ -36,7 +36,18 @@ module Confirmable
 
     @items = scope_for(@type, ids)
 
-    if ids.empty? || @items.blank? || (@items.respond_to?(:empty?) && @items.empty?)
+    if ids.empty?
+      respond_to do |format|
+        format.html { redirect_to cancel_path, alert: "nothing to #{action_verb}." }
+        # Phase 21 — JSON parity. CLI / MCP callers parse this string,
+        # so the envelope is normative ("no_ids_supplied" rather than
+        # the free-form HTML alert text).
+        format.json { render json: { error: "no_ids_supplied" }, status: :unprocessable_content }
+      end
+      return
+    end
+
+    if @items.blank? || (@items.respond_to?(:empty?) && @items.empty?)
       respond_to do |format|
         format.html { redirect_to cancel_path, alert: "nothing to #{action_verb}." }
         format.json { render json: { error: "nothing to #{action_verb}" }, status: :unprocessable_content }

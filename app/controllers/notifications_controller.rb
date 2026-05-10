@@ -25,6 +25,8 @@ class NotificationsController < ApplicationController
   # through to the auth boundary before this guard runs.
   MARK_READ_RATE_LIMIT_TTL = 5.seconds
 
+  skip_before_action :verify_authenticity_token, if: -> { request.format.json? }
+
   before_action :set_notification, only: %i[show read unread]
   before_action :enforce_mark_read_rate_limit, only: %i[mark_read mark_all_read]
 
@@ -53,10 +55,33 @@ class NotificationsController < ApplicationController
     @notifications  = scope.offset((@page - 1) * PER_PAGE).limit(PER_PAGE)
     @unread_count   = Notification.unread.count
     @has_failures   = Notification.unread.where.not(last_error: [ nil, "" ]).exists?
+
+    respond_to do |format|
+      format.html
+      format.json { render :index }
+    end
   end
 
   def show
     @payload = NotificationFormatter::InApp.payload_for(@notification)
+
+    respond_to do |format|
+      format.html
+      format.json { render :show }
+    end
+  end
+
+  # Phase 21 — JSON parity. Collection action that returns the
+  # dashboard / nav badge state. Locked decision #6: stays on the
+  # cookie-authed controller (NOT under `/api/`).
+  def badge
+    @unread_count = Notification.unread.count
+    @has_failures = Notification.unread.where.not(last_error: [ nil, "" ]).exists?
+
+    respond_to do |format|
+      format.json { render :badge }
+      format.html { redirect_to notifications_path }
+    end
   end
 
   def read
@@ -73,7 +98,11 @@ class NotificationsController < ApplicationController
     ids = parse_ids(params[:ids])
 
     if ids.empty?
-      redirect_to notifications_path, alert: "no notifications selected." and return
+      respond_to do |format|
+        format.html { redirect_to notifications_path, alert: "no notifications selected." }
+        format.json { render json: { error: "no_ids_supplied" }, status: :unprocessable_content }
+      end
+      return
     end
 
     n = Notification.where(id: ids).unread.update_all(in_app_read_at: Time.current)
@@ -85,16 +114,20 @@ class NotificationsController < ApplicationController
     # rely on the index page reload to re-render the rows.
     broadcast_badge_replace
 
+    @marked = n
+    @unread_count = Notification.unread.count
+    @has_failures = Notification.unread.where.not(last_error: [ nil, "" ]).exists?
+
     respond_to do |format|
       format.html { redirect_to notifications_path, notice: "marked #{n} notification#{'s' if n != 1} read." }
       format.turbo_stream do
         render turbo_stream: turbo_stream.replace(
           "notifications_badge",
           partial: "notifications/badge",
-          locals: { unread_count: Notification.unread.count }
+          locals: { unread_count: @unread_count }
         )
       end
-      format.json { render json: { marked: n }, status: :ok }
+      format.json { render :mark_read }
     end
   end
 
@@ -102,16 +135,20 @@ class NotificationsController < ApplicationController
     n = Notification.unread.update_all(in_app_read_at: Time.current)
     broadcast_badge_replace
 
+    @marked = n
+    @unread_count = Notification.unread.count
+    @has_failures = Notification.unread.where.not(last_error: [ nil, "" ]).exists?
+
     respond_to do |format|
       format.html { redirect_to notifications_path, notice: "marked #{n} notification#{'s' if n != 1} read." }
       format.turbo_stream do
         render turbo_stream: turbo_stream.replace(
           "notifications_badge",
           partial: "notifications/badge",
-          locals: { unread_count: Notification.unread.count }
+          locals: { unread_count: @unread_count }
         )
       end
-      format.json { render json: { marked: n }, status: :ok }
+      format.json { render :mark_all_read }
     end
   end
 
@@ -138,7 +175,15 @@ class NotificationsController < ApplicationController
           )
         ]
       end
-      format.json { head :no_content }
+      # Phase 21 — JSON parity. Locked decision #2: replace the previous
+      # `head :no_content` with a structured body containing the new
+      # read state + the recomputed unread_count, so the CLI / MCP
+      # caller does not need a follow-up `/notifications/badge.json`
+      # round trip.
+      format.json do
+        @unread_count = Notification.unread.count
+        render :state_change
+      end
     end
   end
 

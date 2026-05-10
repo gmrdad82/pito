@@ -291,6 +291,11 @@ Rails.application.routes.draw do
     collection do
       patch :mark_read
       patch :mark_all_read
+      # Phase 21 — JSON parity for CLI / MCP. Cookie-authed badge
+      # endpoint that returns `{ unread_count, has_failures }`. Locked
+      # decision #6: stays on the existing cookie-authed controller,
+      # NOT under `/api/` (which is bearer-only via Api::AuthConcern).
+      get :badge
     end
   end
 

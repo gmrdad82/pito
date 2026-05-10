@@ -11,6 +11,8 @@ class Calendar::EntriesController < ApplicationController
   MANUAL_ENTRY_TYPES = %w[game_release purchase_planned milestone_manual custom].freeze
   YES_NO_FIELDS = %i[all_day manual_date_override tba_remind_monthly notify_anyway].freeze
 
+  skip_before_action :verify_authenticity_token, if: -> { request.format.json? }
+
   before_action :load_entry, only: %i[show edit update note]
 
   def new
@@ -39,6 +41,12 @@ class Calendar::EntriesController < ApplicationController
     # the regular `new` form still POSTs the full payload and lands on
     # the show page.
     if params[:calendar_entry].blank?
+      if request.format.json?
+        render json: { error: "missing_calendar_entry_payload" },
+               status: :unprocessable_content
+        return
+      end
+
       @entry = CalendarEntry.new(default_create_attributes)
       @entry.source = :manual
       @entry.created_by_user = Current.user
@@ -49,6 +57,12 @@ class Calendar::EntriesController < ApplicationController
 
     type = params.dig(:calendar_entry, :entry_type).to_s
     unless MANUAL_ENTRY_TYPES.include?(type)
+      if request.format.json?
+        render json: { error: "entry_type_not_user_creatable" },
+               status: :unprocessable_content
+        return
+      end
+
       flash.now[:alert] = "this entry type is not user-creatable."
       @entry = CalendarEntry.new(entry_type: "milestone_manual")
       render :new, status: :unprocessable_content
@@ -63,9 +77,15 @@ class Calendar::EntriesController < ApplicationController
     @entry.created_by_user = Current.user
 
     if @entry.save
-      redirect_to calendar_entry_path(@entry), notice: "calendar entry created."
+      respond_to do |format|
+        format.html { redirect_to calendar_entry_path(@entry), notice: "calendar entry created." }
+        format.json { render :show, status: :created }
+      end
     else
-      render :new, status: :unprocessable_content
+      respond_to do |format|
+        format.html { render :new, status: :unprocessable_content }
+        format.json { render json: { errors: @entry.errors.messages }, status: :unprocessable_content }
+      end
     end
   end
 
@@ -73,6 +93,11 @@ class Calendar::EntriesController < ApplicationController
     @parent_entry = @entry.parent_entry
     @child_entries = @entry.child_entries.where.not(state: %i[cancelled superseded]).to_a
     @declarations = Calendar::NotificationDispatchDeclaration.declarations_for(@entry)
+
+    respond_to do |format|
+      format.html
+      format.json { render :show }
+    end
   end
 
   def edit
@@ -85,8 +110,15 @@ class Calendar::EntriesController < ApplicationController
 
   def update
     if @entry.read_only?
-      redirect_to calendar_entry_path(@entry),
-                  alert: "this entry is read-only — edit the source instead."
+      respond_to do |format|
+        format.html do
+          redirect_to calendar_entry_path(@entry),
+                      alert: "this entry is read-only — edit the source instead."
+        end
+        format.json do
+          render json: { error: "read_only_entry" }, status: :forbidden
+        end
+      end
       return
     end
 
@@ -94,9 +126,15 @@ class Calendar::EntriesController < ApplicationController
     return if performed?
 
     if @entry.update(attrs)
-      redirect_to calendar_entry_path(@entry), notice: "calendar entry updated."
+      respond_to do |format|
+        format.html { redirect_to calendar_entry_path(@entry), notice: "calendar entry updated." }
+        format.json { load_show_decorations; render :show }
+      end
     else
-      render :edit, status: :unprocessable_content
+      respond_to do |format|
+        format.html { render :edit, status: :unprocessable_content }
+        format.json { render json: { errors: @entry.errors.messages }, status: :unprocessable_content }
+      end
     end
   end
 
@@ -114,9 +152,15 @@ class Calendar::EntriesController < ApplicationController
     new_meta["user_overrides"] ||= {}
     new_meta["user_overrides"]["note"] = note_text
     if @entry.update(metadata: new_meta)
-      redirect_to calendar_entry_path(@entry), notice: "note saved."
+      respond_to do |format|
+        format.html { redirect_to calendar_entry_path(@entry), notice: "note saved." }
+        format.json { load_show_decorations; render :show }
+      end
     else
-      render :show, status: :unprocessable_content
+      respond_to do |format|
+        format.html { render :show, status: :unprocessable_content }
+        format.json { render json: { errors: @entry.errors.messages }, status: :unprocessable_content }
+      end
     end
   end
 
@@ -177,6 +221,15 @@ class Calendar::EntriesController < ApplicationController
       when "yes" then attrs[key] = true
       when "no"  then attrs[key] = false
       else
+        if request.format.json?
+          render json: {
+            error: "invalid_yes_no",
+            field: key.to_s,
+            value: raw.to_s
+          }, status: :unprocessable_content
+          return nil
+        end
+
         flash.now[:alert] = "invalid yes/no value for #{key}: must be 'yes' or 'no'."
         @entry = CalendarEntry.new(attrs.except(*YES_NO_FIELDS))
         render :new, status: :unprocessable_content
@@ -184,5 +237,14 @@ class Calendar::EntriesController < ApplicationController
       end
     end
     attrs
+  end
+
+  # Populate the same instance vars that `show` sets so the JSON view
+  # has the parent / child / declarations data when re-rendered after
+  # an update or a note write.
+  def load_show_decorations
+    @parent_entry = @entry.parent_entry
+    @child_entries = @entry.child_entries.where.not(state: %i[cancelled superseded]).to_a
+    @declarations = Calendar::NotificationDispatchDeclaration.declarations_for(@entry)
   end
 end
