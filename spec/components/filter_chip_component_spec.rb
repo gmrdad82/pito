@@ -102,4 +102,46 @@ RSpec.describe FilterChipComponent, type: :component do
       expect(page).to have_css('a.filter-chip[data-keyboard-filter-chip="connected"]')
     end
   end
+
+  # Phase 15 calendar UX restructure — `csv:` mode lets a chip
+  # participate in a comma-separated multi-value list (`?types=a,b,c`).
+  describe "csv: mode (multi-value lists)" do
+    it "treats absent param as none-checked (URL is the source of truth)" do
+      render_inline(described_class.new(label: "video", param: "types", value: "video", csv: true))
+      expect(page).to have_css("span.md-check-static", text: "[ ]")
+    end
+
+    it "is checked when the value is in the comma list" do
+      render_inline(described_class.new(label: "video", param: "types", value: "video", csv: true,
+        current_params: { "types" => "video,custom" }))
+      expect(page).to have_css("span.md-check-static", text: "[x]")
+    end
+
+    it "is not checked when the value is absent from the comma list" do
+      render_inline(described_class.new(label: "video", param: "types", value: "video", csv: true,
+        current_params: { "types" => "game,custom" }))
+      expect(page).to have_css("span.md-check-static", text: "[ ]")
+    end
+
+    it "toggling on adds the value, preserving other csv members" do
+      render_inline(described_class.new(label: "video", param: "types", value: "video", csv: true,
+        current_params: { "types" => "game" }))
+      anchor = page.find("a.filter-chip")
+      expect(anchor["href"]).to eq("?types=game%2Cvideo")
+    end
+
+    it "toggling off removes the value, leaving the others" do
+      render_inline(described_class.new(label: "video", param: "types", value: "video", csv: true,
+        current_params: { "types" => "video,game" }))
+      anchor = page.find("a.filter-chip")
+      expect(anchor["href"]).to eq("?types=game")
+    end
+
+    it "toggling off the last value yields an empty types= (preserves the param sentinel)" do
+      render_inline(described_class.new(label: "video", param: "types", value: "video", csv: true,
+        current_params: { "types" => "video" }))
+      anchor = page.find("a.filter-chip")
+      expect(anchor["href"]).to eq("?types=")
+    end
+  end
 end

@@ -3,22 +3,36 @@
     flip. The wrapper carries `id` from `dom_id(notification)` so
     `broadcast_replace_to` finds the row and swaps it in place.
 
-    Master decision 2026-05-10 #11 (severity badge): lowercase text —
-    `info` / `success` / `warn` / `urgent`. Master decision #6 (unread
-    visual): bold title for unread; muted for read. Master decision #3
-    (mark-read label): `[ mark read ]`. The `[ mark read ]` button is
-    suppressed once the row is read. The `[ mark unread ]` action is
-    NOT exposed on the row (only on the detail page) — keeping the row
-    actions minimal. %>
+    UX restructure 2026-05-10:
+      - First column is now a bulk-select checkbox (only rendered for
+        unread rows — read rows can't be marked-read again, so hiding
+        the checkbox on read rows keeps the dynamic "mark N as read"
+        button accurate without filtering at the controller level).
+      - Title is no longer a full-page link to /notifications/:id; it
+        opens the show page inside an in-page modal via the
+        `notification-modal` Stimulus controller. The `href` still
+        points at the canonical show URL so a JS-off / direct-link
+        navigation still works.
+      - The per-row `[ mark read ]` action is dropped — bulk action +
+        the modal's own `[ mark read ]` button cover both flows.
+        (Severity badge and timestamp stay as-is.) %>
 <%
   payload = NotificationFormatter::InApp.payload_for(notification)
 %>
 <tr id="<%= dom_id(notification) %>" class="notification-row <%= notification.read? ? 'notification-read' : 'notification-unread' %>">
+  <td class="col-action" style="padding: 4px 8px; vertical-align: top; white-space: nowrap;">
+    <% if notification.unread? %>
+      <%= render(CheckboxComponent.new(value: notification.id, data: { bulk_select_target: "checkbox", action: "change->bulk-select#toggle" })) %>
+    <% end %>
+  </td>
   <td style="padding: 4px 8px; vertical-align: top; white-space: nowrap;">
     <span class="notification-glyph" aria-hidden="true"><%= payload[:glyph] %></span>
   </td>
   <td style="padding: 4px 8px; vertical-align: top;">
-    <%= link_to notification_path(notification), class: "notification-title #{notification.read? ? 'text-muted' : ''}", style: notification.read? ? 'font-weight: 400;' : 'font-weight: 700;' do %>
+    <%= link_to notification_path(notification),
+          class: "notification-title #{notification.read? ? 'text-muted' : ''}",
+          style: notification.read? ? 'font-weight: 400;' : 'font-weight: 700;',
+          data: { action: "click->notification-modal#open" } do %>
       <%= payload[:title] %>
     <% end %>
   </td>
@@ -27,14 +41,5 @@
   </td>
   <td style="padding: 4px 8px; vertical-align: top; white-space: nowrap;" class="text-muted">
     <%= payload[:fires_at_relative] %>
-  </td>
-  <td style="padding: 4px 8px; vertical-align: top; white-space: nowrap;">
-    <% if notification.unread? %>
-      <%= button_to read_notification_path(notification),
-            method: :patch,
-            form: { style: "display: inline; margin: 0;" },
-            class: "bracketed",
-            style: "background: none; border: none; padding: 0; font: inherit; color: var(--color-link); cursor: pointer;" do %>[<span class="bl">mark read</span>]<% end %>
-    <% end %>
   </td>
 </tr>
