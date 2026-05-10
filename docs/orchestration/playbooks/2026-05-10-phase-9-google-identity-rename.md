@@ -12,8 +12,8 @@
   introduced)
 - Test suite: 1673 examples, 0 failures, 0 pending
 - Lint (`bundle exec rubocop`): 421 files inspected, 0 offenses
-- Security static analysis (`bundle exec brakeman -q -w2`): 0 warnings
-  (2 obsolete ignore-file entries flagged)
+- Security static analysis (`bundle exec brakeman -q -w2`): 0 warnings (2
+  obsolete ignore-file entries flagged)
 - Dependency audit (`bundle exec bundler-audit check --update`): clean (1078
   advisories scanned, none applicable)
 - Reviewer-spec checkpoints (per spec §"Reviewer checkpoints"):
@@ -21,8 +21,8 @@
     — only intentional Phase-9 historical-rename comments. No live identifier
     survivors.
   - `git grep -i 'sign in with google\|sign-in with google\|login with google' app/ spec/`
-    — only the assertion in `spec/requests/sessions_spec.rb` that guards
-    against reintroduction. Clean.
+    — only the assertion in `spec/requests/sessions_spec.rb` that guards against
+    reintroduction. Clean.
   - `bin/rails routes | grep -i auth/google` — exactly the two expected lines
     (`/auth/google/callback` and `/auth/failure`); the dev-only `/auth/google`
     redirect is gone, the `:google_oauth_start` helper is gone.
@@ -33,7 +33,8 @@
   - Settings → YouTube view (`app/views/settings/youtube/show.html.erb`) uses
     `@youtube_connection` exclusively; no stray `@identity`.
   - Audit-log event keys are wired exactly per spec:
-    `youtube_connection.callback.succeeded`, `youtube_connection.callback.failed`,
+    `youtube_connection.callback.succeeded`,
+    `youtube_connection.callback.failed`,
     `youtube_connection.callback.stale_intent` (see
     `app/controllers/youtube_connections/oauth_callbacks_controller.rb` lines
     46, 55, 63, 68).
@@ -52,8 +53,8 @@ None.
 ## Concerns and suggestions
 
 All flagged as **minor / nitpick** (non-blocking). The rename is mechanical and
-the diff is exactly the spec-prescribed shape; the items below are
-opportunistic notes, not corrections required before validation.
+the diff is exactly the spec-prescribed shape; the items below are opportunistic
+notes, not corrections required before validation.
 
 1. **(minor / pre-existing, NOT introduced by Phase 9) —
    `Settings::YoutubeController#connect` does not override the OAuth scope at
@@ -65,40 +66,39 @@ opportunistic notes, not corrections required before validation.
    `app/controllers/settings/youtube_controller.rb:31-35` does NOT actually do
    this — it just `redirect_to "/auth/google_oauth2"` with no scope params.
    Result: the OAuth grant created at the callback only carries
-   `openid email profile`; no `youtube.readonly`. This is a Phase 7-era gap
-   that Phase 9 did not touch. Per the spec's "Phase 9 vs Phase 11 boundary"
-   master decision (locked), expanding the connect surface to request the
-   right scopes is Phase 11's job. **Practical impact for this manual test:**
-   the OAuth flow completes and a `YoutubeConnection` row is created; the
-   subsequent `Youtube::Client#channels_list(mine: true)` call from
-   `/settings/youtube` will fail with a `Youtube::NeedsReauthError` or a
-   401 from Google because the access token has no YouTube scope. The page
-   renders the connected-state pane but the channel list shows the
-   `youtube api unavailable right now ...` flash. This is expected; verify
-   it does NOT block reaching step 7 below.
+   `openid email profile`; no `youtube.readonly`. This is a Phase 7-era gap that
+   Phase 9 did not touch. Per the spec's "Phase 9 vs Phase 11 boundary" master
+   decision (locked), expanding the connect surface to request the right scopes
+   is Phase 11's job. **Practical impact for this manual test:** the OAuth flow
+   completes and a `YoutubeConnection` row is created; the subsequent
+   `Youtube::Client#channels_list(mine: true)` call from `/settings/youtube`
+   will fail with a `Youtube::NeedsReauthError` or a 401 from Google because the
+   access token has no YouTube scope. The page renders the connected-state pane
+   but the channel list shows the `youtube api unavailable right now ...` flash.
+   This is expected; verify it does NOT block reaching step 7 below.
 
-2. **(minor / housekeeping) — Two obsolete entries in
-   `config/brakeman.ignore`** (fingerprints
+2. **(minor / housekeeping) — Two obsolete entries in `config/brakeman.ignore`**
+   (fingerprints
    `4d586370565ad858623ed4e34fae39e1c97703ae2505563f20e37f124f373ba5` and
-   `050af47121b0c4251d18c5b722e529807edb8a9852128f6fa384c768d47e0317`).
-   Brakeman flagged them as obsolete on this run because the underlying
-   warnings no longer fire under Brakeman 8.0.4 + Rails 8.1.3. Already noted
-   by rails-impl as a non-blocking follow-up for a future hygiene sweep.
+   `050af47121b0c4251d18c5b722e529807edb8a9852128f6fa384c768d47e0317`). Brakeman
+   flagged them as obsolete on this run because the underlying warnings no
+   longer fire under Brakeman 8.0.4 + Rails 8.1.3. Already noted by rails-impl
+   as a non-blocking follow-up for a future hygiene sweep.
 
-3. **(minor / pre-existing) —
-   `Google::RevokeToken.call` is invoked from inside an
-   `ActiveRecord::Base.transaction` block in `Youtube::DisconnectChannel.call`
+3. \*\*(minor / pre-existing) — `Google::RevokeToken.call` is invoked from
+   inside an `ActiveRecord::Base.transaction` block in
+   `Youtube::DisconnectChannel.call`
    (`app/services/youtube/disconnect_channel.rb:29-52`). The revoke makes a
-   synchronous outbound HTTP POST to `oauth2.googleapis.com/revoke` while the
-   DB transaction is held open, AND `RevokeToken#write_audit_row` tries to
-   `INSERT` a `YoutubeApiCall` row on the same connection. Network latency
-   inflates the transaction window; if the audit insert raised, the entire
-   disconnect would roll back even though the upstream Google revoke
-   succeeded. This is a Phase 7C-era pattern; Phase 9 only renamed the
-   parameter. Not a Phase 9 regression; flagging for the architect's
-   architectural-debt list.
+   synchronous outbound HTTP POST to `oauth2.googleapis.com/revoke` while the DB
+   transaction is held open, AND `RevokeToken#write_audit_row` tries to `INSERT`
+   a `YoutubeApiCall` row on the same connection. Network latency inflates the
+   transaction window; if the audit insert raised, the entire disconnect would
+   roll back even though the upstream Google revoke succeeded. This is a Phase
+   7C-era pattern; Phase 9 only renamed the parameter. Not a Phase 9 regression;
+   flagging for the architect's architectural-debt list.
 
-4. **(nitpick) — `db/migrate/20260510081047_rename_google_identity_to_youtube_connection.rb`
+4. **(nitpick) —
+   `db/migrate/20260510081047_rename_google_identity_to_youtube_connection.rb`
    `down` method exists but is documented as "bookkeeping only".** No spec
    exercises it. Acceptable per the spec's "Migration posture" section. No
    action.
@@ -118,9 +118,9 @@ straight to step 2.
 > ```
 >
 > **Expected:** the seed output prints `user: <email> (id=...)`, prints the
-> dev-token banner once, prints `100 channels seeded` and `200 videos with
-> stats`, ends with `done!`. No migration error. No SQL warning about a
-> missing index or stale FK.
+> dev-token banner once, prints `100 channels seeded` and
+> `200 videos with stats`, ends with `done!`. No migration error. No SQL warning
+> about a missing index or stale FK.
 
 1. **Verify schema invariants** (one-shot, no UI yet). Connect to the dev DB:
 
@@ -141,11 +141,10 @@ straight to step 2.
    \d youtube_connections
    ```
 
-   **Expected:** the column list matches the schema dump
-   (`access_token`, `email`, `expires_at`, `google_subject_id`,
-   `last_authorized_at`, `last_refreshed_at`, `needs_reauth`, `refresh_token`,
-   `scopes`, `user_id`); two indexes:
-   `index_youtube_connections_on_google_subject_id` (unique) and
+   **Expected:** the column list matches the schema dump (`access_token`,
+   `email`, `expires_at`, `google_subject_id`, `last_authorized_at`,
+   `last_refreshed_at`, `needs_reauth`, `refresh_token`, `scopes`, `user_id`);
+   two indexes: `index_youtube_connections_on_google_subject_id` (unique) and
    `index_youtube_connections_on_user_id`. Then:
 
    ```sql
@@ -174,8 +173,8 @@ straight to step 2.
    bundle exec rspec
    ```
 
-   **Expected:** `1673 examples, 0 failures` (give or take the architect's
-   delta — within ±5 examples is fine if seeding fixtures shift the count).
+   **Expected:** `1673 examples, 0 failures` (give or take the architect's delta
+   — within ±5 examples is fine if seeding fixtures shift the count).
 
 3. **Run rubocop:**
 
@@ -201,7 +200,6 @@ straight to step 2.
    ```
 
    **Expected:** exactly three lines:
-
    - `youtube_connection_oauth_callback GET|POST /auth/google/callback ... youtube_connections/oauth_callbacks#create`
    - `youtube_connection_oauth_failure  GET     /auth/failure(.:format)   ... youtube_connections/oauth_callbacks#failure`
    - (no third — confirm absence of `/auth/google` redirect AND
@@ -225,8 +223,8 @@ straight to step 2.
    ```
 
    **Expected:** redirect (302) to `/auth/failure?...`. The first redirect
-   target should NOT be `/` (root) — that was the dropped sign-in branch.
-   Then read the audit log:
+   target should NOT be `/` (root) — that was the dropped sign-in branch. Then
+   read the audit log:
 
    ```bash
    tail -3 log/auth_audit.log
@@ -236,8 +234,8 @@ straight to step 2.
    `"event":"youtube_connection.callback.stale_intent"` AND/OR
    `"event":"youtube_connection.callback.failed"` with
    `"reason":"missing_auth_hash"` (depending on whether OmniAuth supplied an
-   auth hash on the bare GET — both are acceptable shapes; the stale-intent
-   key is the spec-locked one for the dropped-sign-in case).
+   auth hash on the bare GET — both are acceptable shapes; the stale-intent key
+   is the spec-locked one for the dropped-sign-in case).
 
 ## User Validation
 
@@ -245,94 +243,86 @@ The browser-only walkthrough. Each step is observable from the URL bar / page
 render alone.
 
 [ ] 1. **Login form is email-only.** Visit `https://app.pitomd.com/login`. The
-       page renders an `email` field, a `password` field, a "remember me on
-       this device (30 days)" checkbox, and a `[log in]` button. There is NO
-       "Sign in with Google" button, NO `<hr>` divider, NO third-party-
-       identity copy. (This was already true post-Phase-8; Phase 9 only adds a
-       guarding spec. Visual confirmation.)
+page renders an `email` field, a `password` field, a "remember me on this device
+(30 days)" checkbox, and a `[log in]` button. There is NO "Sign in with Google"
+button, NO `<hr>` divider, NO third-party- identity copy. (This was already true
+post-Phase-8; Phase 9 only adds a guarding spec. Visual confirmation.)
 
-[ ] 2. **Sign in with the seeded email + password.** Use the credentials
-       printed during reseed (or in `bin/rails credentials:edit` under the
-       `:owner` block). The post-login redirect lands on `/` or the channels
-       workspace. Confirm the page chrome ("settings", "channels", "videos")
-       renders normally.
+[ ] 2. **Sign in with the seeded email + password.** Use the credentials printed
+during reseed (or in `bin/rails credentials:edit` under the `:owner` block). The
+post-login redirect lands on `/` or the channels workspace. Confirm the page
+chrome ("settings", "channels", "videos") renders normally.
 
 [ ] 3. **Settings → YouTube renders the empty state.** Visit
-       `https://app.pitomd.com/settings/youtube`. The page heading reads
-       `settings → YouTube`. The body shows `no google account connected.`
-       and a single `[ connect ]` button. The text below mentions
-       `youtube.readonly` and `yt-analytics.readonly` — read-only assurance.
+`https://app.pitomd.com/settings/youtube`. The page heading reads
+`settings → YouTube`. The body shows `no google account connected.` and a single
+`[ connect ]` button. The text below mentions `youtube.readonly` and
+`yt-analytics.readonly` — read-only assurance.
 
 [ ] 4. **Click `[ connect ]`.** The browser bounces through Google's consent
-       screen. Approve. The post-callback redirect lands on `/settings/youtube`
-       with a green-bracketed `google account connected.` notice. The page now
-       shows `connected as: <your-google-email>` and a `[ reconnect ]` button.
-       (Per concern §1 above, the channel list area below probably shows
-       `youtube api unavailable right now ...` because the OAuth grant only
-       carries `openid email profile`. This is expected for Phase 9; Phase 11
-       expands the connect surface.)
+screen. Approve. The post-callback redirect lands on `/settings/youtube` with a
+green-bracketed `google account connected.` notice. The page now shows
+`connected as: <your-google-email>` and a `[ reconnect ]` button. (Per concern
+§1 above, the channel list area below probably shows
+`youtube api unavailable right now ...` because the OAuth grant only carries
+`openid email profile`. This is expected for Phase 9; Phase 11 expands the
+connect surface.)
 
-[ ] 5. **Confirm a `YoutubeConnection` row exists.** Open `bin/rails
-       dbconsole` (in a separate terminal) and run
-       `SELECT id, user_id, email, google_subject_id, needs_reauth FROM
-       youtube_connections;`. Expected: exactly one row;
-       `needs_reauth = false`; `email` matches the Google account you
-       approved. Then `SELECT access_token FROM youtube_connections;` —
-       confirm the value starts with `{"p":"`...` (encrypted ciphertext blob,
-       NOT plaintext `ya29....`).
+[ ] 5. **Confirm a `YoutubeConnection` row exists.** Open
+`bin/rails        dbconsole` (in a separate terminal) and run
+`SELECT id, user_id, email, google_subject_id, needs_reauth FROM        youtube_connections;`.
+Expected: exactly one row; `needs_reauth = false`; `email` matches the Google
+account you approved. Then `SELECT access_token FROM youtube_connections;` —
+confirm the value starts with
+`{"p":"`...`(encrypted ciphertext blob,        NOT plaintext`ya29....`).
 
 [ ] 6. **Connect a channel.** From `/settings/youtube`, if the channel list
-       rendered (concern §1 may suppress it — if the list is empty, skip to
-       step 8), pick a channel and click its `[ connect ]` button. The post-
-       redirect lands back on `/settings/youtube` with a `connected.` notice.
-       In `dbconsole`:
-       `SELECT id, channel_url, youtube_connection_id FROM channels WHERE
-       youtube_connection_id IS NOT NULL;` — confirm at least one row with
-       `youtube_connection_id` populated.
+rendered (concern §1 may suppress it — if the list is empty, skip to step 8),
+pick a channel and click its `[ connect ]` button. The post- redirect lands back
+on `/settings/youtube` with a `connected.` notice. In `dbconsole`:
+`SELECT id, channel_url, youtube_connection_id FROM channels WHERE        youtube_connection_id IS NOT NULL;`
+— confirm at least one row with `youtube_connection_id` populated.
 
 [ ] 7. **Disconnect the channel via the action-confirmation page.** From
-       `/settings/youtube`, click the `[ disconnect ]` link on a connected
-       channel row. The browser navigates to a confirmation page with the
-       heading `disconnect 1 YouTube channel?`, a single-row table showing
-       the channel URL, and `[ confirm disconnect ]` / `[ cancel ]` buttons.
-       Click `[ confirm disconnect ]`. The post-redirect lands on
-       `/settings/youtube` with a `disconnected 1 channel.` notice. In
-       `dbconsole`: `SELECT id, channel_url, youtube_connection_id FROM
-       channels WHERE id = <the_id>;` — `youtube_connection_id IS NULL`. Then
-       `SELECT count(*) FROM youtube_connections;` — expect `0` if no other
-       channel referenced the connection (per locked Phase 7C disconnect-
-       lifecycle decision: when no channels remain, the connection row is
-       destroyed and the Google grant is revoked).
+`/settings/youtube`, click the `[ disconnect ]` link on a connected channel row.
+The browser navigates to a confirmation page with the heading
+`disconnect 1 YouTube channel?`, a single-row table showing the channel URL, and
+`[ confirm disconnect ]` / `[ cancel ]` buttons. Click `[ confirm disconnect ]`.
+The post-redirect lands on `/settings/youtube` with a `disconnected 1 channel.`
+notice. In `dbconsole`:
+`SELECT id, channel_url, youtube_connection_id FROM        channels WHERE id = <the_id>;`
+— `youtube_connection_id IS NULL`. Then
+`SELECT count(*) FROM youtube_connections;` — expect `0` if no other channel
+referenced the connection (per locked Phase 7C disconnect- lifecycle decision:
+when no channels remain, the connection row is destroyed and the Google grant is
+revoked).
 
 [ ] 8. **Walking unauthenticated `/auth/google` lands on a 404.** Open a
-       private/incognito window. Visit `https://app.pitomd.com/auth/google`
-       directly. The browser renders a 404 page (the dropped dev-only
-       redirect). The login page does NOT redirect from this URL — there is
-       no shortcut entry-point.
+private/incognito window. Visit `https://app.pitomd.com/auth/google` directly.
+The browser renders a 404 page (the dropped dev-only redirect). The login page
+does NOT redirect from this URL — there is no shortcut entry-point.
 
 [ ] 9. **Walking the bare callback path lands on the failure page with the
-       locked flash copy.** In the same incognito window, visit
-       `https://app.pitomd.com/auth/google/callback` directly (no session
-       intent). The browser ends on `/auth/failure` (or shows the "google
-       sign-in failed" plain-text page). The flash copy on the redirect
-       chain — visible if you flip on the redirect chain in DevTools or check
-       the cookie-stored flash — reads `sign-in via google is not supported.
-       log in with email and password.` (This is the locked stale-intent
-       flash from spec §"Master agent decisions → Copy decisions §1".)
+locked flash copy.** In the same incognito window, visit
+`https://app.pitomd.com/auth/google/callback` directly (no session intent). The
+browser ends on `/auth/failure` (or shows the "google sign-in failed" plain-text
+page). The flash copy on the redirect chain — visible if you flip on the
+redirect chain in DevTools or check the cookie-stored flash — reads
+`sign-in via google is not supported.        log in with email and password.`
+(This is the locked stale-intent flash from spec §"Master agent decisions → Copy
+decisions §1".)
 
 [ ] 10. **Re-pair MCP / Claude Mobile (sanity).** Phase 8 issued a fresh dev
-        token and the auth tokens carry over. Open Claude Mobile (or the
-        Web MCP UI), confirm the existing pairing still resolves
-        `list_docs` / `read_doc` against the current docs tree. (No Phase 9
-        change to MCP; this is a smoke verification that Phase 9 did not
-        accidentally touch the MCP surface — `git grep 'GoogleIdentity'
-        app/mcp/` returned zero.)
+token and the auth tokens carry over. Open Claude Mobile (or the Web MCP UI),
+confirm the existing pairing still resolves `list_docs` / `read_doc` against the
+current docs tree. (No Phase 9 change to MCP; this is a smoke verification that
+Phase 9 did not accidentally touch the MCP surface —
+`git grep 'GoogleIdentity'         app/mcp/` returned zero.)
 
 [ ] 11. **Sidekiq web is reachable.** Visit `https://app.pitomd.com/sidekiq`,
-        sign in with the basic-auth user from
-        `Rails.application.credentials.sidekiq.username` /
-        `:password`. Confirm the dashboard renders (no Phase 9 regression on
-        the Sidekiq mount).
+sign in with the basic-auth user from
+`Rails.application.credentials.sidekiq.username` / `:password`. Confirm the
+dashboard renders (no Phase 9 regression on the Sidekiq mount).
 
 ## Cleanup
 
