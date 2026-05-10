@@ -244,30 +244,16 @@ module Youtube
       Youtube::TokenRefresher.call(@connection)
     end
 
+    # Phase 15 F2 — service construction (timeouts + authorization
+    # adapter) is centralized in `Youtube::ServiceFactory` so all three
+    # OAuth-backed clients (this one, VideosClient, VideosReader) share
+    # the same bounded-timeout posture.
     def data_service
-      svc = Google::Apis::YoutubeV3::YouTubeService.new
-      svc.authorization = build_oauth_credentials
-      svc
+      Youtube::ServiceFactory.data_service(@connection)
     end
 
     def analytics_service
-      svc = Google::Apis::YoutubeAnalyticsV2::YouTubeAnalyticsService.new
-      svc.authorization = build_oauth_credentials
-      svc
-    end
-
-    def build_oauth_credentials
-      connection = @connection
-      Class.new do
-        define_method(:apply!) do |headers|
-          headers["Authorization"] = "Bearer #{connection.access_token}"
-        end
-        define_method(:apply) do |headers|
-          h = headers.dup
-          apply!(h)
-          h
-        end
-      end.new
+      Youtube::ServiceFactory.analytics_service(@connection)
     end
 
     def normalize_list(response)

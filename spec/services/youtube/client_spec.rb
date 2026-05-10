@@ -19,8 +19,16 @@ RSpec.describe Youtube::Client do
 
   # Stub the data service so we control its return value or
   # raise behavior without hitting the network.
+  #
+  # Phase 15 F2 — `Youtube::ServiceFactory` writes timeout values to
+  # `client_options` on every newly built service. The double has to
+  # expose a settable struct so the factory's real construction path
+  # runs without explicit factory mocking.
   def stub_data_service(svc_double)
     allow(Google::Apis::YoutubeV3::YouTubeService).to receive(:new).and_return(svc_double)
+    allow(svc_double).to receive(:client_options).and_return(
+      Struct.new(:open_timeout_sec, :read_timeout_sec, :send_timeout_sec).new(nil, nil, nil)
+    )
   end
 
   describe "#channels_list (happy path)" do

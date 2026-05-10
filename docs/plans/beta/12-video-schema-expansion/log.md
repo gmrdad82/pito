@@ -201,3 +201,91 @@ Cross-references when work begins:
 - CLI parity (consuming the new `as_summary_json` / `as_detail_json` shape) is
   realignment work unit 10 — separate dispatch.
 - Calendar test ordering flake is on the Phase 15 lane.
+
+### 2026-05-10 — Phase 15 audit fix-forward (F1 + F2)
+
+Phase 12 security audit returned 2 Medium findings against the new
+`Youtube::VideosClient` / `Youtube::VideosReader` services. Fixed forward via
+`rails-impl`.
+
+**F1 — Token refresh missing in new YouTube clients**
+
+Both new clients skipped the `ensure_token_fresh!` + retry-on-401 pattern that
+`Youtube::Client` (`app/services/youtube/client.rb:115-160, 241-245`) has used
+since Phase 7. Result: an `access_token` that simply expired (1h default) but
+with a healthy `refresh_token` would surface as `needs_reauth: true` instead of
+silently refreshing. Mirrors the legacy contract:
+
+- `Youtube::OauthRefresh#ensure_token_fresh!` invoked at the top of
+  `update_video` / `read_video` so a stale-but-refreshable token is refreshed
+  before the call. A `Youtube::NeedsReauthError` from the pre-call refresh is
+  re-raised as `Youtube::AuthRevokedError` so callers' rescue ladders are
+  unchanged.
+- Mid-call `Google::Apis::AuthorizationError` triggers exactly one
+  `Youtube::TokenRefresher.call` retry (`refreshed_once` latch + `retry`). A
+  second 401 declares the connection revoked (`AuthRevokedError`); a refresh
+  that returns `invalid_grant` flips `needs_reauth: true` (`TokenRefresher`
+  already does this) and re-raises as `AuthRevokedError`; a transient refresh
+  failure surfaces as `Youtube::ServerError` so Sidekiq retries.
+
+**F2 — Missing HTTP timeouts**
+
+`Google::Apis::YoutubeV3::YouTubeService.new` was constructed with no
+`client_options` / `request_options` in any of the three OAuth-backed clients. A
+hung Google endpoint could wedge a Sidekiq worker indefinitely. Centralized
+construction in a new `Youtube::ServiceFactory`:
+
+- `Youtube::ServiceFactory.data_service(connection)` and `.analytics_service`
+  build the Google service with `open_timeout_sec=10`, `read_timeout_sec=30`,
+  `send_timeout_sec=30` (the gem uses `_sec`-suffixed accessors on
+  `Google::Apis::ClientOptions`, not the bare `open_timeout` / `read_timeout`
+  the audit finding suggested).
+- `Youtube::Client`, `VideosClient`, `VideosReader` all delegate their private
+  `data_service` / `analytics_service` to the factory. The duplicated
+  `build_oauth_credentials` adapter inside `Client`, `VideosClient`,
+  `VideosReader` collapsed into the factory's late-binding implementation
+  (`PublicClient` and `AnalyticsClient` were out of audit scope and remain
+  unchanged).
+
+**Files changed**
+
+- `app/services/youtube/service_factory.rb` (new) — single source of
+  bounded-timeout + late-binding-authorization service construction.
+- `app/services/youtube/videos_client.rb` — pre-call `ensure_token_fresh!`,
+  one-shot refresh-on-401 retry inside `perform`, factory delegation, removed
+  the local `build_oauth_credentials`.
+- `app/services/youtube/videos_reader.rb` — same shape.
+- `app/services/youtube/client.rb` — `data_service` / `analytics_service`
+  delegate to the factory; the duplicated `build_oauth_credentials` removed.
+
+**Specs added / updated**
+
+- `spec/services/youtube/service_factory_spec.rb` (new, 7 tests) — verifies
+  service class, timeout values, late-binding authorization adapter.
+- `spec/services/youtube/videos_client_spec.rb` — added 5 tests under "token
+  refresh" (proactive refresh, retry-then-success,
+  retry-then-401-then-AuthRevoked, refresh-invalid-grant, pre-call invalid
+  grant) plus a "configures bounded HTTP timeouts" assertion. The existing 401
+  test was deleted (replaced by the new refresh-then-401 test that matches the
+  new contract).
+- `spec/services/youtube/videos_reader_spec.rb` — same shape (5 token-refresh
+  tests + timeout assertion).
+- `spec/services/youtube/client_spec.rb` — `stub_data_service` helper now also
+  stubs `client_options` to a settable struct so the factory's real construction
+  path runs through the `instance_double`.
+
+**Quality gates**
+
+- `bundle exec rspec spec/services/youtube/` — 167 examples, 0 failures.
+- `bundle exec rspec spec/jobs/video_sync_back_spec.rb spec/requests/settings/youtube_spec.rb`
+  — 24 examples, 0 failures.
+- `bundle exec rubocop` on changed files — clean.
+- `bundle exec brakeman -q -w2` — 0 security warnings, 0 errors.
+
+**Out of scope**
+
+- `Youtube::PublicClient` and `Youtube::AnalyticsClient` were not in the audit
+  scope and were not touched. Both remain candidates for the same factory
+  treatment in a follow-up. `AnalyticsClient` already calls
+  `ensure_token_fresh!` via `OauthRefresh` and so does not have the F1
+  pathology; it lacks F2 timeouts and is the more pressing of the two.

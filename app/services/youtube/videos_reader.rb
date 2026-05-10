@@ -12,9 +12,18 @@ require "google/apis/errors"
 # Google gem's `list_videos` directly inside `Youtube::Client` because
 # the spec calls for a single-method service surface; centralizing the
 # 1-unit cost in one place makes the audit row exact.
+#
+# Phase 15 audit fix-forward (F1): mirrors `Youtube::Client`'s
+# token-freshness contract — `ensure_token_fresh!` runs before the
+# call, and a 401 mid-call triggers exactly one
+# `Youtube::TokenRefresher` retry before raising `AuthRevokedError`.
+#
+# Phase 15 audit fix-forward (F2): the underlying Google service is
+# built via `Youtube::ServiceFactory` so HTTP timeouts are bounded.
 module Youtube
   class VideosReader
     include Auditor
+    include Youtube::OauthRefresh
 
     KIND = "oauth"
     ENDPOINT = "videos.list".freeze
@@ -29,6 +38,16 @@ module Youtube
     # `Youtube::AuthRevokedError` on 401, `Youtube::ServerError` on 5xx.
     # The caller (sync-back job) maps to `last_sync_error` text.
     def read_video(video)
+      # Phase 15 F1 — proactive refresh before the GET so a stale-but-
+      # refreshable access_token does not falsely surface as
+      # `needs_reauth: true`. A `NeedsReauthError` here surfaces as
+      # `AuthRevokedError` to keep the caller's rescue ladder consistent.
+      begin
+        ensure_token_fresh!(@connection)
+      rescue Youtube::NeedsReauthError => e
+        raise Youtube::AuthRevokedError, "token refresh failed: #{e.message}"
+      end
+
       perform do
         svc = data_service
         response = svc.list_videos(
@@ -50,6 +69,7 @@ module Youtube
       error_message = nil
       raised = nil
       result = nil
+      refreshed_once = false
 
       begin
         result = yield
@@ -59,10 +79,31 @@ module Youtube
         error_message = e.message
         raised = e
       rescue Google::Apis::AuthorizationError => e
-        outcome = "auth_failed"
-        http_status = 401
-        error_message = e.message
-        raised = Youtube::AuthRevokedError.new("401 from videos.list: #{e.message}")
+        # Phase 15 F1 — Mirror `Youtube::Client`: a 401 mid-call gets
+        # exactly one `TokenRefresher` retry before we declare the
+        # connection revoked.
+        if !refreshed_once
+          refreshed_once = true
+          begin
+            Youtube::TokenRefresher.call(@connection)
+            retry
+          rescue Youtube::NeedsReauthError => refresh_err
+            outcome = "auth_failed"
+            http_status = 401
+            error_message = refresh_err.message
+            raised = Youtube::AuthRevokedError.new("401 + refresh failed (videos.list): #{refresh_err.message}")
+          rescue Youtube::TransientError => refresh_err
+            outcome = "server_error"
+            http_status = nil
+            error_message = refresh_err.message
+            raised = Youtube::ServerError.new("token refresh transient (videos.list): #{refresh_err.message}")
+          end
+        else
+          outcome = "auth_failed"
+          http_status = 401
+          error_message = e.message
+          raised = Youtube::AuthRevokedError.new("401 after refresh (videos.list): #{e.message}")
+        end
       rescue Google::Apis::ClientError => e
         status = status_from(e)
         outcome = "client_error"
@@ -98,23 +139,7 @@ module Youtube
     end
 
     def data_service
-      svc = Google::Apis::YoutubeV3::YouTubeService.new
-      svc.authorization = build_oauth_credentials
-      svc
-    end
-
-    def build_oauth_credentials
-      connection = @connection
-      Class.new do
-        define_method(:apply!) do |headers|
-          headers["Authorization"] = "Bearer #{connection.access_token}"
-        end
-        define_method(:apply) do |headers|
-          h = headers.dup
-          apply!(h)
-          h
-        end
-      end.new
+      Youtube::ServiceFactory.data_service(@connection)
     end
 
     def status_from(error)

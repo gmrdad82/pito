@@ -73,6 +73,29 @@ class Notification < ApplicationRecord
   scope :pending_discord, -> { where(discord_delivered_at: nil) }
   scope :pending_slack,   -> { where(slack_delivered_at: nil) }
 
+  # Phase 16 §3 — Turbo Stream broadcasts for the live unread badge
+  # and the index live-prepend. Two streams:
+  #
+  #   - "notifications_badge" — replace the badge fragment on every
+  #     insert + every read-state change. Frontend renders the partial
+  #     under a stable `dom_id "notifications_badge"`. The partial
+  #     emits an empty span when `unread_count == 0`, so flipping the
+  #     last unread row read disappears the badge in place.
+  #   - "notifications_index" — prepend new rows so an open index page
+  #     surfaces them without a manual reload, AND replace the row's
+  #     `dom_id(self)` partial on update so a "mark read" performed in
+  #     another session updates the row's bold/muted styling live.
+  #
+  # The broadcasts use the `*_later_to` variants for inserts (defer to
+  # an ActiveJob enqueue) so the request-cycle that creates the row
+  # returns quickly. Read-state changes use the immediate variant — the
+  # user is waiting for the badge to decrement.
+  after_create_commit :broadcast_index_prepend
+  after_create_commit :broadcast_badge_after_create
+  after_update_commit :broadcast_badge_after_update
+  after_update_commit :broadcast_row_replace_after_update
+  after_destroy_commit :broadcast_badge_after_destroy
+
   def mark_read!(at: Time.current)
     update!(in_app_read_at: at)
   end
@@ -90,6 +113,67 @@ class Notification < ApplicationRecord
   end
 
   private
+
+  def broadcast_index_prepend
+    Turbo::StreamsChannel.broadcast_prepend_later_to(
+      "notifications_index",
+      target: "notifications_list",
+      partial: "notifications/notification",
+      locals: { notification: self }
+    )
+  rescue StandardError => e
+    Rails.logger.warn("Notification##{id}: broadcast_index_prepend failed: #{e.class}: #{e.message}")
+  end
+
+  def broadcast_badge_after_create
+    broadcast_badge
+  end
+
+  def broadcast_badge_after_update
+    return unless saved_change_to_in_app_read_at?
+
+    broadcast_badge
+    broadcast_row_replace
+  end
+
+  def broadcast_row_replace_after_update
+    # Row replace is also handled inside broadcast_badge_after_update
+    # for read-state flips. Skip the no-op duplicate here unless the
+    # title / body / severity changed via a re-template.
+    return if saved_change_to_in_app_read_at?
+    return unless saved_change_to_title? ||
+                  saved_change_to_body? ||
+                  saved_change_to_severity? ||
+                  saved_change_to_url?
+
+    broadcast_row_replace
+  end
+
+  def broadcast_badge_after_destroy
+    broadcast_badge
+  end
+
+  def broadcast_badge
+    Turbo::StreamsChannel.broadcast_replace_to(
+      "notifications_badge",
+      target: "notifications_badge",
+      partial: "notifications/badge",
+      locals: { unread_count: self.class.unread.count }
+    )
+  rescue StandardError => e
+    Rails.logger.warn("Notification##{id}: broadcast_badge failed: #{e.class}: #{e.message}")
+  end
+
+  def broadcast_row_replace
+    Turbo::StreamsChannel.broadcast_replace_to(
+      "notifications_index",
+      target: ActionView::RecordIdentifier.dom_id(self),
+      partial: "notifications/notification",
+      locals: { notification: self }
+    )
+  rescue StandardError => e
+    Rails.logger.warn("Notification##{id}: broadcast_row_replace failed: #{e.class}: #{e.message}")
+  end
 
   def url_is_well_formed_when_present
     return if url.blank?

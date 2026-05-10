@@ -70,6 +70,12 @@ Rails.application.routes.draw do
   # routes to the same controller action.
   get "dashboard", to: "dashboard#index", as: :dashboard
 
+  # Phase 13.3 — Top-level analytics workspace. Singular `resource`
+  # (`/analytics`, not `/analytics/:id`) per master-agent decision.
+  # Renders the cross-channel summary cards, the per-channel cards,
+  # and the four cross-video local rollups.
+  resource :analytics, only: :show, controller: "analytics"
+
   resources :channels, only: [ :index, :show, :new, :create, :edit, :update, :destroy ] do
     collection do
       get :panes
@@ -79,6 +85,15 @@ Rails.application.routes.draw do
       # returns the videos belonging to the channel as a JSON array.
       get :videos
     end
+    # Phase 13.3 — Per-channel analytics dashboard. Singular `resource`
+    # per master-agent decision (one analytics surface per channel).
+    # `analytics/refresh` is a sibling POST route; the controller class
+    # lives at `Channels::AnalyticsRefreshController` so it stays out of
+    # the read-only `Channels::AnalyticsController` lane.
+    resource :analytics, only: :show, controller: "channels/analytics"
+    post "analytics/refresh",
+         to: "channels/analytics_refresh#create",
+         as: :analytics_refresh
   end
   # Phase 12 — Path A2 retracted. Video gets back the writable subset
   # of YouTube Data API v3 fields plus the four-item pre-publish
@@ -113,6 +128,20 @@ Rails.application.routes.draw do
     # hitting `destroy` directly (no JS confirms — CLAUDE.md hard rule).
     resources :links, only: %i[create update destroy],
                       controller: "video_game_links"
+
+    # Phase 13.3 — Per-video analytics dashboard. Singular `resource`
+    # per master-agent decision. Two POST refresh endpoints:
+    # `analytics/refresh` enqueues `VideoAnalyticsSync` (V1-V8 minus
+    # V7), `analytics/retention/refresh` enqueues `VideoRetentionSync`
+    # (V7) — separated so the retention curve (recomputed-in-place)
+    # can be re-rolled independently.
+    resource :analytics, only: :show, controller: "videos/analytics"
+    post "analytics/refresh",
+         to: "videos/analytics_refresh#create",
+         as: :analytics_refresh
+    post "analytics/retention/refresh",
+         to: "videos/retention_refresh#create",
+         as: :retention_refresh
   end
   # Phase 4 — Project Workspace. Phase A landed the route shells; Phase B
   # fills in the controller bodies and adds nested create routes for notes
@@ -224,6 +253,28 @@ Rails.application.routes.draw do
   end
 
   resources :saved_views, only: [ :index, :create, :destroy ]
+
+  # Phase 16 §3 — Notification UI. Routes:
+  #   - GET    /notifications                   index (paginated, filter)
+  #   - GET    /notifications/:id               detail
+  #   - PATCH  /notifications/:id/read          stamp in_app_read_at
+  #   - PATCH  /notifications/:id/unread        clear in_app_read_at
+  #   - PATCH  /notifications/mark_read?ids=    bulk mark read (collection)
+  #   - PATCH  /notifications/mark_all_read     mark every unread row read
+  # Per master decision 2026-05-10 #2: collection PATCH with `?ids=` is
+  # used for the bulk path because mark-read is non-destructive
+  # (CLAUDE.md's `/<action>s/:type/:ids` shape is for destructive
+  # actions only).
+  resources :notifications, only: %i[index show] do
+    member do
+      patch :read
+      patch :unread
+    end
+    collection do
+      patch :mark_read
+      patch :mark_all_read
+    end
+  end
 
   # Phase 9 — Login-with-Google Drop + GoogleIdentity → YoutubeConnection
   # rename (ADR 0006). The sole legitimate flow through these routes is
