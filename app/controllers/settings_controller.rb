@@ -15,9 +15,9 @@ class SettingsController < ApplicationController
     @active_sessions_count = Current.user.present? ? Current.user.sessions.where(revoked_at: nil).count : 0
     # Phase 12 — Step B: oauth applications pane (registered app count).
     @oauth_applications_count = defined?(OauthApplication) ? OauthApplication.count : 0
-    # Phase 7 — Step C: Google pane reflecting connection state.
-    @google_identity = defined?(GoogleIdentity) && Current.user.present? ?
-      GoogleIdentity.where(user_id: Current.user.id).order(last_authorized_at: :desc).first :
+    # Phase 9 — Google pane reflecting YoutubeConnection state.
+    @youtube_connection = defined?(YoutubeConnection) && Current.user.present? ?
+      YoutubeConnection.where(user_id: Current.user.id).order(last_authorized_at: :desc).first :
       nil
     begin
       @search_healthy = Search.engine.healthy?

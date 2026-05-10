@@ -16,8 +16,8 @@ RSpec.describe Mcp::Tools::ListChannels do
 
     expect(data.size).to eq(1)
     row = data.first
-    # Phase 7 Path A2 — `syncing` is dropped from the JSON shape;
-    # `connected` is derived from oauth_identity_id.
+    # Phase 9 — `syncing` is dropped from the JSON shape;
+    # `connected` is derived from youtube_connection_id.
     expect(row.keys).to include("id", "channel_url", "star", "connected", "last_synced_at", "created_at", "updated_at")
     expect(row).not_to have_key("syncing")
     expect(row["channel_url"]).to eq(channel.channel_url)

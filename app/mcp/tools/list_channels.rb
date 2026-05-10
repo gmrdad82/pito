@@ -8,7 +8,7 @@ module Mcp
         type: "object",
         properties: {
           star:      { type: "string", enum: [ "yes", "no" ], description: "Filter by star flag — 'yes' for starred only, 'no' for non-starred only (optional)" },
-          connected: { type: "string", enum: [ "yes", "no" ], description: "Filter by connected (oauth_identity present) flag — 'yes' or 'no' (optional)" },
+          connected: { type: "string", enum: [ "yes", "no" ], description: "Filter by connected (youtube_connection present) flag — 'yes' or 'no' (optional)" },
           limit:     { type: "integer", description: "Max results (default 50, max 200)" },
           offset:    { type: "integer", description: "Offset into result set (default 0)" }
         }
@@ -36,9 +36,9 @@ module Mcp
         scope = scope.where(star: YesNo.from_yes_no(star)) unless star.nil?
         unless connected.nil?
           scope = if YesNo.from_yes_no(connected)
-                    scope.where.not(oauth_identity_id: nil)
+                    scope.where.not(youtube_connection_id: nil)
           else
-                    scope.where(oauth_identity_id: nil)
+                    scope.where(youtube_connection_id: nil)
           end
         end
 

@@ -22,7 +22,7 @@
     <% end %>
   </td>
   <td>
-    <% if pito_channel.present? && pito_channel.oauth_identity_id.present? %>
+    <% if pito_channel.present? && pito_channel.youtube_connection_id.present? %>
       connected
       <%= form_with url: deletions_path(type: "youtube_connection", ids: pito_channel.id),
                     method: :get, data: { turbo: false },

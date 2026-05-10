@@ -1,16 +1,15 @@
 require "rails_helper"
 
-# Phase 7 Path A2 (literal full retract). The `connected` and
-# `syncing` placeholder booleans are gone; `connected` is now a
-# derived "yes" / "no" string in the JSON wire shape (true when
-# `oauth_identity_id` is set), and `syncing` is dropped entirely.
+# Phase 9 — GoogleIdentity → YoutubeConnection rename (ADR 0006).
+# `connected` is a derived "yes" / "no" string in the JSON wire shape
+# (true when `youtube_connection_id` is set); `syncing` is dropped.
 RSpec.describe ChannelDecorator do
   describe "#as_summary_json" do
-    let(:identity) { create(:google_identity) }
+    let(:connection) { create(:youtube_connection) }
     let(:channel) do
       create(:channel,
              :starred,
-             oauth_identity: identity,
+             youtube_connection: connection,
              last_synced_at: Time.current)
     end
     let(:decorator) { described_class.new(channel) }

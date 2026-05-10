@@ -2,9 +2,13 @@
 # helper extracted from `Youtube::Client` so it is easy to spec in
 # isolation.
 #
+# Phase 9 — GoogleIdentity → YoutubeConnection rename (ADR 0006). The
+# parameter name follows the new local model; the upstream call to
+# Google's token endpoint is unchanged.
+#
 # POSTs to `https://oauth2.googleapis.com/token` with
 # `grant_type=refresh_token`. On 200, updates `access_token`,
-# `expires_at`, `last_refreshed_at` on the identity. On 400 with
+# `expires_at`, `last_refreshed_at` on the connection. On 400 with
 # `error: "invalid_grant"`, sets `needs_reauth: true` and raises
 # `Youtube::NeedsReauthError`. Other failures raise
 # `Youtube::TransientError` so the caller's retry path may re-try.
@@ -18,13 +22,13 @@ module Youtube
 
     module_function
 
-    def call(google_identity)
-      raise Youtube::NeedsReauthError, "no refresh token on file" if google_identity.refresh_token.blank?
+    def call(youtube_connection)
+      raise Youtube::NeedsReauthError, "no refresh token on file" if youtube_connection.refresh_token.blank?
 
       response = post_form(
         client_id:     Rails.application.credentials.dig(:google_oauth, :client_id),
         client_secret: Rails.application.credentials.dig(:google_oauth, :client_secret),
-        refresh_token: google_identity.refresh_token,
+        refresh_token: youtube_connection.refresh_token,
         grant_type:    "refresh_token"
       )
 
@@ -32,11 +36,11 @@ module Youtube
 
       case response.code.to_i
       when 200
-        apply_success!(google_identity, body)
-        google_identity
+        apply_success!(youtube_connection, body)
+        youtube_connection
       when 400
         if body["error"].to_s == "invalid_grant"
-          google_identity.update_columns(needs_reauth: true)
+          youtube_connection.update_columns(needs_reauth: true)
           raise Youtube::NeedsReauthError, "invalid_grant — refresh token revoked"
         end
 
@@ -64,7 +68,7 @@ module Youtube
       {}
     end
 
-    def apply_success!(google_identity, body)
+    def apply_success!(youtube_connection, body)
       attrs = {
         access_token: body["access_token"],
         last_refreshed_at: Time.current
@@ -76,7 +80,7 @@ module Youtube
       # it. (We force prompt: "consent" on every authorization
       # request, but Google still occasionally rotates on refresh.)
       attrs[:refresh_token] = body["refresh_token"] if body["refresh_token"].present?
-      google_identity.update!(attrs)
+      youtube_connection.update!(attrs)
     end
   end
 end

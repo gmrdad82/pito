@@ -2,7 +2,7 @@ require "rails_helper"
 
 RSpec.describe "Settings::Youtube", type: :request do
   describe "GET /settings/youtube" do
-    context "with no GoogleIdentity" do
+    context "with no YoutubeConnection" do
       it "renders the empty state with a connect button" do
         get settings_youtube_path
         expect(response).to have_http_status(:ok)
@@ -11,11 +11,11 @@ RSpec.describe "Settings::Youtube", type: :request do
       end
     end
 
-    context "with a GoogleIdentity in needs_reauth state" do
+    context "with a YoutubeConnection in needs_reauth state" do
       before do
         @user = User.first
-        create(:google_identity, :needs_reauth, user: @user,
-                                                email: "u@example.test")
+        create(:youtube_connection, :needs_reauth, user: @user,
+                                                   email: "u@example.test")
       end
 
       it "renders the red banner" do
@@ -30,17 +30,17 @@ RSpec.describe "Settings::Youtube", type: :request do
       end
     end
 
-    context "with a fresh GoogleIdentity" do
+    context "with a fresh YoutubeConnection" do
       let(:user) { User.first }
-      let(:identity) do
-        create(:google_identity, user: user,
+      let(:connection) do
+        create(:youtube_connection, user: user,
                email: "u@example.test")
       end
       let(:client_double) { instance_double(Youtube::Client) }
 
       before do
-        identity
-        allow(Youtube::Client).to receive(:new).with(identity).and_return(client_double)
+        connection
+        allow(Youtube::Client).to receive(:new).with(connection).and_return(client_double)
         allow(client_double).to receive(:channels_list).and_return(
           items: [
             { id: "UCabc", snippet: { title: "Main Channel" },
@@ -72,10 +72,8 @@ RSpec.describe "Settings::Youtube", type: :request do
           ],
           next_page_token: nil
         )
-        # Phase 7 Path A2 — `connected: true` is gone; the OAuth-managed
-        # state is just `oauth_identity_id` set.
         Channel.create!(channel_url: valid_url,
-                        oauth_identity_id: identity.id)
+                        youtube_connection_id: connection.id)
 
         get settings_youtube_path
         expect(response.body).to include("[ disconnect ]")
@@ -84,14 +82,14 @@ RSpec.describe "Settings::Youtube", type: :request do
 
     context "when the YouTube API raises QuotaExhaustedError" do
       let(:user) { User.first }
-      let(:identity) do
-        create(:google_identity, user: user)
+      let(:connection) do
+        create(:youtube_connection, user: user)
       end
       let(:client_double) { instance_double(Youtube::Client) }
 
       before do
-        identity
-        allow(Youtube::Client).to receive(:new).with(identity).and_return(client_double)
+        connection
+        allow(Youtube::Client).to receive(:new).with(connection).and_return(client_double)
         allow(client_double).to receive(:channels_list).and_raise(Youtube::QuotaExhaustedError)
       end
 
@@ -105,30 +103,30 @@ RSpec.describe "Settings::Youtube", type: :request do
   end
 
   describe "POST /settings/youtube/connect" do
-    it "stashes the youtube_connect intent and redirects to /auth/google_oauth2" do
+    it "stashes the youtube_connection_oauth_intent and redirects to /auth/google_oauth2" do
       post settings_youtube_connect_path
       expect(response).to redirect_to("/auth/google_oauth2")
-      expect(session[:google_oauth_intent]).to eq("youtube_connect")
+      expect(session[:youtube_connection_oauth_intent]).to eq("youtube_connect")
     end
   end
 
   describe "POST /settings/youtube/channels" do
     let(:user) { User.first }
-    let(:identity) do
-      create(:google_identity, user: user)
+    let(:connection) do
+      create(:youtube_connection, user: user)
     end
     let(:client_double) { instance_double(Youtube::Client) }
 
     before do
-      identity
-      allow(Youtube::Client).to receive(:new).with(identity).and_return(client_double)
+      connection
+      allow(Youtube::Client).to receive(:new).with(connection).and_return(client_double)
       allow(client_double).to receive(:channels_list).and_return(
         items: [ { id: "UCabcdefghijklmnopqrstuv", snippet: { title: "My Channel" } } ],
         next_page_token: nil
       )
     end
 
-    it "creates a Channel with oauth_identity_id set (post-A2: no separate connected boolean)" do
+    it "creates a Channel with youtube_connection_id set" do
       expect {
         post settings_youtube_channels_path,
              params: { youtube_channel_id: "UCabcdefghijklmnopqrstuv" }
@@ -136,7 +134,7 @@ RSpec.describe "Settings::Youtube", type: :request do
 
       channel = Channel.last
       expect(channel.channel_url).to eq("https://www.youtube.com/channel/UCabcdefghijklmnopqrstuv")
-      expect(channel.oauth_identity_id).to eq(identity.id)
+      expect(channel.youtube_connection_id).to eq(connection.id)
       expect(channel.last_synced_at).to be_present
     end
 
@@ -162,8 +160,8 @@ RSpec.describe "Settings::Youtube", type: :request do
 
   describe "GET /deletions/youtube_connection/:ids (confirmation)" do
     it "renders the action-screen confirmation page" do
-      identity = create(:google_identity)
-      channel = create(:channel, oauth_identity: identity)
+      connection = create(:youtube_connection)
+      channel = create(:channel, youtube_connection: connection)
 
       get deletions_path(type: "youtube_connection", ids: channel.id)
       expect(response).to have_http_status(:ok)
@@ -175,16 +173,16 @@ RSpec.describe "Settings::Youtube", type: :request do
   describe "DELETE /deletions/youtube_connection/:ids" do
     before { GoogleStubs.stub_revoke_success }
 
-    it "clears oauth_identity_id, destroys the orphaned identity, redirects" do
-      identity = create(:google_identity)
-      channel = create(:channel, oauth_identity: identity)
+    it "clears youtube_connection_id, destroys the orphaned connection, redirects" do
+      connection = create(:youtube_connection)
+      channel = create(:channel, youtube_connection: connection)
 
       delete youtube_connection_disconnect_path(ids: channel.id)
 
       expect(response).to redirect_to(settings_youtube_path)
       channel.reload
-      expect(channel.oauth_identity_id).to be_nil
-      expect(GoogleIdentity.unscoped.where(id: identity.id).exists?).to be(false)
+      expect(channel.youtube_connection_id).to be_nil
+      expect(YoutubeConnection.unscoped.where(id: connection.id).exists?).to be(false)
     end
   end
 end

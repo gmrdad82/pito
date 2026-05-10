@@ -1,5 +1,10 @@
-# Phase 7 — Step C (7c-settings-youtube-ui.md). POST a token to
-# Google's revoke endpoint and audit the call.
+# Phase 9 — GoogleIdentity → YoutubeConnection rename (ADR 0006). POST a
+# token to Google's revoke endpoint and audit the call.
+#
+# The module stays under the `Google::` namespace because it describes
+# what it does (call Google's revoke endpoint), not what the local
+# record is called. The parameter and the audit-row column track the
+# new local model name (`youtube_connection`).
 #
 # Locked decision (7C-already-revoked) — already-revoked disconnect
 # is idempotent. If Google returns "token already invalid" because
@@ -19,8 +24,8 @@ module Google
     # Returns true on a successful revoke (2xx) or on the "already
     # revoked" idempotent path; raises on transport-level failure
     # so the caller's transaction can roll back.
-    def call(google_identity)
-      token = google_identity.refresh_token.presence || google_identity.access_token.presence
+    def call(youtube_connection)
+      token = youtube_connection.refresh_token.presence || youtube_connection.access_token.presence
       started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       outcome = "success"
       http_status = nil
@@ -51,7 +56,7 @@ module Google
       ensure
         elapsed_ms = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started) * 1000).to_i
         write_audit_row(
-          google_identity: google_identity,
+          youtube_connection: youtube_connection,
           outcome: outcome,
           http_status: http_status,
           error_message: error_message,
@@ -81,11 +86,11 @@ module Google
       body.include?("invalid_token") || body.include?("Token expired or revoked")
     end
 
-    def write_audit_row(google_identity:, outcome:, http_status:,
+    def write_audit_row(youtube_connection:, outcome:, http_status:,
                         error_message:, duration_ms:)
       YoutubeApiCall.create!(
-        user_id: google_identity.user_id,
-        google_identity_id: google_identity.id,
+        user_id: youtube_connection.user_id,
+        youtube_connection_id: youtube_connection.id,
         client_kind: "oauth",
         endpoint: "oauth2.revoke",
         http_method: "POST",

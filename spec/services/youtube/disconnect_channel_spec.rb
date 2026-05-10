@@ -1,53 +1,53 @@
 require "rails_helper"
 
-# Phase 7 Path A2 (literal full retract). The legacy `connected`
-# boolean is gone; "disconnected" means `oauth_identity_id IS NULL`.
+# Phase 9 — GoogleIdentity → YoutubeConnection rename (ADR 0006).
+# Disconnected state means `youtube_connection_id IS NULL`.
 RSpec.describe Youtube::DisconnectChannel do
   before { GoogleStubs.stub_revoke_success }
 
   describe ".call" do
-    it "clears oauth_identity_id on the Channel(s)" do
-      identity = create(:google_identity)
-      channel = create(:channel, oauth_identity: identity)
+    it "clears youtube_connection_id on the Channel(s)" do
+      connection = create(:youtube_connection)
+      channel = create(:channel, youtube_connection: connection)
 
       described_class.call(channel_ids: [ channel.id ])
 
       channel.reload
-      expect(channel.oauth_identity_id).to be_nil
+      expect(channel.youtube_connection_id).to be_nil
     end
 
     it "does not destroy the Channel record" do
-      identity = create(:google_identity)
-      channel = create(:channel, oauth_identity: identity)
+      connection = create(:youtube_connection)
+      channel = create(:channel, youtube_connection: connection)
 
       expect {
         described_class.call(channel_ids: [ channel.id ])
       }.not_to change { Channel.unscoped.where(id: channel.id).exists? }
     end
 
-    it "destroys the GoogleIdentity when no other Channel references it" do
-      identity = create(:google_identity)
-      channel = create(:channel, oauth_identity: identity)
+    it "destroys the YoutubeConnection when no other Channel references it" do
+      connection = create(:youtube_connection)
+      channel = create(:channel, youtube_connection: connection)
 
       expect {
         described_class.call(channel_ids: [ channel.id ])
-      }.to change { GoogleIdentity.unscoped.where(id: identity.id).exists? }.from(true).to(false)
+      }.to change { YoutubeConnection.unscoped.where(id: connection.id).exists? }.from(true).to(false)
     end
 
-    it "preserves the GoogleIdentity when other Channels reference it" do
-      identity = create(:google_identity)
-      kept = create(:channel, oauth_identity: identity)
-      removed = create(:channel, oauth_identity: identity)
+    it "preserves the YoutubeConnection when other Channels reference it" do
+      connection = create(:youtube_connection)
+      kept = create(:channel, youtube_connection: connection)
+      removed = create(:channel, youtube_connection: connection)
 
       described_class.call(channel_ids: [ removed.id ])
 
-      expect(GoogleIdentity.unscoped.where(id: identity.id).exists?).to be(true)
-      expect(kept.reload.oauth_identity_id).to eq(identity.id)
+      expect(YoutubeConnection.unscoped.where(id: connection.id).exists?).to be(true)
+      expect(kept.reload.youtube_connection_id).to eq(connection.id)
     end
 
-    it "calls Google::RevokeToken once per orphaned identity" do
-      identity = create(:google_identity)
-      channel = create(:channel, oauth_identity: identity)
+    it "calls Google::RevokeToken once per orphaned connection" do
+      connection = create(:youtube_connection)
+      channel = create(:channel, youtube_connection: connection)
 
       described_class.call(channel_ids: [ channel.id ])
 
@@ -56,15 +56,35 @@ RSpec.describe Youtube::DisconnectChannel do
     end
 
     it "supports bulk: 2+ channel ids transition atomically" do
-      identity = create(:google_identity)
-      a = create(:channel, oauth_identity: identity)
-      b = create(:channel, oauth_identity: identity)
+      connection = create(:youtube_connection)
+      a = create(:channel, youtube_connection: connection)
+      b = create(:channel, youtube_connection: connection)
 
       described_class.call(channel_ids: [ a.id, b.id ])
 
-      expect(a.reload.oauth_identity_id).to be_nil
-      expect(b.reload.oauth_identity_id).to be_nil
-      expect(GoogleIdentity.unscoped.where(id: identity.id).exists?).to be(false)
+      expect(a.reload.youtube_connection_id).to be_nil
+      expect(b.reload.youtube_connection_id).to be_nil
+      expect(YoutubeConnection.unscoped.where(id: connection.id).exists?).to be(false)
+    end
+
+    it "returns revoked_connection_ids in the Result struct" do
+      connection = create(:youtube_connection)
+      channel = create(:channel, youtube_connection: connection)
+
+      result = described_class.call(channel_ids: [ channel.id ])
+
+      expect(result).to respond_to(:revoked_connection_ids)
+      expect(result.revoked_connection_ids).to eq([ connection.id ])
+      expect(result.disconnected_channel_ids).to eq([ channel.id ])
+    end
+
+    it "destroys the YoutubeConnection row when no channels remain" do
+      connection = create(:youtube_connection)
+      channel = create(:channel, youtube_connection: connection)
+
+      described_class.call(channel_ids: [ channel.id ])
+
+      expect(YoutubeConnection.unscoped.where(id: connection.id)).to be_empty
     end
   end
 
@@ -74,18 +94,18 @@ RSpec.describe Youtube::DisconnectChannel do
       GoogleStubs.stub_revoke_already_revoked
     end
 
-    it "still destroys the local GoogleIdentity row" do
-      identity = create(:google_identity)
-      channel = create(:channel, oauth_identity: identity)
+    it "still destroys the local YoutubeConnection row" do
+      connection = create(:youtube_connection)
+      channel = create(:channel, youtube_connection: connection)
 
       expect {
         described_class.call(channel_ids: [ channel.id ])
-      }.to change { GoogleIdentity.unscoped.where(id: identity.id).exists? }.from(true).to(false)
+      }.to change { YoutubeConnection.unscoped.where(id: connection.id).exists? }.from(true).to(false)
     end
 
     it "audits the revoke as client_error" do
-      identity = create(:google_identity)
-      channel = create(:channel, oauth_identity: identity)
+      connection = create(:youtube_connection)
+      channel = create(:channel, youtube_connection: connection)
 
       described_class.call(channel_ids: [ channel.id ])
 

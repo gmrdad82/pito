@@ -29,38 +29,39 @@ RSpec.describe Youtube::Quota do
     end
   end
 
+  # Phase 9 — GoogleIdentity → YoutubeConnection rename (ADR 0006).
   describe ".budget_remaining" do
     it "returns the daily budget when no calls have been made" do
-      identity = create(:google_identity)
-      expect(described_class.budget_remaining(identity))
+      connection = create(:youtube_connection)
+      expect(described_class.budget_remaining(connection))
         .to eq(described_class.daily_budget_units)
     end
 
-    it "subtracts today's oauth units for the given identity" do
-      identity = create(:google_identity)
-      create(:youtube_api_call, google_identity: identity, units: 100, client_kind: "oauth")
-      create(:youtube_api_call, google_identity: identity, units: 50, client_kind: "oauth")
+    it "subtracts today's oauth units for the given connection" do
+      connection = create(:youtube_connection)
+      create(:youtube_api_call, youtube_connection: connection, units: 100, client_kind: "oauth")
+      create(:youtube_api_call, youtube_connection: connection, units: 50, client_kind: "oauth")
 
-      expect(described_class.budget_remaining(identity))
+      expect(described_class.budget_remaining(connection))
         .to eq(described_class.daily_budget_units - 150)
     end
 
     it "ignores public-client units (separate bucket)" do
-      identity = create(:google_identity)
-      create(:youtube_api_call, google_identity: identity, units: 100, client_kind: "oauth")
-      create(:youtube_api_call, google_identity: nil, units: 9999, client_kind: "public")
+      connection = create(:youtube_connection)
+      create(:youtube_api_call, youtube_connection: connection, units: 100, client_kind: "oauth")
+      create(:youtube_api_call, youtube_connection: nil, units: 9999, client_kind: "public")
 
-      expect(described_class.budget_remaining(identity))
+      expect(described_class.budget_remaining(connection))
         .to eq(described_class.daily_budget_units - 100)
     end
 
-    it "ignores rows for other identities" do
-      identity = create(:google_identity)
-      other = create(:google_identity, google_subject_id: "other-subject-id-99",
-                                        email: "other@example.test")
-      create(:youtube_api_call, google_identity: other, units: 500, client_kind: "oauth")
+    it "ignores rows for other connections" do
+      connection = create(:youtube_connection)
+      other = create(:youtube_connection, google_subject_id: "other-subject-id-99",
+                                          email: "other@example.test")
+      create(:youtube_api_call, youtube_connection: other, units: 500, client_kind: "oauth")
 
-      expect(described_class.budget_remaining(identity))
+      expect(described_class.budget_remaining(connection))
         .to eq(described_class.daily_budget_units)
     end
   end

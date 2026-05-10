@@ -1,12 +1,17 @@
 require "rails_helper"
 
-# Phase 8 — tenant drop. YoutubeApiCall no longer carries a tenant.
+# Phase 9 — GoogleIdentity → YoutubeConnection rename (ADR 0006).
+# YoutubeApiCall belongs_to :youtube_connection (renamed from
+# :google_identity).
 RSpec.describe YoutubeApiCall, type: :model do
   describe "associations" do
     it { is_expected.to belong_to(:user).optional }
-    it { is_expected.to belong_to(:google_identity).optional }
+    it { is_expected.to belong_to(:youtube_connection).optional }
     it "does not declare a tenant association" do
       expect(YoutubeApiCall.reflect_on_association(:tenant)).to be_nil
+    end
+    it "does not declare a google_identity association" do
+      expect(YoutubeApiCall.reflect_on_association(:google_identity)).to be_nil
     end
   end
 
@@ -23,9 +28,9 @@ RSpec.describe YoutubeApiCall, type: :model do
 
   describe ".today" do
     it "returns rows created today" do
-      identity = create(:google_identity)
-      recent = create(:youtube_api_call, google_identity: identity, created_at: Time.current)
-      old = create(:youtube_api_call, google_identity: identity, created_at: 2.days.ago)
+      connection = create(:youtube_connection)
+      recent = create(:youtube_api_call, youtube_connection: connection, created_at: Time.current)
+      old = create(:youtube_api_call, youtube_connection: connection, created_at: 2.days.ago)
 
       ids = YoutubeApiCall.today.pluck(:id)
       expect(ids).to include(recent.id)

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_10_021811) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_10_081047) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -102,12 +102,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_021811) do
     t.string "channel_url", null: false
     t.datetime "created_at", null: false
     t.datetime "last_synced_at"
-    t.bigint "oauth_identity_id"
     t.boolean "star", default: false, null: false
     t.datetime "updated_at", null: false
+    t.bigint "youtube_connection_id"
     t.index ["channel_url"], name: "index_channels_on_channel_url", unique: true
     t.index ["last_synced_at"], name: "index_channels_on_last_synced_at"
-    t.index ["oauth_identity_id"], name: "index_channels_on_oauth_identity_id"
+    t.index ["youtube_connection_id"], name: "index_channels_on_youtube_connection_id"
   end
 
   create_table "collections", force: :cascade do |t|
@@ -156,23 +156,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_021811) do
     t.datetime "updated_at", null: false
     t.index ["collection_id"], name: "index_games_on_collection_id"
     t.index ["title"], name: "index_games_on_title"
-  end
-
-  create_table "google_identities", force: :cascade do |t|
-    t.text "access_token", null: false
-    t.datetime "created_at", null: false
-    t.citext "email", null: false
-    t.datetime "expires_at", null: false
-    t.string "google_subject_id", null: false
-    t.datetime "last_authorized_at", null: false
-    t.datetime "last_refreshed_at"
-    t.boolean "needs_reauth", default: false, null: false
-    t.text "refresh_token"
-    t.jsonb "scopes", default: [], null: false
-    t.datetime "updated_at", null: false
-    t.bigint "user_id", null: false
-    t.index ["google_subject_id"], name: "index_google_identities_on_google_subject_id", unique: true
-    t.index ["user_id"], name: "index_google_identities_on_user_id"
   end
 
   create_table "notes", force: :cascade do |t|
@@ -370,12 +353,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_021811) do
     t.bigint "channel_id", null: false
     t.datetime "created_at", null: false
     t.datetime "last_synced_at"
-    t.bigint "oauth_identity_id"
     t.boolean "star", default: false, null: false
     t.datetime "updated_at", null: false
+    t.bigint "youtube_connection_id"
     t.string "youtube_video_id"
     t.index ["channel_id"], name: "index_videos_on_channel_id"
-    t.index ["oauth_identity_id"], name: "index_videos_on_oauth_identity_id"
+    t.index ["youtube_connection_id"], name: "index_videos_on_youtube_connection_id"
     t.index ["youtube_video_id"], name: "index_videos_on_youtube_video_id", unique: true
   end
 
@@ -385,17 +368,34 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_021811) do
     t.integer "duration_ms"
     t.string "endpoint", null: false
     t.text "error_message"
-    t.bigint "google_identity_id"
     t.string "http_method", null: false
     t.integer "http_status"
     t.string "outcome", null: false
     t.integer "units", null: false
     t.bigint "user_id"
+    t.bigint "youtube_connection_id"
     t.index ["client_kind", "created_at"], name: "index_youtube_api_calls_on_kind_time"
-    t.index ["google_identity_id", "created_at"], name: "index_youtube_api_calls_on_identity_time"
-    t.index ["google_identity_id"], name: "index_youtube_api_calls_on_google_identity_id"
     t.index ["outcome", "created_at"], name: "index_youtube_api_calls_on_outcome_time"
     t.index ["user_id"], name: "index_youtube_api_calls_on_user_id"
+    t.index ["youtube_connection_id", "created_at"], name: "index_youtube_api_calls_on_connection_time"
+    t.index ["youtube_connection_id"], name: "index_youtube_api_calls_on_youtube_connection_id"
+  end
+
+  create_table "youtube_connections", force: :cascade do |t|
+    t.text "access_token", null: false
+    t.datetime "created_at", null: false
+    t.citext "email", null: false
+    t.datetime "expires_at", null: false
+    t.string "google_subject_id", null: false
+    t.datetime "last_authorized_at", null: false
+    t.datetime "last_refreshed_at"
+    t.boolean "needs_reauth", default: false, null: false
+    t.text "refresh_token"
+    t.jsonb "scopes", default: [], null: false
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.index ["google_subject_id"], name: "index_youtube_connections_on_google_subject_id", unique: true
+    t.index ["user_id"], name: "index_youtube_connections_on_user_id"
   end
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
@@ -403,11 +403,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_021811) do
   add_foreign_key "api_tokens", "users"
   add_foreign_key "bulk_operation_items", "bulk_operations"
   add_foreign_key "bulk_operation_items", "videos"
-  add_foreign_key "channels", "google_identities", column: "oauth_identity_id"
+  add_foreign_key "channels", "youtube_connections"
   add_foreign_key "footages", "games"
   add_foreign_key "footages", "projects"
   add_foreign_key "games", "collections"
-  add_foreign_key "google_identities", "users"
   add_foreign_key "notes", "projects"
   add_foreign_key "oauth_access_grants", "oauth_applications", column: "application_id"
   add_foreign_key "oauth_access_tokens", "oauth_applications", column: "application_id"
@@ -422,7 +421,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_021811) do
   add_foreign_key "video_uploads", "channels"
   add_foreign_key "video_uploads", "videos"
   add_foreign_key "videos", "channels"
-  add_foreign_key "videos", "google_identities", column: "oauth_identity_id"
-  add_foreign_key "youtube_api_calls", "google_identities"
+  add_foreign_key "videos", "youtube_connections"
   add_foreign_key "youtube_api_calls", "users"
+  add_foreign_key "youtube_api_calls", "youtube_connections"
+  add_foreign_key "youtube_connections", "users"
 end

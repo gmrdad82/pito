@@ -1,9 +1,9 @@
 class VideoDecorator < ApplicationDecorator
-  # Phase 7 Path A2 (literal full retract). Video is now a thin
-  # YouTube-reference record: id, channel_id, youtube_video_id, star,
-  # oauth_identity_id, last_synced_at, timestamps. All title /
-  # description / tags / privacy / metadata is gone. JSON surface
-  # collapses around the surviving columns.
+  # Phase 9 — GoogleIdentity → YoutubeConnection rename (ADR 0006).
+  # Video is a thin YouTube-reference record: id, channel_id,
+  # youtube_video_id, star, youtube_connection_id, last_synced_at,
+  # timestamps. All title / description / tags / privacy / metadata is
+  # gone. JSON surface collapses around the surviving columns.
   def as_summary_json
     {
       id: id,

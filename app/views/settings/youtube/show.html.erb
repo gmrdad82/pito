@@ -2,12 +2,12 @@
 
 <h1>settings &rarr; YouTube</h1>
 
-<% if @identity.present? && @identity.needs_reauth? %>
+<% if @youtube_connection.present? && @youtube_connection.needs_reauth? %>
   <%= render "settings/youtube/needs_reauth_banner" %>
 <% end %>
 
-<% if @identity.nil? %>
-  <%# Empty state — no Google identity connected. %>
+<% if @youtube_connection.nil? %>
+  <%# Empty state — no Google account connected. %>
   <div class="pane" style="margin-top: 12px; padding: 16px;">
     <p>no google account connected.</p>
 
@@ -25,15 +25,15 @@
 <% else %>
   <%# Connected state. %>
   <div class="pane" style="margin-top: 12px; padding: 16px;">
-    <p><strong>connected as:</strong> <%= @identity.email %></p>
+    <p><strong>connected as:</strong> <%= @youtube_connection.email %></p>
     <p class="text-muted">
-      last authorized: <%= @identity.last_authorized_at.strftime("%Y-%m-%d %H:%M %Z") %>
-      <% if @identity.last_refreshed_at.present? %>
-        &middot; last refreshed: <%= @identity.last_refreshed_at.strftime("%Y-%m-%d %H:%M %Z") %>
+      last authorized: <%= @youtube_connection.last_authorized_at.strftime("%Y-%m-%d %H:%M %Z") %>
+      <% if @youtube_connection.last_refreshed_at.present? %>
+        &middot; last refreshed: <%= @youtube_connection.last_refreshed_at.strftime("%Y-%m-%d %H:%M %Z") %>
       <% end %>
     </p>
     <p class="text-muted">
-      scopes: <%= Array(@identity.scopes).join(", ") %>
+      scopes: <%= Array(@youtube_connection.scopes).join(", ") %>
     </p>
 
     <div class="dot-list" style="margin-top: 8px;">
@@ -76,7 +76,7 @@
     </table>
   <% elsif @youtube_error.present? %>
     <%# Fallback to listing already-connected channels in pito. %>
-    <% fallback = Channel.where(oauth_identity_id: @identity.id).order(channel_url: :asc) %>
+    <% fallback = Channel.where(youtube_connection_id: @youtube_connection.id).order(channel_url: :asc) %>
     <% if fallback.any? %>
       <table>
         <thead>

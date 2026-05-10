@@ -172,28 +172,22 @@ Rails.application.routes.draw do
 
   resources :saved_views, only: [ :index, :create, :destroy ]
 
-  # Phase 7 — Step A (7a-google-oauth-and-identity.md). OmniAuth-
-  # driven Google OAuth flow. `/auth/google_oauth2` is the request
-  # phase (POST per `omniauth-rails_csrf_protection`; the bare GET
-  # is allowed in development for direct address-bar entry). The
-  # callback dispatches between the sign-in branch (placeholder TODO
-  # until Phase 12 surfaces real session establishment) and the
-  # YouTube-connect branch (forwarded to `/settings/youtube`).
-  # The OmniAuth `callback_path` is set to `/auth/google/callback`
-  # (matching the URI registered with the Google Cloud Console).
-  # The `redirect URI` Google bounces back to is owned by the
-  # OmniAuth middleware; this route receives the request after
-  # OmniAuth has placed the auth hash in env.
+  # Phase 9 — Login-with-Google Drop + GoogleIdentity → YoutubeConnection
+  # rename (ADR 0006). The sole legitimate flow through these routes is
+  # the YouTube-connection OAuth dance; the dormant sign-in branch and
+  # the dev-only `/auth/google` redirect were retired with this phase.
+  #
+  # The OmniAuth `callback_path` is pinned to `/auth/google/callback`
+  # to match the URI registered with the Google Cloud Console; renaming
+  # the URL would require a Google Console edit, so only the controller
+  # class and the route helper change in this dispatch.
   match "/auth/google/callback",
-        to: "auth/google_callbacks#create",
+        to: "youtube_connections/oauth_callbacks#create",
         via: %i[get post],
-        as: :google_oauth_callback
-  get "/auth/failure", to: "auth/google_callbacks#failure", as: :google_oauth_failure
-  # Dev-only direct entry point for browser address-bar testing.
-  # Production uses `button_to` (POST) from `Settings::YoutubeController#connect`.
-  if Rails.env.development?
-    get "/auth/google", to: redirect("/auth/google_oauth2"), as: :google_oauth_start
-  end
+        as: :youtube_connection_oauth_callback
+  get "/auth/failure",
+      to: "youtube_connections/oauth_callbacks#failure",
+      as: :youtube_connection_oauth_failure
 
   get "deletions/:type/:ids", to: "deletions#show", as: :deletions
   post "deletions/:type/:ids", to: "deletions#create"

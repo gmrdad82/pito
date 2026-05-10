@@ -1,5 +1,6 @@
 FactoryBot.define do
-  factory :google_identity do
+  # Phase 9 — GoogleIdentity → YoutubeConnection rename (ADR 0006).
+  factory :youtube_connection do
     user { Current.user || association(:user) }
 
     sequence(:google_subject_id) { |n| "1099#{n.to_s.rjust(15, '0')}" }

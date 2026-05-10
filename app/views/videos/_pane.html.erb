@@ -1,7 +1,7 @@
-<%# Phase 7 Path A2 (literal full retract). Video is a thin
-    YouTube-reference record. The pane shows id, youtube ID, channel
-    URL, last sync, oauth identity (if connected), and the recent
-    stats table. %>
+<%# Phase 9 — GoogleIdentity → YoutubeConnection rename (ADR 0006).
+    Video is a thin YouTube-reference record. The pane shows id,
+    youtube ID, channel URL, last sync, youtube_connection email (if
+    connected), and the recent stats table. %>
 <% header = local_assigns[:header] %>
 <% pane_extra_class = local_assigns.fetch(:pane_extra_class, "") %>
 <% pane_style = local_assigns.fetch(:pane_style, nil) %>
@@ -25,10 +25,10 @@
     <tr>
       <td class="text-muted" style="padding-right: 12px;">connected</td>
       <td>
-        <% if video.oauth_identity_id.present? %>
+        <% if video.youtube_connection_id.present? %>
           yes
-          <% if video.oauth_identity&.email.present? %>
-            <span class="text-muted">(<%= video.oauth_identity.email %>)</span>
+          <% if video.youtube_connection&.email.present? %>
+            <span class="text-muted">(<%= video.youtube_connection.email %>)</span>
           <% end %>
         <% else %>
           no

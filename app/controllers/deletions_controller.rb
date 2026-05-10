@@ -41,7 +41,7 @@ class DeletionsController < ApplicationController
   # POSTs to `destroy_youtube_connection`.
   def show_youtube_connection
     ids = params[:ids].to_s.split(",").reject(&:blank?).map(&:to_i)
-    @channels = Channel.where(id: ids).where.not(oauth_identity_id: nil).to_a
+    @channels = Channel.where(id: ids).where.not(youtube_connection_id: nil).to_a
     @cancel_path = settings_youtube_path
 
     if @channels.empty?

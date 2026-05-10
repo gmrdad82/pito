@@ -1,45 +1,49 @@
-# Phase 7 — Step A (7a-google-oauth-and-identity.md) — encrypted
-# Google OAuth identity record.
+# Phase 9 — Login-with-Google Drop + GoogleIdentity → YoutubeConnection
+# rename (ADR 0006). The model's role narrowed to "an OAuth grant that
+# gives pito access to one or more YouTube channels." See
+# `docs/plans/beta/09-login-with-google-drop/specs/01-google-identity-rename.md`.
 #
-# One row per (User, Google account) pair. Beta UI in 7C enforces 1
-# identity per user; the schema permits N (no unique on `user_id`)
-# so Theta multi-account support is a future UI change, not a
-# migration.
+# One row per (User, Google account) pair. The schema permits a User to
+# hold multiple connections — `User has_many :youtube_connections` — so a
+# single pito account holder can connect multiple Google accounts (one
+# grant per account; each grant covers one or more channels).
 #
-# Phase 8 — tenant drop. `google_subject_id` is now globally unique
-# (the upstream Google ID is unique on its own).
+# `google_subject_id` is install-wide unique (the upstream Google ID is
+# globally unique on its own — Phase 8 dropped the tenant-scoped
+# composite).
 #
 # Token columns are encrypted at the model layer with Active Record
 # Encryption. The columns are `text` on the schema side because ARE
 # writes a JSON-encoded ciphertext blob. Deterministic encryption is
 # NOT used — tokens are not searchable.
-class GoogleIdentity < ApplicationRecord
+class YoutubeConnection < ApplicationRecord
   belongs_to :user
 
+  # Phase 7C disconnect-lifecycle decision (preserved): channels outlive
+  # the connection. Destroying the connection nullifies the FK on
+  # surviving channels so the user can re-connect later without losing
+  # their star / saved-view state for those channels.
   has_many :channels,
-           class_name: "Channel",
-           foreign_key: :oauth_identity_id,
+           foreign_key: :youtube_connection_id,
            dependent: :nullify,
-           inverse_of: :oauth_identity
+           inverse_of: :youtube_connection
 
-  # Phase 7 Path A2 — videos may also be tagged with the identity that
+  # Phase 7 Path A2 — videos may also be tagged with the connection that
   # synced them. Same nullify behavior so the Video row outlives the
-  # identity it was synced through.
+  # connection it was synced through.
   has_many :videos,
-           class_name: "Video",
-           foreign_key: :oauth_identity_id,
+           foreign_key: :youtube_connection_id,
            dependent: :nullify
 
-  # Audit-row trail outlives the identity (decision 7C-disconnect-
-  # lifecycle: destroy the row; the historical "this user once
-  # authorized" trail lives in `youtube_api_calls`, not on the
-  # identity row). Nullify rather than destroy so the rows stay
-  # for Phase 11 observability.
+  # Audit-row trail outlives the connection (decision 7C-disconnect-
+  # lifecycle: destroy the connection row itself; the historical
+  # "this user once authorized" trail lives in `youtube_api_calls`,
+  # not on the connection row). Nullify rather than destroy so the
+  # rows stay for Phase 11 observability.
   has_many :youtube_api_calls,
-           class_name: "YoutubeApiCall",
-           foreign_key: :google_identity_id,
+           foreign_key: :youtube_connection_id,
            dependent: :nullify,
-           inverse_of: :google_identity
+           inverse_of: :youtube_connection
 
   encrypts :access_token
   encrypts :refresh_token
@@ -64,7 +68,7 @@ class GoogleIdentity < ApplicationRecord
   end
 
   # Convenience reader — returns the column directly. The 7C banner
-  # check is `identity.needs_reauth?`.
+  # check is `connection.needs_reauth?`.
   def needs_reauth?
     !!needs_reauth
   end

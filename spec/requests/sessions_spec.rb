@@ -35,6 +35,19 @@ RSpec.describe "Sessions", type: :request do
       expect(response.body.scan(/invalid email or password/i).length).to eq(1)
       expect(response.body).not_to include("flash-error")
     end
+
+    # Phase 9 — Login-with-Google Drop (ADR 0006). The login form must
+    # not expose any third-party-identity affordance. This guards
+    # against an accidental reintroduction of a "Sign in with Google"
+    # button, divider, or copy.
+    it "does not render any Sign in with Google button or third-party divider" do
+      get login_path
+      body = response.body
+      expect(body).not_to match(/sign[- ]?in with google/i)
+      expect(body).not_to match(/log[- ]?in with google/i)
+      expect(body.downcase).not_to include("google")
+      expect(body.downcase).not_to include("oauth")
+    end
   end
 
   describe "POST /login", :unauthenticated do
@@ -101,6 +114,24 @@ RSpec.describe "Sessions", type: :request do
           tenant_id: "999",
           username: "hacker",
           admin: "yes"
+        }
+      }.to change { Session.where(user_id: user.id).count }.by(1)
+
+      session_row = Session.where(user_id: user.id).order(:created_at).last
+      expect(session_row.user_id).to eq(user.id)
+    end
+
+    # Phase 9 — Login-with-Google Drop (ADR 0006). The login surface
+    # ignores any smuggled third-party-identity parameter; the
+    # controller does not read the param at all, so the success path
+    # is unaffected. Guards against accidental coupling.
+    it "ignores a smuggled google_id_token / google_access_token parameter" do
+      expect {
+        post login_path, params: {
+          email: user.email,
+          password: password,
+          google_id_token: "fake-id-token",
+          google_access_token: "fake-access-token"
         }
       }.to change { Session.where(user_id: user.id).count }.by(1)
 

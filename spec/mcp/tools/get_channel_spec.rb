@@ -8,7 +8,7 @@ RSpec.describe Mcp::Tools::GetChannel do
     result = described_class.call(id: channel.id)
     data = JSON.parse(result.content.first[:text])
 
-    # Phase 7 Path A2 — `connected` is derived from oauth_identity_id;
+    # Phase 9 — `connected` is derived from youtube_connection_id;
     # `syncing` is dropped from the JSON wire shape.
     expect(data["id"]).to eq(channel.id)
     expect(data["channel_url"]).to eq(channel.channel_url)

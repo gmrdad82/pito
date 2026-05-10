@@ -1,20 +1,21 @@
-# Phase 7 — Step C (7c-settings-youtube-ui.md). Settings → YouTube
-# surface — list the user's GoogleIdentity (or empty state),
-# render a connect button, list YouTube channels via
-# `Youtube::Client#channels_list(mine: true)`, and let the user
-# `[ connect ]` any of them into Pito's `Channel` table.
+# Phase 9 — Login-with-Google Drop + GoogleIdentity → YoutubeConnection
+# rename (ADR 0006). Settings → YouTube surface — list the user's
+# YoutubeConnection (or empty state), render a connect button, list
+# YouTube channels via `Youtube::Client#channels_list(mine: true)`,
+# and let the user `[ connect ]` any of them into pito's `Channel`
+# table.
 #
 # Disconnect runs through the existing action-confirmation page
 # framework (`shared/_action_screen.html.erb` +
 # `DeletionsController#show` / `#destroy_youtube_connection`).
 class Settings::YoutubeController < ApplicationController
-  include GoogleOauthRedirect
+  include YoutubeConnectionOauthRedirect
 
   # GET /settings/youtube
   def show
-    @identity = current_identity
+    @youtube_connection = current_youtube_connection
 
-    if @identity.nil? || @identity.needs_reauth?
+    if @youtube_connection.nil? || @youtube_connection.needs_reauth?
       @youtube_channels = []
       @youtube_error = nil
     else
@@ -43,8 +44,8 @@ class Settings::YoutubeController < ApplicationController
       return
     end
 
-    identity = current_identity
-    if identity.nil? || identity.needs_reauth?
+    connection = current_youtube_connection
+    if connection.nil? || connection.needs_reauth?
       redirect_to settings_youtube_path,
                   alert: "google account is not connected."
       return
@@ -54,7 +55,7 @@ class Settings::YoutubeController < ApplicationController
     channel = Channel.find_or_initialize_by(channel_url: channel_url)
 
     if channel.new_record?
-      channel.oauth_identity = identity
+      channel.youtube_connection = connection
       channel.last_synced_at = Time.current
       channel.save!
     else
@@ -62,7 +63,7 @@ class Settings::YoutubeController < ApplicationController
       # `prevent_url_change` guard would reject any channel_url
       # mutation; we never touch it.
       channel.update_columns(
-        oauth_identity_id: identity.id,
+        youtube_connection_id: connection.id,
         last_synced_at: Time.current
       )
     end
@@ -75,14 +76,14 @@ class Settings::YoutubeController < ApplicationController
 
   private
 
-  def current_identity
+  def current_youtube_connection
     return nil unless Current.user.present?
 
-    GoogleIdentity.where(user_id: Current.user.id).order(last_authorized_at: :desc).first
+    YoutubeConnection.where(user_id: Current.user.id).order(last_authorized_at: :desc).first
   end
 
   def load_youtube_channels
-    response = Youtube::Client.new(@identity).channels_list(
+    response = Youtube::Client.new(@youtube_connection).channels_list(
       mine: true,
       parts: %i[snippet statistics]
     )

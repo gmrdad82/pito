@@ -56,7 +56,7 @@ module Youtube
           endpoint: "channels.list",
           http_method: "GET",
           kind: KIND,
-          identity: nil,
+          connection: nil,
           user: nil,
           outcome: outcome,
           http_status: http_status,

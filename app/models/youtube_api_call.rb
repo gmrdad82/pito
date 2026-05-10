@@ -5,7 +5,8 @@
 # success/failure (locked decision).
 class YoutubeApiCall < ApplicationRecord
   belongs_to :user, optional: true
-  belongs_to :google_identity, optional: true
+  # Phase 9 — GoogleIdentity → YoutubeConnection rename (ADR 0006).
+  belongs_to :youtube_connection, optional: true
 
   CLIENT_KINDS = %w[oauth public].freeze
   OUTCOMES = %w[

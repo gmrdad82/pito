@@ -1,6 +1,7 @@
 require "rails_helper"
 
-# Phase 7 — Step A. End-to-end happy path through the OmniAuth flow
+# Phase 9 — Login-with-Google Drop + GoogleIdentity → YoutubeConnection
+# rename (ADR 0006). End-to-end happy path through the OmniAuth flow
 # in test_mode. The system spec drives the connect button → Google
 # (mocked) → callback → /settings/youtube round trip.
 RSpec.describe "Google OAuth flow", type: :system do
@@ -42,7 +43,7 @@ RSpec.describe "Google OAuth flow", type: :system do
 
     expect {
       click_button "[ connect ]"
-    }.to change { GoogleIdentity.unscoped.count }.by(1)
+    }.to change { YoutubeConnection.unscoped.count }.by(1)
 
     expect(page).to have_current_path(settings_youtube_path)
   end
