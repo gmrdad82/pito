@@ -1,0 +1,33 @@
+<%# Reusable overwrite-confirmation modal. Two entry points share
+    this dialog: (1) `[update]` on an IGDB search result whose
+    igdb_id already maps to a local Game row, and (2) `[resync]`
+    on the game show page (when wired through this surface).
+    The dialog is rendered ONCE in the layout chrome; the
+    triggering link carries `data-igdb-overwrite-path-value`
+    pointing at the `POST /games/:id/resync` endpoint, and the
+    `igdb-overwrite-confirm` Stimulus controller copies that path
+    onto the dialog's <form action> before opening it.
+    No JS confirm/alert/prompt anywhere (CLAUDE.md hard rule). %>
+<dialog id="igdb-overwrite-modal"
+        class="confirm-modal"
+        data-controller="igdb-overwrite-confirm"
+        data-action="click->igdb-overwrite-confirm#clickOutside keydown->igdb-overwrite-confirm#keydown">
+  <div class="confirm-modal-inner">
+    <div class="dialog-title">overwrite igdb-sourced fields?</div>
+    <div class="dialog-message">
+      <p class="text-muted" style="margin: 0;">
+        re-syncing overwrites igdb-sourced fields.<br>
+        local notes, played-on, footage hours, and platform-owned survive.
+      </p>
+    </div>
+    <div class="confirm-modal-actions modal-footer">
+      <%= form_with url: "#",
+                    method: :post,
+                    data: { turbo: false, igdb_overwrite_confirm_target: "form" },
+                    html: { style: "display: inline;" } do %>
+        <button type="submit" class="bracketed text-danger">[<span class="bl">confirm overwrite</span>]</button>
+      <% end %>
+      <button type="button" class="bracketed" data-action="igdb-overwrite-confirm#close">[<span class="bl">cancel</span>]</button>
+    </div>
+  </div>
+</dialog>

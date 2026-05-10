@@ -1,8 +1,17 @@
 # Phase 15 §2 — Calendar Views.
 #
 # Month grid view. Renders a 6×7 (or 5×7) Monday-first grid with event
-# chips per day. Filters by `?type=` (single value) and `?state=all`
-# (include cancelled / superseded).
+# chips per day. Filter contract (calendar UX restructure):
+#
+#   - `?types=video,game,custom` — comma-separated list of kind labels;
+#     the union of `ENTRY_KIND_FILTERS[<label>]` values is shown.
+#   - No `types` param   → all kinds shown ("default = all checked").
+#   - `?types=` (empty)  → no kinds shown ("all unchecked"); empty result.
+#   - `?state=all`       → include cancelled / superseded entries.
+#
+# `?type=<single>` from the previous contract is no longer accepted; old
+# bookmarks fall through to the "all" default. An unknown kind label in
+# the csv list is silently dropped (lenient parse).
 class Calendar::MonthController < ApplicationController
   include CalendarHelper
 
@@ -30,12 +39,11 @@ class Calendar::MonthController < ApplicationController
 
     scope = CalendarEntry.in_range(range_start, range_end)
 
-    if params[:type].present? && params[:type] != "all"
-      kinds = CalendarHelper::ENTRY_KIND_FILTERS[params[:type]]
-      if kinds.nil?
-        redirect_to calendar_root_path, alert: "unknown filter."
-        return
-      end
+    @selected_kinds = parse_types_param(params[:types])
+    if @selected_kinds == :empty
+      scope = scope.none
+    elsif @selected_kinds.is_a?(Array)
+      kinds = @selected_kinds.flat_map { |label| CalendarHelper::ENTRY_KIND_FILTERS[label] }.compact
       scope = scope.where(entry_type: kinds)
     end
 
@@ -48,10 +56,23 @@ class Calendar::MonthController < ApplicationController
     @next_year, @next_month = next_month(year, month)
     @today = Time.current.in_time_zone(@install_tz).to_date
     @on_current_month = (@today.year == year && @today.month == month)
-    @selected_filter = params[:type] || "all"
   end
 
   private
+
+  # Returns:
+  #   nil          → no `types` param ("all kinds = all checked default")
+  #   :empty       → param present but empty ("all unchecked")
+  #   Array<String>→ explicit subset of kind labels (validated)
+  def parse_types_param(raw)
+    return nil if raw.nil?
+    values = raw.to_s.split(",").map(&:strip).reject(&:empty?)
+    return :empty if values.empty?
+    individual = CalendarHelper::ENTRY_KIND_FILTERS.keys - [ "all" ]
+    kept = values.select { |v| individual.include?(v) }
+    return :empty if kept.empty?
+    kept
+  end
 
   def prev_month(y, m)
     m == 1 ? [ y - 1, 12 ] : [ y, m - 1 ]

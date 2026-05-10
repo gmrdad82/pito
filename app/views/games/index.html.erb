@@ -8,17 +8,30 @@
 
     Each shelf is a `<section class="shelf">` carrying the
     `steam-shelf` Stimulus controller for drag-scroll +
-    mouse-wheel-to-horizontal scroll. Clicking a tile loads the
-    standard game show page; the `[search igdb]` add-form sits
-    above the bundles shelf so users can grow the library inline. %>
+    mouse-wheel-to-horizontal scroll.
+
+    Phase 14 §1 polish (2026-05-10) — the inline IGDB type-ahead
+    `_add_form` partial was retired. The H1 now carries a `[+]`
+    bracketed link (`channels` / `videos` parity) that opens the
+    layout-level IGDB-search modal (`shared/_igdb_search_modal`).
+    The same modal is reachable from anywhere via the `i` keypress. %>
 <% content_for(:title, "games") %>
 
 <div style="max-width: 1100px;">
-  <div class="dot-list" style="margin-bottom: 6px;">
-    <h1>games</h1>
+  <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;">
+    <div class="dot-list">
+      <h1>games</h1>
+      <%= render(BracketedLinkComponent.new(
+            label: "+",
+            href: "#",
+            data: {
+              controller: "modal-trigger",
+              action: "click->modal-trigger#open",
+              modal_trigger_target_id_value: "igdb-search-modal"
+            }
+          )) %>
+    </div>
   </div>
-
-  <%= render "add_form" %>
 
   <% has_any_shelf = @bundles_shelf.any? || @recently_played.any? ||
                      @genres_shelves.any? || @platforms_shelves.any? ||
@@ -69,6 +82,6 @@
       <% end %>
     </section>
   <% else %>
-    <p class="text-muted">no games yet. type in the search box above to find one on igdb.</p>
+    <p class="text-muted">no games yet. press <span class="keycap">i</span> or click [+] to add one from igdb.</p>
   <% end %>
 </div>

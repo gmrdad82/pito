@@ -1,7 +1,13 @@
 # Phase 15 §2 — Calendar Views.
 #
 # Linear schedule view. Paginated by 50, ordered by starts_at ascending.
-# Filters by `?type=` and `?source=`.
+# Filter contract (calendar UX restructure):
+#
+#   - `?types=video,game,custom` — comma-separated list of kind labels;
+#     the union of `ENTRY_KIND_FILTERS[<label>]` values is shown.
+#   - No `types` param  → all kinds shown.
+#   - `?types=` (empty) → no kinds shown.
+#   - `?source=<source>` and `?state=all` keep their original semantics.
 class Calendar::ScheduleController < ApplicationController
   include CalendarHelper
 
@@ -13,12 +19,11 @@ class Calendar::ScheduleController < ApplicationController
     scope = CalendarEntry.all
     scope = scope.visible unless params[:state] == "all"
 
-    if params[:type].present? && params[:type] != "all"
-      kinds = CalendarHelper::ENTRY_KIND_FILTERS[params[:type]]
-      if kinds.nil?
-        redirect_to calendar_schedule_path, alert: "unknown filter."
-        return
-      end
+    @selected_kinds = parse_types_param(params[:types])
+    if @selected_kinds == :empty
+      scope = scope.none
+    elsif @selected_kinds.is_a?(Array)
+      kinds = @selected_kinds.flat_map { |label| CalendarHelper::ENTRY_KIND_FILTERS[label] }.compact
       scope = scope.where(entry_type: kinds)
     end
 
@@ -37,8 +42,19 @@ class Calendar::ScheduleController < ApplicationController
 
     @entries = scope.order(:starts_at).limit(PAGE_SIZE).offset((@page - 1) * PAGE_SIZE).to_a
     @today = Time.current
-    @selected_filter = params[:type] || "all"
     @selected_source = params[:source]
     @show_cancelled = params[:state] == "all"
+  end
+
+  private
+
+  def parse_types_param(raw)
+    return nil if raw.nil?
+    values = raw.to_s.split(",").map(&:strip).reject(&:empty?)
+    return :empty if values.empty?
+    individual = CalendarHelper::ENTRY_KIND_FILTERS.keys - [ "all" ]
+    kept = values.select { |v| individual.include?(v) }
+    return :empty if kept.empty?
+    kept
   end
 end

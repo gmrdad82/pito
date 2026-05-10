@@ -619,3 +619,54 @@ All gate on `Scopes::APP`; every write tool implements two-step
 **Open issues / blockers:** none. Phase 14 — Spec 01 + Spec 02 + Spec 03 —
 complete. Reviewer agent dispatch optional. Phase 13 (analytics catalog) is the
 next dispatch that depends on Phase 14's data tier.
+
+### 2026-05-10 — Game show row-1 details pane sized to 640px
+
+**Discussion:** The game show page details pane was sitting at the wide-pane
+size (904px), which paired with the 280px cover row 1 to consume more
+horizontal real estate than the read-only details payload needs. User
+requested a mid-size pane (bigger than the default 452px, smaller than 904px)
+specific to this page for now — promotable later if other pages adopt the
+same geometry.
+
+**Implemented:**
+
+- `app/assets/tailwind/application.css` — new `.pane--game-detail` modifier
+  (`flex: 0 0 640px; width: 640px;`) defined alongside `.pane--narrow`. Picks
+  up the zebra rhythm via the base `.pane` rule. Mobile breakpoint extended
+  to collapse it to `88vw` (and apply `scroll-snap-align: start` inside a
+  `.pane-strip`) like the other pane modifiers.
+- `app/views/games/show.html.erb` — row 1 right pane swapped from
+  `.pane.pane--wide` → `.pane.pane--game-detail`. Total row-1 width
+  280 + 640 = 920px, fits standard workspace. Rows 2 (sync) and 3 (linked
+  videos) keep `.pane--wide` — only row 1 changes.
+- `spec/requests/games_spec.rb` — pane-modifier comment updated to describe
+  the row-1 geometry; the `it "uses the narrow + game-detail + wide pane
+  modifiers"` example now asserts all three classes appear in the rendered
+  markup. The earlier `pane--wide` assertion stays satisfied because rows 2
+  and 3 still render `.pane--wide`.
+
+**Files touched:**
+
+- `app/assets/tailwind/application.css`
+- `app/views/games/show.html.erb`
+- `spec/requests/games_spec.rb`
+
+**Quality gates:**
+
+- `bundle exec rspec spec/requests/games_spec.rb` — 54 examples, 0 failures.
+  (One transient flake on the `/games` empty-state assertion — unrelated to
+  this work; created by a parallel agent's IGDB-search modal restructure —
+  cleared on rerun.)
+- `bin/rubocop spec/requests/games_spec.rb` — clean (CSS / ERB are not in
+  rubocop's scope on this project).
+- `bin/brakeman -q -w2` — Errors: 0, Security Warnings: 0.
+
+**Coordination:** complementary to the parallel game-show / edit split agent
+(`ae939b4ba59b253e9`); confirmed the row-1 right pane is the only pane
+touched by this lane and the show page's three-row structure (cover +
+details, sync, linked videos) is preserved untouched.
+
+**Open issues / blockers:** none. Page-specific name `.pane--game-detail`
+chosen per spec; promote to a generic `.pane--medium` if a second page
+adopts the same 640px geometry.

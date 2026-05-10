@@ -12,16 +12,26 @@
   <h1 style="display: inline;"><%= @project.name %></h1>
 </div>
 
-<%# Phase B revamp (2026-05-06) — Project show is a `.pane-row` of three
-    panes that wrap to a new row when the viewport runs out:
-    - timelines (`.pane`, 640px, A)
+<%# Phase 12 realignment (2026-05-10) — Timeline model retired and
+    replaced by direct `Video.project_id`. The first pane in the row
+    now lists linked videos instead of timelines.
+
+    Phase B revamp (2026-05-06) layout:
+    Project show is a `.pane-row` of three panes that wrap to a new
+    row when the viewport runs out:
+    - videos (`.pane`, 640px, A) — was timelines
     - notes (`.pane`, 640px, B)
     - footage (`.pane pane--wide`, 1280px, wide tone)
     Zebra alternation paints the first two; `.pane--wide` keeps the wide
     tone regardless of position. %>
+<%# Linked-videos listing for the videos pane. Sorted published-first,
+    most-recent-first; ordering by published_at desc surfaces the live
+    work. Computed inline so this realignment doesn't require touching
+    the controller. %>
+<% linked_videos = @project.videos.order(Arel.sql("published_at DESC NULLS LAST")) %>
 <div class="pane-row" style="margin-top: 16px;">
   <div class="pane">
-    <%= render "projects/timelines_pane", project: @project, timelines: @timelines %>
+    <%= render "projects/videos_pane", project: @project, videos: linked_videos %>
   </div>
   <div class="pane">
     <%= render "projects/notes_pane",
@@ -40,43 +50,4 @@
                sort: @footage_sort,
                dir: @footage_dir %>
   </div>
-</div>
-
-<%# Phase 12 — linked videos. Direct nullable Video.project_id replaces
-    the dropped Timeline intermediary. Listing is published-first,
-    most-recent-first; ordering by published_at desc surfaces the live
-    work. %>
-<% linked_videos = @project.videos.order(Arel.sql("published_at DESC NULLS LAST")) %>
-<div class="pane" style="margin-top: 16px; max-width: 1280px;">
-  <h2>linked videos (<%= number_with_delimiter(linked_videos.size) %>)</h2>
-  <% if linked_videos.any? %>
-    <table>
-      <thead>
-        <tr>
-          <th>title</th>
-          <th>privacy</th>
-          <th>published</th>
-        </tr>
-      </thead>
-      <tbody>
-        <% linked_videos.each do |video| %>
-          <tr>
-            <td>
-              <%= link_to video.title.presence || video.youtube_video_id, video_path(video) %>
-            </td>
-            <td><%= video.privacy_status %></td>
-            <td>
-              <% if video.published_at.present? %>
-                <%= video.published_at.strftime("%Y-%m-%d") %>
-              <% else %>
-                —
-              <% end %>
-            </td>
-          </tr>
-        <% end %>
-      </tbody>
-    </table>
-  <% else %>
-    <p class="text-muted">no videos linked yet.</p>
-  <% end %>
 </div>

@@ -4,6 +4,12 @@ module Mcp
     # around `Igdb::Client#search_games` so Claude Mobile can find an
     # IGDB id without leaving the conversation. Returns IGDB hits with
     # their `id`, `name`, `slug`, and `release_year` (when known).
+    #
+    # Phase 14 §1 polish (2026-05-10) — `include_editions: yes/no`
+    # opt-in to disable the default "main entries" category filter
+    # (see `Igdb::Client::DEFAULT_SEARCH_CATEGORIES`). MCP I/O uses
+    # `"yes"` / `"no"` strings per CLAUDE.md hard rule; we coerce to
+    # the underlying boolean before handing off to the client.
     class IgdbSearch < MCP::Tool
       tool_name "igdb_search"
       description "Search IGDB live for games by title. Read-only proxy; returns IGDB ids."
@@ -12,7 +18,8 @@ module Mcp
         type: "object",
         properties: {
           q: { type: "string" },
-          limit: { type: "integer" }
+          limit: { type: "integer" },
+          include_editions: { type: "string", enum: [ "yes", "no" ] }
         },
         required: [ "q" ],
         additionalProperties: false
@@ -20,7 +27,7 @@ module Mcp
 
       annotations(read_only_hint: true)
 
-      def self.call(q:, limit: 10)
+      def self.call(q:, limit: 10, include_editions: "no")
         scope_err = Mcp::ToolAuth.require_scope!(Scopes::APP)
         return scope_err if scope_err
 
@@ -29,8 +36,11 @@ module Mcp
 
         capped = limit.to_i.clamp(1, 25)
 
+        coerced_flag = coerce_yes_no(include_editions)
+        return error_response("include_editions must be 'yes' or 'no'.") if coerced_flag.nil?
+
         begin
-          hits = Igdb::Client.new.search_games(query, limit: capped)
+          hits = Igdb::Client.new.search_games(query, limit: capped, include_editions: coerced_flag)
         rescue Igdb::Client::Error => e
           return error_response("igdb error: #{e.message}")
         end
@@ -44,6 +54,13 @@ module Mcp
           }
         end
         MCP::Tool::Response.new([ { type: "text", text: JSON.pretty_generate(payload) } ])
+      end
+
+      def self.coerce_yes_no(value)
+        case value.to_s.strip.downcase
+        when "yes" then true
+        when "no", "" then false
+        end
       end
 
       def self.error_response(msg)

@@ -45,6 +45,36 @@ RSpec.describe Igdb::Client do
       client.search_games("'; drop tables;")
       expect(stub).to have_been_requested
     end
+
+    # Phase 14 §1 polish (2026-05-10) — default search filters to the
+    # "main entries" category set so cluttery deluxe / ultimate edition
+    # rows drop out (Pragmata Deluxe Edition, Red Dead Redemption II
+    # Ultimate Edition, etc.). The filter is opt-out via
+    # `include_editions: true`.
+    it "filters to main + remake + remaster + port categories by default" do
+      expected_set = Igdb::Client::DEFAULT_SEARCH_CATEGORIES.join(",")
+      stub = stub_request(:post, "https://api.igdb.com/v4/games")
+        .with(body: /where category = \(#{Regexp.escape(expected_set)}\)/)
+        .to_return(status: 200, body: "[]")
+      client.search_games("zelda")
+      expect(stub).to have_been_requested
+    end
+
+    it "drops the category filter when include_editions: true" do
+      stub = stub_request(:post, "https://api.igdb.com/v4/games")
+        .with { |req| !req.body.include?("where category") }
+        .to_return(status: 200, body: "[]")
+      client.search_games("zelda", include_editions: true)
+      expect(stub).to have_been_requested
+    end
+
+    it "asks IGDB for the `category` field so callers can inspect it" do
+      stub = stub_request(:post, "https://api.igdb.com/v4/games")
+        .with(body: /fields[^;]*\bcategory\b/)
+        .to_return(status: 200, body: "[]")
+      client.search_games("zelda")
+      expect(stub).to have_been_requested
+    end
   end
 
   describe "#fetch_game" do

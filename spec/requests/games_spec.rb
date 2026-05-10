@@ -13,12 +13,32 @@ RSpec.describe "Games", type: :request do
     it "renders the empty-state copy when no rows exist" do
       get games_path
       expect(response.body).to include("no games yet.")
-      expect(response.body).to include("type in the search box above")
+      # Phase 14 §1 polish (2026-05-10) — inline `_add_form` retired in
+      # favor of `[+]` next to the H1 + the layout-level IGDB modal.
+      expect(response.body).to include("igdb")
     end
 
     it "does not render a [search igdb] chip on the add form" do
       get games_path
       expect(response.body).not_to include("[search igdb]")
+    end
+
+    # Phase 14 §1 polish (2026-05-10) — `[+]` next to the H1 opens the
+    # layout-level IGDB-search modal via the existing `modal-trigger`
+    # Stimulus controller.
+    it "renders a [+] bracketed link wired to the IGDB-search modal" do
+      get games_path
+      expect(response.body).to match(/\[<span class="bl">\+<\/span>\]/)
+      expect(response.body).to include('data-modal-trigger-target-id-value="igdb-search-modal"')
+    end
+
+    it "does NOT render the retired inline igdb-search type-ahead form" do
+      get games_path
+      # The old `_add_form` partial mounted the `igdb-search` controller
+      # and a sibling `<turbo-frame>` of its own. The frame now lives
+      # only inside the layout's IGDB modal; the page-level controller
+      # is gone.
+      expect(response.body).not_to include('data-controller="igdb-search"')
     end
 
     context "with a populated library" do
@@ -168,8 +188,11 @@ RSpec.describe "Games", type: :request do
     # Phase 14 §1 polish (2026-05-10) — show page now uses the canonical
     # `.pane-row > .pane` two-pane layout (mirrors channels/videos).
     # Layout revamp (2026-05-10) — left pane carries `pane--narrow`
-    # (280px, hugs the cover) and right pane carries `pane--wide` (904px,
-    # so form-field hints stay on one line). The pane-count assertion
+    # (280px, hugs the cover) and the row-1 right pane carries
+    # `pane--game-detail` (640px, mid-size — bigger than the default
+    # 452px, smaller than the 904px wide pane — so the cover + details
+    # fit on one row at standard workspace width). Rows 2 (sync) and 3
+    # (linked videos) still use `pane--wide`. The pane-count assertion
     # below tolerates either modifier by matching `class="pane ..."` or
     # `class="pane"` — both forms are valid `.pane` elements.
     it "renders inside a `.pane-row` of `.pane` children" do
@@ -179,18 +202,108 @@ RSpec.describe "Games", type: :request do
       expect(pane_open_tags).to be >= 2
     end
 
-    # Layout revamp (2026-05-10) — assert the narrow + wide modifiers
-    # actually land in the rendered markup so the column proportions
-    # don't silently revert to the default 452/452 split.
-    it "uses the narrow + wide pane modifiers for the cover / form split" do
+    # Layout revamp (2026-05-10) — assert the narrow + game-detail + wide
+    # modifiers actually land in the rendered markup so the column
+    # proportions don't silently revert. The row-1 right pane uses the
+    # new mid-size `pane--game-detail` (640px); the sync and linked
+    # videos panes on subsequent rows keep `pane--wide`.
+    it "uses the narrow + game-detail + wide pane modifiers" do
       get game_path(game)
       expect(response.body).to include("pane pane--narrow")
+      expect(response.body).to include("pane pane--game-detail")
       expect(response.body).to include("pane pane--wide")
     end
 
     it "splits the re-sync caveat onto two lines via <br>" do
       get game_path(game)
       expect(response.body).to include("re-syncing overwrites igdb-sourced fields.<br>")
+    end
+
+    # Phase 14 §1 polish (2026-05-10) — show / edit split.
+    it "exposes [edit] in the breadcrumb action strip" do
+      get game_path(game)
+      expect(response.body).to include(edit_game_path(game))
+    end
+
+    it "does NOT carry the inline form (moved to /edit)" do
+      get game_path(game)
+      # The form's submit was `[update]` and the textarea was for notes.
+      expect(response.body).not_to include('name="game[notes]"')
+    end
+
+    it "does NOT show [open on igdb] (retired)" do
+      get game_path(game)
+      expect(response.body).not_to include("open on igdb")
+    end
+
+    context "when resync is in flight" do
+      before { game.update_column(:resyncing, true) }
+
+      it "renders the sync-indicator instead of the [resync] button" do
+        get game_path(game)
+        expect(response.body).to include('data-controller="sync-indicator"')
+        expect(response.body).to include('data-sync-indicator-frames-value=')
+        # The [resync] button goes away while the indicator is mounted.
+        expect(response.body).not_to match(/<span class="bl">resync<\/span>/)
+      end
+
+      it "stamps an auto-refresh polling controller while resyncing" do
+        get game_path(game)
+        expect(response.body).to include('data-controller="auto-refresh"')
+      end
+    end
+
+    context "when resync is NOT in flight" do
+      it "renders the [resync] button (igdb_id present)" do
+        get game_path(game)
+        expect(response.body).to include('<span class="bl">resync</span>')
+      end
+
+      it "does NOT stamp the auto-refresh controller" do
+        get game_path(game)
+        expect(response.body).not_to include('data-controller="auto-refresh"')
+      end
+    end
+  end
+
+  describe "GET /games/:id/edit" do
+    let!(:game) { create(:game, :synced, title: "Zelda BotW") }
+
+    it "renders 200" do
+      get edit_game_path(game)
+      expect(response).to have_http_status(:ok)
+    end
+
+    it "carries the local-fields form" do
+      get edit_game_path(game)
+      expect(response.body).to include('name="game[notes]"')
+      expect(response.body).to include('name="game[platform_owned_id]"')
+      expect(response.body).to include('name="game[played_at]"')
+      expect(response.body).to include('name="game[hours_of_footage_manual]"')
+    end
+
+    it "renders [update] and [cancel] actions" do
+      get edit_game_path(game)
+      expect(response.body).to include("update")
+      expect(response.body).to include("cancel")
+    end
+
+    it "does NOT render the sync pane" do
+      get edit_game_path(game)
+      expect(response.body).not_to include(">sync<")
+    end
+
+    it "does NOT render the linked videos pane" do
+      get edit_game_path(game)
+      # Heading-only check; the form hint copy ("…compute from linked
+      # videos.") legitimately mentions the phrase.
+      expect(response.body).not_to include(">linked videos<")
+    end
+
+    it "uses the narrow + wide pane layout" do
+      get edit_game_path(game)
+      expect(response.body).to include("pane pane--narrow")
+      expect(response.body).to include("pane pane--wide")
     end
   end
 
@@ -252,6 +365,16 @@ RSpec.describe "Games", type: :request do
     it "404s when the game does not exist" do
       post "/games/999999/resync"
       expect(response).to have_http_status(:not_found)
+    end
+
+    # Phase 14 §1 polish (2026-05-10) — resync mutex.
+    it "no-ops with a flash when a resync is already in flight" do
+      game.update_column(:resyncing, true)
+      expect {
+        post resync_game_path(game)
+      }.not_to change { GameIgdbSync.jobs.size }
+      expect(response).to redirect_to(game_path(game))
+      expect(flash[:notice]).to include("already resyncing")
     end
   end
 

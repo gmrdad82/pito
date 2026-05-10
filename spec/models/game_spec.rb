@@ -232,6 +232,19 @@ RSpec.describe Game, type: :model do
     end
   end
 
+  # Phase 14 §1 polish (2026-05-10) — `games.resyncing` mutex flag.
+  describe "#resyncing?" do
+    it "defaults to false on new rows" do
+      expect(create(:game).resyncing?).to eq(false)
+    end
+
+    it "is mutable via update_column without firing validations or callbacks" do
+      g = create(:game)
+      g.update_column(:resyncing, true)
+      expect(g.reload.resyncing?).to eq(true)
+    end
+  end
+
   # Phase 14 §2 — Bundle membership.
   describe "bundle membership" do
     it { is_expected.to have_many(:bundle_members).dependent(:destroy) }

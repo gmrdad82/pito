@@ -1,0 +1,70 @@
+<%# Phase 14 §1 polish (2026-05-10) — game edit page. The form
+    that used to live inline on `show.html.erb` moved here so the
+    show page reads as canonical read-only metadata. Layout matches
+    the show page (narrow cover pane + wide form pane) so the
+    transition reads as "same page, the right column is now
+    editable".
+    NO sync pane. NO linked videos. NO `[resync]`. The `[edit]` /
+    `[-]` strip on the show page is what carries the user here;
+    here, the breadcrumb is `games / <title> / edit` and the
+    bottom of the form carries `[update]` / `[cancel]`.
+%>
+<% content_for(:title, "edit #{@game.title}") %>
+<% breadcrumb([ "games", games_path ], [ @game.title, game_path(@game) ], "edit") %>
+
+<div class="pane-row">
+  <div class="pane pane--narrow">
+    <%= render "shared/igdb_cover", game: @game, size: "t_cover_big" %>
+
+    <h1 style="margin: 8px 0 4px 0;"><%= @game.title %></h1>
+    <p class="text-muted" style="margin: 0 0 8px 0;">
+      <% if @game.release_year %><%= @game.release_year %><% else %>—<% end %>
+      <% developer_names = @game.developers.map(&:name) %>
+      <% if developer_names.any? %> &middot; dev: <%= developer_names.join(", ") %><% end %>
+    </p>
+  </div>
+
+  <div class="pane pane--wide">
+    <h2 style="margin-top: 0;">local fields</h2>
+    <%= form_with(model: @game, url: game_path(@game), method: :patch) do |f| %>
+      <% if @game.errors.any? %>
+        <div class="text-danger" style="margin: 0 0 12px 0;">
+          <% @game.errors.full_messages.each do |msg| %>
+            <p style="margin: 0;"><%= msg %></p>
+          <% end %>
+        </div>
+      <% end %>
+
+      <table class="detail-table" style="margin-bottom: 12px;">
+        <tr>
+          <td class="text-muted" style="padding-right: 12px;">platform owned</td>
+          <td>
+            <%= f.collection_select :platform_owned_id,
+                                    @game.platforms_available.order(:name),
+                                    :id, :name, include_blank: "—" %>
+          </td>
+        </tr>
+        <tr>
+          <td class="text-muted" style="padding-right: 12px;">played on</td>
+          <td><%= f.date_field :played_at %></td>
+        </tr>
+        <tr>
+          <td class="text-muted" style="padding-right: 12px; vertical-align: top;">notes</td>
+          <td><%= f.text_area :notes, rows: 6, style: "width: 100%; max-width: 380px;" %></td>
+        </tr>
+        <tr>
+          <td class="text-muted" style="padding-right: 12px;">footage hours (manual)</td>
+          <td>
+            <%= f.number_field :hours_of_footage_manual, min: 0, style: "width: 80px;" %>
+            <span class="text-muted" style="font-size: 11px;">leave blank to compute from linked videos.</span>
+          </td>
+        </tr>
+      </table>
+
+      <div class="dot-list">
+        <button type="submit" class="bracketed" style="background: none; border: none; padding: 0; cursor: pointer;">[<span class="bl">update</span>]</button>
+        <%= render(BracketedLinkComponent.new(label: "cancel", href: game_path(@game))) %>
+      </div>
+    <% end %>
+  </div>
+</div>

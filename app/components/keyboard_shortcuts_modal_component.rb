@@ -16,6 +16,8 @@ class KeyboardShortcutsModalComponent < ViewComponent::Base
         Row.new(keys: "?", description: "toggle this help"),
         Row.new(keys: "q", description: "back / close"),
         Row.new(keys: "t", description: "toggle dark/light theme"),
+        Row.new(keys: "/", description: "open search modal"),
+        Row.new(keys: "i", description: "open igdb add-game modal"),
         Row.new(keys: "Esc", description: "close overlay / clear filter / leave bulk")
       ]
     ),
@@ -32,7 +34,6 @@ class KeyboardShortcutsModalComponent < ViewComponent::Base
     Section.new(
       title: "list pages (channels / videos)",
       rows: [
-        Row.new(keys: "/", description: "open search"),
         Row.new(keys: "j / k", description: "move highlight down / up"),
         Row.new(keys: "space", description: "toggle bulk select on row (bulk mode only)"),
         Row.new(keys: "b", description: "toggle bulk mode"),

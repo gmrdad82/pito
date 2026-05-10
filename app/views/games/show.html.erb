@@ -1,32 +1,39 @@
-<%# Phase 14 §1 polish (2026-05-10) — game show page revamped to the
-    canonical two-pane layout used by channels/videos: detail (cover +
-    breadcrumb-style identifier) on the left, IGDB metadata + local
-    fields form + sync state on the right, both inside a `.pane-row`.
-    Bracketed-link convention `[label]` (no inner spaces) applies. The
-    muted re-sync caveat reads one sentence per line per the
-    lead-paragraph rule. %>
+<%# Phase 14 §1 polish (2026-05-10) — game show page revamped to a
+    READ-ONLY surface. The inline form moved to `/games/:id/edit`.
+    Layout is three rows of `.pane-row`s:
+      Row 1 — narrow cover pane + wide read-only metadata pane.
+      Row 2 — wide standalone sync pane (status + animated indicator
+              while the resync job is in flight, `[resync]` link
+              otherwise).
+      Row 3 — wide linked-videos pane.
+    The breadcrumb-action strip carries `[edit]` and `[-]` (delete);
+    `[resync]` is NOT in the breadcrumb action strip — it lives
+    inside the sync pane so the moving indicator can replace it
+    without re-flowing the breadcrumb. The muted re-sync caveat
+    reads one sentence per line per the lead-paragraph rule.
+%>
 <% content_for(:title, @game.title) %>
 <% breadcrumb(["games", games_path], @game.title) %>
 <% content_for(:breadcrumb_actions) do %>
   <div class="dot-list">
-    <% if @game.igdb_id.present? %>
-      <%= button_to resync_game_path(@game),
-                    method: :post,
-                    class: "bracketed",
-                    form: { style: "display: inline; margin: 0;", data: { turbo: false } } do %>[<span class="bl">resync</span>]<% end %>
-    <% end %>
+    <%= render(BracketedLinkComponent.new(label: "edit", href: edit_game_path(@game))) %>
     <%= render(BracketedLinkComponent.new(label: "-", href: "/deletions/game/#{@game.id}", destructive: true)) %>
   </div>
 <% end %>
 
+<% if @game.resyncing? %>
+  <%# Auto-refresh fallback. While the resync flag is set we reload
+      every ~5s so the show page picks up the cleared flag without a
+      manual refresh. The controller no-ops once the next render
+      drops it (because the wrapper div is conditional on
+      `resyncing?`). %>
+  <div data-controller="auto-refresh"
+       data-auto-refresh-interval-value="5000"
+       style="display: none;"></div>
+<% end %>
+
+<%# Row 1 — cover + read-only metadata. %>
 <div class="pane-row">
-  <%# Left pane — cover art + heading + IGDB-side context. The cover
-      fills the pane width (`max-width: 100%` is on the shared
-      `_igdb_cover` partial) so the column reads as a Steam-style card.
-      `pane--narrow` (280px) hugs the cover at roughly its native IGDB
-      `t_cover_big` aspect (264×374) so the column doesn't waste space;
-      the right pane gets `pane--wide` (904px) to keep form labels +
-      hint text on one line. Width revamp 2026-05-10. %>
   <div class="pane pane--narrow">
     <%= render "shared/igdb_cover", game: @game, size: "t_cover_big" %>
 
@@ -38,57 +45,14 @@
       <% publisher_names = @game.publishers.map(&:name) %>
       <% if publisher_names.any? %> &middot; pub: <%= publisher_names.join(", ") %><% end %>
     </p>
-
-    <div class="dot-list" style="margin-bottom: 8px;">
-      <% if @game.igdb_slug.present? %>
-        <%= render(BracketedLinkComponent.new(label: "open on igdb",
-                                              href: "https://www.igdb.com/games/#{@game.igdb_slug}",
-                                              target: "_blank",
-                                              rel: "noopener")) %>
-      <% end %>
-      <% if @game.external_steam_app_id.present? %>
-        <%= render(BracketedLinkComponent.new(label: "steam",
-                                              href: "https://store.steampowered.com/app/#{@game.external_steam_app_id}/",
-                                              target: "_blank",
-                                              rel: "noopener")) %>
-      <% end %>
-      <% if @game.external_gog_id.present? %>
-        <%= render(BracketedLinkComponent.new(label: "gog",
-                                              href: "https://www.gog.com/game/#{@game.external_gog_id}",
-                                              target: "_blank",
-                                              rel: "noopener")) %>
-      <% end %>
-      <% if @game.external_epic_id.present? %>
-        <%= render(BracketedLinkComponent.new(label: "epic",
-                                              href: "https://store.epicgames.com/p/#{@game.external_epic_id}",
-                                              target: "_blank",
-                                              rel: "noopener")) %>
-      <% end %>
-    </div>
-
-    <% if @game.summary.present? %>
-      <h2 style="margin-top: 16px;">summary</h2>
-      <p style="white-space: pre-line;"><%= @game.summary %></p>
-    <% end %>
   </div>
 
-  <%# Right pane — ratings, time-to-beat, genres / platforms, the local-
-      fields form, and sync metadata. The re-sync caveat is split onto
-      two lines via `<br>` to honor the one-sentence-per-line rule.
-      `pane--wide` (904px) keeps the "leave blank to compute from linked
-      videos." hint visible next to the manual-hours field instead of
-      truncating. %>
-  <div class="pane pane--wide">
-    <p class="text-muted" style="margin: 0 0 8px 0; font-size: 11px;">
-      re-syncing overwrites igdb-sourced fields.<br>
-      local notes, played-on, footage hours, and platform-owned survive.
-    </p>
-
+  <div class="pane pane--game-detail">
     <% if @game.last_sync_error.present? %>
-      <p class="text-danger" style="margin: 8px 0;">igdb error: <%= @game.last_sync_error %></p>
+      <p class="text-danger" style="margin: 0 0 8px 0;">igdb error: <%= @game.last_sync_error %></p>
     <% end %>
 
-    <h2 style="margin-top: 8px;">ratings</h2>
+    <h2 style="margin-top: 0;">ratings</h2>
     <table class="detail-table">
       <tr>
         <td class="text-muted" style="padding-right: 12px;">igdb</td>
@@ -117,48 +81,106 @@
       <strong>platforms:</strong> <%= @game.platforms_available.map(&:name).join(", ").presence || "—" %>
     </p>
 
-    <h2 style="margin-top: 16px;">local fields</h2>
-    <%= form_with(model: @game, url: game_path(@game), method: :patch) do |f| %>
-      <table class="detail-table" style="margin-bottom: 8px;">
-        <tr>
-          <td class="text-muted" style="padding-right: 12px;">platform owned</td>
-          <td>
-            <%= f.collection_select :platform_owned_id,
-                                    @game.platforms_available.order(:name),
-                                    :id, :name, include_blank: "—" %>
-          </td>
-        </tr>
-        <tr>
-          <td class="text-muted" style="padding-right: 12px;">played on</td>
-          <td><%= f.date_field :played_at %></td>
-        </tr>
-        <tr>
-          <td class="text-muted" style="padding-right: 12px; vertical-align: top;">notes</td>
-          <td><%= f.text_area :notes, rows: 4, style: "width: 100%; max-width: 380px;" %></td>
-        </tr>
-        <tr>
-          <td class="text-muted" style="padding-right: 12px;">footage hours (manual)</td>
-          <td>
-            <%= f.number_field :hours_of_footage_manual, min: 0, style: "width: 80px;" %>
-            <span class="text-muted" style="font-size: 11px;">leave blank to compute from linked videos.</span>
-          </td>
-        </tr>
-      </table>
-      <button type="submit">[<b>update</b>]</button>
+    <%# External store links. `[open on igdb]` was retired per spec —
+        only the platform-store links remain. %>
+    <% if @game.external_steam_app_id.present? || @game.external_gog_id.present? || @game.external_epic_id.present? %>
+      <h2 style="margin-top: 16px;">stores</h2>
+      <div class="dot-list">
+        <% if @game.external_steam_app_id.present? %>
+          <%= render(BracketedLinkComponent.new(label: "steam",
+                                                href: "https://store.steampowered.com/app/#{@game.external_steam_app_id}/",
+                                                target: "_blank",
+                                                rel: "noopener")) %>
+        <% end %>
+        <% if @game.external_gog_id.present? %>
+          <%= render(BracketedLinkComponent.new(label: "gog",
+                                                href: "https://www.gog.com/game/#{@game.external_gog_id}",
+                                                target: "_blank",
+                                                rel: "noopener")) %>
+        <% end %>
+        <% if @game.external_epic_id.present? %>
+          <%= render(BracketedLinkComponent.new(label: "epic",
+                                                href: "https://store.epicgames.com/p/#{@game.external_epic_id}",
+                                                target: "_blank",
+                                                rel: "noopener")) %>
+        <% end %>
+      </div>
     <% end %>
 
-    <h2 style="margin-top: 16px;">sync</h2>
-    <p class="text-muted" style="margin: 0;">
+    <% if @game.summary.present? %>
+      <h2 style="margin-top: 16px;">summary</h2>
+      <p style="white-space: pre-line;"><%= @game.summary %></p>
+    <% end %>
+
+    <h2 style="margin-top: 16px;">local fields</h2>
+    <table class="detail-table">
+      <tr>
+        <td class="text-muted" style="padding-right: 12px;">platform owned</td>
+        <td><%= @game.platform_owned&.name.presence || "—" %></td>
+      </tr>
+      <tr>
+        <td class="text-muted" style="padding-right: 12px;">played on</td>
+        <td><%= @game.played_at&.to_fs(:long) || "—" %></td>
+      </tr>
+      <tr>
+        <td class="text-muted" style="padding-right: 12px; vertical-align: top;">notes</td>
+        <td style="white-space: pre-line;"><%= @game.notes.presence || "—" %></td>
+      </tr>
+      <tr>
+        <td class="text-muted" style="padding-right: 12px;">footage hours</td>
+        <td>
+          <%= @game.hours_of_footage.presence || "—" %>
+          <% if @game.hours_of_footage_manual.present? %>
+            <span class="text-muted" style="font-size: 11px;">(manual override)</span>
+          <% end %>
+        </td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<%# Row 2 — combined sync state pane (heading + last-synced + caveat
+    + [resync] button OR animated indicator). Standalone wide pane
+    so the indicator has breathing room and the caveat keeps its
+    one-sentence-per-line shape.
+%>
+<div class="pane-row">
+  <div class="pane pane--wide">
+    <h2 style="margin-top: 0;">sync</h2>
+    <p class="text-muted" style="margin: 0 0 8px 0;">
       <% if @game.igdb_synced_at.present? %>
         synced <%= time_ago_in_words(@game.igdb_synced_at) %> ago.
       <% else %>
         not synced yet.
       <% end %>
     </p>
+    <p class="text-muted" style="margin: 0 0 12px 0; font-size: 11px;">
+      re-syncing overwrites igdb-sourced fields.<br>
+      local notes, played-on, footage hours, and platform-owned survive.
+    </p>
 
-    <%# Phase 14 §3 — linked videos. Lists every Video tied to this
-        Game via `video_game_links` plus a primary star where applicable. %>
-    <h2 style="margin-top: 16px;">linked videos</h2>
+    <% if @game.resyncing? %>
+      <span data-controller="sync-indicator"
+            data-sync-indicator-frames-value='["=---","-=--","--=-","---="]'
+            data-sync-indicator-interval-value="200"
+            class="sync-indicator"
+            style="font-family: var(--font-mono); letter-spacing: 0.1em;">=---</span>
+    <% elsif @game.igdb_id.present? %>
+      <%= button_to resync_game_path(@game),
+                    method: :post,
+                    class: "bracketed",
+                    form: { style: "display: inline; margin: 0;", data: { turbo: false } } do %>[<span class="bl">resync</span>]<% end %>
+    <% end %>
+  </div>
+</div>
+
+<%# Row 3 — linked videos. Standalone wide pane so each title row
+    can breathe horizontally; this matches the bundle show page's
+    members list rhythm.
+%>
+<div class="pane-row">
+  <div class="pane pane--wide">
+    <h2 style="margin-top: 0;">linked videos</h2>
     <% game_links = @game.video_game_links.includes(:video).order(:id) %>
     <% if game_links.any? %>
       <ul style="list-style: none; padding: 0; margin: 0;">

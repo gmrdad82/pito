@@ -58,14 +58,19 @@
 
   <body data-controller="keyboard">
     <header style="position: fixed; top: 0; left: 0; right: 0; height: 32px; background: var(--color-bg); border-bottom: 1px solid var(--color-border); padding: 0 12px; z-index: 100;" data-controller="theme">
-      <%# Header layout (2026-05-10 redesign):
-            [home][calendar] · [channels][videos] · [projects][games]   <fluid spacer>   |search|  · [settings][logout]
+      <%# Header layout (2026-05-10 redesign, refined 2026-05-10 follow-up):
+            [home][calendar] · [channels][videos] · [projects][notifications]
+            <fluid spacer>   · [settings][logout]
           Groups are separated by a center-dot `·` (`.nav-sep`); items
           within a group sit side-by-side. The `.nav-spacer` flex item
-          carries `flex: 1` so the right cluster (search + settings +
-          logout) right-anchors. The previous `n` keycap-theme toggle
-          was retired here; the theme keybind now lives on `t` and the
-          on-screen affordance is the Settings page. %>
+          carries `flex: 1` so the right cluster (settings + logout)
+          right-anchors. The inline search input that used to sit in
+          the right cluster was retired in favor of a `/`-keyed
+          search modal (`shared/_search_modal`); the IGDB-search modal
+          opens on `i` (`shared/_igdb_search_modal`). The previous `n`
+          keycap-theme toggle was retired earlier; the theme keybind
+          now lives on `t` and the on-screen affordance is the
+          Settings page. %>
       <div style="display: flex; align-items: center; height: 32px; gap: 4px;">
         <a href="/" style="text-decoration: none; display: flex; align-items: center; line-height: 0;" aria-label="Dashboard">
           <img src="/Pito.png" alt="pito" class="header-logo">
@@ -96,9 +101,6 @@
               <%= render "notifications/badge", unread_count: Notification.unread.count %>
             </span>
             <span class="nav-spacer" style="flex: 1;"></span>
-            <%= form_with url: search_path, method: :get, class: "search-form", style: "display: flex; align-items: center; gap: 4px;", data: { turbo_action: "replace" } do %>
-              <input type="text" name="q" value="<%= params[:q] %>" placeholder="search..." autocomplete="off" class="search-input" style="width: 200px; height: 22px; font-size: 13px; padding: 0 6px; border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-text); font-family: inherit;">
-            <% end %>
             <span class="nav-sep" aria-hidden="true">·</span>
             <span class="nav-group">
               <%= nav_link "settings", settings_path, short: "S" %><%
@@ -173,5 +175,30 @@
         controller's `dialog` target; the controller is mounted on
         `<body>` so listeners live for the full page lifetime. %>
     <%= render(KeyboardShortcutsModalComponent.new) %>
+
+    <%# Global search modal — opened by `/` keypress (handled by
+        `keyboard_controller#focusSearchInput`) or by any element
+        carrying `data-action="…->global-search-modal#open"`. The
+        modal posts to `/search` (existing `SearchController#show`)
+        and lives in the layout chrome so any page can trigger it. %>
+    <%= render "shared/search_modal" %>
+
+    <%# Global IGDB-search modal — opened by `i` keypress (handled
+        by `keyboard_controller#openIgdbSearch`) or by `[+]` on
+        `/games`. Submits the typed query to
+        `GamesController#search` (existing `/games/search`); the
+        results render inside the modal's Turbo Frame and offer
+        `[add]` (new) or `[update]` (existing-game overwrite via
+        the shared overwrite-confirmation modal). %>
+    <%= render "shared/igdb_search_modal" %>
+
+    <%# Reusable overwrite-confirmation modal — opened by
+        `data-action="click->modal-trigger#open"` from any
+        `[update]` / `[resync]` link that wants to gate the
+        IGDB-overwrite warning. The form action is set on the
+        triggering link via the `igdb-overwrite-confirm`
+        Stimulus controller's `pathValue`, so the same dialog
+        body serves every game id. %>
+    <%= render "shared/igdb_overwrite_modal" %>
   </body>
 </html>

@@ -428,7 +428,9 @@ RSpec.describe "Projects", type: :request do
       expect(response.body).to include("Untitled project")
       expect(response.body).to include("footage")
       expect(response.body).to include("notes")
-      expect(response.body).to include("timelines")
+      # Phase 12 realignment (2026-05-10): timelines pane retired,
+      # replaced by videos pane (Project has_many :videos).
+      expect(response.body).to include("videos")
     end
   end
 
@@ -440,7 +442,9 @@ RSpec.describe "Projects", type: :request do
       expect(response).to have_http_status(:ok)
       expect(response.body).to include("footage")
       expect(response.body).to include("notes")
-      expect(response.body).to include("timelines")
+      # Phase 12 realignment (2026-05-10): timelines pane retired,
+      # replaced by videos pane.
+      expect(response.body).to include("videos")
     end
 
     # Polish-3 (2026-05-06) — both the footage and notes tables on the
@@ -623,18 +627,19 @@ RSpec.describe "Projects", type: :request do
     # two panes are 640px (zebra A/B); the third is `.pane--wide` (1280px,
     # always wide tone). No inline pane-bg tokens — the global `.pane` /
     # `.pane--wide` rules handle backgrounds.
-    it "renders a .pane-row with three panes (timelines, notes, footage--wide)" do
+    it "renders a .pane-row with three panes (videos, notes, footage--wide)" do
       get project_path(project)
       body = response.body
       expect(body.scan(/class="pane-row"/).size).to eq(1)
-      # Phase 12 added a fourth `.pane` below the row for the
-      # linked-videos listing — count `class="pane"` (no modifier) +
-      # `class="pane pane--wide"` separately so the math is robust to
-      # additions outside the .pane-row.
+      # Phase 12 realignment (2026-05-10): the timelines pane was
+      # replaced by the videos pane (Project has_many :videos via the
+      # direct nullable Video.project_id column). The previously-
+      # separate "linked videos" block below the row was folded into
+      # the in-row videos pane, so the layout is back to exactly 3
+      # panes: 2 plain + 1 wide.
       plain_panes = body.scan(/class="pane"/).size
       wide_panes  = body.scan(/class="pane pane--wide"/).size
-      # Inside the row: 2 plain + 1 wide. Below the row: 1 plain (linked videos).
-      expect(plain_panes).to be >= 3
+      expect(plain_panes).to eq(2)
       expect(wide_panes).to eq(1)
     end
 

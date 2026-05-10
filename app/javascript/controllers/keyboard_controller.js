@@ -11,7 +11,8 @@ import { Controller } from "@hotwired/stimulus"
 //     ?           toggle help dialog
 //     t           toggle theme (handled by theme_controller — we still
 //                 surface it in the help dialog). Was `n` pre-redesign.
-//     /           focus the layout's search input
+//     /           open the global search modal (`#global-search-modal`)
+//     i           open the IGDB-search modal (`#igdb-search-modal`)
 //     Esc         close any open dialog / clear pending prefix
 //   Navigation (`g` prefix, ~1s timeout)
 //     g d         /            (dashboard)
@@ -148,7 +149,10 @@ export default class extends Controller {
         if (this.hasDialogTarget) this.dialogTarget.showModal()
         return
       case "/":
-        if (this.focusSearchInput()) event.preventDefault()
+        if (this.openGlobalSearch()) event.preventDefault()
+        return
+      case "i":
+        if (this.openIgdbSearch()) event.preventDefault()
         return
       case "g":
         this.beginPrefix("g")
@@ -231,12 +235,43 @@ export default class extends Controller {
     return target.matches("input, textarea, select, [contenteditable], [contenteditable='true']")
   }
 
-  focusSearchInput() {
-    const input = document.querySelector(".search-input")
-    if (!input) return false
-    input.focus()
-    input.select?.()
-    return true
+  // Phase 14 §1 polish — `/` opens the global search modal
+  // (`shared/_search_modal`). The inline navbar search input it
+  // used to focus was retired in the same dispatch. Returning
+  // `false` from here lets the keystroke fall through (e.g. into
+  // an open page-local search input) instead of swallowing it.
+  openGlobalSearch() {
+    return this.openLayoutDialog("global-search-modal", "global-search-modal")
+  }
+
+  // Phase 14 §1 polish — `i` opens the IGDB-search modal
+  // (`shared/_igdb_search_modal`). Same shape as `/` above:
+  // returning `false` lets the keystroke pass through if the
+  // dialog isn't on the page (older or stripped layouts).
+  openIgdbSearch() {
+    return this.openLayoutDialog("igdb-search-modal", "igdb-search-modal")
+  }
+
+  // Resolves the layout-level <dialog> by id, looks up its
+  // controller via `window.Stimulus`, and calls `open()`. Falls
+  // back to a direct `showModal()` if the controller isn't wired.
+  // Returns true when a dialog was opened, false otherwise.
+  openLayoutDialog(elementId, controllerIdentifier) {
+    const dialog = document.getElementById(elementId)
+    if (!dialog) return false
+    const app = window.Stimulus
+    if (app && typeof app.getControllerForElementAndIdentifier === "function") {
+      const ctrl = app.getControllerForElementAndIdentifier(dialog, controllerIdentifier)
+      if (ctrl && typeof ctrl.open === "function") {
+        ctrl.open()
+        return true
+      }
+    }
+    if (typeof dialog.showModal === "function") {
+      dialog.showModal()
+      return true
+    }
+    return false
   }
 
   // ---------- list-row highlight ----------
