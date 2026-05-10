@@ -10,36 +10,44 @@
   </p>
 </div>
 
-<table class="detail-table" style="margin-bottom: 12px;">
-  <tr>
-    <td class="text-muted">user-agent</td>
-    <td><code><%= @session.user_agent.presence || "—" %></code></td>
-  </tr>
-  <tr>
-    <td class="text-muted">ip</td>
-    <td><%= @session.ip || "—" %></td>
-  </tr>
-  <tr>
-    <td class="text-muted">last activity</td>
-    <td>
-      <% if @session.last_activity_at %>
-        <%= @session.last_activity_at.strftime("%Y-%m-%d %H:%M") %>
-      <% else %>
-        never
-      <% end %>
-    </td>
-  </tr>
-  <tr>
-    <td class="text-muted">remember</td>
-    <td><%= @session.remember? ? "yes" : "no" %></td>
-  </tr>
-  <% if @session.current? %>
+<%# Phase 12 UX sweep — pane-wrapped detail-table mirrors the canonical
+    label/value layout from `channels/_pane.html.erb` and
+    `videos/_pane.html.erb`. The `.pane.pane--standalone` modifier gives
+    this full-width single-column surface the pane look (elevated bg)
+    without the workspace-grid fixed-width / zebra rules. Label cells
+    carry `padding-right: 12px;` so labels don't kiss the values. %>
+<div class="pane pane--standalone" style="margin-bottom: 12px;">
+  <table class="detail-table">
     <tr>
-      <td class="text-muted">note</td>
-      <td><strong>this is your current session.</strong> revoking it signs you out.</td>
+      <td class="text-muted" style="padding-right: 12px; vertical-align: top;">user-agent</td>
+      <td><code><%= @session.user_agent.presence || "—" %></code></td>
     </tr>
-  <% end %>
-</table>
+    <tr>
+      <td class="text-muted" style="padding-right: 12px; vertical-align: top;">ip</td>
+      <td><%= @session.ip || "—" %></td>
+    </tr>
+    <tr>
+      <td class="text-muted" style="padding-right: 12px; vertical-align: top;">last activity</td>
+      <td>
+        <% if @session.last_activity_at %>
+          <%= @session.last_activity_at.strftime("%Y-%m-%d %H:%M") %>
+        <% else %>
+          never
+        <% end %>
+      </td>
+    </tr>
+    <tr>
+      <td class="text-muted" style="padding-right: 12px; vertical-align: top;">remember</td>
+      <td><%= @session.remember? ? "yes" : "no" %></td>
+    </tr>
+    <% if @session.current? %>
+      <tr>
+        <td class="text-muted" style="padding-right: 12px; vertical-align: top;">note</td>
+        <td><strong>this is your current session.</strong> revoking it signs you out.</td>
+      </tr>
+    <% end %>
+  </table>
+</div>
 
 <%= render "shared/action_screen",
   submit_label: "[revoke]",

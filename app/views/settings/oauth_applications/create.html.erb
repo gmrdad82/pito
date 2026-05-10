@@ -9,16 +9,23 @@
   </p>
 </div>
 
-<%# Phase 7.5 — credentials block framed to read as the "save these
-    now" surface. The `.framed-block` design-system class (see
-    `docs/design.md` → Framed blocks) wraps the credentials list with a
-    bordered, tinted container so the one-time-only secrets register
-    visually as a thing the user must capture. Reusable beyond OAuth —
-    future API token plaintext displays, secret-shown-once flows, etc. %>
-<div class="framed-block">
+<%# Phase 7.5 — credentials block uses the pane look (elevated
+    `--color-pane-bg-a` background) via `.pane.pane--standalone` so this
+    full-width single-column "save these credentials now" surface reads
+    visually consistent with every other data-display pane in the app
+    (workspace columns, settings index, OAuth show/revoke). The
+    `--standalone` modifier drops the fixed 452px width + zebra rule so
+    the pane fills its parent. %>
+<div class="pane pane--standalone">
+  <%# Label cells carry `padding-right: 12px;` so labels don't kiss the
+      values — the same shape used by `channels/_pane.html.erb` and other
+      detail-table surfaces. The base `.detail-table td` rule has
+      `padding: 1px 0;` (no horizontal padding) which is fine for narrow
+      key/value columns but leaves long values like `client_secret` and
+      multi-line redirect URIs visually flush with their label. %>
   <table class="detail-table">
     <tr>
-      <td class="text-muted">name</td>
+      <td class="text-muted" style="padding-right: 12px; vertical-align: top;">name</td>
       <td><strong><%= @application.name %></strong></td>
     </tr>
     <%# Phase 7.5 — `[copy]` affordance on the credentials. Same Stimulus
@@ -28,7 +35,7 @@
         the `<code>` element so the copy link rides next to the value
         without disturbing the two-column detail-table layout. %>
     <tr>
-      <td class="text-muted">client_id</td>
+      <td class="text-muted" style="padding-right: 12px; vertical-align: top;">client_id</td>
       <td>
         <span data-controller="clipboard-copy" class="code-block">
           <code data-clipboard-copy-target="source"><%= @plaintext_uid %></code>
@@ -37,7 +44,7 @@
       </td>
     </tr>
     <tr>
-      <td class="text-muted">client_secret</td>
+      <td class="text-muted" style="padding-right: 12px; vertical-align: top;">client_secret</td>
       <td>
         <span data-controller="clipboard-copy" class="code-block">
           <code data-clipboard-copy-target="source"><%= @plaintext_secret %></code>
@@ -46,7 +53,7 @@
       </td>
     </tr>
     <tr>
-      <td class="text-muted">redirect URIs</td>
+      <td class="text-muted" style="padding-right: 12px; vertical-align: top;">redirect URIs</td>
       <td>
         <% @application.redirect_uri.to_s.split("\n").each do |uri| %>
           <code><%= uri %></code><br>
@@ -54,11 +61,11 @@
       </td>
     </tr>
     <tr>
-      <td class="text-muted">scopes</td>
+      <td class="text-muted" style="padding-right: 12px; vertical-align: top;">scopes</td>
       <td><code><%= @application.scopes %></code></td>
     </tr>
     <tr>
-      <td class="text-muted">confidential</td>
+      <td class="text-muted" style="padding-right: 12px; vertical-align: top;">confidential</td>
       <td><%= @application.confidential? ? "yes" : "no" %></td>
     </tr>
     <%# Phase 7.5 — MCP server URL row. The value clients paste into
@@ -67,7 +74,7 @@
         future host change propagates from one constant rather than
         scattered string literals across views and metadata documents. %>
     <tr>
-      <td class="text-muted">mcp server URL</td>
+      <td class="text-muted" style="padding-right: 12px; vertical-align: top;">mcp server URL</td>
       <td>
         <span data-controller="clipboard-copy" class="code-block">
           <code data-clipboard-copy-target="source"><%= "#{Pito::PublicHosts.mcp_base}/mcp" %></code>

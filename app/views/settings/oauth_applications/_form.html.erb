@@ -27,7 +27,12 @@
               rows="3" required autocomplete="off"
               style="max-width: 420px; width: 100%; font-family: inherit; font-size: 13px;"
     ><%= @application.redirect_uri %></textarea>
-    <span class="form-hint" style="display: block;">one URI per line. for native clients use the loopback shape <code>http://127.0.0.1</code>.</span>
+    <span class="form-hint" style="display: block;">
+      one URI per line. examples:<br>
+      &nbsp;&nbsp;<code>https://claude.ai/api/mcp/auth_callback</code> &mdash; claude.ai web connector<br>
+      &nbsp;&nbsp;<code>http://127.0.0.1:8000/oauth/callback</code> &mdash; native cli / mobile via loopback<br>
+      PKCE is enforced for non-confidential clients.
+    </span>
   </div>
 
   <div style="margin-bottom: 12px;">
