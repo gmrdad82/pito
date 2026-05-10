@@ -14,7 +14,6 @@ pub struct VideosState {
     pub videos: Vec<VideoRow>,
     pub selected: usize,
     pub selected_ids: Vec<u64>,
-    pub bulk_mode: bool,
     /// Sorting feature stub — kept for the upcoming column-header sort flow.
     #[allow(dead_code)]
     pub sort_column: usize,
@@ -93,8 +92,10 @@ struct Columns {
 }
 
 impl Columns {
-    fn compute(width: u16, bulk_mode: bool) -> Self {
-        let prefix = if bulk_mode { 4 } else { 2 }; // "> " or "[ ] "
+    fn compute(width: u16) -> Self {
+        // Checkboxes are always rendered, so the prefix column is always 4
+        // cols wide ("[ ] " / "[x] ").
+        let prefix = 4;
         let star = 3;
         let views = 8;
         let trend = 3;
@@ -171,31 +172,25 @@ fn render_table_header(
     frame: &mut Frame,
     area: Rect,
     theme: &Theme,
-    state: &VideosState,
+    _state: &VideosState,
     width: u16,
 ) {
-    let cols = Columns::compute(width, state.bulk_mode);
+    let cols = Columns::compute(width);
     let style = Style::default().fg(theme.muted);
 
-    let mut spans: Vec<Span> = Vec::new();
-
-    if state.bulk_mode {
-        spans.push(Span::styled("    ", style));
-    } else {
-        spans.push(Span::styled("  ", style));
-    }
-
-    spans.push(Span::styled(
-        pad_right("YouTube id", cols.youtube_id),
-        style,
-    ));
-    spans.push(Span::styled(pad_right("channel", cols.channel), style));
-    spans.push(Span::styled(pad_center("★", cols.star), style));
-    spans.push(Span::styled(pad_left("views", cols.views), style));
-    spans.push(Span::styled(pad_center("trend", cols.trend), style));
-    spans.push(Span::styled(pad_left("likes", cols.likes), style));
-    spans.push(Span::styled(pad_left("chats", cols.comments), style));
-    spans.push(Span::styled(pad_left("watch", cols.watch), style));
+    // Checkboxes are always rendered, so the prefix column is always 4 cols
+    // wide ("[ ] " / "[x] ").
+    let spans: Vec<Span> = vec![
+        Span::styled("    ", style),
+        Span::styled(pad_right("YouTube id", cols.youtube_id), style),
+        Span::styled(pad_right("channel", cols.channel), style),
+        Span::styled(pad_center("★", cols.star), style),
+        Span::styled(pad_left("views", cols.views), style),
+        Span::styled(pad_center("trend", cols.trend), style),
+        Span::styled(pad_left("likes", cols.likes), style),
+        Span::styled(pad_left("chats", cols.comments), style),
+        Span::styled(pad_left("watch", cols.watch), style),
+    ];
 
     frame.render_widget(Paragraph::new(Line::from(spans)), area);
 }
@@ -209,7 +204,7 @@ fn render_separator(frame: &mut Frame, area: Rect, theme: &Theme, width: u16) {
 }
 
 fn render_rows(frame: &mut Frame, area: Rect, theme: &Theme, state: &VideosState, width: u16) {
-    let cols = Columns::compute(width, state.bulk_mode);
+    let cols = Columns::compute(width);
     let visible_count = area.height as usize;
 
     for i in 0..visible_count {
@@ -230,14 +225,11 @@ fn render_rows(frame: &mut Frame, area: Rect, theme: &Theme, state: &VideosState
 
         let mut spans: Vec<Span> = Vec::new();
 
-        // Prefix: cursor or bulk checkbox
-        if state.bulk_mode {
-            let check = if is_checked { "[x] " } else { "[ ] " };
-            spans.push(Span::styled(check, row_style));
-        } else {
-            let cursor = if is_selected { "> " } else { "  " };
-            spans.push(Span::styled(cursor, row_style));
-        }
+        // Prefix: always-on checkbox. Cursor position is conveyed by the row
+        // highlight (background color); selection state by the `[ ]` / `[x]`
+        // marker. Mirrors the web side's always-on checkbox UX.
+        let check = if is_checked { "[x] " } else { "[ ] " };
+        spans.push(Span::styled(check, row_style));
 
         // Youtube id (truncated)
         let yt = truncate(&video.youtube_video_id, cols.youtube_id as usize);
