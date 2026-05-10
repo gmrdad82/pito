@@ -17,6 +17,15 @@ module Igdb
     CACHE_KEY        = "igdb:twitch_token".freeze
     TTL_SAFETY_MARGIN_SECONDS = 60
 
+    # Phase 14 audit F1 — bounded HTTP timeouts so a hung Twitch token
+    # endpoint cannot wedge a Sidekiq worker indefinitely. Mirrors the
+    # values in `Igdb::Client`: 5s open / 10s read / 5s write. Twitch
+    # token acquisition is the auth bootstrap for the entire IGDB
+    # surface — a hang here blocks every downstream IGDB call.
+    OPEN_TIMEOUT_SEC  = 5
+    READ_TIMEOUT_SEC  = 10
+    WRITE_TIMEOUT_SEC = 5
+
     def initialize(cache: Rails.cache)
       @cache = cache
     end
@@ -43,7 +52,16 @@ module Igdb
         grant_type: "client_credentials"
       )
 
-      response = Net::HTTP.post(uri, "")
+      # Phase 14 audit F1 — explicit `Net::HTTP.start` block so we can
+      # set bounded open / read / write timeouts. `Net::HTTP.post`
+      # defaults to 60s open + 60s read, long enough to wedge a Sidekiq
+      # worker on a hung Twitch token endpoint.
+      response = Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https") do |http|
+        http.open_timeout  = OPEN_TIMEOUT_SEC
+        http.read_timeout  = READ_TIMEOUT_SEC
+        http.write_timeout = WRITE_TIMEOUT_SEC
+        http.request(Net::HTTP::Post.new(uri.request_uri))
+      end
       handle(response)
     end
 
