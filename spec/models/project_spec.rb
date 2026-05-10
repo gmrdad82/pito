@@ -1,10 +1,13 @@
 require "rails_helper"
 
+# Phase 8 — tenant drop. Project is install-wide.
 RSpec.describe Project, type: :model do
   subject { build(:project) }
 
   describe "associations" do
-    it { is_expected.to belong_to(:tenant) }
+    it "does not declare a tenant association" do
+      expect(Project.reflect_on_association(:tenant)).to be_nil
+    end
     it { is_expected.to have_many(:project_references).dependent(:destroy) }
     it { is_expected.to have_many(:footages).dependent(:destroy) }
     it { is_expected.to have_many(:notes).dependent(:destroy) }
@@ -33,26 +36,19 @@ RSpec.describe Project, type: :model do
 
   describe "default name" do
     it 'defaults to "Untitled project"' do
-      tenant = create(:tenant)
-      project = Project.create!(tenant: tenant)
+      project = Project.create!
       expect(project.name).to eq("Untitled project")
     end
   end
 
   describe "polymorphic references" do
-    let(:tenant) { create(:tenant) }
-    let(:project) { create(:project, tenant: tenant) }
-    let(:game)       { create(:game, tenant: tenant) }
-    let(:collection) { create(:collection, tenant: tenant) }
-
-    # Phase 5A — re-pin Current.tenant onto the explicitly-created
-    # tenant so the BelongsToTenant default scope sees the rows
-    # this block builds.
-    before { Current.tenant = tenant }
+    let(:project) { create(:project) }
+    let(:game)       { create(:game) }
+    let(:collection) { create(:collection) }
 
     it "collects games and collections via project_references" do
-      ProjectReference.create!(project: project, tenant: tenant, referenceable: game)
-      ProjectReference.create!(project: project, tenant: tenant, referenceable: collection)
+      ProjectReference.create!(project: project, referenceable: game)
+      ProjectReference.create!(project: project, referenceable: collection)
 
       expect(project.games).to contain_exactly(game)
       expect(project.collections).to contain_exactly(collection)
@@ -64,21 +60,13 @@ RSpec.describe Project, type: :model do
     end
   end
 
-  # Phase B (2026-05-04) — cascade-delete verification. Project destroy
-  # tears down notes, footages, timelines, and project_references at the
-  # DB level, AND removes the per-project notes directory on disk.
   describe "cascade destroy" do
-    let(:tenant) { create(:tenant) }
-    let(:project) { create(:project, tenant: tenant) }
+    let(:project) { create(:project) }
     let(:tmp_root) do
       Rails.root.join("tmp", "test-pito-notes", SecureRandom.hex(6)).to_s
     end
 
     before do
-      # Phase 5A — re-pin Current.tenant onto the explicitly-created
-      # tenant so the cascade has_many associations (which apply
-      # the default scope) see this block's rows.
-      Current.tenant = tenant
       @prev_root = ENV["PITO_NOTES_PATH"]
       ENV["PITO_NOTES_PATH"] = tmp_root
     end
@@ -89,9 +77,9 @@ RSpec.describe Project, type: :model do
     end
 
     it "destroys associated notes, footages, timelines (DB side)" do
-      note = create(:note, project: project, tenant: tenant, path: "n.md")
-      footage = create(:footage, project: project, tenant: tenant)
-      timeline = create(:timeline, project: project, tenant: tenant)
+      note = create(:note, project: project, path: "n.md")
+      footage = create(:footage, project: project)
+      timeline = create(:timeline, project: project)
 
       expect { project.destroy! }.to change(Note, :count).by(-1)
         .and change(Footage, :count).by(-1)
@@ -103,7 +91,7 @@ RSpec.describe Project, type: :model do
     end
 
     it "removes the per-project notes directory on disk" do
-      note = create(:note, project: project, tenant: tenant, path: "n.md")
+      note = create(:note, project: project, path: "n.md")
       NotesFilesystem.write(note, "hello")
       project_dir = NotesFilesystem.project_dir(project)
       expect(File.directory?(project_dir)).to be true
@@ -120,12 +108,8 @@ RSpec.describe Project, type: :model do
     end
   end
 
-  # Phase B (2026-05-04) — Note#before_destroy removes the underlying
-  # markdown file. Verified independently of the project cascade so a
-  # solo `note.destroy` (e.g. via NotesController#destroy) is also clean.
   describe "Note destroy file cleanup" do
-    let(:tenant) { create(:tenant) }
-    let(:project) { create(:project, tenant: tenant) }
+    let(:project) { create(:project) }
     let(:tmp_root) do
       Rails.root.join("tmp", "test-pito-notes", SecureRandom.hex(6)).to_s
     end
@@ -141,7 +125,7 @@ RSpec.describe Project, type: :model do
     end
 
     it "removes the on-disk file when the note is destroyed directly" do
-      note = create(:note, project: project, tenant: tenant, path: "solo.md")
+      note = create(:note, project: project, path: "solo.md")
       NotesFilesystem.write(note, "body")
       file_path = NotesFilesystem.absolute_path_for(note)
       expect(File.exist?(file_path)).to be true

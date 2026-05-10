@@ -14,7 +14,7 @@ class CollectionsController < ApplicationController
   end
 
   def create
-    collection = Collection.new(tenant: default_tenant)
+    collection = Collection.new
     collection.save!
     redirect_to collection_path(collection), notice: "collection created."
   end
@@ -38,9 +38,5 @@ class CollectionsController < ApplicationController
 
   def update_params
     params.require(:collection).permit(:name)
-  end
-
-  def default_tenant
-    Tenant.order(:id).first || Tenant.create!(name: "Primary")
   end
 end

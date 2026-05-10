@@ -1,7 +1,6 @@
 FactoryBot.define do
   factory :google_identity do
-    tenant { Current.tenant || association(:tenant) }
-    user   { Current.user || association(:user, tenant: tenant) }
+    user { Current.user || association(:user) }
 
     sequence(:google_subject_id) { |n| "1099#{n.to_s.rjust(15, '0')}" }
     sequence(:email) { |n| "google-user-#{n}@example.test" }

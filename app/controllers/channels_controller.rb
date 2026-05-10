@@ -62,7 +62,6 @@ class ChannelsController < ApplicationController
     end
 
     @channel = Channel.new(create_params.merge(bool_attrs))
-    @channel.tenant ||= default_tenant
     if @channel.save
       respond_to do |format|
         format.html { redirect_to channel_path(@channel), notice: "channel created." }
@@ -205,12 +204,6 @@ class ChannelsController < ApplicationController
 
   def active_filters
     %i[star connected].select { |k| filter_on?(k) }
-  end
-
-  def default_tenant
-    # Single-tenant for now (see CLAUDE.md). The first tenant is the workspace
-    # owner; future multi-tenancy will replace this with a request-scoped lookup.
-    Tenant.order(:id).first || Tenant.create!(name: "Primary")
   end
 
   def sanitized_sort_key

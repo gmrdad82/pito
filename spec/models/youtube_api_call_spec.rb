@@ -1,10 +1,13 @@
 require "rails_helper"
 
+# Phase 8 — tenant drop. YoutubeApiCall no longer carries a tenant.
 RSpec.describe YoutubeApiCall, type: :model do
   describe "associations" do
-    it { is_expected.to belong_to(:tenant) }
     it { is_expected.to belong_to(:user).optional }
     it { is_expected.to belong_to(:google_identity).optional }
+    it "does not declare a tenant association" do
+      expect(YoutubeApiCall.reflect_on_association(:tenant)).to be_nil
+    end
   end
 
   describe "validations" do
@@ -27,17 +30,6 @@ RSpec.describe YoutubeApiCall, type: :model do
       ids = YoutubeApiCall.today.pluck(:id)
       expect(ids).to include(recent.id)
       expect(ids).not_to include(old.id)
-    end
-  end
-
-  describe "tenant scoping" do
-    it "is not visible to a different tenant" do
-      identity = create(:google_identity)
-      row = create(:youtube_api_call, google_identity: identity)
-
-      tenant_b = create(:tenant, slug: "other-tenant-yt", name: "other")
-      Current.tenant = tenant_b
-      expect(YoutubeApiCall.where(id: row.id)).to be_empty
     end
   end
 end

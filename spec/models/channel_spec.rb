@@ -4,7 +4,9 @@ RSpec.describe Channel, type: :model do
   subject { build(:channel) }
 
   describe "associations" do
-    it { is_expected.to belong_to(:tenant) }
+    it "does not declare a tenant association" do
+      expect(Channel.reflect_on_association(:tenant)).to be_nil
+    end
     it { is_expected.to have_many(:videos).dependent(:destroy) }
     it { is_expected.to have_many(:playlists).dependent(:destroy) }
     it { is_expected.to have_many(:video_uploads).dependent(:destroy) }

@@ -1,7 +1,6 @@
-# Phase 4 §3.2 — Collection groups Games. Tenant-scoped.
+# Phase 4 §3.2 — Collection groups Games. Phase 8 — install-wide
+# (no tenant scope).
 class Collection < ApplicationRecord
-  include BelongsToTenant
-
   has_many :games, dependent: :nullify
 
   validates :name, presence: true, length: { maximum: 255 }

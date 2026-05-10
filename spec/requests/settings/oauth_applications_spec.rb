@@ -1,12 +1,12 @@
 require "rails_helper"
 
 RSpec.describe "Settings::OauthApplications", type: :request do
-  let!(:user) { Current.user || create(:user, tenant: Current.tenant) }
+  let!(:user) { Current.user || create(:user) }
 
   describe "GET /settings/oauth_applications" do
     it "lists applications for the current tenant" do
       sign_in_as(user)
-      app = create(:oauth_application, tenant: Current.tenant, name: "vis-test")
+      app = create(:oauth_application, name: "vis-test")
 
       get settings_oauth_applications_path
       expect(response).to have_http_status(:ok)
@@ -19,7 +19,6 @@ RSpec.describe "Settings::OauthApplications", type: :request do
       long_uri = "https://very-long-subdomain.example.com/api/auth/oauth_callback_endpoint"
       app = create(
         :oauth_application,
-        tenant: Current.tenant,
         name: "truncate-test",
         redirect_uri: long_uri
       )
@@ -43,7 +42,7 @@ RSpec.describe "Settings::OauthApplications", type: :request do
 
     it "middle-truncates the 43-char Doorkeeper-issued client_id and exposes the full value via title=" do
       sign_in_as(user)
-      app = create(:oauth_application, tenant: Current.tenant, name: "uid-truncate-test")
+      app = create(:oauth_application, name: "uid-truncate-test")
 
       get settings_oauth_applications_path
       expect(response).to have_http_status(:ok)
@@ -121,7 +120,7 @@ RSpec.describe "Settings::OauthApplications", type: :request do
   describe "GET /settings/oauth_applications/:id" do
     it "renders the read-only detail with a [copy] affordance on client_id" do
       sign_in_as(user)
-      app = create(:oauth_application, tenant: Current.tenant)
+      app = create(:oauth_application)
 
       get settings_oauth_application_path(app)
       expect(response).to have_http_status(:ok)
@@ -143,7 +142,7 @@ RSpec.describe "Settings::OauthApplications", type: :request do
   describe "GET /settings/oauth_applications/:id/revoke" do
     it "renders the action confirmation screen" do
       sign_in_as(user)
-      app = create(:oauth_application, tenant: Current.tenant)
+      app = create(:oauth_application)
 
       get revoke_settings_oauth_application_path(app)
       expect(response).to have_http_status(:ok)
@@ -154,7 +153,7 @@ RSpec.describe "Settings::OauthApplications", type: :request do
   describe "DELETE /settings/oauth_applications/:id" do
     it "destroys the application and cascades to its tokens" do
       sign_in_as(user)
-      app = create(:oauth_application, tenant: Current.tenant)
+      app = create(:oauth_application)
       token = OauthAccessToken.create!(
         application: app,
         resource_owner_id: user.id,
@@ -164,10 +163,10 @@ RSpec.describe "Settings::OauthApplications", type: :request do
 
       delete settings_oauth_application_path(app)
       expect(response).to redirect_to(settings_oauth_applications_path)
-      expect(OauthApplication.unscoped.where(id: app.id)).to be_empty
+      expect(OauthApplication.where(id: app.id)).to be_empty
       # Token is either revoked (controller's update_all) or destroyed
       # (Doorkeeper's cascade) — both leave the token unable to authenticate.
-      reloaded = OauthAccessToken.unscoped.where(id: token.id).first
+      reloaded = OauthAccessToken.where(id: token.id).first
       expect(reloaded.nil? || reloaded.revoked_at.present?).to be true
     end
   end

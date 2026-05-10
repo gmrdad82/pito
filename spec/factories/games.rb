@@ -1,6 +1,5 @@
 FactoryBot.define do
   factory :game do
-    tenant { Current.tenant || association(:tenant) }
     sequence(:title) { |n| "Game #{n}" }
     publisher { nil }
     platforms { [ { "platform" => "PS5", "owned" => true, "recorded_on" => true } ] }

@@ -83,8 +83,7 @@ module Google
 
     def write_audit_row(google_identity:, outcome:, http_status:,
                         error_message:, duration_ms:)
-      YoutubeApiCall.unscoped.create!(
-        tenant_id: google_identity.tenant_id,
+      YoutubeApiCall.create!(
         user_id: google_identity.user_id,
         google_identity_id: google_identity.id,
         client_kind: "oauth",

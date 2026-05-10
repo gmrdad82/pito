@@ -76,7 +76,7 @@ RSpec.describe "Keyboard shortcuts layout integration", type: :request do
     let(:channel_url) { "https://www.youtube.com/channel/UCabcdefghijklmnopqrstuv" }
 
     it "carries the channel's URL on the page so `v` opens it in a new tab" do
-      channel = Channel.create!(tenant: Current.tenant, channel_url: channel_url)
+      channel = Channel.create!(channel_url: channel_url)
       get channel_path(channel)
       expect(response).to have_http_status(:ok)
       expect(response.body).to include(%(data-keyboard-external-url="#{channel_url}"))
@@ -87,7 +87,7 @@ RSpec.describe "Keyboard shortcuts layout integration", type: :request do
     let(:channel_url) { "https://www.youtube.com/channel/UCzyxwvutsrqponmlkjihgfe" }
 
     it "tags the form and the cancel link on /deletions/:type/:ids" do
-      channel = Channel.create!(tenant: Current.tenant, channel_url: channel_url)
+      channel = Channel.create!(channel_url: channel_url)
       get "/deletions/channel/#{channel.id}"
       expect(response).to have_http_status(:ok)
       expect(response.body).to match(/<form[^>]*data-keyboard-confirmation="true"/)

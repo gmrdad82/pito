@@ -4,11 +4,11 @@
 # the user is authenticated). `destroy` is gated by the standard
 # session auth — the user must have a valid session to log out.
 #
-# The form posts `identifier` (email OR username), `password`,
-# `remember_me` (yes/no). Failure paths emit a generic "invalid email
-# or password." regardless of whether the identifier matched a User row,
-# plus a constant-time dummy bcrypt compare so the response timing
-# doesn't leak account existence. Every failure flips
+# Phase 8 — Tenant Drop + Email-Only Login. The form posts `email`,
+# `password`, `remember_me` (yes/no). Failure paths emit a generic
+# "invalid email or password." regardless of whether the email matched
+# a User row, plus a constant-time dummy bcrypt compare so the response
+# timing doesn't leak account existence. Every failure flips
 # `request.env["pito.auth_failed"] = true` so the rack-attack throttle
 # counts only failures.
 class SessionsController < ApplicationController
@@ -16,7 +16,7 @@ class SessionsController < ApplicationController
 
   # GET /login
   def new
-    @identifier = params[:identifier].to_s
+    @email = params[:email].to_s
   end
 
   # POST /login
@@ -26,22 +26,22 @@ class SessionsController < ApplicationController
       return
     end
 
-    identifier = params[:identifier].to_s.strip
+    email = params[:email].to_s.strip
     password = params[:password].to_s
     remember = params[:remember_me].to_s == "yes"
 
-    user = User.unscoped.find_by_username_or_email(identifier) if identifier.present?
+    user = User.find_by(email: email) if email.present?
 
     if user.nil?
       bcrypt_dummy_compare
-      audit("session.login.failed", reason: "unknown_identifier", identifier_attempted: identifier)
-      mark_failure_and_render_invalid(identifier: identifier)
+      audit("session.login.failed", reason: "unknown_email", email_attempted: email)
+      mark_failure_and_render_invalid(email: email)
       return
     end
 
     unless user.authenticate(password)
-      audit("session.login.failed", reason: "wrong_password", identifier_attempted: identifier, user_id: user.id)
-      mark_failure_and_render_invalid(identifier: identifier)
+      audit("session.login.failed", reason: "wrong_password", email_attempted: email, user_id: user.id)
+      mark_failure_and_render_invalid(email: email)
       return
     end
 
@@ -85,7 +85,7 @@ class SessionsController < ApplicationController
 
   private
 
-  def mark_failure_and_render_invalid(identifier:)
+  def mark_failure_and_render_invalid(email:)
     request.env["pito.auth_failed"] = true
     SessionThrottle.record_failure(request.remote_ip)
 
@@ -94,7 +94,7 @@ class SessionsController < ApplicationController
       return
     end
 
-    @identifier = identifier
+    @email = email
     flash.now[:alert] = "invalid email or password."
     render :new, status: :unprocessable_content
   end
@@ -107,19 +107,34 @@ class SessionsController < ApplicationController
   end
 
   # Constant-ish-time dummy bcrypt to avoid leaking via timing whether
-  # the email exists. BCrypt::Password.create (default cost 12) takes
-  # ~100ms; the comparison is what we want, not the create — but
-  # `BCrypt::Password.new(...).is_password?` over a precomputed hash
-  # gives roughly the same compare time without spawning a write-side
-  # bcrypt round.
+  # the email exists. The comparison is what we want — not the create —
+  # so `BCrypt::Password.new(...).is_password?` over a precomputed hash
+  # gives roughly the same compare time as `User#authenticate`.
   #
-  # Lazy memoization (`||=`) keeps Rails boot fast: the bcrypt hash is
-  # only computed the first time a failed login lands. MIN_COST is
-  # deliberate — this digest exists only to equalize timing between the
-  # "wrong email" and "wrong password" branches; its hash quality is
-  # irrelevant.
+  # The cost MUST match the cost `has_secure_password` uses to hash real
+  # passwords. `ActiveModel::SecurePassword` picks `BCrypt::Engine::MIN_COST`
+  # when `min_cost = true` (the test-suite speed switch) and
+  # `BCrypt::Engine.cost` otherwise — which resolves to
+  # `BCrypt::Engine::DEFAULT_COST` (12) in production unless someone
+  # globally overrides it. Mirroring that selection here keeps the dummy
+  # compare's wall time within the same order of magnitude as a real
+  # `User#authenticate`, closing the account-enumeration timing oracle.
+  #
+  # Lazy class-level memoization (`||=`) is deliberate: the hash is
+  # computed once on the first failed login (so Rails boot stays fast)
+  # and reused on every subsequent dummy compare (so we never pay the
+  # `create` cost per-request — only the cheap-er `is_password?` compare,
+  # which is what we want to symmetrize against `User#authenticate`).
+  def self.dummy_bcrypt_cost
+    if ActiveModel::SecurePassword.min_cost
+      BCrypt::Engine::MIN_COST
+    else
+      BCrypt::Engine.cost
+    end
+  end
+
   def self.dummy_bcrypt_hash
-    @dummy_bcrypt_hash ||= BCrypt::Password.create("dummy-password-noop", cost: BCrypt::Engine::MIN_COST)
+    @dummy_bcrypt_hash ||= BCrypt::Password.create("dummy-password-noop", cost: dummy_bcrypt_cost)
   end
 
   def bcrypt_dummy_compare

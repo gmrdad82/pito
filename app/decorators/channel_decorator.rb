@@ -8,7 +8,6 @@ class ChannelDecorator < ApplicationDecorator
   def as_summary_json
     {
       id: id,
-      tenant_id: tenant_id,
       channel_url: channel_url,
       star: YesNo.to_yes_no(star),
       connected: YesNo.to_yes_no(oauth_identity_id.present?),

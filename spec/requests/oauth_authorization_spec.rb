@@ -6,11 +6,10 @@ require "rails_helper"
 # CLI client side (loopback handler that catches the redirect) is a
 # follow-up, not part of this step's spec.
 RSpec.describe "OAuth authorization", type: :request do
-  let!(:user) { Current.user || create(:user, tenant: Current.tenant) }
+  let!(:user) { Current.user || create(:user) }
   let!(:application) do
     create(
       :oauth_application,
-      tenant: Current.tenant,
       name: "test-cli",
       redirect_uri: "http://127.0.0.1:8765/callback",
       scopes: "#{Scopes::DEV_READ} #{Scopes::PROJECT_READ}",

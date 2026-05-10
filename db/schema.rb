@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_07_400003) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_10_021811) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -53,12 +53,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_07_400003) do
     t.string "name", null: false
     t.datetime "revoked_at"
     t.jsonb "scopes", default: [], null: false
-    t.bigint "tenant_id", null: false
     t.string "token_digest", null: false
     t.datetime "updated_at", null: false
     t.bigint "user_id", null: false
     t.index ["expires_at"], name: "index_api_tokens_on_expires_at"
-    t.index ["tenant_id"], name: "index_api_tokens_on_tenant_id"
     t.index ["token_digest"], name: "index_api_tokens_on_token_digest", unique: true
     t.index ["user_id"], name: "index_api_tokens_on_user_id"
   end
@@ -80,13 +78,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_07_400003) do
     t.integer "status", default: 0, null: false
     t.bigint "target_id"
     t.string "target_type"
-    t.bigint "tenant_id", null: false
     t.datetime "updated_at", null: false
     t.bigint "video_id"
     t.index ["bulk_operation_id", "video_id"], name: "index_bulk_operation_items_on_bulk_operation_id_and_video_id", unique: true
     t.index ["bulk_operation_id"], name: "index_bulk_operation_items_on_bulk_operation_id"
     t.index ["target_type", "target_id"], name: "index_bulk_operation_items_on_target_type_and_target_id"
-    t.index ["tenant_id"], name: "index_bulk_operation_items_on_tenant_id"
     t.index ["video_id"], name: "index_bulk_operation_items_on_video_id"
   end
 
@@ -99,9 +95,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_07_400003) do
     t.datetime "started_at"
     t.integer "status", default: 0, null: false
     t.jsonb "target_video_ids"
-    t.bigint "tenant_id", null: false
     t.datetime "updated_at", null: false
-    t.index ["tenant_id"], name: "index_bulk_operations_on_tenant_id"
   end
 
   create_table "channels", force: :cascade do |t|
@@ -110,23 +104,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_07_400003) do
     t.datetime "last_synced_at"
     t.bigint "oauth_identity_id"
     t.boolean "star", default: false, null: false
-    t.bigint "tenant_id", null: false
     t.datetime "updated_at", null: false
     t.index ["channel_url"], name: "index_channels_on_channel_url", unique: true
     t.index ["last_synced_at"], name: "index_channels_on_last_synced_at"
     t.index ["oauth_identity_id"], name: "index_channels_on_oauth_identity_id"
-    t.index ["tenant_id", "oauth_identity_id"], name: "index_channels_on_tenant_id_and_oauth_identity_id"
-    t.index ["tenant_id", "star"], name: "index_channels_on_tenant_id_and_star"
-    t.index ["tenant_id"], name: "index_channels_on_tenant_id"
   end
 
   create_table "collections", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "name", default: "Untitled collection", null: false
-    t.bigint "tenant_id", null: false
     t.datetime "updated_at", null: false
-    t.index ["tenant_id", "name"], name: "index_collections_on_tenant_id_and_name"
-    t.index ["tenant_id"], name: "index_collections_on_tenant_id"
+    t.index ["name"], name: "index_collections_on_name"
   end
 
   create_table "footages", force: :cascade do |t|
@@ -153,12 +141,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_07_400003) do
     t.datetime "recorded_at"
     t.string "resolution"
     t.integer "source", null: false
-    t.bigint "tenant_id", null: false
     t.datetime "updated_at", null: false
     t.index ["game_id"], name: "index_footages_on_game_id"
+    t.index ["local_path"], name: "index_footages_on_local_path", unique: true
     t.index ["project_id"], name: "index_footages_on_project_id"
-    t.index ["tenant_id", "local_path"], name: "index_footages_on_tenant_id_and_local_path", unique: true
-    t.index ["tenant_id"], name: "index_footages_on_tenant_id"
   end
 
   create_table "games", force: :cascade do |t|
@@ -166,12 +152,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_07_400003) do
     t.datetime "created_at", null: false
     t.jsonb "platforms", default: [], null: false
     t.string "publisher"
-    t.bigint "tenant_id", null: false
     t.string "title", default: "Untitled game", null: false
     t.datetime "updated_at", null: false
     t.index ["collection_id"], name: "index_games_on_collection_id"
-    t.index ["tenant_id", "title"], name: "index_games_on_tenant_id_and_title"
-    t.index ["tenant_id"], name: "index_games_on_tenant_id"
+    t.index ["title"], name: "index_games_on_title"
   end
 
   create_table "google_identities", force: :cascade do |t|
@@ -185,13 +169,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_07_400003) do
     t.boolean "needs_reauth", default: false, null: false
     t.text "refresh_token"
     t.jsonb "scopes", default: [], null: false
-    t.bigint "tenant_id", null: false
     t.datetime "updated_at", null: false
     t.bigint "user_id", null: false
-    t.index ["tenant_id", "google_subject_id"], name: "index_google_identities_on_tenant_id_and_google_subject_id", unique: true
-    t.index ["tenant_id", "needs_reauth"], name: "index_google_identities_on_tenant_and_needs_reauth_partial", where: "(needs_reauth = true)"
-    t.index ["tenant_id", "user_id"], name: "index_google_identities_on_tenant_id_and_user_id"
-    t.index ["tenant_id"], name: "index_google_identities_on_tenant_id"
+    t.index ["google_subject_id"], name: "index_google_identities_on_google_subject_id", unique: true
     t.index ["user_id"], name: "index_google_identities_on_user_id"
   end
 
@@ -201,13 +181,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_07_400003) do
     t.datetime "last_modified_at", null: false
     t.string "path", null: false
     t.bigint "project_id", null: false
-    t.bigint "tenant_id", null: false
     t.string "title", default: "Untitled note", null: false
     t.datetime "updated_at", null: false
     t.integer "words_count", default: 0, null: false
+    t.index ["project_id", "path"], name: "index_notes_on_project_id_and_path", unique: true
     t.index ["project_id"], name: "index_notes_on_project_id"
-    t.index ["tenant_id", "path"], name: "index_notes_on_tenant_id_and_path", unique: true
-    t.index ["tenant_id"], name: "index_notes_on_tenant_id"
   end
 
   create_table "oauth_access_grants", force: :cascade do |t|
@@ -218,11 +196,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_07_400003) do
     t.bigint "resource_owner_id", null: false
     t.datetime "revoked_at"
     t.string "scopes", default: "", null: false
-    t.bigint "tenant_id", null: false
     t.string "token", null: false
     t.index ["application_id"], name: "index_oauth_access_grants_on_application_id"
     t.index ["resource_owner_id"], name: "index_oauth_access_grants_on_resource_owner_id"
-    t.index ["tenant_id"], name: "index_oauth_access_grants_on_tenant_id"
     t.index ["token"], name: "index_oauth_access_grants_on_token", unique: true
   end
 
@@ -235,12 +211,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_07_400003) do
     t.bigint "resource_owner_id"
     t.datetime "revoked_at"
     t.string "scopes"
-    t.bigint "tenant_id", null: false
     t.string "token", null: false
     t.index ["application_id"], name: "index_oauth_access_tokens_on_application_id"
     t.index ["refresh_token"], name: "index_oauth_access_tokens_on_refresh_token", unique: true
     t.index ["resource_owner_id"], name: "index_oauth_access_tokens_on_resource_owner_id"
-    t.index ["tenant_id"], name: "index_oauth_access_tokens_on_tenant_id"
     t.index ["token"], name: "index_oauth_access_tokens_on_token", unique: true
   end
 
@@ -251,10 +225,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_07_400003) do
     t.text "redirect_uri", null: false
     t.string "scopes", default: "", null: false
     t.string "secret", null: false
-    t.bigint "tenant_id", null: false
     t.string "uid", null: false
     t.datetime "updated_at", null: false
-    t.index ["tenant_id"], name: "index_oauth_applications_on_tenant_id"
     t.index ["uid"], name: "index_oauth_applications_on_uid", unique: true
   end
 
@@ -262,13 +234,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_07_400003) do
     t.datetime "created_at", null: false
     t.bigint "playlist_id", null: false
     t.integer "position", default: 0, null: false
-    t.bigint "tenant_id", null: false
     t.datetime "updated_at", null: false
     t.bigint "video_id", null: false
     t.string "youtube_playlist_item_id", null: false
     t.index ["playlist_id", "video_id"], name: "index_playlist_items_on_playlist_id_and_video_id", unique: true
     t.index ["playlist_id"], name: "index_playlist_items_on_playlist_id"
-    t.index ["tenant_id"], name: "index_playlist_items_on_tenant_id"
     t.index ["video_id"], name: "index_playlist_items_on_video_id"
     t.index ["youtube_playlist_item_id"], name: "index_playlist_items_on_youtube_playlist_item_id", unique: true
   end
@@ -280,13 +250,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_07_400003) do
     t.integer "item_count", default: 0, null: false
     t.integer "privacy_status"
     t.datetime "published_at"
-    t.bigint "tenant_id", null: false
     t.string "thumbnail_url"
     t.string "title", null: false
     t.datetime "updated_at", null: false
     t.string "youtube_playlist_id", null: false
     t.index ["channel_id"], name: "index_playlists_on_channel_id"
-    t.index ["tenant_id"], name: "index_playlists_on_tenant_id"
     t.index ["youtube_playlist_id"], name: "index_playlists_on_youtube_playlist_id", unique: true
   end
 
@@ -295,12 +263,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_07_400003) do
     t.bigint "project_id", null: false
     t.bigint "referenceable_id", null: false
     t.string "referenceable_type", null: false
-    t.bigint "tenant_id", null: false
     t.datetime "updated_at", null: false
     t.index ["project_id", "referenceable_type", "referenceable_id"], name: "index_project_references_unique_per_project", unique: true
     t.index ["project_id"], name: "index_project_references_on_project_id"
     t.index ["referenceable_type", "referenceable_id"], name: "index_project_references_on_referenceable"
-    t.index ["tenant_id"], name: "index_project_references_on_tenant_id"
   end
 
   create_table "projects", force: :cascade do |t|
@@ -310,11 +276,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_07_400003) do
     t.string "name", default: "Untitled project", null: false
     t.integer "notes_count", default: 0, null: false
     t.integer "notes_words_total", default: 0, null: false
-    t.bigint "tenant_id", null: false
     t.integer "timelines_count", default: 0, null: false
     t.datetime "updated_at", null: false
-    t.index ["tenant_id", "name"], name: "index_projects_on_tenant_id_and_name"
-    t.index ["tenant_id"], name: "index_projects_on_tenant_id"
+    t.index ["name"], name: "index_projects_on_name"
   end
 
   create_table "saved_views", force: :cascade do |t|
@@ -322,11 +286,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_07_400003) do
     t.integer "kind", null: false
     t.string "name", null: false
     t.integer "position", default: 0, null: false
-    t.bigint "tenant_id", null: false
     t.datetime "updated_at", null: false
     t.citext "url", null: false
     t.index ["kind", "url"], name: "index_saved_views_on_kind_and_url", unique: true
-    t.index ["tenant_id"], name: "index_saved_views_on_tenant_id"
   end
 
   create_table "sessions", force: :cascade do |t|
@@ -335,24 +297,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_07_400003) do
     t.datetime "last_activity_at"
     t.boolean "remember", default: false, null: false
     t.datetime "revoked_at"
-    t.bigint "tenant_id", null: false
     t.string "token_digest", null: false
     t.datetime "updated_at", null: false
     t.text "user_agent"
     t.bigint "user_id", null: false
-    t.index ["tenant_id", "user_id"], name: "index_sessions_on_tenant_id_and_user_id"
-    t.index ["tenant_id"], name: "index_sessions_on_tenant_id"
     t.index ["token_digest"], name: "index_sessions_on_token_digest", unique: true
     t.index ["user_id"], name: "index_sessions_on_user_id"
-  end
-
-  create_table "tenants", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.string "name", null: false
-    t.datetime "notes_syncing_at"
-    t.citext "slug", null: false
-    t.datetime "updated_at", null: false
-    t.index ["slug"], name: "index_tenants_on_slug", unique: true
   end
 
   create_table "timelines", force: :cascade do |t|
@@ -363,13 +313,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_07_400003) do
     t.bigint "project_id", null: false
     t.string "resolution"
     t.integer "state", default: 0, null: false
-    t.bigint "tenant_id", null: false
     t.string "title", default: "Untitled timeline", null: false
     t.datetime "updated_at", null: false
     t.bigint "video_id"
     t.index ["project_id"], name: "index_timelines_on_project_id"
     t.index ["state"], name: "index_timelines_on_state"
-    t.index ["tenant_id"], name: "index_timelines_on_tenant_id"
     t.index ["video_id"], name: "index_timelines_on_video_id"
   end
 
@@ -377,12 +325,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_07_400003) do
     t.datetime "created_at", null: false
     t.citext "email", null: false
     t.string "password_digest", null: false
-    t.bigint "tenant_id", null: false
     t.datetime "updated_at", null: false
-    t.citext "username", null: false
     t.index ["email"], name: "index_users_on_email", unique: true
-    t.index ["tenant_id"], name: "index_users_on_tenant_id"
-    t.index ["username"], name: "index_users_on_username", unique: true
   end
 
   create_table "video_stats", force: :cascade do |t|
@@ -395,12 +339,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_07_400003) do
     t.integer "shares"
     t.integer "subscribers_gained"
     t.integer "subscribers_lost"
-    t.bigint "tenant_id", null: false
     t.datetime "updated_at", null: false
     t.bigint "video_id", null: false
     t.integer "views"
     t.float "watch_time_minutes"
-    t.index ["tenant_id"], name: "index_video_stats_on_tenant_id"
     t.index ["video_id", "date"], name: "index_video_stats_on_video_id_and_date", unique: true
     t.index ["video_id"], name: "index_video_stats_on_video_id"
   end
@@ -416,13 +358,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_07_400003) do
     t.integer "privacy_status", default: 0
     t.string "resumable_uri"
     t.integer "status", default: 0, null: false
-    t.bigint "tenant_id", null: false
     t.string "title", null: false
     t.datetime "updated_at", null: false
     t.bigint "video_id"
     t.string "youtube_video_id"
     t.index ["channel_id"], name: "index_video_uploads_on_channel_id"
-    t.index ["tenant_id"], name: "index_video_uploads_on_tenant_id"
     t.index ["video_id"], name: "index_video_uploads_on_video_id"
   end
 
@@ -432,14 +372,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_07_400003) do
     t.datetime "last_synced_at"
     t.bigint "oauth_identity_id"
     t.boolean "star", default: false, null: false
-    t.bigint "tenant_id", null: false
     t.datetime "updated_at", null: false
     t.string "youtube_video_id"
     t.index ["channel_id"], name: "index_videos_on_channel_id"
     t.index ["oauth_identity_id"], name: "index_videos_on_oauth_identity_id"
-    t.index ["tenant_id", "channel_id", "youtube_video_id"], name: "index_videos_on_tenant_channel_youtube_id", unique: true
-    t.index ["tenant_id", "star"], name: "index_videos_on_tenant_id_and_star"
-    t.index ["tenant_id"], name: "index_videos_on_tenant_id"
     t.index ["youtube_video_id"], name: "index_videos_on_youtube_video_id", unique: true
   end
 
@@ -453,66 +389,40 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_07_400003) do
     t.string "http_method", null: false
     t.integer "http_status"
     t.string "outcome", null: false
-    t.bigint "tenant_id", null: false
     t.integer "units", null: false
     t.bigint "user_id"
+    t.index ["client_kind", "created_at"], name: "index_youtube_api_calls_on_kind_time"
+    t.index ["google_identity_id", "created_at"], name: "index_youtube_api_calls_on_identity_time"
     t.index ["google_identity_id"], name: "index_youtube_api_calls_on_google_identity_id"
-    t.index ["tenant_id", "client_kind", "created_at"], name: "index_youtube_api_calls_on_tenant_kind_time"
-    t.index ["tenant_id", "google_identity_id", "created_at"], name: "index_youtube_api_calls_on_tenant_identity_time"
-    t.index ["tenant_id", "outcome", "created_at"], name: "index_youtube_api_calls_on_tenant_outcome_time"
-    t.index ["tenant_id"], name: "index_youtube_api_calls_on_tenant_id"
+    t.index ["outcome", "created_at"], name: "index_youtube_api_calls_on_outcome_time"
     t.index ["user_id"], name: "index_youtube_api_calls_on_user_id"
   end
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
-  add_foreign_key "api_tokens", "tenants"
   add_foreign_key "api_tokens", "users"
   add_foreign_key "bulk_operation_items", "bulk_operations"
-  add_foreign_key "bulk_operation_items", "tenants"
   add_foreign_key "bulk_operation_items", "videos"
-  add_foreign_key "bulk_operations", "tenants"
   add_foreign_key "channels", "google_identities", column: "oauth_identity_id"
-  add_foreign_key "channels", "tenants"
-  add_foreign_key "collections", "tenants"
   add_foreign_key "footages", "games"
   add_foreign_key "footages", "projects"
-  add_foreign_key "footages", "tenants"
   add_foreign_key "games", "collections"
-  add_foreign_key "games", "tenants"
-  add_foreign_key "google_identities", "tenants"
   add_foreign_key "google_identities", "users"
   add_foreign_key "notes", "projects"
-  add_foreign_key "notes", "tenants"
   add_foreign_key "oauth_access_grants", "oauth_applications", column: "application_id"
-  add_foreign_key "oauth_access_grants", "tenants"
   add_foreign_key "oauth_access_tokens", "oauth_applications", column: "application_id"
-  add_foreign_key "oauth_access_tokens", "tenants"
-  add_foreign_key "oauth_applications", "tenants"
   add_foreign_key "playlist_items", "playlists"
-  add_foreign_key "playlist_items", "tenants"
   add_foreign_key "playlist_items", "videos"
   add_foreign_key "playlists", "channels"
-  add_foreign_key "playlists", "tenants"
   add_foreign_key "project_references", "projects"
-  add_foreign_key "project_references", "tenants"
-  add_foreign_key "projects", "tenants"
-  add_foreign_key "saved_views", "tenants"
-  add_foreign_key "sessions", "tenants"
   add_foreign_key "sessions", "users"
   add_foreign_key "timelines", "projects"
-  add_foreign_key "timelines", "tenants"
   add_foreign_key "timelines", "videos"
-  add_foreign_key "users", "tenants"
-  add_foreign_key "video_stats", "tenants"
   add_foreign_key "video_stats", "videos"
   add_foreign_key "video_uploads", "channels"
-  add_foreign_key "video_uploads", "tenants"
   add_foreign_key "video_uploads", "videos"
   add_foreign_key "videos", "channels"
   add_foreign_key "videos", "google_identities", column: "oauth_identity_id"
-  add_foreign_key "videos", "tenants"
   add_foreign_key "youtube_api_calls", "google_identities"
-  add_foreign_key "youtube_api_calls", "tenants"
   add_foreign_key "youtube_api_calls", "users"
 end

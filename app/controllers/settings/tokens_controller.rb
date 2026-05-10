@@ -10,16 +10,12 @@
 # inline (a dedicated GET to /settings/tokens/:id/revoke shows the action
 # screen, POST commits) — matching the project's "no JS confirms" rule.
 #
-# Auth: this controller lives behind the implicit single-user session
-# (`Current.user = User.first` from `ApplicationController`). HTML routes do
-# NOT require bearer tokens in this phase — Phase 6 lands proper login. For
-# now, anyone reaching the host can mint tokens; that's acceptable because
-# the host is bound to 127.0.0.1 + cloudflared.
+# Phase 8 — tenant drop. Tokens are install-wide; the `where(tenant_id: ...)`
+# scoping is gone.
 class Settings::TokensController < ApplicationController
   def index
-    scope = ApiToken.where(tenant_id: Current.tenant_id)
-    @active_tokens = scope.active.order(created_at: :desc)
-    @revoked_tokens = scope.revoked.order(revoked_at: :desc)
+    @active_tokens = ApiToken.active.order(created_at: :desc)
+    @revoked_tokens = ApiToken.revoked.order(revoked_at: :desc)
   end
 
   def new
@@ -66,7 +62,6 @@ class Settings::TokensController < ApplicationController
     end
 
     @token, @plaintext = ApiToken.generate!(
-      tenant: Current.tenant,
       user: Current.user,
       name: name,
       scopes: raw_scopes,
@@ -85,11 +80,11 @@ class Settings::TokensController < ApplicationController
   # as /deletions/:type/:ids). Lists what the action will do; submitting POSTs
   # back to destroy.
   def revoke
-    @token = ApiToken.where(tenant_id: Current.tenant_id).find(params[:id])
+    @token = ApiToken.find(params[:id])
   end
 
   def destroy
-    @token = ApiToken.where(tenant_id: Current.tenant_id).find(params[:id])
+    @token = ApiToken.find(params[:id])
     if @token.revoked?
       redirect_to settings_tokens_path, alert: "token already revoked."
       return

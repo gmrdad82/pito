@@ -4,7 +4,9 @@ RSpec.describe Timeline, type: :model do
   subject { build(:timeline) }
 
   describe "associations" do
-    it { is_expected.to belong_to(:tenant) }
+    it "does not declare a tenant association" do
+      expect(Timeline.reflect_on_association(:tenant)).to be_nil
+    end
     it { is_expected.to belong_to(:project) }
     it { is_expected.to belong_to(:video).optional }
   end
@@ -16,27 +18,23 @@ RSpec.describe Timeline, type: :model do
 
   describe "default title" do
     it 'defaults to "Untitled timeline"' do
-      tenant = create(:tenant)
-      project = create(:project, tenant: tenant)
-      timeline = Timeline.create!(tenant: tenant, project: project)
+      project = create(:project)
+      timeline = Timeline.create!(project: project)
       expect(timeline.title).to eq("Untitled timeline")
     end
   end
 
-  # Phase 4 Wave 2 — `/projects` index revamp. Mirrors footages_count /
-  # notes_count: timeline lifecycle drives the project row's count column.
   describe "counter_cache on project" do
-    let(:tenant)  { create(:tenant) }
-    let(:project) { create(:project, tenant: tenant) }
+    let(:project) { create(:project) }
 
     it "increments project.timelines_count when a timeline is created" do
       expect {
-        create(:timeline, project: project, tenant: tenant)
+        create(:timeline, project: project)
       }.to change { project.reload.timelines_count }.from(0).to(1)
     end
 
     it "decrements project.timelines_count when a timeline is destroyed" do
-      timeline = create(:timeline, project: project, tenant: tenant)
+      timeline = create(:timeline, project: project)
       project.reload
       expect(project.timelines_count).to eq(1)
 

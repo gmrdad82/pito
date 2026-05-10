@@ -444,8 +444,8 @@ RSpec.describe "Projects", type: :request do
       end
 
       context "with footage and notes" do
-        let!(:footage) { create(:footage, project: project, tenant: project.tenant, filename: "clip.mkv") }
-        let!(:note) { create(:note, project: project, tenant: project.tenant, title: "my note") }
+        let!(:footage) { create(:footage, project: project, filename: "clip.mkv") }
+        let!(:note) { create(:note, project: project, title: "my note") }
 
         it "houses the footage table inside <turbo-frame id='footage-table'>" do
           get project_path(project)
@@ -490,8 +490,8 @@ RSpec.describe "Projects", type: :request do
       end
 
       context "with footage variation that triggers filter chips" do
-        let!(:obs_clip)    { create(:footage, project: project, tenant: project.tenant, filename: "obs.mkv", source: :obs) }
-        let!(:camera_clip) { create(:footage, project: project, tenant: project.tenant, filename: "cam.mkv", source: :camera) }
+        let!(:obs_clip)    { create(:footage, project: project, filename: "obs.mkv", source: :obs) }
+        let!(:camera_clip) { create(:footage, project: project, filename: "cam.mkv", source: :camera) }
 
         it "stamps data-turbo-frame=footage-table on every footage filter chip" do
           get project_path(project)
@@ -580,8 +580,8 @@ RSpec.describe "Projects", type: :request do
 
       context "when the project has footage (populated branch)" do
         before do
-          create(:footage, project: project, tenant: project.tenant, filename: "clip-a.mkv")
-          create(:footage, project: project, tenant: project.tenant, filename: "clip-b.mkv")
+          create(:footage, project: project, filename: "clip-a.mkv")
+          create(:footage, project: project, filename: "clip-b.mkv")
           get project_path(project)
         end
 
@@ -629,7 +629,7 @@ RSpec.describe "Projects", type: :request do
     end
 
     describe "footage table — filename links to edit page (no separate [e] column)" do
-      let!(:footage) { create(:footage, project: project, tenant: project.tenant, filename: "clip.mkv") }
+      let!(:footage) { create(:footage, project: project, filename: "clip.mkv") }
 
       it "wraps the filename cell content in an <a> to edit_footage_path" do
         get project_path(project)
@@ -691,7 +691,7 @@ RSpec.describe "Projects", type: :request do
     end
 
     describe "notes table — title links to note show page (no separate [e] column)" do
-      let!(:note) { create(:note, project: project, tenant: project.tenant, title: "my note") }
+      let!(:note) { create(:note, project: project, title: "my note") }
 
       it "wraps the title cell in an <a> to note_path" do
         get project_path(project)
@@ -754,12 +754,12 @@ RSpec.describe "Projects", type: :request do
     #    coexist with the footage table's `sort` / `dir`).
     describe "notes pane — column drop + alignment + sort" do
       let!(:note_alpha) do
-        create(:note, project: project, tenant: project.tenant,
+        create(:note, project: project,
                title: "Alpha note", words_count: 100,
                last_modified_at: 2.days.ago)
       end
       let!(:note_bravo) do
-        create(:note, project: project, tenant: project.tenant,
+        create(:note, project: project,
                title: "Bravo note", words_count: 50,
                last_modified_at: 1.day.ago)
       end
@@ -906,7 +906,7 @@ RSpec.describe "Projects", type: :request do
       end
 
       it "renders large word counts with comma delimiters and the `w` suffix" do
-        big_note = create(:note, project: project, tenant: project.tenant,
+        big_note = create(:note, project: project,
                           title: "Big note", words_count: 6225,
                           last_modified_at: Time.current)
         get project_path(project)
@@ -1012,7 +1012,7 @@ RSpec.describe "Projects", type: :request do
         # active notes_sort / notes_dir. Needs at least one footage row
         # to be present — the footage table only renders when the
         # project has footage.
-        create(:footage, project: project, tenant: project.tenant, filename: "clip.mkv")
+        create(:footage, project: project, filename: "clip.mkv")
         get project_path(project), params: { notes_sort: "title", notes_dir: "asc" }
         html = Nokogiri::HTML.fragment(response.body)
         # Footage thead is the table whose headers include "filename".
@@ -1029,7 +1029,7 @@ RSpec.describe "Projects", type: :request do
     # Lane G shipped for /channels and /videos: `[bulk]` toggle dropped,
     # checkboxes always rendered, header carries a select-all checkbox.
     describe "notes pane — always-on bulk shape" do
-      let!(:note) { create(:note, project: project, tenant: project.tenant, title: "my note") }
+      let!(:note) { create(:note, project: project, title: "my note") }
 
       it "drops the [bulk] toggle from the notes-pane heading" do
         get project_path(project)
@@ -1142,7 +1142,7 @@ RSpec.describe "Projects", type: :request do
       let(:short_title) { "Hi" }
 
       it "truncates long titles to head…tail with a Unicode ellipsis" do
-        note = create(:note, project: project, tenant: project.tenant, title: long_title)
+        note = create(:note, project: project, title: long_title)
         get project_path(project)
         html = Nokogiri::HTML.fragment(response.body)
         notes_table = html.css("table").find { |t| t.css("th").map(&:text).map(&:strip).include?("title") }
@@ -1154,7 +1154,7 @@ RSpec.describe "Projects", type: :request do
       end
 
       it "preserves the full title in the cell's title attribute for hover-reveal" do
-        note = create(:note, project: project, tenant: project.tenant, title: long_title)
+        note = create(:note, project: project, title: long_title)
         get project_path(project)
         html = Nokogiri::HTML.fragment(response.body)
         notes_table = html.css("table").find { |t| t.css("th").map(&:text).map(&:strip).include?("title") }
@@ -1164,7 +1164,7 @@ RSpec.describe "Projects", type: :request do
       end
 
       it "renders short titles untouched (length ≤ head + 1 + tail = 21)" do
-        note = create(:note, project: project, tenant: project.tenant, title: short_title)
+        note = create(:note, project: project, title: short_title)
         get project_path(project)
         html = Nokogiri::HTML.fragment(response.body)
         notes_table = html.css("table").find { |t| t.css("th").map(&:text).map(&:strip).include?("title") }
@@ -1176,7 +1176,7 @@ RSpec.describe "Projects", type: :request do
       end
 
       it "carries the full short title on the cell's title attribute too" do
-        note = create(:note, project: project, tenant: project.tenant, title: short_title)
+        note = create(:note, project: project, title: short_title)
         get project_path(project)
         html = Nokogiri::HTML.fragment(response.body)
         notes_table = html.css("table").find { |t| t.css("th").map(&:text).map(&:strip).include?("title") }
@@ -1189,7 +1189,7 @@ RSpec.describe "Projects", type: :request do
       it "renders titles exactly at the threshold (21 chars) untouched" do
         # head + 1 + tail = 21 — the helper returns the input unchanged.
         edge_title = "abcdefghijklmnopqrstu" # 21 chars exactly
-        note = create(:note, project: project, tenant: project.tenant, title: edge_title)
+        note = create(:note, project: project, title: edge_title)
         get project_path(project)
         html = Nokogiri::HTML.fragment(response.body)
         notes_table = html.css("table").find { |t| t.css("th").map(&:text).map(&:strip).include?("title") }
@@ -1210,7 +1210,7 @@ RSpec.describe "Projects", type: :request do
       let(:short_name) { "clip.mkv" }
 
       it "renders long filenames as a single truncated text node (no head/tail spans)" do
-        create(:footage, project: project, tenant: project.tenant, filename: long_name)
+        create(:footage, project: project, filename: long_name)
         get project_path(project)
 
         html = Nokogiri::HTML.fragment(response.body)
@@ -1231,7 +1231,7 @@ RSpec.describe "Projects", type: :request do
       end
 
       it "preserves the full filename in the cell's title attribute for hover-reveal" do
-        create(:footage, project: project, tenant: project.tenant, filename: long_name)
+        create(:footage, project: project, filename: long_name)
         get project_path(project)
 
         html = Nokogiri::HTML.fragment(response.body)
@@ -1241,7 +1241,7 @@ RSpec.describe "Projects", type: :request do
       end
 
       it "renders short filenames untouched inside .filename-cell" do
-        create(:footage, project: project, tenant: project.tenant, filename: short_name)
+        create(:footage, project: project, filename: short_name)
         get project_path(project)
 
         html = Nokogiri::HTML.fragment(response.body)
@@ -1260,11 +1260,10 @@ RSpec.describe "Projects", type: :request do
     # state sort, and the new column set.
     describe "footage table expansion" do
       describe "row rendering — new columns" do
-        let!(:game) { create(:game, tenant: project.tenant, title: "Some Game") }
+        let!(:game) { create(:game, title: "Some Game") }
         let!(:footage) do
           create(:footage,
             project: project,
-            tenant: project.tenant,
             filename: "clip.mkv",
             game: game,
             platform: game.platforms.first["platform"],
@@ -1331,7 +1330,7 @@ RSpec.describe "Projects", type: :request do
         end
 
         it "shows em-dash placeholders for nil-valued cells" do
-          create(:footage, project: project, tenant: project.tenant,
+          create(:footage, project: project,
                  filename: "bare.mkv", resolution: nil, fps: nil,
                  duration_seconds: nil, filesize_bytes: nil)
           get project_path(project)
@@ -1358,7 +1357,7 @@ RSpec.describe "Projects", type: :request do
           # anywhere. Spec: "render chips ONLY if there's > 1 distinct
           # value." Expect zero chip rows.
           3.times do
-            create(:footage, project: project, tenant: project.tenant,
+            create(:footage, project: project,
                    resolution: "1920x1080", fps: BigDecimal("60.000"),
                    bit_depth: 8, source: :obs)
           end
@@ -1368,9 +1367,9 @@ RSpec.describe "Projects", type: :request do
         end
 
         it "renders chips for dimensions that vary" do
-          create(:footage, project: project, tenant: project.tenant,
+          create(:footage, project: project,
                  resolution: "1920x1080", source: :obs)
-          create(:footage, project: project, tenant: project.tenant,
+          create(:footage, project: project,
                  resolution: "3840x2160", source: :camera)
           get project_path(project)
           html = Nokogiri::HTML.fragment(response.body)
@@ -1383,8 +1382,8 @@ RSpec.describe "Projects", type: :request do
         end
 
         it "renders the [clear] link only when a filter is active" do
-          create(:footage, project: project, tenant: project.tenant, source: :obs)
-          create(:footage, project: project, tenant: project.tenant, source: :camera)
+          create(:footage, project: project, source: :obs)
+          create(:footage, project: project, source: :camera)
 
           # No filter — no clear link.
           get project_path(project)
@@ -1398,8 +1397,8 @@ RSpec.describe "Projects", type: :request do
       end
 
       describe "filter application" do
-        let!(:obs_footage)    { create(:footage, project: project, tenant: project.tenant, filename: "obs-clip.mkv", source: :obs) }
-        let!(:camera_footage) { create(:footage, project: project, tenant: project.tenant, filename: "cam-clip.mkv", source: :camera) }
+        let!(:obs_footage)    { create(:footage, project: project, filename: "obs-clip.mkv", source: :obs) }
+        let!(:camera_footage) { create(:footage, project: project, filename: "cam-clip.mkv", source: :camera) }
 
         it "narrows the table to rows matching the source filter" do
           get project_path(project), params: { source: "obs" }
@@ -1427,9 +1426,9 @@ RSpec.describe "Projects", type: :request do
       end
 
       describe "URL-state sort" do
-        let!(:short)  { create(:footage, project: project, tenant: project.tenant, filename: "short.mkv", duration_seconds: 30) }
-        let!(:medium) { create(:footage, project: project, tenant: project.tenant, filename: "medium.mkv", duration_seconds: 600) }
-        let!(:long)   { create(:footage, project: project, tenant: project.tenant, filename: "long.mkv", duration_seconds: 3600) }
+        let!(:short)  { create(:footage, project: project, filename: "short.mkv", duration_seconds: 30) }
+        let!(:medium) { create(:footage, project: project, filename: "medium.mkv", duration_seconds: 600) }
+        let!(:long)   { create(:footage, project: project, filename: "long.mkv", duration_seconds: 3600) }
 
         it "sorts by the requested column + direction" do
           get project_path(project), params: { sort: "duration_seconds", dir: "desc" }

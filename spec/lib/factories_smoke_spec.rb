@@ -2,12 +2,6 @@ require "rails_helper"
 
 # Smoke test that the Phase A factories build valid records.
 RSpec.describe "FactoryBot Phase A factories" do
-  describe ":tenant" do
-    it "builds a valid record" do
-      expect(FactoryBot.build(:tenant)).to be_valid
-    end
-  end
-
   describe ":user" do
     it "builds a valid record" do
       expect(FactoryBot.build(:user)).to be_valid

@@ -1,5 +1,8 @@
 require "rails_helper"
 
+# Phase 8 — tenant drop. The previous `.tenant_root(tenant)` helper is
+# gone; consumers reach assets via domain-specific top-level segments
+# (`composites/`, `thumbnails/`, `exports/`, `footage_thumbs/`).
 RSpec.describe Pito::AssetsRoot do
   let(:tmp_root) { Dir.mktmpdir("pito-assets-spec") }
 
@@ -30,18 +33,25 @@ RSpec.describe Pito::AssetsRoot do
     end
   end
 
-  describe ".path" do
-    it "joins one segment under the root" do
-      expect(described_class.path("footage_thumbs")).to eq(Pathname.new(tmp_root).join("footage_thumbs"))
+  describe ".path with the new domain-specific segments" do
+    it "resolves composites under <root>/composites/<file>" do
+      expect(described_class.path("composites", "cover.png"))
+        .to eq(Pathname.new(tmp_root).join("composites/cover.png"))
     end
 
-    it "joins many segments under the root" do
-      result = described_class.path("tenants", "1", "footage_thumbs", "abc.jpg")
-      expect(result).to eq(Pathname.new(tmp_root).join("tenants/1/footage_thumbs/abc.jpg"))
+    it "resolves thumbnails under <root>/thumbnails/<id>/<frame>" do
+      expect(described_class.path("thumbnails", "1", "frame.jpg"))
+        .to eq(Pathname.new(tmp_root).join("thumbnails/1/frame.jpg"))
     end
 
-    it "returns an absolute Pathname" do
-      expect(described_class.path("anything")).to be_absolute
+    it "resolves exports under <root>/exports/<file>" do
+      expect(described_class.path("exports", "out.mp4"))
+        .to eq(Pathname.new(tmp_root).join("exports/out.mp4"))
+    end
+
+    it "resolves footage thumbs under <root>/footage_thumbs/<id>/<tier>/<frame>" do
+      expect(described_class.path("footage_thumbs", "1", "m", "00-01-02.jpg"))
+        .to eq(Pathname.new(tmp_root).join("footage_thumbs/1/m/00-01-02.jpg"))
     end
 
     it "rejects empty segment list" do
@@ -105,54 +115,9 @@ RSpec.describe Pito::AssetsRoot do
     end
   end
 
-  describe ".tenant_root" do
-    let(:tenant_a) { instance_double("Tenant", id: 42) }
-    let(:tenant_b) { instance_double("Tenant", id: 7) }
-
-    it "returns <root>/<tenant_id>/ as a Pathname" do
-      expect(described_class.tenant_root(tenant_a))
-        .to eq(Pathname.new(tmp_root).join("42"))
-    end
-
-    it "creates the tenant directory on first call" do
-      result = described_class.tenant_root(tenant_a)
-      expect(result).to be_directory
-    end
-
-    it "is idempotent across repeat calls" do
-      first = described_class.tenant_root(tenant_a)
-      File.write(first.join("seed.txt"), "x")
-
-      second = described_class.tenant_root(tenant_a)
-      expect(second).to eq(first)
-      expect(File.read(first.join("seed.txt"))).to eq("x")
-    end
-
-    it "isolates tenant A from tenant B" do
-      a = described_class.tenant_root(tenant_a)
-      b = described_class.tenant_root(tenant_b)
-
-      expect(a).not_to eq(b)
-      expect(a.to_s).not_to start_with(b.to_s + "/")
-      expect(b.to_s).not_to start_with(a.to_s + "/")
-    end
-
-    it "raises when tenant is nil" do
-      expect { described_class.tenant_root(nil) }
-        .to raise_error(Pito::AssetsRoot::Error, /tenant/)
-    end
-
-    it "raises when tenant#id is nil" do
-      tenant = instance_double("Tenant", id: nil)
-      expect { described_class.tenant_root(tenant) }
-        .to raise_error(Pito::AssetsRoot::Error, /id/)
-    end
-
-    it "works with a real persisted Tenant" do
-      tenant = Tenant.create!(name: "AssetsRoot Spec", slug: "assets-root-spec-#{SecureRandom.hex(4)}")
-      result = described_class.tenant_root(tenant)
-      expect(result).to eq(Pathname.new(tmp_root).join(tenant.id.to_s))
-      expect(result).to be_directory
+  describe "Phase 8 — tenant_root removed" do
+    it "no longer responds to tenant_root" do
+      expect(described_class).not_to respond_to(:tenant_root)
     end
   end
 

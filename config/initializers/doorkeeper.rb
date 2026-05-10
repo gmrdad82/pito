@@ -13,15 +13,21 @@ require Rails.root.join("app/lib/scopes.rb")
 #   - 2h access token TTL, 14d refresh token TTL.
 #   - PKCE forced for public clients (the seeded `pito-cli` is public).
 #   - `Scopes::ALL` is the single source of truth (Phase 5 catalog).
-#   - Custom tenant-scoped models include `BelongsToTenant` so the
-#     runtime path enforces multi-tenant isolation regardless of
-#     Doorkeeper's internal queries.
 #   - Resource owner = the cookie-resolved current user (Phase 12 Step A).
 #     `/oauth/authorize` redirects to `/login` if there is no session.
+#
+# Phase 8 — tenant drop. The Doorkeeper subclass models
+# (`OauthApplication`, `OauthAccessToken`, `OauthAccessGrant`) are thin
+# Doorkeeper subclasses with no extra scoping. Resource-owner /
+# admin authentication blocks no longer pin `Current.tenant` (the
+# attribute is gone).
 Doorkeeper.configure do
   orm :active_record
 
-  # Custom tenant-aware models — required for `BelongsToTenant` to apply.
+  # Custom Doorkeeper subclasses. The Phase 8 trim removed all
+  # tenant-scoping plumbing; the subclasses exist primarily so the
+  # bearer dispatch (`Api::TokenAuthenticator`) can resolve the
+  # `OauthAccessToken#user` reader symmetrically with `ApiToken#user`.
   application_class  "OauthApplication"
   access_token_class "OauthAccessToken"
   access_grant_class "OauthAccessGrant"
@@ -31,7 +37,7 @@ Doorkeeper.configure do
   # `ApplicationController` (it descends from `ActionController::Base`),
   # so we resolve the cookie here directly via `Sessions::Authenticator`
   # rather than relying on `Current.user` being pre-populated. This
-  # block also pins `Current.tenant` / `.user` / `.session` for the
+  # block also pins `Current.user` / `Current.session` for the
   # remainder of the request so the consent screen view can render
   # `Current.user` data.
   resource_owner_authenticator do
@@ -40,7 +46,6 @@ Doorkeeper.configure do
     if auth_result.success?
       Current.session = auth_result.session
       Current.user    = auth_result.session.user
-      Current.tenant  = auth_result.session.tenant
       auth_result.session.touch_activity!
       auth_result.session.user
     else
@@ -66,7 +71,6 @@ Doorkeeper.configure do
     if auth_result.success?
       Current.session = auth_result.session
       Current.user    = auth_result.session.user
-      Current.tenant  = auth_result.session.tenant
       Current.user
     else
       redirect_to(main_app.login_path)

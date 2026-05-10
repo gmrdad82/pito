@@ -15,9 +15,13 @@
 # Mirrors the path-safety semantics of `DevDocPath`: validation is purely
 # lexical (`Pathname#cleanpath`) and traversal is rejected before any
 # filesystem touch. Active Storage manages its own internal layout under
-# `<root>/active_storage/...`; tenant-scoped consumers (footage thumbnails,
-# future per-tenant assets) use `tenant_root(tenant)` for the
-# `<root>/<tenant_id>/` shape.
+# `<root>/active_storage/...`; future per-install asset trees use
+# `path(...)` directly with domain-specific top-level segments
+# (`composites/`, `thumbnails/`, `exports/`, `footage_thumbs/`).
+#
+# Phase 8 — tenant drop. The previous `tenant_root(tenant)` helper that
+# returned `<root>/<tenant_id>/` is gone; layouts are flat under the
+# domain-specific top-level segments.
 module Pito
   module AssetsRoot
     DEFAULT_ROOT = "/var/lib/pito-assets"
@@ -65,18 +69,6 @@ module Pito
       target = path(*segments)
       FileUtils.mkdir_p(target)
       target
-    end
-
-    # Tenant-scoped subdirectory. Returns `<root>/<tenant_id>/`. The
-    # directory is created if it does not exist so callers can write
-    # immediately. Mirrors the `<root>/<tenant_id>/` shape the notes
-    # surface uses under `PITO_NOTES_PATH`.
-    def tenant_root(tenant)
-      raise Error, "tenant is required" if tenant.nil?
-      raise Error, "tenant must respond to #id" unless tenant.respond_to?(:id)
-      raise Error, "tenant id is required" if tenant.id.nil?
-
-      ensure_dir!(tenant.id.to_s)
     end
 
     # True if `candidate` is exactly `base` or any descendant. Both

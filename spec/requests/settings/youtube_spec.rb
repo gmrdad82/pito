@@ -14,7 +14,7 @@ RSpec.describe "Settings::Youtube", type: :request do
     context "with a GoogleIdentity in needs_reauth state" do
       before do
         @user = User.first
-        create(:google_identity, :needs_reauth, user: @user, tenant: Current.tenant,
+        create(:google_identity, :needs_reauth, user: @user,
                                                 email: "u@example.test")
       end
 
@@ -33,7 +33,7 @@ RSpec.describe "Settings::Youtube", type: :request do
     context "with a fresh GoogleIdentity" do
       let(:user) { User.first }
       let(:identity) do
-        create(:google_identity, user: user, tenant: Current.tenant,
+        create(:google_identity, user: user,
                email: "u@example.test")
       end
       let(:client_double) { instance_double(Youtube::Client) }
@@ -74,8 +74,7 @@ RSpec.describe "Settings::Youtube", type: :request do
         )
         # Phase 7 Path A2 — `connected: true` is gone; the OAuth-managed
         # state is just `oauth_identity_id` set.
-        Channel.create!(tenant: Current.tenant,
-                        channel_url: valid_url,
+        Channel.create!(channel_url: valid_url,
                         oauth_identity_id: identity.id)
 
         get settings_youtube_path
@@ -86,7 +85,7 @@ RSpec.describe "Settings::Youtube", type: :request do
     context "when the YouTube API raises QuotaExhaustedError" do
       let(:user) { User.first }
       let(:identity) do
-        create(:google_identity, user: user, tenant: Current.tenant)
+        create(:google_identity, user: user)
       end
       let(:client_double) { instance_double(Youtube::Client) }
 
@@ -116,7 +115,7 @@ RSpec.describe "Settings::Youtube", type: :request do
   describe "POST /settings/youtube/channels" do
     let(:user) { User.first }
     let(:identity) do
-      create(:google_identity, user: user, tenant: Current.tenant)
+      create(:google_identity, user: user)
     end
     let(:client_double) { instance_double(Youtube::Client) }
 

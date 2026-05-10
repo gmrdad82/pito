@@ -1,5 +1,7 @@
 require "rails_helper"
 
+# Phase 8 — tenant drop. ApiToken belongs to a User install-wide; no
+# tenant association.
 RSpec.describe ApiToken, type: :model do
   describe "validations" do
     it { is_expected.to validate_presence_of(:name) }
@@ -29,20 +31,21 @@ RSpec.describe ApiToken, type: :model do
   end
 
   describe "associations" do
-    it "belongs to a tenant and user" do
+    it "belongs to a user" do
       token = create(:api_token)
-      expect(token.tenant).to be_present
       expect(token.user).to be_present
+    end
+
+    it "does not declare a tenant association" do
+      expect(ApiToken.reflect_on_association(:tenant)).to be_nil
     end
   end
 
   describe ".generate!" do
-    let(:tenant) { create(:tenant) }
-    let(:user)   { create(:user, tenant: tenant) }
+    let(:user) { create(:user) }
 
     it "creates a token and returns plaintext exactly once" do
       record, plaintext = ApiToken.generate!(
-        tenant: tenant,
         user: user,
         name: "test",
         scopes: [ Scopes::DEV_READ ]
@@ -51,33 +54,35 @@ RSpec.describe ApiToken, type: :model do
       expect(record).to be_persisted
       expect(record.name).to eq("test")
       expect(record.scopes).to eq([ Scopes::DEV_READ ])
-      expect(record.tenant_id).to eq(tenant.id)
       expect(record.user_id).to eq(user.id)
       expect(record.last_token_preview).to eq(plaintext.last(4))
       expect(record.token_digest).to eq(ApiToken.digest(plaintext))
       expect(plaintext).to be_a(String)
-      # The plaintext is ~43 chars (urlsafe_base64(32)).
       expect(plaintext.length).to be >= 40
     end
 
     it "accepts an optional expires_at" do
       future = 30.days.from_now
       record, _ = ApiToken.generate!(
-        tenant: tenant, user: user,
+        user: user,
         name: "expiring", scopes: [ Scopes::DEV_READ ],
         expires_at: future
       )
       expect(record.expires_at).to be_within(1.second).of(future)
     end
+
+    it "exposes a tenant-free signature" do
+      expect(ApiToken.method(:generate!).parameters.map(&:last))
+        .to match_array(%i[user name scopes expires_at])
+    end
   end
 
   describe ".authenticate" do
-    let(:tenant) { create(:tenant) }
-    let(:user)   { create(:user, tenant: tenant) }
+    let(:user) { create(:user) }
 
     it "returns the token for valid plaintext" do
       _record, plaintext = ApiToken.generate!(
-        tenant: tenant, user: user, name: "auth", scopes: [ Scopes::DEV_READ ]
+        user: user, name: "auth", scopes: [ Scopes::DEV_READ ]
       )
 
       result = ApiToken.authenticate(plaintext)
@@ -87,7 +92,7 @@ RSpec.describe ApiToken, type: :model do
 
     it "updates last_used_at on success" do
       record, plaintext = ApiToken.generate!(
-        tenant: tenant, user: user, name: "usage", scopes: [ Scopes::DEV_READ ]
+        user: user, name: "usage", scopes: [ Scopes::DEV_READ ]
       )
 
       expect { ApiToken.authenticate(plaintext) }
@@ -105,7 +110,7 @@ RSpec.describe ApiToken, type: :model do
 
     it "returns nil for revoked token" do
       record, plaintext = ApiToken.generate!(
-        tenant: tenant, user: user, name: "revoked", scopes: [ Scopes::DEV_READ ]
+        user: user, name: "revoked", scopes: [ Scopes::DEV_READ ]
       )
       record.revoke!
 
@@ -114,7 +119,7 @@ RSpec.describe ApiToken, type: :model do
 
     it "returns nil for expired token" do
       record, plaintext = ApiToken.generate!(
-        tenant: tenant, user: user, name: "expired", scopes: [ Scopes::DEV_READ ],
+        user: user, name: "expired", scopes: [ Scopes::DEV_READ ],
         expires_at: 1.hour.ago
       )
       expect(record.expired?).to be true
@@ -124,18 +129,17 @@ RSpec.describe ApiToken, type: :model do
   end
 
   describe "#revoked? / #expired? / #usable?" do
-    let(:tenant) { create(:tenant) }
-    let(:user)   { create(:user, tenant: tenant) }
+    let(:user) { create(:user) }
 
     it "is usable when neither revoked nor expired" do
-      record, _ = ApiToken.generate!(tenant: tenant, user: user, name: "ok", scopes: [ Scopes::DEV_READ ])
+      record, _ = ApiToken.generate!(user: user, name: "ok", scopes: [ Scopes::DEV_READ ])
       expect(record.revoked?).to be false
       expect(record.expired?).to be false
       expect(record.usable?).to be true
     end
 
     it "is not usable when revoked" do
-      record, _ = ApiToken.generate!(tenant: tenant, user: user, name: "rv", scopes: [ Scopes::DEV_READ ])
+      record, _ = ApiToken.generate!(user: user, name: "rv", scopes: [ Scopes::DEV_READ ])
       record.revoke!
       expect(record.revoked?).to be true
       expect(record.usable?).to be false
@@ -143,7 +147,7 @@ RSpec.describe ApiToken, type: :model do
 
     it "is not usable when expired" do
       record, _ = ApiToken.generate!(
-        tenant: tenant, user: user, name: "ex", scopes: [ Scopes::DEV_READ ],
+        user: user, name: "ex", scopes: [ Scopes::DEV_READ ],
         expires_at: 5.minutes.ago
       )
       expect(record.expired?).to be true
@@ -171,9 +175,6 @@ RSpec.describe ApiToken, type: :model do
     end
 
     it "raises Api::AuthConfigurationMissing when the resolved pepper is blank" do
-      # Stub the resolver — covers the production "no credential, no env,
-      # not test" terminal-nil path. Stubbing `dig` alone no longer suffices
-      # because `.pepper` falls back to a fixed string in `Rails.env.test?`.
       allow(ApiToken).to receive(:pepper).and_return(nil)
       expect { ApiToken.digest("anything") }.to raise_error(Api::AuthConfigurationMissing)
     end

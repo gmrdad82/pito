@@ -23,7 +23,7 @@ class TimelinesController < ApplicationController
 
   def create
     project = Project.find(params[:project_id])
-    timeline = project.timelines.new(tenant: project.tenant)
+    timeline = project.timelines.new
     timeline.save!
     redirect_to project_path(project), notice: "timeline created."
   end

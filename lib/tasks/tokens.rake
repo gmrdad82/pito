@@ -21,11 +21,10 @@ namespace :tokens do
     name   = (args[:name] || "default").to_s
     scopes = (args[:scopes] || "dev:read+dev:write").to_s.split("+").map(&:strip).reject(&:empty?)
 
-    tenant = Tenant.first
-    user   = User.first
+    user = User.first
 
-    if tenant.nil? || user.nil?
-      abort "no Tenant/User seeded — run bin/rails db:seed first"
+    if user.nil?
+      abort "no User seeded — run bin/rails db:seed first"
     end
 
     invalid = scopes - Scopes::ALL
@@ -34,7 +33,6 @@ namespace :tokens do
     end
 
     token, plaintext = ApiToken.generate!(
-      tenant: tenant,
       user: user,
       name: name,
       scopes: scopes

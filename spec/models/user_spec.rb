@@ -1,94 +1,94 @@
 require "rails_helper"
 
+# Phase 8 — Tenant Drop + Email-Only Login (ADR 0003).
+#
+# User shape: email + password only. No `username`, no `tenant`,
+# no `find_by_username_or_email`. Email is citext + unique
+# install-wide; whitespace is stripped on assignment so user input
+# round-trips through the form cleanly.
 RSpec.describe User, type: :model do
   subject { build(:user) }
 
   describe "associations" do
-    it { is_expected.to belong_to(:tenant) }
     it { is_expected.to have_many(:sessions).dependent(:destroy) }
   end
 
-  describe "validations" do
-    it { is_expected.to validate_presence_of(:username) }
-    it { is_expected.to validate_presence_of(:email) }
-
-    describe "username regex" do
-      %w[asdk123 M23kony X abc].each do |valid|
-        it "accepts #{valid.inspect}" do
-          user = build(:user, username: valid)
-          expect(user).to be_valid, "expected #{valid.inspect} to be valid: #{user.errors.full_messages}"
-        end
-      end
-
-      [
-        "123abc",            # starts with a digit
-        "Catalin Ilinca",    # contains space
-        "me_too",            # contains underscore
-        "user-name",         # contains hyphen
-        "name!",             # contains punctuation
-        "",                  # empty
-        " username",         # leading space
-        "username "          # trailing space
-      ].each do |bad|
-        it "rejects #{bad.inspect}" do
-          user = build(:user, username: bad)
-          expect(user).not_to be_valid
-          expect(user.errors[:username]).to be_present
-        end
-      end
+  describe "email validation" do
+    it "is invalid with a nil email" do
+      user = build(:user, email: nil)
+      expect(user).not_to be_valid
+      expect(user.errors[:email]).to be_present
     end
 
-    describe "username uniqueness (globally unique across tenants)" do
-      it "rejects two users with the same username even in different tenants" do
-        tenant_a = create(:tenant)
-        tenant_b = create(:tenant)
-        create(:user, tenant: tenant_a, username: "shared", email: "a@example.test")
-        dup = build(:user, tenant: tenant_b, username: "shared", email: "b@example.test")
-
-        expect(dup).not_to be_valid
-        expect(dup.errors[:username]).to be_present
-      end
-
-      it "is case-insensitive (citext)" do
-        tenant = create(:tenant)
-        create(:user, tenant: tenant, username: "MixedCase", email: "a@example.test")
-        dup = build(:user, tenant: tenant, username: "mixedcase", email: "b@example.test")
-
-        expect(dup).not_to be_valid
-        expect(dup.errors[:username]).to be_present
-      end
+    it "is invalid with a blank email" do
+      user = build(:user, email: "")
+      expect(user).not_to be_valid
+      expect(user.errors[:email]).to be_present
     end
 
-    describe "email uniqueness (globally unique across tenants)" do
-      it "rejects two users with the same email even in different tenants" do
-        tenant_a = create(:tenant)
-        tenant_b = create(:tenant)
-        create(:user, tenant: tenant_a, username: "alpha", email: "shared@example.test")
-        dup = build(:user, tenant: tenant_b, username: "beta", email: "shared@example.test")
-
-        expect(dup).not_to be_valid
-        expect(dup.errors[:email]).to be_present
-      end
+    it "is invalid with a whitespace-only email" do
+      user = build(:user, email: "   ")
+      expect(user).not_to be_valid
+      expect(user.errors[:email]).to be_present
     end
 
-    describe "email format" do
-      it "rejects invalid emails" do
-        expect(build(:user, email: "not-an-email")).not_to be_valid
-      end
+    it "is invalid with a malformed email (no @)" do
+      user = build(:user, email: "not-an-email")
+      expect(user).not_to be_valid
+      expect(user.errors[:email]).to be_present
+    end
+
+    it "is invalid with a malformed email (missing host)" do
+      user = build(:user, email: "user@")
+      expect(user).not_to be_valid
+      expect(user.errors[:email]).to be_present
+    end
+
+    it "rejects emails longer than 254 characters" do
+      local = "a" * 250
+      long  = "#{local}@x.test" # 250 + 7 = 257 chars
+      user = build(:user, email: long)
+      expect(user).not_to be_valid
+      expect(user.errors[:email]).to be_present
+    end
+
+    it "accepts a valid email" do
+      user = build(:user, email: "alice@example.test")
+      expect(user).to be_valid, "expected valid: #{user.errors.full_messages}"
+    end
+
+    it "strips surrounding whitespace on assignment" do
+      user = create(:user, email: "  alice-#{SecureRandom.hex(3)}@example.test  ")
+      expect(user.reload.email).to eq(user.email.strip)
+      expect(user.email).not_to start_with(" ")
+      expect(user.email).not_to end_with(" ")
+    end
+
+    it "is case-insensitive on email uniqueness via citext" do
+      mixed = "USER-#{SecureRandom.hex(2)}@example.test"
+      create(:user, email: mixed)
+      dup = build(:user, email: mixed.downcase)
+      expect(dup).not_to be_valid
+      expect(dup.errors[:email]).to be_present
     end
   end
 
   describe "has_secure_password" do
-    it "round-trips the password through password_digest" do
+    it "round-trips a valid password" do
       user = create(:user, password: "supersecret", password_confirmation: "supersecret")
       expect(user.password_digest).to be_present
       expect(user.authenticate("supersecret")).to eq(user)
       expect(user.authenticate("wrong")).to be(false)
     end
 
-    # Phase 12 — Step A. The model gates on a minimum password length
-    # only when a fresh password is supplied (the `password` accessor
-    # is transient — present at create / change time, blank otherwise).
+    it "rejects empty passwords on authenticate" do
+      user = create(:user, password: "supersecret", password_confirmation: "supersecret")
+      expect(user.authenticate("")).to be(false)
+    end
+
+    # The model gates on a minimum password length only when a fresh
+    # password is supplied (the `password` accessor is transient —
+    # present at create / change time, blank otherwise).
     it "rejects passwords shorter than 8 characters" do
       user = build(:user, password: "short", password_confirmation: "short")
       expect(user).not_to be_valid
@@ -107,37 +107,22 @@ RSpec.describe User, type: :model do
     end
   end
 
-  describe ".find_by_username_or_email" do
-    let!(:user) { create(:user, username: "alice", email: "alice@example.test") }
-
-    it "finds by username" do
-      expect(User.find_by_username_or_email("alice")).to eq(user)
+  describe "no tenant / no username surface" do
+    # Phase 8 archive checks. Asserts that the legacy plumbing is gone.
+    it "does not declare a tenant association" do
+      expect(User.reflect_on_association(:tenant)).to be_nil
     end
 
-    it "finds by email" do
-      expect(User.find_by_username_or_email("alice@example.test")).to eq(user)
+    it "does not respond to .find_by_username_or_email" do
+      expect(User).not_to respond_to(:find_by_username_or_email)
     end
 
-    it "is case-insensitive on username (citext)" do
-      expect(User.find_by_username_or_email("ALICE")).to eq(user)
+    it "does not have a username column" do
+      expect(User.column_names).not_to include("username")
     end
 
-    it "is case-insensitive on email (citext)" do
-      expect(User.find_by_username_or_email("ALICE@EXAMPLE.TEST")).to eq(user)
-    end
-
-    it "strips surrounding whitespace" do
-      expect(User.find_by_username_or_email("  alice  ")).to eq(user)
-    end
-
-    it "returns nil for unknown login" do
-      expect(User.find_by_username_or_email("nope")).to be_nil
-    end
-
-    it "returns nil for blank input" do
-      expect(User.find_by_username_or_email("")).to be_nil
-      expect(User.find_by_username_or_email(nil)).to be_nil
-      expect(User.find_by_username_or_email("   ")).to be_nil
+    it "does not have a tenant_id column" do
+      expect(User.column_names).not_to include("tenant_id")
     end
   end
 end

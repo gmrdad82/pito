@@ -45,7 +45,7 @@ class FootagesController < ApplicationController
   end
 
   def edit
-    @games = Game.where(tenant_id: @footage.tenant_id).order(:title)
+    @games = Game.order(:title)
   end
 
   def update
@@ -57,7 +57,7 @@ class FootagesController < ApplicationController
     if @footage.update(permitted)
       redirect_to project_path(@footage.project), notice: "footage updated."
     else
-      @games = Game.where(tenant_id: @footage.tenant_id).order(:title)
+      @games = Game.order(:title)
       render :edit, status: :unprocessable_content
     end
   end
@@ -107,16 +107,12 @@ class FootagesController < ApplicationController
     @footage = Footage.find(params[:id])
   end
 
-  # Phase 7.5 §06 — Public-read frame endpoints have no cookie session,
-  # so `Current.tenant` is unset and `BelongsToTenant`'s default scope
-  # would raise `TenantContextMissing` on a regular `.find`. Single-
-  # tenant assumption: every footage row belongs to the seeded tenant.
-  # `Footage.unscoped.find` bypasses the default scope. Theta-phase
-  # multi-tenant work will need to derive the tenant from the URL or
-  # require a session here. `ActiveRecord::RecordNotFound` is rescued
-  # by `ApplicationController#render_not_found`.
+  # Phase 7.5 §06 — Public-read frame endpoints have no cookie session.
+  # Pre-Phase-8 this required `Footage.unscoped.find` to bypass the
+  # `BelongsToTenant` default scope; with the tenant drop the default
+  # scope is gone and a plain `find` is sufficient.
   def lookup_footage(id)
-    Footage.unscoped.find(id)
+    Footage.find(id)
   end
 
   # Phase 7.5 §06 — Stream a single frame from the assets root. `tier` is
@@ -170,7 +166,6 @@ class FootagesController < ApplicationController
     {
       id: footage.id,
       project_id: footage.project_id,
-      tenant_id: footage.tenant_id,
       game_id: footage.game_id,
       kind: footage.kind,
       source: footage.source,

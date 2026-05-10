@@ -5,11 +5,11 @@ RSpec.describe "API: Footages (importer)", type: :request do
   # one with both project scopes so the existing happy-path examples
   # stay green; the per-scope reject matrix lives in
   # spec/requests/api/auth_concern_spec.rb.
-  let(:auth_tenant) { Tenant.first || create(:tenant) }
-  let(:auth_user)   { User.first   || create(:user, tenant: auth_tenant) }
+  # Phase 8 — tenant drop. No tenant association on tokens.
+  let(:auth_user) { User.first || create(:user) }
   let(:auth_pair) do
     ApiToken.generate!(
-      tenant: auth_tenant, user: auth_user, name: "footages-spec",
+      user: auth_user, name: "footages-spec",
       scopes: [ Scopes::PROJECT_READ, Scopes::PROJECT_WRITE ]
     )
   end
@@ -99,12 +99,12 @@ RSpec.describe "API: Footages (importer)", type: :request do
       expect(response).to have_http_status(:unprocessable_content)
     end
 
-    it "denormalizes tenant_id from project" do
+    it "no longer carries a tenant_id (Phase 8 — tenant drop)" do
       post api_project_footages_path(project),
            params: { footage: base_attrs }.to_json,
            headers: json_headers
       footage = Footage.last
-      expect(footage.tenant_id).to eq(project.tenant_id)
+      expect(footage.respond_to?(:tenant_id)).to be(false)
     end
 
     it "persists filesize_bytes from the create payload (round-trip)" do
@@ -186,7 +186,7 @@ RSpec.describe "API: Footages (importer)", type: :request do
 
     it "rejects tokens missing the project:write scope" do
       ro_pair = ApiToken.generate!(
-        tenant: auth_tenant, user: auth_user, name: "footages-ro",
+        user: auth_user, name: "footages-ro",
         scopes: [ Scopes::PROJECT_READ ]
       )
       ro_token = ro_pair.last
@@ -218,7 +218,7 @@ RSpec.describe "API: Footages (importer)", type: :request do
 
     it "rejects tokens missing the project:write scope" do
       ro_pair = ApiToken.generate!(
-        tenant: auth_tenant, user: auth_user, name: "footages-ro",
+        user: auth_user, name: "footages-ro",
         scopes: [ Scopes::PROJECT_READ ]
       )
       ro_token = ro_pair.last

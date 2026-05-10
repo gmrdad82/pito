@@ -8,7 +8,7 @@ require "rails_helper"
 # succeed, and asserts on the redirect / response status when validation
 # should fail.
 RSpec.describe "OAuth scope soft-clip", type: :request do
-  let!(:user) { Current.user || create(:user, tenant: Current.tenant) }
+  let!(:user) { Current.user || create(:user) }
 
   let(:code_verifier)  { SecureRandom.urlsafe_base64(64) }
   let(:code_challenge) { Base64.urlsafe_encode64(Digest::SHA256.digest(code_verifier), padding: false) }
@@ -16,7 +16,6 @@ RSpec.describe "OAuth scope soft-clip", type: :request do
   def build_app(app_scopes)
     create(
       :oauth_application,
-      tenant: Current.tenant,
       name: "scope-clip-test",
       redirect_uri: "http://127.0.0.1:8765/callback",
       scopes: app_scopes,

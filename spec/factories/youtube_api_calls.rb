@@ -1,6 +1,5 @@
 FactoryBot.define do
   factory :youtube_api_call do
-    tenant { Current.tenant || association(:tenant) }
     user { nil }
     google_identity { nil }
     client_kind { "oauth" }

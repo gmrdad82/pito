@@ -1,7 +1,10 @@
 # Phase 4 §6.1, §6.2 — disk-side helpers for Note records.
 #
-# Layout: <PITO_NOTES_PATH>/<tenant_id>/projects/<project_id>/<file>.md
+# Layout: <PITO_NOTES_PATH>/projects/<project_id>/<file>.md
 # Flat per project — no subdirectories.
+#
+# Phase 8 — tenant drop. The legacy `<tenant_id>/` segment is gone; the
+# install owns the entire `<PITO_NOTES_PATH>/projects/` tree.
 #
 # Path-handling code is brakeman-prone. Defensive rules followed here:
 #   - The relative `path` column on Note never contains directory separators.
@@ -19,7 +22,7 @@ module NotesFilesystem
   end
 
   def root_for(note)
-    File.join(root, note.tenant_id.to_s, "projects", note.project_id.to_s)
+    File.join(root, "projects", note.project_id.to_s)
   end
 
   # Phase B (2026-05-04) — project-level directory accessor. Used by
@@ -27,7 +30,7 @@ module NotesFilesystem
   # all notes have been removed. Mirrors `root_for(note)`'s shape but takes
   # a Project record directly.
   def project_dir(project)
-    File.join(root, project.tenant_id.to_s, "projects", project.id.to_s)
+    File.join(root, "projects", project.id.to_s)
   end
 
   # Remove the per-project directory recursively. Defensive: returns

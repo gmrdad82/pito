@@ -51,12 +51,9 @@ class Settings::YoutubeController < ApplicationController
     end
 
     channel_url = "https://www.youtube.com/channel/#{youtube_channel_id}"
-    channel = Channel.find_or_initialize_by(channel_url: channel_url) do |c|
-      c.tenant = Current.tenant
-    end
+    channel = Channel.find_or_initialize_by(channel_url: channel_url)
 
     if channel.new_record?
-      channel.tenant ||= Current.tenant
       channel.oauth_identity = identity
       channel.last_synced_at = Time.current
       channel.save!

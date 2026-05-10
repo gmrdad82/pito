@@ -8,18 +8,17 @@
 # through standard CSRF; the destroy goes through the action-screen
 # framework via the `revoke` GET (no `data-turbo-confirm`).
 #
-# Owner gating is a no-op in single-user Beta. Step C documents the
-# migration path when multi-user lands.
+# Phase 8 — tenant drop. Applications are install-wide; no
+# `where(tenant_id: ...)` scoping.
 class Settings::OauthApplicationsController < ApplicationController
   before_action :load_application, only: %i[show destroy revoke]
 
   def index
-    @applications = OauthApplication.where(tenant_id: Current.tenant_id).order(created_at: :desc)
+    @applications = OauthApplication.order(created_at: :desc)
   end
 
   def new
     @application = OauthApplication.new(
-      tenant: Current.tenant,
       confidential: false,
       scopes: ""
     )
@@ -37,8 +36,7 @@ class Settings::OauthApplicationsController < ApplicationController
         name: name,
         redirect_uri: redirect_uri,
         scopes: raw_scopes.join(" "),
-        confidential: confidential,
-        tenant: Current.tenant
+        confidential: confidential
       )
       @application.errors.add(:scopes, "contains invalid entries: #{invalid.join(', ')}")
       render :new, status: :unprocessable_content
@@ -49,8 +47,7 @@ class Settings::OauthApplicationsController < ApplicationController
       name: name,
       redirect_uri: redirect_uri,
       scopes: raw_scopes.join(" "),
-      confidential: confidential,
-      tenant: Current.tenant
+      confidential: confidential
     )
 
     if @application.save
@@ -85,7 +82,7 @@ class Settings::OauthApplicationsController < ApplicationController
   private
 
   def load_application
-    @application = OauthApplication.where(tenant_id: Current.tenant_id).find(params[:id])
+    @application = OauthApplication.find(params[:id])
   end
 
   def audit_destroy(application)

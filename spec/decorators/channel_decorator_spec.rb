@@ -16,17 +16,13 @@ RSpec.describe ChannelDecorator do
     let(:decorator) { described_class.new(channel) }
     let(:json) { decorator.as_summary_json }
 
-    it "includes the post-A2 schema keys" do
+    it "includes the post-A2 schema keys (no tenant_id after Phase 8)" do
       expect(json).to include(
-        :id, :tenant_id, :channel_url, :star, :connected,
+        :id, :channel_url, :star, :connected,
         :last_synced_at, :created_at, :updated_at
       )
       expect(json).not_to have_key(:syncing)
-    end
-
-    it "exposes tenant_id (required by the pito-sh Channel struct)" do
-      expect(json[:tenant_id]).to eq(channel.tenant_id)
-      expect(json[:tenant_id]).to be_a(Integer)
+      expect(json).not_to have_key(:tenant_id)
     end
 
     it "exposes the boolean flags as yes/no strings (boundary convention)" do
@@ -56,8 +52,9 @@ RSpec.describe ChannelDecorator do
     before { create(:video, channel: channel) }
 
     it "includes summary keys plus video_count" do
-      expect(json).to include(:id, :tenant_id, :channel_url, :star, :connected, :video_count)
+      expect(json).to include(:id, :channel_url, :star, :connected, :video_count)
       expect(json).not_to have_key(:syncing)
+      expect(json).not_to have_key(:tenant_id)
     end
 
     it "counts associated videos" do

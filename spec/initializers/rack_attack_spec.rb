@@ -40,7 +40,6 @@ RSpec.describe "Rack::Attack failed-auth throttle", type: :request do
   end
 
   it "does not throttle the cookie-based HTML routes" do
-    Current.tenant = Tenant.first || create(:tenant)
     # The HTML root path doesn't match `/mcp` or `/api/`. Even if a
     # request from a "blocked" IP had an Authorization header (it doesn't,
     # cookies-only), the path check excludes it. Hammer the bucket key
@@ -56,10 +55,9 @@ RSpec.describe "Rack::Attack failed-auth throttle", type: :request do
   end
 
   it "successful auth does NOT increment the bucket" do
-    tenant = Tenant.first || create(:tenant)
-    user   = User.first   || create(:user, tenant: tenant)
+    user = User.first || create(:user)
     _r, plaintext = ApiToken.generate!(
-      tenant: tenant, user: user, name: "ok",
+      user: user, name: "ok",
       scopes: Scopes::ALL.dup
     )
 

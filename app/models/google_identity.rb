@@ -2,17 +2,18 @@
 # Google OAuth identity record.
 #
 # One row per (User, Google account) pair. Beta UI in 7C enforces 1
-# identity per user; the schema permits N (no unique on
-# `(tenant_id, user_id)`) so Theta multi-account support is a future
-# UI change, not a migration.
+# identity per user; the schema permits N (no unique on `user_id`)
+# so Theta multi-account support is a future UI change, not a
+# migration.
+#
+# Phase 8 — tenant drop. `google_subject_id` is now globally unique
+# (the upstream Google ID is unique on its own).
 #
 # Token columns are encrypted at the model layer with Active Record
 # Encryption. The columns are `text` on the schema side because ARE
 # writes a JSON-encoded ciphertext blob. Deterministic encryption is
 # NOT used — tokens are not searchable.
 class GoogleIdentity < ApplicationRecord
-  include BelongsToTenant
-
   belongs_to :user
 
   has_many :channels,
@@ -44,7 +45,7 @@ class GoogleIdentity < ApplicationRecord
   encrypts :refresh_token
 
   validates :google_subject_id, presence: true,
-            uniqueness: { scope: :tenant_id }
+            uniqueness: { case_sensitive: true }
   validates :email, presence: true
   validates :access_token, presence: true
   validates :expires_at, presence: true

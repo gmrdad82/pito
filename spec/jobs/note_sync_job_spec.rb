@@ -1,41 +1,38 @@
 require "rails_helper"
 
+# Phase 8 — tenant drop. The job runs install-wide; the legacy
+# `tenant_id` arg is ignored (kept for backwards compatibility).
 RSpec.describe NoteSyncJob, type: :job do
-  let!(:tenant) { create(:tenant) }
-  let!(:project) { create(:project, tenant: tenant) }
+  let!(:project) { create(:project) }
 
   let(:tmp_root) { Dir.mktmpdir("pito-notes-spec") }
-  let(:project_dir) { File.join(tmp_root, tenant.id.to_s, "projects", project.id.to_s) }
+  let(:project_dir) { File.join(tmp_root, "projects", project.id.to_s) }
 
   before do
-    # Phase 5A — re-pin Current.tenant onto the explicitly-created
-    # tenant so spec-side assertions like `Note.count` (which apply
-    # the BelongsToTenant default scope) see the rows the job
-    # creates. The job itself also pins Current.tenant for the
-    # duration of `#perform`.
-    Current.tenant = tenant
     @prev_root = ENV["PITO_NOTES_PATH"]
     ENV["PITO_NOTES_PATH"] = tmp_root
     FileUtils.mkdir_p(project_dir)
+    NotesLockGuard.release!
   end
 
   after do
     ENV["PITO_NOTES_PATH"] = @prev_root
     FileUtils.remove_entry(tmp_root) if File.exist?(tmp_root)
+    NotesLockGuard.release!
   end
 
   describe "#perform" do
-    it "sets and clears notes_syncing_at via the ensure block" do
-      described_class.new.perform(tenant.id)
-      expect(tenant.reload.notes_syncing_at).to be_nil
+    it "sets and clears the install-wide lock via the ensure block" do
+      described_class.new.perform
+      expect(NotesLockGuard.locked?).to be(false)
     end
 
-    it "clears notes_syncing_at even when reconcile raises" do
+    it "clears the install-wide lock even when reconcile raises" do
       allow(Dir).to receive(:glob).and_raise(StandardError, "boom")
       expect {
-        described_class.new.perform(tenant.id)
+        described_class.new.perform
       }.to raise_error(StandardError, "boom")
-      expect(tenant.reload.notes_syncing_at).to be_nil
+      expect(NotesLockGuard.locked?).to be(false)
     end
 
     context "ADD branch — file on disk, no DB record" do
@@ -44,7 +41,7 @@ RSpec.describe NoteSyncJob, type: :job do
         File.write(path, "# Alpha title\n\nBody.")
 
         expect {
-          described_class.new.perform(tenant.id)
+          described_class.new.perform
         }.to change(Note, :count).by(1)
 
         note = Note.last
@@ -57,14 +54,14 @@ RSpec.describe NoteSyncJob, type: :job do
         File.write(path, "# Beta")
 
         expect {
-          described_class.new.perform(tenant.id)
+          described_class.new.perform
         }.to change(Notes::EmbedJob.jobs, :size).by(1)
       end
     end
 
     context "CHANGE branch — file mtime > note.last_modified_at" do
       let!(:note) do
-        create(:note, project: project, tenant: tenant, path: "old.md",
+        create(:note, project: project, path: "old.md",
                       title: "old", last_modified_at: 2.hours.ago)
       end
 
@@ -77,7 +74,7 @@ RSpec.describe NoteSyncJob, type: :job do
 
       it "updates title and last_modified_at and enqueues EmbedJob" do
         expect {
-          described_class.new.perform(tenant.id)
+          described_class.new.perform
         }.to change(Notes::EmbedJob.jobs, :size).by(1)
         note.reload
         expect(note.title).to eq("new title")
@@ -87,17 +84,17 @@ RSpec.describe NoteSyncJob, type: :job do
 
     context "DELETE branch — DB record without file" do
       let!(:orphan) do
-        create(:note, project: project, tenant: tenant, path: "orphan.md")
+        create(:note, project: project, path: "orphan.md")
       end
 
       it "destroys the orphan record" do
         expect {
-          described_class.new.perform(tenant.id)
+          described_class.new.perform
         }.to change(Note, :count).by(-1)
       end
     end
 
-    it "is a no-op when the tenant is missing" do
+    it "ignores a stray legacy positional argument" do
       expect {
         described_class.new.perform(999_999)
       }.not_to raise_error

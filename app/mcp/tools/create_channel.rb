@@ -30,12 +30,7 @@ module Mcp
           )
         end
 
-        tenant_id = Current.tenant&.id || Tenant.first&.id
-        if tenant_id.nil?
-          return error_response("no tenant available — seed a Tenant first")
-        end
-
-        channel = Channel.new(channel_url: url, tenant_id: tenant_id)
+        channel = Channel.new(channel_url: url)
 
         if channel.save
           data = ChannelDecorator.new(channel).as_detail_json

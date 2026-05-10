@@ -1,6 +1,9 @@
 # Phase 4 §3.5 — Note record mirrors a markdown file on disk under
-# <PITO_NOTES_PATH>/<tenant_id>/projects/<project_id>/<file>.md (flat — no
+# <PITO_NOTES_PATH>/projects/<project_id>/<file>.md (flat — no
 # subdirectories per project).
+#
+# Phase 8 — tenant drop. Path uniqueness is now per-project (no tenant
+# segment in the disk layout, no tenant_id column).
 #
 # `embedding` is a pgvector(1024) column; populated by Notes::EmbedJob (Phase
 # B) only when AppSetting.voyage_indexing_project_notes? is true AND
@@ -19,12 +22,10 @@ class Note < ApplicationRecord
   # (Phases 9/10), but wiring it now keeps the model future-proof.
   has_neighbors :embedding
 
-  include BelongsToTenant
-
   belongs_to :project, counter_cache: true
 
   validates :path, presence: true,
-                   uniqueness: { scope: :tenant_id }
+                   uniqueness: { scope: :project_id }
   validates :title, presence: true, length: { maximum: TITLE_MAX_LENGTH }
   validates :last_modified_at, presence: true
 

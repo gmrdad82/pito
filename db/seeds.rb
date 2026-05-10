@@ -1,5 +1,9 @@
 # Seed data for development — run with: bin/rails db:seed
-# Idempotent: safe to run multiple times
+# Idempotent: safe to run multiple times.
+#
+# Phase 8 — Tenant Drop + Email-Only Login (ADR 0003). The seed reads
+# `Rails.application.credentials.owner.{email, password}` only; there
+# is no Tenant model, no `username`, no `tenant_name` / `tenant_slug`.
 
 puts "seeding app settings..."
 AppSetting.set("max_panes", "5")
@@ -29,43 +33,25 @@ if AppSetting.exists?
 end
 
 # ---------------------------------------------------------------------------
-# Owner credentials (Tenant + User)
+# Owner credentials (User)
 # ---------------------------------------------------------------------------
 
 owner_creds = Rails.application.credentials.dig(:owner)
 if owner_creds.blank?
   puts "  WARNING: credentials :owner block missing; using placeholder values."
   puts "           run `bin/rails credentials:edit` to populate :owner with"
-  puts "           tenant_name, username, email, password."
+  puts "           email and password."
 end
 
-tenant_name = owner_creds&.dig(:tenant_name) || "Primary"
-tenant_slug = owner_creds&.dig(:tenant_slug).presence || "primary"
-owner_username = owner_creds&.dig(:username) || "owner"
-owner_email = owner_creds&.dig(:email) || "owner@example.test"
-owner_password = owner_creds&.dig(:password) || "change-me"
-
-puts "seeding tenant..."
-tenant = Tenant.find_or_initialize_by(name: tenant_name)
-tenant.slug = tenant_slug if tenant.slug.blank?
-tenant.save!
-puts "  tenant: #{tenant.name} (slug=#{tenant.slug}, id=#{tenant.id})"
-
-# Phase 5A — every read inside the seed body that touches a tenanted
-# model goes through `BelongsToTenant`'s default scope, which raises
-# unless `Current.tenant_id` is set. Pin it to the seed tenant up
-# front so subsequent `find_or_create_by` calls work.
-Current.tenant = tenant
+owner_email    = owner_creds&.dig(:email).presence || "owner@example.test"
+owner_password = owner_creds&.dig(:password).presence || "change-me-please"
 
 puts "seeding owner user..."
-owner = User.find_by(username: owner_username) || User.find_by(email: owner_email) || User.new
-owner.tenant = tenant
-owner.username = owner_username
-owner.email = owner_email
+owner = User.find_or_initialize_by(email: owner_email)
 owner.password = owner_password
 owner.password_confirmation = owner_password
 owner.save!
-puts "  user: #{owner.username} <#{owner.email}> (id=#{owner.id})"
+puts "  user: #{owner.email} (id=#{owner.id})"
 
 # Phase 3 — Step C (5c-settings-ui-and-docs.md). Seed a default `dev` API
 # token so the install ceremony captures plaintext once. Idempotent — second
@@ -74,7 +60,7 @@ puts "  user: #{owner.username} <#{owner.email}> (id=#{owner.id})"
 #
 # Default scope set: dev:* + yt:* (read+write) + project:* (read+write). No
 # `yt:destructive` by default — the user opts in by minting a separate token.
-unless ApiToken.exists?(name: "dev", tenant_id: tenant.id)
+unless ApiToken.exists?(name: "dev")
   Current.user = owner
   pepper = Rails.application.credentials.dig(:tokens, :pepper)
   if pepper.blank?
@@ -100,7 +86,6 @@ unless ApiToken.exists?(name: "dev", tenant_id: tenant.id)
     end
   else
     _token, plaintext = ApiToken.generate!(
-      tenant: tenant,
       user:   owner,
       name:   "dev",
       scopes: [
@@ -148,7 +133,6 @@ CHANNEL_SEED_COUNT.times do |i|
   created_at = Time.current - created_offset
 
   ch = Channel.find_or_initialize_by(channel_url: url)
-  ch.tenant = tenant
   ch.star = star
   ch.last_synced_at = nil
   ch.created_at = created_at if ch.new_record?
@@ -164,10 +148,7 @@ puts "seeding videos..."
 # ---------------------------------------------------------------------------
 # Per-channel video generation. Phase 7 Path A2 (literal full retract):
 # Video is a thin YouTube-reference record — only youtube_video_id +
-# channel are seeded. No title/description/tags/etc.; Phase 8+ will
-# populate metadata when real YouTube sync ships. VideoStat seeding
-# stays — stats remain the rich data surface the dashboard charts and
-# pito CLI consume.
+# channel are seeded. No title/description/tags/etc.
 # ---------------------------------------------------------------------------
 
 video_count = 0
@@ -178,26 +159,16 @@ seedable_channels = Channel.order(:id).limit(10)
 seedable_channels.each_with_index do |channel, channel_idx|
   base_views = 500 + (channel.id * 137) % 6000
   growth = 1.0 + ((channel.id % 13) - 6) * 0.001
-  # Each seeded channel gets 20 video rows (was 30 for connected ones,
-  # 20 otherwise — collapsed to a flat 20 since seeded channels start
-  # disconnected under Path A2).
   count = 20
 
   count.times do |i|
     raw_id = "#{channel.channel_url[-10..]}#{channel_idx}#{i.to_s.rjust(3, '0')}"
     vid_id = raw_id.gsub(/[^A-Za-z0-9_-]/, "x")[0, 11]
-    # Each video gets a synthetic "publish date" used only for stat
-    # generation; the column is gone from the schema, so we keep the
-    # value local to this block.
     published = Time.zone.now - rand(5..365).days - rand(0..23).hours
     duration_seconds_local = rand(90..5400)
 
     video = Video.find_or_initialize_by(youtube_video_id: vid_id)
-    video.assign_attributes(
-      channel: channel,
-      tenant: tenant
-    )
-    # Star a small subset of seeded videos for variety.
+    video.assign_attributes(channel: channel)
     video.star = (i.zero?) if video.new_record?
     video.save!
     video_count += 1
@@ -225,7 +196,7 @@ seedable_channels.each_with_index do |channel, channel_idx|
       watch_time = (views * duration_seconds_local / 60.0 * rand(0.25..0.65)).round
 
       VideoStat.find_or_initialize_by(video: video, date: date).tap do |stat|
-        stat.assign_attributes(tenant: tenant, views: views, likes: likes, comments: comments,
+        stat.assign_attributes(views: views, likes: likes, comments: comments,
                                shares: shares, watch_time_minutes: watch_time)
         stat.save!
       end
@@ -247,9 +218,9 @@ puts "  #{video_count} videos with stats"
 
 puts "seeding project workspace sample..."
 
-collection = Collection.find_or_create_by!(tenant: tenant, name: "Demo Collection")
+collection = Collection.find_or_create_by!(name: "Demo Collection")
 
-game = Game.find_or_initialize_by(tenant: tenant, title: "Demo Game")
+game = Game.find_or_initialize_by(title: "Demo Game")
 game.collection ||= collection
 game.publisher  ||= "Demo Studios"
 game.platforms = [ { "platform" => "PS5", "owned" => true, "recorded_on" => true } ] if game.platforms.blank?
@@ -264,29 +235,29 @@ if cover_fixture_path.exist? && !game.cover_art.attached?
   )
 end
 
-project = Project.find_or_create_by!(tenant: tenant, name: "Demo Project")
+project = Project.find_or_create_by!(name: "Demo Project")
 
 # Polymorphic references — Project -> Game and Project -> Collection.
 ProjectReference.find_or_create_by!(
-  project: project, tenant: tenant,
+  project: project,
   referenceable_type: "Game", referenceable_id: game.id
 )
 ProjectReference.find_or_create_by!(
-  project: project, tenant: tenant,
+  project: project,
   referenceable_type: "Collection", referenceable_id: collection.id
 )
 
 # Sample Note — disk file is NOT created here (NoteSyncJob does that in
 # Phase B). The DB row alone is enough for Phase A's smoke test.
 Note.find_or_create_by!(
-  tenant: tenant, project: project, path: "demo-note.md"
+  project: project, path: "demo-note.md"
 ) do |note|
   note.title = "Demo note"
   note.last_modified_at = Time.current
 end
 
 # Sample Timeline in the initial state (aasm `editing`).
-Timeline.find_or_create_by!(tenant: tenant, project: project, title: "Demo Timeline") do |t|
+Timeline.find_or_create_by!(project: project, title: "Demo Timeline") do |t|
   t.state = :editing
 end
 

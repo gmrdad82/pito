@@ -6,13 +6,10 @@
 # screen; the `destroy` POST flips `revoked_at`). Revoking the current
 # session also clears the cookie and bounces the user to /login.
 #
-# Phase 7.5 — Step 01 hygiene sweep. The earlier `.unscoped.where(user_id: …)`
-# pattern was over-defensive copy-paste. `Current.user.sessions` already
-# filters `WHERE user_id = ?`; `BelongsToTenant`'s default scope adds
-# `AND tenant_id = ?`. That double filter is the desired behavior — both
-# is more restrictive than removing the tenant filter via `.unscoped`. So
-# the natural association is already strictly safer than the workaround
-# it replaced.
+# Phase 8 — tenant drop. The previous `.unscoped` workaround used to
+# bypass `BelongsToTenant`'s default scope; with the tenant model gone
+# the natural `Current.user.sessions` association is the right shape on
+# its own.
 class Settings::SessionsController < ApplicationController
   def index
     @sessions = Current.user.sessions

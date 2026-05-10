@@ -7,19 +7,18 @@ require "rails_helper"
 # parts keyed by `frames[<HH-MM-SS>][master|thumb]`.
 RSpec.describe "API: Footage frames bulk upload", type: :request do
   let(:tmp_root) { Dir.mktmpdir("pito-assets-api-frames-spec") }
-  let(:auth_tenant) { Tenant.first || create(:tenant) }
-  let(:auth_user)   { User.first   || create(:user, tenant: auth_tenant) }
+  let(:auth_user) { User.first || create(:user) }
   let(:auth_pair) do
     ApiToken.generate!(
-      tenant: auth_tenant, user: auth_user, name: "frames-spec",
+      user: auth_user, name: "frames-spec",
       scopes: [ Scopes::PROJECT_READ, Scopes::PROJECT_WRITE ]
     )
   end
   let(:auth_token) { auth_pair.last }
   let(:auth_headers) { { "Authorization" => "Bearer #{auth_token}" } }
 
-  let!(:project) { create(:project, tenant: auth_tenant) }
-  let!(:footage) { create(:footage, project: project, tenant: auth_tenant, duration_seconds: 240) }
+  let!(:project) { create(:project) }
+  let!(:footage) { create(:footage, project: project, duration_seconds: 240) }
 
   let(:jpeg_bytes) { "\xFF\xD8\xFF\xE0\x00\x10JFIF\x00".b }
 
@@ -110,7 +109,7 @@ RSpec.describe "API: Footage frames bulk upload", type: :request do
 
     it "returns 403 when the token lacks the project:write scope" do
       ro_pair = ApiToken.generate!(
-        tenant: auth_tenant, user: auth_user, name: "frames-ro",
+        user: auth_user, name: "frames-ro",
         scopes: [ Scopes::PROJECT_READ ]
       )
       ro_token = ro_pair.last

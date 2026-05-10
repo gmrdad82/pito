@@ -10,15 +10,14 @@ require "rails_helper"
 #   - OAuth bearer with insufficient scope → tool-call error envelope
 #   - 401 carries the WWW-Authenticate challenge with as_uri/resource_uri
 #
-# Existing ApiToken behavior is verified in `mcp/rack_app_auth_spec.rb`
-# and stays untouched.
+# Phase 8 — tenant drop. The cross-tenant defense-in-depth check is
+# gone (single install). A token whose resource owner is hard-deleted
+# is still rejected as `invalid_token`.
 RSpec.describe "Mcp::RackApp OAuth bearer acceptance", type: :request do
-  let(:tenant) { Tenant.first || create(:tenant) }
-  let(:user)   { User.first  || create(:user, tenant: tenant) }
+  let(:user) { User.first || create(:user) }
   let!(:application) do
     create(
       :oauth_application,
-      tenant: tenant,
       name: "claude-mcp-spec",
       scopes: Scopes::ALL.join(" ")
     )
@@ -39,10 +38,6 @@ RSpec.describe "Mcp::RackApp OAuth bearer acceptance", type: :request do
     { "Content-Type" => "application/json", "Accept" => "application/json" }
   end
 
-  # Mint an OAuth access token bound to `user` (resource owner) and
-  # `application` (the OauthApplication). Doorkeeper auto-generates the
-  # `token` plaintext and stamps `tenant_id` from the application via
-  # the `before_validation` denormalizer on `OauthAccessToken`.
   def mint_oauth_token(scopes:, expires_in: 2.hours.to_i, revoked_at: nil)
     token = OauthAccessToken.create!(
       application: application,
@@ -67,11 +62,7 @@ RSpec.describe "Mcp::RackApp OAuth bearer acceptance", type: :request do
       expect(data["result"]["serverInfo"]["name"]).to eq("pito")
     end
 
-    it "pins Current.tenant / Current.user from the OAuth token's owner" do
-      # Indirect assertion via a tool call that depends on Current.user being
-      # set. The `list_channels` tool reads `Current.tenant` via the
-      # default scope; if Current is nil the tool errors out. We round-trip
-      # an empty channel list and assert success.
+    it "pins Current.user from the OAuth token's owner" do
       token = mint_oauth_token(scopes: [ Scopes::YT_READ ])
       headers = base_headers.merge("Authorization" => "Bearer #{token.token}")
 
@@ -107,7 +98,6 @@ RSpec.describe "Mcp::RackApp OAuth bearer acceptance", type: :request do
   describe "expired OAuth access token" do
     it "returns 401 with {error: expired_token}" do
       token = mint_oauth_token(scopes: Scopes::ALL)
-      # Backdate created_at so created_at + expires_in is in the past.
       token.update_column(:created_at, 4.hours.ago)
 
       post "/mcp",
@@ -168,20 +158,14 @@ RSpec.describe "Mcp::RackApp OAuth bearer acceptance", type: :request do
     end
   end
 
-  describe "cross-tenant token defense-in-depth" do
-    it "refuses an OAuth token whose resource owner is in a different tenant than the application" do
-      other_tenant = create(:tenant)
-      other_user   = create(:user, tenant: other_tenant)
-
-      # Mint a token whose application is in `tenant` but whose
-      # resource_owner_id points at a user in `other_tenant`. This
-      # should never happen in production (the authenticator block
-      # consents the cookie-resolved current user, which always
-      # matches `Current.tenant`), but the bearer dispatch refuses
-      # it as `invalid_token` regardless.
+  describe "Phase 8 — user hard-delete defense-in-depth" do
+    it "refuses an OAuth token whose resource owner row is missing" do
+      # OAuth access tokens hold `resource_owner_id` as a plain bigint
+      # (no FK on the column), so we can simulate the missing-user
+      # state by minting the token with a dangling id.
       token = OauthAccessToken.create!(
         application: application,
-        resource_owner_id: other_user.id,
+        resource_owner_id: 99_999_999,
         scopes: Scopes::ALL.join(" "),
         expires_in: 2.hours.to_i
       )

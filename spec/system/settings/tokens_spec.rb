@@ -12,7 +12,7 @@ RSpec.describe "Settings tokens flow", type: :system do
     driven_by(:rack_test)
   end
 
-  let(:user) { User.first || create(:user, tenant: Current.tenant) }
+  let(:user) { User.first || create(:user) }
 
   before do
     Current.user = user
@@ -53,7 +53,7 @@ RSpec.describe "Settings tokens flow", type: :system do
 
   it "revokes a token via the action confirmation flow (no JS confirm)" do
     record, = ApiToken.generate!(
-      tenant: Current.tenant, user: user,
+      user: user,
       name: "to-be-revoked", scopes: [ Scopes::DEV_READ ]
     )
 

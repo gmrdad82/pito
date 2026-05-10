@@ -1,9 +1,8 @@
 require "rails_helper"
 
+# Phase 8 — tenant drop. Tokens are install-wide.
 RSpec.describe "Settings::Tokens", type: :request do
-  # The tenant is auto-pinned by spec/support/tenant_context.rb. Mint a user
-  # under it for the create flow (ApiToken.user is required).
-  let(:user) { User.first || create(:user, tenant: Current.tenant) }
+  let(:user) { User.first || create(:user) }
 
   before do
     Current.user = user
@@ -17,7 +16,6 @@ RSpec.describe "Settings::Tokens", type: :request do
 
     it "lists active tokens with name + scopes + preview" do
       token, = ApiToken.generate!(
-        tenant: Current.tenant,
         user: user,
         name: "alpha-token",
         scopes: [ Scopes::DEV_READ ]
@@ -30,11 +28,11 @@ RSpec.describe "Settings::Tokens", type: :request do
 
     it "lists revoked tokens grayed and after active ones" do
       _active, = ApiToken.generate!(
-        tenant: Current.tenant, user: user,
+        user: user,
         name: "still-good", scopes: [ Scopes::DEV_READ ]
       )
       revoked, = ApiToken.generate!(
-        tenant: Current.tenant, user: user,
+        user: user,
         name: "old-revoked", scopes: [ Scopes::DEV_READ ]
       )
       revoked.revoke!
@@ -46,18 +44,6 @@ RSpec.describe "Settings::Tokens", type: :request do
       expect(idx_revoked).not_to be_nil
       expect(idx_active).to be < idx_revoked
       expect(response.body).to include("revoked")
-    end
-
-    it "scopes the listing to the current tenant" do
-      other_tenant = create(:tenant, name: "other", slug: "other-#{SecureRandom.hex(2)}")
-      other_user = create(:user, tenant: other_tenant)
-      ApiToken.generate!(
-        tenant: other_tenant, user: other_user,
-        name: "other-tenant-token", scopes: [ Scopes::DEV_READ ]
-      )
-
-      get settings_tokens_path
-      expect(response.body).not_to include("other-tenant-token")
     end
 
     it "shows a [ new ] link" do
@@ -82,7 +68,6 @@ RSpec.describe "Settings::Tokens", type: :request do
 
     it "groups checkboxes by scope namespace" do
       get new_settings_token_path
-      # `dev:`, `yt:`, `website:`, `project:` namespace legends.
       expect(response.body).to match(/<legend[^>]*>\s*dev:\s*<\/legend>/)
       expect(response.body).to match(/<legend[^>]*>\s*yt:\s*<\/legend>/)
       expect(response.body).to match(/<legend[^>]*>\s*project:\s*<\/legend>/)
@@ -102,8 +87,6 @@ RSpec.describe "Settings::Tokens", type: :request do
         token: { name: "cli", scopes: [ Scopes::DEV_READ, Scopes::YT_READ ] }
       }
       expect(response).to have_http_status(:ok)
-      # The success view renders the plaintext inside a code block. The
-      # plaintext is 32 bytes urlsafe-base64 — match its shape.
       expect(response.body).to match(/<pre[^>]*class="[^"]*code-block[^"]*"[^>]*>\s*<code>[A-Za-z0-9_\-]{40,}<\/code>/)
       expect(response.body).to include("save this now")
     end
@@ -113,8 +96,8 @@ RSpec.describe "Settings::Tokens", type: :request do
         post settings_tokens_path, params: {
           token: { name: "cli2", scopes: [ Scopes::DEV_READ, Scopes::YT_READ ] }
         }
-      }.to change { ApiToken.where(tenant_id: Current.tenant_id).count }.by(1)
-      token = ApiToken.where(tenant_id: Current.tenant_id).order(:created_at).last
+      }.to change { ApiToken.count }.by(1)
+      token = ApiToken.order(:created_at).last
       expect(token.name).to eq("cli2")
       expect(token.scopes).to match_array([ Scopes::DEV_READ, Scopes::YT_READ ])
     end
@@ -165,7 +148,7 @@ RSpec.describe "Settings::Tokens", type: :request do
       post settings_tokens_path, params: {
         token: { name: "expiring", scopes: [ Scopes::DEV_READ ], expires_at: "2027-01-01" }
       }
-      token = ApiToken.where(tenant_id: Current.tenant_id, name: "expiring").last
+      token = ApiToken.where(name: "expiring").last
       expect(token.expires_at).not_to be_nil
       expect(token.expires_at.to_date).to eq(Date.parse("2027-01-01"))
     end
@@ -183,7 +166,7 @@ RSpec.describe "Settings::Tokens", type: :request do
   describe "GET /settings/tokens/:id/revoke" do
     let(:token) do
       record, = ApiToken.generate!(
-        tenant: Current.tenant, user: user,
+        user: user,
         name: "to-revoke", scopes: [ Scopes::DEV_READ ]
       )
       record
@@ -213,7 +196,7 @@ RSpec.describe "Settings::Tokens", type: :request do
   describe "DELETE /settings/tokens/:id" do
     let!(:token) do
       record, = ApiToken.generate!(
-        tenant: Current.tenant, user: user,
+        user: user,
         name: "to-revoke", scopes: [ Scopes::DEV_READ ]
       )
       record
@@ -222,7 +205,7 @@ RSpec.describe "Settings::Tokens", type: :request do
     it "sets revoked_at without deleting the row" do
       expect {
         delete settings_token_path(token)
-      }.not_to change { ApiToken.where(tenant_id: Current.tenant_id).count }
+      }.not_to change { ApiToken.count }
 
       token.reload
       expect(token.revoked_at).to be_present
