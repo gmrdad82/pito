@@ -457,3 +457,198 @@ validation.
   formatter for the tools.
 - **Source-helper callsite wiring** (carryover from Spec 01 log) —
   three one-line additions in Phase 7 / 12 / 13 jobs.
+
+## 2026-05-10 — Spec 03 implementation continuation (rails-impl agent)
+
+### Context
+
+An earlier dispatch landed Spec 03's controller + model callbacks +
+routes in commit `4fa4509`, but timed out before the views, MCP
+tools, Stimulus controller, and full spec coverage were written. The
+missing `app/views/notifications/_badge.html.erb` partial caused the
+F3 audit assertion in `spec/services/notification_delivery_channel/discord_spec.rb`
+to fail (the `Notification.after_create_commit` broadcast tripped on
+a missing template, which was rescued + logged via `Rails.logger.warn`,
+which then collided with the spec's `expect(Rails.logger).to receive(:warn).with(/DISCORD_HOSTS allowlist/)`).
+This session fills in the gaps.
+
+### Files (production)
+
+- **Views (4 new):**
+  - `app/views/notifications/_badge.html.erb` — unread-count badge
+    fragment. Renders `[ N ]` when `unread_count > 0`, an empty
+    wrapper otherwise. Wrapper carries a stable `id="notifications_badge"`
+    so Turbo Stream `broadcast_replace_to` can target it.
+  - `app/views/notifications/_notification.html.erb` — single-row
+    partial. Renders glyph + bold (unread) / muted (read) title +
+    severity badge + `time_ago_in_words` + `[ mark read ]` (only if
+    unread). The wrapper `<tr>` carries `dom_id(notification)` so
+    `broadcast_replace_to` finds it on read-state flip.
+  - `app/views/notifications/index.html.erb` — paginated list view.
+    Filter cluster `[ all ]` / `[ unread ]` (master decision #8),
+    `[ mark all read ]` button when unread_count > 0, empty state
+    `no notifications yet.` (master decision #2). Webhook
+    misconfigured banner when any unread row carries `last_error`
+    (master decision #12). `turbo_stream_from "notifications_index"`
+    subscribes the page to live row prepends.
+  - `app/views/notifications/show.html.erb` — detail page. Title +
+    severity badge + body_html (formatter-rendered, `<a>`-only
+    sanitized) + relative + ISO timestamp + per-channel delivery
+    state + `last_error` (when non-blank) + `[ mark read ]` /
+    `[ mark unread ]` (state-dependent) + `[ open ]` (master decision
+    #6, NOT `[ open source ]`) + `[ back ]`. The `[ open ]` link
+    wires the `notification-link` Stimulus controller for
+    auto-mark-on-click.
+
+- **Stimulus (1 new):**
+  - `app/javascript/controllers/notification_link_controller.js` —
+    `markReadAndNavigate` action. Issues a fire-and-forget `fetch`
+    PATCH to `/notifications/:id/read` with `keepalive: true`, then
+    allows the link to navigate. NO `window.confirm` / `alert` /
+    `prompt` / `data-turbo-confirm` (CLAUDE.md hard rule). Fully
+    defensive: on PATCH failure the link still navigates.
+
+- **Layout (1 light edit):**
+  - `app/views/layouts/application.html.erb` — adds the
+    `[notifications]` nav link + the badge fragment (subscribed to
+    `notifications_badge` stream) to the header nav row, plus the
+    `[notifications]` link to the footer nav row for parity.
+
+- **MCP tools (4 new):**
+  - `app/mcp/tools/notifications_list.rb` — paginated list (`page`,
+    `per_page` capped at 100). Filters by `unread: "yes"/"no"`,
+    `kind`, `severity`. Returns `notifications: [...]` (per
+    `NotificationFormatter::Mcp.payload_for`) +
+    `pagination: {page, per_page, total, total_pages}`. Each row
+    has `read` as a `"yes"` / `"no"` string (CLAUDE.md boundary
+    rule). Gates on `Scopes::APP`. `additionalProperties: false`.
+  - `app/mcp/tools/notifications_unread_count.rb` — returns
+    `{count: <int>}`. No params. Gates on `Scopes::APP`. No cache
+    (master decision open-question #7).
+  - `app/mcp/tools/notifications_mark_read.rb` — bulk mark-read.
+    Accepts `ids: [<int>, ...]`. NO `confirm` requirement (master
+    decision open-question #3 — mark-read is non-destructive).
+    Single call performs the mutation and returns
+    `{marked_read, ids, not_found_ids}`. Idempotent on already-read
+    rows (only counts new flips). Gates on `Scopes::APP`. Strict
+    integer validation (rejects non-integer + non-numeric-string ids
+    with a clear error).
+  - `app/mcp/tools/notifications_mark_all_read.rb` — marks every
+    unread row read. No params. NO `confirm` requirement. Gates on
+    `Scopes::APP`. Returns `{marked_read: <count>}`.
+
+- **CSS (light edit):**
+  - `app/assets/tailwind/application.css` — appended ~24 lines:
+    `.notifications-badge` wrapper, `.notification-row.notification-(read|unread)`
+    title weight, `.notification-severity-badge` + 4 severity-color
+    selectors. Per CLAUDE.md hard rule: `urgent` maps to
+    `--color-warn` (amber), NOT red (red is reserved for destructive
+    actions only).
+
+### Files (specs — 9 new)
+
+| File                                                      | Examples |
+| --------------------------------------------------------- | -------- |
+| `spec/requests/notifications_spec.rb`                     |       41 |
+| `spec/system/notifications_index_spec.rb`                 |       13 |
+| `spec/system/notifications_show_spec.rb`                  |       13 |
+| `spec/system/notifications_badge_live_update_spec.rb`     |        5 |
+| `spec/views/notifications/index_html_erb_spec.rb`         |        8 |
+| `spec/views/notifications/show_html_erb_spec.rb`          |       12 |
+| `spec/views/notifications/_badge_html_erb_spec.rb`        |        5 |
+| `spec/mcp/tools/notifications_list_spec.rb`               |       21 |
+| `spec/mcp/tools/notifications_unread_count_spec.rb`       |        5 |
+| `spec/mcp/tools/notifications_mark_read_spec.rb`          |       18 |
+| `spec/mcp/tools/notifications_mark_all_read_spec.rb`      |        9 |
+| **Spec 03 sweep total**                                   |  **150** |
+
+### Master agent decisions honored
+
+All 14 copy decisions + 7 open-question decisions from the
+2026-05-10 lock are reflected in the implementation:
+
+- `[ all ]` / `[ unread ]` filter cluster.
+- `[ mark read ]` / `[ mark unread ]` / `[ mark all read ]` /
+  `[ open ]` (NOT `[ open source ]`) / `[ back ]`.
+- Empty state copy: `no notifications yet.`.
+- Severity badge: lowercase enum text.
+- Per-channel state: `pending` / iso-timestamp / `disabled`.
+- Webhook misconfigured banner copy (verbatim).
+- Bulk URL pattern: `/notifications/mark_read?ids=A,B,C` (collection
+  PATCH with `?ids=` param — open-question #2).
+- Auto-mark-on-click: kept (open-question #1).
+- NO `confirm: yes/no` requirement on the mark-read MCP tools
+  (open-question #3 override of CLAUDE.md symmetry argument —
+  mark-read is non-destructive).
+- Bold unread / muted read; no glyph prefix (open-question #6).
+- No cache for `notifications_unread_count` (open-question #7).
+- F1 hardening: `notification.url` is post-validated by the model
+  (`url_is_well_formed_when_present`). Default ERB `<%= %>` escaping
+  is used everywhere — no `html_safe` on user-derived URLs. The
+  show-view spec asserts the exact escape path (`&` → `&amp;`).
+
+### Quality gates
+
+- Spec 03 sweep (`spec/requests/notifications_spec.rb`,
+  `spec/system/notifications_*_spec.rb`,
+  `spec/views/notifications/`,
+  `spec/mcp/tools/notifications_*_spec.rb`) — 150 examples, 0
+  failures.
+- Phase 16 sweep (Spec 01 + 02 + 03, plus the model + AppSetting +
+  scheduler + delivery channels + jobs) — 499 examples, 0 failures.
+- Full suite (`bundle exec rspec`) — 3825 examples, 3 failures, 1
+  pending. Three failures are all pre-existing on `main`
+  (calendar/month route constraint, composites path-traversal,
+  calendar_edit_delete_spec note-link selector); none touch the
+  notification surface. Same set surfaced in Spec 01 + 02 logs.
+- `bundle exec rubocop` (notification surface — 17 ruby files,
+  excluding ERB which rubocop cannot lint) — clean.
+- `bundle exec brakeman -q -w2` — 0 security warnings.
+
+### F3 fix-forward (delivery-channel spec failure)
+
+The pre-session `discord_spec.rb:225` failure ("logs a warning when
+configured URL fails the allowlist") was caused by the
+Notification model's `after_create_commit` broadcast trying to
+render a missing `notifications/_badge` partial. The broadcast's
+rescue logged a warn line, which collided with the spec's
+`expect(Rails.logger).to receive(:warn).with(/DISCORD_HOSTS allowlist/)`.
+Creating the partial resolved the failure: spec now passes (verified
+in isolation + the full delivery-channel sweep).
+
+### Drift / surfaced
+
+1. **MCP `notifications_mark_read` tool argument shape.** Per master
+   decision #3, the `confirm` parameter was removed entirely (the
+   spec's input_schema does not declare it). Mark-read is
+   non-destructive. The `delete_records` tool keeps `confirm` because
+   it IS destructive — symmetry across the bulk MCP surface is
+   intentionally broken here.
+2. **Notification IDs are bigint, not UUID.** The schema (per Spec 01
+   log "UUID vs bigint" drift note) is bigint. The MCP tool input
+   schema reflects this (`items: { type: "integer" }`); the
+   controller's `parse_ids` helper coerces to `Integer` via `to_i`
+   and rejects zeros (so empty / non-numeric strings drop out
+   silently — matches existing `DeletionsController` precedent).
+3. **No new database migration.** Per spec contract: §3 is purely
+   UI / controller / route / MCP-tool work on top of §1's models.
+
+### Manual playbook
+
+The spec's 18-step manual playbook covers the full happy path
+(notification trigger → in-app row → Discord → Slack → badge
+decrement live → mark-read → MCP smoke). Awaiting user validation
+before commit.
+
+### Blockers / next steps
+
+- **Source-helper callsite wiring** (carryover from Spec 01 log) —
+  three one-line additions in Phase 7 / 12 / 13 jobs (`Youtube::TokenRefresher`,
+  `VideoSyncBack`, analytics-sync engine). Independent of the UI
+  surface; can ship in a follow-up.
+- **Settings UI for `discord_enabled` / `slack_enabled`** —
+  follow-up. Currently togglable only via the AppSettings table.
+- **Phase 16 closeout** — once the user validates the playbook,
+  Spec 03 closes Phase 16. Sibling phases referenced by the source-
+  helper wiring (`Youtube::TokenRefresher` etc.) should be wired in
+  a focused follow-up dispatch.
