@@ -167,6 +167,97 @@ RSpec.describe "Videos", type: :request do
         expect(response.body).to include("youtube sync failed")
       end
     end
+
+    # Layout pass (2026-05-10) — the show page splits into two rows: the
+    # detail pane lives in its own `.pane-row` on row 1, and the recent
+    # stats section moves below into a separate `.pane-row` carrying a
+    # full-width `.pane.pane--wide`. The previous side-by-side
+    # `.pane-strip` layout is retired (no more horizontal-scroll
+    # workspace strip on the single-record show page); stats live in
+    # their own row below the main detail. Mirrors the `/games/:id`
+    # row pattern.
+    context "two-row layout (detail row + stats row)" do
+      it "wraps the show body in two .pane-row blocks (detail first, stats second)" do
+        get video_path(video)
+        body = response.body
+        first_idx = body.index('<div class="pane-row">')
+        second_idx = body.index('<div class="pane-row">', first_idx + 1)
+        expect(first_idx).not_to be_nil
+        expect(second_idx).not_to be_nil
+        expect(first_idx).to be < second_idx
+      end
+
+      it "no longer wraps detail + stats inside a single .pane-strip" do
+        get video_path(video)
+        # The previous layout placed detail and stats side-by-side inside
+        # a `.pane-strip`. The show page no longer uses `.pane-strip` for
+        # this surface; the strip was an artefact of the side-by-side
+        # workspace pattern.
+        expect(response.body).not_to include('<div class="pane-strip">')
+      end
+
+      it "renders the detail pane (`.pane`) inside the first row" do
+        get video_path(video)
+        body = response.body
+        first_row_start = body.index('<div class="pane-row">')
+        second_row_start = body.index('<div class="pane-row">', first_row_start + 1)
+        first_row_body = body[first_row_start...second_row_start]
+        # Detail pane is a plain `.pane` (452px workspace column).
+        expect(first_row_body).to include('<div class="pane">')
+        expect(first_row_body).to include("<h2>detail</h2>")
+      end
+
+      it "renders the stats pane (`.pane.pane--wide`) inside the second row, AFTER the detail row in the DOM" do
+        get video_path(video)
+        body = response.body
+        detail_idx = body.index("<h2>detail</h2>")
+        stats_pane_idx = body.index('<div class="pane pane--wide">')
+        # Stats pane sits inside the second `.pane-row` and must come
+        # after the detail heading in source order.
+        expect(detail_idx).not_to be_nil
+        expect(stats_pane_idx).not_to be_nil
+        expect(stats_pane_idx).to be > detail_idx
+      end
+
+      context "with stats present" do
+        before do
+          create(:video_stat, video: video, date: 1.day.ago.to_date)
+          create(:video_stat, video: video, date: 2.days.ago.to_date)
+        end
+
+        it "renders the recent stats heading and table inside the wide stats pane" do
+          get video_path(video)
+          body = response.body
+          stats_pane_open = body.index('<div class="pane pane--wide">')
+          stats_pane_close = body.index("</div>\n  </div>", stats_pane_open)
+          stats_pane_body = body[stats_pane_open...stats_pane_close]
+          expect(stats_pane_body).to include("recent stats (")
+          expect(stats_pane_body).to include('data-controller="sortable-table"')
+        end
+
+        it "allows horizontal scroll on the stats table wrapper (overflow-x: auto)" do
+          get video_path(video)
+          # The sortable-table wrapper around the wide stats table carries
+          # an inline `overflow-x: auto` so the table can scroll
+          # internally without forcing the whole page horizontally.
+          expect(response.body).to match(
+            /<div\s+data-controller="sortable-table"[^>]*style="[^"]*overflow-x:\s*auto/
+          )
+        end
+      end
+
+      context "without stats" do
+        it "still places the stats pane in row 2 with the empty-state copy" do
+          get video_path(video)
+          body = response.body
+          stats_pane_idx = body.index('<div class="pane pane--wide">')
+          expect(stats_pane_idx).not_to be_nil
+          stats_pane_body = body[stats_pane_idx..]
+          expect(stats_pane_body).to include("<h2>recent stats</h2>")
+          expect(stats_pane_body).to include("no stats yet.")
+        end
+      end
+    end
   end
 
   describe "GET /videos/:id/edit" do

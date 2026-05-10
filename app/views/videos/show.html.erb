@@ -34,14 +34,16 @@
     </p>
   <% end %>
 
-  <%# Phase B layout fix (2026-05-10) — the show page splits into two
-      panes inside a `.pane-strip`: detail on the left (`.pane`, 452px)
-      and recent stats on the right (`.pane--wide`, 904px). The strip
-      keeps the existing horizontal-scroll behavior so the page degrades
-      gracefully on narrow viewports while surfacing both sections at
-      once on wider ones. The detail pane lets the channel URL wrap on
-      `word-break: break-all` instead of truncating with an ellipsis. %>
-  <div class="pane-strip">
+  <%# Layout pass (2026-05-10) — stats section moved to its own row
+      below the detail pane (mirrors the `/games/:id` row pattern). Row 1
+      holds the detail pane on its own; row 2 holds a full-width
+      `.pane.pane--wide` carrying the recent-stats table. The stats
+      table can be wider than the pane on narrower viewports, so its
+      wrapper carries `overflow-x: auto` to scroll internally without
+      forcing the whole page to scroll horizontally. The detail pane
+      lets the channel URL wrap on `word-break: break-all` instead of
+      truncating with an ellipsis. %>
+  <div class="pane-row">
     <div class="pane">
       <h2>detail</h2>
       <table class="detail-table" style="margin-bottom: 8px;">
@@ -78,12 +80,14 @@
         </tr>
       </table>
     </div>
+  </div>
 
-    <div class="pane--wide">
+  <div class="pane-row">
+    <div class="pane pane--wide">
       <% stats = @video.video_stats.order(date: :desc).limit(30) %>
       <% if stats.any? %>
         <h2>recent stats (<%= number_with_delimiter(stats.size) %> days)</h2>
-        <div data-controller="sortable-table" data-sortable-table-id-value="<%= @video.id %>">
+        <div data-controller="sortable-table" data-sortable-table-id-value="<%= @video.id %>" style="overflow-x: auto;">
           <table data-sortable-table-target="table">
             <thead>
               <tr>
