@@ -240,15 +240,27 @@ See `docs/design.md` for the full design system. Key rules:
 
 ## Active follow-ups
 
-Tracked in `docs/orchestration/follow-ups.md`:
+Tracked in `docs/orchestration/follow-ups.md`. Highest-priority items right now:
 
-1. Channel Revamp post-commit cleanup (orphaned `_confirm_dialog` partial +
-   Stimulus controller + unused `BracketedLinkComponent` `confirm:` kwarg)
-2. Rails-app keyboard shortcuts (mirror `pito` CLI schema)
-3. `pito` CLI screen layout parity with Rails
-4. `pito` CLI Dependabot alert #1
+1. Phase 13 F1 + F2 + F3 fix-forward (in flight)
+2. Phase 14 F1 + F2 fix-forward (in flight)
+3. Phase 16 Spec 02 / 03 reviewer findings (queued; land as they surface)
+4. Rails JSON endpoints for CLI / MCP parity across Phases 14 / 15 / 16 (Games,
+   Calendar, Notifications) — gated on Phase 20 friendly URLs landing in main
+5. 2026-05-09 realignment top-level direction map — foundational reference for
+   the next 12 work units (tenant drop, MCP scope simplification, Channel +
+   Video edit surfaces, Analytics, Game model, Calendar, Notifications, CLI
+   parity)
+6. CLI feature-parity sweep — channels list / videos list / settings panes /
+   search results (work unit 10 in the realignment)
+7. Footage importer-side ffmpeg frame extraction + bulk PATCH upload (Phase 7.5
+   spec 06 importer half)
+8. Meilisearch indexing parity with Voyage per-target flags (pairs with the
+   Voyage AppSetting revamp; gated on Channel + Video schema expansion)
 
-These are queued AFTER Phase 4 completes.
+See `docs/orchestration/follow-ups.md` for the full open list. Items above are
+tracked alongside active phase work; the highest-priority ones track in flight
+on each phase log.
 
 ## Glossary
 
