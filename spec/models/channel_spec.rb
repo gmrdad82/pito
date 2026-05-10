@@ -84,10 +84,11 @@ RSpec.describe Channel, type: :model do
       expect(Channel.starred).to eq([ starred ])
     end
 
-    it ".connected returns only channels with a youtube_connection" do
-      connected = create(:channel, :connected)
-      _other    = create(:channel)
-      expect(Channel.connected).to eq([ connected ])
+    # The derived `:connected` scope was retired alongside the
+    # per-channel "is this OAuth-connected?" surface — every channel
+    # is OAuth-linked by definition now.
+    it "no longer defines a .connected scope" do
+      expect { Channel.connected }.to raise_error(NoMethodError)
     end
   end
 

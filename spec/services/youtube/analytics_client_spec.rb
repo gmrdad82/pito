@@ -8,7 +8,7 @@ require "ostruct"
 RSpec.describe Youtube::AnalyticsClient do
   let(:user)       { create(:user) }
   let(:connection) { create(:youtube_connection, user: user) }
-  let(:channel)    { create(:channel, :connected, youtube_connection: connection) }
+  let(:channel)    { create(:channel, youtube_connection: connection) }
   let(:video)      { create(:video, channel: channel, youtube_video_id: "dQw4w9WgXcQ") }
   let(:today)      { Date.new(2026, 5, 10) }
   let(:from)       { today - 3 }
@@ -573,7 +573,7 @@ RSpec.describe Youtube::AnalyticsClient do
 
   describe "token freshness" do
     let(:expired_connection) { create(:youtube_connection, :expired, user: user) }
-    let(:expired_channel) { create(:channel, :connected, youtube_connection: expired_connection) }
+    let(:expired_channel) { create(:channel, youtube_connection: expired_connection) }
 
     before do
       stub_query(headers: %w[day views], rows: [ [ "2026-05-09", 1 ] ])

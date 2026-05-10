@@ -18,7 +18,6 @@
       <% if @type == "channel" %>
         <th>URL</th>
         <th class="num">starred</th>
-        <th class="num">connected</th>
         <th class="num">videos</th>
       <% else %>
         <th>YouTube id</th>
@@ -38,7 +37,6 @@
         <% if @type == "channel" && item %>
           <td title="<%= item.channel_url %>" style="max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><%= item.channel_url %></td>
           <td class="num"><%= item.star? ? "yes" : "no" %></td>
-          <td class="num"><%= item.youtube_connection_id.present? ? "yes" : "no" %></td>
           <td class="num"><%= number_with_delimiter(item.videos.count) %></td>
         <% elsif @type == "video" && item %>
           <td><%= item.youtube_video_id %></td>

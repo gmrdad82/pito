@@ -5,7 +5,7 @@ require "ostruct"
 RSpec.describe ChannelAnalyticsSync do
   let(:user)       { create(:user) }
   let(:connection) { create(:youtube_connection, user: user) }
-  let(:channel)    { create(:channel, :connected, youtube_connection: connection) }
+  let(:channel)    { create(:channel, youtube_connection: connection) }
   let!(:vid_a)     { create(:video, channel: channel, youtube_video_id: "videoaa", published_at: 30.days.ago) }
   let!(:vid_b)     { create(:video, channel: channel, youtube_video_id: "videobb", published_at: 5.days.ago) }
   let(:client_double) { instance_double(Youtube::AnalyticsClient) }

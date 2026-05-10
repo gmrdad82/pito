@@ -15,9 +15,11 @@ RSpec.describe "FactoryBot Phase A factories" do
 
     it "builds valid records for each trait" do
       # Phase 7 Path A2 — `:syncing` and `:fully_loaded` traits are
-      # gone with the columns they targeted.
+      # gone with the columns they targeted. The `:connected` trait
+      # was retired alongside the derived connected display surface;
+      # tests pass an explicit `youtube_connection:` association
+      # when they need an OAuth-linked channel.
       expect(FactoryBot.build(:channel, :starred)).to be_valid
-      expect(FactoryBot.build(:channel, :connected)).to be_valid
     end
   end
 end

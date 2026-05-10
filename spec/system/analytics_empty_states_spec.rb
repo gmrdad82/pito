@@ -5,7 +5,7 @@ RSpec.describe "Analytics empty states", type: :system do
 
   it "renders empty-state on the top-level analytics page when no syncs have run" do
     visit "/analytics"
-    expect(page).to have_text("no analytics yet. connect a youtube channel to start syncing.")
+    expect(page).to have_text("no analytics yet. add a youtube channel to start syncing.")
   end
 
   it "renders empty-state on the per-channel analytics page when no rows exist" do

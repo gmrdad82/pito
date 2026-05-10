@@ -4,7 +4,7 @@ require "rails_helper"
 RSpec.describe VideoAnalyticsSync do
   let(:user)       { create(:user) }
   let(:connection) { create(:youtube_connection, user: user) }
-  let(:channel)    { create(:channel, :connected, youtube_connection: connection) }
+  let(:channel)    { create(:channel, youtube_connection: connection) }
   let(:active_video) { create(:video, channel: channel, youtube_video_id: "videoact", published_at: 30.days.ago) }
   let(:inactive_video) { create(:video, channel: channel, youtube_video_id: "videoiac", published_at: 200.days.ago) }
   let(:client_double) { instance_double(Youtube::AnalyticsClient) }

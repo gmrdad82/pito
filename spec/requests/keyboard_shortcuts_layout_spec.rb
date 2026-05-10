@@ -60,7 +60,10 @@ RSpec.describe "Keyboard shortcuts layout integration", type: :request do
     it "lists the f-prefix filter bindings" do
       body = response.body
       expect(body).to match(/filter:\s*starred/i)
-      expect(body).to match(/filter:\s*connected/i)
+      # `filter: connected (f c)` was retired alongside the derived
+      # connected display surface — every channel is OAuth-linked by
+      # definition now.
+      expect(body).not_to match(/filter:\s*connected/i)
     end
 
     it "does NOT advertise the retired `f y` filter (Path A2)" do
@@ -69,10 +72,12 @@ RSpec.describe "Keyboard shortcuts layout integration", type: :request do
   end
 
   describe "filter chips on /channels carry the keyboard hook" do
-    it "tags the starred and connected chips with data-keyboard-filter-chip" do
+    it "tags the starred chip with data-keyboard-filter-chip" do
       get "/channels"
       expect(response.body).to include('data-keyboard-filter-chip="starred"')
-      expect(response.body).to include('data-keyboard-filter-chip="connected"')
+      # The `connected` filter chip was retired alongside the derived
+      # connected display surface.
+      expect(response.body).not_to include('data-keyboard-filter-chip="connected"')
     end
   end
 

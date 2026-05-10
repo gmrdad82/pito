@@ -15,7 +15,6 @@
         <% when "channel" %>
           <th>URL</th>
           <th class="num">starred</th>
-          <th class="num">connected</th>
           <th class="num">last sync</th>
           <th class="num">videos</th>
         <% when "video" %>
@@ -66,7 +65,6 @@
           <% when "channel" %>
             <td title="<%= item.channel_url %>" style="max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><%= item.channel_url %></td>
             <td class="num"><%= item.star? ? "yes" : "no" %></td>
-            <td class="num"><%= item.youtube_connection_id.present? ? "yes" : "no" %></td>
             <td class="num">
               <% if item.last_synced_at.present? %>
                 <%= compact_time_ago(item.last_synced_at) %>

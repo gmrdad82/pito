@@ -6,7 +6,7 @@ require "rails_helper"
 RSpec.describe Youtube::ActiveVideoClassifier do
   let(:user)       { create(:user) }
   let(:connection) { create(:youtube_connection, user: user) }
-  let(:channel)    { create(:channel, :connected, youtube_connection: connection) }
+  let(:channel)    { create(:channel, youtube_connection: connection) }
 
   describe ".active?" do
     it "is true for a video published within 90 days" do
@@ -48,7 +48,7 @@ RSpec.describe Youtube::ActiveVideoClassifier do
     end
 
     let(:other_connection) { create(:youtube_connection, user: user, google_subject_id: "other-subject-99") }
-    let(:other_channel)    { create(:channel, :connected, youtube_connection: other_connection) }
+    let(:other_channel)    { create(:channel, youtube_connection: other_connection) }
     let!(:other_video)     { create(:video, channel: other_channel, published_at: 30.days.ago) }
 
     it "returns videos belonging to the connection's channels" do

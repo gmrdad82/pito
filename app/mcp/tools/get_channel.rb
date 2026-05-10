@@ -2,7 +2,7 @@ module Mcp
   module Tools
     class GetChannel < MCP::Tool
       tool_name "get_channel"
-      description "Get the full detail JSON for a channel: id, channel_url, star, connected (derived from youtube_connection), last_synced_at, video_count, timestamps."
+      description "Get the full detail JSON for a channel: id, channel_url, star, last_synced_at, video_count, timestamps."
 
       # Phase 20 — friendly URLs. `id` accepts either a slug (UC-id /
       # `channel-<id>` fallback) or an integer id as a string. Schema is

@@ -6,13 +6,13 @@
   <%= render "analytics/window_picker", window: @window %>
 </header>
 
-<% if @connected_channels.empty? %>
+<% if @channels.empty? %>
   <p class="caption analytics-empty-state">
-    no analytics yet. connect a youtube channel to start syncing.
+    no analytics yet. add a youtube channel to start syncing.
   </p>
 <% end %>
 
-<% if @connected_channels.any? %>
+<% if @channels.any? %>
   <% if @show_cross_channel_summary %>
     <section class="analytics-section analytics-cross-channel-summary"
              style="margin: 16px 0;">
