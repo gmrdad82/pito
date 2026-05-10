@@ -39,13 +39,14 @@ module Mcp
         scope_err = Mcp::ToolAuth.require_scope!(Scopes::APP)
         return scope_err if scope_err
 
-        # Phase 20 — friendly URLs. Each `ids` entry is a string. We
-        # resolve each through `Model.friendly.find` to translate slugs
-        # to integer ids before the bulk-delete pipeline (which keys on
-        # integer ids end-to-end). Unknown / not-found entries are
-        # surfaced via `not_found_ids`.
-        raw_keys = Array(ids).map(&:to_s).reject(&:blank?).uniq
-        return error_response("no IDs provided.") if raw_keys.empty?
+        # Phase 20 — friendly URLs. Each `ids` entry resolves through
+        # `Model.friendly.find` so slugs and integer ids both work. We
+        # preserve the original input shape so a caller that submitted
+        # integer ids gets integer ids back in `not_found_ids`, and a
+        # caller that submitted slug strings gets the strings back.
+        raw_inputs = Array(ids).reject { |x| x.nil? || x.to_s.empty? }.uniq
+        return error_response("no IDs provided.") if raw_inputs.empty?
+        raw_keys = raw_inputs.map(&:to_s)
 
         unless YesNo.yes_no?(confirm)
           return error_response("confirm must be 'yes' or 'no' (got #{confirm.inspect})")
@@ -57,16 +58,19 @@ module Mcp
 
         found_by_id = {}
         not_found_ids = []
-        raw_keys.each do |key|
+        raw_inputs.each do |input|
           record = begin
-            klass.friendly.find(key)
+            klass.friendly.find(input)
           rescue ActiveRecord::RecordNotFound
             nil
           end
           if record
             found_by_id[record.id] = record
           else
-            not_found_ids << key
+            # Preserve the original input type so integer ids round-trip
+            # as integers (back-compat for callers that already passed
+            # integer arrays).
+            not_found_ids << input
           end
         end
         ids = found_by_id.keys

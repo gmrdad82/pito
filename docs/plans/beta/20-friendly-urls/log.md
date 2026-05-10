@@ -109,3 +109,117 @@ Open issues (deferred to a follow-up agent):
 
 Next step: master agent reviews this fix-set and decides whether to commit
 or to dispatch a follow-up agent for the pre-existing failures.
+
+## 2026-05-10 — Full implementation pass: gem, migrations, models, controllers, MCP, specs
+
+Rails-impl agent landed the rest of the Phase 20 work after Channel + JSON-format
+fixes shipped. Locked answers were applied verbatim per the parent dispatch.
+
+What landed in this session:
+
+- `Gemfile` — `gem "friendly_id", "~> 5.5"` (resolves to 5.7.0 latest 5.x).
+  `bundle install` clean.
+- `bin/rails generate friendly_id` produced
+  `config/initializers/friendly_id.rb` (default config retained) and
+  `db/migrate/20260510192743_create_friendly_id_slugs.rb`. All five
+  migrations applied to dev DB; `db/migrate:status` reports no `down` rows
+  remain.
+- Four `slug` column migrations + backfill, one per renameable model:
+  `add_slug_to_projects`, `add_slug_to_bundles`, `add_slug_to_collections`,
+  `add_slug_to_milestone_rules`. Each adds `slug :string`, backfills via
+  `find_each` using `Pito::SlugBuilder`, then enforces NOT NULL + a unique
+  index. All four ran cleanly against the dev DB.
+- New shared helper at `app/lib/pito/slug_builder.rb` — transliteration +
+  hyphen collapsing + 80-char truncation on a hyphen boundary. Shared
+  between migrations (anonymous `Class.new(ActiveRecord::Base)` table-stubs)
+  and runtime model `normalize_friendly_id` callbacks so backfilled slugs
+  and live slugs match byte-for-byte.
+- Renameable models (Project, Bundle, Collection, MilestoneRule) wire
+  `extend FriendlyId; friendly_id :name, use: %i[slugged history finders]`
+  plus per-model overrides:
+  - `normalize_friendly_id` routes through `Pito::SlugBuilder` (80-char
+    cap, transliteration, hyphen boundary truncation, typed-prefix
+    fallback `<type>-<id>` for empty input).
+  - `resolve_friendly_id_conflict` returns `<base>-2` / `<base>-3` / ...
+    so renames + collisions land the user-friendly numeric suffix from
+    locked decision #2 instead of friendly_id's default UUID suffix.
+  - `should_generate_new_friendly_id?` fires on `name` change so renames
+    regenerate the slug (default friendly_id behaviour only regenerates
+    on a blank `slug` column).
+- Identifier-style models split across two patterns:
+  - Video / Game use `extend FriendlyId; friendly_id :<col>, use: :finders`
+    (`youtube_video_id` / `igdb_slug`) — the gem's `:finders` integration
+    is a clean 1:1 column lookup.
+  - Channel / Footage ship a custom `Model.friendly` finder. The slug is
+    derived from `channel_url` (UC-id portion) / `local_path` basename
+    respectively, so a column-bound friendly_id integration doesn't fit;
+    the custom finder accepts slug, integer id, and the fallback shapes
+    (`channel-<id>`, `<basename>-<id>`).
+- `Note` controller switched to `Note.find_by!(path:)` via a `*path` glob
+  route; `Note#to_param` returns `path` verbatim. The controller's new
+  `restore_html_format` before_action keeps `.md`-suffixed URLs from
+  being parsed as a non-registered Rails format (the implicit HTML render
+  would otherwise 406).
+- All controllers that look up slugged resources switched to
+  `Model.friendly.find(params[:id])` (plus `params[:<resource>_id]` for
+  nested routes). New `FriendlyRedirect` controller concern emits 301s
+  from integer-ID GETs to the canonical slug URL.
+- MCP tools (15 touched) accept slug-or-id at every slugged-resource
+  argument. `delete_records` / `sync_records` array shapes preserve the
+  caller's input type in `not_found_ids` so existing integer-id callers
+  keep round-tripping integers.
+- Bulk URL pattern (`/<action>s/:type/:ids`) unchanged per locked
+  decision #4 — `:ids` accepts integers and slugs interchangeably.
+
+Test sweep (per the user's "fully specced" directive):
+
+- `spec/lib/friendly_id_setup_spec.rb` — gem wiring matrix (which model
+  opts into `:history`, which uses the custom finder, etc.).
+- `spec/support/friendly_url_shared_examples.rb` — generic contract:
+  slug generation on create, suffix collision, `to_param`,
+  `friendly.find` by slug + integer + integer-string, rename, history,
+  blank-name fallback, unicode transliteration, long-name truncation,
+  edge-character stripping.
+- Per-model `<model>_friendly_url_spec.rb` for all eight slugged models +
+  Note's path-based lookup.
+- `spec/requests/friendly_url_redirects_spec.rb` — cross-resource 301
+  matrix.
+- `spec/mcp/tools/friendly_url_inputs_spec.rb` — MCP slug-or-id matrix.
+- `spec/system/friendly_url_lifecycle_spec.rb` — system spec covering
+  the canonical journey: visit, integer-id-301, rename, history-301,
+  404 on never-existed slug.
+
+Quality gates:
+
+- `bundle exec rspec` (Phase 20 specs alone): 161 examples, 0 failures.
+- Full suite (`bundle exec rspec --exclude-pattern spec/system/calendar_edit_delete_spec.rb`):
+  4232 examples, 2 pre-existing flaky failures
+  (`spec/requests/calendar/month_spec.rb:90` and
+  `spec/requests/composites_spec.rb:28`) that pass in isolation and
+  also fail on `HEAD` without Phase 20 changes. Not regressions.
+- `bundle exec rubocop`: 828 files, 0 offenses.
+- `bin/brakeman -q -w2`: 41 controllers, 52 models, 0 warnings.
+- `bundle exec bundler-audit check --update`: no vulnerabilities found.
+
+Files touched (high level):
+
+- `Gemfile`, `Gemfile.lock` — friendly_id ~> 5.5 added.
+- `config/initializers/friendly_id.rb` — generator output.
+- `config/routes.rb` — `/notes/*path` glob route added.
+- Five `db/migrate/2026051019274{3..7}_*.rb` migrations + dev-DB applied.
+- `app/lib/pito/slug_builder.rb` — new shared helper.
+- `app/models/{channel,video,game,footage,project,bundle,collection,milestone_rule,note}.rb`
+  — friendly_id wiring per the locked matrix.
+- `app/controllers/concerns/friendly_redirect.rb` — new shared concern.
+- 11 controllers updated for `Model.friendly.find` (channels, videos,
+  projects, games, footages, bundles, collections, notes, timelines,
+  bundle_members, video_game_links + 4 nested analytics controllers + 1
+  api controller).
+- 15+ MCP tools updated for slug-or-id boundary.
+- New specs: friendly_id setup, shared examples, 10 per-model files,
+  request redirects, MCP inputs, system lifecycle.
+
+Blockers: none. Open follow-ups: the calendar_edit_delete_spec system
+spec failure was pre-existing (no link "note" expected on a derived
+calendar entry, but the view no longer renders that link). Unrelated to
+Phase 20.

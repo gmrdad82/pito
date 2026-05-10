@@ -230,6 +230,13 @@ Rails.application.routes.draw do
       post :scan
     end
   end
+  # Phase 20 — friendly URLs. `/*path` glob keeps slash-bearing
+  # Note#path values intact (e.g. `subdir/file.md`). Setting
+  # `format: false` prevents the `.md` suffix in the path from
+  # being parsed as a Rails format token (which would 406 against
+  # the controller's implicit HTML render); the controller's
+  # `respond_to do |format|` block still honors the `Accept`
+  # header so JSON request specs continue to receive JSON.
   scope :notes, as: :note do
     get    "/*path", to: "notes#show",    constraints: { path: /.+/ }, format: false
     patch  "/*path", to: "notes#update",  constraints: { path: /.+/ }, format: false

@@ -49,7 +49,15 @@ class BundleMembersController < ApplicationController
   end
 
   def destroy
-    member = @bundle.bundle_members.find_by(game_id: params[:id])
+    # Phase 20 — friendly URLs. `params[:id]` is the GAME identifier and
+    # may arrive as either an integer id or a slug (`igdb_slug`).
+    # Translate via `Game.friendly.find` before walking the join table.
+    game = begin
+      Game.friendly.find(params[:id])
+    rescue ActiveRecord::RecordNotFound
+      nil
+    end
+    member = game && @bundle.bundle_members.find_by(game_id: game.id)
     if member.nil?
       redirect_to bundle_path(@bundle), alert: "member not found.",
                   status: :see_other
