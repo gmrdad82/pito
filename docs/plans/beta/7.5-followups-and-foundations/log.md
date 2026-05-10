@@ -1824,30 +1824,29 @@ Claude.ai's connector list.
 **Done:**
 
 - Reconciled every Phase 7.5 line item from `plan.md` against shipped commits
-  (see reconciliation table below). Tracks A · B · C all shipped + verified;
-  the only carry-forward inside Phase 7.5's own scope is spec 06's
-  importer-side ffmpeg frame extraction, which moves to a fresh follow-up
-  entry pinned against the next footage-importer dispatch.
-- Pre-specs 07–10 disposed: 07 (Games) absorbed into realignment work unit 6;
-  08 / 09 / 10 deleted on 2026-05-10 per the realignment paperwork pass.
+  (see reconciliation table below). Tracks A · B · C all shipped + verified; the
+  only carry-forward inside Phase 7.5's own scope is spec 06's importer-side
+  ffmpeg frame extraction, which moves to a fresh follow-up entry pinned against
+  the next footage-importer dispatch.
+- Pre-specs 07–10 disposed: 07 (Games) absorbed into realignment work unit 6; 08
+  / 09 / 10 deleted on 2026-05-10 per the realignment paperwork pass.
 - Adopted `> **Status:** ...` badging convention (master decision 4); flipped
   `plan.md`'s top-of-file badge to `complete (closed by Phase 19)`. Historical
   workstream tracker checkboxes left frozen as a record of what landed.
 - Reconciled `additions.md` and `dropped.md` with final notes pointing at this
   spec.
-- Walked `docs/orchestration/follow-ups.md` end-to-end. Closed entries moved
-  to `## Done` with their resolving commit refs (Phase 7.5 hygiene + keyboard
+- Walked `docs/orchestration/follow-ups.md` end-to-end. Closed entries moved to
+  `## Done` with their resolving commit refs (Phase 7.5 hygiene + keyboard
   shortcuts + CLI parity sweep + ratatui bump + OmniAuth simplification +
   channel revamp orphan cleanup + Phase 4 / B-2 validate-and-commit + agent
   re-prefix + rustfmt drift). Carry-forward entries kept under `## Open` with
   triggers updated where the realignment shifted timing language. Three new
-  carry-forward entries added (CLI feature-parity sweep, footage importer
-  ffmpeg frame extraction, optional Phase 7.5 smoke spec).
-- `docs/realignment-2026-05-09.md` work unit 11 ("Phase 7.5 pre-specs 08 / 09
-  / 10 resolution") gets a Resolution line pointing at this close-out.
-- Phase 6 deviation entry + 2026-05-09 realignment top-level direction-map
-  entry stay under `## Open` as permanent informational fixtures (master
-  decision 2).
+  carry-forward entries added (CLI feature-parity sweep, footage importer ffmpeg
+  frame extraction, optional Phase 7.5 smoke spec).
+- `docs/realignment-2026-05-09.md` work unit 11 ("Phase 7.5 pre-specs 08 / 09 /
+  10 resolution") gets a Resolution line pointing at this close-out.
+- Phase 6 deviation entry + 2026-05-09 realignment top-level direction-map entry
+  stay under `## Open` as permanent informational fixtures (master decision 2).
 - `docs/design.md:463` zebra-rule fix kept separate per master decision 3 —
   reassigned to "next docs sweep"; not folded into the close-out.
 
@@ -1855,57 +1854,58 @@ Claude.ai's connector list.
 
 Phase 7.5 ("Follow-ups Sweep + Concept Foundations") shipped a substantial
 hygiene + foundations body across two main commits — `718996c` (Tracks A + B
-+ Track C spec 05 `pito-assets`) and `f5fdb01` (Track C specs 04 keyboard
-shortcuts + 06 footage thumbnails + the in-flow MCP OAuth + Doorkeeper polish
-+ icon discovery dispatches). Test-suite delta over the phase: RSpec 1671 →
-1795+ (~+124 specs); CLI 349 → 448+ (~+99 tests). Spec coverage in place for
-every shipped surface (sessions audit · `:unprocessable_content` · OmniAuth ·
-BracketedLinkComponent · CLI hygiene · keyboard shortcuts · `Pito::AssetsRoot`
-· footage thumbnails Rails + CLI · MCP OAuth + bearer · Doorkeeper scope clip
-+ consent restyle · icon discovery). No new specs added by this close-out
-(optional smoke spec explicitly skipped per master decision 1).
+
+- Track C spec 05 `pito-assets`) and `f5fdb01` (Track C specs 04 keyboard
+  shortcuts + 06 footage thumbnails + the in-flow MCP OAuth + Doorkeeper polish
+- icon discovery dispatches). Test-suite delta over the phase: RSpec 1671 →
+  1795+ (~+124 specs); CLI 349 → 448+ (~+99 tests). Spec coverage in place for
+  every shipped surface (sessions audit · `:unprocessable_content` · OmniAuth ·
+  BracketedLinkComponent · CLI hygiene · keyboard shortcuts · `Pito::AssetsRoot`
+  · footage thumbnails Rails + CLI · MCP OAuth + bearer · Doorkeeper scope clip
+- consent restyle · icon discovery). No new specs added by this close-out
+  (optional smoke spec explicitly skipped per master decision 1).
 
 **Reconciliation table (per-spec disposition · shipped commit refs):**
 
-| #   | Item                                                     | Status                                   | Commit       |
-| --- | -------------------------------------------------------- | ---------------------------------------- | ------------ |
-| 01  | Rails hygiene sweep — Settings sessions audit            | Shipped + verified                       | `718996c`    |
-| 01  | `:unprocessable_entity` → `:unprocessable_content` sweep | Shipped + verified                       | `718996c`    |
-| 01  | OmniAuth initializer simplification                      | Shipped + verified                       | `718996c` (CI follow-up `85453c1`) |
-| 01  | Channel Revamp orphan cleanup                            | Shipped + verified                       | `718996c`    |
-| 02  | CLI hygiene — `cargo fmt` drift sweep                    | Shipped + verified                       | `718996c`    |
-| 02  | CLI hygiene — ratatui 0.29 → 0.30                        | Shipped + verified                       | `718996c`    |
-| 02  | CLI screen-layout parity sweep                           | Shipped + verified                       | `718996c`    |
-| 03  | Decorator slim resolution                                | Shipped (closed no-op)                   | n/a (decision-only) |
-| 04  | Rails keyboard shortcuts                                 | Shipped + verified                       | `f5fdb01`    |
-| 05  | `pito-assets` Docker volume + `Pito::AssetsRoot`         | Shipped + verified                       | `718996c`    |
-| 06  | Footage thumbnails — Rails endpoints                     | Shipped + verified                       | `f5fdb01`    |
-| 06  | Footage thumbnails — CLI rendering                       | Shipped + verified                       | `f5fdb01`    |
-| 06  | Footage thumbnails — importer-side ffmpeg extraction     | Carry-forward — new follow-up entry      | n/a          |
-| 07  | Games — concept pre-spec                                 | Pending — absorbed into work unit 6      | n/a          |
-| 08  | Timelines resurrection — pre-spec                        | Dropped per realignment                  | n/a (file deleted) |
-| 09  | MCP sync — pre-spec                                      | Dropped per realignment                  | n/a (file deleted) |
-| 10  | Terminal sync — pre-spec                                 | Dropped per realignment                  | n/a (file deleted) |
+| #   | Item                                                     | Status                              | Commit                             |
+| --- | -------------------------------------------------------- | ----------------------------------- | ---------------------------------- |
+| 01  | Rails hygiene sweep — Settings sessions audit            | Shipped + verified                  | `718996c`                          |
+| 01  | `:unprocessable_entity` → `:unprocessable_content` sweep | Shipped + verified                  | `718996c`                          |
+| 01  | OmniAuth initializer simplification                      | Shipped + verified                  | `718996c` (CI follow-up `85453c1`) |
+| 01  | Channel Revamp orphan cleanup                            | Shipped + verified                  | `718996c`                          |
+| 02  | CLI hygiene — `cargo fmt` drift sweep                    | Shipped + verified                  | `718996c`                          |
+| 02  | CLI hygiene — ratatui 0.29 → 0.30                        | Shipped + verified                  | `718996c`                          |
+| 02  | CLI screen-layout parity sweep                           | Shipped + verified                  | `718996c`                          |
+| 03  | Decorator slim resolution                                | Shipped (closed no-op)              | n/a (decision-only)                |
+| 04  | Rails keyboard shortcuts                                 | Shipped + verified                  | `f5fdb01`                          |
+| 05  | `pito-assets` Docker volume + `Pito::AssetsRoot`         | Shipped + verified                  | `718996c`                          |
+| 06  | Footage thumbnails — Rails endpoints                     | Shipped + verified                  | `f5fdb01`                          |
+| 06  | Footage thumbnails — CLI rendering                       | Shipped + verified                  | `f5fdb01`                          |
+| 06  | Footage thumbnails — importer-side ffmpeg extraction     | Carry-forward — new follow-up entry | n/a                                |
+| 07  | Games — concept pre-spec                                 | Pending — absorbed into work unit 6 | n/a                                |
+| 08  | Timelines resurrection — pre-spec                        | Dropped per realignment             | n/a (file deleted)                 |
+| 09  | MCP sync — pre-spec                                      | Dropped per realignment             | n/a (file deleted)                 |
+| 10  | Terminal sync — pre-spec                                 | Dropped per realignment             | n/a (file deleted)                 |
 
 In-flow dispatches (no numbered spec; bundled into close-out trail):
 
-| Dispatch                                                     | Status             | Commit    |
-| ------------------------------------------------------------ | ------------------ | --------- |
-| MCP OAuth discovery (RFC 8414 + 9728) + bearer dispatch      | Shipped + verified | `f5fdb01` |
-| Doorkeeper scope soft-clip + OAuth-app UX polish             | Shipped + verified | `f5fdb01` |
-| Doorkeeper consent + error pages restyled to Pito            | Shipped + verified | `f5fdb01` |
-| OAuth applications UI polish (5 fixes)                       | Shipped + verified | `f5fdb01` |
-| MCP custom-connector icon discovery (shotgun)                | Shipped + verified | `f5fdb01` |
-| Cross-tenant sessions spec flake fix                         | Shipped + verified | `9871f37` |
+| Dispatch                                                | Status             | Commit    |
+| ------------------------------------------------------- | ------------------ | --------- |
+| MCP OAuth discovery (RFC 8414 + 9728) + bearer dispatch | Shipped + verified | `f5fdb01` |
+| Doorkeeper scope soft-clip + OAuth-app UX polish        | Shipped + verified | `f5fdb01` |
+| Doorkeeper consent + error pages restyled to Pito       | Shipped + verified | `f5fdb01` |
+| OAuth applications UI polish (5 fixes)                  | Shipped + verified | `f5fdb01` |
+| MCP custom-connector icon discovery (shotgun)           | Shipped + verified | `f5fdb01` |
+| Cross-tenant sessions spec flake fix                    | Shipped + verified | `9871f37` |
 
 **Decisions:**
 
 - All 7 open questions in spec §"Open questions" resolved per master agent's
-  2026-05-10 contract block. Architect's leans concurred with on every
-  question (skip smoke spec · Phase 6 deviation stays as fixture · zebra fix
-  separate · adopt status-badge convention · escalate on impossible triggers
-  · docs-keeper resolves commit-ref placeholders · in-flow dispatches stay in
-  reconciliation table).
+  2026-05-10 contract block. Architect's leans concurred with on every question
+  (skip smoke spec · Phase 6 deviation stays as fixture · zebra fix separate ·
+  adopt status-badge convention · escalate on impossible triggers · docs-keeper
+  resolves commit-ref placeholders · in-flow dispatches stay in reconciliation
+  table).
 
 **Files changed (this close-out):**
 
@@ -1914,8 +1914,8 @@ In-flow dispatches (no numbered spec; bundled into close-out trail):
   reconciliation note appended.
 - `docs/plans/beta/7.5-followups-and-foundations/dropped.md` — final
   reconciliation note appended.
-- `docs/plans/beta/7.5-followups-and-foundations/plan.md` — top-of-file
-  status badge flipped to `complete (closed by Phase 19)`.
+- `docs/plans/beta/7.5-followups-and-foundations/plan.md` — top-of-file status
+  badge flipped to `complete (closed by Phase 19)`.
 - `docs/orchestration/follow-ups.md` — closed entries moved to `## Done`;
   carry-forward entries' triggers updated; three new carry-forwards added.
 - `docs/realignment-2026-05-09.md` — work unit 11 Resolution line added.
@@ -1932,7 +1932,7 @@ prettier-clean across all updated markdown files.
   §"Manual close-out playbook" against `bin/dev`, signs off.
 - After sign-off the user commits as a single commit (suggested message:
   `Phase 7.5 close-out — reconciliation, follow-ups disposition, plan complete`).
-- The next architect-spec dispatch is the Phase 8 tenant-drop spec (work
-  unit 1 in `docs/realignment-2026-05-09.md`).
+- The next architect-spec dispatch is the Phase 8 tenant-drop spec (work unit 1
+  in `docs/realignment-2026-05-09.md`).
 
 **Phase 7.5 is complete; next dispatch is the Phase 8 tenant-drop spec.**

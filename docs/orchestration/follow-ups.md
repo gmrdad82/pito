@@ -237,9 +237,10 @@ pinned modules.
 work unit 4 in `docs/realignment-2026-05-09.md`). Trigger language updated by
 Phase 19 close-out — the user originally surfaced this 2026-05-04 alongside the
 Voyage AppSetting revamp dispatch ("Voyage revamp: encrypted key on AppSetting
-+ per-target flags"); the realignment shifted the timing so the per-target
-toggles can be designed against the post-expansion schema rather than retrofit
-twice.
+
+- per-target flags"); the realignment shifted the timing so the per-target
+  toggles can be designed against the post-expansion schema rather than retrofit
+  twice.
 
 **Source:** Mid-Phase-4 conversation — the same shape the user wanted for Voyage
 (per-target Boolean flags instead of a single all-or-nothing boolean) should
@@ -760,11 +761,11 @@ Full text in `docs/realignment-2026-05-09.md`.
 **Trigger:** post-realignment per-domain CLI parity work unit (work unit 10 in
 `docs/realignment-2026-05-09.md`).
 
-**Source:** Phase 7.5 Track B step 02 (CLI hygiene + screen-layout parity
-sweep) closed under `718996c`. The parity sweep focused on the channel-detail
-action legend, the help screen, and the dashboard placeholder copy — three
-discrepancies fixed in flow. Eight cross-stack gaps were surfaced and
-explicitly carved out of scope.
+**Source:** Phase 7.5 Track B step 02 (CLI hygiene + screen-layout parity sweep)
+closed under `718996c`. The parity sweep focused on the channel-detail action
+legend, the help screen, and the dashboard placeholder copy — three
+discrepancies fixed in flow. Eight cross-stack gaps were surfaced and explicitly
+carved out of scope.
 
 **Summary:**
 
@@ -776,16 +777,16 @@ left the bigger column-reconciliation gaps for a dedicated parity work unit:
 - Settings panes — pane-by-pane parity (layout + which fields render where).
 - Search results — disabled-stub state vs. Rails-side disabled affordance.
 
-**Action:** during the per-domain CLI parity work unit, walk these four
-surfaces and reconcile column sets / pane layouts / disabled affordances
-against the canonical Rails surface (per the parity rule documented in the
-"`pito` CLI screen layout parity with Rails app" guidance, now superseded for
-single-screen drift but still relevant for these multi-column reconciliations).
+**Action:** during the per-domain CLI parity work unit, walk these four surfaces
+and reconcile column sets / pane layouts / disabled affordances against the
+canonical Rails surface (per the parity rule documented in the "`pito` CLI
+screen layout parity with Rails app" guidance, now superseded for single-screen
+drift but still relevant for these multi-column reconciliations).
 
 ### Footage importer-side ffmpeg frame extraction + bulk PATCH upload
 
-**Trigger:** paired with the next dispatch that touches the footage importer,
-OR a dedicated "fill in real footage thumbnails" pass.
+**Trigger:** paired with the next dispatch that touches the footage importer, OR
+a dedicated "fill in real footage thumbnails" pass.
 
 **Source:** Phase 7.5 spec 06 (footage thumbnails) shipped the Rails endpoints
 (`PATCH /api/footages/:id/frames` bearer-authed) and the CLI image-rendering
@@ -796,13 +797,13 @@ upload to the new endpoint — was explicitly carved out as a future dispatch.
 
 Until this lands, footage thumbnails on `/projects/:id` and the per-footage
 scrub UI render as broken-image glyphs (404) until JPEGs are seeded under
-`<assets_root>/footage_thumbs/<id>/{m,t}/...` by hand. The plumbing on both
-ends is in place; only the importer's frame-extraction step is missing.
+`<assets_root>/footage_thumbs/<id>/{m,t}/...` by hand. The plumbing on both ends
+is in place; only the importer's frame-extraction step is missing.
 
 **Action:**
 
-1. Add ffmpeg-driven frame extraction to the footage importer (one frame at
-   50% of duration as the master, plus N strip frames per `Footage.duration`).
+1. Add ffmpeg-driven frame extraction to the footage importer (one frame at 50%
+   of duration as the master, plus N strip frames per `Footage.duration`).
 2. Multipart-encode the extracted JPEGs and POST them via
    `PATCH /api/footages/:id/frames` with the bearer token.
 3. Stamp `frames_extracted_at` server-side (already wired); CLI surfaces the
@@ -840,6 +841,146 @@ dispatch — never folded into the docs-keeper's commit.
 ### 2026-05-10: Realignment paperwork landed. Tenant-drop spec dispatch pending (target: `docs/plans/beta/08-tenant-drop/`). Phase 7.5 closed by the Phase 19 close-out commit.
 
 ## Done
+
+### Channel Revamp post-commit cleanup
+
+**Shipped:** `718996c` on 2026-05-07 (Phase 7.5 Track A step 01 — Rails-side
+hygiene sweep).
+
+`app/views/shared/_confirm_dialog.html.erb` and
+`app/javascript/controllers/confirm_dialog_controller.js` were deleted outright.
+The unused `confirm:` kwarg was removed from
+`app/components/bracketed_link_component.rb`, with the matching spec updates.
+Post-deletion grep returns zero matches; full RSpec + Brakeman remained green.
+
+### Rails-app keyboard shortcuts
+
+**Shipped:** `f5fdb01` on 2026-05-09 (Phase 7.5 Track C spec 04 — Rails keyboard
+shortcuts).
+
+The Rails surface now mirrors the `pito` CLI keymap one-for-one (master agent's
+Q6 = strict mirror; no web-only additions). `keyboard_controller.js` implements
+the global key listener with the `g`-prefix state machine,
+`KeyboardShortcutsModalComponent` renders the `?` modal grouped by section, and
+the `[ ? ]` link anchors top-right of every layout. 33 new specs across
+component + request + integration coverage. Five cross-stack gaps (browser- back
+`q`, `:q` / Ctrl+C, `e` for channel-edit, `c` for connected toggle, list-row
+`enter`) were documented and explicitly out-of-scope; they do not fold into this
+entry's resolution.
+
+### `pito` CLI screen layout parity with Rails app
+
+**Shipped:** `718996c` on 2026-05-07 (Phase 7.5 Track B step 02 — CLI hygiene
+sweep + screen-layout parity sweep).
+
+Three single-screen discrepancies were aligned with the canonical Rails surface:
+channel-detail action legend lost the `(s) star` keystroke hint (star/unstar
+lives inline on the Starred KV row); the help screen dropped the stale `f y`
+row; the dashboard placeholder copy was reconciled with web. Eight broader
+cross-stack gaps (column reconciliation between channels list / videos list /
+settings panes / search results) surfaced and were explicitly carved out — those
+carry forward as "CLI feature-parity sweep" under `## Open`, targeted at the
+per-domain CLI parity work unit (work unit 10 in the realignment).
+
+### `pito` CLI Dependabot alert #1 (low severity) — `lru` + `paste` advisories via `ratatui 0.29.0`
+
+**Shipped:** `718996c` on 2026-05-07 (Phase 7.5 Track B step 02 — CLI hygiene
+sweep).
+
+`extras/cli/Cargo.toml` bumped `ratatui` from 0.29.0 to 0.30.x. `cargo update`
+refreshed `Cargo.lock`; both `RUSTSEC-2026-0002` (`lru`) and `RUSTSEC-2024-0436`
+(`paste 1.0.15`) cleared in one move (master agent's Q3 = accept TUI breakage
+and fix in-dispatch — zero callsite breakage materialized). `cargo audit` and
+`cargo test` green post-bump.
+
+### Pre-existing rustfmt drift in `extras/cli/`
+
+**Shipped:** `718996c` on 2026-05-07 (Phase 7.5 Track B step 02 — CLI hygiene
+sweep).
+
+`cargo fmt` swept the workspace; the eight previously-drifted files (`app.rs`,
+`commands/tui.rs`, `keys.rs`, `ui/dashboard.rs`, `ui/mod.rs`,
+`ui/operation_progress.rs`, `ui/videos.rs`, `widgets/mod.rs`) reflowed clean.
+`cargo fmt --check` exits 0 post-sweep; clippy + tests stayed green.
+
+### OmniAuth scope-walk fallback simplification in `config/initializers/omniauth.rb`
+
+**Shipped:** `718996c` on 2026-05-07 (Phase 7.5 Track A step 01 — Rails-side
+hygiene sweep). Follow-up CI fix landed in `85453c1` (omniauth credentials
+three-tier fallback + prettier sweep) when the loud-fail behavior tripped CI's
+test-environment credentials block; the resolved shape is a single direct lookup
+with explicit early-fail in production and a forgiving fallback for test/CI.
+
+`config/initializers/omniauth.rb` simplified to a single direct lookup of
+`Rails.application.credentials.google_oauth.{client_id, client_secret}`. The
+belt-and-suspenders nil-safe walks were removed; missing credentials raise
+during boot in development / production with a clear message instead of silently
+falling through. RSpec + boot smoke green.
+
+### Validate and commit Phase B-2 (note revamp + bulk on notes + inline-delete + double-delete consolidation)
+
+**Shipped:** `4843db1` on 2026-05-04 ("Note editor revamp, project concept drop,
+modal footer, pane bg").
+
+The Phase B-2 working-tree changes on top of `11d2cbb` validated through the
+manual flow listed in the original entry and committed as a single follow-up
+commit. The new `GET /notes/:id` two-pane editor, `unsaved-form` Stimulus
+controller, char/word counts, project-notes bulk-select, and the double-delete
+consolidation (`NotesFilesystem.delete` removed from `NotesController#destroy`;
+`before_destroy` callback is the single source of truth) all landed in flow.
+
+### Agent definition sync — install monolith renames into `~/.claude/`
+
+**Shipped:** `b833b12` on 2026-05-09 ("Add docs/agents/ stubs for installed
+pito-\* agents").
+
+The Phase 4 closeout sequence per the user's auto-memory bundled the agent
+re-prefix pass with the install-script invocation. Runtime `~/.claude/agents/`
+now mirrors the repo's expected pito-prefixed shape; `docs/agents/` carries the
+per-agent stubs for the renamed set. Master / implementation dispatches in
+subsequent sessions resolve to the `pito-architect`, `pito-rails`, `pito-mcp`,
+`pito-docs`, `pito-reviewer`, `pito-auditor`, `pito-astro`, `pito-rust`,
+`pito-security` names without falling back to legacy stubs.
+
+### Re-prefix pito agents with `pito-*` for multi-project clarity
+
+**Shipped:** `b833b12` on 2026-05-09 ("Add docs/agents/ stubs for installed
+pito-\* agents"). Bundled with the Phase 4 closeout sequence per the user's
+auto-memory.
+
+Pito's installed agents now carry the `pito-*` prefix; cross-project ownership
+is grep-able in `~/.claude/agents/`. The repo's source-of-truth documentation
+moved from `.claude-config/agents/` to `docs/agents/` during the same pass; the
+prefix change is reflected in every `subagent_type:` reference across
+`CLAUDE.md` and the orchestration / playbook docs.
+
+### Implement `--prune` flag on `install-claude-config.sh`
+
+**Shipped:** `b833b12` on 2026-05-09 ("Add docs/agents/ stubs for installed
+pito-\* agents"). Paired with the agent re-prefix pass per the user's auto-
+memory; the orphaned unprefixed runtime files were swept during the same
+closeout cycle.
+
+The install-script `--prune` flag was implemented and exercised during the
+re-prefix sweep (the install-script source itself lives outside this repo,
+synced from the user's dotfiles per the convention noted in
+`/home/catalin/.claude/projects/-home-catalin-Dev-pito/memory/MEMORY.md`). The
+runtime cleanup verifies that no stale unprefixed agent files remain in
+`~/.claude/agents/`.
+
+### Phase 7.5 pre-specs 08 / 09 / 10 close-out
+
+**Shipped:** Phase 19 close-out commit (2026-05-10). Suggested commit message:
+`Phase 7.5 close-out — reconciliation, follow-ups disposition, plan complete`.
+
+Phase 19 close-out
+(`docs/plans/beta/19-phase-75-closeout/specs/01-closeout-and-followups-resolution.md`)
+reconciled the three pre-spec drops. The pre-spec files (08 Timelines, 09 MCP
+sync, 10 Terminal sync) were deleted on 2026-05-10; durable record lives in
+`docs/plans/beta/7.5-followups-and-foundations/dropped.md` and
+`docs/realignment-2026-05-09.md` work unit 11 (which now carries the Resolution
+line pointing back at the close-out). 07 (Games) remains preserved as historical
+reference and absorbs into realignment work unit 6.
 
 ### Decorator slim question — re-evaluate Channel/Video summary JSON shape post-Path-A2
 

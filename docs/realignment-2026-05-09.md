@@ -687,8 +687,8 @@ three architect recommendations. 08 / 09 / 10 pre-spec files were deleted on
 absorbed into work unit 6 (Game model expansion + IGDB sync) and its pre-spec
 file is preserved as historical reference. See
 `docs/plans/beta/19-phase-75-closeout/specs/01-closeout-and-followups-resolution.md`
-and the close-out commit on `main` (the user signs the close-out off as a
-single commit per the workflow rule).
+and the close-out commit on `main` (the user signs the close-out off as a single
+commit per the workflow rule).
 
 ### 12. Single-binary distribution + ONCE-style installer
 

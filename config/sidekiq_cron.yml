@@ -44,6 +44,15 @@ game_igdb_nightly_refresh:
   class: GameIgdbNightlyRefresh
   description: "Re-sync every Game whose igdb_synced_at is older than 7 days"
 
+# Phase 16 §1 — notifications scheduler. Walks Phase 15's calendar
+# notification declarations every minute, materializes Notification
+# rows (idempotent via the unique partial index on `notifications`),
+# and enqueues `NotificationDeliver` jobs per enabled channel.
+notification_scheduler:
+  cron: "* * * * *"
+  class: NotificationSchedulerJob
+  description: "Materialize ripe Notification rows + enqueue webhook deliveries"
+
 # YouTube sync jobs — uncomment when beta YouTube integration is implemented
 #
 # sync_channels:

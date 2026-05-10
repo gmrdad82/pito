@@ -1,0 +1,17 @@
+<%# Phase 14 §2 — single member row on the bundle show page. The
+    `[remove]` button DELETEs `/bundles/:bundle_id/members/:game_id`
+    (the `:id` segment is the GAME id, not the BundleMember id). %>
+<tr>
+  <td>
+    <%= link_to member.game.title, game_path(member.game),
+                data: { turbo_frame: "_top" } %>
+  </td>
+  <td><%= member.game.release_year || "—" %></td>
+  <td>
+    <%= button_to bundle_member_path(bundle, member.game),
+                  method: :delete,
+                  class: "bracketed",
+                  form: { style: "display: inline; margin: 0;",
+                          data: { turbo: false } } do %>[<span class="bl">remove</span>]<% end %>
+  </td>
+</tr>

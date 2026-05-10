@@ -139,6 +139,85 @@ RSpec.describe AppSetting, type: :model do
     end
   end
 
+  # Phase 16 §1 — Notifications data model + delivery channels.
+  #
+  # The two webhook delivery toggles AND with the `Rails.application.credentials`
+  # `notifications.{discord,slack}_webhook_url` keys. Both must be present
+  # AND non-blank for the helper to return true.
+  describe ".discord_delivery_enabled?" do
+    let(:url) { "https://discord.com/api/webhooks/123/abc" }
+
+    before { AppSetting.delete_all }
+
+    it "returns false when no AppSetting row exists" do
+      expect(AppSetting.discord_delivery_enabled?).to be(false)
+    end
+
+    it "returns true when discord_enabled = true AND credentials carry a non-blank URL" do
+      AppSetting.create!(key: "max_panes", value: "5", discord_enabled: true)
+      allow(Rails.application.credentials).to receive(:dig).with(:notifications, :discord_webhook_url).and_return(url)
+      expect(AppSetting.discord_delivery_enabled?).to be(true)
+    end
+
+    it "returns false when discord_enabled = false, regardless of URL" do
+      AppSetting.create!(key: "max_panes", value: "5", discord_enabled: false)
+      allow(Rails.application.credentials).to receive(:dig).with(:notifications, :discord_webhook_url).and_return(url)
+      expect(AppSetting.discord_delivery_enabled?).to be(false)
+    end
+
+    it "returns false when the URL is blank, regardless of the flag" do
+      AppSetting.create!(key: "max_panes", value: "5", discord_enabled: true)
+      allow(Rails.application.credentials).to receive(:dig).with(:notifications, :discord_webhook_url).and_return("")
+      expect(AppSetting.discord_delivery_enabled?).to be(false)
+    end
+
+    it "returns false when the URL key is missing" do
+      AppSetting.create!(key: "max_panes", value: "5", discord_enabled: true)
+      allow(Rails.application.credentials).to receive(:dig).with(:notifications, :discord_webhook_url).and_return(nil)
+      expect(AppSetting.discord_delivery_enabled?).to be(false)
+    end
+
+    it "returns false when the URL is whitespace-only" do
+      AppSetting.create!(key: "max_panes", value: "5", discord_enabled: true)
+      allow(Rails.application.credentials).to receive(:dig).with(:notifications, :discord_webhook_url).and_return("   ")
+      expect(AppSetting.discord_delivery_enabled?).to be(false)
+    end
+  end
+
+  describe ".slack_delivery_enabled?" do
+    let(:url) { "https://hooks.slack.com/services/abc/def" }
+
+    before { AppSetting.delete_all }
+
+    it "returns false when no AppSetting row exists" do
+      expect(AppSetting.slack_delivery_enabled?).to be(false)
+    end
+
+    it "returns true when slack_enabled = true AND credentials carry a non-blank URL" do
+      AppSetting.create!(key: "max_panes", value: "5", slack_enabled: true)
+      allow(Rails.application.credentials).to receive(:dig).with(:notifications, :slack_webhook_url).and_return(url)
+      expect(AppSetting.slack_delivery_enabled?).to be(true)
+    end
+
+    it "returns false when slack_enabled = false, regardless of URL" do
+      AppSetting.create!(key: "max_panes", value: "5", slack_enabled: false)
+      allow(Rails.application.credentials).to receive(:dig).with(:notifications, :slack_webhook_url).and_return(url)
+      expect(AppSetting.slack_delivery_enabled?).to be(false)
+    end
+
+    it "returns false when the URL is blank, regardless of the flag" do
+      AppSetting.create!(key: "max_panes", value: "5", slack_enabled: true)
+      allow(Rails.application.credentials).to receive(:dig).with(:notifications, :slack_webhook_url).and_return("")
+      expect(AppSetting.slack_delivery_enabled?).to be(false)
+    end
+
+    it "returns false when the URL key is missing" do
+      AppSetting.create!(key: "max_panes", value: "5", slack_enabled: true)
+      allow(Rails.application.credentials).to receive(:dig).with(:notifications, :slack_webhook_url).and_return(nil)
+      expect(AppSetting.slack_delivery_enabled?).to be(false)
+    end
+  end
+
   # Phase 4 §3.5 (Phase B revamp, 2026-05-04) — model validation guards the
   # "flag on, key blank" combo from both directions: flipping a flag true
   # without a key, and clearing the key while a flag is true. Both fail

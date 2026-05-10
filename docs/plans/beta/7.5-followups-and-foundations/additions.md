@@ -53,8 +53,7 @@ additions — they are bundled in the close-out reconciliation table under
 
 - **Item:** none — phase closes with original scope intact.
 - **Rationale:** realignment work units are downstream phases; in-flow
-  dispatches are tracked in the close-out reconciliation, not as plan
-  additions.
+  dispatches are tracked in the close-out reconciliation, not as plan additions.
 - **Plan link:** none.
 - **Driver:** Phase 19 close-out spec
   (`docs/plans/beta/19-phase-75-closeout/specs/01-closeout-and-followups-resolution.md`).
