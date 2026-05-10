@@ -34,6 +34,53 @@ RSpec.describe GameIgdbSync, type: :job do
         .and_raise(Igdb::Client::ValidationError.new("not found"))
       expect { described_class.new.perform(game.id) }.not_to raise_error
     end
+
+    # Phase 14 §1 polish (2026-05-10) — `games.resyncing` mutex flag.
+    describe "resyncing mutex" do
+      it "flips resyncing true while SyncGame is running" do
+        captured = nil
+        allow(Igdb::SyncGame).to receive(:new).and_wrap_original do |orig, *args|
+          syncer = orig.call(*args)
+          allow(syncer).to receive(:call) do |g|
+            captured = Game.find(g.id).resyncing?
+            g
+          end
+          syncer
+        end
+
+        described_class.new.perform(game.id)
+        expect(captured).to eq(true)
+      end
+
+      it "clears resyncing back to false after success" do
+        allow_any_instance_of(Igdb::SyncGame).to receive(:call) { |_, g| g }
+        described_class.new.perform(game.id)
+        expect(game.reload.resyncing?).to eq(false)
+      end
+
+      it "clears resyncing back to false after a non-retryable error" do
+        allow_any_instance_of(Igdb::SyncGame).to receive(:call)
+          .and_raise(Igdb::Client::ValidationError.new("not found"))
+        described_class.new.perform(game.id)
+        expect(game.reload.resyncing?).to eq(false)
+      end
+
+      it "clears resyncing back to false even when a retryable error re-raises" do
+        allow_any_instance_of(Igdb::SyncGame).to receive(:call)
+          .and_raise(Igdb::Client::ServerError.new("500"))
+        expect { described_class.new.perform(game.id) }.to raise_error(Igdb::Client::ServerError)
+        expect(game.reload.resyncing?).to eq(false)
+      end
+
+      it "is a no-op when resyncing is already true (duplicate enqueue guard)" do
+        game.update_column(:resyncing, true)
+        expect_any_instance_of(Igdb::SyncGame).not_to receive(:call)
+        described_class.new.perform(game.id)
+        # Lock NOT released by an early-return — only the running job
+        # releases the lock when it finishes.
+        expect(game.reload.resyncing?).to eq(true)
+      end
+    end
   end
 
   describe "Sidekiq options" do

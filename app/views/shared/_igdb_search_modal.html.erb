@@ -1,0 +1,33 @@
+<%# Global IGDB-search modal — opened by `i` keypress or by the
+    `[+]` link on `/games`. Submits the typed query to
+    `GET /games/search` (existing `GamesController#search`) which
+    renders `_search_results.html.erb` inside the
+    `<turbo-frame id="igdb_search_results">` below. The results
+    render `[add]` for IGDB hits not yet in the local library and
+    `[update]` for existing rows; `[update]` opens the shared
+    overwrite-confirmation dialog (`#igdb-overwrite-modal`).
+    No JS confirm/alert/prompt anywhere (CLAUDE.md hard rule). %>
+<dialog id="igdb-search-modal"
+        class="confirm-modal pane-dialog"
+        data-controller="igdb-search-modal"
+        data-igdb-search-modal-url-value="<%= search_games_path %>"
+        data-action="click->igdb-search-modal#clickOutside keydown->igdb-search-modal#keydown">
+  <div class="confirm-modal-inner" style="min-width: 480px; max-width: 720px;">
+    <div class="dialog-title">add a game from igdb</div>
+    <div style="display: flex; gap: 6px; align-items: center;">
+      <input type="search"
+             placeholder="search igdb…"
+             autocomplete="off"
+             data-igdb-search-modal-target="input"
+             data-action="input->igdb-search-modal#search"
+             style="flex: 1; height: 24px; padding: 0 6px; font-family: inherit; font-size: 13px; border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-text);" />
+      <button type="button" class="bracketed" data-action="igdb-search-modal#submit">[<span class="bl">search</span>]</button>
+    </div>
+    <div style="margin-top: 8px;">
+      <%= turbo_frame_tag "igdb_search_results" %>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="bracketed" data-action="igdb-search-modal#close">[<span class="bl">cancel</span>]</button>
+    </div>
+  </div>
+</dialog>

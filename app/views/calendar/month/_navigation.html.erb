@@ -1,20 +1,28 @@
-<%# Phase 15 §2 — month grid navigation cluster.
-    [prev month] [today]? [next month]   <month name>   [schedule] [add entry]
-    [today] is suppressed when already on the current month. %>
-<div class="dot-list" style="margin-bottom: 6px;">
-  <%= render(BracketedLinkComponent.new(label: "prev month",
+<%# Phase 15 §2 — month grid navigation cluster (calendar UX restructure).
+    Row 1 (breadcrumb actions, slotted into the layout's `:breadcrumb_actions`
+    yield): [schedule] [+]
+    Row 2 (in-page nav, this partial): [prev] [today]? [next] aligned via
+    space-between flex so prev anchors left, next anchors right, today
+    optionally sits in the middle. [today] is suppressed when already on
+    the current month. %>
+<% content_for :breadcrumb_actions do %>
+  <%= render "shared/dot_separator" %>
+  <%= render(BracketedLinkComponent.new(label: "schedule",
+        href: calendar_schedule_path)) %>
+  <%= render(BracketedLinkComponent.new(label: "+",
+        href: new_calendar_entry_path,
+        data: { turbo_frame: "quick_add" })) %>
+<% end %>
+
+<div class="calendar-nav-row" style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
+  <%= render(BracketedLinkComponent.new(label: "prev",
         href: calendar_month_path(@prev_year, format('%02d', @prev_month)))) %>
   <% unless @on_current_month %>
     <%= render(BracketedLinkComponent.new(label: "today",
           href: calendar_root_path)) %>
+  <% else %>
+    <span aria-hidden="true"></span>
   <% end %>
-  <%= render(BracketedLinkComponent.new(label: "next month",
+  <%= render(BracketedLinkComponent.new(label: "next",
         href: calendar_month_path(@next_year, format('%02d', @next_month)))) %>
-  <span style="margin-left: 12px;"><%= calendar_month_heading(@year, @month) %></span>
-  <span class="nav-spacer" style="flex: 1;"></span>
-  <%= render(BracketedLinkComponent.new(label: "schedule",
-        href: calendar_schedule_path)) %>
-  <%= render(BracketedLinkComponent.new(label: "add entry",
-        href: new_calendar_entry_path,
-        data: { turbo_frame: "quick_add" })) %>
 </div>

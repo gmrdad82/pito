@@ -44,6 +44,28 @@ module Igdb
     EXTERNAL_GAME_CATEGORY_GOG   = 5
     EXTERNAL_GAME_CATEGORY_EPIC  = 26
 
+    # Phase 14 §1 polish (2026-05-10) — IGDB `Game.category` enum.
+    # Values lifted from the IGDB v4 schema:
+    #   0 main_game | 1 dlc_addon | 2 expansion | 3 bundle |
+    #   4 standalone_expansion | 5 mod | 6 episode | 7 season |
+    #   8 remake | 9 remaster | 10 expanded_game | 11 port |
+    #   12 fork | 13 pack | 14 update.
+    # `search_games` filters by the "main entries" subset by default
+    # so duplicates like "Pragmata Deluxe Edition" or
+    # "Red Dead Redemption II Ultimate Edition" don't clutter
+    # results. Callers can pass `include_editions: true` to disable
+    # the filter and receive every IGDB hit.
+    GAME_CATEGORY_MAIN     = 0
+    GAME_CATEGORY_REMAKE   = 8
+    GAME_CATEGORY_REMASTER = 9
+    GAME_CATEGORY_PORT     = 11
+    DEFAULT_SEARCH_CATEGORIES = [
+      GAME_CATEGORY_MAIN,
+      GAME_CATEGORY_REMAKE,
+      GAME_CATEGORY_REMASTER,
+      GAME_CATEGORY_PORT
+    ].freeze
+
     GAME_FIELDS = %w[
       id name slug summary checksum first_release_date
       rating rating_count aggregated_rating aggregated_rating_count
@@ -67,16 +89,23 @@ module Igdb
       @http = http
     end
 
-    def search_games(query, limit: 10)
+    def search_games(query, limit: 10, include_editions: false)
       raise ArgumentError, "query must be a non-blank string" if query.to_s.strip.empty?
       raise ArgumentError, "limit must be a positive integer" unless limit.is_a?(Integer) && limit.positive?
 
-      body = Apicalypse.new
+      builder = Apicalypse.new
         .search(query)
-        .fields("id", "name", "slug", "cover.image_id", "first_release_date")
+        .fields("id", "name", "slug", "cover.image_id", "first_release_date", "category")
         .limit(limit)
-        .to_s
-      post("games", body)
+
+      unless include_editions
+        # Restrict to main entries + remakes / remasters / ports so
+        # "Deluxe Edition" / "Ultimate Edition" / "Definitive Edition"
+        # bundles, expansions, packs, etc. drop out of the result set.
+        builder = builder.where("category = (#{DEFAULT_SEARCH_CATEGORIES.join(",")})")
+      end
+
+      post("games", builder.to_s)
     end
 
     def fetch_game(igdb_id)

@@ -332,6 +332,20 @@ a.text-danger.bracketed:hover, a.text-danger.bracketed:hover .bl { color: var(--
   width: 280px;
 }
 
+/* `.pane--game-detail` — mid-size 640px pane for the read-only details
+   column on /games/:id (row 1, paired with `.pane--narrow` cover on the
+   left). Sits BETWEEN the default 452px `.pane` and the 904px
+   `.pane--wide`: 280 (cover) + 640 (details) = 920px so the cover and
+   details fit on one row at standard workspace width without forcing
+   the details column to the wide-pane size. Background follows the
+   zebra rhythm via the base `.pane` rule. Page-specific for now;
+   promote to a generic `.pane--medium` if other pages adopt the same
+   geometry. Introduced 2026-05-10 alongside the show / edit split. */
+.pane--game-detail {
+  flex: 0 0 640px;
+  width: 640px;
+}
+
 /* `.pane--standalone` — the pane look (elevated `--color-pane-bg-a`
    background + 12px padding) for full-width single-column surfaces that
    are NOT part of a `.pane-row` workspace grid. Drops the fixed
@@ -1328,7 +1342,8 @@ textarea.note-editor-source {
      on mobile (and globally — see the base rule above). */
   .pane,
   .pane--wide,
-  .pane--narrow {
+  .pane--narrow,
+  .pane--game-detail {
     flex: 0 0 88vw;
     width: 88vw;
   }
@@ -1337,7 +1352,8 @@ textarea.note-editor-source {
   }
   .pane-strip > .pane,
   .pane-strip > .pane--wide,
-  .pane-strip > .pane--narrow {
+  .pane-strip > .pane--narrow,
+  .pane-strip > .pane--game-detail {
     scroll-snap-align: start;
   }
   .pane-arrow-up,

@@ -20,16 +20,23 @@ RSpec.describe KeyboardShortcutsModalComponent, type: :component do
   describe "section coverage (mirrors CLI help.rs)" do
     before { render_inline(described_class.new) }
 
-    it "renders the general section with `?`, `q`, `t`, and `Esc`" do
+    it "renders the general section with `?`, `q`, `t`, `/`, `i`, and `Esc`" do
       # Theme toggle was originally `n`; moved to `t` alongside the
       # 2026-05-10 header redesign that retired the visible `n` keycap.
+      # `/` (open search modal) and `i` (open igdb add-game modal) joined
+      # the general section in the 2026-05-10 modal-restructure dispatch
+      # — both bindings are now global.
       section = page.find(".keyboard-shortcuts-section", text: /general/i)
       expect(section).to have_css("span.keycap", text: "?")
       expect(section).to have_css("span.keycap", text: "q")
       expect(section).to have_css("span.keycap", text: "t")
+      expect(section).to have_css("span.keycap", text: "/")
+      expect(section).to have_css("span.keycap", text: "i")
       expect(section).to have_css("span.keycap", text: "Esc")
       expect(section).to have_text("toggle this help")
       expect(section).to have_text("toggle dark/light theme")
+      expect(section).to have_text("open search modal")
+      expect(section).to have_text("open igdb add-game modal")
     end
 
     it "renders the navigation section with every g-prefix binding" do
@@ -46,8 +53,11 @@ RSpec.describe KeyboardShortcutsModalComponent, type: :component do
     end
 
     it "renders the list-pages section with j/k/space/b/s/D/Y and f-prefix" do
+      # Phase 14 §1 polish (2026-05-10) — `/` (search) was promoted to
+      # the global `general` section since the modal it opens is layout-
+      # level. The list-pages section keeps the row-level keys only.
       section = page.find(".keyboard-shortcuts-section", text: /list pages/i)
-      %w[j k space b s D Y / f].each do |k|
+      %w[j k space b s D Y f].each do |k|
         expect(section).to have_css("span.keycap", text: k)
       end
       expect(section).to have_text(/bulk/i)

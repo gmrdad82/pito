@@ -67,6 +67,14 @@ class GamesController < ApplicationController
     @game = Game.find(params[:id])
   end
 
+  # Phase 14 §1 polish (2026-05-10) — show / edit split. The form
+  # that used to live inline on show.html.erb moved to its own
+  # `/games/:id/edit` screen so the show page reads as canonical
+  # read-only metadata.
+  def edit
+    @game = Game.find(params[:id])
+  end
+
   def search
     @query = params[:q].to_s.strip
     if @query.length > MAX_QUERY_LENGTH
@@ -127,7 +135,7 @@ class GamesController < ApplicationController
     if @game.update(local_only_params)
       redirect_to game_path(@game), notice: "game updated."
     else
-      render :show, status: :unprocessable_content
+      render :edit, status: :unprocessable_content
     end
   end
 
@@ -137,8 +145,17 @@ class GamesController < ApplicationController
     redirect_to games_path, notice: "game deleted."
   end
 
+  # Phase 14 §1 polish (2026-05-10) — `[resync]` is async-and-locked.
+  # If a previous resync is still in flight (`games.resyncing` true)
+  # the action no-ops with a flash so the show page can keep its
+  # animated indicator without an "already in flight" toast cascade
+  # if the user re-clicks. Otherwise it enqueues `GameIgdbSync` —
+  # the job itself rechecks the flag and self-locks via update_column.
   def resync
     game = Game.find(params[:id])
+    if game.resyncing?
+      redirect_to game_path(game), notice: "already resyncing." and return
+    end
     GameIgdbSync.perform_async(game.id)
     redirect_to game_path(game), notice: "refreshing from igdb…"
   end
