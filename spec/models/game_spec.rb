@@ -17,8 +17,51 @@ RSpec.describe Game, type: :model do
     it { is_expected.to have_many(:game_publishers).dependent(:destroy) }
     it { is_expected.to have_many(:publishers).through(:game_publishers).source(:company) }
 
+    # Phase 14 §3 — video attribution links.
+    it { is_expected.to have_many(:video_game_links).dependent(:destroy) }
+    it { is_expected.to have_many(:videos).through(:video_game_links) }
+
     it "has_one_attached :cover_art (legacy)" do
       expect(Game.new).to respond_to(:cover_art)
+    end
+  end
+
+  describe "hours_of_footage manual override precedence" do
+    it "returns hours_of_footage_manual when set" do
+      g = create(:game, hours_of_footage_manual: 42)
+      g.update_column(:hours_of_footage_cached, 9)
+      expect(g.hours_of_footage).to eq(42)
+    end
+
+    it "falls back to hours_of_footage_cached when manual is nil" do
+      g = create(:game)
+      g.update_column(:hours_of_footage_cached, 7)
+      expect(g.hours_of_footage).to eq(7)
+    end
+
+    it "returns nil when neither is set" do
+      g = create(:game)
+      expect(g.hours_of_footage).to be_nil
+    end
+  end
+
+  describe "hours_of_footage_cached" do
+    let(:channel) { create(:channel) }
+    let(:game)    { create(:game) }
+
+    it "recomputes on game-link create" do
+      v = create(:video, channel: channel, duration_seconds: 7200)
+      create(:video_game_link, video: v, game: game)
+      expect(game.reload.hours_of_footage_cached).to eq(2)
+    end
+
+    it "recomputes on game-link destroy" do
+      v = create(:video, channel: channel, duration_seconds: 3600)
+      link = create(:video_game_link, video: v, game: game)
+      expect(game.reload.hours_of_footage_cached).to eq(1)
+
+      link.destroy!
+      expect(game.reload.hours_of_footage_cached).to eq(0)
     end
   end
 

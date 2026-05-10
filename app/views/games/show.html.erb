@@ -148,5 +148,25 @@
         not synced yet.
       <% end %>
     </p>
+
+    <%# Phase 14 §3 — linked videos. Lists every Video tied to this
+        Game via `video_game_links` plus a primary star where applicable. %>
+    <h2 style="margin-top: 16px;">linked videos</h2>
+    <% game_links = @game.video_game_links.includes(:video).order(:id) %>
+    <% if game_links.any? %>
+      <ul style="list-style: none; padding: 0; margin: 0;">
+        <% game_links.each do |link| %>
+          <% next unless link.video %>
+          <li style="padding: 2px 0;">
+            <%= link_to link.video.title.presence || link.video.youtube_video_id, video_path(link.video) %>
+            <% if link.is_primary? %>
+              <span class="bracketed-active">[★]</span>
+            <% end %>
+          </li>
+        <% end %>
+      </ul>
+    <% else %>
+      <p class="text-muted" style="margin: 0;">no linked videos yet.</p>
+    <% end %>
   </div>
 </div>

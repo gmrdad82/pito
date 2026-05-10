@@ -97,5 +97,25 @@
         no games match
       </p>
     <% end %>
+
+    <%# Phase 14 §3 — linked videos. Lists every Video tied to this
+        Bundle via `video_game_links`. %>
+    <h2 style="margin-top: 16px;">linked videos</h2>
+    <% bundle_links = @bundle.video_game_links.includes(:video).order(:id) %>
+    <% if bundle_links.any? %>
+      <ul style="list-style: none; padding: 0; margin: 0;">
+        <% bundle_links.each do |link| %>
+          <% next unless link.video %>
+          <li style="padding: 2px 0;">
+            <%= link_to link.video.title.presence || link.video.youtube_video_id, video_path(link.video) %>
+            <% if link.is_primary? %>
+              <span class="bracketed-active">[★]</span>
+            <% end %>
+          </li>
+        <% end %>
+      </ul>
+    <% else %>
+      <p class="text-muted" style="margin: 0;">no linked videos yet.</p>
+    <% end %>
   </div>
 </div>

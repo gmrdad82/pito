@@ -167,6 +167,7 @@ module ApplicationHelper
     when "note"       then projects_path
     when "timeline"   then projects_path
     when "bundle"     then bundles_path
+    when "video_game_link" then videos_path
     else root_path
     end
   end

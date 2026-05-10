@@ -18,7 +18,7 @@ module Confirmable
   # `[delete]` links from project / collection / game show pages route
   # cleanly through the deletions framework. Footage stays out — its
   # delete flow (if any) is owned by the importer surface, not the web UI.
-  TYPES = %w[channel video project collection game note timeline calendar_entry bundle].freeze
+  TYPES = %w[channel video project collection game note timeline calendar_entry bundle video_game_link].freeze
 
   private
 
@@ -63,6 +63,10 @@ module Confirmable
     # (the closest surface that always renders).
     when "calendar_entry" then calendar_schedule_path
     when "bundle"     then bundles_path
+    # Phase 14 §3 — video_game_link cancel returns to the parent video
+    # edit page. The deletion screen is reached from the [remove]
+    # button on the video edit form.
+    when "video_game_link" then videos_path
     else root_path
     end
   end
@@ -78,6 +82,7 @@ module Confirmable
     when "timeline"   then Timeline
     when "calendar_entry" then CalendarEntry
     when "bundle"     then Bundle
+    when "video_game_link" then VideoGameLink
     end
   end
 
@@ -122,6 +127,8 @@ module Confirmable
       CalendarEntry.where(id: ids).where(source: :manual).order(starts_at: :asc)
     when "bundle"
       Bundle.where(id: ids).order(name: :asc)
+    when "video_game_link"
+      VideoGameLink.includes(:game, :bundle, :video).where(id: ids).order(:id)
     end
   end
 
@@ -139,6 +146,10 @@ module Confirmable
     when Timeline   then item.title
     when CalendarEntry then item.title
     when Bundle        then item.name
+    when VideoGameLink
+      target = item.target
+      target_label = target.respond_to?(:title) ? target.title : target&.name
+      "video ##{item.video_id} → #{item.link_type}: #{target_label}"
     else item.to_s
     end
   end

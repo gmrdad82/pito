@@ -1,0 +1,27 @@
+<%# Phase 14 §3 — single bundle tile (Steam-shelf shape).
+    Locals:
+      item or bundle  the Bundle record. The collection-rendering on
+                       `_shelf.html.erb` injects `:item`; the flat
+                       `bundles/index.html.erb` uses `:bundle`.
+%>
+<%
+  bundle = local_assigns[:bundle] || local_assigns[:item]
+  member_count = bundle.bundle_members.size
+%>
+<a href="<%= bundle_path(bundle) %>" class="tile"
+   style="flex: 0 0 150px; width: 150px; display: block; text-decoration: none; color: inherit; cursor: pointer;"
+   data-tile-bundle-id="<%= bundle.id %>"
+   title="<%= bundle.name %> (#{pluralize(member_count, 'game')})">
+  <div class="tile-cover" style="width: 150px; height: 200px; overflow: hidden; background: #f6f6f6; display: flex; align-items: center; justify-content: center;">
+    <% if bundle.composite_cover_url.present? %>
+      <%= image_tag bundle.composite_cover_url, alt: bundle.name,
+                    loading: "lazy",
+                    style: "width: 100%; height: 100%; object-fit: cover; display: block;" %>
+    <% else %>
+      <span class="bracketed-active text-muted">—</span>
+    <% end %>
+  </div>
+  <div class="tile-caption" style="padding: 4px 0; font-size: 11px;">
+    <%= bundle.name %> &middot; <%= pluralize(member_count, "game") %>
+  </div>
+</a>

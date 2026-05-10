@@ -5,6 +5,10 @@ RSpec.describe Bundle, type: :model do
     it { is_expected.to have_many(:bundle_members).dependent(:destroy) }
     it { is_expected.to have_many(:games).through(:bundle_members) }
 
+    # Phase 14 §3 — video attribution links.
+    it { is_expected.to have_many(:video_game_links).dependent(:destroy) }
+    it { is_expected.to have_many(:videos).through(:video_game_links) }
+
     it "orders bundle_members by position" do
       bundle = create(:bundle, bundle_type: :custom)
       g1 = create(:game)

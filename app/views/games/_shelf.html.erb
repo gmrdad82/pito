@@ -1,0 +1,31 @@
+<%# Phase 14 §3 — one shelf row.
+    Locals:
+      title         the shelf heading (lowercase per design.md).
+      collection    enumerable of items rendered through `tile_partial`.
+      tile_partial  partial path used to render each tile (e.g.
+                    "games/tile", "bundles/tile"). The partial MUST
+                    accept an `item:` local.
+      more_link     optional URL — when present, renders a [see all]
+                    link in the heading row.
+%>
+<%
+  more_link    = local_assigns.fetch(:more_link, nil)
+  title        = local_assigns.fetch(:title)
+  collection   = local_assigns.fetch(:collection)
+  tile_partial = local_assigns.fetch(:tile_partial)
+%>
+<section class="shelf" style="margin-top: 16px;" data-controller="steam-shelf">
+  <div class="dot-list" style="margin-bottom: 6px;">
+    <h2 style="margin: 0;"><%= title %></h2>
+    <% if more_link.present? %>
+      <%= render(BracketedLinkComponent.new(label: "see all", href: more_link)) %>
+    <% end %>
+  </div>
+
+  <div class="shelf-row" data-steam-shelf-target="row"
+       style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px;">
+    <%= render partial: tile_partial,
+               collection: collection,
+               as: :item %>
+  </div>
+</section>

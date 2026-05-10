@@ -62,7 +62,7 @@ class VideosController < ApplicationController
   end
 
   def edit
-    @projects = Project.order(:name)
+    load_edit_form_locals
   end
 
   def update
@@ -90,6 +90,9 @@ class VideosController < ApplicationController
       respond_to do |format|
         format.html do
           @projects = Project.order(:name)
+          @video_links = @video.video_game_links.includes(:game, :bundle).order(:id)
+          @link_pickable_games = Game.order(:title).limit(500)
+          @link_pickable_bundles = Bundle.order(:name).limit(500)
           render :edit, status: :unprocessable_content
         end
         format.json { render json: { errors: @video.errors.full_messages }, status: :unprocessable_content }
@@ -167,7 +170,7 @@ class VideosController < ApplicationController
       msg = "only public or unlisted videos can be unpublished."
       respond_to do |format|
         format.html do
-          @projects = Project.order(:name)
+          load_edit_form_locals
           @video.errors.add(:base, msg)
           render :edit, status: :unprocessable_content
         end
@@ -184,7 +187,7 @@ class VideosController < ApplicationController
     else
       respond_to do |format|
         format.html do
-          @projects = Project.order(:name)
+          load_edit_form_locals
           render :edit, status: :unprocessable_content
         end
         format.json { render json: { errors: @video.errors.full_messages }, status: :unprocessable_content }
@@ -235,6 +238,15 @@ class VideosController < ApplicationController
     @video = Video.find(params[:id])
   end
 
+  # Phase 14 §3 — populate the edit-form view bag with the projects
+  # dropdown options + the linked games/bundles fieldset data.
+  def load_edit_form_locals
+    @projects = Project.order(:name)
+    @video_links = @video.video_game_links.includes(:game, :bundle).order(:id)
+    @link_pickable_games = Game.order(:title).limit(500)
+    @link_pickable_bundles = Bundle.order(:name).limit(500)
+  end
+
   def max_panes
     (AppSetting.get("max_panes") || ENV.fetch("MAX_PANES", 3)).to_i
   end
@@ -282,7 +294,12 @@ class VideosController < ApplicationController
     msg = "use [ publish ] or [ schedule ] to change privacy_status or publish_at."
     respond_to do |format|
       format.html do
-        @projects = Project.order(:name)
+        # Mirror `update`'s validation-error path — the edit template
+        # renders the linked-games/bundles fieldset (Phase 14 §3),
+        # which needs the same view-bag the regular failure render
+        # populates. Without this, the partial blows up on
+        # `links.any?` when @video_links is nil.
+        load_edit_form_locals
         @video.errors.add(:base, msg)
         render :edit, status: :unprocessable_content
       end

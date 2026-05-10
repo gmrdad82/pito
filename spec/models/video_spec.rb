@@ -14,6 +14,32 @@ RSpec.describe Video, type: :model do
     it { is_expected.to have_many(:playlist_videos).dependent(:destroy) }
     it { is_expected.to have_many(:playlists).through(:playlist_videos) }
     it { is_expected.to have_one(:channel_youtube_connection).through(:channel) }
+
+    # Phase 14 §3 — game / bundle attribution.
+    it { is_expected.to have_many(:video_game_links).dependent(:destroy) }
+    it { is_expected.to have_many(:linked_games).through(:video_game_links).source(:game) }
+    it { is_expected.to have_many(:linked_bundles).through(:video_game_links).source(:bundle) }
+  end
+
+  # Phase 14 §3 — scoped query helpers (additive on the video model).
+  describe "linked_to_game / linked_to_bundle scopes" do
+    let(:channel) { create(:channel) }
+    let(:game)    { create(:game) }
+    let(:bundle)  { create(:bundle) }
+
+    it "linked_to_game returns videos linked to the game" do
+      v1 = create(:video, channel: channel)
+      _v2 = create(:video, channel: channel)
+      create(:video_game_link, video: v1, game: game)
+      expect(Video.linked_to_game(game)).to contain_exactly(v1)
+    end
+
+    it "linked_to_bundle returns videos linked to the bundle" do
+      v1 = create(:video, channel: channel)
+      _v2 = create(:video, channel: channel)
+      create(:video_game_link, :bundle, video: v1, bundle: bundle)
+      expect(Video.linked_to_bundle(bundle)).to contain_exactly(v1)
+    end
   end
 
   describe "youtube_video_id" do

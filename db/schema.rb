@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_10_170001) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_10_180000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -765,6 +765,26 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_170001) do
     t.index ["video_id"], name: "index_video_daily_by_traffic_sources_on_video_id"
   end
 
+  create_table "video_game_links", force: :cascade do |t|
+    t.bigint "bundle_id"
+    t.datetime "created_at", null: false
+    t.bigint "created_by_user_id"
+    t.bigint "game_id"
+    t.boolean "is_primary", default: false, null: false
+    t.integer "link_type", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "video_id", null: false
+    t.index ["bundle_id"], name: "index_video_game_links_on_bundle_id"
+    t.index ["created_by_user_id"], name: "index_video_game_links_on_created_by_user_id"
+    t.index ["game_id"], name: "index_video_game_links_on_game_id"
+    t.index ["is_primary"], name: "idx_video_game_links_primary", where: "(is_primary = true)"
+    t.index ["link_type"], name: "index_video_game_links_on_link_type"
+    t.index ["video_id", "bundle_id"], name: "idx_video_game_links_unique_bundle", unique: true, where: "(bundle_id IS NOT NULL)"
+    t.index ["video_id", "game_id"], name: "idx_video_game_links_unique_game", unique: true, where: "(game_id IS NOT NULL)"
+    t.index ["video_id"], name: "index_video_game_links_on_video_id"
+    t.check_constraint "link_type = 0 AND game_id IS NOT NULL AND bundle_id IS NULL OR link_type = 1 AND bundle_id IS NOT NULL AND game_id IS NULL", name: "video_game_links_exactly_one_target"
+  end
+
   create_table "video_retentions", force: :cascade do |t|
     t.decimal "audience_watch_ratio", precision: 10, scale: 6
     t.timestamptz "computed_at", default: -> { "CURRENT_TIMESTAMP" }, null: false
@@ -983,6 +1003,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_170001) do
   add_foreign_key "video_daily_by_operating_systems", "videos", on_delete: :cascade
   add_foreign_key "video_daily_by_subscribed_statuses", "videos", on_delete: :cascade
   add_foreign_key "video_daily_by_traffic_sources", "videos", on_delete: :cascade
+  add_foreign_key "video_game_links", "bundles", on_delete: :cascade
+  add_foreign_key "video_game_links", "games", on_delete: :cascade
+  add_foreign_key "video_game_links", "users", column: "created_by_user_id", on_delete: :nullify
+  add_foreign_key "video_game_links", "videos", on_delete: :cascade
   add_foreign_key "video_retentions", "videos", on_delete: :cascade
   add_foreign_key "video_stats", "videos"
   add_foreign_key "video_uploads", "channels"

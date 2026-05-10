@@ -1,0 +1,34 @@
+<%# Phase 14 §3 — single game tile (Steam-shelf shape).
+    Locals:
+      item or game  the Game record (the partial accepts either local
+                    via the `as:` collection rendering convention).
+
+    Hover surfaces the caption strip (`Title (year) ★ rating`) — the
+    `caption` block is always rendered; CSS hides it until hover.
+
+    Bracketed-link convention applies to the title (the whole tile is
+    a link, but the design system expects a bracketed legend on hover).
+%>
+<%
+  game = local_assigns[:game] || local_assigns[:item]
+  caption_parts = [ game.title ]
+  caption_parts << "(#{game.release_year})" if game.release_year.present?
+  caption_parts << "★ #{game.igdb_rating.to_i}" if game.igdb_rating.present?
+%>
+<a href="<%= game_path(game) %>" class="tile"
+   style="flex: 0 0 150px; width: 150px; display: block; text-decoration: none; color: inherit; cursor: pointer;"
+   data-tile-game-id="<%= game.id %>"
+   title="<%= caption_parts.join(' ') %>">
+  <div class="tile-cover" style="width: 150px; height: 200px; overflow: hidden; background: #f6f6f6; display: flex; align-items: center; justify-content: center;">
+    <% if game.cover_url.present? %>
+      <%= image_tag game.cover_url(size: "t_cover_big"),
+                    alt: game.title, loading: "lazy",
+                    style: "width: 100%; height: 100%; object-fit: cover; display: block;" %>
+    <% else %>
+      <span class="bracketed-active text-muted">[no cover]</span>
+    <% end %>
+  </div>
+  <div class="tile-caption" style="padding: 4px 0; font-size: 11px;">
+    <%= caption_parts.join(' ') %>
+  </div>
+</a>

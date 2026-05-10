@@ -41,6 +41,20 @@ class Video < ApplicationRecord
   # superfluous on a CASCADE FK but harmless.
   has_many :calendar_entries, dependent: :destroy
 
+  # Phase 14 §3 — game / bundle attribution links.
+  # `dependent: :destroy` (rather than :delete_all) so the
+  # `recompute_game_footage_cache` after_destroy_commit hook on
+  # `VideoGameLink` fires for every cascaded row when a Video is
+  # destroyed (master-agent decision #9).
+  has_many :video_game_links, dependent: :destroy
+  has_many :linked_games,   through: :video_game_links, source: :game
+  has_many :linked_bundles, through: :video_game_links, source: :bundle
+
+  scope :linked_to_game,
+        ->(game) { joins(:video_game_links).where(video_game_links: { game_id: game.id }) }
+  scope :linked_to_bundle,
+        ->(bundle) { joins(:video_game_links).where(video_game_links: { bundle_id: bundle.id }) }
+
   # Convenience reach-through. Video hits YouTube via the channel's
   # YoutubeConnection (Q4 lock). The connection is reached transitively;
   # there is no direct `youtube_connection_id` on Video for OAuth purposes

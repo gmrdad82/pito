@@ -61,6 +61,12 @@ class Game < ApplicationRecord
   has_many :bundle_members, dependent: :destroy
   has_many :bundles, through: :bundle_members
 
+  # Phase 14 §3 — video attribution. `dependent: :destroy` so the
+  # `recompute_game_footage_cache` after_destroy_commit hook on
+  # `VideoGameLink` fires for every cascaded row.
+  has_many :video_game_links, dependent: :destroy
+  has_many :videos, through: :video_game_links
+
   # Phase 14 §2 — fire `BundleCoverInvalidate` when `cover_image_id`
   # changes. The job evicts the cached tile (so the next build
   # re-downloads the new IGDB cover bytes) and enqueues a rebuild for

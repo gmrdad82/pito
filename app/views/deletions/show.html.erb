@@ -50,6 +50,11 @@
           <th>name</th>
           <th>type</th>
           <th class="num">members</th>
+        <% when "video_game_link" %>
+          <th>video</th>
+          <th>kind</th>
+          <th>target</th>
+          <th class="num">primary</th>
         <% end %>
       </tr>
     </thead>
@@ -102,6 +107,20 @@
             <td><%= item.name %></td>
             <td><%= item.bundle_type %></td>
             <td class="num"><%= number_with_delimiter(item.bundle_members.count) %></td>
+          <% when "video_game_link" %>
+            <td>video #<%= item.video_id %></td>
+            <td><%= item.link_type %></td>
+            <td>
+              <% target = item.target %>
+              <% if target.respond_to?(:title) %>
+                <%= target.title %>
+              <% elsif target.respond_to?(:name) %>
+                <%= target.name %>
+              <% else %>
+                —
+              <% end %>
+            </td>
+            <td class="num"><%= item.is_primary? ? "yes" : "no" %></td>
           <% end %>
         </tr>
       <% end %>
