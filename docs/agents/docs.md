@@ -3,6 +3,29 @@
 Project-scoped overrides for the docs-keeper agent in pito. Base template:
 `~/Dev/claude-dotfiles/agents/docs.md`.
 
+## Project conventions
+
+When authoring or editing prose under `docs/`, follow the same conventions the
+rest of the repo enforces.
+
+### A. Bracketed-link convention — `[label]` (no inner spaces)
+
+Examples and references inside docs use the `[label]` form — no inner padding.
+Write `[add channel]`, not `[ add channel ]`. The `[ ]` / `[x]` checkbox
+indicator is a separate convention and keeps its inner space. When quoting
+historical shapes (e.g. "the prior `[ label ]` shape"), make the historical
+context explicit so the older form isn't mistaken for current. Canonical:
+`docs/design.md` → "Bracketed Links / Buttons" and "Bracketed labels: minimum
+text".
+
+### B. Lead-paragraph copy — one sentence per line
+
+Page-style docs that imitate web view layout (e.g. mock copy in specs) should
+split the lead paragraph into one sentence per line via `<br>` inside one
+`<p class="text-muted">`. Inside pure prose docs (architecture, design, ADRs),
+follow regular prose with the 80-char wrap — the one-sentence-per-line rule
+applies to UI copy specs, not narrative docs.
+
 ## pito specifics
 
 - Top-level reference docs: `docs/architecture.md`, `docs/design.md`,

@@ -71,140 +71,132 @@ Both Phase 15 specs implemented in a single dispatch.
 
 **Migrations (4 new):**
 
-- `20260510120000_add_calendar_timezone_to_app_settings.rb` — adds
-  `timezone` (default `"UTC"`) column to `app_settings`.
-- `20260510120001_add_manual_date_override_to_games.rb` — adds the
-  per-spec `manual_date_override` boolean to `games`. Phase 14
-  shipped its own `release_date` / `igdb_id` / `igdb_slug` columns
-  via separate migrations during this session (no conflict on this
-  column).
-- `20260510120002_create_milestone_rules.rb` — declarative rule
-  table. Bigint primary key (NOT UUID — see "Spec drift" below).
-- `20260510120003_create_calendar_entries.rb` — the central entry
-  table. 25 columns, 14 scalar/btree indexes, 2 GIN indexes on
-  jsonb columns, 3 partial unique expression indexes for the Q17
-  race-guard, 1 check constraint, 7 foreign keys.
+- `20260510120000_add_calendar_timezone_to_app_settings.rb` — adds `timezone`
+  (default `"UTC"`) column to `app_settings`.
+- `20260510120001_add_manual_date_override_to_games.rb` — adds the per-spec
+  `manual_date_override` boolean to `games`. Phase 14 shipped its own
+  `release_date` / `igdb_id` / `igdb_slug` columns via separate migrations
+  during this session (no conflict on this column).
+- `20260510120002_create_milestone_rules.rb` — declarative rule table. Bigint
+  primary key (NOT UUID — see "Spec drift" below).
+- `20260510120003_create_calendar_entries.rb` — the central entry table. 25
+  columns, 14 scalar/btree indexes, 2 GIN indexes on jsonb columns, 3 partial
+  unique expression indexes for the Q17 race-guard, 1 check constraint, 7
+  foreign keys.
 
 **Models / concerns / validators:**
 
-- `app/models/calendar_entry.rb` (new) — central model with four
-  enums, validators, scopes, read-only enforcement.
-- `app/models/milestone_rule.rb` (new) — `fire!` /  `re_arm!`
-  helpers, scope_id presence rules, IANA tz validation.
+- `app/models/calendar_entry.rb` (new) — central model with four enums,
+  validators, scopes, read-only enforcement.
+- `app/models/milestone_rule.rb` (new) — `fire!` / `re_arm!` helpers, scope_id
+  presence rules, IANA tz validation.
 - `app/models/concerns/calendar_derivable.rb` (new) — host mixin.
-- `app/validators/calendar_entry_metadata_validator.rb` (new) —
-  per-type metadata key allowlist.
-- `app/validators/calendar_entry_cross_reference_validator.rb`
-  (new) — required / forbidden FK shape per entry_type.
+- `app/validators/calendar_entry_metadata_validator.rb` (new) — per-type
+  metadata key allowlist.
+- `app/validators/calendar_entry_cross_reference_validator.rb` (new) — required
+  / forbidden FK shape per entry_type.
 - `app/models/video.rb` (edit) — `include CalendarDerivable`,
   `after_save_commit` derivation hook.
-- `app/models/channel.rb` (edit) — same. Single `after_save_commit`
-  declaration (registering the same filter via two `after_*_commit`
-  lines merges them in Rails 8.1, which silently broke the
-  after_create_commit pre-fix; surfaced + corrected during impl).
-- `app/models/game.rb` (edit) — same, with `respond_to?`-guarded
-  `release_date` / `igdb_id` / `release_precision` reads so the
-  hook works regardless of Phase 14 column shape.
-- `app/models/app_setting.rb` (edit) — `timezone` accessor +
-  IANA validation.
+- `app/models/channel.rb` (edit) — same. Single `after_save_commit` declaration
+  (registering the same filter via two `after_*_commit` lines merges them in
+  Rails 8.1, which silently broke the after_create_commit pre-fix; surfaced +
+  corrected during impl).
+- `app/models/game.rb` (edit) — same, with `respond_to?`-guarded `release_date`
+  / `igdb_id` / `release_precision` reads so the hook works regardless of Phase
+  14 column shape.
+- `app/models/app_setting.rb` (edit) — `timezone` accessor + IANA validation.
 
 **Services:**
 
 - `app/services/calendar/derivation.rb` — `sync!` upsert by
-  `(entry_type, source_ref)`, preserves `metadata.user_overrides`,
-  `revoke!` (single-source_ref) +  `revoke_all_for_host!`
-  (typed-FK), supersedes prior derivations on transition (eg
-  video_scheduled → video_published).
-- `app/services/calendar/notification_dispatch_declaration.rb` —
-  Phase 16 contract. Returns notification kind/offset hashes per
-  entry; suppresses pre-release reminders when a child
-  `purchase_planned` exists with `notify_anyway=false`.
-- `app/services/calendar/milestone_evaluator.rb` — injectable
-  metric reader (Phase 13 will replace the stub); per-rule
-  rescue so a bad rule does not block others.
-- `app/services/calendar/occurred_flipper.rb` — flips ripe
-  scheduled entries to occurred.
+  `(entry_type, source_ref)`, preserves `metadata.user_overrides`, `revoke!`
+  (single-source_ref) + `revoke_all_for_host!` (typed-FK), supersedes prior
+  derivations on transition (eg video_scheduled → video_published).
+- `app/services/calendar/notification_dispatch_declaration.rb` — Phase 16
+  contract. Returns notification kind/offset hashes per entry; suppresses
+  pre-release reminders when a child `purchase_planned` exists with
+  `notify_anyway=false`.
+- `app/services/calendar/milestone_evaluator.rb` — injectable metric reader
+  (Phase 13 will replace the stub); per-rule rescue so a bad rule does not block
+  others.
+- `app/services/calendar/occurred_flipper.rb` — flips ripe scheduled entries to
+  occurred.
 
 **Jobs:**
 
-- `app/jobs/calendar_derivation_job.rb`,
-  `app/jobs/milestone_evaluator_job.rb`,
-  `app/jobs/calendar_occurred_flipper_job.rb` — registered as
-  Sidekiq cron (`02:00 UTC` daily for milestone evaluator,
-  `5 * * * *` hourly for occurred flipper).
+- `app/jobs/calendar_derivation_job.rb`, `app/jobs/milestone_evaluator_job.rb`,
+  `app/jobs/calendar_occurred_flipper_job.rb` — registered as Sidekiq cron
+  (`02:00 UTC` daily for milestone evaluator, `5 * * * *` hourly for occurred
+  flipper).
 
 **Routes / controllers (spec 02):**
 
 - `config/routes.rb` — `/calendar`, `/calendar/month/:year/:month`,
-  `/calendar/schedule`, `/calendar/entries/{new,quick_add,:id,
-  :id/edit,:id/note}`, plus `DELETE
-  /deletions/calendar_entry/:ids` with `defaults: { type:
-  "calendar_entry" }` so the Confirmable concern can dispatch.
-- `app/controllers/calendar/month_controller.rb`,
-  `schedule_controller.rb`, `entries_controller.rb` (new) — strong
-  params, manual-only entry types, strict yes/no rejection per
-  CLAUDE.md.
-- `app/controllers/concerns/confirmable.rb` (edit) — adds
-  `calendar_entry` to TYPES + per-type scope (filter to
-  `source: :manual` only) + cancel_path → calendar_schedule_path.
+  `/calendar/schedule`,
+  `/calendar/entries/{new,quick_add,:id, :id/edit,:id/note}`, plus
+  `DELETE /deletions/calendar_entry/:ids` with
+  `defaults: { type: "calendar_entry" }` so the Confirmable concern can
+  dispatch.
+- `app/controllers/calendar/month_controller.rb`, `schedule_controller.rb`,
+  `entries_controller.rb` (new) — strong params, manual-only entry types, strict
+  yes/no rejection per CLAUDE.md.
+- `app/controllers/concerns/confirmable.rb` (edit) — adds `calendar_entry` to
+  TYPES + per-type scope (filter to `source: :manual` only) + cancel_path →
+  calendar_schedule_path.
 - `app/controllers/deletions_controller.rb` (edit) — adds
-  `cancel_calendar_entry` member, dispatches calendar_entry
-  type-show partial.
+  `cancel_calendar_entry` member, dispatches calendar_entry type-show partial.
 
 **Views (ERB):**
 
-- `app/views/calendar/month/{show,_grid,_cell,_navigation,
-  _filter_cluster}.html.erb`,
+- `app/views/calendar/month/{show,_grid,_cell,_navigation, _filter_cluster}.html.erb`,
   `app/views/calendar/schedule/{show,_pagination}.html.erb`,
   `app/views/calendar/entries/{new,edit,show,_form}.html.erb`,
-  `app/views/deletions/{show_calendar_entry,_calendar_entry}
-  .html.erb`. Lowercase per docs/design.md, bracketed-link
-  convention, no JS confirm/alert/prompt.
+  `app/views/deletions/{show_calendar_entry,_calendar_entry} .html.erb`.
+  Lowercase per docs/design.md, bracketed-link convention, no JS
+  confirm/alert/prompt.
 
 **ViewComponents:**
 
-- `app/components/entry_chip_component.{rb,html.erb}` — the
-  month-grid chip. Glyph + truncated title + state class +
-  cross-link target per Q6/Q13.
-- `app/components/entry_row_component.{rb,html.erb}` — the
-  schedule-view row. Date / time / glyph + title / state.
-- `app/helpers/calendar_helper.rb` — month_grid_dates + the
-  glyph/state/time helpers.
+- `app/components/entry_chip_component.{rb,html.erb}` — the month-grid chip.
+  Glyph + truncated title + state class + cross-link target per Q6/Q13.
+- `app/components/entry_row_component.{rb,html.erb}` — the schedule-view row.
+  Date / time / glyph + title / state.
+- `app/helpers/calendar_helper.rb` — month_grid_dates + the glyph/state/time
+  helpers.
 
 **Stimulus controllers:**
 
-- `app/javascript/controllers/calendar_navigation_controller.js`
-  — `[`, `]`, `t` keyboard shortcuts on month grid.
-- `calendar_filter_controller.js`, `calendar_entry_form_controller
-  .js` — per-type sub-form toggle (no confirm/alert/prompt).
+- `app/javascript/controllers/calendar_navigation_controller.js` — `[`, `]`, `t`
+  keyboard shortcuts on month grid.
+- `calendar_filter_controller.js`, `calendar_entry_form_controller .js` —
+  per-type sub-form toggle (no confirm/alert/prompt).
 
 **Sidekiq cron:**
 
-- `config/sidekiq_cron.yml` — registered `milestone_evaluator`
-  (daily 02:00 UTC) and `calendar_occurred_flipper` (hourly).
+- `config/sidekiq_cron.yml` — registered `milestone_evaluator` (daily 02:00 UTC)
+  and `calendar_occurred_flipper` (hourly).
 
 ### Test sweep
 
-| Surface                               | Count |
-| ------------------------------------- | ----- |
-| spec/models/calendar_entry_spec.rb    | 66    |
-| spec/models/milestone_rule_spec.rb    | 21    |
-| spec/models/video_calendar_*          | 5     |
-| spec/models/channel_calendar_*        | 3     |
-| spec/models/game_calendar_*           | 6 (1 pending) |
-| spec/validators (2 files)             | 25    |
-| spec/services/calendar (4 files)      | 39    |
-| spec/jobs (3 files)                   | 7     |
-| spec/components (2 files)             | 21    |
-| spec/helpers/calendar_helper_spec.rb  | 14    |
-| spec/requests/calendar (3 files)      | 37    |
-| spec/requests/deletions/calendar_*    | 5     |
-| spec/system (4 files)                 | 13    |
-| **Total**                             | **262 examples, 0 failures, 1 pending** |
+| Surface                              | Count                                   |
+| ------------------------------------ | --------------------------------------- |
+| spec/models/calendar_entry_spec.rb   | 66                                      |
+| spec/models/milestone_rule_spec.rb   | 21                                      |
+| spec/models/video*calendar*\*        | 5                                       |
+| spec/models/channel*calendar*\*      | 3                                       |
+| spec/models/game*calendar*\*         | 6 (1 pending)                           |
+| spec/validators (2 files)            | 25                                      |
+| spec/services/calendar (4 files)     | 39                                      |
+| spec/jobs (3 files)                  | 7                                       |
+| spec/components (2 files)            | 21                                      |
+| spec/helpers/calendar_helper_spec.rb | 14                                      |
+| spec/requests/calendar (3 files)     | 37                                      |
+| spec/requests/deletions/calendar\_\* | 5                                       |
+| spec/system (4 files)                | 13                                      |
+| **Total**                            | **262 examples, 0 failures, 1 pending** |
 
-Pending: `spec/models/game_calendar_derivation_spec.rb` —
-`manual_date_override` IGDB-flow expectations live in Phase 14's
-IGDB sync flow, not in Phase 15.
+Pending: `spec/models/game_calendar_derivation_spec.rb` — `manual_date_override`
+IGDB-flow expectations live in Phase 14's IGDB sync flow, not in Phase 15.
 
 ### Quality gates
 
@@ -214,50 +206,43 @@ IGDB sync flow, not in Phase 15.
 
 ### Spec drift / surfaced contract notes
 
-- **UUID vs bigint.** The architect's spec calls for UUID primary
-  keys per ADR 0003; the existing schema (channels, videos, games,
-  users, projects) uses bigint everywhere. New tables adopt bigint
-  for FK referential consistency. ADR 0003 may need a separate
-  ADR-or-amendment for the URL-vs-PK distinction; surfaced for
-  master-agent review.
-- **`metric_window` enum.** Master decision said use short-form
-  `7d` / `28d` / `90d` / `lifetime`. Implemented as Rails enum
-  with the short-form names as keys (Ruby symbols quoted because
-  `7d` isn't a valid bareword: `enum :metric_window, { lifetime: 0,
-  "7d": 1, "28d": 2, "90d": 3 }`).
-- **Phase 12 + Phase 14 parallel-run.** Both phases shipped
-  migrations during this session, slightly ahead of Phase 15's
-  bring-up. The Phase 12 migration `20260510135730_expand_videos_for_data_api_v3.rb`
-  has a redundant `ALTER INDEX ... RENAME TO ...` block that
-  Rails 8.1's `rename_table` already handles automatically; the
-  migration succeeded on the second attempt (after the first
-  attempt's transaction was discarded). Surfaced to master agent
-  for Phase 12's review — may need a follow-up cleanup.
-- **`after_create_commit` + `after_update_commit` callback merge.**
-  Rails 8.1 merges multiple `after_*_commit` declarations sharing
-  the same filter symbol. The first hook on Channel was silently
-  dropped when a second declaration with `if:` was added. Fixed
-  by collapsing to a single `after_save_commit` per host model;
-  surfaced as an implementation guardrail.
+- **UUID vs bigint.** The architect's spec calls for UUID primary keys per ADR
+  0003; the existing schema (channels, videos, games, users, projects) uses
+  bigint everywhere. New tables adopt bigint for FK referential consistency. ADR
+  0003 may need a separate ADR-or-amendment for the URL-vs-PK distinction;
+  surfaced for master-agent review.
+- **`metric_window` enum.** Master decision said use short-form `7d` / `28d` /
+  `90d` / `lifetime`. Implemented as Rails enum with the short-form names as
+  keys (Ruby symbols quoted because `7d` isn't a valid bareword:
+  `enum :metric_window, { lifetime: 0, "7d": 1, "28d": 2, "90d": 3 }`).
+- **Phase 12 + Phase 14 parallel-run.** Both phases shipped migrations during
+  this session, slightly ahead of Phase 15's bring-up. The Phase 12 migration
+  `20260510135730_expand_videos_for_data_api_v3.rb` has a redundant
+  `ALTER INDEX ... RENAME TO ...` block that Rails 8.1's `rename_table` already
+  handles automatically; the migration succeeded on the second attempt (after
+  the first attempt's transaction was discarded). Surfaced to master agent for
+  Phase 12's review — may need a follow-up cleanup.
+- **`after_create_commit` + `after_update_commit` callback merge.** Rails 8.1
+  merges multiple `after_*_commit` declarations sharing the same filter symbol.
+  The first hook on Channel was silently dropped when a second declaration with
+  `if:` was added. Fixed by collapsing to a single `after_save_commit` per host
+  model; surfaced as an implementation guardrail.
 
 ### Manual playbook (handed to user)
 
-Both specs ship full manual playbooks. Spec 01 §1-§11 covers the
-data tier (auto-derive, milestone rule fire, occurred flipper,
-cascade). Spec 02 §1-§19 covers the UI tier (month grid render,
-schedule, quick-add, edit, cancel, navigation, filters,
-cross-links, edge cases).
+Both specs ship full manual playbooks. Spec 01 §1-§11 covers the data tier
+(auto-derive, milestone rule fire, occurred flipper, cascade). Spec 02 §1-§19
+covers the UI tier (month grid render, schedule, quick-add, edit, cancel,
+navigation, filters, cross-links, edge cases).
 
 ### Blockers / next steps
 
-- Phase 14's `release_precision` column is NOT yet on `games`
-  (only `release_date`, `release_year`, `igdb_id`, `igdb_slug`
-  shipped). Game-host derivation reads `release_precision` via
-  `respond_to?` guard; once Phase 14 ships the column, the Game
-  re-derivation will start populating
-  `calendar_entries.release_precision`. The current behavior leaves
-  the column nil for all auto-derived game_release entries. One
-  spec is `pending` waiting for Phase 14 IGDB-sync flow.
-- MCP tools (`calendar_*`, `purchase_*`, `milestone_rule_*`) and
-  Rust CLI parity are realignment work units 9 + 10 — deferred
-  per spec scope.
+- Phase 14's `release_precision` column is NOT yet on `games` (only
+  `release_date`, `release_year`, `igdb_id`, `igdb_slug` shipped). Game-host
+  derivation reads `release_precision` via `respond_to?` guard; once Phase 14
+  ships the column, the Game re-derivation will start populating
+  `calendar_entries.release_precision`. The current behavior leaves the column
+  nil for all auto-derived game_release entries. One spec is `pending` waiting
+  for Phase 14 IGDB-sync flow.
+- MCP tools (`calendar_*`, `purchase_*`, `milestone_rule_*`) and Rust CLI parity
+  are realignment work units 9 + 10 — deferred per spec scope.
