@@ -4,27 +4,47 @@
 <%# Phase 15 calendar UX restructure — Row 1 actions move into the
     layout's `:breadcrumb_actions` slot. The middle toggle reads
     [month] (links back to the month grid). [+] opens the manual entry
-    quick-add. %>
+    quick-add.
+
+    The [month] link targets the canonical month URL directly (NOT
+    `/calendar`, which is the view-persistence router). Bouncing
+    through the router would let a stale `pito-calendar-view = schedule`
+    in localStorage immediately redirect the user back to schedule,
+    making the click look broken. The `persistMonth` Stimulus action
+    writes the new preference so a subsequent fresh `/calendar` visit
+    honors the toggle. %>
 <% content_for :breadcrumb_actions do %>
+  <% _now = Time.current %>
   <%= render "shared/dot_separator" %>
-  <%= render(BracketedLinkComponent.new(label: "month",
-        href: calendar_root_path)) %>
-  <%= render(BracketedLinkComponent.new(label: "+",
-        href: new_calendar_entry_path)) %>
+  <span data-controller="calendar-view-router">
+    <%= render(BracketedLinkComponent.new(label: "month",
+          href: calendar_month_path(_now.year, format('%02d', _now.month)),
+          data: { action: "click->calendar-view-router#persistMonth" })) %>
+  </span>
+  <%# Default-create (Projects pattern): POSTs to `/calendar/entries`
+      with no payload. The controller seeds an "Untitled event"
+      milestone_manual entry and redirects to /edit. `data-turbo: false`
+      forces a full-page navigation so the redirect lands on the edit
+      page, matching `/projects` `[+]`. %>
+  <%= button_to calendar_entries_path,
+        method: :post,
+        class: "bracketed",
+        form: { style: "display: inline;", data: { turbo: false } } do %>[<span class="bl">+</span>]<% end %>
 <% end %>
 
 <div data-controller="calendar-filter"
      data-calendar-filter-view-value="schedule">
   <%# Row 2 — entry kind filter chips. Same synthetic master + 5
-      individual chips as the month grid. %>
+      individual chips as the month grid, plus a schedule-specific
+      `[ ] include cancelled` checkbox chip. %>
   <div class="dot-list" style="margin-bottom: 8px;">
     <% raw_types = params[:types] %>
     <a href="<%= calendar_all_kinds_chip_href(raw_types, current_params: request.query_parameters) %>"
        class="filter-chip"
-       data-keyboard-filter-chip="all types"
+       data-keyboard-filter-chip="all"
        data-calendar-filter-target="masterToggle">
       <span class="md-check-static"><%= calendar_all_kinds_checked?(raw_types) ? "[x]" : "[ ]" %></span>
-      <span class="md-check-static-label">all types</span>
+      <span class="md-check-static-label">all</span>
     </a>
     <% CalendarHelper::CALENDAR_KIND_LABELS.each do |label| %>
       <a href="<%= calendar_kind_chip_href(label, raw_types, current_params: request.query_parameters) %>"
@@ -35,18 +55,16 @@
         <span class="md-check-static-label"><%= label %></span>
       </a>
     <% end %>
-    <span class="nav-spacer" style="flex: 1;"></span>
-    <% if @show_cancelled %>
-      <%= render(BracketedLinkComponent.new(label: "hide cancelled",
-            href: url_for(state: nil))) %>
-    <% else %>
-      <%= render(BracketedLinkComponent.new(label: "include cancelled",
-            href: url_for(state: "all"))) %>
-    <% end %>
+    <a href="<%= url_for(state: @show_cancelled ? nil : "all") %>"
+       class="filter-chip"
+       data-keyboard-filter-chip="include cancelled">
+      <span class="md-check-static"><%= @show_cancelled ? "[x]" : "[ ]" %></span>
+      <span class="md-check-static-label">include cancelled</span>
+    </a>
   </div>
 
   <% if @entries.empty? %>
-    <p class="text-muted">no entries — <%= render(BracketedLinkComponent.new(label: "add entry", href: new_calendar_entry_path)) %></p>
+    <p class="text-muted">no entries.</p>
   <% else %>
     <%
       past_entries   = @entries.select { |e| e.starts_at <= @today }

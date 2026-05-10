@@ -332,18 +332,19 @@ a.text-danger.bracketed:hover, a.text-danger.bracketed:hover .bl { color: var(--
   width: 280px;
 }
 
-/* `.pane--game-detail` — mid-size 640px pane for the read-only details
+/* `.pane--game-detail` — mid-size 624px pane for the read-only details
    column on /games/:id (row 1, paired with `.pane--narrow` cover on the
    left). Sits BETWEEN the default 452px `.pane` and the 904px
-   `.pane--wide`: 280 (cover) + 640 (details) = 920px so the cover and
-   details fit on one row at standard workspace width without forcing
-   the details column to the wide-pane size. Background follows the
-   zebra rhythm via the base `.pane` rule. Page-specific for now;
-   promote to a generic `.pane--medium` if other pages adopt the same
-   geometry. Introduced 2026-05-10 alongside the show / edit split. */
+   `.pane--wide`: 280 (cover) + 624 (details) = 904px so row 1 lines up
+   exactly with the `.pane--wide` sync pane (row 2) and linked-videos
+   pane (row 3) at the same right edge. Background follows the zebra
+   rhythm via the base `.pane` rule. Page-specific for now; promote to
+   a generic `.pane--medium` if other pages adopt the same geometry.
+   Introduced 2026-05-10 alongside the show / edit split; tightened from
+   640 → 624 the same day so row-1 width matches row-2/3 (904px). */
 .pane--game-detail {
-  flex: 0 0 640px;
-  width: 640px;
+  flex: 0 0 624px;
+  width: 624px;
 }
 
 /* `.pane--standalone` — the pane look (elevated `--color-pane-bg-a`
@@ -379,10 +380,11 @@ a.text-danger.bracketed:hover, a.text-danger.bracketed:hover .bl { color: var(--
 
 /* `.pane-row--game-show` — page-specific override for /games/:id row 1.
    The cover (`pane--narrow`, 280px) + details (`pane--game-detail`,
-   640px) total 920px and were observed wrapping (stacking vertically)
-   on workspace viewports where the default `.pane-row` `flex-wrap: wrap`
-   kicked in earlier than expected. This modifier flips THIS row only
-   to `flex-wrap: nowrap` so the two panes stay side-by-side, with
+   624px) total 904px (matching the `.pane--wide` width on rows 2 / 3)
+   and were observed wrapping (stacking vertically) on workspace
+   viewports where the default `.pane-row` `flex-wrap: wrap` kicked in
+   earlier than expected. This modifier flips THIS row only to
+   `flex-wrap: nowrap` so the two panes stay side-by-side, with
    `overflow-x: auto` so narrower viewports get a horizontal scrollbar
    instead of a stacked layout. Scoped to the show page; rows 2 and 3
    (sync / linked videos) carry a single wide pane each and keep the

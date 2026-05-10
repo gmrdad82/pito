@@ -58,8 +58,8 @@ module CalendarHelper
     end
   end
 
-  # Master-toggle "all types" checked state. Mirrors the spec: checked
-  # when the param is absent OR every individual label is in the csv.
+  # Master-toggle "all" checked state. Mirrors the spec: checked when
+  # the param is absent OR every individual label is in the csv.
   def calendar_all_kinds_checked?(raw_types_param)
     active = calendar_active_kinds(raw_types_param)
     case active
@@ -94,7 +94,7 @@ module CalendarHelper
     new_params.empty? ? "?" : "?#{new_params.to_query}"
   end
 
-  # URL for the master `[all types]` synthetic toggle. Clicking flips
+  # URL for the master `[all]` synthetic toggle. Clicking flips
   # between "all checked" and "all unchecked". Checked → unchecked sets
   # `?types=` (empty). Unchecked → checked drops the `types` param so
   # the URL reverts to the "no param = all" default.

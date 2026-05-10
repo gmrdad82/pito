@@ -1,19 +1,35 @@
 <% content_for(:title, "notifications") %>
 
 <%# Phase 16 §3 — Notification inbox.
-    Master decisions 2026-05-10:
-      #1 heading: `notifications`
-      #2 empty state: `no notifications yet.`
-      #5 mark-all-read label: `[ mark all read ]`
-      #8 filter labels: `[ all ]` / `[ unread ]`
-      #12 webhook misconfigured banner.
+    UX restructure 2026-05-10:
+      - Filter row is now a `[ ] unread` checkbox (FilterChipComponent,
+        `param: "filter"`, `value: "unread"`) plus a dynamic
+        `[mark all as read]` / `[mark <N> as read]` button.
+      - The bulk-select pattern (channels / videos / projects) wraps
+        the table — first column is a row checkbox, only rendered for
+        unread rows.
+      - The notification detail opens in an in-page modal via the
+        `notification-modal` Stimulus controller. The `<dialog>` and
+        its inner Turbo Frame live at the bottom of the page so every
+        row click reuses the same surface. The `/notifications/:id`
+        route stays as a fallback for direct links and JS-off paths.
+      - A muted caption under the H1 explains the cleanup behaviour
+        ("notifications are deleted 7 days after being read.") so
+        the cron job's data loss is discoverable.
+
     Index live-prepends new rows via `notifications_index` Turbo
     Stream subscription; the badge updates via the separate
     `notifications_badge` stream. %>
 <%= turbo_stream_from "notifications_index" %>
 
-<div style="max-width: 1100px;">
+<div style="max-width: 1100px;"
+     data-controller="bulk-select notifications-dynamic-button"
+     data-bulk-select-entity-name-value="notifications"
+     data-notifications-dynamic-button-mark-all-url-value="<%= mark_all_read_notifications_path %>"
+     data-notifications-dynamic-button-mark-read-url-value="<%= mark_read_notifications_path %>"
+     data-notifications-dynamic-button-total-unread-value="<%= @unread_count %>">
   <h1>notifications</h1>
+  <p class="text-muted" style="margin: 4px 0 8px;">notifications are deleted 7 days after being read.</p>
 
   <% if @has_failures %>
     <div class="webhook-failure-banner" style="border: 1px solid var(--color-border); padding: 6px 10px; margin: 8px 0; color: var(--color-muted);">
@@ -21,27 +37,29 @@
     </div>
   <% end %>
 
-  <%# Filter cluster — `[ all ]` / `[ unread ]`. Active filter
-      renders as the bracketed-active span (no link); inactive
-      renders as a bracketed link. %>
-  <div class="dot-list" style="margin: 8px 0;">
-    <% if @filter == "all" %>
-      <span class="bracketed bracketed-active">[ all ]</span>
-    <% else %>
-      <%= render(BracketedLinkComponent.new(label: "all", href: url_for(filter: nil, page: nil))) %>
-    <% end %>
-    <% if @filter == "unread" %>
-      <span class="bracketed bracketed-active">[ unread ]</span>
-    <% else %>
-      <%= render(BracketedLinkComponent.new(label: "unread", href: url_for(filter: "unread", page: nil))) %>
-    <% end %>
-    <span class="nav-spacer" style="flex: 1;"></span>
+  <%# Filter cluster — `[ ] unread` checkbox chip + dynamic mark-as-read
+      button. Default (no `filter=unread`) shows all rows; checking the
+      chip flips the URL to `?filter=unread` (FilterChipComponent
+      handles the toggle). The mark-read button's text + form action
+      are managed by `notifications-dynamic-button` Stimulus controller
+      (label flips between "mark all as read" and "mark <N> as read",
+      action between `mark_all_read` and `mark_read?ids=…`). %>
+  <div class="dot-list" style="margin: 8px 0; align-items: baseline;">
+    <%= render(FilterChipComponent.new(
+          label: "unread",
+          param: "filter",
+          value: "unread",
+          current_params: request.query_parameters
+        )) %>
+    <span style="flex: 1;"></span>
     <% if @unread_count > 0 %>
-      <%= button_to mark_all_read_notifications_path,
+      <%= form_with url: mark_all_read_notifications_path,
             method: :patch,
-            form: { style: "display: inline; margin: 0;" },
-            class: "bracketed",
-            style: "background: none; border: none; padding: 0; font: inherit; color: var(--color-link); cursor: pointer;" do %>[<span class="bl">mark all read</span>]<% end %>
+            data: { notifications_dynamic_button_target: "form" },
+            html: { style: "display: inline; margin: 0;" } do %>
+        <button type="submit" class="bracketed"
+                style="background: none; border: none; padding: 0; font: inherit; color: var(--color-link); cursor: pointer;">[<span class="bl" data-notifications-dynamic-button-target="label">mark all as read</span>]</button>
+      <% end %>
     <% end %>
   </div>
 
@@ -66,4 +84,25 @@
       </div>
     <% end %>
   <% end %>
+
+  <%# Notification detail modal. The dialog stays empty on first
+      render — the inner Turbo Frame's `src` is set by
+      `notification-modal#open` when a row is clicked, which causes
+      Turbo to fetch the show page and swap the matching frame. The
+      show template wraps its body in `turbo_frame_tag
+      "notification_detail_frame"` so the swap targets exactly the
+      content we want.
+
+      Closing happens on Escape (native <dialog>), click outside
+      (`clickOutside` action on the dialog), or the show page's
+      `[ close ]` / `[ back ]` button (also wired to `close`). %>
+  <span data-controller="notification-modal">
+    <dialog data-notification-modal-target="dialog"
+            data-action="click->notification-modal#clickOutside"
+            class="pane-dialog notification-modal">
+      <div style="padding: 12px 16px; min-width: 480px; max-width: 800px; max-height: 80vh; overflow-y: auto;">
+        <%= turbo_frame_tag "notification_detail_frame", data: { notification_modal_target: "frame" } %>
+      </div>
+    </dialog>
+  </span>
 </div>

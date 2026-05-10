@@ -46,6 +46,25 @@ RSpec.describe "Calendar::Month", type: :request do
       expect(response.body).to include(">+<")
     end
 
+    # Regression: the [schedule] toggle link must target
+    # `/calendar/schedule` directly, NOT `/calendar` (which is the
+    # view-persistence router). It also carries the `persistSchedule`
+    # Stimulus action so subsequent fresh `/calendar` visits honor the
+    # toggle.
+    it "[schedule] toggle targets /calendar/schedule with persist action" do
+      get "/calendar/month/2026/05"
+      expect(response.body).to match(
+        %r{href="/calendar/schedule"[^>]*data-action="click->calendar-view-router#persistSchedule"[^>]*>\[<span class="bl">schedule}
+      )
+    end
+
+    it "[schedule] toggle is wrapped by a `calendar-view-router` controller mount" do
+      get "/calendar/month/2026/05"
+      expect(response.body).to match(
+        %r{<span data-controller="calendar-view-router">\s*<a [^>]*href="/calendar/schedule"[^>]*>\[<span class="bl">schedule}
+      )
+    end
+
     it "[+] link points at the new calendar entry path" do
       get "/calendar/month/2026/05"
       expect(response.body).to match(/href="\/calendar\/entries\/new"[^>]*>\[<span class="bl">\+/)
@@ -72,20 +91,20 @@ RSpec.describe "Calendar::Month", type: :request do
 
       it "filter: no `types` param renders all kinds (default = all checked)" do
         v = create(:video)
-        v.update!(privacy_status: :public, published_at: Date.new(2026, 5, 15).in_time_zone("UTC"), title: "vid_default", category_id: "10")
+        v.update!(privacy_status: :public, published_at: Date.new(2026, 5, 15).in_time_zone("UTC"), title: "vd", category_id: "10")
         ce = create(:calendar_entry, :custom, starts_at: Time.zone.local(2026, 5, 16, 12, 0), title: "custom_default")
         get "/calendar/month/2026/05"
-        expect(response.body).to include("video published: vid_default")
+        expect(response.body).to include("video published: vd")
         expect(response.body).to include("custom_default")
       end
 
       it "filter: types=video,custom renders the union of those kinds" do
         v = create(:video)
-        v.update!(privacy_status: :public, published_at: Date.new(2026, 5, 15).in_time_zone("UTC"), title: "vid_in_union", category_id: "10")
+        v.update!(privacy_status: :public, published_at: Date.new(2026, 5, 15).in_time_zone("UTC"), title: "viu", category_id: "10")
         create(:calendar_entry, :custom, starts_at: Time.zone.local(2026, 5, 16, 12, 0), title: "custom_in_union")
         create(:calendar_entry, :milestone_manual, starts_at: Time.zone.local(2026, 5, 17, 12, 0), title: "milestone_excluded")
         get "/calendar/month/2026/05?types=video,custom"
-        expect(response.body).to include("vid_in_union")
+        expect(response.body).to include("video published: viu")
         expect(response.body).to include("custom_in_union")
         expect(response.body).not_to include("milestone_excluded")
       end
@@ -117,17 +136,19 @@ RSpec.describe "Calendar::Month", type: :request do
         expect(response.body).to match(%r{href="[^"]*types=video%2Cgame[^"]*"[^>]*data-keyboard-filter-chip="game"})
       end
 
-      it "[all types] master toggle href clears the param when currently checked (default state)" do
+      it "[all] master toggle href clears the param when currently checked (default state)" do
         get "/calendar/month/2026/05"
-        expect(response.body).to match(%r{href="[^"]*types=[^,A-Za-z][^"]*"[^>]*data-keyboard-filter-chip="all types"})
+        expect(response.body).to match(%r{href="[^"]*types=[^,A-Za-z][^"]*"[^>]*data-keyboard-filter-chip="all"})
       end
     end
 
-    it "empty state: renders the grid + add entry link with no entries" do
+    it "empty state: renders the grid with no entries (no add entry link)" do
       get "/calendar/month/2030/01"
       expect(response).to have_http_status(:ok)
-      expect(response.body).to include("no entries this month")
-      expect(response.body).to include("add entry")
+      expect(response.body).to include("no entries this month.")
+      # The breadcrumb [+] is the only add affordance; no inline `add entry`
+      # link in the empty-state copy itself.
+      expect(response.body).not_to match(/no entries this month[^.]*add entry/)
     end
 
     it "today highlight: cell renders the today class" do

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_10_192742) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_10_192747) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -126,10 +126,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_192742) do
     t.integer "igdb_source_type"
     t.text "last_error"
     t.string "name", null: false
+    t.string "slug", null: false
     t.datetime "updated_at", null: false
     t.index ["bundle_type"], name: "index_bundles_on_bundle_type"
     t.index ["igdb_source_id"], name: "index_bundles_on_igdb_source_id", where: "(igdb_source_id IS NOT NULL)"
     t.index ["igdb_source_type", "igdb_source_id"], name: "index_bundles_on_igdb_source_pair", unique: true, where: "((igdb_source_type IS NOT NULL) AND (igdb_source_id IS NOT NULL))"
+    t.index ["slug"], name: "index_bundles_on_slug", unique: true
   end
 
   create_table "calendar_entries", force: :cascade do |t|
@@ -272,8 +274,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_192742) do
   create_table "collections", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "name", default: "Untitled collection", null: false
+    t.string "slug", null: false
     t.datetime "updated_at", null: false
     t.index ["name"], name: "index_collections_on_name"
+    t.index ["slug"], name: "index_collections_on_slug", unique: true
   end
 
   create_table "companies", force: :cascade do |t|
@@ -313,6 +317,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_192742) do
     t.index ["game_id"], name: "index_footages_on_game_id"
     t.index ["local_path"], name: "index_footages_on_local_path", unique: true
     t.index ["project_id"], name: "index_footages_on_project_id"
+  end
+
+  create_table "friendly_id_slugs", force: :cascade do |t|
+    t.datetime "created_at"
+    t.string "scope"
+    t.string "slug", null: false
+    t.integer "sluggable_id", null: false
+    t.string "sluggable_type", limit: 50
+    t.index ["slug", "sluggable_type", "scope"], name: "index_friendly_id_slugs_on_slug_and_sluggable_type_and_scope", unique: true
+    t.index ["slug", "sluggable_type"], name: "index_friendly_id_slugs_on_slug_and_sluggable_type"
+    t.index ["sluggable_type", "sluggable_id"], name: "index_friendly_id_slugs_on_sluggable_type_and_sluggable_id"
   end
 
   create_table "game_developers", force: :cascade do |t|
@@ -420,6 +435,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_192742) do
     t.string "name", null: false
     t.bigint "scope_id"
     t.integer "scope_type", null: false
+    t.string "slug", null: false
     t.decimal "threshold", precision: 20, scale: 4, null: false
     t.datetime "updated_at", null: false
     t.index ["created_by_user_id"], name: "index_milestone_rules_on_created_by_user_id", where: "(created_by_user_id IS NOT NULL)"
@@ -428,6 +444,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_192742) do
     t.index ["metric"], name: "index_milestone_rules_on_metric"
     t.index ["scope_id"], name: "index_milestone_rules_on_scope_id", where: "(scope_id IS NOT NULL)"
     t.index ["scope_type"], name: "index_milestone_rules_on_scope_type"
+    t.index ["slug"], name: "index_milestone_rules_on_slug", unique: true
   end
 
   create_table "notes", force: :cascade do |t|
@@ -577,9 +594,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_192742) do
     t.string "name", default: "Untitled project", null: false
     t.integer "notes_count", default: 0, null: false
     t.integer "notes_words_total", default: 0, null: false
+    t.string "slug", null: false
     t.integer "timelines_count", default: 0, null: false
     t.datetime "updated_at", null: false
     t.index ["name"], name: "index_projects_on_name"
+    t.index ["slug"], name: "index_projects_on_slug", unique: true
   end
 
   create_table "saved_views", force: :cascade do |t|

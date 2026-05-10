@@ -103,3 +103,10 @@ gem "mcp"
 # server. Authorization Code + PKCE only; Client Credentials and ROPC are
 # disabled in `config/initializers/doorkeeper.rb` per the locked decisions.
 gem "doorkeeper", "~> 5.8"
+
+# Phase 20 — friendly URLs. Renameable resources (Project, Bundle, Collection,
+# MilestoneRule) get a `slug` column with `:slugged` + `:history`; identifier-
+# style resources (Channel, Video, Game, Footage) reuse an existing column via
+# `to_param` override + `:finders`. See
+# `docs/plans/beta/20-friendly-urls/specs/01-friendly-urls-app-wide.md`.
+gem "friendly_id", "~> 5.5"

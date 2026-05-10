@@ -17,24 +17,32 @@ RSpec.describe "Calendar schedule filters", type: :system do
     expect(page.current_url).not_to match(/types=([^&]*,)?video(,|$)/)
   end
 
-  it "click the [all types] master toggle while currently checked clears all 5 (empty types=)" do
+  it "click the [all] master toggle while currently checked clears all 5 (empty types=)" do
     visit "/calendar/schedule"
-    find("a.filter-chip[data-keyboard-filter-chip='all types']").click
+    find("a.filter-chip[data-keyboard-filter-chip='all']").click
     expect(page.current_url).to match(/types=(?:&|$)/)
   end
 
   it "click [include cancelled] surfaces cancelled entries" do
     visit "/calendar/schedule"
-    click_link "include cancelled"
+    find("a.filter-chip[data-keyboard-filter-chip='include cancelled']").click
     expect(page.current_url).to include("state=all")
   end
 
-  it "[month] in the breadcrumb actions links back to /calendar" do
+  it "[month] in the breadcrumb actions links to the canonical month URL" do
+    # The toggle now targets `/calendar/month/<year>/<month>` directly
+    # (not `/calendar`, which is the view-persistence router). Routing
+    # through the router would let a stale `pito-calendar-view`
+    # localStorage value redirect the user back to schedule, making
+    # the click look broken to the user.
     visit "/calendar/schedule"
     within("nav.dot-list") do
       click_link "month"
     end
-    expect(page).to have_current_path("/calendar")
+    now = Time.current
+    expect(page).to have_current_path(
+      "/calendar/month/#{now.year}/#{format('%02d', now.month)}"
+    )
   end
 
   it "[+] in the breadcrumb actions links to the new entry form" do

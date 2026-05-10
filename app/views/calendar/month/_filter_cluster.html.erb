@@ -1,19 +1,19 @@
 <%# Phase 15 §2 — entry kind filter chips (calendar UX restructure).
-    Synthetic `[ ] all types` master toggle plus 5 individual kind
-    chips. The master toggle is checked when the `types` URL param is
-    absent OR every individual kind label is present; clicking it flips
-    every chip's state in a single navigation. Individual chips toggle
-    their own kind label in/out of the csv list. The visual chip
-    markup mirrors `FilterChipComponent` (`a.filter-chip` + `[x]`/`[ ]`
+    Synthetic `[ ] all` master toggle plus 5 individual kind chips. The
+    master toggle is checked when the `types` URL param is absent OR
+    every individual kind label is present; clicking it flips every
+    chip's state in a single navigation. Individual chips toggle their
+    own kind label in/out of the csv list. The visual chip markup
+    mirrors `FilterChipComponent` (`a.filter-chip` + `[x]`/`[ ]`
     indicator + label). %>
 <div class="dot-list" style="margin-bottom: 8px;" data-controller="calendar-filter">
   <% raw_types = params[:types] %>
   <a href="<%= calendar_all_kinds_chip_href(raw_types, current_params: request.query_parameters) %>"
      class="filter-chip"
-     data-keyboard-filter-chip="all types"
+     data-keyboard-filter-chip="all"
      data-calendar-filter-target="masterToggle">
     <span class="md-check-static"><%= calendar_all_kinds_checked?(raw_types) ? "[x]" : "[ ]" %></span>
-    <span class="md-check-static-label">all types</span>
+    <span class="md-check-static-label">all</span>
   </a>
   <% CalendarHelper::CALENDAR_KIND_LABELS.each do |label| %>
     <a href="<%= calendar_kind_chip_href(label, raw_types, current_params: request.query_parameters) %>"

@@ -4,14 +4,31 @@
     Row 2 (in-page nav, this partial): [prev] [today]? [next] aligned via
     space-between flex so prev anchors left, next anchors right, today
     optionally sits in the middle. [today] is suppressed when already on
-    the current month. %>
+    the current month.
+
+    The [schedule] link targets the canonical schedule URL directly
+    (NOT `/calendar`, which is the view-persistence router). Bouncing
+    through the router would let a stale `pito-calendar-view = month`
+    in localStorage immediately redirect the user back to month, making
+    the click look broken. The `persistSchedule` Stimulus action writes
+    the new preference so a subsequent fresh `/calendar` visit honors
+    the toggle. %>
 <% content_for :breadcrumb_actions do %>
   <%= render "shared/dot_separator" %>
-  <%= render(BracketedLinkComponent.new(label: "schedule",
-        href: calendar_schedule_path)) %>
-  <%= render(BracketedLinkComponent.new(label: "+",
-        href: new_calendar_entry_path,
-        data: { turbo_frame: "quick_add" })) %>
+  <span data-controller="calendar-view-router">
+    <%= render(BracketedLinkComponent.new(label: "schedule",
+          href: calendar_schedule_path,
+          data: { action: "click->calendar-view-router#persistSchedule" })) %>
+  </span>
+  <%# Default-create (Projects pattern): POSTs to `/calendar/entries`
+      with no payload. The controller seeds an "Untitled event"
+      milestone_manual entry and redirects to /edit. `data-turbo: false`
+      forces a full-page navigation so the redirect lands on the edit
+      page (no Turbo Frame intercept), matching `/projects` `[+]`. %>
+  <%= button_to calendar_entries_path,
+        method: :post,
+        class: "bracketed",
+        form: { style: "display: inline;", data: { turbo: false } } do %>[<span class="bl">+</span>]<% end %>
 <% end %>
 
 <div class="calendar-nav-row" style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
