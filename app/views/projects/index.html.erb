@@ -56,9 +56,6 @@
   <div class="dot-list" style="margin-bottom: 6px;">
     <h1>projects</h1>
     <%= button_to projects_path, form: { style: "display: inline;", data: { turbo: false } }, class: "bracketed", method: :post do %>[<span class="bl">+</span>]<% end %>
-    <span data-bulk-select-target="bulkToggle">
-      <%= render(BracketedLinkComponent.new(label: "bulk", href: "#", data: { action: "click->bulk-select#enterBulk" })) %>
-    </span>
   </div>
 
   <%# Turbo-frame wrapper (polish-3, 2026-05-06): sort header clicks
@@ -71,10 +68,16 @@
       page's. %>
   <%= turbo_frame_tag "projects-index-table" do %>
     <% if @projects.any? %>
-      <%# Phase B — bulk toolbar uses the leading-separator pattern.
-          Each `.action` span carries an `.action-sep` `&middot;` that
-          the controller hides on whichever action is first-visible.
-          See bulk_select_controller.js#_updateSeparators. %>
+      <%# Always-on bulk shape (2026-05-10) — checkboxes ship visible
+          from page load, mirroring /channels and /videos. No `[bulk]`
+          toggle in the breadcrumb, no `[cancel]` action, no
+          `bulkCol`/`enterBulk`/`exitBulk` wiring. The bulk-toolbar
+          actions container is always rendered; each `.action` span
+          self-hides until the count target reports > 0 (see
+          `bulk_select_controller.js#updateActions`). The leading
+          `.action-sep` `&middot;` on every action span lets the
+          controller drop the dot on whichever action is currently
+          first-visible. %>
       <%# `data-turbo-frame="_top"` cascades to the controller-injected
           `[delete N]` link so its click navigates full-page to
           `/deletions/project/:ids` instead of being scoped to the
@@ -83,23 +86,19 @@
           (`shared/_action_screen.html.erb`) and has no matching frame
           in its response — without `_top` Turbo shows "Content
           missing". %>
-      <div data-bulk-select-target="actions" hidden class="bulk-toolbar" style="margin-bottom: 6px;" data-turbo-frame="_top">
+      <div data-bulk-select-target="actions" class="bulk-toolbar" style="margin-bottom: 6px;" data-turbo-frame="_top">
         <span class="action" data-bulk-select-target="count" hidden>
           <span class="action-sep" hidden>&middot;</span>
         </span>
         <span class="action" data-bulk-select-target="deleteAction" hidden>
           <span class="action-sep" hidden>&middot;</span>
         </span>
-        <span class="action">
-          <span class="action-sep" hidden>&middot;</span>
-          <%= render(BracketedLinkComponent.new(label: "cancel", href: "#", data: { action: "click->bulk-select#exitBulk" })) %>
-        </span>
       </div>
 
       <table>
         <thead>
           <tr>
-            <th class="col-action" data-bulk-select-target="bulkCol" hidden>
+            <th class="col-action">
               <%= render(CheckboxComponent.new(data: { bulk_select_target: "headerCheckbox", action: "change->bulk-select#toggleAll" })) %>
             </th>
             <th class="sortable"><%= sort_link_to("name", "name", current_sort: current_sort, current_dir: current_dir, frame: "projects-index-table") %></th>
@@ -112,7 +111,7 @@
         <tbody>
           <% @projects.each do |project| %>
             <tr>
-              <td class="col-action" data-bulk-select-target="bulkCol" hidden>
+              <td class="col-action">
                 <%= render(CheckboxComponent.new(value: project.id, data: { bulk_select_target: "checkbox", action: "change->bulk-select#toggle" })) %>
               </td>
               <td><%= link_to project.name, project_path(project), data: { turbo_frame: "_top" } %></td>
