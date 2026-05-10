@@ -1,10 +1,12 @@
 # Phase 7 — Step B (7b-youtube-client-and-audit.md). The single
 # rate-limit-aware YouTube client.
 #
-# Every YouTube Data v3 / YouTube Analytics v2 call from Pito
-# flows through this object. Callers receive Pito-shape Ruby
-# Hashes (snake_case keys) — never `Google::Apis::YoutubeV3::Channel`
-# structs.
+# Phase 9 — GoogleIdentity → YoutubeConnection rename (ADR 0006). The
+# constructor accepts a `YoutubeConnection`; internal naming follows.
+#
+# Every YouTube Data v3 / YouTube Analytics v2 call from pito flows
+# through this object. Callers receive pito-shape Ruby Hashes
+# (snake_case keys) — never `Google::Apis::YoutubeV3::Channel` structs.
 #
 # Lifecycle of a single call:
 #   1. Resolve endpoint key.
@@ -28,8 +30,8 @@ module Youtube
     MAX_5XX_ATTEMPTS = 3
     RATE_LIMITED_DEFAULT_RETRY_AFTER = 5
 
-    def initialize(google_identity)
-      @identity = google_identity
+    def initialize(youtube_connection)
+      @connection = youtube_connection
     end
 
     # GET /youtube/v3/channels
@@ -113,11 +115,11 @@ module Youtube
       begin
         ensure_token_fresh!
 
-        if Youtube::Quota.budget_remaining(@identity) < cost
+        if Youtube::Quota.budget_remaining(@connection) < cost
           outcome = "quota_exceeded"
           http_status = nil
           err = Youtube::QuotaExhaustedError.new(
-            "daily quota exhausted (cost=#{cost}, remaining=#{Youtube::Quota.budget_remaining(@identity)})"
+            "daily quota exhausted (cost=#{cost}, remaining=#{Youtube::Quota.budget_remaining(@connection)})"
           )
           error_message = err.message
           raised = err
@@ -142,8 +144,8 @@ module Youtube
           endpoint: endpoint,
           http_method: http_method,
           kind: KIND,
-          identity: @identity,
-          user: @identity.user,
+          connection: @connection,
+          user: @connection.user,
           outcome: outcome,
           http_status: http_status,
           error_message: error_message,
@@ -172,7 +174,7 @@ module Youtube
           attempts_401 += 1
           if attempts_401 == 1
             begin
-              Youtube::TokenRefresher.call(@identity)
+              Youtube::TokenRefresher.call(@connection)
               next
             rescue Youtube::NeedsReauthError => refresh_err
               return [ nil, "auth_failed", nil, refresh_err.message, refresh_err ]
@@ -180,7 +182,7 @@ module Youtube
               return [ nil, "server_error", nil, refresh_err.message, refresh_err ]
             end
           end
-          @identity.update_columns(needs_reauth: true)
+          @connection.update_columns(needs_reauth: true)
           err = Youtube::NeedsReauthError.new("401 after refresh: #{e.message}")
           return [ nil, "auth_failed", 401, e.message, err ]
         rescue Google::Apis::RateLimitError => e
@@ -213,13 +215,13 @@ module Youtube
             attempts_401 += 1
             if attempts_401 == 1
               begin
-                Youtube::TokenRefresher.call(@identity)
+                Youtube::TokenRefresher.call(@connection)
                 next
               rescue Youtube::NeedsReauthError => refresh_err
                 return [ nil, "auth_failed", nil, refresh_err.message, refresh_err ]
               end
             end
-            @identity.update_columns(needs_reauth: true)
+            @connection.update_columns(needs_reauth: true)
             err = Youtube::NeedsReauthError.new("401 after refresh: #{e.message}")
             return [ nil, "auth_failed", 401, e.message, err ]
           else
@@ -237,9 +239,9 @@ module Youtube
     end
 
     def ensure_token_fresh!
-      return unless @identity.access_token_expired?
+      return unless @connection.access_token_expired?
 
-      Youtube::TokenRefresher.call(@identity)
+      Youtube::TokenRefresher.call(@connection)
     end
 
     def data_service
@@ -255,10 +257,10 @@ module Youtube
     end
 
     def build_oauth_credentials
-      identity = @identity
+      connection = @connection
       Class.new do
         define_method(:apply!) do |headers|
-          headers["Authorization"] = "Bearer #{identity.access_token}"
+          headers["Authorization"] = "Bearer #{connection.access_token}"
         end
         define_method(:apply) do |headers|
           h = headers.dup

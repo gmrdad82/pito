@@ -110,7 +110,7 @@ end
 puts "seeding channels..."
 
 # Phase 7 Path A2 (literal full retract). Seeded channels start with
-# oauth_identity_id: nil — connection happens through /settings/youtube
+# youtube_connection_id: nil — connection happens through /settings/youtube
 # at runtime. We still seed a starred subset so the [starred] filter
 # chip and "starred" column have something to show.
 CHANNEL_SEED_COUNT = 100

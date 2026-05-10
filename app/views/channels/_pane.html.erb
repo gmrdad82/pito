@@ -1,8 +1,8 @@
-<%# Phase 7 Path A2 (literal full retract). Channel is now a thin
-    YouTube-reference record. The pane shows URL + star toggle + last
-    sync + (when connected) the email of the Google identity that
-    authorized the sync. Connect/disconnect happens at /settings/youtube,
-    not via inline pane toggle. %>
+<%# Phase 9 — GoogleIdentity → YoutubeConnection rename (ADR 0006).
+    Channel is a thin YouTube-reference record. The pane shows URL +
+    star toggle + last sync + (when connected) the email of the
+    YoutubeConnection that authorized the sync. Connect/disconnect
+    happens at /settings/youtube, not via inline pane toggle. %>
 <% header = local_assigns[:header] %>
 <% pane_extra_class = local_assigns.fetch(:pane_extra_class, "") %>
 <% pane_style = local_assigns.fetch(:pane_style, nil) %>
@@ -30,10 +30,10 @@
     <tr>
       <td class="text-muted" style="padding-right: 12px;">connected</td>
       <td>
-        <% if channel.oauth_identity_id.present? %>
+        <% if channel.youtube_connection_id.present? %>
           yes
-          <% if channel.oauth_identity&.email.present? %>
-            <span class="text-muted">(<%= channel.oauth_identity.email %>)</span>
+          <% if channel.youtube_connection&.email.present? %>
+            <span class="text-muted">(<%= channel.youtube_connection.email %>)</span>
           <% end %>
         <% else %>
           no

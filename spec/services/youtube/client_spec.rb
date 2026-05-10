@@ -1,13 +1,13 @@
 require "rails_helper"
 require "ostruct"
 
-# Phase 7 — Step B. Specs for the rate-limit-aware YouTube client.
+# Phase 9 — GoogleIdentity → YoutubeConnection rename (ADR 0006).
+# `Youtube::Client.new(connection)` accepts a `YoutubeConnection`; the
+# audit row's column flipped to `youtube_connection_id`.
 #
 # Test fixture strategy (decision 7.16): WebMock stubs against
-# canned response shapes — the user has not yet run the OAuth
-# flow with their real Google account, so VCR cassettes against
-# real traffic are deferred to a follow-up cassette-recording
-# session post-Phase-7-implementation.
+# canned response shapes — VCR cassettes against real traffic are
+# deferred to a follow-up cassette-recording session.
 #
 # These specs stub the underlying Google::Apis::YoutubeV3::YouTubeService
 # methods directly via `allow(...).to receive(...)`. The behavior
@@ -15,7 +15,7 @@ require "ostruct"
 # refresh, audit-row write, response normalization), not the
 # Google gem's HTTP serialization.
 RSpec.describe Youtube::Client do
-  let(:identity) { create(:google_identity) }
+  let(:connection) { create(:youtube_connection) }
 
   # Stub the data service so we control its return value or
   # raise behavior without hitting the network.
@@ -43,8 +43,8 @@ RSpec.describe Youtube::Client do
       stub_data_service(svc)
     end
 
-    it "returns a Pito-shape Hash with snake_case keys" do
-      result = described_class.new(identity).channels_list(mine: true)
+    it "returns a pito-shape Hash with snake_case keys" do
+      result = described_class.new(connection).channels_list(mine: true)
       expect(result).to be_a(Hash)
       expect(result.keys).to include(:items, :next_page_token)
       first = result[:items].first
@@ -53,9 +53,9 @@ RSpec.describe Youtube::Client do
       expect(first[:statistics][:subscriber_count]).to eq(1234)
     end
 
-    it "writes one audit row with outcome=success" do
+    it "writes one audit row with outcome=success and youtube_connection_id set" do
       expect {
-        described_class.new(identity).channels_list(mine: true)
+        described_class.new(connection).channels_list(mine: true)
       }.to change { YoutubeApiCall.unscoped.count }.by(1)
 
       row = YoutubeApiCall.unscoped.last
@@ -63,7 +63,7 @@ RSpec.describe Youtube::Client do
       expect(row.outcome).to eq("success")
       expect(row.client_kind).to eq("oauth")
       expect(row.units).to eq(1)
-      expect(row.google_identity_id).to eq(identity.id)
+      expect(row.youtube_connection_id).to eq(connection.id)
     end
   end
 
@@ -74,7 +74,7 @@ RSpec.describe Youtube::Client do
 
     it "raises QuotaExhaustedError, audits with outcome=quota_exceeded and http_status nil" do
       expect {
-        described_class.new(identity).channels_list(mine: true)
+        described_class.new(connection).channels_list(mine: true)
       }.to raise_error(Youtube::QuotaExhaustedError)
 
       row = YoutubeApiCall.unscoped.last
@@ -84,7 +84,7 @@ RSpec.describe Youtube::Client do
   end
 
   describe "expired token: refresh + retry" do
-    let(:identity) { create(:google_identity, :expired) }
+    let(:connection) { create(:youtube_connection, :expired) }
     let(:svc) { instance_double(Google::Apis::YoutubeV3::YouTubeService) }
 
     before do
@@ -97,14 +97,14 @@ RSpec.describe Youtube::Client do
     end
 
     it "refreshes the token before issuing the call" do
-      described_class.new(identity).channels_list(mine: true)
-      expect(identity.reload.last_refreshed_at).to be_within(5.seconds).of(Time.current)
-      expect(identity.reload.access_token).to eq("ya29.fresh")
+      described_class.new(connection).channels_list(mine: true)
+      expect(connection.reload.last_refreshed_at).to be_within(5.seconds).of(Time.current)
+      expect(connection.reload.access_token).to eq("ya29.fresh")
     end
 
     it "writes exactly one audit row (one row per logical call)" do
       expect {
-        described_class.new(identity).channels_list(mine: true)
+        described_class.new(connection).channels_list(mine: true)
       }.to change { YoutubeApiCall.unscoped.count }.by(1)
     end
   end
@@ -124,14 +124,14 @@ RSpec.describe Youtube::Client do
 
     it "flips needs_reauth=true and raises NeedsReauthError" do
       expect {
-        described_class.new(identity).channels_list(mine: true)
+        described_class.new(connection).channels_list(mine: true)
       }.to raise_error(Youtube::NeedsReauthError)
-      expect(identity.reload.needs_reauth?).to be(true)
+      expect(connection.reload.needs_reauth?).to be(true)
     end
 
     it "audits a single row with outcome=auth_failed" do
       expect {
-        described_class.new(identity).channels_list(mine: true) rescue nil
+        described_class.new(connection).channels_list(mine: true) rescue nil
       }.to change { YoutubeApiCall.unscoped.where(outcome: "auth_failed").count }.by(1)
     end
   end
@@ -155,7 +155,7 @@ RSpec.describe Youtube::Client do
 
     it "retries up to 3 times and audits a single success row" do
       expect {
-        described_class.new(identity).channels_list(mine: true)
+        described_class.new(connection).channels_list(mine: true)
       }.to change { YoutubeApiCall.unscoped.count }.by(1)
 
       expect(YoutubeApiCall.unscoped.last.outcome).to eq("success")
@@ -175,7 +175,7 @@ RSpec.describe Youtube::Client do
 
     it "audits server_error after the retries and raises TransientError" do
       expect {
-        described_class.new(identity).channels_list(mine: true)
+        described_class.new(connection).channels_list(mine: true)
       }.to raise_error(Youtube::TransientError)
 
       row = YoutubeApiCall.unscoped.where(outcome: "server_error").last
@@ -200,7 +200,7 @@ RSpec.describe Youtube::Client do
 
     it "raises QuotaExhaustedError without retry, audits outcome=quota_exceeded" do
       expect {
-        described_class.new(identity).channels_list(mine: true)
+        described_class.new(connection).channels_list(mine: true)
       }.to raise_error(Youtube::QuotaExhaustedError)
 
       expect(YoutubeApiCall.unscoped.last.outcome).to eq("quota_exceeded")

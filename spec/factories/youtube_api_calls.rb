@@ -1,7 +1,7 @@
 FactoryBot.define do
   factory :youtube_api_call do
     user { nil }
-    google_identity { nil }
+    youtube_connection { nil }
     client_kind { "oauth" }
     endpoint { "channels.list" }
     http_method { "GET" }
@@ -14,7 +14,7 @@ FactoryBot.define do
 
     trait :public do
       client_kind { "public" }
-      google_identity { nil }
+      youtube_connection { nil }
     end
 
     trait :quota_exceeded do

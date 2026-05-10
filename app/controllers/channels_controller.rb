@@ -23,7 +23,7 @@ class ChannelsController < ApplicationController
 
     scope = Channel.all
     scope = scope.where(star: true)                 if filter_on?(:star)
-    scope = scope.where.not(oauth_identity_id: nil) if filter_on?(:connected)
+    scope = scope.where.not(youtube_connection_id: nil) if filter_on?(:connected)
 
     @channels = scope.order(sort_clause)
     @filters = active_filters

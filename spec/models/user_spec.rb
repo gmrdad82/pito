@@ -11,6 +11,18 @@ RSpec.describe User, type: :model do
 
   describe "associations" do
     it { is_expected.to have_many(:sessions).dependent(:destroy) }
+
+    # Phase 9 — GoogleIdentity → YoutubeConnection rename (ADR 0006).
+    it { is_expected.to have_many(:youtube_connections).dependent(:destroy) }
+
+    it "destroying a user cascades to their youtube_connections" do
+      user = create(:user)
+      connection = create(:youtube_connection, user: user)
+
+      user.destroy
+
+      expect(YoutubeConnection.unscoped.where(id: connection.id).exists?).to be(false)
+    end
   end
 
   describe "email validation" do

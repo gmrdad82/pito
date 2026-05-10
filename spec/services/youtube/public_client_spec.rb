@@ -43,13 +43,13 @@ RSpec.describe Youtube::PublicClient do
         )
       end
 
-      it "writes one audit row with client_kind=public, identity nil" do
+      it "writes one audit row with client_kind=public, youtube_connection nil" do
         expect {
           described_class.new.channels_list(ids: [ "UCabc" ])
         }.to change { YoutubeApiCall.unscoped.where(client_kind: "public").count }.by(1)
 
         row = YoutubeApiCall.unscoped.where(client_kind: "public").last
-        expect(row.google_identity_id).to be_nil
+        expect(row.youtube_connection_id).to be_nil
         expect(row.user_id).to be_nil
         expect(row.outcome).to eq("success")
       end

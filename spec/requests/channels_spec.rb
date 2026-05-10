@@ -49,8 +49,8 @@ RSpec.describe "Channels", type: :request do
         expect(response.body).not_to match(/<th[^>]*>\s*syncing\s*</)
       end
 
-      # Phase 7 Path A2 — `connected` filter chip stays (derived from
-      # oauth_identity_id), `syncing` filter chip is gone.
+      # Phase 9 — `connected` filter chip stays (derived from
+      # youtube_connection_id), `syncing` filter chip is gone.
       it "does not render the syncing filter chip" do
         get channels_path
         expect(response.body).not_to match(/md-check-static-label">syncing/)
@@ -439,8 +439,8 @@ RSpec.describe "Channels", type: :request do
       end
 
       it "combines star=yes and connected=yes (AND-logic)" do
-        identity = create(:google_identity)
-        both = create(:channel, star: true, oauth_identity: identity)
+        connection = create(:youtube_connection)
+        both = create(:channel, star: true, youtube_connection: connection)
         get channels_path, params: { star: "yes", connected: "yes" }
         expect(response.body).to include(both.channel_url)
         expect(response.body).not_to include(starred.channel_url)
@@ -474,7 +474,7 @@ RSpec.describe "Channels", type: :request do
         json = JSON.parse(response.body)
         expect(json).to be_an(Array)
         row = json.first
-        # Phase 7 Path A2 — `connected` is derived from oauth_identity_id;
+        # Phase 9 — `connected` is derived from youtube_connection_id;
         # `syncing` field is dropped from the JSON wire shape. Phase 8 —
         # tenant drop: tenant_id no longer in the wire shape.
         expect(row).to include("id", "channel_url", "star", "connected")
@@ -649,7 +649,7 @@ RSpec.describe "Channels", type: :request do
       expect(response.body).not_to match(/connected<\/td>\s*<td>\s*no\s*<form/m)
     end
 
-    it "shows 'yes' when the channel has an oauth_identity" do
+    it "shows 'yes' when the channel has a youtube_connection" do
       connected = create(:channel, :connected)
       get channel_path(connected)
       expect(response.body).to match(/connected<\/td>\s*<td>\s*\n?\s*yes\b/)

@@ -10,12 +10,11 @@ FactoryBot.define do
       "https://www.youtube.com/channel/UC#{(base + pad)[0, 22]}"
     end
 
-    # Phase 7 Path A2 (literal full retract). Channel is a thin
-    # YouTube-reference record: channel_url, star, oauth_identity_id,
-    # last_synced_at. The legacy `connected` and `syncing` booleans
-    # are gone — `connected` is derived from `oauth_identity_id IS NOT
-    # NULL`; `syncing` has no successor (Phase 8+ will own in-flight
-    # state via BulkOperation rows).
+    # Phase 9 — GoogleIdentity → YoutubeConnection rename (ADR 0006).
+    # Channel is a thin YouTube-reference record: channel_url, star,
+    # youtube_connection_id, last_synced_at. `connected` is derived
+    # from `youtube_connection_id IS NOT NULL`; `syncing` is gone
+    # (Phase 8+ owns in-flight state via BulkOperation rows).
     star { false }
     last_synced_at { nil }
 
@@ -24,7 +23,7 @@ FactoryBot.define do
     end
 
     trait :connected do
-      oauth_identity { association(:google_identity) }
+      youtube_connection { association(:youtube_connection) }
     end
   end
 end

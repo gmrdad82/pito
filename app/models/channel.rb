@@ -9,12 +9,12 @@ class Channel < ApplicationRecord
   has_many :playlists, dependent: :destroy
   has_many :video_uploads, dependent: :destroy
 
-  # Phase 7 — Channel <-> GoogleIdentity link. After Path A2's literal
-  # full retract, "connected" means `oauth_identity_id IS NOT NULL`;
-  # the placeholder `connected` boolean is gone. Optional because
-  # seeded channels and disconnected channels carry NULL here.
-  belongs_to :oauth_identity,
-             class_name: "GoogleIdentity",
+  # Phase 9 — GoogleIdentity → YoutubeConnection rename (ADR 0006).
+  # After Path A2's literal full retract, "connected" means
+  # `youtube_connection_id IS NOT NULL`; the placeholder `connected`
+  # boolean is gone. Optional because seeded channels and disconnected
+  # channels carry NULL here.
+  belongs_to :youtube_connection,
              optional: true,
              inverse_of: :channels
 
@@ -35,7 +35,7 @@ class Channel < ApplicationRecord
   after_update_commit :enqueue_sync_on_star
 
   scope :starred,   -> { where(star: true) }
-  scope :connected, -> { where.not(oauth_identity_id: nil) }
+  scope :connected, -> { where.not(youtube_connection_id: nil) }
 
   private
 

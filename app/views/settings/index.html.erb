@@ -283,21 +283,21 @@
     </fieldset>
   </div>
 
-  <%# Pane 9 — google (A) — Phase 7 Step C. Google account connection state. %>
+  <%# Pane 9 — google (A) — Phase 9 (ADR 0006). Google account connection state. %>
   <div class="pane">
     <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
       <legend><h2>google</h2></legend>
 
-      <% if @google_identity.present? %>
+      <% if @youtube_connection.present? %>
         <div style="margin-bottom: 6px;">
           <label class="form-label">connected as</label>
-          <span><%= @google_identity.email %></span>
+          <span><%= @youtube_connection.email %></span>
         </div>
         <div style="margin-bottom: 6px;">
           <label class="form-label">last authorized</label>
-          <span class="text-muted"><%= @google_identity.last_authorized_at.strftime("%Y-%m-%d %H:%M %Z") %></span>
+          <span class="text-muted"><%= @youtube_connection.last_authorized_at.strftime("%Y-%m-%d %H:%M %Z") %></span>
         </div>
-        <% if @google_identity.needs_reauth? %>
+        <% if @youtube_connection.needs_reauth? %>
           <div style="margin-bottom: 6px; color: #cc0000;">
             <strong>needs re-auth</strong>
           </div>

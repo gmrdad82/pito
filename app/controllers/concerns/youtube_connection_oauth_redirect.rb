@@ -1,21 +1,20 @@
-# Phase 7 — Step A (7a-google-oauth-and-identity.md) — return-path
-# helper for the Google OAuth dance.
+# Phase 9 — Login-with-Google Drop + GoogleIdentity → YoutubeConnection
+# rename (ADR 0006). Return-path helper for the YouTube-connection
+# OAuth dance.
 #
-# Two intents flow through the same callback (`/auth/google/callback`):
-#   - "youtube_connect" — kicked off by Settings → YouTube; success
-#     returns the user to `/settings/youtube`.
-#   - nil (sign-in) — Phase 12 owns the user-facing session
-#     establishment; Phase 7 leaves a TODO and redirects to root.
+# After ADR 0006 the only legitimate intent flowing through
+# `/auth/google/callback` is `"youtube_connect"`. The dormant sign-in
+# branch is gone; a callback without the intent is treated as stale /
+# replayed and routed to the failure path.
 #
-# The intent is stashed in `session[:google_oauth_intent]` by the
-# request-phase entry points (`Settings::YoutubeController#connect`
-# is the only producer in Phase 7) and consumed once by the callback
-# controller — `session.delete` semantics keep the next callback from
-# silently honoring an old intent.
-module GoogleOauthRedirect
+# The intent is stashed in `session[:youtube_connection_oauth_intent]`
+# by the request-phase entry point (`Settings::YoutubeController#connect`)
+# and consumed once by the callback controller — `session.delete`
+# semantics keep the next callback from silently honoring an old intent.
+module YoutubeConnectionOauthRedirect
   extend ActiveSupport::Concern
 
-  SESSION_INTENT_KEY = :google_oauth_intent
+  SESSION_INTENT_KEY = :youtube_connection_oauth_intent
   YOUTUBE_CONNECT_INTENT = "youtube_connect"
 
   private
@@ -30,13 +29,13 @@ module GoogleOauthRedirect
 
   # Resolve the post-callback redirect target for the given intent.
   #
-  # `youtube_connect` → `/settings/youtube` (7C surface).
-  # nil / unknown   → `root_path` (Phase 12 placeholder; see
-  #                    Auth::GoogleCallbacksController for the TODO).
+  # `youtube_connect` → `/settings/youtube` (Settings → YouTube surface).
+  # nil / unknown    → the failure path (no other legitimate intents
+  #                    exist post-ADR 0006).
   def redirect_target_for_intent(intent)
     case intent
     when YOUTUBE_CONNECT_INTENT then settings_youtube_path
-    else root_path
+    else youtube_connection_oauth_failure_path
     end
   end
 end

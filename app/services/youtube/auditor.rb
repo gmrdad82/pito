@@ -1,21 +1,22 @@
 # Phase 7 — Step B (7b-youtube-client-and-audit.md). Shared audit-row
 # writer used by `Youtube::Client` and `Youtube::PublicClient`.
 #
-# One row per logical API call (final outcome). The retry loop in
-# `Youtube::Client` already collapses 5xx-then-success into the
-# single success row that reflects the eventual outcome.
+# Phase 9 — GoogleIdentity → YoutubeConnection rename (ADR 0006).
+# The audit-row column flipped to `youtube_connection_id`; this writer
+# accepts the new noun (`connection:`) while preserving the one-row-
+# per-logical-call discipline.
 module Youtube
   module Auditor
     private
 
     # Persist a single `YoutubeApiCall` row.
     def write_audit_row(endpoint:, http_method:, outcome:,
-                        kind:, identity:,
+                        kind:, connection:,
                         http_status: nil, error_message: nil,
                         duration_ms: nil, user: nil)
       YoutubeApiCall.create!(
-        user_id: user&.id || identity&.user_id,
-        google_identity_id: identity&.id,
+        user_id: user&.id || connection&.user_id,
+        youtube_connection_id: connection&.id,
         client_kind: kind,
         endpoint: endpoint,
         http_method: http_method,

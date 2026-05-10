@@ -71,23 +71,23 @@ RSpec.describe Channel, type: :model do
       expect(Channel.starred).to eq([ starred ])
     end
 
-    it ".connected returns only channels with an oauth_identity" do
+    it ".connected returns only channels with a youtube_connection" do
       connected = create(:channel, :connected)
       _other    = create(:channel)
       expect(Channel.connected).to eq([ connected ])
     end
   end
 
-  describe "Phase 7 — oauth_identity association" do
-    it "permits a NULL oauth_identity_id" do
+  describe "Phase 9 — youtube_connection association" do
+    it "permits a NULL youtube_connection_id" do
       channel = create(:channel)
-      expect(channel.oauth_identity).to be_nil
+      expect(channel.youtube_connection).to be_nil
     end
 
-    it "associates a GoogleIdentity to the Channel" do
-      identity = create(:google_identity)
-      channel = create(:channel, oauth_identity: identity)
-      expect(channel.reload.oauth_identity).to eq(identity)
+    it "associates a YoutubeConnection to the Channel" do
+      connection = create(:youtube_connection)
+      channel = create(:channel, youtube_connection: connection)
+      expect(channel.reload.youtube_connection).to eq(connection)
     end
   end
 end

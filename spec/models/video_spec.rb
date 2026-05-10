@@ -13,14 +13,14 @@ RSpec.describe Video, type: :model do
     it { is_expected.to validate_uniqueness_of(:youtube_video_id).case_insensitive }
   end
 
-  describe "Phase 7 Path A2 — surviving columns" do
-    it "stores star + last_synced_at + oauth_identity_id" do
-      identity = create(:google_identity)
-      video = create(:video, star: true, last_synced_at: Time.current, oauth_identity: identity)
+  describe "Phase 9 — surviving columns" do
+    it "stores star + last_synced_at + youtube_connection_id" do
+      connection = create(:youtube_connection)
+      video = create(:video, star: true, last_synced_at: Time.current, youtube_connection: connection)
       video.reload
       expect(video.star?).to be(true)
       expect(video.last_synced_at).to be_within(1.second).of(Time.current)
-      expect(video.oauth_identity).to eq(identity)
+      expect(video.youtube_connection).to eq(connection)
     end
 
     it ".starred returns only starred videos" do

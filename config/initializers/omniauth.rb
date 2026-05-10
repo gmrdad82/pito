@@ -1,13 +1,16 @@
-# Phase 7 — Step A (7a-google-oauth-and-identity.md) — register the
-# Google OAuth provider with OmniAuth. State parameter validation is
-# the gem default in `omniauth-google-oauth2 >= 1.0`. PKCE is
-# requested explicitly — the project's confidential web app client
-# stores its secret server-side, but PKCE is a free defense-in-depth.
+# Phase 9 — Login-with-Google Drop + GoogleIdentity → YoutubeConnection
+# rename (ADR 0006). Google OAuth is now exclusively the YouTube-
+# connection dance; the sign-in-with-Google branch is retired.
 #
-# Two scope sets are configured at the provider level via the
-# default `scope:` argument; the request phase overrides this with
-# `params[:scope]` for the YouTube-connect surface (see
-# `Settings::YoutubeController#connect`).
+# State parameter validation is the gem default in
+# `omniauth-google-oauth2 >= 1.0`. PKCE is requested explicitly — the
+# project's confidential web app client stores its secret server-side,
+# but PKCE is a free defense-in-depth.
+#
+# The provider-level default scope set is the lightweight sign-in
+# profile (`openid email profile`); `Settings::YoutubeController#connect`
+# overrides at the request phase with the YouTube scopes via session-
+# stashed params.
 
 OmniAuth.config.allowed_request_methods = [ :post, :get ]
 OmniAuth.config.silence_get_warning = true
@@ -16,7 +19,7 @@ OmniAuth.config.silence_get_warning = true
 # default GET-loop. The route is `/auth/failure`; we mount it in
 # `config/routes.rb`.
 OmniAuth.config.on_failure = proc do |env|
-  Auth::GoogleCallbacksController.action(:failure).call(env)
+  YoutubeConnections::OauthCallbacksController.action(:failure).call(env)
 end
 
 # Phase 7.5 — Step 01 hygiene sweep. Three-tier resolver mirroring the
