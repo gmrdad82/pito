@@ -113,8 +113,8 @@ RSpec.describe "Settings", type: :request do
       get settings_path
       # All four per-section forms render the same updated button text.
       expect(response.body.scan("[update]").length).to be >= 4
-      # The pre-revamp `[ save ]` text is gone everywhere on the page.
-      expect(response.body).not_to include("[ save ]")
+      # The pre-revamp `[save]` text is gone everywhere on the page.
+      expect(response.body).not_to include("[save]")
     end
 
     it "renders settings as a .pane-row of nine .pane children" do

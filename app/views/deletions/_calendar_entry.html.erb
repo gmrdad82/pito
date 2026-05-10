@@ -1,0 +1,33 @@
+<%# Phase 15 §2 — soft-cancel confirmation copy. %>
+<div style="margin-bottom: 8px;">
+  <h1>cancel <%= @items.length == 1 ? "calendar entry" : "#{@items.length} calendar entries" %>?</h1>
+  <p class="text-muted">this will mark the entry as cancelled. it stays on the calendar with strike-through styling.</p>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>title</th>
+      <th>type</th>
+      <th>starts at</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% @items.each do |entry| %>
+      <tr>
+        <td><%= entry.title %></td>
+        <td><%= entry.entry_type %></td>
+        <td><%= entry.starts_at.strftime("%Y-%m-%d %H:%M") %></td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>
+
+<div id="action-footer">
+  <%= render "shared/action_screen",
+    submit_label: "[ confirm cancel ]",
+    cancel_path: calendar_schedule_path,
+    form_url: "/deletions/calendar_entry/#{@items.map(&:id).join(',')}",
+    form_method: :delete,
+    destructive: true %>
+</div>

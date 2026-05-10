@@ -7,7 +7,7 @@
 <% if @video_count > 0 %>
   <p class="caption" style="margin-bottom: 8px;"><%= number_with_delimiter(@video_count) %> videos across <%= number_with_delimiter(@channel_count) %> channels.</p>
 
-  <p class="caption">[ dashboard reset — charts return with intentional metrics in a later phase. ]</p>
+  <p class="caption">[dashboard reset — charts return with intentional metrics in a later phase.]</p>
 <% else %>
   <p class="text-muted">no videos yet. run:</p>
   <div data-controller="clipboard-copy" class="code-block">

@@ -12,6 +12,11 @@ class DeletionsController < ApplicationController
   # "items" are channels-with-an-identity, not a record-deletion
   # target). Skip the before_action for those actions OR when the
   # type-param is `youtube_connection` on the GET show route.
+  #
+  # `cancel_calendar_entry` — Phase 15 §2 — flips state to :cancelled
+  # rather than destroying the row (soft-cancel per Q5). Uses the same
+  # `load_items` wiring so the `confirm` screen renders the calendar
+  # entries about to be cancelled.
   before_action :load_items, except: %i[destroy_youtube_connection],
                               unless: :youtube_connection_type?
 
@@ -29,7 +34,15 @@ class DeletionsController < ApplicationController
     @cancel_path = cancel_path
 
     respond_to do |format|
-      format.html # renders show.html.erb (existing behavior)
+      format.html do
+        # Phase 15 §2 — calendar_entry uses soft-cancel copy via a
+        # type-specific partial under app/views/deletions.
+        if params[:type].to_s == "calendar_entry"
+          render :show_calendar_entry
+        else
+          render :show
+        end
+      end
       format.json do
         render json: bulk_preview_json
       end
@@ -64,6 +77,22 @@ class DeletionsController < ApplicationController
     n = result.disconnected_channel_ids.length
     redirect_to settings_youtube_path,
                 notice: "disconnected #{n} channel#{'s' if n != 1}."
+  end
+
+  # DELETE /deletions/calendar_entry/:ids — Phase 15 §2.
+  # Flips state to :cancelled (soft-cancel per Q5). Bulk-as-foundation
+  # — `:ids` accepts 1 or N comma-separated ids.
+  def cancel_calendar_entry
+    return if performed?
+
+    n = @items.length
+    @items.each do |entry|
+      entry.bypass_readonly = true if entry.derived_or_auto?
+      entry.update!(state: :cancelled)
+    end
+
+    redirect_to calendar_schedule_path,
+                notice: "cancelled #{n} calendar entr#{n == 1 ? 'y' : 'ies'}."
   end
 
   # POST /deletions/:type/:ids(.json)

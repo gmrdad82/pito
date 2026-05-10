@@ -15,6 +15,12 @@ class Project < ApplicationRecord
   has_many :notes, dependent: :destroy
   has_many :timelines, dependent: :destroy
 
+  # Phase 12 — direct nullable Project ↔ Video link (Resolved decision
+  # Q1). On Project deletion, Videos survive with `project_id = NULL`
+  # so the YouTube-side data is preserved when the local workspace
+  # bundle that organized them goes away.
+  has_many :videos, dependent: :nullify
+
   validates :name, presence: true, length: { maximum: 255 }
 
   # Phase 4 §2 "Default-create everywhere" — DB default is "Untitled project";

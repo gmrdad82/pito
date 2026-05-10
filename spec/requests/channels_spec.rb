@@ -270,7 +270,7 @@ RSpec.describe "Channels", type: :request do
       # Phase B — leading-separator pattern. Each `.action` span carries
       # its own `.action-sep` dot; the JS controller hides the dot on
       # whichever action is first-visible, so the toolbar never starts
-      # with a dangling `· [ cancel ]`.
+      # with a dangling `· [cancel]`.
       it "renders the bulk-toolbar leading-separator pattern" do
         get channels_path
         expect(response.body).to include("bulk-toolbar")
@@ -559,7 +559,7 @@ RSpec.describe "Channels", type: :request do
           # The `[clear]` link is a BracketedLinkComponent; its rendered
           # markup is `<a class="bracketed">[<span class="bl">clear</span>]</a>`.
           clear_link = html.css("a.bracketed").find { |a| a.css("span.bl").any? { |s| s.text.strip == "clear" } }
-          expect(clear_link).not_to be_nil, "expected a [ clear ] link with at least one channel filter active"
+          expect(clear_link).not_to be_nil, "expected a [clear] link with at least one channel filter active"
           expect(clear_link["data-turbo-frame"]).to eq("channels-index-table")
           expect(clear_link["data-turbo-action"]).to eq("advance")
           expect(starred.persisted?).to be true

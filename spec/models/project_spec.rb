@@ -12,6 +12,7 @@ RSpec.describe Project, type: :model do
     it { is_expected.to have_many(:footages).dependent(:destroy) }
     it { is_expected.to have_many(:notes).dependent(:destroy) }
     it { is_expected.to have_many(:timelines).dependent(:destroy) }
+    it { is_expected.to have_many(:videos).dependent(:nullify) }
 
     it "has_many :games through project_references" do
       assoc = Project.reflect_on_association(:games)
@@ -105,6 +106,30 @@ RSpec.describe Project, type: :model do
       project_dir = NotesFilesystem.project_dir(project)
       expect(File.directory?(project_dir)).to be false
       expect { project.destroy! }.not_to raise_error
+    end
+  end
+
+  describe "Project ↔ Video link (Phase 12)" do
+    let(:project) { create(:project) }
+
+    it "exposes linked videos via has_many :videos" do
+      v = create(:video, project: project)
+      expect(project.videos).to contain_exactly(v)
+    end
+
+    it "preserves videos when project is destroyed (dependent: :nullify)" do
+      v1 = create(:video, project: project)
+      v2 = create(:video, project: project)
+      project.destroy!
+      [ v1, v2 ].each do |video|
+        expect(Video.find(video.id).project_id).to be_nil
+      end
+    end
+
+    it "nullifies project_id on N linked videos" do
+      videos = Array.new(3) { create(:video, project: project) }
+      project.destroy!
+      videos.each { |v| expect(v.reload.project_id).to be_nil }
     end
   end
 

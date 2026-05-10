@@ -7,7 +7,7 @@ RSpec.describe "Settings::Youtube", type: :request do
         get settings_youtube_path
         expect(response).to have_http_status(:ok)
         expect(response.body).to include("no google account connected")
-        expect(response.body).to include("[ connect ]")
+        expect(response.body).to include("[connect]")
       end
     end
 
@@ -21,7 +21,7 @@ RSpec.describe "Settings::Youtube", type: :request do
       it "renders the red banner" do
         get settings_youtube_path
         expect(response.body).to include("your google grant was revoked")
-        expect(response.body).to include("[ reconnect ]")
+        expect(response.body).to include("[reconnect]")
       end
 
       it "does NOT call the YouTube API" do
@@ -57,12 +57,12 @@ RSpec.describe "Settings::Youtube", type: :request do
         expect(response.body).to include("UCabc")
       end
 
-      it "renders [ connect ] for unconnected channels" do
+      it "renders [connect] for unconnected channels" do
         get settings_youtube_path
-        expect(response.body).to include("[ connect ]")
+        expect(response.body).to include("[connect]")
       end
 
-      it "renders [ disconnect ] for already-connected channels" do
+      it "renders [disconnect] for already-connected channels" do
         valid_url = "https://www.youtube.com/channel/UCabcdefghijklmnopqrstuv"
         allow(client_double).to receive(:channels_list).and_return(
           items: [
@@ -76,7 +76,7 @@ RSpec.describe "Settings::Youtube", type: :request do
                         youtube_connection_id: connection.id)
 
         get settings_youtube_path
-        expect(response.body).to include("[ disconnect ]")
+        expect(response.body).to include("[disconnect]")
       end
     end
 
@@ -166,7 +166,7 @@ RSpec.describe "Settings::Youtube", type: :request do
       get deletions_path(type: "youtube_connection", ids: channel.id)
       expect(response).to have_http_status(:ok)
       expect(response.body).to include("disconnect")
-      expect(response.body).to include("[ confirm disconnect ]")
+      expect(response.body).to include("[confirm disconnect]")
     end
   end
 

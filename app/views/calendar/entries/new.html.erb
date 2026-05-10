@@ -1,0 +1,7 @@
+<% content_for(:title, "calendar ~ new entry") %>
+<% breadcrumb([ "calendar", calendar_root_path ], "new entry") %>
+
+<turbo-frame id="quick_add">
+  <h1>new calendar entry</h1>
+  <%= render "form" %>
+</turbo-frame>

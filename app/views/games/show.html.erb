@@ -1,38 +1,127 @@
 <% content_for(:title, @game.title) %>
 <% breadcrumb(["games", games_path], @game.title) %>
 
-<h1><%= @game.title %></h1>
+<div style="display: flex; gap: 16px; max-width: 1100px;">
+  <div style="flex: 0 0 240px;">
+    <%= render "shared/igdb_cover", game: @game, size: "t_cover_big" %>
+  </div>
 
-<%= form_with(model: @game, url: game_path(@game), method: :patch, html: { multipart: true }) do |f| %>
-  <table class="detail-table" style="margin-bottom: 8px;">
-    <tr>
-      <td class="text-muted" style="padding-right: 12px;">title</td>
-      <td><%= f.text_field :title, style: "width: 320px;" %></td>
-    </tr>
-    <tr>
-      <td class="text-muted" style="padding-right: 12px;">publisher</td>
-      <td><%= f.text_field :publisher, style: "width: 320px;" %></td>
-    </tr>
-    <tr>
-      <td class="text-muted" style="padding-right: 12px;">collection</td>
-      <td><%= f.collection_select :collection_id, Collection.order(:name), :id, :name, include_blank: "—" %></td>
-    </tr>
-    <tr>
-      <td class="text-muted" style="padding-right: 12px; vertical-align: top;">platforms</td>
-      <td>
-        <%= text_area_tag "game[platforms_json]", JSON.pretty_generate(@game.platforms || []), rows: 5, style: "width: 100%; max-width: 480px; font-family: ui-monospace, monospace;" %>
-        <p class="text-muted" style="font-size: 11px; margin-top: 4px;">json array of <code>{platform, owned, recorded_on}</code> entries.</p>
-      </td>
-    </tr>
-    <tr>
-      <td class="text-muted" style="padding-right: 12px; vertical-align: top;">cover art</td>
-      <td>
-        <% if @game.cover_art.attached? %>
-          <p class="text-muted" style="margin-bottom: 4px;">attached: <%= @game.cover_art.filename %></p>
-        <% end %>
-        <%= f.file_field :cover_art, accept: "image/*" %>
-      </td>
-    </tr>
-  </table>
-  <button type="submit">[<b>update</b>]</button>
-<% end %>
+  <div style="flex: 1;">
+    <h1 style="margin: 0;"><%= @game.title %></h1>
+    <p class="text-muted" style="margin: 4px 0;">
+      <% if @game.release_year %><%= @game.release_year %><% else %>—<% end %>
+      <% developer_names = @game.developers.map(&:name) %>
+      <% if developer_names.any? %> · dev: <%= developer_names.join(", ") %><% end %>
+      <% publisher_names = @game.publishers.map(&:name) %>
+      <% if publisher_names.any? %> · pub: <%= publisher_names.join(", ") %><% end %>
+    </p>
+
+    <div style="margin: 8px 0;">
+      <% if @game.igdb_id.present? %>
+        <%= button_to "[resync]", resync_game_path(@game),
+                      method: :post,
+                      class: "bracketed",
+                      form: { style: "display: inline; margin: 0;", data: { turbo: false } } %>
+      <% end %>
+      <% if @game.igdb_slug.present? %>
+        <a class="bracketed" href="https://www.igdb.com/games/<%= @game.igdb_slug %>" target="_blank" rel="noopener">[<span class="bl">open on igdb</span>]</a>
+      <% end %>
+    </div>
+
+    <p class="text-muted" style="margin: 8px 0; font-size: 11px;">
+      re-syncing overwrites igdb-sourced fields. local notes, played-on, footage hours, and platform-owned survive.
+    </p>
+
+    <% if @game.last_sync_error.present? %>
+      <p class="text-danger" style="margin: 8px 0;">igdb error: <%= @game.last_sync_error %></p>
+    <% end %>
+
+    <% if @game.summary.present? %>
+      <h2 style="margin-top: 16px;">summary</h2>
+      <p style="white-space: pre-line;"><%= @game.summary %></p>
+    <% end %>
+
+    <h2 style="margin-top: 16px;">ratings</h2>
+    <table class="detail-table">
+      <tr>
+        <td class="text-muted" style="padding-right: 12px;">igdb</td>
+        <td><%= @game.igdb_rating ? "#{@game.igdb_rating.to_i} / 100 (#{@game.igdb_rating_count.to_i} votes)" : "—" %></td>
+      </tr>
+      <tr>
+        <td class="text-muted" style="padding-right: 12px;">aggregated</td>
+        <td><%= @game.aggregated_rating ? "#{@game.aggregated_rating.to_i} / 100 (#{@game.aggregated_rating_count.to_i} votes)" : "—" %></td>
+      </tr>
+      <tr>
+        <td class="text-muted" style="padding-right: 12px;">total</td>
+        <td><%= @game.total_rating ? "#{@game.total_rating.to_i} / 100 (#{@game.total_rating_count.to_i} votes)" : "—" %></td>
+      </tr>
+    </table>
+
+    <h2 style="margin-top: 16px;">time to beat</h2>
+    <table class="detail-table">
+      <tr><td class="text-muted" style="padding-right: 12px;">main</td><td><%= format_seconds(@game.ttb_main_seconds) %></td></tr>
+      <tr><td class="text-muted" style="padding-right: 12px;">extras</td><td><%= format_seconds(@game.ttb_extras_seconds) %></td></tr>
+      <tr><td class="text-muted" style="padding-right: 12px;">completionist</td><td><%= format_seconds(@game.ttb_completionist_seconds) %></td></tr>
+    </table>
+
+    <h2 style="margin-top: 16px;">genres / platforms</h2>
+    <p>
+      <strong>genres:</strong> <%= @game.genres.map(&:name).join(", ").presence || "—" %><br>
+      <strong>platforms:</strong> <%= @game.platforms_available.map(&:name).join(", ").presence || "—" %>
+    </p>
+
+    <h2 style="margin-top: 16px;">external</h2>
+    <p>
+      <% if @game.external_steam_app_id.present? %>
+        <a class="bracketed" href="https://store.steampowered.com/app/<%= @game.external_steam_app_id %>/" target="_blank" rel="noopener">[<span class="bl">steam</span>]</a>
+      <% end %>
+      <% if @game.external_gog_id.present? %>
+        <a class="bracketed" href="https://www.gog.com/game/<%= @game.external_gog_id %>" target="_blank" rel="noopener">[<span class="bl">gog</span>]</a>
+      <% end %>
+      <% if @game.external_epic_id.present? %>
+        <a class="bracketed" href="https://store.epicgames.com/p/<%= @game.external_epic_id %>" target="_blank" rel="noopener">[<span class="bl">epic</span>]</a>
+      <% end %>
+      <% unless @game.external_steam_app_id.present? || @game.external_gog_id.present? || @game.external_epic_id.present? %>
+        —
+      <% end %>
+    </p>
+
+    <h2 style="margin-top: 16px;">local fields</h2>
+    <%= form_with(model: @game, url: game_path(@game), method: :patch) do |f| %>
+      <table class="detail-table" style="margin-bottom: 8px;">
+        <tr>
+          <td class="text-muted" style="padding-right: 12px;">platform owned</td>
+          <td>
+            <%= f.collection_select :platform_owned_id,
+                                    @game.platforms_available.order(:name),
+                                    :id, :name, include_blank: "—" %>
+          </td>
+        </tr>
+        <tr>
+          <td class="text-muted" style="padding-right: 12px;">played on</td>
+          <td><%= f.date_field :played_at %></td>
+        </tr>
+        <tr>
+          <td class="text-muted" style="padding-right: 12px; vertical-align: top;">notes</td>
+          <td><%= f.text_area :notes, rows: 4, style: "width: 100%; max-width: 480px;" %></td>
+        </tr>
+        <tr>
+          <td class="text-muted" style="padding-right: 12px;">footage hours (manual)</td>
+          <td><%= f.number_field :hours_of_footage_manual, min: 0, style: "width: 80px;" %>
+            <span class="text-muted" style="font-size: 11px;">leave blank to compute from linked videos.</span>
+          </td>
+        </tr>
+      </table>
+      <button type="submit">[<b>update</b>]</button>
+    <% end %>
+
+    <h2 style="margin-top: 16px;">sync</h2>
+    <p class="text-muted">
+      <% if @game.igdb_synced_at.present? %>
+        synced <%= time_ago_in_words(@game.igdb_synced_at) %> ago
+      <% else %>
+        not synced yet.
+      <% end %>
+    </p>
+  </div>
+</div>

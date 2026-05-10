@@ -185,6 +185,12 @@ Chart grid lines: `--color-chart-grid` (#eeeeee light, #44475a dark) Tooltip:
 
 All clickable elements use the `[label]` convention (no spaces inside brackets):
 
+**2026-05-10 tightening.** The convention is `[label]` — no inner padding
+spaces. This is a deliberate tightening from the prior `[ label ]` shape; the
+goal is minimum length and terser visual weight. Every bracketed link, button,
+chart legend, and saved-view label across web, MCP, and the `pito` CLI follows
+the no-inner-spaces rule. Examples below already reflect the tightened form.
+
 - **Component:** `BracketedLinkComponent` — use this instead of inline HTML
 - **Linked:** renders `<a class="bracketed">[<span class="bl">label</span>]</a>`
   — theme link color, bold
@@ -598,7 +604,7 @@ second line; it scrolls horizontally and clips overflow with a fading edge cue.
 - `.saved-views-list` — flex row, `flex-wrap: nowrap`, `overflow-x: auto`,
   scroll-snap optional. Outer container.
 - `.saved-views-row` — the inner item track. Each saved-view label sits in this
-  row as a `[ label ]` bracketed link plus a separator dot.
+  row as a `[label]` bracketed link plus a separator dot.
 
 This rule is global — it overrides any per-page styling that previously allowed
 the row to wrap. The component (`SavedViewsSectionComponent`) emits both

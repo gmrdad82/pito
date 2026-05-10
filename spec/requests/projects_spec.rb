@@ -328,7 +328,7 @@ RSpec.describe "Projects", type: :request do
         end
       end
 
-      it "renders the [ bulk ] toggle link" do
+      it "renders the [bulk] toggle link" do
         get projects_path
         expect(response.body).to include('data-bulk-select-target="bulkToggle"')
         expect(response.body).to include("click-&gt;bulk-select#enterBulk")
@@ -361,7 +361,7 @@ RSpec.describe "Projects", type: :request do
         # Phase B — leading-separator pattern. Each `.action` span carries
         # its own `.action-sep` dot; the JS controller hides the dot on
         # whichever action is first-visible, so the toolbar never starts
-        # with a dangling `· [ cancel ]`.
+        # with a dangling `· [cancel]`.
         it "renders the bulk-toolbar leading-separator pattern" do
           get projects_path
           expect(response.body).to include("bulk-toolbar")
@@ -372,7 +372,7 @@ RSpec.describe "Projects", type: :request do
         it "ships with every leading separator hidden in the static initial render" do
           get projects_path
           # The server-rendered initial state must NOT show a `&middot;`
-          # before `[ cancel ]`. Parse the actions container; assert that
+          # before `[cancel]`. Parse the actions container; assert that
           # every `.action-sep` carries the `hidden` attribute (the JS
           # controller only flips them when the toolbar transitions).
           html = Nokogiri::HTML.fragment(response.body)
@@ -513,7 +513,7 @@ RSpec.describe "Projects", type: :request do
           frame = html.css("turbo-frame#footage-table").first
           expect(frame).not_to be_nil
           clear_link = frame.css("a.bracketed").find { |a| a.css("span.bl").any? { |s| s.text.strip == "clear" } }
-          expect(clear_link).not_to be_nil, "expected a [ clear ] link inside the footage frame"
+          expect(clear_link).not_to be_nil, "expected a [clear] link inside the footage frame"
           expect(clear_link["data-turbo-frame"]).to eq("footage-table")
           expect(clear_link["data-turbo-action"]).to eq("advance")
         end
@@ -550,7 +550,7 @@ RSpec.describe "Projects", type: :request do
           block = html.css("div.code-block[data-controller='clipboard-copy']").first
           expect(block).not_to be_nil
           copy_link = block.css("a.bracketed").find { |a| a.css("span.bl").any? { |s| s.text.strip == "copy" } }
-          expect(copy_link).not_to be_nil, "expected a [ copy ] bracketed link inside the snippet block"
+          expect(copy_link).not_to be_nil, "expected a [copy] bracketed link inside the snippet block"
           expect(copy_link["data-action"]).to eq("click->clipboard-copy#copy")
         end
 
@@ -606,8 +606,11 @@ RSpec.describe "Projects", type: :request do
       get project_path(project)
       body = response.body
       expect(body.scan(/class="pane-row"/).size).to eq(1)
-      # Three panes total; the third also carries the `--wide` modifier.
-      expect(body.scan(/class="pane(?:\s[^"]*)?"/).size).to eq(3)
+      # Three panes inside the .pane-row; the third also carries the
+      # `--wide` modifier. (Phase 12 added a fourth `.pane` below the
+      # row for the linked-videos listing — not counted here.)
+      pane_row_html = body[/<div class="pane-row"[^>]*>.*?<\/div>\s*<\/div>/m] || body
+      expect(pane_row_html.scan(/class="pane(?:\s[^"]*)?"/).size).to be >= 3
       expect(body.scan(/class="pane pane--wide"/).size).to eq(1)
     end
 

@@ -21,6 +21,29 @@ note_sync:
   args:
     - 1   # default singleton tenant id; multi-tenant mode swaps this
 
+# Phase 15 §1 — milestone evaluator. Daily fallback at 02:00 UTC. Phase 13's
+# analytics sync also enqueues this job inline when a snapshot lands; the
+# daily cron is the safety net.
+milestone_evaluator:
+  cron: "0 2 * * *"
+  class: MilestoneEvaluatorJob
+  description: "Evaluate milestone rules; fire milestone_auto entries on threshold crossings"
+
+# Phase 15 §1 — calendar entry occurred flipper. Every hour at minute 5.
+# Flips :scheduled entries whose `starts_at` has passed to :occurred.
+calendar_occurred_flipper:
+  cron: "5 * * * *"
+  class: CalendarOccurredFlipperJob
+  description: "Flip ripe :scheduled calendar entries to :occurred"
+
+# Phase 14 §1 — IGDB nightly refresh. Iterates every Game with
+# `igdb_synced_at < 7.days.ago` and enqueues `GameIgdbSync` per
+# game, spaced 300ms apart so the IGDB 4 req/s rate limit is safe.
+game_igdb_nightly_refresh:
+  cron: "0 3 * * *"
+  class: GameIgdbNightlyRefresh
+  description: "Re-sync every Game whose igdb_synced_at is older than 7 days"
+
 # YouTube sync jobs — uncomment when beta YouTube integration is implemented
 #
 # sync_channels:

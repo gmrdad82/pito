@@ -1,0 +1,70 @@
+<%# Phase 15 §2 — quick-add / edit form. Lowercase labels per
+    docs/design.md. Yes/no radios per CLAUDE.md hard rule. %>
+<%= form_with model: @entry,
+              url: (@entry.persisted? ? calendar_entry_path(@entry) : calendar_entries_path),
+              local: true,
+              data: { controller: "calendar-entry-form unsaved-form" } do |f| %>
+  <% if @entry.errors.any? %>
+    <div class="text-danger" style="margin-bottom: 8px;">
+      <ul>
+        <% @entry.errors.full_messages.each do |msg| %>
+          <li><%= msg %></li>
+        <% end %>
+      </ul>
+    </div>
+  <% end %>
+
+  <% unless @entry.persisted? %>
+    <div style="margin-bottom: 8px;">
+      <label>type</label><br>
+      <% Calendar::EntriesController::MANUAL_ENTRY_TYPES.each do |t| %>
+        <label style="margin-right: 8px;">
+          <%= f.radio_button :entry_type, t,
+                data: { action: "change->calendar-entry-form#updateType" } %>
+          <%= t.tr("_", " ") %>
+        </label>
+      <% end %>
+    </div>
+  <% end %>
+
+  <div style="margin-bottom: 8px;">
+    <label for="calendar_entry_title">title</label><br>
+    <%= f.text_field :title, size: 50, required: true %>
+  </div>
+
+  <div style="margin-bottom: 8px;">
+    <label for="calendar_entry_description">description</label><br>
+    <%= f.text_area :description, rows: 3, cols: 60 %>
+  </div>
+
+  <div style="margin-bottom: 8px;">
+    <label for="calendar_entry_starts_at">starts at</label><br>
+    <%= f.datetime_field :starts_at %>
+  </div>
+
+  <div style="margin-bottom: 8px;">
+    <label for="calendar_entry_ends_at">ends at (optional)</label><br>
+    <%= f.datetime_field :ends_at %>
+  </div>
+
+  <div style="margin-bottom: 8px;">
+    <label>all day</label>
+    <label style="margin-left: 8px;">
+      <%= f.radio_button :all_day, "yes", checked: @entry.all_day %> yes
+    </label>
+    <label>
+      <%= f.radio_button :all_day, "no", checked: !@entry.all_day %> no
+    </label>
+  </div>
+
+  <div style="margin-bottom: 8px;">
+    <label for="calendar_entry_timezone">timezone</label><br>
+    <%= f.text_field :timezone, size: 30 %>
+  </div>
+
+  <div class="dot-list">
+    <button type="submit"><%= @entry.persisted? ? "[ save ]" : "[ create ]" %></button>
+    <%= render(BracketedLinkComponent.new(label: "cancel",
+          href: calendar_root_path)) %>
+  </div>
+<% end %>

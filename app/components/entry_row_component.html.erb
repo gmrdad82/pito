@@ -1,0 +1,16 @@
+<%# Phase 15 §2 — schedule view row. %>
+<tr class="<%= state_class %>" <%= "data-indent=\"true\"".html_safe if indent %>>
+  <td class="num"><%= date_label %> <%= weekday_label %></td>
+  <td class="num"><%= time_label %></td>
+  <td>
+    <% if indent %><span style="opacity: 0.6;">↳</span> <% end %>
+    <a href="<%= link_target %>" class="bracketed" style="text-decoration: none; cursor: pointer;">
+      <span style="opacity: 0.7;"><%= glyph %></span>
+      <span><%= title %></span>
+    </a>
+    <% if show_reminder_copy? %>
+      <span class="text-muted" style="margin-left: 8px;">[ remind: t-7 t-1 t-0 ]</span>
+    <% end %>
+  </td>
+  <td><%= state_label %></td>
+</tr>

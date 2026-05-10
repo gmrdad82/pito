@@ -1,0 +1,20 @@
+<%# Phase 15 §2 — month grid navigation cluster.
+    [prev month] [today]? [next month]   <month name>   [schedule] [add entry]
+    [today] is suppressed when already on the current month. %>
+<div class="dot-list" style="margin-bottom: 6px;">
+  <%= render(BracketedLinkComponent.new(label: "prev month",
+        href: calendar_month_path(@prev_year, format('%02d', @prev_month)))) %>
+  <% unless @on_current_month %>
+    <%= render(BracketedLinkComponent.new(label: "today",
+          href: calendar_root_path)) %>
+  <% end %>
+  <%= render(BracketedLinkComponent.new(label: "next month",
+        href: calendar_month_path(@next_year, format('%02d', @next_month)))) %>
+  <span style="margin-left: 12px;"><%= calendar_month_heading(@year, @month) %></span>
+  <span class="nav-spacer" style="flex: 1;"></span>
+  <%= render(BracketedLinkComponent.new(label: "schedule",
+        href: calendar_schedule_path)) %>
+  <%= render(BracketedLinkComponent.new(label: "add entry",
+        href: new_calendar_entry_path,
+        data: { turbo_frame: "quick_add" })) %>
+</div>

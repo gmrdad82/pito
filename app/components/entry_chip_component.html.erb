@@ -1,0 +1,9 @@
+<%# Phase 15 §2 — single chip rendered inside a month-grid cell.
+    Lowercase monospace per docs/design.md. %>
+<a href="<%= link_target %>" class="<%= state_class %>" style="display: block; text-decoration: none; color: inherit; cursor: pointer; font-size: 12px; line-height: 1.2; padding: 1px 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+  <span class="calendar-entry__glyph" style="opacity: 0.7;"><%= glyph %></span>
+  <% if time_label.present? %>
+    <span class="calendar-entry__time" style="opacity: 0.6;"><%= time_label %></span>
+  <% end %>
+  <span class="calendar-entry__title"><%= title %></span>
+</a>

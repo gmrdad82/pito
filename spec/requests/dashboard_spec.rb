@@ -30,7 +30,7 @@ RSpec.describe "Dashboard", type: :request do
       it "renders the chart-sweep placeholder line" do
         get root_path
         # Chart-sweep dispatch (2026-05-07) — the daily-views / views-by-channel /
-        # daily-engagement charts and the [ 7d / 30d / 90d / 1y / all ] toolbar
+        # daily-engagement charts and the [7d / 30d / 90d / 1y / all] toolbar
         # have all been retired pending intentional metrics in a later phase.
         # The page now shows a single bracketed placeholder line.
         expect(response.body).to include("dashboard reset")

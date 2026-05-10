@@ -1,0 +1,5 @@
+<% content_for(:title, "calendar ~ edit entry") %>
+<% breadcrumb([ "calendar", calendar_root_path ], "edit ~ #{@entry.title}") %>
+
+<h1>edit calendar entry</h1>
+<%= render "form" %>

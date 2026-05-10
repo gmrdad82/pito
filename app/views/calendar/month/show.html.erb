@@ -1,0 +1,22 @@
+<% content_for(:title, "calendar ~ #{calendar_month_heading(@year, @month)}") %>
+<% breadcrumb([ "calendar", calendar_root_path ], calendar_month_heading(@year, @month)) %>
+
+<div data-controller="calendar-navigation"
+     data-calendar-navigation-prev-url-value="<%= calendar_month_path(@prev_year, format('%02d', @prev_month)) %>"
+     data-calendar-navigation-next-url-value="<%= calendar_month_path(@next_year, format('%02d', @next_month)) %>"
+     data-calendar-navigation-today-url-value="<%= calendar_root_path %>">
+  <%= render "navigation" %>
+
+  <%= render "filter_cluster" %>
+
+  <turbo-frame id="quick_add">
+  </turbo-frame>
+
+  <%= render "grid" %>
+
+  <% if @entries.empty? %>
+    <p class="text-muted" style="margin-top: 12px;">
+      no entries this month — <%= render(BracketedLinkComponent.new(label: "add entry", href: new_calendar_entry_path)) %>
+    </p>
+  <% end %>
+</div>

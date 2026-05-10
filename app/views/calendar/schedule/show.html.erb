@@ -1,0 +1,59 @@
+<% content_for(:title, "calendar ~ schedule") %>
+<% breadcrumb([ "calendar", calendar_root_path ], "schedule") %>
+
+<div data-controller="calendar-filter">
+  <div class="dot-list" style="margin-bottom: 6px;">
+    <%= render(BracketedLinkComponent.new(label: "month",
+          href: calendar_root_path)) %>
+    <span class="nav-spacer" style="flex: 1;"></span>
+    <%= render(BracketedLinkComponent.new(label: "add entry",
+          href: new_calendar_entry_path)) %>
+  </div>
+
+  <div class="dot-list" style="margin-bottom: 8px;">
+    <% %w[all video game milestone purchase custom].each do |kind| %>
+      <% href = url_for(type: (kind == "all" ? nil : kind), source: @selected_source) %>
+      <% if @selected_filter == kind %>
+        <span class="bracketed bracketed-active">[ <%= kind == 'all' ? 'all types' : kind %> ]</span>
+      <% else %>
+        <%= render(BracketedLinkComponent.new(label: kind == "all" ? "all types" : kind,
+              href: href)) %>
+      <% end %>
+    <% end %>
+    <span class="nav-spacer" style="flex: 1;"></span>
+    <% if @show_cancelled %>
+      <%= render(BracketedLinkComponent.new(label: "hide cancelled",
+            href: url_for(state: nil))) %>
+    <% else %>
+      <%= render(BracketedLinkComponent.new(label: "include cancelled",
+            href: url_for(state: "all"))) %>
+    <% end %>
+  </div>
+
+  <% if @entries.empty? %>
+    <p class="text-muted">no entries — <%= render(BracketedLinkComponent.new(label: "add entry", href: new_calendar_entry_path)) %></p>
+  <% else %>
+    <%
+      past_entries   = @entries.select { |e| e.starts_at <= @today }
+      future_entries = @entries.select { |e| e.starts_at  > @today }
+    %>
+    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+      <tbody>
+        <% past_entries.each do |entry| %>
+          <%= render(EntryRowComponent.new(entry: entry)) %>
+        <% end %>
+        <% if past_entries.any? && future_entries.any? %>
+          <tr><td colspan="4" style="border-top: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border); padding: 4px 0; text-align: center; opacity: 0.6;" class="schedule-today-divider">[ today ]</td></tr>
+        <% end %>
+        <% future_entries.each do |entry| %>
+          <%= render(EntryRowComponent.new(entry: entry, show_reminder: true)) %>
+          <% entry.child_entries.where.not(state: %i[cancelled superseded]).each do |child| %>
+            <%= render(EntryRowComponent.new(entry: child, indent: true)) %>
+          <% end %>
+        <% end %>
+      </tbody>
+    </table>
+
+    <%= render "pagination" %>
+  <% end %>
+</div>

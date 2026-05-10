@@ -1,0 +1,21 @@
+<%# Phase 15 §2 — Monday-first 7-column grid. Today's cell carries
+    the `today` class. Multi-day entries render with `↳` continuations
+    in subsequent cells; the leftmost cell carries the title. %>
+<table class="calendar-grid" style="width: 100%; border-collapse: collapse; font-size: 12px;">
+  <thead>
+    <tr>
+      <% %w[mon tue wed thu fri sat sun].each do |w| %>
+        <th style="text-align: left; padding: 4px; border-bottom: 1px solid var(--color-border); font-weight: normal;"><%= w %></th>
+      <% end %>
+    </tr>
+  </thead>
+  <tbody>
+    <% @grid.each_slice(7) do |week| %>
+      <tr>
+        <% week.each do |date| %>
+          <%= render "cell", date: date %>
+        <% end %>
+      </tr>
+    <% end %>
+  </tbody>
+</table>

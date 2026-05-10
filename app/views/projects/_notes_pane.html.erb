@@ -39,7 +39,7 @@
       <%= button_to project_notes_path(project), form: { style: "display: inline;", data: { turbo: false } }, class: "bracketed", method: :post do %>[<span class="bl">+</span>]<% end %>
     <% end %>
     <% if locked %>
-      <span class="bracketed-muted">[ scan ]</span>
+      <span class="bracketed-muted">[scan]</span>
     <% else %>
       <%= button_to scan_notes_path, form: { style: "display: inline;", data: { turbo: false } }, class: "bracketed", method: :post do %>[<span class="bl">scan</span>]<% end %>
     <% end %>

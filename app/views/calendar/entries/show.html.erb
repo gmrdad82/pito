@@ -1,0 +1,65 @@
+<% content_for(:title, "calendar ~ #{@entry.title}") %>
+<% breadcrumb([ "calendar", calendar_root_path ], @entry.title) %>
+
+<h1>
+  <span class="text-muted"><%= entry_chip_glyph(@entry) %></span>
+  <%= @entry.title %>
+</h1>
+
+<dl>
+  <dt>type</dt><dd><%= @entry.entry_type %></dd>
+  <dt>state</dt><dd><%= @entry.state %></dd>
+  <dt>source</dt><dd><%= @entry.source %></dd>
+  <dt>starts at</dt><dd><%= @entry.starts_at.in_time_zone(@entry.timezone).strftime("%Y-%m-%d %H:%M %Z") %></dd>
+  <% if @entry.ends_at %>
+    <dt>ends at</dt><dd><%= @entry.ends_at.in_time_zone(@entry.timezone).strftime("%Y-%m-%d %H:%M %Z") %></dd>
+  <% end %>
+  <% if @entry.description.present? %>
+    <dt>description</dt><dd><%= simple_format(@entry.description) %></dd>
+  <% end %>
+</dl>
+
+<% if @parent_entry %>
+  <p>
+    <strong>parent:</strong>
+    <a href="<%= calendar_entry_path(@parent_entry) %>"><%= @parent_entry.title %></a>
+  </p>
+<% end %>
+
+<% if @child_entries.any? %>
+  <h2>linked entries</h2>
+  <ul>
+    <% @child_entries.each do |child| %>
+      <li><a href="<%= calendar_entry_path(child) %>"><%= entry_chip_glyph(child) %> <%= child.title %></a></li>
+    <% end %>
+  </ul>
+<% end %>
+
+<% if @entry.entry_type == "milestone_auto" && @entry.milestone_rule %>
+  <p>
+    <strong>milestone rule:</strong> <%= @entry.milestone_rule.name %>
+    (metric: <%= @entry.metadata["metric_value_at_fire"] %>)
+  </p>
+<% end %>
+
+<div class="dot-list" style="margin-top: 16px;">
+  <% if @entry.read_only? %>
+    <%= render(BracketedLinkComponent.new(label: "note",
+          href: "#",
+          data: { action: "click->modal-trigger#open", modal_trigger_id: "note-modal" })) %>
+  <% else %>
+    <%= render(BracketedLinkComponent.new(label: "edit",
+          href: edit_calendar_entry_path(@entry))) %>
+    <%= render(BracketedLinkComponent.new(label: "cancel",
+          href: deletions_path(type: "calendar_entry", ids: @entry.id),
+          destructive: true)) %>
+  <% end %>
+  <%= render(BracketedLinkComponent.new(label: "back",
+        href: calendar_root_path)) %>
+</div>
+
+<% if @declarations.any? %>
+  <p class="text-muted" style="margin-top: 16px;">
+    [ remind: <%= @declarations.map { |d| d[:kind] }.uniq.join(' ') %> ]
+  </p>
+<% end %>
