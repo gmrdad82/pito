@@ -291,6 +291,23 @@ a.text-danger.bracketed:hover, a.text-danger.bracketed:hover .bl { color: var(--
   background: var(--color-pane-bg-wide);
 }
 
+/* `.pane--standalone` — the pane look (elevated `--color-pane-bg-a`
+   background + 12px padding) for full-width single-column surfaces that
+   are NOT part of a `.pane-row` workspace grid. Drops the fixed
+   452px width and the zebra `:nth-child(even)` rule so the pane fills
+   its parent. Used by one-time-reveal pages (post-create credentials,
+   post-create token plaintext, OAuth consent / authorization-code /
+   error screens) where the user wants the pane's background tone but
+   not the workspace-column geometry. The combined `.pane.pane--standalone`
+   selector lifts specificity above `.pane:nth-child(even)` so the bg
+   stays consistent even if the element ever ends up inside a flex
+   container. */
+.pane.pane--standalone {
+  flex: none;
+  width: auto;
+  background: var(--color-pane-bg-a);
+}
+
 .pane-row {
   display: flex;
   flex-wrap: wrap;

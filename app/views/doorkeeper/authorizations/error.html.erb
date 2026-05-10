@@ -19,7 +19,14 @@
     the authorization server rejected the request.
   </p>
 
-  <pre class="text-muted" style="white-space: pre-wrap; word-wrap: break-word; margin: 12px 0; font-family: inherit;"><%= description %></pre>
+  <%# Phase 7.5 — error description uses the pane look
+      (`.pane.pane--standalone`) so it reads visually consistent with
+      the consent (`new.html.erb`) and post-create
+      (`settings/oauth_applications/create.html.erb`) pages. The `<pre>`
+      keeps multi-line bodies wrapping cleanly inside the pane. %>
+  <div class="pane pane--standalone">
+    <pre class="text-muted" style="white-space: pre-wrap; word-wrap: break-word; margin: 0; font-family: inherit;"><%= description %></pre>
+  </div>
 
   <div class="dot-list">
     <%= render(BracketedLinkComponent.new(label: "back to home", href: root_path)) %>

@@ -11,28 +11,38 @@
   if you lose it, revoke this token and mint a new one.
 </div>
 
-<table class="detail-table" style="margin-bottom: 12px;">
-  <tr>
-    <td class="text-muted">name</td>
-    <td><strong><%= @token.name %></strong></td>
-  </tr>
-  <tr>
-    <td class="text-muted">scopes</td>
-    <td><code><%= Array(@token.scopes).join(", ") %></code></td>
-  </tr>
-  <tr>
-    <td class="text-muted">expires</td>
-    <td><%= @token.expires_at&.strftime("%Y-%m-%d %H:%M") || "never" %></td>
-  </tr>
-  <tr>
-    <td class="text-muted">preview</td>
-    <td><code>...<%= @token.last_token_preview %></code></td>
-  </tr>
-</table>
+<%# Phase 12 UX sweep — pane-wrapped detail-table mirrors the canonical
+    label/value layout from `channels/_pane.html.erb` and
+    `videos/_pane.html.erb`. The `.pane.pane--standalone` modifier gives
+    this full-width single-column surface the pane look (elevated bg)
+    without the workspace-grid fixed-width / zebra rules. Label cells
+    carry `padding-right: 12px;` so labels don't kiss the values — the
+    base `.detail-table td` rule has `padding: 1px 0;` (no horizontal
+    padding). %>
+<div class="pane pane--standalone" style="margin-bottom: 12px;">
+  <table class="detail-table">
+    <tr>
+      <td class="text-muted" style="padding-right: 12px; vertical-align: top;">name</td>
+      <td><strong><%= @token.name %></strong></td>
+    </tr>
+    <tr>
+      <td class="text-muted" style="padding-right: 12px; vertical-align: top;">scopes</td>
+      <td><code><%= Array(@token.scopes).join(", ") %></code></td>
+    </tr>
+    <tr>
+      <td class="text-muted" style="padding-right: 12px; vertical-align: top;">expires</td>
+      <td><%= @token.expires_at&.strftime("%Y-%m-%d %H:%M") || "never" %></td>
+    </tr>
+    <tr>
+      <td class="text-muted" style="padding-right: 12px; vertical-align: top;">preview</td>
+      <td><code>...<%= @token.last_token_preview %></code></td>
+    </tr>
+  </table>
 
-<div style="margin-bottom: 8px;">
-  <label class="form-label">plaintext (copy now)</label>
-  <pre class="code-block" style="user-select: all; white-space: pre-wrap; word-break: break-all; padding: 8px;"><code><%= @plaintext %></code></pre>
+  <div style="margin-top: 8px;">
+    <label class="form-label">plaintext (copy now)</label>
+    <pre class="code-block" style="user-select: all; white-space: pre-wrap; word-break: break-all; padding: 8px;"><code><%= @plaintext %></code></pre>
+  </div>
 </div>
 
 <div class="dot-list" style="margin-top: 12px;">

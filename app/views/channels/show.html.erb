@@ -20,12 +20,92 @@
     <% end %>
   </div>
 
-  <%# Phase B revamp (2026-05-06) — single pane on the show page sits
-      in a `.pane-strip` (no wrap). The pane is fixed 640px wide and
-      paints with `--color-pane-bg-a` (odd index). %>
-  <div class="pane-strip">
+  <%# Two-pane layout (2026-05-10): the show page now splits channel detail
+      and the videos list into separate side-by-side panes inside a
+      `.pane-row`. Detail lives in the first pane (zebra index A); videos
+      live in the second (zebra index B). The detail pane lets the URL row
+      wrap with `word-break: break-all` so the full canonical URL stays
+      visible without an ellipsis. %>
+  <div class="pane-row">
     <div class="pane">
-      <%= render "channels/pane", channel: @channel %>
+      <%# URL row. The URL is itself an external link; `word-break: break-all`
+          lets it wrap inside the 452px pane instead of truncating. %>
+      <div style="display: flex; align-items: baseline; gap: 6px; min-width: 0; max-width: 100%; margin-bottom: 4px;">
+        <span class="text-muted" style="flex-shrink: 0;">URL</span>
+        <a href="<%= @channel.channel_url %>" target="_blank" rel="noopener noreferrer" style="flex: 1; min-width: 0; word-break: break-all;"><%= @channel.channel_url %></a>
+      </div>
+      <table class="detail-table" style="margin-bottom: 8px;">
+        <tr>
+          <td class="text-muted" style="padding-right: 12px;">starred</td>
+          <td>
+            <%= @channel.star? ? "yes" : "no" %>
+            <%= form_with(model: @channel, html: { style: "display: inline; margin-left: 8px;" }) do |f| %>
+              <%= f.hidden_field :star, value: @channel.star? ? "no" : "yes" %>
+              <button type="submit" class="bracketed" style="background: none; border: none; cursor: pointer; padding: 0; color: inherit; font: inherit;">
+                [<%= @channel.star? ? "unstar" : "star" %>]
+              </button>
+            <% end %>
+          </td>
+        </tr>
+        <tr>
+          <td class="text-muted" style="padding-right: 12px;">connected</td>
+          <td>
+            <% if @channel.youtube_connection_id.present? %>
+              yes
+              <% if @channel.youtube_connection&.email.present? %>
+                <span class="text-muted">(<%= @channel.youtube_connection.email %>)</span>
+              <% end %>
+            <% else %>
+              no
+            <% end %>
+          </td>
+        </tr>
+        <tr>
+          <td class="text-muted" style="padding-right: 12px;">last sync</td>
+          <td><%= compact_time_ago(@channel.last_synced_at) %></td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="pane">
+      <% videos = @channel.videos
+          .left_joins(:video_stats)
+          .select(
+            "videos.*",
+            "COALESCE(SUM(video_stats.views), 0) AS total_views",
+            "COALESCE(SUM(video_stats.likes), 0) AS total_likes"
+          )
+          .group("videos.id")
+          .order(created_at: :desc) %>
+
+      <h2>videos (<%= number_with_delimiter(@channel.videos.count) %>)</h2>
+
+      <% if videos.any? %>
+        <div data-controller="sortable-table" data-sortable-table-id-value="<%= @channel.id %>">
+          <table data-sortable-table-target="table">
+            <thead>
+              <tr>
+                <%= render(SortableHeaderComponent.new(label: "id", sort_type: "number", numeric: true)) %>
+                <%= render(SortableHeaderComponent.new(label: "YouTube id", sort_type: "string")) %>
+                <%= render(SortableHeaderComponent.new(label: "views", sort_type: "number", numeric: true)) %>
+                <%= render(SortableHeaderComponent.new(label: "likes", sort_type: "number", numeric: true)) %>
+              </tr>
+            </thead>
+            <tbody>
+              <% videos.each do |video| %>
+                <tr>
+                  <td class="num"><%= link_to video.id, video_path(video), data: { turbo_frame: "_top" } %></td>
+                  <td><%= video.youtube_video_id %></td>
+                  <td class="num"><%= number_with_delimiter(video.total_views) %></td>
+                  <td class="num"><%= number_with_delimiter(video.total_likes) %></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      <% else %>
+        <p class="caption">no videos yet.</p>
+      <% end %>
     </div>
   </div>
 

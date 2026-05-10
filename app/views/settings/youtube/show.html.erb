@@ -23,18 +23,33 @@
     </p>
   </div>
 <% else %>
-  <%# Connected state. %>
+  <%# Connected state. Phase 12 UX sweep — label/value metadata rendered
+      as a `detail-table` inside the pane so the value column aligns with
+      the rest of pito's settings surfaces (mirrors `channels/_pane.html.erb`
+      and `videos/_pane.html.erb`). Label cells carry `padding-right: 12px;`
+      so labels don't kiss the values — the base `.detail-table td` rule
+      has `padding: 1px 0;` (no horizontal padding). %>
   <div class="pane" style="margin-top: 12px; padding: 16px;">
-    <p><strong>connected as:</strong> <%= @youtube_connection.email %></p>
-    <p class="text-muted">
-      last authorized: <%= @youtube_connection.last_authorized_at.strftime("%Y-%m-%d %H:%M %Z") %>
+    <table class="detail-table" style="margin-bottom: 8px;">
+      <tr>
+        <td class="text-muted" style="padding-right: 12px; vertical-align: top;">connected as</td>
+        <td><strong><%= @youtube_connection.email %></strong></td>
+      </tr>
+      <tr>
+        <td class="text-muted" style="padding-right: 12px; vertical-align: top;">last authorized</td>
+        <td><%= @youtube_connection.last_authorized_at.strftime("%Y-%m-%d %H:%M %Z") %></td>
+      </tr>
       <% if @youtube_connection.last_refreshed_at.present? %>
-        &middot; last refreshed: <%= @youtube_connection.last_refreshed_at.strftime("%Y-%m-%d %H:%M %Z") %>
+        <tr>
+          <td class="text-muted" style="padding-right: 12px; vertical-align: top;">last refreshed</td>
+          <td><%= @youtube_connection.last_refreshed_at.strftime("%Y-%m-%d %H:%M %Z") %></td>
+        </tr>
       <% end %>
-    </p>
-    <p class="text-muted">
-      scopes: <%= Array(@youtube_connection.scopes).join(", ") %>
-    </p>
+      <tr>
+        <td class="text-muted" style="padding-right: 12px; vertical-align: top;">scopes</td>
+        <td><%= Array(@youtube_connection.scopes).join(", ") %></td>
+      </tr>
+    </table>
 
     <div class="dot-list" style="margin-top: 8px;">
       <%= form_with url: settings_youtube_connect_path, method: :post,

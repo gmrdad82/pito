@@ -3,6 +3,17 @@
 
 <h1>new channel</h1>
 
-<div style="max-width: 560px;">
+<%# The shared `channels/form` partial caps its inputs at `max-width: 480px`,
+    which truncates the canonical YouTube URL placeholder (56 chars) on the
+    new-channel screen. Override the cap locally with a scoped style block so
+    the placeholder fits without modifying the partial used by edit. %>
+<style>
+  .channel-new-form input[type="text"],
+  .channel-new-form input[type="url"] {
+    max-width: 60ch !important;
+  }
+</style>
+
+<div class="channel-new-form" style="max-width: 60ch;">
   <%= render "channels/form", channel: @channel, cancel_path: channels_path %>
 </div>

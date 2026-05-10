@@ -18,10 +18,84 @@
     <% end %>
   </div>
 
-  <%# Phase B revamp (2026-05-06) — single pane on the show page sits
-      in a `.pane-strip` (no wrap). The pane is fixed 640px wide. %>
+  <%# Phase B layout fix (2026-05-10) — the show page splits into two
+      panes inside a `.pane-strip`: detail on the left (`.pane`, 452px)
+      and recent stats on the right (`.pane--wide`, 904px). The strip
+      keeps the existing horizontal-scroll behavior so the page degrades
+      gracefully on narrow viewports while surfacing both sections at
+      once on wider ones. The detail pane lets the channel URL wrap on
+      `word-break: break-all` instead of truncating with an ellipsis. %>
   <div class="pane-strip">
-    <%= render "videos/pane", video: @video %>
+    <div class="pane">
+      <h2>detail</h2>
+      <table class="detail-table" style="margin-bottom: 8px;">
+        <tr>
+          <td class="text-muted" style="padding-right: 12px; vertical-align: top;">YouTube ID</td>
+          <td><%= @video.youtube_video_id %></td>
+        </tr>
+        <tr>
+          <td class="text-muted" style="padding-right: 12px; vertical-align: top;">channel</td>
+          <td style="word-break: break-all; white-space: normal;">
+            <a href="<%= @video.channel.channel_url %>" target="_blank" rel="noopener noreferrer" style="word-break: break-all;"><%= @video.channel.channel_url %></a>
+          </td>
+        </tr>
+        <tr>
+          <td class="text-muted" style="padding-right: 12px; vertical-align: top;">starred</td>
+          <td><%= @video.star? ? "yes" : "no" %></td>
+        </tr>
+        <tr>
+          <td class="text-muted" style="padding-right: 12px; vertical-align: top;">connected</td>
+          <td>
+            <% if @video.youtube_connection_id.present? %>
+              yes
+              <% if @video.youtube_connection&.email.present? %>
+                <span class="text-muted">(<%= @video.youtube_connection.email %>)</span>
+              <% end %>
+            <% else %>
+              no
+            <% end %>
+          </td>
+        </tr>
+        <tr>
+          <td class="text-muted" style="padding-right: 12px; vertical-align: top;">last sync</td>
+          <td><%= compact_time_ago(@video.last_synced_at) %></td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="pane--wide">
+      <% stats = @video.video_stats.order(date: :desc).limit(30) %>
+      <% if stats.any? %>
+        <h2>recent stats (<%= number_with_delimiter(stats.size) %> days)</h2>
+        <div data-controller="sortable-table" data-sortable-table-id-value="<%= @video.id %>">
+          <table data-sortable-table-target="table">
+            <thead>
+              <tr>
+                <%= render(SortableHeaderComponent.new(label: "date", sort_type: "date")) %>
+                <%= render(SortableHeaderComponent.new(label: "views", sort_type: "number", numeric: true)) %>
+                <%= render(SortableHeaderComponent.new(label: "likes", sort_type: "number", numeric: true)) %>
+                <%= render(SortableHeaderComponent.new(label: "chats", sort_type: "number", numeric: true)) %>
+                <%= render(SortableHeaderComponent.new(label: "watch", sort_type: "number", numeric: true)) %>
+              </tr>
+            </thead>
+            <tbody>
+              <% stats.each do |stat| %>
+                <tr>
+                  <td><%= stat.date.strftime("%Y-%m-%d") %></td>
+                  <td class="num"><%= number_with_delimiter(stat.views) %></td>
+                  <td class="num"><%= number_with_delimiter(stat.likes) %></td>
+                  <td class="num"><%= number_with_delimiter(stat.comments) %></td>
+                  <td class="num"><span data-sort-value="<%= stat.watch_time_minutes.to_f.round %>"><%= format_video_watch_time(stat.watch_time_minutes) %></span></td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      <% else %>
+        <h2>recent stats</h2>
+        <p class="text-muted">no stats yet.</p>
+      <% end %>
+    </div>
   </div>
 
   <% if @available_videos.any? %>

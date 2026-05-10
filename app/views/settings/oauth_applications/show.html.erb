@@ -9,18 +9,19 @@
   </p>
 </div>
 
-<%# Phase 7.5 — metadata block framed to read as a distinct
-    capture-the-details surface, mirroring the post-create page's
-    framing. `.framed-block` (see `docs/design.md` → Framed blocks)
-    also gives `code` inside `.code-block` a right-padding buffer so
-    long values like the 43-char Doorkeeper `uid` don't kiss the
-    frame edge. `client_secret` is intentionally absent here — it
-    surfaces exactly once on the create-success page and cannot be
-    retrieved later. %>
-<div class="framed-block">
+<%# Phase 7.5 — metadata block uses the pane look
+    (`.pane.pane--standalone`) so this full-width detail surface reads
+    visually consistent with the post-create page and every other
+    data-display pane in the app. `client_secret` is intentionally
+    absent here — it surfaces exactly once on the create-success page
+    and cannot be retrieved later. %>
+<div class="pane pane--standalone">
+  <%# Label cells carry `padding-right: 12px;` to match the post-create
+      page so labels don't kiss the values — the base `.detail-table td`
+      rule has `padding: 1px 0;` (no horizontal padding). %>
   <table class="detail-table">
     <tr>
-      <td class="text-muted">client_id</td>
+      <td class="text-muted" style="padding-right: 12px; vertical-align: top;">client_id</td>
       <td>
         <span data-controller="clipboard-copy" class="code-block">
           <code data-clipboard-copy-target="source"><%= @application.uid %></code>
@@ -29,7 +30,7 @@
       </td>
     </tr>
     <tr>
-      <td class="text-muted">redirect URIs</td>
+      <td class="text-muted" style="padding-right: 12px; vertical-align: top;">redirect URIs</td>
       <td>
         <% @application.redirect_uri.to_s.split("\n").each do |uri| %>
           <code><%= uri %></code><br>
@@ -37,11 +38,11 @@
       </td>
     </tr>
     <tr>
-      <td class="text-muted">scopes</td>
+      <td class="text-muted" style="padding-right: 12px; vertical-align: top;">scopes</td>
       <td><code><%= @application.scopes %></code></td>
     </tr>
     <tr>
-      <td class="text-muted">confidential</td>
+      <td class="text-muted" style="padding-right: 12px; vertical-align: top;">confidential</td>
       <td><%= @application.confidential? ? "yes" : "no" %></td>
     </tr>
     <%# Phase 7.5 — MCP server URL row, mirrored from the create-success
@@ -49,7 +50,7 @@
         register again. Sourced from `Pito::PublicHosts.mcp_base` for
         single-source-of-truth host config. %>
     <tr>
-      <td class="text-muted">mcp server URL</td>
+      <td class="text-muted" style="padding-right: 12px; vertical-align: top;">mcp server URL</td>
       <td>
         <span data-controller="clipboard-copy" class="code-block">
           <code data-clipboard-copy-target="source"><%= "#{Pito::PublicHosts.mcp_base}/mcp" %></code>
@@ -58,7 +59,7 @@
       </td>
     </tr>
     <tr>
-      <td class="text-muted">created</td>
+      <td class="text-muted" style="padding-right: 12px; vertical-align: top;">created</td>
       <td><%= @application.created_at.strftime("%Y-%m-%d %H:%M") %></td>
     </tr>
   </table>

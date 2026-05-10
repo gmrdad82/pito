@@ -10,26 +10,28 @@
   </p>
 </div>
 
-<%# Phase 7.5 — metadata block framed to read as a distinct
-    capture-the-details surface, mirroring the show + create pages.
-    `.framed-block` is defined in `app/assets/tailwind/application.css`
-    (see `docs/design.md` → Framed blocks). %>
-<div class="framed-block">
+<%# Phase 7.5 — metadata block uses the pane look
+    (`.pane.pane--standalone`) so this full-width detail surface reads
+    visually consistent with the show + create pages and the rest of
+    the app's data-display panes. %>
+<div class="pane pane--standalone">
+  <%# Label cells carry `padding-right: 12px;` to match the post-create
+      and show pages so labels don't kiss the values. %>
   <table class="detail-table">
     <tr>
-      <td class="text-muted">name</td>
+      <td class="text-muted" style="padding-right: 12px; vertical-align: top;">name</td>
       <td><strong><%= @application.name %></strong></td>
     </tr>
     <tr>
-      <td class="text-muted">client_id</td>
+      <td class="text-muted" style="padding-right: 12px; vertical-align: top;">client_id</td>
       <td><code><%= @application.uid %></code></td>
     </tr>
     <tr>
-      <td class="text-muted">scopes</td>
+      <td class="text-muted" style="padding-right: 12px; vertical-align: top;">scopes</td>
       <td><code><%= @application.scopes %></code></td>
     </tr>
     <tr>
-      <td class="text-muted">created</td>
+      <td class="text-muted" style="padding-right: 12px; vertical-align: top;">created</td>
       <td><%= @application.created_at.strftime("%Y-%m-%d %H:%M") %></td>
     </tr>
   </table>

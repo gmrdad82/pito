@@ -664,14 +664,37 @@ RSpec.describe "Channels", type: :request do
       expect(header_section).not_to include("[disconnect]")
     end
 
-    # Phase B revamp (2026-05-06) — single-pane show wraps the pane in a
-    # `.pane-strip` (no-wrap horizontal flex) holding a single `.pane`
-    # (640px). The new pane system uses zebra alternation rather than a
-    # `:only-child` flag; with one pane the odd-index rule applies.
-    it "wraps the single pane in pane-strip > pane" do
+    # 2026-05-10 — the show page splits into two side-by-side panes inside
+    # a `.pane-row`: the left pane carries channel detail (URL, starred,
+    # connected, last sync), the right pane carries the videos list. The
+    # row uses `.pane-row` (wrapping flex) rather than `.pane-strip` so
+    # the videos pane drops below the detail pane on narrow viewports.
+    it "wraps the show layout in pane-row containing two .pane children" do
       get channel_path(channel)
-      expect(response.body).to include('<div class="pane-strip">')
-      expect(response.body).to match(/<div class="pane-strip">\s*<[^>]*class="pane[^"]*"/)
+      expect(response.body).to include('<div class="pane-row">')
+      expect(response.body).to match(/<div class="pane-row">\s*<div class="pane">.*<div class="pane">/m)
+    end
+
+    it "renders the channel URL with break-all wrapping (no ellipsis truncation)" do
+      get channel_path(channel)
+      # The URL row was previously `class="truncate-url"` which clipped
+      # long URLs with `…`. The new layout drops that class and uses
+      # `word-break: break-all` so the full canonical URL stays visible.
+      url_anchor = response.body[/<a[^>]*href="#{Regexp.escape(channel.channel_url)}"[^>]*>/]
+      expect(url_anchor).not_to be_nil
+      expect(url_anchor).not_to include("truncate-url")
+      expect(url_anchor).to include("word-break: break-all")
+    end
+
+    it "renders the videos heading inside the second pane" do
+      get channel_path(channel)
+      # The videos list lives in the right (second) pane. Splitting the
+      # body at the second `.pane` opening tag must yield a section that
+      # contains the `videos (N)` heading.
+      panes = response.body.split('<div class="pane">')
+      expect(panes.length).to be >= 3 # one prefix + two pane bodies
+      videos_pane_body = panes[2]
+      expect(videos_pane_body).to match(/<h2>videos \(\d/)
     end
   end
 
@@ -703,6 +726,16 @@ RSpec.describe "Channels", type: :request do
       get new_channel_path
       expect(response.body).to include('<span class="bracketed-active">[add]</span>')
       expect(response.body).not_to include('[add channel]')
+    end
+
+    # 2026-05-10 — the canonical YouTube URL placeholder (56 chars) was
+    # being clipped by the form partial's 480px input cap. The new-channel
+    # page now wraps the form in a `.channel-new-form` container that
+    # widens the input to 60ch via a scoped style block.
+    it "widens the URL input so the canonical placeholder fits" do
+      get new_channel_path
+      expect(response.body).to include('class="channel-new-form"')
+      expect(response.body).to match(/\.channel-new-form\s+input\[type="text"\][^}]*max-width:\s*60ch/m)
     end
   end
 
