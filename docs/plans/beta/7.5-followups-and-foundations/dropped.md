@@ -99,8 +99,8 @@ between the 2026-05-10 deletion pass and the Phase 19 close-out. The Cassette-
 recording session, YouTube data sync engine, real `top videos` chart rebuild,
 URL-hash → query-param sort migration, filter chip group component, and
 Meilisearch indexing per-target flag parity remain **deferred** (not dropped) —
-they are tracked as carry-forwards in `docs/orchestration/follow-ups.md` per
-the close-out's follow-ups disposition table.
+they are tracked as carry-forwards in `docs/orchestration/follow-ups.md` per the
+close-out's follow-ups disposition table.
 
 - **Item:** no further drops; pre-specs 08 / 09 / 10 disposition confirmed.
 - **Rationale:** every other "Deferred workstream" listed in `plan.md` has a

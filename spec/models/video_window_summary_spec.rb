@@ -12,9 +12,18 @@ RSpec.describe VideoWindowSummary, type: :model do
     end
 
     it "rejects an unknown window value" do
-      record = build(:video_window_summary, window: "bogus")
-      expect(record).not_to be_valid
-      expect(record.errors[:window]).to be_present
+      # Postgres `analytics_window` enum rejects out-of-range strings
+      # at the wire level. Assert the DB-side rejection rather than
+      # the Rails-side validation message.
+      video = create(:video)
+      expect {
+        described_class.create!(
+          video: video,
+          window: "bogus",
+          window_start: 7.days.ago.to_date,
+          window_end: Date.current
+        )
+      }.to raise_error(ActiveRecord::StatementInvalid)
     end
 
     it "round-trips each of the four window values" do
@@ -96,10 +105,14 @@ RSpec.describe VideoWindowSummary, type: :model do
       twenty  = create(:video_window_summary, :twenty_eight_d, video: video)
       ninety  = create(:video_window_summary, :ninety_d,       video: video)
       life    = create(:video_window_summary, :lifetime,       video: video)
-      expect(described_class.seven_d).to        include(seven).and(exclude(twenty))
-      expect(described_class.twenty_eight_d).to include(twenty).and(exclude(ninety))
-      expect(described_class.ninety_d).to       include(ninety).and(exclude(life))
-      expect(described_class.lifetime).to       include(life).and(exclude(seven))
+      expect(described_class.seven_d).to        include(seven)
+      expect(described_class.seven_d).not_to    include(twenty)
+      expect(described_class.twenty_eight_d).to include(twenty)
+      expect(described_class.twenty_eight_d).not_to include(ninety)
+      expect(described_class.ninety_d).to       include(ninety)
+      expect(described_class.ninety_d).not_to   include(life)
+      expect(described_class.lifetime).to       include(life)
+      expect(described_class.lifetime).not_to   include(seven)
     end
   end
 end
