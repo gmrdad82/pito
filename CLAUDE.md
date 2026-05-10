@@ -96,8 +96,9 @@ Three MCP tools expose the `docs/` tree to Claude Mobile:
   same thought are fine; Desktop curates and prunes later.
 
 Mobile is read + capture; Desktop is curate + commit. Edits, deletes, renames,
-file moves all happen via Desktop. When the auth phase (Phase 12) lands, this
-surface gets a `dev:*` MCP scope.
+file moves all happen via Desktop. The three tools require the `dev` MCP scope;
+production builds strip `dev` from the catalog and the tool registry (per ADR
+0004).
 
 **Notes commit lifecycle.** Every Desktop commit runs `git add docs/notes/`
 before staging the rest of the change so notes Mobile dropped since the last

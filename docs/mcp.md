@@ -17,8 +17,10 @@ clients).
   dedicated Puma (port 3028), separate from the web app (port 3027)
 - **Scope:** every MCP request operates on the install (single-install,
   multi-user per ADR 0003). There is no tenant boundary; access control is
-  per-scope (`dev:*` / `yt:*` / `project:*` / `website:*` today, collapsing to
-  `dev` + `app` per ADR 0004 in a later dispatch).
+  per-scope. The catalog is two values — `dev` and `app` — per ADR 0004. `dev`
+  is stripped on release packaging (production builds set
+  `Rails.application.config.x.mcp.expose_dev_scope = false`, which removes `dev`
+  from `Scopes::ALL` and from the MCP tool registry).
 
 The MCP server loads Rails models, decorators, and services directly
 (in-process). It does not make HTTP requests to the web app.
@@ -65,7 +67,7 @@ Rake (scriptable):
 
 ```bash
 # Generate a new token (plaintext shown once, copy immediately)
-bin/rails 'tokens:create[my-claude-mobile,yt:read+yt:write]'
+bin/rails 'tokens:create[my-claude-mobile,dev+app]'
 
 # List all tokens
 bin/rails tokens:list
@@ -124,27 +126,32 @@ cross-tenant defense-in-depth check that previously lived inside
 
 ### Scope-per-tool table
 
-| Tool                | Required scope         | Channel-Revamp note                                                |
-| ------------------- | ---------------------- | ------------------------------------------------------------------ |
-| `list_channels`     | `yt:read`              |                                                                    |
-| `get_channel`       | `yt:read`              | Returns the post-Channel-Revamp shape (no `title`/`description`).  |
-| `list_videos`       | `yt:read`              |                                                                    |
-| `get_video`         | `yt:read`              |                                                                    |
-| `get_dashboard`     | `yt:read`              |                                                                    |
-| `search`            | `yt:read`              | Videos only; channels not searchable in this phase.                |
-| `list_saved_views`  | `yt:read`              |                                                                    |
-| `manage_settings`   | `yt:read` / `yt:write` | `yt:read` for view-only; `yt:write` when `updates` is present.     |
-| `create_channel`    | `yt:write`             | Only `channel_url` accepted; an initial `ChannelSync` is enqueued. |
-| `update_channel`    | `yt:write`             | `channel_url` locked after create.                                 |
-| `create_video`      | `yt:write`             |                                                                    |
-| `update_video`      | `yt:write`             |                                                                    |
-| `create_saved_view` | `yt:write`             |                                                                    |
-| `delete_saved_view` | `yt:write`             |                                                                    |
-| `sync_records`      | `yt:write`             | Two-step preview/execute.                                          |
-| `delete_records`    | `yt:destructive`       | Two-step preview/execute.                                          |
-| `list_docs`         | `dev:read`             | Dev KB.                                                            |
-| `read_doc`          | `dev:read`             | Dev KB.                                                            |
-| `save_note`         | `dev:write`            | Dev KB capture.                                                    |
+Per ADR 0004 the catalog collapsed to two values: `dev` for the Dev KB tools and
+`app` for everything else. `dev` is stripped from `Scopes::ALL` and from the
+tool registry on release builds (when
+`Rails.application.config.x.mcp.expose_dev_scope == false`).
+
+| Tool                | Required scope |
+| ------------------- | -------------- |
+| `list_channels`     | `app`          |
+| `get_channel`       | `app`          |
+| `list_videos`       | `app`          |
+| `get_video`         | `app`          |
+| `get_dashboard`     | `app`          |
+| `search`            | `app`          |
+| `list_saved_views`  | `app`          |
+| `manage_settings`   | `app`          |
+| `create_channel`    | `app`          |
+| `update_channel`    | `app`          |
+| `create_video`      | `app`          |
+| `update_video`      | `app`          |
+| `create_saved_view` | `app`          |
+| `delete_saved_view` | `app`          |
+| `sync_records`      | `app`          |
+| `delete_records`    | `app`          |
+| `list_docs`         | `dev`          |
+| `read_doc`          | `dev`          |
+| `save_note`         | `dev`          |
 
 A token without the right scope sees
 `{"error": "insufficient_scope", "required": "<scope>"}` (HTTP 403). A missing /

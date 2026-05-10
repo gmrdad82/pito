@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted, 2026-05-09.
+Implemented, 2026-05-10 (commit `f5b15bd` — "Phase 10: collapse MCP scope
+catalog from 9 scopes to dev + app"). Originally accepted 2026-05-09.
 
 ## Context
 
@@ -137,6 +138,47 @@ than a "you must re-mint everything" deploy note.
 - `docs/mcp.md` scope-per-tool table rewrites.
 - The realignment doc at `docs/realignment-2026-05-09.md` carries the
   authoritative mapping during the transition.
+
+## Implementation
+
+Landed 2026-05-10 in commit `f5b15bd` — "Phase 10: collapse MCP scope catalog
+from 9 scopes to dev + app". Implementation spec:
+`docs/plans/beta/10-mcp-scope-simplification/specs/01-collapse-to-dev-app.md`.
+Implementation log: `docs/plans/beta/10-mcp-scope-simplification/log.md`.
+
+Key landings against this ADR's commitments:
+
+- `app/lib/scopes.rb` rewritten end-to-end: `Scopes::DEV = "dev"`,
+  `Scopes::APP = "app"`, `Scopes::DESCRIPTIONS` collapsed to two entries with
+  the locked copy (`"read and capture developer docs."` and
+  `"application access. manage channels, videos, projects, and the calendar."`).
+- Strip-on-release flag declared at
+  `Rails.application.config.x.mcp.expose_dev_scope` in `config/application.rb`,
+  overridden per-environment. Production-only flag is `false`. Both
+  `Scopes::ALL` membership and the MCP tool registry's `register` calls gate on
+  it; defense-in-depth pairs the registry gate with the per-tool
+  `require_scope!(Scopes::DEV)`.
+- `app/models/api_token.rb` gained `dev_scope_only_when_exposed` validation —
+  even a runtime stub of `Scopes::ALL` cannot smuggle a `["dev"]` row past the
+  model when the flag is `false`.
+- `db/migrate/20260510110333_revoke_tokens_for_scope_simplification.rb`
+  soft-revoked every active `ApiToken`, `Doorkeeper::AccessToken`, and
+  `Doorkeeper::AccessGrant`. `OauthApplication.scopes` strings were rewritten
+  in-place using the legacy → new mapping. Users re-pair Claude Mobile + Web MCP
+  once after deploy.
+- `db/seeds.rb` collapses the dev `ApiToken` scope set to `Scopes::ALL.dup` and
+  skips the dev-token mint entirely under `Rails.env.production?`.
+- `config/initializers/doorkeeper.rb` updated to `default_scopes(*Scopes::ALL)`
+  with empty `optional_scopes`. The soft-clip monkey-patch
+  (`config/initializers/doorkeeper_scope_clip.rb`) is unchanged on disk; its
+  catalog-agnostic math handles the new shape correctly. Legacy scope strings
+  (`dev:read`, `yt:write`, …) are clipped out and rejected as `invalid_scope`.
+- Test sweep landed: `spec/lib/scopes_spec.rb` rewritten;
+  `spec/requests/mcp/tool_registry_spec.rb` (new, strip-on-release coverage);
+  `spec/db/migrate/revoke_tokens_for_scope_simplification_spec.rb` (new,
+  migration integration); every MCP tool spec, `oauth_scope_clip_spec.rb`,
+  factories, and rake-task specs updated. Final suite count: 1717 examples, 0
+  failures (was 1673 in Phase 9; net +44 from new test files).
 
 ## Rationale
 

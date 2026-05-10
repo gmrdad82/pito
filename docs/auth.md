@@ -112,7 +112,7 @@ Three moving parts:
 ```
 User ──< ApiToken
               │
-              └── scopes: ["dev:read", "yt:write", ...]
+              └── scopes: ["dev", "app"]   # subset of Scopes::ALL
 
 Current   (ActiveSupport::CurrentAttributes)
   ├── user
@@ -133,23 +133,71 @@ Current   (ActiveSupport::CurrentAttributes)
 ## 3. Scope catalog
 
 Authoritative source: `app/lib/scopes.rb`. Listed below as a reference; if the
-two diverge, the file wins.
+two diverge, the file wins. Per ADR 0004 the catalog is two values; there is no
+read / write split, no per-domain namespace.
 
-| Scope            | Description                                         |
-| ---------------- | --------------------------------------------------- |
-| `dev:read`       | Read dev knowledge base (docs/).                    |
-| `dev:write`      | Write notes to docs/notes/.                         |
-| `yt:read`        | Read channels, videos, stats, dashboards.           |
-| `yt:write`       | Create / update channels, videos, saved views.      |
-| `yt:destructive` | Delete channels, videos, bulk-delete operations.    |
-| `website:read`   | Read landing-page content (Phase 6+, no tools yet). |
-| `website:write`  | Edit landing-page content (Phase 6+, no tools yet). |
-| `project:read`   | Read projects, collections, games, footage, notes.  |
-| `project:write`  | Create / update / delete project workspace records. |
+| Scope | Description                                                              |
+| ----- | ------------------------------------------------------------------------ |
+| `dev` | read and capture developer docs.                                         |
+| `app` | application access. manage channels, videos, projects, and the calendar. |
 
-Naming pattern: `<namespace>:<permission>`. Adding a new scope means editing
-`Scopes::ALL` and `Scopes::DESCRIPTIONS` and ticking the corresponding tools'
-`require_scope!` calls.
+A token has `dev`, `app`, both, or neither. The trade-off is intentional —
+catalog stability over fine-grained authorization. A token holder is either
+trusted to operate an install, or not.
+
+### Strip-on-release
+
+`Scopes::ALL` is computed against
+`Rails.application.config.x.mcp.expose_dev_scope`:
+
+- Development / test → `["dev", "app"]` (flag defaults to `true`).
+- Production → `["app"]` (flag is `false`). The `dev`-scoped tools (`list_docs`,
+  `read_doc`, `save_note`) are also dropped from the MCP tool registry, and
+  `ApiToken` rejects any save whose `scopes` array contains `"dev"`.
+  Defense-in-depth: even a token whose `scopes` jsonb literally carries `"dev"`
+  cannot reach a `dev` tool because the tool isn't registered AND the scope
+  isn't in the catalog.
+
+The strip-on-release flag is the security boundary equivalent of the Sidekiq Web
+auth: dev tooling stays behind the developer-operator boundary on a productized
+release.
+
+### Soft-revoke migration posture
+
+ADR 0004 implementation revoked every existing `ApiToken`,
+`Doorkeeper::AccessToken`, and `Doorkeeper::AccessGrant` row in a single
+migration
+(`db/migrate/20260510110333_revoke_tokens_for_scope_simplification.rb`). Rows
+stayed in the database with `revoked_at` set — soft-revoke matches the existing
+audit posture. `OauthApplication.scopes` strings were rewritten in-place using
+the legacy → new mapping (`dev:*` / `website:*` → `dev`; `yt:*` / `project:*` →
+`app`). Users re-pair Claude Mobile + Web MCP once after the deploy; the consent
+screen displays the two new scopes.
+
+### Soft-clip monkey-patch
+
+`config/initializers/doorkeeper_scope_clip.rb` survives the simplification. The
+patch's math (`requested ∩ application.scopes ∩ server.scopes`) is
+catalog-agnostic. Under the new 2-scope catalog its behavior is:
+
+- A request for `scope=dev app` against an application whitelisted for both →
+  succeeds; the consent screen renders.
+- A request that names a legacy string (`scope=dev:read`, `scope=yt:write`, …) →
+  rejected with `error=invalid_scope`. Legacy strings are not in `Scopes::ALL`,
+  so the patch clips them out and Doorkeeper's standard `validate_scopes` step
+  rejects what remains.
+- A request for `scope=dev` under `expose_dev_scope=false` (production) →
+  rejected the same way; the server catalog drops `dev` so the request has no
+  overlap.
+
+Legacy scope strings are clipped, not rejected outright — the failure surfaces
+as a normal `invalid_scope` redirect rather than a 500. The implementation
+agent's `spec/requests/oauth_scope_clip_spec.rb` covers each branch.
+
+Adding a new scope means editing `Scopes::ALL` and `Scopes::DESCRIPTIONS` and
+ticking the corresponding tools' `require_scope!` calls. New tool surfaces
+(calendar, notifications, IGDB, etc.) all use `Scopes::APP`; the namespace
+choice is structural (dev tooling vs. application data), not per-domain.
 
 ## 4. Tool / endpoint scope map
 
@@ -159,35 +207,37 @@ from `Api::AuthConcern`.
 
 ### MCP tools
 
-| Tool                | Required scope            |
-| ------------------- | ------------------------- |
-| `list_channels`     | `yt:read`                 |
-| `get_channel`       | `yt:read`                 |
-| `list_videos`       | `yt:read`                 |
-| `get_video`         | `yt:read`                 |
-| `get_dashboard`     | `yt:read`                 |
-| `search`            | `yt:read`                 |
-| `list_saved_views`  | `yt:read`                 |
-| `manage_settings`   | `yt:read` (no updates)    |
-|                     | `yt:write` (with updates) |
-| `create_channel`    | `yt:write`                |
-| `update_channel`    | `yt:write`                |
-| `create_video`      | `yt:write`                |
-| `update_video`      | `yt:write`                |
-| `create_saved_view` | `yt:write`                |
-| `delete_saved_view` | `yt:write`                |
-| `sync_records`      | `yt:write`                |
-| `delete_records`    | `yt:destructive`          |
-| `list_docs`         | `dev:read`                |
-| `read_doc`          | `dev:read`                |
-| `save_note`         | `dev:write`               |
+| Tool                | Required scope |
+| ------------------- | -------------- |
+| `list_channels`     | `app`          |
+| `get_channel`       | `app`          |
+| `list_videos`       | `app`          |
+| `get_video`         | `app`          |
+| `get_dashboard`     | `app`          |
+| `search`            | `app`          |
+| `list_saved_views`  | `app`          |
+| `manage_settings`   | `app`          |
+| `create_channel`    | `app`          |
+| `update_channel`    | `app`          |
+| `create_video`      | `app`          |
+| `update_video`      | `app`          |
+| `create_saved_view` | `app`          |
+| `delete_saved_view` | `app`          |
+| `sync_records`      | `app`          |
+| `delete_records`    | `app`          |
+| `list_docs`         | `dev`          |
+| `read_doc`          | `dev`          |
+| `save_note`         | `dev`          |
+
+`manage_settings` lost its read-vs-write scope branching when the catalog
+collapsed; both view-only and update calls require `app`.
 
 ### JSON HTTP endpoints
 
-| Endpoint                                  | Required scope  |
-| ----------------------------------------- | --------------- |
-| `GET /api/projects/:project_id/footages`  | `project:read`  |
-| `POST /api/projects/:project_id/footages` | `project:write` |
+| Endpoint                                  | Required scope |
+| ----------------------------------------- | -------------- |
+| `GET /api/projects/:project_id/footages`  | `app`          |
+| `POST /api/projects/:project_id/footages` | `app`          |
 
 HTML routes (`/channels`, `/videos`, `/projects`, `/settings`, etc.) are gated
 by `Sessions::AuthConcern`: an authenticated cookie session is required, and
@@ -227,7 +277,7 @@ Api::TokenAuthenticator.authenticate(env)
    ▼
 controller action / MCP tool
    │
-   require_scope!(Scopes::YT_WRITE)     # raises Api::Forbidden if missing
+   require_scope!(Scopes::APP)          # raises Api::Forbidden if missing
    │
    ▼
 work happens
@@ -314,11 +364,14 @@ First install on a fresh machine:
    and triggers `db:seed`.
 
 3. The seed mints a default `dev` token (idempotent — second runs are no-ops)
-   with the scope set:
+   under development / test only. The scope set mirrors `Scopes::ALL`:
 
    ```
-   dev:read, dev:write, yt:read, yt:write, project:read, project:write
+   dev, app
    ```
+
+   In production (`Rails.env.production?`) the seed skips the dev-token mint
+   entirely; production operators mint their own via `/settings/tokens`.
 
    Plaintext is printed to STDOUT inside a banner. **Save it now** — it cannot
    be retrieved later. If you lose it, revoke it via `/settings/tokens` and mint
