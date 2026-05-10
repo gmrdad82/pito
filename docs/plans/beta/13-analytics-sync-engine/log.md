@@ -189,3 +189,186 @@ decisions block:**
   edits called out by Spec 01's "Files touched → Documentation"
   block — dispatched separately to docs-keeper, not part of this
   rails-impl session.
+
+## 2026-05-10 — Spec 02 implementation (rails-impl agent)
+
+### Context
+
+Spec 02 (analytics sync engine) implemented end to end against
+`docs/plans/beta/13-analytics-sync-engine/specs/02-analytics-sync-engine.md`.
+Builds on Spec 01's twelve analytics tables (already in main as of
+`6391f12`) and consumes `YoutubeConnection`, the existing
+`YoutubeApiCall` audit row, and the
+`google-apis-youtube_analytics_v2` gem. All twelve master-agent
+decisions (5 copy + 8 open question) honored verbatim.
+
+### Files (production)
+
+- `app/services/youtube/oauth_refresh.rb` — shared OAuth-token
+  freshness module (extracted per master-agent decision 7). Mixed
+  into `Youtube::AnalyticsClient`; `Youtube::Client` continues to
+  use its in-class implementation (re-extraction is a follow-up).
+- `app/services/youtube/analytics_query_builder.rb` — pure-function
+  builder for the 14 query shapes from Note 3 (C1, C2, C3, C4, C5,
+  V1, V2, V3, V4-device, V4-os, V5, V6, V7, V8). Enforces
+  mutual-exclusion guards: `liveOrOnDemand` ↔
+  `averageViewPercentage`, `day` ↔ `month`, V7's single-video-filter
+  rule. Monetization-enabled mode appends revenue metrics; default
+  mode omits them. `WINDOWS = %w[7d 28d 90d lifetime]`.
+- `app/services/youtube/analytics_client.rb` —
+  `Youtube::AnalyticsClient` wrapping
+  `Google::Apis::YoutubeAnalyticsV2::YouTubeAnalyticsService`. Twelve
+  public methods: `channel_daily`, `channel_window_summary`,
+  `top_videos`, `channel_geography` (NotImplementedError stub),
+  `channel_demographics` (NotImplementedError stub), `video_daily`,
+  `video_window_summary`, `video_by_country`, `video_by_device_type`,
+  `video_by_operating_system`, `video_by_traffic_source`,
+  `video_by_subscribed_status`, `video_demographics`,
+  `video_retention`, plus `today_pt` and `monetization_enabled?`
+  helpers. Translates Google API errors into typed exceptions
+  (`AuthError`, `RateLimitError`, `TransientError`,
+  `PermanentError`). Writes a `youtube_api_calls` audit row per
+  call. Defense-in-depth assertions on channel/video ↔ connection
+  membership; YouTube channel-id is parsed from `channel_url` since
+  the `channels` table doesn't (yet) carry a dedicated column.
+- `app/services/youtube/active_video_classifier.rb` — pure module:
+  `active?(video)` and `active_for(connection)`. Inclusive 90-day
+  boundary, strict `> 100` views threshold per master-agent decision
+  6.
+- `app/services/backfill/analytics_range.rb` — out-of-band wrapper
+  enqueueing `ChannelAnalyticsSync` and `VideoAnalyticsSync`.
+  Returns the count of enqueued jobs. Refuses `needs_reauth`
+  connections; refuses inverted date ranges.
+- `app/jobs/youtube_analytics_sync.rb` — top-level orchestrator.
+  Iterates `YoutubeConnection.active`, dispatches
+  `ChannelAnalyticsSync` per channel + `VideoAnalyticsSync` per
+  video. `retention_only: true` mode dispatches only
+  `VideoRetentionSync`.
+- `app/jobs/video_retention_sync_orchestrator.rb` — thin wrapper
+  the weekly cron entry fires; delegates to
+  `YoutubeAnalyticsSync.new.perform(retention_only: true)`.
+- `app/jobs/channel_analytics_sync.rb` — per-channel job. C1
+  (`channel_daily`, refresh last 3 days), C2 (`channel_window_summary`
+  for each of `7d`/`28d`/`90d`/`lifetime`), C3 (`top_videos`,
+  delete-then-insert by `(channel_id, window)` so leaderboard
+  membership shrinkage isn't sticky). Idempotent via composite-key
+  `upsert_all`. Bails early when the connection's `needs_reauth`
+  flips during the run.
+- `app/jobs/video_analytics_sync.rb` — per-video job. Active videos
+  run V1, V2 (×4 windows), V3, V4-device, V4-os, V5, V6, V8.
+  Inactive videos run V1 only. Same idempotency pattern.
+- `app/jobs/video_retention_sync.rb` — V7 retention curve. Per
+  the table's "recomputed-in-place" contract, the job deletes the
+  existing rows for the video and re-inserts, so a falling-off
+  bucket isn't sticky.
+- `app/models/youtube_connection.rb` — `scope :active` added.
+- `app/models/youtube_api_call.rb` — extended `CLIENT_KINDS` with
+  `analytics_v2`; extended `OUTCOMES` with `succeeded` and `failed`
+  to honor the master-agent copy decisions while preserving the
+  Phase 7 `success` outcome the OAuth client uses. Added named
+  constants `KIND_DATA_V3`, `KIND_PUBLIC`, `KIND_ANALYTICS_V2`.
+- `config/sidekiq.yml` — added `analytics` queue.
+- `config/sidekiq_cron.yml` — added `youtube_analytics_sync_nightly`
+  (`0 4 * * *`) and `youtube_analytics_retention_weekly`
+  (`0 5 * * 1`), both on the `analytics` queue.
+- `db/seeds.rb` — idempotent insert seeds `monetization_enabled =
+  "no"` (master-agent decision 8: AppSetting-backed flag, not a
+  credential). The yes/no-string convention crosses the AppSetting
+  key/value boundary as required.
+- `lib/tasks/analytics.rake` — `analytics:backfill[connection_id,
+  from, to]` rake task wrapping `Backfill::AnalyticsRange.call`.
+
+### Files (specs)
+
+- `spec/services/youtube/analytics_query_builder_spec.rb` — 40
+  cases (vs spec's enumerated 38; small surplus from natural
+  grouping). Asserts every metric set, dimension, filter, sort,
+  max_results cap, the 4-window enum, mutual-exclusion guards.
+- `spec/services/youtube/analytics_client_spec.rb` — 34 cases.
+  Construction; happy path for each public method; sad-path for
+  401 / 429 / 5xx / 4xx-other / network timeout / malformed
+  response; PT day handling; token refresh on expired
+  connection; audit-row content (kind, outcome, payload-with-
+  dimensions/metrics, latency).
+- `spec/services/youtube/active_video_classifier_spec.rb` — 8
+  cases. Boundary tests for both rules.
+- `spec/services/backfill/analytics_range_spec.rb` — 7 cases.
+- `spec/services/youtube/analytics_client_flaw_spec.rb` — 4 cases
+  (smuggle / source-of-truth / cross-connection rejection).
+- `spec/jobs/youtube_analytics_sync_spec.rb` — 8 cases.
+- `spec/jobs/channel_analytics_sync_spec.rb` — 10 cases.
+- `spec/jobs/video_analytics_sync_spec.rb` — 17 cases.
+- `spec/jobs/video_retention_sync_spec.rb` — 5 cases.
+- `spec/jobs/concurrent_sync_spec.rb` — 2 cases.
+- `spec/integration/analytics_full_sync_spec.rb` — 7 cases. Full
+  Sidekiq inline-mode walk through the orchestrator → child-job
+  chain with a stubbed `Youtube::AnalyticsClient`.
+
+Total new test cases: **142** (vs the spec's enumerated 139). The
+small surplus is natural variance — a couple of enumerated cases
+expanded into 2 atomic `it` blocks for readability.
+
+### Locked decisions honored verbatim
+
+- Audit-log keys: `youtube_analytics.query.{succeeded,
+  rate_limited, auth_failed, failed}` — defined as constants on
+  `Youtube::AnalyticsClient`.
+- Logger templates:
+  `[analytics-sync] starting nightly run; <N> active connections`,
+  `[analytics-sync] complete; <duration>s`,
+  `[analytics-sync] connection <id> failed auth; marking
+  needs_reauth`.
+- Sidekiq cron names: `youtube_analytics_sync_nightly` +
+  `youtube_analytics_retention_weekly`.
+- `analytics:backfill[connection_id, from, to]` rake.
+- C4/C5 channel-level slices: `NotImplementedError` stubs.
+- Active-video classification: pure function, no schema column.
+- No app-side throttle on `Backfill::AnalyticsRange`.
+- Logger: `info` for orchestrator, `warn` for auth failures.
+  Per-API-call logs land at `debug` only via the audit row's
+  `error_message` payload field (not via `Rails.logger.debug`).
+- `analytics` queue in `config/sidekiq.yml`.
+- 90-day inclusive boundary; strict `> 100` view threshold.
+- `Youtube::OauthRefresh` shared module included by
+  `Youtube::AnalyticsClient`. Reusing it from the existing
+  `Youtube::Client` is queued as a follow-up (re-extraction would
+  touch every Phase 7 client spec; out of this dispatch's scope).
+- `monetization_enabled` AppSetting seeded via `db/seeds.rb`
+  idempotent insert with default `"no"`.
+
+### Quality gates
+
+- `bundle exec rspec` over the 11 new spec files → 142 examples,
+  0 failures.
+- Full suite: 3532 examples, 2 pre-existing failures (calendar
+  month + composites — both pre-existed at `cd2b482`; unrelated
+  to analytics).
+- `bundle exec rubocop` over the 25 changed/new files → no
+  offenses.
+- `bundle exec brakeman -q -w2` → 0 warnings.
+
+### Notes & follow-ups
+
+- **YouTube channel-id derivation.** `Channel` doesn't yet carry
+  a `youtube_channel_id` column (only `channel_url`). The client
+  parses the ID from the URL's `/channel/UC<22-chars>` suffix.
+  Once a Phase 11/12 surface lands a dedicated column, the parse
+  step folds into a model accessor.
+- **`Youtube::Client` OAuth refresh.** Re-extracting the existing
+  Phase 7 client to use `Youtube::OauthRefresh` is queued as a
+  follow-up. The existing `ensure_token_fresh!` /
+  `build_oauth_credentials` private methods stay in
+  `Youtube::Client`; the new `Youtube::AnalyticsClient` uses the
+  module. Both share `Youtube::TokenRefresher`.
+- **Audit-row payload field.** The analytics audit row stores the
+  query label + dimensions + metrics + filters + start_date +
+  end_date as a JSON-encoded blob in the existing
+  `error_message` text column. No migration; no schema change.
+  When a failure occurs, the `error` key joins the same JSON
+  payload. Spec 03 / a future audit-viewer can decode it.
+- **`docs/architecture.md` + `CLAUDE.md`.** Note the analytics
+  sync engine + the two cron entries. Out of this dispatch's
+  scope; queued for the docs-keeper agent.
+- **Spec 03 (analytics-dashboard.md) — DEFERRED** to a separate
+  dispatch (~118 enumerated test cases; routes, controllers,
+  views, helpers, decorators, Stimulus controllers).
