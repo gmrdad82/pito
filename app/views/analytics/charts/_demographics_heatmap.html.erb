@@ -27,7 +27,8 @@
       <%= column_chart series,
                        stacked: true,
                        library: { animation: false },
-                       colors: chart_palette(genders.size) %>
+                       colors: chart_palette(genders.size),
+                       thousands: "," %>
     </div>
     <% if local_assigns[:caveat] && caveat %>
       <p class="caption analytics-caveat">

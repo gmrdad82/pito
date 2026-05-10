@@ -14,7 +14,8 @@
       <%= line_chart(
             buckets.map { |b| [ (b.elapsed_ratio_bucket.to_f * 100).to_i, b.audience_watch_ratio.to_f ] }.to_h,
             library: { animation: false },
-            colors: chart_palette(1)
+            colors: chart_palette(1),
+            thousands: ","
           ) %>
     </div>
   <% else %>

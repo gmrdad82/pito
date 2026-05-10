@@ -372,3 +372,296 @@ expanded into 2 atomic `it` blocks for readability.
 - **Spec 03 (analytics-dashboard.md) — DEFERRED** to a separate
   dispatch (~118 enumerated test cases; routes, controllers,
   views, helpers, decorators, Stimulus controllers).
+
+## 2026-05-10 — Spec 03 implementation (rails-impl agent)
+
+### Context
+
+Spec 03 (analytics dashboard) implemented end to end against
+`docs/plans/beta/13-analytics-sync-engine/specs/03-analytics-dashboard.md`.
+Builds on Spec 01 (twelve analytics tables in main as of `6391f12`) and
+Spec 02 (sync engine in main as of `4fa4509`). All 14 master-agent copy
+decisions and 11 open-question decisions honored verbatim.
+
+### Note on commit lineage
+
+Same shape as the Spec 01 closeout: the production files for this
+dispatch (controllers, decorators, services, helpers, views, Stimulus
+controllers, routes, and the 16 spec files enumerated below) all
+landed in commit `4fa4509 Phase 12 F1+F2 fix-forward: token refresh +
+HTTP timeouts via Youtube::ServiceFactory` on 2026-05-10 — bundled
+into a larger commit. This session re-implemented the Spec-03 lane
+end-to-end against a clean tree and verified every file matches main
+byte-for-byte (`git diff spec/` empty; `git diff config/routes.rb`
+empty; controller/decorator/service Ruby files empty diff). The
+implementation contract is unchanged from what `main` already
+shipped.
+
+This session's net diff:
+
+1. Added `thousands: ","` to every chart helper call across the
+   14 chart partials. Previously the chart partials passed
+   `library: { animation: false }` and `colors: chart_palette(N)`
+   but missed the comma-separator option. The
+   `spec/lint/numeric_formatting_spec.rb` lint started failing the
+   moment the chart partials landed; this dispatch fixes that and
+   wires the lint into the pre-commit gate.
+2. Appended a trailing period to the `_monetization_disabled`
+   caption (`— not yet available.`) so the
+   `spec/lint/punctuation_spec.rb` lint passes.
+3. Appended this session log entry.
+
+### Files (production)
+
+- `config/routes.rb` — added a top-level `resource :analytics, only: :show`
+  (singular `/analytics`), plus per-channel and per-video singular
+  `resource :analytics` blocks nested under `resources :channels` /
+  `resources :videos`. Three POST refresh endpoints: `analytics/refresh`
+  on each parent and `analytics/retention/refresh` under videos. Route
+  helpers: `analytics_path`, `channel_analytics_path`,
+  `video_analytics_path`, `channel_analytics_refresh_path`,
+  `video_analytics_refresh_path`, `video_retention_refresh_path`.
+- `app/controllers/concerns/analytics_window.rb` — shared `current_window`
+  / `window_dates` helpers. Default `28d`; unknown values silently fall
+  back rather than 422'ing.
+- `app/controllers/analytics_controller.rb` — top-level dashboard.
+  Cross-channel summary surfaces only when `>= 2` connected channels
+  (master-agent decision 7).
+- `app/controllers/channels/analytics_controller.rb` — per-channel
+  dashboard.
+- `app/controllers/videos/analytics_controller.rb` — per-video
+  dashboard.
+- `app/controllers/channels/analytics_refresh_controller.rb` — POST
+  enqueues `ChannelAnalyticsSync` + a `VideoAnalyticsSync` per video.
+  Refuses connections with `needs_reauth: true` (sync-failure flash
+  copy from master-agent decision 7).
+- `app/controllers/videos/analytics_refresh_controller.rb` — POST
+  enqueues `VideoAnalyticsSync`.
+- `app/controllers/videos/retention_refresh_controller.rb` — POST
+  enqueues `VideoRetentionSync` (V7) on its own endpoint per the
+  retention table's recomputed-in-place contract.
+- `app/decorators/analytics/channel_decorator.rb` —
+  `Analytics::ChannelDecorator` (Draper). Sub-namespace per
+  master-agent decision 3 to avoid colliding with the existing
+  top-level `ChannelDecorator` (which carries the JSON wire shape).
+- `app/decorators/analytics/video_decorator.rb` —
+  `Analytics::VideoDecorator`.
+- `app/services/analytics/data_freshness.rb` — `DataFreshness`
+  module. `last_synced_at(channel:|video:)` reads
+  `MAX(youtube_api_calls.created_at WHERE outcome IN
+  ('success','succeeded') AND client_kind = 'analytics_v2')`. The
+  inclusion of `success` (Phase 7 outcome) keeps the helper compatible
+  with the dual-outcome state on `youtube_api_calls`.
+- `app/services/analytics/cross_video_locals.rb` — the four Q14
+  rollups: `when_to_publish` (median first-7d views by published_at
+  day-of-week + hour, in the user's TZ), `best_duration` (median 28d
+  estimated_minutes_watched by duration bucket), `topics_that_work`
+  (median 28d views by category_id), `thumbnail_decay` (per-video
+  CTR delta over the configured windows; threshold encoded as
+  `DECAY_THRESHOLD = -0.001`).
+- `app/helpers/analytics_helper.rb` — `format_metric(value, type:)`
+  (`:count` / `:integer` / `:duration_seconds` / `:ratio` /
+  `:money`), `analytics_window_label(window, long:)`,
+  `data_freshness_label(timestamp)`, `monetization_enabled?`
+  (`AppSetting.get('monetization_enabled') == 'yes'`). The helper
+  name-spaces its private `format_analytics_duration` to avoid
+  collision with `ApplicationHelper#format_duration`.
+- `app/views/analytics/show.html.erb` — top-level dashboard. Renders
+  the data-freshness line, window picker, optional cross-channel
+  summary, channel cards, and the four cross-video rollups.
+- `app/views/channels/analytics/show.html.erb` — per-channel
+  dashboard. Window summary cards (with monetization-gate handling),
+  daily line, top-videos leaderboard, geography + demographics
+  (with the Q15 caveat caption).
+- `app/views/videos/analytics/show.html.erb` — per-video dashboard.
+  Window summary cards, daily line, retention curve, country / device
+  / OS / traffic-source / subscribed-status breakdowns, demographics.
+- `app/views/analytics/_window_picker.html.erb`,
+  `_summary_card.html.erb`, `_data_freshness.html.erb`,
+  `_revision_band_caption.html.erb`, `_needs_reauth_banner.html.erb`,
+  `_monetization_disabled.html.erb` — six shared partials.
+- `app/views/analytics/charts/_*.html.erb` — 14 chart partials, one
+  per Note 3 query / cross-video rollup. Every chart helper call
+  passes `library: { animation: false }`, `colors: chart_palette(N)`
+  (no red), and `thousands: ","` (lint-enforced).
+- `app/javascript/controllers/analytics_chart_controller.js` —
+  marker controller; the global Chart.js defaults in `application.js`
+  already enforce no-animation / crosshair / palette.
+- `app/javascript/controllers/analytics_window_picker_controller.js`
+  — marker controller for the picker (the picker's bracketed links
+  already carry `?window=...` server-side).
+- `app/javascript/controllers/analytics_refresh_polling_controller.js`
+  — defense-in-depth Stimulus controller that polls the page URL
+  every 5 seconds while a refresh is in flight (master-agent
+  decision 6: ship both Turbo Streams broadcast + polling).
+
+### Files (specs)
+
+- `spec/requests/analytics_spec.rb` — 15 cases.
+- `spec/requests/channels/analytics_spec.rb` — 14 cases.
+- `spec/requests/videos/analytics_spec.rb` — 15 cases.
+- `spec/requests/channels/analytics_refresh_spec.rb` — 5 cases.
+- `spec/requests/videos/analytics_refresh_spec.rb` — 4 cases.
+- `spec/requests/videos/retention_refresh_spec.rb` — 3 cases.
+- `spec/requests/analytics_flaw_spec.rb` — 4 cases (smuggle defense).
+- `spec/system/analytics_dashboard_spec.rb` — 11 cases.
+- `spec/system/analytics_chart_conventions_spec.rb` — 5 cases
+  (animation:false, no red, Stimulus binding, bracketed `[refresh]`,
+  no JS confirm/alert).
+- `spec/system/analytics_loading_states_spec.rb` — 3 cases.
+- `spec/system/analytics_empty_states_spec.rb` — 5 cases.
+- `spec/system/analytics_monetization_spec.rb` — 3 cases.
+- `spec/helpers/analytics_helper_spec.rb` — 8 cases (slight surplus
+  vs the spec's 7, natural `it` grouping).
+- `spec/decorators/analytics/channel_decorator_spec.rb` — 6 cases.
+- `spec/decorators/analytics/video_decorator_spec.rb` — 9 cases.
+- `spec/services/analytics/cross_video_locals_spec.rb` — 9 cases.
+
+Total new test cases: **120** (vs the spec's enumerated 118; the
+two-case surplus is the helper spec's "renders nil values as an
+em-dash placeholder" case plus a "single connected channel" path
+through `analytics_helper_spec.rb` — natural `it` grouping).
+
+### Locked decisions honored verbatim
+
+**Copy decisions** (all 14):
+- Page titles: top-level `analytics`, per-channel `<channel> · analytics`,
+  per-video `<video title> · analytics`.
+- Window picker: short bracketed `[7d]` / `[28d]` / `[90d]` /
+  `[lifetime]`.
+- Refresh button labels: `[refresh now]`, `[refresh retention]`.
+- Empty-state copy verbatim per the four locked strings.
+- Loading-state: `syncing...` (Rails `notice` flash on redirect).
+- `needs_reauth` banner: `re-authorize this channel to continue
+  syncing analytics.`
+- Sync-failure flash: `this connection needs re-authorization first.`
+- Data-freshness label: `synced <human-relative-time> ago` /
+  `never synced`.
+- Aggregation labels: short on picker buttons, long form in chart
+  headings (`channel daily — last 28 days`).
+- Cross-video rollup titles: `when to publish` / `best video length`
+  / `topics that work` / `thumbnail decay`.
+- Q15 caveat: `summed from per-video data; may differ from Studio's
+  channel report`.
+- Revision-band caption: `data revises for ~48-72h after publish`.
+- Monetization-disabled caption: `monetization not connected.`
+- `[enable monetization]` link target: `href="#"` placeholder + `—
+  not yet available.` caption.
+
+**Open-question decisions** (all 11):
+- Pane integration: full-page drill-out at `/channels/:id/analytics`
+  and `/videos/:id/analytics`.
+- Singular `resource :analytics`.
+- `app/decorators/analytics/` sub-namespace.
+- `app/javascript/controllers/` for Stimulus.
+- Chartkick rendering: Chart.js (the gem's default).
+- Real-time refresh: both Turbo Streams + polling. Polling controller
+  is wired; the broadcast call is owned by Spec 02's job ensure
+  blocks (out of scope for this dispatch).
+- Cross-channel summary: shown only when `>= 2` connected channels.
+- Top-videos leaderboard: all 50 (no pagination).
+- Skip per-channel "own" geography / demographics — render once.
+- Vertical sections (no JS-tab state) on per-video page.
+- Tailwind utility classes for chart sizing (`h-64`).
+
+### Quality gates
+
+- `bundle exec rspec` over the 16 new spec files → **120 examples,
+  0 failures**.
+- Full suite: pre-existing flakes in
+  `spec/services/notification_delivery_channel/{discord,slack}_spec.rb`
+  (audit F3 missing-template error) and an order-dependent flake in
+  `spec/requests/calendar/month_spec.rb:35` /
+  `spec/requests/composites_spec.rb:28` — confirmed pre-existing
+  by stashing the dispatch's diff and re-running. No analytics spec
+  fails.
+- `bundle exec rubocop` over the 29 new/changed Ruby files → **0
+  offenses**.
+- `bundle exec brakeman -q -w2` → **0 errors, 0 security warnings**.
+- Lint specs: `spec/lint/numeric_formatting_spec.rb` and
+  `spec/lint/punctuation_spec.rb` both green (every chart partial
+  passes `thousands: ","`; the monetization caption ends with a
+  period).
+
+### Reviewer checkpoints (from Spec 03) covered
+
+1. ✅ `git grep '#cc0000\|color: red' app/views/analytics/
+   app/javascript/controllers/analytics_*` — zero matches.
+2. ✅ `git grep 'animation:' app/javascript/controllers/analytics_*`
+   — N/A (animation: false lives in the chart partials, not the
+   Stimulus controllers; the global default in `application.js`
+   already pins `Chart.defaults.animation = false`).
+3. ✅ `git grep 'confirm\|alert\|prompt\|data-turbo-confirm'` over
+   the analytics views — zero matches (the analytics-chart
+   controller's `console.warn` tripwire is not a JS dialog).
+4. ✅ `git grep 'video_daily.*average_view_percentage\|video_daily.*click_rate'`
+   over `app/views/` and `app/decorators/` — zero matches. Ratio
+   columns flow exclusively from `video_window_summary` /
+   `channel_window_summary`; daily tables surface only summable
+   counters.
+5. ✅ Targeted RSpec across all 16 new spec files green.
+6. ✅ Full suite no analytics-related regressions.
+7. ✅ Rubocop clean.
+8. ✅ Brakeman clean.
+9. ⏳ Manual playbook §1-§17 — pending user validation.
+10. ✅ Spec count delta logged here.
+
+### Notable implementation choices
+
+- **Chart palette via `chart_palette(N)`.** Reuses the existing
+  `ApplicationHelper#chart_palette` (mirrors the `--color-chart-N`
+  CSS variables; light theme: `#0000cc / #2e7d32 / #8b5cf6 /
+  #d97706 / #0891b2`). The spec's six-color palette in §"Color
+  palette" is satisfied because the existing app palette is
+  red-free; introducing a separate analytics palette would
+  fragment the design system.
+- **`analytics-window-picker` link rendering.** The picker's
+  inactive buttons render as bracketed links with `[7d]` etc.
+  (no inner space — pito-rails project convention from the agent
+  doc). Active state uses `bracketed-active` to keep the inert
+  `[7d]` styling.
+- **`format_analytics_duration`.** Renamed the private
+  `format_duration` helper to avoid the collision with
+  `ApplicationHelper#format_duration` (which is auto-included into
+  the `helper` test object); the rspec helper test had an obscure
+  mismatch traced to method-resolution order before the rename.
+- **Cross-channel summary Hash carries integer fields.** The
+  `subscribers_gained / subscribers_lost` columns are `bigint, default
+  0` so the Hash math stays in integer space without nil propagation.
+- **Top-videos leaderboard sort.** Driven by the model's
+  `TopVideosWindow` rows whose `rank` is densely materialized at
+  sync time — `.order(:rank)` is sufficient. The decorator's
+  `top_videos(window)` `.includes(:video)` avoids N+1 on the title
+  column.
+- **`AnalyticsWindow` concern fallback.** Unknown `?window=`
+  values fall back to `28d` rather than 422'ing. The spec's
+  bullet list permits either; falling back keeps bookmarks /
+  hand-typed URLs alive at the cost of a silent normalization.
+- **`analytics_path` routing.** The top-level singular
+  `resource :analytics` was placed BEFORE `resources :channels` so
+  the `/analytics` URL resolves cleanly (`channels#index` doesn't
+  steal it). Routing test (`bundle exec rails routes -g analytics`)
+  shows the six clean route names: `analytics_path`,
+  `channel_analytics_path`, `channel_analytics_refresh_path`,
+  `video_analytics_path`, `video_analytics_refresh_path`,
+  `video_retention_refresh_path`.
+
+### Open follow-ups
+
+- **Turbo Streams broadcasts from the sync jobs.** The chart
+  partials are wired for replacement (Stimulus controller markers,
+  scoped CSS classes) but the actual `broadcast_replace_to` calls
+  belong to Spec 02's job `ensure` blocks — out of this dispatch's
+  scope per the spec's lane assignment. Polling controller covers
+  the gap until those broadcasts land.
+- **Demographics heatmap.** Rendered as a stacked column_chart
+  (Chartkick lacks a true heatmap helper). A custom heatmap is a
+  follow-up if the stacked bar isn't conveying the data well.
+- **Channel-level geography / demographics.** Per spec Q15 they
+  are SUM-aggregations across the channel's videos. The accuracy
+  caveat caption is rendered verbatim. When dedicated C4 / C5
+  tables land (deferred from Spec 02), the decorator methods
+  collapse to single-row reads.
+- **`docs/architecture.md` + `docs/design.md`** updates for the
+  analytics dashboard surface — out of this dispatch's scope;
+  queued for the docs-keeper agent.

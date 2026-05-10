@@ -10,7 +10,8 @@
             { "views" => dailies.pluck(:date, :views).to_h,
               "estimated minutes watched" => dailies.pluck(:date, :estimated_minutes_watched).to_h },
             library: { animation: false },
-            colors: chart_palette(2)
+            colors: chart_palette(2),
+            thousands: ","
           ) %>
     </div>
     <%= render "analytics/revision_band_caption" %>
