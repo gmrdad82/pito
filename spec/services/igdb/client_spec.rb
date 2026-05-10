@@ -234,4 +234,60 @@ RSpec.describe Igdb::Client do
       expect { client.fetch_game(7346) }.to raise_error(Igdb::Client::ServerError)
     end
   end
+
+  # Phase 14 audit F1 — IGDB outbound POSTs MUST set bounded HTTP
+  # timeouts so a hung api.igdb.com endpoint cannot wedge a Sidekiq
+  # worker indefinitely. Mirrors the Phase 15 fix-forward pattern
+  # landed in `Youtube::ServiceFactory` and
+  # `NotificationDeliveryChannel#configure_http`.
+  describe "HTTP timeouts (audit F1)" do
+    it "sets open / read / write timeouts on the Net::HTTP instance" do
+      stub_request(:post, "https://api.igdb.com/v4/games")
+        .to_return(status: 200, body: "[]")
+
+      captured = nil
+      original_start = Net::HTTP.method(:start)
+      allow(Net::HTTP).to receive(:start) do |host, port, opts = {}, &block|
+        original_start.call(host, port, opts) do |http|
+          captured = http
+          block.call(http)
+        end
+      end
+
+      client.fetch_game(7346)
+
+      expect(captured).to be_a(Net::HTTP)
+      expect(captured.open_timeout).to  eq(Igdb::Client::OPEN_TIMEOUT_SEC)
+      expect(captured.read_timeout).to  eq(Igdb::Client::READ_TIMEOUT_SEC)
+      expect(captured.write_timeout).to eq(Igdb::Client::WRITE_TIMEOUT_SEC)
+    end
+
+    it "uses SSL because the IGDB base URL is HTTPS" do
+      stub_request(:post, "https://api.igdb.com/v4/games")
+        .to_return(status: 200, body: "[]")
+
+      captured = nil
+      original_start = Net::HTTP.method(:start)
+      allow(Net::HTTP).to receive(:start) do |host, port, opts = {}, &block|
+        original_start.call(host, port, opts) do |http|
+          captured = http
+          block.call(http)
+        end
+      end
+
+      client.fetch_game(7346)
+
+      expect(captured.use_ssl?).to be(true)
+    end
+
+    it "surfaces a hung connection as Net::OpenTimeout to the caller" do
+      # Sad-path proof: when the underlying connection raises a timeout
+      # error, it bubbles up the stack instead of getting swallowed.
+      stub_request(:post, "https://api.igdb.com/v4/games").to_timeout
+
+      expect { client.fetch_game(7346) }.to raise_error(
+        an_instance_of(Net::OpenTimeout).or(an_instance_of(Net::ReadTimeout))
+      )
+    end
+  end
 end
