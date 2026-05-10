@@ -59,7 +59,7 @@
   <body data-controller="keyboard">
     <header style="position: fixed; top: 0; left: 0; right: 0; height: 32px; background: var(--color-bg); border-bottom: 1px solid var(--color-border); padding: 0 12px; z-index: 100;" data-controller="theme">
       <%# Header layout (2026-05-10 redesign):
-            [home] · [channels][videos] · [projects][games]   <fluid spacer>   |search|  · [settings][logout]
+            [home][calendar] · [channels][videos] · [projects][games]   <fluid spacer>   |search|  · [settings][logout]
           Groups are separated by a center-dot `·` (`.nav-sep`); items
           within a group sit side-by-side. The `.nav-spacer` flex item
           carries `flex: 1` so the right cluster (search + settings +
@@ -78,7 +78,7 @@
             below). %>
         <% unless content_for?(:hide_chrome) %>
           <nav class="nav-row" style="display: flex; align-items: center; flex: 1; gap: 4px;">
-            <span class="nav-group hide-mobile"><%= nav_link "home", root_path %></span>
+            <span class="nav-group hide-mobile"><%= nav_link "home", root_path %><%= nav_link "calendar", calendar_root_path %></span>
             <span class="nav-sep hide-mobile" aria-hidden="true">·</span>
             <span class="nav-group"><%= nav_link "channels", channels_path, short: "C" %><%= nav_link "videos", videos_path, short: "V" %></span>
             <span class="nav-sep" aria-hidden="true">·</span>
@@ -128,7 +128,7 @@
 
     <%# Footer (2026-05-10 redesign): two rows. Row 1 mirrors the
           header's left navigation —
-          [home] · [channels][videos] · [projects][games] — plus a [?]
+          [home][calendar] · [channels][videos] · [projects][games] — plus a [?]
           help-modal trigger on the far right (header has [settings][logout]
           there). Row 2 carries the copyright prose on the left and the
           version + git-sha on the right. The `?` keyboard binding still
@@ -137,7 +137,7 @@
     <footer style="border-top: 1px solid var(--color-border); padding: 8px 12px; margin-top: 24px; font-size: 11px;">
       <% unless content_for?(:hide_chrome) %>
         <nav class="nav-row" style="display: flex; align-items: center; gap: 4px; margin-bottom: 4px;">
-          <span class="nav-group hide-mobile"><%= nav_link "home", root_path %></span>
+          <span class="nav-group hide-mobile"><%= nav_link "home", root_path %><%= nav_link "calendar", calendar_root_path %></span>
           <span class="nav-sep hide-mobile" aria-hidden="true">·</span>
           <span class="nav-group"><%= nav_link "channels", channels_path, short: "C" %><%= nav_link "videos", videos_path, short: "V" %></span>
           <span class="nav-sep" aria-hidden="true">·</span>
