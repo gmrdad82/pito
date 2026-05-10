@@ -277,9 +277,11 @@ the click-by-click steps below exist for repeatability on a fresh machine or a
 fresh Google account. Locked by decision 7.3 in
 `docs/plans/beta/07-google-oauth-youtube-foundation/specs/7a-google-oauth-and-identity.md`
 — sole-user / single-install Beta; automation via `gcloud` CLI is revisited
-if/when distribution scales the project. Per ADR 0006, Google OAuth is
-channel-only (no "Sign in with Google"); local password auth is the canonical
-login path.
+if/when distribution scales the project. Per ADR 0006, Google OAuth is **channel
+connection only** (no "Sign in with Google"); the OAuth dance authorizes pito to
+talk to YouTube on the install's behalf, never to authenticate a user. Local
+password auth is the canonical login path. Phase 9 codified the rename from
+`GoogleIdentity` to `YoutubeConnection`.
 
 This is a deployment-/credentials-time concern, not a first-boot concern — skip
 it until Phase 7 work is actually starting.
@@ -288,7 +290,7 @@ it until Phase 7 work is actually starting.
 
 Visit https://console.cloud.google.com and sign in with the Google account that
 **owns the YouTube channels pito will read**. The OAuth client lives under this
-account; the channels pito syncs are the ones this account can administer.
+account; the channels pito connects to are the ones this account can administer.
 
 If Google offers the "$300 free credits" trial, **skip it** — not needed.
 YouTube Data API v3 and YouTube Analytics API v2 are free up to their daily
@@ -368,6 +370,14 @@ Create the OAuth 2.0 Web Application client:
 
 Click Create. A modal shows the **Client ID** and **Client Secret** — these are
 shown **once**. Capture both before dismissing.
+
+**Callback URL is locked.** The path `/auth/google/callback` is the value
+registered with Google Cloud Console; changing it on the Rails side requires a
+matching Console edit. Phase 9 renamed the controller behind this URL (now
+`YoutubeConnections::OauthCallbacksController` instead of the original
+`Auth::GoogleCallbacksController`) but **kept the URL itself** for exactly this
+reason. Future contributors: do not rename `/auth/google/callback` without
+updating the registered redirect URI in Google Cloud Console at the same time.
 
 ### 5. Persist credentials into Rails
 

@@ -111,11 +111,12 @@ The Alpha-era `Channel` was rewritten. Surviving columns:
   default false)
 - `last_synced_at` (timestamp), `created_at`, `updated_at`
 
-Phase 7 adds `oauth_identity_id` (FK to `google_identities`, nullable) for the
-YouTube OAuth connection (renamed in Phase 9 per ADR 0006).
+Phase 7 added a foreign key for the YouTube OAuth connection. Phase 9 (per
+ADR 0006) renamed it to `youtube_connection_id` (FK to `youtube_connections`,
+nullable).
 
 Indexes: unique on `channel_url`; secondary on `last_synced_at` and
-`oauth_identity_id`.
+`youtube_connection_id`.
 
 Behaviour:
 
@@ -282,18 +283,19 @@ by the crosshair plugin in `app/javascript/application.js` to share hover index
 across charts in the same group). Toggling `[ ] sync` does NOT hide the chart —
 it only opts the chart in or out of the shared crosshair.
 
-## Google OAuth + YouTube API foundation (Phase 7)
+## Google OAuth + YouTube API foundation (Phase 7, renamed Phase 9)
 
-Phase 7 introduces the third-party-API limb of pito's auth surface: a delegation
+Phase 7 introduced the third-party-API limb of pito's auth surface: a delegation
 channel from pito to Google, used by the YouTube Data and Analytics APIs. It is
 independent of the bearer-token and session surfaces — different flow, different
 model, different lifecycle.
 
 Per ADR 0006, sign-in is **local-only** (email + password). Google OAuth is
 **channel-only**: the OAuth dance authorizes pito to talk to YouTube on behalf
-of the install, never as an identity provider. The `GoogleIdentity` model is
-slated to be renamed (e.g. `YoutubeConnection`) in Phase 9; the rename is out of
-scope for this section.
+of the install, never as an identity provider. Phase 9 renamed the Phase 7
+`GoogleIdentity` model to `YoutubeConnection` and stripped the dormant
+sign-in-with-Google branch from the callback controller; the surviving surface
+is documented below in its post-rename shape.
 
 ### Auth surface map
 
@@ -312,15 +314,18 @@ each with its own lifecycle and storage:
   drop (ADR 0005) because Claude Mobile's Authorization Code + PKCE flow is
   load-bearing.
 - **pito → Google (outbound delegation)** — OAuth 2.0 authorization code flow. A
-  `GoogleIdentity` row holds the encrypted access + refresh tokens that let pito
-  act against the YouTube APIs on the install's behalf.
+  `YoutubeConnection` row holds the encrypted access + refresh tokens that let
+  pito act against the YouTube APIs on the install's behalf.
 
 These surfaces do not share storage.
 
-### `GoogleIdentity` model
+### `YoutubeConnection` model
 
-`google_identities` belongs to a `User` and stores the materials needed to
-delegate against Google's APIs.
+`youtube_connections` belongs to a `User` and stores the materials needed to
+delegate against Google's APIs. The model was originally introduced in Phase 7
+as `GoogleIdentity`; Phase 9 renamed it (and every reference site) per ADR 0006
+because the model's role narrowed to "an OAuth grant that gives pito access to
+one or more YouTube channels" — never user identity.
 
 - `access_token`, `refresh_token` — encrypted at rest via Active Record
   Encryption (`encrypts :access_token, :refresh_token`). The Rails master key
@@ -337,14 +342,22 @@ delegate against Google's APIs.
 - Standard timestamps + `user_id`. `google_subject_id` carries a global unique
   index (Google subject IDs are globally unique).
 
-**One-per-install (UI enforcement).** The schema permits N identities, but the
-Settings UI presents a single connection slot. Adding a new identity replaces
-the existing one in the displayed flow.
+**Cardinality.** `User has_many :youtube_connections, dependent: :destroy` —
+destroying a user cascades to their connections. A single user can hold multiple
+connections (one per Google account); each connection can cover one or more
+channels under that account. The Phase 7-era "one-per-user (UI enforcement)"
+framing retired with Phase 9's rename.
 
-**Disconnect destroys the row.** Per decision 7.13, `[ disconnect ]` from the
-Settings UI deletes the `GoogleIdentity` outright. There is no soft-delete or
-"keep tokens around for restore" — the consent grant is gone, the row is gone. A
-subsequent reconnect creates a fresh row.
+**Channel cascade.** `YoutubeConnection has_many :channels` with
+`dependent: :nullify` — a channel survives the destruction of its connection
+with `youtube_connection_id` reset to `NULL`. This preserves the user's star /
+saved-view state for that channel across disconnect / reconnect cycles (see ADR
+0006 and the Phase 9 spec).
+
+**Disconnect.** Per decision 7.13, `[ disconnect ]` from the Settings UI runs
+`Youtube::DisconnectChannel`, which detaches channels from the connection and
+destroys the `YoutubeConnection` row when no channels remain bound to it. The
+consent grant is gone; a subsequent reconnect creates a fresh row.
 
 ### YouTube client tier
 
@@ -352,7 +365,7 @@ Two thin clients sit above the `google-apis-youtube_v3` and
 `google-apis-youtube_analytics_v2` gems. Both pin a single chokepoint for auth,
 audit, and quota; nothing in the rest of the codebase calls those gems directly.
 
-- **`Youtube::Client`** — OAuth-authenticated. Accepts a `GoogleIdentity` and
+- **`Youtube::Client`** — OAuth-authenticated. Accepts a `YoutubeConnection` and
   uses its access token (refreshing transparently when expired). Calls the
   YouTube Data API v3 and the YouTube Analytics API. This is the path for any
   channel or video the user owns — anything that requires reading
@@ -364,22 +377,22 @@ audit, and quota; nothing in the rest of the codebase calls those gems directly.
   is not reachable through the public client.
 
 **Quota chokepoint.** Per decision 7.5, every call routes through the client and
-increments a per-identity per-day budget. The client computes the call's
+increments a per-connection per-day budget. The client computes the call's
 declared cost (see `docs/youtube_quota.md` for the cost table), checks the
-remaining daily budget for that identity, and either proceeds or raises
+remaining daily budget for that connection, and either proceeds or raises
 `Youtube::QuotaExhaustedError` (decision 7.6 — fail fast, no retries, no
 queueing in this phase).
 
 **Audit row.** Per decision 7.8, every call writes one row to
-`youtube_api_calls(user_id, google_identity_id, endpoint, quota_cost, outcome, http_status, error_class, created_at)`.
+`youtube_api_calls(user_id, youtube_connection_id, endpoint, quota_cost, outcome, http_status, error_class, created_at)`.
 Outcomes are `success`, `quota_exhausted`, `unauthorized`, `not_found`,
 `rate_limited`, `other_error`. The audit table is the source of truth for "how
-much quota did this identity burn today" and the basis for decision 7.5's
-per-identity budget calculation.
+much quota did this connection burn today" and the basis for decision 7.5's
+per-connection budget calculation.
 
 **Refresh / `needs_reauth` flow.** When the access token expires, the client
 attempts a refresh. On `invalid_grant` (refresh token revoked, expired, or user
-removed consent), the client sets `needs_reauth = true` on the identity and
+removed consent), the client sets `needs_reauth = true` on the connection and
 re-raises so the caller can short-circuit. The UI banner picks up the flag on
 the next page load.
 
@@ -388,10 +401,10 @@ the next page load.
 pito stores `Channel` and `Video` as **thin YouTube-reference records**, not
 local caches of YouTube metadata. The columns are:
 
-- `Channel`: `id`, `url`, `star`, `oauth_identity_id` (FK to
-  `google_identities`, nullable), `last_synced_at`, timestamps.
-- `Video`: `id`, `url`, `star`, `oauth_identity_id` (FK to `google_identities`,
-  nullable), `last_synced_at`, timestamps.
+- `Channel`: `id`, `url`, `star`, `youtube_connection_id` (FK to
+  `youtube_connections`, nullable), `last_synced_at`, timestamps.
+- `Video`: `id`, `url`, `star`, `youtube_connection_id` (FK to
+  `youtube_connections`, nullable), `last_synced_at`, timestamps.
 
 All previously-stored YouTube metadata columns — title, description,
 `subscriber_count`, `view_count`, `video_count`, `thumbnail_url`, `etag`,
@@ -404,7 +417,7 @@ Per ADR 0003 ("Owned vs. tracked framing retired"), the earlier `Path A2`
 distinction between **owned** (OAuth-connected) and **tracked** (public-only)
 records collapses with the single-install positioning: every `Channel` and
 `Video` in pito is an owned record by definition. Sync goes through
-`Youtube::Client` against the install's `GoogleIdentity`.
+`Youtube::Client` against the install's `YoutubeConnection`(s).
 
 ### Cloud Console linkage
 

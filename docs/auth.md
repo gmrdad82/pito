@@ -14,8 +14,9 @@ Four surfaces gate access to the install:
   (HMAC-digested, scoped, revocable).
 - **Third-party clients → Rails** — Doorkeeper-issued OAuth 2.0 tokens
   (Authorization Code + PKCE; Phase 6B).
-- **pito → Google (outbound delegation)** — OAuth-delegated `GoogleIdentity` for
-  YouTube API access (Phase 7; channel-only OAuth per ADR 0006).
+- **pito → Google (outbound delegation)** — OAuth-delegated `YoutubeConnection`
+  for YouTube API access (Phase 7; channel-only OAuth per ADR 0006, renamed from
+  `GoogleIdentity` in Phase 9).
 
 If you came here looking for something specific:
 
@@ -30,17 +31,25 @@ This document is authoritative for **email + password login** (surface #1, §1
 below) and **bearer ApiTokens** (surface #2, the rest of the document — the
 original Phase 5 Auth Foundation). Surfaces #3 and #4 are documented elsewhere.
 
-| #   | Surface                   | Mechanism                                            | Authoritative reference                                                                                                                                                                                                                   |
-| --- | ------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Browser → Rails           | Cookie + DB-backed sessions (email + password)       | §1 below for the login flow + rate-limit + audit shape. Live code: `app/controllers/sessions_controller.rb`, `app/controllers/concerns/sessions/auth_concern.rb`. Revocation UI at `/settings/sessions`.                                  |
-| 2   | MCP / `pito` CLI → Rails  | Bearer ApiTokens (HMAC-digested, scoped, revocable)  | The rest of this document (`docs/auth.md`). Live code: `app/lib/api/token_authenticator.rb`, `app/models/api_token.rb`.                                                                                                                   |
-| 3   | 3rd-party clients → Rails | Doorkeeper-issued OAuth (Authorization Code + PKCE)  | Spec: `docs/plans/beta/12-auth-ui-multi-user-readiness/specs/6b-doorkeeper-oauth-server.md`. Live config: `config/initializers/doorkeeper.rb`. Tokens are 2h access / 14d refresh. Stays per ADR 0005.                                    |
-| 4   | pito → Google (YouTube)   | OAuth-delegated `GoogleIdentity` (encrypted at rest) | `docs/architecture.md` "Google OAuth + YouTube API foundation (Phase 7)" section. Live code: `app/models/google_identity.rb`. Channel-only OAuth per ADR 0006 (no "Sign in with Google"); rename to `YoutubeConnection` lands in Phase 9. |
+| #   | Surface                   | Mechanism                                               | Authoritative reference                                                                                                                                                                                                                                 |
+| --- | ------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Browser → Rails           | Cookie + DB-backed sessions (email + password)          | §1 below for the login flow + rate-limit + audit shape. Live code: `app/controllers/sessions_controller.rb`, `app/controllers/concerns/sessions/auth_concern.rb`. Revocation UI at `/settings/sessions`.                                                |
+| 2   | MCP / `pito` CLI → Rails  | Bearer ApiTokens (HMAC-digested, scoped, revocable)     | The rest of this document (`docs/auth.md`). Live code: `app/lib/api/token_authenticator.rb`, `app/models/api_token.rb`.                                                                                                                                 |
+| 3   | 3rd-party clients → Rails | Doorkeeper-issued OAuth (Authorization Code + PKCE)     | Spec: `docs/plans/beta/12-auth-ui-multi-user-readiness/specs/6b-doorkeeper-oauth-server.md`. Live config: `config/initializers/doorkeeper.rb`. Tokens are 2h access / 14d refresh. Stays per ADR 0005.                                                  |
+| 4   | pito → Google (YouTube)   | OAuth-delegated `YoutubeConnection` (encrypted at rest) | `docs/architecture.md` "Google OAuth + YouTube API foundation (Phase 7, renamed Phase 9)" section. Live code: `app/models/youtube_connection.rb`. Channel-only OAuth per ADR 0006 (no "Sign in with Google"); renamed from `GoogleIdentity` in Phase 9. |
 
 The four surfaces are independent. A request from a browser session (#1) cannot
 authenticate as an ApiToken (#2); a Doorkeeper access token (#3) does not grant
 Google API access (#4). Each surface has its own credential type, lifetime, and
 revocation path.
+
+Surface #1 (browser → Rails) is the only path that authenticates a user TO pito.
+Google OAuth (#4) is exclusively an outbound delegation that authorizes pito to
+talk to YouTube on the user's behalf — it never produces a session, never gates
+a login, and never replaces a password (ADR 0006). Phase 9 retired the dormant
+"Sign in with Google" branch from the callback controller; the surviving
+`/auth/google/callback` flow exists solely to mint and refresh
+`YoutubeConnection` rows.
 
 ## 1. Login flow (email + password)
 
@@ -347,6 +356,16 @@ Event types:
   from "wrong password" — the bcrypt-dummy-compare path produces the same
   outcome shape on either branch (Phase 8 F1 fix).
 - `session.destroy` — logout.
+- `youtube_connection.callback.succeeded` — successful Google OAuth callback; a
+  `YoutubeConnection` row was minted or refreshed (Phase 9).
+- `youtube_connection.callback.failed` — Google OAuth callback failed (OmniAuth
+  error, missing `Current.user`, or downstream error during the upsert). Payload
+  includes a generic failure reason (Phase 9).
+- `youtube_connection.callback.stale_intent` — callback hit
+  `/auth/google/callback` without the `youtube_connect` intent in session. Phase
+  9 added the event when the dormant sign-in branch was removed; any callback
+  without the connect intent is treated as a stale / replayed request and
+  redirected to the failure path.
 
 Rotation is host-side (logrotate); out of scope for this phase.
 
@@ -372,7 +391,6 @@ is a later phase.
 
 | Phase    | What it adds                                                                                                                          |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Phase 9  | Renames `GoogleIdentity` → `YoutubeConnection` (channel-only OAuth per ADR 0006). Bearer-token surface unaffected.                    |
 | Phase 12 | Hardens auth UI: token expiry automation, session management improvements, multi-user readiness on top of the single-install posture. |
 | Phase 15 | Hardens rate limits beyond the current `SessionThrottle` + `rack-attack` rules.                                                       |
 
