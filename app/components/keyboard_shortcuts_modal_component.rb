@@ -18,7 +18,7 @@ class KeyboardShortcutsModalComponent < ViewComponent::Base
         Row.new(keys: "t", description: "toggle dark/light theme"),
         Row.new(keys: "/", description: "open search modal"),
         Row.new(keys: "i", description: "open igdb add-game modal"),
-        Row.new(keys: "Esc", description: "close overlay / clear filter / leave bulk")
+        Row.new(keys: "Esc", description: "close overlay / clear filter")
       ]
     ),
     Section.new(
@@ -35,13 +35,11 @@ class KeyboardShortcutsModalComponent < ViewComponent::Base
       title: "list pages (channels / videos)",
       rows: [
         Row.new(keys: "j / k", description: "move highlight down / up"),
-        Row.new(keys: "space", description: "toggle bulk select on row (bulk mode only)"),
-        Row.new(keys: "b", description: "toggle bulk mode"),
+        Row.new(keys: "space", description: "toggle row selection"),
         Row.new(keys: "s", description: "toggle star on highlighted row"),
         Row.new(keys: "D", description: "delete selection (or current row)"),
         Row.new(keys: "Y", description: "sync selection (or current row)"),
-        Row.new(keys: "f s", description: "filter: starred (toggle)"),
-        Row.new(keys: "f c", description: "filter: connected (toggle)")
+        Row.new(keys: "f s", description: "filter: starred (toggle)")
       ]
     ),
     Section.new(

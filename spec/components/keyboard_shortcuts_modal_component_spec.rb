@@ -52,17 +52,27 @@ RSpec.describe KeyboardShortcutsModalComponent, type: :component do
       expect(section).to have_text("settings")
     end
 
-    it "renders the list-pages section with j/k/space/b/s/D/Y and f-prefix" do
+    it "renders the list-pages section with j/k/space/s/D/Y and f-prefix" do
       # Phase 14 §1 polish (2026-05-10) — `/` (search) was promoted to
       # the global `general` section since the modal it opens is layout-
       # level. The list-pages section keeps the row-level keys only.
+      # The `f c` (connected) binding was retired alongside the derived
+      # connected display surface.
+      #
+      # 2026-05-10 CLI-parity sweep — TUI dropped `b` (toggle bulk mode)
+      # and the `(bulk mode only)` qualifier on `space`. Selection is
+      # always-on; help modal mirrors. Row reads
+      # `space — toggle row selection`.
       section = page.find(".keyboard-shortcuts-section", text: /list pages/i)
-      %w[j k space b s D Y f].each do |k|
+      %w[j k space s D Y f].each do |k|
         expect(section).to have_css("span.keycap", text: k)
       end
-      expect(section).to have_text(/bulk/i)
+      expect(section).to have_text("toggle row selection")
       expect(section).to have_text(/starred/i)
-      expect(section).to have_text(/connected/i)
+      expect(section).not_to have_text(/connected/i)
+      expect(section).not_to have_text(/bulk mode only/i)
+      expect(section).not_to have_text(/toggle bulk mode/i)
+      expect(section).to have_no_css("span.keycap", text: /^b$/)
     end
 
     it "renders the detail-pages section with v / s / Y / D" do

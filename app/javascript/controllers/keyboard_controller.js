@@ -22,11 +22,9 @@ import { Controller } from "@hotwired/stimulus"
 //     g e         /settings
 //   Filter (`f` prefix, ~1s timeout)
 //     f s         click the [starred]   filter chip on the current page
-//     f c         click the [connected] filter chip on the current page
-//   List rows (j/k highlight, b/space/s/c/D/Y) — best-effort:
+//   List rows (j/k highlight, space/s/D/Y) — best-effort:
 //     j / k       move highlight down / up among `[data-keyboard-row]` elements
-//     space       toggle the highlighted row's bulk-select checkbox
-//     b           click the [bulk] toggle if present (bulk-select#toggleBulk)
+//     space       toggle the highlighted row's selection checkbox
 //     s           click the highlighted row's `[data-keyboard-action="star"]` link
 //     D           navigate to /deletions/:type/:ids (bulk selection or highlighted id)
 //     Y           navigate to /syncs/:type/:ids
@@ -171,9 +169,6 @@ export default class extends Controller {
       case " ":
         if (this.toggleHighlightedCheckbox()) event.preventDefault()
         return
-      case "b":
-        if (this.clickPageAction("bulk-toggle")) event.preventDefault()
-        return
       case "s":
         if (this.clickRowOrPageAction("star")) event.preventDefault()
         return
@@ -215,7 +210,7 @@ export default class extends Controller {
   }
 
   handleFPrefix(event) {
-    const map = { s: "starred", c: "connected" }
+    const map = { s: "starred" }
     const param = map[event.key]
     if (!param) return
     // Click the matching filter chip on the current page if one is rendered.
@@ -312,10 +307,6 @@ export default class extends Controller {
     if (!row) return false
     const checkbox = row.querySelector('input[type="checkbox"]')
     if (!checkbox || checkbox.disabled || checkbox.hidden) return false
-    // Don't toggle when bulk mode is off — the checkbox column is hidden
-    // in that mode, mirroring the CLI's gated `space` semantics.
-    const computed = window.getComputedStyle(checkbox)
-    if (computed.display === "none" || computed.visibility === "hidden") return false
     checkbox.click()
     return true
   }
