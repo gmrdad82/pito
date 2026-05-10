@@ -275,3 +275,83 @@ Intentionally NOT ticked:
 - `Sessions list integration` — separate Phase 12 Step A landing.
 
 **Open issues.** None for this dispatch.
+
+## 2026-05-10 — Settings index redesign (compact prose + secret masking)
+
+**Discussion.** User dispatched a layout-only revamp of
+`app/views/settings/index.html.erb`. Five `.pane-row` groups:
+row 1 appearance | workspaces, row 2 Google | YouTube, row 3 search |
+Voyage.ai, row 4 user (single pane, free space right), row 5 combined
+OAuth-applications + tokens (one pane separated by a hairline) |
+sessions. Brand casing exceptions pinned: `Google`, `YouTube`,
+`Voyage.ai`, `OAuth applications`. Compact prose pattern across the
+bottom panes — counts read as terse one-line sentences ("1 active
+token", "no active sessions", "3 OAuth applications") instead of a
+bold number followed by a label. Secret masking on the YouTube
+client-secret field mirrors the Voyage.ai API-key pattern.
+
+**Credentials backing investigation.** Google / YouTube OAuth
+credentials live in the `app_settings` table (rows keyed by
+`youtube_client_id`, `youtube_client_secret`, `youtube_redirect_uri`)
+and the `value` column is encrypted at rest via Active Record
+Encryption (`encrypts :value, deterministic: true` on
+`AppSetting`). Already correct — no migration needed. The redesign
+purely tightens the form so the secret is never re-emitted into a
+`value="..."` attribute; the input renders blank with a
+"secret configured (•••••••)" placeholder when present.
+
+**What landed.**
+
+- `app/views/settings/index.html.erb` — full rewrite. Five
+  `.pane-row` groups holding nine panes total. The combined OAuth /
+  tokens pane uses `<hr class="hairline">` between sub-sections.
+  Compact-prose count lines via `if/elsif/else` blocks (singular,
+  plural, zero state). YouTube client secret rendered as a masked
+  `type="password"` with `value=""` and the
+  configured / not-configured placeholder.
+- `app/controllers/settings_controller.rb` — added
+  `@youtube_client_secret_configured` (boolean reflecting
+  `AppSetting.get("youtube_client_secret").present?`) and
+  `@revoked_tokens_count` for the active · revoked compact-prose
+  variant.
+- `app/assets/tailwind/application.css` — added the `hr.hairline`
+  selector (1px top border in `--color-border`, 8px vertical margin,
+  zero default `<hr>` shading). Reusable wherever a pane wants to
+  fence two sub-sections without spawning a new pane wrapper.
+- `spec/requests/settings_spec.rb` — updated the layout assertions:
+  pane count 10 → 9, pane-row count 1 → 5, refreshed DOM-order
+  assertion to `appearance → workspaces → Google → YouTube → search
+  → Voyage → user → OAuth → tokens → sessions`. New specs:
+  hairline separator presence, brand casing on every section heading,
+  search heading drops "engine", client secret never echoes plaintext
+  into the markup, "no secret configured" placeholder when blank,
+  compact-prose singular / zero / dot-joined-active-and-revoked
+  variants for tokens, singular sessions count, zero-state OAuth
+  applications count.
+
+**Files changed.**
+
+- `app/views/settings/index.html.erb` (rewrite)
+- `app/controllers/settings_controller.rb` (two new ivars)
+- `app/assets/tailwind/application.css` (added `hr.hairline`)
+- `spec/requests/settings_spec.rb` (layout + masking + compact prose
+  assertions)
+
+**Quality gates.**
+
+- `bundle exec rspec spec/requests/settings_spec.rb` → 55 examples,
+  0 failures.
+- `bundle exec rspec spec/requests/settings/ spec/requests/settings_spec.rb
+  spec/requests/navigation_spec.rb spec/requests/keyboard_shortcuts_layout_spec.rb`
+  → 154 examples, 0 failures.
+- `bundle exec rubocop` → 547 files, no offenses.
+- `bundle exec brakeman -q -w2` → 0 security warnings.
+
+**Plan boxes ticked.** None — this was a polish dispatch on top of
+already-shipped Phase 12 surfaces; no `plan.md` checkbox lines up
+1:1 with the layout revamp.
+
+**Open issues.** None for this dispatch. The previous session log
+entry above describes a forward-looking layout that this dispatch
+realized — index.html.erb's five-row structure is now the
+on-disk truth.
