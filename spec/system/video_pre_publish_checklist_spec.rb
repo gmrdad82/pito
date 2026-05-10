@@ -43,7 +43,24 @@ RSpec.describe "Video pre-publish checklist", type: :system do
     public_video = create(:video, :public, channel: channel)
     visit edit_video_path(public_video)
     expect(page).not_to have_link("[publish]")
-    expect(page).to have_button("[unpublish]")
+    # `[unpublish]` renders as a `link_to` with `data-turbo-method=patch`
+    # (NOT a `button_to`) so the trigger doesn't nest a `<form>` inside
+    # the surrounding `form_with`. Capybara matches it as a link.
+    expect(page).to have_link("[unpublish]")
+  end
+
+  it "[unpublish] round-trip flips privacy_status from public → private" do
+    public_video = create(:video, :public, channel: channel)
+    # The `[unpublish]` trigger is a `link_to` with
+    # `data-turbo-method=patch`. Turbo is JS-side; rack_test (no JS)
+    # cannot click-and-PATCH from the rendered link. Drive the PATCH
+    # through the rack_test driver directly so the round-trip exercises
+    # the dedicated `unpublish` action end-to-end. The link's presence
+    # is asserted by the rendering spec immediately above.
+    visit edit_video_path(public_video)
+    expect(page).to have_link("[unpublish]", href: unpublish_video_path(public_video))
+    page.driver.submit :patch, unpublish_video_path(public_video), {}
+    expect(public_video.reload.privacy_private?).to be(true)
   end
 
   it "renders the imported indicator on imported videos" do

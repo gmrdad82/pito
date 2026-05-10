@@ -188,4 +188,36 @@ RSpec.describe Game, type: :model do
       expect(build(:game).synced?).to eq(false)
     end
   end
+
+  # Phase 14 §2 — Bundle membership.
+  describe "bundle membership" do
+    it { is_expected.to have_many(:bundle_members).dependent(:destroy) }
+    it { is_expected.to have_many(:bundles).through(:bundle_members) }
+
+    it "returns the bundles it is a member of" do
+      game = create(:game)
+      bundle = create(:bundle, bundle_type: :custom)
+      bundle.bundle_members.create!(game: game)
+      expect(game.reload.bundles).to include(bundle)
+    end
+  end
+
+  describe "after_update_commit :invalidate_bundle_covers_if_image_changed" do
+    let!(:game) { create(:game, :synced, cover_image_id: "old123") }
+
+    it "enqueues BundleCoverInvalidate when cover_image_id changes" do
+      BundleCoverInvalidate.clear
+      game.update!(cover_image_id: "new456")
+      expect(BundleCoverInvalidate.jobs.size).to eq(1)
+      args = BundleCoverInvalidate.jobs.last["args"]
+      expect(args[0]).to eq(game.id)
+      expect(args[1]).to eq("old123")
+    end
+
+    it "does NOT enqueue when other columns change" do
+      BundleCoverInvalidate.clear
+      game.update!(notes: "some local notes")
+      expect(BundleCoverInvalidate.jobs).to be_empty
+    end
+  end
 end

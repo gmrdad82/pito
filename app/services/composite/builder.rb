@@ -37,7 +37,10 @@ module Composite
       end
 
       layout = Composite::LayoutChooser.choose(cover_image_ids.size)
-      tiles  = cover_image_ids.map { |cid| @tile_cache.fetch(cid) }
+      # The overflow layout fills nine cells and overlays a "+N" caption
+      # on the bottom-right; only the first 9 ids contribute tiles.
+      tile_ids = layout == Composite::Layout::NineGridWithOverflow ? cover_image_ids.first(9) : cover_image_ids
+      tiles    = tile_ids.map { |cid| @tile_cache.fetch(cid) }
       composite = layout.compose(tiles, total_member_count: members.size)
 
       path = output_path(bundle)

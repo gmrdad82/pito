@@ -1,0 +1,72 @@
+require "rails_helper"
+
+RSpec.describe NotificationDeliver do
+  let(:notification) { create(:notification) }
+
+  describe "#perform" do
+    it "in_app channel: synchronous, no HTTP, returns ok-shaped result" do
+      expect_any_instance_of(::Net::HTTP).not_to receive(:request)
+      expect { described_class.new.perform(notification.id, "in_app") }
+        .not_to raise_error
+    end
+
+    it "discord channel: routes to the Discord channel and stamps the column on success" do
+      AppSetting.delete_all
+      AppSetting.create!(key: "max_panes", value: "5", discord_enabled: true)
+      url = "https://discord.com/api/webhooks/abc"
+      allow(Rails.application.credentials)
+        .to receive(:dig).with(:notifications, :discord_webhook_url).and_return(url)
+      stub_request(:post, url).to_return(status: 204, body: "")
+
+      expect { described_class.new.perform(notification.id, "discord") }
+        .to change { notification.reload.discord_delivered_at }.from(nil)
+    end
+
+    it "slack channel: routes to the Slack channel and stamps the column on success" do
+      AppSetting.delete_all
+      AppSetting.create!(key: "max_panes", value: "5", slack_enabled: true)
+      url = "https://hooks.slack.com/services/abc"
+      allow(Rails.application.credentials)
+        .to receive(:dig).with(:notifications, :slack_webhook_url).and_return(url)
+      stub_request(:post, url).to_return(status: 200, body: "ok")
+
+      expect { described_class.new.perform(notification.id, "slack") }
+        .to change { notification.reload.slack_delivered_at }.from(nil)
+    end
+
+    it "raises ArgumentError for an unknown channel kind" do
+      expect { described_class.new.perform(notification.id, "email") }
+        .to raise_error(ArgumentError, /unknown channel/)
+    end
+
+    it "silently no-ops when the notification was deleted between enqueue and run" do
+      missing_id = Notification.maximum(:id).to_i + 1_000_000
+      expect { described_class.new.perform(missing_id, "in_app") }
+        .not_to raise_error
+    end
+  end
+
+  describe "Sidekiq retry config" do
+    it "is configured for 5 retries" do
+      opts = described_class.sidekiq_options
+      expect(opts["retry"]).to eq(5)
+    end
+  end
+
+  describe "sidekiq_retry_in ladder" do
+    let(:proc_block) { described_class.sidekiq_retry_in_block }
+
+    it "implements the 1m / 5m / 15m / 1h / 6h ladder" do
+      expect(proc_block.call(0, nil, nil)).to eq(60)
+      expect(proc_block.call(1, nil, nil)).to eq(300)
+      expect(proc_block.call(2, nil, nil)).to eq(900)
+      expect(proc_block.call(3, nil, nil)).to eq(3600)
+      expect(proc_block.call(4, nil, nil)).to eq(21_600)
+    end
+
+    it "tail-pads at 6h for any retry index past 4" do
+      expect(proc_block.call(5, nil, nil)).to eq(21_600)
+      expect(proc_block.call(99, nil, nil)).to eq(21_600)
+    end
+  end
+end

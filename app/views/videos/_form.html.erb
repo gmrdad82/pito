@@ -70,12 +70,16 @@
                   class: "bracketed",
                   data: { turbo_frame: "pre-publish-modal-frame" } %>
     <% else %>
-      <%= button_to "[unpublish]", video_path(video),
-                    method: :patch,
-                    params: { video: { privacy_status: "private" } },
-                    class: "bracketed",
-                    form: { style: "display: inline;" },
-                    style: "background: none; border: none; padding: 0; cursor: pointer;" %>
+      <%# Routed to a dedicated `unpublish` action (PATCH
+          /videos/:id/unpublish) rather than `update` so the
+          privacy_status flip stays outside the smuggle guard's
+          blocklist. Rendered as `link_to` (not `button_to`) so the
+          trigger is NOT a nested `<form>` inside the surrounding
+          `form_with` — invalid HTML otherwise. `turbo_method: :patch`
+          turns the click into a PATCH via Turbo. %>
+      <%= link_to "[unpublish]", unpublish_video_path(video),
+                  class: "bracketed",
+                  data: { turbo_method: :patch } %>
     <% end %>
   </fieldset>
 

@@ -6,7 +6,7 @@
 # valid Notification row (title is required; event_payload is NOT
 # NULL); the minimal stub satisfies the contract while leaving the
 # real templating to Spec 02.
-class NotificationPayloadBuilder
+module NotificationPayloadBuilder
   module_function
 
   # Returns the four columns that vary per event:

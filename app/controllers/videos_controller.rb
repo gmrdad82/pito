@@ -24,7 +24,7 @@ class VideosController < ApplicationController
 
   before_action :load_video, only: %i[
     show edit update destroy stats
-    pre_publish_checklist publish schedule
+    pre_publish_checklist publish schedule unpublish
   ]
 
   def index
@@ -155,6 +155,40 @@ class VideosController < ApplicationController
       end
     else
       render_publish_error(@video.errors.full_messages.join(", "), target_action: "schedule")
+    end
+  end
+
+  # Phase 12 — `public` / `unlisted` → `private` (unpublish).
+  # Going down is free per Note 1; no checklist needed. Routed
+  # separately from `update` so the privacy_status flip lives
+  # outside the smuggle guard's blocklist.
+  def unpublish
+    unless @video.privacy_public? || @video.privacy_unlisted?
+      msg = "only public or unlisted videos can be unpublished."
+      respond_to do |format|
+        format.html do
+          @projects = Project.order(:name)
+          @video.errors.add(:base, msg)
+          render :edit, status: :unprocessable_content
+        end
+        format.json { render json: { errors: [ msg ] }, status: :unprocessable_content }
+      end
+      return
+    end
+
+    if @video.update(privacy_status: :private)
+      respond_to do |format|
+        format.html { redirect_to video_path(@video), notice: "video unpublished." }
+        format.json { render json: VideoDecorator.new(@video.reload).as_detail_json }
+      end
+    else
+      respond_to do |format|
+        format.html do
+          @projects = Project.order(:name)
+          render :edit, status: :unprocessable_content
+        end
+        format.json { render json: { errors: @video.errors.full_messages }, status: :unprocessable_content }
+      end
     end
   end
 

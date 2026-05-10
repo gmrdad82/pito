@@ -99,6 +99,12 @@ Rails.application.routes.draw do
       get   :pre_publish_checklist
       patch :publish
       patch :schedule
+      # Phase 12 — `public` / `unlisted` → `private` direct path.
+      # Going down is free per Note 1 (no checklist needed). A
+      # dedicated action keeps the privacy_status flip outside the
+      # smuggle guard on `update`, which rejects any privacy_status
+      # mutation through the regular update path.
+      patch :unpublish
     end
   end
   # Phase 4 — Project Workspace. Phase A landed the route shells; Phase B

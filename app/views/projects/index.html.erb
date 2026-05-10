@@ -119,7 +119,7 @@
               <td class="num"><%= compact_time_ago(project.created_at) %></td>
               <td class="num"><%= human_duration(project.footage_duration_seconds) %></td>
               <td class="num"><%= NoteHelper.human_words(project.notes_words_total) %></td>
-              <td class="num"><%= project.videos.count %></td>
+              <td class="num"><%= number_with_delimiter(project.videos.count) %></td>
             </tr>
           <% end %>
         </tbody>

@@ -309,7 +309,10 @@ RSpec.describe Notification, type: :model do
 
     it "source_calendar_entry deletion sets the FK to NULL" do
       entry = create(:calendar_entry)
-      n = create(:notification, source_calendar_entry: entry)
+      # Carry a dedup_key alongside the FK so the CHECK constraint
+      # still holds after the FK is nullified by ON DELETE.
+      n = create(:notification, source_calendar_entry: entry,
+                                dedup_key: "fk-cascade-test-#{SecureRandom.hex(4)}")
       expect { entry.destroy }.not_to raise_error
       expect(Notification.exists?(n.id)).to be(true)
       expect(n.reload.source_calendar_entry_id).to be_nil
@@ -353,10 +356,10 @@ RSpec.describe Notification, type: :model do
           event_type: "video_published",
           severity: 0,
           title: "row #{i}",
+          # No source_calendar_entry_id — uniqueness is on dedup_key only.
           fires_at: now,
           retry_count: 0,
           event_payload: {},
-          source_calendar_entry_id: calendar_entry.id,
           dedup_key: "smoke-#{i}",
           created_at: now,
           updated_at: now

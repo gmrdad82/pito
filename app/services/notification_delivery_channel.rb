@@ -14,10 +14,9 @@
 require "net/http"
 
 class NotificationDeliveryChannel
-  # 4xx-but-non-429 outcomes raise this to abort retry. Sidekiq sees a
-  # raised error; the job rescues `PermanentFailure` and returns
-  # without re-raising so the retry counter never increments.
-  class PermanentFailure < StandardError; end
+  # Re-raised after `record_failure!` ran for 5xx / 429 / network so
+  # `deliver`'s general `rescue StandardError` does not double-record.
+  class TransientFailure < StandardError; end
 
   # Delivery outcome for callers (the scheduler / job) to inspect.
   Result = Struct.new(:status, :reason, keyword_init: true)
@@ -47,21 +46,23 @@ class NotificationDeliveryChannel
       stamp_delivered!(notification)
       Result.new(status: :ok)
     when 429
+      # Record once, raise so Sidekiq retries.
       record_failure!(notification, "HTTP 429: rate limited")
-      raise StandardError, "rate limited"
+      raise TransientFailure, "rate limited"
     when 400..499
       record_failure!(notification, "HTTP #{code}: #{response.body.to_s.first(500)}")
-      raise PermanentFailure, "HTTP #{code} (terminal)"
+      # Terminal — swallow so Sidekiq does NOT retry.
+      Result.new(status: :failed, reason: :terminal)
     else
       record_failure!(notification, "HTTP #{code}")
-      raise StandardError, "HTTP #{code}"
+      raise TransientFailure, "HTTP #{code}"
     end
-  rescue PermanentFailure
-    # Terminal — swallow so Sidekiq does NOT retry. Caller sees a
-    # `:failed` result with `:terminal` reason.
-    Result.new(status: :failed, reason: :terminal)
+  rescue TransientFailure
+    raise
   rescue StandardError => e
-    record_failure!(notification, e.message) unless e.is_a?(ActiveRecord::RecordInvalid)
+    # Catch-all for unexpected raises (e.g., network errors raised by
+    # perform_post). Record once, then re-raise so Sidekiq retries.
+    record_failure!(notification, e.message)
     raise
   end
 

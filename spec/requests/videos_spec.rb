@@ -332,8 +332,17 @@ RSpec.describe "Videos", type: :request do
         expect(video.reload.last_sync_error).to be_nil
       end
 
-      it "rejects privacy_status in update params (422)" do
+      it "rejects privacy_status=public in update params (422)" do
         patch video_path(video), params: { video: { privacy_status: "public" } }
+        expect(response).to have_http_status(:unprocessable_content)
+      end
+
+      it "rejects privacy_status=private in update params (422)" do
+        # Even the unpublish direction is blocked from `update` — the
+        # dedicated `PATCH /videos/:id/unpublish` route is the only
+        # surface that flips a video back to private.
+        public_video = create(:video, :public, channel: channel)
+        patch video_path(public_video), params: { video: { privacy_status: "private" } }
         expect(response).to have_http_status(:unprocessable_content)
       end
 
@@ -504,6 +513,54 @@ RSpec.describe "Videos", type: :request do
       already_public = create(:video, :public)
       patch schedule_video_path(already_public), params: { video: base_params }
       expect(response).to have_http_status(:unprocessable_content)
+    end
+  end
+
+  describe "PATCH /videos/:id/unpublish" do
+    # Dedicated `public` / `unlisted` → `private` route. Going down
+    # is free per Note 1 (no checklist needed), so the privacy_status
+    # flip lives outside the smuggle guard's blocklist on `update`.
+    let!(:channel) { create(:channel) }
+
+    before { VideoSyncBack.jobs.clear }
+
+    it "flips privacy_status from public → private and redirects" do
+      v = create(:video, :public, channel: channel)
+      patch unpublish_video_path(v)
+      expect(response).to redirect_to(video_path(v))
+      expect(v.reload.privacy_private?).to be(true)
+    end
+
+    it "flips privacy_status from unlisted → private" do
+      v = create(:video, :unlisted, channel: channel)
+      patch unpublish_video_path(v)
+      expect(v.reload.privacy_private?).to be(true)
+    end
+
+    it "enqueues VideoSyncBack on the privacy flip" do
+      v = create(:video, :public, channel: channel)
+      expect {
+        patch unpublish_video_path(v)
+      }.to change(VideoSyncBack.jobs, :size).by(1)
+    end
+
+    it "JSON request returns 200 with detail JSON" do
+      v = create(:video, :public, channel: channel)
+      patch unpublish_video_path(v, format: :json)
+      expect(response).to have_http_status(:ok)
+      json = JSON.parse(response.body)
+      expect(json["privacy_status"]).to eq("private")
+    end
+
+    it "422 when source video is already private" do
+      v = create(:video, channel: channel) # default privacy_status = :private
+      patch unpublish_video_path(v)
+      expect(response).to have_http_status(:unprocessable_content)
+    end
+
+    it "404 for missing video" do
+      patch unpublish_video_path(id: 99999)
+      expect(response).to have_http_status(:not_found)
     end
   end
 
