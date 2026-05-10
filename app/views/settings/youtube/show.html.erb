@@ -110,36 +110,56 @@
       added" marker so the form can't re-submit them. %>
   <h2 style="margin-top: 16px;">select channels to add</h2>
 
-  <% pito_channels_by_url = Channel.where(channel_url: @youtube_channels.map { |c| "https://www.youtube.com/channel/#{c[:id]}" }).index_by(&:channel_url) %>
+  <% if @youtube_connection.needs_reauth? %>
+    <%# Auth-state failure (insufficient scopes, refresh-token
+        revoked, …). The picker can't render rows because the API
+        call needed to fetch them just failed. Replace it with a red
+        prompt that points back at the same [reconnect] flow the
+        top-of-page banner exposes. The linked-channels section above
+        renders unaffected — those rows come from the local Channels
+        table, not the YouTube API. %>
+    <div class="flash-error"
+         style="margin: 12px 0; padding: 10px 12px; border: 1px solid #cc0000; color: #cc0000;">
+      <span>your google authorization is out of date or missing required scopes.</span>
+      <%= form_with url: settings_youtube_connect_path, method: :post,
+                    data: { turbo: false },
+                    html: { style: "display: inline; margin-left: 12px;" } do %>
+        <button type="submit">[reconnect]</button>
+      <% end %>
+      <span>to refresh.</span>
+    </div>
+  <% else %>
+    <% pito_channels_by_url = Channel.where(channel_url: @youtube_channels.map { |c| "https://www.youtube.com/channel/#{c[:id]}" }).index_by(&:channel_url) %>
 
-  <% if @youtube_channels.any? %>
-    <%= form_with url: settings_youtube_channels_path, method: :post,
-                  data: { turbo: false } do %>
-      <table>
-        <thead>
-          <tr>
-            <th class="col-action"></th>
-            <th></th>
-            <th>title</th>
-            <th class="num">subscribers</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <% @youtube_channels.each do |channel| %>
-            <% url = "https://www.youtube.com/channel/#{channel[:id]}" %>
-            <%= render "settings/youtube/channel_row",
-                       channel: channel,
-                       pito_channel: pito_channels_by_url[url] %>
-          <% end %>
-        </tbody>
-      </table>
+    <% if @youtube_channels.any? %>
+      <%= form_with url: settings_youtube_channels_path, method: :post,
+                    data: { turbo: false } do %>
+        <table>
+          <thead>
+            <tr>
+              <th class="col-action"></th>
+              <th></th>
+              <th>title</th>
+              <th class="num">subscribers</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @youtube_channels.each do |channel| %>
+              <% url = "https://www.youtube.com/channel/#{channel[:id]}" %>
+              <%= render "settings/youtube/channel_row",
+                         channel: channel,
+                         pito_channel: pito_channels_by_url[url] %>
+            <% end %>
+          </tbody>
+        </table>
 
-      <div style="margin-top: 8px;">
-        <button type="submit" class="btn-submit">[<b>add channels</b>]</button>
-      </div>
+        <div style="margin-top: 8px;">
+          <button type="submit" class="btn-submit">[<b>add channels</b>]</button>
+        </div>
+      <% end %>
+    <% elsif @youtube_error.blank? %>
+      <p class="text-muted">no channels found under this google account.</p>
     <% end %>
-  <% elsif @youtube_error.blank? %>
-    <p class="text-muted">no channels found under this google account.</p>
   <% end %>
 <% end %>
