@@ -342,6 +342,13 @@ a.text-danger.bracketed:hover, a.text-danger.bracketed:hover .bl { color: var(--
   flex-wrap: wrap;
   row-gap: 12px;
   column-gap: 0;
+  /* Vertical breathing room between consecutive `.pane-row` groups. The
+     settings index stacks five rows; without `margin-bottom` they render
+     flush. 8px keeps the visual rhythm coherent with the 12px internal
+     pane padding. Single-row pages (channels show, project show, games
+     show, notes show) absorb the trailing margin without harm. Notes
+     show declares its own `margin-bottom` inline and overrides this. */
+  margin-bottom: 8px;
 }
 
 .pane-strip {

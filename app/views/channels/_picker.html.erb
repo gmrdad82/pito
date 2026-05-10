@@ -10,7 +10,12 @@
   </div>
 
   <% filters = @filters || [] %>
-  <div class="dot-list" style="margin-bottom: 6px; gap: 10px;">
+  <%# Density polish (2026-05-10) — the filter chip cluster and the
+      bulk toolbar are both pre-table rows. Tightening the chip cluster's
+      `margin-bottom` to 2px (was 6px) brings the table closer to the
+      filter row and matches the videos index where there is no chip
+      cluster between the h1 row and the bulk toolbar. %>
+  <div class="dot-list" style="margin-bottom: 2px; gap: 10px;">
     <span class="text-muted">filter:</span>
     <%= render(FilterChipComponent.new(label: "starred", param: "star", current_params: request.query_parameters, frame: "channels-index-table")) %>
     <%= render(FilterChipComponent.new(label: "connected", param: "connected", current_params: request.query_parameters, frame: "channels-index-table")) %>
@@ -33,7 +38,16 @@
           the controller hides on whichever action is first-visible.
           Action targets (open / count / sync / delete) self-hide when
           selection count is zero; see bulk_select_controller.js. %>
-      <div data-bulk-select-target="actions" style="margin-bottom: 2px;">
+      <%# `data-turbo-frame="_top"` cascades to the controller-injected
+          `[open N]` / `[sync N]` / `[delete N]` links so their clicks
+          navigate full-page to `/channels/panes`, `/syncs/channel/:ids`,
+          and `/deletions/channel/:ids` instead of being scoped to the
+          enclosing `channels-index-table` Turbo Frame. Each of those
+          targets is a full-page surface (panes workspace,
+          `shared/_action_screen.html.erb`) and has no matching frame
+          in its response — without `_top` Turbo shows "Content
+          missing". %>
+      <div data-bulk-select-target="actions" style="margin-bottom: 0;" data-turbo-frame="_top">
         <div class="bulk-toolbar">
           <span class="action" data-bulk-select-target="openHint">
             <span class="action-sep" hidden>&middot;</span>
