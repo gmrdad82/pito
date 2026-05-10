@@ -117,20 +117,29 @@ RSpec.describe "Settings", type: :request do
       expect(response.body).not_to include("[save]")
     end
 
-    it "renders settings as a .pane-row of ten .pane children" do
-      # Phase 3 — Step C (5c-settings-ui-and-docs.md) — sixth pane added
-      # for tokens. Phase 12 Step A added a sessions pane and Phase 12
-      # Step B added an oauth-applications pane, bringing the total to
-      # eight. Phase 7 Step C added a "google" pane reflecting Google
-      # OAuth connection state, bringing the total to nine. Phase 12 also
-      # added a "user" pane for self-service email/password change,
-      # bringing the total to ten. The global `:nth-child` zebra rule
-      # continues to handle A/B alternation automatically — no inline
-      # backgrounds in markup.
+    it "renders settings as five .pane-row groups holding nine total panes" do
+      # Phase 12 polish (2026-05-10) — the page is regrouped into five
+      # paired rows: row 1 appearance | workspaces, row 2 Google |
+      # YouTube, row 3 search | Voyage.ai, row 4 user (single pane;
+      # right side intentionally empty), row 5 OAuth-applications +
+      # tokens combined | sessions. The OAuth-applications and tokens
+      # surfaces share one pane separated by a `<hr class="hairline">`
+      # so two related token-issuance sections live next to each
+      # other, dropping the total pane count from ten to nine. The
+      # global `:nth-child` zebra rule continues to handle A/B
+      # alternation per row — no inline backgrounds in markup.
       get settings_path
-      expect(response.body.scan(/class="pane-row"/).length).to eq(1)
+      expect(response.body.scan(/class="pane-row"/).length).to eq(5)
       panes = response.body.scan(/class="pane(?:\s[^"]*)?"/).size
-      expect(panes).to eq(10)
+      expect(panes).to eq(9)
+    end
+
+    it "separates the OAuth applications and tokens sub-sections with a hairline" do
+      # The combined pane fences its two sections with a single
+      # `<hr class="hairline">`. Asserting on the markup pins the
+      # contract — without the hairline the pane reads as one blob.
+      get settings_path
+      expect(response.body).to include('<hr class="hairline">')
     end
 
     it "does not paint sections with inline pane-bg tokens (CSS handles zebra)" do
@@ -150,30 +159,112 @@ RSpec.describe "Settings", type: :request do
       expect(response.body).not_to match(/max-width:\s*880px;\s*margin:\s*0 auto/)
     end
 
-    # Row order: appearance, workspaces, oauth, voyage, search, tokens.
-    # Asserting via DOM order keeps the structure intact.
-    it "orders the sections appearance -> workspaces -> oauth -> voyage -> search -> tokens" do
+    # Phase 12 polish (2026-05-10) — DOM order across the five
+    # paired rows. Row 1: appearance, workspaces. Row 2: Google,
+    # YouTube. Row 3: search, Voyage.ai. Row 4: user. Row 5: OAuth
+    # applications + tokens (combined), sessions.
+    it "orders the panes appearance -> workspaces -> Google -> YouTube -> search -> Voyage -> user -> OAuth -> tokens -> sessions" do
       get settings_path
       idx_appearance = response.body.index('value="appearance"')
       idx_workspaces = response.body.index('value="workspaces"')
+      idx_google     = response.body.index("<h2>Google</h2>")
       idx_oauth      = response.body.index('value="youtube_oauth"')
-      idx_voyage     = response.body.index('value="voyage"')
       idx_search     = response.body.index("<h2>search</h2>")
+      idx_voyage     = response.body.index('value="voyage"')
+      idx_user       = response.body.index("<h2>user</h2>")
+      idx_oauth_apps = response.body.index("<h2>OAuth applications</h2>")
       idx_tokens     = response.body.index("<h2>tokens</h2>")
+      idx_sessions   = response.body.index("<h2>sessions</h2>")
 
-      expect([ idx_appearance, idx_workspaces, idx_oauth, idx_voyage, idx_search, idx_tokens ])
-        .to all(be_a(Integer))
-      expect(idx_appearance).to be < idx_workspaces
-      expect(idx_workspaces).to be < idx_oauth
-      expect(idx_oauth).to be < idx_voyage
-      expect(idx_voyage).to be < idx_search
-      expect(idx_search).to be < idx_tokens
+      indices = [ idx_appearance, idx_workspaces, idx_google, idx_oauth,
+                  idx_search, idx_voyage, idx_user, idx_oauth_apps,
+                  idx_tokens, idx_sessions ]
+      expect(indices).to all(be_a(Integer))
+      expect(indices).to eq(indices.sort)
     end
 
     it "renders the tokens pane with a link to /settings/tokens" do
       get settings_path
       expect(response.body).to include("<h2>tokens</h2>")
       expect(response.body).to include(settings_tokens_path)
+    end
+
+    # Phase 12 polish (2026-05-10) — brand casing exceptions to the
+    # site-wide lowercase tone. Pin them in the markup so future
+    # regressions don't quietly downcase a brand name.
+    it "uses brand casing for Google, YouTube, Voyage.ai, and OAuth" do
+      get settings_path
+      expect(response.body).to include("<h2>Google</h2>")
+      expect(response.body).to include("<h2>YouTube</h2>")
+      expect(response.body).to include("<h2>Voyage.ai</h2>")
+      expect(response.body).to include("<h2>OAuth applications</h2>")
+    end
+
+    # Phase 12 polish — search section heading drops the "engine" word.
+    it "labels the search pane simply 'search' (no 'engine' suffix)" do
+      get settings_path
+      expect(response.body).to include("<h2>search</h2>")
+      expect(response.body).not_to include("<h2>search engine</h2>")
+    end
+
+    # Phase 12 polish — the YouTube client secret field is masked the
+    # same way Voyage.ai's API key field is. The stored secret value
+    # MUST NOT round-trip into the form's `value=""`. The rendered
+    # placeholder reflects the configured / not-configured state.
+    it "does not echo the YouTube client secret into the form value" do
+      AppSetting.set("youtube_client_secret", "super-secret-shhh")
+      get settings_path
+      # No <input> for the secret carries a value="..." with the plaintext.
+      expect(response.body).not_to include("super-secret-shhh")
+      # The placeholder reflects the configured state.
+      expect(response.body).to include("secret configured")
+    end
+
+    it "shows a 'no secret configured' placeholder when the secret is blank" do
+      get settings_path
+      expect(response.body).to include("no secret configured")
+    end
+
+    # Phase 12 polish — compact prose pattern. Counts read as terse
+    # one-line sentences ("1 active token" / "10 active tokens" /
+    # "no active tokens"), not a big number followed by a label.
+    it "renders the tokens count as compact prose (singular)" do
+      get settings_path # signs in default user via support/auth.rb
+      ApiToken.delete_all
+      ApiToken.generate!(user: User.first, name: "t1", scopes: [ Scopes::APP ])
+      get settings_path
+      expect(response.body).to include("1 active token")
+    end
+
+    it "renders the tokens count as compact prose (zero state)" do
+      ApiToken.delete_all
+      get settings_path
+      expect(response.body).to include("no active tokens")
+    end
+
+    it "joins active and revoked token counts with a middle dot when both exist" do
+      get settings_path # signs in default user
+      ApiToken.delete_all
+      ApiToken.generate!(user: User.first, name: "live", scopes: [ Scopes::APP ])
+      revoked, _plaintext = ApiToken.generate!(user: User.first, name: "old", scopes: [ Scopes::APP ])
+      revoked.revoke!
+      get settings_path
+      # Look for the "1 active · 1 revoked" shape (middle dot).
+      expect(response.body).to match(/\d+ active\s+·\s+\d+ revoked/)
+    end
+
+    it "renders the sessions count as compact prose (singular)" do
+      # The auto-sign-in helper mints exactly one Session row for the
+      # default user, so the singular form is the natural state of a
+      # request spec.
+      get settings_path
+      expect(response.body).to include("1 active session")
+    end
+
+    it "renders the OAuth applications count as compact prose (zero state)" do
+      OauthApplication.delete_all if defined?(OauthApplication)
+      get settings_path
+      expect(response.body).to include("no OAuth applications")
     end
   end
 

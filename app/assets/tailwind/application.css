@@ -950,6 +950,20 @@ dialog.confirm-modal::backdrop {
 /* Hairline borders */
 .border-hairline { border: 1px solid var(--color-border); }
 
+/* `<hr class="hairline">` — single-line horizontal separator inside a
+   pane. Drops the hr default 0-height + browser-rendered shading,
+   leaving a single 1px top border in the pane border color. Used by
+   the settings page's combined OAuth-applications + tokens pane (the
+   two related token-issuance surfaces share one pane separated by a
+   hairline). Reusable anywhere a pane wants to fence off two
+   sub-sections without spawning a new pane wrapper. */
+hr.hairline {
+  height: 0;
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  margin: 8px 0;
+}
+
 /* Framed block — bordered, tinted container for "save this now" / one-time
    reveal surfaces. Read as visually distinct from the page background so
    users register the contained content as important / capture-now. Used by

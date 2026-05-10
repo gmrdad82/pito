@@ -10,7 +10,73 @@ RSpec.describe "Games", type: :request do
 
     it "renders the empty-state copy when no rows exist" do
       get games_path
-      expect(response.body).to include("no games yet. [search igdb] to add one.")
+      expect(response.body).to include("no games yet.")
+      expect(response.body).to include("type in the search box above")
+    end
+
+    # Phase 14 §1 polish (2026-05-10) — the legacy `[search igdb]`
+    # sibling button on the add form was dropped. The input submits on
+    # Enter; only the placeholder still mentions IGDB. The button-shaped
+    # `[search igdb]` chip should NOT be present anywhere on the page.
+    it "does not render a [search igdb] chip on the add form" do
+      get games_path
+      expect(response.body).not_to include("[search igdb]")
+    end
+
+    context "with at least one row" do
+      let!(:game) do
+        create(:game, :synced, title: "Zelda BotW", igdb_id: 7346,
+               release_year: 2017, igdb_rating: 95.0)
+      end
+
+      it "links the row's title directly to the show page" do
+        get games_path
+        expect(response.body).to include(%(href="#{game_path(game)}"))
+        expect(response.body).to include("Zelda BotW")
+      end
+
+      # The `[o]` open-action column was retired in the same polish
+      # pass — the title cell IS the link, mirroring channels/videos.
+      it "does not render a separate [o] open-action column" do
+        get games_path
+        expect(response.body).not_to include(">o<")
+      end
+
+      it "renders sortable headers (name / release / rating / played / last sync)" do
+        get games_path
+        expect(response.body).to include("class=\"sortable")
+        expect(response.body).to include(">name<")
+        expect(response.body).to include(">release<")
+        expect(response.body).to include(">rating<")
+        expect(response.body).to include(">played<")
+        expect(response.body).to include(">last sync<")
+      end
+
+      it "renders a [bulk] toggle next to [+]" do
+        get games_path
+        expect(response.body).to include("bulk-select-target=\"bulkToggle\"")
+        expect(response.body).to include(">bulk<")
+      end
+
+      it "renders bulk-select checkbox columns (initially hidden)" do
+        get games_path
+        expect(response.body).to include("bulk-select-target=\"bulkCol\"")
+        expect(response.body).to include("bulk-select-target=\"headerCheckbox\"")
+        expect(response.body).to include("bulk-select-target=\"checkbox\"")
+      end
+
+      it "honors a sort=title param" do
+        create(:game, :synced, title: "Aardvark", igdb_id: 1)
+        get games_path, params: { sort: "title", dir: "asc" }
+        expect(response).to have_http_status(:ok)
+        # Aardvark should appear before Zelda BotW.
+        expect(response.body.index("Aardvark")).to be < response.body.index("Zelda BotW")
+      end
+
+      it "ignores an unknown sort key (falls back to default)" do
+        get games_path, params: { sort: "evil_column; DROP TABLE games --" }
+        expect(response).to have_http_status(:ok)
+      end
     end
   end
 

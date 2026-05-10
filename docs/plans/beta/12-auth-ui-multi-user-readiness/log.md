@@ -194,3 +194,84 @@ Phase 6B — Doorkeeper OAuth Server:
 9. Hammer 11 failed logins from one IP — 11th returns 429.
 10. Hit `/api/footages` with no Authorization header → 401 (verifies Phase 5
     bearer surface still active in parallel).
+
+## 2026-05-10 — Settings → user account self-service
+
+**Discussion.** User asked for a "user account" section in settings where
+the authenticated user can change their own email or password. Strict
+scope: edit own email + password ONLY, no delete-account, no
+create-user, no password-recovery flow (deferred).
+
+**What landed.**
+
+- `config/routes.rb` — `resource :user, only: %i[show update],
+  controller: "user"` inside the existing `namespace :settings` block.
+  The `controller: "user"` override pins the singular controller name
+  so `Settings::UserController` (rather than Rails' default
+  pluralization to `Settings::UsersController`) handles the route.
+- `app/controllers/settings/user_controller.rb` — `show` renders the
+  form with `Current.user` pre-filled. `update` requires
+  `current_password` (verified via `User#authenticate`), then updates
+  email (when changed) and/or password (when both `password` and
+  `password_confirmation` match). Re-renders with `:unprocessable_content`
+  on any failure; redirects to `/settings` with flash on success.
+  No mass-assignment — explicit per-field reads from `params[:user]`.
+- `app/views/settings/user/show.html.erb` — breadcrumb [settings] / user,
+  H1 "user", lead paragraph (1 sentence per `<br>` line per project
+  convention), form wrapped in `.pane.pane--standalone` with email +
+  current_password + password + password_confirmation inputs and
+  `[update]` / `[cancel]` buttons.
+- `app/views/settings/index.html.erb` — adjacent edit by the linter
+  reorganized the page into 5 paired `.pane-row` groups (rows 1+2+3
+  paired, row 4 single-pane "user", row 5 OAuth-applications + tokens
+  combined / sessions). The "user" pane shows the current email +
+  `[edit account]` link to `settings_user_path`.
+- `spec/requests/settings/user_spec.rb` — 11 specs covering: show
+  renders pre-filled form; update with valid current password and
+  changed email; update password with matching confirmation; mismatched
+  confirmation 422; wrong current password 422 with no mutation; only
+  email change with blank password fields; blank current password 422;
+  smuggled `admin` / `role` / `password_digest` params are inert;
+  email-format validation re-renders form; unauthenticated GET / PATCH
+  redirect to `/login`.
+- `spec/requests/settings_spec.rb` — adjacent linter-shepherded sweep
+  added compact-prose / brand-casing / hairline-separator / DOM-order
+  assertions for the new 5-row layout; passing in the final state.
+
+**Files changed.**
+
+- `config/routes.rb`
+- `app/controllers/settings/user_controller.rb` (new)
+- `app/views/settings/user/show.html.erb` (new)
+- `app/views/settings/index.html.erb` (linter reorganization +
+  user pane)
+- `spec/requests/settings/user_spec.rb` (new)
+- `spec/requests/settings_spec.rb` (linter sweep, pane count +
+  compact prose)
+
+**Quality gates.**
+
+- `bundle exec rspec spec/requests/settings/ spec/requests/settings_spec.rb`
+  → 117 examples, 0 failures.
+- `bundle exec rubocop app/controllers/settings/user_controller.rb
+  config/routes.rb spec/requests/settings/user_spec.rb` → 3 files,
+  no offenses.
+- `bundle exec brakeman -q -w2` → 0 security warnings.
+
+**Plan boxes ticked.**
+
+- `Settings → Account · Account info view`
+- `Settings → Account · Change password (requires current password)`
+- `Settings → Account · Specs for each form`
+
+Intentionally NOT ticked:
+
+- `Edit name (simple form)` — `User` has no name column; out of scope.
+- `Edit email (... sends confirmation email to new address)` — the
+  current implementation updates email immediately after current-password
+  re-prompt; the "send confirmation email to new address" flow is
+  deferred along with password recovery (no mailer infrastructure on
+  this surface yet).
+- `Sessions list integration` — separate Phase 12 Step A landing.
+
+**Open issues.** None for this dispatch.

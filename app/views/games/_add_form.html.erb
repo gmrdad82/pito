@@ -3,6 +3,12 @@
     `igdb-search` Stimulus controller wires debounced input events
     to `GET /games/search?q=…`, which renders the
     `_search_results.html.erb` partial inside the same frame.
+
+    2026-05-10 polish: the sibling `[search igdb]` chip was dropped.
+    The input alone submits on Enter (default form behavior); the
+    placeholder copy already conveys the input's purpose. The
+    `igdb-search` Stimulus controller still owns the debounced
+    type-ahead.
 %>
 <div data-controller="igdb-search"
      data-igdb-search-url-value="<%= search_games_path %>"
@@ -14,7 +20,6 @@
          data-action="input->igdb-search#search"
          style="width: 320px; padding: 4px 6px;
                 font-family: ui-monospace, monospace; font-size: 13px;" />
-  <span class="text-muted" style="margin-left: 8px;">[search igdb]</span>
   <div style="margin-top: 8px;">
     <%= turbo_frame_tag "igdb_search_results" %>
   </div>

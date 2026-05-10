@@ -248,13 +248,13 @@ Theta will turn the flag on. Beta keeps single-user.
 
 ### Settings → Account
 
-- [ ] Account info view
+- [x] Account info view
 - [ ] Edit name (simple form)
 - [ ] Edit email (requires current password; sends confirmation email to new
       address)
-- [ ] Change password (requires current password)
+- [x] Change password (requires current password)
 - [ ] Sessions list integration
-- [ ] Specs for each form
+- [x] Specs for each form
 
 ### Token UI maturation
 

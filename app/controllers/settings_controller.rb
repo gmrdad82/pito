@@ -9,8 +9,18 @@ class SettingsController < ApplicationController
     @theme = AppSetting.get("theme") || "auto"
     @voyage_configured = AppSetting.voyage_configured?
     @voyage_indexing_project_notes = AppSetting.voyage_indexing_project_notes?
+    # Phase 12 polish (2026-05-10) — the YouTube pane masks the client
+    # secret the same way the Voyage.ai pane masks its API key. The view
+    # never re-emits the stored value; it only reflects the configured
+    # state via a placeholder. The underlying AppSetting `value` column
+    # is encrypted at rest, so this is purely a "don't show secrets in
+    # the form" measure.
+    @youtube_client_secret_configured = AppSetting.get("youtube_client_secret").present?
     # Phase 3 — Step C: tokens pane shows a count + link to the dedicated page.
     @active_tokens_count = ApiToken.active.count
+    # Phase 12 polish (2026-05-10) — combined OAuth/tokens pane renders
+    # the active + revoked counts on the same compact-prose line.
+    @revoked_tokens_count = ApiToken.revoked.count
     # Phase 12 — Step A: sessions pane (active session count for the user).
     @active_sessions_count = Current.user.present? ? Current.user.sessions.where(revoked_at: nil).count : 0
     # Phase 12 — Step B: oauth applications pane (registered app count).

@@ -14,10 +14,31 @@
 class GamesController < ApplicationController
   MAX_QUERY_LENGTH = 100
 
+  # Phase 14 §1 polish (2026-05-10) — sortable columns on /games. Mirrors
+  # the `ChannelsController` / `VideosController` shape: an `ALLOWED_SORTS`
+  # whitelist maps user-facing keys to safe SQL column expressions, and
+  # `sort_clause` builds an `Arel.sql` literal. Default sort stays
+  # `created_at DESC` (matches the prior implicit ordering) so existing
+  # bookmarks and the index spec keep their results.
+  ALLOWED_SORTS = {
+    "id" => "games.id",
+    "title" => "games.title",
+    "release_year" => "games.release_year",
+    "igdb_rating" => "games.igdb_rating",
+    "played_at" => "games.played_at",
+    "igdb_synced_at" => "games.igdb_synced_at",
+    "created_at" => "games.created_at"
+  }.freeze
+  ALLOWED_DIRS = %w[asc desc].freeze
+  DEFAULT_SORT = "created_at"
+  DEFAULT_DIR = "desc"
+
   skip_before_action :verify_authenticity_token, if: -> { request.format.json? }
 
   def index
-    @games = Game.order(created_at: :desc)
+    @games = Game.order(sort_clause)
+    @sort = sanitized_sort_key
+    @dir = sanitized_dir
   end
 
   def show
@@ -112,5 +133,20 @@ class GamesController < ApplicationController
       :notes,
       :hours_of_footage_manual
     )
+  end
+
+  def sanitized_sort_key
+    ALLOWED_SORTS.key?(params[:sort]) ? params[:sort] : DEFAULT_SORT
+  end
+
+  def sanitized_dir
+    requested = params[:dir]&.downcase
+    ALLOWED_DIRS.include?(requested) ? requested : DEFAULT_DIR
+  end
+
+  def sort_clause
+    column = ALLOWED_SORTS[params[:sort]] || ALLOWED_SORTS[DEFAULT_SORT]
+    direction = ALLOWED_DIRS.include?(params[:dir]&.downcase) ? params[:dir].downcase : DEFAULT_DIR
+    Arel.sql("#{column} #{direction} NULLS LAST")
   end
 end

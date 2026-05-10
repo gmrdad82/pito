@@ -1,46 +1,96 @@
+<%# Phase 14 §1 polish (2026-05-10) — `/games` index revamp.
+    - The `[search igdb]` sibling button on the add form is gone; the
+      input alone submits on Enter (default form behavior); the
+      `igdb-search` Stimulus controller still owns the debounced
+      type-ahead.
+    - The legacy `[o]` open-action column is gone; the row's `name`
+      cell IS the show-page link, mirroring the channels/videos
+      tightening from 2026-05-05.
+    - Bulk + sortable infrastructure mirrors `app/views/projects/index.html.erb`:
+      a `[bulk]` toggle next to `[+]` enters bulk mode, sortable
+      column headers post `?sort=…&dir=…` against the same Turbo Frame
+      so only the table re-renders. %>
 <% content_for(:title, "games") %>
 
-<div style="max-width: 1100px;">
+<%
+  current_sort = @sort
+  current_dir = @dir
+%>
+<div style="max-width: 1100px;" data-controller="bulk-select" data-bulk-select-entity-name-value="games" data-bulk-select-delete-type-value="game">
   <div class="dot-list" style="margin-bottom: 6px;">
     <h1>games</h1>
     <%= button_to games_path, form: { style: "display: inline;", data: { turbo: false } }, class: "bracketed", method: :post do %>[<span class="bl">+</span>]<% end %>
+    <span data-bulk-select-target="bulkToggle">
+      <%= render(BracketedLinkComponent.new(label: "bulk", href: "#", data: { action: "click->bulk-select#enterBulk" })) %>
+    </span>
   </div>
 
   <%= render "add_form" %>
 
-  <% if @games.any? %>
-    <table>
-      <thead>
-        <tr>
-          <th class="col-action"></th>
-          <th>title</th>
-          <th>release</th>
-          <th>rating</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        <% @games.each do |game| %>
+  <%# Turbo-frame wrapper — sort header clicks target this frame so only
+      the table re-renders. The empty state lives inside the frame too
+      so the frame element exists on every render. %>
+  <%= turbo_frame_tag "games-index-table" do %>
+    <% if @games.any? %>
+      <%# Bulk toolbar — same leading-separator pattern projects uses. %>
+      <div data-bulk-select-target="actions" hidden class="bulk-toolbar" style="margin-bottom: 6px;">
+        <span class="action" data-bulk-select-target="count" hidden>
+          <span class="action-sep" hidden>&middot;</span>
+        </span>
+        <span class="action" data-bulk-select-target="deleteAction" hidden>
+          <span class="action-sep" hidden>&middot;</span>
+        </span>
+        <span class="action">
+          <span class="action-sep" hidden>&middot;</span>
+          <%= render(BracketedLinkComponent.new(label: "cancel", href: "#", data: { action: "click->bulk-select#exitBulk" })) %>
+        </span>
+      </div>
+
+      <table>
+        <thead>
           <tr>
-            <td class="col-action">
-              <%= render(BracketedLinkComponent.new(label: "o", href: game_path(game))) %>
-            </td>
-            <td><%= game.title %></td>
-            <td><%= game.release_year || "—" %></td>
-            <td><%= game.igdb_rating ? "#{game.igdb_rating.to_i} / 100" : "—" %></td>
-            <td>
-              <% if game.igdb_id.present? %>
-                <%= button_to "[resync]", resync_game_path(game),
-                              method: :post,
-                              class: "bracketed",
-                              form: { style: "display: inline; margin: 0;", data: { turbo: false } } %>
-              <% end %>
-            </td>
+            <th class="col-action" data-bulk-select-target="bulkCol" hidden>
+              <%= render(CheckboxComponent.new(data: { bulk_select_target: "headerCheckbox", action: "change->bulk-select#toggleAll" })) %>
+            </th>
+            <th class="sortable"><%= sort_link_to("name", "title", current_sort: current_sort, current_dir: current_dir, frame: "games-index-table") %></th>
+            <th class="sortable num"><%= sort_link_to("release", "release_year", current_sort: current_sort, current_dir: current_dir, frame: "games-index-table") %></th>
+            <th class="sortable num"><%= sort_link_to("rating", "igdb_rating", current_sort: current_sort, current_dir: current_dir, frame: "games-index-table") %></th>
+            <th class="sortable num"><%= sort_link_to("played", "played_at", current_sort: current_sort, current_dir: current_dir, frame: "games-index-table") %></th>
+            <th class="sortable num"><%= sort_link_to("last sync", "igdb_synced_at", current_sort: current_sort, current_dir: current_dir, frame: "games-index-table") %></th>
+            <th></th>
           </tr>
-        <% end %>
-      </tbody>
-    </table>
-  <% else %>
-    <p class="text-muted">no games yet. [search igdb] to add one.</p>
+        </thead>
+        <tbody>
+          <% @games.each do |game| %>
+            <tr>
+              <td class="col-action" data-bulk-select-target="bulkCol" hidden>
+                <%= render(CheckboxComponent.new(value: game.id, data: { bulk_select_target: "checkbox", action: "change->bulk-select#toggle" })) %>
+              </td>
+              <td><%= link_to game.title, game_path(game), data: { turbo_frame: "_top" } %></td>
+              <td class="num"><%= game.release_year || "—" %></td>
+              <td class="num"><%= game.igdb_rating ? "#{game.igdb_rating.to_i} / 100" : "—" %></td>
+              <td class="num"><%= game.played_at&.iso8601 || "—" %></td>
+              <td class="num">
+                <% if game.igdb_synced_at.present? %>
+                  <%= compact_time_ago(game.igdb_synced_at) %>
+                <% else %>
+                  —
+                <% end %>
+              </td>
+              <td>
+                <% if game.igdb_id.present? %>
+                  <%= button_to resync_game_path(game),
+                                method: :post,
+                                class: "bracketed",
+                                form: { style: "display: inline; margin: 0;", data: { turbo: false } } do %>[<span class="bl">resync</span>]<% end %>
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    <% else %>
+      <p class="text-muted">no games yet. type in the search box above to find one on igdb.</p>
+    <% end %>
   <% end %>
 </div>
