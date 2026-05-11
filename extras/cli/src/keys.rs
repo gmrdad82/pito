@@ -210,8 +210,23 @@ fn handle_normal(app: &mut App, key: KeyEvent) {
                 app.key_state = KeyState::FilterPrefix;
                 return;
             }
+            // `x` toggles row-selection on the highlighted row. Replaces the
+            // SPACE binding that became the global leader key once the unified
+            // `config/keybindings.yml` schema landed.
+            KeyCode::Char('x') => {
+                toggle_channels_row_selection(app);
+                return;
+            }
             _ => {}
         }
+    }
+
+    // Videos-screen specific keys (must run before generic q/etc.)
+    if app.screen == Screen::Videos
+        && let KeyCode::Char('x') = key.code
+    {
+        toggle_videos_row_selection(app);
+        return;
     }
 
     // FootageDetail screen specific keys (must run before generic q/etc.)
@@ -513,6 +528,41 @@ fn handle_enter(app: &mut App) {
     }
 }
 
+/// Toggle membership of the highlighted Channels row in `selected_ids`. If
+/// the row's id is already in the set, remove it; otherwise add it. No-op when
+/// the visible list is empty or the cursor is out of range.
+fn toggle_channels_row_selection(app: &mut App) {
+    let visible = crate::ui::channels::visible_channels(&app.channels_state);
+    let Some(row) = visible.get(app.channels_state.selected) else {
+        return;
+    };
+    let id = row.id;
+    if let Some(pos) = app
+        .channels_state
+        .selected_ids
+        .iter()
+        .position(|&i| i == id)
+    {
+        app.channels_state.selected_ids.remove(pos);
+    } else {
+        app.channels_state.selected_ids.push(id);
+    }
+}
+
+/// Toggle membership of the highlighted Videos row in `selected_ids`. Same
+/// semantics as `toggle_channels_row_selection` for the Videos screen.
+fn toggle_videos_row_selection(app: &mut App) {
+    let Some(video) = app.videos_state.videos.get(app.videos_state.selected) else {
+        return;
+    };
+    let id = video.id;
+    if let Some(pos) = app.videos_state.selected_ids.iter().position(|&i| i == id) {
+        app.videos_state.selected_ids.remove(pos);
+    } else {
+        app.videos_state.selected_ids.push(id);
+    }
+}
+
 fn handle_esc(app: &mut App) {
     app.clear_flash();
     match app.screen {
@@ -726,6 +776,79 @@ mod tests {
         assert!(
             app.channels_state.selected_ids.is_empty(),
             "`b` must not produce any selection state"
+        );
+    }
+
+    #[test]
+    fn x_toggles_row_selection_on_channels() {
+        // `x` is the replacement for the retired SPACE row-selection binding.
+        // First press on a highlighted row adds its id to `selected_ids`;
+        // second press removes it.
+        let mut app = App::with_client(Box::new(crate::api::client::MockClient::new()));
+        app.screen = Screen::Channels;
+        app.channels_state.filter = ChannelFilter::None;
+        app.channels_state.selected_ids.clear();
+        app.channels_state.selected = 0;
+
+        let visible = crate::ui::channels::visible_channels(&app.channels_state);
+        let expected_id = visible
+            .first()
+            .expect("seed must include at least one channel row")
+            .id;
+
+        // Add.
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('x'), KeyModifiers::NONE),
+        );
+        assert_eq!(
+            app.channels_state.selected_ids,
+            vec![expected_id],
+            "first `x` must add the highlighted row to selected_ids"
+        );
+
+        // Remove.
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('x'), KeyModifiers::NONE),
+        );
+        assert!(
+            app.channels_state.selected_ids.is_empty(),
+            "second `x` on the same row must remove it from selected_ids"
+        );
+    }
+
+    #[test]
+    fn x_toggles_row_selection_on_videos() {
+        let mut app = App::with_client(Box::new(crate::api::client::MockClient::new()));
+        app.screen = Screen::Videos;
+        app.videos_state.selected_ids.clear();
+        app.videos_state.selected = 0;
+
+        let expected_id = app
+            .videos_state
+            .videos
+            .first()
+            .expect("seed must include at least one video row")
+            .id;
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('x'), KeyModifiers::NONE),
+        );
+        assert_eq!(
+            app.videos_state.selected_ids,
+            vec![expected_id],
+            "first `x` must add the highlighted video to selected_ids"
+        );
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('x'), KeyModifiers::NONE),
+        );
+        assert!(
+            app.videos_state.selected_ids.is_empty(),
+            "second `x` on the same row must remove it from selected_ids"
         );
     }
 
