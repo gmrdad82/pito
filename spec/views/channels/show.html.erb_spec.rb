@@ -216,6 +216,42 @@ RSpec.describe "channels/show.html.erb", type: :view do
       expect(analytics_idx).to be < google_idx
     end
 
+    # 2026-05-11 (later) — zebra striping regression guards. Each
+    # row-2 pane must wear the plain `.pane` class so the workspace
+    # `:nth-child(even)` rule paints the right-hand sibling with the
+    # contrasting `--color-pane-bg-b` background (matches /settings).
+    # `.pane--standalone` would suppress that nth-child rule and
+    # collapse both siblings onto the same bg-a tone.
+    it "wraps the analytics pane in a plain `.pane` (not `pane--standalone`)" do
+      render
+      analytics_pane = rendered[/<div class="([^"]*)"[^>]*>\s*<h2[^>]*>analytics<\/h2>/, 1]
+      expect(analytics_pane).not_to be_nil
+      expect(analytics_pane.split(/\s+/)).to include("pane")
+      expect(analytics_pane).not_to include("pane--standalone")
+    end
+
+    it "wraps the Google connection pane in a plain `.pane` (not `pane--standalone`)" do
+      render
+      # The Google panel partial wraps its content in a single root
+      # `<div class="pane" data-google-panel ...>`. Capture the class
+      # list off that anchor.
+      google_pane = rendered[/<div class="([^"]*)"\s+data-google-panel/, 1]
+      expect(google_pane).not_to be_nil
+      expect(google_pane.split(/\s+/)).to include("pane")
+      expect(google_pane).not_to include("pane--standalone")
+    end
+
+    it "places both row-2 panes inside the same `.pane-row` so the zebra rhythm applies" do
+      # `:nth-child(even)` only kicks in when both panes are direct
+      # children of the same flex container. Regression guard.
+      render
+      row_html = rendered[
+        /<div class="pane-row">(?:(?!<div class="pane-row">).)*?<h2[^>]*>analytics<\/h2>.*?data-google-panel.*?<\/div>\s*<\/div>/m
+      ]
+      expect(row_html).not_to be_nil,
+        "expected analytics + Google connection panes inside a shared `.pane-row`"
+    end
+
     it "renders the chrome row actions: [e], [sync], [-]" do
       render
       # The breadcrumb actions block lives in content_for; the view spec

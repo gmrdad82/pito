@@ -8,6 +8,22 @@ RSpec.describe "channels/_google_panel.html.erb", type: :view do
     expect(rendered).to include("[connect this channel]")
   end
 
+  # 2026-05-11 (later) — root pane class regression guard. The panel
+  # sits beside the analytics pane on /channels/:slug row 2 inside a
+  # shared `.pane-row`. It must use the plain `.pane` class so the
+  # workspace zebra rule (`.pane:nth-child(even)` →
+  # `--color-pane-bg-b`) paints it visually distinct from the
+  # analytics pane on its left. `.pane--standalone` would suppress
+  # that nth-child rule.
+  it "uses the plain `.pane` class on its root (no `pane--standalone`)" do
+    channel = create(:channel)
+    render partial: "channels/google_panel", locals: { channel: channel, youtube_connection: nil }
+    root_classes = rendered[/<div class="([^"]*)"\s+data-google-panel/, 1]
+    expect(root_classes).not_to be_nil
+    expect(root_classes.split(/\s+/)).to include("pane")
+    expect(root_classes).not_to include("pane--standalone")
+  end
+
   context "with a connection" do
     let(:user) { User.first || create(:user) }
     let(:connection) do

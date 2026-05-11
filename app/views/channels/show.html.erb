@@ -156,9 +156,17 @@
       was dropped from the analytics table (the dedicated videos
       table further down surfaces that count next to the `[see all
       videos]` link). NO inline sparkline (locked decision — avoid
-      chartkick coupling on the show page). %>
+      chartkick coupling on the show page).
+
+      2026-05-11 (later) — each pane uses the plain `.pane` class
+      (NOT `.pane--standalone`) so the workspace zebra rhythm kicks
+      in: odd → `--color-pane-bg-a`, even → `--color-pane-bg-b`.
+      The two adjacent siblings render with alternating backgrounds,
+      matching the /settings layout. The detail pane in row 1
+      keeps `pane--standalone` because it stands alone (single
+      pane spanning the row). %>
   <div class="pane-row">
-    <div class="pane pane--standalone">
+    <div class="pane">
       <h2 style="margin: 0 0 8px 0;">analytics</h2>
       <table class="detail-table" style="margin-bottom: 8px;">
         <tr>

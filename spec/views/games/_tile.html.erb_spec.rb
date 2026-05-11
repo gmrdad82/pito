@@ -7,13 +7,14 @@ require "rails_helper"
 #   line 1: title, truncated with `…` if it exceeds the cover width.
 #           2026-05-11 polish (Fix 6) — rendered BOLD when the game is
 #           not yet released (release_date nil or in the future).
-#   line 2: `<NN>/100 · <YYYY>` — rating second-line metadata.
-#           2026-05-11 polish (Fix 5) — the star glyph was retired
-#           from the rating segment.
+#   line 2: `<rating-badge> · <YYYY>` — rating second-line metadata.
+#           2026-05-11 polish (Fix 2): the rating segment is now the
+#           colored bold `Games::RatingBadgeComponent` (integer only,
+#           no `/100` suffix). The middle-dot separator and year
+#           remain plain text.
 #
 # The :grid variant (default) and :shelf variant share the same
-# layout; the only delta is caption font size. See
-# `GamesHelper#game_meta_line` for the metadata composition logic.
+# layout; the only delta is caption font size.
 RSpec.describe "games/_tile.html.erb", type: :view do
   # `release_date` is in the past so the tile does NOT get the
   # not-released treatment unless a test specifically overrides it.
@@ -42,8 +43,9 @@ RSpec.describe "games/_tile.html.erb", type: :view do
       expect(rendered).to have_css(".tile-caption-title", text: "Red Dead Redemption 2")
     end
 
-    it "renders the metadata line in `.tile-caption-meta`" do
-      expect(rendered).to have_css(".tile-caption-meta", text: "93/100 · 2018")
+    it "renders the metadata line in `.tile-caption-meta` with no /100 suffix" do
+      expect(rendered).to have_css(".tile-caption-meta", text: "93 · 2018")
+      expect(rendered).not_to include("93/100")
     end
 
     it "preserves the outer `.tile-caption` wrapper" do
@@ -58,7 +60,7 @@ RSpec.describe "games/_tile.html.erb", type: :view do
     it "uses the middle-dot separator between rating and year" do
       expect(rendered).to include("·")
       meta = Capybara.string(rendered).find(".tile-caption-meta").text
-      expect(meta).to match(%r{93/100\s*·\s*2018})
+      expect(meta).to match(%r{93\s*·\s*2018})
     end
 
     it "does NOT render the star glyph (Fix 5 — retired)" do
@@ -112,11 +114,13 @@ RSpec.describe "games/_tile.html.erb", type: :view do
   end
 
   # ------------------------------------------------------------
-  # Fix 5 — rating renders as `<NN>/100` instead of `★ <NN>`.
+  # Fix 2 (2026-05-11) — rating renders as bare colored integer.
+  # The legacy `/100` suffix is gone; the rating segment now carries
+  # the colored bold badge.
   # ------------------------------------------------------------
 
-  describe "happy: rating renders as <NN>/100 (Fix 5)" do
-    it "renders single-digit rating without zero-padding — 5 → 5/100" do
+  describe "happy: rating renders as colored integer (Fix 2)" do
+    it "renders single-digit rating without zero-padding — 5 → '5 · 2021'" do
       g = create(:game, :synced,
                  title: "Indie Gem",
                  release_date: Date.new(2021, 6, 1),
@@ -127,13 +131,29 @@ RSpec.describe "games/_tile.html.erb", type: :view do
 
       render_tile(g)
 
-      expect(rendered).to include("5/100 · 2021")
+      meta_text = Capybara.string(rendered).find(".tile-caption-meta").text.strip
+      expect(meta_text).to match(%r{\A5\s*·\s*2021\z})
       expect(rendered).not_to include("★")
+      expect(rendered).not_to include("/100")
     end
 
-    it "renders two-digit rating as <NN>/100 — 93 → 93/100" do
+    it "renders the colored badge inside the meta line" do
       render_tile(game)
-      expect(rendered).to include("93/100")
+      meta_node = Capybara.string(rendered).find(".tile-caption-meta")
+      expect(meta_node).to have_css("span.game-rating-badge", text: "93")
+    end
+
+    it "applies the per-tier color to the rating badge" do
+      render_tile(game)
+      badge = Capybara.string(rendered).find(".tile-caption-meta span.game-rating-badge")
+      expect(badge[:class]).to include("game-rating-badge--excellent")
+      expect(badge[:style]).to include("color: var(--color-rating-excellent)")
+      expect(badge[:style]).to include("font-weight: bold")
+    end
+
+    it "does NOT include the legacy /100 suffix anywhere on the tile" do
+      render_tile(game)
+      expect(rendered).not_to include("/100")
     end
   end
 
@@ -157,10 +177,12 @@ RSpec.describe "games/_tile.html.erb", type: :view do
       expect(rendered).to have_css(".tile-caption-meta", text: "2020")
     end
 
-    it "does NOT render the rating segment when rating is missing" do
+    it "does NOT render the rating badge when rating is missing" do
       render_tile(no_rating)
-      meta = Capybara.string(rendered).find(".tile-caption-meta").text
-      expect(meta).not_to include("/100")
+      meta_node = Capybara.string(rendered).find(".tile-caption-meta")
+      expect(meta_node).not_to have_css("span.game-rating-badge--excellent")
+      expect(meta_node).not_to have_css("span.game-rating-badge--missing")
+      expect(meta_node).not_to have_css("span.game-rating-badge")
     end
 
     it "does NOT leave a leading dot when rating is missing" do
@@ -182,9 +204,11 @@ RSpec.describe "games/_tile.html.erb", type: :view do
              igdb_slug: "vintage-no-year")
     end
 
-    it "renders the meta line with `<NN>/100` only" do
+    it "renders the meta line with the rating badge only (no /100 suffix)" do
       render_tile(no_year)
-      expect(rendered).to have_css(".tile-caption-meta", text: "78/100")
+      meta_node = Capybara.string(rendered).find(".tile-caption-meta")
+      expect(meta_node).to have_css("span.game-rating-badge", text: "78")
+      expect(rendered).not_to include("78/100")
     end
 
     it "does NOT leave a trailing dot when year is missing" do
@@ -378,7 +402,8 @@ RSpec.describe "games/_tile.html.erb", type: :view do
       render_tile(game)
       anchor = Capybara.string(rendered).find("a.tile")
       expect(anchor[:title]).to include("Red Dead Redemption 2")
-      expect(anchor[:title]).to include("93/100 · 2018")
+      expect(anchor[:title]).to include("93 · 2018")
+      expect(anchor[:title]).not_to include("93/100")
     end
   end
 
@@ -409,7 +434,7 @@ RSpec.describe "games/_tile.html.erb", type: :view do
     it "renders the same tile when passed via `item:`" do
       render partial: "games/tile", locals: { item: game }
       expect(rendered).to have_css(".tile-caption-title", text: "Red Dead Redemption 2")
-      expect(rendered).to have_css(".tile-caption-meta", text: "93/100 · 2018")
+      expect(rendered).to have_css(".tile-caption-meta", text: "93 · 2018")
     end
   end
 end

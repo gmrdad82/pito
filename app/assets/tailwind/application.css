@@ -452,11 +452,12 @@ a.text-danger.bracketed:hover, a.text-danger.bracketed:hover .bl { color: var(--
 }
 
 /* Themed scrollbars — sitewide, both axes.
-   Webkit/Blink: the unsuffixed `::-webkit-scrollbar` rules apply to
-   both horizontal and vertical scrollbars (body, modals, textareas,
-   inner overflow). The axis-suffixed variants below keep historical
-   horizontal-specific tuning intact (kept identical to the global
-   rules so behavior is unchanged on horizontal surfaces).
+   Webkit/Blink: the unsuffixed `::-webkit-scrollbar` rules below apply
+   to both horizontal and vertical scrollbars (body, modals, textareas,
+   inner overflow). 8px on both axes, muted thumb with rounded corners,
+   darkens to --color-text on hover. Replaces the older
+   `:horizontal`-scoped ruleset so the default OS vertical scrollbar
+   (which clashed with the monospace minimalist look) is themed too.
    Firefox: `scrollbar-width` + `scrollbar-color` is the CSS standard
    with no axis-specific form. We apply it globally on `html` so both
    axes are themed, matching the Webkit rules.
@@ -1051,6 +1052,37 @@ dialog.confirm-modal::backdrop {
 }
 .confirm-modal-actions button.text-danger:hover {
   color: var(--color-danger-hover);
+}
+
+/* 2026-05-11 — Slack-style segmented 6-digit input for the
+   layout-level TOTP verification modal (`shared/_totp_verification_modal`).
+   Six 28px boxes side-by-side with a small gap; monospace font (the
+   page already inherits it, but we lock it here so the boxes render
+   identically even if a parent surface ever changes its font). The
+   `text-align: center` + bold weight match the visual rhythm of a
+   one-time-code prompt — a digit per cell, the eye scans left-to-right
+   without ambiguity. Focus ring uses the project's link color so
+   keyboard focus is unmistakable. */
+.totp-modal-boxes {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.totp-modal-box {
+  width: 28px;
+  height: 32px;
+  text-align: center;
+  font-family: var(--default-mono-font-family, ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace);
+  font-size: 16px;
+  font-weight: bold;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
+  padding: 0;
+}
+.totp-modal-box:focus {
+  outline: 1px solid var(--color-link);
+  outline-offset: -1px;
 }
 
 /* Phase 26 — 01d (polish). Webhook help modal content styling.

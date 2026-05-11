@@ -65,4 +65,31 @@ RSpec.describe "Channel show journey", type: :system do
     expect(page).to have_content(/videos \(0\)/)
     expect(page).not_to have_link(text: /see all videos/i)
   end
+
+  # 2026-05-11 (later) — row 2 zebra rhythm. The analytics pane and
+  # the Google connection pane must render as two direct `.pane`
+  # children of the same `.pane-row`. The `:nth-child(even)` rule in
+  # tailwind/application.css then paints the right-hand sibling with
+  # `--color-pane-bg-b`, making the two panes visually distinct
+  # (mirrors the /settings two-up rows).
+  it "renders the analytics + Google panes as two `.pane` siblings inside one `.pane-row`" do
+    visit channel_path(channel)
+
+    # Locate the pane-row that contains the analytics heading; its
+    # direct `.pane` children should number exactly two, and neither
+    # should carry the `.pane--standalone` modifier (that would
+    # suppress the zebra rule). `rack_test` uses Nokogiri's XPath
+    # engine which doesn't grok CSS `:scope`, so we walk children
+    # via XPath `./` and filter by class on the Capybara side.
+    row = find(".pane-row", text: "analytics", match: :first)
+    panes = row.all(:xpath, "./div", visible: :all).select do |node|
+      node[:class].to_s.split(/\s+/).include?("pane")
+    end
+    expect(panes.size).to eq(2)
+    panes.each do |pane|
+      classes = pane[:class].to_s.split(/\s+/)
+      expect(classes).to include("pane")
+      expect(classes).not_to include("pane--standalone")
+    end
+  end
 end

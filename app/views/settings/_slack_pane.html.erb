@@ -16,8 +16,19 @@
     The pane reads current state from the AR row (if any). When no
     row exists yet both checkboxes render unchecked and the URL
     field renders empty. %>
+<%# 2026-05-11 — `totp-modal` Stimulus controller intercepts the
+    submit when 2FA is on; the layout-level TOTP verification modal
+    collects the code and re-submits with `totp_code` attached. The
+    inline `2FA code` text input that used to render above
+    `[update]` is gone — the modal IS the surface. When 2FA is off,
+    `required` is "no" and the submit passes through untouched. %>
 <div class="pane">
-  <%= form_with url: settings_slack_webhook_path, method: :patch, local: true do |_f| %>
+  <%= form_with url: settings_slack_webhook_path, method: :patch, local: true,
+                data: {
+                  controller: "totp-modal",
+                  action: "submit->totp-modal#maybeIntercept",
+                  totp_modal_required_value: Current.user&.totp_enabled? ? "yes" : "no"
+                } do |_f| %>
     <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
       <legend><h2>Slack</h2></legend>
 
@@ -58,19 +69,12 @@
           `coerce_boolean` helper treats absence as `false`. This
           matches the existing Voyage pane checkbox pattern. %>
 
-      <%# 2026-05-11 — fresh TOTP gate. When 2FA is on, the
-          controller rejects webhook saves that don't carry a
-          valid `totp_code`. Read-only views are not gated. %>
-      <% if Current.user&.totp_enabled? %>
-        <div style="margin-bottom: 8px;">
-          <label for="slack_totp_code" class="form-label">2FA code</label>
-          <input type="text" name="totp_code" id="slack_totp_code"
-                 value="" autocomplete="one-time-code" inputmode="numeric"
-                 pattern="\d{6}" maxlength="6"
-                 style="max-width: 420px; width: 100%;">
-          <span class="form-hint" style="display: block;">required to authorize the change.</span>
-        </div>
-      <% end %>
+      <%# 2026-05-11 — fresh TOTP gate. When 2FA is on the layout-level
+          TOTP modal opens on `[update]`; the inline 6-digit text input
+          this pane used to render is gone. The controller-side
+          `RecentTotpVerification` gate still reads `params[:totp_code]`
+          — the modal injects it as a hidden field on the form before
+          re-submitting. %>
 
       <div style="display: flex; align-items: baseline; gap: 8px;">
         <button type="submit">[update]</button>
