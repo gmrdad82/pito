@@ -224,8 +224,10 @@ RSpec.describe "Calendar::Schedule", type: :request do
                starts_at: 5.days.from_now)
         get "/calendar/schedule"
         # Calendar polish 2026-05-11 — bordered-box badge, no literal
-        # brackets around the text.
-        expect(response.body).to match(%r{<span class="calendar-badge calendar-badge--all-day">all day</span>})
+        # brackets around the text. 2026-05-11 sweep migrated rendering
+        # to the shared `StatusBadgeComponent`; canonical class is
+        # `.status-badge.status-badge--all_day`.
+        expect(response.body).to match(%r{<span class="status-badge status-badge--all_day">all day</span>})
         expect(response.body).not_to include("[ all day ]")
       end
 

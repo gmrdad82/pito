@@ -20,9 +20,16 @@ module VideoPolicy
   EDITABLE_ATTRS = %i[
     title description category_id project_id
     self_declared_made_for_kids contains_synthetic_media
+    thumbnail
   ].freeze
 
-  EDITABLE_ARRAY_ATTRS = { tags: [] }.freeze
+  # Phase 11 §01a — nested attributes for chapters + end-screens.
+  # Keys mirror the model's `accepts_nested_attributes_for` config.
+  EDITABLE_ARRAY_ATTRS = {
+    tags: [],
+    video_chapters_attributes: %i[id start_seconds label position _destroy],
+    video_end_screens_attributes: %i[id kind target_id target_label position _destroy]
+  }.freeze
 
   SMUGGLE_GUARDED_ATTRS = %i[privacy_status publish_at].freeze
 

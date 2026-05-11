@@ -83,6 +83,11 @@ class VideosController < ApplicationController
 
   def edit
     load_edit_form_locals
+    # Phase 11 §01a — eager-load + ensure at least one form row each
+    # for chapters + end-screens so the nested editor always renders
+    # a starting slot.
+    @video_chapters = @video.video_chapters.order(:start_seconds).to_a
+    @video_end_screens = @video.video_end_screens.order(:position, :id).to_a
   end
 
   def update
@@ -99,6 +104,22 @@ class VideosController < ApplicationController
       tags = csv.split(",").map(&:strip).reject(&:blank?)
       raw_video_params[:tags] = tags
     end
+
+    # Phase 11 §01a — End-screen `kind: none` collapse. When the
+    # form submits a `kind: "none"` row (or any row that resolves to
+    # `none`), every OTHER end-screen row gets marked `_destroy: 1`
+    # before save so the model invariant "no mixing none with other
+    # kinds" holds. The collapse runs server-side because the form
+    # cannot reliably destroy rows the user did not interact with.
+    collapse_end_screens_if_none!(raw_video_params)
+
+    # Phase 11 §01a — yes/no boundary RESERVED GUARD. The current
+    # writable subset has no Boolean fields exposed as `yes`/`no` at
+    # the wire (`self_declared_made_for_kids` and
+    # `contains_synthetic_media` ride as `"1"`/`"0"` form checkboxes,
+    # legacy contract). If a future writable Boolean lands, route it
+    # through `YesNo.from_yes_no` here before `permit`.
+
     attrs = VideoPolicy.permit(ActionController::Parameters.new(raw_video_params))
 
     if @video.update(attrs)
@@ -109,10 +130,9 @@ class VideosController < ApplicationController
     else
       respond_to do |format|
         format.html do
-          @projects = Project.order(:name)
-          @video_links = @video.video_game_links.includes(:game, :bundle).order(:id)
-          @link_pickable_games = Game.order(:title).limit(500)
-          @link_pickable_bundles = Bundle.order(:name).limit(500)
+          load_edit_form_locals
+          @video_chapters = @video.video_chapters.order(:start_seconds).to_a
+          @video_end_screens = @video.video_end_screens.order(:position, :id).to_a
           render :edit, status: :unprocessable_content
         end
         format.json { render json: { errors: @video.errors.full_messages }, status: :unprocessable_content }
@@ -191,6 +211,8 @@ class VideosController < ApplicationController
       respond_to do |format|
         format.html do
           load_edit_form_locals
+          @video_chapters = @video.video_chapters.order(:start_seconds).to_a
+          @video_end_screens = @video.video_end_screens.order(:position, :id).to_a
           @video.errors.add(:base, msg)
           render :edit, status: :unprocessable_content
         end
@@ -208,6 +230,8 @@ class VideosController < ApplicationController
       respond_to do |format|
         format.html do
           load_edit_form_locals
+          @video_chapters = @video.video_chapters.order(:start_seconds).to_a
+          @video_end_screens = @video.video_end_screens.order(:position, :id).to_a
           render :edit, status: :unprocessable_content
         end
         format.json { render json: { errors: @video.errors.full_messages }, status: :unprocessable_content }
@@ -461,6 +485,38 @@ class VideosController < ApplicationController
     @link_pickable_bundles = Bundle.order(:name).limit(500)
   end
 
+  # Phase 11 §01a — end-screen collapse on `kind: none`.
+  #
+  # When the user toggles `kind: none` on any submitted row, the
+  # model invariant "no mixing none with other kinds" forbids the
+  # other non-none rows from sticking around. The form cannot
+  # destroy rows the user did not interact with, so the controller
+  # collapses server-side: keep the first `none` row, mark every
+  # persisted non-none row `_destroy: 1`, and drop every unsaved
+  # non-none row entirely.
+  def collapse_end_screens_if_none!(raw_video_params)
+    nested = raw_video_params[:video_end_screens_attributes]
+    return if nested.blank?
+    return unless nested.is_a?(Hash)
+
+    rows = nested.to_h
+    none_key = rows.find { |_, r| r.is_a?(Hash) && r[:kind].to_s == "none" }&.first
+    return unless none_key
+
+    rows.each do |key, row|
+      next unless row.is_a?(Hash)
+      next if key == none_key
+
+      if row[:id].present?
+        row[:_destroy] = "1"
+      else
+        rows.delete(key)
+      end
+    end
+
+    raw_video_params[:video_end_screens_attributes] = rows
+  end
+
   def max_panes
     (AppSetting.get("max_panes") || ENV.fetch("MAX_PANES", 3)).to_i
   end
@@ -509,11 +565,13 @@ class VideosController < ApplicationController
     respond_to do |format|
       format.html do
         # Mirror `update`'s validation-error path — the edit template
-        # renders the linked-games/bundles fieldset (Phase 14 §3),
-        # which needs the same view-bag the regular failure render
-        # populates. Without this, the partial blows up on
-        # `links.any?` when @video_links is nil.
+        # renders the linked-games/bundles fieldset (Phase 14 §3) plus
+        # the Phase 11 §01a chapters / end-screens nested editors,
+        # which need the same view-bag the regular failure render
+        # populates.
         load_edit_form_locals
+        @video_chapters = @video.video_chapters.order(:start_seconds).to_a
+        @video_end_screens = @video.video_end_screens.order(:position, :id).to_a
         @video.errors.add(:base, msg)
         render :edit, status: :unprocessable_content
       end

@@ -44,8 +44,10 @@ RSpec.describe EntryRowComponent, type: :component do
       render_inline(described_class.new(entry: entry))
       # Calendar polish 2026-05-11 — the badge text is plain `all day`
       # (no bracketed-text decoration); the surrounding bordered span
-      # IS the visual delimiter.
-      expect(page).to have_css(".calendar-badge.calendar-badge--all-day", text: "all day")
+      # IS the visual delimiter. 2026-05-11 sweep migrated the rendering
+      # to the shared `StatusBadgeComponent`; the canonical class is
+      # `.status-badge.status-badge--all_day`.
+      expect(page).to have_css(".status-badge.status-badge--all_day", text: "all day")
       expect(page).not_to have_content("[ all day ]")
       expect(page).not_to have_content("—")
     end
@@ -106,7 +108,7 @@ RSpec.describe EntryRowComponent, type: :component do
     it "the `all day` badge does NOT carry the legacy `[ ... ]` bracket characters" do
       entry = create(:calendar_entry, :game_release, all_day: true)
       render_inline(described_class.new(entry: entry))
-      badge = page.find(".calendar-badge--all-day")
+      badge = page.find(".status-badge--all_day")
       expect(badge.text.strip).to eq("all day")
       expect(badge.text).not_to include("[")
       expect(badge.text).not_to include("]")

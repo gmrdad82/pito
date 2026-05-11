@@ -38,27 +38,29 @@ RSpec.describe "Imports::Channels", type: :request do
     it "disables the checkbox for channels with an in-flight job" do
       ImportJob.create!(channel: channel, enqueued_by: user, status: :running)
       get imports_channels_path
-      # The checkbox is rendered with `disabled` and no `name`.
+      # The checkbox is rendered with `disabled` and no `name`. The
+      # per-row `[import running]` badge was dropped along with the
+      # `status` column — the per-job progress indicator on the next
+      # screen surfaces in-flight state instead.
       expect(response.body).to include("disabled")
-      expect(response.body).to include("import running")
     end
 
     # Phase 22 polish — visual fixes on the channel-pick step:
     # 1. Native checkboxes replaced with bracketed `[ ]` / `[x]` style
     #    (CheckboxComponent + `.md-check-indicator` pseudo-element).
-    # 2. Rightmost column gets a header label ("status") — it surfaces
-    #    in-flight `[import running]` links.
-    # 3. Submit button copy `[start import]` → `[import]` (bare verb;
-    #    the heading already supplies "import" context).
-    # 4. 2026-05-11 redesign — modal restructured to mirror the channel
+    # 2. Submit button copy `[start import]` → `[import]` (bare verb;
+    #    the outer page heading already supplies "import" context).
+    # 3. 2026-05-11 redesign — modal restructured to mirror the channel
     #    sync action screen (`/syncs/show`):
-    #      * single inline breadcrumb `[videos] / [import channels]`
-    #        (slash separator, matches BreadcrumbComponent style).
-    #      * single `<h1>import channels</h1>` heading.
-    #      * `[import N]` + `[cancel]` action toolbar moved ABOVE the
-    #        table (bulk-action pattern); the bottom action row is gone.
+    #      * `[import N]` + `[cancel]` action toolbar above the table
+    #        (bulk-action pattern); the bottom action row is gone.
     #      * header-row `[ ]` checkbox toggles every per-row checkbox.
-    describe "Phase 22 polish (bracketed checkbox / column header / button copy / breadcrumb)" do
+    # 4. 2026-05-11 follow-up — dropped the inner breadcrumb, the
+    #    inner `<h1>import channels</h1>`, and the `status` column.
+    #    The outer page heading `videos [import]` already supplies the
+    #    navigation context, and the per-row progress indicator on the
+    #    next screen surfaces in-flight state.
+    describe "Phase 22 polish (bracketed checkbox / button copy / no inner chrome)" do
       before { channel }
 
       it "renders bracketed-style checkboxes (no bare native input style)" do
@@ -69,9 +71,15 @@ RSpec.describe "Imports::Channels", type: :request do
         expect(response.body).to include('class="md-check-indicator"')
       end
 
-      it "labels the rightmost column header as 'status'" do
+      it "does NOT render a `status` column header (column dropped)" do
         get imports_channels_path
-        expect(response.body).to match(%r{<th>\s*status\s*</th>})
+        expect(response.body).not_to match(%r{<th>\s*status\s*</th>})
+      end
+
+      it "does NOT render an `[import running]` per-row badge (column dropped)" do
+        ImportJob.create!(channel: channel, enqueued_by: user, status: :running)
+        get imports_channels_path
+        expect(response.body).not_to include("import running")
       end
 
       it "renders the submit button as [import] (not [start import])" do
@@ -81,40 +89,28 @@ RSpec.describe "Imports::Channels", type: :request do
         expect(response.body).not_to match(/\[\s*start import\s*\]/)
       end
 
-      it "renders the breadcrumb [videos] / [import channels] with a slash separator" do
+      it "does NOT render an inner breadcrumb (outer page heading owns nav context)" do
         get imports_channels_path
-        # `[videos]` is a real link back to /videos that escapes the
-        # modal turbo-frame (data-turbo-frame="_top").
-        expect(response.body).to match(
-          %r{<a [^>]*href="#{Regexp.escape(videos_path)}"[^>]*>\[<span class="bl">videos</span>\]</a>}
-        )
-        # Slash separator (BreadcrumbComponent style), NOT the prior
-        # mid-dot. Assert the slash glyph is present in the breadcrumb
-        # row.
-        expect(response.body).to match(%r{<span class="text-muted">\s*/\s*</span>})
-        # `[import channels]` is the active second segment — plain
-        # bracketed-active span hooked to the imports-select controller
-        # for dynamic copy updates.
-        expect(response.body).to include('<span class="bracketed-active" data-imports-select-target="breadcrumbTitle">[import channels]</span>')
+        # The inner `[videos]` / `[import channels]` breadcrumb is gone.
+        # The Stimulus controller's `breadcrumbTitle` target should no
+        # longer appear in the DOM.
+        expect(response.body).not_to include('data-imports-select-target="breadcrumbTitle"')
+        expect(response.body).not_to include('<span class="bracketed-active" data-imports-select-target="breadcrumbTitle">')
       end
 
-      it "renders a single <h1>import channels</h1> heading (no duplicate title)" do
+      it "does NOT render an inner <h1> (outer page heading owns the title)" do
         get imports_channels_path
-        # The new h1 is wired to imports-select#headingTitle so its
-        # copy stays in sync with the breadcrumb second segment.
-        expect(response.body).to match(
-          %r{<h1[^>]*data-imports-select-target="headingTitle"[^>]*>\s*import channels\s*</h1>}
-        )
-        # The old `[videos] · [import]` pseudo-breadcrumb-as-h1 is gone.
-        expect(response.body).not_to match(%r{<h1[^>]*class="dot-list"[^>]*>})
-        # And the legacy `import videos` literal title is also gone.
+        # The inner `<h1 data-imports-select-target="headingTitle">import channels</h1>`
+        # was dropped. The Stimulus `headingTitle` target should be gone.
+        expect(response.body).not_to include('data-imports-select-target="headingTitle"')
+        expect(response.body).not_to match(/<h1[^>]*>\s*import channels\s*<\/h1>/)
         expect(response.body).not_to match(/<h1[^>]*>\s*import videos\s*<\/h1>/)
       end
 
-      it "still surfaces the [import running] badge in the status column for in-flight channels" do
-        ImportJob.create!(channel: channel, enqueued_by: user, status: :running)
+      it "renders the tagline beneath the (outer) page heading" do
         get imports_channels_path
-        expect(response.body).to include("import running")
+        expect(response.body).to include("pick the channels to pull new uploads from")
+        expect(response.body).to include("already-imported and previously-rejected videos are skipped")
       end
     end
 
@@ -284,6 +280,31 @@ RSpec.describe "Imports::Channels", type: :request do
       expect(job.channel).to eq(channel)
     end
 
+    # 2026-05-11 regression — Witty Gaming stayed visually "queued"
+    # forever in the progress modal because the worker's broadcasts
+    # raced the browser's Action Cable subscription handshake and were
+    # dropped. The controller now enqueues via
+    # `perform_in(Imports::ChannelsController::SUBSCRIPTION_GRACE, …)`
+    # so the worker waits past the handshake before starting and its
+    # first broadcast lands on a live subscriber. Lock the call shape
+    # so a future refactor back to `perform_async` (or a delay of 0s)
+    # surfaces the regression here rather than in production.
+    it "enqueues via perform_in with the subscription-grace delay (cable-race fix)" do
+      channel
+      expect(Channel::ImportVideosJob).to receive(:perform_in)
+        .with(Imports::ChannelsController::SUBSCRIPTION_GRACE, channel.id, kind_of(Integer))
+        .and_call_original
+      expect(Channel::ImportVideosJob).not_to receive(:perform_async)
+
+      post imports_channels_path, params: { channel_ids: [ channel.id ] }
+      expect(response).to have_http_status(:ok)
+    end
+
+    it "uses a strictly-positive SUBSCRIPTION_GRACE (defensive against accidental zero-delay)" do
+      expect(Imports::ChannelsController::SUBSCRIPTION_GRACE).to be_a(ActiveSupport::Duration)
+      expect(Imports::ChannelsController::SUBSCRIPTION_GRACE.to_f).to be > 0
+    end
+
     it "creates one ImportJob per channel id" do
       channel
       second = create(:channel, youtube_connection: connection)
@@ -385,14 +406,16 @@ RSpec.describe "Imports::Channels", type: :request do
     # each enqueued row before rendering so the modal captures the
     # latest persisted state.
     #
-    # We simulate the worker flipping the row by stubbing
-    # `Channel::ImportVideosJob.perform_async` to synchronously update
-    # the most-recent ImportJob to `completed` — the exact wire pattern
-    # of a fast Sidekiq pickup.
+    # 2026-05-11 — the controller now enqueues via `perform_in` (not
+    # `perform_async`) so the worker waits past the cable-subscription
+    # handshake before starting. We stub `perform_in` to fire the same
+    # synchronous update the pre-fix `perform_async` stub used, which
+    # keeps the assertion (the modal must render the post-perform DB
+    # state, not the stale in-memory `queued`) honest.
     it "renders the latest persisted state when the worker finished before render (race regression)" do
       channel
 
-      allow(Channel::ImportVideosJob).to receive(:perform_async) do |_channel_id, import_job_id|
+      allow(Channel::ImportVideosJob).to receive(:perform_in) do |_delay, _channel_id, import_job_id|
         ImportJob.where(id: import_job_id).update_all(
           status: ImportJob.statuses[:completed],
           total_videos: 0,

@@ -16,6 +16,39 @@ class Imports::ChannelsController < ApplicationController
   # under 5s returns 429.
   ENQUEUE_RATE_LIMIT_TTL = 5.seconds
 
+  # 2026-05-11 fix — Action Cable subscription grace window.
+  #
+  # The progress modal uses `turbo_stream_from "import_jobs"` to receive
+  # `broadcast_replace_to` updates from `Channel::ImportVideosJob`. The
+  # cable subscription is established AFTER the page renders and the
+  # browser parses the `<turbo-stream-source>` element. If a Sidekiq
+  # worker picks the job up and finishes (broadcast included) before the
+  # browser has finished the subscription handshake, that broadcast is
+  # dropped on the floor and the row stays at its server-rendered
+  # `queued` state forever.
+  #
+  # The dev log captured exactly this for the "Witty Gaming" channel on
+  # 2026-05-11: the worker emitted both the `running` and `completed`
+  # broadcasts ~70ms after enqueue, ~150ms before the browser subscribed
+  # to `import_jobs`. The user-visible symptom is the row reading
+  # `queued` after every other channel in the same batch (which the
+  # subscription caught) has flipped to `no new uploads`.
+  #
+  # The previous `@enqueued.each(&:reload)` defense (commit `e09bf23`)
+  # closes a different race window (worker finishes between create and
+  # render): it reloads the DB once before render. It does NOT help when
+  # the broadcast itself races the subscription handshake — the reload
+  # happens too early to capture the worker's state, and the broadcast
+  # arrives too early for the browser to receive it.
+  #
+  # Smallest viable fix: enqueue with `perform_in(SUBSCRIPTION_GRACE, …)`
+  # instead of `perform_async`. The worker still runs (same Sidekiq
+  # queue, same retry semantics, same `perform` body), it just starts
+  # one second later. By then, both the server-render path and the
+  # cable subscription handshake have completed, so the worker's first
+  # broadcast lands on a live subscription.
+  SUBSCRIPTION_GRACE = 1.second
+
   # JSON-friendly: skip CSRF only for JSON request bodies. HTML keeps
   # its authenticity token check.
   skip_before_action :verify_authenticity_token, if: -> { request.format.json? }
@@ -61,7 +94,9 @@ class Imports::ChannelsController < ApplicationController
         enqueued_by: Current.user,
         status: :queued
       )
-      Channel::ImportVideosJob.perform_async(channel.id, job.id)
+      # `perform_in` (not `perform_async`) — see SUBSCRIPTION_GRACE
+      # docstring above for the cable-subscription race this avoids.
+      Channel::ImportVideosJob.perform_in(SUBSCRIPTION_GRACE, channel.id, job.id)
       @enqueued << job
     end
 

@@ -227,6 +227,59 @@ RSpec.describe DailyDigestSchedulerJob, type: :job do
     end
   end
 
+  # P26 reviewer concern 1 — locked decision: ONE digest per install
+  # per day, regardless of user count. Multi-user installs share the
+  # install-level webhook channels (ADR 0003 — no `user_id` on
+  # `notification_delivery_channels`), so per-user fan-out would
+  # N-fire into the same Slack/Discord channel.
+  describe "install-level dispatch (multi-user)" do
+    it "enqueues exactly one DailyDigestDeliverJob for the anchor user (lowest id) when multiple users exist" do
+      anchor = with_user(tz: "Etc/UTC")
+      _later1 = with_user(tz: "Etc/UTC")
+      _later2 = with_user(tz: "Etc/UTC")
+
+      travel_to(Time.utc(2026, 6, 15, 9, 0, 0)) do
+        described_class.new.perform
+      end
+
+      expect(enqueued_user_ids).to eq([ anchor.id ])
+    end
+
+    it "uses the anchor's tz (NOT a later user's tz) to decide pickup" do
+      # Anchor = Etc/UTC → 09:00 UTC tick fires.
+      # Second user = Europe/Bucharest → 06:00 UTC summer tick would fire
+      # for them in isolation; the install-level dispatch ignores it.
+      anchor = with_user(tz: "Etc/UTC")
+      _bucharest = with_user(tz: "Europe/Bucharest")
+
+      # 06:00 UTC summer — Bucharest local 09:00 in EEST, but the anchor
+      # is on Etc/UTC so this is a 06:00 anchor-local instant, NOT 09:00.
+      travel_to(Time.utc(2026, 6, 15, 6, 0, 0)) do
+        described_class.new.perform
+      end
+      expect(enqueued_user_ids).to be_empty
+
+      # 09:00 UTC — anchor-local 09:00, fires.
+      travel_to(Time.utc(2026, 6, 15, 9, 0, 0)) do
+        described_class.new.perform
+      end
+      expect(enqueued_user_ids).to eq([ anchor.id ])
+    end
+
+    it "does NOT double-fire when many users would individually be ripe at the same tick" do
+      anchor = with_user(tz: "Etc/UTC")
+      _others = Array.new(3) { with_user(tz: "Etc/UTC") }
+
+      travel_to(Time.utc(2026, 6, 15, 9, 0, 0)) do
+        described_class.new.perform
+      end
+
+      # One enqueued job total — for the anchor only.
+      expect(enqueued_user_ids.count).to eq(1)
+      expect(enqueued_user_ids.first).to eq(anchor.id)
+    end
+  end
+
   describe "edge: user enabled digest after today's 09:00 passed" do
     it "is not picked today (last_digest_run_at default == now)" do
       user = with_user(tz: "Etc/UTC", last_run: Time.utc(2026, 6, 15, 8, 30, 0))

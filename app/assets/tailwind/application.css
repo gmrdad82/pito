@@ -57,6 +57,26 @@
      blue action links. Purple reads on light bg, contrasts against blue. */
   --color-keycap: #6f42c1;
   --color-keycap-hover: #553098;
+  /* 2026-05-11 polish (Fix 2) — six-tier rating palette. Used by
+     `Games::RatingBadgeComponent` to color IGDB ratings inline. Light
+     mode values; the dark scope below overrides each with a contrast-
+     adjusted variant so the same component reads at every backdrop. */
+  --color-rating-excellent: #2e7d32; /* >= 90 — green */
+  --color-rating-good:      #7cb342; /* >= 80 — olive green */
+  --color-rating-fair:      #cdb732; /* >= 70 — yellow */
+  --color-rating-meh:       #a8740c; /* >= 60 — brownish-yellow */
+  --color-rating-poor:      #7a4f24; /* >= 50 — brown */
+  --color-rating-bad:       #cc0000; /* <  50 — clear red */
+  /* 2026-05-11 polish (Fix 1) — canonical column widths used by
+     listing tables across the app (notifications, channels, projects,
+     games, videos). Pulling these into one place keeps the bulk-select
+     checkbox column visually identical everywhere. */
+  --col-width-select:   36px;
+  --col-width-cover:    68px;
+  --col-width-genre:    120px;
+  --col-width-released: 100px;
+  --col-width-rating:   80px;
+  --col-width-owned:    60px;
 }
 
 [data-theme="dark"] {
@@ -111,6 +131,15 @@
      brighter tint in line with the existing --color-link-hover treatment. */
   --color-keycap: #bd93f9;
   --color-keycap-hover: #d4b8ff;
+  /* 2026-05-11 polish (Fix 2) — six-tier rating palette, dark variant.
+     Lifted luminance vs. light mode so each tier reads on the dark
+     backdrop without bleeding into muted/border tones. */
+  --color-rating-excellent: #50fa7b; /* >= 90 — green */
+  --color-rating-good:      #a8e063; /* >= 80 — olive green */
+  --color-rating-fair:      #f1fa8c; /* >= 70 — yellow */
+  --color-rating-meh:       #ffb86c; /* >= 60 — brownish-yellow */
+  --color-rating-poor:      #c08454; /* >= 50 — brown */
+  --color-rating-bad:       #ff5555; /* <  50 — clear red */
 }
 
 /* Base typography */
@@ -422,34 +451,43 @@ a.text-danger.bracketed:hover, a.text-danger.bracketed:hover .bl { color: var(--
   gap: 0;
 }
 
-/* Themed horizontal scrollbars — sitewide.
-   Webkit/Blink: `::-webkit-scrollbar:horizontal` scopes the rules to
-   horizontal scrollbars only, so vertical scrollbars (body, modals,
-   textareas) keep the browser default. Verified support in Chromium /
-   Safari.
+/* Themed scrollbars — sitewide, both axes.
+   Webkit/Blink: the unsuffixed `::-webkit-scrollbar` rules apply to
+   both horizontal and vertical scrollbars (body, modals, textareas,
+   inner overflow). The axis-suffixed variants below keep historical
+   horizontal-specific tuning intact (kept identical to the global
+   rules so behavior is unchanged on horizontal surfaces).
    Firefox: `scrollbar-width` + `scrollbar-color` is the CSS standard
-   but has no horizontal-only form. We apply it per-container via the
-   selector list below (and the `.themed-scroll-x` utility class for
-   future opt-ins) so vertical Firefox scrollbars stay default.
+   with no axis-specific form. We apply it globally on `html` so both
+   axes are themed, matching the Webkit rules.
    Mobile iOS Safari: ignores both — native overlay scrollbar wins,
    which is the right UX for mobile. */
-::-webkit-scrollbar:horizontal {
+::-webkit-scrollbar {
+  width: 8px;
   height: 8px;
 }
-::-webkit-scrollbar-track:horizontal {
+::-webkit-scrollbar-track {
   background: var(--color-bg);
 }
-::-webkit-scrollbar-thumb:horizontal {
+::-webkit-scrollbar-thumb {
   background: var(--color-muted);
   border-radius: 4px;
 }
-::-webkit-scrollbar-thumb:horizontal:hover {
+::-webkit-scrollbar-thumb:hover {
   background: var(--color-text);
 }
 
-/* Firefox per-container theming for every site-wide horizontal-scroll
-   surface. Add new containers to this list (or apply
-   `.themed-scroll-x`) when introducing horizontal overflow. */
+/* Firefox global theming — both axes. */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-muted) var(--color-bg);
+}
+
+/* Firefox per-container theming for site-wide horizontal-scroll
+   surfaces. Retained for explicitness; the `html` rule above already
+   covers descendants, but these containers historically opted in
+   and the `.themed-scroll-x` utility remains available for new
+   horizontal-overflow opt-ins. */
 .pane-strip,
 .saved-views-list,
 .markdown-preview pre,
@@ -1543,33 +1581,53 @@ textarea.note-editor-source {
 .notification-row.notification-read .notification-title { color: var(--color-muted); font-weight: 400; }
 .notification-row.notification-unread .notification-title { font-weight: 700; }
 .notification-glyph { font-size: 13px; }
-.notification-severity-badge {
-  display: inline-block;
-  padding: 1px 6px;
-  border: 1px solid var(--color-border);
-  font-size: 12px;
-  text-transform: lowercase;
-}
-.notification-severity-info    { color: var(--color-link); }
-.notification-severity-success { color: var(--color-success, #2e7d32); }
-.notification-severity-warn    { color: var(--color-warn,    #d97706); }
-.notification-severity-urgent  { color: var(--color-warn,    #d97706); }
-.notification-body a { color: var(--color-link); }
-
-/* Calendar polish 2026-05-11 — `[ all day ]` token is rendered as a
-   bordered badge matching the notification-severity-badge style. The
-   bracketed-text decoration is dropped (the border IS the visual
-   delimiter); the inner text is plain `all day`. The `--all-day`
-   modifier paints the text in the link color so the badge reads as an
-   informational marker (mirrors `.notification-severity-info`). */
+/* 2026-05-11 — Shared status badge primitive. Canonical class is
+   `.status-badge`; per-kind modifier `--<kind>` paints border + text
+   color. Replaces the ad-hoc `.notification-severity-badge` and
+   `.calendar-badge` rules — those are kept as ALIASES below so existing
+   markup / specs keep working. The border IS the visual delimiter — no
+   literal `[ ]` characters around the label. */
+.status-badge,
+.notification-severity-badge,
 .calendar-badge {
   display: inline-block;
   padding: 1px 6px;
   border: 1px solid var(--color-border);
+  border-radius: 2px;
   font-size: 12px;
+  line-height: 1.4;
+  vertical-align: baseline;
   text-transform: lowercase;
 }
-.calendar-badge--all-day { color: var(--color-link); }
+.status-badge--info,
+.notification-severity-info {
+  border-color: var(--color-border);
+  color: var(--color-muted);
+}
+.status-badge--success,
+.status-badge--yes,
+.notification-severity-success {
+  border-color: #2e7d32;
+  color: #2e7d32;
+}
+.status-badge--warn,
+.notification-severity-warn {
+  border-color: #cdb732;
+  color: #cdb732;
+}
+.status-badge--urgent,
+.notification-severity-urgent {
+  border-color: #cc0000;
+  color: #cc0000;
+}
+.status-badge--neutral,
+.status-badge--no,
+.status-badge--all_day,
+.calendar-badge--all-day {
+  border-color: var(--color-border);
+  color: var(--color-muted);
+}
+.notification-body a { color: var(--color-link); }
 
 /* Phase 7.5 §11d — Channel multi-layout preview component.
    Wide modal frame (reusable; 11e watermark preview piggybacks on the
@@ -2105,6 +2163,40 @@ dialog.wide-modal::backdrop {
   aspect-ratio: 1 / 1;
   border: 1px solid #ddd;
   min-height: 14px;
+  position: relative;
+  cursor: pointer;
+  outline: none;
+}
+/* P26 reviewer concern 4 — CSS-only tooltip. Replaces the native
+   `title=` attribute (1-2s hover delay, keyboard-inaccessible) with
+   a positioned `::after` pseudo-element that shows immediately on
+   hover OR keyboard focus. Each cell carries `tabindex="0"` so the
+   focus branch is reachable via Tab. */
+.viewer-time-heatmap__cell:hover,
+.viewer-time-heatmap__cell:focus {
+  z-index: 2;
+  box-shadow: 0 0 0 1px #1a1a1a;
+}
+.viewer-time-heatmap__cell::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 6px;
+  background: #1a1a1a;
+  color: #fff;
+  font-size: 11px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  z-index: 3;
+}
+.viewer-time-heatmap__cell:hover::after,
+.viewer-time-heatmap__cell:focus::after {
+  opacity: 1;
+  visibility: visible;
 }
 @media (max-width: 480px) {
   .viewer-time-heatmap__grid {
@@ -2204,4 +2296,43 @@ dialog.wide-modal::backdrop {
   height: 130px;
   display: block;
   border-radius: 2px;
+}
+
+/* 2026-05-11 polish (Fix 4) — migrated inline styles for the games
+   listing partials. Each rule keeps its original selector scope; the
+   partials previously emitted these in `<style>` blocks. */
+
+/* games — list display mode. The `<colgroup>` widths source from the
+   `--col-width-*` variables defined at `:root` so widening one column
+   propagates to every listing surface that reuses the variable. */
+.games-list-mode table.list-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.games-list-mode table.list-table th,
+.games-list-mode table.list-table td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
+.games-list-mode table.list-table th.num,
+.games-list-mode table.list-table td.num { text-align: right; }
+.games-list-mode col.col-select   { width: var(--col-width-select); }
+.games-list-mode col.col-cover    { width: var(--col-width-cover); }
+.games-list-mode col.col-title    { width: auto; }
+.games-list-mode col.col-genre    { width: var(--col-width-genre); }
+.games-list-mode col.col-released { width: var(--col-width-released); }
+.games-list-mode col.col-rating   { width: var(--col-width-rating); }
+.games-list-mode col.col-owned    { width: var(--col-width-owned); }
+.games-list-mode td.cover-cell img { width: 68px; height: auto; object-fit: cover; }
+.games-list-mode td.cover-cell .game-cover-fallback--dark { display: none; }
+[data-theme="dark"] .games-list-mode td.cover-cell .game-cover-fallback--light { display: none; }
+[data-theme="dark"] .games-list-mode td.cover-cell .game-cover-fallback--dark { display: block; }
+.games-list-mode td.title-cell .not-released { font-weight: bold; }
+.games-list-mode .games-bulk-toolbar { margin-bottom: 6px; min-height: 1.4em; }
+.games-list-mode .games-bulk-toolbar .action[hidden] { display: none; }
+.games-list-mode tr.game-row[data-game-job-state="running"] td.job-indicator-cell::after { content: " ="; }
+.games-list-mode tr.game-row[data-game-job-state="done"]    td.job-indicator-cell::after { content: " ok"; color: var(--color-muted, #555); }
+.games-list-mode tr.game-row[data-game-job-state="failed"]  td.job-indicator-cell::after { content: " err"; color: var(--color-danger, #cc0000); }
+
+/* games — Genres outer shelf hairline between consecutive sub-shelves.
+   Selector kept verbatim so the per-shelf spec assertion still locks
+   the scope. */
+section[data-shelf="outer-genres"] > section.sub-shelf:not(:first-of-type) {
+  border-top: 1px solid var(--color-border);
+  margin-top: 8px;
+  padding-top: 8px;
 }

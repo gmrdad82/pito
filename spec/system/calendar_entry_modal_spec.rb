@@ -86,8 +86,10 @@ RSpec.describe "Calendar entry modal (SSR scaffold)", type: :system do
     ce = create(:calendar_entry, :game_release, all_day: true)
     visit "/calendar/entries/#{ce.id}/details_pane"
     # Calendar polish 2026-05-11 — bordered-box badge, no literal
-    # brackets around the text.
-    expect(page).to have_css(".calendar-badge.calendar-badge--all-day", text: "all day")
+    # brackets around the text. 2026-05-11 sweep migrated rendering to
+    # the shared `StatusBadgeComponent`; canonical class is
+    # `.status-badge.status-badge--all_day`.
+    expect(page).to have_css(".status-badge.status-badge--all_day", text: "all day")
     expect(page).not_to have_content("[ all day ]")
   end
 

@@ -895,6 +895,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_12_020000) do
     t.index ["video_id"], name: "index_video_change_logs_on_video_id"
   end
 
+  create_table "video_chapters", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "label", limit: 100, null: false
+    t.integer "position", default: 0, null: false
+    t.integer "start_seconds", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "video_id", null: false
+    t.index ["video_id", "start_seconds"], name: "index_video_chapters_on_video_id_and_start_seconds", unique: true
+    t.index ["video_id"], name: "index_video_chapters_on_video_id"
+  end
+
   create_table "video_dailies", force: :cascade do |t|
     t.bigint "ad_impressions"
     t.decimal "average_view_duration", precision: 10, scale: 2
@@ -1025,6 +1036,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_12_020000) do
     t.index ["resolved_by_user_id"], name: "index_video_diffs_on_resolved_by_user_id"
     t.index ["video_id"], name: "index_video_diffs_on_video_id"
     t.index ["video_id"], name: "index_video_diffs_open_per_video", unique: true, where: "(resolved_at IS NULL)"
+  end
+
+  create_table "video_end_screens", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.integer "kind", default: 0, null: false
+    t.integer "position", default: 0, null: false
+    t.string "target_id"
+    t.string "target_label", limit: 100
+    t.datetime "updated_at", null: false
+    t.bigint "video_id", null: false
+    t.index ["video_id", "position"], name: "index_video_end_screens_on_video_id_and_position"
+    t.index ["video_id"], name: "index_video_end_screens_on_video_id"
   end
 
   create_table "video_game_links", force: :cascade do |t|
@@ -1304,6 +1327,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_12_020000) do
   add_foreign_key "trusted_locations", "users"
   add_foreign_key "video_change_logs", "users", column: "changed_by_user_id", on_delete: :nullify
   add_foreign_key "video_change_logs", "videos", on_delete: :cascade
+  add_foreign_key "video_chapters", "videos", on_delete: :cascade
   add_foreign_key "video_dailies", "videos", on_delete: :cascade
   add_foreign_key "video_daily_by_age_group_genders", "videos", on_delete: :cascade
   add_foreign_key "video_daily_by_countries", "videos", on_delete: :cascade
@@ -1313,6 +1337,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_12_020000) do
   add_foreign_key "video_daily_by_traffic_sources", "videos", on_delete: :cascade
   add_foreign_key "video_diffs", "users", column: "resolved_by_user_id", on_delete: :nullify
   add_foreign_key "video_diffs", "videos", on_delete: :cascade
+  add_foreign_key "video_end_screens", "videos", on_delete: :cascade
   add_foreign_key "video_game_links", "bundles", on_delete: :cascade
   add_foreign_key "video_game_links", "games", on_delete: :cascade
   add_foreign_key "video_game_links", "users", column: "created_by_user_id", on_delete: :nullify

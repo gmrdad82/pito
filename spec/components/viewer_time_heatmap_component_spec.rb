@@ -88,12 +88,23 @@ RSpec.describe ViewerTimeHeatmapComponent, type: :component do
     end
   end
 
+  # P26 reviewer concern 4 — the native `title=` attribute is gone.
+  # Tooltips are CSS-only (`::after` + `data-tooltip`) and accessible
+  # via `aria-label`. Cells carry `tabindex="0"` for keyboard reach.
   describe "tooltip" do
-    it "renders cell tooltips with day + hour + counts" do
+    it "renders cell tooltips via data-tooltip with day + hour + counts" do
       data = { [ 3, 14 ] => Result.new(views: 42, watch_time_seconds: 5040) }
       render_inline(described_class.new(data: data, tz: "Etc/UTC"))
       expect(page).to have_css(
-        "[data-dow='3'][data-hod='14'][title*='Wed 14:00'][title*='42 views'][title*='5040s']"
+        "[data-dow='3'][data-hod='14'][data-tooltip*='Wed 14:00'][data-tooltip*='42 views'][data-tooltip*='5040s']"
+      )
+    end
+
+    it "mirrors the tooltip text to aria-label for screen-readers" do
+      data = { [ 3, 14 ] => Result.new(views: 42, watch_time_seconds: 5040) }
+      render_inline(described_class.new(data: data, tz: "Etc/UTC"))
+      expect(page).to have_css(
+        "[data-dow='3'][data-hod='14'][aria-label*='Wed 14:00'][aria-label*='42 views']"
       )
     end
 
@@ -101,8 +112,20 @@ RSpec.describe ViewerTimeHeatmapComponent, type: :component do
       data = { [ 3, 14 ] => Result.new(views: 1, watch_time_seconds: 60) }
       render_inline(described_class.new(data: data, tz: "Etc/UTC"))
       expect(page).to have_css(
-        "[data-dow='0'][data-hod='0'][title*='Sun 00:00'][title*='no data']"
+        "[data-dow='0'][data-hod='0'][data-tooltip*='Sun 00:00'][data-tooltip*='no data']"
       )
+    end
+
+    it "does NOT emit the native title= attribute on cells" do
+      data = { [ 3, 14 ] => Result.new(views: 42, watch_time_seconds: 5040) }
+      render_inline(described_class.new(data: data, tz: "Etc/UTC"))
+      expect(page).to have_no_css(".viewer-time-heatmap__cell[title]")
+    end
+
+    it "makes every cell keyboard-focusable via tabindex=0" do
+      data = { [ 0, 0 ] => Result.new(views: 1, watch_time_seconds: 60) }
+      render_inline(described_class.new(data: data, tz: "Etc/UTC"))
+      expect(page).to have_css(".viewer-time-heatmap__cell[tabindex='0']", count: 7 * 24)
     end
   end
 end

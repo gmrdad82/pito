@@ -6,10 +6,12 @@
               Rendered in BOLD when the game is not yet released
               (release_date nil or in the future) per the 2026-05-11
               polish pass (Fix 6).
-      line 2: `<NN>/100 · <YYYY>` — rating out of 100, year second,
-              middle-dot separator. The star glyph was retired in the
-              2026-05-11 polish pass (Fix 5). Missing pieces drop out
-              gracefully; see `GamesHelper#game_meta_line`.
+      line 2: `<NN> · <YYYY>` — rating + year, middle-dot separator.
+              2026-05-11 polish (Fix 2): the legacy `/100` suffix was
+              retired in favor of the colored bold
+              `Games::RatingBadgeComponent` (the rating segment now
+              carries a per-tier color). Missing pieces drop out
+              gracefully.
 
     Locals:
       item or game  the Game record (the partial accepts either local
@@ -27,7 +29,10 @@
 <%
   game     = local_assigns[:game] || local_assigns[:item]
   variant  = (local_assigns[:variant] || :grid).to_sym
-  meta_line = game_meta_line(game)
+  rating_present = game.igdb_rating.present?
+  release_year_str = game.release_year.presence&.to_s
+  has_meta = rating_present || release_year_str.present?
+  meta_line = game_meta_line(game) # legacy plain-text shape for the title attribute
 
   # 2026-05-11 polish (Fix 6) — a game is "not yet released" when its
   # `release_date` is nil OR in the future. The title renders bold via
@@ -108,10 +113,22 @@
          style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;<%= " font-weight: bold;" if not_released %>">
       <%= game.title %>
     </div>
-    <% if meta_line.present? %>
+    <% if has_meta %>
+      <%# Fix 2 (2026-05-11) — rating segment carries the per-tier
+          colored bold badge. Year stays muted plain text. The line
+          renders the same `<rating> · <year>` shape; either side drops
+          out cleanly when its source value is missing. %>
       <div class="tile-caption-meta text-muted"
            style="font-size: <%= meta_font_size %>; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;">
-        <%= meta_line %>
+        <% if rating_present %>
+          <%= render(Games::RatingBadgeComponent.new(rating: game.igdb_rating)) %>
+        <% end %>
+        <% if rating_present && release_year_str.present? %>
+          <span aria-hidden="true">·</span>
+        <% end %>
+        <% if release_year_str.present? %>
+          <%= release_year_str %>
+        <% end %>
       </div>
     <% end %>
     <%# Phase 28 §01a — `+N editions` badge on primary tiles with at

@@ -26,7 +26,10 @@
     <h1 style="margin-bottom: 6px;"><%= @payload[:title] %></h1>
 
     <div style="margin-bottom: 12px;" class="text-muted">
-      <span class="notification-severity-badge notification-severity-<%= @payload[:severity] %>"><%= @payload[:severity] %></span>
+      <%# 2026-05-11 — severity rendered via the shared
+          StatusBadgeComponent. See `_notification.html.erb` for the
+          rationale. %>
+      <%= render(StatusBadgeComponent.new(label: @payload[:severity], kind: @payload[:severity].to_sym)) %>
       &middot;
       <span title="<%= @payload[:fires_at_iso] %>"><%= @payload[:fires_at_relative] %></span>
       &middot;

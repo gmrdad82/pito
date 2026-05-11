@@ -7,12 +7,17 @@ require "rails_helper"
 #   * `format_game_rating(rating)` — zero-pads a numeric rating to a
 #     minimum of two digits; returns `""` for nil so callers can
 #     interpolate without conditional guards.
-#   * `game_rating_display(game)` — 2026-05-11 polish (Fix 5). Builds
-#     the `<NN>/100` rating string consumed by the tile + list-mode
-#     rating column. Returns `""` for nil.
-#   * `game_meta_line(game)` — composes the tile's second line
-#     `<NN>/100 · <YYYY>`, dropping pieces when rating / year are
-#     missing.
+#   * `game_rating_display(game)` — legacy `<NN>/100` builder; kept
+#     for back-compat. New visual surfaces use the colored bold badge
+#     `Games::RatingBadgeComponent` instead.
+#   * `game_meta_line(game)` — composes the tile's plain-text second
+#     line `<NN> · <YYYY>`. Used as the tile's `title=` attribute
+#     (screen readers + tooltip-on-truncation). The visual tile renders
+#     the colored badge for the rating segment; this helper is the
+#     inert text fallback.
+#
+# 2026-05-11 polish (Fix 2): `game_meta_line` dropped the `/100`
+# suffix — the rating segment is now the bare integer.
 RSpec.describe GamesHelper, type: :helper do
   describe "#format_game_rating" do
     it "returns \"\" for nil" do
@@ -45,7 +50,7 @@ RSpec.describe GamesHelper, type: :helper do
     end
   end
 
-  describe "#game_rating_display" do
+  describe "#game_rating_display (legacy /100 string)" do
     it "returns \"\" for a game whose igdb_rating is nil" do
       g = build_stubbed(:game, igdb_rating: nil)
       expect(helper.game_rating_display(g)).to eq("")
@@ -75,7 +80,7 @@ RSpec.describe GamesHelper, type: :helper do
     end
   end
 
-  describe "#game_meta_line" do
+  describe "#game_meta_line (post Fix 2 — no /100 suffix)" do
     let(:both) do
       build_stubbed(:game, igdb_rating: 93, release_year: 2018)
     end
@@ -92,19 +97,20 @@ RSpec.describe GamesHelper, type: :helper do
       build_stubbed(:game, igdb_rating: nil, release_year: nil)
     end
 
-    it "renders both pieces in rating-dot-year order without the star glyph" do
-      # 2026-05-11 polish (Fix 5) — star retired. The line composes
-      # `<NN>/100 · <YYYY>` instead of the legacy `★ <NN> · <YYYY>`.
-      expect(helper.game_meta_line(both)).to eq("93/100 · 2018")
+    it "renders both pieces in rating-dot-year order with no /100 suffix" do
+      # 2026-05-11 polish (Fix 2) — `/100` retired. The plain-text
+      # composition is `<NN> · <YYYY>`; the colored badge is rendered
+      # by the visual component, not this helper.
+      expect(helper.game_meta_line(both)).to eq("93 · 2018")
     end
 
-    it "does NOT zero-pad single-digit ratings — 5 → \"5/100\"" do
+    it "does NOT zero-pad single-digit ratings — 5 → \"5 · 2018\"" do
       g = build_stubbed(:game, igdb_rating: 5, release_year: 2018)
-      expect(helper.game_meta_line(g)).to eq("5/100 · 2018")
+      expect(helper.game_meta_line(g)).to eq("5 · 2018")
     end
 
     it "omits the year when release_year is nil" do
-      expect(helper.game_meta_line(rating_only)).to eq("93/100")
+      expect(helper.game_meta_line(rating_only)).to eq("93")
     end
 
     it "omits the rating when igdb_rating is nil" do
@@ -129,6 +135,11 @@ RSpec.describe GamesHelper, type: :helper do
 
     it "does NOT include the star glyph (Fix 5 — retired)" do
       expect(helper.game_meta_line(both)).not_to include("★")
+    end
+
+    it "does NOT include the /100 suffix (Fix 2 — retired)" do
+      expect(helper.game_meta_line(both)).not_to include("/100")
+      expect(helper.game_meta_line(rating_only)).not_to include("/100")
     end
 
     it "uses the middle-dot separator (U+00B7) when both pieces are present" do
