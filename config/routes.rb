@@ -100,6 +100,19 @@ Rails.application.routes.draw do
     post "analytics/refresh",
          to: "channels/analytics_refresh#create",
          as: :analytics_refresh
+    # Phase 7.5 §11g — Channel Change History View. Read-only paginated
+    # list of `ChannelChangeLog` rows for this channel. `path: "history"`
+    # surfaces the canonical URL term the user expects to see; the named
+    # route helper is `channel_change_logs_path(channel)` →
+    # `/channels/<slug>/history`. JSON branch shares the action.
+    resources :change_logs, only: :index, path: "history",
+                            controller: "channels/change_logs"
+    # Phase 7.5 §11d — multi-layout preview component. Singular
+    # `resource` so the URL is `/channels/<slug>/preview` (one
+    # preview per channel). The `show` action accepts the pending-
+    # edit query params and returns a Turbo Stream that replaces
+    # `#channel-preview` inside the wide modal in place.
+    resource :preview, only: :show, controller: "channels/previews"
   end
   # Phase 12 — Path A2 retracted. Video gets back the writable subset
   # of YouTube Data API v3 fields plus the four-item pre-publish

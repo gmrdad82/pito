@@ -1,0 +1,118 @@
+<%# Phase 7.5 §11d — Channel multi-layout preview component.
+    Renders three sibling layout panels (desktop / mobile / TV); only
+    one carries `.active` at a time. The wide-modal chrome owns the
+    top-nav toggle; this component owns the panels themselves.
+
+    The outer wrapper is the Turbo-Stream replacement target
+    (`#channel-preview`), so the entire markup re-renders cleanly when
+    the form streams pending edits in.
+%>
+<div id="channel-preview"
+     class="channel-preview"
+     data-channel-preview-target="frame"
+     data-active-layout="<%= active_layout %>">
+  <% layouts.each do |layout_name, is_active| %>
+    <div id="preview-layout-<%= layout_name %>"
+         class="preview-layout preview-layout--<%= layout_name %> <%= "active" if is_active %>"
+         data-layout="<%= layout_name %>"
+         data-channel-preview-target="panel"
+         <%= "hidden" unless is_active %>>
+      <div class="preview-canvas preview-canvas--<%= layout_name %>">
+        <%# Banner — falls back to a muted block when blank. %>
+        <% if resolved_banner_url.present? %>
+          <div class="preview-banner preview-banner--<%= layout_name %>">
+            <%= image_tag resolved_banner_url, alt: "channel banner", class: "preview-banner-img" %>
+          </div>
+        <% else %>
+          <div class="preview-banner preview-banner--placeholder preview-banner--<%= layout_name %>"
+               aria-label="no banner"></div>
+        <% end %>
+
+        <%# Identity row — avatar + title + handle + subs. %>
+        <div class="preview-identity preview-identity--<%= layout_name %>">
+          <% if resolved_avatar_url.present? %>
+            <%= image_tag resolved_avatar_url, alt: "channel avatar",
+                          class: "preview-avatar preview-avatar--#{layout_name}" %>
+          <% else %>
+            <div class="preview-avatar preview-avatar--placeholder preview-avatar--<%= layout_name %>"
+                 aria-label="no avatar"><%= avatar_placeholder_glyph %></div>
+          <% end %>
+          <div class="preview-identity-text">
+            <div class="preview-title preview-title--<%= layout_name %>"><%= resolved_title %></div>
+            <div class="preview-meta preview-meta--<%= layout_name %>">
+              <% if resolved_handle.present? %>
+                <span class="preview-handle"><%= resolved_handle %></span>
+                <span class="preview-meta-sep"> · </span>
+              <% end %>
+              <span class="preview-subs"><%= formatted_subscriber_count %> subscribers</span>
+            </div>
+          </div>
+        </div>
+
+        <%# Description — rendered only when present (no empty <p>). %>
+        <% if resolved_description.present? %>
+          <div class="preview-description preview-description--<%= layout_name %>">
+            <%= simple_format(resolved_description, {}, sanitize: true) %>
+          </div>
+        <% end %>
+
+        <%# Links row — rendered only when present. %>
+        <% link_entries = resolved_links %>
+        <% if link_entries.any? %>
+          <div class="preview-links preview-links--<%= layout_name %>">
+            <% link_entries.each do |entry| %>
+              <% link_title = (entry["title"] || entry[:title]).to_s %>
+              <% link_url = (entry["url"] || entry[:url]).to_s %>
+              <% if link_title.present? && link_url.present? %>
+                <%= render(BracketedLinkComponent.new(
+                      label: link_title,
+                      href: link_url,
+                      target: "_blank",
+                      rel: "noopener noreferrer"
+                    )) %>
+              <% end %>
+            <% end %>
+          </div>
+        <% end %>
+
+        <%# Videos row — real / static / empty per spec D8. %>
+        <% kind, payload = video_row %>
+        <div class="preview-videos preview-videos--<%= layout_name %>"
+             data-videos-kind="<%= kind %>">
+          <% case kind %>
+          <% when :real %>
+            <% payload.each do |video| %>
+              <div class="preview-video preview-video--<%= layout_name %>">
+                <div class="preview-thumb-wrap">
+                  <% if video.respond_to?(:thumbnail_url) && video.thumbnail_url.present? %>
+                    <%= image_tag video.thumbnail_url, alt: video.title.to_s,
+                                  class: "preview-thumb preview-thumb--#{layout_name}" %>
+                  <% else %>
+                    <div class="preview-thumb preview-thumb--placeholder preview-thumb--<%= layout_name %>"></div>
+                  <% end %>
+                </div>
+                <div class="preview-video-title preview-video-title--<%= layout_name %>">
+                  <%= video.title.to_s.presence || "untitled" %>
+                </div>
+              </div>
+            <% end %>
+          <% when :static %>
+            <% payload.each do |pseudo| %>
+              <div class="preview-video preview-video--<%= layout_name %>">
+                <div class="preview-thumb-wrap">
+                  <%= image_tag pseudo[:thumbnail], alt: pseudo[:title].to_s,
+                                class: "preview-thumb preview-thumb--#{layout_name}" %>
+                </div>
+                <div class="preview-video-title preview-video-title--<%= layout_name %>">
+                  <%= pseudo[:title] %>
+                </div>
+              </div>
+            <% end %>
+          <% else %>
+            <div class="preview-videos-empty text-muted">[ no preview thumbnails yet ]</div>
+          <% end %>
+        </div>
+      </div>
+    </div>
+  <% end %>
+</div>

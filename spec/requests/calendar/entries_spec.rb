@@ -166,6 +166,82 @@ RSpec.describe "Calendar::Entries", type: :request do
       expect(response).to have_http_status(:unprocessable_content)
       expect(response.body).to include("yes")
     end
+
+    # Phase 7.5 §11h — channel-rename-unlock reminder variant. The
+    # client (`reminder_link_controller.js`) POSTs a milestone_manual
+    # entry with a "Channel <gate> unlock — <name>" title and
+    # `all_day: "yes"`. The controller treats the second identical
+    # POST as idempotent (no second row, `duplicate: "yes"` marker
+    # on the JSON envelope).
+    describe "channel-rename-unlock reminder variant" do
+      let(:date) { 14.days.from_now.to_date.iso8601 }
+      let(:reminder_params) do
+        {
+          calendar_entry: {
+            entry_type: "milestone_manual",
+            title: "Channel title unlock — Cached title",
+            starts_at: date,
+            all_day: "yes",
+            timezone: "UTC"
+          }
+        }
+      end
+
+      it "happy: 201 + canonical envelope with the milestone_manual shape" do
+        expect {
+          post "/calendar/entries.json",
+               params: reminder_params.to_json,
+               headers: { "CONTENT_TYPE" => "application/json" }
+        }.to change(CalendarEntry, :count).by(1)
+        expect(response).to have_http_status(:created)
+        body = JSON.parse(response.body)
+        expect(body["entry"]["entry_type"]).to eq("milestone_manual")
+        expect(body["entry"]["all_day"]).to eq("yes")
+        expect(body["entry"]["title"]).to eq("Channel title unlock — Cached title")
+        expect(body["duplicate"]).to be_nil
+      end
+
+      it "edge: rapid second POST is idempotent (no new row, duplicate: yes)" do
+        post "/calendar/entries.json",
+             params: reminder_params.to_json,
+             headers: { "CONTENT_TYPE" => "application/json" }
+        expect(response).to have_http_status(:created)
+
+        expect {
+          post "/calendar/entries.json",
+               params: reminder_params.to_json,
+               headers: { "CONTENT_TYPE" => "application/json" }
+        }.not_to change(CalendarEntry, :count)
+        expect(response).to have_http_status(:ok)
+        expect(JSON.parse(response.body)["duplicate"]).to eq("yes")
+      end
+
+      it "edge: a different unlock-date creates a separate row" do
+        post "/calendar/entries.json",
+             params: reminder_params.to_json,
+             headers: { "CONTENT_TYPE" => "application/json" }
+
+        other = reminder_params.deep_dup
+        other[:calendar_entry][:starts_at] = (14.days.from_now + 1.day).to_date.iso8601
+        expect {
+          post "/calendar/entries.json",
+               params: other.to_json,
+               headers: { "CONTENT_TYPE" => "application/json" }
+        }.to change(CalendarEntry, :count).by(1)
+        expect(response).to have_http_status(:created)
+      end
+
+      it "sad: rejects channel_id (cross-reference validator forbids it on milestone_manual)" do
+        bad = reminder_params.deep_dup
+        bad[:calendar_entry][:channel_id] = create(:channel).id
+        expect {
+          post "/calendar/entries.json",
+               params: bad.to_json,
+               headers: { "CONTENT_TYPE" => "application/json" }
+        }.not_to change(CalendarEntry, :count)
+        expect(response).to have_http_status(:unprocessable_content)
+      end
+    end
   end
 
   describe "GET /calendar/entries/:id" do

@@ -37,6 +37,20 @@ module ChannelsHelper
     title.empty? ? "untitled channel" : title
   end
 
+  # Phase 7.5 §11h — channel-name source for the calendar reminder body.
+  # The 14-day gate composes a `Calendar::Entry` title shaped like
+  # "Channel title unlock — <channel name>". Until ChannelSync populates
+  # `Channel#title`, that field can be nil; fall back to the locked
+  # `channel_url` slug (the UC-id segment), and finally to a generic
+  # `"this channel"` so the entry title always reads cleanly.
+  def channel_reminder_name(channel)
+    title = channel.title.to_s.strip
+    return title unless title.empty?
+    slug = channel.url_slug.to_s.strip
+    return slug unless slug.empty?
+    "this channel"
+  end
+
   # Phase 7.5 §11c — 14-day rate-limit gate helpers.
   #
   # YouTube limits `title` and `handle` changes to 1 per 14 days

@@ -72,6 +72,28 @@ class Calendar::EntriesController < ApplicationController
     attrs = create_params(type)
     return if performed? # yes/no rejection guard
 
+    # Phase 7.5 §11h — idempotent channel-rename-unlock reminder.
+    # When the same (channel_id, title, starts_at::date) tuple already
+    # exists as a milestone_manual entry, treat the POST as a no-op
+    # and return the existing entry with `duplicate: "yes"`. The 14-
+    # day rename gate posts these reminders client-side, and a rapid
+    # double-click would otherwise create two rows. Locked decision
+    # 3 of §11h: no-op + toast.
+    if (existing = duplicate_milestone_reminder(attrs))
+      @entry = existing
+      respond_to do |format|
+        format.json do
+          @duplicate = true
+          render :show, status: :ok
+        end
+        format.html do
+          redirect_to calendar_entry_path(@entry),
+                      notice: "calendar entry already exists."
+        end
+      end
+      return
+    end
+
     @entry = CalendarEntry.new(attrs)
     @entry.source = :manual
     @entry.created_by_user = Current.user
@@ -168,6 +190,38 @@ class Calendar::EntriesController < ApplicationController
 
   def load_entry
     @entry = CalendarEntry.find(params[:id])
+  end
+
+  # Phase 7.5 §11h — idempotency helper for the channel-rename-unlock
+  # reminder posted by `reminder_link_controller.js`. Scoped narrowly
+  # to the milestone_manual + "Channel <gate> unlock — <name>" title
+  # shape so it cannot collide with unrelated milestones. Match on
+  # `entry_type: milestone_manual`, the same `title`, and a
+  # `starts_at` on the same calendar day in the configured timezone.
+  # Returns the existing entry, or `nil` when no match is found.
+  def duplicate_milestone_reminder(attrs)
+    return nil unless attrs[:entry_type].to_s == "milestone_manual"
+    title = attrs[:title].to_s
+    return nil unless title.start_with?("Channel ") && title.include?(" unlock — ")
+    starts_at_raw = attrs[:starts_at]
+    return nil if starts_at_raw.blank?
+
+    tz = ActiveSupport::TimeZone[attrs[:timezone].to_s] ||
+         ActiveSupport::TimeZone["UTC"]
+    parsed = begin
+      tz.parse(starts_at_raw.to_s)
+    rescue ArgumentError, TypeError
+      nil
+    end
+    return nil if parsed.nil?
+    day_start = parsed.beginning_of_day
+    day_end   = parsed.end_of_day
+
+    CalendarEntry
+      .where(entry_type: :milestone_manual, title: title)
+      .where(starts_at: day_start..day_end)
+      .order(:id)
+      .first
   end
 
   # Default-create attributes for the no-params POST flow (Projects
