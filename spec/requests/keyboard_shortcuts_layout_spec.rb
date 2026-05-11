@@ -91,10 +91,23 @@ RSpec.describe "Keyboard shortcuts layout integration", type: :request do
   describe "help modal section coverage" do
     before { get "/" }
 
-    it "lists every g-prefix navigation binding" do
+    it "opens with the SPACE leader-menu hint" do
+      # Navigation between pages is leader-driven now (SPACE opens
+      # the leader menu — see `config/keybindings.yml`). The help
+      # modal documents page-level + global hotkeys only and points
+      # readers at the leader for everything else.
+      expect(response.body).to include(
+        "Press SPACE for the leader menu (navigation between pages and bulk operations)."
+      )
+    end
+
+    it "does NOT advertise legacy g-prefix navigation bindings" do
+      # 2026-05-10 — `g d/g c/g v/g s/g e` were retired when
+      # navigation moved behind the SPACE leader. The help modal
+      # must not list them anywhere any more.
       body = response.body
       [ "go to dashboard", "go to channels", "go to videos", "go to saved views", "go to settings" ].each do |label|
-        expect(body).to include(label)
+        expect(body).not_to include(label)
       end
     end
 

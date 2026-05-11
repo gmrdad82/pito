@@ -1,22 +1,31 @@
 class KeyboardShortcutsModalComponent < ViewComponent::Base
-  # Phase 7.5 — Step 04. Mirrors the `pito` CLI's help overlay
-  # (`extras/cli/src/ui/help.rs`) per locked decision Q6 (strict mirror,
-  # CLI is the source of truth). Sections, keys, and descriptions come
-  # straight from `help.rs::render`. No web-only additions.
+  # Help overlay opened by `?` (and the visible `[_]` link in the
+  # footer chrome).
   #
-  # Rendered once in the layout chrome; opened by `keyboard#openHelp`
-  # in response to `?` keypress or a click on the visible `[_]` link
-  # (the `_` glyph stands for SPACE = leader per the locked keybindings
-  # unified-schema decision).
+  # Scope: page-level + global hotkeys ONLY. Navigation between pages
+  # and bulk operations live behind the SPACE leader menu (see
+  # `config/keybindings.yml` + `leader_menu_controller.js`); the
+  # opening hint below points users there. We deliberately do NOT
+  # advertise the leader's contents here — the leader menu documents
+  # itself when opened.
+  #
+  # 2026-05-10 refresh: dropped the legacy `g d/g c/g v/g s/g e`
+  # navigation rows (now leader-driven); replaced the `space` row
+  # selection binding with `x` (matches the TUI's row-selection key
+  # after SPACE was promoted to leader in both surfaces).
   Section = Struct.new(:title, :rows, keyword_init: true)
   Row = Struct.new(:keys, :description, keyword_init: true)
+
+  LEADER_HINT =
+    "Press SPACE for the leader menu " \
+    "(navigation between pages and bulk operations).".freeze
 
   SECTIONS = [
     Section.new(
       title: "general",
       rows: [
         Row.new(keys: "?", description: "toggle this help"),
-        Row.new(keys: "q", description: "back / close"),
+        Row.new(keys: "q", description: "back / close (Esc on web)"),
         Row.new(keys: "t", description: "toggle dark/light theme"),
         Row.new(keys: "/", description: "open search modal"),
         Row.new(keys: "i", description: "open igdb add-game modal"),
@@ -24,20 +33,10 @@ class KeyboardShortcutsModalComponent < ViewComponent::Base
       ]
     ),
     Section.new(
-      title: "navigation",
-      rows: [
-        Row.new(keys: "g d", description: "go to dashboard"),
-        Row.new(keys: "g c", description: "go to channels"),
-        Row.new(keys: "g v", description: "go to videos"),
-        Row.new(keys: "g s", description: "go to saved views"),
-        Row.new(keys: "g e", description: "go to settings")
-      ]
-    ),
-    Section.new(
       title: "list pages (channels / videos)",
       rows: [
         Row.new(keys: "j / k", description: "move highlight down / up"),
-        Row.new(keys: "space", description: "toggle row selection"),
+        Row.new(keys: "x", description: "toggle row selection"),
         Row.new(keys: "s", description: "toggle star on highlighted row"),
         Row.new(keys: "D", description: "delete selection (or current row)"),
         Row.new(keys: "Y", description: "sync selection (or current row)"),
@@ -64,5 +63,9 @@ class KeyboardShortcutsModalComponent < ViewComponent::Base
 
   def sections
     SECTIONS
+  end
+
+  def leader_hint
+    LEADER_HINT
   end
 end
