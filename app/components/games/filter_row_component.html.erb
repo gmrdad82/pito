@@ -1,29 +1,48 @@
 <%# Phase 27 §01b — multi-select filter row.
 
-    Renders ten canonical chips in the locked order, plus an optional
-    `[clear all]` bracketed link when at least one chip is active, plus
-    an optional muted contradiction notice when `owned` + `not_owned`
-    are simultaneously active.
+    Two-row layout (2026-05-11 polish):
+      Row 1 (status + platforms): released, scheduled, ps5, switch2,
+        steam, gog, epic, xbox. `[clear all]` rides the right side of
+        row 1 when at least one chip is active.
+      Row 2 (ownership/recorded): owned, not_owned, recorded.
+        The display-mode switcher rides row 2's optional right slot.
 
     No JS. Pure GET-link navigation; URL-state-driven. %>
 <section class="games-filter-row" data-controller="">
-  <%# Phase 27 polish (2026-05-11) — chips left, optional right-slot
-      (display-mode switcher) pinned flush-right via `margin-left: auto`.
-      `flex-wrap: wrap` keeps the chips graceful at narrow widths; the
-      right slot stays right-aligned even when chips wrap. %>
-  <div class="games-filter-row__row" style="display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline;">
-    <div class="games-filter-row__chips" style="display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline;">
-      <% chip_tokens.each do |t| %>
+  <%# Row 1 — status + platforms.
+
+      `flex-wrap: wrap` keeps the chips graceful at narrow widths.
+      `[clear all]` lives inline at the end of row 1 (not row 2) so
+      it stays visually attached to the chip cluster when the second
+      row carries only ownership+recorded. %>
+  <div class="games-filter-row__row games-filter-row__row--1"
+       style="display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline;">
+    <div class="games-filter-row__chips games-filter-row__chips--1"
+         style="display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline;">
+      <% row_1_tokens.each do |t| %>
         <%= render chip_for(t) %>
       <% end %>
 
       <% if any_active? %>
-        <%# Phase 27 polish (2026-05-11) — `feedback_bracketed_links`
-            convention: multi-word labels carry inner spaces (`[ clear all ]`).
-            Single-token chip labels above stay flush (`[ps5]`). %>
+        <%# `feedback_bracketed_links` convention — multi-word labels
+            carry inner spaces (`[ clear all ]`). Single-token chip
+            labels stay flush (`[ps5]`). %>
         <span class="games-filter-row__clear-all" style="margin-left: 8px;">
           <%= link_to clear_all_href, class: "bracketed games-filter-row__clear-all-link" do %>[ <span class="bl">clear all</span> ]<% end %>
         </span>
+      <% end %>
+    </div>
+  </div>
+
+  <%# Row 2 — ownership/recorded chips + optional right slot (display
+      switcher). Same wrap rules as row 1; `margin-left: auto` pins
+      the right slot flush-right even when chips wrap. %>
+  <div class="games-filter-row__row games-filter-row__row--2"
+       style="display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; margin-top: 4px;">
+    <div class="games-filter-row__chips games-filter-row__chips--2"
+         style="display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline;">
+      <% row_2_tokens.each do |t| %>
+        <%= render chip_for(t) %>
       <% end %>
     </div>
 

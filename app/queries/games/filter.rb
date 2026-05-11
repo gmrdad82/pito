@@ -31,7 +31,11 @@ module Games
   class Filter
     STATUS_TOKENS    = %w[recorded released scheduled].freeze
     OWNERSHIP_TOKENS = %w[owned not_owned].freeze
-    PLATFORM_TOKENS  = %w[ps5 switch2 steam gog epic].freeze
+    # 2026-05-11 polish — `xbox` joins the platform token set. The
+    # platforms canonical agent added Xbox to the seeded reference rows
+    # (slug `xbox`, name `Xbox`), so the filter row recognises it as a
+    # first-class chip alongside the original five.
+    PLATFORM_TOKENS  = %w[ps5 switch2 steam gog epic xbox].freeze
     CANONICAL_TOKENS = (STATUS_TOKENS + OWNERSHIP_TOKENS + PLATFORM_TOKENS).freeze
 
     attr_reader :scope, :raw_tokens

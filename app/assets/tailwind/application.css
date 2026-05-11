@@ -1015,6 +1015,85 @@ dialog.confirm-modal::backdrop {
   color: var(--color-danger-hover);
 }
 
+/* Phase 26 — 01d (polish). Webhook help modal content styling.
+   The .webhook-help-content wrapper hosts the rendered Markdown guide
+   (Discord + Slack). The styles below give the guide enough vertical
+   rhythm to scan: clear breathing room above every step heading,
+   horizontal rules as section dividers, table grids for the
+   troubleshooting matrix, and word-wrap in code blocks so a long
+   webhook URL doesn't blow out the modal width. */
+.webhook-help-content {
+  font-family: var(--default-mono-font-family);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.webhook-help-content h1 {
+  font-size: 14px;
+  font-weight: bold;
+  margin: 0 0 12px;
+}
+.webhook-help-content h2 {
+  font-size: 13px;
+  font-weight: bold;
+  /* Extra top margin so each Step N heading pops out from the prose
+     above it — the user feedback called out spacing-before-titles
+     specifically. */
+  margin: 24px 0 8px;
+}
+.webhook-help-content h3 {
+  font-size: 13px;
+  font-weight: bold;
+  margin: 16px 0 6px;
+}
+.webhook-help-content p {
+  margin: 8px 0;
+}
+.webhook-help-content ul,
+.webhook-help-content ol {
+  margin: 8px 0;
+  padding-left: 22px;
+}
+.webhook-help-content li {
+  margin: 4px 0;
+}
+.webhook-help-content hr {
+  height: 0;
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  margin: 20px 0;
+}
+.webhook-help-content pre {
+  background: var(--color-bg-alt);
+  border: 1px solid var(--color-border);
+  padding: 8px 10px;
+  margin: 8px 0;
+  overflow-x: auto;
+  overflow-wrap: anywhere;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+.webhook-help-content code {
+  font-family: inherit;
+}
+.webhook-help-content table {
+  border-collapse: collapse;
+  margin: 10px 0;
+  width: 100%;
+  table-layout: auto;
+}
+.webhook-help-content th,
+.webhook-help-content td {
+  border: 1px solid var(--color-border);
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+.webhook-help-content th {
+  background: var(--color-bg-alt);
+  font-weight: bold;
+}
+
 /* Action screen sticky footer */
 .action-screen-footer {
   position: sticky;

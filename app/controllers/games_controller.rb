@@ -436,16 +436,17 @@ class GamesController < ApplicationController
   #      preference; default `grid` on a fresh row per migration).
   #   3. `:grid` as a final defensive fallback for the anonymous path.
   #
-  # The URL alias `shelves` maps to the canonical enum key
-  # `shelves_by_letter` for readability; everything else falls through
-  # to the persisted preference.
+  # URL aliases (2026-05-11 polish):
+  #   - `default`  → `shelves_by_letter` (canonical nested-shelves view).
+  #   - `shelves`  → `shelves_by_letter` (legacy alias, kept for
+  #                   back-compat with prior bookmarks).
   #
   # Returns a Symbol — one of `:grid`, `:list`, `:shelves_by_letter`.
   def resolved_display_mode
     case params[:display].to_s
     when "grid"              then return :grid
     when "list"              then return :list
-    when "shelves", "shelves_by_letter" then return :shelves_by_letter
+    when "default", "shelves", "shelves_by_letter" then return :shelves_by_letter
     end
 
     persisted = Current.user&.preferred_games_display_mode

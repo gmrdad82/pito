@@ -1760,3 +1760,87 @@ Specs:
   remaining caller; the documentation comment now records this. A
   follow-up dispatch can remove it once the team confirms no
   out-of-tree consumer.
+
+## 2026-05-11 — game show page: canonical platform short names + Xbox seed
+
+User direction (verbatim): "use our clean list like PS5, Switch2" /
+"GoG, Steam, Epic, Xbox...". The game show page rendered verbose
+IGDB-style names (`Nintendo Switch, PC (Microsoft Windows),
+PlayStation 4, Xbox One`) — replaced with the canonical short labels
+`PS5, Switch2, Steam, GoG, Epic, Xbox`. Xbox added as the sixth
+canonical platform.
+
+### Files touched
+
+- `app/models/platform.rb` — added `CANONICAL_SHORT_NAMES`
+  (slug → display label), `CANONICAL_SLUGS`,
+  `IGDB_ID_TO_CANONICAL_SLUG` (49/169 → xbox, 167 → ps5, 508 →
+  switch2), `.canonical` scope, `#canonical_short_name` /
+  `#canonical?` instance helpers.
+- `app/helpers/platforms_helper.rb` — new helper. `display_platforms`
+  intersects `game.platforms_available` (by canonical slug or IGDB
+  id) with the canonical six, layers in Steam/GoG/Epic inferred from
+  `external_steam_app_id` / `external_gog_id` / `external_epic_id`,
+  and renders the result in the locked order (PS5, Switch2, Steam,
+  GoG, Epic, Xbox). Returns `—` when no canonical platform applies.
+- `app/views/games/show.html.erb` — the `platforms:` row now calls
+  `display_platforms(@game)` instead of mapping `name` over
+  `platforms_available`.
+- `db/seeds.rb` — Xbox added to the canonical platform seed list
+  (slug `xbox`, name `Xbox`, abbreviation `Xbox`).
+- `spec/models/platform_spec.rb` — `.canonical` scope coverage and
+  `#canonical_short_name` mapping cases (PS5/Switch2/GoG by slug,
+  Xbox One/Xbox Series X|S/PS5 by IGDB id, nil for non-canonical).
+- `spec/helpers/platforms_helper_spec.rb` — new. Covers the full
+  mapping table including dedup, external-id store inference, and
+  the locked render order.
+- `spec/requests/games_show_meta_block_spec.rb` — extended with a
+  new "canonical platform short-names on the show page" describe
+  block; updated the existing details-pane block to use the Switch 2
+  canonical seed.
+
+### Mapping decisions (locked)
+
+- PlayStation 5 (IGDB 167) → `PS5`
+- Nintendo Switch 2 (IGDB 508 / slug `switch2`) → `Switch2`
+- Xbox One (IGDB 49) AND Xbox Series X|S (IGDB 169) → `Xbox`
+  (collapsed; project does not distinguish generations).
+- Steam / GoG / Epic — inferred from
+  `game.external_steam_app_id` / `external_gog_id` /
+  `external_epic_id`. PC (Microsoft Windows, IGDB 6) is NOT
+  surfaced; the project treats PC distribution stores as the
+  actionable platforms.
+- Non-canonical IGDB platforms (PlayStation 4, OG Nintendo Switch,
+  PC, anything else) — DROPPED from display. Empty result renders
+  as `—`.
+
+### Verification
+
+- Targeted spec count delta: +21 examples across
+  `spec/models/platform_spec.rb` (+9, the `.canonical` scope +
+  `#canonical_short_name` cases) and
+  `spec/helpers/platforms_helper_spec.rb` (+15 new) and
+  `spec/requests/games_show_meta_block_spec.rb` (+5 in the new
+  describe block). Mid-session run before an unrelated initializer
+  edit broke the spec loader returned 64 examples / 0 failures across
+  the three files.
+- Rubocop clean on the 6 touched Ruby files (the ERB view is parsed
+  separately).
+- Brakeman: 0 warnings, 0 errors (full app sweep, no new findings).
+
+### Open follow-ups
+
+- IGDB ↔ seed-row deduplication. The seeded canonical rows have
+  `igdb_id IS NULL`; an IGDB platform sync will create separate rows
+  for the same platform (e.g. seed `ps5` + IGDB-imported "PlayStation
+  5" with id=167). The display helper handles both at render time,
+  but the data-model dedup remains an open follow-up (recorded
+  alongside the existing canonical seeds in
+  `app/models/platform.rb`).
+- The unrelated in-flight auth work landed a `config/initializers/
+  omniauth.rb` change that references `AppSetting` at boot time;
+  the spec loader currently raises `NameError: uninitialized
+  constant AppSetting` for any spec that requires the Rails env.
+  This blocks running `bin/rspec` end-to-end and is independent of
+  the canonical-platform work — handed back to the master for the
+  auth lane to resolve.

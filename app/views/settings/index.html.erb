@@ -162,6 +162,7 @@
           blocked locations, and the attempts log are one click
           from the main settings page. %>
       <%= render(BracketedLinkComponent.new(label: "edit", href: settings_user_path)) %>
+      <span class="nav-sep" aria-hidden="true">·</span>
       <%= render(BracketedLinkComponent.new(label: "security", href: settings_security_path)) %>
     </fieldset>
   </div>

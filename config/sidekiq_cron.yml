@@ -82,6 +82,16 @@ pending_session_approval_sweeper:
   class: SessionPendingApprovalSweeperJob
   description: "Phase 25 — expire pending-approval sessions past their 10-minute window"
 
+# P25 follow-up — F6. PII retention sweep for LoginAttempt rows.
+# Daily at 04:00 UTC; scrubs `email_attempted` on failed /
+# invalid-password rows older than 90 days. Forensic columns (IP,
+# fingerprint, geo) survive — only the raw email field is nilled.
+login_attempt_pii_purge:
+  cron: "0 4 * * *"
+  class: LoginAttemptPiiPurgeJob
+  queue: default
+  description: "P25 F6 — daily PII purge of email_attempted on failed LoginAttempt rows older than 90 days"
+
 # Phase 25 — 01g. Stale-session sweeper. Every 15 minutes; revokes
 # `state: active` sessions whose `last_activity_at` is older than
 # `SessionStaleSweeperJob::STALE_AFTER` (30 days). Cheap and idempotent.

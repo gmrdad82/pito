@@ -37,12 +37,12 @@ This document is authoritative for **email + password login** (surface #1, §1
 below) and **bearer ApiTokens** (surface #2, the rest of the document — the
 original Phase 5 Auth Foundation). Surfaces #3 and #4 are documented elsewhere.
 
-| #   | Surface                   | Mechanism                                               | Authoritative reference                                                                                                                                                                                                                                 |
-| --- | ------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Browser → Rails           | Cookie + DB-backed sessions (email + password)          | §1 below for the login flow + rate-limit + audit shape. Live code: `app/controllers/sessions_controller.rb`, `app/controllers/concerns/sessions/auth_concern.rb`. Revocation UI at `/settings/sessions`.                                                |
-| 2   | MCP / `pito` CLI → Rails  | Bearer ApiTokens (HMAC-digested, scoped, revocable)     | The rest of this document (`docs/auth.md`). Live code: `app/lib/api/token_authenticator.rb`, `app/models/api_token.rb`.                                                                                                                                 |
-| 3   | 3rd-party clients → Rails | Doorkeeper-issued OAuth (Authorization Code + PKCE)     | Spec: `docs/plans/beta/12-auth-ui-multi-user-readiness/specs/6b-doorkeeper-oauth-server.md`. Live config: `config/initializers/doorkeeper.rb`. Tokens are 2h access / 14d refresh. Stays per ADR 0005.                                                  |
-| 4   | pito → Google (YouTube)   | OAuth-delegated `YoutubeConnection` (encrypted at rest) | `docs/architecture.md` "Google OAuth + YouTube API foundation (Phase 7, renamed Phase 9)" section. Live code: `app/models/youtube_connection.rb`. Channel-only OAuth per ADR 0006 (no "Sign in with Google"); renamed from `GoogleIdentity` in Phase 9. |
+| #   | Surface                   | Mechanism                                               | Authoritative reference                                                                                                                                                                                                                                                       |
+| --- | ------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Browser → Rails           | Cookie + DB-backed sessions (email + password + TOTP)   | §1 below for the login flow + rate-limit + audit shape; §1a for TOTP enrollment + challenge; §1b for new-location detection. Live code: `app/controllers/sessions_controller.rb`, `app/controllers/concerns/sessions/auth_concern.rb`. Revocation UI at `/settings/sessions`. |
+| 2   | MCP / `pito` CLI → Rails  | Bearer ApiTokens (HMAC-digested, scoped, revocable)     | The rest of this document (`docs/auth.md`). Live code: `app/lib/api/token_authenticator.rb`, `app/models/api_token.rb`.                                                                                                                                                       |
+| 3   | 3rd-party clients → Rails | Doorkeeper-issued OAuth (Authorization Code + PKCE)     | Spec: `docs/plans/beta/12-auth-ui-multi-user-readiness/specs/6b-doorkeeper-oauth-server.md`. Live config: `config/initializers/doorkeeper.rb`. Tokens are 2h access / 14d refresh. Stays per ADR 0005.                                                                        |
+| 4   | pito → Google (YouTube)   | OAuth-delegated `YoutubeConnection` (encrypted at rest) | `docs/architecture.md` "Google OAuth + YouTube API foundation (Phase 7, renamed Phase 9)" section. Live code: `app/models/youtube_connection.rb`. Channel-only OAuth per ADR 0006 (no "Sign in with Google"); renamed from `GoogleIdentity` in Phase 9.                       |
 
 The four surfaces are independent. A request from a browser session (#1) cannot
 authenticate as an ApiToken (#2); a Doorkeeper access token (#3) does not grant
@@ -84,32 +84,326 @@ POST /login (email, password)
    │   If not found: bcrypt_dummy_compare(password) → constant-time, same wall-cost
    │
    ├── Both branches return the same generic
-   │   "invalid email or password." flash on failure
-   │   (no oracle on whether the email exists).
+   │   "login failed." flash on failure
+   │   (no oracle on whether the email exists, the password was wrong,
+   │    the pair is blocked, or the request was rate-limited — LD-14).
    │
-   ▼ on success
-   Session.create_for!(user:) — issues cookie
+   ▼ on correct password
+   classify the login location (§1b)
+     │
+     ├── trusted pair (fingerprint + ip prefix) → activate session
+     ├── new pair + 2FA enrolled → redirect to /login/totp (§1a)
+     └── new pair + 2FA absent  → redirect to /login/pending,
+                                  spawn pending session + notification
+   │
+   ▼ on session activation
+   Session.create_for!(user:) — issues cookie + rotates token on 2FA path
+   LoginAttempt row written (reason: trusted_location_success |
+                             new_location_2fa_passed | new_location_pending)
    redirect_to <intended_path> || root_path
 ```
 
 The bcrypt-dummy-compare on the no-such-email branch closes the timing oracle
 that previously distinguished "no such email" from "wrong password" via wall-
-clock latency (Phase 8 F1 fix).
+clock latency (Phase 8 F1 fix). Phase 25 broadened the generic-copy rule — wrong
+password, unknown account, blocked pair, and rate-limit all surface the same
+`login failed.` flash (LD-14). The internal `LoginAttempt` row carries the
+precise reason; the UI does not.
 
 ### Rate limit
 
-`SessionThrottle` blocklists IPs that fail login more than **10 times in 5
-minutes**. The bucket is keyed on the request IP. A blocklisted request returns
-the form re-rendered with a throttling notice; the bucket clears as it ages out.
-Rate limiting is per-IP (not per-email) so spammers cannot lock a victim out by
-guessing their email; comprehensive rate-limit hardening is a later phase.
+Two throttles defend `POST /login` and the challenge surfaces:
+
+- **Per-IP** — 5 attempts / minute on `/login`, `/login/challenge`,
+  `/login/totp`, and `/login/pending`. Keyed on `req.ip` after Rack walks the
+  `X-Forwarded-For` chain past the trusted Cloudflare CIDRs (§11).
+- **Per-account** — 10 attempts / 15 minutes keyed on
+  `Digest::SHA256.hexdigest("login-email:#{email.downcase}")`. The hash keeps
+  the raw email out of `Rack::Attack`'s cache store.
+- **Exponential backoff** — `Auth::BackoffCalculator` doubles the window on each
+  consecutive trip (60s → 120s → 240s → … → capped at 3600s) and stores the bump
+  in `Rack::Attack.cache.store` (Redis) with a TTL. A successful login resets
+  the per-account bucket so a legitimate user who typo'd a few times is never
+  locked out indefinitely.
+- **Generic copy on throttle** — the `throttled_responder` renders the same
+  `login failed.` flash as a wrong-password reply (LD-14) and writes a
+  `LoginAttempt` row with `reason: rate_limited` via `Auth::RateLimitLogger`.
+
+The legacy `SessionThrottle` (10 failures / 5 min, per-IP) survives as a
+defense-in-depth blocklist alongside `Rack::Attack`; both buckets land in the
+attempt log via `Auth::RateLimitLogger.call`. A `development?`-only safelist on
+`127.0.0.1` keeps the maintainer's dev environment usable.
+
+Bearer-token surfaces have an independent throttle (§9).
 
 ### Audit log
 
-Every login attempt — success or failure — writes a JSON line to
-`log/auth_audit.log`. The payload includes `email_attempted` (renamed from the
-pre-Phase-8 `identifier_attempted`), the outcome, and request metadata. See §8
-for the full event catalog.
+Every login attempt — success or failure — writes a `LoginAttempt` row (see
+§1b). Every privileged auth action (approve / block / unblock / purge / totp
+enroll / disable / backup-code regenerate, plus the YouTube / Voyage credentials
+updates) writes an `AuthAuditLog` row via `Auth::AuditLogger` (§8). The legacy
+`log/auth_audit.log` file still receives bearer-token outcomes from
+`Api::TokenAuthenticator`; the JSON-line catalog lives in §8.
+
+## 1a. TOTP 2FA + backup codes
+
+Phase 25 added standard RFC 6238 TOTP as the primary challenge on new-location
+logins. The library is `rotp` (verification) + `rqrcode` (enrollment QR). Plain
+TOTP — no 1Password Connect SDK; 1Password is just one of many compatible
+authenticator apps.
+
+### Enrollment
+
+`/settings/security/totp/new` (web only — the seed must reach the operator's
+authenticator app, which is not Claude). The flow:
+
+1. `Auth::TotpEnroller.call(user:)` generates a fresh 32-char base32 seed and 10
+   single-use backup codes. The seed is encrypted at rest on
+   `users.totp_seed_encrypted` via Active Record Encryption. Backup codes are
+   stored as BCrypt digests on the `backup_codes` table.
+2. The seed plaintext, QR code, and the 10 backup codes are shown ONCE on the
+   confirmation screen (one-shot flash). Reload re-renders an "enrollment
+   expired" notice; the codes cannot be recovered.
+3. The user confirms a fresh 6-digit code from their app. On success,
+   `totp_enabled_at` is stamped and `Auth::AuditLogger` writes a `totp_enroll`
+   row.
+
+Backup code shape:
+
+- **10 codes**, **8 characters each** (locked: Q-C).
+- Alphabet: `A-Z` + `2-9` minus the visually-confusable characters `O`, `I`,
+  `L`, `B`, `8`, `1` (and digit `0`). Drawn with
+  `SecureRandom.random_number(...)` so the cryptographic guarantee is explicit
+  at the source (Phase 25 F10 hardening).
+- Single-use. `Auth::BackupCodeConsumer` stamps `used_at` inside a pessimistic
+  row lock; the row stays for audit.
+
+### Login challenge (`/login/totp`)
+
+On a new-location login with 2FA enabled, the correct-password branch redirects
+to `/login/totp` with a pre-auth marker on the session. The form accepts EITHER
+a 6-digit TOTP code OR an 8-char backup code:
+
+1. `Auth::TotpVerifier.call(user:, code:)` runs ROTP `verify` with
+   `drift_behind: 30` (allows one window of clock skew). On a hit it captures
+   the matched 30-second step (`matched_at.to_i / 30`) and writes it to
+   `users.totp_last_used_step` via `update_columns`. RFC 6238 §5.2 replay
+   defense — the same code cannot be replayed inside its window, and an older
+   drift step cannot be accepted after a newer one (Phase 25 F9).
+2. If verification fails, `Auth::BackupCodeConsumer.call(user:, code:)` tries
+   the backup-code path. The consumer:
+   - Rejects any input whose length is not exactly 8 characters (Phase 25 F4 —
+     `< 4` was tightened to exact-equal).
+   - Rejects any character outside the safe alphabet before any BCrypt
+     round-trip (closes the alphabet-leak timing oracle).
+   - Iterates `user.totp_backup_codes.unused.find_each` so used rows never
+     re-enter the BCrypt loop (closes a timing-oracle leg between "wrong
+     plaintext" and "used plaintext").
+3. On success, the controller calls `reset_session` (Rails) AND the
+   `Sessions::TokenRotation` concern to mint a fresh `pito_session` cookie plus
+   a fresh DB-session token (LD-12 — session fixation defense). The
+   `TrustedLocation` row is upserted; a `success` `LoginAttempt` is written with
+   `reason: new_location_2fa_passed`; the per-account backoff bucket is reset.
+4. On failure, the controller writes a `LoginAttempt` row with
+   `reason: 2fa_failed` and renders `login failed.` (LD-14).
+
+### Disable + regenerate backup codes
+
+Both flows go through the action-screen pattern at
+`/settings/security/totp/edit` (disable) and
+`/settings/security/totp/backup_codes/new` (regenerate). Each requires the
+user's password AND a fresh TOTP code on the same form; the failure copy is the
+generic `credentials don't match.` flash (no oracle on which field failed).
+Successful disable destroys the encrypted seed and every backup code; successful
+regenerate destroys the existing codes and mints 10 fresh ones. Both write an
+`AuthAuditLog` row (`totp_disable`, `backup_code_regenerate`) and rotate the
+session token.
+
+### `RecentTotpVerification` gate
+
+Sensitive write actions that don't already require 2FA at login (user account
+edit, YouTube / Voyage credential updates, Slack / Discord webhook saves)
+include the `RecentTotpVerification` concern. When the acting user has 2FA
+enabled, the controller calls `require_recent_totp_if_enabled!` before the
+write. The helper:
+
+- Returns `true` immediately when the user has no 2FA enrolled.
+- Otherwise verifies the submitted `params[:totp_code]` via
+  `Auth::TotpVerifier`. The verifier's replay-defense watermark applies — a code
+  consumed here cannot be replayed against a different sensitive action in the
+  same drift window.
+- On failure, renders the generic `credentials don't match.` flash (matching the
+  disable / regenerate copy) and short-circuits the action.
+
+Read-only views are never gated; only the writes.
+
+### Recovery (TOTP-lost fallback)
+
+If the user loses both their authenticator app AND every backup code, the
+recovery path is **Rails console only** in this phase (Q-D — single-install,
+single-operator). Open a console on the host, then:
+
+```ruby
+user = User.find_by!(email: "owner@example.com")
+user.update_columns(totp_seed_encrypted: nil, totp_disabled_at: Time.current)
+user.totp_backup_codes.destroy_all
+```
+
+Then re-enroll via `/settings/security/totp/new`. Email-based reset is an
+explicit Theta / multi-user concern.
+
+## 1b. New-location detection + pending sessions
+
+Phase 25 redefined "trusted" as a `(fingerprint_hash, ip_prefix)` tuple that has
+previously authenticated successfully on the target user.
+
+### Fingerprint composition
+
+```text
+fingerprint_hash = SHA256(
+  User-Agent + Accept + Accept-Language + Accept-Encoding +
+  "screen=" + screen_hint + "lang=" + locale_hint
+)
+```
+
+A small Stimulus controller on the login form posts the screen hint
+(`window.screen.width × height @ devicePixelRatio`) and the locale hint
+(`Intl.DateTimeFormat().resolvedOptions().timeZone + "/" + navigator.language`)
+alongside email + password; the server composes the hash. **Privacy-preserving
+omissions** (LD-2): no canvas / AudioContext / WebGL / font enumeration /
+Battery / Network Information APIs. Raw inputs are never persisted — only the
+hash.
+
+### IP-prefix matching
+
+`/24` for IPv4, `/64` for IPv6 (LD-3). Residential and mobile IPs rotate inside
+a stable household / org boundary; matching on the prefix keeps the boundary
+stable. The helper is `Pito::Auth::IpPrefix`.
+
+### Outcome classification
+
+```text
+TrustedLocation.where(user_id:, fingerprint_hash:, ip_prefix:).any?
+   │
+   ├── yes → activate session immediately
+   │         (reason: trusted_location_success)
+   │
+   └── no  → classify "new location":
+              ├── 2FA enrolled → redirect to /login/totp
+              │                  (reason at success: new_location_2fa_passed)
+              └── 2FA absent   → mint pending session
+                                 (reason: new_location_pending,
+                                  state: pending_approval,
+                                  approval_required_until: now + 10 minutes)
+```
+
+A successful trusted or new-but-just-trusted login upserts a `TrustedLocation`
+row and stamps `last_seen_at`.
+
+### Pending-session state machine
+
+`Session` (Phase 6) gained two columns:
+
+- `state` enum — `active` / `pending_approval` / `expired` / `revoked`.
+- `approval_required_until` timestamp.
+
+Transitions:
+
+```text
+active             ← trusted-location login, 2FA-passed login,
+                     or approve-on-pending action
+pending_approval   ← new-location-correct-password without 2FA
+expired            ← time-based, SessionPendingApprovalSweeper Sidekiq cron
+                     transitions rows whose approval_required_until < now
+revoked            ← user action from /settings/sessions, or block on the
+                     pending session, or SessionStaleSweeperJob (30-day
+                     idle cutoff on active sessions)
+```
+
+Expired pending sessions cannot transition back to active. They survive in the
+attempt log indefinitely; the operator can purge them from the §1c block list UI
+or the attempt log UI.
+
+Two Sidekiq cron sweepers keep the state honest:
+
+- `SessionPendingApprovalSweeper` — runs every minute, expires pending-approval
+  sessions past their deadline.
+- `SessionStaleSweeperJob` — runs every 15 minutes (`*/15 * * * *`), revokes
+  `state: active` sessions whose `last_activity_at` (or `created_at` when nil)
+  is older than 30 days.
+
+### Approve / block surfaces
+
+Pending sessions surface a `login_pending_approval` notification (urgent,
+deduped one-per-pending — Phase 16 carrier). The notification body and action
+links route to:
+
+- **Web** — `/login_attempts/:id/approve` / `/login_attempts/:id/block`
+  (action-screen confirmation, two-step).
+- **TUI** — in-TUI modal overlay on the notifications surface (`a` approve / `b`
+  block, two-stage confirmation; `Login::ApprovalsController` and
+  `Login::BlocksController` accept `confirm=yes` form-encoded POSTs).
+- **MCP** — `login_attempt_approve` and `login_attempt_block` tools (auth scope,
+  `confirm: "yes"` parameter; see §4).
+
+Approve flips `state: pending_approval → active`, upserts the `TrustedLocation`,
+resolves the notification, writes an `AuthAuditLog` row (`action: approve`), and
+rotates the session token on the acting session. Block flips the pending session
+to `revoked`, creates a `BlockedLocation` row, resolves the notification, writes
+`AuthAuditLog` (`action: block`), and rotates the token.
+
+### `LoginAttempt` schema
+
+`LoginAttempt` carries the full forensic record of every authentication attempt
+(success, failed, pending, blocked, rate-limited). Never auto-purged; manual
+purge only via `/settings/security/attempts/purge` (web) or
+`login_attempt_purge` (MCP). The `reason` enum is the precise classification:
+
+```text
+wrong_password / unknown_account / blocked_pair / rate_limited /
+new_location_pending / new_location_2fa_passed / 2fa_failed /
+trusted_location_success / pending_expired /
+approved_from_{web,tui,mcp} / blocked_from_{web,tui,mcp}
+```
+
+Browse the log at `/settings/security/attempts` (paginated) or via the
+`login_attempts_list` / `login_attempts_pending` MCP tools (§4).
+
+## 1c. Auto-block list
+
+Blocking a pending session — or invoking `login_attempt_block` against any
+attempt row — creates a `BlockedLocation`:
+
+```text
+BlockedLocation
+  fingerprint_hash, ip_prefix, blocked_at, blocked_by_user_id,
+  source_surface (web|tui|mcp), reason, last_attempt_at, attempt_count,
+  unblocked_at, unblocked_by_user_id
+```
+
+A subsequent login attempt whose `(fingerprint_hash, ip_prefix)` matches a
+non-soft-unblocked row short-circuits before the password check and writes a
+`LoginAttempt` row with `result: blocked, reason: blocked_pair`. The UI surfaces
+the same generic `login failed.` flash (LD-14).
+
+### Block list UI
+
+`/settings/security/blocked_locations` lists every blocked pair (paginated).
+Per-row actions:
+
+- `/settings/security/blocks/:block_id/unblocking` — action-screen confirmation,
+  soft-unblock (stamps `unblocked_at` + `unblocked_by_user_id`; the row stays in
+  the audit trail).
+- `/settings/security/blocks/purge` — bulk purge by filter (action-screen
+  confirmation; `safe_audit_purge` writes an `AuthAuditLog` row with
+  `target_type: "BlockedLocation"` + `target_id: 0` representing the collection
+  scope).
+
+Auto-block decay is intentionally absent (Q-E) — decaying blocks would silently
+reopen old threats. Purge is operator-driven.
+
+The `blocked_locations_list` MCP tool (auth scope) returns the same surface for
+cross-stack ops.
 
 ## 2. ApiToken model overview
 
@@ -139,34 +433,45 @@ Current   (ActiveSupport::CurrentAttributes)
 ## 3. Scope catalog
 
 Authoritative source: `app/lib/scopes.rb`. Listed below as a reference; if the
-two diverge, the file wins. Per ADR 0004 the catalog is two values; there is no
-read / write split, no per-domain namespace.
+two diverge, the file wins. Per ADR 0004 the catalog was simplified to a small
+set of values; Phase 25 added the `auth` scope alongside the original `dev` /
+`app` split (locked decision LD-8 in the Phase 25 umbrella spec at
+`docs/plans/beta/25-login-security-and-new-location-approval/specs/01-overview-login-security-and-new-location-approval.md`;
+an ADR capturing the Phase 25 locks is an open docs follow-up).
 
-| Scope | Description                                                              |
-| ----- | ------------------------------------------------------------------------ |
-| `dev` | read and capture developer docs.                                         |
-| `app` | application access. manage channels, videos, projects, and the calendar. |
+| Scope  | Description                                                                                      |
+| ------ | ------------------------------------------------------------------------------------------------ |
+| `dev`  | read and capture developer docs.                                                                 |
+| `app`  | application access. manage channels, videos, projects, and the calendar.                         |
+| `auth` | auth + login security. list pending attempts, approve / block / unblock / purge, read audit log. |
 
-A token has `dev`, `app`, both, or neither. The trade-off is intentional —
-catalog stability over fine-grained authorization. A token holder is either
-trusted to operate an install, or not.
+A token has any subset of the three. The trade-off is intentional — catalog
+stability over fine-grained authorization. The `auth` scope is opt-in per token
+via the settings/tokens edit page; it is NOT included in the default
+Claude-mobile token (LD-8).
 
 ### Strip-on-release
 
-`Scopes::ALL` is computed against
-`Rails.application.config.x.mcp.expose_dev_scope`:
+`Scopes::ALL` is computed against two strip-on-release flags:
 
-- Development / test → `["dev", "app"]` (flag defaults to `true`).
-- Production → `["app"]` (flag is `false`). The `dev`-scoped tools (`list_docs`,
-  `read_doc`, `save_note`) are also dropped from the MCP tool registry, and
-  `ApiToken` rejects any save whose `scopes` array contains `"dev"`.
-  Defense-in-depth: even a token whose `scopes` jsonb literally carries `"dev"`
-  cannot reach a `dev` tool because the tool isn't registered AND the scope
-  isn't in the catalog.
+- `Rails.application.config.x.mcp.expose_dev_scope` — gates the `dev` scope and
+  its tools (`list_docs`, `read_doc`, `save_note`).
+- `Rails.application.config.x.mcp.expose_auth_scope` — gates the `auth` scope
+  and its nine tools (§4).
 
-The strip-on-release flag is the security boundary equivalent of the Sidekiq Web
-auth: dev tooling stays behind the developer-operator boundary on a productized
-release.
+Per environment:
+
+- Development / test → `["dev", "app", "auth"]` (both flags default to `true`).
+- Production → `["app"]` (both flags are `false`). The `dev`-scoped and
+  `auth`-scoped tools are dropped from the MCP tool registry, and `ApiToken`
+  rejects any save whose `scopes` array contains `"dev"` or `"auth"`.
+  Defense-in-depth: even a token whose `scopes` jsonb literally carries the
+  stripped value cannot reach a gated tool because the tool isn't registered AND
+  the scope isn't in the catalog.
+
+The strip-on-release flags are the security boundary equivalent of the Sidekiq
+Web auth: dev tooling and remote auth-administration both stay behind the
+operator boundary on a productized release.
 
 ### Soft-revoke migration posture
 
@@ -213,30 +518,48 @@ from `Api::AuthConcern`.
 
 ### MCP tools
 
-| Tool                | Required scope |
-| ------------------- | -------------- |
-| `list_channels`     | `app`          |
-| `get_channel`       | `app`          |
-| `list_videos`       | `app`          |
-| `get_video`         | `app`          |
-| `get_dashboard`     | `app`          |
-| `search`            | `app`          |
-| `list_saved_views`  | `app`          |
-| `manage_settings`   | `app`          |
-| `create_channel`    | `app`          |
-| `update_channel`    | `app`          |
-| `create_video`      | `app`          |
-| `update_video`      | `app`          |
-| `create_saved_view` | `app`          |
-| `delete_saved_view` | `app`          |
-| `sync_records`      | `app`          |
-| `delete_records`    | `app`          |
-| `list_docs`         | `dev`          |
-| `read_doc`          | `dev`          |
-| `save_note`         | `dev`          |
+| Tool                     | Required scope |
+| ------------------------ | -------------- |
+| `list_channels`          | `app`          |
+| `get_channel`            | `app`          |
+| `list_videos`            | `app`          |
+| `get_video`              | `app`          |
+| `get_dashboard`          | `app`          |
+| `search`                 | `app`          |
+| `list_saved_views`       | `app`          |
+| `manage_settings`        | `app`          |
+| `create_channel`         | `app`          |
+| `update_channel`         | `app`          |
+| `create_video`           | `app`          |
+| `update_video`           | `app`          |
+| `create_saved_view`      | `app`          |
+| `delete_saved_view`      | `app`          |
+| `sync_records`           | `app`          |
+| `delete_records`         | `app`          |
+| `list_docs`              | `dev`          |
+| `read_doc`               | `dev`          |
+| `save_note`              | `dev`          |
+| `login_attempts_pending` | `auth`         |
+| `login_attempts_list`    | `auth`         |
+| `login_attempt_approve`  | `auth`         |
+| `login_attempt_block`    | `auth`         |
+| `login_attempt_unblock`  | `auth`         |
+| `login_attempt_purge`    | `auth`         |
+| `auth_audit_log_list`    | `auth`         |
+| `blocked_locations_list` | `auth`         |
+| `totp_status`            | `auth`         |
 
 `manage_settings` lost its read-vs-write scope branching when the catalog
 collapsed; both view-only and update calls require `app`.
+
+The nine `auth`-scoped tools form the cross-stack auth-administration surface
+(LD-8). `login_attempt_approve`, `login_attempt_block`, `login_attempt_unblock`,
+and `login_attempt_purge` require `confirm: "yes"` on every call (two-step
+pattern, LD-15 / LD-16). `totp_status` and `auth_audit_log_list` and
+`blocked_locations_list` are read-only. Per ADR 0004 (dev-scope
+strip-on-release) and the Phase 25 LD-8 lock (auth-scope strip-on-release),
+production builds strip both the `dev` and `auth` scopes from `Scopes::ALL` AND
+drop the corresponding tools from the MCP registry.
 
 ### JSON HTTP endpoints
 
@@ -395,10 +718,52 @@ First install on a fresh machine:
 
 ## 8. Audit log
 
-`config/initializers/auth_audit_logger.rb` configures `AUTH_AUDIT_LOGGER`
-against `log/auth_audit.log`. Format: one JSON line per event.
+Two complementary surfaces capture auth events:
 
-Event types:
+### 8a. `AuthAuditLog` table (privileged actions)
+
+Phase 25 added a durable, queryable audit trail for every privileged auth action
+(LD-13). Schema:
+
+```text
+AuthAuditLog
+  acting_user_id     fk
+  source_surface     enum: web / tui / mcp
+  action             enum: approve / block / unblock / purge /
+                           totp_enroll / totp_disable /
+                           backup_code_regenerate /
+                           youtube_credentials_updated /
+                           voyage_credentials_updated
+  target_type        string  (LoginAttempt, BlockedLocation, User)
+  target_id          bigint  (0 for collection-scoped purges)
+  metadata           jsonb   (per-action shape)
+  created_at, updated_at
+```
+
+Single entry point:
+`Auth::AuditLogger.call(acting_user:, source_surface:, action:, target: | target_type: + target_id:, metadata: {})`.
+The service raises on a missing `acting_user`, an unknown surface, or an unknown
+action — a controller bug surfaces loudly rather than silently dropping the row.
+Callers are expected to wrap the audit-log call inside the same transaction as
+the underlying state change so the audit row and the domain mutation
+succeed-or-fail together.
+
+The `youtube_credentials_updated` and `voyage_credentials_updated` actions
+(Phase 25 F3 extension) capture `SettingsController#update_youtube` /
+`update_voyage`. The row's `metadata["changed_fields"]` lists the column NAMES
+the update mutated; plaintext values are NEVER recorded.
+
+Never auto-purged. Surfaced at `/settings/security/audit` (web) and via the
+`auth_audit_log_list` MCP tool.
+
+### 8b. `log/auth_audit.log` (bearer-token + legacy events)
+
+`config/initializers/auth_audit_logger.rb` configures `AUTH_AUDIT_LOGGER`
+against `log/auth_audit.log`. Format: one JSON line per event. This file covers
+the bearer-token + Google OAuth callback events that predate `AuthAuditLog`;
+`LoginAttempt` rows (§1b) are the durable record for login attempts.
+
+Event types still written to the file:
 
 - `auth.success` — successful bearer authenticate.
 - `auth.missing_token` — no Authorization header (or no Bearer prefix).
@@ -412,8 +777,8 @@ Event types:
   `email_attempted`.
 - `session.create.failure` — failed login. Payload includes `email_attempted`
   and a generic failure reason. The reason does NOT distinguish "no such email"
-  from "wrong password" — the bcrypt-dummy-compare path produces the same
-  outcome shape on either branch (Phase 8 F1 fix).
+  from "wrong password", "blocked pair", or "rate-limited" — every failure
+  branch produces the same outcome shape (Phase 8 F1 fix + Phase 25 LD-14).
 - `session.destroy` — logout.
 - `youtube_connection.callback.succeeded` — successful Google OAuth callback; a
   `YoutubeConnection` row was minted or refreshed (Phase 9).
@@ -433,26 +798,113 @@ Rails request cycle; the controllers write from inside.
 
 ## 9. Throttling
 
-Two independent throttles defend the install:
+`config/initializers/rack_attack.rb` is the single rate-limit surface. It
+declares the login throttles described in §1 plus the bearer-token and OAuth
+throttles below.
 
-- **`SessionThrottle`** — gates the login form. Blocklists IPs that fail login
-  more than 10 times in 5 minutes (see §1).
-- **`config/initializers/rack_attack.rb`** — gates bearer-token surfaces.
-  Blocklists IPs that fail bearer authentication more than 10 times in 5
-  minutes; incremented from inside `Api::TokenAuthenticator` whenever it returns
-  a failure. A blocklisted request returns `429 {"error": "too_many_requests"}`.
-  Only `/api/*` and `/mcp` are gated; HTML routes go through `SessionThrottle`.
+- **`login/ip`** — 5 POSTs / 1 minute on `/login`, `/login/challenge`,
+  `/login/totp`, `/login/pending`. See §1.
+- **`login/email`** — 10 POSTs / 15 minutes keyed on SHA256(email). See §1.
+- **`login/backoff`** — exponential backoff via `Auth::BackoffCalculator`. See
+  §1.
+- **Bearer-token throttle** — blocklists IPs that fail bearer authentication
+  more than 10 times in 5 minutes; incremented from inside
+  `Api::TokenAuthenticator` whenever it returns a failure. A blocklisted request
+  returns `429 {"error": "too_many_requests"}`. Gates `/api/*` and `/mcp` only.
+- **`oauth/token`** — protects Doorkeeper's token-grant endpoint with a JSON 429
+  response shape.
+- **`SessionThrottle`** (legacy, surviving as defense-in-depth) — blocklists IPs
+  that fail login more than 10 times in 5 minutes. Every hit is mirrored to
+  `LoginAttempt` via `Auth::RateLimitLogger.call` so the attempt log remains the
+  single source of truth.
 
-Both buckets are per-IP, not per-credential. Comprehensive rate-limit hardening
-is a later phase.
+A `development?`-only safelist on `127.0.0.1` keeps the maintainer's dev
+environment usable. Production safelist is implied by the Cloudflare trusted
+proxies (§11) — Rack walks `X-Forwarded-For` past the trusted edges so `req.ip`
+resolves to the actual client.
 
-## 10. Future phase hooks
+## 10. Session token rotation
+
+`Sessions::TokenRotation` (concern at `app/controllers/concerns/sessions/`) is
+included by every controller that mutates auth state on the acting session:
+
+- `Login::ApprovalsController`, `Login::BlocksController`
+- `Settings::Security::Blocks::UnblockingsController`
+- `Settings::Security::Blocks::PurgesController`
+- `Settings::Security::Attempts::PurgesController`
+- `Settings::Security::TotpsController` (enroll + disable)
+- `Settings::Security::TotpBackupCodesController` (regenerate)
+- `Login::TotpChallengesController` (on successful 2FA)
+
+After the destructive action's audit-log write, the controller calls
+`rotate_session_token!` which mints a fresh plaintext token, recomputes the
+digest, stamps it on `Current.session`, calls `reset_session`, and writes a new
+`pito_session` signed cookie. The session id / user / metadata stay; only the
+token bytes rotate. The helper never raises — a rotation failure logs and falls
+through so the destructive action remains visible to the operator.
+
+This narrows the window for session fixation: a captured cookie cannot be
+replayed after the user has performed any sensitive auth-state action (LD-12).
+
+## 11. Production hardening + Cloudflare trusted proxies
+
+Phase 25 F1 + F2 pinned the production environment to expect Cloudflare in front
+of every request:
+
+- **`config.force_ssl = true`** — every HTTP request redirects to HTTPS; HSTS is
+  enabled; session + auth cookies are marked `Secure`.
+- **`config.assume_ssl = true`** — Rails honors `X-Forwarded-Proto: https` from
+  the upstream so `request.ssl?` is `true` even when the proxy-to-Puma hop is
+  plaintext over loopback.
+- **`config.ssl_options = { redirect: { exclude: → req.path == "/up" } }`** —
+  the health-check endpoint is exempt from the redirect.
+- **`config.action_dispatch.trusted_proxies`** — hardcoded list of Cloudflare's
+  published IPv4 + IPv6 edge CIDRs (manually encoded 2026-05-11) plus the
+  loopback addresses. By default Rack walks `X-Forwarded-For` from the right and
+  stops at the first IP that is NOT in `trusted_proxies`. With an empty list any
+  client could spoof `request.remote_ip` by setting the header themselves,
+  defeating the `Rack::Attack` login throttle (LD-11) and any IP-based audit
+  logging.
+
+### `CloudflareTrustedProxiesRefresherJob` — drift watchdog
+
+Cloudflare's published edge ranges change rarely but they DO change. A drift
+between the pinned list and the advertised ranges means either:
+
+- a legitimate client at a new Cloudflare edge has its `request.remote_ip`
+  pinned to the proxy hop (breaking IP-based audit + Rack::Attack), OR
+- a removed Cloudflare range still appears in the trusted list (potentially
+  trusting an IP Cloudflare no longer owns).
+
+`CloudflareTrustedProxiesRefresherJob` runs weekly via sidekiq-cron (`0 9 * * 1`
+— Monday 09:00 UTC). The job:
+
+1. Fetches `https://www.cloudflare.com/ips-v4` and `.../ips-v6` with a 5s open
+   timeout / 10s read timeout. Failures log and bail; the next week's run
+   retries (a Cloudflare endpoint outage must not crash the cron).
+2. Re-parses the pinned list directly out of `config/environments/production.rb`
+   (regex scan for CIDR tokens) — no duplicate source of truth.
+3. Diffs the two sets. On drift, creates a `Notification` row with
+   `kind: :sync_error`, `severity: :warn`,
+   `event_type: "cloudflare_trusted_proxies_drift"`, and a `dedup_key` bucketed
+   on the UTC date so same-day reruns collapse to one row. The body carries the
+   precise lists of added / removed CIDRs so the operator sees exactly what to
+   edit.
+
+The fix is **operator-actionable, not auto-fixable**: the trusted list is
+compiled into a Rails initializer at boot, so the job CANNOT mutate the runtime
+configuration. It surfaces the drift; the operator edits
+`config/environments/production.rb` and redeploys.
+
+## 12. Future phase hooks
 
 | Phase    | What it adds                                                                                                                          |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | Phase 12 | Hardens auth UI: token expiry automation, session management improvements, multi-user readiness on top of the single-install posture. |
-| Phase 15 | Hardens rate limits beyond the current `SessionThrottle` + `rack-attack` rules.                                                       |
+| Phase 26 | TUI 2FA enrollment via paste-the-seed flow (deferred from Phase 25 per LD-9).                                                         |
 
 When a phase touches the auth surface, the `Scopes` module is the place to add
 new entries; `Api::AuthConcern` and `Mcp::ToolAuth.require_scope!` are the
-gates.
+gates. For login-security extensions, the locked decisions live in the umbrella
+spec at
+`docs/plans/beta/25-login-security-and-new-location-approval/specs/01-overview-login-security-and-new-location-approval.md`.

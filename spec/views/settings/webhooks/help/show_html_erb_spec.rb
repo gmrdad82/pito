@@ -167,4 +167,52 @@ RSpec.describe "settings/webhooks/help/show.html.erb", type: :view do
       end
     end
   end
+
+  # Phase 26 — 01d (polish 2026-05-11). User feedback: "have better
+  # spacing by having a clear row before each title… use some
+  # horizontal lines… use tables when needed. Same goes for the Slack
+  # one." The polish work rewrites the .md sources with `---`
+  # separators between sections and tables in Troubleshooting /
+  # Notifications behavior. These specs lock in the rendered HTML
+  # so a future content tweak can't silently drop the structure.
+  %w[slack discord].each do |provider|
+    describe "#{provider} guide rendered structure" do
+      before do
+        assign(:provider, provider)
+        assign(:markdown,
+          Rails.root.join("app", "views", "settings", "webhooks", "help", "#{provider}.md").read)
+        render template: "settings/webhooks/help/show", layout: false
+      end
+
+      it "renders `<hr>` separators between sections" do
+        expect(rendered.scan(/<hr\s*\/?>/).size).to be >= 4
+      end
+
+      it "renders the troubleshooting matrix as a `<table>` with header cells" do
+        expect(rendered).to include("<table>")
+        expect(rendered).to include("<thead>")
+        expect(rendered).to include("<th>Error message</th>")
+        expect(rendered).to include("<th>What it means</th>")
+        expect(rendered).to include("<th>What to do</th>")
+      end
+
+      it "does NOT escape table tags (raw `&lt;table&gt;` would indicate a renderer regression)" do
+        expect(rendered).not_to include("&lt;table&gt;")
+      end
+
+      it "renders the notifications-behavior block as a `<table>`" do
+        expect(rendered).to include("<th>Checkbox</th>")
+        expect(rendered).to include("<th>What it does</th>")
+      end
+
+      it "renders code blocks for the webhook URL example without inline style" do
+        expect(rendered).to include("<pre>")
+        expect(rendered).not_to match(/<pre[^>]*style=/)
+      end
+
+      it "renders the Step headings as `<h2>` (so the CSS can space them out)" do
+        expect(rendered).to match(/<h2>Step 1/)
+      end
+    end
+  end
 end

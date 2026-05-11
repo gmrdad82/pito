@@ -70,6 +70,14 @@ RSpec.describe "Settings::Security::TotpBackupCodes", type: :request do
   end
 
   describe "POST /settings/security/totp_backup_codes" do
+    # P25 follow-up — F2. The one-shot payload is now in Rails.cache
+    # (NOT flash). The test env's :null_store silently drops writes,
+    # so swap to a MemoryStore for examples that drive the
+    # redirect-then-show one-shot display path.
+    let(:memory_cache) { ActiveSupport::Cache::MemoryStore.new }
+
+    before { allow(Rails).to receive(:cache).and_return(memory_cache) }
+
     it "regenerates 10 new codes when confirm=yes + correct password + correct code" do
       code = ROTP::TOTP.new(seed).now
       post settings_security_totp_backup_codes_path,
@@ -78,6 +86,43 @@ RSpec.describe "Settings::Security::TotpBackupCodes", type: :request do
       follow_redirect!
       expect(response.body).to include("new codes")
       expect(user.reload.totp_backup_codes.count).to eq(10)
+    end
+
+    # P25 F2 — payload is stashed in Rails.cache, NOT flash. The flash
+    # encrypts into the session cookie; the cache lives server-side.
+    it "writes the one-shot codes to Rails.cache, NOT to flash (P25 F2)" do
+      code = ROTP::TOTP.new(seed).now
+      post settings_security_totp_backup_codes_path,
+           params: { confirm: "yes", password: password, code: code }
+
+      cache_key = Settings::Security::TotpBackupCodesController.one_shot_cache_key(user.id)
+      payload = memory_cache.read(cache_key)
+      expect(payload).to be_a(Hash)
+      expect(Array(payload[:codes]).length).to eq(10)
+
+      # The flash MUST NOT carry the plaintext payload.
+      expect(flash[:totp_backup_codes_one_shot]).to be_nil
+    end
+
+    # P25 F2 — show reads + deletes the cache entry exactly once.
+    it "consumes the cache entry on the next GET show (single-shot display)" do
+      code = ROTP::TOTP.new(seed).now
+      post settings_security_totp_backup_codes_path,
+           params: { confirm: "yes", password: password, code: code }
+
+      cache_key = Settings::Security::TotpBackupCodesController.one_shot_cache_key(user.id)
+      expect(memory_cache.read(cache_key)).to be_present
+
+      get settings_security_totp_backup_codes_path
+      expect(memory_cache.read(cache_key)).to be_nil
+    end
+
+    # P25 F2 — cache miss path renders without an exception.
+    it "renders show cleanly when the cache entry is missing (codes already viewed)" do
+      # Pre-seed nothing — simulate the user closing the tab between
+      # regenerate and the next visit.
+      get settings_security_totp_backup_codes_path
+      expect(response).to have_http_status(:ok)
     end
 
     it "returns 422 when the code is wrong (password right)" do

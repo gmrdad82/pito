@@ -171,4 +171,48 @@ RSpec.describe "Settings::Webhooks::Help", type: :request do
       expect(response.body).to include("Manage Webhooks")
     end
   end
+
+  # Phase 26 — 01d (polish 2026-05-11). User feedback called out the
+  # original guide layout as hard to follow: horizontal scroll from
+  # long webhook URLs in code blocks, dense paragraphs with no visual
+  # rhythm between steps, troubleshooting written as a wall of bold
+  # paragraphs. The restructure introduces three signals the specs
+  # below lock in:
+  #   - `<hr>` separators between major sections
+  #   - GFM tables in the Troubleshooting / Notifications behavior /
+  #     in-step field-description sections
+  #   - explicit horizontal rules before every Step heading
+  describe "rendered structure polish" do
+    %w[slack discord].each do |provider|
+      it "renders horizontal rules between sections of the #{provider} guide" do
+        get settings_webhooks_help_path(provider: provider)
+        # Each guide has 5+ `---` separators between sections.
+        expect(response.body.scan(/<hr\s*\/?>/).size).to be >= 4
+      end
+
+      it "renders the #{provider} troubleshooting matrix as a table" do
+        get settings_webhooks_help_path(provider: provider)
+        expect(response.body).to include("<table>")
+        expect(response.body).to include("<th>")
+        expect(response.body).to include("Error message")
+        expect(response.body).to include("What it means")
+        expect(response.body).to include("What to do")
+      end
+
+      it "renders the #{provider} notifications-behavior block as a table" do
+        get settings_webhooks_help_path(provider: provider)
+        # Both guides carry a `| Checkbox | What it does |` table.
+        expect(response.body).to include("<th>Checkbox</th>")
+        expect(response.body).to include("<th>What it does</th>")
+        expect(response.body).to include("deliver every notification")
+      end
+
+      it "preserves proper-noun capitalization in the #{provider} guide" do
+        get settings_webhooks_help_path(provider: provider)
+        # Discord / Slack / YouTube / Pito stay capitalized at the
+        # start of sentences and in their canonical brand form.
+        expect(response.body).to include(provider.capitalize)
+      end
+    end
+  end
 end

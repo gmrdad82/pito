@@ -1,471 +1,572 @@
 # Phase 11 — Video Workflow Features
 
-> **Goal:** Build the production-side features that turn pito from a tracking
-> tool into a content management workflow: production calendar with state
-> machine, browser-direct resumable upload, metadata management with sync
-> reconciliation, scheduling, thumbnail management, and playlists. By the end of
-> this phase, pito is something the user actually uses to _produce_ content, not
-> just to _analyze_ it.
-
-**Depends on:** Phase 8 (real video data + sync infrastructure), Phase 10
-(related-content via embeddings for AI-assisted suggestions).
-
-**Unblocks:** Phase 12 (full UI for users), Phase 13 (observability of upload
-jobs and quota burn from upload-heavy workflows).
-
----
-
-## Why Phase 11 is now
-
-By Phase 11, pito knows:
-
-- The user's owned channels and external reference channels (Phase 7-8)
-- All the videos and their stats, refreshed daily (Phase 8)
-- The user's KB context for each channel and video (Phase 9)
-- Semantic relationships between content via embeddings (Phase 10)
-
-Time to make pito useful for **producing** new content, not just analyzing
-existing. Phase 11 adds the workflow layer.
-
-The phase is large but cohesive — every piece serves the production loop. The
-user has an idea, plans it, records, edits, uploads, schedules, monitors,
-retrospects. pito should accompany every step. The Phase 4 design language
-(locked across web/MCP/terminal/landing) carries through; new screens slot into
-existing patterns rather than introducing new vocabulary.
+> Read `docs/plans/beta/beta.md` first. Then read this `plan.md`. Then read the
+> sub-specs under `docs/plans/beta/11-video-workflow-features/specs/` in the
+> order declared in §"Sequencing".
+>
+> **Status:** scaffolded by `pito-architect-spec` on 2026-05-11. This `plan.md`
+> supersedes the prior Alpha-era Phase 11 outline (production state machine /
+> resumable upload / KB-sandbox thumbnail history). That outline was written
+> against the old `pito-yt-kb` repo + `tenant_id` model, both of which were
+> retired (ADR 0003, YouTube KB drop). The current Phase 11 scope sits on top
+> of the post-Wave-4a video pipeline (Phases 12 / 15 / 16 / 22 / 23 / 26) and
+> fills the workflow polish gap.
 
 ---
 
-## In scope
+## Goal
 
-### Production state machine
+Phase 11 closes the gap between the "video record exists in pito" baseline
+(Phases 12 / 22 / 23 / 26) and a workflow the user can actually live inside
+end-to-end: a polished edit surface (thumbnail + tags + chapters + end-screen),
+an expanded pre-publish checklist that gates publishes through the existing
+action-screen framework, a post-publish nudge loop (comments + analytics
+notifications fired on a configurable cadence), series / sequel tracking on
+`Video`, and a tidy LINKS section that lifts the existing `video_links` table
+out of "raw row" status.
 
-A `VideoProduction` model represents a video moving through states from idea to
-published. It exists _before_ a `Video` exists (you can plan a video that hasn't
-been recorded), and links to a `Video` once the record is uploaded.
+The video pipeline already covers:
 
-**States:**
+- `Video` schema with writable subset + four-boolean pre-publish checklist
+  (Phase 12).
+- `VideoPublish` job with timezone-aware scheduled publishing (Phase 26 §01h).
+- `VideoDiffCheckJob` / `BulkVideoDiffCheckJob` (Phase 23).
+- Import flow (Phase 22).
+- YouTube Analytics integration (Phase 13 / Phase 26 §01g).
 
-```
-idea → outlined → recorded → edited → ready → scheduled → uploading → published → archived
-```
+Phase 11 builds on that floor — it does **not** redo any of it. The edit
+surface today is bare; the pre-publish gate today checks four booleans
+(`pre_publish_game_ok`, `pre_publish_age_ok`, `pre_publish_paid_promotion_ok`,
+`pre_publish_end_screen_ok`) plus the `pre_publish_checked_at` stamp; nothing
+on the pito side fires a follow-up after a publish lands; sequels and series
+are inferred only from title regex (if at all); and `video_links` exists as a
+table but has no first-class UI. Phase 11 fills those five gaps.
 
-Plus a parallel `cancelled` terminal state from any non-archived state.
-
-**Transitions** are tracked with timestamps. State changes are audited in a
-`video_production_state_changes` table with `from_state`, `to_state`, `at`,
-`by_user_id`. Use `aasm` gem (mature, expressive) unless the user prefers plain
-Ruby.
-
-**Schema:**
-
-- `VideoProduction`: `id`, `tenant_id`, `user_id`, `channel_id`, `video_id`
-  (nullable; set when uploaded), `state`, `target_publish_at`,
-  `actual_published_at`, `title`, `description`, `metadata` (jsonb for tags,
-  category, privacy, scheduling), timestamps
-- Linked to `Video` via `video_id` once uploaded — the `VideoProduction` retains
-  historical workflow data; the `Video` carries YouTube-side reality
-
-### Production calendar
-
-- Calendar view at `/calendar` showing scheduled, in-progress, and recently
-  published videos
-- Month / week / day toggles
-- Drag-and-drop reschedule via Hotwire + Stimulus (consistent with the rest of
-  the stack — no React)
-- Filter by channel, by state
-- Color coding by state with the existing design language palette (bracketed
-  labels with state-specific accent colors documented in `pito/docs/design.md`)
-- Each calendar entry links to the production show page
-
-### Resumable browser upload (browser-direct to YouTube)
-
-This is the architecturally most interesting piece. The user's video file does
-**not** transit pito's server — it goes directly from the user's browser to
-YouTube. pito coordinates the upload session, tracks progress, and creates the
-`Video` record once YouTube confirms.
-
-**Flow:**
-
-1. User selects file in the browser via the upload form
-2. Browser POSTs to pito (`POST /api/uploads`) with file metadata (size, type,
-   title, description, privacy, etc.)
-3. pito calls YouTube `videos.insert` with `uploadType=resumable` to receive a
-   YouTube upload URL
-4. pito creates a `VideoUpload` record (`id`, `production_id`, `video_id`
-   nullable, `youtube_upload_url`, `status`, `bytes_uploaded`, `total_bytes`,
-   `last_progress_at`)
-5. pito returns the `VideoUpload` ID and the YouTube URL to the browser
-6. Browser uploads chunks (1 MB recommended) directly to the YouTube URL
-7. After each chunk, browser POSTs progress to `/api/uploads/:id/progress`
-   (server records `bytes_uploaded`)
-8. Browser persists upload state in `localStorage` so a tab refresh can resume
-9. On completion, browser POSTs to `/api/uploads/:id/complete` with YouTube's
-   response payload; pito creates the `Video` record from the response and links
-   it to the `VideoProduction`
-10. State machine transitions: `uploading` → `published` (or `scheduled` if
-    `publishAt` was set)
-
-**Resume on disconnect:** localStorage holds the upload URL, file hash, and
-`bytes_uploaded`. On reload, the browser queries YouTube for the current upload
-offset and resumes from there. If the YouTube upload URL has expired (typically
-24 hours), the user must re-initiate.
-
-**Bandwidth implication:** pito server bandwidth is unaffected by upload size. A
-4 GB video transits browser → YouTube directly. This is the standard YouTube
-upload pattern; pito just orchestrates.
-
-### Metadata management
-
-Editing video metadata: title, description, tags, category, privacy, scheduled
-publish time, thumbnail, playlists.
-
-**Sync reconciliation pattern:**
-
-- pito's local copy of metadata (`Video` record) and YouTube's copy can drift if
-  the user edits via YouTube Studio out of band
-- Each `Video` has `metadata_synced_at` and `metadata_locally_modified_at`
-  columns
-- "Pull from YouTube" button: overwrites local with remote (after confirmation)
-- "Push to YouTube" button: overwrites remote with local
-- Drift detection: if `metadata_locally_modified_at > metadata_synced_at` AND a
-  sync surfaces YouTube-side changes since the last sync, show a banner:
-  "YouTube has different data — Pull or Push?"
-- Default behavior on save without explicit Push: local-only save (no API call);
-  user must explicitly Push to publish changes upstream
-
-This avoids quota burn on every edit while keeping the user in control.
-
-### Thumbnail management
-
-- Video show page: thumbnail upload form with image preview
-- Server-side validation:
-  - Magic-byte content type check (not extension trust)
-  - Dimensions check: must be 1280×720 (resize if not, with user opt-in)
-  - File size: under 2 MB per YouTube's spec
-  - Format: convert to JPEG if needed
-- Image processing via `image_processing` + `ruby-vips` (faster, leaner than
-  mini_magick)
-- EXIF stripping on every uploaded image
-- On save: call `thumbnails.set` via `YouTube::Client` from Phase 7
-- Save the processed thumbnail file to the configured video-notes folder under
-  `videos/<channel-id>/<video-id>/thumbnails/<timestamp>.jpg`. The original spec
-  routed this through `pito-yt-kb` and the Phase 9 sandbox; the YouTube KB repo
-  has been dropped — channel/video notes reuse the project-notes pattern from
-  Phase 4 — Project Workspace and respect the `yt:write` scope at the tool
-  layer.
-- Thumbnail history: list past thumbnails with bracketed `[restore]` links
-
-### Scheduling
-
-- YouTube supports scheduled publish via `status.privacyStatus = 'private'` +
-  `status.publishAt = ISO8601`
-- pito UI: schedule field on the metadata form accepts a datetime
-- Backend translates to YouTube's expected format and pushes via `videos.update`
-- The local `VideoProduction` records `target_publish_at` and stays in
-  `scheduled` state until YouTube transitions it
-- A daily reconciliation job detects state changes (Phase 8's sync
-  infrastructure handles this — when a stats sync sees a video that was
-  `private` is now `public`, the `VideoProduction` advances to `published`)
-
-### Playlists
-
-- `Playlist` and `PlaylistItem` models (likely already exist from Alpha; verify
-  and extend with `tenant_id` per Phase 3 pattern)
-- Phase 8's `Sync::OwnedChannelMetadataJob` extends to also sync playlists
-- Playlist show page: drag-and-drop reorder via Hotwire + Stimulus
-- Add/remove videos via search-and-select (uses Phase 10's hybrid search for
-  finding videos)
-- All CRUD calls map to YouTube API (`playlists.insert`, `playlistItems.insert`,
-  etc.)
-- Playlists from external channels are synced too (read-only — can't reorder
-  external playlists)
-
-### AI-assisted content suggestions (light touch)
-
-- Use Phase 10's embeddings: "Find similar videos in my library" button when
-  starting a new production
-- Use Phase 9's `yt:list_channel_context` to surface
-  voice/audience/skills/strategy when drafting metadata
-- Optional: an MCP-driven "draft a description for this video" tool that:
-  - Reads the production's `plan.md` (Phase 9)
-  - Reads the channel's voice/audience/skills (Phase 9)
-  - Asks Claude (via the user's existing Claude session, not a server-side LLM
-    call) to generate a description draft
-  - The user reviews and edits before save
-
-pito itself does **not** call an LLM directly. The AI assistance is delivered
-through Claude clients calling pito's MCP tools — the
-user-as-Claude-conversation pulls context, drafts, and writes back. This keeps
-pito stateless on the LLM side and respects the user's existing Claude
-subscription costs.
-
-### Out of scope
-
-- Video editing features (way out of scope; user uses external editors)
-- Caption / subtitle generation (interesting Theta; not Beta)
-- A/B thumbnail testing (YouTube Studio does this; not duplicating)
-- Live streaming workflow (out of Beta)
-- YouTube Shorts-specific features (treated as regular videos; differentiation
-  can come later if useful)
-- Multi-channel batch publishing (out of scope; one video at a time)
-- AI-generated metadata that isn't user-mediated (pito does not call LLMs
-  server-side; all AI assistance flows through user-driven Claude conversations
-  via MCP)
+Source-of-truth: master-agent dispatch (2026-05-11) — no Mobile drop note
+yet. Surface a `docs/notes/...` capture if the scope expands during
+implementation.
 
 ---
 
-## Plan checklist
+## Scope
 
-### Production state machine
+In scope:
 
-- [ ] Migration: create `video_productions` table per the schema above
-- [ ] Migration: create `video_production_state_changes` audit table
-- [ ] Add `aasm` gem (or implement plain Ruby state machine; `aasm` recommended
-      for clarity)
-- [ ] `VideoProduction` model with state machine, transitions, audit hook
-- [ ] Specs: every state transition (valid + invalid), audit row created on each
-      transition
+- **Edit page polish** — thumbnail upload + preview; tags input
+  (comma-separated, no autocomplete, no chip JS); chapters nested-form editor
+  (timestamp + label rows); end-screen configuration (related video / channel
+  / playlist picker, up to 4 rows or one explicit `kind: none` row).
+- **Pre-publish checklist expansion** — five new automatic checks on top of
+  the existing four manual booleans: thumbnail attached, ≥3 tags, ≥1 chapter
+  (or "no chapters" explicit), description ≥100 chars (or "minimal" explicit),
+  end-screen configured (or "none" explicit). Each new check exposes a
+  `[skip]` link that captures rationale text. Publishing while any check is
+  failing AND not skipped routes through the action-screen framework with a
+  hard block.
+- **Post-publish workflow** — two new notification kinds (`video_comments_due`,
+  `video_analytics_due`) fired on a per-channel cadence after a publish flips
+  `published_at`. Cadence is configurable per channel; install-wide defaults
+  live on `AppSetting`.
+- **Series / sequel tracking** — optional self-FK on `Video`
+  (`series_parent_id`) plus `series_part_number` integer column. Tile renders
+  a `+part N of M` badge for series members. A dedicated series show page
+  lists members ordered by `series_part_number` (NULLS LAST) then by
+  `published_at`.
+- **Video LINKS section polish** — first-class edit UI for the existing
+  `video_links` table, four kinds (`related_video`, `related_channel`,
+  `external_resource`, `sponsor`), grouped display on the video show page
+  below description.
+- **Backfill** — idempotent rake task seeding `series_parent_id` from a
+  conservative title regex set (`/—\s*Part\s*\d+/i`, `/Episode\s*\d+/i`,
+  `/Part\s*\d+/i`, `/Pt\.?\s*\d+/i`).
+- **MCP + CLI parity capture** — sub-spec `01f` documents the MCP tool
+  surface that would correspond to each above slice, with the CLI half
+  deferred per the active MCP/TUI pause. **No code lanes are dispatched for
+  `01f`** — it stays a registry until the pause lifts.
 
-### Calendar
+Out of scope:
 
-- [ ] `/calendar` route and controller
-- [ ] Calendar view with month/week/day toggles
-- [ ] Hotwire + Stimulus drag-and-drop with persistence via PATCH endpoint
-- [ ] Filter UI (channel, state)
-- [ ] State color coding documented in `pito/docs/design.md`
-- [ ] Specs: date filtering, channel filtering, drag-drop endpoint, state
-      filtering
-
-### Resumable upload
-
-- [ ] Migration: ensure `VideoUpload` exists with required columns
-- [ ] `POST /api/uploads` — initiates resumable session via YouTube API; returns
-      YouTube URL + pito upload ID
-- [ ] `POST /api/uploads/:id/progress` — records `bytes_uploaded`
-- [ ] `POST /api/uploads/:id/complete` — creates `Video` from YouTube response,
-      links to `VideoProduction`, transitions state
-- [ ] Frontend: file picker form, chunked upload to YouTube URL, progress bar,
-      localStorage persistence
-- [ ] Resume logic: on reload, query YouTube for offset, resume
-- [ ] Specs: initiation, progress, completion, error recovery, resume after
-      disconnect simulation
-
-### Metadata management
-
-- [ ] Video show page: editable metadata form (title, description, tags,
-      category, privacy, scheduled time)
-- [ ] Save behavior: local-only by default; explicit Push button to send to
-      YouTube
-- [ ] "Pull from YouTube" button with confirmation
-- [ ] Drift detection banner when local and remote have both changed
-- [ ] Specs: local save, push, pull, drift detection, conflict resolution UX
-
-### Thumbnail management
-
-- [ ] Video show page: thumbnail upload form with preview
-- [ ] Backend validation: magic bytes, dimensions, file size, format
-- [ ] Image processing via `image_processing` + `ruby-vips`
-- [ ] EXIF stripping
-- [ ] Save processed file under
-      `videos/<channel-id>/<video-id>/thumbnails/<timestamp>.jpg` in the
-      configured video-notes root (originally `pito-yt-kb` via the Phase 9
-      sandbox; the YouTube KB repo has been dropped — reuse the Phase 4 —
-      Project Workspace project-notes pattern)
-- [ ] Push to YouTube via `thumbnails.set`
-- [ ] Thumbnail history list with restore action
-- [ ] Specs: validation pass/fail, conversion correctness, sandbox enforcement,
-      YouTube push
-
-### Scheduling
-
-- [ ] Metadata form schedule field
-- [ ] Backend translation to YouTube `publishAt` format
-- [ ] Production calendar shows scheduled videos with countdown indicators
-- [ ] Reconciliation: Phase 8's sync detects published-state transition;
-      `VideoProduction` advances accordingly
-- [ ] Specs: schedule create, schedule modify, schedule cancel, reconciliation
-      trigger
-
-### Playlists
-
-- [ ] Verify `Playlist` and `PlaylistItem` models exist; add `tenant_id` if
-      missing
-- [ ] Extend Phase 8's `Sync::OwnedChannelMetadataJob` to sync playlists
-- [ ] Playlist show page: drag-and-drop reorder
-- [ ] Add/remove videos with hybrid search-and-select (uses Phase 10 search)
-- [ ] CRUD calls map to YouTube API
-- [ ] External playlists are read-only; UI clearly indicates this
-- [ ] Specs: create, add item, remove item, reorder, external read-only
-      enforcement
-
-### AI-assisted suggestions (light)
-
-- [ ] "Find similar videos" button on new production form (uses Phase 10 related
-      endpoint)
-- [ ] Channel context summary panel on production form (uses Phase 9
-      `yt:list_channel_context`)
-- [ ] Optional: MCP tool `yt:draft_description` that returns a structured prompt
-      the user's Claude conversation can use (no server-side LLM call)
-- [ ] Document the AI-assist pattern in `pito/docs/architecture.md`: AI is
-      user-mediated through Claude clients, not server-initiated
-
-### Documentation
-
-- [ ] Update `pito/docs/architecture.md`: workflow features, state machine,
-      upload architecture, AI-assist pattern
-- [ ] `pito/docs/upload.md` (new): resumable upload flow diagram, error
-      recovery, expected user experience
-- [ ] Update `pito/docs/design.md`: calendar UI, state colors, multi-stage form
-      patterns, drift indicator
-- [ ] Update `pito/docs/mcp.md`: any new `yt:*` tools added (e.g.,
-      `yt:draft_description`)
-
-### Validation
-
-- [ ] Manual: end-to-end production flow from idea → outlined → recorded →
-      edited → ready → scheduled → uploading → published, with state changes
-      captured
-- [ ] Manual: schedule a test video for 5 minutes from now; verify YouTube
-      schedules it; verify the `VideoProduction` advances to `published` after
-      actual publish (within minutes of the scheduled time)
-- [ ] Manual: upload a 500 MB test video via browser; refresh mid-upload; verify
-      resume works; final `Video` record created
-- [ ] Manual: edit metadata locally without Push; verify YouTube unchanged;
-      click Push; verify YouTube updated
-- [ ] Manual: induce drift (edit on YouTube Studio, then edit locally without
-      Pull); verify drift banner; resolve via Pull or Push
-- [ ] Manual: upload custom thumbnail; verify YouTube updated and KB folder
-      records the file
-- [ ] Manual: create playlist, add videos via search-and-select, reorder; verify
-      YouTube reflects
-- [ ] Manual: open new production form; click "Find similar videos"; verify
-      Phase 10 results show
-- [ ] All RSpec specs pass; new specs cover state machine, upload flow (with
-      fixture multipart), metadata sync reconciliation
-- [ ] Brakeman, bundler-audit, Dependabot — clean
+- Reworking the existing Phase 22 pre-publish modal markup or the
+  `pre_publish_*` boolean columns themselves. Phase 11 stacks on top of the
+  existing checklist; it does not replace it.
+- Reworking the diff-resolution surface (Phase 23). The pre-publish gate
+  added here runs **before** publish, not on diff resolution.
+- Re-styling the existing horizontal-scroll skin.
+- Tenant-scoping. Single-install + multi-user stands (ADR 0003); no
+  `tenant_id` columns.
+- A dedicated `Series` model. Phase 11 uses the self-FK shape per locked
+  decision §6 below — surfacing as an open question for the master agent
+  for the final lock.
+- Re-architecting `AppSetting` storage. New post-publish cadence fields land
+  as plain columns on the existing `app_settings` singleton row.
+- Browser-direct resumable upload (the prior Phase 11 outline carried this).
+  Re-scope to a future phase if/when filming + upload from the browser
+  becomes the user's primary intake path.
+- Production state machine + `VideoProduction` table (prior Phase 11
+  outline). The current `Video` lifecycle (`privacy_status` + `publish_at` +
+  diff resolution + `published_at` flip) covers the use cases that matter
+  in Beta.
 
 ---
 
-## Specs requirements
+## Locked decisions (master agent)
 
-- `VideoProduction` state machine: every transition, every invalid transition,
-  side effects (audit row, timestamps).
-- Upload flow: initiation, progress recording, completion, error recovery,
-  resume after disconnect, expired URL handling.
-- Metadata sync reconciliation: pito edit pushes to YouTube, out-of-band YouTube
-  edit detected and surfaced, drift resolution paths.
-- Thumbnail: image validation (pass and fail cases), dimensions resize, EXIF
-  stripping, sandbox enforcement on KB folder write.
-- Playlist CRUD: create, add item, remove item, reorder; YouTube API calls via
-  VCR; external playlist write rejection.
-- Calendar: date filtering, channel filtering, drag-drop endpoint, state filter.
-- Schedule reconciliation: scheduled video transitions to published in
-  production state when YouTube publishes.
+These apply to every sub-spec. Deviations need a fresh ADR before the
+implementation lane is dispatched.
 
-## Security requirements
-
-- Resumable upload URL is sensitive — anyone with the URL can upload arbitrary
-  content as the user. Treat as a secret. Never log the full URL. Browser
-  receives the URL only after successful authentication on `POST /api/uploads`.
-  URLs expire per YouTube's spec (~24 hours).
-- Image upload: validate dimensions and content-type server-side via magic
-  bytes; never trust browser-reported MIME.
-- Image processing in `ruby-vips` is safer than shell-out variants; verify no
-  shell-out for filename manipulation.
-- File system writes (thumbnail history) sandboxed via Phase 9's
-  `Yt::KbSandbox`.
-- EXIF stripping: prevents accidental location/timestamp leakage in uploaded
-  thumbnails.
-- Brakeman: especially around file upload paths and image processing.
-- bundler-audit: clean. Verify image processing libs (`image_processing`,
-  `ruby-vips`).
-- Dependabot: review.
-- `pito/docs/design.md`: calendar, upload form, metadata edit, thumbnail
-  manager, drift indicator — all documented.
-
-## Manual testing checklist
-
-The user runs through this before commit:
-
-1. Create a new `VideoProduction` from the productions index; advance through
-   `idea → outlined → recorded → edited → ready` via UI buttons; check audit
-   table for state-change rows
-2. Drag the production to a different date on the calendar; verify persistence
-3. Upload a real video (10–60s clip): file picker → progress bar → completion →
-   `Video` record created with YouTube ID
-4. Mid-upload refresh: tab close → reopen → upload resumes from last chunk
-5. Edit title locally (no Push); verify YouTube unchanged; click Push; verify
-   YouTube reflects within seconds
-6. Edit on YouTube Studio out of band; trigger a sync; verify drift banner
-   appears in pito; choose Pull → local matches remote
-7. Upload custom 1280×720 thumbnail; verify YouTube updated; verify the
-   configured video-notes folder records the file at
-   `videos/.../thumbnails/<timestamp>.jpg` (originally under `pito-yt-kb`; the
-   YouTube KB repo has been dropped — reuse the Phase 4 — Project Workspace
-   project-notes pattern)
-8. Schedule a video for 2 minutes from now; wait; verify pito's production
-   advances to `published` state after the scheduled time
-9. Create a playlist; add 3 videos via search-and-select; reorder via drag-drop;
-   verify YouTube reflects
-10. New production form: click "Find similar videos" → Phase 10 related results
-    appear
-11. Channel context summary panel shows voice/audience/skills/strategy when
-    drafting (Phase 9 integration)
-12. `bundle exec rspec` — green
-13. Sidekiq web shows no errors
-
----
-
-## Challenges to anticipate
-
-- **Resumable upload from browser is non-trivial.** YouTube's resumable upload
-  protocol is well-documented but the browser-side implementation requires
-  careful chunk management, retry logic, and state persistence. Look into
-  `tus-js-client` or similar — but the stack is Hotwire + Stimulus (no
-  React/Vue), so dependencies must be vanilla-JS-compatible.
-- **Network failures during upload.** Must handle disconnect, server 5xx,
-  browser tab close. localStorage holds state so refresh resumes; expired URLs
-  need re-initiation with clear UX.
-- **Sync conflicts (drift).** Last-write-wins is acceptable but the drift banner
-  should make the choice explicit. Don't auto-resolve.
-- **Thumbnail file size limits.** YouTube allows up to 2 MB. Resizer must
-  respect this; if a 1280×720 JPG exceeds 2 MB after resize, increase JPEG
-  compression rather than rejecting.
-- **Scheduled publish edge cases.** YouTube can fail to publish at scheduled
-  time (rare but documented). pito's reconciliation must detect and surface
-  failure (not silently leave the video in `scheduled` forever).
-- **YouTube quota cost of upload.** `videos.insert` is 1600 units. A power user
-  uploading multiple times a day uses significant quota. Track in Phase 7's
-  audit table; surface in Phase 13's observability.
-- **External playlist writes are not allowed.** Synced from external channels
-  but read-only in pito's UI. Prevent the UI from offering edit actions on
-  external playlists; tool-side enforcement rejects with clear error.
-- **`aasm` adds a dependency.** It's mature and widely used. Plain Ruby state
-  machine is feasible but `aasm` reads better for complex state spaces.
-  Recommend `aasm`; capture in `challenges.md` if user prefers plain Ruby.
-- **Both Pumas and the upload coordination.** Web Puma handles upload
-  initiation, progress, completion (browser hits these endpoints). MCP Puma
-  might also expose upload-related tools (e.g., `yt:start_upload`) for advanced
-  users. Decide whether MCP exposes upload at all in Phase 11; if not, capture
-  in `additions.md` for Phase 12 consideration.
+1. **Edit pane primitive.** The video edit surface continues to render
+   inside a `.pane.pane--standalone` per `docs/agents/architect.md` rule C.
+   Sub-sections (thumbnail, tags, chapters, end-screen, links) stack inside
+   that pane — no nested `.pane` rows. The Wave 4a forms sweep already
+   wrapped the edit form; sub-spec `01a` audits the wrap and lifts new
+   sections into the same container.
+2. **Thumbnail storage.** Active Storage `has_one_attached :thumbnail` on
+   `Video`. Preview rendered via a new `:thumbnail` variant entry in the
+   existing variant pipeline. Local disk in dev; S3 in production via the
+   existing storage config — no new storage backend.
+3. **Tags input shape.** Free-text comma-separated input bound to the
+   existing `videos.tags` text-array column. No new tags table; no
+   normalization (per YouTube's tags semantics, free-form is the contract).
+4. **Chapters storage.** New `video_chapters` table —
+   `id, video_id, start_seconds (integer, ≥0), label (string, ≤100), position (integer), timestamps`.
+   Unique on `(video_id, start_seconds)`. Render order is `start_seconds ASC`.
+   No timestamps written into `videos.description` in v1 — chapters live in
+   their own table; description sync is a follow-up (open question §5).
+5. **End-screen storage.** New `video_end_screens` table —
+   `id, video_id, kind (enum: related_video / related_channel / related_playlist / none), target_id (string, nullable), target_label (string, nullable), position (integer), timestamps`.
+   `kind: none` is a single explicit row marking "no end-screen needed".
+   Multiple non-`none` rows are allowed (YouTube end-screens take up to 4
+   elements).
+6. **Series shape — self-FK.** `videos.series_parent_id` (bigint, nullable,
+   FK to `videos.id`, `ON DELETE SET NULL`) + `videos.series_part_number`
+   (integer, nullable). Mirrors Phase 28's `version_parent_id` pattern on
+   `Game`. One level of nesting only: a video that is itself a series part
+   cannot be the parent of another series. Open question §3 surfaces
+   whether to lift to a dedicated `Series` model in a follow-up.
+7. **Post-publish cadence — install-wide defaults + per-channel overrides.**
+   `AppSetting#post_publish_comments_window_hours` (integer, default 24,
+   NOT NULL) and `AppSetting#post_publish_analytics_window_days` (integer,
+   default 7, NOT NULL) carry the defaults. `channels.post_publish_comments_window_hours`
+   and `channels.post_publish_analytics_window_days` (both integer,
+   nullable) override per channel when set. The notification scheduler
+   reads the channel override first, falls back to the install default.
+8. **Notification integration.** Reuses the Phase 16 notification pipeline.
+   Two new kinds: `video_comments_due` (severity `normal`, action
+   `[reply to comments]` linking to the YouTube Studio comments URL) and
+   `video_analytics_due` (severity `normal`, action `[review analytics]`
+   linking to the pito video analytics page). Both notifications stamp
+   `video_id` on the notification row.
+9. **Calendar entries.** Each post-publish notification ALSO derives a
+   `CalendarEntry` (`calendar_entry_type: :video_comments_due` /
+   `:video_analytics_due`, `state: :scheduled`). The Phase 15
+   `CalendarDerivable` concern on `Video` is extended for these two
+   additional entry kinds. Cancellation: if the user acknowledges via the
+   notification action, the calendar entry flips to `:occurred`.
+10. **Pre-publish checks composition.** A new value object
+    `Videos::PrePublishChecklist` composes the existing four manual
+    booleans PLUS the five new automatic checks. The publish gate calls
+    `checklist.passed?` which returns true when every check passes or is
+    explicitly skipped with rationale. Skip rationale is persisted to a
+    new `video_check_skips` table —
+    `id, video_id, check_key (string, NOT NULL), rationale (text, NOT NULL), skipped_by_user_id (FK), skipped_at, timestamps`.
+    Unique on `(video_id, check_key)`. Skipping a check overwrites the
+    prior skip row (rationale update is allowed).
+11. **Bracketed-link convention.** Every clickable link in new copy uses
+    the `[label]` form, no inner padding spaces (architect.md rule A).
+    Examples: `[skip]`, `[reply to comments]`, `[review analytics]`,
+    `[add chapter]`, `[remove]`, `[part 2 of 5]`.
+12. **No JS confirm / alert / prompt.** Skip-with-rationale uses an inline
+    form (textarea + submit), not a JS prompt. Removing a chapter / link
+    goes through `/deletions/...` (bulk-as-foundation, one-element ids
+    list). See `CLAUDE.md` hard rules.
+13. **Yes / no boundary.** Every JSON / MCP / form Boolean serializes as
+    `"yes"` / `"no"` at the wire (CLAUDE.md + architect.md rule E).
+    Internal storage stays Boolean. Convert at every boundary.
+14. **Friendly URLs preserved.** `/videos/:youtube_video_id/edit`,
+    `/videos/:youtube_video_id/chapters/...`,
+    `/videos/:youtube_video_id/end_screens/...`,
+    `/videos/:youtube_video_id/links/...`,
+    `/videos/:youtube_video_id/checks/:check_key/skip`,
+    `/series/:id` (Phase 11 v1 — no FriendlyId slug on series parents
+    yet; URLs are integer IDs, locked).
+15. **MCP scope.** New MCP tools land under the existing `app` scope (per
+    ADR 0004 — `dev` and `app` only; no per-tool scope multiplication).
+    CLI half is deferred per the active MCP/TUI pause; see sub-spec `01f`.
 
 ---
 
-## Confirmation gates for Claude Code
+## Cross-stack scope
 
-Before executing, confirm with the user:
+| Surface               | In scope this phase                                          |
+| --------------------- | ------------------------------------------------------------ |
+| Rails web (`/videos`) | YES — edit polish, checklist, post-publish, series, links    |
+| Rails MCP             | DOC ONLY — surface captured in `01f`; no dispatch this phase |
+| `pito` CLI (Rust)     | DEFERRED — MCP/TUI pause; captured in `01f`                  |
+| Cloudflare website    | NO                                                           |
 
-1. The user is OK with browser-direct upload (file content does not pass through
-   pito server). This is the standard YouTube upload pattern — flagging it just
-   to be sure.
-2. The user accepts the quota cost of upload-heavy workflows (1600 units per
-   upload). With the default 10k/day quota, that's ~6 uploads/day before
-   exhaustion.
-3. State machine library: `aasm` is the recommendation. Confirm or prefer plain
-   Ruby.
-4. Thumbnail processing library: `image_processing` + `ruby-vips`. Confirm or
-   alternative.
-5. AI assistance is user-mediated only (pito does not call LLMs server-side).
-   Confirm.
-6. Phase 11's scope is large; the user is OK with this being a multi-session
-   phase.
+---
+
+## Sequencing
+
+Sub-specs land in this order. `01a` and `01b` share schema reach (chapters /
+end-screens land in `01a`; the checklist consumes them in `01b`), so `01a`
+ships first. `01c` / `01d` / `01e` are parallel-dispatchable once `01a` is
+green. `01f` is a docs-only follow-up registry.
+
+1. **01a — Video edit page polish.** Thumbnail attach, tags input,
+   chapters nested-form editor, end-screen configuration. Introduces
+   `video_chapters` + `video_end_screens` tables + their models +
+   factories + nested-attributes wiring on `Video`. Edit form audit
+   confirms the `.pane.pane--standalone` wrap; new sub-sections stack
+   inside.
+2. **01b — Pre-publish checklist expansion.** Composes the five new
+   automatic checks on top of the existing four manual booleans via
+   `Videos::PrePublishChecklist`. Adds `video_check_skips` table + model
+   + skip-rationale inline form. Publish gate routes failing un-skipped
+   videos through the action-screen framework. Depends on `01a` (chapters
+   + end-screens have to exist before the checks can read them).
+3. **01c — Post-publish workflow.** Two new notification kinds, two new
+   `CalendarEntry` types via `CalendarDerivable` extension, AppSetting
+   default fields + Channel override fields, a
+   `Videos::SchedulePostPublishJob` Sidekiq job enqueued by
+   `VideoPublish` on successful publish. Parallel with `01d` / `01e`.
+4. **01d — Series / sequel tracking.** Migration adds `series_parent_id`
+   + `series_part_number`. Model, scopes, validations (one-level rule),
+   `Game`-style typeahead picker on edit. Show-page badge + dedicated
+   `/series/:id` show route. Backfill rake task. Parallel with `01c` /
+   `01e`.
+5. **01e — Video LINKS section polish.** First-class edit UI for the
+   existing `video_links` table. Enum-backed `kind`. Grouped display on
+   video show page below description. Parallel with `01c` / `01d`.
+6. **01f — MCP + CLI parity (docs-only follow-up).** Captures the MCP
+   tool surface for each `01a` / `01b` / `01c` / `01d` / `01e` slice.
+   CLI half deferred. **No implementation lanes dispatched.**
+
+---
+
+## Checkboxes
+
+### 01a — Video edit page polish
+
+- [ ] Audit `app/views/videos/edit.html.erb` — confirm the
+      `.pane.pane--standalone` wrap exists (per Wave 4a forms sweep). If
+      missing, wrap.
+- [ ] Active Storage `has_one_attached :thumbnail` on `Video`. Image
+      validation (PNG / JPEG only, ≤2 MB).
+- [ ] Thumbnail upload + preview sub-section in the edit pane.
+- [ ] Tags input — comma-separated text field bound to `videos.tags`. No
+      autocomplete; no chip JS.
+- [ ] Migration: `video_chapters` (`id, video_id, start_seconds, label,
+      position, timestamps`; unique on `(video_id, start_seconds)`).
+- [ ] Migration: `video_end_screens` (`id, video_id, kind enum,
+      target_id, target_label, position, timestamps`).
+- [ ] Models: `VideoChapter`, `VideoEndScreen`, with associations on
+      `Video`. `accepts_nested_attributes_for :video_chapters,
+      :video_end_screens, allow_destroy: true`.
+- [ ] Factories: `video_chapter`, `video_end_screen`.
+- [ ] Chapters nested-form editor — `[add chapter]` link adds a row;
+      `[remove]` link sets `_destroy: 1` and hides the row via
+      Stimulus (no JS confirm).
+- [ ] End-screens nested-form editor — single `kind: none` row toggle;
+      otherwise up to 4 rows for `related_video` / `related_channel` /
+      `related_playlist` with target ID + label.
+- [ ] Yes/no boundary applied at every Boolean external input (none in
+      v1; reserved guard).
+- [ ] Friendly URLs preserved on the edit route and on any new nested
+      routes.
+- [ ] Spec pyramid sweep — model (chapter + end-screen), factory smoke,
+      request (edit + update), component (nested-form partials), system
+      (add chapter / add end-screen / remove chapter via the form).
+
+### 01b — Pre-publish checklist expansion
+
+- [ ] Value object `Videos::PrePublishChecklist` —
+      `app/lib/videos/pre_publish_checklist.rb`. Composes nine checks:
+      the four existing manual booleans + five new automatic checks
+      (`thumbnail_attached`, `tags_min_three`,
+      `chapters_or_explicit_none`,
+      `description_min_100_or_explicit_minimal`,
+      `end_screen_configured_or_explicit_none`).
+- [ ] Migration: `video_check_skips` (`id, video_id, check_key NOT NULL,
+      rationale text NOT NULL, skipped_by_user_id FK, skipped_at,
+      timestamps`; unique on `(video_id, check_key)`).
+- [ ] Model `VideoCheckSkip` with associations + validations.
+- [ ] Factory `video_check_skip`.
+- [ ] Skip inline form per check — POST to
+      `/videos/:youtube_video_id/checks/:check_key/skip` with
+      `rationale` body. Re-submitting overwrites the prior row.
+- [ ] Pre-publish modal extension — render the nine checks as a list
+      with status indicators (`[ok]`, `[fail]`,
+      `[skipped — <rationale snippet>]`) and a `[skip]` link on each
+      failing row.
+- [ ] Publish gate — `VideosController#publish` / the action-screen for
+      publishing routes failing un-skipped videos through the existing
+      action-screen framework (`shared/_action_screen.html.erb` +
+      `Confirmable`). Hard block: cannot proceed.
+- [ ] Yes/no boundary applied at every Boolean external input.
+- [ ] Spec pyramid sweep — lib (checklist value object — every check),
+      model (`VideoCheckSkip`), request (skip endpoint + publish gate
+      happy / sad / edge), component (checklist rendering), system
+      (skip a check, publish blocked then unblocked).
+
+### 01c — Post-publish workflow
+
+- [ ] Migration: add `app_settings.post_publish_comments_window_hours`
+      (integer, default 24, NOT NULL) and
+      `app_settings.post_publish_analytics_window_days` (integer,
+      default 7, NOT NULL).
+- [ ] Migration: add `channels.post_publish_comments_window_hours`
+      (integer, nullable) and
+      `channels.post_publish_analytics_window_days` (integer,
+      nullable). Validation: ≥0 when present.
+- [ ] AppSetting + Channel model updates — accessors + validation.
+- [ ] Notification kinds added to the Phase 16 catalog:
+      `video_comments_due`, `video_analytics_due`. Action labels
+      `[reply to comments]` and `[review analytics]` per locked
+      decision §8.
+- [ ] `CalendarDerivable` extension on `Video` — derives
+      `:video_comments_due` and `:video_analytics_due` calendar entries
+      keyed on the same `video_id`.
+- [ ] Sidekiq job `Videos::SchedulePostPublishJob` — enqueued by
+      `VideoPublish` after a successful publish (and by the
+      `published_at` first-set hook for videos that bypass
+      `VideoPublish`). Reads cadence from channel override → AppSetting
+      default. Enqueues `Notifications::FireNotificationJob` at
+      `published_at + comments_window` and at `published_at +
+      analytics_window`. Idempotent — re-enqueue on a re-publish
+      replaces prior pending jobs (per `jid` stamping on the
+      notification row).
+- [ ] Settings UI — new fields on `/settings` (or
+      `/settings/notifications`, wherever Phase 16 currently surfaces
+      notification config). Per-channel overrides land on
+      `/channels/:id/edit`.
+- [ ] Yes/no boundary applied at every Boolean external input (none in
+      v1; reserved guard).
+- [ ] Spec pyramid sweep — model (AppSetting + Channel validations),
+      job (`Videos::SchedulePostPublishJob` happy / sad / edge /
+      idempotency), service (cadence resolution), request (settings +
+      channel edit), system (publish a video, calendar entry appears,
+      notification fires at the scheduled time via
+      `Sidekiq::Testing.inline!`).
+
+### 01d — Series / sequel tracking
+
+- [ ] Migration: add `videos.series_parent_id` (bigint, nullable, FK
+      to `videos.id`, indexed) and `videos.series_part_number`
+      (integer, nullable).
+- [ ] Foreign key `ON DELETE SET NULL` so destroying a parent leaves
+      its members as orphan primaries.
+- [ ] Model: `Video.belongs_to :series_parent, optional: true,
+      class_name: "Video"`, `Video.has_many :series_members,
+      foreign_key: :series_parent_id, dependent: :nullify,
+      class_name: "Video"`.
+- [ ] Scopes: `Video.series_parents` (rows with members),
+      `Video.in_series_of(video)`.
+- [ ] Validations: one-level only (a member cannot be a parent;
+      chosen parent must itself be `series_parent_id IS NULL`); no
+      self-reference.
+- [ ] Game-style typeahead picker on video edit — search by title only,
+      capped 20 results, members excluded.
+- [ ] Show-page badge — `+part N of M` (singular `+part 1 of 1`
+      displays as plain `[part 1]` per architect.md rule A).
+- [ ] `/series/:id` show page — lists members ordered by
+      `series_part_number ASC NULLS LAST, published_at ASC`.
+- [ ] Backfill rake task `videos:backfill_series_parents` — title
+      regex driven (`/—\s*Part\s*\d+/i`, `/Episode\s*\d+/i`,
+      `/Part\s*\d+/i`, `/Pt\.?\s*\d+/i`); idempotent; safe to re-run.
+- [ ] Yes/no boundary applied at every Boolean external input.
+- [ ] Spec pyramid sweep — model (associations, scopes, validations),
+      request (edit picker + show + /series/:id), system (attach via
+      picker, detach via edit, badge renders), rake (idempotent
+      backfill against a fixture set).
+
+### 01e — Video LINKS section polish
+
+- [ ] Audit `video_links` table — confirm columns
+      `id, video_id, url, label, kind, position, timestamps` exist.
+      If `kind` is missing, migrate to add (integer enum-backed:
+      `related_video / related_channel / external_resource / sponsor`).
+- [ ] Model `VideoLink` — enum on `kind` with prefix `kind`.
+      Validations (URL format, label ≤100 chars). Scope by kind.
+- [ ] First-class edit UI on the video edit pane — nested-attributes
+      sub-section with `[add link]` and `[remove]` per row. Sortable
+      via the existing position pattern.
+- [ ] Show page — grouped display below description: one heading per
+      `kind` (skipped when empty), bracketed-link rendering of each
+      link.
+- [ ] Yes/no boundary applied at every Boolean external input (none in
+      v1; reserved guard).
+- [ ] Spec pyramid sweep — model (enum, validations, scopes), request
+      (edit + update + show), component (grouped display partial),
+      system (add a link, kind switches, remove, show page renders).
+
+### 01f — MCP + CLI parity (docs-only follow-up)
+
+- [ ] Capture the MCP tool surface for each `01a` / `01b` / `01c` /
+      `01d` / `01e` slice. Suggested names:
+      `video_chapters_list / set`,
+      `video_end_screens_list / set`,
+      `video_links_list / set`,
+      `video_checks_skip`,
+      `video_series_attach / detach`,
+      `video_post_publish_cadence_set`.
+- [ ] Note CLI deferral per the active MCP/TUI pause. Cross-link the
+      pause note in `docs/orchestration/follow-ups.md`.
+- [ ] **No implementation lanes dispatched.** This sub-spec is a
+      registry, not a deliverable.
+
+---
+
+## Open questions (surfaced for master agent)
+
+1. **Pre-publish checklist gate behind AppSetting?** Some users may find
+   the expanded checklist annoying. Architect leans **no gate** — the
+   checklist is the publish gate, and skip-with-rationale is the escape
+   hatch. If the user disagrees, surface an
+   `AppSetting#pre_publish_strict` Boolean (default `true`) that, when
+   `false`, downgrades failing checks to warnings instead of hard blocks.
+   Lock before `01b` dispatches.
+2. **Default post-publish cadence values.** Architect proposes 24 hours
+   for the comments window and 7 days for the analytics window per the
+   prompt's suggestion. Surface for user lock before `01c` dispatches.
+3. **Series shape — self-FK vs dedicated `Series` model.** Architect
+   leans self-FK to mirror Phase 28's `version_parent_id` pattern and
+   avoid a second table. A dedicated `Series` model becomes attractive
+   if series gain their own metadata (title, description, cover image)
+   — surface as a follow-up if the user wants that surface in `01d` v1.
+4. **Thumbnail upload bytes — local sync vs YouTube sync.** Phase 11
+   stores the thumbnail locally via Active Storage. Pushing it back to
+   YouTube via `thumbnails.set` is a follow-up (the existing
+   `VideoSyncBack` job handles the writable subset; thumbnails are a
+   separate endpoint). Surface for user lock — does the user want the
+   YouTube-side sync inside `01a`, or as a follow-up?
+5. **Chapter timestamps writing into description.** YouTube derives
+   video chapters from `00:00` timestamps in the description. Phase 11
+   stores chapters in a dedicated table and does NOT rewrite the
+   description. A follow-up would render the chapters into the
+   description on sync-back. Surface for user lock — does `01a` close
+   the loop end-to-end (write chapters into description on save), or
+   strictly local-only in v1?
+6. **End-screen target validation.** YouTube end-screens require valid
+   video / channel / playlist IDs. Phase 11 v1 accepts free-text — no
+   round-trip validation against YouTube. Surface for user lock — is
+   the free-text shape acceptable for v1, or do we need an in-form
+   lookup?
+7. **Backfill scope for series.** Architect leans rake-only against the
+   existing dev DB. Surface for user lock — also fold into
+   `db/seeds.rb`?
+
+---
+
+## Quality gates
+
+Standard Beta gates (see `beta.md` §"Per-phase quality gates").
+Additional phase-specific checks:
+
+- Full spec pyramid sweep per `docs/agents/architect.md` rule D for every
+  sub-spec.
+- yes/no boundary applied at every external Boolean (URL params, JSON,
+  MCP I/O, CLI args, form params).
+- No `alert` / `confirm` / `prompt` / `data-turbo-confirm` anywhere. Skip
+  with rationale uses an inline form; chapter / link removal goes through
+  `/deletions/...`; the pre-publish gate routes through
+  `shared/_action_screen.html.erb`.
+- Friendly URLs preserved across all touched routes.
+- Brakeman + bundler-audit + Dependabot triage clean.
+- Idempotent migrations + idempotent backfill rake task.
+- Pane primitive: edit form lives in `.pane.pane--standalone`; show page
+  reads inside the existing show wrap.
+
+---
+
+## Manual test recipe (high-level)
+
+A detailed recipe per sub-spec lives in the relevant `specs/01*.md` file.
+The phase-level smoke test:
+
+1. `bin/setup` → `bin/rails db:migrate` → `bin/rails db:seed`.
+2. `bin/dev` → open
+   `http://localhost:3000/videos/<some_yt_id>/edit`.
+3. Confirm the edit pane wraps in `.pane.pane--standalone`.
+4. Upload a thumbnail; preview renders.
+5. Type `gaming, dev, pito` into tags; save; reload — tags persist.
+6. Click `[add chapter]` twice; enter `0` / `Intro` and `120` / `Setup`;
+   save; reload — both chapters present in order.
+7. Click `[add end screen]`; choose `related_video`; enter a YouTube ID
+   + label; save; reload — end screen persists.
+8. Pre-publish: click `[run pre-publish check]` — modal lists nine
+   checks with their status. Click `[skip]` on one failing check; enter
+   rationale `not applicable for this video`; submit.
+9. Confirm the failing-but-skipped check now shows
+   `[skipped — not applicable for this video]`.
+10. Hit publish — if any check is still failing AND not skipped, the
+    action-screen confirmation page renders with the failing list and a
+    `[cancel]` link. No JS confirm fires.
+11. Once publish succeeds, the calendar shows `video_comments_due` 24 h
+    out and `video_analytics_due` 7 d out. Override the channel cadence
+    to 1 h / 1 d; re-publish — the calendar entries update.
+12. Edit a video and attach a series parent via the typeahead picker;
+    save — the show page renders the `[part N of M]` badge.
+13. Visit `/series/:id` — every member of the series lists in part
+    order.
+14. Run `rake videos:backfill_series_parents` against a fixture of
+    "Stream — Part 1", "Stream — Part 2", "Stream — Part 3" — confirm
+    all three attach under a single parent.
+15. Add three links to a video (one of each kind); save — show page
+    renders the four-kind grouped section below the description.
+
+Detailed per-step expected values land in the per-spec manual recipes.
+
+---
+
+## Additions / dropped tracking
+
+This phase opens two tracking files lazily:
+
+- `docs/plans/beta/11-video-workflow-features/additions.md`
+- `docs/plans/beta/11-video-workflow-features/dropped.md`
+
+Neither is created up front — `pito-docs` opens them on first need.
+
+---
+
+## Phase log
+
+Append-only at:
+`docs/plans/beta/11-video-workflow-features/log.md`.
+
+`pito-docs` opens it after the first sub-spec implementation lands.
+
+---
+
+## References
+
+- `docs/plans/beta/beta.md` — master Beta plan.
+- `docs/plans/beta/12-*` — original Video schema expansion (writable
+  subset, four-boolean checklist).
+- `docs/plans/beta/22-*` — pre-publish modal + check (Phase 11 stacks on
+  top, does not replace).
+- `docs/plans/beta/23-*` — video diff resolution (Phase 11 publish gate
+  runs before publish, not on diff resolution).
+- `docs/plans/beta/26-*` §01g + §01h — analytics integration +
+  timezone-aware scheduled publishing.
+- `docs/plans/beta/15-*` — calendar derivation (Phase 11 extends
+  `CalendarDerivable` on `Video` for two new entry types).
+- `docs/plans/beta/16-*` — notifications pipeline (Phase 11 adds two
+  kinds).
+- `docs/plans/beta/27-games-listing-shelves-filters-display-modes/plan.md`
+  — reference for typeahead picker shape (series parent picker mirrors
+  it).
+- `docs/plans/beta/28-multi-version-game-grouping/plan.md` — reference
+  for self-FK shape (series tracking mirrors `version_parent_id`).
+- `docs/agents/architect.md` — spec pyramid (D), bracketed-link rule
+  (A), pane primitives (C), yes/no boundary (E), tenant-free reminder
+  (F).
+- `docs/decisions/0003-drop-tenant-single-install-multi-user.md` — auth
+  model.
+- `docs/decisions/0004-mcp-scope-simplification-dev-app.md` — MCP scope
+  reference (the new MCP tools captured in `01f` land under `app`).
+- `docs/design.md` — bracketed-link convention, monospace style, no red
+  outside destructive actions.
+- `CLAUDE.md` — hard rules (no JS confirm, bulk-as-foundation, secrets
+  in credentials, yes/no boundary).
