@@ -1,62 +1,32 @@
-<%# Phase 27 §01c — Collections shelf.
-    Top-of-page horizontal shelf listing every Collection, alphabetical
-    (case-insensitive). Each tile navigates to `/games?collection=<slug>`
-    so the existing controller filter narrows the listing below; once
-    01b lands its filter row, the same URL is the chip-state hand-off.
+<%# Phase 27 §01c-v2 — Outer Custom collections shelf (nested).
+    Supersedes the v1 flat-tile design. The outer shelf is a single
+    `<section data-shelf="outer-collections">` carrying an `<h2>`
+    heading; inside it iterates one sub-shelf per collection that
+    owns at least one game (alphabetical, case-insensitive). Each
+    sub-shelf is a row with a leading composite cover tile followed
+    by `Games::CoverComponent` game tiles at `:shelf` variant.
 
-    Tiles render at the `:shelf` cover-art size (50% of the standard
-    150x200 grid tile, locked by master for 01c — fall back to 65-70%
-    if covers look unreadable per the addendum). Collections curate
-    Games so the tile can in principle show a representative cover; the
-    Collection model has no first-class cover field yet, so the tile is
-    a bracketed legend over a neutral cover block (matches the Genres
-    shelf above).
-
-    Note: the spec mentions filtering Collections by a `kind: :custom` /
-    `custom: true` flag (open question #2). The Collection schema in
-    Phase 14 has no such column, so this shelf surfaces every
-    Collection. The filter can be reintroduced once that column ships.
+    Empty buckets are hidden — when no collection owns any game, the
+    entire `<section>` is suppressed (no muted placeholder, no `<h2>`).
+    This intentionally reverses 01c-v1 per 01c-v2 locked decision #7.
 
     Locals:
       collections  ActiveRecord::Relation of Collection rows, pre-
-                   ordered by caller (controller passes alphabetical
-                   case-insensitive).
+                   filtered by the caller to only include collections
+                   that own at least one game and pre-ordered
+                   alphabetical case-insensitive.
 %>
 <%
   collections = local_assigns.fetch(:collections)
 %>
-<section class="shelf shelf--collections" style="margin-top: 12px;" data-controller="steam-shelf">
-  <div class="dot-list" style="margin-bottom: 6px;">
-    <h2 style="margin: 0;">collections</h2>
-  </div>
+<% if collections.any? %>
+  <section class="shelf shelf--collections outer-shelf" data-shelf="outer-collections" style="margin-top: 16px;">
+    <div class="dot-list" style="margin-bottom: 6px;">
+      <h2 style="margin: 0;">custom collections</h2>
+    </div>
 
-  <div class="shelf-row" data-steam-shelf-target="row"
-       style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px;">
-    <% if collections.any? %>
-      <% collections.each do |collection| %>
-        <%
-          href = if collection.slug.present?
-                   games_path(collection: collection.slug)
-                 else
-                   games_path(collection: collection.id)
-                 end
-        %>
-        <a href="<%= href %>"
-           class="tile tile--shelf"
-           style="flex: 0 0 75px; width: 75px; display: block; text-decoration: none; color: inherit; cursor: pointer;"
-           data-tile-collection-id="<%= collection.id %>"
-           data-tile-variant="shelf"
-           title="<%= collection.name %>">
-          <div class="tile-cover" style="width: 75px; height: 100px; overflow: hidden; background: #f6f6f6; display: flex; align-items: center; justify-content: center; border: 1px solid #ddd;">
-            <span class="text-muted" style="font-size: 10px;">[<%= collection.name.to_s.downcase %>]</span>
-          </div>
-          <div class="tile-caption" style="padding: 4px 0; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-            <%= collection.name %>
-          </div>
-        </a>
-      <% end %>
-    <% else %>
-      <p class="text-muted" style="margin: 0; font-size: 11px;">(no collections yet)</p>
+    <% collections.each do |collection| %>
+      <%= render "games/collection_sub_shelf_row", collection: collection %>
     <% end %>
-  </div>
-</section>
+  </section>
+<% end %>

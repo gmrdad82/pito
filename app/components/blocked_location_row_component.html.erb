@@ -1,0 +1,29 @@
+<tr>
+  <td class="num"><%= blocked_at_label %></td>
+  <td><code><%= source_badge %></code></td>
+  <td><code><%= fingerprint_short %></code></td>
+  <td><code><%= row.ip_prefix %></code></td>
+  <td class="num"><%= row.attempt_count %></td>
+  <td class="num"><%= last_attempt_label %></td>
+  <td class="<%= state_css %>">
+    <% if row.active? %>
+      <strong><%= state_label %></strong>
+    <% else %>
+      <span class="text-muted"><%= state_label %></span>
+    <% end %>
+  </td>
+  <td class="col-action">
+    <% if show_unblock_link? %>
+      <%= render BracketedLinkComponent.new(
+            label: "unblock",
+            href:  settings_security_block_unblocking_path(row)
+          ) %>
+    <% end %>
+    <% if show_view_link? %>
+      <%= render BracketedLinkComponent.new(
+            label: "view",
+            href:  settings_security_block_path(row)
+          ) %>
+    <% end %>
+  </td>
+</tr>

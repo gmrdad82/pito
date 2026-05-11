@@ -1,125 +1,104 @@
 require "rails_helper"
 
-# Phase 27 §01c — Genres + Collections shelves on `/games`.
+# Phase 27 §01c-v2 — Nested Genres + Custom collections shelves on
+# `/games`.
 #
-# Both shelves render at the top of `/games`, alphabetical (case-
-# insensitive) with a stable `id` tiebreak. Each tile is a link to
-# `/games?genre=<slug>` or `/games?collection=<slug>`; the existing
-# filter codepath narrows `@all_games` so the shelves work standalone
-# while 01b's filter row is still in flight.
+# Supersedes the v1 flat-tile system spec. Each outer shelf iterates
+# one sub-shelf per non-empty bucket (genre / collection); empty
+# buckets are hidden end-to-end. Per-sub-shelf the row holds game
+# tiles at the `:shelf` cover variant (collections additionally lead
+# with a composite cover tile from the 01h partial).
 #
 # Capybara's rack_test driver is sufficient — there is no JS in this
 # surface beyond the steam-shelf wheel/drag controller, which is a
 # pure UX affordance and not under test.
-RSpec.describe "Games index — shelves (01c)", type: :system do
+RSpec.describe "Games index — nested shelves (01c-v2)", type: :system do
   before { driven_by(:rack_test) }
 
-  describe "Genres shelf" do
-    it "renders the heading even when no genres exist" do
+  describe "Genres outer shelf" do
+    it "is HIDDEN when no genre owns any game" do
       visit games_path
-      expect(page).to have_content("genres")
-      expect(page).to have_content("(no genres yet)")
+      expect(page).not_to have_css("section.shelf--genres")
+      expect(page).not_to have_content("(no genres yet)")
     end
 
-    it "renders one tile per genre, alphabetical (case-insensitive)" do
-      Genre.create!(igdb_id: 1, name: "rpg",       slug: "rpg")
-      Genre.create!(igdb_id: 2, name: "Adventure", slug: "adventure")
-      Genre.create!(igdb_id: 3, name: "platformer", slug: "platformer")
+    it "renders one outer <h2> and one sub-shelf per non-empty genre, alphabetical" do
+      adventure  = Genre.create!(igdb_id: 1, name: "Adventure",  slug: "adventure")
+      platformer = Genre.create!(igdb_id: 2, name: "platformer", slug: "platformer")
+      rpg        = Genre.create!(igdb_id: 3, name: "rpg",        slug: "rpg")
+
+      [ [ adventure, "Zelda BotW" ], [ platformer, "Celeste" ], [ rpg, "Persona 5" ] ].each do |genre, title|
+        g = create(:game, :synced, title: title, cover_image_id: "img-#{title.parameterize}")
+        g.genres << genre
+      end
 
       visit games_path
-      # Section-scope the lookup so the recently-played/per-genre shelves
-      # below don't shadow the order we're asserting.
-      shelf = find("section.shelf--genres")
-      names = shelf.all(".tile-caption").map(&:text)
-      expect(names).to eq(%w[Adventure platformer rpg])
+      outer = find("section.shelf--genres.outer-shelf")
+      expect(outer).to have_css("h2", text: "genres")
+      headings = outer.all("h3").map(&:text)
+      expect(headings).to eq(%w[Adventure platformer rpg])
     end
 
-    it "renders an empty-state placeholder when there are no genres" do
-      visit games_path
-      shelf = find("section.shelf--genres")
-      expect(shelf).to have_content("(no genres yet)")
-    end
+    it "skips empty genres entirely (no sub-shelf rendered for them)" do
+      adventure = Genre.create!(igdb_id: 1, name: "Adventure", slug: "adventure")
+      Genre.create!(igdb_id: 2, name: "Empty Genre", slug: "empty")  # zero games
 
-    it "stamps the steam-shelf Stimulus controller on the shelf row" do
-      visit games_path
-      expect(page).to have_css("section.shelf--genres[data-controller='steam-shelf']")
-    end
-  end
-
-  describe "Collections shelf" do
-    it "renders the heading even when no collections exist" do
-      visit games_path
-      expect(page).to have_content("collections")
-      expect(page).to have_content("(no collections yet)")
-    end
-
-    it "renders one tile per collection, alphabetical (case-insensitive)" do
-      create(:collection, name: "zelda")
-      create(:collection, name: "Action games")
-      create(:collection, name: "mecha")
+      g = create(:game, :synced, title: "Zelda BotW", cover_image_id: "img-zelda")
+      g.genres << adventure
 
       visit games_path
-      shelf = find("section.shelf--collections")
-      names = shelf.all(".tile-caption").map(&:text)
-      expect(names).to eq([ "Action games", "mecha", "zelda" ])
-    end
-
-    it "renders an empty-state placeholder when there are no collections" do
-      visit games_path
-      shelf = find("section.shelf--collections")
-      expect(shelf).to have_content("(no collections yet)")
-    end
-
-    it "stamps the steam-shelf Stimulus controller on the shelf row" do
-      visit games_path
-      expect(page).to have_css("section.shelf--collections[data-controller='steam-shelf']")
+      outer = find("section.shelf--genres.outer-shelf")
+      headings = outer.all("h3").map(&:text)
+      expect(headings).to eq([ "Adventure" ])
     end
   end
 
-  describe "Tile navigation" do
+  describe "Custom collections outer shelf" do
+    it "is HIDDEN when no collection owns any game" do
+      create(:collection, name: "Empty collection")  # zero games
+      visit games_path
+      expect(page).not_to have_css("section.shelf--collections")
+      expect(page).not_to have_content("(no collections yet)")
+    end
+
+    it "renders the 'custom collections' <h2> and one sub-shelf per non-empty collection, alphabetical" do
+      retro  = create(:collection, name: "Retro")
+      replay = create(:collection, name: "Replay queue")
+
+      create(:game, :synced, title: "Chrono Trigger", collection: retro)
+      create(:game, :synced, title: "Hollow Knight",  collection: replay)
+
+      visit games_path
+      outer = find("section.shelf--collections.outer-shelf")
+      expect(outer).to have_css("h2", text: "custom collections")
+      headings = outer.all("h3").map(&:text)
+      expect(headings).to eq([ "Replay queue", "Retro" ])
+    end
+  end
+
+  describe "Sub-shelf [see all] navigation (happy path)" do
     let!(:adventure) { Genre.create!(igdb_id: 1001, name: "Adventure", slug: "adventure") }
     let!(:rpg)       { Genre.create!(igdb_id: 1002, name: "RPG",       slug: "rpg") }
-    let!(:zelda) do
-      g = create(:game, :synced, title: "Zelda BotW", release_year: 2017)
-      g.genres << adventure
-      g
-    end
-    let!(:elden) do
+
+    before do
+      # 31 adventure games → over the cap → [see all] visible.
+      31.times do |i|
+        g = create(:game, :synced, title: format("%04d adventure", i + 1))
+        g.genres << adventure
+      end
       g = create(:game, :synced, title: "Elden Ring", release_year: 2022)
       g.genres << rpg
-      g
     end
-    let!(:retro) { create(:collection, name: "Retro favorites") }
 
-    it "Genre tile links to /games?genre=<slug> and narrows the listing" do
+    it "[see all] on the adventure sub-shelf navigates to /games?genre=adventure and narrows the all-games grid" do
       visit games_path
-      # `match: :first` because the per-genre legacy shelf below also
-      # has tiles; the topmost link in document order is the 01c shelf.
-      adventure_tile = find("section.shelf--genres .tile-caption", text: "Adventure")
-      adventure_tile.find(:xpath, "..").click
+      adventure_shelf = find("section.sub-shelf--genre[data-genre-id='#{adventure.id}']")
+      adventure_shelf.click_link("see all")
 
       expect(page).to have_current_path(games_path(genre: "adventure"))
-      expect(page).to have_content("Zelda BotW")
-      # Elden Ring (RPG genre) is filtered out of the all-games grid.
+      # The all-games grid below narrows to adventure games — Elden
+      # Ring (RPG) is filtered out.
       expect(page).not_to have_selector(".grid", text: "Elden Ring")
-    end
-
-    it "Collection tile links to /games?collection=<slug>" do
-      visit games_path
-      retro_tile = find("section.shelf--collections .tile-caption", text: "Retro favorites")
-      retro_tile.find(:xpath, "..").click
-
-      expect(page).to have_current_path(games_path(collection: retro.slug))
-    end
-
-    it "falls back to ?genre=<id> when the genre has no slug" do
-      no_slug = Genre.create!(igdb_id: 9999, name: "Slugless")
-      no_slug.update_column(:slug, nil)
-
-      visit games_path
-      shelf = find("section.shelf--genres")
-      link = shelf.find(".tile-caption", text: "Slugless").find(:xpath, "..")
-      expect(link[:href]).to eq(games_path(genre: no_slug.id))
     end
   end
 end

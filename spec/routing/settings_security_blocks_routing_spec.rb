@@ -34,6 +34,24 @@ RSpec.describe "Settings::Security::Blocks routing", type: :routing do
     end
   end
 
+  describe "blocks unblocking" do
+    it "routes GET /settings/security/blocks/:block_id/unblocking to blocks/unblockings#show" do
+      expect(get: "/settings/security/blocks/7/unblocking").to route_to(
+        controller: "settings/security/blocks/unblockings",
+        action: "show",
+        block_id: "7"
+      )
+    end
+
+    it "routes POST /settings/security/blocks/:block_id/unblocking to blocks/unblockings#create" do
+      expect(post: "/settings/security/blocks/7/unblocking").to route_to(
+        controller: "settings/security/blocks/unblockings",
+        action: "create",
+        block_id: "7"
+      )
+    end
+  end
+
   describe "attempts purge" do
     it "routes GET /settings/security/attempts/purge to attempts/purges#show" do
       expect(get: "/settings/security/attempts/purge").to route_to(

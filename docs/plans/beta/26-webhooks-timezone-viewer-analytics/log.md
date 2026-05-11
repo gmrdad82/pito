@@ -1,59 +1,125 @@
 # Phase 26 — log
 
-## 2026-05-11 — sub-spec 01d Help-modal Markdown guides (pito-rails) [skipci]
+## 2026-05-11 — sub-spec 01f Analytics architecture + tz update (pito-docs) [skipci]
 
-Implemented sub-spec 01d — Help-modal Markdown guides for the Slack +
-Discord webhook panes per
-`specs/01d-help-modal-markdown-guides.md`. Polished the on-disk
-Markdown guides (each now carries a full Troubleshooting section per
-the spec acceptance), wired `ApplicationHelper#render_markdown` to
-take a `plain: true` keyword that switches off Commonmarker's
-header-anchor + syntax-highlighter plugins for the modal render, and
-fixed the system spec that was red against `/settings` (the Slack +
-Discord panes are intentionally not rendered on the settings index
-per the 01g layout decision — the system spec now drives the
-help-link → fragment contract directly).
+Implemented sub-spec 01f — Analytics architecture + tz update per
+`specs/01f-analytics-architecture-tz-update.md`. Documentation-only: added two
+sections to `docs/architecture.md` that pin the app-wide UTC-storage /
+user-tz-render contract and the viewer-time aggregation design. These sections
+are the durable architecture reference future analytics work reads first instead
+of re-deriving the rules from the Mobile note + sub-specs.
 
 ### Files touched
 
 **Edited:**
 
-- `app/views/settings/webhooks/help/slack.md` — expanded from the
-  stub: every step now spells out where to click + what the screen
-  looks like, no assumed Slack-admin knowledge, full Troubleshooting
-  section covering invalid-URL, ping-failed 404/410/403,
-  connection-timeout, channel-disappeared, and start-over paths.
+- `docs/architecture.md` — two new top-level sections appended after the Phase 7
+  / 9 "Google OAuth + YouTube API foundation" block. The pre-existing Phase 2
+  "Timezone" subsection under "Datastore — Postgres 17" gained a one-paragraph
+  forward reference to the new top-level section so the Postgres-side pinning
+  reads as a piece of the larger app-wide contract.
+
+  Section 1: **Timezone rendering rule (Phase 26 — 01a / 01f).** Storage rule
+  (every `time` / `datetime` / `timestamptz` column is UTC; enumerates Phase 26
+  additions — `users.time_zone`, `users.last_digest_run_at`, `*_at` columns on
+  `video_viewer_time_buckets`, scheduled-publish columns); render rule (every
+  user-facing time passes through `l_user_tz` from 01a, sole conversion site);
+  calendar definitions (day, week starting Monday with `users.week_start` hook,
+  month, year — all user-local); canonical rollup query pattern
+  (`date_trunc('day', utc_ts AT TIME ZONE :user_tz)`) with hour / dow extracts
+  for the heatmap; edge cases (DST spring-forward 23h day, fall-back 25h day,
+  half-hour `Asia/Kolkata`, quarter-hour `Asia/Kathmandu` + `Pacific/Chatham`,
+  `Etc/UTC` sentinel); cross-references to 01a / 01e / 01g / 01h.
+
+  Section 2: **Viewer-time aggregation (Phase 26 — 01g).** Source endpoint
+  (YouTube Analytics API v2 via `Youtube::Client`, hourly buckets per video per
+  day, traffic-source fallback if API only exposes daily); storage schema
+  (`video_viewer_time_buckets` with `_utc`-suffixed columns, composite unique
+  index `(video_id, day_of_week_utc, hour_of_day_utc)`, `last_synced_at` index,
+  UTC-at-write contract); refresh cadence (`ViewerTimeDailyRefreshJob` at 03:00
+  server time, per-video `VideoViewerTimeSyncJob` fan-out, idempotent upsert,
+  `Youtube::QuotaExhaustedError` abort,
+  `pito:backfill_viewer_time_buckets DAYS=90` rake task, daily cadence locked
+  for v1); query patterns (per-video heatmap with `make_timestamp` anchor over
+  reference-Sunday `Jan 2 2000`, per-channel join through `videos`, rolling
+  window via `last_synced_at`); render contract (`ViewerTimeHeatmapComponent`,
+  axis labels via `l_user_tz`, single-hue intensity gradient, no red,
+  empty-state copy references the 03:00 cadence); locked decisions list (UTC
+  storage / user-tz rollup, daily 03:00 cadence, Monday week-start, raw `SUM`
+  per-channel aggregation, web-only v1 surface).
+
+  Source-of-truth notes cited:
+  `docs/notes/2026-05-11-11-12-17-webhooks-timezone-viewer-time-analytics.md`
+  (§2 user timezone, §3 viewer-time) + `docs/realignment-2026-05-09.md` (YouTube
+  Analytics work unit 6).
+
+### Acceptance status
+
+Every bullet in the spec's two Acceptance blocks (section 1 "Timezone rendering
+rule" and section 2 "Viewer-time aggregation") is covered. Cross-references and
+the locked-decisions list are in place so future readers do not re-litigate.
+`npx prettier@latest --write docs/architecture.md` reflowed the new content to
+the project's 80-char `prose-wrap: always` convention.
+
+### Plan + spec deltas
+
+- Ticked `01f` checkbox in
+  `docs/plans/beta/26-webhooks-timezone-viewer-analytics/plan.md`.
+
+### Open items
+
+The four open questions in the spec (section placement, week-start default,
+YouTube Analytics granularity, refresh cadence) were resolved in line with the
+master-locked plan decisions: top-level sections under the existing flow, Monday
+week-start with future hook, hourly-bucket assumption with documented fallback,
+daily refresh at 03:00 server time. None left to surface here.
+
+## 2026-05-11 — sub-spec 01d Help-modal Markdown guides (pito-rails) [skipci]
+
+Implemented sub-spec 01d — Help-modal Markdown guides for the Slack + Discord
+webhook panes per `specs/01d-help-modal-markdown-guides.md`. Polished the
+on-disk Markdown guides (each now carries a full Troubleshooting section per the
+spec acceptance), wired `ApplicationHelper#render_markdown` to take a
+`plain: true` keyword that switches off Commonmarker's header-anchor +
+syntax-highlighter plugins for the modal render, and fixed the system spec that
+was red against `/settings` (the Slack + Discord panes are intentionally not
+rendered on the settings index per the 01g layout decision — the system spec now
+drives the help-link → fragment contract directly).
+
+### Files touched
+
+**Edited:**
+
+- `app/views/settings/webhooks/help/slack.md` — expanded from the stub: every
+  step now spells out where to click + what the screen looks like, no assumed
+  Slack-admin knowledge, full Troubleshooting section covering invalid-URL,
+  ping-failed 404/410/403, connection-timeout, channel-disappeared, and
+  start-over paths.
 - `app/views/settings/webhooks/help/discord.md` — same expansion:
-  Manage-Webhooks-permission prereq spelled out, full Troubleshooting
-  section covering invalid-URL, ping-failed 404/401, missing-menu
-  permission error, connection-timeout, channel-disappeared, and
-  start-over paths. Calls out both `discord.com` and `discordapp.com`
-  host forms (01c regex accepts both).
-- `app/helpers/application_helper.rb` — `render_markdown(text, plain:
-  false)`. `plain: true` passes `extension: { header_ids: nil }` +
-  `plugins: { syntax_highlighter: nil }` to Commonmarker so the help
-  modal renders bare `<h1>` / `<h2>` / `<pre>` / `<code>` without
-  injected anchor links or inline-styled syntax highlighting. The
-  default path (note editor SSR preview) is unchanged.
-- `app/views/settings/webhooks/help/show.html.erb` — call site
-  switched to `render_markdown(@markdown, plain: true)` to use the
-  new plain path.
-- `spec/requests/settings/webhooks/help_spec.rb` — +6 examples
-  covering the plain Markdown rendering posture (no `class="anchor"`,
-  no `<pre style=…>`) and the Troubleshooting sections on both
-  guides.
-- `spec/views/settings/webhooks/help/show_html_erb_spec.rb` — +11
-  examples locking in the Troubleshooting heading + key error paths
-  on each guide, plus an emoji-glyph guard per the project copy
-  convention.
-- `spec/system/settings_webhook_help_spec.rb` — rewrote to drop the
-  ambiguous `[data-controller], body` selector and the broken
-  click_link path (Slack + Discord panes aren't rendered on
-  `/settings` per the 01g decision). The spec now drives the
-  help-link → fragment contract directly via `visit
-  settings_webhooks_help_path` and verifies modal scaffolding on
-  `/settings` + the rendered fragment carries the matching
-  `<turbo-frame>` id.
+  Manage-Webhooks-permission prereq spelled out, full Troubleshooting section
+  covering invalid-URL, ping-failed 404/401, missing-menu permission error,
+  connection-timeout, channel-disappeared, and start-over paths. Calls out both
+  `discord.com` and `discordapp.com` host forms (01c regex accepts both).
+- `app/helpers/application_helper.rb` — `render_markdown(text, plain: false)`.
+  `plain: true` passes `extension: { header_ids: nil }` +
+  `plugins: { syntax_highlighter: nil }` to Commonmarker so the help modal
+  renders bare `<h1>` / `<h2>` / `<pre>` / `<code>` without injected anchor
+  links or inline-styled syntax highlighting. The default path (note editor SSR
+  preview) is unchanged.
+- `app/views/settings/webhooks/help/show.html.erb` — call site switched to
+  `render_markdown(@markdown, plain: true)` to use the new plain path.
+- `spec/requests/settings/webhooks/help_spec.rb` — +6 examples covering the
+  plain Markdown rendering posture (no `class="anchor"`, no `<pre style=…>`) and
+  the Troubleshooting sections on both guides.
+- `spec/views/settings/webhooks/help/show_html_erb_spec.rb` — +11 examples
+  locking in the Troubleshooting heading + key error paths on each guide, plus
+  an emoji-glyph guard per the project copy convention.
+- `spec/system/settings_webhook_help_spec.rb` — rewrote to drop the ambiguous
+  `[data-controller], body` selector and the broken click_link path (Slack +
+  Discord panes aren't rendered on `/settings` per the 01g decision). The spec
+  now drives the help-link → fragment contract directly via
+  `visit settings_webhooks_help_path` and verifies modal scaffolding on
+  `/settings` + the rendered fragment carries the matching `<turbo-frame>` id.
 
 ### Spec count delta
 
@@ -65,13 +131,13 @@ help-link → fragment contract directly).
 All 148 webhook-area specs (`spec/services/webhooks/*`,
 `spec/requests/settings/{slack,discord}_webhooks_spec.rb`,
 `spec/requests/settings/webhooks/help_spec.rb`,
-`spec/views/settings/webhooks/**`,
-`spec/system/settings_webhook_help_spec.rb`) green.
+`spec/views/settings/webhooks/**`, `spec/system/settings_webhook_help_spec.rb`)
+green.
 
 ### Rubocop
 
-`bundle exec rubocop` on the touched Ruby + spec files — clean (4
-files, 0 offenses).
+`bundle exec rubocop` on the touched Ruby + spec files — clean (4 files, 0
+offenses).
 
 ### Plan + spec deltas
 
@@ -80,25 +146,23 @@ Ticked `01d` checkbox in
 
 ### Open follow-ups
 
-- Slack + Discord panes are still not rendered on `/settings` per the
-  01g decision. The `[help]` links exist in the partials and the
-  modal scaffolding lives in the layout, so JS-on users can hit the
-  flow once the panes do reach the settings index. The 01d manual
-  test recipe explicitly walks `/settings` — that step waits on a
-  follow-up that re-adds the panes to the page (or routes them under
-  `/settings/integrations/<provider>` per the original spec
+- Slack + Discord panes are still not rendered on `/settings` per the 01g
+  decision. The `[help]` links exist in the partials and the modal scaffolding
+  lives in the layout, so JS-on users can hit the flow once the panes do reach
+  the settings index. The 01d manual test recipe explicitly walks `/settings` —
+  that step waits on a follow-up that re-adds the panes to the page (or routes
+  them under `/settings/integrations/<provider>` per the original spec
   language). Tracked alongside other phase 26 follow-ups.
 
 ## 2026-05-11 — sub-spec 01h Video scheduled-publish tz wiring (pito-rails) [skipci]
 
 Implemented sub-spec 01h — Video scheduled-publish tz wiring per
 `specs/01h-video-scheduled-publish-tz-wiring.md`. Wires the existing
-`VideosController#schedule` flow through `Current.user.time_zone` so
-the picker is in user-tz, storage is UTC, and re-render maps back to
-the user's current zone. DST spring-forward gaps surface as a
-friendly error; DST fall-back resolves to the first occurrence
-(pre-fallback, per locked decision) with a warning hook. The
-`reminder_window` helper ships now for a future reminder cron;
+`VideosController#schedule` flow through `Current.user.time_zone` so the picker
+is in user-tz, storage is UTC, and re-render maps back to the user's current
+zone. DST spring-forward gaps surface as a friendly error; DST fall-back
+resolves to the first occurrence (pre-fallback, per locked decision) with a
+warning hook. The `reminder_window` helper ships now for a future reminder cron;
 no reminder cron exists yet so wiring it is deferred.
 
 ### Files touched
@@ -107,178 +171,159 @@ no reminder cron exists yet so wiring it is deferred.
 
 - `app/helpers/scheduled_publish_helper.rb` —
   `parse_user_local_to_utc(date_str, time_str, user_tz)`,
-  `render_publish_at_for_user(publish_at_utc, user_tz, format:)`,
-  and `reminder_window(publish_at_utc, user_tz, offset:)`.
-  `parse_user_local_to_utc` raises `AmbiguousLocalTime` on
-  spring-forward gaps and returns a `ParsedPublishAt` struct
-  carrying the UTC instant plus an optional `:dst_fallback_first_occurrence`
-  warning. `render_publish_at_for_user` defaults to the
-  `<input type="datetime-local">` value shape
-  (`%Y-%m-%dT%H:%M`) and supports `:long`, `:short`, `:date`, `:iso`
-  format overrides. The helper is pure: it does not read
-  `Current.user` or `Time.zone` — callers pass the explicit zone
-  so the conversion is auditable end to end.
-- `spec/helpers/scheduled_publish_helper_spec.rb` — 38 examples.
-  Round-trip identity, DST spring-forward + fall-back, edge zones
-  (Kiritimati UTC+14, Pago Pago UTC-11, Kolkata UTC+5:30, Eucla
-  UTC+8:45), midnight boundaries, reminder window math across DST.
-- `spec/system/video_scheduled_publish_tz_spec.rb` — 7 critical-
-  journey examples covering the picker label, the user-local →
-  UTC → user-local round-trip, tz-change-between-schedule-and-edit,
-  edge-zone storage, DST spring-forward rejection, and the edit
-  form's "scheduled for:" display in user-tz.
+  `render_publish_at_for_user(publish_at_utc, user_tz, format:)`, and
+  `reminder_window(publish_at_utc, user_tz, offset:)`. `parse_user_local_to_utc`
+  raises `AmbiguousLocalTime` on spring-forward gaps and returns a
+  `ParsedPublishAt` struct carrying the UTC instant plus an optional
+  `:dst_fallback_first_occurrence` warning. `render_publish_at_for_user`
+  defaults to the `<input type="datetime-local">` value shape (`%Y-%m-%dT%H:%M`)
+  and supports `:long`, `:short`, `:date`, `:iso` format overrides. The helper
+  is pure: it does not read `Current.user` or `Time.zone` — callers pass the
+  explicit zone so the conversion is auditable end to end.
+- `spec/helpers/scheduled_publish_helper_spec.rb` — 38 examples. Round-trip
+  identity, DST spring-forward + fall-back, edge zones (Kiritimati UTC+14, Pago
+  Pago UTC-11, Kolkata UTC+5:30, Eucla UTC+8:45), midnight boundaries, reminder
+  window math across DST.
+- `spec/system/video_scheduled_publish_tz_spec.rb` — 7 critical- journey
+  examples covering the picker label, the user-local → UTC → user-local
+  round-trip, tz-change-between-schedule-and-edit, edge-zone storage, DST
+  spring-forward rejection, and the edit form's "scheduled for:" display in
+  user-tz.
 
 **Edited:**
 
-- `app/controllers/videos_controller.rb` — `include ScheduledPublishHelper`;
-  new `parsed_publish_at_with_error(value)` returns `[Time, error_msg]`
-  so the schedule validator can surface the friendly DST message.
-  ISO 8601 inputs with an offset suffix or trailing `Z` route through
-  the original `Time.iso8601` path (JSON / MCP callers); tz-less
-  inputs route through `parse_user_local_to_utc` in the current
-  user's stored zone. `parsed_publish_at(value)` kept as a back-compat
-  one-liner returning just the Time.
-- `app/views/videos/_pre_publish_modal.html.erb` — the schedule-branch
-  picker label declares the user's stored tz (`publish at (Europe/Bucharest)`);
-  the `<input>` carries `data-tz="<user_tz>"` for future JS-picker
-  reuse; the value attribute pre-fills via
-  `render_publish_at_for_user(video.publish_at, user_tz)` so a
-  re-render after a tz change shows the same stored UTC instant in
-  the new user-local clock. Hint copy clarifies the picker
-  interprets clock-time as user-tz, stores UTC.
+- `app/controllers/videos_controller.rb` — `include ScheduledPublishHelper`; new
+  `parsed_publish_at_with_error(value)` returns `[Time, error_msg]` so the
+  schedule validator can surface the friendly DST message. ISO 8601 inputs with
+  an offset suffix or trailing `Z` route through the original `Time.iso8601`
+  path (JSON / MCP callers); tz-less inputs route through
+  `parse_user_local_to_utc` in the current user's stored zone.
+  `parsed_publish_at(value)` kept as a back-compat one-liner returning just the
+  Time.
+- `app/views/videos/_pre_publish_modal.html.erb` — the schedule-branch picker
+  label declares the user's stored tz (`publish at (Europe/Bucharest)`); the
+  `<input>` carries `data-tz="<user_tz>"` for future JS-picker reuse; the value
+  attribute pre-fills via
+  `render_publish_at_for_user(video.publish_at, user_tz)` so a re-render after a
+  tz change shows the same stored UTC instant in the new user-local clock. Hint
+  copy clarifies the picker interprets clock-time as user-tz, stores UTC.
 - `app/views/videos/_form.html.erb` — `scheduled for:` display uses
-  `l_user_tz(video.publish_at)` (from 01a) instead of `.iso8601`.
-  UTC storage, user-tz render.
-- `app/jobs/video_publish.rb` — `publish_at_iso8601` path now
-  normalizes to `.utc` defensively (the controller already stores
-  UTC; this guards the MCP path) and logs a tz observability line
-  with the channel-owner's stored `time_zone`. Logging is
-  defensive-rescue so it can never raise.
-- `spec/jobs/video_publish_spec.rb` — 7 new examples covering:
-  stored UTC instant independent of channel-owner's tz; instant
-  invariant when user changes tz between schedule + fire; edge-zone
-  storage (Kiritimati, Kolkata); the tz observability log line on
-  the schedule path; no tz log line on the immediate-publish path.
+  `l_user_tz(video.publish_at)` (from 01a) instead of `.iso8601`. UTC storage,
+  user-tz render.
+- `app/jobs/video_publish.rb` — `publish_at_iso8601` path now normalizes to
+  `.utc` defensively (the controller already stores UTC; this guards the MCP
+  path) and logs a tz observability line with the channel-owner's stored
+  `time_zone`. Logging is defensive-rescue so it can never raise.
+- `spec/jobs/video_publish_spec.rb` — 7 new examples covering: stored UTC
+  instant independent of channel-owner's tz; instant invariant when user changes
+  tz between schedule + fire; edge-zone storage (Kiritimati, Kolkata); the tz
+  observability log line on the schedule path; no tz log line on the
+  immediate-publish path.
 
 ### Decisions made in flow
 
-- **DST fall-back ambiguity policy.** Sub-spec open question OQ 1
-  offered two choices: pick the FIRST occurrence (pre-fallback)
-  with a warning, or reject as ambiguous. Implemented the first
-  option per the spec's lean — the warning surfaces as
-  `result.warning = :dst_fallback_first_occurrence`. Controller
-  currently does not pipe the warning through to a flash; that's a
-  small follow-up if the user wants a notice. The behavior is
-  spec-pinned.
+- **DST fall-back ambiguity policy.** Sub-spec open question OQ 1 offered two
+  choices: pick the FIRST occurrence (pre-fallback) with a warning, or reject as
+  ambiguous. Implemented the first option per the spec's lean — the warning
+  surfaces as `result.warning = :dst_fallback_first_occurrence`. Controller
+  currently does not pipe the warning through to a flash; that's a small
+  follow-up if the user wants a notice. The behavior is spec-pinned.
 - **Reminder window cron deferred.** Sub-spec lists a future
-  `app/jobs/video_publish_reminder_job.rb`. No such job exists in
-  main, and 01h's primary deliverable is the helper +
-  scheduled-publish wiring. `ScheduledPublishHelper#reminder_window`
-  ships now (spec-covered) so a follow-up wiring is a pure
-  call-site addition.
-- **Tz-less ISO 8601 input policy.** `Time.iso8601` raises on a
-  tz-less string. The controller's `parsed_publish_at_with_error`
-  routes tz-less strings (the picker format `2026-06-01T09:00`)
-  through `parse_user_local_to_utc` in the user's zone;
-  offset-suffix strings (the JSON / MCP path) keep the
-  literal-instant interpretation. The contract: HTML form ⇒ user-tz,
-  JSON / MCP ⇒ absolute UTC. Existing `videos_spec.rb` request
-  spec asserts `future.iso8601` (offset-bearing) round-trips — that
-  contract is preserved.
-- **Job-side parsing is identity.** The controller stores UTC
-  before enqueueing, so `VideoPublish` sees an absolute ISO 8601
-  string. `Time.iso8601(...).utc` is defensive (idempotent on a
-  UTC-suffixed string); the new tz observability log line confirms
-  the channel-owner's stored zone at job-fire time.
-- **MCP / CLI surfaces.** Out of scope per the spec's locked
-  Open Questions OQ 4. The `publish_video` MCP tool already
-  accepts ISO 8601 strings end-to-end; tz-bearing strings continue
-  to work via the offset-suffix branch.
+  `app/jobs/video_publish_reminder_job.rb`. No such job exists in main, and
+  01h's primary deliverable is the helper + scheduled-publish wiring.
+  `ScheduledPublishHelper#reminder_window` ships now (spec-covered) so a
+  follow-up wiring is a pure call-site addition.
+- **Tz-less ISO 8601 input policy.** `Time.iso8601` raises on a tz-less string.
+  The controller's `parsed_publish_at_with_error` routes tz-less strings (the
+  picker format `2026-06-01T09:00`) through `parse_user_local_to_utc` in the
+  user's zone; offset-suffix strings (the JSON / MCP path) keep the
+  literal-instant interpretation. The contract: HTML form ⇒ user-tz, JSON / MCP
+  ⇒ absolute UTC. Existing `videos_spec.rb` request spec asserts
+  `future.iso8601` (offset-bearing) round-trips — that contract is preserved.
+- **Job-side parsing is identity.** The controller stores UTC before enqueueing,
+  so `VideoPublish` sees an absolute ISO 8601 string. `Time.iso8601(...).utc` is
+  defensive (idempotent on a UTC-suffixed string); the new tz observability log
+  line confirms the channel-owner's stored zone at job-fire time.
+- **MCP / CLI surfaces.** Out of scope per the spec's locked Open Questions
+  OQ 4. The `publish_video` MCP tool already accepts ISO 8601 strings
+  end-to-end; tz-bearing strings continue to work via the offset-suffix branch.
 
 ### Specs
 
-| Surface | New specs | Pass |
-|---|---|---|
-| `ScheduledPublishHelper` (helper) | 38 | yes |
-| `VideoPublish` job (tz extension) | 7 | yes |
-| Scheduled-publish tz (system) | 7 | yes |
-| **Total new** | **52** | **all green** |
+| Surface                           | New specs | Pass          |
+| --------------------------------- | --------- | ------------- |
+| `ScheduledPublishHelper` (helper) | 38        | yes           |
+| `VideoPublish` job (tz extension) | 7         | yes           |
+| Scheduled-publish tz (system)     | 7         | yes           |
+| **Total new**                     | **52**    | **all green** |
 
 ### Gates
 
 - `bundle exec rspec` (touched + adjacent) — 170 / 170 green on
-  `spec/requests/videos_spec.rb` + `spec/system/video_pre_publish_checklist_spec.rb`
-  + `spec/jobs/video_publish_spec.rb` + `spec/helpers/scheduled_publish_helper_spec.rb`
-  + `spec/system/video_scheduled_publish_tz_spec.rb`.
-  Wider helpers + tz system surface: 462 / 462 green.
+  `spec/requests/videos_spec.rb` +
+  `spec/system/video_pre_publish_checklist_spec.rb`
+  - `spec/jobs/video_publish_spec.rb` +
+    `spec/helpers/scheduled_publish_helper_spec.rb`
+  - `spec/system/video_scheduled_publish_tz_spec.rb`. Wider helpers + tz system
+    surface: 462 / 462 green.
 - `bundle exec rubocop` on touched Ruby files — 6 / 6 clean.
-- `bin/brakeman -q -w2` — 0 warnings, 0 errors. Two obsolete ignore
-  entries pre-exist on main; unrelated to this change.
+- `bin/brakeman -q -w2` — 0 warnings, 0 errors. Two obsolete ignore entries
+  pre-exist on main; unrelated to this change.
 
 ### Cross-cutting compliance
 
-- **yes / no boundary** — Scheduled-publish flow carries no new
-  external Boolean; the pre-publish checklist booleans (already
-  `yes` / `no` per 01b/01c contract) continue to wire through
-  `YesNo.from_yes_no`. The new helper accepts strings only —
-  no Boolean surface.
-- **Friendly URLs** — `/videos/:slug/schedule` is the canonical
-  surface; route unchanged.
-- **No JS confirm / alert / prompt / `data-turbo-confirm`** —
-  picker is a plain `<input type="datetime-local">`; no JS
-  confirmation. Spring-forward rejection is server-side, surfaces
-  as a flash inside the modal partial.
-- **UTC storage, user-tz render** — pinned by helper, picker, edit
-  form, and job observability log. The render-time helper
-  (`l_user_tz`) is the only conversion site for "scheduled for:"
-  display.
+- **yes / no boundary** — Scheduled-publish flow carries no new external
+  Boolean; the pre-publish checklist booleans (already `yes` / `no` per 01b/01c
+  contract) continue to wire through `YesNo.from_yes_no`. The new helper accepts
+  strings only — no Boolean surface.
+- **Friendly URLs** — `/videos/:slug/schedule` is the canonical surface; route
+  unchanged.
+- **No JS confirm / alert / prompt / `data-turbo-confirm`** — picker is a plain
+  `<input type="datetime-local">`; no JS confirmation. Spring-forward rejection
+  is server-side, surfaces as a flash inside the modal partial.
+- **UTC storage, user-tz render** — pinned by helper, picker, edit form, and job
+  observability log. The render-time helper (`l_user_tz`) is the only conversion
+  site for "scheduled for:" display.
 
 ### Manual test plan (for the user)
 
 1. `bin/dev` running. Open a private draft video's edit page.
-2. Confirm the user's tz is `Europe/Bucharest` via `/settings`.
-   Click `[schedule]` — the modal opens; the picker label reads
-   `publish at (Europe/Bucharest)` and the hint clarifies
-   "times are interpreted in your time zone (Europe/Bucharest).
-   stored as UTC."
-3. Pick `2026-06-01T09:00`. Tick the four checklist boxes.
-   Hit `[confirm schedule]`. Redirect to the video show page.
-4. In Rails console:
-   `Video.find(...).publish_at.utc.iso8601`
-   shows `2026-06-01T06:00:00Z` (Bucharest is UTC+3 in DST).
+2. Confirm the user's tz is `Europe/Bucharest` via `/settings`. Click
+   `[schedule]` — the modal opens; the picker label reads
+   `publish at (Europe/Bucharest)` and the hint clarifies "times are interpreted
+   in your time zone (Europe/Bucharest). stored as UTC."
+3. Pick `2026-06-01T09:00`. Tick the four checklist boxes. Hit
+   `[confirm schedule]`. Redirect to the video show page.
+4. In Rails console: `Video.find(...).publish_at.utc.iso8601` shows
+   `2026-06-01T06:00:00Z` (Bucharest is UTC+3 in DST).
 5. Reload the edit page — the `scheduled for:` line renders
    `Jun 1, 2026 09:00 EEST`.
-6. Change tz to `America/Los_Angeles` via `/settings`. Reload the
-   edit page — `scheduled for:` now renders
-   `May 31, 2026 23:00 PDT`. Click `[schedule]` — the picker
-   pre-fill is `2026-05-31T23:00`.
+6. Change tz to `America/Los_Angeles` via `/settings`. Reload the edit page —
+   `scheduled for:` now renders `May 31, 2026 23:00 PDT`. Click `[schedule]` —
+   the picker pre-fill is `2026-05-31T23:00`.
 7. DST spring-forward test: keep tz `America/Los_Angeles`. Pick
-   `2026-03-08T02:30` in the schedule picker. Submit. The form
-   re-renders with the alert "That time does not exist due to
-   DST spring-forward."
+   `2026-03-08T02:30` in the schedule picker. Submit. The form re-renders with
+   the alert "That time does not exist due to DST spring-forward."
 
 ### Follow-ups surfaced
 
 - **Reminder cron.** Sub-spec mentions a
-  `app/jobs/video_publish_reminder_job.rb`. Not yet shipped (no
-  cron exists). `ScheduledPublishHelper#reminder_window` is in
-  place when the cron lands.
-- **DST fall-back warning UX.** `parse_user_local_to_utc` returns
-  a `:dst_fallback_first_occurrence` warning on the ambiguous
-  hour. The controller currently does not pipe it through to a
-  flash — neutral by default. Surface to user before adding a
-  notice copy.
-- **MCP `publish_video` tool tz extension.** The current MCP path
-  uses offset-suffix ISO 8601 strings end-to-end. If the CLI lane
-  wants a `--tz` flag (`pito videos publish --at "2026-06-01 09:00"
-  --tz Europe/Bucharest`), the Rust crate composes the user-local
-  string + the explicit tz into an offset-suffix ISO 8601 string
-  before calling the existing MCP tool. No Rails-side change
-  needed.
-- **JS picker label localization.** `data-tz="<user_tz>"` is set
-  on the input so a future Stimulus controller can render the
-  tz-aware preview ("publishing at HH:MM your local time, HH:MM
-  UTC") without an HTTP round-trip. Out of 01h scope.
+  `app/jobs/video_publish_reminder_job.rb`. Not yet shipped (no cron exists).
+  `ScheduledPublishHelper#reminder_window` is in place when the cron lands.
+- **DST fall-back warning UX.** `parse_user_local_to_utc` returns a
+  `:dst_fallback_first_occurrence` warning on the ambiguous hour. The controller
+  currently does not pipe it through to a flash — neutral by default. Surface to
+  user before adding a notice copy.
+- **MCP `publish_video` tool tz extension.** The current MCP path uses
+  offset-suffix ISO 8601 strings end-to-end. If the CLI lane wants a `--tz` flag
+  (`pito videos publish --at "2026-06-01 09:00" --tz Europe/Bucharest`), the
+  Rust crate composes the user-local string + the explicit tz into an
+  offset-suffix ISO 8601 string before calling the existing MCP tool. No
+  Rails-side change needed.
+- **JS picker label localization.** `data-tz="<user_tz>"` is set on the input so
+  a future Stimulus controller can render the tz-aware preview ("publishing at
+  HH:MM your local time, HH:MM UTC") without an HTTP round-trip. Out of 01h
+  scope.
 
 ## 2026-05-11 — sub-spec 01e Daily digest scheduler (pito-rails)
 

@@ -194,17 +194,47 @@ Per the Mobile note's dispatch list:
 
 ### 01c — Genres and Collections shelves
 
-- [ ] `Games::GenresShelfComponent`, `Games::CollectionsShelfComponent`. (Master
-      dispatch elected partials over ViewComponents — see
-      `app/views/games/_genres_shelf.html.erb` / `_collections_shelf.html.erb`.)
-- [x] Alphabetical ordering.
+- [x] `Games::GenresShelfComponent`, `Games::CollectionsShelfComponent`.
+      (01c-v2 rewrote both as nested partials —
+      `app/views/games/_genres_shelf.html.erb` /
+      `_collections_shelf.html.erb` for the outer shelves;
+      `_genre_sub_shelf.html.erb` / `_collection_sub_shelf_row.html.erb`
+      for the per-bucket sub-shelves.)
+- [x] Alphabetical ordering. (Preserved across v1 and v2; case-
+      insensitive `LOWER()` on both outer buckets and inner games.)
 - [x] Use existing skinned horizontal-scroll partial / classes.
-- [ ] Tile = `:shelf` cover variant (depends on `01e`). (Shipped as inline
-      75×100 px tile per master's 50% addendum; the `:shelf` cover variant from
-      `01e` will replace the inline block once that lands.)
-- [x] Component specs, system spec. (`spec/system/games_index_spec.rb` + 12
-      added request specs in `spec/requests/games_spec.rb` under "Phase 27 §01c
-      —".)
+      (Reuses the `steam-shelf` Stimulus controller and the same
+      `display: flex; overflow-x: auto` shelf-row pattern.)
+- [x] Tile = `:shelf` cover variant (depends on `01e`). (01c-v2 —
+      each sub-shelf renders `Games::CoverComponent.new(game:,
+      variant: :shelf)` per game. Cover-variant pixel width is
+      managed by 01e independently; the consumer just opts into the
+      `:shelf` variant key.)
+- [x] Component specs, system spec. (01c-v2 — rewrote
+      `spec/views/games/_genres_shelf.html.erb_spec.rb`, added
+      `spec/views/games/_collections_shelf.html.erb_spec.rb`,
+      `spec/views/games/_genre_sub_shelf.html.erb_spec.rb`,
+      `spec/views/games/_collection_sub_shelf_row.html.erb_spec.rb`,
+      rewrote the "01c" describe blocks in
+      `spec/system/games_index_spec.rb` and `spec/requests/games_spec.rb`.)
+
+01c-v2 notes:
+- The `Game#primary_genre_id` migration + Compositable concern
+  extension + Game show/edit primary-genre picker are deferred
+  follow-ups (parent dispatch — "no new migrations" / cover-variant
+  width is 01e's surface). The implementation falls back to the
+  existing `genre.games` join — a multi-genre game appears in
+  every sub-shelf its joins touch. Migration is queued.
+- The new `_collection_sub_shelf_row.html.erb` partial leads each
+  collection sub-shelf with the existing 01h `_collection_sub_shelf`
+  leading-tile partial (composite cover when stamped; passthrough
+  single cover; `[empty]` placeholder). The 01c-v2 spec's naming
+  collision (it pre-reserved `_collection_sub_shelf.html.erb` for
+  the row partial) is resolved by suffixing the new file `_row`.
+- Empty bucket hidden — when no genre / collection owns any game,
+  the outer `<section>` is suppressed end-to-end (no `<h2>`, no
+  placeholder copy). Reverses v1's "always render with placeholder"
+  rule (01c-v2 locked decision #7).
 
 ### 01d — Display mode switcher + three modes
 

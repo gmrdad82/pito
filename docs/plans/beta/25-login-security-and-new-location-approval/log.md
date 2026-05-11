@@ -1,5 +1,175 @@
 # Phase 25 — Login Security + New-Location Approval · Session Log
 
+## 2026-05-11 — sub-spec 01f auto-block list + purge UI (pito-rails-impl) [skipci]
+
+**Dispatch:** `pito-rails-impl` against
+`specs/01f-auto-block-list-and-purge-ui.md`. Finishes the auto-block
+surface by wiring routes, adding the per-row unblock action-screen,
+extracting a row component + helper, and ticking the acceptance
+checks. Most of 01f's controllers, services, views, and MCP tool
+arrived earlier as scaffolding under HEAD `ec2bc26`; this session
+glued them together and filled the remaining gaps.
+
+**Routes (new)**
+
+- `GET/POST /settings/security/blocks/purge` — helper
+  `settings_security_blocks_purge_path`. Declared outside `resources`
+  so the helper reads naturally instead of `purge_settings_security_blocks_*`.
+- `GET/POST /settings/security/attempts/purge` — helper
+  `settings_security_attempts_purge_path`. Same shape.
+- `GET/POST /settings/security/blocks/:block_id/unblocking` — helper
+  `settings_security_block_unblocking_path`. Per-row action-screen for
+  soft-unblock. Nested singular `resource` keeps the URL hierarchical
+  while leaving the bulk-purge surface a flat collection action.
+
+**Controllers (new)**
+
+- `Settings::Security::Blocks::UnblockingsController` — `show`
+  renders the action-screen; `create` consumes `confirm=yes` and
+  delegates to `Auth::BlockedLocationUnblocker.call(blocked_location:, acting_user:, source: :web)`.
+  Idempotent on an already-unblocked row (notice copy
+  reflects the no-op). Cancels on `confirm!=yes` or missing confirm.
+  `NotBlocked` is caught and surfaced as a friendly redirect.
+
+**Views (new + refactored)**
+
+- `settings/security/blocks/unblockings/show.html.erb` — full
+  action-screen with `dl` of the block details and a `[unblock]` /
+  `[cancel]` footer. `data-keyboard-confirmation` wired for the
+  global keyboard controller.
+- `settings/security/blocks/index.html.erb` — refactored to render
+  rows through `BlockedLocationRowComponent` (was inline markup).
+- `settings/security/blocks/show.html.erb` — adds `[unblock]`
+  bracketed-link for active rows in the action footer.
+- `settings/security/show.html.erb` — adds `[auto-block list]`
+  bracketed-link next to `[all attempts]` so the dashboard exposes
+  the block surface.
+
+**Components (new)**
+
+- `BlockedLocationRowComponent` (`.rb` + `.html.erb`) — single-row
+  presenter for the block list table. Renders the source badge
+  (uppercase), short fingerprint, ip prefix, attempt counter,
+  last-attempt timestamp, state label, and the conditional
+  `[unblock]` / `[view]` actions. Soft-unblocked rows skip the
+  unblock link (no idempotent re-unblock surface).
+
+**Helpers (new)**
+
+- `BlockedLocationsHelper` — `source_badge`, `state_label`,
+  `state_css`, `reason_label`, `age` formatter. Centralises the
+  presentation vocabulary so the index, detail, and unblock screens
+  stay aligned.
+
+**Specs (new)**
+
+- `spec/requests/settings/security/blocks/unblockings_spec.rb` —
+  GET action-screen for active + soft-unblocked + missing rows; POST
+  confirm=yes / confirm=no / no-confirm / idempotent / 404 / unauth.
+  11 examples.
+- `spec/components/blocked_location_row_component_spec.rb` — active
+  vs soft-unblocked variants, source badges (WEB/TUI/MCP), fingerprint
+  truncation, attempt counter, last-attempt timestamp formatting,
+  `show_unblock_link: false` override. 15 examples.
+- `spec/helpers/blocked_locations_helper_spec.rb` — coverage for all
+  five helpers, including the age formatter at each threshold and the
+  reason fallback. 14 examples.
+- `spec/routing/settings_security_blocks_routing_spec.rb` — extended
+  with the two unblocking routes (GET + POST). 8 examples total.
+
+Existing specs (`blocks_spec.rb`, `blocks/purges_spec.rb`,
+`attempts/purges_spec.rb`, `blocked_location_lister_spec.rb`,
+`blocked_location_purger_spec.rb`, `blocked_location_unblocker_spec.rb`,
+`blocked_locations_list_spec.rb`) flip from red (missing routes) to
+green with no edits.
+
+**MCP tool**
+
+`Mcp::Tools::BlockedLocationsList` (read-only) was already in place
+at HEAD `ec2bc26` from earlier scaffolding; it now reads through the
+same route surface the web UI exposes. The destructive companions
+(`login_attempt_block`, `login_attempt_unblock`, `login_attempt_purge`)
+landed in 01d.
+
+**Acceptance check (per spec)**
+
+- [x] `/settings/security/blocks` paginated index, filterable.
+- [x] `/settings/security/blocks/:id` detail with `[unblock]` and
+      `[purge]` bracketed-links.
+- [x] Unblock + purge action-screens (no JS confirm).
+- [x] Unblock soft-marks via `unblocked_at`; row stays for audit.
+- [x] Purge hard-deletes rows; audit log entry left as a TODO marker
+      in both purge controllers (lands when `Auth::AuditLogger` write
+      is added to the purge path — see TODOs in the controllers).
+- [x] Purge requires at least one filter (safety rule).
+- [x] Attempt log purge mirrors the same UX at
+      `/settings/security/attempts/purge`.
+- [x] No JS confirm / alert / prompt.
+- [x] Yes / no Booleans at every external boundary.
+- [-] TUI `g s b` opens the read-only block list — deferred (Phase 26
+      P2 per spec open question).
+- [x] MCP `blocked_locations_list` (read-only) returns the same shape
+      as the web index.
+- [-] `docs/auth.md` updates — deferred to `pito-docs` sweep.
+- [-] Auto-block decay (Q-E) — locked: blocks persist until manual
+      unblock / purge. Documenting in `docs/auth.md` falls to the
+      docs agent.
+- [x] Full RSpec green on the touched files (142 examples, 0 failures
+      across routing + request + component + helper + service + MCP).
+- [x] Brakeman clean (no warnings, 0 errors).
+
+**Files touched**
+
+```
+app/controllers/settings/security/blocks/unblockings_controller.rb  (new)
+app/views/settings/security/blocks/unblockings/show.html.erb        (new)
+app/views/settings/security/blocks/index.html.erb                   (refactor → component)
+app/views/settings/security/blocks/show.html.erb                    (add [unblock])
+app/views/settings/security/show.html.erb                           (add [auto-block list] link)
+app/components/blocked_location_row_component.rb                    (new)
+app/components/blocked_location_row_component.html.erb              (new)
+app/helpers/blocked_locations_helper.rb                             (new)
+config/routes.rb                                                    (wire purge + unblocking routes)
+spec/requests/settings/security/blocks/unblockings_spec.rb          (new, 11 examples)
+spec/components/blocked_location_row_component_spec.rb              (new, 15 examples)
+spec/helpers/blocked_locations_helper_spec.rb                       (new, 14 examples)
+spec/routing/settings_security_blocks_routing_spec.rb               (+2 examples for unblockings)
+docs/plans/beta/25-login-security-and-new-location-approval/plan.md (tick 01f)
+docs/plans/beta/25-login-security-and-new-location-approval/log.md  (this entry)
+```
+
+**Manual test recipe**
+
+1. `bin/dev`.
+2. Seed an active block in the console:
+   `BlockedLocation.create!(fingerprint_hash: "a"*64, ip_prefix: "1.2.3.0/24", blocked_by_user: User.first, source_surface: :web)`.
+3. Visit `/settings/security` → confirm the `[auto-block list]` link.
+4. Click through to `/settings/security/blocks` → row appears.
+5. Click `[unblock]` (or `[view]` then `[unblock]`) → action-screen
+   shows the pair details + `[unblock]` / `[cancel]` footer.
+6. Confirm → redirected to the block detail page with
+   `block unblocked.` notice; state shows `unblocked at ...`.
+7. From the index, switch the `active` filter to `no` → unblocked row
+   shows; switch to `yes` → empty list.
+8. Bulk-purge: `/settings/security/blocks?source_surface=web` →
+   `[purge by filter]` → preview count + `[purge]` → confirm → row
+   disappears.
+9. Repeat for attempts: `/settings/security/attempts/purge?result=failed`
+   → preview → confirm → matching attempts vanish.
+10. Pre-camera sanity: confirm no JS `alert` / `confirm` fires
+    anywhere in the flow.
+
+**Open follow-ups (queued under `docs/orchestration/follow-ups.md`)**
+
+- TUI block-list pane (`g s b`) — Phase 26 P2.
+- `docs/auth.md` write-up of the unblock + purge procedures + the
+  Q-E lock (blocks persist forever) — `pito-docs` sweep.
+- Wire `Auth::AuditLogger` into both purge controllers (TODO markers
+  already in place; the spec calls for this and the audit log surface
+  exists since 01d).
+- Optional: "block this fingerprint going forward" link on the
+  attempt detail page (spec open question, locked yes — minor add).
+
 ## 2026-05-11 — sub-spec 01e TOTP 2FA + backup codes (pito-rails-impl) [skipci]
 
 **Dispatch:** `pito-rails-impl` against
