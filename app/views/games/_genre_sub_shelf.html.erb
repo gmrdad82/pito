@@ -17,14 +17,28 @@
     canonical pick at save time.
 
     Locals:
-      genre   Genre — the row whose sub-shelf this represents.
+      genre        Genre — the row whose sub-shelf this represents.
+      batch_slice  Optional Hash `{ count: Integer, games: [Game,...] }`
+                   pre-computed by `Games::GenreShelfBatch` (P27
+                   reviewer follow-up #2). When provided, the partial
+                   reads count + tile list from the slice instead of
+                   firing a `count` + `limit(30)` pair per render. When
+                   absent (isolated view specs), the partial falls
+                   back to its in-partial count + fetch so the spec
+                   suite keeps its independence.
 %>
 <%
   genre = local_assigns.fetch(:genre)
   cap = 30
-  base = Game.where(primary_genre_id: genre.id)
-  total_count = base.count
-  games = base.order(Arel.sql("LOWER(games.title)")).limit(cap).to_a
+  batch_slice = local_assigns[:batch_slice]
+  if batch_slice
+    total_count = batch_slice.fetch(:count, 0)
+    games = batch_slice.fetch(:games, [])
+  else
+    base = Game.where(primary_genre_id: genre.id)
+    total_count = base.count
+    games = base.order(Arel.sql("LOWER(games.title)")).limit(cap).to_a
+  end
   href = if genre.slug.present?
            games_path(genre: genre.slug)
          else

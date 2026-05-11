@@ -105,9 +105,17 @@
       the RIGHT (large title, muted `@handle · N subscribers · M
       videos` meta line, description). The pito monospace + light
       theme + bracketed-link conventions stay; only sizing and
-      positioning mirror YouTube. %>
+      positioning mirror YouTube.
+
+      2026-05-11 (width fix) — switched from `pane--standalone` (auto
+      width that stretches to its container) to `pane--wide` (the
+      established 904px double-width modifier). 904px = 2 × 452px,
+      so this row's single pane matches the total width of row 2's
+      two side-by-side `.pane`s (analytics + Google). The wider
+      container naturally scales the 6.2:1 banner and the identity
+      row to YouTube's desktop proportions without page-specific CSS. %>
   <div class="pane-row">
-    <div class="pane pane--standalone">
+    <div class="pane pane--wide">
       <%= render "channels/banner", channel: @channel %>
 
       <div class="channel-identity">
