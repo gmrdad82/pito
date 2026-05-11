@@ -1,0 +1,33 @@
+<%# Phase 27 §01b — multi-select filter row.
+
+    Renders ten canonical chips in the locked order, plus an optional
+    `[clear all]` bracketed link when at least one chip is active, plus
+    an optional muted contradiction notice when `owned` + `not_owned`
+    are simultaneously active.
+
+    No JS. Pure GET-link navigation; URL-state-driven. %>
+<section class="games-filter-row" data-controller="">
+  <div class="games-filter-row__chips" style="display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline;">
+    <% chip_tokens.each do |t| %>
+      <%= render chip_for(t) %>
+    <% end %>
+
+    <% if any_active? %>
+      <span class="games-filter-row__clear-all" style="margin-left: 8px;">
+        <%= link_to clear_all_href, class: "bracketed games-filter-row__clear-all-link" do %>[<span class="bl">clear all</span>]<% end %>
+      </span>
+    <% end %>
+  </div>
+
+  <% if contradiction? %>
+    <p class="text-muted games-filter-row__contradiction" style="margin-top: 4px;">
+      (owned and not owned together — no matches)
+    </p>
+  <% end %>
+
+  <% if dev_warning? %>
+    <p class="text-muted games-filter-row__dropped" style="margin-top: 4px;">
+      (dev) dropped non-canonical filter tokens: <%= dropped_tokens.join(", ") %>
+    </p>
+  <% end %>
+</section>

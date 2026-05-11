@@ -168,30 +168,43 @@ Per the Mobile note's dispatch list:
 
 ### 01b — Filter row + platform semantics
 
-- [ ] `FilterRowComponent` with chip rendering, `[clear all]` link.
-- [ ] `Games::Filter` query object — composes scopes for each filter token.
-- [ ] URL param parser / serializer for `?filters=token1,token2`.
-- [ ] Scopes on `Game`: `recorded`, `released`, `scheduled`, `owned`,
+- [x] `FilterRowComponent` with chip rendering, `[clear all]` link.
+      (Also `FilterChipComponent` for single-chip rendering. Both
+      include `Games::FiltersHelper` for shared logic.)
+- [x] `Games::Filter` query object — composes scopes for each filter token.
+      (Lives at `app/queries/games/filter.rb`; partitions tokens into
+      Status / Ownership / Platform / Unknown buckets per spec.)
+- [x] URL param parser / serializer for `?filters=token1,token2`.
+      (`app/helpers/games/filters_helper.rb` — `parse_filter_tokens`,
+      `parse_dropped_tokens`, `toggle_filter`, `chip_label`.)
+- [x] Scopes on `Game`: `recorded`, `released`, `scheduled`, `owned`,
       `not_owned`, `on_platform(slug)`, `owned_on_platform(slug)`.
-- [ ] Platform-precedence combinator (matches §2 of source note exactly).
-- [ ] yes/no boundary on boolean URL inputs (none in v1; reserved guard).
-- [ ] Model + query-object + component + request + system spec sweep.
+      (`owned` / `not_owned` / `owned_on` shipped with 01a;
+      `recorded` / `released` / `scheduled` / `on_platform` /
+      `released_on` / `scheduled_on` added here. Spec wrote
+      `first_release_date` in pseudo-form; the actual schema column
+      is `release_date` (date) — day-granular semantics identical.)
+- [x] Platform-precedence combinator (matches §2 of source note exactly).
+      (P-1 / P-2 / C-1 / C-3 all locked in `Games::Filter#build_results`;
+      `contradiction?` predicate surfaces C-3 to the component.)
+- [x] yes/no boundary on boolean URL inputs (none in v1; reserved guard).
+- [x] Model + query-object + component + request + system spec sweep.
+      (16 model + 50 query + 21 helper + 17 chip-component + 18 row-
+      component + 16 request + 11 system = 149 new examples, all green.)
 
 ### 01c — Genres and Collections shelves
 
-- [ ] `Games::GenresShelfComponent`, `Games::CollectionsShelfComponent`.
-      (Master dispatch elected partials over ViewComponents — see
-      `app/views/games/_genres_shelf.html.erb` /
-      `_collections_shelf.html.erb`.)
+- [ ] `Games::GenresShelfComponent`, `Games::CollectionsShelfComponent`. (Master
+      dispatch elected partials over ViewComponents — see
+      `app/views/games/_genres_shelf.html.erb` / `_collections_shelf.html.erb`.)
 - [x] Alphabetical ordering.
 - [x] Use existing skinned horizontal-scroll partial / classes.
-- [ ] Tile = `:shelf` cover variant (depends on `01e`).
-      (Shipped as inline 75×100 px tile per master's 50% addendum; the
-      `:shelf` cover variant from `01e` will replace the inline block
-      once that lands.)
-- [x] Component specs, system spec.
-      (`spec/system/games_index_spec.rb` + 12 added request specs in
-      `spec/requests/games_spec.rb` under "Phase 27 §01c —".)
+- [ ] Tile = `:shelf` cover variant (depends on `01e`). (Shipped as inline
+      75×100 px tile per master's 50% addendum; the `:shelf` cover variant from
+      `01e` will replace the inline block once that lands.)
+- [x] Component specs, system spec. (`spec/system/games_index_spec.rb` + 12
+      added request specs in `spec/requests/games_spec.rb` under "Phase 27 §01c
+      —".)
 
 ### 01d — Display mode switcher + three modes
 
@@ -202,8 +215,8 @@ Per the Mobile note's dispatch list:
       (Delivered as the `games/_display_mode_switcher` partial per master
       dispatch; component-vs-partial reframe noted in the session log.)
 - [x] Persist on click (PATCH `/users/games_preferences`). (Master-dispatch
-      reframed the URL from `/settings/games_display_mode/:mode` to the
-      `users` namespace — see session log.)
+      reframed the URL from `/settings/games_display_mode/:mode` to the `users`
+      namespace — see session log.)
 - [x] Grid view (existing). (Extracted into `games/_grid_mode` for branching.)
 - [x] List view — alpha-grouped, sticky letter headings, sortable columns (cover
       thumb, title, platforms owned, genres, status). (Sort-column UI deferred
@@ -225,25 +238,38 @@ Per the Mobile note's dispatch list:
 
 ### 01f — Game show/edit per-platform ownership
 
-- [ ] On `Game#show`: list platforms the game is released on (from IGDB), with
-      ownership state indicators.
-- [ ] On `Game#edit`: checklist of release platforms; tick the ones owned.
-- [ ] Form submits to a nested controller `Games::PlatformOwnershipsController`
-      (`PUT /games/:slug/platform_ownerships`).
-- [ ] Friendly URL preserved.
-- [ ] No JS confirm — destructive un-tick of "owned" goes through the in-form
+- [x] On `Game#show`: list platforms the game is released on (from IGDB), with
+      ownership state indicators. _(Implemented as
+      `Games::OwnedPlatformsChipListComponent` — bracketed chips, one per owned
+      platform, alphabetical case-insensitive; each chip links to
+      `/games?filters=<slug>,owned`. Empty state renders muted
+      `(not owned on any platform)` placeholder.)_
+- [x] On `Game#edit`: checklist of release platforms; tick the ones owned.
+      _(Editor lives at `/games/:slug/platform_ownerships/edit` — dedicated
+      page, not crammed onto the local-fields edit form per the spec's open
+      question #1.)_
+- [x] Form submits to a nested controller `Games::PlatformOwnershipsController`
+      (`PATCH /games/:slug/platform_ownerships`).
+- [x] Friendly URL preserved.
+- [x] No JS confirm — destructive un-tick of "owned" goes through the in-form
       submit (no separate confirmation page is needed for ownership toggles;
       delete-all goes through `/deletions/...` per project rule).
-- [ ] Request + system + view spec sweep.
+- [x] Request + system + view spec sweep.
 
 ### 01g — MCP / CLI parity
 
-- [ ] MCP `game_update_local` accepts `platform_owned_ids: [int]`.
-- [ ] Singular `platform_owned_id: int` auto-wrapped to one-element array.
-- [ ] yes/no boundary on every boolean argument.
-- [ ] MCP tool spec — singular accepted, plural accepted, mixed rejected.
+- [x] MCP `game_update_local` accepts `platform_owned_ids: [int]`.
+- [x] Singular `platform_owned_id: int` auto-wrapped to one-element array.
+- [x] yes/no boundary on every boolean argument.
+- [x] MCP tool spec — singular accepted, plural accepted, mixed
+      (plural-wins-with-warning) covered.
 - [ ] CLI TUI Games view gains the same filter chip set + plural ownership.
-- [ ] Rust tests for the CLI surface.
+      _(MCP half landed; CLI half deferred — see `log.md`.)_
+- [ ] Rust tests for the CLI surface. _(deferred with the CLI half above.)_
+- [ ] MCP `yt:games_list` `filters: [...]` argument + MCP `yt:game_show` plural
+      shape. _(Spec body lists these; plan checkbox set focuses on
+      `game_update_local`. Filed as follow-up — both gate on the `01b` filter
+      row + `Games::Filter` query object landing.)_
 
 ---
 

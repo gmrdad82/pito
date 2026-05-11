@@ -106,6 +106,7 @@ GEM
       regexp_parser (>= 1.5, < 3.0)
       xpath (~> 3.2)
     chartkick (5.2.1)
+    chunky_png (1.4.0)
     coderay (1.1.3)
     commonmarker (2.8.1-aarch64-linux)
     commonmarker (2.8.1-aarch64-linux-musl)
@@ -409,6 +410,11 @@ GEM
       rack (>= 1.4)
     retriable (3.4.1)
     rexml (3.4.4)
+    rotp (6.3.0)
+    rqrcode (2.2.0)
+      chunky_png (~> 1.0)
+      rqrcode_core (~> 1.0)
+    rqrcode_core (1.2.0)
     rspec-core (3.13.6)
       rspec-support (~> 3.13.0)
     rspec-expectations (3.13.5)
@@ -574,6 +580,8 @@ DEPENDENCIES
   rack-attack
   rails (~> 8.1.3)
   redis (>= 4.0.1)
+  rotp (~> 6.3)
+  rqrcode (~> 2.2)
   rspec-rails
   rubocop-rails-omakase
   ruby-vips (~> 2.2)

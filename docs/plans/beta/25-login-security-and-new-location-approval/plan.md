@@ -44,7 +44,7 @@ coverage.
       `specs/01c-notifications-integration.md`
 - [x] **01d — MCP tools (pending / list / approve / block / unblock / purge)** —
       `specs/01d-mcp-tools-pending-approve-block-purge.md`
-- [ ] **01e — TOTP 2FA + backup codes** —
+- [x] **01e — TOTP 2FA + backup codes** —
       `specs/01e-totp-2fa-integration-with-backup-codes.md`
 - [ ] **01f — Auto-block list + purge UI** —
       `specs/01f-auto-block-list-and-purge-ui.md`

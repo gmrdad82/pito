@@ -41,6 +41,20 @@
   <%= render "games/genres_shelf", genres: @genres_for_shelf %>
   <%= render "games/collections_shelf", collections: @collections_for_shelf %>
 
+  <%# Phase 27 §01b — filter row sits BELOW the shelves and ABOVE the
+      main listing. Chip clicks toggle tokens in the `?filters=` CSV
+      URL param; `[clear all]` clears the set while preserving
+      `?genre=`, `?collection=`, and `?display=` overrides. %>
+  <%= render Games::FilterRowComponent.new(
+        active_tokens:          @filter_tokens,
+        dropped_tokens:         @dropped_filter_tokens,
+        request_path:           games_path,
+        query_string_overrides: { genre:      params[:genre],
+                                  collection: params[:collection],
+                                  display:    params[:display] }.compact_blank,
+        contradiction:          @filter_contradiction
+      ) %>
+
   <% has_any_shelf = @bundles_shelf.any? || @recently_played.any? ||
                      @genres_shelves.any? || @platforms_shelves.any? ||
                      @all_games.any? %>

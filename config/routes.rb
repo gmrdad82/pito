@@ -67,7 +67,15 @@ Rails.application.routes.draw do
   post   "/login/challenge", to: "login/challenges#create"
   get    "/login/pending",   to: "login/pendings#show",     as: :login_pending
   delete "/login/pending",   to: "login/pendings#destroy"
-  get    "/login/totp",      to: redirect("/login"),        as: :login_totp
+
+  # Phase 25 — 01e. TOTP 2FA challenge surface on new-location logins.
+  # GET renders the 6-digit input form (with a backup-code fallback
+  # link); POST accepts either a 6-digit code or an 8-char backup
+  # code, activates the session on success, rotates the token
+  # (LD-12), upserts the trusted-location, and writes a success
+  # `LoginAttempt` row. POST without a pre-auth marker returns 401.
+  get    "/login/totp",      to: "login/totp_challenges#show",   as: :login_totp
+  post   "/login/totp",      to: "login/totp_challenges#create"
 
   # Phase 25 — 01c. Approve / block action screens for the
   # new-location pending-approval flow. Two singleton controllers,
@@ -545,6 +553,48 @@ Rails.application.routes.draw do
     resource :security, only: %i[show], controller: "security"
     namespace :security do
       resources :attempts, only: %i[index show]
+
+      # Phase 25 — 01e. TOTP 2FA management.
+      #
+      # Three controllers under `/settings/security/totp*`:
+      #
+      #   - `totps#new` (GET /settings/security/totp) — pre-enroll
+      #     status + `[ enroll ]` link.
+      #   - `totps#create` (POST /settings/security/totp) — invokes
+      #     `Auth::TotpEnroller`, stashes one-shot payload on the
+      #     flash, redirects to `show`.
+      #   - `totps#show` (GET /settings/security/totp/show) — displays
+      #     QR + seed + backup codes ONCE. Subsequent loads redirect.
+      #   - `totps#update` (PATCH /settings/security/totp) — confirms
+      #     enrollment with a fresh 6-digit code (`totp_enabled_at` flips).
+      #   - `totps#destroy_screen` / `totps#destroy_confirmed` —
+      #     action-screen confirmation + execution of disable. POST
+      #     consumes `confirm=yes` + fresh TOTP code.
+      #
+      # Backup-code management is a sibling resource:
+      #
+      #   - `totp_backup_codes#show` — count of unused codes (no plaintext).
+      #   - `totp_backup_codes#new` — action-screen "regenerate?" page.
+      #   - `totp_backup_codes#create` — invokes
+      #     `Auth::BackupCodeRegenerator`, displays new codes once.
+      #
+      # All destructive actions route through the action-screen
+      # confirmation pattern — no JS confirm anywhere.
+      get   "totp",          to: "totps#new",                as: :totp
+      post  "totp",          to: "totps#create"
+      get   "totp/show",     to: "totps#show",               as: :totp_show
+      patch "totp/confirm",  to: "totps#update",             as: :totp_confirm
+      get   "totp/disable",  to: "totps#destroy_screen",     as: :totp_disable
+      post  "totp/disable",  to: "totps#destroy_confirmed"
+
+      get   "totp_backup_codes",
+            to: "totp_backup_codes#show",
+            as: :totp_backup_codes
+      get   "totp_backup_codes/new",
+            to: "totp_backup_codes#new",
+            as: :new_totp_backup_codes
+      post  "totp_backup_codes",
+            to: "totp_backup_codes#create"
     end
 
     # Phase 26 — 01a. Timezone foundation. Singular `resource` so the

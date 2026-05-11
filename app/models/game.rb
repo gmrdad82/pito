@@ -156,6 +156,39 @@ class Game < ApplicationRecord
       .distinct
   }
 
+  # Phase 27 §01b — status + IGDB-platform scopes consumed by the
+  # filter row.
+  #
+  #   .recorded            → games with at least one linked Video.
+  #   .released            → `release_date <= today` (boundary inclusive
+  #                          on the past side; nil dates excluded).
+  #   .scheduled           → `release_date > today`; nil dates excluded.
+  #   .on_platform(slug)   → games released/scheduled on the IGDB-reported
+  #                          platform (rides on `:platforms_available`, NOT
+  #                          the per-platform-ownership join). "Available
+  #                          on" is metadata; "owned on" is the library.
+  #   .released_on(slug)   → `released.on_platform(slug)`.
+  #   .scheduled_on(slug)  → `scheduled.on_platform(slug)`.
+  #
+  # The spec was authored against an imagined `first_release_date`
+  # datetime column; the actual schema (Phase 14 §1) stores `release_date`
+  # as a `date`. The day-granular comparison is identical semantically:
+  # a release scheduled for today is "released"; tomorrow is "scheduled".
+  #
+  # The raw `"platforms"."slug" = ?` SQL mirrors the `owned_on` pattern
+  # for the same `games.platforms` jsonb collision reason; the slug is
+  # bound (no SQL injection risk).
+  scope :recorded, -> { where(id: VideoGameLink.select(:game_id).distinct) }
+  scope :released, -> { where("release_date <= ?", Date.current) }
+  scope :scheduled, -> { where("release_date > ?", Date.current) }
+  scope :on_platform, lambda { |slug|
+    joins(game_platforms: :platform)
+      .where('"platforms"."slug" = ?', slug)
+      .distinct
+  }
+  scope :released_on,  ->(slug) { released.on_platform(slug) }
+  scope :scheduled_on, ->(slug) { scheduled.on_platform(slug) }
+
   # IGDB cover URL builder. The IGDB CDN serves directly to the
   # browser — pito does not proxy or cache image bytes for the show
   # page or the Steam shelf (Spec 02 introduces a separate cache for

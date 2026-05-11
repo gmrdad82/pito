@@ -10,6 +10,9 @@
     (server-rendered Markdown is the contract per the spec). The
     rendered HTML is wrapped in `.markdown-body` so the existing
     note-preview styles apply (headings, code blocks, lists, links).
+    `plain: true` switches off the header-anchor + syntax-highlight
+    Commonmarker plugins — the guides ship in monospace prose and
+    don't need either of those decorations.
 
     Friendly URLs:
       `/settings/webhooks/help/slack`
@@ -18,6 +21,6 @@
     constraint plus controller allow-list). %>
 <%= turbo_frame_tag "webhook_help_modal_frame" do %>
   <div class="webhook-help-content markdown-body" data-webhook-help="<%= @provider %>">
-    <%= render_markdown(@markdown) %>
+    <%= render_markdown(@markdown, plain: true) %>
   </div>
 <% end %>

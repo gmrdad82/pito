@@ -84,7 +84,7 @@ publish)."
       inline `content` field), independent row keyed on `kind: "discord"`. Both
       `discord.com` and `discordapp.com` host forms accepted.
 
-- [ ] **01d — Help-modal Markdown guides**
+- [x] **01d — Help-modal Markdown guides**
       (`specs/01d-help-modal-markdown-guides.md`). Two beginner-friendly
       Markdown guides (one Slack, one Discord) served through Phase 16's
       existing Markdown renderer. Modal pattern reuses Phase 7.5 keyboard-

@@ -21,9 +21,9 @@
       <strong>off</strong>
     <% end %>
   </p>
-  <p class="text-muted" style="margin-top: 2px;">
-    enrollment ships in a later sub-spec of this phase.
-  </p>
+  <div class="dot-list" style="margin-top: 8px;">
+    <%= render BracketedLinkComponent.new(label: "manage 2FA", href: settings_security_totp_path) %>
+  </div>
 </div>
 
 <div class="pane pane--standalone" style="margin-bottom: 12px;">

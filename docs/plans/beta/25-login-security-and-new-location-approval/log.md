@@ -1,5 +1,208 @@
 # Phase 25 — Login Security + New-Location Approval · Session Log
 
+## 2026-05-11 — sub-spec 01e TOTP 2FA + backup codes (pito-rails-impl) [skipci]
+
+**Dispatch:** `pito-rails-impl` against
+`specs/01e-totp-2fa-integration-with-backup-codes.md`. Adds standard
+TOTP 2FA (1Password-compatible) on top of the 01b new-location flow,
+plus 10 single-use backup codes. Plain `rotp`; no 1Password Connect
+SDK. TOTP gates EVERY login (not just new locations) once enrolled
+so a stolen device cookie cannot bypass it.
+
+**Gems added**
+
+- `rotp ~> 6.3` — TOTP generation + verification (RFC 6238).
+- `rqrcode ~> 2.2` — SVG QR rendering for the one-shot enrollment view.
+  Pulls `chunky_png` + `rqrcode_core` transitively.
+
+**Migrations** — already `up` at HEAD `ec66c9b`. No new migrations.
+
+- `users.totp_seed_encrypted` (`:text`, AR-encrypted plaintext envelope).
+- `users.totp_enabled_at`, `users.totp_disabled_at`.
+- `totp_backup_codes (user_id, code_digest, used_at, timestamps)`.
+
+**Models**
+
+- `app/models/user.rb` — `encrypts :totp_seed_encrypted`,
+  `has_many :totp_backup_codes`, `#totp_enabled?` (spec definition:
+  `seed.present? && disabled_at.nil?`), `#totp_uri(issuer:)`.
+- `app/models/totp_backup_code.rb` (new) — `belongs_to :user`,
+  validations, `:unused` / `:used` scopes, `#matches?(plaintext)`
+  (constant-time BCrypt compare), `#used?`. The model never sees the
+  plaintext after creation.
+
+**Services (Auth::*)**
+
+- `Auth::TotpEnroller` — `ROTP::Base32.random_base32` (160 bits),
+  10 backup codes from the 27-char safe alphabet (no `0` / `O` /
+  `1` / `I` / `L` / `B` / `8`), BCrypt digests at rest. Returns
+  `{ seed:, codes: }` ONCE. Mid-enrollment users (seed present,
+  no `enabled_at`) can re-enroll without disabling — a lost flash
+  must not strand them.
+- `Auth::TotpVerifier` — `drift_behind: 30` so the previous
+  30-sec window still validates. Returns `:ok` / `:invalid`.
+- `Auth::BackupCodeConsumer` — finds the matching row, stamps
+  `used_at` under a pessimistic row lock so concurrent consumes
+  cannot both succeed. Returns `:ok` / `:invalid` / `:already_used`.
+- `Auth::TotpDisabler` — clears seed, stamps `disabled_at`,
+  destroys backup codes, audit-logs via `Auth::AuditLogger`.
+- `Auth::BackupCodeRegenerator` — destroys + regenerates 10 fresh
+  codes (seed untouched), audit-logs.
+
+**Controllers + views**
+
+- `Settings::Security::TotpsController`
+  (`/settings/security/totp{,/show,/confirm,/disable}`) — six
+  actions for new / create / show (one-shot) / update (confirm) /
+  destroy_screen / destroy_confirmed. The one-shot view is the
+  ONLY surface that ever displays the seed + the 10 plaintext
+  codes; subsequent loads redirect.
+- `Settings::Security::TotpBackupCodesController`
+  (`/settings/security/totp_backup_codes{,/new}`) — read + action-
+  screen regenerate. Plaintexts never re-displayed; freshly minted
+  codes pass through a one-shot flash on the show page.
+- `Login::TotpChallengesController` (`/login/totp`) —
+  `allow_anonymous` since the pre-auth marker is the only
+  credential at this stage. Accepts a 6-digit TOTP OR an 8-char
+  backup code. On success: `reset_session`, `Auth::SessionActivator`
+  with `reason: :new_location_2fa_passed`, fresh signed cookie
+  (LD-12 — token rotation). On failure: `LoginAttempt` with
+  `reason: :twofa_failed`, generic "login failed." flash, 422.
+- `SessionsController#create` — adds the TOTP gate: when a
+  password-verified user has `totp_enabled?`, the controller stashes
+  the pre-auth marker and bounces to `/login/totp` BEFORE the
+  trusted / new-location dispatch runs. Pending-approval still
+  works for non-2FA users.
+- `Settings::SecurityController#show` — flips `@twofa_enabled` to
+  read `Current.user.totp_enabled?` and exposes a
+  `[manage 2FA]` bracketed link on the dashboard.
+
+**Views** — pure ERB, monospace, bracketed-link convention.
+
+- `app/views/settings/security/totps/{new,show,destroy_screen}.html.erb`
+- `app/views/settings/security/totp_backup_codes/{show,new}.html.erb`
+- `app/views/login/totp_challenges/show.html.erb`
+
+**Helper**
+
+- `app/helpers/totp_helper.rb` — issuer constant + accessor so the
+  QR code, the `User#totp_uri`, and the enrollment view agree on
+  `"pito"`.
+
+**MCP**
+
+- `app/mcp/tools/totp_status.rb` (new, `auth` scope, read-only) —
+  reports `totp_enabled` (yes/no), `totp_enabled_at`, unused +
+  used backup-code counts. Counts stay numeric per the hard rule
+  (yes/no is for Booleans only). Registered in
+  `app/mcp/pito_server.rb`'s `AUTH_TOOL_NAMES` so strip-on-release
+  carries it.
+
+**Routes**
+
+- `get/post /login/totp` (was a placeholder redirect at `01b`).
+- `get/post /settings/security/totp`,
+  `get /settings/security/totp/show`,
+  `patch /settings/security/totp/confirm`,
+  `get/post /settings/security/totp/disable`,
+  `get /settings/security/totp_backup_codes`,
+  `get /settings/security/totp_backup_codes/new`,
+  `post /settings/security/totp_backup_codes`.
+
+**Factories**
+
+- `spec/factories/totp_backup_codes.rb` (new).
+- `spec/factories/users.rb` — `:totp_enabled` trait that seeds a
+  deterministic base32 seed + 10 backup codes.
+
+**Spec coverage** (149 new examples — all green; 315 examples
+across `spec/services/auth/`, `spec/requests/sessions_spec.rb`, and
+`spec/requests/login/` re-verified):
+
+- `spec/models/user_spec.rb` — encryption at rest, `totp_enabled?`,
+  `totp_uri`, cascade destroy of backup codes.
+- `spec/models/totp_backup_code_spec.rb` — validations, `matches?`,
+  scopes, `used?`.
+- `spec/services/auth/totp_enroller_spec.rb` — happy / sad / flaw
+  (10 codes, safe alphabet, re-enrollment after disable, refusal
+  when already confirmed).
+- `spec/services/auth/totp_verifier_spec.rb` — happy / drift /
+  non-6-digit input / unenrolled-user / nil-user guard.
+- `spec/services/auth/backup_code_consumer_spec.rb` — happy / used /
+  invalid / reuse rejection.
+- `spec/services/auth/totp_disabler_spec.rb` — clears seed +
+  destroys codes + audit-logs; no-op on unenrolled user.
+- `spec/services/auth/backup_code_regenerator_spec.rb` — happy /
+  raises on unenrolled user / audit-log row.
+- `spec/requests/login/totp_challenges_spec.rb` — TOTP success
+  (activates, rotates, writes `new_location_2fa_passed`), backup
+  code success, wrong TOTP (422 + `twofa_failed`), already-used
+  backup (422), missing pre-auth marker.
+- `spec/requests/settings/security/totps_spec.rb` — full enroll /
+  confirm / disable / auth-gate cycle.
+- `spec/requests/settings/security/totp_backup_codes_spec.rb` —
+  count display, action-screen regenerate, no-plaintext invariant.
+- `spec/routing/settings_security_totp_routing_spec.rb` — route
+  pins.
+- `spec/mcp/tools/totp_status_spec.rb` — happy + scope-gate +
+  yes/no boundary + numeric counts.
+- `spec/system/totp_2fa_journey_spec.rb` (rack_test) — happy
+  enrollment → confirm; sad wrong-code; regenerate-codes action-
+  screen flow.
+
+**Locked spec deviations**
+
+- Column / table names follow the migrations on disk:
+  `totp_seed_encrypted` (not `totp_secret`), `totp_backup_codes`
+  (not `backup_codes`). The model name is `TotpBackupCode` so the
+  table mapping is conventional.
+- `LoginAttempt.reasons` already declared `twofa_failed: 7`; the
+  spec's `2fa_failed` would have collided with Ruby symbol naming
+  rules, so the implementation uses `:twofa_failed`.
+- `totp_enabled?` per spec: `seed.present? && disabled_at.nil?`.
+  Re-enrollment was gated on `totp_enabled_at.present?` instead so
+  a user mid-enrollment (seed present, no enabled_at) can recover
+  from a lost one-shot flash without being stranded.
+
+**Manual recipe** (the spec's, condensed)
+
+1. `bundle install`, `bin/dev`.
+2. `/settings/security/totp` → `[ enable 2FA ]`. Scan QR with
+   1Password (or any TOTP app); save the 10 backup codes.
+3. Enter a fresh 6-digit code → confirmation message. Verify
+   `totp_enabled_at` in the DB.
+4. Log out. From a new browser, password → bounce to `/login/totp`
+   → 6-digit code → activated, redirect to `/`. New session token
+   differs from the pre-auth cookie (LD-12).
+5. `/settings/security/attempts` row carries
+   `reason: new_location_2fa_passed`.
+6. New browser again → password → `/login/totp` → enter a backup
+   code → activates; that backup code stamps `used_at`. A second
+   attempt with the same code fails with generic "login failed.".
+7. `/settings/security/totp/disable` → enter fresh code → 2FA off.
+8. `/settings/security/totp_backup_codes` → `[regenerate]` →
+   fresh 10 codes shown once.
+9. MCP: call `totp_status` → `{ totp_enabled: "yes",
+   unused_backup_codes: 10, ... }`.
+
+**Quality gates**
+
+- RSpec — 149 examples / 0 failures on the new + touched specs.
+  315 across the wider auth surface (services + sessions + login)
+  re-verified green.
+- RuboCop — clean on every new + touched file.
+- Brakeman — `0 warnings` on the new code.
+- bundler-audit — unchanged at this commit.
+
+**Open items / handoff**
+
+- The TUI is out of scope this phase (P2 — Phase 26).
+  `Login::TotpChallenges#create` accepts the JSON envelope but the
+  TUI does not currently route through it; spec calls this out
+  explicitly.
+- `docs/auth.md` doc surface (recovery procedure, backup-code reuse
+  policy) belongs to `pito-docs`, not this lane.
+
 ## 2026-05-11 — sub-spec 01d MCP login_attempts tools (pito-mcp) [skipci]
 
 **Dispatch:** `pito-mcp` agent against spec
