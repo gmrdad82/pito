@@ -28,10 +28,56 @@ RSpec.describe "Settings", type: :request do
 
     it "shows the theme selector" do
       get settings_path
-      expect(response.body).to include("appearance")
+      # 2026-05-11 — the section heading was renamed from `appearance`
+      # to `ui / ux` when keyboard navigation joined the pane. The
+      # internal `section` form value still ships as `appearance` for
+      # backward compatibility with scripted PATCH callers.
+      expect(response.body).to include("<h2>ui / ux</h2>")
+      expect(response.body).not_to include("<h2>appearance</h2>")
       expect(response.body).to include("light")
       expect(response.body).to include("dark")
       expect(response.body).to include("auto (system)")
+    end
+
+    # 2026-05-11 — keyboard-navigation master toggle on the ui / ux pane.
+    # The row renders a yes/no radio pair (rendered labels: "on" / "off")
+    # so the visual matches the theme picker above it. Default state
+    # post-migration is "on" — AppSetting.keyboard_navigation_enabled?
+    # returns true when no row exists.
+    describe "keyboard navigation row" do
+      it "renders the row under the ui / ux fieldset" do
+        get settings_path
+        expect(response.body).to include("keyboard navigation")
+        expect(response.body).to include('name="settings[keyboard_navigation_enabled]"')
+      end
+
+      it "ships yes/no values on the wire (not true/false)" do
+        get settings_path
+        expect(response.body).to include('name="settings[keyboard_navigation_enabled]" value="yes"')
+        expect(response.body).to include('name="settings[keyboard_navigation_enabled]" value="no"')
+        expect(response.body).not_to include('name="settings[keyboard_navigation_enabled]" value="true"')
+        expect(response.body).not_to include('name="settings[keyboard_navigation_enabled]" value="false"')
+      end
+
+      it "checks the 'yes' radio by default (keyboard nav on)" do
+        AppSetting.delete_all
+        get settings_path
+        expect(response.body).to match(/<input type="radio" name="settings\[keyboard_navigation_enabled\]" value="yes"[^>]*\bchecked\b/)
+      end
+
+      it "checks the 'no' radio when the setting is off" do
+        AppSetting.set("max_panes", "5")
+        AppSetting.first.update!(keyboard_navigation_enabled: false)
+        get settings_path
+        expect(response.body).to match(/<input type="radio" name="settings\[keyboard_navigation_enabled\]" value="no"[^>]*\bchecked\b/)
+      end
+
+      it "labels the radio options as 'on' and 'off'" do
+        get settings_path
+        # Labels live inside `.md-radio-label` spans.
+        expect(response.body).to match(/<span class="md-radio-label">on<\/span>/)
+        expect(response.body).to match(/<span class="md-radio-label">off<\/span>/)
+      end
     end
 
     it "shows the Voyage.ai fieldset with the current flag value" do
@@ -268,12 +314,18 @@ RSpec.describe "Settings", type: :request do
     end
   end
 
-  # 2026-05-10 polish — Google pane on the Settings index. The pane
-  # summarises every YoutubeConnection owned by Current.user plus an
-  # aggregated channel count (with up to five known titles) across
-  # those connections. Brand-account emails (`*@pages.plusgoogle.com`)
-  # are truncated to their local part via `YoutubeHelper#format_connection_email`.
-  describe "GET /settings — Google pane channels summary" do
+  # 2026-05-10 — Google pane on the Settings index. The pane summarises
+  # every YoutubeConnection owned by Current.user plus a `channels:`
+  # list (one label per row) aggregated across those connections.
+  # Brand-account emails (`*@pages.plusgoogle.com`) are truncated to
+  # their local part via `YoutubeHelper#format_connection_email`.
+  #
+  # 2026-05-10 (image #66) — the channels block dropped the count
+  # prefix ("103 channels:") in favour of a muted `channels:` header
+  # and one label per row. Labels resolve to the channel's `title`
+  # once the sync job populates it, falling back to the UC-id slug
+  # extracted from `channel_url`.
+  describe "GET /settings — Google pane channels list" do
     let(:user) { User.first }
     let(:valid_url) do
       ->(i) {
@@ -282,7 +334,7 @@ RSpec.describe "Settings", type: :request do
       }
     end
 
-    it "renders 'connected: no' with no summary line when no YoutubeConnection exists" do
+    it "renders 'connected: no' with no channels block when no YoutubeConnection exists" do
       get settings_path
       expect(response.body).to include("connected: no")
       expect(response.body).not_to include("channels:")
@@ -296,35 +348,18 @@ RSpec.describe "Settings", type: :request do
       expect(response.body).to include("no channels linked yet")
     end
 
-    it "renders '1 channel' (singular, no titles) when only one un-synced channel exists" do
-      connection = create(:youtube_connection, user: user)
-      Channel.create!(channel_url: valid_url.call(0),
-                      youtube_connection_id: connection.id)
-      get settings_path
-      expect(response.body).to match(/1 channel(?!s)/)
-      expect(response.body).not_to include("1 channel:")
-    end
-
-    it "renders 'N channels' (no titles) when channels have nil titles" do
-      connection = create(:youtube_connection, user: user)
-      3.times { |i|
-        Channel.create!(channel_url: valid_url.call(i),
-                        youtube_connection_id: connection.id)
-      }
-      get settings_path
-      expect(response.body).to match(/3 channels(?!:)/)
-    end
-
-    it "renders '1 channel: Title' when one channel has a title" do
+    it "renders a muted 'channels:' header (no count prefix) when channels exist" do
       connection = create(:youtube_connection, user: user)
       Channel.create!(channel_url: valid_url.call(0),
                       title: "Catalin Ilinca",
                       youtube_connection_id: connection.id)
       get settings_path
-      expect(response.body).to include("1 channel: Catalin Ilinca")
+      expect(response.body).to include("channels:")
+      # The pre-refactor "N channels:" count prefix is gone.
+      expect(response.body).not_to match(/\d+ channels?:/)
     end
 
-    it "renders 'N channels: A, B, C' with comma-separated titles" do
+    it "renders each channel title on its own line inside a list" do
       connection = create(:youtube_connection, user: user)
       [ "Alpha", "Bravo", "Charlie" ].each_with_index do |t, i|
         Channel.create!(channel_url: valid_url.call(i),
@@ -332,10 +367,45 @@ RSpec.describe "Settings", type: :request do
                         youtube_connection_id: connection.id)
       end
       get settings_path
-      expect(response.body).to include("3 channels: Alpha, Bravo, Charlie")
+      # Each title lives in its own <li>.
+      expect(response.body).to include("<li>Alpha</li>")
+      expect(response.body).to include("<li>Bravo</li>")
+      expect(response.body).to include("<li>Charlie</li>")
+      # And no inline comma-separated form anywhere on the page.
+      expect(response.body).not_to include("Alpha, Bravo, Charlie")
     end
 
-    it "truncates to first 5 titles and appends '…and N more' beyond that" do
+    it "falls back to the UC-id slug when a channel has no title yet" do
+      connection = create(:youtube_connection, user: user)
+      uc_slug = "UC#{('a' * 22)[0, 22]}"
+      Channel.create!(channel_url: "https://www.youtube.com/channel/#{uc_slug}",
+                      title: nil,
+                      youtube_connection_id: connection.id)
+      get settings_path
+      expect(response.body).to include("<li>#{uc_slug}</li>")
+    end
+
+    it "prefers title over UC-id when both could resolve" do
+      connection = create(:youtube_connection, user: user)
+      Channel.create!(channel_url: valid_url.call(0),
+                      title: "Real Title",
+                      youtube_connection_id: connection.id)
+      get settings_path
+      expect(response.body).to include("<li>Real Title</li>")
+      expect(response.body).not_to include("<li>UC")
+    end
+
+    it "treats a whitespace-only title as blank and falls back to UC-id" do
+      connection = create(:youtube_connection, user: user)
+      uc_slug = "UC#{('b' * 22)[0, 22]}"
+      Channel.create!(channel_url: "https://www.youtube.com/channel/#{uc_slug}",
+                      title: "   ",
+                      youtube_connection_id: connection.id)
+      get settings_path
+      expect(response.body).to include("<li>#{uc_slug}</li>")
+    end
+
+    it "caps the list at 5 labels and appends '…and N more' beyond that" do
       connection = create(:youtube_connection, user: user)
       titles = %w[Alpha Bravo Charlie Delta Echo Foxtrot Golf]
       titles.each_with_index do |t, i|
@@ -344,9 +414,16 @@ RSpec.describe "Settings", type: :request do
                         youtube_connection_id: connection.id)
       end
       get settings_path
-      expect(response.body).to include("7 channels: Alpha, Bravo, Charlie, Delta, Echo, …and 2 more")
-      expect(response.body).not_to include("Foxtrot")
-      expect(response.body).not_to include("Golf")
+      # The first 5 (titled rows ordered by title asc) appear; Foxtrot and
+      # Golf are summarized by the "+N more" footer line.
+      expect(response.body).to include("<li>Alpha</li>")
+      expect(response.body).to include("<li>Bravo</li>")
+      expect(response.body).to include("<li>Charlie</li>")
+      expect(response.body).to include("<li>Delta</li>")
+      expect(response.body).to include("<li>Echo</li>")
+      expect(response.body).not_to include("<li>Foxtrot</li>")
+      expect(response.body).not_to include("<li>Golf</li>")
+      expect(response.body).to include("…and 2 more")
     end
 
     it "strips the @pages.plusgoogle.com domain from a brand-account email" do
@@ -377,7 +454,7 @@ RSpec.describe "Settings", type: :request do
       expect(response.body).not_to include("second@pages.plusgoogle.com")
     end
 
-    it "aggregates channel counts across ALL connections owned by the user" do
+    it "aggregates channel labels across ALL connections owned by the user" do
       conn_a = create(:youtube_connection, user: user)
       conn_b = create(:youtube_connection, user: user)
       Channel.create!(channel_url: valid_url.call(0), title: "From A",
@@ -385,9 +462,25 @@ RSpec.describe "Settings", type: :request do
       Channel.create!(channel_url: valid_url.call(1), title: "From B",
                       youtube_connection_id: conn_b.id)
       get settings_path
-      expect(response.body).to include("2 channels:")
-      expect(response.body).to include("From A")
-      expect(response.body).to include("From B")
+      expect(response.body).to include("channels:")
+      expect(response.body).to include("<li>From A</li>")
+      expect(response.body).to include("<li>From B</li>")
+    end
+
+    it "orders titled channels before un-titled (UC-id fallback) channels" do
+      connection = create(:youtube_connection, user: user)
+      Channel.create!(channel_url: valid_url.call(0),
+                      title: nil,
+                      youtube_connection_id: connection.id)
+      Channel.create!(channel_url: valid_url.call(1),
+                      title: "Zeta",
+                      youtube_connection_id: connection.id)
+      get settings_path
+      zeta_idx = response.body.index("<li>Zeta</li>")
+      uc_idx = response.body.index("<li>UC")
+      expect(zeta_idx).not_to be_nil
+      expect(uc_idx).not_to be_nil
+      expect(zeta_idx).to be < uc_idx
     end
 
     it "appends a '+N more' indicator to last-authorized when multiple connections exist" do
@@ -409,6 +502,13 @@ RSpec.describe "Settings", type: :request do
       get settings_path
       expect(response.body).not_to include("+0 more")
       expect(response.body).not_to include("more)")
+    end
+
+    it "keeps the connect-a-Google-account hint paragraph in place" do
+      get settings_path
+      expect(response.body).to include(
+        "connect a Google account to fetch YouTube channel and analytics data."
+      )
     end
   end
 
@@ -479,6 +579,78 @@ RSpec.describe "Settings", type: :request do
       expect(AppSetting.get("theme")).to eq("light")
       expect(AppSetting.get("max_panes")).to eq("9")
       expect(AppSetting.get("youtube_client_id")).to eq("keep-id")
+    end
+
+    # 2026-05-11 — keyboard-navigation toggle is persisted by the same
+    # `appearance` section form that owns the theme picker. yes/no
+    # strings on the wire per the project's external-boolean rule;
+    # internal storage stays Boolean.
+    describe "keyboard_navigation_enabled persistence" do
+      it "persists 'no' on the singleton AppSetting row" do
+        patch settings_path, params: {
+          section: "appearance",
+          settings: { theme: "dark", keyboard_navigation_enabled: "no" }
+        }
+        expect(AppSetting.keyboard_navigation_enabled?).to be(false)
+      end
+
+      it "subsequent GET reflects the off state via the checked radio" do
+        patch settings_path, params: {
+          section: "appearance",
+          settings: { keyboard_navigation_enabled: "no" }
+        }
+        get settings_path
+        expect(response.body).to match(/<input type="radio" name="settings\[keyboard_navigation_enabled\]" value="no"[^>]*\bchecked\b/)
+      end
+
+      it "flips back to 'yes' on a subsequent submit" do
+        AppSetting.set("max_panes", "5")
+        AppSetting.first.update!(keyboard_navigation_enabled: false)
+        patch settings_path, params: {
+          section: "appearance",
+          settings: { keyboard_navigation_enabled: "yes" }
+        }
+        expect(AppSetting.keyboard_navigation_enabled?).to be(true)
+      end
+
+      it "saves theme + keyboard_navigation_enabled together in one submit" do
+        patch settings_path, params: {
+          section: "appearance",
+          settings: { theme: "dark", keyboard_navigation_enabled: "no" }
+        }
+        expect(AppSetting.get("theme")).to eq("dark")
+        expect(AppSetting.keyboard_navigation_enabled?).to be(false)
+      end
+
+      it "ignores values other than 'yes' / 'no' (Boolean true rejected)" do
+        AppSetting.set("max_panes", "5")
+        AppSetting.first.update!(keyboard_navigation_enabled: true)
+        patch settings_path, params: {
+          section: "appearance",
+          settings: { keyboard_navigation_enabled: "true" }
+        }
+        # "true" is not "yes"; flag is left at the prior value.
+        expect(AppSetting.keyboard_navigation_enabled?).to be(true)
+      end
+
+      it "bootstraps an AppSetting row when the table is empty" do
+        AppSetting.delete_all
+        patch settings_path, params: {
+          section: "appearance",
+          settings: { keyboard_navigation_enabled: "no" }
+        }
+        expect(AppSetting.keyboard_navigation_enabled?).to be(false)
+      end
+
+      it "leaves keyboard_navigation_enabled alone when only theme is submitted" do
+        AppSetting.set("max_panes", "5")
+        AppSetting.first.update!(keyboard_navigation_enabled: false)
+        patch settings_path, params: {
+          section: "appearance",
+          settings: { theme: "light" }
+        }
+        expect(AppSetting.keyboard_navigation_enabled?).to be(false)
+      end
     end
 
     it "youtube_oauth section saves only oauth keys, leaves general/theme alone" do

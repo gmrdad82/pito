@@ -116,107 +116,15 @@ elsif !ApiToken.exists?(name: "dev")
 end
 
 # ---------------------------------------------------------------------------
-# 100 channels with deterministic distribution
+# Channels + videos are no longer seeded.
+#
+# 2026-05-10 — seeded placeholder channels (the 100-row deterministic batch
+# plus their per-channel video + stats fan-out) were dropped permanently.
+# The Channels and Videos workspaces now bootstrap from real OAuth
+# connections via `/settings/youtube`. The cleanup of any existing
+# placeholder rows lives in `bin/rails pito:drop_seeded_channels` so
+# the operation is idempotent + auditable.
 # ---------------------------------------------------------------------------
-
-puts "seeding channels..."
-
-# Phase 7 Path A2 (literal full retract). Seeded channels start with
-# youtube_connection_id: nil — connection happens through /settings/youtube
-# at runtime. We still seed a starred subset so the [starred] filter
-# chip and "starred" column have something to show.
-CHANNEL_SEED_COUNT = 100
-STAR_COUNT = 7
-URL_ALPHABET = ("A".."Z").to_a + ("a".."z").to_a + ("0".."9").to_a + %w[_ -]
-
-rng = Random.new(42)
-
-star_indexes = (0...STAR_COUNT).to_a # 0..6
-
-day_seconds = 60 * 60 * 24
-window = 60 * day_seconds
-
-channel_ids = []
-CHANNEL_SEED_COUNT.times do |i|
-  suffix = Array.new(22) { URL_ALPHABET[rng.rand(URL_ALPHABET.length)] }.join
-  url = "https://www.youtube.com/channel/UC#{suffix}"
-  star = star_indexes.include?(i)
-  created_offset = rng.rand(window)
-  created_at = Time.current - created_offset
-
-  ch = Channel.find_or_initialize_by(channel_url: url)
-  ch.star = star
-  ch.last_synced_at = nil
-  ch.created_at = created_at if ch.new_record?
-  ch.save!
-  channel_ids << ch.id
-end
-
-puts "  #{channel_ids.length} channels seeded"
-puts "    starred: #{Channel.where(star: true).count}"
-
-puts "seeding videos..."
-
-# ---------------------------------------------------------------------------
-# Per-channel video generation. Phase 7 Path A2 (literal full retract):
-# Video is a thin YouTube-reference record — only youtube_video_id +
-# channel are seeded. No title/description/tags/etc.
-# ---------------------------------------------------------------------------
-
-video_count = 0
-
-# Seed only the first 10 channels with stats data (keeps seed time
-# reasonable while still exercising the rest of the pipeline).
-seedable_channels = Channel.order(:id).limit(10)
-seedable_channels.each_with_index do |channel, channel_idx|
-  base_views = 500 + (channel.id * 137) % 6000
-  growth = 1.0 + ((channel.id % 13) - 6) * 0.001
-  count = 20
-
-  count.times do |i|
-    raw_id = "#{channel.channel_url[-10..]}#{channel_idx}#{i.to_s.rjust(3, '0')}"
-    vid_id = raw_id.gsub(/[^A-Za-z0-9_-]/, "x")[0, 11]
-    published = Time.zone.now - rand(5..365).days - rand(0..23).hours
-    duration_seconds_local = rand(90..5400)
-
-    video = Video.find_or_initialize_by(youtube_video_id: vid_id)
-    video.assign_attributes(channel: channel)
-    video.star = (i.zero?) if video.new_record?
-    video.save!
-    video_count += 1
-
-    # Generate up to 90 days of stats with realistic trends.
-    days_since_publish = (Date.current - published.to_date).to_i
-    stat_days = [ days_since_publish, 90 ].min
-
-    is_viral = rand < 0.1
-    spike_day = rand(5..30) if is_viral
-
-    stat_days.times do |d|
-      date = Date.current - d.days
-      days_old = (date - published.to_date).to_i.clamp(0, 999)
-
-      decay = [ 1.0 / (1 + days_old * 0.06), 0.08 ].max
-      trend = growth**(90 - d)
-      weekend = date.on_weekend? ? 1.2 : 1.0
-      spike = (is_viral && (days_old - spike_day).abs <= 2) ? rand(3.0..6.0) : 1.0
-
-      views = (base_views * decay * trend * weekend * spike * (0.7 + rand * 0.6)).round.clamp(1, 999_999)
-      likes = (views * rand(0.03..0.08)).round
-      comments = (views * rand(0.005..0.02)).round
-      shares = (views * rand(0.002..0.01)).round
-      watch_time = (views * duration_seconds_local / 60.0 * rand(0.25..0.65)).round
-
-      VideoStat.find_or_initialize_by(video: video, date: date).tap do |stat|
-        stat.assign_attributes(views: views, likes: likes, comments: comments,
-                               shares: shares, watch_time_minutes: watch_time)
-        stat.save!
-      end
-    end
-  end
-end
-
-puts "  #{video_count} videos with stats"
 
 # ---------------------------------------------------------------------------
 # Phase 4 — Project Workspace sample data

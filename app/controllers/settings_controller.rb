@@ -7,6 +7,13 @@ class SettingsController < ApplicationController
     @max_panes_default = ENV.fetch("MAX_PANES", 3).to_i
     @pane_title_length_default = ENV.fetch("PANE_TITLE_LENGTH", 14).to_i
     @theme = AppSetting.get("theme") || "auto"
+    # 2026-05-11 — keyboard-navigation master toggle. Stored as a Boolean
+    # column on the singleton AppSetting row (NOT NULL, default true).
+    # When no row exists yet we fall back to true so the install starts
+    # with the feature enabled, matching the column default. The view
+    # renders a yes/no radio pair; the layout surfaces the setting to
+    # Stimulus via `data-keyboard-navigation-enabled` on `<body>`.
+    @keyboard_navigation_enabled = AppSetting.keyboard_navigation_enabled?
     @voyage_configured = AppSetting.voyage_configured?
     @voyage_indexing_project_notes = AppSetting.voyage_indexing_project_notes?
     # Phase 12 polish (2026-05-10) — the YouTube pane masks the client
@@ -38,7 +45,35 @@ class SettingsController < ApplicationController
     @youtube_connection = @youtube_connections.first
 
     @channels_count = defined?(Channel) ? Channel.count : 0
-    @channel_titles = defined?(Channel) ? Channel.where.not(title: [ nil, "" ]).order(:title).limit(6).pluck(:title) : []
+    # 2026-05-10 — Google card channel list.
+    #
+    # The view renders one label per row (no count prefix, no comma-
+    # separation). Label resolution order per channel:
+    #   1. `title` once populated by the sync job, else
+    #   2. the UC-id portion of `channel_url` (always present —
+    #      `channel_url` is required + format-validated).
+    #
+    # We pull the columns we need rather than full records so the helper
+    # stays cheap on installs that grow past a handful of channels. The
+    # ORDER pins titled rows first (so freshly synced names rise to the
+    # top), then falls back to id for the un-titled tail. We cap at 5
+    # to match the prior summary's first-N policy; the view appends an
+    # "…and N more" hint when the install has additional channels.
+    @channel_labels =
+      if defined?(Channel)
+        rows = Channel.order(Arel.sql("title IS NULL, title, id"))
+                      .limit(5)
+                      .pluck(:title, :channel_url)
+        rows.filter_map do |title, url|
+          label = title.to_s.strip
+          next label if label.present?
+
+          slug = url.to_s[%r{/channel/(UC[A-Za-z0-9_-]{22})}, 1]
+          slug.presence
+        end
+      else
+        []
+      end
     begin
       @search_healthy = Search.engine.healthy?
       @search_stats = Search.engine.index_stats
@@ -104,9 +139,21 @@ class SettingsController < ApplicationController
     end
   end
 
+  # ui / ux section (still wired with `section=appearance` on the wire
+  # for backward compatibility). Persists theme + keyboard_navigation_enabled
+  # in one submit. The keyboard toggle is a yes/no string at the boundary
+  # per the project's external-boolean rule; we convert to Boolean before
+  # writing to the singleton AppSetting row. Other values are ignored —
+  # the radio group can only ship "yes" or "no", but we stay defensive
+  # against scripted callers.
   def update_appearance
     theme = params.dig(:settings, :theme)
     AppSetting.set("theme", theme) if %w[light dark auto].include?(theme)
+
+    raw_kbd = params.dig(:settings, :keyboard_navigation_enabled).to_s
+    if %w[yes no].include?(raw_kbd)
+      AppSetting.set_keyboard_navigation_enabled(raw_kbd == "yes")
+    end
   end
 
   def update_oauth

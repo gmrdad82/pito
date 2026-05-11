@@ -32,14 +32,18 @@
     big number + label header — see the spec at the dispatch root.
 %>
 
-<%# Row 1 — appearance | workspaces %>
+<%# Row 1 — ui / ux | workspaces. The ui / ux pane houses theme + keyboard
+    navigation; both persist in one submit. The section identifier on
+    the wire stays `appearance` for backward compatibility with any
+    scripted PATCH callers; only the visible H2 + the row label changed
+    when keyboard navigation joined the pane. %>
 <div class="pane-row">
-  <%# appearance %>
+  <%# ui / ux %>
   <div class="pane">
     <%= form_with url: settings_path, method: :patch do |f| %>
       <input type="hidden" name="section" value="appearance">
       <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
-        <legend><h2>appearance</h2></legend>
+        <legend><h2>ui / ux</h2></legend>
 
         <div style="margin-bottom: 6px;">
           <label class="form-label">theme</label>
@@ -49,6 +53,27 @@
                 <input type="radio" name="settings[theme]" value="<%= opt %>" <%= "checked" if @theme == opt %>>
                 <span class="md-radio-indicator"></span>
                 <span class="md-radio-label"><%= opt %><%= " (system)" if opt == "auto" %></span>
+              </label>
+            <% end %>
+          </div>
+        </div>
+
+        <%# Keyboard-navigation toggle. Renders as on / off radios so
+            the row mirrors the theme picker visually. Wire format is
+            yes / no per the project's external-boolean rule
+            (CLAUDE.md hard rules); the controller flips it back to
+            Boolean before storage. The setting is surfaced to the
+            keyboard Stimulus controller via the body-level
+            `data-keyboard-navigation-enabled` attribute (see
+            application.html.erb). %>
+        <div style="margin-bottom: 6px;">
+          <label class="form-label">keyboard navigation</label>
+          <div style="display: flex; gap: 12px;">
+            <% %w[yes no].each do |opt| %>
+              <label class="md-radio">
+                <input type="radio" name="settings[keyboard_navigation_enabled]" value="<%= opt %>" <%= "checked" if (@keyboard_navigation_enabled ? "yes" : "no") == opt %>>
+                <span class="md-radio-indicator"></span>
+                <span class="md-radio-label"><%= opt == "yes" ? "on" : "off" %></span>
               </label>
             <% end %>
           </div>
@@ -116,27 +141,28 @@
           last authorized <%= @youtube_connection.last_authorized_at.strftime("%Y-%m-%d %H:%M %Z") %><% if @youtube_connections.length > 1 %> (+<%= @youtube_connections.length - 1 %> more)<% end %>
         </p>
 
-        <%# Aggregated channels summary across ALL connections. The
-            count is install-wide (`Channel.count`) since pito is
-            single-install, multi-user; titles are populated by the
-            sync job once it runs, so before then we render
-            `N channels` (no titles). Beyond 5 titles we show the
-            first 5 + `…and N more`. Zero channels uses the
-            manage-page empty-state phrasing. %>
-        <p class="text-muted">
-          <% if @channels_count.zero? %>
-            no channels linked yet
-          <% else %>
-            <% noun = @channels_count == 1 ? "channel" : "channels" %>
-            <% if @channel_titles.empty? %>
-              <%= @channels_count %> <%= noun %>
-            <% elsif @channel_titles.length <= 5 %>
-              <%= @channels_count %> <%= noun %>: <%= @channel_titles.join(", ") %>
-            <% else %>
-              <%= @channels_count %> <%= noun %>: <%= @channel_titles.first(5).join(", ") %>, …and <%= @channels_count - 5 %> more
+        <%# Aggregated channels list across ALL connections. The list
+            is install-wide (`Channel.all`) since pito is single-
+            install, multi-user. Labels resolve to the channel's
+            `title` once the sync job populates it, falling back to
+            the UC-id portion of `channel_url` for un-synced rows.
+            The display is one label per row under a muted
+            `channels:` header — no count prefix, no comma-separation.
+            Zero channels uses the manage-page empty-state phrasing.
+            More than 5 channels appends an "…and N more" line. %>
+        <% if @channels_count.zero? %>
+          <p class="text-muted">no channels linked yet</p>
+        <% else %>
+          <p class="text-muted" style="margin-bottom: 2px;">channels:</p>
+          <ul class="text-muted" style="list-style: none; padding-left: 12px; margin: 0 0 8px 0;">
+            <% @channel_labels.each do |label| %>
+              <li><%= label %></li>
             <% end %>
-          <% end %>
-        </p>
+            <% if @channels_count > @channel_labels.length %>
+              <li>…and <%= @channels_count - @channel_labels.length %> more</li>
+            <% end %>
+          </ul>
+        <% end %>
 
         <% if @youtube_connection.needs_reauth? %>
           <p class="text-danger"><strong>needs re-auth</strong></p>

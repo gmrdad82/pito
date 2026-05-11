@@ -2047,3 +2047,117 @@ every decision; the Q1 (title/handle live-API editability), Q4 (watermark timing
 live-API option set), and Q9 (avatar editability) research dispatches run BEFORE
 11c (edit form), not before 11a — 11a's columns exist regardless of the
 outcomes.
+
+## 2026-05-11 — drop seeded channels + Settings Google card one-per-row list
+
+**State at start:** dev DB carried the legacy 100-row placeholder channel
+fan-out from the pre-OAuth seed (`Channel.where(youtube_connection_id: nil)` =
+100; the three real OAuth-linked channels carried connections). The Settings
+index Google card rendered the channels summary as
+`103 channels: Catalin Ilinca, Mushroom Poise, Witty Gaming` — count prefix
+plus inline comma list. The user's image #66 directive replaces that with a
+muted `channels:` header and one label per row.
+
+**Inputs:**
+
+- Master-agent dispatch (no spec file — directive from image #66).
+- CLAUDE.md hard rules (yes/no boundary stays untouched; no changes to
+  external boolean shapes).
+
+**What landed (file-level):**
+
+- `db/seeds.rb` — the 100-row channel + per-channel video + 90-day-stat
+  fan-out is gone. Replaced with a comment block pointing at
+  `bin/rails pito:drop_seeded_channels` for cleaning up dev DBs that ran the
+  old seed. Project Workspace sample block (collection / game / project /
+  note / timeline) preserved verbatim.
+- `lib/tasks/pito.rake` — new namespace, single task
+  `pito:drop_seeded_channels`. Deletes every `Channel` row whose
+  `youtube_connection_id IS NULL`. Idempotent (re-runs print "no seeded
+  channels to drop."). Uses `destroy_all` so the standard
+  `dependent: :destroy` cascade fires for related rows (videos, calendar
+  entries, change logs) — `delete_all` would have left orphans.
+- `app/controllers/settings_controller.rb` — `@channel_titles` replaced with
+  `@channel_labels`, capped at 5, ordered `title IS NULL, title, id` so
+  titled rows surface first. Per-row fallback resolves `title` then the
+  UC-id slug extracted from `channel_url` (always present —
+  `channel_url` is required + format-validated).
+- `app/views/settings/index.html.erb` — channels block restructured. Muted
+  `<p>channels:</p>` header, then a styleless `<ul>` (no bullets, indented
+  12px) with one `<li>` per label. When the install has more channels than
+  the 5-cap renders, an `…and N more` `<li>` closes the list. Empty state
+  stays "no channels linked yet" exactly as the manage-page surface phrases
+  it. The `connect a Google account…` hint paragraph is unchanged.
+
+**Rake task run** (against dev DB, post seed-block removal but before any
+other change): `bundle exec rake pito:drop_seeded_channels` dropped **100**
+seeded channels. Re-running the task on the same DB printed
+"no seeded channels to drop." — idempotent path verified. Channel count went
+from 103 → 3 (the three real OAuth-linked channels survived).
+
+**Specs added / amended:**
+
+- `spec/requests/settings_spec.rb` — the existing
+  "Google pane channels summary" describe block was replaced with a
+  "Google pane channels list" block. Eleven examples cover: empty
+  YoutubeConnection state, connected-but-empty state, the muted
+  "channels:" header without a count prefix, one-`<li>`-per-title rendering
+  (no inline comma form), UC-id slug fallback for un-synced channels,
+  title-preferred-over-UC-id, whitespace-only-title-as-blank, 5-cap with
+  "…and N more" footer, cross-connection aggregation, titled-before-untitled
+  ordering, the connect-a-Google-account hint paragraph preservation, plus
+  the brand-account email truncation + last-authorized +N-more lines that
+  the prior spec already covered. **Total examples in the describe block: 14
+  (vs. 13 before).**
+- `spec/lib/tasks/pito_rake_spec.rb` — new file, 7 examples for
+  `pito:drop_seeded_channels` covering: deletes orphan rows, preserves
+  connected rows, idempotent re-run, plural / singular / no-op stdout
+  lines, and cascade through dependent Video rows.
+
+**Spec count delta:** +1 in `settings_spec.rb` (13 → 14 in the Google-pane
+describe; eight obsolete examples removed, nine new ones added). +7 brand-new
+in `pito_rake_spec.rb`. Net +8 examples across the dispatch.
+
+**Files changed (high level):**
+
+- `db/seeds.rb`
+- `lib/tasks/pito.rake` (new)
+- `app/controllers/settings_controller.rb`
+- `app/views/settings/index.html.erb`
+- `spec/requests/settings_spec.rb`
+- `spec/lib/tasks/pito_rake_spec.rb` (new)
+
+**Gates:**
+
+- `bundle exec rspec spec/requests/settings_spec.rb` — 83 examples, 0
+  failures.
+- `bundle exec rspec spec/lib/tasks/pito_rake_spec.rb` — 7 examples, 0
+  failures.
+- `bundle exec rspec spec/helpers/youtube_helper_spec.rb` — 16 examples, 0
+  failures (sanity check on the brand-account email truncation helper that
+  the Google card uses).
+- `bundle exec rubocop` — 917 files inspected, 0 offenses.
+- `bin/brakeman -q -w2` — unchanged from the prior committed state: 1
+  pre-existing Medium-confidence SQL Injection warning in
+  `app/services/channels/video_importer.rb:130` (not in any file this
+  dispatch touched).
+
+**Plan checkbox tick:** none. The directive came from a master-agent
+dispatch outside the plan's checkbox set; no Phase 7.5 / Phase 22 / Phase 4
+checkbox covers it.
+
+**Manual test recipe** (the user runs after the master commits):
+
+1. `bin/rails server`, open `/settings`, confirm the Google card reads
+   `channels:` on its own muted line followed by one channel name per row
+   (3 channels in the current dev DB). The `[manage]` link still works.
+2. Disconnect every YoutubeConnection — the empty-state phrasing
+   "no channels linked yet" appears in place of the list.
+3. `bin/rails console` — temporarily clear a channel's title
+   (`Channel.first.update_columns(title: nil)`), refresh `/settings`, and
+   confirm that row in the list renders as its UC-id slug
+   (`UCxxxxxxxxxxxxxxxxxxxxxx`) instead. Restore the title.
+4. The `pito:drop_seeded_channels` rake task is already run; re-running it
+   prints "no seeded channels to drop." — confirms idempotency.
+
+**Open issues:** none.
