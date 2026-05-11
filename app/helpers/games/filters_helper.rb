@@ -43,10 +43,22 @@ module Games
       end
     end
 
-    # On-screen label boundary. The canonical token `not_owned` carries
-    # an underscore for URL safety; the visible chip uses a space.
+    # On-screen label boundary. Underscored tokens (`not_owned`) split
+    # to a visible space, and platform tokens carry their canonical
+    # mixed-case marketing name (`PS5`, `Switch2`, `Steam`, `GoG`,
+    # `Epic`, `Xbox`). Underlying URL tokens stay lowercase / underscored.
+    CHIP_LABELS = {
+      "not_owned" => "not owned",
+      "ps5"       => "PS5",
+      "switch2"   => "Switch2",
+      "steam"     => "Steam",
+      "gog"       => "GoG",
+      "epic"      => "Epic",
+      "xbox"      => "Xbox"
+    }.freeze
+
     def chip_label(token)
-      token == "not_owned" ? "not owned" : token.to_s
+      CHIP_LABELS.fetch(token.to_s, token.to_s)
     end
 
     private

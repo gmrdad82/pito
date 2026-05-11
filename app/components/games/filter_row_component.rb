@@ -1,11 +1,17 @@
 # Phase 27 §01b — Filter row.
 #
-# Renders ten canonical chips in the locked left-to-right order:
+# 2026-05-11 polish — the chip cluster is laid out across TWO rows
+# (split via a fixed boundary index). Display-mode switcher rides the
+# far right of the SECOND row's right slot.
 #
-#   recorded released owned not_owned scheduled ps5 switch2 steam gog epic
+#   Row 1 (status + platform): released scheduled ps5 switch2 steam gog epic xbox
+#   Row 2 (ownership/recorded): owned not_owned recorded   ...  [default][grid][list]
 #
-# Plus a `[clear all]` bracketed link to the right when at least one
-# chip is active. A muted contradiction notice
+# Per-platform chip labels are cased canonically (`PS5`, `Switch2`,
+# `Steam`, `GoG`, `Epic`, `Xbox`); URL tokens stay lowercase.
+#
+# Plus a `[clear all]` bracketed link to the right of the first row
+# when at least one chip is active. A muted contradiction notice
 # (`(owned and not owned together — no matches)`) renders immediately
 # under the row when `contradiction == true`.
 #
@@ -16,19 +22,20 @@ module Games
   class FilterRowComponent < ViewComponent::Base
     include Games::FiltersHelper
 
-    # Phase 27 polish (2026-05-11) — optional right-aligned slot. The
-    # `/games` index passes the display-mode switcher here so it
-    # renders flush-right on the filter row (replacing the prior
-    # H1-row position). The slot is open-ended so any future
-    # right-side surface (e.g. a sort dropdown) can land in the same
-    # spot without further component changes.
+    # 2026-05-11 polish — optional right-aligned slot on the SECOND
+    # row. The `/games` index passes the display-mode switcher here so
+    # it renders flush-right on row 2.
     renders_one :right_slot
 
-    # Locked left-to-right chip order from spec §"Goal".
-    CHIP_ORDER = %w[
-      recorded released owned not_owned scheduled
-      ps5 switch2 steam gog epic
-    ].freeze
+    # 2026-05-11 polish — chips partition into two rows. The boundary
+    # is fixed: row 1 carries status (released, scheduled) + every
+    # platform token; row 2 carries ownership (owned, not_owned) +
+    # `recorded`. The cosmetic split keeps the visual scan compact
+    # without changing token semantics — the underlying query reads
+    # the same `?filters=` CSV regardless of row.
+    ROW_1_TOKENS = %w[released scheduled ps5 switch2 steam gog epic xbox].freeze
+    ROW_2_TOKENS = %w[owned not_owned recorded].freeze
+    CHIP_ORDER = (ROW_1_TOKENS + ROW_2_TOKENS).freeze
 
     def initialize(active_tokens:, request_path:, dropped_tokens: [], query_string_overrides: {}, contradiction: false)
       @active_tokens          = Array(active_tokens)
@@ -44,8 +51,12 @@ module Games
       @contradiction
     end
 
-    def chip_tokens
-      CHIP_ORDER
+    def row_1_tokens
+      ROW_1_TOKENS
+    end
+
+    def row_2_tokens
+      ROW_2_TOKENS
     end
 
     def chip_for(token)

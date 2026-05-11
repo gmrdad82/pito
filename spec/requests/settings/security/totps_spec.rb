@@ -23,6 +23,13 @@ RSpec.describe "Settings::Security::Totps", type: :request do
   end
 
   describe "POST /settings/security/totp (enroll)" do
+    # P25 follow-up — F2. The one-shot enrollment payload now lives in
+    # Rails.cache (NOT flash). Test env's :null_store would drop writes
+    # silently — swap to MemoryStore for the enroll/show flow.
+    let(:memory_cache) { ActiveSupport::Cache::MemoryStore.new }
+
+    before { allow(Rails).to receive(:cache).and_return(memory_cache) }
+
     it "creates the seed and 10 backup codes" do
       expect {
         post settings_security_totp_path
@@ -30,6 +37,19 @@ RSpec.describe "Settings::Security::Totps", type: :request do
 
       expect(user.reload.totp_seed_encrypted).to be_present
       expect(response).to redirect_to(settings_security_totp_show_path)
+    end
+
+    # P25 F2 — assert the cache entry, NOT the flash entry.
+    it "writes the one-shot {seed, codes} to Rails.cache (P25 F2)" do
+      post settings_security_totp_path
+      cache_key = Settings::Security::TotpsController.enrollment_cache_key(user.id)
+      payload = memory_cache.read(cache_key)
+      expect(payload).to be_a(Hash)
+      expect(payload[:seed]).to be_present
+      expect(Array(payload[:codes]).length).to eq(10)
+
+      # Flash MUST NOT carry the plaintext payload.
+      expect(flash[:totp_enrollment_one_shot]).to be_nil
     end
 
     it "redirects with an error when 2FA is already enabled" do
@@ -41,7 +61,12 @@ RSpec.describe "Settings::Security::Totps", type: :request do
   end
 
   describe "GET /settings/security/totp/show (one-shot view)" do
-    it "renders 200 when the one-shot payload is in the flash" do
+    # P25 F2 — one-shot payload lives in Rails.cache. Swap stores.
+    let(:memory_cache) { ActiveSupport::Cache::MemoryStore.new }
+
+    before { allow(Rails).to receive(:cache).and_return(memory_cache) }
+
+    it "renders 200 when the one-shot payload is in the cache" do
       post settings_security_totp_path
       follow_redirect!
       expect(response).to have_http_status(:ok)
@@ -56,6 +81,18 @@ RSpec.describe "Settings::Security::Totps", type: :request do
       get settings_security_totp_show_path
       expect(response).to redirect_to(settings_security_totp_path)
       expect(flash[:alert]).to include("enrollment expired")
+    end
+
+    # P25 F2 — re-GET within the 5-min TTL still renders (we
+    # intentionally do NOT delete on read; confirm-success deletes).
+    # This mirrors the previous `flash.keep` behavior without leaving
+    # plaintext in the session cookie.
+    it "renders successive GETs within the TTL (no delete-on-read)" do
+      post settings_security_totp_path
+      get settings_security_totp_show_path
+      expect(response).to have_http_status(:ok)
+      get settings_security_totp_show_path
+      expect(response).to have_http_status(:ok)
     end
 
     # 2026-05-11 — QR codes need black-on-white contrast to scan

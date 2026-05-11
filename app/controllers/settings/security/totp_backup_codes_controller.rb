@@ -11,10 +11,21 @@
 #   - `create` — verifies the fresh code, calls
 #                `Auth::BackupCodeRegenerator`, displays the new codes
 #                ONCE on a one-shot view.
+#
+# P25 follow-up — F2. The one-shot backup-code plaintext payload is
+# stashed in `Rails.cache` (keyed on `Current.user.id`), NOT in
+# `flash`. Rails encrypts the session cookie, but `flash` payloads
+# briefly persist client-side as encrypted blob between requests —
+# that is an unnecessary surface for irrecoverable plaintext. Cache
+# lives entirely server-side and self-expires in 5 minutes.
 class Settings::Security::TotpBackupCodesController < ApplicationController
   include Sessions::TokenRotation
 
-  FLASH_KEY = :totp_backup_codes_one_shot
+  ONE_SHOT_CACHE_TTL = 5.minutes
+
+  def self.one_shot_cache_key(user_id)
+    "totp_one_shot:#{user_id}"
+  end
 
   # GET /settings/security/totp_backup_codes
   def show
@@ -28,10 +39,15 @@ class Settings::Security::TotpBackupCodesController < ApplicationController
     @used_count   = Current.user.totp_backup_codes.used.count
     @last_used_at = Current.user.totp_backup_codes.used.maximum(:used_at)
 
-    payload = flash[FLASH_KEY]
+    # P25 F2 — pull the one-shot payload from Rails.cache (NOT flash).
+    # Read + delete so the codes are displayed exactly once. A cache
+    # miss is benign — the operator landed here without a fresh
+    # regenerate, so just render the page without a one-shot block.
+    cache_key = self.class.one_shot_cache_key(Current.user.id)
+    payload = Rails.cache.read(cache_key)
     if payload.present?
-      @one_shot_codes = Array(payload["codes"])
-      flash.delete(FLASH_KEY)
+      Rails.cache.delete(cache_key)
+      @one_shot_codes = Array(payload[:codes])
     end
   end
 
@@ -87,7 +103,14 @@ class Settings::Security::TotpBackupCodesController < ApplicationController
     # regenerate so a captured cookie can't ride alongside fresh
     # backup codes.
     rotate_session_token!
-    flash[FLASH_KEY] = { "codes" => codes }
+    # P25 F2 — store the plaintext payload in Rails.cache, NOT flash.
+    # Flash stores its payload in the Rails encrypted session cookie;
+    # cache lives entirely server-side and self-expires in 5 min.
+    Rails.cache.write(
+      self.class.one_shot_cache_key(Current.user.id),
+      { codes: codes },
+      expires_in: ONE_SHOT_CACHE_TTL
+    )
     redirect_to settings_security_totp_backup_codes_path,
                 notice: "backup codes regenerated."
   rescue Auth::BackupCodeRegenerator::NotEnrolled

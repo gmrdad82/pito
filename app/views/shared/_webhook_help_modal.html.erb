@@ -17,10 +17,21 @@
 
     No JS `confirm()` / `alert()` / `prompt()` and no
     `data-turbo-confirm` (CLAUDE.md hard rule). %>
+<%# The help modal is wider than the other dialog variants because it
+    hosts multi-paragraph prose, code blocks, and tables (Troubleshooting).
+    `pane-dialog` clamps to 600px, `confirm-modal` to 420px — neither is
+    enough room for the rendered guide without horizontal scroll. We set
+    width inline so the modal stays self-contained and we don't have to
+    introduce another class variant.
+
+    `overflow-x: hidden` + `overflow-wrap: anywhere` on the inner content
+    keeps long webhook-URL strings from blowing the layout out
+    horizontally; they wrap inside the code block instead. %>
 <dialog id="webhook-help-modal"
         class="pane-dialog webhook-help-modal"
+        style="max-width: 900px; width: min(900px, 92vw);"
         data-action="click->webhook-help-modal#clickOutside keydown->webhook-help-modal#keydown">
-  <div style="padding: 12px 16px; min-width: 480px; max-width: 720px; max-height: 80vh; overflow-y: auto;">
+  <div style="padding: 12px 16px; max-height: 80vh; overflow-y: auto; overflow-x: hidden; overflow-wrap: anywhere; word-wrap: break-word;">
     <%= turbo_frame_tag "webhook_help_modal_frame", src: nil, loading: "lazy" %>
     <div class="modal-footer">
       <%= render(BracketedLinkComponent.new(

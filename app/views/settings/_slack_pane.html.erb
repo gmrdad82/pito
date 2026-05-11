@@ -74,6 +74,11 @@
 
       <div style="display: flex; align-items: baseline; gap: 8px;">
         <button type="submit">[update]</button>
+        <%# 2026-05-11 — middle-dot separator between `[update]` and
+            `[help]`, matching the `nav-sep` pattern from the channel
+            show page (between the in-app `[+]` and the external
+            `[youtube channel]`). %>
+        <span class="nav-sep" aria-hidden="true">·</span>
         <%# Phase 26 — 01d. `[help]` link opens the layout-level
             webhook help modal with the Slack guide. The href is the
             full Markdown fragment URL so JS-off users still land on

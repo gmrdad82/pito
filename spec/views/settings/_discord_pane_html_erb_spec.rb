@@ -34,6 +34,16 @@ RSpec.describe "settings/_discord_pane.html.erb", type: :view do
       expect(rendered).to include("[update]")
     end
 
+    # 2026-05-11 — middle-dot separator between `[update]` and
+    # `[help]`, matching the `nav-sep` pattern from the channel show
+    # page (between the in-app `[+]` and the external
+    # `[youtube channel]`).
+    it "renders a `nav-sep` middle dot between [update] and [help]" do
+      expect(rendered).to match(
+        %r{\[update\].*<span class="nav-sep" aria-hidden="true">·</span>.*\[help\]}m
+      )
+    end
+
     it "submits to `PATCH /settings/discord_webhook`" do
       expect(rendered).to include('action="/settings/discord_webhook"')
       # Rails encodes PATCH as a `_method` hidden field on a form-with

@@ -54,6 +54,26 @@ RSpec.describe "Settings webhook help", type: :system do
       visit settings_path
       expect(page.body).not_to include("data-turbo-confirm")
     end
+
+    # Phase 26 — 01d (polish 2026-05-11). The help modal is wider
+    # than the `pane-dialog` (600px) and `confirm-modal` (420px)
+    # defaults because it hosts multi-paragraph prose, code blocks,
+    # and Troubleshooting tables. The width is set inline on the
+    # `<dialog>` element so the modal stays self-contained.
+    it "renders the help modal with a wider max-width than the default dialog variants" do
+      visit settings_path
+      expect(page.body).to match(/<dialog[^>]*id="webhook-help-modal"[^>]*style="[^"]*max-width:\s*900px/)
+      expect(page.body).to match(/<dialog[^>]*id="webhook-help-modal"[^>]*style="[^"]*width:\s*min\(900px,\s*92vw\)/)
+    end
+
+    it "renders the help-modal inner wrapper with overflow-x: hidden so long URLs wrap" do
+      visit settings_path
+      # The inner padded div carries the overflow + word-break rules
+      # so a long webhook URL inside a `<pre>` wraps instead of
+      # forcing a horizontal scrollbar.
+      expect(page.body).to match(/overflow-x:\s*hidden/)
+      expect(page.body).to match(/overflow-wrap:\s*anywhere/)
+    end
   end
 
   describe "rendered guide fragment" do

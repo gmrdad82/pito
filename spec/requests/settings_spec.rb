@@ -515,6 +515,28 @@ RSpec.describe "Settings", type: :request do
         expect(idx_security).to be_a(Integer)
         expect(idx_edit).to be < idx_security
       end
+
+      # 2026-05-11 — user direction. The `[edit]` and `[security]`
+      # bracketed links are separated by the standard middle-dot
+      # `nav-sep` span, matching the convention used in the
+      # channel show page and the Discord/Slack panes.
+      it "renders a nav-sep middle-dot between [edit] and [security]" do
+        get settings_path
+        user_section = response.body[
+          /<legend><h2>user<\/h2><\/legend>.*?<\/fieldset>/m
+        ]
+        expect(user_section).not_to be_nil
+        expect(user_section).to include(
+          %(<span class="nav-sep" aria-hidden="true">·</span>)
+        )
+        # Order: [edit] before nav-sep before [security].
+        idx_edit     = user_section.index(">edit</span>]")
+        idx_nav_sep  = user_section.index(%(<span class="nav-sep" aria-hidden="true">·</span>))
+        idx_security = user_section.index(">security</span>]")
+        expect([ idx_edit, idx_nav_sep, idx_security ]).to all(be_a(Integer))
+        expect(idx_edit).to be < idx_nav_sep
+        expect(idx_nav_sep).to be < idx_security
+      end
     end
 
     # 2026-05-10 user-locked restructure — three section headings

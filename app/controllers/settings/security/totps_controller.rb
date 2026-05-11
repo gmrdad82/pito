@@ -24,7 +24,18 @@
 class Settings::Security::TotpsController < ApplicationController
   include Sessions::TokenRotation
 
-  FLASH_KEY = :totp_enrollment_one_shot
+  # P25 follow-up — F2. The one-shot enrollment payload (seed + 10
+  # plaintext backup codes) is stashed in `Rails.cache` keyed on the
+  # user id — NOT in `flash`. Flash payloads briefly persist
+  # client-side as the Rails encrypted session cookie blob; the seed
+  # plus 10 plaintext codes is the strongest single artifact an
+  # attacker could exfiltrate from a captured cookie, so we keep
+  # those bytes entirely server-side and TTL them at 5 minutes.
+  ONE_SHOT_CACHE_TTL = 5.minutes
+
+  def self.enrollment_cache_key(user_id)
+    "totp_enrollment_one_shot:#{user_id}"
+  end
 
   # GET /settings/security/totp
   def new
@@ -44,10 +55,14 @@ class Settings::Security::TotpsController < ApplicationController
     end
 
     result = Auth::TotpEnroller.call(user: Current.user)
-    flash[FLASH_KEY] = {
-      "seed" => result[:seed],
-      "codes" => result[:codes]
-    }
+    # P25 F2 — write the one-shot payload to Rails.cache (NOT flash).
+    # Self-expires in 5 min; deleted explicitly on successful
+    # `update` confirm.
+    Rails.cache.write(
+      self.class.enrollment_cache_key(Current.user.id),
+      { seed: result[:seed], codes: result[:codes] },
+      expires_in: ONE_SHOT_CACHE_TTL
+    )
     redirect_to settings_security_totp_show_path
   rescue Auth::TotpEnroller::AlreadyEnrolled
     redirect_to settings_security_totp_path,
@@ -56,23 +71,25 @@ class Settings::Security::TotpsController < ApplicationController
 
   # GET /settings/security/totp/show
   def show
-    payload = flash[FLASH_KEY]
-    if payload.blank? || payload["seed"].blank?
+    # P25 F2 — read the one-shot payload from Rails.cache. The cache
+    # entry survives across multiple GETs within the 5-minute TTL
+    # (we do NOT delete on read here — we only delete on `update`
+    # success). That preserves the same "wrong-code 422 re-renders
+    # the QR + codes" behavior the flash.keep call used to provide,
+    # WITHOUT leaving the plaintext payload in the user's cookie.
+    cache_key = self.class.enrollment_cache_key(Current.user.id)
+    payload = Rails.cache.read(cache_key)
+
+    if payload.blank? || payload[:seed].blank?
       redirect_to settings_security_totp_path,
                   alert: "enrollment expired. start again."
       return
     end
 
-    @seed   = payload["seed"]
-    @codes  = Array(payload["codes"])
+    @seed   = payload[:seed]
+    @codes  = Array(payload[:codes])
     @totp_uri = ROTP::TOTP.new(@seed, issuer: TotpHelper::TOTP_ISSUER)
                           .provisioning_uri(Current.user.email)
-
-    # Keep the one-shot payload alive across the confirm submit so a
-    # wrong-code 422 re-renders the QR + codes (the user needs the QR
-    # if they didn't scan it yet). `flash.keep` survives the render
-    # cycle for one more request.
-    flash.keep(FLASH_KEY)
   end
 
   # PATCH /settings/security/totp/confirm
@@ -103,15 +120,23 @@ class Settings::Security::TotpsController < ApplicationController
       # after the privileged enrollment so a captured pre-enrollment
       # cookie cannot ride alongside the new 2FA seed.
       rotate_session_token!
-      flash.delete(FLASH_KEY)
+      # P25 F2 — drop the one-shot payload from cache now that the
+      # user has confirmed. The seed lives on `totp_seed_encrypted`
+      # going forward; the codes never need to be redisplayed.
+      Rails.cache.delete(self.class.enrollment_cache_key(Current.user.id))
       redirect_to settings_security_totp_path, notice: "2FA enrolled."
     else
-      payload = flash[FLASH_KEY] || {}
+      # P25 F2 — re-read the cache for the wrong-code 422 re-render
+      # so the QR / codes block still appears. The cache entry has
+      # NOT been deleted (we only delete on confirm success), so
+      # within the 5-min TTL the user can retry without losing the
+      # display.
+      cache_key = self.class.enrollment_cache_key(Current.user.id)
+      payload = Rails.cache.read(cache_key) || {}
       @seed = seed
-      @codes = Array(payload["codes"])
+      @codes = Array(payload[:codes])
       @totp_uri = ROTP::TOTP.new(@seed, issuer: TotpHelper::TOTP_ISSUER)
                             .provisioning_uri(Current.user.email)
-      flash.keep(FLASH_KEY)
       flash.now[:alert] = "login failed."
       render :show, status: :unprocessable_content
     end

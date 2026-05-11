@@ -282,9 +282,13 @@ module ApplicationHelper
       # disables the inline-styled `<pre style="background-color:…">` wrapper.
       # `hardbreaks: true` keeps a single `\n` as `<br>` — beginner-friendly
       # guides rely on the visual line breaks.
+      #
+      # `table: true` enables GFM tables — the webhook help guides use
+      # them in the Troubleshooting section so the error-meaning-fix
+      # mapping reads cleanly as a grid instead of a dense paragraph.
       return Commonmarker.to_html(
         text.to_s,
-        options: { extension: { header_ids: nil }, render: { hardbreaks: true } },
+        options: { extension: { header_ids: nil, table: true }, render: { hardbreaks: true } },
         plugins: { syntax_highlighter: nil }
       ).html_safe
     end

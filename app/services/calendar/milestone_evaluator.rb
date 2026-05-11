@@ -15,12 +15,14 @@ module Calendar
     end
 
     def evaluate_all!
-      MilestoneRule.where(enabled: true, fired_at: nil).find_each do |rule|
+      # 2026-05-11 — iterate-and-soft-fail pattern lives in
+      # `Pito::SafeEach`. The wrapper logs `[MilestoneEvaluator]
+      # swallowed <class>: <msg> (row=<id>)` and continues on
+      # StandardError so one bad rule does not block the rest of the
+      # evaluation cycle.
+      rules = MilestoneRule.where(enabled: true, fired_at: nil).find_each
+      Pito::SafeEach.call(rules, label: "MilestoneEvaluator") do |rule|
         evaluate(rule)
-      rescue StandardError => e
-        Rails.logger.warn(
-          "[MilestoneEvaluator] rule #{rule.id} (#{rule.name}) failed: #{e.message}"
-        )
       end
     end
 
