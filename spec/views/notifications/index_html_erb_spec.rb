@@ -29,6 +29,33 @@ RSpec.describe "notifications/index.html.erb", type: :view do
     expect(rendered).to include("notifications are deleted 7 days after being read.")
   end
 
+  # 2026-05-10 — glyph legend at the modal top. The legend maps every
+  # event-type emoji (📺, 🎮, 🚨…) to a human label so the otherwise
+  # opaque pictograph in the row's first column is readable. The
+  # legend is built from `NotificationFormatter::EVENT_TYPE_EMOJI`
+  # at render time, so a new kind landing in the map appears here
+  # automatically (no separate copy to maintain).
+  describe "glyph legend" do
+    it "renders the legend container with the documented class" do
+      render
+      expect(rendered).to include("notification-glyph-legend")
+    end
+
+    it "renders every emoji from EVENT_TYPE_EMOJI" do
+      render
+      NotificationFormatter::EVENT_TYPE_EMOJI.each_value do |emoji|
+        expect(rendered).to include(emoji)
+      end
+    end
+
+    it "renders a humanized label for each event_type (underscores -> spaces)" do
+      render
+      NotificationFormatter::EVENT_TYPE_EMOJI.each_key do |kind|
+        expect(rendered).to include(kind.tr("_", " "))
+      end
+    end
+  end
+
   it "renders the empty state when no notifications" do
     render
     expect(rendered).to include("no notifications yet.")

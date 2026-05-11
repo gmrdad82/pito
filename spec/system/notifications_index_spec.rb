@@ -98,10 +98,17 @@ RSpec.describe "Notifications index", type: :system do
     expect(page).to have_selector('input[type="checkbox"][data-bulk-select-target="checkbox"]')
   end
 
-  it "does NOT render a row checkbox for read notifications" do
+  # 2026-05-10 — checkbox-always-visible refinement. The negative
+  # guard previously here asserted that READ rows skip the checkbox
+  # column. That layout was replaced by the always-on bulk-select
+  # pattern used app-wide (channels / videos / projects notes), so
+  # read rows now carry a checkbox too. The dynamic `[ mark N as
+  # read ]` controller filters by `.notification-unread` when
+  # counting, so the always-on column has no functional cost.
+  it "ALSO renders a row checkbox for read notifications (always-on column)" do
     create(:notification, :read, :video_published)
-    visit "/notifications"
-    expect(page).not_to have_selector('input[type="checkbox"][data-bulk-select-target="checkbox"]')
+    visit "/notifications?filter=all"
+    expect(page).to have_selector('input[type="checkbox"][data-bulk-select-target="checkbox"]')
   end
 
   it "shows the webhook misconfigured banner when an unread row has last_error" do

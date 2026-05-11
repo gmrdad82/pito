@@ -91,6 +91,63 @@ RSpec.describe "Notifications", type: :request do
       get "/notifications"
       expect(response.body).to include("no notifications yet.")
     end
+
+    # 2026-05-10 — checkbox-always-visible refinement. The per-row
+    # checkbox no longer hides on read rows; the column stays stable
+    # across the table. The dynamic `[ mark N as read ]` controller
+    # filters by `.notification-unread` when counting, so a ticked
+    # box on a read row is silently ignored (no functional regression).
+    describe "row checkbox column is always-on" do
+      it "renders a checkbox on every unread row" do
+        get "/notifications"
+        unread_count_in_body = response.body.scan(
+          %r{<tr[^>]*notification-unread[\s\S]*?</tr>}
+        ).count { |row| row.match?(/data-bulk-select-target="checkbox"/) }
+        expect(unread_count_in_body).to eq(2)
+      end
+
+      it "renders a checkbox on read rows too (always-on column)" do
+        get "/notifications?filter=all"
+        read_row_html = response.body[
+          /<tr[^>]*id="#{ActionView::RecordIdentifier.dom_id(read_a)}"[\s\S]*?<\/tr>/
+        ]
+        expect(read_row_html).to be_present
+        expect(read_row_html).to match(/data-bulk-select-target="checkbox"/)
+      end
+    end
+
+    # 2026-05-10 — glyph legend at the modal top. One legend line per
+    # registered event-type emoji, sourced from
+    # `NotificationFormatter::EVENT_TYPE_EMOJI`. The legend stays in
+    # sync with the formatter constant — no separate copy to maintain.
+    describe "glyph legend" do
+      it "renders the legend wrapper with the documented class" do
+        get "/notifications"
+        expect(response.body).to include("notification-glyph-legend")
+      end
+
+      it "renders every emoji from EVENT_TYPE_EMOJI in the legend" do
+        get "/notifications"
+        NotificationFormatter::EVENT_TYPE_EMOJI.each_value do |emoji|
+          expect(response.body).to include(emoji)
+        end
+      end
+
+      it "renders a humanized kind label for each emoji" do
+        get "/notifications"
+        NotificationFormatter::EVENT_TYPE_EMOJI.each_key do |kind|
+          expect(response.body).to include(kind.tr("_", " "))
+        end
+      end
+
+      it "renders the legend inside the modal-mode frame too" do
+        get "/notifications?modal=yes"
+        # The legend lives inside the modal wrapper (`<turbo-frame
+        # id="notifications_modal_frame">`) so the modal surface
+        # carries it as well — both surfaces share the index template.
+        expect(response.body).to include("notification-glyph-legend")
+      end
+    end
   end
 
   # Layout-level notifications modal (2026-05-10). `?modal=yes` or a

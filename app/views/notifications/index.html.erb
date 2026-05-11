@@ -42,6 +42,26 @@
   <h1>notifications</h1>
   <p class="text-muted" style="margin: 4px 0 8px;">notifications are deleted 7 days after being read.</p>
 
+  <%# Glyph legend. The first column on each row shows a per-event-type
+      emoji (📺, 🎮, 🚨…) sourced from `NotificationFormatter::EVENT_TYPE_EMOJI`.
+      The legend below makes the otherwise opaque pictograph readable —
+      one `<glyph> <kind label>` pair per registered event type, comma-
+      separated, on a single muted caption line. Rebuilt from the
+      formatter constant at render-time so a new kind landing in the
+      map appears here automatically. Severity (the colored bordered
+      badge on the right of each row) is self-documenting (the word
+      `info` / `warn` / etc. is rendered in-place); no legend needed
+      for that axis. %>
+  <% legend_pairs = NotificationFormatter::EVENT_TYPE_EMOJI.map { |kind, emoji|
+       [ emoji, kind.tr("_", " ") ]
+     } %>
+  <p class="notification-glyph-legend text-muted" style="margin: 0 0 8px;">
+    <% legend_pairs.each_with_index do |(emoji, label), i| %>
+      <span class="notification-glyph" aria-hidden="true"><%= emoji %></span>
+      <span><%= label %></span><%= "," if i < legend_pairs.length - 1 %>
+    <% end %>
+  </p>
+
   <% if @has_failures %>
     <div class="webhook-failure-banner" style="border: 1px solid var(--color-border); padding: 6px 10px; margin: 8px 0; color: var(--color-muted);">
       webhook delivery failing — see notification detail.

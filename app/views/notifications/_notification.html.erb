@@ -4,10 +4,13 @@
     `broadcast_replace_to` finds the row and swaps it in place.
 
     UX restructure 2026-05-10:
-      - First column is now a bulk-select checkbox (only rendered for
-        unread rows — read rows can't be marked-read again, so hiding
-        the checkbox on read rows keeps the dynamic "mark N as read"
-        button accurate without filtering at the controller level).
+      - First column is a bulk-select checkbox, rendered for EVERY
+        row (read AND unread). The dynamic `[ mark N as read ]`
+        controller filters to unread rows when computing its count,
+        so a ticked checkbox on a read row is silently ignored by
+        the mark-read action — but the column stays visually stable
+        across the table (matches the app-wide always-on bulk-select
+        pattern used on /channels, /videos, /projects notes).
       - Title is no longer a full-page link to /notifications/:id; it
         opens the show page inside an in-page modal via the
         `notification-modal` Stimulus controller. The `href` still
@@ -21,9 +24,7 @@
 %>
 <tr id="<%= dom_id(notification) %>" class="notification-row <%= notification.read? ? 'notification-read' : 'notification-unread' %>">
   <td class="col-action" style="padding: 4px 8px; vertical-align: top; white-space: nowrap;">
-    <% if notification.unread? %>
-      <%= render(CheckboxComponent.new(value: notification.id, data: { bulk_select_target: "checkbox", action: "change->bulk-select#toggle" })) %>
-    <% end %>
+    <%= render(CheckboxComponent.new(value: notification.id, data: { bulk_select_target: "checkbox", action: "change->bulk-select#toggle" })) %>
   </td>
   <td style="padding: 4px 8px; vertical-align: top; white-space: nowrap;">
     <span class="notification-glyph" aria-hidden="true"><%= payload[:glyph] %></span>
