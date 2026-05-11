@@ -339,7 +339,7 @@ RSpec.describe "Calendar::Entries", type: :request do
     it "wraps the body in the matching turbo-frame tag for the modal swap" do
       ce = create(:calendar_entry, :milestone_manual)
       get "/calendar/entries/#{ce.id}/details_pane"
-      expect(response.body).to include('id="calendar_entry_details_frame"')
+      expect(response.body).to include('id="calendar_entry_modal_frame"')
     end
 
     it "renders the `all day` badge when entry.all_day is true" do
@@ -404,7 +404,7 @@ RSpec.describe "Calendar::Entries", type: :request do
     end
 
     # Turbo Frame audit 2026-05-12 — every cross-link inside the
-    # `calendar_entry_details_frame` MUST opt out of the enclosing
+    # `calendar_entry_modal_frame` MUST opt out of the enclosing
     # frame with `data-turbo-frame="_top"`. Otherwise Turbo scopes the
     # navigation to the modal frame and the destination response
     # (entry / video / channel / game show) carries no matching frame

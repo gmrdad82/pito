@@ -294,7 +294,7 @@ RSpec.describe "Calendar::Schedule", type: :request do
       it "mounts the layout-level calendar-entry-modal dialog once" do
         get "/calendar/schedule"
         expect(response.body).to include("calendar-entry-modal")
-        expect(response.body).to include("calendar_entry_details_frame")
+        expect(response.body).to include("calendar_entry_modal_frame")
       end
 
       it "today divider spans 5 columns (date | time | type | title | open)" do

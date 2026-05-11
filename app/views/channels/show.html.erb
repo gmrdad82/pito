@@ -37,14 +37,17 @@
     pair (when present) carries the `h` / `l` sibling navigation URLs
     for the global keyboard controller. %>
 <div data-controller="add-pane" data-keyboard-external-url="<%= @channel.channel_url %>" <%= keyboard_detail_nav_data_attributes(@channel, scope: Channel, path_helper: method(:channel_path)) %>>
-  <%# 2026-05-11 — title row is `<display_title> [+] · [youtube channel]
-      [youtube studio]`. The "channel" prefix was dropped from the H1
+  <%# 2026-05-11 — title row is `<display_title> [+] · [YouTube]
+      [Studio]`. The "channel" prefix was dropped from the H1
       (the [channels] breadcrumb segment already names the section).
       The outbound YouTube links moved up from the detail pane into
       the H1 row so the high-value navigation sits at the top edge of
       the page. A `nav-sep` middle-dot separates the in-app `[+]`
-      action from the outbound `[youtube …]` cluster — same separator
-      pattern used in the top navbar. %>
+      action from the outbound `[YouTube][Studio]` cluster — same
+      separator pattern used in the top navbar. Labels are the bare
+      proper-noun brand + product name (no redundant "youtube"
+      prefix on `[Studio]`, no redundant "channel" suffix on
+      `[YouTube]`). %>
   <div class="dot-list" style="margin-bottom: 6px;">
     <h1 style="display: inline;"><%= display_title %></h1>
     <% if @available_channels.any? %>
@@ -56,7 +59,7 @@
       <span class="nav-sep" aria-hidden="true">·</span>
       <% if yt_channel %>
         <%= render(BracketedLinkComponent.new(
-              label: "youtube channel",
+              label: "YouTube",
               href: yt_channel,
               target: "_blank",
               rel: "noopener noreferrer"
@@ -64,7 +67,7 @@
       <% end %>
       <% if yt_studio %>
         <%= render(BracketedLinkComponent.new(
-              label: "youtube studio",
+              label: "Studio",
               href: yt_studio,
               target: "_blank",
               rel: "noopener noreferrer"
@@ -122,9 +125,9 @@
         </div>
       </div>
 
-      <%# 2026-05-11 — the `[youtube channel]` / `[youtube studio]`
-          outbound links moved into the H1 row at the top of the page.
-          The detail pane is now identity → description → links cluster. %>
+      <%# 2026-05-11 — the `[YouTube]` / `[Studio]` outbound links
+          moved into the H1 row at the top of the page. The detail
+          pane is now identity → description → links cluster. %>
 
       <%# Description — plain-text + auto-linked URLs. The helper runs
           input through `simple_format(sanitize: true)` which strips

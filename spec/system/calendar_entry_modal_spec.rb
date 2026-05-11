@@ -21,12 +21,12 @@ RSpec.describe "Calendar entry modal (SSR scaffold)", type: :system do
     expect(page).to have_selector('dialog[data-calendar-entry-modal-target="dialog"]', visible: :all, count: 1)
   end
 
-  it "month grid: dialog hosts the calendar_entry_details_frame Turbo Frame" do
+  it "month grid: dialog hosts the calendar_entry_modal_frame Turbo Frame" do
     create(:calendar_entry, :milestone_manual,
            starts_at: Time.zone.local(2026, 5, 15, 12, 0))
     visit "/calendar/month/2026/05"
     expect(page).to have_selector(
-      'dialog[data-calendar-entry-modal-target="dialog"] turbo-frame#calendar_entry_details_frame',
+      'dialog[data-calendar-entry-modal-target="dialog"] turbo-frame#calendar_entry_modal_frame',
       visible: :all
     )
   end
@@ -70,7 +70,7 @@ RSpec.describe "Calendar entry modal (SSR scaffold)", type: :system do
   it "details_pane fragment wraps its body in the matching Turbo Frame" do
     ce = create(:calendar_entry, :milestone_manual, title: "podcast")
     visit "/calendar/entries/#{ce.id}/details_pane"
-    expect(page).to have_selector('turbo-frame#calendar_entry_details_frame', visible: :all)
+    expect(page).to have_selector('turbo-frame#calendar_entry_modal_frame', visible: :all)
   end
 
   it "details_pane renders the typed label + entry title + close button" do
