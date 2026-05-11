@@ -6,6 +6,7 @@ use crate::api::client::PitoClient;
 use crate::api::models::{AppSettings, BulkOperationStatus, DashboardData, ResponseMode};
 use crate::api::thumbnails::{Cache as ThumbnailCache, Tier};
 use crate::keybindings::Action as KeybindingAction;
+use crate::notifications::overlay::LoginPendingOverlayState;
 use crate::theme::{Theme, ThemeMode};
 use crate::ui::channel_detail::{ChannelDetailState, ChannelInfo, ChannelVideoRow};
 use crate::ui::channels::{ChannelFilter, ChannelRow, ChannelsState};
@@ -91,6 +92,11 @@ fn current_timestamp() -> String {
 
 /// Cadence of post-sync channel re-fetches.
 pub const SYNC_POLL_INTERVAL: Duration = Duration::from_millis(500);
+
+/// Phase 25 — 01c. Polling cadence for the login-pending overlay
+/// status-line prompt refresh. 30 seconds keeps the prompt fresh
+/// without hammering the notifications endpoint between user actions.
+const LOGIN_PENDING_POLL_SECS: u64 = 30;
 
 /// Hard cap on how long pito keeps polling after a sync confirm.
 pub const SYNC_POLL_DEADLINE: Duration = Duration::from_secs(10);
@@ -202,6 +208,10 @@ pub enum Overlay {
     /// `config/keybindings.yml` (shared with the Rails web app). State lives
     /// in `App::leader_menu`.
     LeaderMenu,
+    /// Phase 25 — 01c new-location pending-approval overlay. State lives
+    /// in `App::login_pending`. Driven by the polled
+    /// `kind=login_pending_approval` notifications surface.
+    LoginPending,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -267,6 +277,27 @@ pub struct App {
     /// otherwise. Populated when the user presses the leader key (SPACE),
     /// cleared when the popup is dismissed (Esc / leader / completed action).
     pub leader_menu: Option<LeaderMenuState>,
+    /// Phase 25 — 01c. Open-state for the `login_pending_approval`
+    /// overlay. `Some` while the modal is showing; `None` otherwise.
+    /// Mutated through `open_login_pending_overlay`,
+    /// `confirm_login_pending_approve`, `confirm_login_pending_block`,
+    /// and `close_login_pending_overlay`.
+    pub login_pending: Option<LoginPendingOverlayState>,
+    /// Cached count of pending login approvals not yet resolved. Drives
+    /// the status-line `pending approval — [a]pprove [b]lock [l]ater`
+    /// prompt rendered on non-notification surfaces. `0` when no
+    /// pending rows have been observed by the most recent fetch.
+    pub login_pending_count: usize,
+    /// Cached card built from the most recent
+    /// `kind=login_pending_approval` fetch. Holds the first / most
+    /// recent pending row so the status-line prompt shortcut (`a`/`b`)
+    /// can open the overlay against it without waiting for the next
+    /// poll. `None` when no pending rows are in flight.
+    pub login_pending_card_cache: Option<crate::notifications::login_pending::LoginPendingCard>,
+    /// Next instant at which the polling tick will attempt to refresh
+    /// the pending-approval cache. `None` until the first refresh
+    /// completes; reset on every successful refresh.
+    pub login_pending_next_poll_at: Option<Instant>,
     /// Status-line message produced by leader-menu actions that don't yet
     /// have a concrete TUI implementation (web-only navigates, contextual
     /// actions, etc.). Rendered in the footer; cleared on the next leader
@@ -458,6 +489,13 @@ impl App {
             operation_progress: None,
             leader_menu: None,
             leader_status: None,
+            login_pending: None,
+            login_pending_count: 0,
+            login_pending_card_cache: None,
+            // Defer the first poll a few seconds so the TUI stays
+            // responsive during startup. The first refresh fires from
+            // `tick()` once this deadline elapses.
+            login_pending_next_poll_at: Some(Instant::now() + Duration::from_secs(5)),
             client,
         }
     }
@@ -683,6 +721,168 @@ impl App {
         if self.leader_menu.is_some() || self.overlay == Some(Overlay::LeaderMenu) {
             self.close_leader_menu();
         }
+    }
+
+    /// Phase 25 — 01c. Open the new-location pending-approval overlay
+    /// for a parsed card. Idempotent; replaces any prior overlay state
+    /// (e.g. if a fresh pending row landed while a stale modal was
+    /// open).
+    pub fn open_login_pending_overlay(
+        &mut self,
+        card: crate::notifications::login_pending::LoginPendingCard,
+    ) {
+        // Dismiss the leader menu if it's open — the pending-approval
+        // overlay takes priority over the keybinding popup.
+        if self.leader_menu.is_some() {
+            self.close_leader_menu();
+        }
+        self.login_pending = Some(LoginPendingOverlayState::new(card));
+        self.overlay = Some(Overlay::LoginPending);
+    }
+
+    /// Close the pending-approval overlay. Idempotent.
+    pub fn close_login_pending_overlay(&mut self) {
+        self.login_pending = None;
+        if self.overlay == Some(Overlay::LoginPending) {
+            self.overlay = None;
+        }
+    }
+
+    /// Confirm + fire the approve POST for the overlay's current card.
+    /// Marks the overlay as Working before the call, then as Done with
+    /// a success / error status on return. Returns the result of the
+    /// underlying client call so callers can surface failures further
+    /// up the stack if needed.
+    pub fn confirm_login_pending_approve(&mut self) {
+        let Some(attempt_id) = self
+            .login_pending
+            .as_ref()
+            .and_then(|s| s.card.login_attempt_id)
+        else {
+            return;
+        };
+        if let Some(state) = self.login_pending.as_mut() {
+            state.mark_working("approving");
+        }
+        let result = self.login_attempts_client().approve_pending(attempt_id);
+        if let Some(state) = self.login_pending.as_mut() {
+            match result {
+                Ok(_) => {
+                    state.mark_done("approved");
+                    self.login_pending_count = self.login_pending_count.saturating_sub(1);
+                }
+                Err(e) => {
+                    state.mark_done(format!("error: {}", e));
+                }
+            }
+        }
+    }
+
+    /// Mirror of `confirm_login_pending_approve` for the block path.
+    pub fn confirm_login_pending_block(&mut self) {
+        let Some(attempt_id) = self
+            .login_pending
+            .as_ref()
+            .and_then(|s| s.card.login_attempt_id)
+        else {
+            return;
+        };
+        if let Some(state) = self.login_pending.as_mut() {
+            state.mark_working("blocking");
+        }
+        let result = self.login_attempts_client().block_pending(attempt_id);
+        if let Some(state) = self.login_pending.as_mut() {
+            match result {
+                Ok(_) => {
+                    state.mark_done("blocked");
+                    self.login_pending_count = self.login_pending_count.saturating_sub(1);
+                }
+                Err(e) => {
+                    state.mark_done(format!("error: {}", e));
+                }
+            }
+        }
+    }
+
+    /// Attempt to open the pending-approval overlay from the cached
+    /// card without firing a fresh poll. Used by the status-line
+    /// prompt shortcut on non-notification surfaces (`a` / `b`).
+    /// Returns `true` when the overlay was opened.
+    pub fn try_open_cached_login_pending(&mut self) -> bool {
+        let Some(card) = self.login_pending_card_cache.clone() else {
+            return false;
+        };
+        self.open_login_pending_overlay(card);
+        true
+    }
+
+    /// Dismiss the status-line prompt for now. Clears the cached
+    /// card + count so the prompt no longer renders; the next poll
+    /// cycle will repopulate it if the pending row is still active.
+    pub fn dismiss_login_pending_prompt(&mut self) {
+        self.login_pending_card_cache = None;
+        self.login_pending_count = 0;
+    }
+
+    /// Refresh the pending-approval cache by hitting
+    /// `GET /notifications.json?kind=login_pending_approval&filter=unread`.
+    /// Silent on transport failures — the prompt simply doesn't render
+    /// when we can't reach the server. Designed to be called from the
+    /// main loop's `tick()` on a polling cadence.
+    ///
+    /// Skipped (with the next-poll deadline pushed forward) when no
+    /// bearer token is configured — without auth the endpoint redirects
+    /// or 401s, neither of which surfaces useful state to the user.
+    pub fn refresh_login_pending(&mut self) {
+        use crate::api::endpoints::notifications::NotificationsIndexQuery;
+
+        let client = self.login_attempts_client();
+        // Push the deadline forward even on early-return so we don't
+        // re-fire every tick.
+        self.login_pending_next_poll_at =
+            Some(Instant::now() + Duration::from_secs(LOGIN_PENDING_POLL_SECS));
+
+        if client.bearer_token().is_none() {
+            return;
+        }
+
+        let query = NotificationsIndexQuery {
+            filter: Some("unread".to_string()),
+            kind: Some(crate::notifications::login_pending::KIND.to_string()),
+            severity: None,
+            page: Some(1),
+        };
+        let Ok(resp) = client.notifications_list(&query) else {
+            return;
+        };
+        self.login_pending_count = resp.total as usize;
+        let card = resp
+            .notifications
+            .iter()
+            .find_map(crate::notifications::login_pending::LoginPendingCard::from_summary);
+        self.login_pending_card_cache = card;
+    }
+
+    /// Build a fresh `EndpointsClient` pointed at the resolved base
+    /// URL + bearer token. Reused by the pending-approval flow to fire
+    /// approve / block POSTs. We rebuild per call (the cost is one
+    /// reqwest client construction; negligible in the main loop) so the
+    /// long-lived `App` doesn't have to hold a second HTTP client.
+    fn login_attempts_client(&self) -> crate::api::endpoints::EndpointsClient {
+        let _ = dotenvy::dotenv();
+        let resolved = crate::auth::resolve(
+            crate::auth::load_file(
+                &crate::auth::auth_file_path().unwrap_or_else(|_| PathBuf::from("/dev/null")),
+            )
+            .ok()
+            .flatten()
+            .as_ref(),
+            &crate::auth::Env::system(),
+        );
+        crate::api::endpoints::EndpointsClient::new(
+            resolved.base_url.clone(),
+            resolved.token.clone(),
+        )
     }
 
     /// Quit + logout: best-effort delete of the on-disk auth file, then quit
@@ -1232,6 +1432,19 @@ impl App {
         // Bulk operation progress is independent of sync polling — drive it
         // first so the overlay updates regardless of what else is in flight.
         let op_active = self.drive_operation_progress();
+
+        // Phase 25 — 01c. Refresh the login-pending cache on its own
+        // cadence (independent of sync polling). The poll is best-
+        // effort: silent transport failures leave the previous count
+        // / card in place.
+        let now = Instant::now();
+        let due = self
+            .login_pending_next_poll_at
+            .map(|deadline| now >= deadline)
+            .unwrap_or(true);
+        if due && self.overlay != Some(Overlay::LoginPending) {
+            self.refresh_login_pending();
+        }
 
         let Some(ref mut polling) = self.sync_polling else {
             if op_active {

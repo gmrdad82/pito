@@ -22,6 +22,8 @@
 # action. The acting user is `Current.user` — the user enrolling /
 # disabling is always themselves.
 class Settings::Security::TotpsController < ApplicationController
+  include Sessions::TokenRotation
+
   FLASH_KEY = :totp_enrollment_one_shot
 
   # GET /settings/security/totp
@@ -97,6 +99,10 @@ class Settings::Security::TotpsController < ApplicationController
         target: Current.user,
         metadata: { enrolled_user_id: Current.user.id }
       )
+      # Phase 25 — 01g (LD-12 extension). Rotate the session token
+      # after the privileged enrollment so a captured pre-enrollment
+      # cookie cannot ride alongside the new 2FA seed.
+      rotate_session_token!
       flash.delete(FLASH_KEY)
       redirect_to settings_security_totp_path, notice: "2FA enrolled."
     else
@@ -141,6 +147,10 @@ class Settings::Security::TotpsController < ApplicationController
       Auth::TotpDisabler.call(user: Current.user,
                               acting_user: Current.user,
                               source_surface: :web)
+      # Phase 25 — 01g (LD-12 extension). Rotate the session token
+      # on disable so a captured cookie can't survive across the
+      # 2FA-off transition.
+      rotate_session_token!
       redirect_to settings_security_totp_path, notice: "2FA disabled."
     else
       flash.now[:alert] = "login failed."

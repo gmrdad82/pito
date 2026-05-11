@@ -255,16 +255,29 @@ Per the Mobile note's dispatch list:
 - [x] Shelves-by-letter view — one shelf per letter, empty letters hidden.
 - [x] yes/no boundary not applicable (no boolean inputs).
 - [x] Model + request + view + component + system spec sweep. (System spec
-      deferred — see session log; the surface is exercised by view + request
-      specs while the controller index is wedged on 01a / 01c drift.)
+      landed 2026-05-11 re-dispatch as `spec/system/games_display_modes_spec.rb`
+      — 13 examples covering default mode, persistence via switcher, URL
+      override, shelves-by-letter empty-letter hiding, list mode letter-head
+      interleaving, filter-row composition, and CLAUDE.md hard-rule guards.
+      The 01a / 01c drift that wedged the controller index also cleared this
+      session — `GamesController#index` now resolves `@display_mode` and
+      branches the all-games partition into one of the three new partials.)
 
 ### 01e — Shelf cover art variant
 
-- [ ] Add `:shelf` variant entry to the cover-rendering pipeline at 65% of grid
-      (~152 × 203 px).
-- [ ] Update the cover-art ViewComponent / helper to accept `variant: :shelf`.
-- [ ] Asset pipeline + tests confirm size + cache key differ from `:grid`.
-- [ ] Component spec covering both variants.
+- [x] Add `:shelf` variant entry to the cover-rendering pipeline at 65% of grid
+      (98 × 130 px against the real 150 × 200 grid — the plan's original
+      `≈ 152 × 203 px against 234 × 312` was a baseline mismatch; locked
+      decision §1 reads "65%", actual baseline is 150 × 200).
+- [x] Update the cover-art ViewComponent / helper to accept `variant: :shelf`.
+      `Games::CoverComponent` owns the size map (`DIMENSIONS`), the
+      `data-variant` attribute, and the `.game-cover--<variant>` CSS modifier.
+- [x] Asset pipeline + tests confirm size + cache key differ from `:grid`.
+      `:grid` resolves to `t_cover_big`, `:shelf` resolves to `t_cover_small_2x`
+      — distinct IGDB CDN tokens, distinct browser cache entries.
+- [x] Component spec covering both variants. 38 examples in
+      `spec/components/games/cover_component_spec.rb` (happy / sad / edge /
+      flaw + friendly-URL preservation + `DIMENSIONS` introspection).
 
 ### 01f — Game show/edit per-platform ownership
 

@@ -1,5 +1,12 @@
 # 01c v2 — Nested Shelves (Genres / Collections)
 
+> **Corrected from 70% draft — locked decision §1 is 65% (98 × 130 px against
+> the real 150 × 200 grid).** Every `70%` / `105 × 140` reference below is a
+> historical artefact of an in-flight draft that proposed bumping the variant;
+> the master agent reaffirmed 65% (matching 01e and the shipped
+> `Games::CoverComponent` `:shelf` variant). Treat the 70% / 105 × 140 lines as
+> superseded; the real values are 65% / 98 × 130.
+
 > **Supersedes `01c-genres-and-collections-shelves.md`** per direct user
 > direction (architect intake 2026-05-10, "nested shelves" directive). The flat
 > two-shelf design that shipped under 01c is replaced by a **nested** layout: an

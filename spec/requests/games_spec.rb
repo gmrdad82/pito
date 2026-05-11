@@ -750,7 +750,11 @@ RSpec.describe "Games", type: :request do
       # The all-games grid sees Game.none — assert by scoping to the
       # grid section's empty-state copy (shelves above still render
       # the game; the filter row only narrows `@all_games`).
-      grid = response.body.match(%r{<section class="shelf all-games-grid".*?</section>}m)
+      # Phase 27 §01d — the grid section now carries the
+      # `games-grid-mode` class in addition to the legacy
+      # `all-games-grid`; match on the stable `data-display-mode`
+      # hook instead of the exact class string.
+      grid = response.body.match(%r{<section[^>]*data-display-mode="grid".*?</section>}m)
       expect(grid).not_to be_nil
       expect(grid[0]).to include("no games match this filter.")
       expect(grid[0]).not_to include("Owned PS5 Game")
@@ -803,6 +807,113 @@ RSpec.describe "Games", type: :request do
       filter_row = response.body.match(%r{<section class="games-filter-row".*?</section>}m)
       expect(filter_row).not_to be_nil
       expect(filter_row[0]).not_to include("data-turbo-confirm")
+    end
+  end
+
+  # Phase 27 §01d — display mode resolution.
+  #
+  # `GET /games` reads `params[:display]` (single-request override),
+  # falling back to `Current.user.preferred_games_display_mode`, with
+  # `:grid` as the defensive final fallback. The display mode picks
+  # which "all games" partial renders.
+  describe "GET /games with display mode resolution (Phase 27 §01d)" do
+    let(:password) { "supersecret123" }
+    let(:user) do
+      User.first || create(:user, password: password, password_confirmation: password)
+    end
+
+    before do
+      user.update!(password: password, password_confirmation: password)
+      sign_in_as(user)
+      # At least one game so the all-games section actually renders.
+      create(:game, :synced, title: "Alpha Game",
+             igdb_id: 4_900_001, igdb_slug: "alpha-display")
+    end
+
+    it "defaults to grid mode when no ?display and no persisted pref deviation" do
+      get games_path
+      expect(response).to have_http_status(:ok)
+      # Scope to the all-games <section> data-display-mode hook so the
+      # switcher's own `data-display-mode="list"` button attributes do
+      # not contaminate the match.
+      expect(response.body).to match(/<section[^>]*data-display-mode="grid"/)
+      expect(response.body).not_to match(/<section[^>]*data-display-mode="list"/)
+      expect(response.body).not_to match(/<section[^>]*data-display-mode="shelves_by_letter"/)
+    end
+
+    it "GET /games?display=list renders the list partial" do
+      get games_path(display: "list")
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include('data-display-mode="list"')
+      # List partial renders a `<table class="list-table">`.
+      expect(response.body).to include('class="list-table"')
+    end
+
+    it "GET /games?display=shelves renders the shelves-by-letter partial" do
+      get games_path(display: "shelves")
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include('data-display-mode="shelves_by_letter"')
+    end
+
+    it "GET /games?display=shelves_by_letter also renders the shelves-by-letter partial" do
+      get games_path(display: "shelves_by_letter")
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include('data-display-mode="shelves_by_letter"')
+    end
+
+    it "GET /games?display=grid renders the grid partial" do
+      get games_path(display: "grid")
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include('data-display-mode="grid"')
+    end
+
+    it "uses the persisted preference when ?display is absent" do
+      user.update!(preferred_games_display_mode: :list)
+      get games_path
+      expect(response.body).to include('data-display-mode="list"')
+    end
+
+    it "URL ?display= overrides the persisted preference for this request" do
+      user.update!(preferred_games_display_mode: :list)
+      get games_path(display: "grid")
+      expect(response.body).to match(/<section[^>]*data-display-mode="grid"/)
+      expect(response.body).not_to match(/<section[^>]*data-display-mode="list"/)
+    end
+
+    it "GET /games?display=garbage falls back to the persisted preference" do
+      user.update!(preferred_games_display_mode: :list)
+      get games_path(display: "garbage")
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include('data-display-mode="list"')
+    end
+
+    it "after PATCHing the preference, GET /games renders the chosen mode" do
+      patch users_games_preferences_path, params: { mode: "shelves_by_letter" }
+      expect(response).to redirect_to(games_path(display: "shelves_by_letter"))
+      get games_path
+      expect(response.body).to include('data-display-mode="shelves_by_letter"')
+    end
+
+    it "renders the display-mode switcher in the page" do
+      get games_path
+      # The switcher button_to forms PATCH `/users/games_preferences`.
+      expect(response.body).to include('action="/users/games_preferences"')
+      expect(response.body).to include("[<span class=\"bl\">grid</span>]")
+      expect(response.body).to include("[<span class=\"bl\">list</span>]")
+      expect(response.body).to include("[<span class=\"bl\">shelves</span>]")
+    end
+
+    it "marks the active mode button with the active class" do
+      get games_path(display: "list")
+      expect(response.body).to match(/class="bracketed active"[^>]*>\s*\n?\s*\[<span class="bl">list<\/span>\]/m)
+    end
+
+    it "preserves the ?filters set across a display mode flip" do
+      get games_path(filters: "owned", display: "list")
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include('data-display-mode="list"')
+      # Clear-all link preserves both filter set departure and display.
+      expect(response.body).to include('href="/games?display=list"')
     end
   end
 end

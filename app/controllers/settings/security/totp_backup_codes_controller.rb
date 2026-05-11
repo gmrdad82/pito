@@ -12,6 +12,8 @@
 #                `Auth::BackupCodeRegenerator`, displays the new codes
 #                ONCE on a one-shot view.
 class Settings::Security::TotpBackupCodesController < ApplicationController
+  include Sessions::TokenRotation
+
   FLASH_KEY = :totp_backup_codes_one_shot
 
   # GET /settings/security/totp_backup_codes
@@ -70,6 +72,10 @@ class Settings::Security::TotpBackupCodesController < ApplicationController
       acting_user: Current.user,
       source_surface: :web
     )
+    # Phase 25 — 01g (LD-12 extension). Rotate the session token on
+    # regenerate so a captured cookie can't ride alongside fresh
+    # backup codes.
+    rotate_session_token!
     flash[FLASH_KEY] = { "codes" => codes }
     redirect_to settings_security_totp_backup_codes_path,
                 notice: "backup codes regenerated."

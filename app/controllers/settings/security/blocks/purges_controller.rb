@@ -18,6 +18,8 @@
 # the structured audit row is appended once 01d ships and adds the
 # call site here (a TODO marker, not a silent gap).
 class Settings::Security::Blocks::PurgesController < ApplicationController
+  include Sessions::TokenRotation
+
   def show
     @applied_filter = filter_params
     @no_filter      = filter_blank?
@@ -71,11 +73,22 @@ class Settings::Security::Blocks::PurgesController < ApplicationController
       return
     end
 
-    # TODO(phase-25/01d): wrap with `Auth::AuditLogger.call(
-    #   action: :purge, source: :web, acting_user: Current.user,
-    #   metadata: { kind: :blocks, filter: result.filter,
-    #               deleted_count: result.deleted_count })` once the
-    # audit logger ships.
+    # Phase 25 — 01g (LD-13). The bulk-purge action is privileged
+    # enough to warrant an `AuthAuditLog` row even though the target
+    # is a synthetic "block list" rather than a single row. We point
+    # `target_type: "BlockedLocation"` and use `target_id: 0` (the
+    # purge is collection-scoped, not row-scoped) — readers know the
+    # action by its `:purge` label and find the filter + count in the
+    # metadata jsonb.
+    safe_audit_purge(
+      kind: :blocks,
+      filter: result.filter,
+      deleted_count: result.deleted_count
+    )
+
+    # Phase 25 — 01g (LD-12 extension). Rotate the operator's session
+    # token after the privileged state mutation.
+    rotate_session_token!
 
     redirect_to settings_security_blocks_path,
                 notice: "purged #{result.deleted_count} block#{'s' if result.deleted_count != 1}."
@@ -97,5 +110,29 @@ class Settings::Security::Blocks::PurgesController < ApplicationController
 
   def filter_blank?
     filter_params.values.all?(&:blank?)
+  end
+
+  # Phase 25 — 01g (LD-13). Audit-log the purge action without
+  # crashing the redirect if the audit row fails (the destructive
+  # delete already happened — failing the response would mask the
+  # actual outcome from the operator).
+  def safe_audit_purge(kind:, filter:, deleted_count:)
+    Auth::AuditLogger.call(
+      acting_user: Current.user,
+      source_surface: :web,
+      action: :purge,
+      target_type: "BlockedLocation",
+      target_id: 0,
+      metadata: {
+        "kind"          => kind.to_s,
+        "filter"        => filter,
+        "deleted_count" => deleted_count
+      }
+    )
+  rescue StandardError => e
+    Rails.logger.warn(
+      "[Settings::Security::Blocks::PurgesController] audit failed: #{e.class}: #{e.message}"
+    )
+    nil
   end
 end

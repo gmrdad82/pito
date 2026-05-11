@@ -19,6 +19,7 @@
 
 pub mod calendar;
 pub mod games;
+pub mod login_attempts;
 pub mod notifications;
 
 use std::time::Duration;
@@ -73,6 +74,14 @@ impl EndpointsClient {
 
     pub(crate) fn client(&self) -> &Client {
         &self.client
+    }
+
+    /// Read the bearer token without exposing the field directly.
+    /// Used by call sites (e.g. the login-attempts form-POST path)
+    /// that need to attach the `Authorization` header on a request
+    /// built outside of [`with_headers`].
+    pub(crate) fn bearer_token(&self) -> Option<&str> {
+        self.token.as_deref()
     }
 }
 

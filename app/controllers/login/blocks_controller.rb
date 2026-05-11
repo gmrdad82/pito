@@ -16,6 +16,8 @@
 # framework forbids any JS confirm — the confirmation UX is the
 # server-rendered screen itself.
 class Login::BlocksController < ApplicationController
+  include Sessions::TokenRotation
+
   before_action :load_attempt
 
   # GET /login/blocks/:id
@@ -39,6 +41,10 @@ class Login::BlocksController < ApplicationController
       reason: params[:reason].to_s.presence,
       request: request
     )
+
+    # Phase 25 — 01g (LD-12 extension). Rotate the operator's session
+    # token after the privileged state mutation.
+    rotate_session_token!
 
     redirect_to notifications_path, notice: "blocked."
   rescue Auth::LoginAttemptBlocker::PendingExpired

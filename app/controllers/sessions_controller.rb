@@ -153,6 +153,12 @@ class SessionsController < ApplicationController
         return
       end
 
+      # Phase 25 — 01g (LD-11). A successful login clears the
+      # per-account backoff bucket so a legitimate user who typo'd a
+      # few times before remembering their password is not locked out
+      # indefinitely.
+      reset_backoff_for_email(email)
+
       write_session_cookie(plaintext, remember: remember)
       audit(
         "session.login.success",
@@ -207,6 +213,11 @@ class SessionsController < ApplicationController
     request.env["pito.auth_failed"] = true
     SessionThrottle.record_failure(request.remote_ip)
 
+    # Phase 25 — 01g (LD-11). Each failed login bumps the per-account
+    # backoff bucket. The bucket TTL is the current backoff window, so
+    # a quiet user resets naturally; an attacker pays exponentially.
+    Auth::BackoffCalculator.record_trip!(key: backoff_email_key(email))
+
     if SessionThrottle.exhausted?(request.remote_ip)
       render_throttled
       return
@@ -219,9 +230,28 @@ class SessionsController < ApplicationController
 
   def render_throttled
     audit("session.login.throttled", ip: request.remote_ip)
+    # Phase 25 — 01g (LD-11). When the legacy in-controller throttle
+    # trips, also record an explicit `LoginAttempt` row with
+    # `reason: :rate_limited` so the attempt log carries the row even
+    # if the operator never bumped into the rack-attack throttle that
+    # writes its own.
+    Auth::RateLimitLogger.call(request: request, email: params[:email])
     response.headers["Retry-After"] = SessionThrottle::WINDOW.to_i.to_s
     render plain: "login failed.",
            status: :too_many_requests
+  end
+
+  def backoff_email_key(email)
+    normalized = email.to_s.strip.downcase
+    return "" if normalized.blank?
+
+    "email:#{Digest::SHA256.hexdigest(normalized)}"
+  end
+
+  def reset_backoff_for_email(email)
+    key = backoff_email_key(email)
+    return if key.empty?
+    Auth::BackoffCalculator.reset!(key: key)
   end
 
   # Constant-ish-time dummy bcrypt to avoid leaking via timing whether

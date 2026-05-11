@@ -76,6 +76,25 @@ RSpec.describe Games::CoverComponent, type: :component do
     it "applies the .game-cover--shelf CSS modifier" do
       expect(page).to have_css("a.game-cover.game-cover--shelf")
     end
+
+    it "sets the alt text to the game title" do
+      expect(page).to have_css('img[alt="Test Game"]')
+    end
+
+    it "sets loading=lazy on the <img>" do
+      expect(page).to have_css('img[loading="lazy"]')
+    end
+
+    it "emits the variant inline width/height on the wrapper" do
+      wrapper = page.find("a.game-cover")
+      expect(wrapper["style"]).to include("width: 98px")
+      expect(wrapper["style"]).to include("height: 130px")
+    end
+
+    it "renders the wrapper class as exactly 'game-cover game-cover--shelf'" do
+      wrapper = page.find("a.game-cover")
+      expect(wrapper[:class]).to eq("game-cover game-cover--shelf")
+    end
   end
 
   describe "happy: variant URLs differ between :grid and :shelf (distinct cache keys)" do

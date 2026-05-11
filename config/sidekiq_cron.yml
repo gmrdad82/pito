@@ -82,6 +82,14 @@ pending_session_approval_sweeper:
   class: SessionPendingApprovalSweeperJob
   description: "Phase 25 — expire pending-approval sessions past their 10-minute window"
 
+# Phase 25 — 01g. Stale-session sweeper. Every 15 minutes; revokes
+# `state: active` sessions whose `last_activity_at` is older than
+# `SessionStaleSweeperJob::STALE_AFTER` (30 days). Cheap and idempotent.
+session_stale_sweeper:
+  cron: "*/15 * * * *"
+  class: SessionStaleSweeperJob
+  description: "Phase 25 — revoke active sessions idle past 30 days"
+
 # Phase 26 §01g — viewer-time analytics. Daily fan-out at 03:00 UTC.
 # Enumerates every owned video and enqueues a per-video
 # `VideoViewerTimeSyncJob`. Sidekiq parallelizes the inner work.

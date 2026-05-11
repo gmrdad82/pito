@@ -2,6 +2,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::app::{App, KeyState, Overlay, Screen};
 use crate::keybindings::Action as KeybindingAction;
+use crate::notifications::overlay as login_pending_overlay;
 use crate::ui::channels::ChannelFilter;
 use crate::ui::confirmation::{self, ConfirmationOutcome};
 
@@ -45,6 +46,14 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
         return;
     }
 
+    // Phase 25 — 01c login-pending overlay. Intercepts keypresses
+    // ahead of every other overlay so the operator can resolve the
+    // pending attempt without being routed elsewhere.
+    if app.overlay == Some(Overlay::LoginPending) {
+        handle_login_pending_input(app, key);
+        return;
+    }
+
     // Leader-menu overlay — driven by the unified schema in
     // `config/keybindings.yml`. Takes precedence over `Normal` key handling
     // so a user inside the popup sees their key map against the menu, not
@@ -74,6 +83,97 @@ fn handle_confirmation_input(app: &mut App, key: KeyEvent) {
     };
     if let Some(outcome) = outcome {
         app.resolve_confirmation(outcome);
+    }
+}
+
+/// Route a key press while the `login_pending_approval` overlay is
+/// open. Honours the spec's per-stage keymap:
+///
+/// - On the card stage: `a` opens the approve confirmation, `b` opens
+///   the block confirmation, `l` / `Esc` dismiss the overlay.
+/// - On a confirmation stage: `y` fires the underlying POST through
+///   the `App` helper; anything else cancels back to the card stage
+///   (`Esc` included).
+/// - On the working / done stages: only `Esc` (working) or any key
+///   (done) is honoured; the wire call's outcome runs to completion.
+fn handle_login_pending_input(app: &mut App, key: KeyEvent) {
+    let Some(state) = app.login_pending.as_ref() else {
+        app.overlay = None;
+        return;
+    };
+
+    // Esc cancels confirms back to card, or dismisses the card when
+    // it's already showing. During Working we ignore Esc — the POST
+    // runs to completion.
+    if let KeyCode::Esc = key.code {
+        match state.stage {
+            login_pending_overlay::Stage::ConfirmApprove
+            | login_pending_overlay::Stage::ConfirmBlock => {
+                if let Some(state) = app.login_pending.as_mut() {
+                    let _ = login_pending_overlay::cancel_confirm(state);
+                }
+            }
+            login_pending_overlay::Stage::Working => {
+                // No-op: in-flight POST cannot be cancelled mid-wire.
+            }
+            _ => {
+                app.close_login_pending_overlay();
+            }
+        }
+        return;
+    }
+
+    let KeyCode::Char(c) = key.code else {
+        return;
+    };
+
+    // Card stage gets the `a` / `b` openers + the `l` later shortcut.
+    let outcome = login_pending_overlay::key_outcome(c, state);
+
+    match state.stage {
+        login_pending_overlay::Stage::Card => {
+            if matches!(c, 'a' | 'A') {
+                if let Some(state) = app.login_pending.as_mut() {
+                    let _ = login_pending_overlay::enter_approve_confirm(state);
+                }
+                return;
+            }
+            if matches!(c, 'b' | 'B') {
+                if let Some(state) = app.login_pending.as_mut() {
+                    let _ = login_pending_overlay::enter_block_confirm(state);
+                }
+                return;
+            }
+            if matches!(outcome, login_pending_overlay::InputOutcome::Close) {
+                app.close_login_pending_overlay();
+            }
+        }
+        login_pending_overlay::Stage::ConfirmApprove => match outcome {
+            login_pending_overlay::InputOutcome::FireApprove => {
+                app.confirm_login_pending_approve();
+            }
+            _ => {
+                if let Some(state) = app.login_pending.as_mut() {
+                    let _ = login_pending_overlay::cancel_confirm(state);
+                }
+            }
+        },
+        login_pending_overlay::Stage::ConfirmBlock => match outcome {
+            login_pending_overlay::InputOutcome::FireBlock => {
+                app.confirm_login_pending_block();
+            }
+            _ => {
+                if let Some(state) = app.login_pending.as_mut() {
+                    let _ = login_pending_overlay::cancel_confirm(state);
+                }
+            }
+        },
+        login_pending_overlay::Stage::Working => {
+            // In-flight POST runs to completion; no key consumes.
+        }
+        login_pending_overlay::Stage::Done => {
+            app.close_login_pending_overlay();
+        }
     }
 }
 
@@ -190,6 +290,46 @@ fn handle_normal(app: &mut App, key: KeyEvent) {
     // The dashboard collapsed to a counts-only summary in May 2026; the
     // chart toolbar (and its 1..5 / h / l range keys) went away with it.
     // Range-tied keybindings have intentionally been removed.
+
+    // Phase 25 — 01c status-line `pending approval` shortcut.
+    // When the cached count > 0 and no overlay is currently showing,
+    // `a` opens the approve confirmation, `b` opens the block
+    // confirmation, `l` dismisses the prompt until the next poll.
+    // The shortcut only fires on screens that don't bind these keys
+    // — Channels uses `D` / `Y`, Videos doesn't bind any of `a`/`b`/`l`,
+    // ChannelDetail / VideoDetail similarly. FootageDetail binds `l`
+    // (step forward) so we skip the prompt shortcut there.
+    if app.login_pending_count > 0
+        && app.overlay.is_none()
+        && app.key_state == KeyState::Normal
+        && app.screen != Screen::FootageDetail
+        && app.screen != Screen::Channels
+        && let KeyCode::Char(c) = key.code
+    {
+        match c {
+            'a' | 'A' => {
+                if app.try_open_cached_login_pending()
+                    && let Some(state) = app.login_pending.as_mut()
+                {
+                    let _ = login_pending_overlay::enter_approve_confirm(state);
+                }
+                return;
+            }
+            'b' | 'B' => {
+                if app.try_open_cached_login_pending()
+                    && let Some(state) = app.login_pending.as_mut()
+                {
+                    let _ = login_pending_overlay::enter_block_confirm(state);
+                }
+                return;
+            }
+            'l' | 'L' => {
+                app.dismiss_login_pending_prompt();
+                return;
+            }
+            _ => {}
+        }
+    }
 
     // Channels-screen specific keys (must run before generic q/etc.)
     if app.screen == Screen::Channels {
@@ -1015,6 +1155,253 @@ mod tests {
             app.channels_state.filter,
             ChannelFilter::None,
             "second Esc must clear the active filter"
+        );
+    }
+
+    // --- Phase 25 — 01c login-pending overlay key routing ---------------
+
+    use crate::notifications::login_pending::LoginPendingCard;
+    use crate::notifications::overlay::Stage;
+
+    fn pending_card() -> LoginPendingCard {
+        LoginPendingCard {
+            notification_id: 1,
+            login_attempt_id: Some(42),
+            title: "new-location login: alice@example.com".to_string(),
+            browser_os: "Chrome on macOS".to_string(),
+            location: "Berlin, Germany (BE)".to_string(),
+            ip: "203.0.113.42".to_string(),
+            fingerprint: "abc123def456".to_string(),
+        }
+    }
+
+    #[test]
+    fn login_pending_a_then_y_fires_approve_through_confirmation_stage() {
+        // Two-step pattern: `a` on the card moves to ConfirmApprove;
+        // `y` on the confirm stage is what fires the wire call. With
+        // no network reachable in the unit test, `confirm_login_pending_approve`
+        // still transitions the overlay through Working → Done (with
+        // an error status). The contract under test is the stage walk,
+        // not the network outcome.
+        let mut app = App::with_client(Box::new(crate::api::client::MockClient::new()));
+        app.open_login_pending_overlay(pending_card());
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE),
+        );
+        assert_eq!(
+            app.login_pending.as_ref().map(|s| s.stage),
+            Some(Stage::ConfirmApprove),
+            "`a` on the card stage must advance to ConfirmApprove"
+        );
+
+        // `y` on ConfirmApprove fires the underlying POST. The mock
+        // backend isn't on the wire; the call lands in `Done` with an
+        // error status.
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('y'), KeyModifiers::NONE),
+        );
+        let state = app
+            .login_pending
+            .as_ref()
+            .expect("overlay still present after fire");
+        assert_eq!(state.stage, Stage::Done, "Done stage after fire");
+    }
+
+    #[test]
+    fn login_pending_b_then_y_fires_block_through_confirmation_stage() {
+        let mut app = App::with_client(Box::new(crate::api::client::MockClient::new()));
+        app.open_login_pending_overlay(pending_card());
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('b'), KeyModifiers::NONE),
+        );
+        assert_eq!(
+            app.login_pending.as_ref().map(|s| s.stage),
+            Some(Stage::ConfirmBlock),
+            "`b` on the card stage must advance to ConfirmBlock"
+        );
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('y'), KeyModifiers::NONE),
+        );
+        let state = app
+            .login_pending
+            .as_ref()
+            .expect("overlay still present after fire");
+        assert_eq!(state.stage, Stage::Done);
+    }
+
+    #[test]
+    fn login_pending_esc_on_confirm_drops_back_to_card_stage() {
+        let mut app = App::with_client(Box::new(crate::api::client::MockClient::new()));
+        app.open_login_pending_overlay(pending_card());
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE),
+        );
+        assert_eq!(
+            app.login_pending.as_ref().map(|s| s.stage),
+            Some(Stage::ConfirmApprove)
+        );
+
+        handle_key(&mut app, KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+        assert_eq!(
+            app.login_pending.as_ref().map(|s| s.stage),
+            Some(Stage::Card),
+            "Esc on confirm stage must return to the card view"
+        );
+        assert_eq!(
+            app.overlay,
+            Some(Overlay::LoginPending),
+            "Esc on confirm stage must NOT close the overlay"
+        );
+    }
+
+    #[test]
+    fn login_pending_esc_on_card_closes_overlay() {
+        let mut app = App::with_client(Box::new(crate::api::client::MockClient::new()));
+        app.open_login_pending_overlay(pending_card());
+        assert_eq!(app.overlay, Some(Overlay::LoginPending));
+
+        handle_key(&mut app, KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+        assert_eq!(
+            app.overlay, None,
+            "Esc on the card stage closes the overlay"
+        );
+        assert!(app.login_pending.is_none());
+    }
+
+    #[test]
+    fn login_pending_l_on_card_closes_overlay() {
+        let mut app = App::with_client(Box::new(crate::api::client::MockClient::new()));
+        app.open_login_pending_overlay(pending_card());
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('l'), KeyModifiers::NONE),
+        );
+        assert_eq!(app.overlay, None);
+        assert!(app.login_pending.is_none());
+    }
+
+    #[test]
+    fn status_line_prompt_shortcut_a_opens_overlay_on_dashboard() {
+        let mut app = App::with_client(Box::new(crate::api::client::MockClient::new()));
+        app.screen = Screen::Dashboard;
+        app.login_pending_count = 1;
+        app.login_pending_card_cache = Some(pending_card());
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE),
+        );
+
+        assert_eq!(app.overlay, Some(Overlay::LoginPending));
+        assert_eq!(
+            app.login_pending.as_ref().map(|s| s.stage),
+            Some(Stage::ConfirmApprove),
+            "status-line `a` shortcut opens directly into approve confirm"
+        );
+    }
+
+    #[test]
+    fn status_line_prompt_shortcut_b_opens_overlay_on_dashboard() {
+        let mut app = App::with_client(Box::new(crate::api::client::MockClient::new()));
+        app.screen = Screen::Dashboard;
+        app.login_pending_count = 1;
+        app.login_pending_card_cache = Some(pending_card());
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('b'), KeyModifiers::NONE),
+        );
+
+        assert_eq!(app.overlay, Some(Overlay::LoginPending));
+        assert_eq!(
+            app.login_pending.as_ref().map(|s| s.stage),
+            Some(Stage::ConfirmBlock)
+        );
+    }
+
+    #[test]
+    fn status_line_prompt_shortcut_l_clears_cache_and_count() {
+        let mut app = App::with_client(Box::new(crate::api::client::MockClient::new()));
+        app.screen = Screen::Dashboard;
+        app.login_pending_count = 3;
+        app.login_pending_card_cache = Some(pending_card());
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('l'), KeyModifiers::NONE),
+        );
+
+        assert_eq!(app.login_pending_count, 0);
+        assert!(app.login_pending_card_cache.is_none());
+        assert_eq!(app.overlay, None, "`l` must NOT open the overlay");
+    }
+
+    #[test]
+    fn status_line_prompt_shortcut_inert_on_channels_screen() {
+        // Channels uses `s`/`D`/`Y`/`f`/`x` extensively; the prompt
+        // shortcut is opt-out there to avoid surprising the user.
+        let mut app = App::with_client(Box::new(crate::api::client::MockClient::new()));
+        app.screen = Screen::Channels;
+        app.login_pending_count = 1;
+        app.login_pending_card_cache = Some(pending_card());
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE),
+        );
+        assert_eq!(
+            app.overlay, None,
+            "`a` on Channels must NOT open the overlay"
+        );
+    }
+
+    #[test]
+    fn status_line_prompt_shortcut_inert_when_count_zero() {
+        let mut app = App::with_client(Box::new(crate::api::client::MockClient::new()));
+        app.screen = Screen::Dashboard;
+        app.login_pending_count = 0;
+        app.login_pending_card_cache = None;
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE),
+        );
+        assert_eq!(
+            app.overlay, None,
+            "`a` with no pending count must NOT open the overlay"
+        );
+    }
+
+    #[test]
+    fn login_pending_overlay_takes_precedence_over_leader_menu() {
+        // Pressing SPACE while the pending overlay is open must NOT
+        // open the leader menu — the pending overlay's keymap wins.
+        let mut app = App::with_client(Box::new(crate::api::client::MockClient::new()));
+        app.open_login_pending_overlay(pending_card());
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char(' '), KeyModifiers::NONE),
+        );
+
+        assert_eq!(
+            app.overlay,
+            Some(Overlay::LoginPending),
+            "SPACE inside the pending overlay must not open leader menu"
+        );
+        assert!(
+            app.leader_menu.is_none(),
+            "leader-menu state must stay empty"
         );
     }
 }

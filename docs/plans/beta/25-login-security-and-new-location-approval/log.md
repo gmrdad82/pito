@@ -1,5 +1,368 @@
 # Phase 25 — Login Security + New-Location Approval · Session Log
 
+## 2026-05-11 — sub-spec 01g rate-limit + session hardening pass (pito-rails-impl) [skipci]
+
+**Dispatch:** `pito-rails-impl` against
+`specs/01g-rate-limit-and-session-hardening-pass.md`. Closes Phase 25.
+Wires the per-IP + per-account Rack::Attack login throttles, the
+exponential backoff helper, session token rotation across every
+privileged auth-state mutation (approve / block / unblock / purge /
+TOTP enroll / disable / regenerate backup codes), audit-log wiring on
+the two purge surfaces (the open `TODO(phase-25/01d)` markers from
+01f land in this dispatch), a stale-session sweeper job + cron entry,
+and a cross-cutting system spec covering the journeys that can be
+driven from the Rails surface.
+
+**New services**
+
+- `Auth::RateLimitLogger` (`app/services/auth/rate_limit_logger.rb`)
+  — single entry point for `LoginAttempt(result: :failed, reason:
+  :rate_limited)` writes. Called from the Rack::Attack
+  `throttled_responder` and from the legacy
+  `SessionsController#render_throttled` path so every throttle hit
+  (rack-attack or in-controller `SessionThrottle`) lands one row.
+  Fingerprint composer handles a nil request by synthesizing a
+  64-char placeholder hash, so the validation
+  `length: { is: 64 }` always holds.
+- `Auth::BackoffCalculator`
+  (`app/services/auth/backoff_calculator.rb`) — exponential backoff
+  helper. `record_trip!(key:)` returns the new window (60s, 120s,
+  240s, ..., capped at 3600s) and persists the bump in
+  `Rack::Attack.cache.store`. `seconds_remaining(key:)` reads the
+  current bucket; `reset!(key:)` zeroes it. Fail-open on cache
+  errors so a Redis blip cannot deadlock the auth path.
+
+**Token rotation concern**
+
+- `Sessions::TokenRotation`
+  (`app/controllers/concerns/sessions/token_rotation.rb`) — included
+  by every controller that mutates auth state on the acting session
+  (approve, block, unblock, purge, totp enroll, totp disable, totp
+  backup-codes regenerate). After the destructive action and the
+  AuditLogger write, the controller calls `rotate_session_token!`
+  which: mints a fresh plaintext, recomputes the digest, stamps it
+  on `Current.session`, calls `reset_session`, and writes a new
+  `pito_session` signed cookie. The session id / user / metadata
+  stay; only the token bytes rotate. Never raises — a rotation
+  failure logs and falls through so the destructive action remains
+  visible to the operator.
+
+**Rack::Attack initializer**
+
+`config/initializers/rack_attack.rb` now declares two login
+throttles alongside the legacy ones:
+
+- `login/ip`     — 5 POSTs / 1 minute, keyed on `req.ip` across
+                   `/login`, `/login/challenge`, `/login/totp`, and
+                   `/login/pending`.
+- `login/email`  — 10 POSTs / 15 minutes, keyed on
+                   `Digest::SHA256.hexdigest("login-email:#{email}")`.
+                   Hashing keeps the raw email out of cache keys.
+
+The `throttled_responder` renders generic `login failed.` HTML
+(LD-14 — no rate-limit leak) with `Retry-After`, and calls
+`Auth::RateLimitLogger.call(request:, email:)` so the attempt log
+captures the row. The `oauth/token` throttle keeps its JSON 429
+shape via the else branch.
+
+`development?`-only `dev/localhost` safelist prevents the
+maintainer from being throttled out of their own dev environment.
+
+**SessionsController changes**
+
+- `mark_failure_and_render_invalid` now bumps the per-account
+  backoff bucket on every failure path.
+- `render_throttled` now calls `Auth::RateLimitLogger.call` so the
+  legacy `SessionThrottle` blocklist also writes a row.
+- On a `:trusted` outcome, `reset_backoff_for_email(email)` clears
+  the per-account bucket (LD-11 flaw: a legitimate user who typo'd a
+  few times must not be locked out indefinitely).
+- `backoff_email_key(email)` SHA256-hashes the lowercased email so
+  the in-cache key never carries the raw address.
+
+**Login::TotpChallengesController changes**
+
+- Successful 2FA (TOTP code OR backup code) clears the per-account
+  backoff bucket.
+
+**Approve / block / unblock / purge controllers**
+
+- `Login::ApprovalsController`, `Login::BlocksController`,
+  `Settings::Security::Blocks::UnblockingsController`,
+  `Settings::Security::Blocks::PurgesController`,
+  `Settings::Security::Attempts::PurgesController`,
+  `Settings::Security::TotpsController`,
+  `Settings::Security::TotpBackupCodesController` — all `include
+  Sessions::TokenRotation` and call `rotate_session_token!` after
+  the destructive action's audit-log write. The idempotent
+  already-unblocked branch in the unblockings controller
+  intentionally skips rotation (no destructive action ran).
+- Both purges controllers grow `safe_audit_purge(kind:, filter:,
+  deleted_count:)` so `Auth::AuditLogger.call(action: :purge, ...)`
+  fires on every successful bulk delete. The `TODO(phase-25/01d)`
+  markers in 01f are now resolved. `target_type` is `"BlockedLocation"`
+  / `"LoginAttempt"` with `target_id: 0` (collection-scoped, not
+  row-scoped).
+
+**Stale-session sweeper**
+
+- `SessionStaleSweeperJob` (`app/jobs/session_stale_sweeper_job.rb`)
+  — revokes `state: active` sessions whose `last_activity_at` is
+  older than `STALE_AFTER` (30 days). Also catches active rows with
+  nil `last_activity_at` if `created_at` is past the cutoff.
+  Idempotent. Cron entry in `config/sidekiq_cron.yml` runs every 15
+  minutes (`*/15 * * * *`).
+
+**Spec count delta (new)**
+
+- `spec/services/auth/backoff_calculator_spec.rb` — 15 examples.
+- `spec/services/auth/rate_limit_logger_spec.rb` — 8 examples.
+- `spec/requests/sessions_rate_limit_spec.rb` — 8 examples (per-IP +
+  per-email + Retry-After + LD-14 generic-copy assertions).
+- `spec/requests/concerns/sessions/token_rotation_spec.rb` — 7
+  examples covering the five controller surfaces that rotate.
+- `spec/requests/settings/security/purge_audit_log_spec.rb` — 5
+  examples covering the new AuthAuditLog rows on both purges.
+- `spec/jobs/session_stale_sweeper_job_spec.rb` — 7 examples.
+- `spec/initializers/rack_attack_login_throttle_spec.rb` — 6
+  examples (throttle definitions + safelist + responder shape).
+- `spec/system/login_security_journeys_spec.rb` — 7 examples
+  covering journeys A (trusted-location happy path), C/D bridge
+  (MCP approver + blocker), E (block→unblock→recover), F (rate-limit
+  trip), G (2FA disable round trip), and H (purge cycle). Total
+  56 new examples.
+
+**Acceptance per spec**
+
+- [x] `rack-attack` already in Gemfile (Phase 3 baseline).
+- [x] Per-IP + per-account throttles on POST /login.
+- [x] `Auth::RateLimitLogger` writes a row on every throttle hit.
+- [x] `Auth::BackoffCalculator` doubles per trip, caps at 60 min, TTL
+      in Redis (via Rack::Attack cache store).
+- [x] Successful login resets the per-account bucket.
+- [x] Generic `login failed.` copy on the 429 (LD-14 preserved).
+- [x] Approve / block / unblock / purge controllers rotate the
+      session token after the destructive action.
+- [x] Cross-cutting system spec exercises journeys A / C / D / E /
+      F / G / H from the Rails surface. Journey B (new-location +
+      2FA) is covered by the existing
+      `spec/requests/login/totp_challenges_spec.rb` happy path; the
+      TUI half of the journeys lives in the `pito-rust` lane.
+- [x] Brakeman clean (0 warnings).
+- [x] bundler-audit clean.
+- [x] No JS confirm / alert / prompt anywhere in the new surfaces —
+      all destructive flows go through the action-screen + `confirm=yes`
+      pattern.
+- [x] Yes / no boundary preserved.
+- [x] Friendly URLs preserved.
+
+**Deferred to pito-docs**
+
+- `docs/auth.md` "Rate limiting" section — out of `pito-rails-impl`'s
+  file scope per CLAUDE.md "Never edit `docs/`" rule (only plan.md
+  tick + log.md append allowed).
+- `docs/decisions/0007-login-security-phase-25-locks.md` ADR — same
+  reason. The 17 locked decisions live in the umbrella spec at
+  `docs/plans/beta/25-login-security-and-new-location-approval/specs/01-overview-login-security-and-new-location-approval.md`
+  and are durable there until the docs agent migrates them to an
+  ADR.
+
+**Test results**
+
+- Targeted spec runs: 558 examples across `spec/services/auth/`,
+  `spec/requests/sessions*`, `spec/requests/login/`,
+  `spec/requests/settings/security/`,
+  `spec/requests/concerns/sessions/`, `spec/lib/sessions/`,
+  `spec/models/session_spec.rb`,
+  `spec/models/login_attempt_spec.rb`,
+  `spec/jobs/session_*_sweeper_job_spec.rb`,
+  `spec/initializers/rack_attack*_spec.rb`,
+  `spec/lib/session_throttle_spec.rb`,
+  `spec/system/login_security_journeys_spec.rb`,
+  `spec/mcp/tools/login_attempt_*_spec.rb`. 557 pass; one pre-existing
+  unrelated failure (`spec/requests/concerns/sessions/auth_concern_spec.rb:57`)
+  exists at HEAD `818ff4a` — verified via `git stash`.
+- Rubocop: 21 touched files inspected, no offenses.
+- Brakeman: 0 warnings, 0 errors.
+- bundler-audit: no vulnerabilities.
+
+**Files changed**
+
+- `app/services/auth/backoff_calculator.rb` (new)
+- `app/services/auth/rate_limit_logger.rb` (new)
+- `app/controllers/concerns/sessions/token_rotation.rb` (new)
+- `app/controllers/sessions_controller.rb` (backoff bump + reset on
+  success, RateLimitLogger call on legacy throttle)
+- `app/controllers/login/approvals_controller.rb` (rotation)
+- `app/controllers/login/blocks_controller.rb` (rotation)
+- `app/controllers/login/totp_challenges_controller.rb` (backoff
+  reset on success)
+- `app/controllers/settings/security/blocks/unblockings_controller.rb`
+  (rotation)
+- `app/controllers/settings/security/blocks/purges_controller.rb`
+  (audit logger + rotation)
+- `app/controllers/settings/security/attempts/purges_controller.rb`
+  (audit logger + rotation)
+- `app/controllers/settings/security/totps_controller.rb` (rotation
+  on enroll + disable)
+- `app/controllers/settings/security/totp_backup_codes_controller.rb`
+  (rotation on regenerate)
+- `app/jobs/session_stale_sweeper_job.rb` (new)
+- `config/initializers/rack_attack.rb` (login/ip + login/email
+  throttles, dev safelist, login-aware throttled_responder)
+- `config/sidekiq_cron.yml` (session_stale_sweeper cron entry)
+- `spec/services/auth/backoff_calculator_spec.rb` (new)
+- `spec/services/auth/rate_limit_logger_spec.rb` (new)
+- `spec/requests/sessions_rate_limit_spec.rb` (new)
+- `spec/requests/concerns/sessions/token_rotation_spec.rb` (new)
+- `spec/requests/settings/security/purge_audit_log_spec.rb` (new)
+- `spec/jobs/session_stale_sweeper_job_spec.rb` (new)
+- `spec/initializers/rack_attack_login_throttle_spec.rb` (new)
+- `spec/system/login_security_journeys_spec.rb` (new)
+
+**Open follow-ups**
+
+- `pito-docs` to add `docs/auth.md` "Rate limiting" section + ADR
+  `0007-login-security-phase-25-locks.md` capturing the 17 locked
+  decisions from the umbrella spec.
+- `pito-rust` to add the TUI shim helper at
+  `extras/cli/tests/security_journey_helper.rs` if the team decides
+  the cross-stack system spec needs TUI coverage in CI. Journeys
+  C/D-TUI and the keyboard-driven journey D currently rely on
+  manual validation in the playbook.
+- `pito-mcp` to consider an `auth_audit_log_list` MCP tool (open
+  question in the umbrella spec) — would round out the audit-trail
+  surface across web + MCP. Not gating Phase 25 closeout.
+
+## 2026-05-11 — sub-spec 01c TUI half: new-location pending overlay (pito-rust) [skipci]
+
+**Dispatch:** `pito-rust` against `specs/01c-notifications-integration.md`
+to land the deferred TUI half of 01c — the new-location pending-approval
+overlay, status-line prompt, and Rails-side approve / block client. The
+Rails half landed in commit `ec66c9b`; the deferred TUI files were
+called out at the bottom of that log entry.
+
+**Files added under `extras/cli/`**
+
+- `src/api/endpoints/login_attempts.rs` — `approve_pending` /
+  `block_pending` client methods on `EndpointsClient`. Both POST
+  `confirm=yes` form-encoded to the Rails action-screen routes
+  (`POST /login/approvals/:id`, `POST /login/blocks/:id`) and return
+  the status + redirect target. Built with a redirect-disabled reqwest
+  client so we can observe the 302 response shape Rails emits on
+  success.
+- `src/notifications/mod.rs` — top-level module declaration.
+- `src/notifications/login_pending.rs` — parser + view-model for the
+  `login_pending_approval` notification kind. Pulls the structured
+  attempt fields (browser / OS, geo, IP, fingerprint, attempt id) out
+  of the markdown body the Rails formatter emits.
+- `src/notifications/overlay.rs` — the in-TUI modal overlay with the
+  Stage state machine (Card → ConfirmApprove / ConfirmBlock → Working
+  → Done) plus the keymap router. Renders the structured card and the
+  per-stage footer hint.
+
+**Files modified under `extras/cli/`**
+
+- `src/lib.rs`, `src/main.rs` — module declarations for `notifications`.
+- `src/api/endpoints/mod.rs` — registers the `login_attempts` module
+  and exposes `bearer_token()` accessor on `EndpointsClient`.
+- `src/app.rs` — adds `Overlay::LoginPending`, four `App` state fields
+  (`login_pending`, `login_pending_count`, `login_pending_card_cache`,
+  `login_pending_next_poll_at`), and helpers
+  `open_login_pending_overlay`, `close_login_pending_overlay`,
+  `confirm_login_pending_approve`, `confirm_login_pending_block`,
+  `try_open_cached_login_pending`, `dismiss_login_pending_prompt`,
+  `refresh_login_pending`, `login_attempts_client`. `tick()` now
+  triggers a 30-second polling refresh of the pending-approval cache
+  (skipped when no bearer token is configured, deferred 5 s after
+  startup so the TUI stays responsive).
+- `src/keys.rs` — routes `Overlay::LoginPending` ahead of every other
+  overlay; `a` / `b` advance the card to the per-action confirmation
+  stage, `y` fires through the `App` helper, anything else cancels.
+  Adds a status-line prompt shortcut on non-channel, non-footage
+  screens: `a` / `b` open the overlay directly into the matching
+  confirmation, `l` dismisses the prompt until the next poll.
+- `src/ui/mod.rs` — renders the new overlay and the status-line
+  `pending approval — [a]pprove [b]lock [l]ater` prompt in the footer
+  when `login_pending_count > 0` and the overlay is closed.
+
+**Wire contract honoured**
+
+- `confirm=yes` form parameter (LD-15 yes/no boundary).
+- Two-step confirmation: every `a` / `b` keypress lands the operator
+  on a confirmation stage; only `y` on that stage fires the POST.
+- In-TUI overlay confirmation (no JS confirm, no native dialogs;
+  LD-16 / hard rule).
+- Bearer token attached when configured; the call short-circuits with
+  no network hit when no token is configured (keeps startup snappy
+  for unauthenticated dev sessions).
+
+**Test coverage added**
+
+- `src/api/endpoints/login_attempts.rs::tests` — 4 wiremock tests
+  asserting `confirm=yes` body, 302 + Location header decoding, bearer
+  token attachment, and 4xx → Err propagation.
+- `src/notifications/login_pending.rs::tests` — 7 unit tests covering
+  full-body parse, missing-line fallbacks, kind filtering, malformed
+  body without action links, and the two `parse_*` helpers.
+- `src/notifications/overlay.rs::tests` — 10 unit tests covering the
+  Stage state machine (Card → Confirm{Approve,Block}, fire, cancel,
+  Working ignores input, Done closes on any key) plus render
+  smoke-tests on a TestBackend.
+- `src/keys.rs::tests` — 10 additional tests covering the
+  `Overlay::LoginPending` keymap, Esc-on-confirm vs Esc-on-card,
+  status-line prompt shortcut activation on Dashboard, opt-out on
+  Channels / when count is zero, and the overlay's precedence over the
+  leader-menu.
+
+**Test totals**
+
+- `cargo test --workspace`: 770 tests, all green
+  (232 + 437 + 7 + 11 + 29 + 20 + 14 + 9 + 3 + 5 + 3 + 0 doc-tests).
+
+**Quality gates**
+
+- `cargo fmt --check` — clean.
+- `cargo clippy --workspace -- -D warnings` — clean.
+
+**Design notes / decisions logged here**
+
+- Transport choice: Rails JSON form-encoded POST (NOT the MCP
+  `login_attempt_approve` / `login_attempt_block` tools shipped in
+  01d). Matches the existing CLI notifications surface and keeps the
+  TUI on a single auth posture (bearer token / cookie session) instead
+  of needing an MCP transport inside the TUI loop.
+- Polling cadence: 30 s, paused while the overlay is open (the user
+  is actively resolving — no need to re-poll behind them) and short-
+  circuited when no token is configured. First poll deferred 5 s
+  after startup so the constructor doesn't block on a network round
+  trip.
+- Body parse fallbacks: missing browser / OS / location / IP /
+  fingerprint lines render with the same placeholder strings the
+  Rails `NotificationFormatter::Templates::LoginPendingApproval`
+  template would emit. Attempt id parsed from the embedded approve
+  link href; when absent, the card renders as non-actionable and the
+  `a` / `b` keys are inert.
+- Status-line prompt opt-outs: Channels (uses `D`/`Y` for bulk
+  actions, `f` for filter, `x` for selection — too noisy to overlay
+  the prompt shortcut) and FootageDetail (binds `l` for step-forward).
+  Other screens get the prompt shortcut.
+
+**Open follow-ups**
+
+- The Rails `notifications.json` surface exposes only the rendered
+  `body` string; the structured `event_payload` JSON sits on
+  `Notification#event_payload` server-side but isn't surfaced through
+  the decorator. The TUI parses fields out of the body, which works
+  for the current template shape but is brittle to template edits. A
+  future spec could expose the structured payload via the decorator
+  for cleaner CLI / MCP consumption; out of scope for this dispatch.
+- Async polling is still synchronous-blocking on the TUI loop's tick
+  (matches existing `refresh_channels` / sync-polling patterns). If
+  the notifications endpoint ever drifts past sub-second latency, the
+  same shift-to-background-thread treatment applied to thumbnails
+  fetching would apply here.
+
 ## 2026-05-11 — sub-spec 01f auto-block list + purge UI (pito-rails-impl) [skipci]
 
 **Dispatch:** `pito-rails-impl` against
