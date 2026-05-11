@@ -92,4 +92,22 @@ RSpec.describe "Channel show journey", type: :system do
       expect(classes).not_to include("pane--standalone")
     end
   end
+
+  # 2026-05-11 (later) — YouTube-mirror layout: avatar LEFT, headline
+  # stack (large title, muted `@handle · subs · videos` meta line,
+  # description) RIGHT. Locks the structural shape of the detail pane
+  # so the next visual revamp can't silently regress it.
+  it "lays out the detail pane with avatar on the LEFT and headline on the RIGHT" do
+    visit channel_path(channel)
+
+    identity = find(".channel-identity")
+    expect(identity).to have_css(".channel-avatar")
+    expect(identity).to have_css(".channel-headline")
+    expect(identity).to have_css(".channel-headline__title", text: "Pito Journey")
+    expect(identity).to have_css(".channel-headline__meta", text: /@pitojourney.*1,000 subscribers.*5 videos/m)
+    # Description lives inside the headline column (not as a sibling
+    # of `.channel-identity`), mirroring YouTube's right-of-avatar
+    # stack.
+    expect(identity).to have_css(".channel-headline .channel-headline__description", text: "Hello world.")
+  end
 end
