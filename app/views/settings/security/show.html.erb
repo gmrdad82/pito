@@ -60,10 +60,14 @@
         <% end %>
       </tbody>
     </table>
-    <p style="margin-top: 8px;">
+    <p class="dot-list" style="margin-top: 8px;">
       <%= render BracketedLinkComponent.new(label: "all attempts", href: settings_security_attempts_path) %>
+      <%= render BracketedLinkComponent.new(label: "auto-block list", href: settings_security_blocks_path) %>
     </p>
   <% else %>
     <p class="text-muted">no attempts logged yet.</p>
+    <p class="dot-list" style="margin-top: 8px;">
+      <%= render BracketedLinkComponent.new(label: "auto-block list", href: settings_security_blocks_path) %>
+    </p>
   <% end %>
 </div>

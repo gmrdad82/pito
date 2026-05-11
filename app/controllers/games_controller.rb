@@ -47,25 +47,47 @@ class GamesController < ApplicationController
   # `all_games` page so `?genre=<id>` / `?platform_owned=<id>` "see
   # all" links land on a fully-listed surface.
   #
-  # Phase 27 §01c — Two top-of-page horizontal shelves precede the
-  # existing shelves: a Genres shelf and a Collections shelf. Both
-  # sorted case-insensitively by name. Tiles link back to
+  # Phase 27 §01c-v2 — Two top-of-page horizontal NESTED shelves
+  # precede the existing shelves. The outer Genres shelf iterates one
+  # sub-shelf per genre that owns at least one game; the outer Custom
+  # collections shelf does the same for collections. Each sub-shelf is
+  # a horizontally-scrolling row of game tiles at the `:shelf` cover
+  # variant (collections additionally lead with a composite cover
+  # tile). Empty buckets are HIDDEN — when no genre / collection owns
+  # games, the corresponding outer section does not render at all.
+  # Tiles below the `[see all]` link continue to point at
   # `/games?genre=<slug>` / `/games?collection=<slug>` which the
-  # filter row (01b) will treat as additional state. While 01b is in
-  # flight, the existing filter codepath accepts these slug params and
-  # narrows `@all_games` so the shelves work standalone.
+  # existing filter codepath narrows.
   def index
     @bundles_shelf   = Bundle.order(updated_at: :desc).limit(10)
     @recently_played = Game.where.not(played_at: nil).order(played_at: :desc).limit(SHELF_LIMIT)
 
-    # Phase 27 §01c — top-of-page shelves. Alphabetical, case-
-    # insensitive; `id` is the stable tie-break for identical names so
-    # render order is deterministic across requests. The Collection
-    # model has no `custom`/`kind` field yet (spec open question #2),
-    # so we render all collections; a future migration can introduce
-    # the distinction and filter here.
-    @genres_for_shelf      = Genre.order(Arel.sql("LOWER(genres.name)"), :id)
-    @collections_for_shelf = Collection.order(Arel.sql("LOWER(collections.name)"), :id)
+    # Phase 27 §01c-v2 — outer nested shelves. The previous flat-tile
+    # design (one tile per genre / collection, always rendered with a
+    # muted "(none yet)" placeholder when empty) is replaced by an
+    # outer shelf that iterates sub-shelves of game-cover tiles. Empty
+    # genres / collections are HIDDEN end-to-end — the partial only
+    # renders the outer `<section>` when at least one bucket has games
+    # (01c-v2 locked decision #7 reverses the v1 placeholder rule).
+    #
+    # Scope rationale:
+    #   - `Genre.joins(:games).distinct` keeps only genres that own at
+    #     least one game (the legacy `:games` association — primary-
+    #     genre filtering is a documented follow-up gated on the
+    #     `Game#primary_genre_id` migration, out of scope for this
+    #     pass).
+    #   - `Collection.joins(:games).distinct` mirrors the rule for
+    #     collections.
+    #   - Alphabetical case-insensitive ordering with a stable `id`
+    #     tiebreak so render order is deterministic across requests.
+    # Postgres requires DISTINCT + ORDER BY columns to appear in the
+    # SELECT list. Use a subquery (`where(id: …)`) to filter to genres
+    # / collections that own at least one game, then order the outer
+    # query cleanly.
+    @genres_for_shelf = Genre.where(id: Genre.joins(:games).distinct.select(:id))
+                              .order(Arel.sql("LOWER(genres.name)"), :id)
+    @collections_for_shelf = Collection.where(id: Collection.joins(:games).distinct.select(:id))
+                                       .order(Arel.sql("LOWER(collections.name)"), :id)
 
     @genres_shelves = Genre.joins(:games).distinct.order(:name).limit(GENRE_SHELF_CAP).map do |g|
       [ g, g.games.order(Arel.sql("igdb_rating DESC NULLS LAST")).limit(SHELF_LIMIT) ]

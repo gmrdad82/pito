@@ -80,30 +80,7 @@
     </thead>
     <tbody>
       <% @rows.each do |row| %>
-        <tr>
-          <td class="num"><%= row.blocked_at.utc.strftime("%Y-%m-%d %H:%M") %></td>
-          <td><%= row.source_surface %></td>
-          <td><code><%= row.fingerprint_hash[0, 12] %></code></td>
-          <td><code><%= row.ip_prefix %></code></td>
-          <td class="num"><%= row.attempt_count %></td>
-          <td class="num">
-            <% if row.last_attempt_at %>
-              <%= row.last_attempt_at.utc.strftime("%Y-%m-%d %H:%M") %>
-            <% else %>
-              —
-            <% end %>
-          </td>
-          <td>
-            <% if row.active? %>
-              <strong>active</strong>
-            <% else %>
-              <span class="text-muted">unblocked</span>
-            <% end %>
-          </td>
-          <td class="col-action">
-            <%= render BracketedLinkComponent.new(label: "view", href: settings_security_block_path(row)) %>
-          </td>
-        </tr>
+        <%= render BlockedLocationRowComponent.new(row: row) %>
       <% end %>
     </tbody>
   </table>

@@ -1,5 +1,137 @@
 # Phase 27 — log
 
+## [skipci] 2026-05-11 — sub-spec 01c-v2 Nested shelves (pito-rails)
+
+Rewrote `/games` top-of-page shelves from the v1 flat-tile design (one tile
+per genre, one tile per collection) to v2 nested shelves: each outer shelf
+iterates one sub-shelf per non-empty bucket; each sub-shelf is a
+horizontally-scrolling row of game tiles at the `:shelf` cover variant
+(`Games::CoverComponent.new(game:, variant: :shelf)`). Collection sub-shelves
+additionally lead with the existing 01h composite cover tile.
+
+Empty buckets are now hidden end-to-end. When no genre owns any game, the
+Genres `<section>` is suppressed (no `<h2>`, no muted "(no genres yet)"
+placeholder). Same rule for Collections. This reverses 01c-v1's "always
+render with placeholder" pattern per 01c-v2 locked decision #7.
+
+### Scope ladder (in this pass)
+
+In scope:
+
+- Rewrite `_genres_shelf.html.erb` and `_collections_shelf.html.erb` to the
+  nested outer-shelf shape.
+- New `_genre_sub_shelf.html.erb` + `_collection_sub_shelf_row.html.erb`
+  partials for the per-bucket sub-shelf rows.
+- Controller scope change on `@genres_for_shelf` / `@collections_for_shelf`
+  to filter out empty buckets and preserve alphabetical case-insensitive
+  ordering with a stable id tiebreak.
+- View + request + system spec rewrites under the existing 01c describe
+  blocks.
+
+Deferred (queued follow-ups from the 01c-v2 spec body that remain unshipped):
+
+- `db/migrate/*_add_primary_genre_id_to_games.rb` (per parent dispatch — "no
+  new migrations"). Falls back to the existing `genre.games` join — a
+  multi-genre game appears in every sub-shelf its `game_genres` join touches.
+  Architect-locked behavior is "appears in exactly one bucket via primary
+  genre pointer"; the fallback is documented and the migration is queued
+  separately.
+- `db/migrate/*_add_composite_columns_to_collections.rb` — already shipped
+  under 01h. No-op here.
+- `Game#primary_genre` association, `Genre#primary_for_games`, orphaning
+  rule on `GameGenre#after_destroy_commit`. Gated on the migration above.
+- Game show / edit primary-genre picker. Gated on the migration.
+- `Composite::Builder` refactor to accept any `Compositable` host. Bundle
+  stays bundle-coupled per the 01h log's "bundle code stays untouched"
+  note; the refactor is a separate follow-up.
+- `Games::CoverComponent` `:shelf` variant size bump from 98×130 to
+  105×140 (70% of grid). Per parent dispatch — that surface belongs to
+  01e (`01e-shelf-cover-art-variant.md` /
+  `01e-v2-shelf-cover-art-variant.md`).
+
+### Naming collision (resolved)
+
+01c-v2 spec pre-reserved `app/views/games/_collection_sub_shelf.html.erb`
+for the row partial. 01h shipped first and took that filename for the
+leading-tile partial (single composite cover with three branches: empty /
+passthrough / composite). Both surfaces are needed; renaming the existing
+01h partial would invalidate 14 view specs and the 01h log.
+
+Resolution: new row partial is `_collection_sub_shelf_row.html.erb`. The
+row partial wraps the 01h leading-tile partial inside an anchor that
+navigates to `/collections/<slug>`, then iterates game tiles. Both
+partials are documented at the top of each file.
+
+### Files changed
+
+App:
+
+- `app/controllers/games_controller.rb` — `@genres_for_shelf` /
+  `@collections_for_shelf` filter to non-empty buckets via subquery
+  (Postgres `SELECT DISTINCT` + `ORDER BY` workaround). Inline comment
+  block reworked for v2.
+- `app/views/games/index.html.erb` — comment block updated for v2;
+  partial call sites unchanged.
+- `app/views/games/_genres_shelf.html.erb` — REWRITE. Outer shelf
+  `<section data-shelf="outer-genres">` with one `<h2>genres</h2>` and
+  per-genre sub-shelves; entire section suppressed when input empty.
+- `app/views/games/_collections_shelf.html.erb` — REWRITE. Outer shelf
+  with `<h2>custom collections</h2>` and per-collection sub-shelves.
+- `app/views/games/_genre_sub_shelf.html.erb` — NEW. Sub-shelf with
+  `<h3>` heading + `[see all]` link (only over the 30 cap) +
+  horizontally-scrolling row of `:shelf` game tiles, alphabetical.
+- `app/views/games/_collection_sub_shelf_row.html.erb` — NEW. Mirror of
+  the genre sub-shelf with a leading composite cover tile.
+
+Specs:
+
+- `spec/views/games/_genres_shelf.html.erb_spec.rb` — REWRITE. 14 new
+  examples covering outer-shelf wrapper, per-genre sub-shelf count,
+  short-form `<h3>` mapping, empty-input hidden, no v1 remnants.
+- `spec/views/games/_collections_shelf.html.erb_spec.rb` — NEW. 11
+  examples mirroring the genre coverage.
+- `spec/views/games/_genre_sub_shelf.html.erb_spec.rb` — NEW. 18
+  examples covering happy (under cap), exact cap (30), over cap (31 →
+  capped + `[see all]`), empty genre, JS-confirm flaw guard.
+- `spec/views/games/_collection_sub_shelf_row.html.erb_spec.rb` — NEW.
+  15 examples covering composite leading tile, passthrough leading
+  tile (1-game collection), empty leading tile (0-game collection), 31
+  games over cap, JS-confirm flaw guard.
+- `spec/requests/games_spec.rb` — REWROTE the "Phase 27 §01c" describe
+  block. 11 new examples covering outer-shelf hidden when empty,
+  outer-shelf rendered with sub-shelf-per-bucket alphabetical, the
+  `data-shelf="genre-sub"` / `"collection-sub"` data hooks, `[see all]`
+  cap behavior.
+- `spec/system/games_index_spec.rb` — REWROTE the 01c describe block.
+  5 new examples covering nested shelf rendering, empty-bucket hidden,
+  `[see all]` navigation narrowing the all-games grid below.
+
+Plan:
+
+- `docs/plans/beta/27-…/plan.md` — re-ticked the 01c block's five
+  checkboxes with v2-aware annotations; documented the deferred work
+  inline.
+
+### Gates
+
+- `rspec spec/views/games/ spec/components/games/ spec/requests/games_spec.rb spec/system/games_index_spec.rb spec/system/games_steam_shelf_spec.rb spec/system/games_platform_ownerships_spec.rb` — 833 examples green.
+- `rspec spec/models/genre_spec.rb spec/models/collection_spec.rb spec/models/game_spec.rb` — 113 examples green.
+- `rubocop` on touched Ruby files — clean (7 files inspected, no offenses).
+- `brakeman -q -w2` — 0 security warnings.
+
+### References
+
+- Spec:
+  `docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs/01c-v2-nested-shelves.md`
+  (supersedes 01c-v1; this implementation pass).
+- Plan checkbox: `…/plan.md` → `01c — Genres and Collections shelves`
+  block (five v1 checkboxes re-ticked with v2 annotations).
+- Adjacent: 01h leading-tile partial (`_collection_sub_shelf.html.erb`)
+  reused as-is; 01b filter row placement preserved; 01e cover variant
+  width left to its own surface.
+
+---
+
 ## [skipci] 2026-05-11 — sub-spec 01b Filter row + platform semantics (pito-rails)
 
 Shipped the multi-select filter row on `/games`. State lives in a single

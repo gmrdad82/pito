@@ -102,7 +102,7 @@ publish)."
 
 ### Analytics (architecture + implementation)
 
-- [ ] **01f — Analytics architecture + tz update**
+- [x] **01f — Analytics architecture + tz update**
       (`specs/01f-analytics-architecture-tz-update.md`). Documentation-only
       update to `docs/architecture.md` (new "Timezone rendering rule" section +
       new "Viewer-time aggregation" section). Pins the storage / render contract

@@ -552,7 +552,38 @@ Rails.application.routes.draw do
     # log and (in later sub-specs) the 2FA enroll surface + block list.
     resource :security, only: %i[show], controller: "security"
     namespace :security do
+      # Phase 25 — 01f. Bulk-purge surface for the attempt log. Sits
+      # OUTSIDE the `attempts` resources block so the helper name reads
+      # `settings_security_attempts_purge_path` (purge is a verb on
+      # the collection, not a nested resource). Mirrors the locked URL
+      # in the spec: `/settings/security/attempts/purge`.
+      get  "attempts/purge",
+           to: "attempts/purges#show",
+           as: :attempts_purge
+      post "attempts/purge",
+           to: "attempts/purges#create"
+
       resources :attempts, only: %i[index show]
+
+      # Phase 25 — 01f. Auto-block list. The `purge` collection action
+      # is declared explicitly (before `resources`) so the helper reads
+      # `settings_security_blocks_purge_path`. The per-row unblock
+      # action-screen nests under each block id.
+      get  "blocks/purge",
+           to: "blocks/purges#show",
+           as: :blocks_purge
+      post "blocks/purge",
+           to: "blocks/purges#create"
+
+      resources :blocks, only: %i[index show], controller: "blocks" do
+        # Per-row soft-unblock action-screen. GET renders the
+        # confirmation page; POST consumes `confirm=yes` and calls
+        # `Auth::BlockedLocationUnblocker`. Helper:
+        # `settings_security_block_unblocking_path(block_id)`.
+        resource :unblocking,
+                 only: %i[show create],
+                 controller: "blocks/unblockings"
+      end
 
       # Phase 25 — 01e. TOTP 2FA management.
       #

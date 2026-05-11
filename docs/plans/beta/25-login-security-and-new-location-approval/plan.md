@@ -46,7 +46,7 @@ coverage.
       `specs/01d-mcp-tools-pending-approve-block-purge.md`
 - [x] **01e — TOTP 2FA + backup codes** —
       `specs/01e-totp-2fa-integration-with-backup-codes.md`
-- [ ] **01f — Auto-block list + purge UI** —
+- [x] **01f — Auto-block list + purge UI** —
       `specs/01f-auto-block-list-and-purge-ui.md`
 - [ ] **01g — Rate limiting + session hardening pass + cross-cutting system
       specs** — `specs/01g-rate-limit-and-session-hardening-pass.md`

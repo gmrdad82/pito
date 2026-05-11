@@ -34,10 +34,12 @@
     </div>
   </div>
 
-  <%# Phase 27 §01c — Genres + Collections shelves render above
-      everything else (and above the Phase 27 §01b filter row when it
-      lands). Both shelves are alphabetical and always render — empty
-      shelves show a muted placeholder so the layout doesn't shift. %>
+  <%# Phase 27 §01c-v2 — Genres + Custom collections shelves render
+      above everything else (and above the Phase 27 §01b filter row).
+      Both shelves are nested (outer shelf iterates per-genre /
+      per-collection sub-shelves of game-cover tiles). Empty buckets
+      are hidden — the partial only renders when at least one bucket
+      has games. %>
   <%= render "games/genres_shelf", genres: @genres_for_shelf %>
   <%= render "games/collections_shelf", collections: @collections_for_shelf %>
 

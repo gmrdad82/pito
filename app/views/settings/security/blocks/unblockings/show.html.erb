@@ -1,0 +1,68 @@
+<% content_for(:title, "unblock block ##{@row.id}") %>
+<% breadcrumb(["settings", settings_path],
+              ["security", settings_security_path],
+              ["blocks", settings_security_blocks_path],
+              ["##{@row.id}", settings_security_block_path(@row)],
+              "unblock") %>
+
+<div style="margin-bottom: 8px;">
+  <h1>unblock block #<%= @row.id %></h1>
+  <p class="text-muted" style="margin-top: 2px;">
+    <% if @row.active? %>
+      this soft-unblocks the <code>(fingerprint, ip prefix)</code> pair.<br>
+      the row stays for audit; future attempts from this pair resume
+      the normal login path (trusted-location / pending logic re-evaluates).
+    <% else %>
+      this block is already unblocked — confirming is a no-op.
+    <% end %>
+  </p>
+</div>
+
+<div class="pane pane--standalone" style="margin-bottom: 12px;">
+  <dl>
+    <dt>blocked at</dt>
+    <dd><%= @row.blocked_at.utc.strftime("%Y-%m-%d %H:%M:%S %Z") %></dd>
+
+    <dt>source</dt>
+    <dd><code><%= @row.source_surface %></code></dd>
+
+    <dt>fingerprint</dt>
+    <dd style="word-break: break-all;"><code><%= @row.fingerprint_hash %></code></dd>
+
+    <dt>ip prefix</dt>
+    <dd><code><%= @row.ip_prefix %></code></dd>
+
+    <dt>attempts since block</dt>
+    <dd><%= @row.attempt_count %></dd>
+
+    <dt>state</dt>
+    <dd>
+      <% if @row.active? %>
+        <strong>active</strong>
+      <% else %>
+        <span class="text-muted">unblocked at <%= @row.unblocked_at.utc.strftime("%Y-%m-%d %H:%M:%S %Z") %></span>
+      <% end %>
+    </dd>
+  </dl>
+</div>
+
+<%# Action-screen confirmation form. `confirm=yes` is the LD-15 yes/no
+    boundary; the keyboard-confirmation controller intercepts `y` /
+    Esc to mirror the CLI's confirmation UX. %>
+<%= form_with url: settings_security_block_unblocking_path(@row),
+              method: :post,
+              scope: nil,
+              data: { turbo: false, keyboard_confirmation: "true" } do %>
+  <%= hidden_field_tag :confirm, "yes" %>
+
+  <div class="action-screen-footer">
+    <div class="dot-list">
+      <button type="submit">[unblock]</button>
+      <%= render(BracketedLinkComponent.new(
+            label: "cancel",
+            href: settings_security_block_path(@row),
+            data: { keyboard_confirmation_cancel: "true" }
+          )) %>
+    </div>
+  </div>
+<% end %>

@@ -129,77 +129,114 @@ RSpec.describe "Games", type: :request do
       end
     end
 
-    # Phase 27 §01c — Genres + Collections shelves at the top of
-    # `/games`. Both always render (placeholder when empty). The new
-    # `?genre=<slug>` and `?collection=<slug>` URL contracts pair with
-    # the existing `?genre=<id>` codepath.
-    describe "Phase 27 §01c — top-of-page shelves" do
-      it "renders the Genres shelf heading even when no genres exist" do
+    # Phase 27 §01c-v2 — Nested Genres + Custom collections shelves.
+    # Outer shelf iterates one sub-shelf per non-empty bucket; empty
+    # buckets are HIDDEN end-to-end (no muted placeholder, no `<h2>`).
+    describe "Phase 27 §01c-v2 — nested top-of-page shelves" do
+      it "HIDES the Genres outer shelf entirely when no genre owns any game" do
         get games_path
-        expect(response.body).to include("shelf--genres")
-        expect(response.body).to include(">genres<")
-        expect(response.body).to include("(no genres yet)")
+        expect(response.body).not_to include("outer-shelf")
+        expect(response.body).not_to include("(no genres yet)")
+        expect(response.body).not_to match(%r{<section[^>]*shelf--genres[^>]*outer-shelf})
       end
 
-      it "renders the Collections shelf heading even when no collections exist" do
+      it "HIDES the Custom collections outer shelf entirely when no collection owns any game" do
+        create(:collection, name: "Empty bin")  # zero games
         get games_path
-        expect(response.body).to include("shelf--collections")
-        expect(response.body).to include(">collections<")
-        expect(response.body).to include("(no collections yet)")
+        expect(response.body).not_to include("(no collections yet)")
+        expect(response.body).not_to match(%r{<section[^>]*shelf--collections[^>]*outer-shelf})
       end
 
-      it "renders one tile per genre, alphabetical (case-insensitive)" do
-        Genre.create!(igdb_id: 1, name: "rpg",        slug: "rpg")
-        Genre.create!(igdb_id: 2, name: "Adventure",  slug: "adventure")
-        Genre.create!(igdb_id: 3, name: "platformer", slug: "platformer")
+      context "with non-empty genres and collections" do
+        let!(:adventure)  { Genre.create!(igdb_id: 1, name: "Adventure",  slug: "adventure") }
+        let!(:rpg)        { Genre.create!(igdb_id: 2, name: "rpg",        slug: "rpg") }
+        let!(:platformer) { Genre.create!(igdb_id: 3, name: "platformer", slug: "platformer") }
+        let!(:retro)      { create(:collection, name: "Retro") }
+        let!(:replay)     { create(:collection, name: "Replay queue") }
 
-        get games_path
-        # Scope to the 01c shelf — pluck just that section's content.
-        genres_section = response.body[/<section class="shelf shelf--genres".*?<\/section>/m]
-        expect(genres_section).not_to be_nil
-        order_indexes = %w[Adventure platformer rpg].map { |n| genres_section.index(n) }
-        expect(order_indexes).to eq(order_indexes.sort)
+        before do
+          zelda = create(:game, :synced, title: "Zelda BotW", cover_image_id: "img-zelda", collection: retro)
+          zelda.genres << adventure
+          persona = create(:game, :synced, title: "Persona 5", cover_image_id: "img-persona", collection: replay)
+          persona.genres << rpg
+          celeste = create(:game, :synced, title: "Celeste", cover_image_id: "img-celeste")
+          celeste.genres << platformer
+        end
+
+        it "renders the Genres outer-shelf <section> with a single <h2>" do
+          get games_path
+          expect(response.body).to include('data-shelf="outer-genres"')
+          # Outer-shelf `<h2>` carries the literal label `genres`.
+          expect(response.body).to match(%r{<h2[^>]*>\s*genres\s*</h2>})
+        end
+
+        it "renders the Custom collections outer-shelf with the 'custom collections' <h2>" do
+          get games_path
+          expect(response.body).to include('data-shelf="outer-collections"')
+          expect(response.body).to match(%r{<h2[^>]*>\s*custom collections\s*</h2>})
+        end
+
+        it "renders one sub-shelf per non-empty genre, alphabetical" do
+          get games_path
+          genres_section = response.body[/<section[^>]*shelf--genres[^>]*outer-shelf.*?<\/section>\s*\z/m] ||
+                           response.body[/<section[^>]*shelf--genres[^>]*outer-shelf[\s\S]*/]
+          expect(genres_section).not_to be_nil
+          order_indexes = [ "Adventure", "platformer", "rpg" ].map { |n| genres_section.index(">#{n}<") }
+          expect(order_indexes).to eq(order_indexes.sort)
+        end
+
+        it "renders one sub-shelf per non-empty collection, alphabetical" do
+          get games_path
+          colls_section = response.body[/<section[^>]*shelf--collections[^>]*outer-shelf[\s\S]*/]
+          expect(colls_section).not_to be_nil
+          order_indexes = [ "Replay queue", "Retro" ].map { |n| colls_section.index(">#{n}<") }
+          expect(order_indexes).to eq(order_indexes.sort)
+        end
+
+        it "stamps `data-shelf=\"genre-sub\"` on each genre sub-shelf wrapper" do
+          get games_path
+          expect(response.body.scan('data-shelf="genre-sub"').length).to eq(3)
+        end
+
+        it "stamps `data-shelf=\"collection-sub\"` on each collection sub-shelf wrapper" do
+          get games_path
+          expect(response.body.scan('data-shelf="collection-sub"').length).to eq(2)
+        end
+
+        it "stamps the steam-shelf Stimulus controller on each sub-shelf" do
+          get games_path
+          # 3 genre sub-shelves + 2 collection sub-shelves = 5. The
+          # legacy Phase 14 shelves (per-genre, all-games) also stamp
+          # the controller, so we assert a floor not an exact count.
+          expect(response.body.scan('data-controller="steam-shelf"').length).to be >= 5
+        end
       end
 
-      it "renders one tile per collection, alphabetical (case-insensitive)" do
-        create(:collection, name: "zelda")
-        create(:collection, name: "Action games")
-        create(:collection, name: "mecha")
+      describe "[see all] cap behavior" do
+        let!(:adventure) { Genre.create!(igdb_id: 1, name: "Adventure", slug: "adventure") }
 
-        get games_path
-        section = response.body[/<section class="shelf shelf--collections".*?<\/section>/m]
-        expect(section).not_to be_nil
-        order_indexes = [ "Action games", "mecha", "zelda" ].map { |n| section.index(n) }
-        expect(order_indexes).to eq(order_indexes.sort)
-      end
+        it "omits `[see all]` when a genre sub-shelf is under the 30 cap" do
+          g = create(:game, :synced, title: "Tunic")
+          g.genres << adventure
+          get games_path
+          # The legacy Phase 14 per-genre shelf does emit a [see all]
+          # link, so we scope this assertion to the v2 sub-shelf only.
+          genre_sub = response.body[%r{<section[^>]*sub-shelf--genre[^>]*data-genre-id="#{adventure.id}"[\s\S]*?</section>}]
+          expect(genre_sub).not_to be_nil
+          expect(genre_sub).not_to include(">see all<")
+        end
 
-      it "Genre tile links point to /games?genre=<slug> when a slug is present" do
-        Genre.create!(igdb_id: 1, name: "Adventure", slug: "adventure")
-
-        get games_path
-        expect(response.body).to include('href="' + games_path(genre: "adventure") + '"')
-      end
-
-      it "Genre tile links fall back to /games?genre=<id> when slug is blank" do
-        g = Genre.create!(igdb_id: 1, name: "Slugless")
-        g.update_column(:slug, nil)
-
-        get games_path
-        expect(response.body).to include('href="' + games_path(genre: g.id) + '"')
-      end
-
-      it "Collection tile links point to /games?collection=<slug>" do
-        c = create(:collection, name: "Retro favorites")
-
-        get games_path
-        expect(response.body).to include('href="' + games_path(collection: c.slug) + '"')
-      end
-
-      it "stamps the steam-shelf Stimulus controller on both shelves" do
-        get games_path
-        expect(response.body).to include('class="shelf shelf--genres"')
-        expect(response.body).to include('class="shelf shelf--collections"')
-        expect(response.body.scan('data-controller="steam-shelf"').length).to be >= 2
+        it "renders `[see all]` when a genre sub-shelf exceeds the 30 cap" do
+          31.times do |i|
+            g = create(:game, :synced, title: format("%04d game", i + 1))
+            g.genres << adventure
+          end
+          get games_path
+          genre_sub = response.body[%r{<section[^>]*sub-shelf--genre[^>]*data-genre-id="#{adventure.id}"[\s\S]*?</section>}]
+          expect(genre_sub).not_to be_nil
+          expect(genre_sub).to include(">see all<")
+          expect(genre_sub).to include('href="' + games_path(genre: "adventure") + '"')
+        end
       end
     end
 

@@ -1,0 +1,45 @@
+<%# Phase 27 §01c-v2 — Genre sub-shelf row.
+    One sub-shelf per non-empty genre. Renders an `<h3>` row with the
+    genre name (left) and a `[see all]` bracketed link (right, only
+    when the bucket exceeds the visible cap). Inside, a horizontally
+    scrolling row of game tiles at the `:shelf` cover variant.
+
+    Game ordering — alphabetical by `LOWER(games.title)`. Cap — 30
+    tiles; beyond that the user is expected to switch to grid / list
+    mode for the long tail. The `[see all]` link targets
+    `/games?genre=<slug-or-id>` (slug when present, id fallback).
+
+    Without `Game#primary_genre_id` (out of scope for this pass), the
+    sub-shelf uses the existing `genre.games` association — a
+    multi-genre game appears in every sub-shelf its joins touch. This
+    is documented and intentional.
+
+    Locals:
+      genre   Genre — the row whose sub-shelf this represents.
+%>
+<%
+  genre = local_assigns.fetch(:genre)
+  cap = 30
+  total_count = genre.games.count
+  games = genre.games.order(Arel.sql("LOWER(games.title)")).limit(cap).to_a
+  href = if genre.slug.present?
+           games_path(genre: genre.slug)
+         else
+           games_path(genre: genre.id)
+         end
+%>
+<section class="shelf sub-shelf sub-shelf--genre" data-shelf="genre-sub" data-genre-id="<%= genre.id %>" data-controller="steam-shelf" style="margin-top: 12px;">
+  <div class="dot-list" style="margin-bottom: 4px;">
+    <h3 style="margin: 0; font-size: 13px;"><%= genre_short_name(genre) %></h3>
+    <% if total_count > cap %>
+      <%= render(BracketedLinkComponent.new(label: "see all", href: href)) %>
+    <% end %>
+  </div>
+
+  <div class="shelf-row sub-shelf-row" data-steam-shelf-target="row"
+       style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px;">
+    <% games.each do |game| %>
+      <%= render(Games::CoverComponent.new(game: game, variant: :shelf)) %>
+    <% end %>
+  </div>
+</section>

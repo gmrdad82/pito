@@ -61,8 +61,11 @@
 
 <p class="dot-list">
   <%= render BracketedLinkComponent.new(label: "back to blocks", href: settings_security_blocks_path) %>
-  <%# Per-row unblock action lands with 01d's `Auth::BlockedLocationUnblocker`.
-      Keep this surface visible — bulk purge on a single id works today via
-      the ip_prefix + fingerprint filter from the purge screen. %>
+  <%# Per-row soft-unblock — only offered while the row is active. The
+      action-screen handles the `confirm=yes` round-trip and the audit
+      log entry via `Auth::BlockedLocationUnblocker`. %>
+  <% if @row.active? %>
+    <%= render BracketedLinkComponent.new(label: "unblock", href: settings_security_block_unblocking_path(@row)) %>
+  <% end %>
   <%= render BracketedLinkComponent.new(label: "purge by filter", href: settings_security_blocks_purge_path(fingerprint: @row.fingerprint_hash, ip_prefix: @row.ip_prefix)) %>
 </p>
