@@ -2,8 +2,11 @@
 #
 # Replaces the single-valued `games.platform_owned_id` pointer with a
 # multi-valued ownership join. A row in this table answers "the user
-# owns this game on this platform"; optional metadata records when /
-# where / why (acquired_at, store, notes).
+# owns this game on this platform" — no optional metadata. The editor
+# revamp (2026-05-12) reduced the surface to a single bracketed
+# checkbox per platform; the previous `acquired_at` / `store` / `notes`
+# columns were dropped because nothing read or wrote them outside the
+# editor itself.
 #
 # Cascade-on-delete from games (deleting a game wipes its ownership
 # rows); restrict-on-delete from platforms (the IGDB platform sync

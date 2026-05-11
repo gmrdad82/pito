@@ -110,7 +110,16 @@ export default class extends Controller {
         this.openHintTarget.hidden = true
         this.openActionTarget.hidden = false
         const panesUrl = `${this.panesPathValue}?ids=${ids}`
-        this._setBracketedLink(this.openActionTarget, panesUrl, `open ${count}`)
+        // 2026-05-11 — set `data-turbo-frame="_top"` directly on the
+        // injected anchor. Relying on cascade from the parent
+        // `data-bulk-select-target="actions"` div is unreliable; Turbo
+        // resolves the frame off the link element itself first, and
+        // when the surrounding context is a `<turbo-frame>` (e.g.
+        // `channels-index-table`), the panes / deletions / syncs full-page
+        // responses don't carry that frame id and Turbo errors with
+        // "Content missing". Setting `_top` on the anchor guarantees
+        // full-page navigation across every surface.
+        this._setBracketedLink(this.openActionTarget, panesUrl, `open ${count}`, "bracketed", "_top")
       } else {
         // Over max: render [open N] as muted, bold, non-clickable so layout stays
         // stable. The helpful subtext lives below the action bar in the view.
@@ -132,6 +141,10 @@ export default class extends Controller {
         const link = document.createElement("a")
         link.href = deleteUrl
         link.className = "bracketed text-danger"
+        // 2026-05-11 — escape any enclosing turbo-frame so the
+        // deletions confirmation page renders full-page. See the
+        // openAction branch above for the full rationale.
+        link.setAttribute("data-turbo-frame", "_top")
         const bracket = document.createTextNode("[")
         const span = document.createElement("span")
         span.className = "bl"
@@ -158,6 +171,8 @@ export default class extends Controller {
         const link = document.createElement("a")
         link.href = revokeUrl
         link.className = "bracketed text-danger"
+        // Same _top guarantee as deleteAction above.
+        link.setAttribute("data-turbo-frame", "_top")
         const bracket = document.createTextNode("[")
         const span = document.createElement("span")
         span.className = "bl"
@@ -180,6 +195,8 @@ export default class extends Controller {
         const link = document.createElement("a")
         link.href = syncUrl
         link.className = "bracketed"
+        // Same _top guarantee as deleteAction above.
+        link.setAttribute("data-turbo-frame", "_top")
         const bracket = document.createTextNode("[")
         const span = document.createElement("span")
         span.className = "bl"
@@ -233,10 +250,11 @@ export default class extends Controller {
     this._replaceActionContent(el, span)
   }
 
-  _setBracketedLink(el, href, label, className = "bracketed") {
+  _setBracketedLink(el, href, label, className = "bracketed", turboFrame = null) {
     const link = document.createElement("a")
     link.href = href
     link.className = className
+    if (turboFrame) link.setAttribute("data-turbo-frame", turboFrame)
     link.appendChild(document.createTextNode("["))
     const span = document.createElement("span")
     span.className = "bl"

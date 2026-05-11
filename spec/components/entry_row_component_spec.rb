@@ -5,9 +5,11 @@ RSpec.describe EntryRowComponent, type: :component do
     # Calendar refactor 2026-05-11 — the schedule row drops the legacy
     # state column entirely, replaces the glyph prefix with a typed
     # token label (`channel(joined)` / `video(published)` /
-    # `game(released)` / `milestone`), and renders `[ all day ]` in the
-    # time column for all-day entries. The trailing `[open]` column
-    # links straight to the related resource.
+    # `game(released)` / `milestone`), and renders an `all day` badge
+    # (calendar polish 2026-05-11: bordered box matching the
+    # notification-severity-badge — no literal brackets) in the time
+    # column for all-day entries. The trailing `[open]` column links
+    # straight to the related resource.
 
     it "renders a `<month> <dom> <weekday>` date label by default" do
       entry = create(:calendar_entry, :custom, starts_at: Time.zone.parse("2026-05-14 10:00:00 UTC"))
@@ -37,11 +39,14 @@ RSpec.describe EntryRowComponent, type: :component do
       expect(page).to have_content("14:30")
     end
 
-    it "renders a `[ all day ]` badge for all-day entries (not a `—`)" do
+    it "renders an `all day` badge for all-day entries (not a `—`)" do
       entry = create(:calendar_entry, :game_release, all_day: true)
       render_inline(described_class.new(entry: entry))
-      expect(page).to have_content("[ all day ]")
-      expect(page).to have_css(".calendar-badge--all-day")
+      # Calendar polish 2026-05-11 — the badge text is plain `all day`
+      # (no bracketed-text decoration); the surrounding bordered span
+      # IS the visual delimiter.
+      expect(page).to have_css(".calendar-badge.calendar-badge--all-day", text: "all day")
+      expect(page).not_to have_content("[ all day ]")
       expect(page).not_to have_content("—")
     end
 
@@ -93,6 +98,18 @@ RSpec.describe EntryRowComponent, type: :component do
       render_inline(described_class.new(entry: entry))
       expect(page).to have_css(".calendar-row__title a[data-action*='calendar-entry-modal#open']")
       expect(page).to have_css(".calendar-row__title a[data-calendar-entry-modal-url-param='/calendar/entries/#{entry.id}/details_pane']")
+    end
+
+    # Calendar polish 2026-05-11 — the `all day` token renders as a
+    # bordered-box badge (same shape as the notification-severity-badge)
+    # rather than the legacy `[ all day ]` bracketed-text literal.
+    it "the `all day` badge does NOT carry the legacy `[ ... ]` bracket characters" do
+      entry = create(:calendar_entry, :game_release, all_day: true)
+      render_inline(described_class.new(entry: entry))
+      badge = page.find(".calendar-badge--all-day")
+      expect(badge.text.strip).to eq("all day")
+      expect(badge.text).not_to include("[")
+      expect(badge.text).not_to include("]")
     end
 
     # 2026-05-12 — the `[remind: t-7 t-1 t-0]` reminder copy was

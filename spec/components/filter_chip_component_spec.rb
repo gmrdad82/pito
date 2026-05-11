@@ -144,4 +144,42 @@ RSpec.describe FilterChipComponent, type: :component do
       expect(anchor["href"]).to eq("?types=")
     end
   end
+
+  # 2026-05-11 Turbo Frame content-missing sweep — `path:` opt-in for
+  # absolute-URL hrefs. Required by surfaces (notifications inbox) that
+  # can be loaded into a Turbo Frame whose `src` differs from the
+  # document URL. A relative `?…` href resolves against the document
+  # URL (browser behavior), NOT the frame's src — a chip inside the
+  # notifications modal opened from /channels would otherwise navigate
+  # to `/channels?filter=unread&modal=yes`, which has no matching
+  # modal frame in its response and Turbo renders "Content missing".
+  describe "path: kwarg (absolute-URL hrefs)" do
+    it "defaults to relative ?-prefixed hrefs when path: is not given" do
+      render_inline(described_class.new(label: "starred", param: "star"))
+      expect(page).to have_css('a.filter-chip[href="?star=yes"]')
+    end
+
+    it "prefixes the href with path: when set" do
+      render_inline(described_class.new(label: "unread", param: "filter", value: "unread",
+                                         path: "/notifications"))
+      expect(page).to have_css('a.filter-chip[href="/notifications?filter=unread"]')
+    end
+
+    it "preserves current_params alongside path:" do
+      render_inline(described_class.new(label: "unread", param: "filter", value: "unread",
+                                         current_params: { "modal" => "yes" },
+                                         path: "/notifications"))
+      anchor = page.find("a.filter-chip")
+      pairs = anchor["href"].split("?", 2).last.split("&")
+      expect(anchor["href"]).to start_with("/notifications?")
+      expect(pairs).to contain_exactly("filter=unread", "modal=yes")
+    end
+
+    it "yields a bare path (no trailing ?) when all params are removed" do
+      render_inline(described_class.new(label: "unread", param: "filter", value: "unread",
+                                         current_params: { "filter" => "unread" },
+                                         path: "/notifications"))
+      expect(page).to have_css('a.filter-chip[href="/notifications"]')
+    end
+  end
 end

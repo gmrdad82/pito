@@ -183,7 +183,8 @@ RSpec.describe "Calendar::Schedule", type: :request do
     #   - Drops the trailing `state` column entirely (no `occurred` /
     #     `scheduled` text cells).
     #   - Replaces the legacy glyph prefix with a typed token label.
-    #   - Time column shows `HH:MM` OR a `[ all day ]` badge.
+    #   - Time column shows `HH:MM` OR an `all day` badge (calendar
+    #     polish 2026-05-11: bordered box, no literal brackets).
     #   - Group-by-day: repeated date cell stays blank between rows.
     #   - Table shrinks to content width (not 100%).
     describe "calendar refactor 2026-05-11 — list view" do
@@ -216,17 +217,19 @@ RSpec.describe "Calendar::Schedule", type: :request do
         expect(response.body).not_to match(%r{<td[^>]*>\s*occurred\s*</td>})
       end
 
-      it "renders `[ all day ]` badge for all-day entries" do
+      it "renders the `all day` badge for all-day entries" do
         g = create(:game)
         create(:calendar_entry, :game_release, game: g, all_day: true,
                title: "all-day-release",
                starts_at: 5.days.from_now)
         get "/calendar/schedule"
-        expect(response.body).to include("[ all day ]")
-        expect(response.body).to include("calendar-badge--all-day")
+        # Calendar polish 2026-05-11 — bordered-box badge, no literal
+        # brackets around the text.
+        expect(response.body).to match(%r{<span class="calendar-badge calendar-badge--all-day">all day</span>})
+        expect(response.body).not_to include("[ all day ]")
       end
 
-      it "renders an HH:MM stamp for timed entries (no `[ all day ]`)" do
+      it "renders an HH:MM stamp for timed entries (no `all day` badge)" do
         AppSetting.delete_all
         AppSetting.create!(key: "tz_seed", value: "x", timezone: "UTC")
         create(:calendar_entry, :custom,
@@ -299,6 +302,41 @@ RSpec.describe "Calendar::Schedule", type: :request do
         create(:calendar_entry, :custom, starts_at: 5.days.from_now, title: "future")
         get "/calendar/schedule"
         expect(response.body).to match(/<td colspan="5"[^>]*class="schedule-today-divider">/)
+      end
+    end
+
+    # Calendar polish 2026-05-11 — schedule list view gains a table
+    # header (`<thead>`) listing the five columns rendered by
+    # `EntryRowComponent`: date | time | type | title | open. Header
+    # cells stay lowercase + normal weight per `docs/design.md`.
+    describe "calendar polish 2026-05-11 — list view header" do
+      it "renders a <thead> row with five lowercase column labels" do
+        create(:calendar_entry, :milestone_manual, starts_at: 1.day.from_now)
+        get "/calendar/schedule"
+        # Header row exists with the dedicated class hook.
+        expect(response.body).to match(%r{<thead>\s*<tr class="calendar-schedule-thead">})
+        # Each column label lives in its own `<th>` cell.
+        %w[date time type title open].each do |col|
+          expect(response.body).to match(%r{<th[^>]*class="calendar-row__#{col}"[^>]*>#{col}</th>})
+        end
+      end
+
+      it "header cells render with normal weight (no bold per docs/design.md)" do
+        create(:calendar_entry, :milestone_manual, starts_at: 1.day.from_now)
+        get "/calendar/schedule"
+        expect(response.body).to match(
+          %r{<th[^>]*class="calendar-row__date"[^>]*style="[^"]*font-weight:\s*normal[^"]*"}
+        )
+      end
+
+      it "header columns render in document order: date, time, type, title, open" do
+        create(:calendar_entry, :milestone_manual, starts_at: 1.day.from_now)
+        get "/calendar/schedule"
+        positions = %w[date time type title open].map do |col|
+          response.body.index(%(<th class="calendar-row__#{col}"))
+        end
+        expect(positions).to all(be_a(Integer))
+        expect(positions).to eq(positions.sort)
       end
     end
 

@@ -57,6 +57,22 @@ RSpec.describe "Settings::Security::Totps", type: :request do
       expect(response).to redirect_to(settings_security_totp_path)
       expect(flash[:alert]).to include("enrollment expired")
     end
+
+    # 2026-05-11 — QR codes need black-on-white contrast to scan
+    # reliably. The dark theme renders the page on a dark
+    # background which makes the SVG (black modules on
+    # transparent) unreadable. The view wraps the QR SVG in a
+    # white-bg inline-block so the QR is always readable
+    # regardless of theme.
+    it "wraps the QR SVG in a white-background inline-block" do
+      post settings_security_totp_path
+      follow_redirect!
+      # The wrapper carries `background: #ffffff` so the dark
+      # theme cannot make the QR unscannable.
+      expect(response.body).to match(/background:\s*#ffffff/)
+      # The wrapper sits inline so the page layout still flows.
+      expect(response.body).to include("display: inline-block")
+    end
   end
 
   describe "PATCH /settings/security/totp/confirm" do

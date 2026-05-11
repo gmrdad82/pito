@@ -1,5 +1,128 @@
 # Phase 26 — log
 
+## 2026-05-11 — settings + 2FA fix-forward bundle (pito-rails-impl) [skipci]
+
+User-directed bundle of seven fixes spanning the settings index, security
+dashboard, 2FA QR rendering, and a new fresh-TOTP gate on sensitive write
+endpoints. Touches Phase 25 (security/show, 2FA QR, TOTP gate concern) and
+Phase 26 (Slack + Discord pane wiring into settings index, TOTP gates on
+webhook updates).
+
+### Fix-forward index
+
+- **Fix 1 — storage pane title trim.** Dropped `size: X` / `files: N` summary
+  lines under both `assets` and `notes` pane titles in
+  `app/views/settings/index.html.erb`. Title + writable badge survive; the
+  per-category / per-namespace tables below carry the count + size detail.
+- **Fix 2 — notes table labels.** Renamed `project notes` → `project` in
+  `SettingsController::NOTES_NAMESPACE_SOURCES`. Dropped the entire
+  `mobile_notes` entry (dev-only artifact — `docs/notes/` MCP `save_note`
+  drop-zone, stripped from production builds per ADR 0004).
+- **Fix 3 — Postgres model rename.** `calendar_entries` row now renders with
+  display label `calendar`. Added a third tuple value (display label) to
+  `SettingsController::POSTGRES_BREAKDOWN_MODELS`; iteration picks the
+  display label without changing the underlying table-stats query.
+- **Fix 4 — security dashboard intro drop.** Removed the muted intro block
+  ("every login attempt is logged. suspicious activity surfaces here and on
+  [attempts]. 2FA enrollment lands later in this phase.") from
+  `app/views/settings/security/show.html.erb`. The 2FA-lands-later copy was
+  stale (Phase 25 01e shipped); the attempts link still surfaces on the
+  recent-activity panel.
+- **Fix 5 — integrations row reshape.** Slack + Discord webhook panes
+  (built in Phase 26 01b / 01c but never wired into the settings index per
+  the original user-locked restructure) now render on a new row 2 of the
+  integrations section (Discord left, Slack right). OAuth applications +
+  sessions moved to row 3. Total layout: 7 pane-rows / 13 panes.
+- **Fix 6 — QR code white background.** Wrapped the SVG in
+  `app/views/settings/security/totps/show.html.erb` in a white-bg
+  inline-block div so the dark theme cannot make the QR unscannable. QR
+  codes require black-on-white contrast.
+- **Fix 7 — 2FA gates on sensitive writes.** New `RecentTotpVerification`
+  concern (`app/controllers/concerns/recent_totp_verification.rb`) reads
+  `params[:totp_code]` from the form and rejects writes with a generic
+  `credentials don't match.` flash when the user has 2FA on. Wired into:
+  - `Settings::UserController#update`
+  - `SettingsController#update` for `section=youtube` and `section=voyage`
+  - `Settings::SlackWebhooksController#update`
+  - `Settings::DiscordWebhooksController#update`
+
+  Each form surfaces a `name="totp_code"` field gated by
+  `Current.user&.totp_enabled?` so the field only renders when 2FA is
+  actually on. Read-only views are NOT gated. Generic-flash failure copy
+  mirrors the disable-2FA flow so the response never reveals which field
+  failed.
+
+### Files touched
+
+**Edited:**
+
+- `app/views/settings/index.html.erb` — Fix 1 storage trim; Fix 5 Discord +
+  Slack row wired in; Fix 7 TOTP fields on YouTube + Voyage forms.
+- `app/controllers/settings_controller.rb` — Fix 2 notes namespace map
+  rebuild; Fix 3 Postgres display-label tuple; Fix 7 RecentTotpVerification
+  include + gate on the youtube / voyage sections.
+- `app/views/settings/security/show.html.erb` — Fix 4 intro paragraph
+  dropped.
+- `app/views/settings/security/totps/show.html.erb` — Fix 6 QR wrapper.
+- `app/controllers/settings/user_controller.rb` — Fix 7 gate on
+  user-account update.
+- `app/views/settings/user/show.html.erb` — Fix 7 TOTP code field.
+- `app/controllers/settings/slack_webhooks_controller.rb` — Fix 7 gate on
+  Slack webhook save.
+- `app/controllers/settings/discord_webhooks_controller.rb` — Fix 7 gate on
+  Discord webhook save.
+- `app/views/settings/_slack_pane.html.erb` — Fix 7 TOTP code field.
+- `app/views/settings/_discord_pane.html.erb` — Fix 7 TOTP code field.
+- `spec/requests/settings_spec.rb` — adjustments + new assertions: storage
+  size / files drop, notes table renamed + mobile drop, Postgres
+  `calendar_entries` → `calendar` rendering, Discord+Slack panes
+  surface + row-2 ordering, total pane / row count refresh.
+- `spec/requests/settings/security_spec.rb` — security intro drop assertion;
+  attempts-link assertion adjusted (link only surfaces when attempts
+  exist).
+- `spec/requests/settings/security/totps_spec.rb` — QR wrapper white-bg
+  assertion.
+
+**Added:**
+
+- `app/controllers/concerns/recent_totp_verification.rb` — shared concern.
+- `spec/requests/settings/totp_gates_spec.rb` — 21 examples covering all
+  five gated endpoints: missing code → generic flash, wrong code → generic
+  flash, correct code → write proceeds, 2FA-off baseline → write proceeds
+  without a code, read-only index always renders.
+
+### Quality gates
+
+- `bundle exec rspec spec/requests/settings spec/requests/login/totp_challenges_spec.rb
+  spec/views/settings/_slack_pane_html_erb_spec.rb
+  spec/views/settings/_discord_pane_html_erb_spec.rb
+  spec/system/totp_2fa_journey_spec.rb spec/system/login_security_journeys_spec.rb` —
+  307 / 307 green.
+- `bundle exec rubocop <edited files>` — clean (9 files, 0 offenses).
+- `bin/brakeman -q -w2` — 0 warnings, 0 errors.
+- Migrations: none.
+
+### Spec count delta
+
+- New: `spec/requests/settings/totp_gates_spec.rb` (+21 examples).
+- Adjusted: `spec/requests/settings_spec.rb`, `spec/requests/settings/security_spec.rb`,
+  `spec/requests/settings/security/totps_spec.rb`.
+
+### Open follow-ups
+
+1. The TOTP gate uses `:show` as the default render action; for non-show
+   controllers we use `redirect_on_failure:` to bounce back to /settings.
+   If a future flow needs an inline 422 on a non-show view, pass
+   `render_action:` to the helper. Pattern is already in place; no work
+   needed until a caller asks for it.
+2. The `mobile_notes` row drop is per user direction for the production
+   surface. The Mobile MCP `save_note` tool still drops markdown into
+   `docs/notes/`; only the on-pane surface changed.
+3. The integrations row reshape adds two new write paths gated by TOTP.
+   Phase 26 plan §"Open question 9" (TOTP 2FA gate on webhook URL changes)
+   suggested "revisit when 2FA ships." 2FA shipped in Phase 25 01e; this
+   bundle implements that revisit.
+
 ## 2026-05-11 — sub-spec 01f Analytics architecture + tz update (pito-docs) [skipci]
 
 Implemented sub-spec 01f — Analytics architecture + tz update per

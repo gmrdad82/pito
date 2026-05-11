@@ -21,7 +21,16 @@
       standalone: true
     )
   %>
-  <div style="margin: 8px 0;"><%= qr_svg.html_safe %></div>
+  <%# QR codes need black-on-white contrast to scan reliably. The
+      dark theme renders the page on a dark background which makes
+      the SVG (black modules on transparent) unreadable. Wrap the
+      SVG in a white-bg inline-block so the QR is always readable
+      regardless of theme. %>
+  <div style="margin: 8px 0;">
+    <div style="background: #ffffff; padding: 8px; display: inline-block;">
+      <%= qr_svg.html_safe %>
+    </div>
+  </div>
 
   <p class="text-muted" style="margin-top: 8px;">
     or paste this seed manually:

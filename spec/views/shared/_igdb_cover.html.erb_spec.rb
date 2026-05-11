@@ -61,5 +61,16 @@ RSpec.describe "shared/_igdb_cover.html.erb", type: :view do
       expect(rendered).to include('data-theme="light"')
       expect(rendered).to include('data-theme="dark"')
     end
+
+    it "does NOT inline `display: block` on the fallback <img>s (Fix 7, 2026-05-11)" do
+      # Inline `display: block` on the fallback `<img>` tags won the
+      # cascade over the class-level `.game-cover-fallback--dark
+      # { display: none; }` rule, so BOTH SVGs rendered visibly
+      # stacked. Removed in this polish pass.
+      light_img = rendered[%r{<img[^>]*game-cover-fallback--light[^>]*/>}]
+      dark_img  = rendered[%r{<img[^>]*game-cover-fallback--dark[^>]*/>}]
+      expect(light_img).not_to include("display: block")
+      expect(dark_img).not_to include("display: block")
+    end
   end
 end

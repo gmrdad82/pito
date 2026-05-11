@@ -149,14 +149,18 @@ RSpec.describe "Games display modes (01d)", type: :system do
       expect(list_section).to have_link("Borderlands")
     end
 
-    it "renders the post-polish column header order" do
+    it "renders the post-polish column header order (2026-05-11)" do
       visit games_path(display: "list")
 
       headers = find('section[data-display-mode="list"] table.list-table thead tr')
                   .all("th").map(&:text)
+      # Locked column order after the 2026-05-11 polish:
+      #   select | cover | title | released | rating | platforms owned | genres
+      # The `status` column was dropped (Fix 3); the rename was
+      # `release year` → `released` (Fix 4).
       expect(headers).to eq([
-        "", "title", "release year", "rating",
-        "platforms owned", "genres", "status"
+        "", "", "title", "released", "rating",
+        "platforms owned", "genres"
       ])
     end
   end

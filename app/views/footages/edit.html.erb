@@ -3,48 +3,50 @@
 
 <h1>edit <%= @footage.filename %></h1>
 
-<%= form_with(model: @footage, url: footage_path(@footage), method: :patch) do |f| %>
-  <% if @footage.errors.any? %>
-    <div class="flash-error" style="margin-bottom: 8px;">couldn't save — see errors below.</div>
+<div class="pane pane--standalone">
+  <%= form_with(model: @footage, url: footage_path(@footage), method: :patch) do |f| %>
+    <% if @footage.errors.any? %>
+      <div class="flash-error" style="margin-bottom: 8px;">couldn't save — see errors below.</div>
+    <% end %>
+
+    <table class="detail-table" style="margin-bottom: 8px;">
+      <tr>
+        <td class="text-muted">kind</td>
+        <td><%= f.select :kind, Footage.kinds.keys.map { |k| [ k, k ] }, {}, style: "width: 200px;" %></td>
+      </tr>
+      <tr>
+        <td class="text-muted">source</td>
+        <td><%= f.select :source, Footage.sources.keys.map { |k| [ k, k ] }, {}, style: "width: 200px;" %></td>
+      </tr>
+      <tr>
+        <td class="text-muted">game</td>
+        <td><%= f.collection_select :game_id, @games, :id, :title, include_blank: "—" %></td>
+      </tr>
+      <tr>
+        <td class="text-muted">platform</td>
+        <td><%= f.text_field :platform, style: "width: 200px;" %></td>
+      </tr>
+      <tr>
+        <td class="text-muted">nas path</td>
+        <td><%= f.text_field :nas_path, style: "width: 480px;" %></td>
+      </tr>
+      <tr>
+        <td class="text-muted">recorded at</td>
+        <td><%= f.datetime_local_field :recorded_at, value: @footage.recorded_at&.strftime("%Y-%m-%dT%H:%M") %></td>
+      </tr>
+      <tr>
+        <td class="text-muted" style="vertical-align: top;">description</td>
+        <td>
+          <div data-controller="codemirror">
+            <%= f.text_area :description, rows: 6, style: "width: 100%; max-width: 600px; font-family: ui-monospace, monospace;", data: { codemirror_target: "textarea" } %>
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    <div style="display: flex; gap: 6px;">
+      <button type="submit">[<b>update</b>]</button>
+      <%= render(BracketedLinkComponent.new(label: "cancel", href: project_path(@footage.project))) %>
+    </div>
   <% end %>
-
-  <table class="detail-table" style="margin-bottom: 8px;">
-    <tr>
-      <td class="text-muted">kind</td>
-      <td><%= f.select :kind, Footage.kinds.keys.map { |k| [ k, k ] }, {}, style: "width: 200px;" %></td>
-    </tr>
-    <tr>
-      <td class="text-muted">source</td>
-      <td><%= f.select :source, Footage.sources.keys.map { |k| [ k, k ] }, {}, style: "width: 200px;" %></td>
-    </tr>
-    <tr>
-      <td class="text-muted">game</td>
-      <td><%= f.collection_select :game_id, @games, :id, :title, include_blank: "—" %></td>
-    </tr>
-    <tr>
-      <td class="text-muted">platform</td>
-      <td><%= f.text_field :platform, style: "width: 200px;" %></td>
-    </tr>
-    <tr>
-      <td class="text-muted">nas path</td>
-      <td><%= f.text_field :nas_path, style: "width: 480px;" %></td>
-    </tr>
-    <tr>
-      <td class="text-muted">recorded at</td>
-      <td><%= f.datetime_local_field :recorded_at, value: @footage.recorded_at&.strftime("%Y-%m-%dT%H:%M") %></td>
-    </tr>
-    <tr>
-      <td class="text-muted" style="vertical-align: top;">description</td>
-      <td>
-        <div data-controller="codemirror">
-          <%= f.text_area :description, rows: 6, style: "width: 100%; max-width: 600px; font-family: ui-monospace, monospace;", data: { codemirror_target: "textarea" } %>
-        </div>
-      </td>
-    </tr>
-  </table>
-
-  <div style="display: flex; gap: 6px;">
-    <button type="submit">[<b>update</b>]</button>
-    <%= render(BracketedLinkComponent.new(label: "cancel", href: project_path(@footage.project))) %>
-  </div>
-<% end %>
+</div>

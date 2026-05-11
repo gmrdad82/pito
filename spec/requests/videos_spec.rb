@@ -469,6 +469,16 @@ RSpec.describe "Videos", type: :request do
       get edit_video_path(id: 99999)
       expect(response).to have_http_status(:not_found)
     end
+
+    # 2026-05-11 form-pane sweep — the edit form sits inside
+    # `.pane.pane--standalone` like every other standalone edit page.
+    it "wraps the edit form in a .pane.pane--standalone" do
+      get edit_video_path(video)
+      html = Nokogiri::HTML.fragment(response.body)
+      pane = html.at_css("div.pane.pane--standalone")
+      expect(pane).not_to be_nil
+      expect(pane.at_css('input[name="video[title]"]')).not_to be_nil
+    end
   end
 
   describe "PATCH /videos/:id (update)" do

@@ -6,13 +6,12 @@
 #   PATCH  /games/:game_id/platform_ownerships       → update
 #   PUT    /games/:game_id/platform_ownerships       → update
 #
-# The action scaffolds in-memory `GamePlatformOwnership` rows for every
-# IGDB release-platform of the game that the user does not yet own, so
-# the editor renders one row per available platform. The form posts a
-# nested-attributes payload with a per-row `_own` flag using the
-# project's `"yes"` / `"no"` boundary convention; the controller
-# translates `_own` into either a present row (yes → keep / create) or
-# a `_destroy` marker (no → remove an existing row).
+# Editor revamp (2026-05-12): the surface is a single bracketed
+# checkbox per release-platform (plus any platform the user already
+# owns the game on whose IGDB record was scrubbed later). The form
+# posts a flat `platform_owned_ids[]` array; every absent platform is
+# treated as "not owned". No per-row metadata fields (`acquired_at`,
+# `store`, `notes` were dropped from the schema in the same patch).
 #
 # Friendly URL — `:game_id` carries `Game#to_param` (the IGDB slug
 # when present, falls back to id).
@@ -25,33 +24,29 @@ module Games
     before_action :load_game
 
     def edit
-      @ownerships_by_platform = build_ownership_rows
+      @platforms = platforms_for_editor
+      @owned_platform_ids = owned_platform_ids
     end
 
     def update
-      raw_rows = params.dig(:game, :game_platform_ownerships_attributes)
-      raw_rows = raw_rows.respond_to?(:to_unsafe_h) ? raw_rows.to_unsafe_h : raw_rows
+      raw_ids = Array(params[:platform_owned_ids]).reject(&:blank?)
+      submitted_ids = raw_ids.map(&:to_i).uniq
 
-      validation_error = validate_rows(raw_rows)
+      validation_error = validate_ids(submitted_ids)
       if validation_error
-        @ownerships_by_platform = build_ownership_rows
+        @platforms = platforms_for_editor
+        @owned_platform_ids = owned_platform_ids
         @form_error = validation_error
         return render :edit, status: :unprocessable_content
       end
 
-      nested = transform_rows(raw_rows)
+      sync_ownerships(submitted_ids)
 
-      if @game.update(game_platform_ownerships_attributes: nested)
-        redirect_to game_path(@game), notice: "ownership updated."
-      else
-        @ownerships_by_platform = build_ownership_rows
-        @form_error = @game.errors.full_messages.join(", ")
-        render :edit, status: :unprocessable_content
-      end
-    rescue ActiveRecord::RecordNotFound
-      @ownerships_by_platform = build_ownership_rows
-      @form_error = "one of the ownership rows was modified in another tab. " \
-                    "review the editor below and try again."
+      redirect_to game_path(@game), notice: "ownership updated."
+    rescue ActiveRecord::RecordInvalid => e
+      @platforms = platforms_for_editor
+      @owned_platform_ids = owned_platform_ids
+      @form_error = e.record.errors.full_messages.join(", ")
       render :edit, status: :unprocessable_content
     end
 
@@ -61,95 +56,42 @@ module Games
       @game = Game.friendly.find(params[:game_id])
     end
 
-    # Build a hash keyed by Platform → ownership-row instance (persisted
-    # or in-memory) so the editor renders one row per release-platform.
-    # Platforms with no ownership row get an unsaved record so the form
-    # can carry `_own: "no"` for them without scaffolding records
-    # outside the form scope.
-    def build_ownership_rows
+    # Union of release-platforms (sourced from IGDB) and any platform
+    # the user already owns the game on (covers manually-added rows
+    # whose platform was scrubbed from IGDB later). Sorted
+    # alphabetically (case-insensitive).
+    def platforms_for_editor
       release_platforms = @game.platforms_available.to_a
-      existing = @game.game_platform_ownerships.includes(:platform).to_a
-      existing_by_platform_id = existing.index_by(&:platform_id)
-
-      # Union: every release-platform plus any owned platform not in
-      # the release set (covers manually-added ownership rows whose
-      # platform was scrubbed from IGDB later).
-      owned_only = existing.map(&:platform).reject { |p| release_platforms.map(&:id).include?(p.id) }
-      rows = {}
-      (release_platforms + owned_only).sort_by { |p| p.name.to_s.downcase }.each do |platform|
-        rows[platform] = existing_by_platform_id[platform.id] ||
-                         @game.game_platform_ownerships.new(platform: platform)
-      end
-      rows
+      owned_platforms = @game.game_platform_ownerships.includes(:platform).map(&:platform)
+      (release_platforms + owned_platforms).uniq.sort_by { |p| p.name.to_s.downcase }
     end
 
-    # Reject any row whose `_own` value isn't strictly `"yes"` or
-    # `"no"` (or absent — absent counts as "no"). Returns an error
-    # string when a row is invalid, nil otherwise.
-    def validate_rows(rows)
-      return nil if rows.blank?
+    def owned_platform_ids
+      @game.game_platform_ownerships.pluck(:platform_id)
+    end
 
-      entries = rows.is_a?(Hash) ? rows.values : rows
-      seen_platform_ids = []
-
-      entries.each do |row|
-        next unless row.is_a?(Hash)
-        own_value = row["_own"] || row[:_own]
-        next if own_value.blank?
-        unless YesNo.yes_no?(own_value)
-          return "_own must be 'yes' or 'no'."
-        end
-
-        platform_id_raw = row["platform_id"] || row[:platform_id]
-        next if platform_id_raw.blank?
-        pid = platform_id_raw.to_i
-        if pid <= 0 || !Platform.exists?(pid)
-          return "unknown platform."
-        end
-        if seen_platform_ids.include?(pid)
-          return "duplicate platform row submitted."
-        end
-        seen_platform_ids << pid
+    def validate_ids(ids)
+      return nil if ids.empty?
+      if ids.size != ids.uniq.size
+        return "duplicate platform submitted."
       end
+      missing = ids.reject { |pid| Platform.exists?(pid) }
+      return "unknown platform." if missing.any?
       nil
     end
 
-    # Translate the form rows into a hash AR's nested-attributes API
-    # accepts. Each row carries either `_destroy: "1"` (un-tick → remove)
-    # or the canonical attributes (tick → keep / create).
-    def transform_rows(rows)
-      return {} if rows.blank?
-
-      entries = rows.is_a?(Hash) ? rows.values : rows
-      result = {}
-
-      entries.each_with_index do |row, idx|
-        next unless row.is_a?(Hash)
-
-        own_value = row["_own"] || row[:_own]
-        owned = YesNo.from_yes_no(own_value)
-        existing_id = row["id"] || row[:id]
-        platform_id = row["platform_id"] || row[:platform_id]
-
-        attrs = {}
-        attrs[:id] = existing_id if existing_id.present?
-        attrs[:platform_id] = platform_id if platform_id.present?
-        attrs[:acquired_at] = (row["acquired_at"] || row[:acquired_at]).presence
-        attrs[:store] = (row["store"] || row[:store]).presence
-        attrs[:notes] = (row["notes"] || row[:notes]).presence
-
-        if owned
-          # Keep / create. AR creates when `id` is missing, updates when
-          # present.
-          result[idx.to_s] = attrs.compact
-        elsif existing_id.present?
-          # Un-tick an existing row → destroy on save.
-          result[idx.to_s] = { id: existing_id, _destroy: "1" }
-        end
-        # Else: not owned AND no existing row → drop silently.
+    # Bring `game.game_platform_ownerships` into shape with the
+    # submitted id list. Rows for ids in the list are kept (created
+    # when missing), rows for ids NOT in the list are destroyed.
+    def sync_ownerships(submitted_ids)
+      existing = @game.game_platform_ownerships.to_a
+      existing.each do |row|
+        row.destroy! unless submitted_ids.include?(row.platform_id)
       end
-
-      result
+      new_ids = submitted_ids - existing.map(&:platform_id)
+      new_ids.each do |pid|
+        @game.game_platform_ownerships.create!(platform_id: pid)
+      end
     end
   end
 end

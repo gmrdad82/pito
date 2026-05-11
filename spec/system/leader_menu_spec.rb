@@ -378,6 +378,82 @@ RSpec.describe "Leader menu chrome", type: :system do
     end
   end
 
+  describe "form-control pass-through (2026-05-11): SPACE on a focused input / button defers" do
+    # rack_test has no JS engine, so the runtime focus state can't be
+    # exercised directly. The contract we CAN lock is the source text
+    # of the Stimulus controller's `isEditableTarget` selector — every
+    # form-entry surface listed in the user direction must appear so
+    # SPACE on a focused control passes through to native browser
+    # behaviour instead of opening the popup.
+    #
+    # User direction (2026-05-11): "if focus is on an input field or
+    # textarea or button, or checkbox, it should not trigger as that's
+    # form functionality."
+    #
+    # Concrete consequences locked here:
+    #   * <input> covers checkbox + radio + every text-style type,
+    #     so the selector entry `input` is enough (no separate
+    #     `input[type=checkbox]` entry needed).
+    #   * <button> joins the skip set so Tab-then-SPACE on the
+    #     [update] button in /settings submits the form rather than
+    #     opening the popup.
+    #   * <textarea>, <select>, [contenteditable] stay in the set
+    #     so the previous behaviour for text entry surfaces does
+    #     not regress.
+    let(:controller_source) do
+      File.read(Rails.root.join("app/javascript/controllers/leader_menu_controller.js"))
+    end
+
+    it "isEditableTarget skips <input>" do
+      expect(controller_source).to match(/isEditableTarget\([^}]*matches\([^)]*\binput\b/m)
+    end
+
+    it "isEditableTarget skips <textarea>" do
+      expect(controller_source).to match(/isEditableTarget\([^}]*matches\([^)]*\btextarea\b/m)
+    end
+
+    it "isEditableTarget skips <select>" do
+      expect(controller_source).to match(/isEditableTarget\([^}]*matches\([^)]*\bselect\b/m)
+    end
+
+    it "isEditableTarget skips <button>" do
+      # The whole reason for the 2026-05-11 fix. A focused [update]
+      # button on /settings must activate on SPACE (browser default),
+      # NOT open the leader popup.
+      expect(controller_source).to match(/isEditableTarget\([^}]*matches\([^)]*\bbutton\b/m)
+    end
+
+    it "isEditableTarget skips [contenteditable]" do
+      expect(controller_source).to match(/isEditableTarget\([^}]*matches\([^)]*contenteditable/m)
+    end
+
+    it "documents the form-control pass-through in the controller header" do
+      # The top-of-file comment is the contract Rust-side maintainers
+      # read first when keeping the TUI overlay aligned with the web
+      # popup. Lock the new description so docs and code don't drift.
+      expect(controller_source).to include("Form-control pass-through")
+      expect(controller_source).to include("2026-05-11")
+    end
+
+    it "/settings still mounts the leader-menu controller (regression for Fix 1)" do
+      # The original bug report ("keyboard navigation is not available
+      # at /settings") was traced to focus landing on a form control
+      # rather than missing chrome. We keep this lock here alongside
+      # the AUDITED_PATHS sweep above so any future regression of the
+      # /settings chrome mount fails fast inside this describe block.
+      visit "/settings"
+      expect(page).to have_css(
+        "body[data-controller~='leader-menu']", visible: :all
+      )
+      expect(page).to have_css(
+        "script#pito-keybindings[type='application/json']", visible: :all
+      )
+      expect(page).to have_css(
+        "div#leader-menu-popup[data-leader-menu-target='popup']", visible: :all
+      )
+    end
+  end
+
   describe "popup row rendering — keys are rendered without surrounding brackets" do
     # rack_test has no JS engine, so the popup card is never built at
     # runtime in this suite; the contract we CAN lock is the source

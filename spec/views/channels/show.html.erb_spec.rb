@@ -58,10 +58,12 @@ RSpec.describe "channels/show.html.erb", type: :view do
 
     before { assign_show_defaults(channel) }
 
-    it "renders the H1 with the channel title" do
+    it "renders the H1 with the channel title (no 'channel' prefix)" do
+      # 2026-05-11 — the redundant "channel " prefix was dropped.
       render
       expect(rendered).to include("<h1")
       expect(rendered).to include("Pito Test Channel")
+      expect(rendered).not_to match(/<h1[^>]*>\s*channel\s+Pito Test Channel/)
     end
 
     it "renders the empty channel_diff_banner Turbo frame slot" do
@@ -94,6 +96,52 @@ RSpec.describe "channels/show.html.erb", type: :view do
       render
       expect(rendered).to include("youtube studio")
       expect(rendered).to match(%r{href="https://studio\.youtube\.com/channel/UC[A-Za-z0-9_-]{22}"})
+    end
+
+    # 2026-05-11 — the `[youtube channel]` / `[youtube studio]` outbound
+    # links moved from the detail pane into the H1 row, AFTER the `[+]`
+    # add-pane button, separated by a `nav-sep` middle-dot. Regression
+    # guard for that placement.
+    it "places the [youtube channel] link inside the H1 row (after the H1)" do
+      render
+      h1_row = rendered[/<h1[^>]*>.+?<\/div>/m].to_s
+      expect(h1_row).to include("youtube channel"), "expected [youtube channel] inside the H1 row"
+    end
+
+    it "places the [youtube studio] link inside the H1 row (after the H1)" do
+      render
+      h1_row = rendered[/<h1[^>]*>.+?<\/div>/m].to_s
+      expect(h1_row).to include("youtube studio"), "expected [youtube studio] inside the H1 row"
+    end
+
+    it "orders the title row as <title>, [+], separator, [youtube channel], [youtube studio]" do
+      # The default fixture assigns an empty Channel.none to
+      # @available_channels (no [+] rendered). Re-assign with a real
+      # sibling so the [+] button shows up and we can lock the full
+      # ordering inside the H1 row.
+      sibling = create(:channel)
+      assign(:available_channels, [ sibling ])
+      render
+      h1_row = rendered[/<h1[^>]*>.+?<\/div>/m].to_s
+      title_idx       = h1_row.index("Pito Test Channel")
+      plus_idx        = h1_row.index(/<span class="bl">\+<\/span>/)
+      sep_idx         = h1_row.index('class="nav-sep"')
+      yt_channel_idx  = h1_row.index("youtube channel")
+      yt_studio_idx   = h1_row.index("youtube studio")
+      expect([ title_idx, plus_idx, sep_idx, yt_channel_idx, yt_studio_idx ]).to all(be_a(Integer))
+      expect(title_idx).to      be < plus_idx
+      expect(plus_idx).to       be < sep_idx
+      expect(sep_idx).to        be < yt_channel_idx
+      expect(yt_channel_idx).to be < yt_studio_idx
+    end
+
+    it "does NOT render a second [youtube channel] link inside the detail pane" do
+      render
+      # The detail pane (banner + identity + description + links cluster)
+      # no longer carries the outbound link cluster. Total occurrences of
+      # the label across the page must be exactly one (the H1-row link).
+      occurrences = rendered.scan("youtube channel").size
+      expect(occurrences).to eq(1), "expected exactly one [youtube channel] link on the page (got #{occurrences})"
     end
 
     it "opens [youtube channel] in a new tab" do

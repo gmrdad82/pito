@@ -21,13 +21,28 @@ class FilterChipComponent < ViewComponent::Base
   # with an empty value (`?types=`) so the URL still encodes the
   # "everything unchecked" state distinctly from "no param = all". The
   # default (no `csv:`) keeps the original single-value semantics.
-  def initialize(label:, param:, value: "yes", current_params: {}, frame: nil, csv: false)
+  #
+  # `path:` opts the chip into ABSOLUTE-URL mode (Turbo Frame
+  # content-missing fix, 2026-05-11). When set, the anchor's href is
+  # `<path>?<query>` (e.g. `/notifications?filter=unread`) instead of
+  # the bare relative `?<query>`. Required when the chip can be loaded
+  # into a Turbo Frame whose `src` differs from the document URL — a
+  # relative `?…` href resolves against the DOCUMENT URL (browser
+  # behavior), NOT the frame's src, so a chip inside the notifications
+  # modal opened from /channels would otherwise navigate to
+  # `/channels?filter=unread&modal=yes`, which has no matching modal
+  # frame in its response and Turbo renders "Content missing". Setting
+  # `path:` pins the chip to its owning surface regardless of where the
+  # surrounding frame was loaded from. Default (nil) preserves the
+  # original relative-href behavior every existing call site relies on.
+  def initialize(label:, param:, value: "yes", current_params: {}, frame: nil, csv: false, path: nil)
     @label = label
     @param = param.to_s
     @value = value.to_s
     @current_params = (current_params || {}).to_h.transform_keys(&:to_s)
     @frame = frame
     @csv = csv
+    @path = path
   end
 
   def checked?
@@ -59,7 +74,13 @@ class FilterChipComponent < ViewComponent::Base
       end
     end
 
-    new_params.empty? ? "?" : "?#{new_params.to_query}"
+    query = new_params.empty? ? "" : new_params.to_query
+    prefix = @path.to_s
+    if prefix.empty?
+      query.empty? ? "?" : "?#{query}"
+    else
+      query.empty? ? prefix : "#{prefix}?#{query}"
+    end
   end
 
   def turbo_frame_attr

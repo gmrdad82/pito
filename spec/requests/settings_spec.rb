@@ -368,7 +368,7 @@ RSpec.describe "Settings", type: :request do
       expect(response.body).not_to include("[save]")
     end
 
-    it "renders settings as six .pane-row groups holding eleven total panes" do
+    it "renders settings as seven .pane-row groups holding thirteen total panes" do
       # 2026-05-10 follow-up — Phase 24 dropped Google + YouTube to
       # four rows / seven panes; restoring the YouTube read-only
       # credentials status card as its own single-pane row pushes the
@@ -384,20 +384,25 @@ RSpec.describe "Settings", type: :request do
       # storage goes to a single wide pane (`.pane--wide`) with a
       # 2-column inner layout (assets | notes). Total drops to
       # eleven panes across the same six pane-rows.
+      # 2026-05-11 (later 2) — integrations section now surfaces
+      # Discord + Slack webhook panes on a new row 2 (Discord left,
+      # Slack right). OAuth + sessions moves to row 3. Totals go up
+      # to seven rows / thirteen panes.
       # Layout:
-      #   row 1 — ui / ux | workspaces        (2 panes)
-      #   row 2 — YouTube | Voyage.ai         (2 panes)
-      #   row 3 — user | time zone            (2 panes; Phase 26 01a)
-      #   row 4 — OAuth+tokens | sessions     (2 panes; the OAuth /
+      #   row 1 — ui / ux | workspaces           (2 panes)
+      #   row 2 — user | time zone               (2 panes; Phase 26 01a)
+      #   row 3 — YouTube | Voyage.ai            (2 panes)
+      #   row 4 — Discord | Slack                (2 panes; Phase 26 01b+01c)
+      #   row 5 — OAuth+tokens | sessions        (2 panes; the OAuth /
       #     tokens cell still combines TWO sub-sections separated by
       #     a `<hr class="hairline">`, but counts as one pane).
-      #   stack row 1 — db | search           (2 panes; db combines
+      #   stack row 1 — db | search              (2 panes; db combines
       #     Postgres + Redis fenced by a hairline)
       #   stack row 2 — storage (single wide pane, no right cell)
       get settings_path
-      expect(response.body.scan(/class="pane-row"/).length).to eq(6)
+      expect(response.body.scan(/class="pane-row"/).length).to eq(7)
       panes = response.body.scan(/class="pane(?:\s[^"]*)?"/).size
-      expect(panes).to eq(11)
+      expect(panes).to eq(13)
     end
 
     it "separates the OAuth applications and tokens sub-sections with a hairline" do
@@ -782,9 +787,13 @@ RSpec.describe "Settings", type: :request do
         expect(storage_section).not_to include("pito-assets")
         # Both columns report writable.
         expect(storage_section.scan("▲ writable").size).to eq(2)
-        # File counts render via `number_with_delimiter`.
-        expect(storage_section).to include("files: 2")
-        expect(storage_section).to include("files: 1")
+        # 2026-05-11 — the `size: …` / `files: …` summary lines under
+        # each title were dropped per user direction. Only the title +
+        # writable badge survive; the per-category / per-namespace
+        # tables below carry the count + size detail.
+        expect(storage_section).not_to include("files: 2")
+        expect(storage_section).not_to include("files: 1")
+        expect(storage_section).not_to match(/size:\s*\d/)
       end
 
       it "no longer renders the path: line (user direction 2026-05-11)" do
@@ -826,10 +835,14 @@ RSpec.describe "Settings", type: :request do
         # The numeric headers + cells carry the `.num` right-align class.
         expect(db_section).to include('class="num"')
         expect(db_section).to include('class="text-muted num"')
-        # Each of the six tables surfaces by its literal table name.
-        %w[channels videos projects games notifications calendar_entries].each do |table|
-          expect(db_section).to include(">#{table}<")
+        # 2026-05-11 — `calendar_entries` surfaces with the friendly
+        # display alias `calendar` per user direction; everything else
+        # reads cleanly already.
+        %w[channels videos projects games notifications calendar].each do |display|
+          expect(db_section).to include(">#{display}<")
         end
+        # The raw table name is no longer surfaced as a row label.
+        expect(db_section).not_to include(">calendar_entries<")
       end
 
       it "sorts rows by on-disk size descending" do
@@ -850,7 +863,11 @@ RSpec.describe "Settings", type: :request do
 
         get settings_path
         db_section = response.body[/<legend><h2>db<\/h2><\/legend>.*?<\/fieldset>/m]
-        order = %w[videos notifications games calendar_entries projects channels]
+        # 2026-05-11 — `calendar_entries` renders as the friendly
+        # `calendar` display alias. Sort order uses the underlying
+        # size, which the stub keys by raw table name; the rendered
+        # row label is the display alias.
+        order = %w[videos notifications games calendar projects channels]
         positions = order.map { |t| db_section.index(">#{t}<") }
         expect(positions).to all(be_a(Integer))
         expect(positions).to eq(positions.sort)
@@ -1153,16 +1170,19 @@ RSpec.describe "Settings", type: :request do
     end
 
     # 2026-05-11 (later) — `notes` column per-namespace
-    # breakdown table. Today: project notes (Note rows) + mobile
-    # notes (docs/notes/). Future video / channel notes slot in
-    # via `NOTES_NAMESPACE_SOURCES` in the controller.
+    # breakdown table. Today: only the `project` namespace (Note
+    # rows) ships. The mobile drop-zone row was a dev-only artifact
+    # and got dropped per user direction; future video / channel
+    # notes slot in via `NOTES_NAMESPACE_SOURCES` in the controller.
+    # The `project notes` label was renamed to `project` — the
+    # `namespace` column header already supplies the context, so
+    # the trailing `notes` noun was redundant.
     describe "notes column breakdown table" do
-      it "renders both namespaces with count + size" do
+      it "renders the project namespace with count + size" do
         allow_any_instance_of(SettingsController)
           .to receive(:notes_breakdown_for_settings_pane)
           .and_return([
-            { label: "project notes", count: 42, size_bytes: 5_000_000 },
-            { label: "mobile notes",  count: nil, size_bytes: 1_024 }
+            { label: "project", count: 42, size_bytes: 5_000_000 }
           ])
 
         get settings_path
@@ -1171,13 +1191,22 @@ RSpec.describe "Settings", type: :request do
         # Header row + the `count` column.
         expect(storage_section).to include(">namespace<")
         expect(storage_section).to include(">count<")
-        # Both rows.
-        expect(storage_section).to include(">project notes<")
-        expect(storage_section).to include(">mobile notes<")
+        # Row renders with the renamed label.
+        expect(storage_section).to include(">project<")
         # Project notes report a real count.
         expect(storage_section).to include("42")
-        # Mobile notes (count nil) render an em-dash placeholder.
-        expect(storage_section).to include("—")
+      end
+
+      it "drops the dev-only mobile-notes row from the default surface" do
+        # No stub — exercise the real controller helper.
+        get settings_path
+        storage_section = response.body[/<legend><h2>storage<\/h2><\/legend>.*?<\/fieldset>/m]
+        expect(storage_section).not_to include(">mobile notes<")
+        expect(storage_section).not_to include(">mobile<")
+        # The renamed `project` label survives.
+        expect(storage_section).to include(">project<")
+        # The verbose legacy `project notes` label is gone.
+        expect(storage_section).not_to include(">project notes<")
       end
 
       it "renders no breakdown table when the controller returns []" do
@@ -1197,8 +1226,7 @@ RSpec.describe "Settings", type: :request do
         allow_any_instance_of(SettingsController)
           .to receive(:notes_breakdown_for_settings_pane)
           .and_return([
-            { label: "project notes", count: 42,  size_bytes: 5_000_000 },
-            { label: "mobile notes",  count: nil, size_bytes: 1_024 }
+            { label: "project", count: 42,  size_bytes: 5_000_000 }
           ])
 
         get settings_path
@@ -1211,14 +1239,44 @@ RSpec.describe "Settings", type: :request do
       end
     end
 
-    # 2026-05-10 — Slack / Discord panes were dropped from the
-    # /settings index page per the user-locked layout. Their
-    # controllers, routes, and partials remain — but the index no
-    # longer renders them.
-    it "does not render the Slack or Discord panes on the index" do
+    # 2026-05-11 — per user direction the integrations section now
+    # surfaces Slack + Discord webhook panes on row 2 (Discord left,
+    # Slack right). The panes themselves shipped in Phase 26
+    # (01b / 01c) but were never wired into the index until this
+    # pass.
+    it "renders the Slack and Discord panes on the integrations section" do
       get settings_path
-      expect(response.body).not_to include("<h2>Slack</h2>")
-      expect(response.body).not_to include("<h2>Discord</h2>")
+      expect(response.body).to include("<h2>Slack</h2>")
+      expect(response.body).to include("<h2>Discord</h2>")
+    end
+
+    it "puts Discord before Slack on row 2 (Discord left, Slack right)" do
+      get settings_path
+      discord_idx = response.body.index("<h2>Discord</h2>")
+      slack_idx = response.body.index("<h2>Slack</h2>")
+      expect(discord_idx).to be_a(Integer)
+      expect(slack_idx).to be_a(Integer)
+      expect(discord_idx).to be < slack_idx
+    end
+
+    it "renders three integrations rows in the user-locked order" do
+      get settings_path
+      # Row order: YouTube + Voyage → Discord + Slack → OAuth applications + sessions.
+      youtube_idx = response.body.index("<h2>YouTube</h2>")
+      voyage_idx  = response.body.index("<h2>Voyage.ai</h2>")
+      discord_idx = response.body.index("<h2>Discord</h2>")
+      slack_idx   = response.body.index("<h2>Slack</h2>")
+      oauth_idx   = response.body.index("<h2>OAuth applications</h2>")
+      sessions_idx = response.body.index("<h2>sessions</h2>")
+      expect([ youtube_idx, voyage_idx, discord_idx, slack_idx, oauth_idx, sessions_idx ]).to all(be_a(Integer))
+      # Row 1 leads.
+      expect(youtube_idx).to be < discord_idx
+      expect(voyage_idx).to be < discord_idx
+      # Row 2 sits between row 1 and row 3.
+      expect(discord_idx).to be < oauth_idx
+      expect(slack_idx).to be < oauth_idx
+      # Row 3 trails.
+      expect(oauth_idx).to be < sessions_idx + 1 # both on row 3; either order ok
     end
 
     it "renders the tokens pane with a link to /settings/tokens" do

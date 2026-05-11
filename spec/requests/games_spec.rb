@@ -78,9 +78,10 @@ RSpec.describe "Games", type: :request do
         expect(response.body.scan(">bundles<").length).to eq(0)
       end
 
-      it "renders the all-games section heading" do
+      it "renders the all-games section heading as 'all' (Fix 8, 2026-05-11)" do
         get games_path
-        expect(response.body).to include(">all games<")
+        expect(response.body).to include(">all<")
+        expect(response.body).not_to include(">all games<")
       end
 
       it "stamps a steam-shelf Stimulus controller on each shelf" do
@@ -183,6 +184,16 @@ RSpec.describe "Games", type: :request do
         expect(response.body).not_to match(%r{<section[^>]*shelf--collections[^>]*outer-shelf})
       end
 
+      it "does NOT render the hairline between genres and collections when one is empty (Fix 2)" do
+        # Only a genre shelf renders here — collections are absent.
+        adventure = Genre.create!(igdb_id: 50, name: "Adventure", slug: "adventure")
+        g = create(:game, :synced, title: "Tunic", cover_image_id: "img-tunic")
+        g.genres << adventure
+        get games_path
+        expect(response.body).to include('data-shelf="outer-genres"')
+        expect(response.body).not_to include('<hr class="hairline">')
+      end
+
       context "with non-empty genres and collections" do
         let!(:adventure)  { Genre.create!(igdb_id: 1, name: "Adventure",  slug: "adventure") }
         let!(:rpg)        { Genre.create!(igdb_id: 2, name: "rpg",        slug: "rpg") }
@@ -199,11 +210,26 @@ RSpec.describe "Games", type: :request do
           celeste.genres << platformer
         end
 
-        it "renders the Genres outer-shelf <section> with a single <h2>" do
+        it "renders the Genres outer-shelf <section> without an outer <h2> (Fix 1, 2026-05-11)" do
+          # 2026-05-11 polish (Fix 1) — the outer `<h2>genres</h2>`
+          # heading was retired. The outer `<section>` still wraps the
+          # iteration so the sub-shelf CSS hairline scope keeps working;
+          # each sub-shelf carries its own `<h3>` heading.
           get games_path
           expect(response.body).to include('data-shelf="outer-genres"')
-          # Outer-shelf `<h2>` carries the literal label `genres`.
-          expect(response.body).to match(%r{<h2[^>]*>\s*genres\s*</h2>})
+          expect(response.body).not_to match(%r{<h2[^>]*>\s*genres\s*</h2>})
+        end
+
+        it "renders an `<hr class=\"hairline\">` between the genres and collections shelves (Fix 2)" do
+          get games_path
+          # The hairline lives in `index.html.erb` between the two
+          # outer shelves; assert presence and ordering.
+          expect(response.body).to include('<hr class="hairline">')
+          genres_pos = response.body.index('data-shelf="outer-genres"')
+          hairline_pos = response.body.index('<hr class="hairline">')
+          colls_pos = response.body.index('data-shelf="outer-collections"')
+          expect(genres_pos).to be < hairline_pos
+          expect(hairline_pos).to be < colls_pos
         end
 
         it "renders the Collections outer-shelf with the 'collections' <h2>" do

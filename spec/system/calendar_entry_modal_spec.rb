@@ -82,10 +82,13 @@ RSpec.describe "Calendar entry modal (SSR scaffold)", type: :system do
     expect(close_link["data-action"].to_s).to include("click->calendar-entry-modal#close")
   end
 
-  it "details_pane shows `[ all day ]` badge for all-day entries" do
+  it "details_pane shows the `all day` badge for all-day entries" do
     ce = create(:calendar_entry, :game_release, all_day: true)
     visit "/calendar/entries/#{ce.id}/details_pane"
-    expect(page).to have_content("[ all day ]")
+    # Calendar polish 2026-05-11 — bordered-box badge, no literal
+    # brackets around the text.
+    expect(page).to have_css(".calendar-badge.calendar-badge--all-day", text: "all day")
+    expect(page).not_to have_content("[ all day ]")
   end
 
   it "details_pane `[open video]` link points at the related video" do

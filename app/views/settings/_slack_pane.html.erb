@@ -58,6 +58,20 @@
           `coerce_boolean` helper treats absence as `false`. This
           matches the existing Voyage pane checkbox pattern. %>
 
+      <%# 2026-05-11 — fresh TOTP gate. When 2FA is on, the
+          controller rejects webhook saves that don't carry a
+          valid `totp_code`. Read-only views are not gated. %>
+      <% if Current.user&.totp_enabled? %>
+        <div style="margin-bottom: 8px;">
+          <label for="slack_totp_code" class="form-label">2FA code</label>
+          <input type="text" name="totp_code" id="slack_totp_code"
+                 value="" autocomplete="one-time-code" inputmode="numeric"
+                 pattern="\d{6}" maxlength="6"
+                 style="max-width: 420px; width: 100%;">
+          <span class="form-hint" style="display: block;">required to authorize the change.</span>
+        </div>
+      <% end %>
+
       <div style="display: flex; align-items: baseline; gap: 8px;">
         <button type="submit">[update]</button>
         <%# Phase 26 — 01d. `[help]` link opens the layout-level

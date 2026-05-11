@@ -11,6 +11,28 @@ RSpec.describe Youtube::AnalyticsQueryBuilder do
   let(:from)               { today - 3 }
   let(:to)                 { today - 1 }
 
+  describe "WINDOW_RATIO_METRICS constant" do
+    # Regression: this constant must remain narrow. The C1 fix split
+    # `DAILY_METRICS` into basic + engagement; the C2/V2 fix dropped
+    # the three click-rate ratios that live in the impressions /
+    # card-performance reports. Adding them back without the dedicated
+    # multi-call + merge plumbing re-introduces the
+    # `400 badRequest: The query is not supported.` rejection.
+    it "contains only averageViewPercentage" do
+      expect(described_class::WINDOW_RATIO_METRICS).to eq(%w[averageViewPercentage])
+    end
+
+    it "does not contain click-rate ratios" do
+      %w[
+        videoThumbnailImpressionsClickRate
+        cardClickRate
+        cardTeaserClickRate
+      ].each do |m|
+        expect(described_class::WINDOW_RATIO_METRICS).not_to include(m)
+      end
+    end
+  end
+
   describe ".channel_daily_params" do
     let(:params) do
       described_class.channel_daily_params(
@@ -18,16 +40,27 @@ RSpec.describe Youtube::AnalyticsQueryBuilder do
       )
     end
 
-    it "builds C1 params with the documented daily metric set" do
+    it "builds C1 params with the documented basic-stats-by-day metric set" do
       metrics = params[:metrics].split(",")
       %w[
-        views estimatedMinutesWatched estimatedRedMinutesWatched
+        views redViews estimatedMinutesWatched estimatedRedMinutesWatched
         averageViewDuration likes dislikes comments shares
         subscribersGained subscribersLost
         videosAddedToPlaylists videosRemovedFromPlaylists
-        videoThumbnailImpressions cardImpressions cardClicks
-        cardTeaserImpressions cardTeaserClicks engagedViews redViews
       ].each { |m| expect(metrics).to include(m) }
+    end
+
+    # Regression: YouTube rejects the combined metric set with
+    # `400 badRequest: The query is not supported.` when impressions
+    # / cards / engagement metrics are mixed into the basic-stats
+    # daily report. Those metrics belong to other reports and must
+    # be fetched in dedicated queries.
+    it "omits engagement / card / impressions metrics (separate reports)" do
+      metrics = params[:metrics].split(",")
+      %w[
+        videoThumbnailImpressions cardImpressions cardClicks
+        cardTeaserImpressions cardTeaserClicks engagedViews
+      ].each { |m| expect(metrics).not_to include(m) }
     end
 
     it "uses dimensions=day" do
@@ -79,12 +112,24 @@ RSpec.describe Youtube::AnalyticsQueryBuilder do
       expect(params[:dimensions]).to be_nil
     end
 
-    it "appends the four non-summable ratios" do
+    it "appends averageViewPercentage (basic-stats ratio)" do
       metrics = params[:metrics].split(",")
-      %w[averageViewPercentage videoThumbnailImpressionsClickRate
-         cardClickRate cardTeaserClickRate].each do |m|
-        expect(metrics).to include(m)
-      end
+      expect(metrics).to include("averageViewPercentage")
+    end
+
+    # Regression: YouTube rejects the combined metric set with
+    # `400 badRequest: The query is not supported.` when click-rate
+    # ratios are mixed into the basic-stats window-summary report.
+    # `videoThumbnailImpressionsClickRate`, `cardClickRate`, and
+    # `cardTeaserClickRate` live in the impressions / card-performance
+    # reports and must be fetched in dedicated queries.
+    it "omits click-rate ratios (separate reports)" do
+      metrics = params[:metrics].split(",")
+      %w[
+        videoThumbnailImpressionsClickRate
+        cardClickRate
+        cardTeaserClickRate
+      ].each { |m| expect(metrics).not_to include(m) }
     end
 
     it "appends revenue ratios (cpm, playbackBasedCpm) when monetization enabled" do
@@ -203,6 +248,17 @@ RSpec.describe Youtube::AnalyticsQueryBuilder do
       expect(metrics).to include("estimatedMinutesWatched")
       expect(metrics).not_to include("averageViewPercentage")
     end
+
+    # Regression: V1 inherits the same metric scoping as C1 — only
+    # basic-stats-by-day metrics are accepted by the API in this
+    # report shape.
+    it "omits engagement / card / impressions metrics (separate reports)" do
+      metrics = params[:metrics].split(",")
+      %w[
+        videoThumbnailImpressions cardImpressions cardClicks
+        cardTeaserImpressions cardTeaserClicks engagedViews
+      ].each { |m| expect(metrics).not_to include(m) }
+    end
   end
 
   describe ".video_window_summary_params" do
@@ -219,7 +275,19 @@ RSpec.describe Youtube::AnalyticsQueryBuilder do
     it "shares the C2 metric shape" do
       metrics = params[:metrics].split(",")
       expect(metrics).to include("averageViewPercentage")
-      expect(metrics).to include("videoThumbnailImpressionsClickRate")
+    end
+
+    # Regression: V2 inherits the same window-ratio scoping as C2.
+    # Click-rate ratios live in the impressions / card-performance
+    # reports and would trigger `400 badRequest: The query is not
+    # supported.` if mixed into the basic-stats window-summary call.
+    it "omits click-rate ratios (separate reports)" do
+      metrics = params[:metrics].split(",")
+      %w[
+        videoThumbnailImpressionsClickRate
+        cardClickRate
+        cardTeaserClickRate
+      ].each { |m| expect(metrics).not_to include(m) }
     end
   end
 

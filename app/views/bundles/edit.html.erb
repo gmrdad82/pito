@@ -4,7 +4,8 @@
 <% content_for(:title, "edit #{@bundle.name}") %>
 <% breadcrumb([ "bundles", bundles_path ], [ @bundle.name, bundle_path(@bundle) ], "edit") %>
 
-<div style="max-width: 600px;">
-  <h1>edit bundle</h1>
+<h1>edit bundle</h1>
+
+<div class="pane pane--standalone" style="max-width: 600px;">
   <%= render "form", bundle: @bundle, form_mode: :edit %>
 </div>

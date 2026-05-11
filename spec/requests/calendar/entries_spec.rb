@@ -342,10 +342,14 @@ RSpec.describe "Calendar::Entries", type: :request do
       expect(response.body).to include('id="calendar_entry_details_frame"')
     end
 
-    it "renders the `[ all day ]` badge when entry.all_day is true" do
+    it "renders the `all day` badge when entry.all_day is true" do
       ce = create(:calendar_entry, :game_release, all_day: true)
       get "/calendar/entries/#{ce.id}/details_pane"
-      expect(response.body).to include("[ all day ]")
+      # Calendar polish 2026-05-11 — bordered-box badge, no literal
+      # brackets around the text. Match the rendered `<span>` so the
+      # assertion pins both the class hook and the plain text.
+      expect(response.body).to match(%r{<span class="calendar-badge calendar-badge--all-day"[^>]*>all day</span>})
+      expect(response.body).not_to include("[ all day ]")
     end
 
     it "renders an HH:MM stamp when entry.all_day is false" do

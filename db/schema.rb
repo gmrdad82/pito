@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_12_010000) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_12_020000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -441,12 +441,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_12_010000) do
   end
 
   create_table "game_platform_ownerships", force: :cascade do |t|
-    t.datetime "acquired_at"
     t.datetime "created_at", null: false
     t.bigint "game_id", null: false
-    t.text "notes"
     t.bigint "platform_id", null: false
-    t.string "store"
     t.datetime "updated_at", null: false
     t.index ["game_id", "platform_id"], name: "index_game_platform_ownerships_uniqueness", unique: true
     t.index ["game_id"], name: "index_game_platform_ownerships_on_game_id"

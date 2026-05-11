@@ -82,6 +82,16 @@ RSpec.describe "Bundles", type: :request do
       expect(response).to have_http_status(:ok)
       expect(response.body).to include("new bundle")
     end
+
+    # 2026-05-11 form-pane sweep — the form sits inside
+    # `.pane.pane--standalone` like every other standalone new page.
+    it "wraps the new form in a .pane.pane--standalone" do
+      get new_bundle_path
+      html = Nokogiri::HTML.fragment(response.body)
+      pane = html.at_css("div.pane.pane--standalone")
+      expect(pane).not_to be_nil
+      expect(pane.at_css('input[name="bundle[name]"]')).not_to be_nil
+    end
   end
 
   describe "POST /bundles" do
@@ -126,6 +136,21 @@ RSpec.describe "Bundles", type: :request do
                   igdb_source_type: "franchise" }
       }
       expect(response).to have_http_status(:unprocessable_content)
+    end
+  end
+
+  describe "GET /bundles/:id/edit" do
+    let(:bundle) { create(:bundle, bundle_type: :custom, name: "Old") }
+
+    # 2026-05-11 form-pane sweep — the edit form sits inside
+    # `.pane.pane--standalone` like every other standalone edit page.
+    it "wraps the edit form in a .pane.pane--standalone" do
+      get edit_bundle_path(bundle)
+      expect(response).to have_http_status(:ok)
+      html = Nokogiri::HTML.fragment(response.body)
+      pane = html.at_css("div.pane.pane--standalone")
+      expect(pane).not_to be_nil
+      expect(pane.at_css('input[name="bundle[name]"]')).not_to be_nil
     end
   end
 

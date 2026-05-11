@@ -2,10 +2,14 @@
     Phase 27 metadata refresh — two explicit caption lines below the
     cover art:
 
-      line 1: title, single line, ellipsis-truncated to the cover width
-      line 2: `★ <RR> · <YYYY>` — rating zero-padded to two digits,
-              year second, middle-dot separator. Missing pieces drop
-              out gracefully; see `GamesHelper#game_meta_line`.
+      line 1: title, single line, ellipsis-truncated to the cover width.
+              Rendered in BOLD when the game is not yet released
+              (release_date nil or in the future) per the 2026-05-11
+              polish pass (Fix 6).
+      line 2: `<NN>/100 · <YYYY>` — rating out of 100, year second,
+              middle-dot separator. The star glyph was retired in the
+              2026-05-11 polish pass (Fix 5). Missing pieces drop out
+              gracefully; see `GamesHelper#game_meta_line`.
 
     Locals:
       item or game  the Game record (the partial accepts either local
@@ -24,6 +28,12 @@
   game     = local_assigns[:game] || local_assigns[:item]
   variant  = (local_assigns[:variant] || :grid).to_sym
   meta_line = game_meta_line(game)
+
+  # 2026-05-11 polish (Fix 6) — a game is "not yet released" when its
+  # `release_date` is nil OR in the future. The title renders bold via
+  # the `.not-released` class so the workspace surfaces upcoming
+  # entries at a glance.
+  not_released = game.release_date.blank? || game.release_date > Date.current
 
   # Variant-keyed caption typography. Cover width stays 150px on both
   # variants because the existing surrounding containers size the slot;
@@ -53,29 +63,35 @@
    data-variant="<%= variant %>"
    data-keyboard-tile
    title="<%= title_attr %>">
-  <div class="tile-cover" style="width: 150px; height: 200px; overflow: hidden; background: var(--color-bg); display: flex; align-items: center; justify-content: center;">
+  <div class="tile-cover" style="position: relative; width: 150px; height: 200px; overflow: hidden; background: var(--color-bg); display: flex; align-items: center; justify-content: center;">
     <% if game.cover_url.present? %>
       <%= image_tag game.cover_url(size: "t_cover_big"),
                     alt: game.title, loading: "lazy",
                     style: "width: 100%; height: 100%; object-fit: cover; display: block;" %>
     <% else %>
-      <%# Theme-aware fallback. Mirrors the `Games::CoverComponent`
-          missing-cover treatment: emit both light + dark SVGs, let
-          the `.game-cover-fallback--{light,dark}` CSS rule pick the
-          visible one based on `<html data-theme>` (set client-side
-          by the theme Stimulus controller). %>
+      <%# 2026-05-11 polish (Fix 7) — theme-aware fallback. Both SVGs
+          are absolutely positioned to occupy the same 150x200 slot,
+          and inline `display` is omitted on the fallback `<img>`
+          tags so the `.game-cover-fallback--{light,dark}` class
+          rules in `application.css` win the cascade (no inline-style
+          override). The off-theme variant is hidden via
+          `display: none`; the active variant inherits the default
+          `display: inline` of `<img>`, which is enough since
+          `position: absolute; inset: 0;` sizes it to the slot. The
+          dual-stacked artefact (two fallback SVGs rendering on top of
+          each other) is gone. %>
       <%= image_tag image_path("game_cover_fallback_grid_light.svg"),
                     alt: "no cover available", loading: "lazy",
                     width: 150, height: 200,
                     data: { theme: "light" },
                     class: "game-cover-fallback game-cover-fallback--light",
-                    style: "width: 100%; height: 100%; object-fit: cover; display: block;" %>
+                    style: "position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;" %>
       <%= image_tag image_path("game_cover_fallback_grid_dark.svg"),
                     alt: "no cover available", loading: "lazy",
                     width: 150, height: 200,
                     data: { theme: "dark" },
                     class: "game-cover-fallback game-cover-fallback--dark",
-                    style: "width: 100%; height: 100%; object-fit: cover; display: block;" %>
+                    style: "position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;" %>
     <% end %>
   </div>
   <div class="tile-caption" style="padding: 4px 0 0 0; font-size: <%= caption_font_size %>; max-width: 150px;">
@@ -88,8 +104,8 @@
         ↳ <%= game.version_parent.title %>
       </div>
     <% end %>
-    <div class="tile-caption-title"
-         style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;">
+    <div class="tile-caption-title<%= " not-released" if not_released %>"
+         style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;<%= " font-weight: bold;" if not_released %>">
       <%= game.title %>
     </div>
     <% if meta_line.present? %>

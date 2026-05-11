@@ -40,10 +40,12 @@
         padding-top: 8px;
       }
     </style>
-    <div class="dot-list" style="margin-bottom: 6px;">
-      <h2 style="margin: 0;">genres</h2>
-    </div>
-
+    <%# 2026-05-11 polish (Fix 1) — the outer `<h2>genres</h2>` heading
+        was retired. The page now opens straight into the genre
+        sub-shelves; the per-sub-shelf `<h3>` headings carry the genre
+        name. The outer `<section>` still wraps the iteration so the
+        sub-shelf hairline CSS scope (`section[data-shelf="outer-genres"]`)
+        keeps working. %>
     <% genres.each do |genre| %>
       <%= render "games/genre_sub_shelf", genre: genre %>
     <% end %>

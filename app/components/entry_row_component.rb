@@ -3,8 +3,9 @@
 # Schedule view row. Calendar refactor 2026-05-11: drops the `occurred`
 # state column entirely, replaces the legacy glyph prefix with a typed
 # `entry_type_label` (`channel(joined)` / `video(published)` / etc.),
-# and surfaces all-day entries with a `[ all day ]` badge in the time
-# column. Grouping-by-day (suppress repeated date cell) is handled by
+# and surfaces all-day entries with an `all day` badge in the time
+# column (calendar polish 2026-05-11: the badge is a bordered box
+# styled like the notification-severity-badge — no literal brackets). Grouping-by-day (suppress repeated date cell) is handled by
 # the schedule template — the row carries the date label every time;
 # the template overrides it with `show_date: false` for sibling rows.
 class EntryRowComponent < ViewComponent::Base

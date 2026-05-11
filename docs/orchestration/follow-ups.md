@@ -926,6 +926,45 @@ surfaces.
 and search controller (`app/controllers/search_controller.rb`) are the existing
 JSON-rendering reference patterns. Use `.jbuilder` views for multi-field shapes.
 
+### Analytics window-summary click-rate ratios via dedicated impressions / card-performance reports
+
+**Trigger:** when the architect picks up a "phase 13.3 / window-summary
+fidelity" pass; gated on the existing C1 + C2/V2 basic-stats path being stable.
+
+**Source:** Phase 13.2 fix-forward (2026-05-11). C1 was first reduced to
+`DAILY_BASIC_METRICS` (impressions / cards / engagement removed) after YT
+rejected the combined daily set with `400 badRequest: The query is not
+supported.`. C2 (channel window summary) and V2 (video window summary) hit the
+same rejection because `WINDOW_RATIO_METRICS` mixed `averageViewPercentage`
+(basic-stats ratio) with three click-rate ratios that live in different reports.
+The fix dropped the click-rate ratios from the window-summary call so C2 + V2
+go through.
+
+**Rejected metrics (currently not fetched by C2 / V2):**
+
+- `videoThumbnailImpressionsClickRate` — lives in the impressions report.
+- `cardClickRate` — lives in the card-performance report.
+- `cardTeaserClickRate` — lives in the card-performance report.
+
+The DB columns for these ratios are still present on
+`channel_window_summaries` and `video_window_summaries` (and on
+`video_daily_by_traffic_sources` for the traffic-source variant) — they just
+stay `NULL` until this follow-up ships.
+
+**Action when triggered:** spec the additional `reports.query` calls against
+the impressions and card-performance reports (one per report, per
+channel / video, per window), then merge the returned ratio rows back into the
+window-summary upserts at the rollup layer. The current
+`ChannelAnalyticsSync` / `VideoAnalyticsSync` already read these keys from the
+`pairs` map and write them via `dec_or_nil` — so adding the parallel calls and
+merging into the same `pairs` hash before the upsert is the minimal-surface
+change. Verify against the YT Analytics docs for the exact metric / dimension
+shape each report accepts. Add an integration spec that exercises the merged
+upsert and a regression spec asserting C2 + V2 still issue the basic-stats
+window summary as a separate call (do NOT re-merge the click-rate ratios into
+the basic-stats call). Tracking note for `WINDOW_RATIO_METRICS` lives inline at
+`app/services/youtube/analytics_query_builder.rb`.
+
 ## Done
 
 ### Channel Revamp post-commit cleanup

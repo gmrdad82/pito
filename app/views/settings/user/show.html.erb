@@ -49,6 +49,21 @@
              style="max-width: 420px; width: 100%;">
     </div>
 
+    <%# 2026-05-11 — fresh TOTP code field surfaces only when the
+        signed-in user has 2FA on. The controller `RecentTotpVerification`
+        concern reads `params[:totp_code]` and rejects with a generic
+        `credentials don't match.` flash on a bad / missing code. %>
+    <% if Current.user&.totp_enabled? %>
+      <div style="margin-bottom: 12px;">
+        <label for="totp_code" class="form-label">2FA code</label>
+        <input type="text" name="totp_code" id="totp_code"
+               value="" autocomplete="one-time-code" inputmode="numeric"
+               pattern="\d{6}" maxlength="6"
+               style="max-width: 420px; width: 100%;">
+        <span class="form-hint" style="display: block;">required to authorize the change.</span>
+      </div>
+    <% end %>
+
     <div class="dot-list">
       <button type="submit">[update]</button>
       <%= render(BracketedLinkComponent.new(label: "cancel", href: settings_path)) %>

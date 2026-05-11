@@ -39,6 +39,16 @@ RSpec.describe "Footages", type: :request do
       get edit_footage_path(footage)
       expect(response.body).to include("clip.mkv")
     end
+
+    # 2026-05-11 form-pane sweep — the edit form sits inside
+    # `.pane.pane--standalone` like every other standalone edit page.
+    it "wraps the edit form in a .pane.pane--standalone" do
+      get edit_footage_path(footage)
+      html = Nokogiri::HTML.fragment(response.body)
+      pane = html.at_css("div.pane.pane--standalone")
+      expect(pane).not_to be_nil
+      expect(pane.at_css('select[name="footage[kind]"]')).not_to be_nil
+    end
   end
 
   describe "GET /footages/:id" do

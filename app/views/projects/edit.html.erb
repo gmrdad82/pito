@@ -1,24 +1,26 @@
 <% content_for(:title, "edit #{@project.name}") %>
 <% breadcrumb(["projects", projects_path], [@project.name, project_path(@project)], "edit") %>
 
-<h1>edit project</h1>
+<h1>edit</h1>
 
-<%= form_with(model: @project, url: project_path(@project), method: :patch) do |f| %>
-  <% if @project.errors.any? %>
-    <div class="flash-error" style="margin-bottom: 8px;">couldn't save — see errors below.</div>
+<div class="pane pane--standalone">
+  <%= form_with(model: @project, url: project_path(@project), method: :patch) do |f| %>
+    <% if @project.errors.any? %>
+      <div class="flash-error" style="margin-bottom: 8px;">couldn't save — see errors below.</div>
+    <% end %>
+
+    <table class="detail-table" style="margin-bottom: 8px;">
+      <tr>
+        <td class="text-muted" style="padding-right: 12px;">name</td>
+        <td>
+          <%= f.text_field :name, style: "width: 320px;" %>
+        </td>
+      </tr>
+    </table>
+
+    <div style="display: flex; gap: 6px;">
+      <button type="submit">[<b>update</b>]</button>
+      <%= render(BracketedLinkComponent.new(label: "cancel", href: project_path(@project))) %>
+    </div>
   <% end %>
-
-  <table class="detail-table" style="margin-bottom: 8px;">
-    <tr>
-      <td class="text-muted" style="padding-right: 12px;">name</td>
-      <td>
-        <%= f.text_field :name, style: "width: 320px;" %>
-      </td>
-    </tr>
-  </table>
-
-  <div style="display: flex; gap: 6px;">
-    <button type="submit">[<b>update</b>]</button>
-    <%= render(BracketedLinkComponent.new(label: "cancel", href: project_path(@project))) %>
-  </div>
-<% end %>
+</div>

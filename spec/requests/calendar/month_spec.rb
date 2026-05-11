@@ -243,6 +243,37 @@ RSpec.describe "Calendar::Month", type: :request do
       end
     end
 
+    # Calendar polish 2026-05-11 — month grid cells are forced to a
+    # 1:1 aspect ratio so the rendered grid is a square mesh
+    # regardless of viewport width. Content that doesn't fit is
+    # clipped (`overflow: hidden`) — we'll revisit overflow handling
+    # later.
+    describe "calendar polish 2026-05-11 — square cells" do
+      it "each `.calendar-cell` carries aspect-ratio: 1 / 1 on its inline style" do
+        get "/calendar/month/2026/05"
+        # Pin both: the class hook AND the inline style attribute
+        # carrying `aspect-ratio: 1 / 1` so future style refactors
+        # can't silently lose the constraint.
+        expect(response.body).to match(
+          %r{<td class="calendar-cell[^"]*"[^>]*style="[^"]*aspect-ratio:\s*1\s*/\s*1[^"]*"}
+        )
+      end
+
+      it "each `.calendar-cell` carries overflow: hidden so content clips" do
+        get "/calendar/month/2026/05"
+        expect(response.body).to match(
+          %r{<td class="calendar-cell[^"]*"[^>]*style="[^"]*overflow:\s*hidden[^"]*"}
+        )
+      end
+
+      it "no longer pins a fixed pixel height (height: 90px) on cells" do
+        get "/calendar/month/2026/05"
+        expect(response.body).not_to match(
+          %r{<td class="calendar-cell[^"]*"[^>]*style="[^"]*height:\s*90px}
+        )
+      end
+    end
+
     it "today highlight: cell renders the today class" do
       now = Time.current.in_time_zone("UTC")
       get "/calendar/month/#{now.year}/#{format('%02d', now.month)}"

@@ -23,9 +23,10 @@ RSpec.describe "games/_grid_mode.html.erb", type: :view do
       expect(rendered).to include("data-tile-game-id=\"#{game.id}\"")
     end
 
-    it "renders the heading 'all games'" do
+    it "renders the post-polish heading 'all' (Fix 8)" do
       render partial: "games/grid_mode", locals: { games: [] }
-      expect(rendered).to include(">all games<")
+      expect(rendered).to include(">all<")
+      expect(rendered).not_to include(">all games<")
     end
   end
 

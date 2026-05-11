@@ -40,10 +40,13 @@ RSpec.describe "Channels::ChangeLogs", type: :request do
         expect(response.body).to include("change history")
       end
 
-      it "renders the lead paragraph (one sentence per line)" do
+      # 2026-05-11 — the explanatory lead paragraph was dropped per user
+      # direction. The page is read-only by construction; the H1 + table
+      # speak for themselves.
+      it "does NOT render the dropped lead paragraph" do
         get channel_change_logs_path(channel)
-        expect(response.body).to include("title and handle edits are appended here automatically.")
-        expect(response.body).to include("pito does not edit or delete past entries.")
+        expect(response.body).not_to include("title and handle edits are appended here automatically.")
+        expect(response.body).not_to include("pito does not edit or delete past entries.")
       end
 
       it "renders the column headers" do

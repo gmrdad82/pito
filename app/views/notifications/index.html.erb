@@ -68,17 +68,34 @@
       (label flips between "mark all as read" and "mark <N> as read",
       action between `mark_all_read` and `mark_read?ids=…`). %>
   <div class="dot-list" style="margin: 8px 0; align-items: baseline;">
+    <%# `path: notifications_path` pins the chip's href to an
+        ABSOLUTE URL (`/notifications?filter=unread&modal=yes` instead
+        of `?filter=unread&modal=yes`). The modal at the layout level
+        loads this page inside `notifications_modal_frame` with
+        `src=/notifications?modal=yes`; a relative href resolves
+        against the document URL (whatever page the modal was opened
+        from — e.g. `/channels`), NOT the frame's src. Without the
+        absolute pin the chip click navigates to
+        `/channels?filter=unread&modal=yes`, which has no matching
+        modal frame and Turbo renders "Content missing". %>
     <%= render(FilterChipComponent.new(
           label: "unread",
           param: "filter",
           value: "unread",
-          current_params: request.query_parameters
+          current_params: request.query_parameters,
+          path: notifications_path
         )) %>
     <span style="flex: 1;"></span>
     <% if @unread_count > 0 %>
+      <%# `data-turbo-frame="_top"` on the form escapes the enclosing
+          `notifications_modal_frame` (in modal mode). The endpoint
+          redirects back to `notifications_path` on success, which is
+          a standalone page WITHOUT the modal frame wrapper — without
+          `_top` Turbo would scope the redirect to the modal frame
+          and render "Content missing". %>
       <%= form_with url: mark_all_read_notifications_path,
             method: :patch,
-            data: { notifications_dynamic_button_target: "form" },
+            data: { notifications_dynamic_button_target: "form", turbo_frame: "_top" },
             html: { style: "display: inline; margin: 0;" } do %>
         <button type="submit" class="bracketed"
                 style="background: none; border: none; padding: 0; font: inherit; color: var(--color-link); cursor: pointer;">[<span class="bl" data-notifications-dynamic-button-target="label">mark all as read</span>]</button>

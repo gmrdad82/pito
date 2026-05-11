@@ -1632,3 +1632,131 @@ changes (we kept the `collections` <h2>). The orphaned 01c-v2
 sub-shelf partials and their view specs were deleted as part of
 this dispatch since the new tile-per-collection design replaces
 them entirely.
+
+## 2026-05-11 — `/games` polish bundle (rails-impl dispatch)
+
+User-driven follow-up after the 01c-v2 + display-mode pass. Ten fixes
+bundled (Img 42 / 43 / 44 / 47 reference shots). No new migrations
+needed — the speculative `games.status` column from the dispatch note
+does not exist in this schema (`status` was only a computed token in
+the list-mode partial, not a persisted column).
+
+### Fixes applied
+
+- Fix 1 — Drop the outer `<h2>genres</h2>` heading on the Genres
+  outer shelf. Per-sub-shelf `<h3>` headings carry the label now.
+- Fix 2 — Insert an `<hr class="hairline">` between the genres outer
+  shelf and the collections outer shelf, conditional on BOTH shelves
+  rendering. Hairline lives in `index.html.erb`, not the individual
+  partials.
+- Fix 3 — Drop the `status` column from the list-mode table. No
+  migration: the column was a computed token (`recorded` /
+  `released` / `scheduled` / `unreleased`) rendered inline, not a
+  persisted field. The `released` column carries the same signal.
+- Fix 4 — Rename the `release year` column to `released`; render the
+  full `mm-dd-yyyy` date from `Game#release_date` (em-dash when nil).
+  Right-aligned via `.num`.
+- Fix 5 — App-wide retire of the `★` star glyph on the rating display
+  (`_tile.html.erb`, `_list_mode.html.erb` — show page already used
+  `NN / 100`). New `GamesHelper#game_rating_display(game)` returns
+  `<NN>/100`. `STAR_GLYPH` constant preserved for any future surface.
+- Fix 6 — Title rendered bold (`.not-released` class) when
+  `release_date` is nil or strictly in the future. Applied to the
+  grid tile and the list-mode title cell.
+- Fix 7 — Fix duplicate-cover-fallback rendering. The bug: both
+  light + dark fallback `<img>` tags carried inline `display: block`,
+  which won the cascade over the class-level
+  `.game-cover-fallback--dark { display: none; }` rule and rendered
+  BOTH SVGs visibly stacked. Fix: remove inline `display: block` from
+  the fallback images, absolute-position them so they overlap in one
+  slot (`_tile.html.erb`, `_igdb_cover.html.erb`). Scoped CSS rules
+  in `_list_mode.html.erb` hide the off-theme variant for the list
+  cover cell.
+- Fix 8 — `<h2>all games</h2>` renamed to `<h2>all</h2>` across
+  grid / list / shelves-by-letter modes.
+- Fix 9 — `.num` class on the `released` + `rating` headers and
+  cells; scoped CSS rule right-aligns them.
+- Fix 10 — Bulk-select column in front of the list-mode table — a
+  bracketed `[ ]` glyph per row. List mode only; grid + shelves-by-
+  letter modes do not get the column. Bulk-action wiring itself is a
+  separate dispatch.
+
+### Files touched
+
+App:
+- `app/helpers/games_helper.rb` — new `game_rating_display(game)`;
+  `rating_segment` rewritten to return `<NN>/100` instead of
+  `★ <NN>`; docs updated.
+- `app/views/games/_genres_shelf.html.erb` — dropped the outer
+  `<h2>genres</h2>` heading (Fix 1).
+- `app/views/games/index.html.erb` — conditional
+  `<hr class="hairline">` between the two outer shelves (Fix 2).
+- `app/views/games/_list_mode.html.erb` — full rewrite for Fixes
+  3 / 4 / 5 / 6 / 8 / 9 / 10. Drops the `status` column, renames
+  `release year` → `released` (full date), renders rating as
+  `<NN>/100`, bolds not-yet-released titles, adds `.num` + `[ ]`
+  checkbox column, scopes a new CSS rule that hides the off-theme
+  fallback variant inside the cover cell.
+- `app/views/games/_grid_mode.html.erb` — `<h2>all games</h2>` →
+  `<h2>all</h2>` (Fix 8).
+- `app/views/games/_shelves_by_letter_mode.html.erb` —
+  `<h2>all games</h2>` → `<h2>all</h2>` (Fix 8).
+- `app/views/games/_tile.html.erb` — bolds not-yet-released titles
+  (Fix 6); fallback images switched to absolute-positioned overlap
+  (Fix 7); doc comments refreshed.
+- `app/views/shared/_igdb_cover.html.erb` — drop inline
+  `display: block` from the dual fallback `<img>` tags so the class
+  rule wins (Fix 7).
+
+Specs:
+- `spec/helpers/games_helper_spec.rb` — rewritten. 22 examples
+  covering `format_game_rating`, new `game_rating_display`, and
+  `game_meta_line` (post-polish layout `<NN>/100 · <YYYY>`).
+- `spec/views/games/_tile.html.erb_spec.rb` — rewritten. 40
+  examples covering happy / sad / edge for the new rating format,
+  Fix 6 bold behavior, Fix 7 fallback-overlap behavior, variant
+  defaults, linking, native title attribute.
+- `spec/views/games/_list_mode.html.erb_spec.rb` — rewritten. 31
+  examples covering the new column order, Fix 3 (status dropped),
+  Fix 4 (full date column), Fix 5 (rating format), Fix 6 (bold),
+  Fix 9 (.num), Fix 10 (bulk-select), Fix 7 (CSS hides off-theme
+  fallback inside the cell).
+- `spec/views/games/_grid_mode.html.erb_spec.rb` — Fix 8 assertion.
+- `spec/views/games/_genres_shelf.html.erb_spec.rb` — Fix 1
+  assertion (no outer `<h2>genres</h2>`).
+- `spec/views/shared/_igdb_cover.html.erb_spec.rb` — Fix 7
+  assertion (no inline `display: block` on fallback images).
+- `spec/requests/games_spec.rb` — 2 assertion swaps (`all games` →
+  `all`, no outer `<h2>genres</h2>`); 2 new assertions (hairline
+  rendered between the shelves; hairline absent when only one
+  shelf renders).
+- `spec/system/games_steam_shelf_spec.rb` — Fix 8 assertion.
+- `spec/system/games_index_spec.rb` — Fix 1 assertion swap (h2
+  → no h2; lowercase h3 list intact).
+- `spec/system/games_display_modes_spec.rb` — Fix 3 + Fix 4 +
+  Fix 8 + Fix 10 column-order swap.
+
+### Verification
+
+- Targeted game specs: 452 examples, 0 failures.
+  - `spec/views/games/` (all view specs)
+  - `spec/system/games_*` (display modes, steam shelf, index,
+    multi-version, platform ownerships)
+  - `spec/requests/games_spec.rb`, `spec/requests/games/`,
+    `spec/requests/games_json_spec.rb`,
+    `spec/requests/games_show_meta_block_spec.rb`
+  - `spec/helpers/games_helper_spec.rb`
+- Rubocop clean on the 11 touched Ruby files.
+- Brakeman: 0 warnings, 0 errors (8 checks against the full app —
+  no new findings from this dispatch).
+
+### Open follow-ups
+
+- Bulk-action wiring for the new list-mode `[ ]` checkbox column —
+  the column renders but the action surface is a separate dispatch
+  (architect note: pair with the existing `/deletions/:type/:ids`
+  framework once the wiring lands).
+- The `STAR_GLYPH` constant is preserved in `GamesHelper` but has no
+  remaining caller; the documentation comment now records this. A
+  follow-up dispatch can remove it once the team confirms no
+  out-of-tree consumer.
