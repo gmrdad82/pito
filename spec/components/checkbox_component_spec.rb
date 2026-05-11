@@ -40,6 +40,16 @@ RSpec.describe CheckboxComponent, type: :component do
     expect(page).to have_css('input[data-bulk-select-target="checkbox"]')
   end
 
+  it "renders disabled when disabled: true" do
+    render_inline(described_class.new(disabled: true))
+    expect(page).to have_css('input[type="checkbox"][disabled]')
+  end
+
+  it "renders enabled (no disabled attribute) by default" do
+    render_inline(described_class.new)
+    expect(page).to have_no_css('input[disabled]')
+  end
+
   it "combines all options" do
     render_inline(described_class.new(
       label: "select all",
