@@ -454,6 +454,247 @@ When the recording session lands, the WebMock stubs flip to VCR cassettes
 without changing the spec assertions — the response shapes are the contract, not
 the wire bytes.
 
+## Timezone rendering rule (Phase 26 — 01a / 01f)
+
+pito stores every time value in UTC and renders every user-facing time value in
+the authenticated user's timezone. This is the app-wide contract. There are no
+exceptions and there is no per-surface override. Source-of-truth Mobile note:
+`docs/notes/2026-05-11-11-12-17-webhooks-timezone-viewer-time-analytics.md` (§2
+"User timezone support"). Foundation sub-spec: 01a. Architecture sub-spec: 01f.
+
+### Storage rule (UTC at rest)
+
+Every `time` / `datetime` / `timestamp` / `timestamptz` column in the schema is
+UTC. The Rails app pins `config.time_zone = "UTC"` and
+`config.active_record.default_timezone = :utc` (see "Datastore — Postgres 17"
+above), so Active Record reads + writes UTC regardless of the request-time
+`Time.zone`. Concretely this includes — but is not limited to — `created_at`,
+`updated_at`, `last_synced_at` (channels + videos), the Phase 26 columns
+`users.time_zone` carries (the IANA name itself is timezone-free),
+`last_digest_run_at` (01e), every `*_at` column 01g / 01h add
+(`video_viewer_time_buckets.last_synced_at`, scheduled-publish columns), and
+every audit column on `youtube_api_calls`. Migrations adding a new time column
+default to `t.datetime` (Rails maps to `timestamptz` in Postgres) and skip any
+ad-hoc tz arithmetic at write time.
+
+### Render rule (user-tz at the boundary)
+
+Every user-facing time value passes through `l_user_tz` (the helper from 01a) on
+the Rails side, or its CLI / MCP equivalent at those boundaries. The render
+layer is the sole conversion site. `ApplicationController` sets
+`Time.zone = Current.user&.time_zone || "Etc/UTC"` per request so any
+`I18n.l(time)` / `time.in_time_zone` call downstream resolves to the user's zone
+automatically; `l_user_tz` is the canonical entry point because it is nil-safe
+and unifies the format conventions. Views, mailers, Slack / Discord webhook
+bodies (01b / 01c), the daily digest email (01e), and the viewer-time heatmap
+axis labels (01g) all use the helper.
+
+### Calendar definitions
+
+Analytics queries and the calendar surface (Phase 16+) interpret calendar units
+in the user's local zone, never UTC.
+
+- **Day** — `00:00:00` to `23:59:59.999999` in the user's tz. A row stamped
+  `2026-05-09T22:30:00Z` belongs to **May 10** for a `Europe/Bucharest` user
+  (UTC+3 in summer) and to **May 9** for an `America/Los_Angeles` user (UTC−7).
+  The rollup converts at query time; the stored value is unchanged.
+- **Week** — Monday 00:00 through Sunday 23:59:59.999999 in the user's tz.
+  Monday-start is the v1 default; a future `users.week_start` preference is the
+  documented hook for Sunday-start (and other) configurations. Out of scope for
+  Phase 26.
+- **Month / year** — calendar month and calendar year in the user's tz. Used by
+  the calendar surface and by analytics drill-downs.
+
+### Rollup query pattern
+
+Analytics rollup queries apply the tz offset at `GROUP BY` time via Postgres'
+`AT TIME ZONE` operator. The canonical pattern, parameterized by the user's IANA
+zone:
+
+```sql
+SELECT
+  date_trunc('day', utc_ts AT TIME ZONE :user_tz) AS local_day,
+  COUNT(*) AS n
+FROM events
+GROUP BY local_day
+ORDER BY local_day;
+```
+
+The same shape covers `hour`, `week`, `month`, and `year` via the matching
+`date_trunc` precision. Hour-of-day / day-of-week rollups for the viewer-time
+heatmap use `extract(hour FROM utc_ts AT TIME ZONE :user_tz)` and
+`extract(dow FROM utc_ts AT TIME ZONE :user_tz)` — see "Viewer-time aggregation"
+below for the exact query.
+
+### Edge cases
+
+The tz layer must absorb the calendar quirks without per-call adjustments:
+
+- **DST spring-forward** — one local day has 23 hours; the rollup naturally
+  reports a missing hour bucket for that day. No correction needed.
+- **DST fall-back** — one local day has 25 hours; two UTC hours map to the same
+  local-hour bucket, summed by `GROUP BY`. No correction needed.
+- **Half-hour offsets** — `Asia/Kolkata` is UTC+5:30. `date_trunc('hour', …)` on
+  the converted timestamp returns half-hour-shifted hour boundaries; the rollup
+  honours them.
+- **Quarter-hour offsets** — `Asia/Kathmandu` (UTC+5:45) and `Pacific/Chatham`
+  (UTC+12:45 / +13:45 with DST). Same rule: `date_trunc` operates on the
+  converted timestamp; the hour boundary is the user-local one.
+- **`Etc/UTC` users** — the sentinel default. No conversion is observed at
+  render but the helper still routes through `Time.zone`, so the contract
+  applies uniformly.
+
+### Cross-references
+
+01a is the Rails-side foundation (`time_zone` column on `users`, browser-detect
+Stimulus controller, Settings dropdown, `l_user_tz` helper, per-request
+`Time.zone` wiring). 01e (daily digest scheduler) reads the user's zone to fire
+the digest at the user's local "morning". 01g (viewer-time analytics) implements
+the rollup pattern documented below. 01h (video scheduled publish) renders
+scheduled-publish datetimes in the user's zone and validates user-side inputs
+against it.
+
+## Viewer-time aggregation (Phase 26 — 01g)
+
+The "best time to publish" analytics surface — a day-of-week × hour-of-day
+heatmap per video and per channel — is the first surface to commit to the
+UTC-storage / user-tz-rollup contract end-to-end. This section pins the schema,
+refresh cadence, and query patterns; the implementation lives in 01g.
+Source-of-truth Mobile note: §3 "Viewer-time analytics" of
+`docs/notes/2026-05-11-11-12-17-webhooks-timezone-viewer-time-analytics.md`.
+Realignment context: `docs/realignment-2026-05-09.md` (YouTube Analytics work
+unit 6).
+
+### Source endpoint
+
+The raw data comes from the YouTube Analytics API v2 via the existing
+`Youtube::Client` chokepoint (Phase 7). v1 assumes hourly buckets per video per
+day are available — the Mobile note flags "verify exact granularity"; the 01g
+implementation confirms against the API docs during dispatch. If the API only
+exposes daily buckets, the fallback is to approximate hourly distribution via
+the traffic-source hourly slice (or a related endpoint) and document the
+approximation in the rendered heatmap's empty-state copy. Quota cost rolls into
+the per-connection daily budget on `youtube_api_calls` (decision 7.5).
+
+### Storage schema (`video_viewer_time_buckets`)
+
+```
+video_viewer_time_buckets
+  id                  bigint  PK
+  video_id            bigint  FK -> videos.id  NOT NULL
+  hour_of_day_utc     int     NOT NULL  CHECK (0..23)
+  day_of_week_utc     int     NOT NULL  CHECK (0..6)   -- Postgres extract(dow), Sunday=0
+  view_count          int     NOT NULL  DEFAULT 0
+  watch_time_seconds  bigint  NOT NULL  DEFAULT 0
+  last_synced_at      datetime
+  created_at          datetime NOT NULL
+  updated_at          datetime NOT NULL
+
+  UNIQUE INDEX (video_id, day_of_week_utc, hour_of_day_utc)
+  INDEX        (last_synced_at)
+```
+
+The `_utc` suffix on the two bucket columns is load-bearing: the row stores the
+UTC bucket the API returned, never the user-local one. **The rollup applies the
+tz offset at query time; never at write time.** This keeps a single source of
+truth for every user — change a user's `time_zone` and every heatmap re-renders
+without a re-sync.
+
+### Refresh cadence
+
+- **Daily refresh.** `ViewerTimeDailyRefreshJob` runs at `0 3 * * *` (03:00
+  server time) via sidekiq-cron. The job fans out to one
+  `VideoViewerTimeSyncJob.perform_later(video_id)` per owned video. Each
+  per-video job calls the YouTube Analytics endpoint, upserts the 7 × 24
+  buckets, stamps `last_synced_at`, and bumps `view_count` /
+  `watch_time_seconds` atomically. Re-runs are idempotent.
+- **Backfill.** One-shot rake task `pito:backfill_viewer_time_buckets` accepts a
+  `DAYS=90` argument and enqueues per-video sync jobs over a rolling window
+  (default 90 days). Rerunable. Used for first-time setup or after a long
+  outage.
+- **Quota.** Per-call quota cost flows through the Phase 7 chokepoint and is
+  audited in `youtube_api_calls`. On `Youtube::QuotaExhaustedError` the daily
+  refresh aborts cleanly and surfaces a Phase 16 notification (decision 7.6 —
+  fail fast, no retries).
+- **Cadence is locked at daily for v1.** A higher-frequency refresh (hourly, or
+  on-demand) is a follow-up once Phase 7 quota tracking surfaces real numbers.
+
+### Query patterns
+
+The `Analytics::ViewerTimeRollup` service is the single read site. All queries
+roll up via the user's tz offset.
+
+1. **Per-video heatmap.**
+
+   ```sql
+   SELECT
+     extract(dow  FROM (
+       make_timestamp(2000, 1, 2 + day_of_week_utc, hour_of_day_utc, 0, 0)
+       AT TIME ZONE 'UTC' AT TIME ZONE :user_tz
+     )) AS dow,
+     extract(hour FROM (
+       make_timestamp(2000, 1, 2 + day_of_week_utc, hour_of_day_utc, 0, 0)
+       AT TIME ZONE 'UTC' AT TIME ZONE :user_tz
+     )) AS hod,
+     SUM(view_count)         AS view_count,
+     SUM(watch_time_seconds) AS watch_time_seconds
+   FROM video_viewer_time_buckets
+   WHERE video_id = :video_id
+   GROUP BY 1, 2;
+   ```
+
+   The `make_timestamp` anchor uses an arbitrary Sunday (Jan 2 2000) so the
+   `dow` extract honours the day-of-week → hour-of-day shape without smearing
+   real calendar dates into the answer. The implementation may swap in a simpler
+   offset-arithmetic form provided the result is equivalent for every IANA zone,
+   including half- and quarter-hour offsets.
+
+2. **Per-channel heatmap.** Joins through `videos`:
+
+   ```sql
+   SELECT … FROM video_viewer_time_buckets b
+   JOIN videos v ON v.id = b.video_id
+   WHERE v.channel_id = :channel_id
+   GROUP BY 1, 2;
+   ```
+
+   Aggregation is a straight `SUM` across all the channel's videos. v1 does not
+   normalize by per-video age or view-count; raw sums are the simplest
+   interpretive surface. Documented as an open question for follow-up.
+
+3. **Rolling window (7d / 28d / 90d).** Filtered by `last_synced_at`:
+
+   ```sql
+   WHERE last_synced_at >= NOW() - INTERVAL ':n days'
+   ```
+
+   The exact filter shape depends on whether the API returns true rolling
+   windows or fixed lookbacks — 01g verifies during dispatch and adjusts the SQL
+   pattern accordingly.
+
+### Render contract
+
+The heatmap ViewComponent (`ViewerTimeHeatmapComponent`) receives the rollup
+data and the user's `time_zone`. Axis labels (Mon/Tue/.../Sun, 00/01/.../23) are
+rendered via `l_user_tz` / the helper layer so the surface re-renders on a tz
+change without re-querying. Colour is a single-hue intensity gradient; red
+(`#cc0000`) is forbidden by the design system. Empty state copy explicitly
+references the daily 03:00 refresh cadence so the user knows when fresh data
+will arrive.
+
+### Locked decisions (for future readers)
+
+These were locked in the Phase 26 plan and 01f spec. Future agents should not
+re-litigate without an ADR:
+
+- Storage is UTC; rollup is user-tz; the heatmap re-renders on a tz change
+  without a re-sync.
+- Refresh cadence is daily at 03:00 server time. Locked for v1.
+- Week starts Monday. Configurable later via `users.week_start`. Locked for v1.
+- Per-channel aggregation is a raw `SUM` across videos. No normalisation. v1.
+- MCP and CLI surfaces for viewer-time analytics are deferred to a later phase.
+  Web is the only surface in v1.
+
 ## Things explicitly NOT in scope (this phase)
 
 - **Real YouTube sync** — `ChannelSync` is a placeholder; no API calls. The

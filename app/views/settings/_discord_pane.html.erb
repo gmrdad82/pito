@@ -60,7 +60,23 @@
           `coerce_boolean` helper treats absence as `false`. This
           matches the existing Voyage pane checkbox pattern. %>
 
-      <button type="submit">[update]</button>
+      <div style="display: flex; align-items: baseline; gap: 8px;">
+        <button type="submit">[update]</button>
+        <%# Phase 26 — 01d. `[help]` link opens the layout-level
+            webhook help modal with the Discord guide. The href is
+            the full Markdown fragment URL so JS-off users still
+            land on a usable page (the controller renders the same
+            fragment without a layout, but a direct hit returns HTML
+            readable in any browser). %>
+        <%= render(BracketedLinkComponent.new(
+              label: "help",
+              href: settings_webhooks_help_path(provider: "discord"),
+              data: {
+                action: "click->webhook-help-modal#open",
+                webhook_help_modal_provider_param: "discord"
+              }
+            )) %>
+      </div>
     </fieldset>
   <% end %>
 </div>
