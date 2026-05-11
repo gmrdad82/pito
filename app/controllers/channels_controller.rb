@@ -1,5 +1,11 @@
 class ChannelsController < ApplicationController
   include FriendlyRedirect
+  # Phase 24 — Google management UI moved off /settings/youtube and onto
+  # /channels. ChannelsController owns the OAuth request-phase entry
+  # point (`POST /channels/connect_google`); the concern's
+  # `stash_youtube_connect_intent` + `redirect_target_for_intent` route
+  # the callback back to `/channels`.
+  include YoutubeConnectionOauthRedirect
 
   # JSON endpoints are unauthenticated for the single-user dev environment
   # behind the Cloudflare tunnel. Phase 3 Auth Foundation will add API token
@@ -31,6 +37,13 @@ class ChannelsController < ApplicationController
     @sort = sanitized_sort_key
     @dir = sanitized_dir
 
+    # Phase 24 — Google management banner data. Load this user's
+    # YoutubeConnection rows (ordered by last-authorized desc) so the
+    # banner partial can render one row per connection with the email,
+    # channel count, last-authorized timestamp, and any reauth state.
+    @youtube_connections = load_youtube_connections
+    @youtube_connection = @youtube_connections.first
+
     respond_to do |format|
       format.html
       format.json { render json: @channels.map { |c| ChannelDecorator.new(c).as_summary_json } }
@@ -43,11 +56,37 @@ class ChannelsController < ApplicationController
 
     @max_panes = max_panes
     @available_channels = Channel.where.not(id: @channel.id).order(:channel_url)
+    # Phase 24 — Google management panel on the channel show page.
+    # Exposes the connection that owns this specific channel so the
+    # partial renders email / scopes / last-authorized / reauth state.
+    @youtube_connection = @channel.youtube_connection
 
     respond_to do |format|
       format.html
       format.json { render json: ChannelDecorator.new(@channel).as_detail_json }
     end
+  end
+
+  # Phase 24 — POST /channels/connect_google
+  #
+  # Request-phase entry point for the Google OAuth dance, moved from
+  # `Settings::YoutubeController#connect`. Stash the intent so the
+  # callback routes back to `/channels`. `params[:account] == "new"`
+  # appends `prompt=select_account consent` so Google renders the
+  # account picker / Brand-Account switcher rather than silently
+  # reusing the most-recently-used Google account.
+  # `include_granted_scopes=true` keeps the consent additive so an
+  # existing grant on the picked account is not downgraded.
+  def connect_google
+    stash_youtube_connect_intent
+    target = if params[:account].to_s == "new"
+               "/auth/google_oauth2?" \
+                 "prompt=#{ERB::Util.url_encode('select_account consent')}" \
+                 "&include_granted_scopes=true"
+    else
+               "/auth/google_oauth2"
+    end
+    redirect_to target, allow_other_host: false, status: :see_other
   end
 
   def edit
@@ -383,7 +422,7 @@ class ChannelsController < ApplicationController
     redirect_to channel_path(@channel), notice: notice
   rescue Youtube::NeedsReauthError
     @channel.youtube_connection.update_columns(needs_reauth: true)
-    redirect_to settings_youtube_path,
+    redirect_to channels_path,
                 alert: "google connection needs re-authorization."
   rescue Youtube::QuotaExhaustedError
     flash.now[:alert] = "youtube api quota exhausted; try again later."
@@ -539,6 +578,20 @@ class ChannelsController < ApplicationController
         "url"   => (row["url"]   || row[:url]).to_s
       }
     end
+  end
+
+  # Phase 24 — load every YoutubeConnection owned by the current user
+  # for the Google management banner on /channels. Ordered by
+  # `last_authorized_at` desc so the most recently authorized
+  # connection sits at the top. Returns `[]` when no user is in scope
+  # so the banner renders the empty state without 500ing.
+  def load_youtube_connections
+    return [] unless Current.user.present?
+
+    YoutubeConnection
+      .where(user_id: Current.user.id)
+      .order(last_authorized_at: :desc)
+      .to_a
   end
 
   def max_panes

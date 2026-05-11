@@ -281,7 +281,7 @@ RSpec.describe "PATCH /channels/:id (edit form)", type: :request do
     it "NeedsReauthError on banner upload redirects to /settings/youtube" do
       allow(youtube_client).to receive(:upload_banner).and_raise(Youtube::NeedsReauthError, "bad")
       patch channel_path(channel), params: { channel: { banner_image: banner_io } }
-      expect(response).to redirect_to(settings_youtube_path)
+      expect(response).to redirect_to(channels_path)
       expect(connection.reload.needs_reauth?).to be(true)
     end
   end
@@ -291,7 +291,7 @@ RSpec.describe "PATCH /channels/:id (edit form)", type: :request do
       allow(youtube_client).to receive(:update_channel).and_raise(Youtube::NeedsReauthError, "bad")
       patch channel_path(channel), params: { channel: { description: "x" } }
       expect(connection.reload.needs_reauth?).to be(true)
-      expect(response).to redirect_to(settings_youtube_path)
+      expect(response).to redirect_to(channels_path)
       expect(flash[:alert]).to include("needs re-authorization")
     end
 

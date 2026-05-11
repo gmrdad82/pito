@@ -3,26 +3,30 @@
     failure-state banner, not a destructive-action UI. Documented in
     docs/design.md (color carve-out).
 
-    Phase 10 polish — consolidated to the single top-of-page reconnect
-    surface. The pane-internal `[reconnect]` button and the
-    picker-section red banner are gone; this is the only `[reconnect]`
-    CTA on the page. Two copy variants based on what we can detect:
+    Phase 24 — moved from app/views/settings/youtube/ to
+    app/views/channels/ when the Google management UI moved off
+    /settings/youtube and onto /channels (banner on index + per-channel
+    inline panel on show). The reconnect form posts to
+    `/channels/connect_google` (was /settings/youtube/connect).
+
+    Two copy variants based on what we can detect:
 
       1. needs_reauth + missing the required `youtube.readonly` scope
          → "missing the scopes pito needs"
       2. needs_reauth (default / revoked grant)
          → "Google grant was revoked"
 
-    No internal error-class tokens (`needsreauth`, `transient`) leak
-    into the copy. %>
+    Required local:
+      connection — the YoutubeConnection whose state to render.
+%>
 
 <% required_scope = "https://www.googleapis.com/auth/youtube.readonly" %>
-<% missing_scope = !@youtube_connection.has_scope?(required_scope) %>
+<% missing_scope = !connection.has_scope?(required_scope) %>
 
 <div class="flash-error" style="margin: 12px 0; padding: 10px 12px; border: 1px solid #cc0000; color: #cc0000;">
   <% if missing_scope %>
     <strong>your Google authorization is missing the scopes pito needs.</strong>
-    <%= form_with url: settings_youtube_connect_path, method: :post,
+    <%= form_with url: connect_google_channels_path, method: :post,
                   data: { turbo: false }, html: { style: "display: inline; margin-left: 12px;" } do %>
       <button type="submit">[reconnect]</button>
     <% end %>
@@ -30,7 +34,7 @@
   <% else %>
     <strong>your Google grant was revoked.</strong>
     pito can no longer fetch YouTube data for this account.
-    <%= form_with url: settings_youtube_connect_path, method: :post,
+    <%= form_with url: connect_google_channels_path, method: :post,
                   data: { turbo: false }, html: { style: "display: inline; margin-left: 12px;" } do %>
       <button type="submit">[reconnect]</button>
     <% end %>

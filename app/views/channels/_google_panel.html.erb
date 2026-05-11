@@ -1,0 +1,53 @@
+<%# Phase 24 — per-channel Google management panel on /channels/:slug.
+    Renders the YoutubeConnection that owns this specific channel:
+    email, scopes, last-authorized, reauth state. When the channel has
+    no connection (`youtube_connection_id IS NULL`), renders an empty
+    state with a `[connect this channel]` entry point.
+
+    Required local:
+      channel — the Channel whose connection to render.
+%>
+
+<% local_connection = local_assigns[:youtube_connection] || channel.youtube_connection %>
+
+<div class="pane pane--standalone" data-google-panel
+     style="margin-bottom: 8px;">
+  <h2 style="margin: 0 0 8px 0;">Google connection</h2>
+
+  <% if local_connection.present? %>
+    <% if local_connection.needs_reauth? %>
+      <%= render "channels/needs_reauth_banner", connection: local_connection %>
+    <% end %>
+
+    <table class="detail-table" style="margin: 0;">
+      <tr>
+        <td class="text-muted" style="padding-right: 12px;">connected as</td>
+        <td><%= format_connection_email(local_connection.email) %></td>
+      </tr>
+      <tr>
+        <td class="text-muted" style="padding-right: 12px;">scopes</td>
+        <td><%= Array(local_connection.scopes).map { |s| format_scope_short_label(s) }.join(" ") %></td>
+      </tr>
+      <tr>
+        <td class="text-muted" style="padding-right: 12px;">last authorized</td>
+        <td><%= compact_time_ago(local_connection.last_authorized_at) %></td>
+      </tr>
+      <tr>
+        <td class="text-muted" style="padding-right: 12px;">state</td>
+        <td>
+          <% if local_connection.needs_reauth? %>
+            <span class="text-danger">needs reauth</span>
+          <% else %>
+            healthy
+          <% end %>
+        </td>
+      </tr>
+    </table>
+  <% else %>
+    <p class="text-muted" style="margin: 0 0 8px 0;">no Google connection on this channel.</p>
+    <%= form_with url: connect_google_channels_path, method: :post,
+                  data: { turbo: false }, html: { style: "display: inline;" } do %>
+      <button type="submit">[connect this channel]</button>
+    <% end %>
+  <% end %>
+</div>

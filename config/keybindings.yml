@@ -54,7 +54,7 @@ menus:
   channels:
     items:
       - { key: l, label: list,         action: { type: navigate, path: "/channels" } }
-      - { key: "+", label: add,        action: { type: navigate, path: "/settings/youtube" } }
+      - { key: "+", label: add,        action: { type: navigate, path: "/channels" } }
       - { key: "-", label: delete,     action: { type: bulk_delete } }
       - { key: y, label: sync,         action: { type: bulk_sync } }
 

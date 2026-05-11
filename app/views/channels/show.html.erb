@@ -20,6 +20,11 @@
         intent (compare YouTube, surface divergence) NOT a cache overwrite.
         The Phase 11i banner Turbo Frame consumes the result. %>
     <%= render(BracketedLinkComponent.new(label: "sync", href: "/syncs/channel/#{@channel.id}?intent=diff_check", data: { keyboard_page_action: "sync" })) %>
+    <%# Phase 24 — per-channel `[revoke]` cascade. Inline with the rest
+        of the heading-actions row. Destructive (red) — opens the
+        wide-modal confirmation page. NO keyboard shortcut by design
+        (locked decision #6, matches absence of shortcut for `[-]`). %>
+    <%= render(BracketedLinkComponent.new(label: "revoke", href: revoke_channel_path(@channel), destructive: true)) %>
     <%= render(BracketedLinkComponent.new(label: "-", href: "/deletions/channel/#{@channel.id}", destructive: true, data: { keyboard_page_action: "delete" })) %>
   </div>
 <% end %>
@@ -121,6 +126,16 @@
 
       <%= render "channels/links", channel: @channel %>
     </div>
+  </div>
+
+  <%# Phase 24 — per-channel Google management panel. Renders the
+      YoutubeConnection that owns this channel (email, scopes,
+      last-authorized, reauth state) or a "no connection" empty state
+      with a `[connect this channel]` entry point. Placement: after the
+      identity / banner pane, before the analytics summary so the
+      OAuth context sits near the top of the page. %>
+  <div class="pane-row">
+    <%= render "channels/google_panel", channel: @channel, youtube_connection: @youtube_connection %>
   </div>
 
   <%# Row 2 — analytics summary. Three inline cells (subscribers,

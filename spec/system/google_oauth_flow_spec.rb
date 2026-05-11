@@ -3,7 +3,8 @@ require "rails_helper"
 # Phase 9 — Login-with-Google Drop + GoogleIdentity → YoutubeConnection
 # rename (ADR 0006). End-to-end happy path through the OmniAuth flow
 # in test_mode. The system spec drives the connect button → Google
-# (mocked) → callback → /settings/youtube round trip.
+# (mocked) → callback → /channels round trip (Phase 24 moved the
+# return target from /settings/youtube to /channels).
 RSpec.describe "Google OAuth flow", type: :system do
   before do
     OmniAuth.config.test_mode = true
@@ -21,7 +22,7 @@ RSpec.describe "Google OAuth flow", type: :system do
         # Full pito scope set — happy path. The partial-grant branch
         # in `YoutubeConnections::OauthCallbacksController#create` is
         # covered in the request spec; here we just want the connect
-        # → callback → /settings/youtube round-trip to complete cleanly.
+        # → callback → /channels round-trip to complete cleanly.
         scope: [
           "openid", "email", "profile",
           "https://www.googleapis.com/auth/youtube.readonly",
@@ -37,9 +38,7 @@ RSpec.describe "Google OAuth flow", type: :system do
     # just-authorized connection and adds non-duplicates as Channel
     # rows. Stub the client to return an empty list so the spec
     # doesn't depend on a live YouTube response (and so WebMock
-    # doesn't reject the request) — both connect rounds in this spec
-    # produce zero new Channel rows, which is fine; this spec asserts
-    # on the YoutubeConnection upsert, not channel discovery.
+    # doesn't reject the request).
     allow_any_instance_of(Youtube::Client).to receive(:channels_list)
       .and_return(items: [], next_page_token: nil)
   end
@@ -49,23 +48,23 @@ RSpec.describe "Google OAuth flow", type: :system do
     OmniAuth.config.mock_auth[:google_oauth2] = nil
   end
 
-  it "lets the user connect their Google account from settings → youtube" do
-    visit settings_youtube_path
+  it "lets the user connect their Google account from the /channels banner" do
+    visit channels_path
     expect(page).to have_content("no Google account connected")
 
     expect {
-      click_button "[connect]"
+      click_button "[connect google]"
     }.to change { YoutubeConnection.unscoped.count }.by(1)
 
-    expect(page).to have_current_path(settings_youtube_path)
+    expect(page).to have_current_path(channels_path)
   end
 
   # Multi-connection (2026-05-10). After the first account connects,
-  # the page shows a `[+ connect another Google account]` button that
+  # the page shows a `[+ add another Google account]` button that
   # initiates a SECOND OmniAuth round. The mocked auth hash is reused
   # under a different google_subject_id, so the callback creates a
   # second YoutubeConnection row alongside the first.
-  it "lets the user connect a SECOND Google account from settings → youtube" do
+  it "lets the user connect a SECOND Google account from /channels" do
     user = User.first || create(:user)
     create(:youtube_connection,
            user: user,
@@ -93,7 +92,7 @@ RSpec.describe "Google OAuth flow", type: :system do
       } }
     )
 
-    visit settings_youtube_path
+    visit channels_path
     expect(page).to have_content("first-account@example.test")
     expect(page).to have_button("[+ add another Google account]")
 
@@ -101,7 +100,7 @@ RSpec.describe "Google OAuth flow", type: :system do
       click_button "[+ add another Google account]"
     }.to change { YoutubeConnection.unscoped.where(user_id: user.id).count }.by(1)
 
-    expect(page).to have_current_path(settings_youtube_path)
+    expect(page).to have_current_path(channels_path)
     # Both rows now live side-by-side; the page surfaces both emails.
     expect(page).to have_content("first-account@example.test")
     expect(page).to have_content("second-account@example.test")

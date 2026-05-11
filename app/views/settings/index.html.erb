@@ -115,98 +115,12 @@
   </div>
 </div>
 
-<%# Row 2 — Google | YouTube %>
-<div class="pane-row">
-  <%# Google — connection state for Google account / YouTube data scope. %>
-  <div class="pane">
-    <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
-      <legend><h2>Google</h2></legend>
-
-      <% if @youtube_connections.any? %>
-        <p>connected: yes</p>
-
-        <%# Aggregated channels list across ALL connections. The list
-            is install-wide (`Channel.all`) since pito is single-
-            install, multi-user. Labels resolve to the channel's
-            `title` once the sync job populates it, falling back to
-            the UC-id portion of `channel_url` for un-synced rows.
-            The display is one label per row under a muted
-            `channels:` header — no count prefix, no comma-separation.
-            Zero channels uses the manage-page empty-state phrasing.
-            More than 5 channels appends an "…and N more" line. %>
-        <% if @channels_count.zero? %>
-          <p class="text-muted">no channels linked yet</p>
-        <% else %>
-          <p class="text-muted" style="margin-bottom: 2px;">channels:</p>
-          <ul class="text-muted" style="list-style: none; padding-left: 12px; margin: 0 0 8px 0;">
-            <% @channel_labels.each do |label| %>
-              <li><%= label %></li>
-            <% end %>
-            <% if @channels_count > @channel_labels.length %>
-              <li>…and <%= @channels_count - @channel_labels.length %> more</li>
-            <% end %>
-          </ul>
-        <% end %>
-
-        <% if @youtube_connection.needs_reauth? %>
-          <p class="text-danger"><strong>needs re-auth</strong></p>
-        <% end %>
-      <% else %>
-        <p>connected: no</p>
-      <% end %>
-
-      <p class="text-muted">
-        connect a Google account to fetch YouTube channel and analytics data.
-      </p>
-
-      <%= render(BracketedLinkComponent.new(label: "manage", href: settings_youtube_path)) %>
-    </fieldset>
-  </div>
-
-  <%# YouTube — OAuth client credentials form. The client secret field
-      is masked the same way Voyage.ai's API key is: blank input with a
-      placeholder reflecting the configured / not-configured state. The
-      stored value is encrypted at rest (AppSetting#value uses Active
-      Record Encryption) so the only place it could leak is the form
-      itself — the placeholder pattern keeps it off-screen. %>
-  <div class="pane">
-    <%= form_with url: settings_path, method: :patch do |f| %>
-      <input type="hidden" name="section" value="youtube_oauth">
-      <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
-        <legend><h2>YouTube</h2></legend>
-
-        <div style="margin-bottom: 6px;">
-          <label for="settings_youtube_client_id" class="form-label">client ID</label>
-          <input type="text" name="settings[youtube_client_id]" id="settings_youtube_client_id"
-                 value="<%= @settings['youtube_client_id'] %>" autocomplete="off"
-                 style="max-width: 420px; width: 100%;">
-        </div>
-
-        <div style="margin-bottom: 6px;">
-          <label for="settings_youtube_client_secret" class="form-label">client secret</label>
-          <input type="password" name="settings[youtube_client_secret]" id="settings_youtube_client_secret"
-                 value="" autocomplete="off"
-                 placeholder="<%= @youtube_client_secret_configured ? 'secret configured (•••••••)' : 'no secret configured' %>"
-                 style="max-width: 420px; width: 100%;">
-          <% if @youtube_client_secret_configured %>
-            <span class="form-hint" style="display: block;">leave blank to keep current; submit to replace.</span>
-          <% else %>
-            <span class="form-hint" style="display: block;">paste your Google OAuth client secret.</span>
-          <% end %>
-        </div>
-
-        <div style="margin-bottom: 6px;">
-          <label for="settings_youtube_redirect_uri" class="form-label">redirect URI</label>
-          <input type="text" name="settings[youtube_redirect_uri]" id="settings_youtube_redirect_uri"
-                 value="<%= @settings['youtube_redirect_uri'] %>" autocomplete="off"
-                 style="max-width: 420px; width: 100%;">
-        </div>
-
-        <button type="submit">[update]</button>
-      </fieldset>
-    <% end %>
-  </div>
-</div>
+<%# Phase 24 — Row 2 (Google card + YouTube OAuth client credentials)
+    is gone. The Google connection UI moved to `/channels` (banner on
+    index + per-channel inline panel on show); the OAuth client
+    credentials migrated to Rails credentials per CLAUDE.md
+    configuration strategy (filed as separate follow-up for the
+    underlying AppSetting storage cleanup). %>
 
 <%# Row 3 — search | Voyage.ai %>
 <div class="pane-row">

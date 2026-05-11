@@ -1,0 +1,17 @@
+<%# Phase 24 — single-channel `[revoke]` confirmation page.
+    Server-rendered wide-modal (NOT a JS overlay — the project's hard
+    rule against `data-turbo-confirm` and JS dialogs). Renders the
+    shared `channels/_revoke_modal` partial in single-channel mode. %>
+<% display_title = @channel.title.presence ||
+                   @channel.channel_url.to_s.sub(%r{\Ahttps?://(www\.)?youtube\.com/channel/}, "") %>
+<% content_for(:title, "revoke channel #{display_title}") %>
+<% breadcrumb(["channels", channels_path],
+              ["channel #{display_title}", channel_path(@channel)],
+              "revoke") %>
+
+<%= render "channels/revoke_modal",
+           channel: @channel,
+           counts: @counts,
+           is_last_channel_on_connection: @is_last_channel_on_connection,
+           form_url: revoke_channel_path(@channel),
+           cancel_url: channel_path(@channel) %>

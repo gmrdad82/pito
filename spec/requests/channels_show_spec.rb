@@ -42,9 +42,11 @@ RSpec.describe "GET /channels/:slug — show page revamp", type: :request do
       expect(response.body).to match(/<turbo-frame[^>]*id="channel_diff_banner"[^>]*>/)
     end
 
-    it "renders the three pane rows (detail, analytics, videos)" do
+    it "renders the four pane rows (detail, Google panel, analytics, videos)" do
+      # Phase 24 — a fourth pane-row (Google management panel) was
+      # added between the detail pane and the analytics summary.
       get channel_path(hydrated_channel)
-      expect(response.body.scan(/<div class="pane-row">/).size).to eq(3)
+      expect(response.body.scan(/<div class="pane-row">/).size).to eq(4)
     end
 
     it "renders the [youtube channel] outbound link" do

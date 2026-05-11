@@ -13,17 +13,24 @@ RSpec.describe "Settings", type: :request do
       expect(response).to have_http_status(:ok)
     end
 
-    it "shows the OAuth form fields" do
+    # Phase 24 — Google card + YouTube OAuth client credentials card
+    # are gone from /settings. The Google management UI moved to
+    # /channels (banner on index + per-channel inline panel on show).
+    # Their request specs were removed.
+
+    it "does NOT render the YouTube OAuth client credentials form" do
       get settings_path
-      expect(response.body).to include("client ID")
-      expect(response.body).to include("client secret")
-      expect(response.body).to include("redirect URI")
+      expect(response.body).not_to include("client ID")
+      expect(response.body).not_to include("client secret")
+      expect(response.body).not_to include("redirect URI")
+      expect(response.body).not_to include("<h2>YouTube</h2>")
     end
 
-    it "displays existing values" do
-      AppSetting.set("youtube_client_id", "test-client-id")
+    it "does NOT render the Google connection card" do
       get settings_path
-      expect(response.body).to include("test-client-id")
+      expect(response.body).not_to include("<h2>Google</h2>")
+      expect(response.body).not_to include("connected: yes")
+      expect(response.body).not_to include("connected: no")
     end
 
     it "shows the theme selector" do
@@ -93,12 +100,13 @@ RSpec.describe "Settings", type: :request do
       expect(response.body).to match(/<input type="radio" name="settings\[voyage_index_project_notes\]" value="yes"[^>]*\bchecked\b/)
     end
 
-    it "renders four independent forms (workspaces, appearance, oauth, voyage)" do
+    it "renders three independent forms (workspaces, appearance, voyage)" do
+      # Phase 24 — youtube_oauth section is gone with the Google card.
       get settings_path
       # Each per-section form carries a hidden `section` field.
       expect(response.body).to include('value="workspaces"')
       expect(response.body).to include('value="appearance"')
-      expect(response.body).to include('value="youtube_oauth"')
+      expect(response.body).not_to include('value="youtube_oauth"')
       expect(response.body).to include('value="voyage"')
     end
 
@@ -157,27 +165,27 @@ RSpec.describe "Settings", type: :request do
       AppSetting.set("max_panes", "5")
       AppSetting.first.update!(voyage_api_key: "vk_test")
       get settings_path
-      # All four per-section forms render the same updated button text.
-      expect(response.body.scan("[update]").length).to be >= 4
+      # Phase 24 — three per-section forms remain (Google/YouTube cards
+      # removed): appearance, workspaces, voyage.
+      expect(response.body.scan("[update]").length).to be >= 3
       # The pre-revamp `[save]` text is gone everywhere on the page.
       expect(response.body).not_to include("[save]")
     end
 
-    it "renders settings as five .pane-row groups holding nine total panes" do
-      # Phase 12 polish (2026-05-10) — the page is regrouped into five
-      # paired rows: row 1 appearance | workspaces, row 2 Google |
-      # YouTube, row 3 search | Voyage.ai, row 4 user (single pane;
-      # right side intentionally empty), row 5 OAuth-applications +
-      # tokens combined | sessions. The OAuth-applications and tokens
-      # surfaces share one pane separated by a `<hr class="hairline">`
-      # so two related token-issuance sections live next to each
-      # other, dropping the total pane count from ten to nine. The
-      # global `:nth-child` zebra rule continues to handle A/B
-      # alternation per row — no inline backgrounds in markup.
+    it "renders settings as four .pane-row groups holding seven total panes" do
+      # Phase 24 — Google card + YouTube OAuth client credentials card
+      # are gone (Google management moved to /channels). The page now
+      # has four paired rows: row 1 appearance | workspaces, row 2
+      # search | Voyage.ai, row 3 user (single pane; right side
+      # intentionally empty), row 4 OAuth-applications + tokens
+      # combined | sessions. The OAuth-applications and tokens
+      # surfaces still share one pane separated by a
+      # `<hr class="hairline">`. Total pane count drops from nine to
+      # seven (two Google/YouTube cells removed).
       get settings_path
-      expect(response.body.scan(/class="pane-row"/).length).to eq(5)
+      expect(response.body.scan(/class="pane-row"/).length).to eq(4)
       panes = response.body.scan(/class="pane(?:\s[^"]*)?"/).size
-      expect(panes).to eq(9)
+      expect(panes).to eq(7)
     end
 
     it "separates the OAuth applications and tokens sub-sections with a hairline" do
@@ -205,16 +213,14 @@ RSpec.describe "Settings", type: :request do
       expect(response.body).not_to match(/max-width:\s*880px;\s*margin:\s*0 auto/)
     end
 
-    # Phase 12 polish (2026-05-10) — DOM order across the five
-    # paired rows. Row 1: appearance, workspaces. Row 2: Google,
-    # YouTube. Row 3: search, Voyage.ai. Row 4: user. Row 5: OAuth
-    # applications + tokens (combined), sessions.
-    it "orders the panes appearance -> workspaces -> Google -> YouTube -> search -> Voyage -> user -> OAuth -> tokens -> sessions" do
+    # Phase 24 — DOM order across the four paired rows (Google card +
+    # YouTube OAuth card removed). Row 1: appearance, workspaces.
+    # Row 2: search, Voyage.ai. Row 3: user. Row 4: OAuth applications
+    # + tokens (combined), sessions.
+    it "orders the panes appearance -> workspaces -> search -> Voyage -> user -> OAuth -> tokens -> sessions" do
       get settings_path
       idx_appearance = response.body.index('value="appearance"')
       idx_workspaces = response.body.index('value="workspaces"')
-      idx_google     = response.body.index("<h2>Google</h2>")
-      idx_oauth      = response.body.index('value="youtube_oauth"')
       idx_search     = response.body.index("<h2>search</h2>")
       idx_voyage     = response.body.index('value="voyage"')
       idx_user       = response.body.index("<h2>user</h2>")
@@ -222,7 +228,7 @@ RSpec.describe "Settings", type: :request do
       idx_tokens     = response.body.index("<h2>tokens</h2>")
       idx_sessions   = response.body.index("<h2>sessions</h2>")
 
-      indices = [ idx_appearance, idx_workspaces, idx_google, idx_oauth,
+      indices = [ idx_appearance, idx_workspaces,
                   idx_search, idx_voyage, idx_user, idx_oauth_apps,
                   idx_tokens, idx_sessions ]
       expect(indices).to all(be_a(Integer))
@@ -235,13 +241,13 @@ RSpec.describe "Settings", type: :request do
       expect(response.body).to include(settings_tokens_path)
     end
 
-    # Phase 12 polish (2026-05-10) — brand casing exceptions to the
-    # site-wide lowercase tone. Pin them in the markup so future
-    # regressions don't quietly downcase a brand name.
-    it "uses brand casing for Google, YouTube, Voyage.ai, and OAuth" do
+    # Phase 24 — brand casing for the surfaces that survive on the
+    # Settings page. Google + YouTube cards moved to /channels; only
+    # Voyage.ai and OAuth-applications carry brand casing here now.
+    it "uses brand casing for Voyage.ai and OAuth applications" do
       get settings_path
-      expect(response.body).to include("<h2>Google</h2>")
-      expect(response.body).to include("<h2>YouTube</h2>")
+      expect(response.body).not_to include("<h2>Google</h2>")
+      expect(response.body).not_to include("<h2>YouTube</h2>")
       expect(response.body).to include("<h2>Voyage.ai</h2>")
       expect(response.body).to include("<h2>OAuth applications</h2>")
     end
@@ -253,23 +259,8 @@ RSpec.describe "Settings", type: :request do
       expect(response.body).not_to include("<h2>search engine</h2>")
     end
 
-    # Phase 12 polish — the YouTube client secret field is masked the
-    # same way Voyage.ai's API key field is. The stored secret value
-    # MUST NOT round-trip into the form's `value=""`. The rendered
-    # placeholder reflects the configured / not-configured state.
-    it "does not echo the YouTube client secret into the form value" do
-      AppSetting.set("youtube_client_secret", "super-secret-shhh")
-      get settings_path
-      # No <input> for the secret carries a value="..." with the plaintext.
-      expect(response.body).not_to include("super-secret-shhh")
-      # The placeholder reflects the configured state.
-      expect(response.body).to include("secret configured")
-    end
-
-    it "shows a 'no secret configured' placeholder when the secret is blank" do
-      get settings_path
-      expect(response.body).to include("no secret configured")
-    end
+    # Phase 24 — YouTube client secret masking specs retired (form
+    # gone with the rest of the Google/YouTube card).
 
     # Phase 12 polish — compact prose pattern. Counts read as terse
     # one-line sentences ("1 active token" / "10 active tokens" /
@@ -314,21 +305,10 @@ RSpec.describe "Settings", type: :request do
     end
   end
 
-  # 2026-05-10 — Google pane on the Settings index. The pane renders
-  # a `channels:` list (one label per row) aggregated across every
-  # YoutubeConnection owned by Current.user.
-  #
-  # 2026-05-10 (image #66) — the channels block dropped the count
-  # prefix ("103 channels:") in favour of a muted `channels:` header
-  # and one label per row. Labels resolve to the channel's `title`
-  # once the sync job populates it, falling back to the UC-id slug
-  # extracted from `channel_url`.
-  #
-  # 2026-05-10 copy fix — the card no longer renders per-connection
-  # email lines or the `last authorized YYYY-MM-DD HH:MM UTC (+N more)`
-  # paragraph. Negative guards live in the nested
-  # "Google card copy fix" describe block below.
-  describe "GET /settings — Google pane channels list" do
+  # Phase 24 — Google pane is gone. The describe block below is a
+  # negative-guard sweep confirming the surface stays gone (no
+  # `<h2>Google</h2>`, no `connected: yes/no`, no `channels:` block).
+  describe "GET /settings — Google pane is gone (Phase 24 negative guards)" do
     let(:user) { User.first }
     let(:valid_url) do
       ->(i) {
@@ -337,204 +317,83 @@ RSpec.describe "Settings", type: :request do
       }
     end
 
-    it "renders 'connected: no' with no channels block when no YoutubeConnection exists" do
+    it "does not render `<h2>Google</h2>` whether or not connections exist" do
       get settings_path
-      expect(response.body).to include("connected: no")
-      expect(response.body).not_to include("channels:")
-      expect(response.body).not_to include("no channels linked yet")
+      expect(response.body).not_to include("<h2>Google</h2>")
+
+      create(:youtube_connection, user: user)
+      get settings_path
+      expect(response.body).not_to include("<h2>Google</h2>")
     end
 
-    it "renders the empty-state phrasing when connected but no channels exist yet" do
-      create(:youtube_connection, user: user, email: "u@gmail.com")
+    it "does not render `connected: yes/no` copy" do
       get settings_path
-      expect(response.body).to include("connected: yes")
-      expect(response.body).to include("no channels linked yet")
+      expect(response.body).not_to include("connected: no")
+      expect(response.body).not_to include("connected: yes")
     end
 
-    it "renders a muted 'channels:' header (no count prefix) when channels exist" do
+    it "does not render the legacy `channels:` aggregated list" do
       connection = create(:youtube_connection, user: user)
       Channel.create!(channel_url: valid_url.call(0),
                       title: "Catalin Ilinca",
                       youtube_connection_id: connection.id)
       get settings_path
-      expect(response.body).to include("channels:")
-      # The pre-refactor "N channels:" count prefix is gone.
-      expect(response.body).not_to match(/\d+ channels?:/)
+      expect(response.body).not_to include("<li>Catalin Ilinca</li>")
+      # The legacy bullet-style `channels:` header is gone too.
+      expect(response.body).not_to match(/<p[^>]*>channels:<\/p>/)
     end
 
-    it "renders each channel title on its own line inside a list" do
-      connection = create(:youtube_connection, user: user)
-      [ "Alpha", "Bravo", "Charlie" ].each_with_index do |t, i|
-        Channel.create!(channel_url: valid_url.call(i),
-                        title: t,
-                        youtube_connection_id: connection.id)
-      end
+    it "does not render the `[manage]` link that pointed at /settings/youtube" do
       get settings_path
-      # Each title lives in its own <li>.
-      expect(response.body).to include("<li>Alpha</li>")
-      expect(response.body).to include("<li>Bravo</li>")
-      expect(response.body).to include("<li>Charlie</li>")
-      # And no inline comma-separated form anywhere on the page.
-      expect(response.body).not_to include("Alpha, Bravo, Charlie")
+      expect(response.body).not_to match(%r{href="/settings/youtube"})
     end
+  end
 
-    it "falls back to the UC-id slug when a channel has no title yet" do
-      connection = create(:youtube_connection, user: user)
-      uc_slug = "UC#{('a' * 22)[0, 22]}"
-      Channel.create!(channel_url: "https://www.youtube.com/channel/#{uc_slug}",
-                      title: nil,
-                      youtube_connection_id: connection.id)
+  # Phase 24 — `/settings/youtube` is gone; the URL 301-redirects to
+  # /channels for back-compat (locked decision #1, retained indefinitely).
+  describe "GET /settings/youtube (back-compat redirect)" do
+    it "returns 301 Moved Permanently with Location: /channels" do
+      get "/settings/youtube"
+      expect(response).to have_http_status(:moved_permanently)
+      # Rails' routing redirect synthesizes the full host; assert the
+      # path component.
+      expect(URI.parse(response.headers["Location"]).path).to eq("/channels")
+    end
+  end
+
+  # Retired: legacy Google pane describe block. The body has been
+  # converted to negative guards above. The describe below is left
+  # intentionally short so future maintenance work doesn't accidentally
+  # re-introduce the Google card.
+  describe "GET /settings — legacy Google card retirement" do
+    let(:user) { User.first }
+
+    it "renders 200 even when YoutubeConnection rows exist (no Google card)" do
+      create(:youtube_connection, user: user)
       get settings_path
-      expect(response.body).to include("<li>#{uc_slug}</li>")
-    end
-
-    it "prefers title over UC-id when both could resolve" do
-      connection = create(:youtube_connection, user: user)
-      Channel.create!(channel_url: valid_url.call(0),
-                      title: "Real Title",
-                      youtube_connection_id: connection.id)
-      get settings_path
-      expect(response.body).to include("<li>Real Title</li>")
-      expect(response.body).not_to include("<li>UC")
-    end
-
-    it "treats a whitespace-only title as blank and falls back to UC-id" do
-      connection = create(:youtube_connection, user: user)
-      uc_slug = "UC#{('b' * 22)[0, 22]}"
-      Channel.create!(channel_url: "https://www.youtube.com/channel/#{uc_slug}",
-                      title: "   ",
-                      youtube_connection_id: connection.id)
-      get settings_path
-      expect(response.body).to include("<li>#{uc_slug}</li>")
-    end
-
-    it "caps the list at 5 labels and appends '…and N more' beyond that" do
-      connection = create(:youtube_connection, user: user)
-      titles = %w[Alpha Bravo Charlie Delta Echo Foxtrot Golf]
-      titles.each_with_index do |t, i|
-        Channel.create!(channel_url: valid_url.call(i),
-                        title: t,
-                        youtube_connection_id: connection.id)
-      end
-      get settings_path
-      # The first 5 (titled rows ordered by title asc) appear; Foxtrot and
-      # Golf are summarized by the "+N more" footer line.
-      expect(response.body).to include("<li>Alpha</li>")
-      expect(response.body).to include("<li>Bravo</li>")
-      expect(response.body).to include("<li>Charlie</li>")
-      expect(response.body).to include("<li>Delta</li>")
-      expect(response.body).to include("<li>Echo</li>")
-      expect(response.body).not_to include("<li>Foxtrot</li>")
-      expect(response.body).not_to include("<li>Golf</li>")
-      expect(response.body).to include("…and 2 more")
-    end
-
-    it "aggregates channel labels across ALL connections owned by the user" do
-      conn_a = create(:youtube_connection, user: user)
-      conn_b = create(:youtube_connection, user: user)
-      Channel.create!(channel_url: valid_url.call(0), title: "From A",
-                      youtube_connection_id: conn_a.id)
-      Channel.create!(channel_url: valid_url.call(1), title: "From B",
-                      youtube_connection_id: conn_b.id)
-      get settings_path
-      expect(response.body).to include("channels:")
-      expect(response.body).to include("<li>From A</li>")
-      expect(response.body).to include("<li>From B</li>")
-    end
-
-    it "orders titled channels before un-titled (UC-id fallback) channels" do
-      connection = create(:youtube_connection, user: user)
-      Channel.create!(channel_url: valid_url.call(0),
-                      title: nil,
-                      youtube_connection_id: connection.id)
-      Channel.create!(channel_url: valid_url.call(1),
-                      title: "Zeta",
-                      youtube_connection_id: connection.id)
-      get settings_path
-      zeta_idx = response.body.index("<li>Zeta</li>")
-      uc_idx = response.body.index("<li>UC")
-      expect(zeta_idx).not_to be_nil
-      expect(uc_idx).not_to be_nil
-      expect(zeta_idx).to be < uc_idx
-    end
-
-    it "keeps the connect-a-Google-account hint paragraph in place" do
-      get settings_path
-      expect(response.body).to include(
-        "connect a Google account to fetch YouTube channel and analytics data."
-      )
-    end
-
-    # 2026-05-10 copy fix — the Google card dropped the per-connection
-    # email lines and the `last authorized YYYY-MM-DD HH:MM:SS UTC
-    # (+N more)` indicator. The card now reads: heading + "connected:
-    # yes/no" + channels block + hint + [manage]. Negative guards pin
-    # the contract so future work doesn't quietly reintroduce either
-    # block.
-    describe "Google card copy fix (no emails, no last-authorized line)" do
-      it "does not render any @-bearing email line when one connection exists" do
-        create(:youtube_connection, user: user, email: "alice@gmail.com")
-        get settings_path
-        expect(response.body).not_to include("@gmail.com")
-      end
-
-      it "does not render brand-account email fragments either" do
-        create(:youtube_connection, user: user,
-                                    email: "mushroom-poise-2296566909359968898@pages.plusgoogle.com")
-        get settings_path
-        expect(response.body).not_to include("mushroom-poise-2296566909359968898")
-        expect(response.body).not_to include("@pages.plusgoogle.com")
-      end
-
-      it "does not render any 'last authorized' line" do
-        create(:youtube_connection, user: user,
-                                    email: "first@gmail.com",
-                                    last_authorized_at: 2.hours.ago)
-        create(:youtube_connection, user: user,
-                                    email: "second@gmail.com",
-                                    last_authorized_at: 1.hour.ago)
-        get settings_path
-        expect(response.body).not_to match(/last authorized/i)
-        expect(response.body).not_to include("+1 more")
-        expect(response.body).not_to include("more)")
-      end
+      expect(response).to have_http_status(:ok)
+      expect(response.body).not_to include("<h2>Google</h2>")
     end
   end
 
   describe "PATCH /settings" do
-    it "saves new settings and redirects" do
+    # Phase 24 — youtube_client_id / youtube_client_secret /
+    # youtube_redirect_uri keys are not persisted by the settings form
+    # any longer. The legacy fall-through path (`update_legacy`) leaves
+    # them untouched. The PATCH path still accepts general + appearance
+    # + voyage sections; the rest of the legacy PATCH specs below
+    # exercise those.
+
+    it "redirects to /settings after a section-less submit" do
       patch settings_path, params: {
-        settings: {
-          youtube_client_id: "my-client-id",
-          youtube_client_secret: "my-secret",
-          youtube_redirect_uri: "http://localhost:3000/oauth/callback"
-        }
+        settings: { youtube_client_id: "noop" }
       }
       expect(response).to redirect_to(settings_path)
-      expect(AppSetting.get("youtube_client_id")).to eq("my-client-id")
-      expect(AppSetting.get("youtube_client_secret")).to eq("my-secret")
-      expect(AppSetting.get("youtube_redirect_uri")).to eq("http://localhost:3000/oauth/callback")
-    end
-
-    it "updates existing settings" do
-      AppSetting.set("youtube_client_id", "old-id")
-      patch settings_path, params: {
-        settings: { youtube_client_id: "new-id", youtube_client_secret: "", youtube_redirect_uri: "" }
-      }
-      expect(AppSetting.get("youtube_client_id")).to eq("new-id")
-    end
-
-    it "does not blank out existing settings when value is empty" do
-      AppSetting.set("youtube_client_secret", "keep-this")
-      patch settings_path, params: {
-        settings: { youtube_client_id: "new-id", youtube_client_secret: "", youtube_redirect_uri: "" }
-      }
-      expect(AppSetting.get("youtube_client_secret")).to eq("keep-this")
     end
 
     it "shows flash notice after save" do
       patch settings_path, params: {
-        settings: { youtube_client_id: "x", youtube_client_secret: "", youtube_redirect_uri: "" }
+        settings: { theme: "light" }
       }
       follow_redirect!
       expect(response.body).to include("settings saved.")
@@ -545,9 +404,8 @@ RSpec.describe "Settings", type: :request do
   # its own form with a hidden `section` field. PATCH-ing a single section
   # MUST NOT touch fields that belong to other sections.
   describe "PATCH /settings (per-section submits)" do
-    it "workspaces section saves only general keys, leaves theme/oauth alone" do
+    it "workspaces section saves only general keys, leaves theme alone" do
       AppSetting.set("theme", "dark")
-      AppSetting.set("youtube_client_id", "keep-id")
       patch settings_path, params: {
         section: "workspaces",
         settings: { pane_title_length: "20", max_panes: "7" }
@@ -555,19 +413,16 @@ RSpec.describe "Settings", type: :request do
       expect(AppSetting.get("pane_title_length")).to eq("20")
       expect(AppSetting.get("max_panes")).to eq("7")
       expect(AppSetting.get("theme")).to eq("dark")
-      expect(AppSetting.get("youtube_client_id")).to eq("keep-id")
     end
 
-    it "appearance section saves only the theme, leaves general/oauth alone" do
+    it "appearance section saves only the theme, leaves general alone" do
       AppSetting.set("max_panes", "9")
-      AppSetting.set("youtube_client_id", "keep-id")
       patch settings_path, params: {
         section: "appearance",
         settings: { theme: "light" }
       }
       expect(AppSetting.get("theme")).to eq("light")
       expect(AppSetting.get("max_panes")).to eq("9")
-      expect(AppSetting.get("youtube_client_id")).to eq("keep-id")
     end
 
     # 2026-05-11 — keyboard-navigation toggle is persisted by the same
@@ -642,7 +497,10 @@ RSpec.describe "Settings", type: :request do
       end
     end
 
-    it "youtube_oauth section saves only oauth keys, leaves general/theme alone" do
+    # Phase 24 — `youtube_oauth` section was dropped along with the
+    # Google card. Submitting `section=youtube_oauth` falls through to
+    # `update_legacy`, which silently no-ops on the dropped keys.
+    it "youtube_oauth section is a no-op (Phase 24 — dropped)" do
       AppSetting.set("max_panes", "9")
       AppSetting.set("theme", "dark")
       patch settings_path, params: {
@@ -653,9 +511,10 @@ RSpec.describe "Settings", type: :request do
           youtube_redirect_uri: "http://example.test/cb"
         }
       }
-      expect(AppSetting.get("youtube_client_id")).to eq("new-id")
-      expect(AppSetting.get("youtube_client_secret")).to eq("new-secret")
-      expect(AppSetting.get("youtube_redirect_uri")).to eq("http://example.test/cb")
+      # Whatever the AppSetting helper does internally with arbitrary
+      # keys is outside this phase — the contract is that the surface
+      # is gone, not that the keys actively reject.
+      expect(response).to redirect_to(settings_path)
       expect(AppSetting.get("max_panes")).to eq("9")
       expect(AppSetting.get("theme")).to eq("dark")
     end

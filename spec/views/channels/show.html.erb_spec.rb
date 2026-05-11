@@ -105,9 +105,11 @@ RSpec.describe "channels/show.html.erb", type: :view do
       expect(rendered).to include("href=\"#{channel_analytics_path(channel)}\"")
     end
 
-    it "renders three .pane-row sections (detail, analytics, videos)" do
+    it "renders four .pane-row sections (detail, Google panel, analytics, videos)" do
+      # Phase 24 — a fourth pane-row (Google management panel) was
+      # added between the detail pane and the analytics summary.
       render
-      expect(rendered.scan(/<div class="pane-row">/).size).to eq(3)
+      expect(rendered.scan(/<div class="pane-row">/).size).to eq(4)
     end
 
     it "renders the chrome row actions: [e], [sync], [-]" do
