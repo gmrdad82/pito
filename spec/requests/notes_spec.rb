@@ -176,6 +176,31 @@ RSpec.describe "Notes", type: :request do
     end
   end
 
+  # Keyboard-navigation opt-in (2026-05-10): each note row on the
+  # `/notes` index carries `data-keyboard-row` + `data-keyboard-row-id`
+  # so the global keyboard controller's `j`/`k` highlight resolves
+  # against the row's note id. Mirrors the channels / videos / projects
+  # pattern.
+  describe "GET /notes (index keyboard-row markup)" do
+    let!(:note_a) { create(:note, project: project, title: "Alpha note") }
+    let!(:note_b) { create(:note, project: project, title: "Bravo note") }
+
+    it "tags each note row with data-keyboard-row + data-keyboard-row-id" do
+      get notes_path
+      html = Nokogiri::HTML.fragment(response.body)
+      rows = html.css("tbody tr[data-keyboard-row]")
+      expect(rows.size).to eq(2)
+      ids = rows.map { |r| r["data-keyboard-row-id"] }.sort
+      expect(ids).to eq([ note_a.id.to_s, note_b.id.to_s ].sort)
+    end
+
+    it "leaves the empty-state body without keyboard-row markup" do
+      Note.delete_all
+      get notes_path
+      expect(response.body).not_to include("data-keyboard-row")
+    end
+  end
+
   # Phase 20 — friendly URLs. Notes use `path` as their natural identifier
   # (no friendly_id wiring); routes use a `*path` glob so slash-bearing
   # paths reach the controller intact. The controller's `set_note`

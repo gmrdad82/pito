@@ -706,6 +706,31 @@ RSpec.describe "Channels", type: :request do
     end
   end
 
+  # Keyboard-navigation opt-in (2026-05-10): each channel row carries
+  # `data-keyboard-row` + `data-keyboard-row-id` so the global keyboard
+  # controller's `j`/`k` highlight, `space` toggle, and `D`/`Y` bulk
+  # actions resolve against the row's channel id. Mirrors the hook on
+  # notifications and schedule rows.
+  describe "keyboard-row markup" do
+    let!(:channel_a) { create(:channel, channel_url: valid_url) }
+    let!(:channel_b) { create(:channel, channel_url: other_valid_url) }
+
+    it "tags each channel row with data-keyboard-row + data-keyboard-row-id" do
+      get channels_path
+      html = Nokogiri::HTML.fragment(response.body)
+      rows = html.css("tbody tr[data-keyboard-row]")
+      expect(rows.size).to eq(2)
+      ids = rows.map { |r| r["data-keyboard-row-id"] }.sort
+      expect(ids).to eq([ channel_a.id.to_s, channel_b.id.to_s ].sort)
+    end
+
+    it "leaves the empty-state body without keyboard-row markup" do
+      Channel.delete_all
+      get channels_path
+      expect(response.body).not_to include("data-keyboard-row")
+    end
+  end
+
   # The full HTML rendering matrix for `/channels/:slug` lives in
   # `spec/requests/channels_show_spec.rb` (Phase 7.5 §11b — show page
   # revamp). The block below keeps the load-bearing controller-level

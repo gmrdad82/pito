@@ -4,6 +4,30 @@ RSpec.describe "Footages", type: :request do
   let!(:project) { create(:project) }
   let!(:footage) { create(:footage, project: project) }
 
+  # Keyboard-navigation opt-in (2026-05-10): each footage row on the
+  # index carries `data-keyboard-row` + `data-keyboard-row-id` so the
+  # global keyboard controller's `j`/`k` highlight resolves against the
+  # row's footage id. Footage has no per-row bulk action on this surface
+  # yet, but the highlight still helps scan through the list.
+  describe "GET /footages (index keyboard-row markup)" do
+    let!(:other_footage) { create(:footage, project: project) }
+
+    it "tags each footage row with data-keyboard-row + data-keyboard-row-id" do
+      get footages_path
+      html = Nokogiri::HTML.fragment(response.body)
+      rows = html.css("tbody tr[data-keyboard-row]")
+      expect(rows.size).to eq(2)
+      ids = rows.map { |r| r["data-keyboard-row-id"] }.sort
+      expect(ids).to eq([ footage.id.to_s, other_footage.id.to_s ].sort)
+    end
+
+    it "leaves the empty-state body without keyboard-row markup" do
+      Footage.delete_all
+      get footages_path
+      expect(response.body).not_to include("data-keyboard-row")
+    end
+  end
+
   describe "GET /footages/:id/edit" do
     it "returns 200 (HTML)" do
       get edit_footage_path(footage)
