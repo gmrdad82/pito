@@ -1,19 +1,43 @@
 <%# Phase 14 §3 — single game tile (Steam-shelf shape).
+    Phase 27 metadata refresh — two explicit caption lines below the
+    cover art:
+
+      line 1: title, single line, ellipsis-truncated to the cover width
+      line 2: `★ <RR> · <YYYY>` — rating zero-padded to two digits,
+              year second, middle-dot separator. Missing pieces drop
+              out gracefully; see `GamesHelper#game_meta_line`.
+
     Locals:
       item or game  the Game record (the partial accepts either local
                     via the `as:` collection rendering convention).
-
-    Hover surfaces the caption strip (`Title (year) ★ rating`) — the
-    `caption` block is always rendered; CSS hides it until hover.
+      variant       optional, :grid (default) or :shelf. The shelf
+                    variant trims the caption font slightly (matches
+                    the smaller `Games::CoverComponent` :shelf footprint
+                    when it lands at a callsite that opts in). All
+                    existing callsites omit this and inherit the :grid
+                    default, so this is a pure-additive change.
 
     Bracketed-link convention applies to the title (the whole tile is
     a link, but the design system expects a bracketed legend on hover).
 %>
 <%
-  game = local_assigns[:game] || local_assigns[:item]
-  caption_parts = [ game.title ]
-  caption_parts << "(#{game.release_year})" if game.release_year.present?
-  caption_parts << "★ #{game.igdb_rating.to_i}" if game.igdb_rating.present?
+  game     = local_assigns[:game] || local_assigns[:item]
+  variant  = (local_assigns[:variant] || :grid).to_sym
+  meta_line = game_meta_line(game)
+
+  # Variant-keyed caption typography. Cover width stays 150px on both
+  # variants because the existing surrounding containers size the slot;
+  # only the font size changes (per the spec's "same layout, just
+  # smaller font on the shelf variant" directive).
+  caption_font_size = variant == :shelf ? "10px" : "11px"
+  meta_font_size    = variant == :shelf ?  "9px" : "10px"
+
+  # Hover/native title attribute keeps the legacy single-line caption
+  # so screen readers and tooltip-on-truncation surfaces still see the
+  # full string.
+  title_attr_parts = [ game.title ]
+  title_attr_parts << meta_line if meta_line.present?
+  title_attr = title_attr_parts.join(" — ")
 %>
 <%# `data-keyboard-tile` opts each tile into the global keyboard
     controller's tile-grid navigation when the surrounding container
@@ -23,11 +47,12 @@
     computation in `keyboard_controller.js#moveTileGrid` walks tiles
     by `getBoundingClientRect()` so the same partial works at any
     `repeat(auto-fill, minmax(...))` column count. %>
-<a href="<%= game_path(game) %>" class="tile"
+<a href="<%= game_path(game) %>" class="tile tile--<%= variant %>"
    style="flex: 0 0 150px; width: 150px; display: block; text-decoration: none; color: inherit; cursor: pointer;"
    data-tile-game-id="<%= game.id %>"
+   data-variant="<%= variant %>"
    data-keyboard-tile
-   title="<%= caption_parts.join(' ') %>">
+   title="<%= title_attr %>">
   <div class="tile-cover" style="width: 150px; height: 200px; overflow: hidden; background: #f6f6f6; display: flex; align-items: center; justify-content: center;">
     <% if game.cover_url.present? %>
       <%= image_tag game.cover_url(size: "t_cover_big"),
@@ -37,7 +62,16 @@
       <span class="bracketed-active text-muted">[no cover]</span>
     <% end %>
   </div>
-  <div class="tile-caption" style="padding: 4px 0; font-size: 11px;">
-    <%= caption_parts.join(' ') %>
+  <div class="tile-caption" style="padding: 4px 0 0 0; font-size: <%= caption_font_size %>; max-width: 150px;">
+    <div class="tile-caption-title"
+         style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;">
+      <%= game.title %>
+    </div>
+    <% if meta_line.present? %>
+      <div class="tile-caption-meta text-muted"
+           style="font-size: <%= meta_font_size %>; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;">
+        <%= meta_line %>
+      </div>
+    <% end %>
   </div>
 </a>

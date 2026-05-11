@@ -63,7 +63,7 @@
 
     <% @genres_shelves.each do |(genre, games)| %>
       <%= render "games/shelf",
-                 title: genre.name.downcase,
+                 title: genre_short_name(genre).to_s.downcase,
                  collection: games,
                  tile_partial: "games/tile",
                  more_link: games_path(genre: genre.id) %>

@@ -4,23 +4,22 @@
   <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;">
     <div class="dot-list">
       <h1>channels</h1>
-      <%# Phase 24 — `[+]` opens the Google OAuth dance via the
-          `/channels/connect_google` request-phase entry point (moved
-          off `/settings/youtube`). The banner below also surfaces a
-          `[+ add another Google account]` button for explicit
-          account-picker prompts (`account=new`). %>
+      <%# `[+]` opens the Google OAuth dance via the
+          `/channels/connect_google` request-phase entry point.
+          `account=new` triggers `prompt=select_account consent` on
+          the Google side so the user can pick which Google account
+          / channel context to authorize (otherwise Google silently
+          reuses the most-recently-used account). The OAuth callback
+          enumerates `mine: true` channels under the just-authorized
+          connection and auto-adds non-duplicates. %>
       <%= form_with url: connect_google_channels_path, method: :post,
                     data: { turbo: false }, html: { style: "display: inline;" } do %>
+        <input type="hidden" name="account" value="new">
         <button type="submit" class="bracketed">[<span class="bl">+</span>]</button>
       <% end %>
     </div>
     <span style="margin-left: auto;"><%= render(SavedViewsSectionComponent.new(saved_views: @saved_views || SavedView.none, kind: "channels")) %></span>
   </div>
-
-  <%# Phase 24 — Google management banner. Renders at the top of the
-      page above the filter chip cluster + channels table. Replaces
-      the legacy /settings/youtube surface. %>
-  <%= render "channels/google_banner", youtube_connections: @youtube_connections || [] %>
 
   <% filters = @filters || [] %>
   <%# Density polish (2026-05-10) — the filter chip cluster and the
@@ -146,10 +145,21 @@
                 <%= render(CheckboxComponent.new(value: channel.id, data: { bulk_select_target: "checkbox", action: "change->bulk-select#toggle" })) %>
               </td>
               <%# Avatar cell — narrow, vertically centered. Falls back to
-                  a muted em-dash when `avatar_url` is nil (pre-sync). %>
+                  a muted em-dash when `avatar_url` is nil (pre-sync). The
+                  explicit `width`/`height` HTML attributes are defensive:
+                  they reserve the intrinsic 32×32 box before the network
+                  image loads so the table cell never collapses the image
+                  into a narrow/stretched silhouette during paint. The
+                  `.avatar-thumb` CSS enforces the same dimensions plus
+                  `object-fit: cover` for non-square sources. %>
               <td class="avatar-cell">
                 <% if channel.avatar_url.present? %>
-                  <%= image_tag channel.avatar_url, alt: "", class: "avatar-thumb" %>
+                  <%= image_tag channel.avatar_url,
+                                alt: "",
+                                class: "avatar-thumb",
+                                width: 32,
+                                height: 32,
+                                loading: "lazy" %>
                 <% else %>
                   <span class="text-muted">—</span>
                 <% end %>

@@ -94,7 +94,7 @@
               </td>
               <td class="platforms-cell text-muted">—</td>
               <td class="genres-cell">
-                <% genre_names = game.genres.map(&:name).compact %>
+                <% genre_names = game.genres.map { |g| genre_short_name(g) }.compact %>
                 <% if genre_names.any? %>
                   <%= genre_names.join(", ") %>
                 <% else %>

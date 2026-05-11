@@ -34,6 +34,7 @@
                    games_path(genre: genre.id)
                  end
         %>
+        <% short_name = genre_short_name(genre) %>
         <a href="<%= href %>"
            class="tile tile--shelf"
            style="flex: 0 0 75px; width: 75px; display: block; text-decoration: none; color: inherit; cursor: pointer;"
@@ -41,10 +42,10 @@
            data-tile-variant="shelf"
            title="<%= genre.name %>">
           <div class="tile-cover" style="width: 75px; height: 100px; overflow: hidden; background: #f6f6f6; display: flex; align-items: center; justify-content: center; border: 1px solid #ddd;">
-            <span class="text-muted" style="font-size: 10px;">[<%= genre.name.to_s.downcase %>]</span>
+            <span class="text-muted" style="font-size: 10px;">[<%= short_name.to_s.downcase %>]</span>
           </div>
           <div class="tile-caption" style="padding: 4px 0; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-            <%= genre.name %>
+            <%= short_name %>
           </div>
         </a>
       <% end %>
