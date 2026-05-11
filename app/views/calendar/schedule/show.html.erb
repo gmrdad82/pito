@@ -81,19 +81,41 @@
     <%
       past_entries   = @entries.select { |e| e.starts_at <= @today }
       future_entries = @entries.select { |e| e.starts_at  > @today }
+      # Calendar refactor 2026-05-11 — group-by-day. The schedule table
+      # no longer fills the viewport; it shrinks to its natural content
+      # width. A `width: max-content` plus `max-width: 720px` cap keeps
+      # the layout compact on wide screens without truncating long
+      # titles on narrow ones. The `last_day_key` accumulator tracks the
+      # previously-rendered row's calendar day so repeated dates render
+      # an empty date cell.
+      last_day_key = nil
     %>
-    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+    <table class="calendar-schedule-table" style="width: max-content; max-width: 720px; border-collapse: collapse; font-size: 13px;">
       <tbody>
         <% past_entries.each do |entry| %>
-          <%= render(EntryRowComponent.new(entry: entry)) %>
+          <%
+            key = entry_grouping_day_key(entry)
+            show_date = (key != last_day_key)
+            last_day_key = key
+          %>
+          <%= render(EntryRowComponent.new(entry: entry, show_date: show_date)) %>
         <% end %>
         <% if past_entries.any? && future_entries.any? %>
-          <tr><td colspan="4" style="border-top: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border); padding: 4px 0; text-align: center; opacity: 0.6;" class="schedule-today-divider">[ today ]</td></tr>
+          <tr><td colspan="5" style="border-top: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border); padding: 4px 0; text-align: center; opacity: 0.6;" class="schedule-today-divider">[ today ]</td></tr>
+          <% # reset grouping after the divider so the first future row stamps its date %>
+          <% last_day_key = nil %>
         <% end %>
         <% future_entries.each do |entry| %>
-          <%= render(EntryRowComponent.new(entry: entry, show_reminder: true)) %>
+          <%
+            key = entry_grouping_day_key(entry)
+            show_date = (key != last_day_key)
+            last_day_key = key
+          %>
+          <%= render(EntryRowComponent.new(entry: entry, show_reminder: true, show_date: show_date)) %>
           <% entry.child_entries.where.not(state: %i[cancelled superseded]).each do |child| %>
-            <%= render(EntryRowComponent.new(entry: child, indent: true)) %>
+            <%# Indented child rows always suppress the date cell — they
+                visually belong to the parent's day group. %>
+            <%= render(EntryRowComponent.new(entry: child, indent: true, show_date: false)) %>
           <% end %>
         <% end %>
       </tbody>
@@ -102,3 +124,5 @@
     <%= render "pagination" %>
   <% end %>
 </div>
+
+<%= render "calendar/entry_modal" %>

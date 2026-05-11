@@ -1,5 +1,117 @@
 # Phase 25 — Login Security + New-Location Approval · Session Log
 
+## 2026-05-11 — P25 security findings F4 / F9 / F10 fix-forward (pito-rails-impl) [skipci]
+
+**Dispatch:** `pito-rails-impl` against three P25 security findings
+deepening 2FA defense-in-depth. No spec file — findings were inline in
+the dispatch (the referenced playbook
+`docs/orchestration/playbooks/security-2026-05-11-phase-25-login-security.md`
+does not exist on disk; the findings are documented inline below and
+in the production code via `# P25 follow-up — Fxx.` markers).
+
+**F4 — Backup-code consumer hardening
+(`app/services/auth/backup_code_consumer.rb`).**
+
+- Length gate tightened from `< 4` to exact-equal
+  `Auth::TotpEnroller::BACKUP_CODE_LENGTH` (8). A 4 / 7 / 9 / 16-char
+  input now short-circuits to `:invalid` before any BCrypt round-trip.
+- Alphabet validation added: every character of the normalized input
+  must be in `Auth::TotpEnroller::BACKUP_CODE_ALPHABET` (`A-Z` + `2-9`
+  minus the visually-confusable `O / I / L / B / 8`). A code with `0` /
+  `O` / `I` / `L` / `B` / `8` / `1` / punctuation / lowercase is
+  rejected before BCrypt.
+- Iteration is scoped to `user.totp_backup_codes.unused.find_each`
+  instead of the full set. A used row can never re-validate (the
+  row-locked transaction inside the consumer already re-checks
+  `used_at`), so skipping used rows here removes wasted BCrypt CPU and
+  eliminates a timing-oracle leg where "wrong plaintext" and "used
+  plaintext" paths differ in observable BCrypt invocations.
+- Consequence: the `:already_used` symbol return is now only reachable
+  via the parallel-consume race inside the row lock. Specs were
+  updated — a pre-stamped row's plaintext now resolves to `:invalid`
+  (the row is invisible to the consumer).
+
+**F9 — TOTP replay defense
+(`app/services/auth/totp_verifier.rb` + migration + `app/models/user.rb`).**
+
+- New migration
+  `db/migrate/20260512000100_add_totp_last_used_step_to_users.rb` adds
+  `users.totp_last_used_step` (`bigint`, nullable, default `nil`).
+  Applied to dev + test. Schema dumped.
+- `Auth::TotpVerifier`: on a successful ROTP verify, captures
+  `step = matched_at.to_i / 30` from ROTP's `verify(..., drift_behind:
+  30)` return value (the Unix-time start of the matched window).
+  Compares against `user.totp_last_used_step`:
+  - If `last.present? && step <= last` → reject (`:invalid`). No
+    watermark write.
+  - Else → `user.update_columns(totp_last_used_step: step)` and return
+    `:ok`. `update_columns` bypasses validations / callbacks; the
+    watermark is an internal monotonic counter, not a user-editable
+    field.
+- Effects: same code cannot be replayed inside the 60-s drift window;
+  an older-window drift code cannot be used after a newer one has been
+  accepted; first-ever verify (`nil` watermark) always accepts.
+- Cites RFC 6238 §5.2 inline in the verifier service comment.
+
+**F10 — `SecureRandom`-backed backup-code generation
+(`app/services/auth/totp_enroller.rb`).**
+
+- `generate_code` now draws each character via
+  `BACKUP_CODE_ALPHABET[SecureRandom.random_number(...)]`. Replaces the
+  `BACKUP_CODE_ALPHABET.sample` path. Ruby 3.x's `Array#sample` happens
+  to seed from SecureRandom but the underlying generator state is
+  Mersenne Twister (not a CSPRNG) — drawing each character via
+  `SecureRandom.random_number` makes the cryptographic guarantee
+  explicit at the source.
+
+**Files touched**
+
+- `app/services/auth/backup_code_consumer.rb` (F4)
+- `app/services/auth/totp_enroller.rb` (F10)
+- `app/services/auth/totp_verifier.rb` (F9)
+- `db/migrate/20260512000100_add_totp_last_used_step_to_users.rb` (F9)
+- `db/schema.rb` (regenerated)
+- `spec/services/auth/backup_code_consumer_spec.rb` (F4 — extended)
+- `spec/services/auth/totp_enroller_spec.rb` (F10 — extended)
+- `spec/services/auth/totp_verifier_spec.rb` (F9 — extended)
+- `spec/models/user_spec.rb` (F9 — column assertions)
+- `spec/requests/login/totp_challenges_spec.rb` (F4 — fixture
+  plaintext uses safe alphabet; F9 — clear watermark in `before`)
+- `spec/requests/settings/security/totps_spec.rb` (F9 — clear watermark
+  in two `before` blocks)
+- `spec/requests/settings/security/totp_backup_codes_spec.rb` (F9 —
+  clear watermark in `before`)
+
+**Spec delta:** +44 examples across the auth surface (consumer +18,
+verifier +7, enroller +6, user model +4, request specs unchanged
+count — only `before`-block tweaks). Pre-existing `:already_used`
+return assertion in the consumer spec converted to `:invalid` per the
+F4 semantics shift (1 test rewritten, not added).
+
+**Validation:**
+
+- `bundle exec rspec` targeted run (services + models + requests +
+  system spec covering all touched code paths): 162 + 7 = 169 examples
+  green.
+- `bundle exec rubocop` on all 11 touched files: clean (0 offenses).
+- `bin/brakeman -q -w2`: 0 security warnings (clean).
+
+**Notes / open items**
+
+- The dispatch named the playbook
+  `docs/orchestration/playbooks/security-2026-05-11-phase-25-login-security.md`
+  which does not exist. Findings were applied per the inline
+  description.
+- Test-DB churn during the run forced two `db:drop + db:schema:load +
+  schema_migrations bookkeeping` cycles. Functional outcome unaffected;
+  test DB now carries `totp_last_used_step` cleanly.
+- The parallel-running migration `20260512000000_add_version_parent_to_games`
+  (P28 work — owned by another agent) was bookkept into
+  `schema_migrations` for the test DB during the rebuild so my changes
+  could be tested; the migration file itself was not modified.
+
+---
+
 ## 2026-05-11 — sub-spec 01g rate-limit + session hardening pass (pito-rails-impl) [skipci]
 
 **Dispatch:** `pito-rails-impl` against

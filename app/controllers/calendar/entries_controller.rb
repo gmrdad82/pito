@@ -13,7 +13,7 @@ class Calendar::EntriesController < ApplicationController
 
   skip_before_action :verify_authenticity_token, if: -> { request.format.json? }
 
-  before_action :load_entry, only: %i[show edit update note]
+  before_action :load_entry, only: %i[show edit update note details_pane]
 
   def new
     @entry = CalendarEntry.new(
@@ -160,6 +160,18 @@ class Calendar::EntriesController < ApplicationController
     end
   end
 
+  # GET /calendar/entries/:id/details_pane — calendar refactor
+  # 2026-05-11. Returns the entry's title + when + cross-link target
+  # rendered inside a Turbo Frame for the click-to-open modal on the
+  # month grid and schedule list. The action does NOT mutate state and
+  # makes no validation calls — `load_entry` is the only work.
+  def details_pane
+    @parent_entry = @entry.parent_entry
+    @target_href = entry_target_href(@entry)
+    @target_label = entry_target_label(@entry)
+    render layout: false
+  end
+
   # PATCH /calendar/entries/:id/note — derived / auto entries can gain
   # metadata.user_overrides notes through this endpoint without
   # violating the read-only enforcement (open-question #8 decision).
@@ -190,6 +202,33 @@ class Calendar::EntriesController < ApplicationController
 
   def load_entry
     @entry = CalendarEntry.find(params[:id])
+  end
+
+  # Cross-link helpers for the details_pane Turbo Frame. The `[ open
+  # <target> ]` link inside the modal points at the related resource
+  # (video / channel / game), with the label embedding the target
+  # type so the user can see at a glance what `[open]` will navigate
+  # to. Free-form entry types (custom / milestone / purchase_planned)
+  # fall back to the entry's own show page with an `[open entry]`
+  # label.
+  def entry_target_href(entry)
+    case entry.entry_type
+    when "video_published", "video_scheduled"
+      view_context.video_path(entry.video_id) if entry.video_id
+    when "channel_published"
+      view_context.channel_path(entry.channel_id) if entry.channel_id
+    when "game_release"
+      view_context.game_path(entry.game_id) if entry.game_id
+    end || calendar_entry_path(entry)
+  end
+
+  def entry_target_label(entry)
+    case entry.entry_type
+    when "video_published", "video_scheduled" then "open video"
+    when "channel_published" then "open channel"
+    when "game_release" then "open game"
+    else "open entry"
+    end
   end
 
   # Phase 7.5 §11h — idempotency helper for the channel-rename-unlock

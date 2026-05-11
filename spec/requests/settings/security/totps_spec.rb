@@ -68,6 +68,10 @@ RSpec.describe "Settings::Security::Totps", type: :request do
       # the test computes a code against.
       post settings_security_totp_path
       user.update!(totp_seed_encrypted: seed)
+      # P25 follow-up — F9. Reset the replay-defense watermark so a
+      # prior test in this file's shared `let(:user)` does not block
+      # this verify within the same 30-s step.
+      user.update_columns(totp_last_used_step: nil)
       # Inject the deterministic seed into the flash so the confirm
       # action verifies against it.
       get settings_security_totp_show_path
@@ -124,6 +128,9 @@ RSpec.describe "Settings::Security::Totps", type: :request do
         totp_seed_encrypted: seed,
         totp_enabled_at: 1.hour.ago
       )
+      # P25 follow-up — F9. Clear the replay watermark so each verify
+      # in this `describe` block starts with a clean slate.
+      user.update_columns(totp_last_used_step: nil)
     end
 
     it "disables 2FA when confirm=yes and both password + code are correct" do

@@ -4,7 +4,10 @@ require "rails_helper"
 RSpec.describe "Login::TotpChallenges", type: :request do
   let(:password) { "supersecret-totp" }
   let(:seed) { "JBSWY3DPEHPK3PXP" }
-  let(:backup_plaintext) { "ABCD2345" }
+  # P25 follow-up — F4. Must use the safe 28-char alphabet
+  # (no O / I / L / B / 8 / 0 / 1) and be exactly 8 chars; otherwise
+  # the consumer short-circuits at the alphabet gate.
+  let(:backup_plaintext) { "ACDE2345" }
   let!(:user) do
     User.first ||
       create(:user, password: password, password_confirmation: password)
@@ -19,6 +22,10 @@ RSpec.describe "Login::TotpChallenges", type: :request do
     )
     user.totp_backup_codes.destroy_all
     user.totp_backup_codes.create!(code_digest: BCrypt::Password.create(backup_plaintext))
+    # P25 follow-up — F9. Reset the replay-defense watermark so each
+    # test computes a fresh-window verify and is not blocked by a
+    # prior test's stamp within the same 30-s window.
+    user.update_columns(totp_last_used_step: nil)
   end
 
   def post_login_with_password

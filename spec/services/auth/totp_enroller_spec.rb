@@ -101,4 +101,71 @@ RSpec.describe Auth::TotpEnroller do
       end
     end
   end
+
+  # P25 follow-up — F10. Backup codes are minted from an explicit
+  # CSPRNG (`SecureRandom.random_number`) rather than `Array#sample`.
+  describe ".generate_code (F10 — CSPRNG generation)" do
+    it "produces a string of exactly BACKUP_CODE_LENGTH chars" do
+      100.times do
+        code = described_class.generate_code
+        expect(code.length).to eq(described_class::BACKUP_CODE_LENGTH)
+      end
+    end
+
+    it "every character is drawn from BACKUP_CODE_ALPHABET" do
+      100.times do
+        code = described_class.generate_code
+        code.each_char do |c|
+          expect(described_class::BACKUP_CODE_ALPHABET).to include(c),
+            "character #{c.inspect} in #{code} is not in the safe alphabet"
+        end
+      end
+    end
+
+    it "invokes SecureRandom.random_number (the explicit CSPRNG path)" do
+      # Spy on the CSPRNG. Each character is drawn by one call to
+      # `SecureRandom.random_number(BACKUP_CODE_ALPHABET.length)`, so
+      # one `generate_code` invocation must produce exactly
+      # `BACKUP_CODE_LENGTH` calls with that specific argument. Use
+      # `.with(...)` to filter out unrelated SecureRandom traffic
+      # (e.g., the BCrypt cost path or the test framework's own
+      # random plumbing) and `.exactly(...)` against that filtered
+      # count.
+      allow(SecureRandom).to receive(:random_number).and_call_original
+      described_class.generate_code
+      expect(SecureRandom).to have_received(:random_number)
+        .with(described_class::BACKUP_CODE_ALPHABET.length)
+        .exactly(described_class::BACKUP_CODE_LENGTH).times
+    end
+
+    it "produces a roughly uniform character distribution over 1000 samples" do
+      # Distribution sanity check — 1000 codes of length 8 = 8000 draws
+      # over a 28-symbol alphabet. Expected frequency per symbol is
+      # 8000 / 28 ≈ 285. The tolerance is intentionally loose (±60%
+      # of expected) so this assertion does not flake on the test runner
+      # — the goal is to catch a wildly skewed RNG (e.g. all-zero, or
+      # always-the-same-char), not to chi-square the CSPRNG.
+      counts = Hash.new(0)
+      1000.times do
+        described_class.generate_code.each_char { |c| counts[c] += 1 }
+      end
+
+      expected = (1000 * described_class::BACKUP_CODE_LENGTH) /
+                 described_class::BACKUP_CODE_ALPHABET.length.to_f
+      lower = expected * 0.4
+      upper = expected * 1.6
+
+      described_class::BACKUP_CODE_ALPHABET.each do |c|
+        actual = counts[c]
+        expect(actual).to be_between(lower, upper),
+          "char #{c.inspect} appeared #{actual} times, expected ~#{expected.round} (range #{lower.round}..#{upper.round})"
+      end
+    end
+
+    it "two generated codes are not equal (collision sanity)" do
+      a = described_class.generate_code
+      b = described_class.generate_code
+      expect(a).not_to eq(b)
+    end
+  end
 end

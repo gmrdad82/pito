@@ -52,5 +52,12 @@ FactoryBot.define do
         )
       end
     end
+
+    # Phase 28 §01a — edition trait. Creates an unrelated primary on
+    # the fly when no `version_parent` association is passed.
+    trait :edition do
+      association :version_parent, factory: :game
+      version_title { "Deluxe" }
+    end
   end
 end

@@ -3,8 +3,11 @@
 # Small helpers for the month grid + schedule views. Each method
 # returns lowercase monospace strings per `docs/design.md`.
 module CalendarHelper
-  # Per-type prefix glyph (Q6 master decision). Used by the chip
-  # component on the month grid AND the schedule row partial.
+  # Per-type prefix glyph (Q6 master decision). Retained for backward
+  # compatibility with JSON consumers / decorator paths only; the
+  # month + schedule UI no longer renders the glyph (calendar refactor
+  # 2026-05-11). The visible label is now produced by
+  # `entry_type_label` — a typed token like `channel(joined)`.
   ENTRY_GLYPHS = {
     "channel_published" => "c:",
     "video_published"   => "v:",
@@ -14,6 +17,20 @@ module CalendarHelper
     "milestone_manual"  => "m:",
     "milestone_auto"    => "m*:",
     "custom"            => "~:"
+  }.freeze
+
+  # Typed entry-type labels rendered on the month grid + schedule list
+  # (calendar refactor 2026-05-11). Replaces the cryptic single-letter
+  # glyph prefixes with a typed token of the form `type(event)`.
+  ENTRY_TYPE_LABELS = {
+    "channel_published" => "channel(joined)",
+    "video_published"   => "video(published)",
+    "video_scheduled"   => "video(scheduled)",
+    "game_release"      => "game(released)",
+    "purchase_planned"  => "purchase(planned)",
+    "milestone_manual"  => "milestone",
+    "milestone_auto"    => "milestone(auto)",
+    "custom"            => "custom"
   }.freeze
 
   # Maps the user-facing filter labels to their member entry_types.
@@ -128,6 +145,14 @@ module CalendarHelper
     ENTRY_GLYPHS.fetch(entry.entry_type, "~:")
   end
 
+  # Typed token label rendered on the month grid + schedule list as a
+  # replacement for the legacy single-letter glyph prefix. Lowercase
+  # monospace per `docs/design.md`. Unknown types fall back to
+  # `custom`.
+  def entry_type_label(entry)
+    ENTRY_TYPE_LABELS.fetch(entry.entry_type, "custom")
+  end
+
   # Class name driven by entry state. The view layer maps these to
   # CSS rules: `scheduled` is normal, `occurred` muted, `cancelled`
   # strike-through, `superseded` muted + strike-through.
@@ -147,6 +172,23 @@ module CalendarHelper
   def entry_date_label(entry)
     install_tz = AppSetting.first&.timezone || "UTC"
     entry.starts_at.in_time_zone(install_tz).strftime("%b %-d").downcase
+  end
+
+  # Schedule view per-day grouping label rendered in the date column.
+  # Format: `may 10 sun` — lowercase abbreviated month, day-of-month,
+  # lowercase 3-letter weekday. Calendar refactor 2026-05-11.
+  def entry_date_grouping_label(entry)
+    install_tz = AppSetting.first&.timezone || "UTC"
+    entry.starts_at.in_time_zone(install_tz).strftime("%b %-d %a").downcase
+  end
+
+  # Stable cache key used by the schedule view to detect "same day as
+  # previous row" — the date column is suppressed when this matches the
+  # previous iteration. Uses the entry's starts_at in the install
+  # timezone.
+  def entry_grouping_day_key(entry)
+    install_tz = AppSetting.first&.timezone || "UTC"
+    entry.starts_at.in_time_zone(install_tz).to_date.iso8601
   end
 
   # Cross-link target for a derived entry's title. Per Q13.

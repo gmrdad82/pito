@@ -304,6 +304,30 @@ RSpec.describe User, type: :model do
         expect { user.destroy }.to change(TotpBackupCode, :count).by(-1)
       end
     end
+
+    # P25 follow-up — F9. Replay-defense column.
+    describe "totp_last_used_step column" do
+      it "is present as a bigint" do
+        column = User.columns_hash["totp_last_used_step"]
+        expect(column).to be_present
+        expect(column.sql_type).to eq("bigint")
+      end
+
+      it "is nullable (fresh users have no watermark)" do
+        column = User.columns_hash["totp_last_used_step"]
+        expect(column.null).to be(true)
+      end
+
+      it "defaults to nil for a fresh user" do
+        fresh = create(:user)
+        expect(fresh.reload.totp_last_used_step).to be_nil
+      end
+
+      it "round-trips a stored integer step" do
+        user.update!(totp_last_used_step: 59_284_000)
+        expect(user.reload.totp_last_used_step).to eq(59_284_000)
+      end
+    end
   end
 
   describe "no tenant / no username surface" do

@@ -83,7 +83,20 @@
               <% end %>
             </td>
             <td class="title-cell">
+              <%# Phase 28 §01a — edition rows show a muted parent
+                  pointer above the title in flat mode. %>
+              <% if game.edition? && game.version_parent.present? %>
+                <div class="text-muted" style="font-size: 10px; margin-bottom: 2px;">
+                  <%= render(BracketedLinkComponent.new(
+                        label: "↳ #{game.version_parent.title}",
+                        href: game_path(game.version_parent))) %>
+                </div>
+              <% end %>
               <%= link_to game.title, game_path(game) %>
+              <%# `+N editions` badge for primaries with editions. %>
+              <% if game.primary? %>
+                <%= render(Games::EditionsBadgeComponent.new(game: game)) %>
+              <% end %>
             </td>
             <td class="release-year-cell text-muted">
               <%= game.release_year.presence || "—" %>

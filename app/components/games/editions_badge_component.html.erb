@@ -1,0 +1,9 @@
+<%# Phase 28 §01a — bracketed `[+N editions]` badge. `bare: true`
+    renders the badge as a bracketed-active span (no nested anchor)
+    so it can appear inside a wrapping link (e.g. on a game tile).
+    Otherwise, renders as a bracketed link anchored to `#editions`. %>
+<% if bare? %>
+<span class="bracketed editions-badge editions-badge--bare">[<span class="bl"><%= label %></span>]</span>
+<% else %>
+<%= render(BracketedLinkComponent.new(label: label, href: href)) %>
+<% end %>

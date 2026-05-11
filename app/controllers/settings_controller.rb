@@ -247,7 +247,29 @@ class SettingsController < ApplicationController
     return if attrs.empty?
 
     setting.assign_attributes(attrs)
-    if setting.save
+    # F3 (2026-05-11) — emit an audit row whenever a Voyage
+    # credential or per-target flag is updated. Only the names of
+    # the columns that the save would change reach the audit row
+    # (`changed_fields`); plaintext values never enter the log.
+    # The save + audit write share a transaction so a rollback of
+    # either rolls back both.
+    changed_fields = setting.changes.keys
+    saved = false
+    ActiveRecord::Base.transaction do
+      saved = setting.save
+      if saved && changed_fields.any?
+        Auth::AuditLogger.call(
+          acting_user: Current.user,
+          source_surface: :web,
+          action: :voyage_credentials_updated,
+          target: setting,
+          metadata: { "changed_fields" => changed_fields }
+        )
+      end
+      raise ActiveRecord::Rollback unless saved
+    end
+
+    if saved
       nil
     else
       setting.errors.full_messages.first || "Voyage settings invalid."
@@ -296,7 +318,29 @@ class SettingsController < ApplicationController
     return if attrs.empty?
 
     setting.assign_attributes(attrs)
-    if setting.save
+    # F3 (2026-05-11) — emit an audit row whenever YouTube
+    # credentials are updated. Only the names of the columns the
+    # save would change reach the audit row (`changed_fields`);
+    # plaintext API keys / client secrets never enter the log. The
+    # save + audit write share a transaction so a rollback of
+    # either rolls back both.
+    changed_fields = setting.changes.keys
+    saved = false
+    ActiveRecord::Base.transaction do
+      saved = setting.save
+      if saved && changed_fields.any?
+        Auth::AuditLogger.call(
+          acting_user: Current.user,
+          source_surface: :web,
+          action: :youtube_credentials_updated,
+          target: setting,
+          metadata: { "changed_fields" => changed_fields }
+        )
+      end
+      raise ActiveRecord::Rollback unless saved
+    end
+
+    if saved
       nil
     else
       setting.errors.full_messages.first || "YouTube settings invalid."

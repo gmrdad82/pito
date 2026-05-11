@@ -119,4 +119,88 @@ RSpec.describe Igdb::SyncGame do
       expect(g.reload.title).to eq("The Legend of Zelda: Breath of the Wild")
     end
   end
+
+  # Phase 28 §01a — Multi-version grouping. The IGDB payload may carry
+  # a `version_parent` integer (IGDB-side parent game id) and a
+  # `version_title` string. The syncer pre-resolves the parent to a
+  # local Game id (importing the parent first if needed) and stamps
+  # `version_parent_id` on the edition.
+  describe "Phase 28 §01a — version_parent resolution" do
+    let(:base_payload) { game_payload.first }
+
+    let(:edition_payload) do
+      base_payload.merge(
+        "id" => 9001,
+        "name" => "Pragmata Deluxe Edition",
+        "slug" => "pragmata-deluxe-edition",
+        "version_parent" => 9000,
+        "version_title" => "Deluxe"
+      )
+    end
+
+    let(:parent_payload) do
+      base_payload.merge(
+        "id" => 9000,
+        "name" => "Pragmata",
+        "slug" => "pragmata"
+      ).tap { |h| h.delete("version_parent") }
+    end
+
+    before do
+      allow(client).to receive(:fetch_game).with(9001).and_return([ edition_payload ])
+      allow(client).to receive(:fetch_game).with(9000).and_return([ parent_payload ])
+      allow(client).to receive(:fetch_time_to_beat).with(any_args).and_return([])
+      allow(client).to receive(:fetch_external_games).with(any_args).and_return([])
+    end
+
+    it "stamps version_parent_id when the parent already exists locally" do
+      parent = create(:game, igdb_id: 9000, title: "Pragmata", igdb_synced_at: Time.current)
+      edition = create(:game, igdb_id: 9001, title: "placeholder")
+      syncer.call(edition)
+      expect(edition.reload.version_parent_id).to eq(parent.id)
+      expect(edition.version_title).to eq("Deluxe")
+    end
+
+    it "recursively imports the parent when not yet in DB" do
+      edition = create(:game, igdb_id: 9001, title: "placeholder")
+      expect { syncer.call(edition) }.to change(Game, :count).by(1)
+      parent = Game.find_by(igdb_id: 9000)
+      expect(parent).not_to be_nil
+      expect(parent.title).to eq("Pragmata")
+      expect(edition.reload.version_parent_id).to eq(parent.id)
+    end
+
+    it "leaves version_parent_id nil when the payload has no version_parent" do
+      no_parent_payload = edition_payload.dup
+      no_parent_payload.delete("version_parent")
+      no_parent_payload.delete("version_title")
+      allow(client).to receive(:fetch_game).with(9001).and_return([ no_parent_payload ])
+
+      edition = create(:game, igdb_id: 9001, title: "placeholder")
+      syncer.call(edition)
+      expect(edition.reload.version_parent_id).to be_nil
+    end
+
+    it "is idempotent on re-import (no duplicate parent rows)" do
+      create(:game, igdb_id: 9000, title: "Pragmata", igdb_synced_at: Time.current)
+      edition = create(:game, igdb_id: 9001, title: "placeholder")
+      syncer.call(edition)
+      expect { syncer.call(edition) }.not_to change(Game, :count)
+    end
+
+    it "stops at the first primary when IGDB returns a chain" do
+      grandparent_payload = parent_payload.merge("id" => 8999, "name" => "Pragmata Root")
+      chain_parent_payload = parent_payload.merge("version_parent" => 8999)
+      allow(client).to receive(:fetch_game).with(9000).and_return([ chain_parent_payload ])
+      allow(client).to receive(:fetch_game).with(8999).and_return([ grandparent_payload ])
+
+      edition = create(:game, igdb_id: 9001, title: "placeholder")
+      # The resolver walks the chain up to the first primary and stops
+      # there — it does NOT mirror the intermediate row locally. So one
+      # row lands (the root primary).
+      expect { syncer.call(edition) }.to change(Game, :count).by(1)
+      root = Game.find_by(igdb_id: 8999)
+      expect(edition.reload.version_parent_id).to eq(root.id)
+    end
+  end
 end

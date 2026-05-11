@@ -25,7 +25,7 @@ RSpec.describe CalendarHelper, type: :helper do
     end
   end
 
-  describe "#entry_chip_glyph" do
+  describe "#entry_chip_glyph (legacy — JSON / decorator paths only)" do
     {
       "channel_published" => "c:",
       "video_published"   => "v:",
@@ -40,6 +40,63 @@ RSpec.describe CalendarHelper, type: :helper do
         e = build(:calendar_entry, type.to_sym)
         expect(helper.entry_chip_glyph(e)).to eq(glyph)
       end
+    end
+  end
+
+  # Calendar refactor 2026-05-11 — month grid + schedule list now
+  # render a typed token label (`channel(joined)`, `video(published)`,
+  # `game(released)`, `milestone`, ...) in place of the legacy
+  # single-letter glyph prefix.
+  describe "#entry_type_label" do
+    {
+      "channel_published" => "channel(joined)",
+      "video_published"   => "video(published)",
+      "video_scheduled"   => "video(scheduled)",
+      "game_release"      => "game(released)",
+      "purchase_planned"  => "purchase(planned)",
+      "milestone_manual"  => "milestone",
+      "milestone_auto"    => "milestone(auto)",
+      "custom"            => "custom"
+    }.each do |type, label|
+      it "returns '#{label}' for #{type}" do
+        e = build(:calendar_entry, type.to_sym)
+        expect(helper.entry_type_label(e)).to eq(label)
+      end
+    end
+  end
+
+  describe "#entry_date_grouping_label" do
+    it "returns lowercase '<month> <dom> <weekday>' (e.g. `may 14 thu`)" do
+      e = build(:calendar_entry, :custom,
+                starts_at: Time.zone.parse("2026-05-14 10:00:00 UTC"))
+      expect(helper.entry_date_grouping_label(e)).to eq("may 14 thu")
+    end
+
+    it "uses the install timezone when computing the weekday" do
+      AppSetting.delete_all
+      AppSetting.create!(key: "tz_seed", value: "x", timezone: "America/Los_Angeles")
+      # 2026-05-15 02:00 UTC = 2026-05-14 19:00 LA → still thu in LA.
+      e = build(:calendar_entry, :custom,
+                starts_at: Time.zone.parse("2026-05-15 02:00:00 UTC"))
+      expect(helper.entry_date_grouping_label(e)).to eq("may 14 thu")
+    end
+  end
+
+  describe "#entry_grouping_day_key" do
+    it "returns the install-tz ISO date so same-day entries collide" do
+      e1 = build(:calendar_entry, :custom,
+                 starts_at: Time.zone.parse("2026-05-14 09:00:00 UTC"))
+      e2 = build(:calendar_entry, :custom,
+                 starts_at: Time.zone.parse("2026-05-14 23:30:00 UTC"))
+      expect(helper.entry_grouping_day_key(e1)).to eq(helper.entry_grouping_day_key(e2))
+    end
+
+    it "returns different keys for entries on different install-tz days" do
+      e1 = build(:calendar_entry, :custom,
+                 starts_at: Time.zone.parse("2026-05-14 09:00:00 UTC"))
+      e2 = build(:calendar_entry, :custom,
+                 starts_at: Time.zone.parse("2026-05-15 09:00:00 UTC"))
+      expect(helper.entry_grouping_day_key(e1)).not_to eq(helper.entry_grouping_day_key(e2))
     end
   end
 

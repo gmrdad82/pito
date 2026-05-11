@@ -14,6 +14,18 @@
 %>
 <% content_for(:title, @game.title) %>
 <% breadcrumb(["games", games_path], @game.title) %>
+
+<%# Phase 28 §01a — muted parent pointer for editions. Bracketed link
+    above the page chrome so the user can hop up to the primary's show
+    page. Rendered only when the row is an edition AND the pointer
+    resolves (a row in mid-detach renders no pointer). %>
+<% if @game.edition? && @game.version_parent.present? %>
+  <p class="text-muted edition-parent-pointer" style="margin: 0 0 8px 0;">
+    <%= render(BracketedLinkComponent.new(
+          label: "↳ #{@game.version_parent.title}",
+          href: game_path(@game.version_parent))) %>
+  </p>
+<% end %>
 <% content_for(:breadcrumb_actions) do %>
   <div class="dot-list">
     <%= render(BracketedLinkComponent.new(label: "edit", href: edit_game_path(@game))) %>
@@ -207,6 +219,17 @@
     <% end %>
   </div>
 </div>
+
+<%# Phase 28 §01a — editions sub-section. Rendered only when the
+    game is a primary with at least one edition. Anchored `#editions`
+    so the tile badge / list-mode badge can scroll-to. %>
+<% if @game.primary? && @game.editions.exists? %>
+  <div class="pane-row">
+    <div class="pane pane--wide">
+      <%= render(Games::EditionsSectionComponent.new(game: @game)) %>
+    </div>
+  </div>
+<% end %>
 
 <%# Row 3 — linked videos. Standalone wide pane so each title row
     can breathe horizontally; this matches the bundle show page's

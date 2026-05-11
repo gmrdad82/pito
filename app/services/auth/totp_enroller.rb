@@ -79,8 +79,17 @@ module Auth
       { seed: seed, codes: plaintext_codes }
     end
 
+    # P25 follow-up — F10. Backup codes are minted from an explicit
+    # CSPRNG. Ruby 3.x's `Array#sample` happens to seed from SecureRandom,
+    # but the underlying generator is Mersenne Twister — NOT a
+    # cryptographic RNG. Drawing each character via
+    # `SecureRandom.random_number` makes the cryptographic guarantee
+    # explicit at the source and survives any future change to the stdlib
+    # `Random` default.
     def self.generate_code
-      Array.new(BACKUP_CODE_LENGTH) { BACKUP_CODE_ALPHABET.sample }.join
+      Array.new(BACKUP_CODE_LENGTH) {
+        BACKUP_CODE_ALPHABET[SecureRandom.random_number(BACKUP_CODE_ALPHABET.length)]
+      }.join
     end
   end
 end

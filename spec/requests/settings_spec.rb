@@ -1647,6 +1647,139 @@ RSpec.describe "Settings", type: :request do
         expect(response.body).not_to include("GOCSPX-super_secret_plaintext_42")
       end
     end
+
+    # 2026-05-11 F3 — audit-log coverage for credential rotation.
+    # Every successful update of YouTube / Voyage credentials writes
+    # an `AuthAuditLog` row carrying ONLY the names of the columns
+    # that changed (never the plaintext values). Failed validations
+    # leave the table untouched.
+    describe "credential rotation audit logs (F3)" do
+      it "writes an audit row on successful YouTube credentials update" do
+        AppSetting.delete_all
+
+        expect {
+          patch settings_path, params: {
+            section: "youtube",
+            settings: {
+              youtube_api_key:       "AIza_audit_key",
+              youtube_client_secret: "GOCSPX-audit_secret"
+            }
+          }
+        }.to change(AuthAuditLog, :count).by(1)
+
+        row = AuthAuditLog.last
+        expect(row.action).to eq("youtube_credentials_updated")
+        expect(row.source_surface).to eq("web")
+        expect(row.target_type).to eq("AppSetting")
+        expect(row.target_id).to eq(AppSetting.first.id)
+        expect(row.acting_user_id).to eq(User.first.id)
+      end
+
+      it "records changed field NAMES in metadata (never plaintext values)" do
+        AppSetting.delete_all
+        patch settings_path, params: {
+          section: "youtube",
+          settings: {
+            youtube_api_key:       "AIza_super_secret_xyz",
+            youtube_client_secret: "GOCSPX-super_secret_xyz",
+            youtube_client_id:     "client-id-xyz.apps.googleusercontent.com"
+          }
+        }
+        row = AuthAuditLog.last
+        expect(row.metadata).to have_key("changed_fields")
+        expect(row.metadata["changed_fields"]).to include(
+          "youtube_api_key",
+          "youtube_client_secret",
+          "youtube_client_id"
+        )
+        # The hard rule: NEVER any plaintext value in the audit row.
+        serialized = row.metadata.to_json
+        expect(serialized).not_to include("AIza_super_secret_xyz")
+        expect(serialized).not_to include("GOCSPX-super_secret_xyz")
+        expect(serialized).not_to include("client-id-xyz.apps.googleusercontent.com")
+      end
+
+      it "writes NO audit row when YouTube update is a no-op (nothing changed)" do
+        AppSetting.set("max_panes", "5")
+        AppSetting.first.update!(youtube_api_key: "k_unchanged")
+        expect {
+          patch settings_path, params: { section: "youtube", settings: {} }
+        }.not_to change(AuthAuditLog, :count)
+      end
+
+      it "writes an audit row on successful Voyage credentials update" do
+        AppSetting.set("max_panes", "5")
+        expect {
+          patch settings_path, params: {
+            section: "voyage",
+            settings: {
+              voyage_api_key: "vk_audit_key",
+              voyage_index_project_notes: "yes"
+            }
+          }
+        }.to change(AuthAuditLog, :count).by(1)
+
+        row = AuthAuditLog.last
+        expect(row.action).to eq("voyage_credentials_updated")
+        expect(row.source_surface).to eq("web")
+        expect(row.target_type).to eq("AppSetting")
+        expect(row.target_id).to eq(AppSetting.first.id)
+        expect(row.metadata["changed_fields"]).to include("voyage_api_key")
+      end
+
+      it "Voyage metadata records changed field NAMES, never plaintext key" do
+        AppSetting.set("max_panes", "5")
+        patch settings_path, params: {
+          section: "voyage",
+          settings: { voyage_api_key: "vk_secret_xyz" }
+        }
+        row = AuthAuditLog.last
+        serialized = row.metadata.to_json
+        expect(serialized).to include("voyage_api_key")
+        expect(serialized).not_to include("vk_secret_xyz")
+      end
+
+      it "writes NO audit row when Voyage validation fails" do
+        # Setup: key already nil; flag=yes without supplying a key
+        # triggers the model validation rejection.
+        AppSetting.set("max_panes", "5")
+        AppSetting.first.update!(
+          voyage_api_key: nil, voyage_index_project_notes: false
+        )
+        expect {
+          patch settings_path, params: {
+            section: "voyage",
+            settings: { voyage_index_project_notes: "yes" }
+          }
+        }.not_to change(AuthAuditLog, :count)
+      end
+
+      it "writes NO audit row when Voyage update is a no-op (empty attrs)" do
+        AppSetting.set("max_panes", "5")
+        expect {
+          patch settings_path, params: { section: "voyage", settings: {} }
+        }.not_to change(AuthAuditLog, :count)
+      end
+
+      it "rolls back the audit row when the AppSetting save rolls back" do
+        # Simulate a save returning false post-validation by stubbing
+        # the model's `save` to fail AFTER `assign_attributes` runs.
+        # The transaction must roll back both the audit write and the
+        # (would-be) credential write atomically.
+        AppSetting.set("max_panes", "5")
+        AppSetting.first.update!(voyage_api_key: "vk_existing")
+        allow_any_instance_of(AppSetting).to receive(:save).and_return(false)
+
+        expect {
+          patch settings_path, params: {
+            section: "voyage",
+            settings: { voyage_api_key: "vk_new" }
+          }
+        }.not_to change(AuthAuditLog, :count)
+
+        expect(AppSetting.first.reload.voyage_api_key).to eq("vk_existing")
+      end
+    end
   end
 
   describe "GET /settings search section" do
