@@ -35,26 +35,56 @@ OmniAuth.config.on_failure = proc do |env|
   YoutubeConnections::OauthCallbacksController.action(:failure).call(env)
 end
 
-# Phase 7.5 — Step 01 hygiene sweep. Three-tier resolver mirroring the
-# Phase 5 pepper pattern in `Pito::TokenDigest#pepper`: credentials first,
-# then ENV var, then a test-mode placeholder so CI can boot without
-# `master.key`. Boot loudly with a clear message if no tier resolves
-# rather than letting OmniAuth ride on `nil` and fail mysteriously at
-# the `/auth/google` entry point.
+# 2026-05-11 — YouTube OAuth credentials moved out of
+# `Rails.application.credentials.google_oauth` and into the AppSetting
+# singleton so the operator can rotate them from the Settings UI
+# without a deploy. The resolver is now four-tier:
+#
+#   1. AppSetting singleton column (UI-edited; primary source).
+#   2. `Rails.application.credentials.google_oauth` block (legacy
+#      fallback retained as a manual revert path — see AppSetting
+#      header comment + `pito:backfill_youtube_credentials`).
+#   3. ENV var (PITO_GOOGLE_OAUTH_CLIENT_ID /
+#      PITO_GOOGLE_OAUTH_CLIENT_SECRET) for CI / local-no-DB workflows.
+#   4. Test-mode placeholder so request specs boot without
+#      `master.key` AND without a populated AppSetting.
+#
+# Reads run at boot. Rotating the AppSetting columns from the UI
+# requires a Puma restart for omniauth to pick up the new values
+# — same behavior the pre-AppSetting code already had with credentials.
+# A future iteration can patch `setup_phase` for hot rotation; the
+# operator's existing rotation workflow already involves a deploy /
+# restart so the gap is small.
+def pito_appsetting_youtube_value(column)
+  AppSetting.public_send(column) if AppSetting.connection.data_source_exists?("app_settings")
+rescue StandardError
+  nil
+end
+
 google_oauth_credentials = Rails.application.credentials.google_oauth || {}
+
 google_oauth_client_id =
-  google_oauth_credentials[:client_id] ||
-  ENV["PITO_GOOGLE_OAUTH_CLIENT_ID"] ||
+  pito_appsetting_youtube_value(:youtube_client_id).presence ||
+  google_oauth_credentials[:client_id].presence ||
+  ENV["PITO_GOOGLE_OAUTH_CLIENT_ID"].presence ||
   (Rails.env.test? ? "test-google-oauth-client-id-not-a-secret" : nil)
+
 google_oauth_client_secret =
-  google_oauth_credentials[:client_secret] ||
-  ENV["PITO_GOOGLE_OAUTH_CLIENT_SECRET"] ||
+  pito_appsetting_youtube_value(:youtube_client_secret).presence ||
+  google_oauth_credentials[:client_secret].presence ||
+  ENV["PITO_GOOGLE_OAUTH_CLIENT_SECRET"].presence ||
   (Rails.env.test? ? "test-google-oauth-client-secret-not-a-secret" : nil)
 
+google_oauth_redirect_uri =
+  pito_appsetting_youtube_value(:youtube_redirect_uri).presence ||
+  google_oauth_credentials[:redirect_uri].presence
+
 if google_oauth_client_id.blank? || google_oauth_client_secret.blank?
-  raise "missing google_oauth credentials: populate :google_oauth.client_id " \
-        "and :google_oauth.client_secret via `bin/rails credentials:edit` " \
-        "(or set PITO_GOOGLE_OAUTH_CLIENT_ID / PITO_GOOGLE_OAUTH_CLIENT_SECRET)"
+  raise "missing google_oauth credentials: populate the YouTube " \
+        "fields on the AppSetting singleton (Settings → YouTube → " \
+        "[update]) or :google_oauth.client_id + :google_oauth.client_secret " \
+        "via `bin/rails credentials:edit` (or set " \
+        "PITO_GOOGLE_OAUTH_CLIENT_ID / PITO_GOOGLE_OAUTH_CLIENT_SECRET)."
 end
 
 # Single scope set requested every time — see the scope strategy
@@ -106,14 +136,15 @@ Rails.application.config.middleware.use OmniAuth::Builder do
                # In test we let OmniAuth derive the redirect URI
                # from the request host (test_mode never reaches
                # Google so pin-mismatch doesn't apply). In dev /
-               # production we pin to the credentials value (must
-               # match the URI registered with the Google Cloud
-               # Console). The `:redirect_uri` key is optional (defaults
-               # to the production URL) so we keep a fallback string.
+               # production we pin to the resolved value (must match
+               # the URI registered with the Google Cloud Console).
+               # `youtube_redirect_uri` is OPTIONAL across all four
+               # resolver tiers — when blank we fall back to the
+               # production callback URL.
                if Rails.env.test?
                  nil
                else
-                 google_oauth_credentials[:redirect_uri].presence ||
+                 google_oauth_redirect_uri ||
                    "https://app.pitomd.com/auth/google/callback"
                end
              ),

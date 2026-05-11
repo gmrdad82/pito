@@ -1,0 +1,34 @@
+<%# Phase 27 follow-up (2026-05-11) — Collections modal.
+
+    One layout-positioned <dialog> per page render (this partial is
+    only emitted when at least one collection has games — see
+    `_collections_shelf.html.erb`). Each collection tile in the shelf
+    points its Stimulus action at this dialog's id; on click the
+    `collections-modal-trigger` controller writes the per-collection
+    games-pane URL onto the inner Turbo Frame's `src` attribute,
+    which fetches the games list and swaps it in.
+
+    Closing semantics mirror the project's other layout modals
+    (search, IGDB search, notifications):
+      - Escape         — native <dialog>.
+      - Click outside  — `clickOutside` action.
+      - `[close]` link — `close` action on the controller.
+
+    NO JS `confirm()` / `alert()` / `prompt()` (CLAUDE.md hard rule).
+%>
+<dialog id="collections-modal"
+        class="pane-dialog collections-modal"
+        data-controller="confirm-modal"
+        data-action="click->confirm-modal#clickOutside keydown->confirm-modal#keydown">
+  <div style="padding: 12px 16px; min-width: 480px; max-width: 900px; max-height: 80vh; overflow-y: auto;">
+    <div class="dot-list" style="margin-bottom: 8px;">
+      <h2 style="margin: 0;" data-collections-modal-target="title">collection</h2>
+      <%= render(BracketedLinkComponent.new(label: "close", href: "#",
+                                            data: { action: "click->confirm-modal#close" })) %>
+    </div>
+    <%= turbo_frame_tag "collections_modal_frame",
+                        src: nil,
+                        loading: "lazy",
+                        data: { collections_modal_target: "frame" } %>
+  </div>
+</dialog>

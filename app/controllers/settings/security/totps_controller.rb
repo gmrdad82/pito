@@ -127,6 +127,13 @@ class Settings::Security::TotpsController < ApplicationController
   end
 
   # POST /settings/security/totp/disable
+  #
+  # Defense-in-depth gate. Disabling 2FA is a high-impact action — it
+  # strips the seed AND every backup code. We ask for BOTH the current
+  # password and a fresh TOTP code, so a captured authenticated cookie
+  # alone cannot turn 2FA off. Failure copy is intentionally generic —
+  # the response must not leak whether the password or the code was
+  # the failing field.
   def destroy_confirmed
     unless Current.user.totp_enabled?
       redirect_to settings_security_totp_path,
@@ -134,8 +141,9 @@ class Settings::Security::TotpsController < ApplicationController
       return
     end
 
-    code = params[:code].to_s.strip
-    confirm = params[:confirm].to_s
+    password = params[:password].to_s
+    code     = params[:code].to_s.strip
+    confirm  = params[:confirm].to_s
 
     if confirm != "yes"
       redirect_to settings_security_totp_path,
@@ -143,18 +151,22 @@ class Settings::Security::TotpsController < ApplicationController
       return
     end
 
-    if Auth::TotpVerifier.call(user: Current.user, code: code) == :ok
-      Auth::TotpDisabler.call(user: Current.user,
-                              acting_user: Current.user,
-                              source_surface: :web)
-      # Phase 25 — 01g (LD-12 extension). Rotate the session token
-      # on disable so a captured cookie can't survive across the
-      # 2FA-off transition.
-      rotate_session_token!
-      redirect_to settings_security_totp_path, notice: "2FA disabled."
-    else
-      flash.now[:alert] = "login failed."
+    password_ok = password.present? && Current.user.authenticate(password)
+    code_ok     = Auth::TotpVerifier.call(user: Current.user, code: code) == :ok
+
+    unless password_ok && code_ok
+      flash.now[:alert] = "credentials don't match."
       render :destroy_screen, status: :unprocessable_content
+      return
     end
+
+    Auth::TotpDisabler.call(user: Current.user,
+                            acting_user: Current.user,
+                            source_surface: :web)
+    # Phase 25 — 01g (LD-12 extension). Rotate the session token
+    # on disable so a captured cookie can't survive across the
+    # 2FA-off transition.
+    rotate_session_token!
+    redirect_to settings_security_totp_path, notice: "2FA disabled."
   end
 end

@@ -99,6 +99,25 @@ class Games::CoverComponent < ViewComponent::Base
     @link_to_show
   end
 
+  # Theme-aware fallback SVG paths for the missing-cover case.
+  #
+  # Theme resolution in pito is client-side (localStorage + the
+  # `<html data-theme=...>` attribute set by the head boot script and the
+  # `theme` Stimulus controller — see `app/javascript/controllers/theme_controller.js`).
+  # The server cannot reliably pick a single theme at render time because
+  # the active value depends on a per-browser preference plus a system
+  # media query the request never observes. We therefore emit BOTH
+  # variants and let CSS pick the visible one via the
+  # `.game-cover-fallback--{light,dark}` rule scoped on
+  # `[data-theme="dark"]` (defined in `app/assets/tailwind/application.css`).
+  def fallback_light_path
+    helpers.image_path("game_cover_fallback_#{@dim[:css_modifier]}_light.svg")
+  end
+
+  def fallback_dark_path
+    helpers.image_path("game_cover_fallback_#{@dim[:css_modifier]}_dark.svg")
+  end
+
   # Friendly-URL aware path. `Game#to_param` returns `igdb_slug` when
   # present, falls back to `id.to_s` (see Game model). The
   # component intentionally goes through the URL helper rather than

@@ -3,6 +3,14 @@
       game:       a Game record (or anything responding to cover_url)
       size:       one of Game::COVER_SIZES; defaults to t_cover_big
       alt:        optional alt text (defaults to game.title)
+
+    Missing-cover path: render the theme-aware SVG fallback pair
+    (light + dark) the way `Games::CoverComponent` and the all-games
+    tile partial do. The `.game-cover-fallback--{light,dark}` CSS
+    rules pick the visible one based on `<html data-theme>` (set
+    client-side by the theme Stimulus controller). The grid-variant
+    asset is the larger of the two and downscales cleanly into the
+    flexible `max-width: 100%` slot used on show / edit pages.
 %>
 <% size_token = local_assigns.fetch(:size, "t_cover_big") %>
 <% alt_text   = local_assigns.fetch(:alt, game.title) %>
@@ -11,5 +19,14 @@
   <%= image_tag url, alt: alt_text, loading: "lazy",
                 style: "max-width: 100%; height: auto; display: block;" %>
 <% else %>
-  <span class="bracketed-active text-muted">[no cover]</span>
+  <%= image_tag image_path("game_cover_fallback_grid_light.svg"),
+                alt: "no cover available", loading: "lazy",
+                data: { theme: "light" },
+                class: "game-cover-fallback game-cover-fallback--light",
+                style: "max-width: 100%; height: auto; display: block;" %>
+  <%= image_tag image_path("game_cover_fallback_grid_dark.svg"),
+                alt: "no cover available", loading: "lazy",
+                data: { theme: "dark" },
+                class: "game-cover-fallback game-cover-fallback--dark",
+                style: "max-width: 100%; height: auto; display: block;" %>
 <% end %>

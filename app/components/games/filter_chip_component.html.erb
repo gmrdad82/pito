@@ -1,2 +1,6 @@
-<%# Phase 27 §01b — single bracketed chip link. Pure GET-link
-    navigation; no JS, no forms. %><%= link_to href, class: css_classes, data: { filter_token: token } do %>[<span class="bl"><%= label %></span>]<% end %>
+<%# Phase 27 §01b — single bracketed-checkbox chip link (2026-05-11).
+    Pure GET-link navigation; no JS, no forms. Mirrors the root
+    `FilterChipComponent` visual shape: `[ ] label` (unchecked) /
+    `[x] label` (checked). The whole anchor is the click target; the
+    `[ ]` / `[x]` indicator is a visual-only span (no real form
+    input). %><%= link_to href, class: css_classes, data: { filter_token: token } do %><span class="md-check-static"><%= active? ? "[x]" : "[ ]" %></span> <span class="md-check-static-label"><%= label %></span><% end %>

@@ -17,6 +17,18 @@
         ("notifications are deleted 7 days after being read.") so
         the cron job's data loss is discoverable.
 
+    Inbox layout revamp 2026-05-11 (per user direction):
+      - The table now carries an explicit `<thead>` with five labelled
+        columns: `select`, `kind`, `title`, `severity`, `when`. Matches
+        the `<thead><th>…</th></thead>` pattern used app-wide
+        (videos / channels / settings tokens / sessions).
+      - The per-event-type emoji legend that previously rendered as a
+        single muted comma-separated caption at the TOP of the page is
+        now at the BOTTOM (after the table + pagination, before the
+        notification-detail modal) laid out as a two-column grid with
+        one `<emoji> <kind label>` pair per line — easier to scan once
+        you've already seen the table and need to decode an icon.
+
     Index live-prepends new rows via `notifications_index` Turbo
     Stream subscription; the badge updates via the separate
     `notifications_badge` stream.
@@ -41,26 +53,6 @@
      data-notifications-dynamic-button-total-unread-value="<%= @unread_count %>">
   <h1>notifications</h1>
   <p class="text-muted" style="margin: 4px 0 8px;">notifications are deleted 7 days after being read.</p>
-
-  <%# Glyph legend. The first column on each row shows a per-event-type
-      emoji (📺, 🎮, 🚨…) sourced from `NotificationFormatter::EVENT_TYPE_EMOJI`.
-      The legend below makes the otherwise opaque pictograph readable —
-      one `<glyph> <kind label>` pair per registered event type, comma-
-      separated, on a single muted caption line. Rebuilt from the
-      formatter constant at render-time so a new kind landing in the
-      map appears here automatically. Severity (the colored bordered
-      badge on the right of each row) is self-documenting (the word
-      `info` / `warn` / etc. is rendered in-place); no legend needed
-      for that axis. %>
-  <% legend_pairs = NotificationFormatter::EVENT_TYPE_EMOJI.map { |kind, emoji|
-       [ emoji, kind.tr("_", " ") ]
-     } %>
-  <p class="notification-glyph-legend text-muted" style="margin: 0 0 8px;">
-    <% legend_pairs.each_with_index do |(emoji, label), i| %>
-      <span class="notification-glyph" aria-hidden="true"><%= emoji %></span>
-      <span><%= label %></span><%= "," if i < legend_pairs.length - 1 %>
-    <% end %>
-  </p>
 
   <% if @has_failures %>
     <div class="webhook-failure-banner" style="border: 1px solid var(--color-border); padding: 6px 10px; margin: 8px 0; color: var(--color-muted);">
@@ -97,7 +89,30 @@
   <% if @notifications.empty? && @page == 1 %>
     <p class="text-muted">no notifications yet.</p>
   <% else %>
+    <%# Columns:
+          select   — bulk-select checkbox (always-on column; the
+                     dynamic [ mark N as read ] button filters by
+                     `.notification-unread` so a ticked read row is
+                     silently ignored).
+          kind     — per-event-type emoji glyph from
+                     `NotificationFormatter::EVENT_TYPE_EMOJI`. Decoded
+                     by the legend at the bottom of the page.
+          title    — humanized title (clickable, opens the detail modal).
+          severity — `Notification#severity` enum value rendered as a
+                     bordered badge. Enum members (see
+                     `app/models/notification.rb`): info, success, warn,
+                     urgent.
+          when     — `payload[:fires_at_relative]` (e.g. "2 hours ago"). %>
     <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+      <thead>
+        <tr>
+          <th class="col-action">select</th>
+          <th>kind</th>
+          <th>title</th>
+          <th>severity</th>
+          <th>when</th>
+        </tr>
+      </thead>
       <tbody id="notifications_list">
         <%= render partial: "notification", collection: @notifications, as: :notification %>
       </tbody>
@@ -115,6 +130,29 @@
       </div>
     <% end %>
   <% end %>
+
+  <%# Glyph legend (post-table). Each row's `kind` column renders a
+      per-event-type emoji (📺, 🎮, 🚨…) sourced from
+      `NotificationFormatter::EVENT_TYPE_EMOJI`. The legend below
+      decodes the pictographs — one `<glyph> <kind label>` pair per
+      registered event type, laid out as a two-column grid with one
+      pair per line. Rebuilt from the formatter constant at render-time
+      so a new kind landing in the map appears here automatically.
+      Severity (the bordered badge in its own column) is self-
+      documenting — the badge text IS the enum value — so no legend
+      entry is needed for that axis. %>
+  <% legend_pairs = NotificationFormatter::EVENT_TYPE_EMOJI.map { |kind, emoji|
+       [ emoji, kind.tr("_", " ") ]
+     } %>
+  <div class="notification-glyph-legend text-muted"
+       style="margin: 16px 0 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 2px 16px; max-width: 480px;">
+    <% legend_pairs.each do |emoji, label| %>
+      <div class="notification-glyph-legend-item">
+        <span class="notification-glyph" aria-hidden="true"><%= emoji %></span>
+        <span><%= label %></span>
+      </div>
+    <% end %>
+  </div>
 
   <%# Notification detail modal. The dialog stays empty on first
       render — the inner Turbo Frame's `src` is set by

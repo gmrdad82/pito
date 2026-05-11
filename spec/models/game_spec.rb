@@ -20,6 +20,9 @@ RSpec.describe Game, type: :model do
     it { is_expected.to have_many(:game_platform_ownerships).dependent(:destroy) }
     it { is_expected.to have_many(:owned_platforms).through(:game_platform_ownerships).source(:platform) }
 
+    # Phase 27 follow-up (2026-05-11) — primary-genre pointer.
+    it { is_expected.to belong_to(:primary_genre).class_name("Genre").optional }
+
     # Phase 14 §3 — video attribution links.
     it { is_expected.to have_many(:video_game_links).dependent(:destroy) }
     it { is_expected.to have_many(:videos).through(:video_game_links) }

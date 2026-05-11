@@ -32,7 +32,7 @@
       2FA: <strong>off</strong>.
     </p>
     <%= form_with url: settings_security_totp_path, method: :post, data: { turbo: false } do %>
-      <button type="submit" class="bracketed" style="cursor: pointer;">[ enable 2FA ]</button>
+      <button type="submit" class="bracketed" style="cursor: pointer;">[<span class="bl">enable 2FA</span>]</button>
     <% end %>
   <% end %>
 </div>

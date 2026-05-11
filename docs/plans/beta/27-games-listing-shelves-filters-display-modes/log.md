@@ -1404,3 +1404,231 @@ session:
   existing `:shelf` cover-art variant), NOT the 105 × 140 alternate. Per the
   user dispatch — the integer math for the six_grid is 33+33+32 vs. the cleaner
   35+35+35 at 105, but the hosting shelf size locks 98 × 130.
+
+## [skipci] 2026-05-11 — six bundled `/games` follow-ups (primary genre + lowercase + composer wiring + demo collection) (pito-rails)
+
+Single-pass cleanup bundling Phase 27's deferred follow-ups + the P27
+reviewer BLOCKER + a couple of copy fixes the user called out while
+reviewing the live page.
+
+### Fixes 1 + 2 — primary-genre picker + Game model wire-up
+
+- `db/migrate/20260511180000_add_primary_genre_id_to_games.rb` adds
+  `games.primary_genre_id` (nullable, indexed, FK to `genres` with
+  `on_delete: :nullify`). Applied to dev and test DBs; `db/schema.rb`
+  bumped to `2026_05_11_180000`.
+- `app/services/games/primary_genre_picker.rb` returns ONE canonical
+  `Genre` per Game via three rules: explicit pin → alphabetical first
+  linked → nil. Documented inline; pure function, no persistence.
+- `app/models/game.rb` gains `belongs_to :primary_genre, class_name:
+  "Genre", optional: true` + `before_save :assign_primary_genre_if_blank`.
+- `app/models/game_genre.rb` gains `after_save` / `after_destroy`
+  callbacks (NOT the `_commit` variants — RSpec transactional fixtures
+  never commit) so the pin updates when `game.genres << g` or `game.genres
+  = [...]` fires. The callback short-circuits when a pin is already in
+  place to avoid thrashing.
+- `lib/tasks/pito.rake` adds `pito:backfill_primary_genres`. Idempotent;
+  ran against dev — 2 games backfilled, 4 left NULL (no linked genres),
+  re-run is a no-op.
+- `app/controllers/games_controller.rb` `@genres_for_shelf` now reads
+  `Game.where.not(primary_genre_id: nil).distinct.select(:primary_genre_id)`
+  so each game appears in exactly one sub-shelf.
+- `app/views/games/_genre_sub_shelf.html.erb` now reads
+  `Game.where(primary_genre_id: genre.id)` for both the count and the
+  ordered tile list.
+
+### Fix 3 — lowercase genre labels (acronym allowlist)
+
+- `app/helpers/genres_helper.rb` rewritten around a two-stage rule:
+  long-form names short-mapped via `GENRE_SHORT_NAMES` ("Role-playing
+  (RPG)" → "RPG"), then non-acronym labels downcased ("Adventure" →
+  "adventure", "Shooter" → "shooter"). `ACRONYM_LABELS` keeps only
+  `RPG` upper-case (per user "shooter is shooter actually" — the
+  legacy `First-person shooter → FPS` mapping is gone). MMO / RTS /
+  TBS now render lowercase too; extending the acronym list later is
+  non-breaking.
+- The helper's public method name stayed `genre_short_name` to avoid
+  churning every call site (`_genre_sub_shelf.html.erb`,
+  `_list_mode.html.erb`).
+- Helper spec rewritten end-to-end.
+
+### Fix 4 — collections-shelf heading + seed rename
+
+- `app/views/games/_collections_shelf.html.erb` `<h2>` text changed
+  from `custom collections` to plain `collections`.
+- `db/seeds.rb` legacy `Demo Collection` renamed to `currently
+  playing`. Idempotent — find_or_create_by(name:) creates a new row on
+  next seed; existing installs keep the old row (which the user can
+  rename / delete in the UI). Notes call out the rename so future
+  contributors know why a fresh install has two collection rows in
+  dev DBs that ran the prior seed.
+
+### Fix 5 — composer wiring (P27 reviewer BLOCKER)
+
+- `app/services/games/prepare_collections_for_shelf.rb` walks the
+  outer-shelf collections and calls `Collections::CoverComposer#call`
+  on each. The composer is fingerprint-cached so the call is a no-op
+  on cache hits; 0/1 member layouts short-circuit inside the composer.
+- `GamesController#index` invokes the service in-line after
+  `@collections_for_shelf` resolves. One render per request; out-of-
+  band Sidekiq job not needed for the in-flight render path.
+- New spec `spec/services/games/prepare_collections_for_shelf_spec.rb`
+  asserts the composer is invoked, the input is returned for chaining,
+  and a composer exception on one row does not 500 the whole index.
+- Added a request spec assertion that `Collections::CoverComposer#call`
+  is reached from `GamesController#index` for a 2-game collection.
+
+### Fix 6 — demo "now playing" collection
+
+- `db/seeds.rb` appended a `now playing` collection seed containing
+  `Pragmata` + `Red Dead Redemption 2` (lookup by title, creates thin
+  placeholder rows when missing so a clean install gets a 2-member
+  collection the composer can render). Re-running seeds is idempotent;
+  rows already in another collection are left alone.
+
+### Specs
+
+- `+spec/services/games/primary_genre_picker_spec.rb` (7 examples)
+- `+spec/services/games/prepare_collections_for_shelf_spec.rb` (4 examples)
+- `+spec/models/game_genre_spec.rb` (3 new examples covering callback)
+- `+spec/models/game_spec.rb` (1 new association example)
+- `~spec/helpers/genres_helper_spec.rb` (rewritten — 23 examples)
+- `~spec/views/games/_genres_shelf.html.erb_spec.rb` (lowercase label)
+- `~spec/views/games/_collections_shelf.html.erb_spec.rb` (heading copy)
+- `~spec/views/games/_genre_sub_shelf.html.erb_spec.rb` (lowercase label)
+- `~spec/requests/games_spec.rb` (lowercase label + heading copy +
+  composer wiring assertion)
+- `~spec/system/games_index_spec.rb` (lowercase headings)
+- `~spec/system/games_steam_shelf_spec.rb` (lowercase content)
+
+All 579 examples across the touched + adjacent surface pass. Brakeman
+clean (0 warnings, 0 errors). Rubocop clean on every Ruby file touched
+(20 files, 0 offenses).
+
+### Files
+
+- `app/services/games/primary_genre_picker.rb` (new)
+- `app/services/games/prepare_collections_for_shelf.rb` (new)
+- `app/models/game.rb`
+- `app/models/game_genre.rb`
+- `app/helpers/genres_helper.rb`
+- `app/controllers/games_controller.rb`
+- `app/views/games/_collections_shelf.html.erb`
+- `app/views/games/_genre_sub_shelf.html.erb`
+- `db/migrate/20260511180000_add_primary_genre_id_to_games.rb` (new)
+- `db/seeds.rb`
+- `db/schema.rb`
+- `lib/tasks/pito.rake`
+- spec files listed above.
+
+### Open issues / deferred
+
+- Manual primary-genre override surface on `/games/:id/edit` — the
+  schema and the model honor a manual pin (`primary_genre_id` set
+  directly), but there is no UI control yet. Queued as a follow-up
+  once the user asks for it.
+- Existing dev DB rows from the pre-rename seed (`Demo Collection`)
+  remain — the rename is forward-only. Operator can delete via the
+  UI when ready.
+
+## 2026-05-11 — Collections shelf restructure (single-row tiles + modal)
+
+### Dispatch
+
+User direction on the `/games` Collections surface (verbatim):
+> collections is just one row with the compound cover art. Clicking it
+> will open a modal with the games from that collection. Clicking a
+> game will navigate to the Game's page.
+
+Replaces the 01c-v2 "outer shelf of per-collection sub-shelves of game
+tiles" design with a single horizontal-scroll row of tile-per-
+collection. Each tile renders the composite cover (or the project's
+shelf-variant fallback SVG when the composer returned nil for an
+empty / single-game collection). Click → opens a layout-level
+`<dialog id="collections-modal">` whose inner Turbo Frame fetches
+`/collections/<id>/games_pane`. The pane lists the collection's games
+as `Games::CoverComponent :grid` tiles; each is wrapped in an `<a>`
+back to the game show page (full navigation).
+
+The 01h composer wiring (`Games::PrepareCollectionsForShelf` →
+`Collections::CoverComposer`) was already in place from the prior
+v2 dispatch; this restructure simply rewires the consumer view to
+read `collection.cover_url(variant: :shelf)` directly. No composer
+changes.
+
+### Changes
+
+Routes:
+- `GET /collections/:id/games_pane → Collections#games_pane` (new
+  member action; returns a Turbo Frame fragment, no application
+  layout).
+
+Controllers:
+- `CollectionsController#games_pane` (new).
+- `GamesController#index` — composer-warmup comment updated to point
+  at the new partial filename. No logic change.
+
+Views:
+- `app/views/games/_collections_shelf.html.erb` — rewritten. Now a
+  single horizontal-scroll row of `_collection_tile` renders + emits
+  the layout-level `<dialog>` modal partial alongside.
+- `app/views/games/_collection_tile.html.erb` (new) — one tile,
+  composite cover or fallback SVG, name in muted gray below.
+- `app/views/games/_collections_modal.html.erb` (new) — `<dialog>`
+  with Turbo Frame `collections_modal_frame` + `[close]` bracketed
+  link.
+- `app/views/collections/games_pane.html.erb` (new) — Turbo Frame
+  fragment, grid of `Games::CoverComponent :grid` tiles linked to
+  each game's show page.
+- `app/assets/tailwind/application.css` — updated stale comment
+  reference (`_collection_sub_shelf.html.erb` → `_collection_tile`).
+
+JavaScript:
+- `app/javascript/controllers/collections_modal_trigger_controller.js`
+  (new) — Stimulus controller: on click sets the Turbo Frame `src`,
+  updates the modal heading, calls `dialog.showModal()`. No
+  `confirm()` / `alert()` / `prompt()` — closes via
+  `confirm-modal#clickOutside` / Escape / `[close]` link.
+
+Deletions:
+- `app/views/games/_collection_sub_shelf.html.erb` (orphaned).
+- `app/views/games/_collection_sub_shelf_row.html.erb` (orphaned).
+- `spec/views/games/_collection_sub_shelf.html.erb_spec.rb`.
+- `spec/views/games/_collection_sub_shelf_row.html.erb_spec.rb`.
+
+Specs:
+- `spec/views/games/_collections_shelf.html.erb_spec.rb` — rewritten
+  (16 examples) for the single-row layout. Covers happy / edge
+  (empty input, composer-returned-nil) / flaw (no v1 / v2 remnants).
+- `spec/requests/collections_spec.rb` — `+7` examples for
+  `GET /collections/:id/games_pane` (200, Turbo Frame wrapper,
+  link-to-show-page, alphabetical, empty state, 404 on bad slug,
+  no layout, numeric-id resolution).
+- `spec/requests/games_spec.rb` — 2 assertions updated (sub-shelf
+  refs → tile refs); 1 new (`.collection-tile` count).
+- `spec/system/games_index_spec.rb` — `Custom collections outer shelf`
+  describe block rewritten + new `Collections modal flow` describe
+  block (3 examples: href fallback navigation, pane-fragment listing,
+  game tile click → game show page).
+
+### Verification
+
+- Touched specs green: 159 examples (`_collections_shelf` view +
+  `collections` request + `games` request + `games_index` system),
+  0 failures.
+- Adjacent system specs green: `games_display_modes`,
+  `games_steam_shelf` — 20 examples, 0 failures.
+- Rubocop clean on the 7 touched Ruby files (controllers, routes,
+  4 spec files).
+- Brakeman clean: 0 warnings, 0 errors.
+
+### Conflict handling note
+
+A sibling `games-polish v2` dispatch had already landed (heading
+rename to `collections`, composer wiring via
+`Games::PrepareCollectionsForShelf`, demo seeds). This restructure
+builds on top — no composer changes, no seed changes, no heading
+changes (we kept the `collections` <h2>). The orphaned 01c-v2
+sub-shelf partials and their view specs were deleted as part of
+this dispatch since the new tile-per-collection design replaces
+them entirely.

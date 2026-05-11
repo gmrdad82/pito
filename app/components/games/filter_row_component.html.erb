@@ -7,15 +7,30 @@
 
     No JS. Pure GET-link navigation; URL-state-driven. %>
 <section class="games-filter-row" data-controller="">
-  <div class="games-filter-row__chips" style="display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline;">
-    <% chip_tokens.each do |t| %>
-      <%= render chip_for(t) %>
-    <% end %>
+  <%# Phase 27 polish (2026-05-11) — chips left, optional right-slot
+      (display-mode switcher) pinned flush-right via `margin-left: auto`.
+      `flex-wrap: wrap` keeps the chips graceful at narrow widths; the
+      right slot stays right-aligned even when chips wrap. %>
+  <div class="games-filter-row__row" style="display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline;">
+    <div class="games-filter-row__chips" style="display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline;">
+      <% chip_tokens.each do |t| %>
+        <%= render chip_for(t) %>
+      <% end %>
 
-    <% if any_active? %>
-      <span class="games-filter-row__clear-all" style="margin-left: 8px;">
-        <%= link_to clear_all_href, class: "bracketed games-filter-row__clear-all-link" do %>[<span class="bl">clear all</span>]<% end %>
-      </span>
+      <% if any_active? %>
+        <%# Phase 27 polish (2026-05-11) — `feedback_bracketed_links`
+            convention: multi-word labels carry inner spaces (`[ clear all ]`).
+            Single-token chip labels above stay flush (`[ps5]`). %>
+        <span class="games-filter-row__clear-all" style="margin-left: 8px;">
+          <%= link_to clear_all_href, class: "bracketed games-filter-row__clear-all-link" do %>[ <span class="bl">clear all</span> ]<% end %>
+        </span>
+      <% end %>
+    </div>
+
+    <% if right_slot? %>
+      <div class="games-filter-row__right" style="margin-left: auto; display: inline-flex; align-items: baseline;">
+        <%= right_slot %>
+      </div>
     <% end %>
   </div>
 

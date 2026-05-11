@@ -50,6 +50,26 @@ RSpec.describe "Videos", type: :request do
         expect(link["href"]).to include("sort=id")
       end
 
+      # 2026-05-11 copy sweep — `last sync` was renamed to `synced`
+      # app-wide on display surfaces (underlying sort key stays
+      # `last_synced_at`). Regression guard against reintroducing
+      # the older label in the videos picker header.
+      it "renders the synced column header (and not the older `last sync` label)" do
+        get videos_path
+        html = Nokogiri::HTML.fragment(response.body)
+        header_texts = html.css("thead a").map { |a| a.text.strip }
+        expect(header_texts).to include("synced")
+        expect(header_texts).not_to include("last sync")
+      end
+
+      # 2026-05-11 copy sweep — the bulk-select hint "select items to
+      # act on" was dropped app-wide. Regression guard against
+      # reintroducing it on the videos picker.
+      it "does not render the dropped 'select items to act on' hint" do
+        get videos_path
+        expect(response.body).not_to include("select items to act on")
+      end
+
       it "exposes `id` in VideosController::ALLOWED_SORTS so server-side sort honors it" do
         expect(VideosController::ALLOWED_SORTS).to include("id" => "videos.id")
       end

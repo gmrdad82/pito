@@ -9,7 +9,7 @@ RSpec.describe Games::FilterChipComponent, type: :component do
       render_inline(described_class.new(
         token: "ps5", active: false, request_path: request_path, active_tokens: []
       ))
-      expect(page).to have_css("a.bracketed.filter-chip[href='/games?filters=ps5']")
+      expect(page).to have_css("a.filter-chip[href='/games?filters=ps5']")
     end
 
     it "renders an active chip toggling OFF when the chip is currently active" do
@@ -17,7 +17,7 @@ RSpec.describe Games::FilterChipComponent, type: :component do
         token: "ps5", active: true, request_path: request_path, active_tokens: %w[ps5]
       ))
       # toggling off the only active chip drops `filters=` entirely.
-      expect(page).to have_css("a.bracketed.filter-chip.chip--active[href='/games']")
+      expect(page).to have_css("a.filter-chip.chip--active[href='/games']")
     end
 
     it "preserves OTHER chips when toggling this one" do
@@ -31,7 +31,7 @@ RSpec.describe Games::FilterChipComponent, type: :component do
       render_inline(described_class.new(
         token: "not_owned", active: false, request_path: request_path, active_tokens: []
       ))
-      expect(page).to have_text("[not owned]")
+      expect(page).to have_text("[ ] not owned")
     end
 
     it "displays the canonical token verbatim for everything else" do
@@ -127,6 +127,54 @@ RSpec.describe Games::FilterChipComponent, type: :component do
       expect(page).to have_css("a", count: 1)
       expect(page).to have_no_css("button")
       expect(page).to have_no_css("form")
+    end
+  end
+
+  describe "polish: checkbox-style rendering (2026-05-11)" do
+    # Per project convention, filter chips are CHECKBOX-style — they
+    # carry a `[ ]` / `[x]` indicator span followed by the label. Same
+    # visual shape as the root `FilterChipComponent` used on the
+    # notifications inbox. The `[x]` glyph (vs `[ ]`) is the primary
+    # active-state cue; `chip--active` adds class hooks for any further
+    # styling but introduces no color (red is reserved).
+    it "renders `[ ]` (unchecked) and the label in two spans for an inactive chip" do
+      render_inline(described_class.new(
+        token: "ps5", active: false, request_path: request_path, active_tokens: []
+      ))
+      html = page.native.to_html
+      expect(html).to match(%r{<span class="md-check-static">\[ \]</span> <span class="md-check-static-label">ps5</span>})
+    end
+
+    it "renders `[x]` (checked) and the label in two spans for an active chip" do
+      render_inline(described_class.new(
+        token: "ps5", active: true, request_path: request_path, active_tokens: %w[ps5]
+      ))
+      html = page.native.to_html
+      expect(html).to match(%r{<span class="md-check-static">\[x\]</span> <span class="md-check-static-label">ps5</span>})
+    end
+
+    %w[recorded released owned scheduled switch2 steam gog epic].each do |t|
+      it "renders the canonical token `#{t}` inside `md-check-static-label`" do
+        render_inline(described_class.new(
+          token: t, active: false, request_path: request_path, active_tokens: []
+        ))
+        html = page.native.to_html
+        expect(html).to include(%(<span class="md-check-static-label">#{t}</span>))
+      end
+    end
+
+    it "carries the `filter-chip` class (so canonical chip CSS applies)" do
+      render_inline(described_class.new(
+        token: "ps5", active: false, request_path: request_path, active_tokens: []
+      ))
+      expect(page).to have_css("a.filter-chip")
+    end
+
+    it "does NOT carry the `bracketed` class (checkbox chips are not bracket-flush links)" do
+      render_inline(described_class.new(
+        token: "ps5", active: false, request_path: request_path, active_tokens: []
+      ))
+      expect(page).to have_no_css("a.bracketed")
     end
   end
 

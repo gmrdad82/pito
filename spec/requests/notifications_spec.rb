@@ -116,7 +116,9 @@ RSpec.describe "Notifications", type: :request do
       end
     end
 
-    # 2026-05-10 — glyph legend at the modal top. One legend line per
+    # 2026-05-10 — glyph legend, repositioned 2026-05-11 to the
+    # BOTTOM of the page and rendered as a two-column grid (one
+    # `<emoji> <kind label>` pair per line). One legend line per
     # registered event-type emoji, sourced from
     # `NotificationFormatter::EVENT_TYPE_EMOJI`. The legend stays in
     # sync with the formatter constant — no separate copy to maintain.
@@ -146,6 +148,73 @@ RSpec.describe "Notifications", type: :request do
         # id="notifications_modal_frame">`) so the modal surface
         # carries it as well — both surfaces share the index template.
         expect(response.body).to include("notification-glyph-legend")
+      end
+
+      # 2026-05-11 — repositioned. The legend used to render BEFORE
+      # the table as a single muted caption; per user direction it
+      # now renders AFTER the table so the table is the first thing
+      # you read, and the legend decodes the icons in retrospect.
+      it "renders the legend AFTER the table (below it in document order)" do
+        get "/notifications"
+        body = response.body
+        table_close_pos = body.index("</table>")
+        legend_pos      = body.index("notification-glyph-legend")
+        expect(table_close_pos).not_to be_nil
+        expect(legend_pos).not_to be_nil
+        expect(table_close_pos).to be < legend_pos
+      end
+
+      # 2026-05-11 — two-column layout. One item per line, two
+      # columns side-by-side, implemented as a CSS grid with two
+      # equal tracks.
+      it "lays the legend out as a two-column grid" do
+        get "/notifications"
+        legend_html = response.body[
+          %r{<div[^>]*notification-glyph-legend[^>]*>[\s\S]*?</div>}
+        ]
+        expect(legend_html).to be_present
+        # CSS `grid-template-columns: 1fr 1fr` declares the two-track
+        # grid; assert on the substring so a future CSS hoist to a
+        # class still leaves the intent visible in the markup.
+        expect(legend_html).to match(/display:\s*grid/)
+        expect(legend_html).to match(/grid-template-columns:\s*1fr\s+1fr/)
+      end
+
+      # 2026-05-11 — one item per line. Each legend pair lives in
+      # its own `.notification-glyph-legend-item` block-level div, so
+      # the grid stacks pairs vertically within each column.
+      it "wraps each pair in its own block-level item element" do
+        get "/notifications"
+        item_count = response.body.scan(
+          /class="notification-glyph-legend-item"/
+        ).length
+        expect(item_count).to eq(NotificationFormatter::EVENT_TYPE_EMOJI.length)
+      end
+    end
+
+    # 2026-05-11 — explicit `<thead>` row labels per user direction.
+    # Five columns: select, kind, title, severity, when. Matches the
+    # app-wide `<thead><th>…</th></thead>` table-header pattern.
+    describe "table header row" do
+      it "renders the explicit <thead> with five labelled columns" do
+        get "/notifications"
+        thead_html = response.body[%r{<thead>[\s\S]*?</thead>}]
+        expect(thead_html).to be_present
+        %w[select kind title severity when].each do |label|
+          expect(thead_html).to match(/<th[^>]*>\s*#{label}\s*</)
+        end
+      end
+
+      it "does not render <thead> when the empty state shows (no table)" do
+        Notification.delete_all
+        get "/notifications"
+        expect(response.body).not_to include("<thead>")
+        expect(response.body).to include("no notifications yet.")
+      end
+
+      it "renders <thead> inside modal-mode frame too" do
+        get "/notifications?modal=yes"
+        expect(response.body).to include("<thead>")
       end
     end
   end

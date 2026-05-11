@@ -66,6 +66,16 @@ class Game < ApplicationRecord
   # Phase 14 §1 — IGDB-backed associations.
   has_many :game_genres, dependent: :destroy
   has_many :genres, through: :game_genres
+
+  # Phase 27 follow-up (2026-05-11) — primary-genre pointer. Each game
+  # picks ONE canonical genre so the `/games` Genres outer-shelf lists
+  # the game in exactly one sub-shelf instead of every genre it joins.
+  # Picked by `Games::PrimaryGenrePicker` on save when blank; FK is
+  # `on_delete: :nullify` (see migration) so deleting a genre frees the
+  # pointer without nuking the game.
+  belongs_to :primary_genre, class_name: "Genre", optional: true
+  before_save :assign_primary_genre_if_blank
+
   has_many :game_platforms, dependent: :destroy
   has_many :platforms_available, through: :game_platforms, source: :platform
   has_many :game_developers, dependent: :destroy
@@ -313,5 +323,17 @@ class Game < ApplicationRecord
     return unless saved_change_to_collection_id?
     previous_id, current_id = saved_change_to_collection_id
     CollectionCoverRebuildJob.perform_async(previous_id, current_id)
+  end
+
+  # Phase 27 follow-up (2026-05-11) — set `primary_genre_id` when blank
+  # so the Genres outer-shelf can file every saved game under exactly
+  # one sub-shelf. Idempotent: a row that already has a primary is left
+  # alone (the picker also honors the pin internally). The hook fires
+  # on every save, not only `create`, so a row whose primary was
+  # nullified (FK `on_delete: :nullify`) re-picks on the next save.
+  def assign_primary_genre_if_blank
+    return if primary_genre_id.present?
+    pick = Games::PrimaryGenrePicker.new.pick(self)
+    self.primary_genre_id = pick&.id
   end
 end

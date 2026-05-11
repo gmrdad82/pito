@@ -19,7 +19,14 @@ class ChannelsController < ApplicationController
     "updated_at" => "channels.updated_at",
     "last_synced_at" => "channels.last_synced_at",
     "channel_url" => "channels.channel_url",
-    "starred" => "channels.star"
+    "starred" => "channels.star",
+    # 2026-05-11 ergonomics — surface the cached `subscriber_count` and
+    # `video_count` columns as sortable keys. Both columns are nullable
+    # (pre-sync rows render the muted em-dash); Postgres default NULL
+    # ordering — NULLS LAST on asc, NULLS FIRST on desc — matches the
+    # convention the rest of the index uses for `last_synced_at`.
+    "subscriber_count" => "channels.subscriber_count",
+    "video_count" => "channels.video_count"
   }.freeze
   ALLOWED_DIRS = %w[asc desc].freeze
   DEFAULT_SORT = "created_at"

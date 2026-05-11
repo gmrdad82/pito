@@ -10,9 +10,9 @@ RSpec.describe "TOTP 2FA journey", type: :system do
   context "happy path: enroll → confirm → manage" do
     it "enrolls, confirms with a fresh code, then disables" do
       visit "/settings/security/totp"
-      expect(page).to have_content("[ enable 2FA ]")
+      expect(page).to have_content("[enable 2FA]")
 
-      click_button "[ enable 2FA ]"
+      click_button "[enable 2FA]"
 
       expect(page).to have_content("enroll 2FA")
       expect(page).to have_content("scan")
@@ -24,7 +24,7 @@ RSpec.describe "TOTP 2FA journey", type: :system do
 
       code = ROTP::TOTP.new(seed).now
       fill_in "code", with: code
-      click_button "[ confirm 2FA ]"
+      click_button "[confirm 2FA]"
 
       expect(page).to have_content("2FA enrolled")
       expect(user.reload.totp_enabled?).to be true
@@ -34,12 +34,12 @@ RSpec.describe "TOTP 2FA journey", type: :system do
   context "sad path: wrong TOTP code during confirm" do
     it "renders an error and keeps enrollment pending" do
       visit "/settings/security/totp"
-      click_button "[ enable 2FA ]"
+      click_button "[enable 2FA]"
 
       expect(page).to have_content("enroll 2FA")
 
       fill_in "code", with: "000000"
-      click_button "[ confirm 2FA ]"
+      click_button "[confirm 2FA]"
 
       expect(page).to have_content("login failed")
       # The user has been seeded (seed + 10 codes) but `totp_enabled_at`
@@ -51,8 +51,15 @@ RSpec.describe "TOTP 2FA journey", type: :system do
   end
 
   context "manage: regenerate backup codes consumes the action-screen pattern" do
+    let(:password) { "password123" }
+
     before do
-      user.update!(totp_seed_encrypted: "JBSWY3DPEHPK3PXP", totp_enabled_at: 1.hour.ago)
+      user.update!(
+        password: password,
+        password_confirmation: password,
+        totp_seed_encrypted: "JBSWY3DPEHPK3PXP",
+        totp_enabled_at: 1.hour.ago
+      )
       user.totp_backup_codes.create!(code_digest: BCrypt::Password.create("OLDCODE2"))
     end
 
@@ -64,11 +71,50 @@ RSpec.describe "TOTP 2FA journey", type: :system do
       expect(page).to have_content("regenerate backup codes")
 
       code = ROTP::TOTP.new("JBSWY3DPEHPK3PXP").now
+      fill_in "password", with: password
       fill_in "code", with: code
-      click_button "[ regenerate ]"
+      click_button "[regenerate]"
 
       expect(page).to have_content("new codes")
       expect(user.reload.totp_backup_codes.count).to eq(10)
+    end
+  end
+
+  context "manage: disable flow asks for password + TOTP" do
+    let(:password) { "password123" }
+    let(:seed) { "JBSWY3DPEHPK3PXP" }
+
+    before do
+      user.update!(
+        password: password,
+        password_confirmation: password,
+        totp_seed_encrypted: seed,
+        totp_enabled_at: 1.hour.ago
+      )
+    end
+
+    it "disables 2FA when both fields are correct" do
+      visit "/settings/security/totp/disable"
+      expect(page).to have_content("disable 2FA")
+      expect(page).to have_field("password")
+      expect(page).to have_field("code")
+
+      fill_in "password", with: password
+      fill_in "code", with: ROTP::TOTP.new(seed).now
+      click_button "[disable 2FA]"
+
+      expect(page).to have_content("2FA disabled")
+      expect(user.reload.totp_enabled?).to be false
+    end
+
+    it "rejects with generic copy when the password is wrong" do
+      visit "/settings/security/totp/disable"
+      fill_in "password", with: "wrong"
+      fill_in "code", with: ROTP::TOTP.new(seed).now
+      click_button "[disable 2FA]"
+
+      expect(page).to have_content("credentials don't match")
+      expect(user.reload.totp_enabled?).to be true
     end
   end
 end

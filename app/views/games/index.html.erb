@@ -1,11 +1,16 @@
 <%# Phase 14 §3 — Steam-shelf rewrite of `/games`.
     - Bundles shelf at the top (only when Bundle.exists?).
     - Recently-played shelf (games with `played_at` set).
-    - Per-genre shelves (limit GENRE_SHELF_CAP genres × 12 games).
     - Per-platform shelves (one per Platform with an active ownership
       row — see `game_platform_ownerships`, Phase 27 §1a).
     - All-games grid at the bottom; filterable via
       `/games?genre=<id-or-slug>` / `/games?platform_owned=<id-or-slug>`.
+
+    Phase 27 polish (2026-05-11) — per-genre shelves are now rendered
+    once, at the top of the page, by the 01c-v2 nested Genres outer
+    shelf (`games/_genres_shelf`). The legacy `@genres_shelves`
+    iteration that produced duplicate genre rows below the all-games
+    partition was retired here.
 
     Each shelf is a `<section class="shelf">` carrying the
     `steam-shelf` Stimulus controller for drag-scroll +
@@ -32,15 +37,6 @@
             }
           )) %>
     </div>
-
-    <%# Phase 27 §01d — display mode switcher, flush right of the H1.
-        Three bracketed-link button_to forms PATCH `/users/games_preferences`
-        to persist the choice; the controller redirects to
-        `/games?display=<mode>` so the same render reflects the chosen mode
-        immediately. %>
-    <div style="margin-left: auto;">
-      <%= render "games/display_mode_switcher", active_mode: @display_mode %>
-    </div>
   </div>
 
   <%# Phase 27 §01c-v2 — Genres + Custom collections shelves render
@@ -55,7 +51,14 @@
   <%# Phase 27 §01b — filter row sits BELOW the shelves and ABOVE the
       main listing. Chip clicks toggle tokens in the `?filters=` CSV
       URL param; `[clear all]` clears the set while preserving
-      `?genre=`, `?collection=`, and `?display=` overrides. %>
+      `?genre=`, `?collection=`, and `?display=` overrides.
+
+      Phase 27 polish (2026-05-11) — the display-mode switcher (01d)
+      now lands in the filter row's right slot (was previously flush
+      right of the `<h1>games</h1>` row). Three bracketed-link
+      `button_to` forms PATCH `/users/games_preferences` to persist
+      the choice; the controller redirects to `/games?display=<mode>`
+      so the same render reflects the chosen mode immediately. %>
   <%= render Games::FilterRowComponent.new(
         active_tokens:          @filter_tokens,
         dropped_tokens:         @dropped_filter_tokens,
@@ -64,11 +67,20 @@
                                   collection: params[:collection],
                                   display:    params[:display] }.compact_blank,
         contradiction:          @filter_contradiction
-      ) %>
+      ) do |row| %>
+    <% row.with_right_slot do %>
+      <%= render "games/display_mode_switcher", active_mode: @display_mode %>
+    <% end %>
+  <% end %>
 
+  <%# Phase 27 polish (2026-05-11) — the legacy per-genre shelf
+      iteration (`@genres_shelves`) was retired here. It duplicated
+      the 01c-v2 nested Genres outer shelf at the top of the page.
+      The 01c-v2 nested shelves are now the single source of truth
+      for genre-grouped tile rows; the all-games partition below
+      remains the canonical "all games" surface. %>
   <% has_any_shelf = @bundles_shelf.any? || @recently_played.any? ||
-                     @genres_shelves.any? || @platforms_shelves.any? ||
-                     @all_games.any? %>
+                     @platforms_shelves.any? || @all_games.any? %>
 
   <% if has_any_shelf %>
     <% if @bundles_shelf.any? %>
@@ -84,14 +96,6 @@
                  title: "recently played",
                  collection: @recently_played,
                  tile_partial: "games/tile" %>
-    <% end %>
-
-    <% @genres_shelves.each do |(genre, games)| %>
-      <%= render "games/shelf",
-                 title: genre_short_name(genre).to_s.downcase,
-                 collection: games,
-                 tile_partial: "games/tile",
-                 more_link: games_path(genre: genre.id) %>
     <% end %>
 
     <% @platforms_shelves.each do |(platform, games)| %>

@@ -177,8 +177,19 @@ a.filter-chip:visited {
   gap: 4px;
 }
 a.filter-chip:hover { color: var(--color-link-hover); }
+
+/* Phase 27 polish (2026-05-11) — games `/games` filter chips use the
+   same checkbox-style `[ ] label` / `[x] label` shape as the root
+   `FilterChipComponent` (notifications inbox). They ride on the
+   canonical `.filter-chip` styling (inline-flex baseline + 4px gap)
+   so the `[x]` indicator and the label render with consistent
+   spacing. Active chips carry the `chip--active` modifier; the
+   bracket-x vs bracket-space glyph is the primary visual cue (no
+   color is added — red is reserved for destructive actions). */
 .md-check-static { font-weight: bold; }
 .md-check-static-label { font-weight: bold; }
+a.filter-chip.chip--active .md-check-static,
+a.filter-chip.chip--active .md-check-static-label { font-weight: 700; }
 
 /* Danger / destructive */
 .text-danger { color: var(--color-danger); }
@@ -2055,13 +2066,45 @@ dialog.wide-modal::backdrop {
   justify-content: center;
 }
 
-/* Phase 27 §01h — Collection sub-shelf composite cover.
+/* Missing-cover fallback SVGs. Two `<img>` tags are emitted per
+   missing cover (light + dark theme variants); the visible one is
+   toggled here via `[data-theme]` on `<html>`. The default tree
+   (no `[data-theme="dark"]` ancestor) shows the light variant; the
+   dark scope swaps to the dark variant. Both sit inside an
+   already-sized `.game-cover` wrapper, so `width: 100%; height: 100%`
+   comes from `.game-cover-img` above. */
+.game-cover-fallback--dark { display: none; }
+[data-theme="dark"] .game-cover-fallback--light { display: none; }
+[data-theme="dark"] .game-cover-fallback--dark { display: block; }
+
+/* Phase 27 §01d follow-up — shelves-by-letter row clamp.
+   Each per-letter shelf is rendered through the shared `games/shelf`
+   partial whose row is `display: flex; gap: 8px; overflow-x: auto`.
+   In the default block layout that row stretches to the container
+   width, so a letter bucket with one or two games shows a long
+   empty stripe to the right of the cover art. Clamp the section
+   (and the row inside it) to `width: max-content` so the visible
+   span equals `N × 150 + (N-1) × 8` — never wider than the cover
+   art itself, per the locked direction. The headings (`<h2>` letter
+   label and the bracketed `[see all]` link) sit on the dot-list
+   row and inherit the same content-width clamp because the section
+   is the flex/dot-list root. */
+.games-shelves-by-letter-mode .shelf {
+  width: max-content;
+  max-width: 100%;
+}
+.games-shelves-by-letter-mode .shelf-row {
+  width: max-content;
+  max-width: 100%;
+}
+
+/* Phase 27 §01h — Collection tile composite cover.
    Fixed-pixel sizing matches the `:shelf` cover-art variant
-   (98 × 130) so the composite sits inline with neighbouring
-   `Games::CoverComponent` tiles without browser-side resizing.
-   No `transform: scale`, no `width: 100%`, no `cursor: pointer` on
-   the image itself — the sub-shelf wrapper carries the click
-   affordance (see `_collection_sub_shelf.html.erb`). */
+   (98 × 130) so the composite sits inline with `Games::CoverComponent`
+   tiles without browser-side resizing. No `transform: scale`, no
+   `width: 100%`, no `cursor: pointer` on the image itself — the
+   wrapping `.collection-tile` anchor carries the click affordance
+   (see `_collection_tile.html.erb`). */
 .collection-cover-composite {
   width: 98px;
   height: 130px;

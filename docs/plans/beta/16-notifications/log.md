@@ -836,3 +836,76 @@ protocol-relative `//evil.com/x`). Spec shapes match this regex constraint.
   mark-read still works under normal click cadence; double- clicking the bulk
   button within 5s shows the slow-down alert.
 - Once validated, master commits + pushes.
+
+## 2026-05-11 — Inbox layout revamp (header row + bottom 2-col legend)
+
+### Context
+
+User direction from a screenshot review of `/notifications`:
+
+> arrange the legend better, maybe in 2 columns, put it at the bottom of the
+> table, it should be one item per line. What is the [info] column all about?
+> What other can be there? Let's add a table header for this table.
+
+Spec slug: ad-hoc UX refinement (no new spec file). The `[info]` column was
+identified as the `Notification#severity` enum — values are `info`, `success`,
+`warn`, `urgent` (per `app/models/notification.rb`).
+
+### What was implemented
+
+- The per-event-type emoji legend moved from the TOP of the page (single muted
+  comma-separated caption) to the BOTTOM (after the table + pagination, before
+  the notification-detail modal). It now renders as a CSS-grid two-column layout
+  (`grid-template-columns: 1fr 1fr`), one `<emoji> <kind label>` pair per line,
+  each pair wrapped in its own `.notification-glyph-legend-item` block-level
+  div. Source remains `NotificationFormatter::EVENT_TYPE_EMOJI` (one legend
+  entry per registered event type, auto-extends).
+- Added an explicit `<thead>` to the notifications table. Five columns labelled
+  `select`, `kind`, `title`, `severity`, `when`. Matches the app-wide
+  `<thead><th>…</th></thead>` pattern used on `/videos`, `/channels`,
+  `/settings/tokens`, `/settings/sessions`.
+- The header row inherits the global `thead th` style (muted bold, 14px,
+  `--color-bg-header` background) from `app/assets/tailwind/application.css`.
+- Inline ERB comment block at the top of `index.html.erb` updated to describe
+  both moves; an inline column-legend comment now lives next to the `<table>`
+  open tag enumerating the four severity enum values so a future reader knows
+  what can appear in that column.
+
+### Files touched
+
+- `app/views/notifications/index.html.erb` — moved legend, added `<thead>`,
+  refreshed top-of-file comment, added severity-column comment.
+- `spec/requests/notifications_spec.rb` — three new examples on legend ordering
+  / 2-column grid / per-item wrapper, three new examples on the `<thead>` row
+  (labels present, omitted on empty state, present in modal mode). Net `+6`
+  examples on the index request block.
+- `spec/system/notifications_index_spec.rb` — one new `describe` with four
+  examples covering header labels, legend below-table ordering, item count, and
+  the two-column grid style.
+
+### Quality gates
+
+- `bundle exec rspec spec/requests/notifications_spec.rb spec/system/notifications_index_spec.rb`
+  — 98 examples, 0 failures (54 → 60 request, 34 → 38 system index).
+- Sibling notification system specs (modal / navbar modal / badge live update /
+  dynamic button / show) — 42 examples, 0 failures.
+- `bundle exec rubocop` on touched spec files — clean.
+- `bin/brakeman -q -w2` — 0 warnings (pre-existing obsolete ignore entries
+  unchanged).
+
+### Manual playbook
+
+1. Open `/notifications` (logged in). Confirm:
+   - Table has a single header row labelled
+     `select | kind | title | severity | when`.
+   - The emoji legend now sits below the table, two columns wide, with one
+     `<emoji> kind label` pair per line. Every registered event type appears.
+2. Open the layout-level notifications modal (the bell icon in the nav). Confirm
+   the modal carries the same shape — header row at the top of the table, legend
+   at the bottom.
+3. Toggle `?filter=unread` — header row stays, legend stays. Empty state still
+   reads `no notifications yet.` when no rows match.
+
+### Next steps
+
+- Master commits + pushes after user validates.

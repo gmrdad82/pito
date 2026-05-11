@@ -154,6 +154,34 @@ module ChannelsHelper
     channel.channel_url
   end
 
+  # 2026-05-11 picker URL column — the visible text for the row's
+  # outbound YouTube link. Title moved out of the URL column and now
+  # owns the name cell; the URL cell shows only the channel's short
+  # identifier:
+  #
+  #   1. `Channel#handle` (the `@xxxx` form) when present — preferred
+  #      because it matches how creators refer to their own channel.
+  #   2. The locked `UC<22-char>` slug otherwise — middle-truncated to
+  #      `UCxxxxxx…xyz` so legacy / pre-sync rows stay scannable
+  #      without flooding the column with a 24-char opaque id.
+  #   3. The raw `channel_url` as a final fallback if the UC-id cannot
+  #      be extracted (defense in depth; the model regex prevents it
+  #      on insert).
+  #
+  # The href stays the full `channel_display_url(channel)` so the link
+  # still resolves to a real YouTube page.
+  def channel_url_label(channel)
+    return nil if channel.nil?
+
+    handle = channel.handle.to_s.strip
+    return handle if handle.present?
+
+    uc_id = youtube_channel_id(channel)
+    return middle_truncate(uc_id, head: 6, tail: 3) if uc_id.present?
+
+    channel.channel_url
+  end
+
   private
 
   def em_dash

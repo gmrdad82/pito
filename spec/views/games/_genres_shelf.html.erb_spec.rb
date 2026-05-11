@@ -38,10 +38,11 @@ RSpec.describe "games/_genres_shelf.html.erb", type: :view do
       expect(rendered.scan('data-shelf="genre-sub"').length).to eq(2)
     end
 
-    it "renders an <h3> per sub-shelf with the genre's short-form name" do
+    it "renders an <h3> per sub-shelf with the genre's display label" do
       render_shelf(Genre.where(id: [ adventure.id, rpg.id ]))
-      # Adventure has no short-form mapping → renders as-is.
-      expect(rendered).to match(%r{<h3[^>]*>\s*Adventure\s*</h3>})
+      # Phase 27 follow-up (2026-05-11) — lowercase rule. "Adventure"
+      # downcases; "RPG" stays upper as an acronym.
+      expect(rendered).to match(%r{<h3[^>]*>\s*adventure\s*</h3>})
       expect(rendered).to match(%r{<h3[^>]*>\s*RPG\s*</h3>})
     end
   end
@@ -58,12 +59,12 @@ RSpec.describe "games/_genres_shelf.html.erb", type: :view do
       expect(rendered).to match(%r{<h3[^>]*>\s*RPG\s*</h3>})
     end
 
-    it "passthrough: renders the full IGDB name when no short-form is registered" do
+    it "passthrough: lowercases the full IGDB name when no short-form is registered" do
       genre = create(:genre, name: "Adventure", igdb_id: 9_201)
       game.genres << genre
       render_shelf(Genre.where(id: genre.id))
 
-      expect(rendered).to match(%r{<h3[^>]*>\s*Adventure\s*</h3>})
+      expect(rendered).to match(%r{<h3[^>]*>\s*adventure\s*</h3>})
     end
   end
 
@@ -86,6 +87,32 @@ RSpec.describe "games/_genres_shelf.html.erb", type: :view do
     it "does NOT render an outer-shelf <section> when input is empty" do
       render_shelf(Genre.none)
       expect(rendered).not_to include('data-shelf="outer-genres"')
+    end
+  end
+
+  describe "polish: hairline between consecutive sub-shelves (2026-05-11)" do
+    let!(:adventure) { create(:genre, name: "Adventure", igdb_id: 9_301, slug: "adventure") }
+    let!(:rpg)       { create(:genre, name: "RPG",       igdb_id: 9_302, slug: "rpg") }
+    let!(:game_a)    { create(:game, :synced, title: "Anachronox") }
+    let!(:game_b)    { create(:game, :synced, title: "Baldur's Gate") }
+
+    before do
+      game_a.genres << adventure
+      game_b.genres << rpg
+    end
+
+    it "emits a scoped CSS rule that draws a 1px border-top between sub-shelves" do
+      render_shelf(Genre.where(id: [ adventure.id, rpg.id ]))
+      expect(rendered).to include('section[data-shelf="outer-genres"] > section.sub-shelf:not(:first-of-type)')
+      expect(rendered).to include("border-top: 1px solid var(--color-border)")
+    end
+
+    it "does NOT draw the hairline when only one sub-shelf renders" do
+      # The CSS rule is scoped to `:not(:first-of-type)` so a single
+      # sub-shelf is unaffected; verify by structure (only one
+      # `data-shelf=\"genre-sub\"` node renders).
+      render_shelf(Genre.where(id: adventure.id))
+      expect(rendered.scan('data-shelf="genre-sub"').length).to eq(1)
     end
   end
 

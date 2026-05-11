@@ -7,12 +7,18 @@
     `[update]` for existing rows; `[update]` opens the shared
     overwrite-confirmation dialog (`#igdb-overwrite-modal`).
     No JS confirm/alert/prompt anywhere (CLAUDE.md hard rule). %>
+<%# The inline `max-width` on the <dialog> overrides the 420px cap
+    inherited from `.confirm-modal` (defined later in the cascade than
+    `.pane-dialog`), which clipped the `[search]` button and produced a
+    horizontal scrollbar. The inner uses `width: min(...)` so narrow
+    viewports stay usable. %>
 <dialog id="igdb-search-modal"
         class="confirm-modal pane-dialog"
+        style="max-width: 720px;"
         data-controller="igdb-search-modal"
         data-igdb-search-modal-url-value="<%= search_games_path %>"
         data-action="click->igdb-search-modal#clickOutside keydown->igdb-search-modal#keydown">
-  <div class="confirm-modal-inner" style="min-width: 480px; max-width: 720px;">
+  <div class="confirm-modal-inner" style="width: min(720px, 92vw);">
     <div class="dialog-title">add a game from igdb</div>
     <div style="display: flex; gap: 6px; align-items: center;">
       <input type="search"
@@ -20,7 +26,7 @@
              autocomplete="off"
              data-igdb-search-modal-target="input"
              data-action="input->igdb-search-modal#search"
-             style="flex: 1; height: 24px; padding: 0 6px; font-family: inherit; font-size: 13px; border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-text);" />
+             style="flex: 1; min-width: 0; height: 24px; padding: 0 6px; font-family: inherit; font-size: 13px; border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-text);" />
       <button type="button" class="bracketed" data-action="igdb-search-modal#submit">[<span class="bl">search</span>]</button>
     </div>
     <div style="margin-top: 8px;">

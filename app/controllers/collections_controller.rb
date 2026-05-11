@@ -38,6 +38,22 @@ class CollectionsController < ApplicationController
     redirect_to collections_path, notice: "collection deleted."
   end
 
+  # Phase 27 follow-up (2026-05-11) — Collections modal pane.
+  #
+  # Returns the games belonging to `collection` as a Turbo Frame
+  # fragment. The frame id matches the layout-level modal
+  # (`collections_modal_frame`); the partial renders a grid of
+  # `Games::CoverComponent` tiles linked to each game's show page.
+  #
+  # Auth and tenant scope match the rest of the surface (single-install,
+  # multi-user — see CLAUDE.md). No format negotiation: the modal pane
+  # is HTML-only.
+  def games_pane
+    @collection = Collection.friendly.find(params[:id])
+    @games = @collection.games.order(Arel.sql("LOWER(games.title)"))
+    render :games_pane, layout: false
+  end
+
   private
 
   def update_params

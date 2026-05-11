@@ -143,23 +143,69 @@ RSpec.describe Games::CoverComponent, type: :component do
   end
 
   # ------------------------------------------------------------
-  # Edge — game with no cover renders a placeholder at the
-  # variant's dimensions.
+  # Edge — game with no cover renders a theme-aware SVG fallback
+  # at the variant's dimensions.
+  #
+  # The plain-text "[no cover]" sentinel was replaced with two
+  # static SVG `<img>` tags (light + dark theme); CSS scoped to
+  # `[data-theme="dark"]` picks the visible one at runtime because
+  # theme resolution in pito is client-side (localStorage + media
+  # query) and the server cannot guess the active theme. See
+  # `Games::CoverComponent#fallback_light_path`.
   # ------------------------------------------------------------
 
-  describe "edge: game with no cover_image_id" do
+  describe "edge: game with no cover_image_id (theme-aware SVG fallback)" do
     let(:naked_game) { build_stubbed(:game, cover_image_id: nil, title: "Naked") }
 
-    it "renders [no cover] placeholder at :grid dimensions" do
+    it "renders a light-theme fallback SVG at :grid dimensions" do
       render_inline(described_class.new(game: naked_game, variant: :grid))
-      expect(page).to have_css("span.game-cover-missing", text: "[no cover]")
-      expect(page).to have_no_css("img")
+      img = page.find('img.game-cover-fallback--light')
+      expect(img["src"]).to match(%r{/assets/game_cover_fallback_grid_light(-[a-f0-9]+)?\.svg\z})
+      expect(img["width"]).to eq("150")
+      expect(img["height"]).to eq("200")
+      expect(img["alt"]).to eq("no cover available")
     end
 
-    it "renders [no cover] placeholder at :shelf dimensions" do
+    it "renders a dark-theme fallback SVG at :grid dimensions" do
+      render_inline(described_class.new(game: naked_game, variant: :grid))
+      img = page.find('img.game-cover-fallback--dark')
+      expect(img["src"]).to match(%r{/assets/game_cover_fallback_grid_dark(-[a-f0-9]+)?\.svg\z})
+      expect(img["width"]).to eq("150")
+      expect(img["height"]).to eq("200")
+    end
+
+    it "renders a light-theme fallback SVG at :shelf dimensions" do
       render_inline(described_class.new(game: naked_game, variant: :shelf))
-      expect(page).to have_css("span.game-cover-missing", text: "[no cover]")
-      expect(page).to have_no_css("img")
+      img = page.find('img.game-cover-fallback--light')
+      expect(img["src"]).to match(%r{/assets/game_cover_fallback_shelf_light(-[a-f0-9]+)?\.svg\z})
+      expect(img["width"]).to eq("98")
+      expect(img["height"]).to eq("130")
+    end
+
+    it "renders a dark-theme fallback SVG at :shelf dimensions" do
+      render_inline(described_class.new(game: naked_game, variant: :shelf))
+      img = page.find('img.game-cover-fallback--dark')
+      expect(img["src"]).to match(%r{/assets/game_cover_fallback_shelf_dark(-[a-f0-9]+)?\.svg\z})
+      expect(img["width"]).to eq("98")
+      expect(img["height"]).to eq("130")
+    end
+
+    it "does NOT render the legacy plain-text [no cover] sentinel" do
+      render_inline(described_class.new(game: naked_game, variant: :grid))
+      expect(page).to have_no_css("span.game-cover-missing")
+      expect(page.native.to_html).not_to include("[no cover]")
+    end
+
+    it "emits both theme variants on every missing-cover render" do
+      render_inline(described_class.new(game: naked_game, variant: :grid))
+      expect(page).to have_css("img.game-cover-fallback--light", count: 1)
+      expect(page).to have_css("img.game-cover-fallback--dark", count: 1)
+    end
+
+    it "marks each fallback with data-theme so CSS can target it" do
+      render_inline(described_class.new(game: naked_game, variant: :shelf))
+      expect(page).to have_css('img[data-theme="light"][data-variant="shelf"]')
+      expect(page).to have_css('img[data-theme="dark"][data-variant="shelf"]')
     end
 
     it "still applies the variant CSS class to the wrapper so the slot is sized" do
@@ -172,6 +218,19 @@ RSpec.describe Games::CoverComponent, type: :component do
       wrapper = page.find("a.game-cover")
       expect(wrapper["style"]).to include("width: 98px")
       expect(wrapper["style"]).to include("height: 130px")
+    end
+
+    it "uses loading=lazy on the fallback images" do
+      render_inline(described_class.new(game: naked_game, variant: :grid))
+      page.all("img.game-cover-fallback").each do |img|
+        expect(img["loading"]).to eq("lazy")
+      end
+    end
+
+    it "renders fallback inside a <div> wrapper when link_to_show: false" do
+      render_inline(described_class.new(game: naked_game, variant: :shelf, link_to_show: false))
+      expect(page).to have_css("div.game-cover.game-cover--shelf img.game-cover-fallback--light")
+      expect(page).to have_css("div.game-cover.game-cover--shelf img.game-cover-fallback--dark")
     end
   end
 

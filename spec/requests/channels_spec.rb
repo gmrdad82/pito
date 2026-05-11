@@ -62,12 +62,12 @@ RSpec.describe "Channels", type: :request do
         expect(response.body).not_to match(/md-check-static-label">connected/)
       end
 
-      it "displays 8 columns (select, avatar, name, URL, subscribers, videos, star, last sync)" do
+      it "displays 8 columns (select, avatar, name, URL, subs, videos, star, synced)" do
         get channels_path
         # Phase 24+ density pass (2026-05-10) — the prior 5-column
         # placeholder was widened to surface the sync-populated metadata:
         # avatar, title + `@handle`, full `/@handle` URL, subscriber
-        # count (with "Hidden" treatment), video count, star, last sync.
+        # count (with "Hidden" treatment), video count, star, synced.
         # The avatar column is intentionally header-label-less (narrow
         # decorative column).
         thead = response.body.match(/<thead>(.*?)<\/thead>/m)[1]
@@ -153,27 +153,25 @@ RSpec.describe "Channels", type: :request do
 
       it "renders the URL cell as an external YouTube link with target=_blank" do
         get channels_path
-        # Phase 24+ density pass — the URL cell renders the full
-        # display URL (either `/@handle` or UC-id fallback) with no
-        # truncation. For factory rows the handle is nil, so the
-        # fallback equals the locked `channel_url` (the UC-id form).
+        # 2026-05-11 — URL cell text is the short identifier (`@handle`
+        # or truncated UC-id), not the full URL. The href stays the
+        # full YouTube URL so the link still resolves. For factory rows
+        # the handle is nil, so the href is the locked `channel_url`
+        # (UC-id form).
         html = Nokogiri::HTML.fragment(response.body)
         link = html.css("a").find { |a| a["href"] == channel.channel_url }
         expect(link).not_to be_nil
         expect(link["target"]).to eq("_blank")
         expect(link["rel"]).to eq("noopener noreferrer")
-        # No truncation — the link text is the full URL.
-        expect(link.text).not_to include("…")
-        expect(link.text).to eq(channel.channel_url)
       end
 
-      # Phase 24+ density pass — URL cell no longer truncates. The
-      # `<td>` is the 4th body cell (checkbox / avatar / name / URL /
-      # subscribers / videos / star / last sync) and renders the full
-      # display URL as both the `href` and link text. For factory rows
-      # the handle is nil, so the display URL is the UC-id form (the
-      # locked `channel_url`).
-      it "renders the URL cell as the full URL with no truncation" do
+      # 2026-05-11 — URL cell renders only the short identifier as the
+      # visible link text. For a handle-less factory row the label is
+      # the middle-truncated UC-id (`UCxxxxxx…xyz`). The `<td>` is the
+      # 4th body cell (checkbox / avatar / name / URL / subs /
+      # videos / star / synced); the `href` stays the full
+      # `channel.channel_url`.
+      it "renders the URL cell as the middle-truncated UC-id when handle is absent" do
         get channels_path
         html = Nokogiri::HTML.fragment(response.body)
         row = html.css("tbody tr").first
@@ -181,14 +179,18 @@ RSpec.describe "Channels", type: :request do
         link = url_cell.css("a").first
         expect(link).not_to be_nil
         expect(link["href"]).to eq(channel.channel_url)
-        expect(link.text).to eq(channel.channel_url)
-        expect(link.text).not_to include("…")
-        # No middle-truncate spans left over from the prior pattern.
-        expect(url_cell.css(".middle-truncate-head")).to be_empty
-        expect(url_cell.css(".middle-truncate-tail")).to be_empty
+        # Visible label is NOT the full URL anymore.
+        expect(link.text).not_to eq(channel.channel_url)
+        expect(link.text).not_to start_with("https://")
+        # The label is the UC-id middle-truncated to head=6 / tail=3.
+        uc_id = channel.channel_url[%r{/channel/(UC[A-Za-z0-9_-]{22})}, 1]
+        expected = "#{uc_id[0, 6]}…#{uc_id[-3..]}"
+        expect(link.text).to eq(expected)
+        # Truncation glyph present.
+        expect(link.text).to include("…")
       end
 
-      it "renders the @handle URL form when the channel has a handle" do
+      it "renders the @handle as the URL cell text (href stays the full YouTube URL)" do
         with_handle = create(
           :channel,
           handle: "@pitomdtest",
@@ -196,13 +198,18 @@ RSpec.describe "Channels", type: :request do
         )
         get channels_path
         html = Nokogiri::HTML.fragment(response.body)
+        # The href is the public `/@handle` form of the channel page.
         link = html.css("a").find { |a| a["href"] == "https://www.youtube.com/@pitomdtest" }
         expect(link).not_to be_nil
-        expect(link.text).to eq("https://www.youtube.com/@pitomdtest")
-        # Sanity — the raw `channel_url` (UC-id form) is NOT used
-        # when the @handle URL is available.
+        # The visible text is the bare `@handle`.
+        expect(link.text).to eq("@pitomdtest")
+        # The raw `channel_url` (UC-id href) is NOT used when the
+        # `/@handle` URL is available.
         raw_link = html.css("a").find { |a| a["href"] == with_handle.channel_url }
         expect(raw_link).to be_nil
+        # Link still opens in a new tab.
+        expect(link["target"]).to eq("_blank")
+        expect(link["rel"]).to eq("noopener noreferrer")
       end
 
       it "renders a sortable star column header (lowercase, no star icon)" do
@@ -353,10 +360,11 @@ RSpec.describe "Channels", type: :request do
         expect(videos_cell.text.strip).to eq("—")
       end
 
-      # Title + @handle rendering in the name cell. When the channel
-      # has a `title`, the link text is the title (not the id), and a
-      # muted `@handle` sub-line renders below the link.
-      it "renders the title as the name link text and @handle as muted sub-text" do
+      # 2026-05-11 — name cell carries only the title link. The
+      # `@handle` muted sub-line moved to the URL column (the URL cell
+      # now renders `@handle` as the visible text). The name cell must
+      # not surface the handle in any form.
+      it "renders only the title as the name link text (no @handle sub-line in the name cell)" do
         rich = create(:channel, title: "Pito MD Test", handle: "@pitomdtest")
         get channels_path
         html = Nokogiri::HTML.fragment(response.body)
@@ -367,18 +375,38 @@ RSpec.describe "Channels", type: :request do
         name_cell = row.css("td")[2]
         link = name_cell.css("a").first
         expect(link.text.strip).to eq("Pito MD Test")
-        # Muted handle sub-text on its own line.
-        muted = name_cell.css(".text-muted").first
-        expect(muted).not_to be_nil
-        expect(muted.text.strip).to eq("@pitomdtest")
+        # No muted sub-text in the name cell anymore.
+        expect(name_cell.css(".text-muted")).to be_empty
+        # And the handle string itself does not appear in the name cell.
+        expect(name_cell.text).not_to include("@pitomdtest")
       end
 
-      it "renders the new column headers (avatar blank, subscribers, videos)" do
+      it "renders the new column headers (avatar blank, subs, videos)" do
         get channels_path
         html = Nokogiri::HTML.fragment(response.body)
         headers = html.css("thead th").map { |th| th.text.strip }
         # The avatar header has no label.
-        expect(headers).to eq([ "", "", "name", "URL", "subscribers", "videos", "star", "last sync" ])
+        expect(headers).to eq([ "", "", "name", "URL", "subs", "videos", "star", "synced" ])
+      end
+
+      # 2026-05-11 copy sweep — the column header was tightened from
+      # `subscribers` to `subs` (shorter; underlying sort key stays
+      # `subscriber_count`). Regression guard against reintroducing
+      # the longer label on the channels picker.
+      it "does not render the longer `subscribers` label in the channels picker header" do
+        get channels_path
+        html = Nokogiri::HTML.fragment(response.body)
+        header_texts = html.css("thead th").map { |th| th.text.strip }
+        expect(header_texts).not_to include("subscribers")
+      end
+
+      # 2026-05-11 copy sweep — the bulk-select hint "select items to
+      # act on" was dropped app-wide; the checkbox column is
+      # self-evident. Regression guard against reintroducing the hint
+      # on the channels picker.
+      it "does not render the dropped 'select items to act on' hint" do
+        get channels_path
+        expect(response.body).not_to include("select items to act on")
       end
 
       it "renders bracketed-checkbox filter chips (not bracketed link chips)" do
@@ -587,6 +615,172 @@ RSpec.describe "Channels", type: :request do
       end
     end
 
+    # 2026-05-11 ergonomics — `subscribers` and `videos` columns
+    # promoted from static headers to server-side sort links. The
+    # underlying columns are `subscriber_count` / `video_count` cached
+    # bigint / integer columns on `channels`; both are nullable until
+    # ChannelSync populates them. Postgres default NULL ordering —
+    # NULLS LAST on asc, NULLS FIRST on desc — matches the rest of the
+    # index (e.g. `last_synced_at`), so no `Arel.sql` NULL hint is
+    # needed at the controller layer.
+    context "URL-state sort — subscribers + videos" do
+      let!(:high_subs) { create(:channel, subscriber_count: 9_001, video_count: 250) }
+      let!(:low_subs)  { create(:channel, subscriber_count: 12,    video_count: 2) }
+      let!(:no_subs)   { create(:channel, subscriber_count: nil,   video_count: nil) }
+
+      it "exposes subscriber_count in ALLOWED_SORTS so the URL key round-trips" do
+        expect(ChannelsController::ALLOWED_SORTS)
+          .to include("subscriber_count" => "channels.subscriber_count")
+      end
+
+      it "exposes video_count in ALLOWED_SORTS so the URL key round-trips" do
+        expect(ChannelsController::ALLOWED_SORTS)
+          .to include("video_count" => "channels.video_count")
+      end
+
+      # Happy paths — asc + desc for each column. Both columns are
+      # nullable; the row order assertion checks the populated values
+      # land in the expected order without pinning the nil row's exact
+      # position (NULL placement is the next test).
+      it "sorts by subscriber_count ASC (low → high) when called with ?sort=subscriber_count&dir=asc" do
+        get channels_path, params: { sort: "subscriber_count", dir: "asc" }
+        html = Nokogiri::HTML.fragment(response.body)
+        urls = html.css("tbody tr").map { |tr| tr.css("a").map { |a| a["href"] }.compact }.flatten
+        low_idx  = urls.index { |u| u.include?(low_subs.to_param) }
+        high_idx = urls.index { |u| u.include?(high_subs.to_param) }
+        expect(low_idx).to be < high_idx
+      end
+
+      it "sorts by subscriber_count DESC (high → low) when called with ?sort=subscriber_count&dir=desc" do
+        get channels_path, params: { sort: "subscriber_count", dir: "desc" }
+        html = Nokogiri::HTML.fragment(response.body)
+        urls = html.css("tbody tr").map { |tr| tr.css("a").map { |a| a["href"] }.compact }.flatten
+        low_idx  = urls.index { |u| u.include?(low_subs.to_param) }
+        high_idx = urls.index { |u| u.include?(high_subs.to_param) }
+        expect(high_idx).to be < low_idx
+      end
+
+      it "sorts by video_count ASC (low → high) when called with ?sort=video_count&dir=asc" do
+        get channels_path, params: { sort: "video_count", dir: "asc" }
+        html = Nokogiri::HTML.fragment(response.body)
+        urls = html.css("tbody tr").map { |tr| tr.css("a").map { |a| a["href"] }.compact }.flatten
+        low_idx  = urls.index { |u| u.include?(low_subs.to_param) }
+        high_idx = urls.index { |u| u.include?(high_subs.to_param) }
+        expect(low_idx).to be < high_idx
+      end
+
+      it "sorts by video_count DESC (high → low) when called with ?sort=video_count&dir=desc" do
+        get channels_path, params: { sort: "video_count", dir: "desc" }
+        html = Nokogiri::HTML.fragment(response.body)
+        urls = html.css("tbody tr").map { |tr| tr.css("a").map { |a| a["href"] }.compact }.flatten
+        low_idx  = urls.index { |u| u.include?(low_subs.to_param) }
+        high_idx = urls.index { |u| u.include?(high_subs.to_param) }
+        expect(high_idx).to be < low_idx
+      end
+
+      # Edge — NULL handling. Postgres default is NULLS LAST on asc and
+      # NULLS FIRST on desc; we lean on that rather than spelling out
+      # `NULLS LAST` in the SQL clause (matches `last_synced_at`).
+      it "places channels with nil subscriber_count after populated rows on asc" do
+        get channels_path, params: { sort: "subscriber_count", dir: "asc" }
+        html = Nokogiri::HTML.fragment(response.body)
+        urls = html.css("tbody tr").map { |tr| tr.css("a").map { |a| a["href"] }.compact }.flatten
+        last_populated = urls.rindex { |u| u.include?(high_subs.to_param) }
+        nil_idx = urls.index { |u| u.include?(no_subs.to_param) }
+        expect(nil_idx).to be > last_populated
+      end
+
+      it "places channels with nil subscriber_count before populated rows on desc" do
+        get channels_path, params: { sort: "subscriber_count", dir: "desc" }
+        html = Nokogiri::HTML.fragment(response.body)
+        urls = html.css("tbody tr").map { |tr| tr.css("a").map { |a| a["href"] }.compact }.flatten
+        first_populated = urls.index { |u| u.include?(high_subs.to_param) }
+        nil_idx = urls.index { |u| u.include?(no_subs.to_param) }
+        expect(nil_idx).to be < first_populated
+      end
+
+      it "places channels with nil video_count after populated rows on asc" do
+        get channels_path, params: { sort: "video_count", dir: "asc" }
+        html = Nokogiri::HTML.fragment(response.body)
+        urls = html.css("tbody tr").map { |tr| tr.css("a").map { |a| a["href"] }.compact }.flatten
+        last_populated = urls.rindex { |u| u.include?(high_subs.to_param) }
+        nil_idx = urls.index { |u| u.include?(no_subs.to_param) }
+        expect(nil_idx).to be > last_populated
+      end
+
+      it "places channels with nil video_count before populated rows on desc" do
+        get channels_path, params: { sort: "video_count", dir: "desc" }
+        html = Nokogiri::HTML.fragment(response.body)
+        urls = html.css("tbody tr").map { |tr| tr.css("a").map { |a| a["href"] }.compact }.flatten
+        first_populated = urls.index { |u| u.include?(high_subs.to_param) }
+        nil_idx = urls.index { |u| u.include?(no_subs.to_param) }
+        expect(nil_idx).to be < first_populated
+      end
+
+      # Flaw — invalid sort param falls back to the default. Mirrors
+      # the existing "drop_table_channels" sad-path coverage for the
+      # `id` sort key; reaffirmed here because the new column keys
+      # share `sanitized_sort_key`'s allow-list path.
+      it "falls back to created_at when ?sort=videos_per_subscriber is passed" do
+        get channels_path, params: { sort: "videos_per_subscriber", dir: "asc" }
+        expect(response).to have_http_status(:ok)
+      end
+
+      # Subs + videos header markup. Each header wraps the
+      # bracketed label in an `<a>` carrying `sort=` + `dir=` params;
+      # the cell stays inside a `<th class="sortable num">`.
+      it "renders the subs header as a sortable link" do
+        get channels_path
+        html = Nokogiri::HTML.fragment(response.body)
+        link = html.css("thead a").find { |a| a.text.strip == "subs" }
+        expect(link).not_to be_nil
+        expect(link["href"]).to include("sort=subscriber_count")
+        expect(link["href"]).to include("dir=asc")
+        expect(link.parent.name).to eq("th")
+        expect(link.parent["class"]).to include("sortable")
+        expect(link.parent["class"]).to include("num")
+      end
+
+      it "renders the videos header as a sortable link" do
+        get channels_path
+        html = Nokogiri::HTML.fragment(response.body)
+        link = html.css("thead a").find { |a| a.text.strip == "videos" }
+        expect(link).not_to be_nil
+        expect(link["href"]).to include("sort=video_count")
+        expect(link["href"]).to include("dir=asc")
+        expect(link.parent.name).to eq("th")
+        expect(link.parent["class"]).to include("sortable")
+        expect(link.parent["class"]).to include("num")
+      end
+
+      it "stamps `sort-desc` on the active subs link when ?sort=subscriber_count&dir=desc" do
+        get channels_path, params: { sort: "subscriber_count", dir: "desc" }
+        html = Nokogiri::HTML.fragment(response.body)
+        link = html.css("thead a").find { |a| a.text.strip == "subs" }
+        expect(link["class"].to_s.split).to include("sort-desc")
+      end
+
+      it "stamps `sort-asc` on the active videos link when ?sort=video_count&dir=asc" do
+        get channels_path, params: { sort: "video_count", dir: "asc" }
+        html = Nokogiri::HTML.fragment(response.body)
+        link = html.css("thead a").find { |a| a.text.strip == "videos" }
+        expect(link["class"].to_s.split).to include("sort-asc")
+      end
+
+      it "preserves the star=yes filter param when sorting by subscriber_count" do
+        # Need at least one starred row so the table renders and the
+        # header row is emitted (the empty-state branch skips the
+        # `<thead>` entirely).
+        create(:channel, :starred, subscriber_count: 500, video_count: 5)
+        get channels_path, params: { star: "yes", sort: "id", dir: "asc" }
+        html = Nokogiri::HTML.fragment(response.body)
+        link = html.css("thead a").find { |a| a.text.strip == "subs" }
+        expect(link).not_to be_nil
+        expect(link["href"]).to include("star=yes")
+        expect(link["href"]).to include("sort=subscriber_count")
+      end
+    end
+
     context "filters" do
       let!(:starred) { create(:channel, :starred) }
       let!(:plain)   { create(:channel) }
@@ -710,20 +904,27 @@ RSpec.describe "Channels", type: :request do
           end
         end
 
-        it "stamps data-turbo-frame=channels-index-table on every filter chip" do
+        # 2026-05-11 — the chip and `[clear]` link live OUTSIDE the
+        # `channels-index-table` turbo frame (the frame opens below the
+        # filter row). A frame-scoped click here would swap the frame
+        # body but leave the chip's `[ ]` / `[x]` indicator stranded in
+        # the surrounding DOM. Both fall back to full-page navigation
+        # so the whole picker (chip included) re-renders. Mirrors the
+        # `/videos` and `/notifications` chip wiring.
+        it "does NOT stamp data-turbo-frame on the filter chip (chip lives outside the frame)" do
           get channels_path
           html = Nokogiri::HTML.fragment(response.body)
           chips = html.css("a.filter-chip")
           expect(chips).not_to be_empty
           chips.each do |a|
-            expect(a["data-turbo-frame"]).to eq("channels-index-table"),
-              "expected data-turbo-frame on filter chip #{a.text.strip.inspect}"
-            expect(a["data-turbo-action"]).to eq("advance"),
-              "expected data-turbo-action=advance on filter chip #{a.text.strip.inspect}"
+            expect(a["data-turbo-frame"]).to be_nil,
+              "filter chip #{a.text.strip.inspect} should fall back to full-page navigation"
+            expect(a["data-turbo-action"]).to be_nil,
+              "filter chip #{a.text.strip.inspect} should fall back to full-page navigation"
           end
         end
 
-        it "stamps data-turbo-frame=channels-index-table on the [clear] link when a filter is active" do
+        it "does NOT stamp data-turbo-frame on the [clear] link when a filter is active" do
           starred = create(:channel, :starred)
           get channels_path, params: { star: "yes" }
           html = Nokogiri::HTML.fragment(response.body)
@@ -731,8 +932,8 @@ RSpec.describe "Channels", type: :request do
           # markup is `<a class="bracketed">[<span class="bl">clear</span>]</a>`.
           clear_link = html.css("a.bracketed").find { |a| a.css("span.bl").any? { |s| s.text.strip == "clear" } }
           expect(clear_link).not_to be_nil, "expected a [clear] link with at least one channel filter active"
-          expect(clear_link["data-turbo-frame"]).to eq("channels-index-table")
-          expect(clear_link["data-turbo-action"]).to eq("advance")
+          expect(clear_link["data-turbo-frame"]).to be_nil
+          expect(clear_link["data-turbo-action"]).to be_nil
           expect(starred.persisted?).to be true
         end
       end

@@ -1,10 +1,12 @@
-# Phase 27 §01b — Filter row chip.
+# Phase 27 §01b — Filter row chip (checkbox-style, 2026-05-11).
 #
-# Renders a single bracketed link `[label]` whose href toggles `token`
-# in or out of the comma-separated `?filters=` URL param. Active chips
-# carry the `chip--active` modifier (no red — red is reserved for
-# destructive actions). The component emits a single `<a>` element;
-# no buttons, no forms, no JS.
+# Renders a single bracketed-checkbox link (`[ ] label` unchecked /
+# `[x] label` checked) whose href toggles `token` in or out of the
+# comma-separated `?filters=` URL param. Active chips carry the
+# `chip--active` modifier (no red — red is reserved for destructive
+# actions). The component emits a single `<a>` element; no buttons,
+# no forms, no JS. Same visual shape as the root `FilterChipComponent`
+# used on the notifications inbox.
 #
 # On-screen label boundary: `not_owned` → `not owned` (space); all
 # other canonical tokens render verbatim.
@@ -46,7 +48,7 @@ module Games
     end
 
     def css_classes
-      classes = [ "bracketed", "filter-chip" ]
+      classes = [ "filter-chip" ]
       classes << "chip--active" if active?
       classes.join(" ")
     end

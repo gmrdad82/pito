@@ -248,7 +248,16 @@ Rails.application.routes.draw do
     resources :notes, only: [ :create ]
     resources :timelines, only: [ :create ]
   end
-  resources :collections
+  resources :collections do
+    member do
+      # Phase 27 follow-up (2026-05-11) — Collections modal on `/games`.
+      # Returns a Turbo Frame fragment listing the games in this
+      # collection as `Games::CoverComponent`-rendered grid tiles. The
+      # `collections-modal-trigger` Stimulus controller points the
+      # `collections_modal_frame` <turbo-frame> at this URL on click.
+      get :games_pane
+    end
+  end
   # Phase 14 §1 — IGDB-backed game model. `:search` (collection) is the
   # type-ahead endpoint that POSTs to IGDB for matches; `:resync` is
   # the per-game IGDB re-sync trigger. Existing CRUD remains.

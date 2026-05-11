@@ -1,42 +1,36 @@
 <%# Phase 27 — 01d. List display mode.
-    Alphabetic, grouped by first letter of the game title. Each
-    letter group is preceded by a sticky `<tr class="letter-head">`
-    row carrying CSS `position: sticky`. Empty letters do not render
-    a heading row — letters with zero games are simply absent.
+    Flat alphabetically-sorted table — no letter-group headings. The
+    earlier sticky `<tr class="letter-head">` rows rendered with a hard
+    `background: #fff`, which in the dark theme manifested as harsh
+    white spacer bars between rows. Users read them as unexplained
+    whitespace rather than as section dividers, so they're gone. Sort
+    order is preserved: titles are listed alphabetically (#-bucket
+    items sink to the bottom via the same key the picker used).
 
-    Non-alphabetic title starts (digits, symbols) bucket into "#".
-    The grouping uses `title.to_s.strip.first.upcase` and falls back
-    to "#" when the first character is outside [A-Z].
-
-    Columns (locked decisions in the umbrella spec):
+    Columns (post-polish layout):
       1. Cover thumbnail (small — uses `t_cover_small` IGDB variant)
-      2. Title (linked to /games/:slug)
-      3. Platforms owned (placeholder — Phase 27 01a/01f land the
+      2. Title (linked to /games/:slug, no inline year)
+      3. Release year (muted, blank when missing)
+      4. Rating (`★ NN` muted via GamesHelper::STAR_GLYPH; blank when
+         `igdb_rating` is nil)
+      5. Platforms owned (placeholder — Phase 27 01a/01f land the
          per-platform ownership shape; until then we render a "—".)
-      4. Genres (comma-separated, blank when empty)
-      5. Status (single token — `recorded`, `released`, `scheduled`,
+      6. Genres — primary genre only (one chip per row). When
+         `primary_genre` isn't yet shipped on the model, falls back to
+         the first linked genre so multi-genre rows still surface a
+         single label instead of a comma-joined list.
+      7. Status (single token — `recorded`, `released`, `scheduled`,
          `unreleased`).
-
-    Sticky-heading CSS is intentionally inlined here (rather than
-    `app/assets`) so the partial is self-contained and the system
-    spec can verify the `position: sticky` declaration without
-    chasing across files.
 
     Locals:
       games  enumerable of Game records (typically @all_games).
 %>
 <%
-  bucketed = games.group_by do |game|
-    first = game.title.to_s.strip[0]
-    if first && first.match?(/[A-Za-z]/)
-      first.upcase
-    else
-      "#"
-    end
-  end
-
-  ordered_letters = bucketed.keys.sort_by do |letter|
-    letter == "#" ? "{" : letter
+  sorted_games = games.sort_by do |g|
+    title = g.title.to_s.strip
+    first = title[0]
+    bucket = first && first.match?(/[A-Za-z]/) ? first.upcase : "{"
+    [ bucket, title.downcase ]
   end
 %>
 <section class="all-games-list games-list-mode"
@@ -48,17 +42,8 @@
     <style>
       .games-list-mode table.list-table { width: 100%; border-collapse: collapse; }
       .games-list-mode table.list-table th,
-      .games-list-mode table.list-table td { text-align: left; padding: 4px 8px; border-bottom: 1px solid #eee; vertical-align: middle; }
-      .games-list-mode tr.letter-head td {
-        position: sticky;
-        top: 0;
-        background: #fff;
-        font-weight: bold;
-        border-bottom: 1px solid #ddd;
-        z-index: 1;
-      }
+      .games-list-mode table.list-table td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
       .games-list-mode td.cover-cell img { width: 32px; height: 42px; object-fit: cover; display: block; }
-      .games-list-mode td.cover-cell .text-muted { font-size: 10px; }
     </style>
 
     <table class="list-table">
@@ -66,57 +51,87 @@
         <tr>
           <th></th>
           <th>title</th>
+          <th>release year</th>
+          <th>rating</th>
           <th>platforms owned</th>
           <th>genres</th>
           <th>status</th>
         </tr>
       </thead>
       <tbody>
-        <% ordered_letters.each do |letter| %>
-          <tr class="letter-head" data-letter="<%= letter %>">
-            <td colspan="5"><%= letter %></td>
+        <% sorted_games.each do |game| %>
+          <tr class="game-row" data-game-id="<%= game.id %>">
+            <td class="cover-cell">
+              <% if game.cover_url.present? %>
+                <%= image_tag game.cover_url(size: "t_cover_small"),
+                              alt: game.title, loading: "lazy" %>
+              <% else %>
+                <%# Theme-aware fallback. Mirrors the `Games::CoverComponent`
+                    and `_tile.html.erb` missing-cover treatment: emit both
+                    light + dark SVGs, let the `.game-cover-fallback--{light,dark}`
+                    CSS rule pick the visible one based on `<html data-theme>`.
+                    The shelf-variant SVG is the smallest existing asset and
+                    downscales cleanly into the 32x42 list-cell slot. %>
+                <%= image_tag image_path("game_cover_fallback_shelf_light.svg"),
+                              alt: "no cover available", loading: "lazy",
+                              data: { theme: "light" },
+                              class: "game-cover-fallback game-cover-fallback--light" %>
+                <%= image_tag image_path("game_cover_fallback_shelf_dark.svg"),
+                              alt: "no cover available", loading: "lazy",
+                              data: { theme: "dark" },
+                              class: "game-cover-fallback game-cover-fallback--dark" %>
+              <% end %>
+            </td>
+            <td class="title-cell">
+              <%= link_to game.title, game_path(game) %>
+            </td>
+            <td class="release-year-cell text-muted">
+              <%= game.release_year.presence || "—" %>
+            </td>
+            <td class="rating-cell text-muted">
+              <% if game.igdb_rating.present? %>
+                <%= GamesHelper::STAR_GLYPH %> <%= format_game_rating(game.igdb_rating) %>
+              <% else %>
+                —
+              <% end %>
+            </td>
+            <td class="platforms-cell text-muted">—</td>
+            <td class="genres-cell">
+              <%
+                # Primary genre only. `Game#primary_genre` association is
+                # being added by the in-flight games-polish v2 agent
+                # (column `primary_genre_id` is already in schema). Until
+                # the model API + backfill land, fall back to the first
+                # linked genre via `game.genres.first` — keeps the cell
+                # single-valued instead of a comma-joined list.
+                primary = if game.respond_to?(:primary_genre) && game.primary_genre.present?
+                            game.primary_genre
+                          else
+                            game.genres.first
+                          end
+                short = genre_short_name(primary)
+              %>
+              <% if short.present? %>
+                <%= short %>
+              <% else %>
+                <span class="text-muted">—</span>
+              <% end %>
+            </td>
+            <td class="status-cell">
+              <%
+                status = if game.videos.exists?
+                           "recorded"
+                         elsif game.release_date.present? && game.release_date <= Date.current
+                           "released"
+                         elsif game.release_date.present?
+                           "scheduled"
+                         else
+                           "unreleased"
+                         end
+              %>
+              <%= status %>
+            </td>
           </tr>
-          <% bucketed[letter].sort_by { |g| g.title.to_s.downcase }.each do |game| %>
-            <tr class="game-row" data-game-id="<%= game.id %>">
-              <td class="cover-cell">
-                <% if game.cover_url.present? %>
-                  <%= image_tag game.cover_url(size: "t_cover_small"),
-                                alt: game.title, loading: "lazy" %>
-                <% else %>
-                  <span class="text-muted">[no cover]</span>
-                <% end %>
-              </td>
-              <td class="title-cell">
-                <%= link_to game.title, game_path(game) %>
-                <% if game.release_year.present? %>
-                  <span class="text-muted">(<%= game.release_year %>)</span>
-                <% end %>
-              </td>
-              <td class="platforms-cell text-muted">—</td>
-              <td class="genres-cell">
-                <% genre_names = game.genres.map { |g| genre_short_name(g) }.compact %>
-                <% if genre_names.any? %>
-                  <%= genre_names.join(", ") %>
-                <% else %>
-                  <span class="text-muted">—</span>
-                <% end %>
-              </td>
-              <td class="status-cell">
-                <%
-                  status = if game.videos.exists?
-                             "recorded"
-                           elsif game.release_date.present? && game.release_date <= Date.current
-                             "released"
-                           elsif game.release_date.present?
-                             "scheduled"
-                           else
-                             "unreleased"
-                           end
-                %>
-                <%= status %>
-              </td>
-            </tr>
-          <% end %>
         <% end %>
       </tbody>
     </table>

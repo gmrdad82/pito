@@ -77,6 +77,47 @@ module Search
       {}
     end
 
+    # 2026-05-11 — total on-disk size for every index Meilisearch
+    # reports under `/stats`. The endpoint returns a top-level
+    # `databaseSize` field (sum across indexes) plus per-index
+    # `databaseSize` fields. We prefer the top-level value when
+    # present; otherwise we sum the per-index entries. Returns the
+    # value in bytes, or nil when the engine doesn't expose the
+    # metric / the request fails — the settings view hides the row
+    # when nil.
+    def total_index_size_bytes
+      stats = @client.stats
+      top = stats["databaseSize"]
+      return top.to_i if top.is_a?(Numeric) || top.to_s.match?(/\A\d+\z/)
+      indexes = stats["indexes"] || {}
+      summed = indexes.values.sum { |v| v["databaseSize"].to_i }
+      summed.positive? ? summed : nil
+    rescue StandardError
+      nil
+    end
+
+    # 2026-05-11 (later) — per-index breakdown for the `search` pane.
+    # Returns a hash keyed by raw index name (e.g. `"channels_development"`)
+    # with `:documents` + `:size_bytes` values. `databaseSize` is the
+    # most-comprehensive on-disk figure Meilisearch reports per index
+    # (newer versions); we fall back to `rawDocumentDbSize` when only
+    # that surfaces. The view sums nothing — it iterates and renders
+    # each row. Returns `{}` on engine failure so the view simply hides
+    # the breakdown.
+    def per_index_stats
+      stats = @client.stats
+      indexes = stats["indexes"] || {}
+      indexes.each_with_object({}) do |(name, payload), acc|
+        size = payload["databaseSize"] || payload["rawDocumentDbSize"]
+        acc[name] = {
+          documents: payload["numberOfDocuments"].to_i,
+          size_bytes: size.nil? ? nil : size.to_i
+        }
+      end
+    rescue StandardError
+      {}
+    end
+
     private
 
     def searchable_document(record)

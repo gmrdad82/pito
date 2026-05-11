@@ -9,10 +9,12 @@
     mode for the long tail. The `[see all]` link targets
     `/games?genre=<slug-or-id>` (slug when present, id fallback).
 
-    Without `Game#primary_genre_id` (out of scope for this pass), the
-    sub-shelf uses the existing `genre.games` association — a
-    multi-genre game appears in every sub-shelf its joins touch. This
-    is documented and intentional.
+    Phase 27 follow-up (2026-05-11) — primary-genre scoping. The
+    sub-shelf now reads `Game.where(primary_genre_id: genre.id)` so
+    each game appears in EXACTLY ONE sub-shelf (the row whose
+    `primary_genre_id` matches). Multi-genre games no longer duplicate
+    across every linked genre — `Games::PrimaryGenrePicker` chose one
+    canonical pick at save time.
 
     Locals:
       genre   Genre — the row whose sub-shelf this represents.
@@ -20,8 +22,9 @@
 <%
   genre = local_assigns.fetch(:genre)
   cap = 30
-  total_count = genre.games.count
-  games = genre.games.order(Arel.sql("LOWER(games.title)")).limit(cap).to_a
+  base = Game.where(primary_genre_id: genre.id)
+  total_count = base.count
+  games = base.order(Arel.sql("LOWER(games.title)")).limit(cap).to_a
   href = if genre.slug.present?
            games_path(genre: genre.slug)
          else

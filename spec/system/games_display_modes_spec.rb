@@ -2,29 +2,28 @@ require "rails_helper"
 
 # Phase 27 §01d — Display mode switcher + three modes on `/games`.
 #
-# Three first-class views: grid (default), list (alpha-grouped sticky
-# letter headings), shelves-by-letter (one horizontal shelf per
-# non-empty first letter). Clicking the switcher PATCHes
-# `/users/games_preferences`, which persists the choice and redirects
-# back to `/games?display=<mode>` so the resolved mode shows
-# immediately. URL `?display=` overrides the persisted preference for
-# a single request without writing.
+# Three first-class views: grid (default), list (flat alphabetical
+# table — letter-head rows were removed in the 2026-05-11 polish),
+# shelves-by-letter (one horizontal shelf per non-empty first letter).
+# Clicking the switcher PATCHes `/users/games_preferences`, which
+# persists the choice and redirects back to `/games?display=<mode>` so
+# the resolved mode shows immediately. URL `?display=` overrides the
+# persisted preference for a single request without writing.
 #
 # Capybara's rack_test driver is sufficient — the switcher is pure
 # `button_to` forms (no JS) and the modes themselves are server-side
-# branches. Sticky letter headings are CSS-only (declaration is
-# inlined on the list partial and asserted via the per-partial view
-# spec; this system spec covers integration only).
+# branches.
 RSpec.describe "Games display modes (01d)", type: :system do
   before { driven_by(:rack_test) }
 
   let(:user) { @auto_signed_in_user }
 
   before do
-    # At least one game per first-letter bucket so list mode renders
-    # multiple letter-head rows and shelves-by-letter renders multiple
-    # shelves. Cover image ids are stable to keep the snapshot
-    # deterministic across runs.
+    # At least one game per first-letter bucket so shelves-by-letter
+    # renders multiple shelves (list mode is flat after the 2026-05-11
+    # polish — no per-letter headings — but the same fixture works for
+    # asserting alphabetical sort + link rendering). Cover image ids
+    # are stable to keep the snapshot deterministic across runs.
     create(:game, :synced, title: "Apex Legends",
            igdb_id: 5_900_001, igdb_slug: "apex-display-system",
            cover_image_id: "img-apex")
@@ -137,15 +136,28 @@ RSpec.describe "Games display modes (01d)", type: :system do
   end
 
   describe "list mode" do
-    it "renders a table with letter-head rows interleaved between buckets" do
+    # The 2026-05-11 polish pass removed the per-letter heading rows
+    # (their hard `background: #fff` rendered as harsh white spacers
+    # under the dark theme). Sort is still alphabetical, but no
+    # `tr.letter-head` rows are emitted.
+    it "renders a flat alphabetical table with each title linking to /games/:slug" do
       visit games_path(display: "list")
 
       list_section = find('section[data-display-mode="list"]')
-      expect(list_section).to have_css("tr.letter-head[data-letter='A']")
-      expect(list_section).to have_css("tr.letter-head[data-letter='B']")
-      # Each title links to /games/:slug.
+      expect(list_section).to have_no_css("tr.letter-head")
       expect(list_section).to have_link("Apex Legends")
       expect(list_section).to have_link("Borderlands")
+    end
+
+    it "renders the post-polish column header order" do
+      visit games_path(display: "list")
+
+      headers = find('section[data-display-mode="list"] table.list-table thead tr')
+                  .all("th").map(&:text)
+      expect(headers).to eq([
+        "", "title", "release year", "rating",
+        "platforms owned", "genres", "status"
+      ])
     end
   end
 

@@ -86,7 +86,7 @@
           <col style="width: 80px;">  <%# chats %>
           <col style="width: 80px;">  <%# watch %>
           <col style="width: 60px;">  <%# star %>
-          <col style="width: 100px;"> <%# last sync %>
+          <col style="width: 100px;"> <%# synced %>
           <col style="width: 60px;">  <%# edit %>
         </colgroup>
         <thead>
@@ -103,7 +103,7 @@
             <th class="num">chats</th>
             <th class="num">watch</th>
             <th class="sortable num"><%= sort_link_to("star", "starred", current_sort: @sort, current_dir: @dir, frame: "videos-index-table") %></th>
-            <th class="sortable num"><%= sort_link_to("last sync", "last_synced_at", current_sort: @sort, current_dir: @dir, frame: "videos-index-table") %></th>
+            <th class="sortable num"><%= sort_link_to("synced", "last_synced_at", current_sort: @sort, current_dir: @dir, frame: "videos-index-table") %></th>
             <th></th>
           </tr>
         </thead>

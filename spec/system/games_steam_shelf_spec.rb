@@ -47,10 +47,17 @@ RSpec.describe "Games steam-shelf", type: :system do
       expect(page).to have_content("Zelda BotW")
     end
 
-    it "renders per-genre shelves with [see all] links" do
+    it "renders per-genre nested sub-shelves (Phase 27 polish 2026-05-11)" do
+      # The legacy `@genres_shelves` per-genre rows (which always
+      # rendered `[see all]` regardless of bucket size) were retired
+      # in the 2026-05-11 polish pass; the 01c-v2 nested Genres outer
+      # shelf at the top of the page is the single source of truth
+      # for genre-grouped tile rows. `[see all]` now renders only
+      # when a sub-shelf exceeds the 30-tile cap.
+      # Phase 27 follow-up (2026-05-11) — display labels are lowercase.
       visit games_path
-      expect(page).to have_content("adventure")
-      expect(page).to have_link("see all", href: games_path(genre: adventure.id))
+      expect(page).to have_content("adventure")  # rendered as <h3>adventure</h3>
+      expect(page).to have_css("section.sub-shelf--genre[data-genre-id='#{adventure.id}']")
     end
 
     it "renders the all-games heading" do
