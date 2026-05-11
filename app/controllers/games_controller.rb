@@ -96,6 +96,19 @@ class GamesController < ApplicationController
     @collections_for_shelf = Collection.where(id: Collection.joins(:games).distinct.select(:id))
                                        .order(Arel.sql("LOWER(collections.name)"), :id)
 
+    # Phase 27 P27 reviewer follow-up (non-blocking concern #2,
+    # 2026-05-11) — single-pass batch for the per-genre sub-shelves.
+    # Previously each `_genre_sub_shelf` render fired `base.count` +
+    # `base.order(...).limit(30).to_a` (2 queries per genre); for a
+    # library with N genres that was `2 * N` extra round-trips per
+    # `GET /games`. The batch object replaces those with one grouped
+    # count + one windowed top-N fetch (2 queries total regardless of
+    # N). The partial reads from `@genres_shelf_batch.for(genre)` and
+    # falls back to the old code path when the local isn't passed
+    # (view-spec render-partial calls hit the fallback so isolation
+    # tests stay independent).
+    @genres_shelf_batch = Games::GenreShelfBatch.new(genres: @genres_for_shelf)
+
     # Phase 27 follow-up (2026-05-11) — composite-cover warm-up. Walk
     # each collection slated for the outer shelf and ask the composer
     # to materialize / refresh the on-disk composite (or no-op on a
