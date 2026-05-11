@@ -54,7 +54,32 @@ RSpec.describe "Sessions", type: :request do
   end
 
   describe "POST /login", :unauthenticated do
+    # Phase 25 — 01b. Many of the original 01a / Phase-8 specs assert
+    # "successful POST /login mints a session and redirects to root".
+    # Under 01b that's only true for trusted locations. Seed the
+    # trusted-location row for the fingerprint the rack-test request
+    # produces so those specs keep meaning what they meant.
+    def seed_trusted_location_for_test_request!
+      # Two-step probe — hit /login with the wrong password once to
+      # capture whatever fingerprint the rack-test request env yields,
+      # then upsert a TrustedLocation row.
+      post login_path, params: { email: user.email, password: "probe-wrong" }
+      seed = LoginAttempt.recent.first
+      TrustedLocation.find_or_create_by!(
+        user: user,
+        fingerprint_hash: seed.fingerprint_hash,
+        ip_prefix: seed.ip_prefix
+      ) do |row|
+        row.first_seen_at = 1.day.ago
+        row.last_seen_at  = 1.day.ago
+      end
+      # Reset throttle so the probe doesn't count toward exhaustion.
+      SessionThrottle.reset(request.remote_ip) if defined?(request) && request.respond_to?(:remote_ip)
+    end
+
     it "creates a session, sets a signed cookie, and redirects on success" do
+      seed_trusted_location_for_test_request!
+
       expect {
         post login_path, params: { email: user.email, password: password }
       }.to change { Session.where(user_id: user.id).count }.by(1)
@@ -67,6 +92,8 @@ RSpec.describe "Sessions", type: :request do
     end
 
     it "is case-insensitive on the email identifier (citext)" do
+      seed_trusted_location_for_test_request!
+
       expect {
         post login_path, params: { email: user.email.upcase, password: password }
       }.to change { Session.where(user_id: user.id).count }.by(1)
@@ -74,6 +101,8 @@ RSpec.describe "Sessions", type: :request do
     end
 
     it "strips surrounding whitespace before lookup" do
+      seed_trusted_location_for_test_request!
+
       expect {
         post login_path, params: { email: "  #{user.email}  ", password: password }
       }.to change { Session.where(user_id: user.id).count }.by(1)
@@ -110,6 +139,8 @@ RSpec.describe "Sessions", type: :request do
     end
 
     it "ignores stray legacy params (tenant_id, username, admin) on the success path" do
+      seed_trusted_location_for_test_request!
+
       expect {
         post login_path, params: {
           email: user.email,
@@ -129,6 +160,8 @@ RSpec.describe "Sessions", type: :request do
     # controller does not read the param at all, so the success path
     # is unaffected. Guards against accidental coupling.
     it "ignores a smuggled google_id_token / google_access_token parameter" do
+      seed_trusted_location_for_test_request!
+
       expect {
         post login_path, params: {
           email: user.email,
@@ -143,6 +176,8 @@ RSpec.describe "Sessions", type: :request do
     end
 
     it "extends the cookie expires when remember_me=yes" do
+      seed_trusted_location_for_test_request!
+
       post login_path, params: { email: user.email, password: password, remember_me: "yes" }
       expect(response.headers["Set-Cookie"].to_s).to include("expires=")
       session_row = Session.where(user_id: user.id).order(:created_at).last
@@ -150,6 +185,8 @@ RSpec.describe "Sessions", type: :request do
     end
 
     it "ignores remember_me when not set to the literal yes" do
+      seed_trusted_location_for_test_request!
+
       post login_path, params: { email: user.email, password: password, remember_me: "true" }
       session_row = Session.where(user_id: user.id).order(:created_at).last
       expect(session_row.remember?).to be false
@@ -164,6 +201,7 @@ RSpec.describe "Sessions", type: :request do
 
     it "redirects to the intended URL when one was stashed" do
       get channels_path
+      seed_trusted_location_for_test_request!
       post login_path, params: { email: user.email, password: password }
       expect(response).to redirect_to(channels_path)
     end
@@ -173,6 +211,11 @@ RSpec.describe "Sessions", type: :request do
     # reason; the response stays generic per LD-14.
     describe "LoginAttempt writes (Phase 25 — 01a)" do
       it "writes a success row on a clean login" do
+        seed_trusted_location_for_test_request!
+        # Seeding the row required one probe POST which itself writes a row;
+        # reset the LoginAttempt count baseline for the assertion below.
+        baseline = LoginAttempt.count
+
         expect {
           post login_path, params: { email: user.email, password: password }
         }.to change(LoginAttempt, :count).by(1)
@@ -181,6 +224,7 @@ RSpec.describe "Sessions", type: :request do
         expect(row.result).to eq("success")
         expect(row.reason).to eq("trusted_location_success")
         expect(row.user_id).to eq(user.id)
+        expect(LoginAttempt.count).to be > baseline
       end
 
       it "writes a failed row with reason: wrong_password" do
@@ -238,7 +282,11 @@ RSpec.describe "Sessions", type: :request do
 
       it "composes the fingerprint without screen / locale hint params" do
         # Submitting WITHOUT the hidden `fp_*` fields still writes a row;
-        # the composer absorbs the empty values.
+        # the composer absorbs the empty values. Under 01b the row is
+        # a new-location pending challenge row OR a fresh trust on a
+        # trusted-seeded request — either way one row is written.
+        seed_trusted_location_for_test_request!
+
         expect {
           post login_path, params: { email: user.email, password: password }
         }.to change(LoginAttempt, :count).by(1)

@@ -40,7 +40,11 @@ RSpec.describe Platforms::SyncFromIgdb do
     end
 
     it "does not touch slug on existing rows" do
-      existing = create(:platform, igdb_id: 167, name: "PS5", slug: "old-stable-slug")
+      # FriendlyId derives the slug from `name` on create; we stamp a
+      # bespoke slug via `update_column` (bypassing the callback) to
+      # represent the "user has already renamed this platform" case.
+      existing = create(:platform, igdb_id: 167, name: "PS5")
+      existing.update_column(:slug, "old-stable-slug")
       allow(client).to receive(:list_all_platforms).and_return(
         [ { "id" => 167, "name" => "PS5", "abbreviation" => "PS5", "slug" => "new-igdb-slug" } ]
       )

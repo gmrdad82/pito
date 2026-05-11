@@ -36,14 +36,17 @@ module Platforms
 
         platform = Platform.unscoped.find_or_initialize_by(igdb_id: igdb_id)
         if platform.new_record?
-          # New row — fill every IGDB-derived attribute including slug.
-          # FriendlyId backfills slug from name if IGDB's slug is blank
-          # via `slug_candidates`; the explicit IGDB slug takes
-          # precedence when present.
+          # New row — fill name + abbreviation, save (FriendlyId derives
+          # the slug from name during `before_validation`), then stamp
+          # the IGDB slug via `update_column` so the FriendlyId
+          # generator doesn't overwrite it. Using update_column also
+          # skips a redundant save callback round-trip.
           platform.name = attrs[:name]
           platform.abbreviation = attrs[:abbreviation]
-          platform.slug = attrs[:slug].presence
           platform.save!
+          if attrs[:slug].present? && platform.slug != attrs[:slug]
+            platform.update_column(:slug, attrs[:slug])
+          end
           created += 1
         else
           changed = false
