@@ -36,6 +36,44 @@ class TrustedLocation < ApplicationRecord
     for_user(user).for_pair(fp, ip_prefix).exists?
   end
 
+  # Phase 25 — 01b. Upsert the (user_id, fingerprint_hash, ip_prefix)
+  # row, stamping `first_seen_at` on first insert and `last_seen_at`
+  # on every call. Atomic against the unique index on the triple —
+  # concurrent first-trust attempts collapse to a single row, and the
+  # losing thread sees `last_seen_at` set by the winner.
+  #
+  # Returns the resolved row. Raises `ArgumentError` on missing inputs
+  # so a controller bug surfaces in the auth path rather than silently
+  # leaving the user untrusted.
+  def self.touch_for(user:, fingerprint_hash:, ip_prefix:)
+    raise ArgumentError, "user required" if user.nil?
+    raise ArgumentError, "fingerprint_hash required" if fingerprint_hash.blank?
+    raise ArgumentError, "ip_prefix required" if ip_prefix.blank?
+
+    now = Time.current
+
+    # Postgres `INSERT ... ON CONFLICT` collapses the unique-index
+    # race cleanly. `upsert` requires the conflict-target columns
+    # (the composite unique index on the triple). Rails auto-bumps
+    # `updated_at` on conflict-update — we do NOT include it in
+    # `update_only` (that would assign it twice in the same SQL).
+    upsert(
+      {
+        user_id: user.id,
+        fingerprint_hash: fingerprint_hash,
+        ip_prefix: ip_prefix,
+        first_seen_at: now,
+        last_seen_at: now,
+        created_at: now,
+        updated_at: now
+      },
+      unique_by: :index_trusted_locations_unique_triple,
+      update_only: %i[last_seen_at]
+    )
+
+    for_user(user).for_pair(fingerprint_hash, ip_prefix).first
+  end
+
   private
 
   def ip_prefix_is_valid_cidr

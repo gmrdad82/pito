@@ -8,6 +8,11 @@
   </div>
 <% end %>
 
+<%# `data-keyboard-detail-prev-url` / `data-keyboard-detail-next-url`
+    carry the `h` / `l` sibling navigation URLs for the global
+    keyboard controller. Marker div — invisible, no layout impact. %>
+<div style="display: contents;" <%= keyboard_detail_nav_data_attributes(@project, scope: Project, path_helper: method(:project_path)) %>></div>
+
 <div style="margin-bottom: 6px;">
   <h1 style="display: inline;"><%= @project.name %></h1>
 </div>

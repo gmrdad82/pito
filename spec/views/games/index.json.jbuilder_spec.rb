@@ -7,7 +7,9 @@ RSpec.describe "games/index.json.jbuilder", type: :view do
 
   before do
     assign(:json_games, [ game ])
-    assign(:filter, { genre_id: nil, platform_owned_id: 7 })
+    # Phase 27 §1a — the filter object now carries `platform_owned_slug`
+    # (string) instead of the legacy integer `platform_owned_id`.
+    assign(:filter, { genre_id: nil, platform_owned_slug: "ps5" })
     assign(:json_sort, { key: "release_year", dir: "desc" })
   end
 
@@ -16,13 +18,13 @@ RSpec.describe "games/index.json.jbuilder", type: :view do
   it "renders games as an array of summary hashes" do
     expect(json["games"]).to be_an(Array)
     expect(json["games"].first.keys).to match_array(
-      %w[id slug title release_year igdb_rating platform_owned_id
+      %w[id slug title release_year igdb_rating platform_owned_ids
          played_at cover_image_id resyncing igdb_synced_at created_at]
     )
   end
 
   it "echoes the filter the caller asked for" do
-    expect(json["filter"]).to eq("genre_id" => nil, "platform_owned_id" => 7)
+    expect(json["filter"]).to eq("genre_id" => nil, "platform_owned_slug" => "ps5")
   end
 
   it "echoes the sort the caller asked for" do

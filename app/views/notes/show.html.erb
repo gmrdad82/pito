@@ -11,6 +11,13 @@
 <% content_for(:title, @note.title) %>
 <% breadcrumb(["projects", projects_path], [@project.name, project_path(@project)], @note.title) %>
 
+<%# `data-keyboard-detail-prev-url` / `data-keyboard-detail-next-url`
+    carry the `h` / `l` sibling navigation URLs for the global
+    keyboard controller. Notes are scoped to their parent project so
+    `h` / `l` cycle through the notes inside this project, not the
+    install-wide note set. Marker div — invisible, no layout impact. %>
+<div style="display: contents;" <%= keyboard_detail_nav_data_attributes(@note, scope: @project.notes, path_helper: method(:note_path)) %>></div>
+
 <%# Editor: textarea on the right (rows=18 ≈ 360px baseline, grows via
     `field-sizing: content`), rendered preview on the left (flex-stretches
     to match). The right pane uses a column flex so the words status can

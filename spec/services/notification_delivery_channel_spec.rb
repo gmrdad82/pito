@@ -2,7 +2,12 @@ require "rails_helper"
 
 # A test subclass that lets specs poke each subclass-interface seam
 # without going through Discord/Slack's HTTP machinery.
-class TestNotificationChannel < NotificationDeliveryChannel
+#
+# Phase 26 01b — `NotificationDeliveryChannel` is now an AR model;
+# the PORO dispatcher base moved to `NotificationDeliveryChannel::Base`.
+# Subclass the PORO base so we stay a PORO (no STI auto-bind to the
+# AR table).
+class TestNotificationChannel < NotificationDeliveryChannel::Base
   attr_accessor :enabled_value, :webhook_url_value, :delivered_at_column_value,
                 :payload_value, :stub_response, :raise_on_post
 

@@ -34,7 +34,10 @@
     <strong><%= @blocked_in_last_24h %></strong>
     blocked in the last 24 hours.<br>
     <strong><%= @active_blocks_count %></strong>
-    active block<%= "s" if @active_blocks_count != 1 %> on the auto-block list.
+    active block<%= "s" if @active_blocks_count != 1 %> on the auto-block list.<br>
+    <%# Phase 25 — 01b. Trusted-location + pending-session counters. %>
+    trusted locations: <strong><%= @trusted_locations_count %></strong>,
+    pending: <strong><%= @pending_sessions_count %></strong>
   </p>
 
   <% if @recent_attempts.any? %>

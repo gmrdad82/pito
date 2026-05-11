@@ -7,7 +7,6 @@ RSpec.describe Game, type: :model do
   describe "associations" do
     it { is_expected.to belong_to(:collection).optional }
     it { is_expected.to have_many(:footages).dependent(:nullify) }
-    it { is_expected.to belong_to(:platform_owned).class_name("Platform").optional }
     it { is_expected.to have_many(:game_genres).dependent(:destroy) }
     it { is_expected.to have_many(:genres).through(:game_genres) }
     it { is_expected.to have_many(:game_platforms).dependent(:destroy) }
@@ -17,12 +16,91 @@ RSpec.describe Game, type: :model do
     it { is_expected.to have_many(:game_publishers).dependent(:destroy) }
     it { is_expected.to have_many(:publishers).through(:game_publishers).source(:company) }
 
+    # Phase 27 §1a — per-platform ownership join.
+    it { is_expected.to have_many(:game_platform_ownerships).dependent(:destroy) }
+    it { is_expected.to have_many(:owned_platforms).through(:game_platform_ownerships).source(:platform) }
+
     # Phase 14 §3 — video attribution links.
     it { is_expected.to have_many(:video_game_links).dependent(:destroy) }
     it { is_expected.to have_many(:videos).through(:video_game_links) }
 
     it "has_one_attached :cover_art (legacy)" do
       expect(Game.new).to respond_to(:cover_art)
+    end
+  end
+
+  describe "Phase 27 §1a — ownership shape" do
+    it "does not respond to the legacy platform_owned_id column" do
+      expect(Game.column_names).not_to include("platform_owned_id")
+    end
+
+    it "exposes owned_platforms via the join" do
+      game = create(:game)
+      p1 = create(:platform, name: "PS5",   slug: "ps5-game-spec")
+      p2 = create(:platform, name: "Steam", slug: "steam-game-spec")
+      game.game_platform_ownerships.create!(platform: p1)
+      game.game_platform_ownerships.create!(platform: p2)
+      # default_scope on Platform orders by name, so PS5 comes before
+      # Steam alphabetically (P < S).
+      expect(game.reload.owned_platforms.map(&:name)).to eq([ "PS5", "Steam" ])
+    end
+
+    describe ".owned" do
+      it "includes only games with at least one ownership row" do
+        owned = create(:game)
+        platform = create(:platform, slug: "owned-scope-platform")
+        owned.game_platform_ownerships.create!(platform: platform)
+        unowned = create(:game)
+        expect(Game.owned).to include(owned)
+        expect(Game.owned).not_to include(unowned)
+      end
+
+      it "returns DISTINCT games when a game owns on multiple platforms" do
+        game = create(:game)
+        p1 = create(:platform, slug: "distinct-1")
+        p2 = create(:platform, slug: "distinct-2")
+        game.game_platform_ownerships.create!(platform: p1)
+        game.game_platform_ownerships.create!(platform: p2)
+        expect(Game.owned.where(id: game.id).count).to eq(1)
+      end
+    end
+
+    describe ".not_owned" do
+      it "includes only games with zero ownership rows" do
+        owned = create(:game)
+        platform = create(:platform, slug: "not-owned-platform")
+        owned.game_platform_ownerships.create!(platform: platform)
+        unowned = create(:game)
+        expect(Game.not_owned).to include(unowned)
+        expect(Game.not_owned).not_to include(owned)
+      end
+    end
+
+    describe ".owned_on(slug)" do
+      let!(:game) { create(:game) }
+      # Two platforms with stable, known names. FriendlyId derives the
+      # slug from `name`; the tests match by `platform.slug` to avoid
+      # hardcoding the FriendlyId output.
+      let!(:ps5)   { create(:platform, name: "OwnedOnPS5") }
+      let!(:steam) { create(:platform, name: "OwnedOnSteam") }
+
+      before do
+        game.game_platform_ownerships.create!(platform: ps5)
+      end
+
+      it "matches games owned on the named platform" do
+        expect(Game.owned_on(ps5.slug)).to include(game)
+      end
+
+      it "excludes games owned on a different platform" do
+        other = create(:game)
+        other.game_platform_ownerships.create!(platform: steam)
+        expect(Game.owned_on(ps5.slug)).not_to include(other)
+      end
+
+      it "returns an empty relation for an unknown slug (no error)" do
+        expect(Game.owned_on("not-a-real-slug")).to be_empty
+      end
     end
   end
 

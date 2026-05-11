@@ -44,6 +44,16 @@ game_igdb_nightly_refresh:
   class: GameIgdbNightlyRefresh
   description: "Re-sync every Game whose igdb_synced_at is older than 7 days"
 
+# Phase 27 §1a — weekly IGDB platform sync. The `/platforms` endpoint
+# changes rarely, so a weekly upsert pass is enough to pick up new
+# platforms (e.g., Switch 3, hypothetical PS6). The job is idempotent
+# and never deletes — existing ownership rows survive even if IGDB
+# removes a platform entry.
+platforms_sync_from_igdb:
+  cron: "0 3 * * 0"   # Sunday 03:00 UTC
+  class: Platforms::SyncFromIgdbJob
+  description: "Phase 27 §1a — weekly IGDB platform reference upsert"
+
 # Phase 16 §1 — notifications scheduler. Walks Phase 15's calendar
 # notification declarations every minute, materializes Notification
 # rows (idempotent via the unique partial index on `notifications`),

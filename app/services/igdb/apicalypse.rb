@@ -16,6 +16,7 @@ module Igdb
       @wheres = []
       @search = nil
       @limit  = nil
+      @offset = nil
     end
 
     def fields(*names)
@@ -36,6 +37,15 @@ module Igdb
       self
     end
 
+    # Phase 27 §1a — pagination for endpoints that need to walk every
+    # row (e.g. `/platforms` for `Platforms::SyncFromIgdb`). Zero is a
+    # valid offset (`offset 0;` is implicit in IGDB) so we allow it.
+    def offset(n)
+      raise ArgumentError, "offset must be a non-negative integer" unless n.is_a?(Integer) && n >= 0
+      @offset = n
+      self
+    end
+
     def search(query)
       raise ArgumentError, "search requires a non-blank query" if query.to_s.strip.empty?
       @search = query.to_s
@@ -49,6 +59,7 @@ module Igdb
       parts << "fields #{@fields.join(", ")};"
       parts << "where #{@wheres.join(" & ")};" if @wheres.any?
       parts << "limit #{@limit};" if @limit
+      parts << "offset #{@offset};" if @offset
       parts.join(" ")
     end
 

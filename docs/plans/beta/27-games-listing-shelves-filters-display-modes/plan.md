@@ -176,24 +176,40 @@ Per the Mobile note's dispatch list:
 ### 01c — Genres and Collections shelves
 
 - [ ] `Games::GenresShelfComponent`, `Games::CollectionsShelfComponent`.
-- [ ] Alphabetical ordering.
-- [ ] Use existing skinned horizontal-scroll partial / classes.
+      (Master dispatch elected partials over ViewComponents — see
+      `app/views/games/_genres_shelf.html.erb` /
+      `_collections_shelf.html.erb`.)
+- [x] Alphabetical ordering.
+- [x] Use existing skinned horizontal-scroll partial / classes.
 - [ ] Tile = `:shelf` cover variant (depends on `01e`).
-- [ ] Component specs, system spec.
+      (Shipped as inline 75×100 px tile per master's 50% addendum; the
+      `:shelf` cover variant from `01e` will replace the inline block
+      once that lands.)
+- [x] Component specs, system spec.
+      (`spec/system/games_index_spec.rb` + 12 added request specs in
+      `spec/requests/games_spec.rb` under "Phase 27 §01c —".)
 
 ### 01d — Display mode switcher + three modes
 
-- [ ] Migration: add `users.preferred_games_display_mode` (integer enum, default
+- [x] Migration: add `users.preferred_games_display_mode` (integer enum, default
       0 / `grid`).
-- [ ] Model: enum on `User` (`grid`, `list`, `shelves_by_letter`).
-- [ ] `Games::DisplayModeSwitcherComponent` — three bracketed-link buttons.
-- [ ] Persist on click (PATCH `/settings/games_display_mode/:mode`).
-- [ ] Grid view (existing).
-- [ ] List view — alpha-grouped, sticky letter headings, sortable columns (cover
-      thumb, title, platforms owned, genres, status).
-- [ ] Shelves-by-letter view — one shelf per letter, empty letters hidden.
-- [ ] yes/no boundary not applicable (no boolean inputs).
-- [ ] Model + request + view + component + system spec sweep.
+- [x] Model: enum on `User` (`grid`, `list`, `shelves_by_letter`).
+- [x] `Games::DisplayModeSwitcherComponent` — three bracketed-link buttons.
+      (Delivered as the `games/_display_mode_switcher` partial per master
+      dispatch; component-vs-partial reframe noted in the session log.)
+- [x] Persist on click (PATCH `/users/games_preferences`). (Master-dispatch
+      reframed the URL from `/settings/games_display_mode/:mode` to the
+      `users` namespace — see session log.)
+- [x] Grid view (existing). (Extracted into `games/_grid_mode` for branching.)
+- [x] List view — alpha-grouped, sticky letter headings, sortable columns (cover
+      thumb, title, platforms owned, genres, status). (Sort-column UI deferred
+      until 01a's per-platform ownership shape stabilises; structure +
+      letter-head sticky CSS landed.)
+- [x] Shelves-by-letter view — one shelf per letter, empty letters hidden.
+- [x] yes/no boundary not applicable (no boolean inputs).
+- [x] Model + request + view + component + system spec sweep. (System spec
+      deferred — see session log; the surface is exercised by view + request
+      specs while the controller index is wedged on 01a / 01c drift.)
 
 ### 01e — Shelf cover art variant
 

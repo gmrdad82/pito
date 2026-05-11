@@ -127,6 +127,31 @@ end
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
+# Phase 27 §1a — Platform reference seeds
+# ---------------------------------------------------------------------------
+#
+# Five canonical platforms so the per-platform-ownership editor and the
+# filter row have something to bind against before the IGDB platform
+# sync runs for the first time. Idempotent — `find_or_create_by!`
+# guards repeat runs; subsequent IGDB sync fills `igdb_id` when those
+# rows match upstream.
+
+puts "seeding platforms..."
+[
+  { slug: "ps5",      name: "PlayStation 5",     abbreviation: "PS5" },
+  { slug: "switch2",  name: "Nintendo Switch 2", abbreviation: "Switch 2" },
+  { slug: "steam",    name: "Steam",             abbreviation: "Steam" },
+  { slug: "gog",      name: "GOG",               abbreviation: "GOG" },
+  { slug: "epic",     name: "Epic Games Store",  abbreviation: "Epic" }
+].each do |attrs|
+  Platform.unscoped.find_or_create_by!(slug: attrs[:slug]) do |p|
+    p.name = attrs[:name]
+    p.abbreviation = attrs[:abbreviation]
+  end
+end
+puts "  #{Platform.unscoped.count} platform rows present."
+
+# ---------------------------------------------------------------------------
 # Phase 4 — Project Workspace sample data
 # ---------------------------------------------------------------------------
 #

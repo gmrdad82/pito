@@ -1,0 +1,66 @@
+<%# Phase 26 — 01c. Discord webhook pane.
+
+    Settings pane for the install-level Discord webhook. Submits to
+    `PATCH /settings/discord_webhook` (mounted as
+    `Settings::DiscordWebhooksController#update`). The controller:
+
+      1. Validates the URL against `DISCORD_URL_REGEX` (accepts both
+         `discord.com` and `discordapp.com` host forms).
+      2. Fires a test ping via `Webhooks::DiscordClient#ping` — the
+         payload uses Discord's required `content` field (not `text`).
+      3. Only persists the row (`notification_delivery_channels`,
+         `kind = "discord"`) when the ping returns 2xx.
+
+    The two checkboxes (`everything`, `daily_digest`) cross the wire
+    as `"yes"` / `"no"` per CLAUDE.md hard rules. The controller's
+    `coerce_boolean` helper flips them back to Boolean for storage.
+
+    The pane reads current state from the AR row (if any). When no
+    row exists yet both checkboxes render unchecked and the URL
+    field renders empty. %>
+<div class="pane">
+  <%= form_with url: settings_discord_webhook_path, method: :patch, local: true do |_f| %>
+    <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
+      <legend><h2>Discord</h2></legend>
+
+      <p class="text-muted">
+        paste a Discord webhook URL to deliver pito notifications to a Discord channel.<br>
+        the URL is verified with a test ping before it is saved.
+      </p>
+
+      <div style="margin-bottom: 6px;">
+        <label for="discord_webhook_url" class="form-label">webhook URL</label>
+        <input type="text" name="discord_webhook_url" id="discord_webhook_url"
+               value="<%= @discord_webhook&.webhook_url %>"
+               placeholder="https://discord.com/api/webhooks/.../..."
+               autocomplete="off"
+               style="max-width: 420px; width: 100%;">
+      </div>
+
+      <div style="margin-bottom: 6px;">
+        <label class="md-check">
+          <input type="checkbox" name="everything" value="yes"
+                 <%= "checked" if @discord_webhook&.everything %>>
+          <span class="md-check-indicator"></span>
+          <span class="md-check-label">deliver every notification</span>
+        </label>
+      </div>
+
+      <div style="margin-bottom: 6px;">
+        <label class="md-check">
+          <input type="checkbox" name="daily_digest" value="yes"
+                 <%= "checked" if @discord_webhook&.daily_digest %>>
+          <span class="md-check-indicator"></span>
+          <span class="md-check-label">daily digest</span>
+        </label>
+        <span class="form-hint" style="display: block;">sent daily at 09:00 in your time zone.</span>
+      </div>
+
+      <%# Unchecked boxes post no value at all; the controller's
+          `coerce_boolean` helper treats absence as `false`. This
+          matches the existing Voyage pane checkbox pattern. %>
+
+      <button type="submit">[update]</button>
+    </fieldset>
+  <% end %>
+</div>

@@ -30,8 +30,11 @@
 <% end %>
 
 <%# `data-keyboard-external-url` keeps the `v` shortcut wired to the
-    underlying YouTube URL (mirrors the CLI binding). %>
-<div data-controller="add-pane" data-keyboard-external-url="<%= @channel.channel_url %>">
+    underlying YouTube URL (mirrors the CLI binding). The
+    `data-keyboard-detail-prev-url` / `data-keyboard-detail-next-url`
+    pair (when present) carries the `h` / `l` sibling navigation URLs
+    for the global keyboard controller. %>
+<div data-controller="add-pane" data-keyboard-external-url="<%= @channel.channel_url %>" <%= keyboard_detail_nav_data_attributes(@channel, scope: Channel, path_helper: method(:channel_path)) %>>
   <div class="dot-list" style="margin-bottom: 6px;">
     <h1 style="display: inline;">channel <%= display_title %></h1>
     <% if @available_channels.any? %>

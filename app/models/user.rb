@@ -22,6 +22,22 @@ class User < ApplicationRecord
   # channels.
   has_many :youtube_connections, dependent: :destroy
 
+  # Phase 25 — 01b. Trusted-location lookups + pending-session
+  # introspection. Used by `Auth::NewLocationDetector` and the
+  # security dashboard's pending counter.
+  has_many :trusted_locations, dependent: :destroy
+  has_many :login_attempts, dependent: :nullify
+
+  # Phase 27 — 01d. Display mode switcher + three modes on `/games`.
+  # The user's persisted choice of `/games` view. Default `grid` (0).
+  # Integer values are load-bearing for production data and are
+  # asserted in `spec/models/user_spec.rb` — do not reorder.
+  enum :preferred_games_display_mode, {
+    grid: 0,
+    list: 1,
+    shelves_by_letter: 2
+  }, prefix: :games_display
+
   # Phase 8 — Tenant Drop + Email-Only Login.
   # Auth-only shape: email + password. No `username`, no `tenant`,
   # no `admin`. Login goes through email-only authentication
@@ -39,6 +55,22 @@ class User < ApplicationRecord
             length: { maximum: EMAIL_MAX_LENGTH },
             format: { with: URI::MailTo::EMAIL_REGEXP },
             uniqueness: { case_sensitive: false }
+
+  # Phase 25 — 01b. True iff the (fingerprint, ip_prefix) pair is in
+  # this user's trusted-location list. Wraps `TrustedLocation.trusted?`
+  # for callers that already hold a `User`. Returns `false` on a
+  # nil/blank input rather than raising — the caller's contract is "is
+  # this user known here", not "validate the input".
+  def trusted_location?(fingerprint:, ip_prefix:)
+    TrustedLocation.trusted?(self, fingerprint, ip_prefix)
+  end
+
+  # Phase 25 — 01b. True iff this user has at least one pending-approval
+  # session whose `approval_required_until` is still in the future.
+  # Surfaced on `/settings/security` and via the MCP read tool.
+  def has_pending_session?
+    sessions.pending_within_window.exists?
+  end
 
   private
 

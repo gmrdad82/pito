@@ -45,22 +45,48 @@ class GamesController < ApplicationController
   # The action exposes shelf-shaped collections plus a filtered
   # `all_games` page so `?genre=<id>` / `?platform_owned=<id>` "see
   # all" links land on a fully-listed surface.
+  #
+  # Phase 27 §01c — Two top-of-page horizontal shelves precede the
+  # existing shelves: a Genres shelf and a Collections shelf. Both
+  # sorted case-insensitively by name. Tiles link back to
+  # `/games?genre=<slug>` / `/games?collection=<slug>` which the
+  # filter row (01b) will treat as additional state. While 01b is in
+  # flight, the existing filter codepath accepts these slug params and
+  # narrows `@all_games` so the shelves work standalone.
   def index
     @bundles_shelf   = Bundle.order(updated_at: :desc).limit(10)
     @recently_played = Game.where.not(played_at: nil).order(played_at: :desc).limit(SHELF_LIMIT)
+
+    # Phase 27 §01c — top-of-page shelves. Alphabetical, case-
+    # insensitive; `id` is the stable tie-break for identical names so
+    # render order is deterministic across requests. The Collection
+    # model has no `custom`/`kind` field yet (spec open question #2),
+    # so we render all collections; a future migration can introduce
+    # the distinction and filter here.
+    @genres_for_shelf      = Genre.order(Arel.sql("LOWER(genres.name)"), :id)
+    @collections_for_shelf = Collection.order(Arel.sql("LOWER(collections.name)"), :id)
 
     @genres_shelves = Genre.joins(:games).distinct.order(:name).limit(GENRE_SHELF_CAP).map do |g|
       [ g, g.games.order(Arel.sql("igdb_rating DESC NULLS LAST")).limit(SHELF_LIMIT) ]
     end
 
-    @platforms_shelves = Platform.joins(:games_owning).distinct.order(:name).map do |p|
-      [ p, p.games_owning.order(Arel.sql("release_year DESC NULLS LAST")).limit(SHELF_LIMIT) ]
+    # Phase 27 §1a — `Platform.games_owning` (driven by the now-dropped
+    # `games.platform_owned_id` FK) was retired in favor of the new
+    # `Platform.games` ownership association (through
+    # `:game_platform_ownerships`). The per-platform shelves consume the
+    # new association name; the legacy `platform_owned_id` filter at
+    # `?platform_owned=` is also retired here (the canonical filter for
+    # the platform set lives on the 01b filter row's `owned_on=<slug>`
+    # token). Both edits are minimal-compensating to keep `GET /games`
+    # serving while 01a's controller-side cleanup lands.
+    @platforms_shelves = Platform.joins(:games).distinct.order(:name).map do |p|
+      [ p, p.games.order(Arel.sql("release_year DESC NULLS LAST")).limit(SHELF_LIMIT) ]
     end
 
     @filter = sanitized_filter
     scope = Game.all
     scope = scope.joins(:game_genres).where(game_genres: { genre_id: @filter[:genre_id] }) if @filter[:genre_id]
-    scope = scope.where(platform_owned_id: @filter[:platform_owned_id])                    if @filter[:platform_owned_id]
+    scope = scope.where(collection_id: @filter[:collection_id])                            if @filter[:collection_id]
 
     @all_games = scope.order(Arel.sql("release_year DESC NULLS LAST"))
 
@@ -215,9 +241,14 @@ class GamesController < ApplicationController
   # Phase 14 §1 — strict local-only allowlist. IGDB-sourced columns
   # smuggled into params are silently dropped (the `params.permit`
   # call only references local-only attributes).
+  #
+  # Phase 27 §1a — `platform_owned_id` is gone (the column was dropped
+  # and ownership now flows through `game_platform_ownerships`). A
+  # smuggled `game[platform_owned_id]` value is silently dropped because
+  # the permit list no longer references it; the dedicated ownership
+  # editor (lands in 01f) is the canonical surface for editing the join.
   def local_only_params
     params.fetch(:game, {}).permit(
-      :platform_owned_id,
       :played_at,
       :notes,
       :hours_of_footage_manual
@@ -239,16 +270,47 @@ class GamesController < ApplicationController
     Arel.sql("#{column} #{direction} NULLS LAST")
   end
 
-  # Phase 14 §3 — `/games?genre=<id>` and `/games?platform_owned=<id>`
-  # filter routes power the per-shelf "[see all]" link. Both inputs
-  # are integer ids; missing / non-positive values are dropped so
-  # arbitrary `?genre=evil` strings reduce to "no filter applied".
+  # Phase 14 §3 — `/games?genre=<id>` filter route powers the per-shelf
+  # "[see all]" link. Genre id input is an integer; missing /
+  # non-positive values are dropped so arbitrary `?genre=evil` strings
+  # reduce to "no filter applied".
+  #
+  # Phase 27 §01c — extends `?genre` to also accept a slug string and
+  # adds `?collection=<slug>` for the new Collections shelf. Slug
+  # lookups go through ActiveRecord with `find_by`; SQL-unsafe input
+  # never reaches the query because the value is bound, and a missing
+  # match reduces to "no filter applied" (no row leaks).
+  #
+  # Phase 27 §1a — the legacy `?platform_owned=<id>` filter is
+  # retired here (the `games.platform_owned_id` column it queried is
+  # gone). The canonical platform filter moves to 01b's filter row
+  # token `owned_on=<slug>`.
   def sanitized_filter
     filter = {}
-    genre_id = params[:genre].to_i
-    platform_id = params[:platform_owned].to_i
-    filter[:genre_id] = genre_id if genre_id.positive?
-    filter[:platform_owned_id] = platform_id if platform_id.positive?
+    genre_id = resolve_genre_id(params[:genre])
+    collection_id = resolve_collection_id(params[:collection])
+    filter[:genre_id] = genre_id if genre_id&.positive?
+    filter[:collection_id] = collection_id if collection_id&.positive?
     filter
+  end
+
+  # Accepts a positive integer id (existing `?genre=<id>` contract) or
+  # a non-empty string slug (`?genre=<slug>` for the 01c shelf tile).
+  # Unknown / blank inputs return nil so the caller skips the filter.
+  def resolve_genre_id(raw)
+    return nil if raw.blank?
+    int = raw.to_i
+    return int if int.positive? && raw.to_s == int.to_s
+    Genre.where(slug: raw.to_s).limit(1).pick(:id)
+  end
+
+  # Accepts a string slug for the 01c collection shelf tile. Unknown
+  # / blank inputs return nil. Integer ids are also accepted for
+  # symmetry with `genre` though the canonical tile URL uses the slug.
+  def resolve_collection_id(raw)
+    return nil if raw.blank?
+    int = raw.to_i
+    return int if int.positive? && raw.to_s == int.to_s
+    Collection.where(slug: raw.to_s).limit(1).pick(:id)
   end
 end

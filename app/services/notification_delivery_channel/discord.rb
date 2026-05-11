@@ -1,16 +1,17 @@
-# Phase 16 §1 — Notifications data model + delivery channels.
+# Phase 16 §1 → Phase 26 01b refactor. Discord webhook channel.
 #
-# Discord webhook channel. Reads
-# `Rails.application.credentials.notifications.discord_webhook_url`
-# and POSTs JSON. Treats 2xx as success, 4xx (except 429) as terminal,
-# 5xx + 429 + network errors as transient (Sidekiq retries via the
-# raise; the base class records the failure on the row first).
+# Reads the active webhook URL from the AR row first
+# (`NotificationDeliveryChannel.discord&.webhook_url`) and falls back to
+# `Rails.application.credentials.notifications.discord_webhook_url`. POSTs
+# JSON. Treats 2xx as success, 4xx (except 429) as terminal, 5xx + 429 +
+# network errors as transient (Sidekiq retries via the raise; the base
+# class records the failure on the row first).
 #
 # Payload formatting lives in Spec 02 (`NotificationFormatter::Discord`).
 # Spec 01 ships a minimal payload (`{ content: title }`) so the channel
 # is testable end-to-end before the formatter lands.
 class NotificationDeliveryChannel
-  class Discord < NotificationDeliveryChannel
+  class Discord < Base
     # Webhook URL must point at one of these hosts. Anything else
     # (including loopback, internal IPs, attacker-owned domains) is
     # rejected by `deliverable_url?` so a misconfigured credential can
@@ -35,6 +36,10 @@ class NotificationDeliveryChannel
     end
 
     def webhook_url
+      # Phase 26 01b — AR row first, credentials fallback.
+      row_url = NotificationDeliveryChannel.discord&.webhook_url
+      return row_url if row_url.present?
+
       Rails.application.credentials.dig(:notifications, :discord_webhook_url)
     end
 

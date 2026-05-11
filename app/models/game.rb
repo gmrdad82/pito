@@ -9,8 +9,13 @@
 #   ttb_completionist_seconds, title, igdb_synced_at.
 #
 # Local-only columns (NEVER touched by sync):
-#   platform_owned_id, played_at, notes, hours_of_footage_manual,
-#   hours_of_footage_cached, manual_date_override, last_sync_error.
+#   played_at, notes, hours_of_footage_manual, hours_of_footage_cached,
+#   manual_date_override, last_sync_error.
+#
+# Per-platform ownership (Phase 27 §1a) is carried by the
+# `game_platform_ownerships` join table — see `#owned_platforms` and
+# the `.owned` / `.not_owned` / `.owned_on(slug)` scopes. The
+# single-valued `platform_owned_id` column is gone.
 #
 # Phase 4 legacy columns (DEPRECATED — Phase 14 polish drops them):
 #   `publisher` (string)  — superseded by Company + GamePublisher join.
@@ -55,9 +60,6 @@ class Game < ApplicationRecord
   has_many :calendar_entries, dependent: :destroy
 
   # Phase 14 §1 — IGDB-backed associations.
-  belongs_to :platform_owned, class_name: "Platform", optional: true,
-                              foreign_key: :platform_owned_id, inverse_of: :games_owning
-
   has_many :game_genres, dependent: :destroy
   has_many :genres, through: :game_genres
   has_many :game_platforms, dependent: :destroy
@@ -66,6 +68,13 @@ class Game < ApplicationRecord
   has_many :developers, through: :game_developers, source: :company
   has_many :game_publishers, dependent: :destroy
   has_many :publishers, through: :game_publishers, source: :company
+
+  # Phase 27 §1a — per-platform ownership join. Replaces the
+  # single-valued `platform_owned_id` pointer with a multi-valued set.
+  # Cascade-on-delete so destroying a Game removes its ownership rows
+  # (Platform deletion is restricted; see `Platform` model).
+  has_many :game_platform_ownerships, dependent: :destroy
+  has_many :owned_platforms, through: :game_platform_ownerships, source: :platform
 
   # Phase 14 §2 — Bundle membership. A Game can belong to many
   # Bundles. Cascade-on-delete from games removes the join rows;
@@ -103,6 +112,27 @@ class Game < ApplicationRecord
   scope :unsynced,  -> { where(igdb_synced_at: nil) }
   scope :stale,     -> { where("igdb_synced_at < ?", 7.days.ago) }
   scope :with_steam, -> { where.not(external_steam_app_id: nil) }
+
+  # Phase 27 §1a — ownership scopes consumed by `01b`'s filter row.
+  #
+  #   .owned         → at least one ownership row (DISTINCT to dedupe
+  #                    games owned on multiple platforms).
+  #   .not_owned     → zero ownership rows.
+  #   .owned_on(sl)  → ownership row whose platform matches the slug.
+  scope :owned, -> { joins(:game_platform_ownerships).distinct }
+  scope :not_owned, lambda {
+    left_joins(:game_platform_ownerships)
+      .where(game_platform_ownerships: { id: nil })
+  }
+  scope :owned_on, lambda { |slug|
+    # `where(platforms: { slug: ... })` would conflict with the legacy
+    # `games.platforms` jsonb column (ActiveRecord treats the hash key
+    # as a column on `games`). The raw `"platforms"."slug"` SQL is
+    # safe — `slug` flows through bind parameters.
+    joins(game_platform_ownerships: :platform)
+      .where('"platforms"."slug" = ?', slug)
+      .distinct
+  }
 
   # IGDB cover URL builder. The IGDB CDN serves directly to the
   # browser — pito does not proxy or cache image bytes for the show

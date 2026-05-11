@@ -1,11 +1,18 @@
-# Phase 16 §1 — Notifications data model + delivery channels.
+# Phase 16 §1 → Phase 26 01b refactor. Slack webhook channel.
 #
-# Slack webhook channel. Mirror of `Discord` — different credentials
-# key, different `delivered_at_column`, different formatter target
-# (Spec 02). Same retry semantics: 2xx ok, 4xx (non-429) terminal,
+# Mirror of `Discord` — different credentials key, different
+# `delivered_at_column`, different formatter target (Spec 02). Same
+# retry semantics: 2xx ok, 4xx (non-429) terminal,
 # 5xx / 429 / network transient.
+#
+# Phase 26 01b — `#webhook_url` now resolves the AR row first
+# (`NotificationDeliveryChannel.slack&.webhook_url`) and falls back to
+# `Rails.application.credentials.notifications.slack_webhook_url` if no
+# row exists yet. This lets the Settings pane manage the URL without
+# rotating credentials, while still honoring credentials for installs
+# that never used the pane.
 class NotificationDeliveryChannel
-  class Slack < NotificationDeliveryChannel
+  class Slack < Base
     # Webhook URL must point at one of these hosts (F3). Slack publishes
     # incoming webhooks under a single host; anything else is a
     # misconfiguration we should refuse rather than POST notification
@@ -30,6 +37,12 @@ class NotificationDeliveryChannel
     end
 
     def webhook_url
+      # Phase 26 01b — AR row first (operator-managed via Settings pane),
+      # credentials block as fallback (legacy installs). Either source
+      # yields a plaintext URL — ARE decrypts the column on read.
+      row_url = NotificationDeliveryChannel.slack&.webhook_url
+      return row_url if row_url.present?
+
       Rails.application.credentials.dig(:notifications, :slack_webhook_url)
     end
 

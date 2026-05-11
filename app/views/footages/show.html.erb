@@ -4,6 +4,11 @@
   <%= render(BracketedLinkComponent.new(label: "e", href: edit_footage_path(@footage))) %>
 <% end %>
 
+<%# `data-keyboard-detail-prev-url` / `data-keyboard-detail-next-url`
+    carry the `h` / `l` sibling navigation URLs for the global
+    keyboard controller. Marker div — invisible, no layout impact. %>
+<div style="display: contents;" <%= keyboard_detail_nav_data_attributes(@footage, scope: Footage, path_helper: method(:footage_path)) %>></div>
+
 <h1><%= @footage.filename %></h1>
 
 <%# Phase 7.5 §06 — DaVinci-style scrub layout. The Stimulus controller

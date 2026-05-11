@@ -247,6 +247,62 @@ RSpec.describe "Sessions", type: :request do
         expect(row.fingerprint_hash.length).to eq(64)
       end
     end
+
+    # Phase 25 — 01b. Trusted / new-location / blocked dispatch.
+    describe "new-location dispatch (Phase 25 — 01b)" do
+      it "trusted location: mints a session, writes trusted_location_success, redirects to root" do
+        # Seed a trusted-location row for the fingerprint/ip_prefix the
+        # rack-test request will produce. Two-step: hit /login once
+        # (wrong password) to capture the actual fingerprint, then
+        # seed the trusted row.
+        post login_path, params: { email: user.email, password: "wrong" }
+        seed = LoginAttempt.recent.first
+        TrustedLocation.create!(
+          user: user,
+          fingerprint_hash: seed.fingerprint_hash,
+          ip_prefix: seed.ip_prefix,
+          first_seen_at: 1.day.ago,
+          last_seen_at: 1.day.ago
+        )
+
+        expect {
+          post login_path, params: { email: user.email, password: password }
+        }.to change(Session.state_active, :count).by(1)
+
+        expect(response).to have_http_status(:found)
+        expect(response).to redirect_to(root_path)
+        row = LoginAttempt.where(reason: LoginAttempt.reasons[:trusted_location_success]).recent.first
+        expect(row).to be_present
+      end
+
+      it "new location: does NOT mint a session, redirects to /login/challenge" do
+        expect {
+          post login_path, params: { email: user.email, password: password }
+        }.not_to change(Session.state_active, :count)
+
+        expect(response).to redirect_to(login_challenge_path)
+      end
+
+      it "blocked pair: writes a blocked row, renders generic failure" do
+        # Seed the block on whatever fingerprint the rack-test request
+        # produces (same two-step probe).
+        post login_path, params: { email: user.email, password: "wrong" }
+        seed = LoginAttempt.recent.first
+        create(
+          :blocked_location,
+          fingerprint_hash: seed.fingerprint_hash,
+          ip_prefix: seed.ip_prefix,
+          blocked_by_user: user
+        )
+
+        expect {
+          post login_path, params: { email: user.email, password: password }
+        }.to change(LoginAttempt.blocked_results, :count).by(1)
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(response.body.downcase).to include("login failed")
+      end
+    end
   end
 
   # Phase 8 security audit, finding F1 (account-enumeration timing

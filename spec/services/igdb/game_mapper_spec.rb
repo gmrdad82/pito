@@ -58,7 +58,7 @@ RSpec.describe Igdb::GameMapper do
     end
 
     it "does NOT include local-only columns" do
-      %i[platform_owned_id played_at notes hours_of_footage_manual hours_of_footage_cached].each do |k|
+      %i[played_at notes hours_of_footage_manual hours_of_footage_cached].each do |k|
         expect(attrs).not_to have_key(k)
       end
     end

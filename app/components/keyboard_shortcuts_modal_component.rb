@@ -33,9 +33,10 @@ class KeyboardShortcutsModalComponent < ViewComponent::Base
       ]
     ),
     Section.new(
-      title: "list pages (channels / videos)",
+      title: "list pages (channels / videos / projects / ...)",
       rows: [
         Row.new(keys: "j / k", description: "move highlight down / up"),
+        Row.new(keys: "h / l", description: "previous / next page (when paginated)"),
         Row.new(keys: "x", description: "toggle row selection"),
         Row.new(keys: "s", description: "toggle star on highlighted row"),
         Row.new(keys: "D", description: "delete selection (or current row)"),
@@ -58,8 +59,9 @@ class KeyboardShortcutsModalComponent < ViewComponent::Base
       ]
     ),
     Section.new(
-      title: "detail pages (channel / video)",
+      title: "detail pages (channel / video / game / ...)",
       rows: [
+        Row.new(keys: "h / l", description: "previous / next sibling record"),
         Row.new(keys: "v", description: "view URL in browser"),
         Row.new(keys: "s", description: "toggle star"),
         Row.new(keys: "Y", description: "sync this record"),

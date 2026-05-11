@@ -33,7 +33,7 @@ module Auth
     # via an enum exception inside the transaction.
     ALLOWED_RESULTS = %i[success failed pending_approval blocked].freeze
 
-    def self.call(request:, result:, reason:, user: nil, email: nil, notification: nil)
+    def self.call(request:, result:, reason:, user: nil, email: nil, notification: nil, session: nil)
       result = result.to_sym
       reason = reason.to_sym
 
@@ -84,7 +84,8 @@ module Auth
           os:      ua_parts[:os],
           fingerprint_hash: fingerprint_hash,
           reason: reason,
-          notification: notification
+          notification: notification,
+          session: session
         )
 
         if blocked

@@ -39,17 +39,18 @@ RSpec.describe Igdb::SyncGame do
     end
 
     it "preserves local-only columns" do
-      platform = create(:platform)
+      platform = create(:platform, slug: "sync-game-spec-platform")
       g = create(:game,
                  igdb_id: 7346,
-                 platform_owned: platform,
                  played_at: Date.new(2024, 1, 1),
                  notes: "my private notes",
                  hours_of_footage_manual: 12)
+      # Phase 27 §1a — per-platform ownership lives in the join.
+      g.game_platform_ownerships.create!(platform: platform)
       syncer.call(g)
       g.reload
 
-      expect(g.platform_owned_id).to eq(platform.id)
+      expect(g.owned_platforms).to include(platform)
       expect(g.played_at).to eq(Date.new(2024, 1, 1))
       expect(g.notes).to eq("my private notes")
       expect(g.hours_of_footage_manual).to eq(12)

@@ -10,8 +10,10 @@
 
 <%# `data-keyboard-external-url` lets the global keyboard controller
     open the video's YouTube URL in a new tab when the user presses
-    `v` on the detail page (mirrors the CLI binding). %>
-<div data-controller="add-pane" data-keyboard-external-url="https://www.youtube.com/watch?v=<%= @video.youtube_video_id %>">
+    `v` on the detail page (mirrors the CLI binding). The
+    `data-keyboard-detail-prev-url` / `data-keyboard-detail-next-url`
+    pair (when present) carries the `h` / `l` sibling navigation URLs. %>
+<div data-controller="add-pane" data-keyboard-external-url="https://www.youtube.com/watch?v=<%= @video.youtube_video_id %>" <%= keyboard_detail_nav_data_attributes(@video, scope: Video, path_helper: method(:video_path)) %>>
   <div class="dot-list" style="margin-bottom: 6px;">
     <h1 style="display: inline;">video #<%= @video.id %></h1>
     <% if @available_videos.any? %>

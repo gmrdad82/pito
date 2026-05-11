@@ -55,6 +55,20 @@ Rails.application.routes.draw do
   post "/login",   to: "sessions#create"
   delete "/session", to: "sessions#destroy", as: :session_logout
 
+  # Phase 25 — 01b (LD-17). New-location challenge surface.
+  #   GET    /login/challenge — two bracketed-link choices (TOTP / approval).
+  #   POST   /login/challenge — branches on `challenge_path` param.
+  #   GET    /login/pending   — countdown + attempt detail + cancel link.
+  #   DELETE /login/pending   — `[cancel & log out]` form target.
+  # The TOTP route is a placeholder here — `01e` lands the real
+  # controller. Until then, `[enter 2FA code]` redirects to `/login`
+  # so the link does not 404.
+  get    "/login/challenge", to: "login/challenges#show",   as: :login_challenge
+  post   "/login/challenge", to: "login/challenges#create"
+  get    "/login/pending",   to: "login/pendings#show",     as: :login_pending
+  delete "/login/pending",   to: "login/pendings#destroy"
+  get    "/login/totp",      to: redirect("/login"),        as: :login_totp
+
   # Phase 12 — Step B (6b-doorkeeper-oauth-server.md). Doorkeeper mounts
   # `/oauth/authorize`, `/oauth/token`, `/oauth/revoke`, `/oauth/introspect`.
   # We skip the bundled applications admin and replace it with our own UI
@@ -519,6 +533,15 @@ Rails.application.routes.draw do
     # unique on `kind`). PATCH validates the URL regex, fires a test
     # ping, and only persists the row when the ping returns 2xx.
     resource :slack_webhook, only: %i[update], controller: "slack_webhooks"
+
+    # Phase 26 — 01c. Discord webhook pane. Mirror of 01b for Discord.
+    # URL: `/settings/discord_webhook` — one Discord webhook config per
+    # install (`notification_delivery_channels.kind = "discord"` row,
+    # unique on `kind`). PATCH validates the URL regex (accepts both
+    # `discord.com` and `discordapp.com` host forms), fires a test
+    # ping (`{ "content": ... }` — Discord requires the `content` key),
+    # and only persists the row when the ping returns 2xx.
+    resource :discord_webhook, only: %i[update], controller: "discord_webhooks"
   end
 
   # Phase 24 — Google management surface moved from `/settings/youtube`
