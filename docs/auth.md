@@ -21,9 +21,15 @@ Four surfaces gate access to the install:
 If you came here looking for something specific:
 
 - "How do I log in?" → §1 (login flow).
+- "How do I enroll 2FA?" → §1a (totp 2fa + backup codes).
+- "What happens on a new-location login?" → §1b (new-location detection +
+  pending sessions).
+- "Where do I unblock a fingerprint / ip pair?" → §1c (auto-block list).
 - "How do I generate a dev token?" → §7.
 - "Which scope does my MCP tool require?" → §4.
 - "How does a request flow through auth?" → §5.
+- "What runs on the production proxy boundary?" → §11 (production hardening +
+  Cloudflare drift watchdog).
 
 ## Auth surfaces overview
 

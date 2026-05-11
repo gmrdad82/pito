@@ -12,57 +12,67 @@ require "rails_helper"
 RSpec.describe PlatformsHelper, type: :helper do
   let(:game) { create(:game) }
 
+  # FriendlyId regenerates `slug` from `name` during the save callback
+  # (see `Platform#should_generate_new_friendly_id?`), so the factory
+  # convention is `create` + `update_column(:slug, "...")` whenever a
+  # spec needs to pin a specific slug (canonical or otherwise).
+  def make_platform(name:, slug: nil, igdb_id: nil)
+    record = create(:platform, name: name, igdb_id: igdb_id)
+    record.update_column(:slug, slug) if slug
+    record.reload
+  end
+
   describe "#display_platforms" do
     it "renders `—` when the game has no canonical platforms" do
       expect(helper.display_platforms(game)).to eq("—")
     end
 
     it "renders the canonical short name for a seed PS5 platform" do
-      ps5 = create(:platform, name: "PlayStation 5", slug: "ps5", igdb_id: nil)
+      ps5 = make_platform(name: "PlayStation 5", slug: "ps5", igdb_id: nil)
       game.platforms_available << ps5
       expect(helper.display_platforms(game)).to eq("PS5")
     end
 
     it "renders 'Switch2' for the manually-seeded Switch 2 platform" do
-      sw2 = create(:platform, name: "Nintendo Switch 2", slug: "switch2", igdb_id: nil)
+      sw2 = make_platform(name: "Nintendo Switch 2", slug: "switch2", igdb_id: nil)
       game.platforms_available << sw2
       expect(helper.display_platforms(game)).to eq("Switch2")
     end
 
     it "renders 'Xbox' when the game ships on Xbox One (igdb_id=49)" do
-      xbox_one = create(:platform, name: "Xbox One", igdb_id: 49)
+      xbox_one = make_platform(name: "Xbox One", igdb_id: 49)
       game.platforms_available << xbox_one
       expect(helper.display_platforms(game)).to eq("Xbox")
     end
 
     it "renders 'Xbox' when the game ships on Xbox Series X|S (igdb_id=169)" do
-      xsxs = create(:platform, name: "Xbox Series X|S", igdb_id: 169)
+      xsxs = make_platform(name: "Xbox Series X|S", igdb_id: 169)
       game.platforms_available << xsxs
       expect(helper.display_platforms(game)).to eq("Xbox")
     end
 
     it "collapses Xbox One + Xbox Series X|S into a single 'Xbox' label" do
-      xbox_one = create(:platform, name: "Xbox One", igdb_id: 49)
-      xsxs = create(:platform, name: "Xbox Series X|S", igdb_id: 169)
+      xbox_one = make_platform(name: "Xbox One", igdb_id: 49)
+      xsxs = make_platform(name: "Xbox Series X|S", igdb_id: 169)
       game.platforms_available << xbox_one
       game.platforms_available << xsxs
       expect(helper.display_platforms(game)).to eq("Xbox")
     end
 
     it "drops non-canonical IGDB platforms (PlayStation 4)" do
-      ps4 = create(:platform, name: "PlayStation 4", igdb_id: 48)
+      ps4 = make_platform(name: "PlayStation 4", igdb_id: 48)
       game.platforms_available << ps4
       expect(helper.display_platforms(game)).to eq("—")
     end
 
     it "drops non-canonical IGDB platforms (Nintendo Switch OG)" do
-      switch = create(:platform, name: "Nintendo Switch", igdb_id: 130)
+      switch = make_platform(name: "Nintendo Switch", igdb_id: 130)
       game.platforms_available << switch
       expect(helper.display_platforms(game)).to eq("—")
     end
 
     it "drops 'PC (Microsoft Windows)' entirely (no canonical alias)" do
-      pc = create(:platform, name: "PC (Microsoft Windows)", igdb_id: 6)
+      pc = make_platform(name: "PC (Microsoft Windows)", igdb_id: 6)
       game.platforms_available << pc
       expect(helper.display_platforms(game)).to eq("—")
     end
@@ -83,9 +93,9 @@ RSpec.describe PlatformsHelper, type: :helper do
     end
 
     it "renders all canonical labels in the locked order" do
-      ps5  = create(:platform, name: "PlayStation 5",     slug: "ps5",     igdb_id: nil)
-      sw2  = create(:platform, name: "Nintendo Switch 2", slug: "switch2", igdb_id: nil)
-      xbox = create(:platform, name: "Xbox One",          igdb_id: 49)
+      ps5  = make_platform(name: "PlayStation 5",     slug: "ps5",     igdb_id: nil)
+      sw2  = make_platform(name: "Nintendo Switch 2", slug: "switch2", igdb_id: nil)
+      xbox = make_platform(name: "Xbox One",          igdb_id: 49)
       game.platforms_available << ps5
       game.platforms_available << sw2
       game.platforms_available << xbox
@@ -98,8 +108,8 @@ RSpec.describe PlatformsHelper, type: :helper do
     end
 
     it "deduplicates when both the canonical seed AND an IGDB row map to the same slug" do
-      ps5_seed = create(:platform, name: "PlayStation 5",       slug: "ps5",      igdb_id: nil)
-      ps5_igdb = create(:platform, name: "PlayStation 5 (IGDB)", slug: "ps5-igdb", igdb_id: 167)
+      ps5_seed = make_platform(name: "PlayStation 5",        slug: "ps5",      igdb_id: nil)
+      ps5_igdb = make_platform(name: "PlayStation 5 (IGDB)", slug: "ps5-igdb", igdb_id: 167)
       game.platforms_available << ps5_seed
       game.platforms_available << ps5_igdb
       expect(helper.display_platforms(game)).to eq("PS5")
@@ -112,7 +122,7 @@ RSpec.describe PlatformsHelper, type: :helper do
     end
 
     it "returns the canonical short names as an array" do
-      xbox = create(:platform, name: "Xbox Series X|S", igdb_id: 169)
+      xbox = make_platform(name: "Xbox Series X|S", igdb_id: 169)
       game.platforms_available << xbox
       game.update!(external_steam_app_id: "42")
       expect(helper.canonical_platform_short_names_for(game)).to eq(%w[Steam Xbox])

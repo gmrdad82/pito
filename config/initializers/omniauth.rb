@@ -57,7 +57,20 @@ end
 # restart so the gap is small.
 def pito_appsetting_youtube_value(column)
   AppSetting.public_send(column) if AppSetting.connection.data_source_exists?("app_settings")
-rescue StandardError
+rescue ActiveRecord::StatementInvalid,
+       ActiveRecord::ConnectionNotEstablished,
+       ActiveRecord::NoDatabaseError => e
+  # P25 follow-up — F6. Narrowed from a bare `StandardError`. The only
+  # legitimate failure paths at boot are "DB not reachable yet" / "table
+  # not created yet" — both ActiveRecord-shape errors. Anything else
+  # (e.g. a typo in `column`, an encryption-key misconfiguration on the
+  # encrypted column) should bubble so it surfaces in development /
+  # test rather than silently degrading to "no YouTube credentials
+  # configured" at boot.
+  Rails.logger.warn(
+    "[omniauth] pito_appsetting_youtube_value(#{column}) " \
+    "fell back to nil due to #{e.class}: #{e.message}"
+  )
   nil
 end
 
