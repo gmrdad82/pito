@@ -1,7 +1,8 @@
 # Reply to keybindings + future development (2026-05-11)
 
-Reply to `docs/notes/2026-05-10-23-30-00-keybindings-unified-schema-proposal.md`.
-Two parts: (A) keybinding revisions, (B) broader product direction beyond
+Reply to
+`docs/notes/2026-05-10-23-30-00-keybindings-unified-schema-proposal.md`. Two
+parts: (A) keybinding revisions, (B) broader product direction beyond
 keybindings.
 
 ---
@@ -43,8 +44,8 @@ filters are finalized. The contract is: every filterable page exposes `f`.
 
 ### 3. Sorts — `s` everywhere with a sub-scheme
 
-Same pattern for sort. Reserve `s` for sort, sub-scheme covers possible sorts
-on that surface.
+Same pattern for sort. Reserve `s` for sort, sub-scheme covers possible sorts on
+that surface.
 
 ```
 s sort ->
@@ -55,8 +56,8 @@ s sort ->
 ```
 
 Conflict note: `s` is currently used at Channels root for "bulk sync." That
-collision needs resolving — proposal: move bulk sync under a `o` (operations)
-or simply `S` (capital), and keep lowercase `s` reserved globally for sort.
+collision needs resolving — proposal: move bulk sync under a `o` (operations) or
+simply `S` (capital), and keep lowercase `s` reserved globally for sort.
 Flagging for review before schema lock.
 
 ### 4. Multiple tables on one page — extra nesting
@@ -133,13 +134,13 @@ l list
 
 (plus `f` / `s` per the keybinding revisions above)
 
-The upload flow itself is a separate spec — capturing here that the binding
-and the affordance need to exist.
+The upload flow itself is a separate spec — capturing here that the binding and
+the affordance need to exist.
 
 ### B2. Daily sync produces diffs + notifications
 
-Both channels and videos run a daily sync that **checks for diffs** between
-pito state and YouTube state. When a diff is detected:
+Both channels and videos run a daily sync that **checks for diffs** between pito
+state and YouTube state. When a diff is detected:
 
 - A notification is produced (feeds into the existing notifications surface).
 - A **diff dialog** is presented for reconciliation.
@@ -150,8 +151,8 @@ silent overwrites in either direction.
 ### B3. Sync never overwrites — it produces a diff dialog
 
 **Critical**: the sync action for channels and videos does **not** overwrite
-pito state, and does **not** push to YouTube. It produces a **diff dialog**
-that I reconcile manually.
+pito state, and does **not** push to YouTube. It produces a **diff dialog** that
+I reconcile manually.
 
 This applies to:
 
@@ -167,9 +168,9 @@ Reconciliation directions:
 Per-field granularity in the diff dialog (title, description, tags, category,
 privacy, etc.) — accept some fields, reject others.
 
-This needs to land in the model layer before we wire the menu actions to
-backend behavior. Important enough to call out as a blocking design decision
-for any Step that touches channel/video sync.
+This needs to land in the model layer before we wire the menu actions to backend
+behavior. Important enough to call out as a blocking design decision for any
+Step that touches channel/video sync.
 
 ### B4. Games — defer custom add, IGDB-only for now
 
@@ -180,9 +181,9 @@ No changes to the Games submenu beyond the bulk-toggle removal in A1.
 
 ### B5. Screen review pass — needs clean DB
 
-Start reviewing screens — specifically channels and videos — so they're
-properly displayed. To do this productively I want the DB **reset to just the
-settings**: no channels, no videos, no projects, no games.
+Start reviewing screens — specifically channels and videos — so they're properly
+displayed. To do this productively I want the DB **reset to just the settings**:
+no channels, no videos, no projects, no games.
 
 Workflow:
 
@@ -199,8 +200,8 @@ dump current DB state as seeds once I've connected my real channels.
 
 ### B6. Videos import flow — full spec
 
-Introduce `[import]` on `/videos`. This is a first-class affordance, not just
-a binding.
+Introduce `[import]` on `/videos`. This is a first-class affordance, not just a
+binding.
 
 #### Entry point
 
@@ -227,8 +228,8 @@ On confirm:
 
 - A new **`ImportJob` model** is introduced.
 - One `ImportJob` record is created **per channel** selected.
-- A background job is enqueued **per channel** (not one job for the whole
-  batch — one per channel, so they run independently and can fail/retry
+- A background job is enqueued **per channel** (not one job for the whole batch
+  — one per channel, so they run independently and can fail/retry
   independently).
 
 #### Step 3 — progress visibility
@@ -243,8 +244,8 @@ While imports are running:
 
 Progress UI:
 
-- Use our existing `=---` style indicator when granular progress isn't
-  available yet.
+- Use our existing `=---` style indicator when granular progress isn't available
+  yet.
 - If we can compute detailed progress, show it: **how many videos will be
   imported, how many have been imported so far.** Per-channel breakdown.
 - Detailed progress is "nice to have" — the `=---` indicator is the fallback.
@@ -274,11 +275,10 @@ Behavior:
 
 #### Step 6 — graceful deletion + future-job safety
 
-Critical implementation detail: when a video is unchecked and deleted from
-pito after import, **future jobs that reference that video have to fail
-gracefully**. The video is genuinely deleted from pito (not soft-deleted, not
-hidden) and won't be re-imported by the next daily sync either — otherwise
-we'd loop.
+Critical implementation detail: when a video is unchecked and deleted from pito
+after import, **future jobs that reference that video have to fail gracefully**.
+The video is genuinely deleted from pito (not soft-deleted, not hidden) and
+won't be re-imported by the next daily sync either — otherwise we'd loop.
 
 Implications:
 
@@ -286,8 +286,8 @@ Implications:
   explicitly rejected this YouTube video ID, don't re-import."
 - Or: a "rejected at import" flag on a lightweight record. Design choice
   pending, but the behavior is non-negotiable: rejected videos stay rejected.
-- Any job that has a `video_id` reference (analytics fetch, publish check,
-  etc.) must handle `Video not found` without raising / paging.
+- Any job that has a `video_id` reference (analytics fetch, publish check, etc.)
+  must handle `Video not found` without raising / paging.
 
 #### Models / migrations needed
 

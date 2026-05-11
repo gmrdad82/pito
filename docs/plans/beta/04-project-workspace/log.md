@@ -3820,26 +3820,26 @@ column expansion pushes channels past viewport width, revisit.
 **Bug.** Clicking `[reconnect]` on `/settings/youtube` ran the OAuth dance
 end-to-end but the resulting access token was minted with only
 `openid email profile` — the YouTube scopes were absent, so the next
-`channels.list mine=true` call returned 403 / insufficient-scopes and the
-banner re-fired indefinitely.
+`channels.list mine=true` call returned 403 / insufficient-scopes and the banner
+re-fired indefinitely.
 
 **Root cause.** `config/initializers/omniauth.rb:55` configured the provider
 with `scope: "openid email profile"`. Comments at lines 11-13 referenced a
 planned request-phase scope override that was never implemented. The
 `Settings::YoutubeController#connect` action only stashes a session intent
-(`youtube_connect`); it never rewrote the scope list before OmniAuth talked
-to Google.
+(`youtube_connect`); it never rewrote the scope list before OmniAuth talked to
+Google.
 
-**Fix — Approach B (single scope set always).** Pito is single-user; there
-is no benefit to dual-modal handshakes. Every Google authorization round
-requests the full pito scope set. The consent screen surfaces them once;
-subsequent reconnect flows use the same set so legacy tokens minted under
-a narrower scope set upgrade on the next `[reconnect]`.
+**Fix — Approach B (single scope set always).** Pito is single-user; there is no
+benefit to dual-modal handshakes. Every Google authorization round requests the
+full pito scope set. The consent screen surfaces them once; subsequent reconnect
+flows use the same set so legacy tokens minted under a narrower scope set
+upgrade on the next `[reconnect]`.
 
 ### Scope set
 
-Promoted to two constants in `config/initializers/omniauth.rb` so request
-and callback specs can reference them without duplicating the strings:
+Promoted to two constants in `config/initializers/omniauth.rb` so request and
+callback specs can reference them without duplicating the strings:
 
 - `PITO_GOOGLE_OAUTH_SCOPES` — the full request set:
   - `openid email profile`
@@ -3848,99 +3848,86 @@ and callback specs can reference them without duplicating the strings:
   - `https://www.googleapis.com/auth/yt-analytics.readonly` (Analytics
     reports.query)
   - `https://www.googleapis.com/auth/youtube.force-ssl` (videos.update
-    sync-back, channels.update + channelBanners.insert + watermarks.set
-    writes — Phase 11+12)
-- `PITO_GOOGLE_OAUTH_REQUIRED_YOUTUBE_SCOPES` — the subset the callback
-  treats as load-bearing. Missing any of these flips
-  `needs_reauth: true` on the upsert so the existing
-  `_needs_reauth_banner.html.erb` renders the missing-scopes variant.
+    sync-back, channels.update + channelBanners.insert + watermarks.set writes —
+    Phase 11+12)
+- `PITO_GOOGLE_OAUTH_REQUIRED_YOUTUBE_SCOPES` — the subset the callback treats
+  as load-bearing. Missing any of these flips `needs_reauth: true` on the upsert
+  so the existing `_needs_reauth_banner.html.erb` renders the missing-scopes
+  variant.
 
 ### Sad-path coverage (partial grant)
 
-Google's consent screen lets the user uncheck individual scopes — a
-"success" callback can still leave the token unable to drive pito's
-surfaces. Added a controller branch in
-`YoutubeConnections::OauthCallbacksController#create`:
+Google's consent screen lets the user uncheck individual scopes — a "success"
+callback can still leave the token unable to drive pito's surfaces. Added a
+controller branch in `YoutubeConnections::OauthCallbacksController#create`:
 
-1. Upsert the connection with the actually-granted scope set
-   (replace, not union — the stored array reflects the current token's
-   scopes, not a stale history).
-2. Diff against
-   `PITO_GOOGLE_OAUTH_REQUIRED_YOUTUBE_SCOPES`.
+1. Upsert the connection with the actually-granted scope set (replace, not union
+   — the stored array reflects the current token's scopes, not a stale history).
+2. Diff against `PITO_GOOGLE_OAUTH_REQUIRED_YOUTUBE_SCOPES`.
 3. If anything is missing, `update_columns(needs_reauth: true)`, emit a
    structured audit row (`youtube_connection.callback.partial_grant`,
-   `missing_scopes: [...]`), and redirect back to /settings/youtube
-   with `PARTIAL_GRANT_FLASH` explaining the situation.
+   `missing_scopes: [...]`), and redirect back to /settings/youtube with
+   `PARTIAL_GRANT_FLASH` explaining the situation.
 
 ### Scope-storage semantics — replace, not union
 
 The previous behavior was
-`connection.scopes = (Array(connection.scopes) + granted_scopes).uniq`.
-Under Approach B (every callback returns the full set) the union was
-redundant; under the new partial-grant sad path it would mask a
-present-day missing scope behind a stale historical grant. Switched to
-`connection.scopes = granted_scopes.uniq`. The existing "unions newly
-granted scopes" test was rewritten as "replaces the stored scopes with
-the current grant (no stale union)" and asserts the new contract by
-seeding a legacy scope that must NOT survive the round-trip.
+`connection.scopes = (Array(connection.scopes) + granted_scopes).uniq`. Under
+Approach B (every callback returns the full set) the union was redundant; under
+the new partial-grant sad path it would mask a present-day missing scope behind
+a stale historical grant. Switched to `connection.scopes = granted_scopes.uniq`.
+The existing "unions newly granted scopes" test was rewritten as "replaces the
+stored scopes with the current grant (no stale union)" and asserts the new
+contract by seeding a legacy scope that must NOT survive the round-trip.
 
 ### Files changed
 
-- `config/initializers/omniauth.rb` — full scope set, two constants,
-  dropped the obsolete request-phase override comment block.
+- `config/initializers/omniauth.rb` — full scope set, two constants, dropped the
+  obsolete request-phase override comment block.
 - `app/controllers/youtube_connections/oauth_callbacks_controller.rb` —
   partial-grant branch with `PARTIAL_GRANT_FLASH`, `missing_required_scopes`
   helper, replace-not-union for `connection.scopes`.
-- `spec/factories/youtube_connections.rb` — factory default scopes now
-  include `youtube.force-ssl` so callers checking `has_scope?(force-ssl)`
-  see the same shape as a live grant.
-- `spec/requests/youtube_connections/oauth_callbacks_spec.rb` — default
-  mock hash returns the full scope set; added three happy-path scope
-  assertions and a six-example sad-path context for partial grants;
-  rewrote the union test as a replace test; aligned the stale-intent
-  flash assertion to reference the constant (insulates from the
-  in-flight brand-casing sweep).
-- `spec/system/google_oauth_flow_spec.rb` — mock hash now returns the
-  full scope set so the happy-path system spec doesn't accidentally
-  trigger the partial-grant branch.
+- `spec/factories/youtube_connections.rb` — factory default scopes now include
+  `youtube.force-ssl` so callers checking `has_scope?(force-ssl)` see the same
+  shape as a live grant.
+- `spec/requests/youtube_connections/oauth_callbacks_spec.rb` — default mock
+  hash returns the full scope set; added three happy-path scope assertions and a
+  six-example sad-path context for partial grants; rewrote the union test as a
+  replace test; aligned the stale-intent flash assertion to reference the
+  constant (insulates from the in-flight brand-casing sweep).
+- `spec/system/google_oauth_flow_spec.rb` — mock hash now returns the full scope
+  set so the happy-path system spec doesn't accidentally trigger the
+  partial-grant branch.
 
 ### Verification
 
-- `bundle exec rspec spec/system/google_oauth_flow_spec.rb
-  spec/requests/settings/youtube_spec.rb
-  spec/requests/youtube_connections/oauth_callbacks_spec.rb` — `58
-  examples, 0 failures`. (The Settings::Youtube file is partially
-  owned by the in-flight view-polish agent for brand casing; my OAuth
-  changes leave that work untouched and the suite is green.)
-- `bundle exec rspec spec/models/youtube_connection_spec.rb
-  spec/services/youtube/` — `224 examples, 0 failures`.
-- `bundle exec rubocop config/initializers/omniauth.rb
-  app/controllers/youtube_connections/oauth_callbacks_controller.rb
-  spec/requests/youtube_connections/oauth_callbacks_spec.rb
-  spec/system/google_oauth_flow_spec.rb
-  spec/factories/youtube_connections.rb` — `5 files inspected, no
-  offenses detected`.
+- `bundle exec rspec spec/system/google_oauth_flow_spec.rb spec/requests/settings/youtube_spec.rb spec/requests/youtube_connections/oauth_callbacks_spec.rb`
+  — `58 examples, 0 failures`. (The Settings::Youtube file is partially owned by
+  the in-flight view-polish agent for brand casing; my OAuth changes leave that
+  work untouched and the suite is green.)
+- `bundle exec rspec spec/models/youtube_connection_spec.rb spec/services/youtube/`
+  — `224 examples, 0 failures`.
+- `bundle exec rubocop config/initializers/omniauth.rb app/controllers/youtube_connections/oauth_callbacks_controller.rb spec/requests/youtube_connections/oauth_callbacks_spec.rb spec/system/google_oauth_flow_spec.rb spec/factories/youtube_connections.rb`
+  — `5 files inspected, no offenses detected`.
 - `bin/brakeman -q -w2` — `No warnings found` (`0` errors, `0` security
   warnings, `0` warning types).
 
 ### Manual test plan (user)
 
-1. With a logged-in pito session and a connection in `needs_reauth`
-   state, visit `/settings/youtube`. Click `[reconnect]` in the red
-   banner.
-2. Google's consent screen offers all three YouTube scopes (read,
-   analytics, force-ssl) plus the openid / email / profile basics.
-3. Approve all of them. Callback returns to `/settings/youtube`. The
-   red banner is gone; the channel-select picker renders cleanly.
-4. (Sad path, optional.) Uncheck `force-ssl` on the consent screen
-   before approving. Callback returns to `/settings/youtube` with a
-   flash explaining the partial grant; the banner re-appears in the
-   missing-scopes variant.
+1. With a logged-in pito session and a connection in `needs_reauth` state, visit
+   `/settings/youtube`. Click `[reconnect]` in the red banner.
+2. Google's consent screen offers all three YouTube scopes (read, analytics,
+   force-ssl) plus the openid / email / profile basics.
+3. Approve all of them. Callback returns to `/settings/youtube`. The red banner
+   is gone; the channel-select picker renders cleanly.
+4. (Sad path, optional.) Uncheck `force-ssl` on the consent screen before
+   approving. Callback returns to `/settings/youtube` with a flash explaining
+   the partial grant; the banner re-appears in the missing-scopes variant.
 
 ### Open issues
 
 - Brand casing (`google` → `Google`) on the `/settings/youtube` heading,
-  breadcrumb, banner, and adjacent spec assertions is owned by the
-  view-polish agent running in parallel. Not in scope for this OAuth
-  pass; two unrelated `Settings::Youtube` spec failures at the time of
-  this writeup were pending the polish agent's view edits.
+  breadcrumb, banner, and adjacent spec assertions is owned by the view-polish
+  agent running in parallel. Not in scope for this OAuth pass; two unrelated
+  `Settings::Youtube` spec failures at the time of this writeup were pending the
+  polish agent's view edits.
