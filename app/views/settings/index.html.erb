@@ -21,15 +21,22 @@
   })();
 </script>
 
-<%# Phase 12 polish (2026-05-10) — settings page reorganized into five
+<%# Phase 12 polish (2026-05-10) — settings page reorganized into
     paired rows. Each `.pane-row` holds the panes that belong together
-    visually. Row 4 ("user") is a single-pane row: the right side of
-    the row stays empty by design. Row 5 collapses OAuth applications
-    and tokens into ONE pane separated by a hairline so the two
-    related token-issuance surfaces stay near each other; sessions
-    sits next to it. Compact-prose pattern: counts read as terse
-    sentences ("1 active token", "no active sessions") instead of a
-    big number + label header — see the spec at the dispatch root.
+    visually. Rows 3 (YouTube credentials status) and 5 (user) are
+    single-pane rows: the right side stays empty by design. Row 6
+    collapses OAuth applications and tokens into ONE pane separated
+    by a hairline so the two related token-issuance surfaces stay
+    near each other; sessions sits next to it. Compact-prose pattern:
+    counts read as terse sentences ("1 active token", "no active
+    sessions") instead of a big number + label header — see the spec
+    at the dispatch root.
+
+    2026-05-10 follow-up — row 3 (`YouTube` read-only credentials
+    status card) was restored after Phase 24 dropped the entire
+    Google / YouTube section. The card is read-only because secrets
+    live exclusively in `Rails.application.credentials` (CLAUDE.md
+    hard rule). Editing happens via `rails credentials:edit`.
 %>
 
 <%# Row 1 — ui / ux | workspaces. The ui / ux pane houses theme + keyboard
@@ -120,9 +127,51 @@
     index + per-channel inline panel on show); the OAuth client
     credentials migrated to Rails credentials per CLAUDE.md
     configuration strategy (filed as separate follow-up for the
-    underlying AppSetting storage cleanup). %>
+    underlying AppSetting storage cleanup).
 
-<%# Row 3 — search | Voyage.ai %>
+    2026-05-10 follow-up — a read-only YouTube credentials *status*
+    card is restored below (row 3 — paired with an empty right cell).
+    The card surfaces whether each YouTube credential is configured in
+    `Rails.application.credentials.youtube.*` and points the operator
+    at `rails credentials:edit` when one is missing. There is NO form
+    here: editing happens through `rails credentials:edit`, never the
+    web UI (CLAUDE.md hard rule — secrets live exclusively in
+    Rails credentials, never in the DB or `.env*`). %>
+
+<%# Row 3 — YouTube credentials (read-only status; single pane). %>
+<div class="pane-row">
+  <div class="pane">
+    <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
+      <legend><h2>YouTube</h2></legend>
+
+      <p class="text-muted">
+        YouTube credentials live in <code>Rails.application.credentials.youtube</code>.
+        edit with <code>rails credentials:edit</code>.
+      </p>
+
+      <%# One row per credential. The Boolean from
+          `youtube_credentials_status` flips to `configured` /
+          `not configured` copy. Configured rows render in muted gray;
+          missing rows render in the danger color so the gap is
+          legible at a glance. The underlying value is never echoed
+          back. %>
+      <ul style="list-style: none; padding-left: 0; margin: 0;">
+        <% @youtube_credentials.each do |label, configured| %>
+          <li style="margin-bottom: 2px;">
+            <span><%= label %>:</span>
+            <% if configured %>
+              <span class="text-muted">configured</span>
+            <% else %>
+              <span class="text-danger">not configured</span>
+            <% end %>
+          </li>
+        <% end %>
+      </ul>
+    </fieldset>
+  </div>
+</div>
+
+<%# Row 4 — search | Voyage.ai %>
 <div class="pane-row">
   <%# search %>
   <div class="pane">
@@ -224,7 +273,7 @@
   </div>
 </div>
 
-<%# Row 4 — user (single pane; right side intentionally empty). %>
+<%# Row 5 — user (single pane; right side intentionally empty). %>
 <div class="pane-row">
   <div class="pane">
     <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
@@ -241,7 +290,7 @@
   </div>
 </div>
 
-<%# Row 5 — OAuth applications + tokens (combined pane) | sessions. %>
+<%# Row 6 — OAuth applications + tokens (combined pane) | sessions. %>
 <div class="pane-row">
   <%# Combined OAuth applications + tokens. Two related token-issuance
       surfaces share one pane separated by a horizontal hairline. Each

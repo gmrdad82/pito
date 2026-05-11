@@ -13,17 +13,58 @@ RSpec.describe "Settings", type: :request do
       expect(response).to have_http_status(:ok)
     end
 
-    # Phase 24 — Google card + YouTube OAuth client credentials card
-    # are gone from /settings. The Google management UI moved to
-    # /channels (banner on index + per-channel inline panel on show).
-    # Their request specs were removed.
+    # Phase 24 — Google card was dropped from /settings. The Google
+    # management UI moved to /channels (banner on index + per-channel
+    # inline panel on show).
+    #
+    # 2026-05-10 follow-up — the YouTube credentials surface is back
+    # as a read-only STATUS card (no input fields). Editing the
+    # credentials still happens via `rails credentials:edit` per
+    # CLAUDE.md's secrets-only-in-credentials hard rule.
 
-    it "does NOT render the YouTube OAuth client credentials form" do
+    it "does NOT render the YouTube OAuth client credentials FORM (no inputs)" do
       get settings_path
-      expect(response.body).not_to include("client ID")
-      expect(response.body).not_to include("client secret")
-      expect(response.body).not_to include("redirect URI")
-      expect(response.body).not_to include("<h2>YouTube</h2>")
+      # The Phase 24 form fields are gone — assert by `name=`
+      # attribute, the unambiguous form-input fingerprint.
+      expect(response.body).not_to include('name="settings[youtube_client_id]"')
+      expect(response.body).not_to include('name="settings[youtube_client_secret]"')
+      expect(response.body).not_to include('name="settings[youtube_redirect_uri]"')
+    end
+
+    it "renders the YouTube credentials read-only status card" do
+      get settings_path
+      expect(response.body).to include("<h2>YouTube</h2>")
+      # Each lookup row from `youtube_credentials_status` appears as
+      # a labelled `<li>`. Status copy reflects the install state.
+      expect(response.body).to include("public API key")
+      expect(response.body).to include("OAuth client ID")
+      expect(response.body).to include("OAuth client secret")
+      expect(response.body).to include("OAuth redirect URI")
+      # An empty test credentials store → every row is "not configured".
+      expect(response.body).to include("not configured")
+      # The card points the operator at the editing command.
+      expect(response.body).to include("rails credentials:edit")
+    end
+
+    it "renders 'configured' on the YouTube card when a credential is present" do
+      # Stub the YouTube lookup path only. Other credential paths
+      # (sessions / auth, voyage, etc.) keep their normal behaviour
+      # via `and_call_original`, so the rest of the request pipeline
+      # is unaffected.
+      creds = Rails.application.credentials
+      allow(Rails.application).to receive(:credentials).and_return(creds)
+      allow(creds).to receive(:dig).and_call_original
+      allow(creds).to receive(:dig).with(:youtube, :public_api_key).and_return("pk_test")
+      allow(creds).to receive(:dig).with(:youtube, :client_id).and_return(nil)
+      allow(creds).to receive(:dig).with(:youtube, :client_secret).and_return(nil)
+      allow(creds).to receive(:dig).with(:youtube, :redirect_uri).and_return(nil)
+
+      get settings_path
+      expect(response.body).to include("public API key")
+      expect(response.body).to include("configured")
+      # And confirm the other rows still say "not configured".
+      expect(response.body).to include("OAuth client ID")
+      expect(response.body).to include("not configured")
     end
 
     it "does NOT render the Google connection card" do
@@ -172,20 +213,25 @@ RSpec.describe "Settings", type: :request do
       expect(response.body).not_to include("[save]")
     end
 
-    it "renders settings as four .pane-row groups holding seven total panes" do
-      # Phase 24 — Google card + YouTube OAuth client credentials card
-      # are gone (Google management moved to /channels). The page now
-      # has four paired rows: row 1 appearance | workspaces, row 2
-      # search | Voyage.ai, row 3 user (single pane; right side
-      # intentionally empty), row 4 OAuth-applications + tokens
-      # combined | sessions. The OAuth-applications and tokens
-      # surfaces still share one pane separated by a
-      # `<hr class="hairline">`. Total pane count drops from nine to
-      # seven (two Google/YouTube cells removed).
+    it "renders settings as five .pane-row groups holding eight total panes" do
+      # 2026-05-10 follow-up — Phase 24 dropped Google + YouTube to
+      # four rows / seven panes; restoring the YouTube read-only
+      # credentials status card as its own single-pane row pushes the
+      # total back to five rows / eight panes. Layout:
+      #   row 1 — ui / ux | workspaces        (2 panes)
+      #   row 2 — search | Voyage.ai          (2 panes)
+      #   row 3 — YouTube (status, single)    (1 pane, right empty)
+      #   row 4 — user (single)               (1 pane, right empty)
+      #   row 5 — OAuth+tokens | sessions     (2 panes; the OAuth /
+      #     tokens cell still combines TWO sub-sections separated by
+      #     a `<hr class="hairline">`, but counts as one pane).
+      # NOTE: the inline `<%# Row N — … %>` labels in the ERB renumber
+      # rows 3..5 to 4..6 for the layered (single-pane) rows; the test
+      # only cares about the rendered structure, not the comment label.
       get settings_path
-      expect(response.body.scan(/class="pane-row"/).length).to eq(4)
+      expect(response.body.scan(/class="pane-row"/).length).to eq(5)
       panes = response.body.scan(/class="pane(?:\s[^"]*)?"/).size
-      expect(panes).to eq(7)
+      expect(panes).to eq(8)
     end
 
     it "separates the OAuth applications and tokens sub-sections with a hairline" do
@@ -213,14 +259,18 @@ RSpec.describe "Settings", type: :request do
       expect(response.body).not_to match(/max-width:\s*880px;\s*margin:\s*0 auto/)
     end
 
-    # Phase 24 — DOM order across the four paired rows (Google card +
-    # YouTube OAuth card removed). Row 1: appearance, workspaces.
-    # Row 2: search, Voyage.ai. Row 3: user. Row 4: OAuth applications
-    # + tokens (combined), sessions.
-    it "orders the panes appearance -> workspaces -> search -> Voyage -> user -> OAuth -> tokens -> sessions" do
+    # 2026-05-10 — DOM order across the five paired rows. Row 1:
+    # appearance, workspaces. Row 2 (new): YouTube credentials
+    # status (single pane). Row 3: search, Voyage.ai. Row 4: user
+    # (single). Row 5: OAuth applications + tokens (combined),
+    # sessions. The YouTube card sits between general workspace
+    # preferences and the search/Voyage integrations row — close to
+    # its historic Phase 24 position.
+    it "orders the panes appearance -> workspaces -> YouTube -> search -> Voyage -> user -> OAuth -> tokens -> sessions" do
       get settings_path
       idx_appearance = response.body.index('value="appearance"')
       idx_workspaces = response.body.index('value="workspaces"')
+      idx_youtube    = response.body.index("<h2>YouTube</h2>")
       idx_search     = response.body.index("<h2>search</h2>")
       idx_voyage     = response.body.index('value="voyage"')
       idx_user       = response.body.index("<h2>user</h2>")
@@ -229,8 +279,8 @@ RSpec.describe "Settings", type: :request do
       idx_sessions   = response.body.index("<h2>sessions</h2>")
 
       indices = [ idx_appearance, idx_workspaces,
-                  idx_search, idx_voyage, idx_user, idx_oauth_apps,
-                  idx_tokens, idx_sessions ]
+                  idx_youtube, idx_search, idx_voyage, idx_user,
+                  idx_oauth_apps, idx_tokens, idx_sessions ]
       expect(indices).to all(be_a(Integer))
       expect(indices).to eq(indices.sort)
     end
@@ -242,12 +292,13 @@ RSpec.describe "Settings", type: :request do
     end
 
     # Phase 24 — brand casing for the surfaces that survive on the
-    # Settings page. Google + YouTube cards moved to /channels; only
-    # Voyage.ai and OAuth-applications carry brand casing here now.
-    it "uses brand casing for Voyage.ai and OAuth applications" do
+    # Settings page. Google card moved to /channels; YouTube returned
+    # 2026-05-10 as a read-only credentials STATUS card (not a form);
+    # Voyage.ai and OAuth-applications carry brand casing as well.
+    it "uses brand casing for YouTube, Voyage.ai and OAuth applications" do
       get settings_path
       expect(response.body).not_to include("<h2>Google</h2>")
-      expect(response.body).not_to include("<h2>YouTube</h2>")
+      expect(response.body).to include("<h2>YouTube</h2>")
       expect(response.body).to include("<h2>Voyage.ai</h2>")
       expect(response.body).to include("<h2>OAuth applications</h2>")
     end

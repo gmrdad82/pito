@@ -28,6 +28,22 @@ class SettingsController < ApplicationController
     # `@youtube_connection`, `@channel_labels`, `@channels_count`) are
     # gone. The Google card moved to the new /channels banner — settings
     # goes back to its lane (app-wide preferences only).
+    #
+    # 2026-05-10 follow-up — restore a read-only YouTube credentials
+    # status card. The Phase 24 form that wrote `youtube_client_id` /
+    # `youtube_client_secret` / `youtube_redirect_uri` into AppSetting
+    # is deliberately NOT restored (CLAUDE.md hard rule: secrets live
+    # exclusively in `Rails.application.credentials`). Instead, the
+    # Settings card reads the credentials lookup paths and surfaces a
+    # `configured` / `not configured` line per credential, with a
+    # one-line hint pointing the operator at `rails credentials:edit`.
+    #
+    # Lookup paths mirror the existing reader in
+    # `Youtube::PublicClient#api_key` (public API key) and the OAuth
+    # client triad documented in `docs/setup.md` (client_id +
+    # client_secret + redirect_uri under the `:youtube` block). A
+    # `nil`/blank value at any path means "not configured" for that row.
+    @youtube_credentials = youtube_credentials_status
     begin
       @search_healthy = Search.engine.healthy?
       @search_stats = Search.engine.index_stats
@@ -174,6 +190,23 @@ class SettingsController < ApplicationController
       max_panes: (AppSetting.get("max_panes") || @max_panes_default).to_i,
       pane_title_length: (AppSetting.get("pane_title_length") || @pane_title_length_default).to_i,
       theme: @theme
+    }
+  end
+
+  # 2026-05-10 — read-only YouTube credentials status for the Settings
+  # card. Returns a hash keyed by row label, each value a Boolean that
+  # the view turns into `configured` / `not configured` copy. The
+  # underlying credential values themselves are NEVER returned (the
+  # view only renders the Boolean) — the masking pattern Voyage.ai's
+  # password field uses doesn't apply here because there's no input
+  # field; the row is pure status.
+  def youtube_credentials_status
+    creds = Rails.application.credentials
+    {
+      "public API key" => creds.dig(:youtube, :public_api_key).to_s.strip.present?,
+      "OAuth client ID" => creds.dig(:youtube, :client_id).to_s.strip.present?,
+      "OAuth client secret" => creds.dig(:youtube, :client_secret).to_s.strip.present?,
+      "OAuth redirect URI" => creds.dig(:youtube, :redirect_uri).to_s.strip.present?
     }
   end
 end
