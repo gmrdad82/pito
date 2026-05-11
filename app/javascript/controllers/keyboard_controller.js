@@ -54,17 +54,32 @@ export default class extends Controller {
   connect() {
     this.pendingPrefix = null
     this.prefixTimer = null
+    // 2026-05-11 — install-level master toggle. The layout renders
+    // `data-keyboard-navigation-enabled="yes|no"` on `<body>` (yes/no
+    // strings per the project's external-boolean rule). When the value
+    // is "no" we skip registering the global keydown listener entirely
+    // so per-row hotkeys (j/k, s, D, Y…) and the `?` help shortcut go
+    // silent. `openHelp` (the [_] footer affordance) intentionally
+    // ignores the toggle — keyboard-off users can still click it to
+    // browse the shortcut catalogue.
+    this.disabled = this.element.dataset.keyboardNavigationEnabled === "no"
+    if (this.disabled) return
     this.boundKeydown = this.onKeydown.bind(this)
     document.addEventListener("keydown", this.boundKeydown)
   }
 
   disconnect() {
-    document.removeEventListener("keydown", this.boundKeydown)
+    if (this.boundKeydown) {
+      document.removeEventListener("keydown", this.boundKeydown)
+    }
     this.clearPrefix()
   }
 
   // Public: open the help dialog. Wired to the visible `[ ? ]` link
-  // via `data-action="click->keyboard#openHelp"`.
+  // via `data-action="click->keyboard#openHelp"`. The action is
+  // explicitly exempt from the master toggle — even when keyboard
+  // navigation is disabled, the bracketed `[_]` affordance opens the
+  // shortcut catalogue so the surface stays discoverable.
   openHelp(event) {
     if (event) event.preventDefault()
     if (!this.hasDialogTarget) return

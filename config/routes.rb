@@ -103,6 +103,9 @@ Rails.application.routes.draw do
   resources :videos, only: [ :index, :show, :edit, :update, :destroy ] do
     collection do
       get :panes
+      # Phase 23 §23b — paginated index of every open VideoDiff
+      # (per locked Q3). Click a row → opens the per-video diff page.
+      get :diffs
     end
     member do
       # Nested stats endpoint used by the pito CLI: /videos/:id/stats.json
@@ -120,6 +123,12 @@ Rails.application.routes.draw do
       # smuggle guard on `update`, which rejects any privacy_status
       # mutation through the regular update path.
       patch :unpublish
+      # Phase 23 §23b + §23c — open-diff dialog. GET renders the
+      # three-column reconciliation page; PATCH consumes the per-
+      # field decisions form. JSON branch returns the same shape as
+      # the `video_diff_show` / `video_diff_apply` MCP tools.
+      get   :diff
+      patch :apply_diff
     end
     # Phase 14 §3 — game / bundle attribution links nested under the
     # parent video. RESTful create / update / destroy; the bracketed
@@ -268,6 +277,13 @@ Rails.application.routes.draw do
         patch :frames, action: :update_frames
       end
     end
+  end
+
+  # Phase 22 — Video Import Flow. `[import]` modal on `/videos` opens
+  # the channel-selection step; the four actions wire through to the
+  # ImportJob ledger + per-channel keep/reject confirmation.
+  namespace :imports do
+    resources :channels, only: %i[index create show update]
   end
 
   resources :saved_views, only: [ :index, :create, :destroy ]

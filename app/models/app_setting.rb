@@ -49,6 +49,32 @@ class AppSetting < ApplicationRecord
     first&.voyage_index_project_notes || false
   end
 
+  # 2026-05-11 — master toggle for the global keyboard-navigation surface
+  # (`keyboard_controller.js`). Returns `true` when no AppSetting row
+  # exists yet so the install starts with the feature enabled (matches
+  # the NOT NULL column default of `true`). Callers can use the
+  # predicate directly in conditionals without nil-handling.
+  def self.keyboard_navigation_enabled?
+    row = first
+    return true if row.nil?
+    row.keyboard_navigation_enabled
+  end
+
+  # Writer counterpart used by SettingsController#update_appearance. The
+  # AppSetting table is treated as de-facto singleton storage for these
+  # column-backed flags; if no row exists yet we bootstrap one keyed on
+  # `pane_title_length` (matches the Voyage update path's bootstrap
+  # behaviour). Accepts a Boolean; the boundary conversion (yes/no →
+  # Boolean) happens at the controller layer.
+  def self.set_keyboard_navigation_enabled(value)
+    row = first
+    if row.nil?
+      set("pane_title_length", ENV.fetch("PANE_TITLE_LENGTH", 14).to_s)
+      row = first
+    end
+    row.update!(keyboard_navigation_enabled: value)
+  end
+
   # Phase 16 §1 — Discord webhook delivery is enabled iff the master
   # toggle on the singleton is true AND the credentials carry a
   # non-blank `notifications.discord_webhook_url`. Returns false (not

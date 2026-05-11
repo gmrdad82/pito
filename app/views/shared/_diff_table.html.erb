@@ -1,0 +1,46 @@
+<%# Phase 23 §23b — shared diff-table partial.
+    Locals:
+      - subject:           the host record (Video or Channel)
+      - fields:            array of field names from the diff payload
+      - diff:              VideoDiff (or ChannelDiff once 11i ships)
+      - decision_form_url: PATCH target for the apply form
+      - decision_name:     param key for the form (defaults to
+                            "decisions") so the controller's
+                            extract_decisions_param finds the hash
+    The decision_form_url is supplied by the caller so the same
+    partial works for both /videos/:slug/diff and /channels/:slug/diff. %>
+<% decision_name ||= "decisions" %>
+<%= form_with url: decision_form_url, method: :patch, local: true,
+              data: { unsaved_form_skip: "true" } do |f| %>
+  <table class="diff-table">
+    <thead>
+      <tr>
+        <th>field</th>
+        <th>pito</th>
+        <th>youtube</th>
+        <th>decision</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% fields.each do |field| %>
+        <% display_only = diff_field_display_only?(field) %>
+        <tr>
+          <td class="diff-field-name"><code><%= field %></code></td>
+          <td class="diff-cell"><%= human_diff_value(field, diff.pito_value(field)) %></td>
+          <td class="diff-cell"><%= human_diff_value(field, diff.youtube_value(field)) %></td>
+          <td class="diff-cell">
+            <%= render(DiffDecisionRadioComponent.new(
+                  field: field,
+                  name: decision_name,
+                  disabled: display_only
+                )) %>
+          </td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+
+  <div class="diff-actions" style="margin-top: 12px;">
+    <button type="submit" class="bracketed-submit">[ <span class="bl">apply changes</span> ]</button>
+  </div>
+<% end %>

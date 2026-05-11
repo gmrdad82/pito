@@ -1,0 +1,58 @@
+<% content_for(:title, "open video diffs") %>
+<% breadcrumb(["videos", videos_path], "diffs") %>
+
+<div class="pane pane--standalone">
+  <h1>open video diffs</h1>
+  <p class="text-muted">
+    every video with an unresolved divergence between pito and youtube.
+    click a row to open the per-video diff page.
+  </p>
+
+  <% if @diffs.empty? %>
+    <p class="text-muted">no open diffs.</p>
+  <% else %>
+    <p class="text-muted" style="margin-bottom: 8px;">
+      showing <%= @diffs.size %> of <%= @total_count %>
+      <%= 'diff'.pluralize(@total_count) %>
+      (page <%= @page %> of <%= @total_pages %>)
+    </p>
+    <table class="diff-index-table">
+      <thead>
+        <tr>
+          <th>video</th>
+          <th>channel</th>
+          <th>fields</th>
+          <th>detected</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @diffs.each do |diff| %>
+          <% v = diff.video %>
+          <tr>
+            <td>
+              <%= link_to (v.title.presence || v.youtube_video_id), video_path(v) %>
+            </td>
+            <td><%= v.channel&.channel_url %></td>
+            <td><%= diff.fields.size %></td>
+            <td><%= compact_time_ago(diff.detected_at) %></td>
+            <td>
+              <%= link_to "[ view diff ]", diff_video_path(v), class: "bracketed" %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+
+    <% if @total_pages > 1 %>
+      <p style="margin-top: 12px;">
+        <% if @page > 1 %>
+          <%= link_to "[ prev ]", diffs_videos_path(page: @page - 1), class: "bracketed" %>
+        <% end %>
+        <% if @page < @total_pages %>
+          <%= link_to "[ next ]", diffs_videos_path(page: @page + 1), class: "bracketed" %>
+        <% end %>
+      </p>
+    <% end %>
+  <% end %>
+</div>

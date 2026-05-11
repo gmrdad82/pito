@@ -1,0 +1,28 @@
+<% content_for(:title, "import job ##{@import_job.id}") %>
+
+<%# Phase 22 §7.4 — Modal step 3: keep/reject table.
+    Reached either by clicking `[review]` on the progress step when a
+    job completes, or by following the channel-show in-flight badge.
+    Renders the progress block when the job is still in flight; the
+    keep/reject form when the job has completed. %>
+<%= turbo_frame_tag "imports_modal_frame" do %>
+  <%= turbo_stream_from "import_jobs" %>
+  <div class="pane pane--standalone" style="max-width: 760px;">
+    <h1>import job #<%= @import_job.id %></h1>
+    <p class="text-muted">
+      channel: <%= @channel.title.presence || @channel.url_slug || "channel ##{@channel.id}" %><br>
+      status: <%= @import_job.status %>
+    </p>
+
+    <% if @import_job.completed? %>
+      <%= render "imports/channels/keep_reject_table",
+                 import_job: @import_job,
+                 candidate_videos: @candidate_videos %>
+    <% else %>
+      <%= render "imports/channels/progress", import_job: @import_job %>
+      <div class="modal-footer" style="margin-top: 12px;">
+        <%= render(BracketedLinkComponent.new(label: "back to videos", href: videos_path)) %>
+      </div>
+    <% end %>
+  </div>
+<% end %>

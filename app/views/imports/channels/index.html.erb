@@ -1,0 +1,78 @@
+<% content_for(:title, "import videos") %>
+
+<%# Phase 22 §7.2 — Modal step 1: channel selection.
+    Rendered inside the `imports_modal_frame` Turbo Frame so the
+    `[import]` button on `/videos` can swap the modal body without a
+    full-page navigation. The form posts to `POST /imports/channels`;
+    the response (`create.html.erb`) replaces the frame with the
+    progress step. %>
+<%= turbo_frame_tag "imports_modal_frame" do %>
+  <div class="pane pane--standalone" style="max-width: 600px;">
+    <h1>import videos</h1>
+    <p class="text-muted">
+      pick the channels to pull new uploads from.<br>
+      already-imported and previously-rejected videos are skipped.
+    </p>
+
+    <% if @channels.any? %>
+      <%= form_with url: imports_channels_path,
+                    method: :post,
+                    local: true,
+                    data: { controller: "imports-select" } do |f| %>
+        <table style="margin-top: 8px;">
+          <thead>
+            <tr>
+              <th class="col-action"></th>
+              <th>channel</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @channels.each do |channel| %>
+              <% in_flight_job = channel.in_flight_import_job %>
+              <tr>
+                <td class="col-action">
+                  <% if in_flight_job %>
+                    <input type="checkbox" disabled>
+                  <% else %>
+                    <input type="checkbox"
+                           name="channel_ids[]"
+                           value="<%= channel.id %>"
+                           data-imports-select-target="checkbox"
+                           data-action="change->imports-select#refresh">
+                  <% end %>
+                </td>
+                <td>
+                  <%= channel.title.presence || channel.url_slug || "channel ##{channel.id}" %>
+                </td>
+                <td>
+                  <% if in_flight_job %>
+                    <%= render(BracketedLinkComponent.new(
+                      label: "import running",
+                      href: imports_channel_path(in_flight_job)
+                    )) %>
+                  <% end %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+
+        <div class="modal-footer" style="margin-top: 12px;">
+          <button type="submit"
+                  class="bracketed"
+                  data-imports-select-target="submit"
+                  disabled>
+            [<span class="bl">start import</span>]
+          </button>
+          <%= render(BracketedLinkComponent.new(label: "cancel", href: videos_path)) %>
+        </div>
+      <% end %>
+    <% else %>
+      <p class="text-muted">no connected channels.</p>
+      <div class="modal-footer">
+        <%= render(BracketedLinkComponent.new(label: "back", href: videos_path)) %>
+      </div>
+    <% end %>
+  </div>
+<% end %>

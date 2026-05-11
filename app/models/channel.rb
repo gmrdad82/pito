@@ -71,6 +71,14 @@ class Channel < ApplicationRecord
   has_many :videos, dependent: :destroy
   has_many :playlists, dependent: :destroy
   has_many :video_uploads, dependent: :destroy
+  # Phase 22 — Video Import Flow. ImportJob rows are the per-channel
+  # ledger for the `[import]` modal; RejectedVideoImport rows are the
+  # insert-only tombstones that block previously-rejected YouTube ids
+  # from being re-imported on future runs. Both FKs are
+  # `ON DELETE CASCADE` at the database level (see migrations); the
+  # Rails-side `dependent:` mirrors that contract.
+  has_many :import_jobs, dependent: :destroy
+  has_many :rejected_video_imports, dependent: :destroy
   # Phase 7.5 §11a — append-only change history for the rate-limited
   # title / handle fields. `dependent: :delete_all` because
   # ChannelChangeLog is read-only at the model layer (raises
@@ -178,6 +186,27 @@ class Channel < ApplicationRecord
   after_touch :sync_calendar_entry
 
   scope :starred,   -> { where(star: true) }
+  # Phase 22 — "connected" semantic post-Phase-9 rename. A channel is
+  # treated as connected when it carries a `youtube_connection_id`
+  # (Phase 9 dropped the legacy `connected` boolean — see ADR 0006).
+  # The `[import]` modal lists channels in this scope.
+  scope :connected, -> { where.not(youtube_connection_id: nil) }
+
+  # Phase 22 — true when an `ImportJob` for this channel is currently
+  # `queued` or `running`. Drives the channel-show in-flight badge and
+  # the modal's "refuse second enqueue" branch (locked decision #1).
+  def in_flight_import?
+    import_jobs.in_flight.exists?
+  end
+
+  # Phase 22 — the single in-flight ImportJob for this channel, or nil
+  # if none. Caller uses `.recent.first` so the most-recently-created
+  # row wins when, somehow, more than one survives (defense in depth;
+  # the `Imports::ChannelsController#create` action refuses concurrent
+  # enqueues).
+  def in_flight_import_job
+    import_jobs.in_flight.recent.first
+  end
 
   # Phase 15 §1 — CalendarDerivable contract.
 

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_10_210002) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_11_021258) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -69,6 +69,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_210002) do
     t.datetime "created_at", null: false
     t.boolean "discord_enabled", default: false, null: false
     t.string "key"
+    t.boolean "keyboard_navigation_enabled", default: true, null: false
     t.boolean "slack_enabled", default: false, null: false
     t.string "timezone", default: "UTC", null: false
     t.datetime "updated_at", null: false
@@ -458,6 +459,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_210002) do
     t.index ["igdb_id"], name: "index_genres_on_igdb_id", unique: true
   end
 
+  create_table "import_jobs", force: :cascade do |t|
+    t.bigint "channel_id", null: false
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.bigint "enqueued_by_id", null: false
+    t.jsonb "error_payload"
+    t.integer "failed_videos", default: 0, null: false
+    t.integer "imported_videos", default: 0, null: false
+    t.datetime "started_at"
+    t.integer "status", default: 0, null: false
+    t.integer "total_videos", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.index ["channel_id", "status"], name: "index_import_jobs_on_channel_id_and_status"
+    t.index ["channel_id"], name: "index_import_jobs_on_channel_id"
+    t.index ["enqueued_by_id"], name: "index_import_jobs_on_enqueued_by_id"
+    t.index ["status", "created_at"], name: "index_import_jobs_on_status_and_created_at"
+  end
+
   create_table "milestone_rules", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.bigint "created_by_user_id"
@@ -635,6 +654,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_210002) do
     t.index ["slug"], name: "index_projects_on_slug", unique: true
   end
 
+  create_table "rejected_video_imports", force: :cascade do |t|
+    t.bigint "channel_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "rejected_at", null: false
+    t.bigint "rejected_by_id", null: false
+    t.datetime "updated_at", null: false
+    t.string "youtube_video_id", null: false
+    t.index ["channel_id", "youtube_video_id"], name: "index_rejected_video_imports_unique", unique: true
+    t.index ["channel_id"], name: "index_rejected_video_imports_on_channel_id"
+    t.index ["rejected_by_id"], name: "index_rejected_video_imports_on_rejected_by_id"
+  end
+
   create_table "saved_views", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.integer "kind", null: false
@@ -701,6 +732,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_210002) do
     t.string "password_digest", null: false
     t.datetime "updated_at", null: false
     t.index ["email"], name: "index_users_on_email", unique: true
+  end
+
+  create_table "video_change_logs", force: :cascade do |t|
+    t.datetime "changed_at", null: false
+    t.bigint "changed_by_user_id"
+    t.datetime "created_at", null: false
+    t.string "field", null: false
+    t.text "new_value"
+    t.text "old_value"
+    t.integer "source", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "video_id", null: false
+    t.index ["changed_at"], name: "index_video_change_logs_on_changed_at"
+    t.index ["changed_by_user_id"], name: "index_video_change_logs_on_changed_by_user_id"
+    t.index ["video_id"], name: "index_video_change_logs_on_video_id"
   end
 
   create_table "video_dailies", force: :cascade do |t|
@@ -820,6 +866,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_210002) do
     t.index ["video_id"], name: "index_video_daily_by_traffic_sources_on_video_id"
   end
 
+  create_table "video_diffs", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "detected_at", null: false
+    t.jsonb "payload", default: {}, null: false
+    t.jsonb "resolution_payload"
+    t.datetime "resolved_at"
+    t.bigint "resolved_by_user_id"
+    t.datetime "updated_at", null: false
+    t.bigint "video_id", null: false
+    t.index ["resolved_at"], name: "index_video_diffs_on_resolved_at"
+    t.index ["resolved_by_user_id"], name: "index_video_diffs_on_resolved_by_user_id"
+    t.index ["video_id"], name: "index_video_diffs_on_video_id"
+    t.index ["video_id"], name: "index_video_diffs_open_per_video", unique: true, where: "(resolved_at IS NULL)"
+  end
+
   create_table "video_game_links", force: :cascade do |t|
     t.bigint "bundle_id"
     t.datetime "created_at", null: false
@@ -935,13 +996,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_210002) do
   create_table "videos", force: :cascade do |t|
     t.string "category_id"
     t.bigint "channel_id", null: false
+    t.bigint "comment_count", default: 0, null: false
     t.boolean "contains_synthetic_media", default: false, null: false
     t.datetime "created_at", null: false
     t.text "description"
     t.integer "duration_seconds"
+    t.boolean "embeddable", default: true, null: false
     t.string "etag"
+    t.datetime "last_diff_checked_at"
     t.text "last_sync_error"
     t.datetime "last_synced_at"
+    t.bigint "like_count", default: 0, null: false
     t.boolean "made_for_kids_effective", default: false, null: false
     t.boolean "pre_publish_age_ok", default: false, null: false
     t.datetime "pre_publish_checked_at"
@@ -950,6 +1015,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_210002) do
     t.boolean "pre_publish_paid_promotion_ok", default: false, null: false
     t.integer "privacy_status", default: 0, null: false
     t.bigint "project_id"
+    t.boolean "public_stats_viewable", default: true, null: false
     t.datetime "publish_at"
     t.datetime "published_at"
     t.boolean "self_declared_made_for_kids", default: false, null: false
@@ -957,7 +1023,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_210002) do
     t.jsonb "tags", default: [], null: false
     t.string "thumbnail_url"
     t.string "title", limit: 100, default: "", null: false
+    t.datetime "title_changed_at"
     t.datetime "updated_at", null: false
+    t.bigint "view_count", default: 0, null: false
     t.bigint "youtube_connection_id"
     t.string "youtube_video_id"
     t.index ["channel_id"], name: "index_videos_on_channel_id"
@@ -1037,6 +1105,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_210002) do
   add_foreign_key "game_publishers", "games", on_delete: :cascade
   add_foreign_key "games", "collections"
   add_foreign_key "games", "platforms", column: "platform_owned_id", on_delete: :nullify
+  add_foreign_key "import_jobs", "channels", on_delete: :cascade
+  add_foreign_key "import_jobs", "users", column: "enqueued_by_id", on_delete: :restrict
   add_foreign_key "milestone_rules", "users", column: "created_by_user_id", on_delete: :nullify
   add_foreign_key "notes", "projects"
   add_foreign_key "notifications", "calendar_entries", column: "source_calendar_entry_id", on_delete: :cascade
@@ -1048,11 +1118,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_210002) do
   add_foreign_key "playlist_videos", "videos"
   add_foreign_key "playlists", "channels"
   add_foreign_key "project_references", "projects"
+  add_foreign_key "rejected_video_imports", "channels", on_delete: :cascade
+  add_foreign_key "rejected_video_imports", "users", column: "rejected_by_id", on_delete: :restrict
   add_foreign_key "sessions", "users"
   add_foreign_key "timelines", "projects"
   add_foreign_key "timelines", "videos"
   add_foreign_key "top_videos_windows", "channels", on_delete: :cascade
   add_foreign_key "top_videos_windows", "videos", on_delete: :cascade
+  add_foreign_key "video_change_logs", "users", column: "changed_by_user_id", on_delete: :nullify
+  add_foreign_key "video_change_logs", "videos", on_delete: :cascade
   add_foreign_key "video_dailies", "videos", on_delete: :cascade
   add_foreign_key "video_daily_by_age_group_genders", "videos", on_delete: :cascade
   add_foreign_key "video_daily_by_countries", "videos", on_delete: :cascade
@@ -1060,6 +1134,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_210002) do
   add_foreign_key "video_daily_by_operating_systems", "videos", on_delete: :cascade
   add_foreign_key "video_daily_by_subscribed_statuses", "videos", on_delete: :cascade
   add_foreign_key "video_daily_by_traffic_sources", "videos", on_delete: :cascade
+  add_foreign_key "video_diffs", "users", column: "resolved_by_user_id", on_delete: :nullify
+  add_foreign_key "video_diffs", "videos", on_delete: :cascade
   add_foreign_key "video_game_links", "bundles", on_delete: :cascade
   add_foreign_key "video_game_links", "games", on_delete: :cascade
   add_foreign_key "video_game_links", "users", column: "created_by_user_id", on_delete: :nullify

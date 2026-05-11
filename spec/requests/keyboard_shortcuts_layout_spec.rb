@@ -49,6 +49,36 @@ RSpec.describe "Keyboard shortcuts layout integration", type: :request do
         get path
         expect(response.body).not_to include("data-turbo-confirm")
       end
+
+      # 2026-05-11 — install-level master toggle exposed to Stimulus.
+      # The layout renders `data-keyboard-navigation-enabled="yes|no"`
+      # on `<body>` so `keyboard_controller.js` can read it on
+      # `connect()` and self-disable when the flag is "no". yes/no
+      # strings at the wire boundary per the project's external-boolean
+      # rule.
+      it "GET #{path} renders data-keyboard-navigation-enabled on <body>" do
+        get path
+        expect(response.body).to match(
+          /<body[^>]*data-keyboard-navigation-enabled="(yes|no)"/
+        )
+      end
+
+      it "GET #{path} defaults the data-keyboard-navigation-enabled attribute to yes" do
+        AppSetting.delete_all
+        get path
+        expect(response.body).to match(
+          /<body[^>]*data-keyboard-navigation-enabled="yes"/
+        )
+      end
+
+      it "GET #{path} flips the attribute to no when the setting is off" do
+        AppSetting.set("max_panes", "5")
+        AppSetting.first.update!(keyboard_navigation_enabled: false)
+        get path
+        expect(response.body).to match(
+          /<body[^>]*data-keyboard-navigation-enabled="no"/
+        )
+      end
     end
   end
 
