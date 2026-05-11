@@ -1,7 +1,13 @@
 <%# Phase 15 §2 — Monday-first 7-column grid. Today's cell carries
     the `today` class. Multi-day entries render with `↳` continuations
-    in subsequent cells; the leftmost cell carries the title. %>
-<table class="calendar-grid" style="width: 100%; border-collapse: collapse; font-size: 12px;">
+    in subsequent cells; the leftmost cell carries the title.
+
+    `data-keyboard-grid="calendar-month"` opts the table into the
+    global keyboard controller's calendar-aware grid navigation: each
+    `<td>` cell carries `data-keyboard-grid-cell`, `j`/`k` jump ±7
+    cells (one week, same weekday), and `h`/`l` step ±1 cell (one
+    day). All moves clamp to the rendered grid. %>
+<table class="calendar-grid" data-keyboard-grid="calendar-month" style="width: 100%; border-collapse: collapse; font-size: 12px;">
   <thead>
     <tr>
       <% %w[mon tue wed thu fri sat sun].each do |w| %>

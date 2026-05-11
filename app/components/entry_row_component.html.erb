@@ -1,5 +1,9 @@
-<%# Phase 15 §2 — schedule view row. %>
-<tr class="<%= state_class %>" <%= "data-indent=\"true\"".html_safe if indent %>>
+<%# Phase 15 §2 — schedule view row.
+    `data-keyboard-row` opts the row into the global keyboard
+    controller's list-row navigation (`j`/`k` move highlight).
+    `data-keyboard-row-id` stays unset — schedule entries don't yet
+    participate in the bulk-deletion / bulk-sync URL pattern. %>
+<tr class="<%= state_class %>" data-keyboard-row <%= "data-indent=\"true\"".html_safe if indent %>>
   <td class="num"><%= date_label %> <%= weekday_label %></td>
   <td class="num"><%= time_label %></td>
   <td>
