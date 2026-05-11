@@ -185,12 +185,26 @@ RSpec.describe "channels/show.html.erb", type: :view do
       expect(rendered).to include("href=\"#{channel_analytics_path(channel)}\"")
     end
 
-    it "renders three .pane-row sections (detail, analytics, Google panel) and a non-pane videos table" do
-      # 2026-05-11 restructure — the videos block is no longer a pane.
-      # Order: detail pane, analytics pane, Google panel; videos
-      # render as a bare table BELOW all three pane-rows.
+    it "renders two .pane-row sections (detail, analytics+Google) and a non-pane videos table" do
+      # 2026-05-11 follow-up — the analytics pane and the Google
+      # connection pane now share a single pane-row (side-by-side
+      # via the existing 2-up grid). The detail row stays on its own.
+      # Videos render as a bare table BELOW the two pane-rows.
       render
-      expect(rendered.scan(/<div class="pane-row">/).size).to eq(3)
+      expect(rendered.scan(/<div class="pane-row">/).size).to eq(2)
+    end
+
+    it "places the analytics pane and the Google connection pane in the SAME pane-row" do
+      # The two panes must share a single pane-row container so the
+      # CSS grid lays them out side-by-side. Regression guard against
+      # the prior layout where each pane sat in its own pane-row and
+      # stacked vertically.
+      render
+      shared_row = rendered[
+        /<div class="pane-row">(?:(?!<div class="pane-row">).)*?<h2[^>]*>analytics<\/h2>.*?<h2[^>]*>Google connection<\/h2>.*?<\/div>\s*<\/div>/m
+      ]
+      expect(shared_row).not_to be_nil,
+        "expected analytics + Google connection panes to share a single pane-row"
     end
 
     it "renders the analytics pane BEFORE the Google connection pane in source order" do
