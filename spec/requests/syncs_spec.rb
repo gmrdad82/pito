@@ -123,6 +123,70 @@ RSpec.describe "Syncs", type: :request do
     end
   end
 
+  # 2026-05-11 polish (Fix 1) — sync show page polish.
+  #
+  # The action-screen table on `/syncs/:type/:ids`:
+  #   * renders narrow column widths via a `<colgroup>` (mirrors
+  #     `/projects` and `/games` list-mode); the table sheds its
+  #     legacy `width: 100%` and uses `max-content` so it shrinks
+  #     to the natural width of its cells.
+  #   * renames the `starred` column header to the shorter `star`.
+  describe "GET /syncs (preview) — Fix 1 (2026-05-11) page polish" do
+    let!(:channel) { create(:channel) }
+    let!(:video)   { create(:video) }
+
+    it "renames the channel-mode `starred` header to `star`" do
+      get syncs_path(type: "channel", ids: channel.id)
+      expect(response.body).to match(%r{<th class="num">\s*star\s*</th>})
+      expect(response.body).not_to match(%r{<th class="num">\s*starred\s*</th>})
+    end
+
+    it "drops `width: 100%` from the channel-mode table" do
+      get syncs_path(type: "channel", ids: channel.id)
+      table_tag = response.body[%r{<table[^>]*>}]
+      expect(table_tag).not_to be_nil
+      # The legacy table carried `style="width: 100%"`. The polished
+      # version uses `width: max-content; max-width: 100%`. Assert the
+      # OPENING tag's style attribute does not declare `width: 100%`
+      # outright (negative-lookahead-style regex to exclude the
+      # `max-width: 100%` substring that legitimately remains).
+      expect(table_tag).not_to match(/[^-]width:\s*100%/)
+      expect(table_tag).to include("width: max-content")
+      expect(table_tag).to include("max-width: 100%")
+    end
+
+    it "renders a `<colgroup>` with narrow per-column widths for channel mode" do
+      get syncs_path(type: "channel", ids: channel.id)
+      doc = Nokogiri::HTML.fragment(response.body)
+      cols = doc.css("table > colgroup > col")
+      # action gutter + URL + star + synced = 4 cols
+      expect(cols.length).to eq(4)
+      # The first `<col>` is the action gutter (narrow %), the rest
+      # carry explicit pixel widths so the columns stay compact.
+      widths = cols.map { |c| c["style"].to_s }
+      expect(widths[0]).to include("1%")
+      expect(widths[1]).to include("360px") # URL
+      expect(widths[2]).to include("60px")  # star
+      expect(widths[3]).to include("90px")  # synced
+    end
+
+    it "renders a `<colgroup>` for video mode" do
+      get syncs_path(type: "video", ids: video.id)
+      doc = Nokogiri::HTML.fragment(response.body)
+      cols = doc.css("table > colgroup > col")
+      # action gutter + YouTube id + channel = 3 cols
+      expect(cols.length).to eq(3)
+    end
+
+    it "drops `width: 100%` from the video-mode table" do
+      get syncs_path(type: "video", ids: video.id)
+      table_tag = response.body[%r{<table[^>]*>}]
+      expect(table_tag).not_to be_nil
+      expect(table_tag).not_to match(/[^-]width:\s*100%/)
+      expect(table_tag).to include("width: max-content")
+    end
+  end
+
   describe "GET /syncs (preview, JSON)" do
     let!(:syncable_a) { create(:channel) }
     let!(:syncable_b) { create(:channel) }

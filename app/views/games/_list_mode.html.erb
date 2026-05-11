@@ -44,15 +44,19 @@
     [ bucket, title.downcase ]
   end
 %>
+<%# 2026-05-11 polish (Fix 3) — the `<h2>all</h2>` heading was hoisted
+    out into `games/index.html.erb` so it sits ABOVE the filter row.
+    The section's `margin-top` was tightened from `24px` to `12px` so
+    the gap between the filter row's row 2 and the table reads as a
+    single bound region — the filter chips scope the listing directly
+    below them, not a 24-pixel gulf away. %>
 <section class="all-games-list games-list-mode"
          data-display-mode="list"
          data-controller="bulk-select"
          data-bulk-select-entity-name-value="games"
          data-bulk-select-delete-type-value="game"
          data-bulk-select-sync-type-value="game"
-         style="margin-top: 24px;">
-  <h2 style="margin-bottom: 8px;">all</h2>
-
+         style="margin-top: 12px;">
   <% if games.any? %>
     <%# Bulk-action toolbar — `[sync N]` + `[delete N]` appear when
         at least one row is selected. Each action navigates full-page
@@ -171,7 +175,22 @@
                   so the cell never goes empty. %>
               <%= render(Games::RatingBadgeComponent.new(rating: game.igdb_rating)) %>
             </td>
-            <td class="owned-cell text-muted">—</td>
+            <%# 2026-05-11 polish (Fix 2) — owned cell now renders the
+                shared `StatusBadgeComponent` with `yes` / `no` kinds so
+                the column reads as a status, not a platform list. A
+                game qualifies as `yes` when it has at least one
+                `game_platform_ownership` row; otherwise `no`. The
+                em-dash placeholder is reserved for genuinely
+                indeterminate values (none arise on this surface today
+                — every game can answer the question — but the fallback
+                stays for defensive symmetry with the other cells). %>
+            <td class="owned-cell">
+              <% if game.game_platform_ownerships.any? %>
+                <%= render(StatusBadgeComponent.new(label: "yes", kind: :yes)) %>
+              <% else %>
+                <%= render(StatusBadgeComponent.new(label: "no", kind: :no)) %>
+              <% end %>
+            </td>
           </tr>
         <% end %>
       </tbody>

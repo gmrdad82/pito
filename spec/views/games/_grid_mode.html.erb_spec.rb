@@ -23,10 +23,13 @@ RSpec.describe "games/_grid_mode.html.erb", type: :view do
       expect(rendered).to include("data-tile-game-id=\"#{game.id}\"")
     end
 
-    it "renders the post-polish heading 'all' (Fix 8)" do
+    # 2026-05-11 polish (Fix 3) — the `<h2>all</h2>` heading moved out
+    # of this partial and into `games/index.html.erb` so it sits ABOVE
+    # the filter row. The partial no longer renders the heading; the
+    # page-level integration spec covers the new order.
+    it "no longer renders the `<h2>all</h2>` heading inside the partial (Fix 3, 2026-05-11)" do
       render partial: "games/grid_mode", locals: { games: [] }
-      expect(rendered).to include(">all<")
-      expect(rendered).not_to include(">all games<")
+      expect(rendered).not_to match(%r{<h2[^>]*>\s*all\s*</h2>})
     end
   end
 

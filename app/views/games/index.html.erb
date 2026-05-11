@@ -66,7 +66,26 @@
       right of the `<h1>games</h1>` row). Three bracketed-link
       `button_to` forms PATCH `/users/games_preferences` to persist
       the choice; the controller redirects to `/games?display=<mode>`
-      so the same render reflects the chosen mode immediately. %>
+      so the same render reflects the chosen mode immediately.
+
+      2026-05-11 polish (Fix 3) — the `all` heading now lives here,
+      ABOVE the filter row, instead of inside each mode partial. The
+      previous order (filter rows → `all` heading → table) read like
+      the chips lived above the heading; the new order (`all` → filter
+      rows → table) anchors the heading first, then the live filter
+      controls scoping it. The heading still only renders when there
+      is at least one shelf to surface — the empty-state branch below
+      handles the "no games on this install" case without a stray
+      `all` heading floating over no content. The `has_any_shelf`
+      local is computed once here so both this heading and the listing
+      branch below share the same boolean. %>
+  <% has_any_shelf = @bundles_shelf.any? || @recently_played.any? ||
+                     @platforms_shelves.any? || @all_games.any? %>
+
+  <% if has_any_shelf %>
+    <h2 style="margin-top: 24px; margin-bottom: 8px;">all</h2>
+  <% end %>
+
   <%= render Games::FilterRowComponent.new(
         active_tokens:          @filter_tokens,
         dropped_tokens:         @dropped_filter_tokens,
@@ -86,9 +105,12 @@
       the 01c-v2 nested Genres outer shelf at the top of the page.
       The 01c-v2 nested shelves are now the single source of truth
       for genre-grouped tile rows; the all-games partition below
-      remains the canonical "all games" surface. %>
-  <% has_any_shelf = @bundles_shelf.any? || @recently_played.any? ||
-                     @platforms_shelves.any? || @all_games.any? %>
+      remains the canonical "all games" surface.
+
+      2026-05-11 polish (Fix 3) — `has_any_shelf` is now computed
+      above the filter row so the `all` heading + the listing
+      branch share the same boolean; the duplicate assignment that
+      used to sit here was removed. %>
 
   <% if has_any_shelf %>
     <% if @bundles_shelf.any? %>

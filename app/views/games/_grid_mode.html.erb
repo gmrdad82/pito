@@ -11,10 +11,12 @@
     surrounding shelves above intentionally stay opt-out — they have
     their own drag-scroll affordance.
 %>
+<%# 2026-05-11 polish (Fix 3) — `<h2>all</h2>` lives in
+    `games/index.html.erb` now, above the filter row. Margin tightened
+    from 24px to 12px to bind the table to the filter row above. %>
 <section class="shelf all-games-grid games-grid-mode"
          data-display-mode="grid"
-         style="margin-top: 24px;">
-  <h2 style="margin-bottom: 8px;">all</h2>
+         style="margin-top: 12px;">
   <% if games.any? %>
     <div class="grid"
          data-keyboard-grid="true"

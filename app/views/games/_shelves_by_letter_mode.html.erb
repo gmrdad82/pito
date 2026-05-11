@@ -25,11 +25,12 @@
     letter == "#" ? "{" : letter
   end
 %>
+<%# 2026-05-11 polish (Fix 3) — `<h2>all</h2>` lives in
+    `games/index.html.erb` now, above the filter row. Margin tightened
+    from 24px to 12px to bind the table to the filter row above. %>
 <section class="all-games-shelves-by-letter games-shelves-by-letter-mode"
          data-display-mode="shelves_by_letter"
-         style="margin-top: 24px;">
-  <h2 style="margin-bottom: 8px;">all</h2>
-
+         style="margin-top: 12px;">
   <% if games.any? %>
     <% ordered_letters.each do |letter| %>
       <%= render "games/shelf",

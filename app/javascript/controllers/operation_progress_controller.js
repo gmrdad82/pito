@@ -68,8 +68,12 @@ export default class extends Controller {
       const el = document.getElementById(`item_status_${item.id}`)
       if (!el) return
 
-      if (item.status === "succeeded" && !el.querySelector(".dot-done")) {
-        el.innerHTML = `<span class="dot-done">done</span>`
+      if (item.status === "succeeded" && !el.querySelector(".status-badge--success")) {
+        // 2026-05-11 polish (Fix 1) — render the StatusBadge `done`
+        // markup directly so the JS-injected variant matches the
+        // ERB-side `StatusBadgeComponent.new(label: "done", kind: :success)`.
+        // Literal static markup; no user-supplied data threads through here.
+        el.innerHTML = `<span class="status-badge status-badge--success">done</span>`
       } else if (item.status === "failed" && !el.querySelector(".dot-fail")) {
         el.innerHTML = `<span class="dot-fail">fail</span>`
       } else if (item.status === "skipped" && !el.querySelector(".skip-badge")) {
