@@ -3,7 +3,7 @@ import { Controller } from "@hotwired/stimulus"
 export default class extends Controller {
   static targets = ["checkbox", "headerCheckbox", "actions", "count",
                      "bulkCol", "actionCol", "bulkToggle", "openAction", "openHint",
-                     "overMaxHint", "deleteAction", "syncAction"]
+                     "overMaxHint", "deleteAction", "syncAction", "revokeAction"]
   // Wave 3 Lane J (2026-05-06) — checkboxes are always-on for every
   // bulk-select surface in the app today. The `bulkCol` / `actionCol`
   // / `bulkToggle` / `enterBulk` / `exitBulk` toggle hooks are kept
@@ -31,7 +31,13 @@ export default class extends Controller {
     // by any view but exposed symmetrically so future surfaces can
     // override the sync verb without a controller change).
     deleteActionLabel: { type: String, default: "delete" },
-    syncActionLabel: { type: String, default: "sync" }
+    syncActionLabel: { type: String, default: "sync" },
+    // Phase 24 — bulk `[revoke N]` on /channels routes to a dedicated
+    // namespace (`/channels/revokes/:ids`) because revoke semantics
+    // differ from plain delete (revoke cascades to YoutubeConnection
+    // when this channel was the last). `revokePath` defaults to empty;
+    // surfaces that opt in (only /channels today) wire the URL prefix.
+    revokePath: { type: String, default: "" }
   }
 
   // Always-on flow: prime the action-bar visibility on connect so
@@ -135,6 +141,32 @@ export default class extends Controller {
         this.deleteActionTarget.hidden = false
       } else {
         this.deleteActionTarget.hidden = true
+      }
+    }
+
+    // Phase 24 — update revoke action. Same shape as delete but
+    // routes to `/channels/revokes/:ids` (or whatever path the view
+    // configured via `data-bulk-select-revoke-path-value`). Renders
+    // [revoke N] in red (destructive). Hidden when revokePath is not
+    // configured for the surface (e.g. /videos, /projects).
+    if (this.hasRevokeActionTarget) {
+      if (count > 0 && this.revokePathValue.length > 0) {
+        const revokeUrl = `${this.revokePathValue}/${ids}`
+        const link = document.createElement("a")
+        link.href = revokeUrl
+        link.className = "bracketed text-danger"
+        const bracket = document.createTextNode("[")
+        const span = document.createElement("span")
+        span.className = "bl"
+        span.textContent = `revoke ${count}`
+        const bracketEnd = document.createTextNode("]")
+        link.appendChild(bracket)
+        link.appendChild(span)
+        link.appendChild(bracketEnd)
+        this._replaceActionContent(this.revokeActionTarget, link)
+        this.revokeActionTarget.hidden = false
+      } else {
+        this.revokeActionTarget.hidden = true
       }
     }
 

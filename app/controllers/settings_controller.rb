@@ -1,9 +1,8 @@
 class SettingsController < ApplicationController
-  OAUTH_KEYS = %w[youtube_client_id youtube_client_secret youtube_redirect_uri].freeze
   GENERAL_KEYS = %w[max_panes pane_title_length].freeze
 
   def index
-    @settings = (OAUTH_KEYS + GENERAL_KEYS).index_with { |key| AppSetting.get(key) }
+    @settings = GENERAL_KEYS.index_with { |key| AppSetting.get(key) }
     @max_panes_default = ENV.fetch("MAX_PANES", 3).to_i
     @pane_title_length_default = ENV.fetch("PANE_TITLE_LENGTH", 14).to_i
     @theme = AppSetting.get("theme") || "auto"
@@ -16,13 +15,6 @@ class SettingsController < ApplicationController
     @keyboard_navigation_enabled = AppSetting.keyboard_navigation_enabled?
     @voyage_configured = AppSetting.voyage_configured?
     @voyage_indexing_project_notes = AppSetting.voyage_indexing_project_notes?
-    # Phase 12 polish (2026-05-10) — the YouTube pane masks the client
-    # secret the same way the Voyage.ai pane masks its API key. The view
-    # never re-emits the stored value; it only reflects the configured
-    # state via a placeholder. The underlying AppSetting `value` column
-    # is encrypted at rest, so this is purely a "don't show secrets in
-    # the form" measure.
-    @youtube_client_secret_configured = AppSetting.get("youtube_client_secret").present?
     # Phase 3 — Step C: tokens pane shows a count + link to the dedicated page.
     @active_tokens_count = ApiToken.active.count
     # Phase 12 polish (2026-05-10) — combined OAuth/tokens pane renders
@@ -32,48 +24,10 @@ class SettingsController < ApplicationController
     @active_sessions_count = Current.user.present? ? Current.user.sessions.where(revoked_at: nil).count : 0
     # Phase 12 — Step B: oauth applications pane (registered app count).
     @oauth_applications_count = defined?(OauthApplication) ? OauthApplication.count : 0
-    # Phase 9 — Google pane reflecting YoutubeConnection state.
-    # 2026-05-10 polish — also expose the full set of connections
-    # belonging to the current user plus an aggregated channels
-    # summary (count + first-N titles) so the Settings index Google
-    # card can show "N channels: A, B, C" across all connections.
-    # `Channel.all` is install-wide because pito is single-install,
-    # multi-user (ADR 0003) — there is no per-user channel scope.
-    @youtube_connections = defined?(YoutubeConnection) && Current.user.present? ?
-      YoutubeConnection.where(user_id: Current.user.id).order(last_authorized_at: :desc).to_a :
-      []
-    @youtube_connection = @youtube_connections.first
-
-    @channels_count = defined?(Channel) ? Channel.count : 0
-    # 2026-05-10 — Google card channel list.
-    #
-    # The view renders one label per row (no count prefix, no comma-
-    # separation). Label resolution order per channel:
-    #   1. `title` once populated by the sync job, else
-    #   2. the UC-id portion of `channel_url` (always present —
-    #      `channel_url` is required + format-validated).
-    #
-    # We pull the columns we need rather than full records so the helper
-    # stays cheap on installs that grow past a handful of channels. The
-    # ORDER pins titled rows first (so freshly synced names rise to the
-    # top), then falls back to id for the un-titled tail. We cap at 5
-    # to match the prior summary's first-N policy; the view appends an
-    # "…and N more" hint when the install has additional channels.
-    @channel_labels =
-      if defined?(Channel)
-        rows = Channel.order(Arel.sql("title IS NULL, title, id"))
-                      .limit(5)
-                      .pluck(:title, :channel_url)
-        rows.filter_map do |title, url|
-          label = title.to_s.strip
-          next label if label.present?
-
-          slug = url.to_s[%r{/channel/(UC[A-Za-z0-9_-]{22})}, 1]
-          slug.presence
-        end
-      else
-        []
-      end
+    # Phase 24 — Google connection ivars (`@youtube_connections`,
+    # `@youtube_connection`, `@channel_labels`, `@channels_count`) are
+    # gone. The Google card moved to the new /channels banner — settings
+    # goes back to its lane (app-wide preferences only).
     begin
       @search_healthy = Search.engine.healthy?
       @search_stats = Search.engine.index_stats
@@ -94,14 +48,16 @@ class SettingsController < ApplicationController
   # untouched. Without `section` (legacy callers, e.g. tests written before
   # the refactor), we fall through to the original "update everything we
   # see" behavior — preserves backward compatibility.
+  #
+  # Phase 24 — `youtube_oauth` section is dropped along with the rest of
+  # the Google card. Submitting `section=youtube_oauth` falls through to
+  # `update_legacy`, which silently no-ops on the dropped keys.
   def update
     case params[:section]
     when "workspaces"
       update_general
     when "appearance"
       update_appearance
-    when "youtube_oauth"
-      update_oauth
     when "voyage"
       result = update_voyage
       if result.is_a?(String)
@@ -156,13 +112,6 @@ class SettingsController < ApplicationController
     end
   end
 
-  def update_oauth
-    OAUTH_KEYS.each do |key|
-      value = params.dig(:settings, key).presence
-      AppSetting.set(key, value) if value
-    end
-  end
-
   # Voyage fieldset — Phase B revamp (2026-05-04). Three optional inputs:
   #
   #   - `voyage_api_key` (text): when blank AND `clear_voyage_api_key` is not
@@ -211,15 +160,15 @@ class SettingsController < ApplicationController
 
   # Legacy single-form behavior — preserved so callers without a section
   # parameter still work (existing MCP-style or scripted PATCH callers).
+  # Phase 24 — the `update_oauth` branch is gone with the Google card;
+  # the legacy path now only routes general + appearance keys.
   def update_legacy
-    update_oauth
     update_general
     update_appearance
   end
 
   # Public-safe subset of AppSetting values exposed to the JSON API. The
-  # OAuth client secret and other credentials are intentionally excluded.
-  # The pito CLI's `AppSettings` Rust struct binds to these three fields.
+  # pito CLI's `AppSettings` Rust struct binds to these three fields.
   def settings_json
     {
       max_panes: (AppSetting.get("max_panes") || @max_panes_default).to_i,

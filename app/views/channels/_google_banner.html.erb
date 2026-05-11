@@ -1,0 +1,58 @@
+<%# Phase 24 — Google management banner on /channels (index).
+    Replaces the legacy /settings/youtube page surface. The banner
+    renders at the top of the index above the saved-views row and the
+    channels table.
+
+    States:
+
+      1. Zero YoutubeConnection rows → empty state + `[connect google]`
+         entry-point.
+      2. ≥ 1 YoutubeConnection rows → one line per connection (email +
+         channel count + last-authorized) + the
+         `[+ add another Google account]` button.
+      3. Any connection in `needs_reauth: true` → red `[reconnect]`
+         banner above the connection list (via the shared
+         `_needs_reauth_banner` partial). %>
+
+<% connections = local_assigns[:youtube_connections] || @youtube_connections || [] %>
+
+<div class="pane pane--standalone" style="margin: 12px 0; padding: 12px 16px;"
+     data-google-banner>
+  <% if connections.empty? %>
+    <p style="margin: 0 0 4px 0;">no Google account connected.</p>
+    <p class="text-muted" style="margin: 0 0 8px 0;">
+      connect a Google account to fetch YouTube channel and analytics data.
+    </p>
+    <%= form_with url: connect_google_channels_path, method: :post,
+                  data: { turbo: false }, html: { style: "display: inline;" } do %>
+      <button type="submit">[connect google]</button>
+    <% end %>
+  <% else %>
+    <% needs_reauth_connection = connections.find(&:needs_reauth?) %>
+    <% if needs_reauth_connection %>
+      <%= render "channels/needs_reauth_banner", connection: needs_reauth_connection %>
+    <% end %>
+
+    <ul class="text-muted" style="list-style: none; padding: 0; margin: 0 0 8px 0;">
+      <% connections.each do |connection| %>
+        <% channel_count = Channel.where(youtube_connection_id: connection.id).count %>
+        <li style="margin-bottom: 4px;">
+          <strong><%= format_connection_email(connection.email) %></strong>
+          —
+          <%= channel_count %> channel<%= "s" if channel_count != 1 %>
+          —
+          <%= compact_time_ago(connection.last_authorized_at) %>
+          <% if connection.needs_reauth? %>
+            <span class="text-danger">— needs reauth</span>
+          <% end %>
+        </li>
+      <% end %>
+    </ul>
+
+    <%= form_with url: connect_google_channels_path, method: :post,
+                  data: { turbo: false }, html: { style: "display: inline;" } do %>
+      <input type="hidden" name="account" value="new">
+      <button type="submit">[+ add another Google account]</button>
+    <% end %>
+  <% end %>
+</div>

@@ -1,14 +1,12 @@
 require "rails_helper"
 
-# End-to-end happy path: `[+]` on /channels → land on the Google
-# connection manage page → click `[add]` → OAuth runs with
-# `prompt=select_account` → the callback enumerates `mine: true`
-# channels and adds non-duplicates as Channel rows under the
-# matching YoutubeConnection.
-#
-# This is the critical user journey post-redesign (2026-05-10). The
-# legacy "select channels to add" multi-select form is gone — the
-# `[add]` button is the new (and only) entry point.
+# End-to-end happy path: `[+]` on /channels (or the Google banner on
+# the same page) → OAuth runs with `prompt=select_account` → the
+# callback enumerates `mine: true` channels and adds non-duplicates as
+# Channel rows under the matching YoutubeConnection. Phase 24 moved
+# the Google management surface onto /channels (banner on index + per-
+# channel inline panel on show); the legacy `/settings/youtube` page is
+# gone.
 RSpec.describe "Add channels via Google", type: :system do
   let(:user) { User.first || create(:user) }
   let!(:connection) do
@@ -48,21 +46,12 @@ RSpec.describe "Add channels via Google", type: :system do
     OmniAuth.config.mock_auth[:google_oauth2] = nil
   end
 
-  it "routes [+] on /channels to /settings/youtube and lands on the Google-connection page" do
+  it "renders the Google banner on /channels with [+ add another Google account]" do
     visit channels_path
-    click_link "[+]"
-    expect(page).to have_current_path(settings_youtube_path)
-    expect(page).to have_content("Google connection")
-    # Unified-table redesign (2026-05-10): the per-connection
-    # `channels` <h2> heading is gone — channels live inside the
-    # single page-wide table now. Assert the new `[+ add another
-    # Google account]` entry button rendered instead.
     expect(page).to have_button("[+ add another Google account]")
   end
 
-  it "click [+ add another Google account] → OAuth → returns to /settings/youtube with the new channel linked" do
-    # The OAuth dance landing on the callback enumerates `mine: true`.
-    # Stub the client so the callback adds one brand-new channel.
+  it "click [+ add another Google account] → OAuth → returns to /channels with the new channel linked" do
     allow_any_instance_of(Youtube::Client).to receive(:channels_list).and_return(
       items: [
         { id: "UCnewnewnewnewnewnewnewx",
@@ -72,29 +61,24 @@ RSpec.describe "Add channels via Google", type: :system do
       next_page_token: nil
     )
 
-    visit settings_youtube_path
+    visit channels_path
     expect(page).to have_button("[+ add another Google account]")
 
     expect {
       click_button "[+ add another Google account]"
     }.to change { Channel.where(youtube_connection_id: connection.id).count }.by(1)
 
-    expect(page).to have_current_path(settings_youtube_path)
+    expect(page).to have_current_path(channels_path)
     expect(page).to have_content("Google account connected")
-    expect(page).to have_content("Fresh Channel")
   end
 
-  it "click [+ add another Google account] → OAuth → an already-linked channel is silently skipped (no duplicate, no crash)" do
-    # Pre-existing channel — pito already knows about it.
+  it "click [+ add another Google account] → OAuth → an already-linked channel is silently skipped" do
     Channel.create!(
       channel_url: "https://www.youtube.com/channel/UCdupdupdupdupdupdupdupx",
       youtube_connection_id: connection.id,
       last_synced_at: 1.hour.ago
     )
 
-    # OAuth callback's `mine: true` returns both the duplicate AND a
-    # brand-new channel. The duplicate must be silent-skipped; the
-    # new one must be added.
     allow_any_instance_of(Youtube::Client).to receive(:channels_list).and_return(
       items: [
         { id: "UCdupdupdupdupdupdupdupx",
@@ -105,16 +89,14 @@ RSpec.describe "Add channels via Google", type: :system do
       next_page_token: nil
     )
 
-    visit settings_youtube_path
+    visit channels_path
     expect {
       click_button "[+ add another Google account]"
     }.to change { Channel.count }.by(1)
 
-    expect(page).to have_current_path(settings_youtube_path)
-    expect(page).to have_content("Fresh New")
+    expect(page).to have_current_path(channels_path)
     expect(page).to have_content("already linked")
 
-    # No duplicate rows for the existing UC id.
     expect(
       Channel.where(channel_url: "https://www.youtube.com/channel/UCdupdupdupdupdupdupdupx").count
     ).to eq(1)

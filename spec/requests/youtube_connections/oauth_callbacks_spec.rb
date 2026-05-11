@@ -83,7 +83,7 @@ RSpec.describe "YoutubeConnections::OauthCallbacks", type: :request do
   # the callback path, and return after the controller has run.
   def run_oauth_dance(intent: :youtube_connect)
     if intent == :youtube_connect
-      post settings_youtube_connect_path
+      post connect_google_channels_path
       follow_redirect!
     else
       # No-intent flow — go straight to the request phase; the callback
@@ -102,7 +102,7 @@ RSpec.describe "YoutubeConnections::OauthCallbacks", type: :request do
           run_oauth_dance(intent: :youtube_connect)
         }.to change { YoutubeConnection.unscoped.count }.by(1)
 
-        expect(response).to redirect_to(settings_youtube_path)
+        expect(response).to redirect_to(channels_path)
       end
 
       it "persists the access token, refresh token, and granted scopes (encrypted columns hold ciphertext)" do
@@ -284,7 +284,7 @@ RSpec.describe "YoutubeConnections::OauthCallbacks", type: :request do
 
       it "redirects back to /settings/youtube with the partial-grant flash" do
         run_oauth_dance(intent: :youtube_connect)
-        expect(response).to redirect_to(settings_youtube_path)
+        expect(response).to redirect_to(channels_path)
         expect(flash[:alert]).to eq(
           YoutubeConnections::OauthCallbacksController::PARTIAL_GRANT_FLASH
         )
@@ -391,7 +391,7 @@ RSpec.describe "YoutubeConnections::OauthCallbacks", type: :request do
 
       it "redirects to /settings/youtube with a flash naming the added channels" do
         run_oauth_dance(intent: :youtube_connect)
-        expect(response).to redirect_to(settings_youtube_path)
+        expect(response).to redirect_to(channels_path)
         expect(flash[:notice]).to include("Google account connected.")
         expect(flash[:notice]).to include("2 channels added")
         expect(flash[:notice]).to include("New Alpha")
@@ -515,7 +515,7 @@ RSpec.describe "YoutubeConnections::OauthCallbacks", type: :request do
 
       it "still completes the redirect (no 500)" do
         run_oauth_dance(intent: :youtube_connect)
-        expect(response).to redirect_to(settings_youtube_path)
+        expect(response).to redirect_to(channels_path)
       end
 
       it "creates no Channel rows" do
@@ -534,7 +534,7 @@ RSpec.describe "YoutubeConnections::OauthCallbacks", type: :request do
         run_oauth_dance(intent: :youtube_connect)
         expect(flash[:notice]).to include("Google account connected.")
         expect(flash[:notice]).to include("quota exceeded")
-        expect(flash[:notice]).to include("try [add] again")
+        expect(flash[:notice]).to include("try [+ add another Google account] again")
       end
     end
 

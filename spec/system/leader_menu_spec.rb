@@ -134,11 +134,11 @@ RSpec.describe "Leader menu chrome", type: :system do
       expect(list_row.fetch("action")).to eq("type" => "navigate", "path" => "/channels")
     end
 
-    it "channels submenu [+] add opens the add-channel page" do
+    it "channels submenu [+] add navigates to /channels (Phase 24 — banner-based add)" do
       channels = payload_for("/").fetch("menus").fetch("channels").fetch("items")
       add_row = channels.find { |i| i.fetch("key") == "+" }
       expect(add_row.fetch("action")).to eq(
-        "type" => "navigate", "path" => "/settings/youtube"
+        "type" => "navigate", "path" => "/channels"
       )
     end
   end

@@ -52,13 +52,13 @@ A reasonable dispatch wave:
 
 ## Checkboxes
 
-- [ ] 24a — Drop Google section from `/settings` + remove `/settings/youtube`
+- [x] 24a — Drop Google section from `/settings` + remove `/settings/youtube`
       (redirect).
-- [ ] 24b — Add Google management UI to `/channels` (index banner + show-page
+- [x] 24b — Add Google management UI to `/channels` (index banner + show-page
       panel).
-- [ ] 24c — Per-channel `[revoke]` action + wide-modal confirmation.
-- [ ] 24d — `DeleteChannelDataJob` cascade.
-- [ ] 24e — Bulk `[revoke N]` on `/channels` index.
+- [x] 24c — Per-channel `[revoke]` action + wide-modal confirmation.
+- [x] 24d — `DeleteChannelDataJob` cascade.
+- [x] 24e — Bulk `[revoke N]` on `/channels` index.
 
 ## Quality gates
 

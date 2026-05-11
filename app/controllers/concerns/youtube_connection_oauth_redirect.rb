@@ -8,9 +8,13 @@
 # replayed and routed to the failure path.
 #
 # The intent is stashed in `session[:youtube_connection_oauth_intent]`
-# by the request-phase entry point (`Settings::YoutubeController#connect`)
+# by the request-phase entry point (`ChannelsController#connect_google`)
 # and consumed once by the callback controller — `session.delete`
 # semantics keep the next callback from silently honoring an old intent.
+#
+# Phase 24 — the request-phase entry point moved from
+# `Settings::YoutubeController` to `ChannelsController`. The post-OAuth
+# redirect target moved with it: `/channels` (was `/settings/youtube`).
 module YoutubeConnectionOauthRedirect
   extend ActiveSupport::Concern
 
@@ -29,12 +33,13 @@ module YoutubeConnectionOauthRedirect
 
   # Resolve the post-callback redirect target for the given intent.
   #
-  # `youtube_connect` → `/settings/youtube` (Settings → YouTube surface).
+  # `youtube_connect` → `/channels` (Phase 24 — Google management UI
+  #                     surface moved from /settings/youtube to /channels).
   # nil / unknown    → the failure path (no other legitimate intents
   #                    exist post-ADR 0006).
   def redirect_target_for_intent(intent)
     case intent
-    when YOUTUBE_CONNECT_INTENT then settings_youtube_path
+    when YOUTUBE_CONNECT_INTENT then channels_path
     else youtube_connection_oauth_failure_path
     end
   end

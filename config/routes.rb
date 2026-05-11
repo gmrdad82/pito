@@ -76,11 +76,38 @@ Rails.application.routes.draw do
   # and the four cross-video local rollups.
   resource :analytics, only: :show, controller: "analytics"
 
+  # Phase 24 — Google management on Channels. Bulk revoke ships under a
+  # dedicated namespace because the cascade semantics differ from plain
+  # delete (revoke cascades to YoutubeConnection when this was the last
+  # channel; plain delete leaves the connection alone). URL pattern
+  # mirrors `/deletions/:type/:ids` per CLAUDE.md bulk-as-foundation —
+  # `:ids` accepts one id or N comma-separated ids.
+  get  "/channels/revokes/:ids",
+       to: "channels/bulk_revokes#show",
+       as: :channels_bulk_revoke,
+       constraints: { ids: %r{[\d,]+} }
+  post "/channels/revokes/:ids",
+       to: "channels/bulk_revokes#create",
+       constraints: { ids: %r{[\d,]+} }
+
   resources :channels, only: [ :index, :show, :edit, :update, :destroy ] do
     collection do
       get :panes
+      # Phase 24 — entry point for the Google OAuth dance kicked off
+      # from the /channels Google banner (`[+ add another Google
+      # account]` button). Mirrors the body of the legacy
+      # Settings::YoutubeController#connect; the intent stash routes the
+      # OmniAuth callback back to /channels.
+      post :connect_google
     end
     member do
+      # Phase 24 — per-channel revoke flow. GET renders the wide-modal
+      # confirmation page; POST consumes the `confirm=yes` form and
+      # enqueues `DeleteChannelDataJob`. The :revoke action class lives
+      # at `ChannelRevokesController` so the channel-show controller is
+      # not crowded with destructive-flow concerns.
+      get  :revoke, to: "channel_revokes#show",   as: :revoke
+      post :revoke, to: "channel_revokes#create"
       # Nested videos endpoint used by the pito CLI: /channels/:id/videos.json
       # returns the videos belonging to the channel as a JSON array.
       get :videos
@@ -460,22 +487,17 @@ Rails.application.routes.draw do
         get :revoke
       end
     end
-
-    # Phase 7 — Step C (7c-settings-youtube-ui.md). Settings → YouTube
-    # surface. `show` lists the connected Google accounts + every
-    # Channel currently linked to those connections; `connect` is the
-    # request-phase entry point for the OmniAuth dance (POST +
-    # button_to from the show page; the `[add]` link passes
-    # `account=new` to flip on `prompt=select_account`).
-    #
-    # The OAuth callback handles channel discovery — see
-    # `YoutubeConnections::OauthCallbacksController#create`. The
-    # legacy `POST /settings/youtube/channels` multi-select form is
-    # gone; the bulk-disconnect path at `/deletions/youtube_connection/:ids`
-    # is the only mutation surface this page wires directly.
-    get  "/youtube",         to: "youtube#show",    as: :youtube
-    post "/youtube/connect", to: "youtube#connect", as: :youtube_connect
   end
+
+  # Phase 24 — Google management surface moved from `/settings/youtube`
+  # onto `/channels` (banner on index + per-channel inline panel on
+  # show + per-channel `[revoke]` flow). The legacy `/settings/youtube`
+  # URL stays as a 301 redirect to `/channels` indefinitely — small
+  # route, no maintenance cost, preserves browser bookmarks. The
+  # request-phase `[connect]` entry point now lives at
+  # `POST /channels/connect_google` (see the `:channels` resources
+  # block above).
+  get "/settings/youtube", to: redirect("/channels", status: 301)
 
   # MCP HTTP transport (served by dedicated Puma on port 3028).
   #

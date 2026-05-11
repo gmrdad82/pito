@@ -1,16 +1,26 @@
 <% content_for(:title, "channels") %>
 
-<div style="max-width: 1100px;" data-controller="bulk-select" data-bulk-select-max-panes-value="<%= max_panes %>" data-bulk-select-entity-name-value="channels" data-bulk-select-panes-path-value="<%= panes_channels_path %>" data-bulk-select-delete-type-value="channel" data-bulk-select-sync-type-value="channel">
+<div style="max-width: 1100px;" data-controller="bulk-select" data-bulk-select-max-panes-value="<%= max_panes %>" data-bulk-select-entity-name-value="channels" data-bulk-select-panes-path-value="<%= panes_channels_path %>" data-bulk-select-delete-type-value="channel" data-bulk-select-sync-type-value="channel" data-bulk-select-revoke-path-value="/channels/revokes">
   <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;">
     <div class="dot-list">
       <h1>channels</h1>
-      <%# Channels enter the system via the Google OAuth + channel-
-          selection flow at /settings/youtube. The `[+]` link routes
-          to that same destination as Settings → Google → [manage]. %>
-      <%= render(BracketedLinkComponent.new(label: "+", href: settings_youtube_path)) %>
+      <%# Phase 24 — `[+]` opens the Google OAuth dance via the
+          `/channels/connect_google` request-phase entry point (moved
+          off `/settings/youtube`). The banner below also surfaces a
+          `[+ add another Google account]` button for explicit
+          account-picker prompts (`account=new`). %>
+      <%= form_with url: connect_google_channels_path, method: :post,
+                    data: { turbo: false }, html: { style: "display: inline;" } do %>
+        <button type="submit" class="bracketed">[<span class="bl">+</span>]</button>
+      <% end %>
     </div>
     <span style="margin-left: auto;"><%= render(SavedViewsSectionComponent.new(saved_views: @saved_views || SavedView.none, kind: "channels")) %></span>
   </div>
+
+  <%# Phase 24 — Google management banner. Renders at the top of the
+      page above the filter chip cluster + channels table. Replaces
+      the legacy /settings/youtube surface. %>
+  <%= render "channels/google_banner", youtube_connections: @youtube_connections || [] %>
 
   <% filters = @filters || [] %>
   <%# Density polish (2026-05-10) — the filter chip cluster and the
@@ -64,6 +74,13 @@
             <span class="action-sep" hidden>&middot;</span>
           </span>
           <span class="action" data-bulk-select-target="deleteAction" hidden>
+            <span class="action-sep" hidden>&middot;</span>
+          </span>
+          <%# Phase 24 — `[revoke N]` bulk action. Same data-bulk-select-target
+              pattern as `[delete N]`; the controller wires the URL to
+              `/channels/revokes/<comma-separated-ids>`. Cascade is
+              broader than plain delete — see DeleteChannelDataJob. %>
+          <span class="action" data-bulk-select-target="revokeAction" hidden>
             <span class="action-sep" hidden>&middot;</span>
           </span>
         </div>
@@ -148,9 +165,7 @@
     </div>
   <% else %>
     <p class="text-muted">
-      no channels yet.
-      <%= link_to "[add channels via Google]", settings_youtube_path %>
-      to get started.
+      no channels yet — use the Google banner above to connect an account.
     </p>
   <% end %>
   <% end %>

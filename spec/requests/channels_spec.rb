@@ -677,21 +677,23 @@ RSpec.describe "Channels", type: :request do
       }.to raise_error(ActionController::RoutingError)
     end
 
-    it "renders the [+] button on /channels pointing at /settings/youtube" do
+    # Phase 24 — the `[+]` button no longer routes to /settings/youtube
+    # (the page is gone, 301-redirecting to /channels). It now submits
+    # a POST form to /channels/connect_google (the new request-phase
+    # OAuth entry point on this controller).
+    it "renders the [+] button posting to /channels/connect_google" do
       get channels_path
-      # `BracketedLinkComponent.new(label: "+")` renders as
-      # `[<span class="bl">+</span>]` inside an `<a href="...">`.
       expect(response.body).to match(
-        %r{<a[^>]*href="#{Regexp.escape(settings_youtube_path)}"[^>]*>\s*\[<span class="bl">\+</span>\]}
+        %r{<form[^>]*action="#{Regexp.escape(connect_google_channels_path)}"[^>]*method="post"}
       )
+      expect(response.body).to include('class="bracketed">[<span class="bl">+</span>]</button>')
     end
 
-    it "renders the empty-state copy pointing at /settings/youtube" do
+    it "renders the empty-state copy pointing at the Google banner" do
       Channel.delete_all
       get channels_path
       expect(response.body).to include("no channels yet")
-      expect(response.body).to include("[add channels via Google]")
-      expect(response.body).to include(settings_youtube_path)
+      expect(response.body).to include("Google banner above")
     end
   end
 
