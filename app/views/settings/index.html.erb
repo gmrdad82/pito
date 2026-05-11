@@ -183,9 +183,22 @@
     `:google_oauth` credentials block stays on-disk as a manual
     revert path but is no longer the runtime read source. %>
 <div class="pane-row">
-  <%# YouTube — editable credentials. %>
+  <%# YouTube — editable credentials.
+
+      2026-05-11 — the inline `2FA code` text input above `[update]`
+      was retired; the layout-level TOTP verification modal
+      (`shared/_totp_verification_modal`) is the surface now. The
+      per-form `totp-modal` Stimulus controller intercepts the submit
+      when 2FA is on and re-submits with `totp_code` attached after
+      the user types into the 6-box segmented input. When 2FA is
+      off, `required` is "no" and the submit passes through. %>
   <div class="pane">
-    <%= form_with url: settings_path, method: :patch do |f| %>
+    <%= form_with url: settings_path, method: :patch,
+                  data: {
+                    controller: "totp-modal",
+                    action: "submit->totp-modal#maybeIntercept",
+                    totp_modal_required_value: Current.user&.totp_enabled? ? "yes" : "no"
+                  } do |f| %>
       <input type="hidden" name="section" value="youtube">
       <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
         <legend><h2>YouTube</h2></legend>
@@ -249,19 +262,12 @@
           </span>
         <% end %>
 
-        <%# 2026-05-11 — fresh TOTP gate. When 2FA is on, the
-            controller rejects updates that don't carry a valid
-            `totp_code`. Read-only views are not gated. %>
-        <% if Current.user&.totp_enabled? %>
-          <div style="margin-bottom: 8px;">
-            <label for="settings_youtube_totp_code" class="form-label">2FA code</label>
-            <input type="text" name="totp_code" id="settings_youtube_totp_code"
-                   value="" autocomplete="one-time-code" inputmode="numeric"
-                   pattern="\d{6}" maxlength="6"
-                   style="max-width: 420px; width: 100%;">
-            <span class="form-hint" style="display: block;">required to authorize the change.</span>
-          </div>
-        <% end %>
+        <%# 2026-05-11 — fresh TOTP gate. When 2FA is on the layout-level
+            TOTP modal opens on `[update]`; the inline 6-digit text input
+            this pane used to render is gone. The controller-side
+            `RecentTotpVerification` gate still reads `params[:totp_code]`
+            — the modal injects it as a hidden field on the form before
+            re-submitting. %>
 
         <button type="submit">[update]</button>
 
@@ -272,9 +278,18 @@
     <% end %>
   </div>
 
-  <%# Voyage.ai — API key + per-target indexing flags. %>
+  <%# Voyage.ai — API key + per-target indexing flags.
+
+      2026-05-11 — same modal migration as YouTube above. Inline
+      `2FA code` text input retired; the layout-level TOTP
+      verification modal is the surface. %>
   <div class="pane">
-    <%= form_with url: settings_path, method: :patch do |f| %>
+    <%= form_with url: settings_path, method: :patch,
+                  data: {
+                    controller: "totp-modal",
+                    action: "submit->totp-modal#maybeIntercept",
+                    totp_modal_required_value: Current.user&.totp_enabled? ? "yes" : "no"
+                  } do |f| %>
       <input type="hidden" name="section" value="voyage">
       <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
         <legend><h2>Voyage.ai</h2></legend>

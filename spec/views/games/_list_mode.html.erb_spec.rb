@@ -117,14 +117,28 @@ RSpec.describe "games/_list_mode.html.erb", type: :view do
     end
   end
 
-  describe "Fix 5 — rating renders as <NN>/100 with no star glyph" do
-    it "renders the rating as <NN>/100" do
+  describe "Fix 2 (2026-05-11) — rating renders as colored bold integer" do
+    it "renders the rating as a bare integer (no /100 suffix)" do
       create(:game, :synced, title: "Rated Hit", igdb_id: 4_100_051,
              igdb_slug: "rated-hit-list", igdb_rating: 88)
       render_list(Game.all)
 
       cell = rendered[%r{<td class="rating-cell[^"]*"[^>]*>.*?</td>}m]
-      expect(cell).to include("88/100")
+      expect(cell).to include(">88<")
+      expect(cell).not_to include("/100")
+    end
+
+    it "renders the rating inside a Games::RatingBadgeComponent span" do
+      create(:game, :synced, title: "Tiered", igdb_id: 4_100_056,
+             igdb_slug: "tiered-list", igdb_rating: 88)
+      render_list(Game.all)
+      doc = Nokogiri::HTML.fragment(rendered)
+
+      badge = doc.css("td.rating-cell span.game-rating-badge").first
+      expect(badge).not_to be_nil
+      expect(badge["class"]).to include("game-rating-badge--good")
+      expect(badge["style"]).to include("color: var(--color-rating-good)")
+      expect(badge["style"]).to include("font-weight: bold")
     end
 
     it "does NOT render the star glyph in the rating cell" do
@@ -337,22 +351,40 @@ RSpec.describe "games/_list_mode.html.erb", type: :view do
     end
   end
 
-  describe "Fix 7 — cover fallback CSS hides off-theme variant in list cell" do
-    it "scopes a `display: none` rule on the dark fallback inside `td.cover-cell`" do
-      create(:game, title: "No Cover", igdb_id: nil)
+  describe "Fix 4 (2026-05-11) — inline `<style>` block migrated to application.css" do
+    # The d123fbb hygiene sweep moved the per-partial `<style>` rules
+    # into `app/assets/tailwind/application.css`. Selectors are
+    # preserved verbatim — see the `.games-list-mode` block in the
+    # stylesheet. The list partial no longer emits a `<style>` tag.
+    it "does NOT emit a `<style>` block in the partial output" do
+      create(:game, title: "No Inline Style", igdb_id: nil)
       render_list(Game.all)
-
-      # The inline `<style>` block emits a higher-specificity rule
-      # than the `td.cover-cell img` selector so the off-theme
-      # variant is hidden in both themes.
-      expect(rendered).to include(".games-list-mode td.cover-cell .game-cover-fallback--dark { display: none; }")
+      expect(rendered).not_to include("<style>")
     end
 
-    it "does NOT inline `display: block` on the cover-cell img anymore" do
+    it "does NOT inline `display: block` on the cover-cell img" do
       create(:game, title: "No Cover 2", igdb_id: nil)
       render_list(Game.all)
-
       expect(rendered).not_to include("object-fit: cover; display: block;")
+    end
+  end
+
+  describe "Fix 1 (2026-05-11) — pinned column widths via <colgroup>" do
+    # Column widths are sourced from `--col-width-*` CSS variables so
+    # one edit propagates across listing surfaces. The partial emits a
+    # `<colgroup>` whose seven `<col>` classes map to the variables.
+    it "renders a `<colgroup>` with seven `<col>` children" do
+      create(:game, :synced, title: "Cols", igdb_id: 4_100_077,
+             igdb_slug: "cols-list")
+      render_list(Game.all)
+      doc = Nokogiri::HTML.fragment(rendered)
+
+      cols = doc.css("table.list-table > colgroup > col")
+      expect(cols.length).to eq(7)
+      classes = cols.map { |c| c["class"] }
+      expect(classes).to eq(%w[
+        col-select col-cover col-title col-genre col-released col-rating col-owned
+      ])
     end
   end
 

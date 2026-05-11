@@ -104,10 +104,22 @@ RSpec.describe "games/_genres_shelf.html.erb", type: :view do
       game_b.genres << rpg
     end
 
-    it "emits a scoped CSS rule that draws a 1px border-top between sub-shelves" do
+    it "does NOT emit an inline `<style>` block (rule lives in application.css after Fix 4)" do
+      # 2026-05-11 polish (Fix 4) — the inline `<style>` block was
+      # migrated into `app/assets/tailwind/application.css` so the
+      # partial output stays markup-only. The CSS rule
+      # `section[data-shelf="outer-genres"] > section.sub-shelf:not(:first-of-type)`
+      # still exists in the stylesheet (and is asserted via a stylesheet
+      # spec elsewhere); this view assertion guards the partial's
+      # absence of `<style>` after the migration.
       render_shelf(Genre.where(id: [ adventure.id, rpg.id ]))
-      expect(rendered).to include('section[data-shelf="outer-genres"] > section.sub-shelf:not(:first-of-type)')
-      expect(rendered).to include("border-top: 1px solid var(--color-border)")
+      expect(rendered).not_to include("<style>")
+    end
+
+    it "still renders the outer-shelf section wrapper that the CSS hairline rule targets" do
+      render_shelf(Genre.where(id: [ adventure.id, rpg.id ]))
+      expect(rendered).to include('data-shelf="outer-genres"')
+      expect(rendered).to include('data-shelf="genre-sub"')
     end
 
     it "does NOT draw the hairline when only one sub-shelf renders" do
