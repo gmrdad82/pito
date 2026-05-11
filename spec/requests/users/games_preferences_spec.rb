@@ -29,11 +29,22 @@ RSpec.describe "Users::GamesPreferences", type: :request do
       expect(flash[:notice]).to be_present
     end
 
-    it "persists shelves_by_letter mode" do
+    it "persists shelves_by_letter mode (legacy enum-key path)" do
       patch users_games_preferences_path, params: { mode: "shelves_by_letter" }
 
       expect(user.reload.preferred_games_display_mode).to eq("shelves_by_letter")
       expect(response).to redirect_to(games_path(display: "shelves_by_letter"))
+    end
+
+    # 2026-05-11 polish v2 — `default` is the URL alias for the
+    # canonical enum value `shelves_by_letter`. PATCH writes the
+    # canonical enum but echoes the alias on the redirect so the
+    # shareable URL stays readable.
+    it "accepts the `default` alias and writes shelves_by_letter" do
+      patch users_games_preferences_path, params: { mode: "default" }
+
+      expect(user.reload.preferred_games_display_mode).to eq("shelves_by_letter")
+      expect(response).to redirect_to(games_path(display: "default"))
     end
 
     it "persists grid mode (round-trip from a non-default value)" do

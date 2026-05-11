@@ -82,5 +82,31 @@ RSpec.describe Pito::SafeEach do
       described_class.call(enum, label: "T", logger: logger) { |v| seen << v }
       expect(seen).to eq([ :x, :y ])
     end
+
+    it "dispatches via `with_iterator:` so AR callers can use `find_each`" do
+      rows = double("rows")
+      block_called_with = []
+      allow(rows).to receive(:find_each).and_yield(:a).and_yield(:b)
+
+      described_class.call(rows, label: "T", logger: logger, with_iterator: :find_each) do |row|
+        block_called_with << row
+      end
+      expect(rows).to have_received(:find_each)
+      expect(block_called_with).to eq([ :a, :b ])
+    end
+
+    it "swallows errors per-row when iterating via `with_iterator: :find_each`" do
+      rows = double("rows")
+      allow(rows).to receive(:find_each).and_yield(:a).and_yield(:b).and_yield(:c)
+
+      seen = []
+      described_class.call(rows, label: "T", logger: logger, with_iterator: :find_each) do |row|
+        raise "bad #{row}" if row == :b
+
+        seen << row
+      end
+      expect(seen).to eq([ :a, :c ])
+      expect(logger).to have_received(:warn).with(a_string_matching(/\[T\].*bad b/))
+    end
   end
 end

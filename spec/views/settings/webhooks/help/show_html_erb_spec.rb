@@ -154,6 +154,45 @@ RSpec.describe "settings/webhooks/help/show.html.erb", type: :view do
     end
   end
 
+  # Polish 2026-05-11 (URL enrichment). Per user direction, both guides
+  # should link to canonical Discord / Slack official docs at first
+  # mention of each concept. Locking the canonical URLs in here so a
+  # future content tweak can't silently drop them or swap to a
+  # third-party blog.
+  describe "Slack guide canonical URLs" do
+    before do
+      assign(:provider, "slack")
+      assign(:markdown,
+        Rails.root.join("app", "views", "settings", "webhooks", "help", "slack.md").read)
+      render template: "settings/webhooks/help/show", layout: false
+    end
+
+    it "links to Slack's Incoming Webhooks docs" do
+      expect(rendered).to include("https://api.slack.com/messaging/webhooks")
+    end
+
+    it "links to the Slack apps directory" do
+      expect(rendered).to include("https://api.slack.com/apps")
+    end
+  end
+
+  describe "Discord guide canonical URLs" do
+    before do
+      assign(:provider, "discord")
+      assign(:markdown,
+        Rails.root.join("app", "views", "settings", "webhooks", "help", "discord.md").read)
+      render template: "settings/webhooks/help/show", layout: false
+    end
+
+    it "links to Discord's webhooks resource docs" do
+      expect(rendered).to include("https://discord.com/developers/docs/resources/webhook")
+    end
+
+    it "links to Discord's Manage Webhooks permission support article" do
+      expect(rendered).to include("https://support.discord.com/hc/en-us/articles/228760168")
+    end
+  end
+
   describe "polish — no emoji + lowercase prose convention" do
     %w[slack discord].each do |provider|
       it "ships the #{provider} guide with no emoji glyphs" do
