@@ -167,40 +167,86 @@
 ============================================================ %>
 <h2>integrations</h2>
 
-<%# integrations row 1 — YouTube (read-only credentials status) |
-    Voyage.ai. The YouTube pane is purely informational — secrets live
-    in `Rails.application.credentials.google_oauth` (CLAUDE.md hard
-    rule) and editing them happens via `rails credentials:edit`. %>
+<%# integrations row 1 — YouTube | Voyage.ai. 2026-05-11 — YouTube
+    moved from a read-only credentials-status card to a Voyage-style
+    edit form. Source of truth: AppSetting singleton columns
+    (sensitive ones encrypted via Active Record Encryption). The
+    `:google_oauth` credentials block stays on-disk as a manual
+    revert path but is no longer the runtime read source. %>
 <div class="pane-row">
-  <%# YouTube — read-only credentials status. %>
+  <%# YouTube — editable credentials. %>
   <div class="pane">
-    <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
-      <legend><h2>YouTube</h2></legend>
+    <%= form_with url: settings_path, method: :patch do |f| %>
+      <input type="hidden" name="section" value="youtube">
+      <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
+        <legend><h2>YouTube</h2></legend>
 
-      <p class="text-muted">
-        YouTube credentials live in <code>Rails.application.credentials.google_oauth</code>.
-        edit with <code>rails credentials:edit</code>.
-      </p>
+        <%# Voyage pattern: each field renders an input with a
+            placeholder. Sensitive fields (api_key, client_secret)
+            never echo their value — the placeholder reads
+            `key configured (•••••••)` when set, plain "no key
+            configured" otherwise. Non-sensitive fields (client_id,
+            redirect_uri) DO surface their stored value as the
+            placeholder so the operator can verify it at a glance.
 
-      <%# One row per credential. The Boolean from
-          `youtube_credentials_status` flips to `configured` /
-          `not configured` copy. Configured rows render in muted gray;
-          missing rows render in the danger color so the gap is
-          legible at a glance. The underlying value is never echoed
-          back. %>
-      <ul style="list-style: none; padding-left: 0; margin: 0;">
-        <% @youtube_credentials.each do |label, configured| %>
-          <li style="margin-bottom: 2px;">
-            <span><%= label %>:</span>
-            <% if configured %>
-              <span class="text-muted">configured</span>
+            A `clear stored <field>` checkbox renders next to each
+            configured field so the operator can wipe one value
+            without retyping the others (form-level, no JS confirm
+            per CLAUDE.md hard rules). %>
+        <% @youtube_credentials[:fields].each do |field, meta| %>
+          <% configured = meta[:configured] %>
+          <% input_id = "settings_#{field}" %>
+          <div style="margin-bottom: 8px;">
+            <label for="<%= input_id %>" class="form-label"><%= meta[:label] %></label>
+            <% if meta[:sensitive] %>
+              <input type="password"
+                     name="settings[<%= field %>]"
+                     id="<%= input_id %>"
+                     value="" autocomplete="off"
+                     placeholder="<%= configured ? 'key configured (•••••••)' : 'no key configured' %>"
+                     style="max-width: 420px; width: 100%;">
             <% else %>
-              <span class="text-danger">not configured</span>
+              <% placeholder =
+                if field == "youtube_redirect_uri"
+                  meta[:effective_redirect_uri].to_s + (meta[:redirect_uri_default] ? " (default)" : "")
+                else
+                  configured ? meta[:value].to_s : "not configured"
+                end
+              %>
+              <input type="text"
+                     name="settings[<%= field %>]"
+                     id="<%= input_id %>"
+                     value="" autocomplete="off"
+                     placeholder="<%= placeholder %>"
+                     style="max-width: 420px; width: 100%;">
             <% end %>
-          </li>
+            <% if configured %>
+              <label class="md-check" style="margin-top: 4px;">
+                <input type="checkbox" name="settings[clear_<%= field %>]" value="yes">
+                <span class="md-check-indicator"></span>
+                <span class="md-check-label">clear stored <%= meta[:label] %></span>
+              </label>
+            <% end %>
+          </div>
         <% end %>
-      </ul>
-    </fieldset>
+
+        <%# Voyage's hint placement: one muted line under the input
+            stack explaining the blank-keeps-current convention.
+            Hidden on a fully-blank pane so the empty install isn't
+            cluttered. %>
+        <% if @youtube_credentials[:fields].any? { |_, m| m[:configured] } %>
+          <span class="form-hint" style="display: block; margin-bottom: 6px;">
+            leave blank to keep current; submit to replace.
+          </span>
+        <% end %>
+
+        <button type="submit">[update]</button>
+
+        <p class="text-muted" style="margin-top: 8px; margin-bottom: 0;">
+          credentials stored encrypted in the database; never echoed.
+        </p>
+      </fieldset>
+    <% end %>
   </div>
 
   <%# Voyage.ai — API key + per-target indexing flags. %>
@@ -251,6 +297,10 @@
         <% end %>
 
         <button type="submit">[update]</button>
+
+        <p class="text-muted" style="margin-top: 8px; margin-bottom: 0;">
+          credentials stored encrypted in the database; never echoed.
+        </p>
       </fieldset>
     <% end %>
   </div>
@@ -343,16 +393,24 @@
 ============================================================ %>
 <h2>stack</h2>
 
-<%# stack row 1 — sql | search. The sql pane reads connectivity +
-    Postgres version + database name out of the ActiveRecord
-    connection pool. The search pane surfaces Meilisearch health +
-    indexed-document counts AND the Voyage embeddings indexing flags
-    (project notes today; more targets as they ship). %>
+<%# 2026-05-11 (later) — user direction reshuffles the stack section:
+    `sql` → `db`, Redis demoted from its own pane into a hairline-
+    fenced row inside the `db` pane, and per-model + per-state
+    breakdown tables surfaced on each side. The storage pane goes
+    from a 1-column "pito-assets + notes" stack to a 2-column
+    `assets` (left) + `notes` (right) inner layout with detailed
+    sub-category tables. Layout:
+      stack row 1 — db | search
+      stack row 2 — storage | (empty right cell)
+    The `db` pane mirrors the `search` pane's internal pattern
+    (Meilisearch + hairline + Voyage embeddings → Postgres +
+    hairline + Redis).
+%>
 <div class="pane-row">
-  <%# sql — Postgres status. %>
+  <%# db — Postgres + Redis status with hairline fence. %>
   <div class="pane">
     <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
-      <legend><h2>sql</h2></legend>
+      <legend><h2>db</h2></legend>
 
       <div style="margin-bottom: 6px;">
         <span>Postgres</span>
@@ -363,15 +421,108 @@
         <% end %>
       </div>
 
-      <% if @postgres_status[:connected] %>
-        <div style="margin-bottom: 6px;">
-          <% if @postgres_status[:version].present? %>
-            <span class="text-muted">version: <%= @postgres_status[:version] %></span><br>
-          <% end %>
-          <% if @postgres_status[:database].present? %>
-            <span class="text-muted">database: <%= @postgres_status[:database] %></span>
-          <% end %>
-        </div>
+      <%# 2026-05-11 (later 2) — per user direction: the Postgres
+          half drops version / database name / total rows / total
+          size on disk; the per-model breakdown table is the only
+          surface besides the status badge above. Count + size
+          columns right-align via `class="num"` (design.md numbers
+          convention). %>
+      <% if @postgres_status[:connected] && @postgres_table_breakdown.any? %>
+        <table class="detail-table" style="margin-bottom: 8px;">
+          <thead>
+            <tr>
+              <th style="font-weight: normal; padding-right: 12px;">model</th>
+              <th class="num" style="font-weight: normal; padding-right: 12px;">rows</th>
+              <th class="num" style="font-weight: normal;">size</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @postgres_table_breakdown.each do |row| %>
+              <tr>
+                <td class="text-muted" style="padding-right: 12px;"><%= row[:label] %></td>
+                <td class="text-muted num" style="padding-right: 12px;">
+                  <%= row[:count] ? number_with_delimiter(row[:count]) : "—" %>
+                </td>
+                <td class="text-muted num">
+                  <%= row[:size_bytes] ? number_to_human_size(row[:size_bytes]) : "—" %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      <% end %>
+
+      <hr class="hairline">
+
+      <%# Redis sub-section — connectivity badge + Sidekiq
+          job-state breakdown. Version / memory / keys /
+          persistence lines dropped per 2026-05-11 (later 2)
+          user direction. %>
+      <div style="margin-bottom: 6px;">
+        <span>Redis</span>
+        <% if @redis_status[:connected] %>
+          <span style="color: var(--color-success);">▲ connected</span>
+        <% else %>
+          <span class="text-danger">▽ disconnected</span>
+        <% end %>
+      </div>
+
+      <%# 2026-05-11 (later 2) — per user direction: Redis half
+          drops version / memory / keys / persistence; only the
+          status badge above remains, alongside the Sidekiq
+          breakdown table below.
+
+          The Sidekiq table is a 3-row grouped-header layout:
+            row 1 (thead) — `successful` (colspan 3) | `failed` (colspan 2)
+            row 2 (thead) — totals under each header
+            row 3 (thead) — five state columns: busy | scheduled | enqueued | retry | dead
+            row 4 (tbody) — five live counts
+          All numeric cells right-align via `class="num"`.
+
+          Empty list = sidekiq/api couldn't load (e.g. Redis just
+          went down between the connectivity probe and this read);
+          render nothing. %>
+      <% if @redis_status[:connected] && @sidekiq_breakdown.any? %>
+        <%
+          sidekiq_counts = @sidekiq_breakdown.each_with_object({}) do |row, acc|
+            acc[row[:label]] = row[:count]
+          end
+        %>
+        <table class="detail-table" style="margin-bottom: 8px;">
+          <thead>
+            <tr>
+              <th class="num" colspan="3" style="font-weight: normal; padding-right: 12px;">successful</th>
+              <th class="num" colspan="2" style="font-weight: normal;">failed</th>
+            </tr>
+            <tr>
+              <td class="text-muted num" colspan="3" style="padding-right: 12px;">
+                <%= sidekiq_counts["processed"] ? number_with_delimiter(sidekiq_counts["processed"]) : "—" %>
+              </td>
+              <td class="text-muted num" colspan="2">
+                <%= sidekiq_counts["failed"] ? number_with_delimiter(sidekiq_counts["failed"]) : "—" %>
+              </td>
+            </tr>
+            <tr>
+              <th class="num" style="font-weight: normal; padding-right: 12px;">busy</th>
+              <th class="num" style="font-weight: normal; padding-right: 12px;">scheduled</th>
+              <th class="num" style="font-weight: normal; padding-right: 12px;">enqueued</th>
+              <th class="num" style="font-weight: normal; padding-right: 12px;">retry</th>
+              <th class="num" style="font-weight: normal;">dead</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <% %w[busy scheduled enqueued retry].each do |state| %>
+                <td class="text-muted num" style="padding-right: 12px;">
+                  <%= sidekiq_counts[state] ? number_with_delimiter(sidekiq_counts[state]) : "—" %>
+                </td>
+              <% end %>
+              <td class="text-muted num">
+                <%= sidekiq_counts["dead"] ? number_with_delimiter(sidekiq_counts["dead"]) : "—" %>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       <% end %>
     </fieldset>
   </div>
@@ -390,16 +541,39 @@
         <% end %>
       </div>
 
-      <% if @search_stats.any? %>
-        <div style="margin-bottom: 6px;">
-          <label class="form-label">indexed documents</label>
-          <% @search_stats.each do |index_name, count| %>
-            <% next if index_name.end_with?("_test") %>
-            <% display_name = index_name.sub(/_(development|production)\z/, "") %>
-            <span class="text-muted"><%= display_name %>: <%= number_with_delimiter(count) %></span><br>
-          <% end %>
-        </div>
+      <%# 2026-05-11 (later 2) — per user direction: drop the
+          `indexed documents` flat list and the `total index size`
+          aggregate. The Meilisearch surface is now a 3-column
+          table (index | documents | size). Source: engine's
+          `per_index_stats`. Empty list = engine doesn't expose
+          per-index stats / probe failed; render nothing besides
+          the status badge above. %>
+      <% if @search_per_index_stats.any? %>
+        <table class="detail-table" style="margin-bottom: 8px;">
+          <thead>
+            <tr>
+              <th style="font-weight: normal; padding-right: 12px;">index</th>
+              <th class="num" style="font-weight: normal; padding-right: 12px;">documents</th>
+              <th class="num" style="font-weight: normal;">size</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @search_per_index_stats.each do |row| %>
+              <tr>
+                <td class="text-muted" style="padding-right: 12px;"><%= row[:label] %></td>
+                <td class="text-muted num" style="padding-right: 12px;">
+                  <%= number_with_delimiter(row[:documents].to_i) %>
+                </td>
+                <td class="text-muted num">
+                  <%= row[:size_bytes] ? number_to_human_size(row[:size_bytes]) : "—" %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
       <% end %>
+
+      <hr class="hairline">
 
       <%# Voyage embeddings status — read out of AppSetting so the
           search pane shows the full hybrid-search picture (keyword
@@ -442,37 +616,149 @@
   </div>
 </div>
 
-<%# stack row 2 — storage | (empty right cell). The right slot stays
-    empty by design; the locked layout puts `storage` as the last
-    pane and leaves its row partner blank. %>
+<%# stack row 2 — storage | (empty right cell). The storage pane
+    is now a 2-column inner layout: `assets` (left) + `notes`
+    (right) separated by a vertical hairline gutter. Both columns
+    surface availability + size + file count + a per-subcategory
+    breakdown table. User direction (2026-05-11): rename the
+    `pito-assets` heading to `assets` (display label only; the
+    on-disk volume name + env var stay `pito-assets`). Notes still
+    cover the `Note` ActiveRecord population plus the Mobile MCP
+    drop-zone under `docs/notes/`. The extension hook for future
+    note populations (video notes, channel notes) is
+    `NOTES_NAMESPACE_SOURCES` in the controller; new namespaces
+    slot into the same `@notes_breakdown` rows without view
+    changes. %>
 <div class="pane-row">
-  <%# storage — pito-assets volume status. %>
-  <div class="pane">
+  <%# storage — 2-column inner layout (assets | notes). The pane
+      uses `.pane--wide` so the inner grid has enough room for both
+      detail tables side-by-side without the columns squashing. %>
+  <div class="pane pane--wide">
     <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
       <legend><h2>storage</h2></legend>
 
-      <div style="margin-bottom: 6px;">
-        <span>pito-assets</span>
-        <% if @storage_status[:present] %>
-          <% if @storage_status[:writable] %>
-            <span style="color: var(--color-success);">▲ writable</span>
-          <% else %>
-            <span class="text-danger">▽ read-only</span>
+      <%# Two equal-width columns with a vertical hairline gutter.
+          `align-items: stretch` lets the hairline span the taller
+          column. %>
+      <div style="display: grid; grid-template-columns: 1fr 1px 1fr; gap: 12px; align-items: stretch;">
+        <%# assets column (renamed from pito-assets per user direction). %>
+        <div>
+          <div style="margin-bottom: 6px;">
+            <span>assets</span>
+            <% if @storage_status[:present] %>
+              <% if @storage_status[:writable] %>
+                <span style="color: var(--color-success);">▲ writable</span>
+              <% else %>
+                <span class="text-danger">▽ read-only</span>
+              <% end %>
+            <% else %>
+              <span class="text-muted">▽ not present</span>
+            <% end %>
+            <% if @storage_status[:present] %>
+              <br>
+              <span class="text-muted">size: <%= number_to_human_size(@storage_status[:size_bytes]) %></span><br>
+              <span class="text-muted">files: <%= number_with_delimiter(@storage_status[:file_count]) %></span>
+            <% end %>
+          </div>
+
+          <%# Per-subcategory breakdown — fixed allowlist.
+              Rows: cover arts (composites/), thumbnails
+              (footage_thumbs/), banners (banners/), other
+              (everything else, including Active Storage shard
+              directories). All four rows always render so the
+              operator sees the asset taxonomy even on a
+              greenfield install. Order matches the allowlist
+              declared in the controller. %>
+          <% if @assets_breakdown.any? %>
+            <table class="detail-table" style="margin-bottom: 8px;">
+              <thead>
+                <tr>
+                  <th style="font-weight: normal; padding-right: 12px;">category</th>
+                  <th style="font-weight: normal; padding-right: 12px;">files</th>
+                  <th style="font-weight: normal;">size</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% @assets_breakdown.each do |row| %>
+                  <tr>
+                    <td class="text-muted" style="padding-right: 12px;"><%= row[:label] %></td>
+                    <td class="text-muted" style="padding-right: 12px;">
+                      <%= row[:file_count] ? number_with_delimiter(row[:file_count]) : "—" %>
+                    </td>
+                    <td class="text-muted">
+                      <%= row[:size_bytes] ? number_to_human_size(row[:size_bytes]) : "—" %>
+                    </td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
           <% end %>
-        <% else %>
-          <span class="text-muted">▽ not present</span>
-        <% end %>
-      </div>
-
-      <% if @storage_status[:path].present? %>
-        <div style="margin-bottom: 6px;">
-          <span class="text-muted">path: <code><%= @storage_status[:path] %></code></span>
         </div>
-      <% end %>
 
-      <p class="text-muted">
-        on-disk home for footage thumbnails and Active Storage blobs.
-      </p>
+        <%# Vertical hairline gutter — matches `hr.hairline`'s
+            single-pixel border-color contract, just turned 90°.
+            Reaches the full height of the taller column thanks
+            to `align-items: stretch` on the grid container. %>
+        <div style="background: var(--color-border); width: 1px;"></div>
+
+        <%# notes column — Note rows + Mobile MCP `save_note` drop-zone. %>
+        <div>
+          <div style="margin-bottom: 6px;">
+            <span>notes</span>
+            <% if @notes_volume_status[:present] %>
+              <% if @notes_volume_status[:writable] %>
+                <span style="color: var(--color-success);">▲ writable</span>
+              <% else %>
+                <span class="text-danger">▽ read-only</span>
+              <% end %>
+            <% else %>
+              <span class="text-muted">▽ not present</span>
+            <% end %>
+            <% if @notes_volume_status[:present] %>
+              <br>
+              <span class="text-muted">size: <%= number_to_human_size(@notes_volume_status[:size_bytes]) %></span><br>
+              <span class="text-muted">files: <%= number_with_delimiter(@notes_volume_status[:file_count]) %></span>
+            <% end %>
+          </div>
+
+          <%# Per-namespace breakdown. `count` column shows the
+              row count for namespaces backed by a DB table (project
+              notes today); namespaces without a backing table
+              (Mobile drop-zone) render `—` for the count. Future
+              video notes / channel notes slot into the same table
+              via `NOTES_NAMESPACE_SOURCES` in the controller. %>
+          <% if @notes_breakdown.any? %>
+            <table class="detail-table" style="margin-bottom: 8px;">
+              <thead>
+                <tr>
+                  <th style="font-weight: normal; padding-right: 12px;">namespace</th>
+                  <th style="font-weight: normal; padding-right: 12px;">count</th>
+                  <th style="font-weight: normal;">size</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% @notes_breakdown.each do |row| %>
+                  <tr>
+                    <td class="text-muted" style="padding-right: 12px;"><%= row[:label] %></td>
+                    <td class="text-muted" style="padding-right: 12px;">
+                      <%= row[:count] ? number_with_delimiter(row[:count]) : "—" %>
+                    </td>
+                    <td class="text-muted">
+                      <%= row[:size_bytes] ? number_to_human_size(row[:size_bytes]) : "—" %>
+                    </td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+          <% end %>
+        </div>
+      </div>
     </fieldset>
   </div>
+
+  <%# Right cell intentionally absent — the user-locked stack
+      layout drops Redis as a standalone pane; Redis now lives
+      inside the `db` pane on the row above. The `.pane-row` flex
+      container with a single `.pane` child renders the storage
+      pane at its natural width without a placeholder sibling. %>
 </div>

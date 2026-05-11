@@ -7,6 +7,27 @@ class AppSetting < ApplicationRecord
   # never compared/queried, and benefits from probabilistic encryption.
   encrypts :voyage_api_key
 
+  # 2026-05-11 — YouTube OAuth + API credentials move out of
+  # `Rails.application.credentials.google_oauth` into the singleton
+  # row so the operator can rotate them from the Settings UI without
+  # a deploy (same pattern as `voyage_api_key`). Sensitive fields
+  # (`youtube_api_key`, `youtube_client_secret`) are encrypted via
+  # Active Record Encryption; the OAuth client ID and the redirect
+  # URI are public-ish (the client ID is exposed to any user who
+  # completes an OAuth round-trip; the redirect URI is a public
+  # callback URL) so they stay in plaintext for the UI to surface.
+  #
+  # The original `google_oauth` credentials block is deliberately
+  # kept on disk as a one-line manual revert path — the runtime no
+  # longer reads it (omniauth initializer + `Youtube::TokenRefresher`
+  # + `Youtube::PublicClient` all read from AppSetting), but the
+  # values stay populated in case the table gets wiped and a quick
+  # revert is preferable to a fresh backfill. The
+  # `pito:backfill_youtube_credentials` rake task seeds AppSetting
+  # from the credentials block once; it is idempotent.
+  encrypts :youtube_api_key
+  encrypts :youtube_client_secret
+
   validates :key, presence: true, uniqueness: { case_sensitive: false }
   validates :value, presence: true
 
@@ -47,6 +68,60 @@ class AppSetting < ApplicationRecord
   # singleton exists so callers can use it directly in conditionals.
   def self.voyage_indexing_project_notes?
     first&.voyage_index_project_notes || false
+  end
+
+  # 2026-05-11 — YouTube credentials accessors. All four return nil
+  # when no singleton exists yet (greenfield install before any
+  # backfill / form submit). Callers that need a non-nil default
+  # apply their own fallback (e.g. the omniauth initializer falls
+  # back to credentials + ENV; `youtube_redirect_uri_for_omniauth`
+  # falls back to the production callback URL).
+  def self.youtube_api_key
+    first&.youtube_api_key
+  end
+
+  def self.youtube_client_id
+    first&.youtube_client_id
+  end
+
+  def self.youtube_client_secret
+    first&.youtube_client_secret
+  end
+
+  def self.youtube_redirect_uri
+    first&.youtube_redirect_uri
+  end
+
+  # True iff every REQUIRED YouTube credential (api_key, client_id,
+  # client_secret) is non-blank on the singleton row. Mirrors the
+  # `voyage_configured?` predicate so callers can branch without
+  # nil-handling. The redirect URI is NOT part of the required set
+  # — omniauth falls back to a hard-coded default when it's blank.
+  def self.youtube_configured?
+    row = first
+    return false if row.nil?
+    row.youtube_api_key.to_s.strip.present? &&
+      row.youtube_client_id.to_s.strip.present? &&
+      row.youtube_client_secret.to_s.strip.present?
+  end
+
+  # Per-field configured predicates — used by the Settings view to
+  # render `key configured (•••••••)` placeholders without leaking
+  # the actual value.
+  def self.youtube_api_key_configured?
+    youtube_api_key.to_s.strip.present?
+  end
+
+  def self.youtube_client_id_configured?
+    youtube_client_id.to_s.strip.present?
+  end
+
+  def self.youtube_client_secret_configured?
+    youtube_client_secret.to_s.strip.present?
+  end
+
+  def self.youtube_redirect_uri_configured?
+    youtube_redirect_uri.to_s.strip.present?
   end
 
   # 2026-05-11 — master toggle for the global keyboard-navigation surface

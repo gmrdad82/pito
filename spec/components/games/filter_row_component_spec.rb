@@ -114,6 +114,77 @@ RSpec.describe Games::FilterRowComponent, type: :component do
     end
   end
 
+  describe "polish: [ clear all ] inner spaces (2026-05-11)" do
+    # Per the bracketed-link convention, MULTI-word labels carry inner
+    # spaces: `[ clear all ]`. Single-token chip labels above stay
+    # flush against the brackets (`[ps5]`). See
+    # `feedback_bracketed_links.md`.
+    it "renders [ clear all ] with inner spaces around the multi-word label" do
+      render_inline(described_class.new(
+        active_tokens: %w[ps5], request_path: request_path
+      ))
+      html = page.native.to_html
+      # `[<SPACE><span>clear all</span><SPACE>]` — the canonical
+      # multi-word shape from the convention.
+      expect(html).to match(%r{\[ <span class="bl">clear all</span> \]})
+    end
+
+    it "still resolves [clear all]'s text content to the bare label" do
+      render_inline(described_class.new(
+        active_tokens: %w[ps5], request_path: request_path
+      ))
+      expect(page).to have_link("clear all")
+    end
+  end
+
+  describe "polish: right_slot (2026-05-11)" do
+    # The display-mode switcher (Phase 27 §01d) used to sit flush-right
+    # of `<h1>games</h1>`. It now lands in the filter row's optional
+    # right slot via `with_right_slot`. Slot content renders inside
+    # `.games-filter-row__right`, which uses `margin-left: auto` to pin
+    # the slot flush-right regardless of how many chips wrap.
+    it "renders the right_slot inside `.games-filter-row__right` when provided" do
+      render_inline(described_class.new(
+        active_tokens: [], request_path: request_path
+      )) do |row|
+        row.with_right_slot { "<span class=\"switcher-stub\">SWITCHER</span>".html_safe }
+      end
+
+      expect(page).to have_css(".games-filter-row__right .switcher-stub", text: "SWITCHER")
+    end
+
+    it "pins the right slot flush-right via `margin-left: auto`" do
+      render_inline(described_class.new(
+        active_tokens: [], request_path: request_path
+      )) do |row|
+        row.with_right_slot { "<span class=\"switcher-stub\">SWITCHER</span>".html_safe }
+      end
+
+      style = page.find(".games-filter-row__right")["style"]
+      expect(style).to include("margin-left: auto")
+    end
+
+    it "does NOT render `.games-filter-row__right` when no slot is provided" do
+      render_inline(described_class.new(
+        active_tokens: [], request_path: request_path
+      ))
+      expect(page).to have_no_css(".games-filter-row__right")
+    end
+
+    it "places the right slot AFTER the chips in document order" do
+      render_inline(described_class.new(
+        active_tokens: [], request_path: request_path
+      )) do |row|
+        row.with_right_slot { "<span class=\"switcher-stub\">SWITCHER</span>".html_safe }
+      end
+
+      html = page.native.to_html
+      chips_idx = html.index('class="games-filter-row__chips"')
+      right_idx = html.index('class="games-filter-row__right"')
+      expect(chips_idx).to be < right_idx
+    end
+  end
+
   describe "flaw: defensive surface" do
     before do
       render_inline(described_class.new(

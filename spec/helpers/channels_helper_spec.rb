@@ -312,4 +312,49 @@ RSpec.describe ChannelsHelper, type: :helper do
       expect(helper.channel_display_url(nil)).to be_nil
     end
   end
+
+  describe "#channel_url_label" do
+    # 2026-05-11 — picker URL column visible-text helper. Handle wins
+    # (rendered bare); UC-id is the middle-truncated fallback; raw
+    # `channel_url` is the last resort.
+    it "returns the bare @handle when the channel has a handle" do
+      channel.handle = "@mshpoise"
+      expect(helper.channel_url_label(channel)).to eq("@mshpoise")
+    end
+
+    it "returns the middle-truncated UC-id when the channel has no handle" do
+      channel.handle = nil
+      channel.channel_url = "https://www.youtube.com/channel/UC2T-WgvF-DQQfFNQieoRuQQ"
+      # head=6, tail=3 → "UC2T-W" + "…" + "uQQ"
+      expect(helper.channel_url_label(channel)).to eq("UC2T-W…uQQ")
+    end
+
+    it "returns the truncated UC-id when handle is the empty string" do
+      channel.handle = ""
+      channel.channel_url = "https://www.youtube.com/channel/UC2T-WgvF-DQQfFNQieoRuQQ"
+      expect(helper.channel_url_label(channel)).to eq("UC2T-W…uQQ")
+    end
+
+    it "returns the truncated UC-id when handle is whitespace only" do
+      channel.handle = "   "
+      channel.channel_url = "https://www.youtube.com/channel/UC2T-WgvF-DQQfFNQieoRuQQ"
+      expect(helper.channel_url_label(channel)).to eq("UC2T-W…uQQ")
+    end
+
+    it "prefers the @handle even when the channel_url is also valid" do
+      channel.handle = "@pitomd"
+      channel.channel_url = "https://www.youtube.com/channel/UC2T-WgvF-DQQfFNQieoRuQQ"
+      expect(helper.channel_url_label(channel)).to eq("@pitomd")
+    end
+
+    it "falls back to the raw channel_url when the UC-id cannot be extracted" do
+      channel.handle = nil
+      channel.channel_url = "https://example.com/oops"
+      expect(helper.channel_url_label(channel)).to eq("https://example.com/oops")
+    end
+
+    it "returns nil for a nil channel" do
+      expect(helper.channel_url_label(nil)).to be_nil
+    end
+  end
 end

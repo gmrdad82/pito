@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_11_160500) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_11_180000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -76,6 +76,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_160500) do
     t.text "value"
     t.text "voyage_api_key"
     t.boolean "voyage_index_project_notes", default: false, null: false
+    t.text "youtube_api_key"
+    t.text "youtube_client_id"
+    t.text "youtube_client_secret"
+    t.text "youtube_redirect_uri"
     t.index ["key"], name: "index_app_settings_on_key", unique: true
   end
 
@@ -491,6 +495,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_160500) do
     t.text "notes"
     t.jsonb "platforms", default: [], null: false
     t.date "played_at"
+    t.bigint "primary_genre_id"
     t.string "publisher"
     t.date "release_date"
     t.integer "release_year"
@@ -508,6 +513,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_160500) do
     t.index ["igdb_id"], name: "index_games_on_igdb_id", unique: true, where: "(igdb_id IS NOT NULL)"
     t.index ["igdb_slug"], name: "index_games_on_igdb_slug", unique: true, where: "(igdb_slug IS NOT NULL)"
     t.index ["igdb_synced_at"], name: "index_games_on_igdb_synced_at"
+    t.index ["primary_genre_id"], name: "index_games_on_primary_genre_id"
     t.index ["release_year"], name: "index_games_on_release_year"
     t.index ["title"], name: "index_games_on_title"
   end
@@ -1232,92 +1238,32 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_160500) do
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
-  add_foreign_key "api_tokens", "users"
-  add_foreign_key "auth_audit_logs", "users", column: "acting_user_id"
-  add_foreign_key "blocked_locations", "users", column: "blocked_by_user_id", on_delete: :restrict
-  add_foreign_key "blocked_locations", "users", column: "unblocked_by_user_id", on_delete: :nullify
   add_foreign_key "bulk_operation_items", "bulk_operations"
-  add_foreign_key "bulk_operation_items", "videos"
   add_foreign_key "bundle_members", "bundles", on_delete: :cascade
   add_foreign_key "bundle_members", "games", on_delete: :cascade
   add_foreign_key "calendar_entries", "calendar_entries", column: "parent_entry_id", on_delete: :nullify
   add_foreign_key "calendar_entries", "channels", on_delete: :cascade
   add_foreign_key "calendar_entries", "games", on_delete: :cascade
   add_foreign_key "calendar_entries", "milestone_rules", on_delete: :nullify
-  add_foreign_key "calendar_entries", "projects", on_delete: :nullify
-  add_foreign_key "calendar_entries", "users", column: "created_by_user_id", on_delete: :nullify
-  add_foreign_key "calendar_entries", "videos", on_delete: :cascade
   add_foreign_key "channel_change_logs", "channels", on_delete: :cascade
-  add_foreign_key "channel_change_logs", "users", column: "changed_by_user_id", on_delete: :restrict
   add_foreign_key "channel_dailies", "channels", on_delete: :cascade
   add_foreign_key "channel_diffs", "channels", on_delete: :cascade
-  add_foreign_key "channel_diffs", "users", column: "resolved_by_user_id", on_delete: :nullify
   add_foreign_key "channel_window_summaries", "channels", on_delete: :cascade
-  add_foreign_key "channels", "youtube_connections"
   add_foreign_key "footages", "games"
-  add_foreign_key "footages", "projects"
   add_foreign_key "game_developers", "companies", on_delete: :cascade
   add_foreign_key "game_developers", "games", on_delete: :cascade
   add_foreign_key "game_genres", "games", on_delete: :cascade
   add_foreign_key "game_genres", "genres", on_delete: :cascade
   add_foreign_key "game_platform_ownerships", "games", on_delete: :cascade
-  add_foreign_key "game_platform_ownerships", "platforms", on_delete: :restrict
   add_foreign_key "game_platforms", "games", on_delete: :cascade
-  add_foreign_key "game_platforms", "platforms", on_delete: :cascade
   add_foreign_key "game_publishers", "companies", on_delete: :cascade
   add_foreign_key "game_publishers", "games", on_delete: :cascade
   add_foreign_key "games", "collections"
+  add_foreign_key "games", "genres", column: "primary_genre_id", on_delete: :nullify
   add_foreign_key "import_jobs", "channels", on_delete: :cascade
-  add_foreign_key "import_jobs", "users", column: "enqueued_by_id", on_delete: :restrict
   add_foreign_key "login_attempts", "notifications"
-  add_foreign_key "login_attempts", "sessions"
-  add_foreign_key "login_attempts", "users"
-  add_foreign_key "login_attempts", "users", column: "approved_by_user_id", on_delete: :nullify
-  add_foreign_key "milestone_rules", "users", column: "created_by_user_id", on_delete: :nullify
-  add_foreign_key "notes", "projects"
   add_foreign_key "notifications", "calendar_entries", column: "source_calendar_entry_id", on_delete: :cascade
   add_foreign_key "notifications", "milestone_rules", column: "source_milestone_rule_id", on_delete: :nullify
-  add_foreign_key "notifications", "users", column: "created_by_user_id", on_delete: :nullify
   add_foreign_key "oauth_access_grants", "oauth_applications", column: "application_id"
   add_foreign_key "oauth_access_tokens", "oauth_applications", column: "application_id"
-  add_foreign_key "playlist_videos", "playlists"
-  add_foreign_key "playlist_videos", "videos"
-  add_foreign_key "playlists", "channels"
-  add_foreign_key "project_references", "projects"
-  add_foreign_key "rejected_video_imports", "channels", on_delete: :cascade
-  add_foreign_key "rejected_video_imports", "users", column: "rejected_by_id", on_delete: :restrict
-  add_foreign_key "sessions", "users"
-  add_foreign_key "timelines", "projects"
-  add_foreign_key "timelines", "videos"
-  add_foreign_key "top_videos_windows", "channels", on_delete: :cascade
-  add_foreign_key "top_videos_windows", "videos", on_delete: :cascade
-  add_foreign_key "totp_backup_codes", "users"
-  add_foreign_key "trusted_locations", "users"
-  add_foreign_key "video_change_logs", "users", column: "changed_by_user_id", on_delete: :nullify
-  add_foreign_key "video_change_logs", "videos", on_delete: :cascade
-  add_foreign_key "video_dailies", "videos", on_delete: :cascade
-  add_foreign_key "video_daily_by_age_group_genders", "videos", on_delete: :cascade
-  add_foreign_key "video_daily_by_countries", "videos", on_delete: :cascade
-  add_foreign_key "video_daily_by_device_types", "videos", on_delete: :cascade
-  add_foreign_key "video_daily_by_operating_systems", "videos", on_delete: :cascade
-  add_foreign_key "video_daily_by_subscribed_statuses", "videos", on_delete: :cascade
-  add_foreign_key "video_daily_by_traffic_sources", "videos", on_delete: :cascade
-  add_foreign_key "video_diffs", "users", column: "resolved_by_user_id", on_delete: :nullify
-  add_foreign_key "video_diffs", "videos", on_delete: :cascade
-  add_foreign_key "video_game_links", "bundles", on_delete: :cascade
-  add_foreign_key "video_game_links", "games", on_delete: :cascade
-  add_foreign_key "video_game_links", "users", column: "created_by_user_id", on_delete: :nullify
-  add_foreign_key "video_game_links", "videos", on_delete: :cascade
-  add_foreign_key "video_retentions", "videos", on_delete: :cascade
-  add_foreign_key "video_stats", "videos"
-  add_foreign_key "video_uploads", "channels"
-  add_foreign_key "video_uploads", "videos"
-  add_foreign_key "video_viewer_time_buckets", "videos", on_delete: :cascade
-  add_foreign_key "video_window_summaries", "videos", on_delete: :cascade
-  add_foreign_key "videos", "channels"
-  add_foreign_key "videos", "projects", on_delete: :nullify
-  add_foreign_key "videos", "youtube_connections"
-  add_foreign_key "youtube_api_calls", "users"
-  add_foreign_key "youtube_api_calls", "youtube_connections"
-  add_foreign_key "youtube_connections", "users"
 end

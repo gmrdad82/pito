@@ -148,4 +148,46 @@ RSpec.describe "Notifications index", type: :system do
     visit "/notifications"
     expect(page.body).not_to include("data-turbo-confirm")
   end
+
+  # 2026-05-11 — inbox layout revamp per user direction.
+  describe "table header + bottom legend (layout revamp 2026-05-11)" do
+    it "renders an explicit <thead> with the five column labels" do
+      create(:notification, :video_published)
+      visit "/notifications"
+      expect(page).to have_selector("thead tr th", text: "select")
+      expect(page).to have_selector("thead tr th", text: "kind")
+      expect(page).to have_selector("thead tr th", text: "title")
+      expect(page).to have_selector("thead tr th", text: "severity")
+      expect(page).to have_selector("thead tr th", text: "when")
+    end
+
+    it "renders the glyph legend AFTER the table (bottom of page)" do
+      create(:notification, :video_published)
+      visit "/notifications"
+      body = page.body
+      table_close_pos = body.index("</table>")
+      legend_pos      = body.index("notification-glyph-legend")
+      expect(table_close_pos).not_to be_nil
+      expect(legend_pos).not_to be_nil
+      expect(table_close_pos).to be < legend_pos
+    end
+
+    it "renders one legend item element per registered event-type emoji" do
+      create(:notification, :video_published)
+      visit "/notifications"
+      expect(page).to have_selector(
+        ".notification-glyph-legend-item",
+        count: NotificationFormatter::EVENT_TYPE_EMOJI.length
+      )
+    end
+
+    it "renders the legend wrapper as a two-column CSS grid" do
+      create(:notification, :video_published)
+      visit "/notifications"
+      legend = find(".notification-glyph-legend")
+      style = legend[:style]
+      expect(style).to match(/display:\s*grid/)
+      expect(style).to match(/grid-template-columns:\s*1fr\s+1fr/)
+    end
+  end
 end

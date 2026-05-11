@@ -83,4 +83,32 @@ RSpec.describe "games/_shelves_by_letter_mode.html.erb", type: :view do
       expect(rendered).not_to include('data-controller="steam-shelf"')
     end
   end
+
+  # ------------------------------------------------------------
+  # Letter-column width clamp.
+  #
+  # User direction (2026-05-11): "this column should not be wider
+  # than the cover art." Each per-letter shelf row should clamp to
+  # the natural width of its tiles (N × 150 + (N-1) × 8) rather than
+  # stretching to the container width. The CSS rule lives in
+  # `app/assets/tailwind/application.css` keyed on the section's
+  # `.games-shelves-by-letter-mode` class — the spec asserts the
+  # hook class is present on the rendered section.
+  # ------------------------------------------------------------
+
+  describe "letter column width clamp" do
+    it "stamps the .games-shelves-by-letter-mode hook class on the section" do
+      create(:game, :synced, title: "Width Clamp", igdb_id: 4_202_001,
+             igdb_slug: "width-clamp-shelf")
+      render_shelves(Game.all)
+      expect(rendered).to include("games-shelves-by-letter-mode")
+    end
+
+    it "keeps the existing .all-games-shelves-by-letter class for back-compat" do
+      create(:game, :synced, title: "Compat Class", igdb_id: 4_202_002,
+             igdb_slug: "compat-class-shelf")
+      render_shelves(Game.all)
+      expect(rendered).to include("all-games-shelves-by-letter")
+    end
+  end
 end

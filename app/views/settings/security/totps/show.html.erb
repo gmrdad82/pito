@@ -46,7 +46,7 @@
       <%= label_tag :code, "6-digit code from your authenticator app" %><br>
       <%= text_field_tag :code, nil, autocomplete: "one-time-code", inputmode: "numeric", pattern: "\\d{6}", maxlength: 6, autofocus: true %>
     </div>
-    <button type="submit" class="bracketed" style="cursor: pointer;">[ confirm 2FA ]</button>
+    <button type="submit" class="bracketed" style="cursor: pointer;">[<span class="bl">confirm 2FA</span>]</button>
     <%= render BracketedLinkComponent.new(label: "cancel", href: settings_security_totp_path) %>
   <% end %>
 </div>

@@ -36,9 +36,11 @@ class GamesController < ApplicationController
   DEFAULT_SORT = "created_at"
   DEFAULT_DIR = "desc"
 
-  # Phase 14 §3 — Steam-shelf shelf width and "see all" filter cap.
+  # Phase 14 §3 — Steam-shelf shelf width.
+  # Phase 27 polish (2026-05-11) — `GENRE_SHELF_CAP` retired with the
+  # legacy `@genres_shelves` iteration; the 01c-v2 nested Genres shelf
+  # is the single source of truth for genre-grouped tile rows.
   SHELF_LIMIT = 12
-  GENRE_SHELF_CAP = 8
 
   skip_before_action :verify_authenticity_token, if: -> { request.format.json? }
 
@@ -71,27 +73,41 @@ class GamesController < ApplicationController
     # (01c-v2 locked decision #7 reverses the v1 placeholder rule).
     #
     # Scope rationale:
-    #   - `Genre.joins(:games).distinct` keeps only genres that own at
-    #     least one game (the legacy `:games` association — primary-
-    #     genre filtering is a documented follow-up gated on the
-    #     `Game#primary_genre_id` migration, out of scope for this
-    #     pass).
-    #   - `Collection.joins(:games).distinct` mirrors the rule for
-    #     collections.
+    #   - Genres outer-shelf — primary-genre scoping (2026-05-11
+    #     follow-up). `Game.where.not(primary_genre_id: nil)` lists
+    #     only genres that own at least one game pinned to them via
+    #     `Games::PrimaryGenrePicker`. Result: every multi-genre game
+    #     appears in EXACTLY ONE sub-shelf instead of every
+    #     `game_genres` join it touches.
+    #   - Collections outer-shelf — `Collection.joins(:games).distinct`
+    #     remains the source (each game has a single `collection_id`
+    #     pointer, no dedup concern).
     #   - Alphabetical case-insensitive ordering with a stable `id`
     #     tiebreak so render order is deterministic across requests.
     # Postgres requires DISTINCT + ORDER BY columns to appear in the
-    # SELECT list. Use a subquery (`where(id: …)`) to filter to genres
-    # / collections that own at least one game, then order the outer
-    # query cleanly.
-    @genres_for_shelf = Genre.where(id: Genre.joins(:games).distinct.select(:id))
-                              .order(Arel.sql("LOWER(genres.name)"), :id)
+    # SELECT list. Subquery (`where(id: …)`) keeps the outer query
+    # clean for ordering.
+    @genres_for_shelf = Genre.where(
+      id: Game.where.not(primary_genre_id: nil).distinct.select(:primary_genre_id)
+    ).order(Arel.sql("LOWER(genres.name)"), :id)
     @collections_for_shelf = Collection.where(id: Collection.joins(:games).distinct.select(:id))
                                        .order(Arel.sql("LOWER(collections.name)"), :id)
 
-    @genres_shelves = Genre.joins(:games).distinct.order(:name).limit(GENRE_SHELF_CAP).map do |g|
-      [ g, g.games.order(Arel.sql("igdb_rating DESC NULLS LAST")).limit(SHELF_LIMIT) ]
-    end
+    # Phase 27 follow-up (2026-05-11) — composite-cover warm-up. Walk
+    # each collection slated for the outer shelf and ask the composer
+    # to materialize / refresh the on-disk composite (or no-op on a
+    # cache hit / 0-1 member layouts). Running it in the controller —
+    # once per request, in-line, BEFORE the view renders — guarantees
+    # the `_collection_tile.html.erb` partial sees a fresh
+    # `composite_cover_checksum` for 2+ member collections instead of
+    # falling through to the fallback SVG (P27 reviewer BLOCKER:
+    # `Collections::CoverComposer` was built but never invoked).
+    Games::PrepareCollectionsForShelf.new.call(@collections_for_shelf)
+
+    # Phase 27 polish (2026-05-11) — the legacy `@genres_shelves`
+    # per-genre iteration was retired. The 01c-v2 nested Genres
+    # outer shelf at the top of the page (`@genres_for_shelf`) is
+    # the single source of truth for genre-grouped tile rows.
 
     # Phase 27 §1a — `Platform.games_owning` (driven by the now-dropped
     # `games.platform_owned_id` FK) was retired in favor of the new

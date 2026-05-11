@@ -16,6 +16,14 @@ module Games
   class FilterRowComponent < ViewComponent::Base
     include Games::FiltersHelper
 
+    # Phase 27 polish (2026-05-11) — optional right-aligned slot. The
+    # `/games` index passes the display-mode switcher here so it
+    # renders flush-right on the filter row (replacing the prior
+    # H1-row position). The slot is open-ended so any future
+    # right-side surface (e.g. a sort dropdown) can land in the same
+    # spot without further component changes.
+    renders_one :right_slot
+
     # Locked left-to-right chip order from spec §"Goal".
     CHIP_ORDER = %w[
       recorded released owned not_owned scheduled

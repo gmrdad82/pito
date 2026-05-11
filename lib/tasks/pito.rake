@@ -31,4 +31,38 @@ namespace :pito do
 
     puts "dropped #{count} seeded channel#{'s' unless count == 1}."
   end
+
+  # Phase 27 follow-up (2026-05-11) — backfill `games.primary_genre_id`
+  # for rows that pre-date the column. Idempotent — already-pinned rows
+  # are skipped; rows whose pick resolves to `nil` (zero linked genres)
+  # stay `nil` (no row touched, no UPDATE issued).
+  #
+  # Runs `Games::PrimaryGenrePicker#pick` row-by-row and writes via
+  # `update_column` so callbacks DON'T fire — the model's
+  # `before_save :assign_primary_genre_if_blank` would otherwise do the
+  # same work redundantly, and we want a single, auditable write per
+  # row. `find_each` keeps memory flat for large installs.
+  desc "Backfill games.primary_genre_id for existing rows. Idempotent."
+  task backfill_primary_genres: :environment do
+    picker  = Games::PrimaryGenrePicker.new
+    updated = 0
+    skipped = 0
+    no_pick = 0
+
+    Game.where(primary_genre_id: nil).find_each do |game|
+      pick = picker.pick(game)
+      if pick.nil?
+        no_pick += 1
+        next
+      end
+      game.update_column(:primary_genre_id, pick.id)
+      updated += 1
+    end
+
+    Game.where.not(primary_genre_id: nil).find_each { skipped += 1 } if ENV["VERBOSE"] == "1"
+
+    puts "backfilled primary_genre_id on #{updated} game#{'s' unless updated == 1}."
+    puts "  #{no_pick} game#{'s' unless no_pick == 1} had no linked genres (left NULL)."
+    puts "  (re-run is a no-op — already-pinned rows are skipped.)"
+  end
 end

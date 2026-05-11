@@ -1,32 +1,44 @@
-<%# Phase 27 §01c-v2 — Outer Custom collections shelf (nested).
-    Supersedes the v1 flat-tile design. The outer shelf is a single
-    `<section data-shelf="outer-collections">` carrying an `<h2>`
-    heading; inside it iterates one sub-shelf per collection that
-    owns at least one game (alphabetical, case-insensitive). Each
-    sub-shelf is a row with a leading composite cover tile followed
-    by `Games::CoverComponent` game tiles at `:shelf` variant.
+<%# Phase 27 follow-up (2026-05-11) — Collections outer shelf.
+    Restructured per user direction: ONE horizontal-scroll row whose
+    entries are tile-per-collection (NOT one sub-shelf per collection
+    with game tiles inside). Clicking a tile opens a modal listing the
+    games in that collection (Turbo Frame fetches
+    `/collections/<id>/games_pane`); clicking a game in the modal
+    navigates to the game's show page.
 
-    Empty buckets are hidden — when no collection owns any game, the
-    entire `<section>` is suppressed (no muted placeholder, no `<h2>`).
-    This intentionally reverses 01c-v1 per 01c-v2 locked decision #7.
+    Empty-state policy:
+      - Zero collections (input is empty) — render NOTHING (parity with
+        the genres shelf empty-state).
+      - Collection with zero games — render the tile but use the
+        shared fallback SVG (`game_cover_fallback_shelf_{light,dark}.svg`)
+        as the cover; the click flow still opens the modal which then
+        shows "no games yet."
 
     Locals:
       collections  ActiveRecord::Relation of Collection rows, pre-
-                   filtered by the caller to only include collections
-                   that own at least one game and pre-ordered
-                   alphabetical case-insensitive.
+                   filtered to those that own >= 1 game and pre-ordered
+                   alphabetical case-insensitive. (The 01h composer
+                   pre-warm runs in `GamesController#index` via
+                   `Games::PrepareCollectionsForShelf` so each row's
+                   `composite_cover_checksum` is fresh by the time we
+                   render `cover_url`.)
 %>
 <%
   collections = local_assigns.fetch(:collections)
 %>
 <% if collections.any? %>
-  <section class="shelf shelf--collections outer-shelf" data-shelf="outer-collections" style="margin-top: 16px;">
+  <section class="shelf shelf--collections outer-shelf" data-shelf="outer-collections" data-controller="steam-shelf" style="margin-top: 16px;">
     <div class="dot-list" style="margin-bottom: 6px;">
-      <h2 style="margin: 0;">custom collections</h2>
+      <h2 style="margin: 0;">collections</h2>
     </div>
 
-    <% collections.each do |collection| %>
-      <%= render "games/collection_sub_shelf_row", collection: collection %>
-    <% end %>
+    <div class="shelf-row collections-shelf-row" data-steam-shelf-target="row"
+         style="display: flex; gap: 12px; overflow-x: auto; padding-bottom: 6px; align-items: flex-start;">
+      <% collections.each do |collection| %>
+        <%= render "games/collection_tile", collection: collection %>
+      <% end %>
+    </div>
   </section>
+
+  <%= render "games/collections_modal" %>
 <% end %>

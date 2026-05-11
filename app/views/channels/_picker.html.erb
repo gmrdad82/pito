@@ -26,12 +26,21 @@
       bulk toolbar are both pre-table rows. Tightening the chip cluster's
       `margin-bottom` to 2px (was 6px) brings the table closer to the
       filter row and matches the videos index where there is no chip
-      cluster between the h1 row and the bulk toolbar. %>
+      cluster between the h1 row and the bulk toolbar.
+
+      2026-05-11 fix — the chip and `[clear]` link live OUTSIDE the
+      `channels-index-table` turbo frame (the frame opens below the
+      filter row). Previously they carried `frame: "channels-index-table"`
+      / `data-turbo-frame=...`, which made Turbo swap the frame body but
+      left the chip stranded in the surrounding DOM — clicking `[ ]`
+      never flipped to `[x]` because the chip itself never re-rendered.
+      Mirrors the `/videos` and `/notifications` chips, which use
+      full-page navigation for the same structural reason. %>
   <div class="dot-list" style="margin-bottom: 2px; gap: 10px;">
     <span class="text-muted">filter:</span>
-    <%= render(FilterChipComponent.new(label: "starred", param: "star", current_params: request.query_parameters, frame: "channels-index-table")) %>
+    <%= render(FilterChipComponent.new(label: "starred", param: "star", current_params: request.query_parameters)) %>
     <% if filters.any? %>
-      <%= render(BracketedLinkComponent.new(label: "clear", href: channels_path, data: { turbo_frame: "channels-index-table", turbo_action: "advance" })) %>
+      <%= render(BracketedLinkComponent.new(label: "clear", href: channels_path)) %>
     <% end %>
   </div>
 
@@ -105,10 +114,12 @@
           `/@handle` (or UC-id fallback) string. Layout is `auto` so the
           URL column can absorb its natural width.
 
-          Sortable columns: `name` (by `channels.id`), `star`, `last sync`.
-          Subscriber and video counts are not sortable here — the underlying
-          columns are not in `ALLOWED_SORTS` (would be a separate scope
-          change to add them safely). %>
+          Sortable columns: `name` (by `channels.id`), `subscribers`
+          (by `channels.subscriber_count`), `videos` (by
+          `channels.video_count`), `star`, `last sync`. Subscriber and
+          video counts are nullable until ChannelSync populates them;
+          Postgres default NULL ordering matches the rest of the index
+          (NULLS LAST on asc, NULLS FIRST on desc). %>
       <table style="table-layout: auto;">
         <thead>
           <tr>
@@ -126,10 +137,10 @@
                 not yet in `ALLOWED_SORTS`. %>
             <th class="sortable"><%= sort_link_to("name", "id", current_sort: @sort, current_dir: @dir, frame: "channels-index-table") %></th>
             <th>URL</th>
-            <th class="num">subscribers</th>
-            <th class="num">videos</th>
+            <th class="sortable num"><%= sort_link_to("subs", "subscriber_count", current_sort: @sort, current_dir: @dir, frame: "channels-index-table") %></th>
+            <th class="sortable num"><%= sort_link_to("videos", "video_count", current_sort: @sort, current_dir: @dir, frame: "channels-index-table") %></th>
             <th class="sortable num"><%= sort_link_to("star", "starred", current_sort: @sort, current_dir: @dir, frame: "channels-index-table") %></th>
-            <th class="sortable num"><%= sort_link_to("last sync", "last_synced_at", current_sort: @sort, current_dir: @dir, frame: "channels-index-table") %></th>
+            <th class="sortable num"><%= sort_link_to("synced", "last_synced_at", current_sort: @sort, current_dir: @dir, frame: "channels-index-table") %></th>
           </tr>
         </thead>
         <tbody>
@@ -164,28 +175,30 @@
                   <span class="text-muted">—</span>
                 <% end %>
               </td>
-              <%# Name cell — display title links to the show page; the
-                  `@handle` (or em-dash placeholder) renders as muted
-                  sub-text on a second line. When `title` is nil, the
-                  helper renders "untitled channel"; we still want a
-                  stable, scannable identifier in that case, so we fall
-                  back to the channel id as the link text. %>
+              <%# Name cell — display title links to the show page. The
+                  `@handle` sub-line moved to the URL column (2026-05-11)
+                  per user direction so the name column carries only the
+                  title. When `title` is nil, the helper renders
+                  "untitled channel"; we still want a stable, scannable
+                  identifier in that case, so we fall back to the channel
+                  id as the link text. %>
               <td>
                 <%
                   title = channel.title.to_s.strip
                   link_label = title.empty? ? channel.id.to_s : title
                 %>
                 <%= link_to link_label, channel_path(channel), data: { turbo_frame: "_top" } %>
-                <% if channel.handle.present? %>
-                  <div class="text-muted" style="font-size: 12px;"><%= channel.handle %></div>
-                <% end %>
               </td>
-              <%# URL cell — full `/@handle` form when handle present,
-                  UC-id fallback otherwise. No truncation; the column
-                  takes its natural width. `white-space: nowrap` keeps
-                  the URL on a single line so the row reads cleanly. %>
+              <%# URL cell — visible text is the @handle when present,
+                  otherwise a middle-truncated UCxxxxxx…xyz slug. The
+                  href stays the full YouTube URL (the /@handle URL or
+                  the /channel/UC-id fallback) so the link still
+                  resolves to a real YouTube page. 2026-05-11 — title
+                  moved out of this column into the name cell; the
+                  column now surfaces only the short identifier.
+                  white-space: nowrap keeps the label on a single line. %>
               <td style="white-space: nowrap;">
-                <%= link_to display_url, display_url, target: "_blank", rel: "noopener noreferrer" %>
+                <%= link_to channel_url_label(channel), display_url, target: "_blank", rel: "noopener noreferrer" %>
               </td>
               <td class="num"><%= formatted_subscriber_count(channel) %></td>
               <td class="num"><%= formatted_video_count(channel) %></td>

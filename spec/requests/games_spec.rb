@@ -88,12 +88,29 @@ RSpec.describe "Games", type: :request do
         expect(response.body).to include('data-controller="steam-shelf"')
       end
 
-      it "renders [see all] links on per-genre shelves" do
-        genre = Genre.create!(igdb_id: 999, name: "Adventure")
+      it "renders one nested genre sub-shelf per genre that owns a game" do
+        # Phase 27 polish (2026-05-11) — the legacy `@genres_shelves`
+        # iteration was retired; the 01c-v2 nested Genres outer shelf
+        # is the single source of truth for genre-grouped tile rows.
+        # `[see all]` no longer renders for small buckets (the nested
+        # sub-shelf only shows `[see all]` when count > 30).
+        genre = Genre.create!(igdb_id: 999, name: "Adventure", slug: "adventure")
         zelda.genres << genre
         get games_path
-        expect(response.body).to include("?genre=#{genre.id}")
-        expect(response.body).to include(">see all<")
+        expect(response.body).to include('data-shelf="genre-sub"')
+        # Phase 27 follow-up (2026-05-11) — lowercase display label.
+        expect(response.body).to match(%r{<h3[^>]*>\s*adventure\s*</h3>})
+      end
+
+      it "does NOT render a duplicate per-genre shelf below the all-games partition" do
+        # Phase 27 polish (2026-05-11) — the legacy duplicate iteration
+        # is gone. Only one render of each genre name should appear in
+        # the page (the 01c-v2 nested sub-shelf <h3>).
+        genre = Genre.create!(igdb_id: 999, name: "Adventure", slug: "adventure")
+        zelda.genres << genre
+        get games_path
+        # Exactly one `<h3>` heading for this genre — the nested sub-shelf.
+        expect(response.body.scan(%r{<h3[^>]*>\s*adventure\s*</h3>}).length).to eq(1)
       end
 
       it "renders [see all] links on per-platform shelves" do
@@ -126,6 +143,25 @@ RSpec.describe "Games", type: :request do
         expect(response).to have_http_status(:ok)
         expect(response.body).to include("Zelda")
         expect(response.body).to include("Elden Ring")
+      end
+    end
+
+    # Phase 27 follow-up (2026-05-11) — composer wiring assertion.
+    # The P27 reviewer flagged `Collections::CoverComposer` as built
+    # but never invoked. `GamesController#index` now calls
+    # `Games::PrepareCollectionsForShelf` which delegates to the
+    # composer for every collection slated for the outer shelf.
+    describe "composite-cover warm-up wiring" do
+      it "invokes `Collections::CoverComposer#call` for each non-empty collection" do
+        coll = create(:collection, name: "two games")
+        create(:game, :synced, title: "alpha", cover_image_id: "img-a", collection: coll)
+        create(:game, :synced, title: "beta",  cover_image_id: "img-b", collection: coll)
+
+        expect_any_instance_of(Collections::CoverComposer)
+          .to receive(:call).with(have_attributes(id: coll.id)).at_least(:once)
+
+        get games_path
+        expect(response).to have_http_status(:ok)
       end
     end
 
@@ -170,10 +206,13 @@ RSpec.describe "Games", type: :request do
           expect(response.body).to match(%r{<h2[^>]*>\s*genres\s*</h2>})
         end
 
-        it "renders the Custom collections outer-shelf with the 'custom collections' <h2>" do
+        it "renders the Collections outer-shelf with the 'collections' <h2>" do
+          # Phase 27 follow-up (2026-05-11) — renamed from
+          # "custom collections" to plain "collections".
           get games_path
           expect(response.body).to include('data-shelf="outer-collections"')
-          expect(response.body).to match(%r{<h2[^>]*>\s*custom collections\s*</h2>})
+          expect(response.body).to match(%r{<h2[^>]*>\s*collections\s*</h2>})
+          expect(response.body).not_to match(%r{<h2[^>]*>\s*custom collections\s*</h2>})
         end
 
         it "renders one sub-shelf per non-empty genre, alphabetical" do
@@ -181,11 +220,16 @@ RSpec.describe "Games", type: :request do
           genres_section = response.body[/<section[^>]*shelf--genres[^>]*outer-shelf.*?<\/section>\s*\z/m] ||
                            response.body[/<section[^>]*shelf--genres[^>]*outer-shelf[\s\S]*/]
           expect(genres_section).not_to be_nil
-          order_indexes = [ "Adventure", "platformer", "rpg" ].map { |n| genres_section.index(">#{n}<") }
+          # Phase 27 follow-up (2026-05-11) — display labels are
+          # lowercase. SQL ordering is `LOWER(genres.name)` so the
+          # canonical mixed-case names still sort as expected.
+          order_indexes = [ "adventure", "platformer", "rpg" ].map { |n| genres_section.index(">#{n}<") }
           expect(order_indexes).to eq(order_indexes.sort)
         end
 
-        it "renders one sub-shelf per non-empty collection, alphabetical" do
+        it "renders one collection tile per non-empty collection, alphabetical" do
+          # Phase 27 follow-up (2026-05-11) — collections restructured
+          # from sub-shelves into a single row of tile-per-collection.
           get games_path
           colls_section = response.body[/<section[^>]*shelf--collections[^>]*outer-shelf[\s\S]*/]
           expect(colls_section).not_to be_nil
@@ -198,17 +242,17 @@ RSpec.describe "Games", type: :request do
           expect(response.body.scan('data-shelf="genre-sub"').length).to eq(3)
         end
 
-        it "stamps `data-shelf=\"collection-sub\"` on each collection sub-shelf wrapper" do
+        it "renders one `.collection-tile` anchor per collection" do
           get games_path
-          expect(response.body.scan('data-shelf="collection-sub"').length).to eq(2)
+          expect(response.body.scan('class="collection-tile"').length).to eq(2)
         end
 
-        it "stamps the steam-shelf Stimulus controller on each sub-shelf" do
+        it "stamps the steam-shelf Stimulus controller on each shelf row" do
           get games_path
-          # 3 genre sub-shelves + 2 collection sub-shelves = 5. The
-          # legacy Phase 14 shelves (per-genre, all-games) also stamp
-          # the controller, so we assert a floor not an exact count.
-          expect(response.body.scan('data-controller="steam-shelf"').length).to be >= 5
+          # 3 genre sub-shelves + 1 collections row + legacy Phase 14
+          # shelves (per-genre, all-games) also stamp the controller, so
+          # we assert a floor not an exact count.
+          expect(response.body.scan('data-controller="steam-shelf"').length).to be >= 4
         end
       end
 
@@ -901,6 +945,26 @@ RSpec.describe "Games", type: :request do
       expect(response.body).to include("[<span class=\"bl\">grid</span>]")
       expect(response.body).to include("[<span class=\"bl\">list</span>]")
       expect(response.body).to include("[<span class=\"bl\">shelves</span>]")
+    end
+
+    # Phase 27 polish (2026-05-11) — the switcher moved DOWN from the
+    # H1 row into the filter row's right slot. The slot wrapper
+    # (`.games-filter-row__right`) contains the `.display-mode-switcher`,
+    # and the wrapper sits inside `<section class="games-filter-row">`.
+    it "renders the switcher INSIDE the filter row (not the H1 row)" do
+      get games_path
+      filter_row = response.body.match(%r{<section class="games-filter-row".*?</section>}m)
+      expect(filter_row).not_to be_nil
+      expect(filter_row[0]).to include("games-filter-row__right")
+      expect(filter_row[0]).to include('class="display-mode-switcher"')
+    end
+
+    it "the H1 row no longer hosts the display-mode switcher" do
+      get games_path
+      # Pull just the first <h1>...</h1> wrapper region (the H1 row).
+      h1_row = response.body.match(%r{<div [^>]*display: flex[^>]*>.*?<h1>games</h1>.*?</div>\s*</div>}m)
+      expect(h1_row).not_to be_nil
+      expect(h1_row[0]).not_to include("display-mode-switcher")
     end
 
     it "marks the active mode button with the active class" do

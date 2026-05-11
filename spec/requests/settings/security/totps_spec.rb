@@ -8,7 +8,8 @@ RSpec.describe "Settings::Security::Totps", type: :request do
     it "renders 200 with the [ enable 2FA ] CTA when 2FA is off" do
       get settings_security_totp_path
       expect(response).to have_http_status(:ok)
-      expect(response.body).to include("[ enable 2FA ]")
+      # Bracketed-link inner-padding fix: label wrapped in <span class="bl">.
+      expect(response.body).to include('[<span class="bl">enable 2FA</span>]')
       expect(response.body).to include("off")
     end
 
@@ -46,6 +47,9 @@ RSpec.describe "Settings::Security::Totps", type: :request do
       expect(response).to have_http_status(:ok)
       expect(response.body).to include("scan")
       expect(response.body).to include("confirm")
+      # Bracketed-link inner-padding fix: confirm-2FA button uses
+      # the canonical <span class="bl"> wrap.
+      expect(response.body).to include('[<span class="bl">confirm 2FA</span>]')
     end
 
     it "redirects to the status page when no one-shot payload is present" do
@@ -90,7 +94,17 @@ RSpec.describe "Settings::Security::Totps", type: :request do
       get settings_security_totp_disable_path
       expect(response).to have_http_status(:ok)
       expect(response.body).to include("disable 2FA")
-      expect(response.body).to include("[ disable 2FA ]")
+      # Bracketed-link inner-padding fix: label wrapped in <span class="bl">.
+      expect(response.body).to include('[<span class="bl">disable 2FA</span>]')
+    end
+
+    it "asks for both password and TOTP code on the disable screen" do
+      user.update!(totp_seed_encrypted: "JBSWY3DPEHPK3PXP", totp_enabled_at: 1.hour.ago)
+      get settings_security_totp_disable_path
+      expect(response.body).to include('name="password"')
+      expect(response.body).to include('name="code"')
+      expect(response.body).to include("password")
+      expect(response.body).to include("authenticator app")
     end
 
     it "redirects to the status page when 2FA is already off" do
@@ -101,27 +115,57 @@ RSpec.describe "Settings::Security::Totps", type: :request do
 
   describe "POST /settings/security/totp/disable" do
     let(:seed) { "JBSWY3DPEHPK3PXP" }
+    let(:password) { "password123" }
 
     before do
-      user.update!(totp_seed_encrypted: seed, totp_enabled_at: 1.hour.ago)
+      user.update!(
+        password: password,
+        password_confirmation: password,
+        totp_seed_encrypted: seed,
+        totp_enabled_at: 1.hour.ago
+      )
     end
 
-    it "disables 2FA when confirm=yes and the code is correct" do
+    it "disables 2FA when confirm=yes and both password + code are correct" do
       code = ROTP::TOTP.new(seed).now
-      post settings_security_totp_disable_path, params: { confirm: "yes", code: code }
+      post settings_security_totp_disable_path,
+           params: { confirm: "yes", password: password, code: code }
       expect(user.reload.totp_enabled?).to be false
       expect(user.reload.totp_disabled_at).to be_present
     end
 
-    it "returns 422 when the code is wrong" do
-      post settings_security_totp_disable_path, params: { confirm: "yes", code: "000000" }
+    it "returns 422 when the code is wrong (password right)" do
+      post settings_security_totp_disable_path,
+           params: { confirm: "yes", password: password, code: "000000" }
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(user.reload.totp_enabled?).to be true
+      expect(flash.now[:alert]).to include("credentials don't match")
+    end
+
+    it "returns 422 when the password is wrong (code right) and copy is generic" do
+      code = ROTP::TOTP.new(seed).now
+      post settings_security_totp_disable_path,
+           params: { confirm: "yes", password: "nope", code: code }
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(user.reload.totp_enabled?).to be true
+      # Generic copy — must not leak which field failed.
+      expect(flash.now[:alert]).to include("credentials don't match")
+      expect(flash.now[:alert]).not_to match(/password/i)
+      expect(flash.now[:alert]).not_to match(/code|totp/i)
+    end
+
+    it "returns 422 when the password is blank" do
+      code = ROTP::TOTP.new(seed).now
+      post settings_security_totp_disable_path,
+           params: { confirm: "yes", password: "", code: code }
       expect(response).to have_http_status(:unprocessable_content)
       expect(user.reload.totp_enabled?).to be true
     end
 
     it "cancels and redirects when confirm != yes" do
       code = ROTP::TOTP.new(seed).now
-      post settings_security_totp_disable_path, params: { confirm: "no", code: code }
+      post settings_security_totp_disable_path,
+           params: { confirm: "no", password: password, code: code }
       expect(response).to redirect_to(settings_security_totp_path)
       expect(user.reload.totp_enabled?).to be true
     end

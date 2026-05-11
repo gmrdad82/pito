@@ -53,13 +53,29 @@
    data-variant="<%= variant %>"
    data-keyboard-tile
    title="<%= title_attr %>">
-  <div class="tile-cover" style="width: 150px; height: 200px; overflow: hidden; background: #f6f6f6; display: flex; align-items: center; justify-content: center;">
+  <div class="tile-cover" style="width: 150px; height: 200px; overflow: hidden; background: var(--color-bg); display: flex; align-items: center; justify-content: center;">
     <% if game.cover_url.present? %>
       <%= image_tag game.cover_url(size: "t_cover_big"),
                     alt: game.title, loading: "lazy",
                     style: "width: 100%; height: 100%; object-fit: cover; display: block;" %>
     <% else %>
-      <span class="bracketed-active text-muted">[no cover]</span>
+      <%# Theme-aware fallback. Mirrors the `Games::CoverComponent`
+          missing-cover treatment: emit both light + dark SVGs, let
+          the `.game-cover-fallback--{light,dark}` CSS rule pick the
+          visible one based on `<html data-theme>` (set client-side
+          by the theme Stimulus controller). %>
+      <%= image_tag image_path("game_cover_fallback_grid_light.svg"),
+                    alt: "no cover available", loading: "lazy",
+                    width: 150, height: 200,
+                    data: { theme: "light" },
+                    class: "game-cover-fallback game-cover-fallback--light",
+                    style: "width: 100%; height: 100%; object-fit: cover; display: block;" %>
+      <%= image_tag image_path("game_cover_fallback_grid_dark.svg"),
+                    alt: "no cover available", loading: "lazy",
+                    width: 150, height: 200,
+                    data: { theme: "dark" },
+                    class: "game-cover-fallback game-cover-fallback--dark",
+                    style: "width: 100%; height: 100%; object-fit: cover; display: block;" %>
     <% end %>
   </div>
   <div class="tile-caption" style="padding: 4px 0 0 0; font-size: <%= caption_font_size %>; max-width: 150px;">

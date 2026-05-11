@@ -3,10 +3,16 @@ require "rails_helper"
 # Phase 25 — 01e. Request specs for /settings/security/totp_backup_codes.
 RSpec.describe "Settings::Security::TotpBackupCodes", type: :request do
   let(:seed) { "JBSWY3DPEHPK3PXP" }
+  let(:password) { "password123" }
   let(:user) { User.first || create(:user) }
 
   before do
-    user.update!(totp_seed_encrypted: seed, totp_enabled_at: 1.hour.ago)
+    user.update!(
+      password: password,
+      password_confirmation: password,
+      totp_seed_encrypted: seed,
+      totp_enabled_at: 1.hour.ago
+    )
   end
 
   describe "GET /settings/security/totp_backup_codes" do
@@ -35,28 +41,59 @@ RSpec.describe "Settings::Security::TotpBackupCodes", type: :request do
       get settings_security_new_totp_backup_codes_path
       expect(response).to have_http_status(:ok)
       expect(response.body).to include("regenerate")
-      expect(response.body).to include("[ regenerate ]")
+      # Bracketed-link inner-padding fix: label wrapped in <span class="bl">.
+      expect(response.body).to include('[<span class="bl">regenerate</span>]')
+    end
+
+    it "asks for both password and TOTP code on the regenerate screen" do
+      get settings_security_new_totp_backup_codes_path
+      expect(response.body).to include('name="password"')
+      expect(response.body).to include('name="code"')
+      expect(response.body).to include("password")
+      expect(response.body).to include("authenticator app")
     end
   end
 
   describe "POST /settings/security/totp_backup_codes" do
-    it "regenerates 10 new codes when confirm=yes + correct code" do
+    it "regenerates 10 new codes when confirm=yes + correct password + correct code" do
       code = ROTP::TOTP.new(seed).now
-      post settings_security_totp_backup_codes_path, params: { confirm: "yes", code: code }
+      post settings_security_totp_backup_codes_path,
+           params: { confirm: "yes", password: password, code: code }
       expect(response).to redirect_to(settings_security_totp_backup_codes_path)
       follow_redirect!
       expect(response.body).to include("new codes")
       expect(user.reload.totp_backup_codes.count).to eq(10)
     end
 
-    it "returns 422 when the code is wrong" do
-      post settings_security_totp_backup_codes_path, params: { confirm: "yes", code: "000000" }
+    it "returns 422 when the code is wrong (password right)" do
+      post settings_security_totp_backup_codes_path,
+           params: { confirm: "yes", password: password, code: "000000" }
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(flash.now[:alert]).to include("credentials don't match")
+    end
+
+    it "returns 422 when the password is wrong (code right) and copy is generic" do
+      code = ROTP::TOTP.new(seed).now
+      post settings_security_totp_backup_codes_path,
+           params: { confirm: "yes", password: "nope", code: code }
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(flash.now[:alert]).to include("credentials don't match")
+      # Generic copy — must not leak which field failed.
+      expect(flash.now[:alert]).not_to match(/password/i)
+      expect(flash.now[:alert]).not_to match(/code|totp/i)
+    end
+
+    it "returns 422 when the password is blank" do
+      code = ROTP::TOTP.new(seed).now
+      post settings_security_totp_backup_codes_path,
+           params: { confirm: "yes", password: "", code: code }
       expect(response).to have_http_status(:unprocessable_content)
     end
 
     it "redirects on confirm != yes" do
       code = ROTP::TOTP.new(seed).now
-      post settings_security_totp_backup_codes_path, params: { confirm: "no", code: code }
+      post settings_security_totp_backup_codes_path,
+           params: { confirm: "no", password: password, code: code }
       expect(response).to redirect_to(settings_security_totp_backup_codes_path)
     end
   end

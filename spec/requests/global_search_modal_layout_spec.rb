@@ -69,6 +69,21 @@ RSpec.describe "Global search modal layout integration", type: :request do
       expect(response.body).to include('data-igdb-search-modal-target="input"')
       expect(response.body).to include('data-action="input->igdb-search-modal#search"')
     end
+
+    # 2026-05-11 — the dialog inherited a 420px max-width from
+    # `.confirm-modal`, which clipped the `[search]` button and produced
+    # a horizontal scrollbar. The partial now sets an inline max-width
+    # on the <dialog> and uses `width: min(...)` on the inner so the
+    # layout stays roomy on desktop and fluid on narrow viewports.
+    it "widens the dialog past the default confirm-modal 420px cap" do
+      get "/"
+      expect(response.body).to match(/id="igdb-search-modal"[^>]*style="max-width:\s*720px;?"/)
+    end
+
+    it "lets the inner container scale fluidly on narrow viewports" do
+      get "/"
+      expect(response.body).to include('style="width: min(720px, 92vw);"')
+    end
   end
 
   describe "overwrite modal copy" do

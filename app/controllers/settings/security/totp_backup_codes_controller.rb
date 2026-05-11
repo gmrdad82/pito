@@ -45,6 +45,13 @@ class Settings::Security::TotpBackupCodesController < ApplicationController
   end
 
   # POST /settings/security/totp_backup_codes
+  #
+  # Defense-in-depth gate. Regenerating backup codes invalidates every
+  # existing unused code; we ask for BOTH the current password and a
+  # fresh TOTP code so a captured authenticated cookie cannot rotate
+  # the recovery channel out from under the user. Failure copy is
+  # intentionally generic — the response must not leak whether the
+  # password or the code was the failing field.
   def create
     unless Current.user.totp_enabled?
       redirect_to settings_security_totp_path,
@@ -52,8 +59,9 @@ class Settings::Security::TotpBackupCodesController < ApplicationController
       return
     end
 
-    confirm = params[:confirm].to_s
-    code    = params[:code].to_s.strip
+    confirm  = params[:confirm].to_s
+    password = params[:password].to_s
+    code     = params[:code].to_s.strip
 
     if confirm != "yes"
       redirect_to settings_security_totp_backup_codes_path,
@@ -61,8 +69,11 @@ class Settings::Security::TotpBackupCodesController < ApplicationController
       return
     end
 
-    if Auth::TotpVerifier.call(user: Current.user, code: code) != :ok
-      flash.now[:alert] = "login failed."
+    password_ok = password.present? && Current.user.authenticate(password)
+    code_ok     = Auth::TotpVerifier.call(user: Current.user, code: code) == :ok
+
+    unless password_ok && code_ok
+      flash.now[:alert] = "credentials don't match."
       render :new, status: :unprocessable_content
       return
     end

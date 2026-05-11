@@ -35,8 +35,10 @@ RSpec.describe "Games index — nested shelves (01c-v2)", type: :system do
       visit games_path
       outer = find("section.shelf--genres.outer-shelf")
       expect(outer).to have_css("h2", text: "genres")
+      # Phase 27 follow-up (2026-05-11) — lowercase display labels.
+      # "Adventure" → "adventure"; "rpg" / "platformer" already lower.
       headings = outer.all("h3").map(&:text)
-      expect(headings).to eq(%w[Adventure platformer rpg])
+      expect(headings).to eq(%w[adventure platformer rpg])
     end
 
     it "skips empty genres entirely (no sub-shelf rendered for them)" do
@@ -49,11 +51,12 @@ RSpec.describe "Games index — nested shelves (01c-v2)", type: :system do
       visit games_path
       outer = find("section.shelf--genres.outer-shelf")
       headings = outer.all("h3").map(&:text)
-      expect(headings).to eq([ "Adventure" ])
+      # Phase 27 follow-up (2026-05-11) — lowercase display label.
+      expect(headings).to eq([ "adventure" ])
     end
   end
 
-  describe "Custom collections outer shelf" do
+  describe "Collections outer shelf (single-row tile-per-collection)" do
     it "is HIDDEN when no collection owns any game" do
       create(:collection, name: "Empty collection")  # zero games
       visit games_path
@@ -61,7 +64,10 @@ RSpec.describe "Games index — nested shelves (01c-v2)", type: :system do
       expect(page).not_to have_content("(no collections yet)")
     end
 
-    it "renders the 'custom collections' <h2> and one sub-shelf per non-empty collection, alphabetical" do
+    it "renders the 'collections' <h2> and ONE tile per non-empty collection, alphabetical" do
+      # Phase 27 follow-up (2026-05-11) — restructured from nested
+      # sub-shelves to a single horizontal-scroll row of collection
+      # tiles. Click a tile → modal lists the games (Turbo Frame).
       retro  = create(:collection, name: "Retro")
       replay = create(:collection, name: "Replay queue")
 
@@ -70,9 +76,73 @@ RSpec.describe "Games index — nested shelves (01c-v2)", type: :system do
 
       visit games_path
       outer = find("section.shelf--collections.outer-shelf")
-      expect(outer).to have_css("h2", text: "custom collections")
-      headings = outer.all("h3").map(&:text)
-      expect(headings).to eq([ "Replay queue", "Retro" ])
+      expect(outer).to have_css("h2", text: "collections")
+      tiles = outer.all(".collection-tile")
+      names = tiles.map { |t| t.find(".collection-tile-name").text }
+      expect(names).to eq([ "Replay queue", "Retro" ])
+    end
+
+    it "does NOT render the legacy per-collection sub-shelves on /games" do
+      retro = create(:collection, name: "Retro")
+      create(:game, :synced, title: "Chrono Trigger", collection: retro)
+      visit games_path
+      expect(page).not_to have_css('[data-shelf="collection-sub"]')
+    end
+
+    it "wires each tile to the collections-modal-trigger Stimulus controller" do
+      retro = create(:collection, name: "Retro")
+      create(:game, :synced, title: "Chrono Trigger", collection: retro)
+      visit games_path
+      tile = find(".collection-tile")
+      expect(tile["data-controller"]).to include("collections-modal-trigger")
+      expect(tile["data-action"]).to include("click->collections-modal-trigger#open")
+      expect(tile["data-collections-modal-trigger-url-value"]).to end_with("/games_pane")
+    end
+
+    it "emits the layout-level <dialog id=\"collections-modal\"> with a Turbo Frame" do
+      retro = create(:collection, name: "Retro")
+      create(:game, :synced, title: "Chrono Trigger", collection: retro)
+      visit games_path
+      expect(page).to have_css('dialog#collections-modal', visible: false)
+      expect(page).to have_css('turbo-frame#collections_modal_frame', visible: false)
+    end
+  end
+
+  describe "Collections modal flow (full click chain via JS-off fallback + pane GET)" do
+    # `Games::PrepareCollectionsForShelf` (composer warmup) runs on
+    # the `/games` index path; 2+ games per collection triggers a
+    # live IGDB CDN GET that WebMock blocks in test. Stub the
+    # composer so the `visit games_path` test stays focused on the
+    # collection-tile wiring rather than the CDN fetch path.
+    before do
+      allow(Games::PrepareCollectionsForShelf).to receive(:new).and_return(
+        instance_double(Games::PrepareCollectionsForShelf, call: nil)
+      )
+    end
+
+    let!(:retro)  { create(:collection, name: "Retro") }
+    let!(:chrono) { create(:game, :synced, title: "Chrono Trigger", collection: retro) }
+    let!(:bound)  { create(:game, :synced, title: "EarthBound",     collection: retro) }
+
+    it "the tile's href fallback navigates to the collection show page (JS-off path)" do
+      visit games_path
+      tile = find(".collection-tile")
+      expect(tile["href"]).to eq("/collections/#{retro.slug}")
+    end
+
+    it "the games-pane fragment lists each game with an <a> linking to its show page" do
+      # The modal Turbo Frame populates via this URL; visiting it
+      # directly is the rack_test-friendly equivalent of opening the
+      # modal and waiting for the frame to swap in.
+      visit games_pane_collection_path(retro)
+      expect(page).to have_link(href: game_path(chrono))
+      expect(page).to have_link(href: game_path(bound))
+    end
+
+    it "clicking a game tile from the games-pane fragment navigates to the game show page" do
+      visit games_pane_collection_path(retro)
+      find("a[data-tile-game-id='#{chrono.id}']").click
+      expect(page).to have_current_path(game_path(chrono))
     end
   end
 

@@ -1,7 +1,14 @@
 require "rails_helper"
 
 RSpec.describe "Settings", type: :request do
-  let(:search_engine) { instance_double(Search::MeilisearchEngine, healthy?: true, index_stats: {}) }
+  let(:search_engine) do
+    instance_double(
+      Search::MeilisearchEngine,
+      healthy?: true,
+      index_stats: {},
+      per_index_stats: {}
+    )
+  end
 
   before do
     allow(Search).to receive(:engine).and_return(search_engine)
@@ -22,138 +29,191 @@ RSpec.describe "Settings", type: :request do
     # credentials still happens via `rails credentials:edit` per
     # CLAUDE.md's secrets-only-in-credentials hard rule.
 
-    it "does NOT render the YouTube OAuth client credentials FORM (no inputs)" do
-      get settings_path
-      # The Phase 24 form fields are gone — assert by `name=`
-      # attribute, the unambiguous form-input fingerprint.
-      expect(response.body).not_to include('name="settings[youtube_client_id]"')
-      expect(response.body).not_to include('name="settings[youtube_client_secret]"')
-      expect(response.body).not_to include('name="settings[youtube_redirect_uri]"')
-    end
+    # 2026-05-11 — YouTube credentials moved out of
+    # `Rails.application.credentials.google_oauth` into the AppSetting
+    # singleton (Voyage-style edit form). The pane is now an EDIT
+    # form, not a read-only status card; assertions target form
+    # fields, placeholders, and the "leave blank to keep current"
+    # hint mirrored from Voyage.
 
-    it "renders the YouTube credentials read-only status card" do
-      # Pin every lookup to nil so the row labels render against a
-      # deterministic "not configured" install state. Without the
-      # stub, the test would depend on whatever the project's actual
-      # credentials happen to populate under `:google_oauth` — and
-      # the assertion about "not configured" would flake.
-      creds = Rails.application.credentials
-      allow(Rails.application).to receive(:credentials).and_return(creds)
-      allow(creds).to receive(:dig).and_call_original
-      allow(creds).to receive(:dig).with(:google_oauth, anything).and_return(nil)
-
+    it "renders the YouTube credentials edit form with all four fields" do
+      AppSetting.delete_all
       get settings_path
       expect(response.body).to include("<h2>YouTube</h2>")
-      # Each lookup row from `youtube_credentials_status` appears as
-      # a labelled `<li>`. Status copy reflects the install state.
+      # Field labels mirror the four-row layout.
       expect(response.body).to include("public API key")
       expect(response.body).to include("OAuth client ID")
       expect(response.body).to include("OAuth client secret")
       expect(response.body).to include("OAuth redirect URI")
-      # Every row reads "not configured" because we stubbed
-      # `:google_oauth, *` to return nil.
-      expect(response.body).to include("not configured")
-      # The card points the operator at the editing command.
-      expect(response.body).to include("rails credentials:edit")
+      # Four `name=` form inputs — the unambiguous form-input
+      # fingerprint.
+      expect(response.body).to include('name="settings[youtube_api_key]"')
+      expect(response.body).to include('name="settings[youtube_client_id]"')
+      expect(response.body).to include('name="settings[youtube_client_secret]"')
+      expect(response.body).to include('name="settings[youtube_redirect_uri]"')
+      # Section identifier on the wire.
+      expect(response.body).to match(/<input type="hidden" name="section" value="youtube">/)
     end
 
-    # 2026-05-10 fix — the YouTube credentials live in the
-    # `:google_oauth` block of `Rails.application.credentials`, not
-    # in a `:youtube` block. The previous lookup pointed at
-    # `:youtube, :public_api_key` (etc.) and always returned nil, so
-    # the pane mis-reported "not configured" on installs whose
-    # credentials were correctly populated. Stubs target the new
-    # paths.
-    it "renders 'configured' on the YouTube card when a credential is present" do
-      # Stub the YouTube lookup path only. Other credential paths
-      # (sessions / auth, voyage, etc.) keep their normal behaviour
-      # via `and_call_original`, so the rest of the request pipeline
-      # is unaffected.
-      creds = Rails.application.credentials
-      allow(Rails.application).to receive(:credentials).and_return(creds)
-      allow(creds).to receive(:dig).and_call_original
-      allow(creds).to receive(:dig).with(:google_oauth, :api_key).and_return("pk_test")
-      allow(creds).to receive(:dig).with(:google_oauth, :client_id).and_return(nil)
-      allow(creds).to receive(:dig).with(:google_oauth, :client_secret).and_return(nil)
-      allow(creds).to receive(:dig).with(:google_oauth, :redirect_uri).and_return(nil)
-
+    it "renders the YouTube pane inside a PATCH form, not a read-only list" do
+      AppSetting.delete_all
       get settings_path
-      expect(response.body).to include("public API key")
-      expect(response.body).to include("configured")
-      # And confirm the other rows still say "not configured".
-      expect(response.body).to include("OAuth client ID")
-      expect(response.body).to include("not configured")
-    end
-
-    # 2026-05-10 fix — pin the actual credentials-dig paths used by
-    # `youtube_credentials_status`. The before/after of the
-    # credentials-detection fix:
-    #
-    #   * before: `Rails.application.credentials.dig(:youtube, *)`
-    #     — `:youtube` is not a block in the project credentials so
-    #     every row read as nil → "not configured", regardless of
-    #     whether the install had real keys.
-    #   * after: `Rails.application.credentials.dig(:google_oauth, *)`
-    #     where `:google_oauth` is the actual block (NOT
-    #     per-environment nested; matches `:igdb` / `:owner` /
-    #     `:tokens`). The key inside changes from `:public_api_key`
-    #     to `:api_key` for the public API key row.
-    #
-    # Asserting on the exact `dig` arity / arguments pins the new
-    # contract.
-    it "reads YouTube credentials out of the :google_oauth block (not :youtube)" do
-      creds = Rails.application.credentials
-      allow(Rails.application).to receive(:credentials).and_return(creds)
-      allow(creds).to receive(:dig).and_call_original
-
-      get settings_path
-
-      expect(creds).to have_received(:dig).with(:google_oauth, :api_key)
-      expect(creds).to have_received(:dig).with(:google_oauth, :client_id)
-      expect(creds).to have_received(:dig).with(:google_oauth, :client_secret)
-      expect(creds).to have_received(:dig).with(:google_oauth, :redirect_uri)
-      # And the previous (broken) `:youtube` paths are no longer hit.
-      expect(creds).not_to have_received(:dig).with(:youtube, anything)
-    end
-
-    # 2026-05-10 fix — when every `:google_oauth` lookup returns a
-    # populated value, every row reads "configured" (the user's bug:
-    # the install had real credentials but every row mis-reported
-    # "not configured" because the lookup pointed at the wrong block).
-    it "renders 'configured' for every row when all :google_oauth keys are populated" do
-      creds = Rails.application.credentials
-      allow(Rails.application).to receive(:credentials).and_return(creds)
-      allow(creds).to receive(:dig).and_call_original
-      allow(creds).to receive(:dig).with(:google_oauth, :api_key).and_return("k_api")
-      allow(creds).to receive(:dig).with(:google_oauth, :client_id).and_return("k_id")
-      allow(creds).to receive(:dig).with(:google_oauth, :client_secret).and_return("k_secret")
-      allow(creds).to receive(:dig).with(:google_oauth, :redirect_uri).and_return("https://example.test/cb")
-
-      get settings_path
-
-      # Walk the four labelled rows and assert each reads "configured"
-      # — without scanning blindly for the string "configured", which
-      # is also the substring of "not configured".
-      [ "public API key", "OAuth client ID", "OAuth client secret", "OAuth redirect URI" ].each do |label|
-        # Each row renders as
-        #   <li><span>LABEL:</span> <span class="text-muted">configured</span></li>
-        # Match the label followed by the muted-configured span, with
-        # whitespace flexibility but NO `not configured` allowed
-        # between.
-        expect(response.body).to match(
-          /#{Regexp.escape(label)}:\s*<\/span>\s*<span class="text-muted">\s*configured\s*<\/span>/m
-        )
-      end
-      # And the YouTube card itself never falls back to the danger
-      # state. We scope the check to the YouTube fieldset rather than
-      # the whole page because the `search` pane (under `stack`) ALSO
-      # renders a "Voyage embeddings: not configured" line when the
-      # Voyage API key is absent — unrelated to the YouTube card.
       youtube_section = response.body[
         /<legend><h2>YouTube<\/h2><\/legend>.*?<\/fieldset>/m
       ]
       expect(youtube_section).not_to be_nil
-      expect(youtube_section).not_to include("not configured")
+      # The old read-only `<ul>` list and the credentials-edit hint
+      # are gone.
+      expect(youtube_section).not_to include("<ul")
+      expect(youtube_section).not_to include("Rails.application.credentials.google_oauth")
+      expect(youtube_section).not_to include("rails credentials:edit")
+    end
+
+    describe "sensitive field placeholders" do
+      it "renders 'no key configured' when api_key + client_secret are blank" do
+        AppSetting.delete_all
+        get settings_path
+        expect(response.body).to match(
+          /name="settings\[youtube_api_key\]"[^>]*placeholder="no key configured"/
+        )
+        expect(response.body).to match(
+          /name="settings\[youtube_client_secret\]"[^>]*placeholder="no key configured"/
+        )
+      end
+
+      it "renders 'key configured (•••••••)' when api_key + client_secret are set, and never echoes the plaintext" do
+        AppSetting.delete_all
+        AppSetting.create!(
+          key: "max_panes", value: "5",
+          youtube_api_key: "AIzaSyFAKEAPIKEYPLAINTEXT_42",
+          youtube_client_secret: "GOCSPX-FAKE_CLIENT_SECRET_42"
+        )
+        get settings_path
+        expect(response.body).to include('placeholder="key configured (•••••••)"')
+        # The plaintext NEVER lands in the response body.
+        expect(response.body).not_to include("AIzaSyFAKEAPIKEYPLAINTEXT_42")
+        expect(response.body).not_to include("GOCSPX-FAKE_CLIENT_SECRET_42")
+      end
+
+      it "uses type=password for the two sensitive fields" do
+        AppSetting.delete_all
+        get settings_path
+        expect(response.body).to match(
+          /<input type="password"[^>]*name="settings\[youtube_api_key\]"/
+        )
+        expect(response.body).to match(
+          /<input type="password"[^>]*name="settings\[youtube_client_secret\]"/
+        )
+      end
+    end
+
+    describe "non-sensitive field placeholders" do
+      it "renders the stored client_id verbatim as the placeholder" do
+        AppSetting.delete_all
+        AppSetting.create!(
+          key: "max_panes", value: "5",
+          youtube_client_id: "987654-abc.apps.googleusercontent.com"
+        )
+        get settings_path
+        expect(response.body).to match(
+          /name="settings\[youtube_client_id\]"[^>]*placeholder="987654-abc\.apps\.googleusercontent\.com"/
+        )
+      end
+
+      it "renders the stored redirect_uri verbatim as the placeholder" do
+        AppSetting.delete_all
+        AppSetting.create!(
+          key: "max_panes", value: "5",
+          youtube_redirect_uri: "https://custom.example.test/cb"
+        )
+        get settings_path
+        expect(response.body).to match(
+          /name="settings\[youtube_redirect_uri\]"[^>]*placeholder="https:\/\/custom\.example\.test\/cb"/
+        )
+      end
+
+      it "renders the production fallback + '(default)' suffix on the redirect_uri placeholder when blank" do
+        AppSetting.delete_all
+        get settings_path
+        expect(response.body).to match(
+          %r{name="settings\[youtube_redirect_uri\]"[^>]*placeholder="https://app\.pitomd\.com/auth/google/callback \(default\)"}
+        )
+      end
+    end
+
+    describe "clear checkboxes (Voyage pattern)" do
+      it "renders no clear checkboxes when every field is blank" do
+        AppSetting.delete_all
+        get settings_path
+        expect(response.body).not_to include('name="settings[clear_youtube_api_key]"')
+        expect(response.body).not_to include('name="settings[clear_youtube_client_id]"')
+        expect(response.body).not_to include('name="settings[clear_youtube_client_secret]"')
+        expect(response.body).not_to include('name="settings[clear_youtube_redirect_uri]"')
+      end
+
+      it "renders a clear checkbox only for fields that are populated" do
+        AppSetting.delete_all
+        AppSetting.create!(
+          key: "max_panes", value: "5",
+          youtube_api_key: "k_api",
+          youtube_client_id: "k_id"
+        )
+        get settings_path
+        # Two fields are set → two checkboxes.
+        expect(response.body).to include('name="settings[clear_youtube_api_key]" value="yes"')
+        expect(response.body).to include('name="settings[clear_youtube_client_id]" value="yes"')
+        # Two fields are blank → no checkboxes for them.
+        expect(response.body).not_to include('name="settings[clear_youtube_client_secret]"')
+        expect(response.body).not_to include('name="settings[clear_youtube_redirect_uri]"')
+      end
+
+      it "ships yes/no values on the wire (not true/false)" do
+        AppSetting.delete_all
+        AppSetting.create!(
+          key: "max_panes", value: "5",
+          youtube_api_key: "k_api"
+        )
+        get settings_path
+        expect(response.body).to include('name="settings[clear_youtube_api_key]" value="yes"')
+        expect(response.body).not_to include('name="settings[clear_youtube_api_key]" value="true"')
+        expect(response.body).not_to include('name="settings[clear_youtube_api_key]" value="false"')
+      end
+    end
+
+    describe "'leave blank to keep current' hint" do
+      it "renders the hint when at least one field is configured" do
+        AppSetting.delete_all
+        AppSetting.create!(
+          key: "max_panes", value: "5",
+          youtube_api_key: "k_api"
+        )
+        get settings_path
+        expect(response.body).to include("leave blank to keep current; submit to replace.")
+      end
+
+      it "hides the hint when every field is blank" do
+        AppSetting.delete_all
+        get settings_path
+        youtube_section = response.body[
+          /<legend><h2>YouTube<\/h2><\/legend>.*?<\/fieldset>/m
+        ]
+        expect(youtube_section).not_to include("leave blank to keep current")
+      end
+    end
+
+    it "renders the encrypted-at-rest footer line" do
+      AppSetting.delete_all
+      get settings_path
+      expect(response.body).to include("credentials stored encrypted in the database; never echoed.")
+    end
+
+    it "renders the encrypted-at-rest footer line inside the Voyage.ai pane" do
+      AppSetting.delete_all
+      get settings_path
+      voyage_section = response.body[
+        /<legend><h2>Voyage\.ai<\/h2><\/legend>.*?<\/fieldset>/m
+      ]
+      expect(voyage_section).to include("credentials stored encrypted in the database; never echoed.")
     end
 
     it "does NOT render the Google connection card" do
@@ -230,14 +290,19 @@ RSpec.describe "Settings", type: :request do
       expect(response.body).to match(/<input type="radio" name="settings\[voyage_index_project_notes\]" value="yes"[^>]*\bchecked\b/)
     end
 
-    it "renders three independent forms (workspaces, appearance, voyage)" do
-      # Phase 24 — youtube_oauth section is gone with the Google card.
+    it "renders four independent forms (workspaces, appearance, voyage, youtube)" do
+      # 2026-05-11 — YouTube credentials moved into the AppSetting
+      # singleton; the YouTube pane is now an edit form with section
+      # identifier `youtube` (NOT `youtube_oauth`, which was the
+      # dropped Phase 24 form).
       get settings_path
       # Each per-section form carries a hidden `section` field.
       expect(response.body).to include('value="workspaces"')
       expect(response.body).to include('value="appearance"')
-      expect(response.body).not_to include('value="youtube_oauth"')
       expect(response.body).to include('value="voyage"')
+      expect(response.body).to include('value="youtube"')
+      # The dropped Phase 24 section value is still gone.
+      expect(response.body).not_to include('value="youtube_oauth"')
     end
 
     # Phase B polish (2026-05-04) — the per-target Voyage flag radios are
@@ -295,9 +360,10 @@ RSpec.describe "Settings", type: :request do
       AppSetting.set("max_panes", "5")
       AppSetting.first.update!(voyage_api_key: "vk_test")
       get settings_path
-      # Phase 24 — three per-section forms remain (Google/YouTube cards
-      # removed): appearance, workspaces, voyage.
-      expect(response.body.scan("[update]").length).to be >= 3
+      # 2026-05-11 — four per-section forms now: appearance,
+      # workspaces, voyage, youtube (YouTube credentials moved into
+      # AppSetting as a Voyage-style edit form).
+      expect(response.body.scan("[update]").length).to be >= 4
       # The pre-revamp `[save]` text is gone everywhere on the page.
       expect(response.body).not_to include("[save]")
     end
@@ -312,18 +378,22 @@ RSpec.describe "Settings", type: :request do
       # 2026-05-11 — Phase 26 / 01b + 01c Slack + Discord webhook
       # panes land as a new paired row, lifting the totals to six
       # rows / eleven panes.
+      # 2026-05-11 (later) — stack restructure per user direction:
+      # Redis demoted from a standalone pane into a hairline-fenced
+      # sub-section of the new `db` pane (which replaced `sql`), and
+      # storage goes to a single wide pane (`.pane--wide`) with a
+      # 2-column inner layout (assets | notes). Total drops to
+      # eleven panes across the same six pane-rows.
       # Layout:
       #   row 1 — ui / ux | workspaces        (2 panes)
-      #   row 2 — search | Voyage.ai          (2 panes)
-      #   row 3 — YouTube (status, single)    (1 pane, right empty)
-      #   row 4 — user | time zone            (2 panes; Phase 26 01a)
-      #   row 5 — Slack | Discord             (2 panes; Phase 26 01b/01c)
-      #   row 6 — OAuth+tokens | sessions     (2 panes; the OAuth /
+      #   row 2 — YouTube | Voyage.ai         (2 panes)
+      #   row 3 — user | time zone            (2 panes; Phase 26 01a)
+      #   row 4 — OAuth+tokens | sessions     (2 panes; the OAuth /
       #     tokens cell still combines TWO sub-sections separated by
       #     a `<hr class="hairline">`, but counts as one pane).
-      # NOTE: the inline `<%# Row N — … %>` labels in the ERB renumber
-      # rows 3..5 to 4..6 for the layered (single-pane) rows; the test
-      # only cares about the rendered structure, not the comment label.
+      #   stack row 1 — db | search           (2 panes; db combines
+      #     Postgres + Redis fenced by a hairline)
+      #   stack row 2 — storage (single wide pane, no right cell)
       get settings_path
       expect(response.body.scan(/class="pane-row"/).length).to eq(6)
       panes = response.body.scan(/class="pane(?:\s[^"]*)?"/).size
@@ -388,14 +458,15 @@ RSpec.describe "Settings", type: :request do
       idx_oauth_apps = response.body.index("<h2>OAuth applications</h2>")
       idx_tokens     = response.body.index("<h2>tokens</h2>")
       idx_sessions   = response.body.index("<h2>sessions</h2>")
-      # stack
-      idx_sql        = response.body.index("<h2>sql</h2>")
+      # stack — 2026-05-11 (later) `sql` renamed to `db`; the Redis
+      # block lives inside the `db` pane (no standalone heading).
+      idx_db         = response.body.index("<h2>db</h2>")
       idx_search     = response.body.index("<h2>search</h2>")
       idx_storage    = response.body.index("<h2>storage</h2>")
 
       indices = [ idx_appearance, idx_workspaces, idx_user, idx_time_zone,
                   idx_youtube, idx_voyage, idx_oauth_apps, idx_tokens, idx_sessions,
-                  idx_sql, idx_search, idx_storage ]
+                  idx_db, idx_search, idx_storage ]
       expect(indices).to all(be_a(Integer))
       expect(indices).to eq(indices.sort)
     end
@@ -416,15 +487,638 @@ RSpec.describe "Settings", type: :request do
     # 2026-05-10 — `sql`, `storage`, `search` panes carry connectivity
     # / presence copy. Asserting the headings + status copy pins the
     # stack section so a future ivar rename can't silently break it.
-    it "renders the stack section with sql, search, storage panes" do
+    # 2026-05-11 (later) — `sql` renamed to `db`; Redis demoted from a
+    # standalone pane into a hairline-fenced row inside the `db`
+    # pane. Storage gets a 2-column inner layout (`assets` + `notes`,
+    # renamed from `pito-assets`) on a single wide pane.
+    it "renders the stack section with db, search, storage panes" do
       get settings_path
-      expect(response.body).to include("<h2>sql</h2>")
+      expect(response.body).to include("<h2>db</h2>")
       expect(response.body).to include("<h2>search</h2>")
       expect(response.body).to include("<h2>storage</h2>")
-      # `sql` pane surfaces the database name + version when connected.
+      # `sql` heading is gone (renamed).
+      expect(response.body).not_to include("<h2>sql</h2>")
+      # `redis` standalone heading is gone (folded into `db`).
+      expect(response.body).not_to include("<h2>redis</h2>")
+      # `db` pane surfaces both Postgres + Redis labels.
       expect(response.body).to include("Postgres")
-      # `storage` pane surfaces the resolved path.
-      expect(response.body).to include("pito-assets")
+      expect(response.body).to include(">Redis<")
+      # `storage` pane covers BOTH assets AND notes columns.
+      expect(response.body).to include(">assets<")
+      expect(response.body).to include(">notes<")
+      # `pito-assets` display label was renamed to `assets`; the
+      # on-disk volume name still appears nowhere user-visible in
+      # the storage pane.
+      storage_section = response.body[/<legend><h2>storage<\/h2><\/legend>.*?<\/fieldset>/m]
+      expect(storage_section).not_to be_nil
+      expect(storage_section).not_to include("pito-assets")
+    end
+
+    # 2026-05-11 (later 2) — per user direction the Postgres half
+    # drops version / database / total rows / total size on disk.
+    # The status badge above the per-model breakdown table is the
+    # only Postgres surface besides the table itself.
+    describe "db pane Postgres lines dropped (later 2 refactor)" do
+      it "does not render the version / database / rows / size-on-disk lines" do
+        get settings_path
+        db_section = response.body[/<legend><h2>db<\/h2><\/legend>.*?<\/fieldset>/m]
+        expect(db_section).not_to be_nil
+        expect(db_section).not_to include("version:")
+        expect(db_section).not_to include("database:")
+        expect(db_section).not_to include("rows:")
+        expect(db_section).not_to include("size on disk:")
+      end
+    end
+
+    # 2026-05-11 (later 2) — per user direction the Meilisearch
+    # half drops the flat `indexed documents` list and the
+    # `total index size` summary. The new surface is a per-index
+    # `index | documents | size` table sourced from
+    # `Search.engine.per_index_stats`.
+    describe "search pane per-index breakdown" do
+      let(:engine) { instance_double(Search::MeilisearchEngine) }
+
+      before do
+        allow(Search).to receive(:engine).and_return(engine)
+        allow(engine).to receive(:healthy?).and_return(true)
+        allow(engine).to receive(:index_stats).and_return({})
+      end
+
+      it "renders a per-index table with documents + size columns" do
+        allow(engine).to receive(:per_index_stats).and_return(
+          "channels_development" => { documents: 12, size_bytes: 4_500_000 },
+          "videos_development"   => { documents: 9_876, size_bytes: 50_000_000 }
+        )
+        get settings_path
+        search_section = response.body[/<legend><h2>search<\/h2><\/legend>.*?<\/fieldset>/m]
+        expect(search_section).not_to be_nil
+        # Headers.
+        expect(search_section).to include(">index<")
+        expect(search_section).to include(">documents<")
+        expect(search_section).to include(">size<")
+        # Display labels strip the env suffix.
+        expect(search_section).to include(">channels<")
+        expect(search_section).to include(">videos<")
+        # number_with_delimiter on documents.
+        expect(search_section).to include("9,876")
+        # number_to_human_size on bytes — 50_000_000 → "47.7 MB" (binary).
+        expect(search_section).to include("47.7 MB")
+        # Right-alignment class on numeric cells.
+        expect(search_section).to include('class="text-muted num"')
+      end
+
+      it "drops the flat 'indexed documents' list and the 'total index size' line" do
+        allow(engine).to receive(:per_index_stats).and_return(
+          "channels_development" => { documents: 12, size_bytes: 4_500_000 }
+        )
+        get settings_path
+        search_section = response.body[/<legend><h2>search<\/h2><\/legend>.*?<\/fieldset>/m]
+        expect(search_section).not_to include("indexed documents")
+        expect(search_section).not_to include("total index size")
+      end
+
+      it "hides the table when the engine returns no per-index stats" do
+        allow(engine).to receive(:per_index_stats).and_return({})
+        get settings_path
+        search_section = response.body[/<legend><h2>search<\/h2><\/legend>.*?<\/fieldset>/m]
+        expect(search_section).not_to be_nil
+        expect(search_section).not_to include(">documents<")
+      end
+
+      it "sorts rows by documents descending" do
+        allow(engine).to receive(:per_index_stats).and_return(
+          "channels_development" => { documents: 12,    size_bytes: 4_500_000 },
+          "videos_development"   => { documents: 9_876, size_bytes: 50_000_000 },
+          "projects_development" => { documents: 100,   size_bytes: 1_000_000 }
+        )
+        get settings_path
+        search_section = response.body[/<legend><h2>search<\/h2><\/legend>.*?<\/fieldset>/m]
+        order = %w[videos projects channels]
+        positions = order.map { |label| search_section.index(">#{label}<") }
+        expect(positions).to all(be_a(Integer))
+        expect(positions).to eq(positions.sort)
+      end
+
+      # The Meilisearch + Voyage embeddings fence with a single
+      # `<hr class="hairline">` survives the refactor.
+      it "separates the Meilisearch and Voyage embeddings blocks with a hairline" do
+        allow(engine).to receive(:per_index_stats).and_return({})
+        get settings_path
+        search_section = response.body[/<legend><h2>search<\/h2><\/legend>.*?<\/fieldset>/m]
+        expect(search_section).not_to be_nil
+        expect(search_section).to include('<hr class="hairline">')
+        idx_hairline = search_section.index('<hr class="hairline">')
+        idx_voyage   = search_section.index("Voyage embeddings")
+        expect(idx_hairline).to be < idx_voyage
+      end
+    end
+
+    # 2026-05-11 (later) — Redis demoted from a standalone pane
+    # into a hairline-fenced sub-section of the `db` pane. The
+    # assertions scope to the `db` pane's fieldset instead of a
+    # `redis` legend. (later 2) — version / memory / keys /
+    # persistence lines dropped per user direction; only the
+    # connectivity badge + Sidekiq breakdown survive.
+    describe "db pane (Redis half)" do
+      let(:redis_double) { instance_double(Redis) }
+
+      it "renders the connected status badge without the dropped meta lines" do
+        allow(Redis).to receive(:new).and_return(redis_double)
+        allow(redis_double).to receive(:info).and_return(
+          "redis_version" => "7.4.1",
+          "used_memory_human" => "2.34M",
+          "aof_enabled" => "0",
+          "rdb_changes_since_last_save" => "0"
+        )
+        allow(redis_double).to receive(:dbsize).and_return(42)
+        allow(redis_double).to receive(:close)
+
+        get settings_path
+        db_section = response.body[/<legend><h2>db<\/h2><\/legend>.*?<\/fieldset>/m]
+        expect(db_section).not_to be_nil
+        expect(db_section).to include(">Redis<")
+        expect(db_section).to include("▲ connected")
+        redis_idx = db_section.index(">Redis<")
+        redis_half = db_section[redis_idx..]
+        # The four dropped meta lines never render.
+        expect(redis_half).not_to include("version:")
+        expect(redis_half).not_to include("memory:")
+        expect(redis_half).not_to include("keys:")
+        expect(redis_half).not_to include("persistence:")
+      end
+
+      it "flips to disconnected on Redis::CannotConnectError without 500ing the page" do
+        allow(Redis).to receive(:new).and_raise(Redis::CannotConnectError.new("nope"))
+        get settings_path
+        expect(response).to have_http_status(:ok)
+        db_section = response.body[/<legend><h2>db<\/h2><\/legend>.*?<\/fieldset>/m]
+        expect(db_section).not_to be_nil
+        # Find the substring AFTER the Redis label so we don't
+        # accidentally match the Postgres "▲ connected" line above.
+        redis_idx = db_section.index(">Redis<")
+        redis_half = db_section[redis_idx..]
+        expect(redis_half).to include("▽ disconnected")
+      end
+
+      it "flips to disconnected on a generic StandardError (defensive rescue)" do
+        allow(Redis).to receive(:new).and_raise(StandardError.new("kaboom"))
+        get settings_path
+        expect(response).to have_http_status(:ok)
+        expect(response.body).to include("<h2>db</h2>")
+        # The Redis half flips to ▽ disconnected.
+        db_section = response.body[/<legend><h2>db<\/h2><\/legend>.*?<\/fieldset>/m]
+        redis_idx = db_section.index(">Redis<")
+        redis_half = db_section[redis_idx..]
+        expect(redis_half).to include("▽ disconnected")
+      end
+
+      # 2026-05-11 (later) — the `db` pane fences the Postgres
+      # block (top) and the Redis block (bottom) with a single
+      # `<hr class="hairline">`, mirroring the Meilisearch /
+      # Voyage embeddings fence in the `search` pane.
+      it "separates the Postgres and Redis blocks with a hairline" do
+        allow(Redis).to receive(:new).and_return(redis_double)
+        allow(redis_double).to receive(:info).and_return(
+          "redis_version" => "7.4.1", "used_memory_human" => "1.00M",
+          "aof_enabled" => "0", "rdb_changes_since_last_save" => "0"
+        )
+        allow(redis_double).to receive(:dbsize).and_return(0)
+        allow(redis_double).to receive(:close)
+
+        get settings_path
+        db_section = response.body[/<legend><h2>db<\/h2><\/legend>.*?<\/fieldset>/m]
+        expect(db_section).not_to be_nil
+        expect(db_section).to include('<hr class="hairline">')
+        idx_hairline = db_section.index('<hr class="hairline">')
+        idx_redis    = db_section.index(">Redis<")
+        expect(idx_hairline).to be < idx_redis
+      end
+    end
+
+    describe "storage pane volumes" do
+      it "renders both assets and notes columns with size + file count" do
+        # `Pito::AssetsRoot.root` returns a Pathname under
+        # `Rails.root/tmp/...` in dev/test. `notes_volume_status_for_settings_pane`
+        # walks `docs/notes/`. Stub the filesystem so the test
+        # doesn't depend on whatever happens to be on disk.
+        assets_path = Rails.root.join("tmp/spec-pito-assets")
+        notes_path = Rails.root.join("docs/notes")
+        allow(Pito::AssetsRoot).to receive(:root).and_return(assets_path)
+        allow(File).to receive(:directory?).and_call_original
+        allow(File).to receive(:directory?).with(assets_path).and_return(true)
+        allow(File).to receive(:directory?).with(assets_path.to_s).and_return(true)
+        allow(File).to receive(:directory?).with(notes_path).and_return(true)
+        allow(File).to receive(:writable?).and_call_original
+        allow(File).to receive(:writable?).with(assets_path).and_return(true)
+        allow(File).to receive(:writable?).with(notes_path).and_return(true)
+        allow(Dir).to receive(:children).with(assets_path.to_s).and_return([])
+        allow(Dir).to receive(:glob).and_call_original
+        allow(Dir).to receive(:glob)
+          .with(File.join(assets_path.to_s, "**", "*"), File::FNM_DOTMATCH)
+          .and_return([ "#{assets_path}/a.bin", "#{assets_path}/b.bin" ])
+        allow(Dir).to receive(:glob)
+          .with(File.join(notes_path.to_s, "**", "*"), File::FNM_DOTMATCH)
+          .and_return([ "#{notes_path}/note-1.md" ])
+        allow(File).to receive(:file?).and_call_original
+        allow(File).to receive(:file?).with("#{assets_path}/a.bin").and_return(true)
+        allow(File).to receive(:file?).with("#{assets_path}/b.bin").and_return(true)
+        allow(File).to receive(:file?).with("#{notes_path}/note-1.md").and_return(true)
+        allow(File).to receive(:size).and_call_original
+        allow(File).to receive(:size).with("#{assets_path}/a.bin").and_return(1_000_000)
+        allow(File).to receive(:size).with("#{assets_path}/b.bin").and_return(500_000)
+        allow(File).to receive(:size).with("#{notes_path}/note-1.md").and_return(2_048)
+        # Bypass Rails.cache so the stubs are exercised on every call.
+        allow(Rails.cache).to receive(:fetch).and_yield
+
+        get settings_path
+        storage_section = response.body[/<legend><h2>storage<\/h2><\/legend>.*?<\/fieldset>/m]
+        expect(storage_section).not_to be_nil
+        # Both column labels are present.
+        expect(storage_section).to include(">assets<")
+        expect(storage_section).to include(">notes<")
+        # The `pito-assets` legacy label is gone from the user-
+        # visible surface (display label only — env var stays).
+        expect(storage_section).not_to include("pito-assets")
+        # Both columns report writable.
+        expect(storage_section.scan("▲ writable").size).to eq(2)
+        # File counts render via `number_with_delimiter`.
+        expect(storage_section).to include("files: 2")
+        expect(storage_section).to include("files: 1")
+      end
+
+      it "no longer renders the path: line (user direction 2026-05-11)" do
+        get settings_path
+        storage_section = response.body[/<legend><h2>storage<\/h2><\/legend>.*?<\/fieldset>/m]
+        expect(storage_section).not_to be_nil
+        expect(storage_section).not_to match(/path:\s*<code>/)
+      end
+
+      it "drops the marketing tagline ('on-disk home for footage thumbnails ...')" do
+        get settings_path
+        storage_section = response.body[/<legend><h2>storage<\/h2><\/legend>.*?<\/fieldset>/m]
+        expect(storage_section).not_to include("on-disk home for footage thumbnails")
+      end
+
+      it "renders ▽ not present + no stats when the assets volume is absent" do
+        absent = Rails.root.join("tmp/definitely-not-here-#{SecureRandom.hex(4)}")
+        allow(Pito::AssetsRoot).to receive(:root).and_return(absent)
+        get settings_path
+        storage_section = response.body[/<legend><h2>storage<\/h2><\/legend>.*?<\/fieldset>/m]
+        expect(storage_section).to include(">assets<")
+        expect(storage_section).to include("▽ not present")
+      end
+    end
+
+    # 2026-05-11 (later) — Postgres per-model breakdown table inside
+    # the `db` pane. Sorted by on-disk size DESC. (later 2) header
+    # column renamed from `table` to `model`; numeric cells right-
+    # align via `class="num"`.
+    describe "db pane Postgres per-model breakdown" do
+      it "renders a 6-row table with the domain models when connected" do
+        get settings_path
+        db_section = response.body[/<legend><h2>db<\/h2><\/legend>.*?<\/fieldset>/m]
+        expect(db_section).not_to be_nil
+        # Header row uses `model` (renamed from `table` in later 2).
+        expect(db_section).to include(">model<")
+        expect(db_section).to include(">rows<")
+        expect(db_section).to include(">size<")
+        # The numeric headers + cells carry the `.num` right-align class.
+        expect(db_section).to include('class="num"')
+        expect(db_section).to include('class="text-muted num"')
+        # Each of the six tables surfaces by its literal table name.
+        %w[channels videos projects games notifications calendar_entries].each do |table|
+          expect(db_section).to include(">#{table}<")
+        end
+      end
+
+      it "sorts rows by on-disk size descending" do
+        # Stub the per-table query so the size order is deterministic.
+        allow(Rails.cache).to receive(:fetch).and_call_original
+        allow_any_instance_of(SettingsController)
+          .to receive(:compute_postgres_table_stats) do |_ctrl, table, _class|
+            sizes = {
+              "channels"         => 1_000,
+              "videos"           => 9_000_000,
+              "projects"         => 2_000,
+              "games"            => 50_000,
+              "notifications"    => 200_000,
+              "calendar_entries" => 7_000
+            }
+            { count: 1, size_bytes: sizes[table] }
+          end
+
+        get settings_path
+        db_section = response.body[/<legend><h2>db<\/h2><\/legend>.*?<\/fieldset>/m]
+        order = %w[videos notifications games calendar_entries projects channels]
+        positions = order.map { |t| db_section.index(">#{t}<") }
+        expect(positions).to all(be_a(Integer))
+        expect(positions).to eq(positions.sort)
+      end
+
+      it "omits the breakdown table when the per-model query raises (pane still renders)" do
+        # Make the inner table-stats helper raise. Both layers
+        # (postgres_table_stats and postgres_table_breakdown_for_settings_pane)
+        # carry an outer `rescue StandardError`; the result is an
+        # empty array, and the view skips the table block.
+        allow_any_instance_of(SettingsController)
+          .to receive(:compute_postgres_table_stats)
+          .and_raise(ActiveRecord::StatementInvalid.new("boom"))
+        get settings_path
+        expect(response).to have_http_status(:ok)
+        db_section = response.body[/<legend><h2>db<\/h2><\/legend>.*?<\/fieldset>/m]
+        expect(db_section).not_to be_nil
+        # No table header — the breakdown block is skipped entirely.
+        expect(db_section).not_to include(">model<")
+        expect(db_section).not_to include(">channels<")
+      end
+    end
+
+    # 2026-05-11 (later 2) — Sidekiq breakdown rebuilt as a 3-row
+    # grouped-header layout per user direction:
+    #   row 1 (thead) — `successful` (colspan 3) | `failed` (colspan 2)
+    #   row 2 (thead) — totals for each header
+    #   row 3 (thead) — busy | scheduled | enqueued | retry | dead
+    #   row 4 (tbody) — five live state counts
+    # All numeric cells right-align via `class="num"`.
+    describe "db pane Sidekiq breakdown" do
+      let(:redis_double) { instance_double(Redis) }
+
+      before do
+        allow(Redis).to receive(:new).and_return(redis_double)
+        allow(redis_double).to receive(:info).and_return(
+          "redis_version" => "7.4.1", "used_memory_human" => "1.00M",
+          "aof_enabled" => "0", "rdb_changes_since_last_save" => "0"
+        )
+        allow(redis_double).to receive(:dbsize).and_return(0)
+        allow(redis_double).to receive(:close)
+      end
+
+      it "renders the 2-group grouped header (successful spans 3, failed spans 2)" do
+        stats = instance_double(Sidekiq::Stats,
+          processed: 14_145, failed: 7_845, enqueued: 7,
+          scheduled_size: 2, retry_size: 1, dead_size: 256
+        )
+        allow(Sidekiq::Stats).to receive(:new).and_return(stats)
+        workers = instance_double(Sidekiq::Workers, size: 3)
+        allow(Sidekiq::Workers).to receive(:new).and_return(workers)
+
+        get settings_path
+        db_section = response.body[/<legend><h2>db<\/h2><\/legend>.*?<\/fieldset>/m]
+        expect(db_section).not_to be_nil
+        # Grouped headers with colspan attributes.
+        expect(db_section).to include('colspan="3"')
+        expect(db_section).to include('colspan="2"')
+        expect(db_section).to match(/<th[^>]*colspan="3"[^>]*>successful<\/th>/)
+        expect(db_section).to match(/<th[^>]*colspan="2"[^>]*>failed<\/th>/)
+        # Totals row sits between the grouped header and the 5-column
+        # state header; the totals carry the .num class.
+        expect(db_section).to match(/<td[^>]*colspan="3"[^>]*>\s*14,145/)
+        expect(db_section).to match(/<td[^>]*colspan="2"[^>]*>\s*7,845/)
+      end
+
+      it "renders the 5 state columns in lifecycle order with right-aligned counts" do
+        stats = instance_double(Sidekiq::Stats,
+          processed: 14_145, failed: 7_845, enqueued: 99,
+          scheduled_size: 2, retry_size: 4, dead_size: 256
+        )
+        allow(Sidekiq::Stats).to receive(:new).and_return(stats)
+        workers = instance_double(Sidekiq::Workers, size: 0)
+        allow(Sidekiq::Workers).to receive(:new).and_return(workers)
+
+        get settings_path
+        db_section = response.body[/<legend><h2>db<\/h2><\/legend>.*?<\/fieldset>/m]
+        # Five state column headers in lifecycle order.
+        order = %w[busy scheduled enqueued retry dead]
+        positions = order.map { |s| db_section.index(">#{s}<") }
+        expect(positions).to all(be_a(Integer))
+        expect(positions).to eq(positions.sort)
+        # Right-aligned numeric cells.
+        expect(db_section).to include('class="text-muted num"')
+        # The dead count renders via number_with_delimiter.
+        expect(db_section).to include("256")
+        # The old single-cell `sidekiq` header is gone (grouped layout).
+        expect(db_section).not_to include(">sidekiq<")
+      end
+
+      it "swallows a Sidekiq::Stats failure (table absent, pane still renders)" do
+        allow(Sidekiq::Stats).to receive(:new).and_raise(Redis::CannotConnectError.new("nope"))
+        get settings_path
+        expect(response).to have_http_status(:ok)
+        db_section = response.body[/<legend><h2>db<\/h2><\/legend>.*?<\/fieldset>/m]
+        expect(db_section).not_to be_nil
+        # No grouped header — controller swallowed the error and
+        # the view skipped the block entirely.
+        expect(db_section).not_to include(">successful<")
+        expect(db_section).not_to include(">failed<")
+      end
+    end
+
+    # 2026-05-11 (later) — `storage` pane 2-column inner layout.
+    # `assets` (left) + `notes` (right) separated by a vertical
+    # hairline gutter. Both columns carry their own
+    # per-subcategory breakdown table.
+    describe "storage pane 2-column layout" do
+      it "renders a vertical hairline gutter between the two columns" do
+        get settings_path
+        storage_section = response.body[/<legend><h2>storage<\/h2><\/legend>.*?<\/fieldset>/m]
+        expect(storage_section).not_to be_nil
+        # The gutter is a 1px-wide column painted with the border
+        # color; the spec pins the unique style fragment that
+        # describes it.
+        expect(storage_section).to include("background: var(--color-border); width: 1px;")
+      end
+
+      it "uses .pane--wide so the inner grid has room for both tables" do
+        get settings_path
+        # The storage pane is the only .pane--wide on the page.
+        expect(response.body).to match(/<div class="pane pane--wide">\s*<fieldset[^>]*>\s*<legend><h2>storage<\/h2><\/legend>/m)
+      end
+
+      it "places assets BEFORE notes in DOM order (left → right)" do
+        get settings_path
+        storage_section = response.body[/<legend><h2>storage<\/h2><\/legend>.*?<\/fieldset>/m]
+        idx_assets = storage_section.index(">assets<")
+        idx_notes  = storage_section.index(">notes<")
+        expect(idx_assets).to be < idx_notes
+      end
+    end
+
+    # 2026-05-11 (later) — `assets` column per-subcategory
+    # breakdown table. User direction (follow-up): "no need for
+    # split. Just major assets type: cover arts, thumbnails,
+    # banners..." The breakdown is now a fixed 4-row allowlist:
+    #   * cover arts — `composites/`
+    #   * thumbnails — `footage_thumbs/`
+    #   * banners    — `banners/` (reserved; may not exist yet)
+    #   * other      — everything else, including Active Storage's
+    #                  2-char-prefix shard directories
+    # All four rows always render — even at 0 files / 0 bytes —
+    # so the operator sees the full asset taxonomy.
+    describe "assets column breakdown table" do
+      it "renders the four allowlisted category labels in fixed order" do
+        allow_any_instance_of(SettingsController)
+          .to receive(:assets_breakdown_for_settings_pane)
+          .and_return([
+            { label: "cover arts", file_count: 200,    size_bytes: 50_000_000 },
+            { label: "thumbnails", file_count: 12_345, size_bytes: 4_500_000_000 },
+            { label: "banners",    file_count: 0,      size_bytes: 0 },
+            { label: "other",      file_count: 30,     size_bytes: 3_000_000 }
+          ])
+
+        get settings_path
+        storage_section = response.body[/<legend><h2>storage<\/h2><\/legend>.*?<\/fieldset>/m]
+        expect(storage_section).not_to be_nil
+        # Header row.
+        expect(storage_section).to include(">category<")
+        # All four allowlisted labels.
+        expect(storage_section).to include(">cover arts<")
+        expect(storage_section).to include(">thumbnails<")
+        expect(storage_section).to include(">banners<")
+        expect(storage_section).to include(">other<")
+        # File counts via `number_with_delimiter`.
+        expect(storage_section).to include("12,345")
+        # Controller's contract: rows render in the order it
+        # returns them (allowlist order: cover arts → thumbnails
+        # → banners → other).
+        order = [ "cover arts", "thumbnails", "banners", "other" ]
+        positions = order.map { |label| storage_section.index(">#{label}<") }
+        expect(positions).to all(be_a(Integer))
+        expect(positions).to eq(positions.sort)
+      end
+
+      it "renders the four-row table even when the assets root is absent" do
+        # Stub the resolved root to a non-existent path so the
+        # controller takes the `assets_breakdown_empty` branch.
+        Dir.mktmpdir do |tmp|
+          ghost = File.join(tmp, "does-not-exist")
+          allow(Pito::AssetsRoot).to receive(:root).and_return(Pathname.new(ghost))
+          get settings_path
+          storage_section = response.body[/<legend><h2>storage<\/h2><\/legend>.*?<\/fieldset>/m]
+          expect(storage_section).not_to be_nil
+          # All four rows still render at 0 / 0 so the operator
+          # sees the asset taxonomy on a greenfield install.
+          expect(storage_section).to include(">category<")
+          expect(storage_section).to include(">cover arts<")
+          expect(storage_section).to include(">thumbnails<")
+          expect(storage_section).to include(">banners<")
+          expect(storage_section).to include(">other<")
+        end
+      end
+
+      # Regression — Active Storage's 2-char-prefix shard
+      # directories used to surface as their raw names (`iz`,
+      # `m4`, `7a`, `47`, `w2`, ...). The allowlist refactor
+      # collapses them into a single `other` row that preserves
+      # total bytes / file count.
+      it "folds Active-Storage-style shard directories into `other`" do
+        Dir.mktmpdir do |tmp|
+          assets_root = Pathname.new(tmp)
+          # Three named categories — one populated, two empty.
+          FileUtils.mkdir_p(assets_root.join("composites"))
+          File.write(assets_root.join("composites/cover.png"), "a" * 100)
+          FileUtils.mkdir_p(assets_root.join("footage_thumbs"))
+          # `banners` directory absent — should still surface at 0/0.
+          # Active Storage shard layout: `<2char>/<2char>/<hash>`.
+          %w[iz m4 7a 47 w2 gl fq].each do |shard|
+            blob_dir = assets_root.join(shard, "ab")
+            FileUtils.mkdir_p(blob_dir)
+            File.write(blob_dir.join("blob-#{shard}"), "x" * 50)
+          end
+
+          allow(Pito::AssetsRoot).to receive(:root).and_return(assets_root)
+          Rails.cache.clear
+
+          get settings_path
+          storage_section = response.body[/<legend><h2>storage<\/h2><\/legend>.*?<\/fieldset>/m]
+          # No raw shard names leak.
+          %w[iz m4 7a 47 w2 gl fq].each do |shard|
+            expect(storage_section).not_to include(">#{shard}<")
+          end
+          # All four allowlisted rows render.
+          expect(storage_section).to include(">cover arts<")
+          expect(storage_section).to include(">thumbnails<")
+          expect(storage_section).to include(">banners<")
+          expect(storage_section).to include(">other<")
+        end
+      end
+
+      # Controller-level regression for the aggregation logic.
+      # Hits the real `compute_assets_breakdown` against a tmp
+      # tree so we lock down the math, not just the rendering.
+      it "aggregates shard directories into a single `other` row at the controller level" do
+        Dir.mktmpdir do |tmp|
+          assets_root = Pathname.new(tmp)
+          FileUtils.mkdir_p(assets_root.join("composites"))
+          File.write(assets_root.join("composites/cover.png"), "a" * 100)
+          # Seven shard dirs, 50 bytes each — `other` total 350.
+          %w[iz m4 7a 47 w2 gl fq].each do |shard|
+            FileUtils.mkdir_p(assets_root.join(shard))
+            File.write(assets_root.join("#{shard}/blob"), "x" * 50)
+          end
+
+          controller = SettingsController.new
+          rows = controller.send(:compute_assets_breakdown, assets_root)
+
+          # Exactly 4 rows in allowlist order.
+          expect(rows.map { |r| r[:label] }).to eq(
+            [ "cover arts", "thumbnails", "banners", "other" ]
+          )
+          # Cover arts: one 100-byte file.
+          cover = rows.find { |r| r[:label] == "cover arts" }
+          expect(cover[:file_count]).to eq(1)
+          expect(cover[:size_bytes]).to eq(100)
+          # Thumbnails: empty (no `footage_thumbs/` dir on disk).
+          thumbs = rows.find { |r| r[:label] == "thumbnails" }
+          expect(thumbs[:file_count]).to eq(0)
+          expect(thumbs[:size_bytes]).to eq(0)
+          # Banners: empty (reserved).
+          banners = rows.find { |r| r[:label] == "banners" }
+          expect(banners[:file_count]).to eq(0)
+          expect(banners[:size_bytes]).to eq(0)
+          # Other: seven shard dirs aggregated.
+          other = rows.find { |r| r[:label] == "other" }
+          expect(other[:file_count]).to eq(7)
+          expect(other[:size_bytes]).to eq(7 * 50)
+        end
+      end
+    end
+
+    # 2026-05-11 (later) — `notes` column per-namespace
+    # breakdown table. Today: project notes (Note rows) + mobile
+    # notes (docs/notes/). Future video / channel notes slot in
+    # via `NOTES_NAMESPACE_SOURCES` in the controller.
+    describe "notes column breakdown table" do
+      it "renders both namespaces with count + size" do
+        allow_any_instance_of(SettingsController)
+          .to receive(:notes_breakdown_for_settings_pane)
+          .and_return([
+            { label: "project notes", count: 42, size_bytes: 5_000_000 },
+            { label: "mobile notes",  count: nil, size_bytes: 1_024 }
+          ])
+
+        get settings_path
+        storage_section = response.body[/<legend><h2>storage<\/h2><\/legend>.*?<\/fieldset>/m]
+        expect(storage_section).not_to be_nil
+        # Header row + the `count` column.
+        expect(storage_section).to include(">namespace<")
+        expect(storage_section).to include(">count<")
+        # Both rows.
+        expect(storage_section).to include(">project notes<")
+        expect(storage_section).to include(">mobile notes<")
+        # Project notes report a real count.
+        expect(storage_section).to include("42")
+        # Mobile notes (count nil) render an em-dash placeholder.
+        expect(storage_section).to include("—")
+      end
+
+      it "renders no breakdown table when the controller returns []" do
+        allow_any_instance_of(SettingsController)
+          .to receive(:notes_breakdown_for_settings_pane)
+          .and_return([])
+        get settings_path
+        storage_section = response.body[/<legend><h2>storage<\/h2><\/legend>.*?<\/fieldset>/m]
+        expect(storage_section).not_to include(">namespace<")
+      end
     end
 
     # 2026-05-10 — Slack / Discord panes were dropped from the
@@ -825,6 +1519,134 @@ RSpec.describe "Settings", type: :request do
       get settings_path
       expect(response.body).not_to include("vk_super_secret_plaintext")
     end
+
+    # 2026-05-11 — YouTube credentials section. Mirrors the Voyage
+    # tests above. Blank input keeps the current value; explicit
+    # `clear_youtube_<field>: "yes"` wipes a field; the table is
+    # bootstrapped when empty.
+    describe "section=youtube" do
+      it "saves all four fields together (happy path)" do
+        AppSetting.delete_all
+        patch settings_path, params: {
+          section: "youtube",
+          settings: {
+            youtube_api_key:       "AIza_real_api_key",
+            youtube_client_id:     "123-abc.apps.googleusercontent.com",
+            youtube_client_secret: "GOCSPX-real_secret",
+            youtube_redirect_uri:  "https://example.test/auth/google/callback"
+          }
+        }
+        expect(response).to redirect_to(settings_path)
+        row = AppSetting.first
+        expect(row.youtube_api_key).to       eq("AIza_real_api_key")
+        expect(row.youtube_client_id).to     eq("123-abc.apps.googleusercontent.com")
+        expect(row.youtube_client_secret).to eq("GOCSPX-real_secret")
+        expect(row.youtube_redirect_uri).to  eq("https://example.test/auth/google/callback")
+      end
+
+      it "leaves an existing field untouched when its input is blank" do
+        AppSetting.set("max_panes", "5")
+        AppSetting.first.update!(
+          youtube_api_key: "k_existing_api",
+          youtube_client_id: "k_existing_id"
+        )
+        patch settings_path, params: {
+          section: "youtube",
+          settings: {
+            youtube_api_key: "",
+            youtube_client_id: ""
+          }
+        }
+        row = AppSetting.first.reload
+        expect(row.youtube_api_key).to   eq("k_existing_api")
+        expect(row.youtube_client_id).to eq("k_existing_id")
+      end
+
+      it "clears a field when clear_youtube_<field>=yes" do
+        AppSetting.set("max_panes", "5")
+        AppSetting.first.update!(
+          youtube_api_key: "k_to_clear",
+          youtube_client_secret: "k_keep"
+        )
+        patch settings_path, params: {
+          section: "youtube",
+          settings: { clear_youtube_api_key: "yes" }
+        }
+        row = AppSetting.first.reload
+        expect(row.youtube_api_key).to       be_nil
+        expect(row.youtube_client_secret).to eq("k_keep")
+      end
+
+      it "wipes all four fields when every clear flag is yes" do
+        AppSetting.set("max_panes", "5")
+        AppSetting.first.update!(
+          youtube_api_key: "a",
+          youtube_client_id: "b",
+          youtube_client_secret: "c",
+          youtube_redirect_uri: "d"
+        )
+        patch settings_path, params: {
+          section: "youtube",
+          settings: {
+            clear_youtube_api_key:       "yes",
+            clear_youtube_client_id:     "yes",
+            clear_youtube_client_secret: "yes",
+            clear_youtube_redirect_uri:  "yes"
+          }
+        }
+        row = AppSetting.first.reload
+        expect(row.youtube_api_key).to       be_nil
+        expect(row.youtube_client_id).to     be_nil
+        expect(row.youtube_client_secret).to be_nil
+        expect(row.youtube_redirect_uri).to  be_nil
+      end
+
+      it "bootstraps an AppSetting row when the table is empty" do
+        AppSetting.delete_all
+        patch settings_path, params: {
+          section: "youtube",
+          settings: { youtube_api_key: "k_bootstrap" }
+        }
+        expect(AppSetting.count).to eq(1)
+        expect(AppSetting.first.youtube_api_key).to eq("k_bootstrap")
+      end
+
+      it "redirects with a success notice on save" do
+        AppSetting.delete_all
+        patch settings_path, params: {
+          section: "youtube",
+          settings: { youtube_api_key: "k" }
+        }
+        expect(response).to redirect_to(settings_path)
+        follow_redirect!
+        expect(response.body).to include("settings saved.")
+      end
+
+      it "is a no-op when no input changes (no params, no clear flags)" do
+        AppSetting.set("max_panes", "5")
+        AppSetting.first.update!(youtube_api_key: "k_keep")
+        patch settings_path, params: { section: "youtube", settings: {} }
+        expect(AppSetting.first.reload.youtube_api_key).to eq("k_keep")
+      end
+
+      it "GET /settings does not leak the plaintext youtube_api_key in the response body" do
+        AppSetting.set("max_panes", "5")
+        AppSetting.first.update!(
+          youtube_api_key: "AIza_super_secret_plaintext_42"
+        )
+        get settings_path
+        expect(response.body).not_to include("AIza_super_secret_plaintext_42")
+      end
+
+      it "GET /settings does not leak the plaintext youtube_client_secret in the response body" do
+        AppSetting.set("max_panes", "5")
+        AppSetting.first.update!(
+          youtube_client_secret: "GOCSPX-super_secret_plaintext_42"
+        )
+        get settings_path
+        expect(response.body).not_to include("GOCSPX-super_secret_plaintext_42")
+      end
+    end
   end
 
   describe "GET /settings search section" do
@@ -832,6 +1654,7 @@ RSpec.describe "Settings", type: :request do
 
     before do
       allow(Search).to receive(:engine).and_return(engine)
+      allow(engine).to receive(:per_index_stats).and_return({})
     end
 
     it "shows search engine status when healthy" do

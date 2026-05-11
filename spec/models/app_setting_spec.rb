@@ -45,6 +45,90 @@ RSpec.describe AppSetting, type: :model do
       )
       expect(setting.reload.voyage_api_key).to eq("vk_round_trip")
     end
+
+    # 2026-05-11 — YouTube credentials moved out of
+    # `Rails.application.credentials.google_oauth` into the singleton
+    # AppSetting row. Sensitive fields (`youtube_api_key`,
+    # `youtube_client_secret`) ride on the same Active Record
+    # Encryption pattern as `voyage_api_key`: probabilistic, not
+    # deterministic. The non-sensitive fields (`youtube_client_id`,
+    # `youtube_redirect_uri`) stay plaintext so the UI can echo them
+    # back in input placeholders.
+    it "encrypts the youtube_api_key column" do
+      AppSetting.delete_all
+      setting = AppSetting.create!(
+        key: "max_panes",
+        value: "5",
+        youtube_api_key: "AIzaSyFAKE_plaintext_42"
+      )
+      raw = AppSetting.connection.select_one(
+        "SELECT youtube_api_key FROM app_settings WHERE id = #{setting.id}"
+      )["youtube_api_key"]
+      expect(raw).to be_present
+      expect(raw).not_to eq("AIzaSyFAKE_plaintext_42")
+      expect(raw).not_to include("AIzaSyFAKE_plaintext_42")
+    end
+
+    it "encrypts the youtube_client_secret column" do
+      AppSetting.delete_all
+      setting = AppSetting.create!(
+        key: "max_panes",
+        value: "5",
+        youtube_client_secret: "GOCSPX-FAKE_plaintext_42"
+      )
+      raw = AppSetting.connection.select_one(
+        "SELECT youtube_client_secret FROM app_settings WHERE id = #{setting.id}"
+      )["youtube_client_secret"]
+      expect(raw).to be_present
+      expect(raw).not_to eq("GOCSPX-FAKE_plaintext_42")
+      expect(raw).not_to include("GOCSPX-FAKE_plaintext_42")
+    end
+
+    it "round-trips youtube_api_key plaintext via the model accessor" do
+      AppSetting.delete_all
+      setting = AppSetting.create!(
+        key: "max_panes",
+        value: "5",
+        youtube_api_key: "round_trip_api_key"
+      )
+      expect(setting.reload.youtube_api_key).to eq("round_trip_api_key")
+    end
+
+    it "round-trips youtube_client_secret plaintext via the model accessor" do
+      AppSetting.delete_all
+      setting = AppSetting.create!(
+        key: "max_panes",
+        value: "5",
+        youtube_client_secret: "round_trip_client_secret"
+      )
+      expect(setting.reload.youtube_client_secret).to eq("round_trip_client_secret")
+    end
+
+    it "stores youtube_client_id in plaintext (public-ish; not encrypted)" do
+      AppSetting.delete_all
+      setting = AppSetting.create!(
+        key: "max_panes",
+        value: "5",
+        youtube_client_id: "123-abc.apps.googleusercontent.com"
+      )
+      raw = AppSetting.connection.select_one(
+        "SELECT youtube_client_id FROM app_settings WHERE id = #{setting.id}"
+      )["youtube_client_id"]
+      expect(raw).to eq("123-abc.apps.googleusercontent.com")
+    end
+
+    it "stores youtube_redirect_uri in plaintext (public callback URL; not encrypted)" do
+      AppSetting.delete_all
+      setting = AppSetting.create!(
+        key: "max_panes",
+        value: "5",
+        youtube_redirect_uri: "https://example.test/auth/google/callback"
+      )
+      raw = AppSetting.connection.select_one(
+        "SELECT youtube_redirect_uri FROM app_settings WHERE id = #{setting.id}"
+      )["youtube_redirect_uri"]
+      expect(raw).to eq("https://example.test/auth/google/callback")
+    end
   end
 
   describe ".get" do
@@ -178,6 +262,81 @@ RSpec.describe AppSetting, type: :model do
         AppSetting.set_keyboard_navigation_enabled(false)
       }.to change(AppSetting, :count).by(1)
       expect(AppSetting.keyboard_navigation_enabled?).to be(false)
+    end
+  end
+
+  # 2026-05-11 — YouTube credential accessors + the
+  # `youtube_configured?` predicate.
+  describe ".youtube_configured?" do
+    before { AppSetting.delete_all }
+
+    it "returns false when no AppSetting row exists" do
+      expect(AppSetting.youtube_configured?).to be(false)
+    end
+
+    it "returns false when only one of the three required fields is set" do
+      AppSetting.create!(key: "max_panes", value: "5",
+                         youtube_api_key: "k")
+      expect(AppSetting.youtube_configured?).to be(false)
+    end
+
+    it "returns false when two of the three required fields are set" do
+      AppSetting.create!(key: "max_panes", value: "5",
+                         youtube_api_key: "k",
+                         youtube_client_id: "id")
+      expect(AppSetting.youtube_configured?).to be(false)
+    end
+
+    it "returns true when all three required fields are non-blank" do
+      AppSetting.create!(key: "max_panes", value: "5",
+                         youtube_api_key: "k",
+                         youtube_client_id: "id",
+                         youtube_client_secret: "s")
+      expect(AppSetting.youtube_configured?).to be(true)
+    end
+
+    it "ignores the redirect_uri (it's optional)" do
+      AppSetting.create!(key: "max_panes", value: "5",
+                         youtube_api_key: "k",
+                         youtube_client_id: "id",
+                         youtube_client_secret: "s")
+      expect(AppSetting.youtube_configured?).to be(true)
+      # Set the redirect URI: still true.
+      AppSetting.first.update!(youtube_redirect_uri: "https://x.test/cb")
+      expect(AppSetting.youtube_configured?).to be(true)
+    end
+
+    it "treats whitespace-only values as blank" do
+      AppSetting.create!(key: "max_panes", value: "5",
+                         youtube_api_key: "   ",
+                         youtube_client_id: "id",
+                         youtube_client_secret: "s")
+      expect(AppSetting.youtube_configured?).to be(false)
+    end
+  end
+
+  describe ".youtube_api_key / .youtube_client_id / .youtube_client_secret / .youtube_redirect_uri" do
+    before { AppSetting.delete_all }
+
+    it "returns nil for every accessor when no row exists" do
+      expect(AppSetting.youtube_api_key).to be_nil
+      expect(AppSetting.youtube_client_id).to be_nil
+      expect(AppSetting.youtube_client_secret).to be_nil
+      expect(AppSetting.youtube_redirect_uri).to be_nil
+    end
+
+    it "returns the singleton's value when a row exists" do
+      AppSetting.create!(
+        key: "max_panes", value: "5",
+        youtube_api_key:       "api",
+        youtube_client_id:     "id",
+        youtube_client_secret: "sec",
+        youtube_redirect_uri:  "https://x.test/cb"
+      )
+      expect(AppSetting.youtube_api_key).to       eq("api")
+      expect(AppSetting.youtube_client_id).to     eq("id")
+      expect(AppSetting.youtube_client_secret).to eq("sec")
+      expect(AppSetting.youtube_redirect_uri).to  eq("https://x.test/cb")
     end
   end
 

@@ -37,10 +37,14 @@ class Login::TotpChallengesController < ApplicationController
   def show
     # 2FA must be on. If the user is in the new-location flow but
     # never enrolled, push them back to the challenge page so they
-    # can pick `[ask for approval]`.
+    # can pick `[ask for approval]`. The early-return guard mirrors
+    # the matching `create` action — it short-circuits any view
+    # render that future edits might layer on top, preventing a
+    # DoubleRenderError if more code lands after the redirect.
     unless @pre_auth_user.totp_enabled?
       redirect_to login_challenge_path,
                   alert: "2FA is not enabled for this account."
+      return # rubocop:disable Style/RedundantReturn
     end
   end
 

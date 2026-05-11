@@ -260,6 +260,31 @@ RSpec.describe "Projects", type: :request do
       end
     end
 
+    # Density polish (2026-05-11) — the projects index table is
+    # shrink-to-fit so the short numeric columns (created / footage /
+    # notes / videos) sit flush against the name column rather than
+    # being stretched to the parent's full 1100px width. The
+    # `width: max-content` inline style on the `<table>` is the
+    # load-bearing piece; a `<colgroup>` keeps the name column readable.
+    describe "table sizing (shrink-to-fit)" do
+      let!(:project) { create(:project, name: "Alpha") }
+
+      it "renders the table with inline width: max-content so it does not stretch full container width" do
+        get projects_path
+        html = Nokogiri::HTML.fragment(response.body)
+        table = html.css("turbo-frame#projects-index-table table").first
+        expect(table).not_to be_nil
+        expect(table["style"].to_s).to match(/width:\s*max-content/)
+      end
+
+      it "renders a <colgroup> so the name column stays readable while numeric columns hug content" do
+        get projects_path
+        html = Nokogiri::HTML.fragment(response.body)
+        cols = html.css("turbo-frame#projects-index-table table colgroup col")
+        expect(cols.size).to eq(6)
+      end
+    end
+
     # Polish-3 (2026-05-06) — Turbo Frame wrapper around the projects
     # index table. Sort-header clicks target the frame so only the
     # table re-renders. Combined with `data-turbo-action=advance`, the

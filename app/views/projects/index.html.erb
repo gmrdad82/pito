@@ -95,7 +95,22 @@
         </span>
       </div>
 
-      <table>
+      <%# Density polish (2026-05-11) — the table is shrink-to-fit
+          (`width: max-content`) so the short numeric columns (created,
+          footage, notes, videos) sit flush against the name column
+          instead of being stretched to the parent's full 1100px width.
+          A per-column `<colgroup>` keeps the name column readable
+          (260px) while letting the numeric columns hug their content.
+          %>
+      <table style="width: max-content;">
+        <colgroup>
+          <col style="width: 1%;">      <%# selection checkbox %>
+          <col style="width: 260px;">   <%# name %>
+          <col>                          <%# created %>
+          <col>                          <%# footage %>
+          <col>                          <%# notes %>
+          <col>                          <%# videos %>
+        </colgroup>
         <thead>
           <tr>
             <th class="col-action">

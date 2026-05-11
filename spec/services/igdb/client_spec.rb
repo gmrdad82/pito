@@ -54,10 +54,24 @@ RSpec.describe Igdb::Client do
     it "filters to main + remake + remaster + port categories by default" do
       expected_set = Igdb::Client::DEFAULT_SEARCH_CATEGORIES.join(",")
       stub = stub_request(:post, "https://api.igdb.com/v4/games")
-        .with(body: /where category = \(#{Regexp.escape(expected_set)}\)/)
+        .with(body: /where category = \(#{Regexp.escape(expected_set)}\) \| category = null/)
         .to_return(status: 200, body: "[]")
       client.search_games("zelda")
       expect(stub).to have_been_requested
+    end
+
+    # Regression — IGDB's `search` endpoint returns rows with a null
+    # `category` even for main entries (e.g. Ghost of Tsushima id 75235).
+    # A strict `WHERE category = (0,8,9,11)` filter wiped every such
+    # result, so searching "Ghost of" returned an empty list in the UI.
+    # The default search must be null-tolerant on category.
+    it "is null-tolerant on category so search hits with null category survive" do
+      stub = stub_request(:post, "https://api.igdb.com/v4/games")
+        .with { |req| req.body.include?("| category = null") }
+        .to_return(status: 200, body: [ { "id" => 75235, "name" => "Ghost of Tsushima", "category" => nil } ].to_json)
+      results = client.search_games("Ghost of")
+      expect(stub).to have_been_requested
+      expect(results.map { |r| r["id"] }).to include(75235)
     end
 
     it "drops the category filter when include_editions: true" do

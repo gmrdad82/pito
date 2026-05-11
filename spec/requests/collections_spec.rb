@@ -61,4 +61,61 @@ RSpec.describe "Collections", type: :request do
       }.to change(Collection, :count).by(-1)
     end
   end
+
+  # Phase 27 follow-up (2026-05-11) — Collections modal pane.
+  # `GET /collections/:id/games_pane` returns a Turbo Frame fragment
+  # listing the games in the collection. Used by the `/games`
+  # collections shelf modal trigger.
+  describe "GET /collections/:id/games_pane" do
+    let!(:collection) { create(:collection, name: "Retro") }
+    let!(:chrono)     { create(:game, :synced, title: "Chrono Trigger", collection: collection) }
+    let!(:bound)      { create(:game, :synced, title: "EarthBound",     collection: collection) }
+
+    it "returns 200" do
+      get games_pane_collection_path(collection)
+      expect(response).to have_http_status(:ok)
+    end
+
+    it "renders the turbo-frame wrapper with id collections_modal_frame" do
+      get games_pane_collection_path(collection)
+      expect(response.body).to include('id="collections_modal_frame"')
+    end
+
+    it "renders each game's cover component linked to the game show page" do
+      get games_pane_collection_path(collection)
+      html = Nokogiri::HTML.fragment(response.body)
+      hrefs = html.css("a[data-tile-game-id]").map { |a| a["href"] }
+      expect(hrefs).to include(game_path(chrono))
+      expect(hrefs).to include(game_path(bound))
+    end
+
+    it "lists games alphabetical case-insensitive" do
+      get games_pane_collection_path(collection)
+      html = Nokogiri::HTML.fragment(response.body)
+      ids = html.css("a[data-tile-game-id]").map { |a| a["data-tile-game-id"].to_i }
+      expect(ids).to eq([ chrono.id, bound.id ].sort_by { |id| Game.find(id).title.downcase })
+    end
+
+    it "renders the empty-state message when the collection has no games" do
+      empty = create(:collection, name: "Empty")
+      get games_pane_collection_path(empty)
+      expect(response.body).to include("no games in this collection yet")
+    end
+
+    it "404s when the slug does not resolve to a collection" do
+      get "/collections/nope-not-a-real-slug/games_pane"
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it "renders without the application layout (modal fragment)" do
+      get games_pane_collection_path(collection)
+      # No nav bar / footer chrome.
+      expect(response.body).not_to include("<nav")
+    end
+
+    it "resolves a collection by numeric id (FriendlyId :finders module)" do
+      get games_pane_collection_path(collection.id)
+      expect(response).to have_http_status(:ok)
+    end
+  end
 end

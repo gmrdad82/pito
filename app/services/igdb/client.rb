@@ -112,7 +112,15 @@ module Igdb
         # Restrict to main entries + remakes / remasters / ports so
         # "Deluxe Edition" / "Ultimate Edition" / "Definitive Edition"
         # bundles, expansions, packs, etc. drop out of the result set.
-        builder = builder.where("category = (#{DEFAULT_SEARCH_CATEGORIES.join(",")})")
+        #
+        # Null-tolerant: IGDB's `search` endpoint returns `category` as
+        # null for many top-level results (including main entries like
+        # Ghost of Tsushima id=75235). A strict `WHERE category = (…)`
+        # silently wipes every row that has a null category, so even
+        # the main-game hit disappears. The `| category = null` branch
+        # keeps those rows. Rows with an explicit non-matching category
+        # (bundles=3, packs=13, etc.) still drop out.
+        builder = builder.where("category = (#{DEFAULT_SEARCH_CATEGORIES.join(",")}) | category = null")
       end
 
       post("games", builder.to_s)

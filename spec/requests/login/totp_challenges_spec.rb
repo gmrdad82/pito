@@ -32,11 +32,28 @@ RSpec.describe "Login::TotpChallenges", type: :request do
       get login_totp_path
       expect(response).to have_http_status(:ok)
       expect(response.body).to include("authenticator")
+      # Bracketed-link inner-padding fix: verify button uses the
+      # canonical <span class="bl"> wrap.
+      expect(response.body).to include('[<span class="bl">verify</span>]')
     end
 
     it "redirects to /login without a pre-auth marker" do
       get login_totp_path
       expect(response).to redirect_to(login_path)
+    end
+
+    it "redirects to /login/challenge when 2FA is not enabled (and short-circuits the show render)" do
+      # Drive the controller through the pre-auth marker path while 2FA
+      # is off — the show action must redirect and `return` so the view
+      # does not also try to render. A missing `return` would not raise
+      # in Rails (the redirect wins), but the `before_action` flow + a
+      # double response would attempt to set status twice. We assert
+      # the redirect status and lack of body to lock the path.
+      post_login_with_password
+      user.update!(totp_enabled_at: nil, totp_disabled_at: Time.current)
+      get login_totp_path
+      expect(response).to redirect_to(login_challenge_path)
+      expect(response.body).not_to include("enter a 6-digit code from your authenticator")
     end
   end
 

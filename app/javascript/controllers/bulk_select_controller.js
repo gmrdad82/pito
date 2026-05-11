@@ -100,9 +100,12 @@ export default class extends Controller {
     // entirely; the controller silently skips this branch.
     if (this.hasOpenHintTarget && this.hasOpenActionTarget) {
       if (count === 0) {
-        this.openHintTarget.hidden = false
+        // 2026-05-11 — the "select items to act on" hint was removed
+        // app-wide; the bulk-select checkbox column is self-evident.
+        // Keep openHint hidden + empty when no selection.
+        this.openHintTarget.hidden = true
         this.openActionTarget.hidden = true
-        this._setHint(this.openHintTarget, `select items to act on`)
+        this._replaceActionContent(this.openHintTarget)
       } else if (count <= max) {
         this.openHintTarget.hidden = true
         this.openActionTarget.hidden = false

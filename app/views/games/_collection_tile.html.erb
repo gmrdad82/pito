@@ -1,0 +1,61 @@
+<%# Phase 27 follow-up (2026-05-11) — Single collection tile in the
+    Collections outer shelf row.
+
+    Renders the collection's composite cover (98 × 130) when the
+    composer has stamped a fingerprint, or one of the project's
+    fallback SVGs when the collection has 0 or 1 games (the composer
+    intentionally returns nil for the `:empty` / `:passthrough`
+    layouts; see `Collections::CoverComposer#call`).
+
+    Click target: a Stimulus action on the wrapping <a> opens the
+    layout-level <dialog id="collections-modal"> and points its inner
+    Turbo Frame `src` at `/collections/<id>/games_pane`. The href
+    fallback (`/collections/<slug>`) keeps the link meaningful for
+    JS-off users and screen readers.
+
+    Locals:
+      collection  Collection — one row from the outer shelf input.
+%>
+<%
+  collection      = local_assigns.fetch(:collection)
+  composite_url   = collection.cover_url(variant: :shelf)
+  fallback_modifier = "shelf"
+  collection_slug = collection.respond_to?(:slug) && collection.slug.present? ? collection.slug : collection.id.to_s
+  pane_url        = games_pane_collection_path(collection_slug)
+  fallback_href   = "/collections/#{collection_slug}"
+%>
+<a href="<%= fallback_href %>"
+   class="collection-tile"
+   data-collection-id="<%= collection.id %>"
+   data-controller="collections-modal-trigger"
+   data-action="click->collections-modal-trigger#open"
+   data-collections-modal-trigger-url-value="<%= pane_url %>"
+   data-collections-modal-trigger-title-value="<%= collection.name %>"
+   title="<%= collection.name %>"
+   style="flex: 0 0 auto; display: inline-flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; color: inherit; cursor: pointer; width: 98px;">
+  <% if composite_url.present? %>
+    <img src="<%= composite_url %>"
+         width="98"
+         height="130"
+         loading="lazy"
+         alt="<%= collection.name %>"
+         class="collection-cover-composite"
+         style="display: block;">
+  <% else %>
+    <%# Theme-aware fallback (light + dark SVGs; CSS picks one). %>
+    <%= image_tag "game_cover_fallback_#{fallback_modifier}_light.svg",
+                  alt: collection.name, loading: "lazy",
+                  width: 98, height: 130,
+                  data: { variant: "shelf", theme: "light" },
+                  class: "game-cover-img game-cover-fallback game-cover-fallback--light" %>
+    <%= image_tag "game_cover_fallback_#{fallback_modifier}_dark.svg",
+                  alt: collection.name, loading: "lazy",
+                  width: 98, height: 130,
+                  data: { variant: "shelf", theme: "dark" },
+                  class: "game-cover-img game-cover-fallback game-cover-fallback--dark" %>
+  <% end %>
+  <span class="text-muted collection-tile-name"
+        style="font-size: 12px; max-width: 98px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center;">
+    <%= collection.name %>
+  </span>
+</a>

@@ -25,6 +25,20 @@ module Search
       raise NotImplementedError
     end
 
+    # Optional. Engines that expose on-disk size metrics override
+    # this; the default returns nil so the settings view can render
+    # neutrally on engines that don't.
+    def total_index_size_bytes
+      nil
+    end
+
+    # Optional. Engines that expose per-index document counts + size
+    # override this. Default returns an empty hash so the settings
+    # view renders neutrally on engines that don't.
+    def per_index_stats
+      {}
+    end
+
     private
 
     def index_name_for(model_or_record)

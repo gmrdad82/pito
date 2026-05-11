@@ -163,7 +163,12 @@ puts "  #{Platform.unscoped.count} platform rows present."
 
 puts "seeding project workspace sample..."
 
-collection = Collection.find_or_create_by!(name: "Demo Collection")
+# Phase 27 follow-up (2026-05-11) — renamed from "Demo Collection" to
+# "currently playing" so an empty pito install boots with a heading
+# the operator can recognise rather than a placeholder. Idempotent:
+# Collection lookup goes by `name`, so re-running seeds finds the same
+# row.
+collection = Collection.find_or_create_by!(name: "currently playing")
 
 game = Game.find_or_initialize_by(title: "Demo Game")
 game.collection ||= collection
@@ -207,5 +212,35 @@ Timeline.find_or_create_by!(project: project, title: "Demo Timeline") do |t|
 end
 
 puts "  1 collection, 1 game (with cover art), 1 project (2 references), 1 note, 1 timeline"
+
+# ---------------------------------------------------------------------------
+# Phase 27 follow-up (2026-05-11) — demo Collection so the `/games`
+# Collections outer-shelf has a 2-game collection to render. Without
+# this, a fresh install boots with a single "currently playing" / Demo
+# Game row (1 member → passthrough cover, no composite) — the composer
+# code path stays cold and we never see the multi-game composite tile
+# the user asked about ("for these 2 games, create a collection for me
+# so I can see how it will look in the collections shelf").
+#
+# Pragmata + Red Dead Redemption 2 are the two games called out. Both
+# are looked up by title (the conventional pito seed pattern). If
+# they're not in the local library yet, the seed inserts thin
+# placeholder rows so the collection has membership. A later IGDB
+# sync fills in `cover_image_id` for real composite output.
+# ---------------------------------------------------------------------------
+puts "seeding 'now playing' demo collection..."
+
+now_playing = Collection.find_or_create_by!(name: "now playing")
+
+[ "Pragmata", "Red Dead Redemption 2" ].each do |title|
+  g = Game.find_or_initialize_by(title: title)
+  # Idempotent: a row already pinned to another collection keeps it;
+  # a fresh row gets `now_playing` so the demo collection has two
+  # members on a clean install.
+  g.collection ||= now_playing
+  g.save!
+end
+
+puts "  collection 'now playing' has #{now_playing.games.reload.count} game(s)."
 
 puts "done!"
