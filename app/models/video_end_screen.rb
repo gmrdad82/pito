@@ -34,25 +34,38 @@ class VideoEndScreen < ApplicationRecord
   end
 
   # If THIS row is `kind: none`, no other row for the same video may
-  # exist after save. Model-level guard; the form layer collapses the
-  # set, but a malicious / buggy caller still trips this.
+  # exist after save. Per-row guard reads the in-memory association
+  # when loaded (parent + nested-attributes save), falls back to the
+  # DB query for direct-AR / MCP creates.
   def no_extra_rows_when_kind_none
     return unless kind_none?
     return unless video_id
-    other = VideoEndScreen.where(video_id: video_id).where.not(id: id)
+    other = effective_siblings.reject(&:kind_none?)
     return if other.empty?
     errors.add(:base, "cannot mix a 'none' end-screen with other rows")
   end
 
-  # YouTube caps the end-screen at 4 elements. The model guards the
-  # cap so MCP / direct-AR creates can't sneak past the form.
+  # YouTube caps the end-screen at 4 elements. Per-row guard reads
+  # the in-memory association when loaded, falls back to the DB
+  # query otherwise.
   def max_four_non_none_rows_per_video
     return if kind_none?
     return unless video_id
-    siblings = VideoEndScreen.where(video_id: video_id)
-                              .where.not(id: id)
-                              .where.not(kind: self.class.kinds[:none])
-    return if siblings.count < 4
+    non_none_sibs = effective_siblings.reject(&:kind_none?)
+    return if non_none_sibs.size < 4
     errors.add(:base, "no more than 4 non-none end-screens per video")
+  end
+
+  # Returns the set of OTHER end-screens for this row's video,
+  # excluding rows marked for destruction. Prefers the in-memory
+  # association when loaded so nested-attributes saves see pending
+  # destroys; falls back to a DB query for direct creates.
+  def effective_siblings
+    if video && video.video_end_screens.loaded?
+      video.video_end_screens
+            .reject { |r| r.equal?(self) || r.marked_for_destruction? }
+    else
+      VideoEndScreen.where(video_id: video_id).where.not(id: id).to_a
+    end
   end
 end
