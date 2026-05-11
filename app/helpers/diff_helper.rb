@@ -4,7 +4,7 @@
 # diff (Phase 23) consume these helpers. Centralising the formatting
 # rules here keeps the two surfaces visually consistent and matches
 # the boundary serialization rule (booleans render as `yes` / `no`).
-module DiffHelpers
+module DiffHelper
   # Format a value for display in the diff page table cells. Returns
   # an `html_safe` string. Long descriptions are truncated to 240
   # chars with an ellipsis; tags render as a comma-separated pill
@@ -36,8 +36,6 @@ module DiffHelpers
   def diff_field_display_only?(field)
     Youtube::DiffComputer::DISPLAY_ONLY_FIELDS.include?(field.to_s)
   end
-
-  private
 
   def format_short_text(value)
     return content_tag(:span, "(empty)", class: "text-muted") if value.nil? || value.to_s.empty?

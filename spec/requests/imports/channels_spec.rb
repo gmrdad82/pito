@@ -231,14 +231,17 @@ RSpec.describe "Imports::Channels", type: :request do
       # so the candidate_videos window encloses the video.
       job = ImportJob.create!(channel: channel, enqueued_by: user, status: :running,
                               started_at: 1.minute.ago)
-      created_video = create(:video, channel: channel)
+      created_video = create(:video, channel: channel, title: "Probe Title XYZ")
       job.update!(status: :completed, completed_at: 1.minute.from_now,
                   total_videos: 1, imported_videos: 1)
 
       get imports_channel_path(job)
       expect(response).to have_http_status(:ok)
       expect(response.body).to include("keep what to import")
-      expect(response.body).to include(created_video.youtube_video_id)
+      # Either the title (when present) or the youtube_video_id renders
+      # per the keep/reject partial — assert the row was emitted.
+      expect(response.body).to include("Probe Title XYZ")
+      expect(response.body).to include("value=\"#{created_video.id}\"")
     end
 
     it "returns JSON with the full payload" do

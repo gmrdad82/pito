@@ -23,7 +23,7 @@
     </thead>
     <tbody>
       <% fields.each do |field| %>
-        <% display_only = diff_field_display_only?(field) %>
+        <% display_only = Youtube::DiffComputer::DISPLAY_ONLY_FIELDS.include?(field.to_s) %>
         <tr>
           <td class="diff-field-name"><code><%= field %></code></td>
           <td class="diff-cell"><%= human_diff_value(field, diff.pito_value(field)) %></td>

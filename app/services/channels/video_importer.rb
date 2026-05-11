@@ -133,9 +133,17 @@ module Channels
 
       # Atomic counter bump — read the persisted columns rather than the
       # in-memory copy so concurrent updates can't clobber each other.
+      # Sanitized via `Arel.sql` + integer coercion — `items.size` and
+      # `created` are both produced internally as integers and never
+      # routed through user input, but the explicit cast pins the
+      # contract so Brakeman / future refactors stay safe.
+      delta_total    = items.size.to_i
+      delta_imported = created.to_i
       ImportJob.where(id: import_job.id).update_all(
-        "total_videos = total_videos + #{items.size}, " \
-        "imported_videos = imported_videos + #{created}"
+        ActiveRecord::Base.sanitize_sql_array([
+          "total_videos = total_videos + ?, imported_videos = imported_videos + ?",
+          delta_total, delta_imported
+        ])
       )
       import_job.reload
     end
