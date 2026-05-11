@@ -8,7 +8,22 @@
     progress step. %>
 <%= turbo_frame_tag "imports_modal_frame" do %>
   <div class="pane pane--standalone" style="max-width: 600px;">
-    <h1>import videos</h1>
+    <%# Phase 22 polish — heading is a two-segment breadcrumb. `[videos]`
+        links back to the videos index (turbo-frame "_top" so the click
+        breaks out of the modal frame). `[import]` is the active label,
+        rendered via `BracketedLinkComponent`'s `active: true` branch
+        (`<span class="bracketed-active">`). The `·` mid-dot separator
+        comes from the shared `_dot_separator` partial — same convention
+        as the calendar schedule breadcrumb-action row. %>
+    <h1 class="dot-list">
+      <%= render(BracketedLinkComponent.new(
+        label: "videos",
+        href: videos_path,
+        data: { turbo_frame: "_top" }
+      )) %>
+      <%= render "shared/dot_separator" %>
+      <%= render(BracketedLinkComponent.new(label: "import", active: true)) %>
+    </h1>
     <p class="text-muted">
       pick the channels to pull new uploads from.<br>
       already-imported and previously-rejected videos are skipped.
@@ -24,7 +39,11 @@
             <tr>
               <th class="col-action"></th>
               <th>channel</th>
-              <th></th>
+              <%# Phase 22 polish — the rightmost column shows
+                  `[import running]` for any channel that already has
+                  a queued/running ImportJob. Empty for the rest. Header
+                  is `status` so the column is no longer unlabeled. %>
+              <th>status</th>
             </tr>
           </thead>
           <tbody>
@@ -32,14 +51,25 @@
               <% in_flight_job = channel.in_flight_import_job %>
               <tr>
                 <td class="col-action">
+                  <%# Phase 22 polish — project bracketed `[ ]` / `[x]`
+                      checkbox style via CheckboxComponent. The visible
+                      `[ ]` glyph is rendered by the `.md-check-indicator`
+                      pseudo-element; the underlying `<input type="checkbox">`
+                      keeps standard form-submission semantics
+                      (`channel_ids[]` array). The disabled branch passes
+                      `disabled: true` so the input ships as an inert
+                      checkbox, no `name` (so it's not submitted). %>
                   <% if in_flight_job %>
-                    <input type="checkbox" disabled>
+                    <%= render(CheckboxComponent.new(disabled: true)) %>
                   <% else %>
-                    <input type="checkbox"
-                           name="channel_ids[]"
-                           value="<%= channel.id %>"
-                           data-imports-select-target="checkbox"
-                           data-action="change->imports-select#refresh">
+                    <%= render(CheckboxComponent.new(
+                      name: "channel_ids[]",
+                      value: channel.id,
+                      data: {
+                        imports_select_target: "checkbox",
+                        action: "change->imports-select#refresh"
+                      }
+                    )) %>
                   <% end %>
                 </td>
                 <td>
@@ -59,11 +89,14 @@
         </table>
 
         <div class="modal-footer" style="margin-top: 12px;">
+          <%# Phase 22 polish — `[import]` (bare verb). The page
+              heading already supplies "import" context so "start" is
+              redundant per the bracketed-label minimum-text rule. %>
           <button type="submit"
                   class="bracketed"
                   data-imports-select-target="submit"
                   disabled>
-            [<span class="bl">start import</span>]
+            [<span class="bl">import</span>]
           </button>
           <%= render(BracketedLinkComponent.new(label: "cancel", href: videos_path)) %>
         </div>

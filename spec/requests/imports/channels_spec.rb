@@ -22,8 +22,9 @@ RSpec.describe "Imports::Channels", type: :request do
       channel
       get imports_channels_path
       expect(response).to have_http_status(:ok)
-      expect(response.body).to include("import videos")
-      expect(response.body).to include("start import")
+      # Phase 22 polish — heading is now the `[videos] · [import]`
+      # breadcrumb; the literal "import videos" string is gone. The
+      # submit button copy is the bare verb `[import]` (no "start").
       expect(response.body).to include("channel_ids[]")
     end
 
@@ -40,6 +41,59 @@ RSpec.describe "Imports::Channels", type: :request do
       # The checkbox is rendered with `disabled` and no `name`.
       expect(response.body).to include("disabled")
       expect(response.body).to include("import running")
+    end
+
+    # Phase 22 polish — four visual fixes on the channel-pick step:
+    # 1. Native checkboxes replaced with bracketed `[ ]` / `[x]` style
+    #    (CheckboxComponent + `.md-check-indicator` pseudo-element).
+    # 2. Rightmost column gets a header label ("status") — it surfaces
+    #    in-flight `[import running]` links.
+    # 3. Submit button copy `[start import]` → `[import]` (bare verb;
+    #    the heading already supplies "import" context).
+    # 4. Page heading restructured to `[videos] · [import]` breadcrumb
+    #    where `[import]` is the active label (plain span, not a link).
+    describe "Phase 22 polish (bracketed checkbox / column header / button copy / breadcrumb)" do
+      before { channel }
+
+      it "renders bracketed-style checkboxes (no bare native input style)" do
+        get imports_channels_path
+        # CheckboxComponent wraps the input in a `label.md-check` plus a
+        # `span.md-check-indicator` that renders the `[ ]` glyph via CSS.
+        expect(response.body).to include('class="md-check"')
+        expect(response.body).to include('class="md-check-indicator"')
+      end
+
+      it "labels the rightmost column header as 'status'" do
+        get imports_channels_path
+        expect(response.body).to match(%r{<th>\s*status\s*</th>})
+      end
+
+      it "renders the submit button as [import] (not [start import])" do
+        get imports_channels_path
+        expect(response.body).to include('<span class="bl">import</span>')
+        expect(response.body).not_to include('<span class="bl">start import</span>')
+        expect(response.body).not_to match(/\[\s*start import\s*\]/)
+      end
+
+      it "renders the heading as the breadcrumb [videos] · [import]" do
+        get imports_channels_path
+        # `[videos]` is a real link back to /videos.
+        expect(response.body).to match(
+          %r{<a [^>]*href="#{Regexp.escape(videos_path)}"[^>]*>\[<span class="bl">videos</span>\]</a>}
+        )
+        # The mid-dot separator partial.
+        expect(response.body).to include("·")
+        # `[import]` is the active span — plain text, not a link.
+        expect(response.body).to include('<span class="bracketed-active">[import]</span>')
+        # And the old literal heading "import videos" is gone.
+        expect(response.body).not_to match(/<h1[^>]*>\s*import videos\s*<\/h1>/)
+      end
+
+      it "still surfaces the [import running] badge in the status column for in-flight channels" do
+        ImportJob.create!(channel: channel, enqueued_by: user, status: :running)
+        get imports_channels_path
+        expect(response.body).to include("import running")
+      end
     end
 
     it "renders an empty state when no connected channels" do
