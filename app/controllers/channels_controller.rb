@@ -37,13 +37,6 @@ class ChannelsController < ApplicationController
     @sort = sanitized_sort_key
     @dir = sanitized_dir
 
-    # Phase 24 — Google management banner data. Load this user's
-    # YoutubeConnection rows (ordered by last-authorized desc) so the
-    # banner partial can render one row per connection with the email,
-    # channel count, last-authorized timestamp, and any reauth state.
-    @youtube_connections = load_youtube_connections
-    @youtube_connection = @youtube_connections.first
-
     respond_to do |format|
       format.html
       format.json { render json: @channels.map { |c| ChannelDecorator.new(c).as_summary_json } }
@@ -578,20 +571,6 @@ class ChannelsController < ApplicationController
         "url"   => (row["url"]   || row[:url]).to_s
       }
     end
-  end
-
-  # Phase 24 — load every YoutubeConnection owned by the current user
-  # for the Google management banner on /channels. Ordered by
-  # `last_authorized_at` desc so the most recently authorized
-  # connection sits at the top. Returns `[]` when no user is in scope
-  # so the banner renders the empty state without 500ing.
-  def load_youtube_connections
-    return [] unless Current.user.present?
-
-    YoutubeConnection
-      .where(user_id: Current.user.id)
-      .order(last_authorized_at: :desc)
-      .to_a
   end
 
   def max_panes

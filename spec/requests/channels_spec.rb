@@ -867,11 +867,67 @@ RSpec.describe "Channels", type: :request do
       expect(response.body).to include('class="bracketed">[<span class="bl">+</span>]</button>')
     end
 
-    it "renders the empty-state copy pointing at the Google banner" do
+    it "renders the empty-state copy pointing at the [+] button" do
       Channel.delete_all
       get channels_path
       expect(response.body).to include("no channels yet")
-      expect(response.body).to include("Google banner above")
+      expect(response.body).to include("click [+] above")
+    end
+  end
+
+  # The Google connections banner that used to render at the top of
+  # /channels (one row per YoutubeConnection + `[+ add another Google
+  # account]` button) was dropped per user directive — there is no
+  # need for a dedicated banner surface on the index. The remaining
+  # entry point is the `[+]` button next to the "channels" heading,
+  # which posts to `/channels/connect_google` with `account=new` so
+  # the OAuth round-trip prompts for account selection.
+  describe "the Google connections banner is dropped" do
+    let!(:user) { User.first || create(:user) }
+    let!(:connection) do
+      create(:youtube_connection,
+             user: user,
+             email: "banner-probe@gmail.com",
+             last_authorized_at: 2.hours.ago)
+    end
+
+    it "does not render the `[+ add another Google account]` button" do
+      get channels_path
+      expect(response.body).not_to match(/another Google account/i)
+    end
+
+    it "does not render the `[connect google]` empty-state button" do
+      # Even with no connections the empty-state banner is gone — the
+      # `[+]` heading button is the single entry point.
+      YoutubeConnection.delete_all
+      get channels_path
+      expect(response.body).not_to include("[connect google]")
+      expect(response.body).not_to include("no Google account connected")
+    end
+
+    it "does not surface the connection email on /channels (banner is gone)" do
+      get channels_path
+      expect(response.body).not_to match(/@gmail\.com/)
+      expect(response.body).not_to include("banner-probe@gmail.com")
+    end
+
+    it "does not render the `data-google-banner` container" do
+      get channels_path
+      expect(response.body).not_to include("data-google-banner")
+    end
+
+    it "stamps `account=new` on the `[+]` heading form (prompt=select_account on the OAuth side)" do
+      # The banner used to carry a hidden `account=new` input on the
+      # `[+ add another Google account]` button. With the banner gone,
+      # the `[+]` heading button takes that same role: a single click
+      # must initiate OAuth with the account picker enabled.
+      get channels_path
+      html = Nokogiri::HTML.fragment(response.body)
+      form = html.css(%(form[action="#{connect_google_channels_path}"])).first
+      expect(form).not_to be_nil, "expected a form posting to /channels/connect_google"
+      hidden = form.css('input[type="hidden"][name="account"]').first
+      expect(hidden).not_to be_nil
+      expect(hidden["value"]).to eq("new")
     end
   end
 

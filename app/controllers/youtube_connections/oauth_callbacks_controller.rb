@@ -295,12 +295,12 @@ class YoutubeConnections::OauthCallbacksController < ApplicationController
   #   { added: ["Alpha"], duplicates: ["Beta"] }
   #     → "Google account connected. 1 channel added (Alpha). channel 'Beta' is already linked."
   #   { added: [], duplicates: [], error: "quota exceeded" }
-  #     → "Google account connected. couldn't list channels right now (quota exceeded). open /channels and try [+ add another Google account] again."
+  #     → "Google account connected. couldn't list channels right now (quota exceeded). open /channels and click [+] to retry."
   def compose_callback_flash(discovery)
     parts = [ "Google account connected." ]
 
     if discovery[:error].present?
-      parts << "couldn't list channels right now (#{discovery[:error]}). open /channels and try [+ add another Google account] again."
+      parts << "couldn't list channels right now (#{discovery[:error]}). open /channels and click [+] to retry."
       return parts.join(" ")
     end
 

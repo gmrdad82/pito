@@ -48,23 +48,25 @@ RSpec.describe "Google OAuth flow", type: :system do
     OmniAuth.config.mock_auth[:google_oauth2] = nil
   end
 
-  it "lets the user connect their Google account from the /channels banner" do
+  it "lets the user connect their Google account from the /channels [+] button" do
     visit channels_path
-    expect(page).to have_content("no Google account connected")
+    # Banner is dropped — the empty-state "no Google account connected"
+    # copy is gone too. The `[+]` button next to the heading is the
+    # single entry point.
+    expect(page).to have_content("no channels yet")
 
     expect {
-      click_button "[connect google]"
+      click_button "[+]"
     }.to change { YoutubeConnection.unscoped.count }.by(1)
 
     expect(page).to have_current_path(channels_path)
   end
 
-  # Multi-connection (2026-05-10). After the first account connects,
-  # the page shows a `[+ add another Google account]` button that
-  # initiates a SECOND OmniAuth round. The mocked auth hash is reused
-  # under a different google_subject_id, so the callback creates a
-  # second YoutubeConnection row alongside the first.
-  it "lets the user connect a SECOND Google account from /channels" do
+  # Multi-connection: with one connection already present, clicking
+  # `[+]` initiates a SECOND OmniAuth round. The mocked auth hash is
+  # reused under a different google_subject_id, so the callback
+  # creates a second YoutubeConnection row alongside the first.
+  it "lets the user connect a SECOND Google account from /channels via [+]" do
     user = User.first || create(:user)
     create(:youtube_connection,
            user: user,
@@ -93,16 +95,22 @@ RSpec.describe "Google OAuth flow", type: :system do
     )
 
     visit channels_path
-    expect(page).to have_content("first-account@example.test")
-    expect(page).to have_button("[+ add another Google account]")
+    # Banner is dropped — the connection's email is no longer surfaced
+    # on the /channels index. The `[+]` heading button stays as the
+    # single entry point and still POSTs with `account=new`.
+    expect(page).not_to have_content("first-account@example.test")
+    expect(page).to have_button("[+]")
 
     expect {
-      click_button "[+ add another Google account]"
+      click_button "[+]"
     }.to change { YoutubeConnection.unscoped.where(user_id: user.id).count }.by(1)
 
     expect(page).to have_current_path(channels_path)
-    # Both rows now live side-by-side; the page surfaces both emails.
-    expect(page).to have_content("first-account@example.test")
-    expect(page).to have_content("second-account@example.test")
+    # The second connection row exists in the DB; neither email
+    # surfaces on /channels anymore (banner gone).
+    expect(YoutubeConnection.unscoped.where(user_id: user.id).pluck(:email)).to contain_exactly(
+      "first-account@example.test",
+      "second-account@example.test"
+    )
   end
 end

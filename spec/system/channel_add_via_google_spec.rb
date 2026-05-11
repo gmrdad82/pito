@@ -1,12 +1,12 @@
 require "rails_helper"
 
-# End-to-end happy path: `[+]` on /channels (or the Google banner on
-# the same page) → OAuth runs with `prompt=select_account` → the
-# callback enumerates `mine: true` channels and adds non-duplicates as
-# Channel rows under the matching YoutubeConnection. Phase 24 moved
-# the Google management surface onto /channels (banner on index + per-
-# channel inline panel on show); the legacy `/settings/youtube` page is
-# gone.
+# End-to-end happy path: `[+]` on /channels → OAuth runs with
+# `prompt=select_account` → the callback enumerates `mine: true`
+# channels and adds non-duplicates as Channel rows under the matching
+# YoutubeConnection. The Google management banner that used to render
+# at the top of /channels was dropped per user directive — the `[+]`
+# heading button is the single entry point. The per-channel inline
+# panel on /channels/:slug stays as the per-channel surface.
 RSpec.describe "Add channels via Google", type: :system do
   let(:user) { User.first || create(:user) }
   let!(:connection) do
@@ -46,12 +46,15 @@ RSpec.describe "Add channels via Google", type: :system do
     OmniAuth.config.mock_auth[:google_oauth2] = nil
   end
 
-  it "renders the Google banner on /channels with [+ add another Google account]" do
+  it "renders the [+] OAuth-entry button on /channels (banner is dropped)" do
     visit channels_path
-    expect(page).to have_button("[+ add another Google account]")
+    expect(page).to have_button("[+]")
+    # Negative guards — the dropped banner content must not surface.
+    expect(page).not_to have_button("[+ add another Google account]")
+    expect(page).not_to have_content("u@example.test")
   end
 
-  it "click [+ add another Google account] → OAuth → returns to /channels with the new channel linked" do
+  it "click [+] → OAuth → returns to /channels with the new channel linked" do
     allow_any_instance_of(Youtube::Client).to receive(:channels_list).and_return(
       items: [
         { id: "UCnewnewnewnewnewnewnewx",
@@ -62,17 +65,17 @@ RSpec.describe "Add channels via Google", type: :system do
     )
 
     visit channels_path
-    expect(page).to have_button("[+ add another Google account]")
+    expect(page).to have_button("[+]")
 
     expect {
-      click_button "[+ add another Google account]"
+      click_button "[+]"
     }.to change { Channel.where(youtube_connection_id: connection.id).count }.by(1)
 
     expect(page).to have_current_path(channels_path)
     expect(page).to have_content("Google account connected")
   end
 
-  it "click [+ add another Google account] → OAuth → an already-linked channel is silently skipped" do
+  it "click [+] → OAuth → an already-linked channel is silently skipped" do
     Channel.create!(
       channel_url: "https://www.youtube.com/channel/UCdupdupdupdupdupdupdupx",
       youtube_connection_id: connection.id,
@@ -91,7 +94,7 @@ RSpec.describe "Add channels via Google", type: :system do
 
     visit channels_path
     expect {
-      click_button "[+ add another Google account]"
+      click_button "[+]"
     }.to change { Channel.count }.by(1)
 
     expect(page).to have_current_path(channels_path)
