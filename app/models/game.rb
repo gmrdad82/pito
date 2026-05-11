@@ -44,9 +44,13 @@ class Game < ApplicationRecord
   end
 
   # Phase 14 §1 — whitelist of IGDB cover-image size tokens.
+  # Phase 27 01e adds `t_cover_small_2x` (180 × 256 native) as the
+  # source token for the `:shelf` cover-art variant rendered by
+  # `Games::CoverComponent`. It downsamples cleanly into the
+  # 98 × 130 shelf tile slot (65% of the 150 × 200 grid tile).
   COVER_SIZES = %w[
-    t_thumb t_cover_small t_cover_big t_screenshot_med t_screenshot_big
-    t_logo_med
+    t_thumb t_cover_small t_cover_small_2x t_cover_big t_screenshot_med
+    t_screenshot_big t_logo_med
   ].freeze
 
   # Phase 4 carryover. The Phase 4 ALLOWED_PLATFORMS allowlist is
