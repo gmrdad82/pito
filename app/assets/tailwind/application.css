@@ -1752,3 +1752,196 @@ dialog.wide-modal::backdrop {
   padding: 12px;
   font-size: 13px;
 }
+
+/* Phase 7.5 §11e — Channel watermark preview component.
+   Faux YouTube player chrome. Four `size:` variants share the
+   same markup; the variant class only swaps dimensions / type
+   sizes. The watermark overlay is bottom-right (locked decision);
+   sizing scales proportionally with the player container so the
+   TV variant naturally renders a larger overlay than mobile. */
+.watermark-preview {
+  display: inline-block;
+  font-family: var(--font-mono);
+}
+.watermark-player {
+  position: relative;
+  background-color: #000;
+  background-size: cover;
+  background-position: center;
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+}
+.watermark-player--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-pane-bg-b);
+  background-image: none !important;
+}
+.watermark-empty-label {
+  font-size: 12px;
+}
+
+/* Edit variant — inline preview adjacent to the form fields. */
+.watermark-player--edit {
+  width: 480px;
+  aspect-ratio: 16 / 9;
+}
+/* Desktop variant — 1280x720 inside the 11d preview modal. */
+.watermark-player--desktop {
+  width: 1280px;
+  max-width: 100%;
+  aspect-ratio: 16 / 9;
+}
+/* Mobile variant — fits the 11d mobile pane (~390px wide canvas). */
+.watermark-player--mobile {
+  width: 100%;
+  max-width: 358px;
+  aspect-ratio: 16 / 9;
+}
+/* TV variant — 1920x1080. Lives inside the 11d TV canvas which
+   itself is scaled 0.6 by the modal, so this renders inside that
+   transform context. */
+.watermark-player--tv {
+  width: 100%;
+  max-width: 1760px;
+  aspect-ratio: 16 / 9;
+}
+
+/* Watermark overlay — bottom-right, proportional sizing per the
+   parent player. The percentage-based width keeps the watermark
+   visually consistent across the four size variants. */
+.watermark-overlay {
+  position: absolute;
+  right: 4%;
+  bottom: 12%;
+  width: 12%;
+  height: auto;
+  max-width: 96px;
+  opacity: 0.85;
+}
+.watermark-overlay--edit {
+  max-width: 48px;
+}
+.watermark-overlay--mobile {
+  max-width: 40px;
+}
+.watermark-overlay--tv {
+  max-width: 192px;
+}
+
+/* Faux controls row — sits at the bottom of the player. Rough
+   approximation per locked Q2 (play, progress, time, settings,
+   fullscreen). No JS. */
+.watermark-controls {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: linear-gradient(to top, rgba(0,0,0,0.6), rgba(0,0,0,0));
+  color: #fff;
+  font-size: 12px;
+  user-select: none;
+}
+.watermark-control {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+.watermark-control--progress {
+  flex: 1;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.35);
+  position: relative;
+}
+.watermark-progress-bar {
+  display: block;
+  width: 30%;
+  height: 100%;
+  background: #cc0000;
+}
+.watermark-controls--mobile {
+  font-size: 10px;
+  gap: 4px;
+  padding: 4px 6px;
+}
+.watermark-controls--edit {
+  font-size: 11px;
+  gap: 6px;
+  padding: 4px 8px;
+}
+
+/* Caption beneath the player. Muted, plain text, no bracket
+   convention — the text reads like a sentence ("Visible: last
+   15s") and is not a clickable surface. */
+.watermark-caption {
+  margin-top: 6px;
+  font-size: 12px;
+}
+.watermark-caption--mobile {
+  font-size: 11px;
+}
+.watermark-caption--tv {
+  font-size: 16px;
+}
+
+/* Container slots inside the 11d preview component panels. The
+   inner `WatermarkPreviewComponent` controls its own dimensions
+   per variant; these wrappers only own vertical spacing. */
+.preview-watermark {
+  margin: 12px 0;
+}
+.preview-watermark--mobile {
+  margin: 8px 0;
+}
+.preview-watermark--tv {
+  margin: 24px 0;
+}
+
+/* Leader-menu popup — bottom-right anchored card opened by SPACE
+   or by clicking the bracketed `[_]` footer link. The popup is NOT
+   a <dialog>; it's a positioned floating card so the rest of the
+   page stays interactive while it's open. The Stimulus
+   `leader-menu` controller toggles the `hidden` attribute on
+   `#leader-menu-popup` and builds the card via `createElement`.
+   Schema source: `config/keybindings.yml`. */
+.leader-menu-popup {
+  position: fixed;
+  bottom: 56px;
+  right: 12px;
+  z-index: 200;
+}
+.leader-menu-card {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  padding: 8px 10px;
+  min-width: 220px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  font-size: 13px;
+}
+.leader-menu-title {
+  margin-bottom: 6px;
+  font-size: 11px;
+  text-transform: lowercase;
+}
+.leader-menu-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.leader-menu-row {
+  padding: 2px 0;
+  white-space: nowrap;
+}
+.leader-menu-key {
+  display: inline-block;
+  min-width: 28px;
+}
+.leader-menu-hint {
+  margin-top: 6px;
+  font-size: 11px;
+}

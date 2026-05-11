@@ -161,38 +161,55 @@
   <%# ─── Watermark ─── %>
   <fieldset style="margin-bottom: 16px; border: 1px solid #ddd; padding: 8px 12px;">
     <legend>watermark</legend>
-    <p class="form-hint" style="font-size: 11px;">
-      expected: 800×800 PNG or JPEG; max 1 MB.
-    </p>
-    <div style="margin-bottom: 8px;">
-      <input type="file" name="channel[watermark]" accept="image/png,image/jpeg"
-             data-file-upload-target="input"
-             data-action="change->file-upload#validate">
-      <p class="form-hint file-upload-error text-danger" data-file-upload-target="error"
-         style="font-size: 11px;" hidden></p>
-    </div>
-    <div style="margin-bottom: 8px;">
-      <label>timing</label>
-      <%= f.select :watermark_timing,
-            Channel::WATERMARK_TIMINGS.map { |t| [t.tr("_", " "), t] },
-            { include_blank: true, selected: channel.watermark_timing },
-            data: { action: "change->file-upload#toggleOffset",
-                    file_upload_target: "timing" } %>
-    </div>
-    <div style="margin-bottom: 8px;" data-file-upload-target="offsetContainer"
-         <%= "hidden" unless %w[offset_from_start offset_from_end].include?(channel.watermark_timing) %>>
-      <label>offset (ms)</label>
-      <%= f.number_field :watermark_offset_ms, value: channel.watermark_offset_ms,
-                         min: 0, style: "width: 120px;" %>
-    </div>
-    <% if channel.watermark_url.present? %>
-      <div style="margin-bottom: 8px;">
-        <input type="hidden" name="channel[watermark_remove]" value="no"
-               data-file-upload-target="removeFlag">
-        <%= link_to "[remove watermark]", "/deletions/channel_watermark/#{channel.id}",
-                    class: "bracketed text-danger" %>
+    <div style="display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start;">
+      <div style="flex: 1; min-width: 280px;">
+        <p class="form-hint" style="font-size: 11px;">
+          expected: 800×800 PNG or JPEG; max 1 MB.
+        </p>
+        <div style="margin-bottom: 8px;">
+          <input type="file" name="channel[watermark]" accept="image/png,image/jpeg"
+                 data-file-upload-target="input"
+                 data-action="change->file-upload#validate">
+          <p class="form-hint file-upload-error text-danger" data-file-upload-target="error"
+             style="font-size: 11px;" hidden></p>
+        </div>
+        <div style="margin-bottom: 8px;">
+          <label>timing</label>
+          <%= f.select :watermark_timing,
+                Channel::WATERMARK_TIMINGS.map { |t| [t.tr("_", " "), t] },
+                { include_blank: true, selected: channel.watermark_timing },
+                data: { action: "change->file-upload#toggleOffset",
+                        file_upload_target: "timing" } %>
+        </div>
+        <div style="margin-bottom: 8px;" data-file-upload-target="offsetContainer"
+             <%= "hidden" unless %w[offset_from_start offset_from_end].include?(channel.watermark_timing) %>>
+          <label>offset (ms)</label>
+          <%= f.number_field :watermark_offset_ms, value: channel.watermark_offset_ms,
+                             min: 0, style: "width: 120px;" %>
+        </div>
+        <% if channel.watermark_url.present? %>
+          <div style="margin-bottom: 8px;">
+            <input type="hidden" name="channel[watermark_remove]" value="no"
+                   data-file-upload-target="removeFlag">
+            <%= link_to "[remove watermark]", "/deletions/channel_watermark/#{channel.id}",
+                        class: "bracketed text-danger" %>
+          </div>
+        <% end %>
       </div>
-    <% end %>
+      <%# Phase 7.5 §11e — inline watermark preview. Renders at the
+          `:edit` size variant adjacent to the form fields. The
+          preview reflects the channel's persisted watermark + timing;
+          a form save reloads the page and re-renders this component
+          with the new values (no live JS preview in this dispatch). %>
+      <div style="flex: 0 0 auto;">
+        <%= render(WatermarkPreviewComponent.new(
+              channel: channel,
+              size: :edit,
+              timing: channel.watermark_timing,
+              offset_ms: channel.watermark_offset_ms
+            )) %>
+      </div>
+    </div>
   </fieldset>
 
   <%# ─── Banner slot (owned by 11f) ─── %>

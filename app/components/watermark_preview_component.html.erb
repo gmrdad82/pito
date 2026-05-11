@@ -1,0 +1,47 @@
+<%# Phase 7.5 §11e — Channel watermark preview component.
+    Layout-agnostic faux YouTube player. The `size:` attribute
+    (`edit` / `desktop` / `mobile` / `tv`) drives the CSS-size
+    classes only; the markup itself is identical across variants.
+
+    The watermark overlay sits at the BOTTOM-RIGHT corner. No
+    position selector exists (locked Q1).
+%>
+<div class="watermark-preview watermark-preview--<%= size %>"
+     data-size="<%= size %>"
+     data-watermark-preview="true">
+  <% if empty_frames? %>
+    <div class="watermark-player watermark-player--empty watermark-player--<%= size %>"
+         aria-label="no preview frames yet">
+      <span class="watermark-empty-label text-muted">[no preview frames yet]</span>
+    </div>
+  <% else %>
+    <div class="watermark-player watermark-player--<%= size %>"
+         style="background-image: url('<%= frame_path %>');">
+      <% if watermark? %>
+        <%= image_tag channel.watermark_url,
+                      alt: "channel watermark",
+                      class: "watermark-overlay watermark-overlay--#{size}",
+                      data: { position: "bottom-right" } %>
+      <% end %>
+
+      <%# Faux player controls — rough approximation per locked Q2.
+          Pure presentational SVG-free Unicode glyphs so the chrome
+          renders identically without sprite assets. No JS, no real
+          interactivity. %>
+      <div class="watermark-controls watermark-controls--<%= size %>">
+        <span class="watermark-control watermark-control--play" aria-hidden="true">&#9654;</span>
+        <span class="watermark-control watermark-control--progress" aria-hidden="true">
+          <span class="watermark-progress-bar"></span>
+        </span>
+        <span class="watermark-control watermark-control--time" aria-hidden="true">0:00 / 0:00</span>
+        <span class="watermark-control watermark-control--settings" aria-hidden="true">&#9881;</span>
+        <span class="watermark-control watermark-control--fullscreen" aria-hidden="true">&#9974;</span>
+      </div>
+    </div>
+  <% end %>
+
+  <div class="watermark-caption watermark-caption--<%= size %> text-muted"
+       data-watermark-preview-target="caption">
+    <%= caption %>
+  </div>
+</div>

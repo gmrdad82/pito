@@ -3,6 +3,11 @@
     Per locked decision (LOCK 3) the row is HIDDEN entirely when
     `banner_url` is nil — no colored placeholder, no empty block.
     Once ChannelSync populates `banner_url` (Phase 8) the row appears.
+
+    Phase 7.5 §11f — the banner upload flow on the edit page uses
+    a Turbo Stream to replace `#channel-banner-section` after a
+    successful submit. This partial stays render-once on the show
+    page; the section wrapper is owned by the edit / show callers.
 %>
 <% if channel.banner_url.present? %>
   <div class="channel-banner" style="margin-bottom: 8px;">

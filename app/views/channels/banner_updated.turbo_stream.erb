@@ -1,0 +1,11 @@
+<%# Phase 7.5 §11f — Turbo Stream response for the banner-only
+    update path. Swaps the `channel-banner-section` frame with the
+    re-rendered banner partial so the new banner appears in-place
+    without a full page reload. Falls back to the redirect-to-show
+    HTML response for non-Turbo clients (see controller). %>
+<%= turbo_stream.replace "channel-banner-section" do %>
+  <div id="channel-banner-section">
+    <%= render "channels/banner", channel: channel %>
+    <p class="form-hint" style="font-size: 11px;">banner updated.</p>
+  </div>
+<% end %>

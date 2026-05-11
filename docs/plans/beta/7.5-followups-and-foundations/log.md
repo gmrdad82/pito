@@ -3096,3 +3096,315 @@ tick (same situation as the 11g / 11h / 11i log entries above).
   call sites that could simplify.
 
 **No commits, no pushes.** Master commits after manual validation.
+
+## 2026-05-11 — §11e Channel Watermark Preview (rails-impl)
+
+**State at start:** 11a (channel schema/sync) + 11c (channel edit form) +
+11d (multi-layout preview component) all shipped. The
+`PreviewHelper.random_watermark_frame(seed:)` stub from 11d returned `nil`
+unconditionally; the watermark fieldset in `_form.html.erb` had no preview
+adjacent to it. The `public/preview/watermark_frames/` directory did not
+exist on disk.
+
+**Inputs:**
+
+- Spec:
+  `docs/plans/beta/7.5-followups-and-foundations/specs/11e-channel-watermark-preview.md`
+- Locked decisions from the dispatch (all seven open questions resolved):
+  1. Bottom-right overlay position.
+  2. Rough-approximation player chrome (play / progress / time / settings /
+     fullscreen).
+  3. Seconds display in caption (`Visible: last 15s`, `Visible: starts at 5s`).
+  4. Composition: `WatermarkPreviewComponent` is layout-agnostic;
+     `ChannelPreviewComponent` picks the `size:` variant.
+  5. TV layout — natural proportional scaling (no special-case).
+  6. Random frame deterministic per channel id (matches the D8 video
+     thumbnails pattern).
+  7. Attachment dependency: 11a (Channel columns) + 11c (form fields)
+     already shipped — `watermark_url` is a string column, `watermark_timing`
+     and `watermark_offset_ms` are persisted on the Channel record.
+
+**What landed (file-level):**
+
+_New files:_
+
+- `app/components/watermark_preview_component.rb` — ViewComponent class.
+  Four size variants (`:edit`, `:desktop`, `:mobile`, `:tv`); `timing:` and
+  `offset_ms:` overrides default to `channel.watermark_timing` /
+  `channel.watermark_offset_ms`; `frame_path:` override (primarily for
+  tests) defaults to `PreviewHelper.random_watermark_frame(seed: channel.id)`.
+- `app/components/watermark_preview_component.html.erb` — faux player markup.
+  Background-image style points at the chosen frame; rough control row
+  (play / progress / time / settings / fullscreen) renders along the
+  bottom; watermark image floats at the bottom-right with the
+  `data-position="bottom-right"` attribute. Empty-frames branch swaps the
+  player area for a muted `[no preview frames yet]` line (no-inner-padding
+  bracket convention per project rule A).
+- `public/preview/watermark_frames/.keep` — placeholder so the directory
+  ships in git. User drops 2–4 JPEGs into this dir; filenames are
+  free-form (helper globs `*.{jpg,jpeg}`).
+- `spec/components/watermark_preview_component_spec.rb` — 28 examples.
+  Covers all four size variants, bottom-right positioning across every
+  variant, caption for each of the four timing values plus the no-watermark
+  fallback, empty-frames fallback, faux-controls row, hard-rule hygiene
+  (no JS confirm/alert; no-inner-padding bracket convention).
+- `spec/system/channels/watermark_preview_spec.rb` — 14 examples.
+  Critical journey end-to-end: edit page renders the `:edit` variant
+  adjacent to the form fields; caption reflects each persisted
+  `watermark_timing` + `watermark_offset_ms` combo; 11d preview modal
+  embeds the watermark inside each of the three layout panels; empty-frames
+  fallback; no-watermark fallback.
+
+_Modified files:_
+
+- `app/helpers/preview_helper.rb` — implemented `random_watermark_frame(seed:)`
+  for real (was a `nil` stub from 11d), added `available_watermark_frames`
+  helper, added `format_watermark_timing(timing, offset_ms)` returning the
+  human-readable caption string. Header comment updated to record the 11e
+  extensions. The new constants are `WATERMARK_FRAMES_DIR` and
+  `WATERMARK_FRAME_GLOB` (accepts both `.jpg` and `.jpeg`).
+- `app/views/channels/_form.html.erb` — watermark fieldset rewrapped in a
+  flex row so the existing form inputs (file / timing / offset / remove
+  link) sit on the left and the `:edit`-size watermark preview sits on
+  the right. The form inputs are unchanged; only the wrapping `<div>` and
+  the new `<%= render(WatermarkPreviewComponent...) %>` call are new.
+- `app/components/channel_preview_component.html.erb` — added a
+  `<% if channel.watermark_url.present? %>` block inside each layout
+  panel that renders `WatermarkPreviewComponent` at the layout's matching
+  size variant (`:desktop` / `:mobile` / `:tv`). The composition is gated
+  on the channel having a watermark so layouts without one stay clean.
+- `app/assets/tailwind/application.css` — new ruleset for
+  `.watermark-preview` and its `--edit` / `--desktop` / `--mobile` / `--tv`
+  variant classes. Player uses CSS `aspect-ratio: 16 / 9` so the four
+  variants all preserve the same shape. Overlay uses percentage-based
+  positioning (`right: 4%; bottom: 12%`) so the watermark scales
+  proportionally with the player container (TV = large, mobile = small);
+  per-variant `max-width` caps prevent the overlay from getting absurd
+  on the TV variant. Controls row is a flex strip with a Unicode play
+  triangle, a red `.watermark-progress-bar` filling 30% of the track, a
+  monospace time stamp, a gear glyph, and a maximize glyph. Empty-state
+  styles match the existing `text-muted` convention.
+- `spec/helpers/preview_helper_spec.rb` — replaced the 11d placeholder
+  `random_watermark_frame returns nil` assertion with real coverage:
+  empty-dir branch, missing-dir branch, deterministic per-seed, `.jpg`
+  + `.jpeg` extensions, seed wrap-around, negative-seed defense.
+  Added a new `format_watermark_timing` describe block covering all
+  four timing values, millisecond-to-second rounding, nil-offset
+  fallback, negative-offset clamp, nil-timing and unrecognized-timing
+  branches, and symbol input acceptance.
+
+**Why:**
+
+The watermark fields landed in 11c had no visual feedback — the user could
+set a timing+offset and save, but the only way to verify the watermark's
+appearance was to publish a video to YouTube and look at the player. 11e
+gives the user an at-a-glance preview adjacent to the form fields plus
+the same preview inside each of the 11d modal's three layout panels (so
+the user can see how the watermark scales across desktop, mobile, and TV).
+
+The caption is the load-bearing surface for the four timing options —
+the mockup is static, so the visible-window semantics (`always` vs
+`offset_from_start` vs `offset_from_end`) have to surface in text.
+Rounding millisecond offsets to whole seconds at the render boundary
+keeps the DB schema unchanged (still `watermark_offset_ms`) while making
+the caption readable.
+
+**Where:**
+
+- Spec: `specs/11e-channel-watermark-preview.md`.
+- 11d log entry above (immediate predecessor; the
+  `random_watermark_frame` stub became real here).
+- 11c log entry above (the watermark form fields this preview sits
+  next to).
+
+**Gates green:**
+
+- `bundle exec rspec spec/components/watermark_preview_component_spec.rb spec/helpers/preview_helper_spec.rb spec/system/channels/watermark_preview_spec.rb`
+  → 74 examples, 0 failures.
+- `bundle exec rspec spec/components/ spec/helpers/` → 482 examples,
+  0 failures (no regressions from extending PreviewHelper +
+  ChannelPreviewComponent).
+- `bundle exec rspec spec/system/channels/ spec/system/channel_preview_spec.rb spec/system/channel_edit_form_spec.rb`
+  → all green.
+- `bundle exec rubocop` → 1004 files, 0 offenses.
+- `bin/brakeman -q -w2` → 0 errors, 0 security warnings.
+
+**Notes for the master agent / reviewer:**
+
+- The CSS `aspect-ratio: 16 / 9` is the load-bearing rule that keeps the
+  faux player visually consistent across the four variants; if a future
+  variant arrives, only the `width` / `max-width` need updating.
+- Composition with 11d uses `channel.watermark_url.present?` as the gate
+  inside each layout panel. Channels without a watermark stay unchanged
+  in the modal — only the inline edit-form preview surfaces the
+  "No watermark set" caption (so the user knows the preview is wired up
+  even before uploading anything).
+- The `frame_path: :unset` sentinel in the component constructor exists
+  so callers can pass `frame_path: nil` to force the empty-frames branch
+  in tests without it being mistaken for "use the default". Production
+  callers should never set `frame_path:` and let the helper pick.
+- Did NOT touch `extras/`, `docs/` (other than appending this log entry
+  per the rails-impl agent rules), or `.claude-config/`.
+
+**Plan ticked**
+
+11e has no dedicated `plan.md` checkbox — Step 11 sub-specs were added
+via `additions.md` and not back-folded into the plan workstreams list.
+Nothing to tick (same situation as the 11d / 11g / 11h / 11i log entries
+above).
+
+**Open issues**
+
+- `public/preview/watermark_frames/` ships empty. The user needs to drop
+  2–4 JPEGs (~1920×1080) into the directory before the non-empty branch
+  renders. Until then, the empty-state line is what gets exercised. The
+  filename is free-form (helper globs `*.{jpg,jpeg}`), so the user can
+  drop screenshots without renaming.
+- The faux player chrome is a rough approximation (per locked Q2). If
+  the user wants pixel-perfect fidelity later, the controls row would
+  swap Unicode glyphs for SVG icons; that's a CSS-only follow-up.
+- The watermark overlay's `bottom: 12%` positioning is a best-guess
+  approximation of YouTube's actual placement. Expect a tweak after the
+  dogfooding pass — the value is a single CSS rule.
+- No live JS preview was wired (the spec explicitly said a page reload
+  after save is sufficient). If the 11d Stimulus controller pattern ends
+  up extended to the watermark fields, the inline `:edit` preview is
+  ready to update via Turbo Stream — it already lives inside the
+  `channel-preview` Stimulus controller scope on the edit page.
+
+**No commits, no pushes.** Master commits after manual validation.
+
+## 2026-05-11 — Unified keybindings schema (Rails half)
+
+**Spec source:**
+`docs/notes/2026-05-10-23-30-00-keybindings-unified-schema-proposal.md` (locked
+decisions block dated 2026-05-11 at the bottom).
+
+**Goal:** `config/keybindings.yml` becomes the single source of truth for the
+leader-menu schema. Both Rails (web) and Rust (`pito` CLI / TUI) read it.
+
+**Files changed**
+
+- `config/keybindings.yml` — NEW. Encodes the locked menu structure
+  (root + 9 submenus: calendar, channels, videos, projects, games, bundles,
+  notifications, search, list_ops). Items carry `key`, `label`, and either
+  `submenu:` or `action: { type, ... }`. Optional `surfaces: [tui]` filter
+  keeps the `q` quit binding off the web surface.
+- `config/initializers/keybindings.rb` — NEW. Eager-loads the YAML at boot,
+  deep-freezes the tree, and stashes it in `Rails.application.config.keybindings`.
+- `app/helpers/keybindings_helper.rb` — NEW.
+  - `keybindings_for_surface(:web|:tui)` returns the filtered hash for spec
+    assertions and downstream rendering.
+  - `keybindings_as_json` JSON-serializes the `:web` filter and marks the
+    result `html_safe` so it can ride inside the layout's
+    `<script type="application/json" id="pito-keybindings">` tag. (No user-
+    controlled strings exist in the schema today, so no XSS surface.)
+- `app/views/layouts/application.html.erb` — Mounts `leader-menu` controller
+  alongside the existing `keyboard` / `notifications-modal` controllers on
+  `<body>`. Embeds the JSON schema in a `<script>` tag. Adds the
+  `#leader-menu-popup` placeholder div with the `data-leader-menu-target`. The
+  footer `[_]` link's `data-action` is now
+  `click->keyboard#openHelp click->leader-menu#openRoot` — both controllers
+  fire on click so the legacy `?` help dialog still opens AND the new
+  leader popup paints.
+- `app/javascript/controllers/leader_menu_controller.js` — NEW Stimulus
+  controller. Parses `<script id="pito-keybindings">` on `connect`, listens
+  for SPACE on `document`, walks the menu stack (push on submenu activation,
+  pop on Backspace), renders the popup with `createElement` + `textContent`
+  (no `innerHTML`, no `Element.outerHTML` from dynamic strings, so no XSS
+  surface). Esc closes the popup; Backspace pops up one level; clicking
+  outside dismisses. Non-navigate actions are forwarded as a
+  `leader-menu:action` `CustomEvent` on `document` so other controllers can
+  plug in handlers without coupling this one to every action type.
+- `app/assets/tailwind/application.css` — Bottom-right anchored card styles
+  (`.leader-menu-popup`, `.leader-menu-card`, `.leader-menu-key`,
+  `.leader-menu-row`, `.leader-menu-hint`) appended at the bottom.
+
+**Specs added (37 new examples; full target suite 83 examples, 0 failures)**
+
+- `spec/helpers/keybindings_helper_spec.rb` (12 examples) — schema-shape
+  contract: leader key + display, locked menu names, root-item key set,
+  navigate-action shape on `[S]ettings`, submenu wiring on `[c]alendar`
+  and games-bundles, surface filtering (TUI `q` filtered off `:web`,
+  preserved on `:tui`), JSON round-trip.
+- `spec/requests/leader_menu_layout_spec.rb` (24 examples) — layout-level
+  integration: `<body data-controller=leader-menu>` mount, `<script
+  id="pito-keybindings">` payload, popup placeholder div, footer `[_]`
+  link wired to `leader-menu#openRoot`, JSON shape (TUI `q` filtered),
+  chrome-hidden auth-page behavior.
+- `spec/system/leader_menu_spec.rb` (7 examples, rack_test) — same chrome
+  contract from Capybara's vantage point + JSON payload introspection on
+  the calendar + channels submenus.
+
+**Specs touched**
+
+- `spec/requests/keyboard_shortcuts_layout_spec.rb` — the `[_]` `data-action`
+  assertion relaxed from exact-string equality on the trailing `"` byte to
+  a substring match on `click->keyboard#openHelp`, since the action is now
+  chained with `click->leader-menu#openRoot` on the same link.
+
+**TUI half (Step 3) — DEFERRED**
+
+Out of rails-impl scope per the agent file-scope rule
+(`extras/cli/` belongs to the `cli-impl` agent). The TUI integration —
+`extras/cli/src/keybindings.rs` (`serde_yaml` loader),
+`extras/cli/src/ui/leader_menu.rs` (Ratatui overlay), and the SPACE wiring
+in `extras/cli/src/keys.rs` — needs a sibling `pito-rust` dispatch. The
+schema YAML at `config/keybindings.yml` is the lockstep contract; both
+stacks parse the same file on disk.
+
+**Step 4 (visual posture) — verified in place**
+
+- The `[_]` link in the footer (added in `076be13`) is still rendered and
+  now carries both controllers' `data-action`.
+- The popup placeholder div lives in the layout chrome with `hidden`
+  defaulted; the Stimulus controller flips it.
+
+**Refactor decision: `KeyboardShortcutsModalComponent`**
+
+The spec offered "refactor to read from the schema instead of hand-coded;
+or retire entirely if the leader popup IS the help surface". Picked
+KEEP-AS-IS for this dispatch: the per-page `?` help modal lists
+prefix-keyed shortcuts (`g d`, `g c`, `f s`, etc.) the leader menu
+deliberately does not surface (those stay page-level per the dev note's
+Implementation plan §6). The leader popup is the global navigation
+surface; the legacy modal stays as the per-page shortcut catalogue. The
+two surfaces are intentionally orthogonal.
+
+**Gates**
+
+- `bundle exec rspec spec/helpers/keybindings_helper_spec.rb
+  spec/system/leader_menu_spec.rb spec/requests/leader_menu_layout_spec.rb
+  spec/requests/layout_navbar_spec.rb
+  spec/requests/keyboard_shortcuts_layout_spec.rb` → 83 examples, 0 failures.
+- `bundle exec rubocop` → clean (1004 files, 0 offenses).
+- `bundle exec brakeman -q -w2` → 0 warnings.
+
+**Plan ticked**
+
+None. This work has no corresponding plan checkbox — the locked-decision
+block in the dev note is the contract, dispatched directly by the master
+agent.
+
+**Coordination note**
+
+- Several agents in flight on adjacent surfaces; the keybindings work moved
+  freely on its own slice (`config/keybindings.yml` + initializer + helper
+  + new Stimulus controller + layout chrome integration).
+- The `[_]` footer link's `click->keyboard#openHelp` action survives on
+  the same click as a defense-in-depth chrome contract; existing layout
+  specs and the legacy `?` modal continue to work.
+
+**Open issues**
+
+- TUI lane needs a `pito-rust` dispatch to land `extras/cli/src/keybindings.rs`,
+  `ui/leader_menu.rs`, and the SPACE wiring. Until that ships, the TUI's
+  leader surface is unchanged from `extras/cli/src/ui/help.rs`.
+- Action-type dispatch (`open`, `today`, `quit_and_logout`, `contextual_add`,
+  etc.) is intentionally a no-op in this dispatch: the Stimulus controller
+  emits a `leader-menu:action` CustomEvent and other controllers will plug
+  in handlers as the surfaces land. Same-time landing across agents would
+  have produced merge collisions on every modal; this shape keeps the
+  schema stable while the rest evolves.
+
+**No commits, no pushes.** Master commits after manual validation.

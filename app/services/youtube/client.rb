@@ -227,6 +227,93 @@ module Youtube
       end
     end
 
+    # Phase 7.5 §11f — two-step channel banner upload.
+    #
+    # Step 1: `channelBanners.insert` uploads the image bytes and
+    #         returns a `ChannelBannerResource` whose `url` is the
+    #         opaque-but-stable `bannerExternalUrl` token. The token
+    #         is NOT a CDN URL — it is the upload handle YouTube
+    #         expects to receive on the next call.
+    # Step 2: `channels.update` (part=brandingSettings) writes
+    #         `brandingSettings.image.bannerExternalUrl = <token>`,
+    #         which is what actually publishes the banner. YouTube
+    #         then echoes the cacheable CDN URL back in the response
+    #         under `brandingSettings.image.bannerExternalUrl`.
+    #
+    # Both calls audit through `perform` so quota / refresh / retry
+    # semantics stay uniform; the caller sees one combined operation
+    # and two audit rows (one per endpoint).
+    #
+    # `io` is any IO-like object (e.g. `ActionDispatch::Http::
+    # UploadedFile`) that responds to `read`, plus optionally
+    # `content_type` and `original_filename`.
+    #
+    # Returns the cached `banner_external_url` string from the
+    # `channels.update` response so the controller can persist it
+    # into `channels.banner_url`. On any failure (auth, quota,
+    # transient, dimensions rejected by YouTube despite the
+    # client-side check), raises the structured Youtube::* error
+    # the `perform` chokepoint produces so the controller can
+    # surface a message.
+    def upload_banner(channel, io)
+      raise ArgumentError, "channel required" if channel.nil?
+      raise ArgumentError, "io required" if io.nil?
+
+      youtube_channel_id = extract_youtube_channel_id(channel)
+
+      # Step 1 — upload the bytes. The `channelBanners.insert` call
+      # only carries the file; `channel_id` is "derived from the
+      # security context of the requestor" per the gem's docs, so
+      # we leave it nil.
+      insert_url = perform("channelBanners.insert", "POST") do
+        svc = data_service
+        content_type = io.respond_to?(:content_type) ? io.content_type : "image/jpeg"
+        resource = Google::Apis::YoutubeV3::ChannelBannerResource.new
+        response = svc.insert_channel_banner(
+          resource,
+          upload_source: io,
+          content_type: content_type
+        )
+        # The Google gem returns a ChannelBannerResource struct;
+        # `url` carries the opaque token we feed back into
+        # channels.update on Step 2.
+        struct = symbolize_struct(response)
+        struct[:url]
+      end
+
+      if insert_url.to_s.strip.empty?
+        raise Youtube::PermanentError, "channelBanners.insert returned no banner url"
+      end
+
+      # Step 2 — publish the banner by patching brandingSettings.
+      # Read-modify-write the same way `#update_channel` does so we
+      # don't blank out the channel section siblings (title /
+      # description / country / etc.). The image section only
+      # carries `banner_external_url`, so a fresh
+      # ChannelSettings/ImageSettings pair is safe — the image
+      # block isn't shared with channel-level fields.
+      current_branding = read_current_branding(youtube_channel_id)
+
+      perform("channels.update", "PUT") do
+        svc = data_service
+        image_settings = Google::Apis::YoutubeV3::ImageSettings.new(
+          banner_external_url: insert_url
+        )
+        channel_settings = Google::Apis::YoutubeV3::ChannelSettings.new(**current_branding)
+        branding_settings = Google::Apis::YoutubeV3::ChannelBrandingSettings.new(
+          channel: channel_settings,
+          image: image_settings
+        )
+        channel_object = Google::Apis::YoutubeV3::Channel.new(
+          id: youtube_channel_id,
+          branding_settings: branding_settings
+        )
+        response = svc.update_channel("brandingSettings", channel_object)
+        normalized = normalize_channel_item(symbolize_struct(response))
+        normalized[:banner_url] || insert_url
+      end
+    end
+
     # GET /youtube/v3/videos
     def videos_list(ids:, parts: %i[snippet statistics contentDetails],
                     max_results: 50, page_token: nil)

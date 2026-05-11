@@ -1,0 +1,106 @@
+# Unified keybindings schema — single source of truth for the Rails
+# web app's leader-menu popup AND the Rust `pito` CLI's Ratatui leader
+# overlay. Both surfaces parse this file at load time; edit it once,
+# both stacks pick up the change.
+#
+# Source-of-truth docs:
+#   docs/notes/2026-05-10-23-30-00-keybindings-unified-schema-proposal.md
+#   (with the locked-decision block dated 2026-05-11 at the bottom).
+#
+# Conventions baked in:
+#   l   = list (navigate to /<resource>)
+#   +   = new / add
+#   -   = bulk delete
+#   r   = bulk resync
+#   y   = bulk sync (capital-letter contexts only)
+#   Esc = cancel / close popup
+#   Backspace = up one level
+#
+# Capital letters at the root level point to global resource pages
+# (channels, videos, projects, games, notifications). Lowercase
+# letters are qualifiers / direct actions.
+#
+# Optional `surfaces:` key restricts an item to one surface; default
+# is "both". TUI-only items (e.g. `q` quit) are filtered out of the
+# web schema at render time and vice-versa.
+
+leader:
+  key: " "
+  display: "_"
+
+menus:
+  root:
+    items:
+      - { key: h, label: home,             action: { type: navigate, path: "/" } }
+      - { key: c, label: calendar,         submenu: calendar }
+      - { key: C, label: channels,         submenu: channels }
+      - { key: V, label: videos,           submenu: videos }
+      - { key: P, label: projects,         submenu: projects }
+      - { key: G, label: games,            submenu: games }
+      - { key: N, label: notifications,    submenu: notifications }
+      - { key: S, label: settings,         action: { type: navigate, path: "/settings" } }
+      - { key: "/", label: search,         submenu: search }
+      - { key: "|", label: "list ops",     submenu: list_ops }
+      - { key: q, label: quit,             action: { type: quit }, surfaces: [tui] }
+      - { key: Q, label: "quit + logout",  action: { type: quit_and_logout } }
+
+  calendar:
+    items:
+      - { key: s, label: schedule, action: { type: navigate, path: "/calendar/schedule" } }
+      - { key: m, label: month,    action: { type: navigate, path: "/calendar/month" } }
+      - { key: t, label: today,    action: { type: today } }
+      - { key: "+", label: new,    action: { type: open, target: new_calendar_entry } }
+
+  channels:
+    items:
+      - { key: l, label: list,         action: { type: navigate, path: "/channels" } }
+      - { key: "+", label: add,        action: { type: navigate, path: "/settings/youtube" } }
+      - { key: b, label: "bulk toggle (legacy)", action: { type: noop } }
+      - { key: "-", label: "bulk delete (selection)", action: { type: bulk_delete } }
+      - { key: y, label: "bulk sync (selection)",    action: { type: bulk_sync } }
+
+  videos:
+    items:
+      - { key: l, label: list,         action: { type: navigate, path: "/videos" } }
+      - { key: "+", label: upload,     action: { type: open, target: video_upload } }
+      - { key: "-", label: bulk_delete, action: { type: bulk_delete } }
+
+  projects:
+    items:
+      - { key: l, label: list,         action: { type: navigate, path: "/projects" } }
+      - { key: "+", label: new,        action: { type: open, target: new_project } }
+      - { key: "-", label: bulk_delete, action: { type: bulk_delete } }
+
+  games:
+    items:
+      - { key: l, label: list,             action: { type: navigate, path: "/games" } }
+      - { key: "+", label: new,            action: { type: open, target: igdb_search } }
+      - { key: "-", label: bulk_delete,    action: { type: bulk_delete } }
+      - { key: r, label: "bulk resync",    action: { type: bulk_resync } }
+      - { key: B, label: bundles,          submenu: bundles }
+
+  bundles:
+    items:
+      - { key: l, label: list,         action: { type: navigate, path: "/bundles" } }
+      - { key: "+", label: new,        action: { type: open, target: new_bundle } }
+      - { key: r, label: "bulk resync", action: { type: bulk_resync } }
+
+  notifications:
+    items:
+      - { key: l, label: list,                action: { type: open, target: notifications_modal } }
+      - { key: u, label: "filter unread",     action: { type: filter_unread } }
+      - { key: m, label: "mark all as read",  action: { type: mark_all_read } }
+
+  search:
+    items:
+      - { key: "/", label: "pito search (global)", action: { type: open, target: global_search } }
+      - { key: C, label: channels,                  action: { type: open, target: channels_search } }
+      - { key: V, label: videos,                    action: { type: open, target: videos_search } }
+      - { key: P, label: projects,                  action: { type: open, target: projects_search } }
+      - { key: G, label: games,                     action: { type: open, target: games_search } }
+      - { key: g, label: "igdb search",             action: { type: open, target: igdb_search } }
+
+  list_ops:
+    items:
+      - { key: l, label: "saved views",  action: { type: open, target: saved_views_modal } }
+      - { key: "+", label: "add",        action: { type: contextual_add } }
