@@ -7,6 +7,15 @@ RSpec.describe "TOTP 2FA journey", type: :system do
   let(:password) { "password123" }
   let(:user) { @auto_signed_in_user }
 
+  # P25 follow-up — F2. The TOTP one-shot payload (seed + 10 plaintext
+  # codes) moved from `flash` to `Rails.cache`. Test env's
+  # :null_store would drop the cache write and break the enroll → show
+  # redirect chain. Swap to a real MemoryStore for these journey
+  # specs.
+  let(:memory_cache) { ActiveSupport::Cache::MemoryStore.new }
+
+  before { allow(Rails).to receive(:cache).and_return(memory_cache) }
+
   context "happy path: enroll → confirm → manage" do
     it "enrolls, confirms with a fresh code, then disables" do
       visit "/settings/security/totp"

@@ -134,12 +134,9 @@ RSpec.describe "Login::TotpChallenges", type: :request do
   # BOTH (cache write + cookie re-mint) so a stolen cookie's brute
   # force is bounded to ~1 attempt before the nonce rotates.
   describe "POST /login/totp pre-auth nonce rotation (P25 F8)", :unauthenticated do
-    # Swap test env's :null_store for a real MemoryStore so the cache
-    # write/read/rotate paths have observable behavior.
-    let(:memory_cache) { ActiveSupport::Cache::MemoryStore.new }
-
+    # The file-level `before` already swaps Rails.cache to a real
+    # MemoryStore. These specs assert against that store directly.
     before do
-      allow(Rails).to receive(:cache).and_return(memory_cache)
       post_login_with_password
     end
 
