@@ -1,5 +1,186 @@
 # Phase 27 — log
 
+## [skipci] 2026-05-11 — sub-spec 01d re-dispatch — controller wire-up + system spec (pito-rails)
+
+Closed the loop on sub-spec 01d. The original 01d session landed the
+migration, the `User` enum, the `Users::GamesPreferencesController`, three
+mode partials (`_grid_mode`, `_list_mode`, `_shelves_by_letter_mode`), the
+switcher partial, and the per-partial view specs. The `GamesController#index`
+wire-up and the matching system spec were deferred at that time because the
+controller was wedged on 01a (`Platform#games_owning` association removal) +
+01c (per-platform `games.platform_owned_id` column drop) drift. Both have
+since cleared via the 01a controller fix and the 01c-v2 nested-shelves
+rewrite, so this re-dispatch ties the surface together.
+
+### What landed
+
+- `GamesController#index` now sets `@display_mode = resolved_display_mode`.
+  The new private helper resolves the requested mode in order: URL
+  `params[:display]` (allowlisted set `grid` / `list` / `shelves` /
+  `shelves_by_letter`) → `Current.user.preferred_games_display_mode` →
+  `:grid` as the defensive final fallback for the anonymous path.
+  `shelves` is a URL-friendly alias for the canonical enum key
+  `shelves_by_letter` per the spec.
+- `app/views/games/index.html.erb` now renders
+  `games/_display_mode_switcher` flush-right of the H1 row (inside the
+  existing `display: flex` header with `margin-left: auto;`) and branches
+  the all-games partition on `@display_mode` to one of the three partials.
+  The legacy inline `<section class="shelf all-games-grid">` block is
+  gone — its tile-grid content moved into `_grid_mode` during the original
+  01d session.
+- `spec/system/games_display_modes_spec.rb` — 13 new Capybara examples on
+  the rack_test driver: default-mode grid for a fresh user, switcher
+  active-class marking, persistence flow (click `[list]` → preference
+  written + list mode renders → reload preserves the choice), `[grid]`
+  round-trip from a non-default persisted preference, URL `?display=`
+  override does NOT persist the choice, `?display=shelves` alias maps to
+  `shelves_by_letter`, list mode renders `tr.letter-head` rows + title
+  links, shelves-by-letter mode renders one shelf per non-empty letter
+  and hides the others, composition with the `?filters=` set (clear-all
+  preserves `?display=`), CLAUDE.md hard-rule guards (no
+  `data-turbo-confirm`, no `window.confirm`, no anchors — three
+  `<form>` elements per switcher).
+- `spec/requests/games_spec.rb` — 12 new `Phase 27 §01d` examples on the
+  request layer mirroring the system surface: default → grid, URL
+  override per mode (`grid` / `list` / `shelves` / `shelves_by_letter`),
+  persisted preference wins when `?display` is absent, override wins
+  over persistence for one request, garbage values fall back to the
+  persistence, post-PATCH the next `GET /games` reflects the saved
+  mode, switcher button text + action URL, active-class assertion,
+  filter-row composition. Scopes the `data-display-mode` matcher to
+  the all-games `<section>` so the switcher's own button-level
+  `data-display-mode` attributes don't contaminate the match.
+- `spec/requests/games_spec.rb` (01b regression) — the 01b contradiction
+  notice spec's regex used the literal `<section class="shelf all-games-grid">`
+  class string; the new `_grid_mode` partial adds a `games-grid-mode`
+  class. Switched to `<section[^>]*data-display-mode="grid"` (the stable
+  hook the view spec also asserts on).
+
+### Tests
+
+- 13 new system + 12 new request = 25 new examples, all green.
+- Full 01d-adjacent sweep (model + request + view + system specs across
+  `user`, `users::games_preferences`, every `games/_*_mode` partial,
+  switcher, the full `spec/requests/games_spec.rb`, `games_index`,
+  `games_steam_shelf`, `games_platform_ownerships`, the new
+  `games_display_modes`): 365 examples, 0 failures.
+- Rubocop on the touched Ruby files (`games_controller.rb`,
+  `spec/requests/games_spec.rb`, `spec/system/games_display_modes_spec.rb`):
+  no offenses. (`index.html.erb` skipped — rubocop's Ruby parser misreads
+  ERB control flow as a ternary expression; the file is not Ruby.)
+- Brakeman `-q -w2`: 0 warnings, 0 errors across the full app.
+
+### Files changed
+
+- `app/controllers/games_controller.rb` (added `@display_mode = resolved_display_mode`
+  to `#index` and private `resolved_display_mode` resolver)
+- `app/views/games/index.html.erb` (renders `_display_mode_switcher`,
+  branches the all-games partition on `@display_mode`)
+- `spec/requests/games_spec.rb` (added 12-example `display mode resolution
+  (Phase 27 §01d)` describe block; updated one 01b regex to the stable
+  `data-display-mode` hook)
+- `spec/system/games_display_modes_spec.rb` (new, 13 examples)
+- `docs/plans/beta/27-games-listing-shelves-filters-display-modes/plan.md`
+  (reworded the trailing 01d checkbox to reflect the system spec landing)
+
+### Open notes
+
+- The list-mode "platforms owned" column still renders a literal `—`
+  pending the 01a join-table integration wired into the partial. That
+  cleanup remains queued and is independent of this re-dispatch.
+- Sort-column UI for list mode (`?sort=title|platforms_owned|genres|status`)
+  is still deferred until the per-platform ownership shape stabilises
+  for sorting. The partial's letter-bucketing + sticky heading layout is
+  in place for the sort hookup.
+- The 29 unrelated failures observed in the wider request + system sweep
+  (`sessions_spec`, `sessions_rate_limit_spec`, `login/totp_challenges_spec`,
+  `settings/security/blocks/unblockings_spec`,
+  `calendar_edit_delete_spec`, `settings/tokens_spec`,
+  `video_import_flow_spec`) are entirely from other concurrent in-flight
+  agents' work in the worktree (TOTP / rack_attack / sessions / video
+  import surfaces) and do not touch the 01d surface.
+
+### References
+
+- Spec:
+  `docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs/01d-display-mode-switcher-and-three-modes.md`.
+- Prior 01d log entry: `## 2026-05-11 — sub-spec 01d Display mode switcher +
+  three modes (pito-rails)` below.
+- Umbrella:
+  `docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs/01-overview-games-listing-rework.md`.
+
+---
+
+## [skipci] 2026-05-11 — sub-spec 01e Shelf cover art variant (pito-rails)
+
+Closed the loop on the `:shelf` cover-art variant. The component, partials,
+and 34-example component spec already shipped under earlier 01e / 01c-v2
+work at the locked 65% size (98 × 130 against the real 150 × 200 grid,
+sourced from IGDB's `t_cover_small_2x` token). This pass tied off the
+remaining loose ends:
+
+- **Stylesheet rules for the variant slot.** Added a `.game-cover` /
+  `.game-cover--grid` / `.game-cover--shelf` / `.game-cover-img` /
+  `.game-cover-missing` block in `app/assets/tailwind/application.css`,
+  immediately before the existing 01h `.collection-cover-composite` rule.
+  These descriptive class rules pin the locked variant dimensions (150 × 200
+  for `:grid`, 98 × 130 for `:shelf`) at the stylesheet level so the slot
+  size is reachable without external inline-style introspection. No
+  `transform: scale`, no percentage widths — both variants resolve to a
+  server-side asset at its native size per the 01e Flaw assertions.
+- **Component-spec coverage of the `:shelf` symmetry.** Added four
+  assertions to `cover_component_spec.rb` so the `:shelf` happy block now
+  mirrors `:grid`: alt text equals the game title, `loading="lazy"`,
+  wrapper inline `width: 98px; height: 130px;`, and the wrapper `class`
+  attribute is exactly `"game-cover game-cover--shelf"`. The component file
+  itself needed no behavioral change.
+- **01c-v2 spec inconsistency correction.** `01c-v2-nested-shelves.md`
+  carried an in-flight 70% / 105 × 140 draft that proposed bumping the
+  variant. The master agent reaffirmed 65% (matching 01e and the shipped
+  `Games::CoverComponent`). Prepended a one-line "Corrected from 70%
+  draft — locked decision §1 is 65% (98 × 130 px against the real
+  150 × 200 grid)" annotation at the top of the spec body. The 70% / 105 ×
+  140 mentions inside the spec stay as historical record but are now
+  explicitly tagged as superseded.
+
+### Spec deltas
+
+- `spec/components/games/cover_component_spec.rb` — 34 → 38 examples, all
+  green. New assertions: alt text on `:shelf`, loading=lazy on `:shelf`,
+  inline width/height on `:shelf` wrapper, exact wrapper class string.
+
+### Files touched
+
+- `app/assets/tailwind/application.css` — added `.game-cover` /
+  `.game-cover--{grid,shelf}` / `.game-cover-img` / `.game-cover-missing`
+  CSS block.
+- `spec/components/games/cover_component_spec.rb` — +4 examples.
+- `docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs/01c-v2-nested-shelves.md`
+  — prepended one-line correction header.
+- `docs/plans/beta/27-games-listing-shelves-filters-display-modes/plan.md`
+  — ticked the four 01e checkboxes with implementation notes.
+
+### Open issues
+
+None. The `:shelf` variant landing was already complete at the component
+level; this pass landed the stylesheet rules and tightened the spec
+coverage so future drift is caught.
+
+### Cross-stack
+
+- Rails web — covered.
+- Rails MCP — N/A (MCP does not render images).
+- `pito` CLI — N/A (TUI does not render images).
+- Website — N/A.
+
+### Verification
+
+- `bundle exec rspec spec/components/games/cover_component_spec.rb` — 38
+  examples, 0 failures.
+- `bundle exec rubocop` on touched files — clean.
+
+---
+
 ## [skipci] 2026-05-11 — sub-spec 01c-v2 Nested shelves (pito-rails)
 
 Rewrote `/games` top-of-page shelves from the v1 flat-tile design (one tile

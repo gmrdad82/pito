@@ -32,6 +32,15 @@
             }
           )) %>
     </div>
+
+    <%# Phase 27 §01d — display mode switcher, flush right of the H1.
+        Three bracketed-link button_to forms PATCH `/users/games_preferences`
+        to persist the choice; the controller redirects to
+        `/games?display=<mode>` so the same render reflects the chosen mode
+        immediately. %>
+    <div style="margin-left: auto;">
+      <%= render "games/display_mode_switcher", active_mode: @display_mode %>
+    </div>
   </div>
 
   <%# Phase 27 §01c-v2 — Genres + Custom collections shelves render
@@ -93,26 +102,19 @@
                  more_link: games_path(platform_owned: platform.id) %>
     <% end %>
 
-    <section class="shelf all-games-grid" style="margin-top: 24px;">
-      <h2 style="margin-bottom: 8px;">all games</h2>
-      <% if @all_games.any? %>
-        <%# `data-keyboard-grid="true"` opts this tile grid into the
-            global keyboard controller's grid navigation: `j`/`k` move
-            between visual rows of tiles, `h`/`l` step a tile within
-            the active row. Each tile partial renders
-            `data-keyboard-tile`. The horizontally-scrolling shelves
-            above intentionally stay opt-out — they have their own
-            drag-scroll affordance and are not the canonical browse
-            surface. %>
-        <div class="grid" data-keyboard-grid="true" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px;">
-          <% @all_games.each do |game| %>
-            <%= render "games/tile", game: game %>
-          <% end %>
-        </div>
-      <% else %>
-        <p class="text-muted">no games match this filter.</p>
-      <% end %>
-    </section>
+    <%# Phase 27 §01d — display-mode partition for the all-games surface.
+        The resolved mode (`@display_mode`) drives which partial renders.
+        Grid is the legacy / default tile grid; list is the alpha-grouped
+        sortable table; shelves_by_letter is one horizontal shelf per
+        first-letter bucket. The switcher above persists the choice. %>
+    <% case @display_mode %>
+    <% when :list %>
+      <%= render "games/list_mode", games: @all_games %>
+    <% when :shelves_by_letter %>
+      <%= render "games/shelves_by_letter_mode", games: @all_games %>
+    <% else %>
+      <%= render "games/grid_mode", games: @all_games %>
+    <% end %>
   <% else %>
     <p class="text-muted">no games yet. press <span class="keycap">i</span> or click [+] to add one from igdb.</p>
   <% end %>

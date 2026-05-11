@@ -2011,6 +2011,50 @@ dialog.wide-modal::backdrop {
   }
 }
 
+/* Phase 27 §01e — Games::CoverComponent variant slot dimensions.
+   The component already emits `style="width:Npx; height:Npx;"`
+   inline so the slot is sized even without external CSS (belt-
+   and-braces for the no-cover placeholder branch + the
+   component-spec assertions). These descriptive class rules keep
+   the locked dimensions reachable from external styling without
+   any `transform: scale` or percentage tricks — both variants
+   resolve to a server-side asset at its native size.
+
+   Locked sizes (plan locked decision §1 + 01e spec):
+     :grid   150 × 200 px — t_cover_big source
+     :shelf   98 × 130 px — t_cover_small_2x source, 65% of grid
+
+   The 01h composite collection cover below mirrors the :shelf
+   dimensions so the leading tile sits flush with the row's
+   :shelf-variant game tiles. */
+.game-cover {
+  display: inline-block;
+  text-decoration: none;
+  color: inherit;
+  overflow: hidden;
+}
+.game-cover--grid {
+  width: 150px;
+  height: 200px;
+}
+.game-cover--shelf {
+  width: 98px;
+  height: 130px;
+}
+.game-cover-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.game-cover-missing {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+}
+
 /* Phase 27 §01h — Collection sub-shelf composite cover.
    Fixed-pixel sizing matches the `:shelf` cover-art variant
    (98 × 130) so the composite sits inline with neighbouring

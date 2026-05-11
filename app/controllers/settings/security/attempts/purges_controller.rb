@@ -13,6 +13,8 @@
 # documents the eventual call site; the visible side effect today is
 # the `flash[:notice]` with the deletion count.
 class Settings::Security::Attempts::PurgesController < ApplicationController
+  include Sessions::TokenRotation
+
   def show
     @applied_filter = filter_params
     @no_filter      = filter_blank?
@@ -59,10 +61,19 @@ class Settings::Security::Attempts::PurgesController < ApplicationController
       return
     end
 
-    # TODO(phase-25/01d): wrap with `Auth::AuditLogger.call(
-    #   action: :purge, source: :web, acting_user: Current.user,
-    #   metadata: { kind: :attempts, filter: result.filter,
-    #               deleted_count: result.deleted_count })`.
+    # Phase 25 — 01g (LD-13). Audit-log the bulk purge. The target
+    # is a synthetic "attempt log" (the action is collection-scoped),
+    # so we set `target_type: "LoginAttempt"` and `target_id: 0` and
+    # let the metadata jsonb carry the filter + count.
+    safe_audit_purge(
+      kind: :attempts,
+      filter: result.filter,
+      deleted_count: result.deleted_count
+    )
+
+    # Phase 25 — 01g (LD-12 extension). Rotate the operator's session
+    # token after the privileged state mutation.
+    rotate_session_token!
 
     redirect_to settings_security_attempts_path,
                 notice: "purged #{result.deleted_count} attempt#{'s' if result.deleted_count != 1}."
@@ -126,5 +137,27 @@ class Settings::Security::Attempts::PurgesController < ApplicationController
     Time.iso8601(raw.to_s)
   rescue ArgumentError, TypeError
     raise Auth::AttemptPurger::InvalidFilter, "invalid #{key} timestamp (expected ISO8601)"
+  end
+
+  # Phase 25 — 01g (LD-13). Audit-log the purge without crashing the
+  # redirect if the audit row fails (the delete already happened).
+  def safe_audit_purge(kind:, filter:, deleted_count:)
+    Auth::AuditLogger.call(
+      acting_user: Current.user,
+      source_surface: :web,
+      action: :purge,
+      target_type: "LoginAttempt",
+      target_id: 0,
+      metadata: {
+        "kind"          => kind.to_s,
+        "filter"        => filter,
+        "deleted_count" => deleted_count
+      }
+    )
+  rescue StandardError => e
+    Rails.logger.warn(
+      "[Settings::Security::Attempts::PurgesController] audit failed: #{e.class}: #{e.message}"
+    )
+    nil
   end
 end

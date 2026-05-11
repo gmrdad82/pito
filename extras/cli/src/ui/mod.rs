@@ -56,6 +56,11 @@ pub fn render(frame: &mut Frame, app: &mut App) {
                 leader_menu::render(frame, frame.area(), &theme, state);
             }
         }
+        Some(Overlay::LoginPending) => {
+            if let Some(ref state) = app.login_pending {
+                crate::notifications::overlay::render(frame, frame.area(), &theme, state);
+            }
+        }
         None => {}
     }
 
@@ -206,6 +211,24 @@ fn render_footer(frame: &mut Frame, area: Rect, app: &mut App) {
             status.as_str(),
             Style::default().fg(theme.cyan),
         ));
+    }
+
+    // Phase 25 — 01c. Status-line prompt for non-notification surfaces
+    // when a pending-approval notification is in flight and the overlay
+    // isn't currently open. The prompt mirrors the in-overlay keys so
+    // the operator can fire approve / block / later from anywhere.
+    if app.login_pending_count > 0 && app.overlay != Some(Overlay::LoginPending) {
+        spans.push(Span::raw("  "));
+        spans.push(Span::styled(
+            "pending approval — ",
+            Style::default().fg(theme.danger),
+        ));
+        spans.push(Span::styled("[a]", Style::default().fg(theme.accent)));
+        spans.push(Span::styled("pprove ", Style::default().fg(theme.fg)));
+        spans.push(Span::styled("[b]", Style::default().fg(theme.danger)));
+        spans.push(Span::styled("lock ", Style::default().fg(theme.fg)));
+        spans.push(Span::styled("[l]", Style::default().fg(theme.muted)));
+        spans.push(Span::styled("ater", Style::default().fg(theme.fg)));
     }
 
     let line = Line::from(spans);

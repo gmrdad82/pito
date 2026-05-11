@@ -23,6 +23,8 @@
 # (ADR 0003), anyone with an active trusted session can approve any
 # pending row.
 class Login::ApprovalsController < ApplicationController
+  include Sessions::TokenRotation
+
   before_action :load_attempt
 
   # GET /login/approvals/:id
@@ -47,6 +49,10 @@ class Login::ApprovalsController < ApplicationController
       source: :web,
       request: request
     )
+
+    # Phase 25 — 01g (LD-12 extension). Rotate the operator's session
+    # token after the privileged state mutation.
+    rotate_session_token!
 
     redirect_to notifications_path, notice: "approved."
   rescue Auth::LoginAttemptApprover::PendingExpired

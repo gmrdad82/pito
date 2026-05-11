@@ -125,6 +125,13 @@ class GamesController < ApplicationController
 
     @all_games = scope.order(Arel.sql("release_year DESC NULLS LAST"))
 
+    # Phase 27 §01d — resolved display mode for the all-games partition.
+    # URL `?display=<mode>` overrides per-request (single-render), falling
+    # back to `Current.user.preferred_games_display_mode`, with a final
+    # `:grid` safety net for the anonymous defensive path. `shelves` is a
+    # URL-friendly alias for the canonical `shelves_by_letter` enum key.
+    @display_mode = resolved_display_mode
+
     respond_to do |format|
       format.html
       format.json do
@@ -347,5 +354,32 @@ class GamesController < ApplicationController
     int = raw.to_i
     return int if int.positive? && raw.to_s == int.to_s
     Collection.where(slug: raw.to_s).limit(1).pick(:id)
+  end
+
+  # Phase 27 §01d — display-mode resolver.
+  #
+  # Resolution order:
+  #   1. `params[:display]` if it maps to a known mode (single-request
+  #      override; does NOT persist).
+  #   2. `Current.user.preferred_games_display_mode` (the persisted
+  #      preference; default `grid` on a fresh row per migration).
+  #   3. `:grid` as a final defensive fallback for the anonymous path.
+  #
+  # The URL alias `shelves` maps to the canonical enum key
+  # `shelves_by_letter` for readability; everything else falls through
+  # to the persisted preference.
+  #
+  # Returns a Symbol — one of `:grid`, `:list`, `:shelves_by_letter`.
+  def resolved_display_mode
+    case params[:display].to_s
+    when "grid"              then return :grid
+    when "list"              then return :list
+    when "shelves", "shelves_by_letter" then return :shelves_by_letter
+    end
+
+    persisted = Current.user&.preferred_games_display_mode
+    return persisted.to_sym if persisted.present?
+
+    :grid
   end
 end

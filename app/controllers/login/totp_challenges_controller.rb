@@ -55,6 +55,12 @@ class Login::TotpChallengesController < ApplicationController
     code = params[:code].to_s.strip
 
     if try_totp(code) || try_backup_code(code)
+      # Phase 25 — 01g (LD-11). 2FA success clears the per-account
+      # backoff bucket — the user has proven possession of the seed,
+      # whatever earlier failures recorded should not gate them out.
+      Auth::BackoffCalculator.reset!(
+        key: "email:#{Digest::SHA256.hexdigest(@pre_auth_user.email.to_s.strip.downcase)}"
+      )
       activate_and_redirect
     else
       log_failed_attempt

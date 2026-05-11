@@ -7,6 +7,7 @@ mod confirm;
 mod footage;
 mod keybindings;
 mod keys;
+mod notifications;
 mod output;
 mod theme;
 mod ui;

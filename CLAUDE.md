@@ -52,6 +52,16 @@ bundle exec rspec   # Run test suite
 bundle exec rubocop # Lint
 ```
 
+## Communication style
+
+Use emojis liberally in master-agent and subagent communication — status
+updates, report-back text, dispatch announcements, end-of-turn summaries.
+Map emoji to actual signal: ✅ done, ⏳ in flight, 🚫 blocked, ⚠️ conflict,
+🎯 milestone, 🔍 inspecting, 🧪 specs, 🚀 next, ✨ delivered, 🎉 phase
+closes. Don't shoehorn — emojis are accents, not decoration. Stay OUT of
+code, commit messages, plan / log markdown, and spec files — those are
+durable artifacts that age into reference material.
+
 ## Workflow rules
 
 - Commit directly to `main` with one-line meaningful messages.

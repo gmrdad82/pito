@@ -40,7 +40,7 @@ coverage.
       `specs/01a-attempt-logging-and-fingerprinting.md`
 - [x] **01b — New-location detection + pending sessions** —
       `specs/01b-new-location-detection-and-pending-sessions.md`
-- [ ] **01c — Notifications integration (web + TUI)** —
+- [x] **01c — Notifications integration (web + TUI)** —
       `specs/01c-notifications-integration.md`
 - [x] **01d — MCP tools (pending / list / approve / block / unblock / purge)** —
       `specs/01d-mcp-tools-pending-approve-block-purge.md`
@@ -48,7 +48,7 @@ coverage.
       `specs/01e-totp-2fa-integration-with-backup-codes.md`
 - [x] **01f — Auto-block list + purge UI** —
       `specs/01f-auto-block-list-and-purge-ui.md`
-- [ ] **01g — Rate limiting + session hardening pass + cross-cutting system
+- [x] **01g — Rate limiting + session hardening pass + cross-cutting system
       specs** — `specs/01g-rate-limit-and-session-hardening-pass.md`
 
 The eighth Mobile-suggested step ("end-to-end system specs") is folded into the
