@@ -273,7 +273,9 @@
   </div>
 </div>
 
-<%# Row 5 — user (single pane; right side intentionally empty). %>
+<%# Row 5 — user | time zone. The user pane stays on the left
+    (Phase 12 single-pane row); Phase 26 fills the previously-empty
+    right slot with the timezone picker (`/settings/time_zone`). %>
 <div class="pane-row">
   <div class="pane">
     <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
@@ -288,6 +290,9 @@
       <%= render(BracketedLinkComponent.new(label: "edit account", href: settings_user_path)) %>
     </fieldset>
   </div>
+
+  <%# Phase 26 — 01a. Timezone foundation pane. %>
+  <%= render "time_zone_pane" %>
 </div>
 
 <%# Row 6 — OAuth applications + tokens (combined pane) | sessions. %>

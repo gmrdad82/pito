@@ -72,7 +72,15 @@
     <section class="shelf all-games-grid" style="margin-top: 24px;">
       <h2 style="margin-bottom: 8px;">all games</h2>
       <% if @all_games.any? %>
-        <div class="grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px;">
+        <%# `data-keyboard-grid="true"` opts this tile grid into the
+            global keyboard controller's grid navigation: `j`/`k` move
+            between visual rows of tiles, `h`/`l` step a tile within
+            the active row. Each tile partial renders
+            `data-keyboard-tile`. The horizontally-scrolling shelves
+            above intentionally stay opt-out — they have their own
+            drag-scroll affordance and are not the canonical browse
+            surface. %>
+        <div class="grid" data-keyboard-grid="true" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px;">
           <% @all_games.each do |game| %>
             <%= render "games/tile", game: game %>
           <% end %>

@@ -28,6 +28,20 @@ import { Controller } from "@hotwired/stimulus"
 //     s           click the highlighted row's `[data-keyboard-action="star"]` link
 //     D           navigate to /deletions/:type/:ids (bulk selection or highlighted id)
 //     Y           navigate to /syncs/:type/:ids
+//   Tile / grid surfaces (games, bundles):
+//     The container carries `data-keyboard-grid="true"` and each tile
+//     carries `data-keyboard-tile`. `j` / `k` move vertically between
+//     visual rows of tiles (computed by `getBoundingClientRect().top`);
+//     `h` / `l` step one tile left/right inside the active row. When
+//     no tile is highlighted, `j` / `l` pick the first tile and `k` /
+//     `h` pick the last. The same `keyboard-highlight` class is used
+//     so the visual treatment matches list rows.
+//   Calendar month grid (`/calendar/month/...`):
+//     Container carries `data-keyboard-grid="calendar-month"` and each
+//     cell carries `data-keyboard-grid-cell`. The cell order is the
+//     7-column Monday-first grid (left-to-right, top-to-bottom).
+//     `j` / `k` jump one week (±7 cells), `h` / `l` step one day (±1
+//     cell). Out-of-bounds moves are clamped to the grid extents.
 //   Detail pages
 //     v           open `data-keyboard-external-url` in a new tab
 //     s / Y / D   click the analog action link in the page chrome
@@ -176,10 +190,16 @@ export default class extends Controller {
         event.preventDefault()
         return
       case "j":
-        if (this.moveHighlight(1)) event.preventDefault()
+        if (this.moveHighlightVertical(1)) event.preventDefault()
         return
       case "k":
-        if (this.moveHighlight(-1)) event.preventDefault()
+        if (this.moveHighlightVertical(-1)) event.preventDefault()
+        return
+      case "h":
+        if (this.moveHighlightHorizontal(-1)) event.preventDefault()
+        return
+      case "l":
+        if (this.moveHighlightHorizontal(1)) event.preventDefault()
         return
       case " ":
         if (this.toggleHighlightedCheckbox()) event.preventDefault()
@@ -314,6 +334,206 @@ export default class extends Controller {
     }
     rows[nextIndex].classList.add("keyboard-highlight")
     rows[nextIndex].scrollIntoView({ block: "nearest" })
+    return true
+  }
+
+  // ---------- grid / tile highlight ----------
+  //
+  // A page opts in by tagging its container with `data-keyboard-grid`.
+  //
+  //   data-keyboard-grid="true"
+  //     Plain tile grid (e.g. /games, /bundles). Each tile carries
+  //     `data-keyboard-tile`. `j`/`k` jump to the nearest tile in the
+  //     next/previous visual row (rows computed from bounding-rect
+  //     `top` values); `h`/`l` step one tile within the active row.
+  //
+  //   data-keyboard-grid="calendar-month"
+  //     Monday-first 7-column calendar grid (/calendar/month/...).
+  //     Each cell carries `data-keyboard-grid-cell`. `j`/`k` jump a
+  //     full week (±7 cells); `h`/`l` step a day (±1 cell). All moves
+  //     are clamped to the rendered grid.
+  //
+  // `j`/`k` route through `moveHighlightVertical`; `h`/`l` through
+  // `moveHighlightHorizontal`. When no grid is on the page the
+  // dispatcher falls back to the row-based `moveHighlight` so list
+  // pages keep their existing behaviour. Calling `moveHighlightHorizontal`
+  // outside a grid surface deliberately no-ops (`h`/`l` were never
+  // bound on list pages).
+
+  gridContainer() {
+    return document.querySelector("[data-keyboard-grid]")
+  }
+
+  gridKind() {
+    const container = this.gridContainer()
+    if (!container) return null
+    const value = container.getAttribute("data-keyboard-grid")
+    if (value === "calendar-month") return "calendar-month"
+    return "tiles"
+  }
+
+  gridCells() {
+    const container = this.gridContainer()
+    if (!container) return []
+    const selector =
+      this.gridKind() === "calendar-month"
+        ? "[data-keyboard-grid-cell]"
+        : "[data-keyboard-tile]"
+    return Array.from(container.querySelectorAll(selector))
+  }
+
+  highlightedGridCell() {
+    const container = this.gridContainer()
+    if (!container) return null
+    return container.querySelector(
+      "[data-keyboard-tile].keyboard-highlight, [data-keyboard-grid-cell].keyboard-highlight"
+    )
+  }
+
+  // j / k. Grid-aware: prefers grid surfaces over `[data-keyboard-row]`
+  // when the page declares both (no current surface does, but we want
+  // the dispatch to be predictable).
+  moveHighlightVertical(delta) {
+    if (this.gridContainer()) {
+      return this.moveGrid(delta, 0)
+    }
+    return this.moveHighlight(delta)
+  }
+
+  // h / l. Only meaningful inside a grid surface. Returns false outside
+  // one so the keystroke falls through (the controller never preventDefaults).
+  moveHighlightHorizontal(delta) {
+    if (this.gridContainer()) {
+      return this.moveGrid(0, delta)
+    }
+    return false
+  }
+
+  moveGrid(deltaY, deltaX) {
+    const kind = this.gridKind()
+    if (kind === "calendar-month") {
+      return this.moveCalendarMonth(deltaY, deltaX)
+    }
+    return this.moveTileGrid(deltaY, deltaX)
+  }
+
+  // Plain tile grid (games, bundles). Rows are derived from each tile's
+  // `getBoundingClientRect().top` — tiles whose tops differ by less than
+  // `ROW_EPSILON_PX` belong to the same row. The next/prev row is then
+  // the set of tiles immediately above / below the active one; we pick
+  // the tile in that row whose horizontal centre is nearest to the
+  // active tile's centre.
+  moveTileGrid(deltaY, deltaX) {
+    const tiles = this.gridCells()
+    if (tiles.length === 0) return false
+
+    const current = this.highlightedGridCell()
+    if (!current) {
+      // First press: pick the first tile when moving forward (`j` / `l`),
+      // the last when moving backward (`k` / `h`).
+      const target = deltaY > 0 || deltaX > 0 ? tiles[0] : tiles[tiles.length - 1]
+      target.classList.add("keyboard-highlight")
+      target.scrollIntoView({ block: "nearest" })
+      return true
+    }
+
+    // Build visual rows.
+    const rows = this.groupTilesIntoRows(tiles)
+    const currentRowIndex = rows.findIndex((row) => row.includes(current))
+    if (currentRowIndex === -1) return false
+    const currentRow = rows[currentRowIndex]
+    const currentRect = current.getBoundingClientRect()
+    const currentCx = currentRect.left + currentRect.width / 2
+
+    let target = null
+    if (deltaY !== 0) {
+      const nextRowIndex = currentRowIndex + deltaY
+      if (nextRowIndex < 0 || nextRowIndex >= rows.length) return false
+      target = this.nearestTileByX(rows[nextRowIndex], currentCx)
+    } else if (deltaX !== 0) {
+      const currentIdxInRow = currentRow.indexOf(current)
+      const nextIdxInRow = currentIdxInRow + deltaX
+      if (nextIdxInRow < 0 || nextIdxInRow >= currentRow.length) return false
+      target = currentRow[nextIdxInRow]
+    }
+
+    if (!target) return false
+    current.classList.remove("keyboard-highlight")
+    target.classList.add("keyboard-highlight")
+    target.scrollIntoView({ block: "nearest" })
+    return true
+  }
+
+  groupTilesIntoRows(tiles) {
+    const ROW_EPSILON_PX = 4
+    const sorted = tiles
+      .map((tile) => ({ tile, top: tile.getBoundingClientRect().top, left: tile.getBoundingClientRect().left }))
+      .sort((a, b) => {
+        if (Math.abs(a.top - b.top) < ROW_EPSILON_PX) return a.left - b.left
+        return a.top - b.top
+      })
+    const rows = []
+    let currentRow = []
+    let currentTop = null
+    for (const entry of sorted) {
+      if (currentTop === null || Math.abs(entry.top - currentTop) < ROW_EPSILON_PX) {
+        currentRow.push(entry.tile)
+        if (currentTop === null) currentTop = entry.top
+      } else {
+        rows.push(currentRow)
+        currentRow = [entry.tile]
+        currentTop = entry.top
+      }
+    }
+    if (currentRow.length > 0) rows.push(currentRow)
+    return rows
+  }
+
+  nearestTileByX(row, targetCx) {
+    let best = null
+    let bestDistance = Infinity
+    for (const tile of row) {
+      const rect = tile.getBoundingClientRect()
+      const cx = rect.left + rect.width / 2
+      const distance = Math.abs(cx - targetCx)
+      if (distance < bestDistance) {
+        bestDistance = distance
+        best = tile
+      }
+    }
+    return best
+  }
+
+  // Calendar month grid (`/calendar/month/...`). The cell order matches
+  // the rendered grid (Monday-first, left-to-right, top-to-bottom); the
+  // grid is always a multiple of 7. `j`/`k` shift ±7, `h`/`l` shift ±1.
+  // All moves clamp to the rendered cell range.
+  moveCalendarMonth(deltaY, deltaX) {
+    const cells = this.gridCells()
+    if (cells.length === 0) return false
+
+    const current = this.highlightedGridCell()
+    if (!current) {
+      // First press: prefer today's cell if it's still in the grid; fall
+      // back to the first (or last on negative delta) cell.
+      const today = cells.find((cell) => cell.classList.contains("today"))
+      const fallback = deltaY > 0 || deltaX > 0 ? cells[0] : cells[cells.length - 1]
+      const target = today || fallback
+      target.classList.add("keyboard-highlight")
+      target.scrollIntoView({ block: "nearest" })
+      return true
+    }
+
+    const currentIndex = cells.indexOf(current)
+    if (currentIndex === -1) return false
+
+    const shift = deltaY * 7 + deltaX
+    const nextIndex = currentIndex + shift
+    if (nextIndex < 0 || nextIndex >= cells.length) return false
+
+    current.classList.remove("keyboard-highlight")
+    cells[nextIndex].classList.add("keyboard-highlight")
+    cells[nextIndex].scrollIntoView({ block: "nearest" })
     return true
   }
 

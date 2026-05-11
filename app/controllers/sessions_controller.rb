@@ -4,13 +4,17 @@
 # the user is authenticated). `destroy` is gated by the standard
 # session auth — the user must have a valid session to log out.
 #
-# Phase 8 — Tenant Drop + Email-Only Login. The form posts `email`,
-# `password`, `remember_me` (yes/no). Failure paths emit a generic
-# "invalid email or password." regardless of whether the email matched
-# a User row, plus a constant-time dummy bcrypt compare so the response
-# timing doesn't leak account existence. Every failure flips
-# `request.env["pito.auth_failed"] = true` so the rack-attack throttle
-# counts only failures.
+# Phase 25 — 01a. Every authenticate POST writes a `LoginAttempt` row
+# via `Auth::AttemptLogger`, regardless of outcome. The logger is the
+# single entry point — this controller MUST NOT bypass it for any
+# auth-related write to `LoginAttempt`. The logger also short-circuits
+# blocked-pair attempts to `result: blocked` so the user-visible
+# response stays generic (LD-14).
+#
+# User-visible failure copy is now `Login failed.` (LD-14) regardless
+# of which step failed (wrong password, unknown email, blocked pair,
+# rate-limited). The precise reason lives on the persisted
+# `LoginAttempt` row, NOT in the response or flash.
 class SessionsController < ApplicationController
   allow_anonymous :new, :create
 
@@ -22,6 +26,7 @@ class SessionsController < ApplicationController
   # POST /login
   def create
     if SessionThrottle.exhausted?(request.remote_ip)
+      log_attempt(result: :failed, reason: :rate_limited, email: params[:email].to_s)
       render_throttled
       return
     end
@@ -34,13 +39,27 @@ class SessionsController < ApplicationController
 
     if user.nil?
       bcrypt_dummy_compare
+      log_attempt(result: :failed, reason: :unknown_account, email: email)
       audit("session.login.failed", reason: "unknown_email", email_attempted: email)
       mark_failure_and_render_invalid(email: email)
       return
     end
 
     unless user.authenticate(password)
+      log_attempt(result: :failed, reason: :wrong_password, email: email, user: user)
       audit("session.login.failed", reason: "wrong_password", email_attempted: email, user_id: user.id)
+      mark_failure_and_render_invalid(email: email)
+      return
+    end
+
+    # Even on the success path the attempt log gets a row. If the
+    # `(fingerprint, ip_prefix)` pair is on the active block list,
+    # `Auth::AttemptLogger` rewrites the row to `result: blocked` and
+    # we MUST short-circuit before minting a session — the block list
+    # is the last word.
+    success_attempt = log_attempt(result: :success, reason: :trusted_location_success, email: email, user: user)
+    if success_attempt&.result_blocked?
+      audit("session.login.blocked", user_id: user.id, ip: request.remote_ip)
       mark_failure_and_render_invalid(email: email)
       return
     end
@@ -85,6 +104,22 @@ class SessionsController < ApplicationController
 
   private
 
+  # Wrap the logger so we can swallow any unexpected error rather than
+  # destroy the auth path. Logging is observability; a logger blowup
+  # must not prevent the user from seeing the generic failure flash.
+  def log_attempt(result:, reason:, email: nil, user: nil)
+    Auth::AttemptLogger.call(
+      request: request,
+      result: result,
+      reason: reason,
+      email: email,
+      user: user
+    )
+  rescue StandardError => e
+    Rails.logger.error("[SessionsController] AttemptLogger failed: #{e.class}: #{e.message}")
+    nil
+  end
+
   def mark_failure_and_render_invalid(email:)
     request.env["pito.auth_failed"] = true
     SessionThrottle.record_failure(request.remote_ip)
@@ -95,14 +130,14 @@ class SessionsController < ApplicationController
     end
 
     @email = email
-    flash.now[:alert] = "invalid email or password."
+    flash.now[:alert] = "login failed."
     render :new, status: :unprocessable_content
   end
 
   def render_throttled
     audit("session.login.throttled", ip: request.remote_ip)
     response.headers["Retry-After"] = SessionThrottle::WINDOW.to_i.to_s
-    render plain: "rate_limited — try again in #{SessionThrottle::WINDOW.to_i} seconds.",
+    render plain: "login failed.",
            status: :too_many_requests
   end
 

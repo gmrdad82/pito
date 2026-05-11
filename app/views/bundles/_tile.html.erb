@@ -8,9 +8,16 @@
   bundle = local_assigns[:bundle] || local_assigns[:item]
   member_count = bundle.bundle_members.size
 %>
+<%# `data-keyboard-tile` opts each bundle tile into the global keyboard
+    controller's tile-grid navigation when the surrounding container
+    declares `data-keyboard-grid="true"`. The horizontally scrolling
+    "bundles" shelf on `/games` re-uses the same partial but its
+    container intentionally does NOT opt in — the canonical bundles
+    browse surface is the flat `/bundles` grid. %>
 <a href="<%= bundle_path(bundle) %>" class="tile"
    style="flex: 0 0 150px; width: 150px; display: block; text-decoration: none; color: inherit; cursor: pointer;"
    data-tile-bundle-id="<%= bundle.id %>"
+   data-keyboard-tile
    title="<%= bundle.name %> (#{pluralize(member_count, 'game')})">
   <div class="tile-cover" style="width: 150px; height: 200px; overflow: hidden; background: #f6f6f6; display: flex; align-items: center; justify-content: center;">
     <% if bundle.composite_cover_url.present? %>

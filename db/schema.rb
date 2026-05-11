@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_11_024709) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_11_132718) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -77,6 +77,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_024709) do
     t.text "voyage_api_key"
     t.boolean "voyage_index_project_notes", default: false, null: false
     t.index ["key"], name: "index_app_settings_on_key", unique: true
+  end
+
+  create_table "blocked_locations", force: :cascade do |t|
+    t.integer "attempt_count", default: 0, null: false
+    t.datetime "blocked_at", null: false
+    t.bigint "blocked_by_user_id", null: false
+    t.datetime "created_at", null: false
+    t.string "fingerprint_hash", limit: 64, null: false
+    t.string "ip_prefix", null: false
+    t.datetime "last_attempt_at"
+    t.text "reason"
+    t.integer "source_surface", default: 0, null: false
+    t.datetime "unblocked_at"
+    t.bigint "unblocked_by_user_id"
+    t.datetime "updated_at", null: false
+    t.index ["blocked_by_user_id"], name: "index_blocked_locations_on_blocked_by_user_id"
+    t.index ["fingerprint_hash", "ip_prefix"], name: "index_blocked_locations_unique_pair", unique: true
+    t.index ["unblocked_at"], name: "index_blocked_locations_on_unblocked_at"
   end
 
   create_table "bulk_operation_items", force: :cascade do |t|
@@ -492,6 +510,35 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_024709) do
     t.index ["status", "created_at"], name: "index_import_jobs_on_status_and_created_at"
   end
 
+  create_table "login_attempts", force: :cascade do |t|
+    t.bigint "approved_by_user_id"
+    t.string "browser"
+    t.datetime "created_at", null: false
+    t.citext "email_attempted"
+    t.string "fingerprint_hash", limit: 64, null: false
+    t.string "geo_city"
+    t.string "geo_country", limit: 2
+    t.string "geo_region"
+    t.inet "ip", null: false
+    t.string "ip_prefix", null: false
+    t.bigint "notification_id"
+    t.string "os"
+    t.integer "reason", null: false
+    t.datetime "resolved_at"
+    t.integer "result", null: false
+    t.datetime "updated_at", null: false
+    t.string "user_agent", limit: 1024, null: false
+    t.bigint "user_id"
+    t.index ["approved_by_user_id"], name: "index_login_attempts_on_approved_by_user_id"
+    t.index ["created_at"], name: "index_login_attempts_on_created_at"
+    t.index ["email_attempted"], name: "index_login_attempts_on_email_attempted"
+    t.index ["fingerprint_hash", "ip_prefix"], name: "index_login_attempts_on_fp_and_prefix"
+    t.index ["fingerprint_hash"], name: "index_login_attempts_on_fingerprint_hash"
+    t.index ["notification_id"], name: "index_login_attempts_on_notification_id"
+    t.index ["result"], name: "index_login_attempts_on_result"
+    t.index ["user_id"], name: "index_login_attempts_on_user_id"
+  end
+
   create_table "milestone_rules", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.bigint "created_by_user_id"
@@ -741,10 +788,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_024709) do
     t.index ["video_id"], name: "index_top_videos_windows_on_video_id"
   end
 
+  create_table "trusted_locations", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "fingerprint_hash", limit: 64, null: false
+    t.datetime "first_seen_at", null: false
+    t.string "ip_prefix", null: false
+    t.datetime "last_seen_at", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.index ["last_seen_at"], name: "index_trusted_locations_on_last_seen_at"
+    t.index ["user_id", "fingerprint_hash", "ip_prefix"], name: "index_trusted_locations_unique_triple", unique: true
+    t.index ["user_id"], name: "index_trusted_locations_on_user_id"
+  end
+
   create_table "users", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.citext "email", null: false
     t.string "password_digest", null: false
+    t.string "time_zone", default: "Etc/UTC", null: false
     t.datetime "updated_at", null: false
     t.index ["email"], name: "index_users_on_email", unique: true
   end
@@ -1092,6 +1153,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_024709) do
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "api_tokens", "users"
+  add_foreign_key "blocked_locations", "users", column: "blocked_by_user_id", on_delete: :restrict
+  add_foreign_key "blocked_locations", "users", column: "unblocked_by_user_id", on_delete: :nullify
   add_foreign_key "bulk_operation_items", "bulk_operations"
   add_foreign_key "bulk_operation_items", "videos"
   add_foreign_key "bundle_members", "bundles", on_delete: :cascade
@@ -1124,6 +1187,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_024709) do
   add_foreign_key "games", "platforms", column: "platform_owned_id", on_delete: :nullify
   add_foreign_key "import_jobs", "channels", on_delete: :cascade
   add_foreign_key "import_jobs", "users", column: "enqueued_by_id", on_delete: :restrict
+  add_foreign_key "login_attempts", "notifications"
+  add_foreign_key "login_attempts", "users"
+  add_foreign_key "login_attempts", "users", column: "approved_by_user_id", on_delete: :nullify
   add_foreign_key "milestone_rules", "users", column: "created_by_user_id", on_delete: :nullify
   add_foreign_key "notes", "projects"
   add_foreign_key "notifications", "calendar_entries", column: "source_calendar_entry_id", on_delete: :cascade
@@ -1142,6 +1208,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_024709) do
   add_foreign_key "timelines", "videos"
   add_foreign_key "top_videos_windows", "channels", on_delete: :cascade
   add_foreign_key "top_videos_windows", "videos", on_delete: :cascade
+  add_foreign_key "trusted_locations", "users"
   add_foreign_key "video_change_logs", "users", column: "changed_by_user_id", on_delete: :nullify
   add_foreign_key "video_change_logs", "videos", on_delete: :cascade
   add_foreign_key "video_dailies", "videos", on_delete: :cascade

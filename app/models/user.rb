@@ -1,6 +1,14 @@
 class User < ApplicationRecord
   has_secure_password
 
+  # Phase 26 — 01a. Timezone foundation. UTC-storage / user-tz-render
+  # is the app-wide contract; `User#time_zone` is the per-user render
+  # zone, validated against the IANA tz set + Rails alias map. The
+  # column defaults to `"Etc/UTC"` which doubles as the "never set"
+  # sentinel — the first-load Stimulus controller detects the browser
+  # zone and silently PATCHes the user's row.
+  include Timezoned
+
   # Phase 12 — Step A. One row per active login. `dependent: :destroy`
   # so deleting a user (a future Theta concern) also clears their
   # session rows.

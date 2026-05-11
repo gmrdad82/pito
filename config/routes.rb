@@ -487,6 +487,22 @@ Rails.application.routes.draw do
         get :revoke
       end
     end
+
+    # Phase 25 — 01a. Security surface. `resource` (singular) so the URL
+    # is `/settings/security` (one dashboard per logged-in user).
+    # The nested `security` namespace carries the paginated attempts
+    # log and (in later sub-specs) the 2FA enroll surface + block list.
+    resource :security, only: %i[show], controller: "security"
+    namespace :security do
+      resources :attempts, only: %i[index show]
+    end
+
+    # Phase 26 — 01a. Timezone foundation. Singular `resource` so the
+    # URL is `/settings/time_zone` (one stored zone per logged-in
+    # user). PATCH from two callers — the Settings dropdown form and
+    # the first-load Stimulus `timezone-detect` controller. Friendly
+    # URL — no numeric / UUID id surface anywhere.
+    resource :time_zone, only: %i[update], controller: "time_zone"
   end
 
   # Phase 24 — Google management surface moved from `/settings/youtube`
