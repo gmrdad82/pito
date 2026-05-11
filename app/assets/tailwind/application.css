@@ -454,25 +454,32 @@ a.text-danger.bracketed:hover, a.text-danger.bracketed:hover .bl { color: var(--
 /* Themed scrollbars — sitewide, both axes.
    Webkit/Blink: the unsuffixed `::-webkit-scrollbar` rules below apply
    to both horizontal and vertical scrollbars (body, modals, textareas,
-   inner overflow). 8px on both axes, muted thumb with rounded corners,
+   inner overflow). 6px on both axes, muted thumb with rounded corners,
    darkens to --color-text on hover. Replaces the older
    `:horizontal`-scoped ruleset so the default OS vertical scrollbar
    (which clashed with the monospace minimalist look) is themed too.
+   The `::-webkit-scrollbar-button` rule suppresses the user-agent
+   up/down arrow caps that some Webkit/Blink builds still render
+   inside scrollable containers (notably `<dialog>` overflow), so the
+   thumb floats in a clean track.
    Firefox: `scrollbar-width` + `scrollbar-color` is the CSS standard
    with no axis-specific form. We apply it globally on `html` so both
    axes are themed, matching the Webkit rules.
    Mobile iOS Safari: ignores both — native overlay scrollbar wins,
    which is the right UX for mobile. */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-button {
+  display: none;
 }
 ::-webkit-scrollbar-track {
   background: var(--color-bg);
 }
 ::-webkit-scrollbar-thumb {
   background: var(--color-muted);
-  border-radius: 4px;
+  border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-text);
@@ -506,13 +513,17 @@ html {
    top-layer, and the dialog's own overflow scrollbar (plus any
    nested scroll container, e.g. `.wide-modal-inner` or a `<textarea>`)
    falls back to the user-agent chunkier chrome. Repeating the rules
-   scoped to `dialog` and `dialog *` forces parity with the 8px page
+   scoped to `dialog` and `dialog *` forces parity with the 6px page
    scrollbar. Firefox is covered by the standard `scrollbar-width` +
    `scrollbar-color` pair. */
 dialog::-webkit-scrollbar,
 dialog *::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
+}
+dialog::-webkit-scrollbar-button,
+dialog *::-webkit-scrollbar-button {
+  display: none;
 }
 dialog::-webkit-scrollbar-track,
 dialog *::-webkit-scrollbar-track {
@@ -521,7 +532,7 @@ dialog *::-webkit-scrollbar-track {
 dialog::-webkit-scrollbar-thumb,
 dialog *::-webkit-scrollbar-thumb {
   background: var(--color-muted);
-  border-radius: 4px;
+  border-radius: 3px;
 }
 dialog::-webkit-scrollbar-thumb:hover,
 dialog *::-webkit-scrollbar-thumb:hover {
