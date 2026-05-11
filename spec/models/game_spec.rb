@@ -354,4 +354,56 @@ RSpec.describe Game, type: :model do
       expect(BundleCoverInvalidate.jobs).to be_empty
     end
   end
+
+  # Phase 27 §01h — collection composite eviction hook.
+  describe "after_update_commit :evict_collection_composite_on_collection_change" do
+    let!(:game) { create(:game, :synced, title: "g") }
+    let(:c1)   { create(:collection, name: "C1") }
+    let(:c2)   { create(:collection, name: "C2") }
+
+    before { CollectionCoverRebuildJob.clear }
+
+    it "enqueues with [nil, new_id] when a game is added to a collection" do
+      game.update!(collection: c1)
+      jobs = CollectionCoverRebuildJob.jobs
+      expect(jobs.size).to eq(1)
+      expect(jobs.last["args"]).to eq([ nil, c1.id ])
+    end
+
+    it "enqueues with [old_id, new_id] when a game moves between collections" do
+      game.update!(collection: c1)
+      CollectionCoverRebuildJob.clear
+
+      game.update!(collection: c2)
+      jobs = CollectionCoverRebuildJob.jobs
+      expect(jobs.size).to eq(1)
+      expect(jobs.last["args"]).to eq([ c1.id, c2.id ])
+    end
+
+    it "enqueues with [old_id, nil] when a game is removed from its collection" do
+      game.update!(collection: c1)
+      CollectionCoverRebuildJob.clear
+
+      game.update!(collection: nil)
+      jobs = CollectionCoverRebuildJob.jobs
+      expect(jobs.size).to eq(1)
+      expect(jobs.last["args"]).to eq([ c1.id, nil ])
+    end
+
+    it "does NOT enqueue when other columns change" do
+      game.update!(collection: c1)
+      CollectionCoverRebuildJob.clear
+
+      game.update!(notes: "untouched by the collection hook")
+      expect(CollectionCoverRebuildJob.jobs).to be_empty
+    end
+
+    it "does NOT enqueue when cover_image_id changes (collection_id unchanged)" do
+      game.update!(collection: c1)
+      CollectionCoverRebuildJob.clear
+
+      game.update!(cover_image_id: "new-cid")
+      expect(CollectionCoverRebuildJob.jobs).to be_empty
+    end
+  end
 end

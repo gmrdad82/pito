@@ -175,12 +175,16 @@ RSpec.describe DailyDigestDeliverJob, type: :job do
   end
 
   describe "retry posture" do
-    it "is registered with sidekiq retry: 3" do
-      expect(described_class.sidekiq_options_hash["retry"]).to eq(3)
-    end
-
     it "exposes a backoff ladder of 1m, 5m, 15m" do
       expect(described_class::RETRY_BACKOFF_SECONDS).to eq([ 60, 5 * 60, 15 * 60 ])
+    end
+
+    it "registers `retry_on TransientFailure` (ActiveJob)" do
+      # `retry_on` registers an entry in `rescue_handlers`. The handler
+      # is keyed by the exception's stringified name; for ActiveJob 7+
+      # the registry lives on the class's `rescue_handlers` array.
+      handlers = described_class.rescue_handlers.map(&:first)
+      expect(handlers).to include("DailyDigestDeliverJob::TransientFailure")
     end
   end
 end

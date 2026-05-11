@@ -125,5 +125,56 @@ RSpec.describe Auth::SessionPendingApprover do
         }.to raise_error(ArgumentError)
       end
     end
+
+    # Phase 25 — 01c. Pending creation fires the urgent notification
+    # (LD-7). The dispatch lives outside the transaction so a
+    # notification-helper failure cannot roll back the pending row.
+    context "notification dispatch (Phase 25 — 01c)" do
+      it "creates one Notification row with kind login_pending_approval" do
+        expect {
+          described_class.call(
+            user: user,
+            request: fake_request,
+            fingerprint_hash: fp,
+            ip_prefix: ip
+          )
+        }.to change(Notification.where(kind: :login_pending_approval), :count).by(1)
+      end
+
+      it "stamps the new notification with severity :urgent" do
+        described_class.call(
+          user: user,
+          request: fake_request,
+          fingerprint_hash: fp,
+          ip_prefix: ip
+        )
+        notification = Notification.where(kind: :login_pending_approval).last
+        expect(notification.urgent?).to be true
+      end
+
+      it "links the attempt row to the new notification via notification_id" do
+        described_class.call(
+          user: user,
+          request: fake_request,
+          fingerprint_hash: fp,
+          ip_prefix: ip
+        )
+        attempt = LoginAttempt.recent.first
+        expect(attempt.notification_id).to be_present
+      end
+
+      it "still returns the pending session when the notification dispatch raises" do
+        allow(NotificationSource::LoginPendingApproval).to receive(:report!).and_raise("boom")
+        expect {
+          described_class.call(
+            user: user,
+            request: fake_request,
+            fingerprint_hash: fp,
+            ip_prefix: ip
+          )
+        }.not_to raise_error
+        expect(Session.pending.count).to eq(1)
+      end
+    end
   end
 end

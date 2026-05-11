@@ -93,7 +93,7 @@ publish)."
 
 ### Digest delivery (depends on 01a + at least one of 01b/01c)
 
-- [ ] **01e — Daily digest scheduler** (`specs/01e-daily-digest-scheduler.md`).
+- [x] **01e — Daily digest scheduler** (`specs/01e-daily-digest-scheduler.md`).
       Hourly sidekiq-cron job picks users whose user-local time just crossed
       09:00. Renders provider- specific digest payload (Slack blocks, Discord
       embeds), POSTs to each enabled `notification_delivery_channel`, retries on

@@ -129,5 +129,26 @@ RSpec.describe "Per-channel analytics dashboard", type: :request do
         expect(response.body).to include("re-authorize this channel")
       end
     end
+
+    # Phase 26 §01g — viewer-time heatmap (channel-aggregate).
+    context "viewer-time heatmap" do
+      it "renders the heatmap section header" do
+        get channel_analytics_path(channel)
+        expect(response.body).to include("viewer-time heatmap")
+      end
+
+      it "renders the empty-state copy when no buckets exist for the channel" do
+        get channel_analytics_path(channel)
+        expect(response.body).to include("no viewer-time data yet")
+      end
+
+      it "renders the grid when at least one video on the channel has buckets" do
+        video = create(:video, channel: channel)
+        create(:video_viewer_time_bucket, video: video,
+               day_of_week_utc: 3, hour_of_day_utc: 14, view_count: 5)
+        get channel_analytics_path(channel)
+        expect(response.body).to include("viewer-time-heatmap__grid")
+      end
+    end
   end
 end

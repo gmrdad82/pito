@@ -152,22 +152,22 @@ fn handle_leader_menu_input(app: &mut App, key: KeyEvent) {
     enum Resolved {
         /// Pure action — fires and closes the menu.
         Action(KeybindingAction),
-        /// Pure submenu reference — drills in, menu stays open.
+        /// Submenu reference — drills in, menu stays open. Any sibling
+        /// `action` field on the same item is IGNORED: per the 2026-05-11
+        /// schema revert, a single keystroke can drill OR fire an action,
+        /// never both. The old `ActionThenSubmenu` shape was retired because
+        /// "navigate + drill" on the same press surprised users.
         Submenu(String),
-        /// Combined action + submenu (root-menu resource keys: c, C, V, P, G,
-        /// N). The action's side effect fires for status-line feedback, then
-        /// the menu drills into the submenu without closing.
-        ActionThenSubmenu(KeybindingAction, String),
         Unbound,
     }
 
     let resolved = match app.leader_menu.as_ref().and_then(|s| s.find_item(&key_str)) {
         Some(item) => match (&item.action, &item.submenu) {
-            (Some(action), Some(submenu)) => {
-                Resolved::ActionThenSubmenu(action.clone(), submenu.clone())
-            }
+            // Drill-only when `submenu` is present, regardless of any
+            // accompanying `action` field. Single-keystroke == single
+            // outcome.
+            (_, Some(submenu)) => Resolved::Submenu(submenu.clone()),
             (Some(action), None) => Resolved::Action(action.clone()),
-            (None, Some(submenu)) => Resolved::Submenu(submenu.clone()),
             (None, None) => Resolved::Unbound,
         },
         None => Resolved::Unbound,
@@ -178,16 +178,6 @@ fn handle_leader_menu_input(app: &mut App, key: KeyEvent) {
             app.run_leader_action(&action);
         }
         Resolved::Submenu(name) => {
-            if let Some(ref mut state) = app.leader_menu {
-                state.push_submenu(&name);
-            }
-        }
-        Resolved::ActionThenSubmenu(action, name) => {
-            // Fire the action's side effect first (status line / placeholder
-            // navigate), then drill into the submenu. The menu must stay open
-            // — `run_leader_action_keep_open` skips the close that the pure
-            // action path triggers.
-            app.run_leader_action_keep_open(&action);
             if let Some(ref mut state) = app.leader_menu {
                 state.push_submenu(&name);
             }
@@ -291,15 +281,15 @@ fn handle_normal(app: &mut App, key: KeyEvent) {
     match key.code {
         KeyCode::Char('q') => match app.screen {
             Screen::Dashboard => app.quit(),
-            Screen::ChannelDetail => app.screen = Screen::Channels,
-            Screen::VideoDetail => app.screen = Screen::Videos,
+            Screen::ChannelDetail => app.switch_screen(Screen::Channels),
+            Screen::VideoDetail => app.switch_screen(Screen::Videos),
             Screen::FootageDetail => {
                 app.footage_detail_state = None;
                 app.footage_detail_rects = None;
                 app.footage_detail_preview = None;
-                app.screen = Screen::Dashboard;
+                app.switch_screen(Screen::Dashboard);
             }
-            _ => app.screen = Screen::Dashboard,
+            _ => app.switch_screen(Screen::Dashboard),
         },
         KeyCode::Char(':') => {
             app.key_state = KeyState::ColonPrefix;
@@ -414,11 +404,11 @@ fn handle_footage_detail_key(app: &mut App, key: KeyEvent) -> bool {
 fn handle_g_prefix(app: &mut App, key: KeyEvent) {
     app.key_state = KeyState::Normal;
     match key.code {
-        KeyCode::Char('d') => app.screen = Screen::Dashboard,
-        KeyCode::Char('c') => app.screen = Screen::Channels,
-        KeyCode::Char('v') => app.screen = Screen::Videos,
-        KeyCode::Char('s') => app.screen = Screen::SavedViews,
-        KeyCode::Char('e') => app.screen = Screen::Settings,
+        KeyCode::Char('d') => app.switch_screen(Screen::Dashboard),
+        KeyCode::Char('c') => app.switch_screen(Screen::Channels),
+        KeyCode::Char('v') => app.switch_screen(Screen::Videos),
+        KeyCode::Char('s') => app.switch_screen(Screen::SavedViews),
+        KeyCode::Char('e') => app.switch_screen(Screen::Settings),
         _ => {}
     }
 }
@@ -717,11 +707,11 @@ mod tests {
     }
 
     #[test]
-    fn leader_menu_combined_navigate_plus_submenu_fires_status_and_drills_in() {
-        // Root-menu resource keys (c, C, V, P, G) carry BOTH a Navigate
-        // action AND a submenu. Pressing one must: (1) set the status line
-        // to the navigate placeholder so the binding feels acknowledged,
-        // and (2) drill into the submenu without closing the popup.
+    fn leader_menu_resource_key_capital_c_drills_without_firing_action() {
+        // 2026-05-11 schema revert: root resource keys are drill-only. `C`
+        // at root walks into the channels submenu and must NOT set the
+        // status line — no action fires alongside the drill. Single
+        // keystroke == single outcome.
         let mut app = App::with_client(Box::new(crate::api::client::MockClient::new()));
         app.open_leader_menu();
         app.leader_status = None;
@@ -735,26 +725,22 @@ mod tests {
         let state = app
             .leader_menu
             .as_ref()
-            .expect("popup must remain open after combined action+submenu");
+            .expect("popup must remain open after drill");
         assert_eq!(state.current_menu_name(), "channels");
         assert_eq!(state.depth(), 2);
 
-        // Status line reflects the navigate placeholder.
-        let status = app
-            .leader_status
-            .as_deref()
-            .expect("combined action must set the status line");
         assert!(
-            status.to_lowercase().contains("navigate") && status.contains("/channels"),
-            "status must mention navigate + /channels path, got: {status}"
+            app.leader_status.is_none(),
+            "drill-only root key must NOT set a status line, got: {:?}",
+            app.leader_status
         );
     }
 
     #[test]
-    fn leader_menu_combined_open_plus_submenu_fires_status_and_drills_in() {
-        // `N` at root opens the notifications modal AND drills into the
-        // notifications submenu. The Open action's side effect (status line)
-        // fires, the submenu drilling continues.
+    fn leader_menu_resource_key_capital_n_drills_without_firing_action() {
+        // `N` at root drills into the notifications submenu. No `Open`
+        // action fires; the user must press `l` (list) inside the submenu
+        // to actually open the modal.
         let mut app = App::with_client(Box::new(crate::api::client::MockClient::new()));
         app.open_leader_menu();
         app.leader_status = None;
@@ -767,25 +753,20 @@ mod tests {
         let state = app
             .leader_menu
             .as_ref()
-            .expect("popup must remain open after combined action+submenu");
+            .expect("popup must remain open after drill");
         assert_eq!(state.current_menu_name(), "notifications");
         assert_eq!(state.depth(), 2);
 
-        let status = app
-            .leader_status
-            .as_deref()
-            .expect("combined action must set the status line");
         assert!(
-            status.to_lowercase().contains("open") && status.contains("notifications_modal"),
-            "status must mention open + notifications_modal, got: {status}"
+            app.leader_status.is_none(),
+            "drill-only root key must NOT set a status line, got: {:?}",
+            app.leader_status
         );
     }
 
     #[test]
-    fn leader_menu_combined_calendar_navigate_fires_status_and_drills_in() {
-        // `c` at root navigates to /calendar AND drills into the calendar
-        // submenu. The new schema dropped the action.is_none() invariant for
-        // resource keys; this test pins down the new combined behavior.
+    fn leader_menu_resource_key_lowercase_c_drills_without_firing_action() {
+        // `c` at root drills into the calendar submenu. No Navigate fires.
         let mut app = App::with_client(Box::new(crate::api::client::MockClient::new()));
         app.open_leader_menu();
         app.leader_status = None;
@@ -798,17 +779,55 @@ mod tests {
         let state = app
             .leader_menu
             .as_ref()
-            .expect("popup must remain open after combined action+submenu");
+            .expect("popup must remain open after drill");
         assert_eq!(state.current_menu_name(), "calendar");
 
-        let status = app
-            .leader_status
-            .as_deref()
-            .expect("combined action must set the status line");
         assert!(
-            status.contains("/calendar"),
-            "status must mention /calendar, got: {status}"
+            app.leader_status.is_none(),
+            "drill-only root key must NOT set a status line, got: {:?}",
+            app.leader_status
         );
+    }
+
+    #[test]
+    fn switch_screen_dismisses_open_leader_menu() {
+        // Defensive guard: any cross-screen navigation must close the
+        // leader-menu overlay. The leader-menu input handler intercepts
+        // every key while the popup is open, so this contract is
+        // primarily for programmatic screen changes (e.g. confirmation
+        // outcome bouncing the user from ChannelDetail back to Channels).
+        // Pinning the helper's behavior keeps the invariant load-bearing.
+        let mut app = App::with_client(Box::new(crate::api::client::MockClient::new()));
+        app.open_leader_menu();
+        assert_eq!(app.overlay, Some(Overlay::LeaderMenu));
+        assert!(app.leader_menu.is_some());
+
+        app.switch_screen(Screen::Channels);
+
+        assert_eq!(app.screen, Screen::Channels);
+        assert_eq!(
+            app.overlay, None,
+            "switch_screen must clear the leader-menu overlay"
+        );
+        assert!(
+            app.leader_menu.is_none(),
+            "switch_screen must drop the leader-menu state"
+        );
+    }
+
+    #[test]
+    fn switch_screen_no_op_for_leader_menu_when_not_open() {
+        // switch_screen is idempotent with respect to the leader menu —
+        // when the overlay isn't open, it must NOT touch any overlay state.
+        let mut app = App::with_client(Box::new(crate::api::client::MockClient::new()));
+        assert!(app.leader_menu.is_none());
+        assert_eq!(app.overlay, None);
+
+        app.switch_screen(Screen::Videos);
+
+        assert_eq!(app.screen, Screen::Videos);
+        assert_eq!(app.overlay, None);
+        assert!(app.leader_menu.is_none());
     }
 
     #[test]

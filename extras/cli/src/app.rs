@@ -533,7 +533,7 @@ impl App {
         self.footage_detail_state = Some(state);
         self.footage_detail_rects = None;
         self.footage_detail_preview = None;
-        self.screen = Screen::FootageDetail;
+        self.switch_screen(Screen::FootageDetail);
         // Once the manifest is set, kick off the active master fetch so the
         // first frame the user sees is a real image (when graphics work) or
         // the text fallback (when they don't).
@@ -673,6 +673,18 @@ impl App {
         }
     }
 
+    /// Switch the active screen. Also dismisses the leader-menu overlay if
+    /// it happens to be open — any cross-screen navigation invalidates the
+    /// in-flight leader interaction, so the popup must close alongside the
+    /// screen change. Use this helper anywhere a keybinding (or programmatic
+    /// path) changes `app.screen`.
+    pub fn switch_screen(&mut self, screen: Screen) {
+        self.screen = screen;
+        if self.leader_menu.is_some() || self.overlay == Some(Overlay::LeaderMenu) {
+            self.close_leader_menu();
+        }
+    }
+
     /// Quit + logout: best-effort delete of the on-disk auth file, then quit
     /// the TUI. Any IO error during delete is surfaced as a status message
     /// rather than killing the session — the user can still exit cleanly
@@ -691,50 +703,6 @@ impl App {
             }
         }
         self.quit();
-    }
-
-    /// Run an action's side effect WITHOUT closing the leader-menu overlay.
-    /// Used by the combined action + submenu shape (root-menu resource keys
-    /// `c`, `C`, `V`, `P`, `G`, `N` carry both a Navigate / Open action AND a
-    /// submenu reference: the action fires for status-line feedback, the menu
-    /// then drills into the submenu without closing).
-    ///
-    /// `Quit` / `QuitAndLogout` intentionally do NOT respect the "keep open"
-    /// contract — they always terminate the TUI. The schema doesn't combine
-    /// either with a submenu, but the explicit early-exit guards against a
-    /// future schema bug where someone wires a submenu to a Quit-shaped item.
-    pub fn run_leader_action_keep_open(&mut self, action: &KeybindingAction) {
-        match action {
-            KeybindingAction::Quit => self.quit(),
-            KeybindingAction::QuitAndLogout => self.quit_and_logout(),
-            KeybindingAction::Navigate { path } => {
-                self.leader_status = Some(format!("Web action: navigate {}", path));
-            }
-            KeybindingAction::Today => {
-                self.leader_status = Some("Action: today (calendar view pending)".to_string());
-            }
-            KeybindingAction::Open { target } => {
-                self.leader_status = Some(format!("Action: open {}", target));
-            }
-            KeybindingAction::BulkDelete => {
-                self.leader_status = Some("Action: bulk_delete".to_string());
-            }
-            KeybindingAction::BulkSync => {
-                self.leader_status = Some("Action: bulk_sync".to_string());
-            }
-            KeybindingAction::BulkResync => {
-                self.leader_status = Some("Action: bulk_resync".to_string());
-            }
-            KeybindingAction::FilterUnread => {
-                self.leader_status = Some("Action: filter_unread".to_string());
-            }
-            KeybindingAction::MarkAllRead => {
-                self.leader_status = Some("Action: mark_all_read".to_string());
-            }
-            KeybindingAction::ContextualAdd => {
-                self.leader_status = Some("Action: contextual_add".to_string());
-            }
-        }
     }
 
     /// Dispatch a leader-menu action. Returns `true` when the action consumed
@@ -881,7 +849,7 @@ impl App {
                 video_scroll: 0,
                 flash: None,
             });
-            self.screen = Screen::ChannelDetail;
+            self.switch_screen(Screen::ChannelDetail);
         }
     }
 
@@ -930,7 +898,7 @@ impl App {
                 stats_selected: 0,
                 stats_scroll: 0,
             });
-            self.screen = Screen::VideoDetail;
+            self.switch_screen(Screen::VideoDetail);
         }
     }
 
@@ -1157,7 +1125,7 @@ impl App {
             if let Some(Screen::ChannelDetail) = origin {
                 if state.kind == ConfirmationKind::Delete {
                     self.channel_detail_state = None;
-                    self.screen = Screen::Channels;
+                    self.switch_screen(Screen::Channels);
                 } else if let Some(s) = self.channel_detail_state.as_ref() {
                     let id = s.channel.id;
                     self.refresh_channel_detail(id);
