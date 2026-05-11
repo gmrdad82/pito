@@ -1,0 +1,37 @@
+<%# Phase 27 sub-spec 01e — Games::CoverComponent renderer.
+    The wrapper carries the variant's `width` / `height` HTML
+    attributes so the browser reserves layout before the image
+    decodes (no CLS). `data-variant` is load-bearing for spec
+    assertions and downstream styling hooks. %>
+<% if link_to_show? %>
+  <a href="<%= game_path %>"
+     class="<%= css_classes %>"
+     data-variant="<%= variant %>"
+     data-tile-game-id="<%= game.id %>"
+     style="width: <%= width %>px; height: <%= height %>px;"
+     title="<%= game.title %>">
+    <% if cover_present? %>
+      <%= image_tag cover_url, alt: game.title, loading: "lazy",
+                    width: width, height: height,
+                    data: { variant: variant },
+                    class: "game-cover-img" %>
+    <% else %>
+      <span class="bracketed-active text-muted game-cover-missing">[no cover]</span>
+    <% end %>
+  </a>
+<% else %>
+  <div class="<%= css_classes %>"
+       data-variant="<%= variant %>"
+       data-tile-game-id="<%= game.id %>"
+       style="width: <%= width %>px; height: <%= height %>px;"
+       title="<%= game.title %>">
+    <% if cover_present? %>
+      <%= image_tag cover_url, alt: game.title, loading: "lazy",
+                    width: width, height: height,
+                    data: { variant: variant },
+                    class: "game-cover-img" %>
+    <% else %>
+      <span class="bracketed-active text-muted game-cover-missing">[no cover]</span>
+    <% end %>
+  </div>
+<% end %>

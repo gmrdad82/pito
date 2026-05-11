@@ -36,14 +36,10 @@
       <% end %>
 
       <table class="detail-table" style="margin-bottom: 12px;">
-        <tr>
-          <td class="text-muted" style="padding-right: 12px;">platform owned</td>
-          <td>
-            <%= f.collection_select :platform_owned_id,
-                                    @game.platforms_available.order(:name),
-                                    :id, :name, include_blank: "—" %>
-          </td>
-        </tr>
+        <%# Phase 27 §1a — `platform_owned_id` is gone. Per-platform
+            ownership lives in `game_platform_ownerships` and is edited
+            from `01f`'s dedicated editor (linked from the show page).
+            The edit page only carries the remaining local-only fields. %>
         <tr>
           <td class="text-muted" style="padding-right: 12px;">played on</td>
           <td><%= f.date_field :played_at %></td>

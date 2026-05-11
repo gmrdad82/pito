@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_11_132718) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_11_160002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -418,6 +418,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_132718) do
     t.index ["genre_id"], name: "index_game_genres_on_genre_id"
   end
 
+  create_table "game_platform_ownerships", force: :cascade do |t|
+    t.datetime "acquired_at"
+    t.datetime "created_at", null: false
+    t.bigint "game_id", null: false
+    t.text "notes"
+    t.bigint "platform_id", null: false
+    t.string "store"
+    t.datetime "updated_at", null: false
+    t.index ["game_id", "platform_id"], name: "index_game_platform_ownerships_uniqueness", unique: true
+    t.index ["game_id"], name: "index_game_platform_ownerships_on_game_id"
+    t.index ["platform_id"], name: "index_game_platform_ownerships_on_platform_id"
+  end
+
   create_table "game_platforms", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.bigint "game_id", null: false
@@ -458,7 +471,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_132718) do
     t.text "last_sync_error"
     t.boolean "manual_date_override", default: false, null: false
     t.text "notes"
-    t.bigint "platform_owned_id"
     t.jsonb "platforms", default: [], null: false
     t.date "played_at"
     t.string "publisher"
@@ -478,7 +490,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_132718) do
     t.index ["igdb_id"], name: "index_games_on_igdb_id", unique: true, where: "(igdb_id IS NOT NULL)"
     t.index ["igdb_slug"], name: "index_games_on_igdb_slug", unique: true, where: "(igdb_slug IS NOT NULL)"
     t.index ["igdb_synced_at"], name: "index_games_on_igdb_synced_at"
-    t.index ["platform_owned_id"], name: "index_games_on_platform_owned_id"
     t.index ["release_year"], name: "index_games_on_release_year"
     t.index ["title"], name: "index_games_on_title"
   end
@@ -526,6 +537,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_132718) do
     t.integer "reason", null: false
     t.datetime "resolved_at"
     t.integer "result", null: false
+    t.bigint "session_id"
     t.datetime "updated_at", null: false
     t.string "user_agent", limit: 1024, null: false
     t.bigint "user_id"
@@ -536,6 +548,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_132718) do
     t.index ["fingerprint_hash"], name: "index_login_attempts_on_fingerprint_hash"
     t.index ["notification_id"], name: "index_login_attempts_on_notification_id"
     t.index ["result"], name: "index_login_attempts_on_result"
+    t.index ["session_id"], name: "index_login_attempts_on_session_id"
     t.index ["user_id"], name: "index_login_attempts_on_user_id"
   end
 
@@ -573,6 +586,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_132718) do
     t.integer "words_count", default: 0, null: false
     t.index ["project_id", "path"], name: "index_notes_on_project_id_and_path", unique: true
     t.index ["project_id"], name: "index_notes_on_project_id"
+  end
+
+  create_table "notification_delivery_channels", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.boolean "daily_digest", default: false, null: false
+    t.boolean "everything", default: false, null: false
+    t.string "kind", null: false
+    t.datetime "last_validated_at"
+    t.datetime "updated_at", null: false
+    t.text "webhook_url", null: false
+    t.index ["kind"], name: "index_notification_delivery_channels_on_kind", unique: true
   end
 
   create_table "notifications", force: :cascade do |t|
@@ -655,11 +679,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_132718) do
   create_table "platforms", force: :cascade do |t|
     t.string "abbreviation"
     t.datetime "created_at", null: false
-    t.bigint "igdb_id", null: false
+    t.bigint "igdb_id"
     t.string "name", null: false
-    t.string "slug"
+    t.string "slug", null: false
     t.datetime "updated_at", null: false
     t.index ["igdb_id"], name: "index_platforms_on_igdb_id", unique: true
+    t.index ["slug"], name: "index_platforms_on_slug", unique: true
   end
 
   create_table "playlist_videos", force: :cascade do |t|
@@ -739,15 +764,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_132718) do
   end
 
   create_table "sessions", force: :cascade do |t|
+    t.datetime "approval_required_until"
     t.datetime "created_at", null: false
     t.inet "ip"
     t.datetime "last_activity_at"
     t.boolean "remember", default: false, null: false
     t.datetime "revoked_at"
+    t.integer "state", default: 0, null: false
     t.string "token_digest", null: false
     t.datetime "updated_at", null: false
     t.text "user_agent"
     t.bigint "user_id", null: false
+    t.index ["approval_required_until"], name: "index_sessions_on_approval_required_until"
+    t.index ["state"], name: "index_sessions_on_state"
     t.index ["token_digest"], name: "index_sessions_on_token_digest", unique: true
     t.index ["user_id"], name: "index_sessions_on_user_id"
   end
@@ -805,6 +834,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_132718) do
     t.datetime "created_at", null: false
     t.citext "email", null: false
     t.string "password_digest", null: false
+    t.integer "preferred_games_display_mode", default: 0, null: false
     t.string "time_zone", default: "Etc/UTC", null: false
     t.datetime "updated_at", null: false
     t.index ["email"], name: "index_users_on_email", unique: true
@@ -1179,15 +1209,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_132718) do
   add_foreign_key "game_developers", "games", on_delete: :cascade
   add_foreign_key "game_genres", "games", on_delete: :cascade
   add_foreign_key "game_genres", "genres", on_delete: :cascade
+  add_foreign_key "game_platform_ownerships", "games", on_delete: :cascade
+  add_foreign_key "game_platform_ownerships", "platforms", on_delete: :restrict
   add_foreign_key "game_platforms", "games", on_delete: :cascade
   add_foreign_key "game_platforms", "platforms", on_delete: :cascade
   add_foreign_key "game_publishers", "companies", on_delete: :cascade
   add_foreign_key "game_publishers", "games", on_delete: :cascade
   add_foreign_key "games", "collections"
-  add_foreign_key "games", "platforms", column: "platform_owned_id", on_delete: :nullify
   add_foreign_key "import_jobs", "channels", on_delete: :cascade
   add_foreign_key "import_jobs", "users", column: "enqueued_by_id", on_delete: :restrict
   add_foreign_key "login_attempts", "notifications"
+  add_foreign_key "login_attempts", "sessions"
   add_foreign_key "login_attempts", "users"
   add_foreign_key "login_attempts", "users", column: "approved_by_user_id", on_delete: :nullify
   add_foreign_key "milestone_rules", "users", column: "created_by_user_id", on_delete: :nullify

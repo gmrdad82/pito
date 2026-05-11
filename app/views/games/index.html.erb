@@ -2,9 +2,10 @@
     - Bundles shelf at the top (only when Bundle.exists?).
     - Recently-played shelf (games with `played_at` set).
     - Per-genre shelves (limit GENRE_SHELF_CAP genres × 12 games).
-    - Per-platform shelves (one per `platform_owned`).
+    - Per-platform shelves (one per Platform with an active ownership
+      row — see `game_platform_ownerships`, Phase 27 §1a).
     - All-games grid at the bottom; filterable via
-      `/games?genre=<id>` / `/games?platform_owned=<id>`.
+      `/games?genre=<id-or-slug>` / `/games?platform_owned=<id-or-slug>`.
 
     Each shelf is a `<section class="shelf">` carrying the
     `steam-shelf` Stimulus controller for drag-scroll +

@@ -15,9 +15,10 @@
 #     `ttb_{main,extras,completionist}_seconds`
 #
 # `map_game` returns ONLY IGDB-sourced columns. Local-only columns
-# (`platform_owned_id`, `played_at`, `notes`, `hours_of_footage_manual`)
-# are intentionally absent so a caller can `update!(map_game(...))`
-# without clobbering local edits.
+# (`played_at`, `notes`, `hours_of_footage_manual`) are intentionally
+# absent so a caller can `update!(map_game(...))` without clobbering
+# local edits. Per-platform ownership (Phase 27 §1a) lives in
+# `game_platform_ownerships` — the join survives sync untouched.
 module Igdb
   module GameMapper
     module_function

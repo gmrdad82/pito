@@ -9,8 +9,10 @@
 #   5. Stamp `igdb_synced_at`, clear `last_sync_error`.
 #
 # Last-write-wins per spec Q5: every IGDB-sourced column is in the
-# `attrs` hash. Local-only columns (`platform_owned_id`, `played_at`,
-# `notes`, `hours_of_footage_manual`) are NEVER written here.
+# `attrs` hash. Local-only columns (`played_at`, `notes`,
+# `hours_of_footage_manual`) are NEVER written here. Per-platform
+# ownership (Phase 27 §1a) lives in `game_platform_ownerships` — the
+# join survives sync untouched.
 #
 # The whole flow runs in a single transaction so a partial failure
 # rolls back the IGDB-sourced overwrite.

@@ -1,0 +1,31 @@
+<% content_for(:title, "waiting for approval") %>
+<% content_for(:hide_chrome, true) %>
+
+<div style="max-width: 480px; margin: 24px 0;">
+  <h1>waiting for approval</h1>
+  <p class="text-muted" style="margin-top: 2px;">
+    we sent an approval request to your other surfaces.<br>
+    approve from a trusted device to finish signing in.
+  </p>
+
+  <div class="pane pane--standalone"
+       style="margin-top: 12px; margin-bottom: 12px;"
+       data-controller="pending-countdown"
+       data-pending-countdown-deadline-value="<%= @deadline_iso %>">
+    <p style="margin: 0;">
+      time remaining:
+      <strong data-pending-countdown-target="display">10:00</strong>
+    </p>
+    <p class="text-muted" style="margin-top: 4px;">
+      the request expires automatically after 10 minutes.
+    </p>
+  </div>
+
+  <%= render "login/attempt_detail", attempt: @attempt if @attempt %>
+
+  <%= form_with url: login_pending_path, method: :delete, scope: nil, data: { turbo: false } do %>
+    <button type="submit" class="bracketed text-danger" style="cursor: pointer;">
+      [cancel &amp; log out]
+    </button>
+  <% end %>
+</div>

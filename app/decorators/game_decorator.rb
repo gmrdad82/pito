@@ -10,6 +10,12 @@
 # the shelves; `as_detail_json` adds the full IGDB-backed metadata
 # block surfaced on the show page.
 class GameDecorator < ApplicationDecorator
+  # Phase 27 §1a — `platform_owned_id` is gone. Summary callers that
+  # need a quick "do they own this?" signal can either inspect
+  # `platforms_owning` from the detail payload or use the new
+  # `platform_owned_ids` array carried alongside it. The summary keeps
+  # `platform_owned_ids` (a plural integer array) so the CLI / Mobile
+  # callers can render an ownership chip without fetching the detail.
   def as_summary_json
     {
       id: id,
@@ -17,7 +23,7 @@ class GameDecorator < ApplicationDecorator
       title: title,
       release_year: release_year,
       igdb_rating: igdb_rating&.to_f,
-      platform_owned_id: platform_owned_id,
+      platform_owned_ids: owned_platforms.map(&:id),
       played_at: played_at&.iso8601,
       cover_image_id: cover_image_id,
       resyncing: YesNo.to_yes_no(resyncing?),
@@ -47,7 +53,7 @@ class GameDecorator < ApplicationDecorator
       manual_date_override: YesNo.to_yes_no(manual_date_override),
       last_sync_error: last_sync_error,
       genres: genres.map { |g| { id: g.id, name: g.name } },
-      platforms_owning: Array(platform_owned).compact.map { |p| { id: p.id, name: p.name } },
+      platforms_owning: owned_platforms.map { |p| { id: p.id, name: p.name } },
       updated_at: updated_at&.iso8601
     )
   end

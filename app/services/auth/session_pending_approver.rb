@@ -1,0 +1,81 @@
+# Phase 25 — 01b. Pending-approval session creator.
+#
+# Called from `Login::ChallengesController#create` when the user picks
+# the `[ask for approval]` branch after a correct-password new-location
+# login. Responsibilities:
+#
+#   1. Mint a Session row in `pending_approval` state with
+#      `approval_required_until = now + 10 min` (Session::PENDING_APPROVAL_TTL).
+#   2. Write a `LoginAttempt` row with `result: :pending_approval`,
+#      `reason: :new_location_pending`, linking the freshly-minted
+#      session via `session_id`.
+#   3. Refuse to mint if the user already has too many active pending
+#      rows (anti-spam guard — `MAX_ACTIVE_PENDING` defaults to 3).
+#
+# Notification creation lives in `01c` (`Notifications::Pipeline`).
+# This service stops at the pending row + the attempt row so 01b can
+# ship without the notification surface; 01c calls
+# `Notifications::Pipeline.deliver(:login_pending_approval, attempt:)`
+# after this service returns.
+#
+# Contract:
+#
+#     row = Auth::SessionPendingApprover.call(
+#       user:,
+#       request:,
+#       fingerprint_hash:,
+#       ip_prefix:,
+#     )
+#
+# Returns the persisted `Session` row. Raises
+# `Auth::SessionPendingApprover::TooManyPending` when the spam guard
+# trips so the controller can render a generic failure.
+module Auth
+  class SessionPendingApprover
+    # Anti-spam guard. The 4th pending session on a given user trips
+    # this — the controller catches the exception and renders generic
+    # "Login failed." (LD-14). Threshold locked in the spec.
+    MAX_ACTIVE_PENDING = 3
+
+    class TooManyPending < StandardError; end
+
+    def self.call(user:, request:, fingerprint_hash:, ip_prefix:)
+      raise ArgumentError, "user required" if user.nil?
+      raise ArgumentError, "fingerprint_hash required" if fingerprint_hash.blank?
+      raise ArgumentError, "ip_prefix required" if ip_prefix.blank?
+
+      # Defensive count of currently-pending rows whose window is still
+      # open. Expired rows are NOT counted — they were already
+      # transitioned by the sweeper (or will be soon).
+      active_pending = user.sessions.pending_within_window.count
+      if active_pending >= MAX_ACTIVE_PENDING
+        raise TooManyPending,
+              "user #{user.id} has #{active_pending} active pending sessions (cap #{MAX_ACTIVE_PENDING})"
+      end
+
+      ip = request&.remote_ip.to_s.presence || "0.0.0.0"
+      ua = request&.user_agent.to_s.first(1024).presence || ""
+
+      session_row = nil
+
+      ActiveRecord::Base.transaction do
+        session_row, _plaintext = Session.create_pending!(
+          user: user,
+          ip: ip,
+          user_agent: ua
+        )
+
+        Auth::AttemptLogger.call(
+          request: request,
+          result: :pending_approval,
+          reason: :new_location_pending,
+          user: user,
+          email: user.email,
+          session: session_row
+        )
+      end
+
+      session_row
+    end
+  end
+end

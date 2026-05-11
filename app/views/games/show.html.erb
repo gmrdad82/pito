@@ -131,9 +131,14 @@
 
     <h2 style="margin-top: 16px;">local fields</h2>
     <table class="detail-table">
+      <%# Phase 27 §1a — per-platform ownership now lives in the
+          `game_platform_ownerships` join (multi-valued). The dedicated
+          ownership editor lands in `01f`; while that's in flight, the
+          show page lists owned platforms inline so the user can still
+          see what they own this game on. %>
       <tr>
-        <td class="text-muted" style="padding-right: 12px;">platform owned</td>
-        <td><%= @game.platform_owned&.name.presence || "—" %></td>
+        <td class="text-muted" style="padding-right: 12px;">owned on</td>
+        <td><%= @game.owned_platforms.map(&:name).presence&.join(", ") || "—" %></td>
       </tr>
       <tr>
         <td class="text-muted" style="padding-right: 12px;">played on</td>

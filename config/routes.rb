@@ -332,6 +332,15 @@ Rails.application.routes.draw do
     resources :channels, only: %i[index create show update]
   end
 
+  # Phase 27 — 01d. Display mode switcher + three modes on `/games`.
+  # The switcher (top-right of `/games`, above the filter row)
+  # `button_to`-PATCHes this endpoint with `mode=grid|list|shelves_by_letter`.
+  # Routed as a singular `resource` under `:users` so the URL is
+  # `/users/games_preferences` (one preference set per logged-in user).
+  namespace :users do
+    resource :games_preferences, only: :update
+  end
+
   resources :saved_views, only: [ :index, :create, :destroy ]
 
   # Phase 16 §3 — Notification UI. Routes:
@@ -503,6 +512,13 @@ Rails.application.routes.draw do
     # the first-load Stimulus `timezone-detect` controller. Friendly
     # URL — no numeric / UUID id surface anywhere.
     resource :time_zone, only: %i[update], controller: "time_zone"
+
+    # Phase 26 — 01b. Slack webhook pane. Singular `resource` so the
+    # URL is `/settings/slack_webhook` — one Slack webhook config per
+    # install (`notification_delivery_channels.kind = "slack"` row,
+    # unique on `kind`). PATCH validates the URL regex, fires a test
+    # ping, and only persists the row when the ping returns 2xx.
+    resource :slack_webhook, only: %i[update], controller: "slack_webhooks"
   end
 
   # Phase 24 — Google management surface moved from `/settings/youtube`

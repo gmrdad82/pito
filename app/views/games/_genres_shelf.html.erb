@@ -1,0 +1,55 @@
+<%# Phase 27 §01c — Genres shelf.
+    Top-of-page horizontal shelf listing every Genre, alphabetical
+    (case-insensitive). Each tile navigates to `/games?genre=<slug>`
+    so the existing controller filter narrows the listing below; once
+    01b lands its filter row, the same URL is the chip-state hand-off.
+
+    Tiles render at the `:shelf` cover-art size (50% of the standard
+    150x200 grid tile, locked by master for 01c — fall back to 65-70%
+    if covers look unreadable per the addendum). Genres typically do
+    NOT carry their own cover image (open question #5 in the spec —
+    architect-leaning text tile), so the tile is a bracketed legend
+    over a neutral cover block.
+
+    Locals:
+      genres  ActiveRecord::Relation of Genre rows, pre-ordered by
+              caller (controller passes alphabetical case-insensitive).
+%>
+<%
+  genres = local_assigns.fetch(:genres)
+%>
+<section class="shelf shelf--genres" style="margin-top: 16px;" data-controller="steam-shelf">
+  <div class="dot-list" style="margin-bottom: 6px;">
+    <h2 style="margin: 0;">genres</h2>
+  </div>
+
+  <div class="shelf-row" data-steam-shelf-target="row"
+       style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px;">
+    <% if genres.any? %>
+      <% genres.each do |genre| %>
+        <%
+          href = if genre.slug.present?
+                   games_path(genre: genre.slug)
+                 else
+                   games_path(genre: genre.id)
+                 end
+        %>
+        <a href="<%= href %>"
+           class="tile tile--shelf"
+           style="flex: 0 0 75px; width: 75px; display: block; text-decoration: none; color: inherit; cursor: pointer;"
+           data-tile-genre-id="<%= genre.id %>"
+           data-tile-variant="shelf"
+           title="<%= genre.name %>">
+          <div class="tile-cover" style="width: 75px; height: 100px; overflow: hidden; background: #f6f6f6; display: flex; align-items: center; justify-content: center; border: 1px solid #ddd;">
+            <span class="text-muted" style="font-size: 10px;">[<%= genre.name.to_s.downcase %>]</span>
+          </div>
+          <div class="tile-caption" style="padding: 4px 0; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+            <%= genre.name %>
+          </div>
+        </a>
+      <% end %>
+    <% else %>
+      <p class="text-muted" style="margin: 0; font-size: 11px;">(no genres yet)</p>
+    <% end %>
+  </div>
+</section>
