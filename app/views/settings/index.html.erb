@@ -124,22 +124,6 @@
 
       <% if @youtube_connections.any? %>
         <p>connected: yes</p>
-        <p class="text-muted">
-          <%# Multi-connection (2026-05-10) — one email per line,
-              brand-account suffixes stripped via the shared helper so
-              `mushroom-poise-…@pages.plusgoogle.com` reads as
-              `mushroom-poise-…`. The model still stores the full
-              address; only the display is trimmed. %>
-          <% @youtube_connections.each do |connection| %>
-            <%= format_connection_email(connection.email) %><br>
-          <% end %>
-          <%# `last authorized` reflects the most recently authorized
-              connection (the list is ordered by `last_authorized_at`
-              desc). When more than one connection exists, append a
-              compact `+N more` indicator so the page doesn't pretend
-              the older grants share the same timestamp. %>
-          last authorized <%= @youtube_connection.last_authorized_at.strftime("%Y-%m-%d %H:%M %Z") %><% if @youtube_connections.length > 1 %> (+<%= @youtube_connections.length - 1 %> more)<% end %>
-        </p>
 
         <%# Aggregated channels list across ALL connections. The list
             is install-wide (`Channel.all`) since pito is single-
