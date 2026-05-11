@@ -15,7 +15,11 @@
 <% content_for(:breadcrumb_actions) do %>
   <div class="dot-list">
     <%= render(BracketedLinkComponent.new(label: "e", href: edit_channel_path(@channel))) %>
-    <%= render(BracketedLinkComponent.new(label: "sync", href: "/syncs/channel/#{@channel.id}", data: { keyboard_page_action: "sync" })) %>
+    <%= render(BracketedLinkComponent.new(label: "changes", href: channel_change_logs_path(@channel))) %>
+    <%# Phase 11i Q7 follow-up — single-channel `[sync]` is a diff-check
+        intent (compare YouTube, surface divergence) NOT a cache overwrite.
+        The Phase 11i banner Turbo Frame consumes the result. %>
+    <%= render(BracketedLinkComponent.new(label: "sync", href: "/syncs/channel/#{@channel.id}?intent=diff_check", data: { keyboard_page_action: "sync" })) %>
     <%= render(BracketedLinkComponent.new(label: "-", href: "/deletions/channel/#{@channel.id}", destructive: true, data: { keyboard_page_action: "delete" })) %>
   </div>
 <% end %>

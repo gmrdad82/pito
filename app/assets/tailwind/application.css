@@ -1460,3 +1460,295 @@ textarea.note-editor-source {
 .notification-severity-urgent  { color: var(--color-warn,    #d97706); }
 .notification-body a { color: var(--color-link); }
 
+/* Phase 7.5 §11d — Channel multi-layout preview component.
+   Wide modal frame (reusable; 11e watermark preview piggybacks on the
+   same `.wide-modal` shell). The dialog itself is the click-outside
+   target; `.wide-modal-inner` is the padded content area. */
+dialog.wide-modal {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
+  padding: 0;
+  max-width: 1320px;
+  width: 95vw;
+  max-height: 95vh;
+  overflow: auto;
+}
+dialog.wide-modal::backdrop {
+  background: var(--color-backdrop);
+}
+.wide-modal-inner {
+  padding: 12px 16px;
+}
+.wide-modal-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+.wide-modal-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.wide-modal-title {
+  margin: 0;
+  font-size: 15px;
+}
+.wide-modal-topnav {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+.wide-modal-body {
+  /* Body owns its own padding/sizing — keep this container layout-
+     neutral so callers (preview component, future watermark mockup)
+     are free to fill the canvas. */
+  min-height: 200px;
+}
+
+/* Active top-nav style — bold + underline, mirrors the
+   `bracketed-active` convention. */
+.preview-nav-active {
+  font-weight: bold;
+  text-decoration: underline;
+  cursor: default;
+}
+
+/* Three layout canvases. Only the one with `.active` is visible at a
+   time; the others carry the `hidden` attribute (controlled by the
+   `channel-preview` Stimulus controller). */
+.preview-layout {
+  display: none;
+}
+.preview-layout.active {
+  display: block;
+}
+.preview-canvas {
+  margin: 0 auto;
+  background: var(--color-pane-bg-a);
+  border: 1px solid var(--color-border);
+}
+
+/* Desktop — approximate YouTube channel page at 1280px. */
+.preview-canvas--desktop {
+  max-width: 1280px;
+  padding: 24px;
+}
+.preview-banner--desktop {
+  height: 200px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.preview-banner--desktop .preview-banner-img,
+.preview-banner--mobile .preview-banner-img,
+.preview-banner--tv .preview-banner-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.preview-banner--placeholder {
+  background: var(--color-pane-bg-b);
+  border: 1px solid var(--color-border);
+}
+.preview-identity--desktop {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.preview-avatar--desktop {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  background: var(--color-pane-bg-b);
+}
+.preview-title--desktop {
+  font-size: 20px;
+  font-weight: 600;
+}
+.preview-meta--desktop {
+  color: var(--color-muted);
+  font-size: 13px;
+}
+.preview-description--desktop {
+  margin-bottom: 12px;
+  max-width: 760px;
+}
+.preview-links--desktop {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.preview-videos--desktop {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+}
+.preview-video--desktop .preview-thumb {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: var(--color-pane-bg-b);
+  border: 1px solid var(--color-border);
+}
+.preview-video-title--desktop {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+/* Mobile — iPhone Pro standard (~390px). */
+.preview-canvas--mobile {
+  max-width: 390px;
+  padding: 16px;
+}
+.preview-banner--mobile {
+  height: 80px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.preview-identity--mobile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  text-align: center;
+}
+.preview-avatar--mobile {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  background: var(--color-pane-bg-b);
+}
+.preview-title--mobile {
+  font-size: 15px;
+  font-weight: 600;
+}
+.preview-meta--mobile {
+  color: var(--color-muted);
+  font-size: 11px;
+}
+.preview-description--mobile {
+  margin-bottom: 10px;
+  font-size: 12px;
+}
+.preview-links--mobile {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.preview-videos--mobile {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+.preview-video--mobile .preview-thumb {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: var(--color-pane-bg-b);
+  border: 1px solid var(--color-border);
+}
+.preview-video-title--mobile {
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+/* TV — 1920x1080 approximation scaled down to fit the modal. The
+   `scale(0.6)` factor keeps the canvas inside the 1320px-max wide
+   modal while preserving the aspect ratio and the larger TV-app
+   spacing (banner 300px, generous padding, larger type). The
+   `transform-origin: top left` keeps the scaled canvas anchored
+   to the upper-left of the modal body. */
+.preview-canvas--tv {
+  width: 1920px;
+  padding: 64px 80px;
+  transform: scale(0.6);
+  transform-origin: top left;
+  margin-bottom: -432px; /* compensate for the 0.6 scale on a 1080px tall canvas */
+}
+.preview-banner--tv {
+  height: 300px;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+.preview-identity--tv {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  margin-bottom: 24px;
+}
+.preview-avatar--tv {
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 56px;
+  background: var(--color-pane-bg-b);
+}
+.preview-title--tv {
+  font-size: 36px;
+  font-weight: 600;
+}
+.preview-meta--tv {
+  color: var(--color-muted);
+  font-size: 22px;
+}
+.preview-description--tv {
+  margin-bottom: 24px;
+  font-size: 20px;
+  max-width: 1400px;
+}
+.preview-links--tv {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+  font-size: 20px;
+}
+.preview-videos--tv {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 24px;
+}
+.preview-video--tv .preview-thumb {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: var(--color-pane-bg-b);
+  border: 1px solid var(--color-border);
+}
+.preview-video-title--tv {
+  margin-top: 8px;
+  font-size: 18px;
+  line-height: 1.3;
+}
+
+.preview-videos-empty {
+  padding: 12px;
+  font-size: 13px;
+}

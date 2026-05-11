@@ -15,7 +15,7 @@
     <h1>diff for video #<%= @video.id %></h1>
     <p class="text-muted">
       detected <%= compact_time_ago(@diff.detected_at) %> ·
-      <%= @diff.fields.size %> field<%= 's' if @diff.fields.size != 1 %> differ
+      <%= number_with_delimiter(@diff.fields.size) %> field<%= 's' if @diff.fields.size != 1 %> differ
     </p>
     <p>
       <strong>title:</strong>

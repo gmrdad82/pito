@@ -86,6 +86,15 @@ RSpec.describe "GET /channels/:slug — show page revamp", type: :request do
       expect(response.body).to include("/deletions/channel/#{hydrated_channel.id}")
     end
 
+    # Phase 11i Q7 follow-up — single-channel `[sync]` carries
+    # `intent=diff_check` so the POST enqueues `ChannelDiffCheckJob`
+    # instead of fanning through `BulkSyncJob → ChannelSync` (the cache
+    # overwrite path). Cron-driven `ChannelSync` is unchanged.
+    it "the [sync] link uses intent=diff_check (compare YouTube, not overwrite cache)" do
+      get channel_path(hydrated_channel)
+      expect(response.body).to include("/syncs/channel/#{hydrated_channel.id}?intent=diff_check")
+    end
+
     it "does not introduce JS confirm / alert / data-turbo-confirm" do
       get channel_path(hydrated_channel)
       expect(response.body).not_to include("data-turbo-confirm")

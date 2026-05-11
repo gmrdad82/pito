@@ -12,9 +12,9 @@
     <p class="text-muted">no open diffs.</p>
   <% else %>
     <p class="text-muted" style="margin-bottom: 8px;">
-      showing <%= @diffs.size %> of <%= @total_count %>
+      showing <%= number_with_delimiter(@diffs.size) %> of <%= number_with_delimiter(@total_count) %>
       <%= 'diff'.pluralize(@total_count) %>
-      (page <%= @page %> of <%= @total_pages %>)
+      (page <%= number_with_delimiter(@page) %> of <%= number_with_delimiter(@total_pages) %>)
     </p>
     <table class="diff-index-table">
       <thead>
@@ -34,7 +34,7 @@
               <%= link_to (v.title.presence || v.youtube_video_id), video_path(v) %>
             </td>
             <td><%= v.channel&.channel_url %></td>
-            <td><%= diff.fields.size %></td>
+            <td><%= number_with_delimiter(diff.fields.size) %></td>
             <td><%= compact_time_ago(diff.detected_at) %></td>
             <td>
               <%= link_to "[ view diff ]", diff_video_path(v), class: "bracketed" %>

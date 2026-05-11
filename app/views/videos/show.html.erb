@@ -39,7 +39,7 @@
       bracketed link so the user can resolve before doing anything else. %>
   <% if (open_diff = @video.open_diff) %>
     <p class="flash-warn" style="margin-bottom: 8px; padding: 4px 8px;">
-      youtube diverged on <%= open_diff.fields.size %>
+      youtube diverged on <%= number_with_delimiter(open_diff.fields.size) %>
       field<%= 's' if open_diff.fields.size != 1 %>.
       <%= link_to "[ view diff ]", diff_video_path(@video), class: "bracketed" %>
     </p>
@@ -47,9 +47,13 @@
 
   <%# Phase 23 §23c — user-triggered sync. Routes through the syncs
       confirmation page per the bulk-as-foundation rule and the hard
-      ban on JS confirms. One-element ids list. %>
+      ban on JS confirms. One-element ids list.
+      Phase 11i Q7 follow-up — `intent=diff_check` makes the POST enqueue
+      `VideoDiffCheckJob` directly instead of fanning through `BulkSyncJob
+      → VideoSync` (which already delegated to the diff-check job). The
+      diff result lands on this page's open-diff banner above. %>
   <p style="margin-bottom: 8px;">
-    <%= link_to "[ sync ]", syncs_path(type: "video", ids: @video.id), class: "bracketed" %>
+    <%= link_to "[ sync ]", syncs_path(type: "video", ids: @video.id, intent: "diff_check"), class: "bracketed" %>
   </p>
 
   <%# Layout pass (2026-05-10) — stats section moved to its own row

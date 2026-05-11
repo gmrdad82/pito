@@ -2707,3 +2707,134 @@ all work fine; just the `[sync]` button convention swap remains.
   `auth_concern_spec`, `calendar_edit_delete_spec`) are NOT this
   slice's responsibility; they predate this work (verified via git
   stash).
+
+## 2026-05-11 — §11h Calendar Reminder Integration (rails-impl)
+
+**Spec:** `specs/11h-calendar-reminder-integration.md` (sub-spec of 11).
+Wires the 14-day title/handle unlock gate on `/channels/:slug/edit` to
+the Phase 21 JSON endpoint `POST /calendar/entries.json`. The 11c stub
+controller (`reminder_link_controller.js`) is filled in; the toast,
+duplicate-detection, and idempotency contract land here.
+
+**Locked decisions (passed in by user):**
+
+1. Toast position: top-right (matches existing flash convention).
+2. Reminder time-of-day default: `AppSetting.first.timezone` if set,
+   midnight UTC otherwise. The Stimulus controller reads the timezone
+   via a `data-reminder-link-timezone-value` attribute resolved
+   server-side in `_form.html.erb`.
+3. Duplicate handling: no-op + toast `reminder already exists for
+   YYYY-MM-DD`. Implemented server-side in
+   `Calendar::EntriesController#create` keyed on
+   `(entry_type: milestone_manual, title, starts_at::date)`.
+4. Title body shape: distinct titles per gate —
+   `Channel title unlock — <name>` vs `Channel handle unlock — <name>`.
+5. Channel-name source: `Channel#title` if present, else `url_slug`
+   (UC-id segment of the channel_url), else `"this channel"`. New
+   helper `channel_reminder_name` in `ChannelsHelper`.
+
+**Spec → reality mapping (the `kind: reminder` question)**
+
+The sub-spec describes a `Calendar::Entry` of `kind: "reminder"` at
+several points. The actual `CalendarEntry` model uses `entry_type`
+with eight values, none of them `reminder`. The closest
+user-creatable type is `milestone_manual` (no required FKs, no
+metadata schema beyond `user_overrides`). The cross-reference
+validator (`CalendarEntryCrossReferenceValidator::RULES`) explicitly
+forbids `channel_id` on every user-creatable type — including
+`milestone_manual`. The wire payload therefore omits `channel_id`
+entirely; the link back to the channel lives in the title body. The
+JSON envelope contract is the existing
+`CalendarEntryDecorator#as_detail_json`; we added one optional
+top-level `duplicate: "yes"` marker on idempotent hits.
+
+**Files changed**
+
+- `app/javascript/controllers/reminder_link_controller.js` — fleshed
+  out from 11c stub. POSTs JSON to `/calendar/entries.json` with
+  `entry_type: milestone_manual`, the composed title, the unlock
+  date as `starts_at`, `all_day: "yes"` (yes/no boundary rule), and
+  the configured timezone. Renders top-right toasts via the global
+  `.toast-container` (matches `clipboard_copy_controller`
+  pattern). Short-circuits a localStorage-marker check before the
+  fetch so a repeat click in the same browser session surfaces the
+  "already exists" toast without round-tripping. Network and 4xx
+  outcomes render the generic failure toast. CSRF token sourced
+  from the `<meta name="csrf-token">` tag.
+- `app/views/channels/_form.html.erb` — both reminder links
+  extended with `data-reminder-link-channel-name-value` (channel
+  display name resolved server-side) and
+  `data-reminder-link-timezone-value` (AppSetting timezone or
+  `"UTC"`).
+- `app/views/channels/edit.html.erb` — removed the orphan
+  `data-reminder-link-target="toast"` slot 11c shipped as a
+  placeholder. Stimulus targets must live inside the controller's
+  element scope, and the controller binds to the link itself; the
+  toast renders into the global container. (Note: another agent in
+  flight wrapped the form in a `channel-preview` controller +
+  `[preview]` modal — coexists cleanly with this removal.)
+- `app/helpers/channels_helper.rb` — added `channel_reminder_name`
+  helper resolving `Channel#title → url_slug → "this channel"`.
+- `app/controllers/calendar/entries_controller.rb` — added
+  idempotency check in `#create` for the milestone_manual +
+  "Channel … unlock — …" title shape. Existing match returns 200
+  with the existing entry + `@duplicate = true` instance var.
+- `app/views/calendar/entries/show.json.jbuilder` — emits
+  `duplicate: "yes"` (boundary yes/no string) when the controller
+  sets `@duplicate`.
+- `spec/system/calendar_reminder_spec.rb` — new system spec
+  (rack_test, 11 examples). Covers link rendering with every data
+  attribute, the channel-name fallback chain, gate-kind switching
+  (handle vs title), gate-closed omission, an XSS smoke (channel
+  title with `<script>` literal), the happy POST, two negative
+  duplicate cases (different date, different title), the
+  idempotent duplicate POST, and two bad-payload sad paths.
+- `spec/requests/calendar/entries_spec.rb` — extended with the
+  channel-rename-unlock variant: happy 201, idempotent second POST
+  (200 + `duplicate: "yes"`), different-date non-duplicate,
+  rejection of `channel_id` on `milestone_manual` (proves the
+  cross-reference validator gate).
+
+**Specs added: +15** (11 system + 4 request). Both `bundle exec
+rspec spec/system/channel_edit_form_spec.rb
+spec/system/calendar_reminder_spec.rb` and `bundle exec rspec
+spec/requests/calendar/entries_spec.rb
+spec/requests/channels/edit_form_spec.rb` green. `bundle exec
+rubocop` clean across all 991 files. `bundle exec brakeman -q -w2`
+clean (0 warnings, 0 errors).
+
+**Plan ticked:** 11h has no dedicated plan.md checkbox — Step 11
+sub-specs were added via `additions.md` (entry dated 2026-05-11) and
+not back-folded into the plan workstreams list. Nothing to tick.
+
+**Open issues**
+
+- The locked-decision "reminder time-of-day" default is encoded as
+  the `data-reminder-link-timezone-value` attribute on the link. The
+  Stimulus controller sends the unlock date as the `starts_at` (no
+  time component); the controller's `coerce_yes_no!` /
+  `CalendarEntry#stamp_install_timezone` chain interprets that
+  date-only string as midnight in the configured timezone. With
+  `all_day: "yes"` the schedule view collapses the display to
+  date-only, so the underlying time is just a sort key. Verified via
+  the request-spec round-trip (`starts_at` parsed back as a
+  midnight-on-date timestamp).
+- The duplicate-detection localStorage marker is best-effort
+  client-side state. The server-side idempotency check is the
+  authoritative gate — even on a fresh browser the second POST will
+  no-op. The client marker just spares one HTTP round-trip in the
+  common case (same tab, same session).
+- The pre-existing `calendar_edit_delete_spec.rb` failure is
+  unrelated (verified via stash).
+
+**Cross-agent coordination**
+
+- Another agent (channel-preview revamp) was modifying
+  `app/views/channels/edit.html.erb` and adding a
+  `channel_preview_controller`; their changes coexist with the
+  reminder-link work because we touched different sections (preview
+  wraps the form, reminder data attributes live inside the form).
+- `_form.html.erb` was hit by both agents; the merge is clean.
+- Did NOT touch `extras/` or `docs/` beyond appending this log entry.
+
+**No commits, no pushes.** Master commits after manual validation.

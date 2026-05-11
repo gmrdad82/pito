@@ -4,12 +4,30 @@
 <%# Phase 7 Path A2 (literal full retract). The legacy `syncing`
     column is gone; the partition into already-syncing skipped rows
     goes away. The action button is always enabled when there is at
-    least one item. %>
+    least one item.
+
+    Phase 11i Q7 follow-up: the `intent` param flips copy + dispatch.
+    `intent=overwrite` (default, legacy) renders the existing "kicking
+    off the sync" lead and POSTs to the BulkSyncJob path. `intent=
+    diff_check` (used by `[sync]` on /channels/:slug and /videos/:slug)
+    renders the diff-check copy and POSTs to the per-record diff-check
+    job. The `form_url` preserves the `intent` query param so the POST
+    branch reads the same value the GET saw. %>
+
+<% intent = @intent || "overwrite" %>
+<% form_url = "/syncs/#{@type}/#{@items.map(&:id).join(",")}" %>
+<% form_url += "?intent=#{intent}" if intent == "diff_check" %>
 
 <div id="sync-content">
   <div style="margin-bottom: 8px;">
     <h1>sync <%= number_with_delimiter(@items.length) %> <%= @type %><%= 's' if @items.length != 1 %></h1>
-    <p class="text-muted" style="margin-top: 2px;">just kicking off the sync — won't take long.</p>
+    <% if intent == "diff_check" %>
+      <p class="text-muted" style="margin-top: 2px;">
+        sync from youtube? pito will compare and present any differences for review.
+      </p>
+    <% else %>
+      <p class="text-muted" style="margin-top: 2px;">just kicking off the sync — won't take long.</p>
+    <% end %>
   </div>
 
   <table>
@@ -65,7 +83,7 @@
     <%= render "shared/action_screen",
       submit_label: "[sync]",
       cancel_path: @cancel_path,
-      form_url: "/syncs/#{@type}/#{@items.map(&:id).join(",")}",
+      form_url: form_url,
       destructive: false %>
   </div>
 </div>

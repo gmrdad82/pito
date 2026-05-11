@@ -1,0 +1,85 @@
+<%# Phase 7.5 §11g — Channel Change History View.
+
+    Read-only chronological list (newest first) of every title /
+    handle change for one channel. The audit table is append-only
+    at the model layer; this view never mutates it.
+
+    Page-body layout follows the project rule: `pane--standalone`
+    wrapper, H1 + one-sentence-per-line lead paragraph, then either
+    the table or the muted empty-state line. Pagination footer is
+    rendered only when there is more than one page.
+%>
+<% display_title = channel_display_title(@channel) %>
+<% page_label = "change history — channel #{display_title}" %>
+<% content_for(:title, page_label) %>
+<% breadcrumb(["channels", channels_path], ["channel #{display_title}", channel_path(@channel)], "history") %>
+
+<div style="margin-bottom: 8px;">
+  <h1>change history — <%= display_title %></h1>
+  <p class="text-muted" style="margin-top: 2px;">
+    title and handle edits are appended here automatically.<br>
+    pito does not edit or delete past entries.
+  </p>
+</div>
+
+<div class="pane pane--standalone" style="padding: 12px 16px;">
+  <% if @logs.empty? %>
+    <p class="text-muted">no changes yet.</p>
+  <% else %>
+    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+      <thead>
+        <tr>
+          <th style="text-align: left; padding: 4px 8px;">field</th>
+          <th style="text-align: left; padding: 4px 8px;">old &rarr; new</th>
+          <th style="text-align: left; padding: 4px 8px;">changed at</th>
+          <th style="text-align: left; padding: 4px 8px;">changed by</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @logs.each do |log| %>
+          <tr>
+            <td style="padding: 4px 8px;"><%= log.field %></td>
+            <td style="padding: 4px 8px;">
+              <%# ERB auto-escapes both sides — any `<script>` payload
+                  in old_value / new_value renders as literal text. %>
+              <%= log.old_value.to_s.presence || "—" %>
+              &rarr;
+              <%= log.new_value %>
+            </td>
+            <td style="padding: 4px 8px;">
+              <time datetime="<%= log.changed_at.utc.iso8601 %>"
+                    title="<%= log.changed_at.utc.strftime("%Y-%m-%d %H:%M:%S UTC") %>">
+                <%= time_ago_in_words(log.changed_at) %> ago
+              </time>
+            </td>
+            <td style="padding: 4px 8px;">
+              <% if log.changed_by_user&.email.present? %>
+                <%= log.changed_by_user.email %>
+              <% else %>
+                <span class="text-muted">system</span>
+              <% end %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+
+    <% if @total_pages > 1 %>
+      <div class="dot-list" style="margin-top: 12px;">
+        <% if @page > 1 %>
+          <%= render(BracketedLinkComponent.new(
+                label: "previous",
+                href: url_for(page: @page - 1)
+              )) %>
+        <% end %>
+        <span>page <%= @page %> / <%= @total_pages %></span>
+        <% if @page < @total_pages %>
+          <%= render(BracketedLinkComponent.new(
+                label: "next",
+                href: url_for(page: @page + 1)
+              )) %>
+        <% end %>
+      </div>
+    <% end %>
+  <% end %>
+</div>
