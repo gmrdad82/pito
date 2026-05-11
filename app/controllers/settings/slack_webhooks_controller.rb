@@ -24,9 +24,17 @@
 # `"yes"` / `"no"` strings and convert to Boolean at the controller
 # boundary via `YesNo.from_yes_no`. The model column stays Boolean.
 class Settings::SlackWebhooksController < ApplicationController
+  include RecentTotpVerification
+
   TEST_PING_TEXT = "Pito test ping — Slack webhook configured."
 
   def update
+    # 2026-05-11 — gate Slack webhook writes behind a fresh TOTP
+    # verification when 2FA is on. Replacing the URL ships pito's
+    # notification stream to an external endpoint, so we treat it
+    # as a sensitive write.
+    return unless require_recent_totp_if_enabled!(redirect_on_failure: settings_path)
+
     webhook_url = params[:slack_webhook_url].to_s.strip
     everything = coerce_boolean(:everything)
     daily_digest = coerce_boolean(:daily_digest)

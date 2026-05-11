@@ -7,8 +7,10 @@
     leaves the date cell blank for repeated days.
 
     Time column renders either an `HH:MM` stamp or the
-    `[ all day ]` badge for all-day entries (calendar refactor
-    2026-05-11) — never an empty cell.
+    `all day` badge for all-day entries (calendar polish
+    2026-05-11) — never an empty cell. The badge shares its bordered
+    box style with the notification-severity-badge; the surrounding
+    border replaces the legacy bracketed-text decoration.
 
     `data-keyboard-row` opts the row into the global keyboard
     controller's list-row navigation (`j`/`k` move highlight).
@@ -18,7 +20,7 @@
   <td class="num calendar-row__date"><%= show_date ? date_label : "" %></td>
   <td class="num calendar-row__time">
     <% if all_day? %>
-      <span class="calendar-badge calendar-badge--all-day">[ all day ]</span>
+      <span class="calendar-badge calendar-badge--all-day">all day</span>
     <% else %>
       <%= time_label %>
     <% end %>

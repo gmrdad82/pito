@@ -15,7 +15,7 @@
       <dd>
         <% if @entry.all_day %>
           <%= @entry.starts_at.in_time_zone(@entry.timezone).strftime("%Y-%m-%d") %>
-          <span class="calendar-badge calendar-badge--all-day" style="margin-left: 8px;">[ all day ]</span>
+          <span class="calendar-badge calendar-badge--all-day" style="margin-left: 8px;">all day</span>
         <% else %>
           <%= @entry.starts_at.in_time_zone(@entry.timezone).strftime("%Y-%m-%d %H:%M %Z") %>
         <% end %>

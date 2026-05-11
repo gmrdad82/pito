@@ -1,71 +1,209 @@
 require "rails_helper"
 
-# Phase 27 — 01d. List display mode partial (post-polish).
+# Phase 27 — 01d. List display mode partial (post 2026-05-11 polish).
 #
-# Flat alphabetically-sorted table. The earlier letter-group heading
-# rows (`<tr class="letter-head">`) were removed during the
-# 2026-05-11 polish pass because their `background: #fff` rendered as
-# harsh white spacer bars under the dark theme — users read them as
-# unexplained whitespace, not as section dividers. Sort key still
-# buckets non-alphabetic titles to the bottom but no headings render.
+# Flat alphabetically-sorted table. Columns (locked, post-polish):
 #
-# Columns (locked):
-#   cover | title | release year | rating | platforms owned | genres | status
+#   select | cover | title | released | rating | platforms owned | genres
+#
+# Key changes in the 2026-05-11 polish pass:
+#   * Fix 3 — `status` column dropped (the column did not back any
+#     persisted state — it was a computed token; removed entirely).
+#   * Fix 4 — `release year` column renamed `released`, renders the
+#     full date as `mm-dd-yyyy` from `Game#release_date` (em-dash when
+#     nil). Right-aligned via `.num`.
+#   * Fix 5 — rating renders as `<NN>/100` (no star glyph). Right-
+#     aligned via `.num`.
+#   * Fix 6 — title rendered with the `.not-released` class (which the
+#     scoped CSS bolds) when `release_date` is nil or in the future.
+#   * Fix 8 — page heading renamed `all games` → `all`.
+#   * Fix 9 — `.num` class on the released + rating columns.
+#   * Fix 10 — bulk-select `[ ]` checkbox column in front.
 RSpec.describe "games/_list_mode.html.erb", type: :view do
   def render_list(games)
     render partial: "games/list_mode", locals: { games: games }
   end
 
-  describe "happy path" do
-    it "renders the seven table headers in the locked column order" do
+  describe "happy path — locked column order + heading" do
+    it "renders the post-polish heading 'all' (Fix 8)" do
+      render_list(Game.none)
+      expect(rendered).to match(%r{<h2[^>]*>\s*all\s*</h2>})
+      expect(rendered).not_to match(%r{<h2[^>]*>\s*all games\s*</h2>})
+    end
+
+    it "renders the seven post-polish table headers in the locked column order" do
       create(:game, :synced, title: "Alpha", igdb_id: 4_100_001,
              igdb_slug: "alpha-list")
       render_list(Game.all)
 
-      headers = rendered.scan(%r{<th>([^<]*)</th>}).flatten
+      headers = rendered.scan(%r{<th[^>]*>([^<]*)</th>}).flatten
       expect(headers).to eq([
-        "", "title", "release year", "rating",
-        "platforms owned", "genres", "status"
+        "", "", "title", "released", "rating",
+        "platforms owned", "genres"
       ])
+    end
+
+    it "does NOT render a `status` column (Fix 3)" do
+      create(:game, :synced, title: "Statusless", igdb_id: 4_100_002,
+             igdb_slug: "statusless-list")
+      render_list(Game.all)
+
+      expect(rendered).not_to match(%r{<th[^>]*>\s*status\s*</th>})
+      expect(rendered).not_to include("status-cell")
+    end
+
+    it "right-aligns the released + rating columns via .num (Fix 9)" do
+      create(:game, :synced, title: "Aligned Hdr", igdb_id: 4_100_004,
+             igdb_slug: "aligned-hdr-list")
+      render_list(Game.all)
+
+      # `.num` is stamped on both the released and rating headers.
+      released_header = rendered[%r{<th class="num">\s*released\s*</th>}]
+      rating_header   = rendered[%r{<th class="num">\s*rating\s*</th>}]
+      expect(released_header).not_to be_nil
+      expect(rating_header).not_to be_nil
     end
 
     it "links each title to /games/:slug without inline year" do
       game = create(:game, :synced, title: "Linked Game", igdb_id: 4_100_031,
-                    igdb_slug: "linked-list-game", release_year: 2022)
+                    igdb_slug: "linked-list-game",
+                    release_date: Date.new(2022, 6, 1),
+                    release_year: 2022)
       render_list(Game.all)
 
       expect(rendered).to include(%(href="#{game_path(game)}"))
       expect(rendered).to include("Linked Game")
-      # Title cell is bare — no `(2022)` suffix glued to the title.
       title_cell_match = rendered[%r{<td class="title-cell">.*?</td>}m]
       expect(title_cell_match).not_to include("(2022)")
-      expect(title_cell_match).not_to include("2022")
-    end
-
-    it "renders the release year in its own muted column" do
-      create(:game, :synced, title: "Yearful", igdb_id: 4_100_041,
-             igdb_slug: "yearful-list", release_year: 2018)
-      render_list(Game.all)
-
-      year_cell = rendered[%r{<td class="release-year-cell[^"]*"[^>]*>.*?</td>}m]
-      expect(year_cell).to include("2018")
-      expect(year_cell).to include("text-muted")
-    end
-
-    it "renders the rating with a U+2605 star glyph in its own column" do
-      create(:game, :synced, title: "Rated Hit", igdb_id: 4_100_051,
-             igdb_slug: "rated-hit-list", igdb_rating: 93.5)
-      render_list(Game.all)
-
-      rating_cell = rendered[%r{<td class="rating-cell[^"]*"[^>]*>.*?</td>}m]
-      expect(rating_cell).to include("★")
-      # `format_game_rating` zero-pads to two digits via `.to_i`.
-      expect(rating_cell).to include("93")
     end
 
     it "stamps data-display-mode=\"list\" on the section" do
       render_list(Game.none)
       expect(rendered).to include('data-display-mode="list"')
+    end
+  end
+
+  describe "Fix 4 — released column renders full mm-dd-yyyy date" do
+    it "renders the release_date as mm-dd-yyyy" do
+      create(:game, :synced, title: "Dated", igdb_id: 4_100_041,
+             igdb_slug: "dated-list",
+             release_date: Date.new(2018, 3, 27))
+      render_list(Game.all)
+
+      cell = rendered[%r{<td class="released-cell[^"]*"[^>]*>.*?</td>}m]
+      expect(cell).to include("03-27-2018")
+    end
+
+    it "renders an em-dash when release_date is nil" do
+      create(:game, title: "Undated", igdb_id: nil, release_date: nil)
+      render_list(Game.all)
+
+      cell = rendered[%r{<td class="released-cell[^"]*"[^>]*>.*?</td>}m]
+      expect(cell).to include("—")
+    end
+
+    it "applies the `.num` class so the cell right-aligns" do
+      create(:game, :synced, title: "Aligned", igdb_id: 4_100_044,
+             igdb_slug: "aligned-list",
+             release_date: Date.new(2020, 12, 31))
+      render_list(Game.all)
+
+      expect(rendered).to match(%r{<td class="released-cell num[^"]*"})
+    end
+  end
+
+  describe "Fix 5 — rating renders as <NN>/100 with no star glyph" do
+    it "renders the rating as <NN>/100" do
+      create(:game, :synced, title: "Rated Hit", igdb_id: 4_100_051,
+             igdb_slug: "rated-hit-list", igdb_rating: 88)
+      render_list(Game.all)
+
+      cell = rendered[%r{<td class="rating-cell[^"]*"[^>]*>.*?</td>}m]
+      expect(cell).to include("88/100")
+    end
+
+    it "does NOT render the star glyph in the rating cell" do
+      create(:game, :synced, title: "Starless", igdb_id: 4_100_052,
+             igdb_slug: "starless-list", igdb_rating: 88)
+      render_list(Game.all)
+
+      cell = rendered[%r{<td class="rating-cell[^"]*"[^>]*>.*?</td>}m]
+      expect(cell).not_to include("★")
+    end
+
+    it "renders an em-dash when igdb_rating is nil" do
+      create(:game, title: "Unrated", igdb_id: nil, igdb_rating: nil)
+      render_list(Game.all)
+
+      cell = rendered[%r{<td class="rating-cell[^"]*"[^>]*>.*?</td>}m]
+      expect(cell).to include("—")
+    end
+
+    it "applies the `.num` class so the cell right-aligns" do
+      create(:game, :synced, title: "Aligned R", igdb_id: 4_100_055,
+             igdb_slug: "aligned-r-list", igdb_rating: 75)
+      render_list(Game.all)
+
+      expect(rendered).to match(%r{<td class="rating-cell num})
+    end
+  end
+
+  describe "Fix 6 — bold for not-yet-released titles" do
+    it "stamps `.not-released` on the title <a> when release_date is in the future" do
+      g = create(:game, :synced, title: "Future Title", igdb_id: 4_100_061,
+                 igdb_slug: "future-title-list",
+                 release_date: Date.current + 30.days)
+      render_list(Game.all)
+
+      anchor = Capybara.string(rendered).find(%(a[href="#{game_path(g)}"]))
+      expect(anchor[:class]).to include("not-released")
+    end
+
+    it "stamps `.not-released` when release_date is nil" do
+      g = create(:game, :synced, title: "Undated Title", igdb_id: 4_100_062,
+                 igdb_slug: "undated-title-list",
+                 release_date: nil)
+      render_list(Game.all)
+
+      anchor = Capybara.string(rendered).find(%(a[href="#{game_path(g)}"]))
+      expect(anchor[:class]).to include("not-released")
+    end
+
+    it "does NOT stamp `.not-released` on past-release titles" do
+      g = create(:game, :synced, title: "Released Title", igdb_id: 4_100_063,
+                 igdb_slug: "released-title-list",
+                 release_date: Date.new(2018, 5, 1))
+      render_list(Game.all)
+
+      anchor = Capybara.string(rendered).find(%(a[href="#{game_path(g)}"]))
+      expect(anchor[:class].to_s).not_to include("not-released")
+    end
+  end
+
+  describe "Fix 10 — bulk-select column in front of cover" do
+    it "renders a `<th class=\"select-cell\">` as the first header" do
+      create(:game, :synced, title: "Selectable", igdb_id: 4_100_071,
+             igdb_slug: "selectable-list")
+      render_list(Game.all)
+
+      expect(rendered).to match(%r{<thead>\s*<tr>\s*<th class="select-cell"})
+    end
+
+    it "renders a `[ ]` checkbox glyph in each row's first cell" do
+      create(:game, :synced, title: "Pickable", igdb_id: 4_100_072,
+             igdb_slug: "pickable-list")
+      render_list(Game.all)
+
+      expect(rendered).to include('class="bulk-select"')
+      expect(rendered).to include("[ ]")
+    end
+
+    it "does NOT use a native <input type=\"checkbox\"> (bracketed convention)" do
+      create(:game, :synced, title: "No Native", igdb_id: 4_100_073,
+             igdb_slug: "no-native-list")
+      render_list(Game.all)
+
+      expect(rendered).not_to include('type="checkbox"')
     end
   end
 
@@ -83,7 +221,6 @@ RSpec.describe "games/_list_mode.html.erb", type: :view do
       expect(rendered).not_to include('class="letter-head"')
       expect(rendered).not_to include("data-letter=")
       expect(rendered).not_to include("position: sticky")
-      # And no hard white background bars — only the themed border token.
       expect(rendered).not_to include("background: #fff")
     end
 
@@ -120,7 +257,6 @@ RSpec.describe "games/_list_mode.html.erb", type: :view do
       render_list(Game.all)
 
       genres_cell = rendered[%r{<td class="genres-cell"[^>]*>.*?</td>}m]
-      # Exactly one genre token surfaces — no comma-joined list.
       expect(genres_cell).not_to include(", ")
     end
 
@@ -157,13 +293,30 @@ RSpec.describe "games/_list_mode.html.erb", type: :view do
     end
   end
 
+  describe "Fix 7 — cover fallback CSS hides off-theme variant in list cell" do
+    it "scopes a `display: none` rule on the dark fallback inside `td.cover-cell`" do
+      create(:game, title: "No Cover", igdb_id: nil)
+      render_list(Game.all)
+
+      # The inline `<style>` block emits a higher-specificity rule
+      # than the `td.cover-cell img` selector so the off-theme
+      # variant is hidden in both themes.
+      expect(rendered).to include(".games-list-mode td.cover-cell .game-cover-fallback--dark { display: none; }")
+    end
+
+    it "does NOT inline `display: block` on the cover-cell img anymore" do
+      create(:game, title: "No Cover 2", igdb_id: nil)
+      render_list(Game.all)
+
+      expect(rendered).not_to include("object-fit: cover; display: block;")
+    end
+  end
+
   describe "edge cases" do
-    it "renders gracefully when a game has no release_year / rating / genres" do
+    it "renders gracefully when a game has no release_date / rating / genres" do
       create(:game, title: "Bare Row", igdb_id: nil)
 
       expect { render_list(Game.all) }.not_to raise_error
-      # Status falls back to `unreleased` when release_date is absent.
-      expect(rendered).to include("unreleased")
       # All three "empty" cells render an em-dash placeholder.
       expect(rendered.scan("—").length).to be >= 3
     end
@@ -172,8 +325,6 @@ RSpec.describe "games/_list_mode.html.erb", type: :view do
       create(:game, title: "No Cover", igdb_id: nil)
       render_list(Game.all)
 
-      # Plain-text sentinel is GONE — replaced by two image tags the CSS
-      # toggles via `<html data-theme>` (see `Games::CoverComponent`).
       expect(rendered).not_to include("[no cover]")
       expect(rendered).to include("game-cover-fallback--light")
       expect(rendered).to include("game-cover-fallback--dark")

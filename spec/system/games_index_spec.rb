@@ -22,7 +22,7 @@ RSpec.describe "Games index — nested shelves (01c-v2)", type: :system do
       expect(page).not_to have_content("(no genres yet)")
     end
 
-    it "renders one outer <h2> and one sub-shelf per non-empty genre, alphabetical" do
+    it "renders one sub-shelf per non-empty genre, alphabetical (no outer h2 — Fix 1)" do
       adventure  = Genre.create!(igdb_id: 1, name: "Adventure",  slug: "adventure")
       platformer = Genre.create!(igdb_id: 2, name: "platformer", slug: "platformer")
       rpg        = Genre.create!(igdb_id: 3, name: "rpg",        slug: "rpg")
@@ -34,7 +34,9 @@ RSpec.describe "Games index — nested shelves (01c-v2)", type: :system do
 
       visit games_path
       outer = find("section.shelf--genres.outer-shelf")
-      expect(outer).to have_css("h2", text: "genres")
+      # 2026-05-11 polish (Fix 1) — the outer `<h2>genres</h2>` heading
+      # was retired. Each sub-shelf still carries its own `<h3>`.
+      expect(outer).to have_no_css("h2", text: "genres")
       # Phase 27 follow-up (2026-05-11) — lowercase display labels.
       # "Adventure" → "adventure"; "rpg" / "platformer" already lower.
       headings = outer.all("h3").map(&:text)

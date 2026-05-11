@@ -1,4 +1,6 @@
 class SettingsController < ApplicationController
+  include RecentTotpVerification
+
   GENERAL_KEYS = %w[max_panes pane_title_length].freeze
 
   def index
@@ -144,6 +146,11 @@ class SettingsController < ApplicationController
     when "appearance"
       update_appearance
     when "voyage"
+      # 2026-05-11 — gate Voyage credential writes behind a fresh
+      # TOTP verification when 2FA is on. Read-only viewing of the
+      # /settings page is unchanged.
+      return unless require_recent_totp_if_enabled!(redirect_on_failure: settings_path)
+
       result = update_voyage
       if result.is_a?(String)
         redirect_to settings_path, alert: result
@@ -155,6 +162,11 @@ class SettingsController < ApplicationController
       # AppSetting singleton. Mirror `update_voyage`: blank input
       # keeps the current stored value, explicit clear via
       # `clear_youtube_<field>: "yes"` form params wipes a field.
+      #
+      # Gate YouTube credential writes behind a fresh TOTP code
+      # when 2FA is on (same pattern as Voyage above).
+      return unless require_recent_totp_if_enabled!(redirect_on_failure: settings_path)
+
       result = update_youtube
       if result.is_a?(String)
         redirect_to settings_path, alert: result
@@ -612,19 +624,24 @@ class SettingsController < ApplicationController
   # channels in storage cost. Row count is a secondary tiebreaker.
   # Cached for 5 minutes per table so the table-scan is cheap to
   # repeat across requests.
+  #
+  # 2026-05-11 — per user direction the table iteration carries a
+  # third `display_label` value so the view can surface a friendly
+  # alias for `calendar_entries` (`calendar`). The other five
+  # tables read fine as-is so they pass through unchanged.
   POSTGRES_BREAKDOWN_MODELS = [
-    [ "channels", "Channel" ],
-    [ "videos", "Video" ],
-    [ "projects", "Project" ],
-    [ "games", "Game" ],
-    [ "notifications", "Notification" ],
-    [ "calendar_entries", "CalendarEntry" ]
+    [ "channels", "Channel", "channels" ],
+    [ "videos", "Video", "videos" ],
+    [ "projects", "Project", "projects" ],
+    [ "games", "Game", "games" ],
+    [ "notifications", "Notification", "notifications" ],
+    [ "calendar_entries", "CalendarEntry", "calendar" ]
   ].freeze
 
   def postgres_table_breakdown_for_settings_pane
-    rows = POSTGRES_BREAKDOWN_MODELS.map do |table, class_name|
+    rows = POSTGRES_BREAKDOWN_MODELS.map do |table, class_name, display_label|
       stats = postgres_table_stats(table, class_name)
-      { label: table, count: stats[:count], size_bytes: stats[:size_bytes] }
+      { label: display_label, count: stats[:count], size_bytes: stats[:size_bytes] }
     end
     rows.sort_by { |row| -(row[:size_bytes] || 0) }
   rescue StandardError
@@ -806,16 +823,20 @@ class SettingsController < ApplicationController
   # the row count (or nil to omit a count column for that
   # namespace); `:path` returns the on-disk directory to walk for
   # size + file count, or nil to skip the filesystem walk.
+  #
+  # 2026-05-11 — per user direction the `mobile_notes` entry was
+  # dropped from this surface; mobile notes are a dev-only artifact
+  # (`docs/notes/` drop-zone via the MCP `save_note` tool — the
+  # `dev` MCP scope is stripped from production builds per ADR
+  # 0004) and don't belong on a production settings page. The
+  # `project notes` row was renamed to `project` to drop the
+  # redundant trailing `notes` noun — the column header already
+  # reads `namespace` and the section is the `notes` pane.
   NOTES_NAMESPACE_SOURCES = [
     {
-      label: "project notes",
+      label: "project",
       counter: -> { Note.count },
       path:    -> { ENV["PITO_NOTES_PATH"].presence || Rails.root.join("tmp/pito-notes").to_s }
-    },
-    {
-      label: "mobile notes",
-      counter: -> { nil },
-      path:    -> { Rails.root.join("docs/notes").to_s }
     }
   ].freeze
 

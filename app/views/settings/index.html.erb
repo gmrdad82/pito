@@ -248,6 +248,20 @@
           </span>
         <% end %>
 
+        <%# 2026-05-11 — fresh TOTP gate. When 2FA is on, the
+            controller rejects updates that don't carry a valid
+            `totp_code`. Read-only views are not gated. %>
+        <% if Current.user&.totp_enabled? %>
+          <div style="margin-bottom: 8px;">
+            <label for="settings_youtube_totp_code" class="form-label">2FA code</label>
+            <input type="text" name="totp_code" id="settings_youtube_totp_code"
+                   value="" autocomplete="one-time-code" inputmode="numeric"
+                   pattern="\d{6}" maxlength="6"
+                   style="max-width: 420px; width: 100%;">
+            <span class="form-hint" style="display: block;">required to authorize the change.</span>
+          </div>
+        <% end %>
+
         <button type="submit">[update]</button>
 
         <p class="text-muted" style="margin-top: 8px; margin-bottom: 0;">
@@ -304,6 +318,20 @@
           </div>
         <% end %>
 
+        <%# 2026-05-11 — fresh TOTP gate. When 2FA is on, the
+            controller rejects updates that don't carry a valid
+            `totp_code`. Read-only views are not gated. %>
+        <% if Current.user&.totp_enabled? %>
+          <div style="margin-bottom: 8px;">
+            <label for="settings_voyage_totp_code" class="form-label">2FA code</label>
+            <input type="text" name="totp_code" id="settings_voyage_totp_code"
+                   value="" autocomplete="one-time-code" inputmode="numeric"
+                   pattern="\d{6}" maxlength="6"
+                   style="max-width: 420px; width: 100%;">
+            <span class="form-hint" style="display: block;">required to authorize the change.</span>
+          </div>
+        <% end %>
+
         <button type="submit">[update]</button>
 
         <p class="text-muted" style="margin-top: 8px; margin-bottom: 0;">
@@ -314,7 +342,19 @@
   </div>
 </div>
 
-<%# integrations row 2 — OAuth applications (+ tokens via hairline) |
+<%# integrations row 2 — Discord | Slack. 2026-05-11 — the Slack +
+    Discord webhook panes were built in Phase 26 (01b/01c) but were
+    never wired into the settings index. The user-locked integrations
+    section now surfaces them on row 2 (Discord left, Slack right),
+    with OAuth applications + sessions moving to row 3. Each pane is
+    a self-contained partial; the ivars (`@discord_webhook`,
+    `@slack_webhook`) are populated in `SettingsController#index`. %>
+<div class="pane-row">
+  <%= render "discord_pane" %>
+  <%= render "slack_pane" %>
+</div>
+
+<%# integrations row 3 — OAuth applications (+ tokens via hairline) |
     sessions. The OAuth pane keeps the combined OAuth-applications +
     tokens sub-sections fenced by a `<hr class="hairline">` so the
     two related token-issuance surfaces stay near each other in one
@@ -649,7 +689,11 @@
           `align-items: stretch` lets the hairline span the taller
           column. %>
       <div style="display: grid; grid-template-columns: 1fr 1px 1fr; gap: 12px; align-items: stretch;">
-        <%# assets column (renamed from pito-assets per user direction). %>
+        <%# assets column (renamed from pito-assets per user direction).
+            2026-05-11 — per user direction the size + files summary
+            lines under the title are dropped; only the title + writable
+            badge remain. The per-subcategory table below carries the
+            file count + size per category. %>
         <div>
           <div style="margin-bottom: 6px;">
             <span>assets</span>
@@ -661,11 +705,6 @@
               <% end %>
             <% else %>
               <span class="text-muted">▽ not present</span>
-            <% end %>
-            <% if @storage_status[:present] %>
-              <br>
-              <span class="text-muted">size: <%= number_to_human_size(@storage_status[:size_bytes]) %></span><br>
-              <span class="text-muted">files: <%= number_with_delimiter(@storage_status[:file_count]) %></span>
             <% end %>
           </div>
 
@@ -709,7 +748,13 @@
             to `align-items: stretch` on the grid container. %>
         <div style="background: var(--color-border); width: 1px;"></div>
 
-        <%# notes column — Note rows + Mobile MCP `save_note` drop-zone. %>
+        <%# notes column — Note rows. The mobile MCP `save_note`
+            drop-zone is a dev-only artifact (doesn't ship in production
+            builds) and was dropped from this surface per user
+            direction 2026-05-11. The size + files summary lines under
+            the title were also dropped — only the title + writable
+            badge remain; the per-namespace table below carries count
+            + size per namespace. %>
         <div>
           <div style="margin-bottom: 6px;">
             <span>notes</span>
@@ -721,11 +766,6 @@
               <% end %>
             <% else %>
               <span class="text-muted">▽ not present</span>
-            <% end %>
-            <% if @notes_volume_status[:present] %>
-              <br>
-              <span class="text-muted">size: <%= number_to_human_size(@notes_volume_status[:size_bytes]) %></span><br>
-              <span class="text-muted">files: <%= number_with_delimiter(@notes_volume_status[:file_count]) %></span>
             <% end %>
           </div>
 

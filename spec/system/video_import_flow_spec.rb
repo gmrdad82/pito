@@ -49,9 +49,12 @@ RSpec.describe "Video import flow", type: :system do
     visit "/videos"
     expect(page).to have_content("import")
 
-    # 2. Open the modal (rack_test follows the GET).
+    # 2. Open the modal (rack_test follows the GET). Phase 22 polish
+    #    swapped the literal `import videos` heading for the breadcrumb
+    #    `[videos] · [import]`; assert against the heading copy that
+    #    actually renders.
     visit "/imports/channels"
-    expect(page).to have_content("import videos")
+    expect(page).to have_content("pick the channels to pull new uploads from")
 
     # 3. Submit the form with both channels ticked. Capybara's
     #    rack_test driver lets us drive the form fields directly.

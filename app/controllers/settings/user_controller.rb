@@ -12,12 +12,21 @@
 # error rendering pipeline works the same way as elsewhere in the app.
 # Successful update redirects back to `/settings` with a flash notice.
 class Settings::UserController < ApplicationController
+  include RecentTotpVerification
+
   def show
     @user = Current.user
   end
 
   def update
     @user = Current.user
+
+    # 2026-05-11 — when 2FA is on, the user-edit form must carry a
+    # fresh `totp_code`. Generic-flash failure mirrors the disable
+    # flow's "don't leak which field failed" copy. The gate runs
+    # BEFORE the current-password check so a bad code surfaces the
+    # same generic copy regardless of password state.
+    return unless require_recent_totp_if_enabled!
 
     current_password = params.dig(:user, :current_password).to_s
     if current_password.blank? || !@user.authenticate(current_password)

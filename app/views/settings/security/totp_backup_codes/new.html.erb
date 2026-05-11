@@ -10,23 +10,25 @@
   </p>
 </div>
 
-<%= form_with url: settings_security_totp_backup_codes_path, method: :post, data: { turbo: false } do %>
-  <div style="margin-bottom: 12px;">
-    <%= label_tag :password, "password", class: "form-label" %>
-    <%= password_field_tag :password, nil, autocomplete: "current-password", autofocus: true %>
-  </div>
-
-  <div style="margin-bottom: 12px;">
-    <%= label_tag :code, "6-digit code from your authenticator app", class: "form-label" %>
-    <%= text_field_tag :code, nil, autocomplete: "one-time-code", inputmode: "numeric", pattern: "\\d{6}", maxlength: 6 %>
-  </div>
-
-  <%= hidden_field_tag :confirm, "yes" %>
-
-  <div class="action-screen-footer">
-    <div class="dot-list">
-      <button type="submit" class="btn-danger">[<span class="bl">regenerate</span>]</button>
-      <%= render BracketedLinkComponent.new(label: "cancel", href: settings_security_totp_backup_codes_path) %>
+<div class="pane pane--standalone">
+  <%= form_with url: settings_security_totp_backup_codes_path, method: :post, data: { turbo: false } do %>
+    <div style="margin-bottom: 12px;">
+      <%= label_tag :password, "password", class: "form-label" %>
+      <%= password_field_tag :password, nil, autocomplete: "current-password", autofocus: true %>
     </div>
-  </div>
-<% end %>
+
+    <div style="margin-bottom: 12px;">
+      <%= label_tag :code, "6-digit code from your authenticator app", class: "form-label" %>
+      <%= text_field_tag :code, nil, autocomplete: "one-time-code", inputmode: "numeric", pattern: "\\d{6}", maxlength: 6 %>
+    </div>
+
+    <%= hidden_field_tag :confirm, "yes" %>
+
+    <div class="action-screen-footer">
+      <div class="dot-list">
+        <button type="submit" class="btn-danger">[<span class="bl">regenerate</span>]</button>
+        <%= render BracketedLinkComponent.new(label: "cancel", href: settings_security_totp_backup_codes_path) %>
+      </div>
+    </div>
+  <% end %>
+</div>

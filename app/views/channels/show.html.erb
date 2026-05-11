@@ -9,9 +9,11 @@
     empty so 11i can populate it without re-editing this view.
 %>
 <% display_title = channel_display_title(@channel) %>
-<% page_label = "channel #{display_title}" %>
-<% content_for(:title, page_label) %>
-<% breadcrumb(["channels", channels_path], page_label) %>
+<%# 2026-05-11 — drop the redundant "channel " prefix from the page title
+    and breadcrumb. The `[channels]` breadcrumb segment already communicates
+    the section; doubling "channel" in the leaf label is noise. %>
+<% content_for(:title, display_title) %>
+<% breadcrumb(["channels", channels_path], display_title) %>
 <% content_for(:breadcrumb_actions) do %>
   <div class="dot-list">
     <%= render(BracketedLinkComponent.new(label: "e", href: edit_channel_path(@channel))) %>
@@ -35,10 +37,39 @@
     pair (when present) carries the `h` / `l` sibling navigation URLs
     for the global keyboard controller. %>
 <div data-controller="add-pane" data-keyboard-external-url="<%= @channel.channel_url %>" <%= keyboard_detail_nav_data_attributes(@channel, scope: Channel, path_helper: method(:channel_path)) %>>
+  <%# 2026-05-11 — title row is `<display_title> [+] · [youtube channel]
+      [youtube studio]`. The "channel" prefix was dropped from the H1
+      (the [channels] breadcrumb segment already names the section).
+      The outbound YouTube links moved up from the detail pane into
+      the H1 row so the high-value navigation sits at the top edge of
+      the page. A `nav-sep` middle-dot separates the in-app `[+]`
+      action from the outbound `[youtube …]` cluster — same separator
+      pattern used in the top navbar. %>
   <div class="dot-list" style="margin-bottom: 6px;">
-    <h1 style="display: inline;">channel <%= display_title %></h1>
+    <h1 style="display: inline;"><%= display_title %></h1>
     <% if @available_channels.any? %>
       <%= render(BracketedLinkComponent.new(label: "+", href: "#", data: { action: "click->add-pane#open" })) %>
+    <% end %>
+    <% yt_channel = youtube_channel_url(@channel) %>
+    <% yt_studio = youtube_studio_url(@channel) %>
+    <% if yt_channel || yt_studio %>
+      <span class="nav-sep" aria-hidden="true">·</span>
+      <% if yt_channel %>
+        <%= render(BracketedLinkComponent.new(
+              label: "youtube channel",
+              href: yt_channel,
+              target: "_blank",
+              rel: "noopener noreferrer"
+            )) %>
+      <% end %>
+      <% if yt_studio %>
+        <%= render(BracketedLinkComponent.new(
+              label: "youtube studio",
+              href: yt_studio,
+              target: "_blank",
+              rel: "noopener noreferrer"
+            )) %>
+      <% end %>
     <% end %>
   </div>
 
@@ -91,28 +122,9 @@
         </div>
       </div>
 
-      <%# Outbound links. Both open in a new tab. Skip rendering each
-          link if the URL builder returned nil (defense in depth —
-          the model regex should prevent malformed channel_url, but
-          we don't crash the view if it ever does). %>
-      <div class="dot-list" style="margin-bottom: 8px;">
-        <% if (yt_channel = youtube_channel_url(@channel)) %>
-          <%= render(BracketedLinkComponent.new(
-                label: "youtube channel",
-                href: yt_channel,
-                target: "_blank",
-                rel: "noopener noreferrer"
-              )) %>
-        <% end %>
-        <% if (yt_studio = youtube_studio_url(@channel)) %>
-          <%= render(BracketedLinkComponent.new(
-                label: "youtube studio",
-                href: yt_studio,
-                target: "_blank",
-                rel: "noopener noreferrer"
-              )) %>
-        <% end %>
-      </div>
+      <%# 2026-05-11 — the `[youtube channel]` / `[youtube studio]`
+          outbound links moved into the H1 row at the top of the page.
+          The detail pane is now identity → description → links cluster. %>
 
       <%# Description — plain-text + auto-linked URLs. The helper runs
           input through `simple_format(sanitize: true)` which strips

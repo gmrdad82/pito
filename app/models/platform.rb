@@ -23,6 +23,43 @@ class Platform < ApplicationRecord
   extend FriendlyId
   friendly_id :slug_candidates, use: %i[slugged history finders]
 
+  # Phase 27 follow-up (2026-05-11) — canonical platform display labels.
+  #
+  # The six canonical platforms the project tracks ownership against
+  # (per user direction, ordered by the project's display preference).
+  # Maps the seed `slug` to the canonical short label rendered on the
+  # game show page and anywhere else the project renders platform sets.
+  #
+  # `GoG` (mixed case) and `Switch2` (no space) are deliberate; both
+  # follow the user-locked spelling.
+  CANONICAL_SHORT_NAMES = {
+    "ps5"     => "PS5",
+    "switch2" => "Switch2",
+    "steam"   => "Steam",
+    "gog"     => "GoG",
+    "epic"    => "Epic",
+    "xbox"    => "Xbox"
+  }.freeze
+
+  CANONICAL_SLUGS = CANONICAL_SHORT_NAMES.keys.freeze
+
+  # IGDB platform IDs → canonical slug. Used by the display helper to
+  # canonicalise an IGDB-imported `Platform` row (which carries a
+  # verbose `name` like "PlayStation 5", "Xbox Series X|S",
+  # "Nintendo Switch 2") into one of the six canonical short labels.
+  #
+  # Xbox One (49) and Xbox Series X|S (169) both collapse to "Xbox" —
+  # the project does not distinguish console generations at the
+  # ownership level.
+  IGDB_ID_TO_CANONICAL_SLUG = {
+    167 => "ps5",
+    508 => "switch2",
+    49  => "xbox",
+    169 => "xbox"
+  }.freeze
+
+  scope :canonical, -> { unscoped.where(slug: CANONICAL_SLUGS).order(:slug) }
+
   # "Ships on" join (multi-valued IGDB-driven set). Populated by
   # `Igdb::SyncGame#sync_platforms`. Renamed from `:games` so the
   # ownership-through-join can claim the plural `:games` name.
@@ -46,6 +83,21 @@ class Platform < ApplicationRecord
   # FriendlyId — name-derived slug + history-on-rename. Mirrors the
   # Collection / Project / Bundle / MilestoneRule pattern via
   # `Pito::SlugBuilder`.
+  # Canonical short label for this platform. Returns the project's
+  # locked short name (`PS5`, `Switch2`, `Steam`, `GoG`, `Epic`,
+  # `Xbox`) when the row matches one of the six canonical slugs OR
+  # when its `igdb_id` aliases to a canonical slug. Returns `nil`
+  # otherwise — callers decide whether to fall back to `name` or
+  # drop the platform from display.
+  def canonical_short_name
+    canonical_slug = CANONICAL_SHORT_NAMES.key?(slug) ? slug : IGDB_ID_TO_CANONICAL_SLUG[igdb_id]
+    CANONICAL_SHORT_NAMES[canonical_slug]
+  end
+
+  def canonical?
+    canonical_short_name.present?
+  end
+
   def slug_limit
     80
   end

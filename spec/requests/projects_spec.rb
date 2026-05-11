@@ -1721,6 +1721,26 @@ RSpec.describe "Projects", type: :request do
       # cancel link points back to show
       expect(response.body).to include(project_path(project))
     end
+
+    # 2026-05-11 form-pane sweep. The H1 is just `edit` (breadcrumb
+    # already carries `projects / <name> / edit`), and the form sits
+    # inside a `.pane.pane--standalone` so it matches every other
+    # standalone edit / new page.
+    it "renders the H1 as `edit` (no redundant `project` noun)" do
+      get edit_project_path(project)
+      html = Nokogiri::HTML.fragment(response.body)
+      h1 = html.at_css("h1")
+      expect(h1).not_to be_nil
+      expect(h1.text.strip).to eq("edit")
+    end
+
+    it "wraps the edit form in a .pane.pane--standalone" do
+      get edit_project_path(project)
+      html = Nokogiri::HTML.fragment(response.body)
+      pane = html.at_css("div.pane.pane--standalone")
+      expect(pane).not_to be_nil
+      expect(pane.at_css('input[name="project[name]"]')).not_to be_nil
+    end
   end
 
   describe "PATCH /projects/:id (rename)" do

@@ -60,9 +60,12 @@ RSpec.describe "Games steam-shelf", type: :system do
       expect(page).to have_css("section.sub-shelf--genre[data-genre-id='#{adventure.id}']")
     end
 
-    it "renders the all-games heading" do
+    it "renders the all-games heading as 'all' (Fix 8, 2026-05-11)" do
       visit games_path
-      expect(page).to have_content("all games")
+      # The all-games partition heading was renamed from `all games`
+      # to plain `all` in the 2026-05-11 polish pass.
+      expect(page).to have_css('section[data-display-mode="grid"] h2', text: "all")
+      expect(page).not_to have_css('section[data-display-mode="grid"] h2', text: "all games")
     end
 
     it "tile links land on the game show page" do

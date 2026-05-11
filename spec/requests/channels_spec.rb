@@ -12,9 +12,14 @@ RSpec.describe "Channels", type: :request do
       expect(response).to have_http_status(:ok)
     end
 
-    it "shows empty state when no channels" do
+    it "does NOT render the misleading 'no channels yet' notice (dropped 2026-05-11)" do
+      # The notice falsely implied "no channels exist" even when a star
+      # filter was active and the channels merely didn't match. The
+      # bracketed `[+]` action next to the H1 is self-evident; the
+      # explanatory paragraph was dropped.
       get channels_path
-      expect(response.body).to include("no channels yet")
+      expect(response.body).not_to include("no channels yet")
+      expect(response.body).not_to include("click [+] above")
     end
 
     it "does not render the legacy [bulk] toggle (always-on checkboxes)" do
@@ -924,16 +929,16 @@ RSpec.describe "Channels", type: :request do
           end
         end
 
-        it "does NOT stamp data-turbo-frame on the [clear] link when a filter is active" do
+        # 2026-05-11 — the redundant `[clear]` filter-reset link was
+        # dropped. Clicking the chip itself toggles the filter off, so
+        # a separate clear action is noise. Regression guard ensures it
+        # doesn't sneak back in.
+        it "does NOT render a [clear] filter-reset link when a filter is active" do
           starred = create(:channel, :starred)
           get channels_path, params: { star: "yes" }
           html = Nokogiri::HTML.fragment(response.body)
-          # The `[clear]` link is a BracketedLinkComponent; its rendered
-          # markup is `<a class="bracketed">[<span class="bl">clear</span>]</a>`.
           clear_link = html.css("a.bracketed").find { |a| a.css("span.bl").any? { |s| s.text.strip == "clear" } }
-          expect(clear_link).not_to be_nil, "expected a [clear] link with at least one channel filter active"
-          expect(clear_link["data-turbo-frame"]).to be_nil
-          expect(clear_link["data-turbo-action"]).to be_nil
+          expect(clear_link).to be_nil, "expected no [clear] link in the filter row"
           expect(starred.persisted?).to be true
         end
       end
@@ -1068,11 +1073,15 @@ RSpec.describe "Channels", type: :request do
       expect(response.body).to include('class="bracketed">[<span class="bl">+</span>]</button>')
     end
 
-    it "renders the empty-state copy pointing at the [+] button" do
+    it "does NOT render the dropped 'no channels yet' notice in the empty state" do
+      # The notice was dropped 2026-05-11 because it falsely implied
+      # "no channels at all" when the star filter was active and the
+      # only channels happened to be unstarred. The `[+]` button next
+      # to the H1 is the always-on entry point.
       Channel.delete_all
       get channels_path
-      expect(response.body).to include("no channels yet")
-      expect(response.body).to include("click [+] above")
+      expect(response.body).not_to include("no channels yet")
+      expect(response.body).not_to include("click [+] above")
     end
   end
 

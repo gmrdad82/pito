@@ -31,10 +31,28 @@ RSpec.describe "GET /channels/:slug — show page revamp", type: :request do
       expect(response).to have_http_status(:ok)
     end
 
-    it "renders the H1 with the channel title" do
+    it "renders the H1 with the channel title (no 'channel' prefix)" do
+      # 2026-05-11 — the redundant "channel " prefix was dropped from
+      # the H1 and breadcrumb leaf. The `[channels]` breadcrumb segment
+      # already communicates the section.
       get channel_path(hydrated_channel)
-      expect(response.body).to match(/<h1[^>]*>channel <[^>]+>Pito Test Channel|<h1[^>]*>channel Pito Test Channel/)
+      expect(response.body).to match(/<h1[^>]*>Pito Test Channel<\/h1>/)
       expect(response.body).to include("Pito Test Channel")
+    end
+
+    it "does not prefix the H1 with the literal word 'channel'" do
+      get channel_path(hydrated_channel)
+      expect(response.body).not_to match(/<h1[^>]*>\s*channel\s+Pito Test Channel/)
+    end
+
+    it "does not prefix the breadcrumb leaf with the literal word 'channel'" do
+      get channel_path(hydrated_channel)
+      # BreadcrumbComponent renders inside `<nav class="dot-list">`.
+      # The leaf is the last item; it should read just the title.
+      html = Nokogiri::HTML.fragment(response.body)
+      breadcrumb_html = html.css("nav.dot-list").to_html
+      expect(breadcrumb_html).to include("Pito Test Channel")
+      expect(breadcrumb_html).not_to match(/channel\s+Pito Test Channel/)
     end
 
     it "exposes the empty channel_diff_banner Turbo frame slot" do

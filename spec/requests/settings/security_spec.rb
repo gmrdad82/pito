@@ -20,9 +20,16 @@ RSpec.describe "Settings::Security", type: :request do
       expect(response.body).to match(/failed/i)
     end
 
-    it "links to the full attempts list", :unauthenticated do
+    it "links to the full attempts list when there is at least one attempt", :unauthenticated do
       user = User.first || create(:user)
       sign_in_as(user)
+      # 2026-05-11 — the muted intro paragraph (which used to surface
+      # the [attempts] link unconditionally) was dropped per user
+      # direction. The recent-activity panel still renders the
+      # `[ all attempts ]` bracketed link, but only when at least one
+      # attempt exists — otherwise the empty state copy + the
+      # `[ auto-block list ]` link replace it.
+      create(:login_attempt)
       get settings_security_path
       expect(response.body).to include("/settings/security/attempts")
     end
@@ -41,6 +48,19 @@ RSpec.describe "Settings::Security", type: :request do
       get settings_security_path
       expect(response.body).to include("trusted locations")
       expect(response.body).to include("pending")
+    end
+
+    # 2026-05-11 — per user direction the muted intro block
+    # ("every login attempt is logged. suspicious activity surfaces
+    # here and on [attempts]. 2FA enrollment lands later in this
+    # phase.") was dropped from the security dashboard. The 2FA
+    # surface shipped in Phase 25 01e so the "lands later" copy is
+    # also stale.
+    it "no longer renders the muted intro block under the security H1" do
+      get settings_security_path
+      expect(response.body).not_to include("every login attempt is logged")
+      expect(response.body).not_to include("2FA enrollment lands later")
+      expect(response.body).not_to include("suspicious activity surfaces here")
     end
   end
 end

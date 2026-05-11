@@ -28,9 +28,12 @@ RSpec.describe "games/_genres_shelf.html.erb", type: :view do
       expect(rendered).to match(%r{<section[^>]*shelf--genres outer-shelf})
     end
 
-    it "renders one <h2> labelled 'genres'" do
+    it "does NOT render an outer <h2>genres</h2> heading (Fix 1, 2026-05-11)" do
+      # The outer-shelf `<h2>genres</h2>` was retired in the 2026-05-11
+      # polish pass — the page now opens straight into the per-genre
+      # sub-shelves; each sub-shelf carries its own `<h3>` heading.
       render_shelf(Genre.where(id: [ adventure.id, rpg.id ]))
-      expect(rendered).to match(%r{<h2[^>]*>\s*genres\s*</h2>})
+      expect(rendered).not_to match(%r{<h2[^>]*>\s*genres\s*</h2>})
     end
 
     it "renders one sub-shelf per genre" do

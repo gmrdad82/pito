@@ -90,7 +90,20 @@
       # an empty date cell.
       last_day_key = nil
     %>
+    <%# Calendar polish 2026-05-11 — schedule table gets a header row
+        matching the five data columns rendered by
+        `EntryRowComponent`: date | time | type | title | open. Header
+        cells stay lowercase + normal weight to match `docs/design.md`. %>
     <table class="calendar-schedule-table" style="width: max-content; max-width: 720px; border-collapse: collapse; font-size: 13px;">
+      <thead>
+        <tr class="calendar-schedule-thead">
+          <th class="calendar-row__date"  style="text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--color-border); font-weight: normal;">date</th>
+          <th class="calendar-row__time"  style="text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--color-border); font-weight: normal;">time</th>
+          <th class="calendar-row__type"  style="text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--color-border); font-weight: normal;">type</th>
+          <th class="calendar-row__title" style="text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--color-border); font-weight: normal;">title</th>
+          <th class="calendar-row__open"  style="text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--color-border); font-weight: normal;">open</th>
+        </tr>
+      </thead>
       <tbody>
         <% past_entries.each do |entry| %>
           <%

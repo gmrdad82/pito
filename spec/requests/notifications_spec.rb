@@ -304,6 +304,70 @@ RSpec.describe "Notifications", type: :request do
       get "/notifications?modal=yes"
       expect(response).to redirect_to(login_path)
     end
+
+    # 2026-05-11 Turbo Frame Content-missing fix. The filter chip's
+    # href MUST be absolute (`/notifications?…`) so a click resolves
+    # against the canonical notifications surface even when the modal
+    # is opened from another page (e.g. `/channels`). A bare relative
+    # `?filter=unread&modal=yes` would resolve against the document
+    # URL — `/channels?filter=unread&modal=yes` — whose response has
+    # no `notifications_modal_frame` and Turbo renders "Content
+    # missing". The chip stays pinned to `/notifications` regardless
+    # of where the modal was opened from.
+    describe "filter chip href is pinned to the notifications surface (Content-missing fix)" do
+      it "emits an absolute /notifications-prefixed href in standalone mode" do
+        get "/notifications"
+        body = response.body
+        chip_tag = body[/<a [^>]*class="filter-chip"[^>]*>/]
+        expect(chip_tag).not_to be_nil, "expected the filter chip anchor in the standalone body"
+        expect(chip_tag).to include('href="/notifications?filter=unread"')
+      end
+
+      it "emits an absolute /notifications-prefixed href in modal mode (preserves modal=yes)" do
+        get "/notifications?modal=yes"
+        body = response.body
+        chip_tag = body[/<a [^>]*class="filter-chip"[^>]*>/]
+        expect(chip_tag).not_to be_nil, "expected the filter chip anchor inside the modal frame"
+        # The href is built with `to_query`, which alphabetizes keys —
+        # the order is `filter` before `modal`. Assert on the absolute
+        # path prefix + the membership of the two params so the test
+        # doesn't accidentally over-pin on order details.
+        href = chip_tag[/href="([^"]+)"/, 1]
+        expect(href).to start_with("/notifications?")
+        pairs = href.split("?", 2).last.split("&amp;").flat_map { |p| p.split("&") }
+        expect(pairs).to contain_exactly("filter=unread", "modal=yes")
+      end
+    end
+
+    # 2026-05-11 Turbo Frame Content-missing fix. The mark-all-as-read
+    # form redirects to `notifications_path` (no `modal=yes`) on
+    # success — the redirect destination is the standalone page, NOT
+    # the modal frame. Without `data-turbo-frame="_top"` Turbo would
+    # scope the redirect to the enclosing `notifications_modal_frame`
+    # (which loaded the index) and render "Content missing" because
+    # the response carries no modal-frame wrapper.
+    describe "mark-all-as-read form escapes the modal frame (Content-missing fix)" do
+      it "stamps data-turbo-frame=_top on the form in modal mode" do
+        get "/notifications?modal=yes"
+        # The form lives inline next to the filter chip in the dot-list
+        # cluster. The `_top` is stamped via `data: { turbo_frame:
+        # "_top" }`, which form_with renders as `data-turbo-frame="_top"`
+        # on the <form> tag.
+        form_tag = response.body[/<form [^>]*action="\/notifications\/mark_all_read"[^>]*>/]
+        expect(form_tag).not_to be_nil, "expected the mark-all-as-read form in the modal body"
+        expect(form_tag).to include('data-turbo-frame="_top"')
+      end
+
+      it "stamps data-turbo-frame=_top on the form in standalone mode too (safe / idempotent)" do
+        # Standalone has no enclosing turbo-frame so `_top` is a no-op
+        # for navigation; it's still emitted because the same template
+        # serves both modes and there's no per-mode branch in the form.
+        get "/notifications"
+        form_tag = response.body[/<form [^>]*action="\/notifications\/mark_all_read"[^>]*>/]
+        expect(form_tag).not_to be_nil
+        expect(form_tag).to include('data-turbo-frame="_top"')
+      end
+    end
   end
 
   describe "GET /notifications/:id" do

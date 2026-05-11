@@ -46,6 +46,14 @@
       are hidden — the partial only renders when at least one bucket
       has games. %>
   <%= render "games/genres_shelf", genres: @genres_for_shelf %>
+  <%# 2026-05-11 polish (Fix 2) — hairline separator between the genres
+      outer shelf and the collections outer shelf. Only renders when
+      BOTH shelves render (i.e. each input relation has at least one
+      row); the per-shelf partials hide themselves when their input is
+      empty so a lone collections shelf does not get a leading rule. %>
+  <% if @genres_for_shelf.any? && @collections_for_shelf.any? %>
+    <hr class="hairline">
+  <% end %>
   <%= render "games/collections_shelf", collections: @collections_for_shelf %>
 
   <%# Phase 27 §01b — filter row sits BELOW the shelves and ABOVE the

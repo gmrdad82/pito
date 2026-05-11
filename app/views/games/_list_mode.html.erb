@@ -1,26 +1,28 @@
 <%# Phase 27 — 01d. List display mode.
-    Flat alphabetically-sorted table — no letter-group headings. The
-    earlier sticky `<tr class="letter-head">` rows rendered with a hard
-    `background: #fff`, which in the dark theme manifested as harsh
-    white spacer bars between rows. Users read them as unexplained
-    whitespace rather than as section dividers, so they're gone. Sort
-    order is preserved: titles are listed alphabetically (#-bucket
-    items sink to the bottom via the same key the picker used).
+    Flat alphabetically-sorted table — no letter-group headings.
 
-    Columns (post-polish layout):
-      1. Cover thumbnail (small — uses `t_cover_small` IGDB variant)
-      2. Title (linked to /games/:slug, no inline year)
-      3. Release year (muted, blank when missing)
-      4. Rating (`★ NN` muted via GamesHelper::STAR_GLYPH; blank when
-         `igdb_rating` is nil)
-      5. Platforms owned (placeholder — Phase 27 01a/01f land the
+    Columns (post 2026-05-11 polish):
+      1. Bulk-select checkbox (`[ ]` glyph for now — bulk wiring is
+         a separate dispatch).
+      2. Cover thumbnail (small — uses `t_cover_small` IGDB variant).
+      3. Title (linked to /games/:slug, no inline year). Bold when
+         the game is not-yet-released (release_date nil or in the
+         future).
+      4. Released (full date as `mm-dd-yyyy` from `Game#release_date`;
+         em-dash when nil). Right-aligned (`.num`).
+      5. Rating (`<NN>/100`; em-dash when `igdb_rating` is nil). The
+         star glyph was retired in this polish pass. Right-aligned
+         (`.num`).
+      6. Platforms owned (placeholder — Phase 27 01a/01f land the
          per-platform ownership shape; until then we render a "—".)
-      6. Genres — primary genre only (one chip per row). When
+      7. Genres — primary genre only (one chip per row). When
          `primary_genre` isn't yet shipped on the model, falls back to
          the first linked genre so multi-genre rows still surface a
          single label instead of a comma-joined list.
-      7. Status (single token — `recorded`, `released`, `scheduled`,
-         `unreleased`).
+
+    The `status` column (computed token: recorded / released /
+    scheduled / unreleased) was dropped in the 2026-05-11 polish — the
+    `released` column's presence/date is the same signal in flat form.
 
     Locals:
       games  enumerable of Game records (typically @all_games).
@@ -36,42 +38,58 @@
 <section class="all-games-list games-list-mode"
          data-display-mode="list"
          style="margin-top: 24px;">
-  <h2 style="margin-bottom: 8px;">all games</h2>
+  <h2 style="margin-bottom: 8px;">all</h2>
 
   <% if games.any? %>
     <style>
       .games-list-mode table.list-table { width: 100%; border-collapse: collapse; }
       .games-list-mode table.list-table th,
       .games-list-mode table.list-table td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
-      .games-list-mode td.cover-cell img { width: 32px; height: 42px; object-fit: cover; display: block; }
+      .games-list-mode table.list-table th.num,
+      .games-list-mode table.list-table td.num { text-align: right; }
+      .games-list-mode td.cover-cell img { width: 32px; height: 42px; object-fit: cover; }
+      .games-list-mode td.cover-cell .game-cover-fallback--dark { display: none; }
+      [data-theme="dark"] .games-list-mode td.cover-cell .game-cover-fallback--light { display: none; }
+      [data-theme="dark"] .games-list-mode td.cover-cell .game-cover-fallback--dark { display: block; }
+      .games-list-mode td.title-cell .not-released { font-weight: bold; }
     </style>
 
     <table class="list-table">
       <thead>
         <tr>
+          <th class="select-cell"></th>
           <th></th>
           <th>title</th>
-          <th>release year</th>
-          <th>rating</th>
+          <th class="num">released</th>
+          <th class="num">rating</th>
           <th>platforms owned</th>
           <th>genres</th>
-          <th>status</th>
         </tr>
       </thead>
       <tbody>
         <% sorted_games.each do |game| %>
+          <%
+            not_released = game.release_date.blank? || game.release_date > Date.current
+            released_display = game.release_date.present? ? game.release_date.strftime("%m-%d-%Y") : "—"
+            rating_display = game_rating_display(game)
+          %>
           <tr class="game-row" data-game-id="<%= game.id %>">
+            <td class="select-cell">
+              <%# 2026-05-11 polish (Fix 10) — bulk-select checkbox.
+                  Bracketed `[ ]` glyph for visual parity with the
+                  bracketed-link convention. The bulk-action wiring
+                  itself is a separate dispatch. %>
+              <span class="bulk-select" aria-label="select <%= game.title %>">[ ]</span>
+            </td>
             <td class="cover-cell">
               <% if game.cover_url.present? %>
                 <%= image_tag game.cover_url(size: "t_cover_small"),
                               alt: game.title, loading: "lazy" %>
               <% else %>
-                <%# Theme-aware fallback. Mirrors the `Games::CoverComponent`
-                    and `_tile.html.erb` missing-cover treatment: emit both
-                    light + dark SVGs, let the `.game-cover-fallback--{light,dark}`
-                    CSS rule pick the visible one based on `<html data-theme>`.
-                    The shelf-variant SVG is the smallest existing asset and
-                    downscales cleanly into the 32x42 list-cell slot. %>
+                <%# Theme-aware fallback. The scoped CSS rules above
+                    hide the off-theme variant per `<html data-theme>`.
+                    The shelf-variant SVG downsamples cleanly into the
+                    32x42 list-cell slot. %>
                 <%= image_tag image_path("game_cover_fallback_shelf_light.svg"),
                               alt: "no cover available", loading: "lazy",
                               data: { theme: "light" },
@@ -92,18 +110,19 @@
                         href: game_path(game.version_parent))) %>
                 </div>
               <% end %>
-              <%= link_to game.title, game_path(game) %>
+              <%= link_to game.title, game_path(game),
+                          class: ("not-released" if not_released) %>
               <%# `+N editions` badge for primaries with editions. %>
               <% if game.primary? %>
                 <%= render(Games::EditionsBadgeComponent.new(game: game)) %>
               <% end %>
             </td>
-            <td class="release-year-cell text-muted">
-              <%= game.release_year.presence || "—" %>
+            <td class="released-cell num text-muted">
+              <%= released_display %>
             </td>
-            <td class="rating-cell text-muted">
-              <% if game.igdb_rating.present? %>
-                <%= GamesHelper::STAR_GLYPH %> <%= format_game_rating(game.igdb_rating) %>
+            <td class="rating-cell num text-muted">
+              <% if rating_display.present? %>
+                <%= rating_display %>
               <% else %>
                 —
               <% end %>
@@ -129,20 +148,6 @@
               <% else %>
                 <span class="text-muted">—</span>
               <% end %>
-            </td>
-            <td class="status-cell">
-              <%
-                status = if game.videos.exists?
-                           "recorded"
-                         elsif game.release_date.present? && game.release_date <= Date.current
-                           "released"
-                         elsif game.release_date.present?
-                           "scheduled"
-                         else
-                           "unreleased"
-                         end
-              %>
-              <%= status %>
             </td>
           </tr>
         <% end %>

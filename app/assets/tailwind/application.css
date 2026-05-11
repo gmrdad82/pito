@@ -1477,6 +1477,21 @@ textarea.note-editor-source {
 .notification-severity-urgent  { color: var(--color-warn,    #d97706); }
 .notification-body a { color: var(--color-link); }
 
+/* Calendar polish 2026-05-11 — `[ all day ]` token is rendered as a
+   bordered badge matching the notification-severity-badge style. The
+   bracketed-text decoration is dropped (the border IS the visual
+   delimiter); the inner text is plain `all day`. The `--all-day`
+   modifier paints the text in the link color so the badge reads as an
+   informational marker (mirrors `.notification-severity-info`). */
+.calendar-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border: 1px solid var(--color-border);
+  font-size: 12px;
+  text-transform: lowercase;
+}
+.calendar-badge--all-day { color: var(--color-link); }
+
 /* Phase 7.5 §11d — Channel multi-layout preview component.
    Wide modal frame (reusable; 11e watermark preview piggybacks on the
    same `.wide-modal` shell). The dialog itself is the click-outside

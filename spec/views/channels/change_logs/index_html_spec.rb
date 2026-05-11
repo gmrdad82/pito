@@ -67,10 +67,13 @@ RSpec.describe "channels/change_logs/index.html.erb", type: :view do
       expect(rendered).to include("Cool Channel")
     end
 
-    it "renders the lead paragraph (one sentence per line)" do
+    # 2026-05-11 — the explanatory lead paragraph was dropped per user
+    # direction. The H1 + table communicate the read-only nature on
+    # their own.
+    it "does NOT render the dropped lead paragraph" do
       render
-      expect(rendered).to include("title and handle edits are appended here automatically.")
-      expect(rendered).to include("pito does not edit or delete past entries.")
+      expect(rendered).not_to include("title and handle edits are appended here automatically.")
+      expect(rendered).not_to include("pito does not edit or delete past entries.")
     end
 
     it "wraps the body in pane--standalone" do

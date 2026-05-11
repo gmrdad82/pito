@@ -96,6 +96,41 @@ RSpec.describe "Imports::Channels", type: :request do
       end
     end
 
+    # Phase 22 fix — the `[import]` submit button is wired through the
+    # `imports-select` Stimulus controller. The button ships disabled
+    # and flips enabled when any `channel_ids[]` checkbox is checked.
+    # Without the controller present in the DOM the button stays
+    # disabled forever and clicking `[import]` does nothing.
+    describe "imports-select Stimulus wiring" do
+      before { channel }
+
+      it "registers the imports-select controller on the form" do
+        get imports_channels_path
+        expect(response.body).to include('data-controller="imports-select"')
+      end
+
+      it "wires checkboxes as imports-select#refresh targets" do
+        get imports_channels_path
+        expect(response.body).to include('data-imports-select-target="checkbox"')
+        # `>` is HTML-escaped to `&gt;` inside the `data-action` attribute
+        # when the CheckboxComponent serializes the hash. Either form means
+        # Stimulus will parse the same action descriptor.
+        expect(response.body).to match(/change-(?:>|&gt;)imports-select#refresh/)
+      end
+
+      it "wires the submit button as the imports-select#submit target" do
+        get imports_channels_path
+        expect(response.body).to include('data-imports-select-target="submit"')
+      end
+
+      it "ships the submit button disabled so an empty submit is impossible" do
+        get imports_channels_path
+        expect(response.body).to match(
+          %r{<button[^>]*data-imports-select-target="submit"[^>]*\bdisabled\b}
+        )
+      end
+    end
+
     it "renders an empty state when no connected channels" do
       Channel.destroy_all
       get imports_channels_path

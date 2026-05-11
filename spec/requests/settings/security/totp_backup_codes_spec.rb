@@ -56,6 +56,17 @@ RSpec.describe "Settings::Security::TotpBackupCodes", type: :request do
       expect(response.body).to include("password")
       expect(response.body).to include("authenticator app")
     end
+
+    # 2026-05-11 form-pane sweep — the regenerate form sits inside
+    # `.pane.pane--standalone` like every other standalone new page.
+    it "wraps the regenerate form in a .pane.pane--standalone" do
+      get settings_security_new_totp_backup_codes_path
+      html = Nokogiri::HTML.fragment(response.body)
+      pane = html.at_css("div.pane.pane--standalone")
+      expect(pane).not_to be_nil
+      expect(pane.at_css('input[name="password"]')).not_to be_nil
+      expect(pane.at_css('input[name="code"]')).not_to be_nil
+    end
   end
 
   describe "POST /settings/security/totp_backup_codes" do

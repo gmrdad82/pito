@@ -23,9 +23,27 @@ module Youtube
     # Window enum values from spec 01.
     WINDOWS = %w[7d 28d 90d lifetime].freeze
 
-    # C1/V1 daily metric set. Note 3 §C1/§V1.
-    DAILY_METRICS = %w[
+    # C1/V1 daily metric set.
+    #
+    # The YouTube Analytics v2 `reports.query` endpoint groups metrics
+    # into discrete reports; you cannot mix metrics across reports in a
+    # single call. For `dimensions=day` against `channel==<id>` (C1) or
+    # `channel==MINE` filtered by `video==<id>` (V1), only the
+    # "basic user activity" report metric set is accepted. Mixing in
+    # impression / card / engagement metrics yields a hard
+    # `400 badRequest: The query is not supported.` from Google.
+    #
+    # See:
+    # https://developers.google.com/youtube/analytics/v2/available_reports
+    #
+    # `DAILY_BASIC_METRICS` is the subset that the daily report accepts.
+    # `DAILY_ENGAGEMENT_METRICS` is retained as documentation for the
+    # metrics that live in other reports and that future query labels
+    # (impressions report, card-performance report) will fetch
+    # separately. They are NOT issued by C1/V1 today.
+    DAILY_BASIC_METRICS = %w[
       views
+      redViews
       estimatedMinutesWatched
       estimatedRedMinutesWatched
       averageViewDuration
@@ -37,14 +55,27 @@ module Youtube
       subscribersLost
       videosAddedToPlaylists
       videosRemovedFromPlaylists
+    ].freeze
+
+    # Metrics that belong to other YT Analytics reports (impressions,
+    # cards, engagement) and that are NOT valid for the basic-stats
+    # `dimensions=day` report. Kept as a named constant so that a
+    # later phase can issue dedicated impressions / cards report
+    # queries and upsert into the same `channel_daily` / `video_daily`
+    # rows (idempotent by day).
+    DAILY_ENGAGEMENT_METRICS = %w[
       videoThumbnailImpressions
       cardImpressions
       cardClicks
       cardTeaserImpressions
       cardTeaserClicks
       engagedViews
-      redViews
     ].freeze
+
+    # Back-compat alias for callers that referenced the old combined
+    # constant. The C1/V1 query bodies use `DAILY_BASIC_METRICS`
+    # directly; this preserves the name for any external reference.
+    DAILY_METRICS = DAILY_BASIC_METRICS
 
     DAILY_REVENUE_METRICS = %w[
       estimatedRevenue
@@ -55,13 +86,27 @@ module Youtube
       monetizedPlaybacks
     ].freeze
 
-    # C2/V2 window-summary metric set: shares the daily metric set plus
-    # the four non-summable Studio-faithful ratios.
+    # C2/V2 window-summary metric set: shares the daily basic-stats
+    # metric set plus the non-summable ratio that lives in the same
+    # report.
+    #
+    # `averageViewPercentage` is a basic-stats ratio and is accepted
+    # alongside the basic-stats metric set in the same `reports.query`
+    # call.
+    #
+    # The click-rate ratios — `videoThumbnailImpressionsClickRate`,
+    # `cardClickRate`, `cardTeaserClickRate` — live in the impressions
+    # / card-performance reports, NOT the basic-stats report. Mixing
+    # them into the C2/V2 window-summary call triggers the same
+    # `400 badRequest: The query is not supported.` rejection that C1
+    # hit before the basic / engagement split. Fetching them requires
+    # a separate `reports.query` call against the impressions /
+    # card-performance reports and a merge at the rollup layer; that
+    # is spec'd as a follow-up phase (see
+    # `docs/orchestration/follow-ups.md`). For now we keep window
+    # summaries compatible with basic-stats so C2 + V2 succeed.
     WINDOW_RATIO_METRICS = %w[
       averageViewPercentage
-      videoThumbnailImpressionsClickRate
-      cardClickRate
-      cardTeaserClickRate
     ].freeze
 
     WINDOW_REVENUE_METRICS = %w[
@@ -78,9 +123,15 @@ module Youtube
       # ----- Channel queries ------------------------------------------------
 
       # C1 — channel daily.
+      #
+      # Metrics are scoped to the documented basic-stats-by-day set.
+      # Engagement / card / impressions metrics live in other reports
+      # (see DAILY_ENGAGEMENT_METRICS) and cannot be mixed in here;
+      # YouTube rejects the combined set with `badRequest: The query
+      # is not supported.`
       def channel_daily_params(channel_youtube_id:, from:, to:, monetization_enabled: false)
         guard_time_dimensions!(time_dim: "day")
-        metrics = DAILY_METRICS.dup
+        metrics = DAILY_BASIC_METRICS.dup
         metrics.concat(DAILY_REVENUE_METRICS) if monetization_enabled
         {
           ids: "channel==#{channel_youtube_id}",
@@ -154,9 +205,13 @@ module Youtube
       # ----- Video queries --------------------------------------------------
 
       # V1 — video daily.
+      #
+      # Same metric-scoping rule as C1: only the basic-stats-by-day
+      # report metrics are accepted; impressions / cards / engagement
+      # metrics live in dedicated reports.
       def video_daily_params(video_youtube_id:, from:, to:, monetization_enabled: false)
         guard_time_dimensions!(time_dim: "day")
-        metrics = DAILY_METRICS.dup
+        metrics = DAILY_BASIC_METRICS.dup
         metrics.concat(DAILY_REVENUE_METRICS) if monetization_enabled
         {
           ids: "channel==MINE",

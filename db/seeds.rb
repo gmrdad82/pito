@@ -142,7 +142,8 @@ puts "seeding platforms..."
   { slug: "switch2",  name: "Nintendo Switch 2", abbreviation: "Switch 2" },
   { slug: "steam",    name: "Steam",             abbreviation: "Steam" },
   { slug: "gog",      name: "GOG",               abbreviation: "GOG" },
-  { slug: "epic",     name: "Epic Games Store",  abbreviation: "Epic" }
+  { slug: "epic",     name: "Epic Games Store",  abbreviation: "Epic" },
+  { slug: "xbox",     name: "Xbox",              abbreviation: "Xbox" }
 ].each do |attrs|
   Platform.unscoped.find_or_create_by!(slug: attrs[:slug]) do |p|
     p.name = attrs[:name]

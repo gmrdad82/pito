@@ -37,6 +37,19 @@ const STACK_STORAGE_KEY = "pito:leader-menu:stack"
 // The controller adds a one-shot outside-click listener while the
 // popup is open so clicks outside it dismiss it.
 //
+// Form-control pass-through (2026-05-11): the keypress gate that
+// guards the popup-opening SPACE skips every interactive form
+// control — `<input>` (all types, covering checkbox + radio),
+// `<textarea>`, `<select>`, `<button>`, and `[contenteditable]`.
+// Focus on any of these passes SPACE through to native form
+// behaviour (literal space in a text field, toggle on a focused
+// checkbox / radio, activate on a focused button). Pages like
+// /settings — which are dense with form controls — were de-facto
+// unreachable by the leader popup before this gate widened to
+// include `<button>`; the chrome was mounted but every focused
+// element on the page swallowed SPACE before it reached the
+// controller. See `isEditableTarget`.
+//
 // Dismiss-on-navigate (2026-05-10): the popup ALSO closes on every
 // `turbo:visit` event — any Turbo navigation start, whether triggered
 // by a leader-menu action, a click on a link / button anywhere on
@@ -169,7 +182,13 @@ export default class extends Controller {
 
   onKeydown(event) {
     if (!this.schema) return
-    // Never swallow keys while typing.
+    // Never swallow keys while focus is on a form-entry surface:
+    // <input> (every type, including checkbox / radio), <textarea>,
+    // <select>, <button>, and `[contenteditable]`. See
+    // `isEditableTarget` below for the full rationale. This is what
+    // makes /settings (and any other page packed with form controls)
+    // usable — pressing SPACE on a focused [update] button must
+    // submit the form, not open the popup.
     if (this.isEditableTarget(event.target)) return
     if (event.metaKey || event.ctrlKey || event.altKey) return
 
@@ -382,9 +401,39 @@ export default class extends Controller {
     return key
   }
 
+  // Pass-through gate: while focus sits on an interactive form control,
+  // the leader menu MUST NOT swallow the keypress — SPACE has to land
+  // in the input as a literal space, toggle the focused checkbox /
+  // radio, or activate the focused button (native browser default).
+  // The skip set covers every form-entry surface the user can focus:
+  //
+  //   * `input`         — covers all `<input>` types (text, email,
+  //                       number, password, checkbox, radio, …). The
+  //                       native SPACE behaviour for checkbox / radio
+  //                       toggles selection; for text inputs it lands
+  //                       a literal space; either way the leader popup
+  //                       has no business firing.
+  //   * `textarea`      — text entry.
+  //   * `select`        — native dropdowns swallow SPACE to open.
+  //   * `button`        — focused buttons activate on SPACE (browser
+  //                       default). The leader popup MUST defer so
+  //                       Tab-then-SPACE submits forms cleanly. This
+  //                       matches user direction (2026-05-11): "if
+  //                       focus is on an input field or textarea or
+  //                       button, or checkbox, it should not trigger
+  //                       as that's form functionality".
+  //   * `[contenteditable]` — same logic as textarea, for rich-text
+  //                           surfaces or future editor panes.
+  //
+  // `<a>` / link focus is intentionally OUT of this set — Tab landing
+  // on a navbar link should still let the user press SPACE to open
+  // the leader popup (links don't activate on SPACE in browsers
+  // anyway, only Enter).
   isEditableTarget(target) {
     if (!target || !target.matches) return false
-    return target.matches("input, textarea, select, [contenteditable], [contenteditable='true']")
+    return target.matches(
+      "input, textarea, select, button, [contenteditable], [contenteditable='true']"
+    )
   }
 
   // ---- cross-navigation state -----------------------------------
