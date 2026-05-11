@@ -24,6 +24,9 @@ class Settings::SecurityController < ApplicationController
     @active_blocks_count = BlockedLocation.active.count
     @trusted_locations_count = TrustedLocation.count
     @pending_sessions_count = Session.pending_within_window.count
-    @twofa_enabled = false # 01e flips this on once TOTP enrollment lands.
+    # Phase 25 — 01e. TOTP enrollment status. The dashboard surfaces a
+    # one-line summary; the management surface lives at
+    # `/settings/security/totp`.
+    @twofa_enabled = Current.user&.totp_enabled? || false
   end
 end

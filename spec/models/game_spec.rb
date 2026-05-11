@@ -104,6 +104,153 @@ RSpec.describe Game, type: :model do
     end
   end
 
+  describe "Phase 27 §01b — status + on_platform scopes" do
+    include ActiveSupport::Testing::TimeHelpers
+
+    let(:now) { Time.zone.local(2026, 5, 11, 12, 0, 0) }
+
+    around { |ex| travel_to(now) { ex.run } }
+
+    describe ".recorded" do
+      it "returns games with at least one linked Video" do
+        game = create(:game)
+        other = create(:game)
+        create(:video_game_link, game: game)
+        expect(Game.recorded).to include(game)
+        expect(Game.recorded).not_to include(other)
+      end
+
+      it "returns DISTINCT rows when a game has many linked Videos" do
+        game = create(:game)
+        channel = create(:channel)
+        2.times do
+          v = create(:video, channel: channel)
+          create(:video_game_link, game: game, video: v)
+        end
+        expect(Game.recorded.where(id: game.id).count).to eq(1)
+      end
+    end
+
+    describe ".released" do
+      let!(:past)        { create(:game, release_date: 1.year.ago) }
+      let!(:future)      { create(:game, release_date: 1.year.from_now) }
+      let!(:nil_release) { create(:game, release_date: nil) }
+
+      it "includes games with release_date <= now" do
+        expect(Game.released).to include(past)
+      end
+
+      it "excludes games with release_date > now" do
+        expect(Game.released).not_to include(future)
+      end
+
+      it "excludes games with nil release_date" do
+        expect(Game.released).not_to include(nil_release)
+      end
+
+      it "is inclusive on today's date (boundary inclusive on past side)" do
+        # `release_date` is a `date`; a release scheduled for today
+        # counts as released, not scheduled.
+        g = create(:game, release_date: Date.current)
+        expect(Game.released).to include(g)
+        expect(Game.scheduled).not_to include(g)
+      end
+
+      it "places tomorrow's release_date in scheduled" do
+        g = create(:game, release_date: Date.current + 1)
+        expect(Game.scheduled).to include(g)
+        expect(Game.released).not_to include(g)
+      end
+    end
+
+    describe ".scheduled" do
+      let!(:past)        { create(:game, release_date: 1.year.ago) }
+      let!(:future)      { create(:game, release_date: 1.year.from_now) }
+      let!(:nil_release) { create(:game, release_date: nil) }
+
+      it "includes only games whose release_date is in the future" do
+        expect(Game.scheduled).to include(future)
+        expect(Game.scheduled).not_to include(past)
+      end
+
+      it "excludes games with nil release_date" do
+        expect(Game.scheduled).not_to include(nil_release)
+      end
+    end
+
+    describe ".on_platform(slug)" do
+      let!(:ps5)        { create(:platform, name: "PS5 onp",   slug: "ps5-onp") }
+      let!(:switch2)    { create(:platform, name: "Sw2 onp",   slug: "sw2-onp") }
+      let!(:on_ps5)     { create(:game) }
+      let!(:on_both)    { create(:game) }
+      let!(:no_platforms) { create(:game) }
+
+      before do
+        on_ps5.game_platforms.create!(platform: ps5)
+        on_both.game_platforms.create!(platform: ps5)
+        on_both.game_platforms.create!(platform: switch2)
+      end
+
+      it "matches games available on the named platform" do
+        expect(Game.on_platform(ps5.slug)).to include(on_ps5, on_both)
+      end
+
+      it "excludes games not available on the named platform" do
+        expect(Game.on_platform(ps5.slug)).not_to include(no_platforms)
+      end
+
+      it "returns DISTINCT rows when a game has multiple game_platforms join rows" do
+        # Defensive distinct — the join itself is unique-per-pair, but
+        # any future relaxation should not multiply this scope's rows.
+        expect(Game.on_platform(ps5.slug).where(id: on_both.id).count).to eq(1)
+      end
+
+      it "returns an empty relation for an unknown slug (no error)" do
+        expect(Game.on_platform("not-a-real-slug")).to be_empty
+      end
+
+      it "is safe against SQL-injection-shaped slug input (bind param)" do
+        expect {
+          Game.on_platform("ps5'; DROP TABLE games; --").to_a
+        }.not_to raise_error
+        # Table still exists.
+        expect(Game.count).to be >= 0
+      end
+    end
+
+    describe ".released_on(slug)" do
+      let!(:ps5)        { create(:platform, name: "PS5 ron",   slug: "ps5-ron") }
+      let!(:past_ps5)   { create(:game, release_date: 1.year.ago) }
+      let!(:future_ps5) { create(:game, release_date: 1.year.from_now) }
+
+      before do
+        past_ps5.game_platforms.create!(platform: ps5)
+        future_ps5.game_platforms.create!(platform: ps5)
+      end
+
+      it "is the intersection of released and on_platform" do
+        expect(Game.released_on(ps5.slug)).to include(past_ps5)
+        expect(Game.released_on(ps5.slug)).not_to include(future_ps5)
+      end
+    end
+
+    describe ".scheduled_on(slug)" do
+      let!(:ps5)        { create(:platform, name: "PS5 son",   slug: "ps5-son") }
+      let!(:past_ps5)   { create(:game, release_date: 1.year.ago) }
+      let!(:future_ps5) { create(:game, release_date: 1.year.from_now) }
+
+      before do
+        past_ps5.game_platforms.create!(platform: ps5)
+        future_ps5.game_platforms.create!(platform: ps5)
+      end
+
+      it "is the intersection of scheduled and on_platform" do
+        expect(Game.scheduled_on(ps5.slug)).to include(future_ps5)
+        expect(Game.scheduled_on(ps5.slug)).not_to include(past_ps5)
+      end
+    end
+  end
+
   describe "hours_of_footage manual override precedence" do
     it "returns hours_of_footage_manual when set" do
       g = create(:game, hours_of_footage_manual: 42)

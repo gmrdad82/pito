@@ -1,5 +1,94 @@
 # Phase 26 — log
 
+## 2026-05-11 — sub-spec 01d Help-modal Markdown guides (pito-rails) [skipci]
+
+Implemented sub-spec 01d — Help-modal Markdown guides for the Slack +
+Discord webhook panes per
+`specs/01d-help-modal-markdown-guides.md`. Polished the on-disk
+Markdown guides (each now carries a full Troubleshooting section per
+the spec acceptance), wired `ApplicationHelper#render_markdown` to
+take a `plain: true` keyword that switches off Commonmarker's
+header-anchor + syntax-highlighter plugins for the modal render, and
+fixed the system spec that was red against `/settings` (the Slack +
+Discord panes are intentionally not rendered on the settings index
+per the 01g layout decision — the system spec now drives the
+help-link → fragment contract directly).
+
+### Files touched
+
+**Edited:**
+
+- `app/views/settings/webhooks/help/slack.md` — expanded from the
+  stub: every step now spells out where to click + what the screen
+  looks like, no assumed Slack-admin knowledge, full Troubleshooting
+  section covering invalid-URL, ping-failed 404/410/403,
+  connection-timeout, channel-disappeared, and start-over paths.
+- `app/views/settings/webhooks/help/discord.md` — same expansion:
+  Manage-Webhooks-permission prereq spelled out, full Troubleshooting
+  section covering invalid-URL, ping-failed 404/401, missing-menu
+  permission error, connection-timeout, channel-disappeared, and
+  start-over paths. Calls out both `discord.com` and `discordapp.com`
+  host forms (01c regex accepts both).
+- `app/helpers/application_helper.rb` — `render_markdown(text, plain:
+  false)`. `plain: true` passes `extension: { header_ids: nil }` +
+  `plugins: { syntax_highlighter: nil }` to Commonmarker so the help
+  modal renders bare `<h1>` / `<h2>` / `<pre>` / `<code>` without
+  injected anchor links or inline-styled syntax highlighting. The
+  default path (note editor SSR preview) is unchanged.
+- `app/views/settings/webhooks/help/show.html.erb` — call site
+  switched to `render_markdown(@markdown, plain: true)` to use the
+  new plain path.
+- `spec/requests/settings/webhooks/help_spec.rb` — +6 examples
+  covering the plain Markdown rendering posture (no `class="anchor"`,
+  no `<pre style=…>`) and the Troubleshooting sections on both
+  guides.
+- `spec/views/settings/webhooks/help/show_html_erb_spec.rb` — +11
+  examples locking in the Troubleshooting heading + key error paths
+  on each guide, plus an emoji-glyph guard per the project copy
+  convention.
+- `spec/system/settings_webhook_help_spec.rb` — rewrote to drop the
+  ambiguous `[data-controller], body` selector and the broken
+  click_link path (Slack + Discord panes aren't rendered on
+  `/settings` per the 01g decision). The spec now drives the
+  help-link → fragment contract directly via `visit
+  settings_webhooks_help_path` and verifies modal scaffolding on
+  `/settings` + the rendered fragment carries the matching
+  `<turbo-frame>` id.
+
+### Spec count delta
+
+- Request spec: 14 → 20 (+6)
+- View spec: 11 → 22 (+11)
+- System spec: 4 → 10 (+6, after rewrite to a passing surface)
+- Total help-area specs: 29 → 52 (+23)
+
+All 148 webhook-area specs (`spec/services/webhooks/*`,
+`spec/requests/settings/{slack,discord}_webhooks_spec.rb`,
+`spec/requests/settings/webhooks/help_spec.rb`,
+`spec/views/settings/webhooks/**`,
+`spec/system/settings_webhook_help_spec.rb`) green.
+
+### Rubocop
+
+`bundle exec rubocop` on the touched Ruby + spec files — clean (4
+files, 0 offenses).
+
+### Plan + spec deltas
+
+Ticked `01d` checkbox in
+`docs/plans/beta/26-webhooks-timezone-viewer-analytics/plan.md`.
+
+### Open follow-ups
+
+- Slack + Discord panes are still not rendered on `/settings` per the
+  01g decision. The `[help]` links exist in the partials and the
+  modal scaffolding lives in the layout, so JS-on users can hit the
+  flow once the panes do reach the settings index. The 01d manual
+  test recipe explicitly walks `/settings` — that step waits on a
+  follow-up that re-adds the panes to the page (or routes them under
+  `/settings/integrations/<provider>` per the original spec
+  language). Tracked alongside other phase 26 follow-ups.
+
 ## 2026-05-11 — sub-spec 01h Video scheduled-publish tz wiring (pito-rails) [skipci]
 
 Implemented sub-spec 01h — Video scheduled-publish tz wiring per

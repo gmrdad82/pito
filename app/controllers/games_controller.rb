@@ -13,6 +13,7 @@
 #   - `resync`  — `POST /games/:id/resync` enqueues `GameIgdbSync`.
 class GamesController < ApplicationController
   include FriendlyRedirect
+  include Games::FiltersHelper
 
   MAX_QUERY_LENGTH = 100
 
@@ -87,6 +88,18 @@ class GamesController < ApplicationController
     scope = Game.all
     scope = scope.joins(:game_genres).where(game_genres: { genre_id: @filter[:genre_id] }) if @filter[:genre_id]
     scope = scope.where(collection_id: @filter[:collection_id])                            if @filter[:collection_id]
+
+    # Phase 27 §01b — filter row state read from a single CSV param.
+    # The query composes AFTER `?genre=` / `?collection=` narrowing
+    # (01c) and BEFORE the per-mode partitioning (01d). Unknown tokens
+    # are dropped; the contradiction case (`owned, not_owned` together)
+    # short-circuits the listing to `Game.none` and renders a muted
+    # notice in the filter-row component.
+    @filter_tokens         = parse_filter_tokens(params[:filters])
+    @dropped_filter_tokens = parse_dropped_tokens(params[:filters])
+    @filter_query          = Games::Filter.new(scope: scope, tokens: @filter_tokens)
+    @filter_contradiction  = @filter_query.contradiction?
+    scope                  = @filter_query.results
 
     @all_games = scope.order(Arel.sql("release_year DESC NULLS LAST"))
 

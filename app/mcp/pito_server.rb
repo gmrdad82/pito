@@ -61,6 +61,7 @@ module Mcp
       login_attempt_purge
       auth_audit_log_list
       blocked_locations_list
+      totp_status
     ].freeze
 
     def self.register_tools(server)

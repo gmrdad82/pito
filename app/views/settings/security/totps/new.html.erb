@@ -1,0 +1,38 @@
+<% content_for(:title, "2FA") %>
+<% breadcrumb(["settings", settings_path], ["security", settings_security_path], "2FA") %>
+
+<div style="margin-bottom: 8px;">
+  <h1>2FA</h1>
+  <p class="text-muted" style="margin-top: 2px;">
+    add a 6-digit code to every new-location login.<br>
+    works with 1Password, authy, google authenticator, any TOTP app.
+  </p>
+</div>
+
+<div class="pane pane--standalone" style="margin-bottom: 12px;">
+  <h2 style="margin-top: 0;">status</h2>
+
+  <% if @totp_enabled %>
+    <p class="text-muted" style="margin-top: 2px;">
+      2FA: <strong>on</strong> since
+      <%= l(Current.user.totp_enabled_at, format: :long) if Current.user.totp_enabled_at %>.
+    </p>
+    <p class="text-muted" style="margin-top: 2px;">
+      backup codes:
+      <strong><%= @unused_backup_codes_count.to_i %></strong>
+      unused.
+    </p>
+
+    <div class="dot-list" style="margin-top: 8px;">
+      <%= render BracketedLinkComponent.new(label: "manage backup codes", href: settings_security_totp_backup_codes_path) %>
+      <%= render BracketedLinkComponent.new(label: "disable", href: settings_security_totp_disable_path, destructive: true) %>
+    </div>
+  <% else %>
+    <p class="text-muted" style="margin-top: 2px;">
+      2FA: <strong>off</strong>.
+    </p>
+    <%= form_with url: settings_security_totp_path, method: :post, data: { turbo: false } do %>
+      <button type="submit" class="bracketed" style="cursor: pointer;">[ enable 2FA ]</button>
+    <% end %>
+  <% end %>
+</div>

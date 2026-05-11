@@ -96,6 +96,14 @@ gem "capybara", "~> 3.40", group: :test
 
 gem "draper", "~> 4.0"
 
+# Phase 25 — 01e. TOTP 2FA (`rotp`) + QR-code rendering (`rqrcode`).
+# `rotp` generates and verifies the standard `otpauth://totp/...` URIs and
+# 6-digit codes (RFC 6238); `rqrcode` renders the URI as an SVG payload
+# so the enrollment view can show the QR scan target without an external
+# image service. Both gems are pure Ruby — no native extensions.
+gem "rotp", "~> 6.3"
+gem "rqrcode", "~> 2.2"
+
 # MCP (Model Context Protocol) server
 gem "mcp"
 

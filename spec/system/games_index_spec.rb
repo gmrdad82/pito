@@ -123,3 +123,151 @@ RSpec.describe "Games index — shelves (01c)", type: :system do
     end
   end
 end
+
+# Phase 27 §01b — Filter row system spec. Additive; the existing
+# 01c describe block above is preserved verbatim.
+RSpec.describe "Games index — filter row (01b)", type: :system do
+  before { driven_by(:rack_test) }
+
+  let!(:platform_ps5)     { create(:platform, name: "ps5",     slug: "ps5") }
+  let!(:platform_switch2) { create(:platform, name: "switch2", slug: "switch2") }
+  let!(:platform_steam)   { create(:platform, name: "steam",   slug: "steam") }
+
+  let!(:owned_ps5) do
+    g = create(:game, title: "Owned PS5 Game", release_date: 1.year.ago)
+    g.game_platforms.create!(platform: platform_ps5)
+    g.game_platform_ownerships.create!(platform: platform_ps5)
+    g
+  end
+  let!(:unowned_steam) do
+    g = create(:game, title: "Steam Only Game", release_date: 1.year.ago)
+    g.game_platforms.create!(platform: platform_steam)
+    g
+  end
+  let!(:another_owned_ps5) do
+    g = create(:game, title: "Other PS5 Game", release_date: 1.year.ago)
+    g.game_platforms.create!(platform: platform_ps5)
+    g.game_platform_ownerships.create!(platform: platform_ps5)
+    g
+  end
+
+  describe "chip toggle navigation" do
+    it "clicking [ps5] updates the URL and narrows the listing" do
+      visit games_path
+      within "section.games-filter-row" do
+        find("a[data-filter-token='ps5']").click
+      end
+      expect(page).to have_current_path(games_path(filters: "ps5"))
+      grid = find("section.all-games-grid")
+      expect(grid).to have_content("Owned PS5 Game")
+      expect(grid).to have_content("Other PS5 Game")
+      expect(grid).not_to have_content("Steam Only Game")
+    end
+
+    it "clicking [ps5] when already active clears it" do
+      visit games_path(filters: "ps5")
+      within "section.games-filter-row" do
+        find("a[data-filter-token='ps5']").click
+      end
+      # Toggling off the only active chip drops `filters=` entirely.
+      expect(page).to have_current_path(games_path)
+      grid = find("section.all-games-grid")
+      expect(grid).to have_content("Steam Only Game")
+    end
+
+    it "[clear all] appears when at least one chip is active" do
+      visit games_path
+      expect(page).not_to have_link("clear all")
+      visit games_path(filters: "ps5")
+      expect(page).to have_link("clear all")
+    end
+
+    it "[clear all] clears the filter set" do
+      visit games_path(filters: "ps5,owned")
+      click_link "clear all"
+      expect(page).to have_current_path(games_path)
+      expect(page).not_to have_link("clear all")
+    end
+
+    it "composing chips: [ps5] then [owned] narrows to owned-on-ps5" do
+      visit games_path
+      within "section.games-filter-row" do
+        find("a[data-filter-token='ps5']").click
+      end
+      within "section.games-filter-row" do
+        find("a[data-filter-token='owned']").click
+      end
+      grid = find("section.all-games-grid")
+      expect(grid).to have_content("Owned PS5 Game")
+      expect(grid).to have_content("Other PS5 Game")
+      expect(grid).not_to have_content("Steam Only Game")
+    end
+  end
+
+  describe "sad: contradiction" do
+    it "clicking [owned] then [not owned] renders the contradiction notice" do
+      visit games_path
+      within "section.games-filter-row" do
+        find("a[data-filter-token='owned']").click
+      end
+      within "section.games-filter-row" do
+        find("a[data-filter-token='not_owned']").click
+      end
+      expect(page).to have_content("owned and not owned together — no matches")
+      grid = find("section.all-games-grid")
+      expect(grid).to have_content("no games match this filter.")
+    end
+  end
+
+  describe "edge: query param preservation" do
+    it "preserves ?display=list when toggling a chip" do
+      visit games_path(display: "list")
+      within "section.games-filter-row" do
+        find("a[data-filter-token='ps5']").click
+      end
+      # Both keys must be present; order is not asserted.
+      expect(current_url).to include("filters=ps5")
+      expect(current_url).to include("display=list")
+    end
+
+    it "preserves ?genre=<slug> when toggling a chip" do
+      action = Genre.create!(igdb_id: 8001, name: "Action", slug: "action")
+      owned_ps5.genres << action
+      visit games_path(genre: "action")
+      within "section.games-filter-row" do
+        find("a[data-filter-token='ps5']").click
+      end
+      expect(current_url).to include("filters=ps5")
+      expect(current_url).to include("genre=action")
+    end
+
+    it "selecting all five platform chips without owned widens to the union" do
+      visit games_path
+      %w[ps5 switch2 steam gog epic].each do |t|
+        within "section.games-filter-row" do
+          find("a[data-filter-token='#{t}']").click
+        end
+      end
+      grid = find("section.all-games-grid")
+      # owned_ps5 + another_owned_ps5 + unowned_steam are all on at
+      # least one canonical platform.
+      expect(grid).to have_content("Owned PS5 Game")
+      expect(grid).to have_content("Other PS5 Game")
+      expect(grid).to have_content("Steam Only Game")
+    end
+  end
+
+  describe "flaw: defensive surface" do
+    it "the filter row contains no <script> tag" do
+      visit games_path(filters: "ps5")
+      row = find("section.games-filter-row")
+      expect(row.native.to_html).not_to include("<script")
+    end
+
+    it "no data-turbo-confirm anywhere on the row" do
+      visit games_path(filters: "ps5")
+      row = find("section.games-filter-row")
+      expect(row.native.to_html).not_to include("data-turbo-confirm")
+    end
+  end
+end

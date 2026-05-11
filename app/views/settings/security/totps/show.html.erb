@@ -1,0 +1,52 @@
+<% content_for(:title, "enroll 2FA") %>
+<% breadcrumb(["settings", settings_path], ["security", settings_security_path], ["2FA", settings_security_totp_path], "enroll") %>
+
+<div style="margin-bottom: 8px;">
+  <h1>enroll 2FA</h1>
+  <p class="text-muted" style="margin-top: 2px;">
+    scan the QR or paste the seed into your authenticator app.<br>
+    then enter a fresh 6-digit code to confirm.<br>
+    <strong>print or save the backup codes now</strong> — they will not be shown again.
+  </p>
+</div>
+
+<div class="pane pane--standalone" style="margin-bottom: 12px;">
+  <h2 style="margin-top: 0;">scan</h2>
+  <%
+    qr_svg = RQRCode::QRCode.new(@totp_uri).as_svg(
+      offset: 0,
+      color: "000",
+      shape_rendering: "crispEdges",
+      module_size: 4,
+      standalone: true
+    )
+  %>
+  <div style="margin: 8px 0;"><%= qr_svg.html_safe %></div>
+
+  <p class="text-muted" style="margin-top: 8px;">
+    or paste this seed manually:
+  </p>
+  <pre style="font-size: 14px; padding: 8px;"><%= @seed %></pre>
+</div>
+
+<div class="pane pane--standalone" style="margin-bottom: 12px;">
+  <h2 style="margin-top: 0;">backup codes</h2>
+  <p class="text-muted" style="margin-top: 2px;">
+    each code works once. store them somewhere safe — outside the device that holds your authenticator.
+  </p>
+  <pre style="font-size: 14px; padding: 8px;">
+<% @codes.each do |code| %><%= code %>
+<% end %></pre>
+</div>
+
+<div class="pane pane--standalone" style="margin-bottom: 12px;">
+  <h2 style="margin-top: 0;">confirm</h2>
+  <%= form_with url: settings_security_totp_confirm_path, method: :patch, data: { turbo: false } do |f| %>
+    <div style="margin-bottom: 8px;">
+      <%= label_tag :code, "6-digit code from your authenticator app" %><br>
+      <%= text_field_tag :code, nil, autocomplete: "one-time-code", inputmode: "numeric", pattern: "\\d{6}", maxlength: 6, autofocus: true %>
+    </div>
+    <button type="submit" class="bracketed" style="cursor: pointer;">[ confirm 2FA ]</button>
+    <%= render BracketedLinkComponent.new(label: "cancel", href: settings_security_totp_path) %>
+  <% end %>
+</div>

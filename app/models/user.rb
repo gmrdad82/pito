@@ -1,6 +1,25 @@
 class User < ApplicationRecord
   has_secure_password
 
+  # Phase 25 — 01e. TOTP 2FA seed. Stored encrypted at rest via Active
+  # Record Encryption (LD-9). The plaintext base32 seed is what `rotp`
+  # consumes to verify 6-digit codes; the column is `:text` because the
+  # encrypted envelope is larger than the 32-char plaintext seed.
+  #
+  # `totp_enabled_at` is stamped when the user successfully confirms a
+  # freshly generated seed with a valid 6-digit code from their
+  # authenticator app. `totp_disabled_at` is stamped on the disable
+  # path so the audit trail can answer "was TOTP ever on" without
+  # scraping `AuthAuditLog`. `totp_enabled?` is the canonical truth
+  # check — seed present AND no disabled stamp.
+  encrypts :totp_seed_encrypted
+
+  # Phase 25 — 01e. Backup codes. Ten single-use codes minted on
+  # enable; each row carries a BCrypt digest (never the plaintext).
+  # `dependent: :destroy` so a user delete cascades; `Auth::TotpDisabler`
+  # destroys rows directly when 2FA is turned off.
+  has_many :totp_backup_codes, dependent: :destroy
+
   # Phase 26 — 01a. Timezone foundation. UTC-storage / user-tz-render
   # is the app-wide contract; `User#time_zone` is the per-user render
   # zone, validated against the IANA tz set + Rails alias map. The
@@ -72,6 +91,24 @@ class User < ApplicationRecord
   # Surfaced on `/settings/security` and via the MCP read tool.
   def has_pending_session?
     sessions.pending_within_window.exists?
+  end
+
+  # Phase 25 — 01e. TOTP 2FA helpers. `totp_enabled?` is the single
+  # canonical truth check — the seed is present AND no disable stamp
+  # supersedes it. Callers in the login flow (SessionsController) and
+  # the settings UI both route on this predicate; do NOT inline the
+  # `totp_seed_encrypted.present?` check at call sites.
+  def totp_enabled?
+    totp_seed_encrypted.present? && totp_disabled_at.nil?
+  end
+
+  # `otpauth://totp/...` URI fed to the QR code renderer and surfaced
+  # as the plaintext secret on the one-shot enrollment view. Pure
+  # convenience over `ROTP::TOTP#provisioning_uri`; the issuer string
+  # is centralised in `TotpHelper` so all callers agree.
+  def totp_uri(issuer:)
+    return nil if totp_seed_encrypted.blank?
+    ROTP::TOTP.new(totp_seed_encrypted, issuer: issuer).provisioning_uri(email)
   end
 
   private

@@ -81,6 +81,26 @@ class SessionsController < ApplicationController
     fingerprint_hash = current_request_fingerprint
     ip_prefix        = current_request_ip_prefix
 
+    # Phase 25 — 01e. TOTP 2FA gate. When the user has 2FA on, the
+    # password-only path is NOT enough — we stash the pre-auth marker
+    # and bounce to `/login/totp`. The TOTP controller runs
+    # `Auth::SessionActivator` (or `Auth::SessionPendingApprover` if
+    # the location is also new and the user backs out of TOTP) only
+    # AFTER a valid 6-digit code or backup code. The TOTP gate
+    # applies on every login — trusted or new location — so a stolen
+    # device cookie cannot bypass it.
+    if user.totp_enabled?
+      write_pre_auth_marker(
+        user_id: user.id,
+        fingerprint_hash: fingerprint_hash,
+        ip_prefix: ip_prefix,
+        remember: remember
+      )
+      audit("session.login.totp_challenge", user_id: user.id, ip: request.remote_ip)
+      redirect_to login_totp_path
+      return
+    end
+
     decision = Auth::NewLocationDetector.call(
       user: user,
       fingerprint_hash: fingerprint_hash,

@@ -244,6 +244,68 @@ RSpec.describe User, type: :model do
     end
   end
 
+  describe "TOTP 2FA (Phase 25 — 01e)" do
+    let(:user) { create(:user) }
+
+    describe "#totp_enabled?" do
+      it "is false when no seed is set" do
+        expect(user.totp_enabled?).to be false
+      end
+
+      it "is true when a seed is set and disabled_at is nil" do
+        user.update!(totp_seed_encrypted: "JBSWY3DPEHPK3PXP", totp_enabled_at: Time.current)
+        expect(user.totp_enabled?).to be true
+      end
+
+      it "is false when disabled_at is stamped even with a seed (defensive)" do
+        user.update!(
+          totp_seed_encrypted: "JBSWY3DPEHPK3PXP",
+          totp_enabled_at: 1.hour.ago,
+          totp_disabled_at: Time.current
+        )
+        expect(user.totp_enabled?).to be false
+      end
+    end
+
+    describe "#totp_uri" do
+      it "returns nil when no seed is set" do
+        expect(user.totp_uri(issuer: "pito")).to be_nil
+      end
+
+      it "returns a valid otpauth:// URI when a seed is set" do
+        user.update!(totp_seed_encrypted: "JBSWY3DPEHPK3PXP")
+        uri = user.totp_uri(issuer: "pito")
+        expect(uri).to start_with("otpauth://totp/")
+        expect(uri).to include("issuer=pito")
+        expect(uri).to include("secret=JBSWY3DPEHPK3PXP")
+      end
+    end
+
+    describe "encryption at rest" do
+      it "stores the totp_seed_encrypted column as ciphertext, not plaintext" do
+        user.update!(totp_seed_encrypted: "JBSWY3DPEHPK3PXP")
+        raw = User.connection.select_value(
+          "SELECT totp_seed_encrypted FROM users WHERE id = #{user.id}"
+        ).to_s
+        expect(raw).not_to be_empty
+        expect(raw).not_to include("JBSWY3DPEHPK3PXP")
+      end
+
+      it "round-trips the plaintext through the model" do
+        user.update!(totp_seed_encrypted: "JBSWY3DPEHPK3PXP")
+        expect(user.reload.totp_seed_encrypted).to eq("JBSWY3DPEHPK3PXP")
+      end
+    end
+
+    describe "has_many :totp_backup_codes" do
+      it "cascades destroy" do
+        user.update!(totp_seed_encrypted: "JBSWY3DPEHPK3PXP")
+        user.totp_backup_codes.create!(code_digest: BCrypt::Password.create("abc"))
+        expect { user.destroy }.to change(TotpBackupCode, :count).by(-1)
+      end
+    end
+  end
+
   describe "no tenant / no username surface" do
     # Phase 8 archive checks. Asserts that the legacy plumbing is gone.
     it "does not declare a tenant association" do

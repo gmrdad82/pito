@@ -630,4 +630,142 @@ RSpec.describe "Games", type: :request do
        .and change(GameGenre, :count).by(-1)
     end
   end
+
+  # Phase 27 §01b — Filter row request integration. The controller
+  # composes the filter AFTER `?genre=` / `?collection=` narrowing
+  # (01c) and BEFORE per-mode partitioning (01d). Chip hrefs preserve
+  # those overrides; unknown tokens are dropped silently.
+  describe "GET /games with ?filters= (Phase 27 §01b)" do
+    let!(:platform_ps5)     { create(:platform, name: "ps5",     slug: "ps5") }
+    let!(:platform_switch2) { create(:platform, name: "switch2", slug: "switch2") }
+    let!(:platform_steam)   { create(:platform, name: "steam",   slug: "steam") }
+    let!(:owned_ps5_game) do
+      g = create(:game, title: "Owned PS5 Game", release_date: 1.year.ago)
+      g.game_platforms.create!(platform: platform_ps5)
+      g.game_platform_ownerships.create!(platform: platform_ps5)
+      g
+    end
+    let!(:not_owned_steam_game) do
+      g = create(:game, title: "Steam Only Unowned", release_date: 1.year.ago)
+      g.game_platforms.create!(platform: platform_steam)
+      g
+    end
+
+    it "GET /games (no filters) returns 200" do
+      get games_path
+      expect(response).to have_http_status(:ok)
+    end
+
+    it "GET /games?filters=ps5 returns 200 and applies the filter" do
+      get games_path(filters: "ps5")
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include("Owned PS5 Game")
+      expect(response.body).not_to include("Steam Only Unowned")
+    end
+
+    it "GET /games?filters=ps5 renders [clear all]" do
+      get games_path(filters: "ps5")
+      expect(response.body).to include("clear all")
+    end
+
+    it "GET /games?filters=ps5,owned returns 200 and narrows to owned PS5" do
+      get games_path(filters: "ps5,owned")
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include("Owned PS5 Game")
+      expect(response.body).not_to include("Steam Only Unowned")
+    end
+
+    it "marks active chips with the chip--active class" do
+      get games_path(filters: "ps5")
+      # The active chip carries chip--active in its class list.
+      expect(response.body).to match(/class="[^"]*chip--active[^"]*"[^>]*data-filter-token="ps5"/)
+    end
+
+    it "GET /games?filters= (empty) treats as no filter, no [clear all]" do
+      get games_path(filters: "")
+      expect(response).to have_http_status(:ok)
+      expect(response.body).not_to include("clear all")
+    end
+
+    it "GET /games?filters=garbage drops the unknown token (no [clear all])" do
+      get games_path(filters: "garbage")
+      expect(response).to have_http_status(:ok)
+      expect(response.body).not_to include("clear all")
+      expect(response.body).not_to include("garbage")
+    end
+
+    it "GET /games?filters=garbage,ps5 keeps ps5 active and excludes garbage from chip hrefs" do
+      get games_path(filters: "garbage,ps5")
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include("clear all")
+      # The garbage token must NOT echo into any chip-link href.
+      # Filter-row hrefs all start with `/games?filters=`; assert none
+      # contain "garbage".
+      hrefs = response.body.scan(/href="(\/games[^"]*)"/).flatten
+      filter_hrefs = hrefs.select { |h| h.include?("filters=") }
+      expect(filter_hrefs).to all(satisfy { |h| !h.include?("garbage") })
+    end
+
+    it "GET /games?filters=owned,not_owned renders the contradiction notice" do
+      get games_path(filters: "owned,not_owned")
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include("owned and not owned together")
+      # The all-games grid sees Game.none — assert by scoping to the
+      # grid section's empty-state copy (shelves above still render
+      # the game; the filter row only narrows `@all_games`).
+      grid = response.body.match(%r{<section class="shelf all-games-grid".*?</section>}m)
+      expect(grid).not_to be_nil
+      expect(grid[0]).to include("no games match this filter.")
+      expect(grid[0]).not_to include("Owned PS5 Game")
+    end
+
+    it "GET /games?filters=ps5&display=list preserves display in chip hrefs" do
+      get games_path(filters: "ps5", display: "list")
+      expect(response).to have_http_status(:ok)
+      # The clear-all link preserves the display override.
+      expect(response.body).to match(/href="\/games\?display=list"/)
+    end
+
+    it "GET /games?filters=ps5&genre=action preserves genre in chip hrefs" do
+      get games_path(filters: "ps5", genre: "action")
+      expect(response).to have_http_status(:ok)
+      # The clear-all link preserves the genre override.
+      expect(response.body).to match(/href="\/games\?genre=action"/)
+    end
+
+    it "GET /games?filters=ps5,ps5,owned de-duplicates" do
+      get games_path(filters: "ps5,ps5,owned")
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include("Owned PS5 Game")
+    end
+
+    it "GET /games?filters=PS5 (uppercase) normalises to ps5" do
+      get games_path(filters: "PS5")
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include("Owned PS5 Game")
+    end
+
+    it "GET /games with 100-token CSV does not 500" do
+      tokens = Array.new(100) { |i| "bogus-#{i}" }.join(",")
+      get games_path(filters: tokens)
+      expect(response).to have_http_status(:ok)
+    end
+
+    it "SQL-injection payload as a token is dropped; games table intact" do
+      before_count = Game.count
+      payload = "ps5'; DROP TABLE games; --"
+      get games_path(filters: payload)
+      expect(response).to have_http_status(:ok)
+      expect(response.body).not_to include(payload)
+      expect(Game.count).to eq(before_count)
+    end
+
+    it "filter row HTML carries no data-turbo-confirm" do
+      get games_path(filters: "ps5")
+      # Scope the assertion to the filter-row section.
+      filter_row = response.body.match(%r{<section class="games-filter-row".*?</section>}m)
+      expect(filter_row).not_to be_nil
+      expect(filter_row[0]).not_to include("data-turbo-confirm")
+    end
+  end
 end

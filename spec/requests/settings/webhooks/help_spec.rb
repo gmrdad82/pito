@@ -126,4 +126,49 @@ RSpec.describe "Settings::Webhooks::Help", type: :request do
       expect(response).to redirect_to(login_path)
     end
   end
+
+  # Phase 26 — 01d. The help guides render through
+  # `ApplicationHelper#render_markdown(plain: true)`. `plain: true`
+  # turns off Commonmarker's default header-anchor and syntax-
+  # highlighter plugins so the modal styling can lay out the guide
+  # with its own monospace typography. These specs lock that surface
+  # in so a future tweak to `render_markdown` defaults can't bleed
+  # the styled chrome into the help modal.
+  describe "Markdown rendering posture" do
+    it "renders headings without injected anchor links" do
+      get settings_webhooks_help_path(provider: "slack")
+      # The styled render path emits
+      # `<h1><a href="#…" class="anchor" …></a>Slack webhook setup</h1>`.
+      # The plain path emits `<h1>Slack webhook setup</h1>`.
+      expect(response.body).not_to include('class="anchor"')
+      expect(response.body).not_to match(/<h1><a [^>]*aria-hidden/)
+    end
+
+    it "renders code blocks without inline syntax-highlight styling" do
+      get settings_webhooks_help_path(provider: "slack")
+      # The styled render path emits `<pre style="background-color:…">`.
+      # The plain path emits `<pre>` (and `<pre lang="…">` for fenced
+      # blocks with a language tag; the guides use indented blocks
+      # which produce bare `<pre>`).
+      expect(response.body).not_to include("background-color:#2b303b")
+      expect(response.body).not_to match(/<pre[^>]*style=/)
+    end
+  end
+
+  describe "Troubleshooting section" do
+    it "renders the Slack troubleshooting heading + key error paths" do
+      get settings_webhooks_help_path(provider: "slack")
+      expect(response.body).to include("Troubleshooting")
+      expect(response.body).to include("webhook URL is invalid")
+      expect(response.body).to include("test ping failed")
+    end
+
+    it "renders the Discord troubleshooting heading + key error paths" do
+      get settings_webhooks_help_path(provider: "discord")
+      expect(response.body).to include("Troubleshooting")
+      expect(response.body).to include("webhook URL is invalid")
+      expect(response.body).to include("test ping failed")
+      expect(response.body).to include("Manage Webhooks")
+    end
+  end
 end

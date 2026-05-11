@@ -266,8 +266,28 @@ module ApplicationHelper
   # already ships with the repo (Gemfile.lock); we use its plain
   # `to_html` with safe defaults — the `unsafe_` extensions are NOT enabled,
   # so raw HTML in the source is escaped.
-  def render_markdown(text)
+  #
+  # Phase 26 — 01d. `plain:` keyword toggles a stripped-down render path
+  # used by the webhook help guides (`Settings::Webhooks::HelpController`):
+  # no header anchor links, no inline-styled syntax highlighting. The
+  # help-modal CSS handles its own typography; the markdown source ships
+  # generic `<h1>` / `<h2>` / `<pre>` / `<code>` so the modal can style
+  # consistently and the spec assertions stay readable.
+  def render_markdown(text, plain: false)
     return "".html_safe if text.blank?
+
+    if plain
+      # `header_ids: nil` disables the `<a class="anchor">` injection
+      # that Commonmarker enables by default. `plugins: { syntax_highlighter: nil }`
+      # disables the inline-styled `<pre style="background-color:…">` wrapper.
+      # `hardbreaks: true` keeps a single `\n` as `<br>` — beginner-friendly
+      # guides rely on the visual line breaks.
+      return Commonmarker.to_html(
+        text.to_s,
+        options: { extension: { header_ids: nil }, render: { hardbreaks: true } },
+        plugins: { syntax_highlighter: nil }
+      ).html_safe
+    end
 
     # `hardbreaks: true` makes a single `\n` render as `<br>` instead of
     # collapsing into the surrounding paragraph (CommonMark default). Matches
