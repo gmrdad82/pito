@@ -17,7 +17,11 @@
       </thead>
       <tbody>
         <% @collections.each do |collection| %>
-          <tr>
+          <%# `data-keyboard-row` opts each collection row into the global
+              keyboard controller's list-row navigation (`j`/`k` move
+              highlight). Mirrors the channels / videos / projects
+              pattern. %>
+          <tr data-keyboard-row data-keyboard-row-id="<%= collection.id %>">
             <td class="col-action">
               <%= render(BracketedLinkComponent.new(label: "o", href: collection_path(collection))) %>
             </td>

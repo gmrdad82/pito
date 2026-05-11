@@ -220,6 +220,32 @@ RSpec.describe "Videos", type: :request do
     end
   end
 
+  # Keyboard-navigation opt-in (2026-05-10): each video row carries
+  # `data-keyboard-row` + `data-keyboard-row-id` so the global keyboard
+  # controller's `j`/`k` highlight, `space` toggle, and `D` bulk-delete
+  # resolve against the row's video id. Mirrors the hook on channels,
+  # projects, notifications, and schedule rows.
+  describe "keyboard-row markup" do
+    let!(:channel) { create(:channel) }
+    let!(:video_a) { create(:video, channel: channel) }
+    let!(:video_b) { create(:video, channel: channel) }
+
+    it "tags each video row with data-keyboard-row + data-keyboard-row-id" do
+      get videos_path
+      html = Nokogiri::HTML.fragment(response.body)
+      rows = html.css("tbody tr[data-keyboard-row]")
+      expect(rows.size).to eq(2)
+      ids = rows.map { |r| r["data-keyboard-row-id"] }.sort
+      expect(ids).to eq([ video_a.id.to_s, video_b.id.to_s ].sort)
+    end
+
+    it "leaves the empty-state body without keyboard-row markup" do
+      Video.delete_all
+      get videos_path
+      expect(response.body).not_to include("data-keyboard-row")
+    end
+  end
+
   describe "GET /videos/:id (show)" do
     let!(:channel) { create(:channel) }
     let!(:video) { create(:video, channel: channel, title: "ShowMe") }

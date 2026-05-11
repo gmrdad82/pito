@@ -109,7 +109,12 @@
         </thead>
         <tbody>
           <% @videos.each do |video| %>
-            <tr>
+            <%# `data-keyboard-row` opts each video row into the global
+                keyboard controller's list-row navigation (`j`/`k` move
+                highlight, `space` toggles the row's checkbox, `D` drives
+                bulk delete against the highlighted row's id). Mirrors
+                the channels / notifications / schedule pattern. %>
+            <tr data-keyboard-row data-keyboard-row-id="<%= video.id %>">
               <td class="col-action">
                 <%= render(CheckboxComponent.new(value: video.id, data: { bulk_select_target: "checkbox", action: "change->bulk-select#toggle" })) %>
               </td>

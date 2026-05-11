@@ -16,7 +16,12 @@
       </thead>
       <tbody>
         <% @footages.each do |footage| %>
-          <tr>
+          <%# `data-keyboard-row` opts each footage row into the global
+              keyboard controller's list-row navigation (`j`/`k` move
+              highlight). Footage has no per-row checkbox / bulk action on
+              this surface, but the highlight still helps scan through
+              the list. %>
+          <tr data-keyboard-row data-keyboard-row-id="<%= footage.id %>">
             <td><%= link_to footage.filename, edit_footage_path(footage) %></td>
             <td><%= footage.project.name %></td>
             <td><%= footage.kind %></td>

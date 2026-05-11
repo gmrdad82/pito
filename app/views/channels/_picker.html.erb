@@ -136,7 +136,12 @@
         <tbody>
           <% channels.each do |channel| %>
             <% display_url = channel_display_url(channel) %>
-            <tr>
+            <%# `data-keyboard-row` opts each channel row into the global
+                keyboard controller's list-row navigation (`j`/`k` move
+                highlight, `space` toggles the row's checkbox, `D`/`Y`
+                drive bulk delete/sync against the highlighted row's id).
+                Mirrors the hook on notifications and schedule rows. %>
+            <tr data-keyboard-row data-keyboard-row-id="<%= channel.id %>">
               <td class="col-action">
                 <%= render(CheckboxComponent.new(value: channel.id, data: { bulk_select_target: "checkbox", action: "change->bulk-select#toggle" })) %>
               </td>

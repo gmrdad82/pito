@@ -442,6 +442,31 @@ RSpec.describe "Projects", type: :request do
     end
   end
 
+  # Keyboard-navigation opt-in (2026-05-10): each project row carries
+  # `data-keyboard-row` + `data-keyboard-row-id` so the global keyboard
+  # controller's `j`/`k` highlight, `space` toggle, and `D` bulk-delete
+  # resolve against the row's project id. Mirrors the hook on channels,
+  # videos, notifications, and schedule rows.
+  describe "keyboard-row markup" do
+    let!(:project_a) { create(:project, name: "Alpha") }
+    let!(:project_b) { create(:project, name: "Bravo") }
+
+    it "tags each project row with data-keyboard-row + data-keyboard-row-id" do
+      get projects_path
+      html = Nokogiri::HTML.fragment(response.body)
+      rows = html.css("tbody tr[data-keyboard-row]")
+      expect(rows.size).to eq(2)
+      ids = rows.map { |r| r["data-keyboard-row-id"] }.sort
+      expect(ids).to eq([ project_a.id.to_s, project_b.id.to_s ].sort)
+    end
+
+    it "leaves the empty-state body without keyboard-row markup" do
+      Project.delete_all
+      get projects_path
+      expect(response.body).not_to include("data-keyboard-row")
+    end
+  end
+
   describe "POST /projects (default-create)" do
     it "creates a project with the default name and redirects to show" do
       expect {
