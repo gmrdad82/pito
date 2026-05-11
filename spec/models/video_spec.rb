@@ -393,4 +393,67 @@ RSpec.describe Video, type: :model do
         .not_to change(VideoSyncBack.jobs, :size)
     end
   end
+
+  # ─────────────────────────────────────────────────────────────────
+  # Phase 23 §23a — Video Sync with Diff Dialog.
+  # ─────────────────────────────────────────────────────────────────
+  describe "Phase 23 — diff associations" do
+    it { is_expected.to have_many(:video_change_logs).dependent(:delete_all) }
+    it { is_expected.to have_many(:video_diffs).dependent(:destroy) }
+
+    it "exposes the single open diff via has_one :open_diff" do
+      video = create(:video)
+      open_diff = create(:video_diff, video: video)
+      _resolved = create(:video_diff, video: video, resolved_at: 1.day.ago,
+                                       resolution_payload: { "title" => "youtube" })
+
+      expect(video.reload.open_diff).to eq(open_diff)
+    end
+
+    it "returns nil from open_diff when none is open" do
+      video = create(:video)
+      expect(video.open_diff).to be_nil
+    end
+  end
+
+  describe "Phase 23 — display-only counter validations" do
+    it "rejects a negative view_count" do
+      video = build(:video, view_count: -1)
+      expect(video).not_to be_valid
+      expect(video.errors[:view_count]).to be_present
+    end
+
+    it "accepts a large view_count" do
+      video = build(:video, view_count: 12_345_678)
+      expect(video).to be_valid
+    end
+
+    it "rejects a non-http thumbnail_url" do
+      video = build(:video, thumbnail_url: "not a url")
+      expect(video).not_to be_valid
+      expect(video.errors[:thumbnail_url]).to be_present
+    end
+
+    it "accepts an https thumbnail_url" do
+      video = build(:video, thumbnail_url: "https://i.ytimg.com/vi/abc/maxres.jpg")
+      expect(video).to be_valid
+    end
+
+    it "rejects a negative duration_seconds" do
+      video = build(:video, duration_seconds: -10)
+      expect(video).not_to be_valid
+    end
+  end
+
+  describe "Phase 23 — title_locked? helpers (Q1 inert)" do
+    it "always returns false for title_locked? — videos have no 14-day cooldown" do
+      video = build(:video, title_changed_at: 1.hour.ago)
+      expect(video.title_locked?).to be(false)
+    end
+
+    it "returns nil for title_unlock_at" do
+      video = build(:video, title_changed_at: 1.hour.ago)
+      expect(video.title_unlock_at).to be_nil
+    end
+  end
 end

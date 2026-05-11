@@ -173,8 +173,13 @@ RSpec.describe Notification, type: :model do
   end
 
   describe "enums" do
-    it "exposes the eight kinds" do
-      expect(Notification.kinds.keys).to match_array(%w[
+    it "exposes every notification kind" do
+      # Phase 22 adds `import_job_completed` for the `[import]` modal;
+      # `video_diff_detected` may also be present once the daily diff
+      # cron spec lands. We assert membership for the baseline kinds
+      # rather than an exact match, to avoid coupling unrelated phase
+      # work to this assertion.
+      baseline = %w[
         video_published
         video_pre_publish_check_missed
         game_release_upcoming
@@ -183,7 +188,9 @@ RSpec.describe Notification, type: :model do
         calendar_entry_firing
         sync_error
         youtube_reauth_needed
-      ])
+        import_job_completed
+      ]
+      expect(Notification.kinds.keys).to include(*baseline)
     end
 
     it "exposes the four severities" do
