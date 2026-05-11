@@ -150,21 +150,26 @@ fn handle_leader_menu_input(app: &mut App, key: KeyEvent) {
     let key_str = c.to_string();
 
     enum Resolved {
+        /// Pure action — fires and closes the menu.
         Action(KeybindingAction),
+        /// Pure submenu reference — drills in, menu stays open.
         Submenu(String),
+        /// Combined action + submenu (root-menu resource keys: c, C, V, P, G,
+        /// N). The action's side effect fires for status-line feedback, then
+        /// the menu drills into the submenu without closing.
+        ActionThenSubmenu(KeybindingAction, String),
         Unbound,
     }
 
     let resolved = match app.leader_menu.as_ref().and_then(|s| s.find_item(&key_str)) {
-        Some(item) => {
-            if let Some(action) = &item.action {
-                Resolved::Action(action.clone())
-            } else if let Some(submenu) = &item.submenu {
-                Resolved::Submenu(submenu.clone())
-            } else {
-                Resolved::Unbound
+        Some(item) => match (&item.action, &item.submenu) {
+            (Some(action), Some(submenu)) => {
+                Resolved::ActionThenSubmenu(action.clone(), submenu.clone())
             }
-        }
+            (Some(action), None) => Resolved::Action(action.clone()),
+            (None, Some(submenu)) => Resolved::Submenu(submenu.clone()),
+            (None, None) => Resolved::Unbound,
+        },
         None => Resolved::Unbound,
     };
 
@@ -173,6 +178,16 @@ fn handle_leader_menu_input(app: &mut App, key: KeyEvent) {
             app.run_leader_action(&action);
         }
         Resolved::Submenu(name) => {
+            if let Some(ref mut state) = app.leader_menu {
+                state.push_submenu(&name);
+            }
+        }
+        Resolved::ActionThenSubmenu(action, name) => {
+            // Fire the action's side effect first (status line / placeholder
+            // navigate), then drill into the submenu. The menu must stay open
+            // — `run_leader_action_keep_open` skips the close that the pure
+            // action path triggers.
+            app.run_leader_action_keep_open(&action);
             if let Some(ref mut state) = app.leader_menu {
                 state.push_submenu(&name);
             }
@@ -699,6 +714,101 @@ mod tests {
             .expect("still open after submenu push");
         assert_eq!(state.current_menu_name(), "channels");
         assert_eq!(state.depth(), 2);
+    }
+
+    #[test]
+    fn leader_menu_combined_navigate_plus_submenu_fires_status_and_drills_in() {
+        // Root-menu resource keys (c, C, V, P, G) carry BOTH a Navigate
+        // action AND a submenu. Pressing one must: (1) set the status line
+        // to the navigate placeholder so the binding feels acknowledged,
+        // and (2) drill into the submenu without closing the popup.
+        let mut app = App::with_client(Box::new(crate::api::client::MockClient::new()));
+        app.open_leader_menu();
+        app.leader_status = None;
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('C'), KeyModifiers::NONE),
+        );
+
+        // Popup is still open and now in the channels submenu.
+        let state = app
+            .leader_menu
+            .as_ref()
+            .expect("popup must remain open after combined action+submenu");
+        assert_eq!(state.current_menu_name(), "channels");
+        assert_eq!(state.depth(), 2);
+
+        // Status line reflects the navigate placeholder.
+        let status = app
+            .leader_status
+            .as_deref()
+            .expect("combined action must set the status line");
+        assert!(
+            status.to_lowercase().contains("navigate") && status.contains("/channels"),
+            "status must mention navigate + /channels path, got: {status}"
+        );
+    }
+
+    #[test]
+    fn leader_menu_combined_open_plus_submenu_fires_status_and_drills_in() {
+        // `N` at root opens the notifications modal AND drills into the
+        // notifications submenu. The Open action's side effect (status line)
+        // fires, the submenu drilling continues.
+        let mut app = App::with_client(Box::new(crate::api::client::MockClient::new()));
+        app.open_leader_menu();
+        app.leader_status = None;
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('N'), KeyModifiers::NONE),
+        );
+
+        let state = app
+            .leader_menu
+            .as_ref()
+            .expect("popup must remain open after combined action+submenu");
+        assert_eq!(state.current_menu_name(), "notifications");
+        assert_eq!(state.depth(), 2);
+
+        let status = app
+            .leader_status
+            .as_deref()
+            .expect("combined action must set the status line");
+        assert!(
+            status.to_lowercase().contains("open") && status.contains("notifications_modal"),
+            "status must mention open + notifications_modal, got: {status}"
+        );
+    }
+
+    #[test]
+    fn leader_menu_combined_calendar_navigate_fires_status_and_drills_in() {
+        // `c` at root navigates to /calendar AND drills into the calendar
+        // submenu. The new schema dropped the action.is_none() invariant for
+        // resource keys; this test pins down the new combined behavior.
+        let mut app = App::with_client(Box::new(crate::api::client::MockClient::new()));
+        app.open_leader_menu();
+        app.leader_status = None;
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('c'), KeyModifiers::NONE),
+        );
+
+        let state = app
+            .leader_menu
+            .as_ref()
+            .expect("popup must remain open after combined action+submenu");
+        assert_eq!(state.current_menu_name(), "calendar");
+
+        let status = app
+            .leader_status
+            .as_deref()
+            .expect("combined action must set the status line");
+        assert!(
+            status.contains("/calendar"),
+            "status must mention /calendar, got: {status}"
+        );
     }
 
     #[test]

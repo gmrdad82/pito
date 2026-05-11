@@ -693,6 +693,50 @@ impl App {
         self.quit();
     }
 
+    /// Run an action's side effect WITHOUT closing the leader-menu overlay.
+    /// Used by the combined action + submenu shape (root-menu resource keys
+    /// `c`, `C`, `V`, `P`, `G`, `N` carry both a Navigate / Open action AND a
+    /// submenu reference: the action fires for status-line feedback, the menu
+    /// then drills into the submenu without closing).
+    ///
+    /// `Quit` / `QuitAndLogout` intentionally do NOT respect the "keep open"
+    /// contract — they always terminate the TUI. The schema doesn't combine
+    /// either with a submenu, but the explicit early-exit guards against a
+    /// future schema bug where someone wires a submenu to a Quit-shaped item.
+    pub fn run_leader_action_keep_open(&mut self, action: &KeybindingAction) {
+        match action {
+            KeybindingAction::Quit => self.quit(),
+            KeybindingAction::QuitAndLogout => self.quit_and_logout(),
+            KeybindingAction::Navigate { path } => {
+                self.leader_status = Some(format!("Web action: navigate {}", path));
+            }
+            KeybindingAction::Today => {
+                self.leader_status = Some("Action: today (calendar view pending)".to_string());
+            }
+            KeybindingAction::Open { target } => {
+                self.leader_status = Some(format!("Action: open {}", target));
+            }
+            KeybindingAction::BulkDelete => {
+                self.leader_status = Some("Action: bulk_delete".to_string());
+            }
+            KeybindingAction::BulkSync => {
+                self.leader_status = Some("Action: bulk_sync".to_string());
+            }
+            KeybindingAction::BulkResync => {
+                self.leader_status = Some("Action: bulk_resync".to_string());
+            }
+            KeybindingAction::FilterUnread => {
+                self.leader_status = Some("Action: filter_unread".to_string());
+            }
+            KeybindingAction::MarkAllRead => {
+                self.leader_status = Some("Action: mark_all_read".to_string());
+            }
+            KeybindingAction::ContextualAdd => {
+                self.leader_status = Some("Action: contextual_add".to_string());
+            }
+        }
+    }
+
     /// Dispatch a leader-menu action. Returns `true` when the action consumed
     /// the menu (closes the overlay); `false` when the menu should stay open
     /// (e.g. submenu navigation handled at the call site, not here).
@@ -752,10 +796,6 @@ impl App {
             }
             KeybindingAction::ContextualAdd => {
                 self.leader_status = Some("Action: contextual_add".to_string());
-                self.close_leader_menu();
-            }
-            KeybindingAction::Noop => {
-                self.leader_status = Some("Action: noop".to_string());
                 self.close_leader_menu();
             }
         }

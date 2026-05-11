@@ -69,7 +69,6 @@ pub enum Action {
     FilterUnread,
     MarkAllRead,
     ContextualAdd,
-    Noop,
 }
 
 /// Cached, filtered-for-TUI schema. Parsed once on first access.
@@ -183,9 +182,95 @@ mod tests {
         let quit_logout = root.items.iter().find(|i| i.key == "Q").expect("Q item");
         assert_eq!(quit_logout.action, Some(Action::QuitAndLogout));
 
+        // Resource keys at root carry BOTH an action AND a submenu — the
+        // action fires (status / placeholder navigate) and the submenu drills
+        // in. `c` is the calendar resource: Navigate("/calendar") + submenu
+        // "calendar".
         let calendar = root.items.iter().find(|i| i.key == "c").expect("c item");
+        assert_eq!(
+            calendar.action,
+            Some(Action::Navigate {
+                path: "/calendar".to_string()
+            })
+        );
         assert_eq!(calendar.submenu.as_deref(), Some("calendar"));
-        assert!(calendar.action.is_none());
+    }
+
+    #[test]
+    fn root_resource_keys_have_both_action_and_submenu() {
+        // The six root-menu resource keys (c, C, V, P, G, N) all carry BOTH a
+        // top-level action AND a submenu. The TUI runs the action's side
+        // effect (status line) first, then pushes the submenu — see
+        // `keys::handle_leader_menu_input` and the corresponding
+        // `leader_menu_*_with_submenu_*` tests.
+        let schema = parse(EMBEDDED_YAML).expect("parse");
+        let root = schema.menus.get("root").expect("root menu");
+
+        let cases: &[(&str, Action, &str)] = &[
+            (
+                "c",
+                Action::Navigate {
+                    path: "/calendar".to_string(),
+                },
+                "calendar",
+            ),
+            (
+                "C",
+                Action::Navigate {
+                    path: "/channels".to_string(),
+                },
+                "channels",
+            ),
+            (
+                "V",
+                Action::Navigate {
+                    path: "/videos".to_string(),
+                },
+                "videos",
+            ),
+            (
+                "P",
+                Action::Navigate {
+                    path: "/projects".to_string(),
+                },
+                "projects",
+            ),
+            (
+                "G",
+                Action::Navigate {
+                    path: "/games".to_string(),
+                },
+                "games",
+            ),
+            (
+                "N",
+                Action::Open {
+                    target: "notifications_modal".to_string(),
+                },
+                "notifications",
+            ),
+        ];
+
+        for (key, expected_action, expected_submenu) in cases {
+            let item = root
+                .items
+                .iter()
+                .find(|i| i.key == *key)
+                .unwrap_or_else(|| panic!("root key `{}` missing", key));
+            assert_eq!(
+                item.action.as_ref(),
+                Some(expected_action),
+                "root `{}` must carry the expected action",
+                key
+            );
+            assert_eq!(
+                item.submenu.as_deref(),
+                Some(*expected_submenu),
+                "root `{}` must drill into submenu `{}`",
+                key,
+                expected_submenu
+            );
+        }
     }
 
     #[test]
@@ -235,18 +320,6 @@ mod tests {
         let games = schema.menus.get("games").expect("games menu");
         let bulk_resync = games.items.iter().find(|i| i.key == "r").expect("r item");
         assert_eq!(bulk_resync.action, Some(Action::BulkResync));
-    }
-
-    #[test]
-    fn parses_noop_action() {
-        let schema = parse(EMBEDDED_YAML).expect("parse");
-        let channels = schema.menus.get("channels").expect("channels menu");
-        let legacy = channels
-            .items
-            .iter()
-            .find(|i| i.key == "b")
-            .expect("b item");
-        assert_eq!(legacy.action, Some(Action::Noop));
     }
 
     #[test]

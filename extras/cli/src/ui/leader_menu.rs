@@ -23,8 +23,8 @@ use crate::keybindings::{Item, KeybindingsSchema, Surface, filtered_for};
 use crate::theme::Theme;
 
 /// Width of the leader popup in columns. Wide enough to fit every label
-/// currently in the schema (`bulk toggle (legacy)` is the longest at 21
-/// columns) plus a `[X] ` prefix and a border.
+/// currently in the schema (`mark all as read` is the longest at 16
+/// columns) plus a `[X] ` prefix, a ` ›` submenu hint, and a border.
 const POPUP_WIDTH: u16 = 32;
 
 /// Open-state for the leader-menu overlay. Holds the per-session
