@@ -1,11 +1,13 @@
 require "rails_helper"
 
-# Phase 27 §01f — Per-platform ownership editor system spec.
+# Phase 27 §01f — Per-platform ownership editor system spec (revamped
+# 2026-05-12).
 #
 # Walks the user journey:
 #   1. Visit /games/:slug.
 #   2. Click [edit ownership] → land on /games/:slug/platform_ownerships/edit.
-#   3. Tick a checkbox for one or more platforms.
+#   3. Tick a checkbox for one or more platforms (bracketed `[ ]` / `[x]`
+#      via the `.md-check` pattern).
 #   4. Click [save] → redirect back to /games/:slug.
 #   5. Show page now lists the ticked platforms as chips.
 #   6. Re-enter editor, un-tick, save → show page reflects the change.
@@ -31,9 +33,9 @@ RSpec.describe "Games — per-platform ownership editor (01f)", type: :system do
 
       expect(page).to have_current_path(edit_game_platform_ownerships_path(game))
 
-      # Tick both checkboxes. The hidden field with value="no" is the
-      # default; checking the box flips the row's `_own` to "yes".
-      page.all('input[type="checkbox"]').each(&:check)
+      # Tick both checkboxes. Every absent platform on submit is
+      # treated as not owned.
+      page.all('input[type="checkbox"]', visible: :all).each(&:check)
       click_button "save"
 
       expect(page).to have_current_path(game_path(game))
@@ -53,8 +55,8 @@ RSpec.describe "Games — per-platform ownership editor (01f)", type: :system do
     it "un-tick PS5 leaves Steam owned" do
       visit edit_game_platform_ownerships_path(game)
 
-      ps5_row = find("fieldset[data-platform-slug='ps5']")
-      ps5_row.find('input[type="checkbox"]').uncheck
+      ps5_row = find("label.md-check[data-platform-slug='ps5']")
+      ps5_row.find('input[type="checkbox"]', visible: :all).uncheck
 
       click_button "save"
 
@@ -65,24 +67,16 @@ RSpec.describe "Games — per-platform ownership editor (01f)", type: :system do
     end
   end
 
-  describe "happy: ownership metadata persists" do
-    it "fills acquired_at, store, notes for PS5 → values persist" do
+  describe "happy: simplified editor surface" do
+    it "renders only the 'ownership' heading and checkbox rows — no metadata inputs" do
       visit edit_game_platform_ownerships_path(game)
 
-      ps5_row = find("fieldset[data-platform-slug='ps5']")
-      ps5_row.find('input[type="checkbox"]').check
-      ps5_row.find('input[type="date"]').set("2024-03-15")
-      ps5_row.find('input[type="text"]').set("PSN")
-      ps5_row.find("textarea").set("from sale")
-
-      click_button "save"
-
-      expect(page).to have_current_path(game_path(game))
-      row = game.game_platform_ownerships.find_by(platform: ps5)
-      expect(row).to be_present
-      expect(row.acquired_at.to_date).to eq(Date.new(2024, 3, 15))
-      expect(row.store).to eq("PSN")
-      expect(row.notes).to eq("from sale")
+      expect(page).to have_css("h2", text: "ownership")
+      expect(page).not_to have_content("per-platform")
+      expect(page).not_to have_content("tick the platforms you own this game on")
+      expect(page).not_to have_css('input[type="date"]')
+      expect(page).not_to have_css("textarea")
+      expect(page).not_to have_css("fieldset")
     end
   end
 

@@ -85,7 +85,10 @@ RSpec.describe "Games show meta block + label treatment", type: :request do
   describe "genres / platforms labels in the details pane" do
     let!(:game) { create(:game, :synced, title: "G") }
     let!(:genre) { Genre.create!(igdb_id: 5, name: "Adventure") }
-    let!(:platform) { create(:platform, name: "Switch") }
+    # Use a canonical platform so the canonical-display helper renders
+    # it. The label assertion below locks the canonical short name
+    # (`Switch2`), not the verbose IGDB-style name.
+    let!(:platform) { create(:platform, name: "Nintendo Switch 2", slug: "switch2", igdb_id: nil) }
 
     before do
       game.genres << genre
@@ -99,7 +102,7 @@ RSpec.describe "Games show meta block + label treatment", type: :request do
 
     it "wraps `platforms:` in `<span class=\"text-muted\">`" do
       get game_path(game)
-      expect(response.body).to match(/<span class="text-muted">platforms:<\/span>\s*Switch/)
+      expect(response.body).to match(/<span class="text-muted">platforms:<\/span>\s*Switch2/)
     end
 
     it "matches the time-to-beat / ratings table label treatment (text-muted)" do
@@ -120,8 +123,73 @@ RSpec.describe "Games show meta block + label treatment", type: :request do
 
     it "renders `—` placeholder when no platforms are linked" do
       game.platforms_available.destroy_all
+      # The canonical-display helper also surfaces Steam/GoG/Epic from
+      # the external_* IDs, so clear `external_steam_app_id` (the
+      # `:synced` trait stamps one) for this `—` assertion.
+      game.update_columns(external_steam_app_id: nil, external_gog_id: nil, external_epic_id: nil)
       get game_path(game)
       expect(response.body).to match(/<span class="text-muted">platforms:<\/span>\s*—/)
+    end
+  end
+
+  # Phase 27 follow-up (2026-05-11) — canonical short-name display.
+  # The show page renders the project's locked short labels (PS5,
+  # Switch2, Steam, GoG, Epic, Xbox), NOT the verbose IGDB names
+  # ("PlayStation 5", "Xbox Series X|S", etc.).
+  describe "canonical platform short-names on the show page" do
+    let!(:game) { create(:game, :synced, title: "Canonical Test") }
+
+    it "renders 'PS5' instead of 'PlayStation 5'" do
+      ps5 = create(:platform, name: "PlayStation 5", igdb_id: 167)
+      game.platforms_available << ps5
+      get game_path(game)
+      expect(response.body).to match(/<span class="text-muted">platforms:<\/span>\s*PS5/)
+      expect(response.body).not_to include("PlayStation 5</p>")
+    end
+
+    it "renders 'Xbox' instead of 'Xbox One' or 'Xbox Series X|S'" do
+      xbox_one = create(:platform, name: "Xbox One", igdb_id: 49)
+      xsxs     = create(:platform, name: "Xbox Series X|S", igdb_id: 169)
+      game.platforms_available << xbox_one
+      game.platforms_available << xsxs
+      get game_path(game)
+      # Collapsed to a single canonical "Xbox" label.
+      meta = response.body[/platforms:<\/span>\s*([^<]+)/, 1].to_s.strip
+      expect(meta).to eq("Xbox")
+    end
+
+    it "drops verbose IGDB names without a canonical alias" do
+      ps4 = create(:platform, name: "PlayStation 4", igdb_id: 48)
+      pc  = create(:platform, name: "PC (Microsoft Windows)", igdb_id: 6)
+      game.platforms_available << ps4
+      game.platforms_available << pc
+      get game_path(game)
+      expect(response.body).to match(/<span class="text-muted">platforms:<\/span>\s*—/)
+      expect(response.body).not_to include("PlayStation 4")
+      expect(response.body).not_to include("PC (Microsoft Windows)")
+    end
+
+    it "infers 'Steam' from external_steam_app_id even with no canonical Platform row linked" do
+      game.update!(external_steam_app_id: "1234")
+      get game_path(game)
+      expect(response.body).to match(/<span class="text-muted">platforms:<\/span>\s*Steam/)
+    end
+
+    it "renders the full canonical set in locked order" do
+      ps5  = create(:platform, name: "PlayStation 5", igdb_id: 167)
+      sw2  = create(:platform, name: "Nintendo Switch 2", slug: "switch2", igdb_id: nil)
+      xbox = create(:platform, name: "Xbox Series X|S", igdb_id: 169)
+      game.platforms_available << ps5
+      game.platforms_available << sw2
+      game.platforms_available << xbox
+      game.update!(
+        external_steam_app_id: "1",
+        external_gog_id:       "2",
+        external_epic_id:      "3"
+      )
+      get game_path(game)
+      meta = response.body[/platforms:<\/span>\s*([^<]+)/, 1].to_s.strip
+      expect(meta).to eq("PS5, Switch2, Steam, GoG, Epic, Xbox")
     end
   end
 end

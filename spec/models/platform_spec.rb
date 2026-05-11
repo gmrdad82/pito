@@ -113,6 +113,86 @@ RSpec.describe Platform, type: :model do
     end
   end
 
+  describe ".canonical scope" do
+    # FriendlyId regenerates `slug` from `name` during the save
+    # callback, so the factory pattern is to `create` then
+    # `update_column(:slug, "...")` to pin the canonical slug. The
+    # `.canonical` scope reads `slug` exclusively.
+    def force_slug(record, slug)
+      record.update_column(:slug, slug)
+      record
+    end
+
+    before do
+      Platform.unscoped.delete_all
+      force_slug(create(:platform, name: "PlayStation 5"),    "ps5")
+      force_slug(create(:platform, name: "Nintendo Switch 2"), "switch2")
+      force_slug(create(:platform, name: "Steam"),            "steam")
+      force_slug(create(:platform, name: "GOG"),              "gog")
+      force_slug(create(:platform, name: "Epic Games Store"), "epic")
+      force_slug(create(:platform, name: "Xbox"),             "xbox")
+      force_slug(create(:platform, name: "PlayStation 4"),    "ps4-non-canonical")
+    end
+
+    it "returns only the six canonical platforms" do
+      slugs = Platform.canonical.pluck(:slug)
+      expect(slugs).to contain_exactly("ps5", "switch2", "steam", "gog", "epic", "xbox")
+    end
+
+    it "excludes non-canonical platforms" do
+      expect(Platform.canonical.pluck(:slug)).not_to include("ps4-non-canonical")
+    end
+  end
+
+  describe "#canonical_short_name" do
+    it "returns the locked short name for a canonical slug" do
+      ps5 = build_stubbed(:platform, name: "PlayStation 5", slug: "ps5", igdb_id: nil)
+      expect(ps5.canonical_short_name).to eq("PS5")
+    end
+
+    it "maps a Switch 2 seed slug to 'Switch2'" do
+      sw2 = build_stubbed(:platform, name: "Nintendo Switch 2", slug: "switch2", igdb_id: nil)
+      expect(sw2.canonical_short_name).to eq("Switch2")
+    end
+
+    it "maps the `gog` slug to 'GoG' (mixed case)" do
+      gog = build_stubbed(:platform, name: "GOG", slug: "gog", igdb_id: nil)
+      expect(gog.canonical_short_name).to eq("GoG")
+    end
+
+    it "maps IGDB-imported Xbox One (id=49) to 'Xbox'" do
+      xbox_one = build_stubbed(:platform, name: "Xbox One", slug: "xbox-one", igdb_id: 49)
+      expect(xbox_one.canonical_short_name).to eq("Xbox")
+    end
+
+    it "maps IGDB-imported Xbox Series X|S (id=169) to 'Xbox'" do
+      xsxs = build_stubbed(:platform, name: "Xbox Series X|S", slug: "series-x-s", igdb_id: 169)
+      expect(xsxs.canonical_short_name).to eq("Xbox")
+    end
+
+    it "maps IGDB PlayStation 5 (id=167) to 'PS5'" do
+      ps5 = build_stubbed(:platform, name: "PlayStation 5", slug: "ps5-igdb", igdb_id: 167)
+      expect(ps5.canonical_short_name).to eq("PS5")
+    end
+
+    it "returns nil for a non-canonical platform" do
+      ps4 = build_stubbed(:platform, name: "PlayStation 4", slug: "ps4-x", igdb_id: 48)
+      expect(ps4.canonical_short_name).to be_nil
+    end
+
+    it "returns nil for PC (Microsoft Windows) — no canonical alias" do
+      pc = build_stubbed(:platform, name: "PC (Microsoft Windows)", slug: "pc-win", igdb_id: 6)
+      expect(pc.canonical_short_name).to be_nil
+    end
+
+    it "#canonical? mirrors canonical_short_name presence" do
+      ps5 = build_stubbed(:platform, slug: "ps5", igdb_id: nil)
+      ps4 = build_stubbed(:platform, slug: "ps4-x", igdb_id: 48)
+      expect(ps5.canonical?).to be(true)
+      expect(ps4.canonical?).to be(false)
+    end
+  end
+
   describe "destroy guard" do
     it "raises ActiveRecord::RecordNotDestroyed when ownerships exist" do
       platform = create(:platform)
