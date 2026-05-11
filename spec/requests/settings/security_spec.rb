@@ -32,5 +32,15 @@ RSpec.describe "Settings::Security", type: :request do
       expect(response).to have_http_status(:found)
       expect(response.headers["Location"]).to include(login_path)
     end
+
+    # Phase 25 — 01b. Adds trusted-locations + pending counters.
+    it "renders trusted-locations + pending counters" do
+      user = User.first || create(:user)
+      create(:trusted_location, user: user)
+      create(:session, :pending, user: user)
+      get settings_security_path
+      expect(response.body).to include("trusted locations")
+      expect(response.body).to include("pending")
+    end
   end
 end
