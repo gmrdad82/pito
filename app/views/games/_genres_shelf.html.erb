@@ -23,9 +23,15 @@
       genres  ActiveRecord::Relation of Genre rows, pre-filtered by the
               caller to only include genres that own at least one game
               and pre-ordered alphabetical case-insensitive.
+      batch   Optional `Games::GenreShelfBatch` carrying pre-fetched
+              `{ count:, games: }` slices per genre (P27 reviewer
+              follow-up #2). When absent, each sub-shelf falls back to
+              its in-partial count + fetch (kept for view-spec
+              isolation; the controller passes the batch in prod).
 %>
 <%
   genres = local_assigns.fetch(:genres)
+  batch  = local_assigns[:batch]
 %>
 <% if genres.any? %>
   <section class="shelf shelf--genres outer-shelf" data-shelf="outer-genres" style="margin-top: 16px;">
