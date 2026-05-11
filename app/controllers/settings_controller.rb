@@ -234,58 +234,18 @@ class SettingsController < ApplicationController
   #
   # Returns the validation error string when the model rejects the update;
   # the caller surfaces it via flash[:alert]. Returns nil on success.
+  #
+  # 2026-05-11 — body delegated to `update_appsetting_section` so this
+  # fieldset shares the "blank-keep + explicit clear + save + audit"
+  # shape with `update_youtube`. The per-field shapes are declarative;
+  # the helper drives the rest.
   def update_voyage
-    if AppSetting.none?
-      AppSetting.set("pane_title_length", ENV.fetch("PANE_TITLE_LENGTH", 14).to_s)
-    end
-    setting = AppSetting.first
-
-    attrs = {}
-
-    raw_clear = params.dig(:settings, :clear_voyage_api_key).to_s
-    raw_key = params.dig(:settings, :voyage_api_key).to_s
-
-    if raw_clear == "yes"
-      attrs[:voyage_api_key] = nil
-    elsif raw_key.strip.present?
-      attrs[:voyage_api_key] = raw_key.strip
-    end
-
-    raw_flag = params.dig(:settings, :voyage_index_project_notes).to_s
-    if %w[yes no].include?(raw_flag)
-      attrs[:voyage_index_project_notes] = (raw_flag == "yes")
-    end
-
-    return if attrs.empty?
-
-    setting.assign_attributes(attrs)
-    # F3 (2026-05-11) — emit an audit row whenever a Voyage
-    # credential or per-target flag is updated. Only the names of
-    # the columns that the save would change reach the audit row
-    # (`changed_fields`); plaintext values never enter the log.
-    # The save + audit write share a transaction so a rollback of
-    # either rolls back both.
-    changed_fields = setting.changes.keys
-    saved = false
-    ActiveRecord::Base.transaction do
-      saved = setting.save
-      if saved && changed_fields.any?
-        Auth::AuditLogger.call(
-          acting_user: Current.user,
-          source_surface: :web,
-          action: :voyage_credentials_updated,
-          target: setting,
-          metadata: { "changed_fields" => changed_fields }
-        )
-      end
-      raise ActiveRecord::Rollback unless saved
-    end
-
-    if saved
-      nil
-    else
-      setting.errors.full_messages.first || "Voyage settings invalid."
-    end
+    update_appsetting_section(
+      audit_action: :voyage_credentials_updated,
+      error_label: "Voyage settings invalid.",
+      string_fields: %w[voyage_api_key],
+      boolean_fields: %w[voyage_index_project_notes]
+    )
   end
 
   # YouTube fieldset — 2026-05-11. Four optional inputs, all
@@ -309,14 +269,79 @@ class SettingsController < ApplicationController
   ].freeze
 
   def update_youtube
+    update_appsetting_section(
+      audit_action: :youtube_credentials_updated,
+      error_label: "YouTube settings invalid.",
+      string_fields: YOUTUBE_FIELDS
+    )
+  end
+
+  # 2026-05-11 — shared driver behind `update_voyage` + `update_youtube`.
+  # Both fieldsets follow the same shape:
+  #
+  #   1. Ensure the singleton AppSetting row exists.
+  #   2. For each declared `string_fields:` entry — read
+  #      `params[:settings][<field>]` plus the matching
+  #      `clear_<field>` toggle. Blank input WITHOUT the clear flag
+  #      is a no-op; an explicit `clear_<field>: "yes"` wipes the
+  #      column.
+  #   3. For each declared `boolean_fields:` entry — read the same
+  #      `params[:settings][<field>]` value as a `"yes"` / `"no"`
+  #      string and convert at the boundary. Any other value leaves
+  #      the column untouched (project's external-boolean rule).
+  #   4. Save inside a transaction. On success, emit an audit row
+  #      via `Auth::AuditLogger` tagged with `audit_action:` and
+  #      `metadata["changed_fields"]` (column names ONLY — plaintext
+  #      values never enter the audit log).
+  #
+  # Returns `nil` on success (or no-op when no fields changed).
+  # Returns an error string when the model rejects the save; the
+  # caller surfaces it via `flash[:alert]`.
+  def update_appsetting_section(audit_action:, error_label:, string_fields: [], boolean_fields: [])
     if AppSetting.none?
       AppSetting.set("pane_title_length", ENV.fetch("PANE_TITLE_LENGTH", 14).to_s)
     end
     setting = AppSetting.first
 
+    attrs = collect_appsetting_attrs(
+      string_fields: string_fields,
+      boolean_fields: boolean_fields
+    )
+
+    return if attrs.empty?
+
+    setting.assign_attributes(attrs)
+    # Only the names of the columns the save would change reach the
+    # audit row (`changed_fields`); plaintext API keys / client
+    # secrets never enter the log. The save + audit write share a
+    # transaction so a rollback of either rolls back both.
+    changed_fields = setting.changes.keys
+    saved = false
+    ActiveRecord::Base.transaction do
+      saved = setting.save
+      if saved && changed_fields.any?
+        Auth::AuditLogger.call(
+          acting_user: Current.user,
+          source_surface: :web,
+          action: audit_action,
+          target: setting,
+          metadata: { "changed_fields" => changed_fields }
+        )
+      end
+      raise ActiveRecord::Rollback unless saved
+    end
+
+    return nil if saved
+
+    setting.errors.full_messages.first || error_label
+  end
+
+  # Parse the per-section settings params into an attrs hash for
+  # `AppSetting#assign_attributes`. Pure: no DB writes, no flash.
+  def collect_appsetting_attrs(string_fields:, boolean_fields:)
     attrs = {}
 
-    YOUTUBE_FIELDS.each do |field|
+    string_fields.each do |field|
       raw_clear = params.dig(:settings, "clear_#{field}").to_s
       raw_value = params.dig(:settings, field).to_s
 
@@ -327,36 +352,12 @@ class SettingsController < ApplicationController
       end
     end
 
-    return if attrs.empty?
-
-    setting.assign_attributes(attrs)
-    # F3 (2026-05-11) — emit an audit row whenever YouTube
-    # credentials are updated. Only the names of the columns the
-    # save would change reach the audit row (`changed_fields`);
-    # plaintext API keys / client secrets never enter the log. The
-    # save + audit write share a transaction so a rollback of
-    # either rolls back both.
-    changed_fields = setting.changes.keys
-    saved = false
-    ActiveRecord::Base.transaction do
-      saved = setting.save
-      if saved && changed_fields.any?
-        Auth::AuditLogger.call(
-          acting_user: Current.user,
-          source_surface: :web,
-          action: :youtube_credentials_updated,
-          target: setting,
-          metadata: { "changed_fields" => changed_fields }
-        )
-      end
-      raise ActiveRecord::Rollback unless saved
+    boolean_fields.each do |field|
+      raw_flag = params.dig(:settings, field).to_s
+      attrs[field.to_sym] = (raw_flag == "yes") if %w[yes no].include?(raw_flag)
     end
 
-    if saved
-      nil
-    else
-      setting.errors.full_messages.first || "YouTube settings invalid."
-    end
+    attrs
   end
 
   # Legacy single-form behavior — preserved so callers without a section

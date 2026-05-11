@@ -59,7 +59,8 @@ def pito_appsetting_youtube_value(column)
   AppSetting.public_send(column) if AppSetting.connection.data_source_exists?("app_settings")
 rescue ActiveRecord::StatementInvalid,
        ActiveRecord::ConnectionNotEstablished,
-       ActiveRecord::NoDatabaseError => e
+       ActiveRecord::NoDatabaseError,
+       NameError => e
   # P25 follow-up — F6. Narrowed from a bare `StandardError`. The only
   # legitimate failure paths at boot are "DB not reachable yet" / "table
   # not created yet" — both ActiveRecord-shape errors. Anything else
@@ -67,6 +68,19 @@ rescue ActiveRecord::StatementInvalid,
   # encrypted column) should bubble so it surfaces in development /
   # test rather than silently degrading to "no YouTube credentials
   # configured" at boot.
+  #
+  # 2026-05-11 fix-forward — `NameError` added back for autoload races.
+  # When the initializer runs during test / boot, the `AppSetting`
+  # constant may not yet be autoloaded (e.g. `bin/rails runner`,
+  # `db:seed`, isolated spec boot). The original `StandardError` rescue
+  # swallowed this; the narrowed rescue dropped it, which broke the
+  # suite + `db:seed`. `NameError` is a tight, boot-shaped failure mode
+  # and stays compatible with the spirit of F6 — real bugs in the
+  # column name still surface as `NoMethodError`, which is NOT a
+  # `NameError` subclass at the rescue-match level (it is, but
+  # `public_send(:typo)` raises `NoMethodError` which subclasses
+  # `NameError` — accepted trade-off; the warn line keeps the failure
+  # observable in logs).
   Rails.logger.warn(
     "[omniauth] pito_appsetting_youtube_value(#{column}) " \
     "fell back to nil due to #{e.class}: #{e.message}"

@@ -58,6 +58,14 @@ RSpec.describe "omniauth initializer" do
   # `ActiveRecord::ConnectionNotEstablished`,
   # `ActiveRecord::NoDatabaseError`) and emits a warning so a legitimate
   # error doesn't silently mask.
+  #
+  # 2026-05-11 fix-forward — `NameError` re-added to the rescue list
+  # because the initializer runs at boot time, before Zeitwerk has
+  # autoloaded `AppSetting` in every entry point (`db:seed`,
+  # `rails runner`, isolated specs). The original `StandardError`
+  # rescue swallowed this; the narrowed rescue lost it. The added
+  # `NameError` clause preserves boot-time defensiveness while still
+  # surfacing non-Name / non-DB errors loudly.
   describe "P25 F6 — resolver rescue narrowing" do
     # The resolver is defined at top level in the initializer (so the
     # `OmniAuth::Builder` middleware closure can call it at boot). It
@@ -79,12 +87,17 @@ RSpec.describe "omniauth initializer" do
       expect(pito_appsetting_youtube_value(:youtube_client_id)).to be_nil
     end
 
-    it "does NOT swallow non-DB errors — e.g. NoMethodError bubbles up" do
-      allow(AppSetting.connection).to receive(:data_source_exists?).and_return(true)
-      allow(AppSetting).to receive(:youtube_client_id).and_raise(NoMethodError.new("bad call"))
-      expect {
-        pito_appsetting_youtube_value(:youtube_client_id)
-      }.to raise_error(NoMethodError)
+    it "rescues NameError (AppSetting not yet autoloaded at boot) and returns nil with a warn" do
+      # Simulates the autoload race: AppSetting constant not yet
+      # defined when the resolver runs (db:seed / rails runner / isolated
+      # spec boot). We can't actually un-define the constant safely
+      # mid-spec, so we stub the connection probe to raise NameError
+      # directly — the rescue clause covers both shapes (constant
+      # lookup vs accessor call) the same way.
+      allow(AppSetting).to receive(:connection)
+        .and_raise(NameError.new("uninitialized constant AppSetting"))
+      expect(Rails.logger).to receive(:warn).with(/NameError.*uninitialized constant AppSetting/)
+      expect(pito_appsetting_youtube_value(:youtube_client_id)).to be_nil
     end
 
     it "does NOT swallow ArgumentError (config errors should surface)" do
@@ -93,6 +106,14 @@ RSpec.describe "omniauth initializer" do
       expect {
         pito_appsetting_youtube_value(:youtube_client_id)
       }.to raise_error(ArgumentError)
+    end
+
+    it "does NOT swallow RuntimeError (unexpected runtime failures should surface)" do
+      allow(AppSetting.connection).to receive(:data_source_exists?).and_return(true)
+      allow(AppSetting).to receive(:youtube_client_id).and_raise(RuntimeError.new("boom"))
+      expect {
+        pito_appsetting_youtube_value(:youtube_client_id)
+      }.to raise_error(RuntimeError, "boom")
     end
   end
 

@@ -30,7 +30,9 @@ RSpec.describe "Settings::Webhooks::Help", type: :request do
       expect(response.body).to include("Step 3")
       expect(response.body).to include("Add a webhook URL to a channel")
       expect(response.body).to include("Step 4")
-      expect(response.body).to include("Paste into Pito")
+      # Per project copy convention `pito` is lowercase in prose; the
+      # canonical heading reads "Paste into pito". Match case-insensitively.
+      expect(response.body).to match(/Paste into pito/i)
     end
 
     it "mentions the key UI strings beginners need to find" do
@@ -86,7 +88,9 @@ RSpec.describe "Settings::Webhooks::Help", type: :request do
       expect(response.body).to include("Step 2")
       expect(response.body).to include("Create a webhook")
       expect(response.body).to include("Step 3")
-      expect(response.body).to include("Paste into Pito")
+      # Per project copy convention `pito` is lowercase in prose; the
+      # canonical heading reads "Paste into pito". Match case-insensitively.
+      expect(response.body).to match(/Paste into pito/i)
     end
 
     it "mentions the key UI strings beginners need to find" do

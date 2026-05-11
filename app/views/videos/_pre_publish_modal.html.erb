@@ -1,6 +1,6 @@
 <%# Phase 12 — pre-publish checklist modal partial.
 
-      Rendered into the Turbo Frame `pre-publish-modal-frame`. Submit
+      Rendered into the Turbo Frame `pre_publish_modal_frame`. Submit
       target is either `publish` (publish flow, the trigger sets
       target_privacy_status hidden field) or `schedule` (adds a
       publish_at date/time input).
@@ -20,7 +20,7 @@
                 publish_video_path(video)
               end
 %>
-<%= turbo_frame_tag "pre-publish-modal-frame" do %>
+<%= turbo_frame_tag "pre_publish_modal_frame" do %>
   <div class="pre-publish-modal" data-controller="pre-publish-checklist" role="dialog" aria-labelledby="pre-publish-heading">
     <div class="pre-publish-modal__panel">
       <h2 id="pre-publish-heading">pre-publish checklist</h2>
@@ -123,7 +123,7 @@
           </button>
           <%= link_to "[cancel]", edit_video_path(video),
                       class: "bracketed",
-                      data: { turbo_frame: "pre-publish-modal-frame" } %>
+                      data: { turbo_frame: "pre_publish_modal_frame" } %>
         </div>
       <% end %>
     </div>

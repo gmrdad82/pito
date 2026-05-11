@@ -13,7 +13,7 @@
           data-action="click->calendar-entry-modal#clickOutside"
           class="pane-dialog calendar-entry-modal">
     <div style="padding: 12px 16px; min-width: 480px; max-width: 720px; max-height: 80vh; overflow-y: auto;">
-      <%= turbo_frame_tag "calendar_entry_details_frame",
+      <%= turbo_frame_tag "calendar_entry_modal_frame",
                           data: { calendar_entry_modal_target: "frame" } %>
     </div>
   </dialog>

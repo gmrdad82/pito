@@ -126,6 +126,44 @@ Rack::Attack.throttle(
   end
 end
 
+# P25 follow-up — F1. Defense-in-depth throttle on the destructive
+# TOTP-management endpoints under `/settings/security/totp*`. These
+# routes are already gated by the standard session cookie AND ask for
+# a fresh password + TOTP code on every destructive POST, but a stolen
+# cookie could otherwise brute-force the password+TOTP combo at full
+# request rate.
+#
+# Bucket: 10 POSTs / 15 minutes per IP — same cadence as the
+# `login/email` bucket so attackers pay the same cost across both
+# surfaces. Keyed on the request IP because the Rails session
+# (`req.session[:user_id]`) is not consistently available at the
+# Rack::Attack layer — rack-attack runs before Rails routes the
+# request through `ActionDispatch::Session`. IP-keying covers the
+# stolen-cookie threat (the attacker comes from one IP at a time)
+# and is the standard pattern in this initializer.
+#
+# Affected paths (any POST):
+#
+#   - POST /settings/security/totp                       (enroll)
+#   - PATCH /settings/security/totp/confirm              (confirm)
+#   - POST /settings/security/totp/disable               (disable)
+#   - POST /settings/security/totp_backup_codes          (regenerate)
+#
+# Match is by path prefix `/settings/security/totp` (POST/PATCH/PUT)
+# so any future verb-tunneled action lands in the bucket.
+TOTP_DESTRUCTIVE_PATH_RE = %r{\A/settings/security/totp(?:/|_|\z)}.freeze
+
+Rack::Attack.throttle(
+  "settings/totp",
+  limit: 10,
+  period: 15.minutes
+) do |req|
+  if TOTP_DESTRUCTIVE_PATH_RE.match?(req.path) &&
+     %w[POST PATCH PUT DELETE].include?(req.request_method)
+    req.ip
+  end
+end
+
 # Phase 25 — 01g. Dev convenience — allowlist localhost so the maintainer
 # is not throttled out of their own dev environment while iterating. NOT
 # enabled in test (the throttle specs need to assert against 127.0.0.1)
@@ -178,6 +216,25 @@ Rack::Attack.throttled_responder = lambda do |req|
       {
         "Content-Type" => "text/html; charset=utf-8",
         "Retry-After" => retry_after.to_s
+      },
+      [ body ]
+    ]
+  elsif match == "settings/totp"
+    # P25 F1 — TOTP destructive endpoints throttle. Generic
+    # "Too many attempts." HTML so we don't leak whether the password
+    # or the TOTP code was the failing field, and don't mention
+    # rate-limiting explicitly. Same shape as the login throttles.
+    body = <<~HTML
+      <!doctype html>
+      <html><head><meta charset="utf-8"><title>too many attempts.</title></head>
+      <body><p>too many attempts. try again in a few minutes.</p></body></html>
+    HTML
+
+    [
+      429,
+      {
+        "Content-Type" => "text/html; charset=utf-8",
+        "Retry-After" => (15 * 60).to_s
       },
       [ body ]
     ]

@@ -68,10 +68,10 @@
     <% if video.privacy_private? %>
       <%= link_to "[publish]", pre_publish_checklist_video_path(video, target_action: "publish"),
                   class: "bracketed",
-                  data: { turbo_frame: "pre-publish-modal-frame" } %>
+                  data: { turbo_frame: "pre_publish_modal_frame" } %>
       <%= link_to "[schedule]", pre_publish_checklist_video_path(video, target_action: "schedule"),
                   class: "bracketed",
-                  data: { turbo_frame: "pre-publish-modal-frame" } %>
+                  data: { turbo_frame: "pre_publish_modal_frame" } %>
     <% else %>
       <%# Routed to a dedicated `unpublish` action (PATCH
           /videos/:id/unpublish) rather than `update` so the
@@ -144,4 +144,4 @@
 
 <%# Turbo Frame target for the pre-publish modal. The frame is empty
     until the [publish] / [schedule] CTA loads its content. %>
-<%= turbo_frame_tag "pre-publish-modal-frame" %>
+<%= turbo_frame_tag "pre_publish_modal_frame" %>

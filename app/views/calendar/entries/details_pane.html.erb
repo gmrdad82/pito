@@ -3,7 +3,7 @@
     content so a `setAttribute("src", ...)` on the parent frame swaps
     in just this fragment. Direct navigation to the URL renders the
     same fragment outside a frame (no layout). %>
-<%= turbo_frame_tag "calendar_entry_details_frame" do %>
+<%= turbo_frame_tag "calendar_entry_modal_frame" do %>
   <div class="calendar-entry-details" style="max-width: 640px;">
     <h2 style="margin: 0 0 8px;">
       <span class="text-muted" style="font-weight: normal;"><%= entry_type_label(@entry) %></span>
@@ -34,7 +34,7 @@
       <% end %>
     </dl>
 
-    <%# Every cross-link inside `calendar_entry_details_frame` opts out
+    <%# Every cross-link inside `calendar_entry_modal_frame` opts out
         of the enclosing frame with `turbo_frame: "_top"`. Without it,
         Turbo scopes the navigation to the modal's frame and the
         destination response (entry / video / channel / game show)

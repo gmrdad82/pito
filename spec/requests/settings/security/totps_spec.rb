@@ -114,9 +114,15 @@ RSpec.describe "Settings::Security::Totps", type: :request do
 
   describe "PATCH /settings/security/totp/confirm" do
     let(:seed) { "JBSWY3DPEHPK3PXP" }
+    # P25 F2 — confirm reads the seed from the User row (NOT the
+    # cache), so this describe block does not strictly need a memory
+    # cache for verification. Keep one anyway so the cache-delete on
+    # success path observes a real store rather than a no-op null.
+    let(:memory_cache) { ActiveSupport::Cache::MemoryStore.new }
 
     before do
-      # Drive the controller's one-shot flash by going through enrollment.
+      allow(Rails).to receive(:cache).and_return(memory_cache)
+      # Drive the controller's one-shot cache by going through enrollment.
       # We then override the user's seed to match the deterministic seed
       # the test computes a code against.
       post settings_security_totp_path
@@ -125,16 +131,16 @@ RSpec.describe "Settings::Security::Totps", type: :request do
       # prior test in this file's shared `let(:user)` does not block
       # this verify within the same 30-s step.
       user.update_columns(totp_last_used_step: nil)
-      # Inject the deterministic seed into the flash so the confirm
-      # action verifies against it.
+      # Land on the show action once so the controller exercises the
+      # cache-read path before the confirm submit.
       get settings_security_totp_show_path
     end
 
     it "stamps totp_enabled_at when the code is correct" do
       code = ROTP::TOTP.new(seed).now
       patch settings_security_totp_confirm_path, params: { code: code }
-      # If the test's flash-keep machinery diverges, the controller
-      # falls back to the user's seed (same seed) and confirms anyway.
+      # The controller verifies against the user's persisted seed; the
+      # cache one-shot is for re-rendering the QR + codes on 422.
       expect(user.reload.totp_enabled_at).to be_present
     end
 
@@ -142,6 +148,16 @@ RSpec.describe "Settings::Security::Totps", type: :request do
       patch settings_security_totp_confirm_path, params: { code: "000000" }
       expect(response).to have_http_status(:unprocessable_content)
       expect(user.reload.totp_enabled_at).to be_nil
+    end
+
+    # P25 F2 — successful confirm deletes the cache entry; the
+    # plaintext codes never need to redisplay after enrollment.
+    it "deletes the one-shot cache entry on confirm success (P25 F2)" do
+      cache_key = Settings::Security::TotpsController.enrollment_cache_key(user.id)
+      expect(memory_cache.read(cache_key)).to be_present
+      code = ROTP::TOTP.new(seed).now
+      patch settings_security_totp_confirm_path, params: { code: code }
+      expect(memory_cache.read(cache_key)).to be_nil
     end
   end
 
