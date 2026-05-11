@@ -353,8 +353,15 @@ class Video < ApplicationRecord
   # 320×180 is the architect's locked v1 size (16:9, low-bandwidth
   # preview). Larger variants land if/when the show page renders the
   # thumbnail too.
+  #
+  # Guards against `ActiveStorage::InvariableError` on the validation
+  # failure re-render path: a rejected (non-image) blob is still
+  # attached to the in-memory record when the form re-renders, so
+  # the variant call would blow up. Return nil when the blob isn't
+  # actually an image we can preview.
   def thumbnail_preview
     return nil unless thumbnail.attached?
+    return nil unless THUMBNAIL_ALLOWED_TYPES.include?(thumbnail.blob.content_type)
     thumbnail.variant(resize_to_limit: [ 320, 180 ])
   end
 

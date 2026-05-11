@@ -491,9 +491,11 @@ class VideosController < ApplicationController
   # model invariant "no mixing none with other kinds" forbids the
   # other non-none rows from sticking around. The form cannot
   # destroy rows the user did not interact with, so the controller
-  # collapses server-side: keep the first `none` row, mark every
-  # persisted non-none row `_destroy: 1`, and drop every unsaved
-  # non-none row entirely.
+  # collapses server-side:
+  #   1. Drop / `_destroy` every submitted row that isn't the none
+  #      row.
+  #   2. Append `_destroy` rows for every persisted non-none end-
+  #      screen that wasn't already in the submitted set.
   def collapse_end_screens_if_none!(raw_video_params)
     nested = raw_video_params[:video_end_screens_attributes]
     return if nested.blank?
@@ -502,6 +504,9 @@ class VideosController < ApplicationController
     rows = nested.to_h
     none_key = rows.find { |_, r| r.is_a?(Hash) && r[:kind].to_s == "none" }&.first
     return unless none_key
+
+    submitted_ids = rows.values.filter_map { |r| r.is_a?(Hash) && r[:id].presence }
+                                .map(&:to_i)
 
     rows.each do |key, row|
       next unless row.is_a?(Hash)
@@ -512,6 +517,13 @@ class VideosController < ApplicationController
       else
         rows.delete(key)
       end
+    end
+
+    next_index = rows.keys.map(&:to_i).max.to_i + 1
+    @video.video_end_screens.where.not(kind: VideoEndScreen.kinds[:none]).each do |es|
+      next if submitted_ids.include?(es.id)
+      rows[next_index.to_s] = { "id" => es.id.to_s, "_destroy" => "1" }
+      next_index += 1
     end
 
     raw_video_params[:video_end_screens_attributes] = rows
