@@ -320,75 +320,75 @@ auto-memory note "spec exhaustively":
 
 ## Acceptance
 
-- [ ] Migration adds the missing Video columns (audit the live schema
+- [x] Migration adds the missing Video columns (audit the live schema
       before writing the migration; do not duplicate existing
       Phase 12 columns).
-- [ ] `video_change_logs` table exists, append-only, mirrors
+- [x] `video_change_logs` table exists, append-only, mirrors
       `channel_change_logs` shape.
-- [ ] `video_diffs` table exists with the partial unique index
+- [x] `video_diffs` table exists with the partial unique index
       enforcing one open diff per video.
-- [ ] `Video` model exposes `has_many :video_change_logs`,
+- [x] `Video` model exposes `has_many :video_change_logs`,
       `has_many :video_diffs`, `has_one :open_diff`, and
       `title_locked?` / `title_unlock_at` helpers (gated on Q1).
-- [ ] `VideoChangeLog` raises `ActiveRecord::ReadOnlyRecord` on
+- [x] `VideoChangeLog` raises `ActiveRecord::ReadOnlyRecord` on
       `destroy`.
-- [ ] `VideoDiff#open` and `#resolved` scopes return the expected
+- [x] `VideoDiff#open` and `#resolved` scopes return the expected
       record sets.
-- [ ] `Youtube::DiffComputer` handles no-diff, single-field, multi-
+- [x] `Youtube::DiffComputer` handles no-diff, single-field, multi-
       field, type-mismatch, tags sorted-set, missing-field, and
       nil-vs-blank cases correctly.
-- [ ] `Youtube::Client#update_video` implements the destructive
+- [x] `Youtube::Client#update_video` implements the destructive
       PUT-per-part read-modify-write pattern.
-- [ ] `Youtube::Client#update_video` handles 401 (refresh), 403
+- [x] `Youtube::Client#update_video` handles 401 (refresh), 403
       (quota), 5xx (retry-with-backoff), and rate-limit-on-
       `notifyNewVideo` correctly.
-- [ ] `VideoDiffCheckJob` walks the connected videos, persists
+- [x] `VideoDiffCheckJob` walks the connected videos, persists
       diffs, stamps `last_diff_checked_at`, enqueues notifications.
-- [ ] `BulkVideoDiffCheckJob` fan-out staggers across the day.
-- [ ] Sidekiq-cron entry scheduled (separate from channel-diff
+- [x] `BulkVideoDiffCheckJob` fan-out staggers across the day.
+- [x] Sidekiq-cron entry scheduled (separate from channel-diff
       cron per Q5 recommendation).
-- [ ] `/videos/:slug/diff` renders the three-column table with
+- [x] `/videos/:slug/diff` renders the three-column table with
       `accept youtube` as the default selection.
-- [ ] `/videos/:slug/diff` redirects to `/videos/:slug` with a
+- [x] `/videos/:slug/diff` redirects to `/videos/:slug` with a
       flash when no open diff exists.
-- [ ] `[apply changes]` PATCH applies Pito-wins via the YouTube
+- [x] `[apply changes]` PATCH applies Pito-wins via the YouTube
       client and YouTube-wins to the local columns in a single
       transaction.
-- [ ] `[apply changes]` rolls back the local update when the
+- [x] `[apply changes]` rolls back the local update when the
       YouTube push fails.
-- [ ] `VideoChangeLog` row appended for every applied field, with
+- [x] `VideoChangeLog` row appended for every applied field, with
       `source: pito_apply` or `source: youtube_pull` correctly.
-- [ ] `title_changed_at` stamped only on Pito-wins title apply
+- [x] `title_changed_at` stamped only on Pito-wins title apply
       (gated on Q1).
-- [ ] User-triggered `[sync]` button on `/videos/:slug` routes
+- [x] User-triggered `[sync]` button on `/videos/:slug` routes
       through the `SyncsController` confirmation page — no JS
       `confirm`, no `data-turbo-confirm`.
-- [ ] On confirm, the sync enqueues `VideoDiffCheckJob` and
+- [x] On confirm, the sync enqueues `VideoDiffCheckJob` and
       redirects with a flash.
-- [ ] Flash banner on `/videos/:slug` when
+- [x] Flash banner on `/videos/:slug` when
       `@video.open_diff.present?`, with `[view diff]` link.
-- [ ] Phase 16 notification `kind: video_diff_detected,
+- [x] Phase 16 notification `kind: video_diff_detected,
       severity: info` produced when the job detects a diff.
-- [ ] MCP tools `video_diff_show` + `video_diff_apply` gated on
+- [x] MCP tools `video_diff_show` + `video_diff_apply` gated on
       `app` scope; `video_diff_apply` requires `confirm: true`.
-- [ ] All external booleans serialize as `"yes"` / `"no"` strings
+- [x] All external booleans serialize as `"yes"` / `"no"` strings
       (decision values, diff page form, MCP I/O, JSON branch).
-- [ ] Friendly URL via `Video#to_param` — `/videos/:slug/diff`
+- [x] Friendly URL via `Video#to_param` — `/videos/:slug/diff`
       resolves through `Video.friendly.find`.
 - [ ] Shared partial `shared/_diff_table.html.erb` extracted and
       consumed by **both** the new video diff view AND the
       existing channel diff view (11i refactored in 23b).
 - [ ] Shared component `DiffDecisionRadioComponent` extracted and
       consumed by both surfaces.
-- [ ] Spec pyramid sweep: model specs, service specs, job specs,
+- [x] Spec pyramid sweep: model specs, service specs, job specs,
       request specs (happy / sad / edge / flaw), component spec,
       helper spec, MCP tool specs, one selective system spec.
 - [ ] `docs/design.md` updated if any new visual primitive ships
       (likely none — the diff page reuses `pane--standalone` and
       the bracketed-link convention).
-- [ ] `bundle exec rspec` green at full suite count.
-- [ ] `bundle exec rubocop` green.
-- [ ] `bin/rails db:migrate` applied to the dev DB after the
+- [x] `bundle exec rspec` green at full suite count.
+- [x] `bundle exec rubocop` green.
+- [x] `bin/rails db:migrate` applied to the dev DB after the
       rails-impl agent's migration lands (per architect.md §F).
 
 ## Manual test recipe

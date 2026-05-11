@@ -198,4 +198,60 @@ RSpec.describe Youtube::VideosClient do
       }.to raise_error(Youtube::ServerError)
     end
   end
+
+  # ─────────────────────────────────────────────────────────────────
+  # Phase 23 §23c — `fields:` filter on update_video.
+  # ─────────────────────────────────────────────────────────────────
+  describe "Phase 23 — selective fields:" do
+    before do
+      allow(svc).to receive(:update_video).and_return(OpenStruct.new(id: video.youtube_video_id))
+    end
+
+    it "only overlays the requested fields on the fresh snippet" do
+      fresh = { snippet: { title: "API title", description: "API desc", tags: [ "api-tag" ] },
+                status: {} }
+
+      client = described_class.new(connection)
+      client.update_video(video, fresh: fresh, fields: [ :title ])
+
+      payload = client.last_payload
+      # Title got overlaid from the local Video; description + tags
+      # remain the YouTube snapshot values because they were excluded.
+      expect(payload[:snippet][:title]).to eq("new title")
+      expect(payload[:snippet][:description]).to eq("API desc")
+      expect(payload[:snippet][:tags]).to eq([ "api-tag" ])
+    end
+
+    it "ignores unknown / display-only field names silently" do
+      fresh = { snippet: { title: "API title" }, status: {} }
+
+      client = described_class.new(connection)
+      # `view_count` is display-only — should NOT result in any
+      # snippet/status overlay.
+      client.update_video(video, fresh: fresh, fields: [ :view_count ])
+
+      expect(client.last_payload[:snippet][:title]).to eq("API title")
+    end
+
+    it "fields: nil falls back to the full writable overlay (Phase 12 default)" do
+      fresh = { snippet: { title: "API title" }, status: {} }
+
+      client = described_class.new(connection)
+      client.update_video(video, fresh: fresh)
+
+      expect(client.last_payload[:snippet][:title]).to eq("new title")
+      expect(client.last_payload[:snippet][:tags]).to eq([ "halo" ])
+    end
+
+    it "supports embeddable / public_stats_viewable in the writable set" do
+      video.update_columns(embeddable: false, public_stats_viewable: false)
+      fresh = { snippet: { title: "remote title" }, status: { embeddable: true, publicStatsViewable: true } }
+
+      client = described_class.new(connection)
+      client.update_video(video, fresh: fresh, fields: [ :embeddable, :public_stats_viewable ])
+
+      expect(client.last_payload[:status][:embeddable]).to eq(false)
+      expect(client.last_payload[:status][:publicStatsViewable]).to eq(false)
+    end
+  end
 end
