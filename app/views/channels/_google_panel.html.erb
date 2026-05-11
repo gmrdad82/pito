@@ -1,8 +1,13 @@
 <%# Phase 24 — per-channel Google management panel on /channels/:slug.
     Renders the YoutubeConnection that owns this specific channel:
-    email, scopes, last-authorized, reauth state. When the channel has
-    no connection (`youtube_connection_id IS NULL`), renders an empty
-    state with a `[connect this channel]` entry point.
+    last-authorized, reauth state. When the channel has no connection
+    (`youtube_connection_id IS NULL`), renders an empty state with a
+    `[connect this channel]` entry point.
+
+    Trimmed in Phase 24.x — the panel intentionally omits the
+    "connected as" email row and the "scopes" row. The full reauth
+    banner (which carries the [reconnect] button) already surfaces
+    when `needs_reauth?`.
 
     Required local:
       channel — the Channel whose connection to render.
@@ -20,14 +25,6 @@
     <% end %>
 
     <table class="detail-table" style="margin: 0;">
-      <tr>
-        <td class="text-muted" style="padding-right: 12px;">connected as</td>
-        <td><%= format_connection_email(local_connection.email) %></td>
-      </tr>
-      <tr>
-        <td class="text-muted" style="padding-right: 12px;">scopes</td>
-        <td><%= Array(local_connection.scopes).map { |s| format_scope_short_label(s) }.join(" ") %></td>
-      </tr>
       <tr>
         <td class="text-muted" style="padding-right: 12px;">last authorized</td>
         <td><%= compact_time_ago(local_connection.last_authorized_at) %></td>

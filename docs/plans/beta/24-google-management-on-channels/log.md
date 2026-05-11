@@ -178,3 +178,37 @@ validation gate pending.
   NOT trigger the YoutubeConnection orphan-cleanup branch. Wiring them
   through `DeleteChannelDataJob` is filed as a separate follow-up
   (locked decision #7).
+
+## 2026-05-11 — Google panel trim on `/channels/:slug` (Rails impl agent)
+
+Follow-up polish after the Phase 24 ship. User directive: the Google
+connection panel on the channel show page was too chatty — the
+"connected as" email and the "scopes" line are noise once you're on the
+channel that owns the connection. Trimmed to the two essential lines.
+
+### Files changed
+
+- `app/views/channels/_google_panel.html.erb` — drop the "connected as"
+  and "scopes" rows. The panel now renders just `last authorized` +
+  `state` (plus the existing `needs_reauth_banner` which carries the
+  `[reconnect]` button when applicable). Empty-state path
+  (`[connect this channel]`) is unchanged.
+- `spec/views/channels/_google_panel.html.erb_spec.rb` — replace the
+  positive "connected-as + scopes + healthy" example with three
+  focused positives (heading, last-authorized, state) and two negative
+  guards (`not_to match(/connected as/i)`, `not_to match(/scopes/i)`).
+  The `needs_reauth` example is unchanged.
+
+### Specs
+
+- `bundle exec rspec spec/views/channels/_google_panel.html.erb_spec.rb spec/requests/channels_show_spec.rb`
+  — 34 examples, 0 failures.
+- `bundle exec rspec spec/views/channels/_google_panel.html.erb_spec.rb spec/views/channels/show.html.erb_spec.rb spec/requests/channels_show_spec.rb`
+  — 67 examples, 0 failures (the show.html.erb_spec was checked
+  because it composes the panel; nothing else moved).
+- `bundle exec rubocop` — clean (1014 files).
+- `bin/brakeman -q -w2` — 0 security warnings.
+
+### Open follow-ups
+
+None. The trim is self-contained.
