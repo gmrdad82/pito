@@ -69,6 +69,33 @@ RSpec.describe "games/_list_mode.html.erb", type: :view do
     end
   end
 
+  describe "short-form genre names" do
+    it "renders the short form in the genres column for mapped IGDB names" do
+      game = create(:game, :synced, title: "RPG Game", igdb_id: 4_200_001,
+                    igdb_slug: "rpg-list-game")
+      rpg = create(:genre, name: "Role-playing (RPG)", igdb_id: 9_301)
+      create(:game_genre, game: game, genre: rpg)
+
+      render_list(Game.all)
+
+      # The list mode never prints the canonical long name — only the
+      # short form lands in the genres column.
+      expect(rendered).to include("RPG")
+      expect(rendered).not_to include("Role-playing (RPG)")
+    end
+
+    it "renders unmapped genre names as-is" do
+      game = create(:game, :synced, title: "Adventure Game", igdb_id: 4_200_002,
+                    igdb_slug: "adventure-list-game")
+      adventure = create(:genre, name: "Adventure", igdb_id: 9_302)
+      create(:game_genre, game: game, genre: adventure)
+
+      render_list(Game.all)
+
+      expect(rendered).to include("Adventure")
+    end
+  end
+
   describe "edge cases" do
     it "buckets non-alphabetic titles into the '#' group" do
       create(:game, :synced, title: "2048", igdb_id: 4_101_001,

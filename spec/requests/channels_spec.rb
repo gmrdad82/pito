@@ -268,6 +268,39 @@ RSpec.describe "Channels", type: :request do
         expect(img["class"]).to include("avatar-thumb")
       end
 
+      # Phase 24+ distortion-fix (2026-05-10) — defensive HTML attrs so
+      # the table cell reserves the intrinsic 32×32 box before the image
+      # loads. Without these the table cell could stretch the image
+      # vertically (narrow silhouettes) during paint. CSS handles the
+      # final clip (object-fit + border-radius); the HTML attributes
+      # are a belt-and-braces guard.
+      it "renders the avatar <img> with explicit width=32 height=32 HTML attributes" do
+        with_avatar = create(:channel, avatar_url: "https://example.test/a.jpg")
+        get channels_path
+        html = Nokogiri::HTML.fragment(response.body)
+        row = html.css("tbody tr").find do |tr|
+          tr.css("a").any? { |a| a["href"] == with_avatar.channel_url || a["href"]&.include?(with_avatar.id.to_s) }
+        end
+        expect(row).not_to be_nil
+        img = row.css("td")[1].css("img").first
+        expect(img).not_to be_nil
+        expect(img["width"]).to eq("32")
+        expect(img["height"]).to eq("32")
+      end
+
+      it "marks the avatar <img> as lazy-loaded" do
+        with_avatar = create(:channel, avatar_url: "https://example.test/a.jpg")
+        get channels_path
+        html = Nokogiri::HTML.fragment(response.body)
+        row = html.css("tbody tr").find do |tr|
+          tr.css("a").any? { |a| a["href"] == with_avatar.channel_url || a["href"]&.include?(with_avatar.id.to_s) }
+        end
+        expect(row).not_to be_nil
+        img = row.css("td")[1].css("img").first
+        expect(img).not_to be_nil
+        expect(img["loading"]).to eq("lazy")
+      end
+
       # Phase 24+ density pass — subscriber column (5th cell). Uses
       # the `formatted_subscriber_count` helper, which delegates to
       # `number_with_delimiter` and renders "Hidden" when the channel
