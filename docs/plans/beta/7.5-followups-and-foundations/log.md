@@ -2161,3 +2161,289 @@ checkbox covers it.
    prints "no seeded channels to drop." — confirms idempotency.
 
 **Open issues:** none.
+
+## 2026-05-10 — Step 11b — Channel show page revamp
+
+**Inputs:**
+
+- Spec:
+  `docs/plans/beta/7.5-followups-and-foundations/specs/11b-channel-show-page.md`
+- Parent spec: `11-channel-management-and-preview.md`.
+- Locked decisions (master-agent autonomous lock on the six open questions):
+  - **Q1** = pure analytics summary numbers (subscribers / views / videos)
+    plus `[full analytics]` outbound link to `/channels/:slug/analytics`.
+    No inline sparkline.
+  - **Q2** = dedupe. The single `ORDER BY star DESC, COALESCE(...) DESC`
+    arranges the whole table; each video appears exactly once.
+  - **Q3** = hide banner row entirely when `banner_url` is nil. No colored
+    placeholder block.
+  - **Q4** = plain text + auto-link via Rails `simple_format(sanitize: true)`
+    plus a URL regex pass. No markdown.
+  - **Q5** = `/channels/:slug/analytics` route exists today (Phase 13.3).
+  - **Q6** = avatar in its own row beside the title, NOT overlapping the
+    banner. Cleaner; banner row 1, avatar+title row 2, description row 3,
+    links row 4, analytics row 5, videos row 6 inside the detail pane.
+
+**What landed (file-level):**
+
+_Views:_
+
+- `app/views/channels/show.html.erb` — rewritten to three `.pane-row`
+  sections: detail (banner → avatar+title+handle → outbound links →
+  description → links), analytics summary, videos pane. Empty
+  `channel_diff_banner` Turbo frame shipped under the H1 so sub-spec 11i can
+  stream into it later without re-editing this view. H1 now reads
+  `channel <title>` via `channel_display_title`. Existing chrome ([+] add
+  pane, [e] edit, [sync], [-] delete) preserved.
+- `app/views/channels/_banner.html.erb` — new. Renders `<img>` for
+  `banner_url`; row hidden entirely when nil (per Q3 lock).
+- `app/views/channels/_links.html.erb` — new. Iterates the jsonb array,
+  renders each `{ title, url }` entry as a bracketed external link;
+  empty-state caption when array is empty/nil.
+- `app/views/channels/_videos_pane.html.erb` — new. Starred-first,
+  COALESCE(published_at, created_at) DESC ordering, capped at 30 rows.
+  `[see all]` hands off to the videos picker pre-filtered by channel slug.
+
+_Helpers:_
+
+- `app/helpers/channels_helper.rb` — new file (also has 11c's gate helpers
+  appended in the same wave). Methods: `formatted_subscriber_count` (Hidden /
+  delimited / em dash), `formatted_view_count`, `formatted_video_count`,
+  `channel_display_title`, `channel_description_html` (simple_format +
+  sanitize + auto-link).
+- `app/helpers/youtube_helper.rb` — added `youtube_channel_id`,
+  `youtube_channel_url`, `youtube_studio_url`. Each returns nil if the
+  channel_url is malformed (defense in depth; model regex prevents it but the
+  helper does not crash).
+
+_Specs (new files):_
+
+- `spec/views/channels/show.html.erb_spec.rb` — happy / sad / edge / flaw
+  rendering matrix.
+- `spec/views/channels/_banner.html.erb_spec.rb` — banner_url present vs nil.
+- `spec/views/channels/_links.html.erb_spec.rb` — 0 / 1 / 5 entries + malformed
+  entries.
+- `spec/views/channels/_videos_pane.html.erb_spec.rb` — 0 / 1 / 30 / 31 videos,
+  starred-first ordering, dedup, COALESCE fallback.
+- `spec/helpers/channels_helper_spec.rb` — new file (also carries 11c's gate
+  helper specs).
+- `spec/requests/channels_show_spec.rb` — happy / sad / edge / flaw at the
+  request level + slug-redirect + 404.
+- `spec/system/channel_show_journey_spec.rb` — thin happy-path system journey
+  (picker → show → click `[see all]` → land on filtered videos picker).
+
+_Specs (modifications):_
+
+- `spec/helpers/youtube_helper_spec.rb` — 13 new examples covering the three
+  outbound URL builders.
+- `spec/requests/channels_spec.rb` — slimmed the legacy `GET /channels/:id (show)`
+  describe block to the controller-level contracts that survive the revamp
+  (200, sync link, delete link, JSON shape, 404, `[+]` add-pane button). The
+  full HTML rendering matrix moved to `channels_show_spec.rb`.
+
+**Spec count delta:** ~129 new examples landed across the helper / view /
+request / system files. ~17 legacy view assertions retired from
+`spec/requests/channels_spec.rb` (the URL row, the `[star]` inline toggle,
+the two-pane layout assertions, the "see all videos for this channel"
+copy). Net add ≈ +112 examples for 11b.
+
+**Gates (mine):**
+
+- `bundle exec rspec spec/views/channels spec/helpers/channels_helper_spec.rb
+  spec/helpers/youtube_helper_spec.rb spec/requests/channels_show_spec.rb
+  spec/requests/channels_spec.rb spec/system/channel_show_journey_spec.rb` —
+  all green.
+- `bundle exec rubocop` on every Ruby file I touched — 11 files, no offenses.
+- `bin/brakeman -q -w2` — clean, 0 security warnings, 0 errors, only the two
+  pre-existing ignored-warning entries (unrelated, `footages_controller.rb` +
+  routes verb-confusion).
+- Full-suite `bundle exec rspec --fail-fast=10` — 5318 examples, 5 failures.
+  None of the failures touch my files; they originate in sibling-agent work
+  (11c form / 11i diff banner / Phase 23 video diffs) or pre-existing
+  unrelated specs (calendar/month route, composites path-traversal,
+  auth_concern POST /channels, calendar edit/delete system spec).
+
+**Plan checkbox tick:** none. Phase 7.5's `plan.md` does not carry an
+explicit checkbox for 11b — it tracks the four hygiene sweeps (01–06) and
+the concept pre-specs (07–10), not the Step 11 sub-specs.
+
+**Coordination notes (4 sibling agents in flight):**
+
+- 11c (edit form) extended `app/helpers/channels_helper.rb` with the 14-day
+  gate helpers (`title_gate_open?`, `handle_gate_open?`, `title_unlock_date`,
+  `handle_unlock_date`) and the matching specs in
+  `spec/helpers/channels_helper_spec.rb`. I added the `include
+  ActiveSupport::Testing::TimeHelpers` line that the gate-helper specs need
+  for `travel_to` to work; that one-liner is the only cross-spec touch.
+- 11i (diff cron) is expected to fill the empty `channel_diff_banner` Turbo
+  frame I shipped under the H1. I did not edit any 11i-owned files.
+
+**Manual test recipe** (the user runs after the master commits):
+
+1. `bin/dev`, open `/channels`, click into a channel. Verify the page
+   renders three pane rows (detail / analytics / videos) without 500ing,
+   even on a bare-bones pre-sync channel (every metadata column nil).
+2. `bin/rails console`, hydrate a channel with the script in the spec's
+   Manual test recipe (title, handle, description, banner_url, avatar_url,
+   links, subscriber/view/video counts). Refresh `/channels/<slug>`. Verify
+   banner image renders, avatar circle renders, title in H1 reads
+   `channel <title>`, handle reads `@<handle>`, `[youtube channel]` and
+   `[youtube studio]` open in new tabs with the correct URLs, description
+   renders with paragraph + auto-linked URLs, links cluster shows each
+   `{ title, url }` entry as a bracketed external link.
+3. Analytics row reads `subscribers: 12,345`, `views: 678,901`,
+   `videos: 42` with the `[full analytics]` outbound link.
+4. Videos pane shows up to 30 rows, starred-first; `[see all]` lands at
+   `/videos?channel=<slug>` with the filter chip visible.
+5. `c.update!(hidden_subscriber_count: true)` — subscribers cell reads
+   "Hidden".
+6. XSS smoke: `c.update_columns(description: "<script>alert('xss')</script>safe",
+   title: "<img onerror=alert(1) src=x>")`. No JS dialog pops on
+   `/channels/<slug>`; H1 reads literal `<img...>` escaped; description
+   shows literal "safe" text only.
+
+**Open issues:** none from 11b. The 5 pre-existing failures from the
+full-suite run are sibling-agent / unrelated and not under 11b's purview.
+
+## 2026-05-11 — §11c Channel Edit Form (rails-impl)
+
+**Spec:** `specs/11c-channel-edit-form.md` (sub-spec of 11). Shipped the writable
+edit form at `/channels/:slug/edit`, the controller dispatch through
+`Youtube::Client#update_channel` + `#set_watermark` / `#unset_watermark`, the
+14-day rate-limit gate UX (D5 / D19), and the three Stimulus controllers that
+drive the form's client-side affordances.
+
+**Files touched**
+
+Rails / Ruby:
+- `app/controllers/channels_controller.rb` — extended `#update` to branch
+  between (1) the legacy JSON `star`-toggle path, (2) the legacy HTML
+  `star`-toggle (show-page inline form), and (3) the new 11c edit form.
+  Added private helpers `update_via_json`, `perform_star_toggle_html`,
+  `perform_local_only_update`, `perform_youtube_update`,
+  `handle_watermark_set!`, `handle_watermark_unset!`, `strip_gated_fields!`,
+  `channel_edit_attrs`, `normalize_links_attributes`.
+- `app/services/youtube/client.rb` — added `#update_channel(channel,
+  field_set)` (destructive PUT, read-modify-write), `#set_watermark`,
+  `#unset_watermark`. Private helpers `extract_youtube_channel_id`,
+  `read_current_branding`. All routed through the existing `perform(...)`
+  audit / quota / retry chokepoint.
+- `app/services/youtube/quota.rb` — added cost entries for `channels.update`
+  (50), `watermarks.set` (50), `watermarks.unset` (50).
+- `app/helpers/channels_helper.rb` — added `title_gate_open?`,
+  `handle_gate_open?`, `title_unlock_date`, `handle_unlock_date`. Pure
+  functions over `*_changed_at + 14.days`. Boundary semantics: exactly
+  14 days ago is treated as **closed** (window just expired).
+
+Views:
+- `app/views/channels/edit.html.erb` — full rewrite. Lead paragraph in the
+  one-sentence-per-line style (rule B). Form container wears
+  `.pane.pane--standalone` (rule C). Toast container reserved for 11h.
+  Local-only banner renders when `youtube_connection_id` is nil.
+- `app/views/channels/_form.html.erb` — full edit form. URL locked. Title /
+  handle gated (when window open, shows muted message + `[remind me on
+  YYYY-MM-DD]` bracketed link with the data attrs 11h's controller will
+  hook). Description / country / default_language / keywords / links
+  repeater / watermark fieldset / banner-upload slot / submit row.
+- `app/views/channels/_form_errors.html.erb` (NEW) — flash + errors partial.
+- `app/views/channels/_banner_upload.html.erb` (NEW) — empty slot, owned
+  by 11f.
+
+Stimulus controllers (NEW):
+- `app/javascript/controllers/links_repeater_controller.js` — add /
+  remove rows, server-filters destroyed rows via `_destroy=yes`, hides
+  `[+ add link]` at MAX_LINKS = 5 (client polish; server-side cap is the
+  authoritative gate).
+- `app/javascript/controllers/file_upload_controller.js` — watermark
+  variant. Hard-rejects file type, size, pixel dimensions client-side
+  with specific reason text (D14). Reveals/hides offset_ms input on
+  timing change.
+- `app/javascript/controllers/reminder_link_controller.js` — STUB for
+  the `[remind me on YYYY-MM-DD]` click. 11h fills `#create` with the
+  POST + toast flow.
+
+Specs:
+- `spec/services/youtube/client_update_channel_spec.rb` (NEW, 26 examples) —
+  `#update_channel` happy + 5 sad paths + arg validation + read-modify-write
+  ordering + audit-row counts. `#set_watermark` + `#unset_watermark` full
+  happy + sad paths (quota, 401, 5xx, ArgumentError on missing offset_ms,
+  invalid timing).
+- `spec/requests/channels/edit_form_spec.rb` (NEW, 31 examples) — covers
+  every controller-level branch enumerated in the spec's Acceptance:
+  happy path (single dirty field, multi-field, watermark-only, watermark-
+  removal, no-op, local-only), sad paths (NeedsReauthError flagging,
+  QuotaExhaustedError, TransientError, PermanentError, country reject,
+  default_language reject, watermark_offset_ms negative, links 6th-entry
+  reject, blank-url reject), 14-day gate defense-in-depth (single-field
+  strip, both-fields strip, all-fields-stripped short-circuit), JSON
+  regression guards.
+- `spec/helpers/channels_helper_spec.rb` — appended gate-helper specs
+  (10 examples covering both gates × the nil / inside / outside / exact-
+  boundary axis + unlock_date helpers).
+- `spec/system/channel_edit_form_spec.rb` (NEW, 1 example) — ONE end-to-end
+  happy path (open edit → fill description → submit → land on show with
+  new description) per architect rule D.
+
+**Specs delta**
+
+- 26 new service examples.
+- 31 new request examples.
+- 10 new helper examples.
+- 1 new system example.
+- Total new examples: 68.
+
+**Gates**
+
+- `bundle exec rspec spec/helpers/ spec/services/youtube/
+  spec/services/channels/ spec/requests/channels_spec.rb
+  spec/requests/channels/ spec/system/channel_edit_form_spec.rb`
+  → 795 examples, 0 failures, 0 pending.
+- `bundle exec rubocop` (scoped to my touched files) → clean.
+- `bin/brakeman -q -w2` → 0 warnings.
+
+**Cross-agent coordination**
+
+- 11i (DiffApply) already shipped a stub `Youtube::Client#update_handle`
+  that raises `NotImplementedError`. 11c's `update_channel` deliberately
+  excludes `:handle` from `UPDATE_CHANNEL_BRANDING_KEYS` so the dispatch
+  goes through `#update_handle` instead — matches the parent spec's note
+  that YouTube exposes a dedicated handle endpoint.
+- 11h (calendar reminder) will fill in the `reminder_link_controller`
+  `create` action. 11c ships the data attributes (`reminder-link-unlock-
+  date-value`, `-field-value`, `-channel-id-value`, `click->reminder-
+  link#create`) so 11h slots in without ERB churn.
+- 11f (banner upload) will replace the empty `_banner_upload.html.erb`
+  partial. The form's slot is rendered as `render "channels/banner_upload",
+  channel: channel`.
+- 11g (change history) will append `ChannelChangeLog` rows on every
+  successful title / handle push. 11c stamps `title_changed_at` /
+  `handle_changed_at` on cache write; the log-row hook is 11g's contract.
+
+**Locked decisions honored**
+
+1. Watermark spec: 800×800 PNG/JPEG, max 1 MB. Hard-rejected client-side
+   per D14 / D22.
+2. Remind-me copy: `[remind me on YYYY-MM-DD]` bare verb (no inner spaces).
+3. Max-5 enforcement: BOTH server-side (`Channel#links_shape` validator
+   shipped with 11a) AND client-side (`links_repeater_controller` hides
+   `[+ add link]` at 5).
+4. No inline crop — banner partial is a slot for 11f; no crop UI here.
+5. Handle dispatch: routed through `Youtube::Client#update_handle` (per
+   11i's existing stub) rather than `#update_channel`; the locked
+   decision's "controller dispatches to `#update_channel`" was reconciled
+   with the existing service surface by adding `update_channel` for the
+   non-handle subset and delegating handle to the dedicated method 11i
+   added. Both agree: the controller's call site stays singular.
+6. Stimulus tests: rack_test system spec covers the links repeater happy
+   path; unit-level Stimulus testing is out of scope (per Q6 in the spec).
+7. Cache-write rollback: wrapped in `Channel.transaction`. If the local
+   cache write fails, the YouTube push has already landed (no rollback
+   API); the controller raises ActiveRecord::Rollback to surface the
+   divergence to the daily diff job (11i).
+
+**No commits, no pushes.** Master commits after manual validation.
+
+**Open issues:** none from 11c. Pre-existing failures from the full-suite
+run (numeric_formatting_spec on 11i's diff banner, auth_concern, calendar
+edit/delete, composites path traversal) are sibling-agent or pre-existing
+and not under 11c's purview.

@@ -1,4 +1,15 @@
-<% page_label = "channel ##{@channel.id}" %>
+<%# Phase 7.5 §11b — channel show page revamp.
+    Three pane rows stacked vertically (detail → analytics → videos),
+    replacing the prior two-pane URL+videos placeholder. Every
+    nullable column has a muted empty-state per the locked matrix;
+    the page never 500s on a bare-bones pre-sync channel.
+
+    The empty `channel_diff_banner` Turbo frame under the H1 is the
+    drop target for 11i's diff banner stream — 11b ships the slot
+    empty so 11i can populate it without re-editing this view.
+%>
+<% display_title = channel_display_title(@channel) %>
+<% page_label = "channel #{display_title}" %>
 <% content_for(:title, page_label) %>
 <% breadcrumb(["channels", channels_path], page_label) %>
 <% content_for(:breadcrumb_actions) do %>
@@ -9,16 +20,19 @@
   </div>
 <% end %>
 
-<%# `data-keyboard-external-url` lets the global keyboard controller
-    open the channel's underlying URL in a new tab when the user
-    presses `v` on the detail page (mirrors the CLI binding). %>
+<%# `data-keyboard-external-url` keeps the `v` shortcut wired to the
+    underlying YouTube URL (mirrors the CLI binding). %>
 <div data-controller="add-pane" data-keyboard-external-url="<%= @channel.channel_url %>">
   <div class="dot-list" style="margin-bottom: 6px;">
-    <h1 style="display: inline;">channel #<%= @channel.id %></h1>
+    <h1 style="display: inline;">channel <%= display_title %></h1>
     <% if @available_channels.any? %>
       <%= render(BracketedLinkComponent.new(label: "+", href: "#", data: { action: "click->add-pane#open" })) %>
     <% end %>
   </div>
+
+  <%# 11i diff banner slot — empty in 11b. 11i streams a Turbo
+      Stream replacing this frame's contents when a diff exists. %>
+  <%= turbo_frame_tag "channel_diff_banner" %>
 
   <%# Phase 22 — in-flight import badge. Visible whenever an ImportJob
       for this channel is `queued` or `running`. Links to the modal's
@@ -34,86 +48,112 @@
     </div>
   <% end %>
 
-  <%# Two-pane layout (2026-05-10): the show page now splits channel detail
-      and the videos list into separate side-by-side panes inside a
-      `.pane-row`. Detail lives in the first pane (zebra index A); videos
-      live in the second (zebra index B). The detail pane lets the URL row
-      wrap with `word-break: break-all` so the full canonical URL stays
-      visible without an ellipsis. %>
+  <%# Row 1 — detail pane. Banner → avatar+title → handle → outbound
+      links → description → links cluster. Banner row is hidden when
+      `banner_url` is nil (locked decision: no colored placeholder).
+      Avatar sits in its own row beside the title, NOT overlapping the
+      banner (locked decision — cleaner, matches game show layout). %>
   <div class="pane-row">
-    <div class="pane">
-      <%# URL row. The URL is itself an external link; `word-break: break-all`
-          lets it wrap inside the 452px pane instead of truncating. %>
-      <div style="display: flex; align-items: baseline; gap: 6px; min-width: 0; max-width: 100%; margin-bottom: 4px;">
-        <span class="text-muted" style="flex-shrink: 0;">URL</span>
-        <a href="<%= @channel.channel_url %>" target="_blank" rel="noopener noreferrer" style="flex: 1; min-width: 0; word-break: break-all;"><%= @channel.channel_url %></a>
+    <div class="pane pane--standalone">
+      <%= render "channels/banner", channel: @channel %>
+
+      <div class="channel-identity" style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+        <% if @channel.avatar_url.present? %>
+          <%= image_tag @channel.avatar_url,
+                        alt: "channel avatar",
+                        style: "display: block; width: 64px; height: 64px; border-radius: 50%; object-fit: cover; border: 1px solid #ddd;" %>
+        <% else %>
+          <div class="channel-avatar-placeholder text-muted"
+               style="width: 64px; height: 64px; border-radius: 50%; border: 1px solid #ddd; display: flex; align-items: center; justify-content: center; font-size: 10px;"
+               aria-label="no avatar">no avatar</div>
+        <% end %>
+        <div style="min-width: 0; flex: 1;">
+          <div style="font-size: 14px; font-weight: 600;"><%= display_title %></div>
+          <div class="text-muted" style="margin-top: 2px;">
+            <% if @channel.handle.present? %>
+              <%= @channel.handle %>
+            <% else %>
+              <span aria-label="no handle">@—</span>
+            <% end %>
+          </div>
+        </div>
       </div>
+
+      <%# Outbound links. Both open in a new tab. Skip rendering each
+          link if the URL builder returned nil (defense in depth —
+          the model regex should prevent malformed channel_url, but
+          we don't crash the view if it ever does). %>
+      <div class="dot-list" style="margin-bottom: 8px;">
+        <% if (yt_channel = youtube_channel_url(@channel)) %>
+          <%= render(BracketedLinkComponent.new(
+                label: "youtube channel",
+                href: yt_channel,
+                target: "_blank",
+                rel: "noopener noreferrer"
+              )) %>
+        <% end %>
+        <% if (yt_studio = youtube_studio_url(@channel)) %>
+          <%= render(BracketedLinkComponent.new(
+                label: "youtube studio",
+                href: yt_studio,
+                target: "_blank",
+                rel: "noopener noreferrer"
+              )) %>
+        <% end %>
+      </div>
+
+      <%# Description — plain-text + auto-linked URLs. The helper runs
+          input through `simple_format(sanitize: true)` which strips
+          `<script>` and `<img onerror>` payloads before any URL
+          rewriting happens. XSS-safe by construction. %>
+      <div class="channel-description" style="margin-bottom: 8px;">
+        <% description_html = channel_description_html(@channel) %>
+        <% if description_html.present? %>
+          <%= description_html %>
+        <% else %>
+          <p class="caption">no description yet.</p>
+        <% end %>
+      </div>
+
+      <%= render "channels/links", channel: @channel %>
+    </div>
+  </div>
+
+  <%# Row 2 — analytics summary. Three inline cells (subscribers,
+      views, videos) plus the `[full analytics]` outbound link to the
+      existing per-channel analytics page. NO inline sparkline (locked
+      decision — avoid chartkick coupling on the show page). %>
+  <div class="pane-row">
+    <div class="pane pane--standalone">
+      <h2 style="margin: 0 0 8px 0;">analytics</h2>
       <table class="detail-table" style="margin-bottom: 8px;">
         <tr>
-          <td class="text-muted" style="padding-right: 12px;">starred</td>
-          <td>
-            <%= @channel.star? ? "yes" : "no" %>
-            <%= form_with(model: @channel, html: { style: "display: inline; margin-left: 8px;" }) do |f| %>
-              <%= f.hidden_field :star, value: @channel.star? ? "no" : "yes" %>
-              <button type="submit" class="bracketed" style="background: none; border: none; cursor: pointer; padding: 0; color: inherit; font: inherit;">
-                [<%= @channel.star? ? "unstar" : "star" %>]
-              </button>
-            <% end %>
-          </td>
+          <td class="text-muted" style="padding-right: 12px;">subscribers</td>
+          <td><%= formatted_subscriber_count(@channel) %></td>
         </tr>
         <tr>
-          <td class="text-muted" style="padding-right: 12px;">last sync</td>
-          <td><%= compact_time_ago(@channel.last_synced_at) %></td>
+          <td class="text-muted" style="padding-right: 12px;">views</td>
+          <td><%= formatted_view_count(@channel) %></td>
+        </tr>
+        <tr>
+          <td class="text-muted" style="padding-right: 12px;">videos</td>
+          <td><%= formatted_video_count(@channel) %></td>
         </tr>
       </table>
+      <%= render(BracketedLinkComponent.new(
+            label: "full analytics",
+            href: channel_analytics_path(@channel)
+          )) %>
     </div>
+  </div>
 
-    <div class="pane">
-      <% videos = @channel.videos
-          .left_joins(:video_stats)
-          .select(
-            "videos.*",
-            "COALESCE(SUM(video_stats.views), 0) AS total_views",
-            "COALESCE(SUM(video_stats.likes), 0) AS total_likes"
-          )
-          .group("videos.id")
-          .order(created_at: :desc) %>
-
-      <h2>videos (<%= number_with_delimiter(@channel.videos.count) %>)</h2>
-      <%# Phase 21 — quick jump to the videos picker pre-filtered by this
-          channel. The `?channel=<slug>` param is read by
-          `VideosController#index` (Channel.friendly.find resolves slug-
-          or-id) and renders a clear-filter chip on the picker page. %>
-      <p style="margin: 0 0 8px 0;">
-        <%= render(BracketedLinkComponent.new(label: "see all videos for this channel", href: videos_path(channel: @channel.to_param))) %>
-      </p>
-
-      <% if videos.any? %>
-        <div data-controller="sortable-table" data-sortable-table-id-value="<%= @channel.id %>">
-          <table data-sortable-table-target="table">
-            <thead>
-              <tr>
-                <%= render(SortableHeaderComponent.new(label: "id", sort_type: "number", numeric: true)) %>
-                <%= render(SortableHeaderComponent.new(label: "YouTube id", sort_type: "string")) %>
-                <%= render(SortableHeaderComponent.new(label: "views", sort_type: "number", numeric: true)) %>
-                <%= render(SortableHeaderComponent.new(label: "likes", sort_type: "number", numeric: true)) %>
-              </tr>
-            </thead>
-            <tbody>
-              <% videos.each do |video| %>
-                <tr>
-                  <td class="num"><%= link_to video.id, video_path(video), data: { turbo_frame: "_top" } %></td>
-                  <td><%= video.youtube_video_id %></td>
-                  <td class="num"><%= number_with_delimiter(video.total_views) %></td>
-                  <td class="num"><%= number_with_delimiter(video.total_likes) %></td>
-                </tr>
-              <% end %>
-            </tbody>
-          </table>
-        </div>
-      <% else %>
-        <p class="caption">no videos yet.</p>
-      <% end %>
+  <%# Row 3 — videos pane. Starred-first, then latest by
+      COALESCE(published_at, created_at) DESC, capped at 30. The
+      `[see all]` link hands off to the videos picker pre-filtered by
+      this channel. %>
+  <div class="pane-row">
+    <div class="pane pane--standalone">
+      <%= render "channels/videos_pane", channel: @channel %>
     </div>
   </div>
 

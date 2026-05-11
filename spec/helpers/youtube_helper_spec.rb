@@ -83,4 +83,72 @@ RSpec.describe YoutubeHelper, type: :helper do
       expect(helper.format_scope_short_label("")).to eq("")
     end
   end
+
+  describe "#youtube_channel_id" do
+    it "extracts the UC id from a valid channel_url" do
+      channel = build_stubbed(
+        :channel,
+        channel_url: "https://www.youtube.com/channel/UC2T-WgvF-DQQfFNQieoRuQQ"
+      )
+      expect(helper.youtube_channel_id(channel)).to eq("UC2T-WgvF-DQQfFNQieoRuQQ")
+    end
+
+    it "returns nil when the channel_url does not match the UC pattern" do
+      channel = build_stubbed(:channel)
+      channel.channel_url = "https://example.com/not-a-channel"
+      expect(helper.youtube_channel_id(channel)).to be_nil
+    end
+
+    it "returns nil when the channel is nil" do
+      expect(helper.youtube_channel_id(nil)).to be_nil
+    end
+
+    it "returns nil when channel_url is nil" do
+      channel = build_stubbed(:channel)
+      channel.channel_url = nil
+      expect(helper.youtube_channel_id(channel)).to be_nil
+    end
+  end
+
+  describe "#youtube_channel_url" do
+    it "builds the public YouTube channel URL from a valid channel" do
+      channel = build_stubbed(
+        :channel,
+        channel_url: "https://www.youtube.com/channel/UC2T-WgvF-DQQfFNQieoRuQQ"
+      )
+      expect(helper.youtube_channel_url(channel))
+        .to eq("https://www.youtube.com/channel/UC2T-WgvF-DQQfFNQieoRuQQ")
+    end
+
+    it "returns nil when the id cannot be extracted" do
+      channel = build_stubbed(:channel)
+      channel.channel_url = "https://example.com/oops"
+      expect(helper.youtube_channel_url(channel)).to be_nil
+    end
+
+    it "returns nil for nil channel" do
+      expect(helper.youtube_channel_url(nil)).to be_nil
+    end
+  end
+
+  describe "#youtube_studio_url" do
+    it "builds the YouTube Studio URL from a valid channel" do
+      channel = build_stubbed(
+        :channel,
+        channel_url: "https://www.youtube.com/channel/UC2T-WgvF-DQQfFNQieoRuQQ"
+      )
+      expect(helper.youtube_studio_url(channel))
+        .to eq("https://studio.youtube.com/channel/UC2T-WgvF-DQQfFNQieoRuQQ")
+    end
+
+    it "returns nil when the id cannot be extracted" do
+      channel = build_stubbed(:channel)
+      channel.channel_url = "https://example.com/oops"
+      expect(helper.youtube_studio_url(channel)).to be_nil
+    end
+
+    it "returns nil for nil channel" do
+      expect(helper.youtube_studio_url(nil)).to be_nil
+    end
+  end
 end

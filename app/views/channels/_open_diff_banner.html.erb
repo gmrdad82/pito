@@ -1,0 +1,23 @@
+<%# Phase 7.5 §11i — open-diff banner partial.
+
+    Rendered inside the `channel_diff_banner` Turbo Frame on the
+    channel show page when `channel.open_channel_diff` is present.
+    The cron job and the user-triggered `[sync]` path both broadcast
+    a Turbo Stream `replace` targeting this frame; the partial owns
+    the DOM the broadcast writes.
+
+    Locals:
+      - channel: the Channel the diff belongs to
+      - diff:    the open ChannelDiff row
+%>
+<%= turbo_frame_tag "channel_diff_banner" do %>
+  <div class="pane pane--standalone" style="margin-bottom: 8px; padding: 6px 10px;">
+    <span>
+      youtube has <%= diff.fields.size %>
+      newer value<%= 's' if diff.fields.size != 1 %>.
+    </span>
+    <%= link_to "[ review changes ]",
+                diff_channel_path(channel),
+                class: "bracketed" %>
+  </div>
+<% end %>

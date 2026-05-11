@@ -85,6 +85,10 @@ class Channel < ApplicationRecord
   # `ActiveRecord::ReadOnlyRecord` on `destroy`); the DB FK is
   # `ON DELETE CASCADE` so the rows still get cleaned up.
   has_many :channel_change_logs, dependent: :delete_all
+  # Phase 7.5 §11i — open-diff registry. One open `ChannelDiff` per
+  # channel (enforced by partial unique index). `dependent: :destroy`
+  # mirrors the DB-level `ON DELETE CASCADE` on the FK.
+  has_many :channel_diffs, dependent: :destroy
   # Phase 15 §1 — calendar entries cascade. The FK is also ON DELETE
   # CASCADE at the database level.
   has_many :calendar_entries, dependent: :destroy
@@ -252,6 +256,14 @@ class Channel < ApplicationRecord
     return nil unless handle_locked?
 
     handle_changed_at + TITLE_HANDLE_LOCK_WINDOW
+  end
+
+  # Phase 7.5 §11i — the at-most-one open ChannelDiff for this
+  # channel. Returns nil when no open diff exists. The partial unique
+  # index on `channel_diffs(channel_id) WHERE resolved_at IS NULL`
+  # guarantees the `.first` is the only one.
+  def open_channel_diff
+    channel_diffs.unresolved.first
   end
 
   private

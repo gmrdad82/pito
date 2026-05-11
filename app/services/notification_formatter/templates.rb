@@ -15,7 +15,8 @@ module NotificationFormatter
       "calendar_entry_firing"          => CalendarEntryFiring,
       "sync_error"                     => SyncError,
       "youtube_reauth_needed"          => YoutubeReauthNeeded,
-      "video_diff_detected"            => VideoDiffDetected
+      "video_diff_detected"            => VideoDiffDetected,
+      "channel_diff_detected"          => ChannelDiffDetected
     }.freeze
   end
 end
