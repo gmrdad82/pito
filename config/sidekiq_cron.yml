@@ -92,6 +92,23 @@ video_diff_check_bulk:
   queue: default
   description: "Phase 23 — fan-out daily YouTube video diff check across the catalogue"
 
+# Phase 7.5 §11i — daily Channel diff check.
+#
+# Walks every Channel with a connected `youtube_connection_id`, calls
+# `Youtube::Client#fetch_channel` (1 unit per channel), and persists
+# the divergence as an open `ChannelDiff` row when fields differ.
+# Refreshes display-only statistics columns silently on every pass.
+# Notifications fire when a fresh diff is detected OR the diffing
+# field set expands (locked Q1 dedupe).
+#
+# Schedule: 02:30 UTC. Staggered an hour after the video diff cron
+# (01:30 UTC) so the YouTube API quota windows don't collide.
+channel_diff_check:
+  cron: "30 2 * * *"
+  class: ChannelDiffCheckJob
+  queue: default
+  description: "Phase 7.5 §11i — daily YouTube channel diff check across every connected channel"
+
 # YouTube Data API v3 sync jobs — uncomment when beta YouTube integration is implemented
 #
 # sync_channels:

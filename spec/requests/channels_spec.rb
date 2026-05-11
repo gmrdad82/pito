@@ -586,28 +586,17 @@ RSpec.describe "Channels", type: :request do
     end
   end
 
+  # The full HTML rendering matrix for `/channels/:slug` lives in
+  # `spec/requests/channels_show_spec.rb` (Phase 7.5 §11b — show page
+  # revamp). The block below keeps the load-bearing controller-level
+  # contracts that survive the revamp: 200, sync link, delete link,
+  # JSON shape, 404, and the add-pane `[+]` button.
   describe "GET /channels/:id (show)" do
     let!(:channel) { create(:channel) }
 
     it "returns 200" do
       get channel_path(channel)
       expect(response).to have_http_status(:ok)
-    end
-
-    it "displays channel url" do
-      get channel_path(channel)
-      expect(response.body).to include(channel.channel_url)
-    end
-
-    it "renders the channel URL as an external (target=_blank) link" do
-      # Phase B revamp (2026-05-06) — the standalone `[v]` BracketedLink
-      # next to the URL row was dropped; the URL text itself is the
-      # external link, which already has `target="_blank"`. No separate
-      # `[v]` action is rendered.
-      get channel_path(channel)
-      expect(response.body).not_to include('class="bl">v</span>')
-      expect(response.body).to include('target="_blank"')
-      expect(response.body).to include(channel.channel_url)
     end
 
     it "includes sync link" do
@@ -644,77 +633,6 @@ RSpec.describe "Channels", type: :request do
       expect(JSON.parse(response.body)).to include("error" => "Not found")
     end
 
-    it "renders inline [star] toggle next to the starred row" do
-      get channel_path(channel)
-      # The [star] action is inline inside the starred row's value cell
-      # (next to "no"), not at the top of the page.
-      expect(response.body).to match(/starred<\/td>\s*<td>\s*no\s*<form[^>]*>.*?\[star\].*?<\/form>\s*<\/td>/m)
-    end
-
-    it "renders inline [unstar] when channel is already starred" do
-      starred = create(:channel, :starred)
-      get channel_path(starred)
-      expect(response.body).to match(/starred<\/td>\s*<td>\s*yes\s*<form[^>]*>.*?\[unstar\].*?<\/form>\s*<\/td>/m)
-    end
-
-    # The derived `connected` row was removed from the show-page detail
-    # pane alongside the rest of the per-channel connected surface —
-    # every channel is OAuth-linked by definition now. Connection
-    # metadata (Google account, scopes, last-authorized) lives at
-    # /settings/youtube.
-    it "does not render a `connected` row in the detail pane" do
-      get channel_path(channel)
-      expect(response.body).not_to match(/<td[^>]*>connected<\/td>/)
-    end
-
-    it "does not render an inline [connect] / [disconnect] toggle on the show page" do
-      get channel_path(channel)
-      expect(response.body).not_to include("[connect]")
-      expect(response.body).not_to include("[disconnect]")
-    end
-
-    it "does not render the legacy top-of-page star/connect action bar" do
-      get channel_path(channel)
-      header_section = response.body.split('<table class="detail-table"').first
-      expect(header_section).not_to include("[star]")
-      expect(header_section).not_to include("[unstar]")
-      expect(header_section).not_to include("[connect]")
-      expect(header_section).not_to include("[disconnect]")
-    end
-
-    # 2026-05-10 — the show page splits into two side-by-side panes inside
-    # a `.pane-row`: the left pane carries channel detail (URL, starred,
-    # last sync), the right pane carries the videos list. The row uses
-    # `.pane-row` (wrapping flex) rather than `.pane-strip` so the
-    # videos pane drops below the detail pane on narrow viewports.
-    it "wraps the show layout in pane-row containing two .pane children" do
-      get channel_path(channel)
-      expect(response.body).to include('<div class="pane-row">')
-      expect(response.body).to match(/<div class="pane-row">\s*<div class="pane">.*<div class="pane">/m)
-    end
-
-    it "renders the channel URL with break-all wrapping (no ellipsis truncation)" do
-      get channel_path(channel)
-      # The URL row was previously `class="truncate-url"` which clipped
-      # long URLs with `…`. The new layout drops that class and uses
-      # `word-break: break-all` so the full canonical URL stays visible.
-      url_anchor = response.body[/<a[^>]*href="#{Regexp.escape(channel.channel_url)}"[^>]*>/]
-      expect(url_anchor).not_to be_nil
-      expect(url_anchor).not_to include("truncate-url")
-      expect(url_anchor).to include("word-break: break-all")
-    end
-
-    it "renders the videos heading inside the second pane" do
-      get channel_path(channel)
-      # The videos list lives in the right (second) pane. Splitting the
-      # body at the second `.pane` opening tag must yield a section that
-      # contains the `videos (N)` heading.
-      panes = response.body.split('<div class="pane">')
-      expect(panes.length).to be >= 3 # one prefix + two pane bodies
-      videos_pane_body = panes[2]
-      expect(videos_pane_body).to match(/<h2>videos \(\d/)
-    end
-
     # Copy fix (2026-05-10) — the heading row's add-pane trigger renders
     # as `[+]` (not `[|]`). The action is unchanged (opens the add-pane
     # modal via `click->add-pane#open`); only the displayed glyph is `+`.
@@ -723,26 +641,6 @@ RSpec.describe "Channels", type: :request do
       get channel_path(channel)
       expect(response.body).to match(%r{\[<span class="bl">\+</span>\]})
       expect(response.body).not_to match(%r{\[<span class="bl">\|</span>\]})
-    end
-
-    # Phase 21 — quick jump from the channel show to the videos picker
-    # pre-filtered by this channel. The link is a 1-line addition to
-    # the videos pane on the show page; the full channel-show revamp
-    # comes later. The link uses the slug (channel.to_param) so the
-    # videos picker's `?channel=` filter resolves via the canonical
-    # FriendlyId slug rather than the integer id.
-    it "renders [see all videos for this channel] inside the videos pane" do
-      get channel_path(channel)
-      expect(response.body).to include("see all videos for this channel")
-      expect(response.body).to include("href=\"#{videos_path(channel: channel.to_param)}\"")
-    end
-
-    it "scopes the [see all videos] link inside the second (videos) pane" do
-      get channel_path(channel)
-      panes = response.body.split('<div class="pane">')
-      expect(panes.length).to be >= 3
-      videos_pane_body = panes[2]
-      expect(videos_pane_body).to include("see all videos for this channel")
     end
   end
 

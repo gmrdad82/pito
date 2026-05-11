@@ -60,7 +60,13 @@ class Notification < ApplicationRecord
     # diff field-by-field at `/videos/:slug/diff`. Severity `info` —
     # not urgent, not destructive, just "you have something to look
     # at".
-    video_diff_detected: 9
+    video_diff_detected: 9,
+    # Phase 7.5 §11i — emitted by `ChannelDiffCheckJob` when a
+    # connected channel's YouTube state has diverged from Pito's
+    # cached row. Dedupe posture: notify on fresh row or expanded
+    # field set; skip on same-set / contracted-set passes. Resolution
+    # surface lives at `/channels/:slug/diff`.
+    channel_diff_detected: 10
   }
   enum :severity, { info: 0, success: 1, warn: 2, urgent: 3 }
 

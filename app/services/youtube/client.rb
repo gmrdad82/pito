@@ -81,6 +81,152 @@ module Youtube
       normalize_channel_item(item)
     end
 
+    # Phase 7.5 §11c — Channel edit form. Destructive PUT against
+    # `channels.update` using the read-modify-write pattern: fetch the
+    # current `brandingSettings` first, merge the caller's dirty subset
+    # into the response body, then PUT the merged body back. Without
+    # the read, YouTube treats every absent sibling field on PUT as a
+    # blank-out request — which is how channels accidentally lose their
+    # country, default language, or keywords.
+    #
+    # `field_set` is a Pito-shape Hash with one or more of:
+    #   :title, :description, :country, :default_language, :keywords
+    #
+    # The `:handle` field is excluded from this entrypoint — YouTube
+    # exposes a dedicated handle-management endpoint (verified by the
+    # Phase 7.5 §11c research dispatch); see `#update_handle` for that
+    # path. The controller branches between the two before dispatching.
+    #
+    # Returns the parsed response as a snake_case Ruby Hash matching
+    # the `Channel` cached-column shape (`title`, `description`,
+    # `country`, `default_language`, `keywords`). Never leaks the
+    # `Google::Apis::YoutubeV3::Channel` struct to callers.
+    UPDATE_CHANNEL_BRANDING_KEYS = %i[title description country default_language keywords].freeze
+
+    def update_channel(channel, field_set)
+      raise ArgumentError, "channel required" if channel.nil?
+      raise ArgumentError, "field_set must be a Hash" unless field_set.is_a?(Hash)
+
+      branding_keys = field_set.slice(*UPDATE_CHANNEL_BRANDING_KEYS)
+      raise ArgumentError, "field_set has no supported keys" if branding_keys.empty?
+
+      youtube_channel_id = extract_youtube_channel_id(channel)
+
+      # Step 1 — read-modify-write phase 1: pull the current
+      # brandingSettings so we can merge instead of blank-out.
+      current_branding = read_current_branding(youtube_channel_id)
+
+      # Step 2 — merge the Pito-shape dirty subset into the YouTube
+      # snake_case branding hash. The Google gem accepts snake_case
+      # attribute names on `ChannelBrandingSettings#channel`; the
+      # representation layer flips them back to camelCase on the wire.
+      merged_channel_section = current_branding.merge(
+        branding_keys.compact.transform_keys(&:to_sym)
+      )
+
+      # Step 3 — destructive PUT. Pass `id` so YouTube knows which
+      # channel we're updating (when `mine: true`-scoped, this is the
+      # connected channel; explicit `id` is safer).
+      perform("channels.update", "PUT") do
+        svc = data_service
+        branding_settings = Google::Apis::YoutubeV3::ChannelBrandingSettings.new(
+          channel: Google::Apis::YoutubeV3::ChannelSettings.new(**merged_channel_section)
+        )
+        channel_object = Google::Apis::YoutubeV3::Channel.new(
+          id: youtube_channel_id,
+          branding_settings: branding_settings
+        )
+        response = svc.update_channel("brandingSettings", channel_object)
+        normalize_channel_item(symbolize_struct(response))
+      end
+    end
+
+    # Phase 7.5 §11i — handle push surface.
+    #
+    # YouTube exposes a dedicated handle-management endpoint that is
+    # NOT part of `channels.update#brandingSettings`. The full API
+    # surface lands with 11c follow-up research; until that ships the
+    # stub raises `NotImplementedError` so an `accept pito` decision on
+    # `handle` in the diff resolution flow surfaces a clear "this push
+    # path isn't wired yet" error rather than a silent no-op.
+    #
+    # The method is left on the class (rather than removed) because
+    # `Channels::DiffApply` dispatches `accept pito` on `handle`
+    # through it; the dispatch chain is tested via stubbed clients
+    # until the real endpoint ships.
+    def update_handle(channel, value)
+      raise ArgumentError, "channel required" if channel.nil?
+      raise ArgumentError, "value required"   if value.nil?
+
+      raise NotImplementedError,
+            "Youtube::Client#update_handle is not yet wired — see Phase 7.5 §11c follow-up research. " \
+            "Use the YouTube Studio UI to change the handle for now."
+    end
+
+    # Phase 7.5 §11c — uploads a new watermark image and sets the
+    # accompanying timing. `io` is any IO-like object the user-supplied
+    # file is exposed as (e.g., `params[:channel][:watermark]`, an
+    # `ActionDispatch::Http::UploadedFile`). `timing` is one of the
+    # values in `Channel::WATERMARK_TIMINGS`; `offset_ms` is required
+    # iff `timing` is `offset_from_start` / `offset_from_end` and is
+    # ignored otherwise.
+    #
+    # Returns the cached `watermark_url` (the `image_url` from the
+    # parsed YouTube response). The caller uses that to populate
+    # `channel.watermark_url` in the cache write that follows.
+    WATERMARK_TIMING_API_MAPPING = {
+      "always"             => "always",
+      "entire_video"       => "entireVideo",
+      "offset_from_start"  => "offsetFromStart",
+      "offset_from_end"    => "offsetFromEnd"
+    }.freeze
+
+    def set_watermark(channel, io, timing, offset_ms = nil)
+      raise ArgumentError, "channel required" if channel.nil?
+      raise ArgumentError, "io required" if io.nil?
+      raise ArgumentError, "unknown timing #{timing.inspect}" unless WATERMARK_TIMING_API_MAPPING.key?(timing.to_s)
+
+      youtube_channel_id = extract_youtube_channel_id(channel)
+      api_timing_type = WATERMARK_TIMING_API_MAPPING[timing.to_s]
+
+      timing_object = Google::Apis::YoutubeV3::InvideoTiming.new(type: api_timing_type)
+      if %w[offset_from_start offset_from_end].include?(timing.to_s)
+        raise ArgumentError, "offset_ms required for #{timing}" if offset_ms.nil?
+        timing_object.offset_ms = offset_ms.to_i
+      end
+
+      branding_object = Google::Apis::YoutubeV3::InvideoBranding.new(timing: timing_object)
+
+      perform("watermarks.set", "POST") do
+        svc = data_service
+        content_type = io.respond_to?(:content_type) ? io.content_type : "image/png"
+        svc.set_watermark(
+          youtube_channel_id,
+          branding_object,
+          upload_source: io,
+          content_type: content_type
+        )
+        # `watermarks.set` returns no body on success. The cached
+        # watermark URL is opaque to us until the next channel sync
+        # surfaces it, so the caller persists `timing` / `offset_ms`
+        # locally and leaves `watermark_url` for the diff job (11i) to
+        # backfill.
+        { ok: true }
+      end
+    end
+
+    def unset_watermark(channel)
+      raise ArgumentError, "channel required" if channel.nil?
+
+      youtube_channel_id = extract_youtube_channel_id(channel)
+
+      perform("watermarks.unset", "POST") do
+        svc = data_service
+        svc.unset_watermark(youtube_channel_id)
+        { ok: true }
+      end
+    end
+
     # GET /youtube/v3/videos
     def videos_list(ids:, parts: %i[snippet statistics contentDetails],
                     max_results: 50, page_token: nil)
@@ -276,6 +422,49 @@ module Youtube
           end
           raise
         end
+      end
+    end
+
+    # Phase 7.5 §11c — extract the YouTube channel id (the `UC...`
+    # suffix) from a `Channel`'s `channel_url`. Used by the destructive
+    # write entrypoints (channels.update / watermarks.set /
+    # watermarks.unset) to scope the call to the specific channel.
+    def extract_youtube_channel_id(channel)
+      url = channel.respond_to?(:channel_url) ? channel.channel_url.to_s : channel.to_s
+      m = url.match(%r{/channel/(UC[A-Za-z0-9_-]{22})})
+      raise ArgumentError, "cannot extract YouTube channel id from #{url.inspect}" if m.nil?
+
+      m[1]
+    end
+
+    # Phase 7.5 §11c — read-modify-write phase 1. Fetches the current
+    # `brandingSettings.channel` block via `channels.list`. Returns a
+    # snake_case Hash containing only the keys YouTube actually
+    # returned (nil-valued keys are dropped). This goes inside the
+    # same `perform(...)` chokepoint as every other call so the audit
+    # row + quota check + retry semantics apply.
+    BRANDING_READ_KEYS = %i[title description country default_language keywords].freeze
+
+    def read_current_branding(youtube_channel_id)
+      result = perform("channels.list", "GET") do
+        svc = data_service
+        response = svc.list_channels(
+          "brandingSettings",
+          id: youtube_channel_id,
+          max_results: 1
+        )
+        normalize_list(response)
+      end
+
+      item = result[:items].first
+      return {} if item.nil?
+
+      branding = item[:branding_settings] || {}
+      branding_channel = branding[:channel] || {}
+
+      BRANDING_READ_KEYS.each_with_object({}) do |key, h|
+        value = branding_channel[key]
+        h[key] = value unless value.nil?
       end
     end
 

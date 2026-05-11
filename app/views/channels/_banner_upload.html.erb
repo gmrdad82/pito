@@ -1,0 +1,18 @@
+<%# Phase 7.5 §11c slot — banner upload partial. The full Stimulus
+    controller + multi-size preview + `Youtube::Client#upload_banner`
+    integration lives in sub-spec 11f. 11c ships an empty partial so
+    the edit form renders before 11f lands.
+    TODO(11f): replace with the full banner-upload partial. %>
+<fieldset style="margin-bottom: 16px; border: 1px solid #ddd; padding: 8px 12px;">
+  <legend>banner</legend>
+  <p class="form-hint" style="font-size: 11px;">
+    banner upload coming soon (11f).<br>
+    expected: 2048×1152 minimum, 16:9 aspect ratio, JPEG or PNG.
+  </p>
+  <% if channel.banner_url.present? %>
+    <p class="form-hint" style="font-size: 11px;">
+      current banner:
+      <%= link_to channel.banner_url, channel.banner_url, target: "_blank", rel: "noopener noreferrer" %>
+    </p>
+  <% end %>
+</fieldset>

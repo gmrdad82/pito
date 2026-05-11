@@ -14,6 +14,7 @@ module Youtube
   module Quota
     COSTS = {
       "channels.list"      => 1,
+      "channels.update"    => 50, # Phase 7.5 §11c — channel-edit destructive PUT.
       "videos.list"        => 1,
       "videos.update"      => 50, # Phase 12 — read-modify-write sync-back cost.
       "playlists.list"     => 1,
@@ -21,6 +22,10 @@ module Youtube
       "search.list"        => 100,
       "subscriptions.list" => 1,
       "captions.list"      => 50,
+      # Phase 7.5 §11c — watermark CRUD endpoints. Both billed at 50
+      # units per YouTube's documented unit cost.
+      "watermarks.set"     => 50,
+      "watermarks.unset"   => 50,
       # YouTube Analytics v2:
       "reports.query"      => 1,
       # OAuth2 revoke endpoint — billed at 0 (not part of YouTube

@@ -1,0 +1,58 @@
+<%# Phase 7.5 §11i — channel diff resolution page.
+
+    Renders the three-column side-by-side reconciliation between
+    Pito's cached channel row and the YouTube authoritative state.
+    The user picks `[accept pito]` or `[accept youtube]` per field;
+    `[apply changes]` commits the decisions in a single transaction.
+
+    Locked decisions guiding the layout:
+      D20  — default radio per row is `accept youtube` (YouTube
+             remains the source of truth).
+      Q1   — banner copy reflects the diffing field count.
+      Q3   — partial-failure UX: on push failure, the same template
+             re-renders with `@apply_failing_field` highlighted in
+             the alert flash.
+%>
+<% page_label = "channel ##{@channel.id} diff" %>
+<% content_for(:title, page_label) %>
+<% breadcrumb(["channels", channels_path], ["channel ##{@channel.id}", channel_path(@channel)], "diff") %>
+
+<% if @diff.nil? %>
+  <%# Defensive — the controller redirects on no-diff, but a
+      validation failure re-rendering this template still wants a
+      clear "no diff" message rather than crashing on a nil. %>
+  <div class="pane pane--standalone">
+    <h1>diff</h1>
+    <p class="text-muted">no open diff for this channel.</p>
+    <p><%= link_to "[ back to channel ]", channel_path(@channel), class: "bracketed" %></p>
+  </div>
+<% else %>
+  <div class="pane pane--standalone">
+    <h1>resolve diff — channel #<%= @channel.id %></h1>
+    <p class="text-muted" style="margin-bottom: 8px;">
+      youtube is the source of truth.<br>
+      pick <code>accept youtube</code> to update the local cache.<br>
+      pick <code>accept pito</code> to push the local value back to youtube.
+    </p>
+    <p class="text-muted">
+      detected <%= compact_time_ago(@diff.detected_at) %> ·
+      <%= @diff.fields.size %> field<%= 's' if @diff.fields.size != 1 %> differ
+    </p>
+    <p>
+      <strong>channel url:</strong>
+      <code style="word-break: break-all;"><%= @channel.channel_url %></code>
+    </p>
+
+    <%= render "shared/diff_table",
+               subject: @channel,
+               fields: @diff.fields,
+               diff: @diff,
+               decision_form_url: apply_diff_channel_path(@channel),
+               decision_name: "decisions",
+               display_only_fields: Channels::DiffApply::UNSUPPORTED_PITO_FIELDS %>
+
+    <p style="margin-top: 16px;">
+      <%= link_to "[ cancel ]", channel_path(@channel), class: "bracketed" %>
+    </p>
+  </div>
+<% end %>

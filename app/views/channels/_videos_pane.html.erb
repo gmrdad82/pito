@@ -1,0 +1,46 @@
+<%# Phase 7.5 §11b — videos pane.
+    Lists the channel's videos in starred-first, then latest order,
+    capped at 30 total. Dedup is automatic: each video appears at most
+    once because the ORDER BY arranges the whole table — starred rows
+    bubble to the top, the remaining slots fill with newest-first.
+
+    `COALESCE(published_at, created_at)` lets the pane order correctly
+    both pre- and post-Phase-8 (before sync, `published_at` is nil on
+    every video, so we fall back to `created_at`).
+%>
+<% videos = channel.videos
+    .order(Arel.sql("star DESC, COALESCE(published_at, created_at) DESC"))
+    .limit(30) %>
+
+<h2 style="display: inline; margin-right: 8px;">videos (<%= number_with_delimiter(channel.videos.count) %>)</h2>
+<%= render(BracketedLinkComponent.new(
+      label: "see all",
+      href: videos_path(channel: channel.to_param)
+    )) %>
+
+<% if videos.any? %>
+  <div data-controller="sortable-table" data-sortable-table-id-value="channel-<%= channel.id %>-videos" style="margin-top: 8px;">
+    <table data-sortable-table-target="table">
+      <thead>
+        <tr>
+          <%= render(SortableHeaderComponent.new(label: "id", sort_type: "number", numeric: true)) %>
+          <%= render(SortableHeaderComponent.new(label: "YouTube id", sort_type: "string")) %>
+          <%= render(SortableHeaderComponent.new(label: "title", sort_type: "string")) %>
+          <%= render(SortableHeaderComponent.new(label: "star", sort_type: "string")) %>
+        </tr>
+      </thead>
+      <tbody>
+        <% videos.each do |video| %>
+          <tr>
+            <td class="num"><%= link_to video.id, video_path(video), data: { turbo_frame: "_top" } %></td>
+            <td><%= video.youtube_video_id %></td>
+            <td><%= video.title.presence || "untitled" %></td>
+            <td><%= video.star? ? "yes" : "no" %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% else %>
+  <p class="caption" style="margin-top: 8px;">no videos yet.</p>
+<% end %>

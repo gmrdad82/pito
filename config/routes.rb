@@ -84,6 +84,12 @@ Rails.application.routes.draw do
       # Nested videos endpoint used by the pito CLI: /channels/:id/videos.json
       # returns the videos belonging to the channel as a JSON array.
       get :videos
+      # Phase 7.5 §11i — open-diff resolution page. GET renders the
+      # three-column reconciliation page; PATCH consumes the per-
+      # field decisions form. JSON branch mirrors the
+      # `channel_diff_show` / `channel_diff_apply` MCP tools.
+      get   :diff
+      patch :apply_diff
     end
     # Phase 13.3 — Per-channel analytics dashboard. Singular `resource`
     # per master-agent decision (one analytics surface per channel).

@@ -4,6 +4,27 @@
 
 <h1>edit channel</h1>
 
-<div style="max-width: 560px;">
+<p class="text-muted">
+  edit the cached metadata for this channel.<br>
+  changes push to youtube and refresh pito's local cache on success.<br>
+  the channel url is locked after create — only the editable subset is shown below.
+</p>
+
+<%# Toast container — Phase 7.5 §11h owns the controller that
+    renders into here when the [remind me] link is clicked. We
+    ship the target now so 11h slots in without ERB churn. %>
+<div class="toast" role="status" aria-live="polite"
+     data-reminder-link-target="toast" hidden></div>
+
+<% unless @channel.youtube_connection_id %>
+  <div class="pane pane--standalone" style="margin-bottom: 12px; padding: 10px 14px;">
+    <p class="text-muted">
+      this channel is not connected to a google identity.<br>
+      edits save locally only until you connect via /settings/youtube.
+    </p>
+  </div>
+<% end %>
+
+<div class="pane pane--standalone" style="padding: 12px 16px;">
   <%= render "channels/form", channel: @channel, cancel_path: channel_path(@channel) %>
 </div>

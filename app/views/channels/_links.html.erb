@@ -1,0 +1,28 @@
+<%# Phase 7.5 §11b — links partial.
+    Iterates `channel.links` (jsonb array of `{ "title" => ..., "url" => ... }`)
+    and renders each as a bracketed external link. Empty state renders
+    the muted caption per the locked empty-state matrix.
+
+    Defense in depth: the model's `links_shape` validator rejects
+    malformed entries on write, but if a stale row carries a non-Hash
+    entry we skip it rather than crash the view.
+%>
+<% entries = Array(channel.links).select { |e| e.is_a?(Hash) } %>
+<% if entries.empty? %>
+  <p class="caption">no links yet.</p>
+<% else %>
+  <div class="dot-list channel-links">
+    <% entries.each do |entry| %>
+      <% title = (entry["title"] || entry[:title]).to_s %>
+      <% url = (entry["url"] || entry[:url]).to_s %>
+      <% if url.present? && title.present? %>
+        <%= render(BracketedLinkComponent.new(
+              label: title,
+              href: url,
+              target: "_blank",
+              rel: "noopener noreferrer"
+            )) %>
+      <% end %>
+    <% end %>
+  </div>
+<% end %>
