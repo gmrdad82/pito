@@ -24,6 +24,27 @@ RSpec.describe "channels/_google_panel.html.erb", type: :view do
     expect(root_classes).not_to include("pane--standalone")
   end
 
+  # 2026-05-11 (height fix) — equal-height pane regression guard.
+  # The /settings pane-rows render side-by-side panes at MATCHING
+  # heights because flex stretches each item's margin-box to the
+  # tallest sibling's height. When the Google pane carried an inline
+  # `margin-bottom: 8px` on its `.pane` root, the analytics pane
+  # (no such margin) and the Google pane had to share the same
+  # margin-box height — so the Google pane's BORDER-BOX shrank by
+  # 8px, leaving its background ending visibly above the analytics
+  # bottom edge. The /settings layout sidesteps this by keeping
+  # margin-bottom on the inner `<fieldset>` only; this pane follows
+  # the same rule.
+  it "does NOT set inline margin-bottom on its `.pane` root (breaks flex stretch)" do
+    channel = create(:channel)
+    render partial: "channels/google_panel", locals: { channel: channel, youtube_connection: nil }
+    root_open_tag = rendered[/<div class="pane"[^>]*data-google-panel[^>]*>/]
+    expect(root_open_tag).not_to be_nil,
+      "expected the Google panel root `<div class=\"pane\" data-google-panel ...>` to render"
+    expect(root_open_tag).not_to match(/margin-bottom\s*:/i),
+      "the Google pane root must not carry inline `margin-bottom` — it breaks side-by-side flex stretch with the analytics pane (asymmetric margins shrink the visible border-box). Move spacing to `.pane-row` margin-bottom (already 8px) or to an inner element."
+  end
+
   context "with a connection" do
     let(:user) { User.first || create(:user) }
     let(:connection) do

@@ -4,15 +4,21 @@
     `banner_url` is nil — no colored placeholder, no empty block.
     Once ChannelSync populates `banner_url` (Phase 8) the row appears.
 
+    2026-05-11 (later) — banner geometry was retuned to match
+    YouTube's channel-header aspect ratio (~6.2:1) so the detail
+    pane reads like the source layout. The `.channel-banner`
+    class owns the box (`aspect-ratio`, `border-radius`,
+    `overflow: hidden`) and the inner `<img>` covers it. Inline
+    `max-height: 200px` was dropped — `aspect-ratio` is now the
+    single source of truth for the banner's vertical size.
+
     Phase 7.5 §11f — the banner upload flow on the edit page uses
     a Turbo Stream to replace `#channel-banner-section` after a
     successful submit. This partial stays render-once on the show
     page; the section wrapper is owned by the edit / show callers.
 %>
 <% if channel.banner_url.present? %>
-  <div class="channel-banner" style="margin-bottom: 8px;">
-    <%= image_tag channel.banner_url,
-                  alt: "channel banner",
-                  style: "display: block; width: 100%; height: auto; max-height: 200px; object-fit: cover; border: 1px solid #ddd;" %>
+  <div class="channel-banner">
+    <%= image_tag channel.banner_url, alt: "channel banner" %>
   </div>
 <% end %>

@@ -2368,3 +2368,100 @@ section[data-shelf="outer-genres"] > section.sub-shelf:not(:first-of-type) {
   margin-top: 8px;
   padding-top: 8px;
 }
+
+/* 2026-05-11 — /channels/:id detail pane header.
+   Sizing + positioning mirror YouTube's desktop channel header
+   (wide ~6.2:1 banner, 160px circular avatar on the left, headline
+   stack on the right with large title + muted `@handle · subs ·
+   videos` meta line + description). The pito monospace font,
+   bracketed-link convention, and light/dark theme tokens stay
+   in place — only geometry was tuned to read like YouTube.
+
+   `.channel-banner` owns the box (aspect-ratio anchors the
+   vertical size so the row keeps proportions across viewport
+   widths). The inner `<img>` covers it. Rounded corners on by
+   default; drop to 0 if a future spec asks for a flat edge. */
+.channel-banner {
+  display: block;
+  width: 100%;
+  aspect-ratio: 6.2 / 1;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  margin-bottom: 12px;
+}
+
+.channel-banner img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Identity row — avatar on the left, headline stack on the right.
+   The 16px gap matches the visual breathing room YouTube renders
+   between the circular avatar and the title block. `align-items:
+   flex-start` keeps the avatar pinned to the top of the headline
+   so when the description wraps, the avatar doesn't drift down. */
+.channel-identity {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.channel-avatar {
+  flex: 0 0 160px;
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--color-border);
+  display: block;
+}
+
+.channel-avatar--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+}
+
+.channel-headline {
+  min-width: 0;
+  flex: 1;
+}
+
+/* Title — large + bold, mirroring YouTube's hierarchy. 28px keeps
+   the monospace title legible at desktop sizes without overflowing
+   the pane on narrow workspace columns. */
+.channel-headline__title {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--color-text-bold);
+  line-height: 1.2;
+  margin-bottom: 4px;
+  word-break: break-word;
+}
+
+/* Meta line — smaller and muted, mirrors YouTube's `@handle · N
+   subscribers · M videos` row. Inline-friendly so the bullet
+   separators sit on the same baseline. */
+.channel-headline__meta {
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+
+.channel-headline__sep {
+  margin: 0 6px;
+}
+
+.channel-headline__description {
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.channel-headline__description p {
+  margin: 0 0 4px 0;
+}
+

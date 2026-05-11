@@ -46,15 +46,31 @@ RSpec.describe VideoEndScreen, type: :model do
       expect(es).to be_valid
     end
 
-    it "forbids mixing a none row with other rows" do
+    it "forbids mixing a none row with other rows via direct create" do
+      # Direct-AR / MCP path: caller builds the `none` row without
+      # going through the parent's nested-attribute pipeline. The
+      # per-row DB query catches it.
       video = create(:video)
       create(:video_end_screen, video: video, kind: :related_video)
-      none = build(:video_end_screen, :none, video: video)
+      none = VideoEndScreen.new(video_id: video.id, kind: :none)
       expect(none).not_to be_valid
       expect(none.errors[:base]).to include(/cannot mix/)
     end
 
-    it "rejects a 5th non-none row" do
+    it "forbids mixing a none row with other rows via nested attributes (parent guard)" do
+      # Parent-driven path: `Video#end_screens_invariants` runs
+      # against the in-memory collection and catches violations
+      # the per-row DB query can't see (e.g., a rejected create
+      # alongside an existing row).
+      video = create(:video)
+      create(:video_end_screen, video: video, kind: :related_video)
+      video.reload
+      video.video_end_screens_attributes = [ { kind: "none" } ]
+      expect(video).not_to be_valid
+      expect(video.errors.full_messages.join(" ")).to match(/cannot mix/)
+    end
+
+    it "rejects a 5th non-none row via direct create" do
       video = create(:video)
       4.times do |i|
         create(:video_end_screen,
@@ -63,11 +79,16 @@ RSpec.describe VideoEndScreen, type: :model do
                target_id: "yt#{i}",
                position: i)
       end
-      fifth = build(:video_end_screen,
-                    video: video,
-                    kind: :related_video,
-                    target_id: "yt5",
-                    position: 5)
+      # Build without going through video.video_end_screens.build —
+      # the inverse_of would otherwise stash this row in the parent
+      # and route the check through `parent_is_saving_via_nested_attributes?`.
+      fifth = VideoEndScreen.new(
+        video_id: video.id,
+        kind: :related_video,
+        target_id: "yt5",
+        target_label: "fifth",
+        position: 5
+      )
       expect(fifth).not_to be_valid
       expect(fifth.errors[:base]).to include(/no more than 4/)
     end

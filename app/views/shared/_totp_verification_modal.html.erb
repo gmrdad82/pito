@@ -15,10 +15,12 @@
         `data-action="submit->totp-modal#maybeIntercept"`.
       - On submit, the controller checks `data-totp-modal-required-value`
         on the form. When "yes", it preventDefault's the native submit,
-        opens THIS dialog, focuses the first box, and waits for either
-        `[confirm]` (writes the code into a hidden `totp_code` field
-        inside the original form and re-submits) or `[cancel]` /
-        backdrop / Esc (drops the dialog, form stays unsubmitted).
+        opens THIS dialog, and focuses the first box. As soon as all 6
+        digits are present (typed or pasted), the dialog controller
+        writes the code into a hidden `totp_code` field inside the
+        original form and re-submits — no button click required.
+        `[cancel]` / backdrop / Esc drop the dialog with the form
+        unsubmitted.
       - When "no", the submit passes through untouched.
 
     Segmented input UX:
@@ -29,8 +31,9 @@
         clears it in place.
       - Paste of a 6-char numeric string into ANY box fills all 6 from
         the left.
-      - `[confirm]` (bracketed) submits; disabled until 6 digits typed.
-      - `[cancel]` closes without submitting.
+      - Auto-submit fires the instant all 6 digits are present (whether
+        typed or pasted) — there is no `[confirm]` button.
+      - `[cancel]` closes without submitting (Esc + backdrop too).
 
     No JS `confirm()` / `alert()` / `prompt()` / `data-turbo-confirm`
     (CLAUDE.md hard rule). The dialog IS the confirmation surface. %>
@@ -61,11 +64,6 @@
     </div>
 
     <div class="modal-footer confirm-modal-actions">
-      <button type="button"
-              class="bracketed"
-              data-totp-modal-dialog-target="confirm"
-              data-action="totp-modal-dialog#confirm"
-              disabled>[<span class="bl">confirm</span>]</button>
       <button type="button"
               class="bracketed"
               data-action="totp-modal-dialog#close">[<span class="bl">cancel</span>]</button>

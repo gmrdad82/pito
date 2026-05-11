@@ -19,12 +19,23 @@
     as the even-indexed sibling it paints with `--color-pane-bg-b`,
     visually distinct from the analytics pane on its left
     (`--color-pane-bg-a`). Matches the /settings layout pattern.
+
+    2026-05-11 (height fix) — the inline `margin-bottom: 8px` on
+    this root pane was dropped. Flex items in a `.pane-row` stretch
+    their MARGIN-BOX to the tallest sibling (default `align-items:
+    stretch`). With the 8px bottom margin, this pane's visible
+    border-box ended 8px ABOVE the analytics sibling's bottom edge,
+    making the Google pane look 8px shorter even though both flex
+    items had equal height. /settings panes never set `margin-bottom`
+    on the pane element itself — they keep the margin on the inner
+    `<fieldset>` instead — so their adjacent panes' backgrounds align
+    flush. Below-pane spacing is preserved by the `.pane-row`'s own
+    `margin-bottom: 8px`.
 %>
 
 <% local_connection = local_assigns[:youtube_connection] || channel.youtube_connection %>
 
-<div class="pane" data-google-panel
-     style="margin-bottom: 8px;">
+<div class="pane" data-google-panel>
   <h2 style="margin: 0 0 8px 0;">Google</h2>
 
   <% if local_connection.present? %>
