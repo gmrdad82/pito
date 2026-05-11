@@ -1,0 +1,36 @@
+<%# Phase 11 §01a — Video edit page polish. Thumbnail attach +
+    preview. PNG / JPEG, ≤2 MB; server-side validation in
+    `Video#thumbnail_content_type_and_size`. Local-only in v1;
+    YouTube push-back deferred (parent open question §4).
+
+    Locals:
+      `video` — the Video instance.
+      `f`     — the form builder from `_form.html.erb`. %>
+<fieldset style="margin-bottom: 12px;">
+  <legend>thumbnail</legend>
+
+  <% if video.thumbnail.attached? %>
+    <% if video.thumbnail_preview %>
+      <div style="margin-bottom: 6px;">
+        <%= image_tag video.thumbnail_preview,
+              alt: "video thumbnail preview",
+              style: "max-width: 320px; max-height: 180px; border: 1px solid #ddd;" %>
+      </div>
+    <% end %>
+    <p class="form-hint" style="font-size: 11px;">
+      attached: <%= video.thumbnail.filename %>
+      (<%= number_to_human_size(video.thumbnail.byte_size) %>)
+    </p>
+  <% else %>
+    <p class="form-hint" style="font-size: 11px;">no thumbnail attached yet.</p>
+  <% end %>
+
+  <div style="margin-bottom: 6px;">
+    <%= f.label :thumbnail, "replace thumbnail" %>
+    <%= f.file_field :thumbnail,
+          accept: "image/png,image/jpeg" %>
+    <p class="form-hint" style="font-size: 11px;">
+      png or jpeg, max 2 mb.
+    </p>
+  </div>
+</fieldset>

@@ -88,6 +88,30 @@ class Video < ApplicationRecord
   has_many :linked_games,   through: :video_game_links, source: :game
   has_many :linked_bundles, through: :video_game_links, source: :bundle
 
+  # Phase 11 §01a — Video edit page polish. Thumbnail attaches via
+  # Active Storage; chapters / end-screens live in dedicated tables
+  # and accept nested attributes from the edit form.
+  #
+  # Thumbnail content-type + size validated inline below
+  # (`thumbnail_content_type_and_size`). Local-only in v1 — pushing
+  # the bytes back to YouTube via `thumbnails.set` is parent open
+  # question §4 (deferred; hook point reserved in `VideoSyncBack`).
+  has_one_attached :thumbnail
+
+  has_many :video_chapters,
+           -> { order(:start_seconds) },
+           dependent: :destroy
+  has_many :video_end_screens,
+           -> { order(:position, :id) },
+           dependent: :destroy
+
+  accepts_nested_attributes_for :video_chapters,
+                                allow_destroy: true,
+                                reject_if: :all_blank
+  accepts_nested_attributes_for :video_end_screens,
+                                allow_destroy: true,
+                                reject_if: :all_blank
+
   scope :linked_to_game,
         ->(game) { joins(:video_game_links).where(video_game_links: { game_id: game.id }) }
   scope :linked_to_bundle,
@@ -130,6 +154,15 @@ class Video < ApplicationRecord
 
   validate :publish_at_must_be_in_future
   validate :publish_at_only_when_private
+
+  # Phase 11 §01a — Video edit page polish. PNG / JPEG only,
+  # ≤2 MB. The local pipeline renders the preview via a 320×180
+  # `:thumbnail_sm` variant (architect lean on parent open question
+  # §1). YouTube-side `thumbnails.set` push-back is deferred (parent
+  # open question §4) — reserved hook in `VideoSyncBack`.
+  THUMBNAIL_ALLOWED_TYPES = %w[image/png image/jpeg].freeze
+  THUMBNAIL_MAX_BYTES = 2 * 1024 * 1024
+  validate :thumbnail_content_type_and_size
 
   # Phase 23 §23a — display-only counters from `videos.list#statistics`.
   # YouTube returns counts as strings; the diff computer coerces to
@@ -316,6 +349,15 @@ class Video < ApplicationRecord
     nil
   end
 
+  # Phase 11 §01a — preview variant for the edit pane.
+  # 320×180 is the architect's locked v1 size (16:9, low-bandwidth
+  # preview). Larger variants land if/when the show page renders the
+  # thumbnail too.
+  def thumbnail_preview
+    return nil unless thumbnail.attached?
+    thumbnail.variant(resize_to_limit: [ 320, 180 ])
+  end
+
   private
 
   def enqueue_sync_back
@@ -397,5 +439,20 @@ class Video < ApplicationRecord
     return if publish_at.blank?
     return if privacy_private?
     errors.add(:publish_at, "can only be set when privacy_status is private")
+  end
+
+  # Phase 11 §01a — PNG / JPEG only, ≤2 MB. Validates on attach so a
+  # bad upload re-renders the form with an inline error instead of
+  # silently landing a malformed blob.
+  def thumbnail_content_type_and_size
+    return unless thumbnail.attached?
+
+    if THUMBNAIL_ALLOWED_TYPES.exclude?(thumbnail.blob.content_type)
+      errors.add(:thumbnail, "must be a PNG or JPEG image")
+    end
+    if thumbnail.blob.byte_size > THUMBNAIL_MAX_BYTES
+      errors.add(:thumbnail,
+                 "is too large (max #{THUMBNAIL_MAX_BYTES / 1024 / 1024} MB)")
+    end
   end
 end

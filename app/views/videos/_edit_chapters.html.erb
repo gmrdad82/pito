@@ -1,0 +1,45 @@
+<%# Phase 11 §01a — Chapters nested-form editor. `[add chapter]`
+    adds a row via the `nested-form` Stimulus controller; `[remove]`
+    sets `_destroy: 1` and hides the row. Render order is
+    `start_seconds ASC` (model `ordered` scope) — newly added rows
+    sit at the bottom until submit-and-reload.
+
+    The hidden `<template>` carries one chapter-row partial with
+    placeholder `__INDEX__` keys; Stimulus swaps that token for
+    `Date.now()` on click so each new row gets a unique nested
+    attribute index.
+
+    Locals:
+      `video` — the Video instance.
+      `f`     — the form builder from `_form.html.erb`. %>
+<fieldset style="margin-bottom: 12px;"
+          data-controller="nested-form"
+          data-nested-form-wrapper-selector-value="div[data-nested-form-target=\"row\"]">
+  <legend>chapters</legend>
+
+  <p class="form-hint" style="font-size: 11px; margin-bottom: 6px;">
+    timestamps and labels stored locally. youtube derives chapters
+    from `00:00`-style description lines; v1 does not rewrite the
+    description.
+  </p>
+
+  <div data-nested-form-target="rows">
+    <%= f.fields_for :video_chapters, @video_chapters do |cf| %>
+      <%= render "video_chapters/fields", f: cf %>
+    <% end %>
+  </div>
+
+  <template data-nested-form-target="template">
+    <%= f.fields_for :video_chapters,
+          VideoChapter.new,
+          child_index: "__INDEX__" do |cf| %>
+      <%= render "video_chapters/fields", f: cf %>
+    <% end %>
+  </template>
+
+  <button type="button"
+          class="bracketed"
+          data-action="nested-form#add">
+    [add chapter]
+  </button>
+</fieldset>

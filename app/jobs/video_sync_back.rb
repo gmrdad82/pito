@@ -26,6 +26,13 @@ class VideoSyncBack
     return mark_no_connection(video) if connection.nil?
     return mark_needs_reauth(video) if connection.needs_reauth?
 
+    # Phase 11 §01a reserved hook — thumbnail YouTube push-back
+    # (parent open question §4). When the deferred follow-up lands,
+    # call `Youtube::ThumbnailsClient.new(connection).set_thumbnail(video)`
+    # here BEFORE the `update_video` call so the thumbnail bytes land
+    # alongside the writable-subset PUT. Today the thumbnail stays
+    # local-only via Active Storage; this comment is the bookmark.
+
     fresh = Youtube::VideosReader.new(connection).read_video(video)
     payload = Youtube::VideosClient.new(connection).update_video(video, fresh: fresh)
 

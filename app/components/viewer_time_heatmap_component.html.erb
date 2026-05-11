@@ -24,8 +24,10 @@
           <div
             class="viewer-time-heatmap__cell"
             role="cell"
+            tabindex="0"
             style="background-color: <%= background_for(dow, hod) %>;"
-            title="<%= tooltip_at(dow, hod) %>"
+            aria-label="<%= tooltip_at(dow, hod) %>"
+            data-tooltip="<%= tooltip_at(dow, hod) %>"
             data-dow="<%= dow %>"
             data-hod="<%= hod %>"
             data-intensity="<%= intensity_at(dow, hod).round(4) %>"

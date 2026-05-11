@@ -3,8 +3,13 @@
       self_declared_made_for_kids, contains_synthetic_media,
       project_id). Privacy and publish_at are read-only here — the
       [publish] / [schedule] / [unpublish] CTAs above the form
-      are the only paths that change them. %>
-<%= form_with model: video, url: video_path(video), method: :patch, local: true do |f| %>
+      are the only paths that change them.
+
+      Phase 11 §01a — multipart upload (thumbnail attachment) +
+      nested attributes for chapters and end-screens. The single
+      [save changes] submit persists every sub-section. %>
+<%= form_with model: video, url: video_path(video), method: :patch, local: true,
+              multipart: true do |f| %>
   <% if video.errors.any? %>
     <div class="flash-error" style="margin-bottom: 8px; padding: 4px 8px;">
       couldn't update — check the fields below.
@@ -35,26 +40,20 @@
     </div>
 
     <div style="margin-bottom: 6px;">
-      <label for="video_tags">tags (comma separated)</label>
-      <input type="text"
-             name="video[tags_csv]"
-             id="video_tags"
-             value="<%= Array(video.tags).join(", ") %>"
-             style="width: 100%; max-width: 480px;"
-             data-controller="tag-input">
-      <%# tags arrive as a CSV string; the controller parses on submit
-          (server side) into an array. The hidden array sentinel below
-          lets Rails' params parser see `tags[]` even when the input
-          stays empty. %>
-      <input type="hidden" name="video[tags][]" value="">
-    </div>
-
-    <div style="margin-bottom: 6px;">
       <label for="video_category_id">category id</label>
       <%= f.text_field :category_id, style: "width: 80px;" %>
       <span class="form-hint" style="font-size: 11px;">numeric (YouTube category id; 20 = Gaming).</span>
     </div>
   </fieldset>
+
+  <%# Phase 11 §01a — thumbnail, tags, chapters, end-screens
+      sub-sections stack inside the same .pane.pane--standalone
+      as the basics fieldset above. Each sub-section partial owns
+      its own <fieldset> for visual separation. %>
+  <%= render "videos/edit_thumbnail", video: video, f: f %>
+  <%= render "videos/edit_tags", video: video, f: f %>
+  <%= render "videos/edit_chapters", video: video, f: f %>
+  <%= render "videos/edit_end_screens", video: video, f: f %>
 
   <fieldset style="margin-bottom: 12px;">
     <legend>visibility</legend>

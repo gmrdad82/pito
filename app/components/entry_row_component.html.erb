@@ -20,7 +20,10 @@
   <td class="num calendar-row__date"><%= show_date ? date_label : "" %></td>
   <td class="num calendar-row__time">
     <% if all_day? %>
-      <span class="calendar-badge calendar-badge--all-day">all day</span>
+      <%# 2026-05-11 — `all day` rendered via the shared
+          StatusBadgeComponent. Border + muted color encode the
+          "neutral informational marker" status. %>
+      <%= render(StatusBadgeComponent.new(label: "all day", kind: :all_day)) %>
     <% else %>
       <%= time_label %>
     <% end %>

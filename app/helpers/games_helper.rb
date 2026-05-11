@@ -1,6 +1,6 @@
 # Phase 27 — Game tile + show-page formatting helpers.
 #
-# Two helpers live here:
+# Three helpers live here:
 #
 #   * `format_game_rating(rating)` — zero-pads an IGDB rating into a
 #     two-digit string (`5 → "05"`, `93 → "93"`). Returns `""` for nil
@@ -8,16 +8,24 @@
 #     Ratings >= 100 still render the full number; the zero-pad is a
 #     minimum-width contract, not a truncation.
 #
-#   * `game_meta_line(game)` — builds the second-line metadata string
-#     for the tile (`<NN>/100 · <YYYY>`). Drops parts gracefully when
-#     either side is missing — see the helper spec for the full
-#     truth table. Returns `""` when both rating and year are absent
-#     so the tile can `if line.present?` to omit the row.
+#   * `game_meta_line(game)` — builds the legacy plain-text second-line
+#     metadata string `<NN> · <YYYY>`. Used as the tile's native
+#     `title=` attribute (screen readers + tooltip-on-truncation) and
+#     by any caller that needs a flat string. The visual tile renders
+#     the colored badge directly via `Games::RatingBadgeComponent` —
+#     this helper is the inert text fallback.
 #
-#     2026-05-11 polish (Fix 5): the star glyph is gone from the
-#     rating segment app-wide. Tiles + the list-mode rating column
-#     now render `<NN>/100` (rating out of one hundred). The
-#     `STAR_GLYPH` constant is preserved for any remaining caller.
+#     2026-05-11 polish (Fix 2): the `/100` suffix was retired
+#     everywhere; the colored bold rating badge is the single visual
+#     surface for ratings. This helper still emits the integer rating
+#     so the title attribute reads cleanly.
+#
+#   * `game_rating_display(game)` — legacy `<NN>/100` string builder,
+#     preserved for back-compat in any caller that still expects the
+#     suffix. New surfaces should render the badge component instead.
+#
+#     2026-05-11 polish (Fix 5): the star glyph is gone from every
+#     rating surface.
 module GamesHelper
   STAR_GLYPH = "★" # ★
   MIDDLE_DOT = "·" # ·
@@ -39,41 +47,33 @@ module GamesHelper
     format("%02d", rating.to_i)
   end
 
-  # Compose the tile's second-line metadata string.
+  # Compose the tile's plain-text second-line metadata string.
   #
-  # The target layout (post 2026-05-11 polish) is:
+  # Layout (post 2026-05-11 Fix 2):
   #
-  #   <NN>/100 · <YYYY>
+  #   <NN> · <YYYY>
   #
   # Missing pieces drop out cleanly:
   #
-  #   rating only → "93/100"
+  #   rating only → "93"
   #   year only   → "2018"
-  #   both        → "93/100 · 2018"
+  #   both        → "93 · 2018"
   #   neither     → ""
   def game_meta_line(game)
-    rating_part = rating_segment(game)
+    rating_part = game.igdb_rating.present? ? game.igdb_rating.to_i.to_s : nil
     year_part   = game.release_year.presence&.to_s
 
     parts = [ rating_part, year_part ].compact_blank
     parts.join(" #{MIDDLE_DOT} ")
   end
 
-  # Render the rating cell / tile rating as `<NN>/100`. Returns `""`
-  # when `igdb_rating` is blank so callers can fall back to an em-dash.
-  # Coerces via `.to_i` (matches the show-page treatment) — IGDB rating
-  # is a `decimal(5,2)` in storage; the display is integer-out-of-100.
+  # Legacy `<NN>/100` rating string. Preserved for back-compat — the
+  # visual surfaces now use `Games::RatingBadgeComponent` instead.
+  # Returns `""` when `igdb_rating` is blank so callers can fall back
+  # to an em-dash.
   def game_rating_display(game)
     return "" if game.igdb_rating.blank?
 
     "#{game.igdb_rating.to_i}/100"
-  end
-
-  private
-
-  def rating_segment(game)
-    return nil if game.igdb_rating.blank?
-
-    game_rating_display(game)
   end
 end

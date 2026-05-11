@@ -48,7 +48,7 @@ class VideoViewerTimeBucket < ApplicationRecord
   # 4-tuples summed within each local (dow, hod) cell. `tz` may be an
   # IANA name (`"Europe/Bucharest"`), a Rails-friendly alias
   # (`"Eastern Time (US & Canada)"`), or an `ActiveSupport::TimeZone`
-  # instance — anything `ActiveSupport::TimeZone[]` resolves.
+  # instance — anything `Pito::TimeZone.resolve_iana` accepts.
   #
   # The conversion anchors each `(dow_utc, hod_utc)` pair to a
   # synthetic Sunday-at-midnight reference week, shifts to the target
@@ -59,7 +59,7 @@ class VideoViewerTimeBucket < ApplicationRecord
   # per-video and per-channel scopes (pre-filter via `where` /
   # `for_channel` before chaining).
   scope :rolled_up_to_tz, ->(tz) {
-    iana = resolve_iana(tz)
+    iana = Pito::TimeZone.resolve_iana(tz)
     # Reference Sunday at 00:00 UTC anchors the synthetic week the
     # rollup re-projects through the target zone. Any past Sunday
     # works — DST behavior depends on the date for ambiguous zones,
@@ -91,18 +91,4 @@ class VideoViewerTimeBucket < ApplicationRecord
       sanitize_sql_for_conditions([ sql, { tz: iana } ])
     )
   }
-
-  # Public for callers + the rolled_up scope. Accepts ActiveSupport::TimeZone,
-  # IANA names, or Rails-friendly aliases; always returns an IANA tz name.
-  def self.resolve_iana(tz)
-    case tz
-    when ActiveSupport::TimeZone
-      tz.tzinfo.name
-    when String, Symbol
-      lookup = ActiveSupport::TimeZone[tz.to_s]
-      lookup ? lookup.tzinfo.name : tz.to_s
-    else
-      "Etc/UTC"
-    end
-  end
 end

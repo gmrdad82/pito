@@ -68,8 +68,14 @@
         between lines inside one `<p class="text-muted">` so the
         existing margin / lead-paragraph styling holds. %>
     <%
+      # 2026-05-11 polish (Fix 3) — the `released:` line now renders
+      # the full date in `MM-DD-YYYY` format (was previously the year
+      # only). The label is suppressed entirely when `release_date`
+      # is nil — there is no `released: —` placeholder.
       meta_lines = []
-      meta_lines << "released: #{@game.release_year}" if @game.release_year
+      if @game.release_date.present?
+        meta_lines << "released: #{@game.release_date.strftime("%m-%d-%Y")}"
+      end
       developer_names = @game.developers.map(&:name)
       meta_lines << "dev: #{developer_names.join(", ")}" if developer_names.any?
       publisher_names = @game.publishers.map(&:name)
@@ -88,18 +94,37 @@
     <% end %>
 
     <h2 style="margin-top: 0;">ratings</h2>
+    <%# 2026-05-11 polish (Fix 2) — the `/ 100` literal is gone from
+        every rating cell. Each row renders the colored bold badge
+        followed by the vote count. Missing ratings render the badge's
+        muted em-dash in place of the integer. %>
     <table class="detail-table">
       <tr>
         <td class="text-muted" style="padding-right: 12px;">igdb</td>
-        <td><%= @game.igdb_rating ? "#{@game.igdb_rating.to_i} / 100 (#{@game.igdb_rating_count.to_i} votes)" : "—" %></td>
+        <td>
+          <%= render(Games::RatingBadgeComponent.new(rating: @game.igdb_rating)) %>
+          <% if @game.igdb_rating %>
+            <span class="text-muted">(<%= @game.igdb_rating_count.to_i %> votes)</span>
+          <% end %>
+        </td>
       </tr>
       <tr>
         <td class="text-muted" style="padding-right: 12px;">aggregated</td>
-        <td><%= @game.aggregated_rating ? "#{@game.aggregated_rating.to_i} / 100 (#{@game.aggregated_rating_count.to_i} votes)" : "—" %></td>
+        <td>
+          <%= render(Games::RatingBadgeComponent.new(rating: @game.aggregated_rating)) %>
+          <% if @game.aggregated_rating %>
+            <span class="text-muted">(<%= @game.aggregated_rating_count.to_i %> votes)</span>
+          <% end %>
+        </td>
       </tr>
       <tr>
         <td class="text-muted" style="padding-right: 12px;">total</td>
-        <td><%= @game.total_rating ? "#{@game.total_rating.to_i} / 100 (#{@game.total_rating_count.to_i} votes)" : "—" %></td>
+        <td>
+          <%= render(Games::RatingBadgeComponent.new(rating: @game.total_rating)) %>
+          <% if @game.total_rating %>
+            <span class="text-muted">(<%= @game.total_rating_count.to_i %> votes)</span>
+          <% end %>
+        </td>
       </tr>
     </table>
 

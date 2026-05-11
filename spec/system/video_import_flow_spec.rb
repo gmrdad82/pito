@@ -50,15 +50,17 @@ RSpec.describe "Video import flow", type: :system do
     expect(page).to have_content("import")
 
     # 2. Open the modal (rack_test follows the GET). 2026-05-11 redesign
-    #    swapped the inner `[videos] · [import]` pseudo-breadcrumb for
-    #    a real `[videos] / [import channels]` breadcrumb plus a single
-    #    `<h1>import channels</h1>` heading. Assert all three pieces
-    #    along with the tagline.
+    #    dropped the inner breadcrumb + inner `<h1>` — the outer page
+    #    heading `videos [import]` already supplies the navigation
+    #    context. The modal body is just the tagline + bulk toolbar +
+    #    table.
     visit "/imports/channels"
     expect(page).to have_content("pick the channels to pull new uploads from")
-    expect(page).to have_css("h1", text: "import channels")
-    expect(page).to have_content("[videos]")
-    expect(page).to have_content("[import channels]")
+    expect(page).to have_content("already-imported and previously-rejected videos are skipped")
+    # No inner heading or breadcrumb (those duplicated the outer page
+    # heading and confused the visual hierarchy).
+    expect(page).not_to have_css("h1", text: "import channels")
+    expect(page).not_to have_content("[import channels]")
     # The "no videos yet." note on the underlying /videos page was
     # dropped — it used to bleed through underneath the modal.
     expect(page).not_to have_content("no videos yet")

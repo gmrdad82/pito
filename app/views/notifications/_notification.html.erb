@@ -45,7 +45,12 @@
     <% end %>
   </td>
   <td style="padding: 4px 8px; vertical-align: top; white-space: nowrap;">
-    <span class="notification-severity-badge notification-severity-<%= payload[:severity] %>"><%= payload[:severity] %></span>
+    <%# 2026-05-11 — severity rendered via the shared StatusBadgeComponent.
+        The bordered span carries both the canonical `.status-badge` class
+        AND the legacy `.notification-severity-badge` / per-severity
+        modifier alias (the CSS rule covers both selectors), so existing
+        view specs that match the old class continue to pass. %>
+    <%= render(StatusBadgeComponent.new(label: payload[:severity], kind: payload[:severity].to_sym)) %>
   </td>
   <td style="padding: 4px 8px; vertical-align: top; white-space: nowrap;" class="text-muted">
     <%= payload[:fires_at_relative] %>

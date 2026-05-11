@@ -1,5 +1,99 @@
 # Phase 26 — log
 
+## 2026-05-11 — P26 reviewer non-blocking concerns (pito-rails-impl) [skipci]
+
+Applied the four P26 reviewer non-blocking concerns. Both 01e (daily digest)
+and 01g (viewer-time analytics) checkboxes were already ticked; this session
+is pure fix-forward against the reviewer playbook.
+
+### Fix-forward index
+
+- **Concern 1 — Install-level digest dispatch.** Rewrote
+  `app/jobs/daily_digest_scheduler_job.rb` so the scheduler picks a single
+  install-level "anchor" user (`User.order(:id).first`) instead of enumerating
+  every user with a digest-enabled channel. The anchor's `time_zone` decides
+  when the install's 09:00 local fires; the anchor's `last_digest_run_at`
+  carries the install-wide cooldown stamp. Composer is unchanged — it
+  already aggregates install-wide activity (channels, videos, footage, login
+  attempts, notifications) regardless of which user it is composing for.
+  Locked decision: ONE digest per install per day, regardless of user count.
+- **Concern 2 — `pick_users` EXISTS subquery.** Obviated by concern 1. The
+  scheduler no longer scans users; it picks the anchor directly. The
+  uncorrelated EXISTS is gone with the rest of the per-user loop.
+- **Concern 3 — Cross-user race.** Inherently addressed by the install-level
+  dispatch (cooldown stamp lives on a single row). The existing atomic
+  `UPDATE...WHERE last_digest_run_at <` claim guards the (rare) race
+  between two simultaneous ticks.
+- **Concern 4 — Heatmap tooltip accessibility.** Dropped native `title=` on
+  `app/components/viewer_time_heatmap_component.html.erb`. Each cell now
+  carries `tabindex="0"`, `aria-label` (screen-reader text), and
+  `data-tooltip` (rendered via a CSS-only `::after` pseudo-element on
+  hover/focus). Tailwind input updated in
+  `app/assets/tailwind/application.css`; rebuilt to `app/assets/builds/tailwind.css`.
+- **Concern 5 — `resolve_iana` relocation.** Moved off
+  `VideoViewerTimeBucket.resolve_iana` into the existing `Pito::*` lib
+  namespace: `app/lib/pito/time_zone.rb` with module-function
+  `Pito::TimeZone.resolve_iana(tz)`. Updated the single call site
+  (`VideoViewerTimeBucket.rolled_up_to_tz` scope). Spec coverage moved
+  to `spec/lib/pito/time_zone_spec.rb`.
+
+### Files touched
+
+**Edited:**
+
+- `app/jobs/daily_digest_scheduler_job.rb` — install-level dispatch.
+- `app/models/video_viewer_time_bucket.rb` — dropped `resolve_iana`; route
+  through `Pito::TimeZone.resolve_iana`.
+- `app/components/viewer_time_heatmap_component.html.erb` — `tabindex="0"`,
+  `aria-label`, `data-tooltip`; dropped `title=`.
+- `app/assets/tailwind/application.css` — CSS-only `::after` tooltip on
+  hover + focus; box-shadow ring on hover/focus for the cell.
+- `app/assets/builds/tailwind.css` — regenerated.
+- `spec/jobs/daily_digest_scheduler_job_spec.rb` — added the install-level
+  dispatch describe block (3 examples) asserting anchor pick, anchor-tz
+  pick window, and exactly-one-fire for multi-user installs.
+- `spec/components/viewer_time_heatmap_component_spec.rb` — replaced the
+  two `title*=` assertions with `data-tooltip` / `aria-label` versions;
+  added two new examples (no `title=` attribute, every cell `tabindex='0'`).
+- `spec/models/video_viewer_time_bucket_spec.rb` — dropped the
+  `.resolve_iana` describe block (moved out).
+
+**Added:**
+
+- `app/lib/pito/time_zone.rb` — `Pito::TimeZone.resolve_iana` module
+  function.
+- `spec/lib/pito/time_zone_spec.rb` — 6 examples covering all input
+  shapes (IANA, alias, ActiveSupport::TimeZone, nil, symbol, unrecognized).
+
+### Spec count delta
+
+- `+3` scheduler examples (install-level dispatch describe block)
+- `+2` heatmap component examples (no `title`, tabindex)
+- `+6` new Pito::TimeZone examples
+- `-4` removed `resolve_iana` examples from bucket spec (moved)
+- `-2` removed `title*=` examples from heatmap spec (replaced)
+- **Net: +5** examples.
+
+### Test + lint
+
+- `bundle exec rspec spec/lib/pito/time_zone_spec.rb
+  spec/models/video_viewer_time_bucket_spec.rb
+  spec/components/viewer_time_heatmap_component_spec.rb
+  spec/services/analytics/viewer_time_rollup_spec.rb
+  spec/jobs/daily_digest_scheduler_job_spec.rb
+  spec/jobs/daily_digest_deliver_job_spec.rb` — 98 examples, 0 failures.
+- `bundle exec rspec spec/system/viewer_time_heatmap_spec.rb` — 2/2 green
+  (heatmap end-to-end still renders).
+- `bundle exec rubocop` on all touched Ruby files — clean (7 files, 0
+  offenses).
+- `bin/brakeman -q -w2` — 0 security warnings.
+
+### Plan checkboxes
+
+No plan.md checkboxes ticked. 01e and 01g were already ticked when this
+session started; the work above is reviewer fix-forward, not new spec
+delivery.
+
 ## 2026-05-11 — settings + 2FA fix-forward bundle (pito-rails-impl) [skipci]
 
 User-directed bundle of seven fixes spanning the settings index, security

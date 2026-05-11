@@ -1,0 +1,14 @@
+<%# 2026-05-11 polish (Fix 2) — colored bold rating badge.
+    Renders a bold `<span class="game-rating-badge game-rating-badge--<tier>">`
+    with inline `color:` sourced from the per-tier CSS variable. Missing
+    ratings render a muted em-dash inside the same span so layout stays
+    consistent across rows. %>
+<% if present? %>
+<span class="game-rating-badge game-rating-badge--<%= tier %>"
+      style="color: <%= css_color %>; font-weight: bold;"
+      data-tier="<%= tier %>"
+      data-rating="<%= rating %>"><%= display_text %></span>
+<% else %>
+<span class="game-rating-badge game-rating-badge--missing text-muted"
+      data-tier="missing"><%= missing_glyph %></span>
+<% end %>

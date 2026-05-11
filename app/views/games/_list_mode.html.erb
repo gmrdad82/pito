@@ -12,11 +12,19 @@
          Singular header (`genre`), was previously plural (`genres`).
       5. Released (full date `mm-dd-yyyy`; em-dash when nil).
          Right-aligned (`.num`).
-      6. Rating (`<NN>/100`; em-dash when `igdb_rating` is nil).
-         Right-aligned (`.num`).
+      6. Rating (`Games::RatingBadgeComponent` — bold colored integer;
+         em-dash when `igdb_rating` is nil). Right-aligned (`.num`).
+         2026-05-11 polish (Fix 2) retired the legacy `<NN>/100`
+         literal here in favor of the tiered-color badge.
       7. Owned (was `platforms owned`). Renders the bracketed
          per-platform owned chips (placeholder em-dash until 01a/01f
          land the per-platform ownership shape on the row).
+
+    Column widths are pinned via a `<colgroup>` whose `col` classes
+    map to `--col-width-*` CSS variables (Fix 1, 2026-05-11). The
+    select column is the canonical app-wide bulk-select width so
+    listings across notifications, channels, projects, games, and
+    videos share one footprint.
 
     Bulk-action toolbar (2026-05-11 polish v2):
       The table is wrapped in a `bulk-select` Stimulus controller.
@@ -46,24 +54,6 @@
   <h2 style="margin-bottom: 8px;">all</h2>
 
   <% if games.any? %>
-    <style>
-      .games-list-mode table.list-table { width: 100%; border-collapse: collapse; }
-      .games-list-mode table.list-table th,
-      .games-list-mode table.list-table td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
-      .games-list-mode table.list-table th.num,
-      .games-list-mode table.list-table td.num { text-align: right; }
-      .games-list-mode td.cover-cell img { width: 32px; height: 42px; object-fit: cover; }
-      .games-list-mode td.cover-cell .game-cover-fallback--dark { display: none; }
-      [data-theme="dark"] .games-list-mode td.cover-cell .game-cover-fallback--light { display: none; }
-      [data-theme="dark"] .games-list-mode td.cover-cell .game-cover-fallback--dark { display: block; }
-      .games-list-mode td.title-cell .not-released { font-weight: bold; }
-      .games-list-mode .games-bulk-toolbar { margin-bottom: 6px; min-height: 1.4em; }
-      .games-list-mode .games-bulk-toolbar .action[hidden] { display: none; }
-      .games-list-mode tr.game-row[data-game-job-state="running"] td.job-indicator-cell::after { content: " ="; }
-      .games-list-mode tr.game-row[data-game-job-state="done"]    td.job-indicator-cell::after { content: " ok"; color: var(--color-muted, #555); }
-      .games-list-mode tr.game-row[data-game-job-state="failed"]  td.job-indicator-cell::after { content: " err"; color: var(--color-danger, #cc0000); }
-    </style>
-
     <%# Bulk-action toolbar — `[sync N]` + `[delete N]` appear when
         at least one row is selected. Each action navigates full-page
         (`_top`) to the confirmation screen. The `count` target is the
@@ -83,6 +73,18 @@
     </div>
 
     <table class="list-table">
+      <%# Fix 1 (2026-05-11) — pinned column widths via colgroup so the
+          select / cover / genre / released / rating / owned columns
+          stay narrow and the title column absorbs the leftover space. %>
+      <colgroup>
+        <col class="col-select">
+        <col class="col-cover">
+        <col class="col-title">
+        <col class="col-genre">
+        <col class="col-released">
+        <col class="col-rating">
+        <col class="col-owned">
+      </colgroup>
       <thead>
         <tr>
           <th class="select-cell">
@@ -101,7 +103,6 @@
           <%
             not_released = game.release_date.blank? || game.release_date > Date.current
             released_display = game.release_date.present? ? game.release_date.strftime("%m-%d-%Y") : "—"
-            rating_display = game_rating_display(game)
           %>
           <tr class="game-row" data-game-id="<%= game.id %>" data-game-job-state="idle" id="game_row_<%= game.id %>">
             <td class="select-cell job-indicator-cell">
@@ -163,12 +164,12 @@
             <td class="released-cell num text-muted">
               <%= released_display %>
             </td>
-            <td class="rating-cell num text-muted">
-              <% if rating_display.present? %>
-                <%= rating_display %>
-              <% else %>
-                —
-              <% end %>
+            <td class="rating-cell num">
+              <%# Fix 2 (2026-05-11) — colored bold rating badge. Renders
+                  the integer rating with a per-tier color; the missing-
+                  rating case renders a muted em-dash inside the badge
+                  so the cell never goes empty. %>
+              <%= render(Games::RatingBadgeComponent.new(rating: game.igdb_rating)) %>
             </td>
             <td class="owned-cell text-muted">—</td>
           </tr>

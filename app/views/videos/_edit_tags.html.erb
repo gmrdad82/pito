@@ -1,0 +1,29 @@
+<%# Phase 11 §01a — Video edit page polish. Tags input —
+    comma-separated text bound to the `videos.tags` jsonb-array
+    column. No autocomplete, no chip JS — YouTube tags are
+    free-form per the API contract.
+
+    Locals:
+      `video` — the Video instance.
+      `f`     — the form builder from `_form.html.erb`. %>
+<fieldset style="margin-bottom: 12px;">
+  <legend>tags</legend>
+
+  <div style="margin-bottom: 6px;">
+    <label for="video_tags">tags (comma separated)</label>
+    <input type="text"
+           name="video[tags_csv]"
+           id="video_tags"
+           value="<%= Array(video.tags).join(", ") %>"
+           style="width: 100%; max-width: 480px;"
+           data-controller="tag-input">
+    <%# tags arrive as a CSV string; the controller parses on submit
+        (server side) into an array. The hidden array sentinel below
+        lets Rails' params parser see `tags[]` even when the input
+        stays empty. %>
+    <input type="hidden" name="video[tags][]" value="">
+    <p class="form-hint" style="font-size: 11px;">
+      max 500 api-side chars across all tags.
+    </p>
+  </div>
+</fieldset>

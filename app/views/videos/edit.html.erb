@@ -4,6 +4,11 @@
 
 <h1>edit video</h1>
 
+<%# Phase 11 §01a — Video edit page polish. Every edit sub-section
+    stacks inside one .pane.pane--standalone per locked decision §1.
+    Order: writable subset form → thumbnail → chapters → end-screens
+    → links. The form's [save changes] CTA is the single submit that
+    persists thumbnail / chapters / end-screens nested attributes. %>
 <div class="pane pane--standalone" style="max-width: 560px;">
   <%= render "videos/form", video: @video %>
 

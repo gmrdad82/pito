@@ -346,9 +346,12 @@ RSpec.describe "Calendar::Entries", type: :request do
       ce = create(:calendar_entry, :game_release, all_day: true)
       get "/calendar/entries/#{ce.id}/details_pane"
       # Calendar polish 2026-05-11 — bordered-box badge, no literal
-      # brackets around the text. Match the rendered `<span>` so the
-      # assertion pins both the class hook and the plain text.
-      expect(response.body).to match(%r{<span class="calendar-badge calendar-badge--all-day"[^>]*>all day</span>})
+      # brackets around the text. 2026-05-11 sweep migrated rendering
+      # to the shared `StatusBadgeComponent`; canonical class is
+      # `.status-badge.status-badge--all_day`. Details pane wraps the
+      # badge in a positional `<span style="margin-left: 8px;">`, so
+      # match the inner badge span directly.
+      expect(response.body).to match(%r{<span class="status-badge status-badge--all_day">all day</span>})
       expect(response.body).not_to include("[ all day ]")
     end
 

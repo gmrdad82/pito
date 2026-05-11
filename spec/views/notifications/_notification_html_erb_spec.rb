@@ -30,9 +30,11 @@ RSpec.describe "notifications/_notification.html.erb", type: :view do
   it "renders the severity badge with the severity text" do
     render partial: "notifications/notification", locals: { notification: unread }
     # `:video_published` defaults to severity `:info`. The badge
-    # renders the literal severity word inside a colored bordered box.
-    expect(rendered).to include("notification-severity-info")
-    expect(rendered).to match(/<span class="notification-severity-badge[^"]*">info<\/span>/)
+    # renders the literal severity word inside a colored bordered box
+    # via the shared `StatusBadgeComponent` — `.status-badge` is the
+    # canonical class, with a per-kind `--<kind>` modifier.
+    expect(rendered).to include("status-badge--info")
+    expect(rendered).to match(/<span class="status-badge status-badge--info">info<\/span>/)
   end
 
   it "carries the dom_id on the row" do
