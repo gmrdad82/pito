@@ -232,6 +232,16 @@ a.text-danger.bracketed:hover, a.text-danger.bracketed:hover .bl { color: var(--
 .bulk-toolbar .action-sep { color: var(--color-muted); }
 .bulk-toolbar .action-sep[hidden] { display: none; }
 
+/* /settings/youtube scopes line. The unified Google-connections table
+   renders each channel as two `<tr>` rows: a data row plus a scopes
+   row spanning the right-hand columns. The scopes prose is muted and
+   slightly smaller so it reads as secondary detail rather than a
+   second copy of the primary row. */
+.scopes-line {
+  color: var(--color-muted);
+  font-size: 0.85em;
+}
+
 /* Phase B revamp (2026-05-06) — Inline list with consistent gap. Replaces
    the manual `<span class="text-muted">·</span>` separators that used to
    sit between bracketed action links sitewide. Items inside the list

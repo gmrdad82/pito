@@ -69,13 +69,14 @@ RSpec.describe "Settings::Youtube", type: :request do
         expect(response.body).not_to include("needsreauth")
       end
 
-      it "still renders the `channels` listing (it does not depend on the API)" do
+      it "still renders the channels listing (it does not depend on the API)" do
         valid_url = "https://www.youtube.com/channel/UCyyyyyyyyyyyyyyyyyyyyyy"
         Channel.create!(channel_url: valid_url,
                         youtube_connection_id: @connection.id)
 
         get settings_youtube_path
-        expect(response.body).to include(">channels<")
+        # Unified table — the slug rendered as the channel cell text
+        # is enough; the legacy `channels` <h2> heading is gone.
         expect(response.body).to include("UCyyyyyyyyyyyyyyyyyyyyyy")
       end
     end
@@ -110,29 +111,6 @@ RSpec.describe "Settings::Youtube", type: :request do
         create(:youtube_connection, user: user, email: "u@example.test")
       end
 
-      it "renders the connection metadata (email + scopes + last authorized)" do
-        get settings_youtube_path
-        expect(response.body).to include("u@example.test")
-        expect(response.body).to include("connected as")
-        expect(response.body).to include("last authorized")
-        expect(response.body).to include("scopes")
-      end
-
-      it "wraps the connection metadata in a `pane--wide` pane" do
-        get settings_youtube_path
-        expect(response.body).to match(/<div class="pane pane--wide"/)
-      end
-
-      it "renders each scope on its own <li> with the trailing segment bolded" do
-        get settings_youtube_path
-        expect(response.body).to match(/<li[^>]*>\s*<code><strong>youtube\.readonly<\/strong><\/code>/)
-        expect(response.body).to match(/<li[^>]*>\s*<code><strong>yt-analytics\.readonly<\/strong><\/code>/)
-        expect(response.body).to include("https://www.googleapis.com/auth/youtube.readonly")
-        expect(response.body).not_to match(
-          %r{openid,\s*email,\s*profile,\s*https://www\.googleapis\.com/auth/youtube\.readonly}
-        )
-      end
-
       # The settings/youtube show no longer triggers a `mine: true`
       # YouTube API call — channel discovery moved to the OAuth
       # callback. The page is now a pure DB read.
@@ -146,13 +124,19 @@ RSpec.describe "Settings::Youtube", type: :request do
         expect(response.body).not_to include("[reconnect]")
       end
 
-      describe "channels table layout" do
-        it "renders the `channels` heading (not `linked channels`)" do
-          get settings_youtube_path
-          expect(response.body).to include(">channels<")
-          expect(response.body).not_to include(">linked channels<")
-        end
+      # The unified-table redesign (2026-05-10) dropped the per-
+      # connection metadata pane and the per-connection scopes <ul>.
+      # Email, scopes, and linked-at all live inside the single table
+      # below now.
+      it "does NOT render the legacy per-connection metadata pane" do
+        get settings_youtube_path
+        expect(response.body).not_to match(/<div class="pane pane--wide"/)
+        expect(response.body).not_to include("last authorized")
+        expect(response.body).not_to include("last refreshed")
+        expect(response.body).not_to match(/<th[^>]*>\s*scopes\s*<\/th>/)
+      end
 
+      describe "unified channels table" do
         it "renders the `select channels to add` heading nowhere" do
           get settings_youtube_path
           expect(response.body).not_to include("select channels to add")
@@ -160,11 +144,24 @@ RSpec.describe "Settings::Youtube", type: :request do
           expect(response.body).not_to include("[add channels]")
         end
 
-        it "renders an `[add]` button below the channels table" do
+        it "does NOT render the legacy per-connection `[add]` button" do
           get settings_youtube_path
-          # The button posts to /settings/youtube/connect with
-          # account=new so OAuth runs with prompt=select_account.
-          expect(response.body).to include("[add]")
+          expect(response.body).not_to match(
+            /<button[^>]*type="submit"[^>]*>\[add\]<\/button>/
+          )
+        end
+
+        it "renders a single `[+ add another Google account]` button below the table" do
+          get settings_youtube_path
+          expect(response.body).to include("[+ add another Google account]")
+          add_count = response.body.scan(
+            /<button[^>]*type="submit"[^>]*>\[\+ add another Google account\]<\/button>/
+          ).size
+          expect(add_count).to eq(1)
+        end
+
+        it "wires the `[+ add another Google account]` button at /settings/youtube/connect with account=new" do
+          get settings_youtube_path
           expect(response.body).to match(
             /<form[^>]*action="#{Regexp.escape(settings_youtube_connect_path)}"[^>]*>[^<]*(?:<[^>]+>[^<]*)*?<input[^>]*name="account"[^>]*value="new"/m
           )
@@ -176,9 +173,9 @@ RSpec.describe "Settings::Youtube", type: :request do
             expect(response.body).to include("no channels linked yet")
           end
 
-          it "still renders the `[add]` button" do
+          it "still renders the `[+ add another Google account]` button" do
             get settings_youtube_path
-            expect(response.body).to include("[add]")
+            expect(response.body).to include("[+ add another Google account]")
           end
         end
 
@@ -196,9 +193,10 @@ RSpec.describe "Settings::Youtube", type: :request do
             )
           end
 
-          it "renders the table headers: `channel` and `linked at`" do
+          it "renders the four table headers: `channel`, `connected as`, `linked at`" do
             get settings_youtube_path
             expect(response.body).to match(/<th>\s*channel\s*<\/th>/)
+            expect(response.body).to match(/<th>\s*connected as\s*<\/th>/)
             expect(response.body).to match(/<th>\s*linked at\s*<\/th>/)
           end
 
@@ -219,6 +217,44 @@ RSpec.describe "Settings::Youtube", type: :request do
             )
           end
 
+          it "renders the checkbox cell with rowspan=2 so the [ ] anchors both rows of the record" do
+            get settings_youtube_path
+            # Two channels → two rowspan=2 checkbox cells. Each holds
+            # the per-row bulk-select checkbox (wrapped in the
+            # CheckboxComponent's <label>).
+            rowspan_count = response.body.scan(
+              /<td[^>]*rowspan="2"[^>]*>.*?type="checkbox"[^>]*data-bulk-select-target="checkbox"/m
+            ).size
+            expect(rowspan_count).to eq(2)
+          end
+
+          it "renders a scopes row beneath each data row with colspan=3" do
+            get settings_youtube_path
+            # `<td colspan="3" class="scopes-line">` — two channels →
+            # two scopes rows.
+            colspan_count = response.body.scan(
+              /<td colspan="3"[^>]*class="scopes-line"/
+            ).size
+            expect(colspan_count).to eq(2)
+          end
+
+          it "renders the scopes line as period-separated short labels" do
+            get settings_youtube_path
+            # Factory ships the full pito scope set:
+            # openid + email + profile + youtube.readonly +
+            # yt-analytics.readonly + youtube.force-ssl
+            expect(response.body).to match(
+              /openid\.\s+email\.\s+profile\.\s+youtube\.readonly\.\s+yt-analytics\.readonly\.\s+youtube\.force-ssl\./
+            )
+          end
+
+          it "does NOT render scopes as a bulleted <ul> list anymore" do
+            get settings_youtube_path
+            expect(response.body).not_to match(
+              /<li[^>]*>\s*<code><strong>youtube\.readonly<\/strong><\/code>/
+            )
+          end
+
           it "does NOT render any per-row `[disconnect]` button" do
             get settings_youtube_path
             expect(response.body).not_to include("[disconnect]")
@@ -227,6 +263,11 @@ RSpec.describe "Settings::Youtube", type: :request do
           it "does NOT render a `state` column" do
             get settings_youtube_path
             expect(response.body).not_to match(/<th>\s*state\s*<\/th>/)
+          end
+
+          it "renders the connected-as email in the data row" do
+            get settings_youtube_path
+            expect(response.body).to include("u@example.test")
           end
 
           it "renders the relative-time `linked at` value via compact_time_ago" do
@@ -255,6 +296,48 @@ RSpec.describe "Settings::Youtube", type: :request do
       end
     end
 
+    # Brand accounts come back from Google with emails of the shape
+    # `<long-id>@pages.plusgoogle.com`. The unified table truncates the
+    # noisy domain so the connected-as cell shows just the local part.
+    context "with a YoutubeConnection whose email is a brand-account address" do
+      let(:user) { User.first }
+      let!(:connection) do
+        create(:youtube_connection,
+               user: user,
+               email: "witty-gaming-3646722185536190277@pages.plusgoogle.com")
+      end
+      let!(:channel) do
+        Channel.create!(
+          channel_url: "https://www.youtube.com/channel/UCbrandbrandbrandbrandbb",
+          youtube_connection_id: connection.id
+        )
+      end
+
+      it "truncates @pages.plusgoogle.com from the rendered email" do
+        get settings_youtube_path
+        expect(response.body).to include("witty-gaming-3646722185536190277")
+        expect(response.body).not_to include("pages.plusgoogle.com")
+      end
+    end
+
+    context "with a YoutubeConnection whose email is a regular Gmail address" do
+      let(:user) { User.first }
+      let!(:connection) do
+        create(:youtube_connection, user: user, email: "alice@gmail.com")
+      end
+      let!(:channel) do
+        Channel.create!(
+          channel_url: "https://www.youtube.com/channel/UCgmailgmailgmailgmailgg",
+          youtube_connection_id: connection.id
+        )
+      end
+
+      it "renders the full email unchanged" do
+        get settings_youtube_path
+        expect(response.body).to include("alice@gmail.com")
+      end
+    end
+
     context "with multiple YoutubeConnections" do
       let(:user) { User.first }
       let!(:conn_a) do
@@ -265,30 +348,60 @@ RSpec.describe "Settings::Youtube", type: :request do
         create(:youtube_connection, user: user, email: "b@example.test",
                last_authorized_at: 1.hour.ago)
       end
+      let!(:channel_a) do
+        Channel.create!(
+          channel_url: "https://www.youtube.com/channel/UCccccccccccccccccccccc1",
+          youtube_connection_id: conn_a.id
+        )
+      end
+      let!(:channel_b) do
+        Channel.create!(
+          channel_url: "https://www.youtube.com/channel/UCccccccccccccccccccccc2",
+          youtube_connection_id: conn_b.id
+        )
+      end
 
       it "renders the plural `Google connections` heading" do
         get settings_youtube_path
         expect(response.body).to include("<h1>Google connections</h1>")
       end
 
-      it "renders one section per connection (both emails appear)" do
+      it "renders both connections' emails inside the single unified table" do
         get settings_youtube_path
         expect(response.body).to include("a@example.test")
         expect(response.body).to include("b@example.test")
       end
 
-      it "renders the `[+ connect another Google account]` bottom button" do
+      it "renders a SINGLE `[+ add another Google account]` button (no per-connection `[add]`)" do
         get settings_youtube_path
-        expect(response.body).to include("[+ connect another Google account]")
+        # No `[add]` per connection any more.
+        plain_add_count = response.body.scan(
+          /<button[^>]*type="submit"[^>]*>\[add\]<\/button>/
+        ).size
+        expect(plain_add_count).to eq(0)
+
+        plus_count = response.body.scan(
+          /<button[^>]*type="submit"[^>]*>\[\+ add another Google account\]<\/button>/
+        ).size
+        expect(plus_count).to eq(1)
       end
 
-      it "renders one `[add]` button per connection" do
+      it "renders one unified channels <table> wrapping every channel across every connection" do
         get settings_youtube_path
-        # Two per-connection `[add]` buttons + one bottom
-        # `[+ connect another Google account]`. The `[add]` count
-        # alone is exactly two.
-        add_count = response.body.scan(/<button[^>]*type="submit"[^>]*>\[add\]<\/button>/).size
-        expect(add_count).to eq(2)
+        # The bulk-select controller wraps exactly one channels table.
+        # Count the channel-row checkbox occurrences (one per
+        # Channel, across both connections) — 2 channels total → 2
+        # bulk-select-target="checkbox" inputs in a single bulk-select
+        # tree.
+        bulk_select_blocks = response.body.scan(
+          /data-controller="bulk-select"[^>]*data-bulk-select-delete-type-value="youtube_connection"/m
+        ).size
+        expect(bulk_select_blocks).to eq(1)
+
+        per_row_checkboxes = response.body.scan(
+          /data-bulk-select-target="checkbox"/
+        ).size
+        expect(per_row_checkboxes).to eq(2)
       end
     end
   end

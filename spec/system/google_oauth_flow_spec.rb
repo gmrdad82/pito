@@ -95,10 +95,10 @@ RSpec.describe "Google OAuth flow", type: :system do
 
     visit settings_youtube_path
     expect(page).to have_content("first-account@example.test")
-    expect(page).to have_button("[+ connect another Google account]")
+    expect(page).to have_button("[+ add another Google account]")
 
     expect {
-      click_button "[+ connect another Google account]"
+      click_button "[+ add another Google account]"
     }.to change { YoutubeConnection.unscoped.where(user_id: user.id).count }.by(1)
 
     expect(page).to have_current_path(settings_youtube_path)

@@ -15,9 +15,11 @@
     variants live in the partial (revoked grant vs. missing scopes).
 
     Multi-connection note: the top banner reflects the FIRST
-    connection only (the back-compat `@youtube_connection`); each
-    per-connection section below renders its own missing-scope notes
-    inline when applicable. %>
+    connection only (the back-compat `@youtube_connection`). The
+    unified table below absorbs per-channel detail; any per-connection
+    nuance the banner can't cover (e.g. one connection healthy, one
+    needing re-auth across many channels) is still legible because the
+    scopes line under each channel shows exactly what was granted. %>
 <% if @youtube_connection.present? && @youtube_connection.needs_reauth? %>
   <%= render "settings/youtube/needs_reauth_banner" %>
 <% end %>
@@ -40,171 +42,145 @@
     </p>
   </div>
 <% else %>
-  <% @youtube_connections.each do |connection| %>
-    <%# Connected state — one section per YoutubeConnection.
-        Each section carries:
-          1. Connection metadata pane (email, last authorized / refreshed, scopes).
-          2. `channels` table — every Channel linked to this connection,
-             with checkbox + linked-at columns. Bulk-disconnect via the
-             existing `/deletions/youtube_connection/:ids` action screen.
-          3. `[add]` button — kicks OmniAuth with `prompt=select_account`
-             so Google shows the account picker / Brand-Account switcher.
-             The callback discovers channels under the granted access
-             and adds non-duplicates to the matching connection.
-    %>
-    <div class="pane-row">
-      <div class="pane pane--wide" style="padding: 16px;">
-        <table class="detail-table" style="margin-bottom: 0;">
+  <%# Unified table — every Channel across every YoutubeConnection
+      lives in a single table. Each channel renders as TWO `<tr>`
+      rows:
+
+        Row A — checkbox (rowspan=2) | channel | connected as | linked at
+        Row B — scopes line spanning columns 2..4
+
+      Drops the per-connection metadata pane and the per-connection
+      `[add]` button. A single `[+ add another Google account]` button
+      below the table is the new entry point; it kicks OmniAuth with
+      `prompt=select_account` so Google renders the account picker /
+      Brand-Account switcher rather than silently reusing the most
+      recently used Google account. The callback (see
+      `YoutubeConnections::OauthCallbacksController#create`) enumerates
+      `mine: true` channels under the granted access and adds non-
+      duplicates as Channel rows under the matching YoutubeConnection
+      (creating a new one if the user picked a different Google account
+      on the consent screen). %>
+
+  <%# Every Channel owned by any of this user's connections, ordered
+      by connection then by channel slug so rows under the same Google
+      account cluster together visually. %>
+  <% connection_by_id = @youtube_connections.index_by(&:id) %>
+  <% all_channels = Channel
+                     .where(youtube_connection_id: @youtube_connections.map(&:id))
+                     .order(:youtube_connection_id, :channel_url)
+                     .to_a %>
+
+  <% if all_channels.any? %>
+    <%# Bulk-select wrapper — same shape as /channels /videos /projects.
+        Checkboxes are always on (no [bulk] toggle); the bulk toolbar
+        renders the dynamic `[disconnect N]` action once at least one
+        row is selected, pointing at the existing
+        `/deletions/youtube_connection/:ids` action-screen
+        confirmation page. The `delete-type-value="youtube_connection"`
+        plus the `action-label-value="disconnect"` keep the verb
+        correct — the action clears `youtube_connection_id` on the
+        Channel rows and revokes the orphaned Google grant. %>
+    <div data-controller="bulk-select"
+         data-bulk-select-entity-name-value="channels"
+         data-bulk-select-delete-type-value="youtube_connection"
+         data-bulk-select-action-label-value="disconnect">
+
+      <div data-bulk-select-target="actions" style="margin-bottom: 0;" data-turbo-frame="_top">
+        <div class="bulk-toolbar">
+          <span class="action" data-bulk-select-target="count" hidden>
+            <span class="action-sep" hidden>&middot;</span>
+          </span>
+          <span class="action" data-bulk-select-target="deleteAction" hidden>
+            <span class="action-sep" hidden>&middot;</span>
+          </span>
+        </div>
+      </div>
+
+      <table>
+        <thead>
           <tr>
-            <td class="text-muted" style="padding-right: 12px; vertical-align: top;">connected as</td>
-            <td><strong><%= connection.email %></strong></td>
+            <th class="col-action">
+              <%= render(CheckboxComponent.new(data: { bulk_select_target: "headerCheckbox", action: "change->bulk-select#toggleAll" })) %>
+            </th>
+            <th>channel</th>
+            <th>connected as</th>
+            <th>linked at</th>
           </tr>
-          <tr>
-            <td class="text-muted" style="padding-right: 12px; vertical-align: top;">last authorized</td>
-            <td><%= connection.last_authorized_at.strftime("%Y-%m-%d %H:%M %Z") %></td>
-          </tr>
-          <% if connection.last_refreshed_at.present? %>
+        </thead>
+        <tbody>
+          <% all_channels.each do |c| %>
+            <% connection = connection_by_id[c.youtube_connection_id] %>
+            <% scope_line = Array(connection&.scopes)
+                              .map { |s| format_scope_short_label(s) }
+                              .reject(&:empty?)
+                              .map { |s| "#{s}." }
+                              .join(" ") %>
+            <%# Row A — data row. Checkbox cell carries `rowspan="2"`
+                so it visually anchors the whole record (both the
+                data row and the scopes row below it). %>
             <tr>
-              <td class="text-muted" style="padding-right: 12px; vertical-align: top;">last refreshed</td>
-              <td><%= connection.last_refreshed_at.strftime("%Y-%m-%d %H:%M %Z") %></td>
+              <td class="col-action" rowspan="2" style="vertical-align: top;">
+                <%= render(CheckboxComponent.new(value: c.id, data: { bulk_select_target: "checkbox", action: "change->bulk-select#toggle" })) %>
+              </td>
+              <td style="font-family: monospace;">
+                <%# Display label — `title` once populated by sync,
+                    falling back to the slug-style UC id derived from
+                    `channel_url` until then. %>
+                <%= link_to (c.title.presence ||
+                              c.channel_url.sub(%r{\Ahttps?://(www\.)?youtube\.com/channel/}, "")),
+                            channel_path(c) %>
+              </td>
+              <td><%= format_connection_email(connection&.email) %></td>
+              <td>
+                <%# `linked at` — uses `created_at` per the spec note
+                    (no new column; `created_at` is reliable as the
+                    moment the row first appeared in pito). The
+                    compact-time helper renders the same `~5h ago`
+                    shape used elsewhere. %>
+                <%= compact_time_ago(c.created_at) %>
+              </td>
+            </tr>
+            <%# Row B — scopes line. Spans the 3 right-hand columns
+                (channel, connected as, linked at). Period-separated
+                short labels render as muted prose; no per-scope
+                emphasis since the spec calls for a single flat line.
+                If the connection has no scopes (degenerate, shouldn't
+                happen post-OAuth), the cell renders empty rather than
+                a confusing dangling period. %>
+            <tr>
+              <td colspan="3" class="scopes-line">
+                <%= scope_line %>
+              </td>
             </tr>
           <% end %>
-          <tr>
-            <td class="text-muted" style="padding-right: 12px; vertical-align: top;">scopes</td>
-            <td>
-              <%# Each scope on its own row. The trailing path segment is
-                  bolded (the readable name the user thinks of —
-                  `youtube.readonly`); the full URL sits muted below for
-                  disambiguation without drowning the surface. %>
-              <ul style="list-style: none; padding: 0; margin: 0;">
-                <% Array(connection.scopes).each do |scope| %>
-                  <% short = scope.to_s.split("/").last.presence || scope.to_s %>
-                  <li style="margin-bottom: 4px;">
-                    <code><strong><%= short %></strong></code><br>
-                    <span class="text-muted" style="font-size: 0.85em;"><%= scope %></span>
-                  </li>
-                <% end %>
-              </ul>
-            </td>
-          </tr>
-        </table>
-      </div>
+        </tbody>
+      </table>
     </div>
-
-    <%# `channels` heading — replaces the legacy "linked channels"
-        label. Lowercase to match the convention used elsewhere
-        (`docs/design.md` → lowercase column labels). %>
-    <h2 style="margin-top: 16px;">channels</h2>
-
-    <% linked_channels = Channel.where(youtube_connection_id: connection.id).order(:channel_url).to_a %>
-
-    <% if linked_channels.any? %>
-      <%# Bulk-select wrapper — same shape as /channels /videos /projects.
-          Checkboxes are always on (no [bulk] toggle); the bulk toolbar
-          renders the dynamic `[disconnect N]` action once at least one
-          row is selected, pointing at the existing
-          `/deletions/youtube_connection/:ids` action-screen
-          confirmation page.
-
-          `delete-type-value="youtube_connection"` is what the Stimulus
-          controller substitutes into the action URL — the legacy
-          `deleteAction` target's copy says "delete" by default, so we
-          override the rendered label via the dedicated
-          `disconnectAction` target wired up below. Falling back to the
-          generic `[delete N]` button would surface the wrong verb here
-          (the action does not destroy Channel rows — it clears
-          `youtube_connection_id` and revokes the Google grant when
-          orphaned). %>
-      <div data-controller="bulk-select"
-           data-bulk-select-entity-name-value="channels"
-           data-bulk-select-delete-type-value="youtube_connection"
-           data-bulk-select-action-label-value="disconnect">
-
-        <div data-bulk-select-target="actions" style="margin-bottom: 0;" data-turbo-frame="_top">
-          <div class="bulk-toolbar">
-            <span class="action" data-bulk-select-target="count" hidden>
-              <span class="action-sep" hidden>&middot;</span>
-            </span>
-            <span class="action" data-bulk-select-target="deleteAction" hidden>
-              <span class="action-sep" hidden>&middot;</span>
-            </span>
-          </div>
-        </div>
-
-        <table>
-          <thead>
-            <tr>
-              <th class="col-action">
-                <%= render(CheckboxComponent.new(data: { bulk_select_target: "headerCheckbox", action: "change->bulk-select#toggleAll" })) %>
-              </th>
-              <th>channel</th>
-              <th>linked at</th>
-            </tr>
-          </thead>
-          <tbody>
-            <% linked_channels.each do |c| %>
-              <tr>
-                <td class="col-action">
-                  <%= render(CheckboxComponent.new(value: c.id, data: { bulk_select_target: "checkbox", action: "change->bulk-select#toggle" })) %>
-                </td>
-                <td style="font-family: monospace;">
-                  <%# Display label — the slug-style UC id derived from
-                      `channel_url`. Once Step 11 channel sync populates
-                      `Channel#title`, switch this to `c.title.presence
-                      || slug` in one place. %>
-                  <%= link_to c.channel_url.sub(%r{\Ahttps?://(www\.)?youtube\.com/channel/}, ""),
-                              channel_path(c) %>
-                </td>
-                <td>
-                  <%# `linked at` — uses `created_at` per the spec note
-                      (no new column; `created_at` is reliable as the
-                      moment the row first appeared in pito). The
-                      compact-time helper renders the same `~5h ago`
-                      shape used elsewhere. %>
-                  <%= compact_time_ago(c.created_at) %>
-                </td>
-              </tr>
-            <% end %>
-          </tbody>
-        </table>
-      </div>
-    <% else %>
-      <p class="text-muted">no channels linked yet.</p>
-    <% end %>
-
-    <%# `[add]` — kicks OmniAuth with `prompt=select_account` for
-        THIS connection's section. The callback (see
-        `YoutubeConnections::OauthCallbacksController#create`)
-        enumerates `mine: true` channels under the granted access
-        and adds non-duplicates to the matching YoutubeConnection.
-        A duplicate (channel already linked to pito) flashes a clean
-        "channel '…' is already linked." note and is silently
-        skipped. If the user picks a different Google account on
-        the consent screen, a new YoutubeConnection is created
-        instead. %>
-    <div style="margin-top: 8px;">
-      <%= form_with url: settings_youtube_connect_path, method: :post,
-                    data: { turbo: false }, html: { style: "display: inline;" } do %>
-        <input type="hidden" name="account" value="new">
-        <button type="submit">[add]</button>
+  <% else %>
+    <%# Connections exist but no Channel rows yet (the user just
+        connected an account but `mine: true` discovery returned an
+        empty list, or every discovered channel was already linked
+        elsewhere and silently skipped). Surface the connected emails
+        so the page isn't a bare "no channels" message that hides the
+        fact that an account is connected. %>
+    <p class="text-muted">no channels linked yet.</p>
+    <ul class="text-muted" style="list-style: none; padding: 0; margin: 4px 0 0;">
+      <% @youtube_connections.each do |connection| %>
+        <li>connected as <strong><%= format_connection_email(connection.email) %></strong></li>
       <% end %>
-    </div>
+    </ul>
   <% end %>
 
-  <%# Bottom-of-page entry to add a brand-new Google account /
-      Brand-Account context. Same OAuth dance as the per-connection
-      `[add]` — Google's consent screen is the disambiguator. The
-      labels read differently so the user can distinguish "add more
-      channels under an existing account" (`[add]`, the typical
-      flow) from "add an entirely separate Google account"
-      (`[+ connect another Google account]`, the rarer one).
-      Rendered for every non-empty page (the multi-connection
-      sibling-agent UX). %>
+  <%# Single entry to add another Google account. Same OAuth dance as
+      before — `account=new` flips the request URL to include
+      `prompt=select_account` so Google shows the account picker /
+      Brand-Account switcher instead of silently reusing the most
+      recently used grant. %>
   <div style="margin-top: 24px;">
     <%= form_with url: settings_youtube_connect_path, method: :post,
                   data: { turbo: false }, html: { style: "display: inline;" } do %>
       <input type="hidden" name="account" value="new">
-      <button type="submit">[+ connect another Google account]</button>
+      <button type="submit">[+ add another Google account]</button>
     <% end %>
   </div>
 <% end %>

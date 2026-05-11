@@ -48,16 +48,19 @@ RSpec.describe "Add channels via Google", type: :system do
     OmniAuth.config.mock_auth[:google_oauth2] = nil
   end
 
-  it "routes [+] on /channels to /settings/youtube and renders the `channels` heading" do
+  it "routes [+] on /channels to /settings/youtube and lands on the Google-connection page" do
     visit channels_path
     click_link "[+]"
     expect(page).to have_current_path(settings_youtube_path)
     expect(page).to have_content("Google connection")
-    # New heading per the 2026-05-10 redesign — was "linked channels".
-    expect(page).to have_content("channels")
+    # Unified-table redesign (2026-05-10): the per-connection
+    # `channels` <h2> heading is gone — channels live inside the
+    # single page-wide table now. Assert the new `[+ add another
+    # Google account]` entry button rendered instead.
+    expect(page).to have_button("[+ add another Google account]")
   end
 
-  it "click [add] → OAuth → returns to /settings/youtube with the new channel linked" do
+  it "click [+ add another Google account] → OAuth → returns to /settings/youtube with the new channel linked" do
     # The OAuth dance landing on the callback enumerates `mine: true`.
     # Stub the client so the callback adds one brand-new channel.
     allow_any_instance_of(Youtube::Client).to receive(:channels_list).and_return(
@@ -70,10 +73,10 @@ RSpec.describe "Add channels via Google", type: :system do
     )
 
     visit settings_youtube_path
-    expect(page).to have_button("[add]")
+    expect(page).to have_button("[+ add another Google account]")
 
     expect {
-      click_button "[add]"
+      click_button "[+ add another Google account]"
     }.to change { Channel.where(youtube_connection_id: connection.id).count }.by(1)
 
     expect(page).to have_current_path(settings_youtube_path)
@@ -81,7 +84,7 @@ RSpec.describe "Add channels via Google", type: :system do
     expect(page).to have_content("Fresh Channel")
   end
 
-  it "click [add] → OAuth → an already-linked channel is silently skipped (no duplicate, no crash)" do
+  it "click [+ add another Google account] → OAuth → an already-linked channel is silently skipped (no duplicate, no crash)" do
     # Pre-existing channel — pito already knows about it.
     Channel.create!(
       channel_url: "https://www.youtube.com/channel/UCdupdupdupdupdupdupdupx",
@@ -104,7 +107,7 @@ RSpec.describe "Add channels via Google", type: :system do
 
     visit settings_youtube_path
     expect {
-      click_button "[add]"
+      click_button "[+ add another Google account]"
     }.to change { Channel.count }.by(1)
 
     expect(page).to have_current_path(settings_youtube_path)
