@@ -42,6 +42,106 @@ commits where neither RSpec nor cargo nor prettier coverage adds signal.
 > begins. As items resolve during 5.5, they move to "## Done" with the resolving
 > commit hash. New entries continue to be added throughout Phase 5.
 
+### Phase 11 sub-spec 01b–01f implementation queue
+
+**Trigger:** in flight. 01a (video edit page polish) shipped on 2026-05-11; the
+remaining five sub-specs queue for `pito-rails-impl` dispatch in sequence as
+the open questions resolve.
+
+**Source:** Phase 11 architect spec landed on 2026-05-11 (`86ef06e` —
+1687 lines, 7 open questions). 01a was dispatched first; the remaining five
+sub-files are ready for sequential dispatch.
+
+**Summary:**
+
+Phase 11 covers the post-Phase-22 video workflow surface. The architect carved
+the spec into six sub-files; 01a is done.
+
+- **01a** — video edit page polish (thumbnail + tags + chapters + end-screens).
+  Shipped via `e4da516`.
+- **01b** — pre-publish checklist expansion. Composes a checklist over chapters
+  count + end-screens count + thumbnail presence; surfaces `[skip]` rationale
+  per item.
+- **01c** — post-publish workflow. Stamping, action-after-publish hooks.
+- **01d** — series / sequel tracking. Lightweight related-video pointer between
+  videos.
+- **01e** — video links section polish.
+- **01f** — MCP / CLI parity. Wires the new edit surface into the MCP tool
+  layer and the `pito-rust` TUI.
+
+**Action:** dispatch the sub-specs in order as the parent open questions resolve
+(thumbnail YouTube push-back gating, end-screen target lookup, chapter
+description writeback, etc.). 01b–01e are Rails-only; 01f bundles the MCP +
+CLI legs.
+
+**Verification:** per-sub-spec checkbox tick in
+`docs/plans/beta/11-video-workflow-features/plan.md`; per-sub-spec log entry
+under `docs/plans/beta/11-video-workflow-features/log.md`.
+
+### Phase 28 sub-spec 01b — CLI multi-version game grouping
+
+**Trigger:** queued for the next `pito-rust` dispatch. Rails + MCP halves of
+01a shipped on 2026-05-11.
+
+**Source:** Phase 28 spec
+`docs/plans/beta/28-multi-version-game-grouping/specs/01b-cli-multi-version-game-grouping.md`,
+referenced from the 01a session log (open items §"CLI half (Rust)").
+
+**Summary:**
+
+The Rails surface for multi-version Game grouping (`version_parent_id`,
+`version_title`, parent / edition pointers, rollup helpers, IGDB import
+walk, MCP tools, rake backfill) shipped end-to-end in 01a. The CLI half is
+the deferred remainder: primaries-only render in the games list, drill-down
+into an edition list under a primary, `?include_editions=yes/no` flat-mode
+toggle, and wire-format parity with the MCP tools shipped in 01a.
+
+**Action:** dispatch `pito-rust` against the 01b spec when the broader CLI
+parity work resumes. Wire format is already stable via the MCP tool layer.
+
+**Verification:** `cargo test --manifest-path extras/cli/Cargo.toml` green;
+the games TUI screen renders primaries with an editions count badge; toggling
+flat mode expands editions inline.
+
+### YouTube credentials hot-rotation gap (omniauth boot-time read)
+
+**Trigger:** when a Settings → YouTube credential rotation surfaces a "still
+using old credentials" report, OR a dedicated omniauth refactor pass.
+
+**Source:** ADR 0007 (YouTube credentials moved to AppSetting) §"Consequences",
+noted explicitly: "Hot rotation without a restart is a documented follow-up —
+the omniauth middleware reads its config at boot."
+
+**Summary:**
+
+`config/initializers/omniauth.rb` resolves the four YouTube credentials
+(`client_id`, `client_secret`, `redirect_uri`, `api_key`) from the
+`AppSetting` singleton at process boot. The omniauth-google-oauth2 middleware
+captures the values into Rack middleware closures once, so a Settings →
+YouTube form submit that updates the `AppSetting` row does NOT take effect
+until Puma is restarted. The legacy
+`Rails.application.credentials.google_oauth` fallback has the same shape.
+
+**Action:** switch the `provider :google_oauth2` block from static positional
+args to a lambda-options form that resolves `AppSetting` per request:
+
+```ruby
+provider :google_oauth2,
+  ->(env) { AppSetting.singleton.youtube_client_id || ... },
+  ->(env) { AppSetting.singleton.youtube_client_secret || ... },
+  { scope: ..., ... }
+```
+
+Verify omniauth-google-oauth2 honors the lambda form (it does in recent
+releases — confirm the version pinned in `Gemfile.lock` supports it). Update
+`docs/architecture.md` "Cloud Console linkage" + `docs/setup.md` "Persist
+credentials into Rails" to drop the "restart Puma after rotation" caveat.
+
+**Verification:** rotate credentials via Settings → YouTube → submit; no
+Puma restart; next OAuth round-trip uses the freshly-stored values. Add a
+request-spec asserting the lambda is re-invoked per dance, not memoized at
+boot.
+
 ### Phase 6 deviation acknowledgment — DB-backed sessions vs. cookie_store (decision 6.1)
 
 **Trigger:** N/A — informational. Captured here so future readers don't

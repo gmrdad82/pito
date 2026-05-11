@@ -497,6 +497,41 @@ html {
   scrollbar-color: var(--color-muted) var(--color-bg);
 }
 
+/* Dialog-scoped scrollbar theming.
+   `<dialog>` elements (confirm modal, pane dialog, wide modal — used
+   by the IGDB search, collections, notifications, calendar entry,
+   webhook help, and totp verification modals) form their own top-layer
+   stacking context. In some Webkit/Blink builds, the unscoped
+   `::-webkit-scrollbar` rules above do not propagate into the
+   top-layer, and the dialog's own overflow scrollbar (plus any
+   nested scroll container, e.g. `.wide-modal-inner` or a `<textarea>`)
+   falls back to the user-agent chunkier chrome. Repeating the rules
+   scoped to `dialog` and `dialog *` forces parity with the 8px page
+   scrollbar. Firefox is covered by the standard `scrollbar-width` +
+   `scrollbar-color` pair. */
+dialog::-webkit-scrollbar,
+dialog *::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+dialog::-webkit-scrollbar-track,
+dialog *::-webkit-scrollbar-track {
+  background: var(--color-bg);
+}
+dialog::-webkit-scrollbar-thumb,
+dialog *::-webkit-scrollbar-thumb {
+  background: var(--color-muted);
+  border-radius: 4px;
+}
+dialog::-webkit-scrollbar-thumb:hover,
+dialog *::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text);
+}
+dialog {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-muted) var(--color-bg);
+}
+
 /* Phase 4 §9.3 — Saved-views chip lists scroll horizontally on desktop AND
    mobile. `flex-wrap: nowrap` is deliberate: the mobile responsiveness rule
    that forces 100% width on flex-wrap children would defeat horizontal

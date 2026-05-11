@@ -251,21 +251,35 @@ See `docs/design.md` for the full design system. Key rules:
 
 Tracked in `docs/orchestration/follow-ups.md`. Highest-priority items right now:
 
-1. Phase 13 F1 + F2 + F3 fix-forward (in flight)
-2. Phase 14 F1 + F2 fix-forward (in flight)
-3. Phase 16 Spec 02 / 03 reviewer findings (queued; land as they surface)
+1. Phase 11 sub-specs 01b–01f — pre-publish checklist expansion, post-publish
+   workflow, series/sequel tracking, video-links section polish, MCP/CLI
+   parity. Architect specs locked; 01a (video edit page polish) shipped. 01b–01f
+   queued for `pito-rails-impl` dispatch in sequence.
+2. Phase 28 sub-spec 01b — CLI multi-version game grouping (primaries-only
+   render + drill-down + flat-mode toggle + wire-format parity). Rails + MCP
+   halves shipped in 01a; the `pito-rust` half is the deferred remainder.
+3. YouTube credentials hot-rotation gap — `config/initializers/omniauth.rb`
+   reads `AppSetting` credentials at boot, so a Settings → YouTube rotation
+   requires a Puma restart to take effect. Future improvement: switch omniauth
+   provider config to lambda options that resolve `AppSetting` per request.
 4. Rails JSON endpoints for CLI / MCP parity across Phases 14 / 15 / 16 (Games,
-   Calendar, Notifications) — gated on Phase 20 friendly URLs landing in main
+   Calendar, Notifications) — gated on Phase 20 friendly URLs landing in main.
 5. 2026-05-09 realignment top-level direction map — foundational reference for
-   the next 12 work units (tenant drop, MCP scope simplification, Channel +
+   the remaining work units (tenant drop, MCP scope simplification, Channel +
    Video edit surfaces, Analytics, Game model, Calendar, Notifications, CLI
-   parity)
+   parity).
 6. CLI feature-parity sweep — channels list / videos list / settings panes /
-   search results (work unit 10 in the realignment)
-7. Footage importer-side ffmpeg frame extraction + bulk PATCH upload (Phase 7.5
-   spec 06 importer half)
-8. Meilisearch indexing parity with Voyage per-target flags (pairs with the
-   Voyage AppSetting revamp; gated on Channel + Video schema expansion)
+   search results (work unit 10 in the realignment). Paused alongside the
+   broader MCP / TUI work pending the realignment dispatches.
+7. Analytics window-summary click-rate ratios via dedicated impressions +
+   card-performance reports — `DAILY_BASIC_METRICS` and the slimmed
+   `WINDOW_RATIO_METRICS` (see ADR 0011) leave three click-rate ratio columns
+   `NULL` on `channel_window_summaries` / `video_window_summaries`; merging
+   them in needs a separate architect spec.
+8. Footage importer-side ffmpeg frame extraction + bulk PATCH upload (Phase 7.5
+   spec 06 importer half).
+9. Meilisearch indexing parity with Voyage per-target flags (pairs with the
+   Voyage AppSetting revamp; gated on Channel + Video schema expansion).
 
 See `docs/orchestration/follow-ups.md` for the full open list. Items above are
 tracked alongside active phase work; the highest-priority ones track in flight
