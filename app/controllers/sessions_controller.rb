@@ -259,34 +259,19 @@ class SessionsController < ApplicationController
   # so `BCrypt::Password.new(...).is_password?` over a precomputed hash
   # gives roughly the same compare time as `User#authenticate`.
   #
-  # The cost MUST match the cost `has_secure_password` uses to hash real
-  # passwords. `ActiveModel::SecurePassword` picks `BCrypt::Engine::MIN_COST`
-  # when `min_cost = true` (the test-suite speed switch) and
-  # `BCrypt::Engine.cost` otherwise — which resolves to
-  # `BCrypt::Engine::DEFAULT_COST` (12) in production unless someone
-  # globally overrides it. Mirroring that selection here keeps the dummy
-  # compare's wall time within the same order of magnitude as a real
-  # `User#authenticate`, closing the account-enumeration timing oracle.
-  #
-  # Lazy class-level memoization (`||=`) is deliberate: the hash is
-  # computed once on the first failed login (so Rails boot stays fast)
-  # and reused on every subsequent dummy compare (so we never pay the
-  # `create` cost per-request — only the cheap-er `is_password?` compare,
-  # which is what we want to symmetrize against `User#authenticate`).
-  def self.dummy_bcrypt_cost
-    if ActiveModel::SecurePassword.min_cost
-      BCrypt::Engine::MIN_COST
-    else
-      BCrypt::Engine.cost
-    end
-  end
-
-  def self.dummy_bcrypt_hash
-    @dummy_bcrypt_hash ||= BCrypt::Password.create("dummy-password-noop", cost: dummy_bcrypt_cost)
-  end
-
+  # P25 — F12. The hash is precomputed at boot via
+  # `config/initializers/sessions_dummy_bcrypt.rb` (constants
+  # `Sessions::DUMMY_BCRYPT_HASH` + `Sessions::DUMMY_BCRYPT_PLAINTEXT`).
+  # Before F12 the controller memoized lazily on first failed login,
+  # which meant the FIRST failed login per process paid the ~250 ms
+  # `create` cost while subsequent ones paid only the cheap compare —
+  # itself a probeable timing oracle. Boot-time precompute moves the
+  # cost into Puma startup so every request, cold or warm, sees the
+  # same compare time.
   def bcrypt_dummy_compare
-    BCrypt::Password.new(self.class.dummy_bcrypt_hash).is_password?("dummy-password-noop")
+    BCrypt::Password.new(Sessions::DUMMY_BCRYPT_HASH).is_password?(
+      Sessions::DUMMY_BCRYPT_PLAINTEXT
+    )
     nil
   end
 

@@ -44,22 +44,39 @@ module Auth
       raise ArgumentError, "fingerprint_hash required" if fingerprint_hash.blank?
       raise ArgumentError, "ip_prefix required" if ip_prefix.blank?
 
-      # Defensive count of currently-pending rows whose window is still
-      # open. Expired rows are NOT counted — they were already
-      # transitioned by the sweeper (or will be soon).
-      active_pending = user.sessions.pending_within_window.count
-      if active_pending >= MAX_ACTIVE_PENDING
-        raise TooManyPending,
-              "user #{user.id} has #{active_pending} active pending sessions (cap #{MAX_ACTIVE_PENDING})"
-      end
-
       ip = request&.remote_ip.to_s.presence || "0.0.0.0"
       ua = request&.user_agent.to_s.first(1024).presence || ""
 
       session_row = nil
       attempt_row = nil
 
+      # P25 follow-up — F5. Race-free anti-spam guard.
+      #
+      # The MAX_ACTIVE_PENDING check + the session INSERT must be
+      # serialized per-user. Without serialization two concurrent
+      # correct-password attempts both read N pending rows, both fall
+      # under the cap, both insert → the cap is exceeded by 1
+      # (LD-6 violation).
+      #
+      # `User.lock("FOR UPDATE").find(user.id)` takes a row-level
+      # exclusive lock on the `users` row for the duration of the
+      # transaction. Concurrent callers serialize on that lock; the
+      # second one re-reads the pending count AFTER the first commits
+      # and sees the freshly-inserted row, so it correctly raises
+      # `TooManyPending`. The lock is automatically released when the
+      # transaction commits or rolls back.
       ActiveRecord::Base.transaction do
+        User.lock("FOR UPDATE").find(user.id)
+
+        # Defensive count of currently-pending rows whose window is
+        # still open. Expired rows are NOT counted — they were already
+        # transitioned by the sweeper (or will be soon).
+        active_pending = user.sessions.pending_within_window.count
+        if active_pending >= MAX_ACTIVE_PENDING
+          raise TooManyPending,
+                "user #{user.id} has #{active_pending} active pending sessions (cap #{MAX_ACTIVE_PENDING})"
+        end
+
         session_row, _plaintext = Session.create_pending!(
           user: user,
           ip: ip,

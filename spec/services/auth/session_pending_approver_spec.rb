@@ -95,6 +95,67 @@ RSpec.describe Auth::SessionPendingApprover do
       end
     end
 
+    # P25 follow-up — F5. The cap check + insert must be race-free.
+    # Without the `User.lock("FOR UPDATE")` advisory lock, two
+    # concurrent password-correct attempts both read N=cap-1, both
+    # insert → cap exceeded. The lock serializes the check + insert
+    # per-user.
+    context "race-free MAX_ACTIVE_PENDING (P25 F5)" do
+      it "wraps the cap check + insert in a User.lock advisory transaction" do
+        # White-box assertion: the service MUST call `User.lock(...)`
+        # with a relation that finds the user before inserting. We
+        # spy on the call chain so a future refactor that drops the
+        # lock immediately surfaces.
+        relation = double("UserLockRelation")
+        allow(User).to receive(:lock).with("FOR UPDATE").and_return(relation)
+        expect(relation).to receive(:find).with(user.id).and_return(user)
+        described_class.call(
+          user: user,
+          request: fake_request,
+          fingerprint_hash: fp,
+          ip_prefix: ip
+        )
+      end
+
+      it "still respects the cap when the lock-guarded count crosses the threshold" do
+        # The cap is enforced INSIDE the locked transaction now. Pre-
+        # seeding the cap should still raise even with the lock in
+        # place (regression on the locked branch).
+        Auth::SessionPendingApprover::MAX_ACTIVE_PENDING.times do
+          create(:session, :pending, user: user)
+        end
+        expect {
+          described_class.call(
+            user: user,
+            request: fake_request,
+            fingerprint_hash: fp,
+            ip_prefix: ip
+          )
+        }.to raise_error(Auth::SessionPendingApprover::TooManyPending)
+      end
+
+      it "rolls back the session row when the cap raise fires inside the locked transaction" do
+        # Inserting N pending rows OUTSIDE the transaction then driving
+        # the service must raise without persisting a (N+1)th row —
+        # the lock+raise rolls back any partial state.
+        Auth::SessionPendingApprover::MAX_ACTIVE_PENDING.times do
+          create(:session, :pending, user: user)
+        end
+        expect {
+          begin
+            described_class.call(
+              user: user,
+              request: fake_request,
+              fingerprint_hash: fp,
+              ip_prefix: ip
+            )
+          rescue Auth::SessionPendingApprover::TooManyPending
+            nil
+          end
+        }.not_to change { Session.pending.count }
+      end
+    end
+
     context "edge: clock-skew tolerance" do
       it "measures approval_required_until server-side, not from the request" do
         # The service uses Time.current, NOT any client-provided

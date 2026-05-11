@@ -51,6 +51,51 @@ RSpec.describe "omniauth initializer" do
     end
   end
 
+  # P25 follow-up — F6. The resolver helper at top-level
+  # (`pito_appsetting_youtube_value`) used to swallow any
+  # `StandardError`. After F6 it ONLY rescues the boot-time DB-absent
+  # shapes (`ActiveRecord::StatementInvalid`,
+  # `ActiveRecord::ConnectionNotEstablished`,
+  # `ActiveRecord::NoDatabaseError`) and emits a warning so a legitimate
+  # error doesn't silently mask.
+  describe "P25 F6 — resolver rescue narrowing" do
+    # The resolver is defined at top level in the initializer (so the
+    # `OmniAuth::Builder` middleware closure can call it at boot). It
+    # remains callable as a Kernel-level method post-boot. The tests
+    # below probe its rescue behavior by stubbing AppSetting accessors.
+    it "rescues ActiveRecord::StatementInvalid (table not migrated yet) and returns nil with a warn" do
+      allow(AppSetting.connection).to receive(:data_source_exists?).and_return(true)
+      allow(AppSetting).to receive(:youtube_client_id)
+        .and_raise(ActiveRecord::StatementInvalid.new("relation does not exist"))
+      expect(Rails.logger).to receive(:warn).with(/StatementInvalid.*relation does not exist/)
+      expect(pito_appsetting_youtube_value(:youtube_client_id)).to be_nil
+    end
+
+    it "rescues ActiveRecord::ConnectionNotEstablished (DB not booted) and returns nil with a warn" do
+      allow(AppSetting.connection).to receive(:data_source_exists?).and_return(true)
+      allow(AppSetting).to receive(:youtube_client_id)
+        .and_raise(ActiveRecord::ConnectionNotEstablished.new("could not connect"))
+      expect(Rails.logger).to receive(:warn).with(/ConnectionNotEstablished/)
+      expect(pito_appsetting_youtube_value(:youtube_client_id)).to be_nil
+    end
+
+    it "does NOT swallow non-DB errors — e.g. NoMethodError bubbles up" do
+      allow(AppSetting.connection).to receive(:data_source_exists?).and_return(true)
+      allow(AppSetting).to receive(:youtube_client_id).and_raise(NoMethodError.new("bad call"))
+      expect {
+        pito_appsetting_youtube_value(:youtube_client_id)
+      }.to raise_error(NoMethodError)
+    end
+
+    it "does NOT swallow ArgumentError (config errors should surface)" do
+      allow(AppSetting.connection).to receive(:data_source_exists?).and_return(true)
+      allow(AppSetting).to receive(:youtube_client_id).and_raise(ArgumentError.new("bad arg"))
+      expect {
+        pito_appsetting_youtube_value(:youtube_client_id)
+      }.to raise_error(ArgumentError)
+    end
+  end
+
   describe "boot-time provider configuration" do
     # OmniAuth::Builder wires the google_oauth2 provider into the
     # middleware stack when this initializer runs. The strategy

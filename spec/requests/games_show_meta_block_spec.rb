@@ -87,8 +87,15 @@ RSpec.describe "Games show meta block + label treatment", type: :request do
     let!(:genre) { Genre.create!(igdb_id: 5, name: "Adventure") }
     # Use a canonical platform so the canonical-display helper renders
     # it. The label assertion below locks the canonical short name
-    # (`Switch2`), not the verbose IGDB-style name.
-    let!(:platform) { create(:platform, name: "Nintendo Switch 2", slug: "switch2", igdb_id: nil) }
+    # (`Switch2`), not the verbose IGDB-style name. FriendlyId
+    # regenerates `slug` from `name` during the save callback, so the
+    # canonical slug is pinned with `update_column` after the row
+    # persists.
+    let!(:platform) do
+      p = create(:platform, name: "Nintendo Switch 2", igdb_id: nil)
+      p.update_column(:slug, "switch2")
+      p.reload
+    end
 
     before do
       game.genres << genre
@@ -137,19 +144,38 @@ RSpec.describe "Games show meta block + label treatment", type: :request do
   # Switch2, Steam, GoG, Epic, Xbox), NOT the verbose IGDB names
   # ("PlayStation 5", "Xbox Series X|S", etc.).
   describe "canonical platform short-names on the show page" do
-    let!(:game) { create(:game, :synced, title: "Canonical Test") }
+    # The `:synced` factory trait stamps `external_steam_app_id`, which
+    # the canonical-display helper surfaces as "Steam". The tests
+    # below clear all external_* IDs so the platform label tracks ONLY
+    # what the test exercises (canonical Platform row mapping). The
+    # final "full canonical set" test re-stamps the external IDs
+    # explicitly.
+    let!(:game) do
+      g = create(:game, :synced, title: "Canonical Test")
+      g.update_columns(external_steam_app_id: nil, external_gog_id: nil, external_epic_id: nil)
+      g
+    end
+
+    # FriendlyId regenerates slug from name; pin it post-save when the
+    # test depends on the canonical slug match (the IGDB-id-based
+    # mapping path does not need this).
+    def make_platform(name:, slug: nil, igdb_id: nil)
+      record = create(:platform, name: name, igdb_id: igdb_id)
+      record.update_column(:slug, slug) if slug
+      record.reload
+    end
 
     it "renders 'PS5' instead of 'PlayStation 5'" do
-      ps5 = create(:platform, name: "PlayStation 5", igdb_id: 167)
+      ps5 = make_platform(name: "PlayStation 5", igdb_id: 167)
       game.platforms_available << ps5
       get game_path(game)
-      expect(response.body).to match(/<span class="text-muted">platforms:<\/span>\s*PS5/)
-      expect(response.body).not_to include("PlayStation 5</p>")
+      meta = response.body[/platforms:<\/span>\s*([^<]+)/, 1].to_s.strip
+      expect(meta).to eq("PS5")
     end
 
     it "renders 'Xbox' instead of 'Xbox One' or 'Xbox Series X|S'" do
-      xbox_one = create(:platform, name: "Xbox One", igdb_id: 49)
-      xsxs     = create(:platform, name: "Xbox Series X|S", igdb_id: 169)
+      xbox_one = make_platform(name: "Xbox One", igdb_id: 49)
+      xsxs     = make_platform(name: "Xbox Series X|S", igdb_id: 169)
       game.platforms_available << xbox_one
       game.platforms_available << xsxs
       get game_path(game)
@@ -159,26 +185,27 @@ RSpec.describe "Games show meta block + label treatment", type: :request do
     end
 
     it "drops verbose IGDB names without a canonical alias" do
-      ps4 = create(:platform, name: "PlayStation 4", igdb_id: 48)
-      pc  = create(:platform, name: "PC (Microsoft Windows)", igdb_id: 6)
+      ps4 = make_platform(name: "PlayStation 4", igdb_id: 48)
+      pc  = make_platform(name: "PC (Microsoft Windows)", igdb_id: 6)
       game.platforms_available << ps4
       game.platforms_available << pc
       get game_path(game)
-      expect(response.body).to match(/<span class="text-muted">platforms:<\/span>\s*—/)
-      expect(response.body).not_to include("PlayStation 4")
+      meta = response.body[/platforms:<\/span>\s*([^<]+)/, 1].to_s.strip
+      expect(meta).to eq("—")
       expect(response.body).not_to include("PC (Microsoft Windows)")
     end
 
     it "infers 'Steam' from external_steam_app_id even with no canonical Platform row linked" do
       game.update!(external_steam_app_id: "1234")
       get game_path(game)
-      expect(response.body).to match(/<span class="text-muted">platforms:<\/span>\s*Steam/)
+      meta = response.body[/platforms:<\/span>\s*([^<]+)/, 1].to_s.strip
+      expect(meta).to eq("Steam")
     end
 
     it "renders the full canonical set in locked order" do
-      ps5  = create(:platform, name: "PlayStation 5", igdb_id: 167)
-      sw2  = create(:platform, name: "Nintendo Switch 2", slug: "switch2", igdb_id: nil)
-      xbox = create(:platform, name: "Xbox Series X|S", igdb_id: 169)
+      ps5  = make_platform(name: "PlayStation 5", igdb_id: 167)
+      sw2  = make_platform(name: "Nintendo Switch 2", slug: "switch2", igdb_id: nil)
+      xbox = make_platform(name: "Xbox Series X|S", igdb_id: 169)
       game.platforms_available << ps5
       game.platforms_available << sw2
       game.platforms_available << xbox
