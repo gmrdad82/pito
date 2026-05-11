@@ -1,6 +1,12 @@
 <td class="col-action" id="item_status_<%= item_id %>">
   <% if status == "succeeded" %>
-    <span class="dot-done">done</span>
+    <%# 2026-05-11 polish (Fix 1) — replaced ad-hoc `.dot-done` span
+        with the shared `StatusBadgeComponent` so per-item completion
+        markers share the bordered-badge ceremony used elsewhere
+        (notifications severity, calendar all-day, etc). The `.dot-done`
+        CSS class is preserved on the badge so any JS / spec keying on
+        the legacy hook keeps working. %>
+    <%= render(StatusBadgeComponent.new(label: "done", kind: :success)) %>
   <% elsif status == "failed" %>
     <span class="dot-fail">fail</span>
   <% elsif status == "skipped" %>

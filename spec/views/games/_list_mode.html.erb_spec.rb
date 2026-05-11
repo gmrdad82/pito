@@ -23,10 +23,13 @@ RSpec.describe "games/_list_mode.html.erb", type: :view do
   end
 
   describe "happy path — locked column order + heading" do
-    it "renders the post-polish heading 'all' (Fix 8)" do
+    # 2026-05-11 polish (Fix 3) — the `<h2>all</h2>` heading was hoisted
+    # out of this partial and into `games/index.html.erb` so it sits
+    # ABOVE the filter row. The partial no longer renders it directly;
+    # the page-level integration spec covers the new order.
+    it "no longer renders the `<h2>all</h2>` heading inside the partial (Fix 3, 2026-05-11)" do
       render_list(Game.none)
-      expect(rendered).to match(%r{<h2[^>]*>\s*all\s*</h2>})
-      expect(rendered).not_to match(%r{<h2[^>]*>\s*all games\s*</h2>})
+      expect(rendered).not_to match(%r{<h2[^>]*>\s*all\s*</h2>})
     end
 
     it "renders the seven post-polish v2 table headers in the locked column order" do
@@ -366,6 +369,48 @@ RSpec.describe "games/_list_mode.html.erb", type: :view do
       create(:game, title: "No Cover 2", igdb_id: nil)
       render_list(Game.all)
       expect(rendered).not_to include("object-fit: cover; display: block;")
+    end
+  end
+
+  describe "Fix 2 (2026-05-11) — owned cell renders StatusBadge yes/no" do
+    # The owned column previously rendered a bare em-dash literal. Per
+    # the 2026-05-11 polish wave it now answers a yes / no question via
+    # `StatusBadgeComponent`. A game qualifies as `yes` when it has at
+    # least one `game_platform_ownership` row; otherwise `no`.
+    it "renders a `yes` StatusBadge when the game has at least one platform ownership" do
+      game = create(:game, :synced, title: "Owned A", igdb_id: 4_300_001,
+                    igdb_slug: "owned-a-list")
+      platform = Platform.create!(igdb_id: 990, name: "Switch", slug: "switch-list")
+      game.game_platform_ownerships.create!(platform: platform)
+
+      render_list(Game.all)
+      doc = Nokogiri::HTML.fragment(rendered)
+      badge = doc.css("td.owned-cell span.status-badge.status-badge--yes").first
+      expect(badge).not_to be_nil
+      expect(badge.text.strip).to eq("yes")
+    end
+
+    it "renders a `no` StatusBadge when the game has no platform ownerships" do
+      create(:game, :synced, title: "Unowned A", igdb_id: 4_300_002,
+             igdb_slug: "unowned-a-list")
+
+      render_list(Game.all)
+      doc = Nokogiri::HTML.fragment(rendered)
+      badge = doc.css("td.owned-cell span.status-badge.status-badge--no").first
+      expect(badge).not_to be_nil
+      expect(badge.text.strip).to eq("no")
+    end
+
+    it "does NOT render a bare em-dash in the owned cell when ownership state is determinate" do
+      create(:game, :synced, title: "Determinate", igdb_id: 4_300_003,
+             igdb_slug: "determinate-list")
+
+      render_list(Game.all)
+      cell = rendered[%r{<td class="owned-cell[^"]*"[^>]*>.*?</td>}m]
+      expect(cell).not_to be_nil
+      # The cell now holds a StatusBadge span; the legacy `—` literal
+      # is gone for both yes and no branches.
+      expect(cell).not_to include("—")
     end
   end
 

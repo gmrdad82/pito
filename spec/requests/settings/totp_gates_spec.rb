@@ -78,15 +78,25 @@ RSpec.describe "2FA gates on sensitive Settings writes", type: :request do
       expect(user.reload.email).to eq(new_email)
     end
 
-    it "renders the form with the 2FA field when 2FA is on" do
+    # 2026-05-11 polish (Fix 4) — the inline `name="totp_code"` field
+    # was retired; the layout-level TOTP modal injects it on submit.
+    # The view contract is now the `totp-modal` Stimulus controller
+    # mounted on the form with `required="yes"` (2FA on) /
+    # `required="no"` (2FA off). The controller-side gate (covered
+    # above) still reads `params[:totp_code]` either way.
+    it "renders the form with the totp-modal controller wired when 2FA is on" do
       get settings_user_path
-      expect(response.body).to include('name="totp_code"')
+      expect(response.body).to include('data-controller="totp-modal"')
+      expect(response.body).to include('data-totp-modal-required-value="yes"')
+      expect(response.body).not_to include('id="totp_code"')
     end
 
-    it "omits the 2FA field when 2FA is off" do
+    it "carries required=\"no\" on the totp-modal controller when 2FA is off" do
       user.update!(totp_seed_encrypted: nil, totp_enabled_at: nil)
       get settings_user_path
-      expect(response.body).not_to include('name="totp_code"')
+      expect(response.body).to include('data-controller="totp-modal"')
+      expect(response.body).to include('data-totp-modal-required-value="no"')
+      expect(response.body).not_to include('id="totp_code"')
     end
   end
 

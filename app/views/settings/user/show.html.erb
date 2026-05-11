@@ -9,8 +9,23 @@
   </p>
 </div>
 
+<%# 2026-05-11 polish (Fix 4) — `totp-modal` Stimulus controller
+    intercepts the submit when 2FA is on; the layout-level TOTP
+    verification modal (`shared/_totp_verification_modal`) collects the
+    6-digit code and re-submits the form with `totp_code` attached.
+    The inline `2FA code` text input that used to render above
+    `[update]` is gone — the modal IS the surface. When 2FA is off,
+    `required` is "no" and the submit passes through untouched.
+    Mirrors the YouTube / Voyage / Slack / Discord pane adoption that
+    landed earlier in the session. %>
 <div class="pane pane--standalone">
-  <%= form_with url: settings_user_path, method: :patch, scope: :user, data: { turbo: false } do |f| %>
+  <%= form_with url: settings_user_path, method: :patch, scope: :user,
+                data: {
+                  controller: "totp-modal",
+                  action: "submit->totp-modal#maybeIntercept",
+                  totp_modal_required_value: Current.user&.totp_enabled? ? "yes" : "no",
+                  turbo: false
+                } do |f| %>
     <% if @user.errors.any? %>
       <div class="flash-error" style="margin-bottom: 8px;">
         <% @user.errors.full_messages.each do |msg| %>
@@ -49,20 +64,14 @@
              style="max-width: 420px; width: 100%;">
     </div>
 
-    <%# 2026-05-11 — fresh TOTP code field surfaces only when the
-        signed-in user has 2FA on. The controller `RecentTotpVerification`
-        concern reads `params[:totp_code]` and rejects with a generic
+    <%# 2026-05-11 polish (Fix 4) — inline `2FA code` text input
+        retired. When 2FA is on, the form-level `totp-modal` Stimulus
+        controller intercepts `[update]` and opens the layout-level
+        TOTP verification modal; the modal injects a hidden
+        `totp_code` field and re-submits. The controller-side
+        `RecentTotpVerification` concern still reads
+        `params[:totp_code]` and rejects with a generic
         `credentials don't match.` flash on a bad / missing code. %>
-    <% if Current.user&.totp_enabled? %>
-      <div style="margin-bottom: 12px;">
-        <label for="totp_code" class="form-label">2FA code</label>
-        <input type="text" name="totp_code" id="totp_code"
-               value="" autocomplete="one-time-code" inputmode="numeric"
-               pattern="\d{6}" maxlength="6"
-               style="max-width: 420px; width: 100%;">
-        <span class="form-hint" style="display: block;">required to authorize the change.</span>
-      </div>
-    <% end %>
 
     <div class="dot-list">
       <button type="submit">[update]</button>

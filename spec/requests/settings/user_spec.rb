@@ -181,6 +181,50 @@ RSpec.describe "Settings::User", type: :request do
     end
   end
 
+  # 2026-05-11 polish (Fix 4) — TOTP modal adoption.
+  #
+  # The user-edit form used to render an inline `<input id="totp_code">`
+  # text field above `[update]` whenever the signed-in user had 2FA on.
+  # Per the polish wave the inline field is gone; the form now mounts
+  # the per-form `totp-modal` Stimulus controller, which intercepts
+  # `[update]`, opens the layout-level TOTP verification modal, and
+  # re-submits the form with `totp_code` injected as a hidden field
+  # once the user enters all 6 digits. Mirrors the YouTube / Voyage /
+  # Slack / Discord pane adoption that landed earlier in the session.
+  describe "Fix 4 (2026-05-11) — TOTP modal wiring" do
+    it "drops the inline `totp_code` text input from the form (2FA on)" do
+      user.update!(totp_seed_encrypted: "JBSWY3DPEHPK3PXP",
+                   totp_enabled_at: 1.hour.ago)
+      get settings_user_path
+      expect(response.body).not_to include('id="totp_code"')
+      expect(response.body).not_to include('name="totp_code"')
+      expect(response.body).not_to match(%r{<label[^>]*for="totp_code"})
+    end
+
+    it "drops the inline `totp_code` text input from the form (2FA off)" do
+      get settings_user_path
+      expect(response.body).not_to include('id="totp_code"')
+      expect(response.body).not_to include('name="totp_code"')
+    end
+
+    it "wires `data-controller=\"totp-modal\"` on the form with required=yes when 2FA is on" do
+      user.update!(totp_seed_encrypted: "JBSWY3DPEHPK3PXP",
+                   totp_enabled_at: 1.hour.ago)
+      get settings_user_path
+      expect(response.body).to match(
+        /<form[^>]*data-controller="totp-modal"[^>]*data-totp-modal-required-value="yes"/m
+      )
+      # ERB escapes `->` to `-&gt;` in attribute output.
+      expect(response.body).to include("submit-&gt;totp-modal#maybeIntercept")
+    end
+
+    it "wires the totp-modal controller with required=no when 2FA is off" do
+      get settings_user_path
+      expect(response.body).to include('data-controller="totp-modal"')
+      expect(response.body).to include('data-totp-modal-required-value="no"')
+    end
+  end
+
   describe "unauthenticated access" do
     it "redirects GET /settings/user to /login", :unauthenticated do
       get settings_user_path

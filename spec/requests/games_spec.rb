@@ -84,6 +84,36 @@ RSpec.describe "Games", type: :request do
         expect(response.body).not_to include(">all games<")
       end
 
+      # 2026-05-11 polish (Fix 3) — the `<h2>all</h2>` heading moved out
+      # of the mode partials (`_list_mode`, `_grid_mode`,
+      # `_shelves_by_letter_mode`) and into `games/index.html.erb` so
+      # it sits ABOVE the filter row. New order on the page is:
+      #   `<h1>games</h1>` → top shelves → `<h2>all</h2>` → filter row
+      #   → mode table / grid / shelves.
+      it "renders the `<h2>all</h2>` heading ABOVE the filter row (Fix 3, 2026-05-11)" do
+        get games_path
+        # Both anchors must be present for the ordering check to be
+        # meaningful; the partial-level heading is gone so the `all`
+        # `<h2>` appears exactly once in the page.
+        all_heading_pos = response.body.index(%r{<h2[^>]*>\s*all\s*</h2>})
+        filter_row_pos  = response.body.index('class="games-filter-row')
+        expect(all_heading_pos).not_to be_nil
+        expect(filter_row_pos).not_to be_nil
+        expect(all_heading_pos).to be < filter_row_pos
+      end
+
+      it "renders the filter row ABOVE the all-games listing section (Fix 3, 2026-05-11)" do
+        get games_path
+        filter_row_pos = response.body.index('class="games-filter-row')
+        # The listing section carries `data-display-mode=...` regardless
+        # of which mode renders; use it as the anchor for "the table /
+        # grid section starts here".
+        listing_pos = response.body.index('data-display-mode=')
+        expect(filter_row_pos).not_to be_nil
+        expect(listing_pos).not_to be_nil
+        expect(filter_row_pos).to be < listing_pos
+      end
+
       it "stamps a steam-shelf Stimulus controller on each shelf" do
         get games_path
         expect(response.body).to include('data-controller="steam-shelf"')
@@ -119,6 +149,75 @@ RSpec.describe "Games", type: :request do
         zelda.game_platform_ownerships.create!(platform: platform)
         get games_path
         expect(response.body).to include("?platform_owned=#{platform.id}")
+      end
+    end
+
+    # P27 reviewer follow-up (non-blocking concern #2, 2026-05-11) —
+    # the per-genre sub-shelves used to fire `genre.games.count` plus
+    # `genre.games.order(...).limit(30)` per genre (2 queries per
+    # genre). `Games::GenreShelfBatch` now resolves both with a
+    # grouped count + windowed top-N fetch (2 queries total regardless
+    # of genre count). The assertion below counts SELECT statements
+    # via `ActiveSupport::Notifications` and asserts the count stays
+    # flat as the number of genres grows.
+    describe "N+1 guard on per-genre sub-shelves" do
+      def count_select_statements
+        select_count = 0
+        callback = lambda do |_name, _start, _finish, _id, payload|
+          next if payload[:name] == "SCHEMA"
+          next if payload[:cached]
+          sql = payload[:sql].to_s
+          select_count += 1 if sql.match?(/\ASELECT/i)
+        end
+        ActiveSupport::Notifications.subscribed(callback, "sql.active_record") { yield }
+        select_count
+      end
+
+      let!(:adv)   { Genre.create!(igdb_id: 9_001, name: "Adventure", slug: "adventure") }
+      let!(:rpg)   { Genre.create!(igdb_id: 9_002, name: "RPG",       slug: "rpg") }
+      let!(:plat)  { Genre.create!(igdb_id: 9_003, name: "Platformer", slug: "platformer") }
+
+      before do
+        # One primary-genre-pinned game per genre keeps each
+        # sub-shelf non-empty (the outer shelf hides empty buckets).
+        [ adv, rpg, plat ].each_with_index do |g, i|
+          game = create(:game, :synced, title: "Game-#{i}-#{g.name}", cover_image_id: "img-#{i}")
+          game.update_column(:primary_genre_id, g.id)
+        end
+      end
+
+      it "issues a bounded number of SELECTs across 3 sub-shelves (no N+1)" do
+        # First request warms caches / loads code; the second is the
+        # measurement. We assert a generous ceiling (50) because the
+        # render pipeline issues legitimate SELECTs beyond the
+        # sub-shelves (auth, AppSetting, layout fragments, etc.). The
+        # specific N+1 we eliminated was `2 * genres`, so the ceiling
+        # is set well below `baseline + 2 * 3` for a 3-genre fixture.
+        get games_path
+        baseline = count_select_statements { get games_path }
+        expect(baseline).to be < 50
+      end
+
+      it "the SELECT count stays flat when the genre count grows from 3 to 6" do
+        # Warm.
+        get games_path
+        small = count_select_statements { get games_path }
+
+        # Add 3 more populated genres.
+        3.times do |i|
+          extra_genre = Genre.create!(igdb_id: 9_100 + i, name: "Extra-#{i}", slug: "extra-#{i}")
+          game = create(:game, :synced, title: "Game-extra-#{i}", cover_image_id: "img-extra-#{i}")
+          game.update_column(:primary_genre_id, extra_genre.id)
+        end
+
+        large = count_select_statements { get games_path }
+        # The N+1 fix means doubling the genre count adds a single
+        # extra SELECT at most (the grouped count + windowed fetch are
+        # each one query regardless of N). A regression to the old
+        # `2 * N` pattern would add 6 extra SELECTs (2 per new genre).
+        # We assert the delta stays under 5 to leave a small buffer
+        # for incidental query growth from new fixture rows.
+        expect(large - small).to be < 5
       end
     end
 

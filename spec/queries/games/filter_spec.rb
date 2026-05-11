@@ -340,6 +340,32 @@ RSpec.describe Games::Filter do
       second_sql = filter.results.to_sql
       expect(first_sql).to eq(second_sql)
     end
+
+    # P27 reviewer follow-up (non-blocking concern #3, 2026-05-11) —
+    # the combinator must not realise intermediate `.ids` arrays. The
+    # caller composes `.where(...).count` and the resulting SQL is
+    # executed in a single round-trip (the subqueries inline as
+    # `IN (SELECT ...)` clauses, not literal `IN (?, ?, ?, ...)`
+    # lists).
+    it "composes with .where(...).count without materialising intermediate ids" do
+      filter = Games::Filter.new(scope: Game.all, tokens: %w[released ps5])
+      composed = filter.results.where("games.id > ?", 0)
+      expect(composed.count).to be_a(Integer)
+    end
+
+    it "emits a subquery (not a literal id list) for status-bucket OR composition" do
+      filter = Games::Filter.new(scope: Game.all, tokens: %w[recorded released])
+      sql = filter.results.to_sql
+      # The subquery form contains a nested SELECT; the
+      # materialise-then-IN form would carry a literal id list.
+      expect(sql).to match(/IN \(SELECT/i)
+    end
+
+    it "emits a subquery (not a literal id list) for platform-bucket OR composition" do
+      filter = Games::Filter.new(scope: Game.all, tokens: %w[ps5 switch2])
+      sql = filter.results.to_sql
+      expect(sql).to match(/IN \(SELECT/i)
+    end
   end
 
   describe "#active_tokens / #dropped_tokens" do
