@@ -2958,55 +2958,53 @@ pending overrides without writing to the DB.
   ViewComponent. Renders three sibling layout panels (`#preview-layout-desktop`,
   `#preview-layout-mobile`, `#preview-layout-tv`); the active one carries
   `.active`, the others carry the `hidden` attribute. `pending:` Hash overlays
-  every channel attribute lookup so the streamed re-render reflects the
-  dirty form state without touching the DB.
+  every channel attribute lookup so the streamed re-render reflects the dirty
+  form state without touching the DB.
 - `app/javascript/controllers/channel_preview_controller.js` — new. Two
   responsibilities: top-nav layout toggle (`selectLayout`) and debounced
   form-input listener (`updatePreview`) that issues a Turbo-Stream `GET` to
-  `/channels/:id/preview?...` with the dirty field set. Debounce
-  configurable via `debounceMsValue` (default 300ms).
+  `/channels/:id/preview?...` with the dirty field set. Debounce configurable
+  via `debounceMsValue` (default 300ms).
 - `app/controllers/channels/previews_controller.rb` — new. Single `#show`
-  action. No DB writes. Renders a Turbo Stream replacing `#channel-preview`
-  with a freshly-rendered component, or an HTML render of the bare component
-  for unit testing. Flattens `links_attributes` nested-form params into the
+  action. No DB writes. Renders a Turbo Stream replacing `#channel-preview` with
+  a freshly-rendered component, or an HTML render of the bare component for unit
+  testing. Flattens `links_attributes` nested-form params into the
   `[{title:, url:}]` jsonb shape the component's resolver expects.
-- `app/helpers/preview_helper.rb` — new. Owns `RANDOM_VIDEO_TITLES` (20
-  neutral, English-only test fixtures), `random_video_thumbnail(seed:)`
-  (deterministic per-seed pick from `public/preview/video_thumbnails/` —
-  returns `nil` when the directory is empty), `sample_titles(count:, seed:)`
-  for deterministic title selection, and `random_watermark_frame(seed:)` as
-  a stub for 11e (returns `nil`; 11d does not call it).
+- `app/helpers/preview_helper.rb` — new. Owns `RANDOM_VIDEO_TITLES` (20 neutral,
+  English-only test fixtures), `random_video_thumbnail(seed:)` (deterministic
+  per-seed pick from `public/preview/video_thumbnails/` — returns `nil` when the
+  directory is empty), `sample_titles(count:, seed:)` for deterministic title
+  selection, and `random_watermark_frame(seed:)` as a stub for 11e (returns
+  `nil`; 11d does not call it).
 - `app/views/shared/_wide_modal.html.erb` — new. Reusable wide-variant dialog
-  frame (max-width 1320px, max-height 95vh). 11e watermark preview will
-  reuse this shell. Carries the `confirm-modal` Stimulus controller so Esc /
+  frame (max-width 1320px, max-height 95vh). 11e watermark preview will reuse
+  this shell. Carries the `confirm-modal` Stimulus controller so Esc /
   click-outside / `[close]` all close, matching the existing dialog UX.
 - `app/views/channels/edit.html.erb` — added the `channel-preview` controller
-  scope wrapping both the form (so the input listener sees keystrokes) and
-  the modal (so the streamed `#channel-preview` replacement target is in
-  scope). Inlined the modal mount with `[desktop][mobile][tv]` top-nav links.
-  The `[preview]` bracketed link inside the pane opens the modal via
-  `modal-trigger#open`. Did NOT restructure the form layout per the
-  coordination note.
-- `app/views/channels/_form.html.erb` — added `data-action=
-  "input->channel-preview#updatePreview"` plus
+  scope wrapping both the form (so the input listener sees keystrokes) and the
+  modal (so the streamed `#channel-preview` replacement target is in scope).
+  Inlined the modal mount with `[desktop][mobile][tv]` top-nav links. The
+  `[preview]` bracketed link inside the pane opens the modal via
+  `modal-trigger#open`. Did NOT restructure the form layout per the coordination
+  note.
+- `app/views/channels/_form.html.erb` — added
+  `data-action= "input->channel-preview#updatePreview"` plus
   `data-channel-preview-field-param="<attr>"` on the title, handle, and
   description fields. No layout changes; only data-attribute additions.
 - `config/routes.rb` — added
-  `resource :preview, only: :show, controller: "channels/previews"` inside
-  the existing `resources :channels do … end` block. Named-route helper is
+  `resource :preview, only: :show, controller: "channels/previews"` inside the
+  existing `resources :channels do … end` block. Named-route helper is
   `channel_preview_path(channel)` → `/channels/<slug>/preview`.
-- `app/assets/tailwind/application.css` — added `.wide-modal` (and
-  `-inner` / `-header` / `-title-row` / `-topnav` / `-body`),
-  `.preview-nav-active`, and the three `.preview-canvas--<layout>` /
-  `.preview-banner--<layout>` / `.preview-identity--<layout>` /
-  `.preview-avatar--<layout>` / `.preview-videos--<layout>` size + spacing
-  rule sets. TV layout uses `transform: scale(0.6)` with
-  `transform-origin: top left` to fit a 1920px-wide canvas inside the
-  wide-modal body.
-- `public/preview/video_thumbnails/.keep` — new. Directory marker; user
-  drops `thumb-01.jpg` ... `thumb-08.jpg` JPEGs here out-of-band. Empty
-  directory triggers the `[ no preview thumbnails yet ]` empty-state copy
-  per D8.
+- `app/assets/tailwind/application.css` — added `.wide-modal` (and `-inner` /
+  `-header` / `-title-row` / `-topnav` / `-body`), `.preview-nav-active`, and
+  the three `.preview-canvas--<layout>` / `.preview-banner--<layout>` /
+  `.preview-identity--<layout>` / `.preview-avatar--<layout>` /
+  `.preview-videos--<layout>` size + spacing rule sets. TV layout uses
+  `transform: scale(0.6)` with `transform-origin: top left` to fit a 1920px-wide
+  canvas inside the wide-modal body.
+- `public/preview/video_thumbnails/.keep` — new. Directory marker; user drops
+  `thumb-01.jpg` ... `thumb-08.jpg` JPEGs here out-of-band. Empty directory
+  triggers the `[ no preview thumbnails yet ]` empty-state copy per D8.
 
 **Specs added**
 
@@ -3014,29 +3012,28 @@ pending overrides without writing to the DB.
   frozen + non-empty, `sample_titles` deterministic + wrap-around,
   `random_video_thumbnail` deterministic / empty-dir / missing-dir branches,
   `random_watermark_frame` stub return.
-- `spec/components/channel_preview_component_spec.rb` — 34 examples.
-  Structure (4), banner-present / banner-absent / banner-override (4),
-  avatar-present / avatar-absent / avatar-override (3), title / handle /
-  subs + placeholder branches (7), description-present / -absent /
-  -override / -blank-override (4), links-present / -empty / -override /
-  -json-payload / -empty-override (5), video-row real / static / empty
-  fallback (3), Stimulus wiring (3), hard-rule hygiene (1).
+- `spec/components/channel_preview_component_spec.rb` — 34 examples. Structure
+  (4), banner-present / banner-absent / banner-override (4), avatar-present /
+  avatar-absent / avatar-override (3), title / handle / subs + placeholder
+  branches (7), description-present / -absent / -override / -blank-override (4),
+  links-present / -empty / -override / -json-payload / -empty-override (5),
+  video-row real / static / empty fallback (3), Stimulus wiring (3), hard-rule
+  hygiene (1).
 - `spec/requests/channels/previews_spec.rb` — 12 examples. Happy path (2),
-  pending-edit query params (2), active_layout query param (2), Turbo
-  Stream branch (3), 404 (1), `links_attributes` flattening (2).
+  pending-edit query params (2), active_layout query param (2), Turbo Stream
+  branch (3), 404 (1), `links_attributes` flattening (2).
 - `spec/system/channel_preview_spec.rb` — 9 examples (rack_test). Edit-page
-  wiring asserts: `[preview]` link presence + modal-trigger wiring, wide
-  modal renders with three panels, desktop active by default, top-nav
-  rendered with `[desktop]` active-styled, controller scope wraps both
-  form and modal, every editable input carries the input action + param,
-  no JS confirm / alert anywhere. Preview-endpoint payload smoke (2) —
-  validates the wire that the Stimulus controller fetches.
+  wiring asserts: `[preview]` link presence + modal-trigger wiring, wide modal
+  renders with three panels, desktop active by default, top-nav rendered with
+  `[desktop]` active-styled, controller scope wraps both form and modal, every
+  editable input carries the input action + param, no JS confirm / alert
+  anywhere. Preview-endpoint payload smoke (2) — validates the wire that the
+  Stimulus controller fetches.
 
 **Gates green**
 
-- `bundle exec rspec spec/components/channel_preview_component_spec.rb
-  spec/system/channel_preview_spec.rb spec/helpers/preview_helper_spec.rb
-  spec/requests/channels/previews_spec.rb` — 69 examples, 0 failures.
+- `bundle exec rspec spec/components/channel_preview_component_spec.rb spec/system/channel_preview_spec.rb spec/helpers/preview_helper_spec.rb spec/requests/channels/previews_spec.rb`
+  — 69 examples, 0 failures.
 - Adjacent run (`spec/system/channel_edit_form_spec.rb`,
   `spec/system/channel_show_journey_spec.rb`, `spec/requests/channels/`,
   `spec/components/`) — 272 examples, 0 failures.
@@ -3046,31 +3043,31 @@ pending overrides without writing to the DB.
 **Spec → reality deltas**
 
 - The spec calls for `app/components/channel_preview_component.html.erb` to
-  render all three panels with only the active one visible. Implementation
-  uses the `hidden` HTML attribute on inactive panels (rather than only a
-  CSS rule) so Capybara's default visibility filter naturally hides them in
-  specs and screen readers honor the state without CSS support. Specs use
-  `visible: :all` to inspect the non-active panels.
+  render all three panels with only the active one visible. Implementation uses
+  the `hidden` HTML attribute on inactive panels (rather than only a CSS rule)
+  so Capybara's default visibility filter naturally hides them in specs and
+  screen readers honor the state without CSS support. Specs use `visible: :all`
+  to inspect the non-active panels.
 - The spec's `pending:` Hash treatment was tightened — a key present with a
-  blank string (user cleared the field) wins over the persisted column;
-  only an absent key falls through. This matches the live-edit posture
-  (clearing a banner URL streams a placeholder block immediately).
-- The spec's `links` override accepts both a Ruby Array (server-side
-  in-process render) and a JSON-encoded String (the wire format query
-  params land in). The controller also flattens `links_attributes` from
-  the edit form's nested-attributes shape into the same Array-of-Hashes
-  the jsonb column carries, so the debounced preview includes link edits
-  even though they ride a different param key on the form.
+  blank string (user cleared the field) wins over the persisted column; only an
+  absent key falls through. This matches the live-edit posture (clearing a
+  banner URL streams a placeholder block immediately).
+- The spec's `links` override accepts both a Ruby Array (server-side in-process
+  render) and a JSON-encoded String (the wire format query params land in). The
+  controller also flattens `links_attributes` from the edit form's
+  nested-attributes shape into the same Array-of-Hashes the jsonb column
+  carries, so the debounced preview includes link edits even though they ride a
+  different param key on the form.
 
 **Cross-agent coordination**
 
 - Sibling 11g agent landed a `change_logs` route inside the same
-  `resources :channels do … end` block; my `resource :preview` route
-  landed alongside it without conflict.
-- Did NOT restructure the channel edit form layout (per the coordination
-  note). Only added the `[preview]` button at the top of the form pane and
-  added `data-action` / `data-channel-preview-field-param` attributes to
-  the title, handle, and description inputs.
+  `resources :channels do … end` block; my `resource :preview` route landed
+  alongside it without conflict.
+- Did NOT restructure the channel edit form layout (per the coordination note).
+  Only added the `[preview]` button at the top of the form pane and added
+  `data-action` / `data-channel-preview-field-param` attributes to the title,
+  handle, and description inputs.
 - 11e (watermark preview) will reuse `shared/_wide_modal.html.erb` and the
   `PreviewHelper.random_watermark_frame` stub that already exists.
 - Did NOT touch `extras/`. Did NOT touch `docs/` beyond appending this log
@@ -3086,25 +3083,25 @@ tick (same situation as the 11g / 11h / 11i log entries above).
 
 - TV layout's 0.6 scale factor is a best-guess approximation per locked Q1.
   Expect iteration from user feedback once the dogfooding pass starts.
-- The `public/preview/video_thumbnails/` directory ships empty; the user
-  needs to drop 4–8 JPEGs (`thumb-01.jpg` ... `thumb-08.jpg`) before the
-  static fallback branch renders thumbnails. Until then, low-video channels
-  show the `[ no preview thumbnails yet ]` muted line.
-- The Stimulus controller calls `fetch` directly (not `Turbo.fetch`) and
-  pipes the response into `Turbo.renderStreamMessage`. If a future Turbo
-  upgrade exposes a cleaner fetch-stream helper, this is one of the few
-  call sites that could simplify.
+- The `public/preview/video_thumbnails/` directory ships empty; the user needs
+  to drop 4–8 JPEGs (`thumb-01.jpg` ... `thumb-08.jpg`) before the static
+  fallback branch renders thumbnails. Until then, low-video channels show the
+  `[ no preview thumbnails yet ]` muted line.
+- The Stimulus controller calls `fetch` directly (not `Turbo.fetch`) and pipes
+  the response into `Turbo.renderStreamMessage`. If a future Turbo upgrade
+  exposes a cleaner fetch-stream helper, this is one of the few call sites that
+  could simplify.
 
 **No commits, no pushes.** Master commits after manual validation.
 
 ## 2026-05-11 — §11e Channel Watermark Preview (rails-impl)
 
-**State at start:** 11a (channel schema/sync) + 11c (channel edit form) +
-11d (multi-layout preview component) all shipped. The
+**State at start:** 11a (channel schema/sync) + 11c (channel edit form) + 11d
+(multi-layout preview component) all shipped. The
 `PreviewHelper.random_watermark_frame(seed:)` stub from 11d returned `nil`
 unconditionally; the watermark fieldset in `_form.html.erb` had no preview
-adjacent to it. The `public/preview/watermark_frames/` directory did not
-exist on disk.
+adjacent to it. The `public/preview/watermark_frames/` directory did not exist
+on disk.
 
 **Inputs:**
 
@@ -3118,42 +3115,41 @@ exist on disk.
   4. Composition: `WatermarkPreviewComponent` is layout-agnostic;
      `ChannelPreviewComponent` picks the `size:` variant.
   5. TV layout — natural proportional scaling (no special-case).
-  6. Random frame deterministic per channel id (matches the D8 video
-     thumbnails pattern).
-  7. Attachment dependency: 11a (Channel columns) + 11c (form fields)
-     already shipped — `watermark_url` is a string column, `watermark_timing`
-     and `watermark_offset_ms` are persisted on the Channel record.
+  6. Random frame deterministic per channel id (matches the D8 video thumbnails
+     pattern).
+  7. Attachment dependency: 11a (Channel columns) + 11c (form fields) already
+     shipped — `watermark_url` is a string column, `watermark_timing` and
+     `watermark_offset_ms` are persisted on the Channel record.
 
 **What landed (file-level):**
 
 _New files:_
 
-- `app/components/watermark_preview_component.rb` — ViewComponent class.
-  Four size variants (`:edit`, `:desktop`, `:mobile`, `:tv`); `timing:` and
+- `app/components/watermark_preview_component.rb` — ViewComponent class. Four
+  size variants (`:edit`, `:desktop`, `:mobile`, `:tv`); `timing:` and
   `offset_ms:` overrides default to `channel.watermark_timing` /
-  `channel.watermark_offset_ms`; `frame_path:` override (primarily for
-  tests) defaults to `PreviewHelper.random_watermark_frame(seed: channel.id)`.
+  `channel.watermark_offset_ms`; `frame_path:` override (primarily for tests)
+  defaults to `PreviewHelper.random_watermark_frame(seed: channel.id)`.
 - `app/components/watermark_preview_component.html.erb` — faux player markup.
-  Background-image style points at the chosen frame; rough control row
-  (play / progress / time / settings / fullscreen) renders along the
-  bottom; watermark image floats at the bottom-right with the
-  `data-position="bottom-right"` attribute. Empty-frames branch swaps the
-  player area for a muted `[no preview frames yet]` line (no-inner-padding
-  bracket convention per project rule A).
-- `public/preview/watermark_frames/.keep` — placeholder so the directory
-  ships in git. User drops 2–4 JPEGs into this dir; filenames are
-  free-form (helper globs `*.{jpg,jpeg}`).
-- `spec/components/watermark_preview_component_spec.rb` — 28 examples.
-  Covers all four size variants, bottom-right positioning across every
-  variant, caption for each of the four timing values plus the no-watermark
-  fallback, empty-frames fallback, faux-controls row, hard-rule hygiene
-  (no JS confirm/alert; no-inner-padding bracket convention).
-- `spec/system/channels/watermark_preview_spec.rb` — 14 examples.
-  Critical journey end-to-end: edit page renders the `:edit` variant
-  adjacent to the form fields; caption reflects each persisted
-  `watermark_timing` + `watermark_offset_ms` combo; 11d preview modal
-  embeds the watermark inside each of the three layout panels; empty-frames
-  fallback; no-watermark fallback.
+  Background-image style points at the chosen frame; rough control row (play /
+  progress / time / settings / fullscreen) renders along the bottom; watermark
+  image floats at the bottom-right with the `data-position="bottom-right"`
+  attribute. Empty-frames branch swaps the player area for a muted
+  `[no preview frames yet]` line (no-inner-padding bracket convention per
+  project rule A).
+- `public/preview/watermark_frames/.keep` — placeholder so the directory ships
+  in git. User drops 2–4 JPEGs into this dir; filenames are free-form (helper
+  globs `*.{jpg,jpeg}`).
+- `spec/components/watermark_preview_component_spec.rb` — 28 examples. Covers
+  all four size variants, bottom-right positioning across every variant, caption
+  for each of the four timing values plus the no-watermark fallback,
+  empty-frames fallback, faux-controls row, hard-rule hygiene (no JS
+  confirm/alert; no-inner-padding bracket convention).
+- `spec/system/channels/watermark_preview_spec.rb` — 14 examples. Critical
+  journey end-to-end: edit page renders the `:edit` variant adjacent to the form
+  fields; caption reflects each persisted `watermark_timing` +
+  `watermark_offset_ms` combo; 11d preview modal embeds the watermark inside
+  each of the three layout panels; empty-frames fallback; no-watermark fallback.
 
 _Modified files:_
 
@@ -3163,67 +3159,62 @@ _Modified files:_
   human-readable caption string. Header comment updated to record the 11e
   extensions. The new constants are `WATERMARK_FRAMES_DIR` and
   `WATERMARK_FRAME_GLOB` (accepts both `.jpg` and `.jpeg`).
-- `app/views/channels/_form.html.erb` — watermark fieldset rewrapped in a
-  flex row so the existing form inputs (file / timing / offset / remove
-  link) sit on the left and the `:edit`-size watermark preview sits on
-  the right. The form inputs are unchanged; only the wrapping `<div>` and
-  the new `<%= render(WatermarkPreviewComponent...) %>` call are new.
+- `app/views/channels/_form.html.erb` — watermark fieldset rewrapped in a flex
+  row so the existing form inputs (file / timing / offset / remove link) sit on
+  the left and the `:edit`-size watermark preview sits on the right. The form
+  inputs are unchanged; only the wrapping `<div>` and the new
+  `<%= render(WatermarkPreviewComponent...) %>` call are new.
 - `app/components/channel_preview_component.html.erb` — added a
-  `<% if channel.watermark_url.present? %>` block inside each layout
-  panel that renders `WatermarkPreviewComponent` at the layout's matching
-  size variant (`:desktop` / `:mobile` / `:tv`). The composition is gated
-  on the channel having a watermark so layouts without one stay clean.
-- `app/assets/tailwind/application.css` — new ruleset for
-  `.watermark-preview` and its `--edit` / `--desktop` / `--mobile` / `--tv`
-  variant classes. Player uses CSS `aspect-ratio: 16 / 9` so the four
-  variants all preserve the same shape. Overlay uses percentage-based
-  positioning (`right: 4%; bottom: 12%`) so the watermark scales
-  proportionally with the player container (TV = large, mobile = small);
-  per-variant `max-width` caps prevent the overlay from getting absurd
-  on the TV variant. Controls row is a flex strip with a Unicode play
+  `<% if channel.watermark_url.present? %>` block inside each layout panel that
+  renders `WatermarkPreviewComponent` at the layout's matching size variant
+  (`:desktop` / `:mobile` / `:tv`). The composition is gated on the channel
+  having a watermark so layouts without one stay clean.
+- `app/assets/tailwind/application.css` — new ruleset for `.watermark-preview`
+  and its `--edit` / `--desktop` / `--mobile` / `--tv` variant classes. Player
+  uses CSS `aspect-ratio: 16 / 9` so the four variants all preserve the same
+  shape. Overlay uses percentage-based positioning (`right: 4%; bottom: 12%`) so
+  the watermark scales proportionally with the player container (TV = large,
+  mobile = small); per-variant `max-width` caps prevent the overlay from getting
+  absurd on the TV variant. Controls row is a flex strip with a Unicode play
   triangle, a red `.watermark-progress-bar` filling 30% of the track, a
-  monospace time stamp, a gear glyph, and a maximize glyph. Empty-state
-  styles match the existing `text-muted` convention.
+  monospace time stamp, a gear glyph, and a maximize glyph. Empty-state styles
+  match the existing `text-muted` convention.
 - `spec/helpers/preview_helper_spec.rb` — replaced the 11d placeholder
-  `random_watermark_frame returns nil` assertion with real coverage:
-  empty-dir branch, missing-dir branch, deterministic per-seed, `.jpg`
-  + `.jpeg` extensions, seed wrap-around, negative-seed defense.
-  Added a new `format_watermark_timing` describe block covering all
-  four timing values, millisecond-to-second rounding, nil-offset
-  fallback, negative-offset clamp, nil-timing and unrecognized-timing
-  branches, and symbol input acceptance.
+  `random_watermark_frame returns nil` assertion with real coverage: empty-dir
+  branch, missing-dir branch, deterministic per-seed, `.jpg`
+  - `.jpeg` extensions, seed wrap-around, negative-seed defense. Added a new
+    `format_watermark_timing` describe block covering all four timing values,
+    millisecond-to-second rounding, nil-offset fallback, negative-offset clamp,
+    nil-timing and unrecognized-timing branches, and symbol input acceptance.
 
 **Why:**
 
-The watermark fields landed in 11c had no visual feedback — the user could
-set a timing+offset and save, but the only way to verify the watermark's
-appearance was to publish a video to YouTube and look at the player. 11e
-gives the user an at-a-glance preview adjacent to the form fields plus
-the same preview inside each of the 11d modal's three layout panels (so
-the user can see how the watermark scales across desktop, mobile, and TV).
+The watermark fields landed in 11c had no visual feedback — the user could set a
+timing+offset and save, but the only way to verify the watermark's appearance
+was to publish a video to YouTube and look at the player. 11e gives the user an
+at-a-glance preview adjacent to the form fields plus the same preview inside
+each of the 11d modal's three layout panels (so the user can see how the
+watermark scales across desktop, mobile, and TV).
 
-The caption is the load-bearing surface for the four timing options —
-the mockup is static, so the visible-window semantics (`always` vs
-`offset_from_start` vs `offset_from_end`) have to surface in text.
-Rounding millisecond offsets to whole seconds at the render boundary
-keeps the DB schema unchanged (still `watermark_offset_ms`) while making
-the caption readable.
+The caption is the load-bearing surface for the four timing options — the mockup
+is static, so the visible-window semantics (`always` vs `offset_from_start` vs
+`offset_from_end`) have to surface in text. Rounding millisecond offsets to
+whole seconds at the render boundary keeps the DB schema unchanged (still
+`watermark_offset_ms`) while making the caption readable.
 
 **Where:**
 
 - Spec: `specs/11e-channel-watermark-preview.md`.
-- 11d log entry above (immediate predecessor; the
-  `random_watermark_frame` stub became real here).
-- 11c log entry above (the watermark form fields this preview sits
-  next to).
+- 11d log entry above (immediate predecessor; the `random_watermark_frame` stub
+  became real here).
+- 11c log entry above (the watermark form fields this preview sits next to).
 
 **Gates green:**
 
 - `bundle exec rspec spec/components/watermark_preview_component_spec.rb spec/helpers/preview_helper_spec.rb spec/system/channels/watermark_preview_spec.rb`
   → 74 examples, 0 failures.
-- `bundle exec rspec spec/components/ spec/helpers/` → 482 examples,
-  0 failures (no regressions from extending PreviewHelper +
-  ChannelPreviewComponent).
+- `bundle exec rspec spec/components/ spec/helpers/` → 482 examples, 0 failures
+  (no regressions from extending PreviewHelper + ChannelPreviewComponent).
 - `bundle exec rspec spec/system/channels/ spec/system/channel_preview_spec.rb spec/system/channel_edit_form_spec.rb`
   → all green.
 - `bundle exec rubocop` → 1004 files, 0 offenses.
@@ -3231,46 +3222,44 @@ the caption readable.
 
 **Notes for the master agent / reviewer:**
 
-- The CSS `aspect-ratio: 16 / 9` is the load-bearing rule that keeps the
-  faux player visually consistent across the four variants; if a future
-  variant arrives, only the `width` / `max-width` need updating.
-- Composition with 11d uses `channel.watermark_url.present?` as the gate
-  inside each layout panel. Channels without a watermark stay unchanged
-  in the modal — only the inline edit-form preview surfaces the
-  "No watermark set" caption (so the user knows the preview is wired up
-  even before uploading anything).
-- The `frame_path: :unset` sentinel in the component constructor exists
-  so callers can pass `frame_path: nil` to force the empty-frames branch
-  in tests without it being mistaken for "use the default". Production
-  callers should never set `frame_path:` and let the helper pick.
-- Did NOT touch `extras/`, `docs/` (other than appending this log entry
-  per the rails-impl agent rules), or `.claude-config/`.
+- The CSS `aspect-ratio: 16 / 9` is the load-bearing rule that keeps the faux
+  player visually consistent across the four variants; if a future variant
+  arrives, only the `width` / `max-width` need updating.
+- Composition with 11d uses `channel.watermark_url.present?` as the gate inside
+  each layout panel. Channels without a watermark stay unchanged in the modal —
+  only the inline edit-form preview surfaces the "No watermark set" caption (so
+  the user knows the preview is wired up even before uploading anything).
+- The `frame_path: :unset` sentinel in the component constructor exists so
+  callers can pass `frame_path: nil` to force the empty-frames branch in tests
+  without it being mistaken for "use the default". Production callers should
+  never set `frame_path:` and let the helper pick.
+- Did NOT touch `extras/`, `docs/` (other than appending this log entry per the
+  rails-impl agent rules), or `.claude-config/`.
 
 **Plan ticked**
 
-11e has no dedicated `plan.md` checkbox — Step 11 sub-specs were added
-via `additions.md` and not back-folded into the plan workstreams list.
-Nothing to tick (same situation as the 11d / 11g / 11h / 11i log entries
-above).
+11e has no dedicated `plan.md` checkbox — Step 11 sub-specs were added via
+`additions.md` and not back-folded into the plan workstreams list. Nothing to
+tick (same situation as the 11d / 11g / 11h / 11i log entries above).
 
 **Open issues**
 
-- `public/preview/watermark_frames/` ships empty. The user needs to drop
-  2–4 JPEGs (~1920×1080) into the directory before the non-empty branch
-  renders. Until then, the empty-state line is what gets exercised. The
-  filename is free-form (helper globs `*.{jpg,jpeg}`), so the user can
-  drop screenshots without renaming.
-- The faux player chrome is a rough approximation (per locked Q2). If
-  the user wants pixel-perfect fidelity later, the controls row would
-  swap Unicode glyphs for SVG icons; that's a CSS-only follow-up.
+- `public/preview/watermark_frames/` ships empty. The user needs to drop 2–4
+  JPEGs (~1920×1080) into the directory before the non-empty branch renders.
+  Until then, the empty-state line is what gets exercised. The filename is
+  free-form (helper globs `*.{jpg,jpeg}`), so the user can drop screenshots
+  without renaming.
+- The faux player chrome is a rough approximation (per locked Q2). If the user
+  wants pixel-perfect fidelity later, the controls row would swap Unicode glyphs
+  for SVG icons; that's a CSS-only follow-up.
 - The watermark overlay's `bottom: 12%` positioning is a best-guess
   approximation of YouTube's actual placement. Expect a tweak after the
   dogfooding pass — the value is a single CSS rule.
-- No live JS preview was wired (the spec explicitly said a page reload
-  after save is sufficient). If the 11d Stimulus controller pattern ends
-  up extended to the watermark fields, the inline `:edit` preview is
-  ready to update via Turbo Stream — it already lives inside the
-  `channel-preview` Stimulus controller scope on the edit page.
+- No live JS preview was wired (the spec explicitly said a page reload after
+  save is sufficient). If the 11d Stimulus controller pattern ends up extended
+  to the watermark fields, the inline `:edit` preview is ready to update via
+  Turbo Stream — it already lives inside the `channel-preview` Stimulus
+  controller scope on the edit page.
 
 **No commits, no pushes.** Master commits after manual validation.
 
@@ -3285,18 +3274,19 @@ leader-menu schema. Both Rails (web) and Rust (`pito` CLI / TUI) read it.
 
 **Files changed**
 
-- `config/keybindings.yml` — NEW. Encodes the locked menu structure
-  (root + 9 submenus: calendar, channels, videos, projects, games, bundles,
-  notifications, search, list_ops). Items carry `key`, `label`, and either
-  `submenu:` or `action: { type, ... }`. Optional `surfaces: [tui]` filter
-  keeps the `q` quit binding off the web surface.
+- `config/keybindings.yml` — NEW. Encodes the locked menu structure (root + 9
+  submenus: calendar, channels, videos, projects, games, bundles, notifications,
+  search, list_ops). Items carry `key`, `label`, and either `submenu:` or
+  `action: { type, ... }`. Optional `surfaces: [tui]` filter keeps the `q` quit
+  binding off the web surface.
 - `config/initializers/keybindings.rb` — NEW. Eager-loads the YAML at boot,
-  deep-freezes the tree, and stashes it in `Rails.application.config.keybindings`.
+  deep-freezes the tree, and stashes it in
+  `Rails.application.config.keybindings`.
 - `app/helpers/keybindings_helper.rb` — NEW.
   - `keybindings_for_surface(:web|:tui)` returns the filtered hash for spec
     assertions and downstream rendering.
-  - `keybindings_as_json` JSON-serializes the `:web` filter and marks the
-    result `html_safe` so it can ride inside the layout's
+  - `keybindings_as_json` JSON-serializes the `:web` filter and marks the result
+    `html_safe` so it can ride inside the layout's
     `<script type="application/json" id="pito-keybindings">` tag. (No user-
     controlled strings exist in the schema today, so no XSS surface.)
 - `app/views/layouts/application.html.erb` — Mounts `leader-menu` controller
@@ -3304,18 +3294,18 @@ leader-menu schema. Both Rails (web) and Rust (`pito` CLI / TUI) read it.
   `<body>`. Embeds the JSON schema in a `<script>` tag. Adds the
   `#leader-menu-popup` placeholder div with the `data-leader-menu-target`. The
   footer `[_]` link's `data-action` is now
-  `click->keyboard#openHelp click->leader-menu#openRoot` — both controllers
-  fire on click so the legacy `?` help dialog still opens AND the new
-  leader popup paints.
+  `click->keyboard#openHelp click->leader-menu#openRoot` — both controllers fire
+  on click so the legacy `?` help dialog still opens AND the new leader popup
+  paints.
 - `app/javascript/controllers/leader_menu_controller.js` — NEW Stimulus
-  controller. Parses `<script id="pito-keybindings">` on `connect`, listens
-  for SPACE on `document`, walks the menu stack (push on submenu activation,
-  pop on Backspace), renders the popup with `createElement` + `textContent`
-  (no `innerHTML`, no `Element.outerHTML` from dynamic strings, so no XSS
-  surface). Esc closes the popup; Backspace pops up one level; clicking
-  outside dismisses. Non-navigate actions are forwarded as a
-  `leader-menu:action` `CustomEvent` on `document` so other controllers can
-  plug in handlers without coupling this one to every action type.
+  controller. Parses `<script id="pito-keybindings">` on `connect`, listens for
+  SPACE on `document`, walks the menu stack (push on submenu activation, pop on
+  Backspace), renders the popup with `createElement` + `textContent` (no
+  `innerHTML`, no `Element.outerHTML` from dynamic strings, so no XSS surface).
+  Esc closes the popup; Backspace pops up one level; clicking outside dismisses.
+  Non-navigate actions are forwarded as a `leader-menu:action` `CustomEvent` on
+  `document` so other controllers can plug in handlers without coupling this one
+  to every action type.
 - `app/assets/tailwind/application.css` — Bottom-right anchored card styles
   (`.leader-menu-popup`, `.leader-menu-card`, `.leader-menu-key`,
   `.leader-menu-row`, `.leader-menu-hint`) appended at the bottom.
@@ -3324,251 +3314,227 @@ leader-menu schema. Both Rails (web) and Rust (`pito` CLI / TUI) read it.
 
 - `spec/helpers/keybindings_helper_spec.rb` (12 examples) — schema-shape
   contract: leader key + display, locked menu names, root-item key set,
-  navigate-action shape on `[S]ettings`, submenu wiring on `[c]alendar`
-  and games-bundles, surface filtering (TUI `q` filtered off `:web`,
-  preserved on `:tui`), JSON round-trip.
+  navigate-action shape on `[S]ettings`, submenu wiring on `[c]alendar` and
+  games-bundles, surface filtering (TUI `q` filtered off `:web`, preserved on
+  `:tui`), JSON round-trip.
 - `spec/requests/leader_menu_layout_spec.rb` (24 examples) — layout-level
-  integration: `<body data-controller=leader-menu>` mount, `<script
-  id="pito-keybindings">` payload, popup placeholder div, footer `[_]`
+  integration: `<body data-controller=leader-menu>` mount,
+  `<script id="pito-keybindings">` payload, popup placeholder div, footer `[_]`
   link wired to `leader-menu#openRoot`, JSON shape (TUI `q` filtered),
   chrome-hidden auth-page behavior.
 - `spec/system/leader_menu_spec.rb` (7 examples, rack_test) — same chrome
-  contract from Capybara's vantage point + JSON payload introspection on
-  the calendar + channels submenus.
+  contract from Capybara's vantage point + JSON payload introspection on the
+  calendar + channels submenus.
 
 **Specs touched**
 
 - `spec/requests/keyboard_shortcuts_layout_spec.rb` — the `[_]` `data-action`
-  assertion relaxed from exact-string equality on the trailing `"` byte to
-  a substring match on `click->keyboard#openHelp`, since the action is now
-  chained with `click->leader-menu#openRoot` on the same link.
+  assertion relaxed from exact-string equality on the trailing `"` byte to a
+  substring match on `click->keyboard#openHelp`, since the action is now chained
+  with `click->leader-menu#openRoot` on the same link.
 
 **TUI half (Step 3) — DEFERRED**
 
-Out of rails-impl scope per the agent file-scope rule
-(`extras/cli/` belongs to the `cli-impl` agent). The TUI integration —
-`extras/cli/src/keybindings.rs` (`serde_yaml` loader),
-`extras/cli/src/ui/leader_menu.rs` (Ratatui overlay), and the SPACE wiring
-in `extras/cli/src/keys.rs` — needs a sibling `pito-rust` dispatch. The
-schema YAML at `config/keybindings.yml` is the lockstep contract; both
-stacks parse the same file on disk.
+Out of rails-impl scope per the agent file-scope rule (`extras/cli/` belongs to
+the `cli-impl` agent). The TUI integration — `extras/cli/src/keybindings.rs`
+(`serde_yaml` loader), `extras/cli/src/ui/leader_menu.rs` (Ratatui overlay), and
+the SPACE wiring in `extras/cli/src/keys.rs` — needs a sibling `pito-rust`
+dispatch. The schema YAML at `config/keybindings.yml` is the lockstep contract;
+both stacks parse the same file on disk.
 
 **Step 4 (visual posture) — verified in place**
 
-- The `[_]` link in the footer (added in `076be13`) is still rendered and
-  now carries both controllers' `data-action`.
-- The popup placeholder div lives in the layout chrome with `hidden`
-  defaulted; the Stimulus controller flips it.
+- The `[_]` link in the footer (added in `076be13`) is still rendered and now
+  carries both controllers' `data-action`.
+- The popup placeholder div lives in the layout chrome with `hidden` defaulted;
+  the Stimulus controller flips it.
 
 **Refactor decision: `KeyboardShortcutsModalComponent`**
 
-The spec offered "refactor to read from the schema instead of hand-coded;
-or retire entirely if the leader popup IS the help surface". Picked
-KEEP-AS-IS for this dispatch: the per-page `?` help modal lists
-prefix-keyed shortcuts (`g d`, `g c`, `f s`, etc.) the leader menu
-deliberately does not surface (those stay page-level per the dev note's
-Implementation plan §6). The leader popup is the global navigation
-surface; the legacy modal stays as the per-page shortcut catalogue. The
-two surfaces are intentionally orthogonal.
+The spec offered "refactor to read from the schema instead of hand-coded; or
+retire entirely if the leader popup IS the help surface". Picked KEEP-AS-IS for
+this dispatch: the per-page `?` help modal lists prefix-keyed shortcuts (`g d`,
+`g c`, `f s`, etc.) the leader menu deliberately does not surface (those stay
+page-level per the dev note's Implementation plan §6). The leader popup is the
+global navigation surface; the legacy modal stays as the per-page shortcut
+catalogue. The two surfaces are intentionally orthogonal.
 
 **Gates**
 
-- `bundle exec rspec spec/helpers/keybindings_helper_spec.rb
-  spec/system/leader_menu_spec.rb spec/requests/leader_menu_layout_spec.rb
-  spec/requests/layout_navbar_spec.rb
-  spec/requests/keyboard_shortcuts_layout_spec.rb` → 83 examples, 0 failures.
+- `bundle exec rspec spec/helpers/keybindings_helper_spec.rb spec/system/leader_menu_spec.rb spec/requests/leader_menu_layout_spec.rb spec/requests/layout_navbar_spec.rb spec/requests/keyboard_shortcuts_layout_spec.rb`
+  → 83 examples, 0 failures.
 - `bundle exec rubocop` → clean (1004 files, 0 offenses).
 - `bundle exec brakeman -q -w2` → 0 warnings.
 
 **Plan ticked**
 
-None. This work has no corresponding plan checkbox — the locked-decision
-block in the dev note is the contract, dispatched directly by the master
-agent.
+None. This work has no corresponding plan checkbox — the locked-decision block
+in the dev note is the contract, dispatched directly by the master agent.
 
 **Coordination note**
 
 - Several agents in flight on adjacent surfaces; the keybindings work moved
   freely on its own slice (`config/keybindings.yml` + initializer + helper
-  + new Stimulus controller + layout chrome integration).
-- The `[_]` footer link's `click->keyboard#openHelp` action survives on
-  the same click as a defense-in-depth chrome contract; existing layout
-  specs and the legacy `?` modal continue to work.
+  - new Stimulus controller + layout chrome integration).
+- The `[_]` footer link's `click->keyboard#openHelp` action survives on the same
+  click as a defense-in-depth chrome contract; existing layout specs and the
+  legacy `?` modal continue to work.
 
 **Open issues**
 
 - TUI lane needs a `pito-rust` dispatch to land `extras/cli/src/keybindings.rs`,
-  `ui/leader_menu.rs`, and the SPACE wiring. Until that ships, the TUI's
-  leader surface is unchanged from `extras/cli/src/ui/help.rs`.
+  `ui/leader_menu.rs`, and the SPACE wiring. Until that ships, the TUI's leader
+  surface is unchanged from `extras/cli/src/ui/help.rs`.
 - Action-type dispatch (`open`, `today`, `quit_and_logout`, `contextual_add`,
-  etc.) is intentionally a no-op in this dispatch: the Stimulus controller
-  emits a `leader-menu:action` CustomEvent and other controllers will plug
-  in handlers as the surfaces land. Same-time landing across agents would
-  have produced merge collisions on every modal; this shape keeps the
-  schema stable while the rest evolves.
+  etc.) is intentionally a no-op in this dispatch: the Stimulus controller emits
+  a `leader-menu:action` CustomEvent and other controllers will plug in handlers
+  as the surfaces land. Same-time landing across agents would have produced
+  merge collisions on every modal; this shape keeps the schema stable while the
+  rest evolves.
 
 **No commits, no pushes.** Master commits after manual validation.
 
-
 ## 2026-05-11 — §11f Channel Banner Upload (rails-impl)
 
-**Spec:** `specs/11f-channel-banner-upload.md` (sub-spec of 11). Replaces
-the 11c stub `_banner_upload.html.erb` with a working drag-drop + file-
-picker upload flow. Client-side validates type / dimensions / aspect /
-size (4 conditions, all rejection reasons render simultaneously per
-D22). On submit, Rails performs the two-step YouTube call
-(`channelBanners.insert` to upload bytes, then `channels.update` to set
-`brandingSettings.image.bannerExternalUrl`) and caches the published
-URL into `channels.banner_url`. The banner section swaps in-place via
-Turbo Stream when banner is the only dirty field — no full page reload.
+**Spec:** `specs/11f-channel-banner-upload.md` (sub-spec of 11). Replaces the
+11c stub `_banner_upload.html.erb` with a working drag-drop + file- picker
+upload flow. Client-side validates type / dimensions / aspect / size (4
+conditions, all rejection reasons render simultaneously per D22). On submit,
+Rails performs the two-step YouTube call (`channelBanners.insert` to upload
+bytes, then `channels.update` to set `brandingSettings.image.bannerExternalUrl`)
+and caches the published URL into `channels.banner_url`. The banner section
+swaps in-place via Turbo Stream when banner is the only dirty field — no full
+page reload.
 
 **Locked decisions (master-confirmed at dispatch):**
 
-1. Submit blocking on client-side check: YES — form submit blocked
-   until client validation passes. Stimulus shows a progress indicator
-   while validating.
-2. Multipart upload size limit: deployment-side nginx
-   `client_max_body_size` 10MB; Rails / Rack 3 do not impose a per-part
-   byte cap so the initializer just pins `multipart_file_limit = 128`
-   (part-count, default) and documents the nginx target.
+1. Submit blocking on client-side check: YES — form submit blocked until client
+   validation passes. Stimulus shows a progress indicator while validating.
+2. Multipart upload size limit: deployment-side nginx `client_max_body_size`
+   10MB; Rails / Rack 3 do not impose a per-part byte cap so the initializer
+   just pins `multipart_file_limit = 128` (part-count, default) and documents
+   the nginx target.
 3. `URL.createObjectURL` revocation: revoke after preview generation
-   (dimension-read URL revokes immediately on load; preview URL revokes
-   after every `<img>` has loaded). `disconnect()` also flushes any
-   remaining handles.
-4. Success rendering: Turbo Stream swap of `#channel-banner-section`
-   when the banner was the only edit. Combined edits (banner +
-   description) take the redirect path so the show page renders the
-   full update.
-5. YouTube-side rejection fallback: render error message + keep the
-   staged form data so the user can re-pick. The `Permanent` /
-   `Quota` / `Transient` / `NeedsReauth` paths all fall through the
-   existing `perform_youtube_update` rescue clauses — no banner-specific
-   rescue plumbing was needed.
+   (dimension-read URL revokes immediately on load; preview URL revokes after
+   every `<img>` has loaded). `disconnect()` also flushes any remaining handles.
+4. Success rendering: Turbo Stream swap of `#channel-banner-section` when the
+   banner was the only edit. Combined edits (banner + description) take the
+   redirect path so the show page renders the full update.
+5. YouTube-side rejection fallback: render error message + keep the staged form
+   data so the user can re-pick. The `Permanent` / `Quota` / `Transient` /
+   `NeedsReauth` paths all fall through the existing `perform_youtube_update`
+   rescue clauses — no banner-specific rescue plumbing was needed.
 
 **Files changed**
 
 - `app/services/youtube/client.rb` — `#upload_banner(channel, io)` added.
-  Two-step: `channelBanners.insert` (multipart upload, returns the
-  opaque token YouTube calls `bannerExternalUrl`), then `channels.list`
-  (read-modify-write of brandingSettings to preserve channel section
-  siblings), then `channels.update` (writes
-  `brandingSettings.image.bannerExternalUrl`). Returns the cached CDN
-  URL from the update response, with fallback to the insert token if
-  the response lacks `banner_external_url`. Three audit rows per
-  successful upload (one per endpoint).
-- `app/services/youtube/quota.rb` — `"channelBanners.insert"` cost added
-  at 50 units (parity with `channels.update` / `watermarks.set`).
+  Two-step: `channelBanners.insert` (multipart upload, returns the opaque token
+  YouTube calls `bannerExternalUrl`), then `channels.list` (read-modify-write of
+  brandingSettings to preserve channel section siblings), then `channels.update`
+  (writes `brandingSettings.image.bannerExternalUrl`). Returns the cached CDN
+  URL from the update response, with fallback to the insert token if the
+  response lacks `banner_external_url`. Three audit rows per successful upload
+  (one per endpoint).
+- `app/services/youtube/quota.rb` — `"channelBanners.insert"` cost added at 50
+  units (parity with `channels.update` / `watermarks.set`).
 - `app/controllers/channels_controller.rb` — `#update` recognizes
-  `channel[banner_image]` and dispatches through `upload_banner`. The
-  returned URL caches into `channels.banner_url` inside the same
-  transaction as the rest of the dirty subset. Star-only HTML detection
-  now includes `banner_image` in its edit-form key sweep so a banner
-  upload is not misrouted through the legacy yes/no path.
-  `channel_form_fields_blank?` also accounts for `banner_upload_present?`
-  so a banner-only submit does not short-circuit to "no changes".
-  Banner-only submits return a Turbo Stream that replaces
+  `channel[banner_image]` and dispatches through `upload_banner`. The returned
+  URL caches into `channels.banner_url` inside the same transaction as the rest
+  of the dirty subset. Star-only HTML detection now includes `banner_image` in
+  its edit-form key sweep so a banner upload is not misrouted through the legacy
+  yes/no path. `channel_form_fields_blank?` also accounts for
+  `banner_upload_present?` so a banner-only submit does not short-circuit to "no
+  changes". Banner-only submits return a Turbo Stream that replaces
   `#channel-banner-section`; combined submits redirect as before.
-- `app/javascript/controllers/banner_upload_controller.js` (new) —
-  Stimulus controller. Targets: input, dropZone, pickerButton, progress,
-  errors, previewContainer, previewWeb, previewMobile, previewTv.
-  Values: minWidth (2048), minHeight (1152), aspectRatio (16/9),
-  aspectTolerance (0.02), maxSizeBytes (6MB). All rejection messages
-  render simultaneously; `clearStagedFile()` clears the hidden input on
-  any rejection. Form-submit listener blocks while `_validating` is true
-  or when the staged file failed client checks.
-- `app/views/channels/_banner_upload.html.erb` — replaces the 11c stub.
-  Fieldset wraps `#channel-banner-section` (Turbo Stream target),
-  spec-info line ("Banner: 2048x1152 minimum, 16:9 aspect, JPEG/PNG,
-  max 6MB."), the existing cached-banner row, drag-drop zone, hidden
-  file input under `channel[banner_image]`, [pick file] bracketed link,
-  progress / errors / preview containers, all three preview size
-  variants (web 320×53, mobile 193×53, tv 192×108 — same shape as 11d
-  multi-layout preview).
-- `app/views/channels/_banner.html.erb` — note added that the edit
-  page wraps the partial in `#channel-banner-section`; the partial
-  itself stays render-once for use on the show page too.
-- `app/views/channels/banner_updated.turbo_stream.erb` (new) — the
-  Turbo Stream response. Re-renders the `_banner` partial inside the
+- `app/javascript/controllers/banner_upload_controller.js` (new) — Stimulus
+  controller. Targets: input, dropZone, pickerButton, progress, errors,
+  previewContainer, previewWeb, previewMobile, previewTv. Values: minWidth
+  (2048), minHeight (1152), aspectRatio (16/9), aspectTolerance (0.02),
+  maxSizeBytes (6MB). All rejection messages render simultaneously;
+  `clearStagedFile()` clears the hidden input on any rejection. Form-submit
+  listener blocks while `_validating` is true or when the staged file failed
+  client checks.
+- `app/views/channels/_banner_upload.html.erb` — replaces the 11c stub. Fieldset
+  wraps `#channel-banner-section` (Turbo Stream target), spec-info line
+  ("Banner: 2048x1152 minimum, 16:9 aspect, JPEG/PNG, max 6MB."), the existing
+  cached-banner row, drag-drop zone, hidden file input under
+  `channel[banner_image]`, [pick file] bracketed link, progress / errors /
+  preview containers, all three preview size variants (web 320×53, mobile
+  193×53, tv 192×108 — same shape as 11d multi-layout preview).
+- `app/views/channels/_banner.html.erb` — note added that the edit page wraps
+  the partial in `#channel-banner-section`; the partial itself stays render-once
+  for use on the show page too.
+- `app/views/channels/banner_updated.turbo_stream.erb` (new) — the Turbo Stream
+  response. Re-renders the `_banner` partial inside the
   `#channel-banner-section` wrapper and adds a "banner updated" hint.
 - `config/initializers/multipart_upload_limit.rb` (new) — pins
-  `Rack::Utils.multipart_file_limit = 128` and documents the 10MB
-  nginx `client_max_body_size` target so the next reader does not have
-  to dig.
+  `Rack::Utils.multipart_file_limit = 128` and documents the 10MB nginx
+  `client_max_body_size` target so the next reader does not have to dig.
 
 **Specs added (delta)**
 
-- `spec/services/youtube/client_upload_banner_spec.rb` (new) — 20
-  examples. Happy path (ordering: insert → list → update; insert body
-  carries IO + content_type; update body carries the token under
-  `image.banner_external_url`; channel section preserved by RMW;
-  returns CDN URL; falls back to insert token if response omits it; 3
-  audit rows). Argument validation (nil channel, nil io, bad
-  channel_url). Sad paths (pre-call quota, 403 quotaExceeded on
-  insert, 5xx on insert, 401 after refresh, 400
-  `imageDimensionsInvalid` → PermanentError, network timeout, empty
-  banner url → PermanentError, Step 1 failure stops Step 2, Step 2
-  5xx surfaces TransientError with audit row).
-- `spec/requests/channels/edit_form_spec.rb` — 8 new examples in a new
-  describe block "PATCH /channels/:id (banner upload flows)": uploads
-  + skips update_channel when banner is sole dirty field, caches
-  banner_url, HTML redirect path, Turbo Stream path, combined
-  banner+description submit (both dispatch + redirect), Permanent /
-  Quota / NeedsReauth error paths.
-- `spec/system/channel_banner_upload_spec.rb` (new) — 11 examples,
-  driven by `:rack_test`. The four client-side reject conditions live
-  inside the Stimulus controller and require a JS-capable driver
-  (the project does not configure one — see
-  `spec/system/settings/tokens_spec.rb` note); this spec asserts the
-  SSR scaffolding the controller needs (data-controller mount,
-  data-* validation thresholds, hidden file input under `banner_image`,
-  drag-drop zone with the four event hooks, [pick file] button wired
-  to `openPicker`, error / progress / preview targets hidden by
-  default, three preview size variants, Turbo Stream target wrapper,
-  multipart enctype). Includes one happy-path submit asserting
+- `spec/services/youtube/client_upload_banner_spec.rb` (new) — 20 examples.
+  Happy path (ordering: insert → list → update; insert body carries IO +
+  content_type; update body carries the token under `image.banner_external_url`;
+  channel section preserved by RMW; returns CDN URL; falls back to insert token
+  if response omits it; 3 audit rows). Argument validation (nil channel, nil io,
+  bad channel_url). Sad paths (pre-call quota, 403 quotaExceeded on insert, 5xx
+  on insert, 401 after refresh, 400 `imageDimensionsInvalid` → PermanentError,
+  network timeout, empty banner url → PermanentError, Step 1 failure stops Step
+  2, Step 2 5xx surfaces TransientError with audit row).
+- `spec/requests/channels/edit_form_spec.rb` — 8 new examples in a new describe
+  block "PATCH /channels/:id (banner upload flows)": uploads
+  - skips update_channel when banner is sole dirty field, caches banner_url,
+    HTML redirect path, Turbo Stream path, combined banner+description submit
+    (both dispatch + redirect), Permanent / Quota / NeedsReauth error paths.
+- `spec/system/channel_banner_upload_spec.rb` (new) — 11 examples, driven by
+  `:rack_test`. The four client-side reject conditions live inside the Stimulus
+  controller and require a JS-capable driver (the project does not configure one
+  — see `spec/system/settings/tokens_spec.rb` note); this spec asserts the SSR
+  scaffolding the controller needs (data-controller mount, data-\* validation
+  thresholds, hidden file input under `banner_image`, drag-drop zone with the
+  four event hooks, [pick file] button wired to `openPicker`, error / progress /
+  preview targets hidden by default, three preview size variants, Turbo Stream
+  target wrapper, multipart enctype). Includes one happy-path submit asserting
   `upload_banner` is invoked and `banner_url` is cached. The full
   reject-condition matrix is the manual test recipe in the spec.
 
-Spec count delta: +39 examples across the three files (20 service + 8
-request + 11 system).
+Spec count delta: +39 examples across the three files (20 service + 8 request +
+11 system).
 
 **Gates**
 
-- `bundle exec rspec spec/services/youtube/client_upload_banner_spec.rb
-  spec/system/channel_banner_upload_spec.rb
-  spec/requests/channels/edit_form_spec.rb`: green (70 examples / 0
-  failures).
-- Regression sweep (`spec/services/ spec/requests/channels/
-  spec/requests/channels_spec.rb spec/system/channel_*_spec.rb
-  spec/jobs/channel_sync_spec.rb spec/jobs/channel_diff_check_job_spec.rb`):
+- `bundle exec rspec spec/services/youtube/client_upload_banner_spec.rb spec/system/channel_banner_upload_spec.rb spec/requests/channels/edit_form_spec.rb`:
+  green (70 examples / 0 failures).
+- Regression sweep
+  (`spec/services/ spec/requests/channels/ spec/requests/channels_spec.rb spec/system/channel_*_spec.rb spec/jobs/channel_sync_spec.rb spec/jobs/channel_diff_check_job_spec.rb`):
   green (1261 examples / 0 failures).
 - `bundle exec rubocop`: green (1004 files / 0 offenses).
 - `bin/brakeman -q -w2`: green (0 warnings).
 
 **Coordination notes**
 
-- 11e (watermark preview) is implementing the watermark section of
-  the same edit page. 11f only touches the banner partial + the
-  banner-only branch of `_form.html.erb` — distinct files. The
-  `_form.html.erb` render line for `channels/banner_upload` was
-  unchanged (already in place from 11c).
-- `Youtube::Client#update_channel` and `#upload_banner` both perform
-  a `channels.list` read-before-write of brandingSettings; both pass
-  through `perform("channels.list", "GET")` so the audit rows are
-  uniform. The two methods are independent and can be called in the
-  same controller request without interfering.
-- The Turbo Stream banner-section swap is opt-in via the client's
-  `Accept` header. Capybara `:rack_test` does not send the
-  turbo-stream Accept header by default, so the system spec exercises
-  the redirect path; the dedicated request spec covers both paths.
+- 11e (watermark preview) is implementing the watermark section of the same edit
+  page. 11f only touches the banner partial + the banner-only branch of
+  `_form.html.erb` — distinct files. The `_form.html.erb` render line for
+  `channels/banner_upload` was unchanged (already in place from 11c).
+- `Youtube::Client#update_channel` and `#upload_banner` both perform a
+  `channels.list` read-before-write of brandingSettings; both pass through
+  `perform("channels.list", "GET")` so the audit rows are uniform. The two
+  methods are independent and can be called in the same controller request
+  without interfering.
+- The Turbo Stream banner-section swap is opt-in via the client's `Accept`
+  header. Capybara `:rack_test` does not send the turbo-stream Accept header by
+  default, so the system spec exercises the redirect path; the dedicated request
+  spec covers both paths.
 
 **Open issues**
 
-- Cassette-recording for the new endpoint is deferred to the same
-  Phase 7.6 session that converts every other `Youtube::Client` spec
-  off WebMock (per the deferred-workstreams entry in `plan.md`).
-- The four client-side reject conditions live behind a JS driver gap
-  in the project's spec setup. When a JS driver lands (Phase 7.6 or
-  later), the manual test recipe steps 3–6 should be lifted into the
-  system spec.
+- Cassette-recording for the new endpoint is deferred to the same Phase 7.6
+  session that converts every other `Youtube::Client` spec off WebMock (per the
+  deferred-workstreams entry in `plan.md`).
+- The four client-side reject conditions live behind a JS driver gap in the
+  project's spec setup. When a JS driver lands (Phase 7.6 or later), the manual
+  test recipe steps 3–6 should be lifted into the system spec.
 
 **No commits, no pushes.** Master commits after manual validation.
