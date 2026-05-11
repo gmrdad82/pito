@@ -14,6 +14,8 @@
 #   keeps `Game#hours_of_footage_cached` in sync with the linked Video
 #   durations.
 class VideoGameLink < ApplicationRecord
+  # Rails 8.1 — defensive: lock the enum-backing column type.
+  attribute :link_type, :integer
   enum :link_type, { game: 0, bundle: 1 }, prefix: :link
 
   belongs_to :video

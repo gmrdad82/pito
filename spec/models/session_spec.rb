@@ -117,6 +117,19 @@ RSpec.describe Session, type: :model do
         session = create(:session)
         expect(session.state).to eq("active")
       end
+
+      # Rails 8.1 regression guard. The `enum :state` declaration is
+      # paired with `attribute :state, :integer` so the column type is
+      # locked ahead of the enum macro. Without that pairing, Rails
+      # 8.1's enum type inference can fail under autoload races /
+      # bootsnap cache and raise
+      # `Undeclared attribute type for enum 'state' in Session`. The
+      # spec asserts the explicit type pin so a future cleanup that
+      # drops the `attribute :state, :integer` line fails LOUDLY here
+      # before the production boot path discovers the same break.
+      it "pins :state to the :integer attribute type" do
+        expect(Session.attribute_types["state"].type).to eq(:integer)
+      end
     end
 
     describe "scope :pending" do

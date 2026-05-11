@@ -16,6 +16,10 @@ class Footage < ApplicationRecord
   belongs_to :project, counter_cache: true
   belongs_to :game, optional: true
 
+  # Rails 8.1 — defensive: lock the enum-backing column types.
+  attribute :kind, :integer
+  attribute :source, :integer
+  attribute :orientation, :integer
   enum :kind, { a_roll: 0, b_roll: 1 }, validate: true
   enum :source, { obs: 0, camera: 1 }, validate: true
   enum :orientation, { landscape: 0, portrait: 1 }

@@ -31,6 +31,12 @@ class CalendarEntry < ApplicationRecord
            dependent: :nullify,
            inverse_of: :parent_entry
 
+  # Rails 8.1 — defensive: lock the enum-backing column types.
+  attribute :entry_type, :integer
+  attribute :source, :integer
+  attribute :state, :integer
+  attribute :release_precision, :integer
+
   enum :entry_type, {
     channel_published: 0,
     video_published:   1,

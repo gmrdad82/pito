@@ -42,6 +42,10 @@ class Notification < ApplicationRecord
              class_name: "User",
              optional: true
 
+  # Rails 8.1 — defensive: lock the enum-backing column types.
+  attribute :kind, :integer
+  attribute :severity, :integer
+
   enum :kind, {
     video_published: 0,
     video_pre_publish_check_missed: 1,

@@ -22,6 +22,8 @@ class BlockedLocation < ApplicationRecord
              foreign_key: :unblocked_by_user_id,
              optional: true
 
+  # Rails 8.1 — defensive: lock the enum-backing column type.
+  attribute :source_surface, :integer
   enum :source_surface, {
     web: 0,
     tui: 1,

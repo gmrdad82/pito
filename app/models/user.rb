@@ -32,6 +32,8 @@ class User < ApplicationRecord
   # The user's persisted choice of `/games` view. Default `grid` (0).
   # Integer values are load-bearing for production data and are
   # asserted in `spec/models/user_spec.rb` — do not reorder.
+  # Rails 8.1 — defensive: lock the enum-backing column type.
+  attribute :preferred_games_display_mode, :integer
   enum :preferred_games_display_mode, {
     grid: 0,
     list: 1,

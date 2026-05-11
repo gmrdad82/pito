@@ -23,6 +23,12 @@ class LoginAttempt < ApplicationRecord
   # paths never mint a session.
   belongs_to :session, optional: true
 
+  # Rails 8.1 — defensive: lock the enum-backing column types so
+  # autoload races / bootsnap cache cannot trip the
+  # `Undeclared attribute type for enum` failure path.
+  attribute :result, :integer
+  attribute :reason, :integer
+
   enum :result, {
     success: 0,
     failed: 1,

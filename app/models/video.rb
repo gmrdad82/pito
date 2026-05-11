@@ -151,6 +151,8 @@ class Video < ApplicationRecord
             format: { with: %r{\Ahttps?://[^\s]+\z}, allow_blank: true,
                       message: "must be an absolute http(s) URL" }
 
+  # Rails 8.1 — defensive: lock the enum-backing column type.
+  attribute :privacy_status, :integer
   enum :privacy_status,
        { private: 0, public: 1, unlisted: 2 },
        prefix: :privacy

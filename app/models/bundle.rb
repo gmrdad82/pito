@@ -26,6 +26,9 @@ class Bundle < ApplicationRecord
   extend FriendlyId
   friendly_id :slug_candidates, use: %i[slugged history finders]
 
+  # Rails 8.1 — defensive: lock the enum-backing column types.
+  attribute :bundle_type, :integer
+  attribute :igdb_source_type, :integer
   enum :bundle_type,
        { series: 0, collection: 1, genre: 2, custom: 3 },
        prefix: :type

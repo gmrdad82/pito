@@ -1,4 +1,6 @@
 class SavedView < ApplicationRecord
+  # Rails 8.1 — defensive: lock the enum-backing column type.
+  attribute :kind, :integer
   enum :kind, { channels: 0, videos: 1 }
 
   validates :kind, presence: true

@@ -4,6 +4,9 @@ class BulkOperation < ApplicationRecord
   has_many :bulk_operation_items, dependent: :destroy
   has_many :videos, through: :bulk_operation_items
 
+  # Rails 8.1 — defensive: lock the enum-backing column types.
+  attribute :kind, :integer
+  attribute :status, :integer
   enum :kind, { update_metadata: 0, update_privacy: 1, add_to_playlist: 2, remove_from_playlist: 3, bulk_delete: 4, bulk_sync: 5 }
   enum :status, { pending: 0, running: 1, completed: 2, failed: 3 }, prefix: true
 

@@ -13,6 +13,8 @@ class Timeline < ApplicationRecord
 
   attribute :title, :string, default: "Untitled timeline"
 
+  # Rails 8.1 — defensive: lock the enum-backing column type.
+  attribute :state, :integer
   enum :state, { editing: 0, exported: 1, uploaded: 2 }
 
   aasm column: :state, enum: true do

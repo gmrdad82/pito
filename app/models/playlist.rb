@@ -7,6 +7,8 @@ class Playlist < ApplicationRecord
   has_many :playlist_videos, dependent: :destroy
   has_many :videos, through: :playlist_videos
 
+  # Rails 8.1 — defensive: lock the enum-backing column type.
+  attribute :privacy_status, :integer
   enum :privacy_status, { public_playlist: 0, unlisted: 1, private_playlist: 2 }
 
   validates :youtube_playlist_id, presence: true, uniqueness: { case_sensitive: false }

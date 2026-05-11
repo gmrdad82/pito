@@ -20,6 +20,10 @@ class MilestoneRule < ApplicationRecord
   # Note 5's `tenant` scope is renamed `install` per ADR 0003 (single-
   # install posture; no Tenant model). The integer-backed enum value
   # 0 stays the same.
+  # Rails 8.1 — defensive: lock the enum-backing column types.
+  attribute :scope_type, :integer
+  attribute :metric_window, :integer
+  attribute :direction, :integer
   enum :scope_type, { install: 0, channel: 1, video: 2 }
   # Phase 13's analytics enum uses short-form window names (`7d`, `28d`,
   # `90d`, `lifetime`); we mirror those here. Integer values follow the

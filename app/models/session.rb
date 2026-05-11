@@ -43,6 +43,13 @@ class Session < ApplicationRecord
   # flips them to `expired` once the timestamp is in the past.
   PENDING_APPROVAL_TTL = 10.minutes
 
+  # Rails 8.1 enum type inference can fail under autoload races /
+  # bootsnap cache when the column type is integer and the enum
+  # declaration is the hash-with-options positional form. An explicit
+  # `attribute :state, :integer` locks the type ahead of the `enum`
+  # call so `Undeclared attribute type for enum 'state'` cannot trip
+  # under any boot-order interleaving.
+  attribute :state, :integer
   enum :state, {
     active: 0,
     pending_approval: 1,

@@ -25,6 +25,8 @@ class VideoChangeLog < ApplicationRecord
     thumbnail_url
   ].freeze
 
+  # Rails 8.1 — defensive: lock the enum-backing column type.
+  attribute :source, :integer
   enum :source, {
     pito_apply:    0,
     youtube_pull:  1,

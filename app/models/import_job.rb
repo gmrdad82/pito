@@ -21,6 +21,8 @@ class ImportJob < ApplicationRecord
   belongs_to :channel
   belongs_to :enqueued_by, class_name: "User"
 
+  # Rails 8.1 — defensive: lock the enum-backing column type.
+  attribute :status, :integer
   enum :status, {
     queued: 0,
     running: 1,
