@@ -115,20 +115,13 @@ RSpec.describe Mcp::Tools::GameUpdateLocal do
       expect(game.reload.game_platform_ownerships.count).to eq(1)
     end
 
-    it "preserves existing ownership row metadata on idempotent re-sync" do
-      row = game.game_platform_ownerships.create!(
-        platform: ps5,
-        acquired_at: Date.new(2024, 1, 1),
-        store: "Steam",
-        notes: "preserved"
-      )
+    it "keeps the existing ownership row on idempotent re-sync (no destroy + create churn)" do
+      row = game.game_platform_ownerships.create!(platform: ps5)
 
       described_class.call(id: game.id, platform_owned_ids: [ ps5.id, steam.id ], confirm: "yes")
 
-      row.reload
-      expect(row.acquired_at).to eq(Date.new(2024, 1, 1))
-      expect(row.store).to eq("Steam")
-      expect(row.notes).to eq("preserved")
+      expect(GamePlatformOwnership.exists?(row.id)).to be(true)
+      expect(game.reload.owned_platforms.map(&:id)).to match_array([ ps5.id, steam.id ])
     end
 
     # -----------------------------------------------------------

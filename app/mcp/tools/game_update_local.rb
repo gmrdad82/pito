@@ -148,9 +148,11 @@ module Mcp
 
       # Phase 27 §1a — bring `game.game_platform_ownerships` into shape
       # with the supplied id list. Idempotent: existing rows for ids in
-      # the list are preserved (so `acquired_at` / `store` / `notes`
-      # metadata isn't wiped), rows for ids not in the list are
-      # destroyed, ids missing a row get one created.
+      # the list are preserved, rows for ids not in the list are
+      # destroyed, ids missing a row get one created. Ownership rows
+      # carry no metadata since the 2026-05-12 editor revamp
+      # (`acquired_at` / `store` / `notes` were dropped from the
+      # schema).
       #
       # Phase 27 §01g — the caller pre-validates platform existence and
       # drops unknown ids with a warning; this method trusts its input.

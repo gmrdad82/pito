@@ -113,7 +113,7 @@
     <h2 style="margin-top: 16px;">genres / platforms</h2>
     <p>
       <span class="text-muted">genres:</span> <%= @game.genres.map(&:name).join(", ").presence || "—" %><br>
-      <span class="text-muted">platforms:</span> <%= @game.platforms_available.map(&:name).join(", ").presence || "—" %>
+      <span class="text-muted">platforms:</span> <%= display_platforms(@game) %>
     </p>
 
     <%# External store links. `[open on igdb]` was retired per spec —

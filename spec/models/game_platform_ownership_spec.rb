@@ -7,27 +7,6 @@ RSpec.describe GamePlatformOwnership, type: :model do
     it "is valid" do
       expect(build(:game_platform_ownership)).to be_valid
     end
-
-    it "round-trips acquired_at / store / notes" do
-      ts = Time.zone.local(2024, 3, 1, 12, 0, 0)
-      ownership = create(:game_platform_ownership,
-                         acquired_at: ts,
-                         store: "Steam",
-                         notes: "key from a humble bundle")
-      ownership.reload
-      expect(ownership.acquired_at).to be_within(1.second).of(ts)
-      expect(ownership.store).to eq("Steam")
-      expect(ownership.notes).to eq("key from a humble bundle")
-    end
-
-    it "allows acquired_at / store / notes to be nil" do
-      ownership = create(:game_platform_ownership,
-                         acquired_at: nil, store: nil, notes: nil)
-      ownership.reload
-      expect(ownership.acquired_at).to be_nil
-      expect(ownership.store).to be_nil
-      expect(ownership.notes).to be_nil
-    end
   end
 
   describe "associations" do
@@ -77,13 +56,6 @@ RSpec.describe GamePlatformOwnership, type: :model do
     end
   end
 
-  describe "edge — temporal flexibility" do
-    it "accepts a future acquired_at without complaint" do
-      ownership = build(:game_platform_ownership, acquired_at: 1.year.from_now)
-      expect(ownership).to be_valid
-    end
-  end
-
   describe "cascade behavior" do
     it "is destroyed when its game is destroyed" do
       ownership = create(:game_platform_ownership)
@@ -94,14 +66,6 @@ RSpec.describe GamePlatformOwnership, type: :model do
       ownership = create(:game_platform_ownership)
       expect { ownership.platform.destroy! }.to raise_error(ActiveRecord::RecordNotDestroyed)
       expect(GamePlatformOwnership.exists?(ownership.id)).to be(true)
-    end
-  end
-
-  describe "flaw — long-string fields" do
-    it "accepts a long store value without silent truncation" do
-      long_store = "x" * 200
-      ownership = create(:game_platform_ownership, store: long_store)
-      expect(ownership.reload.store.length).to eq(200)
     end
   end
 end
