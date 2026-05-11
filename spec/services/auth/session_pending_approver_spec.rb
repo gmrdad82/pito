@@ -2,6 +2,8 @@ require "rails_helper"
 
 # Phase 25 — 01b. SessionPendingApprover specs.
 RSpec.describe Auth::SessionPendingApprover do
+  include ActiveSupport::Testing::TimeHelpers
+
   let(:user) { create(:user) }
   let(:fp)   { Digest::SHA256.hexdigest("spa-fp-1") }
   let(:ip)   { "10.50.0.0/24" }

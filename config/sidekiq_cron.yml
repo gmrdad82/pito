@@ -72,6 +72,16 @@ notification_cleanup:
   class: NotificationCleanupJob
   description: "Delete read notifications older than 7 days"
 
+# Phase 25 — 01b (LD-6). Sweep pending-approval sessions whose
+# 10-minute window has elapsed and transition them to `expired`. The
+# sweeper writes a `LoginAttempt` row with `reason: pending_expired`
+# per transitioned session so the audit trail is honest. Idempotent;
+# double-running is fine.
+pending_session_approval_sweeper:
+  cron: "* * * * *"
+  class: SessionPendingApprovalSweeperJob
+  description: "Phase 25 — expire pending-approval sessions past their 10-minute window"
+
 # Phase 13.2 — Analytics sync engine. Nightly orchestrator at 04:00
 # UTC; retention curves refresh weekly on Mondays at 05:00 UTC.
 youtube_analytics_sync_nightly:
