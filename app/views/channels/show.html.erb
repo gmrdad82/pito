@@ -146,13 +146,17 @@
     </div>
   </div>
 
-  <%# Row 2 — analytics summary. 2026-05-11 restructure — analytics
-      moved above the Google connection panel so the high-signal
-      numbers sit near the page top. The `videos` row was dropped
-      from this table (the dedicated videos table further down
-      surfaces that count next to the `[see all videos]` link). NO
-      inline sparkline (locked decision — avoid chartkick coupling on
-      the show page). %>
+  <%# Row 2 — analytics summary + per-channel Google management panel,
+      side-by-side in a single pane-row (2026-05-11 follow-up — the
+      two panes previously stacked vertically; the user wants the
+      high-signal numbers and the OAuth plumbing on the same row).
+      Analytics renders first so subscribers/views sit on the left;
+      the Google panel sits to the right. The existing `.pane-row`
+      grid handles wrapping at narrow viewports. The `videos` row
+      was dropped from the analytics table (the dedicated videos
+      table further down surfaces that count next to the `[see all
+      videos]` link). NO inline sparkline (locked decision — avoid
+      chartkick coupling on the show page). %>
   <div class="pane-row">
     <div class="pane pane--standalone">
       <h2 style="margin: 0 0 8px 0;">analytics</h2>
@@ -171,15 +175,6 @@
             href: channel_analytics_path(@channel)
           )) %>
     </div>
-  </div>
-
-  <%# Row 3 — per-channel Google management panel. Renders the
-      YoutubeConnection that owns this channel (last-authorized,
-      reauth state) or a "no connection" empty state with a
-      `[connect this channel]` entry point. Placement moved (2026-05-11)
-      to sit after analytics — OAuth status is plumbing, analytics is
-      the headline. %>
-  <div class="pane-row">
     <%= render "channels/google_panel", channel: @channel, youtube_connection: @youtube_connection %>
   </div>
 

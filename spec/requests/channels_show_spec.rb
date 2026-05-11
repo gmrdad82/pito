@@ -60,13 +60,26 @@ RSpec.describe "GET /channels/:slug — show page revamp", type: :request do
       expect(response.body).to match(/<turbo-frame[^>]*id="channel_diff_banner"[^>]*>/)
     end
 
-    it "renders three pane rows (detail, analytics, Google panel) and a videos table outside any pane" do
-      # 2026-05-11 restructure — the videos block is no longer a pane.
-      # The page has three pane-rows total: identity/detail, analytics,
-      # and the Google management panel. Videos render below as a
-      # bare /videos-style table.
+    it "renders two pane rows (detail, analytics+Google) and a videos table outside any pane" do
+      # 2026-05-11 follow-up — the analytics pane and the Google
+      # connection pane now share one pane-row (side-by-side via
+      # the existing 2-up grid). The detail row stays on its own,
+      # so the page has two pane-rows total. Videos render below
+      # as a bare /videos-style table.
       get channel_path(hydrated_channel)
-      expect(response.body.scan(/<div class="pane-row">/).size).to eq(3)
+      expect(response.body.scan(/<div class="pane-row">/).size).to eq(2)
+    end
+
+    it "places the analytics pane and the Google connection pane in the SAME pane-row" do
+      # Regression guard: the two panes must share a single
+      # pane-row container so the CSS grid lays them out
+      # side-by-side instead of stacking vertically.
+      get channel_path(hydrated_channel)
+      shared_row = response.body[
+        /<div class="pane-row">(?:(?!<div class="pane-row">).)*?<h2[^>]*>analytics<\/h2>.*?<h2[^>]*>Google connection<\/h2>.*?<\/div>\s*<\/div>/m
+      ]
+      expect(shared_row).not_to be_nil,
+        "expected analytics + Google connection panes to share a single pane-row"
     end
 
     it "renders the analytics pane BEFORE the Google connection pane in source order" do
@@ -86,7 +99,7 @@ RSpec.describe "GET /channels/:slug — show page revamp", type: :request do
       expect(analytics_block).not_to match(/>\s*videos\s*</)
     end
 
-    it "renders the videos table heading after all three pane rows" do
+    it "renders the videos table heading after the last pane row" do
       get channel_path(hydrated_channel)
       videos_idx = response.body.index(/<h2[^>]*>videos \(/)
       expect(videos_idx).not_to be_nil
