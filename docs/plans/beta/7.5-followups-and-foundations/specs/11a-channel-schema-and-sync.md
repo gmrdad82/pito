@@ -363,12 +363,14 @@ This sub-spec adds no UI surface; manual validation is limited to
      `channel.created_at`).
    - `channel.last_synced_at` is within the last few seconds.
 9. Inspect the audit row:
+
    ```ruby
    YoutubeApiCall.order(:id).last
    ```
 
    - `endpoint == "channels.list"`, `outcome == "success"`,
      `http_status == 200`, `duration_ms` populated.
+
 10. Test the no-connection path:
     ```ruby
     disconnected = Channel.where(youtube_connection_id: nil).first

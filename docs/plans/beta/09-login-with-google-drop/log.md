@@ -206,9 +206,9 @@ single-migration-shape rename-not-recreate strategy all landed as specified.
 
 **Context.** Master agent dispatch following the 403 → NeedsReauthError fix
 (commit ff7130c). Screenshot review surfaced a cramped pane + 3 redundant
-`[reconnect]` banners + a raw `needsreauth` error token leaking into copy.
-This dispatch is view-side polish on `app/views/settings/youtube/show.html.erb`
-and the `_needs_reauth_banner` partial.
+`[reconnect]` banners + a raw `needsreauth` error token leaking into copy. This
+dispatch is view-side polish on `app/views/settings/youtube/show.html.erb` and
+the `_needs_reauth_banner` partial.
 
 **Concrete changes.**
 
@@ -218,52 +218,50 @@ and the `_needs_reauth_banner` partial.
   `games/show.html.erb` / `videos/show.html.erb`.
 - Scopes list: now rendered as a `<ul>` with one `<li>` per scope. Each item
   shows the trailing path segment bolded (e.g. `youtube.readonly`) above the
-  full URL in muted small text — no more comma-joined collapse that truncated
-  in the narrow pane.
+  full URL in muted small text — no more comma-joined collapse that truncated in
+  the narrow pane.
 - Consolidated the 3 reconnect banners to ONE top-of-page banner. The
   pane-internal `[reconnect]` button is gone; the picker section's red banner
   collapses to a one-line muted note ("channel list will return after
-  [reconnect] above.") when `needs_reauth?` is true. The `@youtube_error`
-  picker banner is now gated on `!needs_reauth?` so the raw `needsreauth`
-  class-name token can no longer surface in copy; the remaining internal
-  `transient` token is mapped to "service temporarily unavailable" before
-  display.
+  [reconnect] above.") when `needs_reauth?` is true. The `@youtube_error` picker
+  banner is now gated on `!needs_reauth?` so the raw `needsreauth` class-name
+  token can no longer surface in copy; the remaining internal `transient` token
+  is mapped to "service temporarily unavailable" before display.
 - Banner copy now differentiates two states the model can detect:
-  `needs_reauth? && missing required youtube.readonly scope` reads "your
-  google authorization is missing the scopes pito needs. [reconnect] to grant
-  them."; the default `needs_reauth?` branch keeps the revoked-grant copy.
+  `needs_reauth? && missing required youtube.readonly scope` reads "your google
+  authorization is missing the scopes pito needs. [reconnect] to grant them.";
+  the default `needs_reauth?` branch keeps the revoked-grant copy.
 
 **Files touched.**
 
-- `app/views/settings/youtube/show.html.erb` — pane width, scopes layout,
-  picker collapse, error-token guard.
-- `app/views/settings/youtube/_needs_reauth_banner.html.erb` — two copy
-  variants based on `connection.has_scope?(youtube.readonly)`.
-- `spec/requests/settings/youtube_spec.rb` — +8 examples (40 total): pane
-  width, scope-list shape, missing-scope banner variant, no-leak guard,
-  single-CTA assertion, picker-collapse copy, no-`[reconnect]`-on-healthy.
+- `app/views/settings/youtube/show.html.erb` — pane width, scopes layout, picker
+  collapse, error-token guard.
+- `app/views/settings/youtube/_needs_reauth_banner.html.erb` — two copy variants
+  based on `connection.has_scope?(youtube.readonly)`.
+- `spec/requests/settings/youtube_spec.rb` — +8 examples (40 total): pane width,
+  scope-list shape, missing-scope banner variant, no-leak guard, single-CTA
+  assertion, picker-collapse copy, no-`[reconnect]`-on-healthy.
 - `spec/system/google_oauth_flow_spec.rb` — assertion text refreshed.
 
 **Gates.**
 
-- `bundle exec rspec spec/requests/settings/youtube_spec.rb
-  spec/system/google_oauth_flow_spec.rb` — 41 examples, 0 failures.
-- `bundle exec rubocop spec/requests/settings/youtube_spec.rb
-  spec/system/google_oauth_flow_spec.rb` — 2 files, 0 offenses. (Rubocop
-  cannot parse `.html.erb` directly, so the two ERB partials are linted by
-  ERB-Lint at the project level rather than rubocop.)
+- `bundle exec rspec spec/requests/settings/youtube_spec.rb spec/system/google_oauth_flow_spec.rb`
+  — 41 examples, 0 failures.
+- `bundle exec rubocop spec/requests/settings/youtube_spec.rb spec/system/google_oauth_flow_spec.rb`
+  — 2 files, 0 offenses. (Rubocop cannot parse `.html.erb` directly, so the two
+  ERB partials are linted by ERB-Lint at the project level rather than rubocop.)
 - `bundle exec brakeman -q -w2` — 0 warnings, 0 errors.
 
 **Coordination note.** Sibling agent `a8130e77e32b5a8ad` shipped the
-controller-side fix for the 403 → `[reconnect]` visibility in the same
-session. That dispatch's controller flash copy ("Google account is not
-connected.") and other view casing fixes ("Google" capitalized) were
-preserved here — spec assertions in `spec/requests/settings/youtube_spec.rb`
-were re-aligned to the new casing on the strings the controller / view
-dispatches own. No controller-side edits in this polish dispatch.
+controller-side fix for the 403 → `[reconnect]` visibility in the same session.
+That dispatch's controller flash copy ("Google account is not connected.") and
+other view casing fixes ("Google" capitalized) were preserved here — spec
+assertions in `spec/requests/settings/youtube_spec.rb` were re-aligned to the
+new casing on the strings the controller / view dispatches own. No
+controller-side edits in this polish dispatch.
 
-**Plan checkbox tick:** none. Phase 9 has no plan.md, only this log; the
-parent dispatch was an architect-level follow-up, not a planned checkbox.
+**Plan checkbox tick:** none. Phase 9 has no plan.md, only this log; the parent
+dispatch was an architect-level follow-up, not a planned checkbox.
 
 **Open issues:** none from this dispatch. Pre-existing flakes / scope items
 remain on the master agent's queue.

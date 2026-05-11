@@ -623,28 +623,27 @@ next dispatch that depends on Phase 14's data tier.
 ### 2026-05-10 — Game show row-1 details pane sized to 640px
 
 **Discussion:** The game show page details pane was sitting at the wide-pane
-size (904px), which paired with the 280px cover row 1 to consume more
-horizontal real estate than the read-only details payload needs. User
-requested a mid-size pane (bigger than the default 452px, smaller than 904px)
-specific to this page for now — promotable later if other pages adopt the
-same geometry.
+size (904px), which paired with the 280px cover row 1 to consume more horizontal
+real estate than the read-only details payload needs. User requested a mid-size
+pane (bigger than the default 452px, smaller than 904px) specific to this page
+for now — promotable later if other pages adopt the same geometry.
 
 **Implemented:**
 
 - `app/assets/tailwind/application.css` — new `.pane--game-detail` modifier
-  (`flex: 0 0 640px; width: 640px;`) defined alongside `.pane--narrow`. Picks
-  up the zebra rhythm via the base `.pane` rule. Mobile breakpoint extended
-  to collapse it to `88vw` (and apply `scroll-snap-align: start` inside a
+  (`flex: 0 0 640px; width: 640px;`) defined alongside `.pane--narrow`. Picks up
+  the zebra rhythm via the base `.pane` rule. Mobile breakpoint extended to
+  collapse it to `88vw` (and apply `scroll-snap-align: start` inside a
   `.pane-strip`) like the other pane modifiers.
 - `app/views/games/show.html.erb` — row 1 right pane swapped from
-  `.pane.pane--wide` → `.pane.pane--game-detail`. Total row-1 width
-  280 + 640 = 920px, fits standard workspace. Rows 2 (sync) and 3 (linked
-  videos) keep `.pane--wide` — only row 1 changes.
-- `spec/requests/games_spec.rb` — pane-modifier comment updated to describe
-  the row-1 geometry; the `it "uses the narrow + game-detail + wide pane
-  modifiers"` example now asserts all three classes appear in the rendered
-  markup. The earlier `pane--wide` assertion stays satisfied because rows 2
-  and 3 still render `.pane--wide`.
+  `.pane.pane--wide` → `.pane.pane--game-detail`. Total row-1 width 280 + 640 =
+  920px, fits standard workspace. Rows 2 (sync) and 3 (linked videos) keep
+  `.pane--wide` — only row 1 changes.
+- `spec/requests/games_spec.rb` — pane-modifier comment updated to describe the
+  row-1 geometry; the `it "uses the narrow + game-detail + wide pane modifiers"`
+  example now asserts all three classes appear in the rendered markup. The
+  earlier `pane--wide` assertion stays satisfied because rows 2 and 3 still
+  render `.pane--wide`.
 
 **Files touched:**
 
@@ -655,83 +654,77 @@ same geometry.
 **Quality gates:**
 
 - `bundle exec rspec spec/requests/games_spec.rb` — 54 examples, 0 failures.
-  (One transient flake on the `/games` empty-state assertion — unrelated to
-  this work; created by a parallel agent's IGDB-search modal restructure —
-  cleared on rerun.)
+  (One transient flake on the `/games` empty-state assertion — unrelated to this
+  work; created by a parallel agent's IGDB-search modal restructure — cleared on
+  rerun.)
 - `bin/rubocop spec/requests/games_spec.rb` — clean (CSS / ERB are not in
   rubocop's scope on this project).
 - `bin/brakeman -q -w2` — Errors: 0, Security Warnings: 0.
 
 **Coordination:** complementary to the parallel game-show / edit split agent
-(`ae939b4ba59b253e9`); confirmed the row-1 right pane is the only pane
-touched by this lane and the show page's three-row structure (cover +
-details, sync, linked videos) is preserved untouched.
+(`ae939b4ba59b253e9`); confirmed the row-1 right pane is the only pane touched
+by this lane and the show page's three-row structure (cover + details, sync,
+linked videos) is preserved untouched.
 
-**Open issues / blockers:** none. Page-specific name `.pane--game-detail`
-chosen per spec; promote to a generic `.pane--medium` if a second page
-adopts the same 640px geometry.
+**Open issues / blockers:** none. Page-specific name `.pane--game-detail` chosen
+per spec; promote to a generic `.pane--medium` if a second page adopts the same
+640px geometry.
 
 ### 2026-05-10 — Game show / edit split + async resync mutex + animated indicator
 
-**Discussion:** User wanted a clean split between read-only show and
-editable form on the game detail surface, plus an async-and-locked
-resync flow with a moving text indicator while the IGDB sync job is in
-flight. The previous show page mixed read-only metadata with the local-
-fields form on the same screen and surfaced `[resync]` in the breadcrumb
-action strip; the split keeps the breadcrumb action strip on `[edit]` /
-`[-]` only and pulls the resync surface into a dedicated row-2 sync
-pane so the indicator can replace the link without re-flowing the
-breadcrumb.
+**Discussion:** User wanted a clean split between read-only show and editable
+form on the game detail surface, plus an async-and-locked resync flow with a
+moving text indicator while the IGDB sync job is in flight. The previous show
+page mixed read-only metadata with the local- fields form on the same screen and
+surfaced `[resync]` in the breadcrumb action strip; the split keeps the
+breadcrumb action strip on `[edit]` / `[-]` only and pulls the resync surface
+into a dedicated row-2 sync pane so the indicator can replace the link without
+re-flowing the breadcrumb.
 
 **Implemented:**
 
 - `db/migrate/20260510192742_add_resyncing_to_games.rb` — new boolean
-  `games.resyncing`, `null: false, default: false`. Backs the mutex
-  flag the job and controller flip. Migration applied to dev and test
-  DBs locally.
-- `app/jobs/game_igdb_sync.rb` — `resyncing` mutex via
-  `update_column` at start, `Game.where(...).update_all(resyncing:
-  false)` in `ensure` so a crash inside `SyncGame` still releases the
-  lock. Duplicate-enqueue guard returns early when the row is already
-  resyncing without re-clearing the flag (only the running worker
-  releases it).
+  `games.resyncing`, `null: false, default: false`. Backs the mutex flag the job
+  and controller flip. Migration applied to dev and test DBs locally.
+- `app/jobs/game_igdb_sync.rb` — `resyncing` mutex via `update_column` at start,
+  `Game.where(...).update_all(resyncing: false)` in `ensure` so a crash inside
+  `SyncGame` still releases the lock. Duplicate-enqueue guard returns early when
+  the row is already resyncing without re-clearing the flag (only the running
+  worker releases it).
 - `app/controllers/games_controller.rb` — `edit` action added; `update`
-  re-renders `:edit` on validation failure (form moved off `show`).
-  `resync` checks `game.resyncing?` and no-ops with an
-  "already resyncing." flash if the previous job is still in flight.
-- `app/views/games/show.html.erb` — full rewrite as a read-only surface.
-  Three rows: row 1 (narrow cover pane + read-only metadata pane),
-  row 2 (standalone sync pane — last-synced + caveat +
-  `[resync]` button OR animated `sync-indicator`), row 3 (standalone
-  linked-videos pane). `[open on igdb]` retired per spec; breadcrumb
-  action strip is `[edit]` + `[-]` only. The row-1 right pane
-  modifier (`pane--game-detail`) is owned by the sibling lane that
+  re-renders `:edit` on validation failure (form moved off `show`). `resync`
+  checks `game.resyncing?` and no-ops with an "already resyncing." flash if the
+  previous job is still in flight.
+- `app/views/games/show.html.erb` — full rewrite as a read-only surface. Three
+  rows: row 1 (narrow cover pane + read-only metadata pane), row 2 (standalone
+  sync pane — last-synced + caveat + `[resync]` button OR animated
+  `sync-indicator`), row 3 (standalone linked-videos pane). `[open on igdb]`
+  retired per spec; breadcrumb action strip is `[edit]` + `[-]` only. The row-1
+  right pane modifier (`pane--game-detail`) is owned by the sibling lane that
   added the 640px modifier; this lane left it untouched.
-- `app/views/games/edit.html.erb` — new screen carrying the local-only
-  form (platform owned, played on, notes, footage hours). Layout
-  mirrors the show page (narrow cover + wide form pane). `[update]`
-  / `[cancel]` at the bottom of the form. NO sync pane, NO linked
-  videos.
-- `app/javascript/controllers/sync_indicator_controller.js` — new
-  Stimulus controller. Cycles 4-frame `=---  -=--  --=-  ---=`
-  text every 200ms. Frames + interval come from data attributes.
-- `app/javascript/controllers/auto_refresh_controller.js` — new
-  Stimulus controller. Polls page reload every ~5s while the
-  resyncing flag is set so the show page picks up the cleared flag
-  without a manual refresh. Mounted only when `resyncing?` is true.
-- `spec/jobs/game_igdb_sync_spec.rb` — added `resyncing mutex`
-  describe block (5 cases): flag is true while syncing, cleared after
-  success, cleared after non-retryable error, cleared after retryable
-  re-raise (ensure block), early-return preserves the lock on
-  duplicate enqueue.
-- `spec/models/game_spec.rb` — added `#resyncing?` describe block
-  (default false, mutable via `update_column`).
-- `spec/requests/games_spec.rb` — show specs: `[edit]` in breadcrumb,
-  no inline form, no `[open on igdb]`, sync-indicator + auto-refresh
-  while resyncing, `[resync]` button + no auto-refresh otherwise.
-  Edit specs: 200, form fields, `[update]` / `[cancel]`, no sync
-  pane, no linked videos pane (heading-only check), narrow + wide
-  pane layout. Resync spec: no-op + flash when `resyncing?` is true.
+- `app/views/games/edit.html.erb` — new screen carrying the local-only form
+  (platform owned, played on, notes, footage hours). Layout mirrors the show
+  page (narrow cover + wide form pane). `[update]` / `[cancel]` at the bottom of
+  the form. NO sync pane, NO linked videos.
+- `app/javascript/controllers/sync_indicator_controller.js` — new Stimulus
+  controller. Cycles 4-frame `=---  -=--  --=-  ---=` text every 200ms. Frames +
+  interval come from data attributes.
+- `app/javascript/controllers/auto_refresh_controller.js` — new Stimulus
+  controller. Polls page reload every ~5s while the resyncing flag is set so the
+  show page picks up the cleared flag without a manual refresh. Mounted only
+  when `resyncing?` is true.
+- `spec/jobs/game_igdb_sync_spec.rb` — added `resyncing mutex` describe block (5
+  cases): flag is true while syncing, cleared after success, cleared after
+  non-retryable error, cleared after retryable re-raise (ensure block),
+  early-return preserves the lock on duplicate enqueue.
+- `spec/models/game_spec.rb` — added `#resyncing?` describe block (default
+  false, mutable via `update_column`).
+- `spec/requests/games_spec.rb` — show specs: `[edit]` in breadcrumb, no inline
+  form, no `[open on igdb]`, sync-indicator + auto-refresh while resyncing,
+  `[resync]` button + no auto-refresh otherwise. Edit specs: 200, form fields,
+  `[update]` / `[cancel]`, no sync pane, no linked videos pane (heading-only
+  check), narrow + wide pane layout. Resync spec: no-op + flash when
+  `resyncing?` is true.
 
 **Files touched:**
 
@@ -749,40 +742,36 @@ breadcrumb.
 
 **Quality gates:**
 
-- `bundle exec rspec spec/jobs/game_igdb_sync_spec.rb spec/models/game_spec.rb spec/requests/games_spec.rb` —
-  124 examples, 0 failures (with the unstaged IGDB-overwrite-trigger
-  test additions from a sibling lane mixed in: 127 examples, 0
-  failures).
-- `bundle exec rspec` (full suite) — 3848 examples, 8 failures, all
-  pre-existing and unrelated to this lane (calendar, oauth scope clip,
-  composites filename traversal).
+- `bundle exec rspec spec/jobs/game_igdb_sync_spec.rb spec/models/game_spec.rb spec/requests/games_spec.rb`
+  — 124 examples, 0 failures (with the unstaged IGDB-overwrite-trigger test
+  additions from a sibling lane mixed in: 127 examples, 0 failures).
+- `bundle exec rspec` (full suite) — 3848 examples, 8 failures, all pre-existing
+  and unrelated to this lane (calendar, oauth scope clip, composites filename
+  traversal).
 - `bundle exec rubocop` (touched Ruby) — clean.
 - `bundle exec brakeman -q -w2` — 0 errors, 0 warnings.
 - Migration verified against dev and test DBs.
 
-**Coordination:** while this dispatch was in flight, sibling agents
-landed `.pane--game-detail` (commit `6e4f092`) and project-show
-videos pane (`269d63f`). The parent session committed the merged
-result; this session's outputs match the committed state. The
-unstaged `spec/requests/games_spec.rb` additions visible at session
-end are owned by the IGDB-overwrite-trigger lane (search-results
-`[update]` vs `[add]` row differentiation) — NOT this lane.
+**Coordination:** while this dispatch was in flight, sibling agents landed
+`.pane--game-detail` (commit `6e4f092`) and project-show videos pane
+(`269d63f`). The parent session committed the merged result; this session's
+outputs match the committed state. The unstaged `spec/requests/games_spec.rb`
+additions visible at session end are owned by the IGDB-overwrite-trigger lane
+(search-results `[update]` vs `[add]` row differentiation) — NOT this lane.
 
-**Open issues / blockers:** none. Pre-existing full-suite failures
-queued in their respective phases (calendar, oauth scope clip,
-composites traversal).
+**Open issues / blockers:** none. Pre-existing full-suite failures queued in
+their respective phases (calendar, oauth scope clip, composites traversal).
 
 ### 2026-05-10 — Game show row-1 wrap fix (`pane-row--game-show` modifier)
 
-**Discussion:** User reported the game show page's row 1 was rendering with
-the cover pane (`pane--narrow`, 280px) and the details pane
-(`pane--game-detail`, 640px) stacked vertically instead of side-by-side. Total
-row width is 920px, which should fit comfortably at workspace widths (1100px+),
-but the global `.pane-row` carries `flex-wrap: wrap` and was kicking in earlier
-than expected on the user's viewport. Fix per direct dispatch: scope a
-`flex-wrap: nowrap` override to this row only via a page-specific modifier so
-other pages aren't affected; narrower viewports get horizontal scroll instead
-of wrap.
+**Discussion:** User reported the game show page's row 1 was rendering with the
+cover pane (`pane--narrow`, 280px) and the details pane (`pane--game-detail`,
+640px) stacked vertically instead of side-by-side. Total row width is 920px,
+which should fit comfortably at workspace widths (1100px+), but the global
+`.pane-row` carries `flex-wrap: wrap` and was kicking in earlier than expected
+on the user's viewport. Fix per direct dispatch: scope a `flex-wrap: nowrap`
+override to this row only via a page-specific modifier so other pages aren't
+affected; narrower viewports get horizontal scroll instead of wrap.
 
 **Implemented:**
 
@@ -791,14 +780,14 @@ of wrap.
   `.pane-row` rule, with a comment explaining scope, motivation, and the
   promote-to-generic path if a second page adopts the same constraint.
 - `app/views/games/show.html.erb` — row 1 wrapper changed from
-  `<div class="pane-row">` to `<div class="pane-row pane-row--game-show">`,
-  with a comment block explaining why this row gets the modifier and rows 2
-  (sync) and 3 (linked videos) do not (each carries a single wide pane and has
-  no wrap concern).
+  `<div class="pane-row">` to `<div class="pane-row pane-row--game-show">`, with
+  a comment block explaining why this row gets the modifier and rows 2 (sync)
+  and 3 (linked videos) do not (each carries a single wide pane and has no wrap
+  concern).
 - `spec/requests/games_spec.rb` — added a regression assertion in the
-  `GET /games/:id` describe block: `it "marks row 1 with
-  pane-row--game-show to prevent wrap"`. Documents the fix and locks it
-  against silent reversion.
+  `GET /games/:id` describe block:
+  `it "marks row 1 with pane-row--game-show to prevent wrap"`. Documents the fix
+  and locks it against silent reversion.
 
 **Files touched:**
 
@@ -808,19 +797,19 @@ of wrap.
 
 **Quality gates:**
 
-- `bundle exec rspec spec/requests/games_spec.rb` — 58 examples, 0 failures
-  (the new regression spec passes; pre-existing 57 stay green; no spec needed
+- `bundle exec rspec spec/requests/games_spec.rb` — 58 examples, 0 failures (the
+  new regression spec passes; pre-existing 57 stay green; no spec needed
   rework).
 - `bundle exec brakeman -q -w2` — 0 errors, 0 security warnings.
 - Visual: not re-verified by this agent (no system spec changes); user to
-  confirm row 1 renders side-by-side at typical workspace widths and that
-  narrow viewports get a horizontal scrollbar on row 1 only.
+  confirm row 1 renders side-by-side at typical workspace widths and that narrow
+  viewports get a horizontal scrollbar on row 1 only.
 
 **Coordination:** isolated change. Did not touch unrelated unstaged work
 (`calendar/router_controller.rb`, `calendar_navigation_controller.js`, etc.)
-that was already in the working tree at session start. The unstaged
-`<strong>` → `<span class="text-muted">` swap on the genres / platforms
-labels in `show.html.erb` was already present and was preserved untouched.
+that was already in the working tree at session start. The unstaged `<strong>` →
+`<span class="text-muted">` swap on the genres / platforms labels in
+`show.html.erb` was already present and was preserved untouched.
 
 **Open issues / blockers:** none. Promote `.pane-row--game-show` to a generic
 `.pane-row--nowrap` if a second page needs the same horizontal lock — the
@@ -837,117 +826,113 @@ search + IGDB add flow. Six pieces of work:
 2. Add a `/` hotkey that opens a global **search modal**.
 3. Add an `i` hotkey that opens a global **IGDB-search modal** (the dispatch
    originally suggested `Shift+/` / `?` but those conflict with the existing
-   help-modal hotkey; chose `i` as the next-best unbound single key —
-   surfaced as a hotkey decision in the report-back).
+   help-modal hotkey; chose `i` as the next-best unbound single key — surfaced
+   as a hotkey decision in the report-back).
 4. Add a reusable **overwrite confirmation modal** that fires when an IGDB
    search result row maps to a Game already in the library (the `[update]`
    action) — Stimulus-driven, in-page, NO `window.confirm`.
-5. Drop the inline `_add_form` on `/games` and add `[+]` next to the H1
-   that opens the IGDB-search modal (channels / videos page parity).
-6. IGDB main-entries category filter — `Igdb::Client#search_games` defaults
-   to category in `(0,8,9,11)` (main game / remake / remaster / port) so
-   noise like "Pragmata Deluxe Edition" or "Red Dead Redemption II Ultimate
-   Edition" drops out. Opt-out via `include_editions: true`.
+5. Drop the inline `_add_form` on `/games` and add `[+]` next to the H1 that
+   opens the IGDB-search modal (channels / videos page parity).
+6. IGDB main-entries category filter — `Igdb::Client#search_games` defaults to
+   category in `(0,8,9,11)` (main game / remake / remaster / port) so noise like
+   "Pragmata Deluxe Edition" or "Red Dead Redemption II Ultimate Edition" drops
+   out. Opt-out via `include_editions: true`.
 7. MCP `igdb_search` tool: new `include_editions: "yes" | "no"` argument
    defaulting to `"no"` (filtered). MCP I/O sticks to `yes/no` strings per
    CLAUDE.md hard rule.
-8. `KeyboardShortcutsModalComponent`: surface the new `/` (open search
-   modal) and `i` (open igdb add-game modal) bindings in the help dialog's
-   general section; remove `/` from the list-pages section now that it's
-   global.
+8. `KeyboardShortcutsModalComponent`: surface the new `/` (open search modal)
+   and `i` (open igdb add-game modal) bindings in the help dialog's general
+   section; remove `/` from the list-pages section now that it's global.
 
 **Files touched (high level):**
 
 New files:
 
-- `app/views/shared/_search_modal.html.erb` — global search dialog,
-  autofocus, submits to `/search`.
-- `app/views/shared/_igdb_search_modal.html.erb` — IGDB search dialog,
-  hosts the `igdb_search_results` Turbo Frame (now the single owner of
-  that frame id since `_add_form` was removed).
+- `app/views/shared/_search_modal.html.erb` — global search dialog, autofocus,
+  submits to `/search`.
+- `app/views/shared/_igdb_search_modal.html.erb` — IGDB search dialog, hosts the
+  `igdb_search_results` Turbo Frame (now the single owner of that frame id since
+  `_add_form` was removed).
 - `app/views/shared/_igdb_overwrite_modal.html.erb` — reusable overwrite-
-  confirmation dialog; the form's `action` is set per-trigger by a
-  sibling Stimulus controller.
+  confirmation dialog; the form's `action` is set per-trigger by a sibling
+  Stimulus controller.
 - `app/javascript/controllers/global_search_modal_controller.js`
 - `app/javascript/controllers/igdb_search_modal_controller.js`
 - `app/javascript/controllers/igdb_overwrite_confirm_controller.js`
 - `app/javascript/controllers/igdb_overwrite_trigger_controller.js`
-- `spec/requests/global_search_modal_layout_spec.rb` — 25 examples locking
-  the layout-level integration contract on `/`, `/channels`, `/videos`,
-  `/games`, `/settings`.
+- `spec/requests/global_search_modal_layout_spec.rb` — 25 examples locking the
+  layout-level integration contract on `/`, `/channels`, `/videos`, `/games`,
+  `/settings`.
 
 Edited files:
 
 - `app/views/layouts/application.html.erb` — removed the navbar `<input>`
-  + `<form>`; render the three new modal partials in the chrome.
-- `app/views/games/index.html.erb` — removed the `render "add_form"` and
-  the type-ahead `<input>`; added `[+]` (via `BracketedLinkComponent` +
+  - `<form>`; render the three new modal partials in the chrome.
+- `app/views/games/index.html.erb` — removed the `render "add_form"` and the
+  type-ahead `<input>`; added `[+]` (via `BracketedLinkComponent` +
   `modal-trigger`) next to the H1. Updated empty-state copy.
 - `app/views/games/_add_form.html.erb` — deleted (now dead).
-- `app/views/games/_search_results.html.erb` — each row now renders
-  `[update]` (overwrite-confirm trigger) when the IGDB id already maps to
-  a local Game; otherwise `[add]` (default flow). Bulk lookup via
+- `app/views/games/_search_results.html.erb` — each row now renders `[update]`
+  (overwrite-confirm trigger) when the IGDB id already maps to a local Game;
+  otherwise `[add]` (default flow). Bulk lookup via
   `Game.where(igdb_id: ids).index_by(&:igdb_id)` — no per-row N+1.
 - `app/services/igdb/client.rb` — added `GAME_CATEGORY_*` constants +
   `DEFAULT_SEARCH_CATEGORIES = [0, 8, 9, 11]`. `search_games` accepts
   `include_editions: false` (default) and filters by category set; setting
-  `true` drops the where-clause. Also added `"category"` to the fields
-  list so callers can inspect categories on hits.
+  `true` drops the where-clause. Also added `"category"` to the fields list so
+  callers can inspect categories on hits.
 - `app/mcp/tools/igdb_search.rb` — new `include_editions` schema property
-  (`enum: ["yes", "no"]`, default `"no"`), `coerce_yes_no` helper, hands
-  the boolean off to the client. Errors out on a non-yes/no value.
+  (`enum: ["yes", "no"]`, default `"no"`), `coerce_yes_no` helper, hands the
+  boolean off to the client. Errors out on a non-yes/no value.
 - `app/components/keyboard_shortcuts_modal_component.rb` — added `/` (open
   search modal) and `i` (open igdb add-game modal) rows in the `general`
   section; removed `/` from the `list pages` section (it's now global).
-- `app/javascript/controllers/keyboard_controller.js` — `/` and `i` now
-  resolve layout-level dialogs via `window.Stimulus`'s
+- `app/javascript/controllers/keyboard_controller.js` — `/` and `i` now resolve
+  layout-level dialogs via `window.Stimulus`'s
   `getControllerForElementAndIdentifier`, falling back to `showModal()`.
   Replaces the previous `.search-input` focus.
 
 Spec deltas:
 
-- `spec/components/keyboard_shortcuts_modal_component_spec.rb` — assert
-  the new general-section rows; drop the now-orphan `/` keycap assertion
-  from the list-pages section.
+- `spec/components/keyboard_shortcuts_modal_component_spec.rb` — assert the new
+  general-section rows; drop the now-orphan `/` keycap assertion from the
+  list-pages section.
 - `spec/services/igdb/client_spec.rb` — added 3 specs covering the
   category-filter default, the `include_editions: true` opt-out, and the
   presence of the `category` field in the Apicalypse body.
-- `spec/mcp/tools/igdb_search_spec.rb` — adjusted the existing `with`
-  matchers to include `include_editions: false`; added 3 specs covering
-  `"yes"` opt-in, default `"no"` filtered, and the invalid-value error
-  branch.
-- `spec/requests/games_spec.rb` — updated the empty-state copy assertion,
-  added 2 specs (`renders a [+] bracketed link wired to the IGDB-search
-  modal`, `does NOT render the retired inline igdb-search type-ahead
-  form`), and added a context block in `GET /games/search` that asserts
-  `[update]` (wired to `igdb-overwrite-trigger`) for in-library hits and
-  `[add]` for new ones.
-- `spec/system/games_steam_shelf_spec.rb` — updated the empty-state
-  Capybara assertion to match the new `[+]` / `igdb` copy.
-- `spec/requests/search_spec.rb` — replaced `preserves query in search
-  input` (depended on the retired navbar input) with `echoes the query
-  back in the results paragraph` (still asserts the query is reflected
-  back, but against the page's own copy).
+- `spec/mcp/tools/igdb_search_spec.rb` — adjusted the existing `with` matchers
+  to include `include_editions: false`; added 3 specs covering `"yes"` opt-in,
+  default `"no"` filtered, and the invalid-value error branch.
+- `spec/requests/games_spec.rb` — updated the empty-state copy assertion, added
+  2 specs (`renders a [+] bracketed link wired to the IGDB-search modal`,
+  `does NOT render the retired inline igdb-search type-ahead form`), and added a
+  context block in `GET /games/search` that asserts `[update]` (wired to
+  `igdb-overwrite-trigger`) for in-library hits and `[add]` for new ones.
+- `spec/system/games_steam_shelf_spec.rb` — updated the empty-state Capybara
+  assertion to match the new `[+]` / `igdb` copy.
+- `spec/requests/search_spec.rb` — replaced `preserves query in search input`
+  (depended on the retired navbar input) with
+  `echoes the query back in the results paragraph` (still asserts the query is
+  reflected back, but against the page's own copy).
 
-**Hotkey decision:** the dispatch suggested `Shift+/` / `?` for the IGDB
-modal, which conflicts with the existing `?` help-modal hotkey. Chose `i`
-(single-key, previously unbound) over the dispatch's secondary suggestions
-(`Shift+S` conflicts with the `s` row-star key; `g s` is already "go to
-saved views"). `i` is mnemonic for "igdb add game".
+**Hotkey decision:** the dispatch suggested `Shift+/` / `?` for the IGDB modal,
+which conflicts with the existing `?` help-modal hotkey. Chose `i` (single-key,
+previously unbound) over the dispatch's secondary suggestions (`Shift+S`
+conflicts with the `s` row-star key; `g s` is already "go to saved views"). `i`
+is mnemonic for "igdb add game".
 
 **IGDB filter approach:** category in `(0,8,9,11)` =
-`main_game | remake | remaster | port`. The dispatch suggested
-`(0,8,9)`; added `port` (`11`) since canonical ports (e.g., a Switch
-port of a PC game) are legitimate "main entry" hits the user wants to
-find, and they don't introduce the "Deluxe Edition" duplication problem
-that `expanded_game | bundle | pack | update | dlc_addon | expansion`
-would. Surfaced as a small expansion of the dispatch's `(0,8,9)` set —
-master can dial it back if a user surfaces port-noise.
+`main_game | remake | remaster | port`. The dispatch suggested `(0,8,9)`; added
+`port` (`11`) since canonical ports (e.g., a Switch port of a PC game) are
+legitimate "main entry" hits the user wants to find, and they don't introduce
+the "Deluxe Edition" duplication problem that
+`expanded_game | bundle | pack | update | dlc_addon | expansion` would. Surfaced
+as a small expansion of the dispatch's `(0,8,9)` set — master can dial it back
+if a user surfaces port-noise.
 
 **Quality gates:**
 
-- `bundle exec rspec` on the touched surface — 150 examples, 0 failures
-  across:
+- `bundle exec rspec` on the touched surface — 150 examples, 0 failures across:
   - `spec/services/igdb/client_spec.rb`
   - `spec/mcp/tools/igdb_search_spec.rb`
   - `spec/requests/games_spec.rb`
@@ -958,39 +943,32 @@ master can dial it back if a user surfaces port-noise.
 - `bundle exec brakeman -q -w2` — 0 errors, 0 security warnings.
 - `bundle exec rubocop` on touched Ruby files (10 files) — clean.
 
-**Spec sweep — unrelated failures (NOT mine):** the full RSpec suite
-shows ~20 failures all rooted in a pre-existing `Channel.friendly.find`
-call that hits a missing `channels.url_slug` column (the parallel
-friendly_id rollout under `db/migrate/2026051019274{3..7}_*.rb` added
-the slug column to `projects` / `bundles` / `collections` /
-`milestone_rules` but NOT to `channels`). Failed specs include
-`analytics_*_spec`, `bundle_show_spec`, `calendar_edit_delete_spec`,
-`channels_*`, `videos_spec:135`, `notes_spec:76`,
-`keyboard_shortcuts_layout_spec:82`, `friendly_url_redirects_spec`, and
-`projects_spec:351`. All trace back to the missing migration. Surfaced
-as a blocker for the friendly_id agent; my modal restructure does not
-touch the channel slug surface.
+**Spec sweep — unrelated failures (NOT mine):** the full RSpec suite shows ~20
+failures all rooted in a pre-existing `Channel.friendly.find` call that hits a
+missing `channels.url_slug` column (the parallel friendly*id rollout under
+`db/migrate/2026051019274{3..7}*_.rb`added the slug column to`projects`/`bundles`/`collections`/`milestone*rules`but NOT to`channels`). Failed specs include `analytics*\_\_spec`, `bundle_show_spec`, `calendar_edit_delete_spec`, `channels_\*`, `videos_spec:135`, `notes_spec:76`, `keyboard_shortcuts_layout_spec:82`, `friendly_url_redirects_spec`, and `projects_spec:351`.
+All trace back to the missing migration. Surfaced as a blocker for the
+friendly_id agent; my modal restructure does not touch the channel slug surface.
 
-**Files deleted:** `app/views/games/_add_form.html.erb` (now dead — the
-modal owns the IGDB type-ahead surface).
+**Files deleted:** `app/views/games/_add_form.html.erb` (now dead — the modal
+owns the IGDB type-ahead surface).
 
 **Open issues / blockers / follow-ups for master:**
 
 - `app/javascript/controllers/igdb_search_controller.js` — the original
-  type-ahead controller is now orphaned (`_add_form` is gone). Left it
-  in place to keep the diff small; queue a cleanup follow-up.
-- Help-modal copy: the `i` keystroke fires globally; while focus sits in
-  an editable element the keyboard controller's `isEditableTarget`
-  guard suppresses it (so typing `i` in the modal's own input works).
-  No follow-up needed.
+  type-ahead controller is now orphaned (`_add_form` is gone). Left it in place
+  to keep the diff small; queue a cleanup follow-up.
+- Help-modal copy: the `i` keystroke fires globally; while focus sits in an
+  editable element the keyboard controller's `isEditableTarget` guard suppresses
+  it (so typing `i` in the modal's own input works). No follow-up needed.
 - Channel `url_slug` column gap — surfaced above; not my lane.
 
-**Coordination:** parallel agents committed work to `main` during this
-session (`a2dc49a`, `6c3562c`, `271c7de`, …). My edits coexisted cleanly
-in the layout, the games index, and the IGDB surface; the parallel game-
-show / edit-split work landed already (`app/views/games/show.html.erb`
-carries the `pane-row--game-show` row + sync pane indicator), and this
-dispatch's `[resync]`-from-show contract still routes through
-`POST /games/:id/resync` (the new overwrite modal could be wired in
-from the show page later — left for a follow-up since the dispatch's
-"Move `[+]` to game page title" item targets `/games`, not `/games/:id`).
+**Coordination:** parallel agents committed work to `main` during this session
+(`a2dc49a`, `6c3562c`, `271c7de`, …). My edits coexisted cleanly in the layout,
+the games index, and the IGDB surface; the parallel game- show / edit-split work
+landed already (`app/views/games/show.html.erb` carries the
+`pane-row--game-show` row + sync pane indicator), and this dispatch's
+`[resync]`-from-show contract still routes through `POST /games/:id/resync` (the
+new overwrite modal could be wired in from the show page later — left for a
+follow-up since the dispatch's "Move `[+]` to game page title" item targets
+`/games`, not `/games/:id`).

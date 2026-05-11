@@ -2054,69 +2054,68 @@ outcomes.
 fan-out from the pre-OAuth seed (`Channel.where(youtube_connection_id: nil)` =
 100; the three real OAuth-linked channels carried connections). The Settings
 index Google card rendered the channels summary as
-`103 channels: Catalin Ilinca, Mushroom Poise, Witty Gaming` — count prefix
-plus inline comma list. The user's image #66 directive replaces that with a
-muted `channels:` header and one label per row.
+`103 channels: Catalin Ilinca, Mushroom Poise, Witty Gaming` — count prefix plus
+inline comma list. The user's image #66 directive replaces that with a muted
+`channels:` header and one label per row.
 
 **Inputs:**
 
 - Master-agent dispatch (no spec file — directive from image #66).
-- CLAUDE.md hard rules (yes/no boundary stays untouched; no changes to
-  external boolean shapes).
+- CLAUDE.md hard rules (yes/no boundary stays untouched; no changes to external
+  boolean shapes).
 
 **What landed (file-level):**
 
-- `db/seeds.rb` — the 100-row channel + per-channel video + 90-day-stat
-  fan-out is gone. Replaced with a comment block pointing at
-  `bin/rails pito:drop_seeded_channels` for cleaning up dev DBs that ran the
-  old seed. Project Workspace sample block (collection / game / project /
-  note / timeline) preserved verbatim.
+- `db/seeds.rb` — the 100-row channel + per-channel video + 90-day-stat fan-out
+  is gone. Replaced with a comment block pointing at
+  `bin/rails pito:drop_seeded_channels` for cleaning up dev DBs that ran the old
+  seed. Project Workspace sample block (collection / game / project / note /
+  timeline) preserved verbatim.
 - `lib/tasks/pito.rake` — new namespace, single task
   `pito:drop_seeded_channels`. Deletes every `Channel` row whose
-  `youtube_connection_id IS NULL`. Idempotent (re-runs print "no seeded
-  channels to drop."). Uses `destroy_all` so the standard
-  `dependent: :destroy` cascade fires for related rows (videos, calendar
-  entries, change logs) — `delete_all` would have left orphans.
+  `youtube_connection_id IS NULL`. Idempotent (re-runs print "no seeded channels
+  to drop."). Uses `destroy_all` so the standard `dependent: :destroy` cascade
+  fires for related rows (videos, calendar entries, change logs) — `delete_all`
+  would have left orphans.
 - `app/controllers/settings_controller.rb` — `@channel_titles` replaced with
-  `@channel_labels`, capped at 5, ordered `title IS NULL, title, id` so
-  titled rows surface first. Per-row fallback resolves `title` then the
-  UC-id slug extracted from `channel_url` (always present —
-  `channel_url` is required + format-validated).
+  `@channel_labels`, capped at 5, ordered `title IS NULL, title, id` so titled
+  rows surface first. Per-row fallback resolves `title` then the UC-id slug
+  extracted from `channel_url` (always present — `channel_url` is required +
+  format-validated).
 - `app/views/settings/index.html.erb` — channels block restructured. Muted
-  `<p>channels:</p>` header, then a styleless `<ul>` (no bullets, indented
-  12px) with one `<li>` per label. When the install has more channels than
-  the 5-cap renders, an `…and N more` `<li>` closes the list. Empty state
-  stays "no channels linked yet" exactly as the manage-page surface phrases
-  it. The `connect a Google account…` hint paragraph is unchanged.
+  `<p>channels:</p>` header, then a styleless `<ul>` (no bullets, indented 12px)
+  with one `<li>` per label. When the install has more channels than the 5-cap
+  renders, an `…and N more` `<li>` closes the list. Empty state stays "no
+  channels linked yet" exactly as the manage-page surface phrases it. The
+  `connect a Google account…` hint paragraph is unchanged.
 
-**Rake task run** (against dev DB, post seed-block removal but before any
-other change): `bundle exec rake pito:drop_seeded_channels` dropped **100**
-seeded channels. Re-running the task on the same DB printed
-"no seeded channels to drop." — idempotent path verified. Channel count went
-from 103 → 3 (the three real OAuth-linked channels survived).
+**Rake task run** (against dev DB, post seed-block removal but before any other
+change): `bundle exec rake pito:drop_seeded_channels` dropped **100** seeded
+channels. Re-running the task on the same DB printed "no seeded channels to
+drop." — idempotent path verified. Channel count went from 103 → 3 (the three
+real OAuth-linked channels survived).
 
 **Specs added / amended:**
 
-- `spec/requests/settings_spec.rb` — the existing
-  "Google pane channels summary" describe block was replaced with a
-  "Google pane channels list" block. Eleven examples cover: empty
-  YoutubeConnection state, connected-but-empty state, the muted
-  "channels:" header without a count prefix, one-`<li>`-per-title rendering
-  (no inline comma form), UC-id slug fallback for un-synced channels,
-  title-preferred-over-UC-id, whitespace-only-title-as-blank, 5-cap with
-  "…and N more" footer, cross-connection aggregation, titled-before-untitled
-  ordering, the connect-a-Google-account hint paragraph preservation, plus
-  the brand-account email truncation + last-authorized +N-more lines that
-  the prior spec already covered. **Total examples in the describe block: 14
-  (vs. 13 before).**
+- `spec/requests/settings_spec.rb` — the existing "Google pane channels summary"
+  describe block was replaced with a "Google pane channels list" block. Eleven
+  examples cover: empty YoutubeConnection state, connected-but-empty state, the
+  muted "channels:" header without a count prefix, one-`<li>`-per-title
+  rendering (no inline comma form), UC-id slug fallback for un-synced channels,
+  title-preferred-over-UC-id, whitespace-only-title-as-blank, 5-cap with "…and N
+  more" footer, cross-connection aggregation, titled-before-untitled ordering,
+  the connect-a-Google-account hint paragraph preservation, plus the
+  brand-account email truncation + last-authorized +N-more lines that the prior
+  spec already covered. **Total examples in the describe block: 14 (vs. 13
+  before).**
 - `spec/lib/tasks/pito_rake_spec.rb` — new file, 7 examples for
-  `pito:drop_seeded_channels` covering: deletes orphan rows, preserves
-  connected rows, idempotent re-run, plural / singular / no-op stdout
-  lines, and cascade through dependent Video rows.
+  `pito:drop_seeded_channels` covering: deletes orphan rows, preserves connected
+  rows, idempotent re-run, plural / singular / no-op stdout lines, and cascade
+  through dependent Video rows.
 
 **Spec count delta:** +1 in `settings_spec.rb` (13 → 14 in the Google-pane
-describe; eight obsolete examples removed, nine new ones added). +7 brand-new
-in `pito_rake_spec.rb`. Net +8 examples across the dispatch.
+describe; eight obsolete examples removed, nine new ones added). +7 brand-new in
+`pito_rake_spec.rb`. Net +8 examples across the dispatch.
 
 **Files changed (high level):**
 
@@ -2129,30 +2128,28 @@ in `pito_rake_spec.rb`. Net +8 examples across the dispatch.
 
 **Gates:**
 
-- `bundle exec rspec spec/requests/settings_spec.rb` — 83 examples, 0
-  failures.
-- `bundle exec rspec spec/lib/tasks/pito_rake_spec.rb` — 7 examples, 0
-  failures.
+- `bundle exec rspec spec/requests/settings_spec.rb` — 83 examples, 0 failures.
+- `bundle exec rspec spec/lib/tasks/pito_rake_spec.rb` — 7 examples, 0 failures.
 - `bundle exec rspec spec/helpers/youtube_helper_spec.rb` — 16 examples, 0
-  failures (sanity check on the brand-account email truncation helper that
-  the Google card uses).
+  failures (sanity check on the brand-account email truncation helper that the
+  Google card uses).
 - `bundle exec rubocop` — 917 files inspected, 0 offenses.
 - `bin/brakeman -q -w2` — unchanged from the prior committed state: 1
   pre-existing Medium-confidence SQL Injection warning in
-  `app/services/channels/video_importer.rb:130` (not in any file this
-  dispatch touched).
+  `app/services/channels/video_importer.rb:130` (not in any file this dispatch
+  touched).
 
-**Plan checkbox tick:** none. The directive came from a master-agent
-dispatch outside the plan's checkbox set; no Phase 7.5 / Phase 22 / Phase 4
-checkbox covers it.
+**Plan checkbox tick:** none. The directive came from a master-agent dispatch
+outside the plan's checkbox set; no Phase 7.5 / Phase 22 / Phase 4 checkbox
+covers it.
 
 **Manual test recipe** (the user runs after the master commits):
 
 1. `bin/rails server`, open `/settings`, confirm the Google card reads
-   `channels:` on its own muted line followed by one channel name per row
-   (3 channels in the current dev DB). The `[manage]` link still works.
-2. Disconnect every YoutubeConnection — the empty-state phrasing
-   "no channels linked yet" appears in place of the list.
+   `channels:` on its own muted line followed by one channel name per row (3
+   channels in the current dev DB). The `[manage]` link still works.
+2. Disconnect every YoutubeConnection — the empty-state phrasing "no channels
+   linked yet" appears in place of the list.
 3. `bin/rails console` — temporarily clear a channel's title
    (`Channel.first.update_columns(title: nil)`), refresh `/settings`, and
    confirm that row in the list renders as its UC-id slug
@@ -2170,9 +2167,9 @@ checkbox covers it.
   `docs/plans/beta/7.5-followups-and-foundations/specs/11b-channel-show-page.md`
 - Parent spec: `11-channel-management-and-preview.md`.
 - Locked decisions (master-agent autonomous lock on the six open questions):
-  - **Q1** = pure analytics summary numbers (subscribers / views / videos)
-    plus `[full analytics]` outbound link to `/channels/:slug/analytics`.
-    No inline sparkline.
+  - **Q1** = pure analytics summary numbers (subscribers / views / videos) plus
+    `[full analytics]` outbound link to `/channels/:slug/analytics`. No inline
+    sparkline.
   - **Q2** = dedupe. The single `ORDER BY star DESC, COALESCE(...) DESC`
     arranges the whole table; each video appears exactly once.
   - **Q3** = hide banner row entirely when `banner_url` is nil. No colored
@@ -2180,26 +2177,26 @@ checkbox covers it.
   - **Q4** = plain text + auto-link via Rails `simple_format(sanitize: true)`
     plus a URL regex pass. No markdown.
   - **Q5** = `/channels/:slug/analytics` route exists today (Phase 13.3).
-  - **Q6** = avatar in its own row beside the title, NOT overlapping the
-    banner. Cleaner; banner row 1, avatar+title row 2, description row 3,
-    links row 4, analytics row 5, videos row 6 inside the detail pane.
+  - **Q6** = avatar in its own row beside the title, NOT overlapping the banner.
+    Cleaner; banner row 1, avatar+title row 2, description row 3, links row 4,
+    analytics row 5, videos row 6 inside the detail pane.
 
 **What landed (file-level):**
 
 _Views:_
 
-- `app/views/channels/show.html.erb` — rewritten to three `.pane-row`
-  sections: detail (banner → avatar+title+handle → outbound links →
-  description → links), analytics summary, videos pane. Empty
-  `channel_diff_banner` Turbo frame shipped under the H1 so sub-spec 11i can
-  stream into it later without re-editing this view. H1 now reads
-  `channel <title>` via `channel_display_title`. Existing chrome ([+] add
-  pane, [e] edit, [sync], [-] delete) preserved.
-- `app/views/channels/_banner.html.erb` — new. Renders `<img>` for
-  `banner_url`; row hidden entirely when nil (per Q3 lock).
-- `app/views/channels/_links.html.erb` — new. Iterates the jsonb array,
-  renders each `{ title, url }` entry as a bracketed external link;
-  empty-state caption when array is empty/nil.
+- `app/views/channels/show.html.erb` — rewritten to three `.pane-row` sections:
+  detail (banner → avatar+title+handle → outbound links → description → links),
+  analytics summary, videos pane. Empty `channel_diff_banner` Turbo frame
+  shipped under the H1 so sub-spec 11i can stream into it later without
+  re-editing this view. H1 now reads `channel <title>` via
+  `channel_display_title`. Existing chrome ([+] add pane, [e] edit, [sync], [-]
+  delete) preserved.
+- `app/views/channels/_banner.html.erb` — new. Renders `<img>` for `banner_url`;
+  row hidden entirely when nil (per Q3 lock).
+- `app/views/channels/_links.html.erb` — new. Iterates the jsonb array, renders
+  each `{ title, url }` entry as a bracketed external link; empty-state caption
+  when array is empty/nil.
 - `app/views/channels/_videos_pane.html.erb` — new. Starred-first,
   COALESCE(published_at, created_at) DESC ordering, capped at 30 rows.
   `[see all]` hands off to the videos picker pre-filtered by channel slug.
@@ -2236,79 +2233,77 @@ _Specs (modifications):_
 
 - `spec/helpers/youtube_helper_spec.rb` — 13 new examples covering the three
   outbound URL builders.
-- `spec/requests/channels_spec.rb` — slimmed the legacy `GET /channels/:id (show)`
-  describe block to the controller-level contracts that survive the revamp
-  (200, sync link, delete link, JSON shape, 404, `[+]` add-pane button). The
-  full HTML rendering matrix moved to `channels_show_spec.rb`.
+- `spec/requests/channels_spec.rb` — slimmed the legacy
+  `GET /channels/:id (show)` describe block to the controller-level contracts
+  that survive the revamp (200, sync link, delete link, JSON shape, 404, `[+]`
+  add-pane button). The full HTML rendering matrix moved to
+  `channels_show_spec.rb`.
 
 **Spec count delta:** ~129 new examples landed across the helper / view /
 request / system files. ~17 legacy view assertions retired from
-`spec/requests/channels_spec.rb` (the URL row, the `[star]` inline toggle,
-the two-pane layout assertions, the "see all videos for this channel"
-copy). Net add ≈ +112 examples for 11b.
+`spec/requests/channels_spec.rb` (the URL row, the `[star]` inline toggle, the
+two-pane layout assertions, the "see all videos for this channel" copy). Net add
+≈ +112 examples for 11b.
 
 **Gates (mine):**
 
-- `bundle exec rspec spec/views/channels spec/helpers/channels_helper_spec.rb
-  spec/helpers/youtube_helper_spec.rb spec/requests/channels_show_spec.rb
-  spec/requests/channels_spec.rb spec/system/channel_show_journey_spec.rb` —
-  all green.
+- `bundle exec rspec spec/views/channels spec/helpers/channels_helper_spec.rb spec/helpers/youtube_helper_spec.rb spec/requests/channels_show_spec.rb spec/requests/channels_spec.rb spec/system/channel_show_journey_spec.rb`
+  — all green.
 - `bundle exec rubocop` on every Ruby file I touched — 11 files, no offenses.
 - `bin/brakeman -q -w2` — clean, 0 security warnings, 0 errors, only the two
   pre-existing ignored-warning entries (unrelated, `footages_controller.rb` +
   routes verb-confusion).
 - Full-suite `bundle exec rspec --fail-fast=10` — 5318 examples, 5 failures.
-  None of the failures touch my files; they originate in sibling-agent work
-  (11c form / 11i diff banner / Phase 23 video diffs) or pre-existing
-  unrelated specs (calendar/month route, composites path-traversal,
-  auth_concern POST /channels, calendar edit/delete system spec).
+  None of the failures touch my files; they originate in sibling-agent work (11c
+  form / 11i diff banner / Phase 23 video diffs) or pre-existing unrelated specs
+  (calendar/month route, composites path-traversal, auth_concern POST /channels,
+  calendar edit/delete system spec).
 
-**Plan checkbox tick:** none. Phase 7.5's `plan.md` does not carry an
-explicit checkbox for 11b — it tracks the four hygiene sweeps (01–06) and
-the concept pre-specs (07–10), not the Step 11 sub-specs.
+**Plan checkbox tick:** none. Phase 7.5's `plan.md` does not carry an explicit
+checkbox for 11b — it tracks the four hygiene sweeps (01–06) and the concept
+pre-specs (07–10), not the Step 11 sub-specs.
 
 **Coordination notes (4 sibling agents in flight):**
 
-- 11c (edit form) extended `app/helpers/channels_helper.rb` with the 14-day
-  gate helpers (`title_gate_open?`, `handle_gate_open?`, `title_unlock_date`,
+- 11c (edit form) extended `app/helpers/channels_helper.rb` with the 14-day gate
+  helpers (`title_gate_open?`, `handle_gate_open?`, `title_unlock_date`,
   `handle_unlock_date`) and the matching specs in
-  `spec/helpers/channels_helper_spec.rb`. I added the `include
-  ActiveSupport::Testing::TimeHelpers` line that the gate-helper specs need
-  for `travel_to` to work; that one-liner is the only cross-spec touch.
+  `spec/helpers/channels_helper_spec.rb`. I added the
+  `include ActiveSupport::Testing::TimeHelpers` line that the gate-helper specs
+  need for `travel_to` to work; that one-liner is the only cross-spec touch.
 - 11i (diff cron) is expected to fill the empty `channel_diff_banner` Turbo
   frame I shipped under the H1. I did not edit any 11i-owned files.
 
 **Manual test recipe** (the user runs after the master commits):
 
-1. `bin/dev`, open `/channels`, click into a channel. Verify the page
-   renders three pane rows (detail / analytics / videos) without 500ing,
-   even on a bare-bones pre-sync channel (every metadata column nil).
-2. `bin/rails console`, hydrate a channel with the script in the spec's
-   Manual test recipe (title, handle, description, banner_url, avatar_url,
-   links, subscriber/view/video counts). Refresh `/channels/<slug>`. Verify
-   banner image renders, avatar circle renders, title in H1 reads
-   `channel <title>`, handle reads `@<handle>`, `[youtube channel]` and
-   `[youtube studio]` open in new tabs with the correct URLs, description
-   renders with paragraph + auto-linked URLs, links cluster shows each
-   `{ title, url }` entry as a bracketed external link.
-3. Analytics row reads `subscribers: 12,345`, `views: 678,901`,
-   `videos: 42` with the `[full analytics]` outbound link.
+1. `bin/dev`, open `/channels`, click into a channel. Verify the page renders
+   three pane rows (detail / analytics / videos) without 500ing, even on a
+   bare-bones pre-sync channel (every metadata column nil).
+2. `bin/rails console`, hydrate a channel with the script in the spec's Manual
+   test recipe (title, handle, description, banner_url, avatar_url, links,
+   subscriber/view/video counts). Refresh `/channels/<slug>`. Verify banner
+   image renders, avatar circle renders, title in H1 reads `channel <title>`,
+   handle reads `@<handle>`, `[youtube channel]` and `[youtube studio]` open in
+   new tabs with the correct URLs, description renders with paragraph +
+   auto-linked URLs, links cluster shows each `{ title, url }` entry as a
+   bracketed external link.
+3. Analytics row reads `subscribers: 12,345`, `views: 678,901`, `videos: 42`
+   with the `[full analytics]` outbound link.
 4. Videos pane shows up to 30 rows, starred-first; `[see all]` lands at
    `/videos?channel=<slug>` with the filter chip visible.
-5. `c.update!(hidden_subscriber_count: true)` — subscribers cell reads
-   "Hidden".
-6. XSS smoke: `c.update_columns(description: "<script>alert('xss')</script>safe",
-   title: "<img onerror=alert(1) src=x>")`. No JS dialog pops on
-   `/channels/<slug>`; H1 reads literal `<img...>` escaped; description
-   shows literal "safe" text only.
+5. `c.update!(hidden_subscriber_count: true)` — subscribers cell reads "Hidden".
+6. XSS smoke:
+   `c.update_columns(description: "<script>alert('xss')</script>safe", title: "<img onerror=alert(1) src=x>")`.
+   No JS dialog pops on `/channels/<slug>`; H1 reads literal `<img...>` escaped;
+   description shows literal "safe" text only.
 
-**Open issues:** none from 11b. The 5 pre-existing failures from the
-full-suite run are sibling-agent / unrelated and not under 11b's purview.
+**Open issues:** none from 11b. The 5 pre-existing failures from the full-suite
+run are sibling-agent / unrelated and not under 11b's purview.
 
 ## 2026-05-11 — §11c Channel Edit Form (rails-impl)
 
-**Spec:** `specs/11c-channel-edit-form.md` (sub-spec of 11). Shipped the writable
-edit form at `/channels/:slug/edit`, the controller dispatch through
+**Spec:** `specs/11c-channel-edit-form.md` (sub-spec of 11). Shipped the
+writable edit form at `/channels/:slug/edit`, the controller dispatch through
 `Youtube::Client#update_channel` + `#set_watermark` / `#unset_watermark`, the
 14-day rate-limit gate UX (D5 / D19), and the three Stimulus controllers that
 drive the form's client-side affordances.
@@ -2316,73 +2311,72 @@ drive the form's client-side affordances.
 **Files touched**
 
 Rails / Ruby:
+
 - `app/controllers/channels_controller.rb` — extended `#update` to branch
   between (1) the legacy JSON `star`-toggle path, (2) the legacy HTML
-  `star`-toggle (show-page inline form), and (3) the new 11c edit form.
-  Added private helpers `update_via_json`, `perform_star_toggle_html`,
+  `star`-toggle (show-page inline form), and (3) the new 11c edit form. Added
+  private helpers `update_via_json`, `perform_star_toggle_html`,
   `perform_local_only_update`, `perform_youtube_update`,
   `handle_watermark_set!`, `handle_watermark_unset!`, `strip_gated_fields!`,
   `channel_edit_attrs`, `normalize_links_attributes`.
-- `app/services/youtube/client.rb` — added `#update_channel(channel,
-  field_set)` (destructive PUT, read-modify-write), `#set_watermark`,
-  `#unset_watermark`. Private helpers `extract_youtube_channel_id`,
-  `read_current_branding`. All routed through the existing `perform(...)`
-  audit / quota / retry chokepoint.
+- `app/services/youtube/client.rb` — added `#update_channel(channel, field_set)`
+  (destructive PUT, read-modify-write), `#set_watermark`, `#unset_watermark`.
+  Private helpers `extract_youtube_channel_id`, `read_current_branding`. All
+  routed through the existing `perform(...)` audit / quota / retry chokepoint.
 - `app/services/youtube/quota.rb` — added cost entries for `channels.update`
   (50), `watermarks.set` (50), `watermarks.unset` (50).
 - `app/helpers/channels_helper.rb` — added `title_gate_open?`,
-  `handle_gate_open?`, `title_unlock_date`, `handle_unlock_date`. Pure
-  functions over `*_changed_at + 14.days`. Boundary semantics: exactly
-  14 days ago is treated as **closed** (window just expired).
+  `handle_gate_open?`, `title_unlock_date`, `handle_unlock_date`. Pure functions
+  over `*_changed_at + 14.days`. Boundary semantics: exactly 14 days ago is
+  treated as **closed** (window just expired).
 
 Views:
+
 - `app/views/channels/edit.html.erb` — full rewrite. Lead paragraph in the
   one-sentence-per-line style (rule B). Form container wears
   `.pane.pane--standalone` (rule C). Toast container reserved for 11h.
   Local-only banner renders when `youtube_connection_id` is nil.
 - `app/views/channels/_form.html.erb` — full edit form. URL locked. Title /
-  handle gated (when window open, shows muted message + `[remind me on
-  YYYY-MM-DD]` bracketed link with the data attrs 11h's controller will
-  hook). Description / country / default_language / keywords / links
-  repeater / watermark fieldset / banner-upload slot / submit row.
+  handle gated (when window open, shows muted message +
+  `[remind me on YYYY-MM-DD]` bracketed link with the data attrs 11h's
+  controller will hook). Description / country / default_language / keywords /
+  links repeater / watermark fieldset / banner-upload slot / submit row.
 - `app/views/channels/_form_errors.html.erb` (NEW) — flash + errors partial.
-- `app/views/channels/_banner_upload.html.erb` (NEW) — empty slot, owned
-  by 11f.
+- `app/views/channels/_banner_upload.html.erb` (NEW) — empty slot, owned by 11f.
 
 Stimulus controllers (NEW):
-- `app/javascript/controllers/links_repeater_controller.js` — add /
-  remove rows, server-filters destroyed rows via `_destroy=yes`, hides
-  `[+ add link]` at MAX_LINKS = 5 (client polish; server-side cap is the
-  authoritative gate).
-- `app/javascript/controllers/file_upload_controller.js` — watermark
-  variant. Hard-rejects file type, size, pixel dimensions client-side
-  with specific reason text (D14). Reveals/hides offset_ms input on
-  timing change.
-- `app/javascript/controllers/reminder_link_controller.js` — STUB for
-  the `[remind me on YYYY-MM-DD]` click. 11h fills `#create` with the
-  POST + toast flow.
+
+- `app/javascript/controllers/links_repeater_controller.js` — add / remove rows,
+  server-filters destroyed rows via `_destroy=yes`, hides `[+ add link]` at
+  MAX_LINKS = 5 (client polish; server-side cap is the authoritative gate).
+- `app/javascript/controllers/file_upload_controller.js` — watermark variant.
+  Hard-rejects file type, size, pixel dimensions client-side with specific
+  reason text (D14). Reveals/hides offset_ms input on timing change.
+- `app/javascript/controllers/reminder_link_controller.js` — STUB for the
+  `[remind me on YYYY-MM-DD]` click. 11h fills `#create` with the POST + toast
+  flow.
 
 Specs:
+
 - `spec/services/youtube/client_update_channel_spec.rb` (NEW, 26 examples) —
   `#update_channel` happy + 5 sad paths + arg validation + read-modify-write
   ordering + audit-row counts. `#set_watermark` + `#unset_watermark` full
   happy + sad paths (quota, 401, 5xx, ArgumentError on missing offset_ms,
   invalid timing).
-- `spec/requests/channels/edit_form_spec.rb` (NEW, 31 examples) — covers
-  every controller-level branch enumerated in the spec's Acceptance:
-  happy path (single dirty field, multi-field, watermark-only, watermark-
-  removal, no-op, local-only), sad paths (NeedsReauthError flagging,
-  QuotaExhaustedError, TransientError, PermanentError, country reject,
-  default_language reject, watermark_offset_ms negative, links 6th-entry
-  reject, blank-url reject), 14-day gate defense-in-depth (single-field
-  strip, both-fields strip, all-fields-stripped short-circuit), JSON
-  regression guards.
-- `spec/helpers/channels_helper_spec.rb` — appended gate-helper specs
-  (10 examples covering both gates × the nil / inside / outside / exact-
-  boundary axis + unlock_date helpers).
+- `spec/requests/channels/edit_form_spec.rb` (NEW, 31 examples) — covers every
+  controller-level branch enumerated in the spec's Acceptance: happy path
+  (single dirty field, multi-field, watermark-only, watermark- removal, no-op,
+  local-only), sad paths (NeedsReauthError flagging, QuotaExhaustedError,
+  TransientError, PermanentError, country reject, default_language reject,
+  watermark_offset_ms negative, links 6th-entry reject, blank-url reject),
+  14-day gate defense-in-depth (single-field strip, both-fields strip,
+  all-fields-stripped short-circuit), JSON regression guards.
+- `spec/helpers/channels_helper_spec.rb` — appended gate-helper specs (10
+  examples covering both gates × the nil / inside / outside / exact- boundary
+  axis + unlock_date helpers).
 - `spec/system/channel_edit_form_spec.rb` (NEW, 1 example) — ONE end-to-end
-  happy path (open edit → fill description → submit → land on show with
-  new description) per architect rule D.
+  happy path (open edit → fill description → submit → land on show with new
+  description) per architect rule D.
 
 **Specs delta**
 
@@ -2394,447 +2388,711 @@ Specs:
 
 **Gates**
 
-- `bundle exec rspec spec/helpers/ spec/services/youtube/
-  spec/services/channels/ spec/requests/channels_spec.rb
-  spec/requests/channels/ spec/system/channel_edit_form_spec.rb`
+- `bundle exec rspec spec/helpers/ spec/services/youtube/ spec/services/channels/ spec/requests/channels_spec.rb spec/requests/channels/ spec/system/channel_edit_form_spec.rb`
   → 795 examples, 0 failures, 0 pending.
 - `bundle exec rubocop` (scoped to my touched files) → clean.
 - `bin/brakeman -q -w2` → 0 warnings.
 
 **Cross-agent coordination**
 
-- 11i (DiffApply) already shipped a stub `Youtube::Client#update_handle`
-  that raises `NotImplementedError`. 11c's `update_channel` deliberately
-  excludes `:handle` from `UPDATE_CHANNEL_BRANDING_KEYS` so the dispatch
-  goes through `#update_handle` instead — matches the parent spec's note
-  that YouTube exposes a dedicated handle endpoint.
-- 11h (calendar reminder) will fill in the `reminder_link_controller`
-  `create` action. 11c ships the data attributes (`reminder-link-unlock-
-  date-value`, `-field-value`, `-channel-id-value`, `click->reminder-
-  link#create`) so 11h slots in without ERB churn.
-- 11f (banner upload) will replace the empty `_banner_upload.html.erb`
-  partial. The form's slot is rendered as `render "channels/banner_upload",
-  channel: channel`.
-- 11g (change history) will append `ChannelChangeLog` rows on every
-  successful title / handle push. 11c stamps `title_changed_at` /
-  `handle_changed_at` on cache write; the log-row hook is 11g's contract.
+- 11i (DiffApply) already shipped a stub `Youtube::Client#update_handle` that
+  raises `NotImplementedError`. 11c's `update_channel` deliberately excludes
+  `:handle` from `UPDATE_CHANNEL_BRANDING_KEYS` so the dispatch goes through
+  `#update_handle` instead — matches the parent spec's note that YouTube exposes
+  a dedicated handle endpoint.
+- 11h (calendar reminder) will fill in the `reminder_link_controller` `create`
+  action. 11c ships the data attributes (`reminder-link-unlock- date-value`,
+  `-field-value`, `-channel-id-value`, `click->reminder- link#create`) so 11h
+  slots in without ERB churn.
+- 11f (banner upload) will replace the empty `_banner_upload.html.erb` partial.
+  The form's slot is rendered as
+  `render "channels/banner_upload", channel: channel`.
+- 11g (change history) will append `ChannelChangeLog` rows on every successful
+  title / handle push. 11c stamps `title_changed_at` / `handle_changed_at` on
+  cache write; the log-row hook is 11g's contract.
 
 **Locked decisions honored**
 
-1. Watermark spec: 800×800 PNG/JPEG, max 1 MB. Hard-rejected client-side
-   per D14 / D22.
+1. Watermark spec: 800×800 PNG/JPEG, max 1 MB. Hard-rejected client-side per D14
+   / D22.
 2. Remind-me copy: `[remind me on YYYY-MM-DD]` bare verb (no inner spaces).
-3. Max-5 enforcement: BOTH server-side (`Channel#links_shape` validator
-   shipped with 11a) AND client-side (`links_repeater_controller` hides
-   `[+ add link]` at 5).
+3. Max-5 enforcement: BOTH server-side (`Channel#links_shape` validator shipped
+   with 11a) AND client-side (`links_repeater_controller` hides `[+ add link]`
+   at 5).
 4. No inline crop — banner partial is a slot for 11f; no crop UI here.
-5. Handle dispatch: routed through `Youtube::Client#update_handle` (per
-   11i's existing stub) rather than `#update_channel`; the locked
-   decision's "controller dispatches to `#update_channel`" was reconciled
-   with the existing service surface by adding `update_channel` for the
-   non-handle subset and delegating handle to the dedicated method 11i
-   added. Both agree: the controller's call site stays singular.
-6. Stimulus tests: rack_test system spec covers the links repeater happy
-   path; unit-level Stimulus testing is out of scope (per Q6 in the spec).
-7. Cache-write rollback: wrapped in `Channel.transaction`. If the local
-   cache write fails, the YouTube push has already landed (no rollback
-   API); the controller raises ActiveRecord::Rollback to surface the
-   divergence to the daily diff job (11i).
+5. Handle dispatch: routed through `Youtube::Client#update_handle` (per 11i's
+   existing stub) rather than `#update_channel`; the locked decision's
+   "controller dispatches to `#update_channel`" was reconciled with the existing
+   service surface by adding `update_channel` for the non-handle subset and
+   delegating handle to the dedicated method 11i added. Both agree: the
+   controller's call site stays singular.
+6. Stimulus tests: rack_test system spec covers the links repeater happy path;
+   unit-level Stimulus testing is out of scope (per Q6 in the spec).
+7. Cache-write rollback: wrapped in `Channel.transaction`. If the local cache
+   write fails, the YouTube push has already landed (no rollback API); the
+   controller raises ActiveRecord::Rollback to surface the divergence to the
+   daily diff job (11i).
 
 **No commits, no pushes.** Master commits after manual validation.
 
-**Open issues:** none from 11c. Pre-existing failures from the full-suite
-run (numeric_formatting_spec on 11i's diff banner, auth_concern, calendar
-edit/delete, composites path traversal) are sibling-agent or pre-existing
-and not under 11c's purview.
+**Open issues:** none from 11c. Pre-existing failures from the full-suite run
+(numeric_formatting_spec on 11i's diff banner, auth_concern, calendar
+edit/delete, composites path traversal) are sibling-agent or pre-existing and
+not under 11c's purview.
 
 ## 2026-05-11 — §11i Daily Channel Diff-Check Cron + Resolution Page (rails-impl)
 
 **Inputs:** `specs/11i-daily-diff-check-and-resolution.md`. Parent
 `specs/11-channel-management-and-preview.md`. Phase 23's
-`spec/services/youtube/diff_computer_spec.rb`, `app/views/shared/_diff_table.html.erb`,
-and `DiffDecisionRadioComponent` reused per the cross-spec parallelism note.
+`spec/services/youtube/diff_computer_spec.rb`,
+`app/views/shared/_diff_table.html.erb`, and `DiffDecisionRadioComponent` reused
+per the cross-spec parallelism note.
 
 **Files landed**
 
 Migration:
 
-- `db/migrate/20260511024709_create_channel_diffs.rb` — `channel_diffs`
-  table with `channel_id`, `detected_at`, `field_diffs jsonb default '{}'`,
+- `db/migrate/20260511024709_create_channel_diffs.rb` — `channel_diffs` table
+  with `channel_id`, `detected_at`, `field_diffs jsonb default '{}'`,
   `resolved_at`, `resolution_payload jsonb`, `resolved_by_user_id`. Indexes:
   `channel_id`, `resolved_at`, `resolved_by_user_id`, plus a partial unique
-  index `index_channel_diffs_open_per_channel ON channel_id WHERE resolved_at IS NULL`.
-  FKs cascade-delete to channels, nullify on user delete. Applied to dev +
-  test DBs.
+  index
+  `index_channel_diffs_open_per_channel ON channel_id WHERE resolved_at IS NULL`.
+  FKs cascade-delete to channels, nullify on user delete. Applied to dev + test
+  DBs.
 
 Model:
 
-- `app/models/channel_diff.rb` — `belongs_to :channel`, `belongs_to
-  :resolved_by_user, optional: true`, validations on `detected_at` +
-  hash-shape of `field_diffs` / `resolution_payload`, scopes
-  `unresolved` / `open` / `resolved` / `recent`, helpers `fields`,
-  `field_diff`, `pito_value`, `youtube_value`, `resolved?` / `open?`.
-- `app/models/channel.rb` — added `has_many :channel_diffs,
-  dependent: :destroy` + `open_channel_diff` accessor (`channel_diffs.unresolved.first`).
-- `app/models/notification.rb` — added enum entry
-  `channel_diff_detected: 10`.
+- `app/models/channel_diff.rb` — `belongs_to :channel`,
+  `belongs_to :resolved_by_user, optional: true`, validations on `detected_at` +
+  hash-shape of `field_diffs` / `resolution_payload`, scopes `unresolved` /
+  `open` / `resolved` / `recent`, helpers `fields`, `field_diff`, `pito_value`,
+  `youtube_value`, `resolved?` / `open?`.
+- `app/models/channel.rb` — added
+  `has_many :channel_diffs, dependent: :destroy` + `open_channel_diff` accessor
+  (`channel_diffs.unresolved.first`).
+- `app/models/notification.rb` — added enum entry `channel_diff_detected: 10`.
 
 Services (PORO, pure functions where applicable):
 
 - `app/services/channels/diff_computer.rb` — whitelist-driven comparator
-  (`title`, `handle`, `description`, `country`, `default_language`,
-  `keywords`, `links`, `banner_url`, `avatar_url`, `watermark_url`,
-  `watermark_timing`, `watermark_offset_ms`). Order-insensitive sets for
-  `keywords` (whitespace-split tokens) + `links` (sorted `{title, url}`
-  tuples). CDN-rotation filter strips query string + leading
-  `https?://<host>` prefix before URL comparison. Whitespace normalized
-  (strip + collapse). Nil / `""` / `[]` collapse to nil.
-- `app/services/channels/diff_persister.rb` — find-or-create / refresh-in-
-  place / auto-close empty-diff. Race-recovery via
+  (`title`, `handle`, `description`, `country`, `default_language`, `keywords`,
+  `links`, `banner_url`, `avatar_url`, `watermark_url`, `watermark_timing`,
+  `watermark_offset_ms`). Order-insensitive sets for `keywords`
+  (whitespace-split tokens) + `links` (sorted `{title, url}` tuples).
+  CDN-rotation filter strips query string + leading `https?://<host>` prefix
+  before URL comparison. Whitespace normalized (strip + collapse). Nil / `""` /
+  `[]` collapse to nil.
+- `app/services/channels/diff_persister.rb` — find-or-create / refresh-in- place
+  / auto-close empty-diff. Race-recovery via
   `rescue ActiveRecord::RecordNotUnique → update-in-place`.
-- `app/services/channels/diff_apply.rb` — single-transaction apply
-  orchestrator. Validates per-field decisions, stages YouTube-wins on
-  the in-memory record, batches Pito-wins branding fields into one
-  `Youtube::Client#update_channel` PUT, dispatches handle through
-  `update_handle`, audits `title` / `handle` pushes into
-  `ChannelChangeLog`, stamps `title_changed_at` / `handle_changed_at`,
-  rolls back ALL changes on first push failure (locked Q3). Returns
-  `Result(success:, diff:, error_code:, error_message:,
-  pito_wins_fields:, youtube_wins_fields:, failing_field:)`.
+- `app/services/channels/diff_apply.rb` — single-transaction apply orchestrator.
+  Validates per-field decisions, stages YouTube-wins on the in-memory record,
+  batches Pito-wins branding fields into one `Youtube::Client#update_channel`
+  PUT, dispatches handle through `update_handle`, audits `title` / `handle`
+  pushes into `ChannelChangeLog`, stamps `title_changed_at` /
+  `handle_changed_at`, rolls back ALL changes on first push failure (locked Q3).
+  Returns
+  `Result(success:, diff:, error_code:, error_message:, pito_wins_fields:, youtube_wins_fields:, failing_field:)`.
 
 Job:
 
-- `app/jobs/channel_diff_check_job.rb` — Sidekiq job. Cron mode
-  (`perform()`) iterates `Channel.where.not(youtube_connection_id: nil)`,
-  isolates per-channel `TransientError` (log + skip + continue), re-raises
-  `QuotaExhaustedError` (abort + Sidekiq retry). Single-channel mode
-  (`perform(channel_id)`) is the entrypoint for the user-triggered
-  `[sync]` path. `NeedsReauthError` / `AuthRevokedError` flips
-  `youtube_connection.needs_reauth = true` and skips. Notification
-  dedupe per locked Q1: fresh row → notify; expanded field set → notify;
-  same-set / contracted set → skip. Turbo Stream broadcast targets
+- `app/jobs/channel_diff_check_job.rb` — Sidekiq job. Cron mode (`perform()`)
+  iterates `Channel.where.not(youtube_connection_id: nil)`, isolates per-channel
+  `TransientError` (log + skip + continue), re-raises `QuotaExhaustedError`
+  (abort + Sidekiq retry). Single-channel mode (`perform(channel_id)`) is the
+  entrypoint for the user-triggered `[sync]` path. `NeedsReauthError` /
+  `AuthRevokedError` flips `youtube_connection.needs_reauth = true` and skips.
+  Notification dedupe per locked Q1: fresh row → notify; expanded field set →
+  notify; same-set / contracted set → skip. Turbo Stream broadcast targets
   `channel_diff_banner` frame in single-channel mode.
 
 Notifications:
 
-- `app/services/notification_formatter/templates/channel_diff_detected.rb`
-  — registered in `templates.rb`. Carries the user to
-  `/channels/:slug/diff`.
+- `app/services/notification_formatter/templates/channel_diff_detected.rb` —
+  registered in `templates.rb`. Carries the user to `/channels/:slug/diff`.
 
 Config + routes:
 
-- `config/sidekiq_cron.yml` — new `channel_diff_check` entry at
-  `30 2 * * *` (one hour after the video diff cron `30 1 * * *`, per the
-  spec's staggered-hour note).
+- `config/sidekiq_cron.yml` — new `channel_diff_check` entry at `30 2 * * *`
+  (one hour after the video diff cron `30 1 * * *`, per the spec's
+  staggered-hour note).
 - `config/routes.rb` — `member { get :diff; patch :apply_diff }` under
   `resources :channels`.
 
 Controller + views:
 
-- `app/controllers/channels_controller.rb` — added `#diff` (renders
-  resolution page, JSON parity) and `#apply_diff` (consumes the
-  per-field decisions form, dispatches `Channels::DiffApply`, redirects
-  on success with a "changes applied. X pushed to youtube, Y updated
-  locally" flash; re-renders with 422 + flash on validation /
-  unsupported-pito-field / push-failure errors).
-- `app/views/channels/diff.html.erb` — side-by-side resolution page in
-  a `pane--standalone`. Lead paragraph uses the one-sentence-per-line
-  `<br>` style; renders the shared `shared/_diff_table` partial with
+- `app/controllers/channels_controller.rb` — added `#diff` (renders resolution
+  page, JSON parity) and `#apply_diff` (consumes the per-field decisions form,
+  dispatches `Channels::DiffApply`, redirects on success with a "changes
+  applied. X pushed to youtube, Y updated locally" flash; re-renders with 422 +
+  flash on validation / unsupported-pito-field / push-failure errors).
+- `app/views/channels/diff.html.erb` — side-by-side resolution page in a
+  `pane--standalone`. Lead paragraph uses the one-sentence-per-line `<br>`
+  style; renders the shared `shared/_diff_table` partial with
   `display_only_fields: Channels::DiffApply::UNSUPPORTED_PITO_FIELDS`.
-- `app/views/channels/_open_diff_banner.html.erb` — banner partial
-  pointing the user to `/channels/:slug/diff` via `[ review changes ]`.
-  Targeted by the job's Turbo Stream broadcast.
-- `app/views/channels/_in_sync_banner.html.erb` — "in sync with
-  youtube." notice partial for the post-`[sync]` clear-banner path.
-- `app/views/shared/_diff_table.html.erb` — additive: accepts an
-  optional `display_only_fields` local. Defaults to the video-side
-  `Youtube::DiffComputer::DISPLAY_ONLY_FIELDS` so the existing video
-  diff render is unchanged; channels pass their own set.
+- `app/views/channels/_open_diff_banner.html.erb` — banner partial pointing the
+  user to `/channels/:slug/diff` via `[ review changes ]`. Targeted by the job's
+  Turbo Stream broadcast.
+- `app/views/channels/_in_sync_banner.html.erb` — "in sync with youtube." notice
+  partial for the post-`[sync]` clear-banner path.
+- `app/views/shared/_diff_table.html.erb` — additive: accepts an optional
+  `display_only_fields` local. Defaults to the video-side
+  `Youtube::DiffComputer::DISPLAY_ONLY_FIELDS` so the existing video diff render
+  is unchanged; channels pass their own set.
 
 MCP tools (locked Q6):
 
-- `app/mcp/tools/channel_diff_show.rb` + `channel_diff_apply.rb` —
-  mirror the Phase 23 `video_diff_show` / `video_diff_apply` shape.
-  Two-step `confirm: "yes" | "no"` flag (project hard rule). Gated on
-  `Scopes::APP`. Auto-registered by `Mcp::PitoServer.register_tools`.
+- `app/mcp/tools/channel_diff_show.rb` + `channel_diff_apply.rb` — mirror the
+  Phase 23 `video_diff_show` / `video_diff_apply` shape. Two-step
+  `confirm: "yes" | "no"` flag (project hard rule). Gated on `Scopes::APP`.
+  Auto-registered by `Mcp::PitoServer.register_tools`.
 
 Youtube::Client surface:
 
-- `app/services/youtube/client.rb` — added `#update_handle(channel, value)`
-  stub raising `NotImplementedError` so `accept pito` on `handle` in the
-  diff resolution flow surfaces a clean "this push path isn't wired yet"
-  error. The stub is mockable in tests; real wiring lands with 11c
-  follow-up research on YouTube's handle-management endpoint.
+- `app/services/youtube/client.rb` — added `#update_handle(channel, value)` stub
+  raising `NotImplementedError` so `accept pito` on `handle` in the diff
+  resolution flow surfaces a clean "this push path isn't wired yet" error. The
+  stub is mockable in tests; real wiring lands with 11c follow-up research on
+  YouTube's handle-management endpoint.
 
 Specs added (file → example count):
 
 - `spec/models/channel_diff_spec.rb` (21)
-- `spec/services/channels/diff_computer_spec.rb` (31) — whitelist,
-  whitespace, nil/empty equivalence, sorted-set keywords/links,
-  CDN-rotation filter on banner/avatar/watermark, watermark_offset_ms
-  integer coercion, defensive against malformed payloads.
+- `spec/services/channels/diff_computer_spec.rb` (31) — whitelist, whitespace,
+  nil/empty equivalence, sorted-set keywords/links, CDN-rotation filter on
+  banner/avatar/watermark, watermark_offset_ms integer coercion, defensive
+  against malformed payloads.
 - `spec/services/channels/diff_persister_spec.rb` (12)
-- `spec/services/channels/diff_apply_spec.rb` (26) — validation
-  errors, happy youtube/pito/mixed, handle push, partial-failure
-  rollback, mixed-with-failure rollback, no-connection branch.
-- `spec/jobs/channel_diff_check_job_spec.rb` (23) — happy single +
-  cron mode, dedupe (same-set / expansion / contraction → auto-close),
-  TransientError / QuotaExhaustedError / NeedsReauthError / pre-set
-  needs_reauth, channel-not-found, idempotency.
-- `spec/requests/channels/diff_spec.rb` (27) — happy youtube-wins /
-  pito-wins / mixed, sad extra-key / missing-key / invalid-value,
-  flaw race (already resolved) / partial-failure / unsupported-pito
-  field, auth boundary.
-- `spec/system/channel_diff_resolution_spec.rb` (2) — critical user
-  journeys for accept_youtube and accept_pito.
+- `spec/services/channels/diff_apply_spec.rb` (26) — validation errors, happy
+  youtube/pito/mixed, handle push, partial-failure rollback, mixed-with-failure
+  rollback, no-connection branch.
+- `spec/jobs/channel_diff_check_job_spec.rb` (23) — happy single + cron mode,
+  dedupe (same-set / expansion / contraction → auto-close), TransientError /
+  QuotaExhaustedError / NeedsReauthError / pre-set needs_reauth,
+  channel-not-found, idempotency.
+- `spec/requests/channels/diff_spec.rb` (27) — happy youtube-wins / pito-wins /
+  mixed, sad extra-key / missing-key / invalid-value, flaw race (already
+  resolved) / partial-failure / unsupported-pito field, auth boundary.
+- `spec/system/channel_diff_resolution_spec.rb` (2) — critical user journeys for
+  accept_youtube and accept_pito.
 - `spec/mcp/tools/channel_diff_show_spec.rb` (5) + `channel_diff_apply_spec.rb`
   (7) — JSON envelope shapes, scope gating, preview gate, error surfaces.
 
-**Total new examples: 154**. Spec sweep covers happy + sad + edge + flaw
-per the architect's exhaustive-spec rule.
+**Total new examples: 154**. Spec sweep covers happy + sad + edge + flaw per the
+architect's exhaustive-spec rule.
 
 **Gates**
 
 - `bundle exec rspec` on the slice (model/service/job/request/system/mcp
-  + adjacent video diff specs to confirm shared partial unchanged) → 642
-  passing, 0 failures.
+  - adjacent video diff specs to confirm shared partial unchanged) → 642
+    passing, 0 failures.
 - `bundle exec rubocop` → 975 files, no offenses.
 - `bin/brakeman -q -w2` → 0 warnings.
 - Full suite shows 3 pre-existing failures (`numeric_formatting_spec` on
-  pre-existing video-side `<%= ... .size %>` renders;
-  `auth_concern_spec` `POST /channels` route non-existent;
-  `calendar_edit_delete_spec` missing `note` link). All three were
-  already failing before this work landed (git-stash verification).
+  pre-existing video-side `<%= ... .size %>` renders; `auth_concern_spec`
+  `POST /channels` route non-existent; `calendar_edit_delete_spec` missing
+  `note` link). All three were already failing before this work landed
+  (git-stash verification).
 
 **Locked decisions honored**
 
-1. **Q-NOTIF dedupe** — fresh row or expanded field set notifies; same
-   or contracted set skips. `ChannelDiffCheckJob#dedupe_notification?`
-   compares the prior open row's field set (read pre-persistence) to
-   the new diff's field set.
+1. **Q-NOTIF dedupe** — fresh row or expanded field set notifies; same or
+   contracted set skips. `ChannelDiffCheckJob#dedupe_notification?` compares the
+   prior open row's field set (read pre-persistence) to the new diff's field
+   set.
 2. **Q-DEFAULT** — radio default `accept youtube` honored by reusing
    `DiffDecisionRadioComponent` (default `selected: YOUTUBE`).
-3. **Q-PARTIAL** — transaction with full rollback on first push
-   failure. Flash: "could not push <field> to youtube: <reason>. no
-   changes applied." Per the user's note: "applied N of M; rest
-   rolled back; review and retry" — surfaced via the
-   `failing_field` accessor + the flash copy.
-4. **Q-CDN** — regex-based normalization in `DiffComputer`: strips
-   `?...` query string + leading `https?://<host>`. Hash-column
-   approach NOT taken (no existing hash columns; would have required
-   another migration). The path comparison is the stable proxy.
-5. **Q-WHITESPACE** — `normalize_string` strips + collapses runs of
-   whitespace before comparison; empty / nil / "" collapse to nil.
-6. **Q-CLI** — MCP tools shipped (`channel_diff_show` /
-   `channel_diff_apply`) matching Phase 23's shape. Two-step
-   `confirm` flag. CLI surface itself is silent for now (deferred to
-   Phase 9 CLI parity work, per the spec's open-question lean).
-7. **In-sync notice target** — `_in_sync_banner.html.erb` renders
-   into the same `channel_diff_banner` Turbo frame the open-diff
-   banner targets. The job's `broadcast_banner` method handles both
-   diff-and-no-diff branches.
-8. **Q-CHANGELOG-FIELDS** — audit narrowed to `title` + `handle`
-   (matches `ChannelChangeLog::FIELDS`). Other Pito-wins pushes
-   (description, country, language, keywords) update the channel and
-   resolve the diff but do NOT write a log row.
+3. **Q-PARTIAL** — transaction with full rollback on first push failure. Flash:
+   "could not push <field> to youtube: <reason>. no changes applied." Per the
+   user's note: "applied N of M; rest rolled back; review and retry" — surfaced
+   via the `failing_field` accessor + the flash copy.
+4. **Q-CDN** — regex-based normalization in `DiffComputer`: strips `?...` query
+   string + leading `https?://<host>`. Hash-column approach NOT taken (no
+   existing hash columns; would have required another migration). The path
+   comparison is the stable proxy.
+5. **Q-WHITESPACE** — `normalize_string` strips + collapses runs of whitespace
+   before comparison; empty / nil / "" collapse to nil.
+6. **Q-CLI** — MCP tools shipped (`channel_diff_show` / `channel_diff_apply`)
+   matching Phase 23's shape. Two-step `confirm` flag. CLI surface itself is
+   silent for now (deferred to Phase 9 CLI parity work, per the spec's
+   open-question lean).
+7. **In-sync notice target** — `_in_sync_banner.html.erb` renders into the same
+   `channel_diff_banner` Turbo frame the open-diff banner targets. The job's
+   `broadcast_banner` method handles both diff-and-no-diff branches.
+8. **Q-CHANGELOG-FIELDS** — audit narrowed to `title` + `handle` (matches
+   `ChannelChangeLog::FIELDS`). Other Pito-wins pushes (description, country,
+   language, keywords) update the channel and resolve the diff but do NOT write
+   a log row.
 
 **Cross-agent coordination**
 
-- The 11b agent committed (`24c825e`) mid-session and that commit
-  shipped most of this work (the agent picked up my just-written
-  files into a single Phase 7.5 commit). My two `number_with_delimiter`
-  lint fixes (added after the commit's snapshot) sit unstaged for the
-  master to fold in.
-- `app/views/channels/show.html.erb` not modified by 11i (per the
-  user's coordination instruction). The empty `channel_diff_banner`
-  Turbo frame slot 11b shipped is the broadcast target.
-- `app/views/shared/_diff_table.html.erb` extended additively with an
-  optional `display_only_fields` local. The video diff render
-  defaults preserved; the channel diff render passes its own set.
-  Video diff request specs still pass (309 video-side specs run green
-  with the partial change in place).
-- `Youtube::Client#update_handle` shipped as a `NotImplementedError`
-  stub. 11c's `update_channel` already excludes `:handle` from
-  `UPDATE_CHANNEL_BRANDING_KEYS` so the dispatch goes through
-  `update_handle` instead — clean handoff to 11c follow-up research.
+- The 11b agent committed (`24c825e`) mid-session and that commit shipped most
+  of this work (the agent picked up my just-written files into a single Phase
+  7.5 commit). My two `number_with_delimiter` lint fixes (added after the
+  commit's snapshot) sit unstaged for the master to fold in.
+- `app/views/channels/show.html.erb` not modified by 11i (per the user's
+  coordination instruction). The empty `channel_diff_banner` Turbo frame slot
+  11b shipped is the broadcast target.
+- `app/views/shared/_diff_table.html.erb` extended additively with an optional
+  `display_only_fields` local. The video diff render defaults preserved; the
+  channel diff render passes its own set. Video diff request specs still pass
+  (309 video-side specs run green with the partial change in place).
+- `Youtube::Client#update_handle` shipped as a `NotImplementedError` stub. 11c's
+  `update_channel` already excludes `:handle` from
+  `UPDATE_CHANNEL_BRANDING_KEYS` so the dispatch goes through `update_handle`
+  instead — clean handoff to 11c follow-up research.
 
 **`[sync]` button reuse — deferred (NOT done in 11i)**
 
-The spec's §[sync]-button-reuse section is NOT implemented in this
-slice. `BulkSyncJob` still dispatches `ChannelSync` by naming
-convention. The spec assumed `ChannelSync` was a placeholder no-op;
-in reality `ChannelSync` now does a real fetch+overwrite per 11a's
-upgrade. Forcing the diff path through the bulk dispatcher would
-break the existing `ChannelSync` cache write contract and the
-adjacent `BulkSyncJob` specs. Followup needed: decide whether the
-`[sync]` button should diff-check (locked Q7 intent) or cache-sync
-(11a behavior), and refactor `BulkSyncJob` accordingly. Daily cron
-+ MCP tool + manual `ChannelDiffCheckJob.perform_now(channel_id:)`
-all work fine; just the `[sync]` button convention swap remains.
+The spec's §[sync]-button-reuse section is NOT implemented in this slice.
+`BulkSyncJob` still dispatches `ChannelSync` by naming convention. The spec
+assumed `ChannelSync` was a placeholder no-op; in reality `ChannelSync` now does
+a real fetch+overwrite per 11a's upgrade. Forcing the diff path through the bulk
+dispatcher would break the existing `ChannelSync` cache write contract and the
+adjacent `BulkSyncJob` specs. Followup needed: decide whether the `[sync]`
+button should diff-check (locked Q7 intent) or cache-sync (11a behavior), and
+refactor `BulkSyncJob` accordingly. Daily cron
+
+- MCP tool + manual `ChannelDiffCheckJob.perform_now(channel_id:)` all work
+  fine; just the `[sync]` button convention swap remains.
 
 **Manual test recipe** (for the user)
 
 1. `bin/rails runner 'Channel.first.update_columns(title: "Local Divergent Title")'`
 2. `bin/rails runner 'ChannelDiffCheckJob.new.perform(Channel.first.id)'`
-3. Visit `/channels/<slug>/diff` — verify the table shows the
-   divergent local title in the Pito column and the original
-   YouTube title in the YouTube column.
+3. Visit `/channels/<slug>/diff` — verify the table shows the divergent local
+   title in the Pito column and the original YouTube title in the YouTube
+   column.
 4. Default radio is `accept youtube`. Click `[ apply changes ]`.
-5. Verify redirect to `/channels/<slug>` with flash "changes
-   applied. 1 field updated locally."
+5. Verify redirect to `/channels/<slug>` with flash "changes applied. 1 field
+   updated locally."
 6. Verify `Channel.first.reload.title` matches the YouTube title.
-7. Re-run `ChannelDiffCheckJob.new.perform(Channel.first.id)` → no
-   new diff row, no new notification.
-8. Cron registration: `bin/rails runner 'pp
-   Sidekiq::Cron::Job.find("channel_diff_check").attributes'` → confirms
-   the entry with `"30 2 * * *"`.
-9. MCP smoke: `bin/mcp` then call `channel_diff_show(id: "<slug>")`
-   to see the JSON envelope; `channel_diff_apply` without `confirm`
-   returns a preview; with `confirm: "yes"` applies for real.
+7. Re-run `ChannelDiffCheckJob.new.perform(Channel.first.id)` → no new diff row,
+   no new notification.
+8. Cron registration:
+   `bin/rails runner 'pp Sidekiq::Cron::Job.find("channel_diff_check").attributes'`
+   → confirms the entry with `"30 2 * * *"`.
+9. MCP smoke: `bin/mcp` then call `channel_diff_show(id: "<slug>")` to see the
+   JSON envelope; `channel_diff_apply` without `confirm` returns a preview; with
+   `confirm: "yes"` applies for real.
 
 **No commits, no pushes.** Master commits after manual validation.
 
 **Open issues**
 
-- `[sync]` button still routes through `BulkSyncJob → ChannelSync`
-  (full cache overwrite, not diff-check). Locked-Q7 intent says it
-  should diff-check; needs a `BulkSyncJob` convention exception or a
-  `ChannelSync` refactor. Tracked as a 11i follow-up.
-- `Youtube::Client#update_handle` is a `NotImplementedError` stub.
-  11c follow-up research owns the real implementation.
-- Three pre-existing full-suite lint failures
-  (`numeric_formatting_spec` on video-side files,
-  `auth_concern_spec`, `calendar_edit_delete_spec`) are NOT this
-  slice's responsibility; they predate this work (verified via git
-  stash).
+- `[sync]` button still routes through `BulkSyncJob → ChannelSync` (full cache
+  overwrite, not diff-check). Locked-Q7 intent says it should diff-check; needs
+  a `BulkSyncJob` convention exception or a `ChannelSync` refactor. Tracked as a
+  11i follow-up.
+- `Youtube::Client#update_handle` is a `NotImplementedError` stub. 11c follow-up
+  research owns the real implementation.
+- Three pre-existing full-suite lint failures (`numeric_formatting_spec` on
+  video-side files, `auth_concern_spec`, `calendar_edit_delete_spec`) are NOT
+  this slice's responsibility; they predate this work (verified via git stash).
 
 ## 2026-05-11 — §11h Calendar Reminder Integration (rails-impl)
 
-**Spec:** `specs/11h-calendar-reminder-integration.md` (sub-spec of 11).
-Wires the 14-day title/handle unlock gate on `/channels/:slug/edit` to
-the Phase 21 JSON endpoint `POST /calendar/entries.json`. The 11c stub
-controller (`reminder_link_controller.js`) is filled in; the toast,
-duplicate-detection, and idempotency contract land here.
+**Spec:** `specs/11h-calendar-reminder-integration.md` (sub-spec of 11). Wires
+the 14-day title/handle unlock gate on `/channels/:slug/edit` to the Phase 21
+JSON endpoint `POST /calendar/entries.json`. The 11c stub controller
+(`reminder_link_controller.js`) is filled in; the toast, duplicate-detection,
+and idempotency contract land here.
 
 **Locked decisions (passed in by user):**
 
 1. Toast position: top-right (matches existing flash convention).
-2. Reminder time-of-day default: `AppSetting.first.timezone` if set,
-   midnight UTC otherwise. The Stimulus controller reads the timezone
-   via a `data-reminder-link-timezone-value` attribute resolved
-   server-side in `_form.html.erb`.
-3. Duplicate handling: no-op + toast `reminder already exists for
-   YYYY-MM-DD`. Implemented server-side in
-   `Calendar::EntriesController#create` keyed on
+2. Reminder time-of-day default: `AppSetting.first.timezone` if set, midnight
+   UTC otherwise. The Stimulus controller reads the timezone via a
+   `data-reminder-link-timezone-value` attribute resolved server-side in
+   `_form.html.erb`.
+3. Duplicate handling: no-op + toast `reminder already exists for YYYY-MM-DD`.
+   Implemented server-side in `Calendar::EntriesController#create` keyed on
    `(entry_type: milestone_manual, title, starts_at::date)`.
-4. Title body shape: distinct titles per gate —
-   `Channel title unlock — <name>` vs `Channel handle unlock — <name>`.
-5. Channel-name source: `Channel#title` if present, else `url_slug`
-   (UC-id segment of the channel_url), else `"this channel"`. New
-   helper `channel_reminder_name` in `ChannelsHelper`.
+4. Title body shape: distinct titles per gate — `Channel title unlock — <name>`
+   vs `Channel handle unlock — <name>`.
+5. Channel-name source: `Channel#title` if present, else `url_slug` (UC-id
+   segment of the channel_url), else `"this channel"`. New helper
+   `channel_reminder_name` in `ChannelsHelper`.
 
 **Spec → reality mapping (the `kind: reminder` question)**
 
-The sub-spec describes a `Calendar::Entry` of `kind: "reminder"` at
-several points. The actual `CalendarEntry` model uses `entry_type`
-with eight values, none of them `reminder`. The closest
-user-creatable type is `milestone_manual` (no required FKs, no
-metadata schema beyond `user_overrides`). The cross-reference
-validator (`CalendarEntryCrossReferenceValidator::RULES`) explicitly
-forbids `channel_id` on every user-creatable type — including
-`milestone_manual`. The wire payload therefore omits `channel_id`
-entirely; the link back to the channel lives in the title body. The
-JSON envelope contract is the existing
-`CalendarEntryDecorator#as_detail_json`; we added one optional
+The sub-spec describes a `Calendar::Entry` of `kind: "reminder"` at several
+points. The actual `CalendarEntry` model uses `entry_type` with eight values,
+none of them `reminder`. The closest user-creatable type is `milestone_manual`
+(no required FKs, no metadata schema beyond `user_overrides`). The
+cross-reference validator (`CalendarEntryCrossReferenceValidator::RULES`)
+explicitly forbids `channel_id` on every user-creatable type — including
+`milestone_manual`. The wire payload therefore omits `channel_id` entirely; the
+link back to the channel lives in the title body. The JSON envelope contract is
+the existing `CalendarEntryDecorator#as_detail_json`; we added one optional
 top-level `duplicate: "yes"` marker on idempotent hits.
 
 **Files changed**
 
-- `app/javascript/controllers/reminder_link_controller.js` — fleshed
-  out from 11c stub. POSTs JSON to `/calendar/entries.json` with
-  `entry_type: milestone_manual`, the composed title, the unlock
-  date as `starts_at`, `all_day: "yes"` (yes/no boundary rule), and
-  the configured timezone. Renders top-right toasts via the global
-  `.toast-container` (matches `clipboard_copy_controller`
-  pattern). Short-circuits a localStorage-marker check before the
-  fetch so a repeat click in the same browser session surfaces the
-  "already exists" toast without round-tripping. Network and 4xx
-  outcomes render the generic failure toast. CSRF token sourced
-  from the `<meta name="csrf-token">` tag.
-- `app/views/channels/_form.html.erb` — both reminder links
-  extended with `data-reminder-link-channel-name-value` (channel
-  display name resolved server-side) and
-  `data-reminder-link-timezone-value` (AppSetting timezone or
+- `app/javascript/controllers/reminder_link_controller.js` — fleshed out from
+  11c stub. POSTs JSON to `/calendar/entries.json` with
+  `entry_type: milestone_manual`, the composed title, the unlock date as
+  `starts_at`, `all_day: "yes"` (yes/no boundary rule), and the configured
+  timezone. Renders top-right toasts via the global `.toast-container` (matches
+  `clipboard_copy_controller` pattern). Short-circuits a localStorage-marker
+  check before the fetch so a repeat click in the same browser session surfaces
+  the "already exists" toast without round-tripping. Network and 4xx outcomes
+  render the generic failure toast. CSRF token sourced from the
+  `<meta name="csrf-token">` tag.
+- `app/views/channels/_form.html.erb` — both reminder links extended with
+  `data-reminder-link-channel-name-value` (channel display name resolved
+  server-side) and `data-reminder-link-timezone-value` (AppSetting timezone or
   `"UTC"`).
 - `app/views/channels/edit.html.erb` — removed the orphan
-  `data-reminder-link-target="toast"` slot 11c shipped as a
-  placeholder. Stimulus targets must live inside the controller's
-  element scope, and the controller binds to the link itself; the
-  toast renders into the global container. (Note: another agent in
-  flight wrapped the form in a `channel-preview` controller +
-  `[preview]` modal — coexists cleanly with this removal.)
-- `app/helpers/channels_helper.rb` — added `channel_reminder_name`
-  helper resolving `Channel#title → url_slug → "this channel"`.
-- `app/controllers/calendar/entries_controller.rb` — added
-  idempotency check in `#create` for the milestone_manual +
-  "Channel … unlock — …" title shape. Existing match returns 200
-  with the existing entry + `@duplicate = true` instance var.
-- `app/views/calendar/entries/show.json.jbuilder` — emits
-  `duplicate: "yes"` (boundary yes/no string) when the controller
-  sets `@duplicate`.
-- `spec/system/calendar_reminder_spec.rb` — new system spec
-  (rack_test, 11 examples). Covers link rendering with every data
-  attribute, the channel-name fallback chain, gate-kind switching
-  (handle vs title), gate-closed omission, an XSS smoke (channel
-  title with `<script>` literal), the happy POST, two negative
-  duplicate cases (different date, different title), the
-  idempotent duplicate POST, and two bad-payload sad paths.
+  `data-reminder-link-target="toast"` slot 11c shipped as a placeholder.
+  Stimulus targets must live inside the controller's element scope, and the
+  controller binds to the link itself; the toast renders into the global
+  container. (Note: another agent in flight wrapped the form in a
+  `channel-preview` controller + `[preview]` modal — coexists cleanly with this
+  removal.)
+- `app/helpers/channels_helper.rb` — added `channel_reminder_name` helper
+  resolving `Channel#title → url_slug → "this channel"`.
+- `app/controllers/calendar/entries_controller.rb` — added idempotency check in
+  `#create` for the milestone_manual + "Channel … unlock — …" title shape.
+  Existing match returns 200 with the existing entry + `@duplicate = true`
+  instance var.
+- `app/views/calendar/entries/show.json.jbuilder` — emits `duplicate: "yes"`
+  (boundary yes/no string) when the controller sets `@duplicate`.
+- `spec/system/calendar_reminder_spec.rb` — new system spec (rack_test, 11
+  examples). Covers link rendering with every data attribute, the channel-name
+  fallback chain, gate-kind switching (handle vs title), gate-closed omission,
+  an XSS smoke (channel title with `<script>` literal), the happy POST, two
+  negative duplicate cases (different date, different title), the idempotent
+  duplicate POST, and two bad-payload sad paths.
 - `spec/requests/calendar/entries_spec.rb` — extended with the
-  channel-rename-unlock variant: happy 201, idempotent second POST
-  (200 + `duplicate: "yes"`), different-date non-duplicate,
-  rejection of `channel_id` on `milestone_manual` (proves the
-  cross-reference validator gate).
+  channel-rename-unlock variant: happy 201, idempotent second POST (200 +
+  `duplicate: "yes"`), different-date non-duplicate, rejection of `channel_id`
+  on `milestone_manual` (proves the cross-reference validator gate).
 
-**Specs added: +15** (11 system + 4 request). Both `bundle exec
-rspec spec/system/channel_edit_form_spec.rb
-spec/system/calendar_reminder_spec.rb` and `bundle exec rspec
-spec/requests/calendar/entries_spec.rb
-spec/requests/channels/edit_form_spec.rb` green. `bundle exec
-rubocop` clean across all 991 files. `bundle exec brakeman -q -w2`
-clean (0 warnings, 0 errors).
+**Specs added: +15** (11 system + 4 request). Both
+`bundle exec rspec spec/system/channel_edit_form_spec.rb spec/system/calendar_reminder_spec.rb`
+and
+`bundle exec rspec spec/requests/calendar/entries_spec.rb spec/requests/channels/edit_form_spec.rb`
+green. `bundle exec rubocop` clean across all 991 files.
+`bundle exec brakeman -q -w2` clean (0 warnings, 0 errors).
 
-**Plan ticked:** 11h has no dedicated plan.md checkbox — Step 11
-sub-specs were added via `additions.md` (entry dated 2026-05-11) and
-not back-folded into the plan workstreams list. Nothing to tick.
+**Plan ticked:** 11h has no dedicated plan.md checkbox — Step 11 sub-specs were
+added via `additions.md` (entry dated 2026-05-11) and not back-folded into the
+plan workstreams list. Nothing to tick.
 
 **Open issues**
 
-- The locked-decision "reminder time-of-day" default is encoded as
-  the `data-reminder-link-timezone-value` attribute on the link. The
-  Stimulus controller sends the unlock date as the `starts_at` (no
-  time component); the controller's `coerce_yes_no!` /
-  `CalendarEntry#stamp_install_timezone` chain interprets that
-  date-only string as midnight in the configured timezone. With
-  `all_day: "yes"` the schedule view collapses the display to
-  date-only, so the underlying time is just a sort key. Verified via
-  the request-spec round-trip (`starts_at` parsed back as a
-  midnight-on-date timestamp).
-- The duplicate-detection localStorage marker is best-effort
-  client-side state. The server-side idempotency check is the
-  authoritative gate — even on a fresh browser the second POST will
-  no-op. The client marker just spares one HTTP round-trip in the
-  common case (same tab, same session).
-- The pre-existing `calendar_edit_delete_spec.rb` failure is
-  unrelated (verified via stash).
+- The locked-decision "reminder time-of-day" default is encoded as the
+  `data-reminder-link-timezone-value` attribute on the link. The Stimulus
+  controller sends the unlock date as the `starts_at` (no time component); the
+  controller's `coerce_yes_no!` / `CalendarEntry#stamp_install_timezone` chain
+  interprets that date-only string as midnight in the configured timezone. With
+  `all_day: "yes"` the schedule view collapses the display to date-only, so the
+  underlying time is just a sort key. Verified via the request-spec round-trip
+  (`starts_at` parsed back as a midnight-on-date timestamp).
+- The duplicate-detection localStorage marker is best-effort client-side state.
+  The server-side idempotency check is the authoritative gate — even on a fresh
+  browser the second POST will no-op. The client marker just spares one HTTP
+  round-trip in the common case (same tab, same session).
+- The pre-existing `calendar_edit_delete_spec.rb` failure is unrelated (verified
+  via stash).
 
 **Cross-agent coordination**
 
 - Another agent (channel-preview revamp) was modifying
-  `app/views/channels/edit.html.erb` and adding a
-  `channel_preview_controller`; their changes coexist with the
-  reminder-link work because we touched different sections (preview
-  wraps the form, reminder data attributes live inside the form).
+  `app/views/channels/edit.html.erb` and adding a `channel_preview_controller`;
+  their changes coexist with the reminder-link work because we touched different
+  sections (preview wraps the form, reminder data attributes live inside the
+  form).
 - `_form.html.erb` was hit by both agents; the merge is clean.
 - Did NOT touch `extras/` or `docs/` beyond appending this log entry.
+
+**No commits, no pushes.** Master commits after manual validation.
+
+## 2026-05-11 — §11g Channel Change History View (rails-impl)
+
+**Spec:** `specs/11g-channel-change-history.md` (sub-spec of 11). Adds the
+user-facing reader on top of the `channel_change_logs` audit table already
+created by 11a. Three reader surfaces — HTML, JSON, MCP — all read-only.
+
+**Locked decisions (passed in by user, all 10 open questions resolved):**
+
+1. Pagination — 50 per page (matches `NotificationsController` + Phase 21
+   precedent).
+2. `changed_by_user_id` — render the email.
+3. Relative time — `time_ago_in_words` relative + absolute UTC on the `<time>`
+   element's `title=` attribute.
+4. `Channel#channel_change_logs` `has_many` association already exists (verified
+   — declared in 11a).
+5. No decorator extraction — inline jbuilder (simpler).
+6. Row does NOT expose `created_at` (identical to `changed_at` in the
+   append-only audit pattern).
+7. Empty state copy — `no changes yet` (muted).
+8. `[changes]` link sits between `[e]` and `[sync]` in the channel show heading
+   actions row.
+9. JSON envelope key — `changes` (matches Phase 21 plural-noun shape).
+10. MCP tool name — `channel_changes_list` (matches the `notifications_list`
+    `<noun>_<verb>` precedent).
+
+**Files changed**
+
+- `app/controllers/channels/change_logs_controller.rb` — new. Single `#index`
+  action serving HTML + JSON. Pagination via the `NotificationsController`
+  convention (`PER_PAGE = 50`, `@page = [params[:page].to_i, 1].max`). Inline
+  `redirect_to_canonical_channel_slug!` for nested-route canonical slug 301 (the
+  `FriendlyRedirect` concern uses `params[:id]`; our nested route uses
+  `params[:channel_id]`).
+- `config/routes.rb` — added
+  `resources :change_logs, only: :index, path: "history", controller: "channels/change_logs"`
+  inside the existing `resources :channels do … end` block. The named-route
+  helper is `channel_change_logs_path(channel)` → `/channels/<slug>/history`.
+- `app/views/channels/change_logs/index.html.erb` — new. H1 + lead paragraph
+  (one-sentence-per-line `<br>` style), `pane--standalone` wrapper, four-column
+  table (`field` · `old → new` · `changed at` · `changed by`), pagination footer
+  with `[previous]` / `[next]` bracketed links, muted `no changes yet` empty
+  state.
+- `app/views/channels/change_logs/index.json.jbuilder` — new. Phase 21 envelope:
+  `changes` array + `pagination { page, per_page, total, total_pages }`.
+  ISO-8601 UTC `changed_at`. `changed_by` is `{ id, email }` or `null`.
+- `app/views/channels/show.html.erb` — added `[changes]` bracketed link in the
+  heading actions row, slotted between `[e]` and `[sync]`.
+- `app/mcp/tools/channel_changes_list.rb` — new. Read-only MCP tool on the `app`
+  scope. Input: `channel` (required string — slug or numeric id), `page`
+  (optional integer, min 1, default 1). Pagination + envelope identical to the
+  JSON branch.
+
+**Specs added**
+
+- `spec/factories/channel_change_logs.rb` — new factory.
+- `spec/requests/channels/change_logs_spec.rb` — 28 examples. Happy HTML (8),
+  happy JSON (6), sad (2 — 404 + login redirect), edge empty (2), edge
+  pagination (8), flaw XSS (1).
+- `spec/views/channels/change_logs/index_html_spec.rb` — 18 examples. Empty
+  state (3), non-empty rendering (10), system-FK-null (2), pagination (4).
+- `spec/views/channels/change_logs/index_json_spec.rb` — 10 examples. Wire-shape
+  asserts on all envelope keys + ISO-8601 timestamp + null FK branch.
+- `spec/mcp/tools/channel_changes_list_spec.rb` — 20 examples. Happy path (7),
+  pagination (4), empty state (1), scope gate (2), validation (3), schema (2),
+  registration (1).
+- `spec/system/channel_change_history_spec.rb` — 3 examples. Thin
+  cross-controller journey + empty state + XSS escape proof.
+
+**Spec → reality mapping (FK NOT NULL)**
+
+The spec called out a "FK null" rendering branch for legacy / system-generated
+rows. The DB schema actually has `changed_by_user_id NOT NULL` (`db/schema.rb`),
+and the model's `belongs_to :changed_by_user` is required. The view + jbuilder +
+MCP tool still carry the defensive `if log.changed_by_user` branch (costs
+nothing, future-proofs if the column ever loosens), and the view spec / JSON
+view spec exercise the branch via a `build_stubbed` in-memory record. The
+request + MCP specs assert the steady-state (always `{ id, email }`) and
+explicitly note the FK constraint.
+
+**Gates green**
+
+`bundle exec rspec spec/requests/channels/change_logs_spec.rb spec/views/channels/change_logs/ spec/mcp/tools/channel_changes_list_spec.rb spec/system/channel_change_history_spec.rb`
+— 79 examples, 0 failures.
+
+`bundle exec rubocop` — 991 files, 0 offenses.
+
+`bin/brakeman -q -w2` — 0 warnings, 0 errors.
+
+**Plan ticked**
+
+11g has no dedicated plan.md checkbox — Step 11 sub-specs were added via
+`additions.md` (entry dated 2026-05-11) and not back-folded into the plan
+workstreams list. Nothing to tick (same situation as the 11h log entry above).
+
+**Open issues**
+
+- The 4-column rendering uses inline styles for alignment; if the project's
+  design pass introduces a shared `<table class="audit">` convention, this view
+  should adopt it.
+- Hover-tooltip on `<time title=...>` is fine for desktop; touch devices won't
+  see it. The locked decision is to keep it (matches existing project pattern);
+  the alternative absolute-inline can ship as a future enhancement if user
+  feedback flags it.
+
+**Cross-agent coordination**
+
+- Sibling agents were active on `app/views/channels/show.html.erb` (the `[sync]`
+  link got `?intent=diff_check` appended by another pass) and on
+  `config/routes.rb` (a `preview` resource landed inside the same
+  `resources :channels do … end` block). Both diffs coexist with this work — my
+  `[changes]` link sits between `[e]` and `[sync]` exactly as the master
+  directed, and my `change_logs` route landed alongside the new `preview` route.
+- 3 failing examples in `spec/requests/channels/previews_spec.rb` are NOT this
+  slice's responsibility — they belong to the in-flight `channels/previews`
+  agent.
+- Did NOT touch `extras/`. Did NOT touch `docs/` beyond appending this log
+  entry.
+
+**No commits, no pushes.** Master commits after manual validation.
+
+## 2026-05-11 — §11d Channel Multi-Layout Preview Component (rails-impl)
+
+**Spec:** `specs/11d-channel-preview-component.md` (sub-spec of 11). Adds the
+in-app multi-layout preview the channel edit form opens via a `[preview]`
+bracketed link. Three viewport sizes (desktop / mobile / TV) rendered inside a
+new shared wide modal. Form-input edits stream into the preview via a debounced
+300ms Stimulus listener; the server re-renders the component reflecting the
+pending overrides without writing to the DB.
+
+**Locked decisions (passed in by user, all 7 open questions resolved):**
+
+1. TV layout — best-guess 1920x1080 (padding 80px sides, larger fonts), iterate
+   on user feedback.
+2. Modal open trigger — `[preview]` button on the edit form ONLY (show page is
+   read-only cache).
+3. Default active layout on open — desktop (matches dogfooding posture).
+4. Pending-edits Stimulus event — debounced 300ms `input` listener.
+5. Brand-account watermark preview — NOT rendered in 11d; lives in 11e.
+6. Sample thumbnails — JPEGs in `public/preview/video_thumbnails/`, muted
+   `[ no preview thumbnails yet ]` fallback when directory is empty (D8).
+7. Modal close behavior — Esc, click-outside, and `[close]` button all close.
+
+**Files changed**
+
+- `app/components/channel_preview_component.rb` + `.html.erb` — new
+  ViewComponent. Renders three sibling layout panels (`#preview-layout-desktop`,
+  `#preview-layout-mobile`, `#preview-layout-tv`); the active one carries
+  `.active`, the others carry the `hidden` attribute. `pending:` Hash overlays
+  every channel attribute lookup so the streamed re-render reflects the
+  dirty form state without touching the DB.
+- `app/javascript/controllers/channel_preview_controller.js` — new. Two
+  responsibilities: top-nav layout toggle (`selectLayout`) and debounced
+  form-input listener (`updatePreview`) that issues a Turbo-Stream `GET` to
+  `/channels/:id/preview?...` with the dirty field set. Debounce
+  configurable via `debounceMsValue` (default 300ms).
+- `app/controllers/channels/previews_controller.rb` — new. Single `#show`
+  action. No DB writes. Renders a Turbo Stream replacing `#channel-preview`
+  with a freshly-rendered component, or an HTML render of the bare component
+  for unit testing. Flattens `links_attributes` nested-form params into the
+  `[{title:, url:}]` jsonb shape the component's resolver expects.
+- `app/helpers/preview_helper.rb` — new. Owns `RANDOM_VIDEO_TITLES` (20
+  neutral, English-only test fixtures), `random_video_thumbnail(seed:)`
+  (deterministic per-seed pick from `public/preview/video_thumbnails/` —
+  returns `nil` when the directory is empty), `sample_titles(count:, seed:)`
+  for deterministic title selection, and `random_watermark_frame(seed:)` as
+  a stub for 11e (returns `nil`; 11d does not call it).
+- `app/views/shared/_wide_modal.html.erb` — new. Reusable wide-variant dialog
+  frame (max-width 1320px, max-height 95vh). 11e watermark preview will
+  reuse this shell. Carries the `confirm-modal` Stimulus controller so Esc /
+  click-outside / `[close]` all close, matching the existing dialog UX.
+- `app/views/channels/edit.html.erb` — added the `channel-preview` controller
+  scope wrapping both the form (so the input listener sees keystrokes) and
+  the modal (so the streamed `#channel-preview` replacement target is in
+  scope). Inlined the modal mount with `[desktop][mobile][tv]` top-nav links.
+  The `[preview]` bracketed link inside the pane opens the modal via
+  `modal-trigger#open`. Did NOT restructure the form layout per the
+  coordination note.
+- `app/views/channels/_form.html.erb` — added `data-action=
+  "input->channel-preview#updatePreview"` plus
+  `data-channel-preview-field-param="<attr>"` on the title, handle, and
+  description fields. No layout changes; only data-attribute additions.
+- `config/routes.rb` — added
+  `resource :preview, only: :show, controller: "channels/previews"` inside
+  the existing `resources :channels do … end` block. Named-route helper is
+  `channel_preview_path(channel)` → `/channels/<slug>/preview`.
+- `app/assets/tailwind/application.css` — added `.wide-modal` (and
+  `-inner` / `-header` / `-title-row` / `-topnav` / `-body`),
+  `.preview-nav-active`, and the three `.preview-canvas--<layout>` /
+  `.preview-banner--<layout>` / `.preview-identity--<layout>` /
+  `.preview-avatar--<layout>` / `.preview-videos--<layout>` size + spacing
+  rule sets. TV layout uses `transform: scale(0.6)` with
+  `transform-origin: top left` to fit a 1920px-wide canvas inside the
+  wide-modal body.
+- `public/preview/video_thumbnails/.keep` — new. Directory marker; user
+  drops `thumb-01.jpg` ... `thumb-08.jpg` JPEGs here out-of-band. Empty
+  directory triggers the `[ no preview thumbnails yet ]` empty-state copy
+  per D8.
+
+**Specs added**
+
+- `spec/helpers/preview_helper_spec.rb` — 14 examples. `RANDOM_VIDEO_TITLES`
+  frozen + non-empty, `sample_titles` deterministic + wrap-around,
+  `random_video_thumbnail` deterministic / empty-dir / missing-dir branches,
+  `random_watermark_frame` stub return.
+- `spec/components/channel_preview_component_spec.rb` — 34 examples.
+  Structure (4), banner-present / banner-absent / banner-override (4),
+  avatar-present / avatar-absent / avatar-override (3), title / handle /
+  subs + placeholder branches (7), description-present / -absent /
+  -override / -blank-override (4), links-present / -empty / -override /
+  -json-payload / -empty-override (5), video-row real / static / empty
+  fallback (3), Stimulus wiring (3), hard-rule hygiene (1).
+- `spec/requests/channels/previews_spec.rb` — 12 examples. Happy path (2),
+  pending-edit query params (2), active_layout query param (2), Turbo
+  Stream branch (3), 404 (1), `links_attributes` flattening (2).
+- `spec/system/channel_preview_spec.rb` — 9 examples (rack_test). Edit-page
+  wiring asserts: `[preview]` link presence + modal-trigger wiring, wide
+  modal renders with three panels, desktop active by default, top-nav
+  rendered with `[desktop]` active-styled, controller scope wraps both
+  form and modal, every editable input carries the input action + param,
+  no JS confirm / alert anywhere. Preview-endpoint payload smoke (2) —
+  validates the wire that the Stimulus controller fetches.
+
+**Gates green**
+
+- `bundle exec rspec spec/components/channel_preview_component_spec.rb
+  spec/system/channel_preview_spec.rb spec/helpers/preview_helper_spec.rb
+  spec/requests/channels/previews_spec.rb` — 69 examples, 0 failures.
+- Adjacent run (`spec/system/channel_edit_form_spec.rb`,
+  `spec/system/channel_show_journey_spec.rb`, `spec/requests/channels/`,
+  `spec/components/`) — 272 examples, 0 failures.
+- `bundle exec rubocop` — 993 files, 0 offenses.
+- `bin/brakeman -q -w2` — 0 warnings, 0 errors.
+
+**Spec → reality deltas**
+
+- The spec calls for `app/components/channel_preview_component.html.erb` to
+  render all three panels with only the active one visible. Implementation
+  uses the `hidden` HTML attribute on inactive panels (rather than only a
+  CSS rule) so Capybara's default visibility filter naturally hides them in
+  specs and screen readers honor the state without CSS support. Specs use
+  `visible: :all` to inspect the non-active panels.
+- The spec's `pending:` Hash treatment was tightened — a key present with a
+  blank string (user cleared the field) wins over the persisted column;
+  only an absent key falls through. This matches the live-edit posture
+  (clearing a banner URL streams a placeholder block immediately).
+- The spec's `links` override accepts both a Ruby Array (server-side
+  in-process render) and a JSON-encoded String (the wire format query
+  params land in). The controller also flattens `links_attributes` from
+  the edit form's nested-attributes shape into the same Array-of-Hashes
+  the jsonb column carries, so the debounced preview includes link edits
+  even though they ride a different param key on the form.
+
+**Cross-agent coordination**
+
+- Sibling 11g agent landed a `change_logs` route inside the same
+  `resources :channels do … end` block; my `resource :preview` route
+  landed alongside it without conflict.
+- Did NOT restructure the channel edit form layout (per the coordination
+  note). Only added the `[preview]` button at the top of the form pane and
+  added `data-action` / `data-channel-preview-field-param` attributes to
+  the title, handle, and description inputs.
+- 11e (watermark preview) will reuse `shared/_wide_modal.html.erb` and the
+  `PreviewHelper.random_watermark_frame` stub that already exists.
+- Did NOT touch `extras/`. Did NOT touch `docs/` beyond appending this log
+  entry.
+
+**Plan ticked**
+
+11d has no dedicated `plan.md` checkbox — Step 11 sub-specs were added via
+`additions.md` and not back-folded into the plan workstreams list. Nothing to
+tick (same situation as the 11g / 11h / 11i log entries above).
+
+**Open issues**
+
+- TV layout's 0.6 scale factor is a best-guess approximation per locked Q1.
+  Expect iteration from user feedback once the dogfooding pass starts.
+- The `public/preview/video_thumbnails/` directory ships empty; the user
+  needs to drop 4–8 JPEGs (`thumb-01.jpg` ... `thumb-08.jpg`) before the
+  static fallback branch renders thumbnails. Until then, low-video channels
+  show the `[ no preview thumbnails yet ]` muted line.
+- The Stimulus controller calls `fetch` directly (not `Turbo.fetch`) and
+  pipes the response into `Turbo.renderStreamMessage`. If a future Turbo
+  upgrade exposes a cleaner fetch-stream helper, this is one of the few
+  call sites that could simplify.
 
 **No commits, no pushes.** Master commits after manual validation.

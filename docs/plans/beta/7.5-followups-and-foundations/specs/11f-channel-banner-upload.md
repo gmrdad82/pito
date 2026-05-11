@@ -34,8 +34,8 @@ Rails app:
   client check passes; revokes object URLs after preview.
 - `app/views/channels/_banner_upload.html.erb` — new partial replacing the 11c
   stub. Contains: spec info line, drag-drop zone, file-picker button, hidden
-  file input, error area, multi-size preview container (web / mobile / TV —
-  same shape as 11d preview).
+  file input, error area, multi-size preview container (web / mobile / TV — same
+  shape as 11d preview).
 - `app/views/channels/_banner.html.erb` — Turbo Stream target wrapping the
   cached banner display, swapped after a successful update.
 - `app/views/channels/edit.html.erb` — render `_banner_upload.html.erb` in the
@@ -82,8 +82,7 @@ Cross-cutting:
       spec-info line: "Banner: 2048x1152 minimum, 16:9 aspect, JPEG/PNG, max
       6MB".
 - [ ] Drag-drop zone accepts files dropped onto it.
-- [ ] File-picker button opens the OS file dialog and accepts the selected
-      file.
+- [ ] File-picker button opens the OS file dialog and accepts the selected file.
 - [ ] Client-side validation rejects on the four conditions with the exact
       messages:
   - "File type: JPEG or PNG required."
@@ -92,8 +91,8 @@ Cross-cutting:
   - "File size: max 6MB (got <size>)."
 - [ ] All rejection reasons render simultaneously when multiple conditions fail
       (no silent rejects, no first-fail-only).
-- [ ] Multi-size preview renders before submit using the same component shape
-      as 11d (web / mobile / TV size variants).
+- [ ] Multi-size preview renders before submit using the same component shape as
+      11d (web / mobile / TV size variants).
 - [ ] Submit is blocked while the async client check is running; a progress
       indicator shows during validation.
 - [ ] Successful submit triggers a Turbo Stream swap of the banner section
@@ -102,9 +101,9 @@ Cross-cutting:
       completes.
 - [ ] No JS `alert` / `confirm` / `prompt` used anywhere in the controller (per
       `CLAUDE.md` hard rules).
-- [ ] Spec sweep: service spec for `#upload_banner`, request spec for
-      `#update` with `banner_image`, system spec for the Stimulus controller
-      flows (per spec-pyramid rules D in `docs/agents/architect.md`).
+- [ ] Spec sweep: service spec for `#upload_banner`, request spec for `#update`
+      with `banner_image`, system spec for the Stimulus controller flows (per
+      spec-pyramid rules D in `docs/agents/architect.md`).
 - [ ] `bundle exec rspec` green; `bundle exec rubocop` green; no Stimulus
       controller lint warnings.
 
@@ -127,8 +126,8 @@ Preconditions: Phase 7 OAuth connected for one channel; logged in as owner.
    indicator briefly while the client check runs, then multi-size preview
    renders (web / mobile / TV variants), submit button enables.
 8. Submit. Expect: two `youtube_api_calls` rows (one `channelBanners.insert`,
-   one `channels.update`), the banner section swaps via Turbo Stream showing
-   the new cached banner, no full page reload.
+   one `channels.update`), the banner section swaps via Turbo Stream showing the
+   new cached banner, no full page reload.
 9. Verify `channels.banner_url` is populated in the DB
    (`bin/rails runner 'p Channel.find(:id).banner_url'`).
 10. Force a YouTube-side failure (temporarily stub `Youtube::Client` to raise
@@ -152,24 +151,24 @@ from scratch; otherwise leave it set.
 
 ## Open questions
 
-1. Should the form submit be blocked until the async client-side dimension
-   check passes, or should it attempt the server submit anyway? Recommendation:
-   block submit until client check passes; surface a progress indicator while
+1. Should the form submit be blocked until the async client-side dimension check
+   passes, or should it attempt the server submit anyway? Recommendation: block
+   submit until client check passes; surface a progress indicator while
    validating. Confirm.
-2. Rails multipart upload size limit defaults to ~5MB in some stacks; the
-   banner spec allows up to 6MB. Confirm we should raise the limit (nginx +
-   Rails) to 10MB to handle 6MB banner + headroom, and where the change lands
+2. Rails multipart upload size limit defaults to ~5MB in some stacks; the banner
+   spec allows up to 6MB. Confirm we should raise the limit (nginx + Rails) to
+   10MB to handle 6MB banner + headroom, and where the change lands
    (`config/initializers/rack.rb` vs. nginx config — the latter is out of repo
    scope).
 3. `URL.createObjectURL` browser support is universal in evergreen browsers;
    confirm that revoking blob URLs after preview generation is acceptable, and
    that we do not need to keep the blob alive for re-preview after a failed
    server submit (Open question 5 covers the re-pick case).
-4. After successful upload, should the page reload to show the cached banner,
-   or use a Turbo Stream swap of the banner section? Recommendation: Turbo
-   Stream swap for snappier UX (spec written for this). Confirm.
+4. After successful upload, should the page reload to show the cached banner, or
+   use a Turbo Stream swap of the banner section? Recommendation: Turbo Stream
+   swap for snappier UX (spec written for this). Confirm.
 5. On YouTube-side rejection (file passed client checks but Google rejects on
-   dimensions or other reason), should the staged form data persist so the
-   user can re-pick without losing the field's other dirty values?
-   Recommendation: keep the staged file blob in the form, render the rejection
-   message, do not clear other dirty fields. Confirm.
+   dimensions or other reason), should the staged form data persist so the user
+   can re-pick without losing the field's other dirty values? Recommendation:
+   keep the staged file blob in the form, render the rejection message, do not
+   clear other dirty fields. Confirm.

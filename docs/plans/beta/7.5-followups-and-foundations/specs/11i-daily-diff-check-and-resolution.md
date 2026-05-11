@@ -8,8 +8,8 @@
 > Source of truth: parent Step 11 spec, Locked decisions **D11** (on-connect +
 > on-demand + daily diff-check cron) and **D20** (bidirectional `[accept pito]`
 > / `[accept youtube]` per-field decision + single `[apply changes]` button),
-> plus the **Q7** resolution that turned the user-triggered `[sync]` button
-> into a diff trigger rather than a one-way overwrite.
+> plus the **Q7** resolution that turned the user-triggered `[sync]` button into
+> a diff trigger rather than a one-way overwrite.
 
 ---
 
@@ -65,9 +65,9 @@ nothing is overwritten without the user's explicit per-field decision.
 - `app/controllers/channels/diffs_controller.rb` — new. `#show` renders the
   resolution page; `#apply` commits the per-field decisions in a transaction.
   Namespaced under `Channels::` so the routes file can scope cleanly:
-  `resources :channels do scope module: :channels do resource :diff, only:
-  [:show] do post :apply end end end` (final shape: the implementation agent
-  picks the cleanest REST variant; the spec contract is the two URLs below).
+  `resources :channels do scope module: :channels do resource :diff, only: [:show] do post :apply end end end`
+  (final shape: the implementation agent picks the cleanest REST variant; the
+  spec contract is the two URLs below).
 
 ### Views
 
@@ -188,13 +188,13 @@ Rules:
    `view_count`, `video_count`) are refreshed silently on every cron pass and do
    NOT contribute to the diff. The job writes them to the channel row directly.
 
-3. **CDN-rotation filter for asset URLs.** YouTube re-issues CDN URLs for
-   banner / avatar / watermark assets even when the underlying asset is
-   unchanged. The diff computer compares by **content hash** when available
-   (stored alongside the URL in the channel row by Phase 7's connect path; see
-   open question Q-CDN), and falls back to comparing the URL path stripped of
-   query string and CDN host prefix. Hash mismatch OR stripped-path mismatch
-   triggers a diff; query-string-only rotation does not.
+3. **CDN-rotation filter for asset URLs.** YouTube re-issues CDN URLs for banner
+   / avatar / watermark assets even when the underlying asset is unchanged. The
+   diff computer compares by **content hash** when available (stored alongside
+   the URL in the channel row by Phase 7's connect path; see open question
+   Q-CDN), and falls back to comparing the URL path stripped of query string and
+   CDN host prefix. Hash mismatch OR stripped-path mismatch triggers a diff;
+   query-string-only rotation does not.
 
 4. **Nil-vs-empty normalization.** `nil`, `""`, and `[]` are treated as
    equivalent. A channel that has never had keywords does not diff against a
@@ -218,17 +218,19 @@ ChannelDiffCheckJob.perform_later(channel_id: channel.id)
 `#perform(channel_id: nil)`:
 
 1. Determine the channel scope: `channel_id` present → single channel,
-   `Channel.find(channel_id)`; otherwise → `Channel.where.not(youtube_connection_id: nil)`.
+   `Channel.find(channel_id)`; otherwise →
+   `Channel.where.not(youtube_connection_id: nil)`.
 2. For each channel in scope:
-   1. Call `Youtube::Client.new(channel.youtube_connection).fetch_channel(channel)`.
-   2. Update statistics columns silently
-      (`subscriber_count`, `view_count`, `video_count`) in a small UPDATE.
+   1. Call
+      `Youtube::Client.new(channel.youtube_connection).fetch_channel(channel)`.
+   2. Update statistics columns silently (`subscriber_count`, `view_count`,
+      `video_count`) in a small UPDATE.
    3. Run `Channels::DiffComputer.new(channel, payload).call` to get
       `field_diffs`.
    4. If `field_diffs.empty?` → close any stale open `ChannelDiff` for this
       channel that no longer has any diff (set `resolved_at = Time.current`,
-      `resolved_by_user_id = nil`, `resolution_payload = { auto_closed: true }`).
-      Continue to next channel.
+      `resolved_by_user_id = nil`,
+      `resolution_payload = { auto_closed: true }`). Continue to next channel.
    5. If `field_diffs.present?`:
       - **Upsert**: find the open `ChannelDiff` for this channel (partial unique
         index guarantees at most one). If present → refresh `field_diffs` and
@@ -246,9 +248,9 @@ ChannelDiffCheckJob.perform_later(channel_id: channel.id)
    - `Youtube::Client::QuotaExceededError` → log + STOP the iteration (no point
      burning more retries today) + raise so Sidekiq retries tomorrow's window.
      Single-channel mode re-raises immediately.
-   - `Youtube::Client::NeedsReauthError` → mark the channel
-     `connected = false` (matches Phase 7's contract) + skip + continue. Do NOT
-     create / refresh a diff for a channel that just lost auth.
+   - `Youtube::Client::NeedsReauthError` → mark the channel `connected = false`
+     (matches Phase 7's contract) + skip + continue. Do NOT create / refresh a
+     diff for a channel that just lost auth.
 4. Idempotency: re-running the job within the same cron window with no YouTube
    changes is a no-op (no new diff rows, no duplicate notifications, no
    broadcasts).
@@ -263,7 +265,8 @@ ChannelDiffCheckJob.perform_later(channel_id: channel.id)
   - Lead paragraph (one sentence per line, per project convention B): "YouTube
     is the source of truth.<br>Pick `accept youtube` to update your local
     cache.<br>Pick `accept pito` to push your local value back to YouTube."
-  - A form (`form_with model: @channel_diff, url: apply_channel_diff_path(@channel), method: :post`)
+  - A form
+    (`form_with model: @channel_diff, url: apply_channel_diff_path(@channel), method: :post`)
     containing one `_decision_row` partial per field in
     `@channel_diff.field_diffs`. Each row:
     - Left column header: "Pito" with the current local value rendered as text
@@ -271,9 +274,9 @@ ChannelDiffCheckJob.perform_later(channel_id: channel.id)
       descriptions).
     - Middle column header: "YouTube" with the incoming value rendered the same
       way.
-    - Right column: two radio inputs, `name="decisions[<field>]"`,
-      values `"pito"` and `"youtube"`, labels `[accept pito]` and
-      `[accept youtube]`. Default `checked`: `youtube` (per D20).
+    - Right column: two radio inputs, `name="decisions[<field>]"`, values
+      `"pito"` and `"youtube"`, labels `[accept pito]` and `[accept youtube]`.
+      Default `checked`: `youtube` (per D20).
   - Bottom: `[apply changes]` submit button + `[cancel]` link back to
     `/channels/:slug`.
 - Only fields with diffs render rows. Fields that agree are omitted.
@@ -290,20 +293,22 @@ ChannelDiffCheckJob.perform_later(channel_id: channel.id)
    - Every key in `field_diffs.keys` must be present (reject incomplete).
    - Every value must be `"pito"` or `"youtube"` (yes/no boundary rule E does
      not apply here — these are domain enums, not booleans).
-   - On validation failure → re-render `show` with 422
-     `:unprocessable_content`.
+   - On validation failure → re-render `show` with 422 `:unprocessable_content`.
 4. Wrap in `ActiveRecord::Base.transaction`:
    - For each `field, decision` pair:
-     - `decision == "youtube"` → assign `channel[field] = field_diffs[field]["youtube"]`. Stage on the in-memory channel.
+     - `decision == "youtube"` → assign
+       `channel[field] = field_diffs[field]["youtube"]`. Stage on the in-memory
+       channel.
      - `decision == "pito"` → call
        `Youtube::Client.new(channel.youtube_connection).update_channel(channel, { field => field_diffs[field]["pito"] })`.
        (Per-field push so partial failures localize. Implementation agent may
-       batch by API resource part — `snippet`, `branding`, etc. — if the
-       YouTube API requires it; the spec contract is "one decision per field".)
+       batch by API resource part — `snippet`, `branding`, etc. — if the YouTube
+       API requires it; the spec contract is "one decision per field".)
    - After all decisions are processed, persist the staged channel changes
      (`channel.save!`).
-   - For each field with `decision == "pito"` where `field.in?(%w[title handle])`,
-     write a `ChannelChangeLog` row matching Step 11g's audit table contract.
+   - For each field with `decision == "pito"` where
+     `field.in?(%w[title handle])`, write a `ChannelChangeLog` row matching Step
+     11g's audit table contract.
    - Mark the diff resolved: `resolved_at = Time.current`,
      `resolved_by_user_id = Current.user.id`, `resolution_payload` =
      `{ field => { decision:, value: <final> } }` for every field.
@@ -317,10 +322,9 @@ ChannelDiffCheckJob.perform_later(channel_id: channel.id)
 ## `[sync]` button reuse
 
 Step 11b's channel show page already has a `[sync]` action wired to
-`/syncs/channel/:ids` via the project-wide bulk-sync confirmation framework
-(per `CLAUDE.md` hard rules). This sub-spec **does NOT** alter the URL shape or
-the confirmation page. The change is in what the post-confirmation handler
-enqueues:
+`/syncs/channel/:ids` via the project-wide bulk-sync confirmation framework (per
+`CLAUDE.md` hard rules). This sub-spec **does NOT** alter the URL shape or the
+confirmation page. The change is in what the post-confirmation handler enqueues:
 
 - Before this spec: `ChannelSync` placeholder job (no-op flip of `syncing`).
 - After this spec: `ChannelDiffCheckJob.perform_later(channel_id: id)` for each
@@ -330,9 +334,8 @@ The `syncing` flag on `Channel` is still toggled true on enqueue and back to
 false in the job's `ensure` block, preserving the existing show-page indicator.
 Once the job finishes:
 
-- If a diff was detected → the Turbo Stream broadcast (above) injects the
-  banner partial into `#open-diff-banner` on every open show-page tab for that
-  channel.
+- If a diff was detected → the Turbo Stream broadcast (above) injects the banner
+  partial into `#open-diff-banner` on every open show-page tab for that channel.
 - If no diff was detected → broadcast an empty turbo-stream that clears
   `#open-diff-banner` and a transient flash-style notice
   `"In sync with YouTube."` (rendered into a 5-second-autodismiss target that
@@ -341,19 +344,18 @@ Once the job finishes:
 
 ## Acceptance
 
-- [ ] Migration creates `channel_diffs` with the columns, the FK to
-      `channels`, the FK to `users`, the `channel_id` index, and the partial
-      unique index on `channel_id WHERE resolved_at IS NULL`.
+- [ ] Migration creates `channel_diffs` with the columns, the FK to `channels`,
+      the FK to `users`, the `channel_id` index, and the partial unique index on
+      `channel_id WHERE resolved_at IS NULL`.
 - [ ] `ChannelDiff` model: belongs_to `:channel`, belongs_to
       `:resolved_by_user, class_name: "User", optional: true`; validates
       `field_diffs` is a hash; scopes `unresolved` (`resolved_at IS NULL`) and
       `resolved`; predicate `resolved?`.
 - [ ] `Channel` model gains `has_many :channel_diffs, dependent: :destroy` and
       `open_channel_diff` returning `channel_diffs.unresolved.first`.
-- [ ] `Channels::DiffComputer.call` returns a hash with ONLY the diffing
-      fields; statistics fields never appear; CDN-rotation-only changes for
-      banner / avatar / watermark URLs never appear; nil / "" / [] are
-      equivalent.
+- [ ] `Channels::DiffComputer.call` returns a hash with ONLY the diffing fields;
+      statistics fields never appear; CDN-rotation-only changes for banner /
+      avatar / watermark URLs never appear; nil / "" / [] are equivalent.
 - [ ] `ChannelDiffCheckJob.perform_later` runs the daily-cron flow over every
       `Channel.where.not(youtube_connection_id: nil)`.
 - [ ] `ChannelDiffCheckJob.perform_later(channel_id:)` runs the single-channel
@@ -362,13 +364,14 @@ Once the job finishes:
 - [ ] An existing open `ChannelDiff` for a channel is updated in place when the
       job re-runs; no duplicate row is created (DB-level partial unique index
       enforced).
-- [ ] An open diff is auto-closed (`resolved_at` set, `resolution_payload =
-      { auto_closed: true }`) when a subsequent cron pass finds no diffs.
+- [ ] An open diff is auto-closed (`resolved_at` set,
+      `resolution_payload =     { auto_closed: true }`) when a subsequent cron
+      pass finds no diffs.
 - [ ] `TransientError` per-channel is logged and skipped; the iteration
       continues; the job exits 0 so Sidekiq does not retry the entire batch.
 - [ ] `QuotaExceededError` aborts the cron iteration; Sidekiq retries tomorrow.
-- [ ] `NeedsReauthError` flips `channel.connected = false` and does NOT create
-      a diff row.
+- [ ] `NeedsReauthError` flips `channel.connected = false` and does NOT create a
+      diff row.
 - [ ] The Phase 16 `channel_diff_detected` notification is emitted on fresh-row
       detection AND on expansion of the diffing field set; deduped on no-change
       and contraction.
@@ -380,24 +383,24 @@ Once the job finishes:
 - [ ] Each row's default radio is `accept youtube`.
 - [ ] `[apply changes]` validates the `decisions` hash, rejects extras, rejects
       incomplete submissions, rejects unknown values.
-- [ ] On success, each `accept_pito` field calls `Youtube::Client#update_channel`
-      with the single-field payload; each `accept_youtube` field writes the
-      local column; `title` and `handle` pushes write a `ChannelChangeLog` row;
-      the `ChannelDiff` is marked resolved with `resolved_by_user_id` and
-      `resolution_payload`.
+- [ ] On success, each `accept_pito` field calls
+      `Youtube::Client#update_channel` with the single-field payload; each
+      `accept_youtube` field writes the local column; `title` and `handle`
+      pushes write a `ChannelChangeLog` row; the `ChannelDiff` is marked
+      resolved with `resolved_by_user_id` and `resolution_payload`.
 - [ ] On `Youtube::Client` failure mid-apply, the transaction rolls back; the
       channel is unchanged; the diff is unchanged; the user lands back on the
       diff page with a 422 + a flash naming the failing field.
-- [ ] The `/channels/:slug` show page renders the `_open_diff_banner` partial
-      at the top of the pane when `@channel.open_channel_diff.present?`.
+- [ ] The `/channels/:slug` show page renders the `_open_diff_banner` partial at
+      the top of the pane when `@channel.open_channel_diff.present?`.
 - [ ] The `[sync]` button's confirmation handler enqueues
       `ChannelDiffCheckJob.perform_later(channel_id: id)` per channel rather
       than the legacy `ChannelSync` no-op.
 - [ ] On `[sync]` completion, a Turbo Stream replaces `#open-diff-banner` with
       the latest state (banner if a diff was detected, empty otherwise).
 - [ ] All endpoints / surfaces use the `[label]` bracketed-link convention
-      (project rule A) — `[review changes]`, `[accept pito]`, `[accept youtube]`,
-      `[apply changes]`, `[cancel]` — no inner spaces.
+      (project rule A) — `[review changes]`, `[accept pito]`,
+      `[accept youtube]`, `[apply changes]`, `[cancel]` — no inner spaces.
 - [ ] Lead paragraph copy on the diff page uses the one-sentence-per-line
       `<br>`-separated style (project rule B).
 - [ ] Resolution page uses `pane--standalone` (project rule C); no
@@ -414,8 +417,8 @@ Once the job finishes:
 
 - Validations: `field_diffs` must be a Hash; `channel` required; default
   `field_diffs` is `{}`.
-- Associations: `belongs_to :channel`; `belongs_to :resolved_by_user,
-  class_name: "User", optional: true`.
+- Associations: `belongs_to :channel`;
+  `belongs_to :resolved_by_user, class_name: "User", optional: true`.
 - Scopes: `unresolved` returns rows with `resolved_at IS NULL`; `resolved`
   returns the complement.
 - Predicate: `resolved?` returns the right boolean for both states.
@@ -472,8 +475,8 @@ Sad:
 - An open `ChannelDiff` row already exists with the same diffing fields → the
   row's `field_diffs` and `detected_at` are refreshed; NO duplicate row; NO
   duplicate notification (dedupe by field-set).
-- An open `ChannelDiff` row exists; the new pass finds an EXPANDED diffing
-  field set → row refreshed, new notification emitted.
+- An open `ChannelDiff` row exists; the new pass finds an EXPANDED diffing field
+  set → row refreshed, new notification emitted.
 - An open `ChannelDiff` row exists; the new pass finds NO diffs → row
   auto-closed with `resolution_payload = { auto_closed: true }`.
 
@@ -489,8 +492,8 @@ Edge:
   and 3 continue.
 - Channels with `youtube_connection_id IS NULL` are skipped entirely (cron
   mode).
-- Running the job twice in a row with no YouTube changes → second run is a
-  total no-op: no row, no notification, no broadcast.
+- Running the job twice in a row with no YouTube changes → second run is a total
+  no-op: no row, no notification, no broadcast.
 
 Flaw:
 
@@ -505,14 +508,14 @@ Happy:
 
 - `GET /channels/:slug/diff` with an open diff → 200, renders the rows, default
   radios are `accept youtube`.
-- `POST /channels/:slug/diff/apply` with all radios = `youtube` → channel
-  fields updated from `field_diffs[field].youtube`; no YouTube API call;
-  `ChannelDiff` resolved; redirect 302 with flash `"Changes applied. 0 fields
-  pushed to YouTube, N updated locally."`.
+- `POST /channels/:slug/diff/apply` with all radios = `youtube` → channel fields
+  updated from `field_diffs[field].youtube`; no YouTube API call; `ChannelDiff`
+  resolved; redirect 302 with flash
+  `"Changes applied. 0 fields pushed to YouTube, N updated locally."`.
 - `POST /channels/:slug/diff/apply` with all radios = `pito` →
   `Youtube::Client#update_channel` called per field (or per resource part);
-  channel local columns unchanged; `ChannelChangeLog` rows written for `title`
-  / `handle`; redirect 302 with flash naming the pushed count.
+  channel local columns unchanged; `ChannelChangeLog` rows written for `title` /
+  `handle`; redirect 302 with flash naming the pushed count.
 - Mixed `pito` / `youtube` decisions → both code paths exercised; counts in
   flash match.
 
@@ -529,34 +532,33 @@ Sad:
 Edge:
 
 - Concurrent resolution: user A submits `apply`, user B submits `apply` for the
-  same diff a second later → the second request finds the diff already
-  resolved, redirects to `/channels/:slug` with "This diff was already
-  resolved." flash.
+  same diff a second later → the second request finds the diff already resolved,
+  redirects to `/channels/:slug` with "This diff was already resolved." flash.
 - `[sync]` triggered while a diff page is open → Turbo Stream broadcast updates
   the banner; the open diff form on user A's tab still works.
 
 Flaw:
 
-- Old payload replay: a user submits `apply` with a stale set of decisions
-  whose `field_diffs` set no longer matches the current open diff (cron has
-  re-run between page load and submit) → 422, error flash "The diff changed
-  while you were reviewing; please re-open the page."
+- Old payload replay: a user submits `apply` with a stale set of decisions whose
+  `field_diffs` set no longer matches the current open diff (cron has re-run
+  between page load and submit) → 422, error flash "The diff changed while you
+  were reviewing; please re-open the page."
 - Partial failure: `Youtube::Client#update_channel` raises for field 2 of 3 →
-  the whole transaction rolls back; channel is unchanged; diff is unchanged;
-  no `ChannelChangeLog` rows written; user lands on the diff page with a 422
-  flash naming the failing field.
+  the whole transaction rolls back; channel is unchanged; diff is unchanged; no
+  `ChannelChangeLog` rows written; user lands on the diff page with a 422 flash
+  naming the failing field.
 
 ### `spec/system/channel_diff_resolution_spec.rb`
 
 One thin scenario (per spec pyramid rule D10 — system specs are selective):
 
-- Given a connected channel with a stubbed YouTube payload that differs in
-  title and description, when the daily cron runs, then a banner appears on
-  `/channels/:slug`, when the user clicks `[review changes]`, then they see
-  two rows, when they pick `[accept youtube]` for title and `[accept pito]`
-  for description and click `[apply changes]`, then they land on
-  `/channels/:slug` with the success flash, the local title is updated, the
-  YouTube client received the description push, and the banner is gone.
+- Given a connected channel with a stubbed YouTube payload that differs in title
+  and description, when the daily cron runs, then a banner appears on
+  `/channels/:slug`, when the user clicks `[review changes]`, then they see two
+  rows, when they pick `[accept youtube]` for title and `[accept pito]` for
+  description and click `[apply changes]`, then they land on `/channels/:slug`
+  with the success flash, the local title is updated, the YouTube client
+  received the description push, and the banner is gone.
 
 ## Manual test recipe
 
@@ -579,14 +581,15 @@ Steps:
    value in the left column.
 5. Confirm the default radio is `[accept youtube]`.
 6. Switch the radio to `[accept pito]` and click `[apply changes]`. Confirm you
-   redirect to `/channels/<slug>` with a flash naming `1 fields pushed to
-   YouTube, 0 updated locally`.
+   redirect to `/channels/<slug>` with a flash naming
+   `1 fields pushed to YouTube, 0 updated locally`.
 7. Confirm the banner is gone, the local title is unchanged (still "Local
    divergent title"), and a `ChannelChangeLog` row exists:
    `bin/rails runner 'pp ChannelChangeLog.last.attributes'`.
-8. Re-run step 2. Confirm no new `ChannelDiff` row is created (the push made
-   the sides agree).
-9. Reset: `bin/rails runner 'Channel.first.update_columns(title: "<actual youtube title>"); ChannelDiff.delete_all'`.
+8. Re-run step 2. Confirm no new `ChannelDiff` row is created (the push made the
+   sides agree).
+9. Reset:
+   `bin/rails runner 'Channel.first.update_columns(title: "<actual youtube title>"); ChannelDiff.delete_all'`.
 
 Cron schedule manual check:
 
@@ -597,40 +600,41 @@ Cron schedule manual check:
 
 - **Rails** — in scope.
 - **`pito` CLI** — skipped. The diff resolution surface is web-only for now. The
-  CLI displays connected channels but does not (yet) own the resolution UX.
-  Open question Q-CLI below.
+  CLI displays connected channels but does not (yet) own the resolution UX. Open
+  question Q-CLI below.
 - **MCP** — skipped. No MCP tool surfaces channel diff resolution. The
   `channel_diff_detected` notification surface is web-only for Phase 7.5. Future
-  surface (Phase 9+) may add `list_channel_diffs` / `resolve_channel_diff` tools.
+  surface (Phase 9+) may add `list_channel_diffs` / `resolve_channel_diff`
+  tools.
 - **Website (Cloudflare Pages)** — out of scope.
 
 ## Open questions
 
-- **Q-NOTIF — Notification dedupe granularity.** The spec recommends deduping
-  by the SET of diffing field names: notify on fresh row, notify on
-  expansion of the set, no notify on no-change or contraction. Alternative:
-  notify on every cron tick where a diff exists (noisier but no missed
-  signal). Architect lean: dedupe by field-set. User confirm or flip.
+- **Q-NOTIF — Notification dedupe granularity.** The spec recommends deduping by
+  the SET of diffing field names: notify on fresh row, notify on expansion of
+  the set, no notify on no-change or contraction. Alternative: notify on every
+  cron tick where a diff exists (noisier but no missed signal). Architect lean:
+  dedupe by field-set. User confirm or flip.
 
-- **Q-DEFAULT — Default radio per row.** Spec defaults to `accept youtube`
-  per Locked decision D20 (YouTube source of truth). Alternative: no default,
-  force explicit pick (radios un-checked, `[apply changes]` disabled until all
-  rows have a decision). User confirm or flip.
+- **Q-DEFAULT — Default radio per row.** Spec defaults to `accept youtube` per
+  Locked decision D20 (YouTube source of truth). Alternative: no default, force
+  explicit pick (radios un-checked, `[apply changes]` disabled until all rows
+  have a decision). User confirm or flip.
 
 - **Q-PARTIAL — Partial-failure UX on multi-field push.** Spec wraps everything
   in a transaction and rolls back on any field failure. Alternative: commit
   successful field pushes, present a follow-up diff page for the failed ones.
   Architect lean: transaction with rollback is safer and matches the user's
-  mental model ("apply changes" is atomic); add a clear flash naming the
-  failing field. User confirm.
+  mental model ("apply changes" is atomic); add a clear flash naming the failing
+  field. User confirm.
 
 - **Q-CDN — Banner / avatar / watermark URL diff filtering.** YouTube CDN
   rotates these URLs without semantic change. The spec proposes content-hash
-  comparison (requires storing the hash alongside the URL at connect-time —
-  may need a small migration to add `*_hash` columns to `channels` if not
-  already present from Phase 7) plus a fallback of stripped-path comparison.
-  User confirm the approach AND confirm whether the hash columns already
-  exist; if not, this sub-spec needs a small `add_column` migration too.
+  comparison (requires storing the hash alongside the URL at connect-time — may
+  need a small migration to add `*_hash` columns to `channels` if not already
+  present from Phase 7) plus a fallback of stripped-path comparison. User
+  confirm the approach AND confirm whether the hash columns already exist; if
+  not, this sub-spec needs a small `add_column` migration too.
 
 - **Q-WHITESPACE — Description normalization on diff compare.** Trim leading /
   trailing whitespace and collapse internal whitespace before comparing? Or
@@ -639,25 +643,25 @@ Cron schedule manual check:
 
 - **Q-CLI — CLI resolution UX.** Should `pito` (CLI) surface a banner on its
   channel-detail screen pointing the user to the web for resolution, or stay
-  silent until a dedicated CLI resolution flow ships? Architect lean: silent
-  for Phase 7.5; revisit when Phase 9 CLI parity work lands. Defer the
-  decision; mark CLI surface skipped in this spec.
+  silent until a dedicated CLI resolution flow ships? Architect lean: silent for
+  Phase 7.5; revisit when Phase 9 CLI parity work lands. Defer the decision;
+  mark CLI surface skipped in this spec.
 
 - **Q-SYNC-NOTICE — "In sync" notice target.** The Turbo Stream broadcast on a
-  no-diff `[sync]` completion needs a target in the show-page DOM. Does Step
-  11b already define a flash-style autodismiss target the broadcast can
-  inject into? If not, this sub-spec needs to define one. Architect-review:
-  cross-check Step 11b's show.html.erb before implementation dispatches.
+  no-diff `[sync]` completion needs a target in the show-page DOM. Does Step 11b
+  already define a flash-style autodismiss target the broadcast can inject into?
+  If not, this sub-spec needs to define one. Architect-review: cross-check Step
+  11b's show.html.erb before implementation dispatches.
 
 - **Q-CHANGELOG-FIELDS — Audit fields beyond `title` / `handle`.** Step 11g's
   `ChannelChangeLog` audits the two human-identity fields. Should pushes for
-  other fields (description, country, language, keywords) also write audit
-  rows? Architect lean: not in this sub-spec; keep the audit narrow until the
-  user has data on what's worth auditing. User confirm.
+  other fields (description, country, language, keywords) also write audit rows?
+  Architect lean: not in this sub-spec; keep the audit narrow until the user has
+  data on what's worth auditing. User confirm.
 
 - **Q-NOTIF-SEAM — Step 11 notification scaffolding.** Where does the
   `channel_diff_detected` notification get emitted from if Phase 16 has not
-  landed yet? Step 11's parent spec defines a placeholder seam; this
-  sub-spec's job calls into that seam. Architect-review: confirm the seam
-  exists before dispatching this sub-spec. If not, the seam is added as part
-  of this sub-spec's scope (small extension to the parent Step 11 work).
+  landed yet? Step 11's parent spec defines a placeholder seam; this sub-spec's
+  job calls into that seam. Architect-review: confirm the seam exists before
+  dispatching this sub-spec. If not, the seam is added as part of this
+  sub-spec's scope (small extension to the parent Step 11 work).
