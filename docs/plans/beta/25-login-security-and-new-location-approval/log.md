@@ -278,3 +278,246 @@ Both dev and test DBs migrated. Master will tell user to restart
 - The `.env.example` documentation + MaxMind gem add are queued for
   the same follow-up; geo enrichment ships fully functional but
   inert until that follow-up lands.
+
+## 2026-05-11 — 01b — New-location detection + pending sessions
+
+**Dispatch:** `pito-rails` agent against spec
+`specs/01b-new-location-detection-and-pending-sessions.md`. Builds on 01a's
+attempt log + fingerprint + ip_prefix surfaces. Locked decisions LD-5
+(trusted-location definition), LD-6 (pending state machine), LD-15 (yes/no),
+LD-17 (friendly URLs) applied directly. Q-G (option 2, expired pending rows
+stay) and Q-J (countdown + cancel UX) resolved here.
+
+**What landed**
+
+Database
+
+- `db/migrate/20260511140000_add_state_to_sessions.rb` — `state` integer enum
+  + `approval_required_until` datetime on the existing `sessions` table, plus
+  two indexes (state, approval_required_until). Default 0 (= `active`) so the
+  column is backward-compatible without a backfill.
+- `db/migrate/20260511140001_add_session_id_to_login_attempts.rb` — nullable
+  FK + index from `login_attempts.session_id` to `sessions`. Lets attempt
+  rows link back to the session they spawned (trusted success, pending,
+  expired-pending sweep).
+
+Both migrations applied against dev DB AND test DB.
+`bin/rails db:migrate:status` confirms both as `up`.
+
+Models
+
+- `app/models/session.rb` — gains `enum :state` (active / pending_approval /
+  expired / revoked, prefix `:state`), `PENDING_APPROVAL_TTL = 10.minutes`,
+  scopes `active_sessions` / `pending` / `expired_pending` /
+  `pending_within_window`, class method `.create_pending!`, instance methods
+  `pending_within_window?` / `expired_pending?` / `expire_if_overdue!` /
+  `transition_to_active!`. `revoke!` now also flips state to `:revoked`.
+- `app/models/trusted_location.rb` — gains `.touch_for(user:,
+  fingerprint_hash:, ip_prefix:)` upsert. Atomic against the unique index;
+  `update_only: %i[last_seen_at]` (Rails auto-bumps `updated_at`).
+- `app/models/user.rb` — gains `has_many :trusted_locations` /
+  `has_many :login_attempts`, plus `#trusted_location?(fingerprint:,
+  ip_prefix:)` and `#has_pending_session?` helpers used by the controllers
+  and the security dashboard.
+- `app/models/login_attempt.rb` — gains `belongs_to :session, optional:
+  true` so attempts can link to the session they spawned.
+
+Services
+
+- `app/services/auth/new_location_detector.rb` — pure decision. Given a
+  user + fingerprint + ip_prefix triple, returns `:trusted` /
+  `:new_location` / `:blocked_pair` (with `:blocked_pair` precedence over
+  `:trusted` — defense-in-depth against a regression that re-enables an
+  operator-blocked device).
+- `app/services/auth/session_pending_approver.rb` — mints a pending-approval
+  Session row + an attempt row with `reason: new_location_pending`. Enforces
+  `MAX_ACTIVE_PENDING = 3` anti-spam cap; raises `TooManyPending` past that,
+  which the controller surfaces as generic "Login failed." (LD-14).
+- `app/services/auth/session_activator.rb` — sole minter of `:active`
+  sessions. Two callers: trusted-location branch (fresh mint) and 01c/01e
+  approve/2FA-success branch (`existing:` pending row → flipped to active,
+  token rotated per LD-12). Stamps the trusted-location upsert + writes the
+  attempt row in one transaction. Raises on terminal-state activations.
+- `app/services/auth/pending_session_expirer.rb` — sweeper. Walks
+  `Session.expired_pending`, flips state to `:expired`, writes a
+  `pending_expired` attempt row per transition. One-bad-row-doesn't-stop-
+  the-sweep behaviour via per-row `rescue StandardError`.
+- `app/services/auth/attempt_logger.rb` — gains optional `session:` kwarg so
+  every write paths can link the attempt to its session.
+
+Jobs
+
+- `app/jobs/session_pending_approval_sweeper_job.rb` — Sidekiq cron entry.
+  Calls `Auth::PendingSessionExpirer.call`, logs the transitioned count.
+- `config/sidekiq_cron.yml` — new `pending_session_approval_sweeper` entry
+  scheduled every minute (`* * * * *`).
+
+Controllers
+
+- `app/controllers/sessions_controller.rb` — refactored post-password-check.
+  After authenticate, asks `Auth::NewLocationDetector` and branches:
+  trusted → `Auth::SessionActivator` mints + sets cookie + redirects;
+  new_location → stashes a signed pre-auth marker (`PRE_AUTH_COOKIE`,
+  10-minute TTL) and redirects to `/login/challenge`, NO session minted;
+  blocked_pair → writes a `blocked` row and renders generic failure.
+- `app/controllers/login/challenges_controller.rb` — new. `show` renders
+  the two-choice surface; `create` accepts `challenge_path: "approval" |
+  "totp"`. Approval path calls `Auth::SessionPendingApprover` + redirects
+  to `/login/pending`. TOTP path redirects to the `/login/totp` placeholder
+  route (01e fills it). `<unknown>` returns 422.
+- `app/controllers/login/pendings_controller.rb` — new. `show` renders the
+  countdown + attempt detail card + `[cancel & log out]` form. `destroy`
+  revokes the pending row and clears the marker.
+- `app/controllers/settings/security_controller.rb` — adds
+  `@trusted_locations_count` and `@pending_sessions_count` for the
+  dashboard. View renders them as "trusted locations: N, pending: M".
+
+Views
+
+- `app/views/login/challenges/show.html.erb` — choice surface, renders the
+  `LoginChallengeChoiceComponent`.
+- `app/views/login/pendings/show.html.erb` — countdown pane wired to the
+  `pending-countdown` Stimulus controller; attempt-detail partial; cancel
+  form. No JS `confirm` (HTML-escaped ampersand keeps the bracketed label
+  valid).
+- `app/views/login/_attempt_detail.html.erb` — partial shared with 01c's
+  notification card.
+- `app/views/settings/security/show.html.erb` — gains the two counters.
+
+Routes
+
+- `config/routes.rb` — `/login/challenge` (GET / POST), `/login/pending`
+  (GET / DELETE), `/login/totp` (placeholder GET redirect to `/login`).
+
+Stimulus
+
+- `app/javascript/controllers/pending_countdown_controller.js` — ticks once
+  per second from `data-pending-countdown-deadline-value` (ISO 8601),
+  renders `MM:SS`, reloads the page when the deadline elapses so the
+  server-side expiry path takes over.
+
+Components
+
+- `app/components/login_challenge_choice_component.rb` (+ ERB) — two
+  bracketed-link choices (`[enter 2FA code]`, `[ask for approval]`).
+
+MCP
+
+- `app/mcp/tools/login_attempts_pending.rb` — read scaffold. Returns
+  attempts whose linked session is in `:pending_approval` AND
+  `approval_required_until > now`. Boundary booleans (`is_pending`,
+  `is_expired`, `has_session`) serialize as yes/no per LD-15.
+  Currently gated on `app` scope; 01d swaps to dedicated `auth` scope.
+
+Factories
+
+- `spec/factories/sessions.rb` — adds `:pending`, `:expired_pending`,
+  `:expired`, `:revoked_state` traits.
+
+**Specs added (113 new examples)**
+
+Models (+27)
+: `spec/models/session_spec.rb` (state enum + all transitions + scopes),
+  `spec/models/trusted_location_spec.rb` (`.touch_for` upsert),
+  `spec/models/user_spec.rb` (`#trusted_location?` /
+  `#has_pending_session?`).
+
+Services (+30)
+: `spec/services/auth/new_location_detector_spec.rb` (8),
+  `spec/services/auth/session_pending_approver_spec.rb` (8 — incl. spam
+  cap + clock-skew),
+  `spec/services/auth/session_activator_spec.rb` (10 — fresh + existing
+  + terminal-row raises + token rotation),
+  `spec/services/auth/pending_session_expirer_spec.rb` (8 — incl. bulk
+  100-row sweep + bad-row tolerance).
+
+Job (+3)
+: `spec/jobs/session_pending_approval_sweeper_job_spec.rb` — delegates +
+  cron schedule asserted by reading `sidekiq_cron.yml`.
+
+Request (+24)
+: `spec/requests/login/challenges_spec.rb` (9 — happy + sad + GET / POST
+  branches),
+  `spec/requests/login/pendings_spec.rb` (6 — show + destroy + expired
+  + no-marker),
+  `spec/requests/sessions_spec.rb` (+3 — trusted dispatch / new-location
+  dispatch / blocked dispatch under Phase 25 — 01b),
+  `spec/requests/settings/security_spec.rb` (+1 — trusted + pending
+  counters surface).
+
+Component (+4)
+: `spec/components/login_challenge_choice_component_spec.rb` — bracketed
+  labels, no inner whitespace, two POST forms hit `/login/challenge`.
+
+MCP (+7)
+: `spec/mcp/tools/login_attempts_pending_spec.rb` — happy (in-window only,
+  excludes expired), boundary (yes/no booleans), row shape, scope gate,
+  pagination.
+
+Routing (+7)
+: `spec/routing/login_challenges_routing_spec.rb` — `/login/challenge`,
+  `/login/pending`, `/login/totp`, named-route helpers.
+
+**Migrations applied**
+
+```
+== 20260511140000 AddStateToSessions: migrated ==
+== 20260511140001 AddSessionIdToLoginAttempts: migrated ==
+```
+
+`bin/rails db:migrate:status` confirms both as `up` on dev and test DBs.
+
+**Gates**
+
+- `bundle exec rspec` on touched + adjacent specs: 288 examples, 0 failures.
+- Broad regression (`spec/models spec/services spec/jobs spec/components
+  spec/mcp spec/routing spec/lib spec/helpers`): 4,039 examples, 0 failures,
+  1 pre-existing pending.
+- Full `spec/requests` sweep: 1,777 examples, 1 pre-existing failure
+  (`auth_concern_spec` intended-URL stash — was already documented in 01a
+  log; unrelated to this dispatch).
+- `bundle exec rubocop` on all touched files: 570 files clean.
+- `bin/brakeman -q -w2`: no new warnings.
+
+**Manual test plan**
+
+1. Restart `bin/dev` so the new migrations take effect.
+2. Log in successfully from your current browser. Visit
+   `/settings/security` — note "trusted locations: 1, pending: 0".
+3. Log out. Switch browser profile (Chrome → Firefox, or use a clean
+   incognito with a different UA) so the fingerprint changes. Visit
+   `/login` and submit the correct password.
+4. Expect redirect to `/login/challenge`. Two bracketed-link choices
+   visible: `[enter 2FA code]` and `[ask for approval]`.
+5. Click `[ask for approval]`. Expect redirect to `/login/pending` with
+   a 10:00 countdown and the attempt detail card (browser / OS / IP /
+   fingerprint short).
+6. From your trusted browser, visit `/settings/security` → "pending: 1".
+7. Wait ~ 11 minutes (or open a Rails console and run
+   `Auth::PendingSessionExpirer.call`). Refresh `/login/pending` →
+   redirects to `/login` with generic "login failed." copy.
+8. Confirm in the console:
+   `LoginAttempt.where(reason: :pending_expired).count == 1`.
+9. Sidekiq dashboard at `/sidekiq/cron`: confirm
+   `pending_session_approval_sweeper` is scheduled at `* * * * *`.
+10. Test the cancel flow: repeat 3–5 to land on `/login/pending`. Click
+    `[cancel & log out]`. Expect redirect to `/login`; the pending
+    Session row should be in `state: revoked` (verify via console).
+11. Teardown: `Session.pending.destroy_all` from console.
+
+**Deferred to later sub-specs**
+
+- Notification creation on pending-approval row (01c). Controller TODO
+  stub returns the pending row; 01c wires
+  `Notifications::Pipeline.deliver(:login_pending_approval, attempt:)`.
+- TOTP form at `/login/totp` (01e). Placeholder redirects to `/login`
+  for now so the `[enter 2FA code]` link doesn't 404.
+- TUI `g s p` pending-list view (01c picks it up alongside the in-TUI
+  approval overlay).
+- MCP scope swap from `app` → `auth` (01d's job per LD-8 + scope
+  catalog update in `docs/mcp.md`).
+
+**Open issues**
+
+- The `auth_concern_spec` intended-URL stash test is still red
+  (pre-existing — recorded in 01a log).
