@@ -1,10 +1,18 @@
 require "rails_helper"
 
-# Phase 7.5 — Step 04. Help modal that mirrors the `pito` CLI's help
-# overlay (`extras/cli/src/ui/help.rs`). Locked decision Q6: the CLI
-# is the source of truth — every binding the CLI advertises has a row
-# here, every CLI section heading has a section here, and we do NOT
-# advertise web-only additions.
+# Help modal opened by `?` (and the visible `[_]` link in the
+# footer chrome).
+#
+# Scope contract: page-level + global hotkeys ONLY. Navigation
+# between pages and bulk operations are leader-driven (SPACE opens
+# the leader menu — see `config/keybindings.yml` +
+# `leader_menu_controller.js`); this modal documents the page-level
+# bindings and tells the reader to press SPACE for everything else.
+#
+# 2026-05-10 refresh: the legacy `g d/g c/g v/g s/g e` navigation rows
+# were dropped (now leader-driven); `space` (toggle row selection)
+# was retired in favour of `x` (matches the TUI's row-selection key
+# after SPACE was promoted to the leader in both surfaces).
 RSpec.describe KeyboardShortcutsModalComponent, type: :component do
   it "renders a <dialog> element wired to the keyboard controller" do
     render_inline(described_class.new)
@@ -17,15 +25,18 @@ RSpec.describe KeyboardShortcutsModalComponent, type: :component do
     expect(page).to have_css('a.bracketed[data-action="click->keyboard#close"]', text: "close")
   end
 
-  describe "section coverage (mirrors CLI help.rs)" do
+  it "opens with a leader-menu hint sentence pointing to SPACE" do
+    render_inline(described_class.new)
+    expect(page).to have_css(
+      "p.keyboard-shortcuts-leader-hint",
+      text: "Press SPACE for the leader menu (navigation between pages and bulk operations)."
+    )
+  end
+
+  describe "section coverage" do
     before { render_inline(described_class.new) }
 
     it "renders the general section with `?`, `q`, `t`, `/`, `i`, and `Esc`" do
-      # Theme toggle was originally `n`; moved to `t` alongside the
-      # 2026-05-10 header redesign that retired the visible `n` keycap.
-      # `/` (open search modal) and `i` (open igdb add-game modal) joined
-      # the general section in the 2026-05-10 modal-restructure dispatch
-      # — both bindings are now global.
       section = page.find(".keyboard-shortcuts-section", text: /general/i)
       expect(section).to have_css("span.keycap", text: "?")
       expect(section).to have_css("span.keycap", text: "q")
@@ -39,36 +50,24 @@ RSpec.describe KeyboardShortcutsModalComponent, type: :component do
       expect(section).to have_text("open igdb add-game modal")
     end
 
-    it "renders the navigation section with every g-prefix binding" do
-      section = page.find(".keyboard-shortcuts-section", text: /navigation/i)
-      [ "g d", "g c", "g v", "g s", "g e" ].each do |combo|
-        keys = combo.split(" ")
-        keys.each { |k| expect(section).to have_css("span.keycap", text: k) }
-      end
-      expect(section).to have_text("dashboard")
-      expect(section).to have_text("channels")
-      expect(section).to have_text("videos")
-      expect(section).to have_text("saved views")
-      expect(section).to have_text("settings")
+    it "clarifies that `q` (back/close) maps to Esc on the web surface" do
+      # The TUI uses `q` to back out; the web layer routes the same
+      # intent through Esc. The modal copy notes the equivalence so
+      # readers don't expect a `q` keybinding in the browser.
+      section = page.find(".keyboard-shortcuts-section", text: /general/i)
+      expect(section).to have_text(/back\s*\/\s*close\s*\(Esc on web\)/i)
     end
 
-    it "renders the list-pages section with j/k/space/s/D/Y and f-prefix" do
-      # Phase 14 §1 polish (2026-05-10) — `/` (search) was promoted to
-      # the global `general` section since the modal it opens is layout-
-      # level. The list-pages section keeps the row-level keys only.
-      # The `f c` (connected) binding was retired alongside the derived
-      # connected display surface.
-      #
-      # 2026-05-10 CLI-parity sweep — TUI dropped `b` (toggle bulk mode)
-      # and the `(bulk mode only)` qualifier on `space`. Selection is
-      # always-on; help modal mirrors. Row reads
-      # `space — toggle row selection`.
+    it "renders the list-pages section with j / k / x / s / D / Y and f-prefix" do
       section = page.find(".keyboard-shortcuts-section", text: /list pages/i)
-      %w[j k space s D Y f].each do |k|
+      %w[j k x s D Y f].each do |k|
         expect(section).to have_css("span.keycap", text: k)
       end
       expect(section).to have_text("toggle row selection")
       expect(section).to have_text(/starred/i)
+      # `space` is now the leader key — the help modal must not
+      # describe it as row-level any more.
+      expect(section).not_to have_css("span.keycap", text: "space")
       expect(section).not_to have_text(/connected/i)
       expect(section).not_to have_text(/bulk mode only/i)
       expect(section).not_to have_text(/toggle bulk mode/i)
@@ -92,12 +91,45 @@ RSpec.describe KeyboardShortcutsModalComponent, type: :component do
     end
   end
 
-  it "does NOT advertise the retired `f y` filter (mirrors CLI parity sweep)" do
-    render_inline(described_class.new)
-    # `f y` (filter: syncing) was dropped after Path A2; the CLI's help
-    # overlay was scrubbed of it in the same pass and Rails follows.
-    expect(page).to have_no_text(/filter:\s*syncing/i)
-    expect(page).to have_no_text("f y")
+  describe "retired bindings" do
+    before { render_inline(described_class.new) }
+
+    it "does not render the legacy `navigation` section" do
+      # The `g d/g c/g v/g s/g e` rows lived under a `navigation`
+      # heading. Both heading and rows are gone — navigation is
+      # leader-driven now.
+      expect(page).to have_no_css(".keyboard-shortcuts-section", text: /^navigation$/i)
+    end
+
+    it "does not advertise any g-prefix navigation binding" do
+      [ "g d", "g c", "g v", "g s", "g e" ].each do |combo|
+        expect(page).to have_no_text(combo)
+      end
+      [
+        "go to dashboard",
+        "go to channels",
+        "go to videos",
+        "go to saved views",
+        "go to settings"
+      ].each do |label|
+        expect(page).to have_no_text(label)
+      end
+    end
+
+    it "does not describe SPACE as toggle row selection" do
+      # SPACE is the leader key now. The only mention of SPACE in
+      # this modal is the leader-menu hint at the top — never as a
+      # row-level binding.
+      expect(page).to have_no_text(/space\b.*toggle row selection/i)
+    end
+
+    it "does NOT advertise the retired `f y` filter (mirrors CLI parity sweep)" do
+      # `f y` (filter: syncing) was dropped after Path A2; the CLI's
+      # help overlay was scrubbed of it in the same pass and Rails
+      # follows.
+      expect(page).to have_no_text(/filter:\s*syncing/i)
+      expect(page).to have_no_text("f y")
+    end
   end
 
   it "does not introduce a JS confirm / alert / prompt anywhere" do

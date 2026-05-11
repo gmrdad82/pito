@@ -13,6 +13,10 @@
       <%= render(BracketedLinkComponent.new(label: "close", href: "#", data: { action: "click->keyboard#close" })) %>
     </div>
 
+    <p class="keyboard-shortcuts-leader-hint" style="margin-bottom: 10px;">
+      <%= leader_hint %>
+    </p>
+
     <% sections.each do |section| %>
       <div class="keyboard-shortcuts-section" style="margin-bottom: 10px;">
         <div class="text-muted" style="margin-bottom: 4px;"><%= section.title %></div>
