@@ -55,12 +55,12 @@ bundle exec rubocop # Lint
 ## Communication style
 
 Use emojis liberally in master-agent and subagent communication — status
-updates, report-back text, dispatch announcements, end-of-turn summaries.
-Map emoji to actual signal: ✅ done, ⏳ in flight, 🚫 blocked, ⚠️ conflict,
-🎯 milestone, 🔍 inspecting, 🧪 specs, 🚀 next, ✨ delivered, 🎉 phase
-closes. Don't shoehorn — emojis are accents, not decoration. Stay OUT of
-code, commit messages, plan / log markdown, and spec files — those are
-durable artifacts that age into reference material.
+updates, report-back text, dispatch announcements, end-of-turn summaries. Map
+emoji to actual signal: ✅ done, ⏳ in flight, 🚫 blocked, ⚠️ conflict, 🎯
+milestone, 🔍 inspecting, 🧪 specs, 🚀 next, ✨ delivered, 🎉 phase closes.
+Don't shoehorn — emojis are accents, not decoration. Stay OUT of code, commit
+messages, plan / log markdown, and spec files — those are durable artifacts that
+age into reference material.
 
 ## Workflow rules
 
@@ -252,9 +252,9 @@ See `docs/design.md` for the full design system. Key rules:
 Tracked in `docs/orchestration/follow-ups.md`. Highest-priority items right now:
 
 1. Phase 11 sub-specs 01b–01f — pre-publish checklist expansion, post-publish
-   workflow, series/sequel tracking, video-links section polish, MCP/CLI
-   parity. Architect specs locked; 01a (video edit page polish) shipped. 01b–01f
-   queued for `pito-rails-impl` dispatch in sequence.
+   workflow, series/sequel tracking, video-links section polish, MCP/CLI parity.
+   Architect specs locked; 01a (video edit page polish) shipped. 01b–01f queued
+   for `pito-rails-impl` dispatch in sequence.
 2. Phase 28 sub-spec 01b — CLI multi-version game grouping (primaries-only
    render + drill-down + flat-mode toggle + wire-format parity). Rails + MCP
    halves shipped in 01a; the `pito-rust` half is the deferred remainder.
@@ -274,8 +274,8 @@ Tracked in `docs/orchestration/follow-ups.md`. Highest-priority items right now:
 7. Analytics window-summary click-rate ratios via dedicated impressions +
    card-performance reports — `DAILY_BASIC_METRICS` and the slimmed
    `WINDOW_RATIO_METRICS` (see ADR 0011) leave three click-rate ratio columns
-   `NULL` on `channel_window_summaries` / `video_window_summaries`; merging
-   them in needs a separate architect spec.
+   `NULL` on `channel_window_summaries` / `video_window_summaries`; merging them
+   in needs a separate architect spec.
 8. Footage importer-side ffmpeg frame extraction + bulk PATCH upload (Phase 7.5
    spec 06 importer half).
 9. Meilisearch indexing parity with Voyage per-target flags (pairs with the
