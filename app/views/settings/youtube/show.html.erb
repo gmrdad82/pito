@@ -18,8 +18,8 @@
     connection only (the back-compat `@youtube_connection`). The
     unified table below absorbs per-channel detail; any per-connection
     nuance the banner can't cover (e.g. one connection healthy, one
-    needing re-auth across many channels) is still legible because the
-    scopes line under each channel shows exactly what was granted. %>
+    needing re-auth across many channels) is still legible from the
+    connected-as email on each channel row. %>
 <% if @youtube_connection.present? && @youtube_connection.needs_reauth? %>
   <%= render "settings/youtube/needs_reauth_banner" %>
 <% end %>
@@ -43,11 +43,10 @@
   </div>
 <% else %>
   <%# Unified table — every Channel across every YoutubeConnection
-      lives in a single table. Each channel renders as TWO `<tr>`
-      rows:
+      lives in a single table. Each channel renders as ONE flat `<tr>`
+      row:
 
-        Row A — checkbox (rowspan=2) | channel | connected as | linked at
-        Row B — scopes line spanning columns 2..4
+        checkbox | channel | connected as | linked at
 
       Drops the per-connection metadata pane and the per-connection
       `[add]` button. A single `[+ add another Google account]` button
@@ -110,16 +109,12 @@
         <tbody>
           <% all_channels.each do |c| %>
             <% connection = connection_by_id[c.youtube_connection_id] %>
-            <% scope_line = Array(connection&.scopes)
-                              .map { |s| format_scope_short_label(s) }
-                              .reject(&:empty?)
-                              .map { |s| "#{s}." }
-                              .join(" ") %>
-            <%# Row A — data row. Checkbox cell carries `rowspan="2"`
-                so it visually anchors the whole record (both the
-                data row and the scopes row below it). %>
+            <%# One flat data row per channel. The dropped scopes row
+                (period-separated short labels) was redundant detail;
+                connected-as email is enough to identify which Google
+                account owns the channel. %>
             <tr>
-              <td class="col-action" rowspan="2" style="vertical-align: top;">
+              <td class="col-action">
                 <%= render(CheckboxComponent.new(value: c.id, data: { bulk_select_target: "checkbox", action: "change->bulk-select#toggle" })) %>
               </td>
               <td style="font-family: monospace;">
@@ -138,18 +133,6 @@
                     compact-time helper renders the same `~5h ago`
                     shape used elsewhere. %>
                 <%= compact_time_ago(c.created_at) %>
-              </td>
-            </tr>
-            <%# Row B — scopes line. Spans the 3 right-hand columns
-                (channel, connected as, linked at). Period-separated
-                short labels render as muted prose; no per-scope
-                emphasis since the spec calls for a single flat line.
-                If the connection has no scopes (degenerate, shouldn't
-                happen post-OAuth), the cell renders empty rather than
-                a confusing dangling period. %>
-            <tr>
-              <td colspan="3" class="scopes-line">
-                <%= scope_line %>
               </td>
             </tr>
           <% end %>

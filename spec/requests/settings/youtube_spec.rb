@@ -217,33 +217,32 @@ RSpec.describe "Settings::Youtube", type: :request do
             )
           end
 
-          it "renders the checkbox cell with rowspan=2 so the [ ] anchors both rows of the record" do
+          it "renders each channel as a single flat <tr> row (no rowspan, no scopes row)" do
             get settings_youtube_path
-            # Two channels → two rowspan=2 checkbox cells. Each holds
-            # the per-row bulk-select checkbox (wrapped in the
-            # CheckboxComponent's <label>).
-            rowspan_count = response.body.scan(
-              /<td[^>]*rowspan="2"[^>]*>.*?type="checkbox"[^>]*data-bulk-select-target="checkbox"/m
-            ).size
-            expect(rowspan_count).to eq(2)
+            # Count <tr> rows inside <tbody> — two channels → exactly
+            # two body rows, one per record. No second `<tr>` per
+            # record carrying scopes.
+            tbody = response.body[%r{<tbody>(.*?)</tbody>}m, 1] || ""
+            tr_count = tbody.scan(/<tr\b/).size
+            expect(tr_count).to eq(2)
           end
 
-          it "renders a scopes row beneath each data row with colspan=3" do
+          it "does NOT render any `rowspan` attribute on the channel-row cells" do
             get settings_youtube_path
-            # `<td colspan="3" class="scopes-line">` — two channels →
-            # two scopes rows.
-            colspan_count = response.body.scan(
+            tbody = response.body[%r{<tbody>(.*?)</tbody>}m, 1] || ""
+            expect(tbody).not_to match(/rowspan=/)
+          end
+
+          it "does NOT render a `colspan` scopes row underneath the data row" do
+            get settings_youtube_path
+            expect(response.body).not_to match(
               /<td colspan="3"[^>]*class="scopes-line"/
-            ).size
-            expect(colspan_count).to eq(2)
+            )
           end
 
-          it "renders the scopes line as period-separated short labels" do
+          it "does NOT render the dropped period-separated short-label scopes line" do
             get settings_youtube_path
-            # Factory ships the full pito scope set:
-            # openid + email + profile + youtube.readonly +
-            # yt-analytics.readonly + youtube.force-ssl
-            expect(response.body).to match(
+            expect(response.body).not_to match(
               /openid\.\s+email\.\s+profile\.\s+youtube\.readonly\.\s+yt-analytics\.readonly\.\s+youtube\.force-ssl\./
             )
           end
@@ -253,6 +252,22 @@ RSpec.describe "Settings::Youtube", type: :request do
             expect(response.body).not_to match(
               /<li[^>]*>\s*<code><strong>youtube\.readonly<\/strong><\/code>/
             )
+          end
+
+          it "renders checkbox + channel + connected-as + linked-at in each row" do
+            channel_a.update_columns(created_at: 5.hours.ago)
+            get settings_youtube_path
+            tbody = response.body[%r{<tbody>(.*?)</tbody>}m, 1] || ""
+            # Per-row checkbox (value=<channel.id>).
+            expect(tbody).to match(
+              /<input[^>]*type="checkbox"[^>]*value="#{channel_a.id}"/
+            )
+            # Channel slug derived from channel_url.
+            expect(tbody).to include("UCaaaaaaaaaaaaaaaaaaaaaa")
+            # Connected-as email.
+            expect(tbody).to include("u@example.test")
+            # Linked-at compact relative time.
+            expect(tbody).to include("~5h ago")
           end
 
           it "does NOT render any per-row `[disconnect]` button" do
