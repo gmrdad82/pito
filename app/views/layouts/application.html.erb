@@ -260,9 +260,18 @@
         controller paints the bottom-right card here when SPACE is
         pressed (or the `[_]` footer link is clicked). Hidden by
         default; the controller flips the `hidden` attribute on
-        open/close. %>
+        open/close.
+
+        `data-turbo-permanent` keeps this node intact across Turbo
+        Drive page swaps so the popup remains visible when a leader
+        item fires `navigate` + drills into a submenu (e.g. root `C`
+        channels — navigate to /channels AND show the channels
+        submenu). The matching menu-stack state is persisted via
+        `sessionStorage` (`pito:leader-menu:stack`) so the
+        re-mounted Stimulus controller rehydrates the popup. %>
     <div id="leader-menu-popup"
          data-leader-menu-target="popup"
+         data-turbo-permanent
          class="leader-menu-popup"
          hidden></div>
   </body>

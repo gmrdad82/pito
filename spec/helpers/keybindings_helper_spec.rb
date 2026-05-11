@@ -53,6 +53,121 @@ RSpec.describe KeybindingsHelper, type: :helper do
       expect(calendar.fetch("submenu")).to eq("calendar")
     end
 
+    describe "resource-row root items carry BOTH navigate + submenu" do
+      # The schema convention (2026-05-11): capital-letter resource
+      # rows on the root menu (C/V/P/G) plus lowercase `c` calendar
+      # AND `N` notifications are dual-action — pressing the key fires
+      # the listed `action` AND transitions the popup to the named
+      # `submenu`. Lock the contract here so the JS controller has a
+      # stable schema shape to rely on.
+      ROOT_DUAL_ACTION_ROWS = {
+        "c" => { submenu: "calendar",      action: { "type" => "navigate", "path" => "/calendar" } },
+        "C" => { submenu: "channels",      action: { "type" => "navigate", "path" => "/channels" } },
+        "V" => { submenu: "videos",        action: { "type" => "navigate", "path" => "/videos" } },
+        "P" => { submenu: "projects",      action: { "type" => "navigate", "path" => "/projects" } },
+        "G" => { submenu: "games",         action: { "type" => "navigate", "path" => "/games" } },
+        "N" => { submenu: "notifications", action: { "type" => "open", "target" => "notifications_modal" } }
+      }.freeze
+
+      ROOT_DUAL_ACTION_ROWS.each do |key, expected|
+        it "carries action + submenu for the root [#{key}] row" do
+          items = helper.keybindings_for_surface(:web)
+                        .fetch("menus").fetch("root").fetch("items")
+          row = items.find { |i| i.fetch("key") == key }
+          expect(row).not_to be_nil, "expected root item with key #{key.inspect}"
+          expect(row.fetch("submenu")).to eq(expected[:submenu])
+          expect(row.fetch("action")).to eq(expected[:action])
+        end
+      end
+    end
+
+    describe "label cleanup (bulk-toggle dropped, bulk-action labels renamed)" do
+      # The `b` "bulk toggle (legacy)" entry was retired with the
+      # selection-mode toggle; the bulk-action labels lost their
+      # "bulk … (selection)" preamble so the rows read as plain verbs
+      # (`delete`, `sync`, `resync`). Lock both the absence and the
+      # rename across every menu that carries them.
+      it "drops the [b] bulk-toggle (legacy) entry from the channels submenu" do
+        channels = helper.keybindings_for_surface(:web)
+                         .fetch("menus").fetch("channels").fetch("items")
+        keys = channels.map { |i| i.fetch("key") }
+        labels = channels.map { |i| i.fetch("label") }
+        expect(keys).not_to include("b")
+        expect(labels.join(" ")).not_to include("legacy")
+      end
+
+      it "drops [b] bulk-toggle (legacy) from every menu schema-wide" do
+        menus = helper.keybindings_for_surface(:web).fetch("menus")
+        menus.each do |name, menu|
+          items = menu.fetch("items")
+          b_items = items.select { |i| i.fetch("key") == "b" }
+          expect(b_items).to be_empty,
+            "expected no `b` item in #{name} submenu, found #{b_items.inspect}"
+          legacy = items.select { |i| i.fetch("label", "").include?("legacy") }
+          expect(legacy).to be_empty,
+            "expected no 'legacy'-labeled items in #{name} submenu, found #{legacy.inspect}"
+        end
+      end
+
+      it "renames channels bulk delete to plain 'delete'" do
+        items = helper.keybindings_for_surface(:web)
+                      .fetch("menus").fetch("channels").fetch("items")
+        row = items.find { |i| i.fetch("key") == "-" }
+        expect(row.fetch("label")).to eq("delete")
+        expect(row.fetch("action")).to eq("type" => "bulk_delete")
+      end
+
+      it "renames channels bulk sync to plain 'sync'" do
+        items = helper.keybindings_for_surface(:web)
+                      .fetch("menus").fetch("channels").fetch("items")
+        row = items.find { |i| i.fetch("key") == "y" }
+        expect(row.fetch("label")).to eq("sync")
+        expect(row.fetch("action")).to eq("type" => "bulk_sync")
+      end
+
+      it "renames videos bulk delete to plain 'delete'" do
+        items = helper.keybindings_for_surface(:web)
+                      .fetch("menus").fetch("videos").fetch("items")
+        row = items.find { |i| i.fetch("key") == "-" }
+        expect(row.fetch("label")).to eq("delete")
+      end
+
+      it "renames projects bulk delete to plain 'delete'" do
+        items = helper.keybindings_for_surface(:web)
+                      .fetch("menus").fetch("projects").fetch("items")
+        row = items.find { |i| i.fetch("key") == "-" }
+        expect(row.fetch("label")).to eq("delete")
+      end
+
+      it "renames games bulk delete + bulk resync to plain 'delete' / 'resync'" do
+        items = helper.keybindings_for_surface(:web)
+                      .fetch("menus").fetch("games").fetch("items")
+        delete_row = items.find { |i| i.fetch("key") == "-" }
+        resync_row = items.find { |i| i.fetch("key") == "r" }
+        expect(delete_row.fetch("label")).to eq("delete")
+        expect(resync_row.fetch("label")).to eq("resync")
+      end
+
+      it "renames bundles bulk resync to plain 'resync'" do
+        items = helper.keybindings_for_surface(:web)
+                      .fetch("menus").fetch("bundles").fetch("items")
+        row = items.find { |i| i.fetch("key") == "r" }
+        expect(row.fetch("label")).to eq("resync")
+      end
+
+      it "leaves no 'bulk …' or '(selection)' phrasing in any label" do
+        menus = helper.keybindings_for_surface(:web).fetch("menus")
+        offenders = menus.flat_map do |name, menu|
+          menu.fetch("items").select do |i|
+            label = i.fetch("label", "")
+            label.start_with?("bulk ") || label.include?("(selection)")
+          end.map { |i| [ name, i.fetch("key"), i.fetch("label") ] }
+        end
+        expect(offenders).to be_empty,
+          "expected no 'bulk …' / '(selection)' labels, found #{offenders.inspect}"
+      end
+    end
+
     it "filters TUI-only items off the :web surface" do
       web_root_keys = helper.keybindings_for_surface(:web)
                             .fetch("menus").fetch("root").fetch("items")

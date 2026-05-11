@@ -1,5 +1,10 @@
 import { Controller } from "@hotwired/stimulus"
 
+// Persistence key for the menu stack across Turbo navigations.
+// Declared at module scope (not inside the class) so test code and
+// any future helper can refer to the same string without divergence.
+const STACK_STORAGE_KEY = "pito:leader-menu:stack"
+
 // Leader-menu popup controller. Reads the unified keybindings schema
 // embedded by the layout in `<script id="pito-keybindings">`,
 // listens for SPACE on the document, and paints a small bottom-right
@@ -33,13 +38,25 @@ import { Controller } from "@hotwired/stimulus"
 //   { key: "C", label: "channels", submenu: "channels" }
 //
 // Action types recognized:
-//   navigate         { path: "/..." }            → window.location.assign(path)
+//   navigate         { path: "/..." }            → Turbo.visit(path) when
+//     available, falling back to window.location.assign(path). Turbo
+//     keeps the popup mounted across the page swap (the popup lives
+//     on `<body>`, which Turbo preserves as a permanent element via
+//     `data-turbo-permanent`).
 //   open / today / quit / quit_and_logout / etc. → dispatched as a
 //     "leader-menu:action" CustomEvent on `document`; listeners
 //     wired by other controllers (the notifications modal, the
 //     keyboard controller's logout flow, etc.) react. Unknown
 //     action types fall through and emit the same event so future
 //     handlers can plug in without touching this file.
+//
+// Combined action + submenu: when a schema item carries BOTH an
+// `action` block AND a `submenu` reference (e.g. root `C channels`
+// navigates to /channels AND drills into the channels submenu so
+// the next-level options are visible), the controller fires the
+// action first, then transitions the popup to the submenu without
+// closing it. Items with only an action close the popup after firing
+// (legacy behavior); items with only a submenu just drill.
 //
 // Implementation note: all popup contents are built via DOM
 // construction (`createElement` + `textContent`) rather than
@@ -76,6 +93,11 @@ export default class extends Controller {
     this.boundKeydown = this.onKeydown.bind(this)
     this.boundOutside = this.onOutsideClick.bind(this)
     document.addEventListener("keydown", this.boundKeydown)
+    // Rehydrate any stack persisted before the last Turbo navigation
+    // (set by `activate` when an item carries both action + submenu).
+    // The popup div is `data-turbo-permanent` so the DOM survives the
+    // swap; this rebuilds the controller-side state to match.
+    this.rehydrate()
   }
 
   disconnect() {
@@ -100,6 +122,7 @@ export default class extends Controller {
   close(event) {
     if (event) event.preventDefault()
     this.menuStack = []
+    this.persistStack()
     if (this.hasPopupTarget) {
       this.popupTarget.hidden = true
       while (this.popupTarget.firstChild) this.popupTarget.removeChild(this.popupTarget.firstChild)
@@ -170,6 +193,7 @@ export default class extends Controller {
     const menu = this.menuByName(name)
     if (!menu) return
     this.menuStack.push(name)
+    this.persistStack()
     this.render(menu, name)
     if (this.hasPopupTarget) this.popupTarget.hidden = false
     // Bind outside-click on the next tick so the click that opened
@@ -183,6 +207,7 @@ export default class extends Controller {
       this.close()
       return
     }
+    this.persistStack()
     const name = this.menuStack[this.menuStack.length - 1]
     const menu = this.menuByName(name)
     if (menu) this.render(menu, name)
@@ -201,27 +226,57 @@ export default class extends Controller {
   }
 
   activate(item) {
-    if (item.submenu) {
+    const action = item.action
+    const hasAction = action && action.type
+    const hasSubmenu = !!item.submenu
+
+    if (hasAction && hasSubmenu) {
+      // Fire the action first WITHOUT closing the popup, then drill
+      // into the submenu so the user sees the next-level options
+      // while the underlying navigation happens. The popup lives on
+      // `<body>` (permanent across Turbo swaps), so the menu state
+      // survives a Turbo.visit.
+      this.fireAction(item, action, { closePopup: false })
       this.openMenu(item.submenu)
       return
     }
-    const action = item.action
-    if (!action || !action.type) return
-    if (action.type === "navigate" && action.path) {
-      this.close()
-      window.location.assign(action.path)
+
+    if (hasSubmenu) {
+      this.openMenu(item.submenu)
       return
     }
-    // For non-navigate actions we emit a CustomEvent so other
-    // controllers can plug in handlers (e.g. notifications modal,
-    // logout flow, contextual add modals) without coupling this
-    // controller to every action type.
-    this.close()
+
+    if (hasAction) {
+      this.fireAction(item, action, { closePopup: true })
+    }
+  }
+
+  // Run the action side-effect (navigate or emit CustomEvent) and
+  // optionally close the popup. Navigation prefers `Turbo.visit` when
+  // Turbo is available so the popup (mounted on `<body>`) survives
+  // the page swap; it falls back to `window.location.assign` on
+  // surfaces where Turbo isn't loaded (auth pages set
+  // `:hide_chrome` but those pages have no popup target anyway).
+  fireAction(item, action, { closePopup }) {
+    if (action.type === "navigate" && action.path) {
+      if (closePopup) this.close()
+      this.navigateTo(action.path)
+      return
+    }
+    if (closePopup) this.close()
     document.dispatchEvent(
       new CustomEvent("leader-menu:action", {
         detail: { item: item, action: action }
       })
     )
+  }
+
+  navigateTo(path) {
+    if (typeof window.Turbo !== "undefined" && window.Turbo.visit) {
+      window.Turbo.visit(path)
+      return
+    }
+    window.location.assign(path)
   }
 
   render(menu, name) {
@@ -286,5 +341,59 @@ export default class extends Controller {
   isEditableTarget(target) {
     if (!target || !target.matches) return false
     return target.matches("input, textarea, select, [contenteditable], [contenteditable='true']")
+  }
+
+  // ---- cross-navigation state -----------------------------------
+
+  // Stash the current menu stack so a Turbo navigation that lands on
+  // a new page can rebuild the popup state. The popup div is marked
+  // `data-turbo-permanent` (so the DOM survives), but the Stimulus
+  // controller instance is recreated on body swap; this keeps the
+  // two in sync.
+  persistStack() {
+    if (typeof window.sessionStorage === "undefined") return
+    try {
+      if (this.menuStack && this.menuStack.length > 0) {
+        window.sessionStorage.setItem(STACK_STORAGE_KEY, JSON.stringify(this.menuStack))
+      } else {
+        window.sessionStorage.removeItem(STACK_STORAGE_KEY)
+      }
+    } catch (_err) {
+      // Storage may be unavailable (private mode, quota); fail silently.
+    }
+  }
+
+  rehydrate() {
+    if (typeof window.sessionStorage === "undefined") return
+    let stored
+    try {
+      stored = window.sessionStorage.getItem(STACK_STORAGE_KEY)
+    } catch (_err) {
+      return
+    }
+    if (!stored) return
+    let stack
+    try {
+      stack = JSON.parse(stored)
+    } catch (_err) {
+      window.sessionStorage.removeItem(STACK_STORAGE_KEY)
+      return
+    }
+    if (!Array.isArray(stack) || stack.length === 0) return
+    // Validate every entry against the schema before trusting it; a
+    // stale stack referencing a removed menu name would otherwise
+    // render an empty popup.
+    const allValid = stack.every((name) => !!this.menuByName(name))
+    if (!allValid) {
+      window.sessionStorage.removeItem(STACK_STORAGE_KEY)
+      return
+    }
+    this.menuStack = stack
+    const top = stack[stack.length - 1]
+    const menu = this.menuByName(top)
+    if (!menu) return
+    this.render(menu, top)
+    if (this.hasPopupTarget) this.popupTarget.hidden = false
+    setTimeout(() => document.addEventListener("click", this.boundOutside, true), 0)
   }
 }

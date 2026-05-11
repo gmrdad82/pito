@@ -55,22 +55,108 @@ RSpec.describe "Leader menu chrome", type: :system do
   end
 
   describe "schema-driven menu shape (lock the contract the JS will consume)" do
-    it "exposes the calendar submenu via the JSON payload" do
-      visit "/"
+    def payload_for(path)
+      visit path
       script_node = page.find("script#pito-keybindings", visible: :all)
-      payload = JSON.parse(script_node.text(:all))
-      calendar = payload.fetch("menus").fetch("calendar").fetch("items")
+      JSON.parse(script_node.text(:all))
+    end
+
+    it "exposes the calendar submenu via the JSON payload" do
+      calendar = payload_for("/").fetch("menus").fetch("calendar").fetch("items")
       keys = calendar.map { |i| i.fetch("key") }
       expect(keys).to match_array(%w[s m t +])
     end
 
-    it "exposes the channels submenu including the bulk delete + bulk sync keys" do
-      visit "/"
-      script_node = page.find("script#pito-keybindings", visible: :all)
-      payload = JSON.parse(script_node.text(:all))
-      channels = payload.fetch("menus").fetch("channels").fetch("items")
+    it "exposes the channels submenu including the delete + sync keys" do
+      channels = payload_for("/").fetch("menus").fetch("channels").fetch("items")
       keys = channels.map { |i| i.fetch("key") }
       expect(keys).to include("l", "+", "-", "y")
+    end
+
+    it "channels submenu uses the cleaned-up labels (delete / sync, no 'bulk')" do
+      channels = payload_for("/").fetch("menus").fetch("channels").fetch("items")
+      labels = channels.map { |i| i.fetch("label") }
+      expect(labels).to include("delete", "sync")
+      expect(labels).not_to include("bulk delete (selection)", "bulk sync (selection)")
+    end
+
+    it "channels submenu does NOT include the [b] bulk toggle (legacy) entry" do
+      channels = payload_for("/").fetch("menus").fetch("channels").fetch("items")
+      keys = channels.map { |i| i.fetch("key") }
+      expect(keys).not_to include("b")
+    end
+
+    it "root [C] channels row carries BOTH navigate + submenu" do
+      root = payload_for("/").fetch("menus").fetch("root").fetch("items")
+      row = root.find { |i| i.fetch("key") == "C" }
+      expect(row.fetch("action")).to eq("type" => "navigate", "path" => "/channels")
+      expect(row.fetch("submenu")).to eq("channels")
+    end
+
+    it "root [V] videos row carries BOTH navigate + submenu" do
+      root = payload_for("/").fetch("menus").fetch("root").fetch("items")
+      row = root.find { |i| i.fetch("key") == "V" }
+      expect(row.fetch("action")).to eq("type" => "navigate", "path" => "/videos")
+      expect(row.fetch("submenu")).to eq("videos")
+    end
+
+    it "root [P] projects row carries BOTH navigate + submenu" do
+      root = payload_for("/").fetch("menus").fetch("root").fetch("items")
+      row = root.find { |i| i.fetch("key") == "P" }
+      expect(row.fetch("action")).to eq("type" => "navigate", "path" => "/projects")
+      expect(row.fetch("submenu")).to eq("projects")
+    end
+
+    it "root [G] games row carries BOTH navigate + submenu" do
+      root = payload_for("/").fetch("menus").fetch("root").fetch("items")
+      row = root.find { |i| i.fetch("key") == "G" }
+      expect(row.fetch("action")).to eq("type" => "navigate", "path" => "/games")
+      expect(row.fetch("submenu")).to eq("games")
+    end
+
+    it "root [c] calendar row carries BOTH navigate + submenu" do
+      root = payload_for("/").fetch("menus").fetch("root").fetch("items")
+      row = root.find { |i| i.fetch("key") == "c" }
+      expect(row.fetch("action")).to eq("type" => "navigate", "path" => "/calendar")
+      expect(row.fetch("submenu")).to eq("calendar")
+    end
+
+    it "root [N] notifications row carries BOTH open-modal action + submenu" do
+      root = payload_for("/").fetch("menus").fetch("root").fetch("items")
+      row = root.find { |i| i.fetch("key") == "N" }
+      expect(row.fetch("action")).to eq("type" => "open", "target" => "notifications_modal")
+      expect(row.fetch("submenu")).to eq("notifications")
+    end
+
+    it "channels submenu [l] list still navigates to /channels (muscle memory)" do
+      channels = payload_for("/").fetch("menus").fetch("channels").fetch("items")
+      list_row = channels.find { |i| i.fetch("key") == "l" }
+      expect(list_row.fetch("action")).to eq("type" => "navigate", "path" => "/channels")
+    end
+
+    it "channels submenu [+] add opens the add-channel page" do
+      channels = payload_for("/").fetch("menus").fetch("channels").fetch("items")
+      add_row = channels.find { |i| i.fetch("key") == "+" }
+      expect(add_row.fetch("action")).to eq(
+        "type" => "navigate", "path" => "/settings/youtube"
+      )
+    end
+  end
+
+  describe "leader-menu popup div is permanent across Turbo navigations" do
+    # The Stimulus controller relies on the popup div surviving a
+    # Turbo Drive body swap when a root-menu item carries BOTH a
+    # navigate action AND a submenu (e.g. pressing [C] navigates to
+    # /channels AND drills into the channels submenu so the user sees
+    # the next-level options). The cross-swap survival is gated by
+    # the `data-turbo-permanent` attribute on the popup div; lock
+    # that attribute here so it cannot regress quietly.
+    it "renders the popup div with data-turbo-permanent" do
+      visit "/"
+      expect(page).to have_css(
+        "div#leader-menu-popup[data-turbo-permanent]",
+        visible: :all
+      )
     end
   end
 end
