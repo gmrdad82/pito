@@ -34,24 +34,37 @@
       <% end %>
     </dl>
 
+    <%# Every cross-link inside `calendar_entry_details_frame` opts out
+        of the enclosing frame with `turbo_frame: "_top"`. Without it,
+        Turbo scopes the navigation to the modal's frame and the
+        destination response (entry / video / channel / game show)
+        carries no matching frame — Turbo would render "Content missing"
+        inside the modal instead of advancing the page. %>
     <% if @parent_entry %>
       <p class="text-muted" style="margin-bottom: 8px;">
-        parent: <%= link_to @parent_entry.title, calendar_entry_path(@parent_entry) %>
+        parent: <%= link_to @parent_entry.title,
+                            calendar_entry_path(@parent_entry),
+                            data: { turbo_frame: "_top" } %>
       </p>
     <% end %>
 
     <div class="dot-list modal-footer" style="margin-top: 12px;">
-      <%= render(BracketedLinkComponent.new(label: @target_label, href: @target_href)) %>
+      <%= render(BracketedLinkComponent.new(label: @target_label,
+            href: @target_href,
+            data: { turbo_frame: "_top" })) %>
       <%= render(BracketedLinkComponent.new(label: "details",
-            href: calendar_entry_path(@entry))) %>
+            href: calendar_entry_path(@entry),
+            data: { turbo_frame: "_top" })) %>
       <%# `[close]` — when rendered inside the layout-level modal, the
           `click->calendar-entry-modal#close` action dismisses the
           dialog. When the user lands here via a direct URL the
           Stimulus action no-ops; the `href` falls back to the entry
-          show page so they aren't stranded on a layout-less view. %>
+          show page (also `_top` so Turbo navigates the document
+          rather than searching for the modal frame). %>
       <%= link_to calendar_entry_path(@entry),
             class: "bracketed",
-            data: { action: "click->calendar-entry-modal#close" } do %>[<span class="bl">close</span>]<% end %>
+            data: { action: "click->calendar-entry-modal#close",
+                    turbo_frame: "_top" } do %>[<span class="bl">close</span>]<% end %>
     </div>
   </div>
 <% end %>

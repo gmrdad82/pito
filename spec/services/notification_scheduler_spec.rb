@@ -4,30 +4,16 @@ RSpec.describe NotificationScheduler do
   let(:scheduler) { described_class.new }
 
   describe "#perform with calendar_declarations" do
-    context "game_release with day precision and no purchase" do
+    context "game_release with day precision in the future" do
       let!(:game_entry) do
         create(:calendar_entry, :game_release,
                release_precision: :day, starts_at: 7.days.from_now)
       end
 
-      it "materializes T-7 (and T-1 once ripe) declarations" do
-        # T-7 is "now" so it's ripe; T-1 is 6 days away — not ripe.
-        # T-0 is also 7 days away — not ripe yet.
-        expect { scheduler.perform }.to change { Notification.count }.by(1)
-        notif = Notification.last
-        expect(notif.event_type).to eq("game_release_upcoming")
-        expect(notif.source_calendar_entry_id).to eq(game_entry.id)
-      end
-
-      it "is idempotent — re-run does not create duplicates" do
-        scheduler.perform
-        expect { scheduler.perform }.not_to change(Notification, :count)
-      end
-
-      it "does not materialize a future declaration" do
-        # Push the entry far enough that no offset is ripe.
-        game_entry.update!(starts_at: 60.days.from_now)
-        # Wipe any prior rows from previous setup.
+      it "does not materialize a future day-of declaration" do
+        # 2026-05-12 — the T-7 / T-1 pre-release reminder track was
+        # dropped along with `game_release_upcoming`. Only the day-of
+        # (T-0) declaration survives, and it is not yet ripe.
         Notification.delete_all
         expect { scheduler.perform }.not_to change(Notification, :count)
       end
@@ -42,25 +28,21 @@ RSpec.describe NotificationScheduler do
         kinds = Notification.where(source_calendar_entry_id: entry.id).pluck(:event_type)
         expect(kinds).to include("game_release_today")
       end
-    end
 
-    context "game_release with notify_anyway=false purchase_planned child" do
-      it "suppresses pre-release reminders" do
-        parent = create(:calendar_entry, :game_release,
-                        release_precision: :day, starts_at: 0.days.from_now + 1.minute)
-        create(:calendar_entry, :purchase_planned, parent_entry: parent, notify_anyway: false)
+      it "is idempotent — re-run does not create duplicates" do
+        create(:calendar_entry, :game_release,
+               release_precision: :day, starts_at: 1.minute.ago)
         Notification.delete_all
         scheduler.perform
-        kinds = Notification.where(source_calendar_entry_id: parent.id).pluck(:event_type)
-        expect(kinds).not_to include("game_release_upcoming")
+        expect { scheduler.perform }.not_to change(Notification, :count)
       end
     end
 
-    context "game_release with notify_anyway=true purchase_planned child" do
-      it "fires the day-of declaration normally" do
+    context "game_release on day-of with purchase_planned child" do
+      it "fires the day-of declaration regardless of notify_anyway" do
         parent = create(:calendar_entry, :game_release,
                         release_precision: :day, starts_at: 30.seconds.from_now)
-        create(:calendar_entry, :purchase_planned, parent_entry: parent, notify_anyway: true)
+        create(:calendar_entry, :purchase_planned, parent_entry: parent, notify_anyway: false)
         Notification.delete_all
         scheduler.perform
         kinds = Notification.where(source_calendar_entry_id: parent.id).pluck(:event_type)
@@ -69,7 +51,7 @@ RSpec.describe NotificationScheduler do
     end
 
     context "game_release with quarter precision" do
-      it "produces no offsets" do
+      it "produces no declarations" do
         entry = create(:calendar_entry, :game_release,
                        release_precision: :quarter, starts_at: 30.days.from_now)
         Notification.delete_all

@@ -48,7 +48,15 @@ class Notification < ApplicationRecord
 
   enum :kind, {
     video_published: 0,
+    # DEPRECATED 2026-05-12 — kind retained for enum-integer stability
+    # so future kinds don't collide on `1`. Emission paths, formatter
+    # templates, and source helpers were removed in the same patch.
+    # See `db/migrate/20260512010000_drop_deprecated_notification_kinds.rb`.
     video_pre_publish_check_missed: 1,
+    # DEPRECATED 2026-05-12 — pre-release reminder track dropped per
+    # user direction (one notification per game release, not two).
+    # `game_release_today` (kind 3) is the sole survivor. Enum value
+    # retained for integer stability.
     game_release_upcoming: 2,
     game_release_today: 3,
     milestone_reached: 4,

@@ -10,6 +10,9 @@
 class EntryRowComponent < ViewComponent::Base
   include CalendarHelper
 
+  # `show_reminder` kept for call-site compatibility; the T-7/T-1/T-0
+  # reminder copy was dropped 2026-05-12 along with the
+  # `game_release_upcoming` notification kind.
   def initialize(entry:, indent: false, show_reminder: false, show_date: true)
     @entry = entry
     @indent = indent
@@ -54,16 +57,5 @@ class EntryRowComponent < ViewComponent::Base
   # Frame.
   def details_pane_url
     Rails.application.routes.url_helpers.details_pane_calendar_entry_path(entry)
-  end
-
-  # Returns true when this is a future game_release entry whose
-  # dispatch-declaration includes pre-release reminders.
-  def show_reminder_copy?
-    return false unless show_reminder
-    return false unless entry.entry_type == "game_release"
-    return false if entry.starts_at <= Time.current
-
-    decls = Calendar::NotificationDispatchDeclaration.declarations_for(entry)
-    decls.any? { |d| d[:kind] == "game_release_upcoming" }
   end
 end

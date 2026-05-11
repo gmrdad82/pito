@@ -154,7 +154,15 @@
         current password is required.
       </p>
 
-      <%= render(BracketedLinkComponent.new(label: "edit account", href: settings_user_path)) %>
+      <%# 2026-05-11 — user direction. The `[edit]` link drops the
+          redundant `account` token (bracketed-link convention:
+          single-word labels avoid restating context), and the
+          `[security]` sibling wires the previously-orphaned
+          `/settings/security` dashboard into the user pane so 2FA,
+          blocked locations, and the attempts log are one click
+          from the main settings page. %>
+      <%= render(BracketedLinkComponent.new(label: "edit", href: settings_user_path)) %>
+      <%= render(BracketedLinkComponent.new(label: "security", href: settings_security_path)) %>
     </fieldset>
   </div>
 
@@ -674,18 +682,18 @@
               <thead>
                 <tr>
                   <th style="font-weight: normal; padding-right: 12px;">category</th>
-                  <th style="font-weight: normal; padding-right: 12px;">files</th>
-                  <th style="font-weight: normal;">size</th>
+                  <th class="num" style="font-weight: normal; padding-right: 12px;">files</th>
+                  <th class="num" style="font-weight: normal;">size</th>
                 </tr>
               </thead>
               <tbody>
                 <% @assets_breakdown.each do |row| %>
                   <tr>
                     <td class="text-muted" style="padding-right: 12px;"><%= row[:label] %></td>
-                    <td class="text-muted" style="padding-right: 12px;">
+                    <td class="text-muted num" style="padding-right: 12px;">
                       <%= row[:file_count] ? number_with_delimiter(row[:file_count]) : "—" %>
                     </td>
-                    <td class="text-muted">
+                    <td class="text-muted num">
                       <%= row[:size_bytes] ? number_to_human_size(row[:size_bytes]) : "—" %>
                     </td>
                   </tr>
@@ -732,18 +740,18 @@
               <thead>
                 <tr>
                   <th style="font-weight: normal; padding-right: 12px;">namespace</th>
-                  <th style="font-weight: normal; padding-right: 12px;">count</th>
-                  <th style="font-weight: normal;">size</th>
+                  <th class="num" style="font-weight: normal; padding-right: 12px;">count</th>
+                  <th class="num" style="font-weight: normal;">size</th>
                 </tr>
               </thead>
               <tbody>
                 <% @notes_breakdown.each do |row| %>
                   <tr>
                     <td class="text-muted" style="padding-right: 12px;"><%= row[:label] %></td>
-                    <td class="text-muted" style="padding-right: 12px;">
+                    <td class="text-muted num" style="padding-right: 12px;">
                       <%= row[:count] ? number_with_delimiter(row[:count]) : "—" %>
                     </td>
-                    <td class="text-muted">
+                    <td class="text-muted num">
                       <%= row[:size_bytes] ? number_to_human_size(row[:size_bytes]) : "—" %>
                     </td>
                   </tr>

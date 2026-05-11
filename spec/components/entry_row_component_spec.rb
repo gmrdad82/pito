@@ -95,19 +95,13 @@ RSpec.describe EntryRowComponent, type: :component do
       expect(page).to have_css(".calendar-row__title a[data-calendar-entry-modal-url-param='/calendar/entries/#{entry.id}/details_pane']")
     end
 
-    it "renders [remind: t-7 t-1 t-0] (canonical no-padding form) for future game_release entries when show_reminder is true" do
+    # 2026-05-12 — the `[remind: t-7 t-1 t-0]` reminder copy was
+    # removed along with the `game_release_upcoming` notification
+    # kind per user direction. `show_reminder` is kept as an init kwarg
+    # for call-site compatibility but is now a no-op.
+    it "does NOT render reminder copy on game_release entries (kind dropped)" do
       entry = create(:calendar_entry, :game_release,
                      starts_at: 30.days.from_now,
-                     release_precision: :day)
-      render_inline(described_class.new(entry: entry, show_reminder: true))
-      expect(page).to have_content("[remind: t-7 t-1 t-0]")
-      # Phase 15 reviewer concern 4 — canonical form has no inner spaces.
-      expect(page).not_to have_content("[ remind:")
-    end
-
-    it "does NOT render the reminder copy for past game_release entries" do
-      entry = create(:calendar_entry, :game_release,
-                     starts_at: 30.days.ago,
                      release_precision: :day)
       render_inline(described_class.new(entry: entry, show_reminder: true))
       expect(page).not_to have_content("remind:")

@@ -22,26 +22,6 @@ RSpec.describe NotificationFormatter::Discord do
         title_includes: "published: demo",
         url_path: "/videos/1"
       },
-      video_pre_publish_check_missed: {
-        event_type: "video_pre_publish_check_missed",
-        severity: :warn,
-        payload: {
-          "video_id" => 1, "video_title" => "demo",
-          "missing_checks" => %w[game]
-        },
-        title_includes: "missed pre-publish check: demo",
-        url_path: "/videos/1/edit"
-      },
-      game_release_upcoming: {
-        event_type: "game_release_upcoming",
-        severity: :info,
-        payload: {
-          "game_id" => 5, "game_title" => "G", "release_date" => "2026-09-01",
-          "days_until" => 7, "platforms" => [ "PC" ], "igdb_url" => nil
-        },
-        title_includes: "G releases in 7 days",
-        url_path: "/games/5"
-      },
       game_release_today: {
         event_type: "game_release_today",
         severity: :success,

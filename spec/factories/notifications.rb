@@ -55,22 +55,6 @@ FactoryBot.define do
       title { "video published" }
     end
 
-    trait :video_pre_publish_check_missed do
-      kind { :video_pre_publish_check_missed }
-      event_type { "video_pre_publish_check_missed" }
-      severity { :info }
-      title { "pre-publish check skipped" }
-      with_calendar_entry { false }
-      sequence(:dedup_key) { |n| "missed-check-#{n}" }
-    end
-
-    trait :game_release_upcoming do
-      kind { :game_release_upcoming }
-      event_type { "game_release_upcoming" }
-      severity { :info }
-      title { "upcoming release" }
-    end
-
     trait :game_release_today do
       kind { :game_release_today }
       event_type { "game_release_today" }

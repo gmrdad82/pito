@@ -10,6 +10,12 @@
       - channel: the Channel the diff belongs to
       - diff:    the open ChannelDiff row
 %>
+<%# `[ review changes ]` opts out of the enclosing
+    `channel_diff_banner` frame with `data: { turbo_frame: "_top" }`.
+    Without it, clicking the link scopes the navigation to this banner
+    frame; the diff page response has no matching `channel_diff_banner`
+    frame, so Turbo would show "Content missing" inside the banner
+    instead of navigating the page. %>
 <%= turbo_frame_tag "channel_diff_banner" do %>
   <div class="pane pane--standalone" style="margin-bottom: 8px; padding: 6px 10px;">
     <span>
@@ -18,6 +24,7 @@
     </span>
     <%= link_to "[ review changes ]",
                 diff_channel_path(channel),
-                class: "bracketed" %>
+                class: "bracketed",
+                data: { turbo_frame: "_top" } %>
   </div>
 <% end %>

@@ -471,6 +471,47 @@ RSpec.describe "Settings", type: :request do
       expect(indices).to eq(indices.sort)
     end
 
+    # 2026-05-11 — user direction. The user pane carries two
+    # bracketed links: `[edit]` (settings_user_path) and
+    # `[security]` (settings_security_path). The previous
+    # `[edit account]` label is gone — the bracketed-link
+    # convention prefers single-token labels without restating
+    # context. `[security]` wires the previously-orphaned
+    # /settings/security dashboard into the user pane.
+    describe "user pane bracketed links" do
+      it "renders [edit] linking to settings_user_path (not [edit account])" do
+        get settings_path
+        user_section = response.body[
+          /<legend><h2>user<\/h2><\/legend>.*?<\/fieldset>/m
+        ]
+        expect(user_section).not_to be_nil
+        # Old label is gone.
+        expect(user_section).not_to include("edit account")
+        # New label is present as a bracketed link pointing at
+        # /settings/user.
+        expect(user_section).to match(
+          %r{<a [^>]*href="#{Regexp.escape(settings_user_path)}"[^>]*>\[<span class="bl">edit</span>\]</a>}
+        )
+      end
+
+      it "renders [security] linking to settings_security_path next to [edit]" do
+        get settings_path
+        user_section = response.body[
+          /<legend><h2>user<\/h2><\/legend>.*?<\/fieldset>/m
+        ]
+        expect(user_section).not_to be_nil
+        expect(user_section).to match(
+          %r{<a [^>]*href="#{Regexp.escape(settings_security_path)}"[^>]*>\[<span class="bl">security</span>\]</a>}
+        )
+        # Order: [edit] before [security] (left-to-right, same row).
+        idx_edit     = user_section.index(">edit</span>]")
+        idx_security = user_section.index(">security</span>]")
+        expect(idx_edit).to be_a(Integer)
+        expect(idx_security).to be_a(Integer)
+        expect(idx_edit).to be < idx_security
+      end
+    end
+
     # 2026-05-10 user-locked restructure — three section headings
     # bracket the page. Headings are h2-styled and lowercase per
     # project convention.
@@ -986,6 +1027,34 @@ RSpec.describe "Settings", type: :request do
         expect(positions).to eq(positions.sort)
       end
 
+      # 2026-05-11 — design.md numbers convention: numeric columns
+      # right-align via `class="num"`. The `files` and `size`
+      # columns (both `<th>` and `<td>`) must carry the class so
+      # tabular numbers line up by digit place.
+      it "right-aligns the files + size columns via class=\"num\"" do
+        allow_any_instance_of(SettingsController)
+          .to receive(:assets_breakdown_for_settings_pane)
+          .and_return([
+            { label: "cover arts", file_count: 200,    size_bytes: 50_000_000 },
+            { label: "thumbnails", file_count: 12_345, size_bytes: 4_500_000_000 },
+            { label: "banners",    file_count: 0,      size_bytes: 0 },
+            { label: "other",      file_count: 30,     size_bytes: 3_000_000 }
+          ])
+
+        get settings_path
+        storage_section = response.body[/<legend><h2>storage<\/h2><\/legend>.*?<\/fieldset>/m]
+        # Header cells for `files` and `size` carry `.num`.
+        expect(storage_section).to match(/<th class="num"[^>]*>files<\/th>/)
+        expect(storage_section).to match(/<th class="num"[^>]*>size<\/th>/)
+        # Body cells for the four numeric rows carry `.num` (in
+        # combination with `text-muted`). One assertion per column
+        # is enough — the loop emits identical markup per row.
+        expect(storage_section).to include('<td class="text-muted num"')
+        # `category` label column stays left-aligned (no `.num`).
+        expect(storage_section).to match(/<th [^>]*>category<\/th>/)
+        expect(storage_section).not_to match(/<th class="num"[^>]*>category<\/th>/)
+      end
+
       it "renders the four-row table even when the assets root is absent" do
         # Stub the resolved root to a non-existent path so the
         # controller takes the `assets_breakdown_empty` branch.
@@ -1118,6 +1187,27 @@ RSpec.describe "Settings", type: :request do
         get settings_path
         storage_section = response.body[/<legend><h2>storage<\/h2><\/legend>.*?<\/fieldset>/m]
         expect(storage_section).not_to include(">namespace<")
+      end
+
+      # 2026-05-11 — design.md numbers convention. The `count` and
+      # `size` columns are numeric and right-align via `class="num"`
+      # on both `<th>` and `<td>`; the `namespace` label column
+      # stays left-aligned.
+      it "right-aligns the count + size columns via class=\"num\"" do
+        allow_any_instance_of(SettingsController)
+          .to receive(:notes_breakdown_for_settings_pane)
+          .and_return([
+            { label: "project notes", count: 42,  size_bytes: 5_000_000 },
+            { label: "mobile notes",  count: nil, size_bytes: 1_024 }
+          ])
+
+        get settings_path
+        storage_section = response.body[/<legend><h2>storage<\/h2><\/legend>.*?<\/fieldset>/m]
+        expect(storage_section).to match(/<th class="num"[^>]*>count<\/th>/)
+        expect(storage_section).to match(/<th class="num"[^>]*>size<\/th>/)
+        expect(storage_section).to include('<td class="text-muted num"')
+        expect(storage_section).to match(/<th [^>]*>namespace<\/th>/)
+        expect(storage_section).not_to match(/<th class="num"[^>]*>namespace<\/th>/)
       end
     end
 

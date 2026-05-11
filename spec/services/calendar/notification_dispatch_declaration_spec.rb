@@ -3,35 +3,22 @@ require "rails_helper"
 RSpec.describe Calendar::NotificationDispatchDeclaration do
   describe ".declarations_for" do
     context "game_release" do
-      it "with release_precision=day and no purchase, returns T-7 / T-1 / T-0 + game_release_today" do
+      # 2026-05-12 — the `game_release_upcoming` pre-release reminder
+      # track (T-7 / T-1) was dropped per user direction. Only the
+      # day-of `game_release_today` declaration survives.
+      it "with release_precision=day, returns only game_release_today" do
         entry = create(:calendar_entry, :game_release, release_precision: :day, starts_at: 30.days.from_now)
         decls = described_class.declarations_for(entry)
         kinds = decls.map { |d| d[:kind] }
-        # T-7 + T-1 + T-0 (default-on offsets) and game_release_today
-        expect(kinds).to include("game_release_upcoming")
-        expect(kinds).to include("game_release_today")
-        # game_release_upcoming pre-release reminders (offsets 7, 1)
-        # plus the day-of (offset 0) skipped from pre-release branch
-        # since `next [] if offset.zero?`.
-        upcoming = decls.select { |d| d[:kind] == "game_release_upcoming" }
-        expect(upcoming.size).to eq(2)
+        expect(kinds).to eq([ "game_release_today" ])
       end
 
-      it "with release_precision=day and a child purchase_planned (notify_anyway=false), suppresses pre-release reminders" do
+      it "with release_precision=day and any purchase_planned child, still fires game_release_today" do
         entry = create(:calendar_entry, :game_release, release_precision: :day, starts_at: 30.days.from_now)
         create(:calendar_entry, :purchase_planned, parent_entry: entry, notify_anyway: false)
         decls = described_class.declarations_for(entry)
         kinds = decls.map { |d| d[:kind] }
-        expect(kinds).not_to include("game_release_upcoming")
-        expect(kinds).to include("game_release_today")
-      end
-
-      it "with release_precision=day and a child purchase_planned (notify_anyway=true), keeps all" do
-        entry = create(:calendar_entry, :game_release, release_precision: :day, starts_at: 30.days.from_now)
-        create(:calendar_entry, :purchase_planned, parent_entry: entry, notify_anyway: true)
-        decls = described_class.declarations_for(entry)
-        kinds = decls.map { |d| d[:kind] }
-        expect(kinds).to include("game_release_upcoming", "game_release_today")
+        expect(kinds).to eq([ "game_release_today" ])
       end
 
       it "with release_precision=quarter, returns no declarations" do

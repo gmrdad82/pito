@@ -131,20 +131,13 @@
     </div>
   </div>
 
-  <%# Phase 24 — per-channel Google management panel. Renders the
-      YoutubeConnection that owns this channel (email, scopes,
-      last-authorized, reauth state) or a "no connection" empty state
-      with a `[connect this channel]` entry point. Placement: after the
-      identity / banner pane, before the analytics summary so the
-      OAuth context sits near the top of the page. %>
-  <div class="pane-row">
-    <%= render "channels/google_panel", channel: @channel, youtube_connection: @youtube_connection %>
-  </div>
-
-  <%# Row 2 — analytics summary. Three inline cells (subscribers,
-      views, videos) plus the `[full analytics]` outbound link to the
-      existing per-channel analytics page. NO inline sparkline (locked
-      decision — avoid chartkick coupling on the show page). %>
+  <%# Row 2 — analytics summary. 2026-05-11 restructure — analytics
+      moved above the Google connection panel so the high-signal
+      numbers sit near the page top. The `videos` row was dropped
+      from this table (the dedicated videos table further down
+      surfaces that count next to the `[see all videos]` link). NO
+      inline sparkline (locked decision — avoid chartkick coupling on
+      the show page). %>
   <div class="pane-row">
     <div class="pane pane--standalone">
       <h2 style="margin: 0 0 8px 0;">analytics</h2>
@@ -157,10 +150,6 @@
           <td class="text-muted" style="padding-right: 12px;">views</td>
           <td><%= formatted_view_count(@channel) %></td>
         </tr>
-        <tr>
-          <td class="text-muted" style="padding-right: 12px;">videos</td>
-          <td><%= formatted_video_count(@channel) %></td>
-        </tr>
       </table>
       <%= render(BracketedLinkComponent.new(
             label: "full analytics",
@@ -169,15 +158,26 @@
     </div>
   </div>
 
-  <%# Row 3 — videos pane. Starred-first, then latest by
-      COALESCE(published_at, created_at) DESC, capped at 30. The
-      `[see all]` link hands off to the videos picker pre-filtered by
-      this channel. %>
+  <%# Row 3 — per-channel Google management panel. Renders the
+      YoutubeConnection that owns this channel (last-authorized,
+      reauth state) or a "no connection" empty state with a
+      `[connect this channel]` entry point. Placement moved (2026-05-11)
+      to sit after analytics — OAuth status is plumbing, analytics is
+      the headline. %>
   <div class="pane-row">
-    <div class="pane pane--standalone">
-      <%= render "channels/videos_pane", channel: @channel %>
-    </div>
+    <%= render "channels/google_panel", channel: @channel, youtube_connection: @youtube_connection %>
   </div>
+
+  <%# Videos table (NOT a pane). Mirrors /videos column shape, scoped
+      to this channel. Starred-first, then latest by
+      COALESCE(published_at, created_at) DESC, capped at 30. The
+      `[see all videos]` link is rendered only when the channel has
+      more than 30 videos — at <=30 the table already shows everything.
+  %>
+  <%= render "channels/videos_table",
+             channel: @channel,
+             videos: @channel_videos,
+             total: @channel_videos_total %>
 
   <% if @available_channels.any? %>
     <%= render "channels/add_pane_dialog", available_channels: @available_channels, current_ids: @channel.id.to_s %>

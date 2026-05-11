@@ -12,8 +12,6 @@ RSpec.describe NotificationFormatter::Slack do
   describe "per-kind dispatch" do
     %i[
       video_published
-      video_pre_publish_check_missed
-      game_release_upcoming
       game_release_today
       milestone_reached
       calendar_entry_firing
@@ -274,15 +272,6 @@ RSpec.describe NotificationFormatter::Slack do
              event_payload: { "video_id" => 1, "video_title" => "demo",
                               "channel_title" => "lab",
                               "watch_url" => "https://y.com/v" })
-    when :video_pre_publish_check_missed
-      create(:notification, :video_pre_publish_check_missed, fires_at: fires_at,
-             event_payload: { "video_id" => 1, "video_title" => "demo",
-                              "missing_checks" => %w[game] })
-    when :game_release_upcoming
-      create(:notification, :game_release_upcoming, fires_at: fires_at,
-             event_payload: { "game_id" => 1, "game_title" => "G",
-                              "release_date" => "2026-09-01",
-                              "days_until" => 7, "platforms" => [ "PC" ] })
     when :game_release_today
       create(:notification, :game_release_today, fires_at: fires_at,
              event_payload: { "game_id" => 1, "game_title" => "G",

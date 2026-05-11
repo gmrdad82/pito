@@ -31,11 +31,6 @@
        data-action="click->calendar-entry-modal#open"
        data-calendar-entry-modal-url-param="<%= details_pane_url %>"
        style="text-decoration: none; cursor: pointer;">[<span class="bl"><%= title %></span>]</a>
-    <% if show_reminder_copy? %>
-      <%# Phase 15 reviewer concern 4 — canonical bracketed form with
-          no inner padding. %>
-      <span class="text-muted" style="margin-left: 8px;">[remind: t-7 t-1 t-0]</span>
-    <% end %>
   </td>
   <td class="calendar-row__open">
     <%= render(BracketedLinkComponent.new(label: "open", href: open_target_href)) %>

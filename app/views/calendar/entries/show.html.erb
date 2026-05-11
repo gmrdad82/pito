@@ -64,12 +64,6 @@
         href: calendar_root_path)) %>
 </div>
 
-<%# Phase 15 reviewer concerns 3 + 4 — reminder copy is the canonical
-    `[remind: t-7 t-1 t-0]` literal (no inner padding, no derivation
-    from `@declarations.map { |d| d[:kind] }`). The schedule view's
-    EntryRowComponent already renders the literal; this matches it. %>
-<% if @declarations.any? { |d| d[:kind] == "game_release_upcoming" } %>
-  <p class="text-muted" style="margin-top: 16px;">
-    [remind: t-7 t-1 t-0]
-  </p>
-<% end %>
+<%# 2026-05-12 — the `[remind: t-7 t-1 t-0]` pre-release reminder copy
+    was removed along with the `game_release_upcoming` notification
+    kind. Only `game_release_today` survives for game_release entries. %>

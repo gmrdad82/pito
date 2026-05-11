@@ -1,7 +1,8 @@
 # Phase 16 §2 — Notification formatter.
 #
-# Template for the `game_release_today` notification kind.
-# Same `event_payload` shape as `game_release_upcoming`.
+# Template for the `game_release_today` notification kind. The
+# pre-release `game_release_upcoming` track was dropped 2026-05-12;
+# this template is the sole survivor of the game-release pair.
 module NotificationFormatter
   module Templates
     class GameReleaseToday < Base

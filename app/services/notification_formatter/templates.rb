@@ -8,8 +8,6 @@ module NotificationFormatter
   module Templates
     REGISTRY = {
       "video_published"                => VideoPublished,
-      "video_pre_publish_check_missed" => VideoPrePublishCheckMissed,
-      "game_release_upcoming"          => GameReleaseUpcoming,
       "game_release_today"             => GameReleaseToday,
       "milestone_reached"              => MilestoneReached,
       "calendar_entry_firing"          => CalendarEntryFiring,

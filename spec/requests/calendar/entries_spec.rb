@@ -278,18 +278,16 @@ RSpec.describe "Calendar::Entries", type: :request do
       expect(response.body).not_to match(/\[note\]/)
     end
 
-    # Phase 15 reviewer concerns 3 + 4 — the reminder copy is the
-    # canonical literal `[remind: t-7 t-1 t-0]` (no inner padding, not
-    # derived from `@declarations.map { |d| d[:kind] }`).
-    it "renders the canonical [remind: t-7 t-1 t-0] literal for future game_release entries" do
+    # 2026-05-12 — the `[remind: t-7 t-1 t-0]` reminder copy was
+    # removed along with the `game_release_upcoming` notification kind
+    # per user direction. Game_release entries now only fire the
+    # day-of `game_release_today` notification.
+    it "no longer renders the pre-release reminder copy on game_release entries" do
       ce = create(:calendar_entry, :game_release,
                   starts_at: 30.days.from_now,
                   release_precision: :day)
       get "/calendar/entries/#{ce.id}"
-      if response.body.include?("remind:")
-        expect(response.body).to include("[remind: t-7 t-1 t-0]")
-        expect(response.body).not_to match(/\[ remind:/)
-      end
+      expect(response.body).not_to include("[remind:")
     end
   end
 
@@ -399,6 +397,57 @@ RSpec.describe "Calendar::Entries", type: :request do
     it "404s for an unknown id" do
       get "/calendar/entries/0/details_pane"
       expect(response).to have_http_status(:not_found)
+    end
+
+    # Turbo Frame audit 2026-05-12 — every cross-link inside the
+    # `calendar_entry_details_frame` MUST opt out of the enclosing
+    # frame with `data-turbo-frame="_top"`. Otherwise Turbo scopes the
+    # navigation to the modal frame and the destination response
+    # (entry / video / channel / game show) carries no matching frame
+    # — Turbo would render "Content missing" inside the modal.
+    describe "frame opt-out on every cross-link (Content-missing guard)" do
+      it "marks the `[open video]` link with turbo_frame=_top" do
+        v = create(:video)
+        ce = create(:calendar_entry, :video_published, video_record: v)
+        get "/calendar/entries/#{ce.id}/details_pane"
+        anchor = response.body[/<a [^>]*href="\/videos\/#{v.id}"[^>]*>/]
+        expect(anchor).to include('data-turbo-frame="_top"')
+      end
+
+      it "marks the `[details]` link (entry show) with turbo_frame=_top" do
+        ce = create(:calendar_entry, :milestone_manual)
+        get "/calendar/entries/#{ce.id}/details_pane"
+        anchor = response.body[/<a [^>]*href="\/calendar\/entries\/#{ce.id}"[^>]*>\s*\[<span class="bl">details<\/span>\]/]
+        expect(anchor).not_to be_nil, "no [details] anchor found"
+        expect(anchor).to include('data-turbo-frame="_top"')
+      end
+
+      it "marks the `[close]` link with turbo_frame=_top" do
+        ce = create(:calendar_entry, :milestone_manual)
+        get "/calendar/entries/#{ce.id}/details_pane"
+        # The `[close]` anchor is the one whose body contains
+        # `<span class="bl">close</span>`. Rails renders `data-action`
+        # with HTML-escaped `&gt;` in the attribute value, which makes
+        # an exact-substring match brittle. Locate the anchor by
+        # walking forward from the `close` label.
+        close_anchor = response.body[/<a [^>]*>\s*\[<span class="bl">close<\/span>\]/]
+        # The opening `<a ...>` tag is what we want; the substring above
+        # captures it.
+        expect(close_anchor).not_to be_nil, "no [close] anchor found"
+        expect(close_anchor).to include('data-turbo-frame="_top"')
+      end
+
+      it "marks the parent_entry link with turbo_frame=_top when a parent exists" do
+        # purchase_planned is the only entry_type that allows
+        # parent_entry per CalendarEntryCrossReferenceValidator.
+        parent = create(:calendar_entry, :milestone_manual, title: "parent")
+        child  = create(:calendar_entry, :purchase_planned,
+                        parent_entry: parent, title: "child")
+        get "/calendar/entries/#{child.id}/details_pane"
+        anchor = response.body[/<a [^>]*href="\/calendar\/entries\/#{parent.id}"[^>]*>/]
+        expect(anchor).not_to be_nil, "no parent anchor found"
+        expect(anchor).to include('data-turbo-frame="_top"')
+      end
     end
   end
 

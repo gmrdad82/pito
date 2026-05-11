@@ -42,11 +42,39 @@ RSpec.describe "GET /channels/:slug — show page revamp", type: :request do
       expect(response.body).to match(/<turbo-frame[^>]*id="channel_diff_banner"[^>]*>/)
     end
 
-    it "renders the four pane rows (detail, Google panel, analytics, videos)" do
-      # Phase 24 — a fourth pane-row (Google management panel) was
-      # added between the detail pane and the analytics summary.
+    it "renders three pane rows (detail, analytics, Google panel) and a videos table outside any pane" do
+      # 2026-05-11 restructure — the videos block is no longer a pane.
+      # The page has three pane-rows total: identity/detail, analytics,
+      # and the Google management panel. Videos render below as a
+      # bare /videos-style table.
       get channel_path(hydrated_channel)
-      expect(response.body.scan(/<div class="pane-row">/).size).to eq(4)
+      expect(response.body.scan(/<div class="pane-row">/).size).to eq(3)
+    end
+
+    it "renders the analytics pane BEFORE the Google connection pane in source order" do
+      get channel_path(hydrated_channel)
+      analytics_idx = response.body.index("<h2 style=\"margin: 0 0 8px 0;\">analytics</h2>")
+      google_idx = response.body.index("<h2 style=\"margin: 0 0 8px 0;\">Google connection</h2>")
+      expect(analytics_idx).not_to be_nil
+      expect(google_idx).not_to be_nil
+      expect(analytics_idx).to be < google_idx
+    end
+
+    it "drops the 'videos' row from the analytics table" do
+      get channel_path(hydrated_channel)
+      analytics_block = response.body[/<h2[^>]*>analytics<\/h2>(.+?)<\/table>/m, 1].to_s
+      expect(analytics_block).to include("subscribers")
+      expect(analytics_block).to include("views")
+      expect(analytics_block).not_to match(/>\s*videos\s*</)
+    end
+
+    it "renders the videos table heading after all three pane rows" do
+      get channel_path(hydrated_channel)
+      videos_idx = response.body.index(/<h2[^>]*>videos \(/)
+      expect(videos_idx).not_to be_nil
+      last_pane_row_idx = response.body.rindex('<div class="pane-row">')
+      expect(last_pane_row_idx).not_to be_nil
+      expect(videos_idx).to be > last_pane_row_idx
     end
 
     it "renders the [youtube channel] outbound link" do
@@ -75,9 +103,19 @@ RSpec.describe "GET /channels/:slug — show page revamp", type: :request do
       expect(response.body).to include("href=\"#{channel_analytics_path(hydrated_channel)}\"")
     end
 
-    it "renders the [see all] link with the channel slug" do
+    it "does NOT render the [see all videos] link when the channel has <=30 videos" do
+      # `hydrated_channel` is created without any associated videos, so
+      # the video count is 0 and the [see all videos] link must not
+      # render — the table already shows everything (nothing, in this
+      # case).
       get channel_path(hydrated_channel)
-      expect(response.body).to include("see all")
+      expect(response.body).not_to include("see all videos")
+    end
+
+    it "renders the [see all videos] link when the channel has >30 videos" do
+      31.times { create(:video, channel: hydrated_channel) }
+      get channel_path(hydrated_channel)
+      expect(response.body).to include("see all videos")
       expect(response.body).to include("href=\"#{videos_path(channel: hydrated_channel.to_param)}\"")
     end
 
@@ -150,10 +188,13 @@ RSpec.describe "GET /channels/:slug — show page revamp", type: :request do
       expect(response.body).to include("no links yet.")
     end
 
-    it "renders em dashes in the analytics row" do
+    it "renders em dashes in the analytics row (subscribers, views — two cells)" do
+      # 2026-05-11 restructure — the `videos` row was dropped from the
+      # analytics table, so a pre-sync channel surfaces exactly two
+      # em-dash placeholders (subscribers + views).
       get channel_path(bare_channel)
       analytics_block = response.body[/<h2[^>]*>analytics<\/h2>(.+?)<\/table>/m, 1].to_s
-      expect(analytics_block.scan("—").size).to eq(3)
+      expect(analytics_block.scan("—").size).to eq(2)
     end
 
     it "renders 'no videos yet.'" do

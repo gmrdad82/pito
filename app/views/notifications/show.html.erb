@@ -45,7 +45,14 @@
           not absolute http(s) or a leading-slash app path; the F1 fix
           also rejects `//evil.com` and `/\evil.com`). Default ERB
           `<%%= %>` escaping is sufficient — we never pass `url` through
-          `html_safe`. %>
+          `html_safe`.
+
+          `data: { turbo_frame: "_top" }` — when this template is
+          swapped into the layout-level `notification_detail_frame`
+          modal, app-relative URLs (`/videos/...`, `/channels/...`)
+          would otherwise be scoped to that frame and Turbo would
+          render "Content missing" because the destination has no
+          matching frame. `_top` forces a full-document navigation. %>
       <div style="margin-bottom: 16px;">
         <%= link_to @notification.url,
               class: "bracketed",
@@ -53,7 +60,8 @@
                 controller: "notification-link",
                 "notification-link-mark-read-url-value": read_notification_path(@notification),
                 "notification-link-csrf-token-value": form_authenticity_token,
-                action: "click->notification-link#markReadAndNavigate"
+                action: "click->notification-link#markReadAndNavigate",
+                turbo_frame: "_top"
               } do %>[<span class="bl">open</span>]<% end %>
         <span class="text-muted" style="margin-left: 6px;"><%= @notification.url %></span>
       </div>
@@ -94,17 +102,28 @@
       </div>
     <% end %>
 
+    <%# Every action below opts out of the enclosing
+        `notification_detail_frame` with `turbo_frame: "_top"`. When the
+        template renders standalone at `/notifications/:id`, the WHOLE
+        body lives inside `notification_detail_frame`, so a frame-scoped
+        click would follow the redirect into a destination
+        (`/notifications`, `/notifications/:id`) that may have no
+        matching frame and would render "Content missing". `_top` makes
+        every transition a document navigation, which is the correct
+        UX both in-modal (the Stimulus close action runs first; if it
+        does not run, full-page nav is the safe fallback) and
+        standalone. %>
     <div class="dot-list modal-footer" style="margin-top: 16px;">
       <% if @notification.unread? %>
         <%= button_to read_notification_path(@notification),
               method: :patch,
-              form: { style: "display: inline; margin: 0;" },
+              form: { style: "display: inline; margin: 0;", data: { turbo_frame: "_top" } },
               class: "bracketed",
               style: "background: none; border: none; padding: 0; font: inherit; color: var(--color-link); cursor: pointer;" do %>[<span class="bl">mark read</span>]<% end %>
       <% else %>
         <%= button_to unread_notification_path(@notification),
               method: :patch,
-              form: { style: "display: inline; margin: 0;" },
+              form: { style: "display: inline; margin: 0;", data: { turbo_frame: "_top" } },
               class: "bracketed",
               style: "background: none; border: none; padding: 0; font: inherit; color: var(--color-link); cursor: pointer;" do %>[<span class="bl">mark unread</span>]<% end %>
       <% end %>
@@ -115,7 +134,8 @@
           outside a controller scope, so the href takes effect. %>
       <%= link_to notifications_path,
             class: "bracketed",
-            data: { action: "click->notification-modal#close" } do %>[<span class="bl">back</span>]<% end %>
+            data: { action: "click->notification-modal#close",
+                    turbo_frame: "_top" } do %>[<span class="bl">back</span>]<% end %>
     </div>
   </div>
 <% end %>

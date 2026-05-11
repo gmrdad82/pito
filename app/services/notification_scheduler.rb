@@ -111,8 +111,6 @@ class NotificationScheduler
   # human-readable.
   def payload_title_for(event_type, entry)
     case event_type
-    when "game_release_upcoming"
-      "upcoming release: #{entry.title}"
     when "game_release_today"
       "released today: #{entry.title}"
     when "milestone_reached"
@@ -136,7 +134,6 @@ class NotificationScheduler
   def kind_for(decl_kind)
     case decl_kind.to_s
     when "video_scheduled_publishing_soon" then :calendar_entry_firing
-    when "game_release_upcoming"           then :game_release_upcoming
     when "game_release_today"              then :game_release_today
     when "milestone_reached"               then :milestone_reached
     when "video_published"                 then :video_published

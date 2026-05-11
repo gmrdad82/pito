@@ -31,8 +31,6 @@ RSpec.describe NotificationFormatter do
   describe ".emoji_for" do
     {
       "video_published"                => "📺",
-      "video_pre_publish_check_missed" => "⚠️",
-      "game_release_upcoming"          => "🎮",
       "game_release_today"             => "🎮",
       "milestone_reached"              => "🏆",
       "calendar_entry_firing"          => "📅",

@@ -8,6 +8,36 @@ RSpec.describe "channels/show.html.erb", type: :view do
   # composed output. The partials themselves are covered in dedicated
   # specs.
 
+  # Mirror ChannelsController#show's aggregate-select / order / limit
+  # query so the videos table partial gets the same shape it does in
+  # production.
+  def channel_videos_relation(channel)
+    channel.videos
+      .left_joins(:video_stats)
+      .select(
+        "videos.*",
+        "COALESCE(SUM(video_stats.views), 0) AS total_views",
+        "COALESCE(SUM(video_stats.likes), 0) AS total_likes",
+        "COALESCE(SUM(video_stats.comments), 0) AS total_comments",
+        "COALESCE(CAST(SUM(video_stats.watch_time_minutes) AS BIGINT), 0) AS total_watch_time"
+      )
+      .group("videos.id")
+      .order(Arel.sql("videos.star DESC, COALESCE(videos.published_at, videos.created_at) DESC"))
+      .limit(30)
+  end
+
+  # Lightweight assign helper — every example assigns at minimum the
+  # five instance variables the view reads. Per-example `before` blocks
+  # can re-assign individual keys (e.g. give `:channel` a specific
+  # factory output).
+  def assign_show_defaults(channel)
+    assign(:channel, channel)
+    assign(:available_channels, Channel.none)
+    assign(:youtube_connection, nil)
+    assign(:channel_videos, channel_videos_relation(channel))
+    assign(:channel_videos_total, channel.videos.count)
+  end
+
   describe "happy path — every column populated" do
     let(:channel) do
       create(:channel,
@@ -26,10 +56,7 @@ RSpec.describe "channels/show.html.erb", type: :view do
              hidden_subscriber_count: false)
     end
 
-    before do
-      assign(:channel, channel)
-      assign(:available_channels, Channel.none)
-    end
+    before { assign_show_defaults(channel) }
 
     it "renders the H1 with the channel title" do
       render
@@ -89,14 +116,19 @@ RSpec.describe "channels/show.html.erb", type: :view do
       expect(rendered).to include("Blog")
     end
 
-    it "renders the analytics row with formatted counts" do
+    it "renders the analytics row with formatted counts (subscribers + views only)" do
+      # 2026-05-11 restructure — the `videos` row was dropped from the
+      # analytics table. The cached `video_count` is no longer
+      # surfaced in this block (the videos table heading carries
+      # the count instead).
       render
-      expect(rendered).to include("12,345")
-      expect(rendered).to include("678,901")
-      expect(rendered).to include("42")
-      expect(rendered).to include("subscribers")
-      expect(rendered).to include("views")
-      expect(rendered).to include("videos")
+      analytics_block = rendered[/<h2[^>]*>analytics<\/h2>(.+?)<\/table>/m, 1].to_s
+      expect(analytics_block).to include("12,345")
+      expect(analytics_block).to include("678,901")
+      expect(analytics_block).to include("subscribers")
+      expect(analytics_block).to include("views")
+      expect(analytics_block).not_to match(/>\s*videos\s*</)
+      expect(analytics_block).not_to include("42")
     end
 
     it "renders the [full analytics] link to the channel analytics page" do
@@ -105,11 +137,21 @@ RSpec.describe "channels/show.html.erb", type: :view do
       expect(rendered).to include("href=\"#{channel_analytics_path(channel)}\"")
     end
 
-    it "renders four .pane-row sections (detail, Google panel, analytics, videos)" do
-      # Phase 24 — a fourth pane-row (Google management panel) was
-      # added between the detail pane and the analytics summary.
+    it "renders three .pane-row sections (detail, analytics, Google panel) and a non-pane videos table" do
+      # 2026-05-11 restructure — the videos block is no longer a pane.
+      # Order: detail pane, analytics pane, Google panel; videos
+      # render as a bare table BELOW all three pane-rows.
       render
-      expect(rendered.scan(/<div class="pane-row">/).size).to eq(4)
+      expect(rendered.scan(/<div class="pane-row">/).size).to eq(3)
+    end
+
+    it "renders the analytics pane BEFORE the Google connection pane in source order" do
+      render
+      analytics_idx = rendered.index(/<h2[^>]*>analytics<\/h2>/)
+      google_idx = rendered.index(/<h2[^>]*>Google connection<\/h2>/)
+      expect(analytics_idx).not_to be_nil
+      expect(google_idx).not_to be_nil
+      expect(analytics_idx).to be < google_idx
     end
 
     it "renders the chrome row actions: [e], [sync], [-]" do
@@ -133,10 +175,7 @@ RSpec.describe "channels/show.html.erb", type: :view do
   describe "sad path — every nullable column is nil (pre-sync)" do
     let(:channel) { create(:channel) }
 
-    before do
-      assign(:channel, channel)
-      assign(:available_channels, Channel.none)
-    end
+    before { assign_show_defaults(channel) }
 
     it "renders without raising" do
       expect { render }.not_to raise_error
@@ -172,12 +211,13 @@ RSpec.describe "channels/show.html.erb", type: :view do
       expect(rendered).to include("no links yet.")
     end
 
-    it "renders em dashes for subscriber / view / video counts" do
+    it "renders em dashes for subscriber + view counts (videos row dropped)" do
+      # 2026-05-11 restructure — the `videos` row was dropped from the
+      # analytics table. Pre-sync state surfaces exactly two em-dash
+      # placeholders (subscribers + views).
       render
-      # Three rows × one em dash each = 3 occurrences within the
-      # analytics block.
       analytics_block = rendered[/<h2[^>]*>analytics<\/h2>(.+?)<\/table>/m, 1].to_s
-      expect(analytics_block.scan("—").size).to eq(3)
+      expect(analytics_block.scan("—").size).to eq(2)
     end
 
     it "renders the 'no videos yet.' caption" do
@@ -200,10 +240,7 @@ RSpec.describe "channels/show.html.erb", type: :view do
   describe "edge — hidden subscriber count" do
     let(:channel) { create(:channel, hidden_subscriber_count: true, subscriber_count: 999) }
 
-    before do
-      assign(:channel, channel)
-      assign(:available_channels, Channel.none)
-    end
+    before { assign_show_defaults(channel) }
 
     it "renders 'Hidden' instead of the numeric subscriber count" do
       render
@@ -219,31 +256,35 @@ RSpec.describe "channels/show.html.erb", type: :view do
       # IS the canonical empty state. Both `nil` (defended at the
       # partial level) and `[]` collapse to the same caption.
       channel = create(:channel, links: [])
-      assign(:channel, channel.reload)
-      assign(:available_channels, Channel.none)
+      assign_show_defaults(channel.reload)
       render
       expect(rendered).to include("no links yet.")
     end
   end
 
-  describe "edge — video_count cached column lags videos association" do
+  describe "edge — videos table heading reflects the live association count" do
+    # 2026-05-11 restructure — the analytics block no longer displays
+    # the cached `video_count`. The videos table heading is now the
+    # single surface where the count appears, and it reflects the
+    # live `channel.videos.count` (not the cached column).
     let(:channel) { create(:channel, video_count: 0) }
 
     before do
       3.times { create(:video, channel: channel) }
-      assign(:channel, channel)
-      assign(:available_channels, Channel.none)
+      assign_show_defaults(channel)
     end
 
-    it "renders the actual videos pane count (3), not the stale cached value (0)" do
+    it "renders the live videos count (3) in the heading" do
       render
       expect(rendered).to include("videos (3)")
     end
 
-    it "still renders the analytics row's video_count from the cached column (0)" do
+    it "does NOT surface the stale cached video_count (0) in the analytics block" do
       render
       analytics_block = rendered[/<h2[^>]*>analytics<\/h2>(.+?)<\/table>/m, 1].to_s
-      expect(analytics_block).to include("0")
+      # The videos row is gone; the cached count must not leak into
+      # the analytics table.
+      expect(analytics_block).not_to match(/>\s*videos\s*</)
     end
   end
 
@@ -257,10 +298,7 @@ RSpec.describe "channels/show.html.erb", type: :view do
       c.reload
     end
 
-    before do
-      assign(:channel, channel)
-      assign(:available_channels, Channel.none)
-    end
+    before { assign_show_defaults(channel) }
 
     it "does not render a live <script> tag from the title" do
       render

@@ -61,6 +61,27 @@ class ChannelsController < ApplicationController
     # partial renders email / scopes / last-authorized / reauth state.
     @youtube_connection = @channel.youtube_connection
 
+    # 2026-05-11 — channel show page restructure. The videos block is
+    # now a /videos-style table (not a pane), capped at 30 rows,
+    # starred-first then latest. Aggregates mirror VideosController#index
+    # so cells reuse the same helpers (total_views, total_likes, ...).
+    @channel_videos_total = @channel.videos.count
+    @channel_videos = @channel.videos
+      .left_joins(:video_stats)
+      .select(
+        "videos.*",
+        "COALESCE(SUM(video_stats.views), 0) AS total_views",
+        "COALESCE(SUM(video_stats.likes), 0) AS total_likes",
+        "COALESCE(SUM(video_stats.comments), 0) AS total_comments",
+        "COALESCE(CAST(SUM(video_stats.watch_time_minutes) AS BIGINT), 0) AS total_watch_time"
+      )
+      .group("videos.id")
+      # Qualify columns — the `left_joins(:video_stats)` adds a
+      # `video_stats.created_at` to scope, so unqualified `created_at`
+      # / `star` raises PG::AmbiguousColumn.
+      .order(Arel.sql("videos.star DESC, COALESCE(videos.published_at, videos.created_at) DESC"))
+      .limit(30)
+
     respond_to do |format|
       format.html
       format.json { render json: ChannelDecorator.new(@channel).as_detail_json }

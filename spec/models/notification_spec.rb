@@ -181,8 +181,6 @@ RSpec.describe Notification, type: :model do
       # work to this assertion.
       baseline = %w[
         video_published
-        video_pre_publish_check_missed
-        game_release_upcoming
         game_release_today
         milestone_reached
         calendar_entry_firing
@@ -191,6 +189,15 @@ RSpec.describe Notification, type: :model do
         import_job_completed
       ]
       expect(Notification.kinds.keys).to include(*baseline)
+    end
+
+    # 2026-05-12 — `video_pre_publish_check_missed` (1) and
+    # `game_release_upcoming` (2) were dropped from the active surface.
+    # The enum values are retained as deprecated-but-reserved so
+    # future kinds don't collide on those integer slots.
+    it "keeps the deprecated enum values reserved for integer stability" do
+      expect(Notification.kinds["video_pre_publish_check_missed"]).to eq(1)
+      expect(Notification.kinds["game_release_upcoming"]).to eq(2)
     end
 
     it "exposes the four severities" do
@@ -296,14 +303,14 @@ RSpec.describe Notification, type: :model do
     it "rejects a duplicate (event_type, source_calendar_entry_id, fires_at)" do
       ts = 1.hour.from_now
       Notification.create!(
-        kind: :game_release_upcoming, event_type: "game_release_upcoming",
-        title: "x", severity: :info, fires_at: ts,
+        kind: :game_release_today, event_type: "game_release_today",
+        title: "x", severity: :success, fires_at: ts,
         source_calendar_entry: calendar_entry
       )
       expect {
         Notification.create!(
-          kind: :game_release_upcoming, event_type: "game_release_upcoming",
-          title: "y", severity: :info, fires_at: ts,
+          kind: :game_release_today, event_type: "game_release_today",
+          title: "y", severity: :success, fires_at: ts,
           source_calendar_entry: calendar_entry
         )
       }.to raise_error(ActiveRecord::RecordNotUnique)

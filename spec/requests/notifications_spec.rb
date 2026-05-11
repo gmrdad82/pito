@@ -373,6 +373,44 @@ RSpec.describe "Notifications", type: :request do
       expect(response.body).not_to include("window.confirm")
       expect(response.body).not_to match(/onclick=.*confirm\(/)
     end
+
+    # Turbo Frame audit 2026-05-12 — every action on the detail page
+    # MUST opt out of the enclosing `notification_detail_frame`. When
+    # the show template renders standalone the WHOLE body lives inside
+    # `notification_detail_frame`; without `_top`, a frame-scoped click
+    # follows the redirect into a destination (`/notifications`,
+    # `/videos/...`, `/channels/...`) that has no matching frame, and
+    # Turbo renders "Content missing" instead of advancing the page.
+    describe "frame opt-out on every action (Content-missing guard)" do
+      it "marks the `[open]` link (app-relative URL) with turbo_frame=_top" do
+        unread_a.update!(url: "/videos/test-slug")
+        get "/notifications/#{unread_a.id}"
+        open_anchor = response.body[/<a [^>]*href="\/videos\/test-slug"[^>]*>\s*\[<span class="bl">open<\/span>\]/]
+        expect(open_anchor).not_to be_nil, "no [open] anchor found"
+        expect(open_anchor).to include('data-turbo-frame="_top"')
+      end
+
+      it "marks the `[back]` link with turbo_frame=_top" do
+        get "/notifications/#{unread_a.id}"
+        back_anchor = response.body[/<a [^>]*href="\/notifications"[^>]*>\s*\[<span class="bl">back<\/span>\]/]
+        expect(back_anchor).not_to be_nil, "no [back] anchor found"
+        expect(back_anchor).to include('data-turbo-frame="_top"')
+      end
+
+      it "marks the `[mark read]` button_to form with turbo_frame=_top" do
+        get "/notifications/#{unread_a.id}"
+        form = response.body[/<form[^>]*action="\/notifications\/#{unread_a.id}\/read"[^>]*>/]
+        expect(form).not_to be_nil, "no [mark read] form found"
+        expect(form).to include('data-turbo-frame="_top"')
+      end
+
+      it "marks the `[mark unread]` button_to form with turbo_frame=_top" do
+        get "/notifications/#{read_a.id}"
+        form = response.body[/<form[^>]*action="\/notifications\/#{read_a.id}\/unread"[^>]*>/]
+        expect(form).not_to be_nil, "no [mark unread] form found"
+        expect(form).to include('data-turbo-frame="_top"')
+      end
+    end
   end
 
   describe "PATCH /notifications/:id/read" do

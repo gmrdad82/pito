@@ -49,8 +49,6 @@ module NotificationFormatter
   # without further encoding.
   EVENT_TYPE_EMOJI = {
     "video_published"                => "📺",
-    "video_pre_publish_check_missed" => "⚠️",
-    "game_release_upcoming"          => "🎮",
     "game_release_today"             => "🎮",
     "milestone_reached"              => "🏆",
     "calendar_entry_firing"          => "📅",
