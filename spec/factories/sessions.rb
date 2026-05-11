@@ -6,5 +6,28 @@ FactoryBot.define do
     user_agent { "Mozilla/5.0 (test) RspecAgent" }
     remember { false }
     last_activity_at { Time.current }
+    state { :active }
+
+    # Phase 25 — 01b. Pending-approval traits cover the three terminal
+    # / transient states the new state machine introduces.
+    trait :pending do
+      state { :pending_approval }
+      approval_required_until { 10.minutes.from_now }
+    end
+
+    trait :expired_pending do
+      state { :pending_approval }
+      approval_required_until { 1.minute.ago }
+    end
+
+    trait :expired do
+      state { :expired }
+      approval_required_until { 11.minutes.ago }
+    end
+
+    trait :revoked_state do
+      state { :revoked }
+      revoked_at { Time.current }
+    end
   end
 end

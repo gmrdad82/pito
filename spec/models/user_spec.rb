@@ -149,6 +149,101 @@ RSpec.describe User, type: :model do
     end
   end
 
+  describe "preferred_games_display_mode enum (Phase 27 — 01d)" do
+    # Happy path — the enum maps to the locked integer values and
+    # exposes the prefixed predicate / bang helpers.
+    it "defaults to grid for a fresh row" do
+      user = create(:user)
+      expect(user.reload.preferred_games_display_mode).to eq("grid")
+    end
+
+    it "exposes the three enum keys" do
+      expect(User.preferred_games_display_modes.keys)
+        .to contain_exactly("grid", "list", "shelves_by_letter")
+    end
+
+    # Flaw guard — integer values are load-bearing for production
+    # data. Asserting the mapping explicitly so an accidental
+    # reorder is caught at test time.
+    it "maps enum keys to the stable integers 0/1/2" do
+      expect(User.preferred_games_display_modes).to eq(
+        "grid" => 0,
+        "list" => 1,
+        "shelves_by_letter" => 2
+      )
+    end
+
+    it "exposes prefixed predicate methods" do
+      user = create(:user, preferred_games_display_mode: :list)
+      expect(user).to be_games_display_list
+      expect(user).not_to be_games_display_grid
+      expect(user).not_to be_games_display_shelves_by_letter
+    end
+
+    it "exposes prefixed bang methods" do
+      user = create(:user)
+      expect { user.games_display_shelves_by_letter! }
+        .to change { user.reload.preferred_games_display_mode }
+        .from("grid").to("shelves_by_letter")
+    end
+
+    # Sad — assigning an unknown value raises.
+    it "raises ArgumentError on an invalid value" do
+      user = build(:user)
+      expect { user.preferred_games_display_mode = :tilemap }
+        .to raise_error(ArgumentError)
+    end
+
+    # Edge — pre-existing rows get `grid` via the column default.
+    it "is NOT NULL at the column level with default 0 (grid)" do
+      column = User.columns_hash["preferred_games_display_mode"]
+      expect(column).to be_present
+      expect(column.null).to be(false)
+      expect(column.default.to_i).to eq(0)
+    end
+  end
+
+  # Phase 25 — 01b. Trusted-location + pending-session helpers.
+  describe "#trusted_location?" do
+    let(:user) { create(:user) }
+    let(:fp) { Digest::SHA256.hexdigest("user-trust-1") }
+    let(:ip_prefix) { "10.40.0.0/24" }
+
+    it "returns true iff a trusted_locations row exists for the triple" do
+      create(:trusted_location, user: user, fingerprint_hash: fp, ip_prefix: ip_prefix)
+      expect(user.trusted_location?(fingerprint: fp, ip_prefix: ip_prefix)).to be true
+    end
+
+    it "returns false when no trusted row matches" do
+      expect(user.trusted_location?(fingerprint: fp, ip_prefix: ip_prefix)).to be false
+    end
+
+    it "returns false when only another user has the row" do
+      other = create(:user)
+      create(:trusted_location, user: other, fingerprint_hash: fp, ip_prefix: ip_prefix)
+      expect(user.trusted_location?(fingerprint: fp, ip_prefix: ip_prefix)).to be false
+    end
+  end
+
+  describe "#has_pending_session?" do
+    let(:user) { create(:user) }
+
+    it "is true when at least one pending in-window session exists" do
+      create(:session, :pending, user: user)
+      expect(user.has_pending_session?).to be true
+    end
+
+    it "is false when only expired-pending sessions exist" do
+      create(:session, :expired_pending, user: user)
+      expect(user.has_pending_session?).to be false
+    end
+
+    it "is false when only active sessions exist" do
+      create(:session, user: user)
+      expect(user.has_pending_session?).to be false
+    end
+  end
+
   describe "no tenant / no username surface" do
     # Phase 8 archive checks. Asserts that the legacy plumbing is gone.
     it "does not declare a tenant association" do

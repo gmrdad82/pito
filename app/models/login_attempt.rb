@@ -16,6 +16,12 @@ class LoginAttempt < ApplicationRecord
              class_name: "User",
              foreign_key: :approved_by_user_id,
              optional: true
+  # Phase 25 — 01b. Optional FK to the Session row this attempt spawned.
+  # Set on the trusted-location success path, the new-location pending
+  # path, the approve/2FA-success transitions, and the pending-expired
+  # sweep. `optional: true` because 01a's failed / blocked / unknown-email
+  # paths never mint a session.
+  belongs_to :session, optional: true
 
   enum :result, {
     success: 0,

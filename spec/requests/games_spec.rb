@@ -97,8 +97,8 @@ RSpec.describe "Games", type: :request do
       end
 
       it "renders [see all] links on per-platform shelves" do
-        platform = Platform.create!(igdb_id: 998, name: "Switch")
-        zelda.update!(platform_owned: platform)
+        platform = Platform.create!(igdb_id: 998, name: "Switch", slug: "switch")
+        zelda.game_platform_ownerships.create!(platform: platform)
         get games_path
         expect(response.body).to include("?platform_owned=#{platform.id}")
       end
@@ -123,6 +123,125 @@ RSpec.describe "Games", type: :request do
 
       it "drops invalid genre ids silently (no filter applied)" do
         get games_path, params: { genre: "evil; DROP TABLE games" }
+        expect(response).to have_http_status(:ok)
+        expect(response.body).to include("Zelda")
+        expect(response.body).to include("Elden Ring")
+      end
+    end
+
+    # Phase 27 §01c — Genres + Collections shelves at the top of
+    # `/games`. Both always render (placeholder when empty). The new
+    # `?genre=<slug>` and `?collection=<slug>` URL contracts pair with
+    # the existing `?genre=<id>` codepath.
+    describe "Phase 27 §01c — top-of-page shelves" do
+      it "renders the Genres shelf heading even when no genres exist" do
+        get games_path
+        expect(response.body).to include("shelf--genres")
+        expect(response.body).to include(">genres<")
+        expect(response.body).to include("(no genres yet)")
+      end
+
+      it "renders the Collections shelf heading even when no collections exist" do
+        get games_path
+        expect(response.body).to include("shelf--collections")
+        expect(response.body).to include(">collections<")
+        expect(response.body).to include("(no collections yet)")
+      end
+
+      it "renders one tile per genre, alphabetical (case-insensitive)" do
+        Genre.create!(igdb_id: 1, name: "rpg",        slug: "rpg")
+        Genre.create!(igdb_id: 2, name: "Adventure",  slug: "adventure")
+        Genre.create!(igdb_id: 3, name: "platformer", slug: "platformer")
+
+        get games_path
+        # Scope to the 01c shelf — pluck just that section's content.
+        genres_section = response.body[/<section class="shelf shelf--genres".*?<\/section>/m]
+        expect(genres_section).not_to be_nil
+        order_indexes = %w[Adventure platformer rpg].map { |n| genres_section.index(n) }
+        expect(order_indexes).to eq(order_indexes.sort)
+      end
+
+      it "renders one tile per collection, alphabetical (case-insensitive)" do
+        create(:collection, name: "zelda")
+        create(:collection, name: "Action games")
+        create(:collection, name: "mecha")
+
+        get games_path
+        section = response.body[/<section class="shelf shelf--collections".*?<\/section>/m]
+        expect(section).not_to be_nil
+        order_indexes = [ "Action games", "mecha", "zelda" ].map { |n| section.index(n) }
+        expect(order_indexes).to eq(order_indexes.sort)
+      end
+
+      it "Genre tile links point to /games?genre=<slug> when a slug is present" do
+        Genre.create!(igdb_id: 1, name: "Adventure", slug: "adventure")
+
+        get games_path
+        expect(response.body).to include('href="' + games_path(genre: "adventure") + '"')
+      end
+
+      it "Genre tile links fall back to /games?genre=<id> when slug is blank" do
+        g = Genre.create!(igdb_id: 1, name: "Slugless")
+        g.update_column(:slug, nil)
+
+        get games_path
+        expect(response.body).to include('href="' + games_path(genre: g.id) + '"')
+      end
+
+      it "Collection tile links point to /games?collection=<slug>" do
+        c = create(:collection, name: "Retro favorites")
+
+        get games_path
+        expect(response.body).to include('href="' + games_path(collection: c.slug) + '"')
+      end
+
+      it "stamps the steam-shelf Stimulus controller on both shelves" do
+        get games_path
+        expect(response.body).to include('class="shelf shelf--genres"')
+        expect(response.body).to include('class="shelf shelf--collections"')
+        expect(response.body.scan('data-controller="steam-shelf"').length).to be >= 2
+      end
+    end
+
+    # Phase 27 §01c — slug-based filter contract for both `?genre`
+    # and `?collection`. The integer-id form keeps working (asserted
+    # in the "filter routes" describe above); these specs cover the
+    # slug form the new shelf tiles emit.
+    describe "Phase 27 §01c — slug filter routes" do
+      let!(:zelda)    { create(:game, :synced, title: "Zelda",      release_year: 2017) }
+      let!(:elden)    { create(:game, :synced, title: "Elden Ring", release_year: 2022) }
+      let(:adventure) { Genre.create!(igdb_id: 1001, name: "Adventure", slug: "adventure") }
+      let(:rpg)       { Genre.create!(igdb_id: 1002, name: "RPG",       slug: "rpg") }
+
+      before do
+        zelda.genres << adventure
+        elden.genres << rpg
+      end
+
+      it "filters /games?genre=<slug> to that genre's games" do
+        get games_path, params: { genre: "adventure" }
+        expect(response.body).to include("Zelda")
+        expect(response.body).not_to include(">Elden Ring<")
+      end
+
+      it "drops an unknown genre slug silently (no filter applied)" do
+        get games_path, params: { genre: "nonexistent" }
+        expect(response).to have_http_status(:ok)
+        expect(response.body).to include("Zelda")
+        expect(response.body).to include("Elden Ring")
+      end
+
+      it "filters /games?collection=<slug> to games in that collection" do
+        retro = create(:collection, name: "Retro")
+        zelda.update!(collection: retro)
+
+        get games_path, params: { collection: retro.slug }
+        expect(response.body).to include("Zelda")
+        expect(response.body).not_to include(">Elden Ring<")
+      end
+
+      it "drops an unknown collection slug silently (no filter applied)" do
+        get games_path, params: { collection: "nope-no-collection" }
         expect(response).to have_http_status(:ok)
         expect(response.body).to include("Zelda")
         expect(response.body).to include("Elden Ring")
@@ -331,9 +450,16 @@ RSpec.describe "Games", type: :request do
     it "carries the local-fields form" do
       get edit_game_path(game)
       expect(response.body).to include('name="game[notes]"')
-      expect(response.body).to include('name="game[platform_owned_id]"')
       expect(response.body).to include('name="game[played_at]"')
       expect(response.body).to include('name="game[hours_of_footage_manual]"')
+    end
+
+    # Phase 27 §1a — per-platform ownership moves out of the edit form
+    # into its own dedicated editor (lands in `01f`). The edit page
+    # must NOT carry a `platform_owned_id` input.
+    it "does NOT render a platform_owned_id input" do
+      get edit_game_path(game)
+      expect(response.body).not_to include('name="game[platform_owned_id]"')
     end
 
     it "renders [update] and [cancel] actions" do
@@ -436,9 +562,15 @@ RSpec.describe "Games", type: :request do
     let!(:platform) { create(:platform) }
     let!(:game) { create(:game, :synced, title: "IGDB Title", igdb_id: 12345) }
 
-    it "permits platform_owned_id" do
-      patch game_path(game), params: { game: { platform_owned_id: platform.id } }
-      expect(game.reload.platform_owned_id).to eq(platform.id)
+    # Phase 27 §1a — singular `platform_owned_id` is gone. The
+    # local-only allowlist no longer permits it, so smuggled values
+    # silently drop. Per-platform ownership lives in the
+    # `game_platform_ownerships` join (the editor for it lands in
+    # `01f`).
+    it "silently drops smuggled platform_owned_id" do
+      expect {
+        patch game_path(game), params: { game: { platform_owned_id: platform.id } }
+      }.not_to(change { game.reload.attributes.except("updated_at") })
     end
 
     it "permits played_at" do

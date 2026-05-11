@@ -1,10 +1,9 @@
-# Phase 16 §1 — Notifications data model + delivery channels.
-#
-# In-app channel — a synchronous no-op. The "in-app delivery" itself
-# is the Notification row's existence. Exists for symmetry so the
-# scheduler + tests can iterate channels uniformly.
+# Phase 16 §1 → Phase 26 01b refactor. In-app channel — a synchronous
+# no-op. The "in-app delivery" itself is the Notification row's
+# existence. Exists for symmetry so the scheduler + tests can iterate
+# channels uniformly.
 class NotificationDeliveryChannel
-  class InApp < NotificationDeliveryChannel
+  class InApp < Base
     def enabled?
       true
     end

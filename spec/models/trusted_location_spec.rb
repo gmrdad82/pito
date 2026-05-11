@@ -71,4 +71,50 @@ RSpec.describe TrustedLocation, type: :model do
       expect(described_class.trusted?(user, fp, nil)).to be false
     end
   end
+
+  # Phase 25 — 01b. Upsert helper used by `Auth::SessionActivator`.
+  describe ".touch_for" do
+    let(:user) { create(:user) }
+    let(:fp) { Digest::SHA256.hexdigest("touch-1") }
+    let(:ip_prefix) { "10.30.0.0/24" }
+
+    it "creates the row on first call" do
+      expect {
+        described_class.touch_for(user: user, fingerprint_hash: fp, ip_prefix: ip_prefix)
+      }.to change(described_class, :count).by(1)
+      row = described_class.last
+      expect(row.user_id).to eq(user.id)
+      expect(row.fingerprint_hash).to eq(fp)
+      expect(row.ip_prefix).to eq(ip_prefix)
+      expect(row.first_seen_at).to be_within(2.seconds).of(Time.current)
+      expect(row.last_seen_at).to be_within(2.seconds).of(Time.current)
+    end
+
+    it "updates last_seen_at on a repeat call without creating a new row" do
+      row = described_class.touch_for(user: user, fingerprint_hash: fp, ip_prefix: ip_prefix)
+      row.update_columns(last_seen_at: 1.day.ago)
+      expect {
+        described_class.touch_for(user: user, fingerprint_hash: fp, ip_prefix: ip_prefix)
+      }.not_to change(described_class, :count)
+      expect(row.reload.last_seen_at).to be_within(2.seconds).of(Time.current)
+    end
+
+    it "raises ArgumentError for missing user" do
+      expect {
+        described_class.touch_for(user: nil, fingerprint_hash: fp, ip_prefix: ip_prefix)
+      }.to raise_error(ArgumentError)
+    end
+
+    it "raises ArgumentError for blank fingerprint" do
+      expect {
+        described_class.touch_for(user: user, fingerprint_hash: "", ip_prefix: ip_prefix)
+      }.to raise_error(ArgumentError)
+    end
+
+    it "raises ArgumentError for blank ip_prefix" do
+      expect {
+        described_class.touch_for(user: user, fingerprint_hash: fp, ip_prefix: "")
+      }.to raise_error(ArgumentError)
+    end
+  end
 end

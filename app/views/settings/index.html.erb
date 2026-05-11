@@ -295,6 +295,18 @@
   <%= render "time_zone_pane" %>
 </div>
 
+<%# Phase 26 — 01b/01c. Slack + Discord webhook panes. Each pane is
+    an independent form: paste a URL, tick `everything` and/or
+    `daily_digest`, submit. The pane writes to the install-level
+    `notification_delivery_channels` row keyed on `kind`. Both panes
+    live on the same `.pane-row` for zebra-stripe symmetry — each
+    provider keeps its own row in `notification_delivery_channels`,
+    its own checkboxes, its own test ping. %>
+<div class="pane-row">
+  <%= render "slack_pane" %>
+  <%= render "discord_pane" %>
+</div>
+
 <%# Row 6 — OAuth applications + tokens (combined pane) | sessions. %>
 <div class="pane-row">
   <%# Combined OAuth applications + tokens. Two related token-issuance

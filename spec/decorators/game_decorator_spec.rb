@@ -23,7 +23,7 @@ RSpec.describe GameDecorator do
 
     it "carries the row-level keys" do
       expect(json.keys).to match_array(
-        %i[id slug title release_year igdb_rating platform_owned_id
+        %i[id slug title release_year igdb_rating platform_owned_ids
            played_at cover_image_id resyncing igdb_synced_at created_at]
       )
     end
@@ -53,10 +53,12 @@ RSpec.describe GameDecorator do
       expect(json[:slug]).to eq(game.igdb_slug)
     end
 
-    it "emits null (not 0 / not empty) when associations are absent" do
+    it "emits empty / null (not 0) when associations are absent" do
       bare = create(:game, title: "Bare")
       summary = described_class.new(bare).as_summary_json
-      expect(summary[:platform_owned_id]).to be_nil
+      # Phase 27 §1a — multi-valued ownership: an empty array stands
+      # for "owned on no platform".
+      expect(summary[:platform_owned_ids]).to eq([])
       expect(summary[:cover_image_id]).to be_nil
       expect(summary[:igdb_synced_at]).to be_nil
     end
@@ -92,15 +94,24 @@ RSpec.describe GameDecorator do
       expect(detail[:genres]).to include(id: genre.id, name: "Puzzle")
     end
 
-    it "renders platforms_owning when platform_owned is set" do
-      platform = create(:platform, name: "Steam")
-      game.update!(platform_owned: platform)
+    it "renders platforms_owning when ownership rows exist" do
+      platform = create(:platform, name: "Steam", slug: "steam-decorator-spec")
+      game.game_platform_ownerships.create!(platform: platform)
       detail = described_class.new(game.reload).as_detail_json
       expect(detail[:platforms_owning]).to eq([ { id: platform.id, name: "Steam" } ])
     end
 
-    it "renders platforms_owning as [] when no platform_owned" do
+    it "renders platforms_owning as [] when no ownership rows" do
       expect(json[:platforms_owning]).to eq([])
+    end
+
+    it "renders multiple ownership entries alphabetically by platform name" do
+      ps5   = create(:platform, name: "PS5",   slug: "ps5-decorator-spec")
+      steam = create(:platform, name: "Steam", slug: "steam-decorator-multi")
+      game.game_platform_ownerships.create!(platform: steam)
+      game.game_platform_ownerships.create!(platform: ps5)
+      detail = described_class.new(game.reload).as_detail_json
+      expect(detail[:platforms_owning].map { |h| h[:name] }).to eq([ "PS5", "Steam" ])
     end
 
     it "coerces decimal ratings to Float" do

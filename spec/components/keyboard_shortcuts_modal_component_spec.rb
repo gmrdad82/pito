@@ -58,13 +58,17 @@ RSpec.describe KeyboardShortcutsModalComponent, type: :component do
       expect(section).to have_text(/back\s*\/\s*close\s*\(Esc on web\)/i)
     end
 
-    it "renders the list-pages section with j / k / x / s / D / Y and f-prefix" do
+    it "renders the list-pages section with j / k / h / l / x / s / D / Y and f-prefix" do
       section = page.find(".keyboard-shortcuts-section", text: /list pages/i)
-      %w[j k x s D Y f].each do |k|
+      %w[j k h l x s D Y f].each do |k|
         expect(section).to have_css("span.keycap", text: k)
       end
       expect(section).to have_text("toggle row selection")
       expect(section).to have_text(/starred/i)
+      # 2026-05-10 hjkl ubiquity — `h / l` on list pages navigates the
+      # paginator (`<a rel='prev'>` / `<a rel='next'>`); the help row
+      # documents that even though no shipping surface paginates yet.
+      expect(section).to have_text(/previous\s*\/\s*next page/i)
       # `space` is now the leader key — the help modal must not
       # describe it as row-level any more.
       expect(section).not_to have_css("span.keycap", text: "space")
@@ -74,12 +78,16 @@ RSpec.describe KeyboardShortcutsModalComponent, type: :component do
       expect(section).to have_no_css("span.keycap", text: /^b$/)
     end
 
-    it "renders the detail-pages section with v / s / Y / D" do
+    # 2026-05-10 hjkl ubiquity — detail pages now bind `h / l` to
+    # previous / next sibling record. The help modal documents the
+    # new keys alongside the existing `v / s / Y / D` set.
+    it "renders the detail-pages section with h / l / v / s / Y / D" do
       section = page.find(".keyboard-shortcuts-section", text: /detail pages/i)
-      %w[v s Y D].each do |k|
+      %w[h l v s Y D].each do |k|
         expect(section).to have_css("span.keycap", text: k)
       end
       expect(section).to have_text("view URL in browser")
+      expect(section).to have_text(/previous\s*\/\s*next sibling/i)
     end
 
     # The list-pages section above documents `j / k` for rows. Tile

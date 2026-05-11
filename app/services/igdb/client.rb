@@ -175,6 +175,30 @@ module Igdb
       post("platforms", body)
     end
 
+    # Phase 27 §1a — paginate the full `/platforms` endpoint for
+    # `Platforms::SyncFromIgdb`. IGDB caps `limit` at 500 per request;
+    # one full sync today is well under 250 rows so a single page is
+    # the common case, but the loop is here so future expansion works.
+    PLATFORMS_PAGE_SIZE = 500
+
+    def list_all_platforms
+      results = []
+      offset = 0
+      loop do
+        body = Apicalypse.new
+          .fields("id", "name", "abbreviation", "slug")
+          .limit(PLATFORMS_PAGE_SIZE)
+          .offset(offset)
+          .to_s
+        page = post("platforms", body)
+        break if page.blank?
+        results.concat(page)
+        break if page.size < PLATFORMS_PAGE_SIZE
+        offset += PLATFORMS_PAGE_SIZE
+      end
+      results
+    end
+
     def fetch_companies(igdb_ids)
       ids = sanitize_id_list(igdb_ids)
       return [] if ids.empty?

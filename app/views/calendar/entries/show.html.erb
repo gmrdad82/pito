@@ -1,6 +1,11 @@
 <% content_for(:title, "calendar ~ #{@entry.title}") %>
 <% breadcrumb([ "calendar", calendar_root_path ], @entry.title) %>
 
+<%# `data-keyboard-detail-prev-url` / `data-keyboard-detail-next-url`
+    carry the `h` / `l` sibling navigation URLs for the global
+    keyboard controller. Marker div — invisible, no layout impact. %>
+<div style="display: contents;" <%= keyboard_detail_nav_data_attributes(@entry, scope: CalendarEntry, path_helper: method(:calendar_entry_path)) %>></div>
+
 <h1>
   <span class="text-muted"><%= entry_chip_glyph(@entry) %></span>
   <%= @entry.title %>

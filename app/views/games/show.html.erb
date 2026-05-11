@@ -32,6 +32,12 @@
        style="display: none;"></div>
 <% end %>
 
+<%# `data-keyboard-detail-prev-url` / `data-keyboard-detail-next-url`
+    carry the `h` / `l` sibling navigation URLs for the global
+    keyboard controller. The wrapper is invisible (display: contents)
+    so it does not affect the existing flex / pane layout below. %>
+<div style="display: contents;" <%= keyboard_detail_nav_data_attributes(@game, scope: Game, path_helper: method(:game_path)) %>></div>
+
 <%# Row 1 — cover + read-only metadata. The `pane-row--game-show`
     modifier flips this specific row to `flex-wrap: nowrap` so the
     280px cover and 640px details panes stay side-by-side at standard

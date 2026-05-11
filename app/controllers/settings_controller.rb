@@ -44,6 +44,11 @@ class SettingsController < ApplicationController
     # client_secret + redirect_uri under the `:youtube` block). A
     # `nil`/blank value at any path means "not configured" for that row.
     @youtube_credentials = youtube_credentials_status
+    # Phase 26 — 01b/01c. Slack + Discord panes each read the
+    # install-level `notification_delivery_channels` row (nil when no
+    # row exists yet — pane renders with empty URL + unchecked boxes).
+    @slack_webhook = NotificationDeliveryChannel.find_record_for("slack")
+    @discord_webhook = NotificationDeliveryChannel.find_record_for("discord")
     begin
       @search_healthy = Search.engine.healthy?
       @search_stats = Search.engine.index_stats

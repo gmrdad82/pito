@@ -157,3 +157,345 @@ Spec count delta: **+30**.
   `docs/notes/2026-05-11-11-33-29-games-shelf-cover-size-addendum.md`.
 - Plan checkbox: `… /plan.md` → `01e — Shelf cover art variant`
   block (all four boxes ticked).
+
+## 2026-05-11 — sub-spec 01d Display mode switcher + three modes (pito-rails)
+
+Implemented sub-spec 01d per
+`specs/01d-display-mode-switcher-and-three-modes.md` plus master
+dispatch overrides (locked in this session).
+
+### Master dispatch overrides vs the architect spec
+
+The architect spec proposed `Settings::GamesDisplayModesController`
+at `PATCH /settings/games_display_mode/:mode` plus three
+ViewComponent classes (`DisplayModeSwitcherComponent`,
+`ListViewComponent`, `ShelvesByLetterComponent`). The master
+agent dispatched a reframe: a `Users::GamesPreferencesController`
+at `PATCH /users/games_preferences` carrying `mode=...` in the
+form body, with three plain partials (`_grid_mode`, `_list_mode`,
+`_shelves_by_letter_mode`) plus a `_display_mode_switcher`
+partial. Behavior parity is full; surface naming differs.
+
+### What landed
+
+- Migration `20260511143000_add_preferred_games_display_mode_to_users`
+  adds the `preferred_games_display_mode` integer column on `users`
+  with `null: false, default: 0`. Run against both dev and test DBs.
+- `User#preferred_games_display_mode` enum with keys `grid`/`list`/
+  `shelves_by_letter` mapped to stable integers `0/1/2` and the
+  `games_display_` prefix on predicates / bangs.
+- `Users::GamesPreferencesController#update` — single PATCH endpoint
+  that validates the `mode` param against an allowlist, writes the
+  enum, and redirects to `/games?display=<mode>`. Unknown / blank
+  modes flash an alert and leave the persisted preference alone.
+- Route `PATCH /users/games_preferences` under a fresh `namespace
+  :users` block.
+- `GamesController#index` reads the resolved display mode via a
+  new private `resolved_display_mode` method (URL `?display=`
+  overrides per-request; falls back to `Current.user.preferred_
+  games_display_mode`; final `:grid` fallback for the anonymous
+  defensive path).
+- `app/views/games/index.html.erb` now renders the switcher
+  flush-right of the H1 row, and branches the "all games" section
+  on `@display_mode` to one of three partials.
+- `app/views/games/_grid_mode.html.erb` — extracted from the
+  legacy `all-games-grid` inline block; renders `games/tile`s with
+  `data-keyboard-grid="true"`.
+- `app/views/games/_list_mode.html.erb` — `<table>` grouped by
+  first-letter buckets, with `<tr class="letter-head">` sticky
+  heading rows. Five columns: cover thumb (`t_cover_small`),
+  title (linked), platforms owned (placeholder `—` until 01a's
+  `game_platform_ownerships` shape stabilises), genres,
+  computed status (`recorded` / `released` / `scheduled` /
+  `unreleased`). Sticky `position: sticky` declaration inlined on
+  the partial so the system-level CSS spec asserts on it without
+  chasing across the asset pipeline.
+- `app/views/games/_shelves_by_letter_mode.html.erb` — one
+  `games/shelf` per non-empty letter bucket. Empty letters hidden
+  (locked decision). Non-alphabetic title starts collapse into the
+  `#` bucket.
+- `app/views/games/_display_mode_switcher.html.erb` — three
+  `button_to` forms, one per mode. Active mode renders with the
+  `bracketed active` class. No JS. No anchor.
+
+### Tests added (33 new examples, all green)
+
+- `spec/models/user_spec.rb` — `preferred_games_display_mode enum
+  (Phase 27 — 01d)`: default, key set, stable-integer mapping,
+  prefixed predicates / bangs, ArgumentError on invalid value, DB
+  NOT NULL + default backstop. (7 new examples.)
+- `spec/requests/users/games_preferences_spec.rb` —
+  `Users::GamesPreferences`: per-mode persist + redirect, unknown /
+  blank token rejection, rapid-double-PATCH last-write-wins, signed-
+  out 302→/login, URL friendliness, yes/no boundary sweep. (9 new
+  examples.)
+- `spec/views/games/_display_mode_switcher.html.erb_spec.rb` —
+  switcher structure, labels, active-class behavior across all
+  three modes + String arg parity, CLAUDE.md hard-rule guards (no
+  JS confirm / no `text-danger` on the switcher / real forms not
+  anchors). (10 new examples.)
+- `spec/views/games/_grid_mode.html.erb_spec.rb` — data-mode tag,
+  keyboard-grid opt-in, "all games" heading, empty-state copy.
+  (4 new examples.)
+- `spec/views/games/_list_mode.html.erb_spec.rb` — table head with
+  five columns, letter-head row interleaving, sticky CSS, title
+  linkage, data-mode tag; edge cases for `#` bucket, lowercase
+  titles, missing genres / no release_date / no cover; empty
+  state. (10 new examples.)
+- `spec/views/games/_shelves_by_letter_mode.html.erb_spec.rb` —
+  one shelf per non-empty letter, empty letters hidden, steam-
+  shelf controller, tile partial usage, edge cases for `#` and
+  lowercase buckets, empty state. (8 new examples.)
+
+73 new + adjacent examples run green via
+`bundle exec rspec spec/models/user_spec.rb \
+  spec/requests/users/games_preferences_spec.rb \
+  spec/views/games/_display_mode_switcher.html.erb_spec.rb \
+  spec/views/games/_grid_mode.html.erb_spec.rb \
+  spec/views/games/_list_mode.html.erb_spec.rb \
+  spec/views/games/_shelves_by_letter_mode.html.erb_spec.rb`.
+
+### Gates
+
+- `bundle exec rspec` on the 6 spec files above: 73 examples, 0
+  failures.
+- `bundle exec rubocop` on the 10 Ruby files touched: no offenses.
+- `bundle exec brakeman -q -w2`: 0 errors, 0 security warnings,
+  full app sweep.
+
+### Open issues / coordination notes for the master
+
+- **01a + 01c drift on `GamesController#index` is blocking the
+  full `/games` index render and so the existing
+  `spec/requests/games_spec.rb` and the planned 01d system spec.**
+  The controller still references `Platform#games_owning` (an
+  association the 01a model rewrite removed) and `Game#platform_
+  owned_id` (a column the 01a migration dropped). 14 failing
+  examples in `spec/requests/games_spec.rb` are all variants of
+  that drift; none are caused by 01d. The 01d controller-side
+  resolver (`@display_mode = resolved_display_mode`) sits past
+  the broken `@platforms_shelves` line, so 01a's controller fix
+  will unblock 01d's `/games` integration without any further
+  edit.
+- The locked routing URL is `/users/games_preferences` (the spec
+  proposed `/settings/games_display_mode/:mode`). Plan checkbox
+  copy was reworded to match.
+- List-mode sort columns are NOT wired yet — the spec calls for a
+  sortable column set but the underlying `game_platform_
+  ownerships` shape is the 01a / 01f lane. The partial structure
+  is in place to wire `?sort=` once those land.
+- The "platforms owned" list-mode column renders a literal `—`
+  placeholder pending 01a's join-table integration.
+- No system spec yet — the existing `/games` index is wedged on
+  01a drift (see above). The view + request specs cover the same
+  behavior at the per-partial level; a system spec is queued for
+  after 01a's controller fix lands.
+
+### Files changed
+
+- `db/migrate/20260511143000_add_preferred_games_display_mode_to_users.rb`
+  (new)
+- `app/models/user.rb` (enum added)
+- `app/controllers/users/games_preferences_controller.rb` (new)
+- `app/controllers/games_controller.rb` (resolver helper + index
+  reads `@display_mode`)
+- `config/routes.rb` (`namespace :users` block)
+- `app/views/games/index.html.erb` (switcher + branch on
+  `@display_mode`)
+- `app/views/games/_grid_mode.html.erb` (new)
+- `app/views/games/_list_mode.html.erb` (new)
+- `app/views/games/_shelves_by_letter_mode.html.erb` (new)
+- `app/views/games/_display_mode_switcher.html.erb` (new)
+- `spec/models/user_spec.rb` (enum describe block)
+- `spec/requests/users/games_preferences_spec.rb` (new)
+- `spec/views/games/_display_mode_switcher.html.erb_spec.rb` (new)
+- `spec/views/games/_grid_mode.html.erb_spec.rb` (new)
+- `spec/views/games/_list_mode.html.erb_spec.rb` (new)
+- `spec/views/games/_shelves_by_letter_mode.html.erb_spec.rb` (new)
+
+### References
+
+- Spec:
+  `docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs/01d-display-mode-switcher-and-three-modes.md`.
+- Umbrella:
+  `docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs/01-overview-games-listing-rework.md`.
+- Plan checkbox: `… /plan.md` → `01d — Display mode switcher +
+  three modes` block (all 10 boxes ticked, with reframe notes
+  inline).
+
+## 2026-05-11 — sub-spec 01c Genres + Collections shelves (pito-rails)
+
+Implemented sub-spec 01c per
+`specs/01c-genres-and-collections-shelves.md` plus master dispatch
+overrides (partials over ViewComponents, simpler URL contract,
+inline `:shelf` styling pending 01e).
+
+### Master dispatch overrides vs the architect spec
+
+The architect spec proposed three ViewComponent classes
+(`Games::GenresShelfComponent`, `Games::CollectionsShelfComponent`,
+shared `Games::ShelfTileComponent`) plus a model scope
+`Game.in_genre(slug)`. The master agent dispatched a reframe:
+two plain partials (`_genres_shelf.html.erb`,
+`_collections_shelf.html.erb`) at `app/views/games/`, with the
+existing `?genre=<slug>` / new `?collection=<slug>` filter
+parameters handled directly in `GamesController#index`. No new
+model scope; the existing `joins(:game_genres).where(genre_id: …)`
+and `where(collection_id: …)` codepaths absorb both forms.
+
+### What landed
+
+- `app/views/games/_genres_shelf.html.erb` (new) — top-of-page
+  horizontal-scroll shelf, alphabetical (case-insensitive). Each
+  tile is a clickable `<a>` to `/games?genre=<slug>` (falls back to
+  `/games?genre=<id>` when `Genre#slug` is blank). Tiles use the
+  `steam-shelf` Stimulus controller already in use by the legacy
+  per-genre/per-platform shelves. Empty shelf renders a muted
+  `(no genres yet)` placeholder so the layout doesn't shift.
+- `app/views/games/_collections_shelf.html.erb` (new) — mirror of
+  the Genres shelf for `Collection`. The architect spec mentions a
+  `kind: :custom` filter (open question #2); the current Collection
+  schema has no `kind` / `custom` column so the shelf renders every
+  Collection. A future migration can reintroduce the distinction.
+- `app/views/games/index.html.erb` — renders both new partials at
+  the top of the page, above the existing bundles / recently-played
+  / per-genre / per-platform shelves and the all-games grid.
+- `app/controllers/games_controller.rb#index` — sets
+  `@genres_for_shelf` and `@collections_for_shelf` (both ordered
+  `Arel.sql("LOWER(name)")` with `id` tie-break for deterministic
+  rendering across requests). Adds `?collection=<slug>` filter; the
+  existing `?genre=<id>` codepath now also accepts a slug string.
+  Both lookups go through ActiveRecord parameterized queries, so
+  SQL-unsafe input cannot reach the database.
+- Inline tile cover-art size locked to 75×100 px (50% of the
+  150×200 grid tile) per the master's 50% addendum. Once 01e's
+  `Games::CoverComponent.new(variant: :shelf)` (98×130 at 65%)
+  is fully wired through the codebase, this inline block swaps to
+  the component call; the surrounding tile shell is already shaped
+  to absorb the swap.
+
+### Sister-agent compensating patch
+
+The convergent commit `b14f974` landed 01a's migrations
+(`drop_platform_owned_id_from_games`, `create_game_platform_ownerships`,
+`revamp_platforms_for_friendly_id`) and the post-01a `Platform`
+model (`Platform#games_owning` retired, `Platform#games`
+re-routed through `:game_platform_ownerships`) but did NOT update
+`GamesController#index`. The controller still ran
+`Platform.joins(:games_owning)` (now broken) and
+`Game.where(platform_owned_id: …)` (column dropped). Every
+request to `/games` was 500ing in the test environment.
+
+01c's smallest-possible compensating fix (necessary to land my
+own request and system specs) is in
+`GamesController#index` only:
+
+- `Platform.joins(:games_owning)` → `Platform.joins(:games)` — the
+  new association lives on the post-01a Platform model exactly
+  under that name (see `app/models/platform.rb` line 35).
+- `scope.where(platform_owned_id: …)` removed — the column is gone;
+  the canonical platform filter ships with 01b's filter row
+  (`owned_on=<slug>`).
+- `sanitized_filter` no longer reads `params[:platform_owned]`.
+
+This patch is the minimum to keep `GET /games` serving. The
+remaining 01a controller fan-out (`Game` model needs
+`has_many :owned_platforms`, `local_only_params` should drop
+`:platform_owned_id`, etc.) stays in 01a's lane and is flagged in
+the "Open issues" section below.
+
+### Specs added
+
+- `spec/requests/games_spec.rb` — 12 new examples under "Phase 27
+  §01c — top-of-page shelves" (8 examples: heading + empty-state
+  for both shelves, alphabetical ordering, slug-based tile hrefs,
+  id fallback, steam-shelf controller stamp) and "Phase 27 §01c
+  — slug filter routes" (4 examples: `?genre=<slug>` /
+  `?collection=<slug>` happy paths + unknown-slug silently drops).
+- `spec/system/games_index_spec.rb` already lives in the convergent
+  commit (11 examples: shelf headings, alphabetical ordering,
+  empty-state placeholders, steam-shelf controller stamp, tile
+  navigation across genre / collection / id-fallback paths).
+
+Spec count delta: **+12 request examples** (system spec was
+already committed but newly passing).
+
+### Gates
+
+- `bundle exec rspec spec/requests/games_spec.rb -e "Phase 27 §01c"`
+  → 12 examples, 0 failures.
+- `bundle exec rspec spec/system/games_index_spec.rb`
+  → 11 examples, 0 failures.
+- `bundle exec rspec spec/requests/games_spec.rb` (full file)
+  → 71 examples, 14 failures. All 14 failures are pre-existing
+  01a drift (Game model missing `owned_platforms` /
+  `game_platform_ownerships`; show.html.erb references those).
+  Listed in "Open issues" below.
+- `bundle exec rubocop app/controllers/games_controller.rb spec/requests/games_spec.rb spec/system/games_index_spec.rb`
+  → 3 files inspected, 0 offenses.
+- `bundle exec brakeman -q -w2` → 0 errors, 0 security warnings.
+
+### Open issues / coordination notes for the master
+
+- **01a still has unfinished controller and model fan-out.** The
+  `Game` model never gained `has_many :game_platform_ownerships`
+  / `has_many :owned_platforms, through: …`. `app/views/games/show.html.erb`
+  references `@game.owned_platforms` (committed in `b14f974`) which
+  raises `NoMethodError`. 14 `spec/requests/games_spec.rb` examples
+  fail on this. None of them are caused by 01c.
+- **`Game#belongs_to :platform_owned` still in the model.** The
+  column was dropped by 01a's migration but the association is
+  alive; loading a Game with `platform_owned` accessed raises.
+  Removed by 01a when their fan-out completes.
+- **`GamesController#local_only_params` still permits `:platform_owned_id`.**
+  The column is gone; the permit is harmless (`permit` silently
+  drops keys not on the model) but should be cleaned by 01a.
+- **`:shelf` cover variant is inline, not the 01e component.** Once
+  01e's `Games::CoverComponent.new(game: …, variant: :shelf)` is
+  fully integrated, the inline 75×100 block in both shelf partials
+  swaps to the component call. Note 01e's locked size is 65%
+  (98×130 px); 01c's inline is 50% (75×100 px) per the addendum's
+  starting point. Reviewer should confirm visual density in browser
+  before finalizing.
+- **No `Collection#custom` column.** The architect spec proposed
+  filtering Collections by `kind: :custom`. The Phase 14 Collection
+  schema has no such column. The 01c partial shows every Collection
+  until a future migration introduces the distinction.
+- **`Genre#slug` is not unique-indexed.** The Phase 14 genres table
+  has a `slug` column without a unique index. My tile-href fallback
+  (`?genre=<id>` when slug is blank) handles missing slugs; if two
+  genres ever share a slug, the controller's lookup returns the
+  first match (deterministic by id order). A unique index on
+  `genres.slug` would be a one-line follow-up.
+
+### Files changed
+
+- `app/views/games/_genres_shelf.html.erb` (new — already in
+  `b14f974`, byte-identical to working tree).
+- `app/views/games/_collections_shelf.html.erb` (new — already in
+  `b14f974`, byte-identical to working tree).
+- `app/views/games/index.html.erb` (wire both shelves above the
+  existing layout; +7 lines).
+- `app/controllers/games_controller.rb` (set `@genres_for_shelf` /
+  `@collections_for_shelf`; add `?collection=<slug>` filter; accept
+  slug form of `?genre=`; 01a compensating patch on
+  `@platforms_shelves` and `sanitized_filter`).
+- `spec/requests/games_spec.rb` (+144 lines, +12 examples).
+- `spec/system/games_index_spec.rb` (already in `b14f974`,
+  byte-identical — 11 examples now passing).
+
+### References
+
+- Spec:
+  `docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs/01c-genres-and-collections-shelves.md`.
+- Umbrella:
+  `docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs/01-overview-games-listing-rework.md`.
+- Addendum:
+  `docs/notes/2026-05-11-11-33-29-games-shelf-cover-size-addendum.md`
+  (`:shelf` variant starts at 50%, fallback 65–70%).
+- Convergent commit: `b14f974` — landed both shelf partials and the
+  system spec; this session adds the controller / view wiring and
+  request specs.
+- Plan checkbox: `…/plan.md` → `01c — Genres and Collections
+  shelves` block (3 of 5 boxes ticked; ViewComponent and `:shelf`
+  cover-variant boxes annotated with reframe / dependency notes).

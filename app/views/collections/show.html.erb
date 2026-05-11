@@ -1,6 +1,11 @@
 <% content_for(:title, @collection.name) %>
 <% breadcrumb(["collections", collections_path], @collection.name) %>
 
+<%# `data-keyboard-detail-prev-url` / `data-keyboard-detail-next-url`
+    carry the `h` / `l` sibling navigation URLs for the global
+    keyboard controller. Marker div — invisible, no layout impact. %>
+<div style="display: contents;" <%= keyboard_detail_nav_data_attributes(@collection, scope: Collection, path_helper: method(:collection_path)) %>></div>
+
 <h1><%= @collection.name %></h1>
 
 <%= form_with(model: @collection, url: collection_path(@collection), method: :patch) do |f| %>

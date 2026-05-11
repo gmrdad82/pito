@@ -9,11 +9,13 @@
 # rows); restrict-on-delete from platforms (the IGDB platform sync
 # never deletes — see `Platforms::SyncFromIgdb`).
 class GamePlatformOwnership < ApplicationRecord
+  # `belongs_to` is required by default (Rails 5+), so the row cannot
+  # be saved without both sides. The explicit `uniqueness` validation
+  # enforces "one ownership per (game, platform)" alongside the unique
+  # composite DB index.
   belongs_to :game
   belongs_to :platform
 
-  validates :game_id, presence: true
-  validates :platform_id, presence: true,
-                          uniqueness: { scope: :game_id,
+  validates :platform_id, uniqueness: { scope: :game_id,
                                         message: "ownership already exists for this game" }
 end

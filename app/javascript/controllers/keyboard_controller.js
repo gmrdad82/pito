@@ -45,6 +45,15 @@ import { Controller } from "@hotwired/stimulus"
 //   Detail pages
 //     v           open `data-keyboard-external-url` in a new tab
 //     s / Y / D   click the analog action link in the page chrome
+//     h / l       navigate to the previous / next sibling record. The
+//                 server emits `data-keyboard-detail-prev-url` /
+//                 `data-keyboard-detail-next-url` on a wrapping
+//                 container (see `KeyboardNavigationHelper`). When the
+//                 attribute is absent the keystroke falls through.
+//   List pages
+//     h / l       navigate to the previous / next paginator link
+//                 (`<a rel="prev">` / `<a rel="next">`). No-op on
+//                 surfaces without pagination.
 //   Action confirmation page
 //     y           submit the action form
 //     Esc / other clicks the [cancel] link
@@ -400,13 +409,52 @@ export default class extends Controller {
     return this.moveHighlight(delta)
   }
 
-  // h / l. Only meaningful inside a grid surface. Returns false outside
-  // one so the keystroke falls through (the controller never preventDefaults).
+  // h / l. Grid surfaces win first (games, bundles, calendar). On
+  // detail (show) pages a container carries
+  // `data-keyboard-detail-prev-url` / `data-keyboard-detail-next-url`;
+  // we navigate via Turbo when present. On list (index) pages we look
+  // for a `<a rel="prev">` / `<a rel="next">` paginator link. When
+  // none of the three surfaces apply the keystroke falls through
+  // (the controller never preventDefaults).
   moveHighlightHorizontal(delta) {
     if (this.gridContainer()) {
       return this.moveGrid(0, delta)
     }
+    if (this.navigateDetailSibling(delta)) return true
+    if (this.navigateListPaginator(delta)) return true
     return false
+  }
+
+  // Detail-page sibling navigation. Server-rendered show templates
+  // emit `data-keyboard-detail-prev-url` / `data-keyboard-detail-next-url`
+  // on a wrapping container (see `KeyboardNavigationHelper`). Missing
+  // attributes mean the record has no sibling in that direction; we
+  // return false so the keystroke falls through.
+  navigateDetailSibling(delta) {
+    const attr = delta < 0 ? "data-keyboard-detail-prev-url" : "data-keyboard-detail-next-url"
+    const node = document.querySelector(`[${attr}]`)
+    if (!node) return false
+    const url = node.getAttribute(attr)
+    if (!url) return false
+    if (window.Turbo && typeof window.Turbo.visit === "function") {
+      window.Turbo.visit(url)
+    } else {
+      window.location.assign(url)
+    }
+    return true
+  }
+
+  // List-page paginator navigation. We look for the standard
+  // `<a rel="prev">` / `<a rel="next">` link any paginator emits.
+  // pito does not paginate index pages today, so this branch is a
+  // no-op on every shipping surface — it stays in place so the day a
+  // paginator lands the hotkey already works without controller edits.
+  navigateListPaginator(delta) {
+    const rel = delta < 0 ? "prev" : "next"
+    const link = document.querySelector(`a[rel='${rel}']`)
+    if (!link) return false
+    link.click()
+    return true
   }
 
   moveGrid(deltaY, deltaX) {
