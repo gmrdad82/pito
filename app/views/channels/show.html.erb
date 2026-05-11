@@ -20,6 +20,20 @@
     <% end %>
   </div>
 
+  <%# Phase 22 — in-flight import badge. Visible whenever an ImportJob
+      for this channel is `queued` or `running`. Links to the modal's
+      show view so the user can resume the keep/reject flow without
+      reopening from `/videos`. %>
+  <% if (in_flight_job = @channel.in_flight_import_job) %>
+    <div class="pane pane--standalone" style="margin-bottom: 8px; padding: 6px 10px;">
+      <%= render(Imports::ProgressIndicatorComponent.new(import_job: in_flight_job)) %>
+      <%= render(BracketedLinkComponent.new(
+        label: "view progress",
+        href: imports_channel_path(in_flight_job)
+      )) %>
+    </div>
+  <% end %>
+
   <%# Two-pane layout (2026-05-10): the show page now splits channel detail
       and the videos list into separate side-by-side panes inside a
       `.pane-row`. Detail lives in the first pane (zebra index A); videos

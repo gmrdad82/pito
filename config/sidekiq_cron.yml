@@ -76,6 +76,22 @@ youtube_analytics_retention_weekly:
   queue: analytics
   description: "YouTube Analytics weekly audience-retention refresh"
 
+# Phase 23 §23d — daily Video diff check.
+#
+# Walks every Video with a connected YouTube channel, fetches the
+# YouTube-side state via `videos.list` (1 unit per video), and
+# persists the divergence as an open `VideoDiff` row when fields
+# differ. Notifications fire automatically once a diff is detected
+# (kind: video_diff_detected, severity: info).
+#
+# Schedule: 01:30 UTC. Separate from `channel_diff_check` per locked
+# decision Q5 — independent quota budgets and failure surfaces.
+video_diff_check_bulk:
+  cron: "30 1 * * *"
+  class: BulkVideoDiffCheckJob
+  queue: default
+  description: "Phase 23 — fan-out daily YouTube video diff check across the catalogue"
+
 # YouTube Data API v3 sync jobs — uncomment when beta YouTube integration is implemented
 #
 # sync_channels:

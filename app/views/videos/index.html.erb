@@ -9,9 +9,22 @@
   <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;">
     <div class="dot-list">
       <h1>videos</h1>
+      <%# Phase 22 — `[import]` opens the import modal in place. Frame
+          target is `imports_modal_frame` so the response replaces this
+          link's enclosing turbo-frame on the modal step views. %>
+      <%= render(BracketedLinkComponent.new(
+        label: "import",
+        href: imports_channels_path,
+        data: { turbo_frame: "imports_modal_frame" }
+      )) %>
     </div>
     <span style="margin-left: auto;"><%= render(SavedViewsSectionComponent.new(saved_views: @saved_views || SavedView.none, kind: "videos")) %></span>
   </div>
+
+  <%# Phase 22 — modal frame. The `[import]` link above fills this
+      frame with `imports/channels/index`. When no import is open the
+      frame stays empty (no DOM impact). %>
+  <%= turbo_frame_tag "imports_modal_frame" %>
 
   <%# Phase 21 — `?channel=<slug-or-id>` filter chip. The chip renders
       only when the URL carries the param; clicking it clears `?channel`

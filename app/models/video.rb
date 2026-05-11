@@ -36,6 +36,21 @@ class Video < ApplicationRecord
   has_many :playlist_videos, dependent: :destroy
   has_many :playlists, through: :playlist_videos
 
+  # Phase 23 §23a — Video sync + diff dialog. Append-only audit log of
+  # resolved field changes; open diff registry; convenience accessor
+  # for "the single open diff" (matches the partial unique index on
+  # `video_diffs.video_id WHERE resolved_at IS NULL`).
+  #
+  # `dependent: :delete_all` on `video_change_logs` because the rows
+  # are read-only at the model layer (raise `ActiveRecord::ReadOnlyRecord`
+  # on `destroy`); the DB FK is `ON DELETE CASCADE` so the rows still
+  # get cleaned up when the Video is destroyed.
+  has_many :video_change_logs, dependent: :delete_all
+  has_many :video_diffs, dependent: :destroy
+  has_one :open_diff,
+          -> { where(resolved_at: nil) },
+          class_name: "VideoDiff"
+
   # Phase 13.1 — analytics tables. Cascade is delete_all because the
   # rows are derived from the YouTube Analytics API; deleting the
   # Video wipes them. Each FK is also ON DELETE CASCADE at the DB
@@ -107,6 +122,34 @@ class Video < ApplicationRecord
 
   validate :publish_at_must_be_in_future
   validate :publish_at_only_when_private
+
+  # Phase 23 §23a — display-only counters from `videos.list#statistics`.
+  # YouTube returns counts as strings; the diff computer coerces to
+  # integers before comparison. Local validations are defensive — the
+  # values arrive via `update_columns` from the diff apply path, not
+  # via mass-assignment, so the only way to land a negative count is
+  # via direct SQL or a misbehaving migration.
+  validates :view_count,
+            numericality: { only_integer: true, greater_than_or_equal_to: 0 },
+            allow_blank: true
+  validates :like_count,
+            numericality: { only_integer: true, greater_than_or_equal_to: 0 },
+            allow_blank: true
+  validates :comment_count,
+            numericality: { only_integer: true, greater_than_or_equal_to: 0 },
+            allow_blank: true
+  validates :duration_seconds,
+            numericality: { only_integer: true, greater_than_or_equal_to: 0 },
+            allow_blank: true
+
+  # `thumbnail_url` is best-effort — YouTube can return any of the
+  # `default` / `medium` / `high` / `standard` / `maxres` tiers and the
+  # diff computer accepts whichever URL the connection's response
+  # supplied. Validate only the shape so a manifestly malformed value
+  # (e.g., the literal string "null") cannot land.
+  validates :thumbnail_url,
+            format: { with: %r{\Ahttps?://[^\s]+\z}, allow_blank: true,
+                      message: "must be an absolute http(s) URL" }
 
   enum :privacy_status,
        { private: 0, public: 1, unlisted: 2 },
@@ -238,6 +281,29 @@ class Video < ApplicationRecord
   # the pre_publish_* booleans) do NOT re-derive.
   def calendar_attributes_changed?
     saved_changes.keys.any? { |k| CALENDAR_DERIVATION_FIELDS.include?(k) }
+  end
+
+  # Phase 23 §23a — Q1 research outcome.
+  #
+  # YouTube enforces a 14-day cooldown on **channel** title / handle
+  # changes (Channel#title_locked? / handle_locked?). Live-API
+  # research confirmed that the same cooldown does NOT apply to
+  # **video** titles — `videos.update` is rate-limited only by the
+  # daily quota (10,000 units; each update costs 50). Per the master
+  # agent's locked Q1 decision ("populate but inert"), the
+  # `title_changed_at` column is stamped on Pito-wins title applies
+  # for audit purposes, but `title_locked?` always returns `false`.
+  # The diff dialog never gates the title row on it.
+  #
+  # If the YouTube API ever introduces the cooldown for videos, swap
+  # this implementation for the `Channel#title_locked?` shape — no
+  # column change required.
+  def title_locked?
+    false
+  end
+
+  def title_unlock_at
+    nil
   end
 
   private

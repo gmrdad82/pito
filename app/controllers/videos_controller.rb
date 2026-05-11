@@ -27,6 +27,7 @@ class VideosController < ApplicationController
   before_action :load_video, only: %i[
     show edit update destroy stats
     pre_publish_checklist publish schedule unpublish
+    diff apply_diff
   ]
 
   def index
@@ -270,7 +271,181 @@ class VideosController < ApplicationController
     @saved_view = SavedView.find_by(kind: :videos, url: CGI.unescape(request.fullpath))
   end
 
+  # Phase 23 §23b — paginated index of every open VideoDiff (locked
+  # Q3). One row per video with an unresolved diff; clicking the row
+  # opens the per-video diff page. JSON branch returns the same shape
+  # for the CLI lane.
+  def diffs
+    page = params[:page].to_i
+    page = 1 if page < 1
+    per_page = 50
+    offset = (page - 1) * per_page
+
+    base = VideoDiff.open.includes(video: :channel)
+                    .order(detected_at: :desc)
+
+    @total_count = base.count
+    @page = page
+    @per_page = per_page
+    @total_pages = (@total_count.to_f / per_page).ceil
+    @diffs = base.offset(offset).limit(per_page)
+
+    respond_to do |format|
+      format.html
+      format.json do
+        render json: {
+          page: @page,
+          per_page: @per_page,
+          total_count: @total_count,
+          total_pages: @total_pages,
+          diffs: @diffs.map { |d| diff_index_json(d) }
+        }
+      end
+    end
+  end
+
+  # Phase 23 §23b — render the three-column reconciliation page when
+  # an open `VideoDiff` exists. If none is open, redirect back to the
+  # video show with a flash. The JSON branch returns a shape that
+  # mirrors the `video_diff_show` MCP tool so the CLI lane and the
+  # web lane share the same data contract.
+  def diff
+    return if redirect_to_canonical_slug!(@video) { |v| diff_video_path(v) }
+
+    @diff = @video.open_diff
+
+    respond_to do |format|
+      format.html do
+        if @diff.nil?
+          redirect_to video_path(@video), notice: "no open diff for this video."
+        end
+      end
+      format.json do
+        if @diff
+          render json: diff_detail_json(@video, @diff)
+        else
+          render json: { error: "no_open_diff" }, status: :not_found
+        end
+      end
+    end
+  end
+
+  # Phase 23 §23c — consume the per-field decisions form and run the
+  # apply orchestrator. The form sends one radio per row keyed
+  # `decisions[<field>]` with value `"pito"` / `"youtube"`. JSON
+  # parity: PATCH /videos/:slug/diff.json accepts the same shape
+  # (`{ "decisions": { "<field>": "pito" | "youtube" } }`) and is
+  # used by the CLI / MCP path. Boundary booleans serialize as
+  # `"yes"` / `"no"` per the project-wide rule — none here, but the
+  # decision values themselves are NOT yes/no (locked spec language).
+  def apply_diff
+    @diff = @video.open_diff
+
+    if @diff.nil?
+      respond_to do |format|
+        format.html { redirect_to video_path(@video), notice: "no open diff to apply." }
+        format.json { render json: { error: "no_open_diff" }, status: :not_found }
+      end
+      return
+    end
+
+    decisions = extract_decisions_param
+
+    result = Youtube::VideoDiffApply.call(
+      video_diff: @diff,
+      decisions: decisions,
+      user: Current.user
+    )
+
+    if result.success?
+      message = build_apply_success_message(result)
+      respond_to do |format|
+        format.html { redirect_to video_path(@video), notice: message }
+        format.json do
+          render json: { ok: true, message: message,
+                         pito_wins_fields: result.pito_wins_fields,
+                         youtube_wins_fields: result.youtube_wins_fields }
+        end
+      end
+    else
+      respond_to do |format|
+        format.html do
+          flash.now[:alert] = result.error_message
+          @apply_error_code = result.error_code
+          render :diff, status: :unprocessable_content
+        end
+        format.json do
+          render json: { ok: false, error: result.error_code,
+                         message: result.error_message },
+                 status: :unprocessable_content
+        end
+      end
+    end
+  end
+
   private
+
+  # Phase 23 §23b — extract the decisions hash from form params,
+  # normalizing into a plain Hash<String, String>. The JSON branch
+  # may pass either a flat `decisions: {...}` or an outer wrapper
+  # under the resource key; accept both.
+  def extract_decisions_param
+    raw = params[:decisions]
+    raw ||= params.dig(:video_diff, :decisions)
+    return {} if raw.blank?
+
+    case raw
+    when ActionController::Parameters
+      raw.to_unsafe_h.transform_values(&:to_s)
+    when Hash
+      raw.transform_values(&:to_s)
+    else
+      {}
+    end
+  end
+
+  def build_apply_success_message(result)
+    pito_n    = Array(result.pito_wins_fields).size
+    youtube_n = Array(result.youtube_wins_fields).size
+
+    parts = []
+    parts << "#{youtube_n} field#{'s' if youtube_n != 1} accepted from youtube" if youtube_n.positive?
+    parts << "#{pito_n} field#{'s' if pito_n != 1} pushed to youtube"            if pito_n.positive?
+
+    "diff resolved (#{parts.join(', ')})"
+  end
+
+  def diff_index_json(diff)
+    video = diff.video
+    {
+      diff_id: diff.id,
+      video_id: video.id,
+      video_slug: video.to_param,
+      youtube_video_id: video.youtube_video_id,
+      title: video.title,
+      channel_id: video.channel_id,
+      channel_url: video.channel&.channel_url,
+      detected_at: diff.detected_at&.iso8601,
+      fields: diff.fields,
+      diff_url: "/videos/#{video.to_param}/diff"
+    }
+  end
+
+  def diff_detail_json(video, diff)
+    {
+      diff_id: diff.id,
+      video_id: video.id,
+      video_slug: video.to_param,
+      youtube_video_id: video.youtube_video_id,
+      title: video.title,
+      detected_at: diff.detected_at&.iso8601,
+      fields: diff.fields,
+      payload: diff.payload,
+      writable_fields: Youtube::DiffComputer::WRITABLE_FIELDS,
+      display_only_fields: Youtube::DiffComputer::DISPLAY_ONLY_FIELDS
+    }
+  end
+
 
   def load_video
     @video = Video.friendly.find(params[:id])

@@ -56,7 +56,15 @@
     <%= javascript_importmap_tags %>
   </head>
 
-  <body data-controller="keyboard notifications-modal">
+  <%# `data-keyboard-navigation-enabled` carries the install-level
+      master toggle (Settings → ui / ux). The keyboard Stimulus
+      controller reads it on connect and self-disables when it sees
+      "no" so per-row hotkeys (j/k, s, D, Y…) and the `?` help
+      shortcut all go silent. The footer `[_]` bracketed link still
+      renders — keyboard-off users can click it to open the help
+      modal. yes/no strings at the wire boundary per the project's
+      external-boolean rule. %>
+  <body data-controller="keyboard notifications-modal" data-keyboard-navigation-enabled="<%= AppSetting.keyboard_navigation_enabled? ? "yes" : "no" %>">
     <header style="position: fixed; top: 0; left: 0; right: 0; height: 32px; background: var(--color-bg); border-bottom: 1px solid var(--color-border); padding: 0 12px; z-index: 100;" data-controller="theme">
       <%# Header layout (2026-05-10 redesign, refined 2026-05-10 follow-up):
             [home][calendar] · [channels][videos] · [projects][notifications]

@@ -46,8 +46,18 @@ module Youtube
     # snapshot's `snippet` / `status` — the user's local edits ARE
     # the source of truth; everything pito doesn't model passes
     # through unchanged.
-    def update_video(video, fresh:)
-      payload = build_payload(video, fresh)
+    #
+    # Phase 23 §23c — `fields:` optional kwarg restricts which Pito
+    # columns the writer overlays on the fresh snapshot. When nil
+    # (the Phase 12 default), the full writable set is pushed — same
+    # behavior as before. When supplied as a Symbol or Array of
+    # Symbols (e.g., `fields: [:title]` from `Youtube::VideoDiffApply`),
+    # only those fields are overlaid; everything else stays as the
+    # YouTube-side snapshot returned. This is the surface the diff
+    # apply orchestrator uses to push selected Pito-wins fields
+    # without inadvertently dragging unrelated local state along.
+    def update_video(video, fresh:, fields: nil)
+      payload = build_payload(video, fresh, fields: fields)
       @last_payload = payload
 
       # Phase 15 F1 — proactive refresh: if the access_token is
@@ -75,23 +85,48 @@ module Youtube
 
     private
 
-    def build_payload(video, fresh)
+    SNIPPET_FIELDS = %i[title description tags category_id].freeze
+    STATUS_FIELDS  = %i[
+      privacy_status publish_at
+      self_declared_made_for_kids contains_synthetic_media
+      embeddable public_stats_viewable
+    ].freeze
+
+    def build_payload(video, fresh, fields: nil)
       fresh_snippet = (fresh.is_a?(Hash) ? fresh[:snippet] : nil) || {}
       fresh_status  = (fresh.is_a?(Hash) ? fresh[:status]  : nil) || {}
 
       snippet = fresh_snippet.dup
-      snippet[:title]       = video.title
-      snippet[:description] = video.description.to_s
-      snippet[:tags]        = video.tags || []
-      snippet[:categoryId]  = video.category_id
+      status  = fresh_status.dup
 
-      status = fresh_status.dup
-      status[:privacyStatus]            = video.privacy_status
-      status[:publishAt]                = video.publish_at&.iso8601
-      status[:selfDeclaredMadeForKids]  = video.self_declared_made_for_kids
-      status[:containsSyntheticMedia]   = video.contains_synthetic_media
+      allowed = build_allowed_set(fields)
+
+      snippet[:title]       = video.title              if allowed.include?(:title)
+      snippet[:description] = video.description.to_s   if allowed.include?(:description)
+      snippet[:tags]        = video.tags || []         if allowed.include?(:tags)
+      snippet[:categoryId]  = video.category_id        if allowed.include?(:category_id)
+
+      status[:privacyStatus]            = video.privacy_status                if allowed.include?(:privacy_status)
+      status[:publishAt]                = video.publish_at&.iso8601           if allowed.include?(:publish_at)
+      status[:selfDeclaredMadeForKids]  = video.self_declared_made_for_kids   if allowed.include?(:self_declared_made_for_kids)
+      status[:containsSyntheticMedia]   = video.contains_synthetic_media      if allowed.include?(:contains_synthetic_media)
+      status[:embeddable]               = video.embeddable                    if allowed.include?(:embeddable) && video.respond_to?(:embeddable)
+      status[:publicStatsViewable]      = video.public_stats_viewable         if allowed.include?(:public_stats_viewable) && video.respond_to?(:public_stats_viewable)
 
       { snippet: snippet, status: status }
+    end
+
+    # `fields: nil` → all writable fields are overlaid (Phase 12
+    # default). Otherwise the supplied list is intersected with the
+    # known SNIPPET + STATUS sets; unknown / display-only field names
+    # are silently ignored at this layer (the apply orchestrator has
+    # already filtered to writable fields before calling).
+    def build_allowed_set(fields)
+      if fields.nil?
+        (SNIPPET_FIELDS + STATUS_FIELDS).to_set
+      else
+        Array(fields).map(&:to_sym).to_set & (SNIPPET_FIELDS + STATUS_FIELDS).to_set
+      end
     end
 
     def build_snippet_object(hash)
@@ -108,7 +143,9 @@ module Youtube
         privacy_status:               hash[:privacyStatus],
         publish_at:                   hash[:publishAt],
         self_declared_made_for_kids:  hash[:selfDeclaredMadeForKids],
-        contains_synthetic_media:     hash[:containsSyntheticMedia]
+        contains_synthetic_media:     hash[:containsSyntheticMedia],
+        embeddable:                   hash[:embeddable],
+        public_stats_viewable:        hash[:publicStatsViewable]
       )
     end
 

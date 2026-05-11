@@ -84,11 +84,13 @@ RSpec.describe Channel, type: :model do
       expect(Channel.starred).to eq([ starred ])
     end
 
-    # The derived `:connected` scope was retired alongside the
-    # per-channel "is this OAuth-connected?" surface — every channel
-    # is OAuth-linked by definition now.
-    it "no longer defines a .connected scope" do
-      expect { Channel.connected }.to raise_error(NoMethodError)
+    # Phase 22 — the `.connected` scope was reintroduced with new
+    # semantics: a channel is connected when it carries a
+    # `youtube_connection_id` (the post-rename equivalent of the
+    # Phase 9-era `connected` boolean). The import modal's channel
+    # picker lists this scope.
+    it "exposes a .connected scope scoped to channels with a youtube_connection_id" do
+      expect(Channel).to respond_to(:connected)
     end
   end
 
@@ -413,6 +415,83 @@ RSpec.describe Channel, type: :model do
         channel.handle_changed_at = (14.days + 1.minute).ago
         expect(channel.handle_unlock_at).to be_nil
       end
+    end
+  end
+
+  # Phase 22 — Video Import Flow associations + helpers.
+  describe "import flow associations" do
+    it { is_expected.to have_many(:import_jobs).dependent(:destroy) }
+    it { is_expected.to have_many(:rejected_video_imports).dependent(:destroy) }
+
+    it "cascades import_jobs on destroy" do
+      channel = create(:channel)
+      user = create(:user)
+      job = ImportJob.create!(channel: channel, enqueued_by: user, status: :queued)
+      expect { channel.destroy }
+        .to change { ImportJob.where(id: job.id).count }.from(1).to(0)
+    end
+
+    it "cascades rejected_video_imports on destroy" do
+      channel = create(:channel)
+      user = create(:user)
+      row = create(:rejected_video_import, channel: channel, rejected_by: user)
+      expect { channel.destroy }
+        .to change { RejectedVideoImport.where(id: row.id).count }.from(1).to(0)
+    end
+  end
+
+  describe ".connected scope" do
+    it "includes channels with a youtube_connection_id" do
+      conn = create(:youtube_connection)
+      with_conn = create(:channel, youtube_connection: conn)
+      without_conn = create(:channel)
+      expect(Channel.connected).to include(with_conn)
+      expect(Channel.connected).not_to include(without_conn)
+    end
+  end
+
+  describe "#in_flight_import?" do
+    let(:channel) { create(:channel) }
+    let(:user)    { create(:user) }
+
+    it "is true when a queued ImportJob exists" do
+      ImportJob.create!(channel: channel, enqueued_by: user, status: :queued)
+      expect(channel.in_flight_import?).to be(true)
+    end
+
+    it "is true when a running ImportJob exists" do
+      ImportJob.create!(channel: channel, enqueued_by: user, status: :running)
+      expect(channel.in_flight_import?).to be(true)
+    end
+
+    it "is false when only terminal-state jobs exist" do
+      ImportJob.create!(channel: channel, enqueued_by: user, status: :completed,
+                        started_at: 1.minute.ago, completed_at: Time.current)
+      ImportJob.create!(channel: channel, enqueued_by: user, status: :failed,
+                        started_at: 1.minute.ago, completed_at: Time.current,
+                        error_payload: { "code" => "boom" })
+      expect(channel.in_flight_import?).to be(false)
+    end
+
+    it "is false with no jobs" do
+      expect(channel.in_flight_import?).to be(false)
+    end
+  end
+
+  describe "#in_flight_import_job" do
+    let(:channel) { create(:channel) }
+    let(:user)    { create(:user) }
+
+    it "returns the most recent in-flight job" do
+      _older = ImportJob.create!(channel: channel, enqueued_by: user, status: :running)
+      newer  = ImportJob.create!(channel: channel, enqueued_by: user, status: :queued)
+      expect(channel.in_flight_import_job).to eq(newer)
+    end
+
+    it "returns nil when no in-flight job exists" do
+      ImportJob.create!(channel: channel, enqueued_by: user, status: :completed,
+                        started_at: 1.minute.ago, completed_at: Time.current)
+      expect(channel.in_flight_import_job).to be_nil
     end
   end
 end

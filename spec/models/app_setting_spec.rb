@@ -117,6 +117,70 @@ RSpec.describe AppSetting, type: :model do
     end
   end
 
+  # 2026-05-11 — keyboard-navigation master toggle. The column is a
+  # NOT-NULL boolean with `default: true` so a freshly migrated row
+  # starts with the feature enabled. `.keyboard_navigation_enabled?`
+  # returns `true` when no AppSetting row exists yet (matches the
+  # column default); `false` only when an explicit row carries the
+  # value `false`. The writer bootstraps a row when the table is
+  # empty so the controller never has to nil-check.
+  describe "keyboard_navigation_enabled column default" do
+    it "is true on a freshly created row" do
+      setting = create(:app_setting)
+      expect(setting.keyboard_navigation_enabled).to be(true)
+    end
+
+    it "is coerced to a Boolean (not an integer or string)" do
+      setting = create(:app_setting)
+      expect(setting.keyboard_navigation_enabled).to be(true).or be(false)
+    end
+
+    it "honours explicit false on insert" do
+      setting = create(:app_setting, keyboard_navigation_enabled: false)
+      expect(setting.keyboard_navigation_enabled).to be(false)
+    end
+  end
+
+  describe ".keyboard_navigation_enabled?" do
+    it "returns true when no AppSetting row exists" do
+      AppSetting.delete_all
+      expect(AppSetting.keyboard_navigation_enabled?).to be(true)
+    end
+
+    it "returns true when the singleton's column is true" do
+      AppSetting.delete_all
+      AppSetting.create!(key: "max_panes", value: "5",
+                         keyboard_navigation_enabled: true)
+      expect(AppSetting.keyboard_navigation_enabled?).to be(true)
+    end
+
+    it "returns false when the singleton's column is false" do
+      AppSetting.delete_all
+      AppSetting.create!(key: "max_panes", value: "5",
+                         keyboard_navigation_enabled: false)
+      expect(AppSetting.keyboard_navigation_enabled?).to be(false)
+    end
+  end
+
+  describe ".set_keyboard_navigation_enabled" do
+    it "flips the singleton's column" do
+      AppSetting.delete_all
+      AppSetting.create!(key: "max_panes", value: "5")
+      AppSetting.set_keyboard_navigation_enabled(false)
+      expect(AppSetting.keyboard_navigation_enabled?).to be(false)
+      AppSetting.set_keyboard_navigation_enabled(true)
+      expect(AppSetting.keyboard_navigation_enabled?).to be(true)
+    end
+
+    it "bootstraps a row when the table is empty" do
+      AppSetting.delete_all
+      expect {
+        AppSetting.set_keyboard_navigation_enabled(false)
+      }.to change(AppSetting, :count).by(1)
+      expect(AppSetting.keyboard_navigation_enabled?).to be(false)
+    end
+  end
+
   describe ".voyage_indexing_project_notes?" do
     it "returns false when no AppSetting row exists" do
       AppSetting.delete_all

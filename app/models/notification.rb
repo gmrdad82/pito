@@ -50,7 +50,17 @@ class Notification < ApplicationRecord
     milestone_reached: 4,
     calendar_entry_firing: 5,
     sync_error: 6,
-    youtube_reauth_needed: 7
+    youtube_reauth_needed: 7,
+    # Phase 22 — `[import]` modal completion notification. One row per
+    # ImportJob transition into a terminal state (completed OR failed);
+    # the severity column distinguishes them (`success` vs `warn`).
+    import_job_completed: 8,
+    # Phase 23 §23d — emitted by `VideoDiffCheckJob` when a video's
+    # YouTube state has diverged from Pito's. The user resolves the
+    # diff field-by-field at `/videos/:slug/diff`. Severity `info` —
+    # not urgent, not destructive, just "you have something to look
+    # at".
+    video_diff_detected: 9
   }
   enum :severity, { info: 0, success: 1, warn: 2, urgent: 3 }
 

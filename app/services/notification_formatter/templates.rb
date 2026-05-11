@@ -14,7 +14,8 @@ module NotificationFormatter
       "milestone_reached"              => MilestoneReached,
       "calendar_entry_firing"          => CalendarEntryFiring,
       "sync_error"                     => SyncError,
-      "youtube_reauth_needed"          => YoutubeReauthNeeded
+      "youtube_reauth_needed"          => YoutubeReauthNeeded,
+      "video_diff_detected"            => VideoDiffDetected
     }.freeze
   end
 end

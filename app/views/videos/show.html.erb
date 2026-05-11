@@ -34,6 +34,24 @@
     </p>
   <% end %>
 
+  <%# Phase 23 §23b — open-diff banner. When the latest VideoDiffCheckJob
+      run detected a YouTube divergence, surface it here with a [view diff]
+      bracketed link so the user can resolve before doing anything else. %>
+  <% if (open_diff = @video.open_diff) %>
+    <p class="flash-warn" style="margin-bottom: 8px; padding: 4px 8px;">
+      youtube diverged on <%= open_diff.fields.size %>
+      field<%= 's' if open_diff.fields.size != 1 %>.
+      <%= link_to "[ view diff ]", diff_video_path(@video), class: "bracketed" %>
+    </p>
+  <% end %>
+
+  <%# Phase 23 §23c — user-triggered sync. Routes through the syncs
+      confirmation page per the bulk-as-foundation rule and the hard
+      ban on JS confirms. One-element ids list. %>
+  <p style="margin-bottom: 8px;">
+    <%= link_to "[ sync ]", syncs_path(type: "video", ids: @video.id), class: "bracketed" %>
+  </p>
+
   <%# Layout pass (2026-05-10) — stats section moved to its own row
       below the detail pane (mirrors the `/games/:id` row pattern). Row 1
       holds the detail pane on its own; row 2 holds a full-width
