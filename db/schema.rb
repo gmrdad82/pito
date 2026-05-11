@@ -833,11 +833,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_160002) do
   create_table "users", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.citext "email", null: false
+    t.datetime "last_digest_run_at", default: -> { "CURRENT_TIMESTAMP" }, null: false
     t.string "password_digest", null: false
     t.integer "preferred_games_display_mode", default: 0, null: false
     t.string "time_zone", default: "Etc/UTC", null: false
     t.datetime "updated_at", null: false
     t.index ["email"], name: "index_users_on_email", unique: true
+    t.index ["last_digest_run_at"], name: "index_users_on_last_digest_run_at"
   end
 
   create_table "video_change_logs", force: :cascade do |t|

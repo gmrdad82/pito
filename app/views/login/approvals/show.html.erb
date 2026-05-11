@@ -1,0 +1,25 @@
+<% content_for(:title, "approve new-location login") %>
+<% breadcrumb(["notifications", notifications_path], "approve login") %>
+
+<div style="margin-bottom: 8px;">
+  <h1>approve new-location login</h1>
+  <p class="text-muted" style="margin-top: 2px;">
+    this signs in the requester from the location below.<br>
+    the pending session activates immediately.<br>
+    only approve if you recognize the device, browser, and location.
+  </p>
+</div>
+
+<%= render "login/attempt_detail", attempt: @attempt %>
+
+<%# Hidden `confirm=yes` field — the action-screen form posts it
+    alongside the standard submit, so the controller's yes/no boundary
+    check evaluates to true on a real submit and the URL stays clean. %>
+<% content_for :action_screen_params do %>
+  <%= hidden_field_tag :confirm, "yes" %>
+<% end %>
+
+<%= render "shared/action_screen",
+  submit_label: "[yeah, it's me]",
+  cancel_path: notifications_path,
+  form_url: login_approval_path(@attempt) %>

@@ -1,0 +1,68 @@
+<% content_for(:title, "block ##{@row.id}") %>
+<% breadcrumb(["settings", settings_path],
+              ["security", settings_security_path],
+              ["blocks", settings_security_blocks_path],
+              "##{@row.id}") %>
+
+<div style="margin-bottom: 8px;">
+  <h1>block #<%= @row.id %></h1>
+  <p class="text-muted" style="margin-top: 2px;">
+    <% if @row.active? %>
+      this <code>(fingerprint, ip prefix)</code> pair is currently auto-blocked.<br>
+      future attempts that match it short-circuit to <code>result=blocked</code>.
+    <% else %>
+      <strong>unblocked</strong> at <%= @row.unblocked_at.utc.strftime("%Y-%m-%d %H:%M:%S %Z") %>.<br>
+      the row is kept for audit; future matches no longer short-circuit.
+    <% end %>
+  </p>
+</div>
+
+<div class="pane pane--standalone" style="margin-bottom: 12px;">
+  <dl>
+    <dt>blocked at</dt>
+    <dd><%= @row.blocked_at.utc.strftime("%Y-%m-%d %H:%M:%S %Z") %></dd>
+
+    <dt>source</dt>
+    <dd><code><%= @row.source_surface %></code></dd>
+
+    <dt>blocked by</dt>
+    <dd>user #<%= @row.blocked_by_user_id %></dd>
+
+    <dt>fingerprint</dt>
+    <dd style="word-break: break-all;"><code><%= @row.fingerprint_hash %></code></dd>
+
+    <dt>ip prefix</dt>
+    <dd><code><%= @row.ip_prefix %></code></dd>
+
+    <dt>attempts since block</dt>
+    <dd><%= @row.attempt_count %></dd>
+
+    <% if @row.last_attempt_at %>
+      <dt>last attempt</dt>
+      <dd><%= @row.last_attempt_at.utc.strftime("%Y-%m-%d %H:%M:%S %Z") %></dd>
+    <% end %>
+
+    <% if @row.reason.present? %>
+      <dt>reason</dt>
+      <dd><%= @row.reason %></dd>
+    <% end %>
+
+    <% if @row.unblocked_at.present? %>
+      <dt>unblocked at</dt>
+      <dd><%= @row.unblocked_at.utc.strftime("%Y-%m-%d %H:%M:%S %Z") %></dd>
+
+      <% if @row.unblocked_by_user_id.present? %>
+        <dt>unblocked by</dt>
+        <dd>user #<%= @row.unblocked_by_user_id %></dd>
+      <% end %>
+    <% end %>
+  </dl>
+</div>
+
+<p class="dot-list">
+  <%= render BracketedLinkComponent.new(label: "back to blocks", href: settings_security_blocks_path) %>
+  <%# Per-row unblock action lands with 01d's `Auth::BlockedLocationUnblocker`.
+      Keep this surface visible — bulk purge on a single id works today via
+      the ip_prefix + fingerprint filter from the purge screen. %>
+  <%= render BracketedLinkComponent.new(label: "purge by filter", href: settings_security_blocks_purge_path(fingerprint: @row.fingerprint_hash, ip_prefix: @row.ip_prefix)) %>
+</p>

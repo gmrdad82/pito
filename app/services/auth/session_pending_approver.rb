@@ -57,6 +57,7 @@ module Auth
       ua = request&.user_agent.to_s.first(1024).presence || ""
 
       session_row = nil
+      attempt_row = nil
 
       ActiveRecord::Base.transaction do
         session_row, _plaintext = Session.create_pending!(
@@ -65,7 +66,7 @@ module Auth
           user_agent: ua
         )
 
-        Auth::AttemptLogger.call(
+        attempt_row = Auth::AttemptLogger.call(
           request: request,
           result: :pending_approval,
           reason: :new_location_pending,
@@ -75,7 +76,28 @@ module Auth
         )
       end
 
+      # Phase 25 — 01c. Fire the urgent notification on the trusted-
+      # surfaces banner so the operator on another device sees the
+      # pending approval immediately. The dispatch is deliberately
+      # OUTSIDE the transaction — a notification-helper failure must
+      # NOT roll back the pending session + attempt row (the holding
+      # page still functions without the notification).
+      dispatch_pending_notification(attempt_row)
+
       session_row
+    end
+
+    def self.dispatch_pending_notification(attempt_row)
+      return if attempt_row.nil?
+      return if attempt_row.id.blank?
+
+      NotificationSource::LoginPendingApproval.report!(attempt: attempt_row)
+    rescue StandardError => e
+      Rails.logger.warn(
+        "[Auth::SessionPendingApprover] notification dispatch failed: " \
+        "#{e.class}: #{e.message}"
+      )
+      nil
     end
   end
 end

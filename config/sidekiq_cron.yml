@@ -82,6 +82,15 @@ pending_session_approval_sweeper:
   class: SessionPendingApprovalSweeperJob
   description: "Phase 25 — expire pending-approval sessions past their 10-minute window"
 
+# Phase 26 §01g — viewer-time analytics. Daily fan-out at 03:00 UTC.
+# Enumerates every owned video and enqueues a per-video
+# `VideoViewerTimeSyncJob`. Sidekiq parallelizes the inner work.
+viewer_time_daily_refresh:
+  cron: "0 3 * * *"
+  class: ViewerTimeDailyRefreshJob
+  queue: analytics
+  description: "Phase 26 §01g — daily viewer-time bucket refresh across owned videos"
+
 # Phase 13.2 — Analytics sync engine. Nightly orchestrator at 04:00
 # UTC; retention curves refresh weekly on Mondays at 05:00 UTC.
 youtube_analytics_sync_nightly:
@@ -128,6 +137,23 @@ channel_diff_check:
   class: ChannelDiffCheckJob
   queue: default
   description: "Phase 7.5 §11i — daily YouTube channel diff check across every connected channel"
+
+# Phase 26 — 01e. Daily digest scheduler.
+#
+# Fires every hour at minute 0. The job enumerates users with at least
+# one digest-enabled NotificationDeliveryChannel, computes the most
+# recent user-local 09:00 in UTC per user's stored time zone, and
+# enqueues `DailyDigestDeliverJob.perform_later(user_id)` for each
+# user whose local 09:00 fell inside the last hour. Idempotent via the
+# `users.last_digest_run_at` guard (23h cooldown).
+#
+# DST + edge-zone behavior is covered exhaustively in
+# `spec/jobs/daily_digest_scheduler_job_spec.rb`.
+daily_digest_scheduler:
+  cron: "0 * * * *"
+  class: DailyDigestSchedulerJob
+  queue: default
+  description: "Phase 26 — hourly tick; fans out daily digest delivery per user-local 09:00"
 
 # YouTube Data API v3 sync jobs — uncomment when beta YouTube integration is implemented
 #

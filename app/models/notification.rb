@@ -70,7 +70,13 @@ class Notification < ApplicationRecord
     # cached row. Dedupe posture: notify on fresh row or expanded
     # field set; skip on same-set / contracted-set passes. Resolution
     # surface lives at `/channels/:slug/diff`.
-    channel_diff_detected: 10
+    channel_diff_detected: 10,
+    # Phase 25 — 01c. Emitted by `NotificationSource::LoginPendingApproval`
+    # when a new-location correct-password login waits for approval.
+    # Severity is `urgent`. Dedupe key is
+    # `"login-pending-#{login_attempt_id}"` so re-runs collapse to a
+    # single row per pending attempt.
+    login_pending_approval: 11
   }
   enum :severity, { info: 0, success: 1, warn: 2, urgent: 3 }
 

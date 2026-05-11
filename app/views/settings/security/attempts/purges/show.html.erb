@@ -1,0 +1,97 @@
+<% content_for(:title, "purge attempts") %>
+<% breadcrumb(["settings", settings_path],
+              ["security", settings_security_path],
+              ["attempts", settings_security_attempts_path],
+              "purge") %>
+
+<div style="margin-bottom: 8px;">
+  <h1>purge attempts</h1>
+  <p class="text-muted" style="margin-top: 2px;">
+    hard-deletes the matching <code>login_attempts</code> rows.<br>
+    attempts are durable by default — only this purge removes them.<br>
+    at least one filter is required (safety rule).
+  </p>
+</div>
+
+<%# Preview filter form. Posts to itself via GET so the count updates
+    cheaply; the destructive POST sits in the second form below. %>
+<div class="pane pane--standalone" style="margin-bottom: 12px;">
+  <%= form_with url: settings_security_attempts_purge_path, method: :get,
+                scope: nil, data: { turbo: false } do %>
+    <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: end;">
+      <div>
+        <label for="result" class="form-label">result</label>
+        <select name="result" id="result">
+          <option value="">(any)</option>
+          <% %w[success failed pending_approval blocked rate_limited].each do |r| %>
+            <option value="<%= r %>" <%= "selected" if @applied_filter[:result] == r %>><%= r.tr("_", " ") %></option>
+          <% end %>
+        </select>
+      </div>
+      <div>
+        <label for="since" class="form-label">since (iso8601)</label>
+        <input type="text" name="since" id="since"
+               value="<%= @applied_filter[:since] %>"
+               placeholder="2026-05-01T00:00:00Z">
+      </div>
+      <div>
+        <label for="until_ts" class="form-label">until (iso8601)</label>
+        <input type="text" name="until_ts" id="until_ts"
+               value="<%= @applied_filter[:until_ts] %>"
+               placeholder="2026-05-31T00:00:00Z">
+      </div>
+      <div>
+        <label for="ip" class="form-label">ip</label>
+        <input type="text" name="ip" id="ip"
+               value="<%= @applied_filter[:ip] %>"
+               placeholder="1.2.3.4">
+      </div>
+      <div>
+        <label for="fingerprint" class="form-label">fingerprint</label>
+        <input type="text" name="fingerprint" id="fingerprint"
+               value="<%= @applied_filter[:fingerprint] %>"
+               style="width: 280px;">
+      </div>
+      <div>
+        <label for="user_id" class="form-label">user id</label>
+        <input type="text" name="user_id" id="user_id"
+               value="<%= @applied_filter[:user_id] %>" style="width: 90px;">
+      </div>
+      <div>
+        <button type="submit">[preview]</button>
+      </div>
+    </div>
+  <% end %>
+</div>
+
+<div class="pane pane--standalone" style="margin-bottom: 12px;">
+  <% if @no_filter %>
+    <p class="text-muted">enter at least one filter, then [preview].</p>
+  <% else %>
+    <p>
+      this purge will hard-delete
+      <strong><%= number_with_delimiter(@preview_count) %></strong>
+      attempt<%= "s" if @preview_count != 1 %>.
+    </p>
+
+    <%= form_with url: settings_security_attempts_purge_path, method: :post,
+                  scope: nil, data: { turbo: false, keyboard_confirmation: "true" } do %>
+      <% @applied_filter.each do |k, v| %>
+        <% next if v.blank? %>
+        <%= hidden_field_tag k, v %>
+      <% end %>
+      <%= hidden_field_tag :confirm, "yes" %>
+
+      <div class="action-screen-footer">
+        <div class="dot-list">
+          <% if @preview_count.positive? %>
+            <button type="submit" class="btn-danger">[purge]</button>
+          <% else %>
+            <button type="submit" class="btn-danger" disabled>[purge]</button>
+          <% end %>
+          <%= render(BracketedLinkComponent.new(label: "cancel", href: settings_security_attempts_path, data: { keyboard_confirmation_cancel: "true" })) %>
+        </div>
+      </div>
+    <% end %>
+  <% end %>
+</div>

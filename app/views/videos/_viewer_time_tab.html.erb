@@ -1,0 +1,18 @@
+<%#
+  Phase 26 §01g — viewer-time heatmap on the per-video analytics
+  dashboard. Renders the single-video rollup in the authenticated
+  user's timezone (Current.user.time_zone, defaulting to Etc/UTC for
+  unauthenticated visitors).
+%>
+<section class="analytics-section analytics-viewer-time" style="margin: 16px 0;">
+  <h2>viewer-time heatmap</h2>
+  <% rollup = Analytics::ViewerTimeRollup.new.call(
+       scope: :video,
+       id: video.id,
+       tz: (Current.user&.time_zone.presence || "Etc/UTC")
+     ) %>
+  <%= render(ViewerTimeHeatmapComponent.new(
+        data: rollup,
+        tz: (Current.user&.time_zone.presence || "Etc/UTC")
+      )) %>
+</section>

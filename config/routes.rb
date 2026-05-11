@@ -69,6 +69,27 @@ Rails.application.routes.draw do
   delete "/login/pending",   to: "login/pendings#destroy"
   get    "/login/totp",      to: redirect("/login"),        as: :login_totp
 
+  # Phase 25 — 01c. Approve / block action screens for the
+  # new-location pending-approval flow. Two singleton controllers,
+  # each carrying GET (action-screen confirmation) + POST
+  # (`confirm=yes` consumer). The id segment is the LoginAttempt id —
+  # the row mints the action-screen detail card AND identifies the
+  # pending session via its `session_id` FK.
+  get  "/login/approvals/:id",
+       to: "login/approvals#show",
+       as: :login_approval,
+       constraints: { id: /\d+/ }
+  post "/login/approvals/:id",
+       to: "login/approvals#create",
+       constraints: { id: /\d+/ }
+  get  "/login/blocks/:id",
+       to: "login/blocks#show",
+       as: :login_block,
+       constraints: { id: /\d+/ }
+  post "/login/blocks/:id",
+       to: "login/blocks#create",
+       constraints: { id: /\d+/ }
+
   # Phase 12 — Step B (6b-doorkeeper-oauth-server.md). Doorkeeper mounts
   # `/oauth/authorize`, `/oauth/token`, `/oauth/revoke`, `/oauth/introspect`.
   # We skip the bundled applications admin and replace it with our own UI

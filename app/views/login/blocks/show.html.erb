@@ -1,0 +1,24 @@
+<% content_for(:title, "block new-location login") %>
+<% breadcrumb(["notifications", notifications_path], "block login") %>
+
+<div style="margin-bottom: 8px;">
+  <h1>block new-location login</h1>
+  <p class="text-muted" style="margin-top: 2px;">
+    this revokes the pending session immediately.<br>
+    the (fingerprint, ip-prefix) pair gets added to the auto-block list,
+    so any future correct-password attempt from the same pair short-circuits
+    to a generic <code>login failed.</code>
+  </p>
+</div>
+
+<%= render "login/attempt_detail", attempt: @attempt %>
+
+<% content_for :action_screen_params do %>
+  <%= hidden_field_tag :confirm, "yes" %>
+<% end %>
+
+<%= render "shared/action_screen",
+  submit_label: "[block the intruder]",
+  cancel_path: notifications_path,
+  form_url: login_block_path(@attempt),
+  destructive: true %>
