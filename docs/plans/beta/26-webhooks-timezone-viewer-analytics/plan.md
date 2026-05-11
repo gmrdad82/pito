@@ -71,7 +71,7 @@ publish)."
 
 ### Webhook panes (can ship parallel with 01a; tests merge after 01a lands)
 
-- [ ] **01b — Slack webhook pane + validation**
+- [x] **01b — Slack webhook pane + validation**
       (`specs/01b-slack-webhook-pane-and-validation.md`). New `slack` pane on
       `/settings`. Single URL input, regex validation, mandatory test ping,
       `everything` + `daily_digest` checkboxes. Writes a single
