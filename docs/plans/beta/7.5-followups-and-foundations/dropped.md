@@ -111,8 +111,55 @@ close-out's follow-ups disposition table.
 - **Driver:** Phase 19 close-out spec
   (`docs/plans/beta/19-phase-75-closeout/specs/01-closeout-and-followups-resolution.md`).
 
+## 2026-05-11 — Step 11 scope drops landed during sub-spec resolution
+
+### `watermark_position` column dropped
+
+**What:** The original Step 11 channel-schema spec proposed a
+`watermark_position` enum with four corner values. Dropped entirely; the schema
+keeps only the watermark image fields.
+
+**Why:** Q3 resolution + image evidence captured under D21 — YouTube only
+supports a right-corner watermark in practice. A four-corner enum encodes
+flexibility the upstream API never exposes; the column would be a permanent
+liar.
+
+**Where:** commit `5f19aa3` (Phase 7.5 Step 11 + 11a: all 12 questions resolved
+(D19-D23 added); 11a foundation spec drafted); decision D21.
+
+### "Select channels to add" multi-select picker form on `/settings/youtube`
+
+**What:** The original Step 11 plan for `/settings/youtube` included a
+multi-select picker form where the user would tick which OAuth-discovered
+channels to attach. Dropped; channels now auto-add on the OAuth callback with a
+duplicate-skip flash.
+
+**Why:** User directive during the Settings/youtube revamp — the picker step is
+friction without value (the user just connected the brand account; they want the
+channels in). Duplicate-skip handles the only edge that mattered.
+
+**Where:** commit `5253907` — Settings/youtube: channels table per connection,
+bulk disconnect, `[add]` auto-discover (+19 specs).
+
+### 14-day gate "warn but submit" posture flipped to hard reject
+
+**What:** D14 originally specified the 14-day title/handle change cooldown gate
+as a soft warning — surface the cooldown, but let the form submit if the user
+pressed through. D22 flips this to a hard reject — the form is blocked until the
+cooldown clears (or the reminder fires).
+
+**Why:** The soft posture defeated the purpose of the gate; users would press
+through routinely and burn YouTube's 14-day quota. Pairing the hard reject with
+sub-spec 11h's `[remind me on YYYY-MM-DD]` link gives the user a non-frustrating
+recovery path while keeping the gate enforceable.
+
+**Where:** commit `5f19aa3`; decisions D14 (original) and D22 (flip).
+
 ## Cross-references
 
 - `docs/plans/beta/19-phase-75-closeout/specs/01-closeout-and-followups-resolution.md`
 - `docs/realignment-2026-05-09.md`
 - `docs/orchestration/follow-ups.md`
+- `specs/11-channel-management-and-preview.md`
+- `specs/11a-channel-schema-and-sync.md`
+- `specs/11h-calendar-reminder-integration.md`
