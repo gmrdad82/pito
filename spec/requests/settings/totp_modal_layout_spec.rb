@@ -7,8 +7,10 @@ require "rails_helper"
 # input above their `[update]` button. Per user direction 2026-05-11
 # the inline fields are gone; clicking `[update]` opens a
 # layout-level modal with a Slack-style 6-box segmented input. The
-# modal injects a hidden `totp_code` input into the pending form on
-# `[confirm]` and re-submits.
+# modal auto-submits the pending form the instant all 6 digits are
+# present (typed or pasted) — no `[confirm]` button, no manual
+# trigger. `[cancel]` (and Esc / backdrop) drop the dialog without
+# submitting.
 #
 # This spec is the markup contract the Stimulus controllers
 # (`totp-modal` + `totp-modal-dialog`) depend on. The project does
@@ -53,17 +55,34 @@ RSpec.describe "TOTP verification modal layout integration", type: :request do
       expect(response.body).to match(/paste(->|-&gt;)totp-modal-dialog#onPaste/)
     end
 
-    it "renders bracketed [confirm] and [cancel] buttons" do
+    it "renders the bracketed [cancel] button (no [confirm], auto-submit on 6th digit)" do
       get settings_path
-      expect(response.body).to include('data-totp-modal-dialog-target="confirm"')
-      expect(response.body).to include("totp-modal-dialog#confirm")
+      # `[cancel]` stays as the explicit escape hatch alongside Esc /
+      # backdrop. `[confirm]` is gone — the modal auto-submits the
+      # pending form the instant the 6th digit lands.
       expect(response.body).to include("totp-modal-dialog#close")
       # Bracketed-link convention (`[label]`, no inner spaces) — the
-      # buttons surface the `<span class="bl">` glyph pattern.
-      expect(response.body).to match(/\[<span class="bl">confirm<\/span>\]/)
-      # Cancel may surface either with the bl span (button) or as
-      # plain text inside data-action. Match the visible button text.
-      expect(response.body).to include(">cancel<")
+      # button surfaces the `<span class="bl">` glyph pattern.
+      expect(response.body).to match(/\[<span class="bl">cancel<\/span>\]/)
+      # Negative assertions — no [confirm] button, no Stimulus
+      # confirm target, no `#confirm` action wired anywhere.
+      expect(response.body).not_to include('data-totp-modal-dialog-target="confirm"')
+      expect(response.body).not_to include("totp-modal-dialog#confirm")
+      expect(response.body).not_to match(/\[<span class="bl">confirm<\/span>\]/)
+    end
+
+    it "wires the segmented input so auto-submit fires on the 6th digit" do
+      # Auto-submit fires from `_maybeAutoSubmit()` inside the
+      # `onInput` and `onPaste` handlers in the dialog controller.
+      # The DOM contract this spec locks: every box wires both
+      # `input->...#onInput` (auto-submit on the 6th typed digit) and
+      # `paste->...#onPaste` (auto-submit when 6 digits are pasted in
+      # at once). Neither path requires a button click.
+      get settings_path
+      box_block = response.body[/<div class="totp-modal-boxes">.*?<\/div>/m]
+      expect(box_block).to be_present
+      expect(box_block.scan(/input(?:->|-&gt;)totp-modal-dialog#onInput/).size).to eq(6)
+      expect(box_block.scan(/paste(?:->|-&gt;)totp-modal-dialog#onPaste/).size).to eq(6)
     end
 
     it "is NOT rendered on an unauthenticated screen" do

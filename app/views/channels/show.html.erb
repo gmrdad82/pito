@@ -94,32 +94,57 @@
     </div>
   <% end %>
 
-  <%# Row 1 — detail pane. Banner → avatar+title → handle → outbound
-      links → description → links cluster. Banner row is hidden when
+  <%# Row 1 — detail pane. Banner → avatar + headline (title, meta line,
+      description) → links cluster. Banner row is hidden when
       `banner_url` is nil (locked decision: no colored placeholder).
-      Avatar sits in its own row beside the title, NOT overlapping the
-      banner (locked decision — cleaner, matches game show layout). %>
+
+      2026-05-11 (later) — the detail pane was retuned to match
+      YouTube's channel-header geometry on desktop: a wide
+      `aspect-ratio: 6.2 / 1` banner up top, then a flex row with a
+      160px circular avatar on the LEFT and the headline stack on
+      the RIGHT (large title, muted `@handle · N subscribers · M
+      videos` meta line, description). The pito monospace + light
+      theme + bracketed-link conventions stay; only sizing and
+      positioning mirror YouTube. %>
   <div class="pane-row">
     <div class="pane pane--standalone">
       <%= render "channels/banner", channel: @channel %>
 
-      <div class="channel-identity" style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+      <div class="channel-identity">
         <% if @channel.avatar_url.present? %>
           <%= image_tag @channel.avatar_url,
                         alt: "channel avatar",
-                        style: "display: block; width: 64px; height: 64px; border-radius: 50%; object-fit: cover; border: 1px solid #ddd;" %>
+                        class: "channel-avatar" %>
         <% else %>
-          <div class="channel-avatar-placeholder text-muted"
-               style="width: 64px; height: 64px; border-radius: 50%; border: 1px solid #ddd; display: flex; align-items: center; justify-content: center; font-size: 10px;"
+          <div class="channel-avatar channel-avatar--placeholder text-muted"
                aria-label="no avatar">no avatar</div>
         <% end %>
-        <div style="min-width: 0; flex: 1;">
-          <div style="font-size: 14px; font-weight: 600;"><%= display_title %></div>
-          <div class="text-muted" style="margin-top: 2px;">
+        <div class="channel-headline">
+          <div class="channel-headline__title"><%= display_title %></div>
+          <div class="channel-headline__meta text-muted">
             <% if @channel.handle.present? %>
-              <%= @channel.handle %>
+              <span class="channel-headline__handle"><%= @channel.handle %></span>
             <% else %>
-              <span aria-label="no handle">@—</span>
+              <span class="channel-headline__handle" aria-label="no handle">@—</span>
+            <% end %>
+            <span class="channel-headline__sep" aria-hidden="true">·</span>
+            <span class="channel-headline__stat"><%= formatted_subscriber_count(@channel) %> subscribers</span>
+            <span class="channel-headline__sep" aria-hidden="true">·</span>
+            <span class="channel-headline__stat"><%= formatted_video_count(@channel) %> videos</span>
+          </div>
+
+          <%# Description — plain-text + auto-linked URLs. The helper
+              runs input through `simple_format(sanitize: true)` which
+              strips `<script>` and `<img onerror>` payloads before any
+              URL rewriting happens. XSS-safe by construction. Lives
+              inside the headline column so it stacks under the title /
+              meta line, mirroring YouTube's right-of-avatar layout. %>
+          <div class="channel-headline__description">
+            <% description_html = channel_description_html(@channel) %>
+            <% if description_html.present? %>
+              <%= description_html %>
+            <% else %>
+              <p class="caption">no description yet.</p>
             <% end %>
           </div>
         </div>
@@ -128,19 +153,6 @@
       <%# 2026-05-11 — the `[YouTube]` / `[Studio]` outbound links
           moved into the H1 row at the top of the page. The detail
           pane is now identity → description → links cluster. %>
-
-      <%# Description — plain-text + auto-linked URLs. The helper runs
-          input through `simple_format(sanitize: true)` which strips
-          `<script>` and `<img onerror>` payloads before any URL
-          rewriting happens. XSS-safe by construction. %>
-      <div class="channel-description" style="margin-bottom: 8px;">
-        <% description_html = channel_description_html(@channel) %>
-        <% if description_html.present? %>
-          <%= description_html %>
-        <% else %>
-          <p class="caption">no description yet.</p>
-        <% end %>
-      </div>
 
       <%= render "channels/links", channel: @channel %>
     </div>

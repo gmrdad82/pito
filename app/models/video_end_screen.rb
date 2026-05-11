@@ -34,38 +34,48 @@ class VideoEndScreen < ApplicationRecord
   end
 
   # If THIS row is `kind: none`, no other row for the same video may
-  # exist after save. Per-row guard reads the in-memory association
-  # when loaded (parent + nested-attributes save), falls back to the
-  # DB query for direct-AR / MCP creates.
+  # exist after save. Per-row guard catches direct-AR / MCP creates.
+  # When the parent is saving us through nested attributes,
+  # `Video#end_screens_invariants` handles the in-memory case (it
+  # respects `marked_for_destruction?`); we skip the DB query here
+  # in that case so we don't false-trigger on rows the parent is
+  # about to destroy in the same transaction.
   def no_extra_rows_when_kind_none
     return unless kind_none?
     return unless video_id
-    other = effective_siblings.reject(&:kind_none?)
+    return if parent_is_saving_via_nested_attributes?
+    other = VideoEndScreen.where(video_id: video_id).where.not(id: id)
     return if other.empty?
     errors.add(:base, "cannot mix a 'none' end-screen with other rows")
   end
 
-  # YouTube caps the end-screen at 4 elements. Per-row guard reads
-  # the in-memory association when loaded, falls back to the DB
-  # query otherwise.
+  # YouTube caps the end-screen at 4 elements. Per-row guard catches
+  # direct-AR / MCP creates; parent-driven nested-attribute saves
+  # defer to `Video#end_screens_invariants`.
   def max_four_non_none_rows_per_video
     return if kind_none?
     return unless video_id
-    non_none_sibs = effective_siblings.reject(&:kind_none?)
-    return if non_none_sibs.size < 4
+    return if parent_is_saving_via_nested_attributes?
+    siblings = VideoEndScreen.where(video_id: video_id)
+                              .where.not(id: id)
+                              .where.not(kind: self.class.kinds[:none])
+    return if siblings.count < 4
     errors.add(:base, "no more than 4 non-none end-screens per video")
   end
 
-  # Returns the set of OTHER end-screens for this row's video,
-  # excluding rows marked for destruction. Prefers the in-memory
-  # association when loaded so nested-attributes saves see pending
-  # destroys; falls back to a DB query for direct creates.
-  def effective_siblings
-    if video && video.video_end_screens.loaded?
-      video.video_end_screens
-            .reject { |r| r.equal?(self) || r.marked_for_destruction? }
-    else
-      VideoEndScreen.where(video_id: video_id).where.not(id: id).to_a
-    end
+  # When the parent video is saving us through nested attributes,
+  # the in-memory `video_end_screens` association contains rows
+  # marked for destruction or freshly built that the per-row
+  # DB-query checks can't see. Defer in that case — the parent's
+  # `end_screens_invariants` validator runs against the in-memory
+  # collection and catches actual violations.
+  #
+  # `target` returns the in-memory array regardless of `loaded?`
+  # state, which is what we need: the assignment from nested
+  # attributes populates target but does not always flip `loaded?`.
+  def parent_is_saving_via_nested_attributes?
+    return false unless video
+    target = video.association(:video_end_screens).target
+    target.any? { |r| r.marked_for_destruction? || r.new_record? }
   end
 end

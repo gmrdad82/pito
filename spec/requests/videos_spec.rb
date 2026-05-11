@@ -1052,7 +1052,9 @@ RSpec.describe "Videos", type: :request do
           }
         }
         unless response.redirect?
-          warn "DEBUG body: #{response.body[response.body.index("couldn't update") || 0, 1000]}"
+          body = response.body
+          idx = body.index("couldn't update")
+          warn "DEBUG: #{body[idx, 800]}" if idx
         end
         expect(response).to redirect_to(video_path(video))
         rows = video.reload.video_end_screens.to_a

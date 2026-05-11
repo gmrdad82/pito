@@ -81,6 +81,67 @@ RSpec.describe "channels/show.html.erb", type: :view do
       expect(rendered).to include('src="https://yt3.example.test/avatar.jpg"')
     end
 
+    # 2026-05-11 (later) — YouTube-mirror layout regression guards.
+    # The detail pane was retuned to match YouTube's channel-header
+    # geometry: wide ~6.2:1 banner, 160px circular avatar on the LEFT,
+    # large title + muted `@handle · N subscribers · M videos` meta
+    # line + description stacked on the RIGHT. Pito monospace +
+    # bracketed-link conventions stay; only sizing + positioning
+    # mirror YouTube.
+    it "wraps the banner in a `.channel-banner` box (CSS anchors the aspect ratio)" do
+      render
+      expect(rendered).to match(/<div class="channel-banner">/)
+      # The inline `max-height: 200px` was the prior banner cap;
+      # `aspect-ratio` owns sizing now — fail if it regresses.
+      expect(rendered).not_to include("max-height: 200px")
+    end
+
+    it "renders the avatar `<img>` with the `.channel-avatar` class (CSS sets 160px circle)" do
+      render
+      # The avatar carries the `.channel-avatar` class; CSS owns the
+      # 160px width/height + `border-radius: 50%` so the markup stays
+      # presentational-free. Regression guard against reverting to the
+      # inline 64px style.
+      expect(rendered).to match(
+        /<img[^>]*\b(?:class="channel-avatar"[^>]*src="https:\/\/yt3\.example\.test\/avatar\.jpg"|src="https:\/\/yt3\.example\.test\/avatar\.jpg"[^>]*class="channel-avatar")/
+      )
+      expect(rendered).not_to include("width: 64px")
+    end
+
+    it "renders the headline title in `.channel-headline__title` (large bold via CSS)" do
+      render
+      expect(rendered).to match(%r{<div class="channel-headline__title">\s*Pito Test Channel\s*</div>})
+    end
+
+    it "renders the headline meta line with @handle · N subscribers · M videos" do
+      render
+      meta_block = rendered[/<div class="channel-headline__meta[^"]*"[^>]*>(.+?)<\/div>/m, 1].to_s
+      expect(meta_block).not_to be_empty
+      expect(meta_block).to include("@pitotest")
+      expect(meta_block).to include("12,345")
+      expect(meta_block).to include("subscribers")
+      expect(meta_block).to include("42")
+      expect(meta_block).to include("videos")
+    end
+
+    it "places the description INSIDE the `.channel-headline` column (right of the avatar)" do
+      render
+      headline_block = rendered[
+        /<div class="channel-headline">(.*?)<\/div>\s*<\/div>/m, 1
+      ].to_s
+      expect(headline_block).to include("A devlog about building Pito.")
+    end
+
+    it "renders the avatar BEFORE the headline column in source order (avatar on the LEFT)" do
+      render
+      identity_block = rendered[/<div class="channel-identity">(.+?)<\/div>\s*<\/div>/m, 1].to_s
+      avatar_idx = identity_block.index('class="channel-avatar')
+      headline_idx = identity_block.index('class="channel-headline"')
+      expect(avatar_idx).not_to be_nil
+      expect(headline_idx).not_to be_nil
+      expect(avatar_idx).to be < headline_idx
+    end
+
     it "renders the handle" do
       render
       expect(rendered).to include("@pitotest")
@@ -250,6 +311,31 @@ RSpec.describe "channels/show.html.erb", type: :view do
       ]
       expect(row_html).not_to be_nil,
         "expected analytics + Google panes inside a shared `.pane-row`"
+    end
+
+    # 2026-05-11 (height fix) — neither row-2 pane root may carry an
+    # inline `margin-bottom`. `.pane-row` is `display: flex` with
+    # default `align-items: stretch`, which stretches each item's
+    # MARGIN-BOX to the tallest sibling. Asymmetric margins shrink
+    # the shorter sibling's visible border-box by exactly that
+    # margin, leaving the pane backgrounds bottom-misaligned. The
+    # /settings layout never sets `margin-bottom` on `.pane` roots
+    # — spacing lives on the inner `<fieldset>` or on the `.pane-row`
+    # itself. Mirror that here so the two row-2 panes render at
+    # equal visible heights.
+    it "renders both row-2 pane roots without inline margin-bottom (preserves flex stretch)" do
+      render
+      analytics_tag = rendered[/<div class="pane"[^>]*>\s*<h2[^>]*>analytics<\/h2>/]
+      expect(analytics_tag).not_to be_nil,
+        "expected the analytics pane `<div class=\"pane\">` root tag"
+      expect(analytics_tag).not_to match(/margin-bottom\s*:/i),
+        "analytics pane root must not carry inline margin-bottom"
+
+      google_tag = rendered[/<div class="pane"[^>]*data-google-panel[^>]*>/]
+      expect(google_tag).not_to be_nil,
+        "expected the Google pane `<div class=\"pane\" data-google-panel ...>` root tag"
+      expect(google_tag).not_to match(/margin-bottom\s*:/i),
+        "Google pane root must not carry inline margin-bottom"
     end
 
     it "renders the chrome row actions: [e], [sync], [-]" do

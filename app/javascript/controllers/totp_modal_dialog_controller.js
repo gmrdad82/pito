@@ -6,9 +6,9 @@ import { Controller } from "@hotwired/stimulus"
 // by `shared/_totp_verification_modal`. The per-form `totp-modal`
 // controller (see `totp_modal_controller.js`) intercepts the submit of
 // a gated settings form, hands the form reference off to THIS controller
-// via `prepare(form)`, and opens the dialog. The user types the 6-digit
-// code; on `[confirm]` the controller injects a hidden `totp_code`
-// input into the pending form and re-submits it.
+// via `prepare(form)`, and opens the dialog. As soon as all 6 digits
+// are present (typed or pasted) the controller injects a hidden
+// `totp_code` input into the pending form and re-submits it.
 //
 // Segmented input UX (Slack-style):
 //   - 6 boxes (this.boxTargets), maxlength=1 each.
@@ -17,7 +17,9 @@ import { Controller } from "@hotwired/stimulus"
 //     clears it in place.
 //   - Paste of a 6-char numeric string into ANY box fills all 6 from
 //     the left and focuses the box after the last filled one.
-//   - `[confirm]` enabled only when all 6 boxes carry a digit.
+//   - Auto-submit: the instant all 6 boxes carry a digit (typed or
+//     pasted) the controller injects the hidden `totp_code` input and
+//     submits the pending form. No `[confirm]` button, no Enter step.
 //
 // Close paths:
 //   - `[cancel]` → close() (form NOT submitted).
@@ -27,7 +29,7 @@ import { Controller } from "@hotwired/stimulus"
 // NO JS `confirm()` / `alert()` / `prompt()` / `data-turbo-confirm`
 // (CLAUDE.md hard rule). The dialog IS the confirmation surface.
 export default class extends Controller {
-  static targets = ["box", "confirm"]
+  static targets = ["box"]
 
   connect() {
     // No form pending until a trigger calls prepare(). The reference is
@@ -38,8 +40,7 @@ export default class extends Controller {
 
   // Called by the per-form totp-modal controller when the user clicks
   // `[update]` on a 2FA-required form. Stores the form reference, wipes
-  // any leftover digits, disables `[confirm]`, opens the dialog, and
-  // focuses the first box.
+  // any leftover digits, opens the dialog, and focuses the first box.
   prepare(form) {
     this._pendingForm = form
     this._reset()
@@ -54,7 +55,8 @@ export default class extends Controller {
   }
 
   // Per-box `input` handler. Strips non-digits, auto-advances focus to
-  // the next box on a successful digit entry.
+  // the next box on a successful digit entry, then auto-submits the
+  // moment all 6 boxes carry a digit.
   onInput(event) {
     const box = event.target
     const digit = (box.value || "").replace(/\D/g, "").slice(-1)
@@ -66,12 +68,12 @@ export default class extends Controller {
         this.boxTargets[idx + 1].select()
       }
     }
-    this._refreshConfirmState()
+    this._maybeAutoSubmit()
   }
 
   // Per-box `keydown` handler. Backspace on an empty box steps focus
-  // back. ArrowLeft / ArrowRight move focus laterally. Enter on a full
-  // code triggers confirm().
+  // back. ArrowLeft / ArrowRight move focus laterally. Enter is a
+  // no-op now — auto-submit fires the instant the 6th digit lands.
   onKeydown(event) {
     const box = event.target
     const idx = this.boxTargets.indexOf(box)
@@ -81,7 +83,6 @@ export default class extends Controller {
       const prev = this.boxTargets[idx - 1]
       prev.value = ""
       prev.focus()
-      this._refreshConfirmState()
       return
     }
 
@@ -100,17 +101,17 @@ export default class extends Controller {
     }
 
     if (event.key === "Enter") {
+      // Swallow Enter so it never re-submits a parent form, but do not
+      // duplicate the auto-submit path — that already fired when the
+      // 6th digit landed via `onInput`.
       event.preventDefault()
-      if (this._code().length === this.boxTargets.length) {
-        this.confirm()
-      }
     }
   }
 
   // Per-box `paste` handler. Reads the clipboard payload, strips
   // non-digits, and fills boxes from the left. Focuses the box right
   // after the last filled one (or stays on the last box if all 6
-  // filled).
+  // filled), then auto-submits if 6 digits were pasted.
   onPaste(event) {
     event.preventDefault()
     const raw = (event.clipboardData || window.clipboardData)?.getData("text") || ""
@@ -123,18 +124,19 @@ export default class extends Controller {
     if (next < digits.length) {
       this.boxTargets[next]?.select()
     }
-    this._refreshConfirmState()
+    this._maybeAutoSubmit()
   }
 
-  // `[confirm]` click handler. Injects a hidden `totp_code` input into
-  // the pending form (replacing any prior copy) and submits it. The
-  // dialog stays open while the browser navigates so a backend reject
-  // re-renders the page and the user sees the same flash they would
-  // see on the inline-input path.
-  confirm(event) {
-    if (event) event.preventDefault()
+  // Private — submit the pending form once all 6 boxes carry a digit.
+  // Injects a hidden `totp_code` input (replacing any prior copy) and
+  // submits via `requestSubmit()` so the form's listeners (Turbo, our
+  // own interceptor) fire. The dialog stays open while the browser
+  // navigates so a backend reject re-renders the page and the user
+  // sees the same flash they would see on the inline-input path.
+  _maybeAutoSubmit() {
     const code = this._code()
     if (code.length !== this.boxTargets.length) return
+    if (!/^\d+$/.test(code)) return
 
     const form = this._pendingForm
     if (!form) {
@@ -196,21 +198,9 @@ export default class extends Controller {
     return this.boxTargets.map((box) => box.value || "").join("")
   }
 
-  // Private — enable `[confirm]` only when all 6 boxes carry a digit.
-  _refreshConfirmState() {
-    if (!this.hasConfirmTarget) return
-    const ready = this._code().length === this.boxTargets.length &&
-                  /^\d+$/.test(this._code())
-    this.confirmTarget.disabled = !ready
-  }
-
-  // Private — wipe every box back to empty and reset the confirm
-  // button to its disabled state. Called on every prepare() so the
-  // dialog never reopens with stale digits.
+  // Private — wipe every box back to empty. Called on every prepare()
+  // so the dialog never reopens with stale digits.
   _reset() {
     this.boxTargets.forEach((box) => { box.value = "" })
-    if (this.hasConfirmTarget) {
-      this.confirmTarget.disabled = true
-    }
   }
 }
