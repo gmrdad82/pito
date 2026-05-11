@@ -82,6 +82,33 @@ RSpec.describe KeyboardShortcutsModalComponent, type: :component do
       expect(section).to have_text("view URL in browser")
     end
 
+    # The list-pages section above documents `j / k` for rows. Tile
+    # grids (`/games`, `/bundles`) reuse the same vertical keys but add
+    # `h / l` for within-row movement. The help modal documents both
+    # axes under a dedicated heading so readers know `h / l` is grid-
+    # only (it is never bound on list pages).
+    it "renders the tile-grids section with j / k and h / l" do
+      section = page.find(".keyboard-shortcuts-section", text: /tile grids/i)
+      %w[j k h l].each do |k|
+        expect(section).to have_css("span.keycap", text: k)
+      end
+      expect(section).to have_text(/next\s*\/\s*previous row of tiles/i)
+      expect(section).to have_text(/within row/i)
+    end
+
+    # Calendar month uses a different motion model — `j / k` jump a
+    # full week (same weekday) instead of stepping a single visual row.
+    # `h / l` step a day. The dedicated section calls this out so
+    # readers don't expect the tile-grid semantics.
+    it "renders the calendar-month section with week + day motion" do
+      section = page.find(".keyboard-shortcuts-section", text: /calendar month/i)
+      %w[j k h l].each do |k|
+        expect(section).to have_css("span.keycap", text: k)
+      end
+      expect(section).to have_text(/jump a week/i)
+      expect(section).to have_text(/step a day/i)
+    end
+
     it "renders the confirmation-prompts section with `y` and Esc" do
       section = page.find(".keyboard-shortcuts-section", text: /confirmation/i)
       expect(section).to have_css("span.keycap", text: "y")

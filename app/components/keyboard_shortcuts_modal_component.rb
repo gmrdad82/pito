@@ -44,6 +44,20 @@ class KeyboardShortcutsModalComponent < ViewComponent::Base
       ]
     ),
     Section.new(
+      title: "tile grids (games / bundles)",
+      rows: [
+        Row.new(keys: "j / k", description: "move highlight to next / previous row of tiles"),
+        Row.new(keys: "h / l", description: "move highlight within row")
+      ]
+    ),
+    Section.new(
+      title: "calendar month grid",
+      rows: [
+        Row.new(keys: "j / k", description: "jump a week (same weekday)"),
+        Row.new(keys: "h / l", description: "step a day (left / right)")
+      ]
+    ),
+    Section.new(
       title: "detail pages (channel / video)",
       rows: [
         Row.new(keys: "v", description: "view URL in browser"),

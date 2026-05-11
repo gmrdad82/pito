@@ -476,9 +476,11 @@ export default class extends Controller {
     let currentRow = []
     let currentTop = null
     for (const entry of sorted) {
-      if (currentTop === null || Math.abs(entry.top - currentTop) < ROW_EPSILON_PX) {
+      if (currentTop === null) {
         currentRow.push(entry.tile)
-        if (currentTop === null) currentTop = entry.top
+        currentTop = entry.top
+      } else if (Math.abs(entry.top - currentTop) < ROW_EPSILON_PX) {
+        currentRow.push(entry.tile)
       } else {
         rows.push(currentRow)
         currentRow = [entry.tile]

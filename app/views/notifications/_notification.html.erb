@@ -22,7 +22,14 @@
 <%
   payload = NotificationFormatter::InApp.payload_for(notification)
 %>
-<tr id="<%= dom_id(notification) %>" class="notification-row <%= notification.read? ? 'notification-read' : 'notification-unread' %>">
+<%# `data-keyboard-row` opts each notification row into the global
+    keyboard controller's list-row navigation (`j`/`k` move highlight,
+    space toggles the row's checkbox). The hook applies on both the
+    standalone `/notifications` index and the layout-level modal that
+    mounts the index inside a Turbo Frame — the controller queries the
+    DOM globally and the modal-mounted markup carries the same
+    attribute. %>
+<tr id="<%= dom_id(notification) %>" data-keyboard-row data-keyboard-row-id="<%= notification.id %>" class="notification-row <%= notification.read? ? 'notification-read' : 'notification-unread' %>">
   <td class="col-action" style="padding: 4px 8px; vertical-align: top; white-space: nowrap;">
     <%= render(CheckboxComponent.new(value: notification.id, data: { bulk_select_target: "checkbox", action: "change->bulk-select#toggle" })) %>
   </td>

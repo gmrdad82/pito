@@ -7,7 +7,12 @@
   cell_class << "today" if is_today
   cell_class << "out-of-month" unless in_month
 %>
-<td class="<%= cell_class.join(' ') %>" style="vertical-align: top; padding: 4px; border: 1px solid var(--color-border); width: 14.2857%; height: 90px; <%= 'outline: 1px solid var(--color-border);' if is_today %>">
+<%# `data-keyboard-grid-cell` opts this cell into the calendar-aware
+    grid navigation declared by the wrapping table. Out-of-month
+    cells participate too — the rendered grid is always a multiple
+    of 7 (Monday-first) and the controller indexes cells by their
+    position in that flat sequence, not by month membership. %>
+<td class="<%= cell_class.join(' ') %>" data-keyboard-grid-cell style="vertical-align: top; padding: 4px; border: 1px solid var(--color-border); width: 14.2857%; height: 90px; <%= 'outline: 1px solid var(--color-border);' if is_today %>">
   <div style="font-size: 11px; opacity: <%= in_month ? '1' : '0.4' %>;">
     <%= date.day %><% if is_today %> <span class="text-muted">today</span><% end %>
   </div>
