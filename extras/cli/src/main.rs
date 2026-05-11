@@ -5,6 +5,7 @@ mod cli;
 mod commands;
 mod confirm;
 mod footage;
+mod keybindings;
 mod keys;
 mod output;
 mod theme;

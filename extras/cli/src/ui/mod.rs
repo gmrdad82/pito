@@ -4,6 +4,7 @@ pub mod confirmation;
 pub mod dashboard;
 pub mod footage_detail;
 pub mod help;
+pub mod leader_menu;
 pub mod operation_progress;
 pub mod saved_views;
 pub mod search;
@@ -48,6 +49,11 @@ pub fn render(frame: &mut Frame, app: &mut App) {
         Some(Overlay::Confirmation) => {
             if let Some(ref state) = app.confirmation_state {
                 confirmation::render(frame, frame.area(), &theme, state);
+            }
+        }
+        Some(Overlay::LeaderMenu) => {
+            if let Some(ref state) = app.leader_menu {
+                leader_menu::render(frame, frame.area(), &theme, state);
             }
         }
         None => {}
@@ -164,8 +170,25 @@ fn render_footer(frame: &mut Frame, area: Rect, app: &mut App) {
         KeyState::FilterPrefix => "f...",
     };
 
-    let line = Line::from(vec![
-        Span::styled(" q", Style::default().fg(theme.muted)),
+    // `[_]` leader-key indicator, mirroring the web app's status-bar
+    // posture. The glyph is the schema's `leader.display` value (currently
+    // `_`); rendering it from the schema rather than hard-coding keeps the
+    // two surfaces in sync if it ever changes. Highlighted when the popup
+    // is open.
+    let leader_open = app.overlay == Some(Overlay::LeaderMenu);
+    let leader_glyph = crate::keybindings::load().leader.display.clone();
+    let leader_indicator_style = if leader_open {
+        Style::default().fg(theme.accent)
+    } else {
+        Style::default().fg(theme.muted)
+    };
+
+    let mut spans = vec![
+        Span::styled("[", Style::default().fg(theme.muted)),
+        Span::styled(leader_glyph, leader_indicator_style),
+        Span::styled("]", Style::default().fg(theme.muted)),
+        Span::raw("  "),
+        Span::styled("q", Style::default().fg(theme.muted)),
         Span::styled(" back  ", Style::default().fg(theme.fg)),
         Span::styled(":q", Style::default().fg(theme.muted)),
         Span::styled(" quit  ", Style::default().fg(theme.fg)),
@@ -175,8 +198,17 @@ fn render_footer(frame: &mut Frame, area: Rect, app: &mut App) {
         Span::styled(" help", Style::default().fg(theme.fg)),
         Span::raw("  "),
         Span::styled(state_hint, Style::default().fg(theme.accent)),
-    ]);
+    ];
 
+    if let Some(ref status) = app.leader_status {
+        spans.push(Span::raw("  "));
+        spans.push(Span::styled(
+            status.as_str(),
+            Style::default().fg(theme.cyan),
+        ));
+    }
+
+    let line = Line::from(spans);
     let footer = Paragraph::new(line).style(Style::default().bg(theme.bg).fg(theme.fg));
     frame.render_widget(footer, area);
 }
