@@ -249,7 +249,7 @@ class ChannelsController < ApplicationController
     return false unless raw.is_a?(ActionController::Parameters) || raw.is_a?(Hash)
     return false unless raw.key?(:star) || raw.key?("star")
     edit_form_keys = PERMITTED_EDIT_KEYS + %i[
-      watermark watermark_remove links_attributes banner
+      watermark watermark_remove links_attributes banner banner_image
     ]
     raw_keys = raw.to_unsafe_h.keys.map(&:to_sym) - [ :channel_url, :star ]
     (raw_keys & edit_form_keys).empty?
@@ -325,9 +325,12 @@ class ChannelsController < ApplicationController
 
     gate_warnings = strip_gated_fields!(raw_attrs)
 
+    new_banner_url = nil
+
     ::Channel.transaction do
       handle_watermark_unset!(client) if YesNo.from_yes_no(params.dig(:channel, :watermark_remove))
       handle_watermark_set!(client, raw_attrs) if watermark_upload_present?
+      new_banner_url = handle_banner_upload!(client) if banner_upload_present?
 
       field_set = raw_attrs.slice(
         :title, :description, :country, :default_language, :keywords, :links
@@ -344,6 +347,7 @@ class ChannelsController < ApplicationController
       end
 
       cache_attrs = raw_attrs.dup
+      cache_attrs[:banner_url] = new_banner_url if new_banner_url
       cache_attrs[:title_changed_at] = Time.current if raw_attrs.key?(:title) && raw_attrs[:title].present? && raw_attrs[:title] != @channel.title
       cache_attrs[:handle_changed_at] = Time.current if raw_attrs.key?(:handle) && raw_attrs[:handle].present? && raw_attrs[:handle] != @channel.handle
 
@@ -363,6 +367,19 @@ class ChannelsController < ApplicationController
     end
 
     notice = gate_warnings.any? ? gate_warnings.join(" ") : "channel updated."
+
+    # Phase 7.5 §11f — when the only change was a banner upload, the
+    # banner section swaps in-place via Turbo Stream instead of doing
+    # a full-page reload. Falls back to the redirect-to-show flow for
+    # every other shape.
+    if new_banner_url && banner_upload_only?
+      respond_to do |format|
+        format.turbo_stream { render :banner_updated, locals: { channel: @channel } }
+        format.html { redirect_to channel_path(@channel), notice: notice }
+      end
+      return
+    end
+
     redirect_to channel_path(@channel), notice: notice
   rescue Youtube::NeedsReauthError
     @channel.youtube_connection.update_columns(needs_reauth: true)
@@ -404,6 +421,46 @@ class ChannelsController < ApplicationController
     file.respond_to?(:read) && file.respond_to?(:original_filename)
   end
 
+  # Phase 7.5 §11f — true when the user picked a banner image and
+  # POSTed it under `channel[banner_image]`. The Stimulus controller
+  # only stages the file once client-side validation passes, so a
+  # POST with `banner_image` present means the client checks already
+  # cleared. Server-side validation still acts as the authoritative
+  # gate per D14 — Youtube::Client raises a Permanent / Transient /
+  # Auth error if YouTube rejects the bytes (e.g.
+  # `imageDimensionsInvalid`).
+  def banner_upload_present?
+    file = params.dig(:channel, :banner_image)
+    file.respond_to?(:read) && file.respond_to?(:original_filename)
+  end
+
+  def handle_banner_upload!(client)
+    io = params[:channel][:banner_image]
+    client.upload_banner(@channel, io)
+  end
+
+  # True iff the only meaningful field on this submission was the
+  # banner image. Used to decide between the Turbo Stream banner-
+  # section swap and the full redirect.
+  def banner_upload_only?
+    raw = params[:channel]
+    return false unless raw.is_a?(ActionController::Parameters) || raw.is_a?(Hash)
+    return false unless banner_upload_present?
+
+    other_edit_keys = (PERMITTED_EDIT_KEYS + %i[watermark watermark_remove links_attributes]) - [ :banner_image ]
+    raw_keys = raw.to_unsafe_h.keys.map(&:to_sym) - %i[channel_url banner_image]
+
+    # `links_attributes` may be present as an empty trailing-row
+    # array even when the user did not touch the links section;
+    # filter those out so the banner-only path stays detectable.
+    if raw_keys.include?(:links_attributes)
+      normalized = normalize_links_attributes(raw[:links_attributes])
+      raw_keys.delete(:links_attributes) if normalized.empty?
+    end
+
+    (raw_keys & other_edit_keys).empty?
+  end
+
   def strip_gated_fields!(attrs)
     warnings = []
     if attrs.key?(:title) && helpers.title_gate_open?(@channel)
@@ -426,6 +483,7 @@ class ChannelsController < ApplicationController
     permitted = channel_edit_attrs
     permitted.compact.values.all? { |v| v.respond_to?(:empty?) ? v.empty? : v.nil? } &&
       !watermark_upload_present? &&
+      !banner_upload_present? &&
       !YesNo.from_yes_no(params.dig(:channel, :watermark_remove))
   end
 

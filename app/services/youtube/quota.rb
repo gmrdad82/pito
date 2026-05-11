@@ -26,6 +26,14 @@ module Youtube
       # units per YouTube's documented unit cost.
       "watermarks.set"     => 50,
       "watermarks.unset"   => 50,
+      # Phase 7.5 §11f — channel banner upload. The `#upload_banner`
+      # entrypoint fires `channelBanners.insert` (multipart byte
+      # upload, returns `bannerExternalUrl`) followed by
+      # `channels.update` against `brandingSettings.image.
+      # bannerExternalUrl`. Both audit through the shared `perform`
+      # chokepoint; the insert call carries the documented 50-unit
+      # cost like the other destructive endpoints.
+      "channelBanners.insert" => 50,
       # YouTube Analytics v2:
       "reports.query"      => 1,
       # OAuth2 revoke endpoint — billed at 0 (not part of YouTube

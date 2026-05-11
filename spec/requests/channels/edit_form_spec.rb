@@ -34,7 +34,8 @@ RSpec.describe "PATCH /channels/:id (edit form)", type: :request do
       Youtube::Client,
       update_channel: { title: "New title", description: "New description" },
       set_watermark: { ok: true },
-      unset_watermark: { ok: true }
+      unset_watermark: { ok: true },
+      upload_banner: "https://yt3.googleusercontent.com/abc/banner.jpg"
     )
   end
 
@@ -194,6 +195,94 @@ RSpec.describe "PATCH /channels/:id (edit form)", type: :request do
       expect(channel.watermark_url).to be_nil
       expect(channel.watermark_timing).to be_nil
       expect(channel.watermark_offset_ms).to be_nil
+    end
+  end
+
+  describe "PATCH /channels/:id (banner upload flows)" do
+    let(:banner_io) do
+      Rack::Test::UploadedFile.new(
+        StringIO.new("fake_jpeg_bytes"),
+        "image/jpeg",
+        original_filename: "banner.jpg"
+      )
+    end
+
+    it "uploads a banner; calls upload_banner with the IO and skips update_channel when no other field is dirty" do
+      patch channel_path(channel),
+            params: { channel: { banner_image: banner_io } }
+
+      expect(youtube_client).to have_received(:upload_banner) do |chan, io|
+        expect(chan).to eq(channel)
+        expect(io.respond_to?(:read)).to be(true)
+        expect(io.original_filename).to eq("banner.jpg")
+      end
+      expect(youtube_client).not_to have_received(:update_channel)
+    end
+
+    it "caches the returned banner URL into channels.banner_url" do
+      allow(youtube_client).to receive(:upload_banner).and_return("https://yt3.googleusercontent.com/new/banner.jpg")
+      patch channel_path(channel),
+            params: { channel: { banner_image: banner_io } }
+      expect(channel.reload.banner_url).to eq("https://yt3.googleusercontent.com/new/banner.jpg")
+    end
+
+    it "redirects to the show page (HTML default) on success" do
+      patch channel_path(channel),
+            params: { channel: { banner_image: banner_io } }
+      expect(response).to redirect_to(channel_path(channel))
+      expect(flash[:notice]).to eq("channel updated.")
+    end
+
+    it "renders a Turbo Stream banner-section replace when the client accepts turbo-stream" do
+      patch channel_path(channel),
+            params: { channel: { banner_image: banner_io } },
+            headers: { "Accept" => "text/vnd.turbo-stream.html, text/html" }
+
+      expect(response).to have_http_status(:ok)
+      expect(response.media_type).to eq("text/vnd.turbo-stream.html")
+      expect(response.body).to include('id="channel-banner-section"')
+      expect(response.body).to include("banner updated")
+    end
+
+    it "supports combined banner + description submit (both dispatch)" do
+      patch channel_path(channel),
+            params: { channel: { banner_image: banner_io, description: "Brand new desc" } }
+
+      expect(youtube_client).to have_received(:upload_banner)
+      expect(youtube_client).to have_received(:update_channel) do |_chan, field_set|
+        expect(field_set).to include(:description)
+      end
+      # Combined submit takes the redirect path, not the Turbo Stream
+      # banner-only swap (banner-only detection requires no other
+      # edit-form fields to be present).
+      expect(response).to redirect_to(channel_path(channel))
+    end
+
+    it "YouTube-side rejection (PermanentError) re-renders the edit form with the surfaced reason" do
+      allow(youtube_client).to receive(:upload_banner).and_raise(
+        Youtube::PermanentError, "client error 400: imageDimensionsInvalid"
+      )
+      original_url = channel.banner_url
+      patch channel_path(channel), params: { channel: { banner_image: banner_io } }
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.body).to include("youtube refused the update")
+      expect(channel.reload.banner_url).to eq(original_url)
+    end
+
+    it "QuotaExhaustedError on banner upload surfaces friendly flash, no DB mutation" do
+      original_url = channel.banner_url
+      allow(youtube_client).to receive(:upload_banner).and_raise(Youtube::QuotaExhaustedError, "boom")
+      patch channel_path(channel), params: { channel: { banner_image: banner_io } }
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.body).to include("youtube api quota exhausted")
+      expect(channel.reload.banner_url).to eq(original_url)
+    end
+
+    it "NeedsReauthError on banner upload redirects to /settings/youtube" do
+      allow(youtube_client).to receive(:upload_banner).and_raise(Youtube::NeedsReauthError, "bad")
+      patch channel_path(channel), params: { channel: { banner_image: banner_io } }
+      expect(response).to redirect_to(settings_youtube_path)
+      expect(connection.reload.needs_reauth?).to be(true)
     end
   end
 

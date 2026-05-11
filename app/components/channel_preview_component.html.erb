@@ -75,6 +75,22 @@
           </div>
         <% end %>
 
+        <%# Phase 7.5 §11e — watermark preview embedded into each
+            layout when the channel has a stored watermark. The size
+            map below picks the appropriate `WatermarkPreviewComponent`
+            variant so the watermark sizing scales with the
+            layout's canvas (TV = large, mobile = small). %>
+        <% if channel.watermark_url.present? %>
+          <div class="preview-watermark preview-watermark--<%= layout_name %>">
+            <%= render(WatermarkPreviewComponent.new(
+                  channel: channel,
+                  size: layout_name.to_sym,
+                  timing: channel.watermark_timing,
+                  offset_ms: channel.watermark_offset_ms
+                )) %>
+          </div>
+        <% end %>
+
         <%# Videos row — real / static / empty per spec D8. %>
         <% kind, payload = video_row %>
         <div class="preview-videos preview-videos--<%= layout_name %>"

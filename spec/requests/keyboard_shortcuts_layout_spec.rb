@@ -41,7 +41,13 @@ RSpec.describe "Keyboard shortcuts layout integration", type: :request do
         # keybinding is still `?`. ERB escapes `->` in attribute values
         # to `-&gt;`; matching the encoded form keeps the assertion
         # grounded in real bytes.
-        expect(response.body).to include('data-action="click-&gt;keyboard#openHelp"')
+        # The footer `[_]` link chains two Stimulus actions on the
+        # same click: `keyboard#openHelp` (the legacy `?` help
+        # dialog) AND `leader-menu#openRoot` (the unified leader
+        # popup, source-of-truth `config/keybindings.yml`). Match
+        # on substring to stay robust against future re-ordering
+        # of chained actions.
+        expect(response.body).to include("click-&gt;keyboard#openHelp")
         expect(response.body).to match(/\[<span class="bl">_<\/span>\]/)
       end
 

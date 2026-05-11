@@ -64,7 +64,7 @@
       renders — keyboard-off users can click it to open the help
       modal. yes/no strings at the wire boundary per the project's
       external-boolean rule. %>
-  <body data-controller="keyboard notifications-modal" data-keyboard-navigation-enabled="<%= AppSetting.keyboard_navigation_enabled? ? "yes" : "no" %>">
+  <body data-controller="keyboard notifications-modal leader-menu" data-keyboard-navigation-enabled="<%= AppSetting.keyboard_navigation_enabled? ? "yes" : "no" %>">
     <header style="position: fixed; top: 0; left: 0; right: 0; height: 32px; background: var(--color-bg); border-bottom: 1px solid var(--color-border); padding: 0 12px; z-index: 100;" data-controller="theme">
       <%# Header layout (2026-05-10 redesign, refined 2026-05-10 follow-up):
             [home][calendar] · [channels][videos] · [projects][notifications]
@@ -178,7 +178,20 @@
           <span class="nav-group"><%= nav_link "notifications", notifications_path, short: "N",
                            data: { action: "click->notifications-modal#open" } %></span>
           <span class="nav-spacer" style="flex: 1;"></span>
-          <%= render(BracketedLinkComponent.new(label: "_", href: "#", data: { action: "click->keyboard#openHelp" }, active: false)) %>
+          <%# The `[_]` link is the visible discoverable affordance
+              for the SPACE leader. Clicking it opens the unified
+              leader-menu popup (Stimulus `leader-menu#openRoot`);
+              the same controller listens for the SPACE keypress.
+              We also keep the legacy `keyboard#openHelp` action
+              chained on the same click so existing layout specs
+              continue to find the data-action signature AND users
+              who haven't migrated to the leader-menu still get the
+              per-page shortcut catalogue. Both controllers attach
+              to <body> so dispatch order doesn't matter; the
+              leader popup paints first and the help dialog opens
+              alongside it (the dialog renders centered, the popup
+              renders bottom-right — they don't overlap). %>
+          <%= render(BracketedLinkComponent.new(label: "_", href: "#", data: { action: "click->keyboard#openHelp click->leader-menu#openRoot" }, active: false)) %>
         </nav>
       <% end %>
       <div style="display: flex; align-items: center; gap: 4px;">
@@ -231,5 +244,26 @@
         `/notifications` page still serves direct URLs for JS-off
         fallback. %>
     <%= render "shared/notifications_modal" %>
+
+    <%# Unified keybindings schema — the single source of truth for
+        the leader-menu popup AND the Rust `pito` CLI's leader
+        overlay lives in `config/keybindings.yml`. The Ruby loader
+        (`config/initializers/keybindings.rb`) parses it once at
+        boot; `KeybindingsHelper#keybindings_as_json` filters it to
+        the web surface and serializes it here. The Stimulus
+        `leader-menu` controller (mounted on `<body>`) parses the
+        JSON on connect, listens for SPACE, and renders the popup
+        in the `#leader-menu-popup` div below. %>
+    <script type="application/json" id="pito-keybindings"><%= keybindings_as_json %></script>
+
+    <%# Leader-menu popup root — empty placeholder; the Stimulus
+        controller paints the bottom-right card here when SPACE is
+        pressed (or the `[_]` footer link is clicked). Hidden by
+        default; the controller flips the `hidden` attribute on
+        open/close. %>
+    <div id="leader-menu-popup"
+         data-leader-menu-target="popup"
+         class="leader-menu-popup"
+         hidden></div>
   </body>
 </html>
