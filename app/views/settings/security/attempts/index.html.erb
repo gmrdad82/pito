@@ -1,0 +1,90 @@
+<% content_for(:title, "attempts") %>
+<% breadcrumb(["settings", settings_path], ["security", settings_security_path], "attempts") %>
+
+<div style="margin-bottom: 8px;">
+  <h1>attempts</h1>
+  <p class="text-muted" style="margin-top: 2px;">
+    every login attempt against this install is logged here.<br>
+    rows are durable — purge happens manually from a later sub-spec's surface.
+  </p>
+</div>
+
+<%# Filters. Plain GET form so the URL is shareable / bookmarkable;
+    every filter passes through as a query param so paste-from-clipboard
+    round-trips correctly. No Stimulus state — the filters submit on
+    Enter / button. %>
+<div class="pane pane--standalone" style="margin-bottom: 12px;">
+  <%= form_with url: settings_security_attempts_path, method: :get,
+                scope: nil, data: { turbo: false } do %>
+    <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: end;">
+      <div>
+        <label for="result" class="form-label">result</label>
+        <select name="result" id="result">
+          <option value="">(any)</option>
+          <% %w[success failed pending_approval blocked rate_limited].each do |r| %>
+            <option value="<%= r %>" <%= "selected" if @applied_filters[:result] == r %>><%= r.tr("_", " ") %></option>
+          <% end %>
+        </select>
+      </div>
+      <div>
+        <label for="since" class="form-label">since (iso8601)</label>
+        <input type="text" name="since" id="since"
+               value="<%= @applied_filters[:since] %>"
+               placeholder="2026-05-01T00:00:00Z">
+      </div>
+      <div>
+        <label for="ip" class="form-label">ip</label>
+        <input type="text" name="ip" id="ip" value="<%= @applied_filters[:ip] %>" placeholder="1.2.3.4">
+      </div>
+      <div>
+        <label for="fingerprint" class="form-label">fingerprint</label>
+        <input type="text" name="fingerprint" id="fingerprint"
+               value="<%= @applied_filters[:fingerprint] %>"
+               style="width: 280px;">
+      </div>
+      <div>
+        <button type="submit">[filter]</button>
+      </div>
+    </div>
+  <% end %>
+</div>
+
+<% if @attempts.any? %>
+  <table>
+    <thead>
+      <tr>
+        <th class="num">when</th>
+        <th>result</th>
+        <th>reason</th>
+        <th>ip</th>
+        <th>location</th>
+        <th>device</th>
+        <th>fingerprint</th>
+        <th class="col-action"></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @attempts.each do |attempt| %>
+        <%= render LoginAttemptRowComponent.new(attempt: attempt) %>
+      <% end %>
+    </tbody>
+  </table>
+
+  <% pages = (@total.to_f / @per_page).ceil %>
+  <% if pages > 1 %>
+    <p style="margin-top: 8px;">
+      page <strong><%= @page %></strong> of <strong><%= pages %></strong>
+      (<%= @total %> rows)
+      <% if @page > 1 %>
+        &nbsp;
+        <%= render BracketedLinkComponent.new(label: "prev", href: settings_security_attempts_path(request.query_parameters.merge(page: @page - 1))) %>
+      <% end %>
+      <% if @page < pages %>
+        &nbsp;
+        <%= render BracketedLinkComponent.new(label: "next", href: settings_security_attempts_path(request.query_parameters.merge(page: @page + 1))) %>
+      <% end %>
+    </p>
+  <% end %>
+<% else %>
+  <p class="text-muted">no attempts match those filters.</p>
+<% end %>

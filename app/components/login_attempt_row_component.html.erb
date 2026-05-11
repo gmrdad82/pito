@@ -1,0 +1,21 @@
+<tr>
+  <td class="num"><%= attempt.created_at.utc.strftime("%Y-%m-%d %H:%M") %></td>
+  <td class="<%= result_css %>"><%= result_label %></td>
+  <td><%= reason_label %></td>
+  <td><%= attempt.ip %></td>
+  <td><%= geo_label %></td>
+  <td>
+    <code><%= attempt.browser %></code>
+    <span class="text-muted">on</span>
+    <code><%= attempt.os %></code>
+  </td>
+  <td><code><%= attempt.fingerprint_short %></code></td>
+  <td class="col-action">
+    <% if show_detail_link? %>
+      <%= render BracketedLinkComponent.new(
+            label: "detail",
+            href:  settings_security_attempt_path(attempt)
+          ) %>
+    <% end %>
+  </td>
+</tr>

@@ -61,7 +61,7 @@ publish)."
       below, restates the locked decisions and open questions for the user.
       Docs-only; no dispatch agent.
 
-- [ ] **01a — Timezone foundation** (`specs/01a-timezone-foundation.md`).
+- [x] **01a — Timezone foundation** (`specs/01a-timezone-foundation.md`).
       User.time_zone column + IANA name validation +
       browser-detection-on-first-load + `Etc/UTC` fallback + tz-aware render
       helpers + ApplicationController hook setting

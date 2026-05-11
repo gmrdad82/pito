@@ -13,7 +13,12 @@
   </div>
 
   <% if @bundles.any? %>
+    <%# `data-keyboard-grid="true"` opts this tile grid into the global
+        keyboard controller's grid navigation (`j`/`k` move row, `h`/`l`
+        move within row). Each tile partial renders
+        `data-keyboard-tile`. Mirrors the `/games` all-games grid. %>
     <div class="bundles-grid"
+         data-keyboard-grid="true"
          style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-top: 8px;">
       <% @bundles.each do |bundle| %>
         <%= render "bundles/tile", bundle: bundle %>

@@ -1,0 +1,66 @@
+<% content_for(:title, "security") %>
+<% breadcrumb(["settings", settings_path], "security") %>
+
+<div style="margin-bottom: 8px;">
+  <h1>security</h1>
+  <p class="text-muted" style="margin-top: 2px;">
+    every login attempt is logged.<br>
+    suspicious activity surfaces here and on
+    <%= render BracketedLinkComponent.new(label: "attempts", href: settings_security_attempts_path) %>.<br>
+    2FA enrollment lands later in this phase.
+  </p>
+</div>
+
+<div class="pane pane--standalone" style="margin-bottom: 12px;">
+  <h2 style="margin-top: 0;">2FA</h2>
+  <p class="text-muted" style="margin-top: 2px;">
+    status:
+    <% if @twofa_enabled %>
+      <strong>on</strong>
+    <% else %>
+      <strong>off</strong>
+    <% end %>
+  </p>
+  <p class="text-muted" style="margin-top: 2px;">
+    enrollment ships in a later sub-spec of this phase.
+  </p>
+</div>
+
+<div class="pane pane--standalone" style="margin-bottom: 12px;">
+  <h2 style="margin-top: 0;">recent activity</h2>
+  <p class="text-muted" style="margin-top: 2px;">
+    <strong><%= @failed_in_last_24h %></strong>
+    failed and
+    <strong><%= @blocked_in_last_24h %></strong>
+    blocked in the last 24 hours.<br>
+    <strong><%= @active_blocks_count %></strong>
+    active block<%= "s" if @active_blocks_count != 1 %> on the auto-block list.
+  </p>
+
+  <% if @recent_attempts.any? %>
+    <table>
+      <thead>
+        <tr>
+          <th class="num">when</th>
+          <th>result</th>
+          <th>reason</th>
+          <th>ip</th>
+          <th>location</th>
+          <th>device</th>
+          <th>fingerprint</th>
+          <th class="col-action"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @recent_attempts.each do |attempt| %>
+          <%= render LoginAttemptRowComponent.new(attempt: attempt) %>
+        <% end %>
+      </tbody>
+    </table>
+    <p style="margin-top: 8px;">
+      <%= render BracketedLinkComponent.new(label: "all attempts", href: settings_security_attempts_path) %>
+    </p>
+  <% else %>
+    <p class="text-muted">no attempts logged yet.</p>
+  <% end %>
+</div>

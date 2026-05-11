@@ -64,7 +64,18 @@
       renders — keyboard-off users can click it to open the help
       modal. yes/no strings at the wire boundary per the project's
       external-boolean rule. %>
-  <body data-controller="keyboard notifications-modal leader-menu" data-keyboard-navigation-enabled="<%= AppSetting.keyboard_navigation_enabled? ? "yes" : "no" %>">
+  <%# Phase 26 — 01a. Mount the `timezone-detect` Stimulus controller on
+      `<body>`. Authenticated layouts render the user's stored zone in
+      `data-timezone-detect-stored-value`; on the "Etc/UTC" sentinel
+      the controller silently PATCHes the browser-detected zone to
+      `/settings/time_zone`. The data-attribute is omitted on
+      unauthenticated screens (login form, OAuth consent) so the
+      controller bails immediately. %>
+  <body data-controller="keyboard notifications-modal leader-menu timezone-detect"
+        data-keyboard-navigation-enabled="<%= AppSetting.keyboard_navigation_enabled? ? "yes" : "no" %>"
+        <% if Current.user.present? %>data-timezone-detect-stored-value="<%= Current.user.time_zone %>"
+        data-timezone-detect-url-value="<%= settings_time_zone_path %>"
+        data-timezone-detect-csrf-value="<%= form_authenticity_token %>"<% end %>>
     <header style="position: fixed; top: 0; left: 0; right: 0; height: 32px; background: var(--color-bg); border-bottom: 1px solid var(--color-border); padding: 0 12px; z-index: 100;" data-controller="theme">
       <%# Header layout (2026-05-10 redesign, refined 2026-05-10 follow-up):
             [home][calendar] · [channels][videos] · [projects][notifications]

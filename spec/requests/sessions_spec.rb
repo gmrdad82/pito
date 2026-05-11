@@ -32,7 +32,10 @@ RSpec.describe "Sessions", type: :request do
     it "does not render an inline duplicate of the flash error" do
       post login_path, params: { email: user.email, password: "wrong" }
       expect(response).to have_http_status(:unprocessable_content)
-      expect(response.body.scan(/invalid email or password/i).length).to eq(1)
+      # Phase 25 — 01a (LD-14). Generic copy is `login failed.` regardless
+      # of which step failed. A single occurrence in the body keeps the
+      # flash from doubling up.
+      expect(response.body.scan(/login failed/i).length).to eq(1)
       expect(response.body).not_to include("flash-error")
     end
 
@@ -80,7 +83,7 @@ RSpec.describe "Sessions", type: :request do
     it "renders the generic error and 422 on wrong password" do
       post login_path, params: { email: user.email, password: "not-it" }
       expect(response).to have_http_status(:unprocessable_content)
-      expect(response.body.downcase).to include("invalid email or password")
+      expect(response.body.downcase).to include("login failed")
       # Anchor the regex so the bare-name match doesn't also catch the
       # Rails default session cookie (`_pito_session`).
       cookie_name = Sessions::Authenticator::COOKIE_NAME.to_s
@@ -91,19 +94,19 @@ RSpec.describe "Sessions", type: :request do
     it "renders the same generic error on unknown email" do
       post login_path, params: { email: "nobody@nowhere.test", password: "irrelevant" }
       expect(response).to have_http_status(:unprocessable_content)
-      expect(response.body.downcase).to include("invalid email or password")
+      expect(response.body.downcase).to include("login failed")
     end
 
     it "renders the same generic error on a malformed email" do
       post login_path, params: { email: "garbage-without-an-at", password: "irrelevant" }
       expect(response).to have_http_status(:unprocessable_content)
-      expect(response.body.downcase).to include("invalid email or password")
+      expect(response.body.downcase).to include("login failed")
     end
 
     it "renders the generic error on a blank email" do
       post login_path, params: { email: "", password: "irrelevant" }
       expect(response).to have_http_status(:unprocessable_content)
-      expect(response.body.downcase).to include("invalid email or password")
+      expect(response.body.downcase).to include("login failed")
     end
 
     it "ignores stray legacy params (tenant_id, username, admin) on the success path" do
@@ -163,6 +166,86 @@ RSpec.describe "Sessions", type: :request do
       get channels_path
       post login_path, params: { email: user.email, password: password }
       expect(response).to redirect_to(channels_path)
+    end
+
+    # Phase 25 — 01a. Every authenticate POST writes a LoginAttempt row
+    # regardless of outcome. The row carries the precise internal
+    # reason; the response stays generic per LD-14.
+    describe "LoginAttempt writes (Phase 25 — 01a)" do
+      it "writes a success row on a clean login" do
+        expect {
+          post login_path, params: { email: user.email, password: password }
+        }.to change(LoginAttempt, :count).by(1)
+
+        row = LoginAttempt.recent.first
+        expect(row.result).to eq("success")
+        expect(row.reason).to eq("trusted_location_success")
+        expect(row.user_id).to eq(user.id)
+      end
+
+      it "writes a failed row with reason: wrong_password" do
+        expect {
+          post login_path, params: { email: user.email, password: "wrong" }
+        }.to change(LoginAttempt, :count).by(1)
+
+        row = LoginAttempt.recent.first
+        expect(row.result).to eq("failed")
+        expect(row.reason).to eq("wrong_password")
+        expect(row.user_id).to eq(user.id)
+      end
+
+      it "writes a failed row with reason: unknown_account on a missing email" do
+        expect {
+          post login_path, params: { email: "nobody@nowhere.test", password: "x" }
+        }.to change(LoginAttempt, :count).by(1)
+
+        row = LoginAttempt.recent.first
+        expect(row.result).to eq("failed")
+        expect(row.reason).to eq("unknown_account")
+        expect(row.user_id).to be_nil
+        expect(row.email_attempted).to eq("nobody@nowhere.test")
+      end
+
+      it "writes a blocked row when the (fingerprint, ip_prefix) is on the auto-block list" do
+        # Two-step approach: hit /login once with a wrong password to
+        # discover the fingerprint the integration test environment
+        # produces (it can differ from `TestRequest.create` because
+        # of the default `Accept` / `Accept-Encoding` Rack adds). Seed
+        # the BlockedLocation with that fingerprint, then re-hit with
+        # the correct password — the block-list check now short-circuits.
+        post login_path, params: { email: user.email, password: "wrong-first" }
+        first_row = LoginAttempt.recent.first
+        expect(first_row.result).to eq("failed")
+
+        create(
+          :blocked_location,
+          fingerprint_hash: first_row.fingerprint_hash,
+          ip_prefix: first_row.ip_prefix,
+          blocked_by_user: user
+        )
+
+        expect {
+          post login_path, params: { email: user.email, password: password }
+        }.to change(LoginAttempt, :count).by(1)
+
+        row = LoginAttempt.recent.first
+        expect(row.result).to eq("blocked")
+        expect(row.reason).to eq("blocked_pair")
+        # The user does NOT get a session even though the password was right.
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(response.body.downcase).to include("login failed")
+      end
+
+      it "composes the fingerprint without screen / locale hint params" do
+        # Submitting WITHOUT the hidden `fp_*` fields still writes a row;
+        # the composer absorbs the empty values.
+        expect {
+          post login_path, params: { email: user.email, password: password }
+        }.to change(LoginAttempt, :count).by(1)
+
+        row = LoginAttempt.recent.first
+        expect(row.fingerprint_hash.length).to eq(64)
+      end
     end
   end
 

@@ -213,15 +213,18 @@ RSpec.describe "Settings", type: :request do
       expect(response.body).not_to include("[save]")
     end
 
-    it "renders settings as five .pane-row groups holding eight total panes" do
+    it "renders settings as five .pane-row groups holding nine total panes" do
       # 2026-05-10 follow-up — Phase 24 dropped Google + YouTube to
       # four rows / seven panes; restoring the YouTube read-only
       # credentials status card as its own single-pane row pushes the
-      # total back to five rows / eight panes. Layout:
+      # total back to five rows / eight panes.
+      # 2026-05-11 — Phase 26 / 01a Timezone foundation lands a ninth
+      # pane on row 5 (paired with the previously single `user` pane).
+      # Layout:
       #   row 1 — ui / ux | workspaces        (2 panes)
       #   row 2 — search | Voyage.ai          (2 panes)
       #   row 3 — YouTube (status, single)    (1 pane, right empty)
-      #   row 4 — user (single)               (1 pane, right empty)
+      #   row 4 — user | time zone            (2 panes; Phase 26)
       #   row 5 — OAuth+tokens | sessions     (2 panes; the OAuth /
       #     tokens cell still combines TWO sub-sections separated by
       #     a `<hr class="hairline">`, but counts as one pane).
@@ -231,7 +234,7 @@ RSpec.describe "Settings", type: :request do
       get settings_path
       expect(response.body.scan(/class="pane-row"/).length).to eq(5)
       panes = response.body.scan(/class="pane(?:\s[^"]*)?"/).size
-      expect(panes).to eq(8)
+      expect(panes).to eq(9)
     end
 
     it "separates the OAuth applications and tokens sub-sections with a hairline" do

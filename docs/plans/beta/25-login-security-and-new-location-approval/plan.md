@@ -36,7 +36,7 @@ coverage.
 
 - [ ] **01 — Overview (umbrella)** —
       `specs/01-overview-login-security-and-new-location-approval.md`
-- [ ] **01a — Attempt logging + fingerprinting** —
+- [x] **01a — Attempt logging + fingerprinting** —
       `specs/01a-attempt-logging-and-fingerprinting.md`
 - [ ] **01b — New-location detection + pending sessions** —
       `specs/01b-new-location-detection-and-pending-sessions.md`

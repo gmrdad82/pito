@@ -1,0 +1,64 @@
+<% content_for(:title, "attempt #{@attempt.id}") %>
+<% breadcrumb(["settings", settings_path],
+              ["security", settings_security_path],
+              ["attempts", settings_security_attempts_path],
+              "##{@attempt.id}") %>
+
+<div style="margin-bottom: 8px;">
+  <h1>attempt #<%= @attempt.id %></h1>
+  <p class="text-muted" style="margin-top: 2px;">
+    one row from the install-wide login attempt log.<br>
+    fingerprint + ip prefix together form the "location" the new-location
+    detection compares against trusted entries.
+  </p>
+</div>
+
+<div class="pane pane--standalone" style="margin-bottom: 12px;">
+  <dl>
+    <dt>when</dt>
+    <dd><%= @attempt.created_at.utc.strftime("%Y-%m-%d %H:%M:%S %Z") %></dd>
+
+    <dt>result</dt>
+    <dd class="<%= login_attempt_result_css(@attempt) %>"><%= login_attempt_result_label(@attempt) %></dd>
+
+    <dt>reason</dt>
+    <dd><%= login_attempt_reason_label(@attempt) %></dd>
+
+    <dt>ip</dt>
+    <dd><code><%= @attempt.ip %></code></dd>
+
+    <dt>ip prefix</dt>
+    <dd><code><%= @attempt.ip_prefix %></code></dd>
+
+    <dt>location</dt>
+    <dd><%= login_attempt_geo_label(@attempt) %></dd>
+
+    <dt>device</dt>
+    <dd><code><%= @attempt.browser %></code> on <code><%= @attempt.os %></code></dd>
+
+    <dt>user-agent</dt>
+    <dd style="word-break: break-all;"><code><%= @attempt.user_agent %></code></dd>
+
+    <dt>fingerprint</dt>
+    <dd style="word-break: break-all;"><code><%= @attempt.fingerprint_hash %></code></dd>
+
+    <% if @attempt.email_attempted.present? %>
+      <dt>email tried</dt>
+      <dd><code><%= @attempt.email_attempted %></code></dd>
+    <% end %>
+
+    <% if @attempt.user_id.present? %>
+      <dt>matched user</dt>
+      <dd>id <%= @attempt.user_id %></dd>
+    <% end %>
+
+    <% if @attempt.resolved_at.present? %>
+      <dt>resolved</dt>
+      <dd><%= @attempt.resolved_at.utc.strftime("%Y-%m-%d %H:%M:%S %Z") %></dd>
+    <% end %>
+  </dl>
+</div>
+
+<p>
+  <%= render BracketedLinkComponent.new(label: "back to attempts", href: settings_security_attempts_path) %>
+</p>

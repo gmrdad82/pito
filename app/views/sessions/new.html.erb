@@ -4,11 +4,24 @@
 <div style="max-width: 420px; margin: 24px 0;">
   <h1>log in</h1>
   <p class="text-muted" style="margin-top: 2px;">
-    sign in with your pito account. forgot your password? recovery is not yet
-    available &mdash; reset via <code>bin/rails credentials:edit</code> for now.
+    sign in with your pito account.<br>
+    forgot your password? recovery is not yet available &mdash; reset via
+    <code>bin/rails credentials:edit</code> for now.
   </p>
 
-  <%= form_with url: login_path, method: :post, scope: nil, data: { turbo: false } do %>
+  <%# Phase 25 — 01a (LD-2). The fingerprint-hints Stimulus controller
+      reads `window.screen.*` + `Intl.DateTimeFormat()` and fills the
+      two hidden inputs below before submit. The form posts the raw
+      values; the server composes + hashes them in
+      `Auth::FingerprintComposer`. No canvas / AudioContext / WebGL —
+      the controller is deliberately narrow. %>
+  <%= form_with url: login_path, method: :post, scope: nil,
+                data: { turbo: false, controller: "fingerprint-hints" } do %>
+    <input type="hidden" name="fp_screen" value=""
+           data-fingerprint-hints-target="screen">
+    <input type="hidden" name="fp_locale" value=""
+           data-fingerprint-hints-target="locale">
+
     <div style="margin-bottom: 12px;">
       <label for="login_email" class="form-label">email</label>
       <input type="email" name="email" id="login_email"

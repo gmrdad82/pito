@@ -119,6 +119,36 @@ RSpec.describe User, type: :model do
     end
   end
 
+  describe "time_zone column (Phase 26 — 01a)" do
+    it "defaults to Etc/UTC for a fresh row (DB default)" do
+      user = create(:user)
+      expect(user.reload.time_zone).to eq("Etc/UTC")
+    end
+
+    it "round-trips a stored zone through save + reload" do
+      user = create(:user, time_zone: "Europe/Bucharest")
+      expect(user.reload.time_zone).to eq("Europe/Bucharest")
+    end
+
+    it "is NOT NULL at the column level (defensive backstop on validation)" do
+      column = User.columns_hash["time_zone"]
+      expect(column).to be_present
+      expect(column.null).to be(false)
+      expect(column.default).to eq("Etc/UTC")
+    end
+
+    it "rejects an invalid zone via the Timezoned concern" do
+      user = build(:user, time_zone: "Not/A/Zone")
+      expect(user).not_to be_valid
+      expect(user.errors[:time_zone]).to be_present
+    end
+
+    it "exposes #tz returning the resolved ActiveSupport::TimeZone" do
+      user = create(:user, time_zone: "America/Los_Angeles")
+      expect(user.tz.tzinfo.name).to eq("America/Los_Angeles")
+    end
+  end
+
   describe "no tenant / no username surface" do
     # Phase 8 archive checks. Asserts that the legacy plumbing is gone.
     it "does not declare a tenant association" do

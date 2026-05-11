@@ -15,9 +15,18 @@
   caption_parts << "(#{game.release_year})" if game.release_year.present?
   caption_parts << "★ #{game.igdb_rating.to_i}" if game.igdb_rating.present?
 %>
+<%# `data-keyboard-tile` opts each tile into the global keyboard
+    controller's tile-grid navigation when the surrounding container
+    declares `data-keyboard-grid="true"` (the all-games grid on
+    `/games` and the bundles grid on `/bundles`; the horizontally
+    scrolling shelves do NOT opt in). The geometry-driven row
+    computation in `keyboard_controller.js#moveTileGrid` walks tiles
+    by `getBoundingClientRect()` so the same partial works at any
+    `repeat(auto-fill, minmax(...))` column count. %>
 <a href="<%= game_path(game) %>" class="tile"
    style="flex: 0 0 150px; width: 150px; display: block; text-decoration: none; color: inherit; cursor: pointer;"
    data-tile-game-id="<%= game.id %>"
+   data-keyboard-tile
    title="<%= caption_parts.join(' ') %>">
   <div class="tile-cover" style="width: 150px; height: 200px; overflow: hidden; background: #f6f6f6; display: flex; align-items: center; justify-content: center;">
     <% if game.cover_url.present? %>
