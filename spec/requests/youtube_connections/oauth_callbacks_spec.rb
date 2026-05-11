@@ -35,6 +35,15 @@ RSpec.describe "YoutubeConnections::OauthCallbacks", type: :request do
   before do
     OmniAuth.config.test_mode = true
     OmniAuth.config.failure_raise_out_environments = []
+
+    # The callback now enumerates `mine: true` channels under the
+    # just-authorized connection (channel discovery moved out of the
+    # /settings/youtube show action). Default the stub to an empty
+    # response so existing specs that only care about the
+    # `YoutubeConnection` upsert keep passing untouched; contexts
+    # below that exercise discovery override this stub.
+    allow_any_instance_of(Youtube::Client).to receive(:channels_list)
+      .and_return(items: [], next_page_token: nil)
   end
 
   after do
@@ -157,6 +166,38 @@ RSpec.describe "YoutubeConnections::OauthCallbacks", type: :request do
         }.to change { YoutubeConnection.unscoped.where(user_id: user.id).count }.by(1)
 
         expect(YoutubeConnection.unscoped.where(user_id: user.id).count).to eq(2)
+      end
+
+      # Multi-connection (2026-05-10). The earlier row's tokens MUST
+      # stay intact when a second Google account connects — the
+      # callback finds-or-initializes keyed on `google_subject_id`, so
+      # a different subject creates a new row alongside, never
+      # mutating the existing one.
+      it "leaves the FIRST connection's tokens untouched when a SECOND account connects" do
+        user = User.first
+        first = create(:youtube_connection,
+                       user: user,
+                       google_subject_id: "first-subject-9999999999999",
+                       email: "first@example.com",
+                       access_token: "ya29.first-access-token-xxxxxxxx",
+                       refresh_token: "1//first-refresh-token-xxxxxxxx",
+                       last_authorized_at: 1.day.ago)
+        original_access = first.access_token
+        original_refresh = first.refresh_token
+        original_authorized_at = first.last_authorized_at
+
+        run_oauth_dance(intent: :youtube_connect)
+
+        first.reload
+        expect(first.access_token).to eq(original_access)
+        expect(first.refresh_token).to eq(original_refresh)
+        expect(first.last_authorized_at.to_i).to eq(original_authorized_at.to_i)
+
+        # The second row carries the auth_hash's subject id.
+        second = YoutubeConnection.unscoped.find_by(google_subject_id: "1099876543210123456789")
+        expect(second).not_to be_nil
+        expect(second.id).not_to eq(first.id)
+        expect(second.access_token).to eq("ya29.test-access-token")
       end
 
       it "replaces the stored scopes with the current grant (no stale union)" do
@@ -307,6 +348,211 @@ RSpec.describe "YoutubeConnections::OauthCallbacks", type: :request do
 
         expect(response).to redirect_to(youtube_connection_oauth_failure_path)
         expect(flash[:alert]).to include("session expired")
+      end
+    end
+  end
+
+  # Channel discovery on a successful callback (2026-05-10 redesign).
+  # The OAuth callback enumerates `mine: true` channels under the
+  # just-authorized connection and adds non-duplicates as Channel rows.
+  # Duplicates (UC id already in the Channel table) are silently
+  # skipped; the flash carries an "already linked" note. API failures
+  # (quota, transient, needs reauth) surface in flash but do NOT
+  # prevent the OAuth-success redirect.
+  describe "POST /auth/google_oauth2 → callback → channel discovery" do
+    before { OmniAuth.config.mock_auth[:google_oauth2] = auth_hash }
+
+    context "when the granted access returns two new channels" do
+      before do
+        allow_any_instance_of(Youtube::Client).to receive(:channels_list).and_return(
+          items: [
+            { id: "UCnnnnnnnnnnnnnnnnnnnnnn",
+              snippet: { title: "New Alpha" },
+              statistics: { subscriber_count: 12 } },
+            { id: "UCmmmmmmmmmmmmmmmmmmmmmm",
+              snippet: { title: "New Beta" },
+              statistics: { subscriber_count: 34 } }
+          ],
+          next_page_token: nil
+        )
+      end
+
+      it "creates a Channel row per non-duplicate" do
+        expect {
+          run_oauth_dance(intent: :youtube_connect)
+        }.to change { Channel.count }.by(2)
+
+        connection = YoutubeConnection.unscoped.last
+        expect(connection.channels.map(&:channel_url)).to contain_exactly(
+          "https://www.youtube.com/channel/UCnnnnnnnnnnnnnnnnnnnnnn",
+          "https://www.youtube.com/channel/UCmmmmmmmmmmmmmmmmmmmmmm"
+        )
+      end
+
+      it "redirects to /settings/youtube with a flash naming the added channels" do
+        run_oauth_dance(intent: :youtube_connect)
+        expect(response).to redirect_to(settings_youtube_path)
+        expect(flash[:notice]).to include("Google account connected.")
+        expect(flash[:notice]).to include("2 channels added")
+        expect(flash[:notice]).to include("New Alpha")
+        expect(flash[:notice]).to include("New Beta")
+      end
+    end
+
+    context "when one of the returned channels is already linked to pito (DUPLICATE edge case)" do
+      let!(:existing_channel) do
+        Channel.create!(
+          channel_url: "https://www.youtube.com/channel/UCdupdupdupdupdupdupdupx",
+          last_synced_at: 1.day.ago
+        )
+      end
+
+      before do
+        allow_any_instance_of(Youtube::Client).to receive(:channels_list).and_return(
+          items: [
+            # A duplicate (already in pito) — must be silently
+            # skipped, no crash, no second row.
+            { id: "UCdupdupdupdupdupdupdupx",
+              snippet: { title: "Already Linked" },
+              statistics: { subscriber_count: 7 } },
+            # A brand-new channel — must be linked under the new
+            # connection alongside the silent-skip above.
+            { id: "UCfreshfreshfreshfreshfx",
+              snippet: { title: "Fresh New" },
+              statistics: { subscriber_count: 9 } }
+          ],
+          next_page_token: nil
+        )
+      end
+
+      it "does NOT crash" do
+        expect { run_oauth_dance(intent: :youtube_connect) }.not_to raise_error
+      end
+
+      it "does NOT create a second Channel row for the duplicate UC id" do
+        expect {
+          run_oauth_dance(intent: :youtube_connect)
+        }.to change { Channel.count }.by(1)
+        # Exactly one channel exists for the duplicate UC id.
+        dupes = Channel.where(channel_url: "https://www.youtube.com/channel/UCdupdupdupdupdupdupdupx")
+        expect(dupes.count).to eq(1)
+      end
+
+      it "adds the brand-new channel alongside (silent skip on the duplicate)" do
+        run_oauth_dance(intent: :youtube_connect)
+        connection = YoutubeConnection.unscoped.last
+        expect(connection.channels.map(&:channel_url)).to contain_exactly(
+          "https://www.youtube.com/channel/UCfreshfreshfreshfreshfx"
+        )
+      end
+
+      it "flashes a clean 'already linked' note (no error tone)" do
+        run_oauth_dance(intent: :youtube_connect)
+        expect(flash[:notice]).to include("Google account connected.")
+        expect(flash[:notice]).to include("1 channel added")
+        expect(flash[:notice]).to include("Fresh New")
+        # The duplicate handling: a single duplicate uses the singular
+        # "channel '<title>' is already linked." copy.
+        expect(flash[:notice]).to include("channel 'Already Linked' is already linked")
+        expect(flash[:alert]).to be_blank
+      end
+
+      it "leaves the duplicate's existing youtube_connection_id alone" do
+        # The duplicate already had a connection (the factory-created
+        # one) — re-attaching it to the new connection would be a
+        # silent steal. The duplicate path is silent-skip; the
+        # existing row is untouched.
+        existing_channel.update_columns(youtube_connection_id: nil)
+        run_oauth_dance(intent: :youtube_connect)
+        existing_channel.reload
+        expect(existing_channel.youtube_connection_id).to be_nil
+      end
+    end
+
+    context "when EVERY returned channel is already linked" do
+      let!(:dupe_a) do
+        Channel.create!(
+          channel_url: "https://www.youtube.com/channel/UCdup1dup1dup1dup1dup1dx",
+          last_synced_at: 1.day.ago
+        )
+      end
+      let!(:dupe_b) do
+        Channel.create!(
+          channel_url: "https://www.youtube.com/channel/UCdup2dup2dup2dup2dup2dx",
+          last_synced_at: 1.day.ago
+        )
+      end
+
+      before do
+        allow_any_instance_of(Youtube::Client).to receive(:channels_list).and_return(
+          items: [
+            { id: "UCdup1dup1dup1dup1dup1dx",
+              snippet: { title: "Dupe A" } },
+            { id: "UCdup2dup2dup2dup2dup2dx",
+              snippet: { title: "Dupe B" } }
+          ],
+          next_page_token: nil
+        )
+      end
+
+      it "creates no new Channel rows" do
+        expect {
+          run_oauth_dance(intent: :youtube_connect)
+        }.not_to change { Channel.count }
+      end
+
+      it "flashes the plural 'these channels are already linked' note" do
+        run_oauth_dance(intent: :youtube_connect)
+        expect(flash[:notice]).to include("these channels are already linked: Dupe A, Dupe B")
+      end
+    end
+
+    context "when the YouTube API raises QuotaExhaustedError" do
+      before do
+        allow_any_instance_of(Youtube::Client).to receive(:channels_list)
+          .and_raise(Youtube::QuotaExhaustedError)
+      end
+
+      it "still completes the redirect (no 500)" do
+        run_oauth_dance(intent: :youtube_connect)
+        expect(response).to redirect_to(settings_youtube_path)
+      end
+
+      it "creates no Channel rows" do
+        expect {
+          run_oauth_dance(intent: :youtube_connect)
+        }.not_to change { Channel.count }
+      end
+
+      it "still creates the YoutubeConnection" do
+        expect {
+          run_oauth_dance(intent: :youtube_connect)
+        }.to change { YoutubeConnection.unscoped.count }.by(1)
+      end
+
+      it "flashes a human-readable note explaining the retry path" do
+        run_oauth_dance(intent: :youtube_connect)
+        expect(flash[:notice]).to include("Google account connected.")
+        expect(flash[:notice]).to include("quota exceeded")
+        expect(flash[:notice]).to include("try [add] again")
+      end
+    end
+
+    context "when the YouTube API returns no channels under this account" do
+      before do
+        allow_any_instance_of(Youtube::Client).to receive(:channels_list)
+          .and_return(items: [], next_page_token: nil)
+      end
+
+      it "creates no Channel rows" do
+        expect {
+          run_oauth_dance(intent: :youtube_connect)
+        }.not_to change { Channel.count }
+      end
+
+      it "flashes the 'no channels found' note" do
+        run_oauth_dance(intent: :youtube_connect)
+        expect(flash[:notice]).to include("no channels found under this Google account")
       end
     end
   end

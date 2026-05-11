@@ -33,10 +33,13 @@ RSpec.describe "Google OAuth flow", type: :system do
 
     driven_by(:rack_test)
 
-    # The redirect-back from the callback lands on /settings/youtube,
-    # which calls `Youtube::Client#channels_list(mine: true)`. Stub
-    # the client so the spec does not depend on a live YouTube
-    # response (and so WebMock doesn't reject the request).
+    # The OAuth callback enumerates `mine: true` channels under the
+    # just-authorized connection and adds non-duplicates as Channel
+    # rows. Stub the client to return an empty list so the spec
+    # doesn't depend on a live YouTube response (and so WebMock
+    # doesn't reject the request) — both connect rounds in this spec
+    # produce zero new Channel rows, which is fine; this spec asserts
+    # on the YoutubeConnection upsert, not channel discovery.
     allow_any_instance_of(Youtube::Client).to receive(:channels_list)
       .and_return(items: [], next_page_token: nil)
   end
@@ -55,5 +58,52 @@ RSpec.describe "Google OAuth flow", type: :system do
     }.to change { YoutubeConnection.unscoped.count }.by(1)
 
     expect(page).to have_current_path(settings_youtube_path)
+  end
+
+  # Multi-connection (2026-05-10). After the first account connects,
+  # the page shows a `[+ connect another Google account]` button that
+  # initiates a SECOND OmniAuth round. The mocked auth hash is reused
+  # under a different google_subject_id, so the callback creates a
+  # second YoutubeConnection row alongside the first.
+  it "lets the user connect a SECOND Google account from settings → youtube" do
+    user = User.first || create(:user)
+    create(:youtube_connection,
+           user: user,
+           email: "first-account@example.test",
+           google_subject_id: "first-account-subject-aaaaaaaa")
+
+    # The OmniAuth mock represents the SECOND Google account — the
+    # uid differs so the callback creates a new row.
+    OmniAuth.config.mock_auth[:google_oauth2] = OmniAuth::AuthHash.new(
+      provider: "google_oauth2",
+      uid: "second-account-subject-bbbbbbbb",
+      info: { email: "second-account@example.test", name: "Second User" },
+      credentials: {
+        token: "ya29.second-account-token",
+        refresh_token: "1//second-account-refresh",
+        expires_at: 1.hour.from_now.to_i
+      },
+      extra: { raw_info: {
+        scope: [
+          "openid", "email", "profile",
+          "https://www.googleapis.com/auth/youtube.readonly",
+          "https://www.googleapis.com/auth/yt-analytics.readonly",
+          "https://www.googleapis.com/auth/youtube.force-ssl"
+        ].join(" ")
+      } }
+    )
+
+    visit settings_youtube_path
+    expect(page).to have_content("first-account@example.test")
+    expect(page).to have_button("[+ connect another Google account]")
+
+    expect {
+      click_button "[+ connect another Google account]"
+    }.to change { YoutubeConnection.unscoped.where(user_id: user.id).count }.by(1)
+
+    expect(page).to have_current_path(settings_youtube_path)
+    # Both rows now live side-by-side; the page surfaces both emails.
+    expect(page).to have_content("first-account@example.test")
+    expect(page).to have_content("second-account@example.test")
   end
 end

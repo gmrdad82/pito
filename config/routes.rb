@@ -427,14 +427,19 @@ Rails.application.routes.draw do
     end
 
     # Phase 7 — Step C (7c-settings-youtube-ui.md). Settings → YouTube
-    # surface. `show` lists the connected identity + the user's
-    # YouTube channels; `connect` is the request-phase entry point
-    # for the OmniAuth dance (POST + button_to from the show page);
-    # `channels` connects a single channel into Pito's Channel table
-    # by youtube_channel_id.
-    get  "/youtube",          to: "youtube#show",     as: :youtube
-    post "/youtube/connect",  to: "youtube#connect",  as: :youtube_connect
-    post "/youtube/channels", to: "youtube#channels", as: :youtube_channels
+    # surface. `show` lists the connected Google accounts + every
+    # Channel currently linked to those connections; `connect` is the
+    # request-phase entry point for the OmniAuth dance (POST +
+    # button_to from the show page; the `[add]` link passes
+    # `account=new` to flip on `prompt=select_account`).
+    #
+    # The OAuth callback handles channel discovery — see
+    # `YoutubeConnections::OauthCallbacksController#create`. The
+    # legacy `POST /settings/youtube/channels` multi-select form is
+    # gone; the bulk-disconnect path at `/deletions/youtube_connection/:ids`
+    # is the only mutation surface this page wires directly.
+    get  "/youtube",         to: "youtube#show",    as: :youtube
+    post "/youtube/connect", to: "youtube#connect", as: :youtube_connect
   end
 
   # MCP HTTP transport (served by dedicated Puma on port 3028).
