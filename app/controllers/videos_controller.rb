@@ -1,5 +1,6 @@
 class VideosController < ApplicationController
   include FriendlyRedirect
+  include ScheduledPublishHelper
 
   # JSON endpoints are unauthenticated for the single-user dev environment
   # behind the Cloudflare tunnel. Phase 3 Auth Foundation will add API token
@@ -542,7 +543,8 @@ class VideosController < ApplicationController
       return "#{k} must be 'yes'" unless YesNo.from_yes_no(perms[k])
     end
     return "publish_at is required" if perms[:publish_at].blank?
-    parsed = parsed_publish_at(perms[:publish_at])
+    parsed, err = parsed_publish_at_with_error(perms[:publish_at])
+    return err if err
     return "publish_at must be a valid ISO 8601 timestamp" if parsed.nil?
     return "publish_at must be in the future" if parsed <= Time.current
     unless video.privacy_private?
@@ -572,14 +574,50 @@ class VideosController < ApplicationController
     YesNo.from_yes_no(value)
   end
 
-  def parsed_publish_at(value)
-    return nil if value.blank?
-    Time.iso8601(value.to_s)
-  rescue ArgumentError
-    begin
-      Time.zone.parse(value.to_s)
-    rescue ArgumentError, TypeError
-      nil
+  # Phase 26 — 01h. The schedule form sends `publish_at` as a
+  # `datetime-local` value (`"2026-06-01T09:00"`), interpreted as the
+  # user's local clock. UTC ISO 8601 inputs (with a `Z` or explicit
+  # offset suffix) keep the literal interpretation for JSON / MCP
+  # callers; tz-less inputs route through `ScheduledPublishHelper` so
+  # the user's stored `time_zone` is honored. DST spring-forward gaps
+  # surface as a friendly error; DST fall-back resolves to the first
+  # occurrence with a warning.
+  #
+  # Returns `[Time | nil, String | nil]`: the UTC instant + an
+  # optional error message. The caller decides whether to surface the
+  # error or proceed.
+  def parsed_publish_at_with_error(value)
+    return [ nil, nil ] if value.blank?
+
+    str = value.to_s
+
+    # An offset suffix or trailing `Z` means the caller specified the
+    # absolute instant. Honor it as-is.
+    if str.match?(/(?:Z|[+-]\d{2}:?\d{2})\z/)
+      begin
+        return [ Time.iso8601(str), nil ]
+      rescue ArgumentError
+        begin
+          return [ Time.zone.parse(str), nil ]
+        rescue ArgumentError, TypeError
+          return [ nil, "publish_at must be a valid ISO 8601 timestamp" ]
+        end
+      end
     end
+
+    user_tz = Current.user&.time_zone.presence || "Etc/UTC"
+    begin
+      result = parse_user_local_to_utc(str, nil, user_tz)
+      return [ nil, "publish_at must be a valid ISO 8601 timestamp" ] if result.nil?
+      [ result.utc, nil ]
+    rescue ScheduledPublishHelper::AmbiguousLocalTime => e
+      [ nil, e.message ]
+    end
+  end
+
+  # Back-compat wrapper used by `validate_schedule` and `schedule` —
+  # callers that just want the parsed Time discard the error string.
+  def parsed_publish_at(value)
+    parsed_publish_at_with_error(value).first
   end
 end

@@ -34,6 +34,7 @@ class ApiToken < ApplicationRecord
   validates :scopes, presence: true
   validate  :scopes_subset_of_catalog
   validate  :dev_scope_only_when_exposed
+  validate  :auth_scope_only_when_exposed
 
   scope :active, -> { where(revoked_at: nil) }
   scope :revoked, -> { where.not(revoked_at: nil) }
@@ -133,5 +134,15 @@ class ApiToken < ApplicationRecord
     return unless Array(scopes).include?(Scopes::DEV)
 
     errors.add(:scopes, "cannot include 'dev' in this build")
+  end
+
+  # Phase 25 — 01d. Mirror the dev-scope strip-on-release guard for the
+  # `auth` scope. Production builds strip the scope; specs that stub the
+  # flag mid-process see this runtime guard reject the row.
+  def auth_scope_only_when_exposed
+    return if Scopes.auth_exposed?
+    return unless Array(scopes).include?(Scopes::AUTH)
+
+    errors.add(:scopes, "cannot include 'auth' in this build")
   end
 end

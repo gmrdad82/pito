@@ -1,0 +1,67 @@
+<%# Phase 27 §01f — Per-platform ownership editor. One row per
+    release-platform (plus any platform with an existing ownership
+    row whose IGDB record was scrubbed later). Each row carries an
+    `_own` yes/no checkbox plus optional metadata (acquired_at,
+    store, notes). The submit happens in one POST. No JS confirm. %>
+<% if any_rows? %>
+  <% ownerships_by_platform.each_with_index do |(platform, ownership_row), idx| %>
+    <% prefix = "game[game_platform_ownerships_attributes][#{idx}]" %>
+    <fieldset class="platform-ownership-row"
+              style="border: 1px solid #ddd; padding: 8px 12px; margin: 0 0 8px 0;"
+              data-platform-slug="<%= platform.slug %>"
+              data-row-index="<%= idx %>">
+      <legend style="font-weight: bold;"><%= platform.name %></legend>
+      <% if ownership_row.persisted? %>
+        <input type="hidden" name="<%= prefix %>[id]" value="<%= ownership_row.id %>">
+      <% end %>
+      <input type="hidden" name="<%= prefix %>[platform_id]" value="<%= platform.id %>">
+
+      <div style="margin-bottom: 6px;">
+        <%# `_own` is NOT a model attribute — it's a form-only flag
+            the controller translates into either a present row
+            (yes) or a `_destroy` marker (no). Project rule: yes/no
+            strings, never true/false/1/0. The leading hidden field
+            with value "no" guarantees the controller always sees a
+            value regardless of the checkbox state (unchecked
+            checkboxes are not submitted, so the trailing hidden
+            input would clobber the checkbox — Rails inverts that
+            order by emitting the hidden field FIRST so the checkbox
+            wins when checked). %>
+        <label style="cursor: pointer;">
+          <input type="hidden" name="<%= prefix %>[_own]" value="no">
+          <input type="checkbox"
+                 name="<%= prefix %>[_own]"
+                 value="yes"
+                 <%= "checked" if ownership_row.persisted? %>
+                 data-platform-slug="<%= platform.slug %>">
+          <span>i own this on <%= platform.name %></span>
+        </label>
+      </div>
+
+      <table class="detail-table" style="margin-bottom: 0;">
+        <tr>
+          <td class="text-muted" style="padding-right: 12px;">acquired</td>
+          <td><input type="date"
+                     name="<%= prefix %>[acquired_at]"
+                     value="<%= ownership_row.acquired_at&.to_date&.iso8601 %>"></td>
+        </tr>
+        <tr>
+          <td class="text-muted" style="padding-right: 12px;">store</td>
+          <td><input type="text"
+                     name="<%= prefix %>[store]"
+                     value="<%= ownership_row.store %>"
+                     placeholder="steam / psn / gog / …"
+                     style="width: 100%; max-width: 240px;"></td>
+        </tr>
+        <tr>
+          <td class="text-muted" style="padding-right: 12px; vertical-align: top;">notes</td>
+          <td><textarea name="<%= prefix %>[notes]"
+                        rows="2"
+                        style="width: 100%; max-width: 380px;"><%= ownership_row.notes %></textarea></td>
+        </tr>
+      </table>
+    </fieldset>
+  <% end %>
+<% else %>
+  <p class="text-muted">(no platforms available)</p>
+<% end %>

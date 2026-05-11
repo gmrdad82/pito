@@ -65,4 +65,9 @@ Rails.application.configure do
   # `dev` scope exposed; specs that need the production-style behavior
   # stub the flag to `false` for individual examples.
   config.x.mcp.expose_dev_scope = true
+
+  # Phase 25 — 01d. Tests run with the `auth` scope exposed; specs that
+  # need the production-style strip stub the flag to `false` for
+  # individual examples.
+  config.x.mcp.expose_auth_scope = true
 end

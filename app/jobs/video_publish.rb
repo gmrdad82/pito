@@ -24,8 +24,17 @@ class VideoPublish
     return unless video.pre_publish_complete?
 
     if publish_at_iso8601.present?
+      # Phase 26 — 01h. The job receives an absolute ISO 8601 instant
+      # (`Time.iso8601` requires the offset suffix). Storage is always
+      # UTC; the rendered user-local clock is reconstructed at render
+      # time via `ScheduledPublishHelper#render_publish_at_for_user`.
+      # `Time.iso8601` raises on a tz-less input — that contract is
+      # enforced upstream by the controller, which already converts
+      # user-local picker input to UTC before enqueueing.
+      utc_instant = Time.iso8601(publish_at_iso8601).utc
+      log_tz_observability(video, utc_instant)
       video.update!(
-        publish_at: Time.iso8601(publish_at_iso8601),
+        publish_at: utc_instant,
         privacy_status: :private
       )
     else
@@ -34,5 +43,25 @@ class VideoPublish
 
     # The Video model's after_update_commit hook enqueues VideoSyncBack
     # automatically when writable fields change.
+  end
+
+  private
+
+  # Phase 26 — 01h. Observability — log the channel's owning user's
+  # time_zone alongside the UTC instant so post-hoc debugging can
+  # confirm the user-tz the picker rendered against. The user-tz at
+  # job-fire time may differ from the user-tz at schedule time (the
+  # user changed zones between scheduling and firing); the stored
+  # UTC instant is the source of truth — the log line documents the
+  # render-time context.
+  def log_tz_observability(video, utc_instant)
+    user = video.channel&.youtube_connection&.user
+    tz = user&.time_zone.presence || "Etc/UTC"
+    Rails.logger.info(
+      "VideoPublish video_id=#{video.id} publish_at_utc=#{utc_instant.iso8601} time_zone=#{tz}"
+    )
+  rescue StandardError => e
+    # Logging must never raise — defensive.
+    Rails.logger.warn("VideoPublish log_tz_observability failed: #{e.message}")
   end
 end

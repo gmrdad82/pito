@@ -93,4 +93,11 @@ Rails.application.configure do
   # production builds. Operators expose dev tooling explicitly via
   # their own dev environment, never on a production install.
   config.x.mcp.expose_dev_scope = false
+
+  # Phase 25 — 01d. Strip the `auth` scope from the catalog and the
+  # auth MCP tools from the server in production builds. The login-
+  # security surface is privileged; production installs surface it only
+  # via the web + TUI clients (which authenticate directly, not through
+  # the MCP token surface). Mirrors the `dev` strip pattern.
+  config.x.mcp.expose_auth_scope = false
 end

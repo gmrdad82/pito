@@ -1,13 +1,12 @@
-# Phase 25 — 01b (LD-8). `login_attempts_pending` MCP read tool.
+# Phase 25 — 01b (LD-8) / 01d. `login_attempts_pending` MCP read tool.
 #
 # Returns rows whose attempt carries `result: pending_approval` AND
 # whose linked session is still within its 10-minute approval window.
-# Read-only here; the approve / block / unblock / purge actions land
-# in `01d` (which also wires the dedicated `auth` scope).
+# Read-only.
 #
-# Until 01d lands, the tool gates on the existing `app` scope so it
-# can be exercised end-to-end from a default Claude-mobile token.
-# 01d swaps the gate to `Scopes::AUTH`.
+# 01d swapped the scope gate from the temporary `app` placeholder to
+# the dedicated `auth` scope (LD-8). The `auth` scope strips on
+# release per ADR 0004 precedent.
 #
 # Boundary contract:
 #
@@ -45,7 +44,7 @@ module Mcp
       annotations(read_only_hint: true)
 
       def self.call(page: 1, per_page: DEFAULT_PER_PAGE, **_ignored)
-        scope_err = Mcp::ToolAuth.require_scope!(Scopes::APP)
+        scope_err = Mcp::ToolAuth.require_scope!(Scopes::AUTH)
         return scope_err if scope_err
 
         page     = [ page.to_i, 1 ].max

@@ -93,13 +93,24 @@
         </div>
 
         <% if target_action == "schedule" %>
+          <%# Phase 26 — 01h. Picker is in user-tz; the controller
+              converts to UTC at storage. Pre-fill mirrors the stored
+              UTC instant rendered back into the user's zone, so a
+              user who changes tz between schedule + edit sees the
+              same instant reflected in their current zone. %>
+          <% user_tz = Current.user&.time_zone.presence || "Etc/UTC" %>
           <div style="margin-bottom: 12px;">
-            <label for="video_publish_at">publish at (future ISO 8601 timestamp)</label>
+            <label for="video_publish_at">publish at (<%= user_tz %>)</label>
             <input type="datetime-local"
                    name="video[publish_at]"
                    id="video_publish_at"
-                   value="<%= video.publish_at&.iso8601(0) %>"
+                   data-tz="<%= user_tz %>"
+                   value="<%= render_publish_at_for_user(video.publish_at, user_tz) %>"
                    required>
+            <p class="form-hint" style="margin-top: 4px; font-size: 11px;">
+              times are interpreted in your time zone (<%= user_tz %>).
+              stored as UTC.
+            </p>
           </div>
         <% end %>
 

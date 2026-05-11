@@ -1,26 +1,33 @@
-# Phase 25 — 01a (LD-8). `login_attempts_list` MCP tool scaffold.
+# Phase 25 — 01a (LD-8) / 01d. `login_attempts_list` MCP tool.
 #
-# This is the SCAFFOLD version: filter set is minimal (result, since,
-# ip, fingerprint), pagination caps at 100 rows. Full tool surface +
-# the dedicated `auth` scope wiring land in 01d. Until then, the
-# scaffold requires the existing `app` scope so it can be exercised
-# end-to-end from a default Claude-mobile token.
+# Filtered + paginated read of the LoginAttempt log. 01a shipped a
+# minimal scaffold gated on the `app` scope; 01d expands the filter
+# set (`until_ts`, `user_email`) and swaps the gate to the dedicated
+# `auth` scope per LD-8. Strip-on-release follows the ADR 0004
+# precedent.
 #
 # Boundary contract:
 #
-#   - input booleans (none on this tool yet) ride the yes/no
-#     convention; non-booleans pass through unchanged.
+#   - input booleans (none on this tool) ride the yes/no convention.
 #   - output rows carry `"is_success"`, `"is_failed"`, `"is_blocked"`
 #     yes/no strings per LD-15 so callers can branch without parsing
 #     the enum.
-#   - `fingerprint_hash` is returned full (the caller already has the
-#     `auth` scope — 01d enforces); `fingerprint_short` is included
-#     for symmetry with the web/show page.
+#   - `fingerprint_hash` is returned full because the caller already
+#     holds the `auth` scope; `fingerprint_short` mirrors the web/show
+#     page for symmetry.
+#   - timestamps round-trip as ISO8601 UTC.
+#
+# Filter precedence: invalid filter values (e.g. unknown `result`,
+# malformed timestamp) return a structured `invalid_filter` error
+# rather than silently widening the result set. This matches
+# `blocked_locations_list` and is stricter than the 01a scaffold by
+# design — the dedicated scope is privileged so we surface caller
+# mistakes loudly.
 module Mcp
   module Tools
     class LoginAttemptsList < MCP::Tool
       tool_name "login_attempts_list"
-      description "list login attempts against this pito install. filter by result/since/ip/fingerprint. paginated."
+      description "list login attempts against this pito install. filter by result/since/until_ts/ip/fingerprint/user_email. paginated."
 
       DEFAULT_PER_PAGE = 25
       MAX_PER_PAGE = 100
@@ -36,6 +43,10 @@ module Mcp
             type: "string",
             description: "iso8601 timestamp; only rows created at or after this point are returned."
           },
+          until_ts: {
+            type: "string",
+            description: "iso8601 timestamp; only rows created at or before this point are returned."
+          },
           ip: {
             type: "string",
             description: "exact-match filter on the row's ip."
@@ -43,6 +54,10 @@ module Mcp
           fingerprint: {
             type: "string",
             description: "exact-match filter on the full SHA256 fingerprint hash."
+          },
+          user_email: {
+            type: "string",
+            description: "exact-match filter on the attempt's email_attempted."
           },
           page: {
             type: "integer",
@@ -58,11 +73,10 @@ module Mcp
 
       annotations(read_only_hint: true)
 
-      def self.call(result: nil, since: nil, ip: nil, fingerprint: nil,
+      def self.call(result: nil, since: nil, until_ts: nil,
+                    ip: nil, fingerprint: nil, user_email: nil,
                     page: 1, per_page: DEFAULT_PER_PAGE, **_ignored)
-        # 01a uses the `app` scope as a placeholder; 01d swaps to the
-        # dedicated `auth` scope.
-        scope_err = Mcp::ToolAuth.require_scope!(Scopes::APP)
+        scope_err = Mcp::ToolAuth.require_scope!(Scopes::AUTH)
         return scope_err if scope_err
 
         page     = [ page.to_i, 1 ].max
@@ -70,7 +84,10 @@ module Mcp
 
         scope = LoginAttempt.all
 
-        if result.present? && LoginAttempt.results.key?(result.to_s)
+        if result.present?
+          unless LoginAttempt.results.key?(result.to_s)
+            return error_response("invalid result: #{result.inspect}")
+          end
           scope = scope.where(result: LoginAttempt.results[result.to_s])
         end
 
@@ -79,7 +96,16 @@ module Mcp
             ts = Time.iso8601(since.to_s)
             scope = scope.since(ts)
           rescue ArgumentError
-            # silently ignore — wider result set rather than tool error.
+            return error_response("invalid since timestamp (expected ISO8601): #{since.inspect}")
+          end
+        end
+
+        if until_ts.present?
+          begin
+            ts = Time.iso8601(until_ts.to_s)
+            scope = scope.where(LoginAttempt.arel_table[:created_at].lteq(ts))
+          rescue ArgumentError
+            return error_response("invalid until_ts timestamp (expected ISO8601): #{until_ts.inspect}")
           end
         end
 
@@ -89,6 +115,10 @@ module Mcp
 
         if fingerprint.present?
           scope = scope.for_fingerprint(fingerprint.to_s)
+        end
+
+        if user_email.present?
+          scope = scope.where(email_attempted: user_email.to_s)
         end
 
         total = scope.count
@@ -129,6 +159,11 @@ module Mcp
           user_id: attempt.user_id,
           email_attempted: attempt.email_attempted
         }
+      end
+
+      def self.error_response(msg)
+        payload = { error: "invalid_filter", message: msg }
+        MCP::Tool::Response.new([ { type: "text", text: payload.to_json } ], error: true)
       end
     end
   end

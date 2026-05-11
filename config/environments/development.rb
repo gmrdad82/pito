@@ -101,4 +101,11 @@ Rails.application.configure do
   # scope in development so the dev-KB MCP tools (`list_docs`, `read_doc`,
   # `save_note`) are registered and reachable.
   config.x.mcp.expose_dev_scope = true
+
+  # Phase 25 — 01d. Expose the `auth` scope in development so the
+  # login-security MCP tools (`login_attempts_pending`, `login_attempts_list`,
+  # `login_attempt_approve`, `login_attempt_block`, `login_attempt_unblock`,
+  # `login_attempt_purge`, `auth_audit_log_list`) are registered and
+  # reachable. Strips on release per ADR 0004 precedent.
+  config.x.mcp.expose_auth_scope = true
 end

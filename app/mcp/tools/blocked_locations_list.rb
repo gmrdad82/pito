@@ -75,9 +75,9 @@ module Mcp
                     fingerprint: nil, ip_prefix: nil,
                     active: nil,
                     page: 1, per_page: DEFAULT_PER_PAGE, **_ignored)
-        # `app` scope for now; 01d swaps in `auth`. The precedent here
-        # is `Mcp::Tools::LoginAttemptsList`.
-        scope_err = Mcp::ToolAuth.require_scope!(Scopes::APP)
+        # 01d swapped from the `app` placeholder to the dedicated
+        # `auth` scope per LD-8. Mirrors `Mcp::Tools::LoginAttemptsList`.
+        scope_err = Mcp::ToolAuth.require_scope!(Scopes::AUTH)
         return scope_err if scope_err
 
         begin

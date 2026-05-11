@@ -110,7 +110,7 @@ publish)."
       and the source-endpoint + granularity decision for YouTube Analytics'
       hourly viewership. Parallel-safe with everything.
 
-- [ ] **01g — Viewer-time analytics implementation**
+- [x] **01g — Viewer-time analytics implementation**
       (`specs/01g-viewer-time-analytics-implementation.md`). New
       `video_viewer_time_buckets` table + per-video sync job + daily rollup
       job + `ViewerTimeHeatmapComponent` ViewComponent + per-video and per-
@@ -119,7 +119,7 @@ publish)."
 
 ### Scheduled publish wiring (depends on 01a)
 
-- [ ] **01h — Video scheduled-publish tz wiring**
+- [x] **01h — Video scheduled-publish tz wiring**
       (`specs/01h-video-scheduled-publish-tz-wiring.md`). Wire the existing
       scheduled-publish picker through `Current.user.time_zone`. Pre-publish
       checklist + "publishing in 1 hour" reminders render in user-tz; the job

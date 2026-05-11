@@ -42,7 +42,7 @@ coverage.
       `specs/01b-new-location-detection-and-pending-sessions.md`
 - [ ] **01c — Notifications integration (web + TUI)** —
       `specs/01c-notifications-integration.md`
-- [ ] **01d — MCP tools (pending / list / approve / block / unblock / purge)** —
+- [x] **01d — MCP tools (pending / list / approve / block / unblock / purge)** —
       `specs/01d-mcp-tools-pending-approve-block-purge.md`
 - [ ] **01e — TOTP 2FA + backup codes** —
       `specs/01e-totp-2fa-integration-with-backup-codes.md`
