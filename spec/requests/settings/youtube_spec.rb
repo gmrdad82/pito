@@ -8,10 +8,13 @@ require "rails_helper"
 # under the matching YoutubeConnection.
 #
 # The legacy "select channels to add" multi-select form is GONE — the
-# `POST /settings/youtube/channels` route was dropped. Bulk-disconnect
-# of channels routes through the existing
+# `POST /settings/youtube/channels` route was dropped. Bulk-revoke of
+# channels routes through the existing
 # `/deletions/youtube_connection/:ids` action-screen confirmation page
-# (bulk-as-foundation: 1 or N comma-separated channel ids).
+# (bulk-as-foundation: 1 or N comma-separated channel ids). The bulk
+# action verb is "revoke" — the user is revoking the YouTube channel
+# connection (and possibly the Google OAuth grant if the connection
+# becomes channel-less), not deleting the Pito Channel record.
 RSpec.describe "Settings::Youtube", type: :request do
   describe "GET /settings/youtube (manage page)" do
     context "with no YoutubeConnection" do
@@ -275,6 +278,11 @@ RSpec.describe "Settings::Youtube", type: :request do
             expect(response.body).not_to include("[disconnect]")
           end
 
+          it "does NOT render any per-row `[revoke]` button" do
+            get settings_youtube_path
+            expect(response.body).not_to include("[revoke]")
+          end
+
           it "does NOT render a `state` column" do
             get settings_youtube_path
             expect(response.body).not_to match(/<th>\s*state\s*<\/th>/)
@@ -298,13 +306,31 @@ RSpec.describe "Settings::Youtube", type: :request do
             )
           end
 
-          it "labels the bulk delete action as `disconnect`" do
+          it "labels the bulk delete action as `revoke`" do
             # The Stimulus controller substitutes `deleteActionLabelValue`
-            # into the rendered `[disconnect N]` button. The view must
-            # set the override; "delete N" would surface the wrong verb.
+            # into the rendered `[revoke N]` button. The view must
+            # set the override; "delete N" would surface the wrong verb
+            # (delete suggests removing the Pito Channel record, but
+            # the action only clears the YouTube connection and may
+            # revoke the Google OAuth grant).
             get settings_youtube_path
             expect(response.body).to match(
+              /data-bulk-select-action-label-value="revoke"/
+            )
+          end
+
+          it "does NOT label the bulk action as `disconnect` or `delete`" do
+            # Regression guard — the verb is "revoke" now. Previous
+            # iterations of this page used "disconnect" (semantically
+            # close but inconsistent with the OAuth-grant copy) and
+            # the framework default "delete" (wrong — would imply the
+            # Channel record itself is removed).
+            get settings_youtube_path
+            expect(response.body).not_to match(
               /data-bulk-select-action-label-value="disconnect"/
+            )
+            expect(response.body).not_to match(
+              /data-bulk-select-action-label-value="delete"/
             )
           end
         end
@@ -455,11 +481,14 @@ RSpec.describe "Settings::Youtube", type: :request do
     end
   end
 
-  # Bulk-disconnect — the channels table on /settings/youtube wires its
-  # `[disconnect N]` toolbar action at `/deletions/youtube_connection/:ids`.
+  # Bulk-revoke — the channels table on /settings/youtube wires its
+  # `[revoke N]` toolbar action at `/deletions/youtube_connection/:ids`.
   # The action screen and the destroy path already existed; these specs
   # cover the integration with the new UI shape (single id, multiple
-  # ids, zero ids).
+  # ids, zero ids). The verb is "revoke" because the user is revoking
+  # the YouTube channel connection (and possibly the Google OAuth
+  # grant if the connection becomes channel-less), not deleting the
+  # Pito Channel record.
   describe "GET /deletions/youtube_connection/:ids (confirmation)" do
     it "renders the action-screen confirmation page for a single channel" do
       connection = create(:youtube_connection)
@@ -467,8 +496,21 @@ RSpec.describe "Settings::Youtube", type: :request do
 
       get deletions_path(type: "youtube_connection", ids: channel.id)
       expect(response).to have_http_status(:ok)
-      expect(response.body).to include("disconnect")
-      expect(response.body).to include("[confirm disconnect]")
+      expect(response.body).to include("revoke 1 YouTube channel?")
+      expect(response.body).to include("[confirm revoke]")
+    end
+
+    it "renders the OAuth-grant consequence warning in the body copy" do
+      # The confirmation page must warn that, in addition to clearing
+      # the YouTube channel connection, the underlying Google OAuth
+      # grant is revoked when the connection becomes channel-less.
+      # The user opens the confirmation page to read these
+      # consequences before committing.
+      connection = create(:youtube_connection)
+      channel = create(:channel, youtube_connection: connection)
+
+      get deletions_path(type: "youtube_connection", ids: channel.id)
+      expect(response.body).to include("Google OAuth grant")
     end
 
     it "renders the action-screen confirmation page for N channels (comma-joined ids)" do
@@ -480,18 +522,43 @@ RSpec.describe "Settings::Youtube", type: :request do
 
       get deletions_path(type: "youtube_connection", ids: [ a.id, b.id ].join(","))
       expect(response).to have_http_status(:ok)
-      expect(response.body).to include("disconnect 2 YouTube channels")
+      expect(response.body).to include("revoke 2 YouTube channels")
       expect(response.body).to include("UC11111111111111111111aa")
       expect(response.body).to include("UC22222222222222222222bb")
     end
 
-    it "redirects to /settings/youtube with an alert when there's nothing to disconnect" do
+    it "does NOT render the legacy `disconnect` heading or submit copy" do
+      # Regression guard — the prior verb was "disconnect".
+      connection = create(:youtube_connection)
+      channel = create(:channel, youtube_connection: connection)
+
+      get deletions_path(type: "youtube_connection", ids: channel.id)
+      expect(response.body).not_to include("disconnect 1 YouTube channel")
+      expect(response.body).not_to include("[confirm disconnect]")
+    end
+
+    it "wires the confirmed submit at DELETE /deletions/youtube_connection/:ids" do
+      # The action-screen form must POST/DELETE to the actual destroy
+      # action — not bypass the confirmation page or short-circuit to
+      # the destroy directly. The form's `action` is the disconnect
+      # path and the method override is :delete (Rails form_with on
+      # non-GET/POST verbs renders a hidden _method input).
+      connection = create(:youtube_connection)
+      channel = create(:channel, youtube_connection: connection)
+
+      get deletions_path(type: "youtube_connection", ids: channel.id)
+      expected_url = youtube_connection_disconnect_path(ids: channel.id)
+      expect(response.body).to include(%(action="#{expected_url}"))
+      expect(response.body).to match(/name="_method"[^>]*value="delete"/)
+    end
+
+    it "redirects to /settings/youtube with an alert when there's nothing to revoke" do
       # No matching ids — the action screen guards by redirecting
-      # with a clean "nothing to disconnect" alert instead of
-      # rendering an empty confirmation page.
+      # with a clean "nothing to revoke" alert instead of rendering
+      # an empty confirmation page.
       get deletions_path(type: "youtube_connection", ids: "99999")
       expect(response).to redirect_to(settings_youtube_path)
-      expect(flash[:alert]).to include("nothing to disconnect")
+      expect(flash[:alert]).to include("nothing to revoke")
     end
   end
 
@@ -510,7 +577,7 @@ RSpec.describe "Settings::Youtube", type: :request do
       expect(YoutubeConnection.unscoped.where(id: connection.id).exists?).to be(false)
     end
 
-    it "disconnects multiple channels at once (bulk-as-foundation)" do
+    it "revokes multiple channels at once (bulk-as-foundation)" do
       connection = create(:youtube_connection)
       a = create(:channel, youtube_connection: connection,
                  channel_url: "https://www.youtube.com/channel/UC11111111111111111111aa")
@@ -524,7 +591,21 @@ RSpec.describe "Settings::Youtube", type: :request do
       b.reload
       expect(a.youtube_connection_id).to be_nil
       expect(b.youtube_connection_id).to be_nil
-      expect(flash[:notice]).to include("disconnected 2 channels")
+      expect(flash[:notice]).to include("revoked 2 channels")
+    end
+
+    it "flashes the singular `revoked 1 channel` notice on single-channel revoke" do
+      connection = create(:youtube_connection)
+      channel = create(:channel, youtube_connection: connection)
+
+      delete youtube_connection_disconnect_path(ids: channel.id)
+      expect(flash[:notice]).to include("revoked 1 channel.")
+    end
+
+    it "redirects with `nothing to revoke` when the ids list is empty" do
+      delete youtube_connection_disconnect_path(ids: ",")
+      expect(response).to redirect_to(settings_youtube_path)
+      expect(flash[:alert]).to include("nothing to revoke")
     end
   end
 end

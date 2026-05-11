@@ -72,17 +72,21 @@
   <% if all_channels.any? %>
     <%# Bulk-select wrapper — same shape as /channels /videos /projects.
         Checkboxes are always on (no [bulk] toggle); the bulk toolbar
-        renders the dynamic `[disconnect N]` action once at least one
+        renders the dynamic `[revoke N]` action once at least one
         row is selected, pointing at the existing
         `/deletions/youtube_connection/:ids` action-screen
         confirmation page. The `delete-type-value="youtube_connection"`
-        plus the `action-label-value="disconnect"` keep the verb
-        correct — the action clears `youtube_connection_id` on the
-        Channel rows and revokes the orphaned Google grant. %>
+        plus the `action-label-value="revoke"` keep the verb correct —
+        the action clears `youtube_connection_id` on the Channel rows
+        and (when the connection becomes channel-less) revokes the
+        underlying Google OAuth grant. The semantic verb is "revoke"
+        because the user is revoking the YouTube channel connection
+        (and possibly the OAuth grant), not deleting Pito's Channel
+        record. %>
     <div data-controller="bulk-select"
          data-bulk-select-entity-name-value="channels"
          data-bulk-select-delete-type-value="youtube_connection"
-         data-bulk-select-action-label-value="disconnect">
+         data-bulk-select-action-label-value="revoke">
 
       <div data-bulk-select-target="actions" style="margin-bottom: 0;" data-turbo-frame="_top">
         <div class="bulk-toolbar">

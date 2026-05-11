@@ -1,11 +1,12 @@
-<% content_for(:title, "disconnect YouTube channels") %>
+<% content_for(:title, "revoke YouTube channels") %>
 
 <div id="delete-content">
-  <h1>disconnect <%= number_with_delimiter(@channels.length) %> YouTube channel<%= "s" if @channels.length != 1 %>?</h1>
+  <h1>revoke <%= number_with_delimiter(@channels.length) %> YouTube channel<%= "s" if @channels.length != 1 %>?</h1>
   <p class="text-muted" style="margin-top: 2px;">
-    this clears the YouTube connection on these channels. channel
-    records and their data stay. if no other connected channel uses
-    the same Google account, the Google grant will also be revoked.
+    this revokes the YouTube channel connection on these channels.
+    channel records and their data stay. if no other connected channel
+    uses the same Google account, the underlying Google OAuth grant
+    will also be revoked.
   </p>
 
   <table>
@@ -25,7 +26,7 @@
 
   <div id="action-footer">
     <%= render "shared/action_screen",
-      submit_label: "[confirm disconnect]",
+      submit_label: "[confirm revoke]",
       cancel_path: @cancel_path,
       form_url: youtube_connection_disconnect_path(ids: @channels.map(&:id).join(",")),
       form_method: :delete,

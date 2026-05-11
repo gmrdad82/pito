@@ -51,14 +51,17 @@ class DeletionsController < ApplicationController
 
   # GET /deletions/youtube_connection/:ids — confirmation page.
   # The cancel path is /settings/youtube; the confirmed action
-  # POSTs to `destroy_youtube_connection`.
+  # POSTs to `destroy_youtube_connection`. Verb is "revoke" — the
+  # user is revoking the YouTube channel connection (and, when the
+  # underlying YoutubeConnection becomes channel-less, the Google
+  # OAuth grant too), not deleting the Channel record.
   def show_youtube_connection
     ids = params[:ids].to_s.split(",").reject(&:blank?).map(&:to_i)
     @channels = Channel.where(id: ids).where.not(youtube_connection_id: nil).to_a
     @cancel_path = settings_youtube_path
 
     if @channels.empty?
-      redirect_to @cancel_path, alert: "nothing to disconnect."
+      redirect_to @cancel_path, alert: "nothing to revoke."
       return
     end
 
@@ -69,14 +72,14 @@ class DeletionsController < ApplicationController
   def destroy_youtube_connection
     ids = params[:ids].to_s.split(",").reject(&:blank?).map(&:to_i)
     if ids.empty?
-      redirect_to settings_youtube_path, alert: "nothing to disconnect."
+      redirect_to settings_youtube_path, alert: "nothing to revoke."
       return
     end
 
     result = Youtube::DisconnectChannel.call(channel_ids: ids)
     n = result.disconnected_channel_ids.length
     redirect_to settings_youtube_path,
-                notice: "disconnected #{n} channel#{'s' if n != 1}."
+                notice: "revoked #{n} channel#{'s' if n != 1}."
   end
 
   # DELETE /deletions/calendar_entry/:ids — Phase 15 §2.
