@@ -32,6 +32,16 @@ RSpec.describe "Settings", type: :request do
     end
 
     it "renders the YouTube credentials read-only status card" do
+      # Pin every lookup to nil so the row labels render against a
+      # deterministic "not configured" install state. Without the
+      # stub, the test would depend on whatever the project's actual
+      # credentials happen to populate under `:google_oauth` — and
+      # the assertion about "not configured" would flake.
+      creds = Rails.application.credentials
+      allow(Rails.application).to receive(:credentials).and_return(creds)
+      allow(creds).to receive(:dig).and_call_original
+      allow(creds).to receive(:dig).with(:google_oauth, anything).and_return(nil)
+
       get settings_path
       expect(response.body).to include("<h2>YouTube</h2>")
       # Each lookup row from `youtube_credentials_status` appears as
@@ -40,12 +50,20 @@ RSpec.describe "Settings", type: :request do
       expect(response.body).to include("OAuth client ID")
       expect(response.body).to include("OAuth client secret")
       expect(response.body).to include("OAuth redirect URI")
-      # An empty test credentials store → every row is "not configured".
+      # Every row reads "not configured" because we stubbed
+      # `:google_oauth, *` to return nil.
       expect(response.body).to include("not configured")
       # The card points the operator at the editing command.
       expect(response.body).to include("rails credentials:edit")
     end
 
+    # 2026-05-10 fix — the YouTube credentials live in the
+    # `:google_oauth` block of `Rails.application.credentials`, not
+    # in a `:youtube` block. The previous lookup pointed at
+    # `:youtube, :public_api_key` (etc.) and always returned nil, so
+    # the pane mis-reported "not configured" on installs whose
+    # credentials were correctly populated. Stubs target the new
+    # paths.
     it "renders 'configured' on the YouTube card when a credential is present" do
       # Stub the YouTube lookup path only. Other credential paths
       # (sessions / auth, voyage, etc.) keep their normal behaviour
@@ -54,10 +72,10 @@ RSpec.describe "Settings", type: :request do
       creds = Rails.application.credentials
       allow(Rails.application).to receive(:credentials).and_return(creds)
       allow(creds).to receive(:dig).and_call_original
-      allow(creds).to receive(:dig).with(:youtube, :public_api_key).and_return("pk_test")
-      allow(creds).to receive(:dig).with(:youtube, :client_id).and_return(nil)
-      allow(creds).to receive(:dig).with(:youtube, :client_secret).and_return(nil)
-      allow(creds).to receive(:dig).with(:youtube, :redirect_uri).and_return(nil)
+      allow(creds).to receive(:dig).with(:google_oauth, :api_key).and_return("pk_test")
+      allow(creds).to receive(:dig).with(:google_oauth, :client_id).and_return(nil)
+      allow(creds).to receive(:dig).with(:google_oauth, :client_secret).and_return(nil)
+      allow(creds).to receive(:dig).with(:google_oauth, :redirect_uri).and_return(nil)
 
       get settings_path
       expect(response.body).to include("public API key")
@@ -65,6 +83,77 @@ RSpec.describe "Settings", type: :request do
       # And confirm the other rows still say "not configured".
       expect(response.body).to include("OAuth client ID")
       expect(response.body).to include("not configured")
+    end
+
+    # 2026-05-10 fix — pin the actual credentials-dig paths used by
+    # `youtube_credentials_status`. The before/after of the
+    # credentials-detection fix:
+    #
+    #   * before: `Rails.application.credentials.dig(:youtube, *)`
+    #     — `:youtube` is not a block in the project credentials so
+    #     every row read as nil → "not configured", regardless of
+    #     whether the install had real keys.
+    #   * after: `Rails.application.credentials.dig(:google_oauth, *)`
+    #     where `:google_oauth` is the actual block (NOT
+    #     per-environment nested; matches `:igdb` / `:owner` /
+    #     `:tokens`). The key inside changes from `:public_api_key`
+    #     to `:api_key` for the public API key row.
+    #
+    # Asserting on the exact `dig` arity / arguments pins the new
+    # contract.
+    it "reads YouTube credentials out of the :google_oauth block (not :youtube)" do
+      creds = Rails.application.credentials
+      allow(Rails.application).to receive(:credentials).and_return(creds)
+      allow(creds).to receive(:dig).and_call_original
+
+      get settings_path
+
+      expect(creds).to have_received(:dig).with(:google_oauth, :api_key)
+      expect(creds).to have_received(:dig).with(:google_oauth, :client_id)
+      expect(creds).to have_received(:dig).with(:google_oauth, :client_secret)
+      expect(creds).to have_received(:dig).with(:google_oauth, :redirect_uri)
+      # And the previous (broken) `:youtube` paths are no longer hit.
+      expect(creds).not_to have_received(:dig).with(:youtube, anything)
+    end
+
+    # 2026-05-10 fix — when every `:google_oauth` lookup returns a
+    # populated value, every row reads "configured" (the user's bug:
+    # the install had real credentials but every row mis-reported
+    # "not configured" because the lookup pointed at the wrong block).
+    it "renders 'configured' for every row when all :google_oauth keys are populated" do
+      creds = Rails.application.credentials
+      allow(Rails.application).to receive(:credentials).and_return(creds)
+      allow(creds).to receive(:dig).and_call_original
+      allow(creds).to receive(:dig).with(:google_oauth, :api_key).and_return("k_api")
+      allow(creds).to receive(:dig).with(:google_oauth, :client_id).and_return("k_id")
+      allow(creds).to receive(:dig).with(:google_oauth, :client_secret).and_return("k_secret")
+      allow(creds).to receive(:dig).with(:google_oauth, :redirect_uri).and_return("https://example.test/cb")
+
+      get settings_path
+
+      # Walk the four labelled rows and assert each reads "configured"
+      # — without scanning blindly for the string "configured", which
+      # is also the substring of "not configured".
+      [ "public API key", "OAuth client ID", "OAuth client secret", "OAuth redirect URI" ].each do |label|
+        # Each row renders as
+        #   <li><span>LABEL:</span> <span class="text-muted">configured</span></li>
+        # Match the label followed by the muted-configured span, with
+        # whitespace flexibility but NO `not configured` allowed
+        # between.
+        expect(response.body).to match(
+          /#{Regexp.escape(label)}:\s*<\/span>\s*<span class="text-muted">\s*configured\s*<\/span>/m
+        )
+      end
+      # And the YouTube card itself never falls back to the danger
+      # state. We scope the check to the YouTube fieldset rather than
+      # the whole page because the `search` pane (under `stack`) ALSO
+      # renders a "Voyage embeddings: not configured" line when the
+      # Voyage API key is absent — unrelated to the YouTube card.
+      youtube_section = response.body[
+        /<legend><h2>YouTube<\/h2><\/legend>.*?<\/fieldset>/m
+      ]
+      expect(youtube_section).not_to be_nil
+      expect(youtube_section).not_to include("not configured")
     end
 
     it "does NOT render the Google connection card" do
@@ -266,30 +355,86 @@ RSpec.describe "Settings", type: :request do
       expect(response.body).not_to match(/max-width:\s*880px;\s*margin:\s*0 auto/)
     end
 
-    # 2026-05-10 — DOM order across the five paired rows. Row 1:
-    # appearance, workspaces. Row 2 (new): YouTube credentials
-    # status (single pane). Row 3: search, Voyage.ai. Row 4: user
-    # (single). Row 5: OAuth applications + tokens (combined),
-    # sessions. The YouTube card sits between general workspace
-    # preferences and the search/Voyage integrations row — close to
-    # its historic Phase 24 position.
-    it "orders the panes appearance -> workspaces -> YouTube -> search -> Voyage -> user -> OAuth -> tokens -> sessions" do
+    # 2026-05-10 user-locked restructure — page is now three titled
+    # sections, each a 2-column grid:
+    #
+    #   ## customize
+    #   [ ui / ux ]              [ workspaces ]
+    #   [ user ]                 [ time zone ]
+    #
+    #   ## integrations
+    #   [ YouTube ]              [ Voyage.ai ]
+    #   [ OAuth applications ]   [ sessions ]
+    #
+    #   ## stack
+    #   [ sql ]                  [ search ]
+    #   [ storage ]              (empty)
+    #
+    # DOM order pins the sequence: every pane h2 in each row appears
+    # in left-to-right, top-to-bottom order. The OAuth pane's combined
+    # `tokens` sub-section sits between OAuth applications and the
+    # sessions pane (same row 2 of integrations, separated by a
+    # `<hr class="hairline">`).
+    it "orders the panes per the user-locked customize / integrations / stack layout" do
       get settings_path
+      # customize
       idx_appearance = response.body.index('value="appearance"')
       idx_workspaces = response.body.index('value="workspaces"')
-      idx_youtube    = response.body.index("<h2>YouTube</h2>")
-      idx_search     = response.body.index("<h2>search</h2>")
-      idx_voyage     = response.body.index('value="voyage"')
       idx_user       = response.body.index("<h2>user</h2>")
+      idx_time_zone  = response.body.index("<h2>time zone</h2>")
+      # integrations
+      idx_youtube    = response.body.index("<h2>YouTube</h2>")
+      idx_voyage     = response.body.index('value="voyage"')
       idx_oauth_apps = response.body.index("<h2>OAuth applications</h2>")
       idx_tokens     = response.body.index("<h2>tokens</h2>")
       idx_sessions   = response.body.index("<h2>sessions</h2>")
+      # stack
+      idx_sql        = response.body.index("<h2>sql</h2>")
+      idx_search     = response.body.index("<h2>search</h2>")
+      idx_storage    = response.body.index("<h2>storage</h2>")
 
-      indices = [ idx_appearance, idx_workspaces,
-                  idx_youtube, idx_search, idx_voyage, idx_user,
-                  idx_oauth_apps, idx_tokens, idx_sessions ]
+      indices = [ idx_appearance, idx_workspaces, idx_user, idx_time_zone,
+                  idx_youtube, idx_voyage, idx_oauth_apps, idx_tokens, idx_sessions,
+                  idx_sql, idx_search, idx_storage ]
       expect(indices).to all(be_a(Integer))
       expect(indices).to eq(indices.sort)
+    end
+
+    # 2026-05-10 user-locked restructure — three section headings
+    # bracket the page. Headings are h2-styled and lowercase per
+    # project convention.
+    it "renders the three section headings in order: customize -> integrations -> stack" do
+      get settings_path
+      idx_customize    = response.body.index("<h2>customize</h2>")
+      idx_integrations = response.body.index("<h2>integrations</h2>")
+      idx_stack        = response.body.index("<h2>stack</h2>")
+      expect([ idx_customize, idx_integrations, idx_stack ]).to all(be_a(Integer))
+      expect(idx_customize).to be < idx_integrations
+      expect(idx_integrations).to be < idx_stack
+    end
+
+    # 2026-05-10 — `sql`, `storage`, `search` panes carry connectivity
+    # / presence copy. Asserting the headings + status copy pins the
+    # stack section so a future ivar rename can't silently break it.
+    it "renders the stack section with sql, search, storage panes" do
+      get settings_path
+      expect(response.body).to include("<h2>sql</h2>")
+      expect(response.body).to include("<h2>search</h2>")
+      expect(response.body).to include("<h2>storage</h2>")
+      # `sql` pane surfaces the database name + version when connected.
+      expect(response.body).to include("Postgres")
+      # `storage` pane surfaces the resolved path.
+      expect(response.body).to include("pito-assets")
+    end
+
+    # 2026-05-10 — Slack / Discord panes were dropped from the
+    # /settings index page per the user-locked layout. Their
+    # controllers, routes, and partials remain — but the index no
+    # longer renders them.
+    it "does not render the Slack or Discord panes on the index" do
+      get settings_path
+      expect(response.body).not_to include("<h2>Slack</h2>")
+      expect(response.body).not_to include("<h2>Discord</h2>")
     end
 
     it "renders the tokens pane with a link to /settings/tokens" do

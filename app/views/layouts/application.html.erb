@@ -71,7 +71,7 @@
       `/settings/time_zone`. The data-attribute is omitted on
       unauthenticated screens (login form, OAuth consent) so the
       controller bails immediately. %>
-  <body data-controller="keyboard notifications-modal leader-menu timezone-detect"
+  <body data-controller="keyboard notifications-modal leader-menu timezone-detect webhook-help-modal"
         data-keyboard-navigation-enabled="<%= AppSetting.keyboard_navigation_enabled? ? "yes" : "no" %>"
         <% if Current.user.present? %>data-timezone-detect-stored-value="<%= Current.user.time_zone %>"
         data-timezone-detect-url-value="<%= settings_time_zone_path %>"
@@ -255,6 +255,18 @@
         `/notifications` page still serves direct URLs for JS-off
         fallback. %>
     <%= render "shared/notifications_modal" %>
+
+    <%# Phase 26 — 01d. Webhook help modal — opened by the `[help]`
+        link in the Settings Slack + Discord panes
+        (`data-action="click->webhook-help-modal#open"` with a
+        provider param). The modal loads
+        `/settings/webhooks/help/<provider>` into its Turbo Frame and
+        renders the Markdown guide inside the dialog. The guides
+        live as on-disk `.md` files under
+        `app/views/settings/webhooks/help/` and are rendered
+        server-side via `ApplicationHelper#render_markdown`
+        (Commonmarker). %>
+    <%= render "shared/webhook_help_modal" %>
 
     <%# Unified keybindings schema — the single source of truth for
         the leader-menu popup AND the Rust `pito` CLI's leader

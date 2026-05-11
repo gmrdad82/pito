@@ -542,6 +542,22 @@ Rails.application.routes.draw do
     # ping (`{ "content": ... }` — Discord requires the `content` key),
     # and only persists the row when the ping returns 2xx.
     resource :discord_webhook, only: %i[update], controller: "discord_webhooks"
+
+    # Phase 26 — 01d. Help-modal Markdown guides for the Slack +
+    # Discord webhook panes. The `[help]` link in each pane targets
+    # this endpoint via a Turbo Frame; the response is a fragment
+    # rendered with `layout: false` and swapped into the layout-level
+    # `<turbo-frame id="webhook_help_modal_frame">`. Friendly URL —
+    # `/settings/webhooks/help/slack` and `/settings/webhooks/help/discord`
+    # are the only two valid paths. The router constraint pins the
+    # shape; the controller reapplies the allow-list as
+    # defense-in-depth.
+    namespace :webhooks do
+      get "help/:provider",
+          to: "help#show",
+          as: :help,
+          constraints: { provider: /slack|discord/ }
+    end
   end
 
   # Phase 24 — Google management surface moved from `/settings/youtube`

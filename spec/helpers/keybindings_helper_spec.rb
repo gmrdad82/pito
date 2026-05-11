@@ -53,31 +53,46 @@ RSpec.describe KeybindingsHelper, type: :helper do
       expect(calendar.fetch("submenu")).to eq("calendar")
     end
 
-    describe "resource-row root items carry BOTH navigate + submenu" do
-      # The schema convention (2026-05-11): capital-letter resource
-      # rows on the root menu (C/V/P/G) plus lowercase `c` calendar
-      # AND `N` notifications are dual-action — pressing the key fires
-      # the listed `action` AND transitions the popup to the named
-      # `submenu`. Lock the contract here so the JS controller has a
-      # stable schema shape to rely on.
-      ROOT_DUAL_ACTION_ROWS = {
-        "c" => { submenu: "calendar",      action: { "type" => "navigate", "path" => "/calendar" } },
-        "C" => { submenu: "channels",      action: { "type" => "navigate", "path" => "/channels" } },
-        "V" => { submenu: "videos",        action: { "type" => "navigate", "path" => "/videos" } },
-        "P" => { submenu: "projects",      action: { "type" => "navigate", "path" => "/projects" } },
-        "G" => { submenu: "games",         action: { "type" => "navigate", "path" => "/games" } },
-        "N" => { submenu: "notifications", action: { "type" => "open", "target" => "notifications_modal" } }
+    describe "resource-row root items are submenu-only (2026-05-10 revert)" do
+      # The schema revert: root-menu rows that point to a submenu DROP
+      # the `action` field. Pressing C/V/P/G/c/N at the root drills
+      # into the named submenu ONLY; the user must press `l` (list)
+      # inside the submenu to actually navigate to /<resource>. The
+      # previous combined `action + submenu` pattern proved
+      # surprising (a single keystroke both navigated AND drilled) and
+      # is gone. Lock the contract so a regression that re-introduces
+      # the dual-action shape fails fast.
+      ROOT_SUBMENU_ONLY_ROWS = {
+        "c" => "calendar",
+        "C" => "channels",
+        "V" => "videos",
+        "P" => "projects",
+        "G" => "games",
+        "N" => "notifications"
       }.freeze
 
-      ROOT_DUAL_ACTION_ROWS.each do |key, expected|
-        it "carries action + submenu for the root [#{key}] row" do
+      ROOT_SUBMENU_ONLY_ROWS.each do |key, expected_submenu|
+        it "exposes submenu-only (no action) for the root [#{key}] row" do
           items = helper.keybindings_for_surface(:web)
                         .fetch("menus").fetch("root").fetch("items")
           row = items.find { |i| i.fetch("key") == key }
           expect(row).not_to be_nil, "expected root item with key #{key.inspect}"
-          expect(row.fetch("submenu")).to eq(expected[:submenu])
-          expect(row.fetch("action")).to eq(expected[:action])
+          expect(row.fetch("submenu")).to eq(expected_submenu)
+          expect(row).not_to have_key("action"),
+            "expected root #{key.inspect} to drop the `action` field; got #{row.inspect}"
         end
+      end
+
+      it "keeps direct navigation on the root [h] home + [S] settings rows" do
+        # h and S have no submenu, so they retain the navigate action.
+        items = helper.keybindings_for_surface(:web)
+                      .fetch("menus").fetch("root").fetch("items")
+        home = items.find { |i| i.fetch("key") == "h" }
+        settings = items.find { |i| i.fetch("key") == "S" }
+        expect(home.fetch("action")).to eq("type" => "navigate", "path" => "/")
+        expect(home).not_to have_key("submenu")
+        expect(settings.fetch("action")).to eq("type" => "navigate", "path" => "/settings")
+        expect(settings).not_to have_key("submenu")
       end
     end
 

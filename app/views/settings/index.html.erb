@@ -21,26 +21,46 @@
   })();
 </script>
 
-<%# Phase 12 polish (2026-05-10) — settings page reorganized into
-    paired rows. Each `.pane-row` holds the panes that belong together
-    visually. Rows 3 (YouTube credentials status) and 5 (user) are
-    single-pane rows: the right side stays empty by design. Row 6
-    collapses OAuth applications and tokens into ONE pane separated
-    by a hairline so the two related token-issuance surfaces stay
-    near each other; sessions sits next to it. Compact-prose pattern:
-    counts read as terse sentences ("1 active token", "no active
-    sessions") instead of a big number + label header — see the spec
-    at the dispatch root.
+<%# 2026-05-10 user-locked restructure — three titled sections, each a
+    2-column grid:
 
-    2026-05-10 follow-up — row 3 (`YouTube` read-only credentials
-    status card) was restored after Phase 24 dropped the entire
-    Google / YouTube section. The card is read-only because secrets
-    live exclusively in `Rails.application.credentials` (CLAUDE.md
-    hard rule). Editing happens via `rails credentials:edit`.
+      ## customize
+      [ ui / ux ]              [ workspaces ]
+      [ user ]                 [ time zone ]
+
+      ## integrations
+      [ YouTube ]              [ Voyage.ai ]
+      [ OAuth applications ]   [ sessions ]
+
+      ## stack
+      [ sql ]                  [ search ]
+      [ storage ]              (empty right cell)
+
+    Section headings use the standard h2 styling. Each section holds
+    its own group of `.pane-row` flex containers. Slack + Discord
+    panes are deliberately NOT on this page — their controllers /
+    routes / partials remain so the partial-level view specs and the
+    request specs for the webhook controllers keep passing, but they
+    no longer surface on the settings index per the user-locked
+    layout.
+
+    Pane h2 brand-casing rule survives the restructure: `YouTube`,
+    `Voyage.ai`, `OAuth applications` keep their casing; everything
+    else stays lowercase.
+
+    YouTube credentials status — the row labels read
+    `public API key` / `OAuth client ID` / `OAuth client secret` /
+    `OAuth redirect URI`. The controller looks them up under the
+    `:google_oauth` credentials block (NOT `:youtube` — that block
+    does not exist in this install).
 %>
 
-<%# Row 1 — ui / ux | workspaces. The ui / ux pane houses theme + keyboard
-    navigation; both persist in one submit. The section identifier on
+<%# ============================================================
+    customize
+============================================================ %>
+<h2>customize</h2>
+
+<%# customize row 1 — ui / ux | workspaces. The section identifier on
     the wire stays `appearance` for backward compatibility with any
     scripted PATCH callers; only the visible H2 + the row label changed
     when keyboard navigation joined the pane. %>
@@ -122,30 +142,43 @@
   </div>
 </div>
 
-<%# Phase 24 — Row 2 (Google card + YouTube OAuth client credentials)
-    is gone. The Google connection UI moved to `/channels` (banner on
-    index + per-channel inline panel on show); the OAuth client
-    credentials migrated to Rails credentials per CLAUDE.md
-    configuration strategy (filed as separate follow-up for the
-    underlying AppSetting storage cleanup).
-
-    2026-05-10 follow-up — a read-only YouTube credentials *status*
-    card is restored below (row 3 — paired with an empty right cell).
-    The card surfaces whether each YouTube credential is configured in
-    `Rails.application.credentials.youtube.*` and points the operator
-    at `rails credentials:edit` when one is missing. There is NO form
-    here: editing happens through `rails credentials:edit`, never the
-    web UI (CLAUDE.md hard rule — secrets live exclusively in
-    Rails credentials, never in the DB or `.env*`). %>
-
-<%# Row 3 — YouTube credentials (read-only status; single pane). %>
+<%# customize row 2 — user | time zone. %>
 <div class="pane-row">
+  <div class="pane">
+    <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
+      <legend><h2>user</h2></legend>
+
+      <p><%= Current.user&.email %></p>
+      <p class="text-muted">
+        change your email or password.<br>
+        current password is required.
+      </p>
+
+      <%= render(BracketedLinkComponent.new(label: "edit account", href: settings_user_path)) %>
+    </fieldset>
+  </div>
+
+  <%# Phase 26 — 01a. Timezone foundation pane. %>
+  <%= render "time_zone_pane" %>
+</div>
+
+<%# ============================================================
+    integrations
+============================================================ %>
+<h2>integrations</h2>
+
+<%# integrations row 1 — YouTube (read-only credentials status) |
+    Voyage.ai. The YouTube pane is purely informational — secrets live
+    in `Rails.application.credentials.google_oauth` (CLAUDE.md hard
+    rule) and editing them happens via `rails credentials:edit`. %>
+<div class="pane-row">
+  <%# YouTube — read-only credentials status. %>
   <div class="pane">
     <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
       <legend><h2>YouTube</h2></legend>
 
       <p class="text-muted">
-        YouTube credentials live in <code>Rails.application.credentials.youtube</code>.
+        YouTube credentials live in <code>Rails.application.credentials.google_oauth</code>.
         edit with <code>rails credentials:edit</code>.
       </p>
 
@@ -169,58 +202,8 @@
       </ul>
     </fieldset>
   </div>
-</div>
 
-<%# Row 4 — search | Voyage.ai %>
-<div class="pane-row">
-  <%# search %>
-  <div class="pane">
-    <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
-      <legend><h2>search</h2></legend>
-
-      <div style="margin-bottom: 6px;">
-        <span>Meilisearch</span>
-        <% if @search_healthy %>
-          <span style="color: var(--color-success);">▲ connected</span>
-        <% else %>
-          <span class="text-danger">▽ disconnected</span>
-        <% end %>
-      </div>
-
-      <% if @search_stats.any? %>
-        <div style="margin-bottom: 6px;">
-          <label class="form-label">indexed documents</label>
-          <% @search_stats.each do |index_name, count| %>
-            <% next if index_name.end_with?("_test") %>
-            <% display_name = index_name.sub(/_(development|production)\z/, "") %>
-            <span class="text-muted"><%= display_name %>: <%= number_with_delimiter(count) %></span><br>
-          <% end %>
-        </div>
-      <% end %>
-
-      <%= render(BracketedLinkComponent.new(
-        label: "reindex",
-        href: "#",
-        data: {
-          controller: "modal-trigger",
-          action: "click->modal-trigger#open",
-          modal_trigger_target_id_value: "reindex_meilisearch_modal"
-        }
-      )) %>
-      <%= render(ConfirmModalComponent.new(
-        id: "reindex_meilisearch_modal",
-        title: "reindex Meilisearch?",
-        body: "this re-indexes all configured targets. it can take a while on large corpora and adds load to the search service.",
-        confirm_path: settings_reindex_path,
-        confirm_method: :post,
-        confirm_label: "reindex",
-        cancel_label: "cancel",
-        destructive: false
-      )) %>
-    </fieldset>
-  </div>
-
-  <%# Voyage.ai %>
+  <%# Voyage.ai — API key + per-target indexing flags. %>
   <div class="pane">
     <%= form_with url: settings_path, method: :patch do |f| %>
       <input type="hidden" name="section" value="voyage">
@@ -273,47 +256,13 @@
   </div>
 </div>
 
-<%# Row 5 — user | time zone. The user pane stays on the left
-    (Phase 12 single-pane row); Phase 26 fills the previously-empty
-    right slot with the timezone picker (`/settings/time_zone`). %>
+<%# integrations row 2 — OAuth applications (+ tokens via hairline) |
+    sessions. The OAuth pane keeps the combined OAuth-applications +
+    tokens sub-sections fenced by a `<hr class="hairline">` so the
+    two related token-issuance surfaces stay near each other in one
+    cell. %>
 <div class="pane-row">
-  <div class="pane">
-    <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
-      <legend><h2>user</h2></legend>
-
-      <p><%= Current.user&.email %></p>
-      <p class="text-muted">
-        change your email or password.<br>
-        current password is required.
-      </p>
-
-      <%= render(BracketedLinkComponent.new(label: "edit account", href: settings_user_path)) %>
-    </fieldset>
-  </div>
-
-  <%# Phase 26 — 01a. Timezone foundation pane. %>
-  <%= render "time_zone_pane" %>
-</div>
-
-<%# Phase 26 — 01b/01c. Slack + Discord webhook panes. Each pane is
-    an independent form: paste a URL, tick `everything` and/or
-    `daily_digest`, submit. The pane writes to the install-level
-    `notification_delivery_channels` row keyed on `kind`. Both panes
-    live on the same `.pane-row` for zebra-stripe symmetry — each
-    provider keeps its own row in `notification_delivery_channels`,
-    its own checkboxes, its own test ping. %>
-<div class="pane-row">
-  <%= render "slack_pane" %>
-  <%= render "discord_pane" %>
-</div>
-
-<%# Row 6 — OAuth applications + tokens (combined pane) | sessions. %>
-<div class="pane-row">
-  <%# Combined OAuth applications + tokens. Two related token-issuance
-      surfaces share one pane separated by a horizontal hairline. Each
-      sub-section follows the compact prose pattern: count + state on
-      a single line, then a one-sentence-per-line helper paragraph,
-      then the bracketed manage link. %>
+  <%# Combined OAuth applications + tokens. %>
   <div class="pane">
     <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
       <legend><h2>OAuth applications</h2></legend>
@@ -385,6 +334,145 @@
       </p>
 
       <%= render(BracketedLinkComponent.new(label: "manage sessions", href: settings_sessions_path)) %>
+    </fieldset>
+  </div>
+</div>
+
+<%# ============================================================
+    stack
+============================================================ %>
+<h2>stack</h2>
+
+<%# stack row 1 — sql | search. The sql pane reads connectivity +
+    Postgres version + database name out of the ActiveRecord
+    connection pool. The search pane surfaces Meilisearch health +
+    indexed-document counts AND the Voyage embeddings indexing flags
+    (project notes today; more targets as they ship). %>
+<div class="pane-row">
+  <%# sql — Postgres status. %>
+  <div class="pane">
+    <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
+      <legend><h2>sql</h2></legend>
+
+      <div style="margin-bottom: 6px;">
+        <span>Postgres</span>
+        <% if @postgres_status[:connected] %>
+          <span style="color: var(--color-success);">▲ connected</span>
+        <% else %>
+          <span class="text-danger">▽ disconnected</span>
+        <% end %>
+      </div>
+
+      <% if @postgres_status[:connected] %>
+        <div style="margin-bottom: 6px;">
+          <% if @postgres_status[:version].present? %>
+            <span class="text-muted">version: <%= @postgres_status[:version] %></span><br>
+          <% end %>
+          <% if @postgres_status[:database].present? %>
+            <span class="text-muted">database: <%= @postgres_status[:database] %></span>
+          <% end %>
+        </div>
+      <% end %>
+    </fieldset>
+  </div>
+
+  <%# search — Meilisearch + Voyage embeddings status. %>
+  <div class="pane">
+    <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
+      <legend><h2>search</h2></legend>
+
+      <div style="margin-bottom: 6px;">
+        <span>Meilisearch</span>
+        <% if @search_healthy %>
+          <span style="color: var(--color-success);">▲ connected</span>
+        <% else %>
+          <span class="text-danger">▽ disconnected</span>
+        <% end %>
+      </div>
+
+      <% if @search_stats.any? %>
+        <div style="margin-bottom: 6px;">
+          <label class="form-label">indexed documents</label>
+          <% @search_stats.each do |index_name, count| %>
+            <% next if index_name.end_with?("_test") %>
+            <% display_name = index_name.sub(/_(development|production)\z/, "") %>
+            <span class="text-muted"><%= display_name %>: <%= number_with_delimiter(count) %></span><br>
+          <% end %>
+        </div>
+      <% end %>
+
+      <%# Voyage embeddings status — read out of AppSetting so the
+          search pane shows the full hybrid-search picture (keyword
+          via Meilisearch + semantic via Voyage). The API key
+          itself stays in the Voyage.ai pane (integrations); this
+          row is pure status. %>
+      <div style="margin-bottom: 6px;">
+        <span>Voyage embeddings</span>
+        <% if @voyage_configured %>
+          <span style="color: var(--color-success);">▲ configured</span>
+        <% else %>
+          <span class="text-danger">▽ not configured</span>
+        <% end %>
+        <% if @voyage_configured %>
+          <br>
+          <span class="text-muted">project notes: <%= @voyage_indexing_project_notes ? "indexing" : "off" %></span>
+        <% end %>
+      </div>
+
+      <%= render(BracketedLinkComponent.new(
+        label: "reindex",
+        href: "#",
+        data: {
+          controller: "modal-trigger",
+          action: "click->modal-trigger#open",
+          modal_trigger_target_id_value: "reindex_meilisearch_modal"
+        }
+      )) %>
+      <%= render(ConfirmModalComponent.new(
+        id: "reindex_meilisearch_modal",
+        title: "reindex Meilisearch?",
+        body: "this re-indexes all configured targets. it can take a while on large corpora and adds load to the search service.",
+        confirm_path: settings_reindex_path,
+        confirm_method: :post,
+        confirm_label: "reindex",
+        cancel_label: "cancel",
+        destructive: false
+      )) %>
+    </fieldset>
+  </div>
+</div>
+
+<%# stack row 2 — storage | (empty right cell). The right slot stays
+    empty by design; the locked layout puts `storage` as the last
+    pane and leaves its row partner blank. %>
+<div class="pane-row">
+  <%# storage — pito-assets volume status. %>
+  <div class="pane">
+    <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
+      <legend><h2>storage</h2></legend>
+
+      <div style="margin-bottom: 6px;">
+        <span>pito-assets</span>
+        <% if @storage_status[:present] %>
+          <% if @storage_status[:writable] %>
+            <span style="color: var(--color-success);">▲ writable</span>
+          <% else %>
+            <span class="text-danger">▽ read-only</span>
+          <% end %>
+        <% else %>
+          <span class="text-muted">▽ not present</span>
+        <% end %>
+      </div>
+
+      <% if @storage_status[:path].present? %>
+        <div style="margin-bottom: 6px;">
+          <span class="text-muted">path: <code><%= @storage_status[:path] %></code></span>
+        </div>
+      <% end %>
+
+      <p class="text-muted">
+        on-disk home for footage thumbnails and Active Storage blobs.
+      </p>
     </fieldset>
   </div>
 </div>

@@ -1,0 +1,33 @@
+<%# Phase 26 — 01d. Layout-level webhook help modal.
+
+    The Slack + Discord pane `[help]` links open this modal instead of
+    navigating. The dialog hosts a Turbo Frame
+    (`webhook_help_modal_frame`); the Stimulus `webhook-help-modal`
+    controller (mounted on `<body>`) sets the frame's `src` to
+    `/settings/webhooks/help/<provider>` on open. The controller's
+    `show` action renders the Markdown-rendered guide inside a
+    matching `<turbo-frame>` so Turbo swaps in the content.
+
+    Closing semantics mirror the project's other layout-level modals
+    (notifications, search, IGDB search):
+      - Esc — native <dialog> Escape handling + an explicit keydown
+        guard on the controller.
+      - Backdrop click — `clickOutside` action.
+      - `[close]` bracketed link — `close` action.
+
+    No JS `confirm()` / `alert()` / `prompt()` and no
+    `data-turbo-confirm` (CLAUDE.md hard rule). %>
+<dialog id="webhook-help-modal"
+        class="pane-dialog webhook-help-modal"
+        data-action="click->webhook-help-modal#clickOutside keydown->webhook-help-modal#keydown">
+  <div style="padding: 12px 16px; min-width: 480px; max-width: 720px; max-height: 80vh; overflow-y: auto;">
+    <%= turbo_frame_tag "webhook_help_modal_frame", src: nil, loading: "lazy" %>
+    <div class="modal-footer">
+      <%= render(BracketedLinkComponent.new(
+            label: "close",
+            href: "#",
+            data: { action: "click->webhook-help-modal#close" }
+          )) %>
+    </div>
+  </div>
+</dialog>

@@ -394,8 +394,13 @@ Specs exist but no implementation has landed. Walk-steps for these surfaces will
 be added when each sub-spec ships. Do NOT bump the version on the assumption
 these work.
 
+> **Amended 2026-05-11 (afternoon session):** statuses below were re-audited
+> after ~15 commits landed since the playbook write. See the "2026-05-11 session
+> deltas" section at the bottom for what shipped between the original write and
+> this amendment.
+
 **Phase 25 — Login Security + New-Location Approval (specs landed; 01a + 01b
-implemented; 01c through 01g pending):**
+implemented; 01c through 01g pending — unchanged since playbook write):**
 
 - 01c — Notifications integration (web + TUI delivery of login-pending
   notifications via Phase 16 pipeline)
@@ -407,9 +412,11 @@ implemented; 01c through 01g pending):**
 - 01g — Rate limiting + session hardening pass + cross-cutting system specs
 
 **Phase 26 — Webhooks + Timezone + Viewer Analytics (specs landed; 01a + 01b +
-01c implemented; 01d through 01h pending):**
+01c implemented; 01d IN FLIGHT — see deltas; 01e through 01h pending):**
 
-- 01d — Help-modal Markdown guides (Slack + Discord onboarding)
+- 01d — Help-modal Markdown guides (Slack + Discord onboarding). **Currently in
+  flight** in the working tree (settings restructure + help-modal updates). Not
+  yet committed.
 - 01e — Daily digest scheduler (hourly sidekiq-cron + provider-specific
   payloads)
 - 01f — Analytics architecture + tz update (`docs/architecture.md` "Timezone
@@ -418,15 +425,23 @@ implemented; 01c through 01g pending):**
   heatmap component + per-video / per- channel analytics tabs)
 - 01h — Video scheduled-publish tz wiring
 
-**Phase 27 — Games Listing Rework (specs landed; 01a + 01c + 01d + 01e
-implemented; 01b + 01f + 01g pending):**
+**Phase 27 — Games Listing Rework (specs landed; 01a + 01c-v1 + 01d + 01e
+implemented; 01c-v2 + 01h specs WRITTEN, impl PENDING; 01b + 01f + 01g
+pending):**
 
 - 01b — Filter row + platform semantics (`FilterRowComponent` +
   `Games::Filter` + URL state + platform-precedence combinator)
+- 01c-v2 — **Nested shelves** (spec landed; supersedes flat-shelf 01c-v1). Outer
+  Genres / Custom-collections shelves, each iterating one inner
+  horizontally-scrolling sub-shelf per non-empty bucket. Adds
+  `Game#primary_genre_id` + bucket-resolver service. Impl pending.
 - 01f — Game show/edit per-platform ownership UI
   (`Games::PlatformOwnershipsController` + checklist editor)
 - 01g — MCP / CLI parity (`game_update_local` plural + CLI filter chips + Rust
   tests)
+- 01h — Collections CoverComposer (compound cover for collection sub-shelf
+  leader tile, reuses Phase 14 `Composite::Builder` via a freshly-extracted
+  `Compositable` concern). Spec landed; impl pending.
 
 **Phase 11 — Video workflow features:** entirely unstarted. Specs not written;
 not in this beta.
@@ -459,3 +474,162 @@ screen layout parity, `pito` CLI Dependabot alert #1) remain queued after Phase
 - **Blockers (if any — link to follow-up issues):**
 - **Notes / surprises:**
 - **Version bump to:**
+
+---
+
+## 2026-05-11 session deltas
+
+> Audit run against ~15 commits landed since the playbook was first written
+> (`6348d4b`). Append-only. The sections above retain their original walks; the
+> deltas below note what changed on each surface so a re-walk can re-prioritize.
+> Working-tree state at audit time: settings restructure + help-modal updates
+> are uncommitted (in flight). Notes folder is empty (`.gitkeep` only) after
+> commit `0262bff` curated 26 processed notes out of `docs/notes/`.
+
+### Validation status per section
+
+| §   | Surface                      | Status                         | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| --- | ---------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Identity + auth              | ready to walk                  | Unchanged since playbook write.                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| 2   | Google + YouTube integration | mostly ready, ONE STEP CHANGED | The Google banner on `/channels` was **dropped** (commit `3cd14bb`). Walks that mention the banner need adjustment — see "Section 2 amendment" below.                                                                                                                                                                                                                                                                                                                           |
+| 3   | Channels surface             | ready to walk                  | Avatar distortion fixed (commit `9a24910`). 8-column table unchanged.                                                                                                                                                                                                                                                                                                                                                                                                           |
+| 4   | Videos surface               | partial — IN FLIGHT            | Video import modal has uncommitted edits in working tree (commit `4f183c2` is WIP `[skipci]`: bracketed checkboxes + breadcrumb fix + button rename). The `[import]` walk is touchable but copy / behaviour may shift before the next commit.                                                                                                                                                                                                                                   |
+| 5   | Projects surface             | ready to walk                  | Unchanged.                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| 6   | Games surface                | partial — IN FLIGHT            | Tile meta now 2 lines (title \n ★ rating · year) per commit `9a24910`. Genre short-form display map committed. The flat 01c-v1 shelves currently live on `/games`; 01c-v2 nested shelves are specced but not implemented. Filter row (01b) still NOT shipped.                                                                                                                                                                                                                   |
+| 7   | Calendar surface             | ready to walk                  | j/k row navigation extended to calendar-month + schedule (commit `c6f56b5`).                                                                                                                                                                                                                                                                                                                                                                                                    |
+| 8   | Notifications surface        | ready to walk                  | j/k extended to notifications list.                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| 9   | Settings surface             | partial — IN FLIGHT            | Settings page is being restructured into 3 titled sections (`customize` / `integrations` / `stack`), 2-column each. Uncommitted in working tree. **Slack + Discord panes are deliberately dropped from the settings index** per the user-locked layout (controllers / routes / partials remain so request + view specs keep passing). YouTube credentials status card now reads `:google_oauth` credentials block (not `:youtube` — that block does not exist in this install). |
+| 10  | Search surface               | ready to walk                  | Unchanged.                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| 11  | Keybindings                  | partial — IN FLIGHT            | Schema reverted: root-menu rows with a submenu now DROP the `action` field. Pressing `C` / `V` / `P` / `G` / `c` / `N` from the root popup drills into the submenu ONLY — the user must press `l` (list) inside the submenu to navigate. `S` (settings) and `h` (home) still navigate directly. Working tree contains in-flight dismiss-on-navigate fix touching the leader-menu controller + the shortcuts modal component.                                                    |
+| 12  | Analytics                    | ready to walk                  | Unchanged.                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| 13  | Sync engine                  | ready to walk                  | Unchanged.                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| 14  | MCP surface                  | ready to walk                  | Unchanged.                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| 15  | CLI surface                  | ready to walk                  | Unchanged.                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| 16  | Tests + gates                | check after WIP lands          | Settings + keybindings WIP touches 9 files (5 controller / view / yaml / component + 4 specs). Re-run gates once the working tree is committed. CI was set to `[skipci]` default for routine work via commit `a5368eb`.                                                                                                                                                                                                                                                         |
+
+### Section 2 amendment — Google banner dropped
+
+The original walk for §2 referenced a Google banner on `/channels` with
+`[+ add another Google account]` + per-account `[revoke]`. **Commit `3cd14bb`
+dropped that banner** + removed the `_google_banner.html.erb` partial + view
+spec. Google account add / revoke now happens exclusively via the channel-add
+flow + per-channel revoke action; `/settings/youtube` still 301s to `/channels`,
+but the visible affordance on `/channels` has changed.
+
+Replace the §2 walk steps with:
+
+- [ ] Visit `/settings/youtube`. Expect 301 to `/channels`.
+- [ ] `/channels` no longer renders the Google banner. Confirm.
+- [ ] Add a Google account through the channel-add flow (per the post-Phase 24
+      affordance — verify the actual UI before walking).
+- [ ] Confirm callback auto-discovers channels + duplicate-skips with a flash.
+- [ ] `[revoke]` per-row still routes to action-screen + `DeleteChannelDataJob`.
+
+### Section 6 amendment — Games surface state
+
+The original §6 walk assumed the **flat** 01c shelf design (one tile per genre,
+one tile per collection). That ships today, plus:
+
+- Tile meta is now 2 lines (`title` \n `★ rating · year`).
+- Genre tags use a short-form display map.
+- Avatar distortion is fixed.
+- Tile + list view + cover sizing all wired (01a + 01c-v1 + 01d + 01e).
+
+**Pending direction change:** the 01c-v2 spec replaces the flat design with
+NESTED shelves (outer Genres + Custom-collections shelves, each iterating one
+inner horizontally-scrolling sub-shelf per non-empty bucket). When 01c-v2
+implementation lands, §6 will need a full rewrite — the outer-shelf rows + the
+sub-shelf scroll behaviour are both new affordances.
+
+The §17 reference to "shelf cover variant at 65%" may bump to 70% per the 01c-v2
+spec direction; recheck before walking.
+
+### Section 9 amendment — Settings restructure
+
+The original §9 walk listed YouTube credentials card + Slack pane + Discord
+pane + timezone picker. Once the in-flight commit lands, the settings index will
+instead present:
+
+```
+## customize
+[ ui / ux ]              [ workspaces ]
+[ user ]                 [ time zone ]
+
+## integrations
+[ YouTube ]              [ Voyage.ai ]
+[ OAuth applications ]   [ sessions ]
+
+## stack
+[ sql ]                  [ search ]
+[ storage ]              (empty right cell)
+```
+
+Slack + Discord panes are dropped from the index page. To walk Slack / Discord
+end-to-end, hit the underlying routes directly (`/settings/slack_webhook`,
+`/settings/discord_webhook`) or via spec coverage. Section 9 needs a rewrite
+once the in-flight commit lands.
+
+### Section 11 amendment — Keybindings drill-only semantics
+
+The original §11 walk says: "Press `C`. Navigate to `/channels` + drill into
+channels submenu." That copy is now wrong. Replace with:
+
+- [ ] Press `C`. Leader menu drills into the channels submenu **without
+      navigating**. Items: `l` list / `+` add / `-` delete / `y` sync.
+- [ ] Press `l` to actually navigate to `/channels`.
+
+`S` (settings) and `h` (home) still navigate directly because they have no
+submenu. The combined action + submenu pattern was reverted because a single
+keystroke firing both a navigate AND a drill was surprising.
+
+The in-flight working-tree changes (uncommitted) add a dismiss-on-navigate
+behaviour to the leader-menu Stimulus controller. Re-walk §11 after that commit
+lands.
+
+### Cross-cutting deltas
+
+- **j / k row navigation extended:** commit `80d4d9f` + `c6f56b5` wired
+  `data-keyboard-row` across channels, videos, projects, footages, collections,
+  notes, games-grid, calendar-month, schedule, notifications. `h` / `l` = prev /
+  next page (lists) or prev / next sibling (detail pages).
+- **Genre short-form display map:** committed (helper-level, applies to game
+  tile rendering).
+- **`[skipci]` flag:** commit `a5368eb` added the `[skipci]` guard to 4
+  workflows (`ci.yml`, `deploy-website.yml`, `pito-cli-publish.yml`,
+  `website-ci.yml`). Routine work defaults to `[skipci]`; user-facing validation
+  walks still expect green CI on the previous non-`[skipci]` commit.
+- **`docs/notes/` curated to empty:** commit `0262bff` dropped 26 processed
+  notes (model annotations folded into source files via annotate-models; spec /
+  phase summaries folded into the relevant `additions.md` / `log.md` / phase
+  docs). `docs/notes/` now contains only `.gitkeep`.
+- **Phase 27 01h spec landed:** `Collections::CoverComposer` spec
+  (`01h-collections-cover-composer.md`) is in place; implementation pending.
+  Required for the 01c-v2 collection sub-shelves' leading compound-cover tile.
+
+### Walk priority for a re-validation pass
+
+1. Wait until the in-flight settings + keybindings + video-import WIP lands as
+   discrete commits.
+2. Re-run §16 gates (rspec / rubocop / brakeman / prettier-check / cargo).
+3. Re-walk §2 (banner dropped), §6 (tile + cover changes), §9 (3-section
+   restructure), §11 (drill-only semantics, dismiss-on-navigate) with the
+   amended copy above.
+4. Sections 1, 3, 4 (sans modal WIP), 5, 7, 8, 10, 12, 13, 14, 15 are unchanged
+   — walk as written in the original sections.
+5. Do NOT walk 01c-v2 nested shelves, 01h CoverComposer, or any Phase 25
+   sub-spec from 01c onward — those are spec-only at this audit time.
+
+### Files referenced by this delta section
+
+- `docs/plans/beta/25-login-security-and-new-location-approval/log.md` — 01a +
+  01b ship logs.
+- `docs/plans/beta/26-webhooks-timezone-viewer-analytics/log.md` — 01a + 01b
+  (Slack re-dispatch PORO STI refactor) + 01c (Discord) ship logs.
+- `docs/plans/beta/27-games-listing-shelves-filters-display-modes/log.md` —
+  01a + 01c-v1 + 01d + 01e ship logs.
+- `docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs/01c-v2-nested-shelves.md`
+  — supersedes 01c-v1, impl pending.
+- `docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs/01h-collections-cover-composer.md`
+  — compound-cover service, impl pending.
+- `config/keybindings.yml` — drill-only semantics (working tree has the
+  uncommitted reversion already documented in inline comments).

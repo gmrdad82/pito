@@ -16,9 +16,17 @@ class KeyboardShortcutsModalComponent < ViewComponent::Base
   Section = Struct.new(:title, :rows, keyword_init: true)
   Row = Struct.new(:keys, :description, keyword_init: true)
 
+  # 2026-05-10 revert. Root-menu rows that point to a submenu no
+  # longer carry a navigate action — pressing SPACE then the resource
+  # key (C/V/P/G/c/N) drills into the submenu only; the user presses
+  # the action key inside the submenu (`l` for list, `+` for new,
+  # `-` for delete, `y` for sync, …) to actually navigate or fire.
+  # The hint copy below documents the two-step muscle memory so users
+  # don't expect a single keystroke to navigate.
   LEADER_HINT =
-    "Press SPACE for the leader menu " \
-    "(navigation between pages and bulk operations).".freeze
+    "Press SPACE for the leader menu, then the resource key " \
+    "(C/V/P/G/c/N), then the action key (l for list, + for new, " \
+    "etc.).".freeze
 
   SECTIONS = [
     Section.new(

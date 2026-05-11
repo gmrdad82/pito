@@ -91,13 +91,15 @@ RSpec.describe "Keyboard shortcuts layout integration", type: :request do
   describe "help modal section coverage" do
     before { get "/" }
 
-    it "opens with the SPACE leader-menu hint" do
+    it "opens with the SPACE leader-menu hint + two-step flow copy" do
       # Navigation between pages is leader-driven now (SPACE opens
-      # the leader menu — see `config/keybindings.yml`). The help
-      # modal documents page-level + global hotkeys only and points
-      # readers at the leader for everything else.
+      # the leader menu — see `config/keybindings.yml`). After the
+      # 2026-05-10 revert, root-menu rows that point to a submenu
+      # drop the direct navigate action — pressing SPACE then the
+      # resource key drills into the submenu, then the action key
+      # inside fires. The hint copy documents the two-step flow.
       expect(response.body).to include(
-        "Press SPACE for the leader menu (navigation between pages and bulk operations)."
+        "Press SPACE for the leader menu, then the resource key (C/V/P/G/c/N), then the action key (l for list, + for new, etc.)."
       )
     end
 

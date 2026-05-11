@@ -37,6 +37,17 @@ const STACK_STORAGE_KEY = "pito:leader-menu:stack"
 // The controller adds a one-shot outside-click listener while the
 // popup is open so clicks outside it dismiss it.
 //
+// Dismiss-on-navigate (2026-05-10): the popup ALSO closes on every
+// `turbo:visit` event — any Turbo navigation start, whether triggered
+// by a leader-menu action, a click on a link / button anywhere on
+// the page, or a form submission. Combined with the outside-click
+// handler, this guarantees the popup never lingers after the user
+// has begun navigating somewhere else. The `turbo:visit` listener
+// also clears the persisted menu stack from `sessionStorage` so the
+// popup does NOT silently rehydrate on the destination page. The TUI
+// side already closes on every resolved keybinding action via the
+// `Resolved` enum; the web side now matches.
+//
 // Item shape (from the schema):
 //   { key: "h", label: "home", action: { type: "navigate", path: "/" } }
 //   { key: "C", label: "channels", submenu: "channels" }
@@ -54,13 +65,17 @@ const STACK_STORAGE_KEY = "pito:leader-menu:stack"
 //     action types fall through and emit the same event so future
 //     handlers can plug in without touching this file.
 //
-// Combined action + submenu: when a schema item carries BOTH an
-// `action` block AND a `submenu` reference (e.g. root `C channels`
-// navigates to /channels AND drills into the channels submenu so
-// the next-level options are visible), the controller fires the
-// action first, then transitions the popup to the submenu without
-// closing it. Items with only an action close the popup after firing
-// (legacy behavior); items with only a submenu just drill.
+// Schema shape (2026-05-10 revert): root-menu rows that point to a
+// submenu drop the `action` field. Pressing C/V/P/G/c/N at the root
+// drills into the submenu ONLY; the user must press `l` (list) inside
+// the submenu to actually navigate to /<resource>. The previous
+// combined action+submenu pattern (single keystroke both navigated
+// AND drilled) proved surprising and is gone — `S` (settings) and
+// `h` (home) keep direct navigation because they have no submenu.
+//
+// The controller still defensively handles a hypothetical
+// `action + submenu` item (preferring `submenu` and ignoring the
+// action) so a future schema entry can't accidentally fire both.
 //
 // Implementation note: all popup contents are built via DOM
 // construction (`createElement` + `textContent`) rather than
@@ -96,17 +111,29 @@ export default class extends Controller {
     this.menuStack = []
     this.boundKeydown = this.onKeydown.bind(this)
     this.boundOutside = this.onOutsideClick.bind(this)
+    this.boundTurboVisit = this.onTurboVisit.bind(this)
     document.addEventListener("keydown", this.boundKeydown)
-    // Rehydrate any stack persisted before the last Turbo navigation
-    // (set by `activate` when an item carries both action + submenu).
-    // The popup div is `data-turbo-permanent` so the DOM survives the
-    // swap; this rebuilds the controller-side state to match.
+    // Close the popup the moment any Turbo navigation begins. Pairs
+    // with the outside-click listener: clicks on links outside the
+    // popup already dismiss it, and `turbo:visit` also catches
+    // programmatic navigations (Turbo.visit from leader-menu's own
+    // action handler, form submits, prefetch-triggered visits).
+    document.addEventListener("turbo:visit", this.boundTurboVisit)
+    // Rehydrate any stack persisted before the last Turbo navigation.
+    // Historically a single keystroke could navigate AND drill, which
+    // required carrying the popup across the page swap. After the
+    // 2026-05-10 revert plus dismiss-on-navigate, the popup ALWAYS
+    // closes on navigation, so `rehydrate` is now a no-op in practice
+    // (the `turbo:visit` handler clears sessionStorage). It stays as
+    // a defensive guard against a future schema entry that legitimately
+    // wants to keep the popup open across pages.
     this.rehydrate()
   }
 
   disconnect() {
     if (this.boundKeydown) document.removeEventListener("keydown", this.boundKeydown)
     if (this.boundOutside) document.removeEventListener("click", this.boundOutside, true)
+    if (this.boundTurboVisit) document.removeEventListener("turbo:visit", this.boundTurboVisit)
   }
 
   // Public entry point wired to the footer `[_]` link via
@@ -191,6 +218,17 @@ export default class extends Controller {
     this.close()
   }
 
+  // Close on every Turbo navigation start. The popup MUST NOT survive
+  // a page transition — whether the user clicked a link, submitted a
+  // form, or pressed a leader-menu navigate key. `close()` is safe to
+  // call when the popup is already hidden (it's a no-op aside from a
+  // sessionStorage clear), so we don't guard on `isOpen()` here: the
+  // clear also wipes any rehydratable state so the new page boots
+  // without the popup mounted.
+  onTurboVisit(_event) {
+    this.close()
+  }
+
   // ---- menu rendering --------------------------------------------
 
   openMenu(name) {
@@ -234,17 +272,12 @@ export default class extends Controller {
     const hasAction = action && action.type
     const hasSubmenu = !!item.submenu
 
-    if (hasAction && hasSubmenu) {
-      // Fire the action first WITHOUT closing the popup, then drill
-      // into the submenu so the user sees the next-level options
-      // while the underlying navigation happens. The popup lives on
-      // `<body>` (permanent across Turbo swaps), so the menu state
-      // survives a Turbo.visit.
-      this.fireAction(item, action, { closePopup: false })
-      this.openMenu(item.submenu)
-      return
-    }
-
+    // Submenu takes precedence over action (2026-05-10 revert). A
+    // root-menu row pointing to a submenu drills only; the user
+    // presses `l` inside the submenu to navigate. Schema entries
+    // shouldn't carry both fields any more, but the precedence rule
+    // is defensive — a stray `action` next to a `submenu` is silently
+    // ignored.
     if (hasSubmenu) {
       this.openMenu(item.submenu)
       return

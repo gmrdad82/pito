@@ -28,7 +28,11 @@ three extensions at the database level:
 
 The Rails app pins both `config.time_zone = "UTC"` and
 `config.active_record.default_timezone = :utc` so Groupdate aggregates render
-predictably under Postgres `timestamptz`. Charts use UTC bucket boundaries.
+predictably under Postgres `timestamptz`. Charts use UTC bucket boundaries at
+the storage layer. The full app-wide contract — UTC at rest, user-tz at render,
+including the rollup pattern for analytics — lives below under "Timezone
+rendering rule (Phase 26 — 01a / 01f)". This subsection covers only the
+Postgres-side pinning.
 
 ### Connection pool sizing
 

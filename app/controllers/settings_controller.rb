@@ -47,6 +47,11 @@ class SettingsController < ApplicationController
     # Phase 26 — 01b/01c. Slack + Discord panes each read the
     # install-level `notification_delivery_channels` row (nil when no
     # row exists yet — pane renders with empty URL + unchecked boxes).
+    # 2026-05-10 follow-up — Slack + Discord panes are no longer on
+    # the /settings index page (user-locked customize / integrations
+    # / stack restructure dropped them); the ivars remain populated
+    # so the partials can still be rendered by other surfaces and
+    # the view specs for the partials keep working in isolation.
     @slack_webhook = NotificationDeliveryChannel.find_record_for("slack")
     @discord_webhook = NotificationDeliveryChannel.find_record_for("discord")
     begin
@@ -56,6 +61,16 @@ class SettingsController < ApplicationController
       @search_healthy = false
       @search_stats = {}
     end
+    # 2026-05-10 follow-up — `stack` section ivars.
+    # `sql` pane reads Postgres connectivity + a few server-level
+    # facts (version, database name) so the operator sees at a glance
+    # whether the app is talking to the cluster it expects. `storage`
+    # pane reads the `pito-assets` volume (resolved via
+    # `Pito::AssetsRoot.root`). Both panes follow the same defensive
+    # rescue pattern as the search pane: any failure flips the status
+    # to "disconnected" / "unavailable" without exploding the request.
+    @postgres_status = postgres_status_for_settings_pane
+    @storage_status = storage_status_for_settings_pane
 
     respond_to do |format|
       format.html
@@ -205,13 +220,66 @@ class SettingsController < ApplicationController
   # view only renders the Boolean) — the masking pattern Voyage.ai's
   # password field uses doesn't apply here because there's no input
   # field; the row is pure status.
+  #
+  # 2026-05-10 fix — the YouTube credentials live in the
+  # `:google_oauth` block of `Rails.application.credentials`, not in a
+  # `:youtube` block (no such block exists). Names map as follows:
+  #   * `public API key`       → `:google_oauth, :api_key`
+  #   * `OAuth client ID`      → `:google_oauth, :client_id`
+  #   * `OAuth client secret`  → `:google_oauth, :client_secret`
+  #   * `OAuth redirect URI`   → `:google_oauth, :redirect_uri`
+  # The `:google_oauth` block is NOT per-environment nested (matches
+  # the `:igdb`, `:owner`, and `:tokens` blocks); contrast with
+  # `:postgres`, `:voyage`, `:sidekiq`, `:github` which DO nest per
+  # `Rails.env.to_sym`. The look-up reflects the actual on-disk
+  # structure — auditing future credential renames is the maintainer's
+  # job; the pane just reports `configured` / `not configured`.
   def youtube_credentials_status
     creds = Rails.application.credentials
     {
-      "public API key" => creds.dig(:youtube, :public_api_key).to_s.strip.present?,
-      "OAuth client ID" => creds.dig(:youtube, :client_id).to_s.strip.present?,
-      "OAuth client secret" => creds.dig(:youtube, :client_secret).to_s.strip.present?,
-      "OAuth redirect URI" => creds.dig(:youtube, :redirect_uri).to_s.strip.present?
+      "public API key" => creds.dig(:google_oauth, :api_key).to_s.strip.present?,
+      "OAuth client ID" => creds.dig(:google_oauth, :client_id).to_s.strip.present?,
+      "OAuth client secret" => creds.dig(:google_oauth, :client_secret).to_s.strip.present?,
+      "OAuth redirect URI" => creds.dig(:google_oauth, :redirect_uri).to_s.strip.present?
     }
+  end
+
+  # 2026-05-10 — `sql` pane on the Settings index. Reads connectivity
+  # plus a couple of server-level facts (Postgres major version, the
+  # database name) so the operator confirms at a glance which cluster
+  # the app is talking to. `connected: false` flips the view into the
+  # red "disconnected" state without exposing connection details.
+  def postgres_status_for_settings_pane
+    conn = ActiveRecord::Base.connection
+    db_config = ActiveRecord::Base.connection_db_config.configuration_hash
+    version = conn.select_value("SHOW server_version_num").to_s
+    major = version.to_i / 10_000
+    {
+      connected: conn.active?,
+      adapter: db_config[:adapter] || "postgresql",
+      database: db_config[:database].to_s,
+      version: major.positive? ? major.to_s : nil
+    }
+  rescue StandardError
+    { connected: false, adapter: "postgresql", database: nil, version: nil }
+  end
+
+  # 2026-05-10 — `storage` pane on the Settings index. Reads the
+  # resolved `pito-assets` volume root from `Pito::AssetsRoot.root`
+  # and reports whether it exists + is writable. Surfaces the absolute
+  # path so the operator sees exactly which mount point the app is
+  # using. The volume may not exist yet on a greenfield install
+  # (Active Storage will lazily create the
+  # `<root>/active_storage/...` tree on first write) — that's the
+  # "present: no" state, not an error.
+  def storage_status_for_settings_pane
+    root = Pito::AssetsRoot.root
+    {
+      path: root.to_s,
+      present: File.directory?(root),
+      writable: File.directory?(root) && File.writable?(root)
+    }
+  rescue StandardError
+    { path: nil, present: false, writable: false }
   end
 end

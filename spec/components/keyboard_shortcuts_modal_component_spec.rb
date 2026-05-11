@@ -25,11 +25,15 @@ RSpec.describe KeyboardShortcutsModalComponent, type: :component do
     expect(page).to have_css('a.bracketed[data-action="click->keyboard#close"]', text: "close")
   end
 
-  it "opens with a leader-menu hint sentence pointing to SPACE" do
+  it "opens with a leader-menu hint sentence pointing to SPACE + the two-step flow" do
+    # 2026-05-10 revert: root-menu rows with a submenu drop the direct
+    # navigate action — pressing SPACE then the resource key drills
+    # into the submenu, then the user presses the action key inside.
+    # The hint copy documents this two-step muscle memory.
     render_inline(described_class.new)
     expect(page).to have_css(
       "p.keyboard-shortcuts-leader-hint",
-      text: "Press SPACE for the leader menu (navigation between pages and bulk operations)."
+      text: "Press SPACE for the leader menu, then the resource key (C/V/P/G/c/N), then the action key (l for list, + for new, etc.)."
     )
   end
 
