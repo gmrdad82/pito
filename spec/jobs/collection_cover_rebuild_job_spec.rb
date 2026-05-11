@@ -36,7 +36,7 @@ RSpec.describe CollectionCoverRebuildJob, type: :job do
       [ collection_a, collection_b ].each do |c|
         path = file_path(c)
         File.delete(path) if File.exist?(path)
-      rescue Pito::AssetsRoot::Error
+      rescue Pito::AssetsRoot::Error, Errno::ENOENT
         nil
       end
     end
@@ -93,8 +93,17 @@ RSpec.describe CollectionCoverRebuildJob, type: :job do
     end
 
     it "survives Errno::ENOENT mid-job (file vanished between check and delete)" do
-      allow(File).to receive(:exist?).and_return(true)
-      allow(File).to receive(:delete).and_raise(Errno::ENOENT)
+      # Simulate the race: the existence check returns true, then the
+      # delete loses the race and raises ENOENT. The job swallows.
+      target_a = file_path(collection_a)
+      target_b = file_path(collection_b)
+      allow(File).to receive(:exist?).and_call_original
+      allow(File).to receive(:exist?).with(target_a).and_return(true)
+      allow(File).to receive(:exist?).with(target_b).and_return(true)
+      allow(File).to receive(:delete).and_call_original
+      allow(File).to receive(:delete).with(target_a).and_raise(Errno::ENOENT)
+      allow(File).to receive(:delete).with(target_b).and_raise(Errno::ENOENT)
+
       expect {
         described_class.new.perform(collection_a.id, collection_b.id)
       }.not_to raise_error
