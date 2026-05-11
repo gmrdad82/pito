@@ -31,7 +31,11 @@
 %>
 <%
   genres = local_assigns.fetch(:genres)
-  batch  = local_assigns[:batch]
+  # Prefer an explicit `batch:` local (used by isolated view specs),
+  # else read the controller-assigned `@genres_shelf_batch` so the
+  # production codepath does not require an edit to `index.html.erb`
+  # (owned by sibling agent).
+  batch  = local_assigns[:batch] || @genres_shelf_batch
 %>
 <% if genres.any? %>
   <section class="shelf shelf--genres outer-shelf" data-shelf="outer-genres" style="margin-top: 16px;">
@@ -47,7 +51,11 @@
         sub-shelf hairline CSS scope (`section[data-shelf="outer-genres"]`)
         keeps working. %>
     <% genres.each do |genre| %>
-      <%= render "games/genre_sub_shelf", genre: genre %>
+      <% if batch %>
+        <%= render "games/genre_sub_shelf", genre: genre, batch_slice: batch.for(genre) %>
+      <% else %>
+        <%= render "games/genre_sub_shelf", genre: genre %>
+      <% end %>
     <% end %>
   </section>
 <% end %>

@@ -95,48 +95,68 @@ module Games
     end
 
     # Status bucket OR-composes: `recorded OR released OR scheduled`.
-    # Built by unioning ids from each scope so the outer relation stays
-    # composable.
+    #
+    # P27 reviewer follow-up (non-blocking concern #3, 2026-05-11) —
+    # the previous implementation materialised each bucket's `.ids` to
+    # Ruby and unioned them in memory before issuing the outer
+    # `where(id: ids)`. That worked for small libraries but doesn't
+    # scale (the union grows with the library size, each `.ids` is a
+    # full SELECT round-trip, and the outer `IN (?, ?, ...)` list
+    # explodes once the union crosses a few thousand rows). The new
+    # shape uses `Game.<scope>.select(:id)` so each branch is a
+    # subquery; the union is composed via `.or` so the DB does the
+    # work and the outer relation stays a single composable
+    # `ActiveRecord::Relation`.
     def apply_status(rel)
       return rel if status_tokens.empty?
 
-      ids = status_tokens.flat_map do |t|
-        case t
-        when "recorded"  then Game.recorded.ids
-        when "released"  then Game.released.ids
-        when "scheduled" then Game.scheduled.ids
-        end
-      end.uniq
-      rel.where(id: ids)
+      union_rel = status_tokens.map { |t| status_scope_for(t) }.reduce { |a, b| a.or(b) }
+      rel.where(id: union_rel.select(:id))
     end
 
-    # Ownership + Platform combinator. Platform tokens map to a relation
-    # whose shape depends on the Ownership bucket state. Multiple
-    # platforms OR together via `where(id: union_ids)`.
+    def status_scope_for(token)
+      case token
+      when "recorded"  then Game.recorded
+      when "released"  then Game.released
+      when "scheduled" then Game.scheduled
+      end
+    end
+
+    # Ownership + Platform combinator. Platform tokens map to a
+    # relation whose shape depends on the Ownership bucket state.
+    # Multiple platforms OR together.
+    #
     # Phase 28 §01a — the `owned` token swaps from the row-level
     # `Game.owned` to `Game.owned_rollup` (architect lean #7 locked):
     # a primary with an unowned base but an owned Deluxe edition now
     # appears in the `owned` filter, matching the "logical title"
     # framing of multi-version grouping.
+    #
+    # P27 reviewer follow-up (non-blocking concern #3, 2026-05-11) —
+    # platform-OR combination no longer materialises `.ids` arrays to
+    # Ruby. Each platform branch is a subquery passed through
+    # `.where(id: rel.select(:id))`; multiple platforms are unioned
+    # via repeated `.or` then handed to the outer relation as a
+    # single subquery. The ownership-only branches use the same
+    # subquery shape for consistency (the `owned_rollup` `.merge`
+    # bug the previous comment warned about does not apply when the
+    # rollup is consumed through `where(id: rel.select(:id))` — the
+    # outer relation's other conditions are preserved verbatim).
     def apply_combined_ownership_and_platform(rel)
       if platform_tokens.empty?
-        # No platform tokens — Ownership bucket alone applies.
         case ownership_tokens
         when [ "owned" ]
-          # `Game.owned_rollup` builds an `.or` clause internally;
-          # Rails' `.merge` interacts poorly with `.or` chains (it can
-          # drop the outer relation's conditions on the same column —
-          # observed for `[recorded, owned]`). Realising the rollup to
-          # a concrete id set keeps AND semantics with `apply_status`.
-          rel.where(id: Game.owned_rollup.ids)
+          rel.where(id: Game.owned_rollup.select(:id))
         when [ "not_owned" ]
           rel.merge(Game.not_owned)
         else
           rel
         end
       else
-        ids = platform_tokens.flat_map { |slug| platform_relation_for(slug).ids }.uniq
-        rel.where(id: ids)
+        union_rel = platform_tokens
+                      .map { |slug| platform_relation_for(slug) }
+                      .reduce { |a, b| a.or(b) }
+        rel.where(id: union_rel.select(:id))
       end
     end
 

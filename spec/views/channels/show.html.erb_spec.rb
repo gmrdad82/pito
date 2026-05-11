@@ -255,6 +255,34 @@ RSpec.describe "channels/show.html.erb", type: :view do
       expect(rendered.scan(/<div class="pane-row">/).size).to eq(2)
     end
 
+    # 2026-05-11 (width fix) — the row-1 detail pane was switched
+    # from `pane--standalone` (auto width that stretches its
+    # container) to `pane--wide` (904px = 2 × 452px) so it matches
+    # the total width of row 2's two side-by-side `.pane`s
+    # (analytics + Google). Regression guard against reverting to
+    # `pane--standalone` or any other width modifier on this pane.
+    it "renders the row-1 detail pane with `pane--wide` (matches the row-2 double-pane width)" do
+      render
+      # Find the row-1 pane: the `.pane-row` that contains the
+      # `.channel-identity` block (banner + avatar + headline).
+      detail_row = rendered[
+        /<div class="pane-row">(?:(?!<div class="pane-row">).)*?channel-identity.*?<\/div>\s*<\/div>\s*<\/div>/m
+      ]
+      expect(detail_row).not_to be_nil,
+        "expected to find the row-1 pane-row containing channel-identity"
+      detail_pane_classes = detail_row[/<div class="([^"]*)"[^>]*>\s*(?:<%|<div class="channel-banner")/, 1] ||
+                            detail_row[/<div class="([^"]*pane[^"]*)"/, 1]
+      expect(detail_pane_classes).not_to be_nil,
+        "expected the row-1 pane root with a class list"
+      classes = detail_pane_classes.split(/\s+/)
+      expect(classes).to include("pane"),
+        "row-1 detail pane must carry the base `.pane` class"
+      expect(classes).to include("pane--wide"),
+        "row-1 detail pane must carry `.pane--wide` (904px double-width); got #{detail_pane_classes.inspect}"
+      expect(classes).not_to include("pane--standalone"),
+        "row-1 detail pane must NOT carry `.pane--standalone` (would auto-stretch and break the row-2 width match)"
+    end
+
     it "places the analytics pane and the Google pane in the SAME pane-row" do
       # The two panes must share a single pane-row container so the
       # CSS grid lays them out side-by-side. Regression guard against

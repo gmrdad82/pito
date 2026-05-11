@@ -30,14 +30,35 @@
     <% end %>
   </div>
 
-  <table>
+  <%# 2026-05-11 polish (Fix 1) — narrow column widths via `<colgroup>`
+      mirroring the `/projects` and `/games` list-mode pattern; the
+      table sheds its `width: 100%` and uses `max-content` so it
+      naturally shrinks to the cell widths without stretching across
+      the viewport. `starred` header renamed to `star` (shorter). %>
+  <table style="width: max-content; max-width: 100%;">
+    <colgroup>
+      <col style="width: 1%;"> <%# action gutter %>
+      <% case @type %>
+      <% when "channel" %>
+        <col style="width: 360px;"> <%# URL %>
+        <col style="width: 60px;">  <%# star %>
+        <col style="width: 90px;">  <%# synced %>
+      <% when "video" %>
+        <col style="width: 180px;"> <%# YouTube id %>
+        <col style="width: 360px;"> <%# channel %>
+      <% when "project", "collection" %>
+        <col style="width: 360px;"> <%# name %>
+      <% when "game", "note", "timeline" %>
+        <col style="width: 360px;"> <%# title %>
+      <% end %>
+    </colgroup>
     <thead>
       <tr>
         <th class="col-action"></th>
         <% case @type %>
         <% when "channel" %>
           <th>URL</th>
-          <th class="num">starred</th>
+          <th class="num">star</th>
           <th class="num">synced</th>
         <% when "video" %>
           <th>YouTube id</th>
@@ -55,7 +76,7 @@
           <td class="col-action">&nbsp;&nbsp;&nbsp;&nbsp;</td>
           <% case @type %>
           <% when "channel" %>
-            <td title="<%= item.channel_url %>" style="max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+            <td title="<%= item.channel_url %>" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
               <%= item.channel_url %>
             </td>
             <td class="num"><%= item.star? ? "yes" : "no" %></td>
