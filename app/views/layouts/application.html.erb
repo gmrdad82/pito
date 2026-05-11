@@ -268,6 +268,20 @@
         (Commonmarker). %>
     <%= render "shared/webhook_help_modal" %>
 
+    <%# 2026-05-11 — Layout-level TOTP verification modal. Replaces
+        the inline `2FA code` text inputs the YouTube / Voyage /
+        Discord / Slack settings panes used to render. Per-form
+        `totp-modal` controllers intercept the submit of a gated
+        form and hand control to this dialog's `totp-modal-dialog`
+        controller; on `[confirm]` the dialog injects a hidden
+        `totp_code` input into the pending form and re-submits. The
+        partial only renders when an authenticated user is present
+        — there is no surface for the modal on the login / OAuth
+        consent screens. %>
+    <% if Current.user.present? %>
+      <%= render "shared/totp_verification_modal" %>
+    <% end %>
+
     <%# Unified keybindings schema — the single source of truth for
         the leader-menu popup AND the Rust `pito` CLI's leader
         overlay lives in `config/keybindings.yml`. The Ruby loader

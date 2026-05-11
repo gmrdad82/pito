@@ -1,0 +1,74 @@
+<%# 2026-05-11 — Layout-level TOTP verification modal.
+
+    The four settings panes that the fresh-TOTP gate guards — YouTube,
+    Voyage.ai, Discord, Slack (the user-edit page has its own surface
+    so it keeps the inline field for now) — used to render an inline
+    `2FA code` text input above their `[update]` button. Per user
+    direction 2026-05-11 the inline fields are gone; clicking
+    `[update]` now opens this modal when `Current.user&.totp_enabled?`
+    so the operator types the code into a Slack-style 6-box segmented
+    input. Read-only submissions (2FA off) bypass the modal entirely
+    and submit the form directly.
+
+    Wiring:
+      - Each gated `<form>` carries `data-controller="totp-modal"` and
+        `data-action="submit->totp-modal#maybeIntercept"`.
+      - On submit, the controller checks `data-totp-modal-required-value`
+        on the form. When "yes", it preventDefault's the native submit,
+        opens THIS dialog, focuses the first box, and waits for either
+        `[confirm]` (writes the code into a hidden `totp_code` field
+        inside the original form and re-submits) or `[cancel]` /
+        backdrop / Esc (drops the dialog, form stays unsubmitted).
+      - When "no", the submit passes through untouched.
+
+    Segmented input UX:
+      - 6 boxes, each `<input type="text" maxlength="1" inputmode="numeric"
+        pattern="[0-9]*">`.
+      - Typing a digit auto-advances focus to the next box.
+      - Backspace on an empty box steps focus back; on a filled box,
+        clears it in place.
+      - Paste of a 6-char numeric string into ANY box fills all 6 from
+        the left.
+      - `[confirm]` (bracketed) submits; disabled until 6 digits typed.
+      - `[cancel]` closes without submitting.
+
+    No JS `confirm()` / `alert()` / `prompt()` / `data-turbo-confirm`
+    (CLAUDE.md hard rule). The dialog IS the confirmation surface. %>
+<dialog id="totp-verification-modal"
+        class="confirm-modal totp-verification-modal"
+        data-controller="totp-modal-dialog"
+        data-action="click->totp-modal-dialog#clickOutside keydown->totp-modal-dialog#keydown">
+  <div class="confirm-modal-inner">
+    <div class="dialog-title">2FA code</div>
+    <div class="dialog-message">enter the 6-digit code from your authenticator app.</div>
+
+    <%# Six segmented input boxes. `data-totp-modal-dialog-target="box"`
+        gives the Stimulus controller an indexed handle on each box;
+        per-box `data-action` wires keydown / input / paste so paste
+        from any box fills all six from the left. %>
+    <div class="totp-modal-boxes">
+      <% 6.times do |i| %>
+        <input type="text"
+               maxlength="1"
+               inputmode="numeric"
+               pattern="[0-9]*"
+               autocomplete="one-time-code"
+               aria-label="digit <%= i + 1 %>"
+               class="totp-modal-box"
+               data-totp-modal-dialog-target="box"
+               data-action="input->totp-modal-dialog#onInput keydown->totp-modal-dialog#onKeydown paste->totp-modal-dialog#onPaste">
+      <% end %>
+    </div>
+
+    <div class="modal-footer confirm-modal-actions">
+      <button type="button"
+              class="bracketed"
+              data-totp-modal-dialog-target="confirm"
+              data-action="totp-modal-dialog#confirm"
+              disabled>[<span class="bl">confirm</span>]</button>
+      <button type="button"
+              class="bracketed"
+              data-action="totp-modal-dialog#close">[<span class="bl">cancel</span>]</button>
+    </div>
+  </div>
+</dialog>

@@ -456,4 +456,136 @@ RSpec.describe Video, type: :model do
       expect(video.title_unlock_at).to be_nil
     end
   end
+
+  # Phase 11 §01a — Video edit page polish.
+  describe "Phase 11 §01a — thumbnail / chapters / end-screens" do
+    describe "associations" do
+      it { is_expected.to have_many(:video_chapters).dependent(:destroy) }
+      it { is_expected.to have_many(:video_end_screens).dependent(:destroy) }
+    end
+
+    describe "thumbnail attachment" do
+      it "is not attached on a fresh video" do
+        video = create(:video)
+        expect(video.thumbnail).not_to be_attached
+      end
+
+      it "attaches a valid PNG" do
+        video = create(:video, :with_thumbnail)
+        expect(video.thumbnail).to be_attached
+        expect(video).to be_valid
+      end
+
+      it "rejects non-PNG / non-JPEG content types" do
+        video = create(:video)
+        video.thumbnail.attach(
+          io: StringIO.new("this is a text file"),
+          filename: "thumb.txt",
+          content_type: "text/plain"
+        )
+        expect(video).not_to be_valid
+        expect(video.errors[:thumbnail]).to include(/PNG or JPEG/)
+      end
+
+      it "rejects files larger than 2 MB" do
+        video = create(:video)
+        big = "x" * (Video::THUMBNAIL_MAX_BYTES + 1)
+        video.thumbnail.attach(
+          io: StringIO.new(big),
+          filename: "huge.png",
+          content_type: "image/png"
+        )
+        expect(video).not_to be_valid
+        expect(video.errors[:thumbnail]).to include(/too large/)
+      end
+
+      it "exposes a preview variant when attached" do
+        video = create(:video, :with_thumbnail)
+        expect(video.thumbnail_preview).not_to be_nil
+      end
+
+      it "thumbnail_preview returns nil when not attached" do
+        video = create(:video)
+        expect(video.thumbnail_preview).to be_nil
+      end
+    end
+
+    describe "nested-attributes — video_chapters" do
+      it "accepts a chapter nested-attributes payload" do
+        video = create(:video)
+        video.update!(video_chapters_attributes: [
+          { start_seconds: 0, label: "intro" },
+          { start_seconds: 120, label: "setup" }
+        ])
+        expect(video.video_chapters.ordered.pluck(:label)).to eq([ "intro", "setup" ])
+      end
+
+      it "destroys a chapter when _destroy is set" do
+        video = create(:video)
+        chapter = create(:video_chapter, video: video, start_seconds: 0, label: "intro")
+        video.update!(video_chapters_attributes: [
+          { id: chapter.id, _destroy: "1" }
+        ])
+        expect(video.video_chapters.count).to eq(0)
+      end
+
+      it "rejects an all-blank chapter row (reject_if: :all_blank)" do
+        video = create(:video)
+        expect {
+          video.update!(video_chapters_attributes: [
+            { start_seconds: "", label: "" }
+          ])
+        }.not_to change { video.video_chapters.count }
+      end
+
+      it "surfaces a duplicate start_seconds error on save" do
+        video = create(:video)
+        create(:video_chapter, video: video, start_seconds: 0, label: "intro")
+        video.video_chapters_attributes = [
+          { start_seconds: 0, label: "duplicate" }
+        ]
+        expect(video.save).to be(false)
+        nested_errs = video.video_chapters.flat_map { |c| c.errors[:start_seconds] }
+        expect(nested_errs).to include(/unique/)
+      end
+    end
+
+    describe "nested-attributes — video_end_screens" do
+      it "accepts an end-screen nested-attributes payload" do
+        video = create(:video)
+        video.update!(video_end_screens_attributes: [
+          { kind: "related_video", target_id: "yt_abc", target_label: "watch next", position: 0 }
+        ])
+        expect(video.video_end_screens.count).to eq(1)
+        expect(video.video_end_screens.first.kind_related_video?).to be(true)
+      end
+
+      it "destroys an end-screen when _destroy is set" do
+        video = create(:video)
+        es = create(:video_end_screen, video: video, kind: :related_video, target_id: "yt_a")
+        video.update!(video_end_screens_attributes: [
+          { id: es.id, _destroy: "1" }
+        ])
+        expect(video.video_end_screens.count).to eq(0)
+      end
+
+      it "rejects 5 simultaneous non-none rows on save" do
+        video = create(:video)
+        rows = (0..4).map do |i|
+          { kind: "related_video", target_id: "yt_#{i}", target_label: "l#{i}", position: i }
+        end
+        video.video_end_screens_attributes = rows
+        expect(video.save).to be(false)
+      end
+
+      it "rejects mixing a none row with a non-none row" do
+        video = create(:video)
+        video.video_end_screens_attributes = [
+          { kind: "none", position: 0 },
+          { kind: "related_video", target_id: "yt_a", target_label: "x", position: 1 }
+        ]
+        expect(video.save).to be(false)
+      end
+    end
+  end
 end

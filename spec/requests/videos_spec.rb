@@ -904,4 +904,198 @@ RSpec.describe "Videos", type: :request do
       expect(response).to redirect_to(video_path(video))
     end
   end
+
+  # Phase 11 §01a — Video edit page polish. Thumbnail upload, tags
+  # round-trip, chapters + end-screens nested attributes.
+  describe "Phase 11 §01a — edit page polish" do
+    let!(:channel) { create(:channel) }
+    let!(:video) { create(:video, channel: channel) }
+
+    before { VideoSyncBack.jobs.clear }
+
+    describe "GET /videos/:id/edit (extended)" do
+      it "renders the four new sub-sections inside the pane" do
+        get edit_video_path(video)
+        expect(response).to have_http_status(:ok)
+        html = Nokogiri::HTML.fragment(response.body)
+        pane = html.at_css("div.pane.pane--standalone")
+        expect(pane).not_to be_nil
+        expect(pane.to_s).to include("thumbnail")
+        expect(pane.to_s).to include("tags")
+        expect(pane.to_s).to include("chapters")
+        expect(pane.to_s).to include("end screens")
+      end
+
+      it "renders the [add chapter] bracketed link" do
+        get edit_video_path(video)
+        expect(response.body).to include("[add chapter]")
+      end
+
+      it "renders the [add end screen] bracketed link" do
+        get edit_video_path(video)
+        expect(response.body).to include("[add end screen]")
+      end
+
+      it "renders the thumbnail file input" do
+        get edit_video_path(video)
+        expect(response.body).to match(/name="video\[thumbnail\]"/)
+      end
+
+      it "renders persisted chapters in start_seconds order" do
+        create(:video_chapter, video: video, start_seconds: 120, label: "setup")
+        create(:video_chapter, video: video, start_seconds: 0, label: "intro")
+        get edit_video_path(video)
+        body = response.body
+        intro_idx = body.index("intro")
+        setup_idx = body.index("setup")
+        expect(intro_idx).not_to be_nil
+        expect(setup_idx).not_to be_nil
+        expect(intro_idx).to be < setup_idx
+      end
+    end
+
+    describe "PATCH /videos/:id (thumbnail upload)" do
+      let(:png_bytes) { VideoFactoryHelpers.png_bytes }
+      let(:upload) do
+        Rack::Test::UploadedFile.new(
+          StringIO.new(png_bytes), "image/png", original_filename: "thumb.png"
+        )
+      end
+
+      it "attaches a thumbnail on update" do
+        patch video_path(video), params: { video: { thumbnail: upload } }
+        expect(response).to redirect_to(video_path(video))
+        expect(video.reload.thumbnail).to be_attached
+      end
+
+      it "rejects a non-image content type" do
+        bad = Rack::Test::UploadedFile.new(
+          StringIO.new("not an image"), "text/plain", original_filename: "note.txt"
+        )
+        patch video_path(video), params: { video: { thumbnail: bad } }
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(video.reload.thumbnail).not_to be_attached
+      end
+    end
+
+    describe "PATCH /videos/:id (chapters nested attributes)" do
+      it "creates new chapters via nested attributes" do
+        patch video_path(video), params: {
+          video: {
+            video_chapters_attributes: {
+              "0" => { start_seconds: "0", label: "intro" },
+              "1" => { start_seconds: "120", label: "setup" }
+            }
+          }
+        }
+        expect(response).to redirect_to(video_path(video))
+        chapters = video.reload.video_chapters.ordered.to_a
+        expect(chapters.map(&:label)).to eq([ "intro", "setup" ])
+      end
+
+      it "destroys chapters when _destroy=1" do
+        chapter = create(:video_chapter, video: video, start_seconds: 0, label: "intro")
+        patch video_path(video), params: {
+          video: {
+            video_chapters_attributes: {
+              "0" => { id: chapter.id, _destroy: "1" }
+            }
+          }
+        }
+        expect(response).to redirect_to(video_path(video))
+        expect(video.reload.video_chapters.count).to eq(0)
+      end
+
+      it "rejects duplicate start_seconds with 422" do
+        create(:video_chapter, video: video, start_seconds: 0, label: "intro")
+        patch video_path(video), params: {
+          video: {
+            video_chapters_attributes: {
+              "0" => { start_seconds: "0", label: "duplicate" }
+            }
+          }
+        }
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(video.reload.video_chapters.count).to eq(1)
+      end
+    end
+
+    describe "PATCH /videos/:id (end-screens nested attributes)" do
+      it "creates a related_video end-screen via nested attributes" do
+        patch video_path(video), params: {
+          video: {
+            video_end_screens_attributes: {
+              "0" => { kind: "related_video", target_id: "yt_abc",
+                       target_label: "watch next", position: "0" }
+            }
+          }
+        }
+        expect(response).to redirect_to(video_path(video))
+        es = video.reload.video_end_screens.first
+        expect(es).not_to be_nil
+        expect(es.kind_related_video?).to be(true)
+        expect(es.target_id).to eq("yt_abc")
+      end
+
+      it "collapses non-none rows when a none row is submitted" do
+        existing = create(:video_end_screen,
+                          video: video,
+                          kind: :related_video,
+                          target_id: "yt_old",
+                          position: 0)
+        patch video_path(video), params: {
+          video: {
+            video_end_screens_attributes: {
+              "0" => { id: existing.id },
+              "1" => { kind: "none", position: 1 }
+            }
+          }
+        }
+        expect(response).to redirect_to(video_path(video))
+        rows = video.reload.video_end_screens.to_a
+        expect(rows.size).to eq(1)
+        expect(rows.first.kind_none?).to be(true)
+      end
+
+      it "rejects a 5th non-none row with 422" do
+        4.times do |i|
+          create(:video_end_screen,
+                 video: video,
+                 kind: :related_video,
+                 target_id: "yt#{i}",
+                 position: i)
+        end
+        patch video_path(video), params: {
+          video: {
+            video_end_screens_attributes: {
+              "0" => { kind: "related_video", target_id: "yt5",
+                       target_label: "fifth", position: "5" }
+            }
+          }
+        }
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(video.reload.video_end_screens.count).to eq(4)
+      end
+    end
+
+    describe "no JS confirm tokens in edit markup" do
+      it "does not include data-turbo-confirm" do
+        get edit_video_path(video)
+        expect(response.body).not_to include("data-turbo-confirm")
+      end
+
+      it "does not include window.confirm calls" do
+        get edit_video_path(video)
+        expect(response.body).not_to match(/window\.confirm/)
+      end
+    end
+
+    describe "friendly URL preserved" do
+      it "edit route uses the youtube_video_id slug" do
+        get edit_video_path(video)
+        expect(response).to have_http_status(:ok)
+        expect(edit_video_path(video)).to include(video.youtube_video_id)
+      end
+    end
+  end
 end

@@ -11,11 +11,19 @@
 
     Required local:
       channel — the Channel whose connection to render.
+
+    2026-05-11 (later) — the panel sits on /channels/:slug row 2 as
+    the right-hand sibling of the analytics pane inside a shared
+    `.pane-row`. It uses the plain `.pane` class (NOT
+    `.pane--standalone`) so the workspace zebra rhythm picks it up —
+    as the even-indexed sibling it paints with `--color-pane-bg-b`,
+    visually distinct from the analytics pane on its left
+    (`--color-pane-bg-a`). Matches the /settings layout pattern.
 %>
 
 <% local_connection = local_assigns[:youtube_connection] || channel.youtube_connection %>
 
-<div class="pane pane--standalone" data-google-panel
+<div class="pane" data-google-panel
      style="margin-bottom: 8px;">
   <h2 style="margin: 0 0 8px 0;">Google connection</h2>
 
