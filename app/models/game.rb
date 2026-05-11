@@ -76,6 +76,24 @@ class Game < ApplicationRecord
   belongs_to :primary_genre, class_name: "Genre", optional: true
   before_save :assign_primary_genre_if_blank
 
+  # Phase 28 §01a — Multi-version game grouping. A `Game` may be either
+  # a primary (`version_parent_id IS NULL`) or an edition pointing at a
+  # primary. Editions cannot themselves parent another edition (single
+  # level of nesting). `dependent: :nullify` on the editions
+  # association — destroying a parent leaves its editions in place as
+  # orphan primaries (locked decision #7 in the umbrella plan).
+  belongs_to :version_parent, class_name: "Game", optional: true
+  has_many :editions,
+           class_name: "Game",
+           foreign_key: :version_parent_id,
+           inverse_of: :version_parent,
+           dependent: :nullify
+
+  before_save :derive_release_date_from_editions
+  validate :version_parent_must_be_primary
+  validate :cannot_be_parent_and_edition_simultaneously
+  validate :no_self_reference
+
   has_many :game_platforms, dependent: :destroy
   has_many :platforms_available, through: :game_platforms, source: :platform
   has_many :game_developers, dependent: :destroy
@@ -144,6 +162,47 @@ class Game < ApplicationRecord
   scope :unsynced,  -> { where(igdb_synced_at: nil) }
   scope :stale,     -> { where("igdb_synced_at < ?", 7.days.ago) }
   scope :with_steam, -> { where.not(external_steam_app_id: nil) }
+
+  # Phase 28 §01a — multi-version grouping scopes.
+  #
+  #   .primaries           → rows with `version_parent_id IS NULL`.
+  #   .editions_of(game)   → rows whose `version_parent_id` equals the
+  #                          given game's id; returns an empty relation
+  #                          gracefully when game / game.id is nil.
+  #   .with_editions       → primaries that have at least one edition.
+  scope :primaries, -> { where(version_parent_id: nil) }
+  scope :editions_of, lambda { |game|
+    if game&.id.nil?
+      none
+    else
+      where(version_parent_id: game.id)
+    end
+  }
+  scope :with_editions, lambda {
+    where(version_parent_id: nil)
+      .where(id: Game.where.not(version_parent_id: nil).select(:version_parent_id))
+  }
+
+  # Phase 28 §01a — ownership rollup scope. A primary appears in
+  # `owned_rollup` when EITHER the primary itself OR ANY of its editions
+  # has at least one `game_platform_ownership` row. Editions appear when
+  # they themselves have an ownership row. The 01b `Games::Filter`
+  # `owned` token swaps to this scope so the primaries-only listing
+  # respects rollup semantics (architect lean #7 locked yes).
+  #
+  # SQL shape: a row qualifies when its id is in the owned set OR when
+  # it is a primary whose `id` matches the `version_parent_id` of any
+  # owned edition. Both branches are subqueries (no joins) so the
+  # resulting relation stays composable with downstream `where` chains.
+  scope :owned_rollup, lambda {
+    owned_ids_subquery = Game.joins(:game_platform_ownerships).select(:id)
+    parents_of_owned   = Game.joins(:game_platform_ownerships)
+                             .where.not(version_parent_id: nil)
+                             .select(:version_parent_id)
+    where(id: owned_ids_subquery)
+      .or(where(id: parents_of_owned))
+      .distinct
+  }
 
   # Phase 27 §1a — ownership scopes consumed by `01b`'s filter row.
   #
@@ -217,6 +276,45 @@ class Game < ApplicationRecord
 
   def synced?
     igdb_synced_at.present?
+  end
+
+  # Phase 28 §01a — version-grouping predicates.
+  def primary?
+    version_parent_id.nil?
+  end
+
+  def edition?
+    version_parent_id.present?
+  end
+
+  # Phase 28 §01a — ownership rollup helpers. The base `owned_platforms`
+  # association is preserved as-is (per-row ownership through the join);
+  # these helpers add the rollup semantics specific to the multi-version
+  # listing surfaces.
+  #
+  # `owned_platforms_with_editions` for a primary unions the primary's
+  # own ownerships with every edition's ownerships, deduped. For an
+  # edition it is equivalent to `owned_platforms` (an edition has no
+  # editions of its own — single-level nesting locked).
+  def owned_platforms_with_editions
+    return owned_platforms unless primary?
+
+    ids = [ id, *editions.ids ]
+    Platform.joins(:game_platform_ownerships)
+            .where(game_platform_ownerships: { game_id: ids })
+            .distinct
+            .order(:name)
+  end
+
+  # Returns the editions you own on the given platform. Empty for a
+  # primary with no editions, and empty for an edition (no recursion).
+  def owned_editions(platform)
+    return Game.none unless primary?
+    return Game.none if platform.nil?
+
+    editions.joins(:game_platform_ownerships)
+            .where(game_platform_ownerships: { platform_id: platform.id })
+            .distinct
   end
 
   # Phase 4 legacy variant helpers — kept for the polish window.
@@ -335,5 +433,62 @@ class Game < ApplicationRecord
     return if primary_genre_id.present?
     pick = Games::PrimaryGenrePicker.new.pick(self)
     self.primary_genre_id = pick&.id
+  end
+
+  # Phase 28 §01a — derive a primary's `release_date` from the
+  # earliest edition's date when the primary has none of its own
+  # (architect lean #1 locked). Only runs for primaries (a row with a
+  # `version_parent_id` is an edition and owns its own date). The hook
+  # runs `before_save` so the derived date persists in the same write
+  # and the calendar derivation hook (`after_save_commit`) picks it up
+  # in the same transaction.
+  #
+  # Skips when `manual_date_override` is true — a user-pinned date wins
+  # over any derived date (mirrors the IGDB re-sync override semantic).
+  def derive_release_date_from_editions
+    return if version_parent_id.present?
+    return if release_date.present?
+    return if manual_date_override
+    return unless persisted?
+
+    earliest = editions.where.not(release_date: nil).minimum(:release_date)
+    return if earliest.blank?
+
+    self.release_date = earliest
+    self.release_year = earliest.year if respond_to?(:release_year)
+  end
+
+  # Phase 28 §01a — validation: `version_parent_id` must point at a
+  # primary. Prevents two-level chains (an edition cannot itself be
+  # parented by another edition).
+  def version_parent_must_be_primary
+    return if version_parent_id.blank?
+    return if version_parent_id == id # caught by `no_self_reference`
+
+    parent = Game.where(id: version_parent_id).select(:id, :version_parent_id).first
+    return if parent.nil? # FK validation surfaces "must exist" via belongs_to
+    return if parent.version_parent_id.nil?
+
+    errors.add(:version_parent_id, "must be a primary (cannot point at an edition)")
+  end
+
+  # Phase 28 §01a — validation: a row that already has editions cannot
+  # itself become an edition. Prevents flipping a parent into an
+  # edition while it still has children.
+  def cannot_be_parent_and_edition_simultaneously
+    return if version_parent_id.blank?
+    return unless persisted?
+    return if Game.where(version_parent_id: id).none?
+
+    errors.add(:version_parent_id, "cannot be set: this row already has editions")
+  end
+
+  # Phase 28 §01a — validation: no self-reference.
+  def no_self_reference
+    return if version_parent_id.blank?
+    return unless persisted?
+    return unless version_parent_id == id
+
+    errors.add(:version_parent_id, "cannot reference itself")
   end
 end

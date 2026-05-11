@@ -198,6 +198,51 @@ RSpec.describe "Calendar::Month", type: :request do
       expect(response.body).not_to match(/no entries this month[^.]*add entry/)
     end
 
+    # Calendar refactor 2026-05-11 — month grid renders typed token
+    # labels (`channel(joined)`, `game(released)`, `milestone`,
+    # `video(published)`) in place of the legacy single-letter glyph
+    # prefixes (`c:` / `g:` / `m:` / `v:` / `~:`).
+    describe "calendar refactor 2026-05-11 — typed labels + modal" do
+      it "renders typed token labels for visible entries (no legacy glyph prefix)" do
+        create(:calendar_entry, :milestone_manual,
+               starts_at: Time.zone.local(2026, 5, 15, 12, 0),
+               title: "podcast")
+        get "/calendar/month/2026/05"
+        expect(response.body).to include("milestone")
+        expect(response.body).not_to match(/<span class="calendar-entry__glyph">m:</)
+      end
+
+      it "renders a typed `video(published)` label on derived video entries" do
+        v = create(:video)
+        v.update!(privacy_status: :public,
+                  published_at: Date.new(2026, 5, 15).in_time_zone("UTC"),
+                  title: "yt-vid",
+                  category_id: "10")
+        get "/calendar/month/2026/05"
+        expect(response.body).to include("video(published)")
+      end
+
+      it "chips wire the calendar-entry-modal#open action" do
+        create(:calendar_entry, :milestone_manual,
+               starts_at: Time.zone.local(2026, 5, 15, 12, 0))
+        get "/calendar/month/2026/05"
+        # ERB attribute serialization escapes `->` to `-&gt;` only when
+        # the attribute is built via the `data:` hash helper (the
+        # notifications modal uses that path). The calendar chip
+        # renders raw `data-action="..."` so the literal `->` is what
+        # ships. Accept either form so the spec is robust to the
+        # implementation detail.
+        expect(response.body).to match(%r{data-action="click(-&gt;|->)calendar-entry-modal#open"})
+        expect(response.body).to match(%r{data-calendar-entry-modal-url-param="/calendar/entries/\d+/details_pane"})
+      end
+
+      it "mounts the layout-level calendar-entry-modal dialog once" do
+        get "/calendar/month/2026/05"
+        expect(response.body).to include("calendar-entry-modal")
+        expect(response.body).to include("calendar_entry_details_frame")
+      end
+    end
+
     it "today highlight: cell renders the today class" do
       now = Time.current.in_time_zone("UTC")
       get "/calendar/month/#{now.year}/#{format('%02d', now.month)}"

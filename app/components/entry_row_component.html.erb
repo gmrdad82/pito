@@ -1,22 +1,43 @@
-<%# Phase 15 §2 — schedule view row.
+<%# Calendar refactor 2026-05-11 — schedule view row.
+
+    Columns: date | time | type | title | open.
+
+    `show_date` defaults to true; the schedule template flips it false
+    for rows whose grouping day key equals the previous row's, which
+    leaves the date cell blank for repeated days.
+
+    Time column renders either an `HH:MM` stamp or the
+    `[ all day ]` badge for all-day entries (calendar refactor
+    2026-05-11) — never an empty cell.
+
     `data-keyboard-row` opts the row into the global keyboard
     controller's list-row navigation (`j`/`k` move highlight).
     `data-keyboard-row-id` stays unset — schedule entries don't yet
     participate in the bulk-deletion / bulk-sync URL pattern. %>
 <tr class="<%= state_class %>" data-keyboard-row <%= "data-indent=\"true\"".html_safe if indent %>>
-  <td class="num"><%= date_label %> <%= weekday_label %></td>
-  <td class="num"><%= time_label %></td>
-  <td>
+  <td class="num calendar-row__date"><%= show_date ? date_label : "" %></td>
+  <td class="num calendar-row__time">
+    <% if all_day? %>
+      <span class="calendar-badge calendar-badge--all-day">[ all day ]</span>
+    <% else %>
+      <%= time_label %>
+    <% end %>
+  </td>
+  <td class="calendar-row__type" style="opacity: 0.7;"><%= type_label %></td>
+  <td class="calendar-row__title">
     <% if indent %><span style="opacity: 0.6;">↳</span> <% end %>
-    <a href="<%= link_target %>" class="bracketed" style="text-decoration: none; cursor: pointer;">
-      <span style="opacity: 0.7;"><%= glyph %></span>
-      <span><%= title %></span>
-    </a>
+    <a href="#"
+       class="bracketed"
+       data-action="click->calendar-entry-modal#open"
+       data-calendar-entry-modal-url-param="<%= details_pane_url %>"
+       style="text-decoration: none; cursor: pointer;">[<span class="bl"><%= title %></span>]</a>
     <% if show_reminder_copy? %>
       <%# Phase 15 reviewer concern 4 — canonical bracketed form with
           no inner padding. %>
       <span class="text-muted" style="margin-left: 8px;">[remind: t-7 t-1 t-0]</span>
     <% end %>
   </td>
-  <td><%= state_label %></td>
+  <td class="calendar-row__open">
+    <%= render(BracketedLinkComponent.new(label: "open", href: open_target_href)) %>
+  </td>
 </tr>

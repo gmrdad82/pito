@@ -7,7 +7,7 @@
 <div style="display: contents;" <%= keyboard_detail_nav_data_attributes(@entry, scope: CalendarEntry, path_helper: method(:calendar_entry_path)) %>></div>
 
 <h1>
-  <span class="text-muted"><%= entry_chip_glyph(@entry) %></span>
+  <span class="text-muted"><%= entry_type_label(@entry) %></span>
   <%= @entry.title %>
 </h1>
 
@@ -35,7 +35,7 @@
   <h2>linked entries</h2>
   <ul>
     <% @child_entries.each do |child| %>
-      <li><a href="<%= calendar_entry_path(child) %>"><%= entry_chip_glyph(child) %> <%= child.title %></a></li>
+      <li><a href="<%= calendar_entry_path(child) %>"><span class="text-muted"><%= entry_type_label(child) %></span> <%= child.title %></a></li>
     <% end %>
   </ul>
 <% end %>

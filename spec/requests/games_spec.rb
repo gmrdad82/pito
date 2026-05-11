@@ -980,4 +980,229 @@ RSpec.describe "Games", type: :request do
       expect(response.body).to include('href="/games?display=list"')
     end
   end
+
+  # Phase 28 §01a — Multi-version game grouping.
+  describe "GET /games (Phase 28 §01a primaries-only listing)" do
+    let!(:primary)  { create(:game, title: "Pragmata") }
+    let!(:edition)  { create(:game, title: "Pragmata Deluxe", version_parent: primary, version_title: "Deluxe") }
+    let!(:standalone) { create(:game, title: "Halo 3") }
+
+    it "renders primaries only by default" do
+      get games_path
+      expect(response.body).to include("Pragmata")
+      expect(response.body).to include("Halo 3")
+      expect(response.body).not_to include("Pragmata Deluxe")
+    end
+
+    it "?include_editions=no is equivalent to no param" do
+      get games_path, params: { include_editions: "no" }
+      expect(response.body).not_to include("Pragmata Deluxe")
+    end
+
+    it "?include_editions=yes renders the flat list" do
+      get games_path, params: { include_editions: "yes" }
+      expect(response.body).to include("Pragmata Deluxe")
+    end
+
+    it "?include_editions=true (non-yes/no) falls back to primaries-only" do
+      get games_path, params: { include_editions: "true" }
+      expect(response.body).not_to include("Pragmata Deluxe")
+    end
+
+    it "renders the [+N editions] badge on a primary with editions" do
+      get games_path
+      expect(response.body).to include("+1 edition")
+    end
+
+    it "does not render the muted parent pointer in primaries-only mode" do
+      get games_path
+      expect(response.body).not_to include("↳ Pragmata")
+    end
+  end
+
+  describe "GET /games/version_parent_search" do
+    let!(:pragmata) { create(:game, title: "Pragmata") }
+    let!(:halo)     { create(:game, title: "Halo 3") }
+    let!(:edition)  { create(:game, title: "Pragmata Deluxe", version_parent: pragmata) }
+
+    it "returns 200 with empty results when q is blank" do
+      get version_parent_search_games_path, params: { q: "" }
+      expect(response).to have_http_status(:ok)
+      expect(JSON.parse(response.body)["results"]).to eq([])
+    end
+
+    it "returns matching primaries by case-insensitive title ILIKE" do
+      get version_parent_search_games_path, params: { q: "prag" }
+      rows = JSON.parse(response.body)["results"]
+      expect(rows.map { |r| r["title"] }).to include("Pragmata")
+      expect(rows.map { |r| r["title"] }).not_to include("Pragmata Deluxe")
+    end
+
+    it "excludes the row referenced by ?exclude_id" do
+      get version_parent_search_games_path, params: { q: "prag", exclude_id: pragmata.id }
+      rows = JSON.parse(response.body)["results"]
+      expect(rows.map { |r| r["id"] }).not_to include(pragmata.id)
+    end
+
+    it "caps results at 20" do
+      30.times { |i| create(:game, title: "Pragmata #{i.to_s.rjust(3, '0')}") }
+      get version_parent_search_games_path, params: { q: "prag" }
+      rows = JSON.parse(response.body)["results"]
+      expect(rows.size).to eq(20)
+    end
+
+    it "returns id + title for each row" do
+      get version_parent_search_games_path, params: { q: "prag" }
+      rows = JSON.parse(response.body)["results"]
+      row = rows.find { |r| r["title"] == "Pragmata" }
+      expect(row).to include("id" => pragmata.id, "title" => "Pragmata")
+    end
+  end
+
+  describe "GET /games/:id (Phase 28 §01a show page)" do
+    let!(:primary) { create(:game, title: "Pragmata") }
+
+    context "for a primary with editions" do
+      let!(:deluxe) { create(:game, title: "Pragmata Deluxe", version_parent: primary, version_title: "Deluxe") }
+
+      it "renders the editions section" do
+        get game_path(primary)
+        expect(response.body).to include('id="editions"')
+        expect(response.body).to include("editions (1)")
+        expect(response.body).to include("Pragmata Deluxe")
+      end
+
+      it "does not render an edition parent pointer" do
+        get game_path(primary)
+        expect(response.body).not_to include("edition-parent-pointer")
+      end
+    end
+
+    context "for an edition" do
+      let!(:deluxe) { create(:game, title: "Pragmata Deluxe", version_parent: primary, version_title: "Deluxe") }
+
+      it "renders the parent pointer link" do
+        get game_path(deluxe)
+        expect(response.body).to include("edition-parent-pointer")
+        expect(response.body).to include("Pragmata")
+      end
+
+      it "does not render the editions section" do
+        get game_path(deluxe)
+        expect(response.body).not_to include('id="editions"')
+      end
+    end
+
+    context "for a primary with no editions" do
+      it "does not render the editions section" do
+        get game_path(primary)
+        expect(response.body).not_to include('id="editions"')
+      end
+    end
+  end
+
+  describe "GET /games/:id/edit (Phase 28 §01a edit page)" do
+    let!(:primary) { create(:game, title: "Pragmata") }
+
+    it "renders the version-parent picker" do
+      get edit_game_path(primary)
+      expect(response.body).to include('data-controller="version-parent-picker"')
+    end
+
+    it "renders the version_title text input" do
+      get edit_game_path(primary)
+      expect(response.body).to match(/name="game\[version_title\]"/)
+    end
+
+    context "for an edition pre-filled with its parent" do
+      let!(:deluxe) { create(:game, title: "Pragmata Deluxe", version_parent: primary, version_title: "Deluxe") }
+
+      it "pre-fills the input with the parent's title" do
+        get edit_game_path(deluxe)
+        expect(response.body).to include('value="Pragmata"')
+      end
+
+      it "renders the [detach] link" do
+        get edit_game_path(deluxe)
+        expect(response.body).to include("detach")
+      end
+    end
+
+    context "for a primary with editions of its own" do
+      let!(:deluxe) { create(:game, title: "Pragmata Deluxe", version_parent: primary) }
+
+      it "disables the picker input" do
+        get edit_game_path(primary)
+        expect(response.body).to match(/version-parent-picker-input[^>]*disabled/)
+      end
+    end
+  end
+
+  describe "PATCH /games/:id (Phase 28 §01a version fields)" do
+    let!(:primary) { create(:game, title: "Pragmata") }
+    let!(:other)   { create(:game, title: "Other Title") }
+
+    it "attaches the row as an edition when version_parent_id is set" do
+      patch game_path(other), params: { game: { version_parent_id: primary.id, version_title: "Deluxe" } }
+      other.reload
+      expect(other.version_parent_id).to eq(primary.id)
+      expect(other.version_title).to eq("Deluxe")
+    end
+
+    it "detaches the row when version_parent_id is blank string" do
+      edition = create(:game, title: "Pragmata Deluxe", version_parent: primary, version_title: "Deluxe")
+      patch game_path(edition), params: { game: { version_parent_id: "" } }
+      edition.reload
+      expect(edition.version_parent_id).to be_nil
+    end
+
+    it "rejects pointing version_parent at an edition" do
+      deluxe = create(:game, title: "Pragmata Deluxe", version_parent: primary)
+      patch game_path(other), params: { game: { version_parent_id: deluxe.id } }
+      expect(response).to have_http_status(:unprocessable_content)
+      other.reload
+      expect(other.version_parent_id).to be_nil
+    end
+
+    it "rejects self-reference" do
+      patch game_path(other), params: { game: { version_parent_id: other.id } }
+      expect(response).to have_http_status(:unprocessable_content)
+      other.reload
+      expect(other.version_parent_id).to be_nil
+    end
+
+    it "rejects setting version_parent_id on a row that has editions" do
+      create(:game, version_parent: primary)
+      patch game_path(primary), params: { game: { version_parent_id: other.id } }
+      expect(response).to have_http_status(:unprocessable_content)
+      primary.reload
+      expect(primary.version_parent_id).to be_nil
+    end
+
+    it "trims version_title to 100 chars" do
+      patch game_path(other), params: { game: { version_title: ("D" * 200) } }
+      other.reload
+      expect(other.version_title.length).to eq(100)
+    end
+
+    it "blanks version_title to nil" do
+      other.update_column(:version_title, "Pre-existing")
+      patch game_path(other), params: { game: { version_title: "  " } }
+      other.reload
+      expect(other.version_title).to be_nil
+    end
+  end
+
+  describe "filter row integration (Phase 28 owned_rollup)" do
+    let!(:primary)  { create(:game, title: "Pragmata") }
+    let!(:deluxe)   { create(:game, title: "Pragmata Deluxe", version_parent: primary) }
+    let!(:platform) { create(:platform, slug: "rollup-filter-platform") }
+
+    before { create(:game_platform_ownership, game: deluxe, platform: platform) }
+
+    it "primaries-only listing includes the primary when only its edition is owned (owned_rollup)" do
+      get games_path, params: { filters: "owned" }
+      expect(response.body).to include("Pragmata")
+    end
+  end
 end

@@ -327,6 +327,81 @@ RSpec.describe "Calendar::Entries", type: :request do
     end
   end
 
+  # Calendar refactor 2026-05-11 — details pane for the click-to-open
+  # modal on the month grid + schedule list.
+  describe "GET /calendar/entries/:id/details_pane" do
+    it "renders 200 with the entry's title + typed label" do
+      ce = create(:calendar_entry, :milestone_manual, title: "podcast")
+      get "/calendar/entries/#{ce.id}/details_pane"
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include("podcast")
+      expect(response.body).to include("milestone")
+    end
+
+    it "wraps the body in the matching turbo-frame tag for the modal swap" do
+      ce = create(:calendar_entry, :milestone_manual)
+      get "/calendar/entries/#{ce.id}/details_pane"
+      expect(response.body).to include('id="calendar_entry_details_frame"')
+    end
+
+    it "renders the `[ all day ]` badge when entry.all_day is true" do
+      ce = create(:calendar_entry, :game_release, all_day: true)
+      get "/calendar/entries/#{ce.id}/details_pane"
+      expect(response.body).to include("[ all day ]")
+    end
+
+    it "renders an HH:MM stamp when entry.all_day is false" do
+      ce = create(:calendar_entry, :custom,
+                  all_day: false,
+                  starts_at: Time.zone.parse("2026-05-14 14:30:00 UTC"))
+      get "/calendar/entries/#{ce.id}/details_pane"
+      expect(response.body).to include("14:30")
+    end
+
+    it "renders an `[open video]` link for video_published entries" do
+      v = create(:video)
+      ce = create(:calendar_entry, :video_published, video_record: v)
+      get "/calendar/entries/#{ce.id}/details_pane"
+      expect(response.body).to include(">open video<")
+      expect(response.body).to include(%(href="/videos/#{v.id}"))
+    end
+
+    it "renders an `[open game]` link for game_release entries" do
+      g = create(:game)
+      ce = create(:calendar_entry, :game_release, game: g)
+      get "/calendar/entries/#{ce.id}/details_pane"
+      expect(response.body).to include(">open game<")
+      expect(response.body).to include(%(href="/games/#{g.id}"))
+    end
+
+    it "renders an `[open channel]` link for channel_published entries" do
+      ch = create(:channel)
+      ce = CalendarEntry.where(channel_id: ch.id, entry_type: :channel_published).first
+      get "/calendar/entries/#{ce.id}/details_pane"
+      expect(response.body).to include(">open channel<")
+      expect(response.body).to include(%(href="/channels/#{ch.id}"))
+    end
+
+    it "falls back to `[open entry]` for free-form types (custom / milestone_manual)" do
+      ce = create(:calendar_entry, :milestone_manual)
+      get "/calendar/entries/#{ce.id}/details_pane"
+      expect(response.body).to include(">open entry<")
+    end
+
+    it "renders without the application layout (no nav / no breadcrumb)" do
+      ce = create(:calendar_entry, :milestone_manual)
+      get "/calendar/entries/#{ce.id}/details_pane"
+      # The application layout always emits the `<nav>` shell around
+      # the page; the layoutless render skips it.
+      expect(response.body).not_to include("<nav")
+    end
+
+    it "404s for an unknown id" do
+      get "/calendar/entries/0/details_pane"
+      expect(response).to have_http_status(:not_found)
+    end
+  end
+
   describe "PATCH /calendar/entries/:id/note" do
     it "allows note on derived entries via metadata.user_overrides" do
       ce = create(:calendar_entry, :video_published)

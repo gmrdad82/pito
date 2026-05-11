@@ -55,6 +55,25 @@
             <span class="text-muted" style="font-size: 11px;">leave blank to compute from linked videos.</span>
           </td>
         </tr>
+        <%# Phase 28 §01a — version-grouping fields. The picker resolves
+            a `version_parent_id` (integer) via typeahead; `version_title`
+            is a free-text label ("Deluxe", "Standard", "Game of the
+            Year"). Disabled when the row has editions of its own. %>
+        <tr>
+          <td class="text-muted" style="padding-right: 12px; vertical-align: top;">version of</td>
+          <td>
+            <%= render(Games::VersionParentPickerComponent.new(game: @game, form: f)) %>
+          </td>
+        </tr>
+        <tr>
+          <td class="text-muted" style="padding-right: 12px;">version title</td>
+          <td>
+            <%= f.text_field :version_title,
+                             maxlength: 100,
+                             placeholder: 'e.g. "Deluxe", "Standard", "Game of the Year"',
+                             style: "width: 100%; max-width: 380px;" %>
+          </td>
+        </tr>
       </table>
 
       <div class="dot-list">

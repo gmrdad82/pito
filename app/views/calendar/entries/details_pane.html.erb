@@ -1,0 +1,57 @@
+<%# Calendar refactor 2026-05-11 — details pane rendered inside the
+    calendar-entry-modal Turbo Frame. The matching frame tag wraps the
+    content so a `setAttribute("src", ...)` on the parent frame swaps
+    in just this fragment. Direct navigation to the URL renders the
+    same fragment outside a frame (no layout). %>
+<%= turbo_frame_tag "calendar_entry_details_frame" do %>
+  <div class="calendar-entry-details" style="max-width: 640px;">
+    <h2 style="margin: 0 0 8px;">
+      <span class="text-muted" style="font-weight: normal;"><%= entry_type_label(@entry) %></span>
+      <%= @entry.title %>
+    </h2>
+
+    <dl style="margin: 0 0 12px;">
+      <dt>when</dt>
+      <dd>
+        <% if @entry.all_day %>
+          <%= @entry.starts_at.in_time_zone(@entry.timezone).strftime("%Y-%m-%d") %>
+          <span class="calendar-badge calendar-badge--all-day" style="margin-left: 8px;">[ all day ]</span>
+        <% else %>
+          <%= @entry.starts_at.in_time_zone(@entry.timezone).strftime("%Y-%m-%d %H:%M %Z") %>
+        <% end %>
+      </dd>
+      <% if @entry.ends_at %>
+        <dt>ends</dt>
+        <dd><%= @entry.ends_at.in_time_zone(@entry.timezone).strftime("%Y-%m-%d %H:%M %Z") %></dd>
+      <% end %>
+      <dt>state</dt>
+      <dd><%= @entry.state %></dd>
+      <dt>source</dt>
+      <dd><%= @entry.source %></dd>
+      <% if @entry.description.present? %>
+        <dt>description</dt>
+        <dd><%= simple_format(@entry.description) %></dd>
+      <% end %>
+    </dl>
+
+    <% if @parent_entry %>
+      <p class="text-muted" style="margin-bottom: 8px;">
+        parent: <%= link_to @parent_entry.title, calendar_entry_path(@parent_entry) %>
+      </p>
+    <% end %>
+
+    <div class="dot-list modal-footer" style="margin-top: 12px;">
+      <%= render(BracketedLinkComponent.new(label: @target_label, href: @target_href)) %>
+      <%= render(BracketedLinkComponent.new(label: "details",
+            href: calendar_entry_path(@entry))) %>
+      <%# `[close]` — when rendered inside the layout-level modal, the
+          `click->calendar-entry-modal#close` action dismisses the
+          dialog. When the user lands here via a direct URL the
+          Stimulus action no-ops; the `href` falls back to the entry
+          show page so they aren't stranded on a layout-less view. %>
+      <%= link_to calendar_entry_path(@entry),
+            class: "bracketed",
+            data: { action: "click->calendar-entry-modal#close" } do %>[<span class="bl">close</span>]<% end %>
+    </div>
+  </div>
+<% end %>

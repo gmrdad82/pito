@@ -163,6 +163,18 @@ daily_digest_scheduler:
   queue: default
   description: "Phase 26 — hourly tick; fans out daily digest delivery per user-local 09:00"
 
+# 2026-05-11 F5 — Cloudflare trusted-proxies drift watchdog.
+# Weekly Monday at 09:00 UTC. Fetches Cloudflare's published edge
+# ranges and diffs against the hardcoded list in
+# `config/environments/production.rb`. Drift surfaces as a
+# `sync_error` Notification (the trusted list is compiled into a
+# Rails initializer; only a redeploy can fix the drift).
+cloudflare_trusted_proxies_refresher:
+  cron: "0 9 * * 1"
+  class: CloudflareTrustedProxiesRefresherJob
+  queue: default
+  description: "Weekly drift check between production.rb trusted_proxies and Cloudflare's published lists"
+
 # YouTube Data API v3 sync jobs — uncomment when beta YouTube integration is implemented
 #
 # sync_channels:

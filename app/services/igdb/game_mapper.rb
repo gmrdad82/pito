@@ -44,6 +44,15 @@ module Igdb
         total_rating_count:      json["total_rating_count"]
       }
 
+      # Phase 28 §01a — IGDB's `version_title` stamps the edition row.
+      # `version_parent_id` is NOT mapped here: the IGDB payload's
+      # `version_parent` field is an IGDB-side game id that needs
+      # local resolution (create-or-update the parent first). See
+      # `Igdb::SyncGame#resolve_version_parent_id`.
+      if json.key?("version_title") && json["version_title"].present?
+        attrs[:version_title] = json["version_title"]
+      end
+
       attrs.merge!(map_time_to_beat(ttb_json))
       attrs.merge!(map_external_games(external_json))
       attrs

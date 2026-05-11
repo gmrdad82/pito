@@ -33,9 +33,16 @@
 module Auth
   class AuditLogger
     VALID_SURFACES = %i[web tui mcp].freeze
+    # 2026-05-11 F3 — `youtube_credentials_updated` and
+    # `voyage_credentials_updated` cover SettingsController's
+    # `update_youtube` / `update_voyage` paths. The audit row carries
+    # `metadata["changed_fields"]` — a list of column NAMES that the
+    # update mutated — and NEVER the plaintext values themselves.
     VALID_ACTIONS  = %i[approve block unblock purge
                         totp_enroll totp_disable
-                        backup_code_regenerate].freeze
+                        backup_code_regenerate
+                        youtube_credentials_updated
+                        voyage_credentials_updated].freeze
 
     def self.call(acting_user:, source_surface:, action:, target: nil,
                   target_type: nil, target_id: nil, metadata: {})

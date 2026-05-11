@@ -556,4 +556,224 @@ RSpec.describe Game, type: :model do
       expect(CollectionCoverRebuildJob.jobs).to be_empty
     end
   end
+
+  # Phase 28 §01a — Multi-version game grouping.
+  describe "Phase 28 §01a — multi-version grouping" do
+    describe "associations" do
+      it { is_expected.to belong_to(:version_parent).class_name("Game").optional }
+      it "has_many :editions with dependent: :nullify" do
+        primary = create(:game, title: "Pragmata")
+        edition = create(:game, title: "Pragmata Deluxe Edition", version_parent: primary)
+        expect(primary.editions).to include(edition)
+        primary.destroy!
+        expect(edition.reload.version_parent_id).to be_nil
+      end
+    end
+
+    describe "predicates" do
+      let(:primary) { create(:game, title: "Pragmata") }
+      let(:edition) { create(:game, title: "Pragmata Deluxe", version_parent: primary) }
+
+      it "primary? returns true for a primary" do
+        expect(primary.primary?).to be true
+        expect(primary.edition?).to be false
+      end
+
+      it "edition? returns true for an edition" do
+        expect(edition.edition?).to be true
+        expect(edition.primary?).to be false
+      end
+    end
+
+    describe "scopes" do
+      let!(:primary)  { create(:game, title: "Pragmata") }
+      let!(:edition)  { create(:game, title: "Pragmata Deluxe", version_parent: primary) }
+      let!(:other)    { create(:game, title: "Halo 3") }
+
+      describe ".primaries" do
+        it "excludes editions" do
+          expect(Game.primaries).to include(primary, other)
+          expect(Game.primaries).not_to include(edition)
+        end
+      end
+
+      describe ".editions_of(game)" do
+        it "returns the given game's editions" do
+          expect(Game.editions_of(primary)).to contain_exactly(edition)
+        end
+
+        it "returns an empty relation for nil" do
+          rel = Game.editions_of(nil)
+          expect(rel).to be_a(ActiveRecord::Relation)
+          expect(rel).to be_empty
+        end
+
+        it "returns an empty relation for a primary with no editions" do
+          expect(Game.editions_of(other)).to be_empty
+        end
+      end
+
+      describe ".with_editions" do
+        it "returns only primaries that have at least one edition" do
+          expect(Game.with_editions).to contain_exactly(primary)
+        end
+      end
+
+      describe ".owned_rollup" do
+        let(:platform) { create(:platform, slug: "rollup-platform") }
+
+        it "includes a primary whose own ownership is set" do
+          create(:game_platform_ownership, game: primary, platform: platform)
+          expect(Game.owned_rollup).to include(primary)
+        end
+
+        it "includes a primary that owns nothing itself but has an edition with ownership" do
+          create(:game_platform_ownership, game: edition, platform: platform)
+          expect(Game.owned_rollup).to include(primary)
+        end
+
+        it "includes the owned edition itself" do
+          create(:game_platform_ownership, game: edition, platform: platform)
+          expect(Game.owned_rollup).to include(edition)
+        end
+
+        it "excludes a primary with no own ownership and no owned editions" do
+          expect(Game.owned_rollup).not_to include(primary)
+          expect(Game.owned_rollup).not_to include(other)
+        end
+
+        it "is composable with where chains" do
+          create(:game_platform_ownership, game: primary, platform: platform)
+          expect(Game.owned_rollup.where(id: primary.id)).to contain_exactly(primary)
+        end
+      end
+    end
+
+    describe "validations" do
+      let!(:primary)  { create(:game, title: "Pragmata") }
+
+      it "rejects pointing version_parent at an existing edition" do
+        deluxe = create(:game, title: "Pragmata Deluxe", version_parent: primary)
+        sibling = create(:game, title: "Pragmata Standard")
+        sibling.version_parent = deluxe
+        expect(sibling).not_to be_valid
+        expect(sibling.errors[:version_parent_id]).to include(/must be a primary/i)
+      end
+
+      it "rejects self-reference" do
+        primary.version_parent_id = primary.id
+        expect(primary).not_to be_valid
+        expect(primary.errors[:version_parent_id]).to include(/cannot reference itself/i)
+      end
+
+      it "rejects setting version_parent on a row that already has editions" do
+        _edition = create(:game, version_parent: primary)
+        sibling  = create(:game)
+        primary.version_parent = sibling
+        expect(primary).not_to be_valid
+        expect(primary.errors[:version_parent_id]).to include(/already has editions/i)
+      end
+
+      it "allows a clean attach" do
+        deluxe = build(:game, title: "Pragmata Deluxe", version_parent: primary)
+        expect(deluxe).to be_valid
+      end
+
+      it "allows detach (setting version_parent_id back to nil)" do
+        deluxe = create(:game, title: "Pragmata Deluxe", version_parent: primary)
+        deluxe.version_parent_id = nil
+        expect(deluxe).to be_valid
+        deluxe.save!
+        expect(deluxe.reload.primary?).to be true
+      end
+    end
+
+    describe "#owned_platforms_with_editions" do
+      let!(:primary)  { create(:game, title: "Pragmata") }
+      let!(:edition)  { create(:game, title: "Pragmata Deluxe", version_parent: primary) }
+      let!(:ps5)      { create(:platform, name: "Rollup PS5") }
+      let!(:steam)    { create(:platform, name: "Rollup Steam") }
+
+      it "unions primary + editions ownership and dedupes" do
+        create(:game_platform_ownership, game: primary, platform: ps5)
+        create(:game_platform_ownership, game: edition, platform: steam)
+        create(:game_platform_ownership, game: edition, platform: ps5)
+        expect(primary.owned_platforms_with_editions.map(&:id))
+          .to contain_exactly(ps5.id, steam.id)
+      end
+
+      it "is equivalent to owned_platforms for an edition" do
+        create(:game_platform_ownership, game: edition, platform: ps5)
+        expect(edition.owned_platforms_with_editions.map(&:id))
+          .to contain_exactly(ps5.id)
+      end
+
+      it "returns the primary's own ownerships when it has no editions" do
+        lonely = create(:game, title: "Lonely")
+        create(:game_platform_ownership, game: lonely, platform: steam)
+        expect(lonely.owned_platforms_with_editions.map(&:id)).to contain_exactly(steam.id)
+      end
+    end
+
+    describe "#owned_editions(platform)" do
+      let!(:primary)  { create(:game, title: "Pragmata") }
+      let!(:deluxe)   { create(:game, title: "Pragmata Deluxe", version_parent: primary) }
+      let!(:standard) { create(:game, title: "Pragmata Standard", version_parent: primary) }
+      let!(:ps5)      { create(:platform, name: "Owned Editions PS5") }
+      let!(:steam)    { create(:platform, name: "Owned Editions Steam") }
+
+      it "returns editions owned on the given platform" do
+        create(:game_platform_ownership, game: deluxe, platform: ps5)
+        expect(primary.owned_editions(ps5)).to contain_exactly(deluxe)
+      end
+
+      it "returns an empty relation for an edition" do
+        expect(deluxe.owned_editions(ps5)).to be_empty
+      end
+
+      it "returns an empty relation for nil platform" do
+        expect(primary.owned_editions(nil)).to be_empty
+      end
+
+      it "filters to the matching platform only" do
+        create(:game_platform_ownership, game: deluxe,   platform: ps5)
+        create(:game_platform_ownership, game: standard, platform: steam)
+        expect(primary.owned_editions(ps5)).to contain_exactly(deluxe)
+      end
+    end
+
+    describe "release_date derivation" do
+      let!(:primary) { create(:game, title: "Pragmata") }
+
+      it "derives the primary's release_date from the earliest edition when blank" do
+        create(:game, title: "Pragmata Standard", version_parent: primary,
+                      release_date: Date.new(2025, 3, 1))
+        create(:game, title: "Pragmata Deluxe", version_parent: primary,
+                      release_date: Date.new(2024, 5, 1))
+        primary.update!(notes: "trigger")
+        expect(primary.reload.release_date).to eq(Date.new(2024, 5, 1))
+        expect(primary.release_year).to eq(2024)
+      end
+
+      it "does NOT overwrite an existing release_date on the primary" do
+        primary.update!(release_date: Date.new(2020, 1, 1), release_year: 2020)
+        create(:game, version_parent: primary, release_date: Date.new(2019, 6, 1))
+        primary.update!(notes: "trigger")
+        expect(primary.reload.release_date).to eq(Date.new(2020, 1, 1))
+      end
+
+      it "honors manual_date_override (skips derivation)" do
+        primary.update!(manual_date_override: true)
+        create(:game, version_parent: primary, release_date: Date.new(2024, 1, 1))
+        primary.update!(notes: "trigger")
+        expect(primary.reload.release_date).to be_nil
+      end
+
+      it "does not derive for editions" do
+        edition = create(:game, version_parent: primary)
+        edition.update!(notes: "edition save")
+        expect(edition.reload.release_date).to be_nil
+      end
+    end
+  end
 end

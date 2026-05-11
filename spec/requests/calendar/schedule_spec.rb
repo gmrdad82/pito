@@ -179,6 +179,129 @@ RSpec.describe "Calendar::Schedule", type: :request do
       expect(response.body).to include("page 1")
     end
 
+    # Calendar refactor 2026-05-11 — schedule list refactor.
+    #   - Drops the trailing `state` column entirely (no `occurred` /
+    #     `scheduled` text cells).
+    #   - Replaces the legacy glyph prefix with a typed token label.
+    #   - Time column shows `HH:MM` OR a `[ all day ]` badge.
+    #   - Group-by-day: repeated date cell stays blank between rows.
+    #   - Table shrinks to content width (not 100%).
+    describe "calendar refactor 2026-05-11 — list view" do
+      it "renders typed token labels (no legacy glyph prefix)" do
+        create(:calendar_entry, :milestone_manual,
+               title: "podcast",
+               starts_at: 1.day.from_now)
+        get "/calendar/schedule"
+        expect(response.body).to include("milestone")
+        expect(response.body).to include("podcast")
+      end
+
+      it "drops the trailing state column (no `scheduled` text cell)" do
+        create(:calendar_entry, :custom, :scheduled,
+               title: "still-here",
+               starts_at: 1.day.from_now)
+        get "/calendar/schedule"
+        expect(response.body).to include("still-here")
+        # The row's state class still rides on the <tr> for styling,
+        # but no `<td>` contains the literal `scheduled`.
+        expect(response.body).not_to match(%r{<td[^>]*>\s*scheduled\s*</td>})
+      end
+
+      it "drops the trailing state column for occurred entries too" do
+        create(:calendar_entry, :custom, :occurred,
+               title: "past-event",
+               starts_at: 1.day.ago)
+        get "/calendar/schedule"
+        expect(response.body).to include("past-event")
+        expect(response.body).not_to match(%r{<td[^>]*>\s*occurred\s*</td>})
+      end
+
+      it "renders `[ all day ]` badge for all-day entries" do
+        g = create(:game)
+        create(:calendar_entry, :game_release, game: g, all_day: true,
+               title: "all-day-release",
+               starts_at: 5.days.from_now)
+        get "/calendar/schedule"
+        expect(response.body).to include("[ all day ]")
+        expect(response.body).to include("calendar-badge--all-day")
+      end
+
+      it "renders an HH:MM stamp for timed entries (no `[ all day ]`)" do
+        AppSetting.delete_all
+        AppSetting.create!(key: "tz_seed", value: "x", timezone: "UTC")
+        create(:calendar_entry, :custom,
+               title: "timed-event",
+               all_day: false,
+               starts_at: 5.days.from_now.change(hour: 14, min: 30))
+        get "/calendar/schedule"
+        expect(response.body).to include("14:30")
+      end
+
+      it "uses `width: max-content` on the schedule table (not 100%)" do
+        create(:calendar_entry, :custom, starts_at: 1.day.from_now)
+        get "/calendar/schedule"
+        expect(response.body).to match(/<table[^>]*class="calendar-schedule-table"[^>]*style="[^"]*width: max-content/)
+      end
+
+      it "group-by-day: second row on the same day leaves the date cell blank" do
+        AppSetting.delete_all
+        AppSetting.create!(key: "tz_seed", value: "x", timezone: "UTC")
+        day = 3.days.from_now.beginning_of_day
+        create(:calendar_entry, :custom, title: "first",  starts_at: day + 9.hours)
+        create(:calendar_entry, :custom, title: "second", starts_at: day + 14.hours)
+        get "/calendar/schedule"
+        # The first row carries the date label (the formatted grouping
+        # label depends on the actual day; just assert there exists at
+        # least one row whose `calendar-row__date` cell is empty and
+        # one whose cell is populated).
+        rows = response.body.scan(%r{<td class="num calendar-row__date">([^<]*)</td>})
+        # Both rows are on the same day so at least one cell is blank.
+        expect(rows.flatten).to include("")
+        expect(rows.flatten.any? { |cell| cell != "" }).to be(true)
+      end
+
+      it "renders the `[open]` action column with a bracketed link" do
+        create(:calendar_entry, :milestone_manual,
+               title: "milestone-row",
+               starts_at: 1.day.from_now)
+        get "/calendar/schedule"
+        expect(response.body).to include('<span class="bl">open</span>')
+      end
+
+      it "the `[open]` action targets the related resource for derived video entries" do
+        v = create(:video)
+        v.update!(privacy_status: :public,
+                  published_at: 1.day.ago,
+                  title: "yt-vid",
+                  category_id: "10")
+        get "/calendar/schedule"
+        expect(response.body).to include(%(href="/videos/#{v.id}"))
+      end
+
+      it "title link wires the calendar-entry-modal#open action" do
+        create(:calendar_entry, :milestone_manual, starts_at: 1.day.from_now)
+        get "/calendar/schedule"
+        # See month_spec.rb — accept either `->` (raw attribute) or
+        # `-&gt;` (Rails `data:` hash serialization). The schedule row
+        # renders raw `data-action`.
+        expect(response.body).to match(%r{data-action="click(-&gt;|->)calendar-entry-modal#open"})
+        expect(response.body).to match(%r{data-calendar-entry-modal-url-param="/calendar/entries/\d+/details_pane"})
+      end
+
+      it "mounts the layout-level calendar-entry-modal dialog once" do
+        get "/calendar/schedule"
+        expect(response.body).to include("calendar-entry-modal")
+        expect(response.body).to include("calendar_entry_details_frame")
+      end
+
+      it "today divider spans 5 columns (date | time | type | title | open)" do
+        create(:calendar_entry, :custom, starts_at: 5.days.ago, title: "past")
+        create(:calendar_entry, :custom, starts_at: 5.days.from_now, title: "future")
+        get "/calendar/schedule"
+        expect(response.body).to match(/<td colspan="5"[^>]*class="schedule-today-divider">/)
+      end
+    end
+
     it "default state filter hides cancelled and superseded" do
       create(:calendar_entry, :custom, title: "active", starts_at: 1.day.from_now)
       create(:calendar_entry, :custom, :cancelled, title: "cxld", starts_at: 1.day.from_now)

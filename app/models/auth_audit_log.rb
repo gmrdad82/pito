@@ -46,6 +46,12 @@ class AuthAuditLog < ApplicationRecord
 
   # LD-13 full vocabulary. 01c writes `approve` and `block`. The other
   # values are pre-declared so 01d–01f land without another migration.
+  #
+  # 2026-05-11 F3 — adds two credential-rotation actions written by
+  # `SettingsController#update_youtube` / `#update_voyage`. The
+  # `target_type` is `AppSetting` (singleton row); `metadata` carries
+  # `changed_fields` — the list of column names that mutated, NEVER
+  # the plaintext values themselves.
   enum :action, {
     approve: 0,
     block: 1,
@@ -53,7 +59,9 @@ class AuthAuditLog < ApplicationRecord
     purge: 3,
     totp_enroll: 4,
     totp_disable: 5,
-    backup_code_regenerate: 6
+    backup_code_regenerate: 6,
+    youtube_credentials_updated: 7,
+    voyage_credentials_updated: 8
   }, prefix: :action
 
   validates :acting_user_id, presence: true

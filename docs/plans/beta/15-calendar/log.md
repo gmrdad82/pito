@@ -594,3 +594,123 @@ the contract). Restructured the calendar chrome to:
 - The keyboard `f <kind>` shortcuts (mirror of `[ ] all` / `[ ] video` etc.) are
   not yet wired in the global keyboard controller. Follow-up if the rails-app
   keyboard shortcut work-stream resumes.
+
+---
+
+## 2026-05-11 — Calendar refactor (month + list)
+
+**User direction** (two screenshots reviewed in session):
+
+- Month view: drop cryptic `c:` / `~:` / `v:` / `g:` glyph prefixes; show typed
+  event labels (`channel(joined)`, `video(published)`, `game(released)`,
+  `milestone`, ...); clicking a chip opens a modal with the entry's details.
+- List view: drop the trailing `occurred` / state column; constrain table
+  width (no full-bleed); group entries per day (suppress repeated date cell);
+  date format `may 10 sun`; every row carries a time OR a `[ all day ]` badge
+  styled like the notifications severity badge.
+
+**Changes**
+
+- Helper: added `entry_type_label`, `entry_date_grouping_label`, and
+  `entry_grouping_day_key` to `app/helpers/calendar_helper.rb`. The legacy
+  `entry_chip_glyph` stays — JSON / decorator consumers may still pull it,
+  but no view calls it anymore.
+- Month chip: `app/components/entry_chip_component.{rb,html.erb}` now renders
+  the typed token label (no glyph) and wires
+  `click->calendar-entry-modal#open` plus the entry's
+  `/calendar/entries/:id/details_pane` URL on a Stimulus param. The fallback
+  `href` stays the entry show page so JS-off visitors still get a working
+  link.
+- List row: `app/components/entry_row_component.{rb,html.erb}` columns now
+  read `date | time | type | title | open`. The state column is gone; the
+  time column carries either an `HH:MM` stamp or the
+  `[ all day ]` bracketed badge (`.calendar-badge--all-day`). The title is a
+  click-to-open-modal link; the trailing `[open]` action column links to the
+  related resource (video / channel / game) — or the entry show page for
+  free-form types. A `show_date` kwarg lets the template suppress the date
+  cell on rows sharing the previous row's grouping day.
+- Schedule view: `app/views/calendar/schedule/show.html.erb` now drives the
+  group-by-day pass (track `last_day_key`, set `show_date: false` on repeats,
+  reset after the `[ today ]` divider and on indented child rows). Table
+  shrinks to content (`width: max-content; max-width: 720px`). Today divider
+  spans 5 columns now.
+- Modal scaffold: new layout-level dialog at
+  `app/views/calendar/_entry_modal.html.erb` (mounted on month + schedule
+  views), new Stimulus controller
+  `app/javascript/controllers/calendar_entry_modal_controller.js`, new
+  `GET /calendar/entries/:id/details_pane` route + action +
+  `app/views/calendar/entries/details_pane.html.erb` partial. Modal closing
+  semantics match the notifications-modal precedent (Escape, click-outside,
+  `[close]`). No JS `confirm` / `alert` / `prompt` (CLAUDE.md hard rule).
+- Show page: `app/views/calendar/entries/show.html.erb` swaps the glyph for
+  the typed label in the `<h1>` and in the child-entries list — keeps the
+  show page visually consistent with the modal it now lives inside.
+
+**Files**
+
+- Production: `app/helpers/calendar_helper.rb`,
+  `app/components/entry_chip_component.{rb,html.erb}`,
+  `app/components/entry_row_component.{rb,html.erb}`,
+  `app/views/calendar/_entry_modal.html.erb` (new),
+  `app/views/calendar/entries/details_pane.html.erb` (new),
+  `app/views/calendar/entries/show.html.erb`,
+  `app/views/calendar/month/show.html.erb`,
+  `app/views/calendar/schedule/show.html.erb`,
+  `app/javascript/controllers/calendar_entry_modal_controller.js` (new),
+  `app/controllers/calendar/entries_controller.rb`, `config/routes.rb`.
+- Specs: `spec/helpers/calendar_helper_spec.rb` (new helper cases),
+  `spec/components/entry_chip_component_spec.rb` (rebuilt around typed
+  labels + modal wiring), `spec/components/entry_row_component_spec.rb`
+  (rebuilt — no state column, `[ all day ]` badge, group-by-day
+  suppression, `[open]` action), `spec/requests/calendar/entries_spec.rb`
+  (new `details_pane` describe block — 9 cases),
+  `spec/requests/calendar/month_spec.rb` (typed-label + modal-wiring
+  describe), `spec/requests/calendar/schedule_spec.rb` (list-view
+  refactor describe — typed labels, no state column, `[ all day ]` badge,
+  group-by-day, table width, today-divider colspan),
+  `spec/system/calendar_entry_modal_spec.rb` (new — 11 SSR-scaffold cases).
+
+**Quality gates**
+
+- `bundle exec rspec` on the targeted suite — 259 examples, 1 failure. The
+  one failure (`calendar_edit_delete_spec.rb` "derived entry: shows [ note ]
+  but not [ edit ] / [ cancel ]") is pre-existing (Phase 15 reviewer concern
+  6 removed the `[note]` link until the modal markup is built — see
+  `show.html.erb` line 50). Spot-confirmed via `git stash`: the same failure
+  reproduces on `main` without the calendar refactor.
+- `bundle exec rubocop` on the touched files (4 prod + 7 spec) — 0 offenses.
+- `bundle exec brakeman -q -w2` — 0 security warnings, 0 errors. Same two
+  stale ignore entries flagged as in the 2026-05-10 entry (pre-existing).
+
+**Manual playbook**
+
+1. `bin/dev`, sign in, visit `/calendar/month/2026/05` with at least one
+   custom + one video-derived entry on the same day. Chips should render
+   the typed label (`milestone`, `video(published)`) — no `c:` / `~:` / `v:`
+   prefixes. Click a chip → modal opens with the entry's title, when,
+   state, source, parent (if any), and an `[open video]` / `[open game]` /
+   `[open channel]` / `[open entry]` link to the related resource. Escape /
+   click-outside / `[close]` all dismiss the modal.
+2. Visit `/calendar/schedule` with two entries on the same day plus one on
+   a different day. The repeated date row should leave the date cell
+   blank; the date cell on first-of-day rows should read like `may 10 sun`
+   (lowercase). All-day entries (game releases / channel-joined) render a
+   `[ all day ]` badge in the time column; timed entries render `HH:MM`.
+   Table is not full-bleed. Title-click opens the same modal; the `[open]`
+   action column links to the related resource.
+3. JS-off check: load `/calendar/month/2026/05` with JS disabled; chips
+   fall back to the entry show page (no broken hashes). Direct-load
+   `/calendar/entries/<id>/details_pane` renders the layout-less detail
+   fragment with `[open]` / `[details]` / `[close]` (the close link falls
+   back to the entry show page when no modal is hosting it).
+
+**Open issues**
+
+- Calendar surface still has the pre-existing `[ note ]` link gap on
+  derived entries (Phase 15 reviewer concern 6). Tracked in the original
+  Phase 15 log; not in scope for this refactor.
+- The MCP / JSON shape was not touched — decorator still surfaces the
+  legacy `entry_type` enum value, and the helper retains
+  `entry_chip_glyph` for any non-view consumers that may rely on it.
+  Future cleanup: drop the glyph entirely once MCP / CLI consumers are
+  audited.

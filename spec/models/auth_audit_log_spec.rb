@@ -68,7 +68,8 @@ RSpec.describe AuthAuditLog do
 
   describe "action enum" do
     %i[approve block unblock purge
-       totp_enroll totp_disable backup_code_regenerate].each do |action|
+       totp_enroll totp_disable backup_code_regenerate
+       youtube_credentials_updated voyage_credentials_updated].each do |action|
       it "accepts #{action}" do
         row = create(:auth_audit_log, action: action)
         expect(row.action).to eq(action.to_s)

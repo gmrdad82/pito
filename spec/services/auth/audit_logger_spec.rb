@@ -63,7 +63,8 @@ RSpec.describe Auth::AuditLogger do
 
     it "accepts every action in the LD-13 vocabulary" do
       %i[approve block unblock purge
-         totp_enroll totp_disable backup_code_regenerate].each do |action|
+         totp_enroll totp_disable backup_code_regenerate
+         youtube_credentials_updated voyage_credentials_updated].each do |action|
         expect {
           described_class.call(
             acting_user: user,

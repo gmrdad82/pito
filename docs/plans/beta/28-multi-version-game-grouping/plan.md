@@ -130,38 +130,39 @@ Future (NOT scheduled — surface as follow-up if the user wants more):
 
 ### 01a — Multi-version game grouping (v1)
 
-- [ ] Migration: add `games.version_parent_id` (bigint, nullable, FK to
+- [x] Migration: add `games.version_parent_id` (bigint, nullable, FK to
       `games.id`, indexed) and `games.version_title` (string, nullable).
-- [ ] Foreign key `ON DELETE SET NULL` so destroying a parent leaves its
+- [x] Foreign key `ON DELETE SET NULL` so destroying a parent leaves its
       editions in place as orphan primaries.
-- [ ] Model: `Game.belongs_to :version_parent, optional: true`,
+- [x] Model: `Game.belongs_to :version_parent, optional: true`,
       `Game.has_many :editions, foreign_key: :version_parent_id, dependent: :nullify`.
-- [ ] Model: scopes `Game.primaries`, `Game.editions_of(game)`,
+- [x] Model: scopes `Game.primaries`, `Game.editions_of(game)`,
       `Game.with_editions`.
-- [ ] Model: validation — `version_parent_id` absent when `editions.any?`;
+- [x] Model: validation — `version_parent_id` absent when `editions.any?`;
       chosen parent must itself be a primary; no self-reference; no cycle.
-- [ ] Model: `Game#owned_platforms` rollup (parent unions self + editions);
+- [x] Model: `Game#owned_platforms` rollup (parent unions self + editions);
       `Game#owned_editions(platform)`.
-- [ ] IGDB importer: pre-resolve the parent (create-if-missing) before
+- [x] IGDB importer: pre-resolve the parent (create-if-missing) before
       stamping `version_parent_id`; idempotent re-import.
-- [ ] Games index: render only primaries across grid / list / shelves /
+- [x] Games index: render only primaries across grid / list / shelves /
       by-letter; render `+N editions` badge on primaries with editions.
-- [ ] Game show: editions sub-section listing each edition with its own
+- [x] Game show: editions sub-section listing each edition with its own
       ownership chip strip.
-- [ ] Game edit: typeahead picker for `version_parent_id` (value-as-id);
+- [x] Game edit: typeahead picker for `version_parent_id` (value-as-id);
       free-text `version_title`; detach submits `version_parent_id = nil`.
-- [ ] MCP `games_list`: defaults to primaries; `include_editions: yes/no`
+- [x] MCP `games_list`: defaults to primaries; `include_editions: yes/no`
       argument flips the listing.
-- [ ] MCP `game_show`: returns `version_parent_id`, `version_title`, and
+- [x] MCP `game_show`: returns `version_parent_id`, `version_title`, and
       `editions: [...]` for primaries.
 - [ ] CLI TUI Games view: primaries-only by default; drill-down shows
-      editions; `+N editions` badge rendered.
-- [ ] yes/no boundary applied at every external boolean.
-- [ ] Backfill rake task `games:backfill_version_parents` — regex-driven
+      editions; `+N editions` badge rendered. _(deferred to `pito-rust`
+      follow-up — Rails lane shipped, CLI half tracked separately.)_
+- [x] yes/no boundary applied at every external boolean.
+- [x] Backfill rake task `games:backfill_version_parents` — regex-driven
       ("Deluxe Edition", "Standard Edition", "Game of the Year", "GOTY",
       "Collector's"); idempotent; safe to re-run.
-- [ ] Spec pyramid sweep (model / service / job / component / helper /
-      request / system / MCP / CLI).
+- [x] Spec pyramid sweep (model / service / job / component / helper /
+      request / system / MCP / rake). _(CLI lane deferred.)_
 
 ---
 

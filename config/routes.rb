@@ -264,6 +264,12 @@ Rails.application.routes.draw do
   resources :games do
     collection do
       get :search
+      # Phase 28 §01a — local primaries typeahead source for the
+      # version-parent picker on the game edit page. Returns up to 20
+      # `{ id, title }` JSON rows matching `LOWER(title) ILIKE` the
+      # supplied `q` param. Primaries only (an edition cannot itself
+      # parent another edition); the current row is excluded.
+      get :version_parent_search
     end
     member do
       post :resync
@@ -476,6 +482,10 @@ Rails.application.routes.draw do
         # PATCH /calendar/entries/:id/note — derived/auto entries can
         # gain metadata.user_overrides notes through this endpoint.
         patch :note
+        # GET /calendar/entries/:id/details_pane — calendar refactor
+        # 2026-05-11. Returns the entry's details inside a Turbo Frame
+        # for the month-grid / schedule-list click-to-open modal.
+        get :details_pane
       end
     end
   end

@@ -13,6 +13,10 @@ RSpec.describe "Settings::Security::TotpBackupCodes", type: :request do
       totp_seed_encrypted: seed,
       totp_enabled_at: 1.hour.ago
     )
+    # P25 follow-up — F9. Reset the replay-defense watermark so each
+    # test computes a fresh-window verify and is not blocked by a
+    # prior test's stamp within the same 30-s window.
+    user.update_columns(totp_last_used_step: nil)
   end
 
   describe "GET /settings/security/totp_backup_codes" do

@@ -2,16 +2,42 @@ require "rails_helper"
 
 RSpec.describe EntryChipComponent, type: :component do
   describe "rendering" do
-    it "shows the prefix glyph for a milestone_manual entry" do
+    # Calendar refactor 2026-05-11 — the chip no longer shows the
+    # legacy single-letter glyph prefix (`c:` / `v:` / `g:` / ...). It
+    # now renders a typed token label like `channel(joined)` /
+    # `video(published)` / `game(released)` / `milestone`. The chip
+    # itself is a click target for the layout-level details modal.
+
+    it "renders the typed label for a milestone_manual entry" do
       entry = create(:calendar_entry, :milestone_manual)
       render_inline(described_class.new(entry: entry))
-      expect(page).to have_content("m:")
+      expect(page).to have_content("milestone")
     end
 
-    it "shows the prefix glyph for a video_published entry" do
+    it "renders the typed label for a video_published entry" do
       entry = create(:calendar_entry, :video_published)
       render_inline(described_class.new(entry: entry))
-      expect(page).to have_content("v:")
+      expect(page).to have_content("video(published)")
+    end
+
+    it "renders the typed label for a game_release entry" do
+      entry = create(:calendar_entry, :game_release)
+      render_inline(described_class.new(entry: entry))
+      expect(page).to have_content("game(released)")
+    end
+
+    it "renders the typed label for a channel_published entry" do
+      ch = create(:channel)
+      entry = CalendarEntry.where(channel_id: ch.id, entry_type: :channel_published).first
+      render_inline(described_class.new(entry: entry))
+      expect(page).to have_content("channel(joined)")
+    end
+
+    it "does NOT render the legacy single-letter glyph prefix" do
+      entry = create(:calendar_entry, :milestone_manual, title: "podcast")
+      render_inline(described_class.new(entry: entry))
+      expect(page).not_to have_content(/(?:\A|\s)m:(?:\s|\z)/)
+      expect(page).not_to have_content(/(?:\A|\s)~:/)
     end
 
     it "shows the title" do
@@ -54,30 +80,20 @@ RSpec.describe EntryChipComponent, type: :component do
       expect(page).to have_content("14:30")
     end
 
-    it "links a video_published entry to /videos/:id" do
-      v = create(:video)
-      entry = create(:calendar_entry, :video_published, video_record: v)
+    # The chip's click handler opens the modal; the underlying `href`
+    # stays a JS-off fallback to the entry show page. The wire-up
+    # carries the Stimulus action + the details_pane URL on a param.
+    it "wires the modal-open action with the details_pane URL on the click element" do
+      entry = create(:calendar_entry, :milestone_manual)
       render_inline(described_class.new(entry: entry))
-      expect(page).to have_css("a[href='/videos/#{v.id}']")
+      expect(page).to have_css("a[data-action*='calendar-entry-modal#open']")
+      expect(page).to have_css("a[data-calendar-entry-modal-url-param='/calendar/entries/#{entry.id}/details_pane']")
     end
 
-    it "links a channel_published entry to /channels/:id" do
-      # `create(:channel)` already triggers the auto-derive callback
-      # which writes a `channel_published` entry. Re-use that entry
-      # rather than constructing a duplicate (which would collide on
-      # the partial unique index).
-      ch = create(:channel)
-      entry = CalendarEntry.where(channel_id: ch.id, entry_type: :channel_published).first
-      expect(entry).to be_present
+    it "falls back to the entry show page as the link href (JS-off path)" do
+      entry = create(:calendar_entry, :milestone_manual)
       render_inline(described_class.new(entry: entry))
-      expect(page).to have_css("a[href='/channels/#{ch.id}']")
-    end
-
-    it "links a game_release entry to /games/:id" do
-      g = create(:game)
-      entry = create(:calendar_entry, :game_release, game: g)
-      render_inline(described_class.new(entry: entry))
-      expect(page).to have_css("a[href='/games/#{g.id}']")
+      expect(page).to have_css("a[href='/calendar/entries/#{entry.id}']")
     end
   end
 end

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_11_180000) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_12_000100) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -508,6 +508,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_180000) do
     t.integer "ttb_extras_seconds"
     t.integer "ttb_main_seconds"
     t.datetime "updated_at", null: false
+    t.bigint "version_parent_id"
+    t.string "version_title"
     t.index ["collection_id"], name: "index_games_on_collection_id"
     t.index ["external_steam_app_id"], name: "index_games_on_external_steam_app_id", where: "(external_steam_app_id IS NOT NULL)"
     t.index ["igdb_id"], name: "index_games_on_igdb_id", unique: true, where: "(igdb_id IS NOT NULL)"
@@ -516,6 +518,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_180000) do
     t.index ["primary_genre_id"], name: "index_games_on_primary_genre_id"
     t.index ["release_year"], name: "index_games_on_release_year"
     t.index ["title"], name: "index_games_on_title"
+    t.index ["version_parent_id"], name: "index_games_on_version_parent_id"
   end
 
   create_table "genres", force: :cascade do |t|
@@ -873,6 +876,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_180000) do
     t.string "time_zone", default: "Etc/UTC", null: false
     t.datetime "totp_disabled_at"
     t.datetime "totp_enabled_at"
+    t.bigint "totp_last_used_step"
     t.text "totp_seed_encrypted"
     t.datetime "updated_at", null: false
     t.index ["email"], name: "index_users_on_email", unique: true
@@ -1259,6 +1263,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_180000) do
   add_foreign_key "game_publishers", "companies", on_delete: :cascade
   add_foreign_key "game_publishers", "games", on_delete: :cascade
   add_foreign_key "games", "collections"
+  add_foreign_key "games", "games", column: "version_parent_id", on_delete: :nullify
   add_foreign_key "games", "genres", column: "primary_genre_id", on_delete: :nullify
   add_foreign_key "import_jobs", "channels", on_delete: :cascade
   add_foreign_key "login_attempts", "notifications"

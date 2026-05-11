@@ -109,12 +109,22 @@ module Games
     # Ownership + Platform combinator. Platform tokens map to a relation
     # whose shape depends on the Ownership bucket state. Multiple
     # platforms OR together via `where(id: union_ids)`.
+    # Phase 28 §01a — the `owned` token swaps from the row-level
+    # `Game.owned` to `Game.owned_rollup` (architect lean #7 locked):
+    # a primary with an unowned base but an owned Deluxe edition now
+    # appears in the `owned` filter, matching the "logical title"
+    # framing of multi-version grouping.
     def apply_combined_ownership_and_platform(rel)
       if platform_tokens.empty?
         # No platform tokens — Ownership bucket alone applies.
         case ownership_tokens
         when [ "owned" ]
-          rel.merge(Game.owned)
+          # `Game.owned_rollup` builds an `.or` clause internally;
+          # Rails' `.merge` interacts poorly with `.or` chains (it can
+          # drop the outer relation's conditions on the same column —
+          # observed for `[recorded, owned]`). Realising the rollup to
+          # a concrete id set keeps AND semantics with `apply_status`.
+          rel.where(id: Game.owned_rollup.ids)
         when [ "not_owned" ]
           rel.merge(Game.not_owned)
         else

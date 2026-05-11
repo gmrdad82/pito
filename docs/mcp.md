@@ -17,10 +17,18 @@ clients).
   dedicated Puma (port 3028), separate from the web app (port 3027)
 - **Scope:** every MCP request operates on the install (single-install,
   multi-user per ADR 0003). There is no tenant boundary; access control is
-  per-scope. The catalog is two values — `dev` and `app` — per ADR 0004. `dev`
-  is stripped on release packaging (production builds set
-  `Rails.application.config.x.mcp.expose_dev_scope = false`, which removes `dev`
-  from `Scopes::ALL` and from the MCP tool registry).
+  per-scope. The catalog is three values — `dev`, `app`, and `auth`. `app` is
+  the everyday surface; `dev` is the developer-KB surface (ADR 0004); `auth` is
+  the login-security surface (Phase 25 — 01d). Both `dev` and `auth` are
+  stripped on release packaging:
+  `Rails.application.config.x.mcp.expose_dev_scope = false` removes `dev` from
+  `Scopes::ALL` and from the MCP tool registry, and
+  `Rails.application.config.x.mcp.expose_auth_scope = false` does the same for
+  `auth`. Production sets both flags to `false`; development and test leave them
+  on. `ApiToken` mirrors the runtime guard: a token row that includes `dev` or
+  `auth` is rejected at validation time when the matching `expose_*_scope` flag
+  is `false`, so a release build refuses to mint or load privileged tokens even
+  if the database was seeded otherwise.
 
 The MCP server loads Rails models, decorators, and services directly
 (in-process). It does not make HTTP requests to the web app.
@@ -126,32 +134,52 @@ cross-tenant defense-in-depth check that previously lived inside
 
 ### Scope-per-tool table
 
-Per ADR 0004 the catalog collapsed to two values: `dev` for the Dev KB tools and
-`app` for everything else. `dev` is stripped from `Scopes::ALL` and from the
-tool registry on release builds (when
-`Rails.application.config.x.mcp.expose_dev_scope == false`).
+Per ADR 0004 the catalog originally collapsed to two values: `dev` for the Dev
+KB tools and `app` for everything else. Phase 25 — 01d added a third scope —
+`auth` — for the login-security surface (pending-approval queue, approve / block
+/ unblock / purge, blocked-location list, auth audit log). Phase 25 — 01e added
+the read-only `totp_status` tool on the same scope. Both `dev` and `auth` strip
+on release (production sets `expose_dev_scope = false` AND
+`expose_auth_scope = false`); `app` is always on. The `auth` scope is opt-in
+per-token and is NOT granted by the default Claude-mobile token.
 
-| Tool                | Required scope |
-| ------------------- | -------------- |
-| `list_channels`     | `app`          |
-| `get_channel`       | `app`          |
-| `list_videos`       | `app`          |
-| `get_video`         | `app`          |
-| `get_dashboard`     | `app`          |
-| `search`            | `app`          |
-| `list_saved_views`  | `app`          |
-| `manage_settings`   | `app`          |
-| `create_channel`    | `app`          |
-| `update_channel`    | `app`          |
-| `create_video`      | `app`          |
-| `update_video`      | `app`          |
-| `create_saved_view` | `app`          |
-| `delete_saved_view` | `app`          |
-| `sync_records`      | `app`          |
-| `delete_records`    | `app`          |
-| `list_docs`         | `dev`          |
-| `read_doc`          | `dev`          |
-| `save_note`         | `dev`          |
+| Tool                     | Required scope |
+| ------------------------ | -------------- |
+| `list_channels`          | `app`          |
+| `get_channel`            | `app`          |
+| `list_videos`            | `app`          |
+| `get_video`              | `app`          |
+| `get_dashboard`          | `app`          |
+| `search`                 | `app`          |
+| `list_saved_views`       | `app`          |
+| `manage_settings`        | `app`          |
+| `create_channel`         | `app`          |
+| `update_channel`         | `app`          |
+| `create_video`           | `app`          |
+| `update_video`           | `app`          |
+| `create_saved_view`      | `app`          |
+| `delete_saved_view`      | `app`          |
+| `sync_records`           | `app`          |
+| `delete_records`         | `app`          |
+| `list_docs`              | `dev`          |
+| `read_doc`               | `dev`          |
+| `save_note`              | `dev`          |
+| `login_attempts_pending` | `auth`         |
+| `login_attempts_list`    | `auth`         |
+| `login_attempt_approve`  | `auth`         |
+| `login_attempt_block`    | `auth`         |
+| `login_attempt_unblock`  | `auth`         |
+| `login_attempt_purge`    | `auth`         |
+| `blocked_locations_list` | `auth`         |
+| `auth_audit_log_list`    | `auth`         |
+| `totp_status`            | `auth`         |
+
+`login_attempts_pending`, `login_attempts_list`, and `blocked_locations_list`
+shipped on the `app` scope in Phase 25 — 01a / 01b / 01f as a placeholder; 01d
+swapped them to `auth` once the dedicated scope landed. The destructive tools
+(`login_attempt_approve` / `_block` / `_unblock` / `_purge`) all carry
+`destructive_hint: true` annotations and require the two-step `confirm` flow
+(see below).
 
 A token without the right scope sees
 `{"error": "insufficient_scope", "required": "<scope>"}` (HTTP 403). A missing /
@@ -374,6 +402,43 @@ The asymmetry is intentional: it keeps the mobile blast radius small and keeps
 the desktop session as the single point of curation — the place where notes get
 promoted into logs, ADRs, or specs.
 
+## Auth surface
+
+Nine tools (Phase 25 — 01d + 01e) expose the login-security surface to MCP. All
+nine require the dedicated `auth` scope. The scope strips on release alongside
+`dev`, so a production install advertises none of them. The default
+Claude-mobile token does NOT carry `auth` — opt in per-token only when an
+operator needs MCP-side approval / block / unblock / purge.
+
+The destructive tools (`login_attempt_approve`, `login_attempt_block`,
+`login_attempt_unblock`, `login_attempt_purge`) use the same two-step `confirm`
+pattern as `delete_records` / `sync_records`, but the boundary value uses the
+project-wide yes/no string convention: `confirm: "no"` (default) returns a
+preview and creates NO state; `confirm: "yes"` executes. Any other value (`true`
+/ `false` / `1` / `"YES"`) is rejected with an `invalid_input` error. The yes/no
+convention applies to every Boolean at the MCP JSON layer — request inputs and
+response fields alike — see the per-tool examples in spec 01d for the full
+shapes.
+
+| Tool                     | Description                                                                                                                                                                                                              |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `login_attempts_pending` | List login attempts currently inside the 10-minute approval window. Read-only. Paginated (`page`, `per_page`; default 25, max 50).                                                                                       |
+| `login_attempts_list`    | Filtered + paginated read of the LoginAttempt log. Filters: `result`, `since`, `until_ts`, `ip`, `fingerprint`, `user_email`. Paginated (default 25, max 100). Invalid filters surface as `invalid_filter`.              |
+| `login_attempt_approve`  | Approve a pending attempt. Activates the linked session, upserts a TrustedLocation row, marks the linked notification read, audit-logs. Two-step `confirm`. Args: `id`, `confirm`.                                       |
+| `login_attempt_block`    | Block a pending attempt + auto-add the (fingerprint, ip_prefix) pair. Revokes the pending session, stamps a `result: blocked` attempt, audit-logs. Idempotent on already-blocked pairs. Args: `id`, `reason`, `confirm`. |
+| `login_attempt_unblock`  | Soft-unblock a BlockedLocation row. Two call shapes: `blocked_location_id`, OR `(fingerprint + ip_prefix)`. Stamps `unblocked_at` + `unblocked_by_user_id`. Idempotent. Two-step `confirm`.                              |
+| `login_attempt_purge`    | Bulk-delete LoginAttempt rows by filter (`result`, `since`, `until_ts`, `ip`, `fingerprint`, `user_id`). Empty filter is REJECTED. Preview returns prospective count; execute audit-logs. Two-step `confirm`.            |
+| `blocked_locations_list` | Paginated read of the auto-block list. Filters: `source_surface`, `blocked_by_user_id`, `since`, `until_ts`, `fingerprint`, `ip_prefix`, `active` (yes/no). Read-only.                                                   |
+| `auth_audit_log_list`    | Paginated read of the AuthAuditLog. Filters: `action`, `source_surface`, `since`, `until_ts`, `acting_user_email`, `target_type`, `target_id`. Read-only.                                                                |
+| `totp_status`            | Report 2FA enrollment status for the acting user (`totp_enabled`, `totp_enabled_at`, `totp_disabled_at`, unused / used backup-code counts). Read-only. Enrollment / disable / regenerate stay web-only this phase.       |
+
+Every action through these tools is audit-logged with `source_surface: :mcp` so
+cross-surface journeys (approve from MCP, block from TUI, unblock from web) are
+reconstructable from the AuthAuditLog table. The authoritative reference is
+`docs/plans/beta/25-login-security-and-new-location-approval/specs/01d-mcp-tools-pending-approve-block-purge.md`
+(for the six 01d tools) and `01e-totp-2fa-integration-with-backup-codes.md` (for
+`totp_status`).
+
 ## Data Shapes
 
 ### Channel Summary
@@ -463,6 +528,15 @@ app/mcp/
     list_docs.rb          # list_docs (Dev KB)
     read_doc.rb           # read_doc  (Dev KB)
     save_note.rb          # save_note (Dev KB)
+    login_attempts_pending.rb  # login_attempts_pending  (auth)
+    login_attempts_list.rb     # login_attempts_list     (auth)
+    login_attempt_approve.rb   # login_attempt_approve   (auth, two-step confirm)
+    login_attempt_block.rb     # login_attempt_block     (auth, two-step confirm)
+    login_attempt_unblock.rb   # login_attempt_unblock   (auth, two-step confirm)
+    login_attempt_purge.rb     # login_attempt_purge     (auth, two-step confirm)
+    blocked_locations_list.rb  # blocked_locations_list  (auth)
+    auth_audit_log_list.rb     # auth_audit_log_list     (auth)
+    totp_status.rb             # totp_status             (auth)
   resources/
     app_status.rb         # pito://status
     design_doc.rb         # pito://design

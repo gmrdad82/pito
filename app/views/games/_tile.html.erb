@@ -79,6 +79,15 @@
     <% end %>
   </div>
   <div class="tile-caption" style="padding: 4px 0 0 0; font-size: <%= caption_font_size %>; max-width: 150px;">
+    <%# Phase 28 §01a — when an edition tile is rendered in flat mode
+        (`?include_editions=yes`), show a muted parent pointer above
+        the title so the user can navigate up to the primary. %>
+    <% if game.edition? && game.version_parent.present? %>
+      <div class="tile-caption-parent-pointer text-muted"
+           style="font-size: <%= meta_font_size %>; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;">
+        ↳ <%= game.version_parent.title %>
+      </div>
+    <% end %>
     <div class="tile-caption-title"
          style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;">
       <%= game.title %>
@@ -87,6 +96,15 @@
       <div class="tile-caption-meta text-muted"
            style="font-size: <%= meta_font_size %>; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;">
         <%= meta_line %>
+      </div>
+    <% end %>
+    <%# Phase 28 §01a — `+N editions` badge on primary tiles with at
+        least one edition. The outer tile is already wrapped in an
+        anchor, so the badge renders bare (no nested link). %>
+    <% if game.primary? %>
+      <div class="tile-caption-editions-badge"
+           style="font-size: <%= meta_font_size %>; margin-top: 2px;">
+        <%= render(Games::EditionsBadgeComponent.new(game: game, bare: true)) %>
       </div>
     <% end %>
   </div>

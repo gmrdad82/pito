@@ -17,6 +17,9 @@ class GamesController < ApplicationController
 
   MAX_QUERY_LENGTH = 100
 
+  # Phase 28 §01a — typeahead source cap (architect lean #2 locked).
+  VERSION_PARENT_SEARCH_LIMIT = 20
+
   # Phase 14 §1 polish (2026-05-10) — sortable columns on /games. Mirrors
   # the `ChannelsController` / `VideosController` shape: an `ALLOWED_SORTS`
   # whitelist maps user-facing keys to safe SQL column expressions, and
@@ -123,7 +126,13 @@ class GamesController < ApplicationController
     end
 
     @filter = sanitized_filter
-    scope = Game.all
+    # Phase 28 §01a — primaries-only by default across every listing
+    # partition. `?include_editions=yes` flips the listing to a flat
+    # set (every Game row, editions included). Any other value
+    # (including `true` / `1` / nil) defaults to primaries-only per
+    # the yes/no boundary rule.
+    @include_editions = YesNo.from_yes_no(params[:include_editions])
+    scope = @include_editions ? Game.all : Game.primaries
     scope = scope.joins(:game_genres).where(game_genres: { genre_id: @filter[:genre_id] }) if @filter[:genre_id]
     scope = scope.where(collection_id: @filter[:collection_id])                            if @filter[:collection_id]
 
@@ -182,6 +191,32 @@ class GamesController < ApplicationController
   # read-only metadata.
   def edit
     @game = Game.friendly.find(params[:id])
+  end
+
+  # Phase 28 §01a — local primaries typeahead for the version-parent
+  # picker on the game edit page. Returns up to 20 rows. Title-only
+  # ILIKE; primaries only (an edition cannot itself parent another
+  # edition — architect lean #2 locked). The current row is excluded
+  # via `?exclude_id=`.
+  #
+  # Response shape:
+  #
+  #   { "results": [ { "id": 123, "title": "Pragmata" }, ... ] }
+  def version_parent_search
+    q = params[:q].to_s.strip[0, MAX_QUERY_LENGTH]
+    exclude_id = params[:exclude_id].to_i
+    if q.blank?
+      render json: { results: [] }
+      return
+    end
+
+    scope = Game.primaries
+                .where("LOWER(title) ILIKE ?", "%#{Game.sanitize_sql_like(q.downcase)}%")
+                .order(:title)
+                .limit(VERSION_PARENT_SEARCH_LIMIT)
+    scope = scope.where.not(id: exclude_id) if exclude_id.positive?
+
+    render json: { results: scope.map { |g| { id: g.id, title: g.title } } }
   end
 
   def search
@@ -306,11 +341,31 @@ class GamesController < ApplicationController
   # the permit list no longer references it; the dedicated ownership
   # editor (lands in 01f) is the canonical surface for editing the join.
   def local_only_params
-    params.fetch(:game, {}).permit(
+    permitted = params.fetch(:game, {}).permit(
       :played_at,
       :notes,
-      :hours_of_footage_manual
+      :hours_of_footage_manual,
+      :version_parent_id,
+      :version_title
     )
+
+    # Phase 28 §01a — coerce `version_parent_id` to either an integer
+    # or nil. A blank string ("") submitted by the form's hidden input
+    # when the user clicks `[detach]` lands as nil so the row becomes
+    # a primary again. Non-numeric garbage drops to nil; the model
+    # validator rejects invalid pointers with a friendly error.
+    if permitted.key?("version_parent_id")
+      raw = permitted["version_parent_id"]
+      permitted["version_parent_id"] = raw.to_s.strip.empty? ? nil : raw.to_i
+    end
+
+    # `version_title`: trim to 100 chars; blank → nil.
+    if permitted.key?("version_title")
+      raw = permitted["version_title"].to_s.strip[0, 100]
+      permitted["version_title"] = raw.empty? ? nil : raw
+    end
+
+    permitted
   end
 
   def sanitized_sort_key
