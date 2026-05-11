@@ -26,9 +26,19 @@ class SettingsController < ApplicationController
     # Phase 12 — Step B: oauth applications pane (registered app count).
     @oauth_applications_count = defined?(OauthApplication) ? OauthApplication.count : 0
     # Phase 9 — Google pane reflecting YoutubeConnection state.
-    @youtube_connection = defined?(YoutubeConnection) && Current.user.present? ?
-      YoutubeConnection.where(user_id: Current.user.id).order(last_authorized_at: :desc).first :
-      nil
+    # 2026-05-10 polish — also expose the full set of connections
+    # belonging to the current user plus an aggregated channels
+    # summary (count + first-N titles) so the Settings index Google
+    # card can show "N channels: A, B, C" across all connections.
+    # `Channel.all` is install-wide because pito is single-install,
+    # multi-user (ADR 0003) — there is no per-user channel scope.
+    @youtube_connections = defined?(YoutubeConnection) && Current.user.present? ?
+      YoutubeConnection.where(user_id: Current.user.id).order(last_authorized_at: :desc).to_a :
+      []
+    @youtube_connection = @youtube_connections.first
+
+    @channels_count = defined?(Channel) ? Channel.count : 0
+    @channel_titles = defined?(Channel) ? Channel.where.not(title: [ nil, "" ]).order(:title).limit(6).pluck(:title) : []
     begin
       @search_healthy = Search.engine.healthy?
       @search_stats = Search.engine.index_stats

@@ -97,12 +97,47 @@
     <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
       <legend><h2>Google</h2></legend>
 
-      <% if @youtube_connection.present? %>
+      <% if @youtube_connections.any? %>
         <p>connected: yes</p>
         <p class="text-muted">
-          <%= @youtube_connection.email %><br>
-          last authorized <%= @youtube_connection.last_authorized_at.strftime("%Y-%m-%d %H:%M %Z") %>
+          <%# Multi-connection (2026-05-10) — one email per line,
+              brand-account suffixes stripped via the shared helper so
+              `mushroom-poise-…@pages.plusgoogle.com` reads as
+              `mushroom-poise-…`. The model still stores the full
+              address; only the display is trimmed. %>
+          <% @youtube_connections.each do |connection| %>
+            <%= format_connection_email(connection.email) %><br>
+          <% end %>
+          <%# `last authorized` reflects the most recently authorized
+              connection (the list is ordered by `last_authorized_at`
+              desc). When more than one connection exists, append a
+              compact `+N more` indicator so the page doesn't pretend
+              the older grants share the same timestamp. %>
+          last authorized <%= @youtube_connection.last_authorized_at.strftime("%Y-%m-%d %H:%M %Z") %><% if @youtube_connections.length > 1 %> (+<%= @youtube_connections.length - 1 %> more)<% end %>
         </p>
+
+        <%# Aggregated channels summary across ALL connections. The
+            count is install-wide (`Channel.count`) since pito is
+            single-install, multi-user; titles are populated by the
+            sync job once it runs, so before then we render
+            `N channels` (no titles). Beyond 5 titles we show the
+            first 5 + `…and N more`. Zero channels uses the
+            manage-page empty-state phrasing. %>
+        <p class="text-muted">
+          <% if @channels_count.zero? %>
+            no channels linked yet
+          <% else %>
+            <% noun = @channels_count == 1 ? "channel" : "channels" %>
+            <% if @channel_titles.empty? %>
+              <%= @channels_count %> <%= noun %>
+            <% elsif @channel_titles.length <= 5 %>
+              <%= @channels_count %> <%= noun %>: <%= @channel_titles.join(", ") %>
+            <% else %>
+              <%= @channels_count %> <%= noun %>: <%= @channel_titles.first(5).join(", ") %>, …and <%= @channels_count - 5 %> more
+            <% end %>
+          <% end %>
+        </p>
+
         <% if @youtube_connection.needs_reauth? %>
           <p class="text-danger"><strong>needs re-auth</strong></p>
         <% end %>
