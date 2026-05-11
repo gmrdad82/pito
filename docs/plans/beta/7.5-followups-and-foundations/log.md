@@ -2447,3 +2447,263 @@ Specs:
 run (numeric_formatting_spec on 11i's diff banner, auth_concern, calendar
 edit/delete, composites path traversal) are sibling-agent or pre-existing
 and not under 11c's purview.
+
+## 2026-05-11 — §11i Daily Channel Diff-Check Cron + Resolution Page (rails-impl)
+
+**Inputs:** `specs/11i-daily-diff-check-and-resolution.md`. Parent
+`specs/11-channel-management-and-preview.md`. Phase 23's
+`spec/services/youtube/diff_computer_spec.rb`, `app/views/shared/_diff_table.html.erb`,
+and `DiffDecisionRadioComponent` reused per the cross-spec parallelism note.
+
+**Files landed**
+
+Migration:
+
+- `db/migrate/20260511024709_create_channel_diffs.rb` — `channel_diffs`
+  table with `channel_id`, `detected_at`, `field_diffs jsonb default '{}'`,
+  `resolved_at`, `resolution_payload jsonb`, `resolved_by_user_id`. Indexes:
+  `channel_id`, `resolved_at`, `resolved_by_user_id`, plus a partial unique
+  index `index_channel_diffs_open_per_channel ON channel_id WHERE resolved_at IS NULL`.
+  FKs cascade-delete to channels, nullify on user delete. Applied to dev +
+  test DBs.
+
+Model:
+
+- `app/models/channel_diff.rb` — `belongs_to :channel`, `belongs_to
+  :resolved_by_user, optional: true`, validations on `detected_at` +
+  hash-shape of `field_diffs` / `resolution_payload`, scopes
+  `unresolved` / `open` / `resolved` / `recent`, helpers `fields`,
+  `field_diff`, `pito_value`, `youtube_value`, `resolved?` / `open?`.
+- `app/models/channel.rb` — added `has_many :channel_diffs,
+  dependent: :destroy` + `open_channel_diff` accessor (`channel_diffs.unresolved.first`).
+- `app/models/notification.rb` — added enum entry
+  `channel_diff_detected: 10`.
+
+Services (PORO, pure functions where applicable):
+
+- `app/services/channels/diff_computer.rb` — whitelist-driven comparator
+  (`title`, `handle`, `description`, `country`, `default_language`,
+  `keywords`, `links`, `banner_url`, `avatar_url`, `watermark_url`,
+  `watermark_timing`, `watermark_offset_ms`). Order-insensitive sets for
+  `keywords` (whitespace-split tokens) + `links` (sorted `{title, url}`
+  tuples). CDN-rotation filter strips query string + leading
+  `https?://<host>` prefix before URL comparison. Whitespace normalized
+  (strip + collapse). Nil / `""` / `[]` collapse to nil.
+- `app/services/channels/diff_persister.rb` — find-or-create / refresh-in-
+  place / auto-close empty-diff. Race-recovery via
+  `rescue ActiveRecord::RecordNotUnique → update-in-place`.
+- `app/services/channels/diff_apply.rb` — single-transaction apply
+  orchestrator. Validates per-field decisions, stages YouTube-wins on
+  the in-memory record, batches Pito-wins branding fields into one
+  `Youtube::Client#update_channel` PUT, dispatches handle through
+  `update_handle`, audits `title` / `handle` pushes into
+  `ChannelChangeLog`, stamps `title_changed_at` / `handle_changed_at`,
+  rolls back ALL changes on first push failure (locked Q3). Returns
+  `Result(success:, diff:, error_code:, error_message:,
+  pito_wins_fields:, youtube_wins_fields:, failing_field:)`.
+
+Job:
+
+- `app/jobs/channel_diff_check_job.rb` — Sidekiq job. Cron mode
+  (`perform()`) iterates `Channel.where.not(youtube_connection_id: nil)`,
+  isolates per-channel `TransientError` (log + skip + continue), re-raises
+  `QuotaExhaustedError` (abort + Sidekiq retry). Single-channel mode
+  (`perform(channel_id)`) is the entrypoint for the user-triggered
+  `[sync]` path. `NeedsReauthError` / `AuthRevokedError` flips
+  `youtube_connection.needs_reauth = true` and skips. Notification
+  dedupe per locked Q1: fresh row → notify; expanded field set → notify;
+  same-set / contracted set → skip. Turbo Stream broadcast targets
+  `channel_diff_banner` frame in single-channel mode.
+
+Notifications:
+
+- `app/services/notification_formatter/templates/channel_diff_detected.rb`
+  — registered in `templates.rb`. Carries the user to
+  `/channels/:slug/diff`.
+
+Config + routes:
+
+- `config/sidekiq_cron.yml` — new `channel_diff_check` entry at
+  `30 2 * * *` (one hour after the video diff cron `30 1 * * *`, per the
+  spec's staggered-hour note).
+- `config/routes.rb` — `member { get :diff; patch :apply_diff }` under
+  `resources :channels`.
+
+Controller + views:
+
+- `app/controllers/channels_controller.rb` — added `#diff` (renders
+  resolution page, JSON parity) and `#apply_diff` (consumes the
+  per-field decisions form, dispatches `Channels::DiffApply`, redirects
+  on success with a "changes applied. X pushed to youtube, Y updated
+  locally" flash; re-renders with 422 + flash on validation /
+  unsupported-pito-field / push-failure errors).
+- `app/views/channels/diff.html.erb` — side-by-side resolution page in
+  a `pane--standalone`. Lead paragraph uses the one-sentence-per-line
+  `<br>` style; renders the shared `shared/_diff_table` partial with
+  `display_only_fields: Channels::DiffApply::UNSUPPORTED_PITO_FIELDS`.
+- `app/views/channels/_open_diff_banner.html.erb` — banner partial
+  pointing the user to `/channels/:slug/diff` via `[ review changes ]`.
+  Targeted by the job's Turbo Stream broadcast.
+- `app/views/channels/_in_sync_banner.html.erb` — "in sync with
+  youtube." notice partial for the post-`[sync]` clear-banner path.
+- `app/views/shared/_diff_table.html.erb` — additive: accepts an
+  optional `display_only_fields` local. Defaults to the video-side
+  `Youtube::DiffComputer::DISPLAY_ONLY_FIELDS` so the existing video
+  diff render is unchanged; channels pass their own set.
+
+MCP tools (locked Q6):
+
+- `app/mcp/tools/channel_diff_show.rb` + `channel_diff_apply.rb` —
+  mirror the Phase 23 `video_diff_show` / `video_diff_apply` shape.
+  Two-step `confirm: "yes" | "no"` flag (project hard rule). Gated on
+  `Scopes::APP`. Auto-registered by `Mcp::PitoServer.register_tools`.
+
+Youtube::Client surface:
+
+- `app/services/youtube/client.rb` — added `#update_handle(channel, value)`
+  stub raising `NotImplementedError` so `accept pito` on `handle` in the
+  diff resolution flow surfaces a clean "this push path isn't wired yet"
+  error. The stub is mockable in tests; real wiring lands with 11c
+  follow-up research on YouTube's handle-management endpoint.
+
+Specs added (file → example count):
+
+- `spec/models/channel_diff_spec.rb` (21)
+- `spec/services/channels/diff_computer_spec.rb` (31) — whitelist,
+  whitespace, nil/empty equivalence, sorted-set keywords/links,
+  CDN-rotation filter on banner/avatar/watermark, watermark_offset_ms
+  integer coercion, defensive against malformed payloads.
+- `spec/services/channels/diff_persister_spec.rb` (12)
+- `spec/services/channels/diff_apply_spec.rb` (26) — validation
+  errors, happy youtube/pito/mixed, handle push, partial-failure
+  rollback, mixed-with-failure rollback, no-connection branch.
+- `spec/jobs/channel_diff_check_job_spec.rb` (23) — happy single +
+  cron mode, dedupe (same-set / expansion / contraction → auto-close),
+  TransientError / QuotaExhaustedError / NeedsReauthError / pre-set
+  needs_reauth, channel-not-found, idempotency.
+- `spec/requests/channels/diff_spec.rb` (27) — happy youtube-wins /
+  pito-wins / mixed, sad extra-key / missing-key / invalid-value,
+  flaw race (already resolved) / partial-failure / unsupported-pito
+  field, auth boundary.
+- `spec/system/channel_diff_resolution_spec.rb` (2) — critical user
+  journeys for accept_youtube and accept_pito.
+- `spec/mcp/tools/channel_diff_show_spec.rb` (5) + `channel_diff_apply_spec.rb`
+  (7) — JSON envelope shapes, scope gating, preview gate, error surfaces.
+
+**Total new examples: 154**. Spec sweep covers happy + sad + edge + flaw
+per the architect's exhaustive-spec rule.
+
+**Gates**
+
+- `bundle exec rspec` on the slice (model/service/job/request/system/mcp
+  + adjacent video diff specs to confirm shared partial unchanged) → 642
+  passing, 0 failures.
+- `bundle exec rubocop` → 975 files, no offenses.
+- `bin/brakeman -q -w2` → 0 warnings.
+- Full suite shows 3 pre-existing failures (`numeric_formatting_spec` on
+  pre-existing video-side `<%= ... .size %>` renders;
+  `auth_concern_spec` `POST /channels` route non-existent;
+  `calendar_edit_delete_spec` missing `note` link). All three were
+  already failing before this work landed (git-stash verification).
+
+**Locked decisions honored**
+
+1. **Q-NOTIF dedupe** — fresh row or expanded field set notifies; same
+   or contracted set skips. `ChannelDiffCheckJob#dedupe_notification?`
+   compares the prior open row's field set (read pre-persistence) to
+   the new diff's field set.
+2. **Q-DEFAULT** — radio default `accept youtube` honored by reusing
+   `DiffDecisionRadioComponent` (default `selected: YOUTUBE`).
+3. **Q-PARTIAL** — transaction with full rollback on first push
+   failure. Flash: "could not push <field> to youtube: <reason>. no
+   changes applied." Per the user's note: "applied N of M; rest
+   rolled back; review and retry" — surfaced via the
+   `failing_field` accessor + the flash copy.
+4. **Q-CDN** — regex-based normalization in `DiffComputer`: strips
+   `?...` query string + leading `https?://<host>`. Hash-column
+   approach NOT taken (no existing hash columns; would have required
+   another migration). The path comparison is the stable proxy.
+5. **Q-WHITESPACE** — `normalize_string` strips + collapses runs of
+   whitespace before comparison; empty / nil / "" collapse to nil.
+6. **Q-CLI** — MCP tools shipped (`channel_diff_show` /
+   `channel_diff_apply`) matching Phase 23's shape. Two-step
+   `confirm` flag. CLI surface itself is silent for now (deferred to
+   Phase 9 CLI parity work, per the spec's open-question lean).
+7. **In-sync notice target** — `_in_sync_banner.html.erb` renders
+   into the same `channel_diff_banner` Turbo frame the open-diff
+   banner targets. The job's `broadcast_banner` method handles both
+   diff-and-no-diff branches.
+8. **Q-CHANGELOG-FIELDS** — audit narrowed to `title` + `handle`
+   (matches `ChannelChangeLog::FIELDS`). Other Pito-wins pushes
+   (description, country, language, keywords) update the channel and
+   resolve the diff but do NOT write a log row.
+
+**Cross-agent coordination**
+
+- The 11b agent committed (`24c825e`) mid-session and that commit
+  shipped most of this work (the agent picked up my just-written
+  files into a single Phase 7.5 commit). My two `number_with_delimiter`
+  lint fixes (added after the commit's snapshot) sit unstaged for the
+  master to fold in.
+- `app/views/channels/show.html.erb` not modified by 11i (per the
+  user's coordination instruction). The empty `channel_diff_banner`
+  Turbo frame slot 11b shipped is the broadcast target.
+- `app/views/shared/_diff_table.html.erb` extended additively with an
+  optional `display_only_fields` local. The video diff render
+  defaults preserved; the channel diff render passes its own set.
+  Video diff request specs still pass (309 video-side specs run green
+  with the partial change in place).
+- `Youtube::Client#update_handle` shipped as a `NotImplementedError`
+  stub. 11c's `update_channel` already excludes `:handle` from
+  `UPDATE_CHANNEL_BRANDING_KEYS` so the dispatch goes through
+  `update_handle` instead — clean handoff to 11c follow-up research.
+
+**`[sync]` button reuse — deferred (NOT done in 11i)**
+
+The spec's §[sync]-button-reuse section is NOT implemented in this
+slice. `BulkSyncJob` still dispatches `ChannelSync` by naming
+convention. The spec assumed `ChannelSync` was a placeholder no-op;
+in reality `ChannelSync` now does a real fetch+overwrite per 11a's
+upgrade. Forcing the diff path through the bulk dispatcher would
+break the existing `ChannelSync` cache write contract and the
+adjacent `BulkSyncJob` specs. Followup needed: decide whether the
+`[sync]` button should diff-check (locked Q7 intent) or cache-sync
+(11a behavior), and refactor `BulkSyncJob` accordingly. Daily cron
++ MCP tool + manual `ChannelDiffCheckJob.perform_now(channel_id:)`
+all work fine; just the `[sync]` button convention swap remains.
+
+**Manual test recipe** (for the user)
+
+1. `bin/rails runner 'Channel.first.update_columns(title: "Local Divergent Title")'`
+2. `bin/rails runner 'ChannelDiffCheckJob.new.perform(Channel.first.id)'`
+3. Visit `/channels/<slug>/diff` — verify the table shows the
+   divergent local title in the Pito column and the original
+   YouTube title in the YouTube column.
+4. Default radio is `accept youtube`. Click `[ apply changes ]`.
+5. Verify redirect to `/channels/<slug>` with flash "changes
+   applied. 1 field updated locally."
+6. Verify `Channel.first.reload.title` matches the YouTube title.
+7. Re-run `ChannelDiffCheckJob.new.perform(Channel.first.id)` → no
+   new diff row, no new notification.
+8. Cron registration: `bin/rails runner 'pp
+   Sidekiq::Cron::Job.find("channel_diff_check").attributes'` → confirms
+   the entry with `"30 2 * * *"`.
+9. MCP smoke: `bin/mcp` then call `channel_diff_show(id: "<slug>")`
+   to see the JSON envelope; `channel_diff_apply` without `confirm`
+   returns a preview; with `confirm: "yes"` applies for real.
+
+**No commits, no pushes.** Master commits after manual validation.
+
+**Open issues**
+
+- `[sync]` button still routes through `BulkSyncJob → ChannelSync`
+  (full cache overwrite, not diff-check). Locked-Q7 intent says it
+  should diff-check; needs a `BulkSyncJob` convention exception or a
+  `ChannelSync` refactor. Tracked as a 11i follow-up.
+- `Youtube::Client#update_handle` is a `NotImplementedError` stub.
+  11c follow-up research owns the real implementation.
+- Three pre-existing full-suite lint failures
+  (`numeric_formatting_spec` on video-side files,
+  `auth_concern_spec`, `calendar_edit_delete_spec`) are NOT this
+  slice's responsibility; they predate this work (verified via git
+  stash).
