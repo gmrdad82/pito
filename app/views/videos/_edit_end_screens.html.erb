@@ -1,0 +1,41 @@
+<%# Phase 11 §01a — End-screens nested-form editor. `[add end
+    screen]` adds a row via the `nested-form` Stimulus controller.
+    Toggling `kind: none` collapses every other row server-side on
+    save (`collapse_end_screens_if_none!` in VideosController). The
+    model enforces "no mixing none with other kinds" and "≤4
+    non-none rows per video" defensively.
+
+    Locals:
+      `video` — the Video instance.
+      `f`     — the form builder from `_form.html.erb`. %>
+<fieldset style="margin-bottom: 12px;"
+          data-controller="nested-form"
+          data-nested-form-wrapper-selector-value="div[data-nested-form-target=\"row\"]">
+  <legend>end screens</legend>
+
+  <p class="form-hint" style="font-size: 11px; margin-bottom: 6px;">
+    up to 4 rows or a single `none` row marking "no end-screen
+    needed". target id is free-text in v1 (no youtube round-trip
+    validation).
+  </p>
+
+  <div data-nested-form-target="rows">
+    <%= f.fields_for :video_end_screens, @video_end_screens do |ef| %>
+      <%= render "video_end_screens/fields", f: ef %>
+    <% end %>
+  </div>
+
+  <template data-nested-form-target="template">
+    <%= f.fields_for :video_end_screens,
+          VideoEndScreen.new,
+          child_index: "__INDEX__" do |ef| %>
+      <%= render "video_end_screens/fields", f: ef %>
+    <% end %>
+  </template>
+
+  <button type="button"
+          class="bracketed"
+          data-action="nested-form#add">
+    [add end screen]
+  </button>
+</fieldset>
