@@ -3,9 +3,9 @@
 //! Triggered by pressing the leader key (SPACE, per `config/keybindings.yml`)
 //! when no other overlay is open. The overlay anchors to the bottom-right
 //! corner of the terminal, ~30 columns wide, and lists every item from the
-//! current menu as a `[key] label` row. Submenus are navigated by pressing
-//! their key; `Backspace` pops back up one level; `Esc` (or the leader key
-//! again) closes the overlay.
+//! current menu as a `key  label` row (key + two spaces + label, for monospace
+//! alignment). Submenus are navigated by pressing their key; `Backspace` pops
+//! back up one level; `Esc` (or the leader key again) closes the overlay.
 //!
 //! State lives in `LeaderMenuState` and is held by `App` for the lifetime of
 //! the leader interaction. Filtering for the TUI surface happens once in
@@ -24,7 +24,7 @@ use crate::theme::Theme;
 
 /// Width of the leader popup in columns. Wide enough to fit every label
 /// currently in the schema (`mark all as read` is the longest at 16
-/// columns) plus a `[X] ` prefix, a ` ›` submenu hint, and a border.
+/// columns) plus a `X  ` key prefix, a ` ›` submenu hint, and a border.
 const POPUP_WIDTH: u16 = 32;
 
 /// Open-state for the leader-menu overlay. Holds the per-session
@@ -155,18 +155,19 @@ pub fn render(frame: &mut Frame, area: Rect, theme: &Theme, state: &LeaderMenuSt
     frame.render_widget(paragraph, popup);
 }
 
-/// Build a single `[key] label` row.
+/// Build a single `key  label` row (key + two spaces + label, for monospace
+/// alignment).
 fn item_line<'a>(item: &'a Item, theme: &Theme) -> Line<'a> {
     let suffix = if item.submenu.is_some() { " ›" } else { "" };
     Line::from(vec![
         Span::raw(" "),
         Span::styled(
-            format!("[{}]", item.key),
+            item.key.clone(),
             Style::default()
                 .fg(theme.accent)
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::raw(" "),
+        Span::raw("  "),
         Span::styled(item.label.as_str(), Style::default().fg(theme.fg)),
         Span::styled(suffix, Style::default().fg(theme.muted)),
     ])
@@ -388,5 +389,75 @@ mod tests {
                 render(frame, frame.area(), &theme, &state);
             })
             .expect("draw");
+    }
+
+    /// Concatenate every span in a `Line` into a single string, in render
+    /// order. Used by the format tests below to assert against the visible
+    /// text without coupling to the per-span styling.
+    fn line_text(line: &Line<'_>) -> String {
+        line.spans
+            .iter()
+            .map(|s| s.content.as_ref())
+            .collect::<String>()
+    }
+
+    #[test]
+    fn item_line_renders_key_two_spaces_label() {
+        // The leader menu row format dropped the `[ ]` brackets around the
+        // key in favor of `key  label` (key + two spaces + label) for
+        // monospace alignment. Locks the new format in.
+        let theme = Theme::from_mode(crate::theme::ThemeMode::Dark);
+        let item = Item {
+            key: "l".to_string(),
+            label: "list".to_string(),
+            action: Some(Action::Navigate { path: "/c".into() }),
+            submenu: None,
+            surfaces: None,
+        };
+        let line = item_line(&item, &theme);
+        assert_eq!(line_text(&line), " l  list");
+    }
+
+    #[test]
+    fn item_line_renders_submenu_suffix() {
+        // Submenu items still get the trailing ` ›` hint, with the same
+        // unbracketed key prefix.
+        let theme = Theme::from_mode(crate::theme::ThemeMode::Dark);
+        let item = Item {
+            key: "c".to_string(),
+            label: "channels".to_string(),
+            action: None,
+            submenu: Some("channels".to_string()),
+            surfaces: None,
+        };
+        let line = item_line(&item, &theme);
+        assert_eq!(line_text(&line), " c  channels ›");
+    }
+
+    #[test]
+    fn item_line_has_no_brackets_around_key() {
+        // Defensive guard: no `[` / `]` characters should appear in the
+        // rendered row text. Catches regressions if anyone reintroduces the
+        // old `[key] label` shape.
+        let theme = Theme::from_mode(crate::theme::ThemeMode::Dark);
+        let item = Item {
+            key: "+".to_string(),
+            label: "add".to_string(),
+            action: Some(Action::Navigate {
+                path: "/c/new".into(),
+            }),
+            submenu: None,
+            surfaces: None,
+        };
+        let text = line_text(&item_line(&item, &theme));
+        assert!(
+            !text.contains('['),
+            "row text must not contain `[`: {text:?}"
+        );
+        assert!(
+            !text.contains(']'),
+            "row text must not contain `]`: {text:?}"
+        );
+        assert_eq!(text, " +  add");
     }
 }

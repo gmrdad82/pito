@@ -159,4 +159,44 @@ RSpec.describe "Leader menu chrome", type: :system do
       )
     end
   end
+
+  describe "popup row rendering — keys are rendered without surrounding brackets" do
+    # rack_test has no JS engine, so the popup card is never built at
+    # runtime in this suite; the contract we CAN lock is the source
+    # text the Stimulus controller emits for each row. The previous
+    # rendering wrapped the key glyph in `[…]` (so rows read
+    # `[l] list`, `[+] add`, `[Q] quit + logout`); the new rendering
+    # drops the brackets and relies on `.leader-menu-key { min-width:
+    # 28px }` for monospace alignment so rows read `l  list`, `+  add`,
+    # `Q  quit + logout`. Locking the absence of the bracket template
+    # here catches a regression that re-introduces inline brackets.
+    let(:controller_source) do
+      File.read(Rails.root.join("app/javascript/controllers/leader_menu_controller.js"))
+    end
+
+    it "does not wrap the key glyph in a bracket template literal" do
+      # The legacy template was `[${this.displayKey(item.key)}]`. Any
+      # variant that surrounds the displayKey expression with literal
+      # `[` and `]` characters fails this guard.
+      expect(controller_source).not_to match(/`\[\$\{[^`]*displayKey[^`]*\}\]`/),
+        "expected the row-render to drop the [..] brackets around the key glyph"
+    end
+
+    it "assigns the displayKey expression directly to keySpan.textContent" do
+      # Positive lock: the row-render keeps the displayKey call but
+      # writes it straight to textContent (no surrounding string
+      # interpolation). If a future refactor moves to a builder
+      # function, replace this guard with one that asserts the same
+      # post-condition on the new surface.
+      expect(controller_source).to match(/keySpan\.textContent\s*=\s*this\.displayKey\(item\.key\)/)
+    end
+
+    it "documents the bracket-less rendering in the header comment" do
+      # The top-of-file comment is the contract Rust-side maintainers
+      # read first when keeping the TUI overlay (`extras/cli/src/ui/
+      # leader_menu.rs`) aligned with the web popup. Lock the new
+      # description so docs and code don't drift.
+      expect(controller_source).to include("`key  label` rows")
+    end
+  end
 end

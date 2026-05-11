@@ -8,7 +8,11 @@ const STACK_STORAGE_KEY = "pito:leader-menu:stack"
 // Leader-menu popup controller. Reads the unified keybindings schema
 // embedded by the layout in `<script id="pito-keybindings">`,
 // listens for SPACE on the document, and paints a small bottom-right
-// popup card listing the current-menu items as `[key] label` rows.
+// popup card listing the current-menu items as `key  label` rows.
+// The key glyph carries no surrounding brackets — alignment across
+// rows is handled by `.leader-menu-key { min-width: 28px }` in CSS,
+// so single-char (`l`, `+`) and multi-char (e.g. `␣`) keys still
+// line up cleanly in the monospace face.
 // Submenus replace the popup contents in place (no nesting);
 // Backspace pops back one level, Esc closes outright. The same
 // popup is the discoverable help surface — pressing the bracketed
@@ -302,9 +306,16 @@ export default class extends Controller {
       const row = document.createElement("li")
       row.className = "leader-menu-row"
 
+      // Render the key glyph without surrounding brackets. The
+      // `.leader-menu-key` rule pins `min-width: 28px` so single- and
+      // multi-char keys line up across rows; this row reads as
+      // `l   list`, `+   add`, `Q   quit + logout` in the monospace
+      // face. The single text-node gap below keeps the visual gutter
+      // even when the column is empty (defensive — schema items
+      // always have a key today).
       const keySpan = document.createElement("span")
       keySpan.className = "leader-menu-key"
-      keySpan.textContent = `[${this.displayKey(item.key)}]`
+      keySpan.textContent = this.displayKey(item.key)
       row.appendChild(keySpan)
 
       row.appendChild(document.createTextNode(" "))
