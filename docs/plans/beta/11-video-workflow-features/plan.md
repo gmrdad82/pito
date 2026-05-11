@@ -248,33 +248,33 @@ green. `01f` is a docs-only follow-up registry.
 
 ### 01a — Video edit page polish
 
-- [ ] Audit `app/views/videos/edit.html.erb` — confirm the
+- [x] Audit `app/views/videos/edit.html.erb` — confirm the
       `.pane.pane--standalone` wrap exists (per Wave 4a forms sweep). If
       missing, wrap.
-- [ ] Active Storage `has_one_attached :thumbnail` on `Video`. Image
+- [x] Active Storage `has_one_attached :thumbnail` on `Video`. Image
       validation (PNG / JPEG only, ≤2 MB).
-- [ ] Thumbnail upload + preview sub-section in the edit pane.
-- [ ] Tags input — comma-separated text field bound to `videos.tags`. No
+- [x] Thumbnail upload + preview sub-section in the edit pane.
+- [x] Tags input — comma-separated text field bound to `videos.tags`. No
       autocomplete; no chip JS.
-- [ ] Migration: `video_chapters` (`id, video_id, start_seconds, label,
+- [x] Migration: `video_chapters` (`id, video_id, start_seconds, label,
       position, timestamps`; unique on `(video_id, start_seconds)`).
-- [ ] Migration: `video_end_screens` (`id, video_id, kind enum,
+- [x] Migration: `video_end_screens` (`id, video_id, kind enum,
       target_id, target_label, position, timestamps`).
-- [ ] Models: `VideoChapter`, `VideoEndScreen`, with associations on
+- [x] Models: `VideoChapter`, `VideoEndScreen`, with associations on
       `Video`. `accepts_nested_attributes_for :video_chapters,
       :video_end_screens, allow_destroy: true`.
-- [ ] Factories: `video_chapter`, `video_end_screen`.
-- [ ] Chapters nested-form editor — `[add chapter]` link adds a row;
+- [x] Factories: `video_chapter`, `video_end_screen`.
+- [x] Chapters nested-form editor — `[add chapter]` link adds a row;
       `[remove]` link sets `_destroy: 1` and hides the row via
       Stimulus (no JS confirm).
-- [ ] End-screens nested-form editor — single `kind: none` row toggle;
+- [x] End-screens nested-form editor — single `kind: none` row toggle;
       otherwise up to 4 rows for `related_video` / `related_channel` /
       `related_playlist` with target ID + label.
-- [ ] Yes/no boundary applied at every Boolean external input (none in
+- [x] Yes/no boundary applied at every Boolean external input (none in
       v1; reserved guard).
-- [ ] Friendly URLs preserved on the edit route and on any new nested
+- [x] Friendly URLs preserved on the edit route and on any new nested
       routes.
-- [ ] Spec pyramid sweep — model (chapter + end-screen), factory smoke,
+- [x] Spec pyramid sweep — model (chapter + end-screen), factory smoke,
       request (edit + update), component (nested-form partials), system
       (add chapter / add end-screen / remove chapter via the form).
 
