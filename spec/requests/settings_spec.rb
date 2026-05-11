@@ -268,6 +268,150 @@ RSpec.describe "Settings", type: :request do
     end
   end
 
+  # 2026-05-10 polish — Google pane on the Settings index. The pane
+  # summarises every YoutubeConnection owned by Current.user plus an
+  # aggregated channel count (with up to five known titles) across
+  # those connections. Brand-account emails (`*@pages.plusgoogle.com`)
+  # are truncated to their local part via `YoutubeHelper#format_connection_email`.
+  describe "GET /settings — Google pane channels summary" do
+    let(:user) { User.first }
+    let(:valid_url) do
+      ->(i) {
+        suffix = ("a".."z").to_a[i].to_s * 22
+        "https://www.youtube.com/channel/UC#{suffix[0, 22]}"
+      }
+    end
+
+    it "renders 'connected: no' with no summary line when no YoutubeConnection exists" do
+      get settings_path
+      expect(response.body).to include("connected: no")
+      expect(response.body).not_to include("channels:")
+      expect(response.body).not_to include("no channels linked yet")
+    end
+
+    it "renders the empty-state phrasing when connected but no channels exist yet" do
+      create(:youtube_connection, user: user, email: "u@gmail.com")
+      get settings_path
+      expect(response.body).to include("connected: yes")
+      expect(response.body).to include("no channels linked yet")
+    end
+
+    it "renders '1 channel' (singular, no titles) when only one un-synced channel exists" do
+      connection = create(:youtube_connection, user: user)
+      Channel.create!(channel_url: valid_url.call(0),
+                      youtube_connection_id: connection.id)
+      get settings_path
+      expect(response.body).to match(/1 channel(?!s)/)
+      expect(response.body).not_to include("1 channel:")
+    end
+
+    it "renders 'N channels' (no titles) when channels have nil titles" do
+      connection = create(:youtube_connection, user: user)
+      3.times { |i|
+        Channel.create!(channel_url: valid_url.call(i),
+                        youtube_connection_id: connection.id)
+      }
+      get settings_path
+      expect(response.body).to match(/3 channels(?!:)/)
+    end
+
+    it "renders '1 channel: Title' when one channel has a title" do
+      connection = create(:youtube_connection, user: user)
+      Channel.create!(channel_url: valid_url.call(0),
+                      title: "Catalin Ilinca",
+                      youtube_connection_id: connection.id)
+      get settings_path
+      expect(response.body).to include("1 channel: Catalin Ilinca")
+    end
+
+    it "renders 'N channels: A, B, C' with comma-separated titles" do
+      connection = create(:youtube_connection, user: user)
+      [ "Alpha", "Bravo", "Charlie" ].each_with_index do |t, i|
+        Channel.create!(channel_url: valid_url.call(i),
+                        title: t,
+                        youtube_connection_id: connection.id)
+      end
+      get settings_path
+      expect(response.body).to include("3 channels: Alpha, Bravo, Charlie")
+    end
+
+    it "truncates to first 5 titles and appends '…and N more' beyond that" do
+      connection = create(:youtube_connection, user: user)
+      titles = %w[Alpha Bravo Charlie Delta Echo Foxtrot Golf]
+      titles.each_with_index do |t, i|
+        Channel.create!(channel_url: valid_url.call(i),
+                        title: t,
+                        youtube_connection_id: connection.id)
+      end
+      get settings_path
+      expect(response.body).to include("7 channels: Alpha, Bravo, Charlie, Delta, Echo, …and 2 more")
+      expect(response.body).not_to include("Foxtrot")
+      expect(response.body).not_to include("Golf")
+    end
+
+    it "strips the @pages.plusgoogle.com domain from a brand-account email" do
+      create(:youtube_connection, user: user,
+                                  email: "mushroom-poise-2296566909359968898@pages.plusgoogle.com")
+      get settings_path
+      expect(response.body).to include("mushroom-poise-2296566909359968898")
+      expect(response.body).not_to include("@pages.plusgoogle.com")
+    end
+
+    it "leaves a gmail.com email untouched" do
+      create(:youtube_connection, user: user, email: "alice@gmail.com")
+      get settings_path
+      expect(response.body).to include("alice@gmail.com")
+    end
+
+    it "renders every connection email on its own line when multiple connections exist" do
+      create(:youtube_connection, user: user,
+                                  email: "first@gmail.com",
+                                  last_authorized_at: 2.hours.ago)
+      create(:youtube_connection, user: user,
+                                  email: "second@pages.plusgoogle.com",
+                                  last_authorized_at: 1.hour.ago)
+      get settings_path
+      expect(response.body).to include("first@gmail.com")
+      expect(response.body).to include("second")
+      # The brand-account-style email is truncated (no `@pages.plusgoogle.com`)
+      expect(response.body).not_to include("second@pages.plusgoogle.com")
+    end
+
+    it "aggregates channel counts across ALL connections owned by the user" do
+      conn_a = create(:youtube_connection, user: user)
+      conn_b = create(:youtube_connection, user: user)
+      Channel.create!(channel_url: valid_url.call(0), title: "From A",
+                      youtube_connection_id: conn_a.id)
+      Channel.create!(channel_url: valid_url.call(1), title: "From B",
+                      youtube_connection_id: conn_b.id)
+      get settings_path
+      expect(response.body).to include("2 channels:")
+      expect(response.body).to include("From A")
+      expect(response.body).to include("From B")
+    end
+
+    it "appends a '+N more' indicator to last-authorized when multiple connections exist" do
+      create(:youtube_connection, user: user,
+                                  email: "first@gmail.com",
+                                  last_authorized_at: 3.hours.ago)
+      create(:youtube_connection, user: user,
+                                  email: "second@gmail.com",
+                                  last_authorized_at: 1.hour.ago)
+      create(:youtube_connection, user: user,
+                                  email: "third@gmail.com",
+                                  last_authorized_at: 30.minutes.ago)
+      get settings_path
+      expect(response.body).to match(/last authorized .+ \(\+2 more\)/)
+    end
+
+    it "does NOT append a '+N more' indicator when only one connection exists" do
+      create(:youtube_connection, user: user, email: "solo@gmail.com")
+      get settings_path
+      expect(response.body).not_to include("+0 more")
+      expect(response.body).not_to include("more)")
+    end
+  end
+
   describe "PATCH /settings" do
     it "saves new settings and redirects" do
       patch settings_path, params: {
