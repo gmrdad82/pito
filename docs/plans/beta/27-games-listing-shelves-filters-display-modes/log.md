@@ -1,5 +1,72 @@
 # Phase 27 — log
 
+## 2026-05-10 — Game tile metadata two-line layout (pito-rails)
+
+Reshaped the game-tile caption per user feedback (image #77). The
+caption is now two explicit lines below the cover art:
+
+    Red Dead Redemption 2        ← line 1: title, ellipsis-truncated
+    ★ 93 · 2018                  ← line 2: rating zero-padded, year
+
+Rating now appears FIRST, year SECOND (reversed from the legacy
+`Title (2018) ★ 93` single-line caption). Star is U+2605, separator
+is the middle-dot U+00B7. Rating is zero-padded to a minimum of two
+digits (`5 → 05`, `93 → 93`, `100 → 100`).
+
+### Missing-data handling
+
+- Rating only: `★ 93`
+- Year only: `2018`
+- Both missing: line 2 omitted entirely
+- Title is never blank (DB default `Untitled game`)
+
+### Variant typography
+
+The partial now accepts an optional `variant:` local (`:grid`
+default, `:shelf` opt-in). All existing callers omit the local and
+inherit `:grid` — pure-additive change. The `:shelf` variant shrinks
+the title font (11px → 10px) and the meta font (10px → 9px) to
+match the smaller `Games::CoverComponent` `:shelf` footprint.
+
+### Files changed
+
+- `app/helpers/games_helper.rb` (new) — `format_game_rating(rating)`
+  and `game_meta_line(game)` helpers.
+- `app/views/games/_tile.html.erb` — two-line caption layout with
+  ellipsis truncation, variant-aware typography, and the reversed
+  rating-then-year ordering.
+- `spec/helpers/games_helper_spec.rb` (new, 17 examples) — covers
+  the helper truth table (nil, single-digit, two-digit, three-digit
+  ratings; rating-only / year-only / both / neither meta lines;
+  separator placement; star glyph; defensive leading / trailing
+  separator checks).
+- `spec/views/games/_tile.html.erb_spec.rb` (new, 33 examples) —
+  happy-path two-line shape, ellipsis CSS (`white-space: nowrap`,
+  `overflow: hidden`, `text-overflow: ellipsis`, `max-width: 150px`),
+  rating zero-padding visible, separator placement, missing-data
+  edge cases, variant defaults, shelf-variant font sizes, anchor /
+  keyboard wiring preservation, and flaw assertions against the
+  legacy single-line caption.
+
+### Gates
+
+- `rspec spec/helpers/games_helper_spec.rb spec/views/games/_tile.html.erb_spec.rb spec/components/games/cover_component_spec.rb`
+  — 84 examples, 0 failures.
+- Adjacent suites (`spec/views/games/_grid_mode.html.erb_spec.rb`,
+  `spec/views/games/_shelves_by_letter_mode.html.erb_spec.rb`,
+  `spec/system/games_index_spec.rb`,
+  `spec/system/games_steam_shelf_spec.rb`,
+  `spec/requests/games_spec.rb`) — all green.
+- `rubocop` — clean (1127 files inspected, no offenses).
+- `brakeman -q -w2` — 0 warnings, 0 errors.
+
+### References
+
+- User feedback image #77 (master agent dispatch).
+- `app/helpers/games_helper.rb` (new helper module).
+- `app/components/games/cover_component.rb` (untouched; metadata
+  lives on the tile partial, not the cover component).
+
 ## 2026-05-11 — sub-spec 01e Shelf cover-art variant (pito-rails)
 
 Implemented sub-spec 01e per

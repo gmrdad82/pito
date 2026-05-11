@@ -534,7 +534,7 @@ RSpec.describe "YoutubeConnections::OauthCallbacks", type: :request do
         run_oauth_dance(intent: :youtube_connect)
         expect(flash[:notice]).to include("Google account connected.")
         expect(flash[:notice]).to include("quota exceeded")
-        expect(flash[:notice]).to include("try [+ add another Google account] again")
+        expect(flash[:notice]).to include("click [+] to retry")
       end
     end
 
