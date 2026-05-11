@@ -58,6 +58,36 @@ additions — they are bundled in the close-out reconciliation table under
 - **Driver:** Phase 19 close-out spec
   (`docs/plans/beta/19-phase-75-closeout/specs/01-closeout-and-followups-resolution.md`).
 
+## 2026-05-11 — Step 11 sub-spec 11h (calendar reminder integration)
+
+**What:** Added sub-spec `specs/11h-calendar-reminder-integration.md`. The
+14-day title/handle gate now fires a `[remind me on YYYY-MM-DD]` link that
+silently auto-creates a calendar entry tied to the eligibility date instead of
+leaving the user to thread the reminder through a separate surface.
+
+**Why:** User directive resolving D19 / Q1 — the cooldown gate is the moment the
+user feels the pain, so the reminder must be one click away from that gate and
+auto-bound to the right date. No separate calendar form.
+
+**Where:** commit `fda1294` (Phase 7.5 sub-spec 11h: calendar reminder
+integration, 242 lines, 5 open questions); sub-spec file
+`specs/11h-calendar-reminder-integration.md`.
+
+## 2026-05-11 — Step 11 sub-spec 11i (daily diff check and resolution)
+
+**What:** Added sub-spec `specs/11i-daily-diff-check-and-resolution.md`. A daily
+Sidekiq cron checks every connected channel's local fields against the YouTube
+live state, persists the diffs, and surfaces a bidirectional resolution page
+(push local → YouTube, or pull YouTube → local, per field).
+
+**Why:** Resolution of Q7 layered onto D11 + D20 — the user wants pito to notice
+drift without requiring a manual sync, AND wants the resolution surface to
+choose direction per field rather than always overwriting one side.
+
+**Where:** commit `c1cfca5` (Phase 7.5 sub-spec 11i: daily diff-check cron +
+resolution page, 664 lines, 8 open questions); sub-spec file
+`specs/11i-daily-diff-check-and-resolution.md`.
+
 ## Cross-references
 
 - `docs/plans/beta/19-phase-75-closeout/specs/01-closeout-and-followups-resolution.md`
@@ -65,3 +95,5 @@ additions — they are bundled in the close-out reconciliation table under
 - `docs/decisions/0003-drop-tenant-single-install-multi-user.md`
 - `docs/decisions/0004-mcp-scope-simplification-dev-app.md`
 - `docs/decisions/0005-doorkeeper-stays-for-claude-mobile.md`
+- `specs/11h-calendar-reminder-integration.md`
+- `specs/11i-daily-diff-check-and-resolution.md`
