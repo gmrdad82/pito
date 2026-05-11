@@ -2,24 +2,27 @@
 <% breadcrumb(["settings", settings_path], "Google") %>
 
 <div style="margin-bottom: 8px;">
-  <h1>Google connection</h1>
+  <% if @youtube_connections.length > 1 %>
+    <h1>Google connections</h1>
+  <% else %>
+    <h1>Google connection</h1>
+  <% end %>
 </div>
 
 <%# Phase 10 polish — single consolidated top-of-page reconnect banner.
     The pane-internal `[reconnect]` button and the picker-section red
     banner are gone (the top banner is the primary CTA). Two copy
-    variants live in the partial (revoked grant vs. missing scopes);
-    transient API errors render their own muted note further down.
+    variants live in the partial (revoked grant vs. missing scopes).
 
-    `@youtube_error` carrying an auth-state token like "needsreauth"
-    is suppressed here — when `needs_reauth?` is true the user already
-    sees the top banner. Only genuine transient errors (quota, 5xx)
-    surface a secondary muted note in the picker section. %>
+    Multi-connection note: the top banner reflects the FIRST
+    connection only (the back-compat `@youtube_connection`); each
+    per-connection section below renders its own missing-scope notes
+    inline when applicable. %>
 <% if @youtube_connection.present? && @youtube_connection.needs_reauth? %>
   <%= render "settings/youtube/needs_reauth_banner" %>
 <% end %>
 
-<% if @youtube_connection.nil? %>
+<% if @youtube_connections.empty? %>
   <%# Empty state — no Google account connected. %>
   <div class="pane pane--standalone" style="margin-top: 12px; padding: 16px; max-width: 60ch;">
     <p>no Google account connected.</p>
@@ -37,159 +40,171 @@
     </p>
   </div>
 <% else %>
-  <%# Connected state. Connection metadata pane.
-
-      Width — `.pane.pane--wide` (904px) replaces the previous
-      `pane--standalone` + `max-width: 60ch` constraint. The pane
-      carries the scopes list (one per line, full URL under each
-      label) and email addresses that would otherwise wrap or truncate
-      in a narrow column.
-
-      `[reconnect]` lives ONLY in the top banner now (when
-      `needs_reauth?`). The pane no longer offers a duplicate. %>
-  <div class="pane-row">
-    <div class="pane pane--wide" style="padding: 16px;">
-      <table class="detail-table" style="margin-bottom: 0;">
-        <tr>
-          <td class="text-muted" style="padding-right: 12px; vertical-align: top;">connected as</td>
-          <td><strong><%= @youtube_connection.email %></strong></td>
-        </tr>
-        <tr>
-          <td class="text-muted" style="padding-right: 12px; vertical-align: top;">last authorized</td>
-          <td><%= @youtube_connection.last_authorized_at.strftime("%Y-%m-%d %H:%M %Z") %></td>
-        </tr>
-        <% if @youtube_connection.last_refreshed_at.present? %>
+  <% @youtube_connections.each do |connection| %>
+    <%# Connected state — one section per YoutubeConnection.
+        Each section carries:
+          1. Connection metadata pane (email, last authorized / refreshed, scopes).
+          2. `channels` table — every Channel linked to this connection,
+             with checkbox + linked-at columns. Bulk-disconnect via the
+             existing `/deletions/youtube_connection/:ids` action screen.
+          3. `[add]` button — kicks OmniAuth with `prompt=select_account`
+             so Google shows the account picker / Brand-Account switcher.
+             The callback discovers channels under the granted access
+             and adds non-duplicates to the matching connection.
+    %>
+    <div class="pane-row">
+      <div class="pane pane--wide" style="padding: 16px;">
+        <table class="detail-table" style="margin-bottom: 0;">
           <tr>
-            <td class="text-muted" style="padding-right: 12px; vertical-align: top;">last refreshed</td>
-            <td><%= @youtube_connection.last_refreshed_at.strftime("%Y-%m-%d %H:%M %Z") %></td>
+            <td class="text-muted" style="padding-right: 12px; vertical-align: top;">connected as</td>
+            <td><strong><%= connection.email %></strong></td>
           </tr>
-        <% end %>
-        <tr>
-          <td class="text-muted" style="padding-right: 12px; vertical-align: top;">scopes</td>
-          <td>
-            <%# Each scope on its own row. The trailing path segment is
-                bolded (the readable name the user thinks of —
-                `youtube.readonly`); the full URL sits muted below for
-                disambiguation without drowning the surface. %>
-            <ul style="list-style: none; padding: 0; margin: 0;">
-              <% Array(@youtube_connection.scopes).each do |scope| %>
-                <% short = scope.to_s.split("/").last.presence || scope.to_s %>
-                <li style="margin-bottom: 4px;">
-                  <code><strong><%= short %></strong></code><br>
-                  <span class="text-muted" style="font-size: 0.85em;"><%= scope %></span>
-                </li>
-              <% end %>
-            </ul>
-          </td>
-        </tr>
-      </table>
-    </div>
-  </div>
-
-  <%# Currently-linked channels — every Channel row whose
-      youtube_connection_id points at this connection. Surfaces the
-      install's already-added set so the user can disconnect any of
-      them via the existing /deletions/youtube_connection/:id action
-      screen (no JS confirm; hard rule). Empty list collapses the
-      section to a one-line muted note. %>
-  <% linked_channels = Channel.where(youtube_connection_id: @youtube_connection.id).order(:channel_url) %>
-  <h2 style="margin-top: 16px;">linked channels</h2>
-  <% if linked_channels.any? %>
-    <table>
-      <thead>
-        <tr>
-          <th>channel</th>
-          <th>state</th>
-        </tr>
-      </thead>
-      <tbody>
-        <% linked_channels.each do |c| %>
           <tr>
-            <td style="font-family: monospace;">
-              <%= link_to c.channel_url.sub(%r{\Ahttps?://(www\.)?youtube\.com/channel/}, ""),
-                          channel_path(c) %>
-            </td>
+            <td class="text-muted" style="padding-right: 12px; vertical-align: top;">last authorized</td>
+            <td><%= connection.last_authorized_at.strftime("%Y-%m-%d %H:%M %Z") %></td>
+          </tr>
+          <% if connection.last_refreshed_at.present? %>
+            <tr>
+              <td class="text-muted" style="padding-right: 12px; vertical-align: top;">last refreshed</td>
+              <td><%= connection.last_refreshed_at.strftime("%Y-%m-%d %H:%M %Z") %></td>
+            </tr>
+          <% end %>
+          <tr>
+            <td class="text-muted" style="padding-right: 12px; vertical-align: top;">scopes</td>
             <td>
-              <%= form_with url: deletions_path(type: "youtube_connection", ids: c.id),
-                            method: :get, data: { turbo: false },
-                            html: { style: "display: inline;" } do %>
-                <button type="submit">[disconnect]</button>
-              <% end %>
+              <%# Each scope on its own row. The trailing path segment is
+                  bolded (the readable name the user thinks of —
+                  `youtube.readonly`); the full URL sits muted below for
+                  disambiguation without drowning the surface. %>
+              <ul style="list-style: none; padding: 0; margin: 0;">
+                <% Array(connection.scopes).each do |scope| %>
+                  <% short = scope.to_s.split("/").last.presence || scope.to_s %>
+                  <li style="margin-bottom: 4px;">
+                    <code><strong><%= short %></strong></code><br>
+                    <span class="text-muted" style="font-size: 0.85em;"><%= scope %></span>
+                  </li>
+                <% end %>
+              </ul>
             </td>
           </tr>
-        <% end %>
-      </tbody>
-    </table>
-  <% else %>
-    <p class="text-muted">no channels linked yet.</p>
-  <% end %>
-
-  <%# Channel-select picker — the multi-select form. Each row carries
-      a checkbox keyed by YouTube channel ID; ticked rows roll up into
-      `youtube_channel_ids[]` on submit. Rows already linked to this
-      connection render with a disabled checkbox and an "already
-      added" marker so the form can't re-submit them. %>
-  <h2 style="margin-top: 16px;">select channels to add</h2>
-
-  <% if @youtube_connection.needs_reauth? %>
-    <%# Auth-state failure (insufficient scopes, refresh-token
-        revoked, …). The top banner already carries the `[reconnect]`
-        CTA — here we collapse the picker to a small muted note
-        instead of a third red full-width banner. The linked-channels
-        section above renders unaffected — those rows come from the
-        local Channels table, not the YouTube API. %>
-    <p class="text-muted">
-      channel list will return after <strong>[reconnect]</strong> above.
-    </p>
-  <% else %>
-    <% if @youtube_error.present? %>
-      <%# Transient API failure (quota exhausted, 5xx). The error
-          string is human-readable here (e.g. "quota exceeded"); the
-          legacy `needsreauth` / `transient` class-name leak is
-          shielded by the `needs_reauth?` guard above. Map the
-          remaining internal token "transient" to a clean phrase
-          before display. %>
-      <% human_error = case @youtube_error.to_s
-                       when "transient" then "service temporarily unavailable"
-                       else @youtube_error.to_s
-                       end %>
-      <div class="flash-error" style="margin: 12px 0; padding: 10px 12px; border: 1px solid #cc0000; color: #cc0000;">
-        YouTube api unavailable right now: <%= human_error %>.
-        can't list channels to add right now.
+        </table>
       </div>
-    <% end %>
+    </div>
 
-    <% pito_channels_by_url = Channel.where(channel_url: @youtube_channels.map { |c| "https://www.youtube.com/channel/#{c[:id]}" }).index_by(&:channel_url) %>
+    <%# `channels` heading — replaces the legacy "linked channels"
+        label. Lowercase to match the convention used elsewhere
+        (`docs/design.md` → lowercase column labels). %>
+    <h2 style="margin-top: 16px;">channels</h2>
 
-    <% if @youtube_channels.any? %>
-      <%= form_with url: settings_youtube_channels_path, method: :post,
-                    data: { turbo: false } do %>
+    <% linked_channels = Channel.where(youtube_connection_id: connection.id).order(:channel_url).to_a %>
+
+    <% if linked_channels.any? %>
+      <%# Bulk-select wrapper — same shape as /channels /videos /projects.
+          Checkboxes are always on (no [bulk] toggle); the bulk toolbar
+          renders the dynamic `[disconnect N]` action once at least one
+          row is selected, pointing at the existing
+          `/deletions/youtube_connection/:ids` action-screen
+          confirmation page.
+
+          `delete-type-value="youtube_connection"` is what the Stimulus
+          controller substitutes into the action URL — the legacy
+          `deleteAction` target's copy says "delete" by default, so we
+          override the rendered label via the dedicated
+          `disconnectAction` target wired up below. Falling back to the
+          generic `[delete N]` button would surface the wrong verb here
+          (the action does not destroy Channel rows — it clears
+          `youtube_connection_id` and revokes the Google grant when
+          orphaned). %>
+      <div data-controller="bulk-select"
+           data-bulk-select-entity-name-value="channels"
+           data-bulk-select-delete-type-value="youtube_connection"
+           data-bulk-select-action-label-value="disconnect">
+
+        <div data-bulk-select-target="actions" style="margin-bottom: 0;" data-turbo-frame="_top">
+          <div class="bulk-toolbar">
+            <span class="action" data-bulk-select-target="count" hidden>
+              <span class="action-sep" hidden>&middot;</span>
+            </span>
+            <span class="action" data-bulk-select-target="deleteAction" hidden>
+              <span class="action-sep" hidden>&middot;</span>
+            </span>
+          </div>
+        </div>
+
         <table>
           <thead>
             <tr>
-              <th class="col-action"></th>
-              <th></th>
-              <th>title</th>
-              <th class="num">subscribers</th>
-              <th></th>
+              <th class="col-action">
+                <%= render(CheckboxComponent.new(data: { bulk_select_target: "headerCheckbox", action: "change->bulk-select#toggleAll" })) %>
+              </th>
+              <th>channel</th>
+              <th>linked at</th>
             </tr>
           </thead>
           <tbody>
-            <% @youtube_channels.each do |channel| %>
-              <% url = "https://www.youtube.com/channel/#{channel[:id]}" %>
-              <%= render "settings/youtube/channel_row",
-                         channel: channel,
-                         pito_channel: pito_channels_by_url[url] %>
+            <% linked_channels.each do |c| %>
+              <tr>
+                <td class="col-action">
+                  <%= render(CheckboxComponent.new(value: c.id, data: { bulk_select_target: "checkbox", action: "change->bulk-select#toggle" })) %>
+                </td>
+                <td style="font-family: monospace;">
+                  <%# Display label — the slug-style UC id derived from
+                      `channel_url`. Once Step 11 channel sync populates
+                      `Channel#title`, switch this to `c.title.presence
+                      || slug` in one place. %>
+                  <%= link_to c.channel_url.sub(%r{\Ahttps?://(www\.)?youtube\.com/channel/}, ""),
+                              channel_path(c) %>
+                </td>
+                <td>
+                  <%# `linked at` — uses `created_at` per the spec note
+                      (no new column; `created_at` is reliable as the
+                      moment the row first appeared in pito). The
+                      compact-time helper renders the same `~5h ago`
+                      shape used elsewhere. %>
+                  <%= compact_time_ago(c.created_at) %>
+                </td>
+              </tr>
             <% end %>
           </tbody>
         </table>
-
-        <div style="margin-top: 8px;">
-          <button type="submit" class="btn-submit">[<b>add channels</b>]</button>
-        </div>
-      <% end %>
-    <% elsif @youtube_error.blank? %>
-      <p class="text-muted">no channels found under this Google account.</p>
+      </div>
+    <% else %>
+      <p class="text-muted">no channels linked yet.</p>
     <% end %>
+
+    <%# `[add]` — kicks OmniAuth with `prompt=select_account` for
+        THIS connection's section. The callback (see
+        `YoutubeConnections::OauthCallbacksController#create`)
+        enumerates `mine: true` channels under the granted access
+        and adds non-duplicates to the matching YoutubeConnection.
+        A duplicate (channel already linked to pito) flashes a clean
+        "channel '…' is already linked." note and is silently
+        skipped. If the user picks a different Google account on
+        the consent screen, a new YoutubeConnection is created
+        instead. %>
+    <div style="margin-top: 8px;">
+      <%= form_with url: settings_youtube_connect_path, method: :post,
+                    data: { turbo: false }, html: { style: "display: inline;" } do %>
+        <input type="hidden" name="account" value="new">
+        <button type="submit">[add]</button>
+      <% end %>
+    </div>
   <% end %>
+
+  <%# Bottom-of-page entry to add a brand-new Google account /
+      Brand-Account context. Same OAuth dance as the per-connection
+      `[add]` — Google's consent screen is the disambiguator. The
+      labels read differently so the user can distinguish "add more
+      channels under an existing account" (`[add]`, the typical
+      flow) from "add an entirely separate Google account"
+      (`[+ connect another Google account]`, the rarer one).
+      Rendered for every non-empty page (the multi-connection
+      sibling-agent UX). %>
+  <div style="margin-top: 24px;">
+    <%= form_with url: settings_youtube_connect_path, method: :post,
+                  data: { turbo: false }, html: { style: "display: inline;" } do %>
+      <input type="hidden" name="account" value="new">
+      <button type="submit">[+ connect another Google account]</button>
+    <% end %>
+  </div>
 <% end %>

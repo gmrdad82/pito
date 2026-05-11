@@ -94,7 +94,17 @@ class YoutubeConnections::OauthCallbacksController < ApplicationController
     audit("youtube_connection.callback.succeeded",
           user_id: connection.user_id,
           connection_id: connection.id)
-    flash[:notice] = "Google account connected."
+
+    # Channel discovery — the `[add]` flow on /settings/youtube wants
+    # the callback to enumerate the channels visible under this grant
+    # and add any non-duplicates as Channel rows under the connection.
+    # Duplicates (by UC id) are silently skipped; the flash composes
+    # an "already linked" note if EVERY returned channel was already
+    # in pito. API failures (quota, transient) surface as a flash but
+    # do NOT roll back the connection itself — the user can retry the
+    # discovery from /settings/youtube without re-doing OAuth.
+    discovery = discover_and_link_channels(connection)
+    flash[:notice] = compose_callback_flash(discovery)
     redirect_to redirect_target_for_intent(intent)
   end
 
@@ -193,6 +203,126 @@ class YoutubeConnections::OauthCallbacksController < ApplicationController
     return "missing_auth_hash" if error.nil?
 
     error.try(:type) || error.class.name
+  end
+
+  # Enumerate `mine: true` channels for the just-authorized connection
+  # and add any that are not already linked. Returns a stable Hash
+  # shape used by `compose_callback_flash`:
+  #
+  #   { added: [titles…], duplicates: [titles…], error: nil | "quota exceeded" | … }
+  #
+  # Duplicate detection is keyed on the UC channel URL
+  # (`https://www.youtube.com/channel/<UC id>`) — the existing
+  # `channel_url` UNIQUE index in the DB is the source of truth for
+  # "this channel is already linked to pito". A duplicate match that
+  # points at a different YoutubeConnection (or has a nil connection)
+  # is still treated as duplicate — re-attaching it via the callback
+  # would silently steal it out of the user's other connection,
+  # which is not a "discovery" behavior the user expects from `[add]`.
+  #
+  # Errors surfacing from the YouTube client (quota, transient, needs
+  # reauth) are caught here so the OAuth-success redirect still
+  # completes; the manage page will show the connection but no new
+  # channels until the user retries.
+  def discover_and_link_channels(connection)
+    items = []
+    begin
+      response = Youtube::Client.new(connection).channels_list(
+        mine: true, parts: %i[snippet statistics]
+      )
+      items = Array(response[:items])
+    rescue Youtube::QuotaExhaustedError
+      audit("youtube_connection.callback.discovery_failed",
+            connection_id: connection.id, reason: "quota_exhausted")
+      return { added: [], duplicates: [], error: "quota exceeded" }
+    rescue Youtube::NeedsReauthError
+      audit("youtube_connection.callback.discovery_failed",
+            connection_id: connection.id, reason: "needs_reauth")
+      return { added: [], duplicates: [], error: "needs reauth" }
+    rescue Youtube::TransientError
+      audit("youtube_connection.callback.discovery_failed",
+            connection_id: connection.id, reason: "transient")
+      return { added: [], duplicates: [], error: "service temporarily unavailable" }
+    end
+
+    added = []
+    duplicates = []
+
+    items.each do |item|
+      uc_id = item[:id].to_s
+      next if uc_id.blank?
+
+      title = item.dig(:snippet, :title).to_s
+      channel_url = "https://www.youtube.com/channel/#{uc_id}"
+
+      existing = Channel.find_by(channel_url: channel_url)
+      if existing
+        duplicates << title.presence || uc_id
+        next
+      end
+
+      Channel.create!(
+        channel_url: channel_url,
+        youtube_connection_id: connection.id,
+        last_synced_at: Time.current
+      )
+      added << (title.presence || uc_id)
+    end
+
+    audit("youtube_connection.callback.discovery_succeeded",
+          connection_id: connection.id,
+          added_count: added.length,
+          duplicate_count: duplicates.length)
+    { added: added, duplicates: duplicates, error: nil }
+  end
+
+  # Compose the user-visible flash from a `discover_and_link_channels`
+  # result. The copy reads as a continuation of "Google account
+  # connected." — concise, one short sentence per outcome bucket.
+  #
+  # Output examples (the discovery hash drives which line appears):
+  #
+  #   { added: [], duplicates: [] }
+  #     → "Google account connected. no channels found under this Google account."
+  #   { added: ["Alpha"], duplicates: [] }
+  #     → "Google account connected. 1 channel added (Alpha)."
+  #   { added: ["Alpha", "Beta"], duplicates: [] }
+  #     → "Google account connected. 2 channels added (Alpha, Beta)."
+  #   { added: [], duplicates: ["Alpha"] }
+  #     → "Google account connected. channel 'Alpha' is already linked."
+  #   { added: [], duplicates: ["Alpha", "Beta"] }
+  #     → "Google account connected. these channels are already linked: Alpha, Beta."
+  #   { added: ["Alpha"], duplicates: ["Beta"] }
+  #     → "Google account connected. 1 channel added (Alpha). channel 'Beta' is already linked."
+  #   { added: [], duplicates: [], error: "quota exceeded" }
+  #     → "Google account connected. couldn't list channels right now (quota exceeded). open /settings/youtube and try [add] again."
+  def compose_callback_flash(discovery)
+    parts = [ "Google account connected." ]
+
+    if discovery[:error].present?
+      parts << "couldn't list channels right now (#{discovery[:error]}). open /settings/youtube and try [add] again."
+      return parts.join(" ")
+    end
+
+    added = Array(discovery[:added])
+    duplicates = Array(discovery[:duplicates])
+
+    if added.any?
+      noun = added.length == 1 ? "channel" : "channels"
+      parts << "#{added.length} #{noun} added (#{added.join(', ')})."
+    end
+
+    if duplicates.length == 1
+      parts << "channel '#{duplicates.first}' is already linked."
+    elsif duplicates.length > 1
+      parts << "these channels are already linked: #{duplicates.join(', ')}."
+    end
+
+    if added.empty? && duplicates.empty?
+      parts << "no channels found under this Google account."
+    end
+
+    parts.join(" ")
   end
 
   # Phase 9 — audit trail for callback outcomes. Mirrors the helper

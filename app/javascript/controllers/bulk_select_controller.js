@@ -22,7 +22,16 @@ export default class extends Controller {
     entityName: String,
     panesPath: { type: String, default: "" },
     deleteType: String,
-    syncType: String
+    syncType: String,
+    // Override the verb used on the `[delete N]` action — used by
+    // /settings/youtube where the same `/deletions/:type/:ids` framework
+    // is the disconnect surface (verb: "disconnect", not "delete").
+    // Defaults to "delete" so every existing bulk-select picker keeps
+    // its current copy. Mirrors `syncActionLabel` (not currently set
+    // by any view but exposed symmetrically so future surfaces can
+    // override the sync verb without a controller change).
+    deleteActionLabel: { type: String, default: "delete" },
+    syncActionLabel: { type: String, default: "sync" }
   }
 
   // Always-on flow: prime the action-bar visibility on connect so
@@ -117,7 +126,7 @@ export default class extends Controller {
         const bracket = document.createTextNode("[")
         const span = document.createElement("span")
         span.className = "bl"
-        span.textContent = `delete ${count}`
+        span.textContent = `${this.deleteActionLabelValue} ${count}`
         const bracketEnd = document.createTextNode("]")
         link.appendChild(bracket)
         link.appendChild(span)
@@ -139,7 +148,7 @@ export default class extends Controller {
         const bracket = document.createTextNode("[")
         const span = document.createElement("span")
         span.className = "bl"
-        span.textContent = `sync ${count}`
+        span.textContent = `${this.syncActionLabelValue} ${count}`
         const bracketEnd = document.createTextNode("]")
         link.appendChild(bracket)
         link.appendChild(span)
