@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_11_160002) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_11_160500) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -77,6 +77,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_160002) do
     t.text "voyage_api_key"
     t.boolean "voyage_index_project_notes", default: false, null: false
     t.index ["key"], name: "index_app_settings_on_key", unique: true
+  end
+
+  create_table "auth_audit_logs", force: :cascade do |t|
+    t.bigint "acting_user_id", null: false
+    t.integer "action", null: false
+    t.datetime "created_at", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.integer "source_surface", null: false
+    t.bigint "target_id", null: false
+    t.string "target_type", null: false
+    t.datetime "updated_at", null: false
+    t.index ["acting_user_id"], name: "index_auth_audit_logs_on_acting_user_id"
+    t.index ["action"], name: "index_auth_audit_logs_on_action"
+    t.index ["created_at"], name: "index_auth_audit_logs_on_created_at"
+    t.index ["source_surface"], name: "index_auth_audit_logs_on_source_surface"
+    t.index ["target_type", "target_id"], name: "index_auth_audit_logs_on_target_type_and_target_id"
   end
 
   create_table "blocked_locations", force: :cascade do |t|
@@ -340,6 +356,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_160002) do
   end
 
   create_table "collections", force: :cascade do |t|
+    t.string "composite_cover_checksum"
+    t.string "composite_cover_path"
     t.datetime "created_at", null: false
     t.string "name", default: "Untitled collection", null: false
     t.string "slug", null: false
@@ -817,6 +835,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_160002) do
     t.index ["video_id"], name: "index_top_videos_windows_on_video_id"
   end
 
+  create_table "totp_backup_codes", force: :cascade do |t|
+    t.string "code_digest", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.datetime "used_at"
+    t.bigint "user_id", null: false
+    t.index ["used_at"], name: "index_totp_backup_codes_on_used_at"
+    t.index ["user_id"], name: "index_totp_backup_codes_on_user_id"
+  end
+
   create_table "trusted_locations", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "fingerprint_hash", limit: 64, null: false
@@ -837,6 +865,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_160002) do
     t.string "password_digest", null: false
     t.integer "preferred_games_display_mode", default: 0, null: false
     t.string "time_zone", default: "Etc/UTC", null: false
+    t.datetime "totp_disabled_at"
+    t.datetime "totp_enabled_at"
+    t.text "totp_seed_encrypted"
     t.datetime "updated_at", null: false
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["last_digest_run_at"], name: "index_users_on_last_digest_run_at"
@@ -1059,6 +1090,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_160002) do
     t.index ["video_id"], name: "index_video_uploads_on_video_id"
   end
 
+  create_table "video_viewer_time_buckets", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.integer "day_of_week_utc", null: false
+    t.integer "hour_of_day_utc", null: false
+    t.datetime "last_synced_at"
+    t.datetime "updated_at", null: false
+    t.bigint "video_id", null: false
+    t.integer "view_count", default: 0, null: false
+    t.bigint "watch_time_seconds", default: 0, null: false
+    t.index ["last_synced_at"], name: "index_video_viewer_time_buckets_on_last_synced_at"
+    t.index ["video_id", "day_of_week_utc", "hour_of_day_utc"], name: "index_viewer_time_buckets_uniq", unique: true
+    t.check_constraint "day_of_week_utc >= 0 AND day_of_week_utc <= 6", name: "viewer_time_buckets_dow_range"
+    t.check_constraint "hour_of_day_utc >= 0 AND hour_of_day_utc <= 23", name: "viewer_time_buckets_hour_range"
+    t.check_constraint "view_count >= 0", name: "viewer_time_buckets_view_count_nonneg"
+    t.check_constraint "watch_time_seconds >= 0", name: "viewer_time_buckets_watch_time_nonneg"
+  end
+
   create_table "video_window_summaries", force: :cascade do |t|
     t.bigint "ad_impressions"
     t.decimal "average_view_duration", precision: 10, scale: 2
@@ -1185,6 +1233,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_160002) do
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "api_tokens", "users"
+  add_foreign_key "auth_audit_logs", "users", column: "acting_user_id"
   add_foreign_key "blocked_locations", "users", column: "blocked_by_user_id", on_delete: :restrict
   add_foreign_key "blocked_locations", "users", column: "unblocked_by_user_id", on_delete: :nullify
   add_foreign_key "bulk_operation_items", "bulk_operations"
@@ -1242,6 +1291,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_160002) do
   add_foreign_key "timelines", "videos"
   add_foreign_key "top_videos_windows", "channels", on_delete: :cascade
   add_foreign_key "top_videos_windows", "videos", on_delete: :cascade
+  add_foreign_key "totp_backup_codes", "users"
   add_foreign_key "trusted_locations", "users"
   add_foreign_key "video_change_logs", "users", column: "changed_by_user_id", on_delete: :nullify
   add_foreign_key "video_change_logs", "videos", on_delete: :cascade
@@ -1262,6 +1312,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_160002) do
   add_foreign_key "video_stats", "videos"
   add_foreign_key "video_uploads", "channels"
   add_foreign_key "video_uploads", "videos"
+  add_foreign_key "video_viewer_time_buckets", "videos", on_delete: :cascade
   add_foreign_key "video_window_summaries", "videos", on_delete: :cascade
   add_foreign_key "videos", "channels"
   add_foreign_key "videos", "projects", on_delete: :nullify

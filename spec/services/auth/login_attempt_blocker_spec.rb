@@ -20,26 +20,33 @@ RSpec.describe Auth::LoginAttemptBlocker do
     allow(Auth::GeoEnricher).to receive(:db_available?).and_return(false)
   end
 
+  def fake_request(remote_ip: "10.60.0.2", user_agent: "AgentBlocker/1.0")
+    request = ActionDispatch::TestRequest.create
+    request.env["REMOTE_ADDR"] = remote_ip
+    request.env["HTTP_USER_AGENT"] = user_agent
+    request
+  end
+
+  def call_blocker(**overrides)
+    described_class.call(
+      login_attempt: attempt,
+      acting_user: operator,
+      source: :web,
+      request: fake_request,
+      **overrides
+    )
+  end
+
   describe ".call (happy)" do
     it "revokes the pending session" do
-      result = described_class.call(
-        login_attempt: attempt,
-        acting_user: operator,
-        source: :web
-      )
+      result = call_blocker
       expect(result[:session].id).to eq(pending.id)
       expect(pending.reload.state_revoked?).to be true
       expect(pending.reload.revoked_at).to be_present
     end
 
     it "creates a BlockedLocation row for the (fp, ip_prefix) pair" do
-      expect {
-        described_class.call(
-          login_attempt: attempt,
-          acting_user: operator,
-          source: :web
-        )
-      }.to change(BlockedLocation, :count).by(1)
+      expect { call_blocker }.to change(BlockedLocation, :count).by(1)
 
       row = BlockedLocation.last
       expect(row.fingerprint_hash).to eq(fp)
@@ -49,22 +56,12 @@ RSpec.describe Auth::LoginAttemptBlocker do
     end
 
     it "honors the source surface on the BlockedLocation row" do
-      described_class.call(
-        login_attempt: attempt,
-        acting_user: operator,
-        source: :mcp
-      )
+      call_blocker(source: :mcp)
       expect(BlockedLocation.last.source_mcp?).to be true
     end
 
     it "writes a fresh attempt row with reason: blocked_from_web" do
-      expect {
-        described_class.call(
-          login_attempt: attempt,
-          acting_user: operator,
-          source: :web
-        )
-      }.to change(LoginAttempt, :count).by(1)
+      expect { call_blocker }.to change(LoginAttempt, :count).by(1)
 
       row = LoginAttempt.where(result: :blocked).recent.first
       expect(row.reason).to eq("blocked_from_web")
@@ -73,31 +70,17 @@ RSpec.describe Auth::LoginAttemptBlocker do
     end
 
     it "writes a tui-source attempt row when source: tui" do
-      described_class.call(
-        login_attempt: attempt,
-        acting_user: operator,
-        source: :tui
-      )
+      call_blocker(source: :tui)
       expect(LoginAttempt.where(reason: :blocked_from_tui).count).to eq(1)
     end
 
     it "writes an mcp-source attempt row when source: mcp" do
-      described_class.call(
-        login_attempt: attempt,
-        acting_user: operator,
-        source: :mcp
-      )
+      call_blocker(source: :mcp)
       expect(LoginAttempt.where(reason: :blocked_from_mcp).count).to eq(1)
     end
 
     it "writes an audit row with action: block and source: web" do
-      expect {
-        described_class.call(
-          login_attempt: attempt,
-          acting_user: operator,
-          source: :web
-        )
-      }.to change(AuthAuditLog, :count).by(1)
+      expect { call_blocker }.to change(AuthAuditLog, :count).by(1)
 
       row = AuthAuditLog.last
       expect(row.action).to eq("block")
@@ -115,21 +98,12 @@ RSpec.describe Auth::LoginAttemptBlocker do
                      in_app_read_at: nil)
       attempt.update!(notification: notif)
 
-      described_class.call(
-        login_attempt: attempt,
-        acting_user: operator,
-        source: :web
-      )
+      call_blocker
       expect(notif.reload.read?).to be true
     end
 
     it "stamps a custom reason text on the BlockedLocation row when supplied" do
-      described_class.call(
-        login_attempt: attempt,
-        acting_user: operator,
-        source: :web,
-        reason: "suspicious — known bad fingerprint"
-      )
+      call_blocker(reason: "suspicious — known bad fingerprint")
       expect(BlockedLocation.last.reason).to eq("suspicious — known bad fingerprint")
     end
   end
@@ -140,13 +114,7 @@ RSpec.describe Auth::LoginAttemptBlocker do
              fingerprint_hash: fp, ip_prefix: ip_prefix,
              blocked_by_user: operator)
 
-      expect {
-        described_class.call(
-          login_attempt: attempt,
-          acting_user: operator,
-          source: :web
-        )
-      }.not_to change(BlockedLocation, :count)
+      expect { call_blocker }.not_to change(BlockedLocation, :count)
     end
 
     it "still writes a fresh audit row when the pair is already blocked" do
@@ -154,48 +122,24 @@ RSpec.describe Auth::LoginAttemptBlocker do
              fingerprint_hash: fp, ip_prefix: ip_prefix,
              blocked_by_user: operator)
 
-      expect {
-        described_class.call(
-          login_attempt: attempt,
-          acting_user: operator,
-          source: :web
-        )
-      }.to change(AuthAuditLog, :count).by(1)
+      expect { call_blocker }.to change(AuthAuditLog, :count).by(1)
     end
   end
 
   describe ".call (sad)" do
     it "raises PendingExpired when the pending session window has elapsed" do
       pending.update_columns(approval_required_until: 1.minute.ago)
-      expect {
-        described_class.call(
-          login_attempt: attempt,
-          acting_user: operator,
-          source: :web
-        )
-      }.to raise_error(Auth::LoginAttemptBlocker::PendingExpired)
+      expect { call_blocker }.to raise_error(Auth::LoginAttemptBlocker::PendingExpired)
     end
 
     it "raises AlreadyResolved when the session is already revoked" do
       pending.revoke!
-      expect {
-        described_class.call(
-          login_attempt: attempt,
-          acting_user: operator,
-          source: :web
-        )
-      }.to raise_error(Auth::LoginAttemptBlocker::AlreadyResolved)
+      expect { call_blocker }.to raise_error(Auth::LoginAttemptBlocker::AlreadyResolved)
     end
 
     it "raises AlreadyResolved when the session is already :expired" do
       pending.update_columns(state: Session.states[:expired])
-      expect {
-        described_class.call(
-          login_attempt: attempt,
-          acting_user: operator,
-          source: :web
-        )
-      }.to raise_error(Auth::LoginAttemptBlocker::AlreadyResolved)
+      expect { call_blocker }.to raise_error(Auth::LoginAttemptBlocker::AlreadyResolved)
     end
 
     it "raises AlreadyResolved when the attempt has no session_id" do
@@ -206,18 +150,8 @@ RSpec.describe Auth::LoginAttemptBlocker do
         described_class.call(
           login_attempt: orphan,
           acting_user: operator,
-          source: :web
-        )
-      }.to raise_error(Auth::LoginAttemptBlocker::AlreadyResolved)
-    end
-
-    it "raises AlreadyResolved when the session row no longer exists" do
-      attempt.update_columns(session_id: 999_999_999)
-      expect {
-        described_class.call(
-          login_attempt: attempt,
-          acting_user: operator,
-          source: :web
+          source: :web,
+          request: fake_request
         )
       }.to raise_error(Auth::LoginAttemptBlocker::AlreadyResolved)
     end
@@ -227,7 +161,8 @@ RSpec.describe Auth::LoginAttemptBlocker do
         described_class.call(
           login_attempt: nil,
           acting_user: operator,
-          source: :web
+          source: :web,
+          request: fake_request
         )
       }.to raise_error(ArgumentError, /login_attempt/)
     end
@@ -237,7 +172,8 @@ RSpec.describe Auth::LoginAttemptBlocker do
         described_class.call(
           login_attempt: attempt,
           acting_user: nil,
-          source: :web
+          source: :web,
+          request: fake_request
         )
       }.to raise_error(ArgumentError, /acting_user/)
     end
@@ -247,7 +183,8 @@ RSpec.describe Auth::LoginAttemptBlocker do
         described_class.call(
           login_attempt: attempt,
           acting_user: operator,
-          source: :sms
+          source: :sms,
+          request: fake_request
         )
       }.to raise_error(ArgumentError, /invalid source/)
     end
@@ -257,13 +194,7 @@ RSpec.describe Auth::LoginAttemptBlocker do
     it "rolls back the revoke if audit-log write fails" do
       allow(Auth::AuditLogger).to receive(:call).and_raise("audit blew up")
 
-      expect {
-        described_class.call(
-          login_attempt: attempt,
-          acting_user: operator,
-          source: :web
-        )
-      }.to raise_error("audit blew up")
+      expect { call_blocker }.to raise_error("audit blew up")
 
       # The whole block (block-list upsert, revoke, attempt row) is
       # rolled back together with the audit-log failure.

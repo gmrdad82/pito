@@ -1,5 +1,88 @@
 # Phase 26 — log
 
+## 2026-05-11 — sub-spec 01e Daily digest scheduler (pito-rails)
+
+Implemented sub-spec 01e — Daily digest scheduler per
+`specs/01e-daily-digest-scheduler.md` and the master-locked decisions:
+hourly cron at minute 0, per-user `last_digest_run_at` UTC guard,
+per-provider Slack-blocks / Discord-embeds rendering, retry posture
+3 attempts with exponential backoff (1m, 5m, 15m), permanent failures
+(400/401/403/404/410) drop a `digest_delivery_failed` notification row
+and stop retrying.
+
+### Files touched
+
+**New:**
+
+- `db/migrate/20260511155924_add_last_digest_run_at_to_users.rb` —
+  `users.last_digest_run_at` (datetime, NOT NULL, default
+  `CURRENT_TIMESTAMP` so freshly-created users look "just-digested"
+  and don't double-fire at the first cron tick). Migration applied
+  to dev DB; status confirmed clean.
+- `app/jobs/daily_digest_scheduler_job.rb` — hourly cron entry
+  (ActiveJob). Pre-filters users via SQL on the 23h cooldown +
+  EXISTS-clause for a digest-enabled `notification_delivery_channels`
+  row, then runs the precise tz-aware pickup check in Ruby
+  (`ActiveSupport::TimeZone#local`). Atomic claim via a conditional
+  `UPDATE` that re-asserts the cooldown — two simultaneous ticks
+  race-safe. Edge zones (UTC+14 Kiritimati, UTC-11 Pago Pago,
+  UTC+5:30 Kolkata, UTC+8:45 Eucla) and DST transitions (spring-
+  forward Mar 8 2026 + fall-back Nov 1 2026 in America/New_York) all
+  covered.
+- `app/jobs/daily_digest_deliver_job.rb` — per-user delivery
+  (ActiveJob). Iterates digest-enabled channels, renders per-provider
+  payload, delivers via `Webhooks::SlackClient#deliver` /
+  `Webhooks::DiscordClient#deliver`. Permanent failures
+  (400/401/403/404/410) record a `Notification` row tagged
+  `event_type: "digest_delivery_failed"` and continue with the next
+  channel. Transient failures (429, 5xx, network) raise
+  `TransientFailure` so ActiveJob retries with the 1m/5m/15m ladder.
+- `app/services/digest/composer.rb` — provider-agnostic aggregator.
+  Six sections: channels synced, videos imported, videos updated
+  (re-synced inside window but created before it — no double-count),
+  footage imported, login attempts, open notifications (unread,
+  older than 1 hour to avoid flapping). Per-section item cap 10
+  with `… and N more` trailer.
+- `app/services/digest/slack_renderer.rb` — Slack Block Kit. Header
+  + context (window range rendered in user's local tz) + one
+  `section` block per non-empty `Composer::Section`, dividers between
+  them. All-quiet fallback emits a single `no activity in the last
+  24 hours` section block.
+- `app/services/digest/discord_renderer.rb` — Discord embeds. Top-
+  level `content` + one embed with `title`, `description` (window
+  range in user-tz), `fields` (one per non-empty section), `timestamp`
+  (window-end ISO8601 — Discord renders in viewer-local). Defensive
+  truncation to Discord's 1024-char per-field cap.
+- Specs:
+  `spec/services/digest/composer_spec.rb`,
+  `spec/services/digest/slack_renderer_spec.rb`,
+  `spec/services/digest/discord_renderer_spec.rb`,
+  `spec/jobs/daily_digest_scheduler_job_spec.rb`,
+  `spec/jobs/daily_digest_deliver_job_spec.rb`.
+  91 specs total. Exhaustive on the picker (every locked zone +
+  DST + idempotence + tz-change + race), happy + sad + edge on
+  delivery (2xx success across Slack + Discord, 429/5xx retry,
+  400/401/404 terminal, mixed Slack-permanent + Discord-success,
+  all-quiet still-deliver).
+
+**Edited:**
+
+- `config/sidekiq_cron.yml` — registered `daily_digest_scheduler`
+  cron entry at `"0 * * * *"`.
+
+### Acceptance status
+
+All Acceptance bullets in `specs/01e-daily-digest-scheduler.md`
+green. Brakeman (`bin/brakeman -q -w2`) clean. Rubocop clean on
+touched files. The plan-level `01e` checkbox ticked.
+
+### Open items
+
+The locked open questions in the spec (digest content shape,
+all-quiet fallback, DST policy, retry budget, bulk-vs-per-user,
+delivery-failure visibility) were all resolved by the master
+dispatch instructions and implemented as locked.
+
 ## 2026-05-11 — sub-spec 01a Timezone foundation (pito-rails)
 
 Implemented sub-spec 01a — Timezone foundation per

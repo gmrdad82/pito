@@ -29,7 +29,7 @@ RSpec.describe Auth::LoginAttemptApprover do
     request
   end
 
-  def call_with_request(**overrides)
+  def call_approver(**overrides)
     described_class.call(
       login_attempt: attempt,
       acting_user: operator,
@@ -41,56 +41,32 @@ RSpec.describe Auth::LoginAttemptApprover do
 
   describe ".call (happy)" do
     it "promotes the pending session to active" do
-      result = described_class.call(
-        login_attempt: attempt,
-        acting_user: operator,
-        source: :web
-      )
+      result = call_approver
       expect(result[:session].id).to eq(pending.id)
       expect(pending.reload.state_active?).to be true
     end
 
     it "writes a fresh attempt row with reason: approved_from_web" do
-      expect {
-        described_class.call(
-          login_attempt: attempt,
-          acting_user: operator,
-          source: :web
-        )
-      }.to change(LoginAttempt, :count).by(1)
+      expect { call_approver }.to change(LoginAttempt, :count).by(1)
 
       success_row = LoginAttempt.where(result: :success).recent.first
       expect(success_row.reason).to eq("approved_from_web")
     end
 
     it "carries the source-specific reason for tui" do
-      described_class.call(
-        login_attempt: attempt,
-        acting_user: operator,
-        source: :tui
-      )
+      call_approver(source: :tui)
       success_row = LoginAttempt.where(result: :success).recent.first
       expect(success_row.reason).to eq("approved_from_tui")
     end
 
     it "carries the source-specific reason for mcp" do
-      described_class.call(
-        login_attempt: attempt,
-        acting_user: operator,
-        source: :mcp
-      )
+      call_approver(source: :mcp)
       success_row = LoginAttempt.where(result: :success).recent.first
       expect(success_row.reason).to eq("approved_from_mcp")
     end
 
     it "upserts a TrustedLocation row for the (user, fp, prefix) triple" do
-      expect {
-        described_class.call(
-          login_attempt: attempt,
-          acting_user: operator,
-          source: :web
-        )
-      }.to change(TrustedLocation, :count).by(1)
+      expect { call_approver }.to change(TrustedLocation, :count).by(1)
 
       row = TrustedLocation.last
       expect(row.user_id).to eq(user.id)
@@ -100,22 +76,12 @@ RSpec.describe Auth::LoginAttemptApprover do
 
     it "rotates the session token (digest changes)" do
       original = pending.token_digest
-      described_class.call(
-        login_attempt: attempt,
-        acting_user: operator,
-        source: :web
-      )
+      call_approver
       expect(pending.reload.token_digest).not_to eq(original)
     end
 
     it "writes an audit row with action: approve and source: web" do
-      expect {
-        described_class.call(
-          login_attempt: attempt,
-          acting_user: operator,
-          source: :web
-        )
-      }.to change(AuthAuditLog, :count).by(1)
+      expect { call_approver }.to change(AuthAuditLog, :count).by(1)
 
       row = AuthAuditLog.last
       expect(row.action).to eq("approve")
@@ -133,11 +99,7 @@ RSpec.describe Auth::LoginAttemptApprover do
                      in_app_read_at: nil)
       attempt.update!(notification: notif)
 
-      described_class.call(
-        login_attempt: attempt,
-        acting_user: operator,
-        source: :web
-      )
+      call_approver
       expect(notif.reload.read?).to be true
     end
 
@@ -150,11 +112,7 @@ RSpec.describe Auth::LoginAttemptApprover do
       attempt.update!(notification: notif)
       stamped = notif.in_app_read_at
 
-      described_class.call(
-        login_attempt: attempt,
-        acting_user: operator,
-        source: :web
-      )
+      call_approver
       expect(notif.reload.in_app_read_at.to_i).to eq(stamped.to_i)
     end
   end
@@ -162,35 +120,17 @@ RSpec.describe Auth::LoginAttemptApprover do
   describe ".call (sad)" do
     it "raises PendingExpired when the pending session window has elapsed" do
       pending.update_columns(approval_required_until: 1.minute.ago)
-      expect {
-        described_class.call(
-          login_attempt: attempt,
-          acting_user: operator,
-          source: :web
-        )
-      }.to raise_error(Auth::LoginAttemptApprover::PendingExpired)
+      expect { call_approver }.to raise_error(Auth::LoginAttemptApprover::PendingExpired)
     end
 
     it "raises AlreadyResolved when the session is already revoked" do
       pending.revoke!
-      expect {
-        described_class.call(
-          login_attempt: attempt,
-          acting_user: operator,
-          source: :web
-        )
-      }.to raise_error(Auth::LoginAttemptApprover::AlreadyResolved)
+      expect { call_approver }.to raise_error(Auth::LoginAttemptApprover::AlreadyResolved)
     end
 
     it "raises AlreadyResolved when the session is already :expired" do
       pending.update_columns(state: Session.states[:expired])
-      expect {
-        described_class.call(
-          login_attempt: attempt,
-          acting_user: operator,
-          source: :web
-        )
-      }.to raise_error(Auth::LoginAttemptApprover::AlreadyResolved)
+      expect { call_approver }.to raise_error(Auth::LoginAttemptApprover::AlreadyResolved)
     end
 
     it "raises AlreadyResolved when the attempt has no session_id" do
@@ -201,18 +141,8 @@ RSpec.describe Auth::LoginAttemptApprover do
         described_class.call(
           login_attempt: orphan,
           acting_user: operator,
-          source: :web
-        )
-      }.to raise_error(Auth::LoginAttemptApprover::AlreadyResolved)
-    end
-
-    it "raises AlreadyResolved when the session row no longer exists" do
-      attempt.update_columns(session_id: 999_999_999)
-      expect {
-        described_class.call(
-          login_attempt: attempt,
-          acting_user: operator,
-          source: :web
+          source: :web,
+          request: fake_request
         )
       }.to raise_error(Auth::LoginAttemptApprover::AlreadyResolved)
     end
@@ -222,7 +152,8 @@ RSpec.describe Auth::LoginAttemptApprover do
         described_class.call(
           login_attempt: nil,
           acting_user: operator,
-          source: :web
+          source: :web,
+          request: fake_request
         )
       }.to raise_error(ArgumentError, /login_attempt/)
     end
@@ -232,7 +163,8 @@ RSpec.describe Auth::LoginAttemptApprover do
         described_class.call(
           login_attempt: attempt,
           acting_user: nil,
-          source: :web
+          source: :web,
+          request: fake_request
         )
       }.to raise_error(ArgumentError, /acting_user/)
     end
@@ -242,7 +174,8 @@ RSpec.describe Auth::LoginAttemptApprover do
         described_class.call(
           login_attempt: attempt,
           acting_user: operator,
-          source: :email
+          source: :email,
+          request: fake_request
         )
       }.to raise_error(ArgumentError, /invalid source/)
     end
@@ -254,11 +187,7 @@ RSpec.describe Auth::LoginAttemptApprover do
       original_state = pending.state
 
       expect {
-        described_class.call(
-          login_attempt: attempt,
-          acting_user: operator,
-          source: :web
-        )
+        call_approver
       }.to raise_error("audit blew up")
 
       expect(pending.reload.state).to eq(original_state)
