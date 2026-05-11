@@ -41,3 +41,4 @@
 # Rust workspace target dirs (root + per-crate fallback).
 /target/
 /extras/*/target/
+.claude/
