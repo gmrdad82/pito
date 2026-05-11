@@ -1,0 +1,55 @@
+<%# Phase 27 §01f — Per-platform ownership editor. Dedicated page
+    (separate from `/games/:id/edit`) so the editor doesn't bloat the
+    main local-fields form. Layout mirrors the show / edit pages:
+    narrow cover pane + wide form pane.
+%>
+<% content_for(:title, "edit ownership: #{@game.title}") %>
+<% breadcrumb([ "games", games_path ], [ @game.title, game_path(@game) ], "edit ownership") %>
+
+<div class="pane-row">
+  <div class="pane pane--narrow">
+    <%= render "shared/igdb_cover", game: @game, size: "t_cover_big" %>
+
+    <h1 style="margin: 8px 0 4px 0;"><%= @game.title %></h1>
+    <p class="text-muted" style="margin: 0 0 8px 0;">
+      <% if @game.release_year %><%= @game.release_year %><% else %>—<% end %>
+    </p>
+  </div>
+
+  <div class="pane pane--wide">
+    <h2 style="margin-top: 0;">per-platform ownership</h2>
+    <p class="text-muted" style="margin: 0 0 12px 0;">
+      tick the platforms you own this game on.<br>
+      optional fields (acquired, store, notes) attach per platform.
+    </p>
+
+    <% if @form_error.present? %>
+      <div class="text-danger" style="margin: 0 0 12px 0;">
+        <p style="margin: 0;"><%= @form_error %></p>
+      </div>
+    <% end %>
+
+    <% if @game.errors.any? %>
+      <div class="text-danger" style="margin: 0 0 12px 0;">
+        <% @game.errors.full_messages.each do |msg| %>
+          <p style="margin: 0;"><%= msg %></p>
+        <% end %>
+      </div>
+    <% end %>
+
+    <%= form_with(model: @game,
+                  url: game_platform_ownerships_path(@game),
+                  method: :patch,
+                  data: { turbo: false }) do %>
+      <%= render(Games::PlatformOwnershipEditorComponent.new(
+            game: @game,
+            ownerships_by_platform: @ownerships_by_platform
+          )) %>
+
+      <div class="dot-list" style="margin-top: 12px;">
+        <button type="submit" class="bracketed" style="background: none; border: none; padding: 0; cursor: pointer;">[<span class="bl">save</span>]</button>
+        <%= render(BracketedLinkComponent.new(label: "cancel", href: game_path(@game))) %>
+      </div>
+    <% end %>
+  </div>
+</div>

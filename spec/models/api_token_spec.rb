@@ -99,6 +99,32 @@ RSpec.describe ApiToken, type: :model do
         expect(build(:api_token, scopes: [ Scopes::APP ])).to be_valid
       end
     end
+
+    describe "Phase 25 — 01d. strip-on-release auth_scope_only_when_exposed validation" do
+      around do |example|
+        original = Rails.application.config.x.mcp.expose_auth_scope
+        Rails.application.config.x.mcp.expose_auth_scope = false
+        example.run
+      ensure
+        Rails.application.config.x.mcp.expose_auth_scope = original
+      end
+
+      it "rejects scopes: ['auth'] when expose_auth_scope is false" do
+        token = build(:api_token, scopes: [ Scopes::AUTH ])
+        expect(token).not_to be_valid
+        expect(token.errors[:scopes].join).to match(/auth/)
+      end
+
+      it "rejects scopes: ['auth', 'app'] when expose_auth_scope is false" do
+        token = build(:api_token, scopes: [ Scopes::AUTH, Scopes::APP ])
+        expect(token).not_to be_valid
+        expect(token.errors[:scopes].join).to match(/auth/)
+      end
+
+      it "accepts scopes: ['app'] when expose_auth_scope is false" do
+        expect(build(:api_token, scopes: [ Scopes::APP ])).to be_valid
+      end
+    end
   end
 
   describe "associations" do

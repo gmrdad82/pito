@@ -80,6 +80,15 @@ class Game < ApplicationRecord
   has_many :game_platform_ownerships, dependent: :destroy
   has_many :owned_platforms, through: :game_platform_ownerships, source: :platform
 
+  # Phase 27 §01f — nested attributes for the per-platform ownership
+  # editor (`Games::PlatformOwnershipsController#update`). `allow_destroy`
+  # lets the controller mark un-ticked rows for deletion via `_destroy`.
+  # `reject_if` skips blank in-memory rows the editor scaffolds for
+  # not-yet-owned platforms when the user leaves them unticked.
+  accepts_nested_attributes_for :game_platform_ownerships,
+                                allow_destroy: true,
+                                reject_if: :all_blank
+
   # Phase 14 §2 — Bundle membership. A Game can belong to many
   # Bundles. Cascade-on-delete from games removes the join rows;
   # `BundleCoverInvalidate` is enqueued from `after_update_commit`

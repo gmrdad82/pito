@@ -680,3 +680,98 @@ honored.
   `docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs/01-overview-games-listing-rework.md`.
 - Plan checkbox: `…/plan.md` → `01a — Per-platform ownership data
   model` block (all 10 boxes ticked).
+
+---
+
+## 2026-05-11 — 01h Collection cover composer (re-dispatch)
+
+Re-dispatched after the original 01h work landed in `e145122`
+("Convergent: P25 01c notifications + P26 01g viewer-time + P27 01h
+composer + misc"). This session:
+
+- Verified the committed implementation against the spec
+  `specs/01h-collections-cover-composer.md`: 6-variant matrix
+  (empty / passthrough / pair / netflix3 / quad / netflix5 / six_grid),
+  98×130 output canvas, alphabetical-by-title ordering, MAX 6 tiles,
+  fingerprint via `Composite::Checksum.compute`, on-disk path
+  `composites/collection-<id>.jpg`, libvips-error degradation
+  (substitute placeholder + WARN), cache invalidation hook via
+  `Game#after_update_commit` on `collection_id` change.
+
+- Fixed a latent flake in `spec/jobs/collection_cover_rebuild_job_spec.rb`:
+  the "survives Errno::ENOENT mid-job" example stubbed `File.delete`
+  globally without restoration, which leaked into the `after` cleanup
+  hook and crashed teardown. Scoped the stubs to the two specific
+  Pathname targets and broadened the `after` hook's `rescue` clause to
+  `Pito::AssetsRoot::Error, Errno::ENOENT`.
+
+- Confirmed the `Compositable` concern (`app/models/concerns/compositable.rb`)
+  is mixed into both `Bundle` and `Collection`, providing
+  `composite_cover_url`, `composite_cover_absolute_path`, and
+  `sweep_composite_cover_file`. The `Composite::Builder` itself stays
+  bundle-coupled (per the spec's "bundle code stays untouched"
+  mandate) — the natural sharing point was the URL/path/sweep trio,
+  not the build pipeline.
+
+### Variant matrix coverage (98 × 130)
+
+| Count | Layout       | Tile boxes                                             | Sums      |
+| ----- | ------------ | ------------------------------------------------------ | --------- |
+| 0     | :empty       | n/a (no composite)                                     | n/a       |
+| 1     | :passthrough | n/a (caller renders `Games::CoverComponent`)           | n/a       |
+| 2     | :pair        | 49×130 ‖ 49×130                                        | 98 / 130  |
+| 3     | :netflix3    | big 64×130 ‖ (34×65 / 34×65)                           | 98 / 130  |
+| 4     | :quad        | 49×65 ‖ 49×65 / 49×65 ‖ 49×65                          | 98 / 130  |
+| 5     | :netflix5    | big 50×130 ‖ (24×65,24×65 / 24×65,24×65)               | 98 / 130  |
+| 6+    | :six_grid    | (33,33,32 × 65) / (33,33,32 × 65)                      | 98 / 130  |
+
+### Files (committed in e145122 + this session's spec polish)
+
+- `app/services/collections/composite_layout.rb` (new — pure layout engine).
+- `app/services/collections/cover_composer.rb` (new — orchestrator).
+- `app/models/concerns/compositable.rb` (new — shared with Bundle).
+- `app/jobs/collection_cover_rebuild_job.rb` (new — eviction job).
+- `app/models/collection.rb` — `include Compositable`, `cover_url`,
+  `before_destroy :sweep_composite_cover_file`.
+- `app/models/bundle.rb` — `include Compositable`, dropped duplicated
+  `composite_cover_url` / `composite_cover_absolute_path` /
+  `sweep_composite_cover_file`.
+- `app/models/game.rb` — `after_update_commit
+  :evict_collection_composite_on_collection_change`.
+- `app/views/games/_collection_sub_shelf.html.erb` (new — view partial).
+- `app/assets/tailwind/application.css` — `.collection-cover-composite`.
+- `db/migrate/20260511160358_add_composite_cover_columns_to_collections.rb`
+  (composite_cover_path + composite_cover_checksum on collections).
+- Specs: `spec/services/collections/composite_layout_spec.rb` (86),
+  `spec/services/collections/cover_composer_spec.rb` (22),
+  `spec/models/concerns/compositable_spec.rb` (10),
+  `spec/models/collection_spec.rb` (additions),
+  `spec/models/game_spec.rb` (additions),
+  `spec/jobs/collection_cover_rebuild_job_spec.rb` (10 — including
+  this session's race-condition stub-scoping fix),
+  `spec/views/games/_collection_sub_shelf.html.erb_spec.rb` (15),
+  `spec/requests/composites_spec.rb` (additions).
+
+### Gates
+
+- `rspec` — 347 touched-subtree examples green
+  (services/collections, models/concerns/compositable, models/collection,
+  models/game, jobs/collection_cover_rebuild_job,
+  views/games/_collection_sub_shelf, requests/composites, models/bundle,
+  services/composite, jobs/bundle_cover_*).
+- `rubocop` — clean on all touched Ruby files (16 inspected, no
+  offenses).
+- `brakeman` — 0 security warnings (2 prior obsolete-ignore entries
+  noted, both pre-existing).
+
+### References
+
+- Spec:
+  `docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs/01h-collections-cover-composer.md`.
+- Implementing commit: `e145122` (Convergent commit landing 01h
+  alongside P25 01c and P26 01g).
+- Note on canvas size: spec's Open Question #1 resolved to 98 × 130
+  (the existing `:shelf` cover-art variant), NOT the 105 × 140
+  alternate. Per the user dispatch — the integer math for the
+  six_grid is 33+33+32 vs. the cleaner 35+35+35 at 105, but the
+  hosting shelf size locks 98 × 130.

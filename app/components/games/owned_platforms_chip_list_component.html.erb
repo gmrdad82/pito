@@ -1,0 +1,13 @@
+<%# Phase 27 §01f — Owned-platforms chip list. Each chip is a
+    bracketed link to the filtered `/games?filters=<slug>,owned`
+    URL (01b filter row). Empty state is a muted placeholder. %>
+<% if any? %>
+  <span class="owned-platforms-chip-list">
+    <% owned_platforms.each_with_index do |platform, idx| %>
+      <%= render(BracketedLinkComponent.new(label: platform.name,
+                                            href: filter_path_for(platform))) %><% if idx < owned_platforms.length - 1 %> <% end %>
+    <% end %>
+  </span>
+<% else %>
+  <span class="text-muted owned-platforms-chip-list owned-platforms-chip-list--empty">(not owned on any platform)</span>
+<% end %>

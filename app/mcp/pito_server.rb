@@ -45,6 +45,24 @@ module Mcp
     # call against the disabled scope still fails closed.
     DEV_TOOL_NAMES = %w[list_docs read_doc save_note].freeze
 
+    # Phase 25 — 01d. Mirror the strip-on-release pattern for the `auth`
+    # scope tools. The login-security MCP surface (pending listing,
+    # approve / block / unblock / purge, audit log read) is gated behind
+    # `Rails.application.config.x.mcp.expose_auth_scope`. Production
+    # builds strip the scope from the catalog and the tools from the
+    # registry; the per-tool `require_scope!(Scopes::AUTH)` check
+    # provides defense-in-depth.
+    AUTH_TOOL_NAMES = %w[
+      login_attempts_pending
+      login_attempts_list
+      login_attempt_approve
+      login_attempt_block
+      login_attempt_unblock
+      login_attempt_purge
+      auth_audit_log_list
+      blocked_locations_list
+    ].freeze
+
     def self.register_tools(server)
       Dir[Rails.root.join("app/mcp/tools/*.rb")].sort.each { |f| require f }
 
@@ -55,12 +73,22 @@ module Mcp
         tools = tools.reject { |t| DEV_TOOL_NAMES.include?(t.name_value.to_s) }
       end
 
+      unless auth_scope_exposed?
+        tools = tools.reject { |t| AUTH_TOOL_NAMES.include?(t.name_value.to_s) }
+      end
+
       tools.each { |tool| server.tools[tool.name_value] = tool }
     end
 
     def self.dev_scope_exposed?
       return true unless Rails.application.config.x.respond_to?(:mcp)
       flag = Rails.application.config.x.mcp&.expose_dev_scope
+      flag.nil? ? true : flag
+    end
+
+    def self.auth_scope_exposed?
+      return true unless Rails.application.config.x.respond_to?(:mcp)
+      flag = Rails.application.config.x.mcp&.expose_auth_scope
       flag.nil? ? true : flag
     end
 

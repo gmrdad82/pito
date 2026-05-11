@@ -60,7 +60,10 @@
     <legend>visibility</legend>
     <p>privacy: <strong><%= video.privacy_status %></strong></p>
     <% if video.publish_at.present? %>
-      <p>scheduled for: <strong><%= video.publish_at.iso8601 %></strong></p>
+      <%# Phase 26 — 01h. Display in the user's stored zone. UTC is the
+          storage rule; render-time conversion is the only surface for
+          tz mapping. %>
+      <p>scheduled for: <strong><%= l_user_tz(video.publish_at) %></strong></p>
     <% end %>
     <% if video.privacy_private? %>
       <%= link_to "[publish]", pre_publish_checklist_video_path(video, target_action: "publish"),

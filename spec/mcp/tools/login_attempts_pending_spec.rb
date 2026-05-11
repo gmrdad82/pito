@@ -72,11 +72,12 @@ RSpec.describe Mcp::Tools::LoginAttemptsPending do
   end
 
   describe "scope gate" do
-    it "rejects callers without the app scope" do
+    # Phase 25 — 01d. Swapped to the dedicated `auth` scope.
+    it "rejects callers without the auth scope" do
       Current.token = ApiToken.generate!(
         user: Current.user,
-        name: "spec-no-app-pending",
-        scopes: [ Scopes::DEV ]
+        name: "spec-no-auth-pending",
+        scopes: [ Scopes::APP ]
       ).first
 
       result = call_tool

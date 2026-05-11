@@ -1,6 +1,13 @@
 require "rails_helper"
 require_relative "../../../app/mcp/tools/login_attempts_list"
 
+# Phase 25 — 01a + 01d. `login_attempts_list` MCP tool.
+#
+# 01d expanded the filter set (`until_ts`, `user_email`), swapped the
+# scope gate from `app` to `auth`, and changed the bad-input contract
+# from "silently widen the result set" to "return an `invalid_filter`
+# error". This spec covers both the original scaffold paths and the
+# new contract.
 RSpec.describe Mcp::Tools::LoginAttemptsList do
   include ActiveSupport::Testing::TimeHelpers
 
@@ -53,12 +60,12 @@ RSpec.describe Mcp::Tools::LoginAttemptsList do
     end
   end
 
-  describe "scope gate" do
-    it "rejects callers without the app scope" do
+  describe "scope gate (auth — Phase 25 — 01d)" do
+    it "rejects callers without the auth scope" do
       Current.token = ApiToken.generate!(
         user: Current.user,
-        name: "spec-no-app",
-        scopes: [ Scopes::DEV ]
+        name: "spec-no-auth-list",
+        scopes: [ Scopes::APP ]
       ).first
 
       result = call_tool
@@ -73,7 +80,7 @@ RSpec.describe Mcp::Tools::LoginAttemptsList do
     end
   end
 
-  describe "filters" do
+  describe "filters — happy" do
     it "result=success returns only success rows" do
       data = parse(call_tool(result: "success"))
       ids = data["attempts"].map { |r| r["id"] }
@@ -84,6 +91,12 @@ RSpec.describe Mcp::Tools::LoginAttemptsList do
       data = parse(call_tool(since: 1.hour.ago.iso8601))
       ids = data["attempts"].map { |r| r["id"] }
       expect(ids).not_to include(older.id)
+    end
+
+    it "until_ts narrows to older rows (Phase 25 — 01d)" do
+      data = parse(call_tool(until_ts: 1.hour.ago.iso8601))
+      ids = data["attempts"].map { |r| r["id"] }
+      expect(ids).to contain_exactly(older.id)
     end
 
     it "ip filter applies exact match" do
@@ -98,10 +111,47 @@ RSpec.describe Mcp::Tools::LoginAttemptsList do
       expect(ids).to contain_exactly(blocked.id)
     end
 
-    it "invalid since is silently ignored" do
-      data = parse(call_tool(since: "not-iso"))
+    it "user_email filter applies exact match (Phase 25 — 01d)" do
+      special = create(:login_attempt, email_attempted: "needle@example.test")
+      data = parse(call_tool(user_email: "needle@example.test"))
       ids = data["attempts"].map { |r| r["id"] }
-      expect(ids).to contain_exactly(older.id, succ.id, blocked.id)
+      expect(ids).to contain_exactly(special.id)
+    end
+
+    it "combined result + since + ip intersects correctly" do
+      target = create(:login_attempt, :blocked,
+                      ip: "9.9.9.9", ip_prefix: "9.9.9.0/24",
+                      created_at: 30.minutes.ago)
+      data = parse(call_tool(result: "blocked", since: 1.hour.ago.iso8601, ip: "9.9.9.9"))
+      ids = data["attempts"].map { |r| r["id"] }
+      expect(ids).to include(target.id, blocked.id)
+      expect(ids).not_to include(older.id, succ.id)
+    end
+  end
+
+  describe "filters — sad (invalid input rejected, Phase 25 — 01d)" do
+    it "invalid result enum returns invalid_filter error" do
+      result = call_tool(result: "not-a-result")
+      expect(result.to_h[:isError]).to be(true)
+      payload = JSON.parse(result.content.first[:text])
+      expect(payload["error"]).to eq("invalid_filter")
+      expect(payload["message"]).to include("invalid result")
+    end
+
+    it "invalid since timestamp returns invalid_filter error" do
+      result = call_tool(since: "not-iso")
+      expect(result.to_h[:isError]).to be(true)
+      payload = JSON.parse(result.content.first[:text])
+      expect(payload["error"]).to eq("invalid_filter")
+      expect(payload["message"]).to include("since")
+    end
+
+    it "invalid until_ts timestamp returns invalid_filter error" do
+      result = call_tool(until_ts: "garbage")
+      expect(result.to_h[:isError]).to be(true)
+      payload = JSON.parse(result.content.first[:text])
+      expect(payload["error"]).to eq("invalid_filter")
+      expect(payload["message"]).to include("until_ts")
     end
   end
 
@@ -116,6 +166,11 @@ RSpec.describe Mcp::Tools::LoginAttemptsList do
       data1 = parse(call_tool(per_page: 1, page: 1))
       data2 = parse(call_tool(per_page: 1, page: 2))
       expect(data1["attempts"].first["id"]).not_to eq(data2["attempts"].first["id"])
+    end
+
+    it "clamps per_page above the cap (100)" do
+      data = parse(call_tool(per_page: 1_000))
+      expect(data["pagination"]["per_page"]).to eq(100)
     end
   end
 end

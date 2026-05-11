@@ -1,5 +1,176 @@
 # Phase 25 — Login Security + New-Location Approval · Session Log
 
+## 2026-05-11 — sub-spec 01d MCP login_attempts tools (pito-mcp) [skipci]
+
+**Dispatch:** `pito-mcp` agent against spec
+`specs/01d-mcp-tools-pending-approve-block-purge.md`. Promotes the read
+scaffolds from 01a / 01b to a fully-gated MCP surface. Adds the `auth`
+MCP scope with strip-on-release semantics mirroring the `dev`
+precedent (ADR 0004). Wires six new destructive / read tools through
+the existing service layer (no new business logic).
+
+**What landed**
+
+Scope catalog
+
+- `app/lib/scopes.rb` — adds `Scopes::AUTH = "auth"`, the
+  `.auth_exposed?` runtime check, the matching `DESCRIPTIONS` entry.
+  `Scopes::ALL` now orders `[dev, app, auth]` in the test/dev
+  environments and strips `auth` from production builds via the
+  `expose_auth_scope` flag.
+- `app/models/api_token.rb` — adds `auth_scope_only_when_exposed`
+  validation mirroring the dev guard. Stub-mid-process specs see the
+  row rejected when the flag is `false`.
+- `app/mcp/pito_server.rb` — strips `AUTH_TOOL_NAMES` from
+  `tools/list` when `expose_auth_scope` is `false`. Defense-in-depth
+  with the per-tool `require_scope!(Scopes::AUTH)` gate.
+- `config/environments/{development,test,production}.rb` — three new
+  `config.x.mcp.expose_auth_scope` declarations matching the existing
+  `expose_dev_scope` pattern.
+
+Tools (promoted)
+
+- `app/mcp/tools/login_attempts_pending.rb` — scope gate swapped from
+  the temporary `app` placeholder to `auth`.
+- `app/mcp/tools/login_attempts_list.rb` — scope swapped to `auth`,
+  filter set expanded (`until_ts`, `user_email`), invalid filters now
+  return a structured `invalid_filter` error rather than silently
+  widening the result set.
+- `app/mcp/tools/blocked_locations_list.rb` — scope swapped to `auth`.
+
+Tools (new)
+
+- `app/mcp/tools/login_attempt_approve.rb` — delegates to
+  `Auth::LoginAttemptApprover` with `source: :mcp`. Two-step
+  `confirm: yes/no`; missing confirm returns a preview shape. Builds
+  a synthetic `ActionDispatch::Request` via `Rack::MockRequest.env_for`
+  so the downstream `Auth::SessionActivator` + `Auth::AttemptLogger`
+  chain has a non-nil request object (the IP falls through to
+  `0.0.0.0`; the audit row's `source_surface: :mcp` is the canonical
+  marker).
+- `app/mcp/tools/login_attempt_block.rb` — delegates to
+  `Auth::LoginAttemptBlocker` with `source: :mcp`. Preview surfaces
+  `already_blocked` + `will_create_blocked_location` yes/no flags so
+  a caller knows whether the row will be a fresh BlockedLocation or
+  reuse the existing pair via the unique partial index.
+- `app/mcp/tools/login_attempt_unblock.rb` — delegates to the new
+  `Auth::BlockedLocationUnblocker`. Accepts EITHER
+  `blocked_location_id` OR `(fingerprint, ip_prefix)` pair. Idempotent
+  on already-unblocked rows (returns `already_unblocked: yes` with no
+  fresh audit row). Preview path describes the prospective stamp.
+- `app/mcp/tools/login_attempt_purge.rb` — delegates to
+  `Auth::AttemptPurger`. Empty filter rejected up-front so a tool-
+  level error fires before the service raises `EmptyFilter`. Preview
+  path computes the prospective row count without deleting (re-runs
+  the same filter narrowing as the service). The purge audit row
+  carries `target_type: User` (the actor), with
+  `metadata: { scope: "login_attempts", filter, deleted_count }`. Q-K
+  resolves: system-wide; any `auth`-scoped caller can purge any rows;
+  the audit row identifies the actor.
+- `app/mcp/tools/auth_audit_log_list.rb` — read-only paginated audit
+  log. Filter set: `action`, `source_surface`, `since`, `until_ts`,
+  `acting_user_email` (resolved through the User table), `target_type`,
+  `target_id`. Output rows carry an `is_recent: yes/no` Boolean
+  (7-day window) per LD-15.
+
+Services (new)
+
+- `app/services/auth/blocked_location_unblocker.rb` — soft-unblock
+  with pessimistic lock on the row, idempotent for already-unblocked
+  rows, audit-logs `action: :unblock`. Two callable shapes
+  (row reference OR pair lookup); the pair-shape path only finds
+  *active* matching rows so a caller passing the pair gets the same
+  `not_found` shape as the controller. Audit row metadata carries
+  `fingerprint_short` + `ip_prefix`.
+
+Specs
+
+- `spec/mcp/tools/login_attempt_approve_spec.rb` (new, 11 examples)
+- `spec/mcp/tools/login_attempt_block_spec.rb` (new, 13 examples)
+- `spec/mcp/tools/login_attempt_unblock_spec.rb` (new, 12 examples)
+- `spec/mcp/tools/login_attempt_purge_spec.rb` (new, 11 examples)
+- `spec/mcp/tools/auth_audit_log_list_spec.rb` (new, 14 examples)
+- `spec/services/auth/blocked_location_unblocker_spec.rb` (new, 10 examples)
+- `spec/lib/scopes_spec.rb` — refreshed for the three-scope catalog,
+  added `.auth_exposed?` coverage + the `[app, auth]` /
+  `[dev, app]` / `[app]` strip permutations.
+- `spec/models/api_token_spec.rb` — added a parallel describe block
+  for the new `auth_scope_only_when_exposed` validation.
+- `spec/mcp/tools/login_attempts_list_spec.rb` — expanded to cover
+  `until_ts`, `user_email`, combined-filter intersection, and the
+  new "invalid filter raises an error" contract; old "silently
+  ignored" case dropped.
+- `spec/mcp/tools/{login_attempts_pending,blocked_locations_list}_spec.rb`
+  — scope-gate tests updated to assert rejection against an `app`-only
+  token (was: `dev`-only) reflecting the swap from `app` → `auth`.
+
+Total: 175 examples across the touched files, 0 failures.
+Rubocop: 26 files inspected, 0 offenses.
+
+**Open questions resolved**
+
+- **Q-K**: system-wide. Any `auth`-scoped caller acts on any rows;
+  the audit row identifies the actor (acting_user_id). Codified in
+  `login_attempt_purge.rb` and `blocked_location_unblocker.rb`.
+
+**Open questions deferred to 01g / future**
+
+- Per-call row cap for `login_attempt_purge` (spec proposal: cap at
+  10k). Not implemented; the service-level `BATCH_SIZE = 1_000`
+  already keeps each transaction small. Track if the field surfaces
+  the need.
+- `blocked_location_purge` MCP tool — out of scope for 01d (01f-side
+  hard-delete UI). The `blocked_locations_list` read-only swap to
+  `auth` lands here so callers can audit the block list from MCP.
+- `login_attempt_revoke_session` separate from block — declined.
+  Block already revokes; revoke-only path stays in the
+  `/settings/sessions` UI.
+
+**Files**
+
+```
+app/lib/scopes.rb                                    M
+app/models/api_token.rb                              M
+app/mcp/pito_server.rb                               M
+app/mcp/tools/login_attempts_pending.rb              M
+app/mcp/tools/login_attempts_list.rb                 M
+app/mcp/tools/blocked_locations_list.rb              M
+app/mcp/tools/login_attempt_approve.rb               +
+app/mcp/tools/login_attempt_block.rb                 +
+app/mcp/tools/login_attempt_unblock.rb               +
+app/mcp/tools/login_attempt_purge.rb                 +
+app/mcp/tools/auth_audit_log_list.rb                 +
+app/services/auth/blocked_location_unblocker.rb      +
+config/environments/development.rb                   M
+config/environments/production.rb                    M
+config/environments/test.rb                          M
+spec/lib/scopes_spec.rb                              M
+spec/models/api_token_spec.rb                        M
+spec/services/auth/blocked_location_unblocker_spec.rb +
+spec/mcp/tools/login_attempts_pending_spec.rb        M
+spec/mcp/tools/login_attempts_list_spec.rb           M
+spec/mcp/tools/blocked_locations_list_spec.rb        M
+spec/mcp/tools/login_attempt_approve_spec.rb         +
+spec/mcp/tools/login_attempt_block_spec.rb           +
+spec/mcp/tools/login_attempt_unblock_spec.rb         +
+spec/mcp/tools/login_attempt_purge_spec.rb           +
+spec/mcp/tools/auth_audit_log_list_spec.rb           +
+docs/plans/beta/25-login-security-and-new-location-approval/plan.md M
+docs/plans/beta/25-login-security-and-new-location-approval/log.md M
+```
+
+**Out of scope (deferred to 01f / docs sweep)**
+
+- `docs/mcp.md` scope-catalog table update and per-tool entries — the
+  `pito-mcp` agent's file scope is the MCP layer; docs updates belong
+  to the master agent's post-validation pass. Plan tickbox flips here;
+  doc sweep happens before push.
+- `docs/auth.md` "MCP auth surface" section — same reasoning.
+- Per-token opt-in checkbox on `/settings/tokens/new` — UI work
+  belongs to `pito-rails`; the model + catalog wiring above already
+  supports the opt-in (token-mint with `scopes: [Scopes::AUTH]` is a
+  valid path when the flag is on, rejected when the flag is off).
+
 ## 2026-05-11 — 01a — Attempt logging + fingerprinting
 
 **Dispatch:** `pito-rails` agent against spec
@@ -521,3 +692,250 @@ Routing (+7)
 
 - The `auth_concern_spec` intended-URL stash test is still red
   (pre-existing — recorded in 01a log).
+
+## 2026-05-11 — 01c — Notifications integration (Rails web side)
+
+**Dispatch:** `pito-rails` agent against spec
+`specs/01c-notifications-integration.md`. Wires the pending-approval
+notification pipeline + the approve / block action-screen controllers
+into the existing 01b pending-session flow. TUI overlay and MCP
+approve/block tools are explicitly out of scope for this dispatch
+(TUI belongs to `pito-rust`, MCP tools land in 01d). Locked decisions
+LD-7 (notification kind / severity), LD-12 (token rotation),
+LD-13 (audit log), LD-15 (yes/no boundary), LD-16 (no JS confirm),
+LD-17 (friendly URLs) applied directly. Q-L (one notification per
+pending row) resolved here.
+
+**What landed**
+
+Database
+
+- `db/migrate/20260511160500_create_auth_audit_logs.rb` — LD-13
+  schema. `acting_user_id` (FK to users, non-null), `source_surface`
+  integer enum (web=0 / tui=1 / mcp=2), `action` integer enum (full
+  LD-13 vocabulary: approve / block / unblock / purge / totp_enroll /
+  totp_disable / backup_code_regenerate), `target_type` + `target_id`
+  polymorphic pointer (NOT a `belongs_to :target, polymorphic: true`
+  so the audit row never follows the target into deletion),
+  `metadata` jsonb. Indexes on (target_type, target_id), action,
+  source_surface, created_at. Pre-declares every LD-13 action so
+  01d–01f land without further migration.
+
+Migrations applied against dev DB AND test DB.
+
+Models
+
+- `app/models/auth_audit_log.rb` — `AuthAuditLog`. `belongs_to
+  :acting_user` (User, required). Two integer enums (source_surface,
+  action) with defensive `attribute :col, :integer` locks against
+  Rails 8.1 bootsnap autoload races. Scopes `.recent`,
+  `.for_target(type, id)`, `.for_acting_user(user)`, `.since(ts)`.
+  No `belongs_to :target, polymorphic: true` — audit rows are
+  pointer-only by design.
+- `app/models/notification.rb` — gains `login_pending_approval: 11`
+  on the `kind` enum. Severity stays `urgent` per LD-7.
+
+Services
+
+- `app/services/auth/audit_logger.rb` — single entry point for every
+  privileged auth action (approve / block / unblock / purge / TOTP
+  enroll / disable / backup-code regenerate). Strict enum guard on
+  `source_surface` / `action` (typo surfaces loudly). Accepts either
+  `target:` (AR record) OR explicit `target_type:` + `target_id:`.
+  Stringifies metadata keys before persisting. Does NOT open an inner
+  transaction — caller wraps the audit + the domain mutation in one
+  transaction so a domain rollback also drops the audit row.
+- `app/services/auth/login_attempt_approver.rb` — `[yeah, it's me]`
+  service. Pessimistic lock on the Session row (`Session.lock.find_by`)
+  serializes concurrent approve + block. Delegates the active-session
+  mint to `Auth::SessionActivator` (existing-row branch — token
+  rotates per LD-12), upserts trusted location, resolves the linked
+  notification (marks read), audit-logs. Exception contract:
+  `PendingExpired` / `AlreadyResolved` / `ArgumentError`. Defense-in-
+  depth: ONLY trusts caller-supplied `acting_user:` kwarg, never reads
+  request params.
+- `app/services/auth/login_attempt_blocker.rb` — `[block the intruder]`
+  mirror. Same pessimistic lock + transaction posture. Upserts the
+  `BlockedLocation` row (idempotent on the unique partial index),
+  revokes the pending session, stamps a fresh `LoginAttempt` row
+  with `reason: :blocked_from_<source>` (bypasses
+  `Auth::AttemptLogger` so the block-list short-circuit doesn't
+  relabel the row as `:blocked_pair`), resolves the notification,
+  audit-logs. `reason:` kwarg lets the operator stamp a free-form
+  text on the BlockedLocation row.
+- `app/services/notification_source/login_pending_approval.rb` —
+  source helper. One Notification per pending attempt (dedup key
+  `"login-pending-#{login_attempt_id}"`). Stamps the
+  `login_attempts.notification_id` FK on the source row via
+  `update_columns` (bypasses the model's `before_update` so we don't
+  trip `resolved_at`). Severity `:urgent` per LD-7.
+- `app/services/notification_formatter/templates/login_pending_approval.rb` —
+  renders the in-app body with the two bracketed-link actions
+  (`[yeah, it's me](/login/approvals/:id)` /
+  `[block the intruder](/login/blocks/:id)`). Graceful placeholders
+  for missing geo / UA / fingerprint. Registered in the formatter
+  templates `REGISTRY`. Emoji `🔑` added to `EVENT_TYPE_EMOJI` so the
+  notification glyph renders in the inbox.
+- `app/services/auth/session_pending_approver.rb` — gains the
+  notification dispatch immediately after the pending row + attempt
+  row commit. Dispatch is deliberately OUTSIDE the transaction so a
+  notification-helper failure does NOT roll back the pending row
+  (the holding page still works without the notification). Failures
+  are logged via `Rails.logger.warn`.
+
+Controllers
+
+- `app/controllers/login/approvals_controller.rb` — two-action
+  controller (`show` + `create`). GET renders the action-screen with
+  attempt detail. POST consumes the `confirm=yes` form (LD-15) and
+  calls `Auth::LoginAttemptApprover.call(source: :web)`. Yes/no
+  boundary, friendly URL `/login/approvals/:id`. NO JS confirm
+  anywhere (LD-16).
+- `app/controllers/login/blocks_controller.rb` — mirror for block.
+  Submit button styled destructive (red) via
+  `shared/_action_screen` `destructive: true`. POST optionally
+  carries a free-form `reason` param stamped on the
+  `BlockedLocation` row.
+
+Views
+
+- `app/views/login/approvals/show.html.erb` — action-screen
+  confirmation. Renders `login/_attempt_detail` (shared with 01b's
+  `/login/pending` holding page so the same card tells the same
+  story across surfaces). Submit label `[yeah, it's me]`.
+- `app/views/login/blocks/show.html.erb` — mirror. Submit label
+  `[block the intruder]`, `destructive: true`.
+
+Routes
+
+- `config/routes.rb` — adds four routes:
+  - `GET  /login/approvals/:id` → `login/approvals#show`
+    (`login_approval_path`)
+  - `POST /login/approvals/:id` → `login/approvals#create`
+  - `GET  /login/blocks/:id`    → `login/blocks#show`
+    (`login_block_path`)
+  - `POST /login/blocks/:id`    → `login/blocks#create`
+  All four constrain `:id` to digits.
+
+Factories
+
+- `spec/factories/auth_audit_logs.rb` — basic factory with sensible
+  defaults (`acting_user`, `source_surface: :web`, `action: :approve`,
+  `target_type: "LoginAttempt"`, sequenced `target_id`).
+
+**Specs added (138 new examples)**
+
+Model (+30 across two files)
+: `spec/models/auth_audit_log_spec.rb` (28 — validations, enum
+  acceptance/rejection, associations, scopes, jsonb round-trip),
+  `spec/models/notification_spec.rb` (+2 — kind acceptance,
+  persistence with login_pending_approval).
+
+Service (+86 across five files)
+: `spec/services/auth/audit_logger_spec.rb` (13 — happy / sad /
+  transactional-posture),
+  `spec/services/auth/login_attempt_approver_spec.rb` (16 — happy +
+  sad + transactional-integrity + defense-in-depth contract check),
+  `spec/services/auth/login_attempt_blocker_spec.rb` (21 — happy +
+  idempotency + sad + transactional-integrity),
+  `spec/services/notification_source/login_pending_approval_spec.rb`
+  (13 — happy / dedupe / sad / template integration),
+  `spec/services/notification_formatter/templates/login_pending_approval_spec.rb`
+  (12 — title / body / url / registry wiring),
+  `spec/services/auth/session_pending_approver_spec.rb` (+4 —
+  notification dispatch happy + failure isolation).
+
+Request (+27 across two files)
+: `spec/requests/login/approvals_spec.rb` (15 — GET show /
+  POST create / unauthenticated / expired / already-resolved),
+  `spec/requests/login/blocks_spec.rb` (12 — mirror including
+  BlockedLocation persistence + reason-text stamping).
+
+Routing (+8)
+: `spec/routing/login_approvals_routing_spec.rb` — both controllers
+  GET/POST, non-numeric-id rejection, named-helper paths.
+
+**Migrations applied**
+
+```
+== 20260511160500 CreateAuthAuditLogs: migrated ==
+```
+
+Both dev and test DBs migrated. `bin/rails db:migrate:status`
+confirms `up`.
+
+**Gates**
+
+- `bundle exec rspec` for the dispatched specs (models, services,
+  notification source, template, requests, routing): 350 examples,
+  0 failures.
+- Broad regression — `spec/services spec/models`: 2,866 examples,
+  0 failures, 1 pre-existing pending.
+- `spec/components spec/helpers`: 660 examples, 0 failures.
+- `bundle exec rubocop` on all touched files (14 source + 12 spec):
+  no offenses.
+- `bin/brakeman -q -w2`: 0 security warnings (one parse error in
+  another agent's untracked component file is unrelated).
+
+**Manual test plan**
+
+1. Restart `bin/dev` so the new migration + routes take effect.
+2. Log in from your trusted browser, leave it open.
+3. In a fresh incognito (different UA → different fingerprint), visit
+   `/login` and submit the correct password.
+4. On the challenge page, click `[ask for approval]`. Browser B lands
+   on the `/login/pending` holding page with the 10-minute countdown.
+5. In the trusted browser, expect the unread notifications badge to
+   tick. Open `/notifications` — the new urgent row reads
+   `new-location login: <your email>`. Click it.
+6. On the detail page (or directly from the inbox body), click
+   `[yeah, it's me]`. The action-screen confirmation renders. Click
+   `[yeah, it's me]` again. Redirect to `/notifications` with a
+   `approved.` flash.
+7. In browser B, refresh `/login/pending` — server-side state has
+   flipped to `:active`, so the next request from B with the rotated
+   cookie should resolve as authenticated (the explicit UX flip lives
+   in 01b's SSE / poll mechanism).
+8. Verify in `bin/rails console`:
+   - `AuthAuditLog.recent.first.action == "approve"` and
+     `source_surface == "web"`.
+   - The linked notification's `in_app_read_at` is non-nil.
+9. Teardown / repeat for block: open another fresh browser, submit
+   correct password, click `[ask for approval]`. In trusted browser,
+   open the new urgent notification → click `[block the intruder]` →
+   action-screen → confirm. Expect:
+   - `Session.pending.count == 0` (the pending row flipped to
+     `:revoked`).
+   - `BlockedLocation.active.count == 1` with the matching fingerprint.
+   - `AuthAuditLog.recent.first.action == "block"` and
+     `source_surface == "web"`.
+10. Confirm `/login/approvals/<expired-id>` and
+    `/login/blocks/<expired-id>` redirect with the expired-flash copy
+    after the 10-minute window has elapsed.
+
+**Deferred to later sub-specs / agents**
+
+- TUI overlay (`extras/cli/src/notifications/login_pending.rs`,
+  `overlay.rs`, `api/login_attempts.rs`) — `pito-rust` agent's
+  lane. Locked decisions reach the TUI through the API + the
+  shared attempt/notification serializers; no behavioural change
+  to this Rails dispatch.
+- MCP `login_attempt_approve` / `login_attempt_block` tool
+  scaffolding — 01d's job per LD-8 scope catalog wiring.
+- `notifications.login_attempt_id` FK (mentioned in the spec) was
+  intentionally skipped: the existing `LoginAttempt#notification_id`
+  + `belongs_to :notification` covers the reverse lookup. If a future
+  sub-spec needs a notification-side FK for query convenience, a
+  dedicated migration will land then.
+- TUI status-line `pending approval` prompt on non-notification
+  surfaces.
+
+**Open issues**
+
+- The pre-existing `auth_concern_spec:57` failure carries forward
+  (already noted in 01a / 01b).
+- Other agents' in-flight work touches `/settings/security/blocks`,
+  `/settings/security/attempts/purge`, `/settings/security/blocks/purge`,
+  and `/settings/webhooks/help` — those are outside this dispatch's
+  scope. Their failing routing / request specs (~33 examples) are
+  unrelated to 01c.

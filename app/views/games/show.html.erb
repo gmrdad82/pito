@@ -137,14 +137,20 @@
 
     <h2 style="margin-top: 16px;">local fields</h2>
     <table class="detail-table">
-      <%# Phase 27 §1a — per-platform ownership now lives in the
-          `game_platform_ownerships` join (multi-valued). The dedicated
-          ownership editor lands in `01f`; while that's in flight, the
-          show page lists owned platforms inline so the user can still
-          see what they own this game on. %>
+      <%# Phase 27 §1a + §01f — per-platform ownership chip list +
+          link to the dedicated editor. The chip list renders one
+          bracketed chip per owned platform (alphabetical); each
+          chip links to the filtered `/games?filters=<slug>,owned`
+          URL the 01b filter row consumes. The `[edit ownership]`
+          link routes to the editor page. %>
       <tr>
         <td class="text-muted" style="padding-right: 12px;">owned on</td>
-        <td><%= @game.owned_platforms.map(&:name).presence&.join(", ") || "—" %></td>
+        <td>
+          <%= render(Games::OwnedPlatformsChipListComponent.new(game: @game)) %>
+          &middot;
+          <%= render(BracketedLinkComponent.new(label: "edit ownership",
+                                                href: edit_game_platform_ownerships_path(@game))) %>
+        </td>
       </tr>
       <tr>
         <td class="text-muted" style="padding-right: 12px;">played on</td>

@@ -251,6 +251,12 @@ Rails.application.routes.draw do
     member do
       post :resync
     end
+    # Phase 27 — 01f. Per-platform ownership editor. Singular
+    # `resource` so the URL is `/games/:game_id/platform_ownerships/edit`
+    # (one ownership editor per game). Routes friendly — `:game_id`
+    # carries the slug because `Game#to_param` returns `igdb_slug`.
+    resource :platform_ownerships, only: %i[edit update],
+                                   module: :games
   end
   resources :footages, only: [ :index, :show, :edit, :update, :destroy ]
 

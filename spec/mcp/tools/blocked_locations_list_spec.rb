@@ -122,11 +122,14 @@ RSpec.describe Mcp::Tools::BlockedLocationsList do
   end
 
   describe "scope gate" do
-    it "rejects callers without the app scope" do
+    # Phase 25 — 01d. Swapped from the temporary `app` placeholder to
+    # the dedicated `auth` scope. A token holding only `app` (not `auth`)
+    # must now be rejected.
+    it "rejects callers without the auth scope" do
       Current.token = ApiToken.generate!(
         user: Current.user,
-        name: "spec-no-app",
-        scopes: [ Scopes::DEV ]
+        name: "spec-no-auth",
+        scopes: [ Scopes::APP ]
       ).first
 
       result = call_tool
