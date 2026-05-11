@@ -88,12 +88,24 @@ RSpec.describe Games::FiltersHelper, type: :helper do
       expect(helper.chip_label("not_owned")).to eq("not owned")
     end
 
-    it "passes through ps5 verbatim" do
-      expect(helper.chip_label("ps5")).to eq("ps5")
+    # 2026-05-11 polish v2 — platform tokens render in canonical
+    # marketing case (PS5, Switch2, Steam, GoG, Epic, Xbox); URL
+    # tokens stay lowercase.
+    {
+      "ps5"     => "PS5",
+      "switch2" => "Switch2",
+      "steam"   => "Steam",
+      "gog"     => "GoG",
+      "epic"    => "Epic",
+      "xbox"    => "Xbox"
+    }.each do |token, expected_label|
+      it "renders the platform token #{token.inspect} as #{expected_label.inspect}" do
+        expect(helper.chip_label(token)).to eq(expected_label)
+      end
     end
 
-    it "passes through every other canonical token verbatim" do
-      Games::Filter::CANONICAL_TOKENS.reject { |t| t == "not_owned" }.each do |t|
+    it "passes through status / ownership tokens verbatim" do
+      %w[recorded released scheduled owned].each do |t|
         expect(helper.chip_label(t)).to eq(t)
       end
     end

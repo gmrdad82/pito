@@ -5,26 +5,42 @@
     `[import]` button on `/videos` can swap the modal body without a
     full-page navigation. The form posts to `POST /imports/channels`;
     the response (`create.html.erb`) replaces the frame with the
-    progress step. %>
+    progress step.
+
+    2026-05-11 redesign — modal restructured to mirror the channel sync
+    action screen (`/syncs/show.html.erb`):
+
+      * single inline breadcrumb `[videos] / [import N channels]` at
+        the top (slash separator, matches `BreadcrumbComponent`). The
+        second segment is the active title and updates dynamically
+        from the `imports-select` Stimulus controller as the user
+        ticks rows.
+      * single `<h1>import N channels</h1>` heading directly below
+        (mirrors `<h1>sync N channels</h1>` on `/syncs/show`), also
+        dynamic.
+      * tagline beneath the heading (one-liner).
+      * `[import N]` / `[cancel]` action bar moved ABOVE the table as
+        a bulk-action toolbar (mirrors the `/channels` bulk pattern).
+        The bottom `[import] [cancel]` row is gone. %>
 <%= turbo_frame_tag "imports_modal_frame" do %>
   <div class="pane pane--standalone" style="max-width: 600px;">
-    <%# Phase 22 polish — heading is a two-segment breadcrumb. `[videos]`
-        links back to the videos index (turbo-frame "_top" so the click
-        breaks out of the modal frame). `[import]` is the active label,
-        rendered via `BracketedLinkComponent`'s `active: true` branch
-        (`<span class="bracketed-active">`). The `·` mid-dot separator
-        comes from the shared `_dot_separator` partial — same convention
-        as the calendar schedule breadcrumb-action row. %>
-    <h1 class="dot-list">
+    <%# Inline breadcrumb. The active second segment text is generated
+        by the imports-select Stimulus controller so the count tracks
+        selection. Server renders the zero-selection copy
+        ("import channels", no count) and the controller updates the
+        `.bl` span text as checkboxes toggle. %>
+    <nav class="dot-list" style="margin-bottom: 6px;">
       <%= render(BracketedLinkComponent.new(
         label: "videos",
         href: videos_path,
         data: { turbo_frame: "_top" }
       )) %>
-      <%= render "shared/dot_separator" %>
-      <%= render(BracketedLinkComponent.new(label: "import", active: true)) %>
-    </h1>
-    <p class="text-muted">
+      <span class="text-muted"> / </span>
+      <span class="bracketed-active" data-imports-select-target="breadcrumbTitle">[import channels]</span>
+    </nav>
+
+    <h1 data-imports-select-target="headingTitle">import channels</h1>
+    <p class="text-muted" style="margin-top: 2px;">
       pick the channels to pull new uploads from.<br>
       already-imported and previously-rejected videos are skipped.
     </p>
@@ -34,10 +50,42 @@
                     method: :post,
                     local: true,
                     data: { controller: "imports-select" } do |f| %>
-        <table style="margin-top: 8px;">
+
+        <%# Bulk-action toolbar above the table (mirrors /channels
+            `_picker.html.erb`). `[import N]` is hidden when nothing
+            is selected; `[cancel]` is always visible. The submit
+            target is a `<button type="submit">` that lives in this
+            toolbar — the bottom action row is gone. %>
+        <div class="bulk-toolbar" style="margin: 8px 0;">
+          <span class="action" data-imports-select-target="importAction" hidden>
+            <button type="submit"
+                    class="bracketed"
+                    data-imports-select-target="submit"
+                    disabled>
+              [<span class="bl" data-imports-select-target="submitLabel">import</span>]
+            </button>
+          </span>
+          <span class="action">
+            <%= render(BracketedLinkComponent.new(
+              label: "cancel",
+              href: videos_path,
+              data: { turbo_frame: "_top" }
+            )) %>
+          </span>
+        </div>
+
+        <table>
           <thead>
             <tr>
-              <th class="col-action"></th>
+              <th class="col-action">
+                <%# Select-all checkbox. Mirrors the all-games table
+                    pattern: a header `[ ]` that toggles every enabled
+                    per-row checkbox via `imports-select#toggleAll`. %>
+                <%= render(CheckboxComponent.new(data: {
+                  imports_select_target: "headerCheckbox",
+                  action: "change->imports-select#toggleAll"
+                })) %>
+              </th>
               <th>channel</th>
               <%# Phase 22 polish — the rightmost column shows
                   `[import running]` for any channel that already has
@@ -87,19 +135,6 @@
             <% end %>
           </tbody>
         </table>
-
-        <div class="modal-footer" style="margin-top: 12px;">
-          <%# Phase 22 polish — `[import]` (bare verb). The page
-              heading already supplies "import" context so "start" is
-              redundant per the bracketed-label minimum-text rule. %>
-          <button type="submit"
-                  class="bracketed"
-                  data-imports-select-target="submit"
-                  disabled>
-            [<span class="bl">import</span>]
-          </button>
-          <%= render(BracketedLinkComponent.new(label: "cancel", href: videos_path)) %>
-        </div>
       <% end %>
     <% else %>
       <p class="text-muted">no connected channels.</p>
