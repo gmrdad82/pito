@@ -70,6 +70,15 @@ class Imports::ChannelsController < ApplicationController
       return
     end
 
+    # Re-fetch each ImportJob right before rendering so the modal
+    # reflects the latest persisted state. With `Sidekiq` running, fast
+    # workers can flip `queued -> completed` between `perform_async` and
+    # the controller rendering the view; without this reload, the
+    # modal would server-render `queued` forever for jobs that already
+    # finished, because the Turbo Stream broadcast fired before the
+    # browser subscribed to `import_jobs`.
+    @enqueued.each(&:reload)
+
     respond_to do |format|
       format.html do
         # Render the progress step in place of the modal body.

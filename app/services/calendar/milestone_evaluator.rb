@@ -19,9 +19,13 @@ module Calendar
       # `Pito::SafeEach`. The wrapper logs `[MilestoneEvaluator]
       # swallowed <class>: <msg> (row=<id>)` and continues on
       # StandardError so one bad rule does not block the rest of the
-      # evaluation cycle.
-      rules = MilestoneRule.where(enabled: true, fired_at: nil).find_each
-      Pito::SafeEach.call(rules, label: "MilestoneEvaluator") do |rule|
+      # evaluation cycle. `with_iterator: :find_each` inherits AR's
+      # batching semantics.
+      Pito::SafeEach.call(
+        MilestoneRule.where(enabled: true, fired_at: nil),
+        label: "MilestoneEvaluator",
+        with_iterator: :find_each
+      ) do |rule|
         evaluate(rule)
       end
     end

@@ -11,13 +11,30 @@ RSpec.describe Games::FilterRowComponent, type: :component do
       ))
     end
 
-    it "renders all ten canonical chips" do
-      expect(page).to have_css("a.filter-chip", count: 10)
+    # 2026-05-11 polish v2 — the chip set is 11 tokens: the 10 originals
+    # plus xbox (added to the platforms canonical seed list).
+    it "renders all eleven canonical chips" do
+      expect(page).to have_css("a.filter-chip", count: 11)
     end
 
-    it "renders chips in the locked left-to-right order" do
-      tokens = page.all("a.filter-chip").map { |a| a["data-filter-token"] }
-      expect(tokens).to eq(%w[recorded released owned not_owned scheduled ps5 switch2 steam gog epic])
+    # 2026-05-11 polish v2 — chips split across two rows.
+    # Row 1 (status + platforms): released scheduled ps5 switch2 steam gog epic xbox
+    # Row 2 (ownership/recorded): owned not_owned recorded
+    it "renders row 1 chips in the locked order (status + platforms + xbox)" do
+      row_1_tokens = page.all(".games-filter-row__chips--1 a.filter-chip")
+                         .map { |a| a["data-filter-token"] }
+      expect(row_1_tokens).to eq(%w[released scheduled ps5 switch2 steam gog epic xbox])
+    end
+
+    it "renders row 2 chips in the locked order (ownership + recorded)" do
+      row_2_tokens = page.all(".games-filter-row__chips--2 a.filter-chip")
+                         .map { |a| a["data-filter-token"] }
+      expect(row_2_tokens).to eq(%w[owned not_owned recorded])
+    end
+
+    it "renders the two rows as distinct `.games-filter-row__row` blocks" do
+      expect(page).to have_css(".games-filter-row__row--1")
+      expect(page).to have_css(".games-filter-row__row--2")
     end
 
     it "does NOT render [clear all] when no chip is active" do
@@ -171,7 +188,7 @@ RSpec.describe Games::FilterRowComponent, type: :component do
       expect(page).to have_no_css(".games-filter-row__right")
     end
 
-    it "places the right slot AFTER the chips in document order" do
+    it "places the right slot AFTER the row-2 chips in document order" do
       render_inline(described_class.new(
         active_tokens: [], request_path: request_path
       )) do |row|
@@ -179,9 +196,23 @@ RSpec.describe Games::FilterRowComponent, type: :component do
       end
 
       html = page.native.to_html
-      chips_idx = html.index('class="games-filter-row__chips"')
+      chips_idx = html.index("games-filter-row__chips--2")
       right_idx = html.index('class="games-filter-row__right"')
       expect(chips_idx).to be < right_idx
+    end
+
+    # 2026-05-11 polish v2 — right slot lives inside row 2 (not row 1),
+    # so the display-mode switcher sits flush-right of the
+    # ownership/recorded chips. `[clear all]` stays attached to row 1.
+    it "renders the right_slot INSIDE row 2 (not row 1)" do
+      render_inline(described_class.new(
+        active_tokens: [], request_path: request_path
+      )) do |row|
+        row.with_right_slot { "<span class=\"switcher-stub\">SWITCHER</span>".html_safe }
+      end
+
+      expect(page).to have_css(".games-filter-row__row--2 .games-filter-row__right .switcher-stub")
+      expect(page).to have_no_css(".games-filter-row__row--1 .games-filter-row__right")
     end
   end
 

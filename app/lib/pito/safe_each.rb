@@ -30,10 +30,13 @@ module Pito
   module SafeEach
     module_function
 
-    def call(rows, label:, logger: Rails.logger)
+    # Iterates `rows` with `each` and swallows any StandardError the
+    # block raises (logged + skipped). Callers that need `find_each`
+    # batching pass an explicit iterator instead — see `with_iterator:`.
+    def call(rows, label:, logger: Rails.logger, with_iterator: :each)
       raise ArgumentError, "Pito::SafeEach.call requires a block" unless block_given?
 
-      rows.each do |row|
+      rows.public_send(with_iterator) do |row|
         yield row
       rescue StandardError => e
         logger.warn(

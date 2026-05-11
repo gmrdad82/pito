@@ -38,6 +38,20 @@ class SessionsController < ApplicationController
   PRE_AUTH_COOKIE = :pito_pre_auth
   PRE_AUTH_TTL    = 10.minutes
 
+  # P25 follow-up — F8. Pre-auth nonce rotation. The cookie carries a
+  # random nonce; the same nonce is mirrored in Rails.cache under
+  # `preauth_nonce:<user_id>` with the same 10-min TTL. On every TOTP
+  # submit, the controller verifies cookie-nonce == cache-nonce. On
+  # FAILURE: rotate (write a fresh nonce to cache + cookie, consuming
+  # the old one) — bounding a stolen cookie's brute force to ~1
+  # attempt before the nonce rotates out from under it. On SUCCESS:
+  # delete the cache entry (the pre-auth marker is consumed).
+  PRE_AUTH_NONCE_CACHE_PREFIX = "preauth_nonce:".freeze
+
+  def self.pre_auth_nonce_cache_key(user_id)
+    "#{PRE_AUTH_NONCE_CACHE_PREFIX}#{user_id}"
+  end
+
   allow_anonymous :new, :create
 
   # GET /login
@@ -304,14 +318,31 @@ class SessionsController < ApplicationController
   # state for `/login/challenge` to resume: user id, fingerprint, ip
   # prefix, remember-me flag, expiry stamp. No password, no session
   # row. Marker self-expires at `PRE_AUTH_TTL`.
+  #
+  # P25 follow-up — F8. The marker now also carries a per-mint random
+  # `nonce`. The same nonce is mirrored in `Rails.cache` keyed on
+  # `preauth_nonce:<user_id>` with the same 10-min TTL. On every TOTP
+  # submit, the TOTP controller verifies the cookie's nonce matches
+  # the cache's nonce. On failure it rotates BOTH (fresh nonce → cache
+  # + cookie re-mint), so a stolen cookie's brute-force is bounded
+  # to ~1 attempt before the nonce rotates out from under it.
   def write_pre_auth_marker(user_id:, fingerprint_hash:, ip_prefix:, remember: false)
+    nonce = SecureRandom.urlsafe_base64(16)
+
     payload = {
       user_id: user_id,
       fingerprint_hash: fingerprint_hash,
       ip_prefix: ip_prefix,
       remember: remember ? "yes" : "no",
-      expires_at: PRE_AUTH_TTL.from_now.to_i
+      expires_at: PRE_AUTH_TTL.from_now.to_i,
+      nonce: nonce
     }
+
+    Rails.cache.write(
+      self.class.pre_auth_nonce_cache_key(user_id),
+      nonce,
+      expires_in: PRE_AUTH_TTL
+    )
 
     cookies.signed[PRE_AUTH_COOKIE] = {
       value: payload,

@@ -12,18 +12,49 @@ class BulkDeleteJob
     # 2026-05-11 polish (Games list-mode bulk actions, Fix 5) — when a
     # per-type Sidekiq job exists (`<TargetType>Deletion`), the bulk job
     # hands each row off async so deletions run in parallel with their
-    # own advisory locks + graceful-failure handling. The bulk
-    # operation's status flips to `running` and stays there until all
-    # per-row jobs complete — the per-row jobs broadcast their own
-    # row-status Turbo updates, and a tail scan finalizes the
-    # operation's terminal status. For types without a per-row job
-    # (Channel, Video, etc.), the existing serial fail-fast destroy
-    # loop remains the default.
-    if items.any? && items.first && per_type_async_class(items.first.target_type)
-      run_async_per_row(operation, items)
+    # own advisory locks + graceful-failure handling. Each per-row job
+    # is responsible for marking its own `BulkOperationItem` and
+    # invoking the "last-one-out" finalizer on the parent operation.
+    # For types without a per-row job (Channel, Video, etc.), the
+    # existing serial fail-fast destroy loop remains the default.
+    if items.any? && per_type_async_class(items.first.target_type)
+      dispatch_async_per_row(items)
     else
       run_serial_destroy(operation, items)
     end
+  end
+
+  # Public: called by per-row jobs ("last-one-out" pattern) once they
+  # have marked their own BulkOperationItem terminal. If every sibling
+  # item is also terminal, flips the parent operation to the
+  # appropriate terminal status and broadcasts.
+  def self.finalize_if_complete(bulk_operation_id)
+    operation = BulkOperation.find_by(id: bulk_operation_id)
+    return unless operation
+    return if operation.completed_at.present?
+
+    items = operation.bulk_operation_items
+    return if items.where(status: %i[pending running]).exists?
+
+    any_failed = items.where(status: :failed).exists?
+    if any_failed
+      operation.update!(status: :failed, completed_at: Time.current)
+      broadcast_status_class(operation, "failed")
+    else
+      operation.update!(status: :completed, completed_at: Time.current)
+      broadcast_status_class(operation, "completed")
+    end
+  end
+
+  def self.broadcast_status_class(operation, status)
+    Turbo::StreamsChannel.broadcast_replace_to(
+      "bulk_operation_#{operation.id}",
+      target: "operation_progress",
+      partial: "bulk_operations/status",
+      locals: { operation: operation, status: status }
+    )
+  rescue StandardError => e
+    Rails.logger.warn("[BulkDeleteJob.broadcast_status] #{e.class}: #{e.message}")
   end
 
   private
@@ -34,33 +65,14 @@ class BulkDeleteJob
     klass if klass.respond_to?(:perform_async)
   end
 
-  # Fan out one Sidekiq job per row. The per-row job is responsible for
-  # acquiring its advisory lock, destroying the target, and marking its
-  # `BulkOperationItem` (success / failure) via Turbo Stream broadcast.
-  # The bulk operation itself stays `running` until every item is
-  # `succeeded` or `failed`, then this method flips it to the terminal
-  # status. This path is the default for Game; other resources stay on
-  # the legacy serial path.
-  def run_async_per_row(operation, items)
+  # Fan out one Sidekiq job per row. Returns immediately — the per-row
+  # jobs themselves call `BulkDeleteJob.finalize_if_complete` once they
+  # are terminal.
+  def dispatch_async_per_row(items)
     items.each do |op_item|
       klass = per_type_async_class(op_item.target_type)
       klass.perform_async(op_item.target_id, op_item.id) if klass
     end
-
-    # Poll for terminal state. The poll loop sleeps in short intervals
-    # so an MCP / system spec waiting on completion does not block on
-    # the full retry window when every per-row job has already fired
-    # its broadcast. The outer Sidekiq retry budget (default 25) covers
-    # the case where the per-row jobs are genuinely slow.
-    deadline = 60.seconds.from_now
-    loop do
-      remaining = items.reload.where(status: %i[pending running])
-      break if remaining.empty? || Time.current > deadline
-
-      sleep(0.25)
-    end
-
-    finalize_terminal(operation, items.reload)
   end
 
   # Legacy serial fail-fast destroy loop — preserved for Channel /
@@ -87,12 +99,7 @@ class BulkDeleteJob
       end
     end
 
-    finalize_terminal(operation, items)
-  end
-
-  def finalize_terminal(operation, items)
-    any_failed = items.any? { |it| it.status_failed? }
-    if any_failed
+    if failed
       operation.update!(status: :failed, completed_at: Time.current)
       broadcast_status(operation, "failed")
     else

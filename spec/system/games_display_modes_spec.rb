@@ -33,7 +33,7 @@ RSpec.describe "Games display modes (01d)", type: :system do
   end
 
   describe "default mode for a fresh user" do
-    it "lands on grid mode" do
+    it "lands on grid mode (existing default enum integer = 0)" do
       visit games_path
 
       # The all-games section carries `data-display-mode="grid"`.
@@ -49,7 +49,7 @@ RSpec.describe "Games display modes (01d)", type: :system do
       # Active mode = grid → the grid button carries the `active` class.
       expect(switcher).to have_css("button.bracketed.active", text: "grid")
       expect(switcher).not_to have_css("button.bracketed.active", text: "list")
-      expect(switcher).not_to have_css("button.bracketed.active", text: "shelves")
+      expect(switcher).not_to have_css("button.bracketed.active", text: "default")
     end
   end
 
@@ -58,9 +58,6 @@ RSpec.describe "Games display modes (01d)", type: :system do
       visit games_path
 
       within(".display-mode-switcher") do
-        # Bracketed-link convention wraps the label in `.bl`; the
-        # button's visible text is `[ list ]` with the inner span as
-        # `list`. Match on the text.
         find("button.bracketed", text: "list").click
       end
 
@@ -69,13 +66,15 @@ RSpec.describe "Games display modes (01d)", type: :system do
       expect(page).to have_css("table.list-table")
     end
 
-    it "clicking [shelves] persists and renders shelves-by-letter mode" do
+    it "clicking [default] persists and renders shelves-by-letter (nested-shelves) mode" do
       visit games_path
 
       within(".display-mode-switcher") do
-        find("button.bracketed", text: "shelves").click
+        find("button.bracketed", text: "default").click
       end
 
+      # `default` is the URL alias; the canonical enum value remains
+      # `shelves_by_letter`.
       expect(user.reload.preferred_games_display_mode).to eq("shelves_by_letter")
       expect(page).to have_css('section[data-display-mode="shelves_by_letter"]')
     end
@@ -117,8 +116,13 @@ RSpec.describe "Games display modes (01d)", type: :system do
       expect(user.reload.preferred_games_display_mode).to eq("grid")
     end
 
-    it "accepts the `shelves` URL alias for `shelves_by_letter`" do
+    it "accepts the `shelves` URL alias for `shelves_by_letter` (legacy)" do
       visit games_path(display: "shelves")
+      expect(page).to have_css('section[data-display-mode="shelves_by_letter"]')
+    end
+
+    it "accepts the `default` URL alias for `shelves_by_letter`" do
+      visit games_path(display: "default")
       expect(page).to have_css('section[data-display-mode="shelves_by_letter"]')
     end
   end
@@ -149,18 +153,19 @@ RSpec.describe "Games display modes (01d)", type: :system do
       expect(list_section).to have_link("Borderlands")
     end
 
-    it "renders the post-polish column header order (2026-05-11)" do
+    it "renders the post-polish column header order (2026-05-11 v2)" do
       visit games_path(display: "list")
 
       headers = find('section[data-display-mode="list"] table.list-table thead tr')
                   .all("th").map(&:text)
-      # Locked column order after the 2026-05-11 polish:
-      #   select | cover | title | released | rating | platforms owned | genres
-      # The `status` column was dropped (Fix 3); the rename was
-      # `release year` → `released` (Fix 4).
+      # Locked column order after the 2026-05-11 v2 polish (Fix 4):
+      #   select | cover | title | genre | released | rating | owned
+      # Reorder: genre moved between title and released. Renames:
+      # `platforms owned` → `owned`; `genres` → `genre` (singular).
+      # The select cell now carries a real `[ ]` header checkbox; the
+      # `text` content of the cell is empty (the box itself renders).
       expect(headers).to eq([
-        "", "", "title", "released", "rating",
-        "platforms owned", "genres"
+        "", "", "title", "genre", "released", "rating", "owned"
       ])
     end
   end

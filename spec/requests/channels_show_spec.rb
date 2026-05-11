@@ -95,9 +95,9 @@ RSpec.describe "GET /channels/:slug — show page revamp", type: :request do
       expect(videos_idx).to be > last_pane_row_idx
     end
 
-    it "renders the [youtube channel] outbound link" do
+    it "renders the [YouTube] outbound link" do
       get channel_path(hydrated_channel)
-      expect(response.body).to include("youtube channel")
+      expect(response.body).to include(">YouTube<")
       # Anchor with both the YT URL href and target=_blank somewhere in
       # its attribute list. Attribute order is Rails-determined, so
       # match each piece independently against the same tag.
@@ -107,9 +107,9 @@ RSpec.describe "GET /channels/:slug — show page revamp", type: :request do
       expect(yt_anchor).to include('rel="noopener noreferrer"')
     end
 
-    it "renders the [youtube studio] outbound link" do
+    it "renders the [Studio] outbound link" do
       get channel_path(hydrated_channel)
-      expect(response.body).to include("youtube studio")
+      expect(response.body).to include(">Studio<")
       studio_anchor = response.body[/<a [^>]*href="https:\/\/studio\.youtube\.com\/channel\/UC[A-Za-z0-9_-]{22}"[^>]*>/]
       expect(studio_anchor).not_to be_nil
       expect(studio_anchor).to include('target="_blank"')
@@ -161,9 +161,9 @@ RSpec.describe "GET /channels/:slug — show page revamp", type: :request do
 
     it "renders bracketed labels without inner padding spaces" do
       get channel_path(hydrated_channel)
-      # Per project rule A — labels read `[youtube channel]` not
-      # `[ youtube channel ]`.
-      expect(response.body).not_to match(/\[\s+<span class="bl">youtube channel/)
+      # Per project rule A — labels read `[YouTube]` not
+      # `[ YouTube ]`.
+      expect(response.body).not_to match(/\[\s+<span class="bl">YouTube/)
       expect(response.body).not_to match(/\[\s+<span class="bl">full analytics/)
     end
   end

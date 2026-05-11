@@ -1950,6 +1950,37 @@ RSpec.describe "Settings", type: :request do
         expect(AppSetting.first.reload.voyage_api_key).to eq("vk_existing")
       end
     end
+
+    # 2026-05-11 — `update_voyage` + `update_youtube` share the
+    # `update_appsetting_section` driver. These structural tests
+    # pin the DRY: both callers delegate to the helper with the
+    # right `audit_action:` and field-list shape, so a regression
+    # that re-inlines one path surfaces here instead of via 60
+    # behavior specs.
+    describe "update_appsetting_section helper delegation" do
+      let(:controller) { SettingsController.new }
+
+      it "update_voyage routes through update_appsetting_section with the voyage audit action" do
+        expect(controller).to receive(:update_appsetting_section).with(
+          hash_including(
+            audit_action: :voyage_credentials_updated,
+            string_fields: %w[voyage_api_key],
+            boolean_fields: %w[voyage_index_project_notes]
+          )
+        )
+        controller.send(:update_voyage)
+      end
+
+      it "update_youtube routes through update_appsetting_section with the youtube audit action and four string fields" do
+        expect(controller).to receive(:update_appsetting_section).with(
+          hash_including(
+            audit_action: :youtube_credentials_updated,
+            string_fields: SettingsController::YOUTUBE_FIELDS
+          )
+        )
+        controller.send(:update_youtube)
+      end
+    end
   end
 
   describe "GET /settings search section" do

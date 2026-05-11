@@ -37,6 +37,11 @@ class GameDeletion
 
       run_deletion(game_id, op_item)
     end
+
+    # Last-one-out finalization. Each per-row job pings the bulk
+    # operation; the call is idempotent (re-flipping a terminal-state
+    # operation is a no-op via the `completed_at.present?` guard).
+    BulkDeleteJob.finalize_if_complete(op_item.bulk_operation_id) if op_item
   end
 
   private

@@ -56,6 +56,18 @@ class Login::TotpChallengesController < ApplicationController
       return
     end
 
+    # P25 follow-up — F8. Verify the cookie-side nonce matches the
+    # cache-side nonce. A mismatch (cache miss, stale nonce, replayed
+    # cookie after rotation) is a hard 422 with the generic "login
+    # failed." copy — same shape as a wrong-code failure so the
+    # attacker cannot distinguish "nonce expired" from "code wrong".
+    unless valid_nonce?
+      log_failed_attempt
+      flash.now[:alert] = "login failed."
+      render :show, status: :unprocessable_content
+      return
+    end
+
     code = params[:code].to_s.strip
 
     if try_totp(code) || try_backup_code(code)
@@ -65,9 +77,22 @@ class Login::TotpChallengesController < ApplicationController
       Auth::BackoffCalculator.reset!(
         key: "email:#{Digest::SHA256.hexdigest(@pre_auth_user.email.to_s.strip.downcase)}"
       )
+      # P25 F8 — on success, drop the nonce cache entry. The
+      # activator + cookie clearance happen in `activate_and_redirect`.
+      Rails.cache.delete(
+        SessionsController.pre_auth_nonce_cache_key(@pre_auth_user.id)
+      )
       activate_and_redirect
     else
       log_failed_attempt
+      # P25 F8 — rotate the nonce on every failed TOTP submit. Mint a
+      # fresh nonce, write it to cache + the cookie, consuming the
+      # old one. A stolen cookie can do exactly ONE failed attempt
+      # before the nonce rotates and subsequent attempts hit the
+      # invalid-nonce branch above. The legitimate user's NEXT submit
+      # will carry the fresh cookie minted here, so they are not
+      # locked out — only the attacker without browser context is.
+      rotate_pre_auth_nonce!
       flash.now[:alert] = "login failed."
       render :show, status: :unprocessable_content
     end
@@ -190,6 +215,51 @@ class Login::TotpChallengesController < ApplicationController
       event: event
     }.merge(payload).to_json)
   rescue StandardError
+    nil
+  end
+
+  # P25 follow-up — F8. Cookie-side nonce must equal cache-side nonce.
+  # A blank cookie-side nonce (legacy marker from before F8) is treated
+  # as invalid so any pre-F8 cookies are forced to re-login. A blank
+  # cache-side nonce (entry evicted / never written) is also invalid —
+  # fail closed.
+  def valid_nonce?
+    cookie_nonce = @pre_auth_marker[:nonce].to_s
+    return false if cookie_nonce.blank?
+
+    cache_nonce = Rails.cache.read(
+      SessionsController.pre_auth_nonce_cache_key(@pre_auth_user.id)
+    ).to_s
+    return false if cache_nonce.blank?
+
+    ActiveSupport::SecurityUtils.secure_compare(cookie_nonce, cache_nonce)
+  end
+
+  # P25 follow-up — F8. Mint a fresh nonce, write it to cache + the
+  # pre-auth cookie, consuming the old nonce. Idempotent — repeated
+  # failed submits each rotate.
+  def rotate_pre_auth_nonce!
+    fresh_nonce = SecureRandom.urlsafe_base64(16)
+
+    Rails.cache.write(
+      SessionsController.pre_auth_nonce_cache_key(@pre_auth_user.id),
+      fresh_nonce,
+      expires_in: SessionsController::PRE_AUTH_TTL
+    )
+
+    new_payload = @pre_auth_marker.merge(nonce: fresh_nonce)
+    cookies.signed[SessionsController::PRE_AUTH_COOKIE] = {
+      value: new_payload,
+      httponly: true,
+      same_site: :lax,
+      secure: !Rails.env.test?,
+      expires: Time.at(new_payload[:expires_at].to_i)
+    }
+    @pre_auth_marker = new_payload
+  rescue StandardError => e
+    Rails.logger.warn(
+      "[Login::TotpChallengesController] nonce rotation failed: #{e.class}: #{e.message}"
+    )
     nil
   end
 end

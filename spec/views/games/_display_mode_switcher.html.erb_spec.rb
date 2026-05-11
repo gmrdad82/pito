@@ -5,6 +5,10 @@ require "rails_helper"
 # The switcher renders three `button_to` forms PATCHing
 # `/users/games_preferences` — one per display mode. The active mode
 # carries the `active` CSS class. Pure form submit, no JS.
+#
+# 2026-05-11 polish v2 — the switcher now renders `[default][grid][list]`
+# (was `[grid][list][shelves]`). `default` is the URL alias for the
+# canonical enum value `shelves_by_letter` (the nested-shelves view).
 RSpec.describe "games/_display_mode_switcher.html.erb", type: :view do
   def render_switcher(active_mode:)
     render partial: "games/display_mode_switcher", locals: { active_mode: active_mode }
@@ -12,22 +16,33 @@ RSpec.describe "games/_display_mode_switcher.html.erb", type: :view do
 
   describe "rendered structure (happy path)" do
     it "renders three button_to forms, one per mode" do
-      render_switcher(active_mode: :grid)
+      render_switcher(active_mode: :shelves_by_letter)
 
       expect(rendered).to include('action="/users/games_preferences"')
       # PATCH method is encoded via Rails' hidden `_method` field.
       expect(rendered).to include('name="_method" value="patch"')
       # All three modes carry their own button + hidden `mode` input.
+      # The URL value is the alias (not the enum key) so shareable
+      # links read as `?display=default`.
+      expect(rendered).to include('value="default"')
       expect(rendered).to include('value="grid"')
       expect(rendered).to include('value="list"')
-      expect(rendered).to include('value="shelves_by_letter"')
     end
 
-    it "labels the three buttons grid / list / shelves" do
+    it "labels the three buttons default / grid / list" do
       render_switcher(active_mode: :grid)
+      expect(rendered).to include("[<span class=\"bl\">default</span>]")
       expect(rendered).to include("[<span class=\"bl\">grid</span>]")
       expect(rendered).to include("[<span class=\"bl\">list</span>]")
-      expect(rendered).to include("[<span class=\"bl\">shelves</span>]")
+    end
+
+    it "renders the three buttons in the locked order [default][grid][list]" do
+      render_switcher(active_mode: :grid)
+      default_idx = rendered.index(">default<")
+      grid_idx    = rendered.index(">grid<")
+      list_idx    = rendered.index(">list<")
+      expect(default_idx).to be < grid_idx
+      expect(grid_idx).to be < list_idx
     end
 
     it "stamps the wrapper with data-active-mode for downstream styling" do
@@ -37,21 +52,22 @@ RSpec.describe "games/_display_mode_switcher.html.erb", type: :view do
   end
 
   describe "active class" do
+    it "marks default active when active_mode == :shelves_by_letter (canonical enum)" do
+      render_switcher(active_mode: :shelves_by_letter)
+      # The `bracketed active` class belongs to the default button only.
+      expect(rendered).to match(/class="bracketed active"[^>]*>\s*\n?\s*\[<span class="bl">default<\/span>\]/m)
+      expect(rendered).not_to match(/class="bracketed active"[^>]*>\s*\n?\s*\[<span class="bl">grid<\/span>\]/m)
+      expect(rendered).not_to match(/class="bracketed active"[^>]*>\s*\n?\s*\[<span class="bl">list<\/span>\]/m)
+    end
+
     it "marks grid active when active_mode == :grid" do
       render_switcher(active_mode: :grid)
-      # The `bracketed active` class belongs to the grid form only.
       expect(rendered).to match(/class="bracketed active"[^>]*>\s*\n?\s*\[<span class="bl">grid<\/span>\]/m)
-      expect(rendered).not_to match(/class="bracketed active"[^>]*>\s*\n?\s*\[<span class="bl">list<\/span>\]/m)
     end
 
     it "marks list active when active_mode == :list" do
       render_switcher(active_mode: :list)
       expect(rendered).to match(/class="bracketed active"[^>]*>\s*\n?\s*\[<span class="bl">list<\/span>\]/m)
-    end
-
-    it "marks shelves_by_letter active when active_mode == :shelves_by_letter" do
-      render_switcher(active_mode: :shelves_by_letter)
-      expect(rendered).to match(/class="bracketed active"[^>]*>\s*\n?\s*\[<span class="bl">shelves<\/span>\]/m)
     end
 
     it "accepts a String active_mode equivalently to a Symbol" do

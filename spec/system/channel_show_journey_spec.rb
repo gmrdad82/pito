@@ -36,8 +36,8 @@ RSpec.describe "Channel show journey", type: :system do
     # Detail section — title in H1, handle, outbound links.
     expect(page).to have_selector("h1", text: "Pito Journey")
     expect(page).to have_content("@pitojourney")
-    expect(page).to have_link(text: /youtube channel/i)
-    expect(page).to have_link(text: /youtube studio/i)
+    expect(page).to have_link(text: /YouTube/)
+    expect(page).to have_link(text: /Studio/)
 
     # Analytics section — formatted counts + [full analytics].
     expect(page).to have_content("subscribers")

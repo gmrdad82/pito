@@ -272,6 +272,42 @@ RSpec.describe "Imports::Channels", type: :request do
       expect(body["errors"].first).to include("channel not found")
     end
 
+    # Regression — Sidekiq running with a fast importer can flip the
+    # ImportJob from `queued` to `completed` before the controller
+    # renders the modal-progress step. Without a reload the partial
+    # would server-render `queued` forever for jobs that already
+    # finished (the Turbo Stream broadcast fired before the browser
+    # subscribed to `import_jobs`). The controller now `.reload`s
+    # each enqueued row before rendering so the modal captures the
+    # latest persisted state.
+    #
+    # We simulate the worker flipping the row by stubbing
+    # `Channel::ImportVideosJob.perform_async` to synchronously update
+    # the most-recent ImportJob to `completed` — the exact wire pattern
+    # of a fast Sidekiq pickup.
+    it "renders the latest persisted state when the worker finished before render (race regression)" do
+      channel
+
+      allow(Channel::ImportVideosJob).to receive(:perform_async) do |_channel_id, import_job_id|
+        ImportJob.where(id: import_job_id).update_all(
+          status: ImportJob.statuses[:completed],
+          total_videos: 0,
+          imported_videos: 0,
+          started_at: 1.second.ago,
+          completed_at: Time.current
+        )
+      end
+
+      post imports_channels_path, params: { channel_ids: [ channel.id ] }
+      expect(response).to have_http_status(:ok)
+      # If the partial captured the stale `queued` state from
+      # `@enqueued` (built in-memory at `ImportJob.create!`), the body
+      # would contain the "queued" label. With the reload it shows the
+      # completed-state copy.
+      expect(response.body).to include("no new uploads")
+      expect(response.body).not_to match(/<span class="text-muted">\s*queued\s*<\/span>/)
+    end
+
     it "returns 201 JSON with the enqueued ImportJob payload" do
       channel
       post imports_channels_path, params: { channel_ids: [ channel.id ] },

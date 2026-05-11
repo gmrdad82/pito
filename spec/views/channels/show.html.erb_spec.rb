@@ -86,35 +86,35 @@ RSpec.describe "channels/show.html.erb", type: :view do
       expect(rendered).to include("@pitotest")
     end
 
-    it "renders the [youtube channel] outbound link" do
+    it "renders the [YouTube] outbound link" do
       render
-      expect(rendered).to include("youtube channel")
+      expect(rendered).to include(">YouTube<")
       expect(rendered).to match(%r{href="https://www\.youtube\.com/channel/UC[A-Za-z0-9_-]{22}"})
     end
 
-    it "renders the [youtube studio] outbound link" do
+    it "renders the [Studio] outbound link" do
       render
-      expect(rendered).to include("youtube studio")
+      expect(rendered).to include(">Studio<")
       expect(rendered).to match(%r{href="https://studio\.youtube\.com/channel/UC[A-Za-z0-9_-]{22}"})
     end
 
-    # 2026-05-11 — the `[youtube channel]` / `[youtube studio]` outbound
-    # links moved from the detail pane into the H1 row, AFTER the `[+]`
-    # add-pane button, separated by a `nav-sep` middle-dot. Regression
-    # guard for that placement.
-    it "places the [youtube channel] link inside the H1 row (after the H1)" do
+    # 2026-05-11 — the `[YouTube]` / `[Studio]` outbound links moved
+    # from the detail pane into the H1 row, AFTER the `[+]` add-pane
+    # button, separated by a `nav-sep` middle-dot. Regression guard
+    # for that placement.
+    it "places the [YouTube] link inside the H1 row (after the H1)" do
       render
       h1_row = rendered[/<h1[^>]*>.+?<\/div>/m].to_s
-      expect(h1_row).to include("youtube channel"), "expected [youtube channel] inside the H1 row"
+      expect(h1_row).to include(">YouTube<"), "expected [YouTube] inside the H1 row"
     end
 
-    it "places the [youtube studio] link inside the H1 row (after the H1)" do
+    it "places the [Studio] link inside the H1 row (after the H1)" do
       render
       h1_row = rendered[/<h1[^>]*>.+?<\/div>/m].to_s
-      expect(h1_row).to include("youtube studio"), "expected [youtube studio] inside the H1 row"
+      expect(h1_row).to include(">Studio<"), "expected [Studio] inside the H1 row"
     end
 
-    it "orders the title row as <title>, [+], separator, [youtube channel], [youtube studio]" do
+    it "orders the title row as <title>, [+], separator, [YouTube], [Studio]" do
       # The default fixture assigns an empty Channel.none to
       # @available_channels (no [+] rendered). Re-assign with a real
       # sibling so the [+] button shows up and we can lock the full
@@ -126,8 +126,8 @@ RSpec.describe "channels/show.html.erb", type: :view do
       title_idx       = h1_row.index("Pito Test Channel")
       plus_idx        = h1_row.index(/<span class="bl">\+<\/span>/)
       sep_idx         = h1_row.index('class="nav-sep"')
-      yt_channel_idx  = h1_row.index("youtube channel")
-      yt_studio_idx   = h1_row.index("youtube studio")
+      yt_channel_idx  = h1_row.index(">YouTube<")
+      yt_studio_idx   = h1_row.index(">Studio<")
       expect([ title_idx, plus_idx, sep_idx, yt_channel_idx, yt_studio_idx ]).to all(be_a(Integer))
       expect(title_idx).to      be < plus_idx
       expect(plus_idx).to       be < sep_idx
@@ -135,16 +135,16 @@ RSpec.describe "channels/show.html.erb", type: :view do
       expect(yt_channel_idx).to be < yt_studio_idx
     end
 
-    it "does NOT render a second [youtube channel] link inside the detail pane" do
+    it "does NOT render a second [YouTube] link inside the detail pane" do
       render
       # The detail pane (banner + identity + description + links cluster)
       # no longer carries the outbound link cluster. Total occurrences of
       # the label across the page must be exactly one (the H1-row link).
-      occurrences = rendered.scan("youtube channel").size
-      expect(occurrences).to eq(1), "expected exactly one [youtube channel] link on the page (got #{occurrences})"
+      occurrences = rendered.scan(">YouTube<").size
+      expect(occurrences).to eq(1), "expected exactly one [YouTube] link on the page (got #{occurrences})"
     end
 
-    it "opens [youtube channel] in a new tab" do
+    it "opens [YouTube] in a new tab" do
       render
       yt = rendered[/<a[^>]*href="https:\/\/www\.youtube\.com\/channel\/[^"]+"[^>]*>/]
       expect(yt).to include('target="_blank"')
@@ -278,10 +278,10 @@ RSpec.describe "channels/show.html.erb", type: :view do
       expect(rendered).to include("full analytics")
     end
 
-    it "still renders the [youtube channel] and [youtube studio] links" do
+    it "still renders the [YouTube] and [Studio] links" do
       render
-      expect(rendered).to include("youtube channel")
-      expect(rendered).to include("youtube studio")
+      expect(rendered).to include(">YouTube<")
+      expect(rendered).to include(">Studio<")
     end
   end
 

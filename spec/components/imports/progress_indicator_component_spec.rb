@@ -29,6 +29,26 @@ RSpec.describe Imports::ProgressIndicatorComponent, type: :component do
     expect(page).to have_text("completed — 5 new")
   end
 
+  # Regression — the "completed — 0 new" copy was misleading; the user
+  # reported the import modal showing the line for channels that
+  # genuinely had no upstream uploads. The label now distinguishes
+  # three real-world shapes.
+  it "renders 'no new uploads' when upstream returned nothing (total==0, imported==0)" do
+    job = import_job(status: :completed, total_videos: 0, imported_videos: 0)
+    render_inline(described_class.new(import_job: job))
+    expect(page).to have_text("no new uploads")
+    expect(page).not_to have_text("0 new")
+  end
+
+  it "renders the skipped-count variant when total>0 but nothing new (imported==0)" do
+    # Every candidate already existed locally (already-imported /
+    # previously-rejected) — the importer paged through them all but
+    # added 0 rows.
+    job = import_job(status: :completed, total_videos: 7, imported_videos: 0)
+    render_inline(described_class.new(import_job: job))
+    expect(page).to have_text("completed — no new uploads (7 skipped)")
+  end
+
   it "renders an empty bar for a failed job" do
     job = import_job(status: :failed)
     render_inline(described_class.new(import_job: job))

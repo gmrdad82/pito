@@ -34,12 +34,31 @@ RSpec.describe Games::FilterChipComponent, type: :component do
       expect(page).to have_text("[ ] not owned")
     end
 
-    it "displays the canonical token verbatim for everything else" do
-      %w[recorded released scheduled owned ps5 switch2 steam gog epic].each do |t|
+    it "displays the canonical token verbatim for status / ownership tokens" do
+      %w[recorded released scheduled owned].each do |t|
         rendered = render_inline(described_class.new(
           token: t, active: false, request_path: request_path, active_tokens: []
         ))
         expect(rendered.text).to include(t)
+      end
+    end
+
+    # 2026-05-11 polish v2 — platform labels render in canonical
+    # mixed-case marketing form, not the lowercase URL token. URL
+    # tokens stay lowercase / underscored.
+    {
+      "ps5"     => "PS5",
+      "switch2" => "Switch2",
+      "steam"   => "Steam",
+      "gog"     => "GoG",
+      "epic"    => "Epic",
+      "xbox"    => "Xbox"
+    }.each do |token, label|
+      it "renders the #{token} chip with label #{label.inspect}" do
+        rendered = render_inline(described_class.new(
+          token: token, active: false, request_path: request_path, active_tokens: []
+        ))
+        expect(rendered.text).to include(label)
       end
     end
 
@@ -137,24 +156,26 @@ RSpec.describe Games::FilterChipComponent, type: :component do
     # notifications inbox. The `[x]` glyph (vs `[ ]`) is the primary
     # active-state cue; `chip--active` adds class hooks for any further
     # styling but introduces no color (red is reserved).
-    it "renders `[ ]` (unchecked) and the label in two spans for an inactive chip" do
+    it "renders `[ ]` (unchecked) and the canonical-cased label for an inactive PS5 chip" do
       render_inline(described_class.new(
         token: "ps5", active: false, request_path: request_path, active_tokens: []
       ))
       html = page.native.to_html
-      expect(html).to match(%r{<span class="md-check-static">\[ \]</span> <span class="md-check-static-label">ps5</span>})
+      expect(html).to match(%r{<span class="md-check-static">\[ \]</span> <span class="md-check-static-label">PS5</span>})
     end
 
-    it "renders `[x]` (checked) and the label in two spans for an active chip" do
+    it "renders `[x]` (checked) and the canonical-cased label for an active PS5 chip" do
       render_inline(described_class.new(
         token: "ps5", active: true, request_path: request_path, active_tokens: %w[ps5]
       ))
       html = page.native.to_html
-      expect(html).to match(%r{<span class="md-check-static">\[x\]</span> <span class="md-check-static-label">ps5</span>})
+      expect(html).to match(%r{<span class="md-check-static">\[x\]</span> <span class="md-check-static-label">PS5</span>})
     end
 
-    %w[recorded released owned scheduled switch2 steam gog epic].each do |t|
-      it "renders the canonical token `#{t}` inside `md-check-static-label`" do
+    # Status / ownership tokens stay verbatim (no platform-style
+    # casing).
+    %w[recorded released owned scheduled].each do |t|
+      it "renders the canonical token `#{t}` verbatim inside `md-check-static-label`" do
         render_inline(described_class.new(
           token: t, active: false, request_path: request_path, active_tokens: []
         ))
