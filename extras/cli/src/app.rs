@@ -5,6 +5,7 @@ use std::time::{Duration, Instant};
 use crate::api::client::PitoClient;
 use crate::api::models::{AppSettings, BulkOperationStatus, DashboardData, ResponseMode};
 use crate::api::thumbnails::{Cache as ThumbnailCache, Tier};
+use crate::keybindings::Action as KeybindingAction;
 use crate::theme::{Theme, ThemeMode};
 use crate::ui::channel_detail::{ChannelDetailState, ChannelInfo, ChannelVideoRow};
 use crate::ui::channels::{ChannelFilter, ChannelRow, ChannelsState};
@@ -14,6 +15,7 @@ use crate::ui::confirmation::{
 use crate::ui::footage_detail::{
     FootageDetailState, PreviewProtocol, ScrubRects, TerminalCapability,
 };
+use crate::ui::leader_menu::LeaderMenuState;
 use crate::ui::saved_views::{SavedViewRow, SavedViewsState};
 use crate::ui::search::{SearchSection, SearchState};
 use crate::ui::settings::SettingsState;
@@ -196,6 +198,10 @@ pub enum Overlay {
     Help,
     Search,
     Confirmation,
+    /// Unified leader-key menu — root popup triggered by SPACE. Driven by
+    /// `config/keybindings.yml` (shared with the Rails web app). State lives
+    /// in `App::leader_menu`.
+    LeaderMenu,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -257,6 +263,15 @@ pub struct App {
     pub sync_polling: Option<SyncPolling>,
     /// In-flight bulk-operation progress, drives the overlay rendering.
     pub operation_progress: Option<OperationProgress>,
+    /// Leader-menu overlay state. `Some` while the popup is open; `None`
+    /// otherwise. Populated when the user presses the leader key (SPACE),
+    /// cleared when the popup is dismissed (Esc / leader / completed action).
+    pub leader_menu: Option<LeaderMenuState>,
+    /// Status-line message produced by leader-menu actions that don't yet
+    /// have a concrete TUI implementation (web-only navigates, contextual
+    /// actions, etc.). Rendered in the footer; cleared on the next leader
+    /// interaction.
+    pub leader_status: Option<String>,
     /// The single client used for all backend calls during this session.
     /// Holding one instance is required so mutations made by bulk delete /
     /// sync (which live in the mock's internal state) are visible to the
@@ -441,6 +456,8 @@ impl App {
             confirmation_origin: None,
             sync_polling: None,
             operation_progress: None,
+            leader_menu: None,
+            leader_status: None,
             client,
         }
     }
@@ -637,6 +654,112 @@ impl App {
 
     pub fn quit(&mut self) {
         self.running = false;
+    }
+
+    /// Open the leader-menu overlay pointed at the root menu. Clears any
+    /// stale leader-status message from the previous interaction so the
+    /// user sees a clean slate on the next popup.
+    pub fn open_leader_menu(&mut self) {
+        self.leader_menu = Some(LeaderMenuState::new());
+        self.leader_status = None;
+        self.overlay = Some(Overlay::LeaderMenu);
+    }
+
+    /// Close the leader-menu overlay. Idempotent.
+    pub fn close_leader_menu(&mut self) {
+        self.leader_menu = None;
+        if self.overlay == Some(Overlay::LeaderMenu) {
+            self.overlay = None;
+        }
+    }
+
+    /// Quit + logout: best-effort delete of the on-disk auth file, then quit
+    /// the TUI. Any IO error during delete is surfaced as a status message
+    /// rather than killing the session — the user can still exit cleanly
+    /// even if the file lives in an unwritable directory.
+    pub fn quit_and_logout(&mut self) {
+        match crate::auth::auth_file_path() {
+            Ok(path) => {
+                if let Err(e) = crate::auth::delete_file(&path) {
+                    log_error("quit_and_logout delete_file", &e);
+                    self.leader_status = Some(format!("logout failed: {}", e));
+                }
+            }
+            Err(e) => {
+                log_error("quit_and_logout auth_file_path", &e);
+                self.leader_status = Some(format!("logout failed: {}", e));
+            }
+        }
+        self.quit();
+    }
+
+    /// Dispatch a leader-menu action. Returns `true` when the action consumed
+    /// the menu (closes the overlay); `false` when the menu should stay open
+    /// (e.g. submenu navigation handled at the call site, not here).
+    ///
+    /// Concrete actions:
+    /// - `Quit` — flips `running` to false and closes the menu.
+    /// - `QuitAndLogout` — clears the auth file, then quits.
+    /// - `Today` — surfaces a placeholder status (calendar view is not yet
+    ///   implemented in the TUI; the action stays no-op-but-acknowledged so
+    ///   the keybinding doesn't feel broken).
+    /// - `Navigate { path }` — TUI doesn't speak web routes; logs a status
+    ///   message so the binding still gives feedback.
+    /// - Everything else — placeholder status message.
+    pub fn run_leader_action(&mut self, action: &KeybindingAction) -> bool {
+        match action {
+            KeybindingAction::Quit => {
+                self.close_leader_menu();
+                self.quit();
+            }
+            KeybindingAction::QuitAndLogout => {
+                self.close_leader_menu();
+                self.quit_and_logout();
+            }
+            KeybindingAction::Navigate { path } => {
+                self.leader_status = Some(format!("Web action: navigate {}", path));
+                self.close_leader_menu();
+            }
+            KeybindingAction::Today => {
+                // Calendar view isn't implemented in the TUI yet; record the
+                // intent so the binding remains discoverable.
+                self.leader_status = Some("Action: today (calendar view pending)".to_string());
+                self.close_leader_menu();
+            }
+            KeybindingAction::Open { target } => {
+                self.leader_status = Some(format!("Action: open {}", target));
+                self.close_leader_menu();
+            }
+            KeybindingAction::BulkDelete => {
+                self.leader_status = Some("Action: bulk_delete".to_string());
+                self.close_leader_menu();
+            }
+            KeybindingAction::BulkSync => {
+                self.leader_status = Some("Action: bulk_sync".to_string());
+                self.close_leader_menu();
+            }
+            KeybindingAction::BulkResync => {
+                self.leader_status = Some("Action: bulk_resync".to_string());
+                self.close_leader_menu();
+            }
+            KeybindingAction::FilterUnread => {
+                self.leader_status = Some("Action: filter_unread".to_string());
+                self.close_leader_menu();
+            }
+            KeybindingAction::MarkAllRead => {
+                self.leader_status = Some("Action: mark_all_read".to_string());
+                self.close_leader_menu();
+            }
+            KeybindingAction::ContextualAdd => {
+                self.leader_status = Some("Action: contextual_add".to_string());
+                self.close_leader_menu();
+            }
+            KeybindingAction::Noop => {
+                self.leader_status = Some("Action: noop".to_string());
+                self.close_leader_menu();
+            }
+        }
+        true
     }
 
     /// Re-fetch the dashboard counts. Currently has no runtime trigger — the

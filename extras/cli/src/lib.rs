@@ -12,5 +12,6 @@ pub mod auth;
 pub mod cli;
 pub mod confirm;
 pub mod footage;
+pub mod keybindings;
 pub mod output;
 pub mod theme;

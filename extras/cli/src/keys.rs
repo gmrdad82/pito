@@ -1,6 +1,7 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::app::{App, KeyState, Overlay, Screen};
+use crate::keybindings::Action as KeybindingAction;
 use crate::ui::channels::ChannelFilter;
 use crate::ui::confirmation::{self, ConfirmationOutcome};
 
@@ -41,6 +42,15 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
     // Search overlay
     if app.overlay == Some(Overlay::Search) {
         handle_search_input(app, key);
+        return;
+    }
+
+    // Leader-menu overlay — driven by the unified schema in
+    // `config/keybindings.yml`. Takes precedence over `Normal` key handling
+    // so a user inside the popup sees their key map against the menu, not
+    // against the underlying screen.
+    if app.overlay == Some(Overlay::LeaderMenu) {
+        handle_leader_menu_input(app, key);
         return;
     }
 
@@ -94,6 +104,80 @@ fn handle_search_input(app: &mut App, key: KeyEvent) {
             app.perform_search();
         }
         _ => {}
+    }
+}
+
+/// Route a key press while the leader-menu overlay is open. The keymap is
+/// dynamic — pulled live from the current menu in `LeaderMenuState`. We
+/// honour:
+///
+/// - `Esc` — close the menu and clear its state.
+/// - `Backspace` — pop one level; closes if already at root.
+/// - The leader key (`SPACE` per the schema) — close the menu (toggle).
+/// - Any character bound in the current menu — trigger the action or push
+///   the named submenu.
+/// - Everything else — ignored, the menu stays open.
+fn handle_leader_menu_input(app: &mut App, key: KeyEvent) {
+    match key.code {
+        KeyCode::Esc => {
+            app.close_leader_menu();
+            return;
+        }
+        KeyCode::Backspace => {
+            if let Some(ref mut state) = app.leader_menu
+                && !state.pop()
+            {
+                // Already at root → Backspace closes the popup, mirroring
+                // the web side's "up at root = close" behavior.
+                app.close_leader_menu();
+            }
+            return;
+        }
+        KeyCode::Char(' ') => {
+            // Pressing the leader key inside the popup closes it (toggle).
+            app.close_leader_menu();
+            return;
+        }
+        _ => {}
+    }
+
+    // Char keys: look up against the current menu. We collect the action /
+    // submenu name into owned values first so we can drop the immutable
+    // borrow on `app.leader_menu` before calling mutating helpers.
+    let KeyCode::Char(c) = key.code else {
+        return;
+    };
+    let key_str = c.to_string();
+
+    enum Resolved {
+        Action(KeybindingAction),
+        Submenu(String),
+        Unbound,
+    }
+
+    let resolved = match app.leader_menu.as_ref().and_then(|s| s.find_item(&key_str)) {
+        Some(item) => {
+            if let Some(action) = &item.action {
+                Resolved::Action(action.clone())
+            } else if let Some(submenu) = &item.submenu {
+                Resolved::Submenu(submenu.clone())
+            } else {
+                Resolved::Unbound
+            }
+        }
+        None => Resolved::Unbound,
+    };
+
+    match resolved {
+        Resolved::Action(action) => {
+            app.run_leader_action(&action);
+        }
+        Resolved::Submenu(name) => {
+            if let Some(ref mut state) = app.leader_menu {
+                state.push_submenu(&name);
+            }
+        }
+        Resolved::Unbound => {}
     }
 }
 
@@ -212,7 +296,10 @@ fn handle_normal(app: &mut App, key: KeyEvent) {
             handle_enter(app);
         }
         KeyCode::Char(' ') => {
-            handle_space(app);
+            // SPACE is the leader key per `config/keybindings.yml`. Open the
+            // popup pointed at the root menu — subsequent keys are routed
+            // through `handle_leader_menu_input` until the menu closes.
+            app.open_leader_menu();
         }
         KeyCode::Esc => {
             handle_esc(app);
@@ -426,36 +513,6 @@ fn handle_enter(app: &mut App) {
     }
 }
 
-fn handle_space(app: &mut App) {
-    // Selection is always available — no bulk-mode gate. Space toggles the
-    // highlighted row's id in and out of `selected_ids`, matching the web
-    // side's always-on checkbox UX.
-    match app.screen {
-        Screen::Channels => {
-            let visible = crate::ui::channels::visible_channels(&app.channels_state);
-            if let Some(channel) = visible.get(app.channels_state.selected) {
-                let id = channel.id;
-                if app.channels_state.selected_ids.contains(&id) {
-                    app.channels_state.selected_ids.retain(|&x| x != id);
-                } else {
-                    app.channels_state.selected_ids.push(id);
-                }
-            }
-        }
-        Screen::Videos => {
-            if let Some(video) = app.videos_state.videos.get(app.videos_state.selected) {
-                let id = video.id;
-                if app.videos_state.selected_ids.contains(&id) {
-                    app.videos_state.selected_ids.retain(|&x| x != id);
-                } else {
-                    app.videos_state.selected_ids.push(id);
-                }
-            }
-        }
-        _ => {}
-    }
-}
-
 fn handle_esc(app: &mut App) {
     app.clear_flash();
     match app.screen {
@@ -489,34 +546,166 @@ mod tests {
     }
 
     #[test]
-    fn space_toggles_selection_on_channels() {
-        // Selection is always available (no bulk-mode gate). Space toggles
-        // the highlighted row's id in and out of `selected_ids`. Mirrors the
-        // web side's always-on checkbox UX.
+    fn space_opens_leader_menu_when_no_overlay_open() {
+        // SPACE is the leader key per the unified `config/keybindings.yml`
+        // schema. Pressing it from a normal screen must open the leader-menu
+        // popup pointed at the `root` menu — mirrors the web app's posture.
         let mut app = App::with_client(Box::new(crate::api::client::MockClient::new()));
         app.screen = Screen::Channels;
-        app.channels_state.selected_ids.clear();
-        app.channels_state.selected = 0;
-
-        let visible = crate::ui::channels::visible_channels(&app.channels_state);
-        let target_id = visible
-            .first()
-            .expect("at least one visible channel for this test")
-            .id;
 
         handle_key(&mut app, space_event());
+
         assert_eq!(
-            app.channels_state.selected_ids,
-            vec![target_id],
-            "space must add the highlighted id"
+            app.overlay,
+            Some(Overlay::LeaderMenu),
+            "SPACE must open the leader-menu overlay"
+        );
+        let state = app
+            .leader_menu
+            .as_ref()
+            .expect("leader_menu state must be populated");
+        assert_eq!(state.current_menu_name(), "root");
+        assert_eq!(state.depth(), 1);
+    }
+
+    #[test]
+    fn space_inside_leader_menu_closes_it() {
+        // Pressing the leader key while the popup is open toggles it shut —
+        // matches the web side's "leader closes when open" UX.
+        let mut app = App::with_client(Box::new(crate::api::client::MockClient::new()));
+        app.open_leader_menu();
+        assert_eq!(app.overlay, Some(Overlay::LeaderMenu));
+
+        handle_key(&mut app, space_event());
+
+        assert_eq!(app.overlay, None);
+        assert!(app.leader_menu.is_none());
+    }
+
+    #[test]
+    fn esc_closes_leader_menu_regardless_of_depth() {
+        let mut app = App::with_client(Box::new(crate::api::client::MockClient::new()));
+        app.open_leader_menu();
+        // Push two levels deep: root → channels (via `C`).
+        if let Some(ref mut state) = app.leader_menu {
+            state.push_submenu("channels");
+        }
+        assert_eq!(
+            app.leader_menu.as_ref().map(|s| s.depth()),
+            Some(2),
+            "should be two levels deep before Esc"
         );
 
-        // A second space on the same row clears the selection — i.e., it's
-        // a real toggle, not just an additive op.
-        handle_key(&mut app, space_event());
+        handle_key(&mut app, KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+
+        assert_eq!(app.overlay, None, "Esc must close the popup");
+        assert!(app.leader_menu.is_none());
+    }
+
+    #[test]
+    fn backspace_pops_one_level_then_closes_at_root() {
+        let mut app = App::with_client(Box::new(crate::api::client::MockClient::new()));
+        app.open_leader_menu();
+        if let Some(ref mut state) = app.leader_menu {
+            state.push_submenu("channels");
+        }
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE),
+        );
+        // Still open, but back at root.
+        assert_eq!(app.overlay, Some(Overlay::LeaderMenu));
+        assert_eq!(
+            app.leader_menu
+                .as_ref()
+                .map(|s| s.current_menu_name().to_string()),
+            Some("root".to_string())
+        );
+
+        // Backspace at root closes the popup entirely.
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE),
+        );
+        assert_eq!(app.overlay, None);
+        assert!(app.leader_menu.is_none());
+    }
+
+    #[test]
+    fn leader_menu_submenu_key_pushes_onto_stack() {
+        // SPACE then `C` should walk into the channels submenu.
+        let mut app = App::with_client(Box::new(crate::api::client::MockClient::new()));
+        app.open_leader_menu();
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('C'), KeyModifiers::NONE),
+        );
+
+        let state = app
+            .leader_menu
+            .as_ref()
+            .expect("still open after submenu push");
+        assert_eq!(state.current_menu_name(), "channels");
+        assert_eq!(state.depth(), 2);
+    }
+
+    #[test]
+    fn leader_menu_quit_action_exits_tui() {
+        // SPACE then `q` (TUI-only) hits the Quit action.
+        let mut app = App::with_client(Box::new(crate::api::client::MockClient::new()));
+        app.open_leader_menu();
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE),
+        );
+
+        assert!(!app.running, "Quit action must flip running to false");
+        assert_eq!(app.overlay, None);
+        assert!(app.leader_menu.is_none());
+    }
+
+    #[test]
+    fn leader_menu_navigate_action_logs_status() {
+        // SPACE then `h` (home) lands a Navigate action. TUI doesn't speak
+        // web routes — it surfaces a placeholder status message instead.
+        let mut app = App::with_client(Box::new(crate::api::client::MockClient::new()));
+        app.open_leader_menu();
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('h'), KeyModifiers::NONE),
+        );
+
+        assert_eq!(app.overlay, None, "action closes the popup");
+        let status = app.leader_status.as_deref().expect("status set");
         assert!(
-            app.channels_state.selected_ids.is_empty(),
-            "second space on the same row must remove the id"
+            status.contains("/") && status.to_lowercase().contains("navigate"),
+            "status should mention navigate + path, got: {status}"
+        );
+    }
+
+    #[test]
+    fn leader_menu_unbound_key_keeps_popup_open() {
+        let mut app = App::with_client(Box::new(crate::api::client::MockClient::new()));
+        app.open_leader_menu();
+
+        handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('z'), KeyModifiers::NONE),
+        );
+
+        assert_eq!(
+            app.overlay,
+            Some(Overlay::LeaderMenu),
+            "unbound key must leave the popup open"
+        );
+        assert_eq!(
+            app.leader_menu.as_ref().map(|s| s.depth()),
+            Some(1),
+            "unbound key must not push or pop"
         );
     }
 

@@ -31,6 +31,9 @@ crossterm = "0.29"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# YAML loader for `config/keybindings.yml` — the unified keybindings
+# schema shared with the Rails web app's Stimulus leader menu.
+serde_yaml = "0.9"
 anyhow = "1"
 thiserror = "2"
 open = "5"
