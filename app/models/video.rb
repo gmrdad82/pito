@@ -65,6 +65,14 @@ class Video < ApplicationRecord
   has_many :video_window_summaries,              dependent: :delete_all
   has_many :video_retentions,                    dependent: :delete_all
 
+  # Phase 26 §01g — viewer-time buckets. UTC-stored day-of-week ×
+  # hour-of-day rollup powering the "best time to publish" heatmap.
+  # User-tz conversion happens at query time via
+  # `Analytics::ViewerTimeRollup`.
+  has_many :viewer_time_buckets,
+           class_name: "VideoViewerTimeBucket",
+           dependent: :delete_all
+
   # Phase 15 §1 — calendar entries cascade on host destroy. The FK is
   # ON DELETE CASCADE on the database level too (calendar_entries
   # migration), so this is documentation; Rails-side cascade is

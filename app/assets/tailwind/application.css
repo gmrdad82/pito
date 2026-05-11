@@ -1951,3 +1951,76 @@ dialog.wide-modal::backdrop {
   margin-top: 6px;
   font-size: 11px;
 }
+
+/* Phase 26 §01g — viewer-time heatmap. CSS grid + single-hue
+   intensity gradient (no red, per design rules). The grid is
+   7 rows (days) x 25 columns (1 row-label + 24 hour cells).
+   Mobile (<=88vw / phone form factor) collapses to a vertical
+   7-strip stack mirroring the pane primitive's breakpoint. */
+.viewer-time-heatmap {
+  margin: 12px 0;
+}
+.viewer-time-heatmap__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+.viewer-time-heatmap__title {
+  font-weight: 600;
+}
+.viewer-time-heatmap__tz,
+.viewer-time-heatmap__intensity {
+  color: #555;
+}
+.viewer-time-heatmap__empty {
+  color: #555;
+  margin: 8px 0;
+}
+.viewer-time-heatmap__grid {
+  display: grid;
+  grid-template-columns: 36px repeat(24, 1fr);
+  gap: 2px;
+  font-size: 11px;
+}
+.viewer-time-heatmap__corner {
+  background: transparent;
+}
+.viewer-time-heatmap__col-header,
+.viewer-time-heatmap__row-header {
+  color: #555;
+  text-align: center;
+}
+.viewer-time-heatmap__row-header {
+  text-align: right;
+  padding-right: 4px;
+}
+.viewer-time-heatmap__cell {
+  aspect-ratio: 1 / 1;
+  border: 1px solid #ddd;
+  min-height: 14px;
+}
+@media (max-width: 480px) {
+  .viewer-time-heatmap__grid {
+    grid-template-columns: 36px repeat(24, 1fr);
+    font-size: 10px;
+  }
+  .viewer-time-heatmap__cell {
+    min-height: 10px;
+  }
+}
+
+/* Phase 27 §01h — Collection sub-shelf composite cover.
+   Fixed-pixel sizing matches the `:shelf` cover-art variant
+   (98 × 130) so the composite sits inline with neighbouring
+   `Games::CoverComponent` tiles without browser-side resizing.
+   No `transform: scale`, no `width: 100%`, no `cursor: pointer` on
+   the image itself — the sub-shelf wrapper carries the click
+   affordance (see `_collection_sub_shelf.html.erb`). */
+.collection-cover-composite {
+  width: 98px;
+  height: 130px;
+  display: block;
+  border-radius: 2px;
+}

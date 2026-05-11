@@ -1,0 +1,105 @@
+<% content_for(:title, "purge blocks") %>
+<% breadcrumb(["settings", settings_path],
+              ["security", settings_security_path],
+              ["blocks", settings_security_blocks_path],
+              "purge") %>
+
+<div style="margin-bottom: 8px;">
+  <h1>purge blocks</h1>
+  <p class="text-muted" style="margin-top: 2px;">
+    hard-deletes the matching <code>blocked_locations</code> rows.<br>
+    this is destructive — rows are not soft-marked, they are removed.<br>
+    at least one filter is required (safety rule).
+  </p>
+</div>
+
+<%# Filter input. Plain GET form posting back to itself so the preview
+    count updates on every change. The destructive submit lives in the
+    second form below. %>
+<div class="pane pane--standalone" style="margin-bottom: 12px;">
+  <%= form_with url: settings_security_blocks_purge_path, method: :get,
+                scope: nil, data: { turbo: false } do %>
+    <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: end;">
+      <div>
+        <label for="source_surface" class="form-label">source</label>
+        <select name="source_surface" id="source_surface">
+          <option value="">(any)</option>
+          <% %w[web tui mcp].each do |s| %>
+            <option value="<%= s %>" <%= "selected" if @applied_filter[:source_surface] == s %>><%= s %></option>
+          <% end %>
+        </select>
+      </div>
+      <div>
+        <label for="active" class="form-label">active</label>
+        <select name="active" id="active">
+          <option value="">(both)</option>
+          <option value="yes" <%= "selected" if @applied_filter[:active] == "yes" %>>yes</option>
+          <option value="no"  <%= "selected" if @applied_filter[:active] == "no" %>>no (unblocked)</option>
+        </select>
+      </div>
+      <div>
+        <label for="since" class="form-label">since (iso8601)</label>
+        <input type="text" name="since" id="since"
+               value="<%= @applied_filter[:since] %>"
+               placeholder="2026-05-01T00:00:00Z">
+      </div>
+      <div>
+        <label for="until_ts" class="form-label">until (iso8601)</label>
+        <input type="text" name="until_ts" id="until_ts"
+               value="<%= @applied_filter[:until_ts] %>"
+               placeholder="2026-05-31T00:00:00Z">
+      </div>
+      <div>
+        <label for="fingerprint" class="form-label">fingerprint</label>
+        <input type="text" name="fingerprint" id="fingerprint"
+               value="<%= @applied_filter[:fingerprint] %>"
+               style="width: 280px;">
+      </div>
+      <div>
+        <label for="ip_prefix" class="form-label">ip prefix</label>
+        <input type="text" name="ip_prefix" id="ip_prefix"
+               value="<%= @applied_filter[:ip_prefix] %>"
+               placeholder="1.2.3.0/24">
+      </div>
+      <div>
+        <button type="submit">[preview]</button>
+      </div>
+    </div>
+  <% end %>
+</div>
+
+<div class="pane pane--standalone" style="margin-bottom: 12px;">
+  <% if @no_filter %>
+    <p class="text-muted">enter at least one filter, then [preview].</p>
+  <% else %>
+    <p>
+      this purge will hard-delete
+      <strong><%= number_with_delimiter(@preview_count) %></strong>
+      block<%= "s" if @preview_count != 1 %>.
+    </p>
+
+    <%# Pass the filter through to the POST so the destructive action
+        operates on the same set the preview reported. Hidden inputs
+        keep the wire shape consistent. The `confirm=yes` field
+        satisfies LD-8 (two-step yes/no boundary). %>
+    <%= form_with url: settings_security_blocks_purge_path, method: :post,
+                  scope: nil, data: { turbo: false, keyboard_confirmation: "true" } do %>
+      <% @applied_filter.each do |k, v| %>
+        <% next if v.blank? %>
+        <%= hidden_field_tag k, v %>
+      <% end %>
+      <%= hidden_field_tag :confirm, "yes" %>
+
+      <div class="action-screen-footer">
+        <div class="dot-list">
+          <% if @preview_count.positive? %>
+            <button type="submit" class="btn-danger">[purge]</button>
+          <% else %>
+            <button type="submit" class="btn-danger" disabled>[purge]</button>
+          <% end %>
+          <%= render(BracketedLinkComponent.new(label: "cancel", href: settings_security_blocks_path, data: { keyboard_confirmation_cancel: "true" })) %>
+        </div>
+      </div>
+    <% end %>
+  <% end %>
+</div>

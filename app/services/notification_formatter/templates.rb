@@ -16,7 +16,10 @@ module NotificationFormatter
       "sync_error"                     => SyncError,
       "youtube_reauth_needed"          => YoutubeReauthNeeded,
       "video_diff_detected"            => VideoDiffDetected,
-      "channel_diff_detected"          => ChannelDiffDetected
+      "channel_diff_detected"          => ChannelDiffDetected,
+      # Phase 25 — 01c. Urgent notification dispatched when a
+      # new-location correct-password login waits for approval.
+      "login_pending_approval"         => LoginPendingApproval
     }.freeze
   end
 end

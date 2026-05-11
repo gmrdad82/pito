@@ -100,6 +100,15 @@ class Game < ApplicationRecord
   # every bundle the game belongs to.
   after_update_commit :invalidate_bundle_covers_if_image_changed
 
+  # Phase 27 §01h — fire `CollectionCoverRebuildJob` when the game's
+  # `collection_id` changes (add / move / remove). The job evicts the
+  # on-disk composite for BOTH the old and new collection ids so the
+  # next page render re-derives them via `Collections::CoverComposer`.
+  # The fingerprint catches the same change as a fallback; eviction
+  # makes the next render faster (no need to re-hash 6 ids to discover
+  # the cache is stale — the file literally is not there).
+  after_update_commit :evict_collection_composite_on_collection_change
+
   # Phase 4 legacy — kept for one phase, dropped in polish window.
   has_one_attached :cover_art
 
@@ -250,5 +259,17 @@ class Game < ApplicationRecord
     return unless saved_change_to_cover_image_id?
     previous_cover_image_id = saved_change_to_cover_image_id.first
     BundleCoverInvalidate.perform_async(id, previous_cover_image_id)
+  end
+
+  # Phase 27 §01h — collection composite eviction hook. Enqueues
+  # `CollectionCoverRebuildJob` with both the previous and current
+  # `collection_id` so the job sweeps stale files on both sides of
+  # the move. Sidekiq runs in a separate process, so the in-memory
+  # `saved_changes` from the originating after_update_commit is gone
+  # by the time the job executes — the args are passed explicitly.
+  def evict_collection_composite_on_collection_change
+    return unless saved_change_to_collection_id?
+    previous_id, current_id = saved_change_to_collection_id
+    CollectionCoverRebuildJob.perform_async(previous_id, current_id)
   end
 end

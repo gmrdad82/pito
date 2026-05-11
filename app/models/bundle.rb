@@ -26,6 +26,12 @@ class Bundle < ApplicationRecord
   extend FriendlyId
   friendly_id :slug_candidates, use: %i[slugged history finders]
 
+  # Phase 27 §01h — shared composite-cover interface
+  # (`composite_cover_url`, `composite_cover_absolute_path`,
+  # `sweep_composite_cover_file`). Extracted into `Compositable` so
+  # `Collection` can reuse the same shape for its sub-shelf composites.
+  include Compositable
+
   # Rails 8.1 — defensive: lock the enum-backing column types.
   attribute :bundle_type, :integer
   attribute :igdb_source_type, :integer
@@ -54,22 +60,9 @@ class Bundle < ApplicationRecord
   after_save :enqueue_cover_build_if_changed
   before_destroy :sweep_composite_cover_file
 
-  # Public URL for the composite cover. Returns nil when the bundle has
-  # not been built yet. Routes through the auth-gated
-  # `/composites/:filename` controller (see `CompositesController`).
-  def composite_cover_url
-    return nil if composite_cover_path.blank?
-    "/composites/#{File.basename(composite_cover_path)}"
-  end
-
-  # Absolute on-disk Pathname for the composite cover. Returns nil when
-  # the bundle has not been built yet.
-  def composite_cover_absolute_path
-    return nil if composite_cover_path.blank?
-    Pito::AssetsRoot.path(*Pathname.new(composite_cover_path).each_filename.to_a)
-  rescue Pito::AssetsRoot::Error
-    nil
-  end
+  # Phase 27 §01h — `composite_cover_url` and
+  # `composite_cover_absolute_path` are provided by the `Compositable`
+  # mixin (shared with Collection).
 
   # True when the cover on disk is stale relative to the current member
   # set. The checksum is computed over the sorted list of member
@@ -151,13 +144,8 @@ class Bundle < ApplicationRecord
     BundleCoverBuild.perform_async(id)
   end
 
-  # Best-effort cleanup. The reap-orphans rake task picks up anything
-  # that survives this hook (e.g. when `composite_cover_path` got
-  # blanked before destroy).
-  def sweep_composite_cover_file
-    abs = composite_cover_absolute_path
-    File.delete(abs) if abs && File.exist?(abs)
-  rescue StandardError
-    nil
-  end
+  # Phase 27 §01h — `sweep_composite_cover_file` is provided by the
+  # `Compositable` mixin (shared with Collection). The reap-orphans
+  # rake task picks up anything that survives the `before_destroy`
+  # hook (e.g. when `composite_cover_path` got blanked before destroy).
 end

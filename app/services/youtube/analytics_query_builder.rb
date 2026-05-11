@@ -276,6 +276,21 @@ module Youtube
         }
       end
 
+      # Phase 26 §01g — viewer-time buckets. Day-of-week x hour-of-day
+      # viewer distribution for a single video. YouTube returns the
+      # values in UTC bucket; the user-tz rollup happens at query
+      # time in `Analytics::ViewerTimeRollup`.
+      def video_viewer_time_params(video_youtube_id:, from:, to:)
+        {
+          ids: "channel==MINE",
+          start_date: format_date(from),
+          end_date: format_date(to),
+          metrics: %w[views estimatedMinutesWatched].join(","),
+          dimensions: "day,hour",
+          filters: "video==#{video_youtube_id}"
+        }
+      end
+
       # ----- Mutual exclusion guards ---------------------------------------
 
       def assert_compatible!(metrics:, dimensions: nil)

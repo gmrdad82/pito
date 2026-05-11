@@ -1,0 +1,40 @@
+<%# Phase 27 §01h — Collection sub-shelf cover.
+
+    Renders the leading composite tile for one Custom collection on
+    `/games`. Three branches keyed on game count:
+      - 0 games  : `[empty]` placeholder block sized to the `:shelf`
+                   cover-art variant (98 × 130).
+      - 1 game   : a single `Games::CoverComponent` at `:shelf` variant.
+      - 2+ games : the composite `<img>` whose `src` is
+                   `collection.cover_url`. The composer runs lazily on
+                   first miss (see `Collections::CoverComposer`); the
+                   view itself never invokes the composer service
+                   directly.
+
+    Locals:
+      collection  Collection — the row whose sub-shelf this represents.
+%>
+<%
+  collection = local_assigns.fetch(:collection)
+  game_count = collection.games.count
+  composite_url = collection.cover_url
+%>
+<% if composite_url.present? %>
+  <img src="<%= composite_url %>"
+       width="98"
+       height="130"
+       loading="lazy"
+       alt="<%= collection.name %>"
+       class="collection-cover-composite">
+<% elsif game_count == 1 %>
+  <%= render(Games::CoverComponent.new(
+        game: collection.games.first,
+        variant: :shelf,
+        link_to_show: false
+      )) %>
+<% else %>
+  <span class="bracketed-active text-muted collection-cover-empty"
+        style="width: 98px; height: 130px; display: inline-flex; align-items: center; justify-content: center;">
+    [empty]
+  </span>
+<% end %>

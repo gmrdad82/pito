@@ -187,6 +187,18 @@ module Youtube
       execute_query(query_label: "V7.video_retention", params: params)
     end
 
+    # Phase 26 §01g — viewer-time buckets. Pulls the day x hour viewer
+    # distribution for a single video over `(from..to)`. Results are
+    # returned in the YouTube channel's UTC bucket; the user-tz rollup
+    # happens at query time in `Analytics::ViewerTimeRollup`.
+    def video_viewer_time(video:, from:, to:)
+      assert_video_belongs!(video)
+      params = AnalyticsQueryBuilder.video_viewer_time_params(
+        video_youtube_id: video.youtube_video_id, from: from, to: to
+      )
+      execute_query(query_label: "V9.video_viewer_time", params: params)
+    end
+
     # ----- Pacific Time helper ---------------------------------------------
 
     # Per Q11: every nightly run anchors itself at the PT day boundary.
