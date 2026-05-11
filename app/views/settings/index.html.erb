@@ -334,19 +334,12 @@
           </div>
         <% end %>
 
-        <%# 2026-05-11 — fresh TOTP gate. When 2FA is on, the
-            controller rejects updates that don't carry a valid
-            `totp_code`. Read-only views are not gated. %>
-        <% if Current.user&.totp_enabled? %>
-          <div style="margin-bottom: 8px;">
-            <label for="settings_voyage_totp_code" class="form-label">2FA code</label>
-            <input type="text" name="totp_code" id="settings_voyage_totp_code"
-                   value="" autocomplete="one-time-code" inputmode="numeric"
-                   pattern="\d{6}" maxlength="6"
-                   style="max-width: 420px; width: 100%;">
-            <span class="form-hint" style="display: block;">required to authorize the change.</span>
-          </div>
-        <% end %>
+        <%# 2026-05-11 — fresh TOTP gate. When 2FA is on the layout-level
+            TOTP modal opens on `[update]`; the inline 6-digit text input
+            this pane used to render is gone. The controller-side
+            `RecentTotpVerification` gate still reads `params[:totp_code]`
+            — the modal injects it as a hidden field on the form before
+            re-submitting. %>
 
         <button type="submit">[update]</button>
 

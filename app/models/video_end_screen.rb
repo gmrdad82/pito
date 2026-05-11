@@ -51,7 +51,7 @@ class VideoEndScreen < ApplicationRecord
     return unless video_id
     siblings = VideoEndScreen.where(video_id: video_id)
                               .where.not(id: id)
-                              .where.not(kind: kinds[:none])
+                              .where.not(kind: self.class.kinds[:none])
     return if siblings.count < 4
     errors.add(:base, "no more than 4 non-none end-screens per video")
   end

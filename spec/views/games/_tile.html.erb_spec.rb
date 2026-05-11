@@ -44,7 +44,8 @@ RSpec.describe "games/_tile.html.erb", type: :view do
     end
 
     it "renders the metadata line in `.tile-caption-meta` with no /100 suffix" do
-      expect(rendered).to have_css(".tile-caption-meta", text: "93 · 2018")
+      meta_text = Capybara.string(rendered).find(".tile-caption-meta").text.strip
+      expect(meta_text).to match(%r{\A93\s*·\s*2018\z})
       expect(rendered).not_to include("93/100")
     end
 
@@ -434,7 +435,8 @@ RSpec.describe "games/_tile.html.erb", type: :view do
     it "renders the same tile when passed via `item:`" do
       render partial: "games/tile", locals: { item: game }
       expect(rendered).to have_css(".tile-caption-title", text: "Red Dead Redemption 2")
-      expect(rendered).to have_css(".tile-caption-meta", text: "93 · 2018")
+      meta_text = Capybara.string(rendered).find(".tile-caption-meta").text.strip
+      expect(meta_text).to match(%r{\A93\s*·\s*2018\z})
     end
   end
 end

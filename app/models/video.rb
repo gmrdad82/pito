@@ -441,6 +441,28 @@ class Video < ApplicationRecord
     errors.add(:publish_at, "can only be set when privacy_status is private")
   end
 
+  # Phase 11 §01a — end-screen invariants enforced at the Video
+  # boundary so a nested-attributes save sees the in-memory
+  # collection (the per-row `VideoEndScreen` validator only sees
+  # persisted siblings, which is too late for a single-pass save).
+  validate :end_screens_invariants
+
+  def end_screens_invariants
+    rows = video_end_screens.reject(&:marked_for_destruction?)
+    return if rows.empty?
+
+    none_rows = rows.select(&:kind_none?)
+    non_none = rows.reject(&:kind_none?)
+
+    if none_rows.any? && non_none.any?
+      errors.add(:base, "cannot mix a 'none' end-screen with other rows")
+    end
+
+    if non_none.size > 4
+      errors.add(:base, "no more than 4 non-none end-screens per video")
+    end
+  end
+
   # Phase 11 §01a — PNG / JPEG only, ≤2 MB. Validates on attach so a
   # bad upload re-renders the form with an inline error instead of
   # silently landing a malformed blob.

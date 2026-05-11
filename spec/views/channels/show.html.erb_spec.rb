@@ -187,30 +187,30 @@ RSpec.describe "channels/show.html.erb", type: :view do
 
     it "renders two .pane-row sections (detail, analytics+Google) and a non-pane videos table" do
       # 2026-05-11 follow-up — the analytics pane and the Google
-      # connection pane now share a single pane-row (side-by-side
-      # via the existing 2-up grid). The detail row stays on its own.
+      # pane now share a single pane-row (side-by-side via the
+      # existing 2-up grid). The detail row stays on its own.
       # Videos render as a bare table BELOW the two pane-rows.
       render
       expect(rendered.scan(/<div class="pane-row">/).size).to eq(2)
     end
 
-    it "places the analytics pane and the Google connection pane in the SAME pane-row" do
+    it "places the analytics pane and the Google pane in the SAME pane-row" do
       # The two panes must share a single pane-row container so the
       # CSS grid lays them out side-by-side. Regression guard against
       # the prior layout where each pane sat in its own pane-row and
       # stacked vertically.
       render
       shared_row = rendered[
-        /<div class="pane-row">(?:(?!<div class="pane-row">).)*?<h2[^>]*>analytics<\/h2>.*?<h2[^>]*>Google connection<\/h2>.*?<\/div>\s*<\/div>/m
+        /<div class="pane-row">(?:(?!<div class="pane-row">).)*?<h2[^>]*>analytics<\/h2>.*?<h2[^>]*>Google<\/h2>.*?<\/div>\s*<\/div>/m
       ]
       expect(shared_row).not_to be_nil,
-        "expected analytics + Google connection panes to share a single pane-row"
+        "expected analytics + Google panes to share a single pane-row"
     end
 
-    it "renders the analytics pane BEFORE the Google connection pane in source order" do
+    it "renders the analytics pane BEFORE the Google pane in source order" do
       render
       analytics_idx = rendered.index(/<h2[^>]*>analytics<\/h2>/)
-      google_idx = rendered.index(/<h2[^>]*>Google connection<\/h2>/)
+      google_idx = rendered.index(/<h2[^>]*>Google<\/h2>/)
       expect(analytics_idx).not_to be_nil
       expect(google_idx).not_to be_nil
       expect(analytics_idx).to be < google_idx
@@ -230,7 +230,7 @@ RSpec.describe "channels/show.html.erb", type: :view do
       expect(analytics_pane).not_to include("pane--standalone")
     end
 
-    it "wraps the Google connection pane in a plain `.pane` (not `pane--standalone`)" do
+    it "wraps the Google pane in a plain `.pane` (not `pane--standalone`)" do
       render
       # The Google panel partial wraps its content in a single root
       # `<div class="pane" data-google-panel ...>`. Capture the class
@@ -249,7 +249,7 @@ RSpec.describe "channels/show.html.erb", type: :view do
         /<div class="pane-row">(?:(?!<div class="pane-row">).)*?<h2[^>]*>analytics<\/h2>.*?data-google-panel.*?<\/div>\s*<\/div>/m
       ]
       expect(row_html).not_to be_nil,
-        "expected analytics + Google connection panes inside a shared `.pane-row`"
+        "expected analytics + Google panes inside a shared `.pane-row`"
     end
 
     it "renders the chrome row actions: [e], [sync], [-]" do

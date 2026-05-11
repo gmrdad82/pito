@@ -23,7 +23,8 @@ RSpec.describe "Games show meta block + label treatment", type: :request do
 
     let!(:game) do
       g = create(:game, :synced, title: "Zelda BotW", igdb_id: 7346,
-                 release_year: 2017)
+                 release_year: 2017,
+                 release_date: Date.new(2017, 3, 3))
       GameDeveloper.create!(game: g, company: developer)
       GamePublisher.create!(game: g, company: publisher)
       g.platforms_available << platform
@@ -34,8 +35,9 @@ RSpec.describe "Games show meta block + label treatment", type: :request do
       get game_path(game)
       # The block is a single `<p class="text-muted">` carrying the
       # three labelled lines, joined by `<br>` (safe_join + tag.br).
+      # Fix 3 (2026-05-11) — released is the full date in `MM-DD-YYYY`.
       meta_paragraph = response.body[/<p class="text-muted"[^>]*>(.*?)<\/p>/m, 1].to_s
-      expect(meta_paragraph).to include("released: 2017")
+      expect(meta_paragraph).to include("released: 03-03-2017")
       expect(meta_paragraph).to include("dev: Nintendo EPD")
       expect(meta_paragraph).to include("pub: Nintendo")
     end
@@ -44,12 +46,29 @@ RSpec.describe "Games show meta block + label treatment", type: :request do
       get game_path(game)
       # Pull the meta paragraph and assert `<br>` between two adjacent
       # labels (released → dev) so the line-by-line structure holds.
-      expect(response.body).to match(/released:\s*2017\s*<br[^>]*>\s*dev:/)
+      expect(response.body).to match(%r{released:\s*03-03-2017\s*<br[^>]*>\s*dev:})
       expect(response.body).to match(/dev:\s*Nintendo EPD\s*<br[^>]*>\s*pub:/)
     end
 
-    it "skips missing release_year entirely (no `released: —` placeholder)" do
-      game.update_column(:release_year, nil)
+    it "renders the released date as MM-DD-YYYY (Fix 3, 2026-05-11)" do
+      # Boundary case — the formatter must zero-pad both month and day.
+      game.update_column(:release_date, Date.new(2021, 1, 4))
+      get game_path(game)
+      meta_paragraph = response.body[/<p class="text-muted"[^>]*>(.*?)<\/p>/m, 1].to_s
+      expect(meta_paragraph).to include("released: 01-04-2021")
+    end
+
+    it "does NOT render the legacy year-only `released:` shape" do
+      get game_path(game)
+      meta_paragraph = response.body[/<p class="text-muted"[^>]*>(.*?)<\/p>/m, 1].to_s
+      # The legacy shape was `released: 2017`. Make sure the year alone
+      # never appears as the entire released value.
+      expect(meta_paragraph).not_to match(/released:\s*2017\s*</)
+      expect(meta_paragraph).not_to match(/released:\s*2017\s*<br/)
+    end
+
+    it "skips missing release_date entirely (no `released: —` placeholder)" do
+      game.update_columns(release_date: nil, release_year: nil)
       get game_path(game)
       meta_paragraph = response.body[/<p class="text-muted"[^>]*>(.*?)<\/p>/m, 1].to_s
       expect(meta_paragraph).not_to match(/released:/)

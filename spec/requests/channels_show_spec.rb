@@ -62,30 +62,30 @@ RSpec.describe "GET /channels/:slug — show page revamp", type: :request do
 
     it "renders two pane rows (detail, analytics+Google) and a videos table outside any pane" do
       # 2026-05-11 follow-up — the analytics pane and the Google
-      # connection pane now share one pane-row (side-by-side via
-      # the existing 2-up grid). The detail row stays on its own,
-      # so the page has two pane-rows total. Videos render below
-      # as a bare /videos-style table.
+      # pane now share one pane-row (side-by-side via the existing
+      # 2-up grid). The detail row stays on its own, so the page has
+      # two pane-rows total. Videos render below as a bare
+      # /videos-style table.
       get channel_path(hydrated_channel)
       expect(response.body.scan(/<div class="pane-row">/).size).to eq(2)
     end
 
-    it "places the analytics pane and the Google connection pane in the SAME pane-row" do
+    it "places the analytics pane and the Google pane in the SAME pane-row" do
       # Regression guard: the two panes must share a single
       # pane-row container so the CSS grid lays them out
       # side-by-side instead of stacking vertically.
       get channel_path(hydrated_channel)
       shared_row = response.body[
-        /<div class="pane-row">(?:(?!<div class="pane-row">).)*?<h2[^>]*>analytics<\/h2>.*?<h2[^>]*>Google connection<\/h2>.*?<\/div>\s*<\/div>/m
+        /<div class="pane-row">(?:(?!<div class="pane-row">).)*?<h2[^>]*>analytics<\/h2>.*?<h2[^>]*>Google<\/h2>.*?<\/div>\s*<\/div>/m
       ]
       expect(shared_row).not_to be_nil,
-        "expected analytics + Google connection panes to share a single pane-row"
+        "expected analytics + Google panes to share a single pane-row"
     end
 
-    it "renders the analytics pane BEFORE the Google connection pane in source order" do
+    it "renders the analytics pane BEFORE the Google pane in source order" do
       get channel_path(hydrated_channel)
       analytics_idx = response.body.index("<h2 style=\"margin: 0 0 8px 0;\">analytics</h2>")
-      google_idx = response.body.index("<h2 style=\"margin: 0 0 8px 0;\">Google connection</h2>")
+      google_idx = response.body.index("<h2 style=\"margin: 0 0 8px 0;\">Google</h2>")
       expect(analytics_idx).not_to be_nil
       expect(google_idx).not_to be_nil
       expect(analytics_idx).to be < google_idx

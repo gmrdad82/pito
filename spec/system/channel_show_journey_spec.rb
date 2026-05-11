@@ -45,9 +45,9 @@ RSpec.describe "Channel show journey", type: :system do
     expect(page).to have_content("50,000")
     expect(page).to have_link(text: /full analytics/i, href: channel_analytics_path(channel))
 
-    # Google connection section — heading present (no connection on
-    # this factory channel, so the empty state renders).
-    expect(page).to have_content(/Google connection/)
+    # Google section — heading present (no connection on this
+    # factory channel, so the empty state renders).
+    expect(page).to have_css("h2", text: "Google")
 
     # Videos section — heading + [see all videos] (>30 videos).
     expect(page).to have_content(/videos \(31\)/)

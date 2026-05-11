@@ -523,6 +523,7 @@ RSpec.describe Video, type: :model do
       it "destroys a chapter when _destroy is set" do
         video = create(:video)
         chapter = create(:video_chapter, video: video, start_seconds: 0, label: "intro")
+        video.reload
         video.update!(video_chapters_attributes: [
           { id: chapter.id, _destroy: "1" }
         ])
@@ -563,6 +564,7 @@ RSpec.describe Video, type: :model do
       it "destroys an end-screen when _destroy is set" do
         video = create(:video)
         es = create(:video_end_screen, video: video, kind: :related_video, target_id: "yt_a")
+        video.reload
         video.update!(video_end_screens_attributes: [
           { id: es.id, _destroy: "1" }
         ])

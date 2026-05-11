@@ -34,9 +34,9 @@ RSpec.describe "channels/_google_panel.html.erb", type: :view do
     end
     let(:channel) { create(:channel, youtube_connection: connection) }
 
-    it "renders the Google connection heading" do
+    it "renders the Google heading" do
       render partial: "channels/google_panel", locals: { channel: channel, youtube_connection: connection }
-      expect(rendered).to include("Google connection")
+      expect(rendered).to match(/<h2[^>]*>Google<\/h2>/)
     end
 
     it "renders the last-authorized row" do
