@@ -3408,3 +3408,167 @@ agent.
   schema stable while the rest evolves.
 
 **No commits, no pushes.** Master commits after manual validation.
+
+
+## 2026-05-11 — §11f Channel Banner Upload (rails-impl)
+
+**Spec:** `specs/11f-channel-banner-upload.md` (sub-spec of 11). Replaces
+the 11c stub `_banner_upload.html.erb` with a working drag-drop + file-
+picker upload flow. Client-side validates type / dimensions / aspect /
+size (4 conditions, all rejection reasons render simultaneously per
+D22). On submit, Rails performs the two-step YouTube call
+(`channelBanners.insert` to upload bytes, then `channels.update` to set
+`brandingSettings.image.bannerExternalUrl`) and caches the published
+URL into `channels.banner_url`. The banner section swaps in-place via
+Turbo Stream when banner is the only dirty field — no full page reload.
+
+**Locked decisions (master-confirmed at dispatch):**
+
+1. Submit blocking on client-side check: YES — form submit blocked
+   until client validation passes. Stimulus shows a progress indicator
+   while validating.
+2. Multipart upload size limit: deployment-side nginx
+   `client_max_body_size` 10MB; Rails / Rack 3 do not impose a per-part
+   byte cap so the initializer just pins `multipart_file_limit = 128`
+   (part-count, default) and documents the nginx target.
+3. `URL.createObjectURL` revocation: revoke after preview generation
+   (dimension-read URL revokes immediately on load; preview URL revokes
+   after every `<img>` has loaded). `disconnect()` also flushes any
+   remaining handles.
+4. Success rendering: Turbo Stream swap of `#channel-banner-section`
+   when the banner was the only edit. Combined edits (banner +
+   description) take the redirect path so the show page renders the
+   full update.
+5. YouTube-side rejection fallback: render error message + keep the
+   staged form data so the user can re-pick. The `Permanent` /
+   `Quota` / `Transient` / `NeedsReauth` paths all fall through the
+   existing `perform_youtube_update` rescue clauses — no banner-specific
+   rescue plumbing was needed.
+
+**Files changed**
+
+- `app/services/youtube/client.rb` — `#upload_banner(channel, io)` added.
+  Two-step: `channelBanners.insert` (multipart upload, returns the
+  opaque token YouTube calls `bannerExternalUrl`), then `channels.list`
+  (read-modify-write of brandingSettings to preserve channel section
+  siblings), then `channels.update` (writes
+  `brandingSettings.image.bannerExternalUrl`). Returns the cached CDN
+  URL from the update response, with fallback to the insert token if
+  the response lacks `banner_external_url`. Three audit rows per
+  successful upload (one per endpoint).
+- `app/services/youtube/quota.rb` — `"channelBanners.insert"` cost added
+  at 50 units (parity with `channels.update` / `watermarks.set`).
+- `app/controllers/channels_controller.rb` — `#update` recognizes
+  `channel[banner_image]` and dispatches through `upload_banner`. The
+  returned URL caches into `channels.banner_url` inside the same
+  transaction as the rest of the dirty subset. Star-only HTML detection
+  now includes `banner_image` in its edit-form key sweep so a banner
+  upload is not misrouted through the legacy yes/no path.
+  `channel_form_fields_blank?` also accounts for `banner_upload_present?`
+  so a banner-only submit does not short-circuit to "no changes".
+  Banner-only submits return a Turbo Stream that replaces
+  `#channel-banner-section`; combined submits redirect as before.
+- `app/javascript/controllers/banner_upload_controller.js` (new) —
+  Stimulus controller. Targets: input, dropZone, pickerButton, progress,
+  errors, previewContainer, previewWeb, previewMobile, previewTv.
+  Values: minWidth (2048), minHeight (1152), aspectRatio (16/9),
+  aspectTolerance (0.02), maxSizeBytes (6MB). All rejection messages
+  render simultaneously; `clearStagedFile()` clears the hidden input on
+  any rejection. Form-submit listener blocks while `_validating` is true
+  or when the staged file failed client checks.
+- `app/views/channels/_banner_upload.html.erb` — replaces the 11c stub.
+  Fieldset wraps `#channel-banner-section` (Turbo Stream target),
+  spec-info line ("Banner: 2048x1152 minimum, 16:9 aspect, JPEG/PNG,
+  max 6MB."), the existing cached-banner row, drag-drop zone, hidden
+  file input under `channel[banner_image]`, [pick file] bracketed link,
+  progress / errors / preview containers, all three preview size
+  variants (web 320×53, mobile 193×53, tv 192×108 — same shape as 11d
+  multi-layout preview).
+- `app/views/channels/_banner.html.erb` — note added that the edit
+  page wraps the partial in `#channel-banner-section`; the partial
+  itself stays render-once for use on the show page too.
+- `app/views/channels/banner_updated.turbo_stream.erb` (new) — the
+  Turbo Stream response. Re-renders the `_banner` partial inside the
+  `#channel-banner-section` wrapper and adds a "banner updated" hint.
+- `config/initializers/multipart_upload_limit.rb` (new) — pins
+  `Rack::Utils.multipart_file_limit = 128` and documents the 10MB
+  nginx `client_max_body_size` target so the next reader does not have
+  to dig.
+
+**Specs added (delta)**
+
+- `spec/services/youtube/client_upload_banner_spec.rb` (new) — 20
+  examples. Happy path (ordering: insert → list → update; insert body
+  carries IO + content_type; update body carries the token under
+  `image.banner_external_url`; channel section preserved by RMW;
+  returns CDN URL; falls back to insert token if response omits it; 3
+  audit rows). Argument validation (nil channel, nil io, bad
+  channel_url). Sad paths (pre-call quota, 403 quotaExceeded on
+  insert, 5xx on insert, 401 after refresh, 400
+  `imageDimensionsInvalid` → PermanentError, network timeout, empty
+  banner url → PermanentError, Step 1 failure stops Step 2, Step 2
+  5xx surfaces TransientError with audit row).
+- `spec/requests/channels/edit_form_spec.rb` — 8 new examples in a new
+  describe block "PATCH /channels/:id (banner upload flows)": uploads
+  + skips update_channel when banner is sole dirty field, caches
+  banner_url, HTML redirect path, Turbo Stream path, combined
+  banner+description submit (both dispatch + redirect), Permanent /
+  Quota / NeedsReauth error paths.
+- `spec/system/channel_banner_upload_spec.rb` (new) — 11 examples,
+  driven by `:rack_test`. The four client-side reject conditions live
+  inside the Stimulus controller and require a JS-capable driver
+  (the project does not configure one — see
+  `spec/system/settings/tokens_spec.rb` note); this spec asserts the
+  SSR scaffolding the controller needs (data-controller mount,
+  data-* validation thresholds, hidden file input under `banner_image`,
+  drag-drop zone with the four event hooks, [pick file] button wired
+  to `openPicker`, error / progress / preview targets hidden by
+  default, three preview size variants, Turbo Stream target wrapper,
+  multipart enctype). Includes one happy-path submit asserting
+  `upload_banner` is invoked and `banner_url` is cached. The full
+  reject-condition matrix is the manual test recipe in the spec.
+
+Spec count delta: +39 examples across the three files (20 service + 8
+request + 11 system).
+
+**Gates**
+
+- `bundle exec rspec spec/services/youtube/client_upload_banner_spec.rb
+  spec/system/channel_banner_upload_spec.rb
+  spec/requests/channels/edit_form_spec.rb`: green (70 examples / 0
+  failures).
+- Regression sweep (`spec/services/ spec/requests/channels/
+  spec/requests/channels_spec.rb spec/system/channel_*_spec.rb
+  spec/jobs/channel_sync_spec.rb spec/jobs/channel_diff_check_job_spec.rb`):
+  green (1261 examples / 0 failures).
+- `bundle exec rubocop`: green (1004 files / 0 offenses).
+- `bin/brakeman -q -w2`: green (0 warnings).
+
+**Coordination notes**
+
+- 11e (watermark preview) is implementing the watermark section of
+  the same edit page. 11f only touches the banner partial + the
+  banner-only branch of `_form.html.erb` — distinct files. The
+  `_form.html.erb` render line for `channels/banner_upload` was
+  unchanged (already in place from 11c).
+- `Youtube::Client#update_channel` and `#upload_banner` both perform
+  a `channels.list` read-before-write of brandingSettings; both pass
+  through `perform("channels.list", "GET")` so the audit rows are
+  uniform. The two methods are independent and can be called in the
+  same controller request without interfering.
+- The Turbo Stream banner-section swap is opt-in via the client's
+  `Accept` header. Capybara `:rack_test` does not send the
+  turbo-stream Accept header by default, so the system spec exercises
+  the redirect path; the dedicated request spec covers both paths.
+
+**Open issues**
+
+- Cassette-recording for the new endpoint is deferred to the same
+  Phase 7.6 session that converts every other `Youtube::Client` spec
+  off WebMock (per the deferred-workstreams entry in `plan.md`).
+- The four client-side reject conditions live behind a JS driver gap
+  in the project's spec setup. When a JS driver lands (Phase 7.6 or
+  later), the manual test recipe steps 3–6 should be lifted into the
+  system spec.
+
+**No commits, no pushes.** Master commits after manual validation.
