@@ -148,8 +148,11 @@
       </table>
       </div>
     </div>
-  <% else %>
-    <p class="text-muted">no videos yet.</p>
   <% end %>
+  <%# 2026-05-11 — the "no videos yet." empty-state was dropped: the
+      `[import]` link in the page header already routes the user into
+      the import flow, and the note used to show through underneath
+      the open import modal (which is a turbo-frame embedded in this
+      page, not a full-page take-over). %>
   <% end %>
 </div>

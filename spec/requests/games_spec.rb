@@ -967,10 +967,12 @@ RSpec.describe "Games", type: :request do
     it "renders the display-mode switcher in the page" do
       get games_path
       # The switcher button_to forms PATCH `/users/games_preferences`.
+      # 2026-05-11 polish v2 — the three button labels are now
+      # `[default][grid][list]` (was `[grid][list][shelves]`).
       expect(response.body).to include('action="/users/games_preferences"')
+      expect(response.body).to include("[<span class=\"bl\">default</span>]")
       expect(response.body).to include("[<span class=\"bl\">grid</span>]")
       expect(response.body).to include("[<span class=\"bl\">list</span>]")
-      expect(response.body).to include("[<span class=\"bl\">shelves</span>]")
     end
 
     # Phase 27 polish (2026-05-11) — the switcher moved DOWN from the

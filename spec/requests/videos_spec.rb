@@ -15,9 +15,21 @@ RSpec.describe "Videos", type: :request do
       expect(response.body).to include("<title>videos ~ pito</title>")
     end
 
-    it "shows empty state when no videos" do
+    # 2026-05-11 — the `no videos yet.` empty-state was dropped from
+    # `/videos`: the `[import]` link in the header already routes the
+    # user into the import flow, and the note previously bled through
+    # underneath the open import modal (which is a turbo-frame
+    # embedded in this page, not a full-page take-over). Assert the
+    # note is GONE so it doesn't sneak back in.
+    it "does NOT render `no videos yet.` (the empty-state note was dropped)" do
       get videos_path
-      expect(response.body).to include("no videos yet")
+      expect(response).to have_http_status(:ok)
+      expect(response.body).not_to include("no videos yet")
+    end
+
+    it "still renders the [import] link in the page header on the empty state" do
+      get videos_path
+      expect(response.body).to include('<span class="bl">import</span>')
     end
 
     context "with videos" do
@@ -217,12 +229,15 @@ RSpec.describe "Videos", type: :request do
         end
       end
 
-      it "renders the standard empty state when the filter matches a channel with zero videos" do
+      it "keeps the filter chip active when the chosen channel has zero videos" do
+        # 2026-05-11 — the `no videos yet.` empty-state copy was
+        # dropped (see the GET /videos block above). The filter chip
+        # still has to render so the user can clear the filter from
+        # the empty state.
         empty = create(:channel, title: "Empty")
         get videos_path, params: { channel: empty.to_param }
         expect(response).to have_http_status(:ok)
-        expect(response.body).to include("no videos yet")
-        # Chip stays active so the user can clear it from the empty state.
+        expect(response.body).not_to include("no videos yet")
         expect(response.body).to include("channel: Empty")
       end
 

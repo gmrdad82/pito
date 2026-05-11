@@ -43,15 +43,21 @@ RSpec.describe "Imports::Channels", type: :request do
       expect(response.body).to include("import running")
     end
 
-    # Phase 22 polish — four visual fixes on the channel-pick step:
+    # Phase 22 polish — visual fixes on the channel-pick step:
     # 1. Native checkboxes replaced with bracketed `[ ]` / `[x]` style
     #    (CheckboxComponent + `.md-check-indicator` pseudo-element).
     # 2. Rightmost column gets a header label ("status") — it surfaces
     #    in-flight `[import running]` links.
     # 3. Submit button copy `[start import]` → `[import]` (bare verb;
     #    the heading already supplies "import" context).
-    # 4. Page heading restructured to `[videos] · [import]` breadcrumb
-    #    where `[import]` is the active label (plain span, not a link).
+    # 4. 2026-05-11 redesign — modal restructured to mirror the channel
+    #    sync action screen (`/syncs/show`):
+    #      * single inline breadcrumb `[videos] / [import channels]`
+    #        (slash separator, matches BreadcrumbComponent style).
+    #      * single `<h1>import channels</h1>` heading.
+    #      * `[import N]` + `[cancel]` action toolbar moved ABOVE the
+    #        table (bulk-action pattern); the bottom action row is gone.
+    #      * header-row `[ ]` checkbox toggles every per-row checkbox.
     describe "Phase 22 polish (bracketed checkbox / column header / button copy / breadcrumb)" do
       before { channel }
 
@@ -70,22 +76,38 @@ RSpec.describe "Imports::Channels", type: :request do
 
       it "renders the submit button as [import] (not [start import])" do
         get imports_channels_path
-        expect(response.body).to include('<span class="bl">import</span>')
+        expect(response.body).to include('<span class="bl" data-imports-select-target="submitLabel">import</span>')
         expect(response.body).not_to include('<span class="bl">start import</span>')
         expect(response.body).not_to match(/\[\s*start import\s*\]/)
       end
 
-      it "renders the heading as the breadcrumb [videos] · [import]" do
+      it "renders the breadcrumb [videos] / [import channels] with a slash separator" do
         get imports_channels_path
-        # `[videos]` is a real link back to /videos.
+        # `[videos]` is a real link back to /videos that escapes the
+        # modal turbo-frame (data-turbo-frame="_top").
         expect(response.body).to match(
           %r{<a [^>]*href="#{Regexp.escape(videos_path)}"[^>]*>\[<span class="bl">videos</span>\]</a>}
         )
-        # The mid-dot separator partial.
-        expect(response.body).to include("·")
-        # `[import]` is the active span — plain text, not a link.
-        expect(response.body).to include('<span class="bracketed-active">[import]</span>')
-        # And the old literal heading "import videos" is gone.
+        # Slash separator (BreadcrumbComponent style), NOT the prior
+        # mid-dot. Assert the slash glyph is present in the breadcrumb
+        # row.
+        expect(response.body).to match(%r{<span class="text-muted">\s*/\s*</span>})
+        # `[import channels]` is the active second segment — plain
+        # bracketed-active span hooked to the imports-select controller
+        # for dynamic copy updates.
+        expect(response.body).to include('<span class="bracketed-active" data-imports-select-target="breadcrumbTitle">[import channels]</span>')
+      end
+
+      it "renders a single <h1>import channels</h1> heading (no duplicate title)" do
+        get imports_channels_path
+        # The new h1 is wired to imports-select#headingTitle so its
+        # copy stays in sync with the breadcrumb second segment.
+        expect(response.body).to match(
+          %r{<h1[^>]*data-imports-select-target="headingTitle"[^>]*>\s*import channels\s*</h1>}
+        )
+        # The old `[videos] · [import]` pseudo-breadcrumb-as-h1 is gone.
+        expect(response.body).not_to match(%r{<h1[^>]*class="dot-list"[^>]*>})
+        # And the legacy `import videos` literal title is also gone.
         expect(response.body).not_to match(/<h1[^>]*>\s*import videos\s*<\/h1>/)
       end
 
@@ -93,6 +115,88 @@ RSpec.describe "Imports::Channels", type: :request do
         ImportJob.create!(channel: channel, enqueued_by: user, status: :running)
         get imports_channels_path
         expect(response.body).to include("import running")
+      end
+    end
+
+    # 2026-05-11 redesign — Fix 1: select-all `[ ]` checkbox in the
+    # header row. Mirrors the `/channels`, `/videos`, `/projects`,
+    # `/games` all-games table pattern: a `headerCheckbox` target wired
+    # to the controller's `toggleAll` action.
+    describe "header select-all checkbox (Fix 1)" do
+      before { channel }
+
+      it "renders a header-row checkbox wired to imports-select#toggleAll" do
+        get imports_channels_path
+        # The checkbox sits in the first <th> of the <thead> row.
+        expect(response.body).to include('data-imports-select-target="headerCheckbox"')
+        expect(response.body).to match(/change-(?:>|&gt;)imports-select#toggleAll/)
+      end
+
+      it "renders the header checkbox using the bracketed CheckboxComponent" do
+        get imports_channels_path
+        # The header checkbox is the first `.md-check` inside the
+        # `<thead>` block. We're not over-asserting structure; just
+        # confirming the bracketed glyph wrapper is present in the head.
+        head_match = response.body.match(%r{<thead>.+?</thead>}m)
+        expect(head_match).not_to be_nil
+        expect(head_match[0]).to include('class="md-check"')
+        expect(head_match[0]).to include('class="md-check-indicator"')
+      end
+    end
+
+    # 2026-05-11 redesign — Fix 4: `[import N]` + `[cancel]` action
+    # toolbar lives ABOVE the table (mirrors the `/channels` bulk
+    # pattern). The bottom action row is gone.
+    describe "bulk-action toolbar above the table (Fix 4)" do
+      before { channel }
+
+      it "renders the import action wrapper hidden initially (zero selection)" do
+        get imports_channels_path
+        # Wrapper is `<span class="action" data-imports-select-target="importAction" hidden>`.
+        expect(response.body).to match(
+          %r{<span[^>]*data-imports-select-target="importAction"[^>]*\bhidden\b}
+        )
+      end
+
+      it "places the toolbar BEFORE the table inside the form" do
+        get imports_channels_path
+        toolbar_idx = response.body.index('data-imports-select-target="importAction"')
+        table_idx = response.body.index("<table")
+        expect(toolbar_idx).not_to be_nil
+        expect(table_idx).not_to be_nil
+        expect(toolbar_idx).to be < table_idx
+      end
+
+      it "renders [cancel] in the toolbar pointing at /videos (escaping the modal frame)" do
+        get imports_channels_path
+        # Cancel uses BracketedLinkComponent with turbo_frame: "_top"
+        # so the click breaks out of the modal turbo-frame back to
+        # /videos. Attribute ordering inside the `<a>` is not stable
+        # across helpers, so we scope to the imports-select form (the
+        # toolbar lives inside it) and assert the anchor's pieces
+        # independently.
+        form_match = response.body.match(
+          /<form[^>]*data-controller="imports-select"[^>]*>.*?<\/form>/m
+        )
+        expect(form_match).not_to be_nil, "expected the imports-select form to render"
+        anchor = form_match[0].match(%r{<a[^>]*>\[<span class="bl">cancel</span>\]</a>})
+        expect(anchor).not_to be_nil, "expected a `[cancel]` <a> inside the modal form"
+        expect(anchor[0]).to include(%(href="#{videos_path}"))
+        expect(anchor[0]).to include('data-turbo-frame="_top"')
+      end
+
+      it "does NOT render a bottom `modal-footer` row alongside the form (action moved to top)" do
+        get imports_channels_path
+        # The empty-state branch (no connected channels) still has a
+        # bottom `modal-footer` with `[back]`, which is fine. Assert
+        # the imports-select form variant no longer carries
+        # `class="modal-footer"` below the table by checking the
+        # form's content slice.
+        form_match = response.body.match(
+          /<form[^>]*data-controller="imports-select"[^>]*>.*?<\/form>/m
+        )
+        expect(form_match).not_to be_nil, "expected the imports-select form to render"
+        expect(form_match[0]).not_to include('class="modal-footer"')
       end
     end
 

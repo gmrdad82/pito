@@ -1,24 +1,22 @@
 require "rails_helper"
 
-# Phase 27 — 01d. List display mode partial (post 2026-05-11 polish).
+# Phase 27 — 01d. List display mode partial (post 2026-05-11 polish v2).
 #
-# Flat alphabetically-sorted table. Columns (locked, post-polish):
+# Flat alphabetically-sorted table. Columns (locked, post-polish v2):
 #
-#   select | cover | title | released | rating | platforms owned | genres
+#   select | cover | title | genre | released | rating | owned
 #
-# Key changes in the 2026-05-11 polish pass:
-#   * Fix 3 — `status` column dropped (the column did not back any
-#     persisted state — it was a computed token; removed entirely).
-#   * Fix 4 — `release year` column renamed `released`, renders the
-#     full date as `mm-dd-yyyy` from `Game#release_date` (em-dash when
-#     nil). Right-aligned via `.num`.
-#   * Fix 5 — rating renders as `<NN>/100` (no star glyph). Right-
-#     aligned via `.num`.
-#   * Fix 6 — title rendered with the `.not-released` class (which the
-#     scoped CSS bolds) when `release_date` is nil or in the future.
-#   * Fix 8 — page heading renamed `all games` → `all`.
-#   * Fix 9 — `.num` class on the released + rating columns.
-#   * Fix 10 — bulk-select `[ ]` checkbox column in front.
+# Key changes in the 2026-05-11 v2 polish pass (Fixes 4 + 5):
+#   * `genres` column renamed `genre` (singular — primary genre only).
+#   * `platforms owned` column renamed `owned`.
+#   * Reorder: `genre` moved between `title` and `released`.
+#   * Bulk-select cell now carries REAL `<input type="checkbox">`
+#     elements (header + per-row) wired to the `bulk-select` Stimulus
+#     controller. `[ ]` / `[x]` glyph rendering is delegated to
+#     `CheckboxComponent` (which renders an `md-check-indicator` span).
+#   * The list-mode section is wrapped in a `bulk-select` controller
+#     so a `[sync N]` + `[delete N]` toolbar appears when at least one
+#     row is selected.
 RSpec.describe "games/_list_mode.html.erb", type: :view do
   def render_list(games)
     render partial: "games/list_mode", locals: { games: games }
@@ -31,15 +29,22 @@ RSpec.describe "games/_list_mode.html.erb", type: :view do
       expect(rendered).not_to match(%r{<h2[^>]*>\s*all games\s*</h2>})
     end
 
-    it "renders the seven post-polish table headers in the locked column order" do
+    it "renders the seven post-polish v2 table headers in the locked column order" do
       create(:game, :synced, title: "Alpha", igdb_id: 4_100_001,
              igdb_slug: "alpha-list")
       render_list(Game.all)
 
-      headers = rendered.scan(%r{<th[^>]*>([^<]*)</th>}).flatten
+      doc = Nokogiri::HTML.fragment(rendered)
+      # The first header cell now carries the CheckboxComponent (which
+      # injects a `<label>` wrapper with internal whitespace), so we
+      # strip the cell's text content for the comparison. The
+      # checkbox-bearing cell collapses to "" once stripped.
+      headers = doc.css("thead tr th").map { |th| th.text.strip }
+      # 2026-05-11 polish v2 — order is: select / cover / title /
+      # genre / released / rating / owned. Renames: `genres` → `genre`
+      # (singular), `platforms owned` → `owned`.
       expect(headers).to eq([
-        "", "", "title", "released", "rating",
-        "platforms owned", "genres"
+        "", "", "title", "genre", "released", "rating", "owned"
       ])
     end
 
@@ -52,7 +57,7 @@ RSpec.describe "games/_list_mode.html.erb", type: :view do
       expect(rendered).not_to include("status-cell")
     end
 
-    it "right-aligns the released + rating columns via .num (Fix 9)" do
+    it "right-aligns the released + rating columns via .num" do
       create(:game, :synced, title: "Aligned Hdr", igdb_id: 4_100_004,
              igdb_slug: "aligned-hdr-list")
       render_list(Game.all)
@@ -180,7 +185,7 @@ RSpec.describe "games/_list_mode.html.erb", type: :view do
     end
   end
 
-  describe "Fix 10 — bulk-select column in front of cover" do
+  describe "v2 — bulk-select header + per-row real checkboxes" do
     it "renders a `<th class=\"select-cell\">` as the first header" do
       create(:game, :synced, title: "Selectable", igdb_id: 4_100_071,
              igdb_slug: "selectable-list")
@@ -189,21 +194,60 @@ RSpec.describe "games/_list_mode.html.erb", type: :view do
       expect(rendered).to match(%r{<thead>\s*<tr>\s*<th class="select-cell"})
     end
 
-    it "renders a `[ ]` checkbox glyph in each row's first cell" do
+    it "renders a real `<input type=\"checkbox\">` header (select-all)" do
       create(:game, :synced, title: "Pickable", igdb_id: 4_100_072,
              igdb_slug: "pickable-list")
       render_list(Game.all)
+      doc = Nokogiri::HTML.fragment(rendered)
 
-      expect(rendered).to include('class="bulk-select"')
-      expect(rendered).to include("[ ]")
+      header = doc.css('thead input[type="checkbox"][data-bulk-select-target="headerCheckbox"]')
+      expect(header.length).to eq(1)
+      expect(header.first["data-action"]).to include("bulk-select#toggleAll")
     end
 
-    it "does NOT use a native <input type=\"checkbox\"> (bracketed convention)" do
-      create(:game, :synced, title: "No Native", igdb_id: 4_100_073,
-             igdb_slug: "no-native-list")
+    it "renders a real `<input type=\"checkbox\">` per row, value = game id" do
+      g = create(:game, :synced, title: "Per Row", igdb_id: 4_100_073,
+                 igdb_slug: "per-row-list")
+      render_list(Game.all)
+      doc = Nokogiri::HTML.fragment(rendered)
+
+      row_box = doc.css('tbody tr.game-row input[type="checkbox"][data-bulk-select-target="checkbox"]').first
+      expect(row_box).not_to be_nil
+      expect(row_box["value"]).to eq(g.id.to_s)
+      expect(row_box["data-action"]).to include("bulk-select#toggle")
+    end
+
+    it "wraps the section in a `bulk-select` Stimulus controller targeting game" do
+      create(:game, :synced, title: "Wrapped", igdb_id: 4_100_074,
+             igdb_slug: "wrapped-list")
       render_list(Game.all)
 
-      expect(rendered).not_to include('type="checkbox"')
+      expect(rendered).to include('data-controller="bulk-select"')
+      expect(rendered).to include('data-bulk-select-delete-type-value="game"')
+      expect(rendered).to include('data-bulk-select-sync-type-value="game"')
+    end
+
+    it "renders the bulk-toolbar shell with sync + delete action targets" do
+      create(:game, :synced, title: "Toolbar", igdb_id: 4_100_075,
+             igdb_slug: "toolbar-list")
+      render_list(Game.all)
+      doc = Nokogiri::HTML.fragment(rendered)
+
+      toolbar = doc.css(".games-bulk-toolbar").first
+      expect(toolbar).not_to be_nil
+      expect(toolbar.css('[data-bulk-select-target="syncAction"]').length).to eq(1)
+      expect(toolbar.css('[data-bulk-select-target="deleteAction"]').length).to eq(1)
+    end
+
+    it "stamps each row with a starting job state of `idle`" do
+      g = create(:game, :synced, title: "Idle Row", igdb_id: 4_100_076,
+                 igdb_slug: "idle-row-list")
+      render_list(Game.all)
+      doc = Nokogiri::HTML.fragment(rendered)
+
+      row = doc.css("tr.game-row[data-game-id='#{g.id}']").first
+      expect(row).not_to be_nil
+      expect(row["data-game-job-state"]).to eq("idle")
     end
   end
 
@@ -256,7 +300,7 @@ RSpec.describe "games/_list_mode.html.erb", type: :view do
 
       render_list(Game.all)
 
-      genres_cell = rendered[%r{<td class="genres-cell"[^>]*>.*?</td>}m]
+      genres_cell = rendered[%r{<td class="genre-cell"[^>]*>.*?</td>}m]
       expect(genres_cell).not_to include(", ")
     end
 
@@ -288,7 +332,7 @@ RSpec.describe "games/_list_mode.html.erb", type: :view do
              igdb_slug: "bare-list-game")
       render_list(Game.all)
 
-      genres_cell = rendered[%r{<td class="genres-cell"[^>]*>.*?</td>}m]
+      genres_cell = rendered[%r{<td class="genre-cell"[^>]*>.*?</td>}m]
       expect(genres_cell).to include("—")
     end
   end

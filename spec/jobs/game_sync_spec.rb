@@ -22,9 +22,12 @@ RSpec.describe GameSync, type: :job do
     end
 
     it "acquires a Postgres advisory lock keyed on game_id" do
-      # Capture the SQL the job runs so we can confirm the
-      # `pg_try_advisory_xact_lock` call is wired with the right
-      # namespace + key.
+      # Stub the inner IGDB sync so this test doesn't reach for a
+      # real Twitch token. The advisory-lock SQL we want to observe
+      # fires before `GameIgdbSync#perform`, so the stub doesn't
+      # affect the lock path.
+      allow_any_instance_of(GameIgdbSync).to receive(:perform).and_return(nil)
+
       sql_seen = []
       original_execute = ActiveRecord::Base.connection.method(:execute)
       allow(ActiveRecord::Base.connection).to receive(:execute) do |sql, *rest|
@@ -33,8 +36,8 @@ RSpec.describe GameSync, type: :job do
       end
 
       described_class.new.perform(game.id)
-      expect(sql_seen.any? { |s| s.include?("pg_try_advisory_xact_lock") }).to be(true)
-      expect(sql_seen.any? { |s| s.include?(game.id.to_s) }).to be(true)
+      expect(sql_seen.any? { |s| s.is_a?(String) && s.include?("pg_try_advisory_xact_lock") }).to be(true)
+      expect(sql_seen.any? { |s| s.is_a?(String) && s.include?(game.id.to_s) }).to be(true)
     end
 
     it "swallows StandardError raised by GameIgdbSync (graceful failure)" do
