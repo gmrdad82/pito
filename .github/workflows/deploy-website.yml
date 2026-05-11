@@ -1,5 +1,10 @@
 name: Deploy website
 
+# Commit-message guard: include `[skipci]` (lowercase, no space) in the commit
+# message to skip this deployment. `workflow_dispatch` runs have no
+# `head_commit`, so manual triggers always proceed (the contains() returns
+# false on a missing field).
+
 on:
   push:
     branches: [main]
@@ -10,6 +15,7 @@ on:
 
 jobs:
   deploy:
+    if: "!contains(github.event.head_commit.message, '[skipci]')"
     runs-on: ubuntu-latest
     permissions:
       contents: read

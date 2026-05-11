@@ -1,5 +1,9 @@
 name: Website CI
 
+# Commit-message guard: include `[skipci]` (lowercase, no space — distinct
+# from GitHub's built-in `[skip ci]`) in the commit message OR pull-request
+# title to skip every job in this workflow.
+
 on:
   push:
     branches: [main]
@@ -13,6 +17,9 @@ on:
 
 jobs:
   lint-and-audit:
+    if: |
+      !contains(github.event.head_commit.message, '[skipci]') &&
+      !contains(github.event.pull_request.title, '[skipci]')
     runs-on: ubuntu-latest
     defaults:
       run:
