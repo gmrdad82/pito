@@ -62,7 +62,9 @@ RSpec.describe "Sessions", type: :request do
     def seed_trusted_location_for_test_request!
       # Two-step probe — hit /login with the wrong password once to
       # capture whatever fingerprint the rack-test request env yields,
-      # then upsert a TrustedLocation row.
+      # then upsert a TrustedLocation row. The single probe call
+      # records one failure on the throttle bucket; the threshold is
+      # 10 so the trailing real-login call is well under.
       post login_path, params: { email: user.email, password: "probe-wrong" }
       seed = LoginAttempt.recent.first
       TrustedLocation.find_or_create_by!(
@@ -73,8 +75,6 @@ RSpec.describe "Sessions", type: :request do
         row.first_seen_at = 1.day.ago
         row.last_seen_at  = 1.day.ago
       end
-      # Reset throttle so the probe doesn't count toward exhaustion.
-      SessionThrottle.reset(request.remote_ip) if defined?(request) && request.respond_to?(:remote_ip)
     end
 
     it "creates a session, sets a signed cookie, and redirects on success" do

@@ -62,9 +62,13 @@ RSpec.describe "Login::Challenges", type: :request do
       post login_challenge_path, params: { challenge_path: "garbage" }
       expect(response).to have_http_status(:unprocessable_content)
     end
+  end
 
-    it "redirects to /login when no marker is set" do
-      cookies.delete(SessionsController::PRE_AUTH_COOKIE)
+  describe "POST /login/challenge with no marker", :unauthenticated do
+    it "redirects to /login" do
+      # No prior `post_login_from_new_location` — the cookie jar is
+      # empty. The controller's before_action loads the marker, sees
+      # nothing, and bounces.
       post login_challenge_path, params: { challenge_path: "approval" }
       expect(response).to redirect_to(login_path)
     end

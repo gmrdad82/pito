@@ -328,3 +328,153 @@ and `spec/models/notification_delivery_channel_spec.rb`) all green.
   validator file (`app/services/webhooks/discord_url_validator.rb`)
   is intentionally NOT created — the regex constant lives on the AR
   model and is reused by the controller + the model validation.
+
+## 2026-05-11 — sub-spec 01b Slack webhook pane re-dispatch (pito-rails)
+
+Re-dispatch of sub-spec 01b — Slack webhook pane per
+`specs/01b-slack-webhook-pane-and-validation.md` and the master-locked
+re-dispatch decisions. The first dispatch landed the model + base
+PORO + controller + view + specs in commit `b14f974`, but the PORO
+subclass files (`Slack`, `Discord`, `InApp`) were still declared as
+`class X < NotificationDeliveryChannel` — which would have triggered
+STI auto-bind against the new AR table. This session reconciles that
+inconsistency and finishes the refactor.
+
+### Files touched
+
+**Edited (PORO refactor — STI fix):**
+
+- `app/services/notification_delivery_channel/slack.rb` — parent
+  changed from `NotificationDeliveryChannel` to
+  `NotificationDeliveryChannel::Base` so the PORO is no longer an
+  STI subclass of the AR model. `#webhook_url` now resolves the AR
+  row first (`NotificationDeliveryChannel.slack&.webhook_url`) and
+  falls back to credentials — the Settings pane manages the URL
+  without rotating credentials, and existing installs that wired
+  the URL via credentials keep delivering.
+- `app/services/notification_delivery_channel/discord.rb` — same
+  refactor for the Discord PORO. AR-row-first / credentials-fallback
+  resolution.
+- `app/services/notification_delivery_channel/in_app.rb` — parent
+  changed to `Base`. No URL resolution (in-app delivery is a no-op).
+- `spec/services/notification_delivery_channel_spec.rb` —
+  `TestNotificationChannel` now inherits from
+  `NotificationDeliveryChannel::Base` (was the AR model — STI again).
+
+**New (added in this session):**
+
+- `spec/views/settings/_slack_pane_html_erb_spec.rb` — mirror of the
+  Discord pane view spec the 01c agent shipped: renders the pane
+  with / without an AR row, asserts pre-fill, yes/no checkbox wire
+  format, no `data-turbo-confirm`.
+
+**Already shipped in commit `b14f974` (re-verified, no edits needed):**
+
+- `db/migrate/20260511150000_create_notification_delivery_channels.rb`
+- `app/models/notification_delivery_channel.rb`
+- `app/services/notification_delivery_channel/base.rb`
+- `app/services/webhooks/slack_client.rb`
+- `app/controllers/settings/slack_webhooks_controller.rb`
+- `app/views/settings/_slack_pane.html.erb`
+- `config/routes.rb` (`resource :slack_webhook`)
+- `app/controllers/settings_controller.rb` (`@slack_webhook` ivar)
+- `app/views/settings/index.html.erb` (`render "slack_pane"`)
+- `spec/models/notification_delivery_channel_spec.rb`
+- `spec/services/webhooks/slack_client_spec.rb`
+- `spec/requests/settings/slack_webhooks_spec.rb`
+
+### Migration
+
+`bin/rails db:migrate` ran clean against the dev DB earlier in the
+re-dispatch path. `bin/rails db:migrate:status` reports
+`up   20260511150000  Create notification delivery channels`.
+RSpec auto-migrates the test DB via `maintain_test_schema!`. The 01c
+agent reads the same table by adding `discord` to the shared `KINDS`
+enum constant.
+
+### Decisions made in flow
+
+- **PORO base lives at `NotificationDeliveryChannel::Base`.** The
+  AR model claims the top-level constant; the dispatcher base is a
+  nested PORO. `NotificationDeliveryChannel.for(kind)` (existing
+  call site in `NotificationDeliver` job + spec suite) delegates to
+  `Base.for(kind)` so existing call shapes keep working without an
+  STI flip.
+- **`for(kind)` returns a PORO; `find_record_for(kind)` returns an
+  AR row.** Two different responsibilities under two different
+  names. AR-row lookup is `find_record_for` and the kind-scoped
+  shorthands (`.slack`, `.discord`) — never `.for`.
+- **AR-row-first resolution with credentials fallback.** Existing
+  installs that wired their webhook URL through
+  `Rails.application.credentials.notifications.slack_webhook_url`
+  keep delivering. New installs use the Settings pane. Both coexist;
+  the row wins when present.
+
+### Specs
+
+| Surface | New / edited | Pass |
+|---|---|---|
+| `NotificationDeliveryChannel` (AR model) | 25 new | yes |
+| `Webhooks::SlackClient` (service) | 20 new | yes |
+| `Settings::SlackWebhooks` (request) | 30 new | yes |
+| `settings/_slack_pane.html.erb` (view) | 14 new | yes |
+| `NotificationDeliveryChannel::Base` dispatcher (existing) | 0 new | yes |
+| `NotificationDeliveryChannel::Slack` (existing) | 0 new | yes |
+| `NotificationDeliveryChannel::Discord` (existing) | 0 new | yes |
+| `NotificationDeliveryChannel::InApp` (existing) | 0 new | yes |
+| `NotificationDeliver` job (existing) | 0 new | yes |
+| **Total touched, all green** | **89 new + adjacent** | **yes** |
+
+### Gates
+
+- `bundle exec rspec` on the Phase 26 spec surface (models +
+  services + requests + views + dispatcher + jobs + settings) —
+  287 / 287 green.
+- `bundle exec rubocop` on touched Ruby files — clean.
+- `bin/brakeman -q -w2` — 0 warnings, 0 errors. Two obsolete ignore
+  entries reported but unrelated to this change.
+
+### Cross-cutting compliance
+
+- **yes / no boundary** — `everything` + `daily_digest` cross the
+  wire as `"yes"` / `"no"` strings. The controller's
+  `coerce_boolean` helper rejects every non-yes/no value as `false`
+  (including `"true"`, `"1"`, `"on"`). Yes/no sweep block in the
+  request spec asserts both directions.
+- **Friendly URL** — `/settings/slack_webhook` (no numeric / UUID
+  id). Route spec assertion pins it.
+- **No JS confirm / alert / prompt** — none in the pane partial.
+  View spec asserts no `data-turbo-confirm` is emitted.
+- **Test ping copy locked** — controller emits
+  `"Pito test ping — Slack webhook configured."` as the test
+  payload `text`. Request spec asserts the exact body.
+- **AR Encryption on `webhook_url`** — model spec asserts the
+  ciphertext blob in the underlying column does NOT contain the
+  plaintext `hooks.slack.com` substring; round-trip read returns
+  plaintext as expected.
+
+### Coordination with 01c (Discord)
+
+The 01c agent shipped `_discord_pane`,
+`Settings::DiscordWebhooksController`, `Webhooks::DiscordClient`,
+and the Discord-specific test surface against the same shared
+`NotificationDeliveryChannel` AR model. The 01b/01c split is clean:
+01b owned the migration + model + base PORO + Slack pane + Slack
+client; 01c added the `discord` row, controller, client, view, and
+specs without touching the migration or the shared model schema.
+
+### Follow-ups surfaced
+
+- Acceptance bullets that depend on 01d (Slack help modal Markdown
+  rendering) stay open — the pane will link to the help modal via
+  `[help]` but the modal copy lands with 01d.
+- Spec dispatch's `Webhooks::SlackUrlValidator` was folded into the
+  AR model (`#valid_url?` + `SLACK_URL_REGEX` constant) rather than
+  shipped as a standalone `ActiveModel::Validator` class — the
+  controller-level regex pre-check + the model's
+  `validate :webhook_url_must_match_kind` callback together enforce
+  shape at both boundaries.
+- 107 unrelated test failures pre-exist on `main` HEAD — concentrated
+  in `spec/models/game_*` and `spec/requests/games_spec.rb` (Phase 27
+  in-flight work). Confirmed by stashing the working tree and re-
+  running: the failures persist. Not caused by this dispatch.

@@ -148,19 +148,23 @@ Per the Mobile note's dispatch list:
 
 ### 01a — Per-platform ownership data model
 
-- [ ] Migration: create `platforms` (slug FriendlyId, `igdb_platform_id` unique,
-      abbreviation, name).
-- [ ] Migration: create `game_platform_ownerships` (game_id, platform_id,
+- [x] Migration: create `platforms` (slug FriendlyId, `igdb_platform_id` unique,
+      abbreviation, name). _(Existing Phase 14 `platforms` table relaxed:
+      `igdb_id` made nullable, `slug` made NOT NULL + unique, FriendlyId
+      (slugged + history) added. Column name kept as `igdb_id` per the locked
+      "if not exists" guard — the existing column was the equivalent of
+      `igdb_platform_id`.)_
+- [x] Migration: create `game_platform_ownerships` (game_id, platform_id,
       acquired_at, store, notes; unique on `(game_id, platform_id)`).
-- [ ] Models: `Platform`, `GamePlatformOwnership`, associations on `Game`.
-- [ ] Factory: `platforms`, `game_platform_ownerships`.
-- [ ] Service: `Platforms::SyncFromIgdb` (one-shot + idempotent).
-- [ ] Job: `Platforms::SyncFromIgdbJob` wrapping the service.
-- [ ] Seed: ensure PS5, Switch 2, Steam, GOG, Epic exist by slug at boot.
-- [ ] Model specs: validations, associations, scopes, uniqueness, friendly_id.
-- [ ] Service spec, job spec.
-- [ ] Drop / repurpose decision for legacy `games.platform_owned_id` (see open
-      question 3 in this plan).
+- [x] Models: `Platform`, `GamePlatformOwnership`, associations on `Game`.
+- [x] Factory: `platforms`, `game_platform_ownerships`.
+- [x] Service: `Platforms::SyncFromIgdb` (one-shot + idempotent).
+- [x] Job: `Platforms::SyncFromIgdbJob` wrapping the service.
+- [x] Seed: ensure PS5, Switch 2, Steam, GOG, Epic exist by slug at boot.
+- [x] Model specs: validations, associations, scopes, uniqueness, friendly_id.
+- [x] Service spec, job spec.
+- [x] Drop / repurpose decision for legacy `games.platform_owned_id` (drop
+      outright; backfill recipe documented in migration body).
 
 ### 01b — Filter row + platform semantics
 

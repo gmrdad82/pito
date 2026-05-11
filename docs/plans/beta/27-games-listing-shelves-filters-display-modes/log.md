@@ -499,3 +499,117 @@ already committed but newly passing).
 - Plan checkbox: `…/plan.md` → `01c — Genres and Collections
   shelves` block (3 of 5 boxes ticked; ViewComponent and `:shelf`
   cover-variant boxes annotated with reframe / dependency notes).
+
+## 2026-05-11 — sub-spec 01a Per-platform ownership data model (pito-rails)
+
+Implemented sub-spec 01a per
+`specs/01a-per-platform-ownership-data-model.md`. Replaces the
+single-valued `games.platform_owned_id` pointer with a
+multi-valued `game_platform_ownerships` join, hardens the existing
+Phase 14 `platforms` table into a FriendlyId-backed canonical
+reference, and adds the IGDB platform sync service / job / rake
+task.
+
+### What landed
+
+- Three migrations (`20260511160000_revamp_platforms_for_friendly_id`,
+  `20260511160001_create_game_platform_ownerships`,
+  `20260511160002_drop_platform_owned_id_from_games`). All `up` on
+  the dev DB, schema dump regenerated cleanly.
+- `Platform` model: FriendlyId (`slugged + history + finders`),
+  `default_scope { order(:name) }`, `:games_available` association
+  (renamed from the legacy `:games` through `game_platforms`),
+  `:game_platform_ownerships` + `:games` (through ownerships) with
+  `:restrict_with_error` on platform destroy.
+- New `GamePlatformOwnership` model. `belongs_to :game` /
+  `:platform` (required by default), uniqueness on
+  `(game_id, platform_id)`. Cascade from games, restrict from
+  platforms.
+- `Game` model: dropped `belongs_to :platform_owned`; added
+  `:game_platform_ownerships` (`dependent: :destroy`) +
+  `:owned_platforms` through. New scopes `.owned`, `.not_owned`,
+  `.owned_on(slug)` consumed by 01b's filter row. `owned_on` uses
+  raw SQL for the slug match because `where(platforms: { … })`
+  collides with the legacy `games.platforms` jsonb column —
+  documented in the scope's comment.
+- `Platforms::SyncFromIgdb` service + `Platforms::SyncFromIgdbJob`
+  wrapper + `lib/tasks/platforms.rake` task + weekly Sidekiq cron
+  entry. The service pages via `Igdb::Client#list_all_platforms`
+  (new method, paginates `/platforms` 500-at-a-time using the
+  `Apicalypse.offset` builder method added this session).
+- Seed: PS5, Switch 2, Steam, GOG, Epic populated by slug,
+  idempotent.
+- MCP `game_update_local` now accepts plural `platform_owned_ids`
+  with explicit-null-as-wipe semantics; the legacy singular
+  `platform_owned_id` is auto-wrapped into a one-element array per
+  the locked decision. Errors surface clean (unknown platform id →
+  `RecordNotFound`, validation → `RecordInvalid`).
+- Cascading code updates so the column drop doesn't blow up
+  unrelated surfaces:
+  - `games_controller`: filter resolves a platform **slug** (id
+    accepted for backward-compat) and threads through
+    `Game.owned_on(slug)`. The `local_only_params` permit list no
+    longer carries `:platform_owned_id`.
+  - `GameDecorator`: summary JSON now emits
+    `platform_owned_ids: [int]` (empty array when no ownership);
+    `platforms_owning` detail block renders the joined platforms.
+  - `app/views/games/{edit,show}.html.erb`: the platform-owned
+    dropdown / read-only field is replaced with a multi-value
+    "owned on" inline list. The dedicated editor lands in 01f.
+  - `app/views/games/index.json.jbuilder`: filter echo carries
+    `platform_owned_slug`.
+  - `Igdb::GameMapper` + `Igdb::SyncGame` comment-only updates so
+    the local-only column list stays accurate.
+- Spec pyramid: model specs (`platform_spec`, `game_spec`,
+  `game_platform_ownership_spec`), service spec
+  (`platforms/sync_from_igdb_spec`), job spec
+  (`platforms/sync_from_igdb_job_spec`), rake spec
+  (`platforms_rake_spec`). Existing specs that touched the
+  legacy column updated in-place to reflect the new join shape
+  (`games_spec` request, `game_decorator_spec`,
+  `index.json.jbuilder_spec`, `game_mapper_spec`, `sync_game_spec`).
+
+### Backfill plan
+
+The dropped `games.platform_owned_id` column had no production users
+(pre-launch). The migration body documents the recipe for a future
+operator who needs to migrate a row set:
+
+    Game.where.not(platform_owned_id: nil).find_each do |g|
+      g.game_platform_ownerships.find_or_create_by!(
+        platform_id: g.platform_owned_id
+      )
+    end
+
+The recipe stayed in the migration comments rather than the body so
+the migration remains mechanical (drop FK / index / column) and
+the data-shape decision stays explicit in code review.
+
+### Column-name variance vs. the spec
+
+Spec body referenced `igdb_platform_id` on the platforms table. The
+existing Phase 14 `platforms.igdb_id` column was the equivalent — the
+"if not exists" guard in the locked decisions kept it under its
+established name to minimize the change radius (renaming would have
+touched IGDB sync, factories, and Genre / Company patterns that
+mirror the same shape). All other spec invariants (nullable for
+seeded rows, unique-when-present, FriendlyId slug, etc.) are
+honored.
+
+### Gates
+
+- `rspec` — relevant subtrees green (models, services, jobs,
+  decorators, views, requests/games, mcp). Full suite (3629
+  examples) passes with 1 pre-existing pending example.
+- `rubocop` — clean on all touched Ruby files.
+- `brakeman` — 2 warnings, both pre-existing (Notification XSS weak
+  warning, composites file-access weak warning). No new findings.
+
+### References
+
+- Spec:
+  `docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs/01a-per-platform-ownership-data-model.md`.
+- Umbrella:
+  `docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs/01-overview-games-listing-rework.md`.
+- Plan checkbox: `…/plan.md` → `01a — Per-platform ownership data
+  model` block (all 10 boxes ticked).

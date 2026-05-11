@@ -28,7 +28,9 @@ RSpec.describe "Login::Pendings", type: :request do
       expect(response).to have_http_status(:ok)
       expect(response.body).to include("waiting for approval")
       expect(response.body).to include("time remaining")
-      expect(response.body).to include("[cancel & log out]")
+      # HTML-escaped ampersand keeps the page valid; the visible label
+      # is `[cancel & log out]` (the entity decodes in the browser).
+      expect(response.body).to include("[cancel &amp; log out]")
     end
 
     it "redirects to /login when no pre-auth marker is set" do
