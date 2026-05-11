@@ -1,5 +1,12 @@
 name: CI
 
+# Commit-message guard: include the literal token `[skipci]` (lowercase, no
+# space — distinct from GitHub's built-in `[skip ci]`) in the commit message
+# OR pull-request title to skip every job in this workflow. Applied per-job
+# via top-level `if:` conditions; see also the other workflows under
+# `.github/workflows/` which carry the same guard. Documented in
+# `docs/orchestration/follow-ups.md` under "CI commit-message guard".
+
 on:
   pull_request:
     branches: [main]
@@ -18,6 +25,9 @@ permissions:
 
 jobs:
   changes:
+    if: |
+      !contains(github.event.head_commit.message, '[skipci]') &&
+      !contains(github.event.pull_request.title, '[skipci]')
     runs-on: ubuntu-latest
     outputs:
       rails: ${{ steps.filter.outputs.rails }}
@@ -56,7 +66,10 @@ jobs:
 
   rails:
     needs: changes
-    if: needs.changes.outputs.rails == 'true'
+    if: |
+      needs.changes.outputs.rails == 'true' &&
+      !contains(github.event.head_commit.message, '[skipci]') &&
+      !contains(github.event.pull_request.title, '[skipci]')
     runs-on: ubuntu-latest
 
     services:
@@ -146,7 +159,10 @@ jobs:
 
   cli:
     needs: changes
-    if: needs.changes.outputs.cli == 'true'
+    if: |
+      needs.changes.outputs.cli == 'true' &&
+      !contains(github.event.head_commit.message, '[skipci]') &&
+      !contains(github.event.pull_request.title, '[skipci]')
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -182,7 +198,10 @@ jobs:
 
   website:
     needs: changes
-    if: needs.changes.outputs.website == 'true'
+    if: |
+      needs.changes.outputs.website == 'true' &&
+      !contains(github.event.head_commit.message, '[skipci]') &&
+      !contains(github.event.pull_request.title, '[skipci]')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -193,7 +212,10 @@ jobs:
 
   docs:
     needs: changes
-    if: needs.changes.outputs.docs == 'true'
+    if: |
+      needs.changes.outputs.docs == 'true' &&
+      !contains(github.event.head_commit.message, '[skipci]') &&
+      !contains(github.event.pull_request.title, '[skipci]')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

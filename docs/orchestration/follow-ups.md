@@ -8,6 +8,33 @@ When the trigger condition fires, a small dedicated agent should be dispatched
 to handle the cleanup, run gates, and report. Once the item ships and commits,
 mark it Done with the commit reference.
 
+## Conventions
+
+### CI commit-message guard — `[skipci]`
+
+Every GitHub Actions workflow under `.github/workflows/` (except the
+`workflow_run`-triggered `pito-cli-cleanup.yml`, which is a pure maintenance job
+tied to the publish workflow) carries a top-level per-job `if:` guard that skips
+the run when the commit message OR pull-request title contains the literal token
+`[skipci]`.
+
+- Token is **lowercase, no space** — `[skipci]`. Distinct from GitHub's built-in
+  `[skip ci]` (with a space) so the two never collide.
+- Push events check `github.event.head_commit.message`.
+- Pull-request events also check `github.event.pull_request.title`.
+- `workflow_dispatch` and `workflow_run` triggers expose no `head_commit`;
+  `contains()` on the missing field returns false and the run proceeds.
+- Affected workflows: `ci.yml`, `deploy-website.yml`, `pito-cli-publish.yml`,
+  `website-ci.yml`. Each carries a top-of-file comment naming the guard.
+- Skipped: `pito-cli-cleanup.yml`. It triggers off `workflow_run` of
+  `pito-cli-publish.yml` and only runs when that publish succeeded; a `[skipci]`
+  commit already short-circuits publish, which transitively skips cleanup.
+  Adding a guard there would be redundant and confusing for the maintenance-job
+  purpose.
+
+Use sparingly: docs-only / formatting-only / agent-config / orchestration
+commits where neither RSpec nor cargo nor prettier coverage adds signal.
+
 ## Open
 
 > These items are the working backlog for **Phase 5.5 — Polish window**, which
