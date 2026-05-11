@@ -78,7 +78,7 @@ publish)."
       `notification_delivery_channel` row keyed on `kind: "slack"`. Help link
       opens 01d's Markdown modal.
 
-- [ ] **01c — Discord webhook pane + validation**
+- [x] **01c — Discord webhook pane + validation**
       (`specs/01c-discord-webhook-pane-and-validation.md`). Mirror of 01b for
       Discord. Different regex, different test-ping payload (Discord requires an
       inline `content` field), independent row keyed on `kind: "discord"`. Both

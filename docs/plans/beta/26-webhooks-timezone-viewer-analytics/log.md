@@ -188,3 +188,143 @@ OQ 1 (YouTube channel tz field) and OQ 2 (cross-tz diff dialog
 copy) referenced by 01a — both are content / surfacing questions
 not blocking this foundation. Surface to user before any sub-spec
 that consumes them.
+
+## 2026-05-11 — sub-spec 01c Discord webhook pane (pito-rails)
+
+Mirror of 01b for Discord. Single dispatch — paste a URL, regex-
+validate, fire a test ping with the Discord-shaped `{ "content": ... }`
+payload, persist on 2xx. Independent `notification_delivery_channels`
+row keyed on `kind: "discord"`. Both `discord.com` and `discordapp.com`
+host forms accepted.
+
+### Files touched
+
+**New:**
+
+- `app/services/webhooks/discord_client.rb` — `#ping(text)` +
+  `#deliver(payload)` mirroring `Webhooks::SlackClient`. Only
+  meaningful difference is the payload key (`content` vs `text`).
+- `app/controllers/settings/discord_webhooks_controller.rb` —
+  single `update` action. Validates the URL with
+  `NotificationDeliveryChannel::DISCORD_URL_REGEX`, fires the test
+  ping, upserts the install-level row on 2xx, redirects with notice /
+  alert. Test-ping copy locked at
+  `"Pito test ping — Discord webhook configured."`.
+- `app/views/settings/_discord_pane.html.erb` — pane partial. URL
+  input + two yes/no checkboxes (`everything`, `daily_digest`) +
+  `[update]` submit. Pre-fills from `@discord_webhook` (the AR row).
+- Specs: `spec/services/webhooks/discord_client_spec.rb` (20 examples),
+  `spec/requests/settings/discord_webhooks_spec.rb` (33 examples),
+  `spec/views/settings/_discord_pane_html_erb_spec.rb` (14 examples).
+
+**Edited:**
+
+- `config/routes.rb` — added
+  `resource :discord_webhook, only: %i[update], controller: "discord_webhooks"`
+  inside the existing `namespace :settings do` block. URL preserved
+  as `/settings/discord_webhook`.
+- `app/views/settings/index.html.erb` — paired the Slack pane with
+  the new Discord pane in the existing Phase 26 01b/01c `.pane-row`.
+- `app/controllers/settings_controller.rb` — added the
+  `@discord_webhook = NotificationDeliveryChannel.find_record_for("discord")`
+  read so the pane pre-fills from the AR row.
+- `spec/requests/settings_spec.rb` — bumped the pane-count assertion
+  from `5 rows / 9 panes` (01a baseline) to `6 rows / 11 panes` (01b
+  Slack + 01c Discord paired in a new row).
+
+### Decisions made in flow
+
+- **Architect's locked decisions overrode the spec's older file
+  paths.** Spec 01c originally pointed at
+  `app/controllers/settings/webhooks/discord_controller.rb` and
+  `app/services/webhooks/discord_url_validator.rb` (a standalone
+  validator object). The dispatch from master locked the mirror-of-
+  Slack shape: regex constant on the AR model, controller at
+  `app/controllers/settings/discord_webhooks_controller.rb`, route
+  `resource :discord_webhook, only: :update`. Honored the dispatch.
+- **Discord PORO refactor (`webhook_url` reads AR row first).** Already
+  staged in `app/services/notification_delivery_channel/discord.rb`
+  alongside the Slack refactor — AR row first, then
+  `Rails.application.credentials.notifications.discord_webhook_url`
+  fallback. No changes needed; the model lookup `NotificationDeliveryChannel.discord&.webhook_url`
+  resolves correctly because the AR model already had `KINDS`
+  containing both `"slack"` and `"discord"`.
+- **`kind: "discord"` already in the AR model's enum.** 01b landed
+  both kinds in `NotificationDeliveryChannel::KINDS` and the
+  per-kind regex (`DISCORD_URL_REGEX`). 01c reuses the existing
+  constant — no model migration needed.
+- **Brand casing — `Discord`.** Pane heading uses `<h2>Discord</h2>`
+  with the brand capital D (mirror of `<h2>Slack</h2>`). Body copy
+  stays lowercase pito-style.
+
+### Specs
+
+| Surface | New specs | Pass |
+|---|---|---|
+| `Webhooks::DiscordClient` (service) | 20 | yes |
+| `Settings::DiscordWebhooks` (request) | 33 | yes |
+| `settings/_discord_pane.html.erb` (view) | 14 | yes |
+| `spec/requests/settings_spec.rb` (pane count update) | 0 net | yes |
+| **Total new** | **67** | **all green** |
+
+Adjacent specs (376 across `spec/requests/settings`, `spec/views/settings`,
+`spec/services/webhooks`, `spec/services/notification_delivery_channel`,
+and `spec/models/notification_delivery_channel_spec.rb`) all green.
+
+### Gates
+
+- `bundle exec rspec` (Discord + adjacent settings/webhook surface) — 376 / 376 green.
+- `bundle exec rubocop` — 8 / 8 Ruby files clean (ERB files excluded from
+  rubocop run per project posture; rubocop's ERB parser is opt-in).
+- `bin/brakeman -q -w2` — 0 warnings, 0 errors.
+
+### Cross-cutting compliance
+
+- **yes / no boundary** — `everything` + `daily_digest` ride
+  `"yes"` / `"no"` on the wire (checkbox `value="yes"`, absence
+  ⇒ false). Controller's `coerce_boolean` uses `YesNo.yes_no?` +
+  `YesNo.from_yes_no`. Spec asserts non-`yes`/`no` strings
+  (`"true"`, `"1"`) coerce to false.
+- **Friendly URLs** — `/settings/discord_webhook` pinned by spec
+  assertion (`expect(settings_discord_webhook_path).to eq("/settings/discord_webhook")`).
+- **No JS confirm / alert / prompt / `data-turbo-confirm`** —
+  view spec includes a guard assertion (`expect(rendered).not_to include("data-turbo-confirm")`).
+- **Brand casing** — `<h2>Discord</h2>` preserved; verified by
+  view spec rendering check.
+- **Active Record Encryption** — `webhook_url` column inherits the
+  ARE `encrypts :webhook_url` declaration from 01b's model. No
+  ciphertext can leak into logs or `raw` selects (covered by
+  existing model spec).
+
+### Manual test plan (for the user)
+
+1. `bin/dev` running. Create a Discord webhook on a test server.
+   (Server → Settings → Integrations → Webhooks → New.)
+2. Open `/settings`. Locate the new Discord pane next to Slack.
+3. Paste the URL, click `[update]`. A test message "Pito test ping —
+   Discord webhook configured." lands in the Discord channel. URL
+   persists on reload.
+4. Edit URL to the `discordapp.com` form. Click `[update]`. Test
+   ping succeeds; URL persists.
+5. Edit URL to a syntactically valid but server-side-invalid URL.
+   Click `[update]`. Test ping returns 404. Form re-renders with
+   "Discord test ping failed: 404." Original URL stays.
+6. Tick `everything`, click `[update]`. Reload — checkbox stays
+   ticked. Tick `daily digest`. Click `[update]`. Reload — both
+   ticked. Untick both. Reload — both unticked.
+7. DB inspect:
+   `NotificationDeliveryChannel.where(kind: "discord").last` reflects
+   current state.
+
+### Follow-ups surfaced
+
+- **01b help modal not yet wired into the pane.** 01d will add the
+  `[help]` bracketed link next to each pane heading (Slack + Discord)
+  opening a Markdown modal. Out of 01c scope.
+- **Sad-path URL validation lives in the controller only** — the AR
+  model's `webhook_url_must_match_kind` is the second line of
+  defense. The spec dispatch didn't ask for a dedicated
+  `DiscordUrlValidator` service object, so the original sub-spec's
+  validator file (`app/services/webhooks/discord_url_validator.rb`)
+  is intentionally NOT created — the regex constant lives on the AR
+  model and is reused by the controller + the model validation.
