@@ -360,43 +360,48 @@ RSpec.describe "Sessions", type: :request do
   # exists" (real `User#authenticate` at cost 12) from "email doesn't
   # exist" (dummy compare) by wall-clock timing alone.
   #
-  # In the test env Rails sets `ActiveModel::SecurePassword.min_cost =
-  # true`, so both branches collapse to `MIN_COST` (4) and the asymmetry
-  # is invisible. We stub `min_cost` to `false` to simulate production —
-  # there the controller MUST pick `BCrypt::Engine.cost` (12), matching
-  # what `has_secure_password` uses for real digests. If anyone pins
-  # the dummy hash back to a constant `MIN_COST`, this spec fails.
+  # P25 follow-up — F12 reworked this from a lazy class-level memo
+  # into a boot-time-computed constant
+  # (`config/initializers/sessions_dummy_bcrypt.rb`). The cost-selection
+  # logic still mirrors `ActiveModel::SecurePassword.min_cost` so the
+  # cost in production is `BCrypt::Engine.cost` (12). This spec asserts
+  # against the constant directly — the previous lazy-memo + stub
+  # approach is no longer applicable because the hash is computed
+  # once at Puma startup before any request runs.
   describe "timing oracle resistance (F1)", :unauthenticated do
-    before do
-      # Reset the class-level memo so the spec observes the next
-      # `BCrypt::Password.create` call.
-      SessionsController.instance_variable_set(:@dummy_bcrypt_hash, nil)
+    it "Sessions::DUMMY_BCRYPT_COST matches the cost has_secure_password uses for real digests" do
+      # Under the test env Rails sets `min_cost = true`, so the
+      # constant resolves to `BCrypt::Engine::MIN_COST` (4). In
+      # production min_cost is false and the constant resolves to
+      # `BCrypt::Engine.cost` (12). The initializer picks the same
+      # branch `ActiveModel::SecurePassword` does — verify the live
+      # cost matches one of the two valid choices and tracks
+      # `min_cost`.
+      expected =
+        if ActiveModel::SecurePassword.min_cost
+          BCrypt::Engine::MIN_COST
+        else
+          BCrypt::Engine.cost
+        end
+      expect(Sessions::DUMMY_BCRYPT_COST).to eq(expected)
     end
 
-    after do
-      SessionsController.instance_variable_set(:@dummy_bcrypt_hash, nil)
+    it "the hash on the boot-time constant is created at Sessions::DUMMY_BCRYPT_COST" do
+      # Read the cost back off the populated hash. Mismatched cost
+      # between the constant and the hash itself would reopen the
+      # timing oracle.
+      live_cost = BCrypt::Password.new(Sessions::DUMMY_BCRYPT_HASH).cost
+      expect(live_cost).to eq(Sessions::DUMMY_BCRYPT_COST)
     end
 
-    it "creates the dummy bcrypt hash at the same cost has_secure_password uses for real digests (production simulation)" do
-      # Simulate production: Rails only auto-enables min_cost in the
-      # test env. In dev / prod min_cost is false, so the real cost is
-      # `BCrypt::Engine.cost` (12 by default).
-      allow(ActiveModel::SecurePassword).to receive(:min_cost).and_return(false)
-
-      captured_cost = nil
-      allow(BCrypt::Password).to receive(:create).and_wrap_original do |orig, secret, **kwargs|
-        captured_cost = kwargs[:cost]
-        orig.call(secret, **kwargs)
-      end
-
+    it "the unknown-email branch does NOT create a new BCrypt hash per request (F12: boot-time only)" do
+      # Spy on `BCrypt::Password.create`. After F12 the controller path
+      # only calls `BCrypt::Password.new(hash).is_password?` — never
+      # `create`. A future regression that reintroduces lazy `create`
+      # would re-introduce the first-request timing skew.
+      expect(BCrypt::Password).not_to receive(:create)
       post login_path, params: { email: "definitely-nobody@nowhere.test", password: "irrelevant" }
-
       expect(response).to have_http_status(:unprocessable_content)
-      expect(captured_cost).to eq(BCrypt::Engine.cost),
-        "dummy bcrypt cost (#{captured_cost.inspect}) must match BCrypt::Engine.cost " \
-        "(#{BCrypt::Engine.cost.inspect}) when min_cost is false (i.e. in production). " \
-        "Mismatched cost reopens the account-enumeration timing oracle " \
-        "(Phase 8 audit finding F1)."
     end
   end
 
