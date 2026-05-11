@@ -151,4 +151,51 @@ RSpec.describe YoutubeHelper, type: :helper do
       expect(helper.youtube_studio_url(nil)).to be_nil
     end
   end
+
+  describe "#youtube_at_handle_url" do
+    it "builds the /@handle URL from a channel with a handle" do
+      channel = build_stubbed(:channel, handle: "@mshpoise")
+      expect(helper.youtube_at_handle_url(channel))
+        .to eq("https://www.youtube.com/@mshpoise")
+    end
+
+    it "strips a single leading @ before composing the URL" do
+      channel = build_stubbed(:channel, handle: "@pitomd")
+      expect(helper.youtube_at_handle_url(channel))
+        .to eq("https://www.youtube.com/@pitomd")
+    end
+
+    it "accepts a handle without a leading @ (defensive)" do
+      # The validator enforces a leading `@` on insert, but the helper
+      # is defensive in case stored data ever drifts. A bare slug is
+      # treated as if it had the `@`.
+      channel = build_stubbed(:channel, handle: "mshpoise")
+      expect(helper.youtube_at_handle_url(channel))
+        .to eq("https://www.youtube.com/@mshpoise")
+    end
+
+    it "returns nil when handle is nil" do
+      channel = build_stubbed(:channel, handle: nil)
+      expect(helper.youtube_at_handle_url(channel)).to be_nil
+    end
+
+    it "returns nil when handle is an empty string" do
+      channel = build_stubbed(:channel, handle: "")
+      expect(helper.youtube_at_handle_url(channel)).to be_nil
+    end
+
+    it "returns nil when handle is whitespace only" do
+      channel = build_stubbed(:channel, handle: "   ")
+      expect(helper.youtube_at_handle_url(channel)).to be_nil
+    end
+
+    it "returns nil when handle is just an `@`" do
+      channel = build_stubbed(:channel, handle: "@")
+      expect(helper.youtube_at_handle_url(channel)).to be_nil
+    end
+
+    it "returns nil for nil channel" do
+      expect(helper.youtube_at_handle_url(nil)).to be_nil
+    end
+  end
 end

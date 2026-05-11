@@ -129,6 +129,31 @@ module ChannelsHelper
     auto_linked.html_safe
   end
 
+  # Phase 24+ — /channels index URL column. Pick the canonical
+  # outbound URL for a channel:
+  #   1. `https://www.youtube.com/@<handle>` when handle is populated
+  #      (post-sync, the cleaner form most users recognize).
+  #   2. `https://www.youtube.com/channel/<UC-id>` (the locked
+  #      `channel_url`) otherwise — legacy / pre-sync rows.
+  #   3. The raw `channel.channel_url` as a final fallback if the URL
+  #      builder cannot extract a UC-id (defense in depth — the model
+  #      regex should prevent this on insert, but the view never 500s).
+  #
+  # Callers render the return value as the row's external link text
+  # and href; no truncation — the column is allowed to widen or the
+  # row to wrap, depending on table layout.
+  def channel_display_url(channel)
+    return nil if channel.nil?
+
+    at_handle = youtube_at_handle_url(channel)
+    return at_handle if at_handle.present?
+
+    uc_url = youtube_channel_url(channel)
+    return uc_url if uc_url.present?
+
+    channel.channel_url
+  end
+
   private
 
   def em_dash

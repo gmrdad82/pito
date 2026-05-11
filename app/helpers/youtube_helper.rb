@@ -64,4 +64,21 @@ module YoutubeHelper
 
     "https://studio.youtube.com/channel/#{id}"
   end
+
+  # Phase 24+ — /channels index URL polish. Build the public
+  # `/@handle` form of the YouTube channel URL when a handle is
+  # available. Returns nil when the channel has no handle yet
+  # (pre-sync or legacy rows); callers fall back to the UC-id URL.
+  # The stored `Channel#handle` is the canonical `@xxxx` token
+  # (validation enforces the leading `@`), so we feed it straight
+  # into the URL after stripping the leading `@`.
+  def youtube_at_handle_url(channel)
+    handle = channel&.handle.to_s.strip
+    return nil if handle.empty?
+
+    slug = handle.start_with?("@") ? handle[1..] : handle
+    return nil if slug.empty?
+
+    "https://www.youtube.com/@#{slug}"
+  end
 end

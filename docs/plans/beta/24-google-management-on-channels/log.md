@@ -212,3 +212,85 @@ channel that owns the connection. Trimmed to the two essential lines.
 ### Open follow-ups
 
 None. The trim is self-contained.
+
+## 2026-05-11 — `/channels` index table density pass (Rails impl agent)
+
+Follow-up polish after the Phase 24 ship. User directive: the index
+table was a 5-column placeholder (checkbox / name(id) / URL truncated /
+star / last sync). Step 11a sync now populates rich metadata
+(`avatar_url`, `title`, `handle`, `subscriber_count`, `video_count`,
+`hidden_subscriber_count`); the index row was wasting that. Widened
+the table from 5 to 8 columns and switched the URL column from the
+middle-truncated head…tail form to the full `/@handle` URL (with a
+UC-id fallback when the channel has no handle yet). Not part of any
+Phase 24 checkbox — this is a density pass on the same surface and
+follows the same agent / commit cadence as the Google panel trim
+above.
+
+### New column order
+
+`[ ]` checkbox · avatar (32px `.avatar-thumb`) · name (title link
+with `@handle` muted sub-text — falls back to `channel.id` when title
+is nil) · URL (full `/@handle` or UC-id fallback, `white-space:
+nowrap`) · subscribers (`number_with_delimiter`, "Hidden" when
+`hidden_subscriber_count?` is true) · videos
+(`number_with_delimiter`) · star (`yes` / `no`) · last sync (compact
+relative time, em-dash when never synced).
+
+### Files changed
+
+- `app/views/channels/_picker.html.erb` — replace the 5-column
+  fixed-width layout (`table-layout: fixed; width: 480px` +
+  colgroup) with an 8-column `table-layout: auto` layout. Drop the
+  `max-width: 1100px` wrapper so the wider row can breathe. The
+  Phase 24 surfaces above the table (Google banner, `[+]` →
+  `connect_google_channels_path`, `[revoke N]` bulk-toolbar target,
+  `data-bulk-select-revoke-path-value`) are untouched.
+- `app/helpers/channels_helper.rb` — new `channel_display_url(channel)`
+  helper. Picks `youtube_at_handle_url` first, falls back to
+  `youtube_channel_url` (UC-id form), and finally to the raw
+  `channel.channel_url`. Returns nil for a nil channel.
+- `app/helpers/youtube_helper.rb` — new `youtube_at_handle_url(channel)`
+  helper. Strips a single leading `@` from `channel.handle` and
+  composes `https://www.youtube.com/@<slug>`. Returns nil when the
+  handle is blank or just `@`.
+
+### Specs
+
+- `spec/helpers/youtube_helper_spec.rb` — 8 examples for
+  `youtube_at_handle_url` covering: with-`@`, leading-`@` strip,
+  bare-slug (defensive), nil handle, empty handle, whitespace-only
+  handle, just-`@` (degenerate), nil channel.
+- `spec/helpers/channels_helper_spec.rb` — 7 examples for
+  `channel_display_url` covering: handle wins, no-handle UC-id
+  fallback, empty-string handle UC-id fallback, whitespace handle
+  UC-id fallback, handle preferred over UC-id, raw `channel_url`
+  last-resort fallback, nil channel.
+- `spec/requests/channels_spec.rb` — updated the 5-column assertions
+  (`displays 5 columns`, `name` at column 2, name-cell index, URL-cell
+  index, URL middle-truncation) to the new 8-column geometry and added
+  9 new examples: avatar empty state, avatar img with `.avatar-thumb`,
+  delimited subscriber count, "Hidden" subscriber count, delimited
+  video count, em-dash video count, title + `@handle` rendering,
+  `/@handle` URL when handle present, full column-header sequence.
+
+### Run
+
+- `bundle exec rspec spec/requests/channels_spec.rb spec/views/channels/ spec/helpers/channels_helper_spec.rb spec/helpers/youtube_helper_spec.rb`
+  — 298 examples, 0 failures.
+- `bundle exec rspec spec/requests/channels spec/requests/channel_revokes_spec.rb spec/requests/channels_show_spec.rb`
+  — 182 examples, 0 failures (regression sweep on adjacent
+  /channels surfaces touched by Phase 24).
+- `bundle exec rubocop` on changed Ruby files — clean.
+- `bin/brakeman -q -w2` — 0 security warnings.
+
+### Open follow-ups
+
+- Sortable headers for `subscribers` and `videos` are not wired —
+  the underlying columns are not in `ChannelsController::ALLOWED_SORTS`.
+  Adding them is a separate scope change; flagged here so a future
+  polish pass can pick it up.
+- The `name` column still sorts by `channels.id` under the hood
+  (sort key stays `id`). When sync is fully populated everywhere a
+  follow-up can swap the sort key to `channels.title` with a
+  `LOWER(...)` collation note.

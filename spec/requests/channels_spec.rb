@@ -62,20 +62,16 @@ RSpec.describe "Channels", type: :request do
         expect(response.body).not_to match(/md-check-static-label">connected/)
       end
 
-      it "displays 5 columns (select, name, URL, star, last sync)" do
+      it "displays 8 columns (select, avatar, name, URL, subscribers, videos, star, last sync)" do
         get channels_path
-        # Phase B polish (2026-05-05) — select-all + name + URL + star +
-        # last sync. The name column is a YouTube-sync placeholder rendering
-        # `channel.id` as a link until sync populates real titles. The
-        # legacy `[o]` open-action column was dropped (post-Wave-3K polish):
-        # the name cell IS the show-page link, so a separate column was
-        # redundant. Header text "starred" was shortened to "star" in a
-        # 2026-05-06 polish; the underlying sort key stays `starred`.
-        # The `Name` header was lowercased to `name` in the 2026-05-06
-        # polish-2 pass to match the rest of the design-system column
-        # labels (lowercase by convention).
+        # Phase 24+ density pass (2026-05-10) — the prior 5-column
+        # placeholder was widened to surface the sync-populated metadata:
+        # avatar, title + `@handle`, full `/@handle` URL, subscriber
+        # count (with "Hidden" treatment), video count, star, last sync.
+        # The avatar column is intentionally header-label-less (narrow
+        # decorative column).
         thead = response.body.match(/<thead>(.*?)<\/thead>/m)[1]
-        expect(thead.scan(/<th\b/).size).to eq(5)
+        expect(thead.scan(/<th\b/).size).to eq(8)
       end
 
       # Phase 4 Wave 3 — name column. Placeholder for the YouTube channel
@@ -83,18 +79,19 @@ RSpec.describe "Channels", type: :request do
       # link to the show page so the column has stable content. Header is a
       # server-side sort link (`?sort=id&dir=<asc|desc>`), aligning with the
       # `/projects` index pattern.
-      it "renders a lowercase `name` column header at column 2 (after the checkbox)" do
+      it "renders a lowercase `name` column header at column 3 (after checkbox + avatar)" do
         get channels_path
         thead = response.body.match(/<thead>(.*?)<\/thead>/m)[1]
         # Pull the <th> elements in order. Column 1 is the select-all
-        # checkbox header; column 2 must be `name` (lowercase).
+        # checkbox header; column 2 is the (label-less) avatar header;
+        # column 3 must be `name` (lowercase).
         ths = Nokogiri::HTML.fragment(thead).css("th")
-        expect(ths.length).to eq(5)
+        expect(ths.length).to eq(8)
         # The header text reads "name" — the directional arrow now rides
         # via CSS `::after`, so the link text is just the label.
-        expect(ths[1].text.strip).to eq("name")
+        expect(ths[2].text.strip).to eq("name")
         # And NOT the legacy "Name" capitalization.
-        expect(ths[1].text.strip).not_to start_with("Name")
+        expect(ths[2].text.strip).not_to start_with("Name")
       end
 
       it "renders the name header as a server-side sort link with sort + dir params" do
@@ -114,11 +111,15 @@ RSpec.describe "Channels", type: :request do
         get channels_path
         html = Nokogiri::HTML.fragment(response.body)
         row = html.css("tbody tr").first
-        # Column index 1 (0-based) — second <td>, after the checkbox cell.
-        name_cell = row.css("td")[1]
+        # Column index 2 (0-based) — third <td>, after the checkbox +
+        # avatar cells.
+        name_cell = row.css("td")[2]
         link = name_cell.css("a").first
         expect(link).not_to be_nil
         expect(link["href"]).to eq(channel_path(channel))
+        # When `title` is nil (pre-sync rows — the default factory),
+        # the link falls back to the channel id as the visible label
+        # so the column stays scannable.
         expect(link.text.strip).to eq(channel.id.to_s)
       end
 
@@ -130,7 +131,7 @@ RSpec.describe "Channels", type: :request do
         get channels_path
         html = Nokogiri::HTML.fragment(response.body)
         row = html.css("tbody tr").first
-        name_cell = row.css("td")[1]
+        name_cell = row.css("td")[2]
         link = name_cell.css("a").first
         expect(link["data-turbo-frame"]).to eq("_top")
       end
@@ -152,47 +153,56 @@ RSpec.describe "Channels", type: :request do
 
       it "renders the URL cell as an external YouTube link with target=_blank" do
         get channels_path
-        # The URL text itself is now the external link (no separate [v]).
-        # Post-consolidation: the link text is a server-side
-        # middle-truncated single string (`https://…<tail>`) — same
-        # shape used by the footage filename column and the videos
-        # channel-URL column.
+        # Phase 24+ density pass — the URL cell renders the full
+        # display URL (either `/@handle` or UC-id fallback) with no
+        # truncation. For factory rows the handle is nil, so the
+        # fallback equals the locked `channel_url` (the UC-id form).
         html = Nokogiri::HTML.fragment(response.body)
         link = html.css("a").find { |a| a["href"] == channel.channel_url }
         expect(link).not_to be_nil
         expect(link["target"]).to eq("_blank")
         expect(link["rel"]).to eq("noopener noreferrer")
-        # The link text is the truncated form, not the raw URL.
-        expect(link.text).to include("…")
+        # No truncation — the link text is the full URL.
+        expect(link.text).not_to include("…")
+        expect(link.text).to eq(channel.channel_url)
       end
 
-      # Post-consolidation — URL cell middle-truncation. Returns a
-      # single fixed-length string `<head>…<tail>` (e.g.
-      # `https://…jF7eS8r1` for an 8/8 split) so the unique channel ID
-      # at the end of `https://www.youtube.com/channel/<id>` stays
-      # visible without spanning the column. The `<td>` wears a
-      # `title=<full URL>` for hover-reveal. Same shape as the videos
-      # channel-URL column and the footage filename column.
-      it "renders the URL cell as a single truncated text node with a title attribute" do
+      # Phase 24+ density pass — URL cell no longer truncates. The
+      # `<td>` is the 4th body cell (checkbox / avatar / name / URL /
+      # subscribers / videos / star / last sync) and renders the full
+      # display URL as both the `href` and link text. For factory rows
+      # the handle is nil, so the display URL is the UC-id form (the
+      # locked `channel_url`).
+      it "renders the URL cell as the full URL with no truncation" do
         get channels_path
         html = Nokogiri::HTML.fragment(response.body)
-        # Locate the URL <td> — third cell in the first body row
-        # (checkbox / Name / URL / star / last sync).
         row = html.css("tbody tr").first
-        url_cell = row.css("td")[2]
-        expect(url_cell["title"]).to eq(channel.channel_url)
+        url_cell = row.css("td")[3]
         link = url_cell.css("a").first
         expect(link).not_to be_nil
         expect(link["href"]).to eq(channel.channel_url)
-        # The link's text is the head/tail string with a U+2026
-        # ellipsis joining them.
-        expect(link.text).to start_with("https://")
-        expect(link.text).to include("…")
-        expect(link.text.length).to eq(8 + 1 + 8) # head + ellipsis + tail
-        expect(link.text).to end_with(channel.channel_url[-8..])
-        # No two-span flex markup left over from the prior pattern.
+        expect(link.text).to eq(channel.channel_url)
+        expect(link.text).not_to include("…")
+        # No middle-truncate spans left over from the prior pattern.
         expect(url_cell.css(".middle-truncate-head")).to be_empty
         expect(url_cell.css(".middle-truncate-tail")).to be_empty
+      end
+
+      it "renders the @handle URL form when the channel has a handle" do
+        with_handle = create(
+          :channel,
+          handle: "@pitomdtest",
+          title: "Pito MD Test"
+        )
+        get channels_path
+        html = Nokogiri::HTML.fragment(response.body)
+        link = html.css("a").find { |a| a["href"] == "https://www.youtube.com/@pitomdtest" }
+        expect(link).not_to be_nil
+        expect(link.text).to eq("https://www.youtube.com/@pitomdtest")
+        # Sanity — the raw `channel_url` (UC-id form) is NOT used
+        # when the @handle URL is available.
+        raw_link = html.css("a").find { |a| a["href"] == with_handle.channel_url }
+        expect(raw_link).to be_nil
       end
 
       it "renders a sortable star column header (lowercase, no star icon)" do
@@ -226,6 +236,116 @@ RSpec.describe "Channels", type: :request do
         expect(response.body).to match(/<td class="num">no<\/td>/)
         expect(response.body).to include(starred.channel_url)
         expect(response.body).to include(plain.channel_url)
+      end
+
+      # Phase 24+ density pass — avatar column. 2nd cell of each row;
+      # renders an `<img>` with class `.avatar-thumb` when `avatar_url`
+      # is present, a muted em-dash placeholder otherwise. The factory
+      # row has no avatar (pre-sync), so this base case exercises the
+      # fallback.
+      it "renders an em-dash in the avatar cell when avatar_url is nil" do
+        get channels_path
+        html = Nokogiri::HTML.fragment(response.body)
+        row = html.css("tbody tr").first
+        avatar_cell = row.css("td")[1]
+        expect(avatar_cell["class"]).to include("avatar-cell")
+        expect(avatar_cell.text.strip).to eq("—")
+        expect(avatar_cell.css("img")).to be_empty
+      end
+
+      it "renders a .avatar-thumb <img> in the avatar cell when avatar_url is present" do
+        with_avatar = create(:channel, avatar_url: "https://example.test/a.jpg")
+        get channels_path
+        html = Nokogiri::HTML.fragment(response.body)
+        row = html.css("tbody tr").find do |tr|
+          tr.css("a").any? { |a| a["href"] == with_avatar.channel_url || a["href"]&.include?(with_avatar.id.to_s) }
+        end
+        expect(row).not_to be_nil
+        avatar_cell = row.css("td")[1]
+        img = avatar_cell.css("img").first
+        expect(img).not_to be_nil
+        expect(img["src"]).to eq("https://example.test/a.jpg")
+        expect(img["class"]).to include("avatar-thumb")
+      end
+
+      # Phase 24+ density pass — subscriber column (5th cell). Uses
+      # the `formatted_subscriber_count` helper, which delegates to
+      # `number_with_delimiter` and renders "Hidden" when the channel
+      # has `hidden_subscriber_count: true`.
+      it "renders the delimited subscriber count when set" do
+        with_subs = create(:channel, subscriber_count: 12_345)
+        get channels_path
+        html = Nokogiri::HTML.fragment(response.body)
+        row = html.css("tbody tr").find do |tr|
+          tr.css("a").any? { |a| a["href"]&.include?(with_subs.to_param) }
+        end
+        expect(row).not_to be_nil
+        subs_cell = row.css("td")[4]
+        expect(subs_cell.text.strip).to eq("12,345")
+        expect(subs_cell["class"]).to include("num")
+      end
+
+      it "renders 'Hidden' in the subscriber cell when hidden_subscriber_count is true" do
+        hidden = create(:channel, subscriber_count: 99_999, hidden_subscriber_count: true)
+        get channels_path
+        html = Nokogiri::HTML.fragment(response.body)
+        row = html.css("tbody tr").find do |tr|
+          tr.css("a").any? { |a| a["href"]&.include?(hidden.to_param) }
+        end
+        expect(row).not_to be_nil
+        subs_cell = row.css("td")[4]
+        expect(subs_cell.text.strip).to eq("Hidden")
+      end
+
+      # Video count column (6th cell). Same helper pattern — delimited
+      # integer or em-dash placeholder when nil.
+      it "renders the delimited video count when set" do
+        with_videos = create(:channel, video_count: 1_234)
+        get channels_path
+        html = Nokogiri::HTML.fragment(response.body)
+        row = html.css("tbody tr").find do |tr|
+          tr.css("a").any? { |a| a["href"]&.include?(with_videos.to_param) }
+        end
+        expect(row).not_to be_nil
+        videos_cell = row.css("td")[5]
+        expect(videos_cell.text.strip).to eq("1,234")
+        expect(videos_cell["class"]).to include("num")
+      end
+
+      it "renders the em-dash placeholder in the video count cell when nil" do
+        get channels_path
+        html = Nokogiri::HTML.fragment(response.body)
+        row = html.css("tbody tr").first
+        videos_cell = row.css("td")[5]
+        expect(videos_cell.text.strip).to eq("—")
+      end
+
+      # Title + @handle rendering in the name cell. When the channel
+      # has a `title`, the link text is the title (not the id), and a
+      # muted `@handle` sub-line renders below the link.
+      it "renders the title as the name link text and @handle as muted sub-text" do
+        rich = create(:channel, title: "Pito MD Test", handle: "@pitomdtest")
+        get channels_path
+        html = Nokogiri::HTML.fragment(response.body)
+        row = html.css("tbody tr").find do |tr|
+          tr.css("a").any? { |a| a["href"]&.include?(rich.to_param) }
+        end
+        expect(row).not_to be_nil
+        name_cell = row.css("td")[2]
+        link = name_cell.css("a").first
+        expect(link.text.strip).to eq("Pito MD Test")
+        # Muted handle sub-text on its own line.
+        muted = name_cell.css(".text-muted").first
+        expect(muted).not_to be_nil
+        expect(muted.text.strip).to eq("@pitomdtest")
+      end
+
+      it "renders the new column headers (avatar blank, subscribers, videos)" do
+        get channels_path
+        html = Nokogiri::HTML.fragment(response.body)
+        headers = html.css("thead th").map { |th| th.text.strip }
+        # The avatar header has no label.
+        expect(headers).to eq([ "", "", "name", "URL", "subscribers", "videos", "star", "last sync" ])
       end
 
       it "renders bracketed-checkbox filter chips (not bracketed link chips)" do
