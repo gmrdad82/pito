@@ -325,10 +325,10 @@ a.text-danger.bracketed:hover, a.text-danger.bracketed:hover .bl { color: var(--
 
 /* Pane system — Phase B revamp (2026-05-06). Two classes for panes,
    two container modes:
-   - `.pane`        — fixed 452px-wide pane. Odd-indexed siblings paint
+   - `.pane`        — fixed 444px-wide pane. Odd-indexed siblings paint
                       with `--color-pane-bg-a`; even-indexed siblings
                       flip to `--color-pane-bg-b` (zebra rhythm).
-   - `.pane--wide`  — double-width 904px pane on `--color-pane-bg-wide`,
+   - `.pane--wide`  — double-width 888px pane on `--color-pane-bg-wide`,
                       regardless of position.
    - `.pane-row`    — flex container that wraps to the next row when the
                       viewport runs out (settings, project show, notes
@@ -343,13 +343,15 @@ a.text-danger.bracketed:hover, a.text-danger.bracketed:hover .bl { color: var(--
    Widths tightened 2026-05-05 — was 600px / 1200px, then 540px / 1080px,
    then 480px / 960px, then 440px / 880px, then 460px / 920px, then
    450px / 900px, then 456px / 912px, then 454px / 908px; nudged to
-   452px / 904px so two side-by-side panes still fit on narrower laptop
-   viewports while keeping a touch of breathing room (2 × 452 + main
-   padding ≈ 928px, fits viewports ≥ ~955px).
+   452px / 904px, then 450px / 900px (2026-05-12), then 448px / 896px
+   (2026-05-12), then 446px / 892px (2026-05-12), then 444px / 888px
+   (2026-05-12) so two side-by-side panes still fit on narrower laptop
+   viewports while keeping a touch of breathing room
+   (2 × 444 + main padding ≈ 912px, fits viewports ≥ ~939px).
 */
 .pane {
-  flex: 0 0 452px;
-  width: 452px;
+  flex: 0 0 444px;
+  width: 444px;
   padding: 12px;
   background: var(--color-pane-bg-a);
 }
@@ -359,8 +361,8 @@ a.text-danger.bracketed:hover, a.text-danger.bracketed:hover .bl { color: var(--
 }
 
 .pane--wide {
-  flex: 0 0 904px;
-  width: 904px;
+  flex: 0 0 888px;
+  width: 888px;
   background: var(--color-pane-bg-wide);
 }
 
@@ -373,34 +375,37 @@ a.text-danger.bracketed:hover, a.text-danger.bracketed:hover .bl { color: var(--
 /* `.pane--narrow` — half-width 280px pane for left columns whose payload
    is intrinsically narrow (e.g. an IGDB cover at ~256px wide). Pairs with
    `.pane--wide` on detail pages where the right pane carries form fields
-   and metadata that would otherwise truncate inside the default 452px
+   and metadata that would otherwise truncate inside the default 444px
    slot. Background follows the zebra rhythm via the base `.pane` rule
    (odd → bg-a, even → bg-b); we only override flex and width here.
    Introduced 2026-05-10 for /games/:id and /bundles/:id show pages. */
 .pane--narrow {
-  flex: 0 0 280px;
-  width: 280px;
+  flex: 0 0 272px;
+  width: 272px;
 }
 
 /* `.pane--game-detail` — mid-size 624px pane for the read-only details
    column on /games/:id (row 1, paired with `.pane--narrow` cover on the
-   left). Sits BETWEEN the default 452px `.pane` and the 904px
-   `.pane--wide`: 280 (cover) + 624 (details) = 904px so row 1 lines up
+   left). Sits BETWEEN the default 444px `.pane` and the 888px
+   `.pane--wide`: 272 (cover) + 616 (details) = 888px so row 1 lines up
    exactly with the `.pane--wide` sync pane (row 2) and linked-videos
    pane (row 3) at the same right edge. Background follows the zebra
    rhythm via the base `.pane` rule. Page-specific for now; promote to
    a generic `.pane--medium` if other pages adopt the same geometry.
    Introduced 2026-05-10 alongside the show / edit split; tightened from
-   640 → 624 the same day so row-1 width matches row-2/3 (904px). */
+   640 → 624 the same day so row-1 width matches row-2/3 (904px);
+   nudged to 622 on 2026-05-12 to track the pane shrink (450/900);
+   nudged again to 620 the same day (448/896); nudged again to 618
+   (446/892); nudged again to 616 (444/888). */
 .pane--game-detail {
-  flex: 0 0 624px;
-  width: 624px;
+  flex: 0 0 616px;
+  width: 616px;
 }
 
 /* `.pane--standalone` — the pane look (elevated `--color-pane-bg-a`
    background + 12px padding) for full-width single-column surfaces that
    are NOT part of a `.pane-row` workspace grid. Drops the fixed
-   452px width and the zebra `:nth-child(even)` rule so the pane fills
+   444px width and the zebra `:nth-child(even)` rule so the pane fills
    its parent. Used by one-time-reveal pages (post-create credentials,
    post-create token plaintext, OAuth consent / authorization-code /
    error screens) where the user wants the pane's background tone but
