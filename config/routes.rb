@@ -55,6 +55,20 @@ Rails.application.routes.draw do
   post "/login",   to: "sessions#create"
   delete "/session", to: "sessions#destroy", as: :session_logout
 
+  # Phase 29 — Unit A2. Reset-password-via-2FA surface. pito does not
+  # run SMTP, so there is no email-based recovery; this is the only
+  # self-service browser recovery path. `new` renders the username +
+  # code form; `create` verifies the username + a live TOTP code OR a
+  # backup code (single-use, consumed) and mints a short-lived signed
+  # reset marker; `edit` renders the set-password form behind that
+  # marker; `update` applies the new password, revokes every session,
+  # and redirects to `/login` (does NOT auto-log-in). Anonymous —
+  # the user is not logged in. Throttled in `rack_attack.rb`.
+  get   "/password/reset",      to: "password_resets#new",    as: :password_reset
+  post  "/password/reset",      to: "password_resets#create"
+  get   "/password/reset/edit", to: "password_resets#edit",   as: :edit_password_reset
+  patch "/password/reset",      to: "password_resets#update"
+
   # Phase 25 — 01b (LD-17). New-location challenge surface.
   #   GET    /login/challenge — two bracketed-link choices (TOTP / approval).
   #   POST   /login/challenge — branches on `challenge_path` param.
@@ -133,7 +147,7 @@ Rails.application.routes.draw do
        to: "channels/bulk_revokes#create",
        constraints: { ids: %r{[\d,]+} }
 
-  resources :channels, only: [ :index, :show, :edit, :update, :destroy ] do
+  resources :channels, only: [ :index, :show, :destroy ] do
     collection do
       get :panes
       # Phase 24 — entry point for the Google OAuth dance kicked off
@@ -154,12 +168,14 @@ Rails.application.routes.draw do
       # Nested videos endpoint used by the pito CLI: /channels/:id/videos.json
       # returns the videos belonging to the channel as a JSON array.
       get :videos
-      # Phase 7.5 §11i — open-diff resolution page. GET renders the
-      # three-column reconciliation page; PATCH consumes the per-
-      # field decisions form. JSON branch mirrors the
-      # `channel_diff_show` / `channel_diff_apply` MCP tools.
-      get   :diff
-      patch :apply_diff
+      # Unit A0 — channel is a read-only mirror. The only mutable
+      # channel attribute is `star`; it rides a dedicated singular
+      # `star` resource so the general `update` action (which carried
+      # the now-removed edit-form fields and the diff surface) is gone
+      # entirely. PATCH /channels/:id/star. Named `channel_star` so the
+      # helper reads `channel_star_path(channel)`.
+      resource :star, only: :update, controller: "channels/stars",
+                       as: :channel_star
     end
     # Phase 13.3 — Per-channel analytics dashboard. Singular `resource`
     # per master-agent decision (one analytics surface per channel).
@@ -177,12 +193,6 @@ Rails.application.routes.draw do
     # `/channels/<slug>/history`. JSON branch shares the action.
     resources :change_logs, only: :index, path: "history",
                             controller: "channels/change_logs"
-    # Phase 7.5 §11d — multi-layout preview component. Singular
-    # `resource` so the URL is `/channels/<slug>/preview` (one
-    # preview per channel). The `show` action accepts the pending-
-    # edit query params and returns a Turbo Stream that replaces
-    # `#channel-preview` inside the wide modal in place.
-    resource :preview, only: :show, controller: "channels/previews"
   end
   # Phase 12 — Path A2 retracted. Video gets back the writable subset
   # of YouTube Data API v3 fields plus the four-item pre-publish
@@ -529,9 +539,10 @@ Rails.application.routes.draw do
   # DELETE soft-deletes by setting `revoked_at`.
   namespace :settings do
     # Phase 12 — user account self-service. The authenticated user can
-    # change their own email or password. `current_password` is required
-    # to authorize either mutation. No delete-account, no create-user,
-    # no password-recovery flow (deferred). Singular `resource` so the
+    # change their own username or password. `current_password` is
+    # required to authorize either mutation. No delete-account, no
+    # create-user. Password recovery is the reset-via-2FA surface at
+    # `/password/reset` (Phase 29 — Unit A2). Singular `resource` so the
     # URL is `/settings/user` (not `/settings/users/:id`) — there is
     # only ever one "self" record per session. Pinned to the singular
     # `Settings::UserController` (Rails would otherwise pluralize a

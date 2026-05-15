@@ -11,7 +11,7 @@ RSpec.describe Mcp::Tools::LoginAttemptBlock do
     create(:login_attempt, :pending,
            user: target_user,
            session: pending_session,
-           email_attempted: target_user.email,
+           email_attempted: target_user.username,
            fingerprint_hash: Digest::SHA256.hexdigest("block-fp-mcp"),
            ip_prefix: "172.16.0.0/24")
   end

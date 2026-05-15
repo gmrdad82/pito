@@ -10,7 +10,7 @@ RSpec.describe Mcp::Tools::LoginAttemptsPending do
     create(:login_attempt, :pending,
            user: user,
            session: pending_session,
-           email_attempted: user.email)
+           email_attempted: user.username)
   end
   let!(:expired_attempt) do
     # Attempt with result: pending_approval but whose session is past
@@ -18,7 +18,7 @@ RSpec.describe Mcp::Tools::LoginAttemptsPending do
     create(:login_attempt, :pending,
            user: user,
            session: expired_session,
-           email_attempted: user.email)
+           email_attempted: user.username)
   end
 
   def call_tool(**args)

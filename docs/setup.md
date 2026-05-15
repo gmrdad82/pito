@@ -55,10 +55,33 @@ volume is unused in the test environment.
 
 ## 3. Configure credentials
 
-pito reads three blocks from Rails encrypted credentials: `:postgres` (database
-connection), `:owner` (seed-time owner email + password), and `:tokens.pepper`
-(HMAC key for API token digests). The `:tokens.pepper` is mandatory before
-`bin/setup`; the script halts with a walkthrough if it's absent.
+pito reads every secret from a **single global encrypted credentials file** at
+`config/credentials.yml.enc`, decrypted by `config/master.key` (on disk,
+gitignored, never in `.env`). There is no per-environment split file in this
+project — the structure **inside** the file is nested per environment for the
+keys that need it (e.g. `:postgres.development` / `:postgres.test`,
+`:voyage.development` / `:voyage.production`), and flat for keys that share
+across environments (e.g. `:google_oauth`).
+
+The blocks the application reads:
+
+- `:postgres` — database connection (per-env).
+- `:owner` — seed-time owner User (`username` + `password`; see "`:owner` block"
+  below).
+- `:tokens.pepper` — HMAC key for API token digests. **Mandatory before
+  `bin/setup`** — the script halts with a walkthrough if it's absent.
+- `:google_oauth` — YouTube + Google OAuth credentials per ADR 0012, flat block.
+  Phase 29 Unit A1 moved these back here from the `AppSetting` singleton
+  (reverting ADR 0007). Required for omniauth boot; substitutable with
+  `PITO_GOOGLE_OAUTH_CLIENT_ID` / `_CLIENT_SECRET` ENV vars in CI / local-no-DB
+  workflows.
+- `:voyage` — embedding key per ADR 0012, per-env. Optional in development
+  (`Notes::EmbedJob` no-ops cleanly without it).
+- `active_record_encryption.{primary_key, deterministic_key, key_derivation_salt}`
+  — Rails encryption keys for AR-encrypted columns.
+- Optional `:notifications.{slack_webhook_url, discord_webhook_url}` —
+  transitional fallback only; the source of truth for Slack/Discord webhook URLs
+  is the `NotificationDeliveryChannel` row managed under `/settings`.
 
 ### `:postgres` block
 
@@ -90,30 +113,95 @@ owner User. pito is single-install, multi-user (ADR 0003) — the seed mints one
 User; additional users today need a manual row insert. If the block is missing,
 seeding fails with a clear error.
 
-Edit the **development** credentials:
+Phase 29 Unit A2 swapped login from `email` to `username` and removed `email`
+from the `User` model entirely. The `:owner` block is `username` + `password`;
+no email field anywhere in this project (no SMTP, no transactional mail, no
+forgot-password-via-email — recovery is reset-via-2FA per `docs/auth.md` §1d).
+
+Edit the credentials file (single global file — `--environment` flags are unused
+in this project; the same file decrypts in development, test, and production):
 
 ```bash
-bin/rails credentials:edit --environment development
+bin/rails credentials:edit
 ```
 
 Add:
 
 ```yaml
 owner:
-  email: <your-email>
+  username: <your-username>
   password: <your-password>
 ```
 
-Repeat for the **test** environment so test seeds resolve cleanly:
-
-```bash
-bin/rails credentials:edit --environment test
-```
+`username` must match the `User#username` format
+(`/\A[a-z0-9_]+(?:[.-][a-z0-9_]+)*\z/i`, length 3..32). The seed downcases on
+write; pick the value you want to type at the login form.
 
 The `:owner` block is the single source of truth for the seeded owner User. HTML
 routes are gated by `Sessions::AuthConcern` (login at `/login`, see
-`docs/auth.md` §1). JSON API and MCP HTTP transport require explicit bearer
-tokens (see `:tokens.pepper` below).
+`docs/auth.md` §1). After the seed completes the owner logs in once with
+username + password, then the **mandatory 2FA gate** (Phase 29 Unit A2) forces
+TOTP enrollment before any other page is reachable — see `docs/auth.md` §1a and
+§1d. JSON API and MCP HTTP transport require explicit bearer tokens (see
+`:tokens.pepper` below) and are NOT gated by the mandatory-2FA flow.
+
+### `:google_oauth` block
+
+Required for omniauth boot (per ADR 0012 — Phase 29 Unit A1 moved this back from
+`AppSetting`). The flat block (not per-env — dev and prod share the same Google
+Cloud OAuth client via the Cloudflare tunnel; see "Dev and prod share OAuth
+credentials" near the end of this doc):
+
+```bash
+bin/rails credentials:edit
+```
+
+Add:
+
+```yaml
+google_oauth:
+  project_id: pito-<n>
+  client_id: <client-id>.apps.googleusercontent.com
+  client_secret: <client-secret>
+  api_key: <api-key>
+  redirect_uri: <optional — falls back to the production callback URL>
+```
+
+Fields:
+
+- `client_id` + `client_secret` — REQUIRED. The omniauth initializer raises at
+  boot without them. CI / local-no-DB workflows can substitute
+  `PITO_GOOGLE_OAUTH_CLIENT_ID` / `PITO_GOOGLE_OAUTH_CLIENT_SECRET` ENV vars;
+  the test environment has a built-in placeholder.
+- `api_key` — needed for `Youtube::PublicClient` (unauthenticated public API
+  reads). `Youtube::PublicClient#configured?` returns false without it; invoking
+  the client raises `NotConfiguredError`.
+- `project_id` — informational, used when wiring the Google Cloud Console (see
+  "Google Cloud / OAuth Setup" below).
+- `redirect_uri` — optional. Omniauth falls back to the production callback URL
+  `https://app.pitomd.com/auth/google/callback` when blank.
+
+Walk through "Google Cloud / OAuth Setup" near the end of this doc to provision
+the values themselves.
+
+### `:voyage` block
+
+Voyage AI embedding API key (per ADR 0012 — Phase 29 Unit A1 moved this back
+from `AppSetting`). Per-environment because the development and production keys
+are different:
+
+```yaml
+voyage:
+  development:
+    api_key: <dev-key>
+  production:
+    api_key: <prod-key>
+```
+
+Optional in development — `Notes::EmbedJob` no-ops cleanly when the key is
+blank. The Voyage indexing toggle (`voyage_index_project_notes`) is a non-secret
+runtime flag that stays on `AppSetting` and is managed via `/settings` →
+Voyage.ai pane.
 
 ### `:tokens.pepper` block
 
@@ -173,10 +261,11 @@ bin/rails db:prepare
 bin/rails db:seed
 ```
 
-`db:seed` creates 1 User from the `:owner` credentials block, mints a default
-`dev` API token (idempotent), then 100 sample Channels with a deterministic
-distribution (7 starred, 6 connected, 2 in the intersection). Re-running is
-idempotent.
+`db:seed` creates 1 User from the `:owner` credentials block (username +
+password), mints a default `dev` API token (idempotent), and provisions the six
+Platform reference rows. Channels, videos, projects, games, collections, and
+notes are NOT seeded — Phase 29 Unit A2 removed the project-workspace sample
+block. Re-running is idempotent.
 
 ### Destructive-and-reseed migration posture
 
@@ -220,6 +309,37 @@ psql -h 127.0.0.1 -p 54327 -U pito pito_development -c "\dx"
 ```
 
 Expected output lists `pgcrypto`, `citext`, `vector`.
+
+### First login — mandatory TOTP enrollment
+
+Per Phase 29 Unit A2, the seeded owner has no TOTP configured. On the very first
+login (username + password from the `:owner` block), the
+`Sessions::AuthConcern#require_totp_configured!` gate redirects every
+non-allowlisted browser request to `/settings/security/totp/new`. Enroll with an
+authenticator app (1Password, Authy, Google Authenticator, etc.), confirm the
+6-digit code, and **capture the 10 backup codes shown once on the enrollment
+confirmation screen** — they cannot be retrieved later. After confirmation the
+gate releases and the rest of the app is reachable.
+
+No SMTP, no transactional mail, no forgot-password-via-email exist in this
+project. Password recovery is **reset-via-2FA** (`docs/auth.md` §1d): the user
+enters their username and either a live TOTP code or a single-use backup code,
+then sets a new password.
+
+### Operator escape hatch — `pito:user:reset_totp`
+
+If the user loses BOTH the authenticator device and every backup code, the
+operator runs:
+
+```bash
+bin/rails 'pito:user:reset_totp[<username>]'
+```
+
+The task clears the user's TOTP enrollment, destroys their backup codes, revokes
+their sessions, and prints a confirmation. On next login the user is gated
+straight back into TOTP setup. Operator possession of shell access on the box is
+the authorization boundary — there is no in-product surface for this escape
+hatch. Full details: `docs/auth.md` §1e.
 
 ## 6. Run the stack
 
@@ -381,8 +501,8 @@ updating the registered redirect URI in Google Cloud Console at the same time.
 
 ### 5. Persist credentials into Rails
 
-The Phase 7 spec wires pito to read OAuth credentials from
-`Rails.application.credentials.google_oauth`:
+pito reads OAuth credentials from `Rails.application.credentials.google_oauth`
+(per ADR 0012 — Phase 29 Unit A1 reverted ADR 0007's AppSetting placement):
 
 ```bash
 EDITOR=nano bin/rails credentials:edit
@@ -396,7 +516,13 @@ google_oauth:
   project_id: pito-495614
   client_id: <your client id>.apps.googleusercontent.com
   client_secret: <your client secret>
+  api_key: <your YouTube Data API v3 key>
 ```
+
+Flat block (not per-env) — the same `client_id` / `client_secret` serve both
+development and production via the shared Cloudflare tunnel mapping (see "Dev
+and prod share OAuth credentials" below). The `api_key` field powers
+`Youtube::PublicClient` for unauthenticated public API reads.
 
 The interactive `EDITOR=nano bin/rails credentials:edit` flow is the canonical
 instruction. (A Ruby-shim variant —
@@ -404,7 +530,9 @@ instruction. (A Ruby-shim variant —
 session-specific automation during the original walkthrough, but the simpler
 interactive flow is the recommended path for fresh setups.)
 
-Save and exit. The `master.key` decrypts the file at runtime.
+Save and exit. The `master.key` decrypts the file at runtime. Restart `bin/dev`
+after editing — `config/initializers/omniauth.rb` reads the block at boot, so a
+rotation requires a Puma restart to take effect.
 
 ### Why Testing mode forever
 

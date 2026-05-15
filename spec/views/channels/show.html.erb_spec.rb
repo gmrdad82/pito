@@ -66,9 +66,11 @@ RSpec.describe "channels/show.html.erb", type: :view do
       expect(rendered).not_to match(/<h1[^>]*>\s*channel\s+Pito Test Channel/)
     end
 
-    it "renders the empty channel_diff_banner Turbo frame slot" do
+    it "does not render a channel_diff_banner Turbo frame slot (read-only mirror)" do
+      # Unit A0 — the channel is a read-only mirror; the diff banner
+      # slot was removed along with the diff-reconciliation surface.
       render
-      expect(rendered).to match(/<turbo-frame[^>]*id="channel_diff_banner"[^>]*>/)
+      expect(rendered).not_to include("channel_diff_banner")
     end
 
     it "renders the banner <img>" do
@@ -366,14 +368,20 @@ RSpec.describe "channels/show.html.erb", type: :view do
         "Google pane root must not carry inline margin-bottom"
     end
 
-    it "renders the chrome row actions: [e], [sync], [-]" do
+    it "renders the chrome row actions: [changes], [sync], [revoke], [-] (no [e] edit)" do
       render
       # The breadcrumb actions block lives in content_for; the view spec
       # captures it via `content_for(:breadcrumb_actions)`.
+      #
+      # Unit A0 — the channel is a read-only mirror; the `[ e ]` edit
+      # affordance was removed. The `[sync]` href is the plain
+      # overwrite intent (no `intent=diff_check`).
       breadcrumb_actions = view.content_for(:breadcrumb_actions).to_s
+      expect(breadcrumb_actions).to include(channel_change_logs_path(channel))
       expect(breadcrumb_actions).to include("/syncs/channel/#{channel.id}")
       expect(breadcrumb_actions).to include("/deletions/channel/#{channel.id}")
-      expect(breadcrumb_actions).to include(edit_channel_path(channel))
+      expect(breadcrumb_actions).not_to include("intent=diff_check")
+      expect(breadcrumb_actions).not_to match(%r{/channels/[^"]+/edit})
     end
 
     it "does not introduce JS confirm / alert / data-turbo-confirm" do

@@ -95,7 +95,7 @@ module Auth
           result: :success,
           reason: reason,
           user: user,
-          email: user.email,
+          username: user.username,
           session: session_row
         )
       end

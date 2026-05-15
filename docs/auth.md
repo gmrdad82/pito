@@ -8,10 +8,11 @@ mandatory at every endpoint, every MCP tool, and every controller action.
 
 Four surfaces gate access to the install:
 
-- **Browser → Rails (Web Puma)** — cookie + DB-backed sessions; login is email +
-  password (Phase 8).
+- **Browser → Rails (Web Puma)** — cookie + DB-backed sessions; login is
+  **username + password + mandatory TOTP** (Phase 8 + Phase 29 Unit A2).
 - **MCP / `pito` CLI → Rails (MCP Puma + API routes)** — bearer `ApiToken`s
-  (HMAC-digested, scoped, revocable).
+  (HMAC-digested, scoped, revocable). NOT gated by the mandatory-2FA flow
+  (bearer credentials are not user-with-a-browser sessions).
 - **Third-party clients → Rails** — Doorkeeper-issued OAuth 2.0 tokens
   (Authorization Code + PKCE; Phase 6B).
 - **pito → Google (outbound delegation)** — OAuth-delegated `YoutubeConnection`
@@ -25,6 +26,9 @@ If you came here looking for something specific:
 - "What happens on a new-location login?" → §1b (new-location detection +
   pending sessions).
 - "Where do I unblock a fingerprint / ip pair?" → §1c (auto-block list).
+- "How do I reset my password?" → §1d (reset-via-2FA).
+- "How do I unstick a user who lost their TOTP and every backup code?" → §1e
+  (operator-only `pito:user:reset_totp` rake task).
 - "How do I generate a dev token?" → §7.
 - "Which scope does my MCP tool require?" → §4.
 - "How does a request flow through auth?" → §5.
@@ -33,16 +37,17 @@ If you came here looking for something specific:
 
 ## Auth surfaces overview
 
-This document is authoritative for **email + password login** (surface #1, §1
-below) and **bearer ApiTokens** (surface #2, the rest of the document — the
-original Phase 5 Auth Foundation). Surfaces #3 and #4 are documented elsewhere.
+This document is authoritative for **username + password + mandatory TOTP
+login** (surface #1, §1 below) and **bearer ApiTokens** (surface #2, the rest of
+the document — the original Phase 5 Auth Foundation). Surfaces #3 and #4 are
+documented elsewhere.
 
-| #   | Surface                   | Mechanism                                               | Authoritative reference                                                                                                                                                                                                                                                       |
-| --- | ------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Browser → Rails           | Cookie + DB-backed sessions (email + password + TOTP)   | §1 below for the login flow + rate-limit + audit shape; §1a for TOTP enrollment + challenge; §1b for new-location detection. Live code: `app/controllers/sessions_controller.rb`, `app/controllers/concerns/sessions/auth_concern.rb`. Revocation UI at `/settings/sessions`. |
-| 2   | MCP / `pito` CLI → Rails  | Bearer ApiTokens (HMAC-digested, scoped, revocable)     | The rest of this document (`docs/auth.md`). Live code: `app/lib/api/token_authenticator.rb`, `app/models/api_token.rb`.                                                                                                                                                       |
-| 3   | 3rd-party clients → Rails | Doorkeeper-issued OAuth (Authorization Code + PKCE)     | Spec: `docs/plans/beta/12-auth-ui-multi-user-readiness/specs/6b-doorkeeper-oauth-server.md`. Live config: `config/initializers/doorkeeper.rb`. Tokens are 2h access / 14d refresh. Stays per ADR 0005.                                                                        |
-| 4   | pito → Google (YouTube)   | OAuth-delegated `YoutubeConnection` (encrypted at rest) | `docs/architecture.md` "Google OAuth + YouTube API foundation (Phase 7, renamed Phase 9)" section. Live code: `app/models/youtube_connection.rb`. Channel-only OAuth per ADR 0006 (no "Sign in with Google"); renamed from `GoogleIdentity` in Phase 9.                       |
+| #   | Surface                   | Mechanism                                                | Authoritative reference                                                                                                                                                                                                                                                                                                                 |
+| --- | ------------------------- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Browser → Rails           | Cookie + DB-backed sessions (username + password + TOTP) | §1 below for the login flow + rate-limit + audit shape; §1a for TOTP enrollment + challenge; §1b for new-location detection; §1d for reset-via-2FA; §1e for the operator escape hatch. Live code: `app/controllers/sessions_controller.rb`, `app/controllers/concerns/sessions/auth_concern.rb`. Revocation UI at `/settings/sessions`. |
+| 2   | MCP / `pito` CLI → Rails  | Bearer ApiTokens (HMAC-digested, scoped, revocable)      | The rest of this document (`docs/auth.md`). Live code: `app/lib/api/token_authenticator.rb`, `app/models/api_token.rb`.                                                                                                                                                                                                                 |
+| 3   | 3rd-party clients → Rails | Doorkeeper-issued OAuth (Authorization Code + PKCE)      | Spec: `docs/plans/beta/12-auth-ui-multi-user-readiness/specs/6b-doorkeeper-oauth-server.md`. Live config: `config/initializers/doorkeeper.rb`. Tokens are 2h access / 14d refresh. Stays per ADR 0005.                                                                                                                                  |
+| 4   | pito → Google (YouTube)   | OAuth-delegated `YoutubeConnection` (encrypted at rest)  | `docs/architecture.md` "Google OAuth + YouTube API foundation (Phase 7, renamed Phase 9)" section. Live code: `app/models/youtube_connection.rb`. Channel-only OAuth per ADR 0006 (no "Sign in with Google"); renamed from `GoogleIdentity` in Phase 9.                                                                                 |
 
 The four surfaces are independent. A request from a browser session (#1) cannot
 authenticate as an ApiToken (#2); a Doorkeeper access token (#3) does not grant
@@ -57,19 +62,40 @@ a login, and never replaces a password (ADR 0006). Phase 9 retired the dormant
 `/auth/google/callback` flow exists solely to mint and refresh
 `YoutubeConnection` rows.
 
-## 1. Login flow (email + password)
+## 1. Login flow (username + password + mandatory TOTP)
 
-The login form at `/login` accepts a single `email` field plus `password` and
-submits to `SessionsController#create`. There is no "username" path and no "Sign
-in with Google" alternative — Phase 8 dropped the `username` column from `users`
-(ADR 0003 + 0006), and ADR 0006 narrowed Google OAuth to channel connection
-only.
+The login form at `/login` accepts a single `username` field plus `password` and
+submits to `SessionsController#create`. There is no "email" path and no "Sign in
+with Google" alternative — Phase 29 Unit A2 dropped the `email` column from
+`users` and re-introduced `username`; ADR 0006 narrowed Google OAuth to channel
+connection only. Email is not part of pito's data model — no SMTP, no
+transactional mail, no forgot-password-via-email anywhere in this project.
+
+After a correct password, the login pipeline has **two distinct 2FA
+touchpoints** — getting them confused is the main implementation hazard:
+
+1. **Pre-session TOTP login challenge** (`/login/totp`) — runs on a new-location
+   login when the user already has 2FA enrolled. The user is not yet
+   authenticated; a pre-auth marker carries them through the form.
+2. **Post-session mandatory-2FA gate**
+   (`Sessions::AuthConcern# require_totp_configured!`) — runs on every
+   authenticated browser request for a user who has never enrolled. Redirects to
+   the enrollment flow until the user confirms a fresh code. Browser-only (Phase
+   29 R3): API tokens and MCP bearer credentials are NOT subject to the gate.
 
 ### Model
 
 - `User` — auth-only model. Columns:
-  `id, email (citext, unique, NOT NULL), password_digest, created_at, updated_at`.
-  No `username`, no `tenant_id`, no `admin`. `has_secure_password`.
+  `id, username (citext, unique, NOT NULL), password_digest, created_at, updated_at`,
+  plus the four TOTP columns (`totp_seed_encrypted`, `totp_enabled_at`,
+  `totp_disabled_at`, `totp_last_used_step`). No `email`, no `tenant_id`, no
+  `admin`. `has_secure_password`.
+  - **Username format:** `/\A[a-z0-9_]+(?:[.-][a-z0-9_]+)*\z/i`,
+    `length: 3..32`, case-insensitive uniqueness; citext column,
+    `normalize_username` downcases on write.
+  - `User#totp_configured?` — alias for `totp_enabled?`
+    (`totp_seed_encrypted.present? && totp_disabled_at.nil?`). The mandatory-2FA
+    gate calls `totp_configured?`.
 - `Session` — DB-backed session record (Phase 6A). Carries the cookie's session
   id, the user reference, IP / user-agent metadata, and supports per-session
   revocation via `/settings/sessions`.
@@ -77,57 +103,91 @@ only.
 ### Flow
 
 ```
-POST /login (email, password)
+POST /login (username, password)
    │
-   ├── User.find_by(email: <stripped, downcased>)
+   ├── User.find_by(username: <stripped, downcased>)
    ├── If found: user.authenticate(password)        → bcrypt compare
    │   If not found: bcrypt_dummy_compare(password) → constant-time, same wall-cost
    │
    ├── Both branches return the same generic
    │   "login failed." flash on failure
-   │   (no oracle on whether the email exists, the password was wrong,
+   │   (no oracle on whether the username exists, the password was wrong,
    │    the pair is blocked, or the request was rate-limited — LD-14).
    │
-   ▼ on correct password
-   classify the login location (§1b)
+   ▼ on correct password — classify the login location (§1b)
      │
      ├── trusted pair (fingerprint + ip prefix) → activate session
-     ├── new pair + 2FA enrolled → redirect to /login/totp (§1a)
-     └── new pair + 2FA absent  → redirect to /login/pending,
-                                  spawn pending session + notification
+     │     │
+     │     └── post-session: require_totp_configured! gate (§1a — mandatory)
+     │           ├── totp_configured? = true  → app
+     │           └── totp_configured? = false → /settings/security/totp/new
+     │
+     ├── new pair + totp_configured? = true → redirect to /login/totp (§1a)
+     │     │
+     │     └── on success: activate session → post-session gate passes
+     │
+     ├── new pair + totp_configured? = false → first-login bootstrap (R4)
+     │     │  (no-TOTP fresh-seed user — pending-approval would be meaningless
+     │     │   without an established account; mint an ACTIVE session directly)
+     │     │
+     │     └── LoginAttempt.reason = first_login_totp_setup_required
+     │           post-session gate forces enrollment
+     │
+     └── new pair + totp_configured? = false AND TrustedLocation rows exist
+         → /login/pending, spawn pending session + notification
    │
    ▼ on session activation
    Session.create_for!(user:) — issues cookie + rotates token on 2FA path
    LoginAttempt row written (reason: trusted_location_success |
-                             new_location_2fa_passed | new_location_pending)
+                             new_location_2fa_passed | new_location_pending |
+                             first_login_totp_setup_required)
    redirect_to <intended_path> || root_path
 ```
 
-The bcrypt-dummy-compare on the no-such-email branch closes the timing oracle
-that previously distinguished "no such email" from "wrong password" via wall-
-clock latency (Phase 8 F1 fix). Phase 25 broadened the generic-copy rule — wrong
-password, unknown account, blocked pair, and rate-limit all surface the same
-`login failed.` flash (LD-14). The internal `LoginAttempt` row carries the
-precise reason; the UI does not.
+**Check ordering** for a single login: password → new-location / blocked-pair
+classification → TOTP login challenge → mandatory-2FA setup gate → app. The
+pre-session challenge (touchpoint #1) and the post-session gate (touchpoint #2)
+are independent — a user with TOTP enrolled hits #1 on a new location and #2
+never fires; a user without TOTP hits #2 every authenticated browser request and
+#1 never fires.
+
+The bcrypt-dummy-compare on the no-such-username branch closes the timing oracle
+that previously distinguished "no such account" from "wrong password" via
+wall-clock latency (Phase 8 F1 fix; Phase 29 Unit A2 ported it to username).
+Phase 25 broadened the generic-copy rule — wrong password, unknown account,
+blocked pair, and rate-limit all surface the same `login failed.` flash (LD-14).
+The internal `LoginAttempt` row carries the precise reason; the UI does not.
+`LoginAttempt.email_attempted` column remains for historical rows but is
+populated with the typed username for new attempts.
 
 ### Rate limit
 
-Two throttles defend `POST /login` and the challenge surfaces:
+Throttles defend `POST /login`, the challenge surfaces, and the reset-via-2FA
+surface (§1d):
 
-- **Per-IP** — 5 attempts / minute on `/login`, `/login/challenge`,
+- **Per-IP — login** — 5 attempts / minute on `/login`, `/login/challenge`,
   `/login/totp`, and `/login/pending`. Keyed on `req.ip` after Rack walks the
   `X-Forwarded-For` chain past the trusted Cloudflare CIDRs (§11).
-- **Per-account** — 10 attempts / 15 minutes keyed on
-  `Digest::SHA256.hexdigest("login-email:#{email.downcase}")`. The hash keeps
-  the raw email out of `Rack::Attack`'s cache store.
+- **Per-account — login** — 10 attempts / 15 minutes keyed on
+  `Digest::SHA256.hexdigest("login-username:#{username.downcase}")`. The hash
+  keeps the raw username out of `Rack::Attack`'s cache store. (Phase 29 Unit A2
+  re-keyed the throttle from email to username; the throttle name in
+  `rack_attack.rb` is unchanged for ergonomic continuity but the hashed input is
+  now the typed username.)
+- **Per-IP — password reset** — 5 attempts / minute on `POST /password/reset`
+  and `PATCH /password/reset` (§1d).
+- **Per-account — password reset** — 10 attempts / 15 minutes keyed on
+  `Digest::SHA256.hexdigest("password-username:#{username.downcase}")` on
+  `POST /password/reset`.
 - **Exponential backoff** — `Auth::BackoffCalculator` doubles the window on each
   consecutive trip (60s → 120s → 240s → … → capped at 3600s) and stores the bump
   in `Rack::Attack.cache.store` (Redis) with a TTL. A successful login resets
   the per-account bucket so a legitimate user who typo'd a few times is never
   locked out indefinitely.
 - **Generic copy on throttle** — the `throttled_responder` renders the same
-  `login failed.` flash as a wrong-password reply (LD-14) and writes a
-  `LoginAttempt` row with `reason: rate_limited` via `Auth::RateLimitLogger`.
+  `login failed.` flash (or `reset failed.` for the password-reset surface) as a
+  wrong-password reply (LD-14) and writes a `LoginAttempt` row with
+  `reason: rate_limited` via `Auth::RateLimitLogger`.
 
 The legacy `SessionThrottle` (10 failures / 5 min, per-IP) survives as a
 defense-in-depth blocklist alongside `Rack::Attack`; both buckets land in the
@@ -145,12 +205,46 @@ updates) writes an `AuthAuditLog` row via `Auth::AuditLogger` (§8). The legacy
 `log/auth_audit.log` file still receives bearer-token outcomes from
 `Api::TokenAuthenticator`; the JSON-line catalog lives in §8.
 
-## 1a. TOTP 2FA + backup codes
+## 1a. TOTP 2FA + backup codes (mandatory)
 
 Phase 25 added standard RFC 6238 TOTP as the primary challenge on new-location
-logins. The library is `rotp` (verification) + `rqrcode` (enrollment QR). Plain
-TOTP — no 1Password Connect SDK; 1Password is just one of many compatible
-authenticator apps.
+logins. Phase 29 Unit A2 made TOTP **mandatory from first login**: every
+authenticated browser user must have a confirmed TOTP enrollment before any
+non-allowlisted page is reachable. The library is `rotp` (verification) +
+`rqrcode` (enrollment QR). Plain TOTP — no 1Password Connect SDK; 1Password is
+just one of many compatible authenticator apps.
+
+### Mandatory-2FA gate (browser-only)
+
+`Sessions::AuthConcern` runs `require_totp_configured!` as a `before_action`
+immediately after `authenticate_session!`. When the authenticated user's
+`totp_configured?` predicate is false AND the request is not in the allowlist,
+the gate redirects to `/settings/security/totp/new` and short-circuits the rest
+of the controller chain. The allowlist (`TOTP_SETUP_ALLOWLIST`) covers exactly
+the endpoints needed to reach the enrollment confirmation screen plus the logout
+escape hatch:
+
+- `GET /settings/security/totp/new` — enrollment form.
+- `POST /settings/security/totp` — enrollment create.
+- `GET /settings/security/totp` — show / one-shot reveal screen.
+- `PATCH /settings/security/totp` — confirm the 6-digit code.
+- `DELETE /session` — logout.
+
+Every other authenticated browser route 302s back to the enrollment flow until
+the user confirms.
+
+**Scope is browser-only** (Phase 29 R3). The concern is included only by
+`ApplicationController`. `Api::AuthConcern` and `Mcp::RackApp` do NOT include it
+— bearer credentials authenticate a token, not a user-with-a-browser; a token
+cannot "set up TOTP". The browser user who minted the token IS gated, so the
+token-minting path is protected upstream.
+
+The gate fires on every browser request, not just login. A user who logs in on
+Monday, configures TOTP, then has their TOTP cleared by the operator's
+`pito:user:reset_totp` rake task (§1e) will be redirected into the enrollment
+flow on their very next browser request — the operator's clearing call also
+revokes their sessions, so in practice the user re-logs in and the gate catches
+the post-login redirect.
 
 ### Enrollment
 
@@ -222,10 +316,11 @@ session token.
 ### `RecentTotpVerification` gate
 
 Sensitive write actions that don't already require 2FA at login (user account
-edit, YouTube / Voyage credential updates, Slack / Discord webhook saves)
-include the `RecentTotpVerification` concern. When the acting user has 2FA
-enabled, the controller calls `require_recent_totp_if_enabled!` before the
-write. The helper:
+edit, Voyage indexing-toggle update, Slack / Discord webhook saves) include the
+`RecentTotpVerification` concern. (The YouTube credentials surface no longer
+exists in the Settings UI per ADR 0012 / Phase 29 Unit A1.) When the acting user
+has 2FA enabled, the controller calls `require_recent_totp_if_enabled!` before
+the write. The helper:
 
 - Returns `true` immediately when the user has no 2FA enrolled.
 - Otherwise verifies the submitted `params[:totp_code]` via
@@ -239,18 +334,37 @@ Read-only views are never gated; only the writes.
 
 ### Recovery (TOTP-lost fallback)
 
-If the user loses both their authenticator app AND every backup code, the
-recovery path is **Rails console only** in this phase (Q-D — single-install,
-single-operator). Open a console on the host, then:
+Three recovery paths, in increasing order of disruption:
 
-```ruby
-user = User.find_by!(email: "owner@example.com")
-user.update_columns(totp_seed_encrypted: nil, totp_disabled_at: Time.current)
-user.totp_backup_codes.destroy_all
-```
+1. **Backup code at login** — if the user has any unused backup code, the
+   `/login/totp` challenge accepts it in place of a live TOTP code
+   (`Auth::BackupCodeConsumer` consumes it under a row lock, single-use).
+2. **Operator rake task** — if the user has lost both the authenticator app AND
+   every backup code, the operator runs
+   `bin/rails pito:user:reset_totp[<username>]` from a shell on the box. The
+   task clears the TOTP enrollment, destroys backup codes, and revokes all
+   sessions. The user re-logs in fresh and the mandatory-2FA gate forces
+   re-enrollment. See §1e.
+3. **Rails console snippet** — bare-bones last resort (if the rake task is
+   unavailable for some reason — e.g. a botched deploy mid-task). Open a console
+   on the host, then:
 
-Then re-enroll via `/settings/security/totp/new`. Email-based reset is an
-explicit Theta / multi-user concern.
+   ```ruby
+   user = User.find_by!(username: "owner")
+   user.update_columns(totp_seed_encrypted: nil,
+                       totp_enabled_at: nil,
+                       totp_disabled_at: nil,
+                       totp_last_used_step: nil)
+   user.totp_backup_codes.destroy_all
+   user.sessions.destroy_all
+   ```
+
+   The rake task is preferred — it is the friendly idempotent counterpart to
+   this snippet.
+
+Email-based reset is permanently out of scope; there is no SMTP and no email
+column. The single-install, single-operator posture (Q-D) makes operator shell
+access the authorization boundary.
 
 ## 1b. New-location detection + pending sessions
 
@@ -363,8 +477,14 @@ purge only via `/settings/security/attempts/purge` (web) or
 wrong_password / unknown_account / blocked_pair / rate_limited /
 new_location_pending / new_location_2fa_passed / 2fa_failed /
 trusted_location_success / pending_expired /
-approved_from_{web,tui,mcp} / blocked_from_{web,tui,mcp}
+approved_from_{web,tui,mcp} / blocked_from_{web,tui,mcp} /
+first_login_totp_setup_required
 ```
+
+`first_login_totp_setup_required` (value 15, added by Phase 29 Unit A2) marks
+the R4 first-login bootstrap branch — a no-TOTP user successfully passed
+password verification on a new location and was minted an active session
+directly so the mandatory-2FA gate could force enrollment (see §1 flow diagram).
 
 Browse the log at `/settings/security/attempts` (paginated) or via the
 `login_attempts_list` / `login_attempts_pending` MCP tools (§4).
@@ -405,6 +525,160 @@ reopen old threats. Purge is operator-driven.
 The `blocked_locations_list` MCP tool (auth scope) returns the same surface for
 cross-stack ops.
 
+## 1d. Reset-via-2FA password recovery
+
+Phase 29 Unit A2 built the password-recovery surface for the first time, as a
+**reset-via-2FA** flow. Email is permanently absent from this project; the
+second factor (TOTP code OR backup code) substitutes for the email link that a
+conventional reset flow would send.
+
+### Routes
+
+- `GET /password/reset` — username + TOTP/backup-code form
+  (`PasswordResetsController#new`).
+- `POST /password/reset` — verifies the username + factor, mints a short-lived
+  signed reset marker, redirects to the set-password step (`#create`).
+- `GET /password/reset/edit` — new-password + confirmation form, gated by the
+  reset marker (`#edit`).
+- `PATCH /password/reset` — applies the new password, revokes every session for
+  the user, redirects to `/login` (`#update`).
+
+Every action is `allow_anonymous` — the user is not logged in.
+
+### Flow
+
+```
+GET /password/reset
+   │
+   ▼
+POST /password/reset (username, totp_or_backup_code)
+   │
+   ├── User.find_by(username: <stripped, downcased>)
+   ├── If found:
+   │     ├── Auth::TotpVerifier.call(user:, code:)     → :ok | :invalid
+   │     └── OR Auth::BackupCodeConsumer.call(user:, code:) → :ok | :invalid
+   │         (backup code consumed on :ok — single-use, R1)
+   ├── If not found: constant-time dummy bcrypt + dummy TOTP verify
+   │   (no username-existence oracle)
+   │
+   ├── Both branches return the same generic
+   │   "reset failed." flash on any failure
+   │   (no oracle on whether the username exists, the factor was wrong,
+   │    or the request was rate-limited)
+   │
+   ▼ on success
+   mint short-lived signed reset marker:
+     ├── cookie: PasswordResetsController::RESET_MARKER_COOKIE (signed)
+     └── nonce:  Rails.cache.write("pw_reset:<id>", token, expires_in: 10.min)
+   redirect to GET /password/reset/edit
+   │
+   ▼
+GET /password/reset/edit
+   │  (reset marker required — anonymous request without it 302s to /login)
+   ▼
+PATCH /password/reset (password, password_confirmation)
+   │
+   ├── verify reset marker (signed cookie + Rails.cache nonce match)
+   ├── apply new password via has_secure_password
+   ├── user.sessions.destroy_all   (revokes every existing session)
+   ├── Auth::AuditLogger row: action: password_reset
+   ├── clear reset marker (cookie + cache nonce)
+   │
+   ▼
+   redirect to /login (NO auto-login — the user re-types credentials,
+                       hits the TOTP login challenge, gets a fresh session)
+```
+
+### Properties
+
+- **Accepts live TOTP OR backup code (R1).** A user who lost their authenticator
+  but kept their backup codes still has a path; the backup code is consumed.
+- **No username-existence oracle.** The unknown-username branch runs a
+  constant-time dummy bcrypt + dummy TOTP verify so the wall-clock latency of
+  the response carries no signal. Generic `reset failed.` flash regardless of
+  which step failed.
+- **Rate-limited.** Per-IP 5/min and per-username 10/15min on
+  `POST /password/reset` (see §1 "Rate limit" above and §9). The
+  `throttled_responder` `password/` branch matches the `login/` branch: generic
+  `reset failed.` flash, no information leak.
+- **Revokes every session on reset.** A successful reset destroys every
+  `Session` row for the user, including the device the operator is reading this
+  doc on. Defensive — if the password was compromised the live sessions must die
+  with it.
+- **No auto-login.** After the reset the user redirects to `/login` and
+  re-authenticates from scratch (username + new password, then the TOTP login
+  challenge). Defensive — auto-login after a recovery flow lets a marker-replay
+  attack walk straight into the app.
+- **`AuthAuditLog.action = password_reset`** (slot 9) writes the reset row with
+  `target: User`,
+  `metadata: { source_ip:, fingerprint_hash:, factor: "totp" | "backup_code" }`.
+
+### Failure modes that DO short-circuit
+
+- Username not found → constant-time dummy verify → `reset failed.`
+- Username found, factor invalid (TOTP code wrong AND backup code wrong) →
+  `reset failed.`
+- Reset marker absent / expired / forged on `GET /edit` or
+  `PATCH /password/reset` → 302 to `/login`.
+- Rate-limit trip → `reset failed.` + `LoginAttempt.reason: rate_limited`.
+
+### Failure mode that does NOT short-circuit
+
+The new password failing `User`'s `password_digest` validations (too short,
+mismatch with confirmation, etc.) re-renders `#edit` with the validation errors
+— the reset marker stays valid until it expires, so the user can fix the mistake
+without restarting the flow.
+
+## 1e. Operator escape hatch — `pito:user:reset_totp` rake task
+
+For the lockout scenario reset-via-2FA cannot cover — the user lost BOTH their
+authenticator app AND every backup code — the operator runs a rake task from a
+shell on the box. Operator shell access is the authorization boundary; there is
+no in-product surface for this escape hatch (Q-D — single-install,
+single-operator).
+
+### Invocation
+
+```bash
+bin/rails 'pito:user:reset_totp[<username>]'
+```
+
+The square-bracket form with quotes is the canonical Rake argument shape;
+without quotes, the shell may eat the brackets.
+
+### What it does
+
+For the named user (case-insensitive lookup against the citext `username`
+column):
+
+1. Clears all four TOTP columns: `totp_seed_encrypted: nil`,
+   `totp_enabled_at: nil`, `totp_disabled_at: nil`, `totp_last_used_step: nil`.
+   Returns the user to the same "never enrolled" state a fresh seed produces;
+   the mandatory-2FA gate (§1a) forces clean re-enrollment on the next login.
+2. Destroys every `TotpBackupCode` row for the user — the old codes are
+   meaningless once the seed is gone.
+3. Destroys every `Session` row for the user (active and pending). A TOTP reset
+   is a credential-state change; no live session may survive it.
+4. Prints a `$stdout` confirmation:
+   `TOTP reset for <username> — sessions revoked, backup codes cleared. They will be forced through TOTP setup on next login.`
+
+### Properties
+
+- **Idempotent.** Running it on a user who already has no TOTP configured is a
+  no-op-equivalent (writing nils over nils, `destroy_all` on empty relations are
+  harmless) and still prints the confirmation.
+- **No `Current.user`, no 2FA challenge.** It is a shell task; operator
+  possession of shell access on the box is the authorization boundary, exactly
+  like the legacy Rails-console snippet at §1a.
+- **Non-zero exit on unknown username.** Prints `user not found: <username>` to
+  `$stderr` and exits 1 — no stack trace, no oracle concern (operator-only
+  context).
+- **Does NOT write an `AuthAuditLog` row.** The task runs without
+  `Current.user`; the audit logger requires an acting user. The session
+  revocation and TOTP clearance are recorded implicitly by the absent enrollment
+  state on next login (the user's next `LoginAttempt` will fire
+  `first_login_totp_setup_required` again, which is the durable forensic trace).
+
 ## 2. ApiToken model overview
 
 Three moving parts:
@@ -421,7 +695,7 @@ Current   (ActiveSupport::CurrentAttributes)
 ```
 
 - `User` — owner of tokens (see §1). Seeded from the `:owner` credentials block
-  (`{ email, password }`).
+  (`{ username, password }` per Phase 29 Unit A2).
 - `ApiToken` — bearer credential. Stored as an HMAC-SHA256 digest with a
   server-side `:tokens.pepper` credential; plaintext is shown once at creation
   and never persisted. Has a `name`, a `scopes` jsonb array, optional
@@ -732,8 +1006,8 @@ AuthAuditLog
   action             enum: approve / block / unblock / purge /
                            totp_enroll / totp_disable /
                            backup_code_regenerate /
-                           youtube_credentials_updated /
-                           voyage_credentials_updated
+                           voyage_credentials_updated /
+                           password_reset
   target_type        string  (LoginAttempt, BlockedLocation, User)
   target_id          bigint  (0 for collection-scoped purges)
   metadata           jsonb   (per-action shape)
@@ -748,10 +1022,20 @@ Callers are expected to wrap the audit-log call inside the same transaction as
 the underlying state change so the audit row and the domain mutation
 succeed-or-fail together.
 
-The `youtube_credentials_updated` and `voyage_credentials_updated` actions
-(Phase 25 F3 extension) capture `SettingsController#update_youtube` /
-`update_voyage`. The row's `metadata["changed_fields"]` lists the column NAMES
-the update mutated; plaintext values are NEVER recorded.
+The `voyage_credentials_updated` action (Phase 25 F3 extension; survives ADR
+0012 because the Voyage indexing toggle is still a Settings-UI-managed write
+even after the Voyage API key moved back to credentials) captures
+`SettingsController#update_voyage`. The row's `metadata["changed_fields"]` lists
+the column NAMES the update mutated; plaintext values are NEVER recorded.
+
+The `password_reset` action (Phase 29 Unit A2 / §1d) captures
+`PasswordResetsController#update`. `target: User`,
+`metadata: { source_ip:, fingerprint_hash:, factor: "totp" | "backup_code" }`.
+
+The `youtube_credentials_updated` enum value (slot 7) is **reserved** in the
+schema for historical rows but removed from `Auth::AuditLogger`'s active
+allowlist — the YouTube credentials surface no longer exists in the Settings UI
+(ADR 0012; Phase 29 Unit A1).
 
 Never auto-purged. Surfaced at `/settings/security/audit` (web) and via the
 `auth_audit_log_list` MCP tool.
@@ -774,11 +1058,14 @@ Event types still written to the file:
 - `token.created` — Settings UI minted a new token.
 - `token.revoked` — Settings UI revoked a token.
 - `session.create.success` — successful login. Payload includes
-  `email_attempted`.
-- `session.create.failure` — failed login. Payload includes `email_attempted`
-  and a generic failure reason. The reason does NOT distinguish "no such email"
-  from "wrong password", "blocked pair", or "rate-limited" — every failure
-  branch produces the same outcome shape (Phase 8 F1 fix + Phase 25 LD-14).
+  `username_attempted` (Phase 29 Unit A2 renamed from `email_attempted`; the
+  underlying column on `LoginAttempt` is still named `email_attempted` for
+  historical-row continuity but now carries the typed username).
+- `session.create.failure` — failed login. Payload includes `username_attempted`
+  and a generic failure reason. The reason does NOT distinguish "no such
+  username" from "wrong password", "blocked pair", or "rate-limited" — every
+  failure branch produces the same outcome shape (Phase 8 F1 fix + Phase 25
+  LD-14 + Phase 29 Unit A2 username swap).
 - `session.destroy` — logout.
 - `youtube_connection.callback.succeeded` — successful Google OAuth callback; a
   `YoutubeConnection` row was minted or refreshed (Phase 9).
@@ -804,9 +1091,15 @@ throttles below.
 
 - **`login/ip`** — 5 POSTs / 1 minute on `/login`, `/login/challenge`,
   `/login/totp`, `/login/pending`. See §1.
-- **`login/email`** — 10 POSTs / 15 minutes keyed on SHA256(email). See §1.
+- **`login/email`** — 10 POSTs / 15 minutes keyed on SHA256(username). Throttle
+  name unchanged for ergonomic continuity; the hashed input is the typed
+  username after Phase 29 Unit A2's username swap. See §1.
 - **`login/backoff`** — exponential backoff via `Auth::BackoffCalculator`. See
   §1.
+- **`password/ip`** — 5 POSTs / 1 minute on `POST /password/reset` and
+  `PATCH /password/reset`. See §1d.
+- **`password/username`** — 10 POSTs / 15 minutes keyed on SHA256(username) on
+  `POST /password/reset`. See §1d.
 - **Bearer-token throttle** — blocklists IPs that fail bearer authentication
   more than 10 times in 5 minutes; incremented from inside
   `Api::TokenAuthenticator` whenever it returns a failure. A blocklisted request
@@ -835,6 +1128,11 @@ included by every controller that mutates auth state on the acting session:
 - `Settings::Security::TotpsController` (enroll + disable)
 - `Settings::Security::TotpBackupCodesController` (regenerate)
 - `Login::TotpChallengesController` (on successful 2FA)
+
+`PasswordResetsController#update` (§1d) destroys every session for the user
+rather than rotating — a successful reset is a credential-state event that the
+existing session must not survive. No rotation, no carry-over; the user re-logs
+in fresh.
 
 After the destructive action's audit-log write, the controller calls
 `rotate_session_token!` which mints a fresh plaintext token, recomputes the

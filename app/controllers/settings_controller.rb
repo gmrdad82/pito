@@ -31,20 +31,11 @@ class SettingsController < ApplicationController
     # gone. The Google card moved to the new /channels banner — settings
     # goes back to its lane (app-wide preferences only).
     #
-    # 2026-05-11 — YouTube credentials migrated out of
-    # `Rails.application.credentials.google_oauth` into the AppSetting
-    # singleton with Active Record Encryption on the sensitive fields
-    # (api_key + client_secret). The pane is now an EDIT form
-    # mirroring Voyage's input-with-placeholder UX:
-    #   * sensitive fields show `•••••••` placeholder when configured,
-    #     never echoing the stored value.
-    #   * non-sensitive fields show the actual stored value as the
-    #     input placeholder so the operator can verify them.
-    #   * a clear checkbox renders next to each configured field for
-    #     explicit wipes (form-level, no JS confirm).
-    # The credentials block stays on-disk as a manual revert path; see
-    # AppSetting header comment + `pito:backfill_youtube_credentials`.
-    @youtube_credentials = youtube_credentials_status
+    # Phase 29 — Unit A1. YouTube / Google OAuth credentials moved back
+    # OUT of the AppSetting singleton and into
+    # `Rails.application.credentials.google_oauth`. The YouTube
+    # credentials edit pane is removed entirely — Google / YouTube
+    # config is deploy-time credentials config now, no web surface.
     # Phase 26 — 01b/01c. Slack + Discord panes each read the
     # install-level `notification_delivery_channels` row (nil when no
     # row exists yet — pane renders with empty URL + unchecked boxes).
@@ -139,6 +130,14 @@ class SettingsController < ApplicationController
   # Phase 24 — `youtube_oauth` section is dropped along with the rest of
   # the Google card. Submitting `section=youtube_oauth` falls through to
   # `update_legacy`, which silently no-ops on the dropped keys.
+  #
+  # Phase 29 — Unit A1. `section=youtube` is dropped — the YouTube
+  # credentials edit pane is gone (Google / YouTube config is
+  # deploy-time credentials now). A `section=youtube` PATCH falls
+  # through to `update_legacy` (no-op, redirects with the standard
+  # notice — never 500s). The `section=voyage` branch survives in
+  # slimmed form: it writes only the non-secret
+  # `voyage_index_project_notes` flag.
   def update
     case params[:section]
     when "workspaces"
@@ -146,28 +145,12 @@ class SettingsController < ApplicationController
     when "appearance"
       update_appearance
     when "voyage"
-      # 2026-05-11 — gate Voyage credential writes behind a fresh
-      # TOTP verification when 2FA is on. Read-only viewing of the
+      # 2026-05-11 — gate the Voyage flag write behind a fresh TOTP
+      # verification when 2FA is on. Read-only viewing of the
       # /settings page is unchanged.
       return unless require_recent_totp_if_enabled!(redirect_on_failure: settings_path)
 
       result = update_voyage
-      if result.is_a?(String)
-        redirect_to settings_path, alert: result
-        return
-      end
-    when "youtube"
-      # 2026-05-11 — YouTube credentials moved out of
-      # `Rails.application.credentials.google_oauth` into the
-      # AppSetting singleton. Mirror `update_voyage`: blank input
-      # keeps the current stored value, explicit clear via
-      # `clear_youtube_<field>: "yes"` form params wipes a field.
-      #
-      # Gate YouTube credential writes behind a fresh TOTP code
-      # when 2FA is on (same pattern as Voyage above).
-      return unless require_recent_totp_if_enabled!(redirect_on_failure: settings_path)
-
-      result = update_youtube
       if result.is_a?(String)
         redirect_to settings_path, alert: result
         return
@@ -220,110 +203,44 @@ class SettingsController < ApplicationController
     end
   end
 
-  # Voyage fieldset — Phase B revamp (2026-05-04). Three optional inputs:
+  # Voyage fieldset — Phase 29 Unit A1 (slimmed). The Voyage API key
+  # moved back into `Rails.application.credentials.voyage`; the only
+  # surviving Settings-UI-managed control is the non-secret
+  # `voyage_index_project_notes` flag:
   #
-  #   - `voyage_api_key` (text): when blank AND `clear_voyage_api_key` is not
-  #     "yes", the existing key is left untouched (no clobber on empty
-  #     submit). When non-blank, replaces the key.
-  #   - `clear_voyage_api_key` ("yes" / anything else): explicit clear.
-  #     Setting it "yes" forces voyage_api_key to nil. The model validation
-  #     prevents this when `voyage_index_project_notes` is on.
-  #   - `voyage_index_project_notes` ("yes" / "no"): per-target flag. Only
-  #     "yes" / "no" are honored — other values leave the flag unchanged
-  #     (matches the project's external-boolean rule).
+  #   - `voyage_index_project_notes` ("yes" / "no"): per-target flag.
+  #     Only "yes" / "no" are honored — other values leave the flag
+  #     unchanged (matches the project's external-boolean rule).
   #
-  # Returns the validation error string when the model rejects the update;
-  # the caller surfaces it via flash[:alert]. Returns nil on success.
+  # On a real change the method emits a `voyage_credentials_updated`
+  # audit row carrying `metadata["changed_fields"]` (column names
+  # only). The audit action stays active for the slimmed-pane flag
+  # write — it no longer represents a key write, just a flag write.
   #
-  # 2026-05-11 — body delegated to `update_appsetting_section` so this
-  # fieldset shares the "blank-keep + explicit clear + save + audit"
-  # shape with `update_youtube`. The per-field shapes are declarative;
-  # the helper drives the rest.
+  # Returns `nil` on success (or no-op when nothing changed). Returns
+  # an error string when the model rejects the save; the caller
+  # surfaces it via `flash[:alert]`.
   def update_voyage
-    update_appsetting_section(
-      audit_action: :voyage_credentials_updated,
-      error_label: "Voyage settings invalid.",
-      string_fields: %w[voyage_api_key],
-      boolean_fields: %w[voyage_index_project_notes]
-    )
-  end
+    raw_flag = params.dig(:settings, :voyage_index_project_notes).to_s
+    return unless %w[yes no].include?(raw_flag)
 
-  # YouTube fieldset — 2026-05-11. Four optional inputs, all
-  # following Voyage's "blank input keeps the current value" pattern:
-  #
-  #   - `youtube_api_key` (text, encrypted): public/server API key.
-  #   - `youtube_client_id` (text, plaintext): OAuth client ID.
-  #   - `youtube_client_secret` (text, encrypted): OAuth client secret.
-  #   - `youtube_redirect_uri` (text, plaintext): OAuth callback URL.
-  #
-  # Each field accepts an explicit clear via
-  # `clear_youtube_<field>: "yes"` form params (mirrors
-  # `clear_voyage_api_key`). Blank input WITHOUT the clear flag is
-  # a no-op for that field (so the operator can submit one field at
-  # a time without nuking the others).
-  YOUTUBE_FIELDS = %w[
-    youtube_api_key
-    youtube_client_id
-    youtube_client_secret
-    youtube_redirect_uri
-  ].freeze
-
-  def update_youtube
-    update_appsetting_section(
-      audit_action: :youtube_credentials_updated,
-      error_label: "YouTube settings invalid.",
-      string_fields: YOUTUBE_FIELDS
-    )
-  end
-
-  # 2026-05-11 — shared driver behind `update_voyage` + `update_youtube`.
-  # Both fieldsets follow the same shape:
-  #
-  #   1. Ensure the singleton AppSetting row exists.
-  #   2. For each declared `string_fields:` entry — read
-  #      `params[:settings][<field>]` plus the matching
-  #      `clear_<field>` toggle. Blank input WITHOUT the clear flag
-  #      is a no-op; an explicit `clear_<field>: "yes"` wipes the
-  #      column.
-  #   3. For each declared `boolean_fields:` entry — read the same
-  #      `params[:settings][<field>]` value as a `"yes"` / `"no"`
-  #      string and convert at the boundary. Any other value leaves
-  #      the column untouched (project's external-boolean rule).
-  #   4. Save inside a transaction. On success, emit an audit row
-  #      via `Auth::AuditLogger` tagged with `audit_action:` and
-  #      `metadata["changed_fields"]` (column names ONLY — plaintext
-  #      values never enter the audit log).
-  #
-  # Returns `nil` on success (or no-op when no fields changed).
-  # Returns an error string when the model rejects the save; the
-  # caller surfaces it via `flash[:alert]`.
-  def update_appsetting_section(audit_action:, error_label:, string_fields: [], boolean_fields: [])
     if AppSetting.none?
       AppSetting.set("pane_title_length", ENV.fetch("PANE_TITLE_LENGTH", 14).to_s)
     end
     setting = AppSetting.first
 
-    attrs = collect_appsetting_attrs(
-      string_fields: string_fields,
-      boolean_fields: boolean_fields
-    )
+    setting.voyage_index_project_notes = (raw_flag == "yes")
+    return if setting.changes.empty?
 
-    return if attrs.empty?
-
-    setting.assign_attributes(attrs)
-    # Only the names of the columns the save would change reach the
-    # audit row (`changed_fields`); plaintext API keys / client
-    # secrets never enter the log. The save + audit write share a
-    # transaction so a rollback of either rolls back both.
     changed_fields = setting.changes.keys
     saved = false
     ActiveRecord::Base.transaction do
       saved = setting.save
-      if saved && changed_fields.any?
+      if saved
         Auth::AuditLogger.call(
           acting_user: Current.user,
           source_surface: :web,
-          action: audit_action,
+          action: :voyage_credentials_updated,
           target: setting,
           metadata: { "changed_fields" => changed_fields }
         )
@@ -333,31 +250,7 @@ class SettingsController < ApplicationController
 
     return nil if saved
 
-    setting.errors.full_messages.first || error_label
-  end
-
-  # Parse the per-section settings params into an attrs hash for
-  # `AppSetting#assign_attributes`. Pure: no DB writes, no flash.
-  def collect_appsetting_attrs(string_fields:, boolean_fields:)
-    attrs = {}
-
-    string_fields.each do |field|
-      raw_clear = params.dig(:settings, "clear_#{field}").to_s
-      raw_value = params.dig(:settings, field).to_s
-
-      if raw_clear == "yes"
-        attrs[field.to_sym] = nil
-      elsif raw_value.strip.present?
-        attrs[field.to_sym] = raw_value.strip
-      end
-    end
-
-    boolean_fields.each do |field|
-      raw_flag = params.dig(:settings, field).to_s
-      attrs[field.to_sym] = (raw_flag == "yes") if %w[yes no].include?(raw_flag)
-    end
-
-    attrs
+    setting.errors.full_messages.first || "Voyage settings invalid."
   end
 
   # Legacy single-form behavior — preserved so callers without a section
@@ -376,86 +269,6 @@ class SettingsController < ApplicationController
       max_panes: (AppSetting.get("max_panes") || @max_panes_default).to_i,
       pane_title_length: (AppSetting.get("pane_title_length") || @pane_title_length_default).to_i,
       theme: @theme
-    }
-  end
-
-  # 2026-05-11 — YouTube credentials moved from
-  # `Rails.application.credentials.google_oauth` into the AppSetting
-  # singleton so the operator can rotate them from the Settings UI
-  # without a deploy. The pane is now an EDIT form (Voyage-style),
-  # not a read-only status card.
-  #
-  # Returns a hash describing per-field state for the view to render
-  # input placeholders + clear-checkboxes:
-  #
-  #   :fields — per-field metadata. Each entry carries:
-  #     :configured — Boolean (is the column set on the singleton?)
-  #     :sensitive  — Boolean (true for api_key / client_secret —
-  #                   the view renders `•••••••` placeholder when
-  #                   configured and NEVER echoes the value)
-  #     :value      — the actual stored value for NON-sensitive
-  #                   fields (client_id, redirect_uri) so the view
-  #                   can show it as the placeholder text. Always
-  #                   nil for sensitive fields.
-  #     :effective_redirect_uri / :redirect_uri_default — only on
-  #                   the redirect_uri entry. The effective URI
-  #                   includes the production fallback when blank;
-  #                   `:redirect_uri_default` flags the fallback
-  #                   so the view can render a "(default)" suffix.
-  #   :all_required_configured — Boolean.
-  #
-  # The credential values for sensitive fields NEVER leave this
-  # method as plaintext — only the Boolean `configured` reaches the
-  # view. The omniauth initializer's hard-coded default lives here
-  # too so the view can render it as a placeholder hint.
-  YOUTUBE_OAUTH_DEFAULT_REDIRECT_URI = "https://app.pitomd.com/auth/google/callback".freeze
-
-  def youtube_credentials_status
-    setting = AppSetting.first
-
-    api_key       = setting&.youtube_api_key
-    client_id     = setting&.youtube_client_id
-    client_secret = setting&.youtube_client_secret
-    redirect_uri  = setting&.youtube_redirect_uri
-
-    redirect_value = redirect_uri.to_s.strip
-
-    required_configured =
-      api_key.to_s.strip.present? &&
-      client_id.to_s.strip.present? &&
-      client_secret.to_s.strip.present?
-
-    {
-      fields: {
-        "youtube_api_key" => {
-          label:      "public API key",
-          configured: api_key.to_s.strip.present?,
-          sensitive:  true,
-          value:      nil
-        },
-        "youtube_client_id" => {
-          label:      "OAuth client ID",
-          configured: client_id.to_s.strip.present?,
-          sensitive:  false,
-          value:      client_id.to_s.strip.presence
-        },
-        "youtube_client_secret" => {
-          label:      "OAuth client secret",
-          configured: client_secret.to_s.strip.present?,
-          sensitive:  true,
-          value:      nil
-        },
-        "youtube_redirect_uri" => {
-          label:      "OAuth redirect URI",
-          configured: redirect_value.present?,
-          sensitive:  false,
-          value:      redirect_value.presence,
-          effective_redirect_uri: redirect_value.presence ||
-                                  YOUTUBE_OAUTH_DEFAULT_REDIRECT_URI,
-          redirect_uri_default: redirect_value.empty?
-        }
-      },
-      all_required_configured: required_configured
     }
   end
 

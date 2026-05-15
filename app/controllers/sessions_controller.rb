@@ -31,6 +31,16 @@
 # rate-limited). The precise reason lives on the persisted
 # `LoginAttempt` row, NOT in the response or flash.
 class SessionsController < ApplicationController
+  # Phase 29 — Unit A2 follow-up — security finding F6. The
+  # constant-ish-time dummy bcrypt compare used by the unknown-username
+  # branch to symmetrize wall-clock cost with `User#authenticate` now
+  # lives in a shared concern. Previously the method body was
+  # duplicated here and in `PasswordResetsController`; a future edit
+  # to one and not the other risked introducing timing asymmetry
+  # between the two surfaces. See
+  # `app/controllers/concerns/sessions/bcrypt_dummy_compare.rb`.
+  include Sessions::BcryptDummyCompare
+
   # Phase 25 — 01b. Signed cookie that carries the post-password-check
   # pre-auth marker. Read by `Login::ChallengesController#show` and
   # `#create`; cleared by either branch's terminal action (TOTP
@@ -56,35 +66,35 @@ class SessionsController < ApplicationController
 
   # GET /login
   def new
-    @email = params[:email].to_s
+    @username = params[:username].to_s
   end
 
   # POST /login
   def create
     if SessionThrottle.exhausted?(request.remote_ip)
-      log_attempt(result: :failed, reason: :rate_limited, email: params[:email].to_s)
+      log_attempt(result: :failed, reason: :rate_limited, username: params[:username].to_s)
       render_throttled
       return
     end
 
-    email = params[:email].to_s.strip
+    username = params[:username].to_s.strip.downcase
     password = params[:password].to_s
     remember = params[:remember_me].to_s == "yes"
 
-    user = User.find_by(email: email) if email.present?
+    user = User.find_by(username: username) if username.present?
 
     if user.nil?
       bcrypt_dummy_compare
-      log_attempt(result: :failed, reason: :unknown_account, email: email)
-      audit("session.login.failed", reason: "unknown_email", email_attempted: email)
-      mark_failure_and_render_invalid(email: email)
+      log_attempt(result: :failed, reason: :unknown_account, username: username)
+      audit("session.login.failed", reason: "unknown_username", username_attempted: username)
+      mark_failure_and_render_invalid(username: username)
       return
     end
 
     unless user.authenticate(password)
-      log_attempt(result: :failed, reason: :wrong_password, email: email, user: user)
-      audit("session.login.failed", reason: "wrong_password", email_attempted: email, user_id: user.id)
-      mark_failure_and_render_invalid(email: email)
+      log_attempt(result: :failed, reason: :wrong_password, username: username, user: user)
+      audit("session.login.failed", reason: "wrong_password", username_attempted: username, user_id: user.id)
+      mark_failure_and_render_invalid(username: username)
       return
     end
 
@@ -123,12 +133,31 @@ class SessionsController < ApplicationController
 
     case decision
     when :blocked_pair
-      log_attempt(result: :blocked, reason: :blocked_pair, email: email, user: user)
+      log_attempt(result: :blocked, reason: :blocked_pair, username: username, user: user)
       audit("session.login.blocked", user_id: user.id, ip: request.remote_ip)
-      mark_failure_and_render_invalid(email: email)
+      mark_failure_and_render_invalid(username: username)
       nil
 
     when :new_location
+      # Phase 29 — Unit A2 (R4). First-login bootstrap. A user who has
+      # NOT configured TOTP cannot meaningfully participate in
+      # new-location approval — on a fresh seed there is no second
+      # device and no approver. Instead of stashing a pre-auth marker
+      # and routing to `/login/challenge`, we mint an ACTIVE session
+      # directly so the post-session `require_totp_configured!` gate
+      # immediately forces TOTP enrollment. The attempt row carries
+      # `reason: :first_login_totp_setup_required` for forensic
+      # clarity.
+      unless user.totp_configured?
+        bootstrap_first_login_session(
+          user: user,
+          fingerprint_hash: fingerprint_hash,
+          ip_prefix: ip_prefix,
+          remember: remember
+        )
+        return
+      end
+
       # Stash a pre-auth marker (signed cookie). NO session row, NO
       # auth cookie. The `/login/challenge` page reads the marker to
       # remember which user passed the password gate and offers the
@@ -163,7 +192,7 @@ class SessionsController < ApplicationController
       if last_attempt&.result_blocked?
         session_record.revoke!
         audit("session.login.blocked", user_id: user.id, ip: request.remote_ip)
-        mark_failure_and_render_invalid(email: email)
+        mark_failure_and_render_invalid(username: username)
         return
       end
 
@@ -171,7 +200,7 @@ class SessionsController < ApplicationController
       # per-account backoff bucket so a legitimate user who typo'd a
       # few times before remembering their password is not locked out
       # indefinitely.
-      reset_backoff_for_email(email)
+      reset_backoff_for_username(username)
 
       write_session_cookie(plaintext, remember: remember)
       audit(
@@ -210,12 +239,12 @@ class SessionsController < ApplicationController
   # Wrap the logger so we can swallow any unexpected error rather than
   # destroy the auth path. Logging is observability; a logger blowup
   # must not prevent the user from seeing the generic failure flash.
-  def log_attempt(result:, reason:, email: nil, user: nil)
+  def log_attempt(result:, reason:, username: nil, user: nil)
     Auth::AttemptLogger.call(
       request: request,
       result: result,
       reason: reason,
-      email: email,
+      username: username,
       user: user
     )
   rescue StandardError => e
@@ -223,21 +252,52 @@ class SessionsController < ApplicationController
     nil
   end
 
-  def mark_failure_and_render_invalid(email:)
+  # Phase 29 — Unit A2 (R4). First-login bootstrap. The user passed
+  # the password check, has no TOTP configured, and landed on a
+  # `:new_location` classification (a fresh seed has no
+  # `TrustedLocation` rows). Mint an ACTIVE session directly — the
+  # post-session `require_totp_configured!` gate then forces TOTP
+  # enrollment. No pre-auth marker, no pending-approval detour: there
+  # is no approver for a brand-new account. The attempt row carries
+  # `reason: :first_login_totp_setup_required`.
+  def bootstrap_first_login_session(user:, fingerprint_hash:, ip_prefix:, remember:)
+    session_record, plaintext = Auth::SessionActivator.call(
+      user: user,
+      request: request,
+      fingerprint_hash: fingerprint_hash,
+      ip_prefix: ip_prefix,
+      reason: :first_login_totp_setup_required,
+      remember: remember
+    )
+
+    reset_backoff_for_username(user.username)
+    write_session_cookie(plaintext, remember: remember)
+    audit(
+      "session.login.first_login_totp_setup_required",
+      user_id: user.id,
+      session_id: session_record.id,
+      ip: request.remote_ip
+    )
+
+    redirect_to settings_security_totp_path,
+                notice: "set up two-factor authentication to continue."
+  end
+
+  def mark_failure_and_render_invalid(username:)
     request.env["pito.auth_failed"] = true
     SessionThrottle.record_failure(request.remote_ip)
 
     # Phase 25 — 01g (LD-11). Each failed login bumps the per-account
     # backoff bucket. The bucket TTL is the current backoff window, so
     # a quiet user resets naturally; an attacker pays exponentially.
-    Auth::BackoffCalculator.record_trip!(key: backoff_email_key(email))
+    Auth::BackoffCalculator.record_trip!(key: backoff_username_key(username))
 
     if SessionThrottle.exhausted?(request.remote_ip)
       render_throttled
       return
     end
 
-    @email = email
+    @username = username
     flash.now[:alert] = "login failed."
     render :new, status: :unprocessable_content
   end
@@ -249,44 +309,23 @@ class SessionsController < ApplicationController
     # `reason: :rate_limited` so the attempt log carries the row even
     # if the operator never bumped into the rack-attack throttle that
     # writes its own.
-    Auth::RateLimitLogger.call(request: request, email: params[:email])
+    Auth::RateLimitLogger.call(request: request, username: params[:username])
     response.headers["Retry-After"] = SessionThrottle::WINDOW.to_i.to_s
     render plain: "login failed.",
            status: :too_many_requests
   end
 
-  def backoff_email_key(email)
-    normalized = email.to_s.strip.downcase
+  def backoff_username_key(username)
+    normalized = username.to_s.strip.downcase
     return "" if normalized.blank?
 
-    "email:#{Digest::SHA256.hexdigest(normalized)}"
+    "username:#{Digest::SHA256.hexdigest(normalized)}"
   end
 
-  def reset_backoff_for_email(email)
-    key = backoff_email_key(email)
+  def reset_backoff_for_username(username)
+    key = backoff_username_key(username)
     return if key.empty?
     Auth::BackoffCalculator.reset!(key: key)
-  end
-
-  # Constant-ish-time dummy bcrypt to avoid leaking via timing whether
-  # the email exists. The comparison is what we want — not the create —
-  # so `BCrypt::Password.new(...).is_password?` over a precomputed hash
-  # gives roughly the same compare time as `User#authenticate`.
-  #
-  # P25 — F12. The hash is precomputed at boot via
-  # `config/initializers/sessions_dummy_bcrypt.rb` (constants
-  # `Sessions::DUMMY_BCRYPT_HASH` + `Sessions::DUMMY_BCRYPT_PLAINTEXT`).
-  # Before F12 the controller memoized lazily on first failed login,
-  # which meant the FIRST failed login per process paid the ~250 ms
-  # `create` cost while subsequent ones paid only the cheap compare —
-  # itself a probeable timing oracle. Boot-time precompute moves the
-  # cost into Puma startup so every request, cold or warm, sees the
-  # same compare time.
-  def bcrypt_dummy_compare
-    BCrypt::Password.new(Sessions::DUMMY_BCRYPT_HASH).is_password?(
-      Sessions::DUMMY_BCRYPT_PLAINTEXT
-    )
-    nil
   end
 
   def write_session_cookie(plaintext, remember:)

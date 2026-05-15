@@ -1,7 +1,7 @@
 FactoryBot.define do
   factory :login_attempt do
     user { nil }
-    email_attempted { "user@example.test" }
+    email_attempted { "factory_user" }
     result { :failed }
     reason { :wrong_password }
     ip { "1.2.3.4" }

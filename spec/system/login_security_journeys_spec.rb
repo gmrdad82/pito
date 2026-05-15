@@ -11,8 +11,18 @@ require "rails_helper"
 # tools are exercised via direct in-process calls because that's the
 # canonical pattern in this codebase (see `spec/mcp/`).
 RSpec.describe "Login security journeys", type: :system do
+  # P25 follow-up — F8. The pre-auth nonce that gates the `/login/totp`
+  # challenge is mirrored in `Rails.cache`. Test env's :null_store
+  # drops that write, so `valid_nonce?` fails closed and the TOTP
+  # submit can never succeed. Swap to a real MemoryStore so the nonce
+  # written by `SessionsController#create` survives to the challenge
+  # submit — the same pattern `spec/system/totp_2fa_journey_spec.rb`
+  # uses for its cache-backed flows.
+  let(:memory_cache) { ActiveSupport::Cache::MemoryStore.new }
+
   before do
     driven_by(:rack_test)
+    allow(Rails).to receive(:cache).and_return(memory_cache)
     Rack::Attack.cache.store.clear
     Auth::GeoEnricher.reset_deferred! if defined?(Auth::GeoEnricher)
     allow(Auth::GeoEnricher).to receive(:db_available?).and_return(false) if defined?(Auth::GeoEnricher)
@@ -28,34 +38,31 @@ RSpec.describe "Login security journeys", type: :system do
   # Visiting `/login` in a system spec requires the auto-sign-in
   # before-hook to be skipped. Tag examples with :unauthenticated.
 
-  describe "Journey A — trusted-location happy path", :unauthenticated do
-    it "signs in, writes trusted_location_success, redirects to root" do
-      # Seed the trusted-location row keyed on the fingerprint the
-      # rack_test browser produces. Two-step probe — hit /login with
-      # a wrong password to capture the fingerprint, seed the trusted
-      # row, then log in for real.
-      visit login_path
-      fill_in "email", with: user.email
-      fill_in "password", with: "wrong-first"
-      click_button "[log in]"
+  # Phase 29 — Unit A2. 2FA is mandatory. A TOTP-configured user
+  # logging in always goes through the `/login/totp` challenge (step
+  # 4 of the login pipeline) — the trusted-location classification
+  # only runs for users WITHOUT TOTP, and such a user is immediately
+  # gated into TOTP enrollment by the post-session mandatory gate.
+  # Journey A therefore covers: password → TOTP challenge → app.
+  describe "Journey A — username + 2FA login happy path", :unauthenticated do
+    let(:seed) { "JBSWY3DPEHPK3PXP" }
 
-      seed = LoginAttempt.recent.first
-      TrustedLocation.create!(
-        user: user,
-        fingerprint_hash: seed.fingerprint_hash,
-        ip_prefix: seed.ip_prefix,
-        first_seen_at: 1.day.ago,
-        last_seen_at: 1.day.ago
-      )
+    it "signs in with username + password + a TOTP code, reaches root" do
+      user.update!(totp_seed_encrypted: seed, totp_enabled_at: 1.hour.ago)
 
       visit login_path
-      fill_in "email", with: user.email
+      fill_in "username", with: user.username
       fill_in "password", with: password
       click_button "[log in]"
 
+      # Step 4 — the TOTP login challenge.
+      expect(page).to have_current_path(login_totp_path)
+      fill_in "code", with: ROTP::TOTP.new(seed).now
+      click_button(match: :first)
+
       expect(page).to have_current_path(root_path)
       success_row = LoginAttempt
-                      .where(reason: LoginAttempt.reasons[:trusted_location_success])
+                      .where(reason: LoginAttempt.reasons[:new_location_2fa_passed])
                       .recent.first
       expect(success_row).to be_present
       expect(success_row.user_id).to eq(user.id)
@@ -66,7 +73,7 @@ RSpec.describe "Login security journeys", type: :system do
     it "5 fast wrongs from one IP pass, the 6th lands a generic 429 (LD-14)" do
       5.times do |i|
         visit login_path
-        fill_in "email", with: "f-#{i}@example.test"
+        fill_in "username", with: "f_#{i}"
         fill_in "password", with: "wrong"
         click_button "[log in]"
         # The first five should NOT be throttled.
@@ -75,7 +82,7 @@ RSpec.describe "Login security journeys", type: :system do
       # The throttle trips on the 6th. rack_test surfaces the 429
       # status via `page.status_code`.
       visit login_path
-      fill_in "email", with: "f-6@example.test"
+      fill_in "username", with: "f_6"
       fill_in "password", with: "wrong"
       click_button "[log in]"
 
@@ -202,7 +209,7 @@ RSpec.describe "Login security journeys", type: :system do
   describe "Journey H — purge cycle" do
     let!(:la) do
       create(:login_attempt, user: user, ip: "8.8.8.8",
-             email_attempted: user.email)
+             email_attempted: user.username)
     end
 
     it "web purge writes the AuthAuditLog row and removes the attempt" do

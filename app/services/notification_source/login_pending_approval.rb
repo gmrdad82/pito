@@ -60,8 +60,11 @@ module NotificationSource
     end
 
     def build_payload(attempt)
+      # Phase 29 — Unit A2. `email_attempted` is a legacy column name;
+      # it now carries the username the user typed. The notification
+      # payload key stays `"email"` for template stability.
       email   = attempt.email_attempted.presence ||
-                attempt.user&.email.to_s
+                attempt.user&.username.to_s
       browser = attempt.browser.presence
       os      = attempt.os.presence
       ip      = attempt.ip.to_s

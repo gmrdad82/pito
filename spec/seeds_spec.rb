@@ -1,9 +1,11 @@
 require "rails_helper"
 
-# Phase 8 — Tenant Drop + Email-Only Login (ADR 0003).
+# Phase 29 — Unit A2. User auth refactor.
 #
-# Seeds spec — focuses on idempotency for the default `dev` ApiToken
-# and the new `:owner` credentials shape (`{ email, password }`).
+# Seeds spec — covers the dev `ApiToken` idempotency, the new `:owner`
+# credentials shape (`{ username, password }`), and the removal of the
+# sample-data blocks (no Channel / Video / Project / Game / Collection
+# / Note / Timeline rows are seeded).
 RSpec.describe "db/seeds.rb", type: :model do
   before do
     # Make sure the dev token doesn't survive between examples.
@@ -21,13 +23,15 @@ RSpec.describe "db/seeds.rb", type: :model do
   end
 
   describe "dev token mint" do
-    it "mints the dev ApiToken with scopes ['dev', 'app']" do
+    it "mints the dev ApiToken with the full Scopes::ALL set" do
       owner = User.first || create(:user)
       record, _plaintext = mint_dev_token(owner)
 
       expect(record).to be_present
       expect(record.name).to eq("dev")
-      expect(record.scopes).to match_array([ Scopes::DEV, Scopes::APP ])
+      # Track the same source of truth the seed assigns (Scopes::ALL.dup)
+      # so this assertion can't drift when the scope catalog changes.
+      expect(record.scopes).to match_array(Scopes::ALL)
     end
 
     it "is idempotent — a second mint attempt is a no-op" do
@@ -56,33 +60,44 @@ RSpec.describe "db/seeds.rb", type: :model do
     end
   end
 
-  describe "owner credentials shape (Phase 8)" do
-    let(:fixed_email) { "owner-spec-#{SecureRandom.hex(2)}@example.test" }
+  describe "owner credentials shape (Phase 29 — Unit A2)" do
+    let(:fixed_username) { "owner_spec_#{SecureRandom.hex(2)}" }
 
     before do
       User.delete_all
-      stub_email = fixed_email
+      stub_username = fixed_username
       original = Rails.application.credentials.method(:dig)
       allow(Rails.application.credentials).to receive(:dig) do |*args|
         if args == [ :owner ]
-          { email: stub_email, password: "spec-password-1" }
+          { username: stub_username, password: "spec-password-1" }
         else
           original.call(*args)
         end
       end
     end
 
-    it "creates exactly one User row with the seeded email" do
+    it "creates exactly one User row with the seeded username" do
       Rails.application.load_seed
       expect(User.count).to eq(1)
       user = User.first
-      expect(user.email).to eq(fixed_email)
+      expect(user.username).to eq(fixed_username)
       expect(user.authenticate("spec-password-1")).to eq(user)
     end
 
     it "is idempotent — a second seed run does not duplicate the user" do
       Rails.application.load_seed
       expect { Rails.application.load_seed }.not_to change { User.count }
+    end
+
+    it "does not seed any sample Channel / Video / Project / Game / Collection / Note / Timeline rows" do
+      Rails.application.load_seed
+      expect(Channel.count).to eq(0)
+      expect(Video.count).to eq(0)
+      expect(Project.count).to eq(0)
+      expect(Game.count).to eq(0)
+      expect(Collection.count).to eq(0)
+      expect(Note.count).to eq(0)
+      expect(Timeline.count).to eq(0)
     end
   end
 
@@ -97,7 +112,7 @@ RSpec.describe "db/seeds.rb", type: :model do
 
     it "falls back to placeholder values without raising" do
       expect { Rails.application.load_seed }.not_to raise_error
-      expect(User.where(email: "owner@example.test").count).to eq(1)
+      expect(User.where(username: "owner").count).to eq(1)
     end
   end
 end

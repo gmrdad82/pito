@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_12_020000) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_14_185800) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -67,19 +67,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_12_020000) do
 
   create_table "app_settings", force: :cascade do |t|
     t.datetime "created_at", null: false
-    t.boolean "discord_enabled", default: false, null: false
     t.string "key"
     t.boolean "keyboard_navigation_enabled", default: true, null: false
-    t.boolean "slack_enabled", default: false, null: false
     t.string "timezone", default: "UTC", null: false
     t.datetime "updated_at", null: false
     t.text "value"
-    t.text "voyage_api_key"
     t.boolean "voyage_index_project_notes", default: false, null: false
-    t.text "youtube_api_key"
-    t.text "youtube_client_id"
-    t.text "youtube_client_secret"
-    t.text "youtube_redirect_uri"
     t.index ["key"], name: "index_app_settings_on_key", unique: true
   end
 
@@ -268,21 +261,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_12_020000) do
     t.index ["channel_id", "date"], name: "index_channel_dailies_on_channel_id_and_date", unique: true
     t.index ["channel_id"], name: "index_channel_dailies_on_channel_id"
     t.index ["date"], name: "index_channel_dailies_on_date"
-  end
-
-  create_table "channel_diffs", force: :cascade do |t|
-    t.bigint "channel_id", null: false
-    t.datetime "created_at", null: false
-    t.datetime "detected_at", null: false
-    t.jsonb "field_diffs", default: {}, null: false
-    t.jsonb "resolution_payload"
-    t.datetime "resolved_at"
-    t.bigint "resolved_by_user_id"
-    t.datetime "updated_at", null: false
-    t.index ["channel_id"], name: "index_channel_diffs_on_channel_id"
-    t.index ["channel_id"], name: "index_channel_diffs_open_per_channel", unique: true, where: "(resolved_at IS NULL)"
-    t.index ["resolved_at"], name: "index_channel_diffs_on_resolved_at"
-    t.index ["resolved_by_user_id"], name: "index_channel_diffs_on_resolved_by_user_id"
   end
 
   create_table "channel_window_summaries", force: :cascade do |t|
@@ -866,7 +844,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_12_020000) do
 
   create_table "users", force: :cascade do |t|
     t.datetime "created_at", null: false
-    t.citext "email", null: false
     t.datetime "last_digest_run_at", default: -> { "CURRENT_TIMESTAMP" }, null: false
     t.string "password_digest", null: false
     t.integer "preferred_games_display_mode", default: 0, null: false
@@ -876,8 +853,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_12_020000) do
     t.bigint "totp_last_used_step"
     t.text "totp_seed_encrypted"
     t.datetime "updated_at", null: false
-    t.index ["email"], name: "index_users_on_email", unique: true
+    t.citext "username", null: false
     t.index ["last_digest_run_at"], name: "index_users_on_last_digest_run_at"
+    t.index ["username"], name: "index_users_on_username", unique: true
   end
 
   create_table "video_change_logs", force: :cascade do |t|
@@ -1280,8 +1258,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_12_020000) do
   add_foreign_key "channel_change_logs", "channels", on_delete: :cascade
   add_foreign_key "channel_change_logs", "users", column: "changed_by_user_id", on_delete: :restrict
   add_foreign_key "channel_dailies", "channels", on_delete: :cascade
-  add_foreign_key "channel_diffs", "channels", on_delete: :cascade
-  add_foreign_key "channel_diffs", "users", column: "resolved_by_user_id", on_delete: :nullify
   add_foreign_key "channel_window_summaries", "channels", on_delete: :cascade
   add_foreign_key "channels", "youtube_connections"
   add_foreign_key "footages", "games"

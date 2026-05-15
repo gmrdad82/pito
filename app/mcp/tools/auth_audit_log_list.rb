@@ -124,7 +124,11 @@ module Mcp
         end
 
         if acting_user_email.present?
-          user = User.find_by(email: acting_user_email.to_s)
+          # Phase 29 — Unit A2. User auth refactor: `email` → `username`.
+          # MCP surface is paused; the `acting_user_email` param name is
+          # left as-is (input-schema rename is deferred), only the
+          # column-gone lookup is fixed.
+          user = User.find_by(username: acting_user_email.to_s.strip.downcase)
           if user.nil?
             payload = empty_payload(page: page, per_page: per_page)
             return MCP::Tool::Response.new([ { type: "text", text: JSON.pretty_generate(payload) } ])

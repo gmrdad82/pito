@@ -61,16 +61,16 @@ RSpec.describe Mcp::Tools::ChannelChangesList do
       expect(data["changes"].first["changed_at"]).to match(/\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z\z/)
     end
 
-    it "encodes changed_by as { id, email } when the FK resolves" do
+    it "encodes changed_by as { id, username } when the FK resolves" do
       data = parse(described_class.call(channel: channel.to_param))
       row = data["changes"].first
-      expect(row["changed_by"]).to eq("id" => user.id, "email" => user.email)
+      expect(row["changed_by"]).to eq("id" => user.id, "username" => user.username)
     end
 
-    it "encodes changed_by as { id, email } when the FK resolves (steady state — DB FK is NOT NULL)" do
+    it "encodes changed_by as { id, username } when the FK resolves (steady state — DB FK is NOT NULL)" do
       data = parse(described_class.call(channel: channel.to_param))
       row = data["changes"].first
-      expect(row["changed_by"]).to eq("id" => user.id, "email" => user.email)
+      expect(row["changed_by"]).to eq("id" => user.id, "username" => user.username)
     end
 
     it "accepts an integer id as a string" do

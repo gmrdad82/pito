@@ -3,9 +3,9 @@
 # Given `(channel_id, connection_id_snapshot)`, the job destroys the
 # Channel (which triggers the Rails-side `dependent:` cascade across
 # every dependent table — videos, playlists, video_uploads, import_jobs,
-# rejected_video_imports, channel_change_logs, channel_diffs,
-# calendar_entries, channel analytics tables; and transitively every
-# video's analytics, diffs, change-logs, links, calendar entries) and
+# rejected_video_imports, channel_change_logs, calendar_entries,
+# channel analytics tables; and transitively every video's analytics,
+# diffs, change-logs, links, calendar entries) and
 # then — only when the captured connection has zero remaining channels
 # AND zero remaining videos — destroys the `YoutubeConnection` itself.
 #

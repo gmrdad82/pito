@@ -16,7 +16,10 @@
 #
 #   - videos            count of `videos.channel_id = channel.id`
 #   - analytics         sum across channel_* and video_* analytics tables
-#   - diffs             channel_diffs + video_diffs across the channel's videos
+#   - diffs             video_diffs across the channel's videos. Unit A0
+#                       dropped the `channel_diffs` table (channel is a
+#                       read-only mirror), so this category is now
+#                       video-side only.
 #   - change_logs       channel_change_logs + video_change_logs
 #   - links             video_game_links across the channel's videos
 #   - rejected_imports  rejected_video_imports
@@ -77,8 +80,10 @@ module ChannelRevokeCounts
       end
     end
 
-    diffs_count = ChannelDiff.where(channel_id: channel_id).count
-    diffs_count += VideoDiff.where(video_id: video_ids).count if video_ids.any?
+    # Unit A0 — the `channel_diffs` table was dropped; the channel is a
+    # read-only mirror with no diff-reconciliation surface. The `diffs`
+    # category is now video-side only.
+    diffs_count = video_ids.any? ? VideoDiff.where(video_id: video_ids).count : 0
 
     change_logs_count = ChannelChangeLog.where(channel_id: channel_id).count
     change_logs_count += VideoChangeLog.where(video_id: video_ids).count if video_ids.any?

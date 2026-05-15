@@ -1,11 +1,12 @@
 require "rails_helper"
 
-# Phase 8 — Tenant Drop + Email-Only Login (ADR 0003).
+# Phase 29 — Unit A2. User auth refactor: username login.
 #
-# User shape: email + password only. No `username`, no `tenant`,
-# no `find_by_username_or_email`. Email is citext + unique
-# install-wide; whitespace is stripped on assignment so user input
-# round-trips through the form cleanly.
+# User shape: username + password only. No `email`, no `tenant`.
+# `username` is citext + unique install-wide; whitespace is stripped
+# and the value downcased before validation so user input round-trips
+# through the form cleanly. Format: alphanumerics + underscore with
+# single internal dot / hyphen separators, 3..32 chars.
 RSpec.describe User, type: :model do
   subject { build(:user) }
 
@@ -25,63 +26,105 @@ RSpec.describe User, type: :model do
     end
   end
 
-  describe "email validation" do
-    it "is invalid with a nil email" do
-      user = build(:user, email: nil)
+  describe "username validation" do
+    it "is invalid with a nil username" do
+      user = build(:user, username: nil)
       expect(user).not_to be_valid
-      expect(user.errors[:email]).to be_present
+      expect(user.errors[:username]).to be_present
     end
 
-    it "is invalid with a blank email" do
-      user = build(:user, email: "")
+    it "is invalid with a blank username" do
+      user = build(:user, username: "")
       expect(user).not_to be_valid
-      expect(user.errors[:email]).to be_present
+      expect(user.errors[:username]).to be_present
     end
 
-    it "is invalid with a whitespace-only email" do
-      user = build(:user, email: "   ")
+    it "is invalid with a whitespace-only username" do
+      user = build(:user, username: "   ")
       expect(user).not_to be_valid
-      expect(user.errors[:email]).to be_present
+      expect(user.errors[:username]).to be_present
     end
 
-    it "is invalid with a malformed email (no @)" do
-      user = build(:user, email: "not-an-email")
-      expect(user).not_to be_valid
-      expect(user.errors[:email]).to be_present
+    describe "length" do
+      it "rejects a 2-character username" do
+        user = build(:user, username: "ab")
+        expect(user).not_to be_valid
+        expect(user.errors[:username]).to be_present
+      end
+
+      it "accepts a 3-character username" do
+        user = build(:user, username: "abc")
+        expect(user).to be_valid, "expected valid: #{user.errors.full_messages}"
+      end
+
+      it "accepts a 32-character username" do
+        user = build(:user, username: "a" * 32)
+        expect(user).to be_valid, "expected valid: #{user.errors.full_messages}"
+      end
+
+      it "rejects a 33-character username" do
+        user = build(:user, username: "a" * 33)
+        expect(user).not_to be_valid
+        expect(user.errors[:username]).to be_present
+      end
     end
 
-    it "is invalid with a malformed email (missing host)" do
-      user = build(:user, email: "user@")
-      expect(user).not_to be_valid
-      expect(user.errors[:email]).to be_present
+    describe "format" do
+      %w[abc a_b a.b a-b user_1 owner].each do |valid|
+        it "accepts #{valid.inspect}" do
+          user = build(:user, username: valid)
+          expect(user).to be_valid, "expected #{valid.inspect} valid: #{user.errors.full_messages}"
+        end
+      end
+
+      [
+        ".abc", "abc.", "-abc", "abc-", "a..b", "a--b", "a.-b",
+        "has space", "user@host", "user!", "a/b"
+      ].each do |invalid|
+        it "rejects #{invalid.inspect}" do
+          user = build(:user, username: invalid)
+          expect(user).not_to be_valid
+          expect(user.errors[:username]).to be_present
+        end
+      end
     end
 
-    it "rejects emails longer than 254 characters" do
-      local = "a" * 250
-      long  = "#{local}@x.test" # 250 + 7 = 257 chars
-      user = build(:user, email: long)
-      expect(user).not_to be_valid
-      expect(user.errors[:email]).to be_present
+    it "downcases the username before validation (stored canonical)" do
+      user = create(:user, username: "MixedCase_#{SecureRandom.hex(2)}")
+      expect(user.reload.username).to eq(user.username.downcase)
+      expect(user.username).to eq(user.username.downcase)
     end
 
-    it "accepts a valid email" do
-      user = build(:user, email: "alice@example.test")
-      expect(user).to be_valid, "expected valid: #{user.errors.full_messages}"
+    it "strips surrounding whitespace before validation" do
+      raw = "  owner_#{SecureRandom.hex(2)}  "
+      user = create(:user, username: raw)
+      expect(user.reload.username).to eq(raw.strip.downcase)
+      expect(user.username).not_to start_with(" ")
+      expect(user.username).not_to end_with(" ")
     end
 
-    it "strips surrounding whitespace on assignment" do
-      user = create(:user, email: "  alice-#{SecureRandom.hex(3)}@example.test  ")
-      expect(user.reload.email).to eq(user.email.strip)
-      expect(user.email).not_to start_with(" ")
-      expect(user.email).not_to end_with(" ")
-    end
-
-    it "is case-insensitive on email uniqueness via citext" do
-      mixed = "USER-#{SecureRandom.hex(2)}@example.test"
-      create(:user, email: mixed)
-      dup = build(:user, email: mixed.downcase)
+    it "is case-insensitive on uniqueness via citext" do
+      mixed = "Owner#{SecureRandom.hex(2)}"
+      create(:user, username: mixed)
+      dup = build(:user, username: mixed.downcase)
       expect(dup).not_to be_valid
-      expect(dup.errors[:email]).to be_present
+      expect(dup.errors[:username]).to be_present
+    end
+  end
+
+  describe "no email surface (Phase 29 — Unit A2)" do
+    it "does not have an email column" do
+      expect(User.column_names).not_to include("email")
+    end
+
+    it "does not declare EMAIL_MAX_LENGTH" do
+      expect(User.const_defined?(:EMAIL_MAX_LENGTH)).to be(false)
+    end
+
+    it "saves a User that was never assigned an email" do
+      user = build(:user)
+      expect(user).to be_valid
+      expect { user.save! }.not_to raise_error
     end
   end
 
@@ -114,7 +157,7 @@ RSpec.describe User, type: :model do
 
     it "does not re-validate password length on a row whose password is untouched" do
       user = create(:user, password: "long-enough", password_confirmation: "long-enough")
-      user.email = "rotated-#{SecureRandom.hex(3)}@example.test"
+      user.username = "rotated_#{SecureRandom.hex(3)}"
       expect(user).to be_valid
     end
   end
@@ -267,6 +310,36 @@ RSpec.describe User, type: :model do
       end
     end
 
+    describe "#totp_configured?" do
+      it "is false for a fresh user with no seed" do
+        expect(user.totp_configured?).to be false
+      end
+
+      it "is true with a seed and enabled_at present and disabled_at nil" do
+        user.update!(
+          totp_seed_encrypted: "JBSWY3DPEHPK3PXP",
+          totp_enabled_at: Time.current,
+          totp_disabled_at: nil
+        )
+        expect(user.totp_configured?).to be true
+      end
+
+      it "is false when disabled_at is stamped even with a seed" do
+        user.update!(
+          totp_seed_encrypted: "JBSWY3DPEHPK3PXP",
+          totp_enabled_at: 1.hour.ago,
+          totp_disabled_at: Time.current
+        )
+        expect(user.totp_configured?).to be false
+      end
+
+      it "tracks #totp_enabled? exactly" do
+        expect(user.totp_configured?).to eq(user.totp_enabled?)
+        user.update!(totp_seed_encrypted: "JBSWY3DPEHPK3PXP", totp_enabled_at: Time.current)
+        expect(user.totp_configured?).to eq(user.totp_enabled?)
+      end
+    end
+
     describe "#totp_uri" do
       it "returns nil when no seed is set" do
         expect(user.totp_uri(issuer: "pito")).to be_nil
@@ -278,6 +351,12 @@ RSpec.describe User, type: :model do
         expect(uri).to start_with("otpauth://totp/")
         expect(uri).to include("issuer=pito")
         expect(uri).to include("secret=JBSWY3DPEHPK3PXP")
+      end
+
+      it "uses the username as the account label in the provisioning URI" do
+        user.update!(username: "label_user_#{SecureRandom.hex(2)}", totp_seed_encrypted: "JBSWY3DPEHPK3PXP")
+        uri = user.totp_uri(issuer: "pito")
+        expect(uri).to include(CGI.escape(user.username))
       end
     end
 
@@ -330,7 +409,7 @@ RSpec.describe User, type: :model do
     end
   end
 
-  describe "no tenant / no username surface" do
+  describe "no tenant surface" do
     # Phase 8 archive checks. Asserts that the legacy plumbing is gone.
     it "does not declare a tenant association" do
       expect(User.reflect_on_association(:tenant)).to be_nil
@@ -340,8 +419,8 @@ RSpec.describe User, type: :model do
       expect(User).not_to respond_to(:find_by_username_or_email)
     end
 
-    it "does not have a username column" do
-      expect(User.column_names).not_to include("username")
+    it "has a username column (Phase 29 — Unit A2)" do
+      expect(User.column_names).to include("username")
     end
 
     it "does not have a tenant_id column" do

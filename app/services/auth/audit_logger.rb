@@ -33,16 +33,23 @@
 module Auth
   class AuditLogger
     VALID_SURFACES = %i[web tui mcp].freeze
-    # 2026-05-11 F3 — `youtube_credentials_updated` and
-    # `voyage_credentials_updated` cover SettingsController's
-    # `update_youtube` / `update_voyage` paths. The audit row carries
-    # `metadata["changed_fields"]` — a list of column NAMES that the
-    # update mutated — and NEVER the plaintext values themselves.
+    # Phase 29 — Unit A1. `youtube_credentials_updated` is dropped from
+    # the active allowlist — the YouTube credentials Settings pane is
+    # gone (Google / YouTube config is deploy-time credentials now), so
+    # nothing emits that action. The `AuthAuditLog` enum value 7 stays
+    # RESERVED (enum values are durable; do not renumber).
+    # `voyage_credentials_updated` stays active — the slimmed Voyage
+    # pane still emits it on the `voyage_index_project_notes` flag
+    # write. The audit row carries `metadata["changed_fields"]` — a
+    # list of column NAMES that the update mutated — never values.
+    # Phase 29 — Unit A2. `password_reset` joins the active allowlist —
+    # `PasswordResetsController#update` emits it on a successful
+    # reset-via-2FA.
     VALID_ACTIONS  = %i[approve block unblock purge
                         totp_enroll totp_disable
                         backup_code_regenerate
-                        youtube_credentials_updated
-                        voyage_credentials_updated].freeze
+                        voyage_credentials_updated
+                        password_reset].freeze
 
     def self.call(acting_user:, source_surface:, action:, target: nil,
                   target_type: nil, target_id: nil, metadata: {})

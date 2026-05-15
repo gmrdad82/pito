@@ -33,6 +33,16 @@ the failing role is identifiable.
 
 ---
 
+## Project-scoped agent stubs
+
+Standing project conventions live in `docs/agents/*.md` so dispatch prompts
+don't re-paste them. Agents read the stub for their role once. Cross-cutting
+stubs (e.g. `docs/agents/testing.md` — suite-run commands, the 8-process
+parallelism cap, and the known baseline-failure list) are read by every agent
+that runs the RSpec suite, implementation and verification alike.
+
+---
+
 ## architect-spec
 
 **Role.** Reads `docs/plans/beta/beta.md`, the active phase plan, and recent log

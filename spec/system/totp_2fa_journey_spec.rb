@@ -16,7 +16,23 @@ RSpec.describe "TOTP 2FA journey", type: :system do
 
   before { allow(Rails).to receive(:cache).and_return(memory_cache) }
 
+  # Phase 29 — Unit A2. The auto-signed-in system-spec user is now
+  # TOTP-configured (so the mandatory-2FA gate does not bounce every
+  # spec). The enroll / confirm journeys need a NOT-yet-configured
+  # user — clear the TOTP columns so the enrollment landing page
+  # renders the `[enable 2FA]` entry point. `/settings/security/totp*`
+  # enrollment routes are on the mandatory-gate allowlist, so a
+  # not-yet-configured user can still reach them.
   context "happy path: enroll → confirm → manage" do
+    before do
+      user.update!(
+        totp_seed_encrypted: nil,
+        totp_enabled_at: nil,
+        totp_disabled_at: nil,
+        totp_last_used_step: nil
+      )
+    end
+
     it "enrolls, confirms with a fresh code, then disables" do
       visit "/settings/security/totp"
       expect(page).to have_content("[enable 2FA]")
@@ -41,6 +57,15 @@ RSpec.describe "TOTP 2FA journey", type: :system do
   end
 
   context "sad path: wrong TOTP code during confirm" do
+    before do
+      user.update!(
+        totp_seed_encrypted: nil,
+        totp_enabled_at: nil,
+        totp_disabled_at: nil,
+        totp_last_used_step: nil
+      )
+    end
+
     it "renders an error and keeps enrollment pending" do
       visit "/settings/security/totp"
       click_button "[enable 2FA]"

@@ -89,7 +89,7 @@ class Settings::Security::TotpsController < ApplicationController
     @seed   = payload[:seed]
     @codes  = Array(payload[:codes])
     @totp_uri = ROTP::TOTP.new(@seed, issuer: TotpHelper::TOTP_ISSUER)
-                          .provisioning_uri(Current.user.email)
+                          .provisioning_uri(Current.user.username)
   end
 
   # PATCH /settings/security/totp/confirm
@@ -136,7 +136,7 @@ class Settings::Security::TotpsController < ApplicationController
       @seed = seed
       @codes = Array(payload[:codes])
       @totp_uri = ROTP::TOTP.new(@seed, issuer: TotpHelper::TOTP_ISSUER)
-                            .provisioning_uri(Current.user.email)
+                            .provisioning_uri(Current.user.username)
       flash.now[:alert] = "login failed."
       render :show, status: :unprocessable_content
     end

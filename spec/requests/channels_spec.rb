@@ -1141,123 +1141,6 @@ RSpec.describe "Channels", type: :request do
     end
   end
 
-  describe "GET /channels/:id/edit" do
-    let!(:channel) { create(:channel) }
-
-    it "returns 200" do
-      get edit_channel_path(channel)
-      expect(response).to have_http_status(:ok)
-    end
-
-    it "renders the URL as readonly disabled" do
-      get edit_channel_path(channel)
-      expect(response.body).to include("readonly")
-      expect(response.body).to include("disabled")
-      expect(response.body).to include(channel.channel_url)
-    end
-
-    it "renders only locked URL + update/cancel (no starred/connected checkboxes)" do
-      get edit_channel_path(channel)
-      expect(response.body).to include("URL is locked after creation.")
-      expect(response.body).not_to match(/name="channel\[star\]"\s+type="checkbox"/)
-      expect(response.body).not_to match(/name="channel\[connected\]"\s+type="checkbox"/)
-      expect(response.body).not_to match(/>\s*starred\s*<\/label>/)
-      expect(response.body).not_to match(/>\s*connected\s*<\/label>/)
-      expect(response.body).to include("[<b>update</b>]")
-      expect(response.body).not_to include("[<b>add</b>]")
-      expect(response.body).to include("cancel")
-    end
-  end
-
-  describe "PATCH /channels/:id" do
-    let!(:channel) { create(:channel) }
-
-    # Phase 7 Path A2 — the `connected` boolean is gone; only `star`
-    # is mutable through PATCH /channels/:id. Connection state is
-    # OAuth-managed at /settings/youtube.
-    it "permits star as a yes/no string" do
-      patch channel_path(channel), params: { channel: { star: "yes" } }
-      expect(response).to redirect_to(channel_path(channel))
-      channel.reload
-      expect(channel.star).to be(true)
-    end
-
-    it "silently ignores channel_url changes (boundary coercion only reads star)" do
-      patch channel_path(channel), params: { channel: { channel_url: other_valid_url, star: "yes" } }
-      channel.reload
-      expect(channel.channel_url).not_to eq(other_valid_url)
-      expect(channel.star).to be(true)
-    end
-
-    it "enqueues ChannelSync when toggled to starred" do
-      ChannelSync.clear
-      expect {
-        patch channel_path(channel), params: { channel: { star: "yes" } }
-      }.to change(ChannelSync.jobs, :size).by(1)
-    end
-
-    it "does not enqueue ChannelSync when un-starring" do
-      starred = create(:channel, :starred)
-      ChannelSync.clear
-      expect {
-        patch channel_path(starred), params: { channel: { star: "no" } }
-      }.not_to change(ChannelSync.jobs, :size)
-    end
-
-    it "JSON success returns 200 and star comes back as yes string" do
-      patch channel_path(channel, format: :json), params: { channel: { star: "yes" } }
-      expect(response).to have_http_status(:ok)
-      json = JSON.parse(response.body)
-      expect(json["star"]).to eq("yes")
-    end
-
-    it "JSON rejects raw boolean true with 422" do
-      patch channel_path(channel, format: :json), params: { channel: { star: true } }
-      expect(response).to have_http_status(:unprocessable_content)
-      channel.reload
-      expect(channel.star).to be(false)
-    end
-
-    it "JSON rejects star=\"1\" with 422 (legacy values not accepted)" do
-      patch channel_path(channel, format: :json), params: { channel: { star: "1" } }
-      expect(response).to have_http_status(:unprocessable_content)
-    end
-
-    it "JSON rejects star=\"true\" with 422" do
-      patch channel_path(channel, format: :json), params: { channel: { star: "true" } }
-      expect(response).to have_http_status(:unprocessable_content)
-    end
-
-    it "JSON ignores absent star field (no-op update succeeds)" do
-      patch channel_path(channel, format: :json), params: { channel: {} }
-      expect(response).to have_http_status(:ok)
-    end
-
-    context "CSRF (JSON requests)" do
-      it "succeeds without an authenticity token (CSRF skipped for JSON)" do
-        ActionController::Base.allow_forgery_protection = true
-        begin
-          patch channel_path(channel, format: :json), params: { channel: { star: "yes" } }
-          expect(response).to have_http_status(:ok)
-          json = JSON.parse(response.body)
-          expect(json["star"]).to eq("yes")
-        ensure
-          ActionController::Base.allow_forgery_protection = false
-        end
-      end
-
-      it "DELETE .json succeeds without an authenticity token" do
-        ActionController::Base.allow_forgery_protection = true
-        begin
-          delete channel_path(channel, format: :json)
-          expect(response).to have_http_status(:no_content)
-        ensure
-          ActionController::Base.allow_forgery_protection = false
-        end
-      end
-    end
-  end
-
   describe "DELETE /channels/:id" do
     let!(:channel) { create(:channel) }
 
@@ -1272,6 +1155,16 @@ RSpec.describe "Channels", type: :request do
       channel2 = create(:channel)
       delete channel_path(channel2, format: :json)
       expect(response).to have_http_status(:no_content)
+    end
+
+    it "DELETE .json succeeds without an authenticity token (CSRF skipped for JSON)" do
+      ActionController::Base.allow_forgery_protection = true
+      begin
+        delete channel_path(channel, format: :json)
+        expect(response).to have_http_status(:no_content)
+      ensure
+        ActionController::Base.allow_forgery_protection = false
+      end
     end
   end
 

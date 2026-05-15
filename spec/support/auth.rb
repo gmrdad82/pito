@@ -56,10 +56,25 @@ RSpec.configure do |config|
   # (controller behavior, not the auth boundary). Specs that need to
   # assert on the /login redirect or on an unauthenticated state set
   # `metadata[:unauthenticated]` to `true`.
+  #
+  # Phase 29 — Unit A2. The mandatory-2FA gate
+  # (`Sessions::AuthConcern#require_totp_configured!`) redirects any
+  # authenticated user who has NOT configured TOTP. The auto-signed-in
+  # default user is therefore minted TOTP-configured (seed + enrolled
+  # stamp) so existing authenticated request specs keep meaning what
+  # they meant. Specs exercising the gate itself create their own
+  # not-yet-configured user.
   config.before(:each, type: :request) do |example|
     next if example.metadata[:unauthenticated]
 
-    user = User.first || FactoryBot.create(:user)
+    user = User.first || FactoryBot.create(:user, :totp_enabled)
+    unless user.totp_configured?
+      user.update!(
+        totp_seed_encrypted: "JBSWY3DPEHPK3PXP",
+        totp_enabled_at: Time.current,
+        totp_disabled_at: nil
+      )
+    end
     sign_in_as(user)
   end
 
@@ -72,7 +87,18 @@ RSpec.configure do |config|
   config.before(:each, type: :system) do |example|
     next if example.metadata[:unauthenticated]
 
-    user = User.first || FactoryBot.create(:user)
+    # Phase 29 — Unit A2. Mint the auto-signed-in user TOTP-configured
+    # so the mandatory-2FA gate does not bounce every system spec to
+    # the TOTP setup page. Specs exercising the gate / first-login
+    # bootstrap set `metadata[:unauthenticated]` and build their own.
+    user = User.first || FactoryBot.create(:user, :totp_enabled)
+    unless user.totp_configured?
+      user.update!(
+        totp_seed_encrypted: "JBSWY3DPEHPK3PXP",
+        totp_enabled_at: Time.current,
+        totp_disabled_at: nil
+      )
+    end
 
     record, plaintext = Session.create_for!(
       user: user,

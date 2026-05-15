@@ -1,8 +1,15 @@
 # ADR 0007 — YouTube credentials moved from `Rails.application.credentials` to `AppSetting` (Active Record Encryption)
 
+> **Superseded by ADR 0012**
+> (`docs/decisions/0012-revert-appsetting-credentials-to-rails-credentials.md`,
+> 2026-05-15). Phase 29 Unit A1 reverted YouTube + Voyage + Google console
+> credentials back to `Rails.application.credentials` after the hot-rotation
+> benefit this ADR promised never materialized (the omniauth middleware kept
+> reading at boot). The body below is preserved as historical record.
+
 ## Status
 
-Accepted, 2026-05-11. [skipci]
+Accepted, 2026-05-11. Superseded by ADR 0012 on 2026-05-15. [skipci]
 
 ## Context
 

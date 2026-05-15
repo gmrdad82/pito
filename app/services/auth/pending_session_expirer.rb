@@ -40,7 +40,7 @@ module Auth
           if flipped
             LoginAttempt.create!(
               user: session.user,
-              email_attempted: session.user&.email.to_s,
+              email_attempted: session.user&.username.to_s,
               result: :failed,
               reason: :pending_expired,
               ip: session.ip.presence || "0.0.0.0",

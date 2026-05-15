@@ -7,8 +7,8 @@
 #     detail of the model name).
 #   - `created_at` is NOT exposed (identical to `changed_at` for
 #     append-only rows).
-#   - `changed_by` is `{ id, email }` when the FK resolves, or `null`
-#     when the FK is nil (system-generated rows).
+#   - `changed_by` is `{ id, username }` when the FK resolves, or
+#     `null` when the FK is nil (system-generated rows).
 #   - `changed_at` is ISO-8601 UTC.
 json.changes(@logs) do |log|
   json.id log.id
@@ -19,7 +19,7 @@ json.changes(@logs) do |log|
   if log.changed_by_user
     json.changed_by do
       json.id log.changed_by_user.id
-      json.email log.changed_by_user.email
+      json.username log.changed_by_user.username
     end
   else
     json.changed_by nil

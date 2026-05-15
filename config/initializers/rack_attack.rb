@@ -121,8 +121,35 @@ Rack::Attack.throttle(
   period: 15.minutes
 ) do |req|
   if req.path == "/login" && req.post?
-    raw = req.params["email"].to_s.strip.downcase
-    Digest::SHA256.hexdigest("login-email:#{raw}") if raw.present?
+    raw = req.params["username"].to_s.strip.downcase
+    Digest::SHA256.hexdigest("login-username:#{raw}") if raw.present?
+  end
+end
+
+# Phase 29 — Unit A2. Reset-password-via-2FA throttles. The recovery
+# surface is treated with the same care as login: a per-IP throttle
+# (mirrors `login/ip` — 5 / minute on POST + PATCH) and a per-username
+# throttle (mirrors `login/email` — 10 / 15 minutes, SHA256-hashed
+# username key, on POST). The `throttled_responder` below renders the
+# same generic body as the `login/` branch for any `password/` match.
+RESET_PASSWORD_PATH = "/password/reset"
+
+Rack::Attack.throttle(
+  "password/ip",
+  limit: 5,
+  period: 1.minute
+) do |req|
+  req.ip if req.path == RESET_PASSWORD_PATH && %w[POST PATCH].include?(req.request_method)
+end
+
+Rack::Attack.throttle(
+  "password/username",
+  limit: 10,
+  period: 15.minutes
+) do |req|
+  if req.path == RESET_PASSWORD_PATH && req.post?
+    raw = req.params["username"].to_s.strip.downcase
+    Digest::SHA256.hexdigest("password-reset-username:#{raw}") if raw.present?
   end
 end
 
@@ -195,7 +222,7 @@ Rack::Attack.throttled_responder = lambda do |req|
   if match.start_with?("login/")
     Auth::RateLimitLogger.call(
       request: ActionDispatch::Request.new(req.env),
-      email: req.params["email"]
+      username: req.params["username"]
     )
 
     retry_after =
@@ -209,6 +236,44 @@ Rack::Attack.throttled_responder = lambda do |req|
       <!doctype html>
       <html><head><meta charset="utf-8"><title>login failed.</title></head>
       <body><p>login failed.</p></body></html>
+    HTML
+
+    [
+      429,
+      {
+        "Content-Type" => "text/html; charset=utf-8",
+        "Retry-After" => retry_after.to_s
+      },
+      [ body ]
+    ]
+  elsif match.start_with?("password/")
+    # Phase 29 — Unit A2. Reset-password-via-2FA throttle hit. Generic
+    # `reset failed.` HTML — same posture as the `login/` branch: no
+    # "you're being rate-limited" reason, no account-existence oracle.
+    #
+    # Phase 29 — Unit A2 follow-up — security finding F4. Mirror the
+    # `login/` branch above by writing a `LoginAttempt` row for the
+    # forensic surface. Without this, an attacker who hits the
+    # password-reset throttle leaves no trace on the operator's
+    # `/settings/security/attempts` page — the in-controller
+    # `audit("password_reset.*")` log is bypassed by the rack-attack
+    # short-circuit, so the attempt-log table was the only remaining
+    # forensic artifact. `Auth::RateLimitLogger` writes `reason:
+    # :rate_limited`, same value the `login/` branch produces; the
+    # `ip` field on the row + the throttled IP / username combination
+    # is enough to distinguish password-recovery throttle hits from
+    # login throttle hits in the attempt log.
+    Auth::RateLimitLogger.call(
+      request: ActionDispatch::Request.new(req.env),
+      username: req.params["username"]
+    )
+
+    retry_after = match == "password/username" ? 15 * 60 : 60
+
+    body = <<~HTML
+      <!doctype html>
+      <html><head><meta charset="utf-8"><title>reset failed.</title></head>
+      <body><p>reset failed.</p></body></html>
     HTML
 
     [

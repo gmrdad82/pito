@@ -56,8 +56,8 @@
               </time>
             </td>
             <td style="padding: 4px 8px;">
-              <% if log.changed_by_user&.email.present? %>
-                <%= log.changed_by_user.email %>
+              <% if log.changed_by_user&.username.present? %>
+                <%= log.changed_by_user.username %>
               <% else %>
                 <span class="text-muted">system</span>
               <% end %>

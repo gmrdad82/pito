@@ -25,8 +25,23 @@ module Sessions
     INTENDED_URL_COOKIE = :pito_intended_url
     INTENDED_URL_TTL    = 10.minutes
 
+    # Phase 29 — Unit A2. The mandatory-2FA gate's allowlist. These
+    # routes are themselves part of completing TOTP enrollment (or are
+    # the logout escape hatch); the gate must NOT redirect them or the
+    # user is trapped in a redirect loop. Matched by exact
+    # `"METHOD path"` string against `request.method` + `request.path`.
+    # `/up` (health) is outside this concern entirely and not listed.
+    TOTP_SETUP_ALLOWLIST = [
+      "GET /settings/security/totp",          # totps#new — enrollment landing
+      "POST /settings/security/totp",         # totps#create — generate the seed
+      "GET /settings/security/totp/show",     # totps#show — one-shot QR + codes
+      "PATCH /settings/security/totp/confirm", # totps#update — confirm the code
+      "DELETE /session"                       # sessions#destroy — log out
+    ].freeze
+
     included do
       before_action :authenticate_session!
+      before_action :require_totp_configured!
       around_action :reset_current_after_request
 
       class_attribute :_anonymous_allowed_actions, default: [].freeze
@@ -69,6 +84,38 @@ module Sessions
 
     def anonymous_action?
       self.class._anonymous_allowed_actions.include?(action_name.to_sym)
+    end
+
+    # Phase 29 — Unit A2. The mandatory-2FA gate. Runs immediately
+    # after `authenticate_session!`. An authenticated user who has not
+    # configured TOTP is redirected to the enrollment landing page
+    # from every non-allowlisted route — they cannot reach any other
+    # screen until enrollment is confirmed (`totp_enabled_at` stamped,
+    # `totp_disabled_at` nil).
+    #
+    # Browser-only (R3): this concern is included by
+    # `ApplicationController`; `Api::AuthConcern` and `Mcp::RackApp`
+    # authenticate bearer credentials, not browser users, and are NOT
+    # gated — a token cannot "set up TOTP", and the browser user who
+    # minted the token is themselves gated.
+    #
+    # Belt-and-suspenders early returns:
+    #   - anonymous action  → no `Current.user` to gate.
+    #   - `Current.user` nil → `authenticate_session!` already redirected.
+    #   - `totp_configured?` → nothing to enforce.
+    #   - allowlisted route  → part of completing setup, or logout.
+    def require_totp_configured!
+      return if anonymous_action?
+      return if Current.user.nil?
+      return if Current.user.totp_configured?
+      return if totp_setup_allowlisted?
+
+      redirect_to settings_security_totp_path,
+                  alert: "set up two-factor authentication to continue."
+    end
+
+    def totp_setup_allowlisted?
+      TOTP_SETUP_ALLOWLIST.include?("#{request.request_method} #{request.path}")
     end
 
     def stash_intended_url

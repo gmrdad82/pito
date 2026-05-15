@@ -4,7 +4,7 @@ require "rails_helper"
 #
 # Asserts the wire envelope per the Phase 21 list-endpoint contract.
 RSpec.describe "channels/change_logs/index.json.jbuilder", type: :view do
-  let(:user)    { create(:user, email: "owner@example.test") }
+  let(:user)    { create(:user, username: "owner_logs") }
   let(:channel) { create(:channel) }
 
   let(:log_with_user) do
@@ -67,9 +67,9 @@ RSpec.describe "channels/change_logs/index.json.jbuilder", type: :view do
     expect(json["changes"].first["changed_at"]).to eq("2026-05-11T14:23:00Z")
   end
 
-  it "encodes changed_by as { id, email } when the FK resolves" do
+  it "encodes changed_by as { id, username } when the FK resolves" do
     row = json["changes"].first
-    expect(row["changed_by"]).to eq("id" => user.id, "email" => user.email)
+    expect(row["changed_by"]).to eq("id" => user.id, "username" => user.username)
   end
 
   it "encodes changed_by as null when the FK is null" do

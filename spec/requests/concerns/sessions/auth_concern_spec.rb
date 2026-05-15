@@ -55,7 +55,12 @@ RSpec.describe "Sessions::AuthConcern", type: :request do
 
   describe "intended-URL stash", :unauthenticated do
     it "skips the stash for non-GET requests" do
-      post channels_path, params: { channel: { channel_url: "https://x.test" } }
+      # Channels became read-only (`POST /channels` was removed), so
+      # use `DELETE /channels/:id` as the representative non-GET,
+      # auth-gated route. The stash-skip contract for non-GET requests
+      # is unchanged.
+      channel = create(:channel)
+      delete channel_path(channel)
       expect(response).to redirect_to(login_path)
       set_cookie_header = Array(response.headers["Set-Cookie"]).flatten.join("\n")
       expect(set_cookie_header).not_to include(Sessions::AuthConcern::INTENDED_URL_COOKIE.to_s)
@@ -105,7 +110,9 @@ RSpec.describe "Sessions::AuthConcern", type: :request do
   end
 
   describe "successful cookie session populates Current and touches activity" do
-    let!(:user) { Current.user || create(:user) }
+    # Phase 29 — Unit A2. The user must be TOTP-configured or the
+    # mandatory-2FA gate redirects `GET /` before the action runs.
+    let!(:user) { Current.user || create(:user, :totp_enabled) }
 
     it "pins Current.session and Current.user, and touches the session" do
       record, _plaintext = Session.create_for!(

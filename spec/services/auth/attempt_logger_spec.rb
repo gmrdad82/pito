@@ -25,14 +25,14 @@ RSpec.describe Auth::AttemptLogger do
           result: :success,
           reason: :trusted_location_success,
           user: user,
-          email: user.email
+          username: user.username
         )
 
         expect(row).to be_persisted
         expect(row.result).to eq("success")
         expect(row.reason).to eq("trusted_location_success")
         expect(row.user_id).to eq(user.id)
-        expect(row.email_attempted).to eq(user.email.to_s)
+        expect(row.email_attempted).to eq(user.username.to_s)
         expect(row.ip.to_s).to eq("1.2.3.4")
         expect(row.ip_prefix).to eq("1.2.3.0/24")
         expect(row.fingerprint_hash.length).to eq(64)
@@ -50,7 +50,7 @@ RSpec.describe Auth::AttemptLogger do
             result: :success,
             reason: :trusted_location_success,
             user: user,
-            email: user.email
+            username: user.username
           )
         }.not_to change(LoginAttemptGeoEnrichJob.jobs, :size)
       end
@@ -63,7 +63,7 @@ RSpec.describe Auth::AttemptLogger do
           result: :failed,
           reason: :wrong_password,
           user: user,
-          email: user.email
+          username: user.username
         )
         expect(row.result).to eq("failed")
         expect(row.reason).to eq("wrong_password")
@@ -71,18 +71,18 @@ RSpec.describe Auth::AttemptLogger do
       end
     end
 
-    describe "sad: unknown email" do
+    describe "sad: unknown username" do
       it "writes a failed row with reason: unknown_account and nil user_id" do
         row = described_class.call(
           request: fake_request,
           result: :failed,
           reason: :unknown_account,
-          email: "nobody@nowhere.test"
+          username: "nobody_user"
         )
         expect(row.result).to eq("failed")
         expect(row.reason).to eq("unknown_account")
         expect(row.user_id).to be_nil
-        expect(row.email_attempted).to eq("nobody@nowhere.test")
+        expect(row.email_attempted).to eq("nobody_user")
       end
     end
 
@@ -111,7 +111,7 @@ RSpec.describe Auth::AttemptLogger do
           result: :success,
           reason: :trusted_location_success,
           user: user,
-          email: user.email
+          username: user.username
         )
         expect(row.result).to eq("blocked")
         expect(row.reason).to eq("blocked_pair")
@@ -124,7 +124,7 @@ RSpec.describe Auth::AttemptLogger do
             request: request,
             result: :failed,
             reason: :wrong_password,
-            email: "x@y.test"
+            username: "x_y_user"
           )
         }.to change { bl.reload.attempt_count }.by(1)
         expect(bl.last_attempt_at).to be_within(2.seconds).of(Time.current)
@@ -137,7 +137,7 @@ RSpec.describe Auth::AttemptLogger do
             request: request,
             result: :blocked,
             reason: :blocked_pair,
-            email: "x@y.test"
+            username: "x_y_user"
           )
         }.not_to change { bl.reload.attempt_count }
       end
@@ -155,7 +155,7 @@ RSpec.describe Auth::AttemptLogger do
             request: fake_request,
             result: :failed,
             reason: :wrong_password,
-            email: "x@y.test"
+            username: "x_y_user"
           )
         }.to change(LoginAttemptGeoEnrichJob.jobs, :size).by(1)
       end
@@ -167,7 +167,7 @@ RSpec.describe Auth::AttemptLogger do
           request: fake_request,
           result: :failed,
           reason: :rate_limited,
-          email: "x@y.test"
+          username: "x_y_user"
         )
         expect(row.result).to eq("failed")
         expect(row.reason).to eq("rate_limited")
@@ -181,7 +181,7 @@ RSpec.describe Auth::AttemptLogger do
           request: request,
           result: :failed,
           reason: :wrong_password,
-          email: "x@y.test"
+          username: "x_y_user"
         )
         expect(row.ip_prefix).to eq("0.0.0.0/24")
       end
@@ -193,7 +193,7 @@ RSpec.describe Auth::AttemptLogger do
           request: fake_request(params: { "password" => "shh-secret-XX" }),
           result: :failed,
           reason: :wrong_password,
-          email: "x@y.test"
+          username: "x_y_user"
         )
         expect(row.attributes.values.map(&:to_s)).not_to include(a_string_matching(/shh-secret-XX/))
       end

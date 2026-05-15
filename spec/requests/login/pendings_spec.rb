@@ -12,11 +12,18 @@ RSpec.describe "Login::Pendings", type: :request do
     user.update!(password: password, password_confirmation: password)
   end
 
-  # Drives the controller through the full pipeline: log in (new
-  # location) → challenge → approval. After this the integration test
-  # cookie jar carries the pre-auth marker with pending_session_id.
+  # Phase 29 — Unit A2. `POST /login` no longer routes a no-TOTP user
+  # to `/login/challenge` (the first-login bootstrap, R4, takes over).
+  # The `/login/challenge` → `approval` branch is still reachable via
+  # the pre-auth marker, which `SessionsController#create` writes for
+  # a TOTP-configured user. Establish that marker the way the
+  # controller does (enable TOTP, `POST /login`, then clear the
+  # enrollment so the marked user is no longer `totp_enabled?`), then
+  # drive the approval branch.
   def post_through_pending_branch
-    post login_path, params: { email: user.email, password: password }
+    user.update!(totp_seed_encrypted: "JBSWY3DPEHPK3PXP", totp_enabled_at: 1.hour.ago)
+    post login_path, params: { username: user.username, password: password }
+    user.update!(totp_seed_encrypted: nil, totp_enabled_at: nil, totp_disabled_at: nil)
     post login_challenge_path, params: { challenge_path: "approval" }
   end
 

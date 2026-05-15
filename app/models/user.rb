@@ -59,22 +59,24 @@ class User < ApplicationRecord
     shelves_by_letter: 2
   }, prefix: :games_display
 
-  # Phase 8 — Tenant Drop + Email-Only Login.
-  # Auth-only shape: email + password. No `username`, no `tenant`,
-  # no `admin`. Login goes through email-only authentication
-  # (see `SessionsController#create`). Email is normalized — leading
-  # and trailing whitespace is stripped on assignment so user input
-  # like " owner@example.test " round-trips through the form
-  # without breaking the citext lookup.
-  EMAIL_MAX_LENGTH = 254
+  # Phase 29 — Unit A2. User auth refactor: username login.
+  # Auth-only shape: username + password. No `email`, no `tenant`,
+  # no `admin`. Login goes through username authentication
+  # (see `SessionsController#create`). The `username` column is
+  # citext, so lookups are case-insensitive; `normalize_username`
+  # strips whitespace and downcases on write so the stored form is
+  # canonical. Format: alphanumerics + underscore, with single
+  # internal dot or hyphen separators (no leading / trailing /
+  # doubled separators), 3..32 chars.
+  USERNAME_FORMAT = /\A[a-z0-9_]+(?:[.-][a-z0-9_]+)*\z/i
 
-  before_validation :strip_email_whitespace
+  before_validation :normalize_username
 
   validates :password, length: { minimum: 8 }, if: -> { password.present? }
-  validates :email,
+  validates :username,
             presence: true,
-            length: { maximum: EMAIL_MAX_LENGTH },
-            format: { with: URI::MailTo::EMAIL_REGEXP },
+            length: { in: 3..32 },
+            format: { with: USERNAME_FORMAT },
             uniqueness: { case_sensitive: false }
 
   # Phase 25 — 01b. True iff the (fingerprint, ip_prefix) pair is in
@@ -102,18 +104,29 @@ class User < ApplicationRecord
     totp_seed_encrypted.present? && totp_disabled_at.nil?
   end
 
+  # Phase 29 — Unit A2. The mandatory-2FA gate's call-site predicate.
+  # Identical truth to `totp_enabled?` — seed present AND no disable
+  # stamp — aliased here so `Sessions::AuthConcern#require_totp_
+  # configured!` and `PasswordResetsController` read clearly. The
+  # `totp_enabled_at` stamp is set by the enrollment confirm; the
+  # gate fires for any authenticated user who has not yet confirmed.
+  def totp_configured?
+    totp_enabled?
+  end
+
   # `otpauth://totp/...` URI fed to the QR code renderer and surfaced
   # as the plaintext secret on the one-shot enrollment view. Pure
   # convenience over `ROTP::TOTP#provisioning_uri`; the issuer string
-  # is centralised in `TotpHelper` so all callers agree.
+  # is centralised in `TotpHelper` so all callers agree. The account
+  # label is the `username` (Phase 29 — Unit A2; was `email`).
   def totp_uri(issuer:)
     return nil if totp_seed_encrypted.blank?
-    ROTP::TOTP.new(totp_seed_encrypted, issuer: issuer).provisioning_uri(email)
+    ROTP::TOTP.new(totp_seed_encrypted, issuer: issuer).provisioning_uri(username)
   end
 
   private
 
-  def strip_email_whitespace
-    self.email = email.to_s.strip if email.is_a?(String)
+  def normalize_username
+    self.username = username.to_s.strip.downcase if username.is_a?(String)
   end
 end

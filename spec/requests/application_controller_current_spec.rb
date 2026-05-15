@@ -9,7 +9,10 @@ require "rails_helper"
 # Phase 8 — tenant drop. `Current.tenant` is gone.
 RSpec.describe "ApplicationController Current population", type: :request do
   describe "with a valid session cookie" do
-    let!(:user) { Current.user || create(:user) }
+    # Phase 29 — Unit A2. The mandatory-2FA gate redirects any
+    # authenticated user who has not configured TOTP. This spec signs
+    # in its own user, so it must be TOTP-configured to get a 200 on /.
+    let!(:user) { Current.user || create(:user, :totp_enabled) }
 
     it "responds 200 to / when signed in" do
       sign_in_as(user)

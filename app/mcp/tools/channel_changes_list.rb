@@ -72,7 +72,7 @@ module Mcp
           old_value: log.old_value,
           new_value: log.new_value,
           changed_at: log.changed_at.utc.iso8601,
-          changed_by: user ? { id: user.id, email: user.email } : nil
+          changed_by: user ? { id: user.id, username: user.username } : nil
         }
       end
 

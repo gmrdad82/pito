@@ -35,83 +35,43 @@ OmniAuth.config.on_failure = proc do |env|
   YoutubeConnections::OauthCallbacksController.action(:failure).call(env)
 end
 
-# 2026-05-11 — YouTube OAuth credentials moved out of
-# `Rails.application.credentials.google_oauth` and into the AppSetting
-# singleton so the operator can rotate them from the Settings UI
-# without a deploy. The resolver is now four-tier:
+# Phase 29 — Unit A1. YouTube / Google OAuth credentials moved back
+# OUT of the AppSetting singleton and into
+# `Rails.application.credentials.google_oauth` (the project's stated
+# configuration strategy — secrets live exclusively in credentials).
+# Google / YouTube config is now deploy-time config; rotating it
+# requires a `bin/rails credentials:edit` + a Puma restart. This
+# deliberately closes follow-up 3 (the omniauth hot-rotation gap) by
+# accepting the tradeoff rather than chasing per-request resolution.
 #
-#   1. AppSetting singleton column (UI-edited; primary source).
-#   2. `Rails.application.credentials.google_oauth` block (legacy
-#      fallback retained as a manual revert path — see AppSetting
-#      header comment + `pito:backfill_youtube_credentials`).
-#   3. ENV var (PITO_GOOGLE_OAUTH_CLIENT_ID /
+# The resolver is now three-tier:
+#
+#   1. `Rails.application.credentials.google_oauth` block (primary).
+#   2. ENV var (PITO_GOOGLE_OAUTH_CLIENT_ID /
 #      PITO_GOOGLE_OAUTH_CLIENT_SECRET) for CI / local-no-DB workflows.
-#   4. Test-mode placeholder so request specs boot without
-#      `master.key` AND without a populated AppSetting.
-#
-# Reads run at boot. Rotating the AppSetting columns from the UI
-# requires a Puma restart for omniauth to pick up the new values
-# — same behavior the pre-AppSetting code already had with credentials.
-# A future iteration can patch `setup_phase` for hot rotation; the
-# operator's existing rotation workflow already involves a deploy /
-# restart so the gap is small.
-def pito_appsetting_youtube_value(column)
-  AppSetting.public_send(column) if AppSetting.connection.data_source_exists?("app_settings")
-rescue ActiveRecord::StatementInvalid,
-       ActiveRecord::ConnectionNotEstablished,
-       ActiveRecord::NoDatabaseError,
-       NameError => e
-  # P25 follow-up — F6. Narrowed from a bare `StandardError`. The only
-  # legitimate failure paths at boot are "DB not reachable yet" / "table
-  # not created yet" — both ActiveRecord-shape errors. Anything else
-  # (e.g. a typo in `column`, an encryption-key misconfiguration on the
-  # encrypted column) should bubble so it surfaces in development /
-  # test rather than silently degrading to "no YouTube credentials
-  # configured" at boot.
-  #
-  # 2026-05-11 fix-forward — `NameError` added back for autoload races.
-  # When the initializer runs during test / boot, the `AppSetting`
-  # constant may not yet be autoloaded (e.g. `bin/rails runner`,
-  # `db:seed`, isolated spec boot). The original `StandardError` rescue
-  # swallowed this; the narrowed rescue dropped it, which broke the
-  # suite + `db:seed`. `NameError` is a tight, boot-shaped failure mode
-  # and stays compatible with the spirit of F6 — real bugs in the
-  # column name still surface as `NoMethodError`, which is NOT a
-  # `NameError` subclass at the rescue-match level (it is, but
-  # `public_send(:typo)` raises `NoMethodError` which subclasses
-  # `NameError` — accepted trade-off; the warn line keeps the failure
-  # observable in logs).
-  Rails.logger.warn(
-    "[omniauth] pito_appsetting_youtube_value(#{column}) " \
-    "fell back to nil due to #{e.class}: #{e.message}"
-  )
-  nil
-end
+#   3. Test-mode placeholder so request specs boot without
+#      `master.key`.
 
 google_oauth_credentials = Rails.application.credentials.google_oauth || {}
 
 google_oauth_client_id =
-  pito_appsetting_youtube_value(:youtube_client_id).presence ||
   google_oauth_credentials[:client_id].presence ||
   ENV["PITO_GOOGLE_OAUTH_CLIENT_ID"].presence ||
   (Rails.env.test? ? "test-google-oauth-client-id-not-a-secret" : nil)
 
 google_oauth_client_secret =
-  pito_appsetting_youtube_value(:youtube_client_secret).presence ||
   google_oauth_credentials[:client_secret].presence ||
   ENV["PITO_GOOGLE_OAUTH_CLIENT_SECRET"].presence ||
   (Rails.env.test? ? "test-google-oauth-client-secret-not-a-secret" : nil)
 
 google_oauth_redirect_uri =
-  pito_appsetting_youtube_value(:youtube_redirect_uri).presence ||
   google_oauth_credentials[:redirect_uri].presence
 
 if google_oauth_client_id.blank? || google_oauth_client_secret.blank?
-  raise "missing google_oauth credentials: populate the YouTube " \
-        "fields on the AppSetting singleton (Settings → YouTube → " \
-        "[update]) or :google_oauth.client_id + :google_oauth.client_secret " \
-        "via `bin/rails credentials:edit` (or set " \
-        "PITO_GOOGLE_OAUTH_CLIENT_ID / PITO_GOOGLE_OAUTH_CLIENT_SECRET)."
+  raise "missing google_oauth credentials: add :google_oauth.client_id " \
+        "+ :google_oauth.client_secret via `bin/rails credentials:edit` " \
+        "(or set PITO_GOOGLE_OAUTH_CLIENT_ID / " \
+        "PITO_GOOGLE_OAUTH_CLIENT_SECRET for CI / local-no-DB workflows)."
 end
 
 # Single scope set requested every time — see the scope strategy
@@ -165,9 +125,9 @@ Rails.application.config.middleware.use OmniAuth::Builder do
                # Google so pin-mismatch doesn't apply). In dev /
                # production we pin to the resolved value (must match
                # the URI registered with the Google Cloud Console).
-               # `youtube_redirect_uri` is OPTIONAL across all four
-               # resolver tiers — when blank we fall back to the
-               # production callback URL.
+               # The `:google_oauth, :redirect_uri` credential is
+               # OPTIONAL — when blank we fall back to the production
+               # callback URL.
                if Rails.env.test?
                  nil
                else

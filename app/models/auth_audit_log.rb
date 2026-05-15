@@ -47,11 +47,21 @@ class AuthAuditLog < ApplicationRecord
   # LD-13 full vocabulary. 01c writes `approve` and `block`. The other
   # values are pre-declared so 01d–01f land without another migration.
   #
-  # 2026-05-11 F3 — adds two credential-rotation actions written by
-  # `SettingsController#update_youtube` / `#update_voyage`. The
-  # `target_type` is `AppSetting` (singleton row); `metadata` carries
-  # `changed_fields` — the list of column names that mutated, NEVER
-  # the plaintext values themselves.
+  # 2026-05-11 F3 — added two credential-rotation actions. Phase 29
+  # Unit A1 dropped the YouTube credentials Settings pane, so
+  # `youtube_credentials_updated` (value 7) is no longer emitted by
+  # any code path — the enum value stays RESERVED (durable; never
+  # renumber). `voyage_credentials_updated` stays active: the slimmed
+  # Voyage pane emits it on the `voyage_index_project_notes` flag
+  # write via `SettingsController#update_voyage`. `target_type` is
+  # `AppSetting` (singleton row); `metadata` carries `changed_fields`
+  # — the list of column names that mutated, never the values.
+  #
+  # Phase 29 — Unit A2 — added `password_reset` (value 9). Written by
+  # `PasswordResetsController#update` on a successful reset-via-2FA.
+  # `target` is the `User` whose password was reset; `metadata`
+  # carries `reset_user_id`. Integer-backed enum — the new value
+  # needs no migration.
   enum :action, {
     approve: 0,
     block: 1,
@@ -61,7 +71,8 @@ class AuthAuditLog < ApplicationRecord
     totp_disable: 5,
     backup_code_regenerate: 6,
     youtube_credentials_updated: 7,
-    voyage_credentials_updated: 8
+    voyage_credentials_updated: 8,
+    password_reset: 9
   }, prefix: :action
 
   validates :acting_user_id, presence: true

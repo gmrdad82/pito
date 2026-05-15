@@ -2,7 +2,7 @@ require "rails_helper"
 
 # Phase 7.5 §11g — Channel Change History HTML view spec.
 RSpec.describe "channels/change_logs/index.html.erb", type: :view do
-  let(:user)    { create(:user, email: "owner@example.test") }
+  let(:user)    { create(:user, username: "owner_logs") }
   let(:channel) do
     create(:channel,
            channel_url: "https://www.youtube.com/channel/UCabcdefghijklmnopqrstuv",
@@ -110,9 +110,9 @@ RSpec.describe "channels/change_logs/index.html.erb", type: :view do
       expect(rendered).to match(/about \d+ hours? ago/)
     end
 
-    it "renders the changed_by user email" do
+    it "renders the changed_by user username" do
       render
-      expect(rendered).to include("owner@example.test")
+      expect(rendered).to include("owner_logs")
     end
   end
 

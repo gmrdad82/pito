@@ -36,184 +36,71 @@ RSpec.describe "Settings", type: :request do
     # fields, placeholders, and the "leave blank to keep current"
     # hint mirrored from Voyage.
 
-    it "renders the YouTube credentials edit form with all four fields" do
+    # Phase 29 — Unit A1. The YouTube credentials edit pane is REMOVED
+    # entirely — Google / YouTube OAuth config is deploy-time
+    # `Rails.application.credentials` config now, no web surface. No
+    # `<h2>YouTube</h2>` heading, no `settings[youtube_*]` inputs, no
+    # `section=youtube` hidden field.
+    it "does not render the YouTube credentials pane" do
       AppSetting.delete_all
       get settings_path
-      expect(response.body).to include("<h2>YouTube</h2>")
-      # Field labels mirror the four-row layout.
-      expect(response.body).to include("public API key")
-      expect(response.body).to include("OAuth client ID")
-      expect(response.body).to include("OAuth client secret")
-      expect(response.body).to include("OAuth redirect URI")
-      # Four `name=` form inputs — the unambiguous form-input
-      # fingerprint.
-      expect(response.body).to include('name="settings[youtube_api_key]"')
-      expect(response.body).to include('name="settings[youtube_client_id]"')
-      expect(response.body).to include('name="settings[youtube_client_secret]"')
-      expect(response.body).to include('name="settings[youtube_redirect_uri]"')
-      # Section identifier on the wire.
-      expect(response.body).to match(/<input type="hidden" name="section" value="youtube">/)
+      expect(response.body).not_to include("<h2>YouTube</h2>")
+      expect(response.body).not_to include('name="settings[youtube_api_key]"')
+      expect(response.body).not_to include('name="settings[youtube_client_id]"')
+      expect(response.body).not_to include('name="settings[youtube_client_secret]"')
+      expect(response.body).not_to include('name="settings[youtube_redirect_uri]"')
+      expect(response.body).not_to match(/name="section" value="youtube"/)
     end
 
-    it "renders the YouTube pane inside a PATCH form, not a read-only list" do
+    it "does not render any YouTube clear-key checkboxes" do
       AppSetting.delete_all
       get settings_path
-      youtube_section = response.body[
-        /<legend><h2>YouTube<\/h2><\/legend>.*?<\/fieldset>/m
-      ]
-      expect(youtube_section).not_to be_nil
-      # The old read-only `<ul>` list and the credentials-edit hint
-      # are gone.
-      expect(youtube_section).not_to include("<ul")
-      expect(youtube_section).not_to include("Rails.application.credentials.google_oauth")
-      expect(youtube_section).not_to include("rails credentials:edit")
+      expect(response.body).not_to include('name="settings[clear_youtube_api_key]"')
+      expect(response.body).not_to include('name="settings[clear_youtube_client_id]"')
+      expect(response.body).not_to include('name="settings[clear_youtube_client_secret]"')
+      expect(response.body).not_to include('name="settings[clear_youtube_redirect_uri]"')
     end
 
-    describe "sensitive field placeholders" do
-      it "renders 'no key configured' when api_key + client_secret are blank" do
+    # Phase 29 — Unit A1. The Voyage.ai pane is SLIMMED, not removed —
+    # the API key text field + the key-clear checkbox are gone (the key
+    # moved back into `Rails.application.credentials.voyage`); only the
+    # non-secret `voyage_index_project_notes` toggle remains. The
+    # `section=voyage` hidden field stays — the slimmed pane still
+    # PATCHes the flag.
+    describe "slimmed Voyage.ai pane" do
+      it "renders the Voyage.ai pane heading and the section=voyage form" do
         AppSetting.delete_all
         get settings_path
-        expect(response.body).to match(
-          /name="settings\[youtube_api_key\]"[^>]*placeholder="no key configured"/
-        )
-        expect(response.body).to match(
-          /name="settings\[youtube_client_secret\]"[^>]*placeholder="no key configured"/
-        )
+        expect(response.body).to include("<h2>Voyage.ai</h2>")
+        expect(response.body).to match(/name="section" value="voyage"/)
       end
 
-      it "renders 'key configured (•••••••)' when api_key + client_secret are set, and never echoes the plaintext" do
-        AppSetting.delete_all
-        AppSetting.create!(
-          key: "max_panes", value: "5",
-          youtube_api_key: "AIzaSyFAKEAPIKEYPLAINTEXT_42",
-          youtube_client_secret: "GOCSPX-FAKE_CLIENT_SECRET_42"
-        )
-        get settings_path
-        expect(response.body).to include('placeholder="key configured (•••••••)"')
-        # The plaintext NEVER lands in the response body.
-        expect(response.body).not_to include("AIzaSyFAKEAPIKEYPLAINTEXT_42")
-        expect(response.body).not_to include("GOCSPX-FAKE_CLIENT_SECRET_42")
-      end
-
-      it "uses type=password for the two sensitive fields" do
+      it "does not render the Voyage API key input or the key-clear checkbox" do
         AppSetting.delete_all
         get settings_path
-        expect(response.body).to match(
-          /<input type="password"[^>]*name="settings\[youtube_api_key\]"/
-        )
-        expect(response.body).to match(
-          /<input type="password"[^>]*name="settings\[youtube_client_secret\]"/
-        )
+        expect(response.body).not_to include('name="settings[voyage_api_key]"')
+        expect(response.body).not_to include('name="settings[clear_voyage_api_key]"')
       end
-    end
 
-    describe "non-sensitive field placeholders" do
-      it "renders the stored client_id verbatim as the placeholder" do
-        AppSetting.delete_all
-        AppSetting.create!(
-          key: "max_panes", value: "5",
-          youtube_client_id: "987654-abc.apps.googleusercontent.com"
-        )
+      it "renders the indexing toggle when the credentials Voyage key is configured" do
+        AppSetting.set("max_panes", "5")
+        AppSetting.first.update!(voyage_index_project_notes: true)
+        allow(Rails.application.credentials).to receive(:dig).and_call_original
+        allow(Rails.application.credentials).to receive(:dig)
+          .with(:voyage, :api_key).and_return("vk_from_creds")
         get settings_path
-        expect(response.body).to match(
-          /name="settings\[youtube_client_id\]"[^>]*placeholder="987654-abc\.apps\.googleusercontent\.com"/
-        )
+        expect(response.body).to include('name="settings[voyage_index_project_notes]"')
       end
 
-      it "renders the stored redirect_uri verbatim as the placeholder" do
+      it "shows a credentials:edit hint instead of the toggle when no Voyage key is configured" do
         AppSetting.delete_all
-        AppSetting.create!(
-          key: "max_panes", value: "5",
-          youtube_redirect_uri: "https://custom.example.test/cb"
-        )
+        allow(Rails.application.credentials).to receive(:dig).and_call_original
+        allow(Rails.application.credentials).to receive(:dig)
+          .with(:voyage, :api_key).and_return(nil)
         get settings_path
-        expect(response.body).to match(
-          /name="settings\[youtube_redirect_uri\]"[^>]*placeholder="https:\/\/custom\.example\.test\/cb"/
-        )
+        expect(response.body).not_to include('name="settings[voyage_index_project_notes]"')
+        expect(response.body).to include("credentials:edit")
       end
-
-      it "renders the production fallback + '(default)' suffix on the redirect_uri placeholder when blank" do
-        AppSetting.delete_all
-        get settings_path
-        expect(response.body).to match(
-          %r{name="settings\[youtube_redirect_uri\]"[^>]*placeholder="https://app\.pitomd\.com/auth/google/callback \(default\)"}
-        )
-      end
-    end
-
-    describe "clear checkboxes (Voyage pattern)" do
-      it "renders no clear checkboxes when every field is blank" do
-        AppSetting.delete_all
-        get settings_path
-        expect(response.body).not_to include('name="settings[clear_youtube_api_key]"')
-        expect(response.body).not_to include('name="settings[clear_youtube_client_id]"')
-        expect(response.body).not_to include('name="settings[clear_youtube_client_secret]"')
-        expect(response.body).not_to include('name="settings[clear_youtube_redirect_uri]"')
-      end
-
-      it "renders a clear checkbox only for fields that are populated" do
-        AppSetting.delete_all
-        AppSetting.create!(
-          key: "max_panes", value: "5",
-          youtube_api_key: "k_api",
-          youtube_client_id: "k_id"
-        )
-        get settings_path
-        # Two fields are set → two checkboxes.
-        expect(response.body).to include('name="settings[clear_youtube_api_key]" value="yes"')
-        expect(response.body).to include('name="settings[clear_youtube_client_id]" value="yes"')
-        # Two fields are blank → no checkboxes for them.
-        expect(response.body).not_to include('name="settings[clear_youtube_client_secret]"')
-        expect(response.body).not_to include('name="settings[clear_youtube_redirect_uri]"')
-      end
-
-      it "ships yes/no values on the wire (not true/false)" do
-        AppSetting.delete_all
-        AppSetting.create!(
-          key: "max_panes", value: "5",
-          youtube_api_key: "k_api"
-        )
-        get settings_path
-        expect(response.body).to include('name="settings[clear_youtube_api_key]" value="yes"')
-        expect(response.body).not_to include('name="settings[clear_youtube_api_key]" value="true"')
-        expect(response.body).not_to include('name="settings[clear_youtube_api_key]" value="false"')
-      end
-    end
-
-    describe "'leave blank to keep current' hint" do
-      it "renders the hint when at least one field is configured" do
-        AppSetting.delete_all
-        AppSetting.create!(
-          key: "max_panes", value: "5",
-          youtube_api_key: "k_api"
-        )
-        get settings_path
-        expect(response.body).to include("leave blank to keep current; submit to replace.")
-      end
-
-      it "hides the hint when every field is blank" do
-        AppSetting.delete_all
-        get settings_path
-        youtube_section = response.body[
-          /<legend><h2>YouTube<\/h2><\/legend>.*?<\/fieldset>/m
-        ]
-        expect(youtube_section).not_to include("leave blank to keep current")
-      end
-    end
-
-    it "renders the encrypted-at-rest footer line" do
-      AppSetting.delete_all
-      get settings_path
-      expect(response.body).to include("credentials stored encrypted in the database; never echoed.")
-    end
-
-    it "renders the encrypted-at-rest footer line inside the Voyage.ai pane" do
-      AppSetting.delete_all
-      get settings_path
-      voyage_section = response.body[
-        /<legend><h2>Voyage\.ai<\/h2><\/legend>.*?<\/fieldset>/m
-      ]
-      expect(voyage_section).to include("credentials stored encrypted in the database; never echoed.")
     end
 
     it "does NOT render the Google connection card" do
@@ -277,12 +164,12 @@ RSpec.describe "Settings", type: :request do
       end
     end
 
-    it "shows the Voyage.ai fieldset with the current flag value" do
+    it "shows the slimmed Voyage.ai fieldset with the current flag value" do
       AppSetting.set("max_panes", "5")
-      AppSetting.first.update!(
-        voyage_api_key: "vk_test",
-        voyage_index_project_notes: true
-      )
+      AppSetting.first.update!(voyage_index_project_notes: true)
+      allow(Rails.application.credentials).to receive(:dig).and_call_original
+      allow(Rails.application.credentials).to receive(:dig)
+        .with(:voyage, :api_key).and_return("vk_from_creds")
       get settings_path
       expect(response.body).to include("Voyage.ai")
       expect(response.body).to include("project notes")
@@ -290,33 +177,38 @@ RSpec.describe "Settings", type: :request do
       expect(response.body).to match(/<input type="radio" name="settings\[voyage_index_project_notes\]" value="yes"[^>]*\bchecked\b/)
     end
 
-    it "renders four independent forms (workspaces, appearance, voyage, youtube)" do
-      # 2026-05-11 — YouTube credentials moved into the AppSetting
-      # singleton; the YouTube pane is now an edit form with section
-      # identifier `youtube` (NOT `youtube_oauth`, which was the
-      # dropped Phase 24 form).
+    # Phase 29 — Unit A1. Three independent forms remain — workspaces,
+    # appearance, voyage. The YouTube credentials form is removed
+    # (`section=youtube` gone); the dropped Phase 24 `youtube_oauth`
+    # value stays gone.
+    it "renders three independent forms (workspaces, appearance, voyage)" do
       get settings_path
       # Each per-section form carries a hidden `section` field.
       expect(response.body).to include('value="workspaces"')
       expect(response.body).to include('value="appearance"')
       expect(response.body).to include('value="voyage"')
-      expect(response.body).to include('value="youtube"')
+      # The YouTube credentials form is gone (Unit A1).
+      expect(response.body).not_to match(/name="section" value="youtube"/)
       # The dropped Phase 24 section value is still gone.
       expect(response.body).not_to include('value="youtube_oauth"')
     end
 
-    # Phase B polish (2026-05-04) — the per-target Voyage flag radios are
-    # only useful once a key is configured (model validation rejects "yes"
-    # without one). Hide them when the key is blank.
+    # Phase 29 — Unit A1. The per-target Voyage flag radios only render
+    # once a Voyage key is configured in credentials.
     it "hides the Voyage per-target flag radios when no key is configured" do
+      allow(Rails.application.credentials).to receive(:dig).and_call_original
+      allow(Rails.application.credentials).to receive(:dig)
+        .with(:voyage, :api_key).and_return(nil)
       get settings_path
       expect(AppSetting.voyage_configured?).to be(false)
       expect(response.body).not_to include('name="settings[voyage_index_project_notes]"')
     end
 
-    it "shows the Voyage per-target flag radios once a key is configured" do
+    it "shows the Voyage per-target flag radios once a key is configured in credentials" do
       AppSetting.set("max_panes", "5")
-      AppSetting.first.update!(voyage_api_key: "vk_test")
+      allow(Rails.application.credentials).to receive(:dig).and_call_original
+      allow(Rails.application.credentials).to receive(:dig)
+        .with(:voyage, :api_key).and_return("vk_from_creds")
       get settings_path
       expect(AppSetting.voyage_configured?).to be(true)
       expect(response.body).to include('name="settings[voyage_index_project_notes]"')
@@ -358,40 +250,24 @@ RSpec.describe "Settings", type: :request do
     # `[update]` (no inner spaces), aligning with the site-wide label revamp.
     it "uses [update] (no inner spaces) on every per-section submit button" do
       AppSetting.set("max_panes", "5")
-      AppSetting.first.update!(voyage_api_key: "vk_test")
       get settings_path
-      # 2026-05-11 — four per-section forms now: appearance,
-      # workspaces, voyage, youtube (YouTube credentials moved into
-      # AppSetting as a Voyage-style edit form).
-      expect(response.body.scan("[update]").length).to be >= 4
+      # Phase 29 — Unit A1. Three per-section forms remain: workspaces,
+      # appearance, voyage. The YouTube credentials form is removed.
+      expect(response.body.scan("[update]").length).to be >= 3
       # The pre-revamp `[save]` text is gone everywhere on the page.
       expect(response.body).not_to include("[save]")
     end
 
-    it "renders settings as seven .pane-row groups holding thirteen total panes" do
-      # 2026-05-10 follow-up — Phase 24 dropped Google + YouTube to
-      # four rows / seven panes; restoring the YouTube read-only
-      # credentials status card as its own single-pane row pushes the
-      # total back to five rows / eight panes.
-      # 2026-05-11 — Phase 26 / 01a Timezone foundation lands a ninth
-      # pane on row 5 (paired with the previously single `user` pane).
-      # 2026-05-11 — Phase 26 / 01b + 01c Slack + Discord webhook
-      # panes land as a new paired row, lifting the totals to six
-      # rows / eleven panes.
-      # 2026-05-11 (later) — stack restructure per user direction:
-      # Redis demoted from a standalone pane into a hairline-fenced
-      # sub-section of the new `db` pane (which replaced `sql`), and
-      # storage goes to a single wide pane (`.pane--wide`) with a
-      # 2-column inner layout (assets | notes). Total drops to
-      # eleven panes across the same six pane-rows.
-      # 2026-05-11 (later 2) — integrations section now surfaces
-      # Discord + Slack webhook panes on a new row 2 (Discord left,
-      # Slack right). OAuth + sessions moves to row 3. Totals go up
-      # to seven rows / thirteen panes.
+    it "renders settings as seven .pane-row groups holding twelve total panes" do
+      # Phase 29 — Unit A1. The YouTube credentials pane is removed —
+      # integrations row 1 drops from `YouTube | Voyage.ai` to a single
+      # `Voyage.ai` pane. The pane-row still exists (one cell), so the
+      # pane-row count stays at seven; the pane count drops 13 → 12.
       # Layout:
       #   row 1 — ui / ux | workspaces           (2 panes)
       #   row 2 — user | time zone               (2 panes; Phase 26 01a)
-      #   row 3 — YouTube | Voyage.ai            (2 panes)
+      #   row 3 — Voyage.ai                      (1 pane; YouTube removed
+      #     in Unit A1)
       #   row 4 — Discord | Slack                (2 panes; Phase 26 01b+01c)
       #   row 5 — OAuth+tokens | sessions        (2 panes; the OAuth /
       #     tokens cell still combines TWO sub-sections separated by
@@ -402,7 +278,7 @@ RSpec.describe "Settings", type: :request do
       get settings_path
       expect(response.body.scan(/class="pane-row"/).length).to eq(7)
       panes = response.body.scan(/class="pane(?:\s[^"]*)?"/).size
-      expect(panes).to eq(13)
+      expect(panes).to eq(12)
     end
 
     it "separates the OAuth applications and tokens sub-sections with a hairline" do
@@ -431,25 +307,24 @@ RSpec.describe "Settings", type: :request do
     end
 
     # 2026-05-10 user-locked restructure — page is now three titled
-    # sections, each a 2-column grid:
+    # sections, each a 2-column grid. Phase 29 Unit A1 removed the
+    # YouTube pane from integrations row 1:
     #
     #   ## customize
     #   [ ui / ux ]              [ workspaces ]
     #   [ user ]                 [ time zone ]
     #
     #   ## integrations
-    #   [ YouTube ]              [ Voyage.ai ]
+    #   [ Voyage.ai ]            (YouTube pane removed in Unit A1)
+    #   [ Discord ]              [ Slack ]
     #   [ OAuth applications ]   [ sessions ]
     #
     #   ## stack
-    #   [ sql ]                  [ search ]
+    #   [ db ]                   [ search ]
     #   [ storage ]              (empty)
     #
     # DOM order pins the sequence: every pane h2 in each row appears
-    # in left-to-right, top-to-bottom order. The OAuth pane's combined
-    # `tokens` sub-section sits between OAuth applications and the
-    # sessions pane (same row 2 of integrations, separated by a
-    # `<hr class="hairline">`).
+    # in left-to-right, top-to-bottom order.
     it "orders the panes per the user-locked customize / integrations / stack layout" do
       get settings_path
       # customize
@@ -458,7 +333,6 @@ RSpec.describe "Settings", type: :request do
       idx_user       = response.body.index("<h2>user</h2>")
       idx_time_zone  = response.body.index("<h2>time zone</h2>")
       # integrations
-      idx_youtube    = response.body.index("<h2>YouTube</h2>")
       idx_voyage     = response.body.index('value="voyage"')
       idx_oauth_apps = response.body.index("<h2>OAuth applications</h2>")
       idx_tokens     = response.body.index("<h2>tokens</h2>")
@@ -470,7 +344,7 @@ RSpec.describe "Settings", type: :request do
       idx_storage    = response.body.index("<h2>storage</h2>")
 
       indices = [ idx_appearance, idx_workspaces, idx_user, idx_time_zone,
-                  idx_youtube, idx_voyage, idx_oauth_apps, idx_tokens, idx_sessions,
+                  idx_voyage, idx_oauth_apps, idx_tokens, idx_sessions,
                   idx_db, idx_search, idx_storage ]
       expect(indices).to all(be_a(Integer))
       expect(indices).to eq(indices.sort)
@@ -1283,16 +1157,15 @@ RSpec.describe "Settings", type: :request do
 
     it "renders three integrations rows in the user-locked order" do
       get settings_path
-      # Row order: YouTube + Voyage → Discord + Slack → OAuth applications + sessions.
-      youtube_idx = response.body.index("<h2>YouTube</h2>")
+      # Phase 29 — Unit A1. Row order: Voyage (YouTube pane removed) →
+      # Discord + Slack → OAuth applications + sessions.
       voyage_idx  = response.body.index("<h2>Voyage.ai</h2>")
       discord_idx = response.body.index("<h2>Discord</h2>")
       slack_idx   = response.body.index("<h2>Slack</h2>")
       oauth_idx   = response.body.index("<h2>OAuth applications</h2>")
       sessions_idx = response.body.index("<h2>sessions</h2>")
-      expect([ youtube_idx, voyage_idx, discord_idx, slack_idx, oauth_idx, sessions_idx ]).to all(be_a(Integer))
+      expect([ voyage_idx, discord_idx, slack_idx, oauth_idx, sessions_idx ]).to all(be_a(Integer))
       # Row 1 leads.
-      expect(youtube_idx).to be < discord_idx
       expect(voyage_idx).to be < discord_idx
       # Row 2 sits between row 1 and row 3.
       expect(discord_idx).to be < oauth_idx
@@ -1307,14 +1180,14 @@ RSpec.describe "Settings", type: :request do
       expect(response.body).to include(settings_tokens_path)
     end
 
-    # Phase 24 — brand casing for the surfaces that survive on the
-    # Settings page. Google card moved to /channels; YouTube returned
-    # 2026-05-10 as a read-only credentials STATUS card (not a form);
-    # Voyage.ai and OAuth-applications carry brand casing as well.
-    it "uses brand casing for YouTube, Voyage.ai and OAuth applications" do
+    # Phase 29 — Unit A1. Brand casing for the surfaces that survive on
+    # the Settings page. Google card moved to /channels; the YouTube
+    # credentials pane is removed entirely (deploy-time credentials
+    # config now). Voyage.ai and OAuth applications carry brand casing.
+    it "uses brand casing for Voyage.ai and OAuth applications" do
       get settings_path
       expect(response.body).not_to include("<h2>Google</h2>")
-      expect(response.body).to include("<h2>YouTube</h2>")
+      expect(response.body).not_to include("<h2>YouTube</h2>")
       expect(response.body).to include("<h2>Voyage.ai</h2>")
       expect(response.body).to include("<h2>OAuth applications</h2>")
     end
@@ -1471,6 +1344,13 @@ RSpec.describe "Settings", type: :request do
   # its own form with a hidden `section` field. PATCH-ing a single section
   # MUST NOT touch fields that belong to other sections.
   describe "PATCH /settings (per-section submits)" do
+    # Phase 29 — Unit A2. The auto-signed-in request-spec user is now
+    # TOTP-configured (seed `JBSWY3DPEHPK3PXP`, per `spec/support/auth.rb`).
+    # `SettingsController#update` gates the `section=voyage` write behind
+    # `require_recent_totp_if_enabled!`, so every voyage PATCH must carry
+    # a fresh `totp_code` to reach `update_voyage`.
+    let(:valid_code) { ROTP::TOTP.new("JBSWY3DPEHPK3PXP").now }
+
     it "workspaces section saves only general keys, leaves theme alone" do
       AppSetting.set("theme", "dark")
       patch settings_path, params: {
@@ -1586,117 +1466,90 @@ RSpec.describe "Settings", type: :request do
       expect(AppSetting.get("theme")).to eq("dark")
     end
 
-    # Phase 4 §3.5 (Phase B revamp, 2026-05-04) — voyage section now accepts
-    # a key + per-target flag. The model validation enforces that flipping
-    # the flag on requires a non-blank key; clearing the key while the flag
-    # is on fails. yes/no boundary strings still apply on the flag.
+    # Phase 29 — Unit A1. The voyage section is SLIMMED: the API key
+    # field is gone (the key moved to
+    # `Rails.application.credentials.voyage`); the section now writes
+    # ONLY the non-secret `voyage_index_project_notes` flag.
+    it "voyage section toggles voyage_index_project_notes on" do
+      AppSetting.set("max_panes", "5")
+      patch settings_path, params: {
+        section: "voyage",
+        settings: { voyage_index_project_notes: "yes" },
+        totp_code: valid_code
+      }
+      expect(AppSetting.voyage_indexing_project_notes?).to be(true)
+    end
 
-    it "voyage section saves the API key + flag together" do
+    it "voyage section toggles voyage_index_project_notes off" do
+      AppSetting.set("max_panes", "5")
+      AppSetting.first.update!(voyage_index_project_notes: true)
+      patch settings_path, params: {
+        section: "voyage",
+        settings: { voyage_index_project_notes: "no" },
+        totp_code: valid_code
+      }
+      expect(AppSetting.voyage_indexing_project_notes?).to be(false)
+    end
+
+    it "voyage section never touches a key (no voyage_api_key write path)" do
       AppSetting.set("max_panes", "5")
       patch settings_path, params: {
         section: "voyage",
         settings: {
-          voyage_api_key: "vk_my_real_key",
+          voyage_api_key: "vk_should_be_ignored",
           voyage_index_project_notes: "yes"
-        }
+        },
+        totp_code: valid_code
       }
-      AppSetting.first.reload
-      expect(AppSetting.voyage_configured?).to be(true)
-      expect(AppSetting.first.voyage_api_key).to eq("vk_my_real_key")
+      # `voyage_api_key` is not a column anymore — the param is simply
+      # ignored. The flag still toggles; nothing 500s.
+      expect(response).to redirect_to(settings_path)
       expect(AppSetting.voyage_indexing_project_notes?).to be(true)
-    end
-
-    it "voyage section rejects flag=yes when no key is configured" do
-      AppSetting.set("max_panes", "5")
-      patch settings_path, params: {
-        section: "voyage",
-        settings: { voyage_index_project_notes: "yes" }
-      }
-      expect(AppSetting.voyage_indexing_project_notes?).to be(false)
-      expect(flash[:alert]).to include("Voyage API key required")
-    end
-
-    it "voyage section leaves an existing key untouched when input is blank" do
-      AppSetting.set("max_panes", "5")
-      AppSetting.first.update!(voyage_api_key: "vk_existing")
-      patch settings_path, params: {
-        section: "voyage",
-        settings: { voyage_api_key: "", voyage_index_project_notes: "no" }
-      }
-      expect(AppSetting.first.reload.voyage_api_key).to eq("vk_existing")
-      expect(AppSetting.voyage_indexing_project_notes?).to be(false)
+      expect(AppSetting.first).not_to respond_to(:voyage_api_key)
     end
 
     it "voyage section ignores flag values other than 'yes' / 'no'" do
       AppSetting.set("max_panes", "5")
-      AppSetting.first.update!(
-        voyage_api_key: "vk", voyage_index_project_notes: true
-      )
+      AppSetting.first.update!(voyage_index_project_notes: true)
       patch settings_path, params: {
         section: "voyage",
-        settings: { voyage_index_project_notes: "true" }
+        settings: { voyage_index_project_notes: "true" },
+        totp_code: valid_code
       }
-      # Boolean "true" is not "yes" — the boundary rule rejects it; flag is
-      # left untouched.
+      # Boolean "true" is not "yes" — the boundary rule rejects it; flag
+      # is left untouched.
       expect(AppSetting.voyage_indexing_project_notes?).to be(true)
-    end
-
-    it "voyage section clears the key when clear_voyage_api_key=yes and flag is off" do
-      AppSetting.set("max_panes", "5")
-      AppSetting.first.update!(
-        voyage_api_key: "vk_to_clear", voyage_index_project_notes: false
-      )
-      patch settings_path, params: {
-        section: "voyage",
-        settings: { clear_voyage_api_key: "yes" }
-      }
-      expect(AppSetting.first.reload.voyage_api_key).to be_nil
-      expect(AppSetting.voyage_indexing_project_notes?).to be(false)
-    end
-
-    it "voyage section refuses to clear the key while flag is on" do
-      AppSetting.set("max_panes", "5")
-      AppSetting.first.update!(
-        voyage_api_key: "vk_protected", voyage_index_project_notes: true
-      )
-      patch settings_path, params: {
-        section: "voyage",
-        settings: { clear_voyage_api_key: "yes" }
-      }
-      expect(AppSetting.first.reload.voyage_api_key).to eq("vk_protected")
-      expect(flash[:alert]).to include("Voyage API key required")
     end
 
     it "voyage section bootstraps an AppSetting row when the table is empty" do
       AppSetting.delete_all
       patch settings_path, params: {
         section: "voyage",
-        settings: {
-          voyage_api_key: "vk_bootstrap",
-          voyage_index_project_notes: "yes"
-        }
+        settings: { voyage_index_project_notes: "yes" },
+        totp_code: valid_code
       }
-      expect(AppSetting.voyage_configured?).to be(true)
+      expect(AppSetting.count).to eq(1)
       expect(AppSetting.voyage_indexing_project_notes?).to be(true)
     end
 
-    it "GET /settings does not leak the plaintext API key in the response body" do
+    it "voyage section is a no-op when no flag value is supplied" do
       AppSetting.set("max_panes", "5")
-      AppSetting.first.update!(
-        voyage_api_key: "vk_super_secret_plaintext",
-        voyage_index_project_notes: true
-      )
-      get settings_path
-      expect(response.body).not_to include("vk_super_secret_plaintext")
+      AppSetting.first.update!(voyage_index_project_notes: true)
+      patch settings_path, params: {
+        section: "voyage", settings: {}, totp_code: valid_code
+      }
+      expect(response).to redirect_to(settings_path)
+      expect(AppSetting.voyage_indexing_project_notes?).to be(true)
     end
 
-    # 2026-05-11 — YouTube credentials section. Mirrors the Voyage
-    # tests above. Blank input keeps the current value; explicit
-    # `clear_youtube_<field>: "yes"` wipes a field; the table is
-    # bootstrapped when empty.
-    describe "section=youtube" do
-      it "saves all four fields together (happy path)" do
-        AppSetting.delete_all
+    # Phase 29 — Unit A1. `section=youtube` is dropped — the YouTube
+    # credentials pane is gone. A `section=youtube` PATCH falls through
+    # to `update_legacy` (no-op, redirects with the standard notice —
+    # never 500s).
+    describe "section=youtube (dropped — legacy no-op)" do
+      it "redirects with the standard notice and does not 500" do
+        AppSetting.set("max_panes", "9")
+        AppSetting.set("theme", "dark")
         patch settings_path, params: {
           section: "youtube",
           settings: {
@@ -1707,114 +1560,13 @@ RSpec.describe "Settings", type: :request do
           }
         }
         expect(response).to redirect_to(settings_path)
-        row = AppSetting.first
-        expect(row.youtube_api_key).to       eq("AIza_real_api_key")
-        expect(row.youtube_client_id).to     eq("123-abc.apps.googleusercontent.com")
-        expect(row.youtube_client_secret).to eq("GOCSPX-real_secret")
-        expect(row.youtube_redirect_uri).to  eq("https://example.test/auth/google/callback")
-      end
-
-      it "leaves an existing field untouched when its input is blank" do
-        AppSetting.set("max_panes", "5")
-        AppSetting.first.update!(
-          youtube_api_key: "k_existing_api",
-          youtube_client_id: "k_existing_id"
-        )
-        patch settings_path, params: {
-          section: "youtube",
-          settings: {
-            youtube_api_key: "",
-            youtube_client_id: ""
-          }
-        }
-        row = AppSetting.first.reload
-        expect(row.youtube_api_key).to   eq("k_existing_api")
-        expect(row.youtube_client_id).to eq("k_existing_id")
-      end
-
-      it "clears a field when clear_youtube_<field>=yes" do
-        AppSetting.set("max_panes", "5")
-        AppSetting.first.update!(
-          youtube_api_key: "k_to_clear",
-          youtube_client_secret: "k_keep"
-        )
-        patch settings_path, params: {
-          section: "youtube",
-          settings: { clear_youtube_api_key: "yes" }
-        }
-        row = AppSetting.first.reload
-        expect(row.youtube_api_key).to       be_nil
-        expect(row.youtube_client_secret).to eq("k_keep")
-      end
-
-      it "wipes all four fields when every clear flag is yes" do
-        AppSetting.set("max_panes", "5")
-        AppSetting.first.update!(
-          youtube_api_key: "a",
-          youtube_client_id: "b",
-          youtube_client_secret: "c",
-          youtube_redirect_uri: "d"
-        )
-        patch settings_path, params: {
-          section: "youtube",
-          settings: {
-            clear_youtube_api_key:       "yes",
-            clear_youtube_client_id:     "yes",
-            clear_youtube_client_secret: "yes",
-            clear_youtube_redirect_uri:  "yes"
-          }
-        }
-        row = AppSetting.first.reload
-        expect(row.youtube_api_key).to       be_nil
-        expect(row.youtube_client_id).to     be_nil
-        expect(row.youtube_client_secret).to be_nil
-        expect(row.youtube_redirect_uri).to  be_nil
-      end
-
-      it "bootstraps an AppSetting row when the table is empty" do
-        AppSetting.delete_all
-        patch settings_path, params: {
-          section: "youtube",
-          settings: { youtube_api_key: "k_bootstrap" }
-        }
-        expect(AppSetting.count).to eq(1)
-        expect(AppSetting.first.youtube_api_key).to eq("k_bootstrap")
-      end
-
-      it "redirects with a success notice on save" do
-        AppSetting.delete_all
-        patch settings_path, params: {
-          section: "youtube",
-          settings: { youtube_api_key: "k" }
-        }
-        expect(response).to redirect_to(settings_path)
         follow_redirect!
         expect(response.body).to include("settings saved.")
-      end
-
-      it "is a no-op when no input changes (no params, no clear flags)" do
-        AppSetting.set("max_panes", "5")
-        AppSetting.first.update!(youtube_api_key: "k_keep")
-        patch settings_path, params: { section: "youtube", settings: {} }
-        expect(AppSetting.first.reload.youtube_api_key).to eq("k_keep")
-      end
-
-      it "GET /settings does not leak the plaintext youtube_api_key in the response body" do
-        AppSetting.set("max_panes", "5")
-        AppSetting.first.update!(
-          youtube_api_key: "AIza_super_secret_plaintext_42"
-        )
-        get settings_path
-        expect(response.body).not_to include("AIza_super_secret_plaintext_42")
-      end
-
-      it "GET /settings does not leak the plaintext youtube_client_secret in the response body" do
-        AppSetting.set("max_panes", "5")
-        AppSetting.first.update!(
-          youtube_client_secret: "GOCSPX-super_secret_plaintext_42"
-        )
-        get settings_path
-        expect(response.body).not_to include("GOCSPX-super_secret_plaintext_42")
+        # The legacy path leaves the general keys untouched and never
+        # persists a (now non-existent) YouTube column.
+        expect(AppSetting.get("max_panes")).to eq("9")
+        expect(AppSetting.get("theme")).to eq("dark")
+        expect(AppSetting.first).not_to respond_to(:youtube_api_key)
       end
     end
 
@@ -1823,69 +1575,19 @@ RSpec.describe "Settings", type: :request do
     # an `AuthAuditLog` row carrying ONLY the names of the columns
     # that changed (never the plaintext values). Failed validations
     # leave the table untouched.
-    describe "credential rotation audit logs (F3)" do
-      it "writes an audit row on successful YouTube credentials update" do
-        AppSetting.delete_all
-
-        expect {
-          patch settings_path, params: {
-            section: "youtube",
-            settings: {
-              youtube_api_key:       "AIza_audit_key",
-              youtube_client_secret: "GOCSPX-audit_secret"
-            }
-          }
-        }.to change(AuthAuditLog, :count).by(1)
-
-        row = AuthAuditLog.last
-        expect(row.action).to eq("youtube_credentials_updated")
-        expect(row.source_surface).to eq("web")
-        expect(row.target_type).to eq("AppSetting")
-        expect(row.target_id).to eq(AppSetting.first.id)
-        expect(row.acting_user_id).to eq(User.first.id)
-      end
-
-      it "records changed field NAMES in metadata (never plaintext values)" do
-        AppSetting.delete_all
-        patch settings_path, params: {
-          section: "youtube",
-          settings: {
-            youtube_api_key:       "AIza_super_secret_xyz",
-            youtube_client_secret: "GOCSPX-super_secret_xyz",
-            youtube_client_id:     "client-id-xyz.apps.googleusercontent.com"
-          }
-        }
-        row = AuthAuditLog.last
-        expect(row.metadata).to have_key("changed_fields")
-        expect(row.metadata["changed_fields"]).to include(
-          "youtube_api_key",
-          "youtube_client_secret",
-          "youtube_client_id"
-        )
-        # The hard rule: NEVER any plaintext value in the audit row.
-        serialized = row.metadata.to_json
-        expect(serialized).not_to include("AIza_super_secret_xyz")
-        expect(serialized).not_to include("GOCSPX-super_secret_xyz")
-        expect(serialized).not_to include("client-id-xyz.apps.googleusercontent.com")
-      end
-
-      it "writes NO audit row when YouTube update is a no-op (nothing changed)" do
-        AppSetting.set("max_panes", "5")
-        AppSetting.first.update!(youtube_api_key: "k_unchanged")
-        expect {
-          patch settings_path, params: { section: "youtube", settings: {} }
-        }.not_to change(AuthAuditLog, :count)
-      end
-
-      it "writes an audit row on successful Voyage credentials update" do
+    # Phase 29 — Unit A1. The only surviving credential-rotation audit
+    # path is the slimmed Voyage pane: a real change to
+    # `voyage_index_project_notes` writes a `voyage_credentials_updated`
+    # `AuthAuditLog` row carrying ONLY the names of the columns that
+    # changed. The YouTube credentials audit path is gone with the pane.
+    describe "Voyage flag rotation audit logs (F3)" do
+      it "writes an audit row on a successful voyage_index_project_notes toggle" do
         AppSetting.set("max_panes", "5")
         expect {
           patch settings_path, params: {
             section: "voyage",
-            settings: {
-              voyage_api_key: "vk_audit_key",
-              voyage_index_project_notes: "yes"
-            }
+            settings: { voyage_index_project_notes: "yes" },
+            totp_code: valid_code
           }
         }.to change(AuthAuditLog, :count).by(1)
 
@@ -1894,91 +1596,59 @@ RSpec.describe "Settings", type: :request do
         expect(row.source_surface).to eq("web")
         expect(row.target_type).to eq("AppSetting")
         expect(row.target_id).to eq(AppSetting.first.id)
-        expect(row.metadata["changed_fields"]).to include("voyage_api_key")
+        expect(row.acting_user_id).to eq(User.first.id)
+        expect(row.metadata["changed_fields"]).to include("voyage_index_project_notes")
       end
 
-      it "Voyage metadata records changed field NAMES, never plaintext key" do
+      it "records changed field NAMES in metadata (never plaintext values)" do
         AppSetting.set("max_panes", "5")
         patch settings_path, params: {
           section: "voyage",
-          settings: { voyage_api_key: "vk_secret_xyz" }
+          settings: { voyage_index_project_notes: "yes" },
+          totp_code: valid_code
         }
         row = AuthAuditLog.last
-        serialized = row.metadata.to_json
-        expect(serialized).to include("voyage_api_key")
-        expect(serialized).not_to include("vk_secret_xyz")
+        expect(row.metadata).to have_key("changed_fields")
+        expect(row.metadata["changed_fields"]).to eq(%w[voyage_index_project_notes])
       end
 
-      it "writes NO audit row when Voyage validation fails" do
-        # Setup: key already nil; flag=yes without supplying a key
-        # triggers the model validation rejection.
+      it "writes NO audit row when the voyage update is a no-op (flag unchanged)" do
         AppSetting.set("max_panes", "5")
-        AppSetting.first.update!(
-          voyage_api_key: nil, voyage_index_project_notes: false
-        )
+        AppSetting.first.update!(voyage_index_project_notes: true)
         expect {
           patch settings_path, params: {
             section: "voyage",
-            settings: { voyage_index_project_notes: "yes" }
+            settings: { voyage_index_project_notes: "yes" },
+            totp_code: valid_code
           }
         }.not_to change(AuthAuditLog, :count)
       end
 
-      it "writes NO audit row when Voyage update is a no-op (empty attrs)" do
+      it "writes NO audit row when the voyage update has no flag value" do
         AppSetting.set("max_panes", "5")
         expect {
-          patch settings_path, params: { section: "voyage", settings: {} }
+          patch settings_path, params: {
+            section: "voyage", settings: {}, totp_code: valid_code
+          }
         }.not_to change(AuthAuditLog, :count)
       end
 
       it "rolls back the audit row when the AppSetting save rolls back" do
-        # Simulate a save returning false post-validation by stubbing
-        # the model's `save` to fail AFTER `assign_attributes` runs.
-        # The transaction must roll back both the audit write and the
-        # (would-be) credential write atomically.
+        # Stub `save` to fail AFTER `assign_attributes` runs. The
+        # transaction must roll back both the audit write and the
+        # would-be flag write atomically.
         AppSetting.set("max_panes", "5")
-        AppSetting.first.update!(voyage_api_key: "vk_existing")
         allow_any_instance_of(AppSetting).to receive(:save).and_return(false)
 
         expect {
           patch settings_path, params: {
             section: "voyage",
-            settings: { voyage_api_key: "vk_new" }
+            settings: { voyage_index_project_notes: "yes" },
+            totp_code: valid_code
           }
         }.not_to change(AuthAuditLog, :count)
 
-        expect(AppSetting.first.reload.voyage_api_key).to eq("vk_existing")
-      end
-    end
-
-    # 2026-05-11 — `update_voyage` + `update_youtube` share the
-    # `update_appsetting_section` driver. These structural tests
-    # pin the DRY: both callers delegate to the helper with the
-    # right `audit_action:` and field-list shape, so a regression
-    # that re-inlines one path surfaces here instead of via 60
-    # behavior specs.
-    describe "update_appsetting_section helper delegation" do
-      let(:controller) { SettingsController.new }
-
-      it "update_voyage routes through update_appsetting_section with the voyage audit action" do
-        expect(controller).to receive(:update_appsetting_section).with(
-          hash_including(
-            audit_action: :voyage_credentials_updated,
-            string_fields: %w[voyage_api_key],
-            boolean_fields: %w[voyage_index_project_notes]
-          )
-        )
-        controller.send(:update_voyage)
-      end
-
-      it "update_youtube routes through update_appsetting_section with the youtube audit action and four string fields" do
-        expect(controller).to receive(:update_appsetting_section).with(
-          hash_including(
-            audit_action: :youtube_credentials_updated,
-            string_fields: SettingsController::YOUTUBE_FIELDS
-          )
-        )
-        controller.send(:update_youtube)
+        expect(AppSetting.voyage_indexing_project_notes?).to be(false)
       end
     end
   end

@@ -167,8 +167,12 @@ RSpec.describe "VideoGameLinks", type: :request do
 
   describe "multi-user permissions" do
     it "User B can remove a link User A created (ADR 0003)" do
-      user_a = create(:user)
-      user_b = create(:user)
+      # Phase 29 — Unit A2. The mandatory-2FA gate bounces any
+      # not-yet-TOTP-configured authenticated user to the enrollment
+      # page. User B is signed in via cookie for the DELETE, so it must
+      # be TOTP-configured to reach the action.
+      user_a = create(:user, :totp_enabled)
+      user_b = create(:user, :totp_enabled)
 
       Current.user = user_a
       post video_links_path(video),

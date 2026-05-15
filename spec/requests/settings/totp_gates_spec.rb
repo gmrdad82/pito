@@ -4,15 +4,23 @@ require "rails_helper"
 # the signed-in user has 2FA on. The gate is implemented in
 # `RecentTotpVerification` and is wired into:
 #
-#   * `Settings::UserController#update` — user email / password edit.
-#   * `SettingsController#update` for `section=youtube` / `section=voyage` —
-#     YouTube and Voyage credential writes.
+#   * `Settings::UserController#update` — user username / password edit.
+#   * `SettingsController#update` for `section=voyage` — the Voyage
+#     project-notes flag write.
 #   * `Settings::SlackWebhooksController#update` — Slack webhook URL save.
 #   * `Settings::DiscordWebhooksController#update` — Discord webhook URL save.
 #
 # Failure copy is intentionally generic — `credentials don't match.`
 # — so the response never leaks whether the password / code / both
 # was the failing field.
+#
+# Phase 29 — Unit A2. With the mandatory-2FA gate
+# (`Sessions::AuthConcern#require_totp_configured!`), an authenticated
+# user is ALWAYS TOTP-configured — a TOTP-off authenticated user is
+# bounced to the enrollment page before any gated write runs. The
+# "2FA off" scenarios that used to live here are therefore replaced
+# with assertions that the mandatory gate redirects to
+# `/settings/security/totp`.
 #
 # Read-only viewing of `/settings` is NOT gated; only writes.
 RSpec.describe "2FA gates on sensitive Settings writes", type: :request do
@@ -38,10 +46,10 @@ RSpec.describe "2FA gates on sensitive Settings writes", type: :request do
 
   # ---- Settings::User#update ----
   describe "PATCH /settings/user (user account edit)" do
-    let(:new_email) { "edit-#{SecureRandom.hex(4)}@example.test" }
+    let(:new_username) { "edit_#{SecureRandom.hex(4)}" }
     let(:base_user_params) do
       {
-        email: new_email,
+        username: new_username,
         current_password: password,
         password: "",
         password_confirmation: ""
@@ -49,88 +57,35 @@ RSpec.describe "2FA gates on sensitive Settings writes", type: :request do
     end
 
     it "rejects with a generic flash when the totp_code is missing" do
-      original_email = user.email
+      original_username = user.username
       patch settings_user_path, params: { user: base_user_params }
       expect(response).to have_http_status(:unprocessable_content)
       expect(response.body).to include("credentials don").and include("match")
-      expect(user.reload.email).to eq(original_email)
+      expect(user.reload.username).to eq(original_username)
     end
 
     it "rejects when the totp_code is wrong" do
-      original_email = user.email
+      original_username = user.username
       patch settings_user_path, params: { user: base_user_params, totp_code: "000000" }
       expect(response).to have_http_status(:unprocessable_content)
       expect(response.body).to include("credentials don").and include("match")
-      expect(user.reload.email).to eq(original_email)
+      expect(user.reload.username).to eq(original_username)
     end
 
     it "proceeds when the totp_code is correct" do
       patch settings_user_path,
             params: { user: base_user_params, totp_code: valid_code }
       expect(response).to redirect_to(settings_path)
-      expect(user.reload.email).to eq(new_email)
-    end
-
-    it "still gates when 2FA is off (no gate triggers, write proceeds without a code)" do
-      user.update!(totp_seed_encrypted: nil, totp_enabled_at: nil)
-      patch settings_user_path, params: { user: base_user_params }
-      expect(response).to redirect_to(settings_path)
-      expect(user.reload.email).to eq(new_email)
+      expect(user.reload.username).to eq(new_username)
     end
 
     # 2026-05-11 polish (Fix 4) — the inline `name="totp_code"` field
     # was retired; the layout-level TOTP modal injects it on submit.
-    # The view contract is now the `totp-modal` Stimulus controller
-    # mounted on the form with `required="yes"` (2FA on) /
-    # `required="no"` (2FA off). The controller-side gate (covered
-    # above) still reads `params[:totp_code]` either way.
     it "renders the form with the totp-modal controller wired when 2FA is on" do
       get settings_user_path
       expect(response.body).to include('data-controller="totp-modal"')
       expect(response.body).to include('data-totp-modal-required-value="yes"')
       expect(response.body).not_to include('id="totp_code"')
-    end
-
-    it "carries required=\"no\" on the totp-modal controller when 2FA is off" do
-      user.update!(totp_seed_encrypted: nil, totp_enabled_at: nil)
-      get settings_user_path
-      expect(response.body).to include('data-controller="totp-modal"')
-      expect(response.body).to include('data-totp-modal-required-value="no"')
-      expect(response.body).not_to include('id="totp_code"')
-    end
-  end
-
-  # ---- SettingsController#update_youtube ----
-  describe "PATCH /settings (section=youtube)" do
-    let(:youtube_params) do
-      {
-        section: "youtube",
-        settings: {
-          youtube_client_id: "new-client-id.apps.googleusercontent.com"
-        }
-      }
-    end
-
-    it "redirects with a generic alert when the totp_code is missing" do
-      patch settings_path, params: youtube_params
-      expect(response).to redirect_to(settings_path)
-      follow_redirect!
-      expect(response.body).to include("credentials don").and include("match")
-      expect(AppSetting.first&.youtube_client_id).not_to eq("new-client-id.apps.googleusercontent.com")
-    end
-
-    it "redirects with a generic alert when the totp_code is wrong" do
-      patch settings_path, params: youtube_params.merge(totp_code: "000000")
-      expect(response).to redirect_to(settings_path)
-      follow_redirect!
-      expect(response.body).to include("credentials don").and include("match")
-      expect(AppSetting.first&.youtube_client_id).not_to eq("new-client-id.apps.googleusercontent.com")
-    end
-
-    it "proceeds when the totp_code is correct" do
-      patch settings_path, params: youtube_params.merge(totp_code: valid_code)
-      expect(response).to redirect_to(settings_path)
-      expect(AppSetting.first.youtube_client_id).to eq("new-client-id.apps.googleusercontent.com")
     end
   end
 
@@ -139,7 +94,7 @@ RSpec.describe "2FA gates on sensitive Settings writes", type: :request do
     let(:voyage_params) do
       {
         section: "voyage",
-        settings: { voyage_api_key: "pa-FAKE-VOYAGE-KEY-FOR-TEST" }
+        settings: { voyage_index_project_notes: "yes" }
       }
     end
 
@@ -148,7 +103,7 @@ RSpec.describe "2FA gates on sensitive Settings writes", type: :request do
       expect(response).to redirect_to(settings_path)
       follow_redirect!
       expect(response.body).to include("credentials don").and include("match")
-      expect(AppSetting.voyage_configured?).to be false
+      expect(AppSetting.voyage_indexing_project_notes?).to be false
     end
 
     it "redirects with a generic alert when the totp_code is wrong" do
@@ -156,13 +111,13 @@ RSpec.describe "2FA gates on sensitive Settings writes", type: :request do
       expect(response).to redirect_to(settings_path)
       follow_redirect!
       expect(response.body).to include("credentials don").and include("match")
-      expect(AppSetting.voyage_configured?).to be false
+      expect(AppSetting.voyage_indexing_project_notes?).to be false
     end
 
     it "proceeds when the totp_code is correct" do
       patch settings_path, params: voyage_params.merge(totp_code: valid_code)
       expect(response).to redirect_to(settings_path)
-      expect(AppSetting.voyage_configured?).to be true
+      expect(AppSetting.voyage_indexing_project_notes?).to be true
     end
   end
 
@@ -234,36 +189,41 @@ RSpec.describe "2FA gates on sensitive Settings writes", type: :request do
     end
   end
 
-  # ---- 2FA-off baseline: gate is dormant. ----
-  describe "with 2FA off the gate is dormant" do
+  # ---- Mandatory-2FA gate: a TOTP-off authenticated user never reaches
+  #      a gated write — they are bounced to the enrollment page. ----
+  describe "with 2FA off the mandatory gate fires first" do
     before { user.update!(totp_seed_encrypted: nil, totp_enabled_at: nil) }
 
-    it "lets the YouTube update through without a totp_code" do
+    it "redirects the Voyage flag write to the TOTP enrollment page" do
       patch settings_path, params: {
-        section: "youtube",
-        settings: { youtube_client_id: "no-2fa-client.apps.googleusercontent.com" }
+        section: "voyage",
+        settings: { voyage_index_project_notes: "yes" }
       }
-      expect(AppSetting.first.youtube_client_id).to eq("no-2fa-client.apps.googleusercontent.com")
+      expect(response).to redirect_to(settings_security_totp_path)
+      expect(AppSetting.voyage_indexing_project_notes?).to be(false)
     end
 
-    it "lets the user edit through without a totp_code" do
-      new_email = "no-2fa-#{SecureRandom.hex(4)}@example.test"
+    it "redirects the user edit to the TOTP enrollment page" do
       patch settings_user_path, params: {
         user: {
-          email: new_email,
+          username: "no_2fa_#{SecureRandom.hex(4)}",
           current_password: password,
           password: "",
           password_confirmation: ""
         }
       }
-      expect(response).to redirect_to(settings_path)
-      expect(user.reload.email).to eq(new_email)
+      expect(response).to redirect_to(settings_security_totp_path)
+    end
+
+    it "redirects GET /settings to the TOTP enrollment page" do
+      get settings_path
+      expect(response).to redirect_to(settings_security_totp_path)
     end
   end
 
-  # ---- Index page (read-only) is NEVER gated. ----
-  describe "GET /settings (read-only)" do
-    it "always renders for the authenticated user, regardless of 2FA state" do
+  # ---- Index page (read-only) renders for a TOTP-configured user. ----
+  describe "GET /settings (read-only, 2FA configured)" do
+    it "renders for the authenticated TOTP-configured user" do
       get settings_path
       expect(response).to have_http_status(:ok)
     end

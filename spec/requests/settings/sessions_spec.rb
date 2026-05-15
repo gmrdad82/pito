@@ -3,7 +3,11 @@ require "rails_helper"
 # Phase 12 — Step A (6a-sessions-and-login-ui.md) — Active Sessions UI.
 # Phase 8 — tenant drop. Sessions are user-scoped only.
 RSpec.describe "Settings::Sessions", type: :request do
-  let!(:user) { Current.user || create(:user) }
+  # Phase 29 — Unit A2. The mandatory-2FA gate redirects any
+  # authenticated user who has not configured TOTP. These specs sign in
+  # their own user, so it must be TOTP-configured to reach the actions
+  # under test.
+  let!(:user) { Current.user || create(:user, :totp_enabled) }
   let(:password) { "supersecret" }
 
   before do

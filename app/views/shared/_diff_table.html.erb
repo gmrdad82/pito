@@ -1,8 +1,8 @@
 <%# Phase 23 §23b — shared diff-table partial.
     Locals:
-      - subject:             the host record (Video or Channel)
+      - subject:             the host record (Video)
       - fields:              array of field names from the diff payload
-      - diff:                VideoDiff or ChannelDiff
+      - diff:                VideoDiff
       - decision_form_url:   PATCH target for the apply form
       - decision_name:       param key for the form (defaults to
                               "decisions") so the controller's
@@ -10,15 +10,11 @@
       - display_only_fields: optional array overriding the
                               "no `accept pito` possible" set. Defaults
                               to `Youtube::DiffComputer::DISPLAY_ONLY_FIELDS`
-                              for the video surface; the channel
-                              surface passes
-                              `Channels::DiffApply::UNSUPPORTED_PITO_FIELDS`
-                              so banner / avatar / watermark / links
-                              rows render with the `accept pito` radio
-                              disabled (no API surface exists to push
-                              those fields back yet).
-    The decision_form_url is supplied by the caller so the same
-    partial works for both /videos/:slug/diff and /channels/:slug/diff. %>
+                              for the video surface.
+    Unit A0 retired the channel diff surface (channel is a read-only
+    mirror); this partial now serves the video surface only —
+    `/videos/:slug/diff`. The decision_form_url is supplied by the
+    caller. %>
 <% decision_name      ||= "decisions" %>
 <% display_only_fields ||= Youtube::DiffComputer::DISPLAY_ONLY_FIELDS %>
 <%= form_with url: decision_form_url, method: :patch, local: true,

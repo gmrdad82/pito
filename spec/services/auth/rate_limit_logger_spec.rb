@@ -4,7 +4,7 @@ require "rails_helper"
 # every time Rack::Attack (or the in-controller throttle) trips on a
 # login surface.
 RSpec.describe Auth::RateLimitLogger do
-  let(:user) { create(:user, email: "ratelimited@example.test") }
+  let(:user) { create(:user, username: "ratelimited_user") }
   let(:request) do
     ActionDispatch::TestRequest.create.tap do |r|
       r.env["REMOTE_ADDR"] = "1.2.3.4"
@@ -24,21 +24,21 @@ RSpec.describe Auth::RateLimitLogger do
       expect(row.ip.to_s).to eq("1.2.3.4")
     end
 
-    it "associates the row with a known user when email maps to one" do
+    it "associates the row with a known user when username maps to one" do
       user # touch to create
-      described_class.call(request: request, email: "ratelimited@example.test")
+      described_class.call(request: request, username: "ratelimited_user")
 
       row = LoginAttempt.recent.first
       expect(row.user_id).to eq(user.id)
-      expect(row.email_attempted).to eq("ratelimited@example.test")
+      expect(row.email_attempted).to eq("ratelimited_user")
     end
 
-    it "leaves user_id nil when the email does not map" do
-      described_class.call(request: request, email: "unknown@example.test")
+    it "leaves user_id nil when the username does not map" do
+      described_class.call(request: request, username: "unknown_user")
 
       row = LoginAttempt.recent.first
       expect(row.user_id).to be_nil
-      expect(row.email_attempted).to eq("unknown@example.test")
+      expect(row.email_attempted).to eq("unknown_user")
     end
 
     it "captures the IP and a /24 ip_prefix" do
@@ -63,7 +63,7 @@ RSpec.describe Auth::RateLimitLogger do
         request: nil,
         ip: "5.6.7.8",
         user_agent: "fallback-ua",
-        email: "ghost@example.test"
+        username: "ghost_user"
       )
 
       row = LoginAttempt.recent.first
