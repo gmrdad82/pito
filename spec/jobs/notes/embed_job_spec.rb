@@ -6,6 +6,23 @@ RSpec.describe Notes::EmbedJob, type: :job do
 
   let(:tmp_root) { Dir.mktmpdir("pito-notes-embed-spec") }
 
+  # Phase 29 — Unit A1. The Voyage API key moved out of the AppSetting
+  # `voyage_api_key` column (dropped) and back into
+  # `Rails.application.credentials.voyage.api_key` (flat block, shared
+  # across environments). Specs stub the `:voyage` credentials block
+  # instead of the column. The `voyage_index_project_notes` flag stays
+  # on the AppSetting row.
+  #
+  # The full Voyage helper surface (including `stub_voyage_embed`) lives
+  # in `spec/support/voyage.rb`; we still define the key-stub helper
+  # locally because it predates the support module and is used purely
+  # for the credential-presence branches below.
+  def stub_voyage_credentials_key(value)
+    allow(Rails.application.credentials).to receive(:dig).and_call_original
+    allow(Rails.application.credentials).to receive(:dig)
+      .with(:voyage, :api_key).and_return(value)
+  end
+
   before do
     @prev_root = ENV["PITO_NOTES_PATH"]
     ENV["PITO_NOTES_PATH"] = tmp_root
@@ -22,14 +39,15 @@ RSpec.describe Notes::EmbedJob, type: :job do
     FileUtils.remove_entry(tmp_root) if File.exist?(tmp_root)
   end
 
-  # Phase 4 §3.5 (Phase B revamp, 2026-05-04) — gating now reads the
-  # per-target `voyage_indexing_project_notes?` flag AND the
-  # `voyage_configured?` (key present) check. The job must short-circuit
-  # cleanly when either is false.
+  # The Voyage gate ANDs the per-target `voyage_indexing_project_notes?`
+  # flag with the `voyage_configured?` (credentials key present?) check.
+  # BOTH must be true for the job to call Voyage; the job must
+  # short-circuit cleanly when either is false.
   describe "#perform with voyage_indexing_project_notes? false (default)" do
     before do
       AppSetting.find_or_create_by!(key: "voyage_test") { |r| r.value = "x" }
         .update!(voyage_index_project_notes: false)
+      stub_voyage_credentials_key("vk_from_credentials")
     end
 
     it "does NOT call the Voyage API" do
@@ -53,7 +71,8 @@ RSpec.describe Notes::EmbedJob, type: :job do
 
     before do
       record = AppSetting.first || AppSetting.create!(key: "voyage_test", value: "x")
-      record.update!(voyage_api_key: "vk_appsetting", voyage_index_project_notes: true)
+      record.update!(voyage_index_project_notes: true)
+      stub_voyage_credentials_key("vk_from_credentials")
 
       stub_request(:post, "https://api.voyageai.com/v1/embeddings")
         .to_return(
@@ -77,24 +96,22 @@ RSpec.describe Notes::EmbedJob, type: :job do
       })
     end
 
-    it "uses the AppSetting key as the bearer token" do
+    it "uses the credentials key as the bearer token" do
       described_class.new.perform(note.id)
       expect(WebMock).to(have_requested(:post, "https://api.voyageai.com/v1/embeddings").with { |req|
-        req.headers["Authorization"] == "Bearer vk_appsetting"
+        req.headers["Authorization"] == "Bearer vk_from_credentials"
       })
     end
   end
 
-  # Defensive belt-and-suspenders: the model validation prevents this combo
-  # at the form boundary, but if migration drift or direct SQL writes get
-  # the flag and key out of sync, the job's dual check must still
+  # Defensive belt-and-suspenders: if the flag is on but no Voyage key
+  # is configured in credentials, the job's dual check must still
   # short-circuit before any Voyage HTTP call.
-  describe "#perform with voyage_indexing_project_notes? true but key blank" do
+  describe "#perform with voyage_indexing_project_notes? true but credentials key blank" do
     before do
       record = AppSetting.first || AppSetting.create!(key: "voyage_test", value: "x")
-      # Bypass the model validation deliberately — this is the scenario we
-      # want to defend against.
-      record.update_columns(voyage_api_key: nil, voyage_index_project_notes: true)
+      record.update!(voyage_index_project_notes: true)
+      stub_voyage_credentials_key(nil)
     end
 
     it "does NOT call the Voyage API" do
@@ -113,23 +130,18 @@ RSpec.describe Notes::EmbedJob, type: :job do
     end
   end
 
-  # Bootstrap fallback: AppSetting key is blank, but credentials carry one.
-  # The flag still must be on for the call to fire, AND
-  # `voyage_configured?` requires the AppSetting key to be present, so
-  # this branch documents that the credentials fallback alone does NOT
-  # bypass the dual check. The key MUST live on AppSetting for the job
-  # to fire.
-  describe "#perform when only credentials carry the key (no AppSetting key)" do
+  # The flag must be on for the call to fire even when credentials carry
+  # a key — `resolve_api_key` reads credentials, `voyage_configured?`
+  # also reads credentials, but the per-target flag gates the whole
+  # branch. Flag off → no Voyage call regardless of the key.
+  describe "#perform when the credentials key is present but the flag is off" do
     before do
       record = AppSetting.first || AppSetting.create!(key: "voyage_test", value: "x")
-      record.update_columns(voyage_api_key: nil, voyage_index_project_notes: true)
-
-      allow(Rails.application.credentials).to receive(:dig).and_call_original
-      allow(Rails.application.credentials).to receive(:dig)
-        .with(:voyage, anything, :api_key).and_return("voyage-key-from-creds")
+      record.update!(voyage_index_project_notes: false)
+      stub_voyage_credentials_key("voyage-key-from-creds")
     end
 
-    it "does NOT call Voyage (voyage_configured? gate is the AppSetting key)" do
+    it "does NOT call Voyage (the per-target flag gates the branch)" do
       described_class.new.perform(note.id)
       expect(WebMock).not_to have_requested(:post, /api\.voyageai\.com/)
     end

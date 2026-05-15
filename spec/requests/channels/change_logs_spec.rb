@@ -63,9 +63,9 @@ RSpec.describe "Channels::ChangeLogs", type: :request do
         expect(idx_newer).to be < idx_older
       end
 
-      it "renders the user email in the changed_by cell" do
+      it "renders the user username in the changed_by cell" do
         get channel_change_logs_path(channel)
-        expect(response.body).to include(user.email)
+        expect(response.body).to include(user.username)
       end
 
       it "wraps the page body in pane--standalone" do
@@ -113,16 +113,16 @@ RSpec.describe "Channels::ChangeLogs", type: :request do
         )
       end
 
-      it "encodes changed_by as { id, email } when the FK resolves" do
+      it "encodes changed_by as { id, username } when the FK resolves" do
         get channel_change_logs_path(channel, format: :json)
         row = JSON.parse(response.body)["changes"].first
-        expect(row["changed_by"]).to eq("id" => user.id, "email" => user.email)
+        expect(row["changed_by"]).to eq("id" => user.id, "username" => user.username)
       end
 
-      it "always encodes changed_by as { id, email } in steady state (FK is NOT NULL at DB level)" do
+      it "always encodes changed_by as { id, username } in steady state (FK is NOT NULL at DB level)" do
         get channel_change_logs_path(channel, format: :json)
         row = JSON.parse(response.body)["changes"].first
-        expect(row["changed_by"]).to eq("id" => user.id, "email" => user.email)
+        expect(row["changed_by"]).to eq("id" => user.id, "username" => user.username)
       end
 
       it "encodes changed_at as ISO-8601 UTC" do

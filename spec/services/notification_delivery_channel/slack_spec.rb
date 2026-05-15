@@ -1,16 +1,36 @@
 require "rails_helper"
 
 RSpec.describe NotificationDeliveryChannel::Slack do
-  let(:webhook_url) { "https://hooks.slack.com/services/abc/def" }
+  # Phase 29 — Unit A1. The Slack delivery gate
+  # (`AppSetting.slack_delivery_enabled?`) is now derived from the
+  # `NotificationDeliveryChannel` row for the kind — its existence plus
+  # a present `webhook_url` and at least one routing flag set. The
+  # orphaned `AppSetting.slack_enabled` column was dropped. The
+  # dispatcher's `webhook_url` still reads the AR row first, then the
+  # `credentials.notifications.slack_webhook_url` fallback.
+  let(:webhook_url) { "https://hooks.slack.com/services/T01ABCD/B02EFGH/abcdefXYZ1234567" }
   let(:channel) { described_class.new }
   let(:notification) { create(:notification) }
 
+  # Configures a Slack `NotificationDeliveryChannel` row so the
+  # delivery gate is on. `everything: true` is the routing-flag the
+  # gate looks for.
+  def configure_slack_channel(url: webhook_url, everything: true)
+    NotificationDeliveryChannel.find_or_initialize_by(kind: "slack").tap do |row|
+      row.webhook_url = url
+      row.everything = everything
+      row.save!(validate: false)
+    end
+  end
+
   before do
     AppSetting.delete_all
-    AppSetting.create!(key: "max_panes", value: "5", slack_enabled: true)
+    NotificationDeliveryChannel.delete_all
+    configure_slack_channel
     # Default to nil for any credentials.dig call (e.g., the formatter
-    # looking up :pito_avatar_url) — then layer the slack webhook URL
-    # over the top.
+    # looking up :pito_avatar_url). The dispatcher reads the AR row
+    # first for `webhook_url`, so the credentials fallback is only
+    # exercised by the explicit specs below.
     allow(Rails.application.credentials).to receive(:dig).and_return(nil)
     allow(Rails.application.credentials)
       .to receive(:dig)
@@ -19,15 +39,26 @@ RSpec.describe NotificationDeliveryChannel::Slack do
   end
 
   describe "#enabled?" do
-    it "delegates to AppSetting.slack_delivery_enabled?" do
+    it "delegates to AppSetting.slack_delivery_enabled? (driven by the channel row)" do
       expect(channel.enabled?).to be(true)
-      AppSetting.first.update!(slack_enabled: false)
+      # Dropping the routing flag flips the gate off.
+      NotificationDeliveryChannel.slack.update_columns(everything: false, daily_digest: false)
+      expect(channel.enabled?).to be(false)
+    end
+
+    it "is false when no NotificationDeliveryChannel row exists" do
+      NotificationDeliveryChannel.delete_all
       expect(channel.enabled?).to be(false)
     end
   end
 
   describe "#webhook_url" do
-    it "reads from credentials" do
+    it "reads the NotificationDeliveryChannel row first" do
+      expect(channel.webhook_url).to eq(webhook_url)
+    end
+
+    it "falls back to credentials when no channel row exists" do
+      NotificationDeliveryChannel.delete_all
       expect(channel.webhook_url).to eq(webhook_url)
     end
   end
@@ -82,14 +113,15 @@ RSpec.describe NotificationDeliveryChannel::Slack do
   end
 
   describe "skip paths" do
-    it "skips when AppSetting flag false" do
-      AppSetting.first.update!(slack_enabled: false)
+    it "skips when the channel row has no routing flag set" do
+      NotificationDeliveryChannel.slack.update_columns(everything: false, daily_digest: false)
       result = channel.deliver(notification)
       expect(result.status).to eq(:skipped)
       expect(result.reason).to eq(:disabled)
     end
 
-    it "skips when webhook URL is missing" do
+    it "skips when no channel row exists and credentials carry no URL" do
+      NotificationDeliveryChannel.delete_all
       allow(Rails.application.credentials)
         .to receive(:dig).with(:notifications, :slack_webhook_url).and_return(nil)
       result = channel.deliver(notification)
@@ -151,22 +183,14 @@ RSpec.describe NotificationDeliveryChannel::Slack do
     end
 
     it "skips delivery (status :disabled) when configured URL is not allowlisted" do
-      bad = "https://attacker.com/services/T/B/x"
-      allow(Rails.application.credentials)
-        .to receive(:dig)
-        .with(:notifications, :slack_webhook_url)
-        .and_return(bad)
+      configure_slack_channel(url: "https://attacker.com/services/T/B/x")
       result = channel.deliver(notification)
       expect(result.status).to eq(:skipped)
       expect(result.reason).to eq(:disabled)
     end
 
     it "logs a warning when configured URL fails the allowlist" do
-      bad = "https://attacker.com/services/T/B/x"
-      allow(Rails.application.credentials)
-        .to receive(:dig)
-        .with(:notifications, :slack_webhook_url)
-        .and_return(bad)
+      configure_slack_channel(url: "https://attacker.com/services/T/B/x")
       expect(Rails.logger).to receive(:warn).with(/SLACK_HOSTS allowlist/)
       channel.deliver(notification)
     end

@@ -181,21 +181,33 @@ When a task expects output outside an actor's role, the actor STOPs and reports.
 - **Secrets** (passwords, API keys, tokens) live exclusively in
   `Rails.application.credentials`. Never in `.env*` files. Per-environment
   nested structure (mirror the `:postgres` block).
+- **Mandatory-2FA gate.** After session creation, a post-session `before_action`
+  in `Sessions::AuthConcern` redirects any authenticated user who has not
+  configured TOTP to `/settings/security/totp/new`, blocking every other route
+  until enrollment is confirmed. The gate is browser-only — API tokens and MCP
+  bearer surfaces are exempt by design (a bearer credential cannot complete a
+  TOTP enrollment). Allowlist is minimal: TOTP-setup routes plus logout.
 
 ## Configuration strategy
 
 - `.env.development` / `.env.test` — per-environment infrastructure connection
   info ONLY (host / port for Postgres, Redis URL). No secrets. Gitignored.
 - `.env.example` — template for the above. Committed.
-- `rails credentials:edit` — Postgres database / username / password per
-  environment (`:postgres` block), the seed-time owner email + password
-  (`:owner` block — see `docs/setup.md`), Sidekiq web auth, Active Record
-  Encryption keys.
+- Secrets live in a **single global `config/credentials.yml.enc`** decrypted by
+  `config/master.key` — there is **no per-environment credentials split** in
+  this repo. The structure inside the file can still be nested per env, but the
+  file itself is global. Top-level blocks: `active_record_encryption`, `github`,
+  `google_oauth`, `igdb`, `owner`, `postgres`, `secret_key_base`, `sidekiq`,
+  `tokens`, `voyage`. The `:owner` block is `username` + `password` (no email —
+  see `docs/setup.md`).
 - `config/master.key` — on disk, gitignored. Never in `.env`.
 - CI uses its own env vars defined in `.github/workflows/ci.yml` (no master key
   needed).
-- `AppSetting` table — `max_panes`, `pane_title_length`, theme. Managed via the
-  web UI. (YouTube OAuth config returns once the OAuth phase ships.)
+- `AppSetting` table — `max_panes`, `pane_title_length`, `theme`,
+  `monetization_enabled`, plus runtime non-secret flags
+  (`voyage_index_project_notes`, `keyboard_navigation_enabled`, `timezone`).
+  Managed via the web UI. YouTube OAuth, Voyage, and Google-console credentials
+  no longer live here — those are in `Rails.application.credentials`.
 
 ## Visual style
 
@@ -224,16 +236,22 @@ See `docs/design.md` for the full design system. Key rules:
   in the install. Multi-user is auth-only ergonomics ("more than one person can
   log in"), not data isolation.
 - `User` is the auth-only owner of sessions and tokens. Columns:
-  `id, email (citext, unique, NOT NULL), password_digest, created_at, updated_at`.
-  No `username`, no `tenant_id`, no `admin`. Login is **email + password**
-  (Phase 8); `Current.user` carries the authenticated user for the duration of a
-  request.
+  `id, username (citext, unique, NOT NULL), password_digest, created_at, updated_at`.
+  No `email`, no `tenant_id`, no `admin`. Login is **username + password +
+  mandatory TOTP** (Phase 8 + Phase 29 Unit A2); `Current.user` carries the
+  authenticated user for the duration of a request. The mandatory-2FA gate is
+  **browser-only** — API tokens and MCP bearer credentials are exempt by design.
 - `Channel` columns:
   `id, channel_url, star, last_synced_at, youtube_connection_id, timestamps`.
   `youtube_connection_id` (FK to `youtube_connections`, nullable) was added in
   Phase 7 as `oauth_identity_id` and renamed in Phase 9 per ADR 0006. The URL is
   **locked after create** (`before_update :prevent_url_change`); only `star` is
-  mutable. There are no other per-channel OAuth columns in this phase.
+  mutable. There are no other per-channel OAuth columns in this phase. Channel
+  is a **one-way read-only mirror from YouTube** (Phase 29 Unit A0). The only
+  mutable surface is `star`, toggled via `Channels::StarsController` at
+  `PATCH /channels/:channel_id/star`. `/channels/:id/history` (the change log)
+  survives as the mirror's audit trail. The edit form, preview component, diff
+  reconciliation surface, and the `ChannelDiff` model + table are all removed.
 - `ChannelSync` (`app/jobs/channel_sync.rb`, flat name) is a placeholder job: it
   flips `syncing` true, no-ops, then flips `syncing` false and stamps
   `last_synced_at` in an `ensure` block. Real YouTube API work lands when the
@@ -258,28 +276,22 @@ Tracked in `docs/orchestration/follow-ups.md`. Highest-priority items right now:
 2. Phase 28 sub-spec 01b — CLI multi-version game grouping (primaries-only
    render + drill-down + flat-mode toggle + wire-format parity). Rails + MCP
    halves shipped in 01a; the `pito-rust` half is the deferred remainder.
-3. YouTube credentials hot-rotation gap — `config/initializers/omniauth.rb`
-   reads `AppSetting` credentials at boot, so a Settings → YouTube rotation
-   requires a Puma restart to take effect. Future improvement: switch omniauth
-   provider config to lambda options that resolve `AppSetting` per request.
-4. Rails JSON endpoints for CLI / MCP parity across Phases 14 / 15 / 16 (Games,
+3. Rails JSON endpoints for CLI / MCP parity across Phases 14 / 15 / 16 (Games,
    Calendar, Notifications) — gated on Phase 20 friendly URLs landing in main.
-5. 2026-05-09 realignment top-level direction map — foundational reference for
+4. 2026-05-09 realignment top-level direction map — foundational reference for
    the remaining work units (tenant drop, MCP scope simplification, Channel +
    Video edit surfaces, Analytics, Game model, Calendar, Notifications, CLI
    parity).
-6. CLI feature-parity sweep — channels list / videos list / settings panes /
+5. CLI feature-parity sweep — channels list / videos list / settings panes /
    search results (work unit 10 in the realignment). Paused alongside the
    broader MCP / TUI work pending the realignment dispatches.
-7. Analytics window-summary click-rate ratios via dedicated impressions +
+6. Analytics window-summary click-rate ratios via dedicated impressions +
    card-performance reports — `DAILY_BASIC_METRICS` and the slimmed
    `WINDOW_RATIO_METRICS` (see ADR 0011) leave three click-rate ratio columns
    `NULL` on `channel_window_summaries` / `video_window_summaries`; merging them
    in needs a separate architect spec.
-8. Footage importer-side ffmpeg frame extraction + bulk PATCH upload (Phase 7.5
+7. Footage importer-side ffmpeg frame extraction + bulk PATCH upload (Phase 7.5
    spec 06 importer half).
-9. Meilisearch indexing parity with Voyage per-target flags (pairs with the
-   Voyage AppSetting revamp; gated on Channel + Video schema expansion).
 
 See `docs/orchestration/follow-ups.md` for the full open list. Items above are
 tracked alongside active phase work; the highest-priority ones track in flight

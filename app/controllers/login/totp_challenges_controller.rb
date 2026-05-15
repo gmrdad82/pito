@@ -75,7 +75,7 @@ class Login::TotpChallengesController < ApplicationController
       # backoff bucket — the user has proven possession of the seed,
       # whatever earlier failures recorded should not gate them out.
       Auth::BackoffCalculator.reset!(
-        key: "email:#{Digest::SHA256.hexdigest(@pre_auth_user.email.to_s.strip.downcase)}"
+        key: "username:#{Digest::SHA256.hexdigest(@pre_auth_user.username.to_s.strip.downcase)}"
       )
       # P25 F8 — on success, drop the nonce cache entry. The
       # activator + cookie clearance happen in `activate_and_redirect`.
@@ -151,7 +151,7 @@ class Login::TotpChallengesController < ApplicationController
       result: :failed,
       reason: :twofa_failed,
       user: @pre_auth_user,
-      email: @pre_auth_user.email
+      username: @pre_auth_user.username
     )
   rescue StandardError => e
     Rails.logger.warn("[Login::TotpChallengesController] AttemptLogger failed: #{e.class}: #{e.message}")

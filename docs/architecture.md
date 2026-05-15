@@ -20,7 +20,7 @@ three extensions at the database level:
 
 - `pgcrypto` — `gen_random_uuid()` and other crypto helpers.
 - `citext` — case-insensitive text type. Used by `saved_views.url` and by
-  `users.email`.
+  `users.username`.
 - `vector` — pgvector. Installed but no columns yet. Phase 10 (embeddings) adds
   the first vector column.
 
@@ -46,7 +46,7 @@ own.
 
 Postgres credentials live in Rails encrypted credentials under the `:postgres`
 block (`development` and `test` sub-keys). The seed-time owner credentials live
-under the `:owner` block (`{ email, password }`; see `setup.md`).
+under the `:owner` block (`{ username, password }`; see `setup.md`).
 
 `.env.development` / `.env.test` carry connection metadata only
 (`POSTGRES_HOST`, `POSTGRES_PORT`). Database name, username, and password live
@@ -75,10 +75,12 @@ and the bootstrap ceremony live in `docs/auth.md`.
 
 ### Schema
 
-- `users(id, email citext UNIQUE NOT NULL, password_digest, timestamps)`. Auth-
-  only model; no `username`, no `tenant_id`, no `admin`, no role column. Email
-  is case-insensitive unique via citext. `has_secure_password`. Login is
-  email-and-password (Phase 8).
+- `users(id, username citext UNIQUE NOT NULL, password_digest, totp_secret, totp_enabled, timestamps)`.
+  Auth-only model; no `email`, no `tenant_id`, no `admin`, no role column.
+  Username is case-insensitive unique via citext. `has_secure_password`. Login
+  is **username + password + mandatory TOTP**, browser-only gate (Phase 29 Unit
+  A2). The TOTP factor is required for every browser sign-in; bearer-token
+  surfaces (API + MCP) keep their own auth path and do not touch the TOTP gate.
 - `api_tokens(id, user_id, name, token_digest UNIQUE, last_token_preview, scopes jsonb, expires_at, last_used_at, revoked_at, timestamps)`.
   Digest is HMAC-SHA256 with the `:tokens.pepper` credential.
   `last_token_preview` stores the last 4 characters for identification.
@@ -294,12 +296,13 @@ channel from pito to Google, used by the YouTube Data and Analytics APIs. It is
 independent of the bearer-token and session surfaces — different flow, different
 model, different lifecycle.
 
-Per ADR 0006, sign-in is **local-only** (email + password). Google OAuth is
-**channel-only**: the OAuth dance authorizes pito to talk to YouTube on behalf
-of the install, never as an identity provider. Phase 9 renamed the Phase 7
-`GoogleIdentity` model to `YoutubeConnection` and stripped the dormant
-sign-in-with-Google branch from the callback controller; the surviving surface
-is documented below in its post-rename shape.
+Per ADR 0006, sign-in is **local-only** (username + password + mandatory TOTP,
+browser-only gate — see "Single-install, multi-user — User + ApiToken schema"
+above). Google OAuth is **channel-only**: the OAuth dance authorizes pito to
+talk to YouTube on behalf of the install, never as an identity provider. Phase 9
+renamed the Phase 7 `GoogleIdentity` model to `YoutubeConnection` and stripped
+the dormant sign-in-with-Google branch from the callback controller; the
+surviving surface is documented below in its post-rename shape.
 
 ### Auth surface map
 
@@ -308,7 +311,8 @@ each with its own lifecycle and storage:
 
 - **Browser → Rails (Web Puma)** — cookie + DB-backed sessions. The `sessions`
   table from Phase 6A holds the server-side session record; the cookie carries
-  only the session id. Login is email + password (Phase 8).
+  only the session id. Login is username + password + mandatory TOTP (Phase 29
+  Unit A2); the TOTP gate is browser-only.
 - **MCP / `pito` CLI → Rails (MCP Puma + API routes)** — bearer `ApiToken`s
   (Phase 3 / Phase 5). Tokens are HMAC-digested at rest, scoped, and
   authenticated by the shared `Api::TokenAuthenticator`.

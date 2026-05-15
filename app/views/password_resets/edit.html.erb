@@ -1,0 +1,40 @@
+<% content_for(:title, "set new password") %>
+<% content_for(:hide_chrome, true) %>
+
+<div style="max-width: 420px; margin: 24px 0;">
+  <h1>set new password</h1>
+  <p class="text-muted" style="margin-top: 2px;">
+    your code checked out — choose a new password.<br>
+    you will be signed in fresh through the normal login flow afterwards.
+  </p>
+
+  <%= form_with url: password_reset_path, method: :patch, scope: nil,
+                data: { turbo: false } do %>
+    <% if @user&.errors&.any? %>
+      <div class="flash-error" style="margin-bottom: 8px;">
+        <% @user.errors.full_messages.each do |msg| %>
+          <div><%= msg %></div>
+        <% end %>
+      </div>
+    <% end %>
+
+    <div style="margin-bottom: 12px;">
+      <label for="reset_password" class="form-label">new password</label>
+      <input type="password" name="password" id="reset_password"
+             required autocomplete="new-password"
+             style="width: 100%;">
+    </div>
+
+    <div style="margin-bottom: 12px;">
+      <label for="reset_password_confirmation" class="form-label">confirm new password</label>
+      <input type="password" name="password_confirmation" id="reset_password_confirmation"
+             required autocomplete="new-password"
+             style="width: 100%;">
+    </div>
+
+    <div class="dot-list">
+      <button type="submit">[set password]</button>
+      <%= render(BracketedLinkComponent.new(label: "cancel", href: login_path)) %>
+    </div>
+  <% end %>
+</div>

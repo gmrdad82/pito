@@ -1,10 +1,28 @@
 require "rails_helper"
 
 # Phase 25 — 01e. Request specs for /settings/security/totp*.
+#
+# Phase 29 — Unit A2. The auto-signed-in request-spec user is minted
+# TOTP-configured so the mandatory-2FA gate does not bounce it. These
+# specs exercise the enrollment / show / confirm flow, which only
+# makes sense for a NOT-yet-configured user — so each enrollment-flow
+# block first turns 2FA OFF on the signed-in user (`User.first`). The
+# enrollment routes are gate-allowlisted, so a 2FA-off signed-in user
+# reaches them. The disable-flow blocks keep 2FA ON.
 RSpec.describe "Settings::Security::Totps", type: :request do
   let(:user) { User.first || create(:user) }
 
+  # The enrollment flow (new/create/show/confirm) needs the signed-in
+  # user to have 2FA OFF. The auto-signed-in default user is
+  # TOTP-configured, so clear the seed + stamps for these blocks.
+  def disable_two_factor_for_signed_in_user!
+    user.update!(totp_seed_encrypted: nil, totp_enabled_at: nil, totp_disabled_at: nil)
+    user.totp_backup_codes.delete_all
+  end
+
   describe "GET /settings/security/totp" do
+    before { disable_two_factor_for_signed_in_user! }
+
     it "renders 200 with the [ enable 2FA ] CTA when 2FA is off" do
       get settings_security_totp_path
       expect(response).to have_http_status(:ok)
@@ -28,7 +46,10 @@ RSpec.describe "Settings::Security::Totps", type: :request do
     # silently — swap to MemoryStore for the enroll/show flow.
     let(:memory_cache) { ActiveSupport::Cache::MemoryStore.new }
 
-    before { allow(Rails).to receive(:cache).and_return(memory_cache) }
+    before do
+      disable_two_factor_for_signed_in_user!
+      allow(Rails).to receive(:cache).and_return(memory_cache)
+    end
 
     it "creates the seed and 10 backup codes" do
       expect {
@@ -64,7 +85,10 @@ RSpec.describe "Settings::Security::Totps", type: :request do
     # P25 F2 — one-shot payload lives in Rails.cache. Swap stores.
     let(:memory_cache) { ActiveSupport::Cache::MemoryStore.new }
 
-    before { allow(Rails).to receive(:cache).and_return(memory_cache) }
+    before do
+      disable_two_factor_for_signed_in_user!
+      allow(Rails).to receive(:cache).and_return(memory_cache)
+    end
 
     it "renders 200 when the one-shot payload is in the cache" do
       post settings_security_totp_path
@@ -121,6 +145,7 @@ RSpec.describe "Settings::Security::Totps", type: :request do
     let(:memory_cache) { ActiveSupport::Cache::MemoryStore.new }
 
     before do
+      disable_two_factor_for_signed_in_user!
       allow(Rails).to receive(:cache).and_return(memory_cache)
       # Drive the controller's one-shot cache by going through enrollment.
       # We then override the user's seed to match the deterministic seed
@@ -181,6 +206,10 @@ RSpec.describe "Settings::Security::Totps", type: :request do
     end
 
     it "redirects to the status page when 2FA is already off" do
+      # With 2FA off the mandatory gate also fires (the disable route
+      # is not gate-allowlisted) — both the gate and the action's own
+      # guard redirect to the same status page, so the contract holds.
+      disable_two_factor_for_signed_in_user!
       get settings_security_totp_disable_path
       expect(response).to redirect_to(settings_security_totp_path)
     end

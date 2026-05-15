@@ -61,10 +61,15 @@ RSpec.describe Auth::AuditLogger do
       expect(row.metadata).to eq({})
     end
 
-    it "accepts every action in the LD-13 vocabulary" do
+    # Phase 29 — Unit A1. `youtube_credentials_updated` was dropped from
+    # `Auth::AuditLogger`'s active allowlist (the YouTube credentials
+    # Settings pane is gone). The `AuthAuditLog` enum value 7 stays
+    # reserved, but the logger refuses to write that action — see the
+    # dedicated example below.
+    it "accepts every action in the active allowlist" do
       %i[approve block unblock purge
          totp_enroll totp_disable backup_code_regenerate
-         youtube_credentials_updated voyage_credentials_updated].each do |action|
+         voyage_credentials_updated].each do |action|
         expect {
           described_class.call(
             acting_user: user,
@@ -87,6 +92,20 @@ RSpec.describe Auth::AuditLogger do
           )
         }.to change(AuthAuditLog, :count).by(1)
       end
+    end
+
+    # Phase 29 — Unit A1. `youtube_credentials_updated` is no longer in
+    # the active allowlist — the logger rejects it even though the
+    # underlying `AuthAuditLog` enum value 7 stays reserved.
+    it "rejects the retired youtube_credentials_updated action" do
+      expect {
+        described_class.call(
+          acting_user: user,
+          source_surface: :web,
+          action: :youtube_credentials_updated,
+          target: attempt
+        )
+      }.to raise_error(ArgumentError, /invalid action/)
     end
   end
 

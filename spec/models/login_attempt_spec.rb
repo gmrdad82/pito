@@ -42,15 +42,31 @@ RSpec.describe LoginAttempt, type: :model do
       )
     end
 
-    it "exposes the LD-1 reason vocabulary verbatim (15 reasons)" do
-      expect(described_class.reasons.size).to eq(15)
+    it "exposes the LD-1 reason vocabulary verbatim (16 reasons)" do
+      # Phase 29 — Unit A2 (R4) added `first_login_totp_setup_required`.
+      expect(described_class.reasons.size).to eq(16)
       %w[wrong_password unknown_account new_location_pending
          new_location_2fa_passed trusted_location_success blocked_pair
          rate_limited twofa_failed approved_from_web approved_from_tui
          approved_from_mcp blocked_from_web blocked_from_tui
-         blocked_from_mcp pending_expired].each do |reason|
+         blocked_from_mcp pending_expired
+         first_login_totp_setup_required].each do |reason|
         expect(described_class.reasons.key?(reason)).to be(true), "missing reason #{reason}"
       end
+    end
+
+    # Phase 29 — Unit A2 (R4). The first-login bootstrap path records
+    # this reason — a `LoginAttempt` row can be created and persisted
+    # with it.
+    it "accepts first_login_totp_setup_required as a persistable reason" do
+      attempt = build(
+        :login_attempt,
+        result: :success,
+        reason: :first_login_totp_setup_required
+      )
+      expect(attempt).to be_valid
+      expect { attempt.save! }.not_to raise_error
+      expect(attempt.reload.reason).to eq("first_login_totp_setup_required")
     end
   end
 

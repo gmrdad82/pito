@@ -17,8 +17,13 @@
       <td class="text-muted" style="padding-right: 12px;">starred</td>
       <td>
         <%= channel.star? ? "yes" : "no" %>
-        <%= form_with(model: channel, html: { style: "display: inline; margin-left: 8px;" }) do |f| %>
-          <%= f.hidden_field :star, value: channel.star? ? "no" : "yes" %>
+        <%# Unit A0 — channel is a read-only mirror; `star` is the one
+            mutable attribute and rides the dedicated star resource
+            (PATCH /channels/:id/star). %>
+        <%= form_with(url: channel_star_path(channel), method: :patch,
+                      html: { style: "display: inline; margin-left: 8px;" }) do |f| %>
+          <input type="hidden" name="channel[star]"
+                 value="<%= channel.star? ? "no" : "yes" %>">
           <button type="submit" class="bracketed" style="background: none; border: none; cursor: pointer; padding: 0; color: inherit; font: inherit;">
             [<%= channel.star? ? "unstar" : "star" %>]
           </button>

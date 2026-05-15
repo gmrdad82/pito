@@ -34,7 +34,7 @@ RSpec.describe "Channel change history journey", type: :system do
     expect(page).to have_selector("h1", text: /change history/)
     expect(page).to have_content("Old test title")
     expect(page).to have_content("New test title")
-    expect(page).to have_content(user.email)
+    expect(page).to have_content(user.username)
   end
 
   it "renders the empty state when no changes exist" do

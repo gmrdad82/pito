@@ -25,16 +25,13 @@ module Youtube
     def call(youtube_connection)
       raise Youtube::NeedsReauthError, "no refresh token on file" if youtube_connection.refresh_token.blank?
 
-      # 2026-05-11 — credentials moved to the AppSetting singleton.
-      # The credentials block stays on-disk as a manual revert path
-      # (see AppSetting header comment); the resolver mirrors the
-      # omniauth initializer order: AppSetting first, credentials
-      # second.
+      # Phase 29 — Unit A1. Google OAuth credentials live exclusively in
+      # `Rails.application.credentials.google_oauth` again (the project's
+      # configuration strategy — secrets in credentials only). The
+      # AppSetting read is gone.
       response = post_form(
-        client_id:     AppSetting.youtube_client_id.presence ||
-                       Rails.application.credentials.dig(:google_oauth, :client_id),
-        client_secret: AppSetting.youtube_client_secret.presence ||
-                       Rails.application.credentials.dig(:google_oauth, :client_secret),
+        client_id:     Rails.application.credentials.dig(:google_oauth, :client_id),
+        client_secret: Rails.application.credentials.dig(:google_oauth, :client_secret),
         refresh_token: youtube_connection.refresh_token,
         grant_type:    "refresh_token"
       )

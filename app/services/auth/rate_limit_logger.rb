@@ -11,7 +11,7 @@
 #       request: nil,
 #       ip: "1.2.3.4",
 #       user_agent: "...",
-#       email: "you@example.com",
+#       username: "owner",
 #       fingerprint_hash: "deadbeef..."   # optional; composed if missing
 #     )
 #
@@ -19,7 +19,7 @@
 # (the rate-limit response must succeed even if logging fails).
 module Auth
   class RateLimitLogger
-    def self.call(request: nil, ip: nil, user_agent: nil, email: nil,
+    def self.call(request: nil, ip: nil, user_agent: nil, username: nil,
                   fingerprint_hash: nil)
       resolved_ip = (request&.remote_ip.to_s.presence) || ip.to_s.presence || "0.0.0.0"
       resolved_ua = (request&.user_agent.to_s.first(1024).presence) ||
@@ -46,11 +46,11 @@ module Auth
         resolved_ip.include?(":") ? "::/64" : "0.0.0.0/24"
       end
 
-      user_row = User.find_by(email: email.to_s.strip.downcase) if email.present?
+      user_row = User.find_by(username: username.to_s.strip.downcase) if username.present?
 
       LoginAttempt.create!(
         user: user_row,
-        email_attempted: email.to_s.strip.presence,
+        email_attempted: username.to_s.strip.presence,
         result: :failed,
         reason: :rate_limited,
         ip: resolved_ip,

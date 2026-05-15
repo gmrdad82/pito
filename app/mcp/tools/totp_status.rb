@@ -41,7 +41,9 @@ module Mcp
 
         payload = {
           user_id: user.id,
-          email: user.email,
+          # Phase 29 — Unit A2. User auth refactor: `email` → `username`.
+          # MCP surface is paused; this is the minimal column-gone fix.
+          username: user.username,
           totp_enabled: user.totp_enabled? ? "yes" : "no",
           totp_enabled_at: user.totp_enabled_at&.utc&.iso8601,
           totp_disabled_at: user.totp_disabled_at&.utc&.iso8601,

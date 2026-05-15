@@ -55,9 +55,12 @@ RSpec.describe "GET /channels/:slug — show page revamp", type: :request do
       expect(breadcrumb_html).not_to match(/channel\s+Pito Test Channel/)
     end
 
-    it "exposes the empty channel_diff_banner Turbo frame slot" do
+    it "does not expose a channel_diff_banner Turbo frame slot (read-only mirror)" do
+      # Unit A0 — the channel is a read-only mirror; the diff banner
+      # slot was removed along with the whole diff-reconciliation
+      # surface.
       get channel_path(hydrated_channel)
-      expect(response.body).to match(/<turbo-frame[^>]*id="channel_diff_banner"[^>]*>/)
+      expect(response.body).not_to include("channel_diff_banner")
     end
 
     it "renders two pane rows (detail, analytics+Google) and a videos table outside any pane" do
@@ -150,20 +153,28 @@ RSpec.describe "GET /channels/:slug — show page revamp", type: :request do
       expect(response.body).to include("href=\"#{videos_path(channel: hydrated_channel.to_param)}\"")
     end
 
-    it "renders the existing chrome — [e], [sync], [-]" do
+    it "renders the existing chrome — [sync], [-]" do
       get channel_path(hydrated_channel)
-      expect(response.body).to include(edit_channel_path(hydrated_channel))
       expect(response.body).to include("/syncs/channel/#{hydrated_channel.id}")
       expect(response.body).to include("/deletions/channel/#{hydrated_channel.id}")
     end
 
-    # Phase 11i Q7 follow-up — single-channel `[sync]` carries
-    # `intent=diff_check` so the POST enqueues `ChannelDiffCheckJob`
-    # instead of fanning through `BulkSyncJob → ChannelSync` (the cache
-    # overwrite path). Cron-driven `ChannelSync` is unchanged.
-    it "the [sync] link uses intent=diff_check (compare YouTube, not overwrite cache)" do
+    # Unit A0 — the channel is a read-only mirror. There is no edit
+    # affordance: no `[ e ]` / `[ edit ]` link, no `edit_channel_path`.
+    it "renders no edit affordance (read-only mirror)" do
       get channel_path(hydrated_channel)
-      expect(response.body).to include("/syncs/channel/#{hydrated_channel.id}?intent=diff_check")
+      expect(response.body).not_to match(%r{href="/channels/[^"]+/edit"})
+      expect(response.body).not_to match(/\[\s*<span class="bl">e<\/span>\s*\]/)
+    end
+
+    # Unit A0 — single-channel `[sync]` is the one-way `ChannelSync`
+    # cache pull (the `overwrite` intent). The diff-check intent was
+    # retired for channels; the href is plain `/syncs/channel/:id` with
+    # no `intent=diff_check` query.
+    it "the [sync] link runs the plain overwrite intent (no diff_check)" do
+      get channel_path(hydrated_channel)
+      expect(response.body).to include("/syncs/channel/#{hydrated_channel.id}")
+      expect(response.body).not_to include("intent=diff_check")
     end
 
     it "does not introduce JS confirm / alert / data-turbo-confirm" do

@@ -10,13 +10,17 @@ RSpec.describe NotificationDeliver do
         .not_to raise_error
     end
 
+    # Phase 29 — Unit A1. The Slack / Discord delivery gate is now
+    # derived from the `NotificationDeliveryChannel` row (present
+    # `webhook_url` + a routing flag). The orphaned `AppSetting.*_enabled`
+    # columns were dropped. A configured channel row drives both the
+    # gate AND the resolved webhook URL.
     it "discord channel: routes to the Discord channel and stamps the column on success" do
       AppSetting.delete_all
-      AppSetting.create!(key: "max_panes", value: "5", discord_enabled: true)
+      NotificationDeliveryChannel.delete_all
       url = "https://discord.com/api/webhooks/abc"
-      allow(Rails.application.credentials).to receive(:dig).and_return(nil)
-      allow(Rails.application.credentials)
-        .to receive(:dig).with(:notifications, :discord_webhook_url).and_return(url)
+      row = NotificationDeliveryChannel.new(kind: "discord", webhook_url: url, everything: true)
+      row.save!(validate: false)
       stub_request(:post, url).to_return(status: 204, body: "")
 
       expect { described_class.new.perform(notification.id, "discord") }
@@ -25,11 +29,10 @@ RSpec.describe NotificationDeliver do
 
     it "slack channel: routes to the Slack channel and stamps the column on success" do
       AppSetting.delete_all
-      AppSetting.create!(key: "max_panes", value: "5", slack_enabled: true)
+      NotificationDeliveryChannel.delete_all
       url = "https://hooks.slack.com/services/abc"
-      allow(Rails.application.credentials).to receive(:dig).and_return(nil)
-      allow(Rails.application.credentials)
-        .to receive(:dig).with(:notifications, :slack_webhook_url).and_return(url)
+      row = NotificationDeliveryChannel.new(kind: "slack", webhook_url: url, everything: true)
+      row.save!(validate: false)
       stub_request(:post, url).to_return(status: 200, body: "ok")
 
       expect { described_class.new.perform(notification.id, "slack") }

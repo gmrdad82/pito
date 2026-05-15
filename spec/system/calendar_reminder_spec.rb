@@ -1,28 +1,22 @@
 require "rails_helper"
 
-# Phase 7.5 §11h — Calendar Reminder Integration.
+# Phase 7.5 §11h — Calendar Reminder Integration (calendar-endpoint half).
 #
-# Stimulus-controller-mediated wiring between the 14-day title/handle
-# unlock gate on `/channels/:slug/edit` and the Phase 21 JSON endpoint
-# `POST /calendar/entries.json`. The rack_test driver does NOT execute
-# JavaScript, so the system spec covers what is testable end-to-end:
+# Unit A0 (beta-2) trimmed this spec. The channel-edit reminder-link
+# rendering examples were removed when the channel became a read-only
+# mirror — the `/channels/:slug/edit` form, the `[remind me on
+# YYYY-MM-DD]` affordance, and the `reminder-link` Stimulus controller
+# were all deleted. What survives is the calendar-side contract: the
+# `POST /calendar/entries.json` endpoint that the reminder flow (and
+# any other client) posts against. That endpoint is unrelated to the
+# channel edit form and stays fully covered here.
 #
-#   1. The edit page renders the `[remind me on YYYY-MM-DD]` link with
-#      every data attribute the Stimulus controller reads
-#      (`reminder_link_*_value`, including the new `channel_name` and
-#      `timezone` values added in 11h).
-#   2. POSTing the exact JSON payload the Stimulus controller builds
-#      against `/calendar/entries.json` succeeds — happy path.
-#   3. The same payload posted twice is idempotent — a duplicate
-#      reminder for the same (channel, title, date) tuple is a no-op
-#      and surfaces the `duplicate: "yes"` marker rather than
-#      creating a second row.
-#   4. A bad payload (invalid yes/no, missing starts_at) returns 4xx
-#      and creates no row — the form on the other side stays usable.
+# The rack_test driver does NOT execute JavaScript; these examples
+# exercise the JSON endpoint directly via `page.driver.post`.
 #
 # Per CLAUDE.md hard rule: no `confirm` / `alert` / `prompt` /
-# `data-turbo-confirm` introduced. Toast is a passive flash.
-RSpec.describe "Calendar reminder (channel 14-day gate)", type: :system do
+# `data-turbo-confirm` introduced.
+RSpec.describe "Calendar reminder (calendar entries endpoint)", type: :system do
   let(:connection) { create(:youtube_connection) }
   let!(:channel) do
     create(:channel,
@@ -34,67 +28,9 @@ RSpec.describe "Calendar reminder (channel 14-day gate)", type: :system do
 
   before do
     driven_by(:rack_test)
-    # The title gate is open when title_changed_at is strictly within
-    # the 14-day window. Backdate to 3 days ago so the gate locks and
-    # the [remind me] link renders.
+    # `title_changed_at` is a kept cached column; the reminder date is
+    # derived from it (the 14-day-after-change unlock convention).
     channel.update_columns(title_changed_at: 3.days.ago)
-  end
-
-  describe "[remind me on YYYY-MM-DD] link rendering" do
-    it "happy path: renders the link with every data attribute the controller reads" do
-      visit edit_channel_path(channel)
-
-      expect(page).to have_content("edit channel")
-      expect(page).to have_css('a[data-controller="reminder-link"]')
-
-      link = find('a[data-controller="reminder-link"]')
-      expected_date = (channel.title_changed_at + 14.days).to_date.iso8601
-      expect(link.text).to include("[remind me on #{expected_date}]")
-      expect(link["data-reminder-link-unlock-date-value"]).to eq(expected_date)
-      expect(link["data-reminder-link-field-value"]).to eq("title")
-      expect(link["data-reminder-link-channel-id-value"]).to eq(channel.id.to_s)
-      expect(link["data-reminder-link-channel-name-value"]).to eq("Cached title")
-      expect(link["data-reminder-link-timezone-value"]).to be_present
-    end
-
-    it "falls back to the channel URL slug when Channel#title is blank" do
-      channel.update_columns(title: nil)
-      visit edit_channel_path(channel)
-      link = find('a[data-controller="reminder-link"]')
-      expect(link["data-reminder-link-channel-name-value"]).to eq("UCabcabcabcabcabcabcabcA")
-    end
-
-    it "renders the handle-gate link with field=handle when the handle gate is open" do
-      channel.update_columns(
-        title_changed_at: nil,
-        handle: "@x",
-        handle_changed_at: 1.day.ago
-      )
-      visit edit_channel_path(channel)
-      link = find('a[data-controller="reminder-link"]')
-      expect(link["data-reminder-link-field-value"]).to eq("handle")
-    end
-
-    it "omits the link when the gate is NOT locked (field is currently editable)" do
-      channel.update_columns(title_changed_at: 20.days.ago)
-      visit edit_channel_path(channel)
-      expect(page).to have_no_css('a[data-controller="reminder-link"]')
-      expect(page).to have_field("channel[title]")
-    end
-
-    it "escapes a channel title containing markup (XSS smoke)" do
-      channel.update_columns(title: '<script>alert("x")</script>')
-      visit edit_channel_path(channel)
-      link = find('a[data-controller="reminder-link"]')
-      # `data-*` attributes are surfaced as plain strings — angle brackets
-      # are NOT executed as DOM nodes, and Capybara's `[…]` accessor
-      # returns the decoded text. The page source must not contain a
-      # live `<script>` injection inside the attribute value.
-      expect(link["data-reminder-link-channel-name-value"]).to eq('<script>alert("x")</script>')
-      raw = page.html
-      expect(raw).to include("&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;")
-      expect(raw).not_to match(%r{<script>alert\("x"\)</script>})
-    end
   end
 
   describe "POST /calendar/entries.json (Stimulus controller contract)" do

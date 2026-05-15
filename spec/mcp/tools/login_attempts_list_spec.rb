@@ -112,8 +112,8 @@ RSpec.describe Mcp::Tools::LoginAttemptsList do
     end
 
     it "user_email filter applies exact match (Phase 25 — 01d)" do
-      special = create(:login_attempt, email_attempted: "needle@example.test")
-      data = parse(call_tool(user_email: "needle@example.test"))
+      special = create(:login_attempt, email_attempted: "needle_user")
+      data = parse(call_tool(user_email: "needle_user"))
       ids = data["attempts"].map { |r| r["id"] }
       expect(ids).to contain_exactly(special.id)
     end

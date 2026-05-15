@@ -72,18 +72,13 @@ module Youtube
 
     private
 
-    # 2026-05-11 — public API key moved to the AppSetting singleton
-    # so the operator can rotate it from the Settings UI without a
-    # deploy. The legacy `:youtube, :public_api_key` lookup path is
-    # retained for one release as a transitional fallback (no install
-    # actually wrote to it because `:youtube` was never a credentials
-    # block in this app — confirmed in the 2026-05-10 fix log), and
-    # the `:google_oauth, :api_key` path is the credentials-side
-    # fallback the backfill task migrates from.
+    # Phase 29 — Unit A1. The public API key lives exclusively in
+    # `Rails.application.credentials.google_oauth.api_key` again (the
+    # project's configuration strategy — secrets in credentials only).
+    # The AppSetting read and the dead `:youtube, :public_api_key`
+    # transitional path are both gone.
     def api_key
-      AppSetting.youtube_api_key.presence ||
-        Rails.application.credentials.dig(:google_oauth, :api_key) ||
-        Rails.application.credentials.dig(:youtube, :public_api_key)
+      Rails.application.credentials.dig(:google_oauth, :api_key)
     end
 
     def normalize_list(response)

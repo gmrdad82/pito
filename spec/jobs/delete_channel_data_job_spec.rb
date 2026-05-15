@@ -24,7 +24,6 @@ RSpec.describe DeleteChannelDataJob, type: :job do
                                       window_start: 7.days.ago.to_date,
                                       window_end: Date.current)
       create(:channel_change_log, channel: channel)
-      create(:channel_diff, channel: channel)
       create(:rejected_video_import, channel: channel)
       # Video-level dependents across two videos to exercise the
       # transitive cascade.
@@ -47,7 +46,6 @@ RSpec.describe DeleteChannelDataJob, type: :job do
       expect(ChannelDaily.where(channel_id: channel.id)).not_to exist
       expect(ChannelWindowSummary.where(channel_id: channel.id)).not_to exist
       expect(ChannelChangeLog.where(channel_id: channel.id)).not_to exist
-      expect(ChannelDiff.where(channel_id: channel.id)).not_to exist
       expect(RejectedVideoImport.where(channel_id: channel.id)).not_to exist
 
       # Video-side checks — every video_id under the destroyed channel

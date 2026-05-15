@@ -52,7 +52,15 @@ class LoginAttempt < ApplicationRecord
     blocked_from_web: 11,
     blocked_from_tui: 12,
     blocked_from_mcp: 13,
-    pending_expired: 14
+    pending_expired: 14,
+    # Phase 29 — Unit A2 (R4). First-login bootstrap: a no-TOTP
+    # fresh-seed user is given an active session directly (skipping
+    # new-location approval — an approver does not yet exist) so the
+    # post-session mandatory-2FA gate can force enrollment. This
+    # reason distinguishes that bootstrap path from a normal trusted
+    # login and from a real new-location approval. Integer-backed
+    # enum, so the new value needs no migration.
+    first_login_totp_setup_required: 15
   }, prefix: :reason
 
   validates :result, presence: true

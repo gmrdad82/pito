@@ -134,19 +134,22 @@ RSpec.describe "TOTP verification modal layout integration", type: :request do
   end
 
   describe "settings pane forms when 2FA is off" do
+    # Phase 29 — Unit A2. The mandatory-2FA gate means a 2FA-off
+    # authenticated user can never reach `/settings` — the gate
+    # bounces them to the TOTP enrollment page first. The
+    # `required="no"` settings-pane markup is therefore unreachable on
+    # the web; the only observable contract for a 2FA-off user on
+    # `/settings` is the gate redirect. The `required="no"` wiring
+    # itself is still locked by the Slack/Discord partial block below,
+    # which renders the partials in isolation past the gate.
     before do
       disable_two_factor!
       sign_in_as(user)
     end
 
-    it "YouTube pane form carries `required=\"no\"` so the submit passes through" do
+    it "redirects /settings to the TOTP enrollment page (mandatory-2FA gate)" do
       get settings_path
-      expect(response.body).to include('data-totp-modal-required-value="no"')
-    end
-
-    it "still renders the layout-level dialog (the controller short-circuits when required=no)" do
-      get settings_path
-      expect(response.body).to include('id="totp-verification-modal"')
+      expect(response).to redirect_to(settings_security_totp_path)
     end
   end
 

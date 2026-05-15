@@ -1,9 +1,12 @@
 # Seed data for development — run with: bin/rails db:seed
 # Idempotent: safe to run multiple times.
 #
-# Phase 8 — Tenant Drop + Email-Only Login (ADR 0003). The seed reads
-# `Rails.application.credentials.owner.{email, password}` only; there
-# is no Tenant model, no `username`, no `tenant_name` / `tenant_slug`.
+# Phase 29 — Unit A2. User auth refactor. The seed reads
+# `Rails.application.credentials.owner.{username, password}` only;
+# there is no Tenant model, no email, no `tenant_name` /
+# `tenant_slug`. The seeded owner has no TOTP configured, so their
+# first login is gated straight into TOTP setup by the mandatory-2FA
+# gate (`Sessions::AuthConcern#require_totp_configured!`).
 
 puts "seeding app settings..."
 AppSetting.set("max_panes", "5")
@@ -21,23 +24,17 @@ AppSetting.find_or_create_by!(key: "monetization_enabled") do |setting|
 end
 puts "  monetization_enabled = no (initial)"
 
-# Phase 4 §3.5 (Phase B revamp, 2026-05-04) — Voyage AppSetting bootstrap.
-# The key is sourced from Rails credentials during seeding so initial
-# deployments work without manual UI entry. Once the app reaches Hetzner
-# (Phase 16), credentials will hold the key only as a bootstrap fallback,
-# and the UI becomes the authoritative source. Idempotent — re-running
-# seeds does NOT clobber a key the user has already set, and the flag
-# only flips on in production once the key is present.
-if AppSetting.exists?
+# Phase 29 — Unit A1. The Voyage API key moved back into
+# `Rails.application.credentials.voyage` (per-environment block) — it
+# is no longer an AppSetting column, so there is nothing to bootstrap
+# here. The non-secret `voyage_index_project_notes` flag stays on the
+# AppSetting row; in production it flips on once a Voyage key is
+# present in credentials (`AppSetting.voyage_configured?` checks the
+# credentials presence). Idempotent — only flips a flag that is still
+# off.
+if Rails.env.production? && AppSetting.exists? && AppSetting.voyage_configured?
   setting = AppSetting.first
-  if setting.voyage_api_key.blank?
-    creds_key = Rails.application.credentials.dig(:voyage, Rails.env.to_sym, :api_key)
-    if creds_key.present?
-      setting.update!(voyage_api_key: creds_key)
-      puts "  voyage_api_key seeded from credentials"
-    end
-  end
-  if Rails.env.production? && setting.voyage_api_key.present? && !setting.voyage_index_project_notes
+  unless setting.voyage_index_project_notes
     setting.update!(voyage_index_project_notes: true)
     puts "  voyage_index_project_notes = true (production)"
   end
@@ -51,18 +48,18 @@ owner_creds = Rails.application.credentials.dig(:owner)
 if owner_creds.blank?
   puts "  WARNING: credentials :owner block missing; using placeholder values."
   puts "           run `bin/rails credentials:edit` to populate :owner with"
-  puts "           email and password."
+  puts "           username and password."
 end
 
-owner_email    = owner_creds&.dig(:email).presence || "owner@example.test"
+owner_username = owner_creds&.dig(:username).presence || "owner"
 owner_password = owner_creds&.dig(:password).presence || "change-me-please"
 
 puts "seeding owner user..."
-owner = User.find_or_initialize_by(email: owner_email)
+owner = User.find_or_initialize_by(username: owner_username)
 owner.password = owner_password
 owner.password_confirmation = owner_password
 owner.save!
-puts "  user: #{owner.email} (id=#{owner.id})"
+puts "  user: #{owner.username} (id=#{owner.id})"
 
 # Phase 3 — Step C (5c-settings-ui-and-docs.md). Seed a default `dev` API
 # token so the install ceremony captures plaintext once. Idempotent — second
@@ -153,95 +150,15 @@ end
 puts "  #{Platform.unscoped.count} platform rows present."
 
 # ---------------------------------------------------------------------------
-# Phase 4 — Project Workspace sample data
+# Sample data (project workspace + "now playing" collection)
 # ---------------------------------------------------------------------------
 #
-# Seeds one Collection, one Game (with cover art attached from
-# spec/fixtures/files/cover_art.jpg), one Project that references the Game and
-# the Collection, one Note (`last_modified_at` mirrors the row's creation), and
-# one Timeline in the initial `editing` state. Idempotent — `find_or_*` calls
-# guard against repeat runs.
-
-puts "seeding project workspace sample..."
-
-# Phase 27 follow-up (2026-05-11) — renamed from "Demo Collection" to
-# "currently playing" so an empty pito install boots with a heading
-# the operator can recognise rather than a placeholder. Idempotent:
-# Collection lookup goes by `name`, so re-running seeds finds the same
-# row.
-collection = Collection.find_or_create_by!(name: "currently playing")
-
-game = Game.find_or_initialize_by(title: "Demo Game")
-game.collection ||= collection
-game.publisher  ||= "Demo Studios"
-game.platforms = [ { "platform" => "PS5", "owned" => true, "recorded_on" => true } ] if game.platforms.blank?
-game.save!
-
-cover_fixture_path = Rails.root.join("spec/fixtures/files/cover_art.jpg")
-if cover_fixture_path.exist? && !game.cover_art.attached?
-  game.cover_art.attach(
-    io: File.open(cover_fixture_path),
-    filename: "cover_art.jpg",
-    content_type: "image/jpeg"
-  )
-end
-
-project = Project.find_or_create_by!(name: "Demo Project")
-
-# Polymorphic references — Project -> Game and Project -> Collection.
-ProjectReference.find_or_create_by!(
-  project: project,
-  referenceable_type: "Game", referenceable_id: game.id
-)
-ProjectReference.find_or_create_by!(
-  project: project,
-  referenceable_type: "Collection", referenceable_id: collection.id
-)
-
-# Sample Note — disk file is NOT created here (NoteSyncJob does that in
-# Phase B). The DB row alone is enough for Phase A's smoke test.
-Note.find_or_create_by!(
-  project: project, path: "demo-note.md"
-) do |note|
-  note.title = "Demo note"
-  note.last_modified_at = Time.current
-end
-
-# Sample Timeline in the initial state (aasm `editing`).
-Timeline.find_or_create_by!(project: project, title: "Demo Timeline") do |t|
-  t.state = :editing
-end
-
-puts "  1 collection, 1 game (with cover art), 1 project (2 references), 1 note, 1 timeline"
-
+# 2026-05-14 — Phase 29 Unit A2 removed the project-workspace sample
+# block (Collection / Game / Project / ProjectReference / Note /
+# Timeline) and the "now playing" demo Collection. A fresh seed no
+# longer creates any Channel, Video, Project, Game, Collection, Note,
+# or Timeline rows — those surfaces bootstrap from real data. Channels
+# and videos were already dropped from the seed on 2026-05-10.
 # ---------------------------------------------------------------------------
-# Phase 27 follow-up (2026-05-11) — demo Collection so the `/games`
-# Collections outer-shelf has a 2-game collection to render. Without
-# this, a fresh install boots with a single "currently playing" / Demo
-# Game row (1 member → passthrough cover, no composite) — the composer
-# code path stays cold and we never see the multi-game composite tile
-# the user asked about ("for these 2 games, create a collection for me
-# so I can see how it will look in the collections shelf").
-#
-# Pragmata + Red Dead Redemption 2 are the two games called out. Both
-# are looked up by title (the conventional pito seed pattern). If
-# they're not in the local library yet, the seed inserts thin
-# placeholder rows so the collection has membership. A later IGDB
-# sync fills in `cover_image_id` for real composite output.
-# ---------------------------------------------------------------------------
-puts "seeding 'now playing' demo collection..."
-
-now_playing = Collection.find_or_create_by!(name: "now playing")
-
-[ "Pragmata", "Red Dead Redemption 2" ].each do |title|
-  g = Game.find_or_initialize_by(title: title)
-  # Idempotent: a row already pinned to another collection keeps it;
-  # a fresh row gets `now_playing` so the demo collection has two
-  # members on a clean install.
-  g.collection ||= now_playing
-  g.save!
-end
-
-puts "  collection 'now playing' has #{now_playing.games.reload.count} game(s)."
 
 puts "done!"

@@ -89,7 +89,7 @@ RSpec.describe Youtube::Auditor do
     end
 
     it "prefers the explicit user: argument over connection.user_id" do
-      other = create(:user, email: "other-#{SecureRandom.hex(4)}@example.test")
+      other = create(:user, username: "other_#{SecureRandom.hex(4)}")
       host.audit(
         endpoint: "channels.list",
         http_method: "GET",

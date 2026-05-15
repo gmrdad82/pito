@@ -38,7 +38,7 @@ RSpec.describe "Login::TotpChallenges", type: :request do
   end
 
   def post_login_with_password
-    post login_path, params: { email: user.email, password: password }
+    post login_path, params: { username: user.username, password: password }
   end
 
   describe "GET /login/totp", :unauthenticated do

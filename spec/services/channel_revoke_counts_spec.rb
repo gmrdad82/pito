@@ -79,11 +79,9 @@ RSpec.describe ChannelRevokeCounts, type: :service do
         expect(counts.change_logs).to be >= 1
       end
 
-      it "counts channel_diffs" do
-        create(:channel_diff, channel: channel)
-        counts = described_class.for(channel)
-        expect(counts.diffs).to be >= 1
-      end
+      # Unit A0 — the `channel_diffs` table was dropped; the channel is
+      # a read-only mirror. The `diffs` count category is now video-side
+      # only (see the "counts video diffs" example above).
 
       it "counts channel_dailies (analytics)" do
         create(:channel_daily, channel: channel, date: Date.current)

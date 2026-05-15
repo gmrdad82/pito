@@ -148,9 +148,9 @@
     <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
       <legend><h2>user</h2></legend>
 
-      <p><%= Current.user&.email %></p>
+      <p><%= Current.user&.username %></p>
       <p class="text-muted">
-        change your email or password.<br>
+        change your username or password.<br>
         current password is required.
       </p>
 
@@ -176,113 +176,21 @@
 ============================================================ %>
 <h2>integrations</h2>
 
-<%# integrations row 1 — YouTube | Voyage.ai. 2026-05-11 — YouTube
-    moved from a read-only credentials-status card to a Voyage-style
-    edit form. Source of truth: AppSetting singleton columns
-    (sensitive ones encrypted via Active Record Encryption). The
-    `:google_oauth` credentials block stays on-disk as a manual
-    revert path but is no longer the runtime read source. %>
+<%# integrations row 1 — Voyage.ai. Phase 29 Unit A1 — the YouTube
+    credentials edit pane was removed (Google / YouTube OAuth config
+    is deploy-time `Rails.application.credentials` config now, no web
+    surface). The Voyage.ai pane is slimmed: the API key field + the
+    key-clear checkbox are gone (the key moved back into
+    `Rails.application.credentials.voyage`); only the non-secret
+    `voyage_index_project_notes` toggle remains, still
+    Settings-UI-managed so the operator can flip project-notes
+    indexing on/off at runtime without a deploy. %>
 <div class="pane-row">
-  <%# YouTube — editable credentials.
+  <%# Voyage.ai — project-notes indexing toggle.
 
-      2026-05-11 — the inline `2FA code` text input above `[update]`
-      was retired; the layout-level TOTP verification modal
-      (`shared/_totp_verification_modal`) is the surface now. The
-      per-form `totp-modal` Stimulus controller intercepts the submit
-      when 2FA is on and re-submits with `totp_code` attached after
-      the user types into the 6-box segmented input. When 2FA is
+      The `totp-modal` Stimulus controller intercepts the submit when
+      2FA is on and re-submits with `totp_code` attached. When 2FA is
       off, `required` is "no" and the submit passes through. %>
-  <div class="pane">
-    <%= form_with url: settings_path, method: :patch,
-                  data: {
-                    controller: "totp-modal",
-                    action: "submit->totp-modal#maybeIntercept",
-                    totp_modal_required_value: Current.user&.totp_enabled? ? "yes" : "no"
-                  } do |f| %>
-      <input type="hidden" name="section" value="youtube">
-      <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
-        <legend><h2>YouTube</h2></legend>
-
-        <%# Voyage pattern: each field renders an input with a
-            placeholder. Sensitive fields (api_key, client_secret)
-            never echo their value — the placeholder reads
-            `key configured (•••••••)` when set, plain "no key
-            configured" otherwise. Non-sensitive fields (client_id,
-            redirect_uri) DO surface their stored value as the
-            placeholder so the operator can verify it at a glance.
-
-            A `clear stored <field>` checkbox renders next to each
-            configured field so the operator can wipe one value
-            without retyping the others (form-level, no JS confirm
-            per CLAUDE.md hard rules). %>
-        <% @youtube_credentials[:fields].each do |field, meta| %>
-          <% configured = meta[:configured] %>
-          <% input_id = "settings_#{field}" %>
-          <div style="margin-bottom: 8px;">
-            <label for="<%= input_id %>" class="form-label"><%= meta[:label] %></label>
-            <% if meta[:sensitive] %>
-              <input type="password"
-                     name="settings[<%= field %>]"
-                     id="<%= input_id %>"
-                     value="" autocomplete="off"
-                     placeholder="<%= configured ? 'key configured (•••••••)' : 'no key configured' %>"
-                     style="max-width: 420px; width: 100%;">
-            <% else %>
-              <% placeholder =
-                if field == "youtube_redirect_uri"
-                  meta[:effective_redirect_uri].to_s + (meta[:redirect_uri_default] ? " (default)" : "")
-                else
-                  configured ? meta[:value].to_s : "not configured"
-                end
-              %>
-              <input type="text"
-                     name="settings[<%= field %>]"
-                     id="<%= input_id %>"
-                     value="" autocomplete="off"
-                     placeholder="<%= placeholder %>"
-                     style="max-width: 420px; width: 100%;">
-            <% end %>
-            <% if configured %>
-              <label class="md-check" style="margin-top: 4px;">
-                <input type="checkbox" name="settings[clear_<%= field %>]" value="yes">
-                <span class="md-check-indicator"></span>
-                <span class="md-check-label">clear stored <%= meta[:label] %></span>
-              </label>
-            <% end %>
-          </div>
-        <% end %>
-
-        <%# Voyage's hint placement: one muted line under the input
-            stack explaining the blank-keeps-current convention.
-            Hidden on a fully-blank pane so the empty install isn't
-            cluttered. %>
-        <% if @youtube_credentials[:fields].any? { |_, m| m[:configured] } %>
-          <span class="form-hint" style="display: block; margin-bottom: 6px;">
-            leave blank to keep current; submit to replace.
-          </span>
-        <% end %>
-
-        <%# 2026-05-11 — fresh TOTP gate. When 2FA is on the layout-level
-            TOTP modal opens on `[update]`; the inline 6-digit text input
-            this pane used to render is gone. The controller-side
-            `RecentTotpVerification` gate still reads `params[:totp_code]`
-            — the modal injects it as a hidden field on the form before
-            re-submitting. %>
-
-        <button type="submit">[update]</button>
-
-        <p class="text-muted" style="margin-top: 8px; margin-bottom: 0;">
-          credentials stored encrypted in the database; never echoed.
-        </p>
-      </fieldset>
-    <% end %>
-  </div>
-
-  <%# Voyage.ai — API key + per-target indexing flags.
-
-      2026-05-11 — same modal migration as YouTube above. Inline
-      `2FA code` text input retired; the layout-level TOTP
-      verification modal is the surface. %>
   <div class="pane">
     <%= form_with url: settings_path, method: :patch,
                   data: {
@@ -294,31 +202,12 @@
       <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
         <legend><h2>Voyage.ai</h2></legend>
 
-        <div style="margin-bottom: 6px;">
-          <label for="settings_voyage_api_key" class="form-label">API key</label>
-          <input type="password" name="settings[voyage_api_key]" id="settings_voyage_api_key"
-                 value="" autocomplete="off"
-                 placeholder="<%= @voyage_configured ? 'key configured (•••••••)' : 'no key configured' %>"
-                 style="max-width: 420px; width: 100%;">
-          <% if @voyage_configured %>
-            <span class="form-hint" style="display: block;">leave blank to keep current; submit to replace.</span>
-          <% else %>
-            <span class="form-hint" style="display: block;">paste your Voyage.ai API key.</span>
-          <% end %>
-        </div>
-
+        <%# Phase 29 Unit A1 — the API key lives in
+            `Rails.application.credentials.voyage`; no key input here.
+            `voyage_configured?` reflects the credentials presence.
+            The per-target indexing toggle only renders once a key is
+            configured (matching the prior pane's gating). %>
         <% if @voyage_configured %>
-          <div style="margin-bottom: 6px;">
-            <label class="md-check">
-              <input type="checkbox" name="settings[clear_voyage_api_key]" value="yes">
-              <span class="md-check-indicator"></span>
-              <span class="md-check-label">clear stored key</span>
-            </label>
-            <div class="form-hint">disables Voyage.ai indexing if any flag is on.</div>
-          </div>
-        <% end %>
-
-        <% if AppSetting.voyage_configured? %>
           <div style="margin-bottom: 6px;">
             <label class="form-label">indexes</label>
             <div style="display: flex; align-items: baseline; gap: 12px;">
@@ -332,20 +221,14 @@
               <% end %>
             </div>
           </div>
+        <% else %>
+          <p class="text-muted" style="margin-bottom: 6px;">
+            no Voyage.ai API key configured.<br>
+            add <code>voyage.api_key</code> via <code>bin/rails credentials:edit</code>.
+          </p>
         <% end %>
 
-        <%# 2026-05-11 — fresh TOTP gate. When 2FA is on the layout-level
-            TOTP modal opens on `[update]`; the inline 6-digit text input
-            this pane used to render is gone. The controller-side
-            `RecentTotpVerification` gate still reads `params[:totp_code]`
-            — the modal injects it as a hidden field on the form before
-            re-submitting. %>
-
         <button type="submit">[update]</button>
-
-        <p class="text-muted" style="margin-top: 8px; margin-bottom: 0;">
-          credentials stored encrypted in the database; never echoed.
-        </p>
       </fieldset>
     <% end %>
   </div>

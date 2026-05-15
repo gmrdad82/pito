@@ -1,8 +1,6 @@
 require "rails_helper"
 
 RSpec.describe ChannelsHelper, type: :helper do
-  include ActiveSupport::Testing::TimeHelpers
-
   let(:channel) { build_stubbed(:channel) }
 
   describe "#formatted_subscriber_count" do
@@ -172,94 +170,11 @@ RSpec.describe ChannelsHelper, type: :helper do
     end
   end
 
-  # Phase 7.5 §11c — 14-day rate-limit gate helpers.
-  #
-  # The gate is **open** while `*_changed_at` is strictly inside the
-  # 14-day window. Exactly 14 days ago is treated as **closed** — the
-  # window has just expired and the field can be re-edited.
-  describe "#title_gate_open?" do
-    it "is false when title_changed_at is nil (field has never been edited)" do
-      channel.title_changed_at = nil
-      expect(helper.title_gate_open?(channel)).to be(false)
-    end
-
-    it "is true when title_changed_at is within the 14-day window" do
-      channel.title_changed_at = 3.days.ago
-      expect(helper.title_gate_open?(channel)).to be(true)
-    end
-
-    it "is false when title_changed_at is older than 14 days" do
-      channel.title_changed_at = 15.days.ago
-      expect(helper.title_gate_open?(channel)).to be(false)
-    end
-
-    it "is false at the exact 14-day boundary (window just expired)" do
-      travel_to(Time.current) do
-        channel.title_changed_at = 14.days.ago
-        expect(helper.title_gate_open?(channel)).to be(false)
-      end
-    end
-
-    it "is true at 13 days + 23 hours (still strictly inside the window)" do
-      channel.title_changed_at = (14.days - 1.hour).ago
-      expect(helper.title_gate_open?(channel)).to be(true)
-    end
-  end
-
-  describe "#handle_gate_open?" do
-    it "is false when handle_changed_at is nil" do
-      channel.handle_changed_at = nil
-      expect(helper.handle_gate_open?(channel)).to be(false)
-    end
-
-    it "is true when handle_changed_at is within the 14-day window" do
-      channel.handle_changed_at = 1.day.ago
-      expect(helper.handle_gate_open?(channel)).to be(true)
-    end
-
-    it "is false when handle_changed_at is older than 14 days" do
-      channel.handle_changed_at = 30.days.ago
-      expect(helper.handle_gate_open?(channel)).to be(false)
-    end
-
-    it "is false at the exact 14-day boundary" do
-      travel_to(Time.current) do
-        channel.handle_changed_at = 14.days.ago
-        expect(helper.handle_gate_open?(channel)).to be(false)
-      end
-    end
-  end
-
-  describe "#title_unlock_date" do
-    it "returns nil when title_changed_at is nil" do
-      channel.title_changed_at = nil
-      expect(helper.title_unlock_date(channel)).to be_nil
-    end
-
-    it "returns the YYYY-MM-DD string for `title_changed_at + 14.days`" do
-      changed = Time.zone.parse("2026-05-01 12:00:00")
-      channel.title_changed_at = changed
-      expect(helper.title_unlock_date(channel)).to eq("2026-05-15")
-    end
-
-    it "ignores time-of-day when formatting (date only)" do
-      channel.title_changed_at = Time.zone.parse("2026-05-01 23:59:59")
-      expect(helper.title_unlock_date(channel)).to eq("2026-05-15")
-    end
-  end
-
-  describe "#handle_unlock_date" do
-    it "returns nil when handle_changed_at is nil" do
-      channel.handle_changed_at = nil
-      expect(helper.handle_unlock_date(channel)).to be_nil
-    end
-
-    it "returns the YYYY-MM-DD string for `handle_changed_at + 14.days`" do
-      changed = Time.zone.parse("2026-05-01 12:00:00")
-      channel.handle_changed_at = changed
-      expect(helper.handle_unlock_date(channel)).to eq("2026-05-15")
-    end
-  end
+  # Unit A0 — the 14-day rate-limit gate helpers (`title_gate_open?`,
+  # `handle_gate_open?`, `title_unlock_date`, `handle_unlock_date`) and
+  # `channel_reminder_name` were removed. They served only the now-cut
+  # channel edit form / diff-apply path. The channel is a read-only
+  # mirror; the surviving helpers below are display-only.
 
   describe "#channel_display_url" do
     # Phase 24+ density pass — the /channels index URL column picks

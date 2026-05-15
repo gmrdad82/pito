@@ -34,7 +34,7 @@ RSpec.describe Mcp::Tools::TotpStatus do
 
     it "carries the documented keys" do
       data = parse(call_tool)
-      %w[user_id email totp_enabled totp_enabled_at totp_disabled_at
+      %w[user_id username totp_enabled totp_enabled_at totp_disabled_at
          unused_backup_codes used_backup_codes].each do |k|
         expect(data.keys).to include(k), "missing key #{k}"
       end

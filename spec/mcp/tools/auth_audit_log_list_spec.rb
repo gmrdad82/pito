@@ -92,13 +92,13 @@ RSpec.describe Mcp::Tools::AuthAuditLogList do
       other = create(:user)
       mine = create(:auth_audit_log, acting_user: other,
                                      action: :totp_enroll, target_type: "User", target_id: other.id)
-      data = parse(call_tool(acting_user_email: other.email))
+      data = parse(call_tool(acting_user_email: other.username))
       ids = data["rows"].map { |r| r["id"] }
       expect(ids).to contain_exactly(mine.id)
     end
 
     it "unknown acting_user_email returns empty rows (no error)" do
-      data = parse(call_tool(acting_user_email: "nobody@example.test"))
+      data = parse(call_tool(acting_user_email: "nobody_user"))
       expect(data["rows"]).to eq([])
       expect(data["pagination"]["total"]).to eq(0)
     end

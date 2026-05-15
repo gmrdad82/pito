@@ -103,44 +103,6 @@ parity work resumes. Wire format is already stable via the MCP tool layer.
 games TUI screen renders primaries with an editions count badge; toggling flat
 mode expands editions inline.
 
-### YouTube credentials hot-rotation gap (omniauth boot-time read)
-
-**Trigger:** when a Settings → YouTube credential rotation surfaces a "still
-using old credentials" report, OR a dedicated omniauth refactor pass.
-
-**Source:** ADR 0007 (YouTube credentials moved to AppSetting) §"Consequences",
-noted explicitly: "Hot rotation without a restart is a documented follow-up —
-the omniauth middleware reads its config at boot."
-
-**Summary:**
-
-`config/initializers/omniauth.rb` resolves the four YouTube credentials
-(`client_id`, `client_secret`, `redirect_uri`, `api_key`) from the `AppSetting`
-singleton at process boot. The omniauth-google-oauth2 middleware captures the
-values into Rack middleware closures once, so a Settings → YouTube form submit
-that updates the `AppSetting` row does NOT take effect until Puma is restarted.
-The legacy `Rails.application.credentials.google_oauth` fallback has the same
-shape.
-
-**Action:** switch the `provider :google_oauth2` block from static positional
-args to a lambda-options form that resolves `AppSetting` per request:
-
-```ruby
-provider :google_oauth2,
-  ->(env) { AppSetting.singleton.youtube_client_id || ... },
-  ->(env) { AppSetting.singleton.youtube_client_secret || ... },
-  { scope: ..., ... }
-```
-
-Verify omniauth-google-oauth2 honors the lambda form (it does in recent releases
-— confirm the version pinned in `Gemfile.lock` supports it). Update
-`docs/architecture.md` "Cloud Console linkage" + `docs/setup.md` "Persist
-credentials into Rails" to drop the "restart Puma after rotation" caveat.
-
-**Verification:** rotate credentials via Settings → YouTube → submit; no Puma
-restart; next OAuth round-trip uses the freshly-stored values. Add a
-request-spec asserting the lambda is re-invoked per dance, not memoized at boot.
-
 ### Phase 6 deviation acknowledgment — DB-backed sessions vs. cookie_store (decision 6.1)
 
 **Trigger:** N/A — informational. Captured here so future readers don't
@@ -356,63 +318,6 @@ pinned modules.
 - Open a project's notes pane in `bin/dev`. The note editor renders CM6 (line
   numbers visible, markdown syntax highlighting active). Same for the footage
   description edit form. Existing system specs still green.
-
-### Meilisearch indexing parity with Voyage per-target flags
-
-**Trigger:** after the Channel + Video schema expansion lands (post-realignment
-work unit 4 in `docs/realignment-2026-05-09.md`). Trigger language updated by
-Phase 19 close-out — the user originally surfaced this 2026-05-04 alongside the
-Voyage AppSetting revamp dispatch ("Voyage revamp: encrypted key on AppSetting
-
-- per-target flags"); the realignment shifted the timing so the per-target
-  toggles can be designed against the post-expansion schema rather than retrofit
-  twice.
-
-**Source:** Mid-Phase-4 conversation — the same shape the user wanted for Voyage
-(per-target Boolean flags instead of a single all-or-nothing boolean) should
-apply to Meilisearch indexing.
-
-**Summary:** Meilisearch currently indexes channels and videos via background
-jobs (the existing pre-Phase-4 search infrastructure). Phase 4 added
-project-notes indexing on top, dual-writing alongside the Voyage pgvector
-pipeline. As more index targets land (notes from videos, video metadata
-enrichment, channel metadata enrichment), the indexing surface needs the same
-per-target on/off control Voyage just got. Today's `[ reindex ]` button on the
-search fieldset is all-or-nothing: it triggers a sweep without distinguishing
-which target. The user wants per-target reindex buttons + per-target enable
-flags so we can develop / tune one index target without disturbing others.
-
-**Action:** Add per-target Boolean columns to AppSetting matching the Voyage
-shape — e.g., `meilisearch_index_channels`, `meilisearch_index_videos`,
-`meilisearch_index_project_notes` (more added as new index targets ship). Update
-the existing Meilisearch reindex job(s) to honor those flags (if a target's flag
-is false, skip its reindex sweep). Update the `search` fieldset on the Settings
-page to expose per-target toggles AND per-target `[ reindex <target> ]` buttons.
-Pick a representation for the indexed-document counts shown today — they
-currently display per-index (channels_development, channels_test,
-videos_development, videos_test). When project-notes-indexing lands its own
-count, surface it the same way.
-
-**Verification:**
-
-1. Toggling `meilisearch_index_channels` to false then triggering channel sync
-   (or hitting the channels reindex job directly) does NOT touch Meilisearch.
-2. Per-target `[ reindex ]` button under the search fieldset reindexes only that
-   target.
-3. The all-or-nothing `[ reindex ]` button is removed (or repurposed as "reindex
-   all enabled targets").
-4. Specs cover each target's no-op branch (flag false → no Meilisearch HTTP) and
-   active branch.
-5. The `voyage:smoke_test` rake task gets a `meilisearch:smoke_test` sibling
-   that probes connectivity without doing a full reindex.
-6. Settings UI displays the indexed-document counts per target alongside the
-   toggle.
-
-> **Pairs with the Voyage revamp.** This follow-up should be tackled together
-> with — or shortly after — the Voyage AppSetting revamp lands, so the Settings
-> page's "search" and "voyage" fieldsets stay structurally parallel. Both use
-> per-target Boolean flags; both surface per-target action buttons; both share
-> the same UI affordances.
 
 ### `pito footage import` runtime validation against live `app.pitomd.com`
 
@@ -1064,6 +969,25 @@ for `WINDOW_RATIO_METRICS` lives inline at
 `app/services/youtube/analytics_query_builder.rb`.
 
 ## Done
+
+### YouTube credentials hot-rotation gap (omniauth boot-time read)
+
+**Resolved:** 2026-05-15 by Phase 29 Unit A1 / ADR 0012. YouTube credentials
+moved off `AppSetting` back to `Rails.application.credentials.google_oauth`; the
+omniauth initializer reads them directly, so there is no longer a hot-rotation
+gap to close — credentials are deploy-time config rotated via
+`bin/rails credentials:edit` + redeploy. Supersedes ADR 0007.
+
+### Meilisearch indexing parity with Voyage per-target flags
+
+**Resolved:** 2026-05-15. The Voyage half of the pairing closed with Phase 29
+Unit A1 / ADR 0012 — the Voyage API key moved off `AppSetting` back to
+`Rails.application.credentials`, and the Settings → Voyage pane slimmed to the
+enable toggle. The Meilisearch parity work the original entry tracked is
+withdrawn alongside the Voyage AppSetting revamp it was pairing with; if
+per-target Meilisearch reindex controls are wanted in the future, dispatch a
+fresh architect spec against the post-A1 settings surface rather than
+resurrecting this entry.
 
 ### Channel Revamp post-commit cleanup
 

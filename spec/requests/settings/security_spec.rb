@@ -21,7 +21,11 @@ RSpec.describe "Settings::Security", type: :request do
     end
 
     it "links to the full attempts list when there is at least one attempt", :unauthenticated do
-      user = User.first || create(:user)
+      # Phase 29 — Unit A2. `:unauthenticated` skips the auto-sign-in, so
+      # this spec mints + signs in its own user. The mandatory-2FA gate
+      # would bounce a non-TOTP user to the enrollment page, so the user
+      # must be TOTP-configured to reach the security pane.
+      user = User.first || create(:user, :totp_enabled)
       sign_in_as(user)
       # 2026-05-11 — the muted intro paragraph (which used to surface
       # the [attempts] link unconditionally) was dropped per user

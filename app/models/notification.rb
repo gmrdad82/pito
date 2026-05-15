@@ -73,12 +73,11 @@ class Notification < ApplicationRecord
     # not urgent, not destructive, just "you have something to look
     # at".
     video_diff_detected: 9,
-    # Phase 7.5 §11i — emitted by `ChannelDiffCheckJob` when a
-    # connected channel's YouTube state has diverged from Pito's
-    # cached row. Dedupe posture: notify on fresh row or expanded
-    # field set; skip on same-set / contracted-set passes. Resolution
-    # surface lives at `/channels/:slug/diff`.
-    channel_diff_detected: 10,
+    # REMOVED (Unit A0, beta-2) — `channel_diff_detected` (kind 10).
+    # The channel diff-reconciliation surface was cut when the channel
+    # became a strictly read-only mirror; the emitting job and the
+    # formatter template were deleted in the same change. Kind value
+    # 10 is intentionally left unused so future kinds don't collide.
     # Phase 25 — 01c. Emitted by `NotificationSource::LoginPendingApproval`
     # when a new-location correct-password login waits for approval.
     # Severity is `urgent`. Dedupe key is

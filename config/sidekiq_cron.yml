@@ -131,30 +131,17 @@ youtube_analytics_retention_weekly:
 # differ. Notifications fire automatically once a diff is detected
 # (kind: video_diff_detected, severity: info).
 #
-# Schedule: 01:30 UTC. Separate from `channel_diff_check` per locked
-# decision Q5 — independent quota budgets and failure surfaces.
+# Schedule: 01:30 UTC.
 video_diff_check_bulk:
   cron: "30 1 * * *"
   class: BulkVideoDiffCheckJob
   queue: default
   description: "Phase 23 — fan-out daily YouTube video diff check across the catalogue"
 
-# Phase 7.5 §11i — daily Channel diff check.
-#
-# Walks every Channel with a connected `youtube_connection_id`, calls
-# `Youtube::Client#fetch_channel` (1 unit per channel), and persists
-# the divergence as an open `ChannelDiff` row when fields differ.
-# Refreshes display-only statistics columns silently on every pass.
-# Notifications fire when a fresh diff is detected OR the diffing
-# field set expands (locked Q1 dedupe).
-#
-# Schedule: 02:30 UTC. Staggered an hour after the video diff cron
-# (01:30 UTC) so the YouTube API quota windows don't collide.
-channel_diff_check:
-  cron: "30 2 * * *"
-  class: ChannelDiffCheckJob
-  queue: default
-  description: "Phase 7.5 §11i — daily YouTube channel diff check across every connected channel"
+# Unit A0 (beta-2) — the `channel_diff_check` cron was removed when the
+# channel became a strictly read-only mirror. The channel sync pull
+# (`ChannelSync`, run via the `[sync]` overwrite intent) is the one-way
+# YouTube → pito ingest; there is no longer a diff-detection pass.
 
 # Phase 26 — 01e. Daily digest scheduler.
 #

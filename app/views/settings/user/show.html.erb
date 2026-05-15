@@ -4,7 +4,7 @@
 <div style="margin-bottom: 8px;">
   <h1>user</h1>
   <p class="text-muted" style="margin-top: 2px;">
-    change your email or password.<br>
+    change your username or password.<br>
     current password is required to authorize the change.
   </p>
 </div>
@@ -35,9 +35,9 @@
     <% end %>
 
     <div style="margin-bottom: 12px;">
-      <label for="user_email" class="form-label">email</label>
-      <input type="email" name="user[email]" id="user_email"
-             value="<%= @user.email %>" required autocomplete="off"
+      <label for="user_username" class="form-label">username</label>
+      <input type="text" name="user[username]" id="user_username"
+             value="<%= @user.username %>" required autocomplete="username"
              style="max-width: 420px; width: 100%;">
     </div>
 

@@ -204,5 +204,28 @@ RSpec.describe NotificationDeliveryChannel, type: :model do
       )
       expect(raw).not_to include("hooks.slack.com")
     end
+
+    # Phase 29 — Unit A1. `encrypts :webhook_url` is PROBABILISTIC (no
+    # `deterministic: true`) — the same plaintext under two rows must
+    # produce different ciphertext. This is the encryption-mechanism
+    # regression check Unit A1's acceptance list calls for.
+    it "encrypts probabilistically — two rows with the same URL differ in ciphertext" do
+      # Two `slack` rows can't coexist (unique index on `kind`), so use
+      # the two kinds and bypass the per-kind URL-shape validation
+      # (irrelevant to the encryption mechanism under test).
+      described_class.create!(kind: "slack", webhook_url: valid_slack_url)
+      discord_row = described_class.new(kind: "discord", webhook_url: valid_slack_url)
+      discord_row.save!(validate: false)
+      raw_slack = described_class.connection.select_value(
+        "SELECT webhook_url FROM notification_delivery_channels WHERE kind = 'slack'"
+      )
+      raw_discord = described_class.connection.select_value(
+        "SELECT webhook_url FROM notification_delivery_channels WHERE kind = 'discord'"
+      )
+      expect(raw_slack).not_to eq(raw_discord)
+      # Both still decrypt back to the same plaintext.
+      expect(described_class.find_by(kind: "slack").webhook_url).to eq(valid_slack_url)
+      expect(described_class.find_by(kind: "discord").webhook_url).to eq(valid_slack_url)
+    end
   end
 end

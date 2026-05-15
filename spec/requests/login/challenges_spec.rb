@@ -12,11 +12,25 @@ RSpec.describe "Login::Challenges", type: :request do
     user.update!(password: password, password_confirmation: password)
   end
 
-  def post_login_from_new_location
-    # The default test rack request has a stable Accept header / UA, so
-    # the fingerprint composer always returns the same hash. No
-    # trusted_locations row → the controller treats the pair as new.
-    post login_path, params: { email: user.email, password: password }
+  # Phase 29 — Unit A2. After the user-auth refactor, `POST /login` no
+  # longer routes a no-TOTP user to `/login/challenge` — a no-TOTP
+  # user takes the first-login bootstrap (R4) and a TOTP-configured
+  # user is bounced to the `/login/totp` challenge with a pre-auth
+  # marker written. `/login/challenge` stays reachable as the TOTP
+  # challenge's fallback (`Login::TotpChallengesController#show`
+  # redirects there when the marked user is not `totp_enabled?`).
+  #
+  # To exercise `/login/challenge` and its `approval` branch, this
+  # helper establishes a valid pre-auth marker the way the
+  # SessionsController does: enable TOTP on the user, `POST /login`
+  # (which writes the signed marker + nonce and redirects to
+  # `/login/totp`), then clear the TOTP enrollment so the marked user
+  # is no longer `totp_enabled?` — putting the challenge flow into the
+  # exact state its fallback branch expects.
+  def establish_pre_auth_marker_for_challenge!
+    user.update!(totp_seed_encrypted: "JBSWY3DPEHPK3PXP", totp_enabled_at: 1.hour.ago)
+    post login_path, params: { username: user.username, password: password }
+    user.update!(totp_seed_encrypted: nil, totp_enabled_at: nil, totp_disabled_at: nil)
   end
 
   describe "GET /login/challenge", :unauthenticated do
@@ -26,8 +40,7 @@ RSpec.describe "Login::Challenges", type: :request do
     end
 
     it "renders 200 with two bracketed-link choices when the marker is set" do
-      post_login_from_new_location
-      expect(response).to redirect_to(login_challenge_path)
+      establish_pre_auth_marker_for_challenge!
 
       get login_challenge_path
       expect(response).to have_http_status(:ok)
@@ -37,7 +50,7 @@ RSpec.describe "Login::Challenges", type: :request do
   end
 
   describe "POST /login/challenge", :unauthenticated do
-    before { post_login_from_new_location }
+    before { establish_pre_auth_marker_for_challenge! }
 
     it "challenge_path=approval creates a pending session and redirects to /login/pending" do
       expect {
@@ -66,24 +79,10 @@ RSpec.describe "Login::Challenges", type: :request do
 
   describe "POST /login/challenge with no marker", :unauthenticated do
     it "redirects to /login" do
-      # No prior `post_login_from_new_location` — the cookie jar is
-      # empty. The controller's before_action loads the marker, sees
-      # nothing, and bounces.
+      # The cookie jar is empty — no pre-auth marker. The controller's
+      # before_action loads the marker, sees nothing, and bounces.
       post login_challenge_path, params: { challenge_path: "approval" }
       expect(response).to redirect_to(login_path)
-    end
-  end
-
-  describe "POST /login → new-location dispatch (Phase 25 — 01b)", :unauthenticated do
-    it "does NOT mint a session row" do
-      expect {
-        post_login_from_new_location
-      }.not_to change(Session.state_active, :count)
-    end
-
-    it "redirects to /login/challenge" do
-      post_login_from_new_location
-      expect(response).to redirect_to(login_challenge_path)
     end
   end
 end

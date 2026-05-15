@@ -88,7 +88,7 @@ module Auth
           result: :pending_approval,
           reason: :new_location_pending,
           user: user,
-          email: user.email,
+          username: user.username,
           session: session_row
         )
       end

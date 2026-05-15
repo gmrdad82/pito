@@ -335,86 +335,36 @@ RSpec.describe Channel, type: :model do
     end
   end
 
-  describe "Phase 7.5 §11a — 14-day rate-limit gate helpers" do
-    let(:channel) { create(:channel) }
+  # Unit A0 — channel read-only conversion. The channel is now a
+  # strictly one-way, read-only mirror. The diff-reconciliation surface
+  # and the edit-form-only model API were removed:
+  #
+  #   - the `channel_diffs` association + `open_channel_diff` method
+  #     (the `channel_diffs` table was dropped),
+  #   - the 14-day rate-limit gate methods `title_locked?` /
+  #     `handle_locked?` / `title_unlock_at` / `handle_unlock_at` and
+  #     the `TITLE_HANDLE_LOCK_WINDOW` constant (they served only the
+  #     deleted edit form / diff apply).
+  describe "Unit A0 — read-only mirror: removed model surface" do
+    let(:channel) { build_stubbed(:channel) }
 
-    describe "#title_locked?" do
-      it "is false when title_changed_at is nil" do
-        channel.title_changed_at = nil
-        expect(channel.title_locked?).to be(false)
-      end
-
-      it "is true at 13d 23h after the change" do
-        channel.title_changed_at = (14.days - 1.hour).ago
-        expect(channel.title_locked?).to be(true)
-      end
-
-      it "is false at exactly 14 days after the change" do
-        channel.title_changed_at = 14.days.ago
-        expect(channel.title_locked?).to be(false)
-      end
-
-      it "is false at 14d 1m after the change" do
-        channel.title_changed_at = (14.days + 1.minute).ago
-        expect(channel.title_locked?).to be(false)
-      end
+    it "does not respond to open_channel_diff" do
+      expect(channel).not_to respond_to(:open_channel_diff)
     end
 
-    describe "#title_unlock_at" do
-      it "returns nil when title_changed_at is nil" do
-        channel.title_changed_at = nil
-        expect(channel.title_unlock_at).to be_nil
-      end
-
-      it "returns title_changed_at + 14d while still locked" do
-        stamp = (14.days - 1.hour).ago
-        channel.title_changed_at = stamp
-        expect(channel.title_unlock_at).to be_within(1.second).of(stamp + 14.days)
-      end
-
-      it "returns nil when the lock window has elapsed" do
-        channel.title_changed_at = (14.days + 1.minute).ago
-        expect(channel.title_unlock_at).to be_nil
-      end
+    it "has no channel_diffs association" do
+      expect(Channel.reflect_on_association(:channel_diffs)).to be_nil
     end
 
-    describe "#handle_locked?" do
-      it "is false when handle_changed_at is nil" do
-        channel.handle_changed_at = nil
-        expect(channel.handle_locked?).to be(false)
-      end
-
-      it "is true at 13d 23h after the change" do
-        channel.handle_changed_at = (14.days - 1.hour).ago
-        expect(channel.handle_locked?).to be(true)
-      end
-
-      it "is false at exactly 14 days after the change" do
-        channel.handle_changed_at = 14.days.ago
-        expect(channel.handle_locked?).to be(false)
-      end
-
-      it "is false at 14d 1m after the change" do
-        channel.handle_changed_at = (14.days + 1.minute).ago
-        expect(channel.handle_locked?).to be(false)
-      end
+    it "does not respond to the 14-day gate methods" do
+      expect(channel).not_to respond_to(:title_locked?)
+      expect(channel).not_to respond_to(:handle_locked?)
+      expect(channel).not_to respond_to(:title_unlock_at)
+      expect(channel).not_to respond_to(:handle_unlock_at)
     end
 
-    describe "#handle_unlock_at" do
-      it "returns nil when handle_changed_at is nil" do
-        expect(channel.handle_unlock_at).to be_nil
-      end
-
-      it "returns handle_changed_at + 14d while still locked" do
-        stamp = (14.days - 1.hour).ago
-        channel.handle_changed_at = stamp
-        expect(channel.handle_unlock_at).to be_within(1.second).of(stamp + 14.days)
-      end
-
-      it "returns nil when the lock window has elapsed" do
-        channel.handle_changed_at = (14.days + 1.minute).ago
-        expect(channel.handle_unlock_at).to be_nil
-      end
+    it "no longer defines the TITLE_HANDLE_LOCK_WINDOW constant" do
+      expect(Channel.const_defined?(:TITLE_HANDLE_LOCK_WINDOW)).to be(false)
     end
   end
 

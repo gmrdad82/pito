@@ -66,6 +66,28 @@ RSpec.describe "Channel show journey", type: :system do
     expect(page).not_to have_link(text: /see all videos/i)
   end
 
+  # Unit A0 — the channel is a strictly read-only mirror. The show page
+  # carries no edit affordance and no diff-reconciliation banner; the
+  # heading-actions row is `[ changes ]`, `[ sync ]`, `[ revoke ]`,
+  # `[ - ]` only.
+  it "renders read-only — no edit affordance and no diff banner" do
+    visit channel_path(channel)
+
+    # No `[ e ]` / `[ edit ]` link, no edit URL anywhere on the page.
+    expect(page).not_to have_link(text: /\bedit\b/i)
+    expect(page.html).not_to match(%r{/channels/[^"]+/edit})
+
+    # No diff-reconciliation banner / Turbo frame slot.
+    expect(page.html).not_to include("channel_diff_banner")
+    expect(page).not_to have_content(/review changes/i)
+
+    # The history audit trail survives.
+    expect(page).to have_link(text: /changes/i, href: channel_change_logs_path(channel))
+
+    # `[ sync ]` runs the plain overwrite intent (no diff_check).
+    expect(page.html).not_to include("intent=diff_check")
+  end
+
   # 2026-05-11 (later) — row 2 zebra rhythm. The analytics pane and
   # the Google connection pane must render as two direct `.pane`
   # children of the same `.pane-row`. The `:nth-child(even)` rule in

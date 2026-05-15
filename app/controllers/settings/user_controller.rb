@@ -1,7 +1,7 @@
 # Phase 12 — user account self-service.
 #
-# Lets the authenticated user change their own email or password. The
-# `current_password` field re-prompts the user as a confirmation gate
+# Lets the authenticated user change their own username or password.
+# The `current_password` field re-prompts the user as a confirmation gate
 # before any mutation lands — standard "re-auth before sensitive
 # change" pattern. There is intentionally NO account-delete, NO
 # create-new-user, NO password-recovery flow on this surface. Recovery
@@ -35,12 +35,12 @@ class Settings::UserController < ApplicationController
       return
     end
 
-    new_email = params.dig(:user, :email).to_s.strip
+    new_username = params.dig(:user, :username).to_s.strip.downcase
     new_password = params.dig(:user, :password).to_s
     new_password_confirmation = params.dig(:user, :password_confirmation).to_s
 
     attrs = {}
-    attrs[:email] = new_email if new_email.present? && new_email != @user.email
+    attrs[:username] = new_username if new_username.present? && new_username != @user.username
 
     if new_password.present?
       if new_password != new_password_confirmation

@@ -37,65 +37,6 @@ module ChannelsHelper
     title.empty? ? "untitled channel" : title
   end
 
-  # Phase 7.5 §11h — channel-name source for the calendar reminder body.
-  # The 14-day gate composes a `Calendar::Entry` title shaped like
-  # "Channel title unlock — <channel name>". Until ChannelSync populates
-  # `Channel#title`, that field can be nil; fall back to the locked
-  # `channel_url` slug (the UC-id segment), and finally to a generic
-  # `"this channel"` so the entry title always reads cleanly.
-  def channel_reminder_name(channel)
-    title = channel.title.to_s.strip
-    return title unless title.empty?
-    slug = channel.url_slug.to_s.strip
-    return slug unless slug.empty?
-    "this channel"
-  end
-
-  # Phase 7.5 §11c — 14-day rate-limit gate helpers.
-  #
-  # YouTube limits `title` and `handle` changes to 1 per 14 days
-  # server-side. Pito mirrors the gate client-side: when the
-  # respective `*_changed_at` timestamp is within the window, the
-  # edit form hides the input and renders an explanatory message
-  # plus the `[remind me on YYYY-MM-DD]` calendar affordance.
-  #
-  # The helpers return `false` / `nil` when the column is `nil`
-  # (pre-edit state — the field has never been changed via Pito) so
-  # the form renders the input freely.
-  #
-  # Boundary semantics (exactly 14 days):
-  #   `title_changed_at == 14.days.ago` is treated as **open**
-  #   (gate has just expired). The gate is open only while
-  #   `title_changed_at` is **strictly within** the 14-day window.
-  def title_gate_open?(channel)
-    return false if channel.title_changed_at.blank?
-
-    channel.title_changed_at > 14.days.ago
-  end
-
-  def handle_gate_open?(channel)
-    return false if channel.handle_changed_at.blank?
-
-    channel.handle_changed_at > 14.days.ago
-  end
-
-  # Returns the unlock date as a `YYYY-MM-DD` string, or `nil` when
-  # the underlying column is `nil`. The string form is what the
-  # `[remind me on YYYY-MM-DD]` bracketed link renders inline; the
-  # underlying ISO timestamp goes onto the link via a data attribute
-  # so 11h's Stimulus controller can POST it to /calendar/entries.json.
-  def title_unlock_date(channel)
-    return nil if channel.title_changed_at.blank?
-
-    (channel.title_changed_at + 14.days).to_date.iso8601
-  end
-
-  def handle_unlock_date(channel)
-    return nil if channel.handle_changed_at.blank?
-
-    (channel.handle_changed_at + 14.days).to_date.iso8601
-  end
-
   # Renders the channel description as plain text with paragraph and
   # line-break preservation (Rails `simple_format`) plus auto-linking of
   # bare http(s) URLs. The pipeline is:

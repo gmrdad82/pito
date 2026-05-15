@@ -2,7 +2,7 @@ require "rails_helper"
 
 # Phase 25 — 01c. NotificationSource::LoginPendingApproval specs.
 RSpec.describe NotificationSource::LoginPendingApproval do
-  let(:user) { create(:user, email: "victim@example.test") }
+  let(:user) { create(:user, username: "victim_user") }
   let(:pending) { create(:session, :pending, user: user) }
   let!(:attempt) do
     create(:login_attempt, :pending, :with_geo,
@@ -13,7 +13,7 @@ RSpec.describe NotificationSource::LoginPendingApproval do
            ip_prefix: "10.0.0.0/24",
            fingerprint_hash: Digest::SHA256.hexdigest("nsl-fp"),
            session: pending,
-           email_attempted: "victim@example.test")
+           email_attempted: "victim_user")
   end
 
   describe ".report! (happy)" do
@@ -34,7 +34,7 @@ RSpec.describe NotificationSource::LoginPendingApproval do
       expect(payload["login_attempt_id"]).to eq(attempt.id)
       expect(payload["session_id"]).to eq(pending.id)
       expect(payload["user_id"]).to eq(user.id)
-      expect(payload["email"]).to eq("victim@example.test")
+      expect(payload["email"]).to eq("victim_user")
       expect(payload["browser"]).to eq("Firefox")
       expect(payload["os"]).to eq("Linux")
       expect(payload["ip"]).to eq("10.0.0.5")
@@ -98,7 +98,7 @@ RSpec.describe NotificationSource::LoginPendingApproval do
     it "renders an in-app payload from the new template" do
       n = described_class.report!(attempt: attempt)
       payload = NotificationFormatter::InApp.payload_for(n)
-      expect(payload[:title]).to include("victim@example.test")
+      expect(payload[:title]).to include("victim_user")
       expect(payload[:body_html]).to include("yeah, it&#39;s me").or include("yeah, it's me")
       expect(payload[:body_html]).to include("block the intruder")
       expect(payload[:url]).to eq("/notifications/#{n.id}")

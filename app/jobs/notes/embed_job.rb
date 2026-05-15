@@ -1,16 +1,15 @@
 # Phase 4 §3.5 — single-API-call dual-write embedding job.
 #
-# Phase B revamp (2026-05-04): Voyage gating now reads two signals from
-# AppSetting — the per-target `voyage_indexing_project_notes?` flag AND the
-# `voyage_configured?` (key present?) check. BOTH must be true for the job
-# to call Voyage. The dual check is intentional belt-and-suspenders:
+# Phase B revamp (2026-05-04): Voyage gating reads two signals — the
+# per-target `voyage_indexing_project_notes?` flag (a non-secret column
+# on AppSetting) AND the `voyage_configured?` (key present?) check. BOTH
+# must be true for the job to call Voyage. The dual check is intentional
+# belt-and-suspenders:
 #
-#   - The model validation prevents the form boundary from saving the
-#     "flag true, key blank" combo, but...
+#   - The flag toggle and the key are independent surfaces, but...
 #   - ...this job is the LAST line of defense before money is spent on
-#     embedding tokens. If a migration drifts, a direct SQL write happens,
-#     or a future code path bypasses the validation, this guard still
-#     short-circuits cleanly.
+#     embedding tokens. If the flag is on but no key is configured, this
+#     guard still short-circuits cleanly.
 #
 # When either guard is false: the note record stays unchanged; Meilisearch
 # indexes the text body BM25-only (no embedding payload); `notes.embedding`
@@ -21,10 +20,18 @@
 #   - Meilisearch (hybrid index — embedding payload alongside indexed text)
 #   - notes.embedding pgvector column
 #
-# API key resolution prefers AppSetting (UI-managed, runtime-mutable). Falls
-# back to Rails.application.credentials.dig(:voyage, env, :api_key) for the
-# bootstrap path before the user has set a key in the UI (also covers CI /
-# transient-state scenarios where the seed bootstrap hasn't run).
+# Phase 29 — Unit A1. The Voyage API key lives exclusively in
+# `Rails.application.credentials.voyage.api_key` again (the project's
+# configuration strategy — secrets in credentials only). The AppSetting
+# `voyage_api_key` column is dropped; `voyage_configured?` now checks
+# the credentials presence. `resolve_api_key` reads credentials directly.
+#
+# Voyage credentials use a flat block (`voyage: { api_key }`) shared
+# across environments — the same key applies to dev / test / production.
+# In `Rails.env.test?`, WebMock blocks all non-localhost HTTP, so the
+# real Voyage endpoint is never reached even when a key is present;
+# specs that exercise the Voyage branch stub the endpoint explicitly
+# (see `spec/support/voyage.rb`).
 #
 # Idempotent on retry: re-running re-embeds and re-writes; vector inserts
 # replace the prior value.
@@ -79,13 +86,12 @@ module Notes
       nil
     end
 
-    # Prefer the UI-managed AppSetting key; fall back to credentials so the
-    # bootstrap path (first seed, CI without seeded settings) keeps working.
+    # Phase 29 — Unit A1. The Voyage API key lives exclusively in the
+    # flat `Rails.application.credentials.voyage` block (`api_key`,
+    # shared across environments). The job no-ops cleanly when the key
+    # is blank (the `call_voyage` caller guards on `api_key.blank?`).
     def resolve_api_key
-      record_key = AppSetting.first&.voyage_api_key
-      return record_key if record_key.present?
-
-      Rails.application.credentials.dig(:voyage, Rails.env.to_sym, :api_key)
+      Rails.application.credentials.dig(:voyage, :api_key)
     end
 
     # Indexes the note's body in Meilisearch. When `embedding` is non-nil we

@@ -16,18 +16,22 @@ class SyncsController < ApplicationController
   #     that's the full cache overwrite path (`ChannelSync`); for Video
   #     the shim already delegates to `VideoDiffCheckJob`.
   #   - "diff_check" (Phase 11i Q7 follow-up) — used by the `[sync]` button
-  #     on `/channels/:slug` and `/videos/:slug`. Enqueues
-  #     `ChannelDiffCheckJob` / `VideoDiffCheckJob` directly (no
-  #     `BulkOperation`, no overwrite). The result lands in the
-  #     `channel_diff_banner` Turbo Frame already wired by Phase 11i (and
-  #     the equivalent path on the video show page).
+  #     on `/videos/:slug`. Enqueues `VideoDiffCheckJob` directly (no
+  #     `BulkOperation`, no overwrite). The result lands in the video
+  #     show page's diff frame. Unit A0 retired the channel diff-check
+  #     intent — a channel `[sync]` is always `overwrite` now.
   INTENTS = %w[overwrite diff_check].freeze
 
   # Per-type diff-check job dispatch. Adding a type here is the only
   # change required to onboard a new resource to the diff-check intent.
+  #
+  # Unit A0 — `channel` is no longer a diff-check type. A channel is a
+  # read-only mirror; the channel `[sync]` button only ever runs the
+  # `overwrite` intent (`ChannelSync` via `BulkSyncJob`), the one-way
+  # YouTube → pito cache pull. The video surface keeps the diff-check
+  # intent.
   DIFF_CHECK_JOBS = {
-    "channel" => "ChannelDiffCheckJob",
-    "video"   => "VideoDiffCheckJob"
+    "video" => "VideoDiffCheckJob"
   }.freeze
 
   # GET /syncs/:type/:ids(.json)

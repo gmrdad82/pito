@@ -7,16 +7,18 @@
 #
 #   row = Auth::AttemptLogger.call(
 #     request:,
-#     email: nil,
+#     username: nil,
 #     user:  nil,
 #     result: :success | :failed | :pending_approval | :blocked,
 #     reason: <one of LoginAttempt.reasons.keys>
 #   )
 #
-# `email` is the raw email the user typed (logged on failure so the
-# operator can correlate "someone tried `gmail@example.test` four
-# times"). `user` is the resolved `User` row (nil when the email
-# doesn't match any account).
+# `username` is the raw identifier the user typed (logged on failure
+# so the operator can correlate "someone tried `owner` four times").
+# It is stored in the `email_attempted` column — the column name is
+# legacy (Phase 29 — Unit A2 kept the column, swapped the meaning).
+# `user` is the resolved `User` row (nil when the username doesn't
+# match any account).
 #
 # **Blocked-pair short-circuit.** When `result` is anything other than
 # `:blocked` AND `BlockedLocation.for_pair?(fp, ip_prefix)` is true,
@@ -33,7 +35,7 @@ module Auth
     # via an enum exception inside the transaction.
     ALLOWED_RESULTS = %i[success failed pending_approval blocked].freeze
 
-    def self.call(request:, result:, reason:, user: nil, email: nil, notification: nil, session: nil)
+    def self.call(request:, result:, reason:, user: nil, username: nil, notification: nil, session: nil)
       result = result.to_sym
       reason = reason.to_sym
 
@@ -72,7 +74,7 @@ module Auth
       ActiveRecord::Base.transaction do
         attempt = LoginAttempt.create!(
           user: user,
-          email_attempted: email.presence,
+          email_attempted: username.presence,
           result: result,
           ip: ip,
           ip_prefix: ip_prefix,

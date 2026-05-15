@@ -4,9 +4,9 @@
     nullable column has a muted empty-state per the locked matrix;
     the page never 500s on a bare-bones pre-sync channel.
 
-    The empty `channel_diff_banner` Turbo frame under the H1 is the
-    drop target for 11i's diff banner stream — 11b ships the slot
-    empty so 11i can populate it without re-editing this view.
+    Unit A0 — channel is a read-only mirror (YouTube → pito). There is
+    no edit affordance and no diff-reconciliation banner; the only
+    mutable channel attribute is `star` (toggled from the pane view).
 %>
 <% display_title = channel_display_title(@channel) %>
 <%# 2026-05-11 — drop the redundant "channel " prefix from the page title
@@ -16,12 +16,11 @@
 <% breadcrumb(["channels", channels_path], display_title) %>
 <% content_for(:breadcrumb_actions) do %>
   <div class="dot-list">
-    <%= render(BracketedLinkComponent.new(label: "e", href: edit_channel_path(@channel))) %>
     <%= render(BracketedLinkComponent.new(label: "changes", href: channel_change_logs_path(@channel))) %>
-    <%# Phase 11i Q7 follow-up — single-channel `[sync]` is a diff-check
-        intent (compare YouTube, surface divergence) NOT a cache overwrite.
-        The Phase 11i banner Turbo Frame consumes the result. %>
-    <%= render(BracketedLinkComponent.new(label: "sync", href: "/syncs/channel/#{@channel.id}?intent=diff_check", data: { keyboard_page_action: "sync" })) %>
+    <%# Unit A0 — channel is a read-only mirror; `[sync]` runs the
+        one-way `ChannelSync` cache pull (the overwrite intent). There
+        is no diff-check intent for channels anymore. %>
+    <%= render(BracketedLinkComponent.new(label: "sync", href: "/syncs/channel/#{@channel.id}", data: { keyboard_page_action: "sync" })) %>
     <%# Phase 24 — per-channel `[revoke]` cascade. Inline with the rest
         of the heading-actions row. Destructive (red) — opens the
         wide-modal confirmation page. NO keyboard shortcut by design
@@ -75,10 +74,6 @@
       <% end %>
     <% end %>
   </div>
-
-  <%# 11i diff banner slot — empty in 11b. 11i streams a Turbo
-      Stream replacing this frame's contents when a diff exists. %>
-  <%= turbo_frame_tag "channel_diff_banner" %>
 
   <%# Phase 22 — in-flight import badge. Visible whenever an ImportJob
       for this channel is `queued` or `running`. Links to the modal's
