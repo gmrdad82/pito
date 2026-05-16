@@ -1,0 +1,89 @@
+name: Pito CLI CI
+
+# Safety-net CI for the `pito` Rust binary at `extras/cli/`. Runs on every
+# push or PR that touches the CLI source (or its workspace lockfile, or this
+# workflow itself). Builds + tests + lints — does NOT publish anything.
+#
+# This complements `pito-cli-publish.yml`, which only fires on `VERSION`
+# bumps. Day-to-day CLI development can push fixes here, get a green/red
+# signal, and accumulate changes. When the user next bumps `VERSION`, the
+# publish workflow packages whatever the CLI source looks like at that
+# moment — having been continuously validated by this safety net.
+#
+# Commit-message guard: include `[skipci]` (lowercase, no space — distinct
+# from GitHub's built-in `[skip ci]`) in the commit message OR pull-request
+# title to skip every job in this workflow. The guard is matched via the
+# `contains()` expression in each job's `if:` — `head_commit.message` and
+# `pull_request.title` never reach a shell, so the standard injection
+# vector for those fields does not apply here.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      # `extras/cli/**` — the Rust source: `src/`, `tests/`, `Cargo.toml`,
+      # `README.md`, `CLAUDE.md`. Any change here can break build or tests.
+      - "extras/cli/**"
+      # `Cargo.toml` (root) — the workspace manifest enumerates members.
+      # Renaming or adding a member changes what `cargo build` resolves.
+      - "Cargo.toml"
+      # `Cargo.lock` — workspace lockfile lives at the repo root. Dependency
+      # drift can break build, tests, clippy, or audit.
+      - "Cargo.lock"
+      # Workflow self-edits must re-run so changes are validated.
+      - ".github/workflows/pito-cli-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "extras/cli/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/pito-cli-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  cli:
+    if: |
+      !contains(github.event.head_commit.message, '[skipci]') &&
+      !contains(github.event.pull_request.title, '[skipci]')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: extras/cli
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: cargo fmt (style check, no rewrites)
+        # `--check` makes fmt fail rather than rewrite when files diverge
+        # from the project's rustfmt defaults. No `rustfmt.toml` exists in
+        # `extras/cli/` today; this enforces stock defaults until a project
+        # config is added.
+        run: cargo fmt --all -- --check
+
+      - name: cargo build
+        run: cargo build --all-targets
+
+      - name: cargo test
+        run: cargo test
+
+      - name: cargo clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: cargo audit
+        # The workspace lockfile lives at the repo root (`/Cargo.lock`), not
+        # under `extras/cli/`. `cargo build|test|clippy` walk up to find it,
+        # but `cargo audit` only reads `./Cargo.lock` from cwd. Override the
+        # job-level `working-directory: extras/cli` and run from the repo
+        # root so audit can locate the lockfile.
+        working-directory: ${{ github.workspace }}
+        run: |
+          cargo install --locked cargo-audit
+          cargo audit

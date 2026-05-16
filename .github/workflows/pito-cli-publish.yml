@@ -1,31 +1,40 @@
 name: Publish pito CLI
 
+# Publishes the `pito` Rust binary to GitHub Releases.
+#
 # Commit-message guard: include `[skipci]` (lowercase, no space) in the commit
 # message to skip the publish run for that commit.
 #
-# Versioning model: the release tag is derived from `extras/cli/Cargo.toml`'s
-# `[package] version` field at workflow runtime — NOT from the commit SHA.
-# - Bumping the Cargo version produces a new tag/release (`pito-vX.Y.Z`).
-# - Pushing a CLI change WITHOUT bumping the version re-publishes the existing
-#   tag's release in place, replacing the `pito` asset. `softprops/action-gh-release`
-#   updates the existing release when the tag already exists.
+# Versioning model: the release tag is derived from the root `VERSION` file
+# (`pito-v<VERSION>` — e.g. `pito-v0.0.1.beta3`) at workflow runtime, NOT
+# from `extras/cli/Cargo.toml` and NOT from the commit SHA. This re-syncs
+# the CLI release naming with the app's version cycle: a single `VERSION`
+# bump fans out to the website deploy, the Rails CI re-validation, and this
+# CLI release in one coordinated event. Pushing CLI source changes WITHOUT
+# bumping `VERSION` does NOT publish — the safety-net workflow
+# `pito-cli-ci.yml` builds + tests those commits without releasing. The next
+# `VERSION` bump packages whatever the CLI source looks like at that moment.
 #
-# Path filter: only fire on changes under `extras/cli/**` (the Rust source) or
-# to this workflow itself. Pushes that don't touch the CLI stop firing — there
-# is no per-commit release noise to clean up anymore, which is why the paired
-# `pito-cli-cleanup.yml` workflow was removed.
+# Path filter: fire on `VERSION` bumps or workflow self-edits ONLY. The
+# `extras/cli/**` trigger that lived here previously was moved to
+# `pito-cli-ci.yml` (build + test, no publish) so that day-to-day CLI work
+# doesn't churn the release feed.
 
 on:
   push:
     branches: [main]
     paths:
-      - "extras/cli/**"
+      # `VERSION` — the single source of truth for release naming. Every
+      # bump produces a new tag/release (`pito-v<VERSION>`) and uploads the
+      # freshly built binary as the release asset.
+      - "VERSION"
+      # Workflow self-edits must re-run so changes are validated.
       - ".github/workflows/pito-cli-publish.yml"
 
-# Serialize publish runs per-ref so two close-together pushes don't race on
-# tag creation / asset upload. `cancel-in-progress: false` keeps every commit
-# publishable — we don't want a fast follow-up push to drop the binary for the
-# prior commit.
+# Serialize publish runs per-ref so two close-together `VERSION` bumps don't
+# race on tag creation / asset upload. `cancel-in-progress: false` keeps
+# every bump publishable — we don't want a fast follow-up to drop the binary
+# for the prior bump if both land in quick succession.
 concurrency:
   group: pito-cli-publish-${{ github.ref }}
   cancel-in-progress: false
@@ -46,24 +55,32 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Read CLI version from Cargo.toml
+      - name: Read app version from VERSION file
         id: version
-        # Plain grep + cut against a checked-in source file — no untrusted
-        # input flows into the shell. Matches the first `version = "x.y.z"`
-        # line in extras/cli/Cargo.toml, which by Cargo convention is the
-        # [package] version.
+        # Plain read of a checked-in file at the repo root — no untrusted
+        # input flows into the shell. The release tag is `pito-v<VERSION>`
+        # (e.g. `pito-v0.0.1.beta3`); the display name mirrors it.
         run: |
-          CARGO_VERSION=$(grep -E '^version = "' extras/cli/Cargo.toml | head -1 | cut -d'"' -f2)
-          if [ -z "$CARGO_VERSION" ]; then
-            echo "Failed to parse version from extras/cli/Cargo.toml" >&2
+          APP_VERSION=$(tr -d '[:space:]' < VERSION)
+          if [ -z "$APP_VERSION" ]; then
+            echo "VERSION file is empty or missing" >&2
             exit 1
           fi
-          echo "cargo_version=${CARGO_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "tag_name=pito-v${CARGO_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "release_name=pito v${CARGO_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "app_version=${APP_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag_name=pito-v${APP_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "release_name=pito v${APP_VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Build pito CLI (release)
         run: cargo build --release --manifest-path extras/cli/Cargo.toml
+
+      - name: Run pito CLI test suite
+        # Safety net before publishing: a failing test on the source that
+        # would ship MUST block the release. The dedicated safety-net
+        # workflow (`pito-cli-ci.yml`) runs the same gates on every CLI
+        # source change; this duplicate run guarantees the published bits
+        # are tested even if someone bypasses the safety net by only
+        # bumping `VERSION`.
+        run: cargo test --manifest-path extras/cli/Cargo.toml
 
       - name: Stage release artifact
         run: |
@@ -76,7 +93,8 @@ jobs:
           tag_name: ${{ steps.version.outputs.tag_name }}
           name: ${{ steps.version.outputs.release_name }}
           files: dist/pito
-          # When the tag already exists (non-version-bump CLI commit), update
-          # the existing release in place rather than failing. The asset
-          # `pito` is re-uploaded, replacing the prior binary at the same URL.
+          # When the tag already exists (re-run after a workflow edit, or
+          # manual re-publish), update the existing release in place rather
+          # than failing. The asset `pito` is re-uploaded, replacing the
+          # prior binary at the same URL.
           make_latest: "true"

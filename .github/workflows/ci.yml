@@ -1,73 +1,111 @@
 name: CI
 
+# Rails CI. Runs RSpec + Brakeman + bundler-audit + importmap audit + RuboCop
+# against the Rails app at the repo root.
+#
 # Commit-message guard: include the literal token `[skipci]` (lowercase, no
 # space — distinct from GitHub's built-in `[skip ci]`) in the commit message
 # OR pull-request title to skip every job in this workflow. Applied per-job
-# via top-level `if:` conditions; see also the other workflows under
-# `.github/workflows/` which carry the same guard. Documented in
-# `docs/orchestration/follow-ups.md` under "CI commit-message guard".
+# via top-level `if:` conditions; the other workflows under
+# `.github/workflows/` carry the same guard.
+#
+# Trigger model: fire ONLY when something the Rails suite can break has
+# changed, plus on every `VERSION` bump (version bumps are coordinated
+# "release events" that re-validate every stack — Rails, CLI, website — to
+# guarantee a green baseline before publishing). Path filter is exhaustive:
+# everything Rails touches at runtime, plus the build/lint/test inputs that
+# can change suite behavior. Files NOT listed (e.g. `extras/cli/**`,
+# `extras/website/**`, `docs/**`, `Cargo.toml`, `Cargo.lock`, `Dockerfile`,
+# `docker-compose.yml`, `mise.toml`, `HANDOFF.md`, `README.md`, `LICENSE`,
+# `.editorconfig`, `.prettierrc.json`, `.gitignore`, `.gitattributes`,
+# `.dockerignore`, `.env.example`, `Procfile.dev`) cannot affect the Rails
+# CI run and are intentionally excluded so Rails CI stops firing on
+# CLI / website / docs / infra-only commits.
 
 on:
   pull_request:
     branches: [main]
+    paths:
+      # --- Application code -------------------------------------------------
+      # `app/**` — every model, controller, view, component, helper, channel,
+      # job, mailer, Stimulus controller. Core suite input.
+      - "app/**"
+      # `bin/**` — wrappers the CI invokes directly (`bin/rubocop`,
+      # `bin/brakeman`, `bin/bundler-audit`, `bin/importmap`, `bin/rails`).
+      # A change to any wrapper can break the workflow.
+      - "bin/**"
+      # `config/**` — Rails initializers, routes, environments, locales,
+      # `database.yml`, `application.rb`, credentials wiring. Touches every
+      # boot path.
+      - "config/**"
+      # `db/**` — migrations, `schema.rb`, seeds. RSpec runs `db:migrate
+      # db:seed` and then `parallel:load_schema`, so any change here can
+      # alter the test DB state.
+      - "db/**"
+      # `lib/**` — Rails-only library code autoloaded into the app.
+      - "lib/**"
+      # `spec/**` — the test suite itself. Trivially must trigger CI.
+      - "spec/**"
+      # --- Build / dependency manifests -------------------------------------
+      # `Gemfile` + `Gemfile.lock` — gem set drift can break boot, suite,
+      # bundler-audit, brakeman.
+      - "Gemfile"
+      - "Gemfile.lock"
+      # `Rakefile` — defines `parallel:create` / `parallel:load_schema` and
+      # other tasks the CI invokes.
+      - "Rakefile"
+      # `.ruby-version` — `ruby/setup-ruby@v1` reads this for the toolchain
+      # pin. A version change must re-validate the whole suite.
+      - ".ruby-version"
+      # `mise.toml` — local Ruby pin parallel to `.ruby-version`; kept aligned
+      # with it. Conservative: include so a divergent bump still triggers CI.
+      - "mise.toml"
+      # `.rspec` — controls how `rspec` boots (require spec_helper, tag
+      # filters). CI overrides `.rspec` for the parallel run, but the file
+      # still influences local-vs-CI parity diagnosis.
+      - ".rspec"
+      # `.rubocop.yml` (and any `.rubocop_todo.yml`) — lint config; a
+      # widened rule can fail the `bin/rubocop` step.
+      - ".rubocop.yml"
+      - ".rubocop_todo.yml"
+      # `config.ru` — Rack entrypoint; boot path.
+      - "config.ru"
+      # --- Self-reference ---------------------------------------------------
+      # Editing the workflow itself must re-run it so changes are validated
+      # before they go quiet.
+      - ".github/workflows/ci.yml"
+      # --- Coordinated release event ---------------------------------------
+      # `VERSION` bumps fire the website deploy and CLI publish workflows;
+      # re-validate Rails alongside them so a release lands on a known-green
+      # baseline. The cost is one extra CI run per version bump.
+      - "VERSION"
   push:
     branches: [main]
+    paths:
+      - "app/**"
+      - "bin/**"
+      - "config/**"
+      - "db/**"
+      - "lib/**"
+      - "spec/**"
+      - "Gemfile"
+      - "Gemfile.lock"
+      - "Rakefile"
+      - ".ruby-version"
+      - "mise.toml"
+      - ".rspec"
+      - ".rubocop.yml"
+      - ".rubocop_todo.yml"
+      - "config.ru"
+      - ".github/workflows/ci.yml"
+      - "VERSION"
 
-# Minimum permissions for the workflow. `dorny/paths-filter@v3` calls
-# `listFiles` on the pull-request, which requires `pull-requests: read`.
-# Dependabot PRs run with a restricted GITHUB_TOKEN that defaults to
-# `contents: read` only, so without this block the `changes` job fails with
-# "Resource not accessible by integration". Granting the minimum needed:
-# `contents: read` for checkout, `pull-requests: read` for paths-filter.
 permissions:
   contents: read
-  pull-requests: read
 
 jobs:
-  changes:
-    if: |
-      !contains(github.event.head_commit.message, '[skipci]') &&
-      !contains(github.event.pull_request.title, '[skipci]')
-    runs-on: ubuntu-latest
-    outputs:
-      rails: ${{ steps.filter.outputs.rails }}
-      cli: ${{ steps.filter.outputs.cli }}
-      website: ${{ steps.filter.outputs.website }}
-      docs: ${{ steps.filter.outputs.docs }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Detect changed paths
-        id: filter
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            rails:
-              - 'app/**'
-              - 'config/**'
-              - 'db/**'
-              - 'lib/**'
-              - 'spec/**'
-              - 'Gemfile'
-              - 'Gemfile.lock'
-              - 'bin/**'
-              - 'Rakefile'
-              - '.ruby-version'
-            cli:
-              - 'extras/cli/**'
-              - 'Cargo.toml'
-              - 'Cargo.lock'
-            website:
-              - 'extras/website/**'
-            docs:
-              - 'docs/**'
-              - '**/*.md'
-
   rails:
-    needs: changes
     if: |
-      needs.changes.outputs.rails == 'true' &&
       !contains(github.event.head_commit.message, '[skipci]') &&
       !contains(github.event.pull_request.title, '[skipci]')
     runs-on: ubuntu-latest
@@ -160,71 +198,8 @@ jobs:
         # the default `bin/test` run fast. CI must run the FULL suite including
         # system specs, so we ignore `.rspec` entirely and re-add the only flag
         # it carried (`--require spec_helper`) explicitly.
-        run: bundle exec parallel_rspec spec/ -- --options /dev/null --require spec_helper
-
-  cli:
-    needs: changes
-    if: |
-      needs.changes.outputs.cli == 'true' &&
-      !contains(github.event.head_commit.message, '[skipci]') &&
-      !contains(github.event.pull_request.title, '[skipci]')
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: extras/cli
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
-
-      - name: cargo build
-        run: cargo build --all-targets
-
-      - name: cargo test
-        run: cargo test
-
-      - name: cargo clippy
-        run: cargo clippy --all-targets -- -D warnings
-
-      - name: cargo audit
-        # The workspace lockfile lives at the repo root (`/Cargo.lock`), not
-        # under `extras/cli/`. `cargo build|test|clippy` walk up to find it,
-        # but `cargo audit` only reads `./Cargo.lock` from cwd. Override the
-        # job-level `working-directory: extras/cli` and run from the repo
-        # root so audit can locate the lockfile.
-        working-directory: ${{ github.workspace }}
-        run: |
-          cargo install --locked cargo-audit
-          cargo audit
-
-  website:
-    needs: changes
-    if: |
-      needs.changes.outputs.website == 'true' &&
-      !contains(github.event.head_commit.message, '[skipci]') &&
-      !contains(github.event.pull_request.title, '[skipci]')
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Check website markdown formatting
-        run: npx --yes prettier@latest --check 'extras/website/**/*.md'
-
-  docs:
-    needs: changes
-    if: |
-      needs.changes.outputs.docs == 'true' &&
-      !contains(github.event.head_commit.message, '[skipci]') &&
-      !contains(github.event.pull_request.title, '[skipci]')
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Check markdown formatting
-        run: npx --yes prettier@latest --check '**/*.md'
+        #
+        # Use `--test-options` (not `--`) because `bundle exec` consumes a
+        # bare `--` separator, which would leave parallel_tests trying to
+        # `File.stat("--options")` as if it were a spec path.
+        run: bundle exec parallel_rspec spec/ --test-options "--options /dev/null --require spec_helper"
