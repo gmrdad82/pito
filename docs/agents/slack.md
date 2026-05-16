@@ -57,6 +57,11 @@ Examples that DO NOT count (ignore):
 When the user has walked away from the laptop and asked Claude Code to
 poll Slack, the master agent schedules wakeups at **60-second intervals**
 to call `slack_read_channel` on the configured channel, filtered for
-`#code`-prefixed messages newer than the last seen ts. Polling continues
-until the user replies `#code back at laptop` (or equivalent) — then the
-loop stops and the master agent continues with normal chat-driven flow.
+`#code`-prefixed messages newer than the last seen ts.
+
+**The loop stops on either of these signals:**
+- User types `I'm back` (or close paraphrase) in the chat session.
+- User sends `#code I'm back` in `#dev`.
+
+After either signal, no more wakeups are scheduled and the master agent
+returns to normal chat-driven flow.
