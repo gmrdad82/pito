@@ -1,5 +1,12 @@
 name: Deploy website
 
+# Deploys are reserved for deliberate VERSION-bump release events. Day-to-day
+# content changes under `extras/website/**` fire the website CI workflow
+# (`website-ci.yml`) for build / lint / audit safety, but do NOT deploy. The
+# Cloudflare Pages publish only happens when `VERSION` changes (or when this
+# workflow itself is self-edited, so trigger changes get validated), keeping
+# website releases coordinated with the rest of the release surface.
+#
 # Commit-message guard: include `[skipci]` (lowercase, no space) in the commit
 # message to skip this deployment. `workflow_dispatch` runs have no
 # `head_commit`, so manual triggers always proceed (the contains() returns
@@ -9,7 +16,6 @@ on:
   push:
     branches: [main]
     paths:
-      - "extras/website/**"
       - ".github/workflows/deploy-website.yml"
       - "VERSION"
   workflow_dispatch:

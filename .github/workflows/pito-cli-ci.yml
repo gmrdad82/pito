@@ -30,6 +30,12 @@ on:
       # `Cargo.lock` — workspace lockfile lives at the repo root. Dependency
       # drift can break build, tests, clippy, or audit.
       - "Cargo.lock"
+      # `VERSION` — coordinated release event. A bump fires the publish
+      # workflow (`pito-cli-publish.yml`) and we want the full Rust battery
+      # (fmt --check + build + test + clippy + audit) to re-validate against
+      # the exact tree being shipped. Publish runs `cargo test` too, so test
+      # is the only overlap; fmt / clippy / audit are net-new coverage here.
+      - "VERSION"
       # Workflow self-edits must re-run so changes are validated.
       - ".github/workflows/pito-cli-ci.yml"
   push:
@@ -38,6 +44,7 @@ on:
       - "extras/cli/**"
       - "Cargo.toml"
       - "Cargo.lock"
+      - "VERSION"
       - ".github/workflows/pito-cli-ci.yml"
   # Weekly schedule fires the `audit-only` job below — `cargo audit` against
   # the workspace lockfile so new RustSec advisories surface even when the
