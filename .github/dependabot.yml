@@ -1,17 +1,57 @@
+# Dependabot configuration.
+#
+# Grouping intent: bundle related ecosystem updates into single weekly PRs
+# rather than firing one PR per gem / action / package. The architect
+# reviews one consolidated PR per ecosystem per week instead of triaging
+# a flood of individual bumps. Major-version updates stay ungrouped so
+# they land as standalone PRs (they typically need attention anyway).
+#
+# All ecosystems share `schedule.interval: weekly` so updates land on
+# the same weekday as the `cargo audit` cron in `pito-cli-ci.yml`
+# (Mondays), keeping the dependency-hygiene cadence predictable.
+
 version: 2
 updates:
-- package-ecosystem: bundler
-  directory: "/"
-  schedule:
-    interval: weekly
-  open-pull-requests-limit: 10
-- package-ecosystem: github-actions
-  directory: "/"
-  schedule:
-    interval: weekly
-  open-pull-requests-limit: 10
-- package-ecosystem: npm
-  directory: "/extras/website"
-  schedule:
-    interval: weekly
-  open-pull-requests-limit: 5
+  - package-ecosystem: bundler
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      bundler-minor-patch:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      github-actions-all:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: npm
+    directory: "/extras/website"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      npm-minor-patch:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: cargo
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      cargo-minor-patch:
+        update-types:
+          - minor
+          - patch

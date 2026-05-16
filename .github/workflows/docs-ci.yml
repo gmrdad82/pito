@@ -1,0 +1,52 @@
+name: Docs CI
+
+# Repo-wide markdown formatting gate. Docs-only changes don't trigger the
+# Rails, CLI, or website CI workflows (their path filters are narrow on
+# purpose), so without this gate a `docs/**` push would land with no CI at
+# all. This workflow fills that gap: a single `prettier --check` over every
+# `*.md` file in the repo, enforcing the `proseWrap: always` / 80-char rules
+# declared in `.prettierrc.json`.
+#
+# Trigger model: fire on any markdown change anywhere in the repo, on edits
+# to this workflow itself, and on `VERSION` bumps. Version bumps are
+# coordinated release events that re-validate every stack (Rails, CLI,
+# website, docs) so the published bits land on a known-green baseline.
+#
+# Commit-message guard: include the literal token `[skipci]` (lowercase, no
+# space — distinct from GitHub's built-in `[skip ci]`) in the commit message
+# OR pull-request title to skip every job in this workflow.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "**/*.md"
+      - ".github/workflows/docs-ci.yml"
+      - "VERSION"
+  pull_request:
+    paths:
+      - "docs/**"
+      - "**/*.md"
+      - ".github/workflows/docs-ci.yml"
+      - "VERSION"
+
+permissions:
+  contents: read
+
+jobs:
+  prettier:
+    if: |
+      !contains(github.event.head_commit.message, '[skipci]') &&
+      !contains(github.event.pull_request.title, '[skipci]')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check markdown formatting (repo-wide)
+        # Uses `npx --yes prettier@latest` so the gate tracks the newest
+        # prettier release without adding a `package.json` at the repo root.
+        # The repo's `.prettierrc.json` (proseWrap: always, printWidth: 80)
+        # is picked up automatically.
+        run: npx --yes prettier@latest --check '**/*.md'
