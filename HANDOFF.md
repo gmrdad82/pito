@@ -66,7 +66,11 @@ without filesystem access.
   work until the user explicitly says "land with full CI."
 - Don't write code or project markdown directly from the master conversation —
   delegate to the appropriate subagent (`pito-rails`, `pito-docs`, `pito-rust`,
-  `pito-architect`, `pito-reviewer`, `pito-security`, etc.).
+  `pito-architect`, `pito-reviewer`, `pito-security`, `pito-slack`, etc.).
+- Don't call Slack MCP tools directly from the master conversation — every
+  Slack notification flows through the `pito-slack` agent. See `CLAUDE.md`
+  § Slack notifications and `docs/agents/slack.md` for the style + delegation
+  contract.
 
 ## Canonical surface map
 

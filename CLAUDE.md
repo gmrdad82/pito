@@ -188,6 +188,29 @@ do not cross into other agents' work.
 
 When a task expects output outside an actor's role, the actor STOPs and reports.
 
+## Slack notifications
+
+The master agent (and any subagent) sends Slack pings to the user via the
+`pito-slack` agent. **Never call `mcp__claude_ai_Slack__*` MCP tools
+directly** — every Slack notification flows through the agent dispatch so
+the project's message-style governance (in `docs/agents/slack.md`) stays
+in one place.
+
+Message style: **git-commit-subject concise**. Status verb + minimal
+context, fits a single short line (`dotfiles green`, `specs running`,
+`/games ready`, `commit pushed`). The chat conversation remains the
+detailed surface; Slack is the heads-up only. See `docs/agents/slack.md`
+for the channel + style contract the agent enforces.
+
+Use Slack pings sparingly — for long-running processes (full spec sweeps,
+sustained refactors), commit-and-push milestones, or when the user has
+walked away and needs a "ready for next step" signal. Not for routine
+in-chat status (that's the conversation itself).
+
+The pito app's own Slack webhook (configured in
+`NotificationDeliveryChannel` and sent by Sidekiq workers) is a SEPARATE
+production surface for end-user digests — never conflate the two.
+
 ## Hard rules
 
 - **No JavaScript `alert` / `confirm` / `prompt` / `data-turbo-confirm`**
