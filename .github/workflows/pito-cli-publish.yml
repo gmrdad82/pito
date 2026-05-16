@@ -1,17 +1,31 @@
 name: Publish pito CLI
 
 # Commit-message guard: include `[skipci]` (lowercase, no space) in the commit
-# message to skip the publish run for that commit. Note: the paired cleanup
-# workflow (`pito-cli-cleanup.yml`) is `workflow_run`-triggered off this one,
-# so a skipped publish also implicitly skips cleanup.
+# message to skip the publish run for that commit.
+#
+# Versioning model: the release tag is derived from `extras/cli/Cargo.toml`'s
+# `[package] version` field at workflow runtime — NOT from the commit SHA.
+# - Bumping the Cargo version produces a new tag/release (`pito-vX.Y.Z`).
+# - Pushing a CLI change WITHOUT bumping the version re-publishes the existing
+#   tag's release in place, replacing the `pito` asset. `softprops/action-gh-release`
+#   updates the existing release when the tag already exists.
+#
+# Path filter: only fire on changes under `extras/cli/**` (the Rust source) or
+# to this workflow itself. Pushes that don't touch the CLI stop firing — there
+# is no per-commit release noise to clean up anymore, which is why the paired
+# `pito-cli-cleanup.yml` workflow was removed.
 
 on:
   push:
     branches: [main]
+    paths:
+      - "extras/cli/**"
+      - ".github/workflows/pito-cli-publish.yml"
 
 # Serialize publish runs per-ref so two close-together pushes don't race on
-# tag creation. `cancel-in-progress: false` keeps every commit publishable —
-# we don't want a fast follow-up push to drop the binary for the prior commit.
+# tag creation / asset upload. `cancel-in-progress: false` keeps every commit
+# publishable — we don't want a fast follow-up push to drop the binary for the
+# prior commit.
 concurrency:
   group: pito-cli-publish-${{ github.ref }}
   cancel-in-progress: false
@@ -32,14 +46,21 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Compute short SHA
-        id: sha
-        # ${GITHUB_SHA:0:7} gives the 7-char prefix consistent with the rest
-        # of the project (matches `git log --abbrev-commit` defaults).
+      - name: Read CLI version from Cargo.toml
+        id: version
+        # Plain grep + cut against a checked-in source file — no untrusted
+        # input flows into the shell. Matches the first `version = "x.y.z"`
+        # line in extras/cli/Cargo.toml, which by Cargo convention is the
+        # [package] version.
         run: |
-          SHORT_SHA="${GITHUB_SHA:0:7}"
-          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
-          echo "tag_name=pito-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          CARGO_VERSION=$(grep -E '^version = "' extras/cli/Cargo.toml | head -1 | cut -d'"' -f2)
+          if [ -z "$CARGO_VERSION" ]; then
+            echo "Failed to parse version from extras/cli/Cargo.toml" >&2
+            exit 1
+          fi
+          echo "cargo_version=${CARGO_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag_name=pito-v${CARGO_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "release_name=pito v${CARGO_VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Build pito CLI (release)
         run: cargo build --release --manifest-path extras/cli/Cargo.toml
@@ -52,6 +73,10 @@ jobs:
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.sha.outputs.tag_name }}
-          name: pito ${{ steps.sha.outputs.short_sha }}
+          tag_name: ${{ steps.version.outputs.tag_name }}
+          name: ${{ steps.version.outputs.release_name }}
           files: dist/pito
+          # When the tag already exists (non-version-bump CLI commit), update
+          # the existing release in place rather than failing. The asset
+          # `pito` is re-uploaded, replacing the prior binary at the same URL.
+          make_latest: "true"
