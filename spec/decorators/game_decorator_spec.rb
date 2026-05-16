@@ -72,26 +72,49 @@ RSpec.describe GameDecorator do
     end
 
     it "adds the detail-only fields" do
+      # Phase 27 v2 spec 01 — wire shape collapses multi-genre `:genres`
+      # list to a singular `:genre` string. Key set updated.
       expect(json).to include(
         :igdb_id, :summary, :release_date, :igdb_rating_count,
         :aggregated_rating, :total_rating, :total_rating_count,
         :ttb_main_seconds, :ttb_extras_seconds, :ttb_completionist_seconds,
         :external_steam_app_id, :external_gog_id, :external_epic_id,
         :notes, :hours_of_footage_manual, :hours_of_footage_cached,
-        :manual_date_override, :last_sync_error, :genres,
+        :manual_date_override, :last_sync_error, :genre,
         :platforms_owning, :updated_at
       )
+    end
+
+    it "does NOT carry the legacy multi-genre :genres list (Phase 27 v2 spec 01)" do
+      expect(json).not_to have_key(:genres)
     end
 
     it "serializes manual_date_override as yes/no" do
       expect(json[:manual_date_override]).to eq("no")
     end
 
-    it "renders genres as a list of { id, name } hashes" do
+    it "renders :genre as the primary genre's name when set" do
       genre = create(:genre, name: "Puzzle")
       game.genres << genre
       detail = described_class.new(game.reload).as_detail_json
-      expect(detail[:genres]).to include(id: genre.id, name: "Puzzle")
+      expect(detail[:genre]).to eq("Puzzle")
+    end
+
+    it "renders :genre as nil when the game has no primary genre" do
+      bare = create(:game, title: "Bare")
+      detail = described_class.new(bare).as_detail_json
+      expect(detail[:genre]).to be_nil
+    end
+
+    it "renders :genre using the picker's case-insensitive alphabetical winner" do
+      action = create(:genre, name: "Action",    igdb_id: 7_001)
+      zelda  = create(:genre, name: "adventure", igdb_id: 7_002)
+      multi  = create(:game, title: "Multi-genre detail")
+      multi.genres << [ action, zelda ]
+      detail = described_class.new(multi.reload).as_detail_json
+      # "action" < "adventure" by LOWER(name); both are < anything
+      # starting with "z" by lowercase ordering.
+      expect(detail[:genre]).to eq("Action")
     end
 
     it "renders platforms_owning when ownership rows exist" do

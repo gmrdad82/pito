@@ -93,5 +93,45 @@ RSpec.describe Games::PrimaryGenrePicker do
         expect(picker.pick(nil)).to be_nil
       end
     end
+
+    # Phase 27 v2 spec 01 — case-insensitive alphabetical tie-break,
+    # tie-broken by id. Locked policy: ORDER BY LOWER(genres.name)
+    # ASC, genres.id ASC.
+    context "edge: case-insensitive tie-break (Phase 27 v2 spec 01 locked policy)" do
+      it "treats Action / action / ACTION as equal lowercase keys and falls back to id" do
+        upper  = create(:genre, name: "ACTION", igdb_id: 7_101)
+        title  = create(:genre, name: "Action", igdb_id: 7_102)
+        lower  = create(:genre, name: "action", igdb_id: 7_103)
+        game   = create(:game, title: "Case mix")
+        game.genres << [ upper, title, lower ]
+        game.update_column(:primary_genre_id, nil)
+
+        # All three lowercase to "action"; the secondary key (`id ASC`)
+        # picks the lowest id → `upper` (igdb_id 7_101, lowest local id
+        # because it was created first).
+        expect(picker.pick(game.reload)).to eq(upper)
+      end
+
+      it "puts lowercase 'adventure' before uppercase 'RPG' (Adventure < RPG)" do
+        rpg       = create(:genre, name: "RPG",       igdb_id: 7_111)
+        adventure = create(:genre, name: "adventure", igdb_id: 7_112)
+        game      = create(:game, title: "Cross-case ordering")
+        game.genres << [ rpg, adventure ]
+        game.update_column(:primary_genre_id, nil)
+
+        # LOWER("adventure") = "adventure"; LOWER("RPG") = "rpg".
+        # "adventure" < "rpg" so the lowercase row wins despite being
+        # created later than the uppercase row.
+        expect(picker.pick(game.reload)).to eq(adventure)
+      end
+    end
+
+    # Phase 27 v2 spec 01 — unpersisted game flaw guard.
+    context "edge: unpersisted game (no associations loaded)" do
+      it "returns nil without raising (no in-memory genres association)" do
+        unsaved = build(:game, title: "Unpersisted")
+        expect(picker.pick(unsaved)).to be_nil
+      end
+    end
   end
 end

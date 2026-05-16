@@ -20,7 +20,7 @@ RSpec.describe Game, type: :model do
     it { is_expected.to have_many(:game_platform_ownerships).dependent(:destroy) }
     it { is_expected.to have_many(:owned_platforms).through(:game_platform_ownerships).source(:platform) }
 
-    # Phase 27 follow-up (2026-05-11) — primary-genre pointer.
+    # Phase 27 v2 spec 01 — single main genre per Game.
     it { is_expected.to belong_to(:primary_genre).class_name("Genre").optional }
 
     # Phase 14 §3 — video attribution links.
@@ -505,55 +505,173 @@ RSpec.describe Game, type: :model do
     end
   end
 
-  # Phase 27 §01h — collection composite eviction hook.
-  describe "after_update_commit :evict_collection_composite_on_collection_change" do
-    let!(:game) { create(:game, :synced, title: "g") }
-    let(:c1)   { create(:collection, name: "C1") }
-    let(:c2)   { create(:collection, name: "C2") }
+  # Phase 27 v2 spec 02 — collection composite rebuild hooks.
+  #
+  # Three hooks cover the trigger surfaces; each routes through the
+  # orchestrator (`Collections::CompositeRebuildQueue`) which sorts
+  # alphabetically by `Collection.name` and enqueues a sequential
+  # chain. We spy on the orchestrator's public API so the tests pin
+  # the contract between Game and the orchestrator without coupling
+  # to Sidekiq's internal job shape.
+  describe "collection composite rebuild hooks (Phase 27 v2 spec 02)" do
+    let!(:game) { create(:game, :synced, title: "g", collection: nil) }
+    let(:c1)    { create(:collection, name: "C1") }
+    let(:c2)    { create(:collection, name: "C2") }
+    let(:queue) { instance_double(Collections::CompositeRebuildQueue) }
 
-    before { CollectionCoverRebuildJob.clear }
-
-    it "enqueues with [nil, new_id] when a game is added to a collection" do
-      game.update!(collection: c1)
-      jobs = CollectionCoverRebuildJob.jobs
-      expect(jobs.size).to eq(1)
-      expect(jobs.last["args"]).to eq([ nil, c1.id ])
+    before do
+      allow(Collections::CompositeRebuildQueue).to receive(:new).and_return(queue)
+      allow(queue).to receive(:enqueue_for_collections).and_return([])
+      allow(queue).to receive(:enqueue_for_game_resync).and_return([])
+      allow(queue).to receive(:enqueue_for_game_destroy).and_return([])
     end
 
-    it "enqueues with [old_id, new_id] when a game moves between collections" do
-      game.update!(collection: c1)
-      CollectionCoverRebuildJob.clear
+    describe "after_update_commit :rebuild_collection_composites_on_collection_change" do
+      it "enqueues for [new_collection] when a game is added to a collection" do
+        game.update!(collection: c1)
+        expect(queue).to have_received(:enqueue_for_collections).with([ c1 ])
+      end
 
-      game.update!(collection: c2)
-      jobs = CollectionCoverRebuildJob.jobs
-      expect(jobs.size).to eq(1)
-      expect(jobs.last["args"]).to eq([ c1.id, c2.id ])
+      it "enqueues for [old, new] when a game moves between collections" do
+        game.update!(collection: c1)
+        game.update!(collection: c2)
+        expect(queue).to have_received(:enqueue_for_collections).with([ c1, c2 ])
+      end
+
+      it "enqueues for [old] when a game is removed from its collection" do
+        game.update!(collection: c1)
+        game.update!(collection: nil)
+        # Two enqueues total: one when c1 was added, one when c1 was
+        # removed — both pass `[c1]` to the orchestrator.
+        expect(queue).to have_received(:enqueue_for_collections)
+          .with([ c1 ]).exactly(2).times
+      end
+
+      it "does NOT enqueue an EXTRA call when only unrelated columns change" do
+        game.update!(collection: c1)
+        # One call from the collection assignment above; updating notes
+        # must NOT add a second call.
+        game.update!(notes: "untouched by the collection hook")
+        expect(queue).to have_received(:enqueue_for_collections).once
+      end
+
+      it "does NOT enqueue an EXTRA call when cover_image_id changes (collection unchanged)" do
+        game.update!(collection: c1)
+        game.update!(cover_image_id: "new-cid")
+        expect(queue).to have_received(:enqueue_for_collections).once
+      end
     end
 
-    it "enqueues with [old_id, nil] when a game is removed from its collection" do
-      game.update!(collection: c1)
-      CollectionCoverRebuildJob.clear
+    describe "after_save_commit :rebuild_collection_composites_on_resync" do
+      it "enqueues a resync chain when igdb_synced_at is bumped and the game is in a collection" do
+        game.update!(collection: c1)
+        game.update!(igdb_synced_at: Time.current + 1.day)
+        expect(queue).to have_received(:enqueue_for_game_resync).with(game)
+      end
 
-      game.update!(collection: nil)
-      jobs = CollectionCoverRebuildJob.jobs
-      expect(jobs.size).to eq(1)
-      expect(jobs.last["args"]).to eq([ c1.id, nil ])
+      it "does NOT enqueue a resync chain when the game has no collection" do
+        game.update!(collection: nil, igdb_synced_at: Time.current + 1.day)
+        expect(queue).not_to have_received(:enqueue_for_game_resync)
+      end
+
+      it "does NOT enqueue a resync chain when igdb_synced_at is unchanged" do
+        game.update!(collection: c1)
+        game.update!(notes: "touch")
+        # The resync hook fires only on igdb_synced_at saved-change; the
+        # two updates above touch collection_id and notes, neither of
+        # which should reach `enqueue_for_game_resync`.
+        expect(queue).not_to have_received(:enqueue_for_game_resync)
+      end
     end
 
-    it "does NOT enqueue when other columns change" do
-      game.update!(collection: c1)
-      CollectionCoverRebuildJob.clear
+    describe "after_destroy_commit :rebuild_collection_composites_on_destroy" do
+      it "captures the pre-destroy collection and enqueues a destroy chain" do
+        game.update!(collection: c1)
+        game.destroy!
+        expect(queue).to have_received(:enqueue_for_game_destroy)
+          .with(game, was_in: [ c1 ])
+      end
 
-      game.update!(notes: "untouched by the collection hook")
-      expect(CollectionCoverRebuildJob.jobs).to be_empty
+      it "does NOT enqueue a destroy chain when the game had no collection" do
+        game.destroy!
+        expect(queue).not_to have_received(:enqueue_for_game_destroy)
+      end
+    end
+  end
+
+  # Phase 27 v2 spec 01 — Single main genre per Game.
+  describe "Phase 27 v2 spec 01 — primary_genre management" do
+    describe "before_save :assign_primary_genre_if_blank" do
+      it "fires on save when primary_genre_id is blank and the game has linked genres" do
+        adventure = create(:genre, name: "Adventure", igdb_id: 8_001)
+        game      = create(:game, title: "v2 spec 01 — callback fire")
+        # Wire two linked genres without going through `<<` (which has
+        # its own GameGenre callback) — use create! on the join so the
+        # picker has stable input.
+        GameGenre.create!(game: game, genre: adventure)
+        # Force the pointer back to nil to set up the assertion.
+        game.update_column(:primary_genre_id, nil)
+        game.notes = "trigger any save"
+        game.save!
+        expect(game.reload.primary_genre_id).to eq(adventure.id)
+      end
+
+      it "is a no-op when primary_genre_id is already set (idempotent)" do
+        first  = create(:genre, name: "First",  igdb_id: 8_011)
+        second = create(:genre, name: "Second", igdb_id: 8_012)
+        game   = create(:game, title: "v2 spec 01 — pin honored")
+        GameGenre.create!(game: game, genre: first)
+        GameGenre.create!(game: game, genre: second)
+        # Pin to `second` even though `first` would win alphabetically.
+        game.update_column(:primary_genre_id, second.id)
+        game.update!(notes: "save again")
+        expect(game.reload.primary_genre_id).to eq(second.id)
+      end
+
+      it "picks the alphabetical-first genre for a multi-genre game" do
+        rpg       = create(:genre, name: "RPG",       igdb_id: 8_021)
+        adventure = create(:genre, name: "Adventure", igdb_id: 8_022)
+        shooter   = create(:genre, name: "Shooter",   igdb_id: 8_023)
+        game      = create(:game, title: "v2 spec 01 — multi pick")
+        GameGenre.create!(game: game, genre: rpg)
+        GameGenre.create!(game: game, genre: adventure)
+        GameGenre.create!(game: game, genre: shooter)
+        game.update_column(:primary_genre_id, nil)
+        game.update!(notes: "trigger")
+        expect(game.reload.primary_genre).to eq(adventure)
+      end
+
+      it "leaves primary_genre_id nil and does not raise when no genres are linked" do
+        game = create(:game, title: "v2 spec 01 — zero genres")
+        # Force the pointer to nil (the factory might leave it nil
+        # anyway; this is the guard).
+        game.update_column(:primary_genre_id, nil)
+        expect { game.update!(notes: "trigger") }.not_to raise_error
+        expect(game.reload.primary_genre_id).to be_nil
+      end
+
+      it "writes nil cleanly when the picker returns nil (no genres after sync)" do
+        # The hook only fires when `primary_genre_id` is currently
+        # blank, so a sync that nulled the pointer then saves with no
+        # linked genres should leave nil in place (not write garbage).
+        game = create(:game, title: "v2 spec 01 — picker-nil write")
+        game.update_column(:primary_genre_id, nil)
+        game.update!(notes: "trigger")
+        expect(game.reload.primary_genre_id).to be_nil
+      end
     end
 
-    it "does NOT enqueue when cover_image_id changes (collection_id unchanged)" do
-      game.update!(collection: c1)
-      CollectionCoverRebuildJob.clear
+    describe "FK on_delete: :nullify" do
+      it "nullifies primary_genre_id when the pinned Genre is deleted" do
+        genre = create(:genre, name: "DeleteMe", igdb_id: 8_031)
+        game  = create(:game, title: "v2 spec 01 — FK nullify")
+        GameGenre.create!(game: game, genre: genre)
+        game.update_column(:primary_genre_id, genre.id)
 
-      game.update!(cover_image_id: "new-cid")
-      expect(CollectionCoverRebuildJob.jobs).to be_empty
+        genre.destroy!
+        expect { game.reload }.not_to raise_error
+        expect(game.primary_genre_id).to be_nil
+      end
     end
   end
 

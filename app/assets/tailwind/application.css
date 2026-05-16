@@ -1346,6 +1346,28 @@ dialog.pane-dialog {
   padding: 0;
 }
 
+/* Phase 27 spec 04 (2026-05-17) — wide pane-dialog modifier. The
+   global IGDB add-game modal needs a 720px content area so the IGDB
+   result rows (cover thumb + title + year + `[add]` / `[update]`
+   action) render on a single line without wrapping. The base
+   `.confirm-modal` cap at 420px (defined further down the cascade)
+   would otherwise clip the dialog and surface a horizontal page
+   scrollbar — which is exactly the regression the inline
+   `style="max-width: 720px;"` band-aid was working around.
+
+   This explicit modifier is the architect-locked replacement (lean
+   "b" in the spec): opt in per dialog so other `.confirm-modal`
+   surfaces keep their 420px cap. `width: 95vw` is the narrow-
+   viewport fallback so the dialog clamps to 95% of the viewport
+   width on phones (the spec audit mandates no `<body>` horizontal
+   scroll at 360px). Higher specificity than the trailing
+   `.confirm-modal { max-width: 420px }` rule via the chained class
+   selector. */
+dialog.pane-dialog.pane-dialog--wide {
+  max-width: 720px;
+  width: 95vw;
+}
+
 /* 2026-05-16 — Mandatory-2FA gate: when the settings modal is in
    non-dismissible mode (auto-opened TOTP enrollment for an unconfigured
    user) the enrollment view body prints "two-factor setup required"

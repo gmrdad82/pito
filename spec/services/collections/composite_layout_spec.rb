@@ -34,12 +34,24 @@ RSpec.describe Collections::CompositeLayout do
       expect(described_class.choose(6)).to eq(:six_grid)
     end
 
-    it "returns :six_grid for 7" do
-      expect(described_class.choose(7)).to eq(:six_grid)
+    it "returns :netflix7 for 7" do
+      expect(described_class.choose(7)).to eq(:netflix7)
     end
 
-    it "returns :six_grid for 100 (large overflow)" do
-      expect(described_class.choose(100)).to eq(:six_grid)
+    it "returns :eight_grid for 8" do
+      expect(described_class.choose(8)).to eq(:eight_grid)
+    end
+
+    it "returns :nine_grid for 9" do
+      expect(described_class.choose(9)).to eq(:nine_grid)
+    end
+
+    it "returns :nine_grid for 10 (caps at 9)" do
+      expect(described_class.choose(10)).to eq(:nine_grid)
+    end
+
+    it "returns :nine_grid for 100 (large overflow)" do
+      expect(described_class.choose(100)).to eq(:nine_grid)
     end
 
     it "raises ArgumentError on negative counts" do
@@ -250,6 +262,143 @@ RSpec.describe Collections::CompositeLayout do
       end
     end
 
+    describe ":netflix7" do
+      let(:boxes) { described_class.tile_boxes(:netflix7) }
+
+      it "returns 7 boxes" do
+        expect(boxes.size).to eq(7)
+      end
+
+      it "big top tile spans the full canvas width" do
+        expect(boxes[0].slice(:x, :y, :w, :h)).to eq(x: 0, y: 0, w: w, h: 65)
+      end
+
+      it "mid row carries 3 cells with widths 33 / 33 / 32" do
+        expect(boxes[1..3].map { |b| b[:w] }).to eq([ 33, 33, 32 ])
+      end
+
+      it "mid row cells have height 32 (rest_h / 2 for 65)" do
+        expect(boxes[1..3].map { |b| b[:h] }).to all(eq(32))
+      end
+
+      it "mid row y origin sits below the big tile (65)" do
+        expect(boxes[1..3].map { |b| b[:y] }).to all(eq(65))
+      end
+
+      it "bottom row carries 3 cells with widths 33 / 33 / 32" do
+        expect(boxes[4..6].map { |b| b[:w] }).to eq([ 33, 33, 32 ])
+      end
+
+      it "bottom row absorbs the rounding remainder (height 33)" do
+        expect(boxes[4..6].map { |b| b[:h] }).to all(eq(33))
+      end
+
+      it "bottom row y origin is mid-end (65 + 32 = 97)" do
+        expect(boxes[4..6].map { |b| b[:y] }).to all(eq(97))
+      end
+
+      it "rows tile cleanly: each row sums to canvas width" do
+        expect(boxes[1..3].sum { |b| b[:w] }).to eq(w)
+        expect(boxes[4..6].sum { |b| b[:w] }).to eq(w)
+      end
+
+      it "columns tile cleanly: big + mid + bot heights sum to canvas height" do
+        expect(boxes[0][:h] + boxes[1][:h] + boxes[4][:h]).to eq(h)
+      end
+
+      it "no gaps between mid-row columns (x flows left-to-right)" do
+        expect(boxes[2][:x]).to eq(boxes[1][:x] + boxes[1][:w])
+        expect(boxes[3][:x]).to eq(boxes[2][:x] + boxes[2][:w])
+      end
+
+      it "no overlap between big and mid (big.h == mid.y)" do
+        expect(boxes[0][:h]).to eq(boxes[1][:y])
+      end
+    end
+
+    describe ":eight_grid" do
+      let(:boxes) { described_class.tile_boxes(:eight_grid) }
+
+      it "returns 8 boxes" do
+        expect(boxes.size).to eq(8)
+      end
+
+      it "columns split 49 / 49 against 98" do
+        boxes.each_slice(2) do |left, right|
+          expect(left[:w]).to eq(49)
+          expect(right[:w]).to eq(49)
+          expect(left[:x]).to eq(0)
+          expect(right[:x]).to eq(49)
+        end
+      end
+
+      it "rows split 32 / 32 / 33 / 33 (last two absorb the remainder)" do
+        row_heights = boxes.each_slice(2).map { |pair| pair[0][:h] }
+        expect(row_heights).to eq([ 32, 32, 33, 33 ])
+      end
+
+      it "rows are y-aligned (within each row both cells share y / h)" do
+        boxes.each_slice(2) do |left, right|
+          expect(left[:y]).to eq(right[:y])
+          expect(left[:h]).to eq(right[:h])
+        end
+      end
+
+      it "y origins are 0 / 32 / 64 / 97 (tiling without gaps)" do
+        y_origins = boxes.each_slice(2).map { |pair| pair[0][:y] }
+        expect(y_origins).to eq([ 0, 32, 64, 97 ])
+      end
+
+      it "row heights sum to canvas height (130)" do
+        row_heights = boxes.each_slice(2).map { |pair| pair[0][:h] }
+        expect(row_heights.sum).to eq(h)
+      end
+    end
+
+    describe ":nine_grid" do
+      let(:boxes) { described_class.tile_boxes(:nine_grid) }
+
+      it "returns 9 boxes" do
+        expect(boxes.size).to eq(9)
+      end
+
+      it "columns split 33 / 33 / 32 against 98" do
+        boxes.each_slice(3) do |row|
+          expect(row.map { |b| b[:w] }).to eq([ 33, 33, 32 ])
+        end
+      end
+
+      it "rows split 43 / 43 / 44 against 130 (last row absorbs remainder)" do
+        row_heights = boxes.each_slice(3).map { |row| row[0][:h] }
+        expect(row_heights).to eq([ 43, 43, 44 ])
+      end
+
+      it "rows are y-aligned (cells in a row share y / h)" do
+        boxes.each_slice(3) do |row|
+          expect(row.map { |b| b[:y] }.uniq.size).to eq(1)
+          expect(row.map { |b| b[:h] }.uniq.size).to eq(1)
+        end
+      end
+
+      it "y origins are 0 / 43 / 86 (tiling without gaps)" do
+        y_origins = boxes.each_slice(3).map { |row| row[0][:y] }
+        expect(y_origins).to eq([ 0, 43, 86 ])
+      end
+
+      it "x origins per row are 0 / 33 / 66" do
+        boxes.each_slice(3) do |row|
+          expect(row.map { |b| b[:x] }).to eq([ 0, 33, 66 ])
+        end
+      end
+
+      it "row widths sum to 98 and row heights sum to 130" do
+        expect(boxes[0..2].sum { |b| b[:w] }).to eq(w)
+        expect(boxes[3..5].sum { |b| b[:w] }).to eq(w)
+        expect(boxes[6..8].sum { |b| b[:w] }).to eq(w)
+        expect(boxes[0][:h] + boxes[3][:h] + boxes[6][:h]).to eq(h)
+      end
+    end
+
     describe "with non-default canvas (105 × 140 alternate)" do
       it "pair scales to half-and-half (52 / 53)" do
         boxes = described_class.tile_boxes(:pair, output_w: 105, output_h: 140)
@@ -292,7 +441,7 @@ RSpec.describe Collections::CompositeLayout do
       Vips::Image.black(227, 320).new_from_image(rgb)
     end
 
-    %i[pair netflix3 quad netflix5 six_grid].each do |layout|
+    %i[pair netflix3 quad netflix5 six_grid netflix7 eight_grid nine_grid].each do |layout|
       describe "layout #{layout}" do
         let(:slot_count) { described_class.tile_boxes(layout).size }
         let(:tiles)      { Array.new(slot_count) { fake_tile } }

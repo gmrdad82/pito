@@ -135,11 +135,38 @@
       <tr><td class="text-muted" style="padding-right: 12px;">completionist</td><td><%= format_seconds(@game.ttb_completionist_seconds) %></td></tr>
     </table>
 
-    <h2 style="margin-top: 16px;">genres / platforms</h2>
+    <%# Phase 27 v2 spec 01 — single main genre per Game. The legacy
+        comma-joined `@game.genres.map(&:name)` list is gone; the row
+        renders ONE primary genre (or "—" when none has been picked
+        yet). Spec 08 supersedes this layout entirely with the
+        primary-bold / secondary-normal arrangement; until that ships,
+        this interim guards the spec-01 single-genre rendering rule. %>
+    <h2 style="margin-top: 16px;">genre / platforms</h2>
     <p>
-      <span class="text-muted">genres:</span> <%= @game.genres.map(&:name).join(", ").presence || "—" %><br>
+      <span class="text-muted">genre:</span> <%= @game.primary_genre&.name.presence || "—" %><br>
       <span class="text-muted">platforms:</span> <%= display_platforms(@game) %>
     </p>
+
+    <%# Phase 27 v2 spec 07 — platform logo row. Renders 0..5
+        56-px favicons from the Rake-downloaded asset set, in the
+        locked PS5 / Switch2 / Steam / GoG / Epic order. Empty list
+        renders nothing — no placeholder block. %>
+    <% detail_logo_slugs = game_detail_logo_slugs(@game) %>
+    <% if detail_logo_slugs.any? %>
+      <div class="game-detail-platform-logos"
+           style="display: flex; flex-direction: row; gap: 8px; align-items: center; margin: 8px 0 0 0;">
+        <% detail_logo_slugs.each do |slug| %>
+          <%# Rake downloads at 64 px; rendered at 56 px (detail-side
+              LOCKED). The 8-px scale-down keeps high-DPI displays
+              crisp. %>
+          <%= image_tag "/platform_logos/#{slug}-64.png",
+                        alt: PlatformLogosHelper::LOGO_ALT_LABELS.fetch(slug),
+                        width: 56, height: 56,
+                        class: "platform-logo platform-logo--#{slug}",
+                        style: "width: 56px; height: 56px;" %>
+        <% end %>
+      </div>
+    <% end %>
 
     <%# External store links. `[open on igdb]` was retired per spec —
         only the platform-store links remain. 2026-05-16 polish — the

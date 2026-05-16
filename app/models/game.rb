@@ -67,12 +67,21 @@ class Game < ApplicationRecord
   has_many :game_genres, dependent: :destroy
   has_many :genres, through: :game_genres
 
-  # Phase 27 follow-up (2026-05-11) — primary-genre pointer. Each game
-  # picks ONE canonical genre so the `/games` Genres outer-shelf lists
-  # the game in exactly one sub-shelf instead of every genre it joins.
-  # Picked by `Games::PrimaryGenrePicker` on save when blank; FK is
-  # `on_delete: :nullify` (see migration) so deleting a genre frees the
-  # pointer without nuking the game.
+  # Phase 27 v2 spec 01 — single main genre per Game. Each game has
+  # EXACTLY ONE canonical primary genre (or nil when IGDB reports
+  # zero). Every UI surface renders `primary_genre.name` (or `"—"`)
+  # — never a comma-joined list. The legacy multi-valued `game_genres`
+  # join survives as the IGDB raw record so the picker can re-evaluate
+  # the choice on each re-sync without re-fetching from IGDB.
+  #
+  # Picked by `Games::PrimaryGenrePicker` (LOWER(name) ASC, id ASC
+  # tie-break). The `before_save` hook below sets the pointer when
+  # blank; `Igdb::SyncGame#call` writes it explicitly on every sync
+  # (via `update_column`) so a re-sync that adds / drops genres keeps
+  # the pointer current. FK is `on_delete: :nullify` (see
+  # `BetaMigration3` — the column landed in the Phase 27 follow-up of
+  # 2026-05-11) so deleting a genre frees the pointer without nuking
+  # the game.
   belongs_to :primary_genre, class_name: "Genre", optional: true
   before_save :assign_primary_genre_if_blank
 
@@ -137,14 +146,26 @@ class Game < ApplicationRecord
   # every bundle the game belongs to.
   after_update_commit :invalidate_bundle_covers_if_image_changed
 
-  # Phase 27 §01h — fire `CollectionCoverRebuildJob` when the game's
-  # `collection_id` changes (add / move / remove). The job evicts the
-  # on-disk composite for BOTH the old and new collection ids so the
-  # next page render re-derives them via `Collections::CoverComposer`.
-  # The fingerprint catches the same change as a fallback; eviction
-  # makes the next render faster (no need to re-hash 6 ids to discover
-  # the cache is stale — the file literally is not there).
-  after_update_commit :evict_collection_composite_on_collection_change
+  # Phase 27 §01h (v2 spec 02) — fire a rebuild for every collection
+  # touched by a membership / sync / destroy event on this game. The
+  # orchestrator (`Collections::CompositeRebuildQueue`) sorts inputs
+  # alphabetically by `Collection.name` and enqueues a sequential
+  # chain — predictable order is load-bearing for UX (which collection
+  # is rebuilding next) and for tests (deterministic enqueue order).
+  #
+  # Three hooks cover the three trigger surfaces:
+  #   - `after_update_commit` — collection_id changes (add / move /
+  #     remove). Rebuilds the OLD and NEW collections.
+  #   - `after_save_commit` — game re-synced from IGDB (
+  #     `igdb_synced_at` changed). Rebuilds every collection the game
+  #     is currently in.
+  #   - `before_destroy` + `after_destroy_commit` — game deleted.
+  #     Rebuilds every collection the game WAS in (captured pre-destroy
+  #     because the after_destroy hook sees the post-nullify state).
+  after_update_commit  :rebuild_collection_composites_on_collection_change
+  after_save_commit    :rebuild_collection_composites_on_resync
+  before_destroy       :capture_pre_destroy_collection
+  after_destroy_commit :rebuild_collection_composites_on_destroy
 
   # Phase 4 legacy — kept for one phase, dropped in polish window.
   has_one_attached :cover_art
@@ -411,24 +432,75 @@ class Game < ApplicationRecord
     BundleCoverInvalidate.perform_async(id, previous_cover_image_id)
   end
 
-  # Phase 27 §01h — collection composite eviction hook. Enqueues
-  # `CollectionCoverRebuildJob` with both the previous and current
-  # `collection_id` so the job sweeps stale files on both sides of
-  # the move. Sidekiq runs in a separate process, so the in-memory
-  # `saved_changes` from the originating after_update_commit is gone
-  # by the time the job executes — the args are passed explicitly.
-  def evict_collection_composite_on_collection_change
+  # Phase 27 v2 spec 02 — collection composite rebuild hook for the
+  # add / move / remove surface. Looks up BOTH the previous and current
+  # collections (skipping nils), hands them to the orchestrator which
+  # sorts alphabetically and enqueues a sequential chain.
+  #
+  # The previous collection is loaded by id (the in-memory association
+  # already points at the new one). The current collection is the
+  # already-attached `collection` association.
+  def rebuild_collection_composites_on_collection_change
     return unless saved_change_to_collection_id?
+
     previous_id, current_id = saved_change_to_collection_id
-    CollectionCoverRebuildJob.perform_async(previous_id, current_id)
+    targets = []
+    targets << Collection.find_by(id: previous_id) if previous_id.present?
+    targets << Collection.find_by(id: current_id)  if current_id.present?
+
+    Collections::CompositeRebuildQueue.new.enqueue_for_collections(targets.compact)
   end
 
-  # Phase 27 follow-up (2026-05-11) — set `primary_genre_id` when blank
-  # so the Genres outer-shelf can file every saved game under exactly
-  # one sub-shelf. Idempotent: a row that already has a primary is left
+  # Phase 27 v2 spec 02 — collection composite rebuild hook for the
+  # re-sync surface. Fires whenever `igdb_synced_at` was just written
+  # (a fresh IGDB sync). Skips when the row has no collection (a
+  # game outside any collection has no composite to rebuild). The
+  # collection_id-change hook already covers the add/move/remove case;
+  # this hook ONLY handles the "membership unchanged but cover bytes
+  # may now point at a new IGDB asset" case.
+  def rebuild_collection_composites_on_resync
+    return unless saved_change_to_igdb_synced_at?
+    return if collection_id.blank?
+
+    Collections::CompositeRebuildQueue.new.enqueue_for_game_resync(self)
+  end
+
+  # Phase 27 v2 spec 02 — capture the game's collection BEFORE destroy
+  # so the after_destroy_commit hook can rebuild composites for the
+  # collections the game WAS in. By the time after_destroy_commit
+  # fires the row is gone and the FK has been nullified — the value
+  # has to be cached during the destroy transaction.
+  def capture_pre_destroy_collection
+    @pre_destroy_collection = collection
+    true
+  end
+
+  # Phase 27 v2 spec 02 — collection composite rebuild hook for the
+  # destroy surface. Reads the captured pre-destroy collection set and
+  # hands it to the orchestrator. A standalone game (no collection
+  # before destroy) is a no-op.
+  def rebuild_collection_composites_on_destroy
+    targets = Array(@pre_destroy_collection).compact
+    return if targets.empty?
+
+    Collections::CompositeRebuildQueue.new
+                                      .enqueue_for_game_destroy(self, was_in: targets)
+  end
+
+  # Phase 27 v2 spec 01 — set `primary_genre_id` when blank so the
+  # Genres outer-shelf can file every saved game under exactly one
+  # sub-shelf. Idempotent: a row that already has a primary is left
   # alone (the picker also honors the pin internally). The hook fires
   # on every save, not only `create`, so a row whose primary was
   # nullified (FK `on_delete: :nullify`) re-picks on the next save.
+  #
+  # `Igdb::SyncGame#call` writes the column explicitly (via
+  # `update_column`) after `sync_genres`, bypassing this hook so the
+  # re-pick honors a re-shuffled IGDB genre set even when the existing
+  # pointer is non-blank. This hook remains the safety net for non-sync
+  # save paths (e.g. user updates the manual override, `play_at`, or
+  # any local-only column on a row whose primary somehow drifted to
+  # nil between syncs).
   def assign_primary_genre_if_blank
     return if primary_genre_id.present?
     pick = Games::PrimaryGenrePicker.new.pick(self)

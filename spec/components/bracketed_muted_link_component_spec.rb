@@ -43,7 +43,24 @@ RSpec.describe BracketedMutedLinkComponent, type: :component do
   describe "variants" do
     pending "renders a custom label (e.g. 'help', 'discard', 'go back', 'close')"
     pending "emits data-turbo-method when method: :delete is passed"
-    pending "merges arbitrary data: attributes onto the anchor"
+
+    # Phase 27 spec 04 (2026-05-17) — the IGDB add-game modal's
+    # `[cancel]` link relies on `data:` passthrough to wire the
+    # Stimulus `click->igdb-search-modal#close` action onto the
+    # anchor. Lock the behavior so a future refactor cannot drop
+    # it silently.
+    it "merges arbitrary data: attributes onto the anchor" do
+      render_inline(
+        described_class.new(
+          href: "#",
+          data: { action: "click->igdb-search-modal#close" }
+        )
+      )
+      expect(page).to have_css(
+        'a.bracketed.bracketed-muted-link[data-action="click->igdb-search-modal#close"]'
+      )
+    end
+
     pending "passes target: through to the anchor"
     pending "passes rel: through to the anchor"
   end

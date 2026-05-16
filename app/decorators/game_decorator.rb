@@ -52,7 +52,14 @@ class GameDecorator < ApplicationDecorator
       hours_of_footage_cached: hours_of_footage_cached&.to_f,
       manual_date_override: YesNo.to_yes_no(manual_date_override),
       last_sync_error: last_sync_error,
-      genres: genres.map { |g| { id: g.id, name: g.name } },
+      # Phase 27 v2 spec 01 — single main genre per Game. The wire
+      # shape changes from a multi-element list (`genres: [{id,name}]`)
+      # to a SINGULAR string field (`genre: "name"` or `nil`). Every
+      # Rails / MCP / CLI consumer is expected to migrate to the new
+      # shape; back-compat aliasing was deliberately not added — only
+      # pito's own surfaces consume the field and they belong to the
+      # same release wave. The `genres:` key is gone outright.
+      genre: primary_genre&.name,
       platforms_owning: owned_platforms.map { |p| { id: p.id, name: p.name } },
       updated_at: updated_at&.iso8601
     )

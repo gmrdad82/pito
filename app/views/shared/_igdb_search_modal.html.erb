@@ -6,34 +6,50 @@
     render `[add]` for IGDB hits not yet in the local library and
     `[update]` for existing rows; `[update]` opens the shared
     overwrite-confirmation dialog (`#igdb-overwrite-modal`).
-    No JS confirm/alert/prompt anywhere (CLAUDE.md hard rule). %>
-<%# The inline `max-width` on the <dialog> overrides the 420px cap
-    inherited from `.confirm-modal` (defined later in the cascade than
-    `.pane-dialog`), which clipped the `[search]` button and produced a
-    horizontal scrollbar. The inner uses `width: min(...)` so narrow
-    viewports stay usable. %>
+    No JS confirm/alert/prompt anywhere (CLAUDE.md hard rule).
+
+    Phase 27 spec 04 (2026-05-17) — copy + control polish:
+      - Title trimmed: "add a game from igdb" → "add a game".
+      - Input placeholder trimmed: "search igdb…" → "search…".
+        The "igdb" context is implied by the title now.
+      - The explicit `[search]` button is GONE. The input auto-fires
+        a search when the trimmed value reaches the min-chars cutoff
+        (5 by default) OR when the user presses Enter at any length
+        ≥ 1.
+      - `[cancel]` swaps to BracketedMutedLinkComponent (muted
+        secondary affordance — same primitive the session-revoke,
+        Slack/Discord help, and Doorkeeper "cancel" surfaces use).
+      - The inline `style="max-width: 720px;"` band-aid is gone; the
+        wide modal now opts into the new `.pane-dialog--wide`
+        modifier so other `.confirm-modal.pane-dialog` dialogs keep
+        their 420px cap. The inner wrapper's redundant
+        `width: min(720px, 92vw)` is also dropped now that the
+        outer `<dialog>` sizes correctly. %>
 <dialog id="igdb-search-modal"
-        class="confirm-modal pane-dialog"
-        style="max-width: 720px;"
+        class="confirm-modal pane-dialog pane-dialog--wide"
         data-controller="igdb-search-modal"
         data-igdb-search-modal-url-value="<%= search_games_path %>"
+        data-igdb-search-modal-min-chars-value="5"
         data-action="click->igdb-search-modal#clickOutside keydown->igdb-search-modal#keydown">
-  <div class="confirm-modal-inner" style="width: min(720px, 92vw);">
-    <div class="dialog-title">add a game from igdb</div>
-    <div style="display: flex; gap: 6px; align-items: center;">
+  <div class="confirm-modal-inner">
+    <div class="dialog-title">add a game</div>
+    <div>
       <input type="search"
-             placeholder="search igdb…"
+             placeholder="search…"
              autocomplete="off"
              data-igdb-search-modal-target="input"
-             data-action="input->igdb-search-modal#search"
-             style="flex: 1; min-width: 0; height: 24px; padding: 0 6px; font-family: inherit; font-size: 13px; border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-text);" />
-      <button type="button" class="bracketed" data-action="igdb-search-modal#submit">[<span class="bl">search</span>]</button>
+             data-action="input->igdb-search-modal#search keydown.enter->igdb-search-modal#search"
+             style="width: 100%; box-sizing: border-box; height: 24px; padding: 0 6px; font-family: inherit; font-size: 13px; border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-text);" />
     </div>
     <div style="margin-top: 8px;">
       <%= turbo_frame_tag "igdb_search_results" %>
     </div>
     <div class="modal-footer">
-      <button type="button" class="bracketed" data-action="igdb-search-modal#close">[<span class="bl">cancel</span>]</button>
+      <%= render(BracketedMutedLinkComponent.new(
+            label: "cancel",
+            href: "#",
+            data: { action: "click->igdb-search-modal#close" }
+          )) %>
     </div>
   </div>
 </dialog>

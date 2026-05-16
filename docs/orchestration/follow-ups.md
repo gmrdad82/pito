@@ -968,6 +968,13 @@ asserting C2 + V2 still issue the basic-stats window summary as a separate call
 for `WINDOW_RATIO_METRICS` lives inline at
 `app/services/youtube/analytics_query_builder.rb`.
 
+### Search revamp
+
+**Search revamp** — `/` keybinding on `/games` and `/games/:id` currently opens
+a `[TBD]` placeholder modal (via `StatusTbdBadgeComponent`). The actual search
+experience needs a dedicated spec + dispatch. Once it lands, the placeholder
+modal is replaced everywhere `/` is bound.
+
 ## Done
 
 ### YouTube credentials hot-rotation gap (omniauth boot-time read)

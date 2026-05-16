@@ -148,6 +148,70 @@ RSpec.describe "Games index — nested shelves (01c-v2)", type: :system do
     end
   end
 
+  # Phase 27 v2 spec 01 — Single main genre per Game.
+  #
+  # Cross-cutting assertion: a multi-genre game appears under EXACTLY
+  # ONE sub-shelf (the picker's alphabetical winner). When the genre
+  # set changes (via picker re-run) the game hops to a new sub-shelf
+  # and disappears from the old.
+  describe "Single main genre per game (v2 spec 01)" do
+    let!(:adventure) { Genre.create!(igdb_id: 1101, name: "Adventure", slug: "adv-v2") }
+    let!(:rpg)       { Genre.create!(igdb_id: 1102, name: "RPG",       slug: "rpg-v2") }
+    let!(:shooter)   { Genre.create!(igdb_id: 1103, name: "Shooter",   slug: "sho-v2") }
+    let!(:game)      { create(:game, :synced, title: "Cyberpunk 2077", cover_image_id: "img-cp77") }
+
+    before do
+      # Three linked genres on a single game. The picker's
+      # `LOWER(name) ASC, id ASC` tie-break makes "Adventure" the
+      # alphabetical winner.
+      game.genres << [ adventure, rpg, shooter ]
+      # The `GameGenre.after_save :recompute_primary_genre` hook
+      # already populated `primary_genre_id` — assert the precondition.
+      expect(game.reload.primary_genre).to eq(adventure)
+    end
+
+    it "renders the game under EXACTLY ONE sub-shelf (the alphabetical winner)" do
+      visit games_path
+
+      # Adventure sub-shelf carries the tile.
+      adv_shelf = find("section.sub-shelf--genre[data-genre-id='#{adventure.id}']")
+      expect(adv_shelf.native.to_html).to include("img-cp77")
+
+      # RPG / Shooter sub-shelves do NOT carry the tile.
+      rpg_shelf = find("section.sub-shelf--genre[data-genre-id='#{rpg.id}']") rescue nil
+      sho_shelf = find("section.sub-shelf--genre[data-genre-id='#{shooter.id}']") rescue nil
+      # Empty buckets are hidden end-to-end — when the only game with
+      # that genre is pinned elsewhere, the sub-shelf is suppressed.
+      expect(rpg_shelf).to be_nil
+      expect(sho_shelf).to be_nil
+    end
+
+    it "the game hops to a new sub-shelf when the picker is re-run after a genre change" do
+      # Simulate a re-sync that drops Adventure and leaves only RPG +
+      # Shooter. The picker chooses RPG (alphabetical winner among the
+      # remaining set).
+      visit games_path
+      expect(page).to have_css("section.sub-shelf--genre[data-genre-id='#{adventure.id}']")
+
+      # Remove the Adventure link; re-run the picker explicitly (as
+      # `Igdb::SyncGame#re_assign_primary_genre` would).
+      game.game_genres.where(genre_id: adventure.id).destroy_all
+      game.update_column(:primary_genre_id, nil)
+      new_pick = Games::PrimaryGenrePicker.new.pick(game.reload)
+      game.update_column(:primary_genre_id, new_pick&.id)
+      expect(game.reload.primary_genre).to eq(rpg)
+
+      # Refresh.
+      visit games_path
+
+      # The game is now under RPG, NOT under Adventure (Adventure has
+      # zero games now → sub-shelf hidden).
+      rpg_shelf = find("section.sub-shelf--genre[data-genre-id='#{rpg.id}']")
+      expect(rpg_shelf.native.to_html).to include("img-cp77")
+      expect(page).not_to have_css("section.sub-shelf--genre[data-genre-id='#{adventure.id}']")
+    end
+  end
+
   describe "Sub-shelf [see all] navigation (happy path)" do
     let!(:adventure) { Genre.create!(igdb_id: 1001, name: "Adventure", slug: "adventure") }
     let!(:rpg)       { Genre.create!(igdb_id: 1002, name: "RPG",       slug: "rpg") }
@@ -320,5 +384,78 @@ RSpec.describe "Games index — filter row (01b)", type: :system do
       row = find("section.games-filter-row")
       expect(row.native.to_html).not_to include("data-turbo-confirm")
     end
+  end
+end
+
+# Phase 27 v2 spec 07 — platform-logo tile footer system spec. ONE
+# scenario seeds three games (PS5-owned, Steam+GoG-owned, Xbox-only)
+# and asserts each tile's footer markup. The spec stays
+# network-free — assertions cover only the rendered `<img>` markup,
+# not whether the PNG bytes actually exist on disk (the Rake task's
+# job).
+RSpec.describe "Games index — platform-logo tile footer (v2 spec 07)", type: :system do
+  before { driven_by(:rack_test) }
+
+  let!(:platform_ps5)   { create(:platform, name: "ps5",   slug: "ps5") }
+  let!(:platform_steam) { create(:platform, name: "steam", slug: "steam") }
+  let!(:platform_gog)   { create(:platform, name: "gog",   slug: "gog") }
+  let!(:platform_xbox)  { create(:platform, name: "Xbox One", igdb_id: 49) }
+
+  # `:synced` stamps `external_steam_app_id`, which would force the
+  # Steam logo onto every tile regardless of intent. Each game opts
+  # back to a clean slate so the seeded ownerships are the sole
+  # source of platform exposure on the test tiles.
+  let!(:ps5_game) do
+    g = create(:game, :synced,
+               title: "Logo PS5 Game",
+               external_steam_app_id: nil,
+               igdb_id: 5_007_001, igdb_slug: "logo-ps5-game")
+    g.game_platform_ownerships.create!(platform: platform_ps5)
+    g
+  end
+
+  let!(:steam_gog_game) do
+    g = create(:game, :synced,
+               title: "Logo Steam GoG Game",
+               external_steam_app_id: nil,
+               igdb_id: 5_007_002, igdb_slug: "logo-steam-gog-game")
+    g.game_platform_ownerships.create!(platform: platform_steam)
+    g.game_platform_ownerships.create!(platform: platform_gog)
+    g
+  end
+
+  let!(:xbox_only_game) do
+    g = create(:game, :synced,
+               title: "Logo Xbox Only Game",
+               external_steam_app_id: nil,
+               igdb_id: 5_007_003, igdb_slug: "logo-xbox-only")
+    g.game_platforms.create!(platform: platform_xbox)
+    g
+  end
+
+  # Scope all tile lookups to the all-games grid — the same game
+  # renders in the shelves at the top of the page too, which would
+  # otherwise return ambiguous Capybara matches.
+  def tile_in_grid(game)
+    within "section.all-games-grid" do
+      find("a[data-tile-game-id='#{game.id}']")
+    end
+  end
+
+  it "renders the PS5 logo on the PS5-owned tile" do
+    visit games_path
+    expect(tile_in_grid(ps5_game).native.to_html).to include("/platform_logos/ps5-16.png")
+  end
+
+  it "renders the Steam logo (Steam wins over GoG per KNOWN_LOGOS order) on the multi-owned tile" do
+    visit games_path
+    html = tile_in_grid(steam_gog_game).native.to_html
+    expect(html).to include("/platform_logos/steam-16.png")
+    expect(html).not_to include("/platform_logos/gog-16.png")
+  end
+
+  it "renders NO platform logo on the Xbox-only tile" do
+    visit games_path
+    expect(tile_in_grid(xbox_only_game).native.to_html).not_to include("/platform_logos/")
   end
 end

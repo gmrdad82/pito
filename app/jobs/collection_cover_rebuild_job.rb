@@ -1,46 +1,72 @@
-# Phase 27 §01h — Collection composite cover invalidator.
+# Phase 27 v2 spec 02 — Collection composite cover rebuild job.
 #
-# Fires from `Game#after_update_commit` when `collection_id` changes
-# (a game added to, moved between, or removed from a Collection).
-# Sweeps the on-disk composite for BOTH the previous and the new
-# collection id so the next page render re-derives them via
-# `Collections::CoverComposer`. Either side may be nil (the game was
-# orphaned / un-orphaned).
-#
-# > The job name says "rebuild" but the action is eviction only — no
-# > actual rebuild is enqueued here. The composer runs synchronously
-# > on first page render miss (cheap), so a separate rebuild job would
-# > duplicate that path. The fingerprint check inside the composer
-# > also catches the stale state as a fallback; eviction makes the
-# > next render faster (no file → straight to rebuild without rehashing
-# > the existing file).
+# Rebuilds the on-disk composite for ONE collection, then enqueues the
+# next job in the chain (if any). The orchestrator
+# `Collections::CompositeRebuildQueue` builds the chain in alphabetical
+# (by name) order; this job receives the head + tail explicitly and
+# pops the head off the tail on success.
 #
 # Argument shape:
-#   perform(previous_collection_id, current_collection_id)
+#   perform(collection_id)                — terminal (single rebuild, no chain).
+#   perform(collection_id, [next, third]) — runs collection_id, then enqueues
+#                                            the next job with [third].
+#   perform(collection_id, nil)           — equivalent to passing [].
 #
 # Sidekiq runs in a separate process, so the in-memory `saved_changes`
-# from the originating `after_update_commit` is gone by the time the
-# job executes. The Game model passes both ids explicitly.
+# from the originating after_commit is gone by the time the job
+# executes. The orchestrator passes ids explicitly.
+#
+# Sidekiq uniqueness — `lock: :until_executed` requires
+# `sidekiq-unique-jobs` (OSS) or Sidekiq Enterprise. Pito uses neither;
+# the options are recorded as no-op intent declarations (same pattern
+# as `ReindexAllJob`). The orchestrator's per-batch dedupe is the real
+# safety net.
+#
+# Failure semantics: if the composer raises, the chain BREAKS —
+# remaining collections are NOT processed. The page-render path falls
+# through to the synchronous-on-miss composer (the same surface that
+# runs inline today on first miss). Letting Sidekiq retry the head
+# would re-fire the whole chain tail on success; we want a hard stop so
+# operator attention is required for the failing collection.
+#
+# Edge: when the collection was deleted between enqueue and run, the
+# job no-ops gracefully (logs and returns) and STILL advances the chain
+# — a deleted collection is not a "failure," just a moot rebuild.
 class CollectionCoverRebuildJob
   include Sidekiq::Job
-  sidekiq_options queue: :default
+  sidekiq_options queue: :default, lock: :until_executed, on_conflict: :log
 
-  def perform(previous_collection_id, current_collection_id)
-    [ previous_collection_id, current_collection_id ].compact.uniq.each do |cid|
-      sweep_one(cid)
-    end
+  def perform(collection_id, remaining_chain = nil)
+    chain = Array(remaining_chain)
+
+    rebuild_one(collection_id)
+
+    # Only reached on a successful rebuild (or a graceful no-op for a
+    # deleted collection). A composer raise propagates UP and skips
+    # this enqueue, breaking the chain by design.
+    enqueue_next(chain)
   end
 
   private
 
-  # Best-effort eviction. Survives `Errno::ENOENT` (file already gone)
-  # and `Pito::AssetsRoot::Error` (defensive — a malformed id should
-  # never reach this far, but we never want a stray callback to crash
-  # a job retry chain).
-  def sweep_one(collection_id)
-    path = Pito::AssetsRoot.path("composites", "collection-#{collection_id}.jpg")
-    File.delete(path) if File.exist?(path)
-  rescue Errno::ENOENT, Pito::AssetsRoot::Error
-    nil
+  # Look up the collection, run the composer. The composer is
+  # internally idempotent (fingerprint hit → no-op, miss → rebuild).
+  # A missing collection (deleted mid-flight) is a no-op WITHOUT a
+  # raise — it must not strand the chain.
+  def rebuild_one(collection_id)
+    collection = Collection.find_by(id: collection_id)
+    return if collection.nil?
+
+    Collections::CoverComposer.new.call(collection)
+  end
+
+  # Pop the next id off `chain` and enqueue a fresh run with the tail.
+  # No-op when the chain is empty. Reached only after a successful
+  # rebuild — a raise inside `rebuild_one` skips this method so Sidekiq
+  # retries the head without re-firing the tail.
+  def enqueue_next(chain)
+    return if chain.empty?
+    head, *tail = chain
+    self.class.perform_async(head, tail)
   end
 end

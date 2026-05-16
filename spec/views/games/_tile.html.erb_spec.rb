@@ -18,12 +18,18 @@ require "rails_helper"
 RSpec.describe "games/_tile.html.erb", type: :view do
   # `release_date` is in the past so the tile does NOT get the
   # not-released treatment unless a test specifically overrides it.
+  # `external_steam_app_id: nil` overrides the `:synced` trait default
+  # so the platform-logo footer segment (Phase 27 v2 spec 07) stays
+  # off — the legacy "rating · year" assertions in this top-level let
+  # depend on the meta line being exactly `<rating> · <year>` with no
+  # trailing logo separator.
   let(:game) do
     create(:game, :synced,
            title: "Red Dead Redemption 2",
            release_date: Date.new(2018, 10, 26),
            release_year: 2018,
            igdb_rating: 93,
+           external_steam_app_id: nil,
            igdb_id: 5_000_001,
            igdb_slug: "rdr2")
   end
@@ -127,6 +133,7 @@ RSpec.describe "games/_tile.html.erb", type: :view do
                  release_date: Date.new(2021, 6, 1),
                  release_year: 2021,
                  igdb_rating: 5,
+                 external_steam_app_id: nil,
                  igdb_id: 5_000_003,
                  igdb_slug: "indie-gem")
 
@@ -169,6 +176,7 @@ RSpec.describe "games/_tile.html.erb", type: :view do
              release_date: Date.new(2020, 1, 1),
              release_year: 2020,
              igdb_rating: nil,
+             external_steam_app_id: nil,
              igdb_id: 5_001_001,
              igdb_slug: "mystery-no-rating")
     end
@@ -201,6 +209,7 @@ RSpec.describe "games/_tile.html.erb", type: :view do
              release_date: nil,
              release_year: nil,
              igdb_rating: 78,
+             external_steam_app_id: nil,
              igdb_id: 5_001_002,
              igdb_slug: "vintage-no-year")
     end
@@ -227,6 +236,7 @@ RSpec.describe "games/_tile.html.erb", type: :view do
              release_date: nil,
              release_year: nil,
              igdb_rating: nil,
+             external_steam_app_id: nil,
              igdb_id: 5_001_003,
              igdb_slug: "blank-slate")
     end
@@ -437,6 +447,106 @@ RSpec.describe "games/_tile.html.erb", type: :view do
       expect(rendered).to have_css(".tile-caption-title", text: "Red Dead Redemption 2")
       meta_text = Capybara.string(rendered).find(".tile-caption-meta").text.strip
       expect(meta_text).to match(%r{\A93\s*·\s*2018\z})
+    end
+  end
+
+  # ------------------------------------------------------------
+  # Phase 27 v2 spec 07 — platform-logo footer segment.
+  # ------------------------------------------------------------
+
+  describe "platform logo footer (Phase 27 v2 spec 07)" do
+    def make_platform(slug:, name: nil, igdb_id: nil)
+      record = create(:platform, name: name || "Platform-#{slug}", igdb_id: igdb_id)
+      record.update_column(:slug, slug) if slug
+      record.reload
+    end
+
+    let(:ps5_platform)  { make_platform(slug: "ps5") }
+    let(:xbox_platform) { create(:platform, name: "Xbox One", igdb_id: 49) }
+
+    it "appends a 14-px PS5 logo when the game is owned on PS5" do
+      g = create(:game, :synced, title: "PS5 Owned", igdb_id: 5_010_001, igdb_slug: "ps5-owned")
+      g.owned_platforms << ps5_platform
+      render_tile(g)
+
+      meta_node = Capybara.string(rendered).find(".tile-caption-meta")
+      img = meta_node.find("img.platform-logo")
+      expect(img[:src]).to eq("/platform_logos/ps5-16.png")
+      expect(img[:width]).to eq("14")
+      expect(img[:height]).to eq("14")
+      expect(img[:alt]).to eq("PS5")
+    end
+
+    it "renders a middle-dot separator BEFORE the logo when year is present" do
+      g = create(:game, :synced, title: "PS5 Owned 2", igdb_id: 5_010_002, igdb_slug: "ps5-owned-2")
+      g.owned_platforms << ps5_platform
+      render_tile(g)
+
+      meta = Capybara.string(rendered).find(".tile-caption-meta").text
+      # Two middle dots: rating·year·<logo>
+      expect(meta.scan("·").count).to eq(2)
+    end
+
+    it "renders no logo for an Xbox-only game (xbox is NOT in KNOWN_LOGOS)" do
+      g = create(:game, :synced,
+                 title: "Xbox Only", external_steam_app_id: nil,
+                 igdb_id: 5_010_003, igdb_slug: "xbox-only")
+      g.platforms_available << xbox_platform
+      render_tile(g)
+
+      meta_node = Capybara.string(rendered).find(".tile-caption-meta")
+      expect(meta_node).to have_no_css("img.platform-logo")
+    end
+
+    it "renders no logo when the game has no platform exposure" do
+      # `game` let — no platforms attached.
+      render_tile(game)
+      meta_node = Capybara.string(rendered).find(".tile-caption-meta")
+      expect(meta_node).to have_no_css("img.platform-logo")
+    end
+
+    it "still renders the meta line (rating + year) when no logo applies" do
+      render_tile(game)
+      meta_text = Capybara.string(rendered).find(".tile-caption-meta").text.strip
+      expect(meta_text).to match(%r{\A93\s*·\s*2018\z})
+    end
+
+    it "falls back to platforms_available (unreleased game on PS5)" do
+      g = create(:game,
+                 title: "Future PS5", release_date: Date.current + 60.days,
+                 igdb_id: 5_010_004, igdb_slug: "future-ps5")
+      g.platforms_available << ps5_platform
+      render_tile(g)
+
+      meta_node = Capybara.string(rendered).find(".tile-caption-meta")
+      img = meta_node.find("img.platform-logo")
+      expect(img[:src]).to eq("/platform_logos/ps5-16.png")
+    end
+
+    it "renders the Steam logo when only external_steam_app_id is present (no platforms_available row)" do
+      g = create(:game, :synced, title: "Steam-Only Sale",
+                 external_steam_app_id: "111",
+                 igdb_id: 5_010_005, igdb_slug: "steam-only-sale")
+      render_tile(g)
+
+      meta_node = Capybara.string(rendered).find(".tile-caption-meta")
+      img = meta_node.find("img.platform-logo")
+      expect(img[:src]).to eq("/platform_logos/steam-16.png")
+    end
+
+    it "renders the logo segment even when rating + year are both missing (logo-only meta line)" do
+      g = create(:game, title: "Naked PS5",
+                 igdb_rating: nil, release_date: nil, release_year: nil,
+                 igdb_id: 5_010_006, igdb_slug: "naked-ps5")
+      g.owned_platforms << ps5_platform
+      render_tile(g)
+
+      # Meta line is rendered because a logo applies even though rating+year drop out.
+      expect(rendered).to have_css(".tile-caption-meta")
+      meta_node = Capybara.string(rendered).find(".tile-caption-meta")
+      expect(meta_node).to have_css("img.platform-logo")
+      # No stray leading middle-dot when only the logo segment renders.
+      expect(meta_node.text.strip).not_to start_with("·")
     end
   end
 end

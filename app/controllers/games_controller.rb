@@ -4,9 +4,12 @@
 #   - `index`   — list view (Phase 14 §3 reskin pending)
 #   - `show`    — full IGDB-backed detail page
 #   - `search`  — `GET /games/search?q=…` (Turbo Frame from `_add_form`)
-#   - `create`  — accepts either `params[:game][:igdb_id]` (new IGDB
-#                  add-game flow) or no body (Phase 4 legacy "create
-#                  empty Untitled game" — kept until polish window).
+#   - `create`  — IGDB add-game flow ONLY. Accepts `:igdb_id` (required)
+#                  and an optional `:title` pre-seed from the IGDB
+#                  search-result row. Phase 27 spec 04 (2026-05-17)
+#                  REMOVED the legacy "default create empty game" branch
+#                  — IGDB is the SINGLE entry point to creating a game
+#                  in the library.
 #   - `update`  — STRICTLY local-only fields. IGDB-sourced columns
 #                  smuggled via params are silently dropped.
 #   - `destroy` — Phase 4 carryover.
@@ -263,40 +266,61 @@ class GamesController < ApplicationController
     end
   end
 
+  # Phase 27 spec 04 (2026-05-17) — IGDB add-game flow is the SINGLE
+  # entry point to creating a game. The legacy "no `igdb_id`" branch
+  # that persisted a blank `Game` row with the `"Untitled game"`
+  # attribute default is REMOVED. Requests without `igdb_id` return
+  # 422 and a flash explaining the new contract.
+  #
+  # Permit list is exactly `:igdb_id, :title`. The `:title` value
+  # comes from the IGDB search-result row's `name` field carried as
+  # a hidden form param on the `[add]` `button_to`, and seeds the
+  # new game synchronously so the redirect-target's breadcrumb
+  # reads as the real IGDB title instead of the `"Untitled game"`
+  # default during the in-flight `GameIgdbSync` window. The async
+  # job still overwrites with the canonical IGDB record on
+  # completion.
   def create
-    igdb_id_param = params.dig(:game, :igdb_id)
+    create_params = params.fetch(:game, {}).permit(:igdb_id, :title)
+    igdb_id_param = create_params[:igdb_id]
 
-    # New IGDB add-game flow.
-    if igdb_id_param.present?
-      igdb_id = igdb_id_param.to_i
-      if igdb_id <= 0
-        redirect_to games_path, alert: "igdb id must be a positive integer." and return
-      end
-
-      existing = Game.find_by(igdb_id: igdb_id)
-      if existing
-        redirect_to game_path(existing),
-                    alert: "already in your library."
-        return
-      end
-
-      game = Game.new(igdb_id: igdb_id)
-      if game.save
-        GameIgdbSync.perform_async(game.id)
-        redirect_to game_path(game), notice: "added; metadata loading in background."
-      else
-        redirect_to games_path, alert: "could not add game."
+    if igdb_id_param.blank?
+      flash[:alert] = "games can only be added via the IGDB search modal."
+      respond_to do |format|
+        format.html { redirect_to games_path, status: :see_other }
+        format.json { render json: { error: "igdb_id_required" }, status: :unprocessable_content }
       end
       return
     end
 
-    # Phase 4 legacy default-create — the "[+]" button on /games still
-    # creates an empty "Untitled game" row. Deprecated copy in the flash
-    # warns the user; the surface is removed in the polish window.
-    game = Game.new
-    game.save!
-    redirect_to game_path(game),
-                notice: "create empty game (legacy). use [search igdb] to add by id."
+    igdb_id = igdb_id_param.to_i
+    if igdb_id <= 0
+      redirect_to games_path, alert: "igdb id must be a positive integer." and return
+    end
+
+    existing = Game.find_by(igdb_id: igdb_id)
+    if existing
+      redirect_to game_path(existing), alert: "already in your library."
+      return
+    end
+
+    # Eager title pre-seed: the IGDB search-result row already carries
+    # the IGDB-canonical name. Forwarding it as a hidden form param on
+    # `[add]` lets us avoid the `"Untitled game"` attribute default
+    # during the in-flight window between create and the async sync's
+    # completion. Trim + length-guard mirror the column's 255-char
+    # validation; blank pre-seeds fall back to the attribute default.
+    title_seed = create_params[:title].to_s.strip[0, 255]
+    new_attrs = { igdb_id: igdb_id }
+    new_attrs[:title] = title_seed if title_seed.present?
+
+    game = Game.new(new_attrs)
+    if game.save
+      GameIgdbSync.perform_async(game.id)
+      redirect_to game_path(game), notice: "added; metadata loading in background."
+    else
+      redirect_to games_path, alert: "could not add game."
+    end
   end
 
   def update

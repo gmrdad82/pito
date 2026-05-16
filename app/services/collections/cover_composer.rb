@@ -1,7 +1,7 @@
-# Phase 27 §01h — Collection composite cover composer.
+# Phase 27 §01h (v2 spec 02) — Collection composite cover composer.
 #
 # Builds a single shelf-sized composite cover (98 × 130 JPEG) for a
-# `Collection` by stitching together up to 6 member games' IGDB covers
+# `Collection` by stitching together up to 9 member games' IGDB covers
 # via `Collections::CompositeLayout`. Output is fingerprint-cached on
 # disk under `<PITO_ASSETS_PATH>/composites/collection-<id>.jpg`.
 #
@@ -22,8 +22,8 @@
 # Deterministic ordering is load-bearing for the fingerprint to remain
 # stable across renders.
 #
-# Membership cap: only the first 6 members (alphabetical) contribute to
-# the layout AND the fingerprint. The 7th+ members are intentionally
+# Membership cap: only the first 9 members (alphabetical) contribute to
+# the layout AND the fingerprint. The 10th+ members are intentionally
 # dropped — they are not represented anywhere in the composite.
 #
 # Degradation policy (LOCKED — substitute placeholder, do not re-raise):
@@ -42,7 +42,7 @@
 module Collections
   class CoverComposer
     JPEG_QUALITY = 80
-    MAX_TILES    = 6
+    MAX_TILES    = 9
 
     def initialize(tile_cache: Composite::TileCache.new, logger: Rails.logger)
       @tile_cache = tile_cache

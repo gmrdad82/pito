@@ -58,8 +58,17 @@
                data-igdb-overwrite-trigger-path-value="<%= resync_game_path(existing) %>"
                data-action="click->igdb-overwrite-trigger#open">[<span class="bl">update</span>]</a>
           <% else %>
+            <%# Phase 27 spec 04 (2026-05-17) — eager title pre-seed.
+                The IGDB result row's `name` is forwarded as a hidden
+                form param so `GamesController#create` can seed the
+                new Game's `title` synchronously. Without this, the
+                model's `"Untitled game"` attribute default lands as
+                the persisted title until the async `GameIgdbSync`
+                job overwrites it — the breadcrumb on the redirect
+                target would briefly read "Untitled game" instead of
+                the IGDB-canonical title. %>
             <%= button_to games_path,
-                          params: { game: { igdb_id: row["id"] } },
+                          params: { game: { igdb_id: row["id"], title: row["name"] } },
                           method: :post,
                           class: "bracketed",
                           form: { style: "display: inline; margin: 0;", data: { turbo: false } } do %>[<span class="bl">add</span>]<% end %>

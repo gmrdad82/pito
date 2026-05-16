@@ -97,13 +97,86 @@ RSpec.describe Collections::CoverComposer do
       expect([ img.width, img.height ]).to eq([ 98, 130 ])
     end
 
-    it "truncates to first 6 (alphabetical) for a 7-game collection" do
-      add_games(collection, 7) # A..G
+    it "writes a 98 × 130 JPEG for a 7-game collection (:netflix7)" do
+      add_games(collection, 7)
       composer.call(collection)
-      expected_ids = %w[img-A img-B img-C img-D img-E img-F]
+      img = Vips::Image.new_from_file(composite_path(collection).to_s)
+      expect([ img.width, img.height ]).to eq([ 98, 130 ])
       expect(collection.reload.composite_cover_checksum).to eq(
-        Composite::Checksum.compute(expected_ids, "six_grid")
+        Composite::Checksum.compute(%w[img-A img-B img-C img-D img-E img-F img-G], "netflix7")
       )
+    end
+
+    it "writes a 98 × 130 JPEG for an 8-game collection (:eight_grid)" do
+      add_games(collection, 8)
+      composer.call(collection)
+      img = Vips::Image.new_from_file(composite_path(collection).to_s)
+      expect([ img.width, img.height ]).to eq([ 98, 130 ])
+      expect(collection.reload.composite_cover_checksum).to eq(
+        Composite::Checksum.compute(
+          %w[img-A img-B img-C img-D img-E img-F img-G img-H], "eight_grid"
+        )
+      )
+    end
+
+    it "writes a 98 × 130 JPEG for a 9-game collection (:nine_grid)" do
+      add_games(collection, 9)
+      composer.call(collection)
+      img = Vips::Image.new_from_file(composite_path(collection).to_s)
+      expect([ img.width, img.height ]).to eq([ 98, 130 ])
+      expect(collection.reload.composite_cover_checksum).to eq(
+        Composite::Checksum.compute(
+          %w[img-A img-B img-C img-D img-E img-F img-G img-H img-I], "nine_grid"
+        )
+      )
+    end
+
+    it "truncates to first 9 (alphabetical) for a 10-game collection (:nine_grid)" do
+      add_games(collection, 10) # A..J
+      composer.call(collection)
+      expected_ids = %w[img-A img-B img-C img-D img-E img-F img-G img-H img-I]
+      expect(collection.reload.composite_cover_checksum).to eq(
+        Composite::Checksum.compute(expected_ids, "nine_grid")
+      )
+    end
+
+    it "the 10th alphabetical member does NOT contribute to the fingerprint" do
+      add_games(collection, 10)
+      composer.call(collection)
+      cap_at_nine = Composite::Checksum.compute(
+        %w[img-A img-B img-C img-D img-E img-F img-G img-H img-I], "nine_grid"
+      )
+      with_tenth = Composite::Checksum.compute(
+        %w[img-A img-B img-C img-D img-E img-F img-G img-H img-I img-J], "nine_grid"
+      )
+      expect(collection.reload.composite_cover_checksum).to eq(cap_at_nine)
+      expect(collection.reload.composite_cover_checksum).not_to eq(with_tenth)
+    end
+
+    it "renaming a beyond-the-cap game does NOT change the fingerprint" do
+      games = add_games(collection, 10) # A..J (J is the 10th, outside the cap)
+      composer.call(collection)
+      first = collection.reload.composite_cover_checksum
+
+      # Rename J (still alphabetically last) — should NOT touch the
+      # contributing nine.
+      games.last.update!(title: "z-still-last")
+      composer.call(collection)
+      second = collection.reload.composite_cover_checksum
+      expect(second).to eq(first)
+    end
+
+    it "renaming the 9th game OUT of the contributing set DOES change the fingerprint" do
+      games = add_games(collection, 10) # A..J
+      composer.call(collection)
+      first = collection.reload.composite_cover_checksum
+
+      # Rename the 9th (I) to "Z" so it falls outside the cap; J becomes
+      # the 9th contributor instead.
+      games[8].update!(title: "z-renamed")
+      composer.call(collection)
+      second = collection.reload.composite_cover_checksum
+      expect(second).not_to eq(first)
     end
   end
 

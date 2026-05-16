@@ -88,6 +88,85 @@ RSpec.describe Igdb::SyncGame do
       expect(g.genres.map(&:igdb_id)).to include(31, 12)
     end
 
+    # Phase 27 v2 spec 01 — re-pick `primary_genre_id` on every sync.
+    # The `before_save :assign_primary_genre_if_blank` model hook only
+    # sets the pointer when blank. A re-sync that swaps the genres set
+    # (or drops every linked genre) must update the pointer too.
+    describe "Phase 27 v2 spec 01 — primary_genre re-pick on every sync" do
+      it "re-picks the alphabetical winner when IGDB swaps the genres set" do
+        g = create(:game, igdb_id: 7346)
+        # Pre-seed a stale pointer to a genre IGDB will drop on the
+        # next sync (igdb_id 999_999 is not in the fixture payload).
+        stale = Genre.create!(igdb_id: 999_999, name: "Zzz Stale", slug: "stale-rp1")
+        g.game_genres.create!(genre: stale)
+        g.update_column(:primary_genre_id, stale.id)
+
+        syncer.call(g)
+
+        # Fixture genres on `7346_game.json` include "Adventure"
+        # (igdb_id 31) and "Role-playing (RPG)" (igdb_id 12).
+        # "Adventure" wins by LOWER(name) ASC.
+        adventure = Genre.find_by(igdb_id: 31)
+        expect(adventure).not_to be_nil
+        expect(g.reload.primary_genre_id).to eq(adventure.id)
+        expect(g.primary_genre_id).not_to eq(stale.id)
+      end
+
+      it "writes primary_genre_id = nil when the post-sync genres set is empty" do
+        # Override the fixture payload's genres list to an empty array.
+        empty_payload = [ game_payload.first.merge("genres" => []) ]
+        allow(client).to receive(:fetch_game).with(7346).and_return(empty_payload)
+
+        adventure = Genre.create!(igdb_id: 31, name: "Adventure", slug: "adv-rp2")
+        g = create(:game, igdb_id: 7346)
+        g.game_genres.create!(genre: adventure)
+        g.update_column(:primary_genre_id, adventure.id)
+
+        syncer.call(g)
+
+        expect(g.reload.primary_genre_id).to be_nil
+      end
+
+      it "is idempotent — a sync with an unchanged genres set lands the same pointer" do
+        g = create(:game, igdb_id: 7346)
+        syncer.call(g)
+        first_pick = g.reload.primary_genre_id
+        expect(first_pick).not_to be_nil
+
+        syncer.call(g)
+        expect(g.reload.primary_genre_id).to eq(first_pick)
+      end
+
+      it "fires re-pick AFTER sync_genres lands the new join rows (call order)" do
+        # Assert via observed side-effect: the post-sync
+        # `primary_genre_id` matches the picker's result over IGDB's
+        # current genre set. If `re_assign_primary_genre` ran BEFORE
+        # `sync_genres`, the picker would have seen the pre-sync set
+        # (empty / stale) and either left the pointer nil or pointed
+        # at the stale genre. The expected value here proves the
+        # ordering: the post-sync alphabetical winner is "Adventure"
+        # (igdb_id 31).
+        g = create(:game, igdb_id: 7346)
+        # Pre-seed an unrelated stale that would lose to "Adventure"
+        # if both were in the set together — but stale should be GONE
+        # post-sync because `sync_genres` runs first.
+        early_alpha_stale = Genre.create!(igdb_id: 888_888, name: "aaa-stale", slug: "aaa-stale-ordered")
+        g.game_genres.create!(genre: early_alpha_stale)
+        g.update_column(:primary_genre_id, early_alpha_stale.id)
+
+        syncer.call(g)
+
+        # If the re-pick ran BEFORE sync_genres, the stale ("aaa-stale")
+        # would still be in the join AND would win alphabetically over
+        # "Adventure" — the assertion below would fail. The post-sync
+        # adventure win proves sync_genres ran first.
+        adventure = Genre.find_by(igdb_id: 31)
+        expect(g.reload.primary_genre_id).to eq(adventure.id)
+        # And the stale should have been deleted from the join.
+        expect(g.genres.map(&:igdb_id)).not_to include(888_888)
+      end
+    end
+
     it "creates the right Company rows + role joins" do
       g = create(:game, igdb_id: 7346)
       syncer.call(g)

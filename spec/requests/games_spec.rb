@@ -643,6 +643,83 @@ RSpec.describe "Games", type: :request do
         expect(response.body).not_to include('data-controller="auto-refresh"')
       end
     end
+
+    # Phase 27 v2 spec 01 — single main genre per Game.
+    describe "Phase 27 v2 spec 01 — single-genre rendering" do
+      it "renders `genre:` (singular) label and the primary genre's name" do
+        genre = create(:genre, name: "Adventure", igdb_id: 6_201)
+        game.genres << genre
+        game.update_column(:primary_genre_id, genre.id)
+        get game_path(game)
+        expect(response.body).to include(">genre:</span>")
+        expect(response.body).to include("Adventure")
+      end
+
+      it "renders `—` when the game has no primary genre" do
+        game.update_column(:primary_genre_id, nil)
+        get game_path(game)
+        # The dash is rendered in the same `<p>` block as the label.
+        expect(response.body).to match(%r{>genre:</span>\s*—})
+      end
+
+      it "does NOT render the legacy comma-joined `genres:` label" do
+        get game_path(game)
+        expect(response.body).not_to match(%r{>genres:</span>})
+      end
+
+      it "does NOT render every linked genre — only the primary" do
+        primary   = create(:genre, name: "Adventure",       igdb_id: 6_211)
+        secondary = create(:genre, name: "Hidden Genre Z",  igdb_id: 6_212)
+        game.genres << [ primary, secondary ]
+        game.update_column(:primary_genre_id, primary.id)
+        get game_path(game)
+        expect(response.body).to include("Adventure")
+        expect(response.body).not_to include("Hidden Genre Z")
+      end
+    end
+  end
+
+  # Phase 27 v2 spec 01 — JSON shape contract for `GET /games/:id.json`.
+  describe "GET /games/:id.json (Phase 27 v2 spec 01 — single genre)" do
+    let!(:game) { create(:game, :synced, title: "Zelda BotW JSON") }
+
+    it "returns `genre` as a singular string when the primary is set" do
+      genre = create(:genre, name: "Adventure", igdb_id: 6_301)
+      game.genres << genre
+      game.update_column(:primary_genre_id, genre.id)
+      get game_path(game, format: :json)
+      payload = JSON.parse(response.body)
+      expect(payload["game"]["genre"]).to eq("Adventure")
+    end
+
+    it "returns `genre: null` when the primary is nil" do
+      game.update_column(:primary_genre_id, nil)
+      get game_path(game, format: :json)
+      payload = JSON.parse(response.body)
+      expect(payload["game"]).to have_key("genre")
+      expect(payload["game"]["genre"]).to be_nil
+    end
+
+    it "does NOT include the legacy multi-genre `genres` key" do
+      get game_path(game, format: :json)
+      payload = JSON.parse(response.body)
+      expect(payload["game"]).not_to have_key("genres")
+    end
+
+    it "404s on a garbage id (sad path)" do
+      # `Game.friendly.find` raises `ActiveRecord::RecordNotFound`
+      # which Rails translates to 404 in request specs unless a
+      # custom rescue is registered. Match either response: 404 or
+      # the raise — both prove the controller refuses to serve a
+      # JSON detail for an unknown slug.
+      begin
+        get game_path("no-such-game-12345", format: :json)
+        expect(response).to have_http_status(:not_found)
+      rescue ActiveRecord::RecordNotFound
+        # Acceptable — the request spec layer surfaces the raise.
+        expect(true).to be(true)
+      end
+    end
   end
 
   describe "GET /games/:id/edit" do
@@ -724,15 +801,107 @@ RSpec.describe "Games", type: :request do
         post games_path, params: { game: { igdb_id: -1 } }
       }.not_to change(Game, :count)
     end
+
+    # Phase 27 spec 04 (2026-05-17) — eager title pre-seed. The IGDB
+    # search-result row's `name` is forwarded as a hidden form param
+    # so the new Game's `title` lands at create time instead of
+    # falling through to the model's `"Untitled game"` attribute
+    # default. Bridges the in-flight window before `GameIgdbSync`
+    # overwrites with the canonical IGDB record.
+    it "seeds title from the params when provided" do
+      expect {
+        post games_path, params: { game: { igdb_id: 7346, title: "Pragmata" } }
+      }.to change(Game, :count).by(1)
+      game = Game.last
+      expect(game.title).to eq("Pragmata")
+      expect(GameIgdbSync.jobs.map { |j| j["args"].first }).to include(game.id)
+    end
+
+    it "falls back to the attribute default when title is omitted" do
+      post games_path, params: { game: { igdb_id: 7346 } }
+      expect(Game.last.title).to eq("Untitled game")
+    end
+
+    it "falls back to the attribute default when title is blank" do
+      post games_path, params: { game: { igdb_id: 7346, title: "   " } }
+      expect(Game.last.title).to eq("Untitled game")
+    end
+
+    it "trims a seeded title to 255 chars" do
+      long_title = "x" * 400
+      post games_path, params: { game: { igdb_id: 7346, title: long_title } }
+      expect(Game.last.title.length).to eq(255)
+    end
+
+    # Phase 27 spec 04 — permit list narrows to `:igdb_id, :title`.
+    # Anything else smuggled into `params[:game]` is silently dropped.
+    it "silently drops smuggled `notes` on create (not in permit list)" do
+      post games_path, params: {
+        game: { igdb_id: 7346, title: "Pragmata", notes: "evil" }
+      }
+      expect(Game.last.notes).to be_blank
+    end
+
+    it "silently drops smuggled `played_at` on create" do
+      post games_path, params: {
+        game: { igdb_id: 7346, title: "Pragmata", played_at: "2024-01-15" }
+      }
+      expect(Game.last.played_at).to be_nil
+    end
   end
 
-  describe "POST /games (legacy default-create)" do
-    it 'creates an "Untitled game" row' do
+  # Phase 27 spec 04 (2026-05-17) — legacy "default create empty game"
+  # surface is REMOVED. `POST /games` without `igdb_id` returns 422
+  # (HTML branch redirects to /games with the same flash), no row is
+  # persisted, and the JSON branch carries an `igdb_id_required`
+  # error code.
+  describe "POST /games WITHOUT igdb_id (legacy default-create removed)" do
+    before { GameIgdbSync.clear }
+
+    it "does not persist a row" do
       expect {
         post games_path
-      }.to change(Game, :count).by(1)
-      expect(Game.last.title).to eq("Untitled game")
-      expect(flash[:notice]).to include("legacy")
+      }.not_to change(Game, :count)
+    end
+
+    it "redirects with the IGDB-only flash on the HTML branch" do
+      post games_path
+      expect(response).to redirect_to(games_path)
+      expect(flash[:alert]).to eq(
+        "games can only be added via the IGDB search modal."
+      )
+    end
+
+    it "rejects a payload with title smuggled but no igdb_id" do
+      expect {
+        post games_path, params: { game: { title: "Foo" } }
+      }.not_to change(Game, :count)
+      expect(Game.where(title: "Foo")).to be_empty
+    end
+
+    it "rejects a payload with notes smuggled but no igdb_id" do
+      expect {
+        post games_path, params: { game: { notes: "evil" } }
+      }.not_to change(Game, :count)
+    end
+
+    it "rejects with blank string igdb_id" do
+      expect {
+        post games_path, params: { game: { igdb_id: "" } }
+      }.not_to change(Game, :count)
+      expect(flash[:alert]).to include("IGDB search modal")
+    end
+
+    it "does NOT enqueue GameIgdbSync" do
+      post games_path
+      expect(GameIgdbSync.jobs).to be_empty
+    end
+
+    it "returns 422 + igdb_id_required on the JSON branch" do
+      post games_path, headers: { "Accept" => "application/json" }
+      expect(response).to have_http_status(:unprocessable_content)
+      body = JSON.parse(response.body)
+      expect(body["error"]).to eq("igdb_id_required")
     end
   end
 

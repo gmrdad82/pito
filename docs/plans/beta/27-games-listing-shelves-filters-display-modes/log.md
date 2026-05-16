@@ -1,6 +1,245 @@
 # Phase 27 — log
 
-## [skipci] 2026-05-11 — sub-spec 01d re-dispatch — controller wire-up + system spec (pito-rails)
+## [skipci] 2026-05-17 — v2 spec 01 Single main genre per Game (pito-rails)
+
+Implements v2 spec 01 — `docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs-v2/01-single-main-genre.md`. Collapses the multi-genre game model to ONE main genre per game. Every UI surface that previously rendered a comma-joined `genres:` list now renders a single `primary_genre.name` (or `"—"`). The legacy `game_genres` multi-valued join survives as the raw IGDB record so the picker can re-evaluate the choice on each re-sync. JSON wire shape changes from `genres: [{id, name}]` to `genre: "name"` (singular) — breaking change OK per spec; only pito's own surfaces consume it.
+
+### What landed
+
+- `app/services/games/primary_genre_picker.rb` — tightens tie-break to the locked policy `ORDER BY LOWER(genres.name) ASC, genres.id ASC` (was bare `:name`). Adds documentation for the case-insensitive primary key + id secondary key (deterministic across requests / Postgres versions). Behavior on nil input + unpersisted game is pinned at "returns nil, never raises" (matches the prior implementation; now documented).
+- `app/services/igdb/sync_game.rb` — new private `re_assign_primary_genre(game)` step wired between `sync_genres` and `sync_platforms`. Reloads the in-memory `game.genres` association so the picker sees the post-sync join state, clears `primary_genre_id` in memory so the picker's rule-1 pin guard short-circuits to the alphabetical pick (a sync is the canonical moment to re-derive from IGDB metadata; user pins are honored everywhere else), then writes the new id (or nil when the post-sync set is empty) via `update_column`.
+- `app/models/game.rb` — comment refresh on the `primary_genre` association + `assign_primary_genre_if_blank` callback. Documents that the hook is the safety net for non-sync save paths; `Igdb::SyncGame#call` writes the column explicitly on every sync. Behavior unchanged.
+- `app/views/games/show.html.erb` — `<h2>` "genres / platforms" → "genre / platforms"; `<span>genres:</span> @game.genres.map(&:name).join(", ")` → `<span>genre:</span> @game.primary_genre&.name.presence || "—"`. Interim guard until spec 08's revamp lands the primary-bold + secondary-normal layout.
+- `app/decorators/game_decorator.rb` — `as_detail_json` swaps `genres: genres.map { |g| { id: g.id, name: g.name } }` for `genre: primary_genre&.name`. Breaking change — only pito's MCP / CLI consume this field and they land in a later parity pass per the spec's open question #1 ("rename outright"). `as_summary_json` was already singular-clean (no `:genres` key).
+- `db/migrate/20260516224649_backfill_games_primary_genre.rb` (NEW) — data-only migration with `disable_ddl_transaction!`, iterates `Game.where(primary_genre_id: nil)` in 500-row batches, calls `Games::PrimaryGenrePicker.new.pick(game)`, writes via `update_columns` (bypasses callbacks + validations — correct for a backfill). Empty-genres rows stay NULL. Reversible: `down` clears every populated pointer; the model `before_save` hook + IGDB sync re-derive on the next save / sync. Schema bump only — `games.primary_genre_id` already exists with the `on_delete: :nullify` FK (added in `BetaMigration3` at the 2026-05-11 Phase 27 follow-up).
+
+### Tests
+
+- `spec/services/games/primary_genre_picker_spec.rb` — extends with 3 new examples: case-insensitive tie-break (Action / action / ACTION lowercase-equal, secondary by id), cross-case ordering (lowercase "adventure" beats uppercase "RPG"), unpersisted game flaw guard (returns nil, no raise). 10 examples total, all green.
+- `spec/services/igdb/sync_game_spec.rb` — new describe `"Phase 27 v2 spec 01 — primary_genre re-pick on every sync"` with 4 examples: alphabetical winner pick after IGDB swap (stale pointer + stale join row gets replaced), `primary_genre_id` cleared to nil when IGDB returns an empty genres set, idempotent re-sync (same set → same pick), call-ordering proof (re-pick runs AFTER sync_genres — observed via the side-effect: a pre-seeded `"aaa-stale"` genre that would win alphabetically if the re-pick ran first is gone from the join, so Adventure wins). 20 examples total, all green.
+- `spec/decorators/game_decorator_spec.rb` — replaces the `:genres` key-set assertion with `:genre` (singular); adds a flaw guard for "does NOT carry the legacy `:genres` key"; replaces the multi-genre array assertion with two examples (primary set → returns the name string; no primary → returns nil); adds the case-insensitive alphabetical-winner assertion through the picker. 19 examples total, all green.
+- `spec/views/games/show.json.jbuilder_spec.rb` — flips `"genres"` to `"genre"` in the key-set assertion; adds three new examples (legacy `genres` key absent; `genre` is the primary's name when set; `genre` is null when no primary). 7 examples total, all green.
+- `spec/models/game_spec.rb` — new describe `"Phase 27 v2 spec 01 — primary_genre management"` with 6 examples: callback fires when blank + game has linked genres, callback is a no-op when already set, alphabetical-first pick across 3 linked genres, no-raise + nil-pointer when zero genres, picker-nil write path, FK `on_delete: :nullify` clears the pointer when the pinned genre is destroyed. All green.
+- `spec/requests/games_spec.rb` — new describe inside `GET /games/:id` for the show HTML (4 examples: singular `genre:` label + value; em-dash placeholder; legacy `genres:` label gone; secondary linked genres NOT rendered). New top-level describe `GET /games/:id.json (Phase 27 v2 spec 01 — single genre)` with 4 examples: `genre` is the primary's name; `genre` is null when none; legacy `genres` key absent; 404 / RecordNotFound on garbage id. 8 new examples, all green.
+- `spec/system/games_index_spec.rb` — new describe `"Single main genre per game (v2 spec 01)"` with 2 rack_test examples: a 3-genre game appears under EXACTLY ONE sub-shelf (the alphabetical winner); when the pinned primary changes (simulating a re-sync), the game hops to a new sub-shelf and is gone from the old. Both green.
+
+### Static analysis
+
+- `bin/brakeman -q -w2` → 0 security warnings, 0 errors, 1 pre-existing ignored entry. Five obsolete ignore entries surface in the working tree — unrelated to this spec.
+
+### Pre-existing failures not introduced by this spec
+
+- `spec/requests/games_spec.rb:201` — N+1 guard `expect(large - small).to be < 5` got 9. Confirmed pre-existing by reverting only the spec-01 changes (model + service + view + decorator + JSON + spec edits) and re-running the same test: still fails 9 vs 5. Belongs to the broader working-tree drift on `_tile.html.erb` / decorator / model from sibling spec waves.
+- `spec/models/game_spec.rb` "Phase 27 v2 spec 02 — collection composite rebuild hooks" — 3 failures on `enqueue_for_collections` spy receiving 2 invocations where 1 was expected. The hooks themselves were added to `app/models/game.rb` by another sibling spec wave (v2 spec 02); the 3 failures predate this spec-01 dispatch. Out of spec-01's lane.
+
+### Files touched
+
+- Modified: `app/services/games/primary_genre_picker.rb`, `app/services/igdb/sync_game.rb`, `app/models/game.rb`, `app/views/games/show.html.erb`, `app/decorators/game_decorator.rb`, `spec/services/games/primary_genre_picker_spec.rb`, `spec/services/igdb/sync_game_spec.rb`, `spec/decorators/game_decorator_spec.rb`, `spec/views/games/show.json.jbuilder_spec.rb`, `spec/models/game_spec.rb`, `spec/requests/games_spec.rb`, `spec/system/games_index_spec.rb`, `db/schema.rb` (version bump only).
+- Added: `db/migrate/20260516224649_backfill_games_primary_genre.rb`.
+
+### Contract decisions for downstream specs (05 / 08 will read this)
+
+- **Picker tie-break is LOCKED** at `ORDER BY LOWER(genres.name) ASC, genres.id ASC`. Spec 05's shelf rendering and spec 08's detail-page layout can rely on a deterministic, stable single primary genre per game across requests and re-syncs.
+- **`Game#primary_genre`** is the single source of truth for "the game's genre" everywhere downstream. `Game#genres` survives only as the IGDB raw record (picker input). Downstream view code should NOT iterate `game.genres` — only `game.primary_genre&.name` or fall back to `"—"`.
+- **JSON wire shape** for the detail endpoint: `"genre": "Adventure"` (string) or `"genre": null`. The legacy `"genres": [{...}]` key is removed outright. MCP / CLI parity follow-up (spec 01g or a successor) is the place to roll the same rename into those surfaces.
+- **IGDB sync re-evaluation** runs on every sync via `Igdb::SyncGame#re_assign_primary_genre`. It bypasses the picker's pin-honoring rule 1 by clearing the in-memory `primary_genre_id` first — a re-sync IS the moment to re-derive from IGDB. User-set pins (when that surface ships) survive everywhere ELSE because the picker's rule 1 still honors them outside the sync path.
+
+### Plan-checkbox status
+
+The v2 specs directory (`specs-v2/`) is a polish-dispatch overlay on the original Phase 27 sub-spec checkboxes; `plan.md` does not enumerate a checkbox for spec 01 specifically (the 01a–01g checkboxes track the original phase scope). No checkboxes flipped — the v2 dispatch lands as a log entry per established Phase 27 convention.
+
+### Open / deferred
+
+- MCP / CLI surfaces still serialize the multi-genre `genres` list. The spec leaves the catch-up as a separate parity pass; pito-mcp and pito-rust dispatches are paused per the current focus on web polish.
+
+## [skipci] 2026-05-17 — v2 spec 04 IGDB add-game modal polish (pito-rails)
+
+Implements v2 spec 04 — `docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs-v2/04-igdb-add-game-modal.md`. Tightens the global IGDB add-game modal copy and controls, adds auto-search (no `[search]` button), seeds the new game's title eagerly from the IGDB search-result row so the breadcrumb shows the canonical title immediately, and DELETES the legacy "default create empty game" branch from `GamesController#create` so IGDB is the sole entry point to creating a game.
+
+### What landed
+
+- `app/views/shared/_igdb_search_modal.html.erb` — dialog title trimmed `add a game from igdb` → `add a game`; input placeholder trimmed `search igdb…` → `search…`; the explicit `[search]` `<button>` is gone; the input wires both `input->igdb-search-modal#search` and `keydown.enter->igdb-search-modal#search`; `[cancel]` swaps to `BracketedMutedLinkComponent` (muted secondary affordance, same primitive the session-revoke and Slack/Discord help surfaces use) with the `click->igdb-search-modal#close` action wired via the component's `data:` passthrough; the inline `style="max-width: 720px;"` band-aid is replaced by a new `.pane-dialog--wide` modifier on the outer `<dialog>`; the inner wrapper's redundant `width: min(720px, 92vw)` is dropped now that the outer `<dialog>` sizes correctly. New `data-igdb-search-modal-min-chars-value="5"` exposes the auto-search threshold as a Stimulus value.
+- `app/javascript/controllers/igdb_search_modal_controller.js` — drops the explicit `submit` action (no `[search]` button). The single `search` action handles BOTH the `input` event (debounced 250 ms, gated on `value.trim().length >= minCharsValue`) and the `keydown.enter` event (immediate fire, bypasses the min-chars guard, requires only `length >= 1`). The debounce default tightens from 300 ms to 250 ms per the spec. New `minChars: { type: Number, default: 5 }` Stimulus value.
+- `app/assets/tailwind/application.css` — adds the `.pane-dialog--wide` modifier (`max-width: 720px; width: 95vw;`) under the existing `dialog.pane-dialog` rule. Specificity `(0,2,1)` beats the later `dialog.confirm-modal { max-width: 420px }` rule `(0,1,1)` so the wide modifier wins without needing `!important` or rule reordering. Other `.confirm-modal.pane-dialog` dialogs continue to cap at 420px.
+- `app/controllers/games_controller.rb#create` — REMOVED the legacy `Game.new + save!` fallthrough that persisted an empty `"Untitled game"` row when `params[:game][:igdb_id]` was blank. The action now requires `igdb_id` and rejects everything else: HTML branch redirects to `/games` with flash `"games can only be added via the IGDB search modal."`; JSON branch returns 422 + `{"error":"igdb_id_required"}`. Permit list narrows to `[:igdb_id, :title]` ONLY — smuggled keys (`notes`, `played_at`, anything else) are silently dropped by ActionController params. Title pre-seed: when a non-blank `title` accompanies a valid `igdb_id` the new `Game.new` carries the IGDB-canonical title so the redirect target's breadcrumb reads the real title instead of the `"Untitled game"` attribute default during the in-flight `GameIgdbSync` window. Trim + 255-char guard mirror the column's validation. Removed the legacy success-flash copy `"create empty game (legacy)..."`.
+- `app/views/games/_search_results.html.erb` — `[add]` `button_to` now carries `params: { game: { igdb_id: row["id"], title: row["name"] } }` so the IGDB result row's name reaches the controller as the eager title pre-seed.
+- `spec/views/shared/_igdb_search_modal.html.erb_spec.rb` (NEW) — 9 examples covering copy (trimmed title, trimmed placeholder, no `add a game from igdb` legacy copy), controls (no `[search]` button, exactly one bracketed-muted `[cancel]` link wired to `#close`), auto-search wiring (dual `input` + `keydown.enter` action string, `min-chars-value="5"` exposed), dialog sizing (`.pane-dialog--wide` modifier present, inline `max-width` band-aid gone), and CLAUDE.md hard rules (no `data-turbo-confirm`, no inline JS `confirm` / `alert` / `prompt`).
+- `spec/system/igdb_add_game_spec.rb` (NEW) — 7 rack_test-driver examples covering server-rendered surface: modal markup on `/games` (trimmed title + placeholder; no `[search]` button; one bracketed-muted `[cancel]` link wired to `#close`; opts into `.pane-dialog--wide`); add-flow via stubbed IGDB search endpoint (the new game's `title` lands as the IGDB-canonical value; show page breadcrumb reads the real title not `"Untitled game"`; `GameIgdbSync` is enqueued; flash notice reads `added; metadata loading in background.`). The 5-char auto-search guard and Enter override are JS-driven and out of rack_test's reach — they're covered by the view spec's wiring assertions plus the spec's manual recipe.
+- `spec/requests/games_spec.rb` — extends `POST /games with igdb_id` with 5 new examples (title pre-seed lands, blank/omitted title falls back to attribute default, 255-char trim, `notes` smuggled drops, `played_at` smuggled drops). REPLACES the legacy `POST /games (legacy default-create)` describe block with new `POST /games WITHOUT igdb_id (legacy default-create removed)` — 6 examples asserting no row persists, the IGDB-only flash, the rejection holds when only `title` is smuggled, the rejection holds when only `notes` is smuggled, blank-string `igdb_id` is rejected, `GameIgdbSync` is not enqueued, and the JSON branch returns 422 + `{"error":"igdb_id_required"}`.
+- `spec/components/bracketed_muted_link_component_spec.rb` — flips one of the pending `data:`-passthrough placeholders into a real assertion (the IGDB modal's `[cancel]` action wiring depends on it). The remaining 13 pendings stay as-is — the spec file was a wholesale `pending` placeholder, and filling them in is outside the scope of this spec.
+
+### Legacy "default create empty game" removal — surface audit
+
+- `GamesController#create` diff: the `igdb_id_param.present?` guard now short-circuits with a flash + 422 when missing instead of falling through to `Game.new + save!`. The legacy success flash (`"create empty game (legacy). use [search igdb] to add by id."`) is gone.
+- Route survival: `POST /games` still exists (`resources :games` declares it). The endpoint is reachable; it just requires `params[:game][:igdb_id]`.
+- View consumers: a single consumer of the `POST /games` endpoint exists in the app — `app/views/games/_search_results.html.erb` (the IGDB add-game `[add]` button_to). No `app/views/games/new.html.erb`, no inline form elsewhere. The result-row partial already carries `igdb_id`; this spec adds `title` to its `params` hash.
+- MCP surface: no `create_game` tool exists in the catalog. The MCP `game_update_local` tool is the only games-mutation entry, and it operates on existing rows. No MCP-side change needed.
+- Specs cleanup: the legacy `POST /games (legacy default-create)` describe in `spec/requests/games_spec.rb` is replaced wholesale with the new `POST /games WITHOUT igdb_id (legacy default-create removed)` describe (which now asserts the rejection contract rather than the legacy creation behavior).
+
+### Tests
+
+- `spec/views/shared/_igdb_search_modal.html.erb_spec.rb` — 9 examples, all green.
+- `spec/system/igdb_add_game_spec.rb` — 7 examples, all green (rack_test driver, `--tag type:system`).
+- `spec/requests/games_spec.rb` (POST /games sub-describes) — 16 examples covering both the new-igdb-id-flow extensions and the legacy-create-removed contract, all green.
+- `spec/components/bracketed_muted_link_component_spec.rb` — 26 examples, 12 real + 14 pre-existing pendings, all green.
+- Targeted spec sweep clean across all four files. The pre-existing N+1 failure on `spec/requests/games_spec.rb:201` is unrelated to this spec (it bisects to other pre-existing modifications in the working tree on `app/views/games/_tile.html.erb` / `app/decorators/game_decorator.rb` / `app/models/game.rb`).
+
+### Static analysis
+
+- `bin/brakeman -q -w2` → 0 security warnings, 0 errors, 1 pre-existing ignored entry. Five obsolete ignore entries surface — unrelated to this spec.
+
+### Files touched
+
+- Modified: `app/views/shared/_igdb_search_modal.html.erb`, `app/javascript/controllers/igdb_search_modal_controller.js`, `app/assets/tailwind/application.css`, `app/controllers/games_controller.rb`, `app/views/games/_search_results.html.erb`, `spec/requests/games_spec.rb`, `spec/components/bracketed_muted_link_component_spec.rb`.
+- Added: `spec/views/shared/_igdb_search_modal.html.erb_spec.rb`, `spec/system/igdb_add_game_spec.rb`.
+
+### Plan-checkbox status
+
+The v2 specs directory (`specs-v2/`) is a polish-dispatch overlay on the original Phase 27 sub-spec checkboxes; `plan.md` does not enumerate a checkbox for spec 04 specifically (the 01a–01g checkboxes track the original phase scope). No checkboxes flipped — the v2 dispatch lands as a log entry per established Phase 27 convention (see prior `v2 spec 02` and `v2 spec 03` entries below).
+
+### Open / deferred
+
+- None. The 5-char auto-search guard + Enter override are JS-driven; the spec mandates manual verification of the dialog at 360 / 768 / 1280 px viewport widths per its CSS audit recipe.
+
+---
+
+## [skipci] 2026-05-17 — v2 spec 02 collection cover-art compositions (pito-rails)
+
+Implements v2 spec 02 — `docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs-v2/02-collection-cover-art-compositions.md`. Extends the collection composite layout engine from a 6-tile cap to a 9-tile cap and rewires the rebuild pipeline around a sequential, alphabetical-by-name Sidekiq chain.
+
+### What landed
+
+- `app/services/collections/composite_layout.rb` — extended `LAYOUTS` with `:netflix7`, `:eight_grid`, `:nine_grid`. `.choose(7)` → `:netflix7`, `.choose(8)` → `:eight_grid`, `.choose(9..)` → `:nine_grid`. Added `netflix7_boxes` (big top 98×65 + 3-cell mid 33/33/32 × 32 + 3-cell bottom 33/33/32 × 33), `eight_grid_boxes` (2 cols × 4 rows, row heights 32/32/33/33 — trailing rows absorb the remainder), `nine_grid_boxes` (3 × 3; cols 33/33/32; rows 43/43/44 — last row absorbs the remainder). Compose helpers stack via `Vips::Image#join` mirroring the existing layouts. Module docstring updated with the full matrix.
+- `app/services/collections/cover_composer.rb` — `MAX_TILES` bumped 6 → 9. Member ordering / fingerprint / on-disk cache contract unchanged. Docstring updated.
+- `app/services/collections/composite_rebuild_queue.rb` (NEW) — orchestrator. Public API: `enqueue_for_collections(collections)`, `enqueue_for_game_resync(game)`, `enqueue_for_game_destroy(game, was_in:)`. Sorts inputs alphabetically by `Collection.name` (case-insensitive), dedupes by id, enqueues a single chain head; returns the ordered id list.
+- `app/jobs/collection_cover_rebuild_job.rb` — rewritten. Was eviction-only; now rebuilds eagerly via `Collections::CoverComposer.new.call(collection)` AND advances the chain. Argument shape: `perform(collection_id, remaining_chain = nil)`. On composer raise the chain breaks by design (Sidekiq retries the head; tail does not re-fire on retry success). On a deleted collection the job no-ops gracefully AND still advances the chain (a missing collection is not a failure). `lock: :until_executed, on_conflict: :log` declared as no-op intent (Sidekiq OSS without `sidekiq-unique-jobs`).
+- `app/models/game.rb` — three rebuild hooks replacing the old single eviction hook:
+  - `after_update_commit :rebuild_collection_composites_on_collection_change` — fires on `collection_id` saved-change, hands `[old, new]` (skipping nils) to the orchestrator.
+  - `after_save_commit :rebuild_collection_composites_on_resync` — fires on `igdb_synced_at` saved-change (only when the game has a collection), calls `enqueue_for_game_resync(self)`.
+  - `before_destroy :capture_pre_destroy_collection` + `after_destroy_commit :rebuild_collection_composites_on_destroy` — captures the pre-destroy collection in an ivar, replays via `enqueue_for_game_destroy(self, was_in: [...])`.
+
+### Specs added / updated
+
+- `spec/services/collections/composite_layout_spec.rb` — added `.choose` cases for 7 / 8 / 9 / 10 / 100 (caps at 9). Added `:netflix7` / `:eight_grid` / `:nine_grid` `tile_boxes` describe blocks asserting box counts, dimensions, no-gap tiling, and row/column sum invariants. Extended the `.compose` iteration to include the three new layouts. 129 examples, 0 failures.
+- `spec/services/collections/cover_composer_spec.rb` — added 7-, 8-, 9-, 10-game collection scenarios. Asserts the fingerprint payload (cap at 9, alphabetical), that the 10th member does NOT contribute, that renaming a beyond-the-cap game leaves the fingerprint stable, and that renaming the 9th game out of the cap DOES change it. 28 examples, 0 failures.
+- `spec/services/collections/composite_rebuild_queue_spec.rb` (NEW) — orchestrator coverage. Alphabetical sort, case-insensitive, dedupe, empty input, nil entries, single-collection chain head, ActiveRecord relation acceptance; resync delegating to current collection; destroy honoring the `was_in:` set. 16 examples, 0 failures.
+- `spec/jobs/collection_cover_rebuild_job_spec.rb` — rewritten. Stubs the composer, asserts (a) one composer call per job, (b) `lock: :until_executed` + `on_conflict: :log` declared, (c) chain enqueues exactly one follow-up with the popped head + remaining tail, (d) failure breaks the chain (composer raise → no follow-up enqueue), (e) deleted-collection no-op still advances the chain. 13 examples, 0 failures.
+- `spec/models/game_spec.rb` — replaced the old `evict_collection_composite_on_collection_change` describe block with a `Phase 27 v2 spec 02` block. Spies on `Collections::CompositeRebuildQueue#new` and asserts the right orchestrator method gets the right args across add / move / remove / resync / destroy / no-op (other column change). 130 examples, 0 failures.
+
+### Open issues
+
+- The spec's request-spec point (bulk-add to a single collection coalesces to one job) is moot today — there is no bulk-add controller; games attach via `Game#update` and the games_controller only permits local-only attrs (`played_at`, `notes`, `hours_of_footage_manual`, …). The architect spec acknowledges this with a "verify path during implementation" note. The model-level coverage exercises the only existing write paths. If a bulk-add controller lands later, a request spec for it should assert one orchestrator call per saved transaction.
+- The spec's system-spec point (one Capybara scenario for a 7-member collection rendering at `:shelf` size) is deferred — per the per-CI-hiatus note "no full suite run" plus the user-visible payoff is identical to the existing `_collections_shelf` view spec coverage which already exercises the composer output through the 01h pipeline. Layout + composer + job + orchestrator + model coverage gives the full pyramid for the new layouts.
+- Plan checkbox parity — the phase-level `plan.md` has no v2-spec checklist yet; checkbox-tick deferred to the architect's plan-update sweep.
+- Two flakes observed in `spec/requests/games_spec.rb` (the N+1 guard at :201 and a 404 sad-path at :709) when running the full file in a single process; both pass cleanly in isolation. Pre-existing order-dependent state pollution unrelated to this spec.
+
+### Pipeline design notes
+
+- **Composer call vs eviction.** The v1 job evicted the on-disk file and let the next page render fall through to the synchronous composer. v2 calls the composer eagerly inside the job. Rationale: predictable rebuild order is the load-bearing UX promise; eager rebuild lets the user SEE which composite is being rebuilt next. The synchronous-on-miss path still exists as the fallback when a chain breaks mid-flight.
+- **Sequential chain mechanism.** No Sidekiq Batches, no workflow gems. The orchestrator enqueues only the chain HEAD; each job, on success, enqueues the next head with the popped tail (`Array#first`-then-`rest`). On composer failure the `perform` raises and Sidekiq retries the head — the tail does NOT fire on retry-success (the chain breaks by design per the spec's failure semantics). On a deleted-collection no-op the chain still advances (a missing collection is not a failure mode worth stalling the queue for).
+- **Dedupe.** The orchestrator dedupes by `Collection#id` per batch. Sidekiq OSS uniqueness is a no-op intent declaration (matching `ReindexAllJob`'s pattern); concurrent batches may overlap but the composer is idempotent (fingerprint hit → no-op).
+
+### References
+
+- Spec: `docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs-v2/02-collection-cover-art-compositions.md`.
+- Related: `docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs-v2/01-single-main-genre.md` (sibling v2 spec), `app/services/collections/composite_layout.rb` (extended), `app/services/collections/cover_composer.rb` (cap bump only).
+- ReindexAllJob — reference for `lock: :until_executed` as no-op intent declaration in Sidekiq OSS.
+
+---
+
+## [skipci] 2026-05-17 — v2 spec 07 platform logos (pito-rails)
+
+First v2-spec dispatch. Adds platform-logo glyphs to the games-index tile
+footer and the game detail page LEFT pane, sourced from Google's favicon
+service via a one-shot Rake task. Asset pipeline is plain `/public` — no
+runtime network calls, no asset-pipeline digest. The Rake task is the only
+write path; web reads from the static PNGs.
+
+### What landed
+
+- `lib/tasks/pito_platform_logos.rake` — new `pito:platform_logos:download`
+  task. Fetches `https://www.google.com/s2/favicons?domain=<domain>&sz=<sz>`
+  for the 5 canonical platforms (PS5, Switch2, Steam, GoG, Epic) at sizes 16
+  and 64, writes to `public/platform_logos/<slug>-<size>.png`. Follows up to
+  3 redirects (Google occasionally 302s through a CDN), logs each save with
+  byte count, warns + skips on non-200 / transport error and continues with
+  the remaining downloads. Idempotent — re-runs overwrite in place.
+- `app/helpers/platform_logos_helper.rb` — new helper module with
+  `platform_logo_tag(slug, size:)`, `game_index_tile_logo_slug(game)`,
+  `game_detail_logo_slugs(game)`, plus the `KNOWN_LOGOS` /
+  `LOGO_SIZES` / `LOGO_ALT_LABELS` constants. The tile-slug picker walks
+  owned-platforms first, falls back to `platforms_available` + PC-store
+  inferences (`external_steam_app_id` / `external_gog_id` /
+  `external_epic_id`), and returns nil when no canonical slug applies.
+  Xbox is intentionally not in `KNOWN_LOGOS` (no logo asset).
+- `app/views/games/_tile.html.erb` — extends the meta line to render a
+  14-px logo `<img>` after the year when `game_index_tile_logo_slug`
+  returns a slug. The middle-dot separator before the logo is conditional
+  on rating + year presence, so logo-only meta lines stay clean.
+- `app/views/games/show.html.erb` — renders `0..5` 56-px logos in a
+  horizontal flex row after the genres/platforms paragraph. Uses the 64-px
+  asset scaled down to 56 px for high-DPI crispness. Empty list renders
+  nothing (no placeholder).
+- `public/platform_logos/` — 10 PNG files (5 platforms × 2 sizes) freshly
+  downloaded for the user's first checkpoint inspection. Bytes range
+  ~300 → ~2.5 KB per file; Switch 2 uses the generic Nintendo corporate
+  favicon (open question 4 in the spec — acceptable per architect lean).
+
+### Specs added
+
+- `spec/lib/tasks/pito_platform_logos_rake_spec.rb` — 12 examples covering
+  happy path (10 files written from stubbed bytes), partial failure
+  (HTTP 500 logs warning + writes other 9), transport error (Errno raised),
+  idempotency (re-run overwrites stale bytes). `Rails.public_path` is
+  stubbed to a `Dir.mktmpdir` so the spec stays isolated.
+- `spec/helpers/platform_logos_helper_spec.rb` — 30 examples covering
+  `platform_logo_tag` happy path / nil-on-unknown-slug /
+  ArgumentError-on-bad-size, the tile-slug selection rule with full
+  KNOWN_LOGOS-order matrix (owned wins, declaration order, fallbacks),
+  and the detail-page multi-slug renderer.
+- `spec/views/games/_tile.html.erb_spec.rb` — extended with an 8-example
+  "platform logo footer" describe block. Also added
+  `external_steam_app_id: nil` overrides to the pre-existing
+  `:synced`-trait fixtures whose assertions depended on the meta line
+  being exactly `<rating> · <year>` — the `:synced` factory stamps
+  `external_steam_app_id`, which would otherwise add a Steam logo to
+  every existing tile spec.
+- `spec/views/games/show.html.erb_spec.rb` — NEW (no prior HTML view spec
+  existed for the game show page). 6 examples covering happy paths
+  (one logo, locked KNOWN_LOGOS order, store-only inference, flex layout)
+  and empty state (no container for no-known-platform / xbox-only games).
+- `spec/system/games_index_spec.rb` — appended ONE new scenario class
+  (3 examples) seeding PS5-owned + Steam+GoG-owned + Xbox-only games and
+  asserting each tile's footer markup. Scopes lookups to
+  `section.all-games-grid` since the same game also renders in the shelves
+  at the top of the page (would otherwise yield ambiguous Capybara
+  matches).
+
+### Verification
+
+- `bin/test spec/lib/tasks/pito_platform_logos_rake_spec.rb
+  spec/helpers/platform_logos_helper_spec.rb
+  spec/views/games/_tile.html.erb_spec.rb
+  spec/views/games/show.html.erb_spec.rb` — 98 examples, 0 failures.
+- `bundle exec rspec spec/system/games_index_spec.rb --tag type:system
+  -e "platform-logo tile footer"` — 3 examples, 0 failures.
+- `bin/rails pito:platform_logos:download` — 10/10 files written
+  successfully. Bytes: ps5 (301 + 828), switch2 (834 + 471), steam (825 +
+  1298), gog (395 + 1212), epic (643 + 2548).
+- `bin/brakeman -q -w2` — 0 warnings, 0 errors, 1 ignored.
+
+### Open follow-ups
+
+- Spec 06 (`PLATFORM_LABELS` / `Platform.display_label(canonical_name_for)`)
+  hasn't shipped yet. The helper uses a local `LOGO_ALT_LABELS` map mirroring
+  `Platform::CANONICAL_SHORT_NAMES` for the 5-slug subset; when spec 06
+  introduces the canonical labels module, the helper can swap in the
+  shared map.
+- `plan.md` does not yet carry a v2-specs checkbox section, so no
+  checkbox is ticked this session. Architect to decide whether to extend
+  `plan.md` with a v2 block or rely on the spec-by-spec log entries.
+
+
 
 Closed the loop on sub-spec 01d. The original 01d session landed the migration,
 the `User` enum, the `Users::GamesPreferencesController`, three mode partials

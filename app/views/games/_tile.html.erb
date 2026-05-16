@@ -113,11 +113,23 @@
          style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;<%= " font-weight: bold;" if not_released %>">
       <%= game.title %>
     </div>
-    <% if has_meta %>
+    <%
+      # Phase 27 v2 spec 07 — single-platform logo at the tail of the
+      # meta line. The logo slug is picked by
+      # `game_index_tile_logo_slug` (owned wins over available, then
+      # `KNOWN_LOGOS` declaration order). The Rake-downloaded 16 px
+      # asset is rendered at 14 px via inline styling on the helper-
+      # emitted `<img>`.
+      tile_logo_slug = game_index_tile_logo_slug(game)
+      has_meta_with_logo = has_meta || tile_logo_slug.present?
+    %>
+    <% if has_meta_with_logo %>
       <%# Fix 2 (2026-05-11) — rating segment carries the per-tier
           colored bold badge. Year stays muted plain text. The line
           renders the same `<rating> · <year>` shape; either side drops
-          out cleanly when its source value is missing. %>
+          out cleanly when its source value is missing. The optional
+          14-px platform logo appears after the year (Phase 27 v2
+          spec 07). %>
       <div class="tile-caption-meta text-muted"
            style="font-size: <%= meta_font_size %>; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;">
         <% if rating_present %>
@@ -128,6 +140,19 @@
         <% end %>
         <% if release_year_str.present? %>
           <%= release_year_str %>
+        <% end %>
+        <% if tile_logo_slug.present? %>
+          <% if rating_present || release_year_str.present? %>
+            <span aria-hidden="true">·</span>
+          <% end %>
+          <%= content_tag(:span, class: "tile-caption-meta-logo",
+                          style: "display: inline-block; vertical-align: middle;") do %>
+            <%= image_tag "/platform_logos/#{tile_logo_slug}-16.png",
+                          alt: PlatformLogosHelper::LOGO_ALT_LABELS.fetch(tile_logo_slug),
+                          width: 14, height: 14,
+                          class: "platform-logo platform-logo--#{tile_logo_slug}",
+                          style: "width: 14px; height: 14px; vertical-align: middle;" %>
+          <% end %>
         <% end %>
       </div>
     <% end %>

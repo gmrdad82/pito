@@ -14,12 +14,28 @@ RSpec.describe "games/show.json.jbuilder", type: :view do
   end
 
   it "carries the detail key set" do
+    # Phase 27 v2 spec 01 — singular `genre` replaces the list `genres`.
     expect(json["game"]).to include(
       "id", "slug", "title", "summary", "release_date",
       "release_year", "igdb_rating", "igdb_id",
       "manual_date_override", "resyncing",
-      "genres", "platforms_owning", "updated_at"
+      "genre", "platforms_owning", "updated_at"
     )
+  end
+
+  it "does NOT carry the legacy multi-genre `genres` list (Phase 27 v2 spec 01)" do
+    expect(json["game"]).not_to have_key("genres")
+  end
+
+  it "serializes `genre` as the primary genre's name when set" do
+    genre = create(:genre, name: "Puzzle", igdb_id: 12_345)
+    game.genres << genre
+    assign(:game, game.reload)
+    expect(JSON.parse(render)["game"]["genre"]).to eq("Puzzle")
+  end
+
+  it "serializes `genre` as null when the game has no genres" do
+    expect(json["game"]["genre"]).to be_nil
   end
 
   it "serializes boolean fields as yes/no" do
