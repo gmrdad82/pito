@@ -39,13 +39,22 @@ on:
       - "Cargo.toml"
       - "Cargo.lock"
       - ".github/workflows/pito-cli-ci.yml"
+  # Weekly schedule fires the `audit-only` job below — `cargo audit` against
+  # the workspace lockfile so new RustSec advisories surface even when the
+  # CLI source is unchanged. Mondays at 12:00 UTC matches the dependabot
+  # weekly cadence (see `.github/dependabot.yml`).
+  schedule:
+    - cron: "0 12 * * 1"
 
 permissions:
   contents: read
 
 jobs:
   cli:
+    # Skip the full build/test/clippy/audit pipeline on scheduled runs —
+    # the `audit-only` job below handles the weekly advisory sweep.
     if: |
+      github.event_name != 'schedule' &&
       !contains(github.event.head_commit.message, '[skipci]') &&
       !contains(github.event.pull_request.title, '[skipci]')
     runs-on: ubuntu-latest
@@ -84,6 +93,27 @@ jobs:
         # job-level `working-directory: extras/cli` and run from the repo
         # root so audit can locate the lockfile.
         working-directory: ${{ github.workspace }}
+        run: |
+          cargo install --locked cargo-audit
+          cargo audit
+
+  # Scheduled-only advisory sweep. Fires on the weekly cron in `on.schedule`
+  # above — `cargo audit` against the workspace lockfile, nothing else (no
+  # build, no test, no clippy). This catches new RustSec advisories that
+  # land between CLI commits, so a quiet week on the source side does not
+  # mean we miss a critical advisory affecting a transitive dependency.
+  audit-only:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: cargo audit
+        # Lockfile lives at the repo root; run from there.
         run: |
           cargo install --locked cargo-audit
           cargo audit

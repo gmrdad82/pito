@@ -99,6 +99,11 @@ on:
       - "config.ru"
       - ".github/workflows/ci.yml"
       - "VERSION"
+  schedule:
+    # Weekly bundler-audit run. Mondays 12:00 UTC — same cadence as the
+    # cargo-audit cron in `pito-cli-ci.yml`. Gated on the `audit-only` job
+    # below; the full `rails` suite stays scoped to push / pull_request.
+    - cron: "0 12 * * 1"
 
 permissions:
   contents: read
@@ -106,6 +111,7 @@ permissions:
 jobs:
   rails:
     if: |
+      github.event_name != 'schedule' &&
       !contains(github.event.head_commit.message, '[skipci]') &&
       !contains(github.event.pull_request.title, '[skipci]')
     runs-on: ubuntu-latest
@@ -203,3 +209,23 @@ jobs:
         # bare `--` separator, which would leave parallel_tests trying to
         # `File.stat("--options")` as if it were a spec path.
         run: bundle exec parallel_rspec spec/ --test-options "--options /dev/null --require spec_helper"
+
+  audit-only:
+    # Weekly bundler-audit-only run, fired by the `schedule:` trigger above.
+    # Mirrors the cargo-audit cron in `pito-cli-ci.yml`. Does NOT run RSpec,
+    # Brakeman, RuboCop, or importmap audit — just `bin/bundler-audit` against
+    # the locked gem set, so a newly-disclosed advisory raises a red weekly
+    # run even when nothing in the Rails tree changes.
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - name: Scan for known security vulnerabilities in gems used
+        run: bin/bundler-audit

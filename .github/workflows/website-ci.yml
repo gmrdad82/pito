@@ -10,10 +10,15 @@ on:
     paths:
       - "extras/website/**"
       - ".github/workflows/website-ci.yml"
+      # Coordinated release event: a `VERSION` bump fans out across every
+      # stack (Rails, CLI, website, docs) so the published bits land on a
+      # known-green baseline.
+      - "VERSION"
   pull_request:
     paths:
       - "extras/website/**"
       - ".github/workflows/website-ci.yml"
+      - "VERSION"
 
 jobs:
   lint-and-audit:
@@ -44,3 +49,11 @@ jobs:
 
       - name: Build verification
         run: npm run build
+
+      - name: Check website markdown formatting
+        # Re-instate the markdown prettier gate the previous CI restructure
+        # dropped. Runs from the repo root (the workflow's job-level
+        # `working-directory: extras/website` is overridden here) so the glob
+        # resolves against the website tree from the right anchor.
+        working-directory: ${{ github.workspace }}
+        run: npx --yes prettier@latest --check 'extras/website/**/*.md'
