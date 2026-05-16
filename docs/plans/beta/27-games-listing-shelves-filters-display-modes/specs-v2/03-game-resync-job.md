@@ -12,11 +12,12 @@
 
 When a user clicks `[resync]` on a game detail page, the job re-fetches IGDB
 data, overwrites the IGDB-sourced fields (last-write-wins), preserves
-ownership-sourced fields (per-platform ownership, played-on, recorded-on,
-footage hours, notes), and broadcasts a live status flip on the detail page
-so the user sees the resync state without refreshing. On success, every
-collection the game belongs to is enqueued for a cover-art regen
-(alphabetical-by-name sequential chain — see spec 02).
+ownership-sourced fields (per-platform ownership rows, the single `played_at`
+timestamp, the single `recorded` flag, footage hours, notes), and broadcasts
+a live status flip on the detail page so the user sees the resync state
+without refreshing. On success, every collection the game belongs to is
+enqueued for a cover-art regen (alphabetical-by-name sequential chain — see
+spec 02).
 
 This is the foundation for the per-page `[resync]` action surface introduced
 by `specs-v2/08-game-detail-revamp.md` (the `[edit]` link in the breadcrumb
@@ -156,8 +157,12 @@ IGDB-sourced (OVERWRITTEN by every resync run, last-write-wins):
 
 Ownership-sourced (PRESERVED — NEVER touched by the resync run):
 
-- `game_platform_ownerships` join rows (per-platform ownership).
-- `played_at` — user-set play log.
+- `game_platform_ownerships` join rows (per-platform ownership — the
+  user can own a game on multiple platforms simultaneously).
+- `played_at` — user-set play log (SINGLE timestamp per game; per spec 08,
+  played-on tracking is NOT per-platform).
+- `recorded` — user-set recorded flag (or `videos.exists?` surrogate per
+  spec 08; SINGLE boolean per game, NOT per-platform).
 - `notes` — free text.
 - `hours_of_footage_manual` / `hours_of_footage_cached`.
 - `manual_date_override` — blocks calendar derivation.
@@ -252,7 +257,7 @@ Extend the existing file:
 - Edge: passing a `game_id` for a deleted game → no-op (return early).
 - Edge: the job is called while `resyncing?` is true → no-op (return
   early, no broadcast, no enqueue).
-- Flaw guard: ownership-sourced fields (notes, played_at,
+- Flaw guard: ownership-sourced fields (notes, played_at, recorded,
   hours_of_footage_manual, game_platform_ownerships,
   manual_date_override, collection_id, version_parent_id) are unchanged
   before vs after a sync run. Use a strict equality check on the

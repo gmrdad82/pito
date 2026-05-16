@@ -6,8 +6,7 @@
 > the collections row, one shelf per letter for the master "all" listing.
 > Introduces short genre names and explicit cover-art size tracks (two
 > sizes — one for genres+collections shelves, one for individual game
-> tiles). Repo-wide slim scrollbar audit at 4-6px thickness for both
-> horizontal and vertical bars.
+> tiles). Repo-wide slim scrollbar audit at 6 px (single size, both axes).
 
 ---
 
@@ -17,7 +16,7 @@ The `/games` page becomes a single dense, browsable surface — three layers
 of shelves stacked vertically. No mode switcher, no localStorage choice, no
 display-mode persistence on the user record. The user scrolls; that is the
 navigation. Shelves are horizontally scrollable when content overflows,
-with the project's themed slim scrollbar (4-6px) reused.
+with the project's themed slim scrollbar (6 px) reused.
 
 This spec consolidates the genre/collection/letter shelves into a single
 mental model so the user can predict what the page shows: "every genre I
@@ -60,8 +59,10 @@ one game."
   full name still lives in the `Genre` row.
 - Slim scrollbar audit: walk every horizontal AND vertical scrollbar
   styling in the repo (currently `8px` in many places per recent commit
-  `c630afa`; this work tightens to 4-6 px). Confirm consistent track /
-  thumb colors across themes.
+  `c630afa`; this work tightens to a single 6 px size for both axes on
+  every surface). One consistent thickness across the repo — no
+  secondary 4 px track for dropdowns or smaller modals. Confirm
+  consistent track / thumb colors across themes.
 
 ## Scope out
 
@@ -175,8 +176,9 @@ one game."
   - Find every `::-webkit-scrollbar { width: ... }` /
     `::-webkit-scrollbar { height: ... }` rule. Today many sit at 8 px;
     the recent commit `c630afa` already moved some to 6 px (vertical
-    matches horizontal). Audit and unify at 6 px both axes (or 4 px on
-    secondary surfaces — pick one bracket per surface and document).
+    matches horizontal). Audit and unify at **6 px** on BOTH axes for
+    EVERY scrollable surface — one consistent thickness everywhere.
+    No 4 px secondary track; the user wants a single size repo-wide.
   - Apply across: horizontal shelf overflow scrollbars, the pane-row
     horizontal scrollbar, every `<dialog>` body vertical scrollbar,
     the dropdown menus, modal bodies. Document which surfaces moved.
@@ -254,8 +256,10 @@ case-sensitive lookup, falling through to `Genre.name` for any miss.
 
 ### Scrollbar styling
 
-- Both axes: 6 px (target). The `c630afa` commit already moved
-  vertical from 8→6; this spec extends to horizontal where still 8.
+- Both axes: **6 px (single size, everywhere)**. The `c630afa` commit
+  already moved vertical from 8→6; this spec extends to horizontal where
+  still 8 AND to every other scrollable surface in the repo. No 4 px
+  secondary track — one consistent thickness.
 - Auto-hide on idle (existing pattern), themed track / thumb colors.
 
 ### No persistence
@@ -378,7 +382,8 @@ None new. `Games::CoverComponent` is reused as-is.
    letter shelves (one section per non-empty letter, `#` bucket at
    end if any digit/symbol-titled game).
 5. Hover over any horizontal shelf — scrollbar appears thin (6 px)
-   and themed.
+   and themed. Same 6 px on vertical scrollbars (dropdowns, modal
+   bodies). No surface uses a smaller secondary track.
 6. Add a game whose title starts with a letter no other game has
    (e.g. `"Quake"`) — refresh `/games` — a `Q` letter shelf appears.
 7. Delete the only `Q`-titled game — refresh — the `Q` shelf is gone.
@@ -406,14 +411,11 @@ None new. `Games::CoverComponent` is reused as-is.
    rows — each sub-shelf is a horizontal row of individual game tiles
    (matches existing 01c-v2 behavior). If the user wants genre rows
    to ALSO have a leading composite tile, surface as a follow-up.
-4. **Slim scrollbar bracket — 4 px or 6 px?** Architect lean: 6 px
-   for primary scrolls (page, shelves), 4 px for secondary (dropdown,
-   small modal). Confirm.
-5. **Pagination — explicitly none, even for libraries with 5000+
+4. **Pagination — explicitly none, even for libraries with 5000+
    games?** Architect lean: yes, none. The letter-shelf groupings
    bound the per-row count; total DOM size is acceptable up to a few
    thousand games. If perf becomes painful, introduce a per-shelf
    `[see all]` link as a follow-up (out of scope here).
-6. **Drop the `Users::GamesPreferencesController` entirely vs leave a
+5. **Drop the `Users::GamesPreferencesController` entirely vs leave a
    stub that 410s?** Architect lean: drop entirely. Any saved bookmark
    to `/users/games_preferences/...` 404s — acceptable.

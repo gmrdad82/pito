@@ -99,17 +99,14 @@ This is foundation work — every other spec in this v2 set (especially
   reads `<span class="text-muted">genres:</span> <%= @game.genres.map(&:name).join(", ").presence || "—" %>`).
   Rewrite to render `@game.primary_genre&.name || "—"` and relabel
   `genres:` → `genre:`. Detail-page revamp in spec 08 supersedes this
-  layout entirely; this is the interim guard for the spec-01 single-genre
-  rendering rule. When spec 08 ships, the show-page surface for genre
-  moves to the spec-08 layout but the data-source rule (single
+  layout entirely (spec 08's LEFT pane carries the primary-bold +
+  secondary-normal layout); this is the interim guard for the spec-01
+  single-genre rendering rule. When spec 08 ships, the show-page surface
+  for genre moves to the spec-08 layout but the data-source rule (single
   `primary_genre`) carries over.
 - `app/views/games/_tile.html.erb` — does not currently render genres in
   the caption; verify and document. If a future caption variant wants
   genre, it MUST consume `primary_genre`.
-- `app/views/games/_list_mode.html.erb` — list-mode currently has a
-  "genres" column. Rename column header to `genre`; render
-  `game.primary_genre&.name || "—"` (no comma-join). Adjust the column
-  width if needed.
 - `app/views/games/_genres_shelf.html.erb` /
   `app/views/games/_genre_sub_shelf.html.erb` — the 01c-v2 nested shelf
   already iterates `primary_genre`-scoped rows. Confirm the
@@ -118,10 +115,12 @@ This is foundation work — every other spec in this v2 set (especially
   `primary_genre_id`, not from the `game_genres` join. Document any drift.
 - `app/views/games/index.html.erb` — adjust the heading copy if any
   visible label says "genres" in the wrong place.
-- `app/views/games/edit.html.erb` — if the edit form exposes a
-  primary-genre picker, document its inputs. (The detail-page revamp in
-  spec 08 removes `/games/:id/edit` entirely; the edit form here is
-  doomed but until spec 08 ships, it must respect the same rule.)
+
+NOTE: `app/views/games/_list_mode.html.erb` and `app/views/games/edit.html.erb`
+are NOT touched in this spec — both are DELETED by spec 05 (list mode
+removal) and spec 08 (edit route removal) respectively. No interim
+single-genre fix-up is needed for those files; they will be gone by the
+time this phase ships.
 
 ### Helper / JSON surfaces
 
@@ -286,18 +285,17 @@ Exhaustive — model, service, request, view, system. Happy + sad + edge + flaw.
 - `GET /games/:id.json` envelope returns `"genre": "Action"` (singular
   string field), not `"genres": ["Action"]`. Edge: when nil, returns
   `"genre": null`.
-- `GET /games` list-mode column header reads `genre` (singular). Edge:
-  rows whose primary is nil render `—`.
 
 ### View / partial specs
 
 - `spec/views/games/show.html.erb_spec.rb` — label `genre:` (singular),
   value is the primary genre name or em-dash.
-- `spec/views/games/_list_mode.html.erb_spec.rb` — `genre` column header,
-  one value per row.
 - `spec/views/games/_genres_shelf.html.erb_spec.rb` — every sub-shelf
   membership reads from `primary_genre_id` (no duplication of a
   multi-genre game across sub-shelves).
+
+NOTE: no spec for `_list_mode.html.erb` (deleted in spec 05) or
+`edit.html.erb` (deleted in spec 08).
 
 ### Helper spec
 
