@@ -59,9 +59,14 @@ poll Slack, the master agent schedules wakeups at **60-second intervals**
 to call `slack_read_channel` on the configured channel, filtered for
 `#code`-prefixed messages newer than the last seen ts.
 
-**The loop stops on either of these signals:**
+**The loop stops on any of these signals:**
 - User types `I'm back` (or close paraphrase) in the chat session.
 - User sends `#code I'm back` in `#dev`.
+- User sends ANY message in the chat session — active in-chat
+  conversation implicitly means the user is at the keyboard, so polling
+  Slack is redundant. The master agent stops scheduling new wakeups; the
+  next-scheduled wakeup fires harmlessly once, detects the in-chat
+  activity from context, and does not reschedule.
 
-After either signal, no more wakeups are scheduled and the master agent
+After any signal, no more wakeups are scheduled and the master agent
 returns to normal chat-driven flow.
