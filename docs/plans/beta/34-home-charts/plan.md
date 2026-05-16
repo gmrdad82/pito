@@ -10,13 +10,13 @@
 ## Goal
 
 Step 7 of the beta-2 nine-step roadmap. Revisit the home page and bring back
-real charts. Earlier phases shipped a Chartkick + Groupdate + Chart.js stack
-and a placeholder home; the revival's job is to land genuine, useful charts
-on the home page sourced from real data (channel + video analytics, queues,
-recording / publishing cadence) rather than fixtures.
+real charts. Earlier phases shipped a Chartkick + Groupdate + Chart.js stack and
+a placeholder home; the revival's job is to land genuine, useful charts on the
+home page sourced from real data (channel + video analytics, queues, recording /
+publishing cadence) rather than fixtures.
 
-The deliverable is a polished home with the chart set the user actually wants
-to see at a glance.
+The deliverable is a polished home with the chart set the user actually wants to
+see at a glance.
 
 ---
 
@@ -24,21 +24,21 @@ to see at a glance.
 
 In scope:
 
-- Selecting the chart set for the home page (analytics, cadence, queues —
-  exact set decided by the architect after user discussion).
-- Wiring the chart data sources from the existing analytics tables /
-  query objects (`channel_window_summaries`, `video_window_summaries`,
-  daily basics, etc.).
-- Honoring the design rules — no animation, no red, crosshair on line
-  charts, bracketed colored legend labels (per `docs/design.md`).
+- Selecting the chart set for the home page (analytics, cadence, queues — exact
+  set decided by the architect after user discussion).
+- Wiring the chart data sources from the existing analytics tables / query
+  objects (`channel_window_summaries`, `video_window_summaries`, daily basics,
+  etc.).
+- Honoring the design rules — no animation, no red, crosshair on line charts,
+  bracketed colored legend labels (per `docs/design.md`).
 - Regression specs per the mandate below.
 
 Out of scope:
 
 - New analytics ingestion pipelines. Charts reuse existing tables.
-- The unresolved click-rate ratio gap (`docs/orchestration/follow-ups.md`
-  item 7 — `DAILY_BASIC_METRICS` / `WINDOW_RATIO_METRICS` NULLs). If a chart
-  needs the missing columns, the architect surfaces it as an open question.
+- The unresolved click-rate ratio gap (`docs/orchestration/follow-ups.md` item 7
+  — `DAILY_BASIC_METRICS` / `WINDOW_RATIO_METRICS` NULLs). If a chart needs the
+  missing columns, the architect surfaces it as an open question.
 - MCP / TUI / CLI parity. Paused.
 - Cloudflare website surface.
 
@@ -78,16 +78,15 @@ Master agent coordinates dispatch and commits after user validation.
 ## Regression spec mandate (restated for this lane)
 
 Every chart unit ships its regression specs in the same commit. The architect
-spec MUST enumerate the regression spec list before any `pito-rails` impl
-runs.
+spec MUST enumerate the regression spec list before any `pito-rails` impl runs.
 
-| Layer of change                | Required regression spec type                                                                |
-| ------------------------------ | -------------------------------------------------------------------------------------------- |
-| View / page change             | RSpec **system spec** (Capybara) exercising the polished interaction                         |
-| ViewComponent change           | RSpec **component spec** rendering the component in isolation, asserting structure / classes / a11y attributes |
-| Helper / partial logic         | RSpec **request spec** or focused **view spec**                                              |
-| Routing / controller behavior  | RSpec **request spec**                                                                       |
-| Stimulus controller behavior   | RSpec **system spec** that exercises the JS path (Capybara + JS driver)                      |
+| Layer of change               | Required regression spec type                                                                                  |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| View / page change            | RSpec **system spec** (Capybara) exercising the polished interaction                                           |
+| ViewComponent change          | RSpec **component spec** rendering the component in isolation, asserting structure / classes / a11y attributes |
+| Helper / partial logic        | RSpec **request spec** or focused **view spec**                                                                |
+| Routing / controller behavior | RSpec **request spec**                                                                                         |
+| Stimulus controller behavior  | RSpec **system spec** that exercises the JS path (Capybara + JS driver)                                        |
 
 A change crossing layers carries the specs for **every** layer touched.
 
@@ -97,15 +96,15 @@ A change crossing layers carries the specs for **every** layer touched.
 
 > Per-feature specs land here as the architect produces them. None pre-written.
 
-- [ ] Specs to be added on lane kickoff (chart set decided by the architect
-      with user input).
+- [ ] Specs to be added on lane kickoff (chart set decided by the architect with
+      user input).
 
 ---
 
 ## References
 
-- `docs/plans/beta/13-analytics-sync-engine/specs/03-analytics-dashboard.md`
-  — analytics surface that backs the home charts.
+- `docs/plans/beta/13-analytics-sync-engine/specs/03-analytics-dashboard.md` —
+  analytics surface that backs the home charts.
 - `docs/design.md` — chart rules (no animation, no red, crosshair, bracketed
   legend labels).
 - `docs/orchestration/follow-ups.md` — item 7 (click-rate ratio gap).

@@ -2,110 +2,108 @@
 
 ## [skipci] 2026-05-11 — sub-spec 01d re-dispatch — controller wire-up + system spec (pito-rails)
 
-Closed the loop on sub-spec 01d. The original 01d session landed the
-migration, the `User` enum, the `Users::GamesPreferencesController`, three
-mode partials (`_grid_mode`, `_list_mode`, `_shelves_by_letter_mode`), the
-switcher partial, and the per-partial view specs. The `GamesController#index`
-wire-up and the matching system spec were deferred at that time because the
-controller was wedged on 01a (`Platform#games_owning` association removal) +
-01c (per-platform `games.platform_owned_id` column drop) drift. Both have
-since cleared via the 01a controller fix and the 01c-v2 nested-shelves
-rewrite, so this re-dispatch ties the surface together.
+Closed the loop on sub-spec 01d. The original 01d session landed the migration,
+the `User` enum, the `Users::GamesPreferencesController`, three mode partials
+(`_grid_mode`, `_list_mode`, `_shelves_by_letter_mode`), the switcher partial,
+and the per-partial view specs. The `GamesController#index` wire-up and the
+matching system spec were deferred at that time because the controller was
+wedged on 01a (`Platform#games_owning` association removal) + 01c (per-platform
+`games.platform_owned_id` column drop) drift. Both have since cleared via the
+01a controller fix and the 01c-v2 nested-shelves rewrite, so this re-dispatch
+ties the surface together.
 
 ### What landed
 
-- `GamesController#index` now sets `@display_mode = resolved_display_mode`.
-  The new private helper resolves the requested mode in order: URL
+- `GamesController#index` now sets `@display_mode = resolved_display_mode`. The
+  new private helper resolves the requested mode in order: URL
   `params[:display]` (allowlisted set `grid` / `list` / `shelves` /
-  `shelves_by_letter`) → `Current.user.preferred_games_display_mode` →
-  `:grid` as the defensive final fallback for the anonymous path.
-  `shelves` is a URL-friendly alias for the canonical enum key
-  `shelves_by_letter` per the spec.
-- `app/views/games/index.html.erb` now renders
-  `games/_display_mode_switcher` flush-right of the H1 row (inside the
-  existing `display: flex` header with `margin-left: auto;`) and branches
-  the all-games partition on `@display_mode` to one of the three partials.
-  The legacy inline `<section class="shelf all-games-grid">` block is
-  gone — its tile-grid content moved into `_grid_mode` during the original
-  01d session.
-- `spec/system/games_display_modes_spec.rb` — 13 new Capybara examples on
-  the rack_test driver: default-mode grid for a fresh user, switcher
-  active-class marking, persistence flow (click `[list]` → preference
-  written + list mode renders → reload preserves the choice), `[grid]`
-  round-trip from a non-default persisted preference, URL `?display=`
-  override does NOT persist the choice, `?display=shelves` alias maps to
-  `shelves_by_letter`, list mode renders `tr.letter-head` rows + title
-  links, shelves-by-letter mode renders one shelf per non-empty letter
-  and hides the others, composition with the `?filters=` set (clear-all
-  preserves `?display=`), CLAUDE.md hard-rule guards (no
-  `data-turbo-confirm`, no `window.confirm`, no anchors — three
-  `<form>` elements per switcher).
-- `spec/requests/games_spec.rb` — 12 new `Phase 27 §01d` examples on the
-  request layer mirroring the system surface: default → grid, URL
-  override per mode (`grid` / `list` / `shelves` / `shelves_by_letter`),
-  persisted preference wins when `?display` is absent, override wins
-  over persistence for one request, garbage values fall back to the
-  persistence, post-PATCH the next `GET /games` reflects the saved
-  mode, switcher button text + action URL, active-class assertion,
-  filter-row composition. Scopes the `data-display-mode` matcher to
+  `shelves_by_letter`) → `Current.user.preferred_games_display_mode` → `:grid`
+  as the defensive final fallback for the anonymous path. `shelves` is a
+  URL-friendly alias for the canonical enum key `shelves_by_letter` per the
+  spec.
+- `app/views/games/index.html.erb` now renders `games/_display_mode_switcher`
+  flush-right of the H1 row (inside the existing `display: flex` header with
+  `margin-left: auto;`) and branches the all-games partition on `@display_mode`
+  to one of the three partials. The legacy inline
+  `<section class="shelf all-games-grid">` block is gone — its tile-grid content
+  moved into `_grid_mode` during the original 01d session.
+- `spec/system/games_display_modes_spec.rb` — 13 new Capybara examples on the
+  rack_test driver: default-mode grid for a fresh user, switcher active-class
+  marking, persistence flow (click `[list]` → preference written + list mode
+  renders → reload preserves the choice), `[grid]` round-trip from a non-default
+  persisted preference, URL `?display=` override does NOT persist the choice,
+  `?display=shelves` alias maps to `shelves_by_letter`, list mode renders
+  `tr.letter-head` rows + title links, shelves-by-letter mode renders one shelf
+  per non-empty letter and hides the others, composition with the `?filters=`
+  set (clear-all preserves `?display=`), CLAUDE.md hard-rule guards (no
+  `data-turbo-confirm`, no `window.confirm`, no anchors — three `<form>`
+  elements per switcher).
+- `spec/requests/games_spec.rb` — 12 new `Phase 27 §01d` examples on the request
+  layer mirroring the system surface: default → grid, URL override per mode
+  (`grid` / `list` / `shelves` / `shelves_by_letter`), persisted preference wins
+  when `?display` is absent, override wins over persistence for one request,
+  garbage values fall back to the persistence, post-PATCH the next `GET /games`
+  reflects the saved mode, switcher button text + action URL, active-class
+  assertion, filter-row composition. Scopes the `data-display-mode` matcher to
   the all-games `<section>` so the switcher's own button-level
   `data-display-mode` attributes don't contaminate the match.
-- `spec/requests/games_spec.rb` (01b regression) — the 01b contradiction
-  notice spec's regex used the literal `<section class="shelf all-games-grid">`
-  class string; the new `_grid_mode` partial adds a `games-grid-mode`
-  class. Switched to `<section[^>]*data-display-mode="grid"` (the stable
-  hook the view spec also asserts on).
+- `spec/requests/games_spec.rb` (01b regression) — the 01b contradiction notice
+  spec's regex used the literal `<section class="shelf all-games-grid">` class
+  string; the new `_grid_mode` partial adds a `games-grid-mode` class. Switched
+  to `<section[^>]*data-display-mode="grid"` (the stable hook the view spec also
+  asserts on).
 
 ### Tests
 
 - 13 new system + 12 new request = 25 new examples, all green.
-- Full 01d-adjacent sweep (model + request + view + system specs across
-  `user`, `users::games_preferences`, every `games/_*_mode` partial,
-  switcher, the full `spec/requests/games_spec.rb`, `games_index`,
-  `games_steam_shelf`, `games_platform_ownerships`, the new
-  `games_display_modes`): 365 examples, 0 failures.
+- Full 01d-adjacent sweep (model + request + view + system specs across `user`,
+  `users::games_preferences`, every `games/_*_mode` partial, switcher, the full
+  `spec/requests/games_spec.rb`, `games_index`, `games_steam_shelf`,
+  `games_platform_ownerships`, the new `games_display_modes`): 365 examples, 0
+  failures.
 - Rubocop on the touched Ruby files (`games_controller.rb`,
-  `spec/requests/games_spec.rb`, `spec/system/games_display_modes_spec.rb`):
-  no offenses. (`index.html.erb` skipped — rubocop's Ruby parser misreads
-  ERB control flow as a ternary expression; the file is not Ruby.)
+  `spec/requests/games_spec.rb`, `spec/system/games_display_modes_spec.rb`): no
+  offenses. (`index.html.erb` skipped — rubocop's Ruby parser misreads ERB
+  control flow as a ternary expression; the file is not Ruby.)
 - Brakeman `-q -w2`: 0 warnings, 0 errors across the full app.
 
 ### Files changed
 
-- `app/controllers/games_controller.rb` (added `@display_mode = resolved_display_mode`
-  to `#index` and private `resolved_display_mode` resolver)
-- `app/views/games/index.html.erb` (renders `_display_mode_switcher`,
-  branches the all-games partition on `@display_mode`)
-- `spec/requests/games_spec.rb` (added 12-example `display mode resolution
-  (Phase 27 §01d)` describe block; updated one 01b regex to the stable
-  `data-display-mode` hook)
+- `app/controllers/games_controller.rb` (added
+  `@display_mode = resolved_display_mode` to `#index` and private
+  `resolved_display_mode` resolver)
+- `app/views/games/index.html.erb` (renders `_display_mode_switcher`, branches
+  the all-games partition on `@display_mode`)
+- `spec/requests/games_spec.rb` (added 12-example
+  `display mode resolution (Phase 27 §01d)` describe block; updated one 01b
+  regex to the stable `data-display-mode` hook)
 - `spec/system/games_display_modes_spec.rb` (new, 13 examples)
 - `docs/plans/beta/27-games-listing-shelves-filters-display-modes/plan.md`
   (reworded the trailing 01d checkbox to reflect the system spec landing)
 
 ### Open notes
 
-- The list-mode "platforms owned" column still renders a literal `—`
-  pending the 01a join-table integration wired into the partial. That
-  cleanup remains queued and is independent of this re-dispatch.
-- Sort-column UI for list mode (`?sort=title|platforms_owned|genres|status`)
-  is still deferred until the per-platform ownership shape stabilises
-  for sorting. The partial's letter-bucketing + sticky heading layout is
-  in place for the sort hookup.
+- The list-mode "platforms owned" column still renders a literal `—` pending the
+  01a join-table integration wired into the partial. That cleanup remains queued
+  and is independent of this re-dispatch.
+- Sort-column UI for list mode (`?sort=title|platforms_owned|genres|status`) is
+  still deferred until the per-platform ownership shape stabilises for sorting.
+  The partial's letter-bucketing + sticky heading layout is in place for the
+  sort hookup.
 - The 29 unrelated failures observed in the wider request + system sweep
   (`sessions_spec`, `sessions_rate_limit_spec`, `login/totp_challenges_spec`,
-  `settings/security/blocks/unblockings_spec`,
-  `calendar_edit_delete_spec`, `settings/tokens_spec`,
-  `video_import_flow_spec`) are entirely from other concurrent in-flight
-  agents' work in the worktree (TOTP / rack_attack / sessions / video
-  import surfaces) and do not touch the 01d surface.
+  `settings/security/blocks/unblockings_spec`, `calendar_edit_delete_spec`,
+  `settings/tokens_spec`, `video_import_flow_spec`) are entirely from other
+  concurrent in-flight agents' work in the worktree (TOTP / rack_attack /
+  sessions / video import surfaces) and do not touch the 01d surface.
 
 ### References
 
 - Spec:
   `docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs/01d-display-mode-switcher-and-three-modes.md`.
-- Prior 01d log entry: `## 2026-05-11 — sub-spec 01d Display mode switcher +
-  three modes (pito-rails)` below.
+- Prior 01d log entry:
+  `## 2026-05-11 — sub-spec 01d Display mode switcher + three modes (pito-rails)`
+  below.
 - Umbrella:
   `docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs/01-overview-games-listing-rework.md`.
 
@@ -113,58 +111,57 @@ rewrite, so this re-dispatch ties the surface together.
 
 ## [skipci] 2026-05-11 — sub-spec 01e Shelf cover art variant (pito-rails)
 
-Closed the loop on the `:shelf` cover-art variant. The component, partials,
-and 34-example component spec already shipped under earlier 01e / 01c-v2
-work at the locked 65% size (98 × 130 against the real 150 × 200 grid,
-sourced from IGDB's `t_cover_small_2x` token). This pass tied off the
-remaining loose ends:
+Closed the loop on the `:shelf` cover-art variant. The component, partials, and
+34-example component spec already shipped under earlier 01e / 01c-v2 work at the
+locked 65% size (98 × 130 against the real 150 × 200 grid, sourced from IGDB's
+`t_cover_small_2x` token). This pass tied off the remaining loose ends:
 
 - **Stylesheet rules for the variant slot.** Added a `.game-cover` /
   `.game-cover--grid` / `.game-cover--shelf` / `.game-cover-img` /
   `.game-cover-missing` block in `app/assets/tailwind/application.css`,
-  immediately before the existing 01h `.collection-cover-composite` rule.
-  These descriptive class rules pin the locked variant dimensions (150 × 200
-  for `:grid`, 98 × 130 for `:shelf`) at the stylesheet level so the slot
-  size is reachable without external inline-style introspection. No
-  `transform: scale`, no percentage widths — both variants resolve to a
-  server-side asset at its native size per the 01e Flaw assertions.
-- **Component-spec coverage of the `:shelf` symmetry.** Added four
-  assertions to `cover_component_spec.rb` so the `:shelf` happy block now
-  mirrors `:grid`: alt text equals the game title, `loading="lazy"`,
-  wrapper inline `width: 98px; height: 130px;`, and the wrapper `class`
-  attribute is exactly `"game-cover game-cover--shelf"`. The component file
-  itself needed no behavioral change.
-- **01c-v2 spec inconsistency correction.** `01c-v2-nested-shelves.md`
-  carried an in-flight 70% / 105 × 140 draft that proposed bumping the
-  variant. The master agent reaffirmed 65% (matching 01e and the shipped
-  `Games::CoverComponent`). Prepended a one-line "Corrected from 70%
-  draft — locked decision §1 is 65% (98 × 130 px against the real
-  150 × 200 grid)" annotation at the top of the spec body. The 70% / 105 ×
-  140 mentions inside the spec stay as historical record but are now
-  explicitly tagged as superseded.
+  immediately before the existing 01h `.collection-cover-composite` rule. These
+  descriptive class rules pin the locked variant dimensions (150 × 200 for
+  `:grid`, 98 × 130 for `:shelf`) at the stylesheet level so the slot size is
+  reachable without external inline-style introspection. No `transform: scale`,
+  no percentage widths — both variants resolve to a server-side asset at its
+  native size per the 01e Flaw assertions.
+- **Component-spec coverage of the `:shelf` symmetry.** Added four assertions to
+  `cover_component_spec.rb` so the `:shelf` happy block now mirrors `:grid`: alt
+  text equals the game title, `loading="lazy"`, wrapper inline
+  `width: 98px; height: 130px;`, and the wrapper `class` attribute is exactly
+  `"game-cover game-cover--shelf"`. The component file itself needed no
+  behavioral change.
+- **01c-v2 spec inconsistency correction.** `01c-v2-nested-shelves.md` carried
+  an in-flight 70% / 105 × 140 draft that proposed bumping the variant. The
+  master agent reaffirmed 65% (matching 01e and the shipped
+  `Games::CoverComponent`). Prepended a one-line "Corrected from 70% draft —
+  locked decision §1 is 65% (98 × 130 px against the real 150 × 200 grid)"
+  annotation at the top of the spec body. The 70% / 105 × 140 mentions inside
+  the spec stay as historical record but are now explicitly tagged as
+  superseded.
 
 ### Spec deltas
 
-- `spec/components/games/cover_component_spec.rb` — 34 → 38 examples, all
-  green. New assertions: alt text on `:shelf`, loading=lazy on `:shelf`,
-  inline width/height on `:shelf` wrapper, exact wrapper class string.
+- `spec/components/games/cover_component_spec.rb` — 34 → 38 examples, all green.
+  New assertions: alt text on `:shelf`, loading=lazy on `:shelf`, inline
+  width/height on `:shelf` wrapper, exact wrapper class string.
 
 ### Files touched
 
 - `app/assets/tailwind/application.css` — added `.game-cover` /
-  `.game-cover--{grid,shelf}` / `.game-cover-img` / `.game-cover-missing`
-  CSS block.
+  `.game-cover--{grid,shelf}` / `.game-cover-img` / `.game-cover-missing` CSS
+  block.
 - `spec/components/games/cover_component_spec.rb` — +4 examples.
 - `docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs/01c-v2-nested-shelves.md`
   — prepended one-line correction header.
-- `docs/plans/beta/27-games-listing-shelves-filters-display-modes/plan.md`
-  — ticked the four 01e checkboxes with implementation notes.
+- `docs/plans/beta/27-games-listing-shelves-filters-display-modes/plan.md` —
+  ticked the four 01e checkboxes with implementation notes.
 
 ### Open issues
 
-None. The `:shelf` variant landing was already complete at the component
-level; this pass landed the stylesheet rules and tightened the spec
-coverage so future drift is caught.
+None. The `:shelf` variant landing was already complete at the component level;
+this pass landed the stylesheet rules and tightened the spec coverage so future
+drift is caught.
 
 ### Cross-stack
 
@@ -183,17 +180,17 @@ coverage so future drift is caught.
 
 ## [skipci] 2026-05-11 — sub-spec 01c-v2 Nested shelves (pito-rails)
 
-Rewrote `/games` top-of-page shelves from the v1 flat-tile design (one tile
-per genre, one tile per collection) to v2 nested shelves: each outer shelf
-iterates one sub-shelf per non-empty bucket; each sub-shelf is a
-horizontally-scrolling row of game tiles at the `:shelf` cover variant
+Rewrote `/games` top-of-page shelves from the v1 flat-tile design (one tile per
+genre, one tile per collection) to v2 nested shelves: each outer shelf iterates
+one sub-shelf per non-empty bucket; each sub-shelf is a horizontally-scrolling
+row of game tiles at the `:shelf` cover variant
 (`Games::CoverComponent.new(game:, variant: :shelf)`). Collection sub-shelves
 additionally lead with the existing 01h composite cover tile.
 
-Empty buckets are now hidden end-to-end. When no genre owns any game, the
-Genres `<section>` is suppressed (no `<h2>`, no muted "(no genres yet)"
-placeholder). Same rule for Collections. This reverses 01c-v1's "always
-render with placeholder" pattern per 01c-v2 locked decision #7.
+Empty buckets are now hidden end-to-end. When no genre owns any game, the Genres
+`<section>` is suppressed (no `<h2>`, no muted "(no genres yet)" placeholder).
+Same rule for Collections. This reverses 01c-v1's "always render with
+placeholder" pattern per 01c-v2 locked decision #7.
 
 ### Scope ladder (in this pass)
 
@@ -203,100 +200,97 @@ In scope:
   nested outer-shelf shape.
 - New `_genre_sub_shelf.html.erb` + `_collection_sub_shelf_row.html.erb`
   partials for the per-bucket sub-shelf rows.
-- Controller scope change on `@genres_for_shelf` / `@collections_for_shelf`
-  to filter out empty buckets and preserve alphabetical case-insensitive
-  ordering with a stable id tiebreak.
-- View + request + system spec rewrites under the existing 01c describe
-  blocks.
+- Controller scope change on `@genres_for_shelf` / `@collections_for_shelf` to
+  filter out empty buckets and preserve alphabetical case-insensitive ordering
+  with a stable id tiebreak.
+- View + request + system spec rewrites under the existing 01c describe blocks.
 
 Deferred (queued follow-ups from the 01c-v2 spec body that remain unshipped):
 
-- `db/migrate/*_add_primary_genre_id_to_games.rb` (per parent dispatch — "no
-  new migrations"). Falls back to the existing `genre.games` join — a
-  multi-genre game appears in every sub-shelf its `game_genres` join touches.
-  Architect-locked behavior is "appears in exactly one bucket via primary
-  genre pointer"; the fallback is documented and the migration is queued
-  separately.
-- `db/migrate/*_add_composite_columns_to_collections.rb` — already shipped
-  under 01h. No-op here.
-- `Game#primary_genre` association, `Genre#primary_for_games`, orphaning
-  rule on `GameGenre#after_destroy_commit`. Gated on the migration above.
+- `db/migrate/*_add_primary_genre_id_to_games.rb` (per parent dispatch — "no new
+  migrations"). Falls back to the existing `genre.games` join — a multi-genre
+  game appears in every sub-shelf its `game_genres` join touches.
+  Architect-locked behavior is "appears in exactly one bucket via primary genre
+  pointer"; the fallback is documented and the migration is queued separately.
+- `db/migrate/*_add_composite_columns_to_collections.rb` — already shipped under
+  01h. No-op here.
+- `Game#primary_genre` association, `Genre#primary_for_games`, orphaning rule on
+  `GameGenre#after_destroy_commit`. Gated on the migration above.
 - Game show / edit primary-genre picker. Gated on the migration.
-- `Composite::Builder` refactor to accept any `Compositable` host. Bundle
-  stays bundle-coupled per the 01h log's "bundle code stays untouched"
-  note; the refactor is a separate follow-up.
-- `Games::CoverComponent` `:shelf` variant size bump from 98×130 to
-  105×140 (70% of grid). Per parent dispatch — that surface belongs to
-  01e (`01e-shelf-cover-art-variant.md` /
-  `01e-v2-shelf-cover-art-variant.md`).
+- `Composite::Builder` refactor to accept any `Compositable` host. Bundle stays
+  bundle-coupled per the 01h log's "bundle code stays untouched" note; the
+  refactor is a separate follow-up.
+- `Games::CoverComponent` `:shelf` variant size bump from 98×130 to 105×140 (70%
+  of grid). Per parent dispatch — that surface belongs to 01e
+  (`01e-shelf-cover-art-variant.md` / `01e-v2-shelf-cover-art-variant.md`).
 
 ### Naming collision (resolved)
 
-01c-v2 spec pre-reserved `app/views/games/_collection_sub_shelf.html.erb`
-for the row partial. 01h shipped first and took that filename for the
-leading-tile partial (single composite cover with three branches: empty /
-passthrough / composite). Both surfaces are needed; renaming the existing
-01h partial would invalidate 14 view specs and the 01h log.
+01c-v2 spec pre-reserved `app/views/games/_collection_sub_shelf.html.erb` for
+the row partial. 01h shipped first and took that filename for the leading-tile
+partial (single composite cover with three branches: empty / passthrough /
+composite). Both surfaces are needed; renaming the existing 01h partial would
+invalidate 14 view specs and the 01h log.
 
-Resolution: new row partial is `_collection_sub_shelf_row.html.erb`. The
-row partial wraps the 01h leading-tile partial inside an anchor that
-navigates to `/collections/<slug>`, then iterates game tiles. Both
-partials are documented at the top of each file.
+Resolution: new row partial is `_collection_sub_shelf_row.html.erb`. The row
+partial wraps the 01h leading-tile partial inside an anchor that navigates to
+`/collections/<slug>`, then iterates game tiles. Both partials are documented at
+the top of each file.
 
 ### Files changed
 
 App:
 
 - `app/controllers/games_controller.rb` — `@genres_for_shelf` /
-  `@collections_for_shelf` filter to non-empty buckets via subquery
-  (Postgres `SELECT DISTINCT` + `ORDER BY` workaround). Inline comment
-  block reworked for v2.
-- `app/views/games/index.html.erb` — comment block updated for v2;
-  partial call sites unchanged.
+  `@collections_for_shelf` filter to non-empty buckets via subquery (Postgres
+  `SELECT DISTINCT` + `ORDER BY` workaround). Inline comment block reworked for
+  v2.
+- `app/views/games/index.html.erb` — comment block updated for v2; partial call
+  sites unchanged.
 - `app/views/games/_genres_shelf.html.erb` — REWRITE. Outer shelf
-  `<section data-shelf="outer-genres">` with one `<h2>genres</h2>` and
-  per-genre sub-shelves; entire section suppressed when input empty.
-- `app/views/games/_collections_shelf.html.erb` — REWRITE. Outer shelf
-  with `<h2>custom collections</h2>` and per-collection sub-shelves.
-- `app/views/games/_genre_sub_shelf.html.erb` — NEW. Sub-shelf with
-  `<h3>` heading + `[see all]` link (only over the 30 cap) +
-  horizontally-scrolling row of `:shelf` game tiles, alphabetical.
-- `app/views/games/_collection_sub_shelf_row.html.erb` — NEW. Mirror of
-  the genre sub-shelf with a leading composite cover tile.
+  `<section data-shelf="outer-genres">` with one `<h2>genres</h2>` and per-genre
+  sub-shelves; entire section suppressed when input empty.
+- `app/views/games/_collections_shelf.html.erb` — REWRITE. Outer shelf with
+  `<h2>custom collections</h2>` and per-collection sub-shelves.
+- `app/views/games/_genre_sub_shelf.html.erb` — NEW. Sub-shelf with `<h3>`
+  heading + `[see all]` link (only over the 30 cap) + horizontally-scrolling row
+  of `:shelf` game tiles, alphabetical.
+- `app/views/games/_collection_sub_shelf_row.html.erb` — NEW. Mirror of the
+  genre sub-shelf with a leading composite cover tile.
 
 Specs:
 
-- `spec/views/games/_genres_shelf.html.erb_spec.rb` — REWRITE. 14 new
-  examples covering outer-shelf wrapper, per-genre sub-shelf count,
-  short-form `<h3>` mapping, empty-input hidden, no v1 remnants.
-- `spec/views/games/_collections_shelf.html.erb_spec.rb` — NEW. 11
-  examples mirroring the genre coverage.
-- `spec/views/games/_genre_sub_shelf.html.erb_spec.rb` — NEW. 18
-  examples covering happy (under cap), exact cap (30), over cap (31 →
-  capped + `[see all]`), empty genre, JS-confirm flaw guard.
-- `spec/views/games/_collection_sub_shelf_row.html.erb_spec.rb` — NEW.
-  15 examples covering composite leading tile, passthrough leading
-  tile (1-game collection), empty leading tile (0-game collection), 31
-  games over cap, JS-confirm flaw guard.
-- `spec/requests/games_spec.rb` — REWROTE the "Phase 27 §01c" describe
-  block. 11 new examples covering outer-shelf hidden when empty,
-  outer-shelf rendered with sub-shelf-per-bucket alphabetical, the
-  `data-shelf="genre-sub"` / `"collection-sub"` data hooks, `[see all]`
-  cap behavior.
-- `spec/system/games_index_spec.rb` — REWROTE the 01c describe block.
-  5 new examples covering nested shelf rendering, empty-bucket hidden,
-  `[see all]` navigation narrowing the all-games grid below.
+- `spec/views/games/_genres_shelf.html.erb_spec.rb` — REWRITE. 14 new examples
+  covering outer-shelf wrapper, per-genre sub-shelf count, short-form `<h3>`
+  mapping, empty-input hidden, no v1 remnants.
+- `spec/views/games/_collections_shelf.html.erb_spec.rb` — NEW. 11 examples
+  mirroring the genre coverage.
+- `spec/views/games/_genre_sub_shelf.html.erb_spec.rb` — NEW. 18 examples
+  covering happy (under cap), exact cap (30), over cap (31 → capped +
+  `[see all]`), empty genre, JS-confirm flaw guard.
+- `spec/views/games/_collection_sub_shelf_row.html.erb_spec.rb` — NEW. 15
+  examples covering composite leading tile, passthrough leading tile (1-game
+  collection), empty leading tile (0-game collection), 31 games over cap,
+  JS-confirm flaw guard.
+- `spec/requests/games_spec.rb` — REWROTE the "Phase 27 §01c" describe block. 11
+  new examples covering outer-shelf hidden when empty, outer-shelf rendered with
+  sub-shelf-per-bucket alphabetical, the `data-shelf="genre-sub"` /
+  `"collection-sub"` data hooks, `[see all]` cap behavior.
+- `spec/system/games_index_spec.rb` — REWROTE the 01c describe block. 5 new
+  examples covering nested shelf rendering, empty-bucket hidden, `[see all]`
+  navigation narrowing the all-games grid below.
 
 Plan:
 
-- `docs/plans/beta/27-…/plan.md` — re-ticked the 01c block's five
-  checkboxes with v2-aware annotations; documented the deferred work
-  inline.
+- `docs/plans/beta/27-…/plan.md` — re-ticked the 01c block's five checkboxes
+  with v2-aware annotations; documented the deferred work inline.
 
 ### Gates
 
-- `rspec spec/views/games/ spec/components/games/ spec/requests/games_spec.rb spec/system/games_index_spec.rb spec/system/games_steam_shelf_spec.rb spec/system/games_platform_ownerships_spec.rb` — 833 examples green.
-- `rspec spec/models/genre_spec.rb spec/models/collection_spec.rb spec/models/game_spec.rb` — 113 examples green.
+- `rspec spec/views/games/ spec/components/games/ spec/requests/games_spec.rb spec/system/games_index_spec.rb spec/system/games_steam_shelf_spec.rb spec/system/games_platform_ownerships_spec.rb`
+  — 833 examples green.
+- `rspec spec/models/genre_spec.rb spec/models/collection_spec.rb spec/models/game_spec.rb`
+  — 113 examples green.
 - `rubocop` on touched Ruby files — clean (7 files inspected, no offenses).
 - `brakeman -q -w2` — 0 security warnings.
 
@@ -305,78 +299,76 @@ Plan:
 - Spec:
   `docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs/01c-v2-nested-shelves.md`
   (supersedes 01c-v1; this implementation pass).
-- Plan checkbox: `…/plan.md` → `01c — Genres and Collections shelves`
-  block (five v1 checkboxes re-ticked with v2 annotations).
-- Adjacent: 01h leading-tile partial (`_collection_sub_shelf.html.erb`)
-  reused as-is; 01b filter row placement preserved; 01e cover variant
-  width left to its own surface.
+- Plan checkbox: `…/plan.md` → `01c — Genres and Collections shelves` block
+  (five v1 checkboxes re-ticked with v2 annotations).
+- Adjacent: 01h leading-tile partial (`_collection_sub_shelf.html.erb`) reused
+  as-is; 01b filter row placement preserved; 01e cover variant width left to its
+  own surface.
 
 ---
 
 ## [skipci] 2026-05-11 — sub-spec 01b Filter row + platform semantics (pito-rails)
 
-Shipped the multi-select filter row on `/games`. State lives in a single
-CSV URL param (`?filters=token1,token2`). Ten canonical chips in a
-locked left-to-right order:
+Shipped the multi-select filter row on `/games`. State lives in a single CSV URL
+param (`?filters=token1,token2`). Ten canonical chips in a locked left-to-right
+order:
 
     [recorded] [released] [owned] [not owned] [scheduled]
     [ps5] [switch2] [steam] [gog] [epic]
 
-Clicking a chip toggles it in or out of the comma-separated set;
-`[clear all]` appears whenever at least one chip is active; a muted
-notice renders when `owned` + `not_owned` are simultaneously active
-(the C-3 contradiction case). Chip hrefs preserve `?genre=`,
-`?collection=`, and `?display=` overrides verbatim.
+Clicking a chip toggles it in or out of the comma-separated set; `[clear all]`
+appears whenever at least one chip is active; a muted notice renders when
+`owned` + `not_owned` are simultaneously active (the C-3 contradiction case).
+Chip hrefs preserve `?genre=`, `?collection=`, and `?display=` overrides
+verbatim.
 
 ### Locked semantics
 
-Platform-token precedence follows the verbatim Mobile directive
-(spec §"Locked semantics"):
+Platform-token precedence follows the verbatim Mobile directive (spec §"Locked
+semantics"):
 
-- **P-1.** `owned` unchecked + platform-X checked → games scheduled OR
-  released on platform-X, regardless of ownership state.
-- **P-2.** `owned` checked + platform-X checked → games owned
-  specifically on platform-X.
-- **C-1.** `not_owned` checked + platform-X checked → games with zero
-  ownership rows AND released-or-scheduled on platform-X.
+- **P-1.** `owned` unchecked + platform-X checked → games scheduled OR released
+  on platform-X, regardless of ownership state.
+- **P-2.** `owned` checked + platform-X checked → games owned specifically on
+  platform-X.
+- **C-1.** `not_owned` checked + platform-X checked → games with zero ownership
+  rows AND released-or-scheduled on platform-X.
 - **C-2.** Multiple platform tokens within the same bucket OR together
   (statement applies per bucket state).
-- **C-3.** `owned` + `not_owned` together → `Game.none` + a muted
-  contradiction notice. No JS dialog, no red.
+- **C-3.** `owned` + `not_owned` together → `Game.none` + a muted contradiction
+  notice. No JS dialog, no red.
 
-The query object's `#contradiction?` predicate flags the C-3 case;
-`#results` short-circuits to `Game.none`.
+The query object's `#contradiction?` predicate flags the C-3 case; `#results`
+short-circuits to `Game.none`.
 
 ### Files (new)
 
-- `app/queries/games/filter.rb` — `Games::Filter` query object.
-  Public surface: `#results` (memoised `ActiveRecord::Relation`),
-  `#active_tokens`, `#dropped_tokens`, `#contradiction?`. Composition
-  algorithm in `#build_results` partitions tokens into Status /
-  Ownership / Platform / Unknown; buckets AND together; Status and
-  Platform tokens within a bucket OR together. Platform-bucket
-  semantics flip on the Ownership-bucket state via `platform_relation_for`.
-- `app/helpers/games/filters_helper.rb` — `Games::FiltersHelper`
-  mixin. Surface: `parse_filter_tokens(raw)`, `parse_dropped_tokens(raw)`,
-  `toggle_filter(active, token)`, `chip_label(token)`. Normalises
-  CSV / Array / nil; downcases; strips; de-dupes; preserves input order.
+- `app/queries/games/filter.rb` — `Games::Filter` query object. Public surface:
+  `#results` (memoised `ActiveRecord::Relation`), `#active_tokens`,
+  `#dropped_tokens`, `#contradiction?`. Composition algorithm in
+  `#build_results` partitions tokens into Status / Ownership / Platform /
+  Unknown; buckets AND together; Status and Platform tokens within a bucket OR
+  together. Platform-bucket semantics flip on the Ownership-bucket state via
+  `platform_relation_for`.
+- `app/helpers/games/filters_helper.rb` — `Games::FiltersHelper` mixin. Surface:
+  `parse_filter_tokens(raw)`, `parse_dropped_tokens(raw)`,
+  `toggle_filter(active, token)`, `chip_label(token)`. Normalises CSV / Array /
+  nil; downcases; strips; de-dupes; preserves input order.
 - `app/components/games/filter_row_component.rb` +
   `app/components/games/filter_row_component.html.erb` — ten chips,
-  `[clear all]` link, optional contradiction notice.
-  `query_string_overrides` preserves the URL state the filter row
-  doesn't own.
+  `[clear all]` link, optional contradiction notice. `query_string_overrides`
+  preserves the URL state the filter row doesn't own.
 - `app/components/games/filter_chip_component.rb` +
-  `app/components/games/filter_chip_component.html.erb` — single
-  bracketed-link chip. ArgumentError when token is non-canonical or
-  `request_path` is blank. Active chips carry the `chip--active`
-  modifier (no red — red is reserved for destructive).
+  `app/components/games/filter_chip_component.html.erb` — single bracketed-link
+  chip. ArgumentError when token is non-canonical or `request_path` is blank.
+  Active chips carry the `chip--active` modifier (no red — red is reserved for
+  destructive).
 - Specs (all new):
-  - `spec/queries/games/filter_spec.rb` (50 examples) — load-bearing
-    matrix: single-token, single-platform-per-ownership-state,
-    Mobile-directive worked example (verbatim), multi-platform,
-    status combinations, contradiction, normalisation edge cases,
-    defensive surface (SQL injection, 100-token input, memoisation,
-    composability).
+  - `spec/queries/games/filter_spec.rb` (50 examples) — load-bearing matrix:
+    single-token, single-platform-per-ownership-state, Mobile-directive worked
+    example (verbatim), multi-platform, status combinations, contradiction,
+    normalisation edge cases, defensive surface (SQL injection, 100-token input,
+    memoisation, composability).
   - `spec/helpers/games/filters_helper_spec.rb` (21 examples).
   - `spec/components/games/filter_chip_component_spec.rb` (17 examples).
   - `spec/components/games/filter_row_component_spec.rb` (18 examples).
@@ -384,100 +376,95 @@ The query object's `#contradiction?` predicate flags the C-3 case;
 ### Files (modified)
 
 - `app/models/game.rb` — six new scopes: `.recorded` (rides on
-  `VideoGameLink.select(:game_id).distinct` since `videos` connects
-  via the join, not directly), `.released`, `.scheduled`,
-  `.on_platform(slug)`, `.released_on(slug)`, `.scheduled_on(slug)`.
-  The on_platform shape mirrors the `owned_on` pattern with bound
-  parameters and the `"platforms"."slug" = ?` literal so the legacy
-  `games.platforms` jsonb column doesn't collide.
+  `VideoGameLink.select(:game_id).distinct` since `videos` connects via the
+  join, not directly), `.released`, `.scheduled`, `.on_platform(slug)`,
+  `.released_on(slug)`, `.scheduled_on(slug)`. The on_platform shape mirrors the
+  `owned_on` pattern with bound parameters and the `"platforms"."slug" = ?`
+  literal so the legacy `games.platforms` jsonb column doesn't collide.
 - `app/controllers/games_controller.rb` — `include Games::FiltersHelper`;
   `#index` reads `params[:filters]` via the helper, instantiates
-  `Games::Filter`, narrows `@all_games`, exposes `@filter_contradiction`
-  to the view. Compose order: `?genre=` → `?collection=` → filter row.
-- `app/views/games/index.html.erb` — renders the filter row between
-  the 01c shelves (Genres + Collections) and the all-games grid,
-  with `query_string_overrides` carrying `{ genre:, collection:, display: }`.
-- `spec/models/game_spec.rb` — 16 new examples covering all six new
-  scopes (`recorded`, `released`, `scheduled`, `on_platform`,
-  `released_on`, `scheduled_on`) including boundary inclusive-on-today,
-  SQL-injection defense, distinct-row defense, nil-date exclusion.
+  `Games::Filter`, narrows `@all_games`, exposes `@filter_contradiction` to the
+  view. Compose order: `?genre=` → `?collection=` → filter row.
+- `app/views/games/index.html.erb` — renders the filter row between the 01c
+  shelves (Genres + Collections) and the all-games grid, with
+  `query_string_overrides` carrying `{ genre:, collection:, display: }`.
+- `spec/models/game_spec.rb` — 16 new examples covering all six new scopes
+  (`recorded`, `released`, `scheduled`, `on_platform`, `released_on`,
+  `scheduled_on`) including boundary inclusive-on-today, SQL-injection defense,
+  distinct-row defense, nil-date exclusion.
 - `spec/requests/games_spec.rb` — 16 new examples in
   `describe "GET /games with ?filters="`: happy paths, contradiction,
-  unknown-token dropping (no echo-back), de-duplication, case
-  normalisation, 100-token, SQL injection, defensive `data-turbo-confirm`
-  absence, query-string preservation for `display=` and `genre=`.
+  unknown-token dropping (no echo-back), de-duplication, case normalisation,
+  100-token, SQL injection, defensive `data-turbo-confirm` absence, query-string
+  preservation for `display=` and `genre=`.
 - `spec/system/games_index_spec.rb` — 11 new examples in
-  `describe "Games index — filter row (01b)"`: click-through chip
-  toggle, `[clear all]` lifecycle, chip composition, contradiction
-  rendering, query-string preservation, all-five-platforms union,
-  defensive HTML surface.
+  `describe "Games index — filter row (01b)"`: click-through chip toggle,
+  `[clear all]` lifecycle, chip composition, contradiction rendering,
+  query-string preservation, all-five-platforms union, defensive HTML surface.
 
 ### Spec deviations from spec text (resolved)
 
 1. **`first_release_date` → `release_date`.** The spec wrote
-   `first_release_date` as the IGDB-derived datetime column. The
-   actual Phase 14 §1 schema column is `release_date` (a `date`).
-   The day-granular semantics are identical (a release scheduled for
-   today is "released"; tomorrow is "scheduled"); the model code,
-   model specs, and the matrix all use `release_date`.
+   `first_release_date` as the IGDB-derived datetime column. The actual Phase 14
+   §1 schema column is `release_date` (a `date`). The day-granular semantics are
+   identical (a release scheduled for today is "released"; tomorrow is
+   "scheduled"); the model code, model specs, and the matrix all use
+   `release_date`.
 2. **`Game.recorded` ride-on.** Spec wrote
-   `where(id: Video.select(:game_id).distinct)`. The actual
-   association is `has_many :videos, through: :video_game_links`
-   (Phase 14 §3) — Video has no `game_id` column. The scope rides on
-   `VideoGameLink.select(:game_id).distinct` instead; semantically
-   identical (any linked Video → recorded).
-3. **Boundary inclusive on today.** `release_date == Date.current` is
-   in `released`, not `scheduled`. Date-granular makes the
-   "exactly now" second-level edge case from the spec moot.
+   `where(id: Video.select(:game_id).distinct)`. The actual association is
+   `has_many :videos, through: :video_game_links` (Phase 14 §3) — Video has no
+   `game_id` column. The scope rides on
+   `VideoGameLink.select(:game_id).distinct` instead; semantically identical
+   (any linked Video → recorded).
+3. **Boundary inclusive on today.** `release_date == Date.current` is in
+   `released`, not `scheduled`. Date-granular makes the "exactly now"
+   second-level edge case from the spec moot.
 
 ### Open questions (architect-resolved per autonomy/cadence rule)
 
 The spec lists six open questions; locked answers below.
 
-1. **C-1 `not_owned` + platform-X semantics** — adopted the spec's
-   locked default: zero ownership rows AND released-or-scheduled on
-   the platform. Matrix asserts: `[not_owned, ps5] → B` (B is on PS5,
-   not owned anywhere); `[not_owned, epic] → ∅` (G is owned on Epic;
-   nothing else is on Epic).
-2. **C-3 contradiction rendering** — muted notice (locked default).
-   Class is `text-muted` on a `<p>` directly below the chip row.
-   Reviewed against the project rule: no red, no JS dialog.
-3. **`recorded` semantics with draft Videos** — any linked Video
-   record. The project has no `published` state on `Video` yet;
-   revisit when video publication state lands.
-4. **Boundary inclusiveness on `released`** — locked: today's release
-   counts as released, not scheduled (`<= Date.current`).
+1. **C-1 `not_owned` + platform-X semantics** — adopted the spec's locked
+   default: zero ownership rows AND released-or-scheduled on the platform.
+   Matrix asserts: `[not_owned, ps5] → B` (B is on PS5, not owned anywhere);
+   `[not_owned, epic] → ∅` (G is owned on Epic; nothing else is on Epic).
+2. **C-3 contradiction rendering** — muted notice (locked default). Class is
+   `text-muted` on a `<p>` directly below the chip row. Reviewed against the
+   project rule: no red, no JS dialog.
+3. **`recorded` semantics with draft Videos** — any linked Video record. The
+   project has no `published` state on `Video` yet; revisit when video
+   publication state lands.
+4. **Boundary inclusiveness on `released`** — locked: today's release counts as
+   released, not scheduled (`<= Date.current`).
 5. **`platforms_available` association name** — confirmed still
-   `platforms_available` (Phase 14 §1; 01a did not rename it). The
-   `on_platform` scope rides on `:game_platforms → :platform` (the
-   same association under the hood) so the legacy join name doesn't
-   leak into the scope shape.
-6. **Multi-platform OR shape** — chose the `where(id: union_ids)`
-   single-pass form; the alternative `.or` shape would generate the
-   same result. Spec asserts equivalence rather than SQL fingerprint;
-   16 matrix cells assert the right ids land regardless.
+   `platforms_available` (Phase 14 §1; 01a did not rename it). The `on_platform`
+   scope rides on `:game_platforms → :platform` (the same association under the
+   hood) so the legacy join name doesn't leak into the scope shape.
+6. **Multi-platform OR shape** — chose the `where(id: union_ids)` single-pass
+   form; the alternative `.or` shape would generate the same result. Spec
+   asserts equivalence rather than SQL fingerprint; 16 matrix cells assert the
+   right ids land regardless.
 
 ### Gates
 
-- `rspec` — 303 examples across the seven touched spec files; 0
-  failures. (16 model + 50 query + 21 helper + 17 chip + 18 row + 87
-  request + 22 system + 72 other component / model specs in the
-  re-run convergence.)
-- `rubocop` — clean on all 13 touched Ruby files. (The .erb files
-  aren't passed to rubocop — its Ruby parser doesn't handle them.)
-- `brakeman` — 0 security warnings (2 prior obsolete-ignore entries
-  noted, both pre-existing). Bound parameters in the new
-  `on_platform` / `released_on` / `scheduled_on` scopes and in the
-  controller's `parse_filter_tokens` path keep the surface clean.
+- `rspec` — 303 examples across the seven touched spec files; 0 failures. (16
+  model + 50 query + 21 helper + 17 chip + 18 row + 87 request + 22 system + 72
+  other component / model specs in the re-run convergence.)
+- `rubocop` — clean on all 13 touched Ruby files. (The .erb files aren't passed
+  to rubocop — its Ruby parser doesn't handle them.)
+- `brakeman` — 0 security warnings (2 prior obsolete-ignore entries noted, both
+  pre-existing). Bound parameters in the new `on_platform` / `released_on` /
+  `scheduled_on` scopes and in the controller's `parse_filter_tokens` path keep
+  the surface clean.
 
 ### References
 
 - Spec:
   `docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs/01b-filter-row-and-platform-semantics.md`.
-- Plan checkbox: `…/plan.md` → `01b — Filter row + platform semantics`
-  block (all 7 boxes ticked).
-- Compose order locked by spec §"Controller integration": genre →
-  collection → filter row → display-mode partition (01d).
+- Plan checkbox: `…/plan.md` → `01b — Filter row + platform semantics` block
+  (all 7 boxes ticked).
+- Compose order locked by spec §"Controller integration": genre → collection →
+  filter row → display-mode partition (01d).
 
 ---
 
@@ -1407,84 +1394,81 @@ session:
 
 ## [skipci] 2026-05-11 — six bundled `/games` follow-ups (primary genre + lowercase + composer wiring + demo collection) (pito-rails)
 
-Single-pass cleanup bundling Phase 27's deferred follow-ups + the P27
-reviewer BLOCKER + a couple of copy fixes the user called out while
-reviewing the live page.
+Single-pass cleanup bundling Phase 27's deferred follow-ups + the P27 reviewer
+BLOCKER + a couple of copy fixes the user called out while reviewing the live
+page.
 
 ### Fixes 1 + 2 — primary-genre picker + Game model wire-up
 
 - `db/migrate/20260511180000_add_primary_genre_id_to_games.rb` adds
   `games.primary_genre_id` (nullable, indexed, FK to `genres` with
-  `on_delete: :nullify`). Applied to dev and test DBs; `db/schema.rb`
-  bumped to `2026_05_11_180000`.
-- `app/services/games/primary_genre_picker.rb` returns ONE canonical
-  `Genre` per Game via three rules: explicit pin → alphabetical first
-  linked → nil. Documented inline; pure function, no persistence.
-- `app/models/game.rb` gains `belongs_to :primary_genre, class_name:
-  "Genre", optional: true` + `before_save :assign_primary_genre_if_blank`.
-- `app/models/game_genre.rb` gains `after_save` / `after_destroy`
-  callbacks (NOT the `_commit` variants — RSpec transactional fixtures
-  never commit) so the pin updates when `game.genres << g` or `game.genres
-  = [...]` fires. The callback short-circuits when a pin is already in
-  place to avoid thrashing.
-- `lib/tasks/pito.rake` adds `pito:backfill_primary_genres`. Idempotent;
-  ran against dev — 2 games backfilled, 4 left NULL (no linked genres),
-  re-run is a no-op.
+  `on_delete: :nullify`). Applied to dev and test DBs; `db/schema.rb` bumped to
+  `2026_05_11_180000`.
+- `app/services/games/primary_genre_picker.rb` returns ONE canonical `Genre` per
+  Game via three rules: explicit pin → alphabetical first linked → nil.
+  Documented inline; pure function, no persistence.
+- `app/models/game.rb` gains
+  `belongs_to :primary_genre, class_name: "Genre", optional: true` +
+  `before_save :assign_primary_genre_if_blank`.
+- `app/models/game_genre.rb` gains `after_save` / `after_destroy` callbacks (NOT
+  the `_commit` variants — RSpec transactional fixtures never commit) so the pin
+  updates when `game.genres << g` or `game.genres = [...]` fires. The callback
+  short-circuits when a pin is already in place to avoid thrashing.
+- `lib/tasks/pito.rake` adds `pito:backfill_primary_genres`. Idempotent; ran
+  against dev — 2 games backfilled, 4 left NULL (no linked genres), re-run is a
+  no-op.
 - `app/controllers/games_controller.rb` `@genres_for_shelf` now reads
-  `Game.where.not(primary_genre_id: nil).distinct.select(:primary_genre_id)`
-  so each game appears in exactly one sub-shelf.
+  `Game.where.not(primary_genre_id: nil).distinct.select(:primary_genre_id)` so
+  each game appears in exactly one sub-shelf.
 - `app/views/games/_genre_sub_shelf.html.erb` now reads
-  `Game.where(primary_genre_id: genre.id)` for both the count and the
-  ordered tile list.
+  `Game.where(primary_genre_id: genre.id)` for both the count and the ordered
+  tile list.
 
 ### Fix 3 — lowercase genre labels (acronym allowlist)
 
-- `app/helpers/genres_helper.rb` rewritten around a two-stage rule:
-  long-form names short-mapped via `GENRE_SHORT_NAMES` ("Role-playing
-  (RPG)" → "RPG"), then non-acronym labels downcased ("Adventure" →
-  "adventure", "Shooter" → "shooter"). `ACRONYM_LABELS` keeps only
-  `RPG` upper-case (per user "shooter is shooter actually" — the
-  legacy `First-person shooter → FPS` mapping is gone). MMO / RTS /
-  TBS now render lowercase too; extending the acronym list later is
+- `app/helpers/genres_helper.rb` rewritten around a two-stage rule: long-form
+  names short-mapped via `GENRE_SHORT_NAMES` ("Role-playing (RPG)" → "RPG"),
+  then non-acronym labels downcased ("Adventure" → "adventure", "Shooter" →
+  "shooter"). `ACRONYM_LABELS` keeps only `RPG` upper-case (per user "shooter is
+  shooter actually" — the legacy `First-person shooter → FPS` mapping is gone).
+  MMO / RTS / TBS now render lowercase too; extending the acronym list later is
   non-breaking.
-- The helper's public method name stayed `genre_short_name` to avoid
-  churning every call site (`_genre_sub_shelf.html.erb`,
-  `_list_mode.html.erb`).
+- The helper's public method name stayed `genre_short_name` to avoid churning
+  every call site (`_genre_sub_shelf.html.erb`, `_list_mode.html.erb`).
 - Helper spec rewritten end-to-end.
 
 ### Fix 4 — collections-shelf heading + seed rename
 
-- `app/views/games/_collections_shelf.html.erb` `<h2>` text changed
-  from `custom collections` to plain `collections`.
-- `db/seeds.rb` legacy `Demo Collection` renamed to `currently
-  playing`. Idempotent — find_or_create_by(name:) creates a new row on
-  next seed; existing installs keep the old row (which the user can
-  rename / delete in the UI). Notes call out the rename so future
-  contributors know why a fresh install has two collection rows in
-  dev DBs that ran the prior seed.
+- `app/views/games/_collections_shelf.html.erb` `<h2>` text changed from
+  `custom collections` to plain `collections`.
+- `db/seeds.rb` legacy `Demo Collection` renamed to `currently playing`.
+  Idempotent — find_or_create_by(name:) creates a new row on next seed; existing
+  installs keep the old row (which the user can rename / delete in the UI).
+  Notes call out the rename so future contributors know why a fresh install has
+  two collection rows in dev DBs that ran the prior seed.
 
 ### Fix 5 — composer wiring (P27 reviewer BLOCKER)
 
-- `app/services/games/prepare_collections_for_shelf.rb` walks the
-  outer-shelf collections and calls `Collections::CoverComposer#call`
-  on each. The composer is fingerprint-cached so the call is a no-op
-  on cache hits; 0/1 member layouts short-circuit inside the composer.
+- `app/services/games/prepare_collections_for_shelf.rb` walks the outer-shelf
+  collections and calls `Collections::CoverComposer#call` on each. The composer
+  is fingerprint-cached so the call is a no-op on cache hits; 0/1 member layouts
+  short-circuit inside the composer.
 - `GamesController#index` invokes the service in-line after
-  `@collections_for_shelf` resolves. One render per request; out-of-
-  band Sidekiq job not needed for the in-flight render path.
-- New spec `spec/services/games/prepare_collections_for_shelf_spec.rb`
-  asserts the composer is invoked, the input is returned for chaining,
-  and a composer exception on one row does not 500 the whole index.
-- Added a request spec assertion that `Collections::CoverComposer#call`
-  is reached from `GamesController#index` for a 2-game collection.
+  `@collections_for_shelf` resolves. One render per request; out-of- band
+  Sidekiq job not needed for the in-flight render path.
+- New spec `spec/services/games/prepare_collections_for_shelf_spec.rb` asserts
+  the composer is invoked, the input is returned for chaining, and a composer
+  exception on one row does not 500 the whole index.
+- Added a request spec assertion that `Collections::CoverComposer#call` is
+  reached from `GamesController#index` for a 2-game collection.
 
 ### Fix 6 — demo "now playing" collection
 
-- `db/seeds.rb` appended a `now playing` collection seed containing
-  `Pragmata` + `Red Dead Redemption 2` (lookup by title, creates thin
-  placeholder rows when missing so a clean install gets a 2-member
-  collection the composer can render). Re-running seeds is idempotent;
-  rows already in another collection are left alone.
+- `db/seeds.rb` appended a `now playing` collection seed containing `Pragmata` +
+  `Red Dead Redemption 2` (lookup by title, creates thin placeholder rows when
+  missing so a clean install gets a 2-member collection the composer can
+  render). Re-running seeds is idempotent; rows already in another collection
+  are left alone.
 
 ### Specs
 
@@ -1496,14 +1480,14 @@ reviewing the live page.
 - `~spec/views/games/_genres_shelf.html.erb_spec.rb` (lowercase label)
 - `~spec/views/games/_collections_shelf.html.erb_spec.rb` (heading copy)
 - `~spec/views/games/_genre_sub_shelf.html.erb_spec.rb` (lowercase label)
-- `~spec/requests/games_spec.rb` (lowercase label + heading copy +
-  composer wiring assertion)
+- `~spec/requests/games_spec.rb` (lowercase label + heading copy + composer
+  wiring assertion)
 - `~spec/system/games_index_spec.rb` (lowercase headings)
 - `~spec/system/games_steam_shelf_spec.rb` (lowercase content)
 
-All 579 examples across the touched + adjacent surface pass. Brakeman
-clean (0 warnings, 0 errors). Rubocop clean on every Ruby file touched
-(20 files, 0 offenses).
+All 579 examples across the touched + adjacent surface pass. Brakeman clean (0
+warnings, 0 errors). Rubocop clean on every Ruby file touched (20 files, 0
+offenses).
 
 ### Files
 
@@ -1523,324 +1507,299 @@ clean (0 warnings, 0 errors). Rubocop clean on every Ruby file touched
 
 ### Open issues / deferred
 
-- Manual primary-genre override surface on `/games/:id/edit` — the
-  schema and the model honor a manual pin (`primary_genre_id` set
-  directly), but there is no UI control yet. Queued as a follow-up
-  once the user asks for it.
-- Existing dev DB rows from the pre-rename seed (`Demo Collection`)
-  remain — the rename is forward-only. Operator can delete via the
-  UI when ready.
+- Manual primary-genre override surface on `/games/:id/edit` — the schema and
+  the model honor a manual pin (`primary_genre_id` set directly), but there is
+  no UI control yet. Queued as a follow-up once the user asks for it.
+- Existing dev DB rows from the pre-rename seed (`Demo Collection`) remain — the
+  rename is forward-only. Operator can delete via the UI when ready.
 
 ## 2026-05-11 — Collections shelf restructure (single-row tiles + modal)
 
 ### Dispatch
 
 User direction on the `/games` Collections surface (verbatim):
-> collections is just one row with the compound cover art. Clicking it
-> will open a modal with the games from that collection. Clicking a
-> game will navigate to the Game's page.
 
-Replaces the 01c-v2 "outer shelf of per-collection sub-shelves of game
-tiles" design with a single horizontal-scroll row of tile-per-
-collection. Each tile renders the composite cover (or the project's
-shelf-variant fallback SVG when the composer returned nil for an
-empty / single-game collection). Click → opens a layout-level
-`<dialog id="collections-modal">` whose inner Turbo Frame fetches
-`/collections/<id>/games_pane`. The pane lists the collection's games
-as `Games::CoverComponent :grid` tiles; each is wrapped in an `<a>`
-back to the game show page (full navigation).
+> collections is just one row with the compound cover art. Clicking it will open
+> a modal with the games from that collection. Clicking a game will navigate to
+> the Game's page.
+
+Replaces the 01c-v2 "outer shelf of per-collection sub-shelves of game tiles"
+design with a single horizontal-scroll row of tile-per- collection. Each tile
+renders the composite cover (or the project's shelf-variant fallback SVG when
+the composer returned nil for an empty / single-game collection). Click → opens
+a layout-level `<dialog id="collections-modal">` whose inner Turbo Frame fetches
+`/collections/<id>/games_pane`. The pane lists the collection's games as
+`Games::CoverComponent :grid` tiles; each is wrapped in an `<a>` back to the
+game show page (full navigation).
 
 The 01h composer wiring (`Games::PrepareCollectionsForShelf` →
-`Collections::CoverComposer`) was already in place from the prior
-v2 dispatch; this restructure simply rewires the consumer view to
-read `collection.cover_url(variant: :shelf)` directly. No composer
-changes.
+`Collections::CoverComposer`) was already in place from the prior v2 dispatch;
+this restructure simply rewires the consumer view to read
+`collection.cover_url(variant: :shelf)` directly. No composer changes.
 
 ### Changes
 
 Routes:
-- `GET /collections/:id/games_pane → Collections#games_pane` (new
-  member action; returns a Turbo Frame fragment, no application
-  layout).
+
+- `GET /collections/:id/games_pane → Collections#games_pane` (new member action;
+  returns a Turbo Frame fragment, no application layout).
 
 Controllers:
+
 - `CollectionsController#games_pane` (new).
-- `GamesController#index` — composer-warmup comment updated to point
-  at the new partial filename. No logic change.
+- `GamesController#index` — composer-warmup comment updated to point at the new
+  partial filename. No logic change.
 
 Views:
-- `app/views/games/_collections_shelf.html.erb` — rewritten. Now a
-  single horizontal-scroll row of `_collection_tile` renders + emits
-  the layout-level `<dialog>` modal partial alongside.
-- `app/views/games/_collection_tile.html.erb` (new) — one tile,
-  composite cover or fallback SVG, name in muted gray below.
-- `app/views/games/_collections_modal.html.erb` (new) — `<dialog>`
-  with Turbo Frame `collections_modal_frame` + `[close]` bracketed
-  link.
-- `app/views/collections/games_pane.html.erb` (new) — Turbo Frame
-  fragment, grid of `Games::CoverComponent :grid` tiles linked to
-  each game's show page.
-- `app/assets/tailwind/application.css` — updated stale comment
-  reference (`_collection_sub_shelf.html.erb` → `_collection_tile`).
+
+- `app/views/games/_collections_shelf.html.erb` — rewritten. Now a single
+  horizontal-scroll row of `_collection_tile` renders + emits the layout-level
+  `<dialog>` modal partial alongside.
+- `app/views/games/_collection_tile.html.erb` (new) — one tile, composite cover
+  or fallback SVG, name in muted gray below.
+- `app/views/games/_collections_modal.html.erb` (new) — `<dialog>` with Turbo
+  Frame `collections_modal_frame` + `[close]` bracketed link.
+- `app/views/collections/games_pane.html.erb` (new) — Turbo Frame fragment, grid
+  of `Games::CoverComponent :grid` tiles linked to each game's show page.
+- `app/assets/tailwind/application.css` — updated stale comment reference
+  (`_collection_sub_shelf.html.erb` → `_collection_tile`).
 
 JavaScript:
-- `app/javascript/controllers/collections_modal_trigger_controller.js`
-  (new) — Stimulus controller: on click sets the Turbo Frame `src`,
-  updates the modal heading, calls `dialog.showModal()`. No
-  `confirm()` / `alert()` / `prompt()` — closes via
-  `confirm-modal#clickOutside` / Escape / `[close]` link.
+
+- `app/javascript/controllers/collections_modal_trigger_controller.js` (new) —
+  Stimulus controller: on click sets the Turbo Frame `src`, updates the modal
+  heading, calls `dialog.showModal()`. No `confirm()` / `alert()` / `prompt()` —
+  closes via `confirm-modal#clickOutside` / Escape / `[close]` link.
 
 Deletions:
+
 - `app/views/games/_collection_sub_shelf.html.erb` (orphaned).
 - `app/views/games/_collection_sub_shelf_row.html.erb` (orphaned).
 - `spec/views/games/_collection_sub_shelf.html.erb_spec.rb`.
 - `spec/views/games/_collection_sub_shelf_row.html.erb_spec.rb`.
 
 Specs:
-- `spec/views/games/_collections_shelf.html.erb_spec.rb` — rewritten
-  (16 examples) for the single-row layout. Covers happy / edge
-  (empty input, composer-returned-nil) / flaw (no v1 / v2 remnants).
+
+- `spec/views/games/_collections_shelf.html.erb_spec.rb` — rewritten (16
+  examples) for the single-row layout. Covers happy / edge (empty input,
+  composer-returned-nil) / flaw (no v1 / v2 remnants).
 - `spec/requests/collections_spec.rb` — `+7` examples for
   `GET /collections/:id/games_pane` (200, Turbo Frame wrapper,
-  link-to-show-page, alphabetical, empty state, 404 on bad slug,
-  no layout, numeric-id resolution).
-- `spec/requests/games_spec.rb` — 2 assertions updated (sub-shelf
-  refs → tile refs); 1 new (`.collection-tile` count).
-- `spec/system/games_index_spec.rb` — `Custom collections outer shelf`
-  describe block rewritten + new `Collections modal flow` describe
-  block (3 examples: href fallback navigation, pane-fragment listing,
-  game tile click → game show page).
+  link-to-show-page, alphabetical, empty state, 404 on bad slug, no layout,
+  numeric-id resolution).
+- `spec/requests/games_spec.rb` — 2 assertions updated (sub-shelf refs → tile
+  refs); 1 new (`.collection-tile` count).
+- `spec/system/games_index_spec.rb` — `Custom collections outer shelf` describe
+  block rewritten + new `Collections modal flow` describe block (3 examples:
+  href fallback navigation, pane-fragment listing, game tile click → game show
+  page).
 
 ### Verification
 
-- Touched specs green: 159 examples (`_collections_shelf` view +
-  `collections` request + `games` request + `games_index` system),
-  0 failures.
-- Adjacent system specs green: `games_display_modes`,
-  `games_steam_shelf` — 20 examples, 0 failures.
-- Rubocop clean on the 7 touched Ruby files (controllers, routes,
-  4 spec files).
+- Touched specs green: 159 examples (`_collections_shelf` view + `collections`
+  request + `games` request + `games_index` system), 0 failures.
+- Adjacent system specs green: `games_display_modes`, `games_steam_shelf` — 20
+  examples, 0 failures.
+- Rubocop clean on the 7 touched Ruby files (controllers, routes, 4 spec files).
 - Brakeman clean: 0 warnings, 0 errors.
 
 ### Conflict handling note
 
-A sibling `games-polish v2` dispatch had already landed (heading
-rename to `collections`, composer wiring via
-`Games::PrepareCollectionsForShelf`, demo seeds). This restructure
-builds on top — no composer changes, no seed changes, no heading
-changes (we kept the `collections` <h2>). The orphaned 01c-v2
-sub-shelf partials and their view specs were deleted as part of
-this dispatch since the new tile-per-collection design replaces
-them entirely.
+A sibling `games-polish v2` dispatch had already landed (heading rename to
+`collections`, composer wiring via `Games::PrepareCollectionsForShelf`, demo
+seeds). This restructure builds on top — no composer changes, no seed changes,
+no heading changes (we kept the `collections` <h2>). The orphaned 01c-v2
+sub-shelf partials and their view specs were deleted as part of this dispatch
+since the new tile-per-collection design replaces them entirely.
 
 ## 2026-05-11 — `/games` polish bundle (rails-impl dispatch)
 
-User-driven follow-up after the 01c-v2 + display-mode pass. Ten fixes
-bundled (Img 42 / 43 / 44 / 47 reference shots). No new migrations
-needed — the speculative `games.status` column from the dispatch note
-does not exist in this schema (`status` was only a computed token in
-the list-mode partial, not a persisted column).
+User-driven follow-up after the 01c-v2 + display-mode pass. Ten fixes bundled
+(Img 42 / 43 / 44 / 47 reference shots). No new migrations needed — the
+speculative `games.status` column from the dispatch note does not exist in this
+schema (`status` was only a computed token in the list-mode partial, not a
+persisted column).
 
 ### Fixes applied
 
-- Fix 1 — Drop the outer `<h2>genres</h2>` heading on the Genres
-  outer shelf. Per-sub-shelf `<h3>` headings carry the label now.
-- Fix 2 — Insert an `<hr class="hairline">` between the genres outer
-  shelf and the collections outer shelf, conditional on BOTH shelves
-  rendering. Hairline lives in `index.html.erb`, not the individual
-  partials.
-- Fix 3 — Drop the `status` column from the list-mode table. No
-  migration: the column was a computed token (`recorded` /
-  `released` / `scheduled` / `unreleased`) rendered inline, not a
-  persisted field. The `released` column carries the same signal.
-- Fix 4 — Rename the `release year` column to `released`; render the
-  full `mm-dd-yyyy` date from `Game#release_date` (em-dash when nil).
-  Right-aligned via `.num`.
+- Fix 1 — Drop the outer `<h2>genres</h2>` heading on the Genres outer shelf.
+  Per-sub-shelf `<h3>` headings carry the label now.
+- Fix 2 — Insert an `<hr class="hairline">` between the genres outer shelf and
+  the collections outer shelf, conditional on BOTH shelves rendering. Hairline
+  lives in `index.html.erb`, not the individual partials.
+- Fix 3 — Drop the `status` column from the list-mode table. No migration: the
+  column was a computed token (`recorded` / `released` / `scheduled` /
+  `unreleased`) rendered inline, not a persisted field. The `released` column
+  carries the same signal.
+- Fix 4 — Rename the `release year` column to `released`; render the full
+  `mm-dd-yyyy` date from `Game#release_date` (em-dash when nil). Right-aligned
+  via `.num`.
 - Fix 5 — App-wide retire of the `★` star glyph on the rating display
-  (`_tile.html.erb`, `_list_mode.html.erb` — show page already used
-  `NN / 100`). New `GamesHelper#game_rating_display(game)` returns
-  `<NN>/100`. `STAR_GLYPH` constant preserved for any future surface.
-- Fix 6 — Title rendered bold (`.not-released` class) when
-  `release_date` is nil or strictly in the future. Applied to the
-  grid tile and the list-mode title cell.
-- Fix 7 — Fix duplicate-cover-fallback rendering. The bug: both
-  light + dark fallback `<img>` tags carried inline `display: block`,
-  which won the cascade over the class-level
-  `.game-cover-fallback--dark { display: none; }` rule and rendered
-  BOTH SVGs visibly stacked. Fix: remove inline `display: block` from
-  the fallback images, absolute-position them so they overlap in one
-  slot (`_tile.html.erb`, `_igdb_cover.html.erb`). Scoped CSS rules
-  in `_list_mode.html.erb` hide the off-theme variant for the list
-  cover cell.
-- Fix 8 — `<h2>all games</h2>` renamed to `<h2>all</h2>` across
-  grid / list / shelves-by-letter modes.
-- Fix 9 — `.num` class on the `released` + `rating` headers and
-  cells; scoped CSS rule right-aligns them.
-- Fix 10 — Bulk-select column in front of the list-mode table — a
-  bracketed `[ ]` glyph per row. List mode only; grid + shelves-by-
-  letter modes do not get the column. Bulk-action wiring itself is a
-  separate dispatch.
+  (`_tile.html.erb`, `_list_mode.html.erb` — show page already used `NN / 100`).
+  New `GamesHelper#game_rating_display(game)` returns `<NN>/100`. `STAR_GLYPH`
+  constant preserved for any future surface.
+- Fix 6 — Title rendered bold (`.not-released` class) when `release_date` is nil
+  or strictly in the future. Applied to the grid tile and the list-mode title
+  cell.
+- Fix 7 — Fix duplicate-cover-fallback rendering. The bug: both light + dark
+  fallback `<img>` tags carried inline `display: block`, which won the cascade
+  over the class-level `.game-cover-fallback--dark { display: none; }` rule and
+  rendered BOTH SVGs visibly stacked. Fix: remove inline `display: block` from
+  the fallback images, absolute-position them so they overlap in one slot
+  (`_tile.html.erb`, `_igdb_cover.html.erb`). Scoped CSS rules in
+  `_list_mode.html.erb` hide the off-theme variant for the list cover cell.
+- Fix 8 — `<h2>all games</h2>` renamed to `<h2>all</h2>` across grid / list /
+  shelves-by-letter modes.
+- Fix 9 — `.num` class on the `released` + `rating` headers and cells; scoped
+  CSS rule right-aligns them.
+- Fix 10 — Bulk-select column in front of the list-mode table — a bracketed
+  `[ ]` glyph per row. List mode only; grid + shelves-by- letter modes do not
+  get the column. Bulk-action wiring itself is a separate dispatch.
 
 ### Files touched
 
 App:
+
 - `app/helpers/games_helper.rb` — new `game_rating_display(game)`;
-  `rating_segment` rewritten to return `<NN>/100` instead of
-  `★ <NN>`; docs updated.
-- `app/views/games/_genres_shelf.html.erb` — dropped the outer
-  `<h2>genres</h2>` heading (Fix 1).
-- `app/views/games/index.html.erb` — conditional
-  `<hr class="hairline">` between the two outer shelves (Fix 2).
-- `app/views/games/_list_mode.html.erb` — full rewrite for Fixes
-  3 / 4 / 5 / 6 / 8 / 9 / 10. Drops the `status` column, renames
-  `release year` → `released` (full date), renders rating as
-  `<NN>/100`, bolds not-yet-released titles, adds `.num` + `[ ]`
-  checkbox column, scopes a new CSS rule that hides the off-theme
+  `rating_segment` rewritten to return `<NN>/100` instead of `★ <NN>`; docs
+  updated.
+- `app/views/games/_genres_shelf.html.erb` — dropped the outer `<h2>genres</h2>`
+  heading (Fix 1).
+- `app/views/games/index.html.erb` — conditional `<hr class="hairline">` between
+  the two outer shelves (Fix 2).
+- `app/views/games/_list_mode.html.erb` — full rewrite for Fixes 3 / 4 / 5 / 6 /
+  8 / 9 / 10. Drops the `status` column, renames `release year` → `released`
+  (full date), renders rating as `<NN>/100`, bolds not-yet-released titles, adds
+  `.num` + `[ ]` checkbox column, scopes a new CSS rule that hides the off-theme
   fallback variant inside the cover cell.
-- `app/views/games/_grid_mode.html.erb` — `<h2>all games</h2>` →
+- `app/views/games/_grid_mode.html.erb` — `<h2>all games</h2>` → `<h2>all</h2>`
+  (Fix 8).
+- `app/views/games/_shelves_by_letter_mode.html.erb` — `<h2>all games</h2>` →
   `<h2>all</h2>` (Fix 8).
-- `app/views/games/_shelves_by_letter_mode.html.erb` —
-  `<h2>all games</h2>` → `<h2>all</h2>` (Fix 8).
-- `app/views/games/_tile.html.erb` — bolds not-yet-released titles
-  (Fix 6); fallback images switched to absolute-positioned overlap
-  (Fix 7); doc comments refreshed.
-- `app/views/shared/_igdb_cover.html.erb` — drop inline
-  `display: block` from the dual fallback `<img>` tags so the class
-  rule wins (Fix 7).
+- `app/views/games/_tile.html.erb` — bolds not-yet-released titles (Fix 6);
+  fallback images switched to absolute-positioned overlap (Fix 7); doc comments
+  refreshed.
+- `app/views/shared/_igdb_cover.html.erb` — drop inline `display: block` from
+  the dual fallback `<img>` tags so the class rule wins (Fix 7).
 
 Specs:
-- `spec/helpers/games_helper_spec.rb` — rewritten. 22 examples
-  covering `format_game_rating`, new `game_rating_display`, and
-  `game_meta_line` (post-polish layout `<NN>/100 · <YYYY>`).
-- `spec/views/games/_tile.html.erb_spec.rb` — rewritten. 40
-  examples covering happy / sad / edge for the new rating format,
-  Fix 6 bold behavior, Fix 7 fallback-overlap behavior, variant
-  defaults, linking, native title attribute.
-- `spec/views/games/_list_mode.html.erb_spec.rb` — rewritten. 31
-  examples covering the new column order, Fix 3 (status dropped),
-  Fix 4 (full date column), Fix 5 (rating format), Fix 6 (bold),
-  Fix 9 (.num), Fix 10 (bulk-select), Fix 7 (CSS hides off-theme
-  fallback inside the cell).
+
+- `spec/helpers/games_helper_spec.rb` — rewritten. 22 examples covering
+  `format_game_rating`, new `game_rating_display`, and `game_meta_line`
+  (post-polish layout `<NN>/100 · <YYYY>`).
+- `spec/views/games/_tile.html.erb_spec.rb` — rewritten. 40 examples covering
+  happy / sad / edge for the new rating format, Fix 6 bold behavior, Fix 7
+  fallback-overlap behavior, variant defaults, linking, native title attribute.
+- `spec/views/games/_list_mode.html.erb_spec.rb` — rewritten. 31 examples
+  covering the new column order, Fix 3 (status dropped), Fix 4 (full date
+  column), Fix 5 (rating format), Fix 6 (bold), Fix 9 (.num), Fix 10
+  (bulk-select), Fix 7 (CSS hides off-theme fallback inside the cell).
 - `spec/views/games/_grid_mode.html.erb_spec.rb` — Fix 8 assertion.
-- `spec/views/games/_genres_shelf.html.erb_spec.rb` — Fix 1
-  assertion (no outer `<h2>genres</h2>`).
-- `spec/views/shared/_igdb_cover.html.erb_spec.rb` — Fix 7
-  assertion (no inline `display: block` on fallback images).
-- `spec/requests/games_spec.rb` — 2 assertion swaps (`all games` →
-  `all`, no outer `<h2>genres</h2>`); 2 new assertions (hairline
-  rendered between the shelves; hairline absent when only one
-  shelf renders).
+- `spec/views/games/_genres_shelf.html.erb_spec.rb` — Fix 1 assertion (no outer
+  `<h2>genres</h2>`).
+- `spec/views/shared/_igdb_cover.html.erb_spec.rb` — Fix 7 assertion (no inline
+  `display: block` on fallback images).
+- `spec/requests/games_spec.rb` — 2 assertion swaps (`all games` → `all`, no
+  outer `<h2>genres</h2>`); 2 new assertions (hairline rendered between the
+  shelves; hairline absent when only one shelf renders).
 - `spec/system/games_steam_shelf_spec.rb` — Fix 8 assertion.
-- `spec/system/games_index_spec.rb` — Fix 1 assertion swap (h2
-  → no h2; lowercase h3 list intact).
-- `spec/system/games_display_modes_spec.rb` — Fix 3 + Fix 4 +
-  Fix 8 + Fix 10 column-order swap.
+- `spec/system/games_index_spec.rb` — Fix 1 assertion swap (h2 → no h2;
+  lowercase h3 list intact).
+- `spec/system/games_display_modes_spec.rb` — Fix 3 + Fix 4 + Fix 8 + Fix 10
+  column-order swap.
 
 ### Verification
 
 - Targeted game specs: 452 examples, 0 failures.
   - `spec/views/games/` (all view specs)
-  - `spec/system/games_*` (display modes, steam shelf, index,
-    multi-version, platform ownerships)
+  - `spec/system/games_*` (display modes, steam shelf, index, multi-version,
+    platform ownerships)
   - `spec/requests/games_spec.rb`, `spec/requests/games/`,
     `spec/requests/games_json_spec.rb`,
     `spec/requests/games_show_meta_block_spec.rb`
   - `spec/helpers/games_helper_spec.rb`
 - Rubocop clean on the 11 touched Ruby files.
-- Brakeman: 0 warnings, 0 errors (8 checks against the full app —
-  no new findings from this dispatch).
+- Brakeman: 0 warnings, 0 errors (8 checks against the full app — no new
+  findings from this dispatch).
 
 ### Open follow-ups
 
-- Bulk-action wiring for the new list-mode `[ ]` checkbox column —
-  the column renders but the action surface is a separate dispatch
-  (architect note: pair with the existing `/deletions/:type/:ids`
-  framework once the wiring lands).
-- The `STAR_GLYPH` constant is preserved in `GamesHelper` but has no
-  remaining caller; the documentation comment now records this. A
-  follow-up dispatch can remove it once the team confirms no
-  out-of-tree consumer.
+- Bulk-action wiring for the new list-mode `[ ]` checkbox column — the column
+  renders but the action surface is a separate dispatch (architect note: pair
+  with the existing `/deletions/:type/:ids` framework once the wiring lands).
+- The `STAR_GLYPH` constant is preserved in `GamesHelper` but has no remaining
+  caller; the documentation comment now records this. A follow-up dispatch can
+  remove it once the team confirms no out-of-tree consumer.
 
 ## 2026-05-11 — game show page: canonical platform short names + Xbox seed
 
-User direction (verbatim): "use our clean list like PS5, Switch2" /
-"GoG, Steam, Epic, Xbox...". The game show page rendered verbose
-IGDB-style names (`Nintendo Switch, PC (Microsoft Windows),
-PlayStation 4, Xbox One`) — replaced with the canonical short labels
-`PS5, Switch2, Steam, GoG, Epic, Xbox`. Xbox added as the sixth
-canonical platform.
+User direction (verbatim): "use our clean list like PS5, Switch2" / "GoG, Steam,
+Epic, Xbox...". The game show page rendered verbose IGDB-style names
+(`Nintendo Switch, PC (Microsoft Windows), PlayStation 4, Xbox One`) — replaced
+with the canonical short labels `PS5, Switch2, Steam, GoG, Epic, Xbox`. Xbox
+added as the sixth canonical platform.
 
 ### Files touched
 
-- `app/models/platform.rb` — added `CANONICAL_SHORT_NAMES`
-  (slug → display label), `CANONICAL_SLUGS`,
-  `IGDB_ID_TO_CANONICAL_SLUG` (49/169 → xbox, 167 → ps5, 508 →
-  switch2), `.canonical` scope, `#canonical_short_name` /
+- `app/models/platform.rb` — added `CANONICAL_SHORT_NAMES` (slug → display
+  label), `CANONICAL_SLUGS`, `IGDB_ID_TO_CANONICAL_SLUG` (49/169 → xbox, 167 →
+  ps5, 508 → switch2), `.canonical` scope, `#canonical_short_name` /
   `#canonical?` instance helpers.
-- `app/helpers/platforms_helper.rb` — new helper. `display_platforms`
-  intersects `game.platforms_available` (by canonical slug or IGDB
-  id) with the canonical six, layers in Steam/GoG/Epic inferred from
-  `external_steam_app_id` / `external_gog_id` / `external_epic_id`,
-  and renders the result in the locked order (PS5, Switch2, Steam,
-  GoG, Epic, Xbox). Returns `—` when no canonical platform applies.
+- `app/helpers/platforms_helper.rb` — new helper. `display_platforms` intersects
+  `game.platforms_available` (by canonical slug or IGDB id) with the canonical
+  six, layers in Steam/GoG/Epic inferred from `external_steam_app_id` /
+  `external_gog_id` / `external_epic_id`, and renders the result in the locked
+  order (PS5, Switch2, Steam, GoG, Epic, Xbox). Returns `—` when no canonical
+  platform applies.
 - `app/views/games/show.html.erb` — the `platforms:` row now calls
   `display_platforms(@game)` instead of mapping `name` over
   `platforms_available`.
-- `db/seeds.rb` — Xbox added to the canonical platform seed list
-  (slug `xbox`, name `Xbox`, abbreviation `Xbox`).
+- `db/seeds.rb` — Xbox added to the canonical platform seed list (slug `xbox`,
+  name `Xbox`, abbreviation `Xbox`).
 - `spec/models/platform_spec.rb` — `.canonical` scope coverage and
-  `#canonical_short_name` mapping cases (PS5/Switch2/GoG by slug,
-  Xbox One/Xbox Series X|S/PS5 by IGDB id, nil for non-canonical).
-- `spec/helpers/platforms_helper_spec.rb` — new. Covers the full
-  mapping table including dedup, external-id store inference, and
-  the locked render order.
-- `spec/requests/games_show_meta_block_spec.rb` — extended with a
-  new "canonical platform short-names on the show page" describe
-  block; updated the existing details-pane block to use the Switch 2
-  canonical seed.
+  `#canonical_short_name` mapping cases (PS5/Switch2/GoG by slug, Xbox One/Xbox
+  Series X|S/PS5 by IGDB id, nil for non-canonical).
+- `spec/helpers/platforms_helper_spec.rb` — new. Covers the full mapping table
+  including dedup, external-id store inference, and the locked render order.
+- `spec/requests/games_show_meta_block_spec.rb` — extended with a new "canonical
+  platform short-names on the show page" describe block; updated the existing
+  details-pane block to use the Switch 2 canonical seed.
 
 ### Mapping decisions (locked)
 
 - PlayStation 5 (IGDB 167) → `PS5`
 - Nintendo Switch 2 (IGDB 508 / slug `switch2`) → `Switch2`
-- Xbox One (IGDB 49) AND Xbox Series X|S (IGDB 169) → `Xbox`
-  (collapsed; project does not distinguish generations).
-- Steam / GoG / Epic — inferred from
-  `game.external_steam_app_id` / `external_gog_id` /
-  `external_epic_id`. PC (Microsoft Windows, IGDB 6) is NOT
-  surfaced; the project treats PC distribution stores as the
-  actionable platforms.
-- Non-canonical IGDB platforms (PlayStation 4, OG Nintendo Switch,
-  PC, anything else) — DROPPED from display. Empty result renders
-  as `—`.
+- Xbox One (IGDB 49) AND Xbox Series X|S (IGDB 169) → `Xbox` (collapsed; project
+  does not distinguish generations).
+- Steam / GoG / Epic — inferred from `game.external_steam_app_id` /
+  `external_gog_id` / `external_epic_id`. PC (Microsoft Windows, IGDB 6) is NOT
+  surfaced; the project treats PC distribution stores as the actionable
+  platforms.
+- Non-canonical IGDB platforms (PlayStation 4, OG Nintendo Switch, PC, anything
+  else) — DROPPED from display. Empty result renders as `—`.
 
 ### Verification
 
-- Targeted spec count delta: +21 examples across
-  `spec/models/platform_spec.rb` (+9, the `.canonical` scope +
-  `#canonical_short_name` cases) and
+- Targeted spec count delta: +21 examples across `spec/models/platform_spec.rb`
+  (+9, the `.canonical` scope + `#canonical_short_name` cases) and
   `spec/helpers/platforms_helper_spec.rb` (+15 new) and
-  `spec/requests/games_show_meta_block_spec.rb` (+5 in the new
-  describe block). Mid-session run before an unrelated initializer
-  edit broke the spec loader returned 64 examples / 0 failures across
-  the three files.
-- Rubocop clean on the 6 touched Ruby files (the ERB view is parsed
-  separately).
+  `spec/requests/games_show_meta_block_spec.rb` (+5 in the new describe block).
+  Mid-session run before an unrelated initializer edit broke the spec loader
+  returned 64 examples / 0 failures across the three files.
+- Rubocop clean on the 6 touched Ruby files (the ERB view is parsed separately).
 - Brakeman: 0 warnings, 0 errors (full app sweep, no new findings).
 
 ### Open follow-ups
 
 - IGDB ↔ seed-row deduplication. The seeded canonical rows have
-  `igdb_id IS NULL`; an IGDB platform sync will create separate rows
-  for the same platform (e.g. seed `ps5` + IGDB-imported "PlayStation
-  5" with id=167). The display helper handles both at render time,
-  but the data-model dedup remains an open follow-up (recorded
-  alongside the existing canonical seeds in
+  `igdb_id IS NULL`; an IGDB platform sync will create separate rows for the
+  same platform (e.g. seed `ps5` + IGDB-imported "PlayStation 5" with id=167).
+  The display helper handles both at render time, but the data-model dedup
+  remains an open follow-up (recorded alongside the existing canonical seeds in
   `app/models/platform.rb`).
-- The unrelated in-flight auth work landed a `config/initializers/
-  omniauth.rb` change that references `AppSetting` at boot time;
-  the spec loader currently raises `NameError: uninitialized
-  constant AppSetting` for any spec that requires the Rails env.
-  This blocks running `bin/rspec` end-to-end and is independent of
-  the canonical-platform work — handed back to the master for the
+- The unrelated in-flight auth work landed a `config/initializers/ omniauth.rb`
+  change that references `AppSetting` at boot time; the spec loader currently
+  raises `NameError: uninitialized constant AppSetting` for any spec that
+  requires the Rails env. This blocks running `bin/rspec` end-to-end and is
+  independent of the canonical-platform work — handed back to the master for the
   auth lane to resolve.

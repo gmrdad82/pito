@@ -44,12 +44,12 @@ You should see in the channel within ~1s:
 
 ## Troubleshooting
 
-| Error                         | Fix                                       |
-| ----------------------------- | ----------------------------------------- |
-| **URL invalid**               | re-copy from Slack                        |
-| **test ping 404 / 410**       | webhook deleted — redo Step 3             |
-| **test ping 403**             | workspace perms changed — redo Step 3     |
-| **connection timed out**      | network / `hooks.slack.com` reachability  |
-| **channel disappeared**       | channel deleted — redo Step 3 elsewhere   |
+| Error                    | Fix                                      |
+| ------------------------ | ---------------------------------------- |
+| **URL invalid**          | re-copy from Slack                       |
+| **test ping 404 / 410**  | webhook deleted — redo Step 3            |
+| **test ping 403**        | workspace perms changed — redo Step 3    |
+| **connection timed out** | network / `hooks.slack.com` reachability |
+| **channel disappeared**  | channel deleted — redo Step 3 elsewhere  |
 
 To reset: clear the `webhook URL` field and `[update]`. Toggles reset to off.

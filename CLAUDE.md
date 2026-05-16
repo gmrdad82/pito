@@ -61,29 +61,29 @@ bundle exec rubocop # Lint
 `.rspec` carries `--tag ~type:system` so every local invocation skips
 Capybara/Chrome system specs by default — they run ~5-10× slower than
 request/model specs. `bin/test-prepare` is a shim that only runs
-`bin/rails db:test:prepare` when `db/schema.rb` mtime has changed since the
-last successful prep, saving ~10-15 s per invocation.
+`bin/rails db:test:prepare` when `db/schema.rb` mtime has changed since the last
+successful prep, saving ~10-15 s per invocation.
 
 **Local fix loop.** After a failed run, `bin/test failed` re-runs only the
 recorded failures via `--only-failures`. **When fix agents add new spec files,
 those new specs must be picked up by `bin/test failed` in addition to the
 recorded failures** — otherwise a green-after-fail signal won't actually
-exercise the new test code. Verify by listing the spec files RSpec is about
-to run, or fall back to a focused `bin/test path/to/new_spec.rb` after the
-`failed` pass.
+exercise the new test code. Verify by listing the spec files RSpec is about to
+run, or fall back to a focused `bin/test path/to/new_spec.rb` after the `failed`
+pass.
 
 **CI is the gate — full suite always.** The GitHub Actions workflow at
 `.github/workflows/ci.yml` overrides `.rspec` with
-`-- --options /dev/null --require spec_helper` so CI runs the FULL suite,
-system specs included, no tag exclusion. Local speedups never reach CI. The
-master agent commits when local + manual validation are green; CI then
-confirms the full picture on every push.
+`-- --options /dev/null --require spec_helper` so CI runs the FULL suite, system
+specs included, no tag exclusion. Local speedups never reach CI. The master
+agent commits when local + manual validation are green; CI then confirms the
+full picture on every push.
 
 **Adding new tests in a feature dispatch.** Every Rails dispatch must include
 RSpec specs for new behavior. The agent's own dispatch verifies via
-`bin/test <files>` for targeted coverage; the architect's pre-commit pass
-runs `bin/test` (fast loop) before committing. CI catches anything the local
-fast loop skipped.
+`bin/test <files>` for targeted coverage; the architect's pre-commit pass runs
+`bin/test` (fast loop) before committing. CI catches anything the local fast
+loop skipped.
 
 ## Communication style
 

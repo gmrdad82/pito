@@ -11,6 +11,7 @@ on:
     paths:
       - "extras/website/**"
       - ".github/workflows/deploy-website.yml"
+      - "VERSION"
   workflow_dispatch:
 
 jobs:

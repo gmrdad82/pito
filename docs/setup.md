@@ -287,9 +287,10 @@ restore prior data; rollback is not a supported workflow in Beta.
 A drop + reseed wipes the post-bootstrap configuration the operator wired up by
 hand: TOTP enrollment, Discord + Slack webhook URLs + routing flags, and every
 Doorkeeper OAuth application (uid + plain client_secret + redirect_uri + scopes
-+ confidential flag). The `pito:state:capture` rake task snapshots those rows
-into a `runtime_state:` block inside `Rails.application.credentials`; the next
-`db:seed` reads the block and restores them in place.
+
+- confidential flag). The `pito:state:capture` rake task snapshots those rows
+  into a `runtime_state:` block inside `Rails.application.credentials`; the next
+  `db:seed` reads the block and restores them in place.
 
 Workflow:
 
@@ -316,14 +317,13 @@ dev token banner):
   regenerates 10 fresh codes via `Auth::BackupCodeRegenerator` and prints them
   inside a "save these now" banner.
 - **The dev `ApiToken` plaintext.** HMAC+pepper-digested in the DB — the
-  plaintext is gone after the operator copies it off the seed's mint banner.
-  The seed mints a fresh token and prints it inside the existing "save this
-  now" banner.
+  plaintext is gone after the operator copies it off the seed's mint banner. The
+  seed mints a fresh token and prints it inside the existing "save this now"
+  banner.
 
 If the `runtime_state` block is absent in credentials, the seed runs exactly as
 it did before the capture/restore mechanism landed (bare minimum: owner User,
-AppSettings, dev `ApiToken`, claude-mcp Doorkeeper application, Platform
-rows).
+AppSettings, dev `ApiToken`, claude-mcp Doorkeeper application, Platform rows).
 
 ### Capture the dev token
 

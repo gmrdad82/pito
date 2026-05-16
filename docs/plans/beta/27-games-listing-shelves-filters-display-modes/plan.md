@@ -168,73 +168,70 @@ Per the Mobile note's dispatch list:
 
 ### 01b — Filter row + platform semantics
 
-- [x] `FilterRowComponent` with chip rendering, `[clear all]` link.
-      (Also `FilterChipComponent` for single-chip rendering. Both
-      include `Games::FiltersHelper` for shared logic.)
+- [x] `FilterRowComponent` with chip rendering, `[clear all]` link. (Also
+      `FilterChipComponent` for single-chip rendering. Both include
+      `Games::FiltersHelper` for shared logic.)
 - [x] `Games::Filter` query object — composes scopes for each filter token.
-      (Lives at `app/queries/games/filter.rb`; partitions tokens into
-      Status / Ownership / Platform / Unknown buckets per spec.)
+      (Lives at `app/queries/games/filter.rb`; partitions tokens into Status /
+      Ownership / Platform / Unknown buckets per spec.)
 - [x] URL param parser / serializer for `?filters=token1,token2`.
       (`app/helpers/games/filters_helper.rb` — `parse_filter_tokens`,
       `parse_dropped_tokens`, `toggle_filter`, `chip_label`.)
 - [x] Scopes on `Game`: `recorded`, `released`, `scheduled`, `owned`,
-      `not_owned`, `on_platform(slug)`, `owned_on_platform(slug)`.
-      (`owned` / `not_owned` / `owned_on` shipped with 01a;
-      `recorded` / `released` / `scheduled` / `on_platform` /
-      `released_on` / `scheduled_on` added here. Spec wrote
-      `first_release_date` in pseudo-form; the actual schema column
+      `not_owned`, `on_platform(slug)`, `owned_on_platform(slug)`. (`owned` /
+      `not_owned` / `owned_on` shipped with 01a; `recorded` / `released` /
+      `scheduled` / `on_platform` / `released_on` / `scheduled_on` added here.
+      Spec wrote `first_release_date` in pseudo-form; the actual schema column
       is `release_date` (date) — day-granular semantics identical.)
-- [x] Platform-precedence combinator (matches §2 of source note exactly).
-      (P-1 / P-2 / C-1 / C-3 all locked in `Games::Filter#build_results`;
+- [x] Platform-precedence combinator (matches §2 of source note exactly). (P-1 /
+      P-2 / C-1 / C-3 all locked in `Games::Filter#build_results`;
       `contradiction?` predicate surfaces C-3 to the component.)
 - [x] yes/no boundary on boolean URL inputs (none in v1; reserved guard).
-- [x] Model + query-object + component + request + system spec sweep.
-      (16 model + 50 query + 21 helper + 17 chip-component + 18 row-
-      component + 16 request + 11 system = 149 new examples, all green.)
+- [x] Model + query-object + component + request + system spec sweep. (16
+      model + 50 query + 21 helper + 17 chip-component + 18 row- component + 16
+      request + 11 system = 149 new examples, all green.)
 
 ### 01c — Genres and Collections shelves
 
-- [x] `Games::GenresShelfComponent`, `Games::CollectionsShelfComponent`.
-      (01c-v2 rewrote both as nested partials —
-      `app/views/games/_genres_shelf.html.erb` /
-      `_collections_shelf.html.erb` for the outer shelves;
-      `_genre_sub_shelf.html.erb` / `_collection_sub_shelf_row.html.erb`
-      for the per-bucket sub-shelves.)
-- [x] Alphabetical ordering. (Preserved across v1 and v2; case-
-      insensitive `LOWER()` on both outer buckets and inner games.)
-- [x] Use existing skinned horizontal-scroll partial / classes.
-      (Reuses the `steam-shelf` Stimulus controller and the same
+- [x] `Games::GenresShelfComponent`, `Games::CollectionsShelfComponent`. (01c-v2
+      rewrote both as nested partials — `app/views/games/_genres_shelf.html.erb`
+      / `_collections_shelf.html.erb` for the outer shelves;
+      `_genre_sub_shelf.html.erb` / `_collection_sub_shelf_row.html.erb` for the
+      per-bucket sub-shelves.)
+- [x] Alphabetical ordering. (Preserved across v1 and v2; case- insensitive
+      `LOWER()` on both outer buckets and inner games.)
+- [x] Use existing skinned horizontal-scroll partial / classes. (Reuses the
+      `steam-shelf` Stimulus controller and the same
       `display: flex; overflow-x: auto` shelf-row pattern.)
-- [x] Tile = `:shelf` cover variant (depends on `01e`). (01c-v2 —
-      each sub-shelf renders `Games::CoverComponent.new(game:,
-      variant: :shelf)` per game. Cover-variant pixel width is
-      managed by 01e independently; the consumer just opts into the
-      `:shelf` variant key.)
+- [x] Tile = `:shelf` cover variant (depends on `01e`). (01c-v2 — each sub-shelf
+      renders `Games::CoverComponent.new(game:,     variant: :shelf)` per game.
+      Cover-variant pixel width is managed by 01e independently; the consumer
+      just opts into the `:shelf` variant key.)
 - [x] Component specs, system spec. (01c-v2 — rewrote
       `spec/views/games/_genres_shelf.html.erb_spec.rb`, added
       `spec/views/games/_collections_shelf.html.erb_spec.rb`,
       `spec/views/games/_genre_sub_shelf.html.erb_spec.rb`,
-      `spec/views/games/_collection_sub_shelf_row.html.erb_spec.rb`,
-      rewrote the "01c" describe blocks in
-      `spec/system/games_index_spec.rb` and `spec/requests/games_spec.rb`.)
+      `spec/views/games/_collection_sub_shelf_row.html.erb_spec.rb`, rewrote the
+      "01c" describe blocks in `spec/system/games_index_spec.rb` and
+      `spec/requests/games_spec.rb`.)
 
 01c-v2 notes:
-- The `Game#primary_genre_id` migration + Compositable concern
-  extension + Game show/edit primary-genre picker are deferred
-  follow-ups (parent dispatch — "no new migrations" / cover-variant
-  width is 01e's surface). The implementation falls back to the
-  existing `genre.games` join — a multi-genre game appears in
+
+- The `Game#primary_genre_id` migration + Compositable concern extension + Game
+  show/edit primary-genre picker are deferred follow-ups (parent dispatch — "no
+  new migrations" / cover-variant width is 01e's surface). The implementation
+  falls back to the existing `genre.games` join — a multi-genre game appears in
   every sub-shelf its joins touch. Migration is queued.
-- The new `_collection_sub_shelf_row.html.erb` partial leads each
-  collection sub-shelf with the existing 01h `_collection_sub_shelf`
-  leading-tile partial (composite cover when stamped; passthrough
-  single cover; `[empty]` placeholder). The 01c-v2 spec's naming
-  collision (it pre-reserved `_collection_sub_shelf.html.erb` for
-  the row partial) is resolved by suffixing the new file `_row`.
-- Empty bucket hidden — when no genre / collection owns any game,
-  the outer `<section>` is suppressed end-to-end (no `<h2>`, no
-  placeholder copy). Reverses v1's "always render with placeholder"
-  rule (01c-v2 locked decision #7).
+- The new `_collection_sub_shelf_row.html.erb` partial leads each collection
+  sub-shelf with the existing 01h `_collection_sub_shelf` leading-tile partial
+  (composite cover when stamped; passthrough single cover; `[empty]`
+  placeholder). The 01c-v2 spec's naming collision (it pre-reserved
+  `_collection_sub_shelf.html.erb` for the row partial) is resolved by suffixing
+  the new file `_row`.
+- Empty bucket hidden — when no genre / collection owns any game, the outer
+  `<section>` is suppressed end-to-end (no `<h2>`, no placeholder copy).
+  Reverses v1's "always render with placeholder" rule (01c-v2 locked decision
+  #7).
 
 ### 01d — Display mode switcher + three modes
 
@@ -258,10 +255,10 @@ Per the Mobile note's dispatch list:
       landed 2026-05-11 re-dispatch as `spec/system/games_display_modes_spec.rb`
       — 13 examples covering default mode, persistence via switcher, URL
       override, shelves-by-letter empty-letter hiding, list mode letter-head
-      interleaving, filter-row composition, and CLAUDE.md hard-rule guards.
-      The 01a / 01c drift that wedged the controller index also cleared this
-      session — `GamesController#index` now resolves `@display_mode` and
-      branches the all-games partition into one of the three new partials.)
+      interleaving, filter-row composition, and CLAUDE.md hard-rule guards. The
+      01a / 01c drift that wedged the controller index also cleared this session
+      — `GamesController#index` now resolves `@display_mode` and branches the
+      all-games partition into one of the three new partials.)
 
 ### 01e — Shelf cover art variant
 

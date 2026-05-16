@@ -38,13 +38,13 @@ You should see in the channel within ~1s:
 
 ## Troubleshooting
 
-| Error                         | Fix                                       |
-| ----------------------------- | ----------------------------------------- |
-| **URL invalid**               | re-copy from Discord                      |
-| **test ping 404**             | webhook deleted — redo Step 2             |
-| **test ping 401**             | token reset — redo Step 2                 |
-| **connection timed out**      | network / `discord.com` reachability      |
-| **no Integrations menu**      | missing `Manage Webhooks` on the channel  |
-| **channel disappeared**       | channel deleted — redo Step 2 elsewhere   |
+| Error                    | Fix                                      |
+| ------------------------ | ---------------------------------------- |
+| **URL invalid**          | re-copy from Discord                     |
+| **test ping 404**        | webhook deleted — redo Step 2            |
+| **test ping 401**        | token reset — redo Step 2                |
+| **connection timed out** | network / `discord.com` reachability     |
+| **no Integrations menu** | missing `Manage Webhooks` on the channel |
+| **channel disappeared**  | channel deleted — redo Step 2 elsewhere  |
 
 To reset: clear the `webhook URL` field and `[update]`. Toggles reset to off.

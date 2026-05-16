@@ -9,17 +9,16 @@ this once; dispatch prompts no longer re-paste it.
 - The repo has `parallel_tests` (5.7.0) installed; `config/database.yml` is
   wired for it via the `TEST_ENV_NUMBER` suffix.
 - **Local development (agents running specs on the user's machine):**
-  `bundle exec parallel_rspec spec/ -n 4`. **4 processes maximum.** The
-  local cap was tightened from 8 to 4 on 2026-05-16 per user direction to
-  keep CPU and memory headroom free on their machine while specs run —
-  every agent the master dispatches must respect this. Do not exceed.
+  `bundle exec parallel_rspec spec/ -n 4`. **4 processes maximum.** The local
+  cap was tightened from 8 to 4 on 2026-05-16 per user direction to keep CPU and
+  memory headroom free on their machine while specs run — every agent the master
+  dispatches must respect this. Do not exceed.
 - **CI (GitHub Actions, `.github/workflows/ci.yml`):**
-  `bundle exec parallel_rspec spec/` with `PARALLEL_TEST_PROCESSORS: "8"`
-  in the job env. CI runners have no user-side resource concern; 8
-  workers is fine even on the standard 4-vCPU `ubuntu-latest` runner
-  (parallel_tests is process-parallel and Postgres / disk I/O wait
-  dominates, so over-subscribing the cores is normal and useful). The
-  `-n 4` local cap does NOT apply to CI.
+  `bundle exec parallel_rspec spec/` with `PARALLEL_TEST_PROCESSORS: "8"` in the
+  job env. CI runners have no user-side resource concern; 8 workers is fine even
+  on the standard 4-vCPU `ubuntu-latest` runner (parallel_tests is
+  process-parallel and Postgres / disk I/O wait dominates, so over-subscribing
+  the cores is normal and useful). The `-n 4` local cap does NOT apply to CI.
 - Single-process `bundle exec rspec <files>` is only for a targeted handful of
   files (one feature's spec set, a quick re-check). Never the whole suite.
 

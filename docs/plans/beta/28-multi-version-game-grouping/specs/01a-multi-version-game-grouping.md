@@ -17,16 +17,16 @@ collapses that into one logical title with multiple editions:
 - A primary row ("Pragmata") with `version_parent_id IS NULL`.
 - Edition rows ("Pragmata Deluxe Edition", "Pragmata Standard Edition") whose
   `version_parent_id` points at the primary.
-- A `version_title` free-text field on each edition ("Deluxe", "Standard",
-  "Game of the Year", "Collector's").
+- A `version_title` free-text field on each edition ("Deluxe", "Standard", "Game
+  of the Year", "Collector's").
 - Listing surfaces (web, MCP, CLI) showing primaries only by default, with an
   `+N editions` badge on primaries that have editions.
 
-Editions own their own genres, platforms, ownership, videos, footages,
-calendar entries — the parent is a grouping anchor, nothing more.
+Editions own their own genres, platforms, ownership, videos, footages, calendar
+entries — the parent is a grouping anchor, nothing more.
 
-This is a non-blocking standalone phase; Phase 27's per-platform ownership
-shape feeds the rollup, but no other phase depends on Phase 28.
+This is a non-blocking standalone phase; Phase 27's per-platform ownership shape
+feeds the rollup, but no other phase depends on Phase 28.
 
 ---
 
@@ -56,9 +56,9 @@ Controllers:
 
 Views / components:
 
-- `app/views/games/index.html.erb` (and any of `_grid_mode`,
-  `_list_mode`, `_shelves_by_letter_mode`, `_by_letter` partials touched
-  to filter to primaries)
+- `app/views/games/index.html.erb` (and any of `_grid_mode`, `_list_mode`,
+  `_shelves_by_letter_mode`, `_by_letter` partials touched to filter to
+  primaries)
 - `app/views/games/_tile.html.erb` (editions badge)
 - `app/views/games/show.html.erb` (editions sub-section)
 - `app/views/games/edit.html.erb` (version_parent typeahead + version_title)
@@ -90,13 +90,13 @@ Specs:
   rollup)
 - `spec/services/igdb/import_game_spec.rb` (parent pre-resolve + idempotent
   re-import)
-- `spec/requests/games_spec.rb` (index filter, edit detach, picker, MCP
-  parity smoke)
+- `spec/requests/games_spec.rb` (index filter, edit detach, picker, MCP parity
+  smoke)
 - `spec/components/games/editions_badge_component_spec.rb`
 - `spec/components/games/editions_section_component_spec.rb`
 - `spec/components/games/version_parent_picker_component_spec.rb`
-- `spec/system/games_multi_version_spec.rb` (one critical journey:
-  attach / detach / re-attach)
+- `spec/system/games_multi_version_spec.rb` (one critical journey: attach /
+  detach / re-attach)
 - `spec/mcp/tools/games_list_spec.rb` (additions)
 - `spec/mcp/tools/game_show_spec.rb` (additions)
 - `spec/tasks/games_backfill_version_parents_spec.rb`
@@ -169,8 +169,8 @@ Bodies (illustrative — implementation may tighten):
   referenced row must itself have `version_parent_id IS NULL`. Prevents
   two-level chains.
 - `cannot_be_parent_and_edition_simultaneously` — when `editions.any?`,
-  `version_parent_id` must be nil. Prevents flipping a parent into an
-  edition while it still has children.
+  `version_parent_id` must be nil. Prevents flipping a parent into an edition
+  while it still has children.
 - `no_self_reference` — `version_parent_id` must not equal `id`.
 
 Rollup methods:
@@ -203,16 +203,16 @@ end
 
 Naming note: keep `Game#owned_platforms` (existing — the
 `through: :game_platform_ownerships` association) untouched to avoid silent
-behavioural breakage for callers in Phase 27 surfaces. The rollup landing
-under a distinct name (`owned_platforms_with_editions`) flows into the new
-listing / show surfaces.
+behavioural breakage for callers in Phase 27 surfaces. The rollup landing under
+a distinct name (`owned_platforms_with_editions`) flows into the new listing /
+show surfaces.
 
 ---
 
 ## IGDB import path
 
-The existing IGDB game import service receives an IGDB payload that may carry
-a `version_parent` field (an integer IGDB ID of the parent game).
+The existing IGDB game import service receives an IGDB payload that may carry a
+`version_parent` field (an integer IGDB ID of the parent game).
 
 Modified flow when `version_parent` is present:
 
@@ -228,20 +228,20 @@ Idempotency:
 
 - The parent is upserted by `igdb_id` — re-running the importer with the same
   payload does not create a second "Pragmata" parent row.
-- An edition that re-imports with the same `version_parent` keeps its
-  existing relationship; only the IGDB-sourced columns flow through (per
-  Phase 14 §1 last-write-wins rules).
-- An edition that re-imports with a CHANGED `version_parent` updates the
-  pointer (rare; IGDB rarely re-parents).
+- An edition that re-imports with the same `version_parent` keeps its existing
+  relationship; only the IGDB-sourced columns flow through (per Phase 14 §1
+  last-write-wins rules).
+- An edition that re-imports with a CHANGED `version_parent` updates the pointer
+  (rare; IGDB rarely re-parents).
 - If `version_parent` is absent from the payload (the row IS a primary), the
-  importer leaves `version_parent_id` untouched (manual overrides via the
-  edit form survive IGDB re-sync).
+  importer leaves `version_parent_id` untouched (manual overrides via the edit
+  form survive IGDB re-sync).
 
 The importer also stamps `version_title` from IGDB's `version_title` field if
 present; the user may overwrite it via the edit form. Subsequent re-sync
-respects a `version_title_manual_override` semantic — out of scope for v1
-(see open question 1). For v1, IGDB `version_title` always overwrites unless
-the field is blank in the payload.
+respects a `version_title_manual_override` semantic — out of scope for v1 (see
+open question 1). For v1, IGDB `version_title` always overwrites unless the
+field is blank in the payload.
 
 ---
 
@@ -253,16 +253,16 @@ All listing partitions filter to primaries:
 
 - Grid mode: `Game.primaries`.
 - List mode: `Game.primaries`, sticky-letter grouping unchanged.
-- Shelves-by-letter mode: `Game.primaries.where("UPPER(LEFT(title, 1)) = ?", letter)`.
+- Shelves-by-letter mode:
+  `Game.primaries.where("UPPER(LEFT(title, 1)) = ?", letter)`.
 - Genres / Collections shelves at the top: filter their inner content to
   `Game.primaries` too (an edition does not stand alone in a shelf; it lives
   inside its parent).
 
 URL escape hatch: `?include_editions=yes` (yes/no boundary) flips every
 partition to a flat list. URL absent or `?include_editions=no` defaults to
-primaries-only. The escape hatch persists across pagination but does not
-persist across sessions; it is a debugging affordance, not a saved-view
-toggle.
+primaries-only. The escape hatch persists across pagination but does not persist
+across sessions; it is a debugging affordance, not a saved-view toggle.
 
 ### Tile (`_tile.html.erb`)
 
@@ -273,8 +273,8 @@ title, using the `Games::EditionsBadgeComponent`:
 Pragmata  [+2 editions]
 ```
 
-Singular form: `[+1 edition]`. Click target is the primary's show page
-anchored to `#editions` (`<a href="/games/<slug>#editions">`).
+Singular form: `[+1 edition]`. Click target is the primary's show page anchored
+to `#editions` (`<a href="/games/<slug>#editions">`).
 
 Editions in a flat (`include_editions=yes`) listing render their tile with a
 muted parent-pointer above the title:
@@ -291,11 +291,10 @@ The parent pointer link is bracketed: `[↳ pragmata]`.
 For a primary:
 
 - Existing header + body unchanged.
-- New "Editions" section (rendered by `Games::EditionsSectionComponent`)
-  appears as the last block before footer, anchored `#editions`. Lists each
-  edition with: cover thumb (using the existing `:shelf` variant from Phase
-  27 §01e), title, `version_title`, and the per-edition owned-platforms chip
-  strip.
+- New "Editions" section (rendered by `Games::EditionsSectionComponent`) appears
+  as the last block before footer, anchored `#editions`. Lists each edition
+  with: cover thumb (using the existing `:shelf` variant from Phase 27 §01e),
+  title, `version_title`, and the per-edition owned-platforms chip strip.
 - Section heading is muted: `Editions (2)`. No section rendered when
   `editions.empty?`.
 
@@ -304,8 +303,8 @@ For an edition:
 - Existing header + body unchanged.
 - Above the title, a muted parent pointer: `[↳ pragmata]` linking to the
   primary's show page.
-- The per-edition ownership chip strip continues to render from the
-  edition's own `owned_platforms`.
+- The per-edition ownership chip strip continues to render from the edition's
+  own `owned_platforms`.
 
 ### Edit page (`/games/:slug/edit`)
 
@@ -315,25 +314,25 @@ Two new fields on the local-fields form, between `version_title` and
 1. `version_parent_id` — rendered by `Games::VersionParentPickerComponent`.
    Stimulus-driven typeahead. Source: `Game.primaries.where.not(id: <self>)`,
    matched by `LOWER(title) ILIKE '%query%'`, capped at 20. Value-as-id — the
-   submitted form value is the game id. A `[detach]` bracketed link clears
-   the field (sets `version_parent_id` to nil on submit). The picker is
-   disabled when the current row HAS editions (a row with children cannot
-   become an edition itself — enforced server-side too).
+   submitted form value is the game id. A `[detach]` bracketed link clears the
+   field (sets `version_parent_id` to nil on submit). The picker is disabled
+   when the current row HAS editions (a row with children cannot become an
+   edition itself — enforced server-side too).
 2. `version_title` — free-text input, max 100 chars, placeholder examples:
    "Deluxe", "Standard", "Game of the Year".
 
-The typeahead respects `docs/agents/architect.md` rule A (bracketed labels,
-no inner padding spaces). The Stimulus controller never uses
-`window.confirm` / `alert` / `prompt`.
+The typeahead respects `docs/agents/architect.md` rule A (bracketed labels, no
+inner padding spaces). The Stimulus controller never uses `window.confirm` /
+`alert` / `prompt`.
 
 ---
 
 ## Ownership aggregation
 
 - Per-edition ownership tracked independently in `game_platform_ownerships`.
-- `Game#owned_platforms` (existing): unchanged. Returns the row's own
-  ownerships via `through: :game_platform_ownerships`. Callers in Phase 27
-  surfaces keep working.
+- `Game#owned_platforms` (existing): unchanged. Returns the row's own ownerships
+  via `through: :game_platform_ownerships`. Callers in Phase 27 surfaces keep
+  working.
 - `Game#owned_platforms_with_editions` (new): for a primary, unions own
   ownerships with editions' ownerships. For an edition, equivalent to
   `owned_platforms`.
@@ -342,8 +341,8 @@ no inner padding spaces). The Stimulus controller never uses
   edition has no editions).
 - Filter row interaction (Phase 27 §01b): `owned` / `owned_on(slug)` /
   `not_owned` scopes operate per-row as today. When the listing is in
-  primaries-only mode, a primary appears in `owned` if EITHER the primary
-  itself OR any edition has an ownership row. New scope:
+  primaries-only mode, a primary appears in `owned` if EITHER the primary itself
+  OR any edition has an ownership row. New scope:
 
   ```ruby
   scope :owned_rollup, lambda {
@@ -355,9 +354,9 @@ no inner padding spaces). The Stimulus controller never uses
 
   And the existing `Game.owned` is retired in favour of `Game.owned_rollup`
   inside the `Games::Filter` query object (Phase 27 §01b), with a deprecation
-  note in `Games::Filter` pointing back to this spec. (Phase 27 callers that
-  use `Game.owned` directly stay on the existing per-row scope; only the
-  filter-row composition path swaps to the rollup.)
+  note in `Games::Filter` pointing back to this spec. (Phase 27 callers that use
+  `Game.owned` directly stay on the existing per-row scope; only the filter-row
+  composition path swaps to the rollup.)
 
 ---
 
@@ -366,8 +365,8 @@ no inner padding spaces). The Stimulus controller never uses
 ### `games_list`
 
 New optional argument `include_editions: yes/no` (yes/no boundary). Default
-`"no"` → primaries only. `"yes"` → flat list. The existing pagination /
-filter arguments compose normally.
+`"no"` → primaries only. `"yes"` → flat list. The existing pagination / filter
+arguments compose normally.
 
 Response shape (per row):
 
@@ -401,8 +400,8 @@ Edition rows (when `include_editions: "yes"`):
 
 Returns `version_parent_id`, `version_title`, plus a new `editions` array of
 `{ id, title, igdb_slug, version_title }` objects (empty for editions). The
-parent pointer is the existing `version_parent_id` integer (callers resolve
-via a second `game_show` call if they need the parent's full row).
+parent pointer is the existing `version_parent_id` integer (callers resolve via
+a second `game_show` call if they need the parent's full row).
 
 ---
 
@@ -414,11 +413,11 @@ via a second `game_show` call if they need the parent's full row).
   (`Pragmata [+2 editions]`).
 - Enter on a tile drills into the show view, which renders the editions
   sub-section.
-- A keybind (proposed: `e`) toggles `include_editions: "yes"` for the
-  current listing — flat mode. State is per-session (not persisted).
+- A keybind (proposed: `e`) toggles `include_editions: "yes"` for the current
+  listing — flat mode. State is per-session (not persisted).
 - Rust client: `extras/cli/src/client/games.rs` plumbs the new
-  `include_editions` parameter and parses `version_parent_id`,
-  `version_title`, `editions_count`.
+  `include_editions` parameter and parses `version_parent_id`, `version_title`,
+  `editions_count`.
 
 CLI keybinding final decision is deferred to the cli-impl agent (the existing
 TUI keybind map governs).
@@ -427,16 +426,15 @@ TUI keybind map governs).
 
 ## Edit + detach path
 
-`PATCH /games/:slug` accepts `game[version_parent_id]` (integer or empty
-string → nil) and `game[version_title]` (string). The controller assigns and
-saves; validation errors render the edit form with field-level errors.
+`PATCH /games/:slug` accepts `game[version_parent_id]` (integer or empty string
+→ nil) and `game[version_title]` (string). The controller assigns and saves;
+validation errors render the edit form with field-level errors.
 
 Detach flow: user clicks `[detach]` in the picker → the Stimulus controller
-clears the hidden input value → form submission sets `version_parent_id` to
-nil server-side. No JS confirm; no `/deletions/` redirect (detach is
-non-destructive — the row stays, just becomes a primary). If the user wants
-to delete the row outright, they use the existing
-`/deletions/games/:slug` flow (unchanged).
+clears the hidden input value → form submission sets `version_parent_id` to nil
+server-side. No JS confirm; no `/deletions/` redirect (detach is non-destructive
+— the row stays, just becomes a primary). If the user wants to delete the row
+outright, they use the existing `/deletions/games/:slug` flow (unchanged).
 
 Server-side guards:
 
@@ -467,28 +465,27 @@ Behaviour:
   suffixes (case-insensitive, anchored to end of title):
   - ` Deluxe Edition`, ` Deluxe`
   - ` Standard Edition`, ` Standard`
-  - ` Game of the Year Edition`, ` Game of the Year`, ` GOTY Edition`,
-    ` GOTY`
+  - ` Game of the Year Edition`, ` Game of the Year`, ` GOTY Edition`, ` GOTY`
   - ` Collector's Edition`, ` Collectors Edition`, ` Collector Edition`
   - ` Definitive Edition`
   - ` Anniversary Edition`
   - ` Ultimate Edition`
 - If a stripped variant matches another existing primary's title
-  (case-insensitive, exact match), attach the row as an edition of that
-  primary, stamping `version_title` with the captured suffix (normalised:
-  "Deluxe", "Standard", "Game of the Year", "Collector's", "Definitive",
-  "Anniversary", "Ultimate").
+  (case-insensitive, exact match), attach the row as an edition of that primary,
+  stamping `version_title` with the captured suffix (normalised: "Deluxe",
+  "Standard", "Game of the Year", "Collector's", "Definitive", "Anniversary",
+  "Ultimate").
 - If no match exists, leave the row alone — DO NOT auto-create a synthetic
   parent.
 - Output a summary: `attached: N, skipped: M, total: T`.
-- Idempotent: re-running visits the same set; rows already attached as
-  editions are skipped (the iteration only walks primaries).
+- Idempotent: re-running visits the same set; rows already attached as editions
+  are skipped (the iteration only walks primaries).
 
 Edge cases the task does NOT handle:
 
-- "Halo: The Master Chief Collection" containing multiple sub-games —
-  outside scope. The task targets edition suffix patterns, not
-  bundle-of-games semantics.
+- "Halo: The Master Chief Collection" containing multiple sub-games — outside
+  scope. The task targets edition suffix patterns, not bundle-of-games
+  semantics.
 - Titles like "Game (Special Edition)" with parentheses — the regex can be
   extended in a follow-up; v1 sticks to the suffix list above.
 
@@ -515,16 +512,15 @@ Happy:
 
 Sad:
 
-- Setting `version_parent_id` to a row that is itself an edition rejects with
-  a validation error ("version parent must be a primary").
+- Setting `version_parent_id` to a row that is itself an edition rejects with a
+  validation error ("version parent must be a primary").
 - Setting `version_parent_id` to `self.id` rejects.
-- A row that already has editions cannot accept a non-nil
-  `version_parent_id`.
+- A row that already has editions cannot accept a non-nil `version_parent_id`.
 
 Edge:
 
-- `dependent: :nullify` — destroying a parent leaves its editions in place
-  with `version_parent_id = nil`.
+- `dependent: :nullify` — destroying a parent leaves its editions in place with
+  `version_parent_id = nil`.
 - Detaching (setting `version_parent_id` to nil) on an edition succeeds and
   promotes the row to a primary.
 - A primary with no editions returns `owned_platforms_with_editions` equal to
@@ -542,8 +538,8 @@ Flaw:
 
 Happy:
 
-- IGDB payload with `version_parent` set resolves the existing parent and
-  stamps `version_parent_id`.
+- IGDB payload with `version_parent` set resolves the existing parent and stamps
+  `version_parent_id`.
 - IGDB payload with `version_parent` set, parent not yet in DB, recursively
   imports the parent first (with its OWN `version_parent` nil) and then the
   edition.
@@ -563,9 +559,9 @@ Edge:
 - Re-import of the same edition payload is idempotent (same row updated, no
   sibling created).
 - Re-import where `version_parent` has CHANGED updates the pointer.
-- Re-import where `version_parent` was previously set and is now absent in
-  the payload leaves the existing pointer (does NOT clear it — manual /
-  prior state wins).
+- Re-import where `version_parent` was previously set and is now absent in the
+  payload leaves the existing pointer (does NOT clear it — manual / prior state
+  wins).
 
 Flaw:
 
@@ -583,28 +579,27 @@ Happy:
 - `GET /games/:slug` for an edition renders the parent pointer link.
 - `GET /games/:slug/edit` shows the picker + `version_title` field.
 - `PATCH /games/:slug` with `version_parent_id` → row becomes an edition.
-- `PATCH /games/:slug` with `version_parent_id: ""` → row becomes a
-  primary (detach).
+- `PATCH /games/:slug` with `version_parent_id: ""` → row becomes a primary
+  (detach).
 
 Sad:
 
-- `?include_editions=true` (NOT yes/no) → treated as `"no"` per yes/no
-  boundary rule (CLAUDE.md hard rule).
-- `PATCH` with a `version_parent_id` pointing to an edition → validation
-  error, edit form re-renders with the error.
+- `?include_editions=true` (NOT yes/no) → treated as `"no"` per yes/no boundary
+  rule (CLAUDE.md hard rule).
+- `PATCH` with a `version_parent_id` pointing to an edition → validation error,
+  edit form re-renders with the error.
 - `PATCH` with `version_parent_id == self.id` → validation error.
 
 Edge:
 
 - Editions index URL hash anchor `#editions` lands on the right element.
-- Pagination + `include_editions=yes` compose without losing the param
-  across pages.
+- Pagination + `include_editions=yes` compose without losing the param across
+  pages.
 
 Flaw:
 
-- A hand-crafted form POST setting `version_parent_id` to an
-  already-parented row rejects server-side (the picker's typeahead can't be
-  trusted alone).
+- A hand-crafted form POST setting `version_parent_id` to an already-parented
+  row rejects server-side (the picker's typeahead can't be trusted alone).
 
 ### Components
 
@@ -618,8 +613,8 @@ Flaw:
 `spec/components/games/editions_section_component_spec.rb`:
 
 - Renders heading `Editions (N)`.
-- Renders one row per edition with cover, title, version_title, ownership
-  chip strip.
+- Renders one row per edition with cover, title, version_title, ownership chip
+  strip.
 - Renders nothing when `game.editions.empty?`.
 
 `spec/components/games/version_parent_picker_component_spec.rb`:
@@ -634,10 +629,9 @@ Flaw:
 One critical journey:
 
 1. Create primary "Pragmata".
-2. Visit `/games/pragmata/edit` on an unrelated row "Pragmata Deluxe
-   Edition"; pick "Pragmata" in the typeahead; save.
-3. Visit `/games` — only "Pragmata" tile renders, with `[+1 edition]`
-   badge.
+2. Visit `/games/pragmata/edit` on an unrelated row "Pragmata Deluxe Edition";
+   pick "Pragmata" in the typeahead; save.
+3. Visit `/games` — only "Pragmata" tile renders, with `[+1 edition]` badge.
 4. Click the badge → lands on `/games/pragmata#editions`; editions section
    visible.
 5. Visit `/games/pragmata-deluxe-edition/edit` → click `[detach]` → save.
@@ -691,8 +685,8 @@ Every external boolean tied to this sub-spec:
 - URL param `?include_editions=yes` or `?include_editions=no` only. Any other
   value coerces to `"no"`.
 - MCP `games_list` `include_editions` argument: `"yes"` / `"no"` only.
-- CLI wire format: serialises Rust `bool` to `"yes"` / `"no"` strings at
-  the boundary.
+- CLI wire format: serialises Rust `bool` to `"yes"` / `"no"` strings at the
+  boundary.
 
 Internal storage / Ruby code paths continue to use Ruby `true` / `false`.
 
@@ -700,11 +694,11 @@ Internal storage / Ruby code paths continue to use Ruby `true` / `false`.
 
 ## Friendly URL preservation
 
-- `Game#to_param` continues to return `igdb_slug` (existing Phase 20
-  behaviour). Unchanged.
+- `Game#to_param` continues to return `igdb_slug` (existing Phase 20 behaviour).
+  Unchanged.
 - Editions retain their existing slugs.
-- Anchored show URLs (`/games/pragmata#editions`) honour the fragment via
-  the browser; no server-side handling needed.
+- Anchored show URLs (`/games/pragmata#editions`) honour the fragment via the
+  browser; no server-side handling needed.
 
 ---
 
@@ -727,20 +721,18 @@ Internal storage / Ruby code paths continue to use Ruby `true` / `false`.
    parent.primary?                 # => true
    Game.primaries.pluck(:title)    # includes "Pragmata", excludes editions
    ```
-3. Attempt to nest: `deluxe.update(version_parent: standard)` → returns
-   `false`; `deluxe.errors[:version_parent_id]` contains "must be a
-   primary".
-4. Attempt self-reference: `parent.update(version_parent: parent)` →
-   returns `false`; `parent.errors[:version_parent_id]` contains "cannot
-   reference itself".
+3. Attempt to nest: `deluxe.update(version_parent: standard)` → returns `false`;
+   `deluxe.errors[:version_parent_id]` contains "must be a primary".
+4. Attempt self-reference: `parent.update(version_parent: parent)` → returns
+   `false`; `parent.errors[:version_parent_id]` contains "cannot reference
+   itself".
 5. `bin/dev` → `http://localhost:3000/games`:
    - Only "Pragmata" renders, with `[+2 editions]` badge.
    - "Pragmata Deluxe Edition" / "Pragmata Standard Edition" absent.
-6. Visit `http://localhost:3000/games?include_editions=yes` — flat list,
-   all three rows visible; editions show `[↳ pragmata]` muted pointer.
-7. Click the `[+2 editions]` badge → lands on
-   `/games/pragmata#editions`; section lists both editions with cover
-   thumbs.
+6. Visit `http://localhost:3000/games?include_editions=yes` — flat list, all
+   three rows visible; editions show `[↳ pragmata]` muted pointer.
+7. Click the `[+2 editions]` badge → lands on `/games/pragmata#editions`;
+   section lists both editions with cover thumbs.
 8. Visit `/games/pragmata-deluxe-edition/edit`:
    - Picker is pre-filled with "Pragmata".
    - `version_title` field shows "Deluxe".
@@ -749,9 +741,9 @@ Internal storage / Ruby code paths continue to use Ruby `true` / `false`.
 9. Re-attach: `/games/pragmata-deluxe-edition/edit` → type "prag" into the
    picker → select "Pragmata" → submit. Confirm tile collapses back under
    "Pragmata".
-10. `rake games:backfill_version_parents` against a seeded set with
-    "Halo 3" + "Halo 3 Game of the Year Edition" — confirm GOTY row
-    attaches; re-run task; confirm no duplicate attach.
+10. `rake games:backfill_version_parents` against a seeded set with "Halo 3" +
+    "Halo 3 Game of the Year Edition" — confirm GOTY row attaches; re-run task;
+    confirm no duplicate attach.
 11. MCP smoke (via `bin/mcp` stdio or the inspector):
     ```json
     { "name": "games_list", "arguments": { "include_editions": "no" } }
@@ -762,10 +754,11 @@ Internal storage / Ruby code paths continue to use Ruby `true` / `false`.
     ```
     → flat list.
 12. `pito` TUI Games view: open, see primaries only with badge; drill into
-    "Pragmata"; toggle flat mode (`e` keybind, pending cli-impl
-    confirmation); confirm wire format uses `"yes"` / `"no"`.
-13. Hard-rule sweep: `grep -RIn "data-turbo-confirm\|window.confirm\|window.alert\|window.prompt" app/` against the
-    touched files → no matches.
+    "Pragmata"; toggle flat mode (`e` keybind, pending cli-impl confirmation);
+    confirm wire format uses `"yes"` / `"no"`.
+13. Hard-rule sweep:
+    `grep -RIn "data-turbo-confirm\|window.confirm\|window.alert\|window.prompt" app/`
+    against the touched files → no matches.
 
 ---
 
@@ -791,28 +784,28 @@ Internal storage / Ruby code paths continue to use Ruby `true` / `false`.
    `manual_date_override`) so a user's hand-edited title survives re-sync?
    Architect leans yes, but defer to a v1.1 follow-up to keep this sub-spec
    tight.
-2. **Parent `release_date` rollup.** When the parent has no `release_date`
-   of its own (e.g., auto-created from IGDB), should it derive from the
-   earliest edition's date? Architect leans yes, via an `after_save` hook on
-   the edition that updates the parent if `release_date IS NULL` and
-   `manual_date_override = false`. Surface for user lock — if no, the
-   parent's calendar entry simply doesn't render until an edition is
-   manually promoted. Locked decision option (a) in the umbrella `plan.md`.
-3. **Typeahead source scope.** Picker shows primaries only (an edition
-   cannot itself parent another). Confirmed; coded server-side.
-4. **Bundle interaction.** A bundle may contain both the primary and an
-   edition of the same logical title. Listing-side de-dupe at bundle render
-   time, or display both? Architect leans display both (the user's explicit
-   grouping wins).
-5. **CLI keybind for flat-mode toggle.** Proposed `e`. The cli-impl agent
-   owns the final letter; this spec just describes the behaviour.
-6. **Backfill regex coverage.** v1 ships the suffix list above. Should we
-   add parenthesised variants ("Game (Deluxe Edition)") in v1 or wait until
-   we have data telling us how common they are in the user's library?
-   Architect leans wait.
-7. **`Game.owned` deprecation in Phase 27 §01b's `Games::Filter`.** The
-   filter row's `owned` token swaps from `Game.owned` to `Game.owned_rollup`
-   for the primaries-only listing path. Confirm with the user that this is
-   the desired behaviour — a primary with an unowned base but an owned
-   Deluxe edition appears in the `owned` filter. Architect leans yes
-   (matches the "logical title" framing of this phase).
+2. **Parent `release_date` rollup.** When the parent has no `release_date` of
+   its own (e.g., auto-created from IGDB), should it derive from the earliest
+   edition's date? Architect leans yes, via an `after_save` hook on the edition
+   that updates the parent if `release_date IS NULL` and
+   `manual_date_override = false`. Surface for user lock — if no, the parent's
+   calendar entry simply doesn't render until an edition is manually promoted.
+   Locked decision option (a) in the umbrella `plan.md`.
+3. **Typeahead source scope.** Picker shows primaries only (an edition cannot
+   itself parent another). Confirmed; coded server-side.
+4. **Bundle interaction.** A bundle may contain both the primary and an edition
+   of the same logical title. Listing-side de-dupe at bundle render time, or
+   display both? Architect leans display both (the user's explicit grouping
+   wins).
+5. **CLI keybind for flat-mode toggle.** Proposed `e`. The cli-impl agent owns
+   the final letter; this spec just describes the behaviour.
+6. **Backfill regex coverage.** v1 ships the suffix list above. Should we add
+   parenthesised variants ("Game (Deluxe Edition)") in v1 or wait until we have
+   data telling us how common they are in the user's library? Architect leans
+   wait.
+7. **`Game.owned` deprecation in Phase 27 §01b's `Games::Filter`.** The filter
+   row's `owned` token swaps from `Game.owned` to `Game.owned_rollup` for the
+   primaries-only listing path. Confirm with the user that this is the desired
+   behaviour — a primary with an unowned base but an owned Deluxe edition
+   appears in the `owned` filter. Architect leans yes (matches the "logical
+   title" framing of this phase).

@@ -25,26 +25,26 @@ probabilistic). Part 4 also **fixes a latent delivery bug**: the orphaned
 from the `NotificationDeliveryChannel` row itself, so Slack/Discord delivery
 actually works — see "Part 4" and "The orphaned legacy path" below.
 
-Who uses it: the operator configuring the install; every downstream service
-that reads YouTube / Voyage / webhook config.
+Who uses it: the operator configuring the install; every downstream service that
+reads YouTube / Voyage / webhook config.
 
 ## Inventory truth (what the codebase actually holds)
 
 ### `AppSetting` — current columns (`db/schema.rb` lines 68-84)
 
-| Column                        | Storage                          | Classification                  |
-| ----------------------------- | -------------------------------- | ------------------------------- |
+| Column                        | Storage                                                                    | Classification                                                            |
+| ----------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
 | `key` / `value`               | plain `string` / `text`; `value` is `encrypts :value, deterministic: true` | non-secret KV (max_panes, pane_title_length, theme, monetization_enabled) |
-| `voyage_api_key`              | `encrypts :voyage_api_key` (probabilistic, non-deterministic) | **SECRET — drop (Part 2)** |
-| `voyage_index_project_notes`  | plain `boolean`, default false   | non-secret runtime flag — **keep** |
-| `youtube_api_key`             | `encrypts :youtube_api_key` (probabilistic) | **SECRET — drop (Part 1/3)** |
-| `youtube_client_id`           | plain `text`                     | **SECRET-adjacent — drop (Part 1/3)** |
-| `youtube_client_secret`       | `encrypts :youtube_client_secret` (probabilistic) | **SECRET — drop (Part 1/3)** |
-| `youtube_redirect_uri`        | plain `text`                     | **config — drop (Part 1/3)** |
-| `keyboard_navigation_enabled` | plain `boolean`, default true    | non-secret runtime flag — **keep** |
-| `timezone`                    | plain `string`, default "UTC"    | non-secret runtime flag — **keep** |
-| `slack_enabled`               | plain `boolean`, default false   | **orphaned dead column — drop (Part 4 fix)** |
-| `discord_enabled`             | plain `boolean`, default false   | **orphaned dead column — drop (Part 4 fix)** |
+| `voyage_api_key`              | `encrypts :voyage_api_key` (probabilistic, non-deterministic)              | **SECRET — drop (Part 2)**                                                |
+| `voyage_index_project_notes`  | plain `boolean`, default false                                             | non-secret runtime flag — **keep**                                        |
+| `youtube_api_key`             | `encrypts :youtube_api_key` (probabilistic)                                | **SECRET — drop (Part 1/3)**                                              |
+| `youtube_client_id`           | plain `text`                                                               | **SECRET-adjacent — drop (Part 1/3)**                                     |
+| `youtube_client_secret`       | `encrypts :youtube_client_secret` (probabilistic)                          | **SECRET — drop (Part 1/3)**                                              |
+| `youtube_redirect_uri`        | plain `text`                                                               | **config — drop (Part 1/3)**                                              |
+| `keyboard_navigation_enabled` | plain `boolean`, default true                                              | non-secret runtime flag — **keep**                                        |
+| `timezone`                    | plain `string`, default "UTC"                                              | non-secret runtime flag — **keep**                                        |
+| `slack_enabled`               | plain `boolean`, default false                                             | **orphaned dead column — drop (Part 4 fix)**                              |
+| `discord_enabled`             | plain `boolean`, default false                                             | **orphaned dead column — drop (Part 4 fix)**                              |
 
 The `key`/`value` rows are the original generic KV store; `max_panes`,
 `pane_title_length`, `theme`, `monetization_enabled` ride `value`. The other
@@ -59,28 +59,28 @@ option. Uses the install's `active_record_encryption` credentials keys
 (`primary_key`, `deterministic_key`, `key_derivation_salt`). The key is never
 queried or compared, so probabilistic is correct.
 
-`app/models/notification_delivery_channel.rb` line 34: `encrypts :webhook_url`
-— **identical mechanism, identical probabilistic choice.** Part 4's encryption
+`app/models/notification_delivery_channel.rb` line 34: `encrypts :webhook_url` —
+**identical mechanism, identical probabilistic choice.** Part 4's encryption
 requirement is therefore **already satisfied**. The model header comment even
 documents the rationale ("never compared, never queried"). No model change is
 needed to encrypt Slack/Discord — it is done.
 
 ### Where YouTube / Google / Voyage are read today (all consumers)
 
-| Consumer                                           | Reads                                                            |
-| -------------------------------------------------- | ---------------------------------------------------------------- |
-| `config/initializers/omniauth.rb`                  | `AppSetting.youtube_client_id` / `_client_secret` / `_redirect_uri`, falling back to `Rails.application.credentials.google_oauth` then ENV then test placeholder |
-| `app/services/youtube/token_refresher.rb` (l.34-37)| `AppSetting.youtube_client_id` / `_client_secret`, fallback `credentials.google_oauth` |
-| `app/services/youtube/public_client.rb` (l.83-87)  | `AppSetting.youtube_api_key`, fallback `credentials.google_oauth.api_key` then `credentials.youtube.public_api_key` |
-| `app/jobs/notes/embed_job.rb` (l.84-89)            | `AppSetting.first&.voyage_api_key`, fallback `credentials.voyage[env].api_key` |
-| `app/services/search.rb`                           | **no Voyage read** (grep clean — search uses Meilisearch only; the Voyage call lives entirely in `Notes::EmbedJob`) |
-| `app/models/app_setting.rb` (l.63-65, 79-125)      | `voyage_configured?`, `youtube_*` accessors + `*_configured?` predicates |
-| `app/controllers/settings_controller.rb`           | `youtube_credentials_status`, `update_youtube`, `update_voyage`, `@voyage_configured`, `@voyage_indexing_project_notes` |
-| `app/views/settings/index.html.erb` (l.179-352)    | YouTube edit pane + Voyage.ai edit pane |
-| `db/seeds.rb` (l.24-44)                            | seeds `voyage_api_key` from `credentials.voyage[env].api_key` into AppSetting |
-| `lib/tasks/youtube_credentials_backfill.rake`      | backfills AppSetting YouTube columns from `credentials.google_oauth` |
-| `app/mcp/tools/manage_settings.rb`                 | **does NOT expose YouTube / Voyage** — `ALLOWED_KEYS` is `max_panes`, `pane_title_length`, `theme` only. No MCP change needed. |
-| `config/application.rb` (l.61-66)                  | comment only — references `voyage_configured?`; update the comment in the docs pass, no code |
+| Consumer                                            | Reads                                                                                                                                                            |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `config/initializers/omniauth.rb`                   | `AppSetting.youtube_client_id` / `_client_secret` / `_redirect_uri`, falling back to `Rails.application.credentials.google_oauth` then ENV then test placeholder |
+| `app/services/youtube/token_refresher.rb` (l.34-37) | `AppSetting.youtube_client_id` / `_client_secret`, fallback `credentials.google_oauth`                                                                           |
+| `app/services/youtube/public_client.rb` (l.83-87)   | `AppSetting.youtube_api_key`, fallback `credentials.google_oauth.api_key` then `credentials.youtube.public_api_key`                                              |
+| `app/jobs/notes/embed_job.rb` (l.84-89)             | `AppSetting.first&.voyage_api_key`, fallback `credentials.voyage[env].api_key`                                                                                   |
+| `app/services/search.rb`                            | **no Voyage read** (grep clean — search uses Meilisearch only; the Voyage call lives entirely in `Notes::EmbedJob`)                                              |
+| `app/models/app_setting.rb` (l.63-65, 79-125)       | `voyage_configured?`, `youtube_*` accessors + `*_configured?` predicates                                                                                         |
+| `app/controllers/settings_controller.rb`            | `youtube_credentials_status`, `update_youtube`, `update_voyage`, `@voyage_configured`, `@voyage_indexing_project_notes`                                          |
+| `app/views/settings/index.html.erb` (l.179-352)     | YouTube edit pane + Voyage.ai edit pane                                                                                                                          |
+| `db/seeds.rb` (l.24-44)                             | seeds `voyage_api_key` from `credentials.voyage[env].api_key` into AppSetting                                                                                    |
+| `lib/tasks/youtube_credentials_backfill.rake`       | backfills AppSetting YouTube columns from `credentials.google_oauth`                                                                                             |
+| `app/mcp/tools/manage_settings.rb`                  | **does NOT expose YouTube / Voyage** — `ALLOWED_KEYS` is `max_panes`, `pane_title_length`, `theme` only. No MCP change needed.                                   |
+| `config/application.rb` (l.61-66)                   | comment only — references `voyage_configured?`; update the comment in the docs pass, no code                                                                     |
 
 `@voyage_indexing_project_notes` (the `voyage_index_project_notes` boolean
 column) is a **non-secret runtime flag and STAYS** on `AppSetting`. Only the
@@ -120,13 +120,13 @@ for the URL — but the Slack/Discord webhook controllers **never write the
 `*_enabled` columns**, and the dispatchers read the URL from the
 `NotificationDeliveryChannel` row, not credentials. So `slack_enabled` /
 `discord_enabled` are dead columns: always `false` on any real install, which
-means `enabled?` in the dispatchers (`app/services/notification_delivery_channel/
-slack.rb` l.23, `discord.rb` l.22) returns `false` and **Slack/Discord delivery
-is currently dead in practice**. This is a pre-existing bug surfaced by the
-inventory.
+means `enabled?` in the dispatchers
+(`app/services/notification_delivery_channel/ slack.rb` l.23, `discord.rb` l.22)
+returns `false` and **Slack/Discord delivery is currently dead in practice**.
+This is a pre-existing bug surfaced by the inventory.
 
-**Resolution (user-confirmed): this unit fixes the bug as part of Part 4
-cleanup so Slack/Discord delivery actually works.** The fix:
+**Resolution (user-confirmed): this unit fixes the bug as part of Part 4 cleanup
+so Slack/Discord delivery actually works.** The fix:
 
 - **New source of truth.** "Is Slack/Discord delivery on" is derived entirely
   from the `NotificationDeliveryChannel` row for the kind — its existence plus a
@@ -148,9 +148,9 @@ cleanup so Slack/Discord delivery actually works.** The fix:
   working. No other consumer reads the dropped columns.
 
 This is a deliberate runtime-behavior change: Slack/Discord delivery transitions
-from silently-dead to working when a channel is configured. The regression
-specs below prove the gate is driven by the actual channel config and that the
-dead columns are gone.
+from silently-dead to working when a channel is configured. The regression specs
+below prove the gate is driven by the actual channel config and that the dead
+columns are gone.
 
 ## Files touched
 
@@ -164,17 +164,16 @@ dead columns are gone.
 - `app/models/app_setting.rb` — modify. Remove `encrypts :voyage_api_key`,
   `encrypts :youtube_api_key`, `encrypts :youtube_client_secret`. Remove the
   `youtube_*` class accessors + `*_configured?` predicates (l.73-125). Rewrite
-  `voyage_configured?` to read credentials. Rewrite
-  `slack_delivery_enabled?` / `discord_delivery_enabled?` (Part 4). Remove
-  `voyage_target_flags_require_key` validation's dependency on the column —
-  see "Migration outline" note.
+  `voyage_configured?` to read credentials. Rewrite `slack_delivery_enabled?` /
+  `discord_delivery_enabled?` (Part 4). Remove `voyage_target_flags_require_key`
+  validation's dependency on the column — see "Migration outline" note.
 - `config/initializers/omniauth.rb` — modify. Remove
   `pito_appsetting_youtube_value` helper entirely. Replace the four-tier
-  resolver with a credentials-first read: `credentials.google_oauth` block,
-  ENV fallback for CI, test placeholder. Update the header comment.
+  resolver with a credentials-first read: `credentials.google_oauth` block, ENV
+  fallback for CI, test placeholder. Update the header comment.
 - `app/services/youtube/token_refresher.rb` — modify (l.34-37). Read
-  `credentials.dig(:google_oauth, :client_id)` / `:client_secret` directly;
-  drop the `AppSetting.youtube_*` reads.
+  `credentials.dig(:google_oauth, :client_id)` / `:client_secret` directly; drop
+  the `AppSetting.youtube_*` reads.
 - `app/services/youtube/public_client.rb` — modify (l.83-87). Read
   `credentials.dig(:google_oauth, :api_key)` directly; drop the
   `AppSetting.youtube_api_key` read. Keep the `:youtube, :public_api_key`
@@ -182,8 +181,8 @@ dead columns are gone.
 - `app/jobs/notes/embed_job.rb` — modify (l.84-89). `resolve_api_key` reads
   `credentials.dig(:voyage, Rails.env.to_sym, :api_key)` directly; drop the
   `AppSetting.first&.voyage_api_key` read.
-- `app/controllers/settings_controller.rb` — modify. Remove the `youtube`
-  branch from `update` (l.159-174). Remove `update_youtube`, `YOUTUBE_FIELDS`,
+- `app/controllers/settings_controller.rb` — modify. Remove the `youtube` branch
+  from `update` (l.159-174). Remove `update_youtube`, `YOUTUBE_FIELDS`,
   `youtube_credentials_status`, `YOUTUBE_OAUTH_DEFAULT_REDIRECT_URI`,
   `@youtube_credentials`. **The `voyage` branch survives in slimmed form** (see
   "Settings UI" below): `update_voyage` keeps writing only the
@@ -193,8 +192,8 @@ dead columns are gone.
   ivars are re-sourced — `@voyage_configured` from credentials presence,
   `@voyage_indexing_project_notes` from the surviving column.
 - `app/views/settings/index.html.erb` — modify. Remove the YouTube edit pane
-  (l.186-279). **The Voyage.ai pane is slimmed, not removed** (see "Settings
-  UI" below): the API key text field + clear-checkbox are deleted; the
+  (l.186-279). **The Voyage.ai pane is slimmed, not removed** (see "Settings UI"
+  below): the API key text field + clear-checkbox are deleted; the
   `voyage_index_project_notes` toggle stays. The "Voyage embeddings" status
   block in the search pane (l.635-650) stays but re-sources `@voyage_configured`
   / `@voyage_indexing_project_notes`. The `integrations` `<h2>` and the
@@ -202,20 +201,19 @@ dead columns are gone.
 - `lib/tasks/youtube_credentials_backfill.rake` — **delete**. The backfill
   direction reverses: credentials are now the source of truth, nothing to
   backfill into AppSetting.
-- `db/seeds.rb` — modify (l.24-44). Remove the Voyage AppSetting bootstrap
-  block — `voyage_api_key` is no longer an AppSetting column. The
+- `db/seeds.rb` — modify (l.24-44). Remove the Voyage AppSetting bootstrap block
+  — `voyage_api_key` is no longer an AppSetting column. The
   `voyage_index_project_notes` production-flip can stay (it is a non-secret
   flag) but no longer gates on `voyage_api_key` presence; re-source the gate.
-- `app/services/auth/audit_logger.rb` + `app/models/auth_audit_log.rb` —
-  modify. The `youtube_credentials_updated` audit action (enum value 7 in
+- `app/services/auth/audit_logger.rb` + `app/models/auth_audit_log.rb` — modify.
+  The `youtube_credentials_updated` audit action (enum value 7 in
   `auth_audit_log.rb` l.63, allowlisted in `audit_logger.rb` l.36-44) is now
   unreachable. Keep the enum value reserved (do not renumber — enum values are
   durable) but remove it from `audit_logger.rb`'s active allowlist, or leave it
-  inert. See Open questions Q2. `voyage_credentials_updated` —
-  the Voyage *flag* pane survives, so a `voyage_settings_updated`-style audit
-  row may still be emitted on the flag toggle; keep the audit action active for
-  the slimmed-pane write path (it no longer represents a *key* write, just a
-  flag write).
+  inert. See Open questions Q2. `voyage_credentials_updated` — the Voyage _flag_
+  pane survives, so a `voyage_settings_updated`-style audit row may still be
+  emitted on the flag toggle; keep the audit action active for the slimmed-pane
+  write path (it no longer represents a _key_ write, just a flag write).
 
 ### Settings UI — what survives, what goes
 
@@ -224,13 +222,12 @@ dead columns are gone.
   `youtube` `case` branch go with it. No YouTube config surface remains in the
   web UI; YouTube/Google config is deploy-time credentials only.
 - **Voyage.ai pane — MODIFIED (slimmed), not removed.** The pane stays on the
-  Settings index but renders **only the non-secret
-  `voyage_index_project_notes` toggle**. The API key text input and the
-  "clear key" checkbox are deleted (the key now lives in
-  `Rails.application.credentials.voyage`). The operator still needs to turn
-  project-notes indexing on/off at runtime, so the flag toggle stays
-  Settings-UI-managed. The `section=voyage` hidden field stays — the slimmed
-  pane still PATCHes the flag. The `[update]` button and the "saved."
+  Settings index but renders **only the non-secret `voyage_index_project_notes`
+  toggle**. The API key text input and the "clear key" checkbox are deleted (the
+  key now lives in `Rails.application.credentials.voyage`). The operator still
+  needs to turn project-notes indexing on/off at runtime, so the flag toggle
+  stays Settings-UI-managed. The `section=voyage` hidden field stays — the
+  slimmed pane still PATCHes the flag. The `[update]` button and the "saved."
   confirmation flash stay.
 - **Slack / Discord panes — UNCHANGED rendering** (see Part 4).
 
@@ -246,14 +243,14 @@ dead columns are gone.
   longer read the dropped `*_enabled` column or
   `credentials.dig(:notifications, ...)`. Remove the
   `notifications_credentials_value` private helper.
-- `app/services/notification_delivery_channel/slack.rb` +
-  `discord.rb` — modify lightly. `enabled?` keeps calling
-  `AppSetting.slack_delivery_enabled?` / `discord_delivery_enabled?` (now
-  rewritten). The `webhook_url` method's credentials fallback
-  (`credentials.dig(:notifications, ...)`) can stay as a transitional path or
-  be dropped — see Open questions Q3. **No change to delivery semantics, retry,
-  payloads** — but note the predicates now return `true` on a configured
-  install, so delivery starts working (the intended bug fix).
+- `app/services/notification_delivery_channel/slack.rb` + `discord.rb` — modify
+  lightly. `enabled?` keeps calling `AppSetting.slack_delivery_enabled?` /
+  `discord_delivery_enabled?` (now rewritten). The `webhook_url` method's
+  credentials fallback (`credentials.dig(:notifications, ...)`) can stay as a
+  transitional path or be dropped — see Open questions Q3. **No change to
+  delivery semantics, retry, payloads** — but note the predicates now return
+  `true` on a configured install, so delivery starts working (the intended bug
+  fix).
 - `app/views/settings/_slack_pane.html.erb` /
   `app/views/settings/_discord_pane.html.erb` — **KEEP UNCHANGED. The
   implementer must not touch the rendered form.** The "webhook URL" text field,
@@ -270,9 +267,9 @@ dead columns are gone.
   `webhook_url` is already encrypted; there is no plaintext data and no
   production data). Spec it as a defensive data migration that re-saves any
   existing rows so any pre-`encrypts` plaintext value is re-encrypted. Given
-  inventory shows `encrypts :webhook_url` has been in place since the column
-  was created (Phase 26), this migration is purely belt-and-suspenders. See
-  Open questions Q4.
+  inventory shows `encrypts :webhook_url` has been in place since the column was
+  created (Phase 26), this migration is purely belt-and-suspenders. See Open
+  questions Q4.
 
 ### Cross-cutting
 
@@ -311,22 +308,22 @@ notifications:                       # OPTIONAL — transitional fallback only
 
 Notes:
 
-- `google_oauth` is **not** per-environment in the current credentials file
-  (the existing `Rails.application.credentials.google_oauth` block is flat) —
-  keep it flat to match what `omniauth.rb`, `token_refresher.rb`, and
-  `public_client.rb` already read (`credentials.dig(:google_oauth, :client_id)`
-  etc.). If a future install needs per-env Google OAuth, that is a separate
-  change. Confirm the flat shape during implementation; do not restructure it.
-- `voyage` **is** already per-environment (`credentials.dig(:voyage,
-  Rails.env.to_sym, :api_key)` — `embed_job.rb` l.88, `seeds.rb` l.34). Keep
-  per-env.
+- `google_oauth` is **not** per-environment in the current credentials file (the
+  existing `Rails.application.credentials.google_oauth` block is flat) — keep it
+  flat to match what `omniauth.rb`, `token_refresher.rb`, and `public_client.rb`
+  already read (`credentials.dig(:google_oauth, :client_id)` etc.). If a future
+  install needs per-env Google OAuth, that is a separate change. Confirm the
+  flat shape during implementation; do not restructure it.
+- `voyage` **is** already per-environment
+  (`credentials.dig(:voyage, Rails.env.to_sym, :api_key)` — `embed_job.rb` l.88,
+  `seeds.rb` l.34). Keep per-env.
 - `notifications` is optional — only needed if Open questions Q3 keeps the
   credentials fallback in the Slack/Discord dispatchers' `webhook_url` method.
   The source of truth for delivery is the `NotificationDeliveryChannel` row.
 - Test environment: omniauth must still boot without `master.key`. The
-  initializer keeps the `Rails.env.test?` placeholder fallback for
-  `client_id` / `client_secret` so request specs boot. The `voyage` test key is
-  optional — `Notes::EmbedJob` already no-ops when the key is blank.
+  initializer keeps the `Rails.env.test?` placeholder fallback for `client_id` /
+  `client_secret` so request specs boot. The `voyage` test key is optional —
+  `Notes::EmbedJob` already no-ops when the key is blank.
 
 ## Migration outline(s)
 
@@ -381,8 +378,8 @@ end
   specced correctly regardless. See Open questions Q4 — the architect's
   defensible call is to **include this migration** for correctness even though
   it is expected to do nothing; it costs nothing and documents intent.
-- `data` migration — no schema change. `disable_ddl_transaction!` not needed
-  (no index ops).
+- `data` migration — no schema change. `disable_ddl_transaction!` not needed (no
+  index ops).
 
 ## Acceptance
 
@@ -409,8 +406,8 @@ end
       `youtube_credentials_status`, no `update_youtube` / `YOUTUBE_FIELDS`. The
       `voyage` update branch writes only the `voyage_index_project_notes` flag —
       no `voyage_api_key` write path remains.
-- [ ] `lib/tasks/youtube_credentials_backfill.rake` is deleted; `db/seeds.rb`
-      no longer bootstraps `voyage_api_key` onto `AppSetting`.
+- [ ] `lib/tasks/youtube_credentials_backfill.rake` is deleted; `db/seeds.rb` no
+      longer bootstraps `voyage_api_key` onto `AppSetting`.
 - [ ] `NotificationDeliveryChannel#webhook_url` is encrypted at rest via Active
       Record Encryption (probabilistic) — verified by a round-trip model spec.
       No view / controller / Stimulus change to the Slack or Discord panes.
@@ -437,18 +434,18 @@ Additive, never substitutive. Enumerated by layer:
 
 - `spec/models/app_setting_spec.rb` — modify. Assert the model no longer
   responds to `youtube_client_id` / `youtube_client_secret` / `youtube_api_key`
-  / `youtube_redirect_uri` (class accessors gone) and that
-  `app_settings` has no `voyage_api_key` / `youtube_*` / `slack_enabled` /
-  `discord_enabled` columns (`AppSetting.column_names` excludes all seven —
-  this is the **dead-columns-are-gone regression spec**). Assert
-  `voyage_configured?` reflects the credentials presence (stub
-  `Rails.application.credentials`). Assert `slack_delivery_enabled?` /
-  `discord_delivery_enabled?` are gated on the actual `NotificationDeliveryChannel`
-  config: false with no channel row; false with a channel row that has a blank
-  `webhook_url` or no routing flag set; **true** with a channel row that has a
-  present `webhook_url` and `everything` (or `daily_digest`) set. Prove the
-  predicate does NOT read any `AppSetting` column (the columns are gone, so a
-  read would raise — but assert the positive path explicitly).
+  / `youtube_redirect_uri` (class accessors gone) and that `app_settings` has no
+  `voyage_api_key` / `youtube_*` / `slack_enabled` / `discord_enabled` columns
+  (`AppSetting.column_names` excludes all seven — this is the
+  **dead-columns-are-gone regression spec**). Assert `voyage_configured?`
+  reflects the credentials presence (stub `Rails.application.credentials`).
+  Assert `slack_delivery_enabled?` / `discord_delivery_enabled?` are gated on
+  the actual `NotificationDeliveryChannel` config: false with no channel row;
+  false with a channel row that has a blank `webhook_url` or no routing flag
+  set; **true** with a channel row that has a present `webhook_url` and
+  `everything` (or `daily_digest`) set. Prove the predicate does NOT read any
+  `AppSetting` column (the columns are gone, so a read would raise — but assert
+  the positive path explicitly).
 - `spec/models/notification_delivery_channel_spec.rb` — add. **Encryption
   round-trip**: create a row with a `webhook_url`, reload, assert the decrypted
   value matches; assert the raw ciphertext column
@@ -473,17 +470,18 @@ Additive, never substitutive. Enumerated by layer:
   `voyage_index_project_notes` toggle but **no** `settings[voyage_api_key]`
   input and no key-clear checkbox. Assert `PATCH /settings` with
   `section=youtube` no longer routes a YouTube write (falls through to legacy
-  no-op, redirects with the standard notice — does not 500). Assert `PATCH
-  /settings` with `section=voyage` still toggles `voyage_index_project_notes`
-  and never touches a key. Assert the Slack and Discord panes still render with
-  the webhook URL field + "deliver every notification" checkbox.
+  no-op, redirects with the standard notice — does not 500). Assert
+  `PATCH /settings` with `section=voyage` still toggles
+  `voyage_index_project_notes` and never touches a key. Assert the Slack and
+  Discord panes still render with the webhook URL field + "deliver every
+  notification" checkbox.
 - `spec/requests/settings/slack_webhook_spec.rb` (or the existing slack/discord
-  request specs) — verify still green AND extend: `PATCH /settings/slack_webhook`
-  with a valid URL + a stubbed 2xx ping persists a `NotificationDeliveryChannel`
-  row and redirects with "Slack webhook saved." After that PATCH, assert
-  `AppSetting.slack_delivery_enabled?` is `true` — i.e. the delivery gate flips
-  on as a direct consequence of the channel config (the bug-fix regression at
-  the request layer). Same for Discord.
+  request specs) — verify still green AND extend:
+  `PATCH /settings/slack_webhook` with a valid URL + a stubbed 2xx ping persists
+  a `NotificationDeliveryChannel` row and redirects with "Slack webhook saved."
+  After that PATCH, assert `AppSetting.slack_delivery_enabled?` is `true` — i.e.
+  the delivery gate flips on as a direct consequence of the channel config (the
+  bug-fix regression at the request layer). Same for Discord.
 - `spec/initializers/omniauth_spec.rb` — modify. Drop the "AppSetting accessor
   surface" describe block and the `pito_appsetting_youtube_value` rescue specs
   (the helper is gone). Keep / adapt "boot-time provider configuration" — the
@@ -494,23 +492,23 @@ Additive, never substitutive. Enumerated by layer:
 
 ### System specs
 
-- `spec/system/settings_webhooks_spec.rb` (or extend an existing settings
-  system spec) — add / modify. Capybara + JS driver: visit `/settings`, confirm
-  the Slack pane shows the "webhook URL" field and the "deliver every
-  notification" checkbox; fill the URL, submit, confirm the "Slack webhook
-  saved." flash (stub the test ping at the HTTP boundary). Same for Discord.
-  Assert the YouTube pane is **absent** from the page and the Voyage pane shows
-  only the indexing toggle (no key field).
+- `spec/system/settings_webhooks_spec.rb` (or extend an existing settings system
+  spec) — add / modify. Capybara + JS driver: visit `/settings`, confirm the
+  Slack pane shows the "webhook URL" field and the "deliver every notification"
+  checkbox; fill the URL, submit, confirm the "Slack webhook saved." flash (stub
+  the test ping at the HTTP boundary). Same for Discord. Assert the YouTube pane
+  is **absent** from the page and the Voyage pane shows only the indexing toggle
+  (no key field).
 - `spec/system/settings_spec.rb` — modify if it currently exercises the YouTube
-  pane or the Voyage *key* field; remove those interactions, assert the YouTube
+  pane or the Voyage _key_ field; remove those interactions, assert the YouTube
   pane is gone and the Voyage pane is the slimmed toggle-only form.
 
 ### Job spec
 
 - `spec/jobs/notes/embed_job_spec.rb` — modify. Where it previously stubbed
-  `AppSetting.first.voyage_api_key`, stub `Rails.application.credentials` /
-  the `:voyage` block instead. Assert `resolve_api_key` reads credentials and
-  the job still no-ops cleanly when the key is blank.
+  `AppSetting.first.voyage_api_key`, stub `Rails.application.credentials` / the
+  `:voyage` block instead. Assert `resolve_api_key` reads credentials and the
+  job still no-ops cleanly when the key is blank.
 
 ## Removed inbound references checklist
 
@@ -540,23 +538,23 @@ panels — verify each is gone or inert after the change:
 - [ ] `youtube_credentials_updated` audit action — removed from
       `Auth::AuditLogger`'s active allowlist; enum value left reserved in
       `AuthAuditLog` (not renumbered). The `voyage` audit action stays active
-      for the slimmed-pane flag write. Confirm no view renders a YouTube-credentials
-      action label for new rows.
+      for the slimmed-pane flag write. Confirm no view renders a
+      YouTube-credentials action label for new rows.
 - [ ] No `[help]` link, nav entry, or Settings sub-page links to a YouTube
       credentials surface — grep `youtube` across `app/views/` confirms only the
       search-pane status block remains; grep `voyage` confirms only the
       search-pane status block and the slimmed flag pane remain.
-- [ ] `config/initializers/omniauth.rb` raise message — update the operator
-      hint string (currently tells the operator to "populate the YouTube fields
-      on the AppSetting singleton (Settings -> YouTube -> [update])"); the new
+- [ ] `config/initializers/omniauth.rb` raise message — update the operator hint
+      string (currently tells the operator to "populate the YouTube fields on
+      the AppSetting singleton (Settings -> YouTube -> [update])"); the new
       message points only at `bin/rails credentials:edit` + the ENV vars.
 
 ## docs impact (flag for a docs pass — do NOT edit in this unit)
 
 - `CLAUDE.md` — "Configuration strategy" section: the `AppSetting` table line
-  currently lists `max_panes`, `pane_title_length`, theme; it is already
-  correct in spirit (no secrets) but the realignment note and follow-ups need
-  updating. The "Architecture notes" + "Active follow-ups" need:
+  currently lists `max_panes`, `pane_title_length`, theme; it is already correct
+  in spirit (no secrets) but the realignment note and follow-ups need updating.
+  The "Architecture notes" + "Active follow-ups" need:
   - Follow-up 3 (omniauth hot-rotation gap) — **closed** by this unit. The gap
     is resolved by removing hot rotation entirely: Google OAuth config is
     deploy-time credentials config now.
@@ -566,9 +564,9 @@ panels — verify each is gone or inert after the change:
 - `docs/decisions/0007-youtube-credentials-moved-to-appsetting.md` — this ADR is
   now **reversed**. A new ADR (or an addendum) should record the reversal: the
   one-way trip of credentials onto `AppSetting` was a configuration-strategy
-  violation; this unit restores the stated strategy. The architect should
-  author this ADR alongside the unit (per `CLAUDE.md`'s ADR criteria — a
-  structural commitment / reversal of a prior ADR).
+  violation; this unit restores the stated strategy. The architect should author
+  this ADR alongside the unit (per `CLAUDE.md`'s ADR criteria — a structural
+  commitment / reversal of a prior ADR).
 - `docs/setup.md` — if it documents setting YouTube / Voyage via the Settings
   UI, update to point at `credentials:edit` for the keys; the Voyage
   project-notes indexing toggle stays a Settings-UI control.
@@ -580,10 +578,10 @@ panels — verify each is gone or inert after the change:
 
 ## Cross-stack scope
 
-- **MCP** — skipped / no-op. `manage_settings` (`app/mcp/tools/
-  manage_settings.rb`) never exposed YouTube / Voyage / webhook config —
-  `ALLOWED_KEYS` is `max_panes` / `pane_title_length` / `theme` only. No MCP
-  change. (MCP is paused per the roadmap regardless.)
+- **MCP** — skipped / no-op. `manage_settings`
+  (`app/mcp/tools/ manage_settings.rb`) never exposed YouTube / Voyage / webhook
+  config — `ALLOWED_KEYS` is `max_panes` / `pane_title_length` / `theme` only.
+  No MCP change. (MCP is paused per the roadmap regardless.)
 - **CLI / TUI (`pito` Rust binary)** — skipped. The CLI's `AppSettings` struct
   binds to `max_panes` / `pane_title_length` / `theme` from
   `SettingsController#settings_json`, which is unchanged. No wire-format change.
@@ -596,10 +594,11 @@ wire contract.
 ## Open questions
 
 1. **`Youtube::PublicClient` transitional `:youtube, :public_api_key` path.**
-   `public_client.rb` l.86 reads a third fallback `credentials.dig(:youtube,
-   :public_api_key)` that the inline comment says no install ever used.
-   Defensible call: drop it — dead path, and this unit is the cleanup moment.
-   Flagging only so the master agent can veto if there is an unknown install.
+   `public_client.rb` l.86 reads a third fallback
+   `credentials.dig(:youtube, :public_api_key)` that the inline comment says no
+   install ever used. Defensible call: drop it — dead path, and this unit is the
+   cleanup moment. Flagging only so the master agent can veto if there is an
+   unknown install.
 2. **`youtube_credentials_updated` audit enum value.** Enum value 7 in
    `AuthAuditLog`. Defensible call: leave the enum value reserved (do not
    renumber — enum values are durable), just remove it from
@@ -610,7 +609,7 @@ wire contract.
    `NotificationDeliveryChannel` row first, credentials second. Defensible call:
    keep the credentials fallback — it is harmless and matches the documented
    "legacy installs that wired the URL through credentials" path. Note this is
-   the dispatcher's `webhook_url` *value* lookup only; the delivery *gate* is
+   the dispatcher's `webhook_url` _value_ lookup only; the delivery _gate_ is
    now driven solely by the `NotificationDeliveryChannel` row (see Part 4). No
    change needed; flagging only for completeness.
 4. **Migration 2 (re-encrypt webhook URLs) — include it given it is a no-op?**

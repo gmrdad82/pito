@@ -158,8 +158,8 @@ below) — full enumeration lives in the spec; summary by layer:
   defensive webhook re-encrypt migration.
 - **Request specs** — Settings UI no longer exposes the YouTube / Voyage key
   panels; Slack / Discord panes still render and save.
-- **System specs** — the Slack / Discord settings screen renders + saves
-  exactly as before; the removed panels are gone.
+- **System specs** — the Slack / Discord settings screen renders + saves exactly
+  as before; the removed panels are gone.
 - **Initializer / boot spec** — omniauth still configures the `google_oauth2`
   strategy from credentials.
 
@@ -173,9 +173,9 @@ A1 is independent of A0 and of the audit-first screens — it can run in paralle
 > → `pito-rails` impl unit — NOT audit-first.
 
 Drops `email` from `User` and moves browser login to **username + password**.
-The operator does not run SMTP or any email service, so email backs nothing —
-it only carries account-existence risk and an unused format contract. Three
-changes land in lockstep:
+The operator does not run SMTP or any email service, so email backs nothing — it
+only carries account-existence risk and an unused format contract. Three changes
+land in lockstep:
 
 1. **email → username** — `users.email` (citext) is dropped and replaced by
    `users.username` (citext, NOT NULL, unique). The login form, sessions
@@ -188,9 +188,9 @@ changes land in lockstep:
    behind `totp_configured?`; an authenticated-but-unconfigured user is
    redirected into the TOTP setup flow until they finish. On a fresh seed the
    owner has no TOTP, so their first login is forced straight into enrollment.
-3. **Reset-password via 2FA** — with no email there is no forgot-password
-   email. A new `/password/reset` surface verifies username + a live TOTP code
-   (or a backup code), then lets the user set a new password. Treated as a
+3. **Reset-password via 2FA** — with no email there is no forgot-password email.
+   A new `/password/reset` surface verifies username + a live TOTP code (or a
+   backup code), then lets the user set a new password. Treated as a
    credential-recovery surface: throttled, no account-existence oracle, generic
    failure copy, session-invalidating on success.
 
@@ -218,32 +218,33 @@ master agent commits.
 below) — full enumeration lives in the spec; summary by layer:
 
 - **Model specs** — `username` validations (presence, length, format,
-  case-insensitive uniqueness, normalization); `email` column / validation
-  gone; `totp_configured?` truth table; `totp_uri` provisions against username.
+  case-insensitive uniqueness, normalization); `email` column / validation gone;
+  `totp_configured?` truth table; `totp_uri` provisions against username.
 - **Migration spec** — `email` + its index dropped, `username` + unique index
   added.
 - **Request specs** — login by username (happy / wrong-password / unknown /
   blank, no oracle); the mandatory-2FA gate blocks every non-allowlisted route
   and unblocks on enrollment; the full `/password/reset` flow (happy with TOTP
-  code, happy with backup code, every sad path, throttling, no
-  account-existence oracle, no session established on success); account-edit
-  form swaps to username.
+  code, happy with backup code, every sad path, throttling, no account-existence
+  oracle, no session established on success); account-edit form swaps to
+  username.
 - **System specs** — fresh-seed first-login journey (seed → login → forced TOTP
   setup → unblocked); password-reset-via-2FA end to end.
-- **Seed spec** — owner seeded from `credentials.owner.{username, password}`;
-  no Channel / Video / Project / Game / Collection / Note / Timeline rows
-  seeded; idempotent.
+- **Seed spec** — owner seeded from `credentials.owner.{username, password}`; no
+  Channel / Video / Project / Game / Collection / Note / Timeline rows seeded;
+  idempotent.
 
-A2 is independent of A0 and the audit-first screens — it can run in parallel.
-It touches `db/seeds.rb` alongside A1; the master agent sequences the two
+A2 is independent of A0 and the audit-first screens — it can run in parallel. It
+touches `db/seeds.rb` alongside A1; the master agent sequences the two
 `pito-rails` dispatches (one commits before the other starts) to keep the diff
 legible.
 
 **Docs impact (flagged for a `pito-docs` pass — A2 does NOT edit docs):**
-`CLAUDE.md` (the `User` architecture note + the `:owner` block in
-"Configuration strategy"), `docs/auth.md` (§1 login flow, §1a recovery snippet
-+ the new reset-via-2FA flow, §8b audit payloads, §9 throttles), `docs/setup.md`
-(§3 `:owner` block, §5 seed description).
+`CLAUDE.md` (the `User` architecture note + the `:owner` block in "Configuration
+strategy"), `docs/auth.md` (§1 login flow, §1a recovery snippet
+
+- the new reset-via-2FA flow, §8b audit payloads, §9 throttles), `docs/setup.md`
+  (§3 `:owner` block, §5 seed description).
 
 ---
 
@@ -335,23 +336,22 @@ before the master agent commits.
 
 - [x] A0 — Channel read-only conversion (architect-spec → rails impl, NOT
       audit-first; runs before the A-channels audit). Spec written on
-      greenlight. Rails impl landed 2026-05-14: channel is a read-only
-      mirror, the edit/preview/banner/watermark/diff surface removed, the
-      `channel_diffs` table dropped, star rides a dedicated
-      `channel_star` path, A0 regression specs green.
-- [x] A1 — AppSetting to credentials consolidation (architect-spec → rails
-      impl, NOT audit-first). Spec authored:
+      greenlight. Rails impl landed 2026-05-14: channel is a read-only mirror,
+      the edit/preview/banner/watermark/diff surface removed, the
+      `channel_diffs` table dropped, star rides a dedicated `channel_star` path,
+      A0 regression specs green.
+- [x] A1 — AppSetting to credentials consolidation (architect-spec → rails impl,
+      NOT audit-first). Spec authored:
       `specs/appsetting-credentials-consolidation.md`. Rails impl landed
       2026-05-14: the seven secret-bearing / orphaned columns dropped from
-      `app_settings` (Voyage + YouTube credentials + the orphaned
-      Slack/Discord `*_enabled` gate columns), every consumer re-sourced from
+      `app_settings` (Voyage + YouTube credentials + the orphaned Slack/Discord
+      `*_enabled` gate columns), every consumer re-sourced from
       `Rails.application.credentials`, the YouTube credentials Settings pane
-      removed and the Voyage pane slimmed to the non-secret indexing toggle,
-      the Slack/Discord delivery gate rewired to derive from the
-      `NotificationDeliveryChannel` row (fixing the silently-dead delivery
-      bug), and the `youtube_credentials_backfill` rake task deleted. A1
-      regression specs green; full suite at the pre-existing 24-failure
-      baseline.
+      removed and the Voyage pane slimmed to the non-secret indexing toggle, the
+      Slack/Discord delivery gate rewired to derive from the
+      `NotificationDeliveryChannel` row (fixing the silently-dead delivery bug),
+      and the `youtube_credentials_backfill` rake task deleted. A1 regression
+      specs green; full suite at the pre-existing 24-failure baseline.
 - [ ] A2 — User auth refactor: username login + mandatory 2FA (architect-spec →
       rails impl, NOT audit-first). Spec authored:
       `specs/user-auth-refactor.md`. Drops `users.email` for `users.username`,
