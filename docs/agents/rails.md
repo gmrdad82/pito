@@ -140,3 +140,11 @@ specs. Agents do not run the full suite themselves.
 - Updating documentation under `docs/` — route through pito-docs.
 - Writing in `extras/cli/`, `extras/website/` — those go to pito-rust /
   pito-astro respectively.
+
+## Pinging the user via Slack
+
+Any rails dispatch can trigger `pito-slack` with a message string to ping the
+user about long-running operations (spec sweeps starting / finishing, dev DB
+migrations applied, etc.). The master agent dispatches `pito-slack` with the
+verbatim message body and an optional channel override; default channel is
+the one in `docs/agents/slack.md`.
