@@ -1,28 +1,26 @@
-# Phase 25 — 01c (LD-13). Auth audit log row.
+# Auth audit log row.
 #
-# Every privileged auth action (approve / block / unblock / purge /
-# TOTP enroll / TOTP disable / backup-code regenerate) writes one row
-# via `Auth::AuditLogger`. The row is the canonical "who did what,
-# from where, to which target" record — distinct from `LoginAttempt`
-# (which is per-attempt). Never auto-pruned.
+# Every privileged auth action (TOTP enroll / disable, backup-code
+# regenerate, Voyage credential rotation, password reset) writes one
+# row via `Auth::AuditLogger`. The row is the canonical "who did
+# what, from where, to which target" record. Never auto-pruned.
 #
-# `source_surface` enum (`web` / `tui` / `mcp`) mirrors
-# `BlockedLocation#source_surface` so an approve from a CLI in-TUI
-# overlay vs an approve from the MCP tool is durable in the audit
-# trail.
-#
-# `action` enum is the LD-13 vocabulary. The 01c sub-spec only
-# writes `approve` and `block`; the other values are pre-declared so
-# 01d / 01e / 01f need no further migration.
+# `source_surface` enum (`web` / `tui` / `mcp`) records where the
+# action originated so a TOTP disable from a CLI in-TUI overlay vs an
+# MCP tool is durable in the audit trail.
 #
 # `target_type` + `target_id` are a polymorphic pointer (NOT a
 # `belongs_to :target, polymorphic: true` — the polymorphic
 # association would create accidental dependent-destroy paths and we
 # never want the audit row to follow the target into deletion). The
-# target is the row the action was performed on: usually a
-# `LoginAttempt` (approve / block / pending-resolve), sometimes a
-# `BlockedLocation` (unblock / purge), or `User` (TOTP enroll /
-# disable / backup-code regenerate).
+# target is usually `User` (TOTP enroll / disable / backup-code
+# regenerate / password reset) or `AppSetting` (Voyage credential
+# rotation).
+#
+# Post-Phase-25 rollback: the new-location approval vocabulary
+# (`approve`, `block`, `unblock`, `purge`) and the
+# `LoginAttempt` / `BlockedLocation` polymorphic targets are gone
+# along with the corresponding controllers and services.
 #
 # `metadata` is a free-form jsonb bag for sub-spec-specific extras
 # (e.g., the resolved fingerprint short hash, the IP prefix, the
@@ -44,33 +42,25 @@ class AuthAuditLog < ApplicationRecord
     mcp: 2
   }, prefix: :source
 
-  # LD-13 full vocabulary. 01c writes `approve` and `block`. The other
-  # values are pre-declared so 01d–01f land without another migration.
+  # Post-Phase-25 rollback: the location-tied vocabulary
+  # (`approve`, `block`, `unblock`, `purge`) dropped from the active
+  # allowlist along with the new-location approval surface. Their
+  # integer enum values (`0..3`) stay RESERVED — enum values are
+  # durable, do not renumber.
   #
-  # 2026-05-11 F3 — added two credential-rotation actions. Phase 29
-  # Unit A1 dropped the YouTube credentials Settings pane, so
+  # Phase 29 Unit A1 dropped the YouTube credentials Settings pane, so
   # `youtube_credentials_updated` (value 7) is no longer emitted by
-  # any code path — the enum value stays RESERVED (durable; never
-  # renumber). `voyage_credentials_updated` stays active: the slimmed
-  # Voyage pane emits it on the `voyage_index_project_notes` flag
-  # write via `SettingsController#update_voyage`. `target_type` is
-  # `AppSetting` (singleton row); `metadata` carries `changed_fields`
-  # — the list of column names that mutated, never the values.
+  # any code path — also RESERVED. `voyage_credentials_updated` stays
+  # active: the slimmed Voyage pane emits it on the
+  # `voyage_index_project_notes` flag write via
+  # `SettingsController#update_voyage`.
   #
-  # Phase 29 — Unit A2 — added `password_reset` (value 9). Written by
+  # Phase 29 — Unit A2 — `password_reset` (value 9). Written by
   # `PasswordResetsController#update` on a successful reset-via-2FA.
-  # `target` is the `User` whose password was reset; `metadata`
-  # carries `reset_user_id`. Integer-backed enum — the new value
-  # needs no migration.
   enum :action, {
-    approve: 0,
-    block: 1,
-    unblock: 2,
-    purge: 3,
     totp_enroll: 4,
     totp_disable: 5,
     backup_code_regenerate: 6,
-    youtube_credentials_updated: 7,
     voyage_credentials_updated: 8,
     password_reset: 9
   }, prefix: :action

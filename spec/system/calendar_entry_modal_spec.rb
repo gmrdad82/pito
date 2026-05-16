@@ -13,8 +13,9 @@ RSpec.describe "Calendar entry modal (SSR scaffold)", type: :system do
   before { driven_by(:rack_test) }
 
   it "month grid mounts a single calendar-entry-modal dialog" do
-    AppSetting.delete_all
-    AppSetting.create!(key: "tz_seed", value: "x", timezone: "UTC")
+    # Phase 29 (settings refactor) — install timezone moved out of
+    # AppSetting into `Rails.application.config.x.pito.timezone`.
+    allow(Rails.application.config.x.pito).to receive(:timezone).and_return("UTC")
     create(:calendar_entry, :milestone_manual,
            starts_at: Time.zone.local(2026, 5, 15, 12, 0))
     visit "/calendar/month/2026/05"
@@ -32,8 +33,9 @@ RSpec.describe "Calendar entry modal (SSR scaffold)", type: :system do
   end
 
   it "month grid: chip wires the modal-open Stimulus action with the details_pane URL" do
-    AppSetting.delete_all
-    AppSetting.create!(key: "tz_seed", value: "x", timezone: "UTC")
+    # Phase 29 (settings refactor) — install timezone moved out of
+    # AppSetting into `Rails.application.config.x.pito.timezone`.
+    allow(Rails.application.config.x.pito).to receive(:timezone).and_return("UTC")
     ce = create(:calendar_entry, :milestone_manual,
                 starts_at: Time.zone.local(2026, 5, 15, 12, 0),
                 title: "podcast")

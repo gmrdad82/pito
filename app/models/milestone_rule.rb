@@ -63,7 +63,7 @@ class MilestoneRule < ApplicationRecord
     transaction do
       update!(fired_at: fired_at)
 
-      tz = AppSetting.first&.timezone || "UTC"
+      tz = Rails.application.config.x.pito.timezone
       CalendarEntry.create!(
         entry_type: :milestone_auto,
         source: :auto,

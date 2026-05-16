@@ -53,14 +53,15 @@ RSpec.describe "OAuth authorization", type: :request do
 
     # Phase 7.5 connector hardening — the consent page must render
     # inside Pito's `application` layout, not Doorkeeper's bundled
-    # `doorkeeper/application` layout. We verify three layout markers
-    # that ONLY exist in Pito's layout: the `data-theme-preference`
-    # html-tag attribute, the page title's `~ pito` suffix, and the
-    # `application-name` meta tag. If any of these are missing we are
-    # back to Doorkeeper's bundled chrome.
+    # `doorkeeper/application` layout.
     #
-    # See `config/initializers/doorkeeper_layout.rb`.
-    it "renders inside Pito's application layout (data-theme-preference + title + meta)" do
+    # Phase 29 (settings refactor) — `data-theme-preference` was
+    # dropped from the layout (theme persistence moved to localStorage
+    # only). We now verify two Pito-layout markers that survive: the
+    # page title's `~ pito` suffix and the `application-name` meta
+    # tag. If either is missing we are back to Doorkeeper's bundled
+    # chrome. See `config/initializers/doorkeeper_layout.rb`.
+    it "renders inside Pito's application layout (title + meta)" do
       sign_in_as(user)
       get "/oauth/authorize", params: {
         response_type: "code",
@@ -72,9 +73,10 @@ RSpec.describe "OAuth authorization", type: :request do
       }
 
       expect(response).to have_http_status(:ok)
-      expect(response.body).to include("data-theme-preference=")
       expect(response.body).to match(/<title>[^<]*~ pito<\/title>/)
       expect(response.body).to include('<meta name="application-name" content="pito">')
+      # The dropped `data-theme-preference` attribute must NOT be back.
+      expect(response.body).not_to include("data-theme-preference=")
     end
 
     it "rejects an authorization request without PKCE for a public client" do

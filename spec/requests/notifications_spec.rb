@@ -233,10 +233,10 @@ RSpec.describe "Notifications", type: :request do
 
     it "omits the layout (no header / footer chrome)" do
       get "/notifications?modal=yes"
-      # The layout renders the `<header>` chrome and the keyboard
-      # shortcuts modal. Layout-less mode strips both.
+      # The layout renders the `<header>` chrome; layout-less mode
+      # strips it. (The legacy `keyboard-shortcuts-modal` assertion
+      # was dropped 2026-05-16 alongside the help-modal deletion.)
       expect(response.body).not_to include("<header")
-      expect(response.body).not_to include("keyboard-shortcuts-modal")
     end
 
     it "wraps the body in the matching Turbo Frame" do

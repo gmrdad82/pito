@@ -392,4 +392,156 @@ RSpec.describe ApplicationHelper, type: :helper do
       expect(helper.middle_truncate("", head: 8, tail: 8)).to eq("")
     end
   end
+
+  # 2026-05-16 polish. The renderer gained a `target_external_links:`
+  # keyword that post-processes anchors so:
+  #   - every `<a>` adopts pito's bracketed-link visual chrome
+  #     (`class="bracketed"` + literal `[…]` wrapping a `.bl` span
+  #     around the original label), matching `BracketedLinkComponent`
+  #     and `ApplicationHelper#nav_link` so markdown-rendered links
+  #     look like every other clickable element in the app, AND
+  #   - every absolute http/https link additionally opens in a new
+  #     tab with `rel="noopener noreferrer"` — the hard-rule pairing
+  #     from `docs/design.md` → "External links — new tab convention".
+  #
+  # The unit spec exercises every branch of the rewriter directly
+  # (absolute http/https, relative, anchor, mailto, prior rel and prior
+  # class preserved, nested inline markup) so a behavior change
+  # anywhere in the rewrite path lights up before higher-level view
+  # specs catch it.
+  describe "#render_markdown(target_external_links:)" do
+    it "returns blank for blank input" do
+      expect(helper.render_markdown("", target_external_links: true)).to eq("")
+      expect(helper.render_markdown(nil, target_external_links: true)).to eq("")
+    end
+
+    it "leaves markdown without anchors untouched" do
+      out = helper.render_markdown("plain prose with no links", target_external_links: true)
+      expect(out).to include("plain prose with no links")
+      expect(out).not_to include("target=")
+      expect(out).not_to include("class=\"bracketed\"")
+    end
+
+    it "rewrites an absolute https link to target=_blank rel='noopener noreferrer'" do
+      out = helper.render_markdown("[slack](https://api.slack.com/apps)", target_external_links: true)
+      doc = Nokogiri::HTML5.fragment(out)
+      anchor = doc.at_css("a")
+      expect(anchor["href"]).to eq("https://api.slack.com/apps")
+      expect(anchor["target"]).to eq("_blank")
+      expect(anchor["rel"].split).to include("noopener", "noreferrer")
+    end
+
+    it "rewrites an absolute http link the same way" do
+      out = helper.render_markdown("[ex](http://example.com)", target_external_links: true)
+      anchor = Nokogiri::HTML5.fragment(out).at_css("a")
+      expect(anchor["target"]).to eq("_blank")
+      expect(anchor["rel"].split).to include("noopener", "noreferrer")
+    end
+
+    it "leaves a relative `/foo` link's target/rel alone (internal navigation)" do
+      out = helper.render_markdown("[home](/settings)", target_external_links: true)
+      anchor = Nokogiri::HTML5.fragment(out).at_css("a")
+      expect(anchor["target"]).to be_nil
+      expect(anchor["rel"]).to be_nil
+    end
+
+    it "leaves a `mailto:` link's target/rel alone (no http scheme)" do
+      out = helper.render_markdown("[mail](mailto:hi@example.com)", target_external_links: true)
+      anchor = Nokogiri::HTML5.fragment(out).at_css("a")
+      expect(anchor["target"]).to be_nil
+    end
+
+    it "is a no-op when target_external_links is false (default)" do
+      out = helper.render_markdown("[slack](https://api.slack.com/apps)")
+      anchor = Nokogiri::HTML5.fragment(out).at_css("a")
+      expect(anchor["target"]).to be_nil
+      expect(anchor["rel"]).to be_nil
+      # Bracket chrome is also gated on the flag — the note editor
+      # preview path renders without it and must keep plain anchors.
+      expect(anchor["class"]).to be_nil
+      expect(out).not_to include("[<span class=\"bl\"")
+    end
+
+    # Bracket-chrome contract — applies to EVERY anchor in the
+    # decorated fragment, internal as well as external, because the
+    # bracketed-link convention is universal in pito (see
+    # `docs/design.md`). The markup mirrors `BracketedLinkComponent`'s
+    # template: `class="bracketed"` on the `<a>`, literal `[` + `]`
+    # text characters wrapping a `<span class="bl">…</span>` around the
+    # original label.
+    describe "bracketed-link chrome" do
+      it "adds class='bracketed' to an external anchor" do
+        out = helper.render_markdown("[slack](https://api.slack.com/apps)", target_external_links: true)
+        anchor = Nokogiri::HTML5.fragment(out).at_css("a")
+        expect(anchor["class"].to_s.split).to include("bracketed")
+      end
+
+      it "adds class='bracketed' to an internal (relative) anchor too" do
+        out = helper.render_markdown("[home](/settings)", target_external_links: true)
+        anchor = Nokogiri::HTML5.fragment(out).at_css("a")
+        expect(anchor["class"].to_s.split).to include("bracketed")
+      end
+
+      it "adds class='bracketed' to a mailto anchor too" do
+        out = helper.render_markdown("[mail](mailto:hi@example.com)", target_external_links: true)
+        anchor = Nokogiri::HTML5.fragment(out).at_css("a")
+        expect(anchor["class"].to_s.split).to include("bracketed")
+      end
+
+      it "wraps the external-anchor label in literal [ + span.bl + ]" do
+        out = helper.render_markdown("[Slack apps directory](https://api.slack.com/apps)", target_external_links: true)
+        anchor = Nokogiri::HTML5.fragment(out).at_css("a")
+        # Inner HTML is exactly the bracketed-span sandwich. The square
+        # brackets are literal text nodes; the `.bl` span owns the label.
+        expect(anchor.inner_html).to eq('[<span class="bl">Slack apps directory</span>]')
+      end
+
+      it "wraps the internal-anchor label in literal [ + span.bl + ] (same chrome)" do
+        out = helper.render_markdown("[home](/settings)", target_external_links: true)
+        anchor = Nokogiri::HTML5.fragment(out).at_css("a")
+        expect(anchor.inner_html).to eq('[<span class="bl">home</span>]')
+      end
+
+      it "preserves nested inline markup inside the .bl span" do
+        # `[*emphasized*](…)` produces `<a><em>emphasized</em></a>` from
+        # Commonmarker. The decorator must wrap inner_html (not text),
+        # so the `<em>` stays inside the `.bl` span instead of being
+        # flattened to plain text.
+        out = helper.render_markdown("[*emphasized*](https://example.com)", target_external_links: true)
+        anchor = Nokogiri::HTML5.fragment(out).at_css("a")
+        expect(anchor.inner_html).to eq('[<span class="bl"><em>emphasized</em></span>]')
+      end
+
+      it "appends 'bracketed' to existing classes when called on an HTML fragment that has them" do
+        # Commonmarker's plain markdown rarely emits class attributes on
+        # anchors, but `decorate_links` is also reusable on arbitrary
+        # HTML fragments. Append, never replace, so any caller-applied
+        # styling survives.
+        html = '<a href="/settings" class="muted danger">x</a>'
+        out = helper.decorate_links(html)
+        anchor = Nokogiri::HTML5.fragment(out).at_css("a")
+        classes = anchor["class"].to_s.split
+        expect(classes).to include("muted", "danger", "bracketed")
+      end
+
+      it "does not duplicate 'bracketed' if the anchor already has it" do
+        html = '<a href="https://example.com" class="bracketed">x</a>'
+        out = helper.decorate_links(html)
+        anchor = Nokogiri::HTML5.fragment(out).at_css("a")
+        expect(anchor["class"].to_s.split.count("bracketed")).to eq(1)
+      end
+    end
+
+    it "preserves and de-duplicates pre-existing rel tokens" do
+      # Markdown source can't ship raw `rel="…"`, but the
+      # `decorate_links` helper is reused on HTML fragments that may
+      # already carry a `rel` (future call sites). De-dup keeps the
+      # attribute clean instead of stacking duplicates on rewrites.
+      html = '<a href="https://example.com" rel="noopener author">x</a>'
+      out = helper.decorate_links(html)
+      anchor = Nokogiri::HTML5.fragment(out).at_css("a")
+      rel_tokens = anchor["rel"].split
+      expect(rel_tokens).to contain_exactly("noopener", "author", "noreferrer")
+    end
+  end
 end

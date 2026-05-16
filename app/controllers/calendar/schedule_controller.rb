@@ -16,7 +16,7 @@ class Calendar::ScheduleController < ApplicationController
   skip_before_action :verify_authenticity_token, if: -> { request.format.json? }
 
   def show
-    @install_tz = AppSetting.first&.timezone || "UTC"
+    @install_tz = Rails.application.config.x.pito.timezone
 
     scope = CalendarEntry.all
     scope = scope.visible unless params[:state] == "all"

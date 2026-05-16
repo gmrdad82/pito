@@ -1,0 +1,174 @@
+<%# Phase 29 (settings refactor) — security pane (row 1 right).
+    Phase 32 follow-up (2026-05-16) — 2FA / TOTP cleanup.
+    Post-Phase-25 rollback — the auto-block list + locations modal
+    launcher were removed along with the new-location approval
+    surface.
+
+    2026-05-16 (sessions revamp v2):
+
+      * The "2FA: on / active sessions: N" helper copy + the
+        "active sessions open in a modal." / "the direct link still
+        works for JS-off clients." prose are gone — 2FA is mandatory
+        (the gate forces enrollment), session counts and modal-vs-
+        direct framing are noise.
+      * The `[ sessions ]` modal launcher is gone. The sessions table
+        renders INLINE inside this pane.
+      * The `[ 2FA / TOTP ]` launcher was already dropped — the
+        surface it opened (manage + disable + backup-code rotation)
+        moved to operator rake tasks. 2FA enrollment itself is
+        forced via the mandatory-2FA gate's auto-open modal on
+        `/settings?enroll_totp=1`.
+
+    2026-05-16 (sessions revamp v3 — modal-confirm):
+
+      * The standalone `/settings/sessions/revokes/:ids` action-screen
+        confirmation page is GONE. Bulk revoke now opens an in-page
+        `<dialog>` confirm modal mounted at the bottom of this pane,
+        following the same convention as the reindex modal in
+        `_stack_pane.html.erb` (page-level mount keeps the CSRF token
+        bound to the current session; `form_with` ensures the hidden
+        `authenticity_token` is valid). The `sessions-bulk-revoke`
+        Stimulus controller is extended to populate the modal's
+        title text, conditional warning, and form `action` at click
+        time — the modal is one shared instance, content is dynamic
+        based on the current checkbox selection. %>
+<div class="pane">
+  <fieldset style="padding: 8px;" data-controller="sessions-bulk-revoke">
+    <legend><h2>security</h2></legend>
+
+    <% if @sessions.any? %>
+      <%# Idle bulk-revoke toolbar — `[revoke]` muted/non-clickable
+          until at least one checkbox is ticked. The
+          `sessions-bulk-revoke` Stimulus controller mutates the
+          anchor's text + classes in place as the selection changes.
+          Clicking the live `[revoke N]` link opens the in-page
+          `<dialog>` confirm modal mounted at the bottom of this
+          pane (no navigation — the old action-screen page is gone). %>
+      <div class="bulk-toolbar" style="margin-bottom: 6px;">
+        <span class="action">
+          <a data-sessions-bulk-revoke-target="link" class="bracketed-muted">[revoke]</a>
+        </span>
+      </div>
+
+      <%# Tight table — mirrors the `/channels` density. Columns:
+          checkbox / user-agent / pinged.
+
+          2026-05-16 (sessions revamp v2 polish): the standalone `ip`
+          column is gone. The IP value is now an inline
+          `TooltipBadgeComponent` rendered at the END of the
+          user-agent cell — `[ip]` reveals the address on hover.
+          The current-row `(this session)` muted text is replaced by
+          a `[this]` neutral status badge sitting after the `[ip]`
+          badge. The `sessions.ip` database column is UNTOUCHED —
+          only the rendered column is dropped.
+
+          The `active` column was dropped earlier (the visible set is
+          filtered to active-only) and the `remember` column was
+          dropped along with the `sessions.remember` database column.
+          Sortable headers drive `?sessions_sort=<key>&sessions_dir=
+          <asc|desc>` on `/settings` itself. %>
+      <table class="sessions-table" style="table-layout: auto;">
+        <thead>
+          <tr>
+            <th class="col-action">
+              <%= render(CheckboxComponent.new(data: { sessions_bulk_revoke_target: "headerCheckbox", action: "change->sessions-bulk-revoke#toggleAll" })) %>
+            </th>
+            <th class="sortable"><%= sort_link_to("user-agent", "user_agent", current_sort: @sessions_sort, current_dir: @sessions_dir, sort_param: "sessions_sort", dir_param: "sessions_dir") %></th>
+            <th class="sortable num"><%= sort_link_to("pinged", "last_activity", current_sort: @sessions_sort, current_dir: @sessions_dir, sort_param: "sessions_sort", dir_param: "sessions_dir") %></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% @sessions.each do |s| %>
+            <tr>
+              <td class="col-action">
+                <%= render(CheckboxComponent.new(
+                  value: s.id,
+                  data: {
+                    sessions_bulk_revoke_target: "checkbox",
+                    action: "change->sessions-bulk-revoke#toggle",
+                    current: s.current? ? "yes" : "no"
+                  }
+                )) %>
+              </td>
+              <td style="max-width: 360px; white-space: normal;">
+                <code><%= s.user_agent.presence || "—" %></code><%= render(TooltipBadgeComponent.new(label: "ip", tooltip: s.ip || "—")) %><% if s.current? %><%= render(StatusBadgeComponent.new(label: "this", kind: :success)) %><% end %>
+              </td>
+              <td class="num"><%= compact_time_ago(s.last_activity_at) %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    <% else %>
+      <p class="text-muted" style="margin: 0;">no active sessions.</p>
+    <% end %>
+
+    <%# Revoke-sessions confirm modal (2026-05-16 revamp v3).
+
+        One shared `<dialog>` mounted at the pane level. The
+        `sessions-bulk-revoke` Stimulus controller populates the
+        title (`revoke N session(s)?`), the conditional warning
+        (`this set includes your current session. revoking it signs
+        you out.`), and the form `action` attribute at click time
+        based on the current checkbox selection.
+
+        Page-level mount mirrors the reindex modal in
+        `_stack_pane.html.erb` — the hidden `authenticity_token`
+        baked by `form_with` is rendered in a real request context
+        with a session-bound CSRF token, so submitting from the
+        modal never trips `InvalidAuthenticityToken`. (A
+        broadcast-driven render in a job context has no `request` /
+        `session` and would bake an unbound token — same hazard
+        called out in `_voyage_section.html.erb`.)
+
+        The form `action` carries a literal `0` ids segment at render
+        time (the route constraint `[0-9,]+` requires a digit, and
+        `0` is filtered out by `parse_ids` server-side as a safety
+        net — so a hand-crafted POST to the placeholder URL is a
+        no-op). Stimulus rewrites the segment to
+        `/settings/sessions/revokes/<real-ids>` when the modal opens.
+        The hidden `confirm=yes` param mirrors what the deleted
+        action-screen used to submit; `BulkRevokesController#create`
+        still gates on it. %>
+    <% if @sessions.any? %>
+      <dialog id="revoke_sessions_modal" class="confirm-modal"
+              data-controller="confirm-modal"
+              data-action="click->confirm-modal#clickOutside keydown->confirm-modal#keydown"
+              data-sessions-bulk-revoke-target="modal">
+        <div class="confirm-modal-inner">
+          <div class="dialog-title" data-sessions-bulk-revoke-target="modalTitle">revoke 0 sessions?</div>
+          <div class="dialog-message" data-sessions-bulk-revoke-target="modalWarning" hidden>
+            <p style="margin: 0;">this set includes your current session.</p>
+            <p style="margin: 0;">revoking it signs you out.</p>
+          </div>
+          <div class="confirm-modal-actions modal-footer">
+            <%# 2026-05-16 CSRF refresh — the hidden `authenticity_token`
+                baked by `form_with` at page render is bound to the
+                current session, BUT it can go stale if the session
+                rotates between page render and confirm-click (TOTP
+                gate completion, sign-in elsewhere in the tab, etc.).
+                The `submit->sessions-bulk-revoke#refreshCsrf` action
+                copies the current `<meta name="csrf-token">` value
+                into the form's hidden token field immediately before
+                the native POST fires — guarantees the request carries
+                the page's freshest token regardless of why the baked
+                value might be invalid. The handler does NOT
+                `preventDefault()`; the native submit proceeds. %>
+            <%= form_with url: settings_sessions_bulk_revoke_path(ids: "0"),
+                          method: :post,
+                          authenticity_token: true,
+                          data: {
+                            turbo: false,
+                            sessions_bulk_revoke_target: "modalForm",
+                            action: "submit->sessions-bulk-revoke#refreshCsrf"
+                          },
+                          html: { style: "display: inline;" } do %>
+              <input type="hidden" name="confirm" value="yes">
+              <button type="submit" class="bracketed text-danger">[<span class="bl">revoke</span>]</button>
+            <% end %>
+            <button type="button" class="bracketed" data-action="confirm-modal#close">[<span class="bl">cancel</span>]</button>
+          </div>
+        </div>
+      </dialog>
+    <% end %>
+  </fieldset>
+</div>

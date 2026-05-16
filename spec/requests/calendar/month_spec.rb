@@ -281,8 +281,9 @@ RSpec.describe "Calendar::Month", type: :request do
     end
 
     it "year-boundary entry on Dec 31 (Europe/Madrid late evening) appears in Dec grid" do
-      AppSetting.delete_all
-      AppSetting.create!(key: "tz_seed", value: "x", timezone: "Europe/Madrid")
+      # Phase 29 (settings refactor) — install timezone now lives in
+      # `Rails.application.config.x.pito.timezone`, not on AppSetting.
+      allow(Rails.application.config.x.pito).to receive(:timezone).and_return("Europe/Madrid")
       tz = ActiveSupport::TimeZone["Europe/Madrid"]
       e = create(:calendar_entry, :custom,
                  starts_at: tz.local(2026, 12, 31, 23, 30),

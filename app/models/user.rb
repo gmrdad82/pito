@@ -16,8 +16,9 @@ class User < ApplicationRecord
 
   # Phase 25 — 01e. Backup codes. Ten single-use codes minted on
   # enable; each row carries a BCrypt digest (never the plaintext).
-  # `dependent: :destroy` so a user delete cascades; `Auth::TotpDisabler`
-  # destroys rows directly when 2FA is turned off.
+  # `dependent: :destroy` so a user delete cascades. 2FA is mandatory
+  # (Phase 29 — Unit A2), so there is no disable path that destroys
+  # backup codes outside the cascade.
   has_many :totp_backup_codes, dependent: :destroy
 
   # Phase 26 — 01a. Timezone foundation. UTC-storage / user-tz-render
@@ -40,12 +41,6 @@ class User < ApplicationRecord
   # connection's `dependent: :nullify` then preserves the user's
   # channels.
   has_many :youtube_connections, dependent: :destroy
-
-  # Phase 25 — 01b. Trusted-location lookups + pending-session
-  # introspection. Used by `Auth::NewLocationDetector` and the
-  # security dashboard's pending counter.
-  has_many :trusted_locations, dependent: :destroy
-  has_many :login_attempts, dependent: :nullify
 
   # Phase 27 — 01d. Display mode switcher + three modes on `/games`.
   # The user's persisted choice of `/games` view. Default `grid` (0).
@@ -78,22 +73,6 @@ class User < ApplicationRecord
             length: { in: 3..32 },
             format: { with: USERNAME_FORMAT },
             uniqueness: { case_sensitive: false }
-
-  # Phase 25 — 01b. True iff the (fingerprint, ip_prefix) pair is in
-  # this user's trusted-location list. Wraps `TrustedLocation.trusted?`
-  # for callers that already hold a `User`. Returns `false` on a
-  # nil/blank input rather than raising — the caller's contract is "is
-  # this user known here", not "validate the input".
-  def trusted_location?(fingerprint:, ip_prefix:)
-    TrustedLocation.trusted?(self, fingerprint, ip_prefix)
-  end
-
-  # Phase 25 — 01b. True iff this user has at least one pending-approval
-  # session whose `approval_required_until` is still in the future.
-  # Surfaced on `/settings/security` and via the MCP read tool.
-  def has_pending_session?
-    sessions.pending_within_window.exists?
-  end
 
   # Phase 25 — 01e. TOTP 2FA helpers. `totp_enabled?` is the single
   # canonical truth check — the seed is present AND no disable stamp

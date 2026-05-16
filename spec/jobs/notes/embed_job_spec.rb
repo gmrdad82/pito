@@ -6,17 +6,13 @@ RSpec.describe Notes::EmbedJob, type: :job do
 
   let(:tmp_root) { Dir.mktmpdir("pito-notes-embed-spec") }
 
-  # Phase 29 — Unit A1. The Voyage API key moved out of the AppSetting
-  # `voyage_api_key` column (dropped) and back into
-  # `Rails.application.credentials.voyage.api_key` (flat block, shared
-  # across environments). Specs stub the `:voyage` credentials block
-  # instead of the column. The `voyage_index_project_notes` flag stays
-  # on the AppSetting row.
-  #
-  # The full Voyage helper surface (including `stub_voyage_embed`) lives
-  # in `spec/support/voyage.rb`; we still define the key-stub helper
-  # locally because it predates the support module and is used purely
-  # for the credential-presence branches below.
+  # Phase 29 (settings refactor) — the per-target
+  # `voyage_index_project_notes` flag column was dropped along with the
+  # Voyage.ai pane. `voyage_indexing_project_notes?` is now a thin alias
+  # for `voyage_configured?` (credentials key presence is the only
+  # signal). Specs stub the credentials key directly; the dual check in
+  # the job still ANDs the two predicates, which both resolve to the
+  # same boolean today.
   def stub_voyage_credentials_key(value)
     allow(Rails.application.credentials).to receive(:dig).and_call_original
     allow(Rails.application.credentials).to receive(:dig)
@@ -39,16 +35,11 @@ RSpec.describe Notes::EmbedJob, type: :job do
     FileUtils.remove_entry(tmp_root) if File.exist?(tmp_root)
   end
 
-  # The Voyage gate ANDs the per-target `voyage_indexing_project_notes?`
-  # flag with the `voyage_configured?` (credentials key present?) check.
-  # BOTH must be true for the job to call Voyage; the job must
-  # short-circuit cleanly when either is false.
-  describe "#perform with voyage_indexing_project_notes? false (default)" do
-    before do
-      AppSetting.find_or_create_by!(key: "voyage_test") { |r| r.value = "x" }
-        .update!(voyage_index_project_notes: false)
-      stub_voyage_credentials_key("vk_from_credentials")
-    end
+  # No credentials key configured → the job's gate short-circuits and
+  # we never hit Voyage. The note still indexes in Meilisearch (BM25
+  # only) so keyword search keeps working.
+  describe "#perform with no Voyage credentials key" do
+    before { stub_voyage_credentials_key(nil) }
 
     it "does NOT call the Voyage API" do
       described_class.new.perform(note.id)
@@ -66,12 +57,10 @@ RSpec.describe Notes::EmbedJob, type: :job do
     end
   end
 
-  describe "#perform with voyage_indexing_project_notes? true and key configured" do
+  describe "#perform with a Voyage credentials key configured" do
     let(:fake_embedding) { Array.new(1024) { 0.0 } }
 
     before do
-      record = AppSetting.first || AppSetting.create!(key: "voyage_test", value: "x")
-      record.update!(voyage_index_project_notes: true)
       stub_voyage_credentials_key("vk_from_credentials")
 
       stub_request(:post, "https://api.voyageai.com/v1/embeddings")
@@ -104,44 +93,12 @@ RSpec.describe Notes::EmbedJob, type: :job do
     end
   end
 
-  # Defensive belt-and-suspenders: if the flag is on but no Voyage key
-  # is configured in credentials, the job's dual check must still
-  # short-circuit before any Voyage HTTP call.
-  describe "#perform with voyage_indexing_project_notes? true but credentials key blank" do
-    before do
-      record = AppSetting.first || AppSetting.create!(key: "voyage_test", value: "x")
-      record.update!(voyage_index_project_notes: true)
-      stub_voyage_credentials_key(nil)
-    end
+  # Defensive: blank string (whitespace-only) credentials are treated
+  # the same as nil by the gate.
+  describe "#perform with a whitespace-only credentials key" do
+    before { stub_voyage_credentials_key("   ") }
 
     it "does NOT call the Voyage API" do
-      described_class.new.perform(note.id)
-      expect(WebMock).not_to have_requested(:post, /api\.voyageai\.com/)
-    end
-
-    it "leaves notes.embedding NULL" do
-      described_class.new.perform(note.id)
-      expect(note.reload.embedding).to be_nil
-    end
-
-    it "still indexes the note text in Meilisearch (BM25 only)" do
-      described_class.new.perform(note.id)
-      expect(WebMock).to have_requested(:post, %r{notes_test/documents}).once
-    end
-  end
-
-  # The flag must be on for the call to fire even when credentials carry
-  # a key — `resolve_api_key` reads credentials, `voyage_configured?`
-  # also reads credentials, but the per-target flag gates the whole
-  # branch. Flag off → no Voyage call regardless of the key.
-  describe "#perform when the credentials key is present but the flag is off" do
-    before do
-      record = AppSetting.first || AppSetting.create!(key: "voyage_test", value: "x")
-      record.update!(voyage_index_project_notes: false)
-      stub_voyage_credentials_key("voyage-key-from-creds")
-    end
-
-    it "does NOT call Voyage (the per-target flag gates the branch)" do
       described_class.new.perform(note.id)
       expect(WebMock).not_to have_requested(:post, /api\.voyageai\.com/)
     end

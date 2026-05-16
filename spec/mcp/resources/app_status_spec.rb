@@ -98,28 +98,18 @@ RSpec.describe Mcp::Resources::AppStatus do
       expect(payload["search_stats"]).to eq({})
     end
 
-    it "uses '(default: ...)' placeholders when AppSetting rows are absent" do
-      AppSetting.where(key: %w[max_panes pane_title_length theme]).destroy_all
-
+    # Phase 29 (settings refactor) — workspace knobs (`max_panes`,
+    # `pane_title_length`) moved out of AppSetting into `config/pito.yml`
+    # (loaded once at boot into `Rails.application.config.x.pito.*`).
+    # Theme moved to localStorage only; the MCP surface returns a static
+    # `"auto"` placeholder so the contract stays intact.
+    it "surfaces config.x.pito values for the workspace knobs and a static auto theme" do
       out = described_class.read("pito://status")
       payload = JSON.parse(out.first[:text])
 
-      expect(payload["settings"]["max_panes"]).to eq("(default: 3)")
-      expect(payload["settings"]["pane_title_length"]).to eq("(default: 14)")
+      expect(payload["settings"]["max_panes"]).to eq(Rails.application.config.x.pito.max_panes)
+      expect(payload["settings"]["pane_title_length"]).to eq(Rails.application.config.x.pito.pane_title_length)
       expect(payload["settings"]["theme"]).to eq("auto")
-    end
-
-    it "surfaces concrete AppSetting values when present" do
-      AppSetting.set("max_panes", "5")
-      AppSetting.set("pane_title_length", "20")
-      AppSetting.set("theme", "dark")
-
-      out = described_class.read("pito://status")
-      payload = JSON.parse(out.first[:text])
-
-      expect(payload["settings"]["max_panes"]).to eq("5")
-      expect(payload["settings"]["pane_title_length"]).to eq("20")
-      expect(payload["settings"]["theme"]).to eq("dark")
     end
 
     it "returns a text/plain error payload when the read fundamentally fails" do

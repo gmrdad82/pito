@@ -73,8 +73,10 @@ RSpec.describe CalendarHelper, type: :helper do
     end
 
     it "uses the install timezone when computing the weekday" do
-      AppSetting.delete_all
-      AppSetting.create!(key: "tz_seed", value: "x", timezone: "America/Los_Angeles")
+      # Phase 29 (settings refactor) — install-level timezone moved
+      # from `AppSetting#timezone` (column dropped) to
+      # `Rails.application.config.x.pito.timezone`.
+      allow(Rails.application.config.x.pito).to receive(:timezone).and_return("America/Los_Angeles")
       # 2026-05-15 02:00 UTC = 2026-05-14 19:00 LA → still thu in LA.
       e = build(:calendar_entry, :custom,
                 starts_at: Time.zone.parse("2026-05-15 02:00:00 UTC"))

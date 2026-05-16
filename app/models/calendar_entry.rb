@@ -169,7 +169,7 @@ class CalendarEntry < ApplicationRecord
 
   def stamp_install_timezone
     return if timezone.present?
-    self.timezone = AppSetting.first&.timezone || "UTC"
+    self.timezone = Rails.application.config.x.pito.timezone
   end
 
   def reject_writes_to_derived_outside_user_overrides

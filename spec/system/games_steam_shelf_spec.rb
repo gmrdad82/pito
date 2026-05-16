@@ -63,9 +63,16 @@ RSpec.describe "Games steam-shelf", type: :system do
     it "renders the all-games heading as 'all' (Fix 8, 2026-05-11)" do
       visit games_path
       # The all-games partition heading was renamed from `all games`
-      # to plain `all` in the 2026-05-11 polish pass.
-      expect(page).to have_css('section[data-display-mode="grid"] h2', text: "all")
-      expect(page).not_to have_css('section[data-display-mode="grid"] h2', text: "all games")
+      # to plain `all` in the 2026-05-11 polish pass. Fix 3 of the same
+      # polish wave hoisted the `<h2>all</h2>` OUT of the per-mode
+      # section (was inside `section[data-display-mode="grid"]`) and
+      # UP to sit ABOVE the filter row in `games/index.html.erb` —
+      # the heading anchors first, then the live filter controls scope
+      # the listing. The grid section is still rendered as a sibling
+      # below the filter row.
+      expect(page).to have_css("h2", text: "all")
+      expect(page).not_to have_css("h2", text: "all games")
+      expect(page).to have_css('section[data-display-mode="grid"]')
     end
 
     it "tile links land on the game show page" do

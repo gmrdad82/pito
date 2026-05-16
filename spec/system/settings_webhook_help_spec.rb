@@ -33,7 +33,7 @@ RSpec.describe "Settings webhook help", type: :system do
       visit settings_webhooks_help_path(provider: "discord")
       expect(page).to have_current_path("/settings/webhooks/help/discord")
       expect(page).to have_content("Discord webhook setup")
-      expect(page).to have_content("Create a webhook")
+      expect(page).to have_content("Create the webhook")
       expect(page).to have_content("Copy Webhook URL")
     end
   end

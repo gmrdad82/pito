@@ -1,5 +1,222 @@
 # Phase 25 — Login Security + New-Location Approval · Session Log
 
+## 2026-05-16 — Phase 25 rollback: drop new-location approval + LoginAttempt (pito-rails-impl) [skipci]
+
+**Dispatch.** `pito-rails-impl` executed a destructive cleanup that
+reverts the entire Phase 25 work product. The new-location-approval
+state machine, the per-attempt forensic surface (`LoginAttempt`), the
+auto-block list (`BlockedLocation`), the per-user trusted-location
+list (`TrustedLocation`), and every dependent controller / service /
+job / component / view / spec was removed. The remaining post-rollback
+state is described below — anything not enumerated here was deleted.
+
+**Migration.**
+`db/migrate/20260516160000_drop_locations_and_login_attempts.rb` —
+drops `login_attempts`, `trusted_locations`, `blocked_locations`,
+and the `sessions.approval_required_until` column (plus its index).
+The `down` block recreates the schema for reversibility. The
+`sessions.state` integer enum value `1` (formerly `pending_approval`)
+and the `auth_audit_logs.action` integer enum values `0..3`
+(`approve` / `block` / `unblock` / `purge`) plus value `7`
+(`youtube_credentials_updated`) stay RESERVED on the Rails enum
+declarations — integer values are durable, never renumber. Migration
+applied to dev + test; `db/schema.rb` is clean.
+
+**Dropped (production code, non-exhaustive).**
+
+- Models: `BlockedLocation`, `TrustedLocation`, `LoginAttempt`.
+- Services under `Auth::`: `NewLocationDetector`, `SessionPendingApprover`,
+  `LoginAttemptApprover`, `LoginAttemptBlocker`, `PendingSessionExpirer`,
+  `BlockedLocationLister`, `BlockedLocationPurger`,
+  `BlockedLocationUnblocker`, `AttemptLogger`, `AttemptPurger`,
+  `RateLimitLogger`, `FingerprintComposer`, `IpPrefixCalculator`,
+  `GeoEnricher`.
+- Jobs: `SessionPendingApprovalSweeperJob`, `LoginAttemptGeoEnrichJob`,
+  `LoginAttemptPiiPurgeJob`. Both cron entries removed from
+  `config/sidekiq_cron.yml`.
+- Controllers: `Login::ApprovalsController`, `Login::BlocksController`,
+  `Login::ChallengesController`, `Login::PendingsController`,
+  `Settings::Security::BlocksController`,
+  `Settings::Security::AttemptsController`, and the
+  `Settings::Security::Blocks::*` + `Settings::Security::Attempts::*`
+  subtrees.
+- Views: `app/views/login/{approvals,blocks,challenges,pendings}/`,
+  `app/views/login/_attempt_detail.html.erb`, the entire
+  `app/views/settings/security/{attempts,blocks}/` trees.
+- Components: `BlockedLocationRowComponent`,
+  `LoginAttemptRowComponent`, `LoginChallengeChoiceComponent`.
+- Helpers: `BlockedLocationsHelper`, `LoginAttemptsHelper`.
+- Notification source + template: `NotificationSource::LoginPendingApproval`,
+  `NotificationFormatter::Templates::LoginPendingApproval`. The
+  `Notification.kinds[login_pending_approval] = 11` declaration is
+  gone (integer slot 11 stays unused so future kinds don't collide).
+  The `notification_formatter.rb` emoji map + `templates.rb` registry
+  no longer reference the kind.
+- MCP tools (force-deleted despite MCP being paused — matches A0/A1
+  precedent): `login_attempts_list`, `login_attempts_pending`,
+  `login_attempt_approve`, `login_attempt_block`, `login_attempt_unblock`,
+  `login_attempt_purge`, `blocked_locations_list`. The `AUTH_TOOL_NAMES`
+  catalog in `app/mcp/pito_server.rb` collapsed to
+  `[auth_audit_log_list, totp_status]`. The `expose_auth_scope`
+  configuration knob stays — `auth_audit_log_list` still surfaces
+  TOTP / Voyage / password-reset rows.
+- Stimulus controllers: `pending_countdown_controller.js`,
+  `fingerprint_hints_controller.js` (no callers remained).
+- Routes: `/login/challenge`, `/login/pending`, `/login/approvals/*`,
+  `/login/blocks/*`, `/settings/security/blocks*`,
+  `/settings/security/attempts*`.
+
+**Simplified (kept, refactored).**
+
+- `SessionsController#create`. Three-way dispatch
+  (`:trusted` / `:new_location` / `:blocked_pair`) gone. The new flow:
+  password verified → if TOTP enabled, stash pre-auth marker +
+  redirect `/login/totp`; else mint an active session directly. The
+  `Auth::NewLocationDetector` / `Auth::AttemptLogger` /
+  `Auth::FingerprintComposer` / `Auth::IpPrefixCalculator` calls are
+  all gone. `Auth::AuditLogger` calls stay (high-level audit, distinct
+  from per-attempt forensics).
+- `Login::TotpChallengesController`. Still the post-password TOTP gate.
+  Dropped the `Auth::AttemptLogger` per-attempt write and the
+  `reason: :new_location_2fa_passed` activator argument; the
+  fingerprint / ip_prefix marker payload fields are dropped. The
+  no-TOTP branch now bounces to `/login` (was `/login/challenge`).
+  The P25 F8 nonce-rotation defense stays intact.
+- `Auth::SessionActivator`. Collapsed to a single-purpose minter:
+  `call(user:, request:, remember:)` returns `[session_row, plaintext]`.
+  The `existing:` (pending → active transition) branch, the
+  `TrustedLocation.touch_for` upsert, the `Auth::AttemptLogger` write,
+  and the `reason:` argument are gone.
+- `Session` model. The `pending_approval` enum value and the
+  `pending`, `expired_pending`, `pending_within_window` scopes are
+  gone; the `create_pending!`, `transition_to_active!`,
+  `expire_if_overdue!`, `pending_within_window?`, `expired_pending?`
+  methods are gone. The `PENDING_APPROVAL_TTL` constant is gone.
+  Remaining states: `active` (0), `expired` (2), `revoked` (3).
+- `User` model. The `has_many :trusted_locations, dependent: :destroy`
+  + `has_many :login_attempts, dependent: :nullify` associations are
+  gone; the `trusted_location?(fingerprint:, ip_prefix:)` and
+  `has_pending_session?` methods are gone.
+- `AuthAuditLog` + `Auth::AuditLogger`. The `approve / block /
+  unblock / purge / youtube_credentials_updated` action symbols are
+  dropped from the active allowlist; the integer values stay
+  RESERVED. Active vocabulary: `totp_enroll`, `totp_disable`,
+  `backup_code_regenerate`, `voyage_credentials_updated`,
+  `password_reset`. Canonical target type collapsed to `User`
+  (TOTP / password reset) or `AppSetting` (Voyage credential rotation).
+- `Settings::SecurityController` + `app/views/settings/security/show.html.erb`.
+  Collapsed to a 2FA-status line. The recent-activity panel,
+  attempts-list link, blocks-list link, trusted-locations counter,
+  and pending-sessions counter are gone. `SettingsController#index`
+  dropped the `@active_blocks_count` ivar; the security pane partial
+  dropped the locations launcher.
+- `Digest::Composer`. The `login_attempts` section + the
+  `login_attempt_label` helper are gone. The `Result` struct keys
+  collapse to channels / videos / footage / notifications.
+- `config/initializers/rack_attack.rb`. The throttled responder's
+  `LoginAttempt` row writes are gone (the table is gone); the throttle
+  still short-circuits. `LOGIN_PATHS` collapsed to
+  `[/login, /login/totp]` (the `/login/challenge` + `/login/pending`
+  paths are gone).
+- `app/views/sessions/new.html.erb`. The two hidden `fp_screen` /
+  `fp_locale` inputs and the `data-controller="fingerprint-hints"`
+  binding are gone (the server-side composer they fed is gone).
+
+**Kept (explicitly unchanged).**
+
+- `Session.ip` column. Useful for session forensics on the
+  `/settings/sessions` list; preserved per user decision.
+- `AuthAuditLog` + `Auth::AuditLogger`. High-level audit surface
+  unchanged in shape, just slimmed vocabulary. `Sessions::TokenRotation`
+  concern (no longer exercised by the dropped approval / block /
+  unblock / purge controllers but the concern itself still ships for
+  future privileged callers).
+- All TOTP / 2FA infrastructure (`Auth::TotpVerifier`,
+  `Auth::TotpEnroller`, `Auth::TotpDisabler`,
+  `Auth::BackupCodeConsumer`, `Auth::BackupCodeRegenerator`,
+  `TotpBackupCode`, `Settings::Security::TotpsController`, the
+  `/settings/security/totp` enrollment surface).
+- `Rack::Attack` throttling itself (only the `LoginAttempt`
+  row-writing side-effects are gone).
+- `Auth::BackoffCalculator` (per-username login backoff bucket; a
+  separate concern from the dropped throttles).
+- The `pito:user:reset_totp` and `pito:user:regenerate_backup_codes`
+  rake tasks.
+
+**Specs.**
+
+- Aggressive orphan deletion per the user's directive. Full file
+  deletion for every spec whose entire purpose was a now-dropped
+  surface (models, services, jobs, components, helpers, controllers,
+  request specs, routing specs, MCP-tool specs, factories). The
+  `spec/initializers/rack_attack_login_throttle_spec.rb`,
+  `spec/system/login_security_journeys_spec.rb`,
+  `spec/requests/sessions_rate_limit_spec.rb`,
+  `spec/requests/concerns/sessions/token_rotation_spec.rb` were
+  among the casualties (every assertion was against a dropped
+  surface).
+- Surgical trims for retained specs:
+  `spec/requests/sessions_spec.rb` (drop LoginAttempt /
+  TrustedLocation flow examples; keep password / first-login /
+  TOTP-redirect / oracle-resistance / throttle examples),
+  `spec/requests/login/totp_challenges_spec.rb` (drop LoginAttempt
+  assertions; keep TOTP / backup-code / nonce-rotation examples),
+  `spec/requests/settings/security_spec.rb` (collapse to 2FA-status
+  + drop-confirmation assertions), `spec/models/user_spec.rb`,
+  `spec/models/session_spec.rb` (drop pending state machine),
+  `spec/models/notification_spec.rb` (drop login_pending_approval
+  kind), `spec/models/auth_audit_log_spec.rb` +
+  `spec/services/auth/audit_logger_spec.rb` (drop location-action
+  vocabulary, exercise TOTP / password-reset vocabulary),
+  `spec/services/auth/session_activator_spec.rb` (rewrite around
+  the slim minter contract), `spec/services/digest/composer_spec.rb`
+  + `spec/services/digest/{slack,discord}_renderer_spec.rb` (drop
+  `login_attempts` section reference),
+  `spec/mcp/tools/auth_audit_log_list_spec.rb` (TOTP-vocabulary
+  fixtures), `spec/jobs/session_stale_sweeper_job_spec.rb` (drop
+  pending-session carve-out), `spec/system/fresh_seed_first_login_spec.rb`
+  (drop LoginAttempt-row assertion).
+- Factories: `spec/factories/blocked_locations.rb`,
+  `spec/factories/login_attempts.rb`,
+  `spec/factories/trusted_locations.rb` deleted.
+  `spec/factories/sessions.rb` lost the `:pending` /
+  `:expired_pending` traits. `spec/factories/auth_audit_logs.rb`
+  defaults to `action: :totp_enroll, target_type: "User"`.
+
+**Verification.**
+
+- App boots: `bin/rails runner` reports
+  `AuthAuditLog.actions.keys = [totp_enroll, totp_disable,
+  backup_code_regenerate, voyage_credentials_updated, password_reset]`,
+  `Session.states = {active: 0, expired: 2, revoked: 3}`,
+  `Notification.kinds.keys` no longer contains
+  `login_pending_approval`.
+- Routes load cleanly. Login surface collapses to `/login` (GET /
+  POST), `/login/totp` (GET / POST), `/session` (DELETE).
+  `/settings/security` is a single-line 2FA-status page.
+- Rubocop clean on every touched Ruby file (production +
+  modified specs). ERB views skipped (rubocop misparses ERB tags).
+- Per dispatch: no rspec run, no commit.
+
+**Restart needed.** Yes — routes, controller, autoload, migration.
+
+**Post-rollback login flow.**
+
+```
+GET  /login                       → render the form
+POST /login (correct password)
+  ├─ TOTP enabled              → stash pre-auth cookie, 302 /login/totp
+  └─ TOTP not enabled          → mint Session(:active), 302 /settings?enroll_totp=1
+POST /login (wrong / unknown)   → 422 generic "login failed." (no oracle)
+GET  /login/totp                  → render the 6-digit form (requires pre-auth cookie)
+POST /login/totp (valid code/backup)
+                                 → mint Session(:active), rotate session, 302 /
+POST /login/totp (wrong code)   → 422 generic "login failed."; rotate nonce
+DELETE /session                   → revoke + clear cookie, 302 /login
+```
+
+---
+
 ## 2026-05-11 — P25 security findings F4 / F9 / F10 fix-forward (pito-rails-impl) [skipci]
 
 **Dispatch:** `pito-rails-impl` against three P25 security findings

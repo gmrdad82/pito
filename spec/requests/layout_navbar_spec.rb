@@ -48,10 +48,14 @@ RSpec.describe "Layout navbar separators", type: :request do
       expect(sep_count).to eq(3)
     end
 
-    it "renders the [settings] and [logout] right cluster" do
+    it "renders the [settings] right cluster (logout dropped 2026-05-16; reachable via leader menu)" do
       header = header_html
       expect(header).to include(">settings<")
-      expect(header).to include(">logout<")
+      # 2026-05-16 — the [logout] link was intentionally removed from
+      # the header. The DELETE /session route stays routable for
+      # API / direct-URL / leader-menu use; logout is now reachable
+      # via the leader menu (SPACE → Q) and via `[_]` in the footer.
+      expect(header).not_to include(">logout<")
     end
 
     it "renders the nav spacer that right-anchors the cluster" do

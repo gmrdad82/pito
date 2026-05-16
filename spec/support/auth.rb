@@ -13,12 +13,11 @@
 #
 # Used by request specs that aren't testing `/login` itself.
 module SignInHelpers
-  def sign_in_as(user, remember: false)
+  def sign_in_as(user)
     record, plaintext = Session.create_for!(
       user: user,
       ip: "127.0.0.1",
-      user_agent: "RspecAgent",
-      remember: remember
+      user_agent: "RspecAgent"
     )
 
     if respond_to?(:cookies) && defined?(integration_session)
@@ -103,8 +102,7 @@ RSpec.configure do |config|
     record, plaintext = Session.create_for!(
       user: user,
       ip: "127.0.0.1",
-      user_agent: "RspecSystem",
-      remember: false
+      user_agent: "RspecSystem"
     )
 
     seed_request = ActionDispatch::TestRequest.create

@@ -41,14 +41,13 @@ RSpec.describe "Calendar::Entries", type: :request do
       expect(response).to redirect_to(edit_calendar_entry_path(CalendarEntry.last))
     end
 
-    it "honors AppSetting timezone when present" do
-      # `AppSetting.first` is the install-level singleton — seed-created
-      # in the test DB (id=1) — and its `timezone` column drives the
-      # default for new calendar entries. Update the existing row rather
-      # than `create!`-ing a new one so `AppSetting.first` actually
-      # picks up the new value (it orders by primary key).
-      seed = AppSetting.first || AppSetting.create!(key: "_install", value: "x")
-      seed.update!(timezone: "Europe/Bucharest")
+    it "honors config.x.pito.timezone when present" do
+      # Phase 29 (settings refactor) — install-level timezone moved
+      # from `AppSetting#timezone` (column dropped) to
+      # `Rails.application.config.x.pito.timezone` (loaded from
+      # `config/pito.yml`). Stub the resolved value so the create
+      # path picks it up.
+      allow(Rails.application.config.x.pito).to receive(:timezone).and_return("Europe/Bucharest")
       post "/calendar/entries"
       expect(CalendarEntry.last.timezone).to eq("Europe/Bucharest")
     end

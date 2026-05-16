@@ -7,36 +7,15 @@
     monospace stack (inherited from the layout), design tokens, and the
     bracketed-link convention. The `<button>` keeps `[authorize]` as
     inline bracketed text so the form submits correctly; cancel is a
-    BracketedLinkComponent. The scope list reuses the
-    `app/views/settings/oauth_applications/_form.html.erb` namespace
-    grouping pattern so consent reads the same as the place that
-    configured the application. %>
-<%
-  scope_list   = @pre_auth.scopes.to_a
-  scope_groups = scope_list.group_by { |scope| scope.to_s.split(":").first }
-%>
+    BracketedMutedLinkComponent — the app-wide muted bracketed-link
+    primitive (sibling to BracketedLinkComponent), here with its default
+    `label: "cancel"` so it reads as the lesser action / exit. Muted at
+    rest, darkens to text on hover; distinct from the link-colored
+    primary action and the red destructive action. Single-user install
+    — the intro copy and per-scope explanations were trimmed; the user
+    knows what they're authorizing. %>
 <div style="max-width: 480px; margin: 24px 0;">
   <h1>authorize <%= @pre_auth.client.name %></h1>
-  <p class="text-muted" style="margin-top: 2px;">
-    <code><%= @pre_auth.client.name %></code> is requesting access to your pito
-    account. review the permissions below and authorize or cancel.
-  </p>
-
-  <% if scope_list.any? %>
-    <div style="margin: 16px 0;">
-      <h2 style="margin-bottom: 6px;">requested scopes</h2>
-      <% scope_groups.each do |namespace, scopes| %>
-        <fieldset style="border: none; padding: 4px 0; margin: 0 0 4px 0;">
-          <legend style="font-weight: bold;"><%= namespace %>:</legend>
-          <% scopes.each do |scope| %>
-            <div style="margin-left: 12px;">
-              <code><%= scope %></code><% if Scopes::DESCRIPTIONS[scope] %><span class="text-muted"> &mdash; <%= Scopes::DESCRIPTIONS[scope] %></span><% end %>
-            </div>
-          <% end %>
-        </fieldset>
-      <% end %>
-    </div>
-  <% end %>
 
   <%# Phase 7.5 — application metadata uses the pane look
       (`.pane.pane--standalone`) so this consent-screen detail surface
@@ -69,7 +48,7 @@
 
     <div class="dot-list">
       <button type="submit">[authorize]</button>
-      <%= render(BracketedLinkComponent.new(label: "cancel", href: root_path)) %>
+      <%= render(BracketedMutedLinkComponent.new(href: root_path)) %>
     </div>
   <% end %>
 </div>

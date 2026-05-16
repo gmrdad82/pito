@@ -1,704 +1,107 @@
 <% content_for(:title, "settings") %>
+<%
+  # Phase 32 (settings refactor polish — Concern 2). Mandatory-2FA
+  # enrollment gate auto-opens the security modal on /settings and
+  # mutes the surrounding panes. The mandatory-gate redirect lands
+  # users here with `?enroll_totp=1`; we also fall back to detecting
+  # `!Current.user.totp_configured?` directly so anyone who arrives
+  # without the param still sees the dialog (defensive — the gate
+  # owns the redirect, this is the renderer's contract).
+  enroll_totp_gate_active = Current.user.present? && !Current.user.totp_configured?
+%>
 <h1>settings</h1>
-<script>
-  // Sync localStorage + theme with server setting after form save
-  (function() {
-    var theme = "<%= (AppSetting.get('theme') || 'auto').gsub('"', '') %>";
-    if (theme === "auto") {
-      localStorage.removeItem("pito-theme");
-    } else {
-      localStorage.setItem("pito-theme", theme);
-    }
-    var effective = theme;
-    if (theme === "auto") {
-      effective = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-    }
-    document.documentElement.setAttribute("data-theme", effective);
-    document.documentElement.dataset.themePreference = theme;
-    var label = document.querySelector('[data-theme-target="label"]');
-    if (label) label.textContent = effective === "dark" ? "light" : "dark";
-    if (window.recolorCharts) setTimeout(window.recolorCharts, 100);
-  })();
-</script>
 
-<%# 2026-05-10 user-locked restructure — three titled sections, each a
-    2-column grid:
+<%# Phase 29 (settings refactor) — 3-row layout.
+    Phase 32 follow-up (2026-05-16) — Row 2 simplification.
 
-      ## customize
-      [ ui / ux ]              [ workspaces ]
-      [ user ]                 [ time zone ]
+    Row 1 — profile (left) + security launchers (right).
+    Row 2 — Discord webhook (left) + Slack webhook (right). The
+            OAuth-applications + tokens management UI moved to rake
+            tasks (`bin/rails pito:oauth_apps:*` /
+            `bin/rails pito:tokens:*`) — pito is single-user, the
+            operator manages those from the shell. The Doorkeeper
+            handshake endpoints (`/oauth/authorize`, `/oauth/token`,
+            `/oauth/revoke`, `/oauth/introspect`) stay live for the
+            Claude Desktop OAuth client.
+    Row 3 — stack pane spanning both columns (`.pane--wide`):
+            db (Postgres + Redis), search (Meilisearch + Voyage),
+            storage (assets + notes).
 
-      ## integrations
-      [ YouTube ]              [ Voyage.ai ]
-      [ OAuth applications ]   [ sessions ]
+    The dropped UI/UX, Workspace, and Voyage panes (theme,
+    keyboard-navigation toggle, max_panes, pane_title_length,
+    voyage_index_project_notes) all moved out of this surface in
+    the refactor:
 
-      ## stack
-      [ sql ]                  [ search ]
-      [ storage ]              (empty right cell)
+      * `max_panes` / `pane_title_length` / `timezone` →
+        `config/pito.yml` (operator-level, restart Puma to apply).
+      * theme → localStorage only (no server persistence).
+      * keyboard navigation → always on (toggle dropped).
+      * `voyage_index_project_notes` → folded into credentials
+        presence (`Rails.application.credentials.voyage.api_key`).
 
-    Section headings use the standard h2 styling. Each section holds
-    its own group of `.pane-row` flex containers. Slack + Discord
-    panes are deliberately NOT on this page — their controllers /
-    routes / partials remain so the partial-level view specs and the
-    request specs for the webhook controllers keep passing, but they
-    no longer surface on the settings index per the user-locked
-    layout.
+    Security links open a layout-positioned `<dialog>` populated via
+    Turbo Frame (see `_settings_modal.html.erb` +
+    `settings_modal_controller.js`); the standalone routes still
+    render the full pages on direct hits.
 
-    Pane h2 brand-casing rule survives the restructure: `YouTube`,
-    `Voyage.ai`, `OAuth applications` keep their casing; everything
-    else stays lowercase.
+    Phase 32 (Concern 2) — when the mandatory-2FA gate is active the
+    outer `<div>` carries `settings-panes--muted` which lowers
+    opacity, sets `pointer-events: none`, and `aria-disabled="true"`.
+    Visible context, no interaction. %>
+<%# 2026-05-16 structural fix — the `settings-modal` Stimulus
+    controller used to mount on the `<dialog>` itself inside
+    `_settings_modal.html.erb`. That worked for the auto-open path
+    (TOTP mandatory gate — controller's `connect()` runs when the
+    element enters the DOM) but broke the trigger-link path: the
+    `[ sessions ]` / `[ locations ]` links in `_security_pane.html.erb`
+    are siblings of the dialog, not descendants, so their click
+    events never bubble through the dialog and Stimulus never fires
+    `click->settings-modal#open`. The links fell through to default
+    `<a>` navigation and the page full-loaded instead of opening the
+    modal.
 
-    YouTube credentials status — the row labels read
-    `public API key` / `OAuth client ID` / `OAuth client secret` /
-    `OAuth redirect URI`. The controller looks them up under the
-    `:google_oauth` credentials block (NOT `:youtube` — that block
-    does not exist in this install).
-%>
+    Fix: mount the controller on a wrapper that encloses BOTH the
+    panes (where the trigger links live) AND the `_settings_modal`
+    partial (where the dialog lives). The dialog now carries only
+    its target marker + actions; the wrapper owns the controller
+    scope, so click actions on any descendant — pane links or
+    in-dialog `[close]` — reach the controller correctly. %>
+<div data-controller="settings-modal"
+     data-settings-modal-auto-open-url-value="<%= (enroll_totp_gate_active ? settings_security_totp_path : "").to_s %>"
+     data-settings-modal-non-dismissible-value="<%= enroll_totp_gate_active ? "yes" : "no" %>">
+  <div class="settings-panes <%= "settings-panes--muted" if enroll_totp_gate_active %>"
+       <% if enroll_totp_gate_active %>aria-disabled="true"<% end %>>
+    <div class="pane-row">
+      <%= render "profile_pane" %>
+      <%= render "security_pane" %>
+    </div>
 
-<%# ============================================================
-    customize
-============================================================ %>
-<h2>customize</h2>
+    <div class="pane-row">
+      <%= render "discord_pane" %>
+      <%= render "slack_pane" %>
+    </div>
 
-<%# customize row 1 — ui / ux | workspaces. The section identifier on
-    the wire stays `appearance` for backward compatibility with any
-    scripted PATCH callers; only the visible H2 + the row label changed
-    when keyboard navigation joined the pane. %>
-<div class="pane-row">
-  <%# ui / ux %>
-  <div class="pane">
-    <%= form_with url: settings_path, method: :patch do |f| %>
-      <input type="hidden" name="section" value="appearance">
-      <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
-        <legend><h2>ui / ux</h2></legend>
-
-        <div style="margin-bottom: 6px;">
-          <label class="form-label">theme</label>
-          <div style="display: flex; gap: 12px;">
-            <% %w[light dark auto].each do |opt| %>
-              <label class="md-radio">
-                <input type="radio" name="settings[theme]" value="<%= opt %>" <%= "checked" if @theme == opt %>>
-                <span class="md-radio-indicator"></span>
-                <span class="md-radio-label"><%= opt %><%= " (system)" if opt == "auto" %></span>
-              </label>
-            <% end %>
-          </div>
-        </div>
-
-        <%# Keyboard-navigation toggle. Renders as on / off radios so
-            the row mirrors the theme picker visually. Wire format is
-            yes / no per the project's external-boolean rule
-            (CLAUDE.md hard rules); the controller flips it back to
-            Boolean before storage. The setting is surfaced to the
-            keyboard Stimulus controller via the body-level
-            `data-keyboard-navigation-enabled` attribute (see
-            application.html.erb). %>
-        <div style="margin-bottom: 6px;">
-          <label class="form-label">keyboard navigation</label>
-          <div style="display: flex; gap: 12px;">
-            <% %w[yes no].each do |opt| %>
-              <label class="md-radio">
-                <input type="radio" name="settings[keyboard_navigation_enabled]" value="<%= opt %>" <%= "checked" if (@keyboard_navigation_enabled ? "yes" : "no") == opt %>>
-                <span class="md-radio-indicator"></span>
-                <span class="md-radio-label"><%= opt == "yes" ? "on" : "off" %></span>
-              </label>
-            <% end %>
-          </div>
-        </div>
-
-        <button type="submit">[update]</button>
-      </fieldset>
-    <% end %>
+    <div class="pane-row">
+      <%= render "stack_pane" %>
+    </div>
   </div>
 
-  <%# workspaces %>
-  <div class="pane">
-    <%= form_with url: settings_path, method: :patch do |f| %>
-      <input type="hidden" name="section" value="workspaces">
-      <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
-        <legend><h2>workspaces</h2></legend>
+  <%# Layout-positioned settings security modal. Single dialog shared by
+      all three security launchers; the Stimulus controller (mounted on
+      the wrapper above) swaps the target URL into the inner Turbo
+      Frame on open.
 
-        <div style="margin-bottom: 6px;">
-          <label for="settings_pane_title_length" class="form-label">pane title truncation</label>
-          <input type="number" name="settings[pane_title_length]" id="settings_pane_title_length"
-                 value="<%= @settings['pane_title_length'] %>" min="6" max="50"
-                 placeholder="<%= @pane_title_length_default %>" autocomplete="off"
-                 style="width: 80px; text-align: right;">
-          <span class="form-hint" style="display: block;">default: <%= @pane_title_length_default %> chars.</span>
-        </div>
-
-        <div style="margin-bottom: 6px;">
-          <label for="settings_max_panes" class="form-label">max panes</label>
-          <input type="number" name="settings[max_panes]" id="settings_max_panes"
-                 value="<%= @settings['max_panes'] %>" min="1" max="10"
-                 placeholder="<%= @max_panes_default %>" autocomplete="off"
-                 style="width: 80px; text-align: right;">
-          <span class="form-hint" style="display: block;">default: <%= @max_panes_default %>.</span>
-        </div>
-
-        <button type="submit">[update]</button>
-      </fieldset>
-    <% end %>
-  </div>
-</div>
-
-<%# customize row 2 — user | time zone. %>
-<div class="pane-row">
-  <div class="pane">
-    <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
-      <legend><h2>user</h2></legend>
-
-      <p><%= Current.user&.username %></p>
-      <p class="text-muted">
-        change your username or password.<br>
-        current password is required.
-      </p>
-
-      <%# 2026-05-11 — user direction. The `[edit]` link drops the
-          redundant `account` token (bracketed-link convention:
-          single-word labels avoid restating context), and the
-          `[security]` sibling wires the previously-orphaned
-          `/settings/security` dashboard into the user pane so 2FA,
-          blocked locations, and the attempts log are one click
-          from the main settings page. %>
-      <%= render(BracketedLinkComponent.new(label: "edit", href: settings_user_path)) %>
-      <span class="nav-sep" aria-hidden="true">·</span>
-      <%= render(BracketedLinkComponent.new(label: "security", href: settings_security_path)) %>
-    </fieldset>
-  </div>
-
-  <%# Phase 26 — 01a. Timezone foundation pane. %>
-  <%= render "time_zone_pane" %>
-</div>
-
-<%# ============================================================
-    integrations
-============================================================ %>
-<h2>integrations</h2>
-
-<%# integrations row 1 — Voyage.ai. Phase 29 Unit A1 — the YouTube
-    credentials edit pane was removed (Google / YouTube OAuth config
-    is deploy-time `Rails.application.credentials` config now, no web
-    surface). The Voyage.ai pane is slimmed: the API key field + the
-    key-clear checkbox are gone (the key moved back into
-    `Rails.application.credentials.voyage`); only the non-secret
-    `voyage_index_project_notes` toggle remains, still
-    Settings-UI-managed so the operator can flip project-notes
-    indexing on/off at runtime without a deploy. %>
-<div class="pane-row">
-  <%# Voyage.ai — project-notes indexing toggle.
-
-      The `totp-modal` Stimulus controller intercepts the submit when
-      2FA is on and re-submits with `totp_code` attached. When 2FA is
-      off, `required` is "no" and the submit passes through. %>
-  <div class="pane">
-    <%= form_with url: settings_path, method: :patch,
-                  data: {
-                    controller: "totp-modal",
-                    action: "submit->totp-modal#maybeIntercept",
-                    totp_modal_required_value: Current.user&.totp_enabled? ? "yes" : "no"
-                  } do |f| %>
-      <input type="hidden" name="section" value="voyage">
-      <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
-        <legend><h2>Voyage.ai</h2></legend>
-
-        <%# Phase 29 Unit A1 — the API key lives in
-            `Rails.application.credentials.voyage`; no key input here.
-            `voyage_configured?` reflects the credentials presence.
-            The per-target indexing toggle only renders once a key is
-            configured (matching the prior pane's gating). %>
-        <% if @voyage_configured %>
-          <div style="margin-bottom: 6px;">
-            <label class="form-label">indexes</label>
-            <div style="display: flex; align-items: baseline; gap: 12px;">
-              <span class="text-muted">project notes</span>
-              <% %w[yes no].each do |opt| %>
-                <label class="md-radio">
-                  <input type="radio" name="settings[voyage_index_project_notes]" value="<%= opt %>" <%= "checked" if (@voyage_indexing_project_notes ? "yes" : "no") == opt %>>
-                  <span class="md-radio-indicator"></span>
-                  <span class="md-radio-label"><%= opt %></span>
-                </label>
-              <% end %>
-            </div>
-          </div>
-        <% else %>
-          <p class="text-muted" style="margin-bottom: 6px;">
-            no Voyage.ai API key configured.<br>
-            add <code>voyage.api_key</code> via <code>bin/rails credentials:edit</code>.
-          </p>
-        <% end %>
-
-        <button type="submit">[update]</button>
-      </fieldset>
-    <% end %>
-  </div>
-</div>
-
-<%# integrations row 2 — Discord | Slack. 2026-05-11 — the Slack +
-    Discord webhook panes were built in Phase 26 (01b/01c) but were
-    never wired into the settings index. The user-locked integrations
-    section now surfaces them on row 2 (Discord left, Slack right),
-    with OAuth applications + sessions moving to row 3. Each pane is
-    a self-contained partial; the ivars (`@discord_webhook`,
-    `@slack_webhook`) are populated in `SettingsController#index`. %>
-<div class="pane-row">
-  <%= render "discord_pane" %>
-  <%= render "slack_pane" %>
-</div>
-
-<%# integrations row 3 — OAuth applications (+ tokens via hairline) |
-    sessions. The OAuth pane keeps the combined OAuth-applications +
-    tokens sub-sections fenced by a `<hr class="hairline">` so the
-    two related token-issuance surfaces stay near each other in one
-    cell. %>
-<div class="pane-row">
-  <%# Combined OAuth applications + tokens. %>
-  <div class="pane">
-    <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
-      <legend><h2>OAuth applications</h2></legend>
-
-      <p>
-        <% if @oauth_applications_count.zero? %>
-          no OAuth applications
-        <% elsif @oauth_applications_count == 1 %>
-          1 OAuth application
-        <% else %>
-          <%= number_with_delimiter(@oauth_applications_count) %> OAuth applications
-        <% end %>
-      </p>
-      <p class="text-muted">
-        applications that issue access tokens via authorization code + PKCE.
-      </p>
-
-      <%= render(BracketedLinkComponent.new(label: "manage applications", href: settings_oauth_applications_path)) %>
-    </fieldset>
-
-    <hr class="hairline">
-
-    <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
-      <legend><h2>tokens</h2></legend>
-
-      <p>
-        <% if @active_tokens_count.zero? && @revoked_tokens_count.zero? %>
-          no active tokens
-        <% else %>
-          <%
-            active_label = @active_tokens_count == 1 ? "1 active token" :
-              "#{number_with_delimiter(@active_tokens_count)} active tokens"
-            active_label = "no active tokens" if @active_tokens_count.zero?
-          %>
-          <% if @revoked_tokens_count.positive? %>
-            <%= @active_tokens_count.zero? ? "0 active" : "#{number_with_delimiter(@active_tokens_count)} active" %>
-            ·
-            <%= number_with_delimiter(@revoked_tokens_count) %> revoked
-          <% else %>
-            <%= active_label %>
-          <% end %>
-        <% end %>
-      </p>
-      <p class="text-muted">
-        bearer tokens for the JSON API and MCP HTTP transport.
-      </p>
-
-      <%= render(BracketedLinkComponent.new(label: "manage tokens", href: settings_tokens_path)) %>
-    </fieldset>
-  </div>
-
-  <%# sessions — active browser logins. %>
-  <div class="pane">
-    <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
-      <legend><h2>sessions</h2></legend>
-
-      <p>
-        <% if @active_sessions_count.zero? %>
-          no active sessions
-        <% elsif @active_sessions_count == 1 %>
-          1 active session
-        <% else %>
-          <%= number_with_delimiter(@active_sessions_count) %> active sessions
-        <% end %>
-      </p>
-      <p class="text-muted">
-        one row per active browser login.<br>
-        revoke remotely from anywhere.
-      </p>
-
-      <%= render(BracketedLinkComponent.new(label: "manage sessions", href: settings_sessions_path)) %>
-    </fieldset>
-  </div>
-</div>
-
-<%# ============================================================
-    stack
-============================================================ %>
-<h2>stack</h2>
-
-<%# 2026-05-11 (later) — user direction reshuffles the stack section:
-    `sql` → `db`, Redis demoted from its own pane into a hairline-
-    fenced row inside the `db` pane, and per-model + per-state
-    breakdown tables surfaced on each side. The storage pane goes
-    from a 1-column "pito-assets + notes" stack to a 2-column
-    `assets` (left) + `notes` (right) inner layout with detailed
-    sub-category tables. Layout:
-      stack row 1 — db | search
-      stack row 2 — storage | (empty right cell)
-    The `db` pane mirrors the `search` pane's internal pattern
-    (Meilisearch + hairline + Voyage embeddings → Postgres +
-    hairline + Redis).
-%>
-<div class="pane-row">
-  <%# db — Postgres + Redis status with hairline fence. %>
-  <div class="pane">
-    <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
-      <legend><h2>db</h2></legend>
-
-      <div style="margin-bottom: 6px;">
-        <span>Postgres</span>
-        <% if @postgres_status[:connected] %>
-          <span style="color: var(--color-success);">▲ connected</span>
-        <% else %>
-          <span class="text-danger">▽ disconnected</span>
-        <% end %>
-      </div>
-
-      <%# 2026-05-11 (later 2) — per user direction: the Postgres
-          half drops version / database name / total rows / total
-          size on disk; the per-model breakdown table is the only
-          surface besides the status badge above. Count + size
-          columns right-align via `class="num"` (design.md numbers
-          convention). %>
-      <% if @postgres_status[:connected] && @postgres_table_breakdown.any? %>
-        <table class="detail-table" style="margin-bottom: 8px;">
-          <thead>
-            <tr>
-              <th style="font-weight: normal; padding-right: 12px;">model</th>
-              <th class="num" style="font-weight: normal; padding-right: 12px;">rows</th>
-              <th class="num" style="font-weight: normal;">size</th>
-            </tr>
-          </thead>
-          <tbody>
-            <% @postgres_table_breakdown.each do |row| %>
-              <tr>
-                <td class="text-muted" style="padding-right: 12px;"><%= row[:label] %></td>
-                <td class="text-muted num" style="padding-right: 12px;">
-                  <%= row[:count] ? number_with_delimiter(row[:count]) : "—" %>
-                </td>
-                <td class="text-muted num">
-                  <%= row[:size_bytes] ? number_to_human_size(row[:size_bytes]) : "—" %>
-                </td>
-              </tr>
-            <% end %>
-          </tbody>
-        </table>
-      <% end %>
-
-      <hr class="hairline">
-
-      <%# Redis sub-section — connectivity badge + Sidekiq
-          job-state breakdown. Version / memory / keys /
-          persistence lines dropped per 2026-05-11 (later 2)
-          user direction. %>
-      <div style="margin-bottom: 6px;">
-        <span>Redis</span>
-        <% if @redis_status[:connected] %>
-          <span style="color: var(--color-success);">▲ connected</span>
-        <% else %>
-          <span class="text-danger">▽ disconnected</span>
-        <% end %>
-      </div>
-
-      <%# 2026-05-11 (later 2) — per user direction: Redis half
-          drops version / memory / keys / persistence; only the
-          status badge above remains, alongside the Sidekiq
-          breakdown table below.
-
-          The Sidekiq table is a 3-row grouped-header layout:
-            row 1 (thead) — `successful` (colspan 3) | `failed` (colspan 2)
-            row 2 (thead) — totals under each header
-            row 3 (thead) — five state columns: busy | scheduled | enqueued | retry | dead
-            row 4 (tbody) — five live counts
-          All numeric cells right-align via `class="num"`.
-
-          Empty list = sidekiq/api couldn't load (e.g. Redis just
-          went down between the connectivity probe and this read);
-          render nothing. %>
-      <% if @redis_status[:connected] && @sidekiq_breakdown.any? %>
-        <%
-          sidekiq_counts = @sidekiq_breakdown.each_with_object({}) do |row, acc|
-            acc[row[:label]] = row[:count]
-          end
-        %>
-        <table class="detail-table" style="margin-bottom: 8px;">
-          <thead>
-            <tr>
-              <th class="num" colspan="3" style="font-weight: normal; padding-right: 12px;">successful</th>
-              <th class="num" colspan="2" style="font-weight: normal;">failed</th>
-            </tr>
-            <tr>
-              <td class="text-muted num" colspan="3" style="padding-right: 12px;">
-                <%= sidekiq_counts["processed"] ? number_with_delimiter(sidekiq_counts["processed"]) : "—" %>
-              </td>
-              <td class="text-muted num" colspan="2">
-                <%= sidekiq_counts["failed"] ? number_with_delimiter(sidekiq_counts["failed"]) : "—" %>
-              </td>
-            </tr>
-            <tr>
-              <th class="num" style="font-weight: normal; padding-right: 12px;">busy</th>
-              <th class="num" style="font-weight: normal; padding-right: 12px;">scheduled</th>
-              <th class="num" style="font-weight: normal; padding-right: 12px;">enqueued</th>
-              <th class="num" style="font-weight: normal; padding-right: 12px;">retry</th>
-              <th class="num" style="font-weight: normal;">dead</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <% %w[busy scheduled enqueued retry].each do |state| %>
-                <td class="text-muted num" style="padding-right: 12px;">
-                  <%= sidekiq_counts[state] ? number_with_delimiter(sidekiq_counts[state]) : "—" %>
-                </td>
-              <% end %>
-              <td class="text-muted num">
-                <%= sidekiq_counts["dead"] ? number_with_delimiter(sidekiq_counts["dead"]) : "—" %>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      <% end %>
-    </fieldset>
-  </div>
-
-  <%# search — Meilisearch + Voyage embeddings status. %>
-  <div class="pane">
-    <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
-      <legend><h2>search</h2></legend>
-
-      <div style="margin-bottom: 6px;">
-        <span>Meilisearch</span>
-        <% if @search_healthy %>
-          <span style="color: var(--color-success);">▲ connected</span>
-        <% else %>
-          <span class="text-danger">▽ disconnected</span>
-        <% end %>
-      </div>
-
-      <%# 2026-05-11 (later 2) — per user direction: drop the
-          `indexed documents` flat list and the `total index size`
-          aggregate. The Meilisearch surface is now a 3-column
-          table (index | documents | size). Source: engine's
-          `per_index_stats`. Empty list = engine doesn't expose
-          per-index stats / probe failed; render nothing besides
-          the status badge above. %>
-      <% if @search_per_index_stats.any? %>
-        <table class="detail-table" style="margin-bottom: 8px;">
-          <thead>
-            <tr>
-              <th style="font-weight: normal; padding-right: 12px;">index</th>
-              <th class="num" style="font-weight: normal; padding-right: 12px;">documents</th>
-              <th class="num" style="font-weight: normal;">size</th>
-            </tr>
-          </thead>
-          <tbody>
-            <% @search_per_index_stats.each do |row| %>
-              <tr>
-                <td class="text-muted" style="padding-right: 12px;"><%= row[:label] %></td>
-                <td class="text-muted num" style="padding-right: 12px;">
-                  <%= number_with_delimiter(row[:documents].to_i) %>
-                </td>
-                <td class="text-muted num">
-                  <%= row[:size_bytes] ? number_to_human_size(row[:size_bytes]) : "—" %>
-                </td>
-              </tr>
-            <% end %>
-          </tbody>
-        </table>
-      <% end %>
-
-      <hr class="hairline">
-
-      <%# Voyage embeddings status — read out of AppSetting so the
-          search pane shows the full hybrid-search picture (keyword
-          via Meilisearch + semantic via Voyage). The API key
-          itself stays in the Voyage.ai pane (integrations); this
-          row is pure status. %>
-      <div style="margin-bottom: 6px;">
-        <span>Voyage embeddings</span>
-        <% if @voyage_configured %>
-          <span style="color: var(--color-success);">▲ configured</span>
-        <% else %>
-          <span class="text-danger">▽ not configured</span>
-        <% end %>
-        <% if @voyage_configured %>
-          <br>
-          <span class="text-muted">project notes: <%= @voyage_indexing_project_notes ? "indexing" : "off" %></span>
-        <% end %>
-      </div>
-
-      <%= render(BracketedLinkComponent.new(
-        label: "reindex",
-        href: "#",
-        data: {
-          controller: "modal-trigger",
-          action: "click->modal-trigger#open",
-          modal_trigger_target_id_value: "reindex_meilisearch_modal"
-        }
-      )) %>
-      <%= render(ConfirmModalComponent.new(
-        id: "reindex_meilisearch_modal",
-        title: "reindex Meilisearch?",
-        body: "this re-indexes all configured targets. it can take a while on large corpora and adds load to the search service.",
-        confirm_path: settings_reindex_path,
-        confirm_method: :post,
-        confirm_label: "reindex",
-        cancel_label: "cancel",
-        destructive: false
-      )) %>
-    </fieldset>
-  </div>
-</div>
-
-<%# stack row 2 — storage | (empty right cell). The storage pane
-    is now a 2-column inner layout: `assets` (left) + `notes`
-    (right) separated by a vertical hairline gutter. Both columns
-    surface availability + size + file count + a per-subcategory
-    breakdown table. User direction (2026-05-11): rename the
-    `pito-assets` heading to `assets` (display label only; the
-    on-disk volume name + env var stay `pito-assets`). Notes still
-    cover the `Note` ActiveRecord population plus the Mobile MCP
-    drop-zone under `docs/notes/`. The extension hook for future
-    note populations (video notes, channel notes) is
-    `NOTES_NAMESPACE_SOURCES` in the controller; new namespaces
-    slot into the same `@notes_breakdown` rows without view
-    changes. %>
-<div class="pane-row">
-  <%# storage — 2-column inner layout (assets | notes). The pane
-      uses `.pane--wide` so the inner grid has enough room for both
-      detail tables side-by-side without the columns squashing. %>
-  <div class="pane pane--wide">
-    <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
-      <legend><h2>storage</h2></legend>
-
-      <%# Two equal-width columns with a vertical hairline gutter.
-          `align-items: stretch` lets the hairline span the taller
-          column. %>
-      <div style="display: grid; grid-template-columns: 1fr 1px 1fr; gap: 12px; align-items: stretch;">
-        <%# assets column (renamed from pito-assets per user direction).
-            2026-05-11 — per user direction the size + files summary
-            lines under the title are dropped; only the title + writable
-            badge remain. The per-subcategory table below carries the
-            file count + size per category. %>
-        <div>
-          <div style="margin-bottom: 6px;">
-            <span>assets</span>
-            <% if @storage_status[:present] %>
-              <% if @storage_status[:writable] %>
-                <span style="color: var(--color-success);">▲ writable</span>
-              <% else %>
-                <span class="text-danger">▽ read-only</span>
-              <% end %>
-            <% else %>
-              <span class="text-muted">▽ not present</span>
-            <% end %>
-          </div>
-
-          <%# Per-subcategory breakdown — fixed allowlist.
-              Rows: cover arts (composites/), thumbnails
-              (footage_thumbs/), banners (banners/), other
-              (everything else, including Active Storage shard
-              directories). All four rows always render so the
-              operator sees the asset taxonomy even on a
-              greenfield install. Order matches the allowlist
-              declared in the controller. %>
-          <% if @assets_breakdown.any? %>
-            <table class="detail-table" style="margin-bottom: 8px;">
-              <thead>
-                <tr>
-                  <th style="font-weight: normal; padding-right: 12px;">category</th>
-                  <th class="num" style="font-weight: normal; padding-right: 12px;">files</th>
-                  <th class="num" style="font-weight: normal;">size</th>
-                </tr>
-              </thead>
-              <tbody>
-                <% @assets_breakdown.each do |row| %>
-                  <tr>
-                    <td class="text-muted" style="padding-right: 12px;"><%= row[:label] %></td>
-                    <td class="text-muted num" style="padding-right: 12px;">
-                      <%= row[:file_count] ? number_with_delimiter(row[:file_count]) : "—" %>
-                    </td>
-                    <td class="text-muted num">
-                      <%= row[:size_bytes] ? number_to_human_size(row[:size_bytes]) : "—" %>
-                    </td>
-                  </tr>
-                <% end %>
-              </tbody>
-            </table>
-          <% end %>
-        </div>
-
-        <%# Vertical hairline gutter — matches `hr.hairline`'s
-            single-pixel border-color contract, just turned 90°.
-            Reaches the full height of the taller column thanks
-            to `align-items: stretch` on the grid container. %>
-        <div style="background: var(--color-border); width: 1px;"></div>
-
-        <%# notes column — Note rows. The mobile MCP `save_note`
-            drop-zone is a dev-only artifact (doesn't ship in production
-            builds) and was dropped from this surface per user
-            direction 2026-05-11. The size + files summary lines under
-            the title were also dropped — only the title + writable
-            badge remain; the per-namespace table below carries count
-            + size per namespace. %>
-        <div>
-          <div style="margin-bottom: 6px;">
-            <span>notes</span>
-            <% if @notes_volume_status[:present] %>
-              <% if @notes_volume_status[:writable] %>
-                <span style="color: var(--color-success);">▲ writable</span>
-              <% else %>
-                <span class="text-danger">▽ read-only</span>
-              <% end %>
-            <% else %>
-              <span class="text-muted">▽ not present</span>
-            <% end %>
-          </div>
-
-          <%# Per-namespace breakdown. `count` column shows the
-              row count for namespaces backed by a DB table (project
-              notes today); namespaces without a backing table
-              (Mobile drop-zone) render `—` for the count. Future
-              video notes / channel notes slot into the same table
-              via `NOTES_NAMESPACE_SOURCES` in the controller. %>
-          <% if @notes_breakdown.any? %>
-            <table class="detail-table" style="margin-bottom: 8px;">
-              <thead>
-                <tr>
-                  <th style="font-weight: normal; padding-right: 12px;">namespace</th>
-                  <th class="num" style="font-weight: normal; padding-right: 12px;">count</th>
-                  <th class="num" style="font-weight: normal;">size</th>
-                </tr>
-              </thead>
-              <tbody>
-                <% @notes_breakdown.each do |row| %>
-                  <tr>
-                    <td class="text-muted" style="padding-right: 12px;"><%= row[:label] %></td>
-                    <td class="text-muted num" style="padding-right: 12px;">
-                      <%= row[:count] ? number_with_delimiter(row[:count]) : "—" %>
-                    </td>
-                    <td class="text-muted num">
-                      <%= row[:size_bytes] ? number_to_human_size(row[:size_bytes]) : "—" %>
-                    </td>
-                  </tr>
-                <% end %>
-              </tbody>
-            </table>
-          <% end %>
-        </div>
-      </div>
-    </fieldset>
-  </div>
-
-  <%# Right cell intentionally absent — the user-locked stack
-      layout drops Redis as a standalone pane; Redis now lives
-      inside the `db` pane on the row above. The `.pane-row` flex
-      container with a single `.pane` child renders the storage
-      pane at its natural width without a placeholder sibling. %>
+      Phase 32 (Concern 2). When the mandatory-2FA gate is active the
+      wrapper carries two Stimulus values:
+        * `auto-open-url` — the URL to load into the Turbo Frame on
+          connect (here, the TOTP enrollment landing).
+        * `non-dismissible` — "yes" turns off the close button, the
+          click-outside handler, and the Escape key.
+      The Stimulus controller reads both on connect; nothing extra is
+      needed in the trigger links. The partial keeps a duplicate of
+      `non-dismissible` on the `<dialog>` itself purely as a CSS hook
+      for the mandatory-mode width / spacing tweaks. %>
+  <%= render "settings_modal",
+             auto_open_url: enroll_totp_gate_active ? settings_security_totp_path : nil,
+             non_dismissible: enroll_totp_gate_active %>
 </div>

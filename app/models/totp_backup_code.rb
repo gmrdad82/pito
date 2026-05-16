@@ -7,7 +7,8 @@
 #
 # Consumption (login-flow) flips `used_at` and leaves the row in place
 # so the audit trail records "this code was used at this timestamp".
-# Disabling 2FA destroys every row outright via `Auth::TotpDisabler`.
+# 2FA is mandatory (Phase 29 — Unit A2); there is no disable path and
+# no service that destroys these rows outside `dependent: :destroy`.
 #
 # The code alphabet is the safe 28-char base32 subset (no `0` / `O` /
 # `1` / `I` / `L` / `B` / `8`); the alphabet is owned by the enroller

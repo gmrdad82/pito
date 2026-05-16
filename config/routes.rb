@@ -69,56 +69,35 @@ Rails.application.routes.draw do
   get   "/password/reset/edit", to: "password_resets#edit",   as: :edit_password_reset
   patch "/password/reset",      to: "password_resets#update"
 
-  # Phase 25 — 01b (LD-17). New-location challenge surface.
-  #   GET    /login/challenge — two bracketed-link choices (TOTP / approval).
-  #   POST   /login/challenge — branches on `challenge_path` param.
-  #   GET    /login/pending   — countdown + attempt detail + cancel link.
-  #   DELETE /login/pending   — `[cancel & log out]` form target.
-  # The TOTP route is a placeholder here — `01e` lands the real
-  # controller. Until then, `[enter 2FA code]` redirects to `/login`
-  # so the link does not 404.
-  get    "/login/challenge", to: "login/challenges#show",   as: :login_challenge
-  post   "/login/challenge", to: "login/challenges#create"
-  get    "/login/pending",   to: "login/pendings#show",     as: :login_pending
-  delete "/login/pending",   to: "login/pendings#destroy"
-
-  # Phase 25 — 01e. TOTP 2FA challenge surface on new-location logins.
-  # GET renders the 6-digit input form (with a backup-code fallback
-  # link); POST accepts either a 6-digit code or an 8-char backup
-  # code, activates the session on success, rotates the token
-  # (LD-12), upserts the trusted-location, and writes a success
-  # `LoginAttempt` row. POST without a pre-auth marker returns 401.
+  # Post-password TOTP gate. GET renders the 6-digit input form (with
+  # a backup-code fallback); POST accepts either a 6-digit code or an
+  # 8-char backup code, activates the session on success, and rotates
+  # the session token (LD-12). POST without a pre-auth marker returns
+  # 401. The marker is minted by `SessionsController#create` when the
+  # password verified and the user has TOTP enabled.
   get    "/login/totp",      to: "login/totp_challenges#show",   as: :login_totp
   post   "/login/totp",      to: "login/totp_challenges#create"
 
-  # Phase 25 — 01c. Approve / block action screens for the
-  # new-location pending-approval flow. Two singleton controllers,
-  # each carrying GET (action-screen confirmation) + POST
-  # (`confirm=yes` consumer). The id segment is the LoginAttempt id —
-  # the row mints the action-screen detail card AND identifies the
-  # pending session via its `session_id` FK.
-  get  "/login/approvals/:id",
-       to: "login/approvals#show",
-       as: :login_approval,
-       constraints: { id: /\d+/ }
-  post "/login/approvals/:id",
-       to: "login/approvals#create",
-       constraints: { id: /\d+/ }
-  get  "/login/blocks/:id",
-       to: "login/blocks#show",
-       as: :login_block,
-       constraints: { id: /\d+/ }
-  post "/login/blocks/:id",
-       to: "login/blocks#create",
-       constraints: { id: /\d+/ }
-
   # Phase 12 — Step B (6b-doorkeeper-oauth-server.md). Doorkeeper mounts
   # `/oauth/authorize`, `/oauth/token`, `/oauth/revoke`, `/oauth/introspect`.
-  # We skip the bundled applications admin and replace it with our own UI
-  # under `/settings/oauth_applications`.
+  # We skip the bundled applications admin; Phase 32 follow-up
+  # (2026-05-16) dropped our own `/settings/oauth_applications`
+  # replacement too. Application management is now operator-only via
+  # `bin/rails pito:oauth_apps:*`.
   use_doorkeeper do
     skip_controllers :applications, :authorized_applications
   end
+
+  # RFC 7591 — OAuth 2.0 Dynamic Client Registration. Doorkeeper 5.9
+  # does not ship this endpoint; we mount our own minimal controller
+  # at the conventional `POST /oauth/register` path so the Claude
+  # CLI's MCP SDK (and any other DCR-aware client) can self-register.
+  # The endpoint is advertised in the `/.well-known/oauth-authorization-server`
+  # document via the `registration_endpoint` field.
+  post "/oauth/register",
+       to: "oauth/registrations#create",
+       as: :oauth_register,
+       defaults: { format: "json" }
 
   root "dashboard#index"
 
@@ -528,15 +507,20 @@ Rails.application.routes.draw do
   get "search", to: "search#show"
   get "settings", to: "settings#index"
   patch "settings", to: "settings#update"
-  patch "settings/theme", to: "settings#update_theme"
+  # Phase 29 (settings refactor) — `PATCH /settings/theme` removed.
+  # Theme persistence moved to localStorage only; the Stimulus
+  # `theme_controller` no longer hits the server.
   post "settings/reindex", to: "settings#reindex"
 
-  # Phase 3 — Step C (5c-settings-ui-and-docs.md). Token CRUD UI lives at
-  # `/settings/tokens` so it has its own list / new / show flow without
-  # cramming a 6th pane into the multi-section settings page. The
-  # `/settings/tokens/:id/revoke` GET renders the action confirmation
-  # screen (same UX pattern as `/deletions/:type/:ids`); the matching
-  # DELETE soft-deletes by setting `revoked_at`.
+  # Phase 32 (settings refactor follow-up, 2026-05-16). The
+  # `/settings/oauth_applications/*` and `/settings/tokens/*` web
+  # management UIs were dropped — pito is single-user, the operator
+  # manages OAuth apps + API tokens from the shell via
+  # `bin/rails pito:oauth_apps:*` and `bin/rails pito:tokens:*`. The
+  # Doorkeeper handshake endpoints (`/oauth/authorize`,
+  # `/oauth/token`, `/oauth/revoke`, `/oauth/introspect`) stay live
+  # for the Claude Desktop OAuth client; only the management surfaces
+  # are gone.
   namespace :settings do
     # Phase 12 — user account self-service. The authenticated user can
     # change their own username or password. `current_password` is
@@ -549,113 +533,65 @@ Rails.application.routes.draw do
     # singular `resource` to `Settings::UsersController`).
     resource :user, only: %i[show update], controller: "user"
 
-    resources :tokens, only: %i[index new create destroy] do
-      member do
-        get :revoke
-      end
-    end
+    # 2026-05-16 (sessions revamp) — the standalone `/settings/sessions`
+    # index + the modal-based listing + the per-row revoke surface are
+    # all gone. The sessions table renders INLINE inside the Security
+    # pane on `/settings` (see `app/views/settings/_security_pane.html.erb`).
+    # The bulk-revoke action endpoint stays as the single source of
+    # truth for revoking sessions (1..N ids per the
+    # bulk-as-foundation rule).
+    #
+    # 2026-05-16 (sessions revamp v3 — modal-confirm). The GET
+    # confirmation screen (action-screen page at
+    # `/settings/sessions/revokes/:ids`) is GONE. The confirmation
+    # step is now an in-page `<dialog>` mounted on the Security pane
+    # (`ConfirmModalComponent`-style — see `_security_pane.html.erb`).
+    # Only the POST endpoint survives: `create` consumes `confirm=yes`
+    # and revokes every targeted session before redirecting back to
+    # `/settings`. The named helper stays — call sites are the modal
+    # form's `action` attribute (rewritten client-side at click time)
+    # and request specs.
+    post "sessions/revokes/:ids",
+         to: "sessions/bulk_revokes#create",
+         as: :sessions_bulk_revoke,
+         constraints: { ids: %r{[0-9,]+} }
 
-    # Phase 12 — Step A (6a-sessions-and-login-ui.md). Active Sessions
-    # management mirrors the tokens shape: index, member revoke (action
-    # screen), member destroy (the actual revoke).
-    resources :sessions, only: %i[index destroy] do
-      member do
-        get :revoke
-      end
-    end
-
-    # Phase 12 — Step B (6b-doorkeeper-oauth-server.md). OAuth
-    # application admin. `:show` exposes the read-only detail; the
-    # `create` action renders the show-secrets-once page rather than
-    # redirecting (matching the `/settings/tokens` ceremony). The
-    # `revoke` member route renders the action-screen confirmation
-    # before the actual DELETE.
-    resources :oauth_applications, only: %i[index new create show destroy] do
-      member do
-        get :revoke
-      end
-    end
-
-    # Phase 25 — 01a. Security surface. `resource` (singular) so the URL
-    # is `/settings/security` (one dashboard per logged-in user).
-    # The nested `security` namespace carries the paginated attempts
-    # log and (in later sub-specs) the 2FA enroll surface + block list.
+    # Security surface. `resource` (singular) so the URL is
+    # `/settings/security` (one dashboard per logged-in user). Post-
+    # Phase-25 rollback the dashboard is 2FA-status only — the recent-
+    # attempts table, auto-block list, and per-attempt detail surfaces
+    # are gone along with the new-location approval flow. The TOTP
+    # enrollment routes stay live.
     resource :security, only: %i[show], controller: "security"
     namespace :security do
-      # Phase 25 — 01f. Bulk-purge surface for the attempt log. Sits
-      # OUTSIDE the `attempts` resources block so the helper name reads
-      # `settings_security_attempts_purge_path` (purge is a verb on
-      # the collection, not a nested resource). Mirrors the locked URL
-      # in the spec: `/settings/security/attempts/purge`.
-      get  "attempts/purge",
-           to: "attempts/purges#show",
-           as: :attempts_purge
-      post "attempts/purge",
-           to: "attempts/purges#create"
-
-      resources :attempts, only: %i[index show]
-
-      # Phase 25 — 01f. Auto-block list. The `purge` collection action
-      # is declared explicitly (before `resources`) so the helper reads
-      # `settings_security_blocks_purge_path`. The per-row unblock
-      # action-screen nests under each block id.
-      get  "blocks/purge",
-           to: "blocks/purges#show",
-           as: :blocks_purge
-      post "blocks/purge",
-           to: "blocks/purges#create"
-
-      resources :blocks, only: %i[index show], controller: "blocks" do
-        # Per-row soft-unblock action-screen. GET renders the
-        # confirmation page; POST consumes `confirm=yes` and calls
-        # `Auth::BlockedLocationUnblocker`. Helper:
-        # `settings_security_block_unblocking_path(block_id)`.
-        resource :unblocking,
-                 only: %i[show create],
-                 controller: "blocks/unblockings"
-      end
-
-      # Phase 25 — 01e. TOTP 2FA management.
+      # Phase 32 follow-up (2026-05-16). 2FA / TOTP cleanup.
       #
-      # Three controllers under `/settings/security/totp*`:
+      # The web surface collapsed to a single focused enrollment view.
+      # Mandatory-2FA means there is no "manage" page, no `[disable]`
+      # web action, and no `[manage backup codes]` control — those
+      # capabilities live in operator-only rake tasks
+      # (`pito:user:reset_totp` and `pito:user:regenerate_backup_codes`).
       #
-      #   - `totps#new` (GET /settings/security/totp) — pre-enroll
-      #     status + `[ enroll ]` link.
-      #   - `totps#create` (POST /settings/security/totp) — invokes
-      #     `Auth::TotpEnroller`, stashes one-shot payload on the
-      #     flash, redirects to `show`.
-      #   - `totps#show` (GET /settings/security/totp/show) — displays
-      #     QR + seed + backup codes ONCE. Subsequent loads redirect.
-      #   - `totps#update` (PATCH /settings/security/totp) — confirms
-      #     enrollment with a fresh 6-digit code (`totp_enabled_at` flips).
-      #   - `totps#destroy_screen` / `totps#destroy_confirmed` —
-      #     action-screen confirmation + execution of disable. POST
-      #     consumes `confirm=yes` + fresh TOTP code.
+      # Two routes:
       #
-      # Backup-code management is a sibling resource:
+      #   - `totps#new`    (GET /settings/security/totp) — renders the
+      #                    2-row enrollment view. Generates a fresh
+      #                    seed + backup-code draft per load and
+      #                    stashes it in `Rails.cache` (NOT in the
+      #                    user row). Non-resumable.
+      #   - `totps#create` (POST /settings/security/totp) — atomic
+      #                    finalize. Reads the cached draft, verifies
+      #                    the 6-digit code, and only on success
+      #                    persists `totp_seed_encrypted` +
+      #                    `totp_enabled_at` + backup-code rows in a
+      #                    single transaction.
       #
-      #   - `totp_backup_codes#show` — count of unused codes (no plaintext).
-      #   - `totp_backup_codes#new` — action-screen "regenerate?" page.
-      #   - `totp_backup_codes#create` — invokes
-      #     `Auth::BackupCodeRegenerator`, displays new codes once.
-      #
-      # All destructive actions route through the action-screen
-      # confirmation pattern — no JS confirm anywhere.
-      get   "totp",          to: "totps#new",                as: :totp
-      post  "totp",          to: "totps#create"
-      get   "totp/show",     to: "totps#show",               as: :totp_show
-      patch "totp/confirm",  to: "totps#update",             as: :totp_confirm
-      get   "totp/disable",  to: "totps#destroy_screen",     as: :totp_disable
-      post  "totp/disable",  to: "totps#destroy_confirmed"
-
-      get   "totp_backup_codes",
-            to: "totp_backup_codes#show",
-            as: :totp_backup_codes
-      get   "totp_backup_codes/new",
-            to: "totp_backup_codes#new",
-            as: :new_totp_backup_codes
-      post  "totp_backup_codes",
-            to: "totp_backup_codes#create"
+      # The dropped surfaces — `totp/show`, `totp/confirm`,
+      # `totp/disable`, `totp_backup_codes/*` — are gone. The
+      # one-shot QR + codes render on `new`; finalization is `create`;
+      # disable + backup-code rotation are operator-only.
+      get  "totp", to: "totps#new",    as: :totp
+      post "totp", to: "totps#create"
     end
 
     # Phase 26 — 01a. Timezone foundation. Singular `resource` so the

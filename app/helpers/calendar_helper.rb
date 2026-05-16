@@ -164,13 +164,13 @@ module CalendarHelper
   # all-day. Per Q12.
   def entry_time_label(entry)
     return "" if entry.all_day
-    install_tz = AppSetting.first&.timezone || "UTC"
+    install_tz = Rails.application.config.x.pito.timezone
     entry.starts_at.in_time_zone(install_tz).strftime("%H:%M")
   end
 
   # Lowercase abbreviated date label per `docs/design.md`. e.g. `mar 14`.
   def entry_date_label(entry)
-    install_tz = AppSetting.first&.timezone || "UTC"
+    install_tz = Rails.application.config.x.pito.timezone
     entry.starts_at.in_time_zone(install_tz).strftime("%b %-d").downcase
   end
 
@@ -178,7 +178,7 @@ module CalendarHelper
   # Format: `may 10 sun` — lowercase abbreviated month, day-of-month,
   # lowercase 3-letter weekday. Calendar refactor 2026-05-11.
   def entry_date_grouping_label(entry)
-    install_tz = AppSetting.first&.timezone || "UTC"
+    install_tz = Rails.application.config.x.pito.timezone
     entry.starts_at.in_time_zone(install_tz).strftime("%b %-d %a").downcase
   end
 
@@ -187,7 +187,7 @@ module CalendarHelper
   # previous iteration. Uses the entry's starts_at in the install
   # timezone.
   def entry_grouping_day_key(entry)
-    install_tz = AppSetting.first&.timezone || "UTC"
+    install_tz = Rails.application.config.x.pito.timezone
     entry.starts_at.in_time_zone(install_tz).to_date.iso8601
   end
 

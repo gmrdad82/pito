@@ -19,7 +19,7 @@ class Calendar::EntriesController < ApplicationController
     @entry = CalendarEntry.new(
       entry_type: params[:entry_type].presence_in(MANUAL_ENTRY_TYPES) || "milestone_manual",
       starts_at: 1.day.from_now,
-      timezone: AppSetting.first&.timezone || "UTC"
+      timezone: Rails.application.config.x.pito.timezone
     )
   end
 
@@ -27,7 +27,7 @@ class Calendar::EntriesController < ApplicationController
     @entry = CalendarEntry.new(
       entry_type: params[:entry_type].presence_in(MANUAL_ENTRY_TYPES) || "milestone_manual",
       starts_at: 1.day.from_now,
-      timezone: AppSetting.first&.timezone || "UTC"
+      timezone: Rails.application.config.x.pito.timezone
     )
     render :new
   end
@@ -277,7 +277,7 @@ class Calendar::EntriesController < ApplicationController
       starts_at: Time.current,
       ends_at: nil,
       all_day: false,
-      timezone: AppSetting.first&.timezone || "UTC"
+      timezone: Rails.application.config.x.pito.timezone
     }
   end
 

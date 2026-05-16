@@ -39,10 +39,15 @@ module Mcp
           saved_views: SavedView.count,
           search_healthy: YesNo.to_yes_no(search_healthy),
           search_stats: search_stats,
+          # Phase 29 (settings refactor) — workspace knobs come from
+          # `config/pito.yml` via `Rails.application.config.x.pito.*`;
+          # theme is browser-local (no server-side value) so it's
+          # reported as a constant `"auto"` placeholder for callers
+          # that still ship the field.
           settings: {
-            max_panes: AppSetting.get("max_panes") || "(default: 3)",
-            pane_title_length: AppSetting.get("pane_title_length") || "(default: 14)",
-            theme: AppSetting.get("theme") || "auto"
+            max_panes: Rails.application.config.x.pito.max_panes,
+            pane_title_length: Rails.application.config.x.pito.pane_title_length,
+            theme: "auto"
           }
         }
 

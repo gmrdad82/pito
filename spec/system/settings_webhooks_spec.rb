@@ -5,8 +5,8 @@ require "rails_helper"
 # consolidation:
 #
 #   * The Slack + Discord webhook panes still render and still save
-#     exactly as before (URL field + "deliver every notification" /
-#     "daily digest" checkboxes + `[update]` + the "... webhook saved."
+#     exactly as before (URL field + "every notification" /
+#     "daily digest" checkboxes + `[update]` + the "... webhook updated."
 #     confirmation). The storage layer was already correct — Unit A1
 #     only changed the orphaned `AppSetting.*_enabled` gate behind it.
 #   * The YouTube credentials pane is GONE (deploy-time credentials
@@ -18,30 +18,13 @@ require "rails_helper"
 # the submit path. The Slack / Discord test ping is stubbed at the
 # HTTP boundary.
 #
-# Phase 29 — Unit A2. The auto-signed-in system-spec user is now
-# always TOTP-configured (mandatory-2FA gate), so the webhook write
-# panes are guarded by `RecentTotpVerification` — a save needs a
-# fresh `totp_code`. In the browser the layout-level `totp-modal`
-# Stimulus controller injects that hidden field on submit; `rack_test`
-# runs no JS, so the spec injects the hidden `totp_code` input into
-# the pane form node directly (mirroring exactly what the modal does)
-# before clicking `[update]`. The auto-signed-in user carries the
-# known seed `JBSWY3DPEHPK3PXP` from `spec/support/auth.rb`.
+# 2026-05-16 — recent-TOTP gate dropped from the webhook surfaces.
+# Saves are plain saves now — no `totp_code` injection needed.
 RSpec.describe "Settings integrations panes (Unit A1)", type: :system do
   before { driven_by(:rack_test) }
 
   let(:slack_url) { "https://hooks.slack.com/services/T01ABCD/B02EFGH/abcdefXYZ1234567" }
   let(:discord_url) { "https://discord.com/api/webhooks/123456789012345678/abc-DEF_xyz123" }
-  let(:seed) { "JBSWY3DPEHPK3PXP" }
-
-  # `rack_test` runs no JS, so the `totp-modal` controller never fires.
-  # Inject the hidden `totp_code` field into the pane form node the
-  # same way the modal would, then submit.
-  def inject_totp_code(form_node)
-    form_node.native.add_child(
-      %(<input type="hidden" name="totp_code" value="#{ROTP::TOTP.new(seed).now}">)
-    )
-  end
 
   describe "the Slack pane" do
     it "renders the webhook URL field and the routing checkboxes" do
@@ -55,18 +38,52 @@ RSpec.describe "Settings integrations panes (Unit A1)", type: :system do
     end
 
     it "saves a webhook URL and shows the saved confirmation" do
-      @auto_signed_in_user.update_columns(totp_last_used_step: nil)
       stub_request(:post, slack_url).to_return(status: 200, body: "ok")
       visit settings_path
       form = find(:xpath, "//form[.//input[@name='slack_webhook_url']]")
       within(form) do
         fill_in "slack_webhook_url", with: slack_url
         check "everything"
+        click_button "[update]"
       end
-      inject_totp_code(form)
-      within(form) { click_button "[update]" }
-      expect(page).to have_content("Slack webhook saved.")
+      expect(page).to have_content("Slack webhook updated.")
       expect(NotificationDeliveryChannel.find_by(kind: "slack").webhook_url).to eq(slack_url)
+    end
+
+    # 2026-05-16 webhook-clear UX tweak.
+    # The first checkbox label dropped its "deliver " prefix — the
+    # word was redundant against the surrounding pane copy and the
+    # `[update]` button. The bare "every notification" reads as a
+    # routing toggle, matching the sibling "daily digest" label.
+    it "renders the `every notification` label (not the old `deliver every notification`)" do
+      visit settings_path
+      within(:xpath, "//fieldset[.//h2[text()='Slack']]") do
+        expect(page).to have_text("every notification")
+        expect(page).not_to have_text("deliver every notification")
+        expect(page).to have_text("daily digest")
+      end
+    end
+
+    # 2026-05-16 webhook-clear UX tweak.
+    # Clearing the URL field and hitting `[update]` persists the row
+    # with nil URL + both flags off and surfaces the distinct
+    # "Slack webhook cleared." flash.
+    it "clears the integration on a blank URL submit" do
+      NotificationDeliveryChannel.create!(
+        kind: "slack", webhook_url: slack_url,
+        everything: true, daily_digest: true
+      )
+      visit settings_path
+      form = find(:xpath, "//form[.//input[@name='slack_webhook_url']]")
+      within(form) do
+        fill_in "slack_webhook_url", with: ""
+        click_button "[update]"
+      end
+      expect(page).to have_content("Slack webhook cleared.")
+      record = NotificationDeliveryChannel.find_by(kind: "slack")
+      expect(record.webhook_url).to be_nil
+      expect(record.everything).to be(false)
+      expect(record.daily_digest).to be(false)
     end
   end
 
@@ -82,18 +99,48 @@ RSpec.describe "Settings integrations panes (Unit A1)", type: :system do
     end
 
     it "saves a webhook URL and shows the saved confirmation" do
-      @auto_signed_in_user.update_columns(totp_last_used_step: nil)
       stub_request(:post, discord_url).to_return(status: 204, body: "")
       visit settings_path
       form = find(:xpath, "//form[.//input[@name='discord_webhook_url']]")
       within(form) do
         fill_in "discord_webhook_url", with: discord_url
         check "everything"
+        click_button "[update]"
       end
-      inject_totp_code(form)
-      within(form) { click_button "[update]" }
-      expect(page).to have_content("Discord webhook saved.")
+      expect(page).to have_content("Discord webhook updated.")
       expect(NotificationDeliveryChannel.find_by(kind: "discord").webhook_url).to eq(discord_url)
+    end
+
+    # 2026-05-16 webhook-clear UX tweak.
+    it "renders the `every notification` label (not the old `deliver every notification`)" do
+      visit settings_path
+      within(:xpath, "//fieldset[.//h2[text()='Discord']]") do
+        expect(page).to have_text("every notification")
+        expect(page).not_to have_text("deliver every notification")
+        expect(page).to have_text("daily digest")
+      end
+    end
+
+    # 2026-05-16 webhook-clear UX tweak.
+    # Clearing the URL field and hitting `[update]` persists the row
+    # with nil URL + both flags off and surfaces the distinct
+    # "Discord webhook cleared." flash.
+    it "clears the integration on a blank URL submit" do
+      NotificationDeliveryChannel.create!(
+        kind: "discord", webhook_url: discord_url,
+        everything: true, daily_digest: true
+      )
+      visit settings_path
+      form = find(:xpath, "//form[.//input[@name='discord_webhook_url']]")
+      within(form) do
+        fill_in "discord_webhook_url", with: ""
+        click_button "[update]"
+      end
+      expect(page).to have_content("Discord webhook cleared.")
+      record = NotificationDeliveryChannel.find_by(kind: "discord")
+      expect(record.webhook_url).to be_nil
+      expect(record.everything).to be(false)
+      expect(record.daily_digest).to be(false)
     end
   end
 
@@ -106,22 +153,16 @@ RSpec.describe "Settings integrations panes (Unit A1)", type: :system do
     end
   end
 
-  describe "the slimmed Voyage.ai pane" do
-    it "renders the pane but no API key field" do
+  # Phase 29 (settings refactor) — the Voyage.ai pane is gone from
+  # /settings. Voyage indexing is now gated solely on credentials key
+  # presence; no operator-facing toggle remains. The `voyage embeddings`
+  # status badge surfaces inside the stack pane (covered by the stack
+  # pane view spec).
+  describe "the dropped Voyage.ai pane" do
+    it "is absent from the Settings page" do
       visit settings_path
-      expect(page).to have_css("h2", text: "Voyage.ai")
-      expect(page).not_to have_field("settings[voyage_api_key]")
-      expect(page).not_to have_field("settings[clear_voyage_api_key]")
-    end
-
-    it "shows the project-notes indexing toggle once a Voyage key is configured in credentials" do
-      allow(Rails.application.credentials).to receive(:dig).and_call_original
-      allow(Rails.application.credentials).to receive(:dig)
-        .with(:voyage, :api_key).and_return("vk_from_creds")
-      visit settings_path
-      within(:xpath, "//fieldset[.//h2[text()='Voyage.ai']]") do
-        expect(page).to have_field("settings[voyage_index_project_notes]", type: "radio")
-      end
+      expect(page).not_to have_css("h2", text: "Voyage.ai")
+      expect(page).not_to have_field("settings[voyage_index_project_notes]")
     end
   end
 end

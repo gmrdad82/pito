@@ -1,121 +1,55 @@
 # Slack webhook setup
 
-This guide walks you, step by step, from never having made a Slack webhook to
-receiving a pito test ping in your Slack channel.
-
-No prior Slack-admin experience needed — if you can sign in to Slack, you can
-follow this.
-
-A Slack webhook is just a URL. See Slack's
-[Incoming Webhooks](https://api.slack.com/messaging/webhooks) docs for the full
-reference.
-
-When something sends an HTTP POST to that URL, Slack writes the request body as
-a message in the
-[channel](https://slack.com/help/articles/360017938993-What-is-a-channel) you
-picked. Pito uses this to deliver notifications.
-
----
-
 ## Step 1 — Create a Slack app
 
-Open the [Slack apps directory](https://api.slack.com/apps) in your browser.
-Sign in if needed — use the same account that has access to the Slack workspace
-you want notifications to land in.
+Open the [Slack apps directory](https://api.slack.com/apps), sign in to the
+workspace where pings should land, click `Create New App` → `From scratch`.
 
-Click `Create New App` in the top right. A dialog asks how you'd like to
-configure your new app — pick `From scratch`.
-
-In the next dialog:
-
-| Field          | What to do                                         |
-| -------------- | -------------------------------------------------- |
-| App Name       | type `pito` (or any name you'll recognize)         |
-| Pick workspace | choose the Slack workspace where pings should land |
-
-Hit `Create App`. Slack drops you on the app's "Basic Information" page.
+Name it `pito` (or any label), pick the workspace, `Create App`.
 
 ---
 
 ## Step 2 — Enable Incoming Webhooks
 
-In the left sidebar (under "Features"), click
-[`Incoming Webhooks`](https://api.slack.com/messaging/webhooks#getting_started).
-
-At the top of that page is a toggle labelled "Activate Incoming Webhooks". Flip
-it from `Off` to `On`.
-
-The page expands to show webhook configuration.
+Sidebar → `Incoming Webhooks`. Flip `Activate Incoming Webhooks` to `On`.
 
 ---
 
-## Step 3 — Add a webhook URL to a channel
+## Step 3 — Add a webhook URL
 
-Scroll to the bottom of the same page. Click `Add New Webhook to Workspace`.
+Same page, bottom: `Add New Webhook to Workspace`. Pick a channel (public,
+private you belong to, or self-DM), `Allow`.
 
-Slack asks which channel pito should be allowed to post to. Pick the channel —
-it can be a public channel, a private channel you belong to, or a DM to
-yourself. Click `Allow`.
+A new row appears under "Webhook URLs for Your Workspace". Click `Copy`.
 
-You bounce back to the "Incoming Webhooks" page. Near the bottom, in the
-"Webhook URLs for Your Workspace" table, there's a new row with a URL that looks
-like:
+URL shape:
 
     https://hooks.slack.com/services/T012/B012/abcdef
-
-Click the `Copy` button next to that URL.
 
 ---
 
 ## Step 4 — Paste into pito
 
-Switch back to pito. On the Settings page, find the Slack pane.
+Settings → Slack pane. Paste into `webhook URL`, click `[update]`.
 
-Paste the URL into the `webhook URL` field, then click `[update]`.
+Pito validates the URL shape (`https://hooks.slack.com/services/` + three
+slash-separated segments) and sends a test ping. The URL is saved only if Slack
+accepts it.
 
-Pito does two things:
-
-1. **Validates the URL shape.** It must start with
-   `https://hooks.slack.com/services/` and have three slash- separated segments
-   after `services/`.
-2. **Sends a test message** to the channel. Only if Slack accepts the message
-   does pito save the URL.
-
-Within a second, the Slack channel should show:
+You should see in the channel within ~1s:
 
     pito test ping — Slack webhook configured.
-
-That's it. You're done.
-
----
-
-## Notifications behavior
-
-Two checkboxes live below the URL field:
-
-| Checkbox                     | What it does                                           |
-| ---------------------------- | ------------------------------------------------------ |
-| `deliver every notification` | post to Slack every time pito generates a notification |
-| `daily digest`               | post a single roll-up at 09:00 in your time zone       |
-
-The two toggles work independently. Turn one on, both on, or neither.
-
-Both off means the URL is saved but pito stays quiet — handy if you want to wire
-the integration up first and switch it on later.
 
 ---
 
 ## Troubleshooting
 
-| Error message                                  | What it means                                                                              | What to do                                               |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------- |
-| **webhook URL is invalid**                     | URL shape doesn't match Slack's pattern                                                    | re-copy the URL from Slack; stray whitespace is fine     |
-| **test ping failed: Slack returned 404 / 410** | the webhook was deleted in Slack ([Slack API errors](https://api.slack.com/web#responses)) | re-run Step 3 and paste the new URL                      |
-| **test ping failed: Slack returned 403**       | workspace permissions changed; no channel access                                           | re-run Step 3 and pick a channel you can access          |
-| **test ping failed: connection timed out**     | pito couldn't reach `hooks.slack.com`                                                      | usually a network blip; retry; check outbound HTTPS      |
-| **the channel disappeared**                    | the Slack channel was deleted after save                                                   | re-run Step 3 against a different channel; paste new URL |
+| Error                         | Fix                                       |
+| ----------------------------- | ----------------------------------------- |
+| **URL invalid**               | re-copy from Slack                        |
+| **test ping 404 / 410**       | webhook deleted — redo Step 3             |
+| **test ping 403**             | workspace perms changed — redo Step 3     |
+| **connection timed out**      | network / `hooks.slack.com` reachability  |
+| **channel disappeared**       | channel deleted — redo Step 3 elsewhere   |
 
-### Need to start over
-
-Clear the `webhook URL` field and click `[update]`. Pito removes the saved
-configuration. Both toggles reset to off automatically.
+To reset: clear the `webhook URL` field and `[update]`. Toggles reset to off.

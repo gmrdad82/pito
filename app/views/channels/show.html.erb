@@ -56,21 +56,13 @@
     <% yt_studio = youtube_studio_url(@channel) %>
     <% if yt_channel || yt_studio %>
       <span class="nav-sep" aria-hidden="true">·</span>
+      <%# 2026-05-16 polish — component auto-detects external hrefs;
+          callers drop the explicit target/rel pair. %>
       <% if yt_channel %>
-        <%= render(BracketedLinkComponent.new(
-              label: "YouTube",
-              href: yt_channel,
-              target: "_blank",
-              rel: "noopener noreferrer"
-            )) %>
+        <%= render(BracketedLinkComponent.new(label: "YouTube", href: yt_channel)) %>
       <% end %>
       <% if yt_studio %>
-        <%= render(BracketedLinkComponent.new(
-              label: "Studio",
-              href: yt_studio,
-              target: "_blank",
-              rel: "noopener noreferrer"
-            )) %>
+        <%= render(BracketedLinkComponent.new(label: "Studio", href: yt_studio)) %>
       <% end %>
     <% end %>
   </div>

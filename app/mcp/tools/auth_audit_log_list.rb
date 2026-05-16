@@ -11,9 +11,12 @@
 #
 # Filter set:
 #
-#   - `action`            — enum string (approve / block / unblock /
-#                           purge / totp_enroll / totp_disable /
-#                           backup_code_regenerate)
+#   - `action`            — enum string (totp_enroll / totp_disable /
+#                           backup_code_regenerate /
+#                           voyage_credentials_updated /
+#                           password_reset). Post-Phase-25 rollback —
+#                           location-action vocabulary
+#                           (approve/block/unblock/purge) is gone.
 #   - `source_surface`    — enum string (web / tui / mcp)
 #   - `since` / `until_ts`— ISO8601 timestamps brace `created_at`
 #   - `acting_user_email` — exact-match join through the User
@@ -38,7 +41,7 @@ module Mcp
         properties: {
           action: {
             type: "string",
-            description: "filter by action (approve / block / unblock / purge / totp_enroll / totp_disable / backup_code_regenerate)."
+            description: "filter by action (totp_enroll / totp_disable / backup_code_regenerate / voyage_credentials_updated / password_reset)."
           },
           source_surface: {
             type: "string",
@@ -58,7 +61,7 @@ module Mcp
           },
           target_type: {
             type: "string",
-            description: "exact-match polymorphic target_type (e.g. \"LoginAttempt\")."
+            description: "exact-match polymorphic target_type (e.g. \"User\", \"AppSetting\")."
           },
           target_id: {
             type: "integer",

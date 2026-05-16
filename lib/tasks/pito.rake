@@ -6,32 +6,6 @@
 # might want to re-run on multiple environments, or that wants a count
 # of rows touched printed back.
 namespace :pito do
-  desc "Delete every Channel whose youtube_connection_id is NULL (legacy " \
-       "seed rows). Idempotent — safe to run on any environment."
-  task drop_seeded_channels: :environment do
-    # The pre-2026-05-10 seed (`db/seeds.rb`) created up to 100 placeholder
-    # Channel rows with `youtube_connection_id: nil`. They have been removed
-    # from the seed file; this task cleans up environments that ran the old
-    # seed at least once. Real channels minted through the OAuth flow always
-    # carry a `youtube_connection_id`, so the filter never deletes anything
-    # an operator would want to keep.
-    scope = Channel.where(youtube_connection_id: nil)
-    count = scope.count
-
-    if count.zero?
-      puts "no seeded channels to drop."
-      next
-    end
-
-    # `destroy_all` so the standard `dependent: :destroy` cascade fires for
-    # related rows (videos, calendar entries, change logs, etc.). The
-    # legacy seed populated those tables, so a bare `delete_all` would
-    # leave orphans behind.
-    scope.destroy_all
-
-    puts "dropped #{count} seeded channel#{'s' unless count == 1}."
-  end
-
   # Phase 27 follow-up (2026-05-11) — backfill `games.primary_genre_id`
   # for rows that pre-date the column. Idempotent — already-pinned rows
   # are skipped; rows whose pick resolves to `nil` (zero linked genres)
@@ -159,6 +133,157 @@ namespace :pito do
            "oauth_access_tokens=#{oauth_tokens_revoked}, " \
            "oauth_access_grants=#{oauth_grants_revoked}). " \
            "They will be forced through TOTP setup on next login."
+    end
+
+    # Phase 32 follow-up (2026-05-16). Operator-only backup-code
+    # rotation.
+    #
+    # The web-side `[manage backup codes]` surface was dropped along
+    # with the disable flow — mandatory-2FA means the web app never
+    # asks "are you sure?" about either of those. When the user
+    # exhausts or loses their backup codes, the operator regenerates
+    # via this task. Style mirrors `pito:user:reset_totp` above.
+    #
+    # The TOTP seed is NOT touched — the user keeps their
+    # authenticator app entry. Only the 10 backup-code rows rotate.
+    # Calling on a user who is NOT enrolled in 2FA is a clear error
+    # (stderr + non-zero exit) — there is nothing to regenerate.
+    desc "Regenerate the 10 backup codes for a user. Prints the new " \
+         "codes ONCE — they cannot be retrieved later. Usage: " \
+         "bin/rails pito:user:regenerate_backup_codes[username]"
+    task :regenerate_backup_codes, [ :username ] => :environment do |_t, args|
+      username = args[:username].to_s.strip.downcase
+      user = User.find_by(username: username) if username.present?
+
+      if user.nil?
+        warn "user not found: #{args[:username]}"
+        exit 1
+      end
+
+      unless user.totp_enabled?
+        warn "user #{user.username} is not enrolled in 2FA — nothing to " \
+             "regenerate. Use `pito:user:reset_totp` to clear them entirely, " \
+             "then have them re-enroll via the web."
+        exit 1
+      end
+
+      # `Auth::BackupCodeRegenerator` destroys every existing
+      # (used + unused) backup-code row, mints 10 fresh ones, persists
+      # the BCrypt digests, and writes an `AuthAuditLog` row. The
+      # rake invocation tags `source_surface: :tui` (no `Current.user`
+      # in this context — the user IS the acting user).
+      plaintext_codes = Auth::BackupCodeRegenerator.call(
+        user: user,
+        acting_user: user,
+        source_surface: :tui
+      )
+
+      puts "Regenerated 10 backup codes for #{user.username}. " \
+           "Save them NOW — they cannot be retrieved later."
+      puts ""
+      plaintext_codes.each { |code| puts "  #{code}" }
+      puts ""
+      puts "Each code works once. Any previous backup codes are invalidated."
+    end
+  end
+
+  # 2026-05-16 (sessions revamp v2). Operator-only audit access to
+  # every Session row (including revoked + expired).
+  #
+  # The web-side Security pane only surfaces ACTIVE sessions — that is
+  # the day-to-day actionable surface. Audit access to the full history
+  # (a revoked session row from last month, an expired login from a
+  # specific incident) belongs on the shell, alongside the other
+  # `pito:*` operator tasks.
+  #
+  # Usage:
+  #
+  #   bin/rails pito:sessions:list              # active only (default).
+  #   bin/rails 'pito:sessions:list[active]'    # explicit active.
+  #   bin/rails 'pito:sessions:list[revoked]'   # revoked only.
+  #   bin/rails 'pito:sessions:list[expired]'   # expired only.
+  #   bin/rails 'pito:sessions:list[all]'       # all states; output
+  #                                             # includes a `state` column.
+  #
+  # Output is plain-text tabular on stdout, columns:
+  #   id / user / user-agent / ip / pinged / created-at [/ state].
+  # The `state` column only appears when `state=all`; narrowed scopes
+  # omit it (redundant — every row carries the same state). Mirrors
+  # the `pito:tokens:list` / `pito:oauth_apps:list` style.
+  namespace :sessions do
+    SESSIONS_LIST_VALID_STATES = %w[all active revoked expired].freeze
+
+    desc "List sessions for audit. Default: active only. " \
+         "Usage: bin/rails 'pito:sessions:list[state]' " \
+         "(state in: #{SESSIONS_LIST_VALID_STATES.join('|')})."
+    task :list, [ :state ] => :environment do |_t, args|
+      state = (args[:state].presence || "active").to_s.strip.downcase
+
+      unless SESSIONS_LIST_VALID_STATES.include?(state)
+        warn "unknown state: #{args[:state]} " \
+             "(allowed: #{SESSIONS_LIST_VALID_STATES.join(', ')})"
+        exit 1
+      end
+
+      scope =
+        case state
+        when "all"     then Session.all
+        when "active"  then Session.active_sessions
+        when "revoked" then Session.where.not(revoked_at: nil)
+        when "expired" then Session.state_expired
+        end
+
+      rows = scope.order(last_activity_at: :desc, created_at: :desc).to_a
+
+      if rows.empty?
+        puts "no sessions match: #{state}."
+        next
+      end
+
+      include_state_column = (state == "all")
+
+      headers = %w[id user user-agent ip pinged created-at]
+      headers << "state" if include_state_column
+
+      table = rows.map do |s|
+        row = [
+          s.id.to_s,
+          s.user&.username.to_s.presence || "(deleted user ##{s.user_id})",
+          s.user_agent.to_s.presence || "—",
+          s.ip.to_s.presence || "—",
+          s.last_activity_at&.utc&.iso8601 || "never",
+          s.created_at.utc.iso8601
+        ]
+        if include_state_column
+          row << session_list_state_label(s)
+        end
+        row
+      end
+
+      widths = headers.map.with_index do |h, i|
+        ([ h ] + table.map { |r| r[i] }).map(&:length).max
+      end
+
+      print_session_row = ->(values) do
+        line = values.each_with_index.map { |v, i| v.ljust(widths[i]) }.join("  ")
+        puts line.rstrip
+      end
+
+      print_session_row.call(headers)
+      print_session_row.call(widths.map { |w| "-" * w })
+      table.each { |row| print_session_row.call(row) }
+
+      puts ""
+      puts "#{rows.size} session#{'s' if rows.size != 1} (#{state})."
+    end
+
+    # State label printed in the `all`-mode `state` column. Prefers
+    # the revoked flag (a row may be `state=active` with
+    # `revoked_at` set if a code path bypassed the model's
+    # `#revoke!`); otherwise reads the enum.
+    def session_list_state_label(session)
+      return "revoked" if session.revoked_at.present?
+      session.state.to_s
     end
   end
 end

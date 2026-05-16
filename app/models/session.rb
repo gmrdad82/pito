@@ -1,33 +1,20 @@
-# Phase 12 — Step A (6a-sessions-and-login-ui.md) — server-side session.
+# Server-side session.
 #
 # One row per active browser/login. The cookie carries an opaque
 # `plaintext` token; `token_digest` is `HMAC-SHA256(:tokens.pepper,
 # plaintext)`. Server-side resolution looks up the row by digest, so a
 # DB compromise never reveals usable cookie tokens directly.
 #
-# Lifetime semantics: revocation is the only end-state in v1. The cookie
-# carries the expiration (session-only or 30 days when "remember me" is
-# set). Periodic sweep of stale rows is a Phase 15 / observability
+# Lifetime semantics: revocation is the only end-state in v1. The
+# cookie is session-only — the "remember me on this device (30 days)"
+# checkbox + the `remember` column that drove it were dropped on
+# 2026-05-16. Periodic sweep of stale rows is a Phase 15 / observability
 # concern; keep the row around for the audit trail until revoked.
 #
-# Phase 8 — tenant drop. The `tenant_id` column and `BelongsToTenant`
-# default scope are gone; `Session.create_for!` is now a plain `create!`
-# (no `unscoped` workaround required).
-#
-# Phase 25 — 01b (LD-6). Pending-approval state machine.
-#
-# `state` enum (`active`, `pending_approval`, `expired`, `revoked`):
-#
-#   - `active` (default) — minted on a trusted-location login OR after a
-#     pending row transitions on approve (01c) / 2FA success (01e).
-#   - `pending_approval` — minted on a new-location correct-password
-#     login when the user picked the "ask for approval" path.
-#     `approval_required_until` is set 10 minutes in the future server-
-#     side; the cron sweeper flips overdue rows to `expired`.
-#   - `expired` — terminal. Set by `Auth::PendingSessionExpirer`. Cannot
-#     transition back to `active` (Q-G option 2).
-#   - `revoked` — terminal. Set by `revoke!` on user logout, session
-#     revoke from `/settings/sessions`, or block action on a pending row.
+# Post-Phase-25 rollback. The `pending_approval` state + the
+# `approval_required_until` window are gone — the new-location
+# approval surface was removed entirely. Remaining states are
+# `active`, `expired`, `revoked` (integer-backed; values preserved).
 class Session < ApplicationRecord
   belongs_to :user
 
@@ -35,13 +22,6 @@ class Session < ApplicationRecord
   validates :token_digest, presence: true, uniqueness: true
 
   ACTIVITY_DEBOUNCE = 5.minutes
-  REMEMBER_ME_TTL   = 30.days
-
-  # Phase 25 — 01b. Pending approval window. Sessions in
-  # `pending_approval` MUST have `approval_required_until` set to
-  # `PENDING_APPROVAL_TTL.from_now` at creation time; the cron sweeper
-  # flips them to `expired` once the timestamp is in the past.
-  PENDING_APPROVAL_TTL = 10.minutes
 
   # Rails 8.1 enum type inference can fail under autoload races /
   # bootsnap cache when the column type is integer and the enum
@@ -49,64 +29,33 @@ class Session < ApplicationRecord
   # `attribute :state, :integer` locks the type ahead of the `enum`
   # call so `Undeclared attribute type for enum 'state'` cannot trip
   # under any boot-order interleaving.
+  #
+  # Value `1` (`pending_approval`) stayed reserved post-rollback — do
+  # NOT renumber `expired`/`revoked` even though `1` is unused; the
+  # production database carries integer values, and renumbering would
+  # silently relabel existing rows.
   attribute :state, :integer
   enum :state, {
     active: 0,
-    pending_approval: 1,
     expired: 2,
     revoked: 3
   }, prefix: :state
 
-  # `pending` returns rows currently held for approval (regardless of
-  # whether their window has elapsed); `expired_pending` is the subset
-  # the sweeper transitions. `state_active` is the enum-generated scope
-  # (state = active). `active_sessions` narrows further to non-revoked
-  # rows; the project never carried a `Session.active` scope before
-  # 01b, so this name avoids clashing with the auto-generated enum
-  # predicate.
-  scope :active_sessions,        -> { state_active.where(revoked_at: nil) }
-  scope :pending,                -> { state_pending_approval }
-  scope :expired_pending,        -> {
-    state_pending_approval
-      .where(arel_table[:approval_required_until].lt(Time.current))
-  }
-  scope :pending_within_window,  -> {
-    state_pending_approval
-      .where(arel_table[:approval_required_until].gt(Time.current))
-  }
+  # `state_active` is the enum-generated scope (state = active).
+  # `active_sessions` narrows further to non-revoked rows.
+  scope :active_sessions, -> { state_active.where(revoked_at: nil) }
 
   # Mints a new session row for `user`, returns `[record, plaintext]`.
   # Plaintext is shown once and goes into the signed cookie; `token_digest`
   # is what the database stores. Mirrors `ApiToken.generate!`.
-  def self.create_for!(user:, ip: nil, user_agent: nil, remember: false)
+  def self.create_for!(user:, ip: nil, user_agent: nil)
     plaintext = SecureRandom.urlsafe_base64(32)
     record = create!(
       user: user,
       token_digest: Pito::TokenDigest.call(plaintext),
       ip: ip,
       user_agent: user_agent,
-      remember: remember ? true : false,
       last_activity_at: Time.current
-    )
-    [ record, plaintext ]
-  end
-
-  # Phase 25 — 01b. Mint a session row in `pending_approval` state.
-  # Returns `[record, plaintext]` for symmetry with `create_for!`. The
-  # caller (`Auth::SessionPendingApprover`) redirects to
-  # `/login/pending` and does NOT set the long-lived auth cookie — the
-  # pending row carries the approval window, not active auth.
-  def self.create_pending!(user:, ip: nil, user_agent: nil)
-    plaintext = SecureRandom.urlsafe_base64(32)
-    record = create!(
-      user: user,
-      token_digest: Pito::TokenDigest.call(plaintext),
-      ip: ip,
-      user_agent: user_agent,
-      remember: false,
-      last_activity_at: Time.current,
-      state: :pending_approval,
-      approval_required_until: PENDING_APPROVAL_TTL.from_now
     )
     [ record, plaintext ]
   end
@@ -131,49 +80,5 @@ class Session < ApplicationRecord
   def revoke!
     return if revoked?
     update_columns(revoked_at: Time.current, state: self.class.states[:revoked])
-  end
-
-  # Phase 25 — 01b. True iff this session is in `pending_approval` AND
-  # its approval window has not yet elapsed. Used by the controller
-  # gate on `/login/pending` and by the MCP `login_attempts_pending`
-  # tool.
-  def pending_within_window?
-    state_pending_approval? && approval_required_until.present? &&
-      approval_required_until > Time.current
-  end
-
-  # Phase 25 — 01b. True iff this session is `pending_approval` and the
-  # window has elapsed. The cron sweeper calls
-  # `Auth::PendingSessionExpirer.call` which uses the `expired_pending`
-  # scope; this method is the per-row predicate for ad-hoc checks.
-  def expired_pending?
-    state_pending_approval? &&
-      approval_required_until.present? &&
-      approval_required_until <= Time.current
-  end
-
-  # Phase 25 — 01b. Flip an overdue pending row to `expired`. Idempotent:
-  # already-expired or non-pending rows are no-ops. Returns truthy iff a
-  # state change happened.
-  def expire_if_overdue!
-    return false unless expired_pending?
-    update_columns(state: self.class.states[:expired])
-  end
-
-  # Phase 25 — 01b. Promote a `pending_approval` row to `active`. Raises
-  # if the row is already terminal (`expired` or `revoked`) — only an
-  # in-window pending row can be activated. Stamps `last_activity_at`
-  # so the freshly-active session looks recent.
-  def transition_to_active!
-    if state_expired? || state_revoked?
-      raise ActiveRecord::RecordInvalid.new(self),
-            "cannot activate a #{state} session"
-    end
-
-    update!(
-      state: :active,
-      approval_required_until: nil,
-      last_activity_at: Time.current
-    )
   end
 end

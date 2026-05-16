@@ -23,19 +23,21 @@ RSpec.describe "Calendar edit / cancel", type: :system do
     expect(page).to have_content("to-cancel")
   end
 
-  it "derived entry: shows [ note ] but not [ edit ] / [ cancel ]" do
+  it "derived entry: hides [ edit ] / [ cancel ] (read-only)" do
     ce = create(:calendar_entry, :video_published)
     visit calendar_entry_path(ce)
-    # The detail page has chrome nav with "settings", which contains
-    # "set" and other links; we scope to the action cluster at the
-    # bottom (one of the dot-list rows).
-    expect(page).to have_link("note")
-    # No [ edit ] or [ cancel ] link in the action area.
+    # Phase 15 reviewer concern 6 (per `entries/show.html.erb`) — the
+    # `[note]` link was removed because the note modal markup is not
+    # yet rendered on this page. PATCH /calendar/entries/:id/note
+    # stays in place for MCP / Rust callers; the UI affordance will
+    # come back when the modal is built. So a derived entry's action
+    # area on the web has only `[back]` — no `[edit]`, no `[cancel]`,
+    # and currently no `[note]` either.
     expect(page).not_to have_link("edit")
-    # `cancel` may appear as Capybara matches on text — it's also the
-    # word in flash buttons. We scope to only the read-only branch:
-    # the [ note ] link is present, and the link target /edit is NOT.
     expect(page).not_to have_css("a[href$='/edit']")
+    expect(page).not_to have_link("note")
+    # `[back]` survives as the only action.
+    expect(page).to have_link("back")
   end
 
   it "cancelled entry: appears in schedule view with state=all" do

@@ -16,26 +16,15 @@
     The pane reads current state from the AR row (if any). When no
     row exists yet both checkboxes render unchecked and the URL
     field renders empty. %>
-<%# 2026-05-11 — `totp-modal` Stimulus controller intercepts the
-    submit when 2FA is on; the layout-level TOTP verification modal
-    collects the code and re-submits with `totp_code` attached. The
-    inline `2FA code` text input that used to render above
-    `[update]` is gone — the modal IS the surface. When 2FA is off,
-    `required` is "no" and the submit passes through untouched. %>
+<%# 2026-05-16 — Slack webhook saves are plain saves now. The
+    recent-TOTP gate that previously fronted this surface (and the
+    `totp-modal` Stimulus wiring that opened the verification modal
+    on `[update]`) was dropped. The only /settings write that still
+    pops the TOTP-code modal is the profile pane. %>
 <div class="pane">
-  <%= form_with url: settings_slack_webhook_path, method: :patch, local: true,
-                data: {
-                  controller: "totp-modal",
-                  action: "submit->totp-modal#maybeIntercept",
-                  totp_modal_required_value: Current.user&.totp_enabled? ? "yes" : "no"
-                } do |_f| %>
+  <%= form_with url: settings_slack_webhook_path, method: :patch, local: true do |_f| %>
     <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
       <legend><h2>Slack</h2></legend>
-
-      <p class="text-muted">
-        paste an incoming-webhook URL to deliver pito notifications to a Slack channel.<br>
-        the URL is verified with a test ping before it is saved.
-      </p>
 
       <div style="margin-bottom: 6px;">
         <label for="slack_webhook_url" class="form-label">webhook URL</label>
@@ -51,7 +40,7 @@
           <input type="checkbox" name="everything" value="yes"
                  <%= "checked" if @slack_webhook&.everything %>>
           <span class="md-check-indicator"></span>
-          <span class="md-check-label">deliver every notification</span>
+          <span class="md-check-label">every notification</span>
         </label>
       </div>
 
@@ -69,27 +58,25 @@
           `coerce_boolean` helper treats absence as `false`. This
           matches the existing Voyage pane checkbox pattern. %>
 
-      <%# 2026-05-11 — fresh TOTP gate. When 2FA is on the layout-level
-          TOTP modal opens on `[update]`; the inline 6-digit text input
-          this pane used to render is gone. The controller-side
-          `RecentTotpVerification` gate still reads `params[:totp_code]`
-          — the modal injects it as a hidden field on the form before
-          re-submitting. %>
-
-      <div style="display: flex; align-items: baseline; gap: 8px;">
+      <div style="display: flex; align-items: baseline; gap: 6px;">
         <button type="submit">[update]</button>
-        <%# 2026-05-11 — middle-dot separator between `[update]` and
-            `[help]`, matching the `nav-sep` pattern from the channel
-            show page (between the in-app `[+]` and the external
-            `[youtube channel]`). %>
-        <span class="nav-sep" aria-hidden="true">·</span>
         <%# Phase 26 — 01d. `[help]` link opens the layout-level
             webhook help modal with the Slack guide. The href is the
             full Markdown fragment URL so JS-off users still land on
             a usable page (the controller renders the same fragment
             without a layout, but a direct hit returns HTML readable
-            in any browser). %>
-        <%= render(BracketedLinkComponent.new(
+            in any browser).
+
+            2026-05-16 polish — rendered through
+            BracketedMutedLinkComponent (the muted bracketed-link
+            primitive) so `[help]` reads as the secondary affordance
+            next to the loud primary `[update]`, matching the
+            `[ authorize ] [ cancel ]` hierarchy on the Doorkeeper
+            consent page. Plain whitespace separator (the prior
+            middle-dot `nav-sep` was dropped in the same pass — the
+            visual hierarchy of loud-vs-muted carries the grouping on
+            its own). %>
+        <%= render(BracketedMutedLinkComponent.new(
               label: "help",
               href: settings_webhooks_help_path(provider: "slack"),
               data: {

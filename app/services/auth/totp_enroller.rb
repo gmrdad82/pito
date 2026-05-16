@@ -58,9 +58,11 @@ module Auth
       plaintext_codes = Array.new(BACKUP_CODE_COUNT) { generate_code }
 
       ActiveRecord::Base.transaction do
-        # Re-enrollment after a disable: prior backup-code rows were
-        # destroyed by `Auth::TotpDisabler`, but defend against a stale
-        # row sneaking through by destroying any leftovers here.
+        # Re-enrollment defense in depth: TOTP is mandatory (Phase 29
+        # Unit A2) so there is no live disable path, but legacy rows
+        # from the dropped pre-mandatory disable flow could still
+        # sneak through — destroy any leftovers here so the new seed
+        # comes up clean.
         user.totp_backup_codes.destroy_all
 
         user.update!(

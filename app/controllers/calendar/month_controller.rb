@@ -28,7 +28,7 @@ class Calendar::MonthController < ApplicationController
 
     @year = year
     @month = month
-    @install_tz = AppSetting.first&.timezone || "UTC"
+    @install_tz = Rails.application.config.x.pito.timezone
     tz = ActiveSupport::TimeZone[@install_tz] || ActiveSupport::TimeZone["UTC"]
 
     grid = month_grid_dates(year, month)

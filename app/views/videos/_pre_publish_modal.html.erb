@@ -50,7 +50,7 @@
                  data-action="change->pre-publish-checklist#refresh"
                  <%= "checked" if video.pre_publish_game_ok? %>>
           <label for="video_pre_publish_game_ok">Game set correctly (if category = Gaming)</label>
-          <%= render(BracketedLinkComponent.new(label: "check in studio", href: video.studio_url, target: "_blank", rel: "noopener noreferrer")) %>
+          <%= render(BracketedLinkComponent.new(label: "check in studio", href: video.studio_url)) %>
         </div>
 
         <div style="margin-bottom: 6px;">
@@ -63,7 +63,7 @@
                  data-action="change->pre-publish-checklist#refresh"
                  <%= "checked" if video.pre_publish_age_ok? %>>
           <label for="video_pre_publish_age_ok">Age restriction (18+) reviewed</label>
-          <%= render(BracketedLinkComponent.new(label: "check in studio", href: video.studio_url, target: "_blank", rel: "noopener noreferrer")) %>
+          <%= render(BracketedLinkComponent.new(label: "check in studio", href: video.studio_url)) %>
         </div>
 
         <div style="margin-bottom: 6px;">
@@ -76,7 +76,7 @@
                  data-action="change->pre-publish-checklist#refresh"
                  <%= "checked" if video.pre_publish_paid_promotion_ok? %>>
           <label for="video_pre_publish_paid_promotion_ok">Paid promotion declared if applicable</label>
-          <%= render(BracketedLinkComponent.new(label: "check in studio", href: video.studio_url, target: "_blank", rel: "noopener noreferrer")) %>
+          <%= render(BracketedLinkComponent.new(label: "check in studio", href: video.studio_url)) %>
         </div>
 
         <div style="margin-bottom: 12px;">
@@ -89,7 +89,7 @@
                  data-action="change->pre-publish-checklist#refresh"
                  <%= "checked" if video.pre_publish_end_screen_ok? %>>
           <label for="video_pre_publish_end_screen_ok">End screen reviewed</label>
-          <%= render(BracketedLinkComponent.new(label: "check in studio", href: video.studio_url, target: "_blank", rel: "noopener noreferrer")) %>
+          <%= render(BracketedLinkComponent.new(label: "check in studio", href: video.studio_url)) %>
         </div>
 
         <% if target_action == "schedule" %>

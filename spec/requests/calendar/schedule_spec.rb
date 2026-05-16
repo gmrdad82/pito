@@ -232,8 +232,9 @@ RSpec.describe "Calendar::Schedule", type: :request do
       end
 
       it "renders an HH:MM stamp for timed entries (no `all day` badge)" do
-        AppSetting.delete_all
-        AppSetting.create!(key: "tz_seed", value: "x", timezone: "UTC")
+        # Phase 29 (settings refactor) — install timezone now lives in
+        # `Rails.application.config.x.pito.timezone`, not on AppSetting.
+        allow(Rails.application.config.x.pito).to receive(:timezone).and_return("UTC")
         create(:calendar_entry, :custom,
                title: "timed-event",
                all_day: false,
@@ -249,8 +250,7 @@ RSpec.describe "Calendar::Schedule", type: :request do
       end
 
       it "group-by-day: second row on the same day leaves the date cell blank" do
-        AppSetting.delete_all
-        AppSetting.create!(key: "tz_seed", value: "x", timezone: "UTC")
+        allow(Rails.application.config.x.pito).to receive(:timezone).and_return("UTC")
         day = 3.days.from_now.beginning_of_day
         create(:calendar_entry, :custom, title: "first",  starts_at: day + 9.hours)
         create(:calendar_entry, :custom, title: "second", starts_at: day + 14.hours)

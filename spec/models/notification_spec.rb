@@ -204,21 +204,11 @@ RSpec.describe Notification, type: :model do
       expect(Notification.severities.keys).to match_array(%w[info success warn urgent])
     end
 
-    # Phase 25 — 01c. New kind on the urgent track.
-    it "exposes login_pending_approval as a kind value" do
-      expect(Notification.kinds.keys).to include("login_pending_approval")
-    end
-
-    it "lets a row persist with kind: login_pending_approval and severity: urgent" do
-      row = build(:notification, :with_dedup_key,
-                  kind: :login_pending_approval,
-                  event_type: "login_pending_approval",
-                  severity: :urgent,
-                  title: "new login")
-      expect(row).to be_valid
-      expect(row.save).to be true
-      expect(row.login_pending_approval?).to be true
-      expect(row.urgent?).to be true
+    # Post-Phase-25 rollback. `login_pending_approval` (kind 11) is
+    # gone with the new-location approval surface. The integer slot
+    # stays unused (no renumbering) so future kinds don't collide.
+    it "does not expose login_pending_approval as a kind value" do
+      expect(Notification.kinds.keys).not_to include("login_pending_approval")
     end
   end
 

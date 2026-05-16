@@ -83,6 +83,18 @@ Concrete:
 - The master agent will tell the user to restart `bin/dev` after the commit
   lands.
 
+### G. Spec invocation
+
+This agent runs **`bin/test <files>`** for targeted verification of the specs it
+just wrote — pass the spec file paths it added or changed. Do NOT run
+`bin/test failed` (re-runs prior failures + needs new-file handling — that's the
+architect's concern) and do NOT run `bin/test all` (full local suite — also the
+architect's). When adding a new spec file, run `bin/test <new_spec_file_path>`
+to confirm the new test passes in isolation before reporting back. Aggregate
+verification (fast loop across the whole suite) is the architect's pre-commit
+pass; the full-suite gate is CI, which overrides `.rspec` to include system
+specs. Agents do not run the full suite themselves.
+
 ## pito specifics
 
 - Stack: Rails 8.1, Hotwire (Turbo + Stimulus), ERB, Tailwind CSS, Postgres 17
@@ -94,6 +106,20 @@ Concrete:
   bulk-as-foundation URLs, `yes`/`no` strings at external boundaries, no JS
   `alert`/`confirm`/`prompt`/`data-turbo-confirm` (carve-out: `unsaved-form`
   Stimulus controller for `beforeunload`).
+- External links open in a new tab. Every `<a>` pointing off the pito app
+  (anything that isn't a relative path or a pito host) MUST carry
+  `target="_blank" rel="noopener noreferrer"` — that exact attribute pair, no
+  `rel="noopener"` alone. Internal navigation stays same-tab so Turbo and
+  back-button history keep working. **`BracketedLinkComponent` handles this
+  automatically** as of 2026-05-16 — when `href:` is an absolute `http(s)`
+  URL the component emits the target/rel pair itself; callers drop the
+  explicit kwargs. Explicit caller-supplied `target:` / `rel:` still win for
+  the rare override case. **Prefer the component over raw `<a>` tags for
+  every clickable link** so the bracketed `[ label ]` visual convention
+  stays consistent across the app. For markdown-rendered surfaces pass
+  `render_markdown(@md, target_external_links: true)` so the helper
+  rewrites anchors via Nokogiri. Full convention + carve-outs:
+  `docs/design.md` → "External links — new tab convention".
 - View components live under `app/components/` (ViewComponent). Helpers hold
   logic only — see the `ViewComponents and decorators` memory note.
 - Modal pattern: `ConfirmModalComponent` for in-page confirms, action pages

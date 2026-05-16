@@ -530,11 +530,14 @@ class VideosController < ApplicationController
   end
 
   def max_panes
-    (AppSetting.get("max_panes") || ENV.fetch("MAX_PANES", 3)).to_i
+    # Phase 29 (settings refactor) — read from `config/pito.yml` via
+    # `Rails.application.config.x.pito.max_panes`.
+    Rails.application.config.x.pito.max_panes
   end
 
   def pane_title_length
-    (AppSetting.get("pane_title_length") || ENV.fetch("PANE_TITLE_LENGTH", 14)).to_i
+    # Phase 29 (settings refactor) — see `max_panes` above.
+    Rails.application.config.x.pito.pane_title_length
   end
 
   def sanitized_sort_key

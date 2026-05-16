@@ -27,7 +27,7 @@ RSpec.describe Sessions::Authenticator do
   end
 
   it "returns success and the row for a valid cookie" do
-    record, plaintext = Session.create_for!(user: user, ip: "127.0.0.1", user_agent: "ua", remember: false)
+    record, plaintext = Session.create_for!(user: user, ip: "127.0.0.1", user_agent: "ua")
     result = described_class.call(request_carrying(plaintext))
 
     expect(result).to be_success
@@ -41,7 +41,7 @@ RSpec.describe Sessions::Authenticator do
   end
 
   it "returns revoked when the row is revoked" do
-    record, plaintext = Session.create_for!(user: user, ip: "127.0.0.1", user_agent: "ua", remember: false)
+    record, plaintext = Session.create_for!(user: user, ip: "127.0.0.1", user_agent: "ua")
     record.revoke!
 
     result = described_class.call(request_carrying(plaintext))

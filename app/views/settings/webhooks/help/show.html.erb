@@ -18,9 +18,18 @@
       `/settings/webhooks/help/slack`
       `/settings/webhooks/help/discord`
     Both 200 with this fragment. Anything else → 404 (router-level
-    constraint plus controller allow-list). %>
+    constraint plus controller allow-list).
+
+    `target_external_links: true` — guides link out to Slack / Discord
+    canonical docs (api.slack.com, support.discord.com, etc.) and to
+    the providers' app directories. Per the pito hard rule (every link
+    to an external website opens in a new tab; see `docs/design.md` →
+    "External links — new tab convention") the renderer rewrites
+    those anchors to carry `target="_blank" rel="noopener noreferrer"`
+    so a `[help]` click never yanks the user out of their pito
+    settings tab. %>
 <%= turbo_frame_tag "webhook_help_modal_frame" do %>
   <div class="webhook-help-content markdown-body" data-webhook-help="<%= @provider %>">
-    <%= render_markdown(@markdown, plain: true) %>
+    <%= render_markdown(@markdown, plain: true, target_external_links: true) %>
   </div>
 <% end %>

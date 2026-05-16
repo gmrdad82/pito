@@ -7,19 +7,4 @@ RSpec.describe "settings/security routing", type: :routing do
       action: "show"
     )
   end
-
-  it "GET /settings/security/attempts routes to Settings::Security::AttemptsController#index" do
-    expect(get: "/settings/security/attempts").to route_to(
-      controller: "settings/security/attempts",
-      action: "index"
-    )
-  end
-
-  it "GET /settings/security/attempts/:id routes to Settings::Security::AttemptsController#show" do
-    expect(get: "/settings/security/attempts/42").to route_to(
-      controller: "settings/security/attempts",
-      action: "show",
-      id: "42"
-    )
-  end
 end

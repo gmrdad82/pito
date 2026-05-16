@@ -35,17 +35,6 @@ RSpec.describe SessionStaleSweeperJob do
       expect(revoked.revoked_at.to_i).to eq(original_revoked_at.to_i)
     end
 
-    it "leaves pending sessions alone (they have their own sweeper)" do
-      pending = create(:session, :pending, user: user,
-                       last_activity_at: 60.days.ago)
-
-      described_class.new.perform
-
-      pending.reload
-      expect(pending.state_pending_approval?).to be true
-      expect(pending.revoked?).to be false
-    end
-
     it "returns the count of revoked rows" do
       create_list(:session, 3, user: user, last_activity_at: 40.days.ago)
       create(:session, user: user, last_activity_at: 1.day.ago)

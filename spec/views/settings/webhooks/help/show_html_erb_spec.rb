@@ -85,7 +85,7 @@ RSpec.describe "settings/webhooks/help/show.html.erb", type: :view do
       path = Rails.root.join("app", "views", "settings", "webhooks", "help", "discord.md")
       expect(path).to exist
       content = path.read
-      expect(content).to include("Create a webhook")
+      expect(content).to include("Create the webhook")
       expect(content).to include("Copy Webhook URL")
       expect(content).to include("discord.com/api/webhooks")
     end
@@ -109,11 +109,11 @@ RSpec.describe "settings/webhooks/help/show.html.erb", type: :view do
     end
 
     it "covers the invalid-URL error path" do
-      expect(rendered).to include("webhook URL is invalid")
+      expect(rendered).to include("URL invalid")
     end
 
     it "covers the ping-failed / channel-deleted error path" do
-      expect(rendered).to include("test ping failed")
+      expect(rendered).to include("test ping 404")
       expect(rendered).to match(/404|410|deleted/)
     end
 
@@ -135,11 +135,11 @@ RSpec.describe "settings/webhooks/help/show.html.erb", type: :view do
     end
 
     it "covers the invalid-URL error path" do
-      expect(rendered).to include("webhook URL is invalid")
+      expect(rendered).to include("URL invalid")
     end
 
     it "covers the ping-failed / channel-deleted error path" do
-      expect(rendered).to include("test ping failed")
+      expect(rendered).to include("test ping 404")
     end
 
     it "covers the Manage Webhooks permission error specific to Discord" do
@@ -167,29 +167,56 @@ RSpec.describe "settings/webhooks/help/show.html.erb", type: :view do
       render template: "settings/webhooks/help/show", layout: false
     end
 
-    it "links to Slack's Incoming Webhooks docs" do
-      expect(rendered).to include("https://api.slack.com/messaging/webhooks")
-    end
-
     it "links to the Slack apps directory" do
       expect(rendered).to include("https://api.slack.com/apps")
     end
   end
 
-  describe "Discord guide canonical URLs" do
-    before do
-      assign(:provider, "discord")
-      assign(:markdown,
-        Rails.root.join("app", "views", "settings", "webhooks", "help", "discord.md").read)
-      render template: "settings/webhooks/help/show", layout: false
-    end
+  # 2026-05-16 polish — outbound-link safety. Per the pito hard rule
+  # ("External links — new tab convention" in `docs/design.md`), any
+  # link to a non-pito URL opens in a new tab and carries
+  # `rel="noopener noreferrer"` so the destination can't reach back
+  # into the opener window or learn the originating pito URL via the
+  # Referer header. The help-modal view passes
+  # `target_external_links: true` into `render_markdown` so every
+  # `<a href="http(s)://...">` in the guides is rewritten.
+  #
+  # These specs lock the rewrite in for both providers and at the
+  # representative anchor level — if a future change either drops the
+  # `target_external_links:` flag at the view layer or alters the
+  # renderer's anchor-decoration behavior, the suite goes red.
+  describe "external link safety (new-tab + noopener noreferrer)" do
+    # Only the Slack guide currently ships an outbound canonical-docs
+    # anchor (`[Slack apps directory](https://api.slack.com/apps)`). The
+    # Discord guide references URLs inside code blocks only, so there
+    # are no `<a href>` elements to rewrite.
+    %w[slack].each do |provider|
+      context "for the #{provider} guide" do
+        before do
+          assign(:provider, provider)
+          assign(:markdown,
+            Rails.root.join("app", "views", "settings", "webhooks", "help", "#{provider}.md").read)
+          render template: "settings/webhooks/help/show", layout: false
+        end
 
-    it "links to Discord's webhooks resource docs" do
-      expect(rendered).to include("https://discord.com/developers/docs/resources/webhook")
-    end
-
-    it "links to Discord's Manage Webhooks permission support article" do
-      expect(rendered).to include("https://support.discord.com/hc/en-us/articles/228760168")
+        it "rewrites every absolute http(s) anchor to target=_blank" do
+          doc = Nokogiri::HTML5.fragment(rendered)
+          external_anchors = doc.css("a[href]").select do |a|
+            a["href"].to_s.match?(/\Ahttps?:\/\//i)
+          end
+          # Guides ship at least one outbound canonical-docs link.
+          expect(external_anchors).not_to be_empty
+          external_anchors.each do |anchor|
+            expect(anchor["target"]).to eq("_blank"),
+              "expected target=_blank on #{anchor['href']}, got #{anchor['target'].inspect}"
+            rel_tokens = anchor["rel"].to_s.split
+            expect(rel_tokens).to include("noopener"),
+              "expected rel to include 'noopener' on #{anchor['href']}, got #{anchor['rel'].inspect}"
+            expect(rel_tokens).to include("noreferrer"),
+              "expected rel to include 'noreferrer' on #{anchor['href']}, got #{anchor['rel'].inspect}"
+          end
+        end
+      end
     end
   end
 
@@ -224,24 +251,18 @@ RSpec.describe "settings/webhooks/help/show.html.erb", type: :view do
       end
 
       it "renders `<hr>` separators between sections" do
-        expect(rendered.scan(/<hr\s*\/?>/).size).to be >= 4
+        expect(rendered.scan(/<hr\s*\/?>/).size).to be >= 3
       end
 
       it "renders the troubleshooting matrix as a `<table>` with header cells" do
         expect(rendered).to include("<table>")
         expect(rendered).to include("<thead>")
-        expect(rendered).to include("<th>Error message</th>")
-        expect(rendered).to include("<th>What it means</th>")
-        expect(rendered).to include("<th>What to do</th>")
+        expect(rendered).to include("<th>Error</th>")
+        expect(rendered).to include("<th>Fix</th>")
       end
 
       it "does NOT escape table tags (raw `&lt;table&gt;` would indicate a renderer regression)" do
         expect(rendered).not_to include("&lt;table&gt;")
-      end
-
-      it "renders the notifications-behavior block as a `<table>`" do
-        expect(rendered).to include("<th>Checkbox</th>")
-        expect(rendered).to include("<th>What it does</th>")
       end
 
       it "renders code blocks for the webhook URL example without inline style" do

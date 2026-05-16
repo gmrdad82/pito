@@ -50,10 +50,13 @@ RSpec.describe "Google OAuth flow", type: :system do
 
   it "lets the user connect their Google account from the /channels [+] button" do
     visit channels_path
-    # Banner is dropped — the empty-state "no Google account connected"
-    # copy is gone too. The `[+]` button next to the heading is the
-    # single entry point.
-    expect(page).to have_content("no channels yet")
+    # 2026-05-11 — the "no channels yet" empty-state copy was dropped
+    # along with the misleading notice ("no channels exist" even when
+    # a star filter was active and the channels merely didn't match).
+    # The `[+]` button next to the heading IS the empty-state
+    # affordance — its presence is the contract here.
+    expect(page).to have_button("[+]")
+    expect(page).not_to have_content("no channels yet")
 
     expect {
       click_button "[+]"

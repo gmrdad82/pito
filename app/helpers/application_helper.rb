@@ -195,7 +195,19 @@ module ApplicationHelper
     version = "v#{app_version}"
     if sha
       repo_url = "https://github.com/gmrdad82/pito/commit/#{sha}"
-      "#{version} · #{link_to(sha, repo_url, target: '_blank', rel: 'noopener')}".html_safe
+      # 2026-05-16 polish — wrap the SHA in literal `[...]` brackets and
+      # render it through BracketedMutedLinkComponent so it reads as a
+      # quiet muted reference rather than a prominent link affordance.
+      # Matches the `--color-muted` resting state of other muted
+      # bracketed-link surfaces; keeps a real `<a>` to GitHub with the
+      # same subtle hover-darkening the cancel pattern uses elsewhere.
+      sha_link = render(BracketedMutedLinkComponent.new(
+        href: repo_url,
+        label: sha,
+        target: "_blank",
+        rel: "noopener"
+      ))
+      "#{version} #{sha_link}".html_safe
     else
       version
     end
@@ -273,33 +285,134 @@ module ApplicationHelper
   # help-modal CSS handles its own typography; the markdown source ships
   # generic `<h1>` / `<h2>` / `<pre>` / `<code>` so the modal can style
   # consistently and the spec assertions stay readable.
-  def render_markdown(text, plain: false)
+  #
+  # 2026-05-16 polish — `target_external_links:` keyword post-processes
+  # the rendered HTML so every `<a>` rendered in markdown picks up
+  # pito's bracketed-link visual treatment AND every absolute
+  # `http(s)://` anchor additionally gets `target="_blank"` plus
+  # `rel="noopener noreferrer"`. The pito hard rule (see
+  # `docs/design.md` → "External links — new tab") is that any link
+  # leaving the pito app opens in a new tab so the user isn't yanked out
+  # of their workspace; `noopener noreferrer` closes the `window.opener`
+  # and Referer leak windows. The bracketed-link convention is the other
+  # half of the rule — every clickable element in pito reads as
+  # `[ label ]`, including links rendered from markdown source.
+  #
+  # Pass this from surfaces that render curated markdown whose links
+  # should match the rest of the app's chrome (the webhook help guides
+  # today; future settings help guides tomorrow). The note editor
+  # preview intentionally does NOT pass this so notes stay same-tab and
+  # un-bracketed — notes are scratch space typed live by the user; the
+  # bracket chrome would fight the live `marked.js` client preview that
+  # ships plain anchors.
+  def render_markdown(text, plain: false, target_external_links: false)
     return "".html_safe if text.blank?
 
-    if plain
-      # `header_ids: nil` disables the `<a class="anchor">` injection
-      # that Commonmarker enables by default. `plugins: { syntax_highlighter: nil }`
-      # disables the inline-styled `<pre style="background-color:…">` wrapper.
-      # `hardbreaks: true` keeps a single `\n` as `<br>` — beginner-friendly
-      # guides rely on the visual line breaks.
-      #
-      # `table: true` enables GFM tables — the webhook help guides use
-      # them in the Troubleshooting section so the error-meaning-fix
-      # mapping reads cleanly as a grid instead of a dense paragraph.
-      return Commonmarker.to_html(
-        text.to_s,
-        options: { extension: { header_ids: nil, table: true }, render: { hardbreaks: true } },
-        plugins: { syntax_highlighter: nil }
-      ).html_safe
-    end
+    html =
+      if plain
+        # `header_ids: nil` disables the `<a class="anchor">` injection
+        # that Commonmarker enables by default. `plugins: { syntax_highlighter: nil }`
+        # disables the inline-styled `<pre style="background-color:…">` wrapper.
+        # `hardbreaks: true` keeps a single `\n` as `<br>` — beginner-friendly
+        # guides rely on the visual line breaks.
+        #
+        # `table: true` enables GFM tables — the webhook help guides use
+        # them in the Troubleshooting section so the error-meaning-fix
+        # mapping reads cleanly as a grid instead of a dense paragraph.
+        Commonmarker.to_html(
+          text.to_s,
+          options: { extension: { header_ids: nil, table: true }, render: { hardbreaks: true } },
+          plugins: { syntax_highlighter: nil }
+        )
+      else
+        # `hardbreaks: true` makes a single `\n` render as `<br>` instead of
+        # collapsing into the surrounding paragraph (CommonMark default). Matches
+        # the `breaks: true` flag set on `marked` client-side so SSR and live
+        # rendering produce identical output.
+        Commonmarker.to_html(
+          text.to_s,
+          options: { render: { hardbreaks: true } }
+        )
+      end
 
-    # `hardbreaks: true` makes a single `\n` render as `<br>` instead of
-    # collapsing into the surrounding paragraph (CommonMark default). Matches
-    # the `breaks: true` flag set on `marked` client-side so SSR and live
-    # rendering produce identical output.
-    Commonmarker.to_html(
-      text.to_s,
-      options: { render: { hardbreaks: true } }
-    ).html_safe
+    html = decorate_links(html) if target_external_links
+    html.html_safe
+  end
+
+  # Post-processes a fragment of HTML (typically produced by
+  # `render_markdown`) so every anchor it contains adopts pito's
+  # bracketed-link visual chrome AND every absolute `http(s)://` anchor
+  # additionally carries `target="_blank"` + `rel="noopener noreferrer"`.
+  #
+  # Bracketing (applied to ALL anchors, internal and external):
+  #   - `class="bracketed"` is appended to whatever classes the anchor
+  #     already carries — never replaces them. The CSS rule lives in
+  #     `app/assets/tailwind/application.css` and matches the
+  #     `BracketedLinkComponent` markup.
+  #   - The anchor's inner HTML is wrapped in literal `[` + a
+  #     `<span class="bl">…</span>` around the original content + `]`,
+  #     mirroring the markup `BracketedLinkComponent` and
+  #     `ApplicationHelper#nav_link` emit. Inner HTML (not text) is
+  #     preserved so an emphasized markdown link like `[*x*](…)` keeps
+  #     its `<em>` wrapping inside the `.bl` span.
+  #
+  # External-link decoration (absolute `http://` or `https://` only):
+  #   - `target="_blank"` opens the destination in a new tab so the
+  #     user isn't yanked out of their pito workspace.
+  #   - `rel` gains both `noopener` (closes the `window.opener` handle
+  #     so the destination can't reach back into the source tab) and
+  #     `noreferrer` (drops the `Referer` header so the destination
+  #     can't learn which pito URL sent the user). Existing `rel`
+  #     tokens are preserved; duplicates are folded out.
+  #
+  # Relative hrefs (`/foo`, `#section`, `mailto:…`, `tel:…`) keep
+  # default same-tab behavior — only the bracket chrome is added.
+  def decorate_links(html_fragment)
+    fragment = Nokogiri::HTML5.fragment(html_fragment)
+    fragment.css("a[href]").each do |anchor|
+      existing_classes = anchor["class"].to_s.split
+      anchor["class"] = (existing_classes + [ "bracketed" ]).uniq.join(" ")
+
+      bl_span = Nokogiri::XML::Node.new("span", fragment)
+      bl_span["class"] = "bl"
+      bl_span.inner_html = anchor.inner_html
+      anchor.inner_html = "[#{bl_span.to_html}]"
+
+      href = anchor["href"].to_s
+      next unless href.match?(/\Ahttps?:\/\//i)
+
+      anchor["target"] = "_blank"
+      existing_rel = anchor["rel"].to_s.split.map(&:downcase)
+      merged = (existing_rel + %w[noopener noreferrer]).uniq
+      anchor["rel"] = merged.join(" ")
+    end
+    fragment.to_html
+  end
+
+  # Integer-only byte formatter for the /settings stack pane tables
+  # (Postgres / Redis / Meilisearch / assets / notes breakdowns).
+  #
+  # Differs from `FootageHelper#human_filesize` in two ways:
+  #   1. KB is the smallest unit shown — `0` and any value below 1 KB
+  #      still render as `"0 KB"` / `"1 KB"`, never `"512 Bytes"`.
+  #   2. Always integer (no fractional digits). `1.43 KB` -> `"1 KB"`,
+  #      `49.8 KB` -> `"50 KB"`, `192_000` bytes -> `"188 KB"`.
+  #
+  # `nil` returns the em-dash placeholder Pito uses for "no value".
+  # `0` returns `"0 KB"` here (legitimate zero — the stack pane's
+  # storage / index probes always report a real number, never "not
+  # probed yet"; the footage helper's 0-as-em-dash semantics don't
+  # apply to dashboard counters).
+  STACK_SIZE_UNITS = %w[KB MB GB TB PB].freeze
+
+  def human_filesize_int(bytes)
+    return "—" if bytes.nil?
+    n = bytes.to_f / 1024.0
+    unit_index = 0
+    while n >= 1024 && unit_index < STACK_SIZE_UNITS.length - 1
+      n /= 1024.0
+      unit_index += 1
+    end
+    "#{n.round} #{STACK_SIZE_UNITS[unit_index]}"
   end
 end

@@ -187,9 +187,11 @@ RSpec.describe "Channels", type: :request do
         # Visible label is NOT the full URL anymore.
         expect(link.text).not_to eq(channel.channel_url)
         expect(link.text).not_to start_with("https://")
-        # The label is the UC-id middle-truncated to head=6 / tail=3.
+        # The label is the UC-id middle-truncated to head=6 / tail=3,
+        # wrapped in the bracketed-link convention (2026-05-16 polish —
+        # the URL cell renders via BracketedLinkComponent now).
         uc_id = channel.channel_url[%r{/channel/(UC[A-Za-z0-9_-]{22})}, 1]
-        expected = "#{uc_id[0, 6]}…#{uc_id[-3..]}"
+        expected = "[#{uc_id[0, 6]}…#{uc_id[-3..]}]"
         expect(link.text).to eq(expected)
         # Truncation glyph present.
         expect(link.text).to include("…")
@@ -206,8 +208,10 @@ RSpec.describe "Channels", type: :request do
         # The href is the public `/@handle` form of the channel page.
         link = html.css("a").find { |a| a["href"] == "https://www.youtube.com/@pitomdtest" }
         expect(link).not_to be_nil
-        # The visible text is the bare `@handle`.
-        expect(link.text).to eq("@pitomdtest")
+        # The visible text is the bare `@handle` wrapped in the
+        # bracketed-link convention (2026-05-16 polish — the URL cell
+        # renders via BracketedLinkComponent now).
+        expect(link.text).to eq("[@pitomdtest]")
         # The raw `channel_url` (UC-id href) is NOT used when the
         # `/@handle` URL is available.
         raw_link = html.css("a").find { |a| a["href"] == with_handle.channel_url }
@@ -429,8 +433,12 @@ RSpec.describe "Channels", type: :request do
         expect(response.body).to match(/data-bulk-select-target="overMaxHint"\s+hidden/)
       end
 
-      it "sources max-panes from AppSetting (not hardcoded)" do
-        AppSetting.set("max_panes", "7")
+      it "sources max-panes from config.x.pito.max_panes (not hardcoded)" do
+        # Phase 29 (settings refactor) — `max_panes` moved out of
+        # AppSetting into `config/pito.yml`. Stub the resolved value
+        # on the config struct so the controller's `max_panes` helper
+        # picks it up.
+        allow(Rails.application.config.x.pito).to receive(:max_panes).and_return(7)
         get channels_path
         expect(response.body).to include('data-bulk-select-max-panes-value="7"')
         expect(response.body).to include("max 7 channels at a time can be opened in split view")

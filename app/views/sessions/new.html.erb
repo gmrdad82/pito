@@ -3,25 +3,9 @@
 
 <div style="max-width: 420px; margin: 24px 0;">
   <h1>log in</h1>
-  <p class="text-muted" style="margin-top: 2px;">
-    sign in with your pito account.<br>
-    forgot your password?
-    <%= render(BracketedLinkComponent.new(label: "reset password", href: password_reset_path)) %>
-  </p>
 
-  <%# Phase 25 — 01a (LD-2). The fingerprint-hints Stimulus controller
-      reads `window.screen.*` + `Intl.DateTimeFormat()` and fills the
-      two hidden inputs below before submit. The form posts the raw
-      values; the server composes + hashes them in
-      `Auth::FingerprintComposer`. No canvas / AudioContext / WebGL —
-      the controller is deliberately narrow. %>
   <%= form_with url: login_path, method: :post, scope: nil,
-                data: { turbo: false, controller: "fingerprint-hints" } do %>
-    <input type="hidden" name="fp_screen" value=""
-           data-fingerprint-hints-target="screen">
-    <input type="hidden" name="fp_locale" value=""
-           data-fingerprint-hints-target="locale">
-
+                data: { turbo: false } do %>
     <div style="margin-bottom: 12px;">
       <label for="login_username" class="form-label">username</label>
       <input type="text" name="username" id="login_username"
@@ -36,16 +20,14 @@
              style="width: 100%;">
     </div>
 
-    <div style="margin-bottom: 12px;">
-      <label class="md-check">
-        <input type="checkbox" name="remember_me" value="yes">
-        <span class="md-check-indicator"></span>
-        <span class="md-check-label">remember me on this device (30 days)</span>
-      </label>
-    </div>
-
     <div class="dot-list">
       <button type="submit">[log in]</button>
+      <%# 2026-05-16 — middle-dot separator between `[log in]` and
+          `[reset password]`, matching the `nav-sep` pattern from the
+          channel show page and the Discord/Slack settings panes
+          (between `[update]` and `[help]`). %>
+      <span class="nav-sep" aria-hidden="true">·</span>
+      <%= render(BracketedLinkComponent.new(label: "reset password", href: password_reset_path)) %>
     </div>
   <% end %>
 </div>

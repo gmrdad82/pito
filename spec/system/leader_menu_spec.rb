@@ -67,6 +67,14 @@ RSpec.describe "Leader menu chrome", type: :system do
   # ~1s redirect, not a user destination, so the leader popup has
   # no use there.
   describe "leader-menu mount audit across top-level pages" do
+    # Phase 32 follow-up (2026-05-16). `/settings/tokens` and
+    # `/settings/oauth_applications` web management UIs were dropped
+    # — both surfaces moved to operator-only rake tasks
+    # (`bin/rails pito:tokens:*` / `bin/rails pito:oauth_apps:*`).
+    # 2026-05-16 (sessions revamp v2). `/settings/sessions` standalone
+    # page is gone — sessions render INLINE in the Security pane on
+    # `/settings`. The `/settings` entry in this audit list already
+    # covers the surrounding shell.
     AUDITED_PATHS = [
       "/",
       "/dashboard",
@@ -80,9 +88,6 @@ RSpec.describe "Leader menu chrome", type: :system do
       "/settings",
       "/settings/user",
       "/settings/security",
-      "/settings/tokens",
-      "/settings/sessions",
-      "/settings/oauth_applications",
       "/calendar/schedule",
       "/notes"
     ].freeze

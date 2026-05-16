@@ -397,10 +397,12 @@ RSpec.describe CalendarEntry, type: :model do
   end
 
   describe "stamp_install_timezone" do
-    before { AppSetting.delete_all }
-
+    # Phase 29 (settings refactor) — install-level timezone moved out
+    # of `AppSetting#timezone` (column dropped) into
+    # `Rails.application.config.x.pito.timezone` (loaded from
+    # `config/pito.yml`). Specs stub the resolved value.
     it "lifts the install-level timezone for new entries without explicit tz" do
-      AppSetting.create!(key: "max_panes", value: "5", timezone: "Europe/Madrid")
+      allow(Rails.application.config.x.pito).to receive(:timezone).and_return("Europe/Madrid")
       entry = CalendarEntry.new(
         title: "x", starts_at: 1.day.from_now,
         entry_type: :custom, source: :manual, state: :scheduled
@@ -411,20 +413,20 @@ RSpec.describe CalendarEntry, type: :model do
     end
 
     it "keeps an explicit timezone" do
-      AppSetting.create!(key: "max_panes", value: "5", timezone: "Europe/Madrid")
+      allow(Rails.application.config.x.pito).to receive(:timezone).and_return("Europe/Madrid")
       entry = build(:calendar_entry, :custom, timezone: "America/New_York")
       entry.valid?
       expect(entry.timezone).to eq("America/New_York")
     end
 
-    it "falls back to UTC when no AppSetting exists" do
+    it "honours the config default (UTC by default in test)" do
       entry = CalendarEntry.new(
         title: "x", starts_at: 1.day.from_now,
         entry_type: :custom, source: :manual, state: :scheduled
       )
       entry.timezone = nil
       entry.valid?
-      expect(entry.timezone).to eq("UTC")
+      expect(entry.timezone).to eq(Rails.application.config.x.pito.timezone)
     end
   end
 

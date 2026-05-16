@@ -5,8 +5,26 @@
   --color-bg: #ffffff;
   --color-bg-alt: #fafafa;
   --color-bg-hover: #f0f0f0;
-  --color-bg-header: #f4f4f4;
-  --color-bg-header-hover: #e8e8e8;
+  /* Table header surface, light theme (2026-05-16).
+     Previous value `#f4f4f4` collided with the pane tone band — `--color-pane-bg-a`
+     #f4f6f8, `--color-pane-bg-b` #f0f2f5, `--color-pane-bg-wide` #f2f4f7 all sit
+     within a 2–4 unit luminance window of the old header, so `thead th` dissolved
+     into whichever pane it was rendered inside (and was nearly indistinguishable
+     from `--color-bg-hover` #f0f0f0 too). Bumped well below every pane tone so
+     the header lifts visibly against every surface variant: vs `--color-bg`
+     #ffffff Δ~29, vs `--color-bg-alt` #fafafa Δ~24, vs `--color-bg-hover` #f0f0f0
+     Δ~14, vs `--color-pane-bg-a` #f4f6f8 Δ~16, vs `--color-pane-bg-b` #f0f2f5
+     Δ~12, vs `--color-pane-bg-wide` #f2f4f7 Δ~14. Pairs with the bolder
+     `--color-table-header-border` bottom rule on `thead th` for a double-strength
+     separator that holds across every pane tone. Hover bumped in step so hover
+     still reads as darker than rest. Dark theme tokens unchanged — the existing
+     #343746 already lifts against the #2f3142/#34364a/#313346 pane band. */
+  --color-bg-header: #e2e6eb;
+  --color-bg-header-hover: #d4d9e0;
+  /* Table-header bottom-border tone. Light theme: a mid-grey that draws a clear
+     baseline regardless of which surface the header sits on. Dark theme below
+     keeps the existing `--color-border` tone so the dark treatment is unchanged. */
+  --color-table-header-border: #9aa3ad;
   /* Pane background tokens — Phase B revamp (2026-05-05).
      Three-tone system: A and B alternate inside paired-pane layouts (zebra
      rhythm), `-wide` is reserved for full-width / standalone panes so a
@@ -23,7 +41,7 @@
   --color-text: #1a1a1a;
   --color-text-bold: #1a1a1a;
   --color-link: #0000cc;
-  --color-link-hover: #0000ff;
+  --color-link-hover: #4d4dff;
   --color-danger: #cc0000;
   --color-danger-hover: #990000;
   --color-muted: #555555;
@@ -50,8 +68,32 @@
   --color-chart-4: #d97706;
   --color-chart-5: #0891b2;
   --color-chart-grid: #eeeeee;
-  --color-tooltip-bg: rgba(0, 0, 0, 0.8);
+  /* Tooltip surface — deliberately inverse of the page so a floating popover
+     reads as "elevated UI" regardless of which row/pane it overlays. Must
+     differ from `--color-bg`, `--color-bg-alt`, `--color-bg-hover`, and the
+     three pane tones in BOTH themes (a tooltip can sit over a hovered row
+     in any table). Light: near-black popover with white text. Dark: see the
+     `[data-theme="dark"]` override below — picks a value below every neutral
+     surface (`--color-bg`, `--color-bg-hover`, pane-bg-{a,b,wide}). */
+  --color-tooltip-bg: rgba(0, 0, 0, 0.85);
   --color-tooltip-text: #ffffff;
+  --color-tooltip-border: rgba(0, 0, 0, 0.9);
+  /* 2026-05-16 — Muted status-badge surface. The `:info` / `:neutral` /
+     `:no` / `:all_day` `.status-badge` variants (and the `TooltipBadgeComponent`
+     `:neutral` default — the `[ip]` chip in the sessions table) previously
+     rendered as transparent + `--color-muted` text + `--color-border` edge.
+     That collapsed to invisible on a hovered row in dark theme where
+     `--color-muted` (#6272a4) and `--color-bg-hover` (#44475a) are the
+     classic Dracula low-contrast pair, and the badge border matched the
+     hover bg identically — chip dissolved into the row. These tokens give
+     the muted badge an explicit self-contained surface that contrasts
+     against `--color-bg`, `--color-bg-alt`, `--color-bg-hover`, and every
+     `--color-pane-bg-*` tone in both themes. Other status-badge kinds
+     (`:success`, `:warn`, `:urgent`, `:yes`) carry strong border + text
+     colors already and are left untouched. */
+  --color-badge-muted-bg: #dfe2e7;
+  --color-badge-muted-text: #444444;
+  --color-badge-muted-border: #bfc4cc;
   /* Item 7 — keycap color tokens. Distinct from --color-link so keyboard
      shortcut indicators (`(n)`, `(/)`, `(?)`) don't compete visually with
      blue action links. Purple reads on light bg, contrasts against blue. */
@@ -77,6 +119,17 @@
   --col-width-released: 100px;
   --col-width-rating:   80px;
   --col-width-owned:    60px;
+
+  /* Stack-pane / sessions-table tuning knobs (2026-05-16). Cell
+     padding governs the right-edge alignment of `.num` headers and
+     `.num` body cells (same value on `th` and `td` → matching x-
+     coordinates without per-pixel overrides). Arrow position lifts
+     the sort indicator out of the cell's horizontal flow via
+     `position: absolute` so it can hang above the header without
+     stealing label space. */
+  --stack-cell-padding: 8px;
+  --stack-arrow-top:    -10px;
+  --stack-arrow-right:  0;
 }
 
 [data-theme="dark"] {
@@ -85,6 +138,11 @@
   --color-bg-hover: #44475a;
   --color-bg-header: #343746;
   --color-bg-header-hover: #44475a;
+  /* Dark-theme table-header bottom-border tone — equals `--color-border` so the
+     bolder bottom rule introduced for light theme is a no-op visually in dark
+     (matches the existing 1px cell border tone, preserving the dark treatment
+     that already works). */
+  --color-table-header-border: #44475a;
   /* Dark-mode pane tokens — same three-tone system as light. A keeps the
      existing pane bg; B nudges slightly lighter (zebra distinction);
      `-wide` sits between A and B with a faint cool tint so a standalone
@@ -125,8 +183,25 @@
   --color-chart-4: #ffb86c;
   --color-chart-5: #8be9fd;
   --color-chart-grid: #44475a;
-  --color-tooltip-bg: rgba(68, 71, 90, 0.95);
+  /* Dark-mode tooltip — sits BELOW every neutral surface so it doesn't merge
+     into a hovered row or pane. `--color-bg` is #282a36, pane tones are
+     #2f3142 / #34364a / #313346, and `--color-bg-hover` / `--color-border`
+     are both #44475a; this near-black value (#0f1018) is darker than any of
+     them and pairs with Dracula foreground text. */
+  --color-tooltip-bg: rgba(15, 16, 24, 0.95);
   --color-tooltip-text: #f8f8f2;
+  --color-tooltip-border: #000000;
+  /* Muted status-badge surface, dark variant. Sits below every neutral
+     surface (`--color-bg` #282a36, `--color-bg-alt` #21222c, pane tones
+     #2f3142 / #34364a / #313346, `--color-bg-hover` #44475a) so the chip
+     reads as a small inset element regardless of which row state it overlays.
+     Text lifts to a brighter Dracula-foreground-leaning tint so it does NOT
+     reuse `--color-muted` (#6272a4) — that was half of the disappearing
+     pair. Border uses the page border tone so the chip edge stays defined
+     against the lighter surfaces above it. */
+  --color-badge-muted-bg: #1a1c25;
+  --color-badge-muted-text: #a8b3d8;
+  --color-badge-muted-border: #44475a;
   /* Item 7 — Dracula purple for keycaps in dark mode. Hover lifts to a
      brighter tint in line with the existing --color-link-hover treatment. */
   --color-keycap: #bd93f9;
@@ -181,14 +256,94 @@ a:hover {
 
 /* Bracketed links: [ text ] — whole thing is clickable */
 a.bracketed:visited, a.bracketed:visited .bl { color: var(--color-link); }
+/* Hover lift for the inner `.bl` glyph. The base `a:hover` rule (above)
+   shifts the outer `<a>` to `--color-link-hover`, but the visible label
+   inside a bracketed link is wrapped in `<span class="bl">` and the
+   `a.bracketed:visited .bl` rule pins that span to `--color-link`. Once
+   a link has been clicked (every header / footer nav link in normal
+   use), the visited-state pin wins over inherited hover color and the
+   glyph appears inert under the cursor — even though the brackets
+   themselves do brighten. Match the hover specificity (0,2,1) with the
+   rule below so the inner glyph follows the outer anchor into
+   `--color-link-hover` regardless of visited state. Mirrors the same
+   `.bl`-on-hover pattern used by `bracketed-muted-link` and
+   `text-danger.bracketed` further down. */
+a.bracketed:hover .bl { color: var(--color-link-hover); }
 
 /* Muted bracketed text — disabled/over-limit state. Bold to preserve weight,
-   no link styling, default cursor (not clickable). */
+   no link styling, default cursor (not clickable).
+   2026-05-16 polish — explicit `font-weight: 700` + `font-size: 13px` (was
+   `font-weight: bold`, no explicit size) so the muted state cannot drift
+   from the live-link state during the bulk-revoke header swap on the
+   Security pane. The Stimulus controller flips `.bracketed-muted`
+   off / `.bracketed.text-danger` on as soon as one row is ticked; both
+   states must render at the same numeric weight (700) and the same
+   pixel size (13px = body baseline) so the swap is visually still. */
 .bracketed-muted {
-  font-weight: bold;
+  font-weight: 700;
+  font-size: 13px;
   color: var(--color-muted);
   cursor: default;
   user-select: none;
+}
+/* When the muted bracketed surface is rendered on an `<a>` (e.g. the
+   sessions bulk-revoke header anchor, which the Stimulus controller
+   later swaps into a live `[ revoke N ]` link), the base `a:hover`
+   rule above would otherwise lift the color to `--color-link-hover`
+   and signal clickability where there is none. Pin the muted state to
+   `--color-muted` on hover/focus so the disabled affordance reads as
+   inert until a row is checked and the controller adds `.bracketed`. */
+a.bracketed-muted,
+a.bracketed-muted:visited,
+a.bracketed-muted:hover,
+a.bracketed-muted:focus {
+  color: var(--color-muted);
+}
+
+/* App-wide muted bracketed-link affordance — BracketedMutedLinkComponent
+   (renamed 2026-05 from BracketedCancelComponent; the `[ cancel ]` exit
+   was the first consumer, but `[ help ]`, footer SHA links, and other
+   secondary affordances all reuse the same primitive). Sibling modifier
+   on top of `.bracketed`: shares the bracketed-link markup but reads as
+   the lesser / secondary action. Muted at rest, darkens to --color-text
+   on hover (same pattern as the themed scrollbar thumb). Selectors are
+   scoped tightly enough to win over the base `a` / `a:visited` /
+   `a.bracketed:visited` color rules above without resorting to
+   `!important`.
+
+   Naming note — the `-link` suffix on `.bracketed-muted-link`
+   distinguishes this interactive primitive from the existing
+   `.bracketed-muted` class above, which is a *non-interactive*
+   disabled-affordance variant (cursor: default; pinned hover color)
+   used by the Security pane bulk-revoke header swap. Two different
+   primitives, two different class names. */
+a.bracketed.bracketed-muted-link,
+a.bracketed.bracketed-muted-link:visited,
+a.bracketed.bracketed-muted-link .bl,
+a.bracketed.bracketed-muted-link:visited .bl {
+  color: var(--color-muted);
+  /* 2026-05-16 polish — explicit `font-weight: 700` so the muted
+     bracketed-link surface can never drift lighter than the live-link
+     state when it sits inside a parent that sets a non-bold weight
+     (e.g. the footer version cluster wraps `version_label` in
+     `<span class="text-muted">` which carries `font-weight: 400`;
+     without an explicit rule here the bold-ness rides on the base
+     `a { font-weight: bold }` rule alone, which is fine today but
+     brittle to selector reshuffles). Matches the same explicit-700
+     treatment `.bracketed-muted` got above. */
+  font-weight: 700;
+}
+a.bracketed.bracketed-muted-link:hover,
+a.bracketed.bracketed-muted-link:hover .bl {
+  color: var(--color-text);
+}
+/* Dark theme softens the hover — full --color-text (#f8f8f2) reads
+   as an overshoot from the muted resting state. An intermediate lifted
+   blue-gray keeps the hover perceptible but subtle. Light theme stays on
+   --color-text. */
+[data-theme="dark"] a.bracketed.bracketed-muted-link:hover,
+[data-theme="dark"] a.bracketed.bracketed-muted-link:hover .bl {
+  color: #a4b1d4;
 }
 
 /* Filter chip — bracketed-checkbox style link. Whole chip is clickable;
@@ -601,12 +756,19 @@ th, td {
   white-space: nowrap;
 }
 /* Phase 4 §10 rule 7: table headers muted + bold; row values normal +
-   default text color. Header background and font-size unchanged. */
+   default text color. Header background and font-size unchanged.
+   2026-05-16 — added a 2px `--color-table-header-border` bottom rule so the
+   header separates from the tbody regardless of how close the surrounding pane
+   tone sits to `--color-bg-header`. In light theme the border tone reads as a
+   real baseline; in dark theme the token resolves to `--color-border` (#44475a)
+   so the visual treatment matches the existing 1px cell border and nothing
+   changes vs. the previous dark rendering. */
 thead th {
   color: var(--color-muted);
   font-weight: 700;
   font-size: 14px;
   background: var(--color-bg-header);
+  border-bottom: 2px solid var(--color-table-header-border);
 }
 tbody td {
   color: var(--color-text);
@@ -651,22 +813,41 @@ th.sortable {
   position: relative;
   /* Click-target fix (2026-05-06 polish-3): the entire <th> should sort,
      not just the text. The base `<th>` padding (4px 8px) moves to the
-     inner <a> below; the th itself goes to padding 0 so the link can
-     fill the cell. The 18px right-padding reserve for the ::after
-     indicator also moves onto the link. */
+     inner <a> / <span> below; the th itself goes to padding 0 so the
+     inner element can fill the cell and the rightmost label edge can
+     align with the rightmost value edge (no header-vs-data column
+     drift). Cell padding stays 0; the arrow reserve lives on the
+     inner element instead. */
   padding: 0;
 }
-/* Make the inner sort link fill the full cell so clicking anywhere on
-   the header (including the empty space around the label and the area
-   where the ::after sort indicator sits) triggers the sort. The `::after`
-   indicator stays on `th.sortable` (positioned relative to the th,
-   right: 1px) — the link sits inside the th and shares the same right
-   padding reserve, so the indicator visually sits inside the link area
-   without overlapping the text. */
-th.sortable > a {
+/* Arrow-reserve geometry (2026-05-16 re-fix).
+   The ::after arrow uses `position: absolute; right: 1px; width: 14px`
+   on the `<th>` — so it occupies the rightmost 1–15px of the cell.
+   We need the label's right edge to stop ~7px before the arrow's left
+   edge → label must end >= 22px from the cell's right border.
+   Two DOM shapes flow into this component pair:
+     (a) helper-based — `sort_link_to` emits `<th><a>label</a></th>`,
+     (b) component-based — `SortableHeaderComponent` emits
+         `<th><span class="sortable-label">label</span></th>`.
+   The previous attempt set `padding-right: 22px` only on
+   `th.sortable > a`, which never matched shape (b), so Stack-pane
+   `.num` labels (`text-align: right` on the `<th>`) slid under the
+   arrow.
+   The fix targets BOTH wrappers with the same right-padding reserve
+   and the same `display: block` fill. The `<span>` wrapper exists
+   solely so the component DOM has an element to attach the reserve
+   to (a bare text node can't be padded). Either wrapper occupies the
+   full cell content box (`display: block`) and ends 22px before its
+   own right edge → label ends 22px from cell border for `.num`
+   columns. The cell itself keeps `padding: 0`, so data values in TD
+   beneath (which inherit base `td` padding) still right-align to the
+   same cell edge whatever the surrounding table prescribes — the
+   header and value column edges don't drift because of this fix. */
+th.sortable > a,
+th.sortable > .sortable-label {
   display: block;
   padding: 4px 8px;
-  padding-right: 18px;
+  padding-right: 22px;
   text-decoration: none;
   color: inherit;
 }
@@ -726,6 +907,119 @@ th.col-action, td.col-action {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+
+/* Stack-pane breakdown tables (`/settings` row 3 — Postgres / Redis /
+   Meilisearch / assets / notes) plus the sessions table on the
+   security pane. Shared treatment: full pane width, dense look (no
+   borders, no zebra), and a clean right-alignment contract for
+   numeric columns.
+
+   Geometry strategy (2026-05-16 reset — replaces the prior
+   per-pixel alignment stack):
+
+   1. Uniform horizontal cell padding (`--stack-cell-padding`) on
+      every `th` AND `td`. The body cell and the header cell share
+      the same left/right padding, so `.num` columns (which carry
+      `text-align: right`) get header-label and body-value right
+      edges aligned at the SAME x-coordinate automatically — no
+      arrow-reserve math, no last-child overrides.
+
+   2. The sort arrow escapes the cell flow via `position: absolute`.
+      Instead of competing with the label for horizontal space inside
+      the header cell, it hangs above the header at
+      (`--stack-arrow-top`, `--stack-arrow-right`). The label is
+      free to right-align flush with the body number below it.
+
+   3. The Redis stats grid (no arrows, just `.num` headers + cells)
+      inherits the same right-alignment automatically — no special
+      casing needed.
+
+   The `.sessions-table` marker class on the security pane's sessions
+   `<table>` opts that table into rule (2) only (arrow escape) so its
+   `[pinged]` header right-aligns with the relative-time values
+   underneath. It does NOT take the full stack-table styling — its
+   `col-action` / `code` cells keep their own conventions. */
+table.stack-table {
+  width: 100%;
+  table-layout: auto;
+}
+table.stack-table th,
+table.stack-table td {
+  border: none;
+  padding: 1px var(--stack-cell-padding);
+  background: transparent;
+  font-weight: normal;
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+/* Header treatment mirrors the global `thead th` convention (muted
+   color, bold weight, header-bg tint) used on the channels / videos
+   lists, so Stack pane headers carry the same visual signal as every
+   other data table. */
+table.stack-table thead th {
+  color: var(--color-muted);
+  font-weight: 700;
+  background: var(--color-bg-header);
+}
+table.stack-table tbody td {
+  color: var(--color-muted);
+}
+/* Sortable header cells inside stack-tables override the global
+   `th.sortable { padding: 0 }` so cell padding governs the geometry
+   uniformly with `<td>` cells. Inner `<a>/<span>` carries no padding
+   of its own — the cell provides everything; the right edge of the
+   label matches the right edge of the body cell content area. */
+table.stack-table th.sortable,
+table.sessions-table th.sortable {
+  padding: 1px var(--stack-cell-padding);
+  position: relative;
+}
+table.stack-table th.sortable > a,
+table.stack-table th.sortable > .sortable-label {
+  display: inline;
+  padding: 0;
+  text-decoration: none;
+  color: inherit;
+}
+/* Arrow escapes the cell flow — `position: absolute` lifts it above
+   the header label so the label can sit flush right (or flush left,
+   for `.string` columns) without arrow-reserve padding. Negative
+   `--stack-arrow-top` floats the indicator slightly above the
+   header's content row; `--stack-arrow-right` anchors it to the
+   right edge of the cell. Cross-references the global
+   `th.sortable::after` rule for content + sizing — only positioning
+   is overridden here. */
+table.stack-table th.sortable::after,
+table.sessions-table th.sortable::after {
+  position: absolute;
+  top: var(--stack-arrow-top);
+  right: var(--stack-arrow-right);
+  transform: none;
+  width: auto;
+}
+/* Sessions table inner anchor: zero its padding entirely so the cell
+   padding from the `.sessions-table th.sortable` rule above
+   (`1px var(--stack-cell-padding)` = `1px 8px`) is the single source
+   of horizontal offset. Without this reset, the global
+   `th.sortable > a { padding: 4px 8px; padding-right: 22px }` rule
+   stacks ON TOP of the cell padding:
+     LEFT  → cell 8px + anchor 8px  = 16px  (vs. body `<td>` 8px → misaligned)
+     RIGHT → cell 8px + anchor 22px = 30px  (vs. body `<td>` 8px → misaligned)
+   Mirrors the `.stack-table` block above. With the arrow lifted out
+   via `position: absolute`, no arrow reserve is needed on the inner
+   element. `display: inline` collapses the global `display: block`
+   so the anchor doesn't stretch the cell. */
+table.sessions-table th.sortable > a,
+table.sessions-table th.sortable > .sortable-label {
+  display: inline;
+  padding: 0;
+}
+/* Stack-table rows don't zebra — they're dense breakdown rows, not
+   browseable lists. The base `table:not(.detail-table)` zebra rule
+   would otherwise apply since `.stack-table` is its own class. */
+table.stack-table tr:nth-child(even) { background-color: transparent; }
+table.stack-table tr:hover { background-color: transparent; }
 
 /* Footage table on the project show page (`_footage_pane.html.erb`).
    `table-layout: fixed` + a `<colgroup>` with explicit widths is what
@@ -1052,6 +1346,155 @@ dialog.pane-dialog {
   padding: 0;
 }
 
+/* 2026-05-16 — Mandatory-2FA gate: when the settings modal is in
+   non-dismissible mode (auto-opened TOTP enrollment for an unconfigured
+   user) the enrollment view body prints "two-factor setup required"
+   as its own <h1>. The partial's <h2> header slot stays empty in that
+   mode (see `_settings_modal.html.erb`) so the single, larger heading
+   is the only one the user sees. Belt-and-suspenders: hide the <h2>
+   defensively even when something accidentally writes text into it.
+
+   2026-05-16 structural fix — the `data-settings-modal-non-dismissible-value`
+   attribute now lives ON the `<dialog>` element directly (the prior
+   `<span>` wrapper around the dialog was invalid HTML — phrasing
+   content cannot contain flow content). Selectors switch from
+   ancestor-descendant to same-element form. */
+dialog.settings-modal[data-settings-modal-non-dismissible-value="yes"] h2[data-settings-modal-target="title"] {
+  display: none;
+}
+
+/* 2026-05-16 — Mandatory-2FA gate: paint the dialog border in the
+   project's destructive red (`--color-danger`) to mirror the same
+   elevated framing the flash-error rule uses. The user is locked out
+   of every other surface until they enable 2FA — the red border
+   matches the red descriptive copy in the dialog body. Gated behind
+   the dialog's own `data-settings-modal-non-dismissible-value="yes"`
+   attribute (same element after the 2026-05-16 structural fix) so
+   only the mandatory enrollment dialog picks up the treatment; the
+   regular settings sub-page dialogs (Slack/Discord, sessions,
+   locations) keep the neutral border.
+
+   Widened max-width to 960px so the enrollment view's two `.pane`
+   cells (444px each = 888px) render side-by-side inside the modal
+   instead of wrapping. Math: 2 × 444 (panes) + 2 × 12 (inner padding)
+   + 2 × 1 (border) ≈ 914px, plus a small breathing-room margin →
+   960px. The standard settings-modal max-width (600px from
+   `.pane-dialog`) is unchanged for every other settings dialog. */
+dialog.settings-modal[data-settings-modal-non-dismissible-value="yes"] {
+  border: 1px solid var(--color-danger);
+  max-width: 960px;
+}
+
+/* 2026-05-16 — Mandatory-2FA gate inner: the partial's inner wrapper
+   declares `max-width: 880px` which clamps the dialog content below
+   what the two-pane layout needs. In non-dismissible mode the partial
+   switches that inline cap to `none` so the inner fills the dialog's
+   own 960px content area; the `.pane-row` is then free to stretch to
+   the full 888px the two `.pane` cells need (each `.pane` is 444px
+   with `box-sizing: border-box` from Tailwind preflight; 2 × 444 =
+   888px including padding). The inner partial declares
+   `padding: 12px 16px` (32px horizontal); 960 - 32 = 928px of usable
+   space — 888px for the panes + 40px slack so a sub-pixel browser
+   layout doesn't wrap the second pane below the first, and the
+   vertical scrollbar sits flush with the dialog's red border instead
+   of floating inside an empty right gutter. Scoped to non-dismissible
+   mode so the standard settings dialogs keep the 880px inner cap.
+
+   2026-05-16 structural fix — same-element selector now that the
+   attribute lives on `<dialog>` directly. */
+dialog.settings-modal[data-settings-modal-non-dismissible-value="yes"] > div {
+  max-width: none;
+}
+
+/* 2026-05-16 — Settings modal inner: lock horizontal scroll. The
+   inner wrapper already declares `overflow-y: auto` so the dialog
+   can scroll vertically when its content exceeds 80vh, but leaves
+   `overflow-x` at its default `visible`. With a tight 600px dialog
+   max-width and a 600px inner min-width any sub-pixel content nudge
+   (an unbreakable string, a wide form control) can spill horizontally
+   and surface a scrollbar. Pinning `overflow-x: hidden` makes the
+   inner a fully-bounded scroll container — vertical scroll stays,
+   horizontal scroll is suppressed at the surface that actually has a
+   defined width. Paired with `overflow-wrap: break-word` on consuming
+   views so long tokens don't visually clip — they wrap. */
+dialog.settings-modal > div {
+  overflow-x: hidden;
+}
+
+/* 2026-05-16 — Dismissible settings modal width. The base
+   `.pane-dialog` rule above caps every pane dialog at 600px, which
+   was the original settings-modal width. Table-heavy settings
+   sub-pages (sessions list, blocks/locations list) carry 6-8
+   columns and overflow that 600px cap — column content gets
+   clipped or wraps into unreadable narrow stripes.
+
+   Widen the settings modal to 960px to match the mandatory-2FA
+   modal width (a width chosen because the enrollment view's two
+   `.pane` cells need 888px combined, and the same 960px ceiling
+   now comfortably fits the sessions / locations tables too — one
+   width for every settings modal, dismissible or not). The mandatory
+   variant above carries its own `max-width: 960px` declaration with
+   higher specificity (attribute selector), so this rule does NOT
+   regress it — both modes converge on the same 960px ceiling.
+
+   `width: 95vw` is the narrow-viewport fallback. On a viewport
+   smaller than 960px the dialog clamps to 95% of the viewport
+   width (leaving a small backdrop gutter on both sides) instead
+   of overflowing the viewport. Wide table content inside is
+   handled by the per-table scroll rule below — the table becomes
+   its own horizontal-scroll container when the inner wrapper
+   can't give it the width it asks for.
+
+   The companion change in `_settings_modal.html.erb` lifts the
+   inner wrapper's inline `max-width` from 880px to `none` for
+   both dismissible and mandatory modes so the inner fills the
+   widened 960px dialog uniformly — no empty right gutter, and
+   wide tables get the full ~928px usable content area. */
+dialog.settings-modal {
+  max-width: 960px;
+  width: 95vw;
+}
+
+/* 2026-05-16 — Per-table horizontal scroll inside settings
+   modals. Mirrors the global mobile rule at `@media (max-width:
+   768px)` below (`table { display: block; overflow-x: auto }`)
+   but scopes it to settings-modal tables at every viewport
+   width. The table becomes its own block-level scroll container;
+   on viewports wide enough for the full table to fit, no
+   scrollbar appears, so this is invisible when not needed. On
+   viewports between the mobile breakpoint (768px) and the
+   dialog's preferred width (960px), where the dialog clamps to
+   95vw and the inner content area shrinks below the table's
+   natural width, the table scrolls horizontally instead of
+   being clipped by the inner wrapper's `overflow-x: hidden`
+   guard. Belt-and-suspenders with the global mobile rule for
+   the narrowest viewports. */
+dialog.settings-modal table {
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-muted) var(--color-bg);
+}
+
+/* 2026-05-16 — Custom elements default to `display: inline` when no
+   stylesheet says otherwise. Turbo's own source declares
+   `turbo-frame { display: block }` but that rule is not guaranteed to
+   reach the page in every import strategy (importmap, esbuild, etc.).
+   Inside the mandatory-2FA settings modal the chain is:
+     dialog → inner div (max-width 928px) → <turbo-frame> → view body
+       → .pane-row → two .pane cells (444px each).
+   With the frame rendering inline it shrinks-to-fit to one pane's
+   width (~444px), the .pane-row's flex-wrap then stacks the second
+   pane below the first, and the right ~520px of the dialog is empty.
+   Forcing `display: block` on every turbo-frame restores the expected
+   block-level participation so the frame fills its parent and the
+   pane-row gets the full 888px it needs. Belt-and-suspenders against
+   Turbo's default stylesheet not loading. */
+turbo-frame {
+  display: block;
+}
+
 dialog.confirm-modal {
   border: 1px solid var(--color-border);
   background: var(--color-bg);
@@ -1201,6 +1644,19 @@ dialog.confirm-modal::backdrop {
   margin: 10px 0;
   width: 100%;
   table-layout: auto;
+  /* 2026-05-16 — mirror of the `dialog.settings-modal table` pattern
+     above. The dialog's inner wrapper sets `overflow-x: hidden`, so a
+     table wider than the modal would be clipped on the right with no
+     scroll affordance. Promote the table to a block-level scroll
+     container so any overflow scrolls horizontally inside the cell
+     rather than disappearing under the modal edge. With the compacted
+     guides the troubleshooting table fits comfortably; this rule is a
+     belt-and-suspenders guard for narrower viewports. */
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-muted) var(--color-bg);
 }
 .webhook-help-content th,
 .webhook-help-content td {
@@ -1410,6 +1866,16 @@ hr.hairline {
 /* Generic success-color text utility — used by clipboard-copy controller
    when flashing `[ copied ]`, and available for any future success cue. */
 .text-success { color: var(--color-success); }
+
+/* 2026-05-16 (sessions revamp v2). Inline `<code class="inline-code">`
+   for short monospace data values (IP addresses, ids, short tokens)
+   rendered inside table cells / paragraphs. Picks up the project's
+   `--color-bg-alt` swatch so the value reads as data, not prose. */
+code.inline-code {
+  background-color: var(--color-bg-alt);
+  padding: 1px 4px;
+  border-radius: 2px;
+}
 
 /* Item 4 — URL ellipsis truncation. Wraps a single-line value; the
    ellipsis (…) replaces the overflow. Requires a flex parent with
@@ -1682,10 +2148,23 @@ textarea.note-editor-source {
   vertical-align: baseline;
   text-transform: lowercase;
 }
+/* Muted variants (`info`, `neutral`, `no`, `all_day`) share one rule
+   and carry their own background / text / border via the dedicated
+   `--color-badge-muted-*` tokens. The explicit background is what keeps
+   the chip readable when a row underneath flips to `:hover` or zebra
+   alt — without it, the muted Dracula text dissolved into the hover bg
+   in dark theme. Other variants below keep their strong colored
+   borders + text on a transparent background; their contrast is the
+   text+border themselves, not a chip surface. */
 .status-badge--info,
-.notification-severity-info {
-  border-color: var(--color-border);
-  color: var(--color-muted);
+.status-badge--neutral,
+.status-badge--no,
+.status-badge--all_day,
+.notification-severity-info,
+.calendar-badge--all-day {
+  background-color: var(--color-badge-muted-bg);
+  border-color: var(--color-badge-muted-border);
+  color: var(--color-badge-muted-text);
 }
 .status-badge--success,
 .status-badge--yes,
@@ -1703,12 +2182,74 @@ textarea.note-editor-source {
   border-color: #cc0000;
   color: #cc0000;
 }
-.status-badge--neutral,
-.status-badge--no,
-.status-badge--all_day,
-.calendar-badge--all-day {
-  border-color: var(--color-border);
-  color: var(--color-muted);
+/* 2026-05-16 (sessions revamp v2) — generic CSS-only tooltip host.
+   Pairs with `TooltipBadgeComponent`. The host element shows a
+   positioned `::after` pseudo on hover OR keyboard focus; the same
+   pattern as `.viewer-time-heatmap__cell`. A sibling `<span
+   role="tooltip">.sr-only` carries the same text for assistive tech
+   via `aria-describedby`.
+
+   Spacing: a `margin-left: 10px` opens up the gap between the
+   preceding inline `<code>` (the user-agent string in the sessions
+   table) and the first badge so the badge group reads as a distinct
+   trailing cluster — not a tail of the UA string. Adjacent badges
+   then sit flush (`margin-left: 0`) so the `[ip][this]` pair reads
+   as one tight unit.
+
+   Position: tooltip floats ABOVE the badge so a row near the bottom
+   of a table does not clip behind the next row. Single-line layout
+   (`white-space: nowrap`) — a full 39-char IPv6 string fits on one
+   horizontal line. `max-width: 480px` gives headroom for IPv6 plus
+   small extras (zone identifiers, port suffixes) without wrapping.
+   If a future tooltip carries genuinely long multi-line content,
+   add a variant rather than rewrapping this default. */
+.tooltip-host {
+  position: relative;
+  cursor: help;
+  margin-left: 10px;
+  outline: none;
+}
+.tooltip-host + .tooltip-host,
+.tooltip-host + .status-badge,
+.status-badge + .tooltip-host {
+  margin-left: 0;
+}
+.tooltip-host:hover,
+.tooltip-host:focus-visible {
+  box-shadow: 0 0 0 1px var(--color-text);
+}
+/* Tooltip popover — uses the dedicated `--color-tooltip-*` tokens (inverse
+   of the page surface) so it never dissolves into the row underneath, even
+   when that row is in `:hover` / `.keyboard-highlight` state. A subtle
+   drop-shadow reinforces the "floating" read; the 1px border closes the
+   edge against any backdrop. Earlier iteration used `--color-bg` here, which
+   matched the page at rest but collided with `--color-bg-hover` on the
+   hovered row right below the tooltip. */
+.tooltip-host::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 6px;
+  background: var(--color-tooltip-bg);
+  color: var(--color-tooltip-text);
+  border: 1px solid var(--color-tooltip-border);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  font-size: 11px;
+  line-height: 1.3;
+  max-width: 480px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  z-index: 5;
+  border-radius: 2px;
+}
+.tooltip-host:hover::after,
+.tooltip-host:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
 }
 .notification-body a { color: var(--color-link); }
 
@@ -2121,3 +2662,25 @@ section[data-shelf="outer-genres"] > section.sub-shelf:not(:first-of-type) {
   margin: 0 0 4px 0;
 }
 
+
+/* Phase 32 (settings refactor polish — Concern 2). Muted-panes
+   treatment for the mandatory-2FA enrollment gate. When the
+   authenticated user has not yet configured TOTP, the
+   `settings/index` template wraps the pane stack in
+   `.settings-panes--muted`. The visual contract:
+     * The surrounding panes remain visible (the user can see the
+       layout they will return to).
+     * `pointer-events: none` blocks every click / submit / scroll
+       handler on the panes.
+     * Lower opacity + grayscale telegraph "this is not interactive
+       right now".
+   The non-dismissible auto-open modal renders on top via the
+   layout's existing `<dialog>` flow; the modal itself is
+   pointer-events-enabled because it sits inside the dialog's
+   `::backdrop` overlay. */
+.settings-panes--muted {
+  opacity: 0.45;
+  filter: grayscale(0.4);
+  pointer-events: none;
+  user-select: none;
+}

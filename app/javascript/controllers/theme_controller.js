@@ -1,8 +1,24 @@
 import { Controller } from "@hotwired/stimulus"
 
+// Module-level live read of the mandatory-2FA enrollment gate.
+// Mirror of the helper in `keyboard_controller.js` /
+// `leader_menu_controller.js`; kept duplicated rather than extracted
+// to a shared module so each controller stays self-contained for
+// importmap simplicity. See the layout's head comment for the full
+// rationale on `<meta>`-in-head vs body-mounted signal.
+function enrollTotpGateActive() {
+  const meta = document.querySelector('meta[name="pito-enroll-totp-gate"]')
+  return meta?.getAttribute("content") === "yes"
+}
+
 // Manages dark/light theme toggle.
-// Reads initial preference from data-theme-preference on <html>.
-// Falls back to localStorage, then system preference.
+//
+// Phase 29 (settings refactor) — localStorage only. Server-side theme
+// persistence (the `/settings/theme` PATCH endpoint and the
+// `data-theme-preference` attribute on `<html>`) was dropped along
+// with the Settings → ui/ux pane. The controller now reads + writes
+// `pito-theme` in localStorage exclusively; absent value == auto
+// (track system preference).
 export default class extends Controller {
   static targets = ["toggle"]
 
@@ -20,6 +36,22 @@ export default class extends Controller {
   }
 
   onKeydown(event) {
+    // Mandatory-2FA enrollment gate. When the authenticated user has
+    // not configured TOTP, the layout renders
+    // `<meta name="pito-enroll-totp-gate" content="yes">` in `<head>`
+    // and the `t` theme toggle is inert alongside every other global
+    // shortcut — the enrollment dialog must be the only interactive
+    // surface until 2FA is set up. The enrollment form's own keys
+    // (typing the 6-digit code, Tab between fields, Enter to submit)
+    // are unaffected because `t` only fires on non-input focus, and
+    // typing in the code input is `<input>`-targeted anyway.
+    // Released the moment enrollment completes (next page render
+    // flips the meta content back to `"no"`).
+    //
+    // Why a `<meta>` in `<head>` rather than a body data-attribute
+    // or inline body `<script>`: see the layout comment next to the
+    // meta tag.
+    if (enrollTotpGateActive()) return
     if (event.target.matches("input, textarea, select, [contenteditable]")) return
     if (event.metaKey || event.ctrlKey || event.altKey) return
     // Theme toggle keybind: `t`. Was `n` historically; moved to `t`
@@ -42,72 +74,26 @@ export default class extends Controller {
     const current = this.effectiveTheme()
     const next = current === "dark" ? "light" : "dark"
     localStorage.setItem("pito-theme", next)
-    this.applyTheme({ syncRadio: true })
-
-    // Persist to server
-    fetch("/settings/theme", {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRF-Token": document.querySelector('meta[name="csrf-token"]')?.content
-      },
-      body: JSON.stringify({ theme: next })
-    })
+    this.applyTheme()
   }
 
-  applyTheme({ syncRadio = false } = {}) {
+  applyTheme() {
     const theme = this.effectiveTheme()
     document.documentElement.setAttribute("data-theme", theme)
-    document.documentElement.dataset.themePreference = localStorage.getItem("pito-theme") || "auto"
     if (window.recolorCharts) setTimeout(window.recolorCharts, 50)
-
-    // Only sync radio buttons when triggered by the toggle button
-    if (syncRadio) {
-      const stored = localStorage.getItem("pito-theme")
-      const value = stored || "auto"
-      const radio = document.querySelector(`input[name="settings[theme]"][value="${value}"]`)
-      if (radio) radio.checked = true
-    }
   }
-
 
   effectiveTheme() {
     const stored = localStorage.getItem("pito-theme")
     if (stored === "light" || stored === "dark") return stored
-
-    const server = document.documentElement.dataset.themePreference
-    if (server === "light" || server === "dark") return server
-    if (server === "auto" || !server) {
-      return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
-    }
-    return "light"
-  }
-
-  showFlash(message) {
-    const existing = document.querySelector(".flash-notice")
-    if (existing) existing.remove()
-
-    const flash = document.createElement("div")
-    flash.className = "flash-notice"
-    flash.style.cssText = "margin-bottom: 8px; padding: 4px 8px;"
-    flash.textContent = message
-
-    const main = document.querySelector("main")
-    const firstChild = main.querySelector("nav, h1, .flash-notice, .flash-error")
-    if (firstChild) {
-      main.insertBefore(flash, firstChild)
-    } else {
-      main.prepend(flash)
-    }
-
-    setTimeout(() => flash.remove(), 3000)
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
   }
 
   onSystemChange = () => {
     const pref = localStorage.getItem("pito-theme")
-    const server = document.documentElement.dataset.themePreference
-    // Only react to system changes if preference is "auto"
-    if (!pref && (!server || server === "auto")) {
+    // Only react to system changes if user hasn't set an explicit
+    // preference (absent localStorage entry == auto).
+    if (!pref) {
       this.applyTheme()
     }
   }

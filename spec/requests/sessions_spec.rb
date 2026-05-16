@@ -1,10 +1,15 @@
 require "rails_helper"
 
-# Phase 29 — Unit A2. The login form posts `username` + `password`;
-# there is no email path. 2FA is mandatory from first login — a
-# TOTP-configured user goes through the `/login/totp` challenge; a
-# user WITHOUT TOTP gets an active session minted directly (the
-# first-login bootstrap, R4) and is then gated into TOTP enrollment.
+# Post-Phase-25 rollback. The new-location approval flow + the
+# LoginAttempt forensic surface are gone. The simplified login flow:
+#
+#   * TOTP-configured user → password verified → redirect to /login/totp.
+#   * Non-TOTP user        → password verified → mint session, redirect
+#                            to /settings?enroll_totp=1 (mandatory-2FA
+#                            gate forces enrollment).
+#
+# Sad paths (wrong password / unknown username / blank) bottom out
+# through the same `login failed.` 422 with no oracle differentiation.
 RSpec.describe "Sessions", type: :request do
   let(:password) { "supersecret" }
   let!(:user) do
@@ -23,13 +28,28 @@ RSpec.describe "Sessions", type: :request do
       expect(response.body).to include("[log in]")
       expect(response.body).to include('name="username"')
       expect(response.body).to include('name="password"')
-      expect(response.body).to include('name="remember_me"')
+    end
+
+    # 2026-05-16 (sessions revamp v2). The "remember me on this device
+    # (30 days)" checkbox + the underlying `sessions.remember` column
+    # were dropped. The form no longer renders the checkbox; the
+    # controller no longer reads `remember_me` from params.
+    it "no longer renders the dropped remember-me checkbox" do
+      get login_path
+      expect(response.body).not_to include('name="remember_me"')
+      expect(response.body.downcase).not_to include("remember me on this device")
     end
 
     it "does not render a legacy email field" do
       get login_path
       expect(response.body).not_to include('name="email"')
       expect(response.body).not_to include('type="email"')
+    end
+
+    it "no longer renders the dropped fingerprint hint inputs" do
+      get login_path
+      expect(response.body).not_to include('name="fp_screen"')
+      expect(response.body).not_to include('name="fp_locale"')
     end
 
     it "links [reset password] to /password/reset and drops the credentials:edit copy" do
@@ -42,10 +62,81 @@ RSpec.describe "Sessions", type: :request do
     it "does not render an inline duplicate of the flash error" do
       post login_path, params: { username: user.username, password: "wrong" }
       expect(response).to have_http_status(:unprocessable_content)
-      # Phase 25 — 01a (LD-14). Generic copy is `login failed.` regardless
-      # of which step failed.
+      # LD-14 — Generic copy is `login failed.` regardless of which
+      # step failed.
       expect(response.body.scan(/login failed/i).length).to eq(1)
       expect(response.body).not_to include("flash-error")
+    end
+
+    # Phase D polish (2026-05-16) — login form copy + layout.
+    describe "login form copy + layout polish" do
+      it "does not render the 'sign in with your pito account.' orientation copy" do
+        get login_path
+        expect(response.body.downcase).not_to include("sign in with your pito account")
+      end
+
+      it "does not render the 'forgot your password?' prefix copy" do
+        get login_path
+        expect(response.body.downcase).not_to include("forgot your password")
+      end
+
+      it "places [reset password] in the same dot-list row as [log in], after the form fields" do
+        get login_path
+        body = response.body
+
+        dot_list_match = body.match(/<div class="dot-list">(.*?)<\/div>/m)
+        expect(dot_list_match).not_to be_nil
+        dot_list_html = dot_list_match[1]
+
+        expect(dot_list_html).to include("[log in]")
+        expect(dot_list_html).to include("reset password")
+        expect(dot_list_html.index("[log in]"))
+          .to be < dot_list_html.index("reset password")
+      end
+
+      it "renders a middle-dot `nav-sep` between [log in] and [reset password]" do
+        get login_path
+        body = response.body
+
+        dot_list_match = body.match(/<div class="dot-list">(.*?)<\/div>/m)
+        expect(dot_list_match).not_to be_nil
+        dot_list_html = dot_list_match[1]
+
+        sep_html = '<span class="nav-sep" aria-hidden="true">·</span>'
+        expect(dot_list_html).to include(sep_html)
+
+        login_idx = dot_list_html.index("[log in]")
+        sep_idx   = dot_list_html.index(sep_html)
+        reset_idx = dot_list_html.index("reset password")
+        expect(login_idx).to be < sep_idx
+        expect(sep_idx).to be < reset_idx
+      end
+
+      it "does not place [reset password] above the username field" do
+        get login_path
+        body = response.body
+
+        username_field_idx = body.index('id="login_username"')
+        reset_link_idx     = body.index("reset password")
+        expect(username_field_idx).not_to be_nil
+        expect(reset_link_idx).not_to be_nil
+        expect(reset_link_idx).to be > username_field_idx
+      end
+
+      it "renders the heading and submit label as 'log in' (two words, lowercase)" do
+        get login_path
+        body = response.body
+
+        expect(body).to include("<h1>log in</h1>")
+        expect(body).to include("[log in]")
+        expect(body).not_to match(/<h1>\s*login\s*<\/h1>/i)
+        expect(body).not_to include("[login]")
+      end
+
+      it "renders 'reset password' (two words, lowercase) as the bracketed link label" do
+        get login_path
+        expect(response.body).to include('<span class="bl">reset password</span>')
+      end
     end
 
     # Phase 9 — Login-with-Google Drop (ADR 0006).
@@ -60,23 +151,6 @@ RSpec.describe "Sessions", type: :request do
   end
 
   describe "POST /login", :unauthenticated do
-    # Phase 25 — 01b. A trusted-location login mints a session and
-    # redirects to root. Seed the trusted-location row for the
-    # fingerprint the rack-test request produces so those specs keep
-    # meaning what they meant.
-    def seed_trusted_location_for_test_request!
-      post login_path, params: { username: user.username, password: "probe-wrong" }
-      seed = LoginAttempt.recent.first
-      TrustedLocation.find_or_create_by!(
-        user: user,
-        fingerprint_hash: seed.fingerprint_hash,
-        ip_prefix: seed.ip_prefix
-      ) do |row|
-        row.first_seen_at = 1.day.ago
-        row.last_seen_at  = 1.day.ago
-      end
-    end
-
     context "TOTP-configured user" do
       before { user.update!(totp_seed_encrypted: "JBSWY3DPEHPK3PXP", totp_enabled_at: 1.hour.ago) }
 
@@ -97,24 +171,24 @@ RSpec.describe "Sessions", type: :request do
         post login_path, params: { username: "  #{user.username}  ", password: password }
         expect(response).to redirect_to(login_totp_path)
       end
+
+      it "stashes the pre-auth marker cookie before the TOTP redirect" do
+        post login_path, params: { username: user.username, password: password }
+        cookie_header = response.headers["Set-Cookie"].to_s
+        expect(cookie_header).to include(SessionsController::PRE_AUTH_COOKIE.to_s)
+      end
     end
 
     context "user WITHOUT TOTP — first-login bootstrap (R4)" do
-      it "mints an active session directly and redirects to the TOTP setup page" do
+      # First-login bootstrap mints an active session directly and
+      # redirects to `/settings?enroll_totp=1` so the mandatory-2FA
+      # gate's auto-open modal forces enrollment.
+      it "mints an active session directly and redirects to /settings?enroll_totp=1" do
         expect {
           post login_path, params: { username: user.username, password: password }
         }.to change { Session.state_active.where(user_id: user.id).count }.by(1)
 
-        expect(response).to redirect_to(settings_security_totp_path)
-      end
-
-      it "records LoginAttempt.reason = first_login_totp_setup_required" do
-        post login_path, params: { username: user.username, password: password }
-
-        row = LoginAttempt.recent.first
-        expect(row.reason).to eq("first_login_totp_setup_required")
-        expect(row.result).to eq("success")
-        expect(row.user_id).to eq(user.id)
+        expect(response).to redirect_to(settings_path(enroll_totp: 1))
       end
 
       it "sets the session cookie so the post-session gate takes over" do
@@ -140,11 +214,6 @@ RSpec.describe "Sessions", type: :request do
     end
 
     it "produces an indistinguishable response for unknown-username and wrong-password" do
-      # No oracle: a real user with the wrong password and a
-      # nonexistent username produce the same status, the same
-      # generic flash copy, and no session cookie. The form echoes
-      # back the typed username (the user's own input), so normalize
-      # the echo out before comparing bodies.
       cookie_name = Sessions::Authenticator::COOKIE_NAME.to_s
 
       post login_path, params: { username: user.username, password: "wrong-pw" }
@@ -160,8 +229,6 @@ RSpec.describe "Sessions", type: :request do
       expect(unknown_status).to eq(wrong_status)
       expect(unknown_status).to eq(422)
       expect(unknown_body).to eq(wrong_body)
-      # Anchor the match so the app's own `pito_session` auth cookie
-      # is checked — not Rails' default `_pito_session` session cookie.
       anchored = /(?:^|;\s*|,\s*)#{Regexp.escape(cookie_name)}=/
       expect(wrong_cookie).not_to match(anchored)
       expect(unknown_cookie).not_to match(anchored)
@@ -199,17 +266,14 @@ RSpec.describe "Sessions", type: :request do
       }.to change { Session.where(user_id: user.id).count }.by(1)
     end
 
-    it "extends the cookie expires when remember_me=yes" do
+    # 2026-05-16 (sessions revamp v2). Session cookies are now
+    # session-only — the "remember me" checkbox + the
+    # `sessions.remember` column it threaded into were dropped, so
+    # the cookie carries no `expires=` attribute. Passing
+    # `remember_me` in the form params is silently ignored.
+    it "mints a session-only cookie (no expires=) regardless of stray remember_me params" do
       post login_path, params: { username: user.username, password: password, remember_me: "yes" }
-      expect(response.headers["Set-Cookie"].to_s).to include("expires=")
-      session_row = Session.where(user_id: user.id).order(:created_at).last
-      expect(session_row.remember?).to be true
-    end
-
-    it "ignores remember_me when not set to the literal yes" do
-      post login_path, params: { username: user.username, password: password, remember_me: "true" }
-      session_row = Session.where(user_id: user.id).order(:created_at).last
-      expect(session_row.remember?).to be false
+      expect(response.headers["Set-Cookie"].to_s).not_to include("expires=")
     end
 
     it "throttles after 10 failures from the same IP" do
@@ -217,129 +281,6 @@ RSpec.describe "Sessions", type: :request do
         post login_path, params: { username: user.username, password: "still-wrong" }
       end
       expect(response).to have_http_status(:too_many_requests)
-    end
-
-    it "redirects to the intended URL when one was stashed (trusted location)" do
-      get channels_path
-      seed_trusted_location_for_test_request!
-      user.update!(totp_seed_encrypted: nil, totp_enabled_at: nil)
-      post login_path, params: { username: user.username, password: password }
-      expect(response).to redirect_to(channels_path)
-    end
-
-    # Phase 25 — 01a. Every authenticate POST writes a LoginAttempt row.
-    describe "LoginAttempt writes (Phase 25 — 01a)" do
-      it "writes a success row on a clean trusted-location login" do
-        seed_trusted_location_for_test_request!
-        baseline = LoginAttempt.count
-
-        expect {
-          post login_path, params: { username: user.username, password: password }
-        }.to change(LoginAttempt, :count).by(1)
-
-        row = LoginAttempt.recent.first
-        expect(row.result).to eq("success")
-        expect(row.reason).to eq("trusted_location_success")
-        expect(row.user_id).to eq(user.id)
-        expect(LoginAttempt.count).to be > baseline
-      end
-
-      it "writes a failed row with reason: wrong_password" do
-        expect {
-          post login_path, params: { username: user.username, password: "wrong" }
-        }.to change(LoginAttempt, :count).by(1)
-
-        row = LoginAttempt.recent.first
-        expect(row.result).to eq("failed")
-        expect(row.reason).to eq("wrong_password")
-        expect(row.user_id).to eq(user.id)
-      end
-
-      it "writes a failed row with reason: unknown_account on a missing username" do
-        expect {
-          post login_path, params: { username: "nobody_known", password: "x" }
-        }.to change(LoginAttempt, :count).by(1)
-
-        row = LoginAttempt.recent.first
-        expect(row.result).to eq("failed")
-        expect(row.reason).to eq("unknown_account")
-        expect(row.user_id).to be_nil
-        expect(row.email_attempted).to eq("nobody_known")
-      end
-
-      it "writes a blocked row when the (fingerprint, ip_prefix) is on the auto-block list" do
-        post login_path, params: { username: user.username, password: "wrong-first" }
-        first_row = LoginAttempt.recent.first
-        expect(first_row.result).to eq("failed")
-
-        create(
-          :blocked_location,
-          fingerprint_hash: first_row.fingerprint_hash,
-          ip_prefix: first_row.ip_prefix,
-          blocked_by_user: user
-        )
-
-        expect {
-          post login_path, params: { username: user.username, password: password }
-        }.to change(LoginAttempt, :count).by(1)
-
-        row = LoginAttempt.recent.first
-        expect(row.result).to eq("blocked")
-        expect(row.reason).to eq("blocked_pair")
-        expect(response).to have_http_status(:unprocessable_content)
-        expect(response.body.downcase).to include("login failed")
-      end
-
-      it "composes the fingerprint without screen / locale hint params" do
-        expect {
-          post login_path, params: { username: user.username, password: password }
-        }.to change(LoginAttempt, :count).by(1)
-
-        row = LoginAttempt.recent.first
-        expect(row.fingerprint_hash.length).to eq(64)
-      end
-    end
-
-    # Phase 25 — 01b. Trusted / blocked dispatch (the new-location path
-    # for a no-TOTP user is the first-login bootstrap, covered above).
-    describe "new-location dispatch (Phase 25 — 01b)" do
-      it "trusted location: mints a session, writes trusted_location_success, redirects to root" do
-        post login_path, params: { username: user.username, password: "wrong" }
-        seed = LoginAttempt.recent.first
-        TrustedLocation.create!(
-          user: user,
-          fingerprint_hash: seed.fingerprint_hash,
-          ip_prefix: seed.ip_prefix,
-          first_seen_at: 1.day.ago,
-          last_seen_at: 1.day.ago
-        )
-
-        expect {
-          post login_path, params: { username: user.username, password: password }
-        }.to change(Session.state_active, :count).by(1)
-
-        expect(response).to redirect_to(root_path)
-        row = LoginAttempt.where(reason: LoginAttempt.reasons[:trusted_location_success]).recent.first
-        expect(row).to be_present
-      end
-
-      it "blocked pair: writes a blocked row, renders generic failure" do
-        post login_path, params: { username: user.username, password: "wrong" }
-        seed = LoginAttempt.recent.first
-        create(
-          :blocked_location,
-          fingerprint_hash: seed.fingerprint_hash,
-          ip_prefix: seed.ip_prefix,
-          blocked_by_user: user
-        )
-
-        expect {
-          post login_path, params: { username: user.username, password: password }
-        }.to change(LoginAttempt.blocked_results, :count).by(1)
-
-        expect(response).to have_http_status(:unprocessable_content)
-        expect(response.body.downcase).to include("login failed")
-      end
     end
   end
 

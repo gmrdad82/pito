@@ -34,12 +34,15 @@ RSpec.describe "settings/_slack_pane.html.erb", type: :view do
       expect(rendered).to include("[update]")
     end
 
-    # 2026-05-11 — middle-dot separator between `[update]` and
-    # `[help]`, matching the `nav-sep` pattern from the channel show
-    # page (between the in-app `[+]` and the external
-    # `[youtube channel]`).
-    it "renders a `nav-sep` middle dot between [update] and [help]" do
-      expect(rendered).to match(
+    # 2026-05-16 — the middle-dot `nav-sep` between `[update]` and
+    # `[help]` was dropped alongside the muted-bracketed-link primitive
+    # rollout (`BracketedMutedLinkComponent`). The visual hierarchy of
+    # loud `[update]` next to muted `[help]` carries the grouping on
+    # its own; whitespace is the separator now (matches the
+    # `[ authorize ] [ cancel ]` pattern on the Doorkeeper consent
+    # page). Regression guard: the separator must NOT be reintroduced.
+    it "does NOT render a `nav-sep` middle dot between [update] and [help]" do
+      expect(rendered).not_to match(
         %r{\[update\].*<span class="nav-sep" aria-hidden="true">·</span>.*\[help\]}m
       )
     end

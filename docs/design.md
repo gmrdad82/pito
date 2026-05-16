@@ -240,6 +240,67 @@ This principle helps the `pito` CLI maintain visual parity — terminal real
 estate is precious; verbose labels burn cells. Mirror this on every keymap that
 surfaces a label.
 
+### External links — new tab convention
+
+Every link that points to a website **outside the pito app** (anything not
+served by `app.pitomd.com` / `mcp.pitomd.com` / a relative path) MUST open in a
+new tab. Use the exact attribute combination:
+
+```html
+<a href="https://example.com" target="_blank" rel="noopener noreferrer">…</a>
+```
+
+Why the pairing:
+
+- `target="_blank"` keeps the user's pito tab put. A `[help]` modal that links
+  to Slack docs must not yank the user out of the settings page they were
+  configuring.
+- `rel="noopener"` prevents the new tab from reaching back into `window.opener`
+  (a tabnabbing / cross-window scripting vector).
+- `rel="noreferrer"` additionally suppresses the `Referer` header so the
+  destination site never learns which pito URL sent the user.
+
+Both `rel` tokens together — `noopener noreferrer` — are the project standard.
+Do not ship `rel="noopener"` alone; do not ship `target="_blank"` alone.
+
+**Internal links stay default.** Links pointing inside pito (`/settings/...`,
+`/channels/...`, fragment anchors, `mailto:` and `tel:` schemes) render
+same-tab so Turbo navigation, back-button history, and breadcrumb continuity
+keep working.
+
+**Where the rule applies:**
+
+- `BracketedLinkComponent` callers — **automatic.** As of 2026-05-16 the
+  component auto-detects external hrefs (absolute `http://` or `https://`
+  URLs) and emits `target="_blank"` plus `rel="noopener noreferrer"` itself.
+  Callers do NOT pass `target:` / `rel:` for external links — the component
+  handles it. Internal hrefs (relative paths, `#fragments`, `mailto:`,
+  `tel:`) stay default. Explicit caller-supplied `target:` / `rel:` still
+  win when present, so the rare override (force same-tab on an external
+  URL, or force a popup on an internal one) is one keyword away. This is
+  the preferred path for every clickable link in the app.
+- Markdown sources rendered into views (webhook help guides, future settings
+  help guides) — render with
+  `render_markdown(@markdown, target_external_links: true)`; the helper
+  post-processes anchors via Nokogiri to inject the pair on every absolute
+  `http://` or `https://` href.
+- Raw `<a href="http...">` tags in ERB — **avoid.** Prefer
+  `BracketedLinkComponent` so detection is automatic and the bracketed
+  visual convention stays consistent. If a raw anchor is unavoidable
+  (e.g. semantic markup outside a clickable label), write the
+  `target="_blank" rel="noopener noreferrer"` pair by hand.
+- Stimulus / JS-driven anchor mutation — same attributes when setting `href`.
+
+**Note editor preview is the explicit carve-out.** Notes are private scratch
+space, and the live-preview parity with `marked.js` (which doesn't rewrite
+anchors) matters more than new-tab behavior on internal scratch. The note
+preview path therefore does NOT pass `target_external_links: true`.
+
+If you are adding a new surface that renders user-supplied or author-supplied
+markdown containing outbound URLs, flip the flag on at the call site. If you
+are adding a new ERB view, write the attributes by hand. There is no automatic
+rewrite of view-layer ERB.
+
 ### Lead paragraphs — one sentence per line
 
 The muted lead paragraph that sits under each page H1 splits one sentence per

@@ -246,44 +246,20 @@ RSpec.describe User, type: :model do
     end
   end
 
-  # Phase 25 — 01b. Trusted-location + pending-session helpers.
-  describe "#trusted_location?" do
-    let(:user) { create(:user) }
-    let(:fp) { Digest::SHA256.hexdigest("user-trust-1") }
-    let(:ip_prefix) { "10.40.0.0/24" }
-
-    it "returns true iff a trusted_locations row exists for the triple" do
-      create(:trusted_location, user: user, fingerprint_hash: fp, ip_prefix: ip_prefix)
-      expect(user.trusted_location?(fingerprint: fp, ip_prefix: ip_prefix)).to be true
-    end
-
-    it "returns false when no trusted row matches" do
-      expect(user.trusted_location?(fingerprint: fp, ip_prefix: ip_prefix)).to be false
-    end
-
-    it "returns false when only another user has the row" do
-      other = create(:user)
-      create(:trusted_location, user: other, fingerprint_hash: fp, ip_prefix: ip_prefix)
-      expect(user.trusted_location?(fingerprint: fp, ip_prefix: ip_prefix)).to be false
-    end
-  end
-
-  describe "#has_pending_session?" do
+  describe "post-Phase-25 rollback" do
     let(:user) { create(:user) }
 
-    it "is true when at least one pending in-window session exists" do
-      create(:session, :pending, user: user)
-      expect(user.has_pending_session?).to be true
+    it "no longer defines #trusted_location?" do
+      expect(user).not_to respond_to(:trusted_location?)
     end
 
-    it "is false when only expired-pending sessions exist" do
-      create(:session, :expired_pending, user: user)
-      expect(user.has_pending_session?).to be false
+    it "no longer defines #has_pending_session?" do
+      expect(user).not_to respond_to(:has_pending_session?)
     end
 
-    it "is false when only active sessions exist" do
-      create(:session, user: user)
-      expect(user.has_pending_session?).to be false
+    it "no longer associates trusted_locations / login_attempts" do
+      expect(User.reflect_on_association(:trusted_locations)).to be_nil
+      expect(User.reflect_on_association(:login_attempts)).to be_nil
     end
   end
 

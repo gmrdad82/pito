@@ -57,15 +57,19 @@ RSpec.describe NotificationDeliveryChannel, type: :model do
       expect(dup.errors[:kind]).to be_present
     end
 
-    it "requires `webhook_url`" do
+    # 2026-05-16 webhook-clear UX tweak.
+    # `webhook_url` is nullable now — a nil URL is the "integration
+    # cleared" state. The `before_validation` callback that powers the
+    # invariant is exercised in its own block below.
+    it "accepts a nil `webhook_url`" do
       record = described_class.new(kind: "slack", webhook_url: nil)
-      expect(record).not_to be_valid
-      expect(record.errors[:webhook_url]).to be_present
+      expect(record).to be_valid
     end
 
-    it "rejects an empty `webhook_url`" do
+    it "accepts an empty `webhook_url` (normalized to nil before validation)" do
       record = described_class.new(kind: "slack", webhook_url: "")
-      expect(record).not_to be_valid
+      expect(record).to be_valid
+      expect(record.webhook_url).to be_nil
     end
 
     it "rejects a Slack webhook URL that does not match the regex" do
@@ -94,6 +98,118 @@ RSpec.describe NotificationDeliveryChannel, type: :model do
     it "accepts a Discord URL with the discordapp.com legacy host" do
       url = valid_discord_url.sub("discord.com", "discordapp.com")
       record = described_class.new(kind: "discord", webhook_url: url)
+      expect(record).to be_valid
+    end
+  end
+
+  # 2026-05-16 webhook-clear UX tweak.
+  # The model carries the invariant "URL nil implies both flags false"
+  # via a `before_validation` callback. The blocks below pin the
+  # callback's behavior across every entry point (web form,
+  # MCP tool, console). Two complementary surfaces:
+  #
+  #   * The callback itself NORMALIZES — blank URL → nil, both flags
+  #     drop to false on the same save.
+  #   * The `flags_require_webhook_url` validator REJECTS the
+  #     contradictory shape (flag true + URL nil) as defense in depth
+  #     for any code path that bypasses the callback.
+  describe "before_validation — clear-on-blank invariant" do
+    it "normalizes a blank `webhook_url` to nil on save" do
+      record = described_class.new(kind: "slack", webhook_url: "")
+      record.valid?
+      expect(record.webhook_url).to be_nil
+    end
+
+    it "normalizes a whitespace-only `webhook_url` to nil on save" do
+      record = described_class.new(kind: "slack", webhook_url: "   ")
+      record.valid?
+      expect(record.webhook_url).to be_nil
+    end
+
+    it "strips surrounding whitespace from a present `webhook_url`" do
+      padded = "  #{valid_slack_url}  "
+      record = described_class.new(kind: "slack", webhook_url: padded)
+      record.valid?
+      expect(record.webhook_url).to eq(valid_slack_url)
+    end
+
+    it "zeroes `everything` when `webhook_url` is blanked" do
+      record = described_class.create!(
+        kind: "slack", webhook_url: valid_slack_url, everything: true
+      )
+      record.update!(webhook_url: "")
+      expect(record.everything).to be(false)
+      expect(record.webhook_url).to be_nil
+    end
+
+    it "zeroes `daily_digest` when `webhook_url` is blanked" do
+      record = described_class.create!(
+        kind: "slack", webhook_url: valid_slack_url, daily_digest: true
+      )
+      record.update!(webhook_url: "")
+      expect(record.daily_digest).to be(false)
+    end
+
+    it "zeroes BOTH flags in the same save when the URL is blanked" do
+      record = described_class.create!(
+        kind: "slack", webhook_url: valid_slack_url,
+        everything: true, daily_digest: true
+      )
+      record.update!(webhook_url: "")
+      expect(record.everything).to be(false)
+      expect(record.daily_digest).to be(false)
+    end
+
+    it "leaves flags untouched when the URL is present" do
+      record = described_class.new(
+        kind: "slack", webhook_url: valid_slack_url,
+        everything: true, daily_digest: true
+      )
+      record.valid?
+      expect(record.everything).to be(true)
+      expect(record.daily_digest).to be(true)
+    end
+
+    it "does not mutate flags when the model is loaded with both flags false" do
+      record = described_class.create!(kind: "slack", webhook_url: nil)
+      expect(record.everything).to be(false)
+      expect(record.daily_digest).to be(false)
+    end
+  end
+
+  describe "flags_require_webhook_url validator" do
+    it "rejects `everything: true` with a nil URL (form-tampered combination)" do
+      record = described_class.new(kind: "slack", webhook_url: nil, everything: true)
+      # The callback zeroes the flag back to false, so the record is
+      # valid by the time `valid?` finishes. Pin the post-callback shape
+      # AND the rejection path that fires when callbacks are skipped.
+      record.valid?
+      expect(record.everything).to be(false)
+    end
+
+    it "rejects `daily_digest: true` with a nil URL when callbacks are skipped" do
+      # Defense-in-depth: a code path that skips the `before_validation`
+      # callback (e.g. an `assign_attributes` followed by a `valid?`
+      # check on a record built outside the normal flow) lands on the
+      # validator. We can't easily skip a single `before_validation` in
+      # AR — so reach into the callback chain and stub it out for the
+      # duration of this check.
+      record = described_class.new(kind: "slack", webhook_url: nil, daily_digest: true)
+      allow(record).to receive(:nilify_blank_webhook_url_and_zero_flags) # no-op
+      expect(record).not_to be_valid
+      expect(record.errors[:base].join).to match(/routing flags require a webhook URL/i)
+    end
+
+    it "accepts both flags true with a present URL" do
+      record = described_class.new(
+        kind: "slack", webhook_url: valid_slack_url,
+        everything: true, daily_digest: true
+      )
+      expect(record).to be_valid
+    end
+
+    it "accepts both flags false with a nil URL" do
+      record = described_class.new(kind: "slack", webhook_url: nil)
       expect(record).to be_valid
     end
   end

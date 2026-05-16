@@ -1,10 +1,11 @@
 require "rails_helper"
 
-# Phase 25 — 01b (LD-12). SessionActivator specs.
+# Post-Phase-25 rollback. SessionActivator's sole responsibility is
+# minting a fresh active Session row + returning the plaintext for the
+# cookie. The trusted-location upsert and LoginAttempt write are gone
+# along with the new-location approval surface.
 RSpec.describe Auth::SessionActivator do
   let(:user) { create(:user) }
-  let(:fp)   { Digest::SHA256.hexdigest("act-fp-1") }
-  let(:ip)   { "10.60.0.0/24" }
 
   def fake_request(remote_ip: "10.60.0.2", user_agent: "AgentActivator/1.0")
     request = ActionDispatch::TestRequest.create
@@ -13,134 +14,42 @@ RSpec.describe Auth::SessionActivator do
     request
   end
 
-  before do
-    Auth::GeoEnricher.reset_deferred!
-    allow(Auth::GeoEnricher).to receive(:db_available?).and_return(false)
-  end
-
-  describe ".call (fresh session, trusted-location branch)" do
+  describe ".call (happy)" do
     it "creates a fresh :active session row" do
-      record, _plaintext = described_class.call(
-        user: user,
-        request: fake_request,
-        fingerprint_hash: fp,
-        ip_prefix: ip,
-        reason: :trusted_location_success
-      )
+      record, _plaintext = described_class.call(user: user, request: fake_request)
       expect(record).to be_persisted
       expect(record.state_active?).to be true
     end
 
-    it "writes a LoginAttempt row with reason: trusted_location_success" do
-      expect {
-        described_class.call(
-          user: user,
-          request: fake_request,
-          fingerprint_hash: fp,
-          ip_prefix: ip,
-          reason: :trusted_location_success
-        )
-      }.to change(LoginAttempt, :count).by(1)
-      row = LoginAttempt.recent.first
-      expect(row.result).to eq("success")
-      expect(row.reason).to eq("trusted_location_success")
-    end
-
-    it "stamps the trusted_locations row (idempotent on the triple)" do
-      expect {
-        described_class.call(
-          user: user,
-          request: fake_request,
-          fingerprint_hash: fp,
-          ip_prefix: ip,
-          reason: :trusted_location_success
-        )
-      }.to change(TrustedLocation, :count).by(1)
-      row = TrustedLocation.last
-      expect(row.fingerprint_hash).to eq(fp)
-      expect(row.ip_prefix).to eq(ip)
-    end
-
     it "returns [record, plaintext] tuple for cookie minting" do
-      record, plaintext = described_class.call(
-        user: user,
-        request: fake_request,
-        fingerprint_hash: fp,
-        ip_prefix: ip,
-        reason: :trusted_location_success
-      )
+      record, plaintext = described_class.call(user: user, request: fake_request)
       expect(record).to be_persisted
       expect(plaintext).to be_a(String)
       expect(plaintext.length).to be > 16
     end
-  end
 
-  describe ".call (existing pending row → active transition)" do
-    let!(:pending_row) { create(:session, :pending, user: user) }
-
-    it "promotes the pending row to :active" do
+    it "captures the remote_ip + user_agent on the row" do
       record, _ = described_class.call(
         user: user,
-        request: fake_request,
-        fingerprint_hash: fp,
-        ip_prefix: ip,
-        existing: pending_row
+        request: fake_request(remote_ip: "203.0.113.5", user_agent: "TestAgent/2.0")
       )
-      expect(record.id).to eq(pending_row.id)
-      expect(record.reload.state_active?).to be true
+      expect(record.ip).to eq("203.0.113.5")
+      expect(record.user_agent).to eq("TestAgent/2.0")
     end
 
-    it "rotates the token (digest changes after activation)" do
-      original_digest = pending_row.token_digest
-      _record, plaintext = described_class.call(
-        user: user,
-        request: fake_request,
-        fingerprint_hash: fp,
-        ip_prefix: ip,
-        existing: pending_row
-      )
+    it "tolerates a nil request (mints with placeholder ip / blank user_agent)" do
+      record, plaintext = described_class.call(user: user, request: nil)
+      expect(record).to be_persisted
       expect(plaintext).to be_present
-      expect(pending_row.reload.token_digest).not_to eq(original_digest)
-    end
-
-    it "raises when the existing row is :expired" do
-      expired = create(:session, :expired, user: user)
-      expect {
-        described_class.call(
-          user: user,
-          request: fake_request,
-          fingerprint_hash: fp,
-          ip_prefix: ip,
-          existing: expired
-        )
-      }.to raise_error(ActiveRecord::RecordInvalid)
-    end
-
-    it "raises when the existing row is :revoked" do
-      revoked = create(:session, :revoked_state, user: user)
-      expect {
-        described_class.call(
-          user: user,
-          request: fake_request,
-          fingerprint_hash: fp,
-          ip_prefix: ip,
-          existing: revoked
-        )
-      }.to raise_error(ActiveRecord::RecordInvalid)
+      expect(record.ip).to eq("0.0.0.0")
     end
   end
 
-  describe ".call (missing inputs)" do
+  describe ".call (sad)" do
     it "raises ArgumentError on missing user" do
       expect {
-        described_class.call(user: nil, request: fake_request, fingerprint_hash: fp, ip_prefix: ip)
-      }.to raise_error(ArgumentError)
-    end
-
-    it "raises ArgumentError on blank fingerprint" do
-      expect {
-        described_class.call(user: user, request: fake_request, fingerprint_hash: "", ip_prefix: ip)
-      }.to raise_error(ArgumentError)
+        described_class.call(user: nil, request: fake_request)
+      }.to raise_error(ArgumentError, /user required/)
     end
   end
 end

@@ -1,13 +1,17 @@
 require "rails_helper"
 
-# Phase 25 — 01c (LD-13). AuthAuditLog model.
+# AuthAuditLog model. Post-Phase-25 rollback: the location-tied
+# action vocabulary (approve / block / unblock / purge) is gone; the
+# active allowlist covers TOTP lifecycle + Voyage credential writes +
+# password reset. The integer enum values stay RESERVED (`0..3`,
+# plus `7` for the retired `youtube_credentials_updated`).
 RSpec.describe AuthAuditLog do
   describe "validations" do
     it "requires acting_user_id" do
       row = described_class.new(
         source_surface: :web,
-        action: :approve,
-        target_type: "LoginAttempt",
+        action: :totp_enroll,
+        target_type: "User",
         target_id: 1
       )
       expect(row).not_to be_valid
@@ -67,12 +71,19 @@ RSpec.describe AuthAuditLog do
   end
 
   describe "action enum" do
-    %i[approve block unblock purge
-       totp_enroll totp_disable backup_code_regenerate
-       youtube_credentials_updated voyage_credentials_updated].each do |action|
+    %i[totp_enroll totp_disable backup_code_regenerate
+       voyage_credentials_updated password_reset].each do |action|
       it "accepts #{action}" do
         row = create(:auth_audit_log, action: action)
         expect(row.action).to eq(action.to_s)
+      end
+    end
+
+    it "raises ArgumentError on the retired location-tied actions" do
+      %i[approve block unblock purge].each do |action|
+        expect {
+          described_class.new(action: action)
+        }.to raise_error(ArgumentError)
       end
     end
 
@@ -83,9 +94,9 @@ RSpec.describe AuthAuditLog do
     end
 
     it "exposes action_<value>? predicates" do
-      row = create(:auth_audit_log, action: :block)
-      expect(row.action_block?).to be true
-      expect(row.action_approve?).to be false
+      row = create(:auth_audit_log, action: :totp_disable)
+      expect(row.action_totp_disable?).to be true
+      expect(row.action_totp_enroll?).to be false
     end
   end
 
@@ -101,16 +112,16 @@ RSpec.describe AuthAuditLog do
     let!(:user_a) { create(:user) }
     let!(:user_b) { create(:user) }
     let!(:row1) {
-      create(:auth_audit_log, acting_user: user_a, action: :approve,
-                              target_type: "LoginAttempt", target_id: 11)
+      create(:auth_audit_log, acting_user: user_a, action: :totp_enroll,
+                              target_type: "User", target_id: user_a.id)
     }
     let!(:row2) {
-      create(:auth_audit_log, acting_user: user_b, action: :block,
-                              target_type: "LoginAttempt", target_id: 11)
+      create(:auth_audit_log, acting_user: user_b, action: :totp_disable,
+                              target_type: "User", target_id: user_a.id)
     }
     let!(:row3) {
-      create(:auth_audit_log, acting_user: user_a, action: :unblock,
-                              target_type: "BlockedLocation", target_id: 5)
+      create(:auth_audit_log, acting_user: user_a, action: :backup_code_regenerate,
+                              target_type: "User", target_id: 999)
     }
 
     it ".recent orders by created_at desc" do
@@ -119,7 +130,7 @@ RSpec.describe AuthAuditLog do
     end
 
     it ".for_target filters by (type, id)" do
-      rows = described_class.for_target("LoginAttempt", 11)
+      rows = described_class.for_target("User", user_a.id)
       expect(rows.pluck(:id)).to contain_exactly(row1.id, row2.id)
     end
 

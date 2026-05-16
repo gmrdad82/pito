@@ -357,7 +357,7 @@ class Game < ApplicationRecord
     return nil unless respond_to?(:release_date)
     return nil if release_date.blank?
 
-    install_tz = AppSetting.first&.timezone || "UTC"
+    install_tz = Rails.application.config.x.pito.timezone
     starts_at = release_date.in_time_zone(install_tz).beginning_of_day
 
     attrs = {

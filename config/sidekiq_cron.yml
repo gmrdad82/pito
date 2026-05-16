@@ -72,25 +72,10 @@ notification_cleanup:
   class: NotificationCleanupJob
   description: "Delete read notifications older than 7 days"
 
-# Phase 25 — 01b (LD-6). Sweep pending-approval sessions whose
-# 10-minute window has elapsed and transition them to `expired`. The
-# sweeper writes a `LoginAttempt` row with `reason: pending_expired`
-# per transitioned session so the audit trail is honest. Idempotent;
-# double-running is fine.
-pending_session_approval_sweeper:
-  cron: "* * * * *"
-  class: SessionPendingApprovalSweeperJob
-  description: "Phase 25 — expire pending-approval sessions past their 10-minute window"
-
-# P25 follow-up — F6. PII retention sweep for LoginAttempt rows.
-# Daily at 04:00 UTC; scrubs `email_attempted` on failed /
-# invalid-password rows older than 90 days. Forensic columns (IP,
-# fingerprint, geo) survive — only the raw email field is nilled.
-login_attempt_pii_purge:
-  cron: "0 4 * * *"
-  class: LoginAttemptPiiPurgeJob
-  queue: default
-  description: "P25 F6 — daily PII purge of email_attempted on failed LoginAttempt rows older than 90 days"
+# Post-Phase-25 rollback. Removed cron entries:
+#   - `pending_session_approval_sweeper` — Session#pending_approval state gone.
+#   - `login_attempt_pii_purge`           — LoginAttempt table dropped.
+# Both jobs deleted along with the new-location approval flow.
 
 # Phase 25 — 01g. Stale-session sweeper. Every 15 minutes; revokes
 # `state: active` sessions whose `last_activity_at` is older than

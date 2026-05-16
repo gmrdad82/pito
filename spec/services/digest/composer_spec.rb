@@ -23,12 +23,14 @@ RSpec.describe ::Digest::Composer do
 
     it "exposes every section in `#sections`" do
       labels = result.sections.map(&:label)
+      # Post-Phase-25 rollback — the `login attempts` section is gone
+      # alongside the LoginAttempt model. Surviving sections only.
+      # The "(rolled back)" branch below asserts the negative case.
       expect(labels).to include(
         "channels synced",
         "videos imported",
         "videos updated",
         "footage imported",
-        "login attempts",
         "open notifications"
       )
     end
@@ -108,21 +110,12 @@ RSpec.describe ::Digest::Composer do
     end
   end
 
-  describe "login attempts" do
-    it "picks attempts created inside the window" do
-      la = travel_to(now - 2.hours) do
-        create(:login_attempt, result: :failed, email_attempted: "x@y.test")
-      end
-      expect(result.login_attempts.items.first).to include("failed")
-      expect(result.login_attempts.items.first).to include("x@y.test")
-      _ = la
-    end
-
-    it "excludes attempts created before the window" do
-      travel_to(now - 30.hours) do
-        create(:login_attempt, result: :failed, email_attempted: "old@y.test")
-      end
-      expect(result.login_attempts.items).to be_empty
+  # Post-Phase-25 rollback. The `login_attempts` section dropped with
+  # the LoginAttempt table.
+  describe "login attempts (rolled back)" do
+    it "is no longer a section on the result struct" do
+      expect(result.members).not_to include(:login_attempts)
+      expect(result.sections.map { |s| s.label.to_s }).not_to include("login attempts")
     end
   end
 

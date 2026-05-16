@@ -72,18 +72,16 @@ class Notification < ApplicationRecord
     # diff field-by-field at `/videos/:slug/diff`. Severity `info` —
     # not urgent, not destructive, just "you have something to look
     # at".
-    video_diff_detected: 9,
+    video_diff_detected: 9
     # REMOVED (Unit A0, beta-2) — `channel_diff_detected` (kind 10).
     # The channel diff-reconciliation surface was cut when the channel
     # became a strictly read-only mirror; the emitting job and the
     # formatter template were deleted in the same change. Kind value
     # 10 is intentionally left unused so future kinds don't collide.
-    # Phase 25 — 01c. Emitted by `NotificationSource::LoginPendingApproval`
-    # when a new-location correct-password login waits for approval.
-    # Severity is `urgent`. Dedupe key is
-    # `"login-pending-#{login_attempt_id}"` so re-runs collapse to a
-    # single row per pending attempt.
-    login_pending_approval: 11
+    # REMOVED (post-Phase-25 rollback) — `login_pending_approval`
+    # (kind 11). The new-location approval flow was dropped entirely;
+    # the source + formatter template were deleted in the same change.
+    # Kind value 11 stays unused so future kinds don't collide.
   }
   enum :severity, { info: 0, success: 1, warn: 2, urgent: 3 }
 

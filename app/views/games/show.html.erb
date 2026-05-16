@@ -142,27 +142,24 @@
     </p>
 
     <%# External store links. `[open on igdb]` was retired per spec —
-        only the platform-store links remain. %>
+        only the platform-store links remain. 2026-05-16 polish — the
+        component auto-detects external hrefs and applies
+        `target="_blank" rel="noopener noreferrer"`; callers drop the
+        explicit attrs. %>
     <% if @game.external_steam_app_id.present? || @game.external_gog_id.present? || @game.external_epic_id.present? %>
       <h2 style="margin-top: 16px;">stores</h2>
       <div class="dot-list">
         <% if @game.external_steam_app_id.present? %>
           <%= render(BracketedLinkComponent.new(label: "steam",
-                                                href: "https://store.steampowered.com/app/#{@game.external_steam_app_id}/",
-                                                target: "_blank",
-                                                rel: "noopener")) %>
+                                                href: "https://store.steampowered.com/app/#{@game.external_steam_app_id}/")) %>
         <% end %>
         <% if @game.external_gog_id.present? %>
           <%= render(BracketedLinkComponent.new(label: "gog",
-                                                href: "https://www.gog.com/game/#{@game.external_gog_id}",
-                                                target: "_blank",
-                                                rel: "noopener")) %>
+                                                href: "https://www.gog.com/game/#{@game.external_gog_id}")) %>
         <% end %>
         <% if @game.external_epic_id.present? %>
           <%= render(BracketedLinkComponent.new(label: "epic",
-                                                href: "https://store.epicgames.com/p/#{@game.external_epic_id}",
-                                                target: "_blank",
-                                                rel: "noopener")) %>
+                                                href: "https://store.epicgames.com/p/#{@game.external_epic_id}")) %>
         <% end %>
       </div>
     <% end %>

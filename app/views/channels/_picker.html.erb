@@ -196,8 +196,12 @@
                   moved out of this column into the name cell; the
                   column now surfaces only the short identifier.
                   white-space: nowrap keeps the label on a single line. %>
+              <%# 2026-05-16 polish — bracketed convention for every
+                  callable link. BracketedLinkComponent auto-detects the
+                  external href and applies `target="_blank"
+                  rel="noopener noreferrer"`. %>
               <td style="white-space: nowrap;">
-                <%= link_to channel_url_label(channel), display_url, target: "_blank", rel: "noopener noreferrer" %>
+                <%= render(BracketedLinkComponent.new(label: channel_url_label(channel), href: display_url)) %>
               </td>
               <td class="num"><%= formatted_subscriber_count(channel) %></td>
               <td class="num"><%= formatted_video_count(channel) %></td>

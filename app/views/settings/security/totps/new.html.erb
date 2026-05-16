@@ -1,38 +1,120 @@
-<% content_for(:title, "2FA") %>
-<% breadcrumb(["settings", settings_path], ["security", settings_security_path], "2FA") %>
+<% content_for(:title, "enroll 2FA") %>
+<%
+  # Phase 32 follow-up (2026-05-16). 2FA / TOTP cleanup.
+  #
+  # This is the ONLY 2FA surface on the web side now — the "manage"
+  # page, the disable flow, and the backup-codes management page are
+  # gone (operator-only via rake tasks: `pito:user:reset_totp` and
+  # `pito:user:regenerate_backup_codes`).
+  #
+  # The view is mounted as a focused enrollment dialog — no
+  # breadcrumb, no nav chrome, no "cancel" button. The only exits are
+  # complete enrollment or log out via the global top-right [logout]
+  # link (allowlisted by the mandatory-2FA gate).
+  #
+  # Non-resumable: every fresh GET regenerates the seed + the 10
+  # backup codes (see TotpsController#new). A wrong-code 422 re-renders
+  # the SAME draft so the user can retry with the QR they already
+  # scanned; the cache draft is only dropped on successful confirm.
+  #
+  # Layout — single `.pane-row` with two `.pane` cells side-by-side
+  # inside a widened mandatory-2FA modal (960px max-width, see
+  # `application.css` non-dismissible rules):
+  #
+  #   Left  `.pane` : scan heading + QR + seed text + hairline +
+  #                   enter-code heading + 6-digit input + submit
+  #   Right `.pane` : backup codes heading + 10 codes + "save them"
+%>
+<% content_for(:hide_chrome, true) %>
 
-<div style="margin-bottom: 8px;">
-  <h1>2FA</h1>
-  <p class="text-muted" style="margin-top: 2px;">
-    add a 6-digit code to every new-location login.<br>
-    works with 1Password, authy, google authenticator, any TOTP app.
-  </p>
-</div>
-
-<div class="pane pane--standalone" style="margin-bottom: 12px;">
-  <h2 style="margin-top: 0;">status</h2>
-
-  <% if @totp_enabled %>
-    <p class="text-muted" style="margin-top: 2px;">
-      2FA: <strong>on</strong> since
-      <%= l(Current.user.totp_enabled_at, format: :long) if Current.user.totp_enabled_at %>.
-    </p>
-    <p class="text-muted" style="margin-top: 2px;">
-      backup codes:
-      <strong><%= @unused_backup_codes_count.to_i %></strong>
-      unused.
-    </p>
-
-    <div class="dot-list" style="margin-top: 8px;">
-      <%= render BracketedLinkComponent.new(label: "manage backup codes", href: settings_security_totp_backup_codes_path) %>
-      <%= render BracketedLinkComponent.new(label: "disable", href: settings_security_totp_disable_path, destructive: true) %>
+<%# Wrap in `settings_modal_frame` so a click from the auto-open
+    modal on `/settings` swaps this view into the dialog. Direct hits
+    (JS-off, deep links) still render the full page through the
+    layout. %>
+<%
+  # 2026-05-16 polish — the outer body wrapper used a vertical margin
+  # (`margin: 24px auto`) to provide breathing room above/below the
+  # body when this view renders standalone inside the layout's `<main>`
+  # (JS-off fallback / deep link). Inside the mandatory-2FA modal the
+  # dialog's own padding + the empty-title header row already provide
+  # the top inset, so the extra 24px stacks on top and produces a
+  # visible gap above the "two-factor setup required" <h1> (the bottom
+  # 24px is masked by the dialog's scroll container, so only the top
+  # gap reads). Drop the vertical margin when rendered into the modal
+  # turbo-frame; preserve `0 auto` for horizontal centering in the
+  # standalone path. The 928px max-width still bounds the body in
+  # both contexts.
+  body_wrapper_margin = turbo_frame_request? ? "0 auto" : "24px auto"
+%>
+<%= turbo_frame_tag "settings_modal_frame" do %>
+  <div style="max-width: 928px; margin: <%= body_wrapper_margin %>; overflow-wrap: break-word;">
+    <div style="margin-bottom: 8px;">
+      <h1>two-factor setup required</h1>
+      <p class="text-danger" style="margin-top: 2px;">
+        pito requires 2FA.<br>
+        nothing else is reachable until 2FA is enabled.
+      </p>
+      <p class="text-muted" style="margin-top: 8px;">
+        scan with 1Password (or any authenticator app).
+      </p>
     </div>
-  <% else %>
-    <p class="text-muted" style="margin-top: 2px;">
-      2FA: <strong>off</strong>.
-    </p>
-    <%= form_with url: settings_security_totp_path, method: :post, data: { turbo: false } do %>
-      <button type="submit" class="bracketed" style="cursor: pointer;">[<span class="bl">enable 2FA</span>]</button>
-    <% end %>
-  <% end %>
-</div>
+
+    <%# Single row — scan + enter-code (left) and backup codes (right). %>
+    <div class="pane-row">
+      <div class="pane">
+        <h2 style="margin-top: 0;">scan</h2>
+        <%
+          qr_svg = RQRCode::QRCode.new(@totp_uri).as_svg(
+            offset: 0,
+            color: "000",
+            shape_rendering: "crispEdges",
+            module_size: 4,
+            standalone: true
+          )
+        %>
+        <%# QR codes need black-on-white contrast to scan reliably. The
+            dark theme renders the page on a dark background which makes
+            the SVG (black modules on transparent) unreadable. Wrap the
+            SVG in a white-bg inline-block so the QR is always readable
+            regardless of theme. %>
+        <div style="margin: 8px 0;">
+          <div style="background: #ffffff; padding: 8px; display: inline-block;">
+            <%= qr_svg.html_safe %>
+          </div>
+        </div>
+
+        <p class="text-muted" style="margin-top: 8px;">
+          or paste this seed manually:
+        </p>
+        <pre style="font-size: 14px; padding: 8px; white-space: pre-wrap; word-break: break-all;"><%= @seed %></pre>
+
+        <hr class="hairline">
+
+        <h2 style="margin-top: 0;">enter code</h2>
+        <%= form_with url: settings_security_totp_path, method: :post, data: { turbo: false } do %>
+          <div style="margin-bottom: 8px;">
+            <%= label_tag :code, "6-digit code from your authenticator app" %><br>
+            <%= text_field_tag :code, nil,
+                               autocomplete: "one-time-code",
+                               inputmode: "numeric",
+                               pattern: "\\d{6}",
+                               maxlength: 6,
+                               autofocus: true %>
+          </div>
+          <button type="submit" class="bracketed" style="cursor: pointer;">[<span class="bl">enable 2FA</span>]</button>
+        <% end %>
+      </div>
+
+      <div class="pane">
+        <h2 style="margin-top: 0;">backup codes</h2>
+        <pre style="font-size: 14px; padding: 8px;">
+<% @codes.each do |code| %><%= code %>
+<% end %></pre>
+        <p class="text-muted" style="margin-top: 8px;">
+          each code works once.<br>
+          store them somewhere safe &mdash; outside the device that holds your authenticator.
+        </p>
+      </div>
+    </div>
+  </div>
+<% end %>

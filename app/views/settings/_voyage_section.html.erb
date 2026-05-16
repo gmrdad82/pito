@@ -1,0 +1,71 @@
+<%# Phase 32 follow-up (2026-05-16). Voyage section of the Stack pane,
+    extracted so the `ReindexAllJob` can broadcast a Turbo Stream
+    replace targeted at the wrapping `<div id="voyage_section">`
+    without re-rendering the entire stack pane.
+
+    Two states, gated entirely on `AppSetting.reindex_running?`:
+
+      * idle    — the `[reindex]` destructive bracketed link wired to
+                  the `reindex_meilisearch_modal` confirm modal
+                  (the modal itself is rendered once at page level in
+                  `_stack_pane.html.erb`, OUTSIDE this broadcast
+                  target — see the CSRF note below).
+      * running — the `dot-loader` `=/-` compound loading indicator
+                  (`.dot-loader` in `tailwind/application.css`, also
+                  used by `syncs/progress.html.erb`) + a small
+                  "reindexing... started ~Xs ago" line driven by
+                  the existing `compact_time_ago` helper.
+
+    The wrapping id matches `target: "voyage_section"` in
+    `ReindexAllJob#broadcast_voyage_section`. The view reads the
+    flag fresh every render so the post-redirect page load already
+    shows the running state without waiting for the broadcast.
+
+    CSRF / broadcast note. The `ConfirmModalComponent` form must NOT
+    live inside this partial. `Turbo::StreamsChannel.broadcast_replace_to`
+    renders the partial in a JOB context with no `request` and no
+    `session`, so `form_with` would bake a hidden `authenticity_token`
+    that is unbound to any user's session — the next submit hits
+    `ActionController::InvalidAuthenticityToken`. The modal is
+    mounted once in `_stack_pane.html.erb`, generated in a real
+    request context, with a CSRF token bound to the current
+    session. The broadcast only swaps the visual state of the
+    trigger affordance. %>
+<div id="voyage_section">
+  <div style="margin-bottom: 6px;">
+    <span><strong>Voyage embeddings</strong></span>
+    <% if AppSetting.voyage_configured? %>
+      <span style="color: var(--color-success);">▲ configured</span>
+    <% else %>
+      <span class="text-danger">▽ not configured</span>
+    <% end %>
+  </div>
+
+  <% if AppSetting.reindex_running? %>
+    <%# Running state. Reuses the `.dot-loader` `=/- ` indicator
+        from the Sync progress page (definition in
+        `app/assets/tailwind/application.css`). The randomized
+        `--loader-delay` matches the convention in
+        `syncs/progress.html.erb` so the cell does not feel locked
+        to a single phase. %>
+    <div class="dot-list" style="margin-top: 4px;">
+      <span class="dot-loader" style="--loader-delay: -0.25s"></span>
+      <span class="text-muted" style="margin-left: 6px;">
+        reindexing... started <%= compact_time_ago(AppSetting.reindex_started_at) %>
+      </span>
+    </div>
+  <% else %>
+    <div class="dot-list" style="margin-top: 4px;">
+      <%= render(BracketedLinkComponent.new(
+        label: "reindex",
+        href: "#",
+        destructive: true,
+        data: {
+          controller: "modal-trigger",
+          action: "click->modal-trigger#open",
+          modal_trigger_target_id_value: "reindex_meilisearch_modal"
+        }
+      )) %>
+    </div>
+  <% end %>
+</div>

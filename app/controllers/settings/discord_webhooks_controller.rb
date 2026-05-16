@@ -25,21 +25,31 @@
 # Per CLAUDE.md hard rule, the booleans cross the wire as
 # `"yes"` / `"no"` strings and convert to Boolean at the controller
 # boundary via `YesNo.from_yes_no`. The model column stays Boolean.
+#
+# 2026-05-16 — recent-TOTP gate dropped from this surface. The only
+# /settings write that still pops the TOTP-code modal is the profile
+# pane (`Settings::UserController#update`). Webhook saves are plain
+# saves now.
+#
+# 2026-05-16 webhook-clear UX tweak.
+# A blank `discord_webhook_url` is the "clear the integration" gesture
+# — the controller skips the URL-regex check + test ping and persists
+# the row with `webhook_url = nil` + both routing flags reset. The
+# model's `before_validation` callback enforces the same invariant for
+# any other surface (MCP, console, future CLI) so the controller's job
+# is just to assign attributes, save, and pick the right flash copy.
 class Settings::DiscordWebhooksController < ApplicationController
-  include RecentTotpVerification
-
   TEST_PING_TEXT = "Pito test ping — Discord webhook configured."
 
   def update
-    # 2026-05-11 — gate Discord webhook writes behind a fresh TOTP
-    # verification when 2FA is on. Replacing the URL ships pito's
-    # notification stream to an external endpoint, so we treat it
-    # as a sensitive write.
-    return unless require_recent_totp_if_enabled!(redirect_on_failure: settings_path)
-
     webhook_url = params[:discord_webhook_url].to_s.strip
     everything = coerce_boolean(:everything)
     daily_digest = coerce_boolean(:daily_digest)
+
+    if webhook_url.blank?
+      persist_cleared_record
+      return
+    end
 
     unless NotificationDeliveryChannel::DISCORD_URL_REGEX.match?(webhook_url)
       redirect_to settings_path, alert: "invalid Discord webhook URL."
@@ -63,7 +73,7 @@ class Settings::DiscordWebhooksController < ApplicationController
     )
 
     if record.save
-      redirect_to settings_path, notice: "Discord webhook saved."
+      redirect_to settings_path, notice: "Discord webhook updated."
     else
       redirect_to settings_path,
                   alert: "could not save Discord webhook: #{record.errors.full_messages.to_sentence}."
@@ -78,5 +88,24 @@ class Settings::DiscordWebhooksController < ApplicationController
   def coerce_boolean(key)
     raw = params[key].to_s
     YesNo.yes_no?(raw) && YesNo.from_yes_no(raw)
+  end
+
+  # 2026-05-16 webhook-clear UX tweak.
+  # Persist the row in its cleared state (URL nil + both flags false).
+  # The model's `before_validation` callback handles the actual
+  # nilify + zero pass — we just have to assign the blank URL through
+  # and save. `last_validated_at` is intentionally left untouched so
+  # the operator can still see "last validated at …" on the prior
+  # configuration if they re-paste the URL later.
+  def persist_cleared_record
+    record = NotificationDeliveryChannel.find_or_initialize_by(kind: "discord")
+    record.assign_attributes(webhook_url: nil, everything: false, daily_digest: false)
+
+    if record.save
+      redirect_to settings_path, notice: "Discord webhook cleared."
+    else
+      redirect_to settings_path,
+                  alert: "could not clear Discord webhook: #{record.errors.full_messages.to_sentence}."
+    end
   end
 end

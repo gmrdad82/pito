@@ -84,28 +84,36 @@ Rack::Attack.throttle("oauth/token", limit: 30, period: 5.minutes) do |req|
   req.ip if req.path == "/oauth/token" && req.post?
 end
 
+# RFC 7591 — OAuth 2.0 Dynamic Client Registration. The
+# `POST /oauth/register` endpoint is unauthenticated by design (single-user
+# pito install behind cloudflared; the consent screen on
+# `/oauth/authorize` is the actual security boundary). The throttle is a
+# defense-in-depth control against a bot spraying registrations to fill
+# the `oauth_applications` table. 5 / minute / IP is generous for the
+# legitimate "rare manual MCP client setup" use case and tight for abuse.
+Rack::Attack.throttle("oauth/register", limit: 5, period: 1.minute) do |req|
+  req.ip if req.path == "/oauth/register" && req.post?
+end
+
 # Phase 25 — 01g (LD-11). Login throttles.
 #
 # Two throttles run side-by-side on the login surface:
 #
-#   * `login/ip`     — 5 POSTs / minute from one IP across all login
-#                      endpoints (`/login`, `/login/challenge`,
-#                      `/login/totp`, `/login/pending`). Cheaper than
-#                      the legacy 10-failure blocklist, runs in front
-#                      of it, and trips even on RIGHT-password failure
-#                      cases (an attacker brute-forcing pays the same
-#                      cost on every attempt).
+#   * `login/ip`     — 5 POSTs / minute from one IP across the login
+#                      endpoints (`/login`, `/login/totp`). Cheaper
+#                      than the legacy 10-failure blocklist, runs in
+#                      front of it, and trips even on RIGHT-password
+#                      failure cases.
 #   * `login/email`  — 10 POSTs / 15 minutes keyed on the lowercased
-#                      `email` param. Hash with SHA256 to keep the
-#                      raw email out of cache keys (avoids leaking
-#                      account-existence in cache snapshots).
+#                      `username` param. Hashed with SHA256 to keep
+#                      the raw username out of cache keys (avoids
+#                      leaking account-existence in cache snapshots).
 #
-# Both buckets advertise their state on the `request.env` so the
-# in-controller `SessionsController#mark_failure_and_render_invalid`
-# path picks up the trip and renders the generic `Login failed.`
-# response with LD-14 copy. The `throttled_responder` below is a
-# safety net for requests that miss the controller path.
-LOGIN_PATHS = %w[/login /login/challenge /login/totp /login/pending].freeze
+# Post-Phase-25 rollback: the `/login/challenge` and `/login/pending`
+# routes are gone, so they're dropped from LOGIN_PATHS. The
+# `throttled_responder` no longer writes `LoginAttempt` rows (the
+# table is gone); it just renders the generic 429 body.
+LOGIN_PATHS = %w[/login /login/totp].freeze
 
 Rack::Attack.throttle(
   "login/ip",
@@ -171,13 +179,13 @@ end
 #
 # Affected paths (any POST):
 #
-#   - POST /settings/security/totp                       (enroll)
-#   - PATCH /settings/security/totp/confirm              (confirm)
-#   - POST /settings/security/totp/disable               (disable)
-#   - POST /settings/security/totp_backup_codes          (regenerate)
+#   - POST /settings/security/totp                       (atomic enroll finalize)
 #
-# Match is by path prefix `/settings/security/totp` (POST/PATCH/PUT)
-# so any future verb-tunneled action lands in the bucket.
+# After the 2026-05-16 cleanup the web surface collapsed to a single
+# POST endpoint (atomic finalize). Disable + backup-code rotation
+# moved to operator-only rake tasks and are NOT throttled at the
+# web tier. The regex stays broad so any future verb-tunneled action
+# under `/settings/security/totp*` still lands in the bucket.
 TOTP_DESTRUCTIVE_PATH_RE = %r{\A/settings/security/totp(?:/|_|\z)}.freeze
 
 Rack::Attack.throttle(
@@ -220,11 +228,11 @@ Rack::Attack.throttled_responder = lambda do |req|
   match = req.env["rack.attack.matched"].to_s
 
   if match.start_with?("login/")
-    Auth::RateLimitLogger.call(
-      request: ActionDispatch::Request.new(req.env),
-      username: req.params["username"]
-    )
-
+    # Post-Phase-25 rollback: no per-attempt forensic write — the
+    # LoginAttempt table is gone. The throttle still short-circuits;
+    # the operator audit trail for throttle trips lives in the
+    # structured `AUTH_AUDIT_LOGGER` log only when the throttle hits
+    # the in-controller path.
     retry_after =
       case match
       when "login/ip"    then 60
@@ -250,24 +258,8 @@ Rack::Attack.throttled_responder = lambda do |req|
     # Phase 29 — Unit A2. Reset-password-via-2FA throttle hit. Generic
     # `reset failed.` HTML — same posture as the `login/` branch: no
     # "you're being rate-limited" reason, no account-existence oracle.
-    #
-    # Phase 29 — Unit A2 follow-up — security finding F4. Mirror the
-    # `login/` branch above by writing a `LoginAttempt` row for the
-    # forensic surface. Without this, an attacker who hits the
-    # password-reset throttle leaves no trace on the operator's
-    # `/settings/security/attempts` page — the in-controller
-    # `audit("password_reset.*")` log is bypassed by the rack-attack
-    # short-circuit, so the attempt-log table was the only remaining
-    # forensic artifact. `Auth::RateLimitLogger` writes `reason:
-    # :rate_limited`, same value the `login/` branch produces; the
-    # `ip` field on the row + the throttled IP / username combination
-    # is enough to distinguish password-recovery throttle hits from
-    # login throttle hits in the attempt log.
-    Auth::RateLimitLogger.call(
-      request: ActionDispatch::Request.new(req.env),
-      username: req.params["username"]
-    )
-
+    # Post-Phase-25 rollback: the per-attempt forensic write is gone
+    # along with the LoginAttempt table.
     retry_after = match == "password/username" ? 15 * 60 : 60
 
     body = <<~HTML

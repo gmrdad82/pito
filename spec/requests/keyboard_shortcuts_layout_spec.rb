@@ -1,17 +1,16 @@
 require "rails_helper"
 
 # Phase 7.5 — Step 04. Layout-level integration. The keyboard
-# controller is mounted on `<body>` for the full page lifetime, the
-# help dialog renders once in the layout, and a `[_]` bracketed
-# link sits in the footer chrome so the surface is discoverable
-# without keyboard knowledge. The `_` glyph stands for SPACE =
-# leader per the locked keybindings unified-schema decision; the
-# `?` keybinding still opens the same modal.
+# controller is mounted on `<body>` for the full page lifetime; this
+# spec locks the layout contract the controller depends on AND the
+# downstream data-attribute hooks the controller queries on filter
+# chips, detail pages, and the confirmation page.
 #
-# We exercise this at the request layer (no Selenium in the project)
-# because the feature is HTML markup + a single global Stimulus
-# controller — we can't test JS keystrokes here, but we can lock the
-# layout contract that the controller depends on.
+# 2026-05-16 — the `?` keyboard-shortcuts help modal was retired.
+# The leader-menu popup (SPACE keypress + `[_]` footer link) is the
+# sole keyboard-discovery surface now. This spec was trimmed to
+# match — modal-rendering assertions are gone; the broader keyboard-
+# hook assertions stay.
 RSpec.describe "Keyboard shortcuts layout integration", type: :request do
   describe "every page" do
     # `/saved_views` HTML redirects to /channels (CLI-only JSON endpoint),
@@ -24,31 +23,30 @@ RSpec.describe "Keyboard shortcuts layout integration", type: :request do
         expect(response.body).to match(/<body[^>]*data-controller="[^"]*\bkeyboard\b[^"]*"/)
       end
 
-      it "GET #{path} renders the help <dialog> with the keyboard target" do
-        get path
-        expect(response.body).to include('data-keyboard-target="dialog"')
-        expect(response.body).to include('class="pane-dialog"')
-      end
-
       it "GET #{path} renders the visible [_] bracketed link in page chrome" do
         get path
-        # The visible affordance moved from the header to the footer
-        # row 1 in the 2026-05-10 navbar redesign; what matters here is
-        # that the `[_]` link exists somewhere in the persistent chrome
-        # so keyboard-only users have a discoverable on-screen anchor.
-        # The displayed glyph is `_` (representing SPACE = leader per
-        # the locked keybindings unified-schema decision); the actual
-        # keybinding is still `?`. ERB escapes `->` in attribute values
-        # to `-&gt;`; matching the encoded form keeps the assertion
-        # grounded in real bytes.
-        # The footer `[_]` link chains two Stimulus actions on the
-        # same click: `keyboard#openHelp` (the legacy `?` help
-        # dialog) AND `leader-menu#openRoot` (the unified leader
-        # popup, source-of-truth `config/keybindings.yml`). Match
-        # on substring to stay robust against future re-ordering
-        # of chained actions.
-        expect(response.body).to include("click-&gt;keyboard#openHelp")
+        # The visible affordance lives in the footer row 1. The
+        # displayed glyph is `_` (representing SPACE = leader per
+        # the locked keybindings unified-schema decision). After
+        # the 2026-05-16 help-modal retirement the link wires ONLY
+        # `click->leader-menu#openRoot` — the legacy
+        # `click->keyboard#openHelp` chained action is gone.
+        # ERB escapes `->` in attribute values to `-&gt;`; matching
+        # the encoded form keeps the assertion grounded in real bytes.
+        expect(response.body).to include("click-&gt;leader-menu#openRoot")
         expect(response.body).to match(/\[<span class="bl">_<\/span>\]/)
+      end
+
+      it "GET #{path} does NOT wire the retired keyboard#openHelp action anywhere" do
+        # 2026-05-16 — the `?` keyboard-shortcuts help modal was
+        # retired alongside its component, dialog target, and the
+        # `[_]` link's chained `keyboard#openHelp` action. No page
+        # in the layout should still wire the dropped action.
+        get path
+        expect(response.body).not_to include("keyboard#openHelp")
+        expect(response.body).not_to include("keyboard#close")
+        expect(response.body).not_to include("keyboard#clickOutside")
+        expect(response.body).not_to include("data-keyboard-target=\"dialog\"")
       end
 
       it "GET #{path} does not introduce data-turbo-confirm anywhere" do
@@ -56,74 +54,41 @@ RSpec.describe "Keyboard shortcuts layout integration", type: :request do
         expect(response.body).not_to include("data-turbo-confirm")
       end
 
-      # 2026-05-11 — install-level master toggle exposed to Stimulus.
-      # The layout renders `data-keyboard-navigation-enabled="yes|no"`
-      # on `<body>` so `keyboard_controller.js` can read it on
-      # `connect()` and self-disable when the flag is "no". yes/no
-      # strings at the wire boundary per the project's external-boolean
-      # rule.
-      it "GET #{path} renders data-keyboard-navigation-enabled on <body>" do
+      # Phase 29 (settings refactor) — keyboard navigation is always
+      # on. The install-level master toggle pane was dropped along
+      # with the UI/UX settings pane; the layout no longer emits the
+      # `data-keyboard-navigation-enabled` attribute and the Stimulus
+      # controller registers its keydown listener unconditionally.
+      it "GET #{path} does NOT render the dropped data-keyboard-navigation-enabled attribute" do
         get path
-        expect(response.body).to match(
-          /<body[^>]*data-keyboard-navigation-enabled="(yes|no)"/
-        )
-      end
-
-      it "GET #{path} defaults the data-keyboard-navigation-enabled attribute to yes" do
-        AppSetting.delete_all
-        get path
-        expect(response.body).to match(
-          /<body[^>]*data-keyboard-navigation-enabled="yes"/
-        )
-      end
-
-      it "GET #{path} flips the attribute to no when the setting is off" do
-        AppSetting.set("max_panes", "5")
-        AppSetting.first.update!(keyboard_navigation_enabled: false)
-        get path
-        expect(response.body).to match(
-          /<body[^>]*data-keyboard-navigation-enabled="no"/
-        )
+        expect(response.body).not_to include("data-keyboard-navigation-enabled")
       end
     end
   end
 
-  describe "help modal section coverage" do
-    before { get "/" }
+  describe "footer nav links are pure navigation (Bug 2 — 2026-05-16)" do
+    # The footer nav links (home / calendar / channels / videos /
+    # projects / games) must navigate ONLY — they must never carry a
+    # modal-trigger `data-action` that would open the (now-retired)
+    # keyboard-shortcuts help modal or any other layout dialog. The
+    # one exception is the `[notifications]` link which intentionally
+    # opens the layout-level notifications modal; we exclude it from
+    # the assertion below.
+    it "renders home / calendar / channels / videos / projects / games as plain link_to (no data-action)" do
+      get "/"
+      doc = Nokogiri::HTML(response.body)
+      footer = doc.at_css("footer")
+      expect(footer).not_to be_nil
 
-    it "opens with the SPACE leader-menu hint + two-step flow copy" do
-      # Navigation between pages is leader-driven now (SPACE opens
-      # the leader menu — see `config/keybindings.yml`). After the
-      # 2026-05-10 revert, root-menu rows that point to a submenu
-      # drop the direct navigate action — pressing SPACE then the
-      # resource key drills into the submenu, then the action key
-      # inside fires. The hint copy documents the two-step flow.
-      expect(response.body).to include(
-        "Press SPACE for the leader menu, then the resource key (C/V/P/G/c/N), then the action key (l for list, + for new, etc.)."
-      )
-    end
-
-    it "does NOT advertise legacy g-prefix navigation bindings" do
-      # 2026-05-10 — `g d/g c/g v/g s/g e` were retired when
-      # navigation moved behind the SPACE leader. The help modal
-      # must not list them anywhere any more.
-      body = response.body
-      [ "go to dashboard", "go to channels", "go to videos", "go to saved views", "go to settings" ].each do |label|
-        expect(body).not_to include(label)
+      pure_nav_labels = %w[home calendar channels videos projects games]
+      pure_nav_labels.each do |label|
+        link = footer.at_xpath(".//a[contains(@class, 'bracketed')][.//span[normalize-space(text())='#{label}']]")
+        # Either the link is rendered (inactive page) or the label is
+        # the current page and rendered as a non-link `<span>`. When
+        # the link is rendered, it must have no `data-action`.
+        next if link.nil?
+        expect(link["data-action"]).to be_nil, "footer [#{label}] link should not carry data-action (found: #{link['data-action'].inspect})"
       end
-    end
-
-    it "lists the f-prefix filter bindings" do
-      body = response.body
-      expect(body).to match(/filter:\s*starred/i)
-      # `filter: connected (f c)` was retired alongside the derived
-      # connected display surface — every channel is OAuth-linked by
-      # definition now.
-      expect(body).not_to match(/filter:\s*connected/i)
-    end
-
-    it "does NOT advertise the retired `f y` filter (Path A2)" do
-      expect(response.body).not_to match(/filter:\s*syncing/i)
     end
   end
 

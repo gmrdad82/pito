@@ -120,8 +120,15 @@
               </td>
               <td><%= link_to video.id, video_path(video), data: { turbo_frame: "_top" } %></td>
               <td style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="<%= video.youtube_video_id %>"><%= video.youtube_video_id %></td>
+              <%# 2026-05-16 polish — bracketed convention for every
+                  callable link. BracketedLinkComponent auto-detects the
+                  external href and applies `target="_blank"
+                  rel="noopener noreferrer"`. %>
               <td title="<%= video.channel.channel_url %>">
-                <%= link_to middle_truncate(video.channel.channel_url, head: 8, tail: 8), video.channel.channel_url, target: "_blank", rel: "noopener noreferrer" %>
+                <%= render(BracketedLinkComponent.new(
+                      label: middle_truncate(video.channel.channel_url, head: 8, tail: 8),
+                      href: video.channel.channel_url
+                    )) %>
               </td>
               <td>
                 <%= video.privacy_status %>

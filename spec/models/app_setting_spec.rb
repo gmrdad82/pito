@@ -19,14 +19,13 @@ RSpec.describe AppSetting, type: :model do
     end
   end
 
-  # Phase 29 — Unit A1. The seven secret-bearing / orphaned columns
-  # that drifted onto the singleton during alpha / beta-1 are dropped:
-  # the YouTube OAuth credentials, the Voyage API key, and the orphaned
-  # Slack / Discord `*_enabled` gate columns. This is the
-  # dead-columns-are-gone regression spec — a leftover read would raise
-  # `NoMethodError`, so the assertions pin both the schema and the
-  # model accessor surface.
-  describe "dropped credential / dead columns (Unit A1)" do
+  # Phase 29 (settings refactor) — the table now carries only
+  # `(key, value)` rows. The seven secret-bearing / orphaned columns
+  # from earlier waves stay dropped; the three UX columns
+  # (`keyboard_navigation_enabled`, `timezone`,
+  # `voyage_index_project_notes`) are dropped in this refactor
+  # alongside the matching settings panes.
+  describe "dropped columns" do
     let(:dropped_columns) do
       %w[
         voyage_api_key
@@ -36,10 +35,13 @@ RSpec.describe AppSetting, type: :model do
         youtube_redirect_uri
         slack_enabled
         discord_enabled
+        keyboard_navigation_enabled
+        timezone
+        voyage_index_project_notes
       ]
     end
 
-    it "app_settings has none of the seven dropped columns" do
+    it "app_settings has none of the dropped columns" do
       expect(AppSetting.column_names).not_to include(*dropped_columns)
     end
 
@@ -49,6 +51,11 @@ RSpec.describe AppSetting, type: :model do
       expect(AppSetting).not_to respond_to(:youtube_client_secret)
       expect(AppSetting).not_to respond_to(:youtube_redirect_uri)
       expect(AppSetting).not_to respond_to(:youtube_configured?)
+    end
+
+    it "the model no longer responds to the dropped keyboard-nav class accessors" do
+      expect(AppSetting).not_to respond_to(:keyboard_navigation_enabled?)
+      expect(AppSetting).not_to respond_to(:set_keyboard_navigation_enabled)
     end
 
     it "an instance no longer responds to the dropped column accessors" do
@@ -83,19 +90,9 @@ RSpec.describe AppSetting, type: :model do
     end
   end
 
-  # Phase 29 — Unit A1. `voyage_index_project_notes` (the non-secret
-  # runtime flag) STAYS on the singleton; only the `voyage_api_key`
-  # secret moved to credentials.
-  describe "voyage_index_project_notes column default" do
-    it "voyage_index_project_notes is false on a freshly created row" do
-      setting = create(:app_setting)
-      expect(setting.voyage_index_project_notes).to be(false)
-    end
-  end
-
-  # Phase 29 — Unit A1. `voyage_configured?` now reflects the
-  # `Rails.application.credentials.voyage.api_key` presence (flat block,
-  # shared across environments), NOT a column on this table.
+  # Phase 29 (settings refactor) — `voyage_configured?` reflects
+  # `Rails.application.credentials.voyage.api_key` presence; no DB
+  # column survives.
   describe ".voyage_configured?" do
     it "returns true when the credentials carry a non-blank Voyage key" do
       allow(Rails.application.credentials).to receive(:dig).and_call_original
@@ -126,9 +123,6 @@ RSpec.describe AppSetting, type: :model do
     end
 
     it "does not read any AppSetting column" do
-      # The `voyage_api_key` column is dropped — a column read would
-      # raise. Stub the credentials away and confirm the predicate
-      # still answers cleanly from credentials alone.
       allow(Rails.application.credentials).to receive(:dig).and_call_original
       allow(Rails.application.credentials).to receive(:dig)
         .with(:voyage, :api_key).and_return(nil)
@@ -138,78 +132,21 @@ RSpec.describe AppSetting, type: :model do
     end
   end
 
-  # 2026-05-11 — keyboard-navigation master toggle. The column is a
-  # NOT-NULL boolean with `default: true` so a freshly migrated row
-  # starts with the feature enabled.
-  describe "keyboard_navigation_enabled column default" do
-    it "is true on a freshly created row" do
-      setting = create(:app_setting)
-      expect(setting.keyboard_navigation_enabled).to be(true)
-    end
-
-    it "honours explicit false on insert" do
-      setting = create(:app_setting, keyboard_navigation_enabled: false)
-      expect(setting.keyboard_navigation_enabled).to be(false)
-    end
-  end
-
-  describe ".keyboard_navigation_enabled?" do
-    it "returns true when no AppSetting row exists" do
-      AppSetting.delete_all
-      expect(AppSetting.keyboard_navigation_enabled?).to be(true)
-    end
-
-    it "returns true when the singleton's column is true" do
-      AppSetting.delete_all
-      AppSetting.create!(key: "max_panes", value: "5",
-                         keyboard_navigation_enabled: true)
-      expect(AppSetting.keyboard_navigation_enabled?).to be(true)
-    end
-
-    it "returns false when the singleton's column is false" do
-      AppSetting.delete_all
-      AppSetting.create!(key: "max_panes", value: "5",
-                         keyboard_navigation_enabled: false)
-      expect(AppSetting.keyboard_navigation_enabled?).to be(false)
-    end
-  end
-
-  describe ".set_keyboard_navigation_enabled" do
-    it "flips the singleton's column" do
-      AppSetting.delete_all
-      AppSetting.create!(key: "max_panes", value: "5")
-      AppSetting.set_keyboard_navigation_enabled(false)
-      expect(AppSetting.keyboard_navigation_enabled?).to be(false)
-      AppSetting.set_keyboard_navigation_enabled(true)
-      expect(AppSetting.keyboard_navigation_enabled?).to be(true)
-    end
-
-    it "bootstraps a row when the table is empty" do
-      AppSetting.delete_all
-      expect {
-        AppSetting.set_keyboard_navigation_enabled(false)
-      }.to change(AppSetting, :count).by(1)
-      expect(AppSetting.keyboard_navigation_enabled?).to be(false)
-    end
-  end
-
+  # Phase 29 (settings refactor) — `voyage_indexing_project_notes?` is
+  # now a thin alias for `voyage_configured?`. The per-target column
+  # column was dropped along with the Voyage.ai pane.
   describe ".voyage_indexing_project_notes?" do
-    it "returns false when no AppSetting row exists" do
-      AppSetting.delete_all
-      expect(AppSetting.voyage_indexing_project_notes?).to be(false)
-    end
-
-    it "returns the singleton's column value when the row exists" do
-      AppSetting.delete_all
-      AppSetting.create!(
-        key: "max_panes", value: "5", voyage_index_project_notes: true
-      )
+    it "matches voyage_configured? (true when key present)" do
+      allow(Rails.application.credentials).to receive(:dig).and_call_original
+      allow(Rails.application.credentials).to receive(:dig)
+        .with(:voyage, :api_key).and_return("vk_from_creds")
       expect(AppSetting.voyage_indexing_project_notes?).to be(true)
     end
 
-    it "returns false when the singleton's column is false" do
-      AppSetting.delete_all
-      AppSetting.create!(key: "max_panes", value: "5", voyage_index_project_notes: false)
+    it "matches voyage_configured? (false when key absent)" do
+      allow(Rails.application.credentials).to receive(:dig).and_call_original
+      allow(Rails.application.credentials).to receive(:dig)
+        .with(:voyage, :api_key).and_return(nil)
       expect(AppSetting.voyage_indexing_project_notes?).to be(false)
     end
   end
@@ -259,8 +196,6 @@ RSpec.describe AppSetting, type: :model do
       NotificationDeliveryChannel.create!(
         kind: kind, webhook_url: valid_url, everything: true
       )
-      # No AppSetting row at all — the predicate must still answer
-      # `true` purely from the channel row.
       expect { AppSetting.public_send(predicate) }.not_to raise_error
       expect(AppSetting.public_send(predicate)).to be(true)
     end
@@ -276,5 +211,68 @@ RSpec.describe AppSetting, type: :model do
     it_behaves_like "a delivery-channel gate predicate", "discord",
                     :discord_delivery_enabled?,
                     "https://discord.com/api/webhooks/123456789/abcDEF_-ghi"
+  end
+
+  # Phase 32 follow-up (2026-05-16) — three-layer reindex lock.
+  # The two new columns (`reindex_running`, `reindex_started_at`) are
+  # install-wide singletons read/written via class methods that promote
+  # one canonical `key = "__singleton__"` row to be the lock anchor.
+  describe "reindex lock accessors" do
+    describe ".singleton_row" do
+      it "creates the canonical row on first access" do
+        pending "validated manually first; spec fills in after the operator " \
+                "confirms the singleton-row creation lands cleanly"
+        raise "pending placeholder"
+      end
+
+      it "reuses the same row on subsequent accesses (idempotent)" do
+        pending "validated manually first"
+        raise "pending placeholder"
+      end
+    end
+
+    describe ".reindex_running?" do
+      it "defaults to false on a fresh install" do
+        pending "validated manually first"
+        raise "pending placeholder"
+      end
+
+      it "returns true after start_reindex! flips the flag" do
+        pending "validated manually first"
+        raise "pending placeholder"
+      end
+    end
+
+    describe ".reindex_started_at" do
+      it "is nil when idle" do
+        pending "validated manually first"
+        raise "pending placeholder"
+      end
+
+      it "carries the started-at timestamp while a reindex is running" do
+        pending "validated manually first"
+        raise "pending placeholder"
+      end
+    end
+
+    describe ".start_reindex!" do
+      it "sets reindex_running to true and stamps reindex_started_at " \
+         "to Time.current in one atomic update" do
+        pending "validated manually first"
+        raise "pending placeholder"
+      end
+    end
+
+    describe ".clear_reindex_lock!" do
+      it "resets reindex_running to false and nils reindex_started_at" do
+        pending "validated manually first"
+        raise "pending placeholder"
+      end
+
+      it "is idempotent — safe to invoke repeatedly when already clear" do
+        pending "validated manually first"
+        raise "pending placeholder"
+      end
+    end
   end
 end

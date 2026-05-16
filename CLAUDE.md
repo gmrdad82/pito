@@ -48,9 +48,42 @@ bin/setup           # Install deps, start Docker, prepare DB
 bin/dev             # Start Docker services + Puma + Sidekiq + Tailwind watcher
 bin/mcp             # Start MCP server (stdio transport, separate process)
 bin/mcp-web         # Start MCP HTTP server (dedicated Puma on port 3001)
-bundle exec rspec   # Run test suite
+bin/test            # Fast local spec run (system specs excluded, cached prep)
+bin/test failed     # Re-run only failures from the last run (serial)
+bin/test all        # Full local suite including system specs (slow)
+bin/test path/...   # Pass-through to `bundle exec rspec` for a specific path
 bundle exec rubocop # Lint
 ```
+
+## Spec workflow
+
+**Local default — fast loop.** `bin/test` is the canonical local command.
+`.rspec` carries `--tag ~type:system` so every local invocation skips
+Capybara/Chrome system specs by default — they run ~5-10× slower than
+request/model specs. `bin/test-prepare` is a shim that only runs
+`bin/rails db:test:prepare` when `db/schema.rb` mtime has changed since the
+last successful prep, saving ~10-15 s per invocation.
+
+**Local fix loop.** After a failed run, `bin/test failed` re-runs only the
+recorded failures via `--only-failures`. **When fix agents add new spec files,
+those new specs must be picked up by `bin/test failed` in addition to the
+recorded failures** — otherwise a green-after-fail signal won't actually
+exercise the new test code. Verify by listing the spec files RSpec is about
+to run, or fall back to a focused `bin/test path/to/new_spec.rb` after the
+`failed` pass.
+
+**CI is the gate — full suite always.** The GitHub Actions workflow at
+`.github/workflows/ci.yml` overrides `.rspec` with
+`-- --options /dev/null --require spec_helper` so CI runs the FULL suite,
+system specs included, no tag exclusion. Local speedups never reach CI. The
+master agent commits when local + manual validation are green; CI then
+confirms the full picture on every push.
+
+**Adding new tests in a feature dispatch.** Every Rails dispatch must include
+RSpec specs for new behavior. The agent's own dispatch verifies via
+`bin/test <files>` for targeted coverage; the architect's pre-commit pass
+runs `bin/test` (fast loop) before committing. CI catches anything the local
+fast loop skipped.
 
 ## Communication style
 
@@ -301,7 +334,9 @@ on each phase log.
 
 - **Pito** — the application.
 - **Alpha** — concluded multi-front exploratory phase.
-- **Beta** — current build phase. Plans live in `docs/plans/beta/`.
+- **Beta** — current build phase. Plans live in `docs/plans/beta/`. **Beta 3**
+  is the page-by-page revamp cycle (subtraction over addition); `/settings` is
+  the first page completed.
 - **Theta** — conditional future phase (distribution, marketing).
 - **MCP** — Model Context Protocol.
 - **Web Puma** — the Rails Puma process serving `app.pitomd.com`.

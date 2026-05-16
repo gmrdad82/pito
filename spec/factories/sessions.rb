@@ -4,25 +4,14 @@ FactoryBot.define do
     sequence(:token_digest) { |n| Pito::TokenDigest.call("session-plaintext-#{n}-#{SecureRandom.hex(4)}") }
     ip { "127.0.0.1" }
     user_agent { "Mozilla/5.0 (test) RspecAgent" }
-    remember { false }
     last_activity_at { Time.current }
     state { :active }
 
-    # Phase 25 — 01b. Pending-approval traits cover the three terminal
-    # / transient states the new state machine introduces.
-    trait :pending do
-      state { :pending_approval }
-      approval_required_until { 10.minutes.from_now }
-    end
-
-    trait :expired_pending do
-      state { :pending_approval }
-      approval_required_until { 1.minute.ago }
-    end
-
+    # Post-Phase-25 rollback. The `pending_approval` state and the
+    # `approval_required_until` column are gone; remaining states are
+    # `active`, `expired`, `revoked`.
     trait :expired do
       state { :expired }
-      approval_required_until { 11.minutes.ago }
     end
 
     trait :revoked_state do

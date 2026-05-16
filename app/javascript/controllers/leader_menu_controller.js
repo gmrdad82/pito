@@ -1,5 +1,16 @@
 import { Controller } from "@hotwired/stimulus"
 
+// Module-level live read of the mandatory-2FA enrollment gate.
+// Mirror of the helper in `keyboard_controller.js` /
+// `theme_controller.js`; kept duplicated rather than extracted to a
+// shared module so each controller stays self-contained for
+// importmap simplicity. See the layout's head comment for the full
+// rationale on `<meta>`-in-head vs body-mounted signal.
+function enrollTotpGateActive() {
+  const meta = document.querySelector('meta[name="pito-enroll-totp-gate"]')
+  return meta?.getAttribute("content") === "yes"
+}
+
 // Persistence key for the menu stack across Turbo navigations.
 // Declared at module scope (not inside the class) so test code and
 // any future helper can refer to the same string without divergence.
@@ -103,13 +114,9 @@ export default class extends Controller {
 
   connect() {
     // The schema is embedded in the layout chrome; pages without it
-    // simply get no leader popup (no JS errors). Same for the popup
-    // target — if a page strips the chrome (auth pages set
-    // `content_for(:hide_chrome)`), the controller stays silent.
-    if (!this.hasPopupTarget) {
-      this.schema = null
-      return
-    }
+    // simply get no leader popup (no JS errors). When the schema is
+    // missing the controller registers no listeners at all — there's
+    // no menu to open.
     const node = document.getElementById("pito-keybindings")
     if (!node) {
       this.schema = null
@@ -132,6 +139,40 @@ export default class extends Controller {
     // programmatic navigations (Turbo.visit from leader-menu's own
     // action handler, form submits, prefetch-triggered visits).
     document.addEventListener("turbo:visit", this.boundTurboVisit)
+    // NOTE — DO NOT short-circuit `connect()` on `!hasPopupTarget`.
+    // The popup `<div id="leader-menu-popup" data-turbo-permanent>`
+    // lives at the END of `<body>`. On a Turbo Drive navigation the
+    // permanent-element preservation flow (`Bardo.preservingPermanentElements`
+    // in turbo.js) runs in this order:
+    //
+    //   1. `enter()` — in the NEW body (still off-document), the new
+    //      popup div is REPLACED with a `<meta name="turbo-permanent-placeholder">`.
+    //   2. `activateNewBody()` + `assignNewBody()` — `document.body.replaceWith(newBody)`
+    //      mounts the new body into the document. Stimulus's mutation
+    //      observer fires immediately and connects every controller
+    //      declared on the new body (including this one). At THIS
+    //      moment `hasPopupTarget` is FALSE — the popup div lives
+    //      neither in the old body (just removed) nor in the new
+    //      body (replaced by the placeholder meta).
+    //   3. `leave()` — Turbo finds the placeholder meta in the now-
+    //      current body and replaces it with the OLD preserved popup
+    //      element. From this point on `hasPopupTarget` returns TRUE.
+    //
+    // The old `if (!this.hasPopupTarget) return` guard meant the
+    // controller bailed at step 2 — no keydown listener registered,
+    // no turbo:visit listener registered — and stayed dead even after
+    // step 3 re-attached the popup. The SPACE leader broke on every
+    // page after the first Turbo Drive navigation. The fix is to
+    // register listeners unconditionally and check `hasPopupTarget`
+    // LAZILY inside the action handlers (`isOpen`, `openMenu`,
+    // `close`, `render`, `rehydrate`) — all of which already gate on
+    // `hasPopupTarget` before touching the popup. On a chrome-stripped
+    // surface (auth pages with `content_for(:hide_chrome)` — though
+    // those pages don't even mount the `leader-menu` controller today
+    // because `<body data-controller>` is gone), the listeners
+    // silently no-op because every action path bails before touching
+    // a missing target.
+    //
     // Rehydrate any stack persisted before the last Turbo navigation.
     // Historically a single keystroke could navigate AND drill, which
     // required carrying the popup across the page swap. After the
@@ -182,6 +223,23 @@ export default class extends Controller {
 
   onKeydown(event) {
     if (!this.schema) return
+    // Mandatory-2FA enrollment gate. When the authenticated user has
+    // not configured TOTP, the layout renders
+    // `<meta name="pito-enroll-totp-gate" content="yes">` in `<head>`
+    // and the SPACE leader is inert — opening the leader menu would
+    // expose navigation actions (home, channels, videos, etc.) that
+    // the server-side gate already forbids. The enrollment form's
+    // own keys (typing the 6-digit code, Tab between fields, Enter
+    // to submit) keep working because they fire on a focused
+    // `<input>` via native browser behaviour. Released the moment
+    // enrollment completes (next page render flips the meta content
+    // back to `"no"`).
+    //
+    // Why a `<meta>` in `<head>` rather than a body data-attribute
+    // or inline body `<script>`: see the layout comment next to the
+    // meta tag — both body-mounted signals went stale across Turbo
+    // navigations.
+    if (enrollTotpGateActive()) return
     // Never swallow keys while focus is on a form-entry surface:
     // <input> (every type, including checkbox / radio), <textarea>,
     // <select>, <button>, and `[contenteditable]`. See

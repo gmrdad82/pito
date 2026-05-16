@@ -58,17 +58,16 @@ RSpec.describe "Login::TotpChallenges", type: :request do
       expect(response).to redirect_to(login_path)
     end
 
-    it "redirects to /login/challenge when 2FA is not enabled (and short-circuits the show render)" do
+    it "redirects to /login when 2FA is not enabled (post-Phase-25 rollback: no challenge surface)" do
       # Drive the controller through the pre-auth marker path while 2FA
       # is off — the show action must redirect and `return` so the view
-      # does not also try to render. A missing `return` would not raise
-      # in Rails (the redirect wins), but the `before_action` flow + a
-      # double response would attempt to set status twice. We assert
-      # the redirect status and lack of body to lock the path.
+      # does not also try to render. The new-location challenge surface
+      # (`/login/challenge`) is gone; the controller now bounces the
+      # user to `/login`.
       post_login_with_password
       user.update!(totp_enabled_at: nil, totp_disabled_at: Time.current)
       get login_totp_path
-      expect(response).to redirect_to(login_challenge_path)
+      expect(response).to redirect_to(login_path)
       expect(response.body).not_to include("enter a 6-digit code from your authenticator")
     end
   end
@@ -85,13 +84,6 @@ RSpec.describe "Login::TotpChallenges", type: :request do
       expect(response).to redirect_to(root_path)
     end
 
-    it "with the correct TOTP code writes a LoginAttempt with reason: new_location_2fa_passed" do
-      code = ROTP::TOTP.new(seed).now
-      expect {
-        post login_totp_path, params: { code: code }
-      }.to change(LoginAttempt.where(reason: LoginAttempt.reasons[:new_location_2fa_passed]), :count).by(1)
-    end
-
     it "with a valid backup code stamps used_at and activates" do
       expect {
         post login_totp_path, params: { code: backup_plaintext }
@@ -101,12 +93,13 @@ RSpec.describe "Login::TotpChallenges", type: :request do
       expect(row.reload.used_at).to be_present
     end
 
-    it "with a wrong code returns 422 and writes a twofa_failed LoginAttempt" do
+    it "with a wrong code returns 422 and does NOT mint a session" do
       expect {
         post login_totp_path, params: { code: "000000" }
-      }.to change(LoginAttempt.where(reason: LoginAttempt.reasons[:twofa_failed]), :count).by(1)
+      }.not_to change(Session.state_active, :count)
 
       expect(response).to have_http_status(:unprocessable_content)
+      expect(response.body.downcase).to include("login failed")
     end
 
     it "with an already-used backup code returns 422" do
@@ -115,7 +108,7 @@ RSpec.describe "Login::TotpChallenges", type: :request do
 
       expect {
         post login_totp_path, params: { code: backup_plaintext }
-      }.to change(LoginAttempt.where(reason: LoginAttempt.reasons[:twofa_failed]), :count).by(1)
+      }.not_to change(Session.state_active, :count)
 
       expect(response).to have_http_status(:unprocessable_content)
     end

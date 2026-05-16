@@ -1,9 +1,14 @@
 # 2026-05-11 — Fresh-TOTP gate for sensitive write actions.
 #
 # When `Current.user.totp_enabled?` is true, sensitive destructive
-# write actions (user account edit, integrations credential updates,
-# Slack / Discord webhook saves) require a fresh 6-digit TOTP code on
-# the same form. Read-only views are NOT gated — only the writes.
+# write actions require a fresh 6-digit TOTP code on the same form.
+# Read-only views are NOT gated — only the writes.
+#
+# 2026-05-16 — scope narrowed. The only surviving gated surface is
+# `Settings::UserController#update` (the /settings Row 1 Left
+# profile pane's `[ update ]` button — username + password change).
+# The previously-gated webhook surfaces (Slack / Discord) lost the
+# gate; webhook saves are plain saves now.
 #
 # Pattern:
 #
@@ -22,9 +27,9 @@
 # caller MUST short-circuit on `false`.
 #
 # Failure copy is intentionally generic — `credentials don't match.`
-# — mirroring the same pattern used by `Settings::Security::TotpsController#destroy_confirmed`.
-# The response must not reveal whether the password / code / both
-# was the failing field on flows that bundle multiple credentials.
+# — and the response must not reveal whether the password / code /
+# both was the failing field on flows that bundle multiple
+# credentials.
 #
 # Internal use of `Auth::TotpVerifier` triggers the replay-defense
 # watermark on success — a code consumed by a write here cannot be

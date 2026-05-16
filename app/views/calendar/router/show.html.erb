@@ -6,7 +6,9 @@
     current month grid. Skipping the application layout keeps this
     page free of nav / footer flash during the redirect (a fresh
     chrome paint would briefly show before the JS replace fires). %>
-<html data-theme-preference="<%= AppSetting.get('theme') || 'auto' %>">
+<%# Phase 29 (settings refactor) — `data-theme-preference` removed.
+    Theme persistence lives in localStorage only now. %>
+<html>
   <head>
     <meta charset="utf-8">
     <title>calendar ~ pito</title>

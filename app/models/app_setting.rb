@@ -4,10 +4,6 @@ class AppSetting < ApplicationRecord
   validates :key, presence: true, uniqueness: { case_sensitive: false }
   validates :value, presence: true
 
-  # Phase 15 §1 — Calendar Data Model. The install-level timezone seeds
-  # `calendar_entries.timezone` on insert. Validate as a real IANA name.
-  validate :timezone_must_be_iana
-
   def self.get(key)
     find_by(key: key)&.value
   end
@@ -18,48 +14,23 @@ class AppSetting < ApplicationRecord
     record
   end
 
-  # Phase 29 — Unit A1. The Voyage API key moved back into
-  # `Rails.application.credentials.voyage` (flat block — a single
-  # `api_key` shared across environments). The "Voyage is configured"
-  # gate checks the credentials presence instead of a dropped
-  # `voyage_api_key` column — `Notes::EmbedJob` short-circuits when this
-  # is false even if the per-target flag was somehow flipped true. The
-  # non-secret `voyage_index_project_notes` flag STAYS on this table
-  # (runtime-mutable from the Settings UI).
+  # Phase 29 (settings refactor) — the Voyage.ai pane and the per-target
+  # `voyage_index_project_notes` flag column are both dropped. Indexing is
+  # gated solely on credentials presence now: a configured Voyage API key
+  # means embeddings are eligible for any indexer that calls this gate.
+  # `Notes::EmbedJob` short-circuits when this is false.
   def self.voyage_configured?
     Rails.application.credentials.dig(:voyage, :api_key).to_s.strip.present?
   end
 
-  # Per-target flag: project-notes indexing. Returns false (not nil) when no
-  # singleton exists so callers can use it directly in conditionals.
+  # Phase 29 (settings refactor) — predicate now equals
+  # `voyage_configured?`. The per-target flag column is gone; with no
+  # operator-facing toggle, "key configured" is the only signal.
+  # Callers (`Notes::EmbedJob`) can keep the two-call shape
+  # (`voyage_indexing_project_notes? && voyage_configured?`) for
+  # readability; both predicates resolve to the same boolean today.
   def self.voyage_indexing_project_notes?
-    first&.voyage_index_project_notes || false
-  end
-
-  # 2026-05-11 — master toggle for the global keyboard-navigation surface
-  # (`keyboard_controller.js`). Returns `true` when no AppSetting row
-  # exists yet so the install starts with the feature enabled (matches
-  # the NOT NULL column default of `true`). Callers can use the
-  # predicate directly in conditionals without nil-handling.
-  def self.keyboard_navigation_enabled?
-    row = first
-    return true if row.nil?
-    row.keyboard_navigation_enabled
-  end
-
-  # Writer counterpart used by SettingsController#update_appearance. The
-  # AppSetting table is treated as de-facto singleton storage for these
-  # column-backed flags; if no row exists yet we bootstrap one keyed on
-  # `pane_title_length` (matches the Voyage update path's bootstrap
-  # behaviour). Accepts a Boolean; the boundary conversion (yes/no →
-  # Boolean) happens at the controller layer.
-  def self.set_keyboard_navigation_enabled(value)
-    row = first
-    if row.nil?
-      set("pane_title_length", ENV.fetch("PANE_TITLE_LENGTH", 14).to_s)
-      row = first
-    end
-    row.update!(keyboard_navigation_enabled: value)
+    voyage_configured?
   end
 
   # Phase 29 — Unit A1 (Part 4 delivery bug fix). "Is Discord delivery
@@ -95,11 +66,53 @@ class AppSetting < ApplicationRecord
   end
   private_class_method :delivery_channel_enabled?
 
-  private
+  # Phase 32 follow-up (2026-05-16) — three-layer reindex lock.
+  #
+  # The Meilisearch reindex job is install-wide singleton work (pito is
+  # single-install, multi-user per ADR 0003). The two columns added by
+  # the AddReindexFlagsToAppSettings migration live on this table even
+  # though it is otherwise key/value-shaped; rather than reading the
+  # columns off of arbitrary rows, the predicates below promote one
+  # canonical row (`key = "__singleton__"`) to be the lock anchor. The
+  # row is created on first access and re-used forever.
+  #
+  # `reindex_running?`         — Layer 1 gate the controller reads.
+  # `start_reindex!`           — flips the flag + stamps started_at in
+  #                              an atomic update; returns the row.
+  # `clear_reindex_lock!`      — cleanup invoked from the job's `ensure`
+  #                              block AND from the rake escape hatch
+  #                              (`bin/rails pito:state:clear_reindex_lock`).
+  # `reindex_started_at`       — for the UI "started ~Xs ago" string;
+  #                              nil when idle.
+  SINGLETON_KEY = "__singleton__".freeze
 
-  def timezone_must_be_iana
-    return if timezone.blank?
-    return if ActiveSupport::TimeZone[timezone].present?
-    errors.add(:timezone, "is not a valid IANA timezone")
+  def self.singleton_row
+    row = find_by(key: SINGLETON_KEY)
+    return row if row
+
+    # `value` is encrypted + non-null + uniqueness-constrained on key;
+    # the placeholder string is never read but must satisfy the
+    # presence validation. `find_or_create_by!` would race with the
+    # uniqueness check; the explicit find-then-create is fine because
+    # the row is created exactly once in the install lifetime.
+    create!(key: SINGLETON_KEY, value: "singleton")
+  rescue ActiveRecord::RecordNotUnique
+    find_by!(key: SINGLETON_KEY)
+  end
+
+  def self.reindex_running?
+    singleton_row.reindex_running
+  end
+
+  def self.reindex_started_at
+    singleton_row.reindex_started_at
+  end
+
+  def self.start_reindex!
+    singleton_row.update!(reindex_running: true, reindex_started_at: Time.current)
+  end
+
+  def self.clear_reindex_lock!
+    singleton_row.update!(reindex_running: false, reindex_started_at: nil)
   end
 end

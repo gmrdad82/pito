@@ -1,9 +1,13 @@
 require "rails_helper"
 
-# Phase 25 — 01c (LD-13). AuditLogger service.
+# AuditLogger service. Post-Phase-25 rollback: the location-tied
+# vocabulary (approve / block / unblock / purge) is gone with the
+# new-location approval surface. The active allowlist covers TOTP
+# lifecycle + Voyage credential writes + password reset; the
+# canonical target type is `User` (TOTP / password reset) or
+# `AppSetting` (Voyage credential rotation).
 RSpec.describe Auth::AuditLogger do
   let(:user) { create(:user) }
-  let(:attempt) { create(:login_attempt, :pending, user: user) }
 
   describe ".call (happy)" do
     it "writes a row with the right shape" do
@@ -11,8 +15,8 @@ RSpec.describe Auth::AuditLogger do
         described_class.call(
           acting_user: user,
           source_surface: :web,
-          action: :approve,
-          target: attempt,
+          action: :totp_enroll,
+          target: user,
           metadata: { "note" => "ok" }
         )
       }.to change(AuthAuditLog, :count).by(1)
@@ -20,9 +24,9 @@ RSpec.describe Auth::AuditLogger do
       row = AuthAuditLog.last
       expect(row.acting_user_id).to eq(user.id)
       expect(row.source_surface).to eq("web")
-      expect(row.action).to eq("approve")
-      expect(row.target_type).to eq("LoginAttempt")
-      expect(row.target_id).to eq(attempt.id)
+      expect(row.action).to eq("totp_enroll")
+      expect(row.target_type).to eq("User")
+      expect(row.target_id).to eq(user.id)
       expect(row.metadata).to eq("note" => "ok")
     end
 
@@ -30,12 +34,12 @@ RSpec.describe Auth::AuditLogger do
       row = described_class.call(
         acting_user: user,
         source_surface: :mcp,
-        action: :block,
-        target_type: "LoginAttempt",
+        action: :totp_disable,
+        target_type: "User",
         target_id: 12345,
         metadata: {}
       )
-      expect(row.target_type).to eq("LoginAttempt")
+      expect(row.target_type).to eq("User")
       expect(row.target_id).to eq(12345)
     end
 
@@ -43,8 +47,8 @@ RSpec.describe Auth::AuditLogger do
       row = described_class.call(
         acting_user: user,
         source_surface: :web,
-        action: :approve,
-        target: attempt,
+        action: :totp_enroll,
+        target: user,
         metadata: { ip: "1.2.3.4", session_id: 42 }
       )
       expect(row.metadata).to eq("ip" => "1.2.3.4", "session_id" => 42)
@@ -54,28 +58,22 @@ RSpec.describe Auth::AuditLogger do
       row = described_class.call(
         acting_user: user,
         source_surface: :web,
-        action: :approve,
-        target: attempt,
+        action: :totp_enroll,
+        target: user,
         metadata: nil
       )
       expect(row.metadata).to eq({})
     end
 
-    # Phase 29 — Unit A1. `youtube_credentials_updated` was dropped from
-    # `Auth::AuditLogger`'s active allowlist (the YouTube credentials
-    # Settings pane is gone). The `AuthAuditLog` enum value 7 stays
-    # reserved, but the logger refuses to write that action — see the
-    # dedicated example below.
     it "accepts every action in the active allowlist" do
-      %i[approve block unblock purge
-         totp_enroll totp_disable backup_code_regenerate
-         voyage_credentials_updated].each do |action|
+      %i[totp_enroll totp_disable backup_code_regenerate
+         voyage_credentials_updated password_reset].each do |action|
         expect {
           described_class.call(
             acting_user: user,
             source_surface: :web,
             action: action,
-            target: attempt
+            target: user
           )
         }.to change(AuthAuditLog, :count).by(1)
       end
@@ -87,25 +85,26 @@ RSpec.describe Auth::AuditLogger do
           described_class.call(
             acting_user: user,
             source_surface: surface,
-            action: :approve,
-            target: attempt
+            action: :totp_enroll,
+            target: user
           )
         }.to change(AuthAuditLog, :count).by(1)
       end
     end
 
-    # Phase 29 — Unit A1. `youtube_credentials_updated` is no longer in
-    # the active allowlist — the logger rejects it even though the
-    # underlying `AuthAuditLog` enum value 7 stays reserved.
-    it "rejects the retired youtube_credentials_updated action" do
-      expect {
-        described_class.call(
-          acting_user: user,
-          source_surface: :web,
-          action: :youtube_credentials_updated,
-          target: attempt
-        )
-      }.to raise_error(ArgumentError, /invalid action/)
+    # The retired location-action vocabulary stays RESERVED in the
+    # enum but the logger refuses to write the symbols.
+    it "rejects the retired location-tied actions" do
+      %i[approve block unblock purge youtube_credentials_updated].each do |action|
+        expect {
+          described_class.call(
+            acting_user: user,
+            source_surface: :web,
+            action: action,
+            target: user
+          )
+        }.to raise_error(ArgumentError, /invalid action/)
+      end
     end
   end
 
@@ -115,8 +114,8 @@ RSpec.describe Auth::AuditLogger do
         described_class.call(
           acting_user: nil,
           source_surface: :web,
-          action: :approve,
-          target: attempt
+          action: :totp_enroll,
+          target: user
         )
       }.to raise_error(ArgumentError, /acting_user required/)
     end
@@ -126,8 +125,8 @@ RSpec.describe Auth::AuditLogger do
         described_class.call(
           acting_user: User.new,
           source_surface: :web,
-          action: :approve,
-          target: attempt
+          action: :totp_enroll,
+          target: user
         )
       }.to raise_error(ArgumentError, /acting_user must persist/)
     end
@@ -137,8 +136,8 @@ RSpec.describe Auth::AuditLogger do
         described_class.call(
           acting_user: user,
           source_surface: :sms,
-          action: :approve,
-          target: attempt
+          action: :totp_enroll,
+          target: user
         )
       }.to raise_error(ArgumentError, /invalid source_surface/)
     end
@@ -149,7 +148,7 @@ RSpec.describe Auth::AuditLogger do
           acting_user: user,
           source_surface: :web,
           action: :destroy_universe,
-          target: attempt
+          target: user
         )
       }.to raise_error(ArgumentError, /invalid action/)
     end
@@ -159,7 +158,7 @@ RSpec.describe Auth::AuditLogger do
         described_class.call(
           acting_user: user,
           source_surface: :web,
-          action: :approve
+          action: :totp_enroll
         )
       }.to raise_error(ArgumentError, /target/)
     end
@@ -169,8 +168,8 @@ RSpec.describe Auth::AuditLogger do
         described_class.call(
           acting_user: user,
           source_surface: :web,
-          action: :approve,
-          target_type: "LoginAttempt"
+          action: :totp_enroll,
+          target_type: "User"
         )
       }.to raise_error(ArgumentError)
     end
@@ -179,13 +178,13 @@ RSpec.describe Auth::AuditLogger do
   describe "transaction posture (flaw: row must persist when caller commits)" do
     it "writes the row inside the caller's transaction (no inner BEGIN)" do
       # The service must NOT open its own transaction so callers can
-      # wrap approve/block + audit in a single transaction.
+      # wrap their domain mutation + audit in a single transaction.
       ActiveRecord::Base.transaction do
         described_class.call(
           acting_user: user,
           source_surface: :web,
-          action: :approve,
-          target: attempt
+          action: :totp_enroll,
+          target: user
         )
         raise ActiveRecord::Rollback
       end

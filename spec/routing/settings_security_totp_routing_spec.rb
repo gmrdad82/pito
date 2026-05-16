@@ -1,6 +1,7 @@
 require "rails_helper"
 
-# Phase 25 — 01e. Routing pin for the TOTP 2FA management surface.
+# Phase 32 follow-up (2026-05-16). Routing pin for the slimmed
+# 2FA / TOTP surface — two routes only (atomic enrollment).
 RSpec.describe "TOTP routing", type: :routing do
   it "routes GET /settings/security/totp to totps#new" do
     expect(get: "/settings/security/totp").to route_to("settings/security/totps#new")
@@ -10,34 +11,36 @@ RSpec.describe "TOTP routing", type: :routing do
     expect(post: "/settings/security/totp").to route_to("settings/security/totps#create")
   end
 
-  it "routes GET /settings/security/totp/show to totps#show" do
-    expect(get: "/settings/security/totp/show").to route_to("settings/security/totps#show")
+  it "no longer routes GET /settings/security/totp/show (removed)" do
+    expect(get: "/settings/security/totp/show").not_to be_routable
   end
 
-  it "routes PATCH /settings/security/totp/confirm to totps#update" do
-    expect(patch: "/settings/security/totp/confirm").to route_to("settings/security/totps#update")
+  it "no longer routes PATCH /settings/security/totp/confirm (removed)" do
+    expect(patch: "/settings/security/totp/confirm").not_to be_routable
   end
 
-  it "routes GET /settings/security/totp/disable to totps#destroy_screen" do
-    expect(get: "/settings/security/totp/disable").to route_to("settings/security/totps#destroy_screen")
+  it "no longer routes GET /settings/security/totp/disable (removed)" do
+    expect(get: "/settings/security/totp/disable").not_to be_routable
   end
 
-  it "routes POST /settings/security/totp/disable to totps#destroy_confirmed" do
-    expect(post: "/settings/security/totp/disable").to route_to("settings/security/totps#destroy_confirmed")
+  it "no longer routes POST /settings/security/totp/disable (removed)" do
+    expect(post: "/settings/security/totp/disable").not_to be_routable
   end
 
-  it "routes GET /settings/security/totp_backup_codes to totp_backup_codes#show" do
-    expect(get: "/settings/security/totp_backup_codes").to route_to("settings/security/totp_backup_codes#show")
+  it "no longer routes the totp_backup_codes show surface (removed)" do
+    expect(get: "/settings/security/totp_backup_codes").not_to be_routable
   end
 
-  it "routes GET /settings/security/totp_backup_codes/new to totp_backup_codes#new" do
-    expect(get: "/settings/security/totp_backup_codes/new").to route_to("settings/security/totp_backup_codes#new")
+  it "no longer routes the totp_backup_codes new surface (removed)" do
+    expect(get: "/settings/security/totp_backup_codes/new").not_to be_routable
   end
 
-  it "routes POST /settings/security/totp_backup_codes to totp_backup_codes#create" do
-    expect(post: "/settings/security/totp_backup_codes").to route_to("settings/security/totp_backup_codes#create")
+  it "no longer routes the totp_backup_codes create surface (removed)" do
+    expect(post: "/settings/security/totp_backup_codes").not_to be_routable
   end
 
+  # The login-time TOTP challenge stays — that surface is separate
+  # from the settings enrollment surface this dispatch reworked.
   it "routes GET /login/totp to login/totp_challenges#show" do
     expect(get: "/login/totp").to route_to("login/totp_challenges#show")
   end

@@ -28,7 +28,7 @@ RSpec.describe "Settings::Webhooks::Help", type: :request do
       expect(response.body).to include("Step 2")
       expect(response.body).to include("Enable Incoming Webhooks")
       expect(response.body).to include("Step 3")
-      expect(response.body).to include("Add a webhook URL to a channel")
+      expect(response.body).to include("Add a webhook URL")
       expect(response.body).to include("Step 4")
       # Per project copy convention `pito` is lowercase in prose; the
       # canonical heading reads "Paste into pito". Match case-insensitively.
@@ -41,13 +41,6 @@ RSpec.describe "Settings::Webhooks::Help", type: :request do
       expect(response.body).to include("From scratch")
       expect(response.body).to include("Add New Webhook to Workspace")
       expect(response.body).to include("Incoming Webhooks")
-    end
-
-    it "includes the notifications behavior section" do
-      get settings_webhooks_help_path(provider: "slack")
-      expect(response.body).to include("Notifications behavior")
-      expect(response.body).to include("deliver every notification")
-      expect(response.body).to include("daily digest")
     end
 
     it "wraps the rendered guide in the help-modal Turbo Frame" do
@@ -84,9 +77,9 @@ RSpec.describe "Settings::Webhooks::Help", type: :request do
     it "renders the three step headings from the Discord guide" do
       get settings_webhooks_help_path(provider: "discord")
       expect(response.body).to include("Step 1")
-      expect(response.body).to include("Open the channel settings")
+      expect(response.body).to include("Channel settings")
       expect(response.body).to include("Step 2")
-      expect(response.body).to include("Create a webhook")
+      expect(response.body).to include("Create the webhook")
       expect(response.body).to include("Step 3")
       # Per project copy convention `pito` is lowercase in prose; the
       # canonical heading reads "Paste into pito". Match case-insensitively.
@@ -95,7 +88,7 @@ RSpec.describe "Settings::Webhooks::Help", type: :request do
 
     it "mentions the key UI strings beginners need to find" do
       get settings_webhooks_help_path(provider: "discord")
-      expect(response.body).to include("Channel Settings")
+      expect(response.body).to include("Channel settings")
       expect(response.body).to include("Integrations")
       expect(response.body).to include("New Webhook")
       expect(response.body).to include("Copy Webhook URL")
@@ -163,15 +156,15 @@ RSpec.describe "Settings::Webhooks::Help", type: :request do
     it "renders the Slack troubleshooting heading + key error paths" do
       get settings_webhooks_help_path(provider: "slack")
       expect(response.body).to include("Troubleshooting")
-      expect(response.body).to include("webhook URL is invalid")
-      expect(response.body).to include("test ping failed")
+      expect(response.body).to include("URL invalid")
+      expect(response.body).to include("test ping 404")
     end
 
     it "renders the Discord troubleshooting heading + key error paths" do
       get settings_webhooks_help_path(provider: "discord")
       expect(response.body).to include("Troubleshooting")
-      expect(response.body).to include("webhook URL is invalid")
-      expect(response.body).to include("test ping failed")
+      expect(response.body).to include("URL invalid")
+      expect(response.body).to include("test ping 404")
       expect(response.body).to include("Manage Webhooks")
     end
   end
@@ -190,25 +183,16 @@ RSpec.describe "Settings::Webhooks::Help", type: :request do
     %w[slack discord].each do |provider|
       it "renders horizontal rules between sections of the #{provider} guide" do
         get settings_webhooks_help_path(provider: provider)
-        # Each guide has 5+ `---` separators between sections.
-        expect(response.body.scan(/<hr\s*\/?>/).size).to be >= 4
+        # Each guide has 3+ `---` separators between sections.
+        expect(response.body.scan(/<hr\s*\/?>/).size).to be >= 3
       end
 
       it "renders the #{provider} troubleshooting matrix as a table" do
         get settings_webhooks_help_path(provider: provider)
         expect(response.body).to include("<table>")
         expect(response.body).to include("<th>")
-        expect(response.body).to include("Error message")
-        expect(response.body).to include("What it means")
-        expect(response.body).to include("What to do")
-      end
-
-      it "renders the #{provider} notifications-behavior block as a table" do
-        get settings_webhooks_help_path(provider: provider)
-        # Both guides carry a `| Checkbox | What it does |` table.
-        expect(response.body).to include("<th>Checkbox</th>")
-        expect(response.body).to include("<th>What it does</th>")
-        expect(response.body).to include("deliver every notification")
+        expect(response.body).to include("Error")
+        expect(response.body).to include("Fix")
       end
 
       it "preserves proper-noun capitalization in the #{provider} guide" do

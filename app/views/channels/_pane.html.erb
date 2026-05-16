@@ -7,10 +7,17 @@
 <div class="pane <%= pane_extra_class %>"<%= pane_style ? " style=\"#{pane_style}\"".html_safe : "" %>>
   <%= header %>
   <%# URL row. The URL is itself an external link; no separate `[v]`
-      action. Clicking the URL text opens the channel in a new tab. %>
+      action. Clicking the URL text opens the channel in a new tab.
+      2026-05-16 polish — every callable link wears the bracketed
+      `[ label ]` convention; BracketedLinkComponent auto-detects the
+      absolute http(s) href and emits `target="_blank" rel="noopener
+      noreferrer"` so callers stay terse. The `.truncate-url` class
+      keeps the long URL from wrapping inside the brackets. %>
   <div style="display: flex; align-items: baseline; gap: 6px; min-width: 0; max-width: 100%; margin-bottom: 4px;">
     <span class="text-muted" style="flex-shrink: 0;">URL</span>
-    <a href="<%= channel.channel_url %>" target="_blank" rel="noopener noreferrer" class="truncate-url" style="flex: 1; min-width: 0;"><%= channel.channel_url %></a>
+    <span class="truncate-url" style="flex: 1; min-width: 0;">
+      <%= render(BracketedLinkComponent.new(label: channel.channel_url, href: channel.channel_url)) %>
+    </span>
   </div>
   <table class="detail-table" style="margin-bottom: 8px;">
     <tr>

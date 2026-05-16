@@ -57,8 +57,14 @@ RSpec.describe "Password resets", :unauthenticated, type: :request do
     end
 
     it "completes a full reset: PATCH changes the password and revokes every session" do
-      active   = Session.create_for!(user: user, ip: "1.1.1.1", user_agent: "x").first
-      pending  = create(:session, :pending, user: user)
+      # Two sessions — one from the live mint path, one straight from
+      # the factory. Both must end up revoked after the reset. The
+      # `:pending` factory trait (paired with the dropped
+      # `pending_approval` enum state, Phase 25 rollback) is gone; a
+      # plain `create(:session)` gives us a second active row that the
+      # reset must still revoke.
+      active = Session.create_for!(user: user, ip: "1.1.1.1", user_agent: "x").first
+      other  = create(:session, user: user)
 
       post password_reset_path, params: { username: user.username, code: live_code }
       patch password_reset_path, params: {
@@ -71,7 +77,7 @@ RSpec.describe "Password resets", :unauthenticated, type: :request do
       expect(user.reload.authenticate("brand-new-password-9")).to be_truthy
       expect(user.authenticate(password)).to be(false)
       expect(active.reload.revoked?).to be(true)
-      expect(pending.reload.revoked?).to be(true)
+      expect(other.reload.revoked?).to be(true)
     end
 
     it "accepts a valid backup code and consumes it (single-use, per R1)" do

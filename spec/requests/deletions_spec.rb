@@ -228,8 +228,16 @@ RSpec.describe "Deletions", type: :request do
         post deletions_path(type: "game", ids: game.id)
         operation = BulkOperation.last
 
+        # 2026-05-11 polish (Fix 5) — BulkDeleteJob dispatches per-row
+        # via `GameDeletion.perform_async` when the target_type is
+        # `Game`. Under the default `Sidekiq::Testing.fake!` mode the
+        # per-row jobs only enqueue; the inline parent finishes
+        # without touching `Game.count`. Wrap in `inline!` so the
+        # per-row destroy actually runs end-to-end.
         expect {
-          BulkDeleteJob.new.perform(operation.id)
+          Sidekiq::Testing.inline! do
+            BulkDeleteJob.new.perform(operation.id)
+          end
         }.to change(Game, :count).by(-1)
       end
     end

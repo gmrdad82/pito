@@ -16,12 +16,9 @@
       <% title = (entry["title"] || entry[:title]).to_s %>
       <% url = (entry["url"] || entry[:url]).to_s %>
       <% if url.present? && title.present? %>
-        <%= render(BracketedLinkComponent.new(
-              label: title,
-              href: url,
-              target: "_blank",
-              rel: "noopener noreferrer"
-            )) %>
+        <%# 2026-05-16 polish — BracketedLinkComponent auto-detects
+            absolute http(s) hrefs and applies target/rel itself. %>
+        <%= render(BracketedLinkComponent.new(label: title, href: url)) %>
       <% end %>
     <% end %>
   </div>

@@ -51,8 +51,7 @@ module Sessions
         value: plaintext,
         httponly: true,
         same_site: :lax,
-        secure: !Rails.env.test?,
-        expires: session_row.remember? ? Session::REMEMBER_ME_TTL.from_now : nil
+        secure: !Rails.env.test?
       }
 
       true

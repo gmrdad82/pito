@@ -25,10 +25,25 @@ RSpec.describe "Mandatory-2FA gate", type: :request do
   describe "an authenticated user WITHOUT TOTP configured", :unauthenticated do
     before { sign_in_as(unconfigured_user) }
 
-    %w[/ /channels /videos /projects /settings /settings/security].each do |path|
-      it "is redirected from #{path} to the TOTP enrollment page" do
+    # Phase 32 (settings refactor polish — Concern 2). The gate now
+    # bounces every non-allowlisted route to `/settings?enroll_totp=1`
+    # (the hub renders the auto-open modal on top of muted panes).
+    # `/settings` itself is allowlisted so the redirect can land
+    # without looping; `/settings/security` (and other settings
+    # sub-pages) stay gated.
+    %w[
+      /
+      /channels
+      /videos
+      /projects
+      /games
+      /bundles
+      /calendar
+      /settings/security
+    ].each do |path|
+      it "is redirected from #{path} to /settings?enroll_totp=1" do
         get path
-        expect(response).to redirect_to(settings_security_totp_path)
+        expect(response).to redirect_to(settings_path(enroll_totp: 1))
       end
     end
 
@@ -36,41 +51,93 @@ RSpec.describe "Mandatory-2FA gate", type: :request do
       get channels_path
       expect(flash[:alert]).to match(/two-factor/i)
     end
+
+    it "renders /settings 200 (it is the gate's destination, not a redirect target)" do
+      get settings_path
+      expect(response).to have_http_status(:ok)
+    end
+  end
+
+  # Phase 32 (settings refactor polish) — focused-dialog feel.
+  # The enrollment landing page, when reached via the mandatory gate
+  # (user has no TOTP configured), suppresses the nav header + footer
+  # via `content_for(:hide_chrome, true)`. Once enrollment confirms,
+  # the page re-renders with the normal chrome (for backup-codes /
+  # disable management).
+  describe "mandatory-gate enrollment view feels like a focused dialog", :unauthenticated do
+    it "drops nav chrome and renders the dialog headline when the user is unconfigured" do
+      sign_in_as(unconfigured_user)
+      get settings_security_totp_path
+
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include("two-factor setup required")
+      # Header / footer nav-rows are gated by `unless content_for?(:hide_chrome)`.
+      # The presence of the dialog-style copy plus the absence of the
+      # nav-row markup is the contract.
+      expect(response.body).not_to include('class="nav-row"')
+      # The breadcrumb dot-list is also dropped (it sits above the page
+      # heading on the configured branch).
+      expect(response.body).not_to match(/breadcrumb/i)
+    end
+
+    # Phase 32 follow-up (2026-05-16). The "manage 2FA" page is gone.
+    # A configured user who lands on `GET /settings/security/totp` is
+    # redirected to root — there is no web-side surface for them.
+    it "redirects an already-configured user away from the enrollment view" do
+      configured = create(
+        :user,
+        password: password,
+        password_confirmation: password,
+        totp_seed_encrypted: seed,
+        totp_enabled_at: 1.hour.ago
+      )
+      sign_in_as(configured)
+      get settings_security_totp_path
+
+      expect(response).to redirect_to(root_path)
+    end
+
+    # 2026-05-16 — the inline `[log out]` escape-hatch button was
+    # dropped from the focused-dialog enrollment view alongside the
+    # header [logout] removal. DELETE /session remains routable and is
+    # still on the gate's allowlist (see the "TOTP-setup allowlist"
+    # group below) for direct-URL / API / keyboard use; only the UI
+    # affordance on this view was removed. Tab-close is the user-side
+    # escape; admin reset via `pito:user:reset_totp` remains the
+    # operator-side escape.
+    it "does NOT render an inline logout form on the focused-dialog view" do
+      sign_in_as(unconfigured_user)
+      get settings_security_totp_path
+
+      expect(response.body).not_to include('action="/session"')
+      expect(response.body).not_to match(/name="_method"\s+value="delete"/)
+    end
   end
 
   describe "the TOTP-setup allowlist is NOT redirected by the gate", :unauthenticated do
-    before { sign_in_as(unconfigured_user) }
+    # Phase 32 follow-up (2026-05-16). The web surface collapsed to a
+    # single focused enrollment view (GET) + the atomic finalize
+    # endpoint (POST). The previously-allowlisted `/show` GET and the
+    # `/confirm` PATCH are gone.
+    let(:memory_cache) { ActiveSupport::Cache::MemoryStore.new }
 
-    it "allows GET /settings/security/totp (the enrollment landing page)" do
+    before do
+      allow(Rails).to receive(:cache).and_return(memory_cache)
+      sign_in_as(unconfigured_user)
+    end
+
+    it "allows GET /settings/security/totp (the enrollment view)" do
       get settings_security_totp_path
       expect(response).to have_http_status(:ok)
-      expect(response).not_to redirect_to(settings_security_totp_path)
+      expect(response).not_to redirect_to(settings_path(enroll_totp: 1))
     end
 
-    it "allows POST /settings/security/totp (generate the seed)" do
-      post settings_security_totp_path
-      # totps#create redirects to the one-shot show page — NOT bounced
-      # back to the enrollment landing by the mandatory gate.
-      expect(response).to redirect_to(settings_security_totp_show_path)
-    end
-
-    it "allows GET /settings/security/totp/show (the one-shot QR + codes)" do
-      post settings_security_totp_path
-      get settings_security_totp_show_path
-      # show renders the one-shot payload (200) or redirects to `new`
-      # if the cache entry is gone — either way it is NOT the gate's
-      # redirect (the request reached the controller).
-      expect(response).to have_http_status(:ok).or redirect_to(settings_security_totp_path)
-    end
-
-    it "allows PATCH /settings/security/totp/confirm (confirm the code)" do
-      post settings_security_totp_path
-      patch settings_security_totp_confirm_path, params: { code: "000000" }
-      # A wrong code re-renders the show page (422) — the request
-      # reached the controller, the gate did not bounce it.
+    it "allows POST /settings/security/totp (atomic finalize, wrong-code 422 path)" do
+      get settings_security_totp_path
+      post settings_security_totp_path, params: { code: "000000" }
+      # A wrong code re-renders `new` at 422 — the request reached
+      # the controller, the gate did not bounce it.
       expect(response).to have_http_status(:unprocessable_content)
-        .or redirect_to(settings_security_totp_path)
-      expect(response).not_to redirect_to(root_path)
     end
 
     it "allows DELETE /session (logout) so the user is not trapped" do
@@ -84,7 +151,7 @@ RSpec.describe "Mandatory-2FA gate", type: :request do
       sign_in_as(unconfigured_user)
 
       get channels_path
-      expect(response).to redirect_to(settings_security_totp_path)
+      expect(response).to redirect_to(settings_path(enroll_totp: 1))
 
       # Simulate a confirmed enrollment.
       unconfigured_user.update!(
@@ -95,7 +162,7 @@ RSpec.describe "Mandatory-2FA gate", type: :request do
 
       get channels_path
       expect(response).to have_http_status(:ok)
-      expect(response).not_to redirect_to(settings_security_totp_path)
+      expect(response).not_to redirect_to(settings_path(enroll_totp: 1))
     end
   end
 

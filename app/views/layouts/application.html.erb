@@ -1,5 +1,9 @@
 <!DOCTYPE html>
-<html data-theme-preference="<%= AppSetting.get('theme') || 'auto' %>">
+<%# Phase 29 (settings refactor) — `data-theme-preference` removed.
+    Theme persistence moved to localStorage only; the inline
+    bootstrap script below reads `pito-theme` and falls back to
+    the OS preference. No server-side theme value renders here. %>
+<html>
   <head>
     <%# Title is built with safe_join rather than string interpolation so
         HTML entities embedded in the page title (such as apostrophe
@@ -17,6 +21,58 @@
     <meta name="turbo-refresh-scroll" content="preserve">
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
+
+    <%# 2026-05-16 — mandatory-2FA gate signal for global keydown
+        controllers. When an authenticated user is in the
+        `!totp_configured?` state, the enrollment modal auto-opens on
+        `/settings` and every other route bounces back to it via
+        `Sessions::AuthConcern#require_totp_configured!`. While the
+        gate is active, NO global keyboard shortcut should fire — keys
+        are an escape hatch from the gate (theme toggle, IGDB add,
+        leader menu navigation, etc. are all reachable from the
+        document / window keydown listeners mounted by the `keyboard`,
+        `leader-menu`, and `theme` controllers). The keydown handlers
+        read this meta tag LIVE on every keypress and early-return
+        when `content="yes"`. The enrollment form's own keys (typing
+        the 6-digit code, Tab, Enter) are unaffected — they're either
+        native browser behaviour on a focused `<input>` or already
+        gated by the controllers' editable-target guard.
+
+        Why a `<meta>` in `<head>` rather than a `<body data-…>`
+        attribute or an inline `<body>` `<script>`:
+          * Body data-attribute went stale after Turbo Drive
+            navigations away from `/settings`: the new body rendered
+            `data-enroll-totp-gate="no"` server-side, but a live
+            `document.body.dataset.enrollTotpGate` read kept returning
+            the prior page's value. Root cause never fully isolated
+            (likely a Stimulus mutation-observer timing edge case
+            crossed with the body-attribute carry-over); switching
+            surfaces was cheaper than debugging it.
+          * Inline `<script>` as the first child of `<body>` was the
+            next attempt — Turbo's `activateNewBodyScriptElements`
+            recreates scripts so the global SHOULD be re-set on every
+            navigation. In practice keybindings stayed dead on both
+            link-click Turbo Drive navigation AND the post-login
+            redirect, suggesting either the script didn't re-execute
+            or the controllers' `connect()` didn't re-fire on the new
+            body — either failure mode left the gate check reading a
+            stale `window.__pitoEnrollTotpGate` (or a never-bound
+            keydown listener entirely).
+          * A `<meta>` in `<head>` is the most stable surface: Turbo's
+            `mergeProvisionalElements` diffs head children by
+            `isEqualNode`, so when the `content` flips from `"yes"`
+            to `"no"` (or vice versa) the old meta is removed and the
+            new meta is appended — guaranteed-fresh per page. The
+            controllers read the meta live inside `onKeydown` so the
+            check honours the most recent head merge without needing
+            any per-controller cache, Turbo lifecycle listener, or
+            Stimulus connect/disconnect re-bind.
+        The meta tag renders unconditionally (defaults to `"no"` on
+        the login screen and for authenticated users with TOTP
+        configured) so a missing tag never silently flips the gate
+        open or shut. %>
+    <% enroll_totp_gate_active = Current.user.present? && !Current.user.totp_configured? %>
+    <meta name="pito-enroll-totp-gate" content="<%= enroll_totp_gate_active ? "yes" : "no" %>">
 
     <%= yield :head %>
 
@@ -45,51 +101,57 @@
 
     <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
     <script>
+      // Phase 29 (settings refactor) — localStorage-only theme.
+      // `pito-theme` may be "light", "dark", or absent (== auto/system).
+      // No server-side persistence path remains.
       (function() {
         var s = localStorage.getItem("pito-theme");
         if (s === "light" || s === "dark") { document.documentElement.setAttribute("data-theme", s); return; }
-        var p = document.documentElement.dataset.themePreference;
-        if (p === "light" || p === "dark") { document.documentElement.setAttribute("data-theme", p); return; }
         document.documentElement.setAttribute("data-theme", window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
       })();
     </script>
     <%= javascript_importmap_tags %>
   </head>
 
-  <%# `data-keyboard-navigation-enabled` carries the install-level
-      master toggle (Settings → ui / ux). The keyboard Stimulus
-      controller reads it on connect and self-disables when it sees
-      "no" so per-row hotkeys (j/k, s, D, Y…) and the `?` help
-      shortcut all go silent. The footer `[_]` bracketed link still
-      renders — keyboard-off users can click it to open the help
-      modal. yes/no strings at the wire boundary per the project's
-      external-boolean rule. %>
-  <%# Phase 26 — 01a. Mount the `timezone-detect` Stimulus controller on
+  <%# Phase 29 (settings refactor) — keyboard navigation is always on.
+      The master toggle pane was dropped; the keyboard Stimulus
+      controller no longer reads `data-keyboard-navigation-enabled` and
+      registers its keydown listener unconditionally.
+
+      Phase 26 — 01a. Mount the `timezone-detect` Stimulus controller on
       `<body>`. Authenticated layouts render the user's stored zone in
       `data-timezone-detect-stored-value`; on the "Etc/UTC" sentinel
       the controller silently PATCHes the browser-detected zone to
       `/settings/time_zone`. The data-attribute is omitted on
       unauthenticated screens (login form, OAuth consent) so the
       controller bails immediately. %>
+  <%# 2026-05-16 — mandatory-2FA gate signal moved to a `<meta>` tag
+      in `<head>` (see the head block above for the full rationale).
+      The keydown handlers in `keyboard`, `leader-menu`, and `theme`
+      read the meta tag live on every keypress, so no per-body
+      script, attribute, or controller `connect()` cache is needed
+      here. %>
   <body data-controller="keyboard notifications-modal leader-menu timezone-detect webhook-help-modal"
-        data-keyboard-navigation-enabled="<%= AppSetting.keyboard_navigation_enabled? ? "yes" : "no" %>"
         <% if Current.user.present? %>data-timezone-detect-stored-value="<%= Current.user.time_zone %>"
         data-timezone-detect-url-value="<%= settings_time_zone_path %>"
         data-timezone-detect-csrf-value="<%= form_authenticity_token %>"<% end %>>
     <header style="position: fixed; top: 0; left: 0; right: 0; height: 32px; background: var(--color-bg); border-bottom: 1px solid var(--color-border); padding: 0 12px; z-index: 100;" data-controller="theme">
-      <%# Header layout (2026-05-10 redesign, refined 2026-05-10 follow-up):
+      <%# Header layout (2026-05-10 redesign, refined 2026-05-10 follow-up;
+          [logout] dropped 2026-05-16 — DELETE /session route + action
+          stay routable for API / keyboard / direct-URL use, only the UI
+          link was removed):
             [home][calendar] · [channels][videos] · [projects][notifications]
-            <fluid spacer>     [settings][logout]
+            <fluid spacer>     [settings]
           Left and middle groups are separated by a center-dot `·`
           (`.nav-sep`); items within a group sit side-by-side. The
           `.nav-spacer` flex item carries `flex: 1` so the right
-          cluster (settings + logout) right-anchors against the
-          edge of the navbar — there is intentionally NO separator
-          between the spacer and the right cluster (the spacer
-          itself is the visual separator). The inline search input
-          that used to sit in the right cluster was retired in
-          favor of a `/`-keyed search modal (`shared/_search_modal`);
-          the IGDB-search modal opens on `i`
+          cluster (settings) right-anchors against the edge of the
+          navbar — there is intentionally NO separator between the
+          spacer and the right cluster (the spacer itself is the
+          visual separator). The inline search input that used to
+          sit in the right cluster was retired in favor of a
+          `/`-keyed search modal (`shared/_search_modal`); the
+          IGDB-search modal opens on `i`
           (`shared/_igdb_search_modal`). The previous `n` keycap-theme
           toggle was retired earlier; the theme keybind now lives on
           `t` and the on-screen affordance is the Settings page. %>
@@ -131,14 +193,7 @@
             </span>
             <span class="nav-spacer" style="flex: 1;"></span>
             <span class="nav-group">
-              <%= nav_link "settings", settings_path, short: "S" %><%
-                %><% if Current.user.present? %><%
-                  %><%= button_to session_logout_path,
-                        method: :delete,
-                        form: { style: "display: inline;" },
-                        class: "bracketed",
-                        style: "background: none; border: none; padding: 0; font: inherit; color: inherit; cursor: pointer;" do %>[<span class="bl">logout</span>]<% end %><%
-                %><% end %>
+              <%= nav_link "settings", settings_path, short: "S" %>
             </span>
           </nav>
         <% end %>
@@ -168,15 +223,16 @@
       </main>
     </div>
 
-    <%# Footer (2026-05-10 redesign): two rows. Row 1 mirrors the
-          header's left navigation —
-          [home][calendar] · [channels][videos] · [projects][games] — plus a [_]
-          help-modal trigger on the far right (header has [settings][logout]
-          there). Row 2 carries the copyright prose on the left and the
-          version + git-sha on the right. The `?` keyboard binding still
-          opens the same modal; the bracketed `[_]` is the discoverable
-          on-screen affordance — `_` stands for SPACE = leader, per the
-          locked keybindings unified-schema decision. %>
+    <%# Footer (2026-05-10 redesign, 2026-05-16 simplified): two rows.
+          Row 1 mirrors the header's left navigation —
+          [home][calendar] · [channels][videos] · [projects][games] · [notifications]
+          — plus a [_] leader-menu trigger on the far right. The bracketed
+          `[_]` is the discoverable on-screen affordance — `_` stands for
+          SPACE = leader, per the locked keybindings unified-schema
+          decision. The legacy `?` keyboard-shortcuts help modal was
+          retired 2026-05-16; the leader-menu popup is now the sole
+          keyboard-discovery surface. Row 2 carries the copyright prose
+          on the left and the version + git-sha on the right. %>
     <footer style="border-top: 1px solid var(--color-border); padding: 8px 12px; margin-top: 24px; font-size: 11px;">
       <% unless content_for?(:hide_chrome) %>
         <nav class="nav-row" style="display: flex; align-items: center; gap: 4px; margin-bottom: 4px;">
@@ -193,16 +249,11 @@
               for the SPACE leader. Clicking it opens the unified
               leader-menu popup (Stimulus `leader-menu#openRoot`);
               the same controller listens for the SPACE keypress.
-              We also keep the legacy `keyboard#openHelp` action
-              chained on the same click so existing layout specs
-              continue to find the data-action signature AND users
-              who haven't migrated to the leader-menu still get the
-              per-page shortcut catalogue. Both controllers attach
-              to <body> so dispatch order doesn't matter; the
-              leader popup paints first and the help dialog opens
-              alongside it (the dialog renders centered, the popup
-              renders bottom-right — they don't overlap). %>
-          <%= render(BracketedLinkComponent.new(label: "_", href: "#", data: { action: "click->keyboard#openHelp click->leader-menu#openRoot" }, active: false)) %>
+              The legacy `keyboard#openHelp` chained action was
+              removed 2026-05-16 alongside the help-modal deletion —
+              the leader-menu is now the canonical keyboard-discovery
+              affordance. %>
+          <%= render(BracketedLinkComponent.new(label: "_", href: "#", data: { action: "click->leader-menu#openRoot" }, active: false)) %>
         </nav>
       <% end %>
       <div style="display: flex; align-items: center; gap: 4px;">
@@ -212,14 +263,11 @@
       </div>
     </footer>
 
-    <%# Keyboard shortcuts help modal — opened by `?` keypress or the
-        `[_]` link in the footer's nav row (the `_` glyph stands for
-        SPACE = leader per the locked keybindings unified-schema
-        decision). Mirrors `pito` CLI's help overlay per locked
-        decision Q6. The dialog is the keyboard controller's `dialog`
-        target; the controller is mounted on `<body>` so listeners
-        live for the full page lifetime. %>
-    <%= render(KeyboardShortcutsModalComponent.new) %>
+    <%# 2026-05-16 — the legacy keyboard-shortcuts help modal that
+        used to mount here was retired. Keyboard discovery now lives
+        exclusively in the leader-menu popup (`[_]` link in the
+        footer + SPACE keypress); the `?` keybinding and the
+        `KeyboardShortcutsModalComponent` are gone. %>
 
     <%# Global search modal — opened by `/` keypress (handled by
         `keyboard_controller#focusSearchInput`) or by any element

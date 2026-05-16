@@ -21,10 +21,11 @@
 #     double-count brand-new imports). Capped at 10.
 #   - `footage_imported` — Footage rows created inside the window.
 #     Capped at 10.
-#   - `login_attempts` — Successful + failed login attempts in the
-#     window. Capped at 10 by `created_at DESC`.
 #   - `notifications_open` — Unread Notifications older than 1 hour
 #     (excluding rows newer than 1h to avoid flapping). Capped at 10.
+#
+# Post-Phase-25 rollback. The `login_attempts` section is gone with
+# the LoginAttempt table.
 #
 # "All quiet" fallback: if every section is empty, the renderer
 # substitutes a single-line "no activity in the last 24 hours" payload.
@@ -48,7 +49,6 @@ module Digest
       :videos_imported,
       :videos_updated,
       :footage_imported,
-      :login_attempts,
       :notifications_open,
       keyword_init: true
     ) do
@@ -58,7 +58,6 @@ module Digest
           videos_imported,
           videos_updated,
           footage_imported,
-          login_attempts,
           notifications_open
         ].compact
       end
@@ -83,7 +82,6 @@ module Digest
         videos_imported: videos_imported_section,
         videos_updated: videos_updated_section,
         footage_imported: footage_imported_section,
-        login_attempts: login_attempts_section,
         notifications_open: notifications_open_section
       )
     end
@@ -137,17 +135,6 @@ module Digest
       )
     end
 
-    def login_attempts_section
-      scope = LoginAttempt
-                .where(created_at: @window_start...@now)
-                .order(created_at: :desc)
-      Section.new(
-        label: "login attempts",
-        total: scope.count,
-        items: scope.limit(SECTION_LIMIT).map { |la| login_attempt_label(la) }
-      )
-    end
-
     def notifications_open_section
       # Unread notifications older than 1 hour. Younger ones are still
       # "fresh" — we don't want every digest to surface a notification
@@ -173,14 +160,6 @@ module Digest
 
     def footage_label(footage)
       footage.filename.to_s
-    end
-
-    def login_attempt_label(la)
-      email = la.email_attempted.to_s
-      result_label = la.result.to_s
-      geo = la.geo_summary
-      base = email.presence ? "#{result_label}: #{email}" : result_label
-      geo.present? ? "#{base} (#{geo})" : base
     end
 
     def notification_label(notification)

@@ -1,5 +1,19 @@
 import { Controller } from "@hotwired/stimulus"
 
+// Module-level live read of the mandatory-2FA enrollment gate.
+// Reads `<meta name="pito-enroll-totp-gate">` from `<head>` on every
+// invocation — the meta tag is re-merged by Turbo on every navigation
+// (`mergeProvisionalElements` diffs head children by `isEqualNode`),
+// so a live read is guaranteed-fresh per page. When the meta is
+// absent (defensive — the layout renders it unconditionally) the gate
+// is treated as inactive so missing markup never silently bricks
+// global keybindings. See the layout's head comment for the full
+// reason this lives in head rather than body.
+function enrollTotpGateActive() {
+  const meta = document.querySelector('meta[name="pito-enroll-totp-gate"]')
+  return meta?.getAttribute("content") === "yes"
+}
+
 // Phase 7.5 — Step 04. Global keyboard shortcuts.
 //
 // Mirrors the `pito` CLI keymap (`extras/cli/src/keys.rs`) per locked
@@ -8,12 +22,17 @@ import { Controller } from "@hotwired/stimulus"
 //
 // Bindings:
 //   Global
-//     ?           toggle help dialog
-//     t           toggle theme (handled by theme_controller — we still
-//                 surface it in the help dialog). Was `n` pre-redesign.
+//     t           toggle theme (handled by theme_controller).
+//                 Was `n` pre-redesign.
 //     /           open the global search modal (`#global-search-modal`)
 //     i           open the IGDB-search modal (`#igdb-search-modal`)
-//     Esc         close any open dialog / clear pending prefix
+//     Esc         clear pending prefix
+//
+// 2026-05-16 — the legacy `?` help-modal binding was retired
+// alongside the `KeyboardShortcutsModalComponent` deletion. Keyboard
+// discovery now lives exclusively in the leader-menu popup (SPACE
+// keypress + `[_]` footer link); this controller no longer owns any
+// dialog target.
 //   Navigation (`g` prefix, ~1s timeout)
 //     g d         /            (dashboard)
 //     g c         /channels
@@ -67,26 +86,15 @@ import { Controller } from "@hotwired/stimulus"
 //   with a 1000ms timeout so abandoned prefixes don't strand the user.
 // - The controller is attached to `<body>` via `data-controller="keyboard"`
 //   and adds a single document-level `keydown` listener.
-// - The dialog target is the help overlay; `showModal()` /  `close()`
-//   open and close it.
 export default class extends Controller {
-  static targets = ["dialog"]
-
   static PREFIX_TIMEOUT_MS = 1000
 
   connect() {
     this.pendingPrefix = null
     this.prefixTimer = null
-    // 2026-05-11 — install-level master toggle. The layout renders
-    // `data-keyboard-navigation-enabled="yes|no"` on `<body>` (yes/no
-    // strings per the project's external-boolean rule). When the value
-    // is "no" we skip registering the global keydown listener entirely
-    // so per-row hotkeys (j/k, s, D, Y…) and the `?` help shortcut go
-    // silent. `openHelp` (the [_] footer affordance) intentionally
-    // ignores the toggle — keyboard-off users can still click it to
-    // browse the shortcut catalogue.
-    this.disabled = this.element.dataset.keyboardNavigationEnabled === "no"
-    if (this.disabled) return
+    // Phase 29 (settings refactor) — keyboard navigation is always on.
+    // The install-level master toggle pane was dropped; the controller
+    // registers its keydown listener unconditionally.
     this.boundKeydown = this.onKeydown.bind(this)
     document.addEventListener("keydown", this.boundKeydown)
   }
@@ -98,29 +106,31 @@ export default class extends Controller {
     this.clearPrefix()
   }
 
-  // Public: open the help dialog. Wired to the visible `[ ? ]` link
-  // via `data-action="click->keyboard#openHelp"`. The action is
-  // explicitly exempt from the master toggle — even when keyboard
-  // navigation is disabled, the bracketed `[_]` affordance opens the
-  // shortcut catalogue so the surface stays discoverable.
-  openHelp(event) {
-    if (event) event.preventDefault()
-    if (!this.hasDialogTarget) return
-    if (!this.dialogTarget.open) this.dialogTarget.showModal()
-  }
-
-  close(event) {
-    if (event) event.preventDefault()
-    if (this.hasDialogTarget && this.dialogTarget.open) this.dialogTarget.close()
-  }
-
-  clickOutside(event) {
-    if (this.hasDialogTarget && event.target === this.dialogTarget) {
-      this.dialogTarget.close()
-    }
-  }
-
   onKeydown(event) {
+    // Mandatory-2FA enrollment gate. When the authenticated user has
+    // not configured TOTP, the layout renders
+    // `<meta name="pito-enroll-totp-gate" content="yes">` in `<head>`
+    // and every global shortcut is inert — keys are an escape hatch
+    // out of the gate (theme toggle, `/` global search, `i` IGDB
+    // search, the `g`/`f` prefix navigation, `?` help dialog, every
+    // list-row action). The enrollment form's own keys (typing the
+    // 6-digit code, Tab between fields, Enter to submit) are
+    // unaffected because they fire on a focused `<input>` via native
+    // browser behaviour — they never reach this document-level
+    // listener. Released the moment enrollment completes (next page
+    // render flips the meta content back to `"no"`).
+    //
+    // Why a `<meta>` in `<head>` rather than a body data-attribute or
+    // an inline body `<script>`: see the layout comment next to the
+    // meta tag. Short version — both body-mounted surfaces drifted
+    // stale across Turbo Drive navigations (and the post-login
+    // redirect), killing keybindings on every page after the first.
+    // Turbo's `mergeProvisionalElements` reliably refreshes head
+    // `<meta>` content per navigation; the controller reads the meta
+    // live per keypress so no Stimulus connect/disconnect timing
+    // edge case can leave the cache stale.
+    if (enrollTotpGateActive()) return
+
     // Hard guard: never intercept while typing.
     if (this.isEditableTarget(event.target)) return
 
@@ -128,32 +138,19 @@ export default class extends Controller {
     // modifier key — `Ctrl+F`, `Cmd+K`, etc. stay native.
     if (event.metaKey || event.ctrlKey || event.altKey) return
 
-    // Esc handling: cancel pending prefix, close dialog, then page
-    // semantics (action-screen cancel link).
+    // Esc handling: cancel pending prefix, then page semantics
+    // (action-screen cancel link). The legacy `?` help-modal close
+    // branch was removed 2026-05-16 alongside the help-modal
+    // deletion — the controller no longer owns a dialog target.
     if (event.key === "Escape") {
       if (this.pendingPrefix) {
         this.clearPrefix()
         event.preventDefault()
         return
       }
-      if (this.hasDialogTarget && this.dialogTarget.open) {
-        this.dialogTarget.close()
-        event.preventDefault()
-        return
-      }
       if (this.handleActionScreenCancel()) {
         event.preventDefault()
         return
-      }
-      return
-    }
-
-    // If a dialog is open, only `?` (toggle) and Esc (above) are bound.
-    // Let the rest pass through so `<dialog>` semantics stay intact.
-    if (this.hasDialogTarget && this.dialogTarget.open) {
-      if (event.key === "?") {
-        event.preventDefault()
-        this.dialogTarget.close()
       }
       return
     }
@@ -178,12 +175,10 @@ export default class extends Controller {
       return
     }
 
-    // Single-key bindings.
+    // Single-key bindings. (The legacy `?` help-modal toggle was
+    // removed 2026-05-16; see the file header for the deletion
+    // rationale.)
     switch (event.key) {
-      case "?":
-        event.preventDefault()
-        if (this.hasDialogTarget) this.dialogTarget.showModal()
-        return
       case "/":
         if (this.openGlobalSearch()) event.preventDefault()
         return

@@ -282,6 +282,49 @@ This is the canonical recovery path whenever the schema lurches significantly in
 Beta. Migration `down` paths are present for Rails bookkeeping but do not
 restore prior data; rollback is not a supported workflow in Beta.
 
+### Runtime state capture + restore (`pito:state:capture`)
+
+A drop + reseed wipes the post-bootstrap configuration the operator wired up by
+hand: TOTP enrollment, Discord + Slack webhook URLs + routing flags, and every
+Doorkeeper OAuth application (uid + plain client_secret + redirect_uri + scopes
++ confidential flag). The `pito:state:capture` rake task snapshots those rows
+into a `runtime_state:` block inside `Rails.application.credentials`; the next
+`db:seed` reads the block and restores them in place.
+
+Workflow:
+
+```bash
+bin/rails pito:state:capture        # snapshot the live DB into credentials
+bin/rails db:drop db:create db:migrate db:seed
+# -> the seed restores TOTP enrollment, webhooks, OAuth apps from the snapshot
+```
+
+The capture task is idempotent — re-running replaces the prior `runtime_state`
+block wholesale. It prints what is being captured (counts + names + yes/no
+flags) but NEVER prints secret values; the operator-facing stdout is safe to
+paste into a log or a screenshot. It also backs up `config/credentials.yml.enc`
+to `tmp/credentials.yml.enc.bak-<timestamp>` before writing and verifies the
+post-write file still decrypts and still carries every pre-existing top-level
+key; any deviation triggers an automatic restore from the backup.
+
+Two captured-state fields are deliberately **not** recoverable and are
+regenerated on every seed run (the project prints them once to STDOUT, like the
+dev token banner):
+
+- **TOTP backup codes.** BCrypt-hashed in the DB — the plaintext is gone after
+  the operator copies them off the one-shot enrollment screen. The seed
+  regenerates 10 fresh codes via `Auth::BackupCodeRegenerator` and prints them
+  inside a "save these now" banner.
+- **The dev `ApiToken` plaintext.** HMAC+pepper-digested in the DB — the
+  plaintext is gone after the operator copies it off the seed's mint banner.
+  The seed mints a fresh token and prints it inside the existing "save this
+  now" banner.
+
+If the `runtime_state` block is absent in credentials, the seed runs exactly as
+it did before the capture/restore mechanism landed (bare minimum: owner User,
+AppSettings, dev `ApiToken`, claude-mcp Doorkeeper application, Platform
+rows).
+
 ### Capture the dev token
 
 The seed prints the dev token plaintext to STDOUT inside a banner:

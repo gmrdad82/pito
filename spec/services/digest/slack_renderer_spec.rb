@@ -14,7 +14,6 @@ RSpec.describe ::Digest::SlackRenderer do
       videos_imported: build_section(sections.fetch(:videos_imported, []), label: "videos imported"),
       videos_updated: build_section(sections.fetch(:videos_updated, []), label: "videos updated"),
       footage_imported: build_section(sections.fetch(:footage_imported, []), label: "footage imported"),
-      login_attempts: build_section(sections.fetch(:login_attempts, []), label: "login attempts"),
       notifications_open: build_section(sections.fetch(:notifications_open, []), label: "open notifications")
     )
   end

@@ -22,10 +22,13 @@ class SessionStaleSweeperJob < ApplicationJob
   queue_as :default
 
   # Sessions idle longer than this are swept. Mirrors the spec's
-  # "session older than X" instruction; 30 days lines up with the
-  # `Session::REMEMBER_ME_TTL` cookie window — a remember-me cookie
-  # expires on the same horizon, so the server-side row should not
-  # outlive it.
+  # "session older than X" instruction; 30 days is a generous upper
+  # bound for "this cookie almost certainly belongs to a closed
+  # browser or an abandoned device." Pre-2026-05-16 this number was
+  # also the `remember-me` cookie TTL; the remember-me checkbox + the
+  # `sessions.remember` column it threaded into were dropped on
+  # 2026-05-16, but the 30-day horizon for stale sweeping reads as
+  # the same operational bound and stays.
   STALE_AFTER = 30.days
 
   def perform

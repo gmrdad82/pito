@@ -155,7 +155,12 @@ jobs:
         run: bundle exec rake parallel:create parallel:load_schema
 
       - name: Run RSpec
-        run: bundle exec parallel_rspec spec/
+        # Pass `--options /dev/null` to bypass the repo's `.rspec` file, which
+        # locally excludes `type:system` specs via `--tag ~type:system` to keep
+        # the default `bin/test` run fast. CI must run the FULL suite including
+        # system specs, so we ignore `.rspec` entirely and re-add the only flag
+        # it carried (`--require spec_helper`) explicitly.
+        run: bundle exec parallel_rspec spec/ -- --options /dev/null --require spec_helper
 
   cli:
     needs: changes

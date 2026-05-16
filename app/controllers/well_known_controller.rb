@@ -36,6 +36,11 @@ class WellKnownController < ApplicationController
       token_endpoint: "#{app_base}/oauth/token",
       revocation_endpoint: "#{app_base}/oauth/revoke",
       introspection_endpoint: "#{app_base}/oauth/introspect",
+      # RFC 7591 §2 — Dynamic Client Registration endpoint. The
+      # Claude CLI's MCP SDK refuses to authenticate against an AS
+      # that does not advertise this field. Backed by
+      # `Oauth::RegistrationsController#create`.
+      registration_endpoint: "#{app_base}/oauth/register",
       scopes_supported: Scopes::ALL,
       response_types_supported: [ "code" ],
       grant_types_supported: [ "authorization_code", "refresh_token" ],

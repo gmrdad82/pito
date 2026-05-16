@@ -115,4 +115,85 @@ RSpec.describe "db/seeds.rb", type: :model do
       expect(User.where(username: "owner").count).to eq(1)
     end
   end
+
+  # Phase 32 follow-up (2026-05-16). Claude Desktop's MCP custom
+  # connector is an OAuth client. The seed registers a `claude-mcp`
+  # Doorkeeper application so an operator's first `db:seed` run prints
+  # the client_id + client_secret + redirect_uri block, and subsequent
+  # runs find the existing row by name and stay idempotent.
+  describe "Claude Desktop OAuth application seed" do
+    before do
+      OauthApplication.where(name: "claude-mcp").delete_all
+    end
+
+    it "creates a Doorkeeper application named claude-mcp with the Claude callback URI" do
+      Rails.application.load_seed
+      app = OauthApplication.find_by(name: "claude-mcp")
+      expect(app).not_to be_nil
+      expect(app.redirect_uri).to eq("https://claude.ai/api/mcp/auth_callback")
+    end
+
+    it "registers the application as confidential with all available scopes" do
+      Rails.application.load_seed
+      app = OauthApplication.find_by(name: "claude-mcp")
+      expect(app.confidential?).to be(true)
+      expect(app.scopes.to_s.split(" ")).to match_array(Scopes::ALL)
+    end
+
+    it "is idempotent — a second seed run does NOT duplicate the row" do
+      Rails.application.load_seed
+      expect(OauthApplication.where(name: "claude-mcp").count).to eq(1)
+      expect { Rails.application.load_seed }.not_to change { OauthApplication.where(name: "claude-mcp").count }
+    end
+  end
+
+  # Phase 32 follow-up (2026-05-16). Runtime-state restore branch —
+  # `db/seeds.rb` reads `Rails.application.credentials.runtime_state`
+  # (when present) and restores TOTP enrollment, webhook rows, and
+  # Doorkeeper applications. When the block is absent, the seed
+  # behaves exactly as the dev-token + claude-mcp + platforms seed
+  # blocks above.
+  #
+  # Placeholder pending blocks — bodies fill in after the master
+  # agent confirms the manual playbook lands as designed.
+  describe "runtime_state restore branch" do
+    describe "with credentials.runtime_state present" do
+      it "restores the TOTP seed + enabled_at onto User.first" do
+        pending "validated manually first"
+        raise "pending placeholder"
+      end
+
+      it "regenerates 10 fresh backup codes and prints them once " \
+         "(the captured payload has no plaintext to restore)" do
+        pending "validated manually first"
+        raise "pending placeholder"
+      end
+
+      it "restores the Discord + Slack NotificationDeliveryChannel rows " \
+         "with yes/no flags converted back to Ruby booleans" do
+        pending "validated manually first"
+        raise "pending placeholder"
+      end
+
+      it "restores OauthApplication rows by uid (and the captured " \
+         "claude-mcp row pre-empts the seed's own create branch)" do
+        pending "validated manually first"
+        raise "pending placeholder"
+      end
+
+      it "is idempotent — a second seed run on the same captured state " \
+         "leaves the DB unchanged" do
+        pending "validated manually first"
+        raise "pending placeholder"
+      end
+    end
+
+    describe "with credentials.runtime_state absent" do
+      it "is a no-op — the existing dev token + claude-mcp + platform " \
+         "seeds run unchanged" do
+        pending "validated manually first"
+        raise "pending placeholder"
+      end
+    end
+  end
 end

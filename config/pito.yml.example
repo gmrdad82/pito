@@ -1,0 +1,36 @@
+# Pito install-level configuration.
+#
+# Copy to `config/pito.yml` and edit. The file is gitignored — these
+# values are operator-level config, not secrets (secrets live in
+# `Rails.application.credentials` per CLAUDE.md hard rules).
+#
+# Loaded once at boot by `config/initializers/pito_config.rb` and exposed
+# as `Rails.application.config.x.pito.<key>`. Changes require a Puma
+# restart to take effect.
+#
+# Manage via the `pito:config:*` rake tasks instead of editing by hand:
+#
+#   bin/rails pito:config:show
+#   bin/rails pito:config:max_panes:get
+#   bin/rails pito:config:max_panes:set[5]
+#   bin/rails pito:config:pane_title_length:get
+#   bin/rails pito:config:pane_title_length:set[18]
+#   bin/rails pito:config:timezone:get
+#   bin/rails pito:config:timezone:set[Europe/Bucharest]
+
+# How many panes a workspace page (channels, videos) can render
+# side-by-side. Integer; min 1, max 10. Default: 3.
+max_panes: 3
+
+# Maximum length (in characters) of a pane title before it is
+# truncated. Integer; min 6, max 50. Default: 14.
+pane_title_length: 14
+
+# Install-level timezone. Used by the calendar (CalendarEntry seeds),
+# game release-date rendering, and milestone-rule scheduling. Must be
+# a valid IANA timezone name (`Europe/Bucharest`, `America/Los_Angeles`,
+# `UTC`, etc.). Default: UTC.
+#
+# Per-user display timezone is a different setting (lives on the user
+# row, written by the `timezone-detect` Stimulus controller).
+timezone: UTC

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_15_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_16_180000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -68,11 +68,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_15_000000) do
   create_table "app_settings", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "key"
-    t.boolean "keyboard_navigation_enabled", default: true, null: false
-    t.string "timezone", default: "UTC", null: false
+    t.boolean "reindex_running", default: false, null: false
+    t.datetime "reindex_started_at"
     t.datetime "updated_at", null: false
     t.text "value"
-    t.boolean "voyage_index_project_notes", default: false, null: false
     t.index ["key"], name: "index_app_settings_on_key", unique: true
   end
 
@@ -90,24 +89,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_15_000000) do
     t.index ["created_at"], name: "index_auth_audit_logs_on_created_at"
     t.index ["source_surface"], name: "index_auth_audit_logs_on_source_surface"
     t.index ["target_type", "target_id"], name: "index_auth_audit_logs_on_target_type_and_target_id"
-  end
-
-  create_table "blocked_locations", force: :cascade do |t|
-    t.integer "attempt_count", default: 0, null: false
-    t.datetime "blocked_at", null: false
-    t.bigint "blocked_by_user_id", null: false
-    t.datetime "created_at", null: false
-    t.string "fingerprint_hash", limit: 64, null: false
-    t.string "ip_prefix", null: false
-    t.datetime "last_attempt_at"
-    t.text "reason"
-    t.integer "source_surface", default: 0, null: false
-    t.datetime "unblocked_at"
-    t.bigint "unblocked_by_user_id"
-    t.datetime "updated_at", null: false
-    t.index ["blocked_by_user_id"], name: "index_blocked_locations_on_blocked_by_user_id"
-    t.index ["fingerprint_hash", "ip_prefix"], name: "index_blocked_locations_unique_pair", unique: true
-    t.index ["unblocked_at"], name: "index_blocked_locations_on_unblocked_at"
   end
 
   create_table "bulk_operation_items", force: :cascade do |t|
@@ -523,37 +504,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_15_000000) do
     t.index ["status", "created_at"], name: "index_import_jobs_on_status_and_created_at"
   end
 
-  create_table "login_attempts", force: :cascade do |t|
-    t.bigint "approved_by_user_id"
-    t.string "browser"
-    t.datetime "created_at", null: false
-    t.citext "email_attempted"
-    t.string "fingerprint_hash", limit: 64, null: false
-    t.string "geo_city"
-    t.string "geo_country", limit: 2
-    t.string "geo_region"
-    t.inet "ip", null: false
-    t.string "ip_prefix", null: false
-    t.bigint "notification_id"
-    t.string "os"
-    t.integer "reason", null: false
-    t.datetime "resolved_at"
-    t.integer "result", null: false
-    t.bigint "session_id"
-    t.datetime "updated_at", null: false
-    t.string "user_agent", limit: 1024, null: false
-    t.bigint "user_id"
-    t.index ["approved_by_user_id"], name: "index_login_attempts_on_approved_by_user_id"
-    t.index ["created_at"], name: "index_login_attempts_on_created_at"
-    t.index ["email_attempted"], name: "index_login_attempts_on_email_attempted"
-    t.index ["fingerprint_hash", "ip_prefix"], name: "index_login_attempts_on_fp_and_prefix"
-    t.index ["fingerprint_hash"], name: "index_login_attempts_on_fingerprint_hash"
-    t.index ["notification_id"], name: "index_login_attempts_on_notification_id"
-    t.index ["result"], name: "index_login_attempts_on_result"
-    t.index ["session_id"], name: "index_login_attempts_on_session_id"
-    t.index ["user_id"], name: "index_login_attempts_on_user_id"
-  end
-
   create_table "milestone_rules", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.bigint "created_by_user_id"
@@ -597,7 +547,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_15_000000) do
     t.string "kind", null: false
     t.datetime "last_validated_at"
     t.datetime "updated_at", null: false
-    t.text "webhook_url", null: false
+    t.text "webhook_url"
     t.index ["kind"], name: "index_notification_delivery_channels_on_kind", unique: true
   end
 
@@ -766,18 +716,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_15_000000) do
   end
 
   create_table "sessions", force: :cascade do |t|
-    t.datetime "approval_required_until"
     t.datetime "created_at", null: false
     t.inet "ip"
     t.datetime "last_activity_at"
-    t.boolean "remember", default: false, null: false
     t.datetime "revoked_at"
     t.integer "state", default: 0, null: false
     t.string "token_digest", null: false
     t.datetime "updated_at", null: false
     t.text "user_agent"
     t.bigint "user_id", null: false
-    t.index ["approval_required_until"], name: "index_sessions_on_approval_required_until"
     t.index ["state"], name: "index_sessions_on_state"
     t.index ["token_digest"], name: "index_sessions_on_token_digest", unique: true
     t.index ["user_id"], name: "index_sessions_on_user_id"
@@ -827,19 +774,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_15_000000) do
     t.bigint "user_id", null: false
     t.index ["used_at"], name: "index_totp_backup_codes_on_used_at"
     t.index ["user_id"], name: "index_totp_backup_codes_on_user_id"
-  end
-
-  create_table "trusted_locations", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.string "fingerprint_hash", limit: 64, null: false
-    t.datetime "first_seen_at", null: false
-    t.string "ip_prefix", null: false
-    t.datetime "last_seen_at", null: false
-    t.datetime "updated_at", null: false
-    t.bigint "user_id", null: false
-    t.index ["last_seen_at"], name: "index_trusted_locations_on_last_seen_at"
-    t.index ["user_id", "fingerprint_hash", "ip_prefix"], name: "index_trusted_locations_unique_triple", unique: true
-    t.index ["user_id"], name: "index_trusted_locations_on_user_id"
   end
 
   create_table "users", force: :cascade do |t|
@@ -1242,8 +1176,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_15_000000) do
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "api_tokens", "users"
   add_foreign_key "auth_audit_logs", "users", column: "acting_user_id"
-  add_foreign_key "blocked_locations", "users", column: "blocked_by_user_id", on_delete: :restrict
-  add_foreign_key "blocked_locations", "users", column: "unblocked_by_user_id", on_delete: :nullify
   add_foreign_key "bulk_operation_items", "bulk_operations"
   add_foreign_key "bulk_operation_items", "videos"
   add_foreign_key "bundle_members", "bundles", on_delete: :cascade
@@ -1277,10 +1209,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_15_000000) do
   add_foreign_key "games", "genres", column: "primary_genre_id", on_delete: :nullify
   add_foreign_key "import_jobs", "channels", on_delete: :cascade
   add_foreign_key "import_jobs", "users", column: "enqueued_by_id", on_delete: :restrict
-  add_foreign_key "login_attempts", "notifications"
-  add_foreign_key "login_attempts", "sessions"
-  add_foreign_key "login_attempts", "users"
-  add_foreign_key "login_attempts", "users", column: "approved_by_user_id", on_delete: :nullify
   add_foreign_key "milestone_rules", "users", column: "created_by_user_id", on_delete: :nullify
   add_foreign_key "notes", "projects"
   add_foreign_key "notifications", "calendar_entries", column: "source_calendar_entry_id", on_delete: :cascade
@@ -1300,7 +1228,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_15_000000) do
   add_foreign_key "top_videos_windows", "channels", on_delete: :cascade
   add_foreign_key "top_videos_windows", "videos", on_delete: :cascade
   add_foreign_key "totp_backup_codes", "users"
-  add_foreign_key "trusted_locations", "users"
   add_foreign_key "video_change_logs", "users", column: "changed_by_user_id", on_delete: :nullify
   add_foreign_key "video_change_logs", "videos", on_delete: :cascade
   add_foreign_key "video_chapters", "videos", on_delete: :cascade

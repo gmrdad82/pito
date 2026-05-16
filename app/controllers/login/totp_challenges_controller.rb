@@ -1,8 +1,8 @@
-# Phase 25 — 01e. TOTP gate on the new-location login flow.
+# Post-password TOTP gate.
 #
-# After `SessionsController#create` decides the (fingerprint, ip_prefix)
-# pair is new AND `Login::ChallengesController` routes to the 2FA path,
-# the user lands here. Two inputs:
+# After `SessionsController#create` validates the password for a user
+# with TOTP enabled, it stashes a pre-auth marker and redirects here.
+# Two inputs:
 #
 #   - 6-digit code from any TOTP authenticator app.
 #   - or an 8-char backup code (fallback when the user does not have
@@ -10,20 +10,17 @@
 #
 # Success path:
 #
-#   - Activates the session via `Auth::SessionActivator` with
-#     `reason: :new_location_2fa_passed`. The activator handles
-#     trusted-location upsert + LoginAttempt write.
+#   - Activates the session via `Auth::SessionActivator`.
 #   - Rotates the session token (LD-12) via `reset_session` and a
 #     fresh cookie. The pre-auth marker is cleared on success.
-#   - Pending-approval flow is bypassed entirely — 2FA success is
-#     the strongest signal we have that the user is who they say.
 #
 # Failure path:
 #
-#   - Writes a `LoginAttempt` row with `reason: :twofa_failed`.
-#     Renders 422 with the generic `login failed.` flash (LD-14).
+#   - Renders 422 with the generic `login failed.` flash (LD-14).
 #   - The pre-auth marker survives so the user can retry within the
-#     marker's 10-minute TTL.
+#     marker's 10-minute TTL. The cookie nonce rotates on every fail
+#     (F8) so a stolen cookie can do exactly one failed attempt
+#     before being kicked back to /login.
 #
 # Auth: explicitly `allow_anonymous` — the user has NOT minted a
 # session yet. The pre-auth marker is the only credential carried at
@@ -35,23 +32,19 @@ class Login::TotpChallengesController < ApplicationController
 
   # GET /login/totp
   def show
-    # 2FA must be on. If the user is in the new-location flow but
-    # never enrolled, push them back to the challenge page so they
-    # can pick `[ask for approval]`. The early-return guard mirrors
-    # the matching `create` action — it short-circuits any view
-    # render that future edits might layer on top, preventing a
-    # DoubleRenderError if more code lands after the redirect.
     unless @pre_auth_user.totp_enabled?
-      redirect_to login_challenge_path,
+      clear_pre_auth_marker
+      redirect_to login_path,
                   alert: "2FA is not enabled for this account."
-      return # rubocop:disable Style/RedundantReturn
+      nil
     end
   end
 
   # POST /login/totp
   def create
     unless @pre_auth_user.totp_enabled?
-      redirect_to login_challenge_path,
+      clear_pre_auth_marker
+      redirect_to login_path,
                   alert: "2FA is not enabled for this account."
       return
     end
@@ -62,7 +55,6 @@ class Login::TotpChallengesController < ApplicationController
     # failed." copy — same shape as a wrong-code failure so the
     # attacker cannot distinguish "nonce expired" from "code wrong".
     unless valid_nonce?
-      log_failed_attempt
       flash.now[:alert] = "login failed."
       render :show, status: :unprocessable_content
       return
@@ -84,7 +76,6 @@ class Login::TotpChallengesController < ApplicationController
       )
       activate_and_redirect
     else
-      log_failed_attempt
       # P25 F8 — rotate the nonce on every failed TOTP submit. Mint a
       # fresh nonce, write it to cache + the cookie, consuming the
       # old one. A stolen cookie can do exactly ONE failed attempt
@@ -105,11 +96,6 @@ class Login::TotpChallengesController < ApplicationController
   end
 
   def try_backup_code(code)
-    # Backup codes are 8 chars from the safe alphabet — never 6 pure
-    # digits — so we only fall through to backup when the input fails
-    # the TOTP shape OR when the TOTP verifier returns `:invalid`.
-    # Either way, the consumer is the second attempt; on `:ok` it
-    # stamps `used_at` and returns truthy.
     Auth::BackupCodeConsumer.call(user: @pre_auth_user, code: code) == :ok
   end
 
@@ -121,20 +107,12 @@ class Login::TotpChallengesController < ApplicationController
     # pre-auth phase.
     reset_session
 
-    fingerprint_hash = @pre_auth_marker[:fingerprint_hash]
-    ip_prefix        = @pre_auth_marker[:ip_prefix]
-    remember         = @pre_auth_marker[:remember].to_s == "yes"
-
     session_record, plaintext = Auth::SessionActivator.call(
       user: @pre_auth_user,
-      request: request,
-      fingerprint_hash: fingerprint_hash,
-      ip_prefix: ip_prefix,
-      reason: :new_location_2fa_passed,
-      remember: remember
+      request: request
     )
 
-    write_session_cookie(plaintext, remember: remember)
+    write_session_cookie(plaintext)
     clear_pre_auth_marker
 
     audit("session.login.totp_success",
@@ -143,19 +121,6 @@ class Login::TotpChallengesController < ApplicationController
           ip: request.remote_ip)
 
     redirect_to(root_path, notice: "signed in.")
-  end
-
-  def log_failed_attempt
-    Auth::AttemptLogger.call(
-      request: request,
-      result: :failed,
-      reason: :twofa_failed,
-      user: @pre_auth_user,
-      username: @pre_auth_user.username
-    )
-  rescue StandardError => e
-    Rails.logger.warn("[Login::TotpChallengesController] AttemptLogger failed: #{e.class}: #{e.message}")
-    nil
   end
 
   def load_pre_auth_marker
@@ -184,8 +149,6 @@ class Login::TotpChallengesController < ApplicationController
     payload = raw.is_a?(Hash) ? raw.symbolize_keys : nil
     return nil if payload.nil?
     return nil if payload[:user_id].blank?
-    return nil if payload[:fingerprint_hash].blank?
-    return nil if payload[:ip_prefix].blank?
 
     expires_at = payload[:expires_at].to_i
     return nil if expires_at.positive? && expires_at <= Time.current.to_i
@@ -197,13 +160,12 @@ class Login::TotpChallengesController < ApplicationController
     cookies.delete(SessionsController::PRE_AUTH_COOKIE)
   end
 
-  def write_session_cookie(plaintext, remember:)
+  def write_session_cookie(plaintext)
     cookies.signed[Sessions::Authenticator::COOKIE_NAME] = {
       value: plaintext,
       httponly: true,
       same_site: :lax,
-      secure: !Rails.env.test?,
-      expires: remember ? Session::REMEMBER_ME_TTL.from_now : nil
+      secure: !Rails.env.test?
     }
   end
 

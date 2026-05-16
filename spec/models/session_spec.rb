@@ -1,7 +1,8 @@
 require "rails_helper"
 
-# Phase 12 — Step A. Phase 8 — tenant drop. Sessions are user-scoped
-# only; no `tenant_id` and no `unscoped` workaround in `create_for!`.
+# Post-Phase-25 rollback. Pending-approval state machine is gone;
+# remaining states are `active`, `expired`, `revoked` (enum value
+# `1`, formerly `pending_approval`, stays RESERVED).
 RSpec.describe Session, type: :model do
   describe "associations" do
     it { is_expected.to belong_to(:user) }
@@ -22,27 +23,28 @@ RSpec.describe Session, type: :model do
     let(:user) { create(:user) }
 
     it "returns the record and the plaintext exactly once" do
-      record, plaintext = Session.create_for!(user: user, ip: "10.0.0.5", user_agent: "ua", remember: false)
+      record, plaintext = Session.create_for!(user: user, ip: "10.0.0.5", user_agent: "ua")
       expect(record).to be_persisted
       expect(plaintext).to be_a(String).and have_attributes(length: a_value > 32)
       expect(record.token_digest).to eq(Pito::TokenDigest.call(plaintext))
     end
 
     it "stamps last_activity_at on creation" do
-      record, _ = Session.create_for!(user: user, ip: nil, user_agent: nil, remember: false)
+      record, _ = Session.create_for!(user: user, ip: nil, user_agent: nil)
       expect(record.last_activity_at).to be_within(2.seconds).of(Time.current)
     end
 
-    it "respects remember=true" do
-      record, _ = Session.create_for!(user: user, ip: nil, user_agent: nil, remember: true)
-      expect(record.remember?).to be true
+    # 2026-05-16 (sessions revamp v2). The public signature is fixed
+    # at (user:, ip:, user_agent:). The `remember:` kwarg + the
+    # `sessions.remember` column it threaded into are gone.
+    it "exposes the minimal keyword surface (user / ip / user_agent)" do
+      expect(Session.method(:create_for!).parameters.map(&:last)).to match_array(%i[user ip user_agent])
     end
 
-    it "does not pass a tenant: keyword" do
-      # Defense-in-depth: the public signature is fixed at
-      # (user:, ip:, user_agent:, remember:). Adding tenant: would
-      # surface an ArgumentError; the test asserts via `parameters`.
-      expect(Session.method(:create_for!).parameters.map(&:last)).to match_array(%i[user ip user_agent remember])
+    it "rejects a stray remember: keyword (the column is gone)" do
+      expect {
+        Session.create_for!(user: user, ip: nil, user_agent: nil, remember: true)
+      }.to raise_error(ArgumentError)
     end
   end
 
@@ -101,146 +103,48 @@ RSpec.describe Session, type: :model do
     end
   end
 
-  # Phase 25 — 01b (LD-6). Pending-approval state machine specs.
-  describe "Phase 25 — 01b state machine" do
-    describe "enum :state" do
-      it do
-        is_expected.to define_enum_for(:state).with_values(
-          active: 0,
-          pending_approval: 1,
-          expired: 2,
-          revoked: 3
-        ).with_prefix(:state)
-      end
-
-      it "defaults to :active on a fresh row" do
-        session = create(:session)
-        expect(session.state).to eq("active")
-      end
-
-      # Rails 8.1 regression guard. The `enum :state` declaration is
-      # paired with `attribute :state, :integer` so the column type is
-      # locked ahead of the enum macro. Without that pairing, Rails
-      # 8.1's enum type inference can fail under autoload races /
-      # bootsnap cache and raise
-      # `Undeclared attribute type for enum 'state' in Session`. The
-      # spec asserts the explicit type pin so a future cleanup that
-      # drops the `attribute :state, :integer` line fails LOUDLY here
-      # before the production boot path discovers the same break.
-      it "pins :state to the :integer attribute type" do
-        expect(Session.attribute_types["state"].type).to eq(:integer)
-      end
+  describe "enum :state" do
+    it "defines the post-rollback enum (active / expired / revoked)" do
+      expect(Session.states).to eq("active" => 0, "expired" => 2, "revoked" => 3)
     end
 
-    describe "scope :pending" do
-      it "returns pending_approval rows regardless of expiry window" do
-        active = create(:session)
-        pending = create(:session, :pending)
-        expired_pending = create(:session, :expired_pending)
-        expect(Session.pending).to include(pending, expired_pending)
-        expect(Session.pending).not_to include(active)
-      end
+    it "defaults to :active on a fresh row" do
+      session = create(:session)
+      expect(session.state).to eq("active")
     end
 
-    describe "scope :expired_pending" do
-      it "returns only pending rows whose approval_required_until is in the past" do
-        pending = create(:session, :pending)
-        expired_pending = create(:session, :expired_pending)
-        expect(Session.expired_pending).to include(expired_pending)
-        expect(Session.expired_pending).not_to include(pending)
-      end
+    # Rails 8.1 regression guard. The `enum :state` declaration is
+    # paired with `attribute :state, :integer` so the column type is
+    # locked ahead of the enum macro. Without that pairing, Rails
+    # 8.1's enum type inference can fail under autoload races /
+    # bootsnap cache and raise
+    # `Undeclared attribute type for enum 'state' in Session`.
+    it "pins :state to the :integer attribute type" do
+      expect(Session.attribute_types["state"].type).to eq(:integer)
     end
 
-    describe "scope :pending_within_window" do
-      it "returns only pending rows whose window is still in the future" do
-        pending = create(:session, :pending)
-        expired_pending = create(:session, :expired_pending)
-        expect(Session.pending_within_window).to include(pending)
-        expect(Session.pending_within_window).not_to include(expired_pending)
-      end
+    it "reserves value 1 (the dropped pending_approval state) so it cannot collide with future kinds" do
+      expect(Session.states.values).not_to include(1)
     end
+  end
 
-    describe ".create_pending!" do
-      let(:user) { create(:user) }
-
-      it "creates a row in :pending_approval with the 10-minute window" do
-        record, plaintext = Session.create_pending!(user: user, ip: "1.2.3.4", user_agent: "ua")
-        expect(record).to be_persisted
-        expect(plaintext).to be_a(String)
-        expect(record.state_pending_approval?).to be true
-        expect(record.approval_required_until).to be_within(2.seconds).of(Session::PENDING_APPROVAL_TTL.from_now)
-      end
+  describe "scope :active_sessions" do
+    it "returns active, non-revoked rows" do
+      active = create(:session)
+      expired = create(:session, :expired)
+      revoked = create(:session, :revoked_state)
+      expect(Session.active_sessions).to include(active)
+      expect(Session.active_sessions).not_to include(expired, revoked)
     end
+  end
 
-    describe "#pending_within_window?" do
-      it "is true for a fresh pending row" do
-        expect(create(:session, :pending).pending_within_window?).to be true
-      end
-
-      it "is false for an expired-pending row" do
-        expect(create(:session, :expired_pending).pending_within_window?).to be false
-      end
-
-      it "is false for an :active row" do
-        expect(create(:session).pending_within_window?).to be false
-      end
-    end
-
-    describe "#expired_pending?" do
-      it "is true for a pending row past its window" do
-        expect(create(:session, :expired_pending).expired_pending?).to be true
-      end
-
-      it "is false for an in-window pending row" do
-        expect(create(:session, :pending).expired_pending?).to be false
-      end
-    end
-
-    describe "#expire_if_overdue!" do
-      it "flips pending → expired iff past approval_required_until" do
-        session = create(:session, :expired_pending)
-        expect { session.expire_if_overdue! }.to change { session.reload.state }.from("pending_approval").to("expired")
-      end
-
-      it "is a no-op for an in-window pending row" do
-        session = create(:session, :pending)
-        expect { session.expire_if_overdue! }.not_to change { session.reload.state }
-      end
-
-      it "is idempotent on an already-expired row" do
-        session = create(:session, :expired)
-        expect { session.expire_if_overdue! }.not_to change { session.reload.state }
-      end
-    end
-
-    describe "#transition_to_active!" do
-      it "promotes a pending_approval row to :active and clears the window" do
-        session = create(:session, :pending)
-        session.transition_to_active!
-        session.reload
-        expect(session.state).to eq("active")
-        expect(session.approval_required_until).to be_nil
-      end
-
-      it "raises on an expired row" do
-        session = create(:session, :expired)
-        expect { session.transition_to_active! }.to raise_error(ActiveRecord::RecordInvalid)
-      end
-
-      it "raises on a revoked row" do
-        session = create(:session, :revoked_state)
-        expect { session.transition_to_active! }.to raise_error(ActiveRecord::RecordInvalid)
-      end
-    end
-
-    describe "#revoke!" do
-      it "sets state to :revoked alongside revoked_at" do
-        session = create(:session)
-        session.revoke!
-        session.reload
-        expect(session.state).to eq("revoked")
-        expect(session.revoked_at).to be_present
-      end
+  describe "#revoke! sets enum state too" do
+    it "sets state to :revoked alongside revoked_at" do
+      session = create(:session)
+      session.revoke!
+      session.reload
+      expect(session.state).to eq("revoked")
+      expect(session.revoked_at).to be_present
     end
   end
 end

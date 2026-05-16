@@ -12,8 +12,8 @@ RSpec.describe "games/platform_ownerships/edit.html.erb", type: :view do
   before do
     game.platforms_available << ps5
     assign(:game, game)
-    assign(:ownerships_by_platform,
-           { ps5 => game.game_platform_ownerships.new(platform: ps5) })
+    assign(:platforms, [ ps5 ])
+    assign(:owned_platform_ids, [])
     assign(:form_error, nil)
   end
 
@@ -35,9 +35,9 @@ RSpec.describe "games/platform_ownerships/edit.html.erb", type: :view do
       expect(rendered).to match(/\[<span class="bl">cancel<\/span>\]/)
     end
 
-    it "renders the per-platform ownership heading" do
+    it "renders the ownership heading" do
       render
-      expect(rendered).to include("per-platform ownership")
+      expect(rendered).to include("ownership")
     end
 
     it "renders the editor component fieldset" do

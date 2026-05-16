@@ -116,7 +116,7 @@ RSpec.describe "Sessions::AuthConcern", type: :request do
 
     it "pins Current.session and Current.user, and touches the session" do
       record, _plaintext = Session.create_for!(
-        user: user, ip: "127.0.0.1", user_agent: "RspecAgent", remember: false
+        user: user, ip: "127.0.0.1", user_agent: "RspecAgent"
       )
       result = Sessions::Authenticator::Result.new(session: record, reason: nil)
       allow(Sessions::Authenticator).to receive(:call).and_return(result)

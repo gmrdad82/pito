@@ -1,51 +1,82 @@
 class SettingsController < ApplicationController
-  include RecentTotpVerification
+  # 2026-05-16 (sessions revamp v2). The Security pane now renders the
+  # sessions table INLINE. Column sort is driven by `?sessions_sort=…`
+  # + `?sessions_dir=…` on `/settings` itself (the standalone
+  # `/settings/sessions` index is gone). The allowlist mirrors the
+  # rendered column shape (`user_agent`, `last_activity`). The `ip`
+  # value is rendered as an inline tooltip badge inside the
+  # user-agent cell — it is not sortable, so it is not in the
+  # allowlist. `active` / `remember` columns were dropped from the
+  # table.
+  SESSIONS_ALLOWED_SORTS = {
+    "last_activity" => "last_activity_at",
+    "user_agent"    => "user_agent"
+  }.freeze
+  SESSIONS_ALLOWED_DIRS = %w[asc desc].freeze
+  SESSIONS_DEFAULT_SORT = "last_activity"
+  SESSIONS_DEFAULT_DIR  = "desc"
 
-  GENERAL_KEYS = %w[max_panes pane_title_length].freeze
+  # Phase 29 (settings refactor) — `/settings` is a 3-row dashboard.
+  # Phase 32 follow-up (2026-05-16) — Row 2 simplification.
+  #
+  # Row 1
+  #   Left  : profile inline form (username + password).
+  #   Right : bracketed links to security modals (2FA, sessions, blocks).
+  # Row 2
+  #   Left  : Discord webhook pane.
+  #   Right : Slack webhook pane.
+  # Row 3   : Stack pane (db / search / storage / notes) spanning both
+  #           columns via `.pane--wide`.
+  #
+  # The dropped UI/UX, Workspace, and Voyage panes are gone — workspace
+  # knobs (`max_panes`, `pane_title_length`, `timezone`) live in
+  # `config/pito.yml` now (see `config/initializers/pito_config.rb`);
+  # theme persistence moved to localStorage; keyboard navigation is
+  # always-on.
+  #
+  # The OAuth-applications + tokens management UI is also gone — pito
+  # is single-user, the operator manages those from the shell via
+  # `bin/rails pito:oauth_apps:*` and `bin/rails pito:tokens:*`. The
+  # Doorkeeper handshake endpoints (`/oauth/authorize`,
+  # `/oauth/token`, `/oauth/revoke`, `/oauth/introspect`) stay live
+  # for the Claude Desktop OAuth client.
+  #
+  # `update_theme` is gone too — the route is dropped from `routes.rb`.
+  #
+  # `update` is no longer a multi-section dispatcher; the only surviving
+  # legacy caller (the JSON-PATCH path some scripted setups still target)
+  # is treated as a no-op (redirect with notice) so we never 500. Real
+  # writes flow through the focused per-resource controllers
+  # (`Settings::UserController`, the webhook controllers, the
+  # time-zone controller).
 
   def index
-    @settings = GENERAL_KEYS.index_with { |key| AppSetting.get(key) }
-    @max_panes_default = ENV.fetch("MAX_PANES", 3).to_i
-    @pane_title_length_default = ENV.fetch("PANE_TITLE_LENGTH", 14).to_i
-    @theme = AppSetting.get("theme") || "auto"
-    # 2026-05-11 — keyboard-navigation master toggle. Stored as a Boolean
-    # column on the singleton AppSetting row (NOT NULL, default true).
-    # When no row exists yet we fall back to true so the install starts
-    # with the feature enabled, matching the column default. The view
-    # renders a yes/no radio pair; the layout surfaces the setting to
-    # Stimulus via `data-keyboard-navigation-enabled` on `<body>`.
-    @keyboard_navigation_enabled = AppSetting.keyboard_navigation_enabled?
-    @voyage_configured = AppSetting.voyage_configured?
-    @voyage_indexing_project_notes = AppSetting.voyage_indexing_project_notes?
-    # Phase 3 — Step C: tokens pane shows a count + link to the dedicated page.
-    @active_tokens_count = ApiToken.active.count
-    # Phase 12 polish (2026-05-10) — combined OAuth/tokens pane renders
-    # the active + revoked counts on the same compact-prose line.
-    @revoked_tokens_count = ApiToken.revoked.count
-    # Phase 12 — Step A: sessions pane (active session count for the user).
+    # Profile pane.
+    @user = Current.user
+
+    # Security pane — counters surfaced inside the modal launchers.
+    # Post-Phase-25 rollback: the auto-block list is gone, so the
+    # blocks counter is dropped.
+    @twofa_enabled = Current.user&.totp_enabled? || false
     @active_sessions_count = Current.user.present? ? Current.user.sessions.where(revoked_at: nil).count : 0
-    # Phase 12 — Step B: oauth applications pane (registered app count).
-    @oauth_applications_count = defined?(OauthApplication) ? OauthApplication.count : 0
-    # Phase 24 — Google connection ivars (`@youtube_connections`,
-    # `@youtube_connection`, `@channel_labels`, `@channels_count`) are
-    # gone. The Google card moved to the new /channels banner — settings
-    # goes back to its lane (app-wide preferences only).
-    #
-    # Phase 29 — Unit A1. YouTube / Google OAuth credentials moved back
-    # OUT of the AppSetting singleton and into
-    # `Rails.application.credentials.google_oauth`. The YouTube
-    # credentials edit pane is removed entirely — Google / YouTube
-    # config is deploy-time credentials config now, no web surface.
-    # Phase 26 — 01b/01c. Slack + Discord panes each read the
-    # install-level `notification_delivery_channels` row (nil when no
-    # row exists yet — pane renders with empty URL + unchecked boxes).
-    # 2026-05-10 follow-up — Slack + Discord panes are no longer on
-    # the /settings index page (user-locked customize / integrations
-    # / stack restructure dropped them); the ivars remain populated
-    # so the partials can still be rendered by other surfaces and
-    # the view specs for the partials keep working in isolation.
+
+    # Inline sessions table — only active rows surface in the UI.
+    # Revoked rows stay in the DB for audit (operator can list via
+    # `bin/rails pito:sessions:list[all]`).
+    @sessions_sort = sanitized_sessions_sort_key
+    @sessions_dir  = sanitized_sessions_dir
+    @sessions =
+      if Current.user.present?
+        Current.user.sessions.active_sessions.order(sessions_sort_clause)
+      else
+        Session.none
+      end
+
+    # Webhook panes.
     @slack_webhook = NotificationDeliveryChannel.find_record_for("slack")
     @discord_webhook = NotificationDeliveryChannel.find_record_for("discord")
+
+    # Stack pane — same probe set the previous /settings exposed.
     begin
       @search_healthy = Search.engine.healthy?
       @search_stats = Search.engine.index_stats
@@ -53,66 +84,16 @@ class SettingsController < ApplicationController
       @search_healthy = false
       @search_stats = {}
     end
-    # 2026-05-10 follow-up — `stack` section ivars.
-    # `sql` pane reads Postgres connectivity + a few server-level
-    # facts (version, database name) so the operator sees at a glance
-    # whether the app is talking to the cluster it expects. `storage`
-    # pane reads the `pito-assets` volume (resolved via
-    # `Pito::AssetsRoot.root`). Both panes follow the same defensive
-    # rescue pattern as the search pane: any failure flips the status
-    # to "disconnected" / "unavailable" without exploding the request.
-    #
-    # 2026-05-11 follow-up — stack expansion. Adds:
-    #   * `@postgres_size_stats` — total user-table row count +
-    #     on-disk database size (bytes) for the `sql` pane.
-    #   * `@search_index_size_bytes` — aggregated Meilisearch
-    #     on-disk index size for the `search` pane.
-    #   * `@redis_status` — Redis connectivity + version + memory
-    #     + key count for the new `redis` pane (paired with
-    #     `storage` in row 2 of the stack section).
-    #   * `@storage_status` retained for `pito-assets`, and the
-    #     storage pane additionally surfaces the on-disk `docs/notes/`
-    #     directory via `@notes_volume_status`.
     @postgres_status = postgres_status_for_settings_pane
-    # 2026-05-11 (later 2) — per user direction: drop the
-    # version / database name / total rows / total size on disk
-    # surface from the `db` pane (Postgres half). The per-model
-    # breakdown table below remains the only Postgres surface.
-    # The matching ivars (`@postgres_size_stats`) and helpers
-    # (`postgres_size_stats_for_settings_pane`) are gone.
-    #
-    # Same direction drops the Redis version / memory / keys /
-    # persistence lines and the Meilisearch total-index-size row.
-    # The view now surfaces:
-    #   * Postgres: status badge + per-model breakdown table.
-    #   * Redis: status badge + Sidekiq breakdown table (grouped
-    #     header: successful + failed totals, then 5 live state
-    #     columns).
-    #   * Meilisearch: status badge + per-index table (index |
-    #     documents | size). The total-index-size summary line is
-    #     dropped; `@search_per_index_stats` replaces
-    #     `@search_index_size_bytes`.
     @redis_status = redis_status_for_settings_pane
     @search_per_index_stats = search_per_index_stats_for_settings_pane
     @storage_status = storage_status_for_settings_pane
     @notes_volume_status = notes_volume_status_for_settings_pane
-    # 2026-05-11 (later) — per-user direction on /settings:
-    #   * `sql` pane renamed to `db` (heading only — the on-disk
-    #     `sql` identifier stays nowhere on the wire, we never had
-    #     one).
-    #   * `db` pane now fences Postgres + Redis with a hairline,
-    #     mirroring the Meilisearch + Voyage embeddings pattern in
-    #     the `search` pane.
-    #   * `db` pane gains a per-model row + size breakdown table.
-    #   * `db` pane's Redis section gains a Sidekiq job-state
-    #     breakdown table.
-    #   * `storage` pane goes 2-column: `assets` (renamed from
-    #     `pito-assets`) on the left + `notes` on the right, with a
-    #     per-subcategory breakdown table in each column.
     @postgres_table_breakdown = postgres_table_breakdown_for_settings_pane
     @sidekiq_breakdown = sidekiq_breakdown_for_settings_pane
     @assets_breakdown = assets_breakdown_for_settings_pane
     @notes_breakdown = notes_breakdown_for_settings_pane
+    @voyage_configured = AppSetting.voyage_configured?
 
     respond_to do |format|
       format.html
@@ -120,163 +101,70 @@ class SettingsController < ApplicationController
     end
   end
 
-  # Phase B refinement (2026-05-04) — per-fieldset saves. Each fieldset on the
-  # Settings page submits its own form with a hidden `section` field. The
-  # action only touches the keys belonging to that section, leaving the others
-  # untouched. Without `section` (legacy callers, e.g. tests written before
-  # the refactor), we fall through to the original "update everything we
-  # see" behavior — preserves backward compatibility.
-  #
-  # Phase 24 — `youtube_oauth` section is dropped along with the rest of
-  # the Google card. Submitting `section=youtube_oauth` falls through to
-  # `update_legacy`, which silently no-ops on the dropped keys.
-  #
-  # Phase 29 — Unit A1. `section=youtube` is dropped — the YouTube
-  # credentials edit pane is gone (Google / YouTube config is
-  # deploy-time credentials now). A `section=youtube` PATCH falls
-  # through to `update_legacy` (no-op, redirects with the standard
-  # notice — never 500s). The `section=voyage` branch survives in
-  # slimmed form: it writes only the non-secret
-  # `voyage_index_project_notes` flag.
+  # Phase 29 (settings refactor) — legacy passthrough. The multi-section
+  # dispatcher is gone (no more `update_general` / `update_appearance`
+  # / `update_voyage`). Scripted PATCH callers still hitting `/settings`
+  # get a clean redirect + notice — no 500s, no silent writes.
   def update
-    case params[:section]
-    when "workspaces"
-      update_general
-    when "appearance"
-      update_appearance
-    when "voyage"
-      # 2026-05-11 — gate the Voyage flag write behind a fresh TOTP
-      # verification when 2FA is on. Read-only viewing of the
-      # /settings page is unchanged.
-      return unless require_recent_totp_if_enabled!(redirect_on_failure: settings_path)
-
-      result = update_voyage
-      if result.is_a?(String)
-        redirect_to settings_path, alert: result
-        return
-      end
-    else
-      update_legacy
-    end
-
     redirect_to settings_path, notice: "settings saved."
   end
 
-  def update_theme
-    theme = params[:theme]
-    if %w[light dark auto].include?(theme)
-      AppSetting.set("theme", theme)
-      head :ok
-    else
-      head :unprocessable_content
-    end
-  end
-
+  # Phase 32 follow-up (2026-05-16) — three-layer reindex lock.
+  # Layer 1 (DB flag) is enforced here BEFORE enqueueing. If the flag
+  # is set the controller short-circuits with an alert; no second job
+  # enqueues. Layer 2 (`sidekiq_options` in `ReindexAllJob`) is a no-op
+  # belt-and-suspenders for the future-Sidekiq-Enterprise case. The
+  # job's `ensure` block clears the flag (Layer 3 ties the UI to it).
   def reindex
+    if AppSetting.reindex_running?
+      redirect_to settings_path, alert: "reindex already in progress."
+      return
+    end
+
+    AppSetting.start_reindex!
     ReindexAllJob.perform_later
     redirect_to settings_path, notice: "reindex started."
   end
 
   private
 
-  def update_general
-    GENERAL_KEYS.each do |key|
-      value = params.dig(:settings, key).presence
-      AppSetting.set(key, value) if value
-    end
+  def sanitized_sessions_sort_key
+    SESSIONS_ALLOWED_SORTS.key?(params[:sessions_sort]) ? params[:sessions_sort] : SESSIONS_DEFAULT_SORT
   end
 
-  # ui / ux section (still wired with `section=appearance` on the wire
-  # for backward compatibility). Persists theme + keyboard_navigation_enabled
-  # in one submit. The keyboard toggle is a yes/no string at the boundary
-  # per the project's external-boolean rule; we convert to Boolean before
-  # writing to the singleton AppSetting row. Other values are ignored —
-  # the radio group can only ship "yes" or "no", but we stay defensive
-  # against scripted callers.
-  def update_appearance
-    theme = params.dig(:settings, :theme)
-    AppSetting.set("theme", theme) if %w[light dark auto].include?(theme)
-
-    raw_kbd = params.dig(:settings, :keyboard_navigation_enabled).to_s
-    if %w[yes no].include?(raw_kbd)
-      AppSetting.set_keyboard_navigation_enabled(raw_kbd == "yes")
-    end
+  def sanitized_sessions_dir
+    requested = params[:sessions_dir]&.downcase
+    SESSIONS_ALLOWED_DIRS.include?(requested) ? requested : SESSIONS_DEFAULT_DIR
   end
 
-  # Voyage fieldset — Phase 29 Unit A1 (slimmed). The Voyage API key
-  # moved back into `Rails.application.credentials.voyage`; the only
-  # surviving Settings-UI-managed control is the non-secret
-  # `voyage_index_project_notes` flag:
-  #
-  #   - `voyage_index_project_notes` ("yes" / "no"): per-target flag.
-  #     Only "yes" / "no" are honored — other values leave the flag
-  #     unchanged (matches the project's external-boolean rule).
-  #
-  # On a real change the method emits a `voyage_credentials_updated`
-  # audit row carrying `metadata["changed_fields"]` (column names
-  # only). The audit action stays active for the slimmed-pane flag
-  # write — it no longer represents a key write, just a flag write.
-  #
-  # Returns `nil` on success (or no-op when nothing changed). Returns
-  # an error string when the model rejects the save; the caller
-  # surfaces it via `flash[:alert]`.
-  def update_voyage
-    raw_flag = params.dig(:settings, :voyage_index_project_notes).to_s
-    return unless %w[yes no].include?(raw_flag)
-
-    if AppSetting.none?
-      AppSetting.set("pane_title_length", ENV.fetch("PANE_TITLE_LENGTH", 14).to_s)
-    end
-    setting = AppSetting.first
-
-    setting.voyage_index_project_notes = (raw_flag == "yes")
-    return if setting.changes.empty?
-
-    changed_fields = setting.changes.keys
-    saved = false
-    ActiveRecord::Base.transaction do
-      saved = setting.save
-      if saved
-        Auth::AuditLogger.call(
-          acting_user: Current.user,
-          source_surface: :web,
-          action: :voyage_credentials_updated,
-          target: setting,
-          metadata: { "changed_fields" => changed_fields }
-        )
-      end
-      raise ActiveRecord::Rollback unless saved
-    end
-
-    return nil if saved
-
-    setting.errors.full_messages.first || "Voyage settings invalid."
+  # `column` is looked up from `SESSIONS_ALLOWED_SORTS` (frozen
+  # allowlist) and `direction` is one of the two literal strings in
+  # `SESSIONS_ALLOWED_DIRS` — no user input ever reaches the SQL
+  # string. Secondary sort by `last_activity_at desc, created_at desc`
+  # keeps rows with equal primary-key values stable.
+  def sessions_sort_clause
+    column = SESSIONS_ALLOWED_SORTS.fetch(@sessions_sort)
+    direction = SESSIONS_ALLOWED_DIRS.include?(@sessions_dir) ? @sessions_dir : SESSIONS_DEFAULT_DIR
+    [
+      Arel.sql("#{column} #{direction}"),
+      Arel.sql("last_activity_at desc nulls last"),
+      Arel.sql("created_at desc")
+    ]
   end
 
-  # Legacy single-form behavior — preserved so callers without a section
-  # parameter still work (existing MCP-style or scripted PATCH callers).
-  # Phase 24 — the `update_oauth` branch is gone with the Google card;
-  # the legacy path now only routes general + appearance keys.
-  def update_legacy
-    update_general
-    update_appearance
-  end
-
-  # Public-safe subset of AppSetting values exposed to the JSON API. The
-  # pito CLI's `AppSettings` Rust struct binds to these three fields.
+  # Public-safe subset surfaced to the JSON API. The pito CLI's
+  # `AppSettings` Rust struct still binds to these three fields; the
+  # Rust crate is paused so we keep the contract intact with the
+  # config.x.pito values and a static `theme: "auto"` placeholder
+  # (theme is browser-local now, no server-side preference exists).
   def settings_json
     {
-      max_panes: (AppSetting.get("max_panes") || @max_panes_default).to_i,
-      pane_title_length: (AppSetting.get("pane_title_length") || @pane_title_length_default).to_i,
-      theme: @theme
+      max_panes: Rails.application.config.x.pito.max_panes,
+      pane_title_length: Rails.application.config.x.pito.pane_title_length,
+      theme: "auto"
     }
   end
 
-  # 2026-05-10 — `sql` pane on the Settings index. Reads connectivity
-  # plus a couple of server-level facts (Postgres major version, the
-  # database name) so the operator confirms at a glance which cluster
-  # the app is talking to. `connected: false` flips the view into the
-  # red "disconnected" state without exposing connection details.
   def postgres_status_for_settings_pane
     conn = ActiveRecord::Base.connection
     db_config = ActiveRecord::Base.connection_db_config.configuration_hash
@@ -292,14 +180,6 @@ class SettingsController < ApplicationController
     { connected: false, adapter: "postgresql", database: nil, version: nil }
   end
 
-  # 2026-05-10 — `storage` pane on the Settings index. Reads the
-  # resolved `pito-assets` volume root from `Pito::AssetsRoot.root`
-  # and reports whether it exists + is writable. Surfaces the absolute
-  # path so the operator sees exactly which mount point the app is
-  # using. The volume may not exist yet on a greenfield install
-  # (Active Storage will lazily create the
-  # `<root>/active_storage/...` tree on first write) — that's the
-  # "present: no" state, not an error.
   def storage_status_for_settings_pane
     root = Pito::AssetsRoot.root
     present = File.directory?(root)
@@ -315,13 +195,6 @@ class SettingsController < ApplicationController
     { path: nil, present: false, writable: false, size_bytes: 0, file_count: 0 }
   end
 
-  # 2026-05-11 (later 2) — `search` pane per-index breakdown.
-  # Returns a list of rows shaped `{ label:, documents:, size_bytes: }`,
-  # one per non-test index. The display label drops the trailing
-  # `_development` / `_production` suffix so the pane reads as a
-  # logical index name (`channels`, `videos`, …) rather than the
-  # raw on-disk name. Sorted by documents DESC so the heavy hitters
-  # lead.
   def search_per_index_stats_for_settings_pane
     return [] unless Search.engine.respond_to?(:per_index_stats)
 
@@ -340,12 +213,6 @@ class SettingsController < ApplicationController
     []
   end
 
-  # 2026-05-11 — `redis` pane. Connects via `REDIS_URL` (the same
-  # value Sidekiq / cache_store use) and pulls a small set of stats
-  # out of `INFO`. The full INFO payload is hundreds of lines; we
-  # only need a handful. Defensive rescue so a paused / unreachable
-  # Redis flips the pane to `disconnected` without breaking the
-  # request.
   def redis_status_for_settings_pane
     url = ENV.fetch("REDIS_URL", "redis://127.0.0.1:64527/0")
     client = Redis.new(url: url, timeout: 0.5, reconnect_attempts: 0)
@@ -363,9 +230,6 @@ class SettingsController < ApplicationController
     { connected: false, version: nil, used_memory_human: nil, db_size: nil, persistence: nil }
   end
 
-  # Compact persistence summary for the `redis` pane. Prefers AOF
-  # when enabled, otherwise reports RDB. Returns nil when neither is
-  # active (Redis with `save ""` and AOF off).
   def redis_persistence_summary(info)
     aof_enabled = info["aof_enabled"].to_s == "1"
     return "aof" if aof_enabled
@@ -374,11 +238,6 @@ class SettingsController < ApplicationController
     nil
   end
 
-  # 2026-05-11 — `storage` pane on-disk stats for the notes volume.
-  # The notes volume is the in-repo `docs/notes/` directory (per
-  # CLAUDE.md the MCP `save_note` tool drops markdown there). The
-  # pane surfaces availability + size + file count; the operator
-  # doesn't need the path, hence no `path:` key on this hash.
   def notes_volume_status_for_settings_pane
     path = Rails.root.join("docs/notes")
     present = File.directory?(path)
@@ -393,11 +252,6 @@ class SettingsController < ApplicationController
     { present: false, writable: false, size_bytes: 0, file_count: 0 }
   end
 
-  # Cached recursive size + file count for a directory. The result
-  # is cached for 5 minutes so a large `pito-assets` tree (footage
-  # thumbnails etc.) doesn't slow down every settings render. Cache
-  # key is the absolute path string so multiple volumes share the
-  # cache cleanly.
   def directory_volume_stats(path)
     Rails.cache.fetch([ "settings/volume-stats", path.to_s ], expires_in: 5.minutes) do
       compute_directory_volume_stats(path)
@@ -424,25 +278,6 @@ class SettingsController < ApplicationController
     { size_bytes: 0, file_count: 0 }
   end
 
-  # 2026-05-11 — `db` pane per-model breakdown. The user direction
-  # asked for "how many channels, videos, projects, games,
-  # notifications, calendar namespaces with number of records and
-  # size". Six rows surface the domain tables that matter at a
-  # glance; the rest of the schema (analytics partitions, change
-  # logs, daily-summary rollups) stays out of this pane so it
-  # reads as the operator's mental model of the product, not a
-  # raw schema dump.
-  #
-  # Sort: by size_bytes DESC. On-disk size is the more useful
-  # signal here — a million-row stat table eclipses a few thousand
-  # channels in storage cost. Row count is a secondary tiebreaker.
-  # Cached for 5 minutes per table so the table-scan is cheap to
-  # repeat across requests.
-  #
-  # 2026-05-11 — per user direction the table iteration carries a
-  # third `display_label` value so the view can surface a friendly
-  # alias for `calendar_entries` (`calendar`). The other five
-  # tables read fine as-is so they pass through unchanged.
   POSTGRES_BREAKDOWN_MODELS = [
     [ "channels", "Channel", "channels" ],
     [ "videos", "Video", "videos" ],
@@ -463,11 +298,6 @@ class SettingsController < ApplicationController
   end
 
   def postgres_table_stats(table, class_name)
-    # Cache key bumped to v2 with the 2026-05-11 (later 2) stack
-    # refactor — the view now right-aligns the count + size columns
-    # via `class="num"`, so any cached payload from the prior shape
-    # still matches the {count:, size_bytes:} contract; the bump
-    # just shields against future tweaks to the helper output.
     Rails.cache.fetch([ "settings/pg-table-stats", "v2", table ], expires_in: 5.minutes) do
       compute_postgres_table_stats(table, class_name)
     end
@@ -475,11 +305,6 @@ class SettingsController < ApplicationController
     compute_postgres_table_stats(table, class_name)
   end
 
-  # Compute per-table count + on-disk size. The table name comes
-  # from the hard-coded POSTGRES_BREAKDOWN_MODELS list — never
-  # user input — so direct interpolation is safe; defensive
-  # `quote_table_name` adds the belt-and-suspenders identifier
-  # quoting that `pg_total_relation_size` expects.
   def compute_postgres_table_stats(table, class_name)
     conn = ActiveRecord::Base.connection
     quoted = conn.quote_table_name(table)
@@ -492,16 +317,6 @@ class SettingsController < ApplicationController
     { count: nil, size_bytes: nil }
   end
 
-  # 2026-05-11 — `db` pane Sidekiq breakdown. Surfaces queue + set
-  # sizes across the seven lifecycle states the user asked for.
-  # `busy` reads the live `ProcessSet#size * size` count — number
-  # of workers across processes that are mid-job (i.e. the
-  # `Sidekiq::Workers.new.size` total, not the process count).
-  #
-  # Sort: lifecycle order (processed → failed → busy → scheduled
-  # → enqueued → retry → dead). Lifecycle order tells a clearer
-  # story than count-descending for this surface: "we've done X,
-  # Y failed, Z are running right now, ..." reads top-to-bottom.
   SIDEKIQ_BREAKDOWN_STATES = %w[
     processed failed busy scheduled enqueued retry dead
   ].freeze
@@ -528,26 +343,6 @@ class SettingsController < ApplicationController
     []
   end
 
-  # 2026-05-11 — `storage` / `assets` pane breakdown. Walks the
-  # top-level subdirectories of the assets root and reports
-  # per-category file count + size using a fixed allowlist:
-  #
-  #   * `cover arts` — `composites/` (collection cover composites)
-  #   * `thumbnails` — `footage_thumbs/` (extracted footage frames)
-  #   * `banners`    — `banners/` (channel banners, reserved)
-  #   * `other`      — aggregate of everything else under the
-  #                    assets root (Active Storage's 2-char shard
-  #                    directories, future unknown trees, etc.)
-  #
-  # User direction (2026-05-11 follow-up): "no need for split.
-  # Just major assets type: cover arts, thumbnails, banners..."
-  # The prior pass leaked Active Storage's 2-char-prefix shard
-  # directories (`iz`, `m4`, `7a`, ...) as separate rows because
-  # the unknown-top-level fallback surfaced raw names. The
-  # allowlist closes that hole: the four rows are deterministic,
-  # empty categories still render so the operator sees the
-  # structure, and `other` preserves the total without polluting
-  # the table.
   ASSETS_CATEGORY_DIRECTORIES = {
     "cover arts" => "composites",
     "thumbnails" => "footage_thumbs",
@@ -566,11 +361,6 @@ class SettingsController < ApplicationController
     assets_breakdown_empty
   end
 
-  # Allowlist-driven aggregation. The three named categories always
-  # surface (even at 0 files / 0 bytes) so the operator sees the
-  # full asset taxonomy. Every other top-level entry under the
-  # assets root collapses into a single `other` row so Active
-  # Storage's shard directories don't pollute the table.
   def compute_assets_breakdown(root)
     named = ASSETS_CATEGORY_DIRECTORIES.each_with_object({}) do |(label, _dir), acc|
       acc[label] = { label: label, file_count: 0, size_bytes: 0 }
@@ -592,9 +382,6 @@ class SettingsController < ApplicationController
     assets_breakdown_empty
   end
 
-  # Deterministic 4-row breakdown when the assets root is absent
-  # or the walk fails. Keeps the table structure visible to the
-  # operator even on a greenfield install.
   def assets_breakdown_empty
     rows = ASSETS_CATEGORY_DIRECTORIES.keys.map do |label|
       { label: label, file_count: 0, size_bytes: 0 }
@@ -603,22 +390,14 @@ class SettingsController < ApplicationController
     rows
   end
 
-  # 2026-05-11 — `notes` pane breakdown. The notes volume today
-  # holds two distinct populations:
-  #
-  #   * `project notes`  — `Note` rows attached to a Project. The
-  #                        markdown lives under `<PITO_NOTES_PATH>/projects/`;
-  #                        the row count comes from `Note.count`.
-  #   * `mobile notes`   — Mobile drop-zone via MCP `save_note`,
-  #                        in-repo `docs/notes/`. No DB rows;
-  #                        we report file count + size of the
-  #                        directory.
-  #
-  # User direction asks us to "have in mind we'll have notes in
-  # other places too like videos. So the same count and size." —
-  # the extension hook is `NOTES_NAMESPACE_SOURCES`: add a new
-  # entry when video notes / channel notes / etc. ship and they
-  # slot into the same table without view changes.
+  NOTES_NAMESPACE_SOURCES = [
+    {
+      label: "project",
+      counter: -> { Note.count },
+      path:    -> { ENV["PITO_NOTES_PATH"].presence || Rails.root.join("tmp/pito-notes").to_s }
+    }
+  ].freeze
+
   def notes_breakdown_for_settings_pane
     rows = NOTES_NAMESPACE_SOURCES.map do |source|
       stats = notes_namespace_stats(source)
@@ -632,27 +411,6 @@ class SettingsController < ApplicationController
   rescue StandardError
     []
   end
-
-  # Each entry describes one notes namespace. `:counter` returns
-  # the row count (or nil to omit a count column for that
-  # namespace); `:path` returns the on-disk directory to walk for
-  # size + file count, or nil to skip the filesystem walk.
-  #
-  # 2026-05-11 — per user direction the `mobile_notes` entry was
-  # dropped from this surface; mobile notes are a dev-only artifact
-  # (`docs/notes/` drop-zone via the MCP `save_note` tool — the
-  # `dev` MCP scope is stripped from production builds per ADR
-  # 0004) and don't belong on a production settings page. The
-  # `project notes` row was renamed to `project` to drop the
-  # redundant trailing `notes` noun — the column header already
-  # reads `namespace` and the section is the `notes` pane.
-  NOTES_NAMESPACE_SOURCES = [
-    {
-      label: "project",
-      counter: -> { Note.count },
-      path:    -> { ENV["PITO_NOTES_PATH"].presence || Rails.root.join("tmp/pito-notes").to_s }
-    }
-  ].freeze
 
   def notes_namespace_stats(source)
     count =

@@ -53,8 +53,7 @@ module NotificationFormatter
     "milestone_reached"              => "🏆",
     "calendar_entry_firing"          => "📅",
     "sync_error"                     => "🚨",
-    "youtube_reauth_needed"          => "🔐",
-    "login_pending_approval"         => "🔑"
+    "youtube_reauth_needed"          => "🔐"
   }.freeze
 
   # Stable fallback when the event type is not in the map (e.g., a

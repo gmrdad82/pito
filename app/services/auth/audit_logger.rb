@@ -33,20 +33,15 @@
 module Auth
   class AuditLogger
     VALID_SURFACES = %i[web tui mcp].freeze
-    # Phase 29 — Unit A1. `youtube_credentials_updated` is dropped from
-    # the active allowlist — the YouTube credentials Settings pane is
-    # gone (Google / YouTube config is deploy-time credentials now), so
-    # nothing emits that action. The `AuthAuditLog` enum value 7 stays
-    # RESERVED (enum values are durable; do not renumber).
-    # `voyage_credentials_updated` stays active — the slimmed Voyage
-    # pane still emits it on the `voyage_index_project_notes` flag
-    # write. The audit row carries `metadata["changed_fields"]` — a
-    # list of column NAMES that the update mutated — never values.
-    # Phase 29 — Unit A2. `password_reset` joins the active allowlist —
-    # `PasswordResetsController#update` emits it on a successful
-    # reset-via-2FA.
-    VALID_ACTIONS  = %i[approve block unblock purge
-                        totp_enroll totp_disable
+    # Post-Phase-25 rollback. The location-tied vocabulary
+    # (`approve`, `block`, `unblock`, `purge`) is gone with the
+    # new-location approval surface. The `AuthAuditLog` enum values
+    # (`0..3`) stay RESERVED on the model — never renumber.
+    # `youtube_credentials_updated` (value 7) is also RESERVED;
+    # Phase 29 Unit A1 dropped the YouTube credentials Settings pane.
+    # Active vocabulary covers TOTP lifecycle + Voyage credential
+    # writes + password reset.
+    VALID_ACTIONS  = %i[totp_enroll totp_disable
                         backup_code_regenerate
                         voyage_credentials_updated
                         password_reset].freeze
