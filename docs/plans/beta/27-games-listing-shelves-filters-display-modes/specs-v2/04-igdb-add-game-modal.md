@@ -1,9 +1,11 @@
-# 04 — IGDB add-game modal polish
+# 04 — IGDB add-game modal polish (IGDB is the SOLE entry to game creation)
 
 > Phase 27 v2 spec. Tightens the global IGDB add-game modal: shorter copy,
 > auto-search (no explicit `[search]` button), bracketed-muted `[cancel]`,
 > horizontal-overflow audit, and an eager IGDB-title fetch so the breadcrumb
 > shows the real title instead of `Untitled game` immediately after submit.
+> **DELETES the legacy "default create empty game" branch from
+> `GamesController#create` entirely** — IGDB is the only entry point.
 
 ---
 
@@ -16,6 +18,11 @@ existing result rows showing `[add]` / `[update]` per the current pattern.
 On submit, the resulting game's breadcrumb shows the IGDB-fetched title
 immediately (not the `Untitled game` default attribute that the model
 applies when title is blank).
+
+`GamesController#create` accepts ONLY the IGDB-add payload (`igdb_id` +
+optional title pre-seed). The legacy "blank create" branch — which let a
+client POST `/games` with no `igdb_id` to land an empty `"Untitled game"`
+row in the library — is REMOVED. Empty games cannot be created.
 
 ---
 
@@ -38,6 +45,15 @@ applies when title is blank).
 - `[cancel]` button uses `BracketedMutedLinkComponent` (the muted
   bracketed-button pattern, e.g. from session-revoke modal). Confirm the
   component name and slot shape at implementation time.
+- **DELETE the legacy "default create empty game" code path entirely.**
+  - `GamesController#create` had a branch (or fallthrough) that
+    accepted a POST with no `igdb_id` and persisted a blank `Game` row
+    with the `"Untitled game"` default. That branch is REMOVED.
+  - Any caller (legacy form, MCP, test fixture) that POSTed `/games`
+    without `igdb_id` now receives a 422 with a flash explaining
+    "games can only be added via the IGDB search modal."
+  - The IGDB modal is the SINGLE entry point to creating a game in
+    the library.
 
 ## Scope out
 
@@ -97,7 +113,16 @@ applies when title is blank).
     :string, default: "Untitled game"`); explicitly setting it from the
     submitted form prevents the default from sticking during the in-flight
     window. The async `GameIgdbSync` still overwrites with the canonical
-    IGDB title on completion.
+    IGDB record on completion.
+  - **DELETE the legacy "no `igdb_id`" branch** (whichever shape it
+    currently takes — a `Game.create!` fallthrough, a separate `if
+    params[:game][:igdb_id].blank?` branch, or a permit-list that
+    accepts other fields). The action now REJECTS requests without
+    `igdb_id` with a 422 + flash:
+    `"games can only be added via the IGDB search modal."`.
+  - Permit list narrows to `:igdb_id, :title` ONLY. Any other key
+    smuggled into `params[:game]` (e.g. `:notes`, `:played_at`) is
+    ignored.
 
 - `app/views/games/_search_results.html.erb`
   - The existing `[add]` link (or `button_to` POST) must include a
@@ -108,6 +133,19 @@ applies when title is blank).
 - `app/components/bracketed_muted_link_component.rb` — verify the
   component supports `data:` attribute passthrough. If not, this spec
   documents the gap as an open question.
+
+### Cleanup — legacy create branch consumers
+
+- Audit + delete:
+  - Any view template (`app/views/games/new.html.erb` if it exists,
+    or any `<form>` element POSTing to `/games` without `igdb_id`).
+  - MCP tools that expose an `igdb_id`-less create entry — wire them
+    to require `igdb_id` or remove the tool entry. (If the MCP
+    `create_game` tool exists, it now mandates `igdb_id`; surface
+    parity concerns to the master agent.)
+  - Test fixtures / specs that depended on the blank-create flow.
+    Those specs are deleted or rewritten to use a factory + IGDB
+    seed.
 
 ---
 
@@ -139,11 +177,9 @@ applies when title is blank).
 
 - The `_search_results.html.erb` partial submits the IGDB result row's
   title alongside the `igdb_id` on `[add]` click.
-- `GamesController#create` accepts `params.dig(:game, :title)` ONLY in
-  the IGDB-add branch (no general-create surface — the legacy
-  default-create branch ignores `:title` since it preserves the
-  `"Untitled game"` default behavior). The IGDB-add branch passes both
-  `igdb_id` and `title` to `Game.new`.
+- `GamesController#create` accepts `params.dig(:game, :title)` together
+  with `params.dig(:game, :igdb_id)`. Without `igdb_id`, the action
+  rejects (see below).
 - After save: `redirect_to game_path(game), notice: "added; metadata
   loading in background."`. The game's `title` is now the IGDB-pre-seeded
   value, so the breadcrumb `[games] / [Pragmata]` shows the real title.
@@ -151,6 +187,18 @@ applies when title is blank).
   may overwrite the title with the canonical capitalization /
   punctuation. The pre-seed is just the user-visible bridge during the
   in-flight window.
+
+### IGDB-only create surface (LOCKED)
+
+- `POST /games` requires `params[:game][:igdb_id]`. Without it:
+  - HTTP 422 Unprocessable Entity.
+  - Flash: `"games can only be added via the IGDB search modal."`.
+  - No `Game` row is persisted.
+- The permit list on the create branch is exactly `[:igdb_id, :title]`.
+  Other keys are silently dropped.
+- The model's `"Untitled game"` default on `title` stays as defensive
+  attribute default, but in practice every persisted game now has a
+  title set at creation (the IGDB pre-seed).
 
 ### CSS overflow audit
 
@@ -243,8 +291,14 @@ supports the `data:` attribute hash; extend it if not.
   enqueues `GameIgdbSync`.
 - `POST /games` with only `igdb_id` (no title) → still creates (back-compat),
   title stays as the `"Untitled game"` attribute default.
-- Sad: smuggling `params[:game][:notes] = "evil"` does NOT write to
-  notes (the create branch only permits `igdb_id` + `title` here).
+- **`POST /games` with NO `igdb_id` → 422, no row persisted, flash
+  reads `"games can only be added via the IGDB search modal."`.**
+- **`POST /games` with `params[:game] = { title: "Foo" }` (smuggled
+  title, no igdb_id) → 422; no `Game.where(title: "Foo")` row exists
+  afterwards.**
+- Sad: smuggling `params[:game][:notes] = "evil"` alongside a valid
+  `igdb_id` does NOT write to notes (the create branch only permits
+  `igdb_id` + `title` here).
 
 ### Stimulus spec (browser-driven)
 
@@ -286,6 +340,10 @@ supports the `data:` attribute hash; extend it if not.
 9. Re-open the modal at viewport widths 360 / 768 / 1280 px. Confirm no
    horizontal scrollbar appears on `<body>` while the modal is open.
 10. Press Esc → modal closes.
+11. **Smuggle test (curl):** `curl -X POST http://localhost:3000/games
+    -d 'game[title]=Foo'` → 422 response; no game persisted; flash on
+    next request reads "games can only be added via the IGDB search
+    modal."
 
 ---
 
@@ -301,9 +359,3 @@ supports the `data:` attribute hash; extend it if not.
    for a game that's already in the library). Architect lean: not
    relevant — `[update]` does not create a new row, so there is no
    `Untitled game` window to bridge. Update flow is untouched.
-4. **The legacy "default create empty game" branch in
-   `GamesController#create`** (the path that fires when neither
-   `igdb_id` nor `title` is present). It's already flagged for the
-   polish window; this spec does not touch it. Confirm whether it
-   should be deleted as part of v2 — likely yes, but route through a
-   separate decision.

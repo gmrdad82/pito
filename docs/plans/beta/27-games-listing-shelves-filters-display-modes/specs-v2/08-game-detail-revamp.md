@@ -16,11 +16,11 @@
 
 The detail page tells the user, at a glance: "what this game is
 (left pane), what I think of it (synthesized rating), what I own /
-played / recorded on it, when it last synced, and what's free-form
-about it (summary, time-to-beat, future sections — right pane)."
-Every interaction surface (resync, delete) lives on the page itself
-via per-game confirm-modal flows; the standalone edit page goes
-away.
+have played / have recorded on, when it last synced, and what's
+free-form about it (summary, time-to-beat, future sections — right
+pane)." Every interaction surface (resync, delete) lives on the page
+itself via per-game confirm-modal flows; the standalone edit page
+goes away.
 
 ---
 
@@ -38,33 +38,30 @@ away.
   4. `released:` + date (MM-DD-YYYY).
   5. `dev:` + comma-joined developer names.
   6. `pub:` + comma-joined publisher names.
-  7. Platform logos at 64 px (per spec 07), horizontal flex row.
+  7. Platform logos at 56 px (per spec 07), horizontal flex row.
   8. Hairline.
   9. **Ratings heat bar** — single synthesized 0-100 score rendered
-     via new `RatingHeatBarComponent`. See Behavior for synthesis
-     formula and component contract.
+     via new `Games::RatingHeatBarComponent`. See Behavior for
+     synthesis formula and component contract.
   10. Hairline.
-  11. **Ownership section** — three chip rows:
-      - `platforms` — bracketed chips for every platform the game
-        is RELEASED ON (intersection with PS5/Switch2/Steam/GoG/Epic).
-        Owned ones render `[x] PS5`; not-owned render `[ ] PS5`.
+  11. **Ownership section** — three chip rows + footage placeholder:
+      - `platforms [ ] PS5 [ ] Switch2 [ ] Steam [ ] GoG [ ] Epic`
+        — bracketed chips for every platform the game is RELEASED
+        ON (intersection with the 5-platform set). Owned ones render
+        `[x] PS5`; not-owned render `[ ] PS5`. Labels use the
+        `PLATFORM_LABELS` map from spec 06 (`Switch2` no space).
         Clicking toggles ownership (POSTs to the existing
         `Games::PlatformOwnershipsController#update`).
-      - `played` — chips ONLY for platforms the user owns. Each chip
-        is `[ ] PS5` / `[x] PS5` toggling the played-on state per
-        platform. (NEW per-platform played-on state — see Open
-        questions; default architect lean is to keep the existing
-        single `played_at` column and surface this as a future
-        per-platform played columns extension. For v2 minimum:
-        render a single `[x] played` chip when `played_at` is set.)
-      - `recorded` — chips ONLY for platforms the user has played
-        on. Indicates which platform the footage was captured on.
-        Same caveat as `played` — NEW per-platform recorded state
-        is a separate concern; for v2 minimum, render a single
-        chip indicating "linked videos exist" (recorded yes/no).
-      - `footage` — placeholder line. Reads `footage —` followed by
-        a `[TBD]` bright-orange status badge (new
-        `StatusTbdBadgeComponent`).
+      - `played` — **a single `[x] played` / `[ ] played` chip**
+        bound to the existing `played_at` column. NOT per-platform.
+        Clicking sets / clears `played_at` on the game row.
+      - `recorded` — **a single `[x] recorded` / `[ ] recorded`
+        chip** bound to the existing `recorded` boolean (or
+        `videos.exists?` surrogate — pin at implementation; see
+        Behavior). NOT per-platform.
+      - `footage` — placeholder line. Reads `footage` followed by
+        the `StatusTbdBadgeComponent` rendering `[TBD]` in bright
+        orange.
   12. Hairline.
   13. **Sync banner** — reads `synced ~22m ago` (the project's
       short relative-time format — see Behavior). During sync,
@@ -74,20 +71,20 @@ away.
 - RIGHT pane content (top to bottom):
   1. Summary — pre-line wrapped paragraph.
   2. Hairline.
-  3. **Time-to-beat** — 3-column table:
+  3. **Time-to-beat** — 2-column table:
      - Column 1: row label (`main`, `extras`, `completionist`).
      - Column 2: value, right-aligned, rounded to whole hours
        (drop minutes — `9h`, `14h`, `22h`).
-     - Column 3: reserved for future "your time" comparison
-       (empty in v2).
-  4. Hairline.
-  5. **Reserved for future sections** — no rendered placeholder
-     beyond the hairline. (Drop the existing "stores" links
-     section — those are now LEFT-pane platform logos.)
+  4. (No reserved third column; no future-section placeholder
+     beyond an implicit hairline.)
 - Breadcrumb actions strip: replace `[edit]` with `[resync]` (POST
   to existing `/games/:id/resync`, muted styling while sync in
   flight). Replace `[-]` with `[delete]` opening a single-confirm
   modal via `ConfirmModalComponent`.
+- **DROP the `stores` link section entirely.** No `[steam]` / `[gog]`
+  / `[epic]` link list anywhere on the detail page. Store URLs are
+  not surfaced. The platform logos (LEFT pane) communicate platform
+  availability visually; the actionable "open in store" UX is OUT.
 - **DROP the standalone edit page entirely.**
   - Routes: remove `get '/games/:id/edit'` AND `patch/put
     '/games/:id'` from `resources :games`. Use `resources :games,
@@ -111,15 +108,21 @@ away.
     `Collections::CompositeRebuildQueue.enqueue_for_game_destroy`
     hook (per spec 02) fires for every collection the game was in.
 - Linked videos section heading: `linked videos` → `videos` (shorter).
-- When the videos list is empty, render `videos —` + `[TBD]`
-  orange status badge instead of the prose `no linked videos yet.`.
+- When the videos list is empty, render `videos` heading + the
+  `StatusTbdBadgeComponent` inline (`[TBD]` orange) instead of the
+  prose `no linked videos yet.`.
 
 ## Scope out
 
-- The per-platform played-on / recorded-on data model (separate
-  spec; v2 keeps the existing single `played_at` + linked-videos
-  surrogate).
-- Stores section — folded into the LEFT-pane platform logos.
+- **Per-platform played-on / recorded-on data model — DEFERRED
+  PERMANENTLY.** The user plays AND records on ONE platform per
+  game; the existing single `played_at` / single `recorded` (or
+  `videos.exists?`) surrogate is the final shape for this surface.
+  No `game_platform_plays` join table, no `game_platform_recordings`
+  join table, no per-platform chip rows under `played` or
+  `recorded`. The data model MUST NOT enable future per-platform
+  tracking as an unstated affordance — it's an explicit non-goal.
+- Stores section — DROPPED entirely (no store URLs surfaced).
 - Multi-version "editions" section — keep as-is (Phase 28 §01a
   surface).
 - Edition-parent breadcrumb pointer — keep as-is.
@@ -156,6 +159,9 @@ away.
     `.pane.pane--game-detail-left` (≈ 280 px) and
     `.pane.pane--game-detail-right` (wide-fill).
   - Per the LEFT / RIGHT content above.
+  - **NO `<h3>stores</h3>` section anywhere.** Drop the existing
+    block that renders `[steam]` / `[gog]` / `[epic]` external
+    link list.
   - Delete modal renders at the bottom of the view via
     `ConfirmModalComponent`.
 - `app/views/games/_sync_status.html.erb` (per spec 03) — embedded
@@ -193,16 +199,21 @@ away.
 - `app/components/status_tbd_badge_component.rb` (NEW)
   - Renders a bracketed bright-orange `[TBD]` glyph for "this
     surface is reserved but not implemented."
-  - Color: orange (define new `--color-status-tbd` CSS variable,
-    e.g. `#cc6600` — distinct from red/danger). Document the
-    variable.
+  - Color: bright orange `#cc6600` (new `--color-status-tbd` CSS
+    variable). Distinct from danger red `#cc0000`.
   - Slot-less — `initialize(label: "TBD")` with default.
   - Single CSS class `.status-tbd-badge` for styling.
+  - **Reused by** (spec 08 owns the component definition; usage
+    sites declared in their respective specs):
+    - Footage placeholder row on the game detail page (this spec).
+    - Videos-empty row on the game detail page (this spec).
+    - Search-placeholder modal on `/games` and `/games/:id` (spec
+      09 — keybindings `/` opens the placeholder modal).
 
 ### CSS
 
 - `app/assets/tailwind/application.css`
-  - Add `--color-status-tbd: #cc6600;` (or chosen orange) and
+  - Add `--color-status-tbd: #cc6600;` and
     `.status-tbd-badge { color: var(--color-status-tbd); font-weight:
     bold; }`.
   - Add `.pane--game-detail-left { flex: 0 0 280px; }` and
@@ -236,6 +247,8 @@ away.
 - `spec/requests/games_spec.rb` — delete the `#edit` + `#update`
   request examples; add a regression that `GET /games/:id/edit`
   returns 404 (route gone).
+- Drop any existing test that asserts the `stores` section
+  rendering on the show page.
 
 ---
 
@@ -251,7 +264,7 @@ away.
   present; line omitted when blank (no `released: —`).
 - **Dev / Pub**: lines omitted when the associated arrays are
   empty (no `dev: —` placeholder).
-- **Platform logos**: rendered via spec 07's helper at 64 px;
+- **Platform logos**: rendered via spec 07's helper at 56 px;
   zero logos when none apply (no placeholder).
 - **Ratings heat bar**:
   - Score synthesized per the formula in the component contract.
@@ -260,19 +273,23 @@ away.
   - Label: `<score>` bold, right of the bar. Muted em-dash when
     `score` is nil.
 - **Ownership chips**:
-  - `platforms [ ] PS5 [x] Switch2 [ ] Steam` — only show chips
-    for platforms the game is RELEASED ON. Click toggles the
-    ownership row. The click target POSTs to
+  - `platforms [ ] PS5 [x] Switch2 [ ] Steam [ ] GoG [ ] Epic` —
+    chips for every platform in the 5-set intersected with
+    `game.platforms_available`. Click toggles the ownership row.
+    The click target POSTs to
     `Games::PlatformOwnershipsController#update` (existing route);
-    no JS confirm.
-  - `played [ ] PS5 [ ] Steam` — chips ONLY for platforms in the
-    ownership set. (V2 minimum: render a single `[x] played`
-    chip when `played_at` is set; per-platform played-on UI is
-    deferred to a separate spec when per-platform played columns
-    land.)
-  - `recorded` — same caveat. V2 minimum: single `[x] recorded`
-    chip when `game.videos.exists?`.
-  - `footage` — line reads `footage —` + `[TBD]` orange badge.
+    no JS confirm. Labels use `Platform.display_label`.
+  - `played [ ] played` or `played [x] played` — **single chip-or-
+    blank**. Clicking toggles `played_at` on the game (sets to
+    `Time.current` on check, nils on uncheck). NOT per-platform.
+  - `recorded [ ] recorded` or `recorded [x] recorded` — **single
+    chip-or-blank**. Clicking toggles `recorded` boolean (or
+    triggers the videos-presence surrogate — pin at
+    implementation). NOT per-platform.
+  - `footage [TBD]` — line reads `footage` + the
+    `StatusTbdBadgeComponent` rendering `[TBD]` orange. The
+    placeholder is deliberate; future footage integration lands
+    in a separate spec.
 - **Sync banner**:
   - `synced 22m ago` (short format) when `igdb_synced_at` present.
   - `not synced yet.` when nil.
@@ -285,8 +302,8 @@ away.
 
 - **Summary**: `<p style="white-space: pre-line">`. When blank,
   the whole section is omitted (no heading either).
-- **Time to beat**: 3-column `<table>`:
-  - `<tr><td>main</td><td class="ttb-value">9h</td><td></td></tr>` etc.
+- **Time to beat**: 2-column `<table>`:
+  - `<tr><td>main</td><td class="ttb-value">9h</td></tr>` etc.
   - Values right-aligned via class.
   - Rounds to whole hours. Nil → `—`.
 
@@ -320,7 +337,15 @@ away.
 - Heading: `videos`.
 - When `@game.video_game_links.exists?`: render the existing
   `<ul>` of links.
-- When empty: render `videos —` + `[TBD]` orange badge inline.
+- When empty: render `videos` heading + `StatusTbdBadgeComponent`
+  (`[TBD]` orange) inline. NOT the prose `no linked videos yet.`.
+
+### Stores section — REMOVED
+
+- The previous `<h3>stores</h3>` block with `[steam]` / `[gog]` /
+  `[epic]` external link list is DELETED from the view. No
+  replacement. The LEFT-pane platform logos communicate platform
+  availability; store URLs are not exposed.
 
 ### Rating heat-bar synthesis (LOCKED formula)
 
@@ -330,20 +355,34 @@ away.
 - Rounded to integer. No decimal display.
 - Per-tier color from `Games::RatingBadgeComponent::TIERS`.
 
+### `StatusTbdBadgeComponent` — cross-cutting placeholder
+
+- Defined here (spec 08 introduces it).
+- Used by:
+  - Detail page footage row (this spec).
+  - Detail page empty-videos row (this spec).
+  - Search-placeholder modal opened by `/` keybinding (spec 09).
+- Color `#cc6600` (bright orange). Distinct from danger red.
+- Bracketed glyph `[TBD]`. Optional `label:` override (default
+  `"TBD"`).
+
 ---
 
 ## Migrations
 
 None. The existing `games.resyncing` Boolean (per spec 03) +
-`games.played_at` + ownership join cover the v2 minimum. Per-
-platform played-on / recorded-on columns are future work.
+`games.played_at` + `games.recorded` (if present) + ownership
+join cover the v2 surface. **No new per-platform columns or
+join tables**; the data model is explicitly NOT extended to
+support per-platform played-on / recorded-on tracking.
 
 ---
 
 ## ViewComponents
 
 - `Games::RatingHeatBarComponent` (NEW).
-- `StatusTbdBadgeComponent` (NEW).
+- `StatusTbdBadgeComponent` (NEW) — defined here, used here +
+  in spec 09 (search-placeholder modal).
 
 ---
 
@@ -374,6 +413,8 @@ platform played-on / recorded-on columns are future work.
   - Renders `[TBD]` (default label) with the orange class.
   - Custom label arg works.
   - No `<a>` tag (badge is non-interactive).
+  - The rendered HTML applies the `.status-tbd-badge` class so
+    CSS color `#cc6600` lands.
 
 ### View specs (`spec/views/games/show.html.erb_spec.rb`)
 
@@ -382,14 +423,20 @@ Extend the existing file:
 - LEFT pane renders: cover, title, genres (primary bold + up to
   2 secondaries), released/dev/pub lines, platform logos
   (per spec 07), hairline, rating heat bar, hairline,
-  ownership chips, hairline, sync banner.
+  ownership chips (single `played` chip, single `recorded`
+  chip, NOT per-platform), `footage [TBD]` row, hairline, sync
+  banner.
 - RIGHT pane renders: summary (when present), hairline, ttb
-  table (rounded hours).
+  2-column table (rounded hours).
 - Breadcrumb action strip: `[resync]` + `[delete]`, no `[edit]`.
 - Delete modal is rendered in the DOM (collapsed by default).
 - Videos section heading reads `videos` (singular shortening).
-- Empty videos → `videos —` + `[TBD]` badge, NOT the prose
-  `no linked videos yet.`.
+- Empty videos → `videos` heading + `[TBD]` badge, NOT the
+  prose `no linked videos yet.`.
+- **NO `stores` section rendered.** Regression assert: page
+  contains no `<h3>stores</h3>` and no anchor with
+  `href="https://store.steampowered.com/..."` or equivalent
+  GOG / Epic URLs.
 - No `data-turbo-confirm`, no `window.confirm`, no `<form
   method="post" action="/games/:id" data-method="delete">`
   inline outside the confirm modal.
@@ -410,10 +457,14 @@ Extend the existing file:
      ratings, ownership rows.
   2. `visit game_path(game)`.
   3. Assert the two-pane layout structure.
-  4. Click `[delete]` → modal opens (no JS confirm fired).
-  5. Click `[cancel]` in the modal → modal closes, page
+  4. Assert NO stores section.
+  5. Assert single `played` chip + single `recorded` chip (no
+     per-platform breakdown).
+  6. Assert `footage [TBD]` row present.
+  7. Click `[delete]` → modal opens (no JS confirm fired).
+  8. Click `[cancel]` in the modal → modal closes, page
      unchanged.
-  6. Re-open modal, click `[delete]` → game destroyed, redirect
+  9. Re-open modal, click `[delete]` → game destroyed, redirect
      to `/games`, flash visible.
 
 ### Helper specs
@@ -434,59 +485,49 @@ Extend the existing file:
 2. Confirm two-pane layout (LEFT cover-led, RIGHT summary-led).
 3. LEFT pane: cover renders; title; bold primary genre + up to
    2 secondary genres normal weight; release / dev / pub lines
-   present; 64 px platform logos for applicable platforms;
+   present; 56 px platform logos for applicable platforms;
    hairline; rating heat-bar fills proportionally and shows
-   integer score; hairline; ownership chips; `footage —` with
-   orange `[TBD]` badge; hairline; sync banner.
-4. RIGHT pane: summary (if any); hairline; time-to-beat 3-row
+   integer score; hairline; ownership chips (single `played`
+   chip, single `recorded` chip, NOT per-platform); `footage
+   [TBD]` row with orange badge; hairline; sync banner.
+4. RIGHT pane: summary (if any); hairline; time-to-beat 2-column
    table in whole hours.
-5. Breadcrumb actions show `[resync]` + `[delete]`.
-6. Click `[resync]` → muted style flips on; `=---` dot-loader
+5. **Confirm NO `stores` section anywhere on the page.** No
+   `[steam]` / `[gog]` / `[epic]` link list. The platform logos
+   are decorative.
+6. Breadcrumb actions show `[resync]` + `[delete]`.
+7. Click `[resync]` → muted style flips on; `=---` dot-loader
    replaces the sync banner; live ActionCable broadcast (per
    spec 03) flips back to `synced just now` when the job ends.
-7. Click `[delete]` → confirm modal appears; `[delete]` button
+8. Click `[delete]` → confirm modal appears; `[delete]` button
    in danger color; `[cancel]` muted. Click `[cancel]` → modal
    closes. Click `[delete]` → game destroyed, redirect to
    `/games`, flash visible. (Verify in DB that any collection
    the game was in had its cover regen enqueued per spec 02.)
-8. `GET /games/<slug>/edit` → 404. `GET /games/<slug>` →
+9. `GET /games/<slug>/edit` → 404. `GET /games/<slug>` →
    200 (show still works).
-9. Linked videos: when empty → `videos —` + orange `[TBD]`
-   badge. When non-empty → `videos` heading + the list.
+10. Linked videos: when empty → `videos` heading + orange
+    `[TBD]` badge inline. When non-empty → `videos` heading +
+    the list.
 
 ---
 
 ## Open questions
 
-1. **Per-platform played-on / recorded-on data model.**
-   Architect lean: deferred to a separate spec (introduce
-   `game_platform_plays` / `game_platform_recordings` join
-   tables when needed). v2 minimum renders single `[x] played`
-   / `[x] recorded` chips bound to existing surrogates
-   (`played_at`, `videos.exists?`). Confirm whether v2 should
-   ship per-platform columns now or later.
+1. **`recorded` chip data source — boolean column vs
+   `videos.exists?` surrogate.** The model may already carry a
+   `recorded` boolean from earlier work; if not, `videos.exists?`
+   is the surrogate. Pin at implementation; preferred:
+   `recorded` boolean if it exists, surrogate otherwise. Either
+   way, ONE chip, not per-platform.
 2. **Rating heat-bar — color the fill OR the label OR both?**
    Architect lean: fill colored per tier, label bold black /
    white per theme (not colored), to keep the text readable
    against the colored bar in both themes.
-3. **`[TBD]` badge color — define exact hex.** Architect lean:
-   `#cc6600` (a darker orange, distinct from danger red
-   `#cc0000`). Surface a sample to design.
-4. **`videos` section — drop the heading entirely when empty?**
+3. **`videos` section — drop the heading entirely when empty?**
    Architect lean: keep the heading + render the `[TBD]` badge
    inline so the user knows the slot exists.
-5. **Edition-parent pointer + breadcrumb action strip — do they
+4. **Edition-parent pointer + breadcrumb action strip — do they
    stack vertically as today, or merge into one line?** Keep
    stacked (cleaner separation between "navigate up" and "do
    something to this row").
-6. **Drop the existing `stores` section** (the `[steam] /
-   [gog] / [epic]` link list under "stores"). The LEFT-pane
-   logos render the same set visually. The user prompt did
-   NOT specify whether the actionable store-links also drop.
-   Architect lean: KEEP the store-links section, render it on
-   the RIGHT pane below time-to-beat. Logos are visual; the
-   bracketed links are still the "open in store" UX. Confirm.
-7. **Time-to-beat third column** — leave blank or remove the
-   third `<td>` entirely? Architect lean: render the table as
-   2-column for now (drop the reserved third column); reintroduce
-   when the "your time" surface lands. Pick at implementation.
