@@ -1,6 +1,40 @@
 {
   "ignored_warnings": [
     {
+      "warning_type": "Cross-Site Scripting",
+      "warning_code": 2,
+      "fingerprint": "470aa89c5f9c35dc452c85b40452f960959768adc82e2c24b88cafa844df7e94",
+      "check_name": "CrossSiteScripting",
+      "message": "Unescaped model attribute",
+      "file": "app/views/settings/security/totps/new.html.erb",
+      "line": 82,
+      "link": "https://brakemanscanner.org/docs/warning_types/cross_site_scripting",
+      "code": "RQRCode::QRCode.new(ROTP::TOTP.new(Rails.cache.read(self.class.enrollment_cache_key(Current.user.id))[:seed], :issuer => \"pito\").provisioning_uri(Current.user.username)).as_svg(:offset => 0, :color => \"000\", :shape_rendering => \"crispEdges\", :module_size => 4, :standalone => true)",
+      "render_path": [
+        {
+          "type": "controller",
+          "class": "Settings::Security::TotpsController",
+          "method": "create",
+          "line": 138,
+          "file": "app/controllers/settings/security/totps_controller.rb",
+          "rendered": {
+            "name": "settings/security/totps/new",
+            "file": "app/views/settings/security/totps/new.html.erb"
+          }
+        }
+      ],
+      "location": {
+        "type": "template",
+        "template": "settings/security/totps/new"
+      },
+      "user_input": "Current.user.username",
+      "confidence": "Weak",
+      "cwe_id": [
+        79
+      ],
+      "note": "Accepted risk: TOTP QR-code SVG generation on the enrollment page. The QR payload composes (1) the TOTP seed read from Rails.cache (server-generated, never user-controllable) and (2) Current.user.username, which is a citext column constrained by User validations and only writable by the authenticated owner. RQRCode emits a fixed SVG structure (path elements + fixed attributes); the username only appears inside the QR matrix bitmap encoding, not as raw markup. The page is mandatory-2FA-gated and reachable only by the enrolling user. Acceptable."
+    },
+    {
       "warning_type": "File Access",
       "warning_code": 16,
       "fingerprint": "4d586370565ad858623ed4e34fae39e1c97703ae2505563f20e37f124f373ba5",
@@ -24,6 +58,29 @@
       "note": "Defense-in-depth: (1) route constraint at config/routes.rb enforces /^\\d{2}-\\d{2}-\\d{2}$/ on :filename, rejecting path-traversal candidates BEFORE the action runs. (2) The action re-applies the same regex as defense-in-depth in case a future internal caller bypasses the router. (3) Pito::AssetsRoot.path runs cleanpath + containment, raising on any escape attempt. The Brakeman warning is a true false-positive — every layer rejects ../etc/passwd-style payloads. Verified by spec/requests/footages/frames_spec.rb."
     },
     {
+      "warning_type": "File Access",
+      "warning_code": 16,
+      "fingerprint": "6b3e54ea3c7af34996f42b4ae6ed9cc942cbfd1c3ce6c21a9c9a584e053d7ac4",
+      "check_name": "SendFile",
+      "message": "Parameter value used in file name",
+      "file": "app/controllers/composites_controller.rb",
+      "line": 35,
+      "link": "https://brakemanscanner.org/docs/warning_types/file_access/",
+      "code": "send_file(begin\n  Pito::AssetsRoot.path(\"composites\", \"#{params[:filename].to_s}.jpg\")\nrescue Pito::AssetsRoot::Error\n  head(:not_found)\n  return\nend.to_s, :type => \"image/jpeg\", :disposition => \"inline\")",
+      "render_path": null,
+      "location": {
+        "type": "method",
+        "class": "CompositesController",
+        "method": "show"
+      },
+      "user_input": "params[:filename].to_s",
+      "confidence": "Weak",
+      "cwe_id": [
+        22
+      ],
+      "note": "Defense-in-depth: Pito::AssetsRoot.path runs cleanpath + containment and raises Pito::AssetsRoot::Error on any attempt to escape the composites directory (../, absolute paths, symlink tricks, etc.). The controller rescues that error and returns head(:not_found), so traversal payloads never reach send_file. The .jpg suffix is hard-coded and the directory is locked to \"composites\". Acceptable false-positive."
+    },
+    {
       "warning_type": "HTTP Verb Confusion",
       "warning_code": 122,
       "fingerprint": "050af47121b0c4251d18c5b722e529807edb8a9852128f6fa384c768d47e0317",
@@ -45,8 +102,65 @@
         352
       ],
       "note": "Intentional: stash_intended_url must NOT fire on HEAD requests. HEAD is a cache validation probe (e.g., from Turbo, Link prefetch, monitoring), not a navigation event. Stashing a HEAD path as the post-login redirect would send the user to a URL they never intended to visit. The strict `request.get?` check (which returns false for HEAD) is correct."
+    },
+    {
+      "warning_type": "SQL Injection",
+      "warning_code": 0,
+      "fingerprint": "adc2c185c8ed0823808dd3d0fd48804b2189fe20e69616eb4c0c931a6d6714d6",
+      "check_name": "SQL",
+      "message": "Possible SQL injection",
+      "file": "app/queries/games/genre_shelf_batch.rb",
+      "line": 82,
+      "link": "https://brakemanscanner.org/docs/warning_types/sql_injection/",
+      "code": "Game.find_by_sql(\"SELECT * FROM (\\n  SELECT games.*,\\n         ROW_NUMBER() OVER (\\n           PARTITION BY primary_genre_id\\n           ORDER BY LOWER(games.title), games.id\\n         ) AS rn\\n  FROM games\\n  WHERE primary_genre_id IN (#{genre_ids.map(&:to_i).join(\",\")})\\n) ranked\\nWHERE rn <= #{cap.to_i}\\n\".squish)",
+      "render_path": null,
+      "location": {
+        "type": "method",
+        "class": "Games::GenreShelfBatch",
+        "method": "fetch_top_games"
+      },
+      "user_input": "genre_ids.map(&:to_i).join(\",\")",
+      "confidence": "Medium",
+      "cwe_id": [
+        89
+      ],
+      "note": "Accepted: both interpolated fragments are explicitly coerced to integers before being splice into the SQL. `genre_ids.map(&:to_i).join(\",\")` produces a comma-separated list of pure integers (Ruby `to_i` returns 0 on garbage input, never a string with quotes / spaces / SQL fragments). `cap.to_i` is similarly a single integer. The query is a windowed top-N-per-genre lookup using ROW_NUMBER() — bind params can't express a dynamic IN-list of this shape cleanly, and casting to Integer is the canonical safe pattern. Brakeman can't see through `.to_i`, so the warning is a static-analysis false positive."
+    },
+    {
+      "warning_type": "Cross-Site Scripting",
+      "warning_code": 4,
+      "fingerprint": "d2edbebf02d7097d6aba241d7e91a14e57d59d5046b503c7d74498a6a7379b2d",
+      "check_name": "LinkToHref",
+      "message": "Potentially unsafe model attribute in `link_to` href",
+      "file": "app/views/notifications/show.html.erb",
+      "line": 60,
+      "link": "https://brakemanscanner.org/docs/warning_types/link_to_href",
+      "code": "link_to(Notification.find(params[:id]).url, :class => \"bracketed\", :data => ({ :controller => \"notification-link\", :\"notification-link-mark-read-url-value\" => read_notification_path(Notification.find(params[:id])), :\"notification-link-csrf-token-value\" => form_authenticity_token, :action => \"click->notification-link#markReadAndNavigate\", :turbo_frame => \"_top\" }))",
+      "render_path": [
+        {
+          "type": "controller",
+          "class": "NotificationsController",
+          "method": "show",
+          "line": 87,
+          "file": "app/controllers/notifications_controller.rb",
+          "rendered": {
+            "name": "notifications/show",
+            "file": "app/views/notifications/show.html.erb"
+          }
+        }
+      ],
+      "location": {
+        "type": "template",
+        "template": "notifications/show"
+      },
+      "user_input": "Notification.find(params[:id]).url",
+      "confidence": "Weak",
+      "cwe_id": [
+        79
+      ],
+      "note": "Accepted: Notification#url is operator-controlled. Notifications are created exclusively by internal jobs / workflows (channel sync, webhook delivery, scheduled reports, etc.) — there is no end-user-facing input path that writes Notification.url. The single-install + mandatory-TOTP + authenticated-only access model further reduces the practical XSS surface: an attacker would already need code-execution on the install to plant a malicious URL, at which point notification XSS is the least of the concerns. Acceptable."
     }
   ],
-  "updated": "2026-05-07",
+  "updated": "2026-05-16",
   "brakeman_version": "8.0.4"
 }

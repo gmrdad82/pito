@@ -20,10 +20,9 @@ shelves-by-letter from `01d`). The row is ten chips wide:
 ```
 
 State lives in the URL as `?filters=token1,token2,...`. Clicking a chip toggles
-it. An empty filter set shows every game. A `[clear all]` bracketed link
-appears whenever at least one chip is active. Platform tokens are
-ownership-aware: their meaning changes depending on whether `owned` is also
-active.
+it. An empty filter set shows every game. A `[clear all]` bracketed link appears
+whenever at least one chip is active. Platform tokens are ownership-aware: their
+meaning changes depending on whether `owned` is also active.
 
 This sub-spec is the SECOND of three concurrent surfaces (`01b`, `01c`, `01d`)
 that all attach to the `/games` index. It must NOT touch:
@@ -69,9 +68,9 @@ Specs:
 
 - `spec/models/game_spec.rb` — `recorded`, `released`, `scheduled`,
   `on_platform`, `scheduled_on`, `released_on` scope examples.
-- `spec/queries/games/filter_spec.rb` — load-bearing matrix: every
-  (`owned` × platform) pair across all five platforms, plus status chips,
-  plus combinations.
+- `spec/queries/games/filter_spec.rb` — load-bearing matrix: every (`owned` ×
+  platform) pair across all five platforms, plus status chips, plus
+  combinations.
 - `spec/components/games/filter_row_component_spec.rb`
 - `spec/components/games/filter_chip_component_spec.rb`
 - `spec/helpers/games/filters_helper_spec.rb`
@@ -92,8 +91,8 @@ these statements without paraphrase or interpretation.
 > state.
 
 > **Statement P-2.** If `owned` is checked and platform-X is checked: matches
-> games owned specifically on platform-X (the user's ownership row for that
-> game on platform-X must exist).
+> games owned specifically on platform-X (the user's ownership row for that game
+> on platform-X must exist).
 
 Worked example, verbatim:
 
@@ -109,13 +108,13 @@ Corollaries (architect-derived from P-1 and P-2; flagged as "Open questions"
 below for the master agent to confirm before `01g` ships):
 
 - **C-1.** `not_owned` + platform-X — the source directive does not enumerate
-  this case. Locked default for `01b`: match games with zero ownership rows
-  AND released OR scheduled on platform-X (the same release/schedule check as
-  P-1, narrowed to the not-owned set).
+  this case. Locked default for `01b`: match games with zero ownership rows AND
+  released OR scheduled on platform-X (the same release/schedule check as P-1,
+  narrowed to the not-owned set).
 - **C-2.** Multiple platform tokens within the same bucket OR together. With
-  `owned` unchecked, `[ps5, switch2]` matches games released or scheduled on
-  PS5 OR Switch 2. With `owned` checked, `[ps5, switch2]` matches games owned
-  on PS5 OR owned on Switch 2.
+  `owned` unchecked, `[ps5, switch2]` matches games released or scheduled on PS5
+  OR Switch 2. With `owned` checked, `[ps5, switch2]` matches games owned on PS5
+  OR owned on Switch 2.
 - **C-3.** `owned` + `not_owned` together is a contradiction. Locked: query
   returns `Game.none`; the filter row renders a muted contradiction notice
   (`(owned and not owned together — no matches)`). No JS dialog, no red.
@@ -133,8 +132,8 @@ GET /games?filters=recorded,ps5,owned
   identical results AND render identically (controller normalises before
   building chip hrefs).
 - Duplicates are de-duplicated server-side.
-- Unknown tokens are silently dropped from the active set. The dropped tokens
-  do NOT appear in the chip-link hrefs (no echo-back of garbage).
+- Unknown tokens are silently dropped from the active set. The dropped tokens do
+  NOT appear in the chip-link hrefs (no echo-back of garbage).
 - An empty `filters=` (or no `filters` param at all) → show all games (locked
   decision).
 
@@ -191,12 +190,13 @@ scope :owned_on    # owned on a specific platform slug
 
 ### Notes
 
-- `Game#platforms_available` is the existing has-many `:platforms_available,
-through: :game_platforms, source: :platform` association declared on `Game`
-  (Phase 14 §1). The `01b` scopes ride on it; no new association.
+- `Game#platforms_available` is the existing has-many
+  `:platforms_available, through: :game_platforms, source: :platform`
+  association declared on `Game` (Phase 14 §1). The `01b` scopes ride on it; no
+  new association.
 - The `where(platforms: { slug: ... })` form is safe here — the legacy
-  `games.platforms` jsonb column does not collide for `on_platform` because
-  the join is explicit on `:platforms_available`. Where it might still collide
+  `games.platforms` jsonb column does not collide for `on_platform` because the
+  join is explicit on `:platforms_available`. Where it might still collide
   (Postgres treats `platforms:` as ambiguous in some Rails 8 edge cases), the
   query object uses an explicit `'"platforms"."slug" = ?'` literal — matching
   the pattern used by `Game.owned_on` from `01a`.
@@ -209,6 +209,7 @@ through: :game_platforms, source: :platform` association declared on `Game`
 `ActiveRecord::Relation`.
 
 ### Composition rules (this is the spec; the spec pyramid must verify each
+
 rule)
 
 1. Partition the incoming tokens into four buckets:
@@ -219,48 +220,45 @@ rule)
 
 2. Buckets are intersected with AND.
 
-3. Within the Status bucket, multiple tokens OR together (`recorded OR
-released`).
+3. Within the Status bucket, multiple tokens OR together
+   (`recorded OR released`).
 
-4. Within the Platform bucket, multiple tokens OR together. The OR semantics
-   are evaluated per the ownership-bucket state (see step 6).
+4. Within the Platform bucket, multiple tokens OR together. The OR semantics are
+   evaluated per the ownership-bucket state (see step 6).
 
 5. Ownership bucket:
-   - `[]` (neither owned nor not_owned): no ownership restriction; the
-     Platform bucket follows statement P-1 (release-or-schedule on the
-     platform).
-   - `[owned]`: restrict to games with at least one ownership row; the
-     Platform bucket follows statement P-2 (owned specifically on the
-     platform).
+   - `[]` (neither owned nor not_owned): no ownership restriction; the Platform
+     bucket follows statement P-1 (release-or-schedule on the platform).
+   - `[owned]`: restrict to games with at least one ownership row; the Platform
+     bucket follows statement P-2 (owned specifically on the platform).
    - `[not_owned]`: restrict to games with zero ownership rows; the Platform
-     bucket follows corollary C-1 (released-or-scheduled on the platform AND
-     not owned anywhere).
+     bucket follows corollary C-1 (released-or-scheduled on the platform AND not
+     owned anywhere).
    - `[owned, not_owned]`: contradiction → return `Game.none`. The
      `contradiction?` predicate on the query exposes this for the component.
 
-6. Apply the Platform bucket using the precedence locked above. If the bucket
-   is empty, the Ownership bucket alone applies. If the bucket is non-empty,
-   each platform token is mapped to a relation via:
+6. Apply the Platform bucket using the precedence locked above. If the bucket is
+   empty, the Ownership bucket alone applies. If the bucket is non-empty, each
+   platform token is mapped to a relation via:
    - P-1 mode (Ownership bucket empty): `Game.on_platform(slug)`.
    - P-2 mode (`owned` active): `Game.owned_on(slug)`.
    - C-1 mode (`not_owned` active): `Game.not_owned.on_platform(slug)`.
 
    Multiple platform relations are unioned by `id` (subquery shape — use
-   `where(id: rel_a.select(:id)).or(where(id: rel_b.select(:id)))` or the
-   single `where(id: ids_array)` shape; the spec asserts identical results
-   regardless of the chosen tactic).
+   `where(id: rel_a.select(:id)).or(where(id: rel_b.select(:id)))` or the single
+   `where(id: ids_array)` shape; the spec asserts identical results regardless
+   of the chosen tactic).
 
 7. The query is deterministic: token order does not affect the result set.
 
 ### Public surface
 
-- `Games::Filter.new(scope:, tokens:)` — accepts an
-  `ActiveRecord::Relation` (typically `Game.all`) and an array of canonical
-  string tokens. The constructor normalises (downcase, strip, de-dupe, drop
-  unknown).
+- `Games::Filter.new(scope:, tokens:)` — accepts an `ActiveRecord::Relation`
+  (typically `Game.all`) and an array of canonical string tokens. The
+  constructor normalises (downcase, strip, de-dupe, drop unknown).
 - `#results` — returns the filtered `ActiveRecord::Relation`. Stable identity:
-  calling `#results` twice returns the same SQL (the relation is built once
-  and memoised).
+  calling `#results` twice returns the same SQL (the relation is built once and
+  memoised).
 - `#contradiction?` — returns `true` when the Ownership bucket contains both
   `owned` and `not_owned`. `#results` in that state returns `Game.none`.
 - `#active_tokens` — returns the de-duped, sorted-as-input set of recognised
@@ -282,8 +280,8 @@ module Games
 end
 ```
 
-The platform tokens map to platform slugs 1:1; the slug is the token (locked
-by `01a` seeds — `ps5`, `switch2`, `steam`, `gog`, `epic`).
+The platform tokens map to platform slugs 1:1; the slug is the token (locked by
+`01a` seeds — `ps5`, `switch2`, `steam`, `gog`, `epic`).
 
 ---
 
@@ -300,8 +298,8 @@ Inputs:
 - `request_path: String` — the path to compose chip hrefs against. Always
   `/games` in practice, but injected for testability.
 - `query_string_overrides: Hash` — other URL params that must be preserved on
-  every chip link (e.g., `display=list` from `01d`). The component never
-  invents this — the controller threads them through.
+  every chip link (e.g., `display=list` from `01d`). The component never invents
+  this — the controller threads them through.
 - `contradiction: Boolean` — true when the query object reports
   `contradiction?`. Renders the contradiction notice.
 
@@ -310,14 +308,13 @@ Renders:
 - A single horizontal row containing one `FilterChipComponent` per canonical
   token, in the locked left-to-right order:
   `recorded released owned not_owned scheduled ps5 switch2 steam gog epic`.
-- A `[clear all]` bracketed link to the right (or below on narrow screens —
-  CSS responsibility, not component logic) when `active_tokens.any?`. The
-  link points at `request_path` with `filters=` cleared and
-  `query_string_overrides` preserved.
+- A `[clear all]` bracketed link to the right (or below on narrow screens — CSS
+  responsibility, not component logic) when `active_tokens.any?`. The link
+  points at `request_path` with `filters=` cleared and `query_string_overrides`
+  preserved.
 - A muted contradiction notice (`(owned and not owned together — no matches)`)
-  immediately under the row when `contradiction == true`. Class:
-  `text-muted` (no red — red is reserved for destructive actions, per
-  project rule).
+  immediately under the row when `contradiction == true`. Class: `text-muted`
+  (no red — red is reserved for destructive actions, per project rule).
 
 The component renders NO JavaScript. No `data-turbo-confirm`. No
 `window.confirm`. Chip toggling is pure GET-link navigation; URL-state-driven.
@@ -339,15 +336,15 @@ Renders one bracketed link `[label]`. The label is the on-screen form:
 - `not_owned` → `not owned`
 - everything else → identical to the canonical token.
 
-Active chips render with the `chip--active` style class (no red). Inactive
-chips render as standard bracketed links per `docs/design.md`.
+Active chips render with the `chip--active` style class (no red). Inactive chips
+render as standard bracketed links per `docs/design.md`.
 
 The `href` is `request_path` with:
 
 - `filters=` set to the active-tokens set with `token` toggled in or out.
 - Every key in `query_string_overrides` preserved.
-- `filters=` omitted entirely when the toggled set is empty (no
-  `?filters=` trailing dangle).
+- `filters=` omitted entirely when the toggled set is empty (no `?filters=`
+  trailing dangle).
 
 The component never emits anything beyond an `<a>` element with the bracketed
 text and the appropriate class — no buttons, no forms, no JS.
@@ -358,8 +355,8 @@ text and the appropriate class — no buttons, no forms, no JS.
 
 Module mixed into `GamesController` and exposed to views. Public surface:
 
-- `parse_filter_tokens(raw)` — accepts the raw `params[:filters]` value
-  (string, nil, or array — Rails sometimes hands an array if the user smuggles
+- `parse_filter_tokens(raw)` — accepts the raw `params[:filters]` value (string,
+  nil, or array — Rails sometimes hands an array if the user smuggles
   `?filters[]=`). Returns the canonical array of recognised tokens, de-duped,
   preserving input order; unknown tokens dropped.
 - `parse_dropped_tokens(raw)` — returns the unrecognised tokens. Used by the
@@ -367,8 +364,8 @@ Module mixed into `GamesController` and exposed to views. Public surface:
 - `toggle_filter(active_tokens, token)` — returns a new array with `token`
   removed if present, appended if absent. Used by the chip component to build
   hrefs.
-- `chip_label(token)` — converts canonical → on-screen label
-  (`not_owned` → `not owned`, others pass through).
+- `chip_label(token)` — converts canonical → on-screen label (`not_owned` →
+  `not owned`, others pass through).
 
 The helper has no side-effects, no DB access, no Rails-cache access.
 
@@ -406,8 +403,8 @@ This is what keeps every chip link from clobbering the rest of the URL state.
 
 ## View integration
 
-`app/views/games/index.html.erb` renders the filter row in exactly one place
-— between the shelves and the listing — by adding a single line:
+`app/views/games/index.html.erb` renders the filter row in exactly one place —
+between the shelves and the listing — by adding a single line:
 
 ```erb
 <%= render Games::FilterRowComponent.new(
@@ -454,13 +451,12 @@ Sad:
 
 Edge:
 
-- a game with `first_release_date == Time.current` is in `released`
-  (boundary inclusive on past side).
-- a game with `first_release_date == Time.current + 1.second` is in
-  `scheduled`.
+- a game with `first_release_date == Time.current` is in `released` (boundary
+  inclusive on past side).
+- a game with `first_release_date == Time.current + 1.second` is in `scheduled`.
 - `Game.recorded` returns distinct rows even when a game has many Videos.
-- `Game.on_platform('ps5')` returns distinct rows when a game is on PS5 once
-  but joins multiply (defensive `.distinct`).
+- `Game.on_platform('ps5')` returns distinct rows when a game is on PS5 once but
+  joins multiply (defensive `.distinct`).
 
 Flaw:
 
@@ -471,23 +467,24 @@ Flaw:
 
 ### Query — `spec/queries/games/filter_spec.rb` (load-bearing matrix)
 
-**Fixture matrix.** Build seven games with explicit ownership + release
-shape:
+**Fixture matrix.** Build seven games with explicit ownership + release shape:
 
-| Game | Available on (IGDB) | Owned on    | Released?              | Has Video? |
-| ---- | ------------------- | ----------- | ---------------------- | ---------- |
-| A    | PS5, Switch 2       | PS5         | yes (past)             | no         |
-| B    | PS5, Steam          | (none)      | yes (past)             | no         |
-| C    | Switch 2            | (none)      | no (scheduled, future) | no         |
-| D    | PS5, Switch 2       | PS5         | no (scheduled, future) | no         |
-| E    | Steam               | Steam       | yes (past)             | yes        |
-| F    | GOG                 | (none)      | yes (past)             | no         |
-| G    | Epic                | Epic        | yes (past)             | no         |
+| Game | Available on (IGDB) | Owned on | Released?              | Has Video? |
+| ---- | ------------------- | -------- | ---------------------- | ---------- |
+| A    | PS5, Switch 2       | PS5      | yes (past)             | no         |
+| B    | PS5, Steam          | (none)   | yes (past)             | no         |
+| C    | Switch 2            | (none)   | no (scheduled, future) | no         |
+| D    | PS5, Switch 2       | PS5      | no (scheduled, future) | no         |
+| E    | Steam               | Steam    | yes (past)             | yes        |
+| F    | GOG                 | (none)   | yes (past)             | no         |
+| G    | Epic                | Epic     | yes (past)             | no         |
 
 This matrix MUST be built via factories declared in `spec/factories/games.rb`
-+ `spec/factories/game_platforms.rb` + `spec/factories/game_platform_ownerships.rb`
-+ `spec/factories/videos.rb`. The factories ALREADY exist (`01a` + Phase
-14); the spec composes them.
+
+- `spec/factories/game_platforms.rb` +
+  `spec/factories/game_platform_ownerships.rb`
+- `spec/factories/videos.rb`. The factories ALREADY exist (`01a` + Phase 14);
+  the spec composes them.
 
 #### Single-token tests (happy)
 
@@ -500,11 +497,11 @@ This matrix MUST be built via factories declared in `spec/factories/games.rb`
 
 #### Single platform token, `owned` UNCHECKED (statement P-1)
 
-For each of the five platforms, the result is "all games released OR
-scheduled on that platform, regardless of ownership state":
+For each of the five platforms, the result is "all games released OR scheduled
+on that platform, regardless of ownership state":
 
-- `[ps5]` → A (released on PS5), B (released on PS5), D (scheduled on
-  PS5). Expected: A, B, D.
+- `[ps5]` → A (released on PS5), B (released on PS5), D (scheduled on PS5).
+  Expected: A, B, D.
 - `[switch2]` → A (released on Switch 2), C (scheduled on Switch 2), D
   (scheduled on Switch 2). Expected: A, C, D.
 - `[steam]` → B (released on Steam), E (released on Steam). Expected: B, E.
@@ -534,29 +531,29 @@ AND released OR scheduled on that platform":
 
 #### Pair combinations of `owned` × platform-X (matrix, happy)
 
-This is the locked acceptance matrix for the spec. Every cell must be a
-distinct `it` block. The reviewer will count the cells.
+This is the locked acceptance matrix for the spec. Every cell must be a distinct
+`it` block. The reviewer will count the cells.
 
-| Tokens                  | Expected | Citation |
-| ----------------------- | -------- | -------- |
-| `[ps5]`                 | A, B, D  | P-1      |
-| `[switch2]`             | A, C, D  | P-1      |
-| `[steam]`               | B, E     | P-1      |
-| `[gog]`                 | F        | P-1      |
-| `[epic]`                | G        | P-1      |
-| `[owned, ps5]`          | A, D     | P-2      |
-| `[owned, switch2]`      | ∅        | P-2      |
-| `[owned, steam]`        | E        | P-2      |
-| `[owned, gog]`          | ∅        | P-2      |
-| `[owned, epic]`         | G        | P-2      |
-| `[not_owned, ps5]`      | B        | C-1      |
-| `[not_owned, switch2]`  | C        | C-1      |
-| `[not_owned, steam]`    | B        | C-1      |
-| `[not_owned, gog]`      | F        | C-1      |
-| `[not_owned, epic]`     | ∅        | C-1      |
+| Tokens                 | Expected | Citation |
+| ---------------------- | -------- | -------- |
+| `[ps5]`                | A, B, D  | P-1      |
+| `[switch2]`            | A, C, D  | P-1      |
+| `[steam]`              | B, E     | P-1      |
+| `[gog]`                | F        | P-1      |
+| `[epic]`               | G        | P-1      |
+| `[owned, ps5]`         | A, D     | P-2      |
+| `[owned, switch2]`     | ∅        | P-2      |
+| `[owned, steam]`       | E        | P-2      |
+| `[owned, gog]`         | ∅        | P-2      |
+| `[owned, epic]`        | G        | P-2      |
+| `[not_owned, ps5]`     | B        | C-1      |
+| `[not_owned, switch2]` | C        | C-1      |
+| `[not_owned, steam]`   | B        | C-1      |
+| `[not_owned, gog]`     | F        | C-1      |
+| `[not_owned, epic]`    | ∅        | C-1      |
 
-**That is fifteen pair-combination examples** (5 platforms × 3 ownership
-states: unchecked / owned / not_owned). All fifteen MUST be present in
+**That is fifteen pair-combination examples** (5 platforms × 3 ownership states:
+unchecked / owned / not_owned). All fifteen MUST be present in
 `spec/queries/games/filter_spec.rb`.
 
 #### Worked-example verbatim assertion
@@ -577,8 +574,8 @@ regressions in the locked semantics.
 #### Multi-platform token (corollary C-2)
 
 - `[ps5, switch2]` (owned unchecked) → A, B, C, D (union of P-1 sets).
-- `[owned, ps5, switch2]` → A, D (union of P-2 sets — A owned PS5, D owned
-  PS5; switch2 contributes ∅).
+- `[owned, ps5, switch2]` → A, D (union of P-2 sets — A owned PS5, D owned PS5;
+  switch2 contributes ∅).
 - `[not_owned, ps5, switch2]` → B, C (union of C-1 sets).
 
 #### Combination with status tokens
@@ -588,15 +585,15 @@ regressions in the locked semantics.
 - `[released, owned, ps5]` → A.
 - `[scheduled, ps5]` → D (P-1 narrowed to scheduled: D is scheduled on PS5).
 - `[scheduled, owned, ps5]` → D (P-2 narrowed to scheduled).
-- `[scheduled, not_owned, ps5]` → ∅ (no game is scheduled on PS5 AND not
-  owned anywhere; D is owned on PS5; C is scheduled but only on Switch 2).
+- `[scheduled, not_owned, ps5]` → ∅ (no game is scheduled on PS5 AND not owned
+  anywhere; D is owned on PS5; C is scheduled but only on Switch 2).
 - `[scheduled, not_owned, switch2]` → C.
 
 #### Status-bucket OR semantics
 
 - `[released, scheduled]` → A, B, C, D, E, F, G (union of released and
-  scheduled; all games in the fixture have a release date one way or the
-  other). The OR within the status bucket is asserted explicitly.
+  scheduled; all games in the fixture have a release date one way or the other).
+  The OR within the status bucket is asserted explicitly.
 - `[recorded, scheduled]` → C, D, E (E recorded; C, D scheduled).
 
 #### Contradiction (sad)
@@ -609,7 +606,7 @@ regressions in the locked semantics.
 
 - `[ps5, ps5]` (duplicate) de-dupes to `[ps5]`; identical result.
 - `[PS5]` (uppercase) → normalised to `ps5`; identical result.
-- ` [ps5] ` (whitespace around) → trimmed; identical result.
+- `[ps5]` (whitespace around) → trimmed; identical result.
 - `[]` → all games (A–G); `filter.contradiction?` is false.
 - token order does not affect results — assert via property-style examples
   iterating over `[[ "owned", "ps5" ], [ "ps5", "owned" ]]` and confirming the
@@ -617,14 +614,14 @@ regressions in the locked semantics.
 
 #### Flaw
 
-- 100-token input does not blow the stack; unknown tokens are dropped; the
-  spec asserts `filter.dropped_tokens.size == 100 - canonical_count`.
-- SQL-injection-shaped token (`"ps5'; DROP TABLE games; --"`) is rejected by
-  the canonical-token whitelist; `filter.dropped_tokens` includes the
-  payload; `filter.results` is identical to the un-payloaded filter.
+- 100-token input does not blow the stack; unknown tokens are dropped; the spec
+  asserts `filter.dropped_tokens.size == 100 - canonical_count`.
+- SQL-injection-shaped token (`"ps5'; DROP TABLE games; --"`) is rejected by the
+  canonical-token whitelist; `filter.dropped_tokens` includes the payload;
+  `filter.results` is identical to the un-payloaded filter.
 - The query is composable with `.where` chains (e.g.,
-  `filter.results.where("id > ?", 0)` is a valid relation), proving
-  `#results` returns an `ActiveRecord::Relation` and not an array.
+  `filter.results.where("id > ?", 0)` is a valid relation), proving `#results`
+  returns an `ActiveRecord::Relation` and not an array.
 - `#results` is memoised — calling it twice produces the same SQL fingerprint
   (`to_sql` equality).
 
@@ -667,8 +664,8 @@ Flaw:
 
 Happy:
 
-- renders `[ps5]` link with `?filters=ps5` when inactive and the request has
-  no filters.
+- renders `[ps5]` link with `?filters=ps5` when inactive and the request has no
+  filters.
 - renders `[ps5]` link toggling the chip OFF when it is currently active
   (clicking takes the user back to `?filters=` cleared).
 - toggling one chip preserves the others — `[ps5]` clicked while `[owned]` is
@@ -684,20 +681,19 @@ Sad:
 
 Edge:
 
-- preserves `display=list` on the href when passed via
-  `query_string_overrides`.
+- preserves `display=list` on the href when passed via `query_string_overrides`.
 - preserves `genre=<slug>` and `collection=<slug>` on the href when passed.
-- when toggling DROPS the last active filter, the link omits `filters=`
-  entirely (no `?filters=` trailing dangle).
-- when active, the chip carries the `chip--active` CSS class; when inactive,
-  it does not.
+- when toggling DROPS the last active filter, the link omits `filters=` entirely
+  (no `?filters=` trailing dangle).
+- when active, the chip carries the `chip--active` CSS class; when inactive, it
+  does not.
 - the chip is a single `<a>` element (not a button, not a form).
 
 Flaw:
 
 - HTML-escapes any raw token (defense-in-depth — the constructor whitelist
-  already rejects non-canonical tokens, but the spec asserts the rendered
-  HTML escapes `<`, `>`, `&` on every text node).
+  already rejects non-canonical tokens, but the spec asserts the rendered HTML
+  escapes `<`, `>`, `&` on every text node).
 
 ### Helper — `spec/helpers/games/filters_helper_spec.rb`
 
@@ -730,12 +726,11 @@ Edge:
 
 Happy:
 
-- `GET /games` → 200, no filter applied, all games visible in the response
-  body.
-- `GET /games?filters=ps5` → 200, filter applied; HTML contains the active
-  chip CSS class on `[ps5]`; `[clear all]` link is present.
-- `GET /games?filters=ps5,owned` → 200, narrower set; both `[ps5]` and
-  `[owned]` render active.
+- `GET /games` → 200, no filter applied, all games visible in the response body.
+- `GET /games?filters=ps5` → 200, filter applied; HTML contains the active chip
+  CSS class on `[ps5]`; `[clear all]` link is present.
+- `GET /games?filters=ps5,owned` → 200, narrower set; both `[ps5]` and `[owned]`
+  render active.
 - `GET /games?filters=owned` → 200; visible game set matches `Game.owned`.
 
 Sad:
@@ -743,15 +738,15 @@ Sad:
 - `GET /games?filters=` (empty) → 200, treated as empty filter set; no
   `[clear all]`.
 - `GET /games?filters=garbage` → 200, unknown token dropped; no `[clear all]`
-  (since no canonical token is active); response body does not echo
-  `garbage` anywhere (defense-in-depth XSS).
-- `GET /games?filters=garbage,ps5` → 200, `[ps5]` active; `garbage` dropped;
-  the rendered `[clear all]` href is `/games?filters=` (no `garbage` in it).
+  (since no canonical token is active); response body does not echo `garbage`
+  anywhere (defense-in-depth XSS).
+- `GET /games?filters=garbage,ps5` → 200, `[ps5]` active; `garbage` dropped; the
+  rendered `[clear all]` href is `/games?filters=` (no `garbage` in it).
 
 Edge:
 
-- `GET /games?filters=owned,not_owned` → 200; renders contradiction notice;
-  body excludes game tiles (the listing partial sees `Game.none`).
+- `GET /games?filters=owned,not_owned` → 200; renders contradiction notice; body
+  excludes game tiles (the listing partial sees `Game.none`).
 - `GET /games?filters=ps5&display=list` → 200; list mode renders; chip hrefs
   preserve `display=list`.
 - `GET /games?filters=ps5&genre=action` → 200; genre filter (`01c`) and chip
@@ -764,9 +759,9 @@ Edge:
 Flaw:
 
 - query string with 100 tokens does not 500.
-- SQL-injection payload as a token (`"ps5'; DROP TABLE games; --"`) → 200;
-  the response body does not contain the payload; the games table still
-  exists post-request (assert via `Game.count` before/after).
+- SQL-injection payload as a token (`"ps5'; DROP TABLE games; --"`) → 200; the
+  response body does not contain the payload; the games table still exists
+  post-request (assert via `Game.count` before/after).
 - the response never sets `data-turbo-confirm` or any JS-confirm attribute on
   the filter row.
 
@@ -777,32 +772,30 @@ These are ADDED to the existing file landed by `01c`. Do not replace.
 Happy:
 
 - visiting `/games` with seed data, clicking `[ps5]` updates the URL to
-  `?filters=ps5`; the chip is now styled active; the listing visibly
-  narrows.
+  `?filters=ps5`; the chip is now styled active; the listing visibly narrows.
 - clicking `[ps5]` a second time clears it; URL is `/games?filters=` (or
   stripped); listing returns to full set.
-- `[clear all]` appears when at least one chip is active; clicking it clears
-  the filter set; `[clear all]` disappears.
-- composing chips: click `[ps5]` then `[owned]`; URL is
-  `?filters=ps5,owned`; listing matches `[ps5, owned]` matrix expectation
-  (A, D).
+- `[clear all]` appears when at least one chip is active; clicking it clears the
+  filter set; `[clear all]` disappears.
+- composing chips: click `[ps5]` then `[owned]`; URL is `?filters=ps5,owned`;
+  listing matches `[ps5, owned]` matrix expectation (A, D).
 
 Sad:
 
-- clicking `[owned]` then `[not owned]` renders the contradiction notice and
-  an empty listing — page does not crash, no JS dialog.
+- clicking `[owned]` then `[not owned]` renders the contradiction notice and an
+  empty listing — page does not crash, no JS dialog.
 
 Edge:
 
-- the filter row preserves the `?display=` param (set by `01d`'s switcher)
-  when a chip is toggled. Concretely: click `[list]` then click `[ps5]`;
-  URL becomes `?filters=ps5&display=list` (order of params is not
-  asserted, but both keys are present).
-- the filter row preserves the `?genre=` param (set by `01c`'s shelves) when
-  a chip is toggled.
-- selecting all five platform chips without `owned` widens to the union of
-  all release/schedule sets (matrix-confirmed: every game in A–G has at
-  least one available platform → all visible).
+- the filter row preserves the `?display=` param (set by `01d`'s switcher) when
+  a chip is toggled. Concretely: click `[list]` then click `[ps5]`; URL becomes
+  `?filters=ps5&display=list` (order of params is not asserted, but both keys
+  are present).
+- the filter row preserves the `?genre=` param (set by `01c`'s shelves) when a
+  chip is toggled.
+- selecting all five platform chips without `owned` widens to the union of all
+  release/schedule sets (matrix-confirmed: every game in A–G has at least one
+  available platform → all visible).
 
 Flaw:
 
@@ -823,51 +816,50 @@ The hard rule still applies to MCP / CLI mirroring in `01g`.
 - `/games` route unchanged.
 - `filters` query param is purely additive.
 - No friendly slug routes affected.
-- The component's chip-href computation does not touch the slug segment of
-  any URL.
+- The component's chip-href computation does not touch the slug segment of any
+  URL.
 
 ---
 
 ## Manual test recipe
 
 1. `bin/dev`; open `http://localhost:3000/games`.
-2. Observe the filter row sitting BELOW the Genres and Collections shelves
-   and ABOVE the main listing. Ten chips render in this order:
-   `[recorded] [released] [owned] [not owned] [scheduled] [ps5] [switch2]
-   [steam] [gog] [epic]`. No chip is active. No `[clear all]` link.
+2. Observe the filter row sitting BELOW the Genres and Collections shelves and
+   ABOVE the main listing. Ten chips render in this order:
+   `[recorded] [released] [owned] [not owned] [scheduled] [ps5] [switch2] [steam] [gog] [epic]`.
+   No chip is active. No `[clear all]` link.
 3. Click `[ps5]`. URL becomes `/games?filters=ps5`. `[ps5]` renders with the
    active class. `[clear all]` appears. The listing narrows to the games
    released or scheduled on PS5 (regardless of ownership state).
 4. Click `[owned]`. URL becomes `/games?filters=ps5,owned` (order may differ
-   based on click sequence; both tokens present). The listing narrows
-   further to games owned specifically on PS5.
-5. Click `[ps5]` again. URL becomes `/games?filters=owned`. The listing
-   widens to all owned games.
+   based on click sequence; both tokens present). The listing narrows further to
+   games owned specifically on PS5.
+5. Click `[ps5]` again. URL becomes `/games?filters=owned`. The listing widens
+   to all owned games.
 6. Click `[not owned]`. URL becomes `/games?filters=owned,not_owned`. The
-   contradiction notice `(owned and not owned together — no matches)`
-   renders, muted. The listing is empty. No JS dialog ever appears.
-7. Click `[clear all]`. URL becomes `/games` (or `/games?filters=`). All
-   chips inactive. The listing returns to the full set.
+   contradiction notice `(owned and not owned together — no matches)` renders,
+   muted. The listing is empty. No JS dialog ever appears.
+7. Click `[clear all]`. URL becomes `/games` (or `/games?filters=`). All chips
+   inactive. The listing returns to the full set.
 8. With `01d` shipped, click `[list]` top-right to switch display mode, then
-   click `[ps5]`. URL is `/games?filters=ps5&display=list`. List mode
-   renders with the filter applied. Reload the page — both the display
-   mode and the filter persist.
+   click `[ps5]`. URL is `/games?filters=ps5&display=list`. List mode renders
+   with the filter applied. Reload the page — both the display mode and the
+   filter persist.
 9. With `01c` shipped, click a genre tile in the Genres shelf, then click
    `[owned]`. URL preserves both `?genre=<slug>` and `?filters=owned`.
 
-State teardown: remove any `?filters=...` to return the listing to the full
-set.
+State teardown: remove any `?filters=...` to return the listing to the full set.
 
 ---
 
 ## Cross-stack scope
 
-| Surface            | In scope for `01b`                                              |
-| ------------------ | --------------------------------------------------------------- |
+| Surface            | In scope for `01b`                                             |
+| ------------------ | -------------------------------------------------------------- |
 | Rails web `/games` | YES — component, helper, query object, controller, view, specs |
-| Rails MCP          | NO — MCP filter parity ships in `01g`                           |
-| `pito` CLI         | NO — CLI filter parity ships in `01g`                           |
-| Cloudflare website | NO                                                              |
+| Rails MCP          | NO — MCP filter parity ships in `01g`                          |
+| `pito` CLI         | NO — CLI filter parity ships in `01g`                          |
+| Cloudflare website | NO                                                             |
 
 ---
 
@@ -875,30 +867,30 @@ set.
 
 1. **Corollary C-1 (`not_owned` + platform-X).** Source directive does not
    enumerate this case. Architect's reading: match games with zero ownership
-   rows AND released-or-scheduled on the platform. Confirm before `01g` so
-   MCP surface mirrors the same. (Locked default in this spec — flag a phase
-   log entry if the master overrides.)
+   rows AND released-or-scheduled on the platform. Confirm before `01g` so MCP
+   surface mirrors the same. (Locked default in this spec — flag a phase log
+   entry if the master overrides.)
 2. **Corollary C-3 contradiction rendering.** Render a muted notice (locked
    default) versus silently emit an empty listing. Architect chose notice for
    discoverability; the master may revisit.
-3. **`recorded` semantics with draft Videos.** Should `Game.recorded` match
-   any linked Video record, or only Videos in a `published` state? Architect
-   leans "any Video" because the project has no `published` state on Video
-   yet; revisit when video publication state lands.
+3. **`recorded` semantics with draft Videos.** Should `Game.recorded` match any
+   linked Video record, or only Videos in a `published` state? Architect leans
+   "any Video" because the project has no `published` state on Video yet;
+   revisit when video publication state lands.
 4. **Boundary inclusiveness on `released`.** Locked: `<= Time.current` is
    `released`. A game whose `first_release_date` exactly equals "now" is in
    `released`, not `scheduled`. The spec asserts this; flag if the master
    prefers strict `<`.
 5. **`platforms_available` association name.** This sub-spec assumes the
    existing Phase 14 `Game#platforms_available` (through `:game_platforms`,
-   source: `:platform`). Confirm the name is still `platforms_available` at
-   the time of dispatch — if the `01a` revamp renamed it, the scope code
-   needs the new name.
+   source: `:platform`). Confirm the name is still `platforms_available` at the
+   time of dispatch — if the `01a` revamp renamed it, the scope code needs the
+   new name.
 6. **Order of platform tokens within the bucket.** Multiple platforms in the
    same bucket OR together (corollary C-2). The implementation may choose
    between `where(id: rel_a).or(where(id: rel_b))` and a single
-   `where(id: union_ids_array)`. The spec asserts result equivalence, not
-   the SQL shape — both are acceptable.
+   `where(id: union_ids_array)`. The spec asserts result equivalence, not the
+   SQL shape — both are acceptable.
 
 ---
 
@@ -915,7 +907,7 @@ set.
   — provides the `?display=` param this sub-spec must preserve.
 - `docs/agents/architect.md` — spec pyramid rule D, yes/no boundary rule E,
   bracketed-link rule A.
-- `docs/design.md` — bracketed-link convention, monospace style, no red
-  outside destructive actions.
+- `docs/design.md` — bracketed-link convention, monospace style, no red outside
+  destructive actions.
 - `CLAUDE.md` hard rules — no JS confirm, no `data-turbo-confirm`, yes/no
   boundary, bulk-as-foundation.

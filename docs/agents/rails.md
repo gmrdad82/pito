@@ -111,15 +111,15 @@ specs. Agents do not run the full suite themselves.
   `target="_blank" rel="noopener noreferrer"` — that exact attribute pair, no
   `rel="noopener"` alone. Internal navigation stays same-tab so Turbo and
   back-button history keep working. **`BracketedLinkComponent` handles this
-  automatically** as of 2026-05-16 — when `href:` is an absolute `http(s)`
-  URL the component emits the target/rel pair itself; callers drop the
-  explicit kwargs. Explicit caller-supplied `target:` / `rel:` still win for
-  the rare override case. **Prefer the component over raw `<a>` tags for
-  every clickable link** so the bracketed `[ label ]` visual convention
-  stays consistent across the app. For markdown-rendered surfaces pass
-  `render_markdown(@md, target_external_links: true)` so the helper
-  rewrites anchors via Nokogiri. Full convention + carve-outs:
-  `docs/design.md` → "External links — new tab convention".
+  automatically** as of 2026-05-16 — when `href:` is an absolute `http(s)` URL
+  the component emits the target/rel pair itself; callers drop the explicit
+  kwargs. Explicit caller-supplied `target:` / `rel:` still win for the rare
+  override case. **Prefer the component over raw `<a>` tags for every clickable
+  link** so the bracketed `[ label ]` visual convention stays consistent across
+  the app. For markdown-rendered surfaces pass
+  `render_markdown(@md, target_external_links: true)` so the helper rewrites
+  anchors via Nokogiri. Full convention + carve-outs: `docs/design.md` →
+  "External links — new tab convention".
 - View components live under `app/components/` (ViewComponent). Helpers hold
   logic only — see the `ViewComponents and decorators` memory note.
 - Modal pattern: `ConfirmModalComponent` for in-page confirms, action pages

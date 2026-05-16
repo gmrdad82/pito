@@ -501,65 +501,65 @@ for this lane). No new findings introduced.
 **Done:**
 
 - F1 (High) — `PasswordResetsController#update` now revokes every `ApiToken`,
-  `Doorkeeper::AccessToken`, and `Doorkeeper::AccessGrant` belonging to the
-  user alongside their cookie sessions, via `update_all` on the bulk path. The
-  `AuthAuditLog` row carries revocation tallies in metadata
-  (`sessions_revoked`, `api_tokens_revoked`, `oauth_access_tokens_revoked`,
+  `Doorkeeper::AccessToken`, and `Doorkeeper::AccessGrant` belonging to the user
+  alongside their cookie sessions, via `update_all` on the bulk path. The
+  `AuthAuditLog` row carries revocation tallies in metadata (`sessions_revoked`,
+  `api_tokens_revoked`, `oauth_access_tokens_revoked`,
   `oauth_access_grants_revoked`).
 - F1 (High) — `lib/tasks/pito.rake pito:user:reset_totp` mirrors the same
-  bearer-credential revocation block under the existing transaction. Now
-  also emits a `password_reset` `AuthAuditLog` row (acting_user + target =
-  the affected user; `source_surface = :tui`; metadata carries
-  `source: "rake:pito:user:reset_totp"` + the revocation tallies). The
-  success print now includes the tallies.
+  bearer-credential revocation block under the existing transaction. Now also
+  emits a `password_reset` `AuthAuditLog` row (acting_user + target = the
+  affected user; `source_surface = :tui`; metadata carries
+  `source: "rake:pito:user:reset_totp"` + the revocation tallies). The success
+  print now includes the tallies.
 - F2 (Medium) — `PasswordResetsController#create` wrong-code branch now pays
   `bcrypt_dummy_compare` BEFORE rendering the generic failure, symmetrizing
-  wall-clock cost with the unknown-username / no-TOTP bail branches. Closes
-  the timing oracle that previously distinguished "has TOTP" from
-  "doesn't exist / no TOTP" via response latency.
+  wall-clock cost with the unknown-username / no-TOTP bail branches. Closes the
+  timing oracle that previously distinguished "has TOTP" from "doesn't exist /
+  no TOTP" via response latency.
 - F6 (Low) — `bcrypt_dummy_compare` extracted from `SessionsController` and
   `PasswordResetsController` into a new shared concern at
-  `app/controllers/concerns/sessions/bcrypt_dummy_compare.rb`. Both
-  controllers `include Sessions::BcryptDummyCompare`. A single call site for
-  the helper eliminates the drift risk between the two surfaces (which F2's
-  fix relies on).
+  `app/controllers/concerns/sessions/bcrypt_dummy_compare.rb`. Both controllers
+  `include Sessions::BcryptDummyCompare`. A single call site for the helper
+  eliminates the drift risk between the two surfaces (which F2's fix relies on).
 - F4 (Low) — `config/initializers/rack_attack.rb` `password/*` branch of the
-  `throttled_responder` now calls `Auth::RateLimitLogger.call(request:, username:)`,
-  writing a `LoginAttempt` row on every password-reset throttle hit (same
-  pattern the `login/*` branch already followed). Reuses
-  `LoginAttempt.reason = :rate_limited`; no enum migration. The body still
-  carries the generic `reset failed.` HTML — no rate-limit leak.
+  `throttled_responder` now calls
+  `Auth::RateLimitLogger.call(request:, username:)`, writing a `LoginAttempt`
+  row on every password-reset throttle hit (same pattern the `login/*` branch
+  already followed). Reuses `LoginAttempt.reason = :rate_limited`; no enum
+  migration. The body still carries the generic `reset failed.` HTML — no
+  rate-limit leak.
 
 **Files changed (rails impl):**
 
-- `app/controllers/password_resets_controller.rb` — F1 (bearer revocation),
-  F2 (wrong-code dummy compare), F6 (include shared concern, drop local body).
+- `app/controllers/password_resets_controller.rb` — F1 (bearer revocation), F2
+  (wrong-code dummy compare), F6 (include shared concern, drop local body).
 - `app/controllers/sessions_controller.rb` — F6 only (include shared concern,
   drop local body).
 - `app/controllers/concerns/sessions/bcrypt_dummy_compare.rb` — new shared
   concern (F6).
-- `lib/tasks/pito.rake` — F1 (bearer revocation + `AuthAuditLog` row in the
-  rake task) and the success-print update.
-- `config/initializers/rack_attack.rb` — F4 (`Auth::RateLimitLogger` call in
-  the `password/*` branch of the throttled responder).
+- `lib/tasks/pito.rake` — F1 (bearer revocation + `AuthAuditLog` row in the rake
+  task) and the success-print update.
+- `config/initializers/rack_attack.rb` — F4 (`Auth::RateLimitLogger` call in the
+  `password/*` branch of the throttled responder).
 
 **Regression specs (mandatory):**
 
-- `spec/controllers/concerns/sessions/bcrypt_dummy_compare_spec.rb` — new.
-  10 examples; pins shared-helper shape + both controllers' inclusion + the
+- `spec/controllers/concerns/sessions/bcrypt_dummy_compare_spec.rb` — new. 10
+  examples; pins shared-helper shape + both controllers' inclusion + the
   `instance_method(:bcrypt_dummy_compare).owner` invariant so a future
   re-introduction of a local body is caught.
-- `spec/requests/password_resets_spec.rb` — extended with the F1 group
-  (revokes ApiToken / OAuth access tokens / OAuth access grants, preserves
-  already-revoked rows, audit-log metadata tallies, no-revoke-on-failure)
-  and the F2 group (wrong-code path and wrong-shape-code path both call
-  through `bcrypt_dummy_compare`).
-- `spec/lib/tasks/pito_rake_spec.rb` — extended with the F1 rake group
-  (same shape as the controller F1 group: token / OAuth revocation, audit
-  log, print line).
-- `spec/initializers/rack_attack_login_throttle_spec.rb` — extended with the
-  F4 group (password/ip + password/username throttle hits both write
-  `LoginAttempt` rows; the response body still has no rate-limit leak).
+- `spec/requests/password_resets_spec.rb` — extended with the F1 group (revokes
+  ApiToken / OAuth access tokens / OAuth access grants, preserves
+  already-revoked rows, audit-log metadata tallies, no-revoke-on-failure) and
+  the F2 group (wrong-code path and wrong-shape-code path both call through
+  `bcrypt_dummy_compare`).
+- `spec/lib/tasks/pito_rake_spec.rb` — extended with the F1 rake group (same
+  shape as the controller F1 group: token / OAuth revocation, audit log, print
+  line).
+- `spec/initializers/rack_attack_login_throttle_spec.rb` — extended with the F4
+  group (password/ip + password/username throttle hits both write `LoginAttempt`
+  rows; the response body still has no rate-limit leak).
 
 **Quality gate evidence:**
 
@@ -567,38 +567,36 @@ for this lane). No new findings introduced.
 - `bin/brakeman -q -w2`: 1 warning total, same pre-existing Games genre-shelf
   raw-SQL pattern reported on the prior baseline. No new findings.
 - `bundle exec parallel_rspec spec/ -n 8` (final full-suite pass,
-  `/tmp/pito-parallel-rspec-2026-05-15.log`): 8680 examples, 18 failures,
-  1 pending. All 18 failures map onto the standing baseline clusters
+  `/tmp/pito-parallel-rspec-2026-05-15.log`): 8680 examples, 18 failures, 1
+  pending. All 18 failures map onto the standing baseline clusters
   (`docs/agents/testing.md`): 1 numeric-formatting lint, 2 calendar, 1
   composites / deletions games branch, 2 games (steam-shelf + 9 platform-
-  ownerships view failures — `platforms.any?` on a nil collection,
-  unrelated to this lane), 1 OAuth flow, 1 tokens, 2 settings panes
-  (`_slack_pane` / `_discord_pane` nav-sep middle-dot). Well within the
-  documented 24/1 baseline and below the most-recent 20/1 capture.
+  ownerships view failures — `platforms.any?` on a nil collection, unrelated to
+  this lane), 1 OAuth flow, 1 tokens, 2 settings panes (`_slack_pane` /
+  `_discord_pane` nav-sep middle-dot). Well within the documented 24/1 baseline
+  and below the most-recent 20/1 capture.
 
 **Notes:**
 
-- The Doorkeeper API used in tests is the project's `OauthApplication`
-  factory (`spec/factories/oauth_applications.rb`) — `Doorkeeper::Application`
-  directly would fail the `ActiveRecord::AssociationTypeMismatch` guard
-  because of the `Doorkeeper.configure { application_class "OauthApplication" }`
-  binding in the initializer. Specs use `create(:oauth_application, scopes:
-  Scopes::APP)` and `Doorkeeper::AccessToken.create!` for the access-token /
-  grant rows.
+- The Doorkeeper API used in tests is the project's `OauthApplication` factory
+  (`spec/factories/oauth_applications.rb`) — `Doorkeeper::Application` directly
+  would fail the `ActiveRecord::AssociationTypeMismatch` guard because of the
+  `Doorkeeper.configure { application_class "OauthApplication" }` binding in the
+  initializer. Specs use `create(:oauth_application, scopes: Scopes::APP)` and
+  `Doorkeeper::AccessToken.create!` for the access-token / grant rows.
 - F4 deliberately reuses `LoginAttempt.reason = :rate_limited` rather than
-  introducing a new enum value (`password_reset_rate_limited`) — the agent
-  scope said "do not touch other production files beyond the listed
-  surfaces", and a new enum value lives on `app/models/login_attempt.rb`.
-  The `email_attempted` field on the row + the IP carries enough forensic
-  context to distinguish password-recovery throttle hits from login throttle
-  hits in the attempt log. Promoting to a dedicated enum value can ride a
-  follow-up architect spec if the operator surface needs the explicit
-  partition.
+  introducing a new enum value (`password_reset_rate_limited`) — the agent scope
+  said "do not touch other production files beyond the listed surfaces", and a
+  new enum value lives on `app/models/login_attempt.rb`. The `email_attempted`
+  field on the row + the IP carries enough forensic context to distinguish
+  password-recovery throttle hits from login throttle hits in the attempt log.
+  Promoting to a dedicated enum value can ride a follow-up architect spec if the
+  operator surface needs the explicit partition.
 
 **Next:**
 
-- Master agent reviews the diff and either dispatches `pito-reviewer` for
-  a final verification pass, or stages the diff for user validation.
-- After user validation, the master commits the security fix-pass alongside
-  the A2 unit body (the security playbook explicitly noted "merge with
-  fix-forward" — these four findings are the "fix" half).
+- Master agent reviews the diff and either dispatches `pito-reviewer` for a
+  final verification pass, or stages the diff for user validation.
+- After user validation, the master commits the security fix-pass alongside the
+  A2 unit body (the security playbook explicitly noted "merge with fix-forward"
+  — these four findings are the "fix" half).

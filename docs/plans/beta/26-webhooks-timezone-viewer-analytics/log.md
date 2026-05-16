@@ -2,9 +2,9 @@
 
 ## 2026-05-11 — P26 reviewer non-blocking concerns (pito-rails-impl) [skipci]
 
-Applied the four P26 reviewer non-blocking concerns. Both 01e (daily digest)
-and 01g (viewer-time analytics) checkboxes were already ticked; this session
-is pure fix-forward against the reviewer playbook.
+Applied the four P26 reviewer non-blocking concerns. Both 01e (daily digest) and
+01g (viewer-time analytics) checkboxes were already ticked; this session is pure
+fix-forward against the reviewer playbook.
 
 ### Fix-forward index
 
@@ -13,29 +13,29 @@ is pure fix-forward against the reviewer playbook.
   install-level "anchor" user (`User.order(:id).first`) instead of enumerating
   every user with a digest-enabled channel. The anchor's `time_zone` decides
   when the install's 09:00 local fires; the anchor's `last_digest_run_at`
-  carries the install-wide cooldown stamp. Composer is unchanged — it
-  already aggregates install-wide activity (channels, videos, footage, login
-  attempts, notifications) regardless of which user it is composing for.
-  Locked decision: ONE digest per install per day, regardless of user count.
+  carries the install-wide cooldown stamp. Composer is unchanged — it already
+  aggregates install-wide activity (channels, videos, footage, login attempts,
+  notifications) regardless of which user it is composing for. Locked decision:
+  ONE digest per install per day, regardless of user count.
 - **Concern 2 — `pick_users` EXISTS subquery.** Obviated by concern 1. The
   scheduler no longer scans users; it picks the anchor directly. The
   uncorrelated EXISTS is gone with the rest of the per-user loop.
 - **Concern 3 — Cross-user race.** Inherently addressed by the install-level
   dispatch (cooldown stamp lives on a single row). The existing atomic
-  `UPDATE...WHERE last_digest_run_at <` claim guards the (rare) race
-  between two simultaneous ticks.
+  `UPDATE...WHERE last_digest_run_at <` claim guards the (rare) race between two
+  simultaneous ticks.
 - **Concern 4 — Heatmap tooltip accessibility.** Dropped native `title=` on
-  `app/components/viewer_time_heatmap_component.html.erb`. Each cell now
-  carries `tabindex="0"`, `aria-label` (screen-reader text), and
-  `data-tooltip` (rendered via a CSS-only `::after` pseudo-element on
-  hover/focus). Tailwind input updated in
-  `app/assets/tailwind/application.css`; rebuilt to `app/assets/builds/tailwind.css`.
+  `app/components/viewer_time_heatmap_component.html.erb`. Each cell now carries
+  `tabindex="0"`, `aria-label` (screen-reader text), and `data-tooltip`
+  (rendered via a CSS-only `::after` pseudo-element on hover/focus). Tailwind
+  input updated in `app/assets/tailwind/application.css`; rebuilt to
+  `app/assets/builds/tailwind.css`.
 - **Concern 5 — `resolve_iana` relocation.** Moved off
   `VideoViewerTimeBucket.resolve_iana` into the existing `Pito::*` lib
   namespace: `app/lib/pito/time_zone.rb` with module-function
   `Pito::TimeZone.resolve_iana(tz)`. Updated the single call site
-  (`VideoViewerTimeBucket.rolled_up_to_tz` scope). Spec coverage moved
-  to `spec/lib/pito/time_zone_spec.rb`.
+  (`VideoViewerTimeBucket.rolled_up_to_tz` scope). Spec coverage moved to
+  `spec/lib/pito/time_zone_spec.rb`.
 
 ### Files touched
 
@@ -46,24 +46,23 @@ is pure fix-forward against the reviewer playbook.
   through `Pito::TimeZone.resolve_iana`.
 - `app/components/viewer_time_heatmap_component.html.erb` — `tabindex="0"`,
   `aria-label`, `data-tooltip`; dropped `title=`.
-- `app/assets/tailwind/application.css` — CSS-only `::after` tooltip on
-  hover + focus; box-shadow ring on hover/focus for the cell.
+- `app/assets/tailwind/application.css` — CSS-only `::after` tooltip on hover +
+  focus; box-shadow ring on hover/focus for the cell.
 - `app/assets/builds/tailwind.css` — regenerated.
 - `spec/jobs/daily_digest_scheduler_job_spec.rb` — added the install-level
-  dispatch describe block (3 examples) asserting anchor pick, anchor-tz
-  pick window, and exactly-one-fire for multi-user installs.
-- `spec/components/viewer_time_heatmap_component_spec.rb` — replaced the
-  two `title*=` assertions with `data-tooltip` / `aria-label` versions;
-  added two new examples (no `title=` attribute, every cell `tabindex='0'`).
-- `spec/models/video_viewer_time_bucket_spec.rb` — dropped the
-  `.resolve_iana` describe block (moved out).
+  dispatch describe block (3 examples) asserting anchor pick, anchor-tz pick
+  window, and exactly-one-fire for multi-user installs.
+- `spec/components/viewer_time_heatmap_component_spec.rb` — replaced the two
+  `title*=` assertions with `data-tooltip` / `aria-label` versions; added two
+  new examples (no `title=` attribute, every cell `tabindex='0'`).
+- `spec/models/video_viewer_time_bucket_spec.rb` — dropped the `.resolve_iana`
+  describe block (moved out).
 
 **Added:**
 
-- `app/lib/pito/time_zone.rb` — `Pito::TimeZone.resolve_iana` module
-  function.
-- `spec/lib/pito/time_zone_spec.rb` — 6 examples covering all input
-  shapes (IANA, alias, ActiveSupport::TimeZone, nil, symbol, unrecognized).
+- `app/lib/pito/time_zone.rb` — `Pito::TimeZone.resolve_iana` module function.
+- `spec/lib/pito/time_zone_spec.rb` — 6 examples covering all input shapes
+  (IANA, alias, ActiveSupport::TimeZone, nil, symbol, unrecognized).
 
 ### Spec count delta
 
@@ -76,31 +75,25 @@ is pure fix-forward against the reviewer playbook.
 
 ### Test + lint
 
-- `bundle exec rspec spec/lib/pito/time_zone_spec.rb
-  spec/models/video_viewer_time_bucket_spec.rb
-  spec/components/viewer_time_heatmap_component_spec.rb
-  spec/services/analytics/viewer_time_rollup_spec.rb
-  spec/jobs/daily_digest_scheduler_job_spec.rb
-  spec/jobs/daily_digest_deliver_job_spec.rb` — 98 examples, 0 failures.
+- `bundle exec rspec spec/lib/pito/time_zone_spec.rb spec/models/video_viewer_time_bucket_spec.rb spec/components/viewer_time_heatmap_component_spec.rb spec/services/analytics/viewer_time_rollup_spec.rb spec/jobs/daily_digest_scheduler_job_spec.rb spec/jobs/daily_digest_deliver_job_spec.rb`
+  — 98 examples, 0 failures.
 - `bundle exec rspec spec/system/viewer_time_heatmap_spec.rb` — 2/2 green
   (heatmap end-to-end still renders).
-- `bundle exec rubocop` on all touched Ruby files — clean (7 files, 0
-  offenses).
+- `bundle exec rubocop` on all touched Ruby files — clean (7 files, 0 offenses).
 - `bin/brakeman -q -w2` — 0 security warnings.
 
 ### Plan checkboxes
 
-No plan.md checkboxes ticked. 01e and 01g were already ticked when this
-session started; the work above is reviewer fix-forward, not new spec
-delivery.
+No plan.md checkboxes ticked. 01e and 01g were already ticked when this session
+started; the work above is reviewer fix-forward, not new spec delivery.
 
 ## 2026-05-11 — settings + 2FA fix-forward bundle (pito-rails-impl) [skipci]
 
 User-directed bundle of seven fixes spanning the settings index, security
 dashboard, 2FA QR rendering, and a new fresh-TOTP gate on sensitive write
-endpoints. Touches Phase 25 (security/show, 2FA QR, TOTP gate concern) and
-Phase 26 (Slack + Discord pane wiring into settings index, TOTP gates on
-webhook updates).
+endpoints. Touches Phase 25 (security/show, 2FA QR, TOTP gate concern) and Phase
+26 (Slack + Discord pane wiring into settings index, TOTP gates on webhook
+updates).
 
 ### Fix-forward index
 
@@ -114,23 +107,23 @@ webhook updates).
   drop-zone, stripped from production builds per ADR 0004).
 - **Fix 3 — Postgres model rename.** `calendar_entries` row now renders with
   display label `calendar`. Added a third tuple value (display label) to
-  `SettingsController::POSTGRES_BREAKDOWN_MODELS`; iteration picks the
-  display label without changing the underlying table-stats query.
+  `SettingsController::POSTGRES_BREAKDOWN_MODELS`; iteration picks the display
+  label without changing the underlying table-stats query.
 - **Fix 4 — security dashboard intro drop.** Removed the muted intro block
   ("every login attempt is logged. suspicious activity surfaces here and on
   [attempts]. 2FA enrollment lands later in this phase.") from
   `app/views/settings/security/show.html.erb`. The 2FA-lands-later copy was
   stale (Phase 25 01e shipped); the attempts link still surfaces on the
   recent-activity panel.
-- **Fix 5 — integrations row reshape.** Slack + Discord webhook panes
-  (built in Phase 26 01b / 01c but never wired into the settings index per
-  the original user-locked restructure) now render on a new row 2 of the
-  integrations section (Discord left, Slack right). OAuth applications +
-  sessions moved to row 3. Total layout: 7 pane-rows / 13 panes.
+- **Fix 5 — integrations row reshape.** Slack + Discord webhook panes (built in
+  Phase 26 01b / 01c but never wired into the settings index per the original
+  user-locked restructure) now render on a new row 2 of the integrations section
+  (Discord left, Slack right). OAuth applications + sessions moved to row 3.
+  Total layout: 7 pane-rows / 13 panes.
 - **Fix 6 — QR code white background.** Wrapped the SVG in
-  `app/views/settings/security/totps/show.html.erb` in a white-bg
-  inline-block div so the dark theme cannot make the QR unscannable. QR
-  codes require black-on-white contrast.
+  `app/views/settings/security/totps/show.html.erb` in a white-bg inline-block
+  div so the dark theme cannot make the QR unscannable. QR codes require
+  black-on-white contrast.
 - **Fix 7 — 2FA gates on sensitive writes.** New `RecentTotpVerification`
   concern (`app/controllers/concerns/recent_totp_verification.rb`) reads
   `params[:totp_code]` from the form and rejects writes with a generic
@@ -141,10 +134,9 @@ webhook updates).
   - `Settings::DiscordWebhooksController#update`
 
   Each form surfaces a `name="totp_code"` field gated by
-  `Current.user&.totp_enabled?` so the field only renders when 2FA is
-  actually on. Read-only views are NOT gated. Generic-flash failure copy
-  mirrors the disable-2FA flow so the response never reveals which field
-  failed.
+  `Current.user&.totp_enabled?` so the field only renders when 2FA is actually
+  on. Read-only views are NOT gated. Generic-flash failure copy mirrors the
+  disable-2FA flow so the response never reveals which field failed.
 
 ### Files touched
 
@@ -152,46 +144,41 @@ webhook updates).
 
 - `app/views/settings/index.html.erb` — Fix 1 storage trim; Fix 5 Discord +
   Slack row wired in; Fix 7 TOTP fields on YouTube + Voyage forms.
-- `app/controllers/settings_controller.rb` — Fix 2 notes namespace map
-  rebuild; Fix 3 Postgres display-label tuple; Fix 7 RecentTotpVerification
-  include + gate on the youtube / voyage sections.
-- `app/views/settings/security/show.html.erb` — Fix 4 intro paragraph
-  dropped.
+- `app/controllers/settings_controller.rb` — Fix 2 notes namespace map rebuild;
+  Fix 3 Postgres display-label tuple; Fix 7 RecentTotpVerification include +
+  gate on the youtube / voyage sections.
+- `app/views/settings/security/show.html.erb` — Fix 4 intro paragraph dropped.
 - `app/views/settings/security/totps/show.html.erb` — Fix 6 QR wrapper.
-- `app/controllers/settings/user_controller.rb` — Fix 7 gate on
-  user-account update.
+- `app/controllers/settings/user_controller.rb` — Fix 7 gate on user-account
+  update.
 - `app/views/settings/user/show.html.erb` — Fix 7 TOTP code field.
-- `app/controllers/settings/slack_webhooks_controller.rb` — Fix 7 gate on
-  Slack webhook save.
+- `app/controllers/settings/slack_webhooks_controller.rb` — Fix 7 gate on Slack
+  webhook save.
 - `app/controllers/settings/discord_webhooks_controller.rb` — Fix 7 gate on
   Discord webhook save.
 - `app/views/settings/_slack_pane.html.erb` — Fix 7 TOTP code field.
 - `app/views/settings/_discord_pane.html.erb` — Fix 7 TOTP code field.
-- `spec/requests/settings_spec.rb` — adjustments + new assertions: storage
-  size / files drop, notes table renamed + mobile drop, Postgres
-  `calendar_entries` → `calendar` rendering, Discord+Slack panes
-  surface + row-2 ordering, total pane / row count refresh.
+- `spec/requests/settings_spec.rb` — adjustments + new assertions: storage size
+  / files drop, notes table renamed + mobile drop, Postgres `calendar_entries` →
+  `calendar` rendering, Discord+Slack panes surface + row-2 ordering, total pane
+  / row count refresh.
 - `spec/requests/settings/security_spec.rb` — security intro drop assertion;
-  attempts-link assertion adjusted (link only surfaces when attempts
-  exist).
+  attempts-link assertion adjusted (link only surfaces when attempts exist).
 - `spec/requests/settings/security/totps_spec.rb` — QR wrapper white-bg
   assertion.
 
 **Added:**
 
 - `app/controllers/concerns/recent_totp_verification.rb` — shared concern.
-- `spec/requests/settings/totp_gates_spec.rb` — 21 examples covering all
-  five gated endpoints: missing code → generic flash, wrong code → generic
-  flash, correct code → write proceeds, 2FA-off baseline → write proceeds
-  without a code, read-only index always renders.
+- `spec/requests/settings/totp_gates_spec.rb` — 21 examples covering all five
+  gated endpoints: missing code → generic flash, wrong code → generic flash,
+  correct code → write proceeds, 2FA-off baseline → write proceeds without a
+  code, read-only index always renders.
 
 ### Quality gates
 
-- `bundle exec rspec spec/requests/settings spec/requests/login/totp_challenges_spec.rb
-  spec/views/settings/_slack_pane_html_erb_spec.rb
-  spec/views/settings/_discord_pane_html_erb_spec.rb
-  spec/system/totp_2fa_journey_spec.rb spec/system/login_security_journeys_spec.rb` —
-  307 / 307 green.
+- `bundle exec rspec spec/requests/settings spec/requests/login/totp_challenges_spec.rb spec/views/settings/_slack_pane_html_erb_spec.rb spec/views/settings/_discord_pane_html_erb_spec.rb spec/system/totp_2fa_journey_spec.rb spec/system/login_security_journeys_spec.rb`
+  — 307 / 307 green.
 - `bundle exec rubocop <edited files>` — clean (9 files, 0 offenses).
 - `bin/brakeman -q -w2` — 0 warnings, 0 errors.
 - Migrations: none.
@@ -199,23 +186,24 @@ webhook updates).
 ### Spec count delta
 
 - New: `spec/requests/settings/totp_gates_spec.rb` (+21 examples).
-- Adjusted: `spec/requests/settings_spec.rb`, `spec/requests/settings/security_spec.rb`,
+- Adjusted: `spec/requests/settings_spec.rb`,
+  `spec/requests/settings/security_spec.rb`,
   `spec/requests/settings/security/totps_spec.rb`.
 
 ### Open follow-ups
 
 1. The TOTP gate uses `:show` as the default render action; for non-show
-   controllers we use `redirect_on_failure:` to bounce back to /settings.
-   If a future flow needs an inline 422 on a non-show view, pass
-   `render_action:` to the helper. Pattern is already in place; no work
-   needed until a caller asks for it.
-2. The `mobile_notes` row drop is per user direction for the production
-   surface. The Mobile MCP `save_note` tool still drops markdown into
-   `docs/notes/`; only the on-pane surface changed.
-3. The integrations row reshape adds two new write paths gated by TOTP.
-   Phase 26 plan §"Open question 9" (TOTP 2FA gate on webhook URL changes)
-   suggested "revisit when 2FA ships." 2FA shipped in Phase 25 01e; this
-   bundle implements that revisit.
+   controllers we use `redirect_on_failure:` to bounce back to /settings. If a
+   future flow needs an inline 422 on a non-show view, pass `render_action:` to
+   the helper. Pattern is already in place; no work needed until a caller asks
+   for it.
+2. The `mobile_notes` row drop is per user direction for the production surface.
+   The Mobile MCP `save_note` tool still drops markdown into `docs/notes/`; only
+   the on-pane surface changed.
+3. The integrations row reshape adds two new write paths gated by TOTP. Phase 26
+   plan §"Open question 9" (TOTP 2FA gate on webhook URL changes) suggested
+   "revisit when 2FA ships." 2FA shipped in Phase 25 01e; this bundle implements
+   that revisit.
 
 ## 2026-05-11 — sub-spec 01f Analytics architecture + tz update (pito-docs) [skipci]
 

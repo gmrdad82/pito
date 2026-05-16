@@ -7,8 +7,8 @@
 > **Restart `bin/dev` before you start.** This change touches `config/routes.rb`
 > (routes added/removed), autoloaded classes (controllers + model + helper
 > deleted/added), and applies a DB migration (`drop_channel_diffs`). A running
-> server will 500 or misroute until restarted. The migration was already
-> applied to the dev DB by the implementer — if you reset the DB, re-run
+> server will 500 or misroute until restarted. The migration was already applied
+> to the dev DB by the implementer — if you reset the DB, re-run
 > `bin/rails db:migrate`.
 
 ## Pipeline summary
@@ -37,8 +37,8 @@ None. This is a GO for user validation.
   documented the deviation in the controller comment. Behaviourally correct;
   flagged only so the spec/code divergence is on record.
 - **Tracked follow-up — `db/structure.sql`:** still lists `channel_diffs`.
-  Verdict: **acceptable as a tracked follow-up, not A0's concern.** The repo
-  has no `config.active_record.schema_format = :sql` setting, so Rails uses the
+  Verdict: **acceptable as a tracked follow-up, not A0's concern.** The repo has
+  no `config.active_record.schema_format = :sql` setting, so Rails uses the
   default `:ruby` format — `db:migrate` regenerates `db/schema.rb` only and
   never touches `structure.sql`. The file is genuinely orphaned (prior
   migrations like `drop_deprecated_notification_kinds` left it equally stale).
@@ -61,16 +61,17 @@ Setup preamble (terminal):
 
 1. Stop any running `bin/dev`, then start it fresh: `bin/dev`. Wait for Puma +
    Tailwind to come up.
-2. Confirm the migration is applied: `bin/rails runner 'puts
-   ActiveRecord::Base.connection.table_exists?(:channel_diffs)'` → prints
-   `false`.
-3. Confirm the cron entry is gone: `grep -c channel_diff_check
-   config/sidekiq_cron.yml` → prints `0`; `grep -c video_diff_check_bulk
-   config/sidekiq_cron.yml` → prints `1` (video diff-check survives).
+2. Confirm the migration is applied:
+   `bin/rails runner 'puts ActiveRecord::Base.connection.table_exists?(:channel_diffs)'`
+   → prints `false`.
+3. Confirm the cron entry is gone:
+   `grep -c channel_diff_check config/sidekiq_cron.yml` → prints `0`;
+   `grep -c video_diff_check_bulk config/sidekiq_cron.yml` → prints `1` (video
+   diff-check survives).
 4. Log in at `http://localhost:3000` with your dev owner credentials.
 5. Have at least one channel in the DB (ideally one with a connected Google
-   account, so the connection panel and sync are exercisable). Note its slug
-   and integer id.
+   account, so the connection panel and sync are exercisable). Note its slug and
+   integer id.
 
 Happy path:
 
@@ -94,15 +95,13 @@ Happy path:
       -d '{"channel":{"star":"yes"}}'
     ```
     Expect `200` with the channel detail JSON, `"star"` reflecting the toggle.
-11. **Bad boundary value is rejected.** `curl -X PATCH
-    http://localhost:3000/channels/N/star.json -H "Content-Type:
-    application/json" -d '{"channel":{"star":"bad"}}'` → expect `422` with an
-    `errors` array; `star` unchanged.
-12. **Read-only mirror proof — extra fields ignored.** `curl -X PATCH
-    http://localhost:3000/channels/N/star.json -H "Content-Type:
-    application/json" -d '{"channel":{"star":"yes","title":"HACKED"}}'` → expect
-    `200`; then open the channel show page and confirm the title is **unchanged**
-    (the removed attribute was silently ignored, not assigned).
+11. **Bad boundary value is rejected.**
+    `curl -X PATCH http://localhost:3000/channels/N/star.json -H "Content-Type: application/json" -d '{"channel":{"star":"bad"}}'`
+    → expect `422` with an `errors` array; `star` unchanged.
+12. **Read-only mirror proof — extra fields ignored.**
+    `curl -X PATCH http://localhost:3000/channels/N/star.json -H "Content-Type: application/json" -d '{"channel":{"star":"yes","title":"HACKED"}}'`
+    → expect `200`; then open the channel show page and confirm the title is
+    **unchanged** (the removed attribute was silently ignored, not assigned).
 13. **Sync still pulls.** On a channel show page click `[sync]` → routes to the
     sync confirmation screen at `/syncs/channel/:id` (no `?intent=diff_check` in
     the URL). Confirm it → the one-way `ChannelSync` enqueues (check `/sidekiq`
@@ -123,11 +122,10 @@ Edge cases — removed routes are gone:
     routing error / 404.
 18. **Preview route is gone.** Visit
     `http://localhost:3000/channels/<slug>/preview` → routing error / 404.
-19. **General update is gone.** `curl -i -X PATCH
-    http://localhost:3000/channels/N.json -H "Content-Type: application/json" -d
-    '{"channel":{"star":"yes"}}'` → expect `404` (the old `channels#update` JSON
-    path no longer exists; the CLI star toggle break is a known, deferred
-    consequence per spec Q1).
+19. **General update is gone.**
+    `curl -i -X PATCH http://localhost:3000/channels/N.json -H "Content-Type: application/json" -d '{"channel":{"star":"yes"}}'`
+    → expect `404` (the old `channels#update` JSON path no longer exists; the
+    CLI star toggle break is a known, deferred consequence per spec Q1).
 
 ## Cleanup
 
@@ -141,28 +139,22 @@ Edge cases — removed routes are gone:
 ## User Validation
 
 [ ] 1. **Read-only show page.** Open a channel from `/channels` → the
-       heading-actions row shows `[changes]`, `[sync]`, `[revoke]`, `[-]` and
-       **no `[e]` / `[edit]`** link; the page body has no editable form.
-[ ] 2. **No diff banner.** On the same channel show page → there is no "youtube
-       has N newer values" banner anywhere on the page.
-[ ] 3. **Star toggles and persists.** Open two channels in split-view panes,
-       click `[star]` in a pane → label flips to `[unstar]`, you land back on
-       the channel show with a "channel updated." notice; reload → the new star
-       state is still there.
-[ ] 4. **Star toggles back.** Click `[unstar]` → label flips back to `[star]`
-       and persists across a reload.
-[ ] 5. **Edit URL 404s.** Type `/channels/<slug>/edit` into the address bar →
-       you get a routing-error / 404 page, not an edit form.
-[ ] 6. **Diff URL 404s.** Type `/channels/<slug>/diff` into the address bar →
-       routing-error / 404 page.
-[ ] 7. **Preview URL 404s.** Type `/channels/<slug>/preview` into the address
-       bar → routing-error / 404 page.
-[ ] 8. **History still works.** Click `[changes]` on a channel show page → the
-       read-only change-history table (or "no changes yet." empty state)
-       renders.
-[ ] 9. **Sync still works.** Click `[sync]` on a channel show page → you land on
-       the sync confirmation screen; confirm it → it returns you to the channel
-       with no error and no diff banner.
-[ ] 10. **Google panel still works.** On a channel with a connected Google
-        account, the connection panel renders the account email / scopes /
-        last-authorized state as before.
+heading-actions row shows `[changes]`, `[sync]`, `[revoke]`, `[-]` and **no
+`[e]` / `[edit]`** link; the page body has no editable form. [ ] 2. **No diff
+banner.** On the same channel show page → there is no "youtube has N newer
+values" banner anywhere on the page. [ ] 3. **Star toggles and persists.** Open
+two channels in split-view panes, click `[star]` in a pane → label flips to
+`[unstar]`, you land back on the channel show with a "channel updated." notice;
+reload → the new star state is still there. [ ] 4. **Star toggles back.** Click
+`[unstar]` → label flips back to `[star]` and persists across a reload. [ ] 5.
+**Edit URL 404s.** Type `/channels/<slug>/edit` into the address bar → you get a
+routing-error / 404 page, not an edit form. [ ] 6. **Diff URL 404s.** Type
+`/channels/<slug>/diff` into the address bar → routing-error / 404 page. [ ] 7.
+**Preview URL 404s.** Type `/channels/<slug>/preview` into the address bar →
+routing-error / 404 page. [ ] 8. **History still works.** Click `[changes]` on a
+channel show page → the read-only change-history table (or "no changes yet."
+empty state) renders. [ ] 9. **Sync still works.** Click `[sync]` on a channel
+show page → you land on the sync confirmation screen; confirm it → it returns
+you to the channel with no error and no diff banner. [ ] 10. **Google panel
+still works.** On a channel with a connected Google account, the connection
+panel renders the account email / scopes / last-authorized state as before.

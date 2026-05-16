@@ -9,14 +9,14 @@
 
 ## Goal
 
-Step 6 of the beta-2 nine-step roadmap. Add a `[help]` affordance on each
-screen that surfaces feature explanations in-context. The user wants per-screen
-help — short, scannable, screen-relevant — so the web app stops being a
+Step 6 of the beta-2 nine-step roadmap. Add a `[help]` affordance on each screen
+that surfaces feature explanations in-context. The user wants per-screen help —
+short, scannable, screen-relevant — so the web app stops being a
 discovery-by-clicking experience for surfaces with non-obvious affordances.
 
 The deliverable is a help affordance pattern (bracketed-link, per design
-vocabulary), a content authoring model (where help copy lives, who edits
-it), and the screen-by-screen integration.
+vocabulary), a content authoring model (where help copy lives, who edits it),
+and the screen-by-screen integration.
 
 ---
 
@@ -24,21 +24,21 @@ it), and the screen-by-screen integration.
 
 In scope:
 
-- Help affordance UI pattern — placement, click behavior, dismissal,
-  keyboard reachability.
+- Help affordance UI pattern — placement, click behavior, dismissal, keyboard
+  reachability.
 - Content authoring model — markdown / partial / locale file / dedicated
   `HelpEntry` records. The architect spec decides and surfaces it as an open
   question for the user before implementation.
-- Per-screen integration. Every screen that ships a `[help]` link ships its
-  help copy in the same commit.
+- Per-screen integration. Every screen that ships a `[help]` link ships its help
+  copy in the same commit.
 - Regression specs per the mandate below.
 
 Out of scope:
 
-- A separate "help center" / docs site. The affordance is in-context per
-  screen, not a global help destination.
-- Translating help into multiple locales. Locale-friendly storage is
-  acceptable but not in scope to populate.
+- A separate "help center" / docs site. The affordance is in-context per screen,
+  not a global help destination.
+- Translating help into multiple locales. Locale-friendly storage is acceptable
+  but not in scope to populate.
 - MCP / TUI / CLI parity. Paused.
 - Cloudflare website surface.
 
@@ -80,16 +80,16 @@ Master agent coordinates dispatch and commits after user validation.
 ## Regression spec mandate (restated for this lane)
 
 Every affordance unit ships its regression specs in the same commit. The
-architect spec MUST enumerate the regression spec list before any
-`pito-rails` impl runs.
+architect spec MUST enumerate the regression spec list before any `pito-rails`
+impl runs.
 
-| Layer of change                | Required regression spec type                                                                |
-| ------------------------------ | -------------------------------------------------------------------------------------------- |
-| View / page change             | RSpec **system spec** (Capybara) exercising the polished interaction                         |
-| ViewComponent change           | RSpec **component spec** rendering the component in isolation, asserting structure / classes / a11y attributes |
-| Helper / partial logic         | RSpec **request spec** or focused **view spec**                                              |
-| Routing / controller behavior  | RSpec **request spec**                                                                       |
-| Stimulus controller behavior   | RSpec **system spec** that exercises the JS path (Capybara + JS driver)                      |
+| Layer of change               | Required regression spec type                                                                                  |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| View / page change            | RSpec **system spec** (Capybara) exercising the polished interaction                                           |
+| ViewComponent change          | RSpec **component spec** rendering the component in isolation, asserting structure / classes / a11y attributes |
+| Helper / partial logic        | RSpec **request spec** or focused **view spec**                                                                |
+| Routing / controller behavior | RSpec **request spec**                                                                                         |
+| Stimulus controller behavior  | RSpec **system spec** that exercises the JS path (Capybara + JS driver)                                        |
 
 A change crossing layers carries the specs for **every** layer touched.
 

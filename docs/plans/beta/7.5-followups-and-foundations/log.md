@@ -3555,23 +3555,24 @@ Per user direction, restructure `/channels/:slug`:
   watch, star, synced, edit) minus the channel column (redundant on the show
   page) and the bulk-select checkbox (no bulk operations on the show page).
 - A `[see all videos]` bracketed link renders only when the channel has more
-  than 30 videos; at <=30 the table already shows everything. The link
-  navigates to `/videos?channel=<slug>` (existing Phase 21 filter chip).
+  than 30 videos; at <=30 the table already shows everything. The link navigates
+  to `/videos?channel=<slug>` (existing Phase 21 filter chip).
 
 **Files changed**
 
 - `app/controllers/channels_controller.rb` — `#show` now populates
   `@channel_videos_total` and `@channel_videos` (left-joined on `video_stats`
-  for the same aggregate columns `VideosController#index` produces, ordered
-  by `videos.star DESC, COALESCE(videos.published_at, videos.created_at) DESC`,
+  for the same aggregate columns `VideosController#index` produces, ordered by
+  `videos.star DESC, COALESCE(videos.published_at, videos.created_at) DESC`,
   capped at 30). Columns qualified with `videos.` to avoid PG::AmbiguousColumn
-  from the `left_joins(:video_stats)` (which exposes a `video_stats.created_at`).
-- `app/views/channels/show.html.erb` — three `pane-row`s now (detail,
-  analytics, Google connection in that order). The videos table renders BELOW
-  every pane-row via the new `channels/_videos_table` partial. Trimmed the
-  analytics table down to two rows (subscribers, views).
-- `app/views/channels/_videos_table.html.erb` — new partial. Mirrors the
-  /videos column shape, omits channel + bulk checkbox, adds the conditional
+  from the `left_joins(:video_stats)` (which exposes a
+  `video_stats.created_at`).
+- `app/views/channels/show.html.erb` — three `pane-row`s now (detail, analytics,
+  Google connection in that order). The videos table renders BELOW every
+  pane-row via the new `channels/_videos_table` partial. Trimmed the analytics
+  table down to two rows (subscribers, views).
+- `app/views/channels/_videos_table.html.erb` — new partial. Mirrors the /videos
+  column shape, omits channel + bulk checkbox, adds the conditional
   `[see all videos]` link.
 - `app/views/channels/_videos_pane.html.erb` — deleted (superseded).
 
@@ -3581,29 +3582,28 @@ Per user direction, restructure `/channels/:slug`:
   deleted `_videos_pane.html.erb_spec.rb`). 23 examples covering: zero / one /
   exactly-30 / 31-videos scenarios, starred-first ordering, the
   `COALESCE(published_at, created_at)` fallback, the conditional
-  `[see all videos]` link, column conventions (`class="num"` numeric cells,
-  no channel column, `[edit]` link per row), and the heading count.
+  `[see all videos]` link, column conventions (`class="num"` numeric cells, no
+  channel column, `[edit]` link per row), and the heading count.
 - `spec/views/channels/show.html.erb_spec.rb` — updated. Replaced the four
   per-describe `assign(...)` blocks with an `assign_show_defaults(channel)`
   helper that mirrors the controller's instance-var contract (channel,
   available_channels, youtube_connection, channel_videos, channel_videos_total).
-  Updated assertions: pane-row count is 3 (was 4); analytics block contains
-  only 2 em-dashes for pre-sync state (was 3); analytics block must not
-  contain a `videos` row; analytics appears before Google connection in
-  source order; replaced the "video_count cached column lags" pair with a
-  pair asserting the videos-table heading reflects the live association
-  count and the analytics block does not surface the cached value.
+  Updated assertions: pane-row count is 3 (was 4); analytics block contains only
+  2 em-dashes for pre-sync state (was 3); analytics block must not contain a
+  `videos` row; analytics appears before Google connection in source order;
+  replaced the "video_count cached column lags" pair with a pair asserting the
+  videos-table heading reflects the live association count and the analytics
+  block does not surface the cached value.
 - `spec/requests/channels_show_spec.rb` — updated. Replaced the
   `<div class="pane-row">` count assertion (4 → 3). Added: analytics before
   Google in source order, analytics block has no `videos` row, videos table
-  heading appears after every pane-row. Replaced the unconditional
-  `[see all]` assertion with two assertions: link absent on `hydrated_channel`
-  (0 videos) and present when 31 videos exist. Em-dash analytics block
-  expectation: 3 → 2.
+  heading appears after every pane-row. Replaced the unconditional `[see all]`
+  assertion with two assertions: link absent on `hydrated_channel` (0 videos)
+  and present when 31 videos exist. Em-dash analytics block expectation: 3 → 2.
 - `spec/system/channel_show_journey_spec.rb` — updated to assert the four
-  sections in the new order (detail, analytics, Google connection, videos
-  table) and to walk `[see all videos]` instead of `[see all]`. Added a
-  second example asserting the link is absent at <=30 videos.
+  sections in the new order (detail, analytics, Google connection, videos table)
+  and to walk `[see all videos]` instead of `[see all]`. Added a second example
+  asserting the link is absent at <=30 videos.
 
 **Gates**
 
@@ -3622,9 +3622,10 @@ Per user direction, restructure `/channels/:slug`:
 - `spec/views/channels/_videos_pane.html.erb_spec.rb` -13 examples (deleted).
 - `spec/views/channels/show.html.erb_spec.rb` +1 example net (one analytics
   ordering test added, no removals).
-- `spec/requests/channels_show_spec.rb` +3 examples net (analytics-before-google,
-  no videos row in analytics, videos-table-after-pane-rows; replaced one
-  `[see all]` test with two `[see all videos]` tests).
+- `spec/requests/channels_show_spec.rb` +3 examples net
+  (analytics-before-google, no videos row in analytics,
+  videos-table-after-pane-rows; replaced one `[see all]` test with two
+  `[see all videos]` tests).
 - `spec/system/channel_show_journey_spec.rb` +1 example net (added the
   absent-link case, replaced the journey's video-section assertions).
 - Net delta: +15 examples.
