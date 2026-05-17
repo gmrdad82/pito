@@ -6,39 +6,32 @@
 # `ttb-showcase` scaffold are deleted from the component, ERB, view,
 # and CSS.
 #
-# Fuel-gauge layout (single render, full RIGHT-pane width):
+# 2026-05-17 BZ+ restructure (user direction — "738h should scream at me"):
+# the layout has been reshuffled into four stacked rows so the gauge
+# reads as a labeled chart rather than a tick strip with floating
+# captions.
 #
-#   recorded 87h                                    <— footage label
-#   31h          71h               124h             <— pillar values above
-#   ▲             ▲                 ▲           ▮   <— ticks (thin, no border)
-#                                              footage tick: bigger + bordered
-#   main        extras         completionist       <— pillar names below
+#   row 1 — footage value text (top, centered on footage tick)
+#   row 2 — TTB bar with 4 ticks (3 colored pillars + footage notch)
+#   row 3 — pillar hour values (positioned BELOW each pillar tick)
+#   row 4 — legend: 4 swatches + names (main / extras / completionist / recorded)
 #
-# Hours, not percentages. The bar's x-axis runs `0..max_x`. `max_x` is
-# `max(completionist, footage) * 1.05` (5% breathing room on the right)
-# so even when footage exceeds completionist the over-zone fits with
-# slack. The four background zones are:
+# Pillar tick colors moved from theme-text to a vivid literal palette
+# that pops against the cool-spectrum gradient (periwinkle → cyan →
+# indigo → magenta-purple):
 #
-#   0-10h    "low effort"   — muted dark grey
-#   10-40h   "some effort"  — muted slate
-#   40-100h  "commitment"   — steel blue
-#   100h+    "insanity"     — muted plum
+#   main          #FFE74C  bright yellow
+#   extras        #FFFFFF  pure white
+#   completionist #FF4081  vivid pink/magenta
 #
-# The palette is intentionally neutral (no theme-flip): a single literal
-# hex per zone in both light and dark. It avoids the colors that other
-# components reserve: red / orange / yellow (heat bar gradient), green
-# (status accents), pure blue (`--color-chart-1` link blue). The result
-# reads as "calming weight ramp" — the bar's color tells you how much of
-# a commitment the game's full-effort milestones represent without
-# competing with chips / heat-bar / status.
+# Footage tick keeps its BB pattern unchanged (4px, page-bg fill +
+# theme-text border). The legend's "recorded" swatch mirrors that
+# styling (bg fill + 1px theme-text border) so the legend reads as a
+# faithful key to the four marks on the bar.
 #
-# Footage tick is the focal point. It's wider (4px vs 2px for pillar
-# ticks), tall enough to overshoot the bar top + bottom, and carries a
-# theme-aware border (`var(--color-text)`) — exactly the BB pattern
-# used by `.rating-heat-bar-indicator` for the score notch on the heat
-# bar. The label above reads `"recorded Nh"`. When `footage >
-# completionist`, a small trophy glyph `🏆` is appended to the label
-# (visual flourish for "you went past the full-effort milestone").
+# "Scream" mechanism for absurd completionist hours: append `🔥` when
+# completionist > 200h, `🔥🔥` when > 500h. Footage trophy `🏆` from
+# BQ is preserved unchanged for footage > completionist.
 module Games
   class TimeToBeatComponent < ViewComponent::Base
     # Sample triplet used when the game has no IGDB time-to-beat data.
@@ -60,16 +53,21 @@ module Games
     # top zone (`100..`) extends to `max_x`.
     ZONE_BOUNDARIES_HOURS = [ 10, 40, 100 ].freeze
 
-    # Backwards-compat aliases for any caller / spec that previously
-    # introspected the per-pillar color map. The fuel gauge does not
-    # use per-pillar colors anymore — the bar's zones encode effort,
-    # not pillar identity — but the labels still ride the same
-    # vocabulary so we keep the constant exposed for parity.
+    # Per-pillar literal hex palette (BZ+ restructure). Theme-stable,
+    # vivid, distinct against the bar's cool-spectrum gradient. The
+    # legend swatches and pillar tick fills both pull from this map so
+    # legend ⇔ tick color identity is 1:1 visible.
     PILLAR_COLOR = {
-      main:          "var(--color-text)",
-      extras:        "var(--color-text)",
-      completionist: "var(--color-text)"
+      main:          "#FFE74C",
+      extras:        "#FFFFFF",
+      completionist: "#FF4081"
     }.freeze
+
+    # Thresholds for the "scream" mechanic on the completionist hour
+    # value (appended to the bottom-row label). Two tiers so a 250h
+    # game reads "🔥" while a 700h horror reads "🔥🔥".
+    SCREAM_THRESHOLD_HOURS    = 200
+    SCREAM_X2_THRESHOLD_HOURS = 500
 
     def initialize(game: nil, hours: nil, footage_hours: nil)
       @game           = game
@@ -121,20 +119,34 @@ module Games
     end
 
     # `"31h"` / `"—"` style label for a single pillar. Falls back to
-    # em-dash when the pillar is missing (0 / nil).
+    # em-dash when the pillar is missing (0 / nil). The completionist
+    # pillar appends a scream emoji (🔥 / 🔥🔥) past the configured
+    # absurdity thresholds so massive completionist projects visually
+    # shout from the gauge.
     def label_for(key)
       h = hours[key].to_i
-      h.positive? ? "#{h}h" : "—"
+      return "—" unless h.positive?
+
+      base = "#{h}h"
+      return base unless key == :completionist
+
+      "#{base}#{scream_suffix(h)}"
     end
 
-    # `"recorded 87h"` for a present footage value; `"recorded 0h"` for
-    # zero (signals "we know it's zero, not unknown"); appends a 🏆
-    # glyph when footage exceeds completionist (the "you went past the
-    # commitment milestone" visual flourish).
-    def footage_label
-      base = "recorded #{footage_hours}h"
+    # Top-row label (above the bar): just the footage hours value (with
+    # the BQ trophy preserved for over-completionist sessions). The
+    # caption "recorded" lives in the legend row now — not below the
+    # tick — so the bar's top edge stays uncluttered.
+    def footage_value_label
+      base = "#{footage_hours}h"
       compl = hours[:completionist].to_i
       footage_hours.positive? && compl.positive? && footage_hours > compl ? "#{base} 🏆" : base
+    end
+
+    # Legend caption for the footage swatch. Single word so the legend
+    # row stays compact alongside the three pillar names.
+    def footage_caption
+      "recorded"
     end
 
     # Returns true when the footage tick should render at all. We
@@ -144,7 +156,43 @@ module Games
       true
     end
 
+    # Post-validation polish 5 — edge-label clamping. When a tick sits
+    # near 0 % or 100 % of the bar, the default `translateX(-50%)` push
+    # half the label outside the pane. The CSS modifier classes shift
+    # the label so it aligns to the bar edge instead:
+    #
+    #   position < 10  → `--at-start` (left-aligned, no transform).
+    #   position > 90  → `--at-end`   (right-aligned, translateX(-100%)).
+    #   else           → `--centered` (default translateX(-50%)).
+    #
+    # Applied to every tick label (footage number, pillar hours) so no
+    # label ever overflows the bar bounds regardless of the tick
+    # position.
+    def label_alignment_class(position_pct)
+      pct = position_pct.to_f
+      if pct < 10
+        "ttb-fuel-gauge__label--at-start"
+      elsif pct > 90
+        "ttb-fuel-gauge__label--at-end"
+      else
+        "ttb-fuel-gauge__label--centered"
+      end
+    end
+
     private
+
+    # Emoji escalation appended to the completionist hour value. Empty
+    # string below SCREAM_THRESHOLD_HOURS; single `🔥` between the two
+    # thresholds; double `🔥🔥` once past SCREAM_X2_THRESHOLD_HOURS.
+    def scream_suffix(completionist_hours)
+      if completionist_hours > SCREAM_X2_THRESHOLD_HOURS
+        " 🔥🔥"
+      elsif completionist_hours > SCREAM_THRESHOLD_HOURS
+        " 🔥"
+      else
+        ""
+      end
+    end
 
     def seconds_to_hours(seconds)
       return 0 if seconds.nil? || seconds.to_i <= 0

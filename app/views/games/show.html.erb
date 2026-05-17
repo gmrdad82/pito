@@ -247,20 +247,20 @@
         <h2 style="margin-top: 0;">summary</h2>
         <%= simple_format(@game.summary, class: "summary-body") %>
       </section>
-
-      <hr class="hairline">
     <% end %>
 
-    <%# 2026-05-17 BQ slice (item 8) — the 10-variant TTB showcase is
-        gone. Variant 10 (fuel gauge) won; the RIGHT pane now renders
-        ONE canonical TTB visualization, full pane width, below the
-        summary hairline. The bar's color zones encode effort weight
-        (low / some / commitment / insanity); a bordered "recorded Nh"
-        footage tick overlays the pillar ticks for the focal "here is
-        where I am" notch. See `time_to_beat_component.rb` for the
-        full rationale. %>
+    <%# 2026-05-17 BQ slice (item 8, post-validation polish 1-3) — the
+        10-variant TTB showcase is gone. Variant 10 (fuel gauge) won;
+        the RIGHT pane now renders ONE canonical TTB visualization,
+        full pane width, directly under the summary block (no hairline
+        between — the bar itself carries its own "TTB" watermark
+        label, left-aligned inside the bar, so no standalone heading
+        is needed). The bar's color encodes effort weight via a smooth
+        multi-stop gradient (low → some → commitment → insanity); a
+        bordered footage tick overlays the pillar ticks for the focal
+        "here is where I am" notch. See `time_to_beat_component.rb`
+        for the full rationale. %>
     <section class="time-to-beat" aria-label="time to beat">
-      <h2 style="margin-top: 0;">time to beat</h2>
       <%= render(Games::TimeToBeatComponent.new(game: @game)) %>
     </section>
 

@@ -2185,6 +2185,39 @@ hr.hairline {
   color: var(--color-muted);
 }
 
+/* 2026-05-17 — inline-editable ownership matrix toggles. Each cell is
+   an `md-check` checkbox inside a tiny auto-submit form; the `change`
+   event PATCHes `Games::OwnershipTogglesController` and Turbo
+   re-renders /games/:id with a flash naming the new state. The hover
+   affordance is a subtle bg tint (matches the existing
+   `.ownership-chip-button:hover` rule) so the cell reads as
+   clickable. When checked, the bracketed checkbox indicator + label
+   tint green — `:success` (canonical-green border + text from
+   `.status-badge--success`) for `owned`, and `:strong` (filled
+   canonical-green pill from `.status-badge--strong`) for `played`.
+   Two visually distinct states keep the matrix legible at a glance:
+   bordered green = "owned here too", filled green = "playing here". */
+.ownership-matrix__toggle {
+  padding: 2px 6px;
+  border-radius: 3px;
+  transition: background-color 80ms ease;
+}
+.ownership-matrix__toggle:hover,
+.ownership-matrix__toggle:focus-within {
+  background-color: var(--color-row-hover, rgba(0, 0, 0, 0.04));
+}
+.ownership-matrix__toggle--owned .md-check-indicator,
+.ownership-matrix__toggle--owned .ownership-matrix__toggle-label {
+  color: #2e7d32;
+}
+.ownership-matrix__toggle--played .md-check-indicator,
+.ownership-matrix__toggle--played .ownership-matrix__toggle-label {
+  color: #ffffff;
+  background-color: #2e7d32;
+  padding: 0 4px;
+  border-radius: 2px;
+}
+
 /* Wave C7 (spec 08 §"RIGHT-pane sections" line 301 + §"RIGHT pane
    Time-to-beat" lines 318-333) — RIGHT-pane sections on `/games/:id`.
    The summary section sits above the hairline divider; the time-to-
@@ -2208,6 +2241,27 @@ hr.hairline {
 .summary-body {
   color: var(--color-text);
   line-height: 1.5;
+}
+
+/* Paragraph + line-break spacing inside `.summary-body`. IGDB
+   summaries arrive as plain text with `\n\n` separating paragraphs
+   and stray `\n` for in-paragraph line breaks; `simple_format`
+   converts `\n\n` to `<p>` blocks and `\n` to `<br>` tags. The
+   paragraph margin gives a visible empty row between blocks so
+   long descriptions read as distinct sections rather than a wall
+   of text. The `<br>` rule adds a smaller extra gap for the rare
+   single-line-break case so two consecutive `<br>`-separated lines
+   are still distinguishable. */
+.summary-body p {
+  margin: 0 0 1em 0;
+}
+.summary-body p:last-child {
+  margin-bottom: 0;
+}
+.summary-body br {
+  display: block;
+  content: "";
+  margin-top: 0.5em;
 }
 
 .game-ttb {
@@ -2840,18 +2894,19 @@ textarea.note-editor-source {
     #50fa7b  100%    /* dark excellent */
   );
 }
-/* 4px-wide theme-aware tick. The tick is filled with the page bg
-   (white in light, dark in dark) and outlined with text color so it
-   punches out against any gradient zone underneath. Vertical extends
-   slightly above + below the bar for prominence. */
+/* 4px-wide tick. Theme-independent: white fill + black border so the
+   score notch reads identically in light and dark, and remains the
+   universal "current value" visual primitive shared with the TTB
+   footage tick. Vertical extends slightly above + below the bar for
+   prominence. Locked 2026-05-17 (user direction item 1). */
 .rating-heat-bar-indicator {
   position: absolute;
   top: -4px;
   bottom: -4px;
   left: calc(var(--score) * 1%);
   width: 4px;
-  background-color: var(--color-bg);
-  border: 1px solid var(--color-text);
+  background-color: #ffffff;
+  border: 1px solid #000000;
   transform: translateX(-2px); /* center the 4px tick on the score position */
   pointer-events: none;
 }
@@ -3729,7 +3784,7 @@ input[type="text"].bundle-title-input:focus-visible {
 
 /* ============================================================
    Time-to-beat fuel gauge (BQ slice — 2026-05-17, item 8 of the
-   /games/:id reshape list)
+   /games/:id reshape list; BZ+ restructure 2026-05-17)
    ============================================================
    Single canonical visualization on the /games/:id RIGHT pane,
    below the summary hairline. The 10-variant showcase that
@@ -3743,121 +3798,141 @@ input[type="text"].bundle-title-input:focus-visible {
    `max(completionist, footage) * 1.05` so over-completionist
    footage still fits with breathing room.
 
-   Color palette — neutral, single literal hex per zone in both
-   themes (no theme-flip; the gauge reads identically in light
-   and dark). Avoids red / orange / yellow (heat bar) and pure
-   green (status accents). Four zones reading low → some →
-   commitment → insanity:
+   Bar gradient — vivid cool-spectrum ramp, theme-stable: soft
+   periwinkle (low) → vivid cyan (some) → vivid indigo
+   (commitment) → vivid magenta-purple (insanity). Avoids
+   red / orange / yellow (heat-bar palette) and pure green
+   (status accents); the magenta-purple at 100% reads as "past
+   sane effort levels" without colliding with destructive red.
 
-     0-10h    "low effort"   #4a4d5c  (muted dark grey)
-     10-40h   "some effort"  #5a6a7a  (muted slate)
-     40-100h  "commitment"   #5a7a9a  (steel blue)
-     100h+    "insanity"     #7a5a9a  (muted plum)
+   Pillar ticks (main / extras / completionist) — thin (2px), no
+   border, FILLED with vivid per-pillar literal hex so each tick's
+   color identity links it 1:1 to its legend swatch + bottom-row
+   hour value:
 
-   Pillar ticks (main / extras / completionist) are thin (2px),
-   text-colored, NO border — the user said "those handles are
-   perfect without border, keep them minimal". Footage tick is
-   the focal point: 4px wide, theme-aware border, overshoots
-   the bar — mirrors the `.rating-heat-bar-indicator` pattern
-   from BB for the score notch on the heat bar.
+     main          #FFE74C  bright yellow
+     extras        #FFFFFF  pure white
+     completionist #FF4081  vivid pink/magenta
 
-   Label rows (top to bottom):
-     - footage label   "recorded Nh"   (above, near footage tick)
-     - pillar values   "31h" / "71h" / "124h"   (above pillar ticks)
-     - the bar         (4 zones + 4 ticks layered)
-     - pillar names    "main" / "extras" / "completionist"  (below)
+   Footage tick — UNCHANGED from BB/BV: 4px wide, theme-aware
+   page-bg fill + text-color border, overshoots the bar. Mirrors
+   the `.rating-heat-bar-indicator` pattern (BB heat-bar score
+   notch). The footage swatch in the legend mirrors this
+   styling (bg fill + 1px text-color border).
+
+   Rows (top to bottom):
+     - row 1: footage hours value      (above bar, over footage tick)
+     - row 2: the bar                  (gradient + 4 ticks + watermark)
+     - row 3: pillar hour values       (below bar, under pillar ticks)
+     - row 4: legend                   (4 swatches + names, single line)
 */
 
 .ttb-fuel-gauge {
-  /* Wide-as-pane. Sits in the RIGHT pane's natural flow under the
-     "time to beat" h2 + summary hairline. */
+  /* Wide-as-pane. Sits in the RIGHT pane's natural flow directly
+     under the summary block — the bar carries its own inline "TTB"
+     watermark (`.ttb-fuel-gauge__title`) so no standalone heading is
+     rendered above the gauge. */
   width: 100%;
   margin-top: 8px;
   padding-bottom: 4px;
 }
 
-/* Footage label row. Single line, ~14px tall, the "recorded Nh"
-   tag floats above the gauge anchored to the footage tick. */
-.ttb-fuel-gauge__footage-row {
-  position: relative;
-  height: 16px;
-  margin-bottom: 4px;
-}
-
-.ttb-fuel-gauge__footage-label {
+/* Inline "TTB" watermark label rendered INSIDE the bar (not above
+   it). Vertically centered on the bar's height, left-aligned with a
+   few px of padding from the bar's left edge so it reads as a
+   contained identifier rather than a heading. White text + a subtle
+   dark text-shadow keep the label legible against any zone of the
+   multi-stop gradient. Pointer-events disabled so the watermark never
+   intercepts hover/click on the bar itself. z-index sits above the
+   pillar ticks (z-index 2) and the footage tick (z-index 2) so the
+   "TTB" letters always read on top, even when a tick lands at the
+   bar's far-left edge. */
+.ttb-fuel-gauge__title {
   position: absolute;
-  transform: translateX(-50%);
-  color: var(--color-text);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  white-space: nowrap;
-  line-height: 14px;
+  top: 50%;
+  left: 6px;
+  transform: translateY(calc(-50% + 1px));
+  font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #ffffff;
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.7);
+  pointer-events: none;
+  z-index: 3;
 }
 
-/* Pillar VALUE row. Three labels positioned above their respective
-   ticks. Same vertical rhythm as the footage label row. */
+/* Label rows — shared base for the top row (footage value) and the
+   bottom row (pillar hour values). Each row is a positioned strip
+   with `position: relative` so the per-label `left: N%;` inline
+   styles position correctly against the bar's full width. */
 .ttb-fuel-gauge__values {
   position: relative;
   height: 16px;
+}
+
+/* Top row sits ABOVE the bar — small gap before the gauge. */
+.ttb-fuel-gauge__values--top {
   margin-bottom: 2px;
+}
+
+/* Bottom row sits BELOW the bar, holding the three pillar hour
+   labels that used to live above. Slightly more space above so the
+   labels clear the pillar ticks' 3px overshoot. */
+.ttb-fuel-gauge__values--bottom {
+  margin-top: 6px;
 }
 
 .ttb-fuel-gauge__value {
   position: absolute;
-  transform: translateX(-50%);
-  color: var(--color-text);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   line-height: 14px;
   white-space: nowrap;
 }
 
-/* The bar itself. Relative-positioned host for the 4 zone
-   backgrounds and the tick markers. */
+.ttb-fuel-gauge__value--pillar {
+  color: var(--color-muted);
+  z-index: 1;
+}
+
+.ttb-fuel-gauge__value--footage {
+  color: var(--color-text);
+  font-weight: 600;
+  z-index: 2;
+}
+
+/* The bar itself. Background is a smooth multi-stop linear gradient
+   that blends the four effort zones (low → some → commitment →
+   insanity) without visible boundaries. Stops are placed along the
+   FULL bar width (0 % - 100 % of max_x); the bar's effort character
+   shifts continuously rather than at crisp 10 / 40 / 100 hour edges.
+   Heat-map ramp: vivid green (low, safe) → yellow-green (some) →
+   warm coral/amber (commitment) → vivid pink (insanity over 100h).
+   Pink stays distinct from destructive red (#cc0000) — this is
+   "effort intensity" warning, not a destructive-action signal.
+   Single literal hex set — identical look in both themes.
+   Locked 2026-05-17 (user direction item 3). */
 .ttb-fuel-gauge__bar {
   position: relative;
   width: 100%;
   height: 18px;
-  background: var(--color-bg-alt);
+  background-image: linear-gradient(
+    to right,
+    #4CAF50   0%,
+    #CDDC39  35%,
+    #FFB74D  65%,
+    #E91E63 100%
+  );
+  background-color: var(--color-bg-alt);
   border: 1px solid var(--color-border);
   overflow: visible;
 }
 
-/* Zone backgrounds — each band is an absolutely-positioned div so
-   the boundaries are crisp (no gradient blur between zones). The
-   bands sit BEHIND the ticks via stacking order. */
-.ttb-fuel-gauge__zone {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  pointer-events: none;
-}
-
-.ttb-fuel-gauge__zone--low {
-  background-color: #4a4d5c;  /* muted dark grey */
-  opacity: 0.55;
-}
-
-.ttb-fuel-gauge__zone--some {
-  background-color: #5a6a7a;  /* muted slate */
-  opacity: 0.7;
-}
-
-.ttb-fuel-gauge__zone--commitment {
-  background-color: #5a7a9a;  /* steel blue */
-  opacity: 0.85;
-}
-
-.ttb-fuel-gauge__zone--insanity {
-  background-color: #7a5a9a;  /* muted plum — "insanity" */
-  opacity: 1;
-}
-
 /* Pillar ticks. Thin, text-colored, NO border — the user-confirmed
    "perfect" handle style. Overshoot the bar by 3px top + bottom so
-   the tick reads as a marker, not a fill stripe. Sits on top of
-   the zones via z-index. */
+   the tick reads as a marker, not a fill stripe. Sits on top of the
+   gradient via z-index. */
 .ttb-fuel-gauge__tick {
   position: absolute;
   transform: translateX(-50%);
@@ -3869,39 +3944,115 @@ input[type="text"].bundle-title-input:focus-visible {
   top: -3px;
   bottom: -3px;
   width: 2px;
-  background-color: var(--color-text);
+  /* Per-pillar fill set by the color modifiers below
+     (`--main` / `--extras` / `--completionist`). Each pillar's tick
+     color matches its legend swatch + bottom-row label so the visual
+     identity reads at a glance. Literal hex (no theme-flip) — same
+     pop against the gradient in both themes. */
 }
 
-/* Footage tick — bigger, bordered, page-bg fill. Mirrors the
-   `.rating-heat-bar-indicator` pattern (BB heat-bar score notch).
-   Sits ABOVE the pillar ticks via higher z-index so even if
-   footage and a pillar collide the footage notch wins visually. */
+.ttb-fuel-gauge__tick--main {
+  background-color: #2196F3;
+}
+
+.ttb-fuel-gauge__tick--extras {
+  background-color: #9C27B0;
+}
+
+.ttb-fuel-gauge__tick--completionist {
+  background-color: #E91E63;
+}
+
+/* Footage tick — bigger, bordered, white fill. Mirrors the
+   `.rating-heat-bar-indicator` pattern (BB heat-bar score notch)
+   exactly: theme-independent white fill + black border so the
+   "current value" notch reads identically in light and dark, and
+   shares the universal visual primitive with the heatbar score
+   tick. Sits ABOVE the pillar ticks via higher z-index so even
+   if footage and a pillar collide the footage notch wins
+   visually. Locked 2026-05-17 (user direction item 1). */
 .ttb-fuel-gauge__tick--footage {
   top: -5px;
   bottom: -5px;
   width: 4px;
-  background-color: var(--color-bg);
-  border: 1px solid var(--color-text);
+  background-color: #ffffff;
+  border: 1px solid #000000;
   z-index: 3;
   /* Account for the 1px border each side so the visible footprint
      stays centered on the footage position. */
   margin-left: -1px;
 }
 
-/* Pillar NAME row. Three names positioned below their respective
-   ticks. Muted color so the values above are the dominant labels. */
-.ttb-fuel-gauge__names {
-  position: relative;
-  height: 16px;
-  margin-top: 4px;
+/* Legend row — single horizontal flex line below the bottom-row
+   pillar hour labels. Holds the 4 swatch + name pairs (3 pillars +
+   recorded). The swatch fills use the same vivid hex as their
+   corresponding ticks on the bar, so the legend acts as the color
+   key for the visible marks. The "recorded" swatch mirrors the
+   footage tick's styling (bg fill + 1px text-color border) so it
+   reads identical to the focal notch on the bar. */
+.ttb-fuel-gauge__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--color-muted);
 }
 
-.ttb-fuel-gauge__name {
-  position: absolute;
-  transform: translateX(-50%);
-  color: var(--color-muted);
-  font-size: 11px;
-  line-height: 14px;
+.ttb-fuel-gauge__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   white-space: nowrap;
+}
+
+/* Tick-shaped swatch: narrow vertical pill that mirrors the bar
+   tick form so the legend visually maps to the marks on the bar.
+   ~3px wide × 12px tall. No border by default — the pillar
+   swatches match their borderless ticks. The footage modifier
+   below adds the universal black border + white fill for parity
+   with the footage tick. Locked 2026-05-17 (user direction
+   item 2). */
+.ttb-fuel-gauge__legend-swatch {
+  display: inline-block;
+  width: 3px;
+  height: 12px;
+  box-sizing: border-box;
+}
+
+.ttb-fuel-gauge__legend-swatch--main {
+  background-color: #2196F3;
+}
+
+.ttb-fuel-gauge__legend-swatch--extras {
+  background-color: #9C27B0;
+}
+
+.ttb-fuel-gauge__legend-swatch--completionist {
+  background-color: #E91E63;
+}
+
+.ttb-fuel-gauge__legend-swatch--footage {
+  background-color: #ffffff;
+  border: 1px solid #000000;
+}
+
+/* Edge-label clamping modifiers. Applied per-label based on the
+   tick position so labels near 0 % or 100 % of the bar shift inward
+   instead of overflowing the pane. See
+   `TimeToBeatComponent#label_alignment_class` for the position
+   thresholds (< 10 % → at-start, > 90 % → at-end, else centered). */
+.ttb-fuel-gauge__label--centered {
+  transform: translateX(-50%);
+}
+
+.ttb-fuel-gauge__label--at-start {
+  transform: translateX(0);
+  text-align: left;
+}
+
+.ttb-fuel-gauge__label--at-end {
+  transform: translateX(-100%);
+  text-align: right;
 }
 

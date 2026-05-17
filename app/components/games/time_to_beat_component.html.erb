@@ -1,7 +1,22 @@
 <%# Single canonical visualization — the fuel gauge. The bar spans the
     full pane width and represents hours (not percentages) along its
     x-axis. See `time_to_beat_component.rb` for the layout sketch and
-    the 4-zone color rationale. %>
+    the 4-zone color rationale.
+
+    BZ+ restructure (2026-05-17, user direction "738h should scream"):
+
+      Row 1 — footage value text   (top, positioned over footage tick)
+      Row 2 — TTB bar              (3 colored pillar ticks + 1 footage tick)
+      Row 3 — pillar hour values   (positioned BELOW each pillar tick)
+      Row 4 — legend               (4 swatches + names)
+
+    Pillar names migrated FROM below-the-bar TO the legend row. The
+    "recorded" caption migrated FROM below-the-bar TO the legend row.
+    Pillar tick fills moved from theme-text grey to vivid literal
+    hex (yellow / white / pink) so the legend swatch ⇔ bar tick
+    color identity reads at a glance against the cool-spectrum
+    gradient.
+%>
 <%
   h_main          = hours[:main].to_i
   h_extras        = hours[:extras].to_i
@@ -12,77 +27,50 @@
   extras_pos      = position(h_extras)
   compl_pos       = position(h_completionist)
   footage_pos     = position(footage)
-
-  # Zone boundary positions (in % of max_x). Each band spans from the
-  # previous boundary (or 0) to its own position; the open-ended top
-  # band runs from the last boundary to 100%.
-  z_10   = position(10)
-  z_40   = position(40)
-  z_100  = position(100)
 %>
 
 <div class="ttb-fuel-gauge" data-component="time-to-beat" data-variant="fuel_gauge">
-  <%# Footage label row — single line above the gauge, only when we
-      have a footage value to communicate. Uses --color-text for
-      contrast so the "recorded Nh" tag reads as the focal text. %>
-  <% if render_footage_tick? %>
-    <div class="ttb-fuel-gauge__footage-row">
-      <span class="ttb-fuel-gauge__footage-label"
+  <%# Row 1 — Footage value text, positioned over the footage tick.
+      Only one item lives in this row now; pillar hour values have
+      moved BELOW the bar. The footage hours use --color-text so the
+      focal "you are here" number reads brighter than the gradient. %>
+  <div class="ttb-fuel-gauge__values ttb-fuel-gauge__values--top">
+    <% if render_footage_tick? %>
+      <span class="ttb-fuel-gauge__value ttb-fuel-gauge__value--footage <%= label_alignment_class(footage_pos) %>"
             style="left: <%= footage_pos %>%;">
-        <%= footage_label %>
+        <%= footage_value_label %>
       </span>
-    </div>
-  <% end %>
-
-  <%# Pillar VALUE labels row (hours above each tick). %>
-  <div class="ttb-fuel-gauge__values">
-    <span class="ttb-fuel-gauge__value" style="left: <%= main_pos %>%;">
-      <%= label_for(:main) %>
-    </span>
-    <span class="ttb-fuel-gauge__value" style="left: <%= extras_pos %>%;">
-      <%= label_for(:extras) %>
-    </span>
-    <span class="ttb-fuel-gauge__value" style="left: <%= compl_pos %>%;">
-      <%= label_for(:completionist) %>
-    </span>
+    <% end %>
   </div>
 
-  <%# The bar itself. The 4 zone backgrounds are layered as absolutely-
-      positioned divs so each band gets its own literal hex (no
-      gradient — the user wanted clear "this is low / some / commitment
-      / insanity" zones, not a smooth ramp). %>
+  <%# Row 2 — the bar itself. The 4-zone effort ramp is a smooth
+      multi-stop linear gradient; see `.ttb-fuel-gauge__bar` in CSS.
+      Zone semantic thresholds (10 / 40 / 100 hours) are implicit; no
+      visible vertical guides. %>
   <div class="ttb-fuel-gauge__bar">
-    <%# Zone 1 — 0-10h "low effort" — muted dark grey #4a4d5c %>
-    <div class="ttb-fuel-gauge__zone ttb-fuel-gauge__zone--low"
-         style="left: 0; width: <%= z_10 %>%;"></div>
-    <%# Zone 2 — 10-40h "some effort" — muted slate #5a6a7a %>
-    <div class="ttb-fuel-gauge__zone ttb-fuel-gauge__zone--some"
-         style="left: <%= z_10 %>%; width: <%= [z_40 - z_10, 0].max %>%;"></div>
-    <%# Zone 3 — 40-100h "commitment" — steel blue #5a7a9a %>
-    <div class="ttb-fuel-gauge__zone ttb-fuel-gauge__zone--commitment"
-         style="left: <%= z_40 %>%; width: <%= [z_100 - z_40, 0].max %>%;"></div>
-    <%# Zone 4 — 100h+ "insanity" — muted plum #7a5a9a %>
-    <div class="ttb-fuel-gauge__zone ttb-fuel-gauge__zone--insanity"
-         style="left: <%= z_100 %>%; width: <%= [100 - z_100, 0].max %>%;"></div>
+    <%# Inline "TTB" watermark, vertically centered inside the bar,
+        left-aligned with a few px of padding. Carries the section
+        identifier so no standalone heading sits above. %>
+    <span class="ttb-fuel-gauge__title">TTB</span>
 
-    <%# Pillar ticks — thin (2px), no border, just a clean
-        text-colored vertical line. Overshoots the bar by 3px top
-        and bottom so the tick reads as a marker, not a fill stripe. %>
-    <div class="ttb-fuel-gauge__tick ttb-fuel-gauge__tick--pillar"
+    <%# Pillar ticks — thin (2px), no border, FILLED with the per-
+        pillar literal hex from `PILLAR_COLOR`. Color identity is
+        what now ties each tick back to its legend swatch + bottom-
+        row hour value. Overshoots the bar by 3px top + bottom so
+        each tick reads as a marker, not a fill stripe. %>
+    <div class="ttb-fuel-gauge__tick ttb-fuel-gauge__tick--pillar ttb-fuel-gauge__tick--main"
          style="left: <%= main_pos %>%;"
          data-pillar="main"></div>
-    <div class="ttb-fuel-gauge__tick ttb-fuel-gauge__tick--pillar"
+    <div class="ttb-fuel-gauge__tick ttb-fuel-gauge__tick--pillar ttb-fuel-gauge__tick--extras"
          style="left: <%= extras_pos %>%;"
          data-pillar="extras"></div>
-    <div class="ttb-fuel-gauge__tick ttb-fuel-gauge__tick--pillar"
+    <div class="ttb-fuel-gauge__tick ttb-fuel-gauge__tick--pillar ttb-fuel-gauge__tick--completionist"
          style="left: <%= compl_pos %>%;"
          data-pillar="completionist"></div>
 
-    <%# Footage tick — bigger (4px), with theme-aware border so it
-        reads as the bordered "you are here" notch (mirrors the
-        rating heat-bar's `.rating-heat-bar-indicator` style — page-bg
-        fill + text-color border). Always overlaid on top of the
-        pillar ticks via stacking order. %>
+    <%# Footage tick — UNCHANGED visual styling from BB/BV: 4px wide,
+        theme-aware page-bg fill + text-color border. Always overlaid
+        on top of the pillar ticks via stacking order. %>
     <% if render_footage_tick? %>
       <div class="ttb-fuel-gauge__tick ttb-fuel-gauge__tick--footage"
            style="left: <%= footage_pos %>%;"
@@ -90,16 +78,48 @@
     <% end %>
   </div>
 
-  <%# Pillar NAME labels row (below the bar). %>
-  <div class="ttb-fuel-gauge__names">
-    <span class="ttb-fuel-gauge__name" style="left: <%= main_pos %>%;">
+  <%# Row 3 — pillar hour values, BELOW the bar. Each label sits at
+      its tick's x-position, edge-clamped near the bar bounds. Uses
+      --color-muted so the bar + legend stay visually dominant. The
+      completionist label may carry a 🔥 / 🔥🔥 scream suffix when
+      hours pass the configured thresholds. %>
+  <div class="ttb-fuel-gauge__values ttb-fuel-gauge__values--bottom">
+    <span class="ttb-fuel-gauge__value ttb-fuel-gauge__value--pillar <%= label_alignment_class(main_pos) %>"
+          style="left: <%= main_pos %>%;">
+      <%= label_for(:main) %>
+    </span>
+    <span class="ttb-fuel-gauge__value ttb-fuel-gauge__value--pillar <%= label_alignment_class(extras_pos) %>"
+          style="left: <%= extras_pos %>%;">
+      <%= label_for(:extras) %>
+    </span>
+    <span class="ttb-fuel-gauge__value ttb-fuel-gauge__value--pillar <%= label_alignment_class(compl_pos) %>"
+          style="left: <%= compl_pos %>%;">
+      <%= label_for(:completionist) %>
+    </span>
+  </div>
+
+  <%# Row 4 — legend. Four items: three pillar swatches + names plus
+      the "recorded" swatch + name. Each swatch fills with the same
+      color as its corresponding tick on the bar (footage swatch
+      mirrors the footage tick's bg-fill + text-color border). %>
+  <div class="ttb-fuel-gauge__legend">
+    <span class="ttb-fuel-gauge__legend-item">
+      <span class="ttb-fuel-gauge__legend-swatch ttb-fuel-gauge__legend-swatch--main"></span>
       <%= PILLAR_LABEL[:main] %>
     </span>
-    <span class="ttb-fuel-gauge__name" style="left: <%= extras_pos %>%;">
+    <span class="ttb-fuel-gauge__legend-item">
+      <span class="ttb-fuel-gauge__legend-swatch ttb-fuel-gauge__legend-swatch--extras"></span>
       <%= PILLAR_LABEL[:extras] %>
     </span>
-    <span class="ttb-fuel-gauge__name" style="left: <%= compl_pos %>%;">
+    <span class="ttb-fuel-gauge__legend-item">
+      <span class="ttb-fuel-gauge__legend-swatch ttb-fuel-gauge__legend-swatch--completionist"></span>
       <%= PILLAR_LABEL[:completionist] %>
     </span>
+    <% if render_footage_tick? %>
+      <span class="ttb-fuel-gauge__legend-item">
+        <span class="ttb-fuel-gauge__legend-swatch ttb-fuel-gauge__legend-swatch--footage"></span>
+        <%= footage_caption %>
+      </span>
+    <% end %>
   </div>
 </div>
