@@ -1,5 +1,23 @@
 <section class="all-games" style="margin-top: 16px;">
-  <h3 style="margin: 0 0 6px;">all games</h3>
+  <%# 2026-05-18 — heading row carries a `[+]` add-member trigger that
+      opens the per-bundle omnisearch modal (`:bundle_add` mode). The
+      `[+]` link uses the `modal-trigger` Stimulus controller to call
+      `showModal()` on the dialog whose id matches `omnisearch_dialog_id`
+      (rendered as a sibling of the table below). The modal hits
+      `/bundles/:id/search` and renders Local + IGDB results; per-row
+      `[add]` POSTs `/bundles/:id/members`. %>
+  <div style="display: flex; align-items: baseline; gap: 8px; margin: 0 0 6px;">
+    <h3 style="margin: 0;">all games</h3>
+    <%= render(BracketedLinkComponent.new(
+          label: "+",
+          href: "#",
+          data: {
+            controller: "modal-trigger",
+            action: "click->modal-trigger#open",
+            modal_trigger_target_id_value: omnisearch_dialog_id
+          }
+        )) %>
+  </div>
   <hr class="hairline">
   <div class="sessions-table-wrap" style="margin-top: 8px;">
     <table class="sessions-table all-games-table" style="table-layout: auto;">
@@ -35,4 +53,15 @@
       </tbody>
     </table>
   </div>
+
+  <%# Per-bundle omnisearch modal (`:bundle_add` mode). Mounted as a
+      sibling of the table so the [+] trigger's `modal-trigger` lookup
+      finds it by id within the same Turbo Frame. %>
+  <%= render "shared/omnisearch_modal",
+        mode: :bundle_add,
+        dialog_id: omnisearch_dialog_id,
+        url: search_bundle_path(bundle),
+        placeholder: "add a game to this bundle",
+        results_frame_id: omnisearch_frame_id,
+        bundle: bundle %>
 </section>

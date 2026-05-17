@@ -251,6 +251,13 @@ class GamesController < ApplicationController
     render json: { results: scope.map { |g| { id: g.id, title: g.title } } }
   end
 
+  # `:game_index` mode of the omnisearch envelope — backs the `[+]`
+  # button on the `/games` chrome (existing IGDB add-from flow). The
+  # HTML branch routes through the shared `_omnisearch_results`
+  # dispatcher (which falls through to `games/_search_results` for this
+  # mode). The JSON branch keeps the pre-existing wire shape (Phase 21
+  # CLI / MCP parity) — `search.json.jbuilder` reads `@results`,
+  # `@search_error`, `@took_ms`.
   def search
     @query = params[:q].to_s.strip
     if @query.length > MAX_QUERY_LENGTH
@@ -280,6 +287,19 @@ class GamesController < ApplicationController
       end
       format.json { render :search }
     end
+  end
+
+  # 2026-05-18 — omnisearch endpoint for the `/`-keyed search modal on
+  # `/games`. Runs the unified `Games::SearchService` in `:games_search`
+  # mode so the result envelope carries BOTH local games + bundles
+  # (Meilisearch) AND IGDB hits as separate panes. Rendered through the
+  # shared `_omnisearch_results` dispatcher which fans out to the
+  # combined `_search_results_combined` partial.
+  def omnisearch
+    @query = params[:q].to_s.strip[0, MAX_QUERY_LENGTH]
+    @result = Games::SearchService.call(query: @query, mode: :games_search)
+    render partial: "shared/omnisearch_results",
+           locals: { mode: :games_search, query: @query, result: @result, bundle: nil }
   end
 
   # Phase 27 spec 04 (2026-05-17) — IGDB add-game flow is the SINGLE

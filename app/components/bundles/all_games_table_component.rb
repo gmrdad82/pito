@@ -28,7 +28,19 @@ module Bundles
       @games = bundle.games.includes(:primary_genre).order(:title)
     end
 
-    attr_reader :games
+    attr_reader :games, :bundle
+
+    # 2026-05-18 — per-bundle omnisearch (`:bundle_add` mode) DOM
+    # identifiers. Scoped by bundle id so each bundle modal carries
+    # its own dialog instance (the bundles modal can be reopened
+    # against different bundles within one page lifetime).
+    def omnisearch_dialog_id
+      "omnisearch-modal-bundle-#{bundle.id}"
+    end
+
+    def omnisearch_frame_id
+      "omnisearch_results_bundle_add"
+    end
 
     # Primary-genre display label, em-dash fallback for the column.
     # Reads `Game#primary_genre` (a `belongs_to :primary_genre` on the

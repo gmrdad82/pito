@@ -1,0 +1,51 @@
+<%# 2026-05-18 — omnisearch results dispatcher.
+
+    Dispatches the per-mode results partial. The dispatcher always
+    runs server-side from a controller `render partial:` call so the
+    initial render lands in the modal's Turbo Frame as a single round
+    trip per keystroke.
+
+    Locals:
+      mode    — one of :game_index, :bundle_add, :games_search
+      query   — sanitized query string (or blank when the input is empty)
+      result  — Games::SearchService::Result struct OR (for the
+                :game_index legacy path) a Hash compatible with the
+                pre-existing `games/_search_results` partial. The
+                dispatcher reads only the fields the chosen sub-partial
+                expects, so legacy callers continue to work without a
+                struct conversion.
+      bundle  — present only for :bundle_add. Forwarded to the
+                per-row `[add]` action so the POST hits
+                `/bundles/:id/members`.
+
+    Per-mode fan-out:
+      :game_index   → `games/_search_results` (unchanged legacy partial)
+      :bundle_add   → `bundles/_search_results` (new — local games
+                      with `[add]` POSTing to /bundles/:id/members,
+                      plus IGDB hits as a secondary section)
+      :games_search → `games/_search_results_combined` (new — local
+                      games + local bundles + IGDB hits as three
+                      navigable sections)
+%>
+<% case mode %>
+<% when :game_index %>
+  <%# Legacy path — `result` here is left untouched so existing
+      controller call sites that pre-date the dispatcher still work.
+      The current `GamesController#search` renders this partial
+      DIRECTLY (see the comment above the action) — no dispatcher.
+      Kept here so :game_index has explicit coverage if a future
+      caller routes through the dispatcher. %>
+  <%= render "games/search_results",
+        results: result.respond_to?(:igdb) ? result.igdb : result[:results],
+        query: query,
+        search_error: (result.respond_to?(:igdb_error) ? result.igdb_error : nil)&.dig(:message)&.then { |m| "igdb error: #{m}" } %>
+<% when :bundle_add %>
+  <%= render "bundles/search_results",
+        result: result,
+        query: query,
+        bundle: bundle %>
+<% when :games_search %>
+  <%= render "games/search_results_combined",
+        result: result,
+        query: query %>
+<% end %>

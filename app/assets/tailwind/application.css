@@ -1481,6 +1481,134 @@ select:focus {
   border-color: var(--color-link);
 }
 
+/* 2026-05-18 — Shared omnisearch modal (Mac-style centered dialog).
+   Backs `shared/_omnisearch_modal` across :game_index / :bundle_add /
+   :games_search modes. The visual brief is the macOS Spotlight /
+   Raycast aesthetic: a wide centered field with no labels and no
+   submit button, sized big and bold so it reads as the page's
+   primary focal point while the modal is open.
+
+   Sizing matches the architect-locked dimensions:
+     - dialog content width: 600px (fixed, narrow-viewport fallback
+       at 90vw so a 360px viewport never overflows).
+     - input font-size: 24px, weight 700.
+     - input padding: 12px 16px.
+     - dialog padding: 16px.
+     - border: 1px solid var(--color-border); 4px radius. */
+dialog.omnisearch-modal {
+  width: 600px;
+  max-width: 90vw;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+dialog.omnisearch-modal::backdrop {
+  background: rgba(0, 0, 0, 0.35);
+}
+.omnisearch-modal-inner {
+  display: flex;
+  flex-direction: column;
+}
+input.omnisearch-input {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 24px;
+  font-weight: 700;
+  padding: 12px 16px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text);
+  border-radius: 2px;
+}
+input.omnisearch-input:focus {
+  outline: none;
+  border-color: var(--color-link);
+}
+/* Match the IGDB-search input's cancel-button override so the
+   browser-native blue X does not leak through the monochrome chrome. */
+input.omnisearch-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 12px;
+  width: 12px;
+  margin-left: 4px;
+  cursor: pointer;
+  background-color: var(--color-muted);
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M2 2 L10 10 M10 2 L2 10' stroke='black' stroke-width='1.5' stroke-linecap='round'/></svg>");
+          mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M2 2 L10 10 M10 2 L2 10' stroke='black' stroke-width='1.5' stroke-linecap='round'/></svg>");
+  -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+          mask-position: center;
+  -webkit-mask-size: contain;
+          mask-size: contain;
+}
+input.omnisearch-input::-webkit-search-cancel-button:hover {
+  background-color: var(--color-text);
+}
+/* Sectioned results inside the omnisearch dialog. Each pane (local
+   games / local bundles / IGDB hits) renders as its own section with
+   a small heading and a flat list of rows. Rows are vertically
+   compact, separated by a hairline, and end-align their per-row
+   action affordance. */
+.omnisearch-section {
+  margin: 0;
+}
+.omnisearch-section + .omnisearch-section {
+  margin-top: 12px;
+}
+.omnisearch-section-heading {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-muted);
+}
+.omnisearch-list .omnisearch-row,
+li.omnisearch-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+.omnisearch-list .omnisearch-row:last-child,
+li.omnisearch-row:last-child {
+  border-bottom: none;
+}
+
+/* 2026-05-18 — IGDB-search modal input clear (X) button.
+   The browser-native `::-webkit-search-cancel-button` inherits the
+   page's accent / link blue by default, which clashes with our
+   monochrome chrome (the only blue on the page should be a link).
+   Restyle it with a small text "×" glyph rendered in the muted
+   token. Chromium / WebKit only — Firefox doesn't paint a cancel
+   button on `type="search"` so there's nothing to override there. */
+.igdb-search-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 12px;
+  width: 12px;
+  margin-left: 4px;
+  cursor: pointer;
+  background-color: var(--color-muted);
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M2 2 L10 10 M10 2 L2 10' stroke='black' stroke-width='1.5' stroke-linecap='round'/></svg>");
+          mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M2 2 L10 10 M10 2 L2 10' stroke='black' stroke-width='1.5' stroke-linecap='round'/></svg>");
+  -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+          mask-position: center;
+  -webkit-mask-size: contain;
+          mask-size: contain;
+}
+.igdb-search-input::-webkit-search-cancel-button:hover {
+  background-color: var(--color-text);
+}
+
 /* All buttons get pointer cursor */
 button, .btn-submit {
   cursor: pointer;

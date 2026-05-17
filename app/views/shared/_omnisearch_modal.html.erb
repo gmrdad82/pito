@@ -1,0 +1,73 @@
+<%# 2026-05-18 — shared omnisearch modal (Mac-style centered field).
+    Reusable across three modes (the `mode` local selects which
+    backend endpoint the controller hits + which results partial the
+    dispatcher renders):
+
+      :game_index   — IGDB-only add-from-IGDB on `/games`. Hits
+                      `/games/search?q=…`. Per-row action is `[add]`
+                      which creates a local Game from the IGDB row.
+                      Triggered by the `[+]` link in the `/games`
+                      page chrome (existing behavior).
+
+      :bundle_add   — Bundle modal "all games" `[+]` add-member
+                      trigger. Hits `/bundles/:bundle_id/search?q=…`
+                      which returns local games (Meilisearch, with
+                      this bundle's members filtered out) + IGDB
+                      hits as separate sections. Per-row local action
+                      is `[add]` which POSTs `/bundles/:id/members`
+                      to associate the game with this bundle.
+
+      :games_search — `/`-keyed global game search on `/games`. Hits
+                      `/games/omnisearch?q=…`. Returns local games +
+                      local bundles + IGDB hits. Rows are clickable
+                      navigation (game → `/games/:slug`; bundle →
+                      `/bundles/:slug`). No `[add]` actions.
+
+    Required locals:
+      mode        — one of `:game_index`, `:bundle_add`, `:games_search`
+      dialog_id   — DOM id for the `<dialog>` element. Must be unique
+                    on the page. Triggers use `#openById` to surface it.
+      url         — string. The omnisearch endpoint to POST the typed
+                    query against. `Games::SearchService` mode mapping
+                    is reflected in the controller picked per route.
+      placeholder — input placeholder string.
+      results_frame_id — DOM id for the `<turbo-frame>` inside the
+                          modal. Result partials wrap their output in a
+                          frame with this id so the controller can swap
+                          src and the partial replaces the body.
+
+    Optional locals:
+      bundle      — present only when mode == :bundle_add. Drives the
+                    add-member POST path inside the per-row action
+                    (the partial reads `local_assigns[:bundle]`).
+
+    Mac-style visual: 600px wide, big bold centered input (24px /
+    weight 700), no labels, no [search] button. The `.omnisearch-*`
+    CSS classes are defined in `app/assets/tailwind/application.css`.
+    No `confirm()` / `alert()` / `prompt()` — CLAUDE.md hard rule. %>
+<dialog id="<%= dialog_id %>"
+        class="omnisearch-modal"
+        data-controller="omnisearch-modal"
+        data-omnisearch-modal-url-value="<%= url %>"
+        data-omnisearch-modal-min-chars-value="1"
+        data-omnisearch-modal-frame-id-value="<%= results_frame_id %>"
+        data-action="click->omnisearch-modal#clickOutside keydown->omnisearch-modal#keydown">
+  <div class="omnisearch-modal-inner">
+    <input type="search"
+           class="omnisearch-input"
+           placeholder="<%= placeholder %>"
+           autocomplete="off"
+           data-omnisearch-modal-target="input"
+           data-action="input->omnisearch-modal#search keydown.enter->omnisearch-modal#search" />
+    <div class="omnisearch-results" style="margin-top: 16px;">
+      <%= turbo_frame_tag results_frame_id %>
+    </div>
+    <div class="modal-footer">
+      <%= render(BracketedMutedLinkComponent.new(
+            label: "close",
+            href: "#",
+            data: { action: "click->omnisearch-modal#close" }
+          )) %>
+    </div>
+  </div>
+</dialog>

@@ -155,11 +155,16 @@ page_actions:
       label: dark mode
       action:
         type: theme_toggle
+    # 2026-05-18 — `/` opens the page-scoped omnisearch modal
+    # (`:games_search` mode). Local games + bundles + IGDB. The dialog
+    # is mounted at the bottom of `app/views/games/index.html.erb` with
+    # id `omnisearch-modal-games-search`; the leader-menu's
+    # `open_modal_by_id` resolver wakes it up.
     - key: "/"
       label: search
       action:
-        type: open_modal
-        modal_id: search_placeholder
+        type: open_modal_by_id
+        target: omnisearch-modal-games-search
     # `f filter` opens a nested submenu of filter-chip toggles. Each
     # submenu key dispatches `toggle_filter_chip` with the matching
     # `data-filter-token` on the /games filter row (single source of
