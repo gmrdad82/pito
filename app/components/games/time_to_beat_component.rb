@@ -223,6 +223,66 @@ module Games
       "ttb-fuel-gauge__label--centered"
     end
 
+    # Bottom-row pillar label alignment — ALWAYS centered on its tick.
+    # Per user direction (2026-05-17): "bottom texts for main, extra
+    # and completionis, can stay with the pillar / tick in their
+    # center. They won't overflow I think." The "Nh" labels are short
+    # enough that centered placement keeps each label visually anchored
+    # to its tick at any position, even near the bar's left / right
+    # edge. Edge-clamping (`label_alignment_class`) is reserved for
+    # cases where overflow would be visually unacceptable — bottom-row
+    # pillar values opt out.
+    def pillar_bottom_label_alignment_class
+      "ttb-fuel-gauge__label--centered"
+    end
+
+    # Collision threshold (in percent of bar width). When two adjacent
+    # pillar labels sit within this gap on the bar, the later label
+    # bumps down a row so both remain readable. Picked at 10 % so the
+    # Crimson Desert case (main 31h ≈ 4 %, extras 71h ≈ 9 %, both
+    # under the bar's 775h max_x) resolves with extras bumped while
+    # completionist (~95 %) stays in the top row.
+    BOTTOM_LABEL_COLLISION_THRESHOLD_PCT = 10.0
+
+    # Returns the bottom-row pillar labels with per-label collision
+    # metadata so the template can render with `--bumped` applied to
+    # any pillar that crowds its left neighbour.
+    #
+    # Each entry: `{ key:, hours:, label:, position:, bumped: }`.
+    #
+    #   key      — `:main` / `:extras` / `:completionist` (in pillar order).
+    #   hours    — integer hours (0 / nil pillars are NOT skipped, so the
+    #              em-dash label still renders in place).
+    #   label    — string from `label_for(key)` ("31h" or "—").
+    #   position — percent along the bar (already clamped 0..100).
+    #   bumped   — true when this label's position sits within
+    #              `BOTTOM_LABEL_COLLISION_THRESHOLD_PCT` of the
+    #              previous rendered label's position.
+    #
+    # Collision detection runs against the **previous label's**
+    # position only — so a chain of 3 tightly-packed labels gives
+    # `[false, true, true]` (second bumps relative to first, third
+    # bumps relative to second). The bump distance in CSS keeps both
+    # bumped labels on the same lower row; tightly-packed triples
+    # remain rare in practice (the user direction explicitly covers
+    # the 2-collision Crimson Desert case).
+    def pillar_label_data
+      prev_pos = nil
+      PILLAR_KEYS.map do |key|
+        h   = hours[key].to_i
+        pos = position(h)
+        bumped = !prev_pos.nil? && (pos - prev_pos).abs < BOTTOM_LABEL_COLLISION_THRESHOLD_PCT
+        prev_pos = pos
+        {
+          key:      key,
+          hours:    h,
+          label:    label_for(key),
+          position: pos,
+          bumped:   bumped
+        }
+      end
+    end
+
     private
 
     def seconds_to_hours(seconds)

@@ -3888,9 +3888,24 @@ input[type="text"].bundle-title-input:focus-visible {
 
 /* Bottom row sits BELOW the bar, holding the three pillar hour
    labels that used to live above. Slightly more space above so the
-   labels clear the pillar ticks' 3px overshoot. */
+   labels clear the pillar ticks' 3px overshoot. Height grows to 30 px
+   (was 16 px) so a `--bumped` label dropped down a row stays inside
+   the positioned strip without escaping the box and overlapping the
+   legend below. */
 .ttb-fuel-gauge__values--bottom {
   margin-top: 6px;
+  height: 30px;
+}
+
+/* Bumped pillar label — sits ~14 px lower than the default row so a
+   tight neighbour (within `BOTTOM_LABEL_COLLISION_THRESHOLD_PCT` of
+   the previous label) doesn't overlap horizontally. Picked at 14 px
+   to match the 14 px `line-height` on `.ttb-fuel-gauge__value` so the
+   bumped label sits exactly one text-line below the default row.
+   Resolves the Crimson Desert main/extras collision (31h ≈ 4 %, 71h
+   ≈ 9 %) at a 775h max_x without disturbing far-apart pillars. */
+.ttb-fuel-gauge__value--bumped {
+  top: 14px;
 }
 
 .ttb-fuel-gauge__value {
@@ -4024,6 +4039,7 @@ input[type="text"].bundle-title-input:focus-visible {
   width: 6px;
   height: 12px;
   box-sizing: border-box;
+  border: 1px solid #000000;
 }
 
 .ttb-fuel-gauge__legend-swatch--main {
