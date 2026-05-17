@@ -1,38 +1,57 @@
 require "rails_helper"
 
-# Phase 27 §01b — Filter row query object.
+# Phase 27 v2 spec 06 — Filter row query object.
 #
-# Load-bearing matrix: every (`owned` × platform-X) pair across all
-# five canonical platforms, plus status chips, plus combinations. The
-# verbatim Mobile-directive worked example is reproduced as its own
-# `describe` block.
+# v2 contract: `checked_tokens` is the SET OF CHECKED chips. Each
+# group (status / ownership / platform) narrows when a STRICT SUBSET
+# of its chips is checked; all-checked = no narrowing; zero-checked =
+# the group collapses to `Game.none`. Cross-group: AND.
+#
+# Cascade — the query side does NOT enforce the Stimulus `played` →
+# `released + owned + at-least-one-platform` cascade. If a URL is
+# hand-edited to `?filters=played` (no implied chips), the query
+# returns `Game.none` (zero status checks AND zero platform checks
+# collapse).
 RSpec.describe Games::Filter do
   include ActiveSupport::Testing::TimeHelpers
 
-  let(:now) { Time.zone.local(2026, 5, 11, 12, 0, 0) }
-
+  let(:now) { Time.zone.local(2026, 5, 17, 12, 0, 0) }
   around { |ex| travel_to(now) { ex.run } }
 
-  # The five canonical platforms keyed by their slugs (locked by 01a
-  # seeds). FriendlyId derives the slug from `slug_candidates` based on
-  # `name`; to pin the slug to the canonical value, we use a name that
-  # already matches the desired slug.
+  let(:universe) { Games::Filter::TOKEN_UNIVERSE }
+
+  describe "TOKEN_UNIVERSE" do
+    # Phase 27 v2 spec 06 (2026-05-17 PC store collapse) — `gog` and
+    # `epic` chips were retired; PC = Steam everywhere. The universe
+    # is now eight canonical tokens.
+    it "lists the eight v2 canonical tokens" do
+      expect(universe).to eq(%w[
+        released scheduled owned wishlist played
+        ps5 switch2 steam
+      ])
+    end
+
+    it "exposes the legacy CANONICAL_TOKENS alias" do
+      expect(Games::Filter::CANONICAL_TOKENS).to eq(universe)
+    end
+  end
+
   let!(:platform_ps5)     { create(:platform, name: "ps5",     slug: "ps5") }
   let!(:platform_switch2) { create(:platform, name: "switch2", slug: "switch2") }
   let!(:platform_steam)   { create(:platform, name: "steam",   slug: "steam") }
-  let!(:platform_gog)     { create(:platform, name: "gog",     slug: "gog") }
-  let!(:platform_epic)    { create(:platform, name: "epic",    slug: "epic") }
 
-  # Fixture matrix (verbatim from spec §"Fixture matrix"):
+  # Fixture matrix (post PC-store-collapse 2026-05-17):
+  #   | Game | Available on | Owned on | Released? | played_at |
+  #   | A    | PS5, Switch2 | PS5      | yes       | nil       |
+  #   | B    | PS5, Steam   | (none)   | yes       | nil       |
+  #   | C    | Switch2      | (none)   | no (sched)| nil       |
+  #   | D    | PS5, Switch2 | PS5      | no (sched)| nil       |
+  #   | E    | Steam        | Steam    | yes       | 1.day.ago |
   #
-  #   | Game | Available on (IGDB) | Owned on | Released? | Has Video? |
-  #   | A    | PS5, Switch 2       | PS5      | yes       | no         |
-  #   | B    | PS5, Steam          | (none)   | yes       | no         |
-  #   | C    | Switch 2            | (none)   | no (sched)| no         |
-  #   | D    | PS5, Switch 2       | PS5      | no (sched)| no         |
-  #   | E    | Steam               | Steam    | yes       | yes        |
-  #   | F    | GOG                 | (none)   | yes       | no         |
-  #   | G    | Epic                | Epic     | yes       | no         |
+  # Games F (GOG-only) and G (Epic-only) from the prior fixture matrix
+  # are retired alongside the chips. The "PC umbrella under Steam"
+  # coverage shifts onto Game E (Steam-owned + played) and Game B
+  # (Steam-available, not owned — exercises the wishlist semantic).
   let(:past)   { 1.year.ago.to_date }
   let(:future) { 1.year.from_now.to_date }
 
@@ -62,321 +81,229 @@ RSpec.describe Games::Filter do
     g
   end
   let!(:game_e) do
-    g = create(:game, title: "Game E", release_date: past)
+    g = create(:game, title: "Game E", release_date: past, played_at: 1.day.ago)
     g.game_platforms.create!(platform: platform_steam)
     g.game_platform_ownerships.create!(platform: platform_steam)
-    create(:video_game_link, game: g)
-    g
-  end
-  let!(:game_f) do
-    g = create(:game, title: "Game F", release_date: past)
-    g.game_platforms.create!(platform: platform_gog)
-    g
-  end
-  let!(:game_g) do
-    g = create(:game, title: "Game G", release_date: past)
-    g.game_platforms.create!(platform: platform_epic)
-    g.game_platform_ownerships.create!(platform: platform_epic)
     g
   end
 
-  # Convenience: run the filter and return the title-ordered ids.
-  def filtered_titles(*tokens)
+  def titles_for(tokens)
     Games::Filter.new(scope: Game.all, tokens: tokens).results.order(:title).pluck(:title)
   end
 
-  describe "single-token tests (happy)" do
-    it "[] returns every fixture game" do
-      expect(filtered_titles).to match_array(%w[Game\ A Game\ B Game\ C Game\ D Game\ E Game\ F Game\ G])
+  describe "nil tokens — universe ⇒ full list" do
+    it "returns every fixture game" do
+      expect(titles_for(nil)).to match_array(%w[Game\ A Game\ B Game\ C Game\ D Game\ E])
     end
 
-    it "[recorded] returns only games with a linked Video" do
-      expect(filtered_titles("recorded")).to eq([ "Game E" ])
-    end
-
-    it "[released] returns games with release_date in the past" do
-      expect(filtered_titles("released")).to match_array([ "Game A", "Game B", "Game E", "Game F", "Game G" ])
-    end
-
-    it "[scheduled] returns games with release_date in the future" do
-      expect(filtered_titles("scheduled")).to match_array([ "Game C", "Game D" ])
-    end
-
-    it "[owned] returns games with at least one ownership row" do
-      expect(filtered_titles("owned")).to match_array([ "Game A", "Game D", "Game E", "Game G" ])
-    end
-
-    it "[not_owned] returns games with zero ownership rows" do
-      expect(filtered_titles("not_owned")).to match_array([ "Game B", "Game C", "Game F" ])
+    it "checked_tokens equals the universe" do
+      expect(Games::Filter.new(tokens: nil).checked_tokens).to eq(universe)
     end
   end
 
-  describe "single platform token, owned UNCHECKED (statement P-1)" do
-    it "[ps5] → A, B, D" do
-      expect(filtered_titles("ps5")).to match_array([ "Game A", "Game B", "Game D" ])
-    end
-
-    it "[switch2] → A, C, D" do
-      expect(filtered_titles("switch2")).to match_array([ "Game A", "Game C", "Game D" ])
-    end
-
-    it "[steam] → B, E" do
-      expect(filtered_titles("steam")).to match_array([ "Game B", "Game E" ])
-    end
-
-    it "[gog] → F" do
-      expect(filtered_titles("gog")).to eq([ "Game F" ])
-    end
-
-    it "[epic] → G" do
-      expect(filtered_titles("epic")).to eq([ "Game G" ])
+  describe "every chip checked (Array == universe) ⇒ full list" do
+    it "returns every fixture game" do
+      expect(titles_for(universe)).to match_array(%w[Game\ A Game\ B Game\ C Game\ D Game\ E])
     end
   end
 
-  describe "single platform token, owned CHECKED (statement P-2)" do
-    it "[owned, ps5] → A, D" do
-      expect(filtered_titles("owned", "ps5")).to match_array([ "Game A", "Game D" ])
+  describe "empty Array ⇒ Game.none (every group collapses)" do
+    it "returns no games" do
+      expect(titles_for([])).to eq([])
     end
 
-    it "[owned, switch2] → ∅" do
-      expect(filtered_titles("owned", "switch2")).to eq([])
-    end
-
-    it "[owned, steam] → E" do
-      expect(filtered_titles("owned", "steam")).to eq([ "Game E" ])
-    end
-
-    it "[owned, gog] → ∅" do
-      expect(filtered_titles("owned", "gog")).to eq([])
-    end
-
-    it "[owned, epic] → G" do
-      expect(filtered_titles("owned", "epic")).to eq([ "Game G" ])
+    it "checked_tokens is empty" do
+      expect(Games::Filter.new(tokens: []).checked_tokens).to eq([])
     end
   end
 
-  describe "single platform token, not_owned CHECKED (corollary C-1)" do
-    it "[not_owned, ps5] → B" do
-      expect(filtered_titles("not_owned", "ps5")).to eq([ "Game B" ])
-    end
-
-    it "[not_owned, switch2] → C" do
-      expect(filtered_titles("not_owned", "switch2")).to eq([ "Game C" ])
-    end
-
-    it "[not_owned, steam] → B" do
-      expect(filtered_titles("not_owned", "steam")).to eq([ "Game B" ])
-    end
-
-    it "[not_owned, gog] → F" do
-      expect(filtered_titles("not_owned", "gog")).to eq([ "Game F" ])
-    end
-
-    it "[not_owned, epic] → ∅" do
-      # G is owned on Epic; nothing else is on Epic.
-      expect(filtered_titles("not_owned", "epic")).to eq([])
+  describe "single status chip checked" do
+    it "[released] only — status narrows; ownership + platform empty → none" do
+      # Only `released` checked in status; ownership group has zero
+      # checks; platform group has zero checks → AND collapses.
+      expect(titles_for(%w[released])).to eq([])
     end
   end
 
-  describe "Mobile directive worked example (verbatim)" do
-    let!(:game_x) do
-      g = create(:game, title: "Game X", release_date: past)
-      g.game_platforms.create!(platform: platform_ps5)
-      g.game_platforms.create!(platform: platform_switch2)
-      g.game_platform_ownerships.create!(platform: platform_ps5)
-      g
+  describe "status + ownership + platform groups all narrowed" do
+    it "[released, owned, ps5] → released AND owned AND ownable on ps5 (precedence: owned_on)" do
+      expect(titles_for(%w[released owned ps5])).to eq([ "Game A" ])
     end
 
-    it "owned unchecked, ps5 checked → matches game_x" do
-      results = Games::Filter.new(scope: Game.all, tokens: %w[ps5]).results
-      expect(results).to include(game_x)
+    it "[scheduled, owned, ps5] → scheduled AND owned-on-ps5 → Game D" do
+      expect(titles_for(%w[scheduled owned ps5])).to eq([ "Game D" ])
     end
 
-    it "owned unchecked, switch2 checked → matches game_x" do
-      results = Games::Filter.new(scope: Game.all, tokens: %w[switch2]).results
-      expect(results).to include(game_x)
-    end
-
-    it "owned checked, ps5 checked → matches game_x" do
-      results = Games::Filter.new(scope: Game.all, tokens: %w[owned ps5]).results
-      expect(results).to include(game_x)
-    end
-
-    it "owned checked, switch2 checked → does NOT match game_x" do
-      results = Games::Filter.new(scope: Game.all, tokens: %w[owned switch2]).results
-      expect(results).not_to include(game_x)
+    it "[scheduled, wishlist, switch2] → scheduled AND not-owned AND switch2 → Game C" do
+      expect(titles_for(%w[scheduled wishlist switch2])).to eq([ "Game C" ])
     end
   end
 
-  describe "multi-platform tokens (corollary C-2)" do
-    it "[ps5, switch2] (owned unchecked) → A, B, C, D" do
-      expect(filtered_titles("ps5", "switch2")).to match_array([ "Game A", "Game B", "Game C", "Game D" ])
+  describe "wishlist semantic — NOT owned on ANY platform (orthogonal to release)" do
+    # The wishlist group requires the status + platform groups to ALSO
+    # have at least one check to avoid the all-collapse. We feed both
+    # status chips checked and every platform checked (the same shape
+    # the Stimulus controller produces when the user picks wishlist
+    # from a freshly checked-all state and only unchecks owned + played).
+    let(:tokens_wishlist_widened) do
+      %w[released scheduled wishlist ps5 switch2 steam]
     end
 
-    it "[owned, ps5, switch2] → A, D" do
-      # A owned PS5; D owned PS5; switch2 contributes ∅ (no game owned on it).
-      expect(filtered_titles("owned", "ps5", "switch2")).to match_array([ "Game A", "Game D" ])
+    it "includes a released-not-owned game (Game B)" do
+      expect(titles_for(tokens_wishlist_widened)).to include("Game B")
     end
 
-    it "[not_owned, ps5, switch2] → B, C" do
-      expect(filtered_titles("not_owned", "ps5", "switch2")).to match_array([ "Game B", "Game C" ])
-    end
-  end
-
-  describe "combination with status tokens" do
-    it "[recorded, owned] → E" do
-      expect(filtered_titles("recorded", "owned")).to eq([ "Game E" ])
+    it "includes a scheduled-not-owned game (Game C)" do
+      expect(titles_for(tokens_wishlist_widened)).to include("Game C")
     end
 
-    it "[recorded, ps5] → ∅ (E has no PS5 release)" do
-      expect(filtered_titles("recorded", "ps5")).to eq([])
-    end
-
-    it "[released, owned, ps5] → A" do
-      expect(filtered_titles("released", "owned", "ps5")).to eq([ "Game A" ])
-    end
-
-    it "[scheduled, ps5] → D" do
-      expect(filtered_titles("scheduled", "ps5")).to eq([ "Game D" ])
-    end
-
-    it "[scheduled, owned, ps5] → D" do
-      expect(filtered_titles("scheduled", "owned", "ps5")).to eq([ "Game D" ])
-    end
-
-    it "[scheduled, not_owned, ps5] → ∅" do
-      expect(filtered_titles("scheduled", "not_owned", "ps5")).to eq([])
-    end
-
-    it "[scheduled, not_owned, switch2] → C" do
-      expect(filtered_titles("scheduled", "not_owned", "switch2")).to eq([ "Game C" ])
+    it "excludes owned games (Game A / D / E)" do
+      result = titles_for(tokens_wishlist_widened)
+      expect(result).not_to include("Game A", "Game D", "Game E")
     end
   end
 
-  describe "status-bucket OR semantics" do
-    it "[released, scheduled] → all games in the fixture" do
-      expect(filtered_titles("released", "scheduled")).to match_array(
-        %w[Game\ A Game\ B Game\ C Game\ D Game\ E Game\ F Game\ G]
-      )
+  describe "played semantic — played_at IS NOT NULL" do
+    it "[played alone in ownership, rest of universe checked] returns owned-on-any UNION played" do
+      # Status = released+scheduled (all checked, no narrowing).
+      # Ownership = played only → played_at non-null = Game E.
+      # Platform = all checked, no narrowing.
+      # Intersection = Game E.
+      tokens = %w[released scheduled played ps5 switch2 steam]
+      expect(titles_for(tokens)).to eq([ "Game E" ])
     end
 
-    it "[recorded, scheduled] → C, D, E" do
-      expect(filtered_titles("recorded", "scheduled")).to match_array([ "Game C", "Game D", "Game E" ])
-    end
-  end
-
-  describe "contradiction (C-3)" do
-    it "[owned, not_owned] returns Game.none and contradiction? is true" do
-      filter = Games::Filter.new(scope: Game.all, tokens: %w[owned not_owned])
-      expect(filter.contradiction?).to be true
-      expect(filter.results.to_a).to eq([])
+    it "[played] alone (no cascade applied) → Game.none (status + platform collapse)" do
+      expect(titles_for(%w[played])).to eq([])
     end
 
-    it "[owned, not_owned, ps5] — contradiction wins" do
-      filter = Games::Filter.new(scope: Game.all, tokens: %w[owned not_owned ps5])
-      expect(filter.contradiction?).to be true
-      expect(filter.results.to_a).to eq([])
+    it "[released, owned, played, all platforms] cascade-shaped state → owned UNION played intersected with released" do
+      # Ownership union: owned (A, D, E) ∪ played (E) = A, D, E.
+      # Status: released only → A, B, E.
+      # Platform: all 3 → no narrowing.
+      # Intersection: A, E.
+      tokens = %w[released owned played ps5 switch2 steam]
+      expect(titles_for(tokens)).to match_array([ "Game A", "Game E" ])
     end
   end
 
-  describe "edge: input normalisation" do
-    it "[ps5, ps5] de-dupes to [ps5]; identical result" do
-      base = filtered_titles("ps5")
-      expect(filtered_titles("ps5", "ps5")).to match_array(base)
+  describe "platform-precedence preserved from 01b §2" do
+    let(:tokens_ps5_no_owned) do
+      # owned NOT checked → platform narrows via on_platform (released-
+      # or-scheduled on PS5, ownership-agnostic).
+      %w[released scheduled owned wishlist played ps5]
     end
 
-    it "[PS5] normalises case to ps5; identical result" do
-      base = filtered_titles("ps5")
-      expect(filtered_titles("PS5")).to match_array(base)
+    it "[no platforms except ps5] (owned still checked) → owned-on-PS5 (A + D)" do
+      # owned in checked set → platform branch routes through owned_on.
+      tokens = %w[released scheduled owned wishlist played ps5]
+      expect(titles_for(tokens)).to match_array([ "Game A", "Game D" ])
     end
 
-    it "[' ps5 '] (whitespace) is trimmed; identical result" do
-      base = filtered_titles("ps5")
-      expect(filtered_titles(" ps5 ")).to match_array(base)
+    it "[no platforms except ps5] (owned UNCHECKED) → on_platform(ps5) AND (wishlist OR played) → Game B" do
+      # owned NOT checked → platform branch routes through on_platform
+      # (released-or-scheduled on PS5, ownership-agnostic): A, B, D.
+      # Ownership group checked = wishlist + played:
+      #   - wishlist (no ownership rows anywhere): B, C, F.
+      #   - played   (played_at non-null):         E.
+      # Union ownership: B, C, E, F. Intersection with PS5 platform
+      # (A, B, D) → B.
+      tokens = %w[released scheduled wishlist played ps5]
+      expect(titles_for(tokens)).to eq([ "Game B" ])
+    end
+  end
+
+  describe "platform group OR semantics" do
+    it "two platforms checked (with owned) → union of owned-on results" do
+      # owned + ps5 + steam → games owned on PS5 OR Steam → A, D, E.
+      tokens = %w[released scheduled owned wishlist played ps5 steam]
+      expect(titles_for(tokens)).to match_array([ "Game A", "Game D", "Game E" ])
+    end
+  end
+
+  describe "status group OR semantics" do
+    it "all platforms + ownership checked, only `released` in status → only past-release games" do
+      tokens = %w[released owned wishlist played ps5 switch2 steam]
+      # Released past games — A, B, E.
+      expect(titles_for(tokens)).to match_array([ "Game A", "Game B", "Game E" ])
     end
 
-    it "[] returns all games; contradiction? false" do
-      filter = Games::Filter.new(scope: Game.all, tokens: [])
-      expect(filter.contradiction?).to be false
-      expect(filter.results.count).to eq(7)
+    it "all platforms + ownership checked, only `scheduled` in status → only future-release games" do
+      tokens = %w[scheduled owned wishlist played ps5 switch2 steam]
+      # Scheduled future games — C, D.
+      expect(titles_for(tokens)).to match_array([ "Game C", "Game D" ])
+    end
+  end
+
+  describe "input normalisation" do
+    it "case-insensitive (PS5 → ps5)" do
+      expect(titles_for([ "PS5" ])).to eq(titles_for([ "ps5" ]))
     end
 
-    it "token order does not affect result set" do
-      a = Games::Filter.new(scope: Game.all, tokens: %w[owned ps5]).results.pluck(:id).sort
-      b = Games::Filter.new(scope: Game.all, tokens: %w[ps5 owned]).results.pluck(:id).sort
+    it "trims whitespace ('  ps5 ')" do
+      expect(titles_for([ " ps5 " ])).to eq(titles_for([ "ps5" ]))
+    end
+
+    it "dedupes (ps5, ps5)" do
+      expect(titles_for(%w[ps5 ps5])).to eq(titles_for(%w[ps5]))
+    end
+
+    it "drops unknowns (bogus, ps5 → ps5)" do
+      expect(titles_for(%w[bogus ps5])).to eq(titles_for(%w[ps5]))
+    end
+
+    it "input order does not affect the result set" do
+      a = titles_for(%w[owned ps5 released])
+      b = titles_for(%w[released ps5 owned])
       expect(a).to eq(b)
     end
   end
 
-  describe "flaw: defensive surface" do
-    it "100-token input does not blow the stack; canonical 0 of 100 → all games" do
-      tokens = Array.new(100) { |i| "bogus-#{i}" }
-      filter = Games::Filter.new(scope: Game.all, tokens: tokens)
-      expect(filter.dropped_tokens.size).to eq(100)
-      expect(filter.active_tokens).to eq([])
-      expect(filter.results.count).to eq(7)
+  describe "#dropped_tokens" do
+    it "lists unknown tokens for a non-nil input" do
+      filter = Games::Filter.new(tokens: %w[ps5 bogus xbox gog epic])
+      # Bogus, the legacy xbox token, and the now-retired gog + epic
+      # tokens (collapsed into steam 2026-05-17) all fall outside the
+      # v2 universe.
+      expect(filter.dropped_tokens).to match_array(%w[bogus xbox gog epic])
     end
 
-    it "SQL-injection-shaped token is dropped, results identical to no-filter" do
-      payload = "ps5'; DROP TABLE games; --"
-      filter = Games::Filter.new(scope: Game.all, tokens: [ payload ])
-      # The normaliser downcases — assert the normalised form is what
-      # ends up in dropped_tokens, and that the games table is intact.
-      expect(filter.dropped_tokens).to include(payload.downcase)
-      expect(filter.active_tokens).to eq([])
-      expect(Game.table_exists?).to be true
-      expect(filter.results.count).to eq(7)
-    end
-
-    it "#results returns an ActiveRecord::Relation (composable with .where)" do
-      filter = Games::Filter.new(scope: Game.all, tokens: [ "ps5" ])
-      composed = filter.results.where("games.id > ?", 0)
-      expect(composed).to be_a(ActiveRecord::Relation)
-    end
-
-    it "#results is memoised — calling twice produces the same SQL" do
-      filter = Games::Filter.new(scope: Game.all, tokens: [ "ps5" ])
-      first_sql  = filter.results.to_sql
-      second_sql = filter.results.to_sql
-      expect(first_sql).to eq(second_sql)
-    end
-
-    # P27 reviewer follow-up (non-blocking concern #3, 2026-05-11) —
-    # the combinator must not realise intermediate `.ids` arrays. The
-    # caller composes `.where(...).count` and the resulting SQL is
-    # executed in a single round-trip (the subqueries inline as
-    # `IN (SELECT ...)` clauses, not literal `IN (?, ?, ?, ...)`
-    # lists).
-    it "composes with .where(...).count without materialising intermediate ids" do
-      filter = Games::Filter.new(scope: Game.all, tokens: %w[released ps5])
-      composed = filter.results.where("games.id > ?", 0)
-      expect(composed.count).to be_a(Integer)
-    end
-
-    it "emits a subquery (not a literal id list) for status-bucket OR composition" do
-      filter = Games::Filter.new(scope: Game.all, tokens: %w[recorded released])
-      sql = filter.results.to_sql
-      # The subquery form contains a nested SELECT; the
-      # materialise-then-IN form would carry a literal id list.
-      expect(sql).to match(/IN \(SELECT/i)
-    end
-
-    it "emits a subquery (not a literal id list) for platform-bucket OR composition" do
-      filter = Games::Filter.new(scope: Game.all, tokens: %w[ps5 switch2])
-      sql = filter.results.to_sql
-      expect(sql).to match(/IN \(SELECT/i)
+    it "is empty for nil input (universe is implicit)" do
+      expect(Games::Filter.new(tokens: nil).dropped_tokens).to eq([])
     end
   end
 
-  describe "#active_tokens / #dropped_tokens" do
-    it "active_tokens preserves the canonical subset" do
-      filter = Games::Filter.new(scope: Game.all, tokens: %w[ps5 bogus owned])
-      expect(filter.active_tokens).to eq(%w[ps5 owned])
+  describe "#contradiction? — always false in v2" do
+    it "returns false even when fed legacy contradiction inputs" do
+      filter = Games::Filter.new(tokens: %w[owned not_owned])
+      expect(filter.contradiction?).to be(false)
+    end
+  end
+
+  describe "defensive surface" do
+    it "100-token bogus CSV does not blow up; falls back to empty checked set" do
+      tokens = Array.new(100) { |i| "bogus-#{i}" }
+      filter = Games::Filter.new(scope: Game.all, tokens: tokens)
+      expect(filter.checked_tokens).to eq([])
+      expect(filter.results.to_a).to eq([])
     end
 
-    it "dropped_tokens collects the unrecognised entries" do
-      filter = Games::Filter.new(scope: Game.all, tokens: %w[ps5 bogus owned junk])
-      expect(filter.dropped_tokens).to eq(%w[bogus junk])
+    it "SQL-injection-shaped token is dropped" do
+      payload = "ps5'; DROP TABLE games; --"
+      filter = Games::Filter.new(scope: Game.all, tokens: [ payload ])
+      expect(filter.dropped_tokens).to include(payload.downcase)
+      expect(filter.checked_tokens).to eq([])
+      expect(Game.table_exists?).to be(true)
+    end
+
+    it "#results returns an ActiveRecord::Relation (composable)" do
+      filter = Games::Filter.new(scope: Game.all, tokens: %w[ps5])
+      expect(filter.results).to be_a(ActiveRecord::Relation)
+    end
+
+    it "#results is memoised" do
+      filter = Games::Filter.new(scope: Game.all, tokens: %w[ps5])
+      expect(filter.results.to_sql).to eq(filter.results.to_sql)
     end
   end
 end

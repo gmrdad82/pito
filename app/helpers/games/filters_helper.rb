@@ -1,60 +1,114 @@
-# Phase 27 §01b — Filter row helper.
+# Phase 27 v2 spec 06 — Filter row helper.
 #
-# Mixed into `GamesController` and exposed to views. Provides the URL
-# param parser/serializer for `?filters=token1,token2` plus the chip-
-# label boundary (`not_owned` → `not owned`).
+# Rewritten from the 01b "tokens are NARROWING scopes" contract to the
+# v2 "tokens are CHECKED chips" contract:
+#
+#   - URL `/games` (no `?filters=` param) ≡ all chips CHECKED ≡ show
+#     the full list, every shelf, nothing narrowed.
+#   - URL `/games?filters=<csv>` ≡ the CSV is the SET OF CHECKED chips.
+#     Anything NOT in the CSV is OFF (un-checked) and narrows the
+#     listing away from it.
+#   - URL `/games?filters=` (empty CSV) ≡ every chip OFF ≡ empty
+#     listing (intentional edge — see request spec).
 #
 # Surface (locked by spec §"Helper — Games::FiltersHelper"):
 #
-#   parse_filter_tokens(raw)   → canonical recognised tokens, de-duped,
-#                                preserving input order; unknown dropped.
-#   parse_dropped_tokens(raw)  → unrecognised tokens (dev-mode warning,
-#                                request-spec assertions).
-#   toggle_filter(active, t)   → returns a new array with `t` toggled
-#                                in or out of `active`.
-#   chip_label(token)          → canonical → on-screen label.
+#   parse_checked_tokens(raw)        → checked-token set per the rule
+#                                      above (nil ⇒ universe, empty
+#                                      string ⇒ [], canonical CSV ⇒
+#                                      that subset, unknowns dropped).
+#   serialize_checked_tokens(tokens) → CSV in TOKEN_UNIVERSE order.
+#   games_path_with_checked(tokens)  → "/games" when tokens equal the
+#                                      universe; "/games?filters=<csv>"
+#                                      otherwise.
+#   TOKEN_UNIVERSE                   → frozen Array of every valid
+#                                      token in render-order.
+#   chip_label(token)                → canonical → on-screen label.
 #
 # No side-effects, no DB access, no Rails-cache access.
 module Games
   module FiltersHelper
-    # Accepts a raw `params[:filters]` value: a String (`"ps5,owned"`),
-    # nil, or an Array (Rails coerces `?filters[]=ps5` into an Array).
-    # Returns the canonical recognised tokens preserved in input order,
-    # de-duped, unknowns dropped.
-    def parse_filter_tokens(raw)
-      tokens_for(raw).select { |t| Games::Filter::CANONICAL_TOKENS.include?(t) }
+    # The eight canonical filter chips in render order. Left side
+    # (status + ownership): released, scheduled, owned, wishlist,
+    # played. Right side (platforms): ps5, switch2, steam.
+    #
+    # Phase 27 v2 spec 06 (2026-05-17 PC store collapse): `gog` and
+    # `epic` chips were retired and the three PC stores converge on
+    # `steam`. `xbox` was already absent (user-pinned drop). The CSV
+    # serialisation follows this order so bookmarks are stable.
+    TOKEN_UNIVERSE = %w[
+      released scheduled owned wishlist played
+      ps5 switch2 steam
+    ].freeze
+
+    # The three logical group splits the query object partitions on.
+    # Repeated here as constants so the component and the controller
+    # can also reason about group membership without re-importing the
+    # query object's internals.
+    STATUS_TOKENS    = %w[released scheduled].freeze
+    OWNERSHIP_TOKENS = %w[owned wishlist played].freeze
+    PLATFORM_TOKENS  = %w[ps5 switch2 steam].freeze
+
+    # Parse a `?filters=` raw value into the checked-token set.
+    #
+    # Inputs:
+    #   nil      → the FULL universe (10 tokens). No `?filters=` param
+    #              in the URL means "all chips checked" per the v2
+    #              canonicalisation rule.
+    #   ""       → empty set. The user explicitly emptied the CSV
+    #              (every chip OFF; listing is empty).
+    #   "a,b,c"  → those tokens, intersected with TOKEN_UNIVERSE.
+    #              Unknown tokens are silently dropped.
+    #   Array    → treated like a pre-split CSV.
+    #
+    # Returns a frozen Array of canonical token strings in
+    # TOKEN_UNIVERSE order (so the controller / query object see a
+    # deterministic shape regardless of input order).
+    def parse_checked_tokens(raw)
+      # `nil` is the "no param at all" path — universe.
+      return TOKEN_UNIVERSE.dup if raw.nil?
+
+      tokens = tokens_for(raw)
+      # An empty CSV (explicit `?filters=`) yields []; the universe
+      # path above already short-circuited the nil case.
+      keep = tokens.select { |t| TOKEN_UNIVERSE.include?(t) }.uniq
+      TOKEN_UNIVERSE.select { |t| keep.include?(t) }
     end
 
-    # Mirror of `parse_filter_tokens` returning the tokens that fell
-    # outside the canonical whitelist.
-    def parse_dropped_tokens(raw)
-      tokens_for(raw).reject { |t| Games::Filter::CANONICAL_TOKENS.include?(t) }
+    # Serialise the checked-token set into a CSV. Always emits the
+    # tokens in TOKEN_UNIVERSE order; the caller decides whether to
+    # emit `/games` (no `?filters=` param) vs `/games?filters=<csv>`.
+    def serialize_checked_tokens(tokens)
+      Array(tokens).map(&:to_s).select { |t| TOKEN_UNIVERSE.include?(t) }
+                   .then { |kept| TOKEN_UNIVERSE.select { |t| kept.include?(t) } }
+                   .join(",")
     end
 
-    # Returns a new array with `token` toggled. Order: when adding,
-    # appended at the end so chip-href computation is deterministic
-    # and click-order matches URL order.
-    def toggle_filter(active_tokens, token)
-      list = Array(active_tokens).dup
-      if list.include?(token)
-        list - [ token ]
-      else
-        list + [ token ]
-      end
+    # Build the canonical URL for a given checked-token set.
+    #
+    #   - All tokens checked (`tokens == TOKEN_UNIVERSE`) → emit
+    #     `/games` (no `?filters=` param). This is the SINGLE canonical
+    #     "full list" URL.
+    #   - Subset checked → emit `/games?filters=<csv>`.
+    #   - Empty set → emit `/games?filters=` (the empty-CSV path; the
+    #     listing renders empty by design).
+    def games_path_with_checked(tokens, path: "/games")
+      arr = Array(tokens).map(&:to_s).select { |t| TOKEN_UNIVERSE.include?(t) }.uniq
+      return path if arr.length == TOKEN_UNIVERSE.length
+      csv = serialize_checked_tokens(arr)
+      "#{path}?filters=#{csv}"
     end
 
-    # On-screen label boundary. Underscored tokens (`not_owned`) split
-    # to a visible space, and platform tokens carry their canonical
-    # mixed-case marketing name (`PS5`, `Switch2`, `Steam`, `GoG`,
-    # `Epic`, `Xbox`). Underlying URL tokens stay lowercase / underscored.
+    # Canonical token → on-screen label. Platform tokens use
+    # `Platform::PLATFORM_LABELS` short names; status / ownership
+    # tokens render verbatim except for the legacy `not_owned` (which
+    # is no longer in TOKEN_UNIVERSE but kept for safety in case a
+    # caller passes it in).
     CHIP_LABELS = {
       "not_owned" => "not owned",
       "ps5"       => "PS5",
       "switch2"   => "Switch2",
-      "steam"     => "Steam",
-      "gog"       => "GoG",
-      "epic"      => "Epic",
-      "xbox"      => "Xbox"
+      "steam"     => "Steam"
     }.freeze
 
     def chip_label(token)
@@ -63,8 +117,6 @@ module Games
 
     private
 
-    # Normalisation: split CSV (or accept an Array as-is), downcase,
-    # strip, drop empties, de-dupe — preserving input order.
     def tokens_for(raw)
       list =
         case raw

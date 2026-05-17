@@ -1,26 +1,37 @@
 require "rails_helper"
 require "rake"
 
-# Phase 27 v2 spec 07 — `pito:platform_logos:download` rake task spec.
+# Phase 27 v2 spec 07 (v7) — `pito:platform_logos:download` rake task spec.
 #
-# Stubs every source URL for the 5-platform list, invokes the task
-# against a tmpdir `Rails.public_path`, and asserts each platform
-# produces BOTH a 16 px and a 64 px PNG with the expected pixel
-# dimensions. Also covers:
+# The rake task reads three brand-named PNG source files from
+# `lib/support/platforms/` and writes 16/64 px PNGs in TWO color
+# variants (black + white) with preserved alpha for antialiasing to
+# `public/platforms/`. This spec drives the task against a tmpdir
+# `Rails.public_path` and (via the `PITO_PLATFORM_LOGOS_SOURCE_DIR`
+# env override) a fixture-backed source folder so the assertions
+# are deterministic and offline.
 #
-#   - HTTP failure -> [MISS] for that slug, on-disk files untouched
-#   - transport error -> [MISS] for that slug, on-disk files untouched
-#   - too-small response body (< MIN_SOURCE_BYTES) is treated as failure
-#   - non-square sources (aspect ratio outside [0.9, 1.1]) are rejected
-#   - re-running overwrites stale files (idempotency)
-#   - the summary line at the end of the task surfaces source + sizes
-#   - every source URL pins black fill (simpleicons `/000000`
-#     suffix OR iconify `?color=%23000000` query)
+# Coverage:
 #
-# We feed `ImageProcessing::Vips` real fixture bytes (a minimal but
-# valid SVG and a minimal but valid PNG) so the resize pipeline runs
-# end-to-end against libvips. We do not stub vips itself — the whole
-# point of the rake task is that vips produces real bytes.
+#   - Happy path: every platform produces 4 PNGs at exactly the
+#     requested size, all square, all valid PNGs (3 × 2 × 2 = 12).
+#   - Color variants: black outputs have R=G=B=0 across all visible
+#     pixels; white outputs have R=G=B=255 across all visible pixels.
+#   - Silhouette parity: black and white variants of the same
+#     (platform, size) share the same alpha mask — same silhouette,
+#     different fill.
+#   - Transparency: at least some pixels in each output are
+#     transparent (alpha == 0).
+#   - Wipe-first cleanup: orphan files (from a prior naming scheme)
+#     are deleted before fresh writes; only the current 12-file set
+#     survives a re-run.
+#   - Missing source: the platform reports [MISS] and the other
+#     platforms still render successfully; wipe-first is bypassed
+#     so pre-existing outputs for the missing slug survive.
+#   - Folder-name regression guard: outputs land in
+#     `public/platforms/`, NOT `public/platform_logos/`.
+#   - Platform / size / color scope: exactly ps5, switch2, steam at
+#     16 & 64 px in black + white.
 RSpec.describe "pito:platform_logos rake tasks" do
   before(:all) do
     Rake.application.rake_require(
@@ -38,281 +49,545 @@ RSpec.describe "pito:platform_logos rake tasks" do
   let(:tmpdir) { Dir.mktmpdir("pito_platform_logos_spec") }
   after { FileUtils.remove_entry(tmpdir) if Dir.exist?(tmpdir) }
 
-  # Redirect `Rails.public_path` so the task writes its OUTPUTs
-  # (the 64/16 PNGs) into the tmpdir rather than the project's real
-  # `public/platform_logos/`. The staging dir for downloaded
-  # sources stays at the real `Rails.root.join("tmp", "platform_logos_src")`
-  # — that path is gitignored (matches `/tmp/*` in `.gitignore`),
-  # so spec runs are safe to scatter throwaway source bytes there.
+  # Fixture source folder mirrors the real `lib/support/platforms/`
+  # layout. Three RGBA PNGs at 256x256 with a FILLED-alpha white
+  # background (alpha == 255 everywhere) plus a colored letter
+  # shape on top. This deliberately matches the structure of real
+  # brand-logo source PNGs in `lib/support/platforms/`, where the
+  # alpha channel covers the whole disc rather than tracing the
+  # logo silhouette. The rake task must derive its OWN alpha from
+  # luminance — it cannot reuse source alpha or the entire disc
+  # comes out painted black.
+  let(:fixture_source_dir) { Rails.root.join("spec", "fixtures", "files", "platforms") }
+
   before do
     allow(Rails).to receive(:public_path).and_return(Pathname.new(tmpdir))
-    # Sweep the staging dir before each example so a prior run's
-    # source files don't leak into the assertion surface.
-    staging = Rails.root.join("tmp", "platform_logos_src")
-    FileUtils.rm_rf(staging) if Dir.exist?(staging)
+    ENV["PITO_PLATFORM_LOGOS_SOURCE_DIR"] = fixture_source_dir.to_s
   end
 
-  # Minimal valid SVG — a 100x100 black square. libvips/librsvg
-  # rasterizes it cleanly. >256 bytes to clear MIN_SOURCE_BYTES.
-  # The viewBox is 100x100 so the square-aspect-ratio gate accepts it.
-  SVG_FIXTURE = (<<~SVG + ("<!-- padding -->\n" * 20)).freeze
-    <?xml version="1.0" encoding="UTF-8"?>
-    <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
-      <rect x="0" y="0" width="100" height="100" fill="#000000"/>
-      <rect x="20" y="20" width="60" height="60" fill="#ffffff"/>
-    </svg>
-  SVG
+  after { ENV.delete("PITO_PLATFORM_LOGOS_SOURCE_DIR") }
 
-  # A non-square SVG fixture — viewBox 200x60 (~3.3 ratio) — used
-  # to verify the square-aspect gate rejects wordmark-shaped sources.
-  NON_SQUARE_SVG_FIXTURE = (<<~SVG + ("<!-- padding -->\n" * 20)).freeze
-    <?xml version="1.0" encoding="UTF-8"?>
-    <svg xmlns="http://www.w3.org/2000/svg" width="200" height="60" viewBox="0 0 200 60">
-      <rect x="0" y="0" width="200" height="60" fill="#000000"/>
-    </svg>
-  SVG
+  PLATFORMS = %w[ps5 switch2 steam].freeze
+  SIZES = [ 16, 64 ].freeze
+  COLORS = %w[black white].freeze
+  EXPECTED_RGB_MAX = { "black" => 0, "white" => 255 }.freeze
 
-  PLATFORMS = %w[ps5 switch2 steam gog epic].freeze
-
-  # All source URLs the rake task uses. One per slug. Four come
-  # from `cdn.simpleicons.org/<slug>/000000`; switch2 comes from
-  # `api.iconify.design/mdi:nintendo-switch.svg?color=%23000000`
-  # because simpleicons dropped the `nintendoswitch` slug — every
-  # URL still pins fill to solid black.
-  SOURCE_URLS = {
-    "ps5"     => "https://cdn.simpleicons.org/playstation/000000",
-    "switch2" => "https://api.iconify.design/mdi:nintendo-switch.svg?color=%23000000",
-    "steam"   => "https://cdn.simpleicons.org/steam/000000",
-    "gog"     => "https://cdn.simpleicons.org/gogdotcom/000000",
-    "epic"    => "https://cdn.simpleicons.org/epicgames/000000"
-  }.freeze
-
-  ALL_SOURCE_URLS = SOURCE_URLS.values.freeze
-
-  def stub_all_sources_with_square_svg!
-    ALL_SOURCE_URLS.each do |url|
-      WebMock.stub_request(:get, url)
-             .to_return(status: 200, body: SVG_FIXTURE, headers: { "Content-Type" => "image/svg+xml" })
-    end
-  end
-
-  describe "monochrome black is the canonical color for every platform source" do
-    # The single contract that survives provider migration: every
-    # source URL pins fill to solid black (`#000000`). Two encodings
-    # are allowed: simpleicons `/000000` path suffix, iconify
-    # `?color=%23000000` query (URL-encoded `#000000`). Anything
-    # else means the brand layer would land colored, which violates
-    # the platform-logos visual contract.
-    it "every URL pins fill to black via /000000 or color=%23000000" do
-      source = File.read(Rails.root.join("lib", "tasks", "pito_platform_logos.rake"))
-      url_lines = source.lines.grep(/url:\s*"https?:/)
-      expect(url_lines).not_to be_empty, "expected at least one url: declaration"
-      url_lines.each do |line|
-        is_simpleicons_black = line.include?("cdn.simpleicons.org") && line.include?("/000000")
-        is_iconify_black     = line.include?("api.iconify.design") && line.include?("color=%23000000")
-        expect(is_simpleicons_black || is_iconify_black).to be(true),
-          "expected url: to pin fill to black (simpleicons /000000 or iconify color=%23000000), got #{line.strip}"
-      end
-    end
-
-    it "names all four simpleicons platform brand slugs and the iconify switch2 fallback" do
-      source = File.read(Rails.root.join("lib", "tasks", "pito_platform_logos.rake"))
-      expect(source).to include("cdn.simpleicons.org/playstation/000000")
-      expect(source).to include("cdn.simpleicons.org/steam/000000")
-      expect(source).to include("cdn.simpleicons.org/gogdotcom/000000")
-      expect(source).to include("cdn.simpleicons.org/epicgames/000000")
-      expect(source).to include("api.iconify.design/mdi:nintendo-switch.svg?color=%23000000")
-    end
-
-    # Audit trail: when we picked the iconify mdi source for switch2,
-    # we tried (and rejected) several alternatives. Keep the rejected
-    # URLs in the rake task as comments so the next time the source
-    # rots we don't re-walk the same dead ends from scratch.
-    it "preserves the switch2 source audit trail (rejected URLs as comments)" do
-      source = File.read(Rails.root.join("lib", "tasks", "pito_platform_logos.rake"))
-      expect(source).to include("cdn.simpleicons.org/nintendoswitch/000000")
-      expect(source).to include("Nintendo_Switch_2_logo.svg")
-    end
-  end
-
-  describe "happy path: every simpleicons URL returns a square SVG" do
-    before { stub_all_sources_with_square_svg! }
-
-    it "creates `public/platform_logos/` if missing" do
-      expect(Dir.exist?(File.join(tmpdir, "platform_logos"))).to be(false)
-      silence_stream($stdout) { task.invoke }
-      expect(Dir.exist?(File.join(tmpdir, "platform_logos"))).to be(true)
-    end
-
-    it "writes BOTH a 16 and a 64 PNG per platform (10 files total)" do
-      silence_stream($stdout) { task.invoke }
-      PLATFORMS.each do |slug|
-        [ 16, 64 ].each do |size|
-          path = File.join(tmpdir, "platform_logos", "#{slug}-#{size}.png")
-          expect(File.exist?(path)).to be(true), "expected #{path} to exist"
+  def each_variant
+    PLATFORMS.each do |slug|
+      SIZES.each do |size|
+        COLORS.each do |color|
+          yield slug, size, color
         end
       end
-      written = Dir.glob(File.join(tmpdir, "platform_logos", "*.png"))
-      expect(written.count).to eq(10)
+    end
+  end
+
+  describe "happy path: every fixture source produces 4 variant PNGs" do
+    it "creates `public/platforms/` if missing" do
+      expect(Dir.exist?(File.join(tmpdir, "platforms"))).to be(false)
+      silence_stream($stdout) { task.invoke }
+      expect(Dir.exist?(File.join(tmpdir, "platforms"))).to be(true)
+    end
+
+    it "writes 12 PNGs total (3 platforms × 2 sizes × 2 colors)" do
+      silence_stream($stdout) { task.invoke }
+      each_variant do |slug, size, color|
+        path = File.join(tmpdir, "platforms", "#{slug}-#{size}-#{color}.png")
+        expect(File.exist?(path)).to be(true), "expected #{path} to exist"
+      end
+      written = Dir.glob(File.join(tmpdir, "platforms", "*.png"))
+      expect(written.count).to eq(12)
+    end
+
+    it "does NOT write the legacy color-less filenames (`<slug>-<size>.png`)" do
+      silence_stream($stdout) { task.invoke }
+      legacy = PLATFORMS.flat_map { |slug| SIZES.map { |size| File.join(tmpdir, "platforms", "#{slug}-#{size}.png") } }
+      legacy.each do |path|
+        expect(File.exist?(path)).to be(false), "expected legacy #{path} NOT to exist"
+      end
+    end
+
+    it "does NOT write any 128 px output (size dropped)" do
+      silence_stream($stdout) { task.invoke }
+      PLATFORMS.each do |slug|
+        COLORS.each do |color|
+          path = File.join(tmpdir, "platforms", "#{slug}-128-#{color}.png")
+          expect(File.exist?(path)).to be(false), "expected #{path} NOT to exist"
+        end
+      end
+      orphan_128s = Dir.glob(File.join(tmpdir, "platforms", "*-128-*.png"))
+      expect(orphan_128s).to be_empty
     end
 
     it "writes PNGs with the EXACT pixel dimensions requested" do
       silence_stream($stdout) { task.invoke }
+      each_variant do |slug, size, color|
+        path = File.join(tmpdir, "platforms", "#{slug}-#{size}-#{color}.png")
+        img = Vips::Image.new_from_file(path)
+        expect([ img.width, img.height ]).to eq([ size, size ]),
+          "expected #{slug}-#{size}-#{color}.png to be #{size}x#{size}, got #{img.width}x#{img.height}"
+      end
+    end
+
+    it "produces square outputs for every (platform, size, color) combination" do
+      silence_stream($stdout) { task.invoke }
+      each_variant do |slug, size, color|
+        path = File.join(tmpdir, "platforms", "#{slug}-#{size}-#{color}.png")
+        img = Vips::Image.new_from_file(path)
+        expect(img.width).to eq(img.height), "expected #{slug}-#{size}-#{color}.png to be square, got #{img.width}x#{img.height}"
+      end
+    end
+
+    it "writes RGBA PNGs (4 bands — alpha preserved)" do
+      silence_stream($stdout) { task.invoke }
+      each_variant do |slug, size, color|
+        path = File.join(tmpdir, "platforms", "#{slug}-#{size}-#{color}.png")
+        img = Vips::Image.new_from_file(path)
+        expect(img.bands).to eq(4),
+          "expected #{slug}-#{size}-#{color}.png to be RGBA (4 bands), got #{img.bands}"
+      end
+    end
+
+    it "writes valid PNG magic bytes for every output" do
+      silence_stream($stdout) { task.invoke }
+      each_variant do |slug, size, color|
+        path = File.join(tmpdir, "platforms", "#{slug}-#{size}-#{color}.png")
+        expect(File.binread(path, 8).bytes).to eq(
+          [ 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a ]
+        ), "#{path} is not a valid PNG"
+      end
+    end
+
+    it "fills every BLACK variant with pure black on R, G, B bands (max = 0)" do
+      silence_stream($stdout) { task.invoke }
       PLATFORMS.each do |slug|
-        [ 16, 64 ].each do |size|
-          path = File.join(tmpdir, "platform_logos", "#{slug}-#{size}.png")
+        SIZES.each do |size|
+          path = File.join(tmpdir, "platforms", "#{slug}-#{size}-black.png")
           img = Vips::Image.new_from_file(path)
-          expect([ img.width, img.height ]).to eq([ size, size ]),
-            "expected #{slug}-#{size}.png to be #{size}x#{size}, got #{img.width}x#{img.height}"
+          expect(img.extract_band(0).max).to eq(0), "expected #{slug}-#{size}-black.png R band max=0"
+          expect(img.extract_band(1).max).to eq(0), "expected #{slug}-#{size}-black.png G band max=0"
+          expect(img.extract_band(2).max).to eq(0), "expected #{slug}-#{size}-black.png B band max=0"
         end
       end
     end
 
-    # Project-wide rule: every platform logo MUST render as a square
-    # (~1:1 aspect ratio). Non-square sources (e.g. a wordmark SVG
-    # like the old Wikimedia PlayStation 5 asset at 512x111) downsize
-    # to a strip (64x14) under `resize_to_fit`, which violates the
-    # tile + detail-page layout contract. This guard fails fast if
-    # anyone re-introduces a non-square source for any platform.
-    it "produces SQUARE 64x64 PNGs for every platform (no wordmark strips)" do
+    it "fills every WHITE variant with pure white on R, G, B bands (max = 255)" do
       silence_stream($stdout) { task.invoke }
       PLATFORMS.each do |slug|
-        path = File.join(tmpdir, "platform_logos", "#{slug}-64.png")
-        Vips::Image.new_from_file(path).then do |i|
-          expect([ i.width, i.height ]).to eq([ 64, 64 ]),
-            "expected #{slug}-64.png to be 64x64 (square), got #{i.width}x#{i.height}"
+        SIZES.each do |size|
+          path = File.join(tmpdir, "platforms", "#{slug}-#{size}-white.png")
+          img = Vips::Image.new_from_file(path)
+          # Max == 255 on every RGB band proves the fill color is
+          # white where the silhouette is visible. The RGB min may
+          # drop to 0 in fully-transparent regions because libvips'
+          # `thumbnail_image` premultiplies alpha during the shrink
+          # — that's a no-op visually (alpha is 0, so RGB doesn't
+          # matter), but it means we cannot assert RGB min=255.
+          # The visible-area assertion below covers the rendered
+          # silhouette where it counts.
+          expect(img.extract_band(0).max).to eq(255), "expected #{slug}-#{size}-white.png R band max=255"
+          expect(img.extract_band(1).max).to eq(255), "expected #{slug}-#{size}-white.png G band max=255"
+          expect(img.extract_band(2).max).to eq(255), "expected #{slug}-#{size}-white.png B band max=255"
         end
       end
     end
 
-    it "produces SQUARE 16x16 PNGs for every platform" do
+    it "paints the WHITE variant silhouette pure white where it's visible (alpha-masked R/G/B >= 250)" do
       silence_stream($stdout) { task.invoke }
       PLATFORMS.each do |slug|
-        path = File.join(tmpdir, "platform_logos", "#{slug}-16.png")
-        Vips::Image.new_from_file(path).then do |i|
-          expect([ i.width, i.height ]).to eq([ 16, 16 ]),
-            "expected #{slug}-16.png to be 16x16 (square), got #{i.width}x#{i.height}"
+        SIZES.each do |size|
+          path = File.join(tmpdir, "platforms", "#{slug}-#{size}-white.png")
+          img = Vips::Image.new_from_file(path)
+          alpha = img.extract_band(3)
+
+          # Visible mask: pixels where alpha is fully opaque (>= 240,
+          # mirroring the alpha-max threshold used by the boost
+          # assertion above). Inside that mask, R/G/B must be at
+          # least 250 — small (≤5) drift comes from libvips'
+          # premultiplied-alpha shrink against edge pixels even
+          # where the alpha boost saturates. The fill color is white
+          # — black would never round up to 250+ here.
+          fully_opaque_mask = alpha.relational_const("moreeq", 240)
+
+          [ 0, 1, 2 ].each do |band_idx|
+            band = img.extract_band(band_idx)
+            # Set non-mask pixels to a sentinel (255) so the global
+            # min only reflects pixels inside the visible silhouette.
+            in_mask = fully_opaque_mask.ifthenelse(band, 255)
+            expect(in_mask.min).to be >= 250,
+              "expected #{slug}-#{size}-white.png band #{band_idx} >= 250 across the visible silhouette, got min=#{in_mask.min}"
+          end
         end
       end
     end
 
-    it "prints a per-platform [OK] summary line naming the source provider" do
-      expect { task.invoke }.to output(/\[OK\]\s+ps5\s+source=simpleicons/).to_stdout
+    it "shares the SAME alpha silhouette between the black and white variant at a given (platform, size)" do
+      silence_stream($stdout) { task.invoke }
+      PLATFORMS.each do |slug|
+        SIZES.each do |size|
+          black_path = File.join(tmpdir, "platforms", "#{slug}-#{size}-black.png")
+          white_path = File.join(tmpdir, "platforms", "#{slug}-#{size}-white.png")
+          black_alpha = Vips::Image.new_from_file(black_path).extract_band(3)
+          white_alpha = Vips::Image.new_from_file(white_path).extract_band(3)
+
+          # The two alpha bands must be pixel-identical — subtracting
+          # one from the other should yield a band whose min and max
+          # are both zero.
+          diff = black_alpha.subtract(white_alpha)
+          expect(diff.abs.max).to eq(0),
+            "expected black and white alpha to match for #{slug}-#{size}, got diff max=#{diff.abs.max}"
+        end
+      end
     end
 
-    it "prints summary lines for every platform" do
+    it "preserves transparency (every output has some fully-transparent pixels)" do
+      silence_stream($stdout) { task.invoke }
+      each_variant do |slug, size, color|
+        path = File.join(tmpdir, "platforms", "#{slug}-#{size}-#{color}.png")
+        img = Vips::Image.new_from_file(path)
+        alpha_min = img.extract_band(3).min
+        expect(alpha_min).to eq(0),
+          "expected #{slug}-#{size}-#{color}.png to have transparent pixels (alpha min=0), got #{alpha_min}"
+      end
+    end
+
+    # Regression guard for the bandjoin-onto-source-alpha bug: when
+    # the rake task reused the source PNG's filled-disc alpha, the
+    # output became a SOLID-colored disc — alpha was 255 (or close to
+    # it) across the entire visible disc, with no silhouette structure.
+    # A real silhouette has both transparent and opaque pixels with a
+    # meaningful spread, not a single dominant alpha value. We assert
+    # both `alpha_max > 0` (the logo is visible at all) and the alpha
+    # band's `deviate` (population stddev) is above a floor that a
+    # uniform-opaque disc could never reach.
+    it "produces a silhouette alpha — not a uniformly opaque disc" do
+      silence_stream($stdout) { task.invoke }
+      each_variant do |slug, size, color|
+        path = File.join(tmpdir, "platforms", "#{slug}-#{size}-#{color}.png")
+        img = Vips::Image.new_from_file(path)
+        alpha = img.extract_band(3)
+        expect(alpha.max).to be > 0,
+          "expected #{slug}-#{size}-#{color}.png to have visible (non-zero) alpha somewhere"
+        expect(alpha.deviate).to be > 10,
+          "expected #{slug}-#{size}-#{color}.png alpha band to vary across the image, got deviate=#{alpha.deviate.round(2)}"
+      end
+    end
+
+    # The same regression also showed up as the alpha band being
+    # nearly all-opaque. A real silhouette of a logo-on-transparent-
+    # background should have a meaningful share of pixels in the LOW
+    # alpha bucket (the background) AND a meaningful share in the
+    # upper alpha range (the logo shape itself). We check that both
+    # buckets are non-empty on every output.
+    it "has both transparent-background pixels and visible logo pixels (silhouette structure)" do
+      silence_stream($stdout) { task.invoke }
+      each_variant do |slug, size, color|
+        path = File.join(tmpdir, "platforms", "#{slug}-#{size}-#{color}.png")
+        img = Vips::Image.new_from_file(path)
+        alpha = img.extract_band(3)
+
+        low_frac  = alpha.relational_const("less", 16).avg / 255.0
+        high_frac = alpha.relational_const("more", 64).avg / 255.0
+
+        expect(low_frac).to be > 0.05,
+          "expected #{slug}-#{size}-#{color}.png to have at least 5% transparent-background pixels, got #{(low_frac * 100).round(1)}%"
+        expect(high_frac).to be > 0.05,
+          "expected #{slug}-#{size}-#{color}.png to have at least 5% visible (alpha>64) logo pixels, got #{(high_frac * 100).round(1)}%"
+      end
+    end
+
+    # v6 boost regression guard: the v5 luminance-only pipeline left
+    # ps5 at alpha_max=242 and switch2 at alpha_max=174, which read
+    # as washed-out. The v6 contrast boost (`ALPHA_BOOST = 2.0` then
+    # clamp at 255) lifts every silhouette to full opacity.
+    it "boosts the logo silhouette to fully opaque (alpha_max >= 240) on every output" do
+      silence_stream($stdout) { task.invoke }
+      each_variant do |slug, size, color|
+        path = File.join(tmpdir, "platforms", "#{slug}-#{size}-#{color}.png")
+        img = Vips::Image.new_from_file(path)
+        alpha_max = img.extract_band(3).max
+        expect(alpha_max).to be >= 240,
+          "expected #{slug}-#{size}-#{color}.png alpha max >= 240 (solid silhouette), got #{alpha_max}"
+      end
+    end
+
+    it "keeps the visible logo area opaque (avg alpha over non-near-zero pixels >= 150)" do
+      silence_stream($stdout) { task.invoke }
+      each_variant do |slug, size, color|
+        path = File.join(tmpdir, "platforms", "#{slug}-#{size}-#{color}.png")
+        img = Vips::Image.new_from_file(path)
+        alpha = img.extract_band(3)
+        total = alpha.width * alpha.height
+
+        visible_mask  = alpha.relational_const("more", 16).divide(255)
+        visible_frac  = visible_mask.avg
+        visible_count = visible_frac * total
+        visible_sum   = visible_mask.multiply(alpha).avg * total
+        visible_avg   = visible_count.positive? ? visible_sum / visible_count : 0.0
+
+        expect(visible_avg).to be >= 150,
+          "expected #{slug}-#{size}-#{color}.png visible-area alpha avg >= 150, got #{visible_avg.round(2)} over #{visible_count.round} visible pixels"
+      end
+    end
+
+    it "prints a per-platform [OK] summary line" do
       output = capture_stdout { task.invoke }
       PLATFORMS.each do |slug|
         expect(output).to match(/\[OK\]\s+#{slug}\s/), "missing summary line for #{slug}"
       end
     end
-  end
 
-  describe "source failure: HTTP 500 triggers a [MISS] for that slug" do
-    before do
-      stub_all_sources_with_square_svg!
-      WebMock.stub_request(:get, SOURCE_URLS["steam"])
-             .to_return(status: 500, body: "boom")
+    it "names the source filename in each summary line" do
+      output = capture_stdout { task.invoke }
+      expect(output).to match(/\[OK\]\s+ps5\s+source=playstation\.png/)
+      expect(output).to match(/\[OK\]\s+switch2\s+source=switch\.png/)
+      expect(output).to match(/\[OK\]\s+steam\s+source=steam\.png/)
     end
 
-    it "logs a WARN line surfacing the HTTP failure" do
+    it "names BOTH color variants in each summary line" do
+      output = capture_stdout { task.invoke }
+      PLATFORMS.each do |slug|
+        expect(output).to match(/\[OK\]\s+#{slug}.*16-black\.png/), "missing 16-black summary entry for #{slug}"
+        expect(output).to match(/\[OK\]\s+#{slug}.*16-white\.png/), "missing 16-white summary entry for #{slug}"
+        expect(output).to match(/\[OK\]\s+#{slug}.*64-black\.png/), "missing 64-black summary entry for #{slug}"
+        expect(output).to match(/\[OK\]\s+#{slug}.*64-white\.png/), "missing 64-white summary entry for #{slug}"
+      end
+    end
+  end
+
+  # The color-fill assertion above (R=G=B=0 for black, R=G=B=255 for
+  # white) is the contract that the previous regression silently broke.
+  # These two specs are a belt-and-braces self-check: they prove the
+  # assertion is real, not vacuous.
+  describe "color-fill assertion self-check (would catch source-color leak)" do
+    let(:colored_fixture) { fixture_source_dir.join("steam.png") }
+
+    it "the raw colored fixture is NOT all-black on at least one RGB band" do
+      img = Vips::Image.new_from_file(colored_fixture.to_s)
+      max_per_band = [ img.extract_band(0).max, img.extract_band(1).max, img.extract_band(2).max ]
+      expect(max_per_band.max).to be > 0,
+        "fixture must have non-zero RGB content (white background) so the would-fail check is meaningful; got #{max_per_band.inspect}"
+    end
+
+    it "feeding the colored fixture through the renderer produces true black RGB for the black variant" do
+      out_path = File.join(tmpdir, "self-check-64-black.png")
+
+      # Invoke the task once so the task body's `def` helpers
+      # (`derive_silhouette_alpha`, `render_solid_color_png`) are
+      # wired up as top-level methods (Rake DSL `def` inside a task
+      # block lands on Object as a private method).
+      silence_stream($stdout) { task.invoke }
+      task.reenable
+
+      alpha = TOPLEVEL_BINDING.receiver.send(:derive_silhouette_alpha, colored_fixture.to_s)
+      TOPLEVEL_BINDING.receiver.send(:render_solid_color_png, alpha, [ 0, 0, 0 ], out_path, 64)
+
+      img = Vips::Image.new_from_file(out_path)
+      expect(img.extract_band(0).max).to eq(0)
+      expect(img.extract_band(1).max).to eq(0)
+      expect(img.extract_band(2).max).to eq(0)
+      expect(img.extract_band(3).max).to be > 0
+    end
+
+    it "feeding the colored fixture through the renderer produces white RGB for the white variant" do
+      out_path = File.join(tmpdir, "self-check-64-white.png")
+
+      silence_stream($stdout) { task.invoke }
+      task.reenable
+
+      alpha = TOPLEVEL_BINDING.receiver.send(:derive_silhouette_alpha, colored_fixture.to_s)
+      TOPLEVEL_BINDING.receiver.send(:render_solid_color_png, alpha, [ 255, 255, 255 ], out_path, 64)
+
+      img = Vips::Image.new_from_file(out_path)
+      # R/G/B max == 255 — the fill color is white. (RGB min may drop
+      # to 0 in transparent regions due to libvips' premultiplied-
+      # alpha thumbnail shrink; visible silhouette assertions live in
+      # the happy-path block above.)
+      expect(img.extract_band(0).max).to eq(255)
+      expect(img.extract_band(1).max).to eq(255)
+      expect(img.extract_band(2).max).to eq(255)
+      expect(img.extract_band(3).max).to be > 0
+    end
+  end
+
+  describe "wipe-first cleanup: orphans from prior runs are removed" do
+    it "deletes an orphan -128 file that lingers from a prior size set" do
+      target_dir = File.join(tmpdir, "platforms")
+      FileUtils.mkdir_p(target_dir)
+      orphan = File.join(target_dir, "ps5-128-black.png")
+      File.binwrite(orphan, "STALE-ORPHAN-128")
+
+      silence_stream($stdout) { task.invoke }
+
+      expect(File.exist?(orphan)).to be(false),
+        "expected wipe-first to delete the orphan ps5-128-black.png"
+    end
+
+    it "deletes legacy color-less names (`<slug>-<size>.png`) from the pre-v7 naming scheme" do
+      target_dir = File.join(tmpdir, "platforms")
+      FileUtils.mkdir_p(target_dir)
+      legacy = File.join(target_dir, "ps5-16.png")
+      File.binwrite(legacy, "STALE-LEGACY-NAME")
+
+      silence_stream($stdout) { task.invoke }
+
+      expect(File.exist?(legacy)).to be(false),
+        "expected wipe-first to delete legacy ps5-16.png orphan from the pre-v7 naming scheme"
+    end
+
+    it "deletes an unrelated orphan file (anything in the folder is fair game)" do
+      target_dir = File.join(tmpdir, "platforms")
+      FileUtils.mkdir_p(target_dir)
+      orphan = File.join(target_dir, "orphan-stale.png")
+      File.binwrite(orphan, "ARBITRARY-ORPHAN")
+
+      silence_stream($stdout) { task.invoke }
+
+      expect(File.exist?(orphan)).to be(false),
+        "expected wipe-first to delete arbitrary orphan files in public/platforms/"
+    end
+
+    it "leaves exactly 12 files in the output dir after a clean run from an empty folder" do
+      silence_stream($stdout) { task.invoke }
+      entries = Dir.children(File.join(tmpdir, "platforms"))
+      expect(entries.sort).to eq(%w[
+        ps5-16-black.png
+        ps5-16-white.png
+        ps5-64-black.png
+        ps5-64-white.png
+        steam-16-black.png
+        steam-16-white.png
+        steam-64-black.png
+        steam-64-white.png
+        switch2-16-black.png
+        switch2-16-white.png
+        switch2-64-black.png
+        switch2-64-white.png
+      ])
+    end
+
+    it "leaves exactly 12 files in the output dir after a re-run with prior content" do
+      target_dir = File.join(tmpdir, "platforms")
+      FileUtils.mkdir_p(target_dir)
+      # Seed the folder with assorted orphans: legacy color-less,
+      # dropped size, dropped platform, and a non-PNG.
+      File.binwrite(File.join(target_dir, "ps5-128-black.png"), "X")
+      File.binwrite(File.join(target_dir, "ps5-16.png"),        "Y")  # legacy color-less
+      File.binwrite(File.join(target_dir, "epic-64-white.png"), "Z")
+      File.binwrite(File.join(target_dir, "junk.txt"),          "Q")
+
+      silence_stream($stdout) { task.invoke }
+
+      entries = Dir.children(target_dir)
+      expect(entries.sort).to eq(%w[
+        ps5-16-black.png
+        ps5-16-white.png
+        ps5-64-black.png
+        ps5-64-white.png
+        steam-16-black.png
+        steam-16-white.png
+        steam-64-black.png
+        steam-64-white.png
+        switch2-16-black.png
+        switch2-16-white.png
+        switch2-64-black.png
+        switch2-64-white.png
+      ])
+    end
+  end
+
+  describe "folder-name regression guard" do
+    it "writes outputs under `public/platforms/`, NOT the retired `public/platform_logos/`" do
+      silence_stream($stdout) { task.invoke }
+      expect(Dir.exist?(File.join(tmpdir, "platforms"))).to be(true)
+      expect(Dir.exist?(File.join(tmpdir, "platform_logos"))).to be(false)
+    end
+
+    it "names the output dirname constant as `platforms`" do
+      source = File.read(Rails.root.join("lib", "tasks", "pito_platform_logos.rake"))
+      expect(source).to match(/OUTPUT_DIRNAME\s*=\s*"platforms"/)
+      expect(source).not_to match(/OUTPUT_DIRNAME\s*=\s*"platform_logos"/)
+    end
+  end
+
+  describe "platform / size / color scope" do
+    it "covers exactly ps5, switch2, steam in the source table" do
+      source = File.read(Rails.root.join("lib", "tasks", "pito_platform_logos.rake"))
+      table_block = source[/PLATFORM_LOGO_SOURCES\s*=\s*\[.*?\]\.freeze/m]
+      expect(table_block).to be_present, "could not locate PLATFORM_LOGO_SOURCES table"
+      slugs = table_block.scan(/slug:\s*"([^"]+)"/).flatten
+      expect(slugs).to eq(%w[ps5 switch2 steam])
+    end
+
+    it "does NOT list gog or epic anywhere in the source table" do
+      source = File.read(Rails.root.join("lib", "tasks", "pito_platform_logos.rake"))
+      table_block = source[/PLATFORM_LOGO_SOURCES\s*=\s*\[.*?\]\.freeze/m]
+      expect(table_block).not_to include("gog")
+      expect(table_block).not_to include("epic")
+    end
+
+    it "declares 16 and 64 as the two output sizes (128 dropped)" do
+      source = File.read(Rails.root.join("lib", "tasks", "pito_platform_logos.rake"))
+      expect(source).to match(/PLATFORM_LOGO_SIZES\s*=\s*\[\s*16\s*,\s*64\s*\]/)
+      expect(source).not_to match(/PLATFORM_LOGO_SIZES\s*=\s*\[\s*16\s*,\s*64\s*,\s*128\s*\]/)
+    end
+
+    it "declares black and white as the two color variants" do
+      source = File.read(Rails.root.join("lib", "tasks", "pito_platform_logos.rake"))
+      colors_block = source[/PLATFORM_LOGO_COLORS\s*=\s*\[.*?\]\.freeze/m]
+      expect(colors_block).to be_present, "could not locate PLATFORM_LOGO_COLORS table"
+      names = colors_block.scan(/name:\s*"([^"]+)"/).flatten
+      expect(names).to eq(%w[black white])
+    end
+  end
+
+  describe "missing source: a single platform skipped, others still render" do
+    let(:partial_source_dir) { Dir.mktmpdir("pito_platform_logos_partial") }
+    after { FileUtils.remove_entry(partial_source_dir) if Dir.exist?(partial_source_dir) }
+
+    before do
+      FileUtils.cp(fixture_source_dir.join("playstation.png"), partial_source_dir)
+      FileUtils.cp(fixture_source_dir.join("steam.png"),       partial_source_dir)
+      # switch.png intentionally absent
+      ENV["PITO_PLATFORM_LOGOS_SOURCE_DIR"] = partial_source_dir
+    end
+
+    it "logs a WARN for the missing source" do
       silence_stream($stdout) do
         expect { task.invoke }.to output(
-          /\[pito:platform_logos\] WARN: steam source=simpleicons returned HTTP 500/
+          /\[pito:platform_logos\] WARN: switch2 source missing/
         ).to_stderr
       end
     end
 
-    it "emits a [MISS] summary line for the failed platform" do
+    it "emits a [MISS] summary line for the missing platform" do
       output = capture_stdout { silence_stream($stderr) { task.invoke } }
-      expect(output).to match(/\[MISS\]\s+steam\s+no square source available/)
+      expect(output).to match(/\[MISS\]\s+switch2\s+source missing/)
     end
 
-    it "STILL writes the other 4 platforms successfully (failure isolated)" do
+    it "still writes the other 2 platforms' 4 variants each (8 files)" do
       silence_stream($stdout) { silence_stream($stderr) { task.invoke } }
-      (PLATFORMS - [ "steam" ]).each do |slug|
-        [ 16, 64 ].each do |size|
-          path = File.join(tmpdir, "platform_logos", "#{slug}-#{size}.png")
-          expect(File.exist?(path)).to be(true), "expected #{path} to exist"
+      %w[ps5 steam].each do |slug|
+        SIZES.each do |size|
+          COLORS.each do |color|
+            path = File.join(tmpdir, "platforms", "#{slug}-#{size}-#{color}.png")
+            expect(File.exist?(path)).to be(true), "expected #{path} to exist"
+          end
         end
       end
     end
-  end
 
-  describe "source failure: transport error (Net::HTTP raises) triggers a [MISS]" do
-    before do
-      stub_all_sources_with_square_svg!
-      WebMock.stub_request(:get, SOURCE_URLS["gog"])
-             .to_raise(Errno::ECONNREFUSED.new("connection refused"))
+    it "does NOT write any switch2-*.png output" do
+      silence_stream($stdout) { silence_stream($stderr) { task.invoke } }
+      switch2_files = Dir.glob(File.join(tmpdir, "platforms", "switch2-*.png"))
+      expect(switch2_files).to be_empty
     end
 
-    it "logs a WARN line that surfaces the exception class" do
-      silence_stream($stdout) do
-        expect { task.invoke }.to output(
-          /\[pito:platform_logos\] WARN: gog source=simpleicons raised/
-        ).to_stderr
-      end
-    end
-
-    it "emits a [MISS] summary line for the failed platform" do
-      output = capture_stdout { silence_stream($stderr) { task.invoke } }
-      expect(output).to match(/\[MISS\]\s+gog\s+no square source available/)
-    end
-  end
-
-  describe "source returns a too-small body (< MIN_SOURCE_BYTES)" do
-    before do
-      stub_all_sources_with_square_svg!
-      WebMock.stub_request(:get, SOURCE_URLS["epic"])
-             .to_return(status: 200, body: "tiny", headers: { "Content-Type" => "image/svg+xml" })
-    end
-
-    it "logs a WARN line surfacing the byte-size threshold miss" do
-      silence_stream($stdout) do
-        expect { task.invoke }.to output(
-          /\[pito:platform_logos\] WARN: epic source=simpleicons returned 4 bytes/
-        ).to_stderr
-      end
-    end
-
-    it "emits a [MISS] summary line for the failed platform" do
-      output = capture_stdout { silence_stream($stderr) { task.invoke } }
-      expect(output).to match(/\[MISS\]\s+epic\s+no square source available/)
-    end
-  end
-
-  describe "source returns a non-square SVG (aspect ratio outside [0.9, 1.1])" do
-    before do
-      stub_all_sources_with_square_svg!
-      WebMock.stub_request(:get, SOURCE_URLS["switch2"])
-             .to_return(status: 200, body: NON_SQUARE_SVG_FIXTURE, headers: { "Content-Type" => "image/svg+xml" })
-    end
-
-    it "logs a WARN line naming the failed aspect-ratio gate" do
-      silence_stream($stdout) do
-        expect { task.invoke }.to output(
-          /\[pito:platform_logos\] WARN: switch2 source=iconify-mdi rejected: source 200(\.0)?x60(\.0)? \(ratio 3\.33\) fails square gate/
-        ).to_stderr
-      end
-    end
-
-    it "emits a [MISS] summary line for the rejected platform" do
-      output = capture_stdout { silence_stream($stderr) { task.invoke } }
-      expect(output).to match(/\[MISS\]\s+switch2\s+no square source available/)
-    end
-  end
-
-  describe "every source fails: existing files for the slug are left untouched" do
-    before do
-      stub_all_sources_with_square_svg!
-      WebMock.stub_request(:get, SOURCE_URLS["switch2"]).to_return(status: 500, body: "boom")
-    end
-
-    it "does NOT delete pre-existing switch2-*.png files when the source fails" do
-      target_dir = File.join(tmpdir, "platform_logos")
+    it "does NOT delete pre-existing switch2-*.png files when the source is missing (wipe-first bypassed)" do
+      target_dir = File.join(tmpdir, "platforms")
       FileUtils.mkdir_p(target_dir)
-      stale_64 = File.join(target_dir, "switch2-64.png")
-      stale_16 = File.join(target_dir, "switch2-16.png")
+      stale_64 = File.join(target_dir, "switch2-64-black.png")
+      stale_16 = File.join(target_dir, "switch2-16-white.png")
       File.binwrite(stale_64, "STALE-64-BYTES" * 10)
       File.binwrite(stale_16, "STALE-16-BYTES" * 10)
 
@@ -331,33 +606,17 @@ RSpec.describe "pito:platform_logos rake tasks" do
   end
 
   describe "idempotency: re-running overwrites prior files for the slug" do
-    before { stub_all_sources_with_square_svg! }
-
-    it "replaces a pre-existing ps5-16.png with the freshly rendered bytes" do
-      target_dir = File.join(tmpdir, "platform_logos")
+    it "replaces a pre-existing ps5-16-black.png with the freshly rendered bytes" do
+      target_dir = File.join(tmpdir, "platforms")
       FileUtils.mkdir_p(target_dir)
-      stale = File.join(target_dir, "ps5-16.png")
+      stale = File.join(target_dir, "ps5-16-black.png")
       File.binwrite(stale, "STALE-BYTES-NOT-A-REAL-PNG")
-      original_size = File.size(stale)
 
       silence_stream($stdout) { task.invoke }
 
-      new_size = File.size(stale)
-      expect(new_size).not_to eq(original_size)
       # Verify it's a real PNG now, not the stub bytes.
       expect(File.binread(stale, 8).bytes.first(8))
         .to eq([ 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a ])
-    end
-
-    it "removes a stale variant (e.g. a ps5-128.png left from a prior size)" do
-      target_dir = File.join(tmpdir, "platform_logos")
-      FileUtils.mkdir_p(target_dir)
-      stale_variant = File.join(target_dir, "ps5-128.png")
-      File.binwrite(stale_variant, "STALE-128-BYTES")
-
-      silence_stream($stdout) { task.invoke }
-
-      expect(File.exist?(stale_variant)).to be(false)
     end
   end
 

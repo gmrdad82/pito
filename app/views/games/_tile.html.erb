@@ -145,13 +145,15 @@
           <% if rating_present || release_year_str.present? %>
             <span aria-hidden="true">·</span>
           <% end %>
+          <%# v7 (theme-aware) — `platform_logo_tag` with `color: :auto`
+              (default) emits BOTH the black + white variants and lets
+              CSS pick the visible one off `<html data-theme>`. The
+              16-px asset is downloaded; the helper renders at 14 px
+              via `display_size:` to keep the tile-footer footprint
+              identical to the pre-v7 inline `<img>` tag. %>
           <%= content_tag(:span, class: "tile-caption-meta-logo",
                           style: "display: inline-block; vertical-align: middle;") do %>
-            <%= image_tag "/platform_logos/#{tile_logo_slug}-16.png",
-                          alt: PlatformLogosHelper::LOGO_ALT_LABELS.fetch(tile_logo_slug),
-                          width: 14, height: 14,
-                          class: "platform-logo platform-logo--#{tile_logo_slug}",
-                          style: "width: 14px; height: 14px; vertical-align: middle;" %>
+            <%= platform_logo_tag(tile_logo_slug, size: 16, display_size: 14) %>
           <% end %>
         <% end %>
       </div>

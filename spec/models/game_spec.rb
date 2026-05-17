@@ -134,6 +134,43 @@ RSpec.describe Game, type: :model do
       end
     end
 
+    # Phase 27 v2 spec 06 — new scopes for the revamped filter row.
+    describe ".played" do
+      let!(:played)     { create(:game, played_at: 2.days.ago) }
+      let!(:not_played) { create(:game, played_at: nil) }
+
+      it "includes games with played_at non-null" do
+        expect(Game.played).to include(played)
+      end
+
+      it "excludes games with nil played_at" do
+        expect(Game.played).not_to include(not_played)
+      end
+    end
+
+    describe ".wishlist" do
+      let!(:platform)  { create(:platform, slug: "wishlist-spec-platform") }
+      let!(:unowned)   { create(:game, title: "Wishlist Unowned") }
+      let!(:owned) do
+        g = create(:game, title: "Wishlist Owned")
+        g.game_platform_ownerships.create!(platform: platform)
+        g
+      end
+
+      it "includes games with ZERO ownership rows" do
+        expect(Game.wishlist).to include(unowned)
+      end
+
+      it "excludes games with at least one ownership row" do
+        expect(Game.wishlist).not_to include(owned)
+      end
+
+      it "is orthogonal to release status (scheduled-not-owned is included)" do
+        future = create(:game, title: "Scheduled Wishlist", release_date: 1.year.from_now)
+        expect(Game.wishlist).to include(future)
+      end
+    end
+
     describe ".released" do
       let!(:past)        { create(:game, release_date: 1.year.ago) }
       let!(:future)      { create(:game, release_date: 1.year.from_now) }

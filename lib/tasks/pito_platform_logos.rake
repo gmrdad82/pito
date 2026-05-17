@@ -1,198 +1,197 @@
-# Phase 27 v2 spec 07 — sourced platform-logo generator.
+# Phase 27 v2 spec 07 — local-source platform-logo generator (v7).
 #
-# One-shot Rake task that fetches each canonical platform's brand
-# logo from the simpleicons.org CDN (monochrome black variant) and
-# resizes it locally to two target sizes (16 px for tile footers,
-# 64 px for the detail page). The downsized PNGs land in
-# `public/platform_logos/` for the static asset path.
+# One-shot Rake task that reads each platform's brand logo from a
+# local source file under `lib/support/platforms/` and writes
+# resized PNGs in TWO color variants (with transparency for
+# antialiasing) to `public/platforms/`. Two sizes × two colors per
+# platform:
 #
-# The web app reads from the static files — no runtime network
-# calls, no asset-pipeline digesting. Re-run this task to refresh
-# logos when a brand updates its asset. Idempotent: every successful
-# fetch first removes the existing 16/64 pair and rewrites both.
+#   - <key>-16-black.png   tile footers / list rows (light theme)
+#   - <key>-64-black.png   detail page (light theme, high-DPI)
+#   - <key>-16-white.png   tile footers / list rows (dark theme)
+#   - <key>-64-white.png   detail page (dark theme, high-DPI)
 #
-# Why monochrome black (per-platform source choice): the user picked
-# the `/000000` color suffix (simpleicons) or `?color=%23000000`
-# query (iconify) that pins the SVG fill to solid black (`#000000`).
-# That gives a consistent, brand-correct, monochrome silhouette
-# across PS5, Switch 2, Steam, GoG, and Epic — no
-# corporate-bumper-vs-product-logo ambiguity, no per-CDN UA games,
-# no Wikimedia fallback chain.
+# Three platforms covered: PS5, Switch 2, Steam. GoG and Epic are
+# intentionally dropped — the project no longer ships their assets.
+# Total output count: 3 platforms × 2 sizes × 2 colors = 12 files.
 #
-# Four of the five platforms (ps5, steam, gog, epic) source from
-# `cdn.simpleicons.org/<slug>/000000`. Switch 2 sources from the
-# iconify `mdi:nintendo-switch` SVG because simpleicons dropped the
-# `nintendoswitch` slug (returns 404 as of the 2026-05-17 audit).
-# Both providers serve the same shape of asset: a 24x24 (or 32x32)
-# viewBox SVG with `fill="#000000"`. The square gate accepts both.
+# Source files (placed by the user under `lib/support/platforms/`)
+# carry brand-natural filenames, not the canonical platform keys we
+# use elsewhere. The `PLATFORM_LOGO_SOURCES` table is the lookup
+# from canonical key (`ps5` / `switch2` / `steam`) to source
+# filename (`playstation.png` / `switch.png` / `steam.png`).
 #
-# SQUARE-SOURCE GATE: every source is downloaded into a staging
-# tmpdir, then probed for aspect ratio. SVGs parse the `viewBox`
-# (preferring it over the legacy `width`/`height` since most brand
-# SVGs scale via the viewBox); PNGs use `Vips::Image` to read pixel
-# dimensions. A source is accepted only if its width-to-height
-# ratio falls inside [0.9, 1.1] — that's the "approximately square"
-# rule the tile + detail page layouts assume. Non-square or
-# unreachable sources emit a `[MISS]` summary line for that
-# platform and leave the on-disk PNGs untouched.
+# Output rules:
+#
+#   - Every visible pixel is forced to a single solid color: either
+#     RGB(0, 0, 0) for the BLACK variant or RGB(255, 255, 255) for
+#     the WHITE variant. We achieve this by computing a NEW alpha
+#     channel from the source's LUMINANCE (dark pixels in source ->
+#     opaque in output, light pixels in source -> transparent in
+#     output) and bandjoining that alpha onto a freshly created
+#     solid-color RGB image of the same dimensions. This is the most
+#     robust path: there is no way for any source color to leak
+#     through because we never reference the source RGB in the
+#     output bands.
+#   - The luminance-derived alpha is computed ONCE per source and
+#     reused for both color variants — same silhouette, different
+#     fill color. This keeps the antialiased edges pixel-identical
+#     between the black and white variants of the same logo.
+#   - Source alpha is NOT used as the output alpha. Real brand-logo
+#     PNGs from the user's `lib/support/platforms/` folder ship with
+#     a FILLED disc-shaped alpha mask (not a silhouette mask), so
+#     reusing source alpha would paint the entire disc opaque
+#     instead of just the logo shape. Computing alpha from luminance
+#     handles both filled-background sources and transparent-
+#     background ones consistently.
+#   - PNGs ship with transparency (no background fill).
+#   - Convert luminance -> alpha FIRST on the source-resolution image
+#     so the inversion / colourspace step operates on full pixel
+#     fidelity. THEN bandjoin the color RGB + alpha and resize so
+#     libvips' shrink kernel produces clean anti-aliased edges at
+#     the small sizes.
+#
+# Cleanup contract:
+#
+#   Before any per-platform iteration, every existing file directly
+#   under `public/platforms/` is deleted (the directory itself is
+#   preserved). This guarantees that removing a size from
+#   `PLATFORM_LOGO_SIZES`, removing a color from `PLATFORM_LOGO_COLORS`,
+#   removing a platform from `PLATFORM_LOGO_SOURCES`, or renaming an
+#   output never leaves an orphan file on disk. The dropped-128 case
+#   and the older two-name-pattern (`ps5-16.png` pre-rename) are the
+#   motivating examples: orphans from a prior naming scheme are wiped
+#   before the fresh 16 / 64 × black / white set is rendered.
+#
+#   The missing-source case has its own contract: if a platform's
+#   source file is absent, the rake task warns + skips that platform
+#   and the wipe-first step is bypassed so pre-existing outputs for
+#   the missing slug survive. This keeps a temporarily-missing source
+#   from nuking a working asset set.
 #
 # Usage:
 #
 #   bin/rails pito:platform_logos:download
 
-require "net/http"
-require "uri"
 require "fileutils"
-require "image_processing/vips"
 
 namespace :pito do
   namespace :platform_logos do
-    # Canonical 5-platform mapping. Order is the project's display
-    # order — also the order `KNOWN_LOGOS` reuses in
-    # `PlatformLogosHelper` (PS5 wins over Switch2 over Steam etc.
-    # when a game touches multiple).
-    #
-    # Four entries point at `cdn.simpleicons.org/<slug>/000000`; the
-    # fifth (switch2) points at the iconify `mdi:nintendo-switch`
-    # SVG with `?color=%23000000`. Both pin the SVG fill to solid
-    # black. No silent fallback chain at runtime — every slug picks
-    # the SINGLE URL recorded below; misses are reported as `[MISS]`.
+    # Canonical-key -> source-filename mapping. Order is the
+    # project's display order (PS5 > Switch2 > Steam) and matches
+    # `PlatformLogosHelper::KNOWN_LOGOS`.
     PLATFORM_LOGO_SOURCES = [
-      {
-        slug: "ps5",
-        provider: "simpleicons",
-        url: "https://cdn.simpleicons.org/playstation/000000"
-      },
-      # switch2: tried sources (2026-05-17 audit, all required to be
-      # monochrome black + roughly square):
-      #   - cdn.simpleicons.org/nintendoswitch/000000 -> HTTP 404
-      #     (slug removed from simpleicons; was the original source)
-      #   - cdn.simpleicons.org/nintendo-switch/000000 -> HTTP 404
-      #   - upload.wikimedia.org/.../Nintendo_Switch_2_logo.svg
-      #     -> HTTP 200 but colored (not monochrome) — fails the
-      #     black-fill requirement
-      #   - api.iconify.design/cib:nintendo-switch.svg
-      #     -> HTTP 200, 32x32 viewBox, fill="#000000" (viable
-      #     backup if mdi ever disappears)
-      #   - api.iconify.design/fa-brands:nintendo-switch.svg
-      #     -> HTTP 200 but viewBox 448x512 (not square; fails the
-      #     [0.9, 1.1] aspect gate)
-      #   - api.iconify.design/logos:nintendo-switch.svg
-      #     -> HTTP 404 (not in the logos set)
-      #   - api.iconify.design/simple-icons:nintendoswitch.svg
-      #     -> HTTP 200 (iconify mirror still serves the dropped
-      #     simpleicons slug; viable backup but skipped to avoid
-      #     depending on a deprecated slug shadowed by a mirror)
-      # winner: api.iconify.design/mdi:nintendo-switch.svg
-      #   - HTTP 200, 24x24 viewBox, fill="#000000", ~570B
-      {
-        slug: "switch2",
-        provider: "iconify-mdi",
-        url: "https://api.iconify.design/mdi:nintendo-switch.svg?color=%23000000"
-      },
-      {
-        slug: "steam",
-        provider: "simpleicons",
-        url: "https://cdn.simpleicons.org/steam/000000"
-      },
-      {
-        slug: "gog",
-        provider: "simpleicons",
-        url: "https://cdn.simpleicons.org/gogdotcom/000000"
-      },
-      {
-        slug: "epic",
-        provider: "simpleicons",
-        url: "https://cdn.simpleicons.org/epicgames/000000"
-      }
+      { slug: "ps5",     filename: "playstation.png" },
+      { slug: "switch2", filename: "switch.png" },
+      { slug: "steam",   filename: "steam.png" }
     ].freeze
 
     PLATFORM_LOGO_SIZES = [ 16, 64 ].freeze
 
-    # Anything shorter than this is treated as a "not a real image"
-    # response (HTML error page, empty body, SVG-shaped placeholder
-    # error). Triggers a [MISS] for that slug.
-    MIN_SOURCE_BYTES = 256
+    # Color variants. Each variant produces a separate output file
+    # per (platform, size); the consumer picks the variant based on
+    # the active theme (`black` on light theme, `white` on dark
+    # theme). The order is the project's display priority — `black`
+    # first because the light theme is the default; `white` follows.
+    PLATFORM_LOGO_COLORS = [
+      { name: "black", rgb: [ 0,   0,   0 ] },
+      { name: "white", rgb: [ 255, 255, 255 ] }
+    ].freeze
 
-    # Aspect-ratio acceptance window. width / height must fall
-    # inside [SQUARE_RATIO_MIN, SQUARE_RATIO_MAX] for the source
-    # to be accepted. 0.9..1.1 = "approximately square". simpleicons
-    # SVGs are all 24x24 viewBox so they pass cleanly; the gate
-    # stays in place so the contract is enforced even if upstream
-    # changes shape.
-    SQUARE_RATIO_MIN = 0.9
-    SQUARE_RATIO_MAX = 1.1
+    # Output folder under `public/`. Renamed from `platform_logos`
+    # to `platforms` so the on-disk path matches the canonical
+    # noun the rest of the codebase uses.
+    OUTPUT_DIRNAME = "platforms".freeze
 
-    # The CDN is permissive on UA but we send a descriptive
-    # identifier for politeness + log-trail.
-    USER_AGENT = "Pito/0.1 platform-logos rake task (https://pitomd.com)"
+    # Source folder under the repo (`lib/support/platforms/`).
+    # Tests may override via `PITO_PLATFORM_LOGOS_SOURCE_DIR=...`
+    # so the rake task can run against a fixture folder without
+    # mutating the on-disk sources.
+    DEFAULT_SOURCE_DIR = Rails.root.join("lib", "support", "platforms").freeze
 
-    desc "Fetch best-available brand logos and resize to 16/64 PNG"
+    desc "Render local brand logos to 16/64 PNG (monochrome black + alpha)"
     task download: :environment do
-      target_dir = Rails.public_path.join("platform_logos")
+      target_dir = Rails.public_path.join(OUTPUT_DIRNAME)
       FileUtils.mkdir_p(target_dir)
 
-      tmp_root = Rails.root.join("tmp", "platform_logos_src")
-      FileUtils.mkdir_p(tmp_root)
+      source_dir = ENV["PITO_PLATFORM_LOGOS_SOURCE_DIR"].present? ?
+        Pathname.new(ENV["PITO_PLATFORM_LOGOS_SOURCE_DIR"]) :
+        DEFAULT_SOURCE_DIR
+
+      # Wipe-first cleanup: delete every existing file directly under
+      # `public/platforms/`, but ONLY if every source we are about to
+      # render is present. If any source is missing we keep the prior
+      # outputs untouched so a momentarily-absent source can't nuke a
+      # working asset set. The missing-source path will warn + [MISS]
+      # for the affected slug and re-render the rest in place.
+      all_sources_present = PLATFORM_LOGO_SOURCES.all? do |entry|
+        File.exist?(source_dir.join(entry[:filename]))
+      end
+
+      if all_sources_present
+        Dir.glob(target_dir.join("*")).each do |path|
+          File.delete(path) if File.file?(path)
+        end
+      end
 
       summary = []
 
       PLATFORM_LOGO_SOURCES.each do |entry|
         slug = entry[:slug]
-        result = try_fetch(slug, entry, tmp_root)
+        src_path = source_dir.join(entry[:filename])
 
-        if result.nil?
-          summary << "[MISS] #{slug.ljust(8)} no square source available; on-disk files left untouched"
+        unless File.exist?(src_path)
+          warn "[pito:platform_logos] WARN: #{slug} source missing " \
+               "at #{src_path}; skipping."
+          summary << "[MISS] #{slug.ljust(8)} source missing at #{entry[:filename]}; on-disk files left untouched"
           next
         end
-
-        src_path = result[:path]
-        provider = result[:provider]
-        src_bytes = result[:bytes]
-        src_ext = result[:ext]
-        src_dims = result[:dimensions]
-
-        # Wipe any prior 16/64 outputs for this slug so we never
-        # leave a stale variant if a future change drops a size.
-        Dir.glob(target_dir.join("#{slug}-*.png")).each { |f| File.delete(f) }
 
         out_sizes = {}
+        src_dims = nil
         begin
+          src_img = Vips::Image.new_from_file(src_path.to_s)
+          src_dims = "#{src_img.width}x#{src_img.height}"
+
+          # Compute the luminance-derived alpha ONCE per source so
+          # the silhouette is pixel-identical across all 4 outputs
+          # (2 sizes × 2 colors). The alpha mask is recolored — not
+          # re-derived — between variants.
+          alpha_full = derive_silhouette_alpha(src_path.to_s)
+
           PLATFORM_LOGO_SIZES.each do |size|
-            out_path = target_dir.join("#{slug}-#{size}.png")
-            ImageProcessing::Vips
-              .source(src_path)
-              .loader(svg_unlimited: true)
-              .resize_to_fit(size, size)
-              .convert("png")
-              .call(destination: out_path.to_s)
-            out_sizes[size] = File.size(out_path)
+            PLATFORM_LOGO_COLORS.each do |color|
+              out_path = target_dir.join("#{slug}-#{size}-#{color[:name]}.png")
+              render_solid_color_png(alpha_full, color[:rgb], out_path.to_s, size)
+              out_sizes["#{size}-#{color[:name]}"] = File.size(out_path)
+            end
           end
         rescue StandardError => e
-          warn "[pito:platform_logos] WARN: #{slug} resize raised " \
+          warn "[pito:platform_logos] WARN: #{slug} render raised " \
                "#{e.class}: #{e.message}; skipped."
-          summary << "[FAIL] #{slug.ljust(8)} source=#{provider} (#{format_bytes(src_bytes)} #{src_ext.upcase} #{src_dims}) -> resize failed"
+          summary << "[FAIL] #{slug.ljust(8)} source=#{entry[:filename]} -> render failed (#{e.class})"
           next
         end
 
-        # SQUARE-GUARD ASSERTION: post-resize, verify every output
-        # is exactly the requested size in BOTH dimensions. If vips
-        # ever drifts (loader bug, unexpected source shape), this
-        # turns a silent strip into a [FAIL] summary line.
+        # Post-render square-guard: every output must be exactly
+        # the requested size in BOTH dimensions. If libvips drifts,
+        # this turns a silent shape change into a [FAIL] line.
         post_resize_ok = PLATFORM_LOGO_SIZES.all? do |size|
-          out_path = target_dir.join("#{slug}-#{size}.png")
-          img = Vips::Image.new_from_file(out_path.to_s)
-          img.width == size && img.height == size
+          PLATFORM_LOGO_COLORS.all? do |color|
+            out_path = target_dir.join("#{slug}-#{size}-#{color[:name]}.png")
+            img = Vips::Image.new_from_file(out_path.to_s)
+            img.width == size && img.height == size
+          end
         end
         unless post_resize_ok
-          summary << "[FAIL] #{slug.ljust(8)} source=#{provider} (#{format_bytes(src_bytes)} #{src_ext.upcase} #{src_dims}) -> non-square output (square-guard tripped)"
+          summary << "[FAIL] #{slug.ljust(8)} source=#{entry[:filename]} (#{src_dims}) -> non-square output (square-guard tripped)"
           next
         end
 
-        summary << "[OK]   #{slug.ljust(8)} source=#{provider} " \
-                   "(#{format_bytes(src_bytes)} #{src_ext.upcase} #{src_dims}) " \
-                   "-> 64.png #{format_bytes(out_sizes[64])}, " \
-                   "16.png #{format_bytes(out_sizes[16])}"
+        size_summary = PLATFORM_LOGO_SIZES.flat_map { |s|
+          PLATFORM_LOGO_COLORS.map { |c| "#{s}-#{c[:name]}.png #{format_bytes(out_sizes["#{s}-#{c[:name]}"])}" }
+        }.join(", ")
+        summary << "[OK]   #{slug.ljust(8)} source=#{entry[:filename]} (#{src_dims}) -> #{size_summary}"
       end
 
       puts ""
@@ -200,115 +199,103 @@ namespace :pito do
       summary.each { |line| puts line }
     end
 
-    def try_fetch(slug, source, tmp_root)
-      url = source[:url]
-      provider = source[:provider]
-      response = fetch_logo(url)
+    # Two-stage pipeline:
+    #
+    #   1. `derive_silhouette_alpha(src_path)` — load source, run the
+    #      luminance + invert + boost pipeline ONCE, return a
+    #      source-resolution single-band uchar alpha mask. The mask is
+    #      pure silhouette: high values where the logo is, low values
+    #      where the background is.
+    #   2. `render_solid_color_png(alpha_full, rgb, out_path, size)` —
+    #      build a 3-band solid-color RGB image at the alpha mask's
+    #      resolution, bandjoin the alpha to get RGBA, resize to the
+    #      target square. The RGB triple is supplied per color variant
+    #      (`[0, 0, 0]` for black, `[255, 255, 255]` for white).
+    #
+    # Why split the pipeline: the silhouette is identical between the
+    # black and white variants of the same logo — only the fill color
+    # differs. Computing alpha once and reusing it across both variants
+    # keeps the antialiased edges pixel-identical and avoids redundant
+    # work.
+    #
+    # Why a fresh solid-color RGB instead of reusing source RGB: the
+    # output is guaranteed to be exactly the requested color on R/G/B
+    # because those bands are constructed from a constant image. There
+    # is no path for source color to leak through.
+    #
+    # Why NOT use the source's own alpha as the output alpha: real
+    # brand PNGs (the user's `lib/support/platforms/` files) ship with
+    # a filled disc-shaped alpha — the whole visible disc is opaque,
+    # not just the logo shape. Reusing that alpha would paint the
+    # entire disc the fill color. Luminance-derived alpha handles both
+    # filled and silhouette source masks the same way.
 
-      unless response.is_a?(Net::HTTPSuccess)
-        warn "[pito:platform_logos] WARN: #{slug} source=#{provider} " \
-             "returned HTTP #{response.code} for #{url}; skipping."
-        return nil
-      end
+    # Alpha-contrast multiplier applied to the inverted luminance.
+    # 2.0 lifts ps5 (raw max=226) and switch2 (raw max=150) past the
+    # opaque ceiling so their silhouettes read as solid, while steam
+    # (raw max=255) is unaffected by the clamp. See the v6 boost note
+    # for the per-platform numbers.
+    ALPHA_BOOST = 2.0
 
-      body = response.body.to_s
-      if body.bytesize < MIN_SOURCE_BYTES
-        warn "[pito:platform_logos] WARN: #{slug} source=#{provider} " \
-             "returned #{body.bytesize} bytes (< #{MIN_SOURCE_BYTES}); " \
-             "treating as failure; skipping."
-        return nil
-      end
+    # Derive a silhouette alpha mask from the source image. Returns a
+    # single-band uchar Vips::Image at the source's native resolution.
+    # Reusable across color variants.
+    def derive_silhouette_alpha(src_path)
+      src = Vips::Image.new_from_file(src_path)
+      src = src.colourspace(:srgb) unless src.interpretation == :srgb
 
-      ext = source_ext(url, response)
-      path = tmp_root.join("#{slug}-candidate.#{ext}")
-      File.binwrite(path, body)
+      # Flatten any existing alpha against white so transparent regions
+      # in the source map to a low luminance contribution AFTER the
+      # invert (i.e. transparent in source -> transparent in output).
+      src = src.flatten(background: [ 255, 255, 255 ]) if src.has_alpha?
 
-      dims = measure_dimensions(path, ext)
-      if dims.nil?
-        warn "[pito:platform_logos] WARN: #{slug} source=#{provider} " \
-             "could not determine source dimensions; skipping."
-        return nil
-      end
+      # Convert to single-band luminance. `:b_w` applies the standard
+      # sRGB -> luminance weighting (≈0.2126 R + 0.7152 G + 0.0722 B
+      # under libvips' default).
+      luminance = src.colourspace(:b_w)
 
-      width, height = dims
-      ratio = width.to_f / height
-      unless ratio.between?(SQUARE_RATIO_MIN, SQUARE_RATIO_MAX)
-        warn "[pito:platform_logos] WARN: #{slug} source=#{provider} " \
-             "rejected: source #{width}x#{height} (ratio #{ratio.round(2)}) " \
-             "fails square gate #{SQUARE_RATIO_MIN}..#{SQUARE_RATIO_MAX}; skipping."
-        return nil
-      end
+      # Take just the luminance band (b_w can leave the image multi-
+      # band depending on input). One-band guarantee makes the invert
+      # and bandjoin steps unambiguous.
+      luminance = luminance.extract_band(0) if luminance.bands > 1
 
-      {
-        path: path,
-        provider: provider,
-        bytes: body.bytesize,
-        ext: ext,
-        dimensions: "#{width}x#{height}"
-      }
-    rescue StandardError => e
-      warn "[pito:platform_logos] WARN: #{slug} source=#{provider} " \
-           "raised #{e.class}: #{e.message}; skipping."
-      nil
+      # Invert: 255 - pixel. Dark logo pixels become near-255 (opaque),
+      # white background becomes near-0 (transparent).
+      alpha_seed = luminance.invert
+
+      # Boost contrast: multiply then clamp to the 0..255 uchar range.
+      # `linear(boost, 0)` returns a float band; the `ifthenelse` clamps
+      # values above 255 down to 255 before casting back to :uchar.
+      boosted = alpha_seed.linear(ALPHA_BOOST, 0)
+      (boosted > 255).ifthenelse(255, boosted).cast(:uchar)
     end
 
-    # Return [width, height] for the candidate source file, or nil
-    # if we cannot determine dimensions. SVGs are parsed for the
-    # `viewBox` attribute first (the only dimension that reliably
-    # tracks the rendered aspect ratio across brand SVGs); legacy
-    # `width`/`height` attributes are the fallback. Raster images
-    # round-trip through `Vips::Image`.
-    def measure_dimensions(path, ext)
-      if ext == "svg"
-        measure_svg_dimensions(path)
-      else
-        img = Vips::Image.new_from_file(path.to_s)
-        [ img.width, img.height ]
-      end
-    rescue StandardError
-      nil
-    end
+    # Render a solid-color silhouette PNG by bandjoining the pre-
+    # computed alpha mask onto a freshly constructed RGB image of the
+    # requested color, then resizing to the target square.
+    def render_solid_color_png(alpha_full, rgb, out_path, size)
+      width  = alpha_full.width
+      height = alpha_full.height
 
-    def measure_svg_dimensions(path)
-      head = File.binread(path, 4096).to_s
-      viewbox_match = head.match(/viewBox\s*=\s*"([^"]+)"/i)
-      if viewbox_match
-        parts = viewbox_match[1].split(/[\s,]+/).map(&:to_f)
-        if parts.length == 4 && parts[2].positive? && parts[3].positive?
-          return [ parts[2], parts[3] ]
-        end
-      end
+      # Build the solid-color RGB image. Each band is a constant image
+      # equal to one channel of the requested color. Using
+      # `Vips::Image.black(...) + value` (via `linear(0, value)`) is
+      # the idiomatic libvips path for "constant-value image at these
+      # dims" — multiply input by 0, add the constant, cast back to
+      # :uchar so the result is a proper 8-bit band.
+      r_band = Vips::Image.black(width, height).linear(0, rgb[0]).cast(:uchar)
+      g_band = Vips::Image.black(width, height).linear(0, rgb[1]).cast(:uchar)
+      b_band = Vips::Image.black(width, height).linear(0, rgb[2]).cast(:uchar)
+      rgb_solid = r_band.bandjoin([ g_band, b_band ])
 
-      width_match = head.match(/\bwidth\s*=\s*"([0-9.]+)/i)
-      height_match = head.match(/\bheight\s*=\s*"([0-9.]+)/i)
-      if width_match && height_match
-        w = width_match[1].to_f
-        h = height_match[1].to_f
-        return [ w, h ] if w.positive? && h.positive?
-      end
+      # Combine solid-color RGB + computed alpha -> RGBA at source size.
+      colored_full = rgb_solid.bandjoin(alpha_full).copy(interpretation: :srgb)
 
-      nil
-    end
+      # Resize LAST so libvips' shrink kernel anti-aliases against the
+      # already-correct silhouette alpha mask.
+      colored = colored_full.thumbnail_image(size, height: size, size: :force)
 
-    # Guess the file extension from the URL (`.svg`, `.png`) or
-    # fall back to the response's Content-Type. simpleicons CDN
-    # returns SVG with `image/svg+xml`; the URL path has no
-    # extension (`/playstation/000000`) so the Content-Type branch
-    # is the load-bearing one for those. iconify URLs DO carry an
-    # `.svg` extension in the path (e.g. `mdi:nintendo-switch.svg`),
-    # so the URL branch lights up first.
-    def source_ext(url, response)
-      uri_ext = File.extname(URI.parse(url).path).delete_prefix(".").downcase
-      return uri_ext if %w[svg png jpg jpeg webp].include?(uri_ext)
-
-      ct = response["content-type"].to_s.split(";").first.to_s.strip
-      case ct
-      when "image/svg+xml" then "svg"
-      when "image/png"     then "png"
-      when "image/jpeg"    then "jpg"
-      when "image/webp"    then "webp"
-      else "bin"
-      end
+      colored.write_to_file(out_path, strip: true)
     end
 
     def format_bytes(bytes)
@@ -316,28 +303,6 @@ namespace :pito do
       return "#{bytes}B" if bytes < 1024
 
       "#{(bytes / 1024.0).round(1)}KB"
-    end
-
-    # Issue the GET via Net::HTTP. Follows up to 3 redirects (the
-    # CDNs occasionally 302 through a regional edge before serving
-    # the asset). Plain `Net::HTTP.get_response` does NOT follow
-    # redirects on its own.
-    def fetch_logo(url, redirects_remaining: 3)
-      uri = URI.parse(url)
-      response = Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https") do |http|
-        http.open_timeout = 5
-        http.read_timeout = 10
-        req = Net::HTTP::Get.new(uri.request_uri, "User-Agent" => USER_AGENT)
-        http.request(req)
-      end
-
-      if response.is_a?(Net::HTTPRedirection) && redirects_remaining.positive?
-        location = response["location"]
-        next_url = location.start_with?("http") ? location : URI.join(url, location).to_s
-        fetch_logo(next_url, redirects_remaining: redirects_remaining - 1)
-      else
-        response
-      end
     end
   end
 end

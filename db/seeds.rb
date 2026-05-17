@@ -311,12 +311,14 @@ end
 # rows match upstream.
 
 puts "seeding platforms..."
+# Phase 27 v2 spec 06 (2026-05-17 PC store collapse) — `gog` and `epic`
+# seeds were removed: GoG, Epic, and Steam now share the single `steam`
+# canonical row + Steam logo for the "PC" umbrella. `xbox` stays for
+# future console work but does not currently surface a chip or logo.
 [
   { slug: "ps5",      name: "PlayStation 5",     abbreviation: "PS5" },
   { slug: "switch2",  name: "Nintendo Switch 2", abbreviation: "Switch 2" },
   { slug: "steam",    name: "Steam",             abbreviation: "Steam" },
-  { slug: "gog",      name: "GOG",               abbreviation: "GOG" },
-  { slug: "epic",     name: "Epic Games Store",  abbreviation: "Epic" },
   { slug: "xbox",     name: "Xbox",              abbreviation: "Xbox" }
 ].each do |attrs|
   Platform.unscoped.find_or_create_by!(slug: attrs[:slug]) do |p|

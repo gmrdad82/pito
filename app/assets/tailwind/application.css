@@ -47,6 +47,16 @@
   --color-muted: #555555;
   --color-border: #dddddd;
   --color-input-border: #999999;
+  /* 2026-05-17 polish — game cover thumbnail border.
+     Deliberately opposite-tone to the page background so the cover art
+     reads as a framed thumbnail at every shelf size: dark hairline on
+     the light theme, light hairline on the dark theme (see the
+     `[data-theme="dark"]` block below). Distinct from `--color-border`
+     (a same-tone hairline used for tables / inputs / dividers) so the
+     two roles can drift independently. Applied via `.game-cover-img`,
+     `.tile-cover img`, and `.collection-cover-composite` further down
+     in this file. */
+  --color-cover-border: #1a1a1a;
   --color-success: #2e7d32;
   --color-fail: #cc0000;
   --color-flash-notice-bg: #eef4fb;
@@ -162,6 +172,10 @@
   --color-muted: #6272a4;
   --color-border: #44475a;
   --color-input-border: #6272a4;
+  /* Opposite-tone cover-thumbnail border on the dark theme — see the
+     `:root` block above for the rationale. Light hairline that frames
+     the artwork against the near-black page background. */
+  --color-cover-border: #aaaaaa;
   --color-success: #50fa7b;
   --color-fail: #ff5555;
   --color-flash-notice-bg: #282a36;
@@ -2503,6 +2517,30 @@ dialog.wide-modal::backdrop {
   justify-content: center;
 }
 
+/* 2026-05-17 polish — 1 px hairline border around every game cover
+   thumbnail rendered on `/games` (and anywhere else the cover surfaces
+   are reused). Tone is opposite to the active theme so the artwork
+   reads as a framed thumbnail at every shelf size:
+
+     light theme → dark hairline (`#1a1a1a`)
+     dark theme  → light hairline (`#aaaaaa`)
+
+   Selectors:
+     `.game-cover-img`             — IMG inside `Games::CoverComponent`
+                                     (genre shelves, collection-shelf
+                                     game tiles, fallback SVGs).
+     `.tile-cover img`             — IMG inside the rich-tile shape
+                                     (`games/_tile.html.erb` for the
+                                     letter shelves + recently-played
+                                     shelf; `bundles/_tile.html.erb`).
+     `.collection-cover-composite` — leading composite cover tile in
+                                     the collections shelf row. */
+.game-cover-img,
+.tile-cover img,
+.collection-cover-composite {
+  border: 1px solid var(--color-cover-border);
+}
+
 /* Missing-cover fallback SVGs. Two `<img>` tags are emitted per
    missing cover (light + dark theme variants); the visible one is
    toggled here via `[data-theme]` on `<html>`. The default tree
@@ -2513,6 +2551,19 @@ dialog.wide-modal::backdrop {
 .game-cover-fallback--dark { display: none; }
 [data-theme="dark"] .game-cover-fallback--light { display: none; }
 [data-theme="dark"] .game-cover-fallback--dark { display: block; }
+
+/* Platform logos — theme-scoped visibility for the two color
+   variants downloaded by `pito:platform_logos:download`. When the
+   helper renders `color: :auto` (the default) it emits BOTH a
+   `.platform-logo--black` and a `.platform-logo--white` `<img>`
+   inside a `.platform-logo-pair` wrapper; this block hides the
+   off-theme one. Default tree shows the black variant (light
+   theme); the `[data-theme="dark"]` scope swaps to the white
+   variant. The pair wrapper carries the sized footprint so layout
+   stays stable when one img is hidden. */
+.platform-logo-pair .platform-logo--white { display: none; }
+[data-theme="dark"] .platform-logo-pair .platform-logo--black { display: none; }
+[data-theme="dark"] .platform-logo-pair .platform-logo--white { display: inline-block; }
 
 /* Phase 27 §01d follow-up — shelves-by-letter row clamp.
    Each per-letter shelf is rendered through the shared `games/shelf`

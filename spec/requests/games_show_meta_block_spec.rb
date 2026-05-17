@@ -121,9 +121,12 @@ RSpec.describe "Games show meta block + label treatment", type: :request do
       game.platforms_available << platform
     end
 
-    it "wraps `genres:` in `<span class=\"text-muted\">`" do
+    # Phase 27 v2 spec 01 — multi-genre `genres:` collapsed to a
+    # singular `genre:` label backed by `Game#primary_genre`. The
+    # paragraph still wraps the label in `<span class="text-muted">`.
+    it "wraps `genre:` in `<span class=\"text-muted\">`" do
       get game_path(game)
-      expect(response.body).to match(/<span class="text-muted">genres:<\/span>\s*Adventure/)
+      expect(response.body).to match(/<span class="text-muted">genre:<\/span>\s*Adventure/)
     end
 
     it "wraps `platforms:` in `<span class=\"text-muted\">`" do
@@ -134,25 +137,28 @@ RSpec.describe "Games show meta block + label treatment", type: :request do
     it "matches the time-to-beat / ratings table label treatment (text-muted)" do
       get game_path(game)
       # Time-to-beat labels live inside `<td class="text-muted">`. The
-      # genres/platforms inline labels use the same `text-muted` token,
+      # genre/platforms inline labels use the same `text-muted` token,
       # confirming the visual treatment matches across both surfaces.
       expect(response.body).to include('<td class="text-muted"')
-      expect(response.body).to include('<span class="text-muted">genres:')
+      expect(response.body).to include('<span class="text-muted">genre:')
       expect(response.body).to include('<span class="text-muted">platforms:')
     end
 
-    it "renders `—` placeholder when no genres are linked" do
+    it "renders `—` placeholder when no primary genre is set" do
+      game.update_column(:primary_genre_id, nil)
       game.genres.destroy_all
       get game_path(game)
-      expect(response.body).to match(/<span class="text-muted">genres:<\/span>\s*—/)
+      expect(response.body).to match(/<span class="text-muted">genre:<\/span>\s*—/)
     end
 
     it "renders `—` placeholder when no platforms are linked" do
       game.platforms_available.destroy_all
-      # The canonical-display helper also surfaces Steam/GoG/Epic from
-      # the external_* IDs, so clear `external_steam_app_id` (the
-      # `:synced` trait stamps one) for this `—` assertion.
-      game.update_columns(external_steam_app_id: nil, external_gog_id: nil, external_epic_id: nil)
+      # The canonical-display helper also surfaces Steam from the
+      # external_steam_app_id, so clear it (the `:synced` trait stamps
+      # one) for this `—` assertion. The `external_gog_id` /
+      # `external_epic_id` columns were retired in the 2026-05-17 PC
+      # store collapse — only `external_steam_app_id` survives.
+      game.update_columns(external_steam_app_id: nil)
       get game_path(game)
       expect(response.body).to match(/<span class="text-muted">platforms:<\/span>\s*—/)
     end
@@ -160,18 +166,19 @@ RSpec.describe "Games show meta block + label treatment", type: :request do
 
   # Phase 27 follow-up (2026-05-11) — canonical short-name display.
   # The show page renders the project's locked short labels (PS5,
-  # Switch2, Steam, GoG, Epic, Xbox), NOT the verbose IGDB names
-  # ("PlayStation 5", "Xbox Series X|S", etc.).
+  # Switch2, Steam, Xbox), NOT the verbose IGDB names ("PlayStation 5",
+  # "Xbox Series X|S", etc.). Phase 27 v2 spec 06 (2026-05-17) PC store
+  # collapse — `GoG` + `Epic` labels were retired; the three PC stores
+  # converge on `Steam`.
   describe "canonical platform short-names on the show page" do
     # The `:synced` factory trait stamps `external_steam_app_id`, which
-    # the canonical-display helper surfaces as "Steam". The tests
-    # below clear all external_* IDs so the platform label tracks ONLY
+    # the canonical-display helper surfaces as "Steam". The tests below
+    # clear `external_steam_app_id` so the platform label tracks ONLY
     # what the test exercises (canonical Platform row mapping). The
-    # final "full canonical set" test re-stamps the external IDs
-    # explicitly.
+    # final "full canonical set" test re-stamps it explicitly.
     let!(:game) do
       g = create(:game, :synced, title: "Canonical Test")
-      g.update_columns(external_steam_app_id: nil, external_gog_id: nil, external_epic_id: nil)
+      g.update_columns(external_steam_app_id: nil)
       g
     end
 
@@ -228,14 +235,14 @@ RSpec.describe "Games show meta block + label treatment", type: :request do
       game.platforms_available << ps5
       game.platforms_available << sw2
       game.platforms_available << xbox
-      game.update!(
-        external_steam_app_id: "1",
-        external_gog_id:       "2",
-        external_epic_id:      "3"
-      )
+      # Phase 27 v2 spec 06 (2026-05-17 PC store collapse) — GoG and
+      # Epic were retired; the three PC stores converge on Steam. Only
+      # `external_steam_app_id` survives; `external_gog_id` /
+      # `external_epic_id` are gone.
+      game.update!(external_steam_app_id: "1")
       get game_path(game)
       meta = response.body[/platforms:<\/span>\s*([^<]+)/, 1].to_s.strip
-      expect(meta).to eq("PS5, Switch2, Steam, GoG, Epic, Xbox")
+      expect(meta).to eq("PS5, Switch2, Steam, Xbox")
     end
   end
 end

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_16_232156) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_17_024223) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -435,8 +435,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_16_232156) do
     t.bigint "collection_id"
     t.string "cover_image_id"
     t.datetime "created_at", null: false
-    t.string "external_epic_id"
-    t.string "external_gog_id"
     t.string "external_steam_app_id"
     t.integer "hours_of_footage_cached"
     t.integer "hours_of_footage_manual"

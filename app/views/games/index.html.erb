@@ -18,6 +18,12 @@
       10. Letter shelves (one shelf per non-empty letter A..Z, then
           `#` bucket at the end if non-empty).
 
+    Phase 27 v2 spec 06 — the listing partition (shelves 3–10 above)
+    is wrapped in `<turbo-frame id="games_listing">` so the
+    `games-filter` Stimulus controller can re-fetch the frame on
+    chip toggle without re-rendering the filter row itself or
+    triggering a full page navigation.
+
     Each shelf carries the `steam-shelf` Stimulus controller for
     drag-scroll + mouse-wheel-to-horizontal scroll, with the project's
     themed slim scrollbar (6 px on both axes — see the global
@@ -30,7 +36,21 @@
     anywhere via the `i` keypress. %>
 <% content_for(:title, "games") %>
 
-<div style="max-width: 1100px;">
+<%# 2026-05-17 polish (revised) — `/games` shares one horizontal column
+    with the rest of the page. The chrome wrapper (`<main>`) in
+    `application.html.erb` already carries the canonical 12 px
+    horizontal padding; this view does NOT introduce its own
+    `max-width` clamp or viewport break-out. Title row, filter row,
+    and shelves Turbo Frame all sit inside the same content container
+    so their left and right edges line up with the navbar nav links
+    (and the footer copy) — i.e. 12 px from each viewport edge.
+
+    The previous `max-width: 1100px` wrapper around the title + filter
+    band, plus the `.games-shelves-fullwidth` viewport break-out
+    around the shelves frame, were removed in favor of this single
+    aligned column. Per-shelf horizontal scroll on overflow is
+    unchanged — each `.shelf` row keeps its own `overflow-x: auto`. %>
+<div>
   <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;">
     <div class="dot-list">
       <h1>games</h1>
@@ -46,61 +66,70 @@
     </div>
   </div>
 
-  <%# Phase 27 §01b — filter row sits directly under the page title and
-      above every shelf. Chip clicks toggle tokens in the `?filters=`
-      CSV URL param; `[clear all]` clears the set while preserving
-      `?genre=` / `?collection=` overrides. v2 spec 05 dropped the
-      `?display=` query-string passthrough — the display-mode switcher
-      retired with the per-mode partials. %>
+  <%# Phase 27 v2 spec 06 — single compact filter band. All chips
+      default to CHECKED; URL `/games` (no `?filters=`) means "full
+      list". The Stimulus controller mounted on the row itself manages
+      chip toggles, the cascade, and the Turbo Frame refresh. The
+      row stays OUTSIDE the `games_listing` frame so it does not
+      re-render per chip click. The row uses `justify-content:
+      space-between` internally so the left (status + ownership) chip
+      group sits flush against the content container's left edge and
+      the right (platform) chip group sits flush against its right
+      edge — aligning with the navbar / footer chrome. %>
   <%= render Games::FilterRowComponent.new(
-        active_tokens:          @filter_tokens,
-        dropped_tokens:         @dropped_filter_tokens,
-        request_path:           games_path,
-        query_string_overrides: { genre:      params[:genre],
-                                  collection: params[:collection] }.compact_blank,
-        contradiction:          @filter_contradiction
+        checked_tokens:         @checked_tokens,
+        request_path:           games_path
       ) %>
 
-  <% has_any_content = @bundles_shelf.any? || @recently_played.any? ||
-                       @genres_for_shelf.any? || @collections_for_shelf.any? ||
-                       @letter_buckets.any? %>
+  <%# Phase 27 v2 spec 06 — Turbo Frame wraps the listing partition.
+      Filter chip clicks point the frame at the new URL via Stimulus;
+      the frame fetches and morphs in the new contents without a full
+      navigation. The frame id (`games_listing`) is declared in the
+      FilterRowComponent's `data-games-filter-frame-id-value` for the
+      controller to target — frame lookup is by id, so the frame may
+      live anywhere in the document as long as the id is unique. %>
+  <%= turbo_frame_tag "games_listing" do %>
+    <% has_any_content = @bundles_shelf.any? || @recently_played.any? ||
+                         @genres_for_shelf.any? || @collections_for_shelf.any? ||
+                         @letter_buckets.any? %>
 
-  <% if has_any_content %>
-    <% if @bundles_shelf.any? %>
-      <%= render "games/shelf",
-                 title: "bundles",
-                 collection: @bundles_shelf,
-                 tile_partial: "bundles/tile",
-                 more_link: bundles_path %>
-    <% end %>
+    <% if has_any_content %>
+      <% if @bundles_shelf.any? %>
+        <%= render "games/shelf",
+                   title: "bundles",
+                   collection: @bundles_shelf,
+                   tile_partial: "bundles/tile",
+                   more_link: bundles_path %>
+      <% end %>
 
-    <% if @recently_played.any? %>
-      <%= render "games/shelf",
-                 title: "recently played",
-                 collection: @recently_played,
-                 tile_partial: "games/tile" %>
-    <% end %>
+      <% if @recently_played.any? %>
+        <%= render "games/shelf",
+                   title: "recently played",
+                   collection: @recently_played,
+                   tile_partial: "games/tile" %>
+      <% end %>
 
-    <%# Phase 27 §01c-v2 — Genres outer shelf. One sub-shelf per non-
-        empty genre, alphabetical. Empty buckets hidden. %>
-    <% if @genres_for_shelf.any? %>
-      <hr class="hairline">
-      <%= render "games/genres_shelf", genres: @genres_for_shelf %>
-    <% end %>
+      <%# Phase 27 §01c-v2 — Genres outer shelf. One sub-shelf per non-
+          empty genre, alphabetical. Empty buckets hidden. %>
+      <% if @genres_for_shelf.any? %>
+        <hr class="hairline">
+        <%= render "games/genres_shelf", genres: @genres_for_shelf %>
+      <% end %>
 
-    <%# Collections outer shelf — one tile per non-empty collection. %>
-    <% if @collections_for_shelf.any? %>
-      <hr class="hairline">
-      <%= render "games/collections_shelf", collections: @collections_for_shelf %>
-    <% end %>
+      <%# Collections outer shelf — one tile per non-empty collection. %>
+      <% if @collections_for_shelf.any? %>
+        <hr class="hairline">
+        <%= render "games/collections_shelf", collections: @collections_for_shelf %>
+      <% end %>
 
-    <%# Phase 27 v2 spec 05 — Letter shelves. One `<section>` per non-
-        empty letter; `#` bucket renders LAST when present. %>
-    <% if @letter_buckets.any? %>
-      <hr class="hairline">
-      <%= render "games/letter_shelves", buckets: @letter_buckets %>
+      <%# Phase 27 v2 spec 05 — Letter shelves. One `<section>` per non-
+          empty letter; `#` bucket renders LAST when present. %>
+      <% if @letter_buckets.any? %>
+        <hr class="hairline">
+        <%= render "games/letter_shelves", buckets: @letter_buckets %>
+      <% end %>
+    <% else %>
+      <p class="text-muted">no games yet. press <span class="keycap">i</span> or click [+] to add one from igdb.</p>
     <% end %>
-  <% else %>
-    <p class="text-muted">no games yet. press <span class="keycap">i</span> or click [+] to add one from igdb.</p>
   <% end %>
 </div>

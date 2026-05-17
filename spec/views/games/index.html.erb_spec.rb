@@ -16,9 +16,9 @@ RSpec.describe "games/index.html.erb", type: :view do
     assign(:genres_for_shelf, Genre.none)
     assign(:collections_for_shelf, Collection.none)
     assign(:genres_shelf_batch, Games::GenreShelfBatch.new(genres: Genre.none))
-    assign(:filter_tokens, [])
-    assign(:dropped_filter_tokens, [])
-    assign(:filter_contradiction, false)
+    # Phase 27 v2 spec 06 — view reads `@checked_tokens` (the set of
+    # CHECKED chips). Nil means "every chip checked" (full list).
+    assign(:checked_tokens, Games::FiltersHelper::TOKEN_UNIVERSE)
     assign(:letter_buckets, [])
   end
 
@@ -39,6 +39,20 @@ RSpec.describe "games/index.html.erb", type: :view do
       expect(rendered).to include('class="games-filter-row')
     end
 
+    it "wraps the listing partition in a turbo-frame#games_listing (Phase 27 v2 spec 06)" do
+      render
+      expect(rendered).to match(%r{<turbo-frame[^>]+id="games_listing"})
+    end
+
+    it "renders the filter row OUTSIDE the games_listing frame (Phase 27 v2 spec 06)" do
+      render
+      filter_idx = rendered.index('class="games-filter-row')
+      frame_idx  = rendered.index('id="games_listing"')
+      expect(filter_idx).not_to be_nil
+      expect(frame_idx).not_to be_nil
+      expect(filter_idx).to be < frame_idx
+    end
+
     it "does NOT render any letter shelves wrapper" do
       render
       expect(rendered).not_to include('class="all-games-shelves-by-letter')
@@ -52,6 +66,49 @@ RSpec.describe "games/index.html.erb", type: :view do
     it "does NOT render the genres outer shelf when no genres own games" do
       render
       expect(rendered).not_to include('data-shelf="outer-genres"')
+    end
+
+    # 2026-05-17 layout-alignment regression — the title + filter band
+    # used to sit inside a `max-width: 1100px` wrapper while the
+    # shelves frame broke out via `.games-shelves-fullwidth`. The
+    # corrected layout drops BOTH so every row aligns with the
+    # layout's chrome (`<main style="padding: 16px 12px 8px 12px;">`
+    # in `application.html.erb`).
+    it "does NOT clamp the title + filter band with a max-width: 1100px wrapper" do
+      render
+      expect(rendered).not_to include("max-width: 1100px")
+    end
+
+    it "does NOT wrap the shelves frame in a viewport-breakout container" do
+      render
+      expect(rendered).not_to include("games-shelves-fullwidth")
+    end
+
+    it "places the filter row INSIDE the same wrapper as the title and the shelves frame" do
+      render
+      title_pos  = rendered.index("<h1>games</h1>")
+      filter_pos = rendered.index('class="games-filter-row')
+      frame_pos  = rendered.index('id="games_listing"')
+      expect(title_pos).not_to be_nil
+      expect(filter_pos).not_to be_nil
+      expect(frame_pos).not_to be_nil
+      # All three live inside the same outer `<div>` opened just after
+      # the `content_for(:title, …)` call.
+      expect(title_pos).to be < filter_pos
+      expect(filter_pos).to be < frame_pos
+    end
+
+    it "renders the filter row with justify-content: space-between for chrome-aligned chip groups" do
+      render
+      expect(rendered).to include("justify-content: space-between")
+    end
+
+    it "does NOT push the right platform-chip group with margin-left: auto (superseded by space-between)" do
+      render
+      # The right-side `<div>` no longer carries `margin-left: auto`.
+      # The parent flex container's `justify-content: space-between`
+      # owns the layout instead.
+      expect(rendered).not_to match(/class="games-filter-row__right"[^>]*margin-left:\s*auto/)
     end
   end
 

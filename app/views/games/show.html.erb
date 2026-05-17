@@ -154,47 +154,39 @@
       <span class="text-muted">platforms:</span> <%= display_platforms(@game) %>
     </p>
 
-    <%# Phase 27 v2 spec 07 — platform logo row. Renders 0..5
+    <%# Phase 27 v2 spec 07 — platform logo row. Renders 0..3
         56-px favicons from the Rake-downloaded asset set, in the
-        locked PS5 / Switch2 / Steam / GoG / Epic order. Empty list
-        renders nothing — no placeholder block. %>
+        locked PS5 / Switch2 / Steam order (GoG + Epic collapsed
+        into Steam per the 2026-05-17 PC store collapse). Empty list
+        renders nothing — no placeholder block.
+
+        v7 (theme-aware) — uses `platform_logo_tag` with `color: :auto`
+        (default) so the helper emits both black + white variants and
+        CSS picks the visible one off `<html data-theme>`. The 64-px
+        asset is downloaded; the helper renders at 56 px via
+        `display_size:` to keep high-DPI displays crisp. %>
     <% detail_logo_slugs = game_detail_logo_slugs(@game) %>
     <% if detail_logo_slugs.any? %>
       <div class="game-detail-platform-logos"
            style="display: flex; flex-direction: row; gap: 8px; align-items: center; margin: 8px 0 0 0;">
         <% detail_logo_slugs.each do |slug| %>
-          <%# Rake downloads at 64 px; rendered at 56 px (detail-side
-              LOCKED). The 8-px scale-down keeps high-DPI displays
-              crisp. %>
-          <%= image_tag "/platform_logos/#{slug}-64.png",
-                        alt: PlatformLogosHelper::LOGO_ALT_LABELS.fetch(slug),
-                        width: 56, height: 56,
-                        class: "platform-logo platform-logo--#{slug}",
-                        style: "width: 56px; height: 56px;" %>
+          <%= platform_logo_tag(slug, size: 64, display_size: 56) %>
         <% end %>
       </div>
     <% end %>
 
     <%# External store links. `[open on igdb]` was retired per spec —
-        only the platform-store links remain. 2026-05-16 polish — the
-        component auto-detects external hrefs and applies
-        `target="_blank" rel="noopener noreferrer"`; callers drop the
-        explicit attrs. %>
-    <% if @game.external_steam_app_id.present? || @game.external_gog_id.present? || @game.external_epic_id.present? %>
+        only the Steam store link remains (GoG + Epic collapsed into
+        Steam per the 2026-05-17 PC store collapse; the IGDB GoG /
+        Epic external ids are no longer mapped onto local columns).
+        2026-05-16 polish — the component auto-detects external hrefs
+        and applies `target="_blank" rel="noopener noreferrer"`;
+        callers drop the explicit attrs. %>
+    <% if @game.external_steam_app_id.present? %>
       <h2 style="margin-top: 16px;">stores</h2>
       <div class="dot-list">
-        <% if @game.external_steam_app_id.present? %>
-          <%= render(BracketedLinkComponent.new(label: "steam",
-                                                href: "https://store.steampowered.com/app/#{@game.external_steam_app_id}/")) %>
-        <% end %>
-        <% if @game.external_gog_id.present? %>
-          <%= render(BracketedLinkComponent.new(label: "gog",
-                                                href: "https://www.gog.com/game/#{@game.external_gog_id}")) %>
-        <% end %>
-        <% if @game.external_epic_id.present? %>
-          <%= render(BracketedLinkComponent.new(label: "epic",
-                                                href: "https://store.epicgames.com/p/#{@game.external_epic_id}")) %>
-        <% end %>
+        <%= render(BracketedLinkComponent.new(label: "steam",
+                                              href: "https://store.steampowered.com/app/#{@game.external_steam_app_id}/")) %>
       </div>
     <% end %>
 

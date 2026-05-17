@@ -124,23 +124,25 @@ RSpec.describe Platform, type: :model do
     end
 
     before do
+      # Phase 27 v2 spec 06 (2026-05-17 PC store collapse) — `gog` +
+      # `epic` were retired from the canonical set (PC stores collapse
+      # into Steam). The canonical set is now four: PS5, Switch2,
+      # Steam, Xbox.
       Platform.unscoped.delete_all
       force_slug(create(:platform, name: "PlayStation 5"),    "ps5")
       force_slug(create(:platform, name: "Nintendo Switch 2"), "switch2")
       force_slug(create(:platform, name: "Steam"),            "steam")
-      force_slug(create(:platform, name: "GOG"),              "gog")
-      force_slug(create(:platform, name: "Epic Games Store"), "epic")
       force_slug(create(:platform, name: "Xbox"),             "xbox")
       force_slug(create(:platform, name: "PlayStation 4"),    "ps4-non-canonical")
     end
 
-    it "returns only the six canonical platforms" do
+    it "returns only the four canonical platforms" do
       slugs = Platform.canonical.pluck(:slug)
-      expect(slugs).to contain_exactly("ps5", "switch2", "steam", "gog", "epic", "xbox")
+      expect(slugs).to contain_exactly("ps5", "switch2", "steam", "xbox")
     end
 
-    it "excludes non-canonical platforms" do
-      expect(Platform.canonical.pluck(:slug)).not_to include("ps4-non-canonical")
+    it "excludes non-canonical platforms (including the retired gog / epic slugs)" do
+      expect(Platform.canonical.pluck(:slug)).not_to include("ps4-non-canonical", "gog", "epic")
     end
   end
 
@@ -155,9 +157,14 @@ RSpec.describe Platform, type: :model do
       expect(sw2.canonical_short_name).to eq("Switch2")
     end
 
-    it "maps the `gog` slug to 'GoG' (mixed case)" do
+    it "returns nil for the retired `gog` slug (collapsed into Steam 2026-05-17)" do
       gog = build_stubbed(:platform, name: "GOG", slug: "gog", igdb_id: nil)
-      expect(gog.canonical_short_name).to eq("GoG")
+      expect(gog.canonical_short_name).to be_nil
+    end
+
+    it "returns nil for the retired `epic` slug (collapsed into Steam 2026-05-17)" do
+      epic = build_stubbed(:platform, name: "Epic Games Store", slug: "epic", igdb_id: nil)
+      expect(epic.canonical_short_name).to be_nil
     end
 
     it "maps IGDB-imported Xbox One (id=49) to 'Xbox'" do
@@ -190,6 +197,47 @@ RSpec.describe Platform, type: :model do
       ps4 = build_stubbed(:platform, slug: "ps4-x", igdb_id: 48)
       expect(ps5.canonical?).to be(true)
       expect(ps4.canonical?).to be(false)
+    end
+  end
+
+  # Phase 27 v2 spec 06 — IGDB canonical name → display label map.
+  # Powers the filter-row chips (Switch2 no space), the detail-page
+  # platform list, and the platform-logo `alt` text.
+  describe "PLATFORM_LABELS + .display_label" do
+    it "maps `Nintendo Switch 2` to `Switch2` (no space)" do
+      expect(Platform.display_label("Nintendo Switch 2")).to eq("Switch2")
+    end
+
+    it "maps `PlayStation 5` to `PS5`" do
+      expect(Platform.display_label("PlayStation 5")).to eq("PS5")
+    end
+
+    # Phase 27 v2 spec 06 (2026-05-17 PC store collapse) — `GOG` and
+    # `Epic Games Store` are no longer in PLATFORM_LABELS; they pass
+    # through verbatim now (callers route any IGDB GoG / Epic surface
+    # through the Steam umbrella via `external_steam_app_id` instead).
+    it "passes `GOG` through verbatim (retired from PLATFORM_LABELS)" do
+      expect(Platform.display_label("GOG")).to eq("GOG")
+    end
+
+    it "passes `Epic Games Store` through verbatim (retired from PLATFORM_LABELS)" do
+      expect(Platform.display_label("Epic Games Store")).to eq("Epic Games Store")
+    end
+
+    it "passes `Steam` through verbatim" do
+      expect(Platform.display_label("Steam")).to eq("Steam")
+    end
+
+    it "passes an unknown IGDB name through verbatim" do
+      expect(Platform.display_label("PlayStation 4")).to eq("PlayStation 4")
+    end
+
+    it "returns the empty string for a nil input" do
+      expect(Platform.display_label(nil)).to eq("")
+    end
+
+    it "PLATFORM_LABELS is frozen" do
+      expect(Platform::PLATFORM_LABELS).to be_frozen
     end
   end
 

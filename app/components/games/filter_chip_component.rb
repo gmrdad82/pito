@@ -1,56 +1,91 @@
-# Phase 27 §01b — Filter row chip (checkbox-style, 2026-05-11).
+# Phase 27 v2 spec 06 — Filter row chip (checkbox-style).
 #
-# Renders a single bracketed-checkbox link (`[ ] label` unchecked /
-# `[x] label` checked) whose href toggles `token` in or out of the
-# comma-separated `?filters=` URL param. Active chips carry the
-# `chip--active` modifier (no red — red is reserved for destructive
-# actions). The component emits a single `<a>` element; no buttons,
-# no forms, no JS. Same visual shape as the root `FilterChipComponent`
-# used on the notifications inbox.
+# Rewritten from the 01b "click toggles a token in/out of `?filters=`"
+# contract to the v2 "click toggles CHECKED state via Stimulus" contract.
+# The chip still renders as a bracketed `[ ] label` / `[x] label` link;
+# the difference is:
 #
-# On-screen label boundary: `not_owned` → `not owned` (space); all
-# other canonical tokens render verbatim.
-module Games
-  class FilterChipComponent < ViewComponent::Base
-    include Games::FiltersHelper
+#   - `href` now points at the canonical URL for the post-toggle state,
+#     so JS-off users still navigate to the right URL (the listing
+#     re-renders via a full request — accepted JS-off fallback).
+#   - With JS on, the `games-filter` Stimulus controller intercepts the
+#     click, flips the chip's checked state, applies the `played` →
+#     `released + owned + at-least-one-platform` cascade when the
+#     clicked chip is `played` AND checking it, mutates the URL via
+#     `history.replaceState`, and refreshes the Turbo Frame.
+#   - The `data-implied` attribute carries the cascade target tokens
+#     (only `played` populates it).
+class Games::FilterChipComponent < ViewComponent::Base
+  include Games::FiltersHelper
 
-    def initialize(token:, active:, request_path:, active_tokens:, query_string_overrides: {})
-      unless Games::Filter::CANONICAL_TOKENS.include?(token)
-        raise ArgumentError, "FilterChipComponent token must be canonical: got #{token.inspect}"
+  # Cascade implications: which tokens auto-check when this chip is
+  # checked. Only `played` has an implication list per the v2 spec
+  # (a played game is, by definition, released + owned; the Stimulus
+  # side also force-checks every platform chip when zero are checked
+  # — that branch is decided in JS, not declared here, to keep the
+  # data attribute simple and stable).
+  IMPLICATIONS = {
+    "played" => %w[released owned]
+  }.freeze
+
+  def initialize(token:, checked:, checked_tokens:, request_path: "/games")
+    unless TOKEN_UNIVERSE.include?(token.to_s)
+      raise ArgumentError,
+            "FilterChipComponent token must be canonical: got #{token.inspect}"
+    end
+    raise ArgumentError, "FilterChipComponent request_path must be present" if request_path.to_s.empty?
+
+    @token          = token.to_s
+    @checked        = checked ? true : false
+    @checked_tokens = Array(checked_tokens).map(&:to_s)
+    @request_path   = request_path
+  end
+
+  attr_reader :token, :checked_tokens, :request_path
+
+  def checked?
+    @checked
+  end
+
+  def label
+    chip_label(token)
+  end
+
+  # The href reflects the post-toggle URL so JS-off users get the
+  # right page on click. When this chip is currently CHECKED, toggling
+  # removes it from the set; when UNCHECKED, toggling adds it.
+  # Cascade implications are NOT baked into the href (the Stimulus
+  # controller is the only place the cascade fires; JS-off users get
+  # the literal chip flip, which is the v2 spec's accepted fallback).
+  def href
+    next_tokens =
+      if checked?
+        checked_tokens - [ token ]
+      else
+        (checked_tokens + [ token ]).uniq
       end
-      raise ArgumentError, "FilterChipComponent request_path must be present" if request_path.to_s.empty?
+    games_path_with_checked(next_tokens, path: request_path)
+  end
 
-      @token                  = token
-      @active                 = active
-      @request_path           = request_path
-      @active_tokens          = Array(active_tokens)
-      @query_string_overrides = (query_string_overrides || {}).to_h
+  def css_classes
+    classes = [ "filter-chip" ]
+    classes << "chip--active" if checked?
+    classes.join(" ")
+  end
+
+  # Stimulus data attributes. The controller reads `data-filter-token`
+  # to know which chip flipped; `data-implied` carries the cascade
+  # target tokens (only `played` populates it; absent for every other
+  # chip).
+  def data_attributes
+    attrs = {
+      filter_token:         token,
+      games_filter_target:  "chip",
+      action:               "click->games-filter#toggle"
+    }
+    if IMPLICATIONS[token]
+      attrs[:implied] = IMPLICATIONS[token].join(",")
     end
-
-    attr_reader :token, :request_path, :active_tokens, :query_string_overrides
-
-    def active?
-      @active ? true : false
-    end
-
-    def label
-      chip_label(token)
-    end
-
-    # Builds the chip href. If the toggled-into set is empty, `filters`
-    # is omitted entirely (no trailing `?filters=` dangle).
-    def href
-      next_tokens = toggle_filter(active_tokens, token)
-      params = query_string_overrides.dup
-      params[:filters] = next_tokens.join(",") if next_tokens.any?
-      query = params.to_query
-      query.empty? ? request_path : "#{request_path}?#{query}"
-    end
-
-    def css_classes
-      classes = [ "filter-chip" ]
-      classes << "chip--active" if active?
-      classes.join(" ")
-    end
+    attrs
   end
 end

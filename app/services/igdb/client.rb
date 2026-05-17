@@ -48,11 +48,11 @@ module Igdb
     READ_TIMEOUT_SEC  = 10
     WRITE_TIMEOUT_SEC = 5
 
-    # Steam = 1, GOG = 5, Epic Games Store = 26 per IGDB
-    # external-game enum docs (https://api-docs.igdb.com).
+    # Steam = 1 per IGDB external-game enum docs
+    # (https://api-docs.igdb.com). GOG (5) and Epic (26) were dropped
+    # in the Phase 27 v2 spec 06 PC store collapse (2026-05-17) — the
+    # mapper no longer routes them onto local columns.
     EXTERNAL_GAME_CATEGORY_STEAM = 1
-    EXTERNAL_GAME_CATEGORY_GOG   = 5
-    EXTERNAL_GAME_CATEGORY_EPIC  = 26
 
     # Phase 14 §1 polish (2026-05-10) — IGDB `Game.category` enum.
     # Values lifted from the IGDB v4 schema:

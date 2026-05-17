@@ -4,11 +4,15 @@ require "rails_helper"
 #
 # Locks the IGDB → canonical short-name mapping rendered on the game
 # show page (and anywhere else PlatformsHelper#display_platforms is
-# called). The six canonical short names are:
+# called).
 #
-#   PS5, Switch2, Steam, GoG, Epic, Xbox
+# Phase 27 v2 spec 06 (2026-05-17 PC store collapse) — `GoG` + `Epic`
+# were retired; the three PC stores converge on `Steam`. The four
+# canonical short names are now:
 #
-# Anything outside the canonical six is DROPPED from the display.
+#   PS5, Switch2, Steam, Xbox
+#
+# Anything outside the canonical four is DROPPED from the display.
 RSpec.describe PlatformsHelper, type: :helper do
   let(:game) { create(:game) }
 
@@ -82,15 +86,9 @@ RSpec.describe PlatformsHelper, type: :helper do
       expect(helper.display_platforms(game)).to eq("Steam")
     end
 
-    it "infers 'GoG' from external_gog_id" do
-      game.update!(external_gog_id: "987654321")
-      expect(helper.display_platforms(game)).to eq("GoG")
-    end
-
-    it "infers 'Epic' from external_epic_id" do
-      game.update!(external_epic_id: "abc-xyz")
-      expect(helper.display_platforms(game)).to eq("Epic")
-    end
+    # Phase 27 v2 spec 06 (2026-05-17 PC store collapse) — `GoG` +
+    # `Epic` were retired; the three PC stores converge on `Steam`.
+    # The `external_gog_id` / `external_epic_id` columns are gone.
 
     it "renders all canonical labels in the locked order" do
       ps5  = make_platform(name: "PlayStation 5",     slug: "ps5",     igdb_id: nil)
@@ -99,12 +97,8 @@ RSpec.describe PlatformsHelper, type: :helper do
       game.platforms_available << ps5
       game.platforms_available << sw2
       game.platforms_available << xbox
-      game.update!(
-        external_steam_app_id: "1",
-        external_gog_id:       "2",
-        external_epic_id:      "3"
-      )
-      expect(helper.display_platforms(game)).to eq("PS5, Switch2, Steam, GoG, Epic, Xbox")
+      game.update!(external_steam_app_id: "1")
+      expect(helper.display_platforms(game)).to eq("PS5, Switch2, Steam, Xbox")
     end
 
     it "deduplicates when both the canonical seed AND an IGDB row map to the same slug" do

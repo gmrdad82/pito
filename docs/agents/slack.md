@@ -2,6 +2,43 @@
 
 The `pito-slack` agent reads this file at dispatch time.
 
+## When to use Slack at all
+
+`pito-slack` agent dispatches and Slack-MCP polling are **opt-in
+asynchronous-coordination tools**, NOT default communication channels.
+
+**Master agent uses Slack ONLY when:**
+
+- User has explicitly signaled async mode in chat (examples below).
+- A long-running process needs a checkpoint while user is known-away.
+
+**Master agent does NOT use Slack when:**
+
+- User is actively chatting in the session (any chat message in the last
+  few turns).
+- The information can be communicated in the chat response itself.
+- The user has signaled "I'm back" or equivalent.
+
+**Explicit async signals (the only ways to enable Slack mode):**
+
+- "I'm going off / going on Slack"
+- "Ping me on Slack when X done"
+- "I'll be on Slack for a while"
+- "Keep me posted on Slack"
+
+**Explicit return signals (any of these turn Slack mode off):**
+
+- "I'm back"
+- `#claude I'm back` (in Slack)
+- Any chat message from the user in the active session (implicit return)
+
+When in doubt: prefer chat. Slack is for "user is away and needs a heads-up";
+chat is for everything else.
+
+**In-flight exception.** If the user has just asked for an async update and
+then returns mid-update, finish the in-flight Slack message but DO NOT
+initiate new ones. Subsequent communication flows back through chat.
+
 ## Channel
 
 - `default_channel: "#dev"` — private channel; agent uses
@@ -57,14 +94,17 @@ Examples that DO NOT count (ignore):
 
 ## Polling cadence
 
-When the user has walked away from the laptop and asked Claude Code to
-poll Slack, the master agent schedules wakeups at **60-second intervals**
-to call `slack_read_channel` on the configured channel, filtered for
-`#code`-prefixed messages newer than the last seen ts.
+ONLY active when explicit async mode is on (see "When to use Slack at all"
+above). When active, the master agent schedules wakeups at **60-second intervals (standard, do not deviate)** to call `slack_read_channel` on the configured channel,
+filtered for `#claude`-prefixed messages newer than the last seen ts.
+
+Polling is NEVER scheduled while the user is actively chatting in the
+session. A chat message from the user implicitly cancels Slack mode and
+stops the loop (see the explicit-return-signals list above).
 
 **The loop stops on any of these signals:**
 - User types `I'm back` (or close paraphrase) in the chat session.
-- User sends `#code I'm back` in `#dev`.
+- User sends `#claude I'm back` in `#dev`.
 - User sends ANY message in the chat session — active in-chat
   conversation implicitly means the user is at the keyboard, so polling
   Slack is redundant. The master agent stops scheduling new wakeups; the
