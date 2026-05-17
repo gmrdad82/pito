@@ -52,12 +52,24 @@ class BundlesController < ApplicationController
     @bundle = Bundle.friendly.find(params[:id])
   end
 
+  # `update` serves both the full edit form (`/bundles/:id/edit`,
+  # HTML) and the `/games` bundles-modal inline title edit (JSON —
+  # the `inline-title-edit` Stimulus controller PATCHes
+  # `{ bundle: { name: ... } }` and only needs a 200 / 422 verdict;
+  # the client updates the modal title text optimistically on
+  # success).
   def update
     @bundle = Bundle.friendly.find(params[:id])
     if @bundle.update(bundle_params)
-      redirect_to bundle_path(@bundle), notice: "bundle updated."
+      respond_to do |format|
+        format.html { redirect_to bundle_path(@bundle), notice: "bundle updated." }
+        format.json { render json: { id: @bundle.id, name: @bundle.name } }
+      end
     else
-      render :edit, status: :unprocessable_content
+      respond_to do |format|
+        format.html { render :edit, status: :unprocessable_content }
+        format.json { render json: { errors: @bundle.errors.full_messages }, status: :unprocessable_content }
+      end
     end
   end
 

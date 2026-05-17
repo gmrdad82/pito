@@ -87,8 +87,14 @@ class Games::CoverComponent < ViewComponent::Base
     "game-cover game-cover--#{@dim[:css_modifier]}"
   end
 
+  # Phase 27 follow-up (2026-05-17) — prefer the normalized local
+  # master (`/covers/games/<id>/master.jpg`) over the IGDB CDN. Falls back to
+  # the IGDB URL at the variant's source token when the master is
+  # missing (not yet normalized). The size mapping for the IGDB
+  # fallback is preserved per-variant so behavior is unchanged for
+  # rows the normalizer has not touched yet.
   def cover_url
-    @game.cover_url(size: igdb_size)
+    @game.cover_master_url(fallback_size: igdb_size)
   end
 
   def cover_present?

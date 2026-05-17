@@ -282,23 +282,20 @@ Rails.application.routes.draw do
                         controller: "bundle_members"
   end
 
-  # Phase 14 §2 — auth-gated composite cover serving. The `:filename`
-  # route constraint pins the shape so path-traversal candidates
-  # (`../etc/passwd`) never reach the controller (which reapplies the
-  # regex as defense-in-depth).
-  get "/composites/:filename.jpg",
-      to: "composites#show",
-      as: :composite_cover,
-      constraints: { filename: /[a-z_]+-\d+/ },
-      defaults: { format: "jpg" }
-
-  # Phase 27 follow-up (2026-05-17) — cover masters served from
-  # `public/covers/<game_id>/master.jpg` via a `public/covers` →
-  # `<PITO_ASSETS_PATH>/covers` symlink (created by
-  # `bin/rails pito:assets:setup_symlinks`). Rails' built-in static-
-  # file middleware picks up the symlinked path automatically, so no
-  # dedicated controller or route is needed. Covers are non-sensitive
-  # (they ship publicly on the marketing site too) — the symlink
+  # Phase 27 follow-up (2026-05-17) — every cover-art asset is served
+  # directly by Rails' static-file middleware via the
+  # `public/covers` → `<PITO_ASSETS_PATH>/covers` symlink (created by
+  # `bin/rails pito:assets:setup_symlinks`). The asset layout under
+  # `/covers/` is:
+  #
+  #   /covers/games/<game_id>/master.jpg     — normalized cover master
+  #   /covers/bundles/<bundle_id>/composite.jpg — bundle composite
+  #
+  # The legacy auth-gated `GET /composites/:filename.jpg` route was
+  # retired in the 2026-05-17 unification — bundle composites moved
+  # into `/covers/bundles/<id>/composite.jpg` alongside the game
+  # masters, served by the same symlink. Cover assets are non-sensitive
+  # (they ship publicly on the marketing site too); the symlink
   # pattern is also prepared for `public/thumbnails` and any future
   # assets-volume sub-dirs.
 

@@ -50,9 +50,9 @@ RSpec.describe Bundle, type: :model do
       expect(build(:bundle, composite_cover_path: nil).composite_cover_url).to be_nil
     end
 
-    it "returns the well-formed /composites/... URL when path present" do
-      bundle = build(:bundle, composite_cover_path: "composites/bundle-7.jpg")
-      expect(bundle.composite_cover_url).to eq("/composites/bundle-7.jpg")
+    it "returns the well-formed /covers/bundles/... URL when path present" do
+      bundle = build(:bundle, composite_cover_path: "covers/bundles/7/composite.jpg")
+      expect(bundle.composite_cover_url).to eq("/covers/bundles/7/composite.jpg")
     end
   end
 
@@ -74,7 +74,7 @@ RSpec.describe Bundle, type: :model do
       bundle.bundle_members.create!(game: game)
       layout = Composite::LayoutChooser.choose(1)
       checksum = Composite::Checksum.compute([ "abc123" ], layout.layout_name)
-      bundle.update_columns(composite_cover_path: "composites/bundle-#{bundle.id}.jpg",
+      bundle.update_columns(composite_cover_path: "covers/bundles/#{bundle.id}/composite.jpg",
                             composite_cover_checksum: checksum)
       expect(bundle.reload.needs_cover_rebuild?).to be(false)
     end
@@ -123,16 +123,16 @@ RSpec.describe Bundle, type: :model do
     let(:bundle) { create(:bundle) }
 
     it "removes the on-disk composite cover file if present" do
-      path = Pito::AssetsRoot.path("composites", "bundle-#{bundle.id}.jpg")
+      path = Pito::AssetsRoot.path("covers", "bundles", bundle.id.to_s, "composite.jpg")
       FileUtils.mkdir_p(path.dirname)
       File.write(path, "JPEG bytes")
-      bundle.update_columns(composite_cover_path: "composites/bundle-#{bundle.id}.jpg")
+      bundle.update_columns(composite_cover_path: "covers/bundles/#{bundle.id}/composite.jpg")
 
       expect { bundle.destroy! }.to change { File.exist?(path) }.from(true).to(false)
     end
 
     it "no-ops gracefully when the file does not exist" do
-      bundle.update_columns(composite_cover_path: "composites/bundle-9999.jpg")
+      bundle.update_columns(composite_cover_path: "covers/bundles/9999/composite.jpg")
       expect { bundle.destroy! }.not_to raise_error
     end
   end

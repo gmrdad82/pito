@@ -59,5 +59,13 @@ module Games
     def fallback_href
       helpers.bundle_path(bundle_slug)
     end
+
+    # PATCH endpoint the bundles modal's inline title edit submits
+    # against. The modal trigger writes this onto the
+    # `inline-title-edit` controller's `urlValue` so a save targets
+    # the currently-opened bundle.
+    def update_url
+      helpers.bundle_path(bundle_slug)
+    end
   end
 end

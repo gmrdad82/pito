@@ -8,6 +8,14 @@
 # and every IGDB-seeding path are gone. There is no notion of
 # "collection" or "series" — every grouping is just a bundle.
 #
+# Composite cover lives at
+# `<PITO_ASSETS_PATH>/covers/bundles/<id>/composite.jpg` and is served
+# via `public/covers/bundles/<id>/composite.jpg` (Rails' static-file
+# middleware through the `public/covers` symlink — same path shape the
+# game masters at `covers/games/<id>/master.jpg` use). The `Compositable`
+# concern stores the relative path on `composite_cover_path` and the
+# URL helper just prepends a leading slash.
+#
 # Membership is many-to-many through `bundle_members(position)`.
 # Cover regeneration is async via Sidekiq (`BundleCoverBuild`); the
 # multi-bundle case (a game's cover changes, fanning out to N bundles)

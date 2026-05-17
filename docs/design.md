@@ -213,6 +213,16 @@ the no-inner-spaces rule. Examples below already reflect the tightened form.
 - **Separator dots:** use `<span class="text-muted">&middot;</span>` between
   adjacent bracketed links
 
+**Muted bracketed always bold (2026-05-17 lock).** Even though the global
+`.text-muted` utility sets `font-weight: 400`, the muted bracketed-link variant
+(`BracketedMutedLinkComponent`, CSS class `.bracketed-muted-link`) stays bold
+(700) to match the rest of the bracketed-link family. The bracketed identity is
+preserved visually whether the link is active or muted — only the color shifts.
+The CSS scopes the bold rule to bracketed surfaces
+(`a.bracketed.bracketed-muted-link` and the defensive `a.bracketed.text-muted`
+arm) so `.text-muted` standalone keeps its `font-weight: 400` per the
+`### Muted text and weight` rule.
+
 ### Badges
 
 Compact inline status / count primitives. Two families:

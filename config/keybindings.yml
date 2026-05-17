@@ -176,7 +176,7 @@ menus:
       # `extras/cli/`) skip divider entries during key dispatch and
       # paint them as visual separators only.
       - divider: true
-      - { key: Q, label: logout,           action: { type: quit_and_logout } }
+      - { key: Q, label: logout,           action: { type: logout } }
 
   calendar:
     items:

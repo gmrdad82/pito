@@ -364,6 +364,40 @@ class Game < ApplicationRecord
     "https://images.igdb.com/igdb/image/upload/#{size}/#{cover_image_id}.jpg"
   end
 
+  # Phase 27 follow-up (2026-05-17) — Normalized cover master accessors.
+  #
+  # The cover-art normalizer (`Games::CoverArt::Normalizer`) writes a
+  # canonical 600×800 JPEG to
+  # `<PITO_ASSETS_PATH>/covers/games/<game_id>/master.jpg`. `public/covers/`
+  # is a symlink into the same volume so Rails' static-file middleware
+  # serves the bytes at `/covers/games/<game_id>/master.jpg` with no
+  # controller hop. The `covers/games/` sub-namespace pairs with
+  # `covers/bundles/<id>/composite.jpg` (bundle composites) under the
+  # unified `/covers/` namespace.
+  #
+  # `cover_master_url` returns the local master URL when the master
+  # file is present on disk; otherwise falls back to the IGDB CDN URL
+  # at the requested size token so unsynced / not-yet-normalized rows
+  # still render. Returns nil when there's neither a master nor a
+  # `cover_image_id` (truly coverless).
+  #
+  # `cover_master_path` returns the absolute filesystem path when the
+  # master is present; otherwise nil. Used by libvips consumers that
+  # benefit from the local fast path (composite tile builder, future
+  # variants).
+  def cover_master_url(fallback_size: "t_cover_big_2x")
+    if cover_master_path
+      "/covers/games/#{id}/master.jpg"
+    elsif cover_image_id.present?
+      cover_url(size: fallback_size)
+    end
+  end
+
+  def cover_master_path
+    path = Pito::AssetsRoot.path("covers", "games", id.to_s, "master.jpg")
+    path.exist? ? path.to_s : nil
+  end
+
   # Manual override beats the derived cache. `nil` for both means
   # "not yet computed" — the show page renders "—" in that case.
   def hours_of_footage

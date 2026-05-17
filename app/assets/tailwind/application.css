@@ -334,17 +334,28 @@ a.bracketed-muted:focus {
 a.bracketed.bracketed-muted-link,
 a.bracketed.bracketed-muted-link:visited,
 a.bracketed.bracketed-muted-link .bl,
-a.bracketed.bracketed-muted-link:visited .bl {
+a.bracketed.bracketed-muted-link:visited .bl,
+a.bracketed.text-muted,
+a.bracketed.text-muted:visited,
+a.bracketed.text-muted .bl,
+a.bracketed.text-muted:visited .bl {
   color: var(--color-muted);
-  /* 2026-05-16 polish — explicit `font-weight: 700` so the muted
-     bracketed-link surface can never drift lighter than the live-link
-     state when it sits inside a parent that sets a non-bold weight
-     (e.g. the footer version cluster wraps `version_label` in
-     `<span class="text-muted">` which carries `font-weight: 400`;
-     without an explicit rule here the bold-ness rides on the base
-     `a { font-weight: bold }` rule alone, which is fine today but
-     brittle to selector reshuffles). Matches the same explicit-700
-     treatment `.bracketed-muted` got above. */
+  /* 2026-05-17 lock — `BracketedMutedLinkComponent` ALWAYS renders bold.
+     Explicit `font-weight: 700` on both the `<a>` and the inner `.bl`
+     so the muted bracketed-link surface can never drift lighter than
+     the rest of the bracketed-link family, regardless of which parent
+     wraps it. Even when nested inside `<span class="text-muted">`
+     (which carries `font-weight: 400` — see the footer `version_label`
+     cluster in `app/views/layouts/application.html.erb`), the
+     `a.bracketed.bracketed-muted-link` selector (0,2,1) outranks the
+     inherited 400, and the `.bl` companion selector keeps the label
+     glyph bold. The defensive `a.bracketed.text-muted` arm covers any
+     future call site that composes the utility classes by hand instead
+     of going through the component — bold stays bracketed-family
+     identity, muted is just the color. `.text-muted` standalone
+     remains `font-weight: 400` per the design.md `### Muted text and
+     weight` rule. Originally added 2026-05-16 polish; locked 2026-05-17
+     after a user review of the bracketed-link family weight. */
   font-weight: 700;
 }
 a.bracketed.bracketed-muted-link:hover,
@@ -659,10 +670,32 @@ a.text-danger.bracketed:hover, a.text-danger.bracketed:hover .bl { color: var(--
   background: var(--color-text);
 }
 
-/* Firefox global theming — both axes. */
+/* Firefox global theming — both axes.
+
+   `scrollbar-gutter: stable` reserves the vertical-scrollbar gutter
+   at all times so when the dialog-scroll-lock controller flips
+   `body { overflow: hidden }` (see `body[data-modal-open]` rule
+   below), the page does NOT shift right by the scrollbar's width.
+   Without a stable gutter the body would jump on every modal
+   open/close. The cost is a permanent ~6px reservation on the
+   right edge of the viewport — acceptable trade for zero layout
+   jump. 2026-05-17. */
 html {
   scrollbar-width: thin;
   scrollbar-color: var(--color-muted) var(--color-bg);
+  scrollbar-gutter: stable;
+}
+
+/* App-wide dialog scroll lock — set by the `dialog-scroll-lock`
+   Stimulus controller on `<body>` whenever any `<dialog>` is open
+   anywhere in the DOM (bundle modal, /settings [help] modals,
+   confirm overlays, leader-menu popup, etc.). The lock disengages
+   when ALL open dialogs have closed (the controller tracks an open
+   count, not a boolean, so nested modals keep the page locked until
+   the outermost one closes). Paired with `scrollbar-gutter: stable`
+   above so there is no layout shift on engage / disengage. */
+body[data-modal-open] {
+  overflow: hidden;
 }
 
 /* Firefox per-container theming for site-wide horizontal-scroll
@@ -714,6 +747,20 @@ dialog *::-webkit-scrollbar-thumb:hover {
   background: var(--color-text);
 }
 dialog {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-muted) var(--color-bg);
+}
+
+/* Firefox does NOT propagate `scrollbar-width` from an ancestor to a
+   descendant scroll container — each scrollable element needs its
+   own declaration. The `<dialog>`-scoped rule above themes the
+   dialog's own overflow, but the bundles modal places its
+   `overflow-y: auto` on an inner `<div class="bundles-modal-body">`
+   wrapper, so Firefox was falling back to the chunky OS default
+   vertical scrollbar there. Mirror the canonical thin-scrollbar
+   pair on the inner container. WebKit is already covered by the
+   `dialog *::-webkit-scrollbar` rules above. */
+.bundles-modal-body {
   scrollbar-width: thin;
   scrollbar-color: var(--color-muted) var(--color-bg);
 }
@@ -3037,3 +3084,108 @@ section[data-shelf="outer-genres"] > section.sub-shelf:not(:first-of-type) {
   pointer-events: none;
   user-select: none;
 }
+
+/* Bundles modal inline title edit (2026-05-17) — display + edit
+   states are sibling flex rows on `.bundle-modal-title-row`.
+   Toggling `hidden` swaps one for the other without changing the
+   row's height: both children share the same alignment and the
+   row carries a `min-height` floor so the composite cover below
+   does not jump on enter / exit. */
+.bundle-modal-title-row {
+  display: flex;
+  align-items: center;
+  min-height: 24px;
+  margin-bottom: 8px;
+}
+
+.bundle-modal-title-display,
+.bundle-modal-title-editing {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.bundle-modal-title-display[hidden],
+.bundle-modal-title-editing[hidden] {
+  display: none;
+}
+
+.bundle-modal-title-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* The display-state `<h2>` mirrors the input's box geometry so the
+   toggle between display and edit modes is a pure border-color
+   change (transparent → `var(--color-border)` resting →
+   `var(--color-link)` focus) with zero baseline shift. Without
+   this, the row's `align-items: center` would vertically-center
+   the input's taller box (1px border + 1px bottom padding) against
+   the h2's shorter pure-text box, pushing the input's text
+   baseline ~1px up — the "1px bounce" the user sees on toggle.
+   The transparent border keeps the visual unchanged in display
+   state. Specificity (0,1,1) beats the global `h2` rule (0,0,1)
+   so we don't need any defensive overrides. */
+.bundle-modal-title-text {
+  padding: 0 0 1px 0;
+  border-bottom: 1px solid transparent;
+  box-sizing: border-box;
+  line-height: inherit;
+}
+
+/* The input that replaces the `<h2>` while editing. Matches the
+   heading's font metrics so the swap is visually quiet; styled as
+   a bottom-only underline (no full box border) for an inline-edit
+   feel. Width tracks the input's content (`field-sizing: content`
+   where supported) with a sane floor.
+
+   Selector is `input[type="text"].bundle-title-input` (specificity
+   0,2,1) so it beats the global `input[type="text"]` rule above
+   (0,1,1) — that rule otherwise paints a full box border, a
+   `--color-bg` fill, and 3px/5px padding that would shift the
+   row's height. The `:focus` / `:focus-visible` pair also resets
+   the global `input:focus` outline + border-color (both would
+   re-introduce a blue ring + box) and re-asserts the transparent
+   background so no UA / theme default leaks through. */
+input[type="text"].bundle-title-input {
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: bold;
+  line-height: inherit;
+  color: var(--color-text);
+  background: transparent;
+  background-color: transparent;
+  border: 0;
+  border-top: 0;
+  border-right: 0;
+  border-left: 0;
+  border-bottom: 1px solid var(--color-border);
+  border-radius: 0;
+  padding: 0 0 1px 0;
+  margin: 0;
+  outline: none;
+  box-shadow: none;
+  box-sizing: border-box;
+  min-width: 12ch;
+  max-width: 100%;
+  width: auto;
+  field-sizing: content;
+}
+
+input[type="text"].bundle-title-input:focus,
+input[type="text"].bundle-title-input:focus-visible {
+  background: transparent;
+  background-color: transparent;
+  border-top: 0;
+  border-right: 0;
+  border-left: 0;
+  border-bottom: 1px solid var(--color-link);
+  border-color: transparent;
+  border-bottom-color: var(--color-link);
+  outline: none;
+  outline-offset: 0;
+  box-shadow: none;
+}
+

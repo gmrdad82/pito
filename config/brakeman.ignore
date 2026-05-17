@@ -58,29 +58,6 @@
       "note": "Defense-in-depth: (1) route constraint at config/routes.rb enforces /^\\d{2}-\\d{2}-\\d{2}$/ on :filename, rejecting path-traversal candidates BEFORE the action runs. (2) The action re-applies the same regex as defense-in-depth in case a future internal caller bypasses the router. (3) Pito::AssetsRoot.path runs cleanpath + containment, raising on any escape attempt. The Brakeman warning is a true false-positive — every layer rejects ../etc/passwd-style payloads. Verified by spec/requests/footages/frames_spec.rb."
     },
     {
-      "warning_type": "File Access",
-      "warning_code": 16,
-      "fingerprint": "6b3e54ea3c7af34996f42b4ae6ed9cc942cbfd1c3ce6c21a9c9a584e053d7ac4",
-      "check_name": "SendFile",
-      "message": "Parameter value used in file name",
-      "file": "app/controllers/composites_controller.rb",
-      "line": 35,
-      "link": "https://brakemanscanner.org/docs/warning_types/file_access/",
-      "code": "send_file(begin\n  Pito::AssetsRoot.path(\"composites\", \"#{params[:filename].to_s}.jpg\")\nrescue Pito::AssetsRoot::Error\n  head(:not_found)\n  return\nend.to_s, :type => \"image/jpeg\", :disposition => \"inline\")",
-      "render_path": null,
-      "location": {
-        "type": "method",
-        "class": "CompositesController",
-        "method": "show"
-      },
-      "user_input": "params[:filename].to_s",
-      "confidence": "Weak",
-      "cwe_id": [
-        22
-      ],
-      "note": "Defense-in-depth: Pito::AssetsRoot.path runs cleanpath + containment and raises Pito::AssetsRoot::Error on any attempt to escape the composites directory (../, absolute paths, symlink tricks, etc.). The controller rescues that error and returns head(:not_found), so traversal payloads never reach send_file. The .jpg suffix is hard-coded and the directory is locked to \"composites\". Acceptable false-positive."
-    },
-    {
       "warning_type": "HTTP Verb Confusion",
       "warning_code": 122,
       "fingerprint": "050af47121b0c4251d18c5b722e529807edb8a9852128f6fa384c768d47e0317",

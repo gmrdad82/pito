@@ -7,8 +7,14 @@
 #   4. Composes the tiles into a 300×400 image via the layout.
 #   5. Applies a libvips sharpen pass (sigma 1.0) to crisp the
 #      downsampled tile edges before encoding.
-#   6. Writes the JPEG to `<PITO_ASSETS_PATH>/composites/bundle-<id>.jpg`.
-#   7. Stamps `bundle.composite_cover_path` (relative) and
+#   6. Writes the JPEG to
+#      `<PITO_ASSETS_PATH>/covers/bundles/<id>/composite.jpg`. All cover-art
+#      assets — game masters and bundle composites — live under a single
+#      `/covers/` namespace; the per-resource-type subdir
+#      (`games/<id>/master.jpg`, `bundles/<id>/composite.jpg`) keeps the
+#      namespace extensible.
+#   7. Stamps `bundle.composite_cover_path` (relative, e.g.
+#      `covers/bundles/<id>/composite.jpg`) and
 #      `bundle.composite_cover_checksum` (SHA-256 over members + layout).
 #
 # Render canvas note (2026-05-17): canvas is 300×400, exactly 2× the
@@ -33,7 +39,10 @@
 #
 # 2026-05-17 — the filename used to interpolate `bundle.bundle_type`
 # (`series-<id>.jpg`, `collection-<id>.jpg`, etc.). The discriminator
-# column is gone; every composite now writes to `bundle-<id>.jpg`.
+# column is gone; every composite now writes to
+# `covers/bundles/<id>/composite.jpg` (the legacy flat layout
+# `composites/bundle-<id>.jpg` was retired on the same day in favor of
+# the unified `/covers/<type>/<id>/...` layout).
 module Composite
   class Builder
     OUTPUT_WIDTH  = 300
@@ -47,7 +56,8 @@ module Composite
 
     def call(bundle)
       members = bundle.bundle_members.includes(:game).order(:position).to_a
-      cover_image_ids = members.map { |bm| bm.game.cover_image_id }.compact
+      tile_games = members.map(&:game).select { |g| g.cover_image_id.present? }
+      cover_image_ids = tile_games.map(&:cover_image_id)
 
       if cover_image_ids.empty?
         bundle.update!(composite_cover_path: nil,
@@ -58,8 +68,12 @@ module Composite
       layout = Composite::LayoutChooser.choose(cover_image_ids.size)
       # The overflow layout fills nine cells and overlays a "+N" caption
       # on the bottom-right; only the first 9 ids contribute tiles.
-      tile_ids = layout == Composite::Layout::NineGridWithOverflow ? cover_image_ids.first(9) : cover_image_ids
-      tiles    = tile_ids.map { |cid| @tile_cache.fetch(cid) }
+      # Phase 27 follow-up (2026-05-17) — switched to `fetch_for_game`
+      # so the local cover-art master
+      # (`/covers/games/<id>/master.jpg`) is preferred over an IGDB
+      # HTTPS round-trip when present.
+      slice_games = layout == Composite::Layout::NineGridWithOverflow ? tile_games.first(9) : tile_games
+      tiles    = slice_games.map { |g| @tile_cache.fetch_for_game(g) }
       composite = layout.compose(tiles, total_member_count: members.size)
       # Light edge sharpen — recovers crispness lost in the tile resize
       # without introducing visible halos. Applied once to the final
@@ -78,7 +92,7 @@ module Composite
     end
 
     def output_path(bundle)
-      Pito::AssetsRoot.path("composites", "bundle-#{bundle.id}.jpg")
+      Pito::AssetsRoot.path("covers", "bundles", bundle.id.to_s, "composite.jpg")
     end
   end
 end

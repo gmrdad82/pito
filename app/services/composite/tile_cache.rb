@@ -2,13 +2,26 @@
 #
 # Downloads the `t_cover_big` (227×320) variant of an IGDB cover image
 # once per `cover_image_id` and caches the bytes under
-# `<PITO_ASSETS_PATH>/composites/_tiles/<cover_image_id>.jpg`. Cache
+# `<PITO_ASSETS_PATH>/covers/_tiles/<cover_image_id>.jpg`. Cache
 # hits read from disk; misses fetch from `images.igdb.com` and write
 # the bytes back. `evict` removes a single tile (called from
 # `BundleCoverInvalidate` when a Game's `cover_image_id` changes).
 #
+# The `_tiles/` subdir lives alongside `games/` and `bundles/` under the
+# unified `/covers/` namespace introduced 2026-05-17 — the underscore
+# prefix marks it as an internal cache (never linked from a public URL).
+#
 # Non-200 IGDB responses raise `Composite::TileFetchError`; the
 # `BundleCoverBuild` job re-raises so Sidekiq retries with backoff.
+#
+# Phase 27 follow-up (2026-05-17) — `fetch_for_game(game)` prefers the
+# normalized local master
+# (`<PITO_ASSETS_PATH>/covers/games/<id>/master.jpg`) written by
+# `Games::CoverArt::Normalizer` over a CDN download. Local FS read is
+# dramatically faster than an HTTPS round-trip and avoids burning the
+# `covers/_tiles/<cover_image_id>.jpg` cache slot when the master
+# already covers the same need. Falls back to the legacy
+# `fetch(cover_image_id)` path when the master is missing.
 require "net/http"
 
 module Composite
@@ -23,6 +36,19 @@ module Composite
     OPEN_TIMEOUT_SEC  = 5
     READ_TIMEOUT_SEC  = 10
     WRITE_TIMEOUT_SEC = 5
+
+    # Phase 27 follow-up (2026-05-17) — Game-aware fetch. Prefers the
+    # normalized local master when present (zero HTTP, zero tile-cache
+    # write); falls back to the legacy IGDB-by-cover-image-id path
+    # when the master is missing for this game (not yet normalized).
+    def fetch_for_game(game)
+      raise ArgumentError, "game required" if game.nil?
+
+      master = game.cover_master_path
+      return Vips::Image.new_from_file(master) if master
+
+      fetch(game.cover_image_id)
+    end
 
     def fetch(cover_image_id)
       raise ArgumentError, "cover_image_id required" if cover_image_id.blank?
@@ -45,7 +71,7 @@ module Composite
     end
 
     def tile_path(cover_image_id)
-      Pito::AssetsRoot.path("composites", "_tiles", "#{cover_image_id}.jpg")
+      Pito::AssetsRoot.path("covers", "_tiles", "#{cover_image_id}.jpg")
     end
 
     private

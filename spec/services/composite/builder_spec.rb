@@ -2,7 +2,9 @@ require "rails_helper"
 
 # Phase 14 §2 / Phase 27 follow-up (2026-05-17) — Composite::Builder
 # spec. After the 2026-05-17 simplification the composer:
-#   - writes to `composites/bundle-<id>.jpg` (no bundle_type prefix);
+#   - writes to `covers/bundles/<id>/composite.jpg` under the unified
+#     `/covers/` namespace (no bundle_type prefix; legacy
+#     `composites/bundle-<id>.jpg` retired);
 #   - no longer touches `last_error` (the column is gone).
 RSpec.describe Composite::Builder do
   let(:fixture_path) { Rails.root.join("spec/fixtures/files/cover_tile.jpg") }
@@ -23,7 +25,7 @@ RSpec.describe Composite::Builder do
   end
 
   def cleanup_output(b)
-    [ b.composite_cover_path, "composites/bundle-#{b.id}.jpg" ].compact.each do |rel|
+    [ b.composite_cover_path, "covers/bundles/#{b.id}/composite.jpg" ].compact.each do |rel|
       next if rel.nil? || rel.empty?
       abs =
         begin
@@ -41,7 +43,7 @@ RSpec.describe Composite::Builder do
     add_member(bundle, "img-1")
     builder.call(bundle.reload)
 
-    expected = Pito::AssetsRoot.path("composites", "bundle-#{bundle.id}.jpg")
+    expected = Pito::AssetsRoot.path("covers", "bundles", bundle.id.to_s, "composite.jpg")
     expect(File.exist?(expected)).to be(true)
     img = Vips::Image.new_from_file(expected.to_s)
     expect(img.width).to eq(600)
@@ -95,7 +97,7 @@ RSpec.describe Composite::Builder do
     g = create(:game, cover_image_id: nil) # no cover
     bundle.bundle_members.create!(game: g)
 
-    expected_path = Pito::AssetsRoot.path("composites", "bundle-#{bundle.id}.jpg")
+    expected_path = Pito::AssetsRoot.path("covers", "bundles", bundle.id.to_s, "composite.jpg")
     File.delete(expected_path) if File.exist?(expected_path)
 
     result = builder.call(bundle.reload)
@@ -116,18 +118,18 @@ RSpec.describe Composite::Builder do
     )
   end
 
-  it "writes the JPEG at the canonical `bundle-<id>.jpg` filename" do
+  it "writes the JPEG at the canonical `covers/bundles/<id>/composite.jpg` path" do
     add_member(bundle, "img-1")
     builder.call(bundle.reload)
     expect(bundle.reload.composite_cover_path)
-      .to eq("composites/bundle-#{bundle.id}.jpg")
+      .to eq("covers/bundles/#{bundle.id}/composite.jpg")
   end
 
   it "writes under Pito::AssetsRoot (no tenant prefix)" do
     add_member(bundle, "img-1")
     builder.call(bundle.reload)
     expect(bundle.reload.composite_cover_path).not_to include("tenant-")
-    expect(bundle.composite_cover_path).to start_with("composites/")
+    expect(bundle.composite_cover_path).to start_with("covers/bundles/")
   end
 
   it "stamps composite_cover_checksum to match Checksum.compute" do

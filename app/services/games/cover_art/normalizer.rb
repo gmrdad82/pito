@@ -2,10 +2,11 @@
 #
 # Fetches the largest official IGDB cover variant for a Game, normalizes
 # it to a canonical 600×800 (3:4) JPEG via libvips, and writes the
-# result to `<PITO_ASSETS_PATH>/covers/<game_id>/master.jpg`. The master
-# file is the single source of truth for every downstream cover-art
-# consumer (composite tile cells, /games tile, game show page hero,
-# etc. — wired in by S5; this service does NOT touch consumers).
+# result to `<PITO_ASSETS_PATH>/covers/games/<game_id>/master.jpg`. The
+# master file is the single source of truth for every downstream
+# cover-art consumer (composite tile cells, /games tile, game show
+# page hero, etc. — wired in by S5; this service does NOT touch
+# consumers).
 #
 # The cover masters live on the `pito-assets` named volume (declared
 # in `docker-compose.yml`, mounted at `PITO_ASSETS_PATH`) alongside the
@@ -24,10 +25,12 @@
 #   - Encoding: JPEG quality 95. Higher than the composite (Q92) and
 #     tile (default) paths because the master is the upstream — every
 #     downstream re-encode compounds loss.
-#   - Output path: `<PITO_ASSETS_PATH>/covers/<game_id>/master.jpg`.
+#   - Output path: `<PITO_ASSETS_PATH>/covers/games/<game_id>/master.jpg`.
 #     Per-game directory so future variants (`hero.jpg`, `tile.jpg`,
-#     etc.) can coexist without a flat-namespace collision. Path
-#     resolution flows through `Pito::AssetsRoot.path` so the same
+#     etc.) can coexist without a flat-namespace collision. The
+#     `covers/games/` nesting groups every cover-art asset under a
+#     single `/covers/` namespace (sibling: `covers/bundles/<id>/composite.jpg`).
+#     Path resolution flows through `Pito::AssetsRoot.path` so the same
 #     containment / cleanpath guarantees that protect composites and
 #     footage thumbnails also apply here.
 #
@@ -89,7 +92,7 @@ module Games
       private
 
       def target_path
-        Pito::AssetsRoot.path("covers", @game.id.to_s, "master.jpg")
+        Pito::AssetsRoot.path("covers", "games", @game.id.to_s, "master.jpg")
       end
 
       # Idempotency check — the file is "fresh" when it exists and its

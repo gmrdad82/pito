@@ -93,7 +93,7 @@ const STACK_STORAGE_KEY = "pito:leader-menu:stack"
 //     keeps the popup mounted across the page swap (the popup lives
 //     on `<body>`, which Turbo preserves as a permanent element via
 //     `data-turbo-permanent`).
-//   open / today / quit / quit_and_logout / etc. → dispatched as a
+//   open / today / logout / etc. → dispatched as a
 //     "leader-menu:action" CustomEvent on `document`; listeners
 //     wired by other controllers (the notifications modal, the
 //     keyboard controller's logout flow, etc.) react. Unknown
@@ -524,6 +524,10 @@ export default class extends Controller {
       this.toggleFilterChip(action.token)
       return
     }
+    if (action.type === "logout") {
+      this.performLogout()
+      return
+    }
 
     document.dispatchEvent(
       new CustomEvent("leader-menu:action", {
@@ -617,6 +621,37 @@ export default class extends Controller {
   toggleFilterChip(token) {
     const chip = document.querySelector(`[data-filter-token="${token}"]`)
     if (chip) chip.click()
+  }
+
+  // `logout` — DELETE /session (route name :session_logout in
+  // config/routes.rb). The header [logout] link was removed on
+  // 2026-05-16; the route survives precisely so keyboard / API callers
+  // can still sign out. We build a hidden form with `_method=delete` +
+  // the page's CSRF token and submit it so Rails routes the request to
+  // `Sessions#destroy` exactly as `button_to` would, including the
+  // server-side redirect back to /login.
+  performLogout() {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || ""
+
+    const form = document.createElement("form")
+    form.method = "POST"
+    form.action = "/session"
+    form.style.display = "none"
+
+    const methodInput = document.createElement("input")
+    methodInput.type = "hidden"
+    methodInput.name = "_method"
+    methodInput.value = "delete"
+    form.appendChild(methodInput)
+
+    const csrfInput = document.createElement("input")
+    csrfInput.type = "hidden"
+    csrfInput.name = "authenticity_token"
+    csrfInput.value = csrfToken
+    form.appendChild(csrfInput)
+
+    document.body.appendChild(form)
+    form.submit()
   }
 
   navigateTo(path) {

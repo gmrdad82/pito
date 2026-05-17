@@ -48,9 +48,9 @@ RSpec.describe "Bundles", type: :request do
     end
 
     it "renders the composite cover image when path is present" do
-      bundle.update_columns(composite_cover_path: "composites/bundle-#{bundle.id}.jpg")
+      bundle.update_columns(composite_cover_path: "covers/bundles/#{bundle.id}/composite.jpg")
       get bundle_path(bundle)
-      expect(response.body).to include("/composites/bundle-#{bundle.id}.jpg")
+      expect(response.body).to include("/covers/bundles/#{bundle.id}/composite.jpg")
     end
 
     it "renders the member list with each game's title" do

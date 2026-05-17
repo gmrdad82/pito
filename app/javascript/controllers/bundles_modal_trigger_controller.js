@@ -19,11 +19,12 @@ import { Controller } from "@hotwired/stimulus"
 // NO `confirm()` / `alert()` / `prompt()` (CLAUDE.md hard rule).
 export default class extends Controller {
   static values = {
-    url:      String,
-    title:    String,
-    dialogId: { type: String, default: "bundles-modal" },
-    frameId:  { type: String, default: "bundles_modal_frame" },
-    titleId:  { type: String, default: "" },  // optional override
+    url:       String,
+    title:     String,
+    updateUrl: String,  // PATCH /bundles/:id — feeds the inline-title-edit controller
+    dialogId:  { type: String, default: "bundles-modal" },
+    frameId:   { type: String, default: "bundles_modal_frame" },
+    titleId:   { type: String, default: "" },  // optional override
   }
 
   open(event) {
@@ -42,6 +43,16 @@ export default class extends Controller {
     if (this.titleValue) {
       const titleEl = dialog.querySelector('[data-bundles-modal-target="title"]')
       if (titleEl) titleEl.textContent = this.titleValue
+    }
+
+    // 2026-05-17 — Write the per-bundle PATCH URL onto the
+    // inline-title-edit controller's `urlValue` (via the
+    // `urlHolder` target on the modal). The inline-edit controller
+    // re-reads `urlValue` on each save so this assignment is enough
+    // to bind the next save to the currently-opened bundle.
+    if (this.updateUrlValue) {
+      const holder = dialog.querySelector('[data-bundles-modal-target="urlHolder"]')
+      if (holder) holder.setAttribute("data-inline-title-edit-url-value", this.updateUrlValue)
     }
 
     if (typeof dialog.showModal === "function" && !dialog.open) {

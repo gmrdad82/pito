@@ -5,9 +5,10 @@
 #
 #   bin/rails pito:cover_arts:regenerate
 #     Regenerates every Game with a `cover_image_id`. The per-game
-#     `<PITO_ASSETS_PATH>/covers/<game_id>/` directory is purged before
-#     each normalize call so the Normalizer's mtime-based idempotency
-#     check cannot short-circuit (a regen always re-fetches IGDB bytes).
+#     `<PITO_ASSETS_PATH>/covers/games/<game_id>/` directory is purged
+#     before each normalize call so the Normalizer's mtime-based
+#     idempotency check cannot short-circuit (a regen always re-fetches
+#     IGDB bytes).
 #
 #   bin/rails pito:cover_arts:regenerate:game[ID]
 #     Same operation scoped to a single Game by id. For ad-hoc fixes
@@ -33,7 +34,7 @@ namespace :pito do
 
       games.each_with_index do |game, idx|
         index_str = format("%3d/%-3d", idx + 1, total)
-        target_dir = Pito::AssetsRoot.path("covers", game.id.to_s)
+        target_dir = Pito::AssetsRoot.path("covers", "games", game.id.to_s)
         FileUtils.rm_rf(target_dir) if File.directory?(target_dir)
 
         begin
@@ -59,7 +60,7 @@ namespace :pito do
     task :"regenerate:game", [:id] => :environment do |_, args|
       id = args.fetch(:id) { abort "usage: bin/rails pito:cover_arts:regenerate:game[ID]" }
       game = Game.find(id)
-      target_dir = Pito::AssetsRoot.path("covers", game.id.to_s)
+      target_dir = Pito::AssetsRoot.path("covers", "games", game.id.to_s)
       FileUtils.rm_rf(target_dir) if File.directory?(target_dir)
 
       path = Games::CoverArt::Normalizer.new(game: game).call
