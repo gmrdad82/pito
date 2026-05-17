@@ -160,8 +160,17 @@
      alternation without competing with content. Light theme keeps the
      literal `#fafafa` hex so the perfect light-mode look is preserved. */
   --color-zebra-bg: rgba(255, 255, 255, 0.025);
-  --color-bg-header: #343746;
-  --color-bg-header-hover: #44475a;
+  /* 2026-05-17 — bumped darker (was #343746 / hover #44475a) so the header
+     lifts against the dark pane band (#2f3142 / #34364a / #313346) and the
+     subtle white-overlay zebra on top of it. #343746 sat within ~1 luminance
+     unit of pane-bg-b (#34364a), so once the zebra landed the header
+     dissolved into the alternating rows on stack-tables. New values give
+     a clear three-step hierarchy: header (darkest) → data row (pane tone)
+     → zebra row (pane tone + 2.5% white overlay). Hover stays lighter than
+     rest to preserve the "hover lifts toward foreground" semantic the
+     previous pair encoded. */
+  --color-bg-header: #1f2130;
+  --color-bg-header-hover: #2a2d3c;
   /* Dark-theme table-header bottom-border tone — equals `--color-border` so the
      bolder bottom rule introduced for light theme is a no-op visually in dark
      (matches the existing 1px cell border tone, preserving the dark treatment
@@ -2695,15 +2704,20 @@ textarea.note-editor-source {
    worst-of-worst below 25. See design.md + CLAUDE.md for the scoped
    exception to the global "red = destructive only" rule. */
 
-/* Single canonical heat bar. Three-zone layout:
-     0-25%   solid `--color-rating-very-bad` (dark muddy red)
-     25-50%  solid `--color-rating-bad` (bright red), hard edge at 25
+/* Single canonical heat bar. Two-zone layout (2026-05-17 collapse —
+   the 0-25 / 25-50 split was consolidated into a single very-bad
+   solid block per user direction; the visual gradient no longer
+   differentiates 25-49 from 0-24, though `tier_for` still returns
+   `:bad` for 25-49 so `data-tier` keeps the semantic info):
+     0-50%   solid `--color-rating-very-bad` (dark muddy red)
      50-90%  smooth gradient through poor → meh → fair → good →
-             excellent (transition zone)
+             excellent (transition zone), hard edge at 50
      90-100% solid `--color-rating-excellent` (green), hard edge at 90
    The hard edges are zero-distance stops (same percentage repeated).
    The end zones do not gradient — they read as solid blocks so the
-   visual rule lands unambiguously. */
+   visual rule lands unambiguously. The `--color-rating-bad` token
+   is still used elsewhere; only the gradient stop reference was
+   removed here. */
 .rating-heat-bar {
   position: relative;
   width: 100%;
@@ -2716,9 +2730,7 @@ textarea.note-editor-source {
   background-image: linear-gradient(
     to right,
     var(--color-rating-very-bad)    0%,
-    var(--color-rating-very-bad)   25%,
-    var(--color-rating-bad)        25%,
-    var(--color-rating-bad)        50%,
+    var(--color-rating-very-bad)   50%,
     var(--color-rating-poor)       50%,
     var(--color-rating-meh)        65%,
     var(--color-rating-fair)       75%,
