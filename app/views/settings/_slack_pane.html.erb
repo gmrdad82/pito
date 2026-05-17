@@ -1,90 +1,105 @@
 <%# Phase 26 — 01b. Slack webhook pane.
 
-    Settings pane for the install-level Slack webhook. Submits to
-    `PATCH /settings/slack_webhook` (mounted as
-    `Settings::SlackWebhooksController#update`). The controller:
+    Settings pane for the install-level Slack webhook. The URL form
+    submits to `PATCH /settings/slack_webhook`
+    (`Settings::SlackWebhooksController#update`); the 2 routing-flag
+    checkboxes each auto-save to
+    `PATCH /settings/notification_toggles/slack/<kind>`
+    (`Settings::NotificationTogglesController#update`).
 
-      1. Validates the URL against `SLACK_URL_REGEX`.
-      2. Fires a test ping via `Webhooks::SlackClient#ping`.
-      3. Only persists the row (`notification_delivery_channels`,
-         `kind = "slack"`) when the ping returns 2xx.
+    The URL controller's tri-state contract (blank → no-op, "clear"
+    → wipe, else → validate + test-ping + save) is documented in the
+    controller header. The pane never renders the real webhook URL —
+    the input ships with `value=""` and shows the masked prefix
+    `https://hooks.slack.com/services/***` as a placeholder when a
+    URL is configured.
 
-    The two checkboxes (`everything`, `daily_digest`) cross the wire
-    as `"yes"` / `"no"` per CLAUDE.md hard rules. The controller's
-    `coerce_boolean` helper flips them back to Boolean for storage.
-
-    The pane reads current state from the AR row (if any). When no
-    row exists yet both checkboxes render unchecked and the URL
-    field renders empty. %>
+    The 2 routing-flag checkboxes carry `data-leader-toggle=` hooks
+    matching the YAML targets Phase C wired
+    (`slack_every_notification` / `slack_daily_digest`). %>
 <%# 2026-05-16 — Slack webhook saves are plain saves now. The
     recent-TOTP gate that previously fronted this surface (and the
     `totp-modal` Stimulus wiring that opened the verification modal
     on `[update]`) was dropped. The only /settings write that still
     pops the TOTP-code modal is the profile pane. %>
 <div class="pane">
-  <%= form_with url: settings_slack_webhook_path, method: :patch, local: true do |_f| %>
-    <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
-      <legend><h2>Slack</h2></legend>
+  <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
+    <legend><h2>Slack</h2></legend>
 
+    <%= form_with url: settings_slack_webhook_path, method: :patch, local: true do |_f| %>
       <div style="margin-bottom: 6px;">
         <label for="slack_webhook_url" class="form-label">webhook URL</label>
-        <input type="text" name="slack_webhook_url" id="slack_webhook_url"
-               value="<%= @slack_webhook&.webhook_url %>"
-               placeholder="https://hooks.slack.com/services/T.../B.../..."
-               autocomplete="off"
-               style="max-width: 420px; width: 100%;">
-      </div>
+        <div class="webhook-url-row">
+          <input type="text" name="slack_webhook_url" id="slack_webhook_url"
+                 value=""
+                 placeholder="<%= webhook_url_mask(:slack) %>"
+                 autocomplete="off">
+          <button type="submit">[update]</button>
+          <%# Phase 26 — 01d. `[help]` link opens the layout-level
+              webhook help modal with the Slack guide. The href is the
+              full Markdown fragment URL so JS-off users still land on
+              a usable page (the controller renders the same fragment
+              without a layout, but a direct hit returns HTML readable
+              in any browser).
 
-      <div style="margin-bottom: 6px;">
+              2026-05-16 polish — rendered through
+              BracketedMutedLinkComponent (the muted bracketed-link
+              primitive) so `[help]` reads as the secondary affordance
+              next to the loud primary `[update]`, matching the
+              `[ authorize ] [ cancel ]` hierarchy on the Doorkeeper
+              consent page. Plain whitespace separator (the prior
+              middle-dot `nav-sep` was dropped in the same pass — the
+              visual hierarchy of loud-vs-muted carries the grouping
+              on its own). %>
+          <%= render(BracketedMutedLinkComponent.new(
+                label: "help",
+                href: settings_webhooks_help_path(provider: "slack"),
+                data: {
+                  action: "click->webhook-help-modal#open",
+                  webhook_help_modal_provider_param: "slack"
+                }
+              )) %>
+        </div>
+        <p class="webhook-url-hint">type <strong>"clear"</strong> to remove</p>
+      </div>
+    <% end %>
+
+    <%# 2026-05-17 — auto-save toggles. Same pattern as the Discord
+        pane; the `data-leader-toggle=` hooks are the click targets
+        for Phase C's `sa` / `sd` 2-key bindings. %>
+    <div style="margin-bottom: 6px;">
+      <%= form_with url: settings_notification_toggle_path(brand: "slack", kind: "everything"),
+                    method: :patch,
+                    data: { controller: "auto-submit" } do |f| %>
+        <%# Unchecked checkboxes post no value. The controller's
+            `coerce_boolean` helper treats absence as `false` — same
+            posture as the prior pane forms. No hidden baseline
+            needed. %>
         <label class="md-check">
-          <input type="checkbox" name="everything" value="yes"
+          <input type="checkbox" name="enabled" value="yes"
+                 data-leader-toggle="slack_every_notification"
+                 data-action="change->auto-submit#submit"
                  <%= "checked" if @slack_webhook&.everything %>>
           <span class="md-check-indicator"></span>
           <span class="md-check-label">every notification</span>
         </label>
-      </div>
+      <% end %>
+    </div>
 
-      <div style="margin-bottom: 6px;">
+    <div style="margin-bottom: 6px;">
+      <%= form_with url: settings_notification_toggle_path(brand: "slack", kind: "daily_digest"),
+                    method: :patch,
+                    data: { controller: "auto-submit" } do |f| %>
         <label class="md-check">
-          <input type="checkbox" name="daily_digest" value="yes"
+          <input type="checkbox" name="enabled" value="yes"
+                 data-leader-toggle="slack_daily_digest"
+                 data-action="change->auto-submit#submit"
                  <%= "checked" if @slack_webhook&.daily_digest %>>
           <span class="md-check-indicator"></span>
           <span class="md-check-label">daily digest</span>
         </label>
-        <span class="form-hint" style="display: block;">sent daily at 09:00 in your time zone.</span>
-      </div>
-
-      <%# Unchecked boxes post no value at all; the controller's
-          `coerce_boolean` helper treats absence as `false`. This
-          matches the existing Voyage pane checkbox pattern. %>
-
-      <div style="display: flex; align-items: baseline; gap: 6px;">
-        <button type="submit">[update]</button>
-        <%# Phase 26 — 01d. `[help]` link opens the layout-level
-            webhook help modal with the Slack guide. The href is the
-            full Markdown fragment URL so JS-off users still land on
-            a usable page (the controller renders the same fragment
-            without a layout, but a direct hit returns HTML readable
-            in any browser).
-
-            2026-05-16 polish — rendered through
-            BracketedMutedLinkComponent (the muted bracketed-link
-            primitive) so `[help]` reads as the secondary affordance
-            next to the loud primary `[update]`, matching the
-            `[ authorize ] [ cancel ]` hierarchy on the Doorkeeper
-            consent page. Plain whitespace separator (the prior
-            middle-dot `nav-sep` was dropped in the same pass — the
-            visual hierarchy of loud-vs-muted carries the grouping on
-            its own). %>
-        <%= render(BracketedMutedLinkComponent.new(
-              label: "help",
-              href: settings_webhooks_help_path(provider: "slack"),
-              data: {
-                action: "click->webhook-help-modal#open",
-                webhook_help_modal_provider_param: "slack"
-              }
-            )) %>
-      </div>
-    </fieldset>
-  <% end %>
+      <% end %>
+      <span class="form-hint" style="display: block;">sent daily at 09:00 in your time zone.</span>
+    </div>
+  </fieldset>
 </div>

@@ -14,7 +14,28 @@
   warning / error are accepted too if a controller sets them. Anything else
   falls through to the notice styling.
 %>
-<div class="toast-container" aria-live="polite" aria-atomic="true">
+<%#
+  2026-05-17 — wrapped in the native Popover API (`popover="manual"`) so the
+  container renders in the browser's top layer, ABOVE any open `<dialog>`
+  (modal). Without this, a flash fired while a modal is open is occluded
+  by the modal — `z-index` alone cannot beat the top layer.
+
+  `manual` mode keeps the popover open until JS explicitly closes it (vs
+  `auto` mode, which closes on any outside click). Each individual `.toast`
+  child still self-dismisses via `toast_controller.js` after its delay;
+  `flash_popover_controller.js` watches child mutations and calls
+  `hidePopover()` once the last toast leaves the DOM.
+
+  Top-layer ordering rule: the LAST element to enter the top layer renders
+  ABOVE earlier ones. When a flash is fired AFTER a modal opens, the
+  `flash-popover` controller's `showPopover()` call promotes this container
+  above the modal automatically.
+%>
+<div class="toast-container"
+     popover="manual"
+     data-controller="flash-popover"
+     aria-live="polite"
+     aria-atomic="true">
   <% flash.each do |type, message| %>
     <% next if message.blank? %>
     <%

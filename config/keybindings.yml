@@ -49,15 +49,15 @@ leader:
 #
 # Modal contexts registered below:
 #   bundle          — /games bundles modal (display + inline-edit
-#                     title). Action keys: `d` dark mode, `c` rename.
+#                     title). Action keys: `l` dark mode, `c` rename.
 #   webhook_help    — Discord + Slack help modals (one shared component,
 #                     two invocations — adding the attribute on the
 #                     shared component scopes it to both). Informational,
-#                     so only `d` dark mode is exposed.
+#                     so only `l` dark mode is exposed.
 #   revoke_confirm  — /settings/security session-revoke confirm modal.
-#                     Action keys: `d` dark mode, `r` revoke.
+#                     Action keys: `l` dark mode, `r` revoke.
 #   reindex_confirm — /settings/stack Meilisearch reindex confirm modal.
-#                     Action keys: `d` dark mode, `r` reindex.
+#                     Action keys: `l` dark mode, `r` reindex.
 #
 # Two new action types are introduced in lockstep with this block:
 #
@@ -77,7 +77,7 @@ leader:
 modal_actions:
   bundle:
     items:
-      - key: d
+      - key: l
         label: dark mode
         action:
           type: theme_toggle
@@ -88,13 +88,13 @@ modal_actions:
           target: bundle-modal-title-edit
   webhook_help:
     items:
-      - key: d
+      - key: l
         label: dark mode
         action:
           type: theme_toggle
   revoke_confirm:
     items:
-      - key: d
+      - key: l
         label: dark mode
         action:
           type: theme_toggle
@@ -104,7 +104,7 @@ modal_actions:
           type: submit_confirm_modal
   reindex_confirm:
     items:
-      - key: d
+      - key: l
         label: dark mode
         action:
           type: theme_toggle
@@ -123,7 +123,7 @@ modal_actions:
 # docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs-v2/.
 page_actions:
   games_index:
-    - key: d
+    - key: l
       label: dark mode
       action:
         type: theme_toggle
@@ -177,7 +177,7 @@ page_actions:
             label: Steam (PC)
             action: { type: toggle_filter_chip, token: steam }
   games_show:
-    - key: d
+    - key: l
       label: dark mode
       action:
         type: theme_toggle
@@ -195,7 +195,7 @@ page_actions:
       action:
         type: page_delete
   bundles_show:
-    - key: d
+    - key: l
       label: dark mode
       action:
         type: theme_toggle
@@ -226,7 +226,7 @@ page_actions:
   #        by `_security_pane.html.erb` as
   #        `<dialog id="revoke_sessions_modal">`). Once the modal is
   #        open, the `revoke_confirm` modal_actions take over
-  #        (`d` dark mode + `r` revoke session(s) + Esc close).
+  #        (`l` dark mode + `r` revoke session(s) + Esc close).
   #   vr — open the reindex Meilisearch confirm modal (mounted by
   #        `_stack_pane.html.erb` via `ConfirmModalComponent` as
   #        `<dialog id="reindex_meilisearch_modal">`). Once open,
@@ -241,15 +241,17 @@ page_actions:
   # errors, just nothing happens. Phase C ships the keybinding
   # mechanic; Phase D wires the targets.
   #
-  # Prefix-conflict note: `d` (dark mode) shares a prefix with `da`
-  # and `dd`; `s` (no exact match here, but used as a prefix for
-  # `sr` + `sa` + `sd`). Pressing `d` alone fires dark mode after
-  # the 1500 ms inactivity timer; pressing `d` then `a`/`d` fires
-  # the matching 2-key binding. Pressing `s` then waiting fires
-  # nothing (no exact `s` binding); pressing `s` then `r`/`a`/`d`
-  # fires the matching binding.
+  # Prefix-conflict note: `d` is no longer an exact binding (theme
+  # toggle moved to `l` on 2026-05-17). `d` is still a prefix for
+  # `da` and `dd`, but pressing `d` alone now fires nothing — the
+  # prefix accumulator waits for the second key (a/d) or the 1500 ms
+  # timeout (which expires with no recorded exact match → no-op).
+  # `s` is a prefix-only key for `sr` + `sa` + `sd` (no exact `s`
+  # binding); pressing `s` then `r`/`a`/`d` fires the matching
+  # 2-key binding. `l` (dark mode) has no longer-prefix neighbors
+  # so it fires immediately on press.
   settings:
-    - key: d
+    - key: l
       label: dark mode
       action:
         type: theme_toggle
@@ -284,7 +286,7 @@ page_actions:
         type: open_modal_by_id
         target: reindex_meilisearch_modal
   default:
-    - key: d
+    - key: l
       label: dark mode
       action:
         type: theme_toggle

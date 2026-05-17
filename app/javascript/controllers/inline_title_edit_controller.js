@@ -68,23 +68,56 @@ export default class extends Controller {
       },
       body: JSON.stringify({ bundle: { name: newName } }),
     })
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+      .then(async (r) => {
+        // Parse the JSON body either way — the controller returns
+        // `{ id, name }` on 200 and `{ errors: [...] }` on 422.
+        // Fall back to a generic message if the body isn't JSON
+        // (network blip, 500, proxy interception).
+        let payload = null
+        try { payload = await r.json() } catch (_) { /* swallow */ }
+        if (!r.ok) {
+          const message =
+            (payload && Array.isArray(payload.errors) && payload.errors.length > 0)
+              ? payload.errors.join(", ")
+              : `could not update bundle (HTTP ${r.status}).`
+          this._flashToast(message, "toast-error")
+          return
+        }
         // Update the modal title text inline. Other surfaces (bundle
         // shelf tile, /bundles index, etc.) still show the old name
         // until the next page reload — intentional per spec.
         this.titleTextEl().textContent = newName
         this.swapToDisplay()
+        this._flashToast("bundle updated.", "toast-notice")
       })
       .catch((err) => {
-        // Keep the editing state so the user can retry. Surface the
-        // error in the console; no JS alert/confirm per the project's
-        // hard rule.
+        // Network-level failure (fetch rejected, no response). Keep
+        // the editing state so the user can retry. No JS
+        // alert/confirm per the project's hard rule — surface via
+        // the toast region instead.
         console.error("[inline-title-edit] save failed:", err)
+        this._flashToast("could not update bundle.", "toast-error")
       })
       .finally(() => {
         this.submitting = false
       })
+  }
+
+  // Append a top-right toast into the layout-rendered
+  // `.toast-container`. Mirrors `clipboard_copy_controller#_flashToast`
+  // so the bundles modal can fire flashes without a full page
+  // navigation — the JSON `update` action has no server-rendered
+  // flash surface of its own, and Stimulus's MutationObserver picks
+  // up the injected `data-controller="toast"` to auto-dismiss.
+  _flashToast(message, toastClass = "toast-notice") {
+    const container = document.querySelector(".toast-container")
+    if (!container) return
+    const toast = document.createElement("div")
+    toast.className = `toast ${toastClass}`
+    toast.textContent = message
+    toast.setAttribute("data-controller", "toast")
+    toast.setAttribute("role", "status")
+    container.appendChild(toast)
   }
 
   handleKey(event) {

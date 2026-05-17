@@ -632,6 +632,20 @@ Rails.application.routes.draw do
           as: :help,
           constraints: { provider: /slack|discord/ }
     end
+
+    # 2026-05-17 — auto-save toggles for the 4 notification routing
+    # flags (Discord every / Discord daily, Slack every / Slack daily).
+    # One endpoint handles all four combinations; the `:brand` and
+    # `:kind` segments are pinned by router constraints and reapplied
+    # by the controller as defense-in-depth. The form posts
+    # `enabled=yes|no` per the yes/no boundary rule. Phase C bindings
+    # (`da`/`dd`/`sa`/`sd`) click the checkboxes via
+    # `[data-leader-toggle]`; the change handler in `auto_submit`
+    # Stimulus fires the PATCH and updates the flash region.
+    patch "notification_toggles/:brand/:kind",
+          to: "notification_toggles#update",
+          as: :notification_toggle,
+          constraints: { brand: /discord|slack/, kind: /everything|daily_digest/ }
   end
 
   # Phase 24 — Google management surface moved from `/settings/youtube`

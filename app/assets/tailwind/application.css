@@ -1340,17 +1340,55 @@ button[type="submit"].btn-danger:hover {
 /* Toast notifications — fixed top-right, no layout shift, auto-dismiss via
    `toast_controller.js`. Pill-shaped, monospace-friendly, uses the same
    `--color-flash-*` tokens as the inline flash strips (so dark / light
-   themes flip for free). */
+   themes flip for free).
+
+   2026-05-17 — the container is also a native `popover="manual"` element
+   (see `_flash_toasts.html.erb` + `flash_popover_controller.js`) so it
+   renders in the browser's top layer ABOVE any open `<dialog>`. The UA
+   default popover styling is `position: fixed; inset: 0; margin: auto;`
+   (centered) with a border and padding — we reset all of that so the
+   existing top-right pill layout survives. The `:not(:popover-open)`
+   rule keeps the empty / closed container off-screen so it never paints
+   a stray frame; client-side toast appenders (`clipboard_copy`,
+   `inline_title_edit`) still target `.toast-container` and the
+   `flash-popover` controller's MutationObserver promotes it back into
+   the top layer on the next append. */
 .toast-container {
   position: fixed;
   top: 8px;
   right: 8px;
+  /* `z-index` is irrelevant once the popover enters the top layer, but
+     we leave it as a fallback for UAs that do not support the Popover
+     API yet — the container still renders fixed-position there. */
   z-index: 200;
   display: flex;
   flex-direction: column;
   gap: 6px;
   pointer-events: none;
   max-width: calc(100vw - 16px);
+  /* UA popover defaults reset — keep our top-right pill layout. */
+  inset: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  /* No backdrop — the page underneath stays visible / clickable. The
+     `::backdrop` pseudo would otherwise dim everything (Chrome paints
+     a `rgba(0,0,0,0)` by default but other UAs may differ). */
+  overflow: visible;
+}
+.toast-container[popover]::backdrop {
+  background: transparent;
+}
+/* Hide the container entirely when the popover is closed AND it carries
+   the `popover` attribute. The empty-container case (no toasts present,
+   popover never opened) should not paint a 0×0 frame in the top-right;
+   `display: none` also makes the container size to zero so it does not
+   block the underlying viewport corner from clicks. Client-side toast
+   appenders still find the container via `document.querySelector`
+   because `display: none` does not remove it from the DOM. */
+.toast-container[popover]:not(:popover-open) {
+  display: none;
 }
 .toast {
   pointer-events: auto;
@@ -1697,6 +1735,44 @@ dialog.confirm-modal::backdrop {
 .totp-modal-box:focus {
   outline: 1px solid var(--color-link);
   outline-offset: -1px;
+}
+
+/* 2026-05-17 — webhook URL form row.
+   The Discord + Slack panes render the webhook URL input alongside
+   the `[update]` submit and the `[help]` muted link on a single
+   flex row. The input is narrower than the pre-2026-05-17 inline
+   `style="max-width: 420px; width: 100%;"` since it no longer
+   carries the real URL (only a masked placeholder) — operators
+   never read the value back from the field. The flex container
+   wraps on narrow viewports so the controls never overflow. */
+.webhook-url-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.webhook-url-row input {
+  flex: 0 1 280px;
+}
+
+/* 2026-05-17 — webhook URL hint copy.
+   Sits directly under `.webhook-url-row` and tells the operator how
+   to clear the configured webhook ("type \"clear\" to remove"). The
+   literal word `clear` is bolded inside a `<strong>` so the
+   keyword stands out from the surrounding prose; the rest stays
+   muted + italic via the `.form-hint`-adjacent rule below. */
+.webhook-url-hint {
+  font-size: 12px;
+  color: var(--color-muted);
+  font-style: italic;
+  margin-top: 4px;
+  margin-bottom: 0;
+}
+.webhook-url-hint strong {
+  /* Keep the keyword muted-but-bold so it pops without losing the
+     hint's secondary visual weight. */
+  font-weight: 700;
+  font-style: normal;
 }
 
 /* Phase 26 — 01d (polish). Webhook help modal content styling.
