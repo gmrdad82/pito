@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_17_233347) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_18_100000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -136,8 +136,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_17_233347) do
     t.datetime "created_at", null: false
     t.string "name", null: false
     t.string "slug", null: false
+    t.vector "summary_embedding", limit: 1024
     t.datetime "updated_at", null: false
     t.index ["slug"], name: "index_bundles_on_slug", unique: true
+    t.index ["summary_embedding"], name: "index_bundles_on_summary_embedding_hnsw", opclass: :vector_cosine_ops, using: :hnsw
   end
 
   create_table "calendar_entries", force: :cascade do |t|

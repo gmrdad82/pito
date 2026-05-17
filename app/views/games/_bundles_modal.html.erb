@@ -1,13 +1,11 @@
 <%# Phase 27 follow-up (2026-05-17) — Bundles modal (formerly Collections
     modal).
 
-    One layout-positioned <dialog> per page render (this partial is
-    only emitted when at least one bundle has games — see
-    `_bundles_for_shelf.html.erb`). Each bundle tile in the shelf
-    points its Stimulus action at this dialog's id; on click the
-    `bundles-modal-trigger` controller writes the per-bundle
-    games-pane URL onto the inner Turbo Frame's `src` attribute,
-    which fetches the games list and swaps it in.
+    One layout-positioned <dialog> per page render. Each bundle tile in
+    the shelf points its Stimulus action at this dialog's id; on click
+    the `bundles-modal-trigger` controller writes the per-bundle
+    games-pane URL onto the inner Turbo Frame's `src` attribute, which
+    fetches the games list and swaps it in.
 
     Closing semantics mirror the project's other layout modals
     (search, IGDB search, notifications):
@@ -16,6 +14,25 @@
       - `[close]` link — `close` action on the controller.
 
     NO JS `confirm()` / `alert()` / `prompt()` (CLAUDE.md hard rule).
+
+    2026-05-18 — optional `bundle:` local. When the partial is rendered
+    with a `bundle:` local (e.g. the `BundlesController#create`
+    turbo_stream replaces the modal with the freshly-created bundle
+    pre-bound), the title text, inline-edit PATCH URL, and inner Turbo
+    Frame `src` are pre-populated server-side AND the dialog mounts
+    the `bundles-modal-autoopen` Stimulus controller. The autoopen
+    controller calls `dialog.showModal()` on `connect()` so the user
+    lands directly inside the modal for the new bundle without an
+    extra click. When `bundle:` is absent (the steady-state render
+    inside `_bundles_for_shelf`) the modal renders inert and waits for
+    a tile click to open via `bundles-modal-trigger`.
+%>
+<%
+  bundle = local_assigns[:bundle]
+  prefill_title    = bundle&.name.to_s
+  prefill_frame    = bundle ? games_pane_bundle_path(bundle) : nil
+  prefill_url      = bundle ? bundle_path(bundle) : ""
+  autoopen_class   = bundle ? " bundles-modal-autoopen" : ""
 %>
 <%# 2026-05-17 bug fix — `bundles-modal-reset` listens to the
     native `<dialog>` `close` event (which fires for every dismissal
@@ -27,7 +44,7 @@
     into the next modal open. %>
 <dialog id="bundles-modal"
         class="pane-dialog bundles-modal"
-        data-controller="confirm-modal bundles-modal-reset"
+        data-controller="confirm-modal bundles-modal-reset<%= autoopen_class %>"
         data-action="click->confirm-modal#clickOutside keydown->confirm-modal#keydown"
         data-modal-actions-key="bundle">
   <div class="bundles-modal-body" style="padding: 12px 16px; min-width: 480px; max-width: 900px; max-height: 80vh; overflow-y: auto;">
@@ -54,14 +71,14 @@
         controller — same flow the `[change]` link triggers. %>
     <div class="bundle-modal-title-row"
          data-controller="inline-title-edit"
-         data-inline-title-edit-url-value=""
+         data-inline-title-edit-url-value="<%= prefill_url %>"
          data-bundles-modal-target="urlHolder"
          data-modal-action-target="bundle-modal-title-edit">
       <span class="bundle-modal-title-display"
             data-inline-title-edit-target="display">
         <h2 class="bundle-modal-title-text"
             style="margin: 0;"
-            data-bundles-modal-target="title">bundle</h2>
+            data-bundles-modal-target="title"><%= prefill_title.presence || "bundle" %></h2>
         <a href="#"
            class="bracketed"
            data-action="click->inline-title-edit#edit">[<span class="bl">change</span>]</a>
@@ -70,7 +87,7 @@
             data-inline-title-edit-target="editing"
             hidden>
         <input type="text"
-               value=""
+               value="<%= prefill_title %>"
                class="bundle-title-input"
                data-inline-title-edit-target="input"
                data-action="keydown->inline-title-edit#handleKey">
@@ -87,7 +104,7 @@
       </span>
     </div>
     <%= turbo_frame_tag "bundles_modal_frame",
-                        src: nil,
+                        src: prefill_frame,
                         loading: "lazy",
                         data: { bundles_modal_target: "frame" } %>
     <div class="confirm-modal-actions modal-footer">

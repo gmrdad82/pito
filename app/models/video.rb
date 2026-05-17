@@ -1,5 +1,9 @@
 class Video < ApplicationRecord
-  include Searchable
+  # Phase 34 (2026-05-18) — Video no longer joins the Meilisearch
+  # corpus. The unified `/games` index covers Game + Bundle only;
+  # the previous `videos_<env>` index is left to drift stale (no
+  # writes, no destroy hooks; the physical index can be deleted
+  # out-of-band when the operator notices it).
   # Phase 15 §1 — Calendar derivation hooks. Video derives a
   # `video_published` entry when public/unlisted with `published_at`,
   # and a `video_scheduled` entry when private with a future
@@ -198,10 +202,9 @@ class Video < ApplicationRecord
        { private: 0, public: 1, unlisted: 2 },
        prefix: :privacy
 
-  # Search hooks. The Searchable concern keeps this declarative-only:
-  # Meilisearch indexing is a separate follow-up.
-  searchable :title, :description
-  filterable :privacy_status, :category_id, :channel_id, :project_id
+  # Phase 34 (2026-05-18) — `searchable` / `filterable` declarations
+  # are gone; Video is no longer indexed into Meilisearch. The
+  # unified `/games` corpus covers Game + Bundle only.
 
   scope :starred, -> { where(star: true) }
   scope :published, -> { where(privacy_status: %i[public unlisted]) }

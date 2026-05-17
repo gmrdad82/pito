@@ -108,44 +108,54 @@
       non-empty so Turbo's frame-missing detection never fires AND
       gives the user a useful "no games match this filter" hint. %>
   <%= turbo_frame_tag "games_listing" do %>
-    <% has_any_content = @recently_played.any? ||
-                         @genres_for_shelf.any? || @bundles_for_shelf.any? ||
-                         @letter_buckets.any? %>
+    <%# 2026-05-18 — `has_any_content` no longer gates the bundles
+        shelf. The bundles partial renders UNCONDITIONALLY below so the
+        heading-row `[+]` create button is always available even when
+        the user has zero games AND zero bundles. The "no games match
+        this filter" empty-state copy still renders for the other
+        listing partitions (recently played + genres + letter shelves)
+        when none of them have content. %>
+    <% has_any_listing_content = @recently_played.any? ||
+                                 @genres_for_shelf.any? ||
+                                 @letter_buckets.any? %>
 
-    <% if has_any_content %>
-      <% if @recently_played.any? %>
-        <%= render(Games::ShelfComponent.new(
-              heading: "recently played",
-              show_count: false,
-              heading_level: :h2,
-              row_gap: "8px"
-            )) do %>
-          <% @recently_played.each do |game| %>
-            <%= render(Games::GameTileComponent.new(game: game, variant: :grid)) %>
-          <% end %>
+    <% if @recently_played.any? %>
+      <%= render(Games::ShelfComponent.new(
+            heading: "recently played",
+            show_count: false,
+            heading_level: :h2,
+            row_gap: "8px"
+          )) do %>
+        <% @recently_played.each do |game| %>
+          <%= render(Games::GameTileComponent.new(game: game, variant: :grid)) %>
         <% end %>
       <% end %>
+    <% end %>
 
-      <%# Phase 27 §01c-v2 — Genres outer shelf. One sub-shelf per non-
-          empty genre, alphabetical. Empty buckets hidden. %>
-      <% if @genres_for_shelf.any? %>
-        <hr class="hairline">
-        <%= render "games/genres_shelf", genres: @genres_for_shelf %>
-      <% end %>
+    <%# Phase 27 §01c-v2 — Genres outer shelf. One sub-shelf per non-
+        empty genre, alphabetical. Empty buckets hidden. %>
+    <% if @genres_for_shelf.any? %>
+      <hr class="hairline">
+      <%= render "games/genres_shelf", genres: @genres_for_shelf %>
+    <% end %>
 
-      <%# Bundles outer shelf — one tile per non-empty bundle. %>
-      <% if @bundles_for_shelf.any? %>
-        <hr class="hairline">
-        <%= render "games/bundles_for_shelf", bundles: @bundles_for_shelf %>
-      <% end %>
+    <%# Bundles outer shelf — one tile per non-empty bundle.
+        2026-05-18 — rendered UNCONDITIONALLY (even when zero bundles
+        exist) so the heading-row `[+]` create button is always
+        available. The partial renders the shelf chrome + `[+]` +
+        modal in every state; only the tiles row is suppressed when
+        the input is empty. %>
+    <hr class="hairline">
+    <%= render "games/bundles_for_shelf", bundles: @bundles_for_shelf %>
 
-      <%# Phase 27 v2 spec 05 — Letter shelves. One `<section>` per non-
-          empty letter; `#` bucket renders LAST when present. %>
-      <% if @letter_buckets.any? %>
-        <hr class="hairline">
-        <%= render "games/letter_shelves", buckets: @letter_buckets %>
-      <% end %>
-    <% else %>
+    <%# Phase 27 v2 spec 05 — Letter shelves. One `<section>` per non-
+        empty letter; `#` bucket renders LAST when present. %>
+    <% if @letter_buckets.any? %>
+      <hr class="hairline">
+      <%= render "games/letter_shelves", buckets: @letter_buckets %>
+    <% end %>
+
+    <% unless has_any_listing_content %>
       <p class="text-muted" style="margin: 16px 0 0;">no games match this filter.</p>
     <% end %>
   <% end %>

@@ -37,5 +37,34 @@ namespace :pito do
            "(of #{total} synced games). Watch Sidekiq's :search queue " \
            "for progress."
     end
+
+    # Phase 34 (2026-05-18) — Bundle backfill. Mirrors
+    # `reindex_games` for the Bundle half of the unified `/games`
+    # corpus. No filter on `Bundle.summary_embedding` — we want every
+    # bundle indexed, including ones with no members yet (the
+    # indexer no-ops cleanly on a fully-blank input set).
+    desc "Re-enqueue Voyage embedding + Meilisearch indexing for every " \
+         "Bundle. Async — returns once jobs are enqueued."
+    task reindex_bundles: :environment do
+      total = Bundle.count
+      enqueued = 0
+
+      Bundle.find_each do |bundle|
+        BundleVoyageIndexJob.perform_later(bundle.id)
+        enqueued += 1
+      end
+
+      puts "enqueued #{enqueued} BundleVoyageIndexJob#{'s' unless enqueued == 1} " \
+           "(of #{total} bundles). Watch Sidekiq's :search queue " \
+           "for progress."
+    end
+
+    # Phase 34 (2026-05-18) — full-corpus backfill convenience. Runs
+    # both `reindex_games` and `reindex_bundles` in one shot so a
+    # single operator command refreshes the entire unified `/games`
+    # Meilisearch index.
+    desc "Re-enqueue Voyage embedding + Meilisearch indexing for every " \
+         "Game + Bundle (unified /games corpus). Async."
+    task reindex_all: %i[reindex_games reindex_bundles]
   end
 end

@@ -12,6 +12,9 @@
     <% if more_href.present? %>
       <%= render(BracketedLinkComponent.new(label: "see all", href: more_href)) %>
     <% end %>
+    <% if heading_extras? %>
+      <%= heading_extras %>
+    <% end %>
   </div>
 
   <div class="<%= row_class_string %>" data-steam-shelf-target="row"

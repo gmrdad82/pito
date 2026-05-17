@@ -7,6 +7,13 @@
 # index that the eventual `Game` Searchable surface will hit is the
 # one this service writes to.
 #
+# The same index ALSO holds Bundle documents (written by
+# `Meilisearch::BundleIndexer`) — single corpus, one query at the UI
+# layer. The two record types are distinguished by the `kind`
+# discriminator (`"game"` vs `"bundle"`). Game docs keep their raw
+# numeric `id` as the primary key; Bundle docs use a namespaced
+# `"bundle:<id>"` to avoid collisions.
+#
 # First-write self-configures the index: on every call we update the
 # searchable + filterable + sortable attribute lists. Meilisearch's
 # `update_*_attributes` endpoints are idempotent — a no-op repeat
@@ -14,19 +21,21 @@
 # write rather than only first-write because the attribute lists
 # evolve with the codebase and we want the index to track without
 # requiring an explicit "configure" step. The reindex rake task
-# (`pito:voyage:reindex_games`) hits this same code path.
+# (`pito:voyage:reindex_games` / `pito:voyage:reindex_all`) hits
+# this same code path.
 #
 # Searchable attributes (in priority order — Meilisearch weights the
 # first entry highest):
 #   1. title      — primary search target.
 #   2. summary    — secondary text body.
 #
-# Filterable attributes (for "filter by" support in the future
-# search surface):
-#   id, igdb_id, igdb_slug, release_year, primary_genre_id.
+# Filterable attributes (for "filter by" support in the search
+# surface):
+#   id, igdb_id, igdb_slug, release_year, primary_genre_id, kind,
+#   bundle_id, game_count.
 #
 # Sortable attributes:
-#   release_year, total_rating, igdb_synced_at.
+#   release_year, total_rating, igdb_synced_at, game_count.
 #
 # Vector payload: when the Game has a `summary_embedding`, it is
 # attached as `_vectors.default` so Meilisearch's hybrid search can
@@ -41,8 +50,8 @@
 module Meilisearch
   class GameIndexer
     SEARCHABLE_ATTRIBUTES = %w[title summary].freeze
-    FILTERABLE_ATTRIBUTES = %w[id igdb_id igdb_slug release_year primary_genre_id].freeze
-    SORTABLE_ATTRIBUTES   = %w[release_year total_rating igdb_synced_at].freeze
+    FILTERABLE_ATTRIBUTES = %w[id igdb_id igdb_slug release_year primary_genre_id kind bundle_id game_count].freeze
+    SORTABLE_ATTRIBUTES   = %w[release_year total_rating igdb_synced_at game_count].freeze
 
     def self.call(game)
       new(game).call
@@ -90,6 +99,7 @@ module Meilisearch
     def document
       doc = {
         id: @game.id,
+        kind: "game",
         title: @game.title.to_s,
         summary: @game.summary.to_s,
         igdb_id: @game.igdb_id,
