@@ -378,12 +378,11 @@ menus:
     items:
       - { key: l, label: list,             action: { type: navigate, path: "/games" } }
       - { key: "+", label: new,            action: { type: open, target: igdb_search } }
-      - { key: B, label: bundles,          submenu: bundles }
 
-  bundles:
-    items:
-      - { key: l, label: list,         action: { type: navigate, path: "/bundles" } }
-      - { key: "+", label: new,        action: { type: open, target: new_bundle } }
+  # 2026-05-18 — the `bundles` submenu was removed alongside the
+  # `B bundles` entry above. Bundles are reachable only via the /games
+  # bundle shelf + modal flow; there is no standalone `/bundles` index
+  # or `/bundles/new` surface for the menu to navigate to.
 
   notifications:
     items:

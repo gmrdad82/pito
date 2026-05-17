@@ -108,25 +108,50 @@
               figures. The wrapping `<div>` carries the pair so the
               vertical spacing reads as one Redis-stats block. %>
           <div style="margin-bottom: 8px;">
-            <table class="stack-table">
+            <%# Both tables use `table-layout: fixed` with a shared 5-column
+                grid so the 2-col lifetime table aligns with the 5-col queue
+                table below. Lifetime fills only cols 3 + 5 → `successful`
+                lands under `enqueued`, `failed` lands under `dead`. Cols
+                1, 2, 4 are spacer cells (empty `<th>` / `<td>`). %>
+            <table class="stack-table" style="table-layout: fixed; width: 100%;">
+              <colgroup>
+                <col style="width: 20%;">
+                <col style="width: 20%;">
+                <col style="width: 20%;">
+                <col style="width: 20%;">
+                <col style="width: 20%;">
+              </colgroup>
               <thead>
                 <tr>
+                  <th class="num"></th>
+                  <th class="num"></th>
                   <th class="num">successful</th>
+                  <th class="num"></th>
                   <th class="num">failed</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
+                  <td class="num"></td>
+                  <td class="num"></td>
                   <td class="num">
                     <%= sidekiq_counts["processed"] ? number_with_delimiter(sidekiq_counts["processed"]) : "—" %>
                   </td>
+                  <td class="num"></td>
                   <td class="num">
                     <%= sidekiq_counts["failed"] ? number_with_delimiter(sidekiq_counts["failed"]) : "—" %>
                   </td>
                 </tr>
               </tbody>
             </table>
-            <table class="stack-table" style="margin-top: 6px;">
+            <table class="stack-table" style="margin-top: 6px; table-layout: fixed; width: 100%;">
+              <colgroup>
+                <col style="width: 20%;">
+                <col style="width: 20%;">
+                <col style="width: 20%;">
+                <col style="width: 20%;">
+                <col style="width: 20%;">
+              </colgroup>
               <thead>
                 <tr>
                   <th class="num">busy</th>

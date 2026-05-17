@@ -446,10 +446,14 @@ export default class extends Controller {
   // a page-action can shadow a same-prefix menu item (intentional —
   // page actions are page-scoped overrides).
   //
-  // A2: when modal context is active the navigation menu is suppressed
-  // visually AND ignored for dispatch — only the modal_actions list
-  // (returned by `resolvePageActions()`) is considered. Pressing `h`
-  // inside a modal must NOT navigate home.
+  // 2026-05-18 — navigation is ALWAYS dispatchable, including when a
+  // modal is open. The earlier modal-context short-circuit (which
+  // suppressed nav items both visually and in dispatch) created a bug
+  // where pressing Space inside a modal hid the navigation section
+  // entirely. Per locked direction, modal_actions PREPEND the page
+  // actions list while the root navigation menu remains visible and
+  // dispatchable alongside. Pressing `h` inside a modal navigates home
+  // (the Turbo visit closes the modal naturally as the page swaps).
   candidatesForPrefix(prefix) {
     if (prefix.length === 0) return []
     const name = this.menuStack[this.menuStack.length - 1]
@@ -461,7 +465,6 @@ export default class extends Controller {
         }
       })
     }
-    if (this.isModalContextActive()) return out
     const menu = this.menuByName(name)
     if (menu) {
       ;(menu.items || []).forEach((item) => {
@@ -1079,21 +1082,25 @@ export default class extends Controller {
     card.setAttribute("aria-label", `leader menu (${name})`)
 
     // Two-section render at the ROOT menu (2026-05-17): page-actions
-    // first, hairline, then the navigation menu below. Submenus
-    // (`channels`, `games`, …) render only the navigation list — the
-    // page-actions block is a root-only affordance because that is
-    // where the user looks to discover "what can I do on THIS page".
-    // The page_actions section is omitted entirely (no empty heading,
-    // no orphan hairline) when the resolved list is empty — pages on
-    // the helper-side deny-list (e.g. /settings) ship no
-    // `data-keybindings-page-key` and resolve to []. See
-    // `KeybindingsReferenceComponent` for the Ruby-side equivalent.
+    // (OR modal_actions when a modal is open) first, hairline, then the
+    // navigation menu below. Submenus (`channels`, `games`, …) render
+    // only the navigation list — the page-actions block is a root-only
+    // affordance because that is where the user looks to discover "what
+    // can I do on THIS page". The page_actions section is omitted
+    // entirely (no empty heading, no orphan hairline) when the resolved
+    // list is empty — pages on the helper-side deny-list (e.g.
+    // /settings) ship no `data-keybindings-page-key` and resolve to [].
+    // See `KeybindingsReferenceComponent` for the Ruby-side equivalent.
     //
-    // A2 (modal-as-page): when a modal context is active the navigation
-    // section is suppressed — the popup shows ONLY the modal_actions
-    // list. The page-actions section is still rendered with the modal's
-    // items because `resolvePageActions()` returns those when a modal
-    // is open.
+    // 2026-05-18 — navigation is ALWAYS rendered, including in modal
+    // context. The earlier "modal_actions only" behaviour hid the
+    // navigation section the moment a modal opened, which left the
+    // user unable to discover (or jump to) other pages without first
+    // dismissing the modal. Per locked direction, modal_actions
+    // PREPEND the page-actions block while navigation remains visible
+    // and dispatchable alongside. The footer hint copy still adapts
+    // via the `modalContext` boolean below so the Esc affordance is
+    // surfaced when a parent modal exists.
     const modalContext = this.isModalContextActive()
     if (name === "root") {
       const pageActions = this.resolvePageActions()
@@ -1115,18 +1122,15 @@ export default class extends Controller {
 
         card.appendChild(pageSection)
 
-        // Hairline is only painted when the navigation section follows
-        // below. With modal context active no nav section renders, so
-        // a hairline would dangle as a footer separator — suppress it.
-        if (!modalContext) {
-          const hr = document.createElement("hr")
-          hr.className = "hairline leader-menu-hairline"
-          card.appendChild(hr)
-        }
+        // Hairline always paints between page-actions and the always-
+        // rendered navigation section below.
+        const hr = document.createElement("hr")
+        hr.className = "hairline leader-menu-hairline"
+        card.appendChild(hr)
       }
     }
 
-    if (!modalContext) {
+    {
       const navSection = document.createElement("section")
       navSection.className = "leader-menu-section leader-menu-navigation"
 
@@ -1290,10 +1294,13 @@ export default class extends Controller {
     return Array.isArray(list) ? list : []
   }
 
-  // A2 (modal-as-page): when a modal context is active, the leader
-  // popup shows ONLY modal_actions — no navigation, no logout. This
-  // helper is consulted by `render()` to decide whether to paint the
-  // navigation section below the page-actions hairline.
+  // Detect whether a keyed modal is currently open above the leader
+  // popup. As of 2026-05-18 the navigation section is ALWAYS rendered
+  // regardless of modal context, so this helper no longer gates the
+  // nav block — it only feeds the footer-hint copy in `render()`
+  // (prepending `Esc close modal · ` when a parent modal exists so
+  // the user knows Esc dismisses the parent dialog, not the leader
+  // popup itself).
   isModalContextActive() {
     return !!document.querySelector("dialog[open][data-modal-actions-key]")
   }

@@ -1,32 +1,29 @@
-# Phase 14 §2 / Phase 27 follow-up (2026-05-17) — Bundles controller.
+# Phase 14 §2 / Phase 27 follow-up (2026-05-17 + 2026-05-18) — Bundles
+# controller.
 #
-# After the 2026-05-17 simplification a Bundle has exactly one
-# user-facing attribute: `name`. Both the create form and the edit
-# form expose only `name`; everything else (composite cover, slug,
-# members) is derived or managed through dedicated surfaces.
+# After the 2026-05-18 follow-up, bundles are reachable only via the
+# `/games` bundle shelf + modal flow. The standalone `/bundles` index
+# and `/bundles/new` surfaces are gone, so the controller no longer
+# carries `index`, `new`, `create`, or `edit`. A Bundle has exactly one
+# user-facing attribute (`name`); the modal's inline-title-edit
+# Stimulus controller PATCHes `update` with a JSON body to rename.
 #
 # Surface:
-#   - index    : Flat grid of bundle composite covers.
 #   - show     : Two-pane — cover/metadata + member list / add form.
-#   - new      : Single `name` field.
-#   - create   : Single `name` field.
-#   - edit     : Single `name` field.
-#   - update   : Permits `name`.
+#                The bundles modal on `/games` deep-links here via the
+#                tile's `[ open ]` anchor.
+#   - update   : Permits `name`. Serves both an HTML branch (kept for
+#                historical request specs and any direct hit) and a
+#                JSON branch consumed by the modal's inline-title-edit.
 #   - destroy  : Routes through `/deletions/bundle/:ids` per the "no JS
-#                confirms" rule.
+#                confirms" rule (reached from `/games/:id`'s
+#                `[delete]`).
 #   - games_pane: Turbo Frame fragment listing the bundle's member
 #                  games as `Games::CoverComponent` grid tiles — used
 #                  by the `/games` bundles modal (replaces the former
 #                  `Collections#games_pane`).
-#
-# The legacy `bundle_type` / `igdb_source_*` / `last_error` columns are
-# gone; the `seed_from_igdb` action they served is removed.
 class BundlesController < ApplicationController
   include FriendlyRedirect
-
-  def index
-    @bundles = Bundle.order(created_at: :desc)
-  end
 
   def show
     @bundle = Bundle.friendly.find(params[:id])
@@ -35,29 +32,12 @@ class BundlesController < ApplicationController
     @members = @bundle.bundle_members.includes(:game).order(:position)
   end
 
-  def new
-    @bundle = Bundle.new
-  end
-
-  def create
-    @bundle = Bundle.new(bundle_params)
-    if @bundle.save
-      redirect_to bundle_path(@bundle), notice: "bundle created."
-    else
-      render :new, status: :unprocessable_content
-    end
-  end
-
-  def edit
-    @bundle = Bundle.friendly.find(params[:id])
-  end
-
-  # `update` serves both the full edit form (`/bundles/:id/edit`,
-  # HTML) and the `/games` bundles-modal inline title edit (JSON —
-  # the `inline-title-edit` Stimulus controller PATCHes
-  # `{ bundle: { name: ... } }` and only needs a 200 / 422 verdict;
-  # the client updates the modal title text optimistically on
-  # success).
+  # `update` is the modal's inline-title-edit endpoint. The Stimulus
+  # `inline-title-edit` controller PATCHes `{ bundle: { name: ... } }`
+  # as JSON and only needs a 200 / 422 verdict; the client updates the
+  # modal title text optimistically on success. The HTML branch
+  # survives so any direct PATCH (e.g. a future surface) still
+  # round-trips through `redirect_to bundle_path(...)`.
   def update
     @bundle = Bundle.friendly.find(params[:id])
     if @bundle.update(bundle_params)
@@ -67,7 +47,7 @@ class BundlesController < ApplicationController
       end
     else
       respond_to do |format|
-        format.html { render :edit, status: :unprocessable_content }
+        format.html { redirect_to bundle_path(@bundle), alert: @bundle.errors.full_messages.to_sentence }
         format.json { render json: { errors: @bundle.errors.full_messages }, status: :unprocessable_content }
       end
     end

@@ -172,7 +172,10 @@ module ApplicationHelper
     # the projects index, the closest reasonable parent.
     when "note"       then projects_path
     when "timeline"   then projects_path
-    when "bundle"     then bundles_path
+    # 2026-05-18 — `/bundles` index removed. Bundles are reachable
+    # only via the /games bundle shelf + modal flow; cancel/back
+    # destinations fall back to /games.
+    when "bundle"     then games_path
     when "video_game_link" then videos_path
     else root_path
     end
