@@ -38,17 +38,55 @@ deep_freeze = ->(obj) {
 
 path = Rails.root.join("config", "keybindings.yml")
 
+# Lightweight shape validator. Confirms the top-level sections we know
+# about have the right shape, but tolerates missing/empty blocks so a
+# half-populated schema (e.g. `modal_actions:` waiting on Phase B)
+# does not crash boot.
+#
+# Known sections:
+#   leader:         { key:, display: }
+#   page_actions:   { <page_key> => [item, ...], ... }
+#   modal_actions:  { <modal_key> => { items: [item, ...] }, ... }  (A2)
+#   menus:          { <menu_name> => { items: [item, ...] }, ... }
+#
+# Anything not matching is logged at warn level rather than raised —
+# the YAML is parseable, so the app boots; the warn surfaces the
+# typo in dev where it matters.
+validate_keybindings = ->(schema) {
+  return unless schema.is_a?(Hash)
+  modal_actions = schema["modal_actions"]
+  if modal_actions && !modal_actions.is_a?(Hash)
+    Rails.logger.warn("[keybindings] `modal_actions` should be a Hash, got #{modal_actions.class}")
+    return
+  end
+  (modal_actions || {}).each do |modal_key, entry|
+    unless entry.is_a?(Hash)
+      Rails.logger.warn("[keybindings] `modal_actions[#{modal_key}]` should be a Hash, got #{entry.class}")
+      next
+    end
+    items = entry["items"]
+    next if items.nil? # empty stub is fine
+    unless items.is_a?(Array)
+      Rails.logger.warn("[keybindings] `modal_actions[#{modal_key}].items` should be an Array, got #{items.class}")
+    end
+  end
+}
+
 if Rails.env.development?
   # Dev: store a fresh-read Proc so each browser refresh sees the
   # latest YAML on disk. No freeze — the returned hash is a brand-new
   # parse, so accidental mutation by a caller dies with the request.
   # Parse once at boot to fail fast on syntax errors; then swap in the
   # Proc for runtime use.
-  YAML.safe_load_file(path, permitted_classes: [ Symbol ])
+  boot_schema = YAML.safe_load_file(path, permitted_classes: [ Symbol ])
+  validate_keybindings.call(boot_schema)
   Rails.application.config.keybindings = -> {
-    YAML.safe_load_file(path, permitted_classes: [ Symbol ])
+    schema = YAML.safe_load_file(path, permitted_classes: [ Symbol ])
+    validate_keybindings.call(schema)
+    schema
   }
 else
   schema = YAML.safe_load_file(path, permitted_classes: [ Symbol ])
+  validate_keybindings.call(schema)
   Rails.application.config.keybindings = deep_freeze.call(schema)
 end

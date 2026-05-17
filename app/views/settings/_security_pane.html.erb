@@ -67,6 +67,7 @@
           dropped along with the `sessions.remember` database column.
           Sortable headers drive `?sessions_sort=<key>&sessions_dir=
           <asc|desc>` on `/settings` itself. %>
+      <div class="sessions-table-wrap">
       <table class="sessions-table" style="table-layout: auto;">
         <thead>
           <tr>
@@ -91,13 +92,14 @@
                 )) %>
               </td>
               <td style="max-width: 360px; white-space: normal;">
-                <code><%= s.user_agent.presence || "—" %></code><%= render(TooltipBadgeComponent.new(label: "ip", tooltip: s.ip || "—")) %><% if s.current? %><%= render(StatusBadgeComponent.new(label: "this", kind: :success)) %><% end %>
+                <code><%= s.user_agent.presence || "—" %></code><%= render(TooltipBadgeComponent.new(label: "ip", tooltip: s.ip || "—", variant: :code)) %><% if s.current? %><%= render(StatusBadgeComponent.new(label: "this", kind: :strong)) %><% end %>
               </td>
               <td class="num"><%= compact_time_ago(s.last_activity_at) %></td>
             </tr>
           <% end %>
         </tbody>
       </table>
+      </div>
     <% else %>
       <p class="text-muted" style="margin: 0;">no active sessions.</p>
     <% end %>
@@ -133,7 +135,8 @@
       <dialog id="revoke_sessions_modal" class="confirm-modal"
               data-controller="confirm-modal"
               data-action="click->confirm-modal#clickOutside keydown->confirm-modal#keydown"
-              data-sessions-bulk-revoke-target="modal">
+              data-sessions-bulk-revoke-target="modal"
+              data-modal-actions-key="revoke_confirm">
         <div class="confirm-modal-inner">
           <div class="dialog-title" data-sessions-bulk-revoke-target="modalTitle">revoke 0 sessions?</div>
           <div class="dialog-message" data-sessions-bulk-revoke-target="modalWarning" hidden>

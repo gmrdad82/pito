@@ -39,8 +39,8 @@
         </div>
 
         <% if @postgres_status[:connected] && @postgres_table_breakdown.any? %>
-          <div data-controller="sortable-table" data-sortable-table-id-value="stack-postgres">
-            <table class="stack-table" style="margin-bottom: 8px;" data-sortable-table-target="table">
+          <div style="margin-bottom: 8px;" data-controller="sortable-table" data-sortable-table-id-value="stack-postgres">
+            <table class="stack-table" data-sortable-table-target="table">
               <thead>
                 <tr>
                   <%= render(SortableHeaderComponent.new(label: "model", sort_type: "string")) %>
@@ -95,7 +95,8 @@
               columns into a 60/40 group; the queue row uses one
               column each. Numeric headers + cells use `.num`
               for right alignment + tabular figures. %>
-          <table class="stack-table" style="margin-bottom: 8px;">
+          <div style="margin-bottom: 8px;">
+          <table class="stack-table">
             <thead>
               <tr>
                 <th class="num" colspan="3">successful</th>
@@ -127,6 +128,7 @@
               </tr>
             </tbody>
           </table>
+          </div>
         <% end %>
       </div>
 
@@ -144,8 +146,8 @@
         </div>
 
         <% if @search_per_index_stats.any? %>
-          <div data-controller="sortable-table" data-sortable-table-id-value="stack-meilisearch">
-            <table class="stack-table" style="margin-bottom: 8px;" data-sortable-table-target="table">
+          <div style="margin-bottom: 8px;" data-controller="sortable-table" data-sortable-table-id-value="stack-meilisearch">
+            <table class="stack-table" data-sortable-table-target="table">
               <thead>
                 <tr>
                   <%= render(SortableHeaderComponent.new(label: "index", sort_type: "string")) %>
@@ -205,7 +207,8 @@
           confirm_method: :post,
           confirm_label: "reindex",
           cancel_label: "cancel",
-          destructive: true
+          destructive: true,
+          modal_actions_key: "reindex_confirm"
         )) %>
 
         <hr class="hairline">
@@ -224,8 +227,8 @@
         </div>
 
         <% if @assets_breakdown.any? %>
-          <div data-controller="sortable-table" data-sortable-table-id-value="stack-assets">
-            <table class="stack-table" style="margin-bottom: 8px;" data-sortable-table-target="table">
+          <div style="margin-bottom: 8px;" data-controller="sortable-table" data-sortable-table-id-value="stack-assets">
+            <table class="stack-table" data-sortable-table-target="table">
               <thead>
                 <tr>
                   <%= render(SortableHeaderComponent.new(label: "category", sort_type: "string")) %>
@@ -270,8 +273,8 @@
         </div>
 
         <% if @notes_breakdown.any? %>
-          <div data-controller="sortable-table" data-sortable-table-id-value="stack-notes">
-            <table class="stack-table" style="margin-bottom: 8px;" data-sortable-table-target="table">
+          <div style="margin-bottom: 8px;" data-controller="sortable-table" data-sortable-table-id-value="stack-notes">
+            <table class="stack-table" data-sortable-table-target="table">
               <thead>
                 <tr>
                   <%= render(SortableHeaderComponent.new(label: "namespace", sort_type: "string")) %>

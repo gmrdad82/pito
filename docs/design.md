@@ -249,6 +249,16 @@ count primitive, use `StatusBadgeComponent.new(label:, kind:)` — not an ad-hoc
 `<span class="text-muted">(<count>)</span>`. The component carries the borders,
 padding, and theme-aware tokens; text spans drift from the system.
 
+**`:strong` variant — filled high-visibility chip (2026-05-17 lock).**
+Background: the canonical positive green (`--color-success`, same token as the
+`▲ connected` indicator). Text: white (`#ffffff`). Reserved for chips that
+emphasize "this is the active / current / yours" identity. First call site: the
+`[this]` chip in the /settings sessions table marking the current session row.
+Other green chips (e.g. `▲ connected` status indicators, recorded / owned chips,
+neutral `:positive`) stay as-is — they're informational, not identity-
+emphasizing. Use `:strong` only when the chip is calling out the user's own
+current item among siblings; over-using it dilutes the emphasis.
+
 ### Platform Chips
 
 Platform tags render as filled status-badge style pills in the platform's brand

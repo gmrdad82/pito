@@ -30,7 +30,8 @@
 <dialog id="webhook-help-modal"
         class="pane-dialog webhook-help-modal"
         style="max-width: 900px; width: min(900px, 92vw);"
-        data-action="click->webhook-help-modal#clickOutside keydown->webhook-help-modal#keydown">
+        data-action="click->webhook-help-modal#clickOutside keydown->webhook-help-modal#keydown"
+        data-modal-actions-key="webhook_help">
   <div style="padding: 12px 16px; max-height: 80vh; overflow-y: auto; overflow-x: hidden; overflow-wrap: anywhere; word-wrap: break-word;">
     <%= turbo_frame_tag "webhook_help_modal_frame", src: nil, loading: "lazy" %>
     <div class="modal-footer">

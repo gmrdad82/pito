@@ -45,7 +45,16 @@ module KeybindingsHelper
       # equivalent reads the YAML directly and does not consume this
       # branch. No `surfaces:` filtering applies here — the
       # `page_actions:` block contains no per-surface keys today.
-      "page_actions" => schema.fetch("page_actions", {})
+      "page_actions" => schema.fetch("page_actions", {}),
+      # `modal_actions:` is the modal-as-page parallel to
+      # `page_actions:` (A2, 2026-05-17). When a `<dialog open>` on
+      # the page carries `data-modal-actions-key="<key>"`, the
+      # `leader-menu` Stimulus controller resolves
+      # `schema.modal_actions[<key>].items` instead of the page-actions
+      # list (and suppresses navigation + logout entirely). Defaults to
+      # an empty hash until Phase B starts populating modal entries.
+      # Same "no surfaces filtering" rule applies as page_actions.
+      "modal_actions" => schema.fetch("modal_actions", {}) || {}
     }
   end
 

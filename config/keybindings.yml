@@ -28,6 +28,91 @@ leader:
   key: " "
   display: "_"
 
+# Per-modal action keys — rendered in the leader popup INSTEAD of the
+# page actions + nav + logout whenever a `<dialog open>` is on the
+# page carrying `data-modal-actions-key="<key>"`. When a keyed modal
+# is open the leader popup becomes modal-scoped: only this list
+# renders, no navigation, no logout. When no keyed modal is open the
+# leader popup falls back to the page-actions resolver (default
+# behavior — see `page_actions:` below).
+#
+# Keyed by a modal identifier string. Phase B (still to come) wires
+# the `data-modal-actions-key` attributes onto each modal `<dialog>`
+# and fills in the items list per modal. Until then this block is an
+# empty stub — `leader_menu_controller.js` tolerates a missing or
+# empty `modal_actions` map.
+#
+# Item shape mirrors `page_actions` rows:
+#   { key: <string>, label: <string>, action: { type: ..., ... } }
+#
+# Phase B (2026-05-17) — populated.
+#
+# Modal contexts registered below:
+#   bundle          — /games bundles modal (display + inline-edit
+#                     title). Action keys: `d` dark mode, `c` rename.
+#   webhook_help    — Discord + Slack help modals (one shared component,
+#                     two invocations — adding the attribute on the
+#                     shared component scopes it to both). Informational,
+#                     so only `d` dark mode is exposed.
+#   revoke_confirm  — /settings/security session-revoke confirm modal.
+#                     Action keys: `d` dark mode, `r` revoke.
+#   reindex_confirm — /settings/stack Meilisearch reindex confirm modal.
+#                     Action keys: `d` dark mode, `r` reindex.
+#
+# Two new action types are introduced in lockstep with this block:
+#
+#   trigger_inline_edit { target: <hook> }
+#     Programmatically activates the inline-edit Stimulus controller
+#     attached to the element carrying
+#     `[data-modal-action-target="<hook>"]` inside the currently open
+#     `<dialog>`. The web side resolves the `inline-title-edit`
+#     controller via `application.getControllerForElementAndIdentifier`
+#     and calls `.edit()` on it (same flow the `[change]` link triggers
+#     today).
+#
+#   submit_confirm_modal
+#     Submits the form inside the currently open `<dialog>` via
+#     `form.requestSubmit()`. No `target:` needed — the resolver finds
+#     the open dialog and the form inside it.
+modal_actions:
+  bundle:
+    items:
+      - key: d
+        label: dark mode
+        action:
+          type: theme_toggle
+      - key: c
+        label: rename bundle
+        action:
+          type: trigger_inline_edit
+          target: bundle-modal-title-edit
+  webhook_help:
+    items:
+      - key: d
+        label: dark mode
+        action:
+          type: theme_toggle
+  revoke_confirm:
+    items:
+      - key: d
+        label: dark mode
+        action:
+          type: theme_toggle
+      - key: r
+        label: revoke session(s)
+        action:
+          type: submit_confirm_modal
+  reindex_confirm:
+    items:
+      - key: d
+        label: dark mode
+        action:
+          type: theme_toggle
+      - key: r
+        label: reindex
+        action:
+          type: submit_confirm_modal
+
 # Per-page action keys — rendered in the page-actions section of the
 # keybindings popup (shown FIRST, above the nav menus). Each page
 # resolves to a list of { key, label, action } rows for actions that
@@ -127,15 +212,77 @@ page_actions:
       label: delete
       action:
         type: page_delete
-  # /settings intentionally ships ONLY the dark-mode toggle as its
-  # page action — no `/ search` (per user direction 2026-05-17). The
-  # settings page is a utility surface; the only context-specific key
-  # that makes sense is theme toggling.
+  # /settings ships dark-mode plus a set of 2-key flat bindings for
+  # the page's primary actions (Phase C, 2026-05-17). No `/ search`
+  # — /settings is a utility surface; search isn't useful here.
+  #
+  # 2-key bindings (parsed by the prefix accumulator in
+  # `leader_menu_controller.js#handlePrefixKey` — multi-char keys
+  # work because the accumulator collects characters until either an
+  # exact match has no longer prefix candidate OR the 1500 ms
+  # inactivity timer fires the recorded exact match):
+  #
+  #   sr — open the revoke-sessions confirm modal (already mounted
+  #        by `_security_pane.html.erb` as
+  #        `<dialog id="revoke_sessions_modal">`). Once the modal is
+  #        open, the `revoke_confirm` modal_actions take over
+  #        (`d` dark mode + `r` revoke session(s) + Esc close).
+  #   vr — open the reindex Meilisearch confirm modal (mounted by
+  #        `_stack_pane.html.erb` via `ConfirmModalComponent` as
+  #        `<dialog id="reindex_meilisearch_modal">`). Once open,
+  #        the `reindex_confirm` modal_actions take over.
+  #   da / dd — Discord every notification / daily digest toggles.
+  #   sa / sd — Slack every notification / daily digest toggles.
+  #
+  # Discord + Slack toggles target `[data-leader-toggle="<target>"]`
+  # hooks that Phase D will attach to the actual auto-save checkboxes
+  # once the Discord/Slack pane form restructure ships. Until Phase D
+  # the action silently no-ops when the hook is missing — no thrown
+  # errors, just nothing happens. Phase C ships the keybinding
+  # mechanic; Phase D wires the targets.
+  #
+  # Prefix-conflict note: `d` (dark mode) shares a prefix with `da`
+  # and `dd`; `s` (no exact match here, but used as a prefix for
+  # `sr` + `sa` + `sd`). Pressing `d` alone fires dark mode after
+  # the 1500 ms inactivity timer; pressing `d` then `a`/`d` fires
+  # the matching 2-key binding. Pressing `s` then waiting fires
+  # nothing (no exact `s` binding); pressing `s` then `r`/`a`/`d`
+  # fires the matching binding.
   settings:
     - key: d
       label: dark mode
       action:
         type: theme_toggle
+    - key: sr
+      label: revoke unused sessions
+      action:
+        type: open_modal_by_id
+        target: revoke_sessions_modal
+    - key: da
+      label: Discord every notification
+      action:
+        type: toggle_setting
+        target: discord_every_notification
+    - key: dd
+      label: Discord daily digest
+      action:
+        type: toggle_setting
+        target: discord_daily_digest
+    - key: sa
+      label: Slack every notification
+      action:
+        type: toggle_setting
+        target: slack_every_notification
+    - key: sd
+      label: Slack daily digest
+      action:
+        type: toggle_setting
+        target: slack_daily_digest
+    - key: vr
+      label: Voyage reindex
+      action:
+        type: open_modal_by_id
+        target: reindex_meilisearch_modal
   default:
     - key: d
       label: dark mode

@@ -28,14 +28,36 @@
     <%# CSS composite: each game positioned per the cells map. The
         wrapper holds the 3:4 canvas (matches the libvips render
         proportions); each cell anchors to a percentage rect so the
-        composite scales fluidly with the modal width. %>
+        composite scales fluidly with the modal width.
+
+        2026-05-17 — outer border and 2px radius live in the
+        `.bundle-modal-composite` CSS rule (theme-aware via
+        `--color-cover-border`, matching the shared shelf cover
+        edge). `overflow: hidden` on the wrapper clips per-corner
+        cell radii to the composite outline. Inline style retains
+        only the per-instance positional bits. %>
     <div class="bundle-modal-composite"
-         style="position: relative; width: 100%; aspect-ratio: 3 / 4;">
+         style="width: 100%; aspect-ratio: 3 / 4;">
       <% first_nine.each_with_index do |game, i| %>
         <% cell = cells[i] %>
         <% next unless cell %>
+        <%# 2026-05-17 — per-corner class hooks. Composite::CellMap
+            decorates each cell with a `:corners` array enumerating
+            which OUTSIDE corners of the unit-square composite the
+            cell touches (any of `:top_left`, `:top_right`,
+            `:bottom_left`, `:bottom_right`). Map each to a short
+            class suffix (`tl`/`tr`/`bl`/`br`) so only the four
+            actual corner cells of the grid pick up a 2px radius
+            on their outward-facing corner — edge cells (e.g.
+            top-middle of a 3×3) and the center cell stay square. %>
+        <% corner_classes = (cell[:corners] || []).map { |c|
+             { top_left: "bundle-modal-cell--corner-tl",
+               top_right: "bundle-modal-cell--corner-tr",
+               bottom_left: "bundle-modal-cell--corner-bl",
+               bottom_right: "bundle-modal-cell--corner-br" }[c]
+           }.compact %>
         <a href="<%= game_path(game) %>"
-           class="bundle-modal-cell"
+           class="<%= (["bundle-modal-cell"] + corner_classes).join(" ") %>"
            style="position: absolute; left: <%= cell[:x] * 100 %>%; top: <%= cell[:y] * 100 %>%; width: <%= cell[:w] * 100 %>%; height: <%= cell[:h] * 100 %>%;"
            data-turbo-frame="_top"
            title="<%= game.title %>">

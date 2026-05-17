@@ -25,10 +25,14 @@ const STACK_STORAGE_KEY = "pito:leader-menu:stack"
 // so single-char (`l`, `+`) and multi-char (e.g. `␣`) keys still
 // line up cleanly in the monospace face.
 // Submenus replace the popup contents in place (no nesting);
-// Backspace pops back one level, Esc closes outright. The same
-// popup is the discoverable help surface — pressing the bracketed
-// `[_]` link in the footer triggers `openRoot` via Stimulus
-// `data-action`.
+// Backspace clears the pending prefix one char at a time and pops
+// back one menu level when the prefix is empty (A1 + legacy). Space
+// toggles the popup (A3). Esc is NOT handled here — it falls through
+// to the parent <dialog>'s native ESC handler (A4); the leader popup
+// auto-closes on any other dialog's `close` event so it never
+// orphan-renders above a dismissed parent. The same popup is the
+// discoverable help surface — pressing the bracketed `[_]` link in
+// the footer triggers `openRoot` via Stimulus `data-action`.
 //
 // The TUI side (`extras/cli/src/ui/leader_menu.rs`) parses the same
 // `config/keybindings.yml` via `serde_yaml` and renders an
@@ -36,12 +40,20 @@ const STACK_STORAGE_KEY = "pito:leader-menu:stack"
 // the shared file.
 //
 // Bindings consumed here:
-//   SPACE       open the root menu (or close if already open)
-//   Esc         close the popup
-//   Backspace   pop back one level (close at root)
-//   <key>       activate the matching item: navigate, open submenu,
-//               or emit a custom event (`leader-menu:action`) that
-//               other controllers can react to.
+//   SPACE       toggle the root menu (open if closed, close if open)
+//   Esc         NOT handled — falls through to the parent <dialog>'s
+//               native ESC handler so the parent dismisses. When the
+//               parent <dialog> closes the leader popup closes too
+//               via the `close` event listener installed in connect().
+//               When there is no parent dialog, Esc does nothing.
+//   Backspace   clear the pending prefix one char at a time; if the
+//               prefix is empty AND a legacy submenu is on the stack,
+//               pop back one menu level.
+//   <key>       append to the pending prefix; if exactly one binding
+//               matches the prefix AND the prefix equals its key,
+//               activate it (navigate, open submenu, emit a custom
+//               event). Multi-char keys (e.g. "sr", "da") are
+//               supported via the prefix accumulator.
 //
 // The popup IS a native `<dialog>` opened via `.showModal()` as of
 // 2026-05-17 — this is the only reliable way to render above OTHER
@@ -148,10 +160,36 @@ export default class extends Controller {
     // leaving the popup); the schema gets a sub-menu without minting
     // a new top-level entry under `menus:`.
     this.inlineMenus = {}
+    // 2-key sequence support (A1). Holds the characters typed since
+    // the popup opened (or since the last full activation / reset).
+    // A binding fires when `pendingPrefix` equals its key exactly AND
+    // no other binding has the prefix as a strict subset. Reset on:
+    // successful activation, no-match keystroke, 1500 ms inactivity,
+    // backspace-to-empty, popup close.
+    this.pendingPrefix = ""
+    this.prefixTimer = null
+    // Phase C (2026-05-17): when the user types a prefix that matches
+    // both an exact binding AND longer candidates (e.g. `d` matches
+    // `d dark mode` AND `da` / `dd` on /settings), stash the exact
+    // match here so the inactivity timer can fire it on expiry. Reset
+    // by `resetPrefix`, `close`, and every keystroke.
+    this.pendingExactMatch = null
     this.boundKeydown = this.onKeydown.bind(this)
     this.boundOutside = this.onOutsideClick.bind(this)
     this.boundTurboVisit = this.onTurboVisit.bind(this)
+    // A4: when any <dialog> on the page closes, the leader popup
+    // closes alongside it so an orphan popup never lingers above a
+    // dismissed parent dialog. Esc on the leader popup falls through
+    // to the parent <dialog> (we install no Esc handler here per A4);
+    // the parent's native Esc handling fires its `close` event; this
+    // listener catches every close (parent OR leader) and ensures the
+    // leader closes whenever ANOTHER dialog does. Self-close is a
+    // no-op via the `isOpen()` guard inside `close()`.
+    this.boundDialogClose = this.onDialogClose.bind(this)
     document.addEventListener("keydown", this.boundKeydown)
+    // `close` does not bubble on <dialog>; capture phase catches every
+    // dialog close anywhere in the document.
+    document.addEventListener("close", this.boundDialogClose, true)
     // Close the popup the moment any Turbo navigation begins. Pairs
     // with the outside-click listener: clicks on links outside the
     // popup already dismiss it, and `turbo:visit` also catches
@@ -207,6 +245,11 @@ export default class extends Controller {
     if (this.boundKeydown) document.removeEventListener("keydown", this.boundKeydown)
     if (this.boundOutside) document.removeEventListener("click", this.boundOutside, true)
     if (this.boundTurboVisit) document.removeEventListener("turbo:visit", this.boundTurboVisit)
+    if (this.boundDialogClose) document.removeEventListener("close", this.boundDialogClose, true)
+    if (this.prefixTimer) {
+      clearTimeout(this.prefixTimer)
+      this.prefixTimer = null
+    }
   }
 
   // Public entry point wired to the footer `[_]` link via
@@ -236,6 +279,7 @@ export default class extends Controller {
     // accidentally named the same. The map rebuilds on demand when
     // `activate()` next encounters a `type: submenu` action.
     this.inlineMenus = {}
+    this.resetPrefix()
     this.persistStack()
     if (this.hasPopupTarget) {
       if (this.popupTarget.open) this.popupTarget.close()
@@ -283,27 +327,41 @@ export default class extends Controller {
     if (event.metaKey || event.ctrlKey || event.altKey) return
 
     if (this.isOpen()) {
-      if (event.key === "Escape") {
-        event.preventDefault()
-        this.close()
-        return
-      }
+      // A4: Esc is intentionally NOT handled here. Let it fall through
+      // to the parent <dialog>'s native ESC handler. If a parent
+      // <dialog> dismisses, its `close` event triggers `onDialogClose`
+      // which closes this leader popup. If no parent dialog is open,
+      // Esc is a no-op (leader stays open; Space closes it per A3).
+      if (event.key === "Escape") return
+
       if (event.key === "Backspace") {
         event.preventDefault()
-        this.popMenu()
+        // A1: Backspace pops the last char from the pending prefix
+        // first. Only when the prefix is already empty do we fall back
+        // to the legacy submenu pop-back (so the `f filter` submenu
+        // still navigates back to the root menu on Backspace).
+        if (this.pendingPrefix.length > 0) {
+          this.pendingPrefix = this.pendingPrefix.slice(0, -1)
+          this.armPrefixTimer()
+          this.repaint()
+        } else {
+          this.popMenu()
+        }
         return
       }
       if (event.key === " ") {
-        // LazyVim behavior — leader again closes.
+        // A3: Space TOGGLES — when open, Space closes.
         event.preventDefault()
         this.close()
         return
       }
-      // Match the keypress against the current menu's items.
-      const item = this.findItem(event.key)
-      if (item) {
+      // A1: prefix accumulator. Append the keystroke and route through
+      // `handlePrefixKey`. Only single printable keys participate;
+      // modifier-bare arrow keys / Tab / etc. are ignored so they
+      // don't pollute the prefix.
+      if (event.key.length === 1) {
         event.preventDefault()
-        this.activate(item)
+        this.handlePrefixKey(event.key)
       }
       return
     }
@@ -319,6 +377,156 @@ export default class extends Controller {
       event.preventDefault()
       this.openMenu("root")
     }
+  }
+
+  // A1: 2-key sequence support.
+  //
+  // Append `key` to the pending prefix, then look at the items in the
+  // current menu (including page actions when at root) that START with
+  // the prefix:
+  //   * zero matches → reset prefix (sequence dead-ends silently),
+  //   * exact match AND no longer prefix candidate → fire it,
+  //   * exact match AND longer candidates exist → ARM the timer
+  //     with the exact match recorded; the timer fires the exact
+  //     match on inactivity, or the next keystroke supersedes it,
+  //   * strict-prefix match only (no exact) → wait for next key,
+  //   * 1500 ms inactivity → reset prefix (firing the recorded
+  //     exact-match candidate if one was stashed).
+  //
+  // Phase C extension (2026-05-17): the prior code reset the prefix
+  // on timer expiry without firing anything. /settings introduced
+  // `d` (dark mode) alongside `da` / `dd` — a classic vim-style
+  // prefix conflict. Pressing `d` alone must still fire dark mode
+  // (with a ~1500 ms grace period for the follow-up keystroke).
+  // The recorded exact-match candidate (`pendingExactMatch`) is
+  // consumed by `armPrefixTimer`'s expiry callback or cleared by the
+  // next keystroke / activation / reset.
+  //
+  // The legacy single-char submenu path (`f` opens an inline submenu)
+  // still works because `f` is itself a binding key — once the prefix
+  // equals `f` and there is no longer `f*` candidate, we activate it.
+  handlePrefixKey(key) {
+    this.pendingPrefix += key
+    const candidates = this.candidatesForPrefix(this.pendingPrefix)
+
+    if (candidates.length === 0) {
+      // Dead-end: reset and repaint so dim styling clears.
+      this.resetPrefix()
+      this.repaint()
+      return
+    }
+
+    const exact = candidates.find((c) => c.key === this.pendingPrefix)
+    const longer = candidates.find((c) => c.key !== this.pendingPrefix)
+
+    if (exact && !longer) {
+      // Unique exact match — fire and reset.
+      const itemToFire = exact
+      this.resetPrefix()
+      this.activate(itemToFire)
+      return
+    }
+
+    // Stash the exact match (if any) so the timer-expiry path can
+    // fire it on inactivity. When `longer` also exists, the user has
+    // ~1500 ms to disambiguate by pressing another key; otherwise
+    // the exact match fires. When only longer candidates exist
+    // (`exact === undefined`), the stash is cleared and timer expiry
+    // resets silently.
+    this.pendingExactMatch = exact || null
+
+    // Either multiple matches OR a strict-prefix match exists; wait
+    // for the next keystroke and repaint to dim non-matching rows.
+    this.armPrefixTimer()
+    this.repaint()
+  }
+
+  // Return the items in the active scope whose `key` starts with the
+  // given prefix. At root the page-actions list is searched first so
+  // a page-action can shadow a same-prefix menu item (intentional —
+  // page actions are page-scoped overrides).
+  //
+  // A2: when modal context is active the navigation menu is suppressed
+  // visually AND ignored for dispatch — only the modal_actions list
+  // (returned by `resolvePageActions()`) is considered. Pressing `h`
+  // inside a modal must NOT navigate home.
+  candidatesForPrefix(prefix) {
+    if (prefix.length === 0) return []
+    const name = this.menuStack[this.menuStack.length - 1]
+    const out = []
+    if (name === "root") {
+      this.resolvePageActions().forEach((item) => {
+        if (item && item.key && typeof item.key === "string" && item.key.startsWith(prefix)) {
+          out.push(item)
+        }
+      })
+    }
+    if (this.isModalContextActive()) return out
+    const menu = this.menuByName(name)
+    if (menu) {
+      ;(menu.items || []).forEach((item) => {
+        if (item && item.key && typeof item.key === "string" && item.key.startsWith(prefix)) {
+          out.push(item)
+        }
+      })
+    }
+    return out
+  }
+
+  // 1500 ms inactivity → reset the pending prefix. Re-armed on every
+  // keystroke that does not immediately fire / dead-end. The expiry
+  // also repaints so dim styling clears on its own.
+  //
+  // Phase C (2026-05-17): when an exact match is stashed in
+  // `pendingExactMatch` (the case where the user typed a prefix that
+  // is both an exact binding AND a prefix of longer ones), the
+  // expiry fires the stashed match — that's how `d` (dark mode) on
+  // /settings still works despite `da` / `dd` sharing the `d` prefix.
+  // The stash is consumed via a local snapshot so `resetPrefix`'s
+  // teardown doesn't clear it before `activate` runs.
+  armPrefixTimer() {
+    if (this.prefixTimer) clearTimeout(this.prefixTimer)
+    this.prefixTimer = setTimeout(() => {
+      const stashed = this.pendingExactMatch
+      this.resetPrefix()
+      if (stashed) {
+        this.activate(stashed)
+      } else {
+        this.repaint()
+      }
+    }, 1500)
+  }
+
+  resetPrefix() {
+    this.pendingPrefix = ""
+    this.pendingExactMatch = null
+    if (this.prefixTimer) {
+      clearTimeout(this.prefixTimer)
+      this.prefixTimer = null
+    }
+  }
+
+  // Re-render the currently active menu. Cheap wrapper around `render`
+  // so the prefix-accumulator code can refresh dim/highlight rows
+  // without duplicating the lookup.
+  repaint() {
+    const name = this.menuStack[this.menuStack.length - 1]
+    if (!name) return
+    const menu = this.menuByName(name)
+    if (menu) this.render(menu, name)
+  }
+
+  // A4: when ANY <dialog> on the page closes, ensure the leader popup
+  // closes alongside it. Bundle-modal Esc, IGDB-modal Esc, confirm-
+  // dialog Esc all fire a native `close` event we hook here. Closing
+  // the leader popup itself also fires `close` (since it IS a dialog),
+  // so we no-op if the event target is the leader popup itself — that
+  // path is already taking care of teardown.
+  onDialogClose(event) {
+    if (!this.hasPopupTarget) return
+    if (event.target === this.popupTarget) return
+    if (!this.isOpen()) return
+    this.close()
   }
 
   onOutsideClick(event) {
@@ -403,15 +611,13 @@ export default class extends Controller {
     return this.schema.menus[name] || null
   }
 
-  // Resolve a keypress against the active menu. At the ROOT level we
-  // ALSO search the resolved page-actions list — those rows are
-  // rendered into the same popup card (in the top section, above the
-  // nav hairline) by `render()`, so the user expects pressing their
-  // key to fire the matching action. Without this, page-action keys
-  // (`d` for theme_toggle on /games, `s` for page_sync on /games/:id,
-  // `-` for page_delete, `/` for global search) render in the popup
-  // but no-op on press — the bug fixed 2026-05-17 after three failed
-  // attempts trying to route through `keyboard_controller`.
+  // Resolve a SINGLE-CHAR keypress against the active menu. SUPERSEDED
+  // by the prefix-accumulator pipeline (`handlePrefixKey` +
+  // `candidatesForPrefix`) for live dispatch — `onKeydown` no longer
+  // calls this. Retained as a utility helper for any future caller
+  // (e.g. a programmatic "fire key X" hook) that wants exact single-
+  // char lookup with the same page-actions-shadow-menu semantics. Safe
+  // to delete if no consumer surfaces.
   //
   // Search order at root: page-actions FIRST, then menu items. This
   // matches the visual order in the popup and means a page-action
@@ -528,6 +734,22 @@ export default class extends Controller {
       this.performLogout()
       return
     }
+    if (action.type === "trigger_inline_edit" && action.target) {
+      this.triggerInlineEdit(action.target)
+      return
+    }
+    if (action.type === "submit_confirm_modal") {
+      this.submitConfirmModal()
+      return
+    }
+    if (action.type === "open_modal_by_id" && action.target) {
+      this.openModalById(action.target)
+      return
+    }
+    if (action.type === "toggle_setting" && action.target) {
+      this.toggleSetting(action.target)
+      return
+    }
 
     document.dispatchEvent(
       new CustomEvent("leader-menu:action", {
@@ -623,6 +845,114 @@ export default class extends Controller {
     if (chip) chip.click()
   }
 
+  // `trigger_inline_edit` — locate the element inside the currently
+  // open keyed modal whose `data-modal-action-target` matches the
+  // YAML `target:` value, resolve its `inline-title-edit` Stimulus
+  // controller, and call `.edit()` — the same flow the `[change]`
+  // link triggers. The popup was closed BEFORE this runs (fireAction
+  // calls `close({ closePopup: true })`), so the modal regains focus
+  // before the inline-edit input swap. The closing leader dialog
+  // fires its own `close` event but `onDialogClose` ignores it via
+  // the `event.target === this.popupTarget` guard.
+  //
+  // No-op when:
+  //   * no `<dialog open>[data-modal-actions-key]` is on the page,
+  //   * the open modal has no descendant with the matching hook,
+  //   * the descendant has no `inline-title-edit` controller wired,
+  //   * the controller exposes no `.edit` method.
+  // Each silent fallback keeps a stale schema entry from throwing.
+  triggerInlineEdit(target) {
+    const modalDialog = document.querySelector("dialog[open][data-modal-actions-key]")
+    if (!modalDialog) return
+    const host = modalDialog.querySelector(`[data-modal-action-target="${target}"]`)
+    if (!host) return
+    const app = window.Stimulus
+    if (app && typeof app.getControllerForElementAndIdentifier === "function") {
+      const ctrl = app.getControllerForElementAndIdentifier(host, "inline-title-edit")
+      if (ctrl && typeof ctrl.edit === "function") {
+        ctrl.edit()
+        return
+      }
+    }
+  }
+
+  // `submit_confirm_modal` — submit the form inside the currently
+  // open keyed `<dialog>` via `form.requestSubmit()` so HTML5
+  // validation + the form's CSRF token + native submit semantics all
+  // run as if the user clicked the primary button. Used by the
+  // revoke + reindex confirm modals (both ship a `[r ...]` action
+  // wired here). The popup is already closed by `fireAction`
+  // (`closePopup: true`); the modal stays open and processes the
+  // submit normally, navigating or broadcasting as configured.
+  //
+  // The lookup picks the FIRST `<form>` inside the open modal — both
+  // current consumers ship a single form per dialog. A future modal
+  // with multiple forms would need a more specific selector; the
+  // first-form contract is fine until then.
+  //
+  // No-op when no keyed modal is open or the modal has no form.
+  submitConfirmModal() {
+    const modalDialog = document.querySelector("dialog[open][data-modal-actions-key]")
+    if (!modalDialog) return
+    const form = modalDialog.querySelector("form")
+    if (!form) return
+    if (typeof form.requestSubmit === "function") {
+      form.requestSubmit()
+    } else {
+      form.submit()
+    }
+  }
+
+  // `open_modal_by_id` — generic helper that locates a `<dialog>` by
+  // its DOM id and calls `.showModal()` to place it in the browser
+  // top layer. Used by /settings page actions where the underlying
+  // modal already exists on the page (mounted by the relevant pane):
+  //   sr → revoke_sessions_modal      (_security_pane.html.erb)
+  //   vr → reindex_meilisearch_modal  (_stack_pane.html.erb via
+  //                                    ConfirmModalComponent)
+  // Once the modal opens, its `data-modal-actions-key` flips the
+  // leader popup into modal-scoped mode the next time the user opens
+  // it (`revoke_confirm` / `reindex_confirm` modal_actions take over).
+  //
+  // No-op when:
+  //   * the dialog id is not on the page,
+  //   * the element is not a `<dialog>` (no `.showModal` function),
+  //   * the dialog is already open (`.showModal()` on an already-open
+  //     dialog throws `InvalidStateError` in Firefox — guard with the
+  //     `open` attribute).
+  // The popup was closed by `fireAction` (`closePopup: true`) before
+  // this runs, so focus returns to the new modal cleanly.
+  openModalById(targetId) {
+    const dlg = document.getElementById(targetId)
+    if (!dlg) return
+    if (typeof dlg.showModal !== "function") return
+    if (dlg.open) return
+    dlg.showModal()
+  }
+
+  // `toggle_setting` — locate the page element carrying
+  // `[data-leader-toggle="<target>"]` and dispatch a synthetic click
+  // on it. Used by /settings 2-key bindings (da/dd/sa/sd) where the
+  // underlying surface is an auto-save checkbox in the Discord /
+  // Slack pane.
+  //
+  // Phase C ships the keybinding mechanic alone; Phase D will attach
+  // the `data-leader-toggle` attributes onto the actual checkboxes
+  // once the form restructure lands. Until then the hook does not
+  // exist on the page and this helper silently no-ops. Once Phase D
+  // ships the hooks the same bindings will start toggling for free —
+  // no leader-side change required.
+  //
+  // `click()` is used rather than dispatching a `change` event so the
+  // browser's native checkbox toggle (visual state + the auto-save
+  // controller's `change` listener attached via Stimulus) runs through
+  // the same path as a user click. No-op when the hook isn't present.
+  toggleSetting(targetName) {
+    const el = document.querySelector(`[data-leader-toggle="${targetName}"]`)
+    if (!el) return
+    if (typeof el.click === "function") el.click()
+  }
+
   // `logout` — DELETE /session (route name :session_logout in
   // config/routes.rb). The header [logout] link was removed on
   // 2026-05-16; the route survives precisely so keyboard / API callers
@@ -684,6 +1014,13 @@ export default class extends Controller {
     // the helper-side deny-list (e.g. /settings) ship no
     // `data-keybindings-page-key` and resolve to []. See
     // `KeybindingsReferenceComponent` for the Ruby-side equivalent.
+    //
+    // A2 (modal-as-page): when a modal context is active the navigation
+    // section is suppressed — the popup shows ONLY the modal_actions
+    // list. The page-actions section is still rendered with the modal's
+    // items because `resolvePageActions()` returns those when a modal
+    // is open.
+    const modalContext = this.isModalContextActive()
     if (name === "root") {
       const pageActions = this.resolvePageActions()
       if (pageActions.length > 0) {
@@ -704,37 +1041,61 @@ export default class extends Controller {
 
         card.appendChild(pageSection)
 
-        const hr = document.createElement("hr")
-        hr.className = "hairline leader-menu-hairline"
-        card.appendChild(hr)
+        // Hairline is only painted when the navigation section follows
+        // below. With modal context active no nav section renders, so
+        // a hairline would dangle as a footer separator — suppress it.
+        if (!modalContext) {
+          const hr = document.createElement("hr")
+          hr.className = "hairline leader-menu-hairline"
+          card.appendChild(hr)
+        }
       }
     }
 
-    const navSection = document.createElement("section")
-    navSection.className = "leader-menu-section leader-menu-navigation"
+    if (!modalContext) {
+      const navSection = document.createElement("section")
+      navSection.className = "leader-menu-section leader-menu-navigation"
 
-    const title = document.createElement("div")
-    title.className = "leader-menu-title text-muted"
-    // Display-label override map: YAML keys stay stable (a lot of
-    // dispatch logic — openMenu("root"), name === "root" guards above —
-    // still keys off the internal name), but the SECTION HEADER the
-    // user sees gets a friendlier label. Submenu names pass through
-    // unchanged via the `|| name` fallback.
-    const SECTION_LABELS = { root: "navigation" }
-    title.textContent = SECTION_LABELS[name] || name
-    navSection.appendChild(title)
+      const title = document.createElement("div")
+      title.className = "leader-menu-title text-muted"
+      // Display-label override map: YAML keys stay stable (a lot of
+      // dispatch logic — openMenu("root"), name === "root" guards above —
+      // still keys off the internal name), but the SECTION HEADER the
+      // user sees gets a friendlier label. Submenu names pass through
+      // unchanged via the `|| name` fallback.
+      const SECTION_LABELS = { root: "navigation" }
+      title.textContent = SECTION_LABELS[name] || name
+      navSection.appendChild(title)
 
-    const list = document.createElement("ul")
-    list.className = "leader-menu-list"
-    ;(menu.items || []).forEach((item) => {
-      list.appendChild(this.buildItemRow(item))
-    })
-    navSection.appendChild(list)
-    card.appendChild(navSection)
+      const list = document.createElement("ul")
+      list.className = "leader-menu-list"
+      ;(menu.items || []).forEach((item) => {
+        list.appendChild(this.buildItemRow(item))
+      })
+      navSection.appendChild(list)
+      card.appendChild(navSection)
+    }
 
+    // A5: footer copy — `Backspace clear · Space close`.
+    // - Esc dropped from the default footer: A4 means Esc no longer
+    //   closes the popup (falls through to parent dialog instead) on
+    //   the regular page surface, so advertising it there is wrong.
+    // - Backspace's dominant role is now "pop the pending prefix one
+    //   char at a time" (A1); the legacy submenu pop-back still works
+    //   when the prefix is empty.
+    // - Space toggles per A3, so while open Space closes.
+    //
+    // Phase B (2026-05-17) — modal-context override: when a keyed
+    // modal is open the leader popup is dialog-stacked above it; Esc
+    // dismisses the PARENT modal (and the leader popup closes on the
+    // parent's `close` event via `onDialogClose`). Surface that
+    // affordance by prepending `Esc close modal · ` to the hint. The
+    // non-modal hint stays unchanged.
     const hint = document.createElement("div")
     hint.className = "leader-menu-hint text-muted"
-    hint.textContent = "Esc close · Backspace up · Space close"
+    hint.textContent = modalContext
+      ? "Esc close modal · Backspace clear · Space close"
+      : "Backspace clear · Space close"
     card.appendChild(hint)
 
     this.popupTarget.appendChild(card)
@@ -772,6 +1133,19 @@ export default class extends Controller {
     const row = document.createElement("li")
     row.className = "leader-menu-row"
 
+    // A1: dim/highlight rows based on the pending prefix. When the
+    // user has typed `s` and `sr` is on the page, `sr` rows get the
+    // `leader-menu-row--match` class (highlighted) and every other
+    // row gets `leader-menu-row--dim` (muted). When the prefix is
+    // empty no class is applied (rows render at default opacity).
+    if (this.pendingPrefix && this.pendingPrefix.length > 0) {
+      if (item.key && typeof item.key === "string" && item.key.startsWith(this.pendingPrefix)) {
+        row.classList.add("leader-menu-row--match")
+      } else {
+        row.classList.add("leader-menu-row--dim")
+      }
+    }
+
     const keySpan = document.createElement("span")
     keySpan.className = "leader-menu-key"
     keySpan.textContent = this.displayKey(item.key)
@@ -793,24 +1167,61 @@ export default class extends Controller {
     return row
   }
 
-  // Resolve the page-actions list for the current page. Reads the
-  // YAML key from `<body data-keybindings-page-key>` (rendered by
-  // the layout via `KeybindingsHelper#keybindings_page_key`) and
-  // looks it up in `schema.page_actions`. Returns [] when:
+  // Resolve the page-actions list for the current page OR for the
+  // currently open modal. Reads the YAML key from
+  // `<body data-keybindings-page-key>` (rendered by the layout via
+  // `KeybindingsHelper#keybindings_page_key`) and looks it up in
+  // `schema.page_actions`.
+  //
+  // A2 (modal-as-page): when a `<dialog open>` carrying
+  // `data-modal-actions-key="<key>"` is present, the resolver returns
+  // `schema.modal_actions[<key>].items` instead — and ignores the
+  // page's page_actions + nav + logout entirely. This makes the
+  // leader popup MODAL-SCOPED whenever a modal is open: only the
+  // modal's actions are listed. The fallback rule (no open keyed
+  // dialog) preserves today's behavior — page_actions resolved by
+  // the page key, with a `default:` fallback in YAML.
+  //
+  // Phase B adds the `data-modal-actions-key` attributes to the
+  // bundle / Discord-help / Slack-help / revoke-confirm /
+  // reindex-confirm dialogs and populates `modal_actions:` entries.
+  // Until then `schema.modal_actions` is an empty stub and the
+  // detection rule below resolves to [] when a bare modal is open
+  // (which is fine — the page_actions path also returns []).
+  //
+  // Returns [] when:
   //   * the body attribute is missing (deny-listed page like
-  //     /settings, or chrome-stripped layout)
-  //   * the YAML has no entry for that page key AND no `default:`
-  //     fallback exists
+  //     /settings, or chrome-stripped layout) AND no modal is open
+  //   * the YAML has no entry for the resolved key
   // The Ruby-side deny-list (NO_PAGE_ACTIONS_PAGES in
   // `KeybindingsReferenceComponent`) is enforced upstream by
   // omitting the data attribute entirely, so this method does not
   // need to re-check it client-side.
   resolvePageActions() {
-    if (!this.schema || !this.schema.page_actions) return []
+    if (!this.schema) return []
+    // Modal context wins over page context. The leader popup itself
+    // is a <dialog open> but it is NOT counted here — it carries no
+    // `data-modal-actions-key`, so the selector skips it cleanly.
+    const modalDialog = document.querySelector("dialog[open][data-modal-actions-key]")
+    if (modalDialog) {
+      const modalKey = modalDialog.dataset.modalActionsKey
+      const modalEntry = this.schema.modal_actions && this.schema.modal_actions[modalKey]
+      const modalItems = modalEntry && Array.isArray(modalEntry.items) ? modalEntry.items : []
+      return modalItems
+    }
+    if (!this.schema.page_actions) return []
     const pageKey = document.body?.dataset?.keybindingsPageKey
     if (!pageKey) return []
     const list = this.schema.page_actions[pageKey] || this.schema.page_actions["default"] || []
     return Array.isArray(list) ? list : []
+  }
+
+  // A2 (modal-as-page): when a modal context is active, the leader
+  // popup shows ONLY modal_actions — no navigation, no logout. This
+  // helper is consulted by `render()` to decide whether to paint the
+  // navigation section below the page-actions hairline.
+  isModalContextActive() {
+    return !!document.querySelector("dialog[open][data-modal-actions-key]")
   }
 
   displayKey(key) {

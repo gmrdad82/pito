@@ -101,9 +101,6 @@
      `--color-pane-bg-*` tone in both themes. Other status-badge kinds
      (`:success`, `:warn`, `:urgent`, `:yes`) carry strong border + text
      colors already and are left untouched. */
-  --color-badge-muted-bg: #dfe2e7;
-  --color-badge-muted-text: #444444;
-  --color-badge-muted-border: #bfc4cc;
   /* Item 7 — keycap color tokens. Distinct from --color-link so keyboard
      shortcut indicators (`(n)`, `(/)`, `(?)`) don't compete visually with
      blue action links. Purple reads on light bg, contrasts against blue. */
@@ -213,9 +210,6 @@
      reuse `--color-muted` (#6272a4) — that was half of the disappearing
      pair. Border uses the page border tone so the chip edge stays defined
      against the lighter surfaces above it. */
-  --color-badge-muted-bg: #1a1c25;
-  --color-badge-muted-text: #a8b3d8;
-  --color-badge-muted-border: #44475a;
   /* Item 7 — Dracula purple for keycaps in dark mode. Hover lifts to a
      brighter tint in line with the existing --color-link-hover treatment. */
   --color-keycap: #bd93f9;
@@ -1039,7 +1033,7 @@ table.sessions-table th.sortable {
 }
 table.stack-table th.sortable > a,
 table.stack-table th.sortable > .sortable-label {
-  display: inline;
+  display: block;
   padding: 0;
   text-decoration: none;
   color: inherit;
@@ -1070,11 +1064,20 @@ table.sessions-table th.sortable::after {
      RIGHT → cell 8px + anchor 22px = 30px  (vs. body `<td>` 8px → misaligned)
    Mirrors the `.stack-table` block above. With the arrow lifted out
    via `position: absolute`, no arrow reserve is needed on the inner
-   element. `display: inline` collapses the global `display: block`
-   so the anchor doesn't stretch the cell. */
+   element.
+   2026-05-17 click-target fix: the anchor is `display: block` (not
+   `inline`) with zero padding — fills the cell's content box so a
+   click anywhere in the `<th>` triggers the sort, not only the
+   text's bounding box. Padding stays 0 so the cell's own
+   `1px var(--stack-cell-padding)` is still the single source of
+   horizontal offset (alignment contract preserved); the arrow's
+   absolute position is unaffected. The `.num` text-align on the
+   `<th>` propagates through the block-level `<a>` so the label still
+   right-aligns flush. `text-decoration: none` + `color: inherit`
+   carry over from the global rule. */
 table.sessions-table th.sortable > a,
 table.sessions-table th.sortable > .sortable-label {
-  display: inline;
+  display: block;
   padding: 0;
 }
 /* Stack-table rows don't zebra — they're dense breakdown rows, not
@@ -1082,6 +1085,33 @@ table.sessions-table th.sortable > .sortable-label {
    would otherwise apply since `.stack-table` is its own class. */
 table.stack-table tr:nth-child(even) { background-color: transparent; }
 table.stack-table tr:hover { background-color: transparent; }
+
+/* Rounded sessions-table wrapper (2026-05-17, revised).
+
+   `<table>` with `border-collapse: collapse` ignores `border-radius`
+   on the table itself because the outermost cells touch the table
+   edge directly and paint over any corner curvature. A `<div>` parent
+   owns the radius so the cells visually sit inside a rounded frame.
+
+   `.sessions-table-wrap` — the sessions table on /settings already
+   paints its own perimeter via the global `th, td { border: 1px solid
+   var(--color-border) }` rule, so the wrapper supplies only the
+   radius. `overflow: hidden` is intentionally NOT applied here: the
+   sortable header arrows are `position: absolute` and poke above the
+   `<th>` top edge, which `overflow: hidden` would clip. Trade: the
+   cell square corners poke into the rounded wrapper corners by ~2px
+   but the colors align so it is not perceptible.
+
+   Stack-pane tables (Postgres / Sidekiq / Meilisearch / Assets /
+   Notes) used to ride a `.stack-table-wrap` companion class with a
+   border + radius; user feedback was that the bordered look was
+   worse than the borderless original, so that class was removed. The
+   wrapper divs in `_stack_pane.html.erb` remain because they host
+   the `sortable-table` Stimulus controller + a `margin-bottom`
+   spacing; they no longer carry any chrome class. */
+.sessions-table-wrap {
+  border-radius: 2px;
+}
 
 /* Footage table on the project show page (`_footage_pane.html.erb`).
    `table-layout: fixed` + a `<colgroup>` with explicit widths is what
@@ -2346,28 +2376,61 @@ textarea.note-editor-source {
   text-transform: lowercase;
 }
 /* Muted variants (`info`, `neutral`, `no`, `all_day`) share one rule
-   and carry their own background / text / border via the dedicated
-   `--color-badge-muted-*` tokens. The explicit background is what keeps
-   the chip readable when a row underneath flips to `:hover` or zebra
-   alt — without it, the muted Dracula text dissolved into the hover bg
-   in dark theme. Other variants below keep their strong colored
-   borders + text on a transparent background; their contrast is the
-   text+border themselves, not a chip surface. */
+   and carry their own background / text / border as literal hex.
+   2026-05-17 lock — single color both themes, dark theme values used
+   universally per chip family contract (matches the `:strong` / `:code`
+   pattern: literal hex, no token, identical across light + dark). The
+   explicit background is what keeps the chip readable when a row
+   underneath flips to `:hover` or zebra alt — without it, the muted
+   Dracula text dissolved into the hover bg in dark theme. Other variants
+   below keep their strong colored borders + text on a transparent
+   background; their contrast is the text+border themselves, not a chip
+   surface. */
 .status-badge--info,
 .status-badge--neutral,
 .status-badge--no,
 .status-badge--all_day,
 .notification-severity-info,
 .calendar-badge--all-day {
-  background-color: var(--color-badge-muted-bg);
-  border-color: var(--color-badge-muted-border);
-  color: var(--color-badge-muted-text);
+  background-color: #1a1c25;
+  border-color: #44475a;
+  color: #a8b3d8;
 }
 .status-badge--success,
 .status-badge--yes,
 .notification-severity-success {
   border-color: #2e7d32;
   color: #2e7d32;
+}
+/* 2026-05-17 — `:strong` variant. High-visibility filled chip: white
+   text on the canonical positive-green background (`#2e7d32`, the same
+   hex used by `--success` / `--yes` for border + text above, kept as
+   a literal here to match the existing pattern — those rules don't
+   resolve to `var(--color-success)` either, so the chip surface stays
+   stable across light + dark themes). Border matches the background so
+   the chip reads as a solid pill rather than a bordered chip. Used by
+   the `[this]` chip on the current row of the /settings sessions
+   table; reuse for any future chip marking "current / active / yours"
+   where the muted bordered look isn't loud enough. */
+.status-badge--strong {
+  background-color: #2e7d32;
+  border-color: #2e7d32;
+  color: #ffffff;
+}
+/* 2026-05-17 — `:code` variant. High-visibility filled chip for raw /
+   encoded values (IP, user-agent, hash, hex). White text on the dark-
+   theme muted-badge surface (`#1a1c25`, the literal value of
+   `--color-badge-muted-bg` in `[data-theme="dark"]`). Same hex in BOTH
+   themes (do not theme-flip) so the chip reads identically light + dark
+   — the user wants a single dark filled background everywhere. Border
+   matches the background so the chip reads as a solid pill (same
+   approach as `:strong`). Currently powers the `[ip]` chip on each row
+   of the /settings sessions table; reuse for any future chip that labels
+   a raw value to inspect. */
+.status-badge--code {
+  background-color: #1a1c25;
+  border-color: #1a1c25;
+  color: #ffffff;
 }
 .status-badge--warn,
 .notification-severity-warn {
@@ -2657,6 +2720,22 @@ dialog.leader-menu-popup::backdrop {
   margin: 4px 0;
 }
 
+/* Pending-prefix dim/match (A1, 2026-05-17). When the user has typed
+   a partial prefix that has multiple candidate bindings or a strict
+   longer match, every row picks up either `--dim` (no longer a
+   candidate, mute with the standard muted token) or `--match` (still
+   a candidate, default text color — stays explicit so the contrast
+   between dim and match reads even with low monitor brightness).
+   Classes are removed by `leader_menu_controller#repaint` once the
+   prefix resets (1500 ms inactivity, backspace-to-empty, dead-end
+   keystroke, successful activation, popup close). */
+.leader-menu-row--dim {
+  color: var(--color-muted);
+}
+.leader-menu-row--match {
+  color: var(--color-text);
+}
+
 /* Keybindings reference card (two-section layout — page actions on
    top, hairline, navigation below). Rendered by
    `KeybindingsReferenceComponent`; reuses the existing `<kbd>` text
@@ -2835,6 +2914,7 @@ dialog.leader-menu-popup::backdrop {
 .tile-cover img,
 .bundle-cover-composite {
   border: 1px solid var(--color-cover-border);
+  border-radius: 2px;
 }
 
 /* Missing-cover fallback SVGs. Two `<img>` tags are emitted per
@@ -2933,6 +3013,35 @@ dialog.leader-menu-popup::backdrop {
   line-height: 1.4;
   padding: 0 5px;
 }
+
+/* 2026-05-17 — Bundle MODAL composite (CSS-positioned per-cell
+   grid in `bundles/games_pane.html.erb`, distinct from the libvips
+   baked `.bundle-cover-composite` JPEG above).
+
+   The wrapper is the 3:4 canvas; each `.bundle-modal-cell` is
+   positioned absolutely via percentage left/top/width/height
+   computed from `Composite::CellMap.for(N)` ratios. The four
+   OUTSIDE corners of the composite get a 2px radius — only the
+   cells that actually touch a corner pick up the matching radius
+   on the outward-facing corner. Edge cells (e.g. top-middle of a
+   3×3) and the center cell stay square.
+
+   `--color-cover-border` is the shared theme-aware token used by
+   `.game-cover-img`, `.tile-cover img`, and `.bundle-cover-composite`
+   above, so the modal composite edge tracks light/dark theme
+   alongside every other cover edge in the app. `overflow: hidden`
+   clips the per-corner radii from cell wrappers to the outer
+   rounded outline. */
+.bundle-modal-composite {
+  position: relative;
+  border: 1px solid var(--color-cover-border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.bundle-modal-cell--corner-tl { border-top-left-radius: 2px; }
+.bundle-modal-cell--corner-tr { border-top-right-radius: 2px; }
+.bundle-modal-cell--corner-bl { border-bottom-left-radius: 2px; }
+.bundle-modal-cell--corner-br { border-bottom-right-radius: 2px; }
 
 /* games — Genres outer shelf hairline between consecutive sub-shelves.
    Selector kept verbatim so the per-shelf spec assertion still locks
@@ -3083,6 +3192,30 @@ section[data-shelf="outer-genres"] > section.sub-shelf:not(:first-of-type) {
   filter: grayscale(0.4);
   pointer-events: none;
   user-select: none;
+}
+
+/* Settings panes — position-aware border-radius (2026-05-17).
+   `/settings` renders 3 rows under `.settings-panes`:
+     * Row 1: profile (left) + security (right)
+     * Row 2: discord (left) + slack (right)
+     * Row 3: stack (full-width `.pane--wide`, only child)
+   Each row's outer edges round (2px, matches canonical chip / input /
+   cover radius); the shared inside edge between two side-by-side panes
+   stays SQUARE so the pair reads as a continuous compound pill rather
+   than two indented cards. A solo pane in a row (the stack) rounds all
+   four corners. Rules are scoped to `.settings-panes > .pane-row` so
+   `.pane` usage in other workspaces (channels, videos, projects,
+   notes, games show) is untouched. */
+.settings-panes > .pane-row > .pane:only-child {
+  border-radius: 2px;
+}
+
+.settings-panes > .pane-row > .pane:first-child:not(:only-child) {
+  border-radius: 2px 0 0 2px;
+}
+
+.settings-panes > .pane-row > .pane:last-child:not(:only-child) {
+  border-radius: 0 2px 2px 0;
 }
 
 /* Bundles modal inline title edit (2026-05-17) — display + edit

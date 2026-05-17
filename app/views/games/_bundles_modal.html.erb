@@ -28,7 +28,8 @@
 <dialog id="bundles-modal"
         class="pane-dialog bundles-modal"
         data-controller="confirm-modal bundles-modal-reset"
-        data-action="click->confirm-modal#clickOutside keydown->confirm-modal#keydown">
+        data-action="click->confirm-modal#clickOutside keydown->confirm-modal#keydown"
+        data-modal-actions-key="bundle">
   <div class="bundles-modal-body" style="padding: 12px 16px; min-width: 480px; max-width: 900px; max-height: 80vh; overflow-y: auto;">
     <%# 2026-05-17 — Inline title edit. The modal title swaps per
         bundle on open via `bundles-modal-trigger`, which writes both
@@ -44,10 +45,18 @@
         height (`min-height` on the row + identical flex alignment
         on both children), so the composite cover below the title
         does not jump when entering / exiting edit mode. %>
+    <%# `data-modal-action-target` is the lookup hook for the leader
+        menu's `trigger_inline_edit` action (config/keybindings.yml
+        `modal_actions.bundle`). The handler in
+        `leader_menu_controller.js` resolves
+        `dialog[open] [data-modal-action-target="bundle-modal-title-edit"]`
+        and calls `.edit()` on its `inline-title-edit` Stimulus
+        controller — same flow the `[change]` link triggers. %>
     <div class="bundle-modal-title-row"
          data-controller="inline-title-edit"
          data-inline-title-edit-url-value=""
-         data-bundles-modal-target="urlHolder">
+         data-bundles-modal-target="urlHolder"
+         data-modal-action-target="bundle-modal-title-edit">
       <span class="bundle-modal-title-display"
             data-inline-title-edit-target="display">
         <h2 class="bundle-modal-title-text"
