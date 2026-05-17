@@ -5,7 +5,7 @@
 # reference:
 #
 #   - `slug` is NOT NULL + unique with FriendlyId (slugged + history) so
-#     URLs and filter chips can route by stable names (`/games?owned_on=ps5`).
+#     URLs and filter chips can route by stable names (`/games?owned_on=ps`).
 #   - `igdb_id` is nullable so manual seeds (PS5, Switch 2, Steam, GOG,
 #     Epic) can pre-exist before any IGDB sync.
 #   - The legacy `:games_owning` association (driven by the now-dropped
@@ -30,8 +30,9 @@ class Platform < ApplicationRecord
   # Maps the seed `slug` to the canonical short label rendered on the
   # game show page and anywhere else the project renders platform sets.
   #
-  # `Switch2` (no space) is deliberate; follows the user-locked
-  # spelling.
+  # The `switch` / `ps` / `steam` slugs treat each console + PC
+  # family as a single unit (PS4+PS5 collapse to `ps`, Switch +
+  # Switch 2 collapse to `switch`, PC stores collapse to `steam`).
   #
   # Phase 27 v2 spec 06 (2026-05-17 PC store collapse) — `gog` and
   # `epic` were collapsed into `steam`. The three PC stores share the
@@ -40,10 +41,10 @@ class Platform < ApplicationRecord
   # is kept as a known canonical short label for any future console
   # ownership work, but no chip / logo currently surfaces it.
   CANONICAL_SHORT_NAMES = {
-    "ps5"     => "PS5",
-    "switch2" => "Switch2",
-    "steam"   => "Steam",
-    "xbox"    => "Xbox"
+    "ps"     => "PS",
+    "switch" => "Switch",
+    "steam"  => "Steam",
+    "xbox"   => "Xbox"
   }.freeze
 
   CANONICAL_SLUGS = CANONICAL_SHORT_NAMES.keys.freeze
@@ -53,8 +54,9 @@ class Platform < ApplicationRecord
   # The filter-row chips, the detail-page platform list, the platform-
   # logo helper's `alt` attribute, and any other surface that renders a
   # platform name routes through this map. IGDB ships `"Nintendo Switch
-  # 2"` (with a space) — the project shortens it to `"Switch2"` (no
-  # space) per the user-locked spelling.
+  # 2"` (with a space) — the project shortens it to `"Switch"` (no
+  # generation digit) since the chip / filter surface treats the
+  # Switch family as one unit.
   #
   # Lookup is name-keyed because the surfaces that render display labels
   # consume `Platform#name` (the IGDB-imported string) rather than the
@@ -62,13 +64,13 @@ class Platform < ApplicationRecord
   # keyed canonical lookup used by the seed rows and `canonical?`.
   #
   # The map carries entries for the three short labels rendered on the
-  # filter row and the detail page: `Switch2`, `PS5`, `Steam`. GoG +
+  # filter row and the detail page: `Switch`, `PS`, `Steam`. GoG +
   # Epic were collapsed into Steam in the 2026-05-17 contract change;
   # any IGDB platform name not in this map falls through to itself per
   # `display_label`.
   PLATFORM_LABELS = {
-    "Nintendo Switch 2" => "Switch2",
-    "PlayStation 5"     => "PS5",
+    "Nintendo Switch 2" => "Switch",
+    "PlayStation 5"     => "PS",
     "Steam"             => "Steam"
   }.freeze
 
@@ -89,8 +91,10 @@ class Platform < ApplicationRecord
   # the project does not distinguish console generations at the
   # ownership level.
   IGDB_ID_TO_CANONICAL_SLUG = {
-    167 => "ps5",
-    508 => "switch2",
+    167 => "ps",
+    48  => "ps",
+    508 => "switch",
+    130 => "switch",
     49  => "xbox",
     169 => "xbox"
   }.freeze
@@ -118,11 +122,10 @@ class Platform < ApplicationRecord
   default_scope { order(:name) }
 
   # FriendlyId — name-derived slug + history-on-rename. Mirrors the
-  # Collection / Project / Bundle / MilestoneRule pattern via
-  # `Pito::SlugBuilder`.
+  # Project / Bundle / MilestoneRule pattern via `Pito::SlugBuilder`.
   # Canonical short label for this platform. Returns the project's
-  # locked short name (`PS5`, `Switch2`, `Steam`, `GoG`, `Epic`,
-  # `Xbox`) when the row matches one of the six canonical slugs OR
+  # locked short name (`PS`, `Switch`, `Steam`, `Xbox`) when the
+  # row matches one of the canonical slugs OR
   # when its `igdb_id` aliases to a canonical slug. Returns `nil`
   # otherwise — callers decide whether to fall back to `name` or
   # drop the platform from display.

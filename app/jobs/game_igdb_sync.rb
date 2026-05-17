@@ -34,16 +34,17 @@
 #             path before fan-out, and again in `ensure`) so any
 #             open tab swaps to the latest state without a refresh.
 #
-# Collection cover-art fan-out (success path only) — every collection
-# the game belongs to gets its composite cover rebuilt via
-# `Collections::CompositeRebuildQueue#enqueue_for_game_resync`. The
-# orchestrator alphabetizes and enqueues a sequential chain so the
-# UX (and the test suite) sees a predictable order. We call the
-# orchestrator EXPLICITLY here even though the model's
-# `after_save_commit :rebuild_collection_composites_on_resync` hook
-# also fires — the explicit call is the canonical spec-03 trigger
-# (and `CollectionCoverRebuildJob` is idempotent on cache hit, so a
-# duplicate enqueue is a no-op rebuild).
+# Bundle cover-art fan-out (success path only) — every bundle the
+# game belongs to gets its composite cover rebuilt via
+# `Bundles::CompositeRebuildQueue#enqueue_for_game_resync`. The
+# orchestrator alphabetizes and enqueues a sequential
+# `BundleCoverBuild` chain so the UX (and the test suite) sees a
+# predictable order. We call the orchestrator EXPLICITLY here even
+# though the model's `after_save_commit
+# :rebuild_bundle_composites_on_resync` hook also fires — the
+# explicit call is the canonical spec-03 trigger (and the composer
+# is idempotent on cache hit, so a duplicate enqueue is a no-op
+# rebuild).
 class GameIgdbSync
   include Sidekiq::Job
   sidekiq_options queue: :default,
@@ -71,24 +72,23 @@ class GameIgdbSync
       raise
     rescue Igdb::Client::ValidationError
       # Local row already stamped with last_sync_error inside SyncGame.
-      # No re-raise — non-retryable. No collection rebuild fan-out
+      # No re-raise — non-retryable. No bundle rebuild fan-out
       # (no data changed; nothing to rebuild).
       nil
     ensure
-      # Phase 27 v2 spec 03 — success-path collection cover-art
-      # fan-out. Lives in the ensure block but gated on `success`
-      # so retryable / non-retryable errors do not enqueue rebuilds.
-      # The fan-out runs BEFORE the `resyncing` flip so the
-      # composite rebuilds always read the freshly-resynced row
-      # (e.g. the new `cover_image_id`).
+      # Phase 27 v2 spec 03 — success-path bundle cover-art fan-out.
+      # Lives in the ensure block but gated on `success` so retryable /
+      # non-retryable errors do not enqueue rebuilds. The fan-out runs
+      # BEFORE the `resyncing` flip so the composite rebuilds always
+      # read the freshly-resynced row (e.g. the new `cover_image_id`).
       if success
         begin
-          Collections::CompositeRebuildQueue.new
-                                            .enqueue_for_game_resync(game.reload)
+          Bundles::CompositeRebuildQueue.new
+                                        .enqueue_for_game_resync(game.reload)
         rescue StandardError
-          # Fan-out is a downstream nicety; a Collection lookup
-          # failure or Redis hiccup must not leak out of `ensure`
-          # and trip Sidekiq retry on an already-successful sync.
+          # Fan-out is a downstream nicety; a Bundle lookup failure or
+          # Redis hiccup must not leak out of `ensure` and trip Sidekiq
+          # retry on an already-successful sync.
           nil
         end
       end

@@ -66,21 +66,7 @@ RSpec.describe "Friendly URL redirects", type: :request do
     end
   end
 
-  describe "Collection" do
-    include_examples "redirects integer-id GETs to the canonical slug",
-                     path_helper: :collection_path,
-                     factory: :collection,
-                     name_setter: true
-
-    it "history-redirects an old slug after a rename" do
-      collection = create(:collection, name: "Coll Original")
-      old_slug = collection.slug
-      collection.update!(name: "Coll Renamed")
-      get collection_path(old_slug)
-      expect(response).to have_http_status(:moved_permanently)
-      expect(response.location).to include(collection_path(collection.slug))
-    end
-  end
+  # Collection block removed 2026-05-17 — model + routes are gone.
 
   describe "Channel" do
     let(:channel) do

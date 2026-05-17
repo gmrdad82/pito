@@ -1,7 +1,7 @@
-<%# Phase 14 §2 — shared bundle form partial. The `:form_mode` local
-    is `:create` or `:edit`; the create form exposes `bundle_type`,
-    `igdb_source_type`, and `igdb_source_id`; the edit form exposes
-    `name` only (master-agent decision #3). %>
+<%# Phase 14 §2 / Phase 27 follow-up (2026-05-17) — Bundle form partial.
+    After the 2026-05-17 simplification a bundle has exactly one
+    user-facing attribute (`name`); both the create and edit forms
+    expose only that field. %>
 <% mode = local_assigns.fetch(:form_mode, :create) %>
 
 <%= form_with(model: bundle, local: true) do |f| %>
@@ -22,43 +22,6 @@
         <%= f.text_field :name, required: true, style: "width: 280px;" %>
       </td>
     </tr>
-
-    <% if mode == :create %>
-      <tr>
-        <td class="text-muted" style="padding-right: 12px;">type</td>
-        <td>
-          <%= f.select :bundle_type,
-                       Bundle.bundle_types.keys.map { |k| [ k, k ] },
-                       { selected: bundle.bundle_type || "custom" } %>
-        </td>
-      </tr>
-
-      <tr>
-        <td class="text-muted" style="padding-right: 12px;">igdb source type</td>
-        <td>
-          <%= f.select :igdb_source_type,
-                       Bundle.igdb_source_types.keys.map { |k| [ k, k ] },
-                       { include_blank: "—" } %>
-          <span class="text-muted" style="font-size: 11px;">leave blank for custom bundles.</span>
-        </td>
-      </tr>
-
-      <tr>
-        <td class="text-muted" style="padding-right: 12px;">igdb source id</td>
-        <td>
-          <%= f.number_field :igdb_source_id, min: 0, style: "width: 120px;" %>
-          <span class="text-muted" style="font-size: 11px;">igdb-side id (franchise / collection / genre).</span>
-        </td>
-      </tr>
-    <% else %>
-      <tr>
-        <td class="text-muted" style="padding-right: 12px;">type</td>
-        <td>
-          <span><%= bundle.bundle_type %></span>
-          <span class="text-muted" style="font-size: 11px;">(immutable post-create)</span>
-        </td>
-      </tr>
-    <% end %>
   </table>
 
   <div style="margin-top: 8px;">

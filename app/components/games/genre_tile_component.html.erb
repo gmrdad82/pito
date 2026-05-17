@@ -1,0 +1,8 @@
+<%# Phase 27 sub-spec 01c (VC slice) — genre sub-shelf tile.
+    Delegates to Games::CoverComponent at the :shelf variant.
+    The cover component already emits an <a href=...> to the
+    game show page (its default link_to_show: true), so no outer
+    wrapper is needed here — adding one would double the link
+    and break the parent shelf row's flex layout. Mirrors the
+    current inline render in _genre_sub_shelf.html.erb exactly. %>
+<%= render(Games::CoverComponent.new(game: game, variant: :shelf)) %>

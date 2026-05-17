@@ -2,17 +2,66 @@
 
 ## [skipci] 2026-05-17 — v2 spec 05 Games index shelves-only (pito-rails)
 
-Implements v2 spec 05 — `docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs-v2/05-games-index-shelves-only.md`. Collapses `/games` to a single shelves layout. Drops the three-mode display switcher (grid / list / shelves-by-letter), the per-mode partials, the `Users::GamesPreferencesController`, the `User#preferred_games_display_mode` enum + backing column, and the `?display=` query-param resolver. Replaces them with one stack of shelves: filter row → bundles → recently-played → genres outer shelf → collections outer shelf → per-letter shelves. The genre short-name mapping was rewritten to the spec's locked table (RPG, FPS, JRPG, Sim, MOBA, Platformer, VN, Card, Hack/Slash, etc.) — unknown genres fall through to the IGDB canonical name unchanged.
+Implements v2 spec 05 —
+`docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs-v2/05-games-index-shelves-only.md`.
+Collapses `/games` to a single shelves layout. Drops the three-mode display
+switcher (grid / list / shelves-by-letter), the per-mode partials, the
+`Users::GamesPreferencesController`, the `User#preferred_games_display_mode`
+enum + backing column, and the `?display=` query-param resolver. Replaces them
+with one stack of shelves: filter row → bundles → recently-played → genres outer
+shelf → collections outer shelf → per-letter shelves. The genre short-name
+mapping was rewritten to the spec's locked table (RPG, FPS, JRPG, Sim, MOBA,
+Platformer, VN, Card, Hack/Slash, etc.) — unknown genres fall through to the
+IGDB canonical name unchanged.
 
 ### What landed
 
-- `app/views/games/index.html.erb` — rewritten to the new contract. Page title + `[+]` → filter row → bundles (when present) → recently-played (when present) → hairline → genres outer shelf (when populated) → hairline → collections outer shelf (when populated) → hairline → letter shelves wrapper. The empty-state path stays a single `<p class="text-muted">no games yet…</p>`. The `display:` query-string passthrough on the filter row's `query_string_overrides:` hash is gone; only `genre:` and `collection:` survive.
-- `app/views/games/_letter_shelves.html.erb` (NEW) — wraps the controller's `@letter_buckets` array. One `<section class="shelf shelf--letter">` per non-empty letter bucket. Heading is the bucket key as `<h3>`. Tiles render through `Games::CoverComponent` at the `:shelf` variant (98 × 130). Every shelf carries `data-controller="steam-shelf"` so the wheel-to-horizontal drag-scroll affordance is inherited. The `<section class="all-games-shelves-by-letter">` wrapper survives as the back-compat hook target (e.g. the `_letter_shelves` width-clamp CSS rule already keyed on the class).
-- `app/controllers/games_controller.rb` — `index` action drops `@display_mode = resolved_display_mode`, drops the per-platform `@platforms_shelves` computation (the per-platform shelves were never carried into the new layout per the spec's render contract), and adds a private `build_letter_buckets(scope)` helper that produces an `Array` of `[letter, [Game, ...]]` tuples in render order (`A..Z` first, `#` bucket last). Buckets fill from `scope.to_a.group_by` with the letter rule (first char uppercased when in `[A-Z]`, else `#`); each bucket sorts by `LOWER(title)` with `id` as a stable tiebreak. The legacy `resolved_display_mode` method retired.
-- `app/models/user.rb` — drops the `attribute :preferred_games_display_mode` + `enum :preferred_games_display_mode {…}` declaration. The column is gone (see migration below); the enum class methods and instance predicates retire with it. A documentary comment block stays in place noting the v2 spec 05 retirement.
-- `app/helpers/genres_helper.rb` — rewrites `SHORT_NAMES` (renamed from `GENRE_SHORT_NAMES`) to match the spec's locked mapping table: `RPG`, `JRPG`, `FPS`, `MOBA`, `RTS`, `TBS`, `Sim`, `Sport`, `Racing`, `Fighting`, `Adventure`, `Platformer`, `Puzzle`, `Strategy`, `Pinball`, `Arcade`, `Music`, `Hack/Slash`, `Quiz`, `Tactical`, `VN`, `Indie`, `Card`. Both `Shooter` and `First-person Shooter` collapse to `FPS`; both `Point-and-click` and `Adventure` collapse to `Adventure`. The legacy `ACRONYM_LABELS` constant + the lowercase-rule fallthrough retired — unmapped genres now return their IGDB canonical name unchanged (the spec's locked semantics).
-- `config/routes.rb` — drops the `namespace :users do resource :games_preferences, only: :update end` block. The endpoint is gone.
-- `db/migrate/20260516232156_drop_preferred_games_display_mode_from_users.rb` (NEW) — `remove_column :users, :preferred_games_display_mode`. Reversible (`down` re-adds the integer column with the historical default `0`).
+- `app/views/games/index.html.erb` — rewritten to the new contract. Page title +
+  `[+]` → filter row → bundles (when present) → recently-played (when present) →
+  hairline → genres outer shelf (when populated) → hairline → collections outer
+  shelf (when populated) → hairline → letter shelves wrapper. The empty-state
+  path stays a single `<p class="text-muted">no games yet…</p>`. The `display:`
+  query-string passthrough on the filter row's `query_string_overrides:` hash is
+  gone; only `genre:` and `collection:` survive.
+- `app/views/games/_letter_shelves.html.erb` (NEW) — wraps the controller's
+  `@letter_buckets` array. One `<section class="shelf shelf--letter">` per
+  non-empty letter bucket. Heading is the bucket key as `<h3>`. Tiles render
+  through `Games::CoverComponent` at the `:shelf` variant (98 × 130). Every
+  shelf carries `data-controller="steam-shelf"` so the wheel-to-horizontal
+  drag-scroll affordance is inherited. The
+  `<section class="all-games-shelves-by-letter">` wrapper survives as the
+  back-compat hook target (e.g. the `_letter_shelves` width-clamp CSS rule
+  already keyed on the class).
+- `app/controllers/games_controller.rb` — `index` action drops
+  `@display_mode = resolved_display_mode`, drops the per-platform
+  `@platforms_shelves` computation (the per-platform shelves were never carried
+  into the new layout per the spec's render contract), and adds a private
+  `build_letter_buckets(scope)` helper that produces an `Array` of
+  `[letter, [Game, ...]]` tuples in render order (`A..Z` first, `#` bucket
+  last). Buckets fill from `scope.to_a.group_by` with the letter rule (first
+  char uppercased when in `[A-Z]`, else `#`); each bucket sorts by
+  `LOWER(title)` with `id` as a stable tiebreak. The legacy
+  `resolved_display_mode` method retired.
+- `app/models/user.rb` — drops the `attribute :preferred_games_display_mode` +
+  `enum :preferred_games_display_mode {…}` declaration. The column is gone (see
+  migration below); the enum class methods and instance predicates retire with
+  it. A documentary comment block stays in place noting the v2 spec 05
+  retirement.
+- `app/helpers/genres_helper.rb` — rewrites `SHORT_NAMES` (renamed from
+  `GENRE_SHORT_NAMES`) to match the spec's locked mapping table: `RPG`, `JRPG`,
+  `FPS`, `MOBA`, `RTS`, `TBS`, `Sim`, `Sport`, `Racing`, `Fighting`,
+  `Adventure`, `Platformer`, `Puzzle`, `Strategy`, `Pinball`, `Arcade`, `Music`,
+  `Hack/Slash`, `Quiz`, `Tactical`, `VN`, `Indie`, `Card`. Both `Shooter` and
+  `First-person Shooter` collapse to `FPS`; both `Point-and-click` and
+  `Adventure` collapse to `Adventure`. The legacy `ACRONYM_LABELS` constant +
+  the lowercase-rule fallthrough retired — unmapped genres now return their IGDB
+  canonical name unchanged (the spec's locked semantics).
+- `config/routes.rb` — drops the
+  `namespace :users do resource :games_preferences, only: :update end` block.
+  The endpoint is gone.
+- `db/migrate/20260516232156_drop_preferred_games_display_mode_from_users.rb`
+  (NEW) — `remove_column :users, :preferred_games_display_mode`. Reversible
+  (`down` re-adds the integer column with the historical default `0`).
 
 ### Deletions
 
@@ -20,10 +69,14 @@ Implements v2 spec 05 — `docs/plans/beta/27-games-listing-shelves-filters-disp
 - `app/views/games/_list_mode.html.erb` (deleted).
 - `app/views/games/_shelves_by_letter_mode.html.erb` (deleted).
 - `app/views/games/_display_mode_switcher.html.erb` (deleted).
-- `app/controllers/users/games_preferences_controller.rb` (deleted; `app/controllers/users/` directory removed because it became empty).
-- `spec/requests/users/games_preferences_spec.rb` (deleted; `spec/requests/users/` directory removed because it became empty).
-- `spec/system/games_display_modes_spec.rb` (deleted — every example asserted display-mode switcher behavior that no longer exists).
-- `spec/system/games_list_mode_bulk_spec.rb` (deleted — same reason; bulk-select scaffold for the list-mode partition retires with the partition).
+- `app/controllers/users/games_preferences_controller.rb` (deleted;
+  `app/controllers/users/` directory removed because it became empty).
+- `spec/requests/users/games_preferences_spec.rb` (deleted;
+  `spec/requests/users/` directory removed because it became empty).
+- `spec/system/games_display_modes_spec.rb` (deleted — every example asserted
+  display-mode switcher behavior that no longer exists).
+- `spec/system/games_list_mode_bulk_spec.rb` (deleted — same reason; bulk-select
+  scaffold for the list-mode partition retires with the partition).
 - `spec/views/games/_display_mode_switcher.html.erb_spec.rb` (deleted).
 - `spec/views/games/_grid_mode.html.erb_spec.rb` (deleted).
 - `spec/views/games/_list_mode.html.erb_spec.rb` (deleted).
@@ -31,17 +84,75 @@ Implements v2 spec 05 — `docs/plans/beta/27-games-listing-shelves-filters-disp
 
 ### Tests added / updated
 
-- `spec/views/games/_letter_shelves.html.erb_spec.rb` (NEW) — 14 examples covering: happy single-bucket render (section + heading + tile + steam-shelf wiring + `data-letter` attribute + outer wrapper class), happy multi-bucket order preservation, digit-titled `#` bucket position (heading present + pinned to end), tile order preservation, edge empty buckets array (renders nothing), edge bucket-with-zero-games defensive fallthrough, no JS confirm / no `<script>` flaw guards.
-- `spec/views/games/index.html.erb_spec.rb` (NEW) — 14 examples covering: empty-install happy path (empty-state copy, title + `[+]`, filter row always present, no letter shelves wrapper, no bundles / genres shelves), happy full library (letter shelves wrapper present, exactly N letter shelves stamped, title-before-filter-row order, filter-row-before-letter-shelves order, no `<h2>all</h2>` heading, no `data-display-mode=` attribute, no display-mode switcher), happy bundles + recently-played order.
-- `spec/helpers/genres_helper_spec.rb` — rewritten end-to-end. 29 examples covering the new `SHORT_NAMES` mapping (frozen, RPG / JRPG / FPS / Sim / MOBA / Platformer / VN / Card / Hack/Slash / Point-and-click / RTS + TBS), string input, Genre instance input (model + persisted), and nil / blank / non-string / non-Genre edge cases.
-- `spec/models/user_spec.rb` — replaces the `preferred_games_display_mode enum (Phase 27 — 01d)` describe with a `Phase 27 v2 spec 05 — preferred_games_display_mode removed` describe (4 examples asserting the absence of the predicate methods, the attribute reader, the class-level enum mapping, and the column on `User.column_names`).
-- `spec/requests/games_spec.rb` — extensive edits: drops the `<h2>all</h2>` heading-order and `data-display-mode=` assertions, drops the per-platform `[see all]` test, drops the entire `display mode resolution (Phase 27 §01d)` describe block (16 examples retired), drops the `display=list` chip-href preservation example, rewrites the contradiction notice assertion (no longer asserts an empty-grid muted copy — the listing wrapper is suppressed instead), updates the genre short-label assertions to the new mapping (`Adventure` stays `Adventure`; `rpg` / `platformer` fall through unchanged), rewrites the hairline ordering assertion to the new "hairline-leads-each-section" contract, marks the `+1 edition` index assertion as a known-gone surface (the badge's canonical surface is the game show page now). Adds a new `Phase 27 v2 spec 05 — shelves-only layout` describe with 8 examples (one section per non-empty letter, hidden letters, `#` bucket at end, `?display=list` / `?display=grid` / `?display=shelves_by_letter` ignored, no `data-display-mode=` anywhere, no switcher rendered).
-- `spec/system/games_index_spec.rb` — updates the v1 nested-shelves describes to the new genre-short-name mapping (`Adventure` stays `Adventure`), replaces `section.all-games-grid` selectors with `section.all-games-shelves-by-letter`, switches text-content assertions to `data-tile-game-id` selectors (the cover-only `Games::CoverComponent` tiles don't render visible title text), updates the contradiction system assertion to "listing wrapper suppressed", updates the `[see all]` navigation assertion to the new letter-shelves wrapper, updates the platform-logo system spec (spec 07 scope) to scope tile lookups to the recently-played shelf (where `_tile.html.erb` still renders the platform-logo footer) and seed each test game with `played_at` so it lands there.
-- `spec/system/games_steam_shelf_spec.rb` — drops the `all-games` heading + `data-display-mode="grid"` assertion (heading + partition retired), adds a negative assertion for both, updates the genre `<h3>` text to `Adventure`.
-- `spec/system/games_multi_version_spec.rb` — switches `have_content("Pragmata")` text assertions on `/games` to `have_css("[data-tile-game-id=...]")` because the new layout's cover tiles emit only `<img>` (no visible title text). The `+1 edition` text assertion is dropped — the badge moved off the index surface.
-- `spec/system/keyboard_grid_navigation_spec.rb` — rewrites the `/games (tile grid)` describe. The flat all-games tile grid retired with the display-mode switcher; the new layout's shelves use the `steam-shelf` Stimulus controller, NOT the keyboard tile-grid surface. The describe now asserts the absence of `data-keyboard-grid` and `data-keyboard-tile` hooks on `/games`.
-- `spec/views/games/_genre_sub_shelf.html.erb_spec.rb` — updates the `<h3>adventure</h3>` assertions to `<h3>Adventure</h3>` (one-to-one mapping per the new short-name table).
-- `spec/views/games/_genres_shelf.html.erb_spec.rb` — same `<h3>adventure</h3>` → `<h3>Adventure</h3>` update; replaces the "lowercase rule" passthrough example with a "unmapped genre returns canonical name unchanged" example.
+- `spec/views/games/_letter_shelves.html.erb_spec.rb` (NEW) — 14 examples
+  covering: happy single-bucket render (section + heading + tile + steam-shelf
+  wiring + `data-letter` attribute + outer wrapper class), happy multi-bucket
+  order preservation, digit-titled `#` bucket position (heading present + pinned
+  to end), tile order preservation, edge empty buckets array (renders nothing),
+  edge bucket-with-zero-games defensive fallthrough, no JS confirm / no
+  `<script>` flaw guards.
+- `spec/views/games/index.html.erb_spec.rb` (NEW) — 14 examples covering:
+  empty-install happy path (empty-state copy, title + `[+]`, filter row always
+  present, no letter shelves wrapper, no bundles / genres shelves), happy full
+  library (letter shelves wrapper present, exactly N letter shelves stamped,
+  title-before-filter-row order, filter-row-before-letter-shelves order, no
+  `<h2>all</h2>` heading, no `data-display-mode=` attribute, no display-mode
+  switcher), happy bundles + recently-played order.
+- `spec/helpers/genres_helper_spec.rb` — rewritten end-to-end. 29 examples
+  covering the new `SHORT_NAMES` mapping (frozen, RPG / JRPG / FPS / Sim / MOBA
+  / Platformer / VN / Card / Hack/Slash / Point-and-click / RTS + TBS), string
+  input, Genre instance input (model + persisted), and nil / blank / non-string
+  / non-Genre edge cases.
+- `spec/models/user_spec.rb` — replaces the
+  `preferred_games_display_mode enum (Phase 27 — 01d)` describe with a
+  `Phase 27 v2 spec 05 — preferred_games_display_mode removed` describe (4
+  examples asserting the absence of the predicate methods, the attribute reader,
+  the class-level enum mapping, and the column on `User.column_names`).
+- `spec/requests/games_spec.rb` — extensive edits: drops the `<h2>all</h2>`
+  heading-order and `data-display-mode=` assertions, drops the per-platform
+  `[see all]` test, drops the entire `display mode resolution (Phase 27 §01d)`
+  describe block (16 examples retired), drops the `display=list` chip-href
+  preservation example, rewrites the contradiction notice assertion (no longer
+  asserts an empty-grid muted copy — the listing wrapper is suppressed instead),
+  updates the genre short-label assertions to the new mapping (`Adventure` stays
+  `Adventure`; `rpg` / `platformer` fall through unchanged), rewrites the
+  hairline ordering assertion to the new "hairline-leads-each-section" contract,
+  marks the `+1 edition` index assertion as a known-gone surface (the badge's
+  canonical surface is the game show page now). Adds a new
+  `Phase 27 v2 spec 05 — shelves-only layout` describe with 8 examples (one
+  section per non-empty letter, hidden letters, `#` bucket at end,
+  `?display=list` / `?display=grid` / `?display=shelves_by_letter` ignored, no
+  `data-display-mode=` anywhere, no switcher rendered).
+- `spec/system/games_index_spec.rb` — updates the v1 nested-shelves describes to
+  the new genre-short-name mapping (`Adventure` stays `Adventure`), replaces
+  `section.all-games-grid` selectors with `section.all-games-shelves-by-letter`,
+  switches text-content assertions to `data-tile-game-id` selectors (the
+  cover-only `Games::CoverComponent` tiles don't render visible title text),
+  updates the contradiction system assertion to "listing wrapper suppressed",
+  updates the `[see all]` navigation assertion to the new letter-shelves
+  wrapper, updates the platform-logo system spec (spec 07 scope) to scope tile
+  lookups to the recently-played shelf (where `_tile.html.erb` still renders the
+  platform-logo footer) and seed each test game with `played_at` so it lands
+  there.
+- `spec/system/games_steam_shelf_spec.rb` — drops the `all-games` heading +
+  `data-display-mode="grid"` assertion (heading + partition retired), adds a
+  negative assertion for both, updates the genre `<h3>` text to `Adventure`.
+- `spec/system/games_multi_version_spec.rb` — switches
+  `have_content("Pragmata")` text assertions on `/games` to
+  `have_css("[data-tile-game-id=...]")` because the new layout's cover tiles
+  emit only `<img>` (no visible title text). The `+1 edition` text assertion is
+  dropped — the badge moved off the index surface.
+- `spec/system/keyboard_grid_navigation_spec.rb` — rewrites the
+  `/games (tile grid)` describe. The flat all-games tile grid retired with the
+  display-mode switcher; the new layout's shelves use the `steam-shelf` Stimulus
+  controller, NOT the keyboard tile-grid surface. The describe now asserts the
+  absence of `data-keyboard-grid` and `data-keyboard-tile` hooks on `/games`.
+- `spec/views/games/_genre_sub_shelf.html.erb_spec.rb` — updates the
+  `<h3>adventure</h3>` assertions to `<h3>Adventure</h3>` (one-to-one mapping
+  per the new short-name table).
+- `spec/views/games/_genres_shelf.html.erb_spec.rb` — same `<h3>adventure</h3>`
+  → `<h3>Adventure</h3>` update; replaces the "lowercase rule" passthrough
+  example with a "unmapped genre returns canonical name unchanged" example.
 
 ### Targeted spec result
 
@@ -50,318 +161,784 @@ Implements v2 spec 05 — `docs/plans/beta/27-games-listing-shelves-filters-disp
 - `spec/components/games/` — 188 examples, 0 failures.
 - `spec/helpers/genres_helper_spec.rb` — 29 examples, 0 failures.
 - `spec/models/user_spec.rb` — 71 examples, 0 failures.
-- `spec/system/games_index_spec.rb` + `spec/system/games_steam_shelf_spec.rb` + `spec/system/keyboard_grid_navigation_spec.rb` — 46 examples, 0 failures (with `--tag type:system`).
-- `spec/system/games_multi_version_spec.rb` + `spec/system/games_platform_ownerships_spec.rb` — 15 examples, 0 failures (with `--tag type:system`).
+- `spec/system/games_index_spec.rb` + `spec/system/games_steam_shelf_spec.rb` +
+  `spec/system/keyboard_grid_navigation_spec.rb` — 46 examples, 0 failures (with
+  `--tag type:system`).
+- `spec/system/games_multi_version_spec.rb` +
+  `spec/system/games_platform_ownerships_spec.rb` — 15 examples, 0 failures
+  (with `--tag type:system`).
 - Per the CI hiatus, no full suite run was attempted.
 
 ### Static analysis
 
-- `bin/brakeman -q -w2` → 0 security warnings, 0 errors, 1 pre-existing ignored entry. Five obsolete ignore entries surface in the working tree — unrelated to this spec (pre-existing).
+- `bin/brakeman -q -w2` → 0 security warnings, 0 errors, 1 pre-existing ignored
+  entry. Five obsolete ignore entries surface in the working tree — unrelated to
+  this spec (pre-existing).
 
 ### localStorage cleanup verification
 
-- The display-mode switcher was a pure `button_to` form set (no Stimulus controller, no localStorage key, no Turbo data attribute), so no JS state needed cleanup. `grep -rn localStorage /home/catalin/Dev/pito/app/javascript/` returns only the calendar + theme controllers; no games-related localStorage keys exist (and never did). The retirement is one-pass clean.
+- The display-mode switcher was a pure `button_to` form set (no Stimulus
+  controller, no localStorage key, no Turbo data attribute), so no JS state
+  needed cleanup. `grep -rn localStorage /home/catalin/Dev/pito/app/javascript/`
+  returns only the calendar + theme controllers; no games-related localStorage
+  keys exist (and never did). The retirement is one-pass clean.
 
 ### Scrollbar CSS scope
 
-- The repo-wide 6 px scrollbar was already in place before this spec dispatched (commit `c630afa` from 2026-05-16 moved every `::-webkit-scrollbar` rule to `width: 6px; height: 6px;` on both axes — globally on the unscoped rule, plus scoped overrides on `dialog`-rooted scrollable surfaces). The audit pass for spec 05 was a no-op: every surface already renders at the locked 6 px size with the themed muted thumb. No CSS was touched in this dispatch.
+- The repo-wide 6 px scrollbar was already in place before this spec dispatched
+  (commit `c630afa` from 2026-05-16 moved every `::-webkit-scrollbar` rule to
+  `width: 6px; height: 6px;` on both axes — globally on the unscoped rule, plus
+  scoped overrides on `dialog`-rooted scrollable surfaces). The audit pass for
+  spec 05 was a no-op: every surface already renders at the locked 6 px size
+  with the themed muted thumb. No CSS was touched in this dispatch.
 
 ### Files touched
 
-- Modified: `app/controllers/games_controller.rb`, `app/models/user.rb`, `app/helpers/genres_helper.rb`, `app/views/games/index.html.erb`, `config/routes.rb`, `spec/requests/games_spec.rb`, `spec/views/games/_genre_sub_shelf.html.erb_spec.rb`, `spec/views/games/_genres_shelf.html.erb_spec.rb`, `spec/system/games_index_spec.rb`, `spec/system/games_steam_shelf_spec.rb`, `spec/system/games_multi_version_spec.rb`, `spec/system/keyboard_grid_navigation_spec.rb`, `spec/helpers/genres_helper_spec.rb`, `spec/models/user_spec.rb`, `db/schema.rb` (auto-bumped by `db:migrate`).
-- Added: `app/views/games/_letter_shelves.html.erb`, `db/migrate/20260516232156_drop_preferred_games_display_mode_from_users.rb`, `spec/views/games/_letter_shelves.html.erb_spec.rb`, `spec/views/games/index.html.erb_spec.rb`.
-- Deleted: `app/views/games/_grid_mode.html.erb`, `app/views/games/_list_mode.html.erb`, `app/views/games/_shelves_by_letter_mode.html.erb`, `app/views/games/_display_mode_switcher.html.erb`, `app/controllers/users/games_preferences_controller.rb`, `spec/requests/users/games_preferences_spec.rb`, `spec/system/games_display_modes_spec.rb`, `spec/system/games_list_mode_bulk_spec.rb`, `spec/views/games/_display_mode_switcher.html.erb_spec.rb`, `spec/views/games/_grid_mode.html.erb_spec.rb`, `spec/views/games/_list_mode.html.erb_spec.rb`, `spec/views/games/_shelves_by_letter_mode.html.erb_spec.rb`. Empty parent directories `app/controllers/users/` and `spec/requests/users/` removed.
+- Modified: `app/controllers/games_controller.rb`, `app/models/user.rb`,
+  `app/helpers/genres_helper.rb`, `app/views/games/index.html.erb`,
+  `config/routes.rb`, `spec/requests/games_spec.rb`,
+  `spec/views/games/_genre_sub_shelf.html.erb_spec.rb`,
+  `spec/views/games/_genres_shelf.html.erb_spec.rb`,
+  `spec/system/games_index_spec.rb`, `spec/system/games_steam_shelf_spec.rb`,
+  `spec/system/games_multi_version_spec.rb`,
+  `spec/system/keyboard_grid_navigation_spec.rb`,
+  `spec/helpers/genres_helper_spec.rb`, `spec/models/user_spec.rb`,
+  `db/schema.rb` (auto-bumped by `db:migrate`).
+- Added: `app/views/games/_letter_shelves.html.erb`,
+  `db/migrate/20260516232156_drop_preferred_games_display_mode_from_users.rb`,
+  `spec/views/games/_letter_shelves.html.erb_spec.rb`,
+  `spec/views/games/index.html.erb_spec.rb`.
+- Deleted: `app/views/games/_grid_mode.html.erb`,
+  `app/views/games/_list_mode.html.erb`,
+  `app/views/games/_shelves_by_letter_mode.html.erb`,
+  `app/views/games/_display_mode_switcher.html.erb`,
+  `app/controllers/users/games_preferences_controller.rb`,
+  `spec/requests/users/games_preferences_spec.rb`,
+  `spec/system/games_display_modes_spec.rb`,
+  `spec/system/games_list_mode_bulk_spec.rb`,
+  `spec/views/games/_display_mode_switcher.html.erb_spec.rb`,
+  `spec/views/games/_grid_mode.html.erb_spec.rb`,
+  `spec/views/games/_list_mode.html.erb_spec.rb`,
+  `spec/views/games/_shelves_by_letter_mode.html.erb_spec.rb`. Empty parent
+  directories `app/controllers/users/` and `spec/requests/users/` removed.
 
 ### Contract decisions for downstream specs (06 will read this)
 
-- **No `?display=` query-string is honored.** The controller dropped the resolver; any saved bookmark to `/games?display=<mode>` 200s but the layout is the single shelves-only render. Filter row's `query_string_overrides:` hash carries only `genre:` and `collection:` keys.
-- **Letter shelves use `Games::CoverComponent` (`:shelf` variant, 98 × 130).** No visible title text on tiles — assertions targeting the listing must use `data-tile-game-id` rather than `have_content`. The `+N editions` badge and the platform-logo footer (spec 07) live on the legacy `_tile.html.erb` partial, which now only renders in the bundles + recently-played shelves. The game show page is the canonical surface for the editions badge.
-- **Per-platform shelves retired.** The `@platforms_shelves` controller assignment is gone; the `owned_on=<slug>` filter-row token is the canonical platform filter.
-- **`<h2>all</h2>` heading retired.** No "all-games partition" sentinel exists in the new layout; the letter shelves wrapper is the whole listing.
-- **Genre short labels follow `GenresHelper::SHORT_NAMES`.** RPG, JRPG, FPS, MOBA, RTS, TBS, Sim, Sport, Racing, Fighting, Adventure, Platformer, Puzzle, Strategy, Pinball, Arcade, Music, Hack/Slash, Quiz, Tactical, VN, Indie, Card. Both `Shooter` and `First-person Shooter` collapse to `FPS`; both `Point-and-click` and `Adventure` collapse to `Adventure`. Unmapped names return the IGDB canonical name unchanged (case preserved).
+- **No `?display=` query-string is honored.** The controller dropped the
+  resolver; any saved bookmark to `/games?display=<mode>` 200s but the layout is
+  the single shelves-only render. Filter row's `query_string_overrides:` hash
+  carries only `genre:` and `collection:` keys.
+- **Letter shelves use `Games::CoverComponent` (`:shelf` variant, 98 × 130).**
+  No visible title text on tiles — assertions targeting the listing must use
+  `data-tile-game-id` rather than `have_content`. The `+N editions` badge and
+  the platform-logo footer (spec 07) live on the legacy `_tile.html.erb`
+  partial, which now only renders in the bundles + recently-played shelves. The
+  game show page is the canonical surface for the editions badge.
+- **Per-platform shelves retired.** The `@platforms_shelves` controller
+  assignment is gone; the `owned_on=<slug>` filter-row token is the canonical
+  platform filter.
+- **`<h2>all</h2>` heading retired.** No "all-games partition" sentinel exists
+  in the new layout; the letter shelves wrapper is the whole listing.
+- **Genre short labels follow `GenresHelper::SHORT_NAMES`.** RPG, JRPG, FPS,
+  MOBA, RTS, TBS, Sim, Sport, Racing, Fighting, Adventure, Platformer, Puzzle,
+  Strategy, Pinball, Arcade, Music, Hack/Slash, Quiz, Tactical, VN, Indie, Card.
+  Both `Shooter` and `First-person Shooter` collapse to `FPS`; both
+  `Point-and-click` and `Adventure` collapse to `Adventure`. Unmapped names
+  return the IGDB canonical name unchanged (case preserved).
 
 ### Plan-checkbox status
 
-The v2 specs directory (`specs-v2/`) is a polish-dispatch overlay on the original Phase 27 sub-spec checkboxes; `plan.md` does not enumerate a checkbox for spec 05 specifically (the 01a–01g checkboxes track the original phase scope). No checkboxes flipped — the v2 dispatch lands as a log entry per established Phase 27 convention (see prior `v2 spec 01`, `v2 spec 03`, and `v2 spec 04` entries below).
+The v2 specs directory (`specs-v2/`) is a polish-dispatch overlay on the
+original Phase 27 sub-spec checkboxes; `plan.md` does not enumerate a checkbox
+for spec 05 specifically (the 01a–01g checkboxes track the original phase
+scope). No checkboxes flipped — the v2 dispatch lands as a log entry per
+established Phase 27 convention (see prior `v2 spec 01`, `v2 spec 03`, and
+`v2 spec 04` entries below).
 
 ### Open / deferred
 
-- The `[+N editions]` badge no longer renders on the index. The game show page surface still carries it. If a follow-up wants the badge on the index again, options are: (a) extend `Games::CoverComponent` with an optional badge overlay, or (b) bring the legacy `_tile.html.erb` partial back into the letter shelves' tile slot. Out of scope here.
-- The platform-logo tile footer (spec 07) is now only visible in the recently-played + bundles shelves on `/games`. If spec 07 wants the footer on every tile, the same component-extension path applies. Out of scope here.
-- Spec 06 (filters revamp) lands the next slice of work into this surface; the filter row's internal layout is its lane.
+- The `[+N editions]` badge no longer renders on the index. The game show page
+  surface still carries it. If a follow-up wants the badge on the index again,
+  options are: (a) extend `Games::CoverComponent` with an optional badge
+  overlay, or (b) bring the legacy `_tile.html.erb` partial back into the letter
+  shelves' tile slot. Out of scope here.
+- The platform-logo tile footer (spec 07) is now only visible in the
+  recently-played + bundles shelves on `/games`. If spec 07 wants the footer on
+  every tile, the same component-extension path applies. Out of scope here.
+- Spec 06 (filters revamp) lands the next slice of work into this surface; the
+  filter row's internal layout is its lane.
 
 ## [skipci] 2026-05-17 — v2 spec 03 Game resync job (pito-rails)
 
-Implements v2 spec 03 — `docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs-v2/03-game-resync-job.md`. Hardens the existing `GameIgdbSync` Sidekiq job into the canonical resync surface: Sidekiq uniqueness lock (`lock: :until_executed, on_conflict: :log` — intent declaration; Pito is on Sidekiq OSS so the `games.resyncing` Boolean is the real mutex), live Turbo-Stream broadcast that swaps the show page's sync-status pane from the dot-loader back to the idle `[resync]` button without a refresh, and an explicit collection cover-art fan-out call to `Collections::CompositeRebuildQueue#enqueue_for_game_resync(game)` on the success path. Field partition (IGDB-sourced vs ownership-sourced) is reinforced in the model docstring and asserted by a paranoid job-level spec.
+Implements v2 spec 03 —
+`docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs-v2/03-game-resync-job.md`.
+Hardens the existing `GameIgdbSync` Sidekiq job into the canonical resync
+surface: Sidekiq uniqueness lock (`lock: :until_executed, on_conflict: :log` —
+intent declaration; Pito is on Sidekiq OSS so the `games.resyncing` Boolean is
+the real mutex), live Turbo-Stream broadcast that swaps the show page's
+sync-status pane from the dot-loader back to the idle `[resync]` button without
+a refresh, and an explicit collection cover-art fan-out call to
+`Collections::CompositeRebuildQueue#enqueue_for_game_resync(game)` on the
+success path. Field partition (IGDB-sourced vs ownership-sourced) is reinforced
+in the model docstring and asserted by a paranoid job-level spec.
 
 ### What landed
 
-- `app/jobs/game_igdb_sync.rb` — added `sidekiq_options lock: :until_executed, on_conflict: :log` alongside the existing `queue: :default, retry: 5`. Introduces a `success` flag that gates the post-sync collection fan-out (only fires on a clean `Igdb::SyncGame#call` return — NOT on `ValidationError` / `RateLimited` / `ServerError`). Calls `Collections::CompositeRebuildQueue.new.enqueue_for_game_resync(game.reload)` BEFORE the `resyncing` flag flips false so the rebuild reads the freshly-resynced row's `cover_image_id`. Both the fan-out call and the broadcast are wrapped in `rescue StandardError → nil` so a Redis hiccup or Collection lookup glitch cannot trip Sidekiq retry on an otherwise-successful sync. Adds a `broadcast_resync_state(game_id)` private helper that mirrors `ReindexAllJob#broadcast_voyage_section` — re-renders the `games/_sync_status` partial and replaces target `game_sync_status_<id>` on stream `"game_resync:<id>"`. The broadcast fires from the `ensure` block so it lands once per run (post-clear), whether the sync succeeded, failed retryably, or failed validation-wise.
-- `app/views/games/_sync_status.html.erb` (NEW) — extracted the show-page Row 2 sync pane into a partial keyed on `game:`. Wrapper `<div id="game_sync_status_<id>">` is the Turbo-Stream replace target. Renders the dot-loader sync-indicator when `game.resyncing?` is true; otherwise renders the `synced X ago.` / `not synced yet.` label + the `[resync]` button (gated on `game.igdb_id.present?`).
-- `app/views/games/show.html.erb` — added `<%= turbo_stream_from "game_resync:#{@game.id}" %>` at the top of the page (permanent subscription, so a CLI / MCP-initiated resync lands in the open browser tab without a refresh). The Row 2 sync pane body is now a single `<%= render "sync_status", game: @game %>` call. The legacy inline `<h2>sync</h2>` + dot-loader / button branches moved into the partial verbatim.
-- `app/models/game.rb` — docstring overhaul. Pins the field partition: IGDB-sourced columns + joins (overwritten by every re-sync, last-write-wins) and ownership-sourced columns + joins (NEVER touched by sync). Notes the enforcement points: `Igdb::SyncGame#call` (writes only IGDB columns) and `GamesController#local_only_params` (allowlists only ownership / notes / footage / version inputs). Adds a pointer to the new model spec assertion that runs a sync and asserts the ownership attribute hash is unchanged.
+- `app/jobs/game_igdb_sync.rb` — added
+  `sidekiq_options lock: :until_executed, on_conflict: :log` alongside the
+  existing `queue: :default, retry: 5`. Introduces a `success` flag that gates
+  the post-sync collection fan-out (only fires on a clean `Igdb::SyncGame#call`
+  return — NOT on `ValidationError` / `RateLimited` / `ServerError`). Calls
+  `Collections::CompositeRebuildQueue.new.enqueue_for_game_resync(game.reload)`
+  BEFORE the `resyncing` flag flips false so the rebuild reads the
+  freshly-resynced row's `cover_image_id`. Both the fan-out call and the
+  broadcast are wrapped in `rescue StandardError → nil` so a Redis hiccup or
+  Collection lookup glitch cannot trip Sidekiq retry on an otherwise-successful
+  sync. Adds a `broadcast_resync_state(game_id)` private helper that mirrors
+  `ReindexAllJob#broadcast_voyage_section` — re-renders the `games/_sync_status`
+  partial and replaces target `game_sync_status_<id>` on stream
+  `"game_resync:<id>"`. The broadcast fires from the `ensure` block so it lands
+  once per run (post-clear), whether the sync succeeded, failed retryably, or
+  failed validation-wise.
+- `app/views/games/_sync_status.html.erb` (NEW) — extracted the show-page Row 2
+  sync pane into a partial keyed on `game:`. Wrapper
+  `<div id="game_sync_status_<id>">` is the Turbo-Stream replace target. Renders
+  the dot-loader sync-indicator when `game.resyncing?` is true; otherwise
+  renders the `synced X ago.` / `not synced yet.` label + the `[resync]` button
+  (gated on `game.igdb_id.present?`).
+- `app/views/games/show.html.erb` — added
+  `<%= turbo_stream_from "game_resync:#{@game.id}" %>` at the top of the page
+  (permanent subscription, so a CLI / MCP-initiated resync lands in the open
+  browser tab without a refresh). The Row 2 sync pane body is now a single
+  `<%= render "sync_status", game: @game %>` call. The legacy inline
+  `<h2>sync</h2>` + dot-loader / button branches moved into the partial
+  verbatim.
+- `app/models/game.rb` — docstring overhaul. Pins the field partition:
+  IGDB-sourced columns + joins (overwritten by every re-sync, last-write-wins)
+  and ownership-sourced columns + joins (NEVER touched by sync). Notes the
+  enforcement points: `Igdb::SyncGame#call` (writes only IGDB columns) and
+  `GamesController#local_only_params` (allowlists only ownership / notes /
+  footage / version inputs). Adds a pointer to the new model spec assertion that
+  runs a sync and asserts the ownership attribute hash is unchanged.
 
 ### Tests
 
-- `spec/jobs/game_igdb_sync_spec.rb` — extended from 12 → 26 examples. New describe blocks: `"collection cover-art fan-out"` (6 examples — success-path enqueue, no-enqueue on `ValidationError` / `RateLimited` / `ServerError`, flag-still-cleared when fan-out raises, no-re-raise when fan-out raises), `"live broadcast"` (4 examples — success / `ValidationError` / retryable failure all broadcast; broadcast errors swallowed without leaking out of `ensure`), `"ownership-sourced field partition"` (1 paranoid example — runs a no-op sync against a row with all ownership fields set, asserts the post-sync attribute hash + `game_platform_ownerships` rows are byte-equal), `"edge cases"` (1 example — deleted game id mid-flight no-ops). Sidekiq-options block extended with `lock: :until_executed` + `on_conflict: :log` assertions (symbol equality — Sidekiq stores option symbols verbatim).
-- `spec/views/games/_sync_status.html.erb_spec.rb` (NEW) — 9 examples. Wrapper id, dot-loader branch (controller + frame attributes present; `[resync]` button absent), idle branch (`[resync]` present; sync-indicator absent; `synced X ago.` label; `not synced yet.` fallback; post-sync caveat copy), local-only-game branch (no `igdb_id` → no `[resync]` button + `not synced yet.` label).
-- `spec/requests/games_spec.rb` — extended the existing `POST /games/:id/resync` describe with a `"JSON variant"` sub-block: 202 Accepted + `enqueued_jid` on the happy path; 409 Conflict + `error: "already_resyncing"` when the mutex is held. The existing HTML paths (3 examples) and 404 path stay.
+- `spec/jobs/game_igdb_sync_spec.rb` — extended from 12 → 26 examples. New
+  describe blocks: `"collection cover-art fan-out"` (6 examples — success-path
+  enqueue, no-enqueue on `ValidationError` / `RateLimited` / `ServerError`,
+  flag-still-cleared when fan-out raises, no-re-raise when fan-out raises),
+  `"live broadcast"` (4 examples — success / `ValidationError` / retryable
+  failure all broadcast; broadcast errors swallowed without leaking out of
+  `ensure`), `"ownership-sourced field partition"` (1 paranoid example — runs a
+  no-op sync against a row with all ownership fields set, asserts the post-sync
+  attribute hash + `game_platform_ownerships` rows are byte-equal),
+  `"edge cases"` (1 example — deleted game id mid-flight no-ops).
+  Sidekiq-options block extended with `lock: :until_executed` +
+  `on_conflict: :log` assertions (symbol equality — Sidekiq stores option
+  symbols verbatim).
+- `spec/views/games/_sync_status.html.erb_spec.rb` (NEW) — 9 examples. Wrapper
+  id, dot-loader branch (controller + frame attributes present; `[resync]`
+  button absent), idle branch (`[resync]` present; sync-indicator absent;
+  `synced X ago.` label; `not synced yet.` fallback; post-sync caveat copy),
+  local-only-game branch (no `igdb_id` → no `[resync]` button +
+  `not synced yet.` label).
+- `spec/requests/games_spec.rb` — extended the existing `POST /games/:id/resync`
+  describe with a `"JSON variant"` sub-block: 202 Accepted + `enqueued_jid` on
+  the happy path; 409 Conflict + `error: "already_resyncing"` when the mutex is
+  held. The existing HTML paths (3 examples) and 404 path stay.
 
 ### Verification
 
-- `bundle exec rspec spec/jobs/game_igdb_sync_spec.rb spec/views/games/_sync_status.html.erb_spec.rb` — 36 examples / 0 failures.
-- `bundle exec rspec spec/views/games/show.html.erb_spec.rb` — 6 / 0 (unchanged; partial extraction is transparent to the show view spec).
-- `bundle exec rspec spec/requests/games_spec.rb -e "GET /games/:id" -e "resync"` — 42 / 0 across the GET show + POST resync surfaces. The two new JSON-variant resync examples pass alongside the existing 3 HTML resync examples.
-- `bundle exec rspec spec/models/game_spec.rb spec/services/collections/composite_rebuild_queue_spec.rb spec/jobs/collection_cover_rebuild_job_spec.rb` — 159 / 0 across the adjacent model + composite-rebuild surfaces (no regression in the model's `after_save_commit` hook nor the orchestrator).
-- `bin/brakeman -q -w2` — 0 warnings / 0 errors (5 obsolete ignore entries surface; carried over from working-tree drift, unrelated to this spec).
+- `bundle exec rspec spec/jobs/game_igdb_sync_spec.rb spec/views/games/_sync_status.html.erb_spec.rb`
+  — 36 examples / 0 failures.
+- `bundle exec rspec spec/views/games/show.html.erb_spec.rb` — 6 / 0 (unchanged;
+  partial extraction is transparent to the show view spec).
+- `bundle exec rspec spec/requests/games_spec.rb -e "GET /games/:id" -e "resync"`
+  — 42 / 0 across the GET show + POST resync surfaces. The two new JSON-variant
+  resync examples pass alongside the existing 3 HTML resync examples.
+- `bundle exec rspec spec/models/game_spec.rb spec/services/collections/composite_rebuild_queue_spec.rb spec/jobs/collection_cover_rebuild_job_spec.rb`
+  — 159 / 0 across the adjacent model + composite-rebuild surfaces (no
+  regression in the model's `after_save_commit` hook nor the orchestrator).
+- `bin/brakeman -q -w2` — 0 warnings / 0 errors (5 obsolete ignore entries
+  surface; carried over from working-tree drift, unrelated to this spec).
 
 ### Contract decisions for downstream specs
 
-- **Stream name** `"game_resync:<id>"` and **target id** `game_sync_status_<id>` are LOCKED. Spec 08's detail-page revamp moves the sync pane to the LEFT-column layout but the partial contract (target id, stream name, partial path `games/sync_status`, broadcast format) carries over unchanged.
-- **Permanent `turbo_stream_from` subscription** on the show page — locked per spec architect lean. Cost is one extra WebSocket subscription per open tab; benefit is that CLI / MCP-initiated resyncs land in the user's open browser without a refresh.
-- **Collection fan-out call site** — INSIDE the success branch, AFTER `Igdb::SyncGame#call` returns, BEFORE `ensure` clears `resyncing`. The model's `after_save_commit :rebuild_collection_composites_on_resync` hook ALSO fires (via the `game.update!` inside SyncGame). The explicit job-level call is the canonical spec-03 trigger; the duplicate enqueue is a no-op rebuild (`CollectionCoverRebuildJob` is idempotent on cache hit, per its docstring + the orchestrator's dedup-per-batch design).
-- **Sidekiq uniqueness** is INTENT-ONLY today (Pito is on Sidekiq OSS without `sidekiq-unique-jobs`). The `games.resyncing` Boolean is the real safety net; the controller short-circuits duplicate `[resync]` clicks via the same flag. If the gem is ever added, the keys are already in place.
+- **Stream name** `"game_resync:<id>"` and **target id** `game_sync_status_<id>`
+  are LOCKED. Spec 08's detail-page revamp moves the sync pane to the
+  LEFT-column layout but the partial contract (target id, stream name, partial
+  path `games/sync_status`, broadcast format) carries over unchanged.
+- **Permanent `turbo_stream_from` subscription** on the show page — locked per
+  spec architect lean. Cost is one extra WebSocket subscription per open tab;
+  benefit is that CLI / MCP-initiated resyncs land in the user's open browser
+  without a refresh.
+- **Collection fan-out call site** — INSIDE the success branch, AFTER
+  `Igdb::SyncGame#call` returns, BEFORE `ensure` clears `resyncing`. The model's
+  `after_save_commit :rebuild_collection_composites_on_resync` hook ALSO fires
+  (via the `game.update!` inside SyncGame). The explicit job-level call is the
+  canonical spec-03 trigger; the duplicate enqueue is a no-op rebuild
+  (`CollectionCoverRebuildJob` is idempotent on cache hit, per its docstring +
+  the orchestrator's dedup-per-batch design).
+- **Sidekiq uniqueness** is INTENT-ONLY today (Pito is on Sidekiq OSS without
+  `sidekiq-unique-jobs`). The `games.resyncing` Boolean is the real safety net;
+  the controller short-circuits duplicate `[resync]` clicks via the same flag.
+  If the gem is ever added, the keys are already in place.
 
 ### Files touched
 
-- Modified: `app/jobs/game_igdb_sync.rb`, `app/views/games/show.html.erb`, `app/models/game.rb`, `spec/jobs/game_igdb_sync_spec.rb`, `spec/requests/games_spec.rb`.
-- Added: `app/views/games/_sync_status.html.erb`, `spec/views/games/_sync_status.html.erb_spec.rb`.
+- Modified: `app/jobs/game_igdb_sync.rb`, `app/views/games/show.html.erb`,
+  `app/models/game.rb`, `spec/jobs/game_igdb_sync_spec.rb`,
+  `spec/requests/games_spec.rb`.
+- Added: `app/views/games/_sync_status.html.erb`,
+  `spec/views/games/_sync_status.html.erb_spec.rb`.
 
 ### Plan-checkbox status
 
-The v2 specs directory (`specs-v2/`) is a polish-dispatch overlay on the original Phase 27 sub-spec checkboxes; `plan.md` does not enumerate a checkbox for spec 03 specifically. No checkboxes flipped — the v2 dispatch lands as a log entry per established Phase 27 convention.
+The v2 specs directory (`specs-v2/`) is a polish-dispatch overlay on the
+original Phase 27 sub-spec checkboxes; `plan.md` does not enumerate a checkbox
+for spec 03 specifically. No checkboxes flipped — the v2 dispatch lands as a log
+entry per established Phase 27 convention.
 
 ### Open / deferred
 
-- Spec 08's detail-page revamp will move the sync pane into the new LEFT-column layout. The partial + stream contract carries over unchanged; the migration is purely visual.
-- The CLI / MCP side of the live resync UI is not in scope; the broadcast targets the browser specifically. CLI / MCP callers POST to `/games/:id/resync` and get the JSON 202 / 409 response and can poll the resyncing flag if needed.
+- Spec 08's detail-page revamp will move the sync pane into the new LEFT-column
+  layout. The partial + stream contract carries over unchanged; the migration is
+  purely visual.
+- The CLI / MCP side of the live resync UI is not in scope; the broadcast
+  targets the browser specifically. CLI / MCP callers POST to
+  `/games/:id/resync` and get the JSON 202 / 409 response and can poll the
+  resyncing flag if needed.
 
 ## [skipci] 2026-05-17 — v2 spec 01 Single main genre per Game (pito-rails)
 
-Implements v2 spec 01 — `docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs-v2/01-single-main-genre.md`. Collapses the multi-genre game model to ONE main genre per game. Every UI surface that previously rendered a comma-joined `genres:` list now renders a single `primary_genre.name` (or `"—"`). The legacy `game_genres` multi-valued join survives as the raw IGDB record so the picker can re-evaluate the choice on each re-sync. JSON wire shape changes from `genres: [{id, name}]` to `genre: "name"` (singular) — breaking change OK per spec; only pito's own surfaces consume it.
+Implements v2 spec 01 —
+`docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs-v2/01-single-main-genre.md`.
+Collapses the multi-genre game model to ONE main genre per game. Every UI
+surface that previously rendered a comma-joined `genres:` list now renders a
+single `primary_genre.name` (or `"—"`). The legacy `game_genres` multi-valued
+join survives as the raw IGDB record so the picker can re-evaluate the choice on
+each re-sync. JSON wire shape changes from `genres: [{id, name}]` to
+`genre: "name"` (singular) — breaking change OK per spec; only pito's own
+surfaces consume it.
 
 ### What landed
 
-- `app/services/games/primary_genre_picker.rb` — tightens tie-break to the locked policy `ORDER BY LOWER(genres.name) ASC, genres.id ASC` (was bare `:name`). Adds documentation for the case-insensitive primary key + id secondary key (deterministic across requests / Postgres versions). Behavior on nil input + unpersisted game is pinned at "returns nil, never raises" (matches the prior implementation; now documented).
-- `app/services/igdb/sync_game.rb` — new private `re_assign_primary_genre(game)` step wired between `sync_genres` and `sync_platforms`. Reloads the in-memory `game.genres` association so the picker sees the post-sync join state, clears `primary_genre_id` in memory so the picker's rule-1 pin guard short-circuits to the alphabetical pick (a sync is the canonical moment to re-derive from IGDB metadata; user pins are honored everywhere else), then writes the new id (or nil when the post-sync set is empty) via `update_column`.
-- `app/models/game.rb` — comment refresh on the `primary_genre` association + `assign_primary_genre_if_blank` callback. Documents that the hook is the safety net for non-sync save paths; `Igdb::SyncGame#call` writes the column explicitly on every sync. Behavior unchanged.
-- `app/views/games/show.html.erb` — `<h2>` "genres / platforms" → "genre / platforms"; `<span>genres:</span> @game.genres.map(&:name).join(", ")` → `<span>genre:</span> @game.primary_genre&.name.presence || "—"`. Interim guard until spec 08's revamp lands the primary-bold + secondary-normal layout.
-- `app/decorators/game_decorator.rb` — `as_detail_json` swaps `genres: genres.map { |g| { id: g.id, name: g.name } }` for `genre: primary_genre&.name`. Breaking change — only pito's MCP / CLI consume this field and they land in a later parity pass per the spec's open question #1 ("rename outright"). `as_summary_json` was already singular-clean (no `:genres` key).
-- `db/migrate/20260516224649_backfill_games_primary_genre.rb` (NEW) — data-only migration with `disable_ddl_transaction!`, iterates `Game.where(primary_genre_id: nil)` in 500-row batches, calls `Games::PrimaryGenrePicker.new.pick(game)`, writes via `update_columns` (bypasses callbacks + validations — correct for a backfill). Empty-genres rows stay NULL. Reversible: `down` clears every populated pointer; the model `before_save` hook + IGDB sync re-derive on the next save / sync. Schema bump only — `games.primary_genre_id` already exists with the `on_delete: :nullify` FK (added in `BetaMigration3` at the 2026-05-11 Phase 27 follow-up).
+- `app/services/games/primary_genre_picker.rb` — tightens tie-break to the
+  locked policy `ORDER BY LOWER(genres.name) ASC, genres.id ASC` (was bare
+  `:name`). Adds documentation for the case-insensitive primary key + id
+  secondary key (deterministic across requests / Postgres versions). Behavior on
+  nil input + unpersisted game is pinned at "returns nil, never raises" (matches
+  the prior implementation; now documented).
+- `app/services/igdb/sync_game.rb` — new private `re_assign_primary_genre(game)`
+  step wired between `sync_genres` and `sync_platforms`. Reloads the in-memory
+  `game.genres` association so the picker sees the post-sync join state, clears
+  `primary_genre_id` in memory so the picker's rule-1 pin guard short-circuits
+  to the alphabetical pick (a sync is the canonical moment to re-derive from
+  IGDB metadata; user pins are honored everywhere else), then writes the new id
+  (or nil when the post-sync set is empty) via `update_column`.
+- `app/models/game.rb` — comment refresh on the `primary_genre` association +
+  `assign_primary_genre_if_blank` callback. Documents that the hook is the
+  safety net for non-sync save paths; `Igdb::SyncGame#call` writes the column
+  explicitly on every sync. Behavior unchanged.
+- `app/views/games/show.html.erb` — `<h2>` "genres / platforms" → "genre /
+  platforms"; `<span>genres:</span> @game.genres.map(&:name).join(", ")` →
+  `<span>genre:</span> @game.primary_genre&.name.presence || "—"`. Interim guard
+  until spec 08's revamp lands the primary-bold + secondary-normal layout.
+- `app/decorators/game_decorator.rb` — `as_detail_json` swaps
+  `genres: genres.map { |g| { id: g.id, name: g.name } }` for
+  `genre: primary_genre&.name`. Breaking change — only pito's MCP / CLI consume
+  this field and they land in a later parity pass per the spec's open question
+  #1 ("rename outright"). `as_summary_json` was already singular-clean (no
+  `:genres` key).
+- `db/migrate/20260516224649_backfill_games_primary_genre.rb` (NEW) — data-only
+  migration with `disable_ddl_transaction!`, iterates
+  `Game.where(primary_genre_id: nil)` in 500-row batches, calls
+  `Games::PrimaryGenrePicker.new.pick(game)`, writes via `update_columns`
+  (bypasses callbacks + validations — correct for a backfill). Empty-genres rows
+  stay NULL. Reversible: `down` clears every populated pointer; the model
+  `before_save` hook + IGDB sync re-derive on the next save / sync. Schema bump
+  only — `games.primary_genre_id` already exists with the `on_delete: :nullify`
+  FK (added in `BetaMigration3` at the 2026-05-11 Phase 27 follow-up).
 
 ### Tests
 
-- `spec/services/games/primary_genre_picker_spec.rb` — extends with 3 new examples: case-insensitive tie-break (Action / action / ACTION lowercase-equal, secondary by id), cross-case ordering (lowercase "adventure" beats uppercase "RPG"), unpersisted game flaw guard (returns nil, no raise). 10 examples total, all green.
-- `spec/services/igdb/sync_game_spec.rb` — new describe `"Phase 27 v2 spec 01 — primary_genre re-pick on every sync"` with 4 examples: alphabetical winner pick after IGDB swap (stale pointer + stale join row gets replaced), `primary_genre_id` cleared to nil when IGDB returns an empty genres set, idempotent re-sync (same set → same pick), call-ordering proof (re-pick runs AFTER sync_genres — observed via the side-effect: a pre-seeded `"aaa-stale"` genre that would win alphabetically if the re-pick ran first is gone from the join, so Adventure wins). 20 examples total, all green.
-- `spec/decorators/game_decorator_spec.rb` — replaces the `:genres` key-set assertion with `:genre` (singular); adds a flaw guard for "does NOT carry the legacy `:genres` key"; replaces the multi-genre array assertion with two examples (primary set → returns the name string; no primary → returns nil); adds the case-insensitive alphabetical-winner assertion through the picker. 19 examples total, all green.
-- `spec/views/games/show.json.jbuilder_spec.rb` — flips `"genres"` to `"genre"` in the key-set assertion; adds three new examples (legacy `genres` key absent; `genre` is the primary's name when set; `genre` is null when no primary). 7 examples total, all green.
-- `spec/models/game_spec.rb` — new describe `"Phase 27 v2 spec 01 — primary_genre management"` with 6 examples: callback fires when blank + game has linked genres, callback is a no-op when already set, alphabetical-first pick across 3 linked genres, no-raise + nil-pointer when zero genres, picker-nil write path, FK `on_delete: :nullify` clears the pointer when the pinned genre is destroyed. All green.
-- `spec/requests/games_spec.rb` — new describe inside `GET /games/:id` for the show HTML (4 examples: singular `genre:` label + value; em-dash placeholder; legacy `genres:` label gone; secondary linked genres NOT rendered). New top-level describe `GET /games/:id.json (Phase 27 v2 spec 01 — single genre)` with 4 examples: `genre` is the primary's name; `genre` is null when none; legacy `genres` key absent; 404 / RecordNotFound on garbage id. 8 new examples, all green.
-- `spec/system/games_index_spec.rb` — new describe `"Single main genre per game (v2 spec 01)"` with 2 rack_test examples: a 3-genre game appears under EXACTLY ONE sub-shelf (the alphabetical winner); when the pinned primary changes (simulating a re-sync), the game hops to a new sub-shelf and is gone from the old. Both green.
+- `spec/services/games/primary_genre_picker_spec.rb` — extends with 3 new
+  examples: case-insensitive tie-break (Action / action / ACTION
+  lowercase-equal, secondary by id), cross-case ordering (lowercase "adventure"
+  beats uppercase "RPG"), unpersisted game flaw guard (returns nil, no raise).
+  10 examples total, all green.
+- `spec/services/igdb/sync_game_spec.rb` — new describe
+  `"Phase 27 v2 spec 01 — primary_genre re-pick on every sync"` with 4 examples:
+  alphabetical winner pick after IGDB swap (stale pointer + stale join row gets
+  replaced), `primary_genre_id` cleared to nil when IGDB returns an empty genres
+  set, idempotent re-sync (same set → same pick), call-ordering proof (re-pick
+  runs AFTER sync_genres — observed via the side-effect: a pre-seeded
+  `"aaa-stale"` genre that would win alphabetically if the re-pick ran first is
+  gone from the join, so Adventure wins). 20 examples total, all green.
+- `spec/decorators/game_decorator_spec.rb` — replaces the `:genres` key-set
+  assertion with `:genre` (singular); adds a flaw guard for "does NOT carry the
+  legacy `:genres` key"; replaces the multi-genre array assertion with two
+  examples (primary set → returns the name string; no primary → returns nil);
+  adds the case-insensitive alphabetical-winner assertion through the picker. 19
+  examples total, all green.
+- `spec/views/games/show.json.jbuilder_spec.rb` — flips `"genres"` to `"genre"`
+  in the key-set assertion; adds three new examples (legacy `genres` key absent;
+  `genre` is the primary's name when set; `genre` is null when no primary). 7
+  examples total, all green.
+- `spec/models/game_spec.rb` — new describe
+  `"Phase 27 v2 spec 01 — primary_genre management"` with 6 examples: callback
+  fires when blank + game has linked genres, callback is a no-op when already
+  set, alphabetical-first pick across 3 linked genres, no-raise + nil-pointer
+  when zero genres, picker-nil write path, FK `on_delete: :nullify` clears the
+  pointer when the pinned genre is destroyed. All green.
+- `spec/requests/games_spec.rb` — new describe inside `GET /games/:id` for the
+  show HTML (4 examples: singular `genre:` label + value; em-dash placeholder;
+  legacy `genres:` label gone; secondary linked genres NOT rendered). New
+  top-level describe `GET /games/:id.json (Phase 27 v2 spec 01 — single genre)`
+  with 4 examples: `genre` is the primary's name; `genre` is null when none;
+  legacy `genres` key absent; 404 / RecordNotFound on garbage id. 8 new
+  examples, all green.
+- `spec/system/games_index_spec.rb` — new describe
+  `"Single main genre per game (v2 spec 01)"` with 2 rack_test examples: a
+  3-genre game appears under EXACTLY ONE sub-shelf (the alphabetical winner);
+  when the pinned primary changes (simulating a re-sync), the game hops to a new
+  sub-shelf and is gone from the old. Both green.
 
 ### Static analysis
 
-- `bin/brakeman -q -w2` → 0 security warnings, 0 errors, 1 pre-existing ignored entry. Five obsolete ignore entries surface in the working tree — unrelated to this spec.
+- `bin/brakeman -q -w2` → 0 security warnings, 0 errors, 1 pre-existing ignored
+  entry. Five obsolete ignore entries surface in the working tree — unrelated to
+  this spec.
 
 ### Pre-existing failures not introduced by this spec
 
-- `spec/requests/games_spec.rb:201` — N+1 guard `expect(large - small).to be < 5` got 9. Confirmed pre-existing by reverting only the spec-01 changes (model + service + view + decorator + JSON + spec edits) and re-running the same test: still fails 9 vs 5. Belongs to the broader working-tree drift on `_tile.html.erb` / decorator / model from sibling spec waves.
-- `spec/models/game_spec.rb` "Phase 27 v2 spec 02 — collection composite rebuild hooks" — 3 failures on `enqueue_for_collections` spy receiving 2 invocations where 1 was expected. The hooks themselves were added to `app/models/game.rb` by another sibling spec wave (v2 spec 02); the 3 failures predate this spec-01 dispatch. Out of spec-01's lane.
+- `spec/requests/games_spec.rb:201` — N+1 guard
+  `expect(large - small).to be < 5` got 9. Confirmed pre-existing by reverting
+  only the spec-01 changes (model + service + view + decorator + JSON + spec
+  edits) and re-running the same test: still fails 9 vs 5. Belongs to the
+  broader working-tree drift on `_tile.html.erb` / decorator / model from
+  sibling spec waves.
+- `spec/models/game_spec.rb` "Phase 27 v2 spec 02 — collection composite rebuild
+  hooks" — 3 failures on `enqueue_for_collections` spy receiving 2 invocations
+  where 1 was expected. The hooks themselves were added to `app/models/game.rb`
+  by another sibling spec wave (v2 spec 02); the 3 failures predate this spec-01
+  dispatch. Out of spec-01's lane.
 
 ### Files touched
 
-- Modified: `app/services/games/primary_genre_picker.rb`, `app/services/igdb/sync_game.rb`, `app/models/game.rb`, `app/views/games/show.html.erb`, `app/decorators/game_decorator.rb`, `spec/services/games/primary_genre_picker_spec.rb`, `spec/services/igdb/sync_game_spec.rb`, `spec/decorators/game_decorator_spec.rb`, `spec/views/games/show.json.jbuilder_spec.rb`, `spec/models/game_spec.rb`, `spec/requests/games_spec.rb`, `spec/system/games_index_spec.rb`, `db/schema.rb` (version bump only).
+- Modified: `app/services/games/primary_genre_picker.rb`,
+  `app/services/igdb/sync_game.rb`, `app/models/game.rb`,
+  `app/views/games/show.html.erb`, `app/decorators/game_decorator.rb`,
+  `spec/services/games/primary_genre_picker_spec.rb`,
+  `spec/services/igdb/sync_game_spec.rb`,
+  `spec/decorators/game_decorator_spec.rb`,
+  `spec/views/games/show.json.jbuilder_spec.rb`, `spec/models/game_spec.rb`,
+  `spec/requests/games_spec.rb`, `spec/system/games_index_spec.rb`,
+  `db/schema.rb` (version bump only).
 - Added: `db/migrate/20260516224649_backfill_games_primary_genre.rb`.
 
 ### Contract decisions for downstream specs (05 / 08 will read this)
 
-- **Picker tie-break is LOCKED** at `ORDER BY LOWER(genres.name) ASC, genres.id ASC`. Spec 05's shelf rendering and spec 08's detail-page layout can rely on a deterministic, stable single primary genre per game across requests and re-syncs.
-- **`Game#primary_genre`** is the single source of truth for "the game's genre" everywhere downstream. `Game#genres` survives only as the IGDB raw record (picker input). Downstream view code should NOT iterate `game.genres` — only `game.primary_genre&.name` or fall back to `"—"`.
-- **JSON wire shape** for the detail endpoint: `"genre": "Adventure"` (string) or `"genre": null`. The legacy `"genres": [{...}]` key is removed outright. MCP / CLI parity follow-up (spec 01g or a successor) is the place to roll the same rename into those surfaces.
-- **IGDB sync re-evaluation** runs on every sync via `Igdb::SyncGame#re_assign_primary_genre`. It bypasses the picker's pin-honoring rule 1 by clearing the in-memory `primary_genre_id` first — a re-sync IS the moment to re-derive from IGDB. User-set pins (when that surface ships) survive everywhere ELSE because the picker's rule 1 still honors them outside the sync path.
+- **Picker tie-break is LOCKED** at
+  `ORDER BY LOWER(genres.name) ASC, genres.id ASC`. Spec 05's shelf rendering
+  and spec 08's detail-page layout can rely on a deterministic, stable single
+  primary genre per game across requests and re-syncs.
+- **`Game#primary_genre`** is the single source of truth for "the game's genre"
+  everywhere downstream. `Game#genres` survives only as the IGDB raw record
+  (picker input). Downstream view code should NOT iterate `game.genres` — only
+  `game.primary_genre&.name` or fall back to `"—"`.
+- **JSON wire shape** for the detail endpoint: `"genre": "Adventure"` (string)
+  or `"genre": null`. The legacy `"genres": [{...}]` key is removed outright.
+  MCP / CLI parity follow-up (spec 01g or a successor) is the place to roll the
+  same rename into those surfaces.
+- **IGDB sync re-evaluation** runs on every sync via
+  `Igdb::SyncGame#re_assign_primary_genre`. It bypasses the picker's
+  pin-honoring rule 1 by clearing the in-memory `primary_genre_id` first — a
+  re-sync IS the moment to re-derive from IGDB. User-set pins (when that surface
+  ships) survive everywhere ELSE because the picker's rule 1 still honors them
+  outside the sync path.
 
 ### Plan-checkbox status
 
-The v2 specs directory (`specs-v2/`) is a polish-dispatch overlay on the original Phase 27 sub-spec checkboxes; `plan.md` does not enumerate a checkbox for spec 01 specifically (the 01a–01g checkboxes track the original phase scope). No checkboxes flipped — the v2 dispatch lands as a log entry per established Phase 27 convention.
+The v2 specs directory (`specs-v2/`) is a polish-dispatch overlay on the
+original Phase 27 sub-spec checkboxes; `plan.md` does not enumerate a checkbox
+for spec 01 specifically (the 01a–01g checkboxes track the original phase
+scope). No checkboxes flipped — the v2 dispatch lands as a log entry per
+established Phase 27 convention.
 
 ### Open / deferred
 
-- MCP / CLI surfaces still serialize the multi-genre `genres` list. The spec leaves the catch-up as a separate parity pass; pito-mcp and pito-rust dispatches are paused per the current focus on web polish.
+- MCP / CLI surfaces still serialize the multi-genre `genres` list. The spec
+  leaves the catch-up as a separate parity pass; pito-mcp and pito-rust
+  dispatches are paused per the current focus on web polish.
 
 ## [skipci] 2026-05-17 — v2 spec 04 IGDB add-game modal polish (pito-rails)
 
-Implements v2 spec 04 — `docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs-v2/04-igdb-add-game-modal.md`. Tightens the global IGDB add-game modal copy and controls, adds auto-search (no `[search]` button), seeds the new game's title eagerly from the IGDB search-result row so the breadcrumb shows the canonical title immediately, and DELETES the legacy "default create empty game" branch from `GamesController#create` so IGDB is the sole entry point to creating a game.
+Implements v2 spec 04 —
+`docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs-v2/04-igdb-add-game-modal.md`.
+Tightens the global IGDB add-game modal copy and controls, adds auto-search (no
+`[search]` button), seeds the new game's title eagerly from the IGDB
+search-result row so the breadcrumb shows the canonical title immediately, and
+DELETES the legacy "default create empty game" branch from
+`GamesController#create` so IGDB is the sole entry point to creating a game.
 
 ### What landed
 
-- `app/views/shared/_igdb_search_modal.html.erb` — dialog title trimmed `add a game from igdb` → `add a game`; input placeholder trimmed `search igdb…` → `search…`; the explicit `[search]` `<button>` is gone; the input wires both `input->igdb-search-modal#search` and `keydown.enter->igdb-search-modal#search`; `[cancel]` swaps to `BracketedMutedLinkComponent` (muted secondary affordance, same primitive the session-revoke and Slack/Discord help surfaces use) with the `click->igdb-search-modal#close` action wired via the component's `data:` passthrough; the inline `style="max-width: 720px;"` band-aid is replaced by a new `.pane-dialog--wide` modifier on the outer `<dialog>`; the inner wrapper's redundant `width: min(720px, 92vw)` is dropped now that the outer `<dialog>` sizes correctly. New `data-igdb-search-modal-min-chars-value="5"` exposes the auto-search threshold as a Stimulus value.
-- `app/javascript/controllers/igdb_search_modal_controller.js` — drops the explicit `submit` action (no `[search]` button). The single `search` action handles BOTH the `input` event (debounced 250 ms, gated on `value.trim().length >= minCharsValue`) and the `keydown.enter` event (immediate fire, bypasses the min-chars guard, requires only `length >= 1`). The debounce default tightens from 300 ms to 250 ms per the spec. New `minChars: { type: Number, default: 5 }` Stimulus value.
-- `app/assets/tailwind/application.css` — adds the `.pane-dialog--wide` modifier (`max-width: 720px; width: 95vw;`) under the existing `dialog.pane-dialog` rule. Specificity `(0,2,1)` beats the later `dialog.confirm-modal { max-width: 420px }` rule `(0,1,1)` so the wide modifier wins without needing `!important` or rule reordering. Other `.confirm-modal.pane-dialog` dialogs continue to cap at 420px.
-- `app/controllers/games_controller.rb#create` — REMOVED the legacy `Game.new + save!` fallthrough that persisted an empty `"Untitled game"` row when `params[:game][:igdb_id]` was blank. The action now requires `igdb_id` and rejects everything else: HTML branch redirects to `/games` with flash `"games can only be added via the IGDB search modal."`; JSON branch returns 422 + `{"error":"igdb_id_required"}`. Permit list narrows to `[:igdb_id, :title]` ONLY — smuggled keys (`notes`, `played_at`, anything else) are silently dropped by ActionController params. Title pre-seed: when a non-blank `title` accompanies a valid `igdb_id` the new `Game.new` carries the IGDB-canonical title so the redirect target's breadcrumb reads the real title instead of the `"Untitled game"` attribute default during the in-flight `GameIgdbSync` window. Trim + 255-char guard mirror the column's validation. Removed the legacy success-flash copy `"create empty game (legacy)..."`.
-- `app/views/games/_search_results.html.erb` — `[add]` `button_to` now carries `params: { game: { igdb_id: row["id"], title: row["name"] } }` so the IGDB result row's name reaches the controller as the eager title pre-seed.
-- `spec/views/shared/_igdb_search_modal.html.erb_spec.rb` (NEW) — 9 examples covering copy (trimmed title, trimmed placeholder, no `add a game from igdb` legacy copy), controls (no `[search]` button, exactly one bracketed-muted `[cancel]` link wired to `#close`), auto-search wiring (dual `input` + `keydown.enter` action string, `min-chars-value="5"` exposed), dialog sizing (`.pane-dialog--wide` modifier present, inline `max-width` band-aid gone), and CLAUDE.md hard rules (no `data-turbo-confirm`, no inline JS `confirm` / `alert` / `prompt`).
-- `spec/system/igdb_add_game_spec.rb` (NEW) — 7 rack_test-driver examples covering server-rendered surface: modal markup on `/games` (trimmed title + placeholder; no `[search]` button; one bracketed-muted `[cancel]` link wired to `#close`; opts into `.pane-dialog--wide`); add-flow via stubbed IGDB search endpoint (the new game's `title` lands as the IGDB-canonical value; show page breadcrumb reads the real title not `"Untitled game"`; `GameIgdbSync` is enqueued; flash notice reads `added; metadata loading in background.`). The 5-char auto-search guard and Enter override are JS-driven and out of rack_test's reach — they're covered by the view spec's wiring assertions plus the spec's manual recipe.
-- `spec/requests/games_spec.rb` — extends `POST /games with igdb_id` with 5 new examples (title pre-seed lands, blank/omitted title falls back to attribute default, 255-char trim, `notes` smuggled drops, `played_at` smuggled drops). REPLACES the legacy `POST /games (legacy default-create)` describe block with new `POST /games WITHOUT igdb_id (legacy default-create removed)` — 6 examples asserting no row persists, the IGDB-only flash, the rejection holds when only `title` is smuggled, the rejection holds when only `notes` is smuggled, blank-string `igdb_id` is rejected, `GameIgdbSync` is not enqueued, and the JSON branch returns 422 + `{"error":"igdb_id_required"}`.
-- `spec/components/bracketed_muted_link_component_spec.rb` — flips one of the pending `data:`-passthrough placeholders into a real assertion (the IGDB modal's `[cancel]` action wiring depends on it). The remaining 13 pendings stay as-is — the spec file was a wholesale `pending` placeholder, and filling them in is outside the scope of this spec.
+- `app/views/shared/_igdb_search_modal.html.erb` — dialog title trimmed
+  `add a game from igdb` → `add a game`; input placeholder trimmed
+  `search igdb…` → `search…`; the explicit `[search]` `<button>` is gone; the
+  input wires both `input->igdb-search-modal#search` and
+  `keydown.enter->igdb-search-modal#search`; `[cancel]` swaps to
+  `BracketedMutedLinkComponent` (muted secondary affordance, same primitive the
+  session-revoke and Slack/Discord help surfaces use) with the
+  `click->igdb-search-modal#close` action wired via the component's `data:`
+  passthrough; the inline `style="max-width: 720px;"` band-aid is replaced by a
+  new `.pane-dialog--wide` modifier on the outer `<dialog>`; the inner wrapper's
+  redundant `width: min(720px, 92vw)` is dropped now that the outer `<dialog>`
+  sizes correctly. New `data-igdb-search-modal-min-chars-value="5"` exposes the
+  auto-search threshold as a Stimulus value.
+- `app/javascript/controllers/igdb_search_modal_controller.js` — drops the
+  explicit `submit` action (no `[search]` button). The single `search` action
+  handles BOTH the `input` event (debounced 250 ms, gated on
+  `value.trim().length >= minCharsValue`) and the `keydown.enter` event
+  (immediate fire, bypasses the min-chars guard, requires only `length >= 1`).
+  The debounce default tightens from 300 ms to 250 ms per the spec. New
+  `minChars: { type: Number, default: 5 }` Stimulus value.
+- `app/assets/tailwind/application.css` — adds the `.pane-dialog--wide` modifier
+  (`max-width: 720px; width: 95vw;`) under the existing `dialog.pane-dialog`
+  rule. Specificity `(0,2,1)` beats the later
+  `dialog.confirm-modal { max-width: 420px }` rule `(0,1,1)` so the wide
+  modifier wins without needing `!important` or rule reordering. Other
+  `.confirm-modal.pane-dialog` dialogs continue to cap at 420px.
+- `app/controllers/games_controller.rb#create` — REMOVED the legacy
+  `Game.new + save!` fallthrough that persisted an empty `"Untitled game"` row
+  when `params[:game][:igdb_id]` was blank. The action now requires `igdb_id`
+  and rejects everything else: HTML branch redirects to `/games` with flash
+  `"games can only be added via the IGDB search modal."`; JSON branch returns
+  422 + `{"error":"igdb_id_required"}`. Permit list narrows to
+  `[:igdb_id, :title]` ONLY — smuggled keys (`notes`, `played_at`, anything
+  else) are silently dropped by ActionController params. Title pre-seed: when a
+  non-blank `title` accompanies a valid `igdb_id` the new `Game.new` carries the
+  IGDB-canonical title so the redirect target's breadcrumb reads the real title
+  instead of the `"Untitled game"` attribute default during the in-flight
+  `GameIgdbSync` window. Trim + 255-char guard mirror the column's validation.
+  Removed the legacy success-flash copy `"create empty game (legacy)..."`.
+- `app/views/games/_search_results.html.erb` — `[add]` `button_to` now carries
+  `params: { game: { igdb_id: row["id"], title: row["name"] } }` so the IGDB
+  result row's name reaches the controller as the eager title pre-seed.
+- `spec/views/shared/_igdb_search_modal.html.erb_spec.rb` (NEW) — 9 examples
+  covering copy (trimmed title, trimmed placeholder, no `add a game from igdb`
+  legacy copy), controls (no `[search]` button, exactly one bracketed-muted
+  `[cancel]` link wired to `#close`), auto-search wiring (dual `input` +
+  `keydown.enter` action string, `min-chars-value="5"` exposed), dialog sizing
+  (`.pane-dialog--wide` modifier present, inline `max-width` band-aid gone), and
+  CLAUDE.md hard rules (no `data-turbo-confirm`, no inline JS `confirm` /
+  `alert` / `prompt`).
+- `spec/system/igdb_add_game_spec.rb` (NEW) — 7 rack_test-driver examples
+  covering server-rendered surface: modal markup on `/games` (trimmed title +
+  placeholder; no `[search]` button; one bracketed-muted `[cancel]` link wired
+  to `#close`; opts into `.pane-dialog--wide`); add-flow via stubbed IGDB search
+  endpoint (the new game's `title` lands as the IGDB-canonical value; show page
+  breadcrumb reads the real title not `"Untitled game"`; `GameIgdbSync` is
+  enqueued; flash notice reads `added; metadata loading in background.`). The
+  5-char auto-search guard and Enter override are JS-driven and out of
+  rack_test's reach — they're covered by the view spec's wiring assertions plus
+  the spec's manual recipe.
+- `spec/requests/games_spec.rb` — extends `POST /games with igdb_id` with 5 new
+  examples (title pre-seed lands, blank/omitted title falls back to attribute
+  default, 255-char trim, `notes` smuggled drops, `played_at` smuggled drops).
+  REPLACES the legacy `POST /games (legacy default-create)` describe block with
+  new `POST /games WITHOUT igdb_id (legacy default-create removed)` — 6 examples
+  asserting no row persists, the IGDB-only flash, the rejection holds when only
+  `title` is smuggled, the rejection holds when only `notes` is smuggled,
+  blank-string `igdb_id` is rejected, `GameIgdbSync` is not enqueued, and the
+  JSON branch returns 422 + `{"error":"igdb_id_required"}`.
+- `spec/components/bracketed_muted_link_component_spec.rb` — flips one of the
+  pending `data:`-passthrough placeholders into a real assertion (the IGDB
+  modal's `[cancel]` action wiring depends on it). The remaining 13 pendings
+  stay as-is — the spec file was a wholesale `pending` placeholder, and filling
+  them in is outside the scope of this spec.
 
 ### Legacy "default create empty game" removal — surface audit
 
-- `GamesController#create` diff: the `igdb_id_param.present?` guard now short-circuits with a flash + 422 when missing instead of falling through to `Game.new + save!`. The legacy success flash (`"create empty game (legacy). use [search igdb] to add by id."`) is gone.
-- Route survival: `POST /games` still exists (`resources :games` declares it). The endpoint is reachable; it just requires `params[:game][:igdb_id]`.
-- View consumers: a single consumer of the `POST /games` endpoint exists in the app — `app/views/games/_search_results.html.erb` (the IGDB add-game `[add]` button_to). No `app/views/games/new.html.erb`, no inline form elsewhere. The result-row partial already carries `igdb_id`; this spec adds `title` to its `params` hash.
-- MCP surface: no `create_game` tool exists in the catalog. The MCP `game_update_local` tool is the only games-mutation entry, and it operates on existing rows. No MCP-side change needed.
-- Specs cleanup: the legacy `POST /games (legacy default-create)` describe in `spec/requests/games_spec.rb` is replaced wholesale with the new `POST /games WITHOUT igdb_id (legacy default-create removed)` describe (which now asserts the rejection contract rather than the legacy creation behavior).
+- `GamesController#create` diff: the `igdb_id_param.present?` guard now
+  short-circuits with a flash + 422 when missing instead of falling through to
+  `Game.new + save!`. The legacy success flash
+  (`"create empty game (legacy). use [search igdb] to add by id."`) is gone.
+- Route survival: `POST /games` still exists (`resources :games` declares it).
+  The endpoint is reachable; it just requires `params[:game][:igdb_id]`.
+- View consumers: a single consumer of the `POST /games` endpoint exists in the
+  app — `app/views/games/_search_results.html.erb` (the IGDB add-game `[add]`
+  button_to). No `app/views/games/new.html.erb`, no inline form elsewhere. The
+  result-row partial already carries `igdb_id`; this spec adds `title` to its
+  `params` hash.
+- MCP surface: no `create_game` tool exists in the catalog. The MCP
+  `game_update_local` tool is the only games-mutation entry, and it operates on
+  existing rows. No MCP-side change needed.
+- Specs cleanup: the legacy `POST /games (legacy default-create)` describe in
+  `spec/requests/games_spec.rb` is replaced wholesale with the new
+  `POST /games WITHOUT igdb_id (legacy default-create removed)` describe (which
+  now asserts the rejection contract rather than the legacy creation behavior).
 
 ### Tests
 
-- `spec/views/shared/_igdb_search_modal.html.erb_spec.rb` — 9 examples, all green.
-- `spec/system/igdb_add_game_spec.rb` — 7 examples, all green (rack_test driver, `--tag type:system`).
-- `spec/requests/games_spec.rb` (POST /games sub-describes) — 16 examples covering both the new-igdb-id-flow extensions and the legacy-create-removed contract, all green.
-- `spec/components/bracketed_muted_link_component_spec.rb` — 26 examples, 12 real + 14 pre-existing pendings, all green.
-- Targeted spec sweep clean across all four files. The pre-existing N+1 failure on `spec/requests/games_spec.rb:201` is unrelated to this spec (it bisects to other pre-existing modifications in the working tree on `app/views/games/_tile.html.erb` / `app/decorators/game_decorator.rb` / `app/models/game.rb`).
+- `spec/views/shared/_igdb_search_modal.html.erb_spec.rb` — 9 examples, all
+  green.
+- `spec/system/igdb_add_game_spec.rb` — 7 examples, all green (rack_test driver,
+  `--tag type:system`).
+- `spec/requests/games_spec.rb` (POST /games sub-describes) — 16 examples
+  covering both the new-igdb-id-flow extensions and the legacy-create-removed
+  contract, all green.
+- `spec/components/bracketed_muted_link_component_spec.rb` — 26 examples, 12
+  real + 14 pre-existing pendings, all green.
+- Targeted spec sweep clean across all four files. The pre-existing N+1 failure
+  on `spec/requests/games_spec.rb:201` is unrelated to this spec (it bisects to
+  other pre-existing modifications in the working tree on
+  `app/views/games/_tile.html.erb` / `app/decorators/game_decorator.rb` /
+  `app/models/game.rb`).
 
 ### Static analysis
 
-- `bin/brakeman -q -w2` → 0 security warnings, 0 errors, 1 pre-existing ignored entry. Five obsolete ignore entries surface — unrelated to this spec.
+- `bin/brakeman -q -w2` → 0 security warnings, 0 errors, 1 pre-existing ignored
+  entry. Five obsolete ignore entries surface — unrelated to this spec.
 
 ### Files touched
 
-- Modified: `app/views/shared/_igdb_search_modal.html.erb`, `app/javascript/controllers/igdb_search_modal_controller.js`, `app/assets/tailwind/application.css`, `app/controllers/games_controller.rb`, `app/views/games/_search_results.html.erb`, `spec/requests/games_spec.rb`, `spec/components/bracketed_muted_link_component_spec.rb`.
-- Added: `spec/views/shared/_igdb_search_modal.html.erb_spec.rb`, `spec/system/igdb_add_game_spec.rb`.
+- Modified: `app/views/shared/_igdb_search_modal.html.erb`,
+  `app/javascript/controllers/igdb_search_modal_controller.js`,
+  `app/assets/tailwind/application.css`, `app/controllers/games_controller.rb`,
+  `app/views/games/_search_results.html.erb`, `spec/requests/games_spec.rb`,
+  `spec/components/bracketed_muted_link_component_spec.rb`.
+- Added: `spec/views/shared/_igdb_search_modal.html.erb_spec.rb`,
+  `spec/system/igdb_add_game_spec.rb`.
 
 ### Plan-checkbox status
 
-The v2 specs directory (`specs-v2/`) is a polish-dispatch overlay on the original Phase 27 sub-spec checkboxes; `plan.md` does not enumerate a checkbox for spec 04 specifically (the 01a–01g checkboxes track the original phase scope). No checkboxes flipped — the v2 dispatch lands as a log entry per established Phase 27 convention (see prior `v2 spec 02` and `v2 spec 03` entries below).
+The v2 specs directory (`specs-v2/`) is a polish-dispatch overlay on the
+original Phase 27 sub-spec checkboxes; `plan.md` does not enumerate a checkbox
+for spec 04 specifically (the 01a–01g checkboxes track the original phase
+scope). No checkboxes flipped — the v2 dispatch lands as a log entry per
+established Phase 27 convention (see prior `v2 spec 02` and `v2 spec 03` entries
+below).
 
 ### Open / deferred
 
-- None. The 5-char auto-search guard + Enter override are JS-driven; the spec mandates manual verification of the dialog at 360 / 768 / 1280 px viewport widths per its CSS audit recipe.
+- None. The 5-char auto-search guard + Enter override are JS-driven; the spec
+  mandates manual verification of the dialog at 360 / 768 / 1280 px viewport
+  widths per its CSS audit recipe.
 
 ---
 
 ## [skipci] 2026-05-17 — v2 spec 02 collection cover-art compositions (pito-rails)
 
-Implements v2 spec 02 — `docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs-v2/02-collection-cover-art-compositions.md`. Extends the collection composite layout engine from a 6-tile cap to a 9-tile cap and rewires the rebuild pipeline around a sequential, alphabetical-by-name Sidekiq chain.
+Implements v2 spec 02 —
+`docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs-v2/02-collection-cover-art-compositions.md`.
+Extends the collection composite layout engine from a 6-tile cap to a 9-tile cap
+and rewires the rebuild pipeline around a sequential, alphabetical-by-name
+Sidekiq chain.
 
 ### What landed
 
-- `app/services/collections/composite_layout.rb` — extended `LAYOUTS` with `:netflix7`, `:eight_grid`, `:nine_grid`. `.choose(7)` → `:netflix7`, `.choose(8)` → `:eight_grid`, `.choose(9..)` → `:nine_grid`. Added `netflix7_boxes` (big top 98×65 + 3-cell mid 33/33/32 × 32 + 3-cell bottom 33/33/32 × 33), `eight_grid_boxes` (2 cols × 4 rows, row heights 32/32/33/33 — trailing rows absorb the remainder), `nine_grid_boxes` (3 × 3; cols 33/33/32; rows 43/43/44 — last row absorbs the remainder). Compose helpers stack via `Vips::Image#join` mirroring the existing layouts. Module docstring updated with the full matrix.
-- `app/services/collections/cover_composer.rb` — `MAX_TILES` bumped 6 → 9. Member ordering / fingerprint / on-disk cache contract unchanged. Docstring updated.
-- `app/services/collections/composite_rebuild_queue.rb` (NEW) — orchestrator. Public API: `enqueue_for_collections(collections)`, `enqueue_for_game_resync(game)`, `enqueue_for_game_destroy(game, was_in:)`. Sorts inputs alphabetically by `Collection.name` (case-insensitive), dedupes by id, enqueues a single chain head; returns the ordered id list.
-- `app/jobs/collection_cover_rebuild_job.rb` — rewritten. Was eviction-only; now rebuilds eagerly via `Collections::CoverComposer.new.call(collection)` AND advances the chain. Argument shape: `perform(collection_id, remaining_chain = nil)`. On composer raise the chain breaks by design (Sidekiq retries the head; tail does not re-fire on retry success). On a deleted collection the job no-ops gracefully AND still advances the chain (a missing collection is not a failure). `lock: :until_executed, on_conflict: :log` declared as no-op intent (Sidekiq OSS without `sidekiq-unique-jobs`).
-- `app/models/game.rb` — three rebuild hooks replacing the old single eviction hook:
-  - `after_update_commit :rebuild_collection_composites_on_collection_change` — fires on `collection_id` saved-change, hands `[old, new]` (skipping nils) to the orchestrator.
-  - `after_save_commit :rebuild_collection_composites_on_resync` — fires on `igdb_synced_at` saved-change (only when the game has a collection), calls `enqueue_for_game_resync(self)`.
-  - `before_destroy :capture_pre_destroy_collection` + `after_destroy_commit :rebuild_collection_composites_on_destroy` — captures the pre-destroy collection in an ivar, replays via `enqueue_for_game_destroy(self, was_in: [...])`.
+- `app/services/collections/composite_layout.rb` — extended `LAYOUTS` with
+  `:netflix7`, `:eight_grid`, `:nine_grid`. `.choose(7)` → `:netflix7`,
+  `.choose(8)` → `:eight_grid`, `.choose(9..)` → `:nine_grid`. Added
+  `netflix7_boxes` (big top 98×65 + 3-cell mid 33/33/32 × 32 + 3-cell bottom
+  33/33/32 × 33), `eight_grid_boxes` (2 cols × 4 rows, row heights 32/32/33/33 —
+  trailing rows absorb the remainder), `nine_grid_boxes` (3 × 3; cols 33/33/32;
+  rows 43/43/44 — last row absorbs the remainder). Compose helpers stack via
+  `Vips::Image#join` mirroring the existing layouts. Module docstring updated
+  with the full matrix.
+- `app/services/collections/cover_composer.rb` — `MAX_TILES` bumped 6 → 9.
+  Member ordering / fingerprint / on-disk cache contract unchanged. Docstring
+  updated.
+- `app/services/collections/composite_rebuild_queue.rb` (NEW) — orchestrator.
+  Public API: `enqueue_for_collections(collections)`,
+  `enqueue_for_game_resync(game)`, `enqueue_for_game_destroy(game, was_in:)`.
+  Sorts inputs alphabetically by `Collection.name` (case-insensitive), dedupes
+  by id, enqueues a single chain head; returns the ordered id list.
+- `app/jobs/collection_cover_rebuild_job.rb` — rewritten. Was eviction-only; now
+  rebuilds eagerly via `Collections::CoverComposer.new.call(collection)` AND
+  advances the chain. Argument shape:
+  `perform(collection_id, remaining_chain = nil)`. On composer raise the chain
+  breaks by design (Sidekiq retries the head; tail does not re-fire on retry
+  success). On a deleted collection the job no-ops gracefully AND still advances
+  the chain (a missing collection is not a failure).
+  `lock: :until_executed, on_conflict: :log` declared as no-op intent (Sidekiq
+  OSS without `sidekiq-unique-jobs`).
+- `app/models/game.rb` — three rebuild hooks replacing the old single eviction
+  hook:
+  - `after_update_commit :rebuild_collection_composites_on_collection_change` —
+    fires on `collection_id` saved-change, hands `[old, new]` (skipping nils) to
+    the orchestrator.
+  - `after_save_commit :rebuild_collection_composites_on_resync` — fires on
+    `igdb_synced_at` saved-change (only when the game has a collection), calls
+    `enqueue_for_game_resync(self)`.
+  - `before_destroy :capture_pre_destroy_collection` +
+    `after_destroy_commit :rebuild_collection_composites_on_destroy` — captures
+    the pre-destroy collection in an ivar, replays via
+    `enqueue_for_game_destroy(self, was_in: [...])`.
 
 ### Specs added / updated
 
-- `spec/services/collections/composite_layout_spec.rb` — added `.choose` cases for 7 / 8 / 9 / 10 / 100 (caps at 9). Added `:netflix7` / `:eight_grid` / `:nine_grid` `tile_boxes` describe blocks asserting box counts, dimensions, no-gap tiling, and row/column sum invariants. Extended the `.compose` iteration to include the three new layouts. 129 examples, 0 failures.
-- `spec/services/collections/cover_composer_spec.rb` — added 7-, 8-, 9-, 10-game collection scenarios. Asserts the fingerprint payload (cap at 9, alphabetical), that the 10th member does NOT contribute, that renaming a beyond-the-cap game leaves the fingerprint stable, and that renaming the 9th game out of the cap DOES change it. 28 examples, 0 failures.
-- `spec/services/collections/composite_rebuild_queue_spec.rb` (NEW) — orchestrator coverage. Alphabetical sort, case-insensitive, dedupe, empty input, nil entries, single-collection chain head, ActiveRecord relation acceptance; resync delegating to current collection; destroy honoring the `was_in:` set. 16 examples, 0 failures.
-- `spec/jobs/collection_cover_rebuild_job_spec.rb` — rewritten. Stubs the composer, asserts (a) one composer call per job, (b) `lock: :until_executed` + `on_conflict: :log` declared, (c) chain enqueues exactly one follow-up with the popped head + remaining tail, (d) failure breaks the chain (composer raise → no follow-up enqueue), (e) deleted-collection no-op still advances the chain. 13 examples, 0 failures.
-- `spec/models/game_spec.rb` — replaced the old `evict_collection_composite_on_collection_change` describe block with a `Phase 27 v2 spec 02` block. Spies on `Collections::CompositeRebuildQueue#new` and asserts the right orchestrator method gets the right args across add / move / remove / resync / destroy / no-op (other column change). 130 examples, 0 failures.
+- `spec/services/collections/composite_layout_spec.rb` — added `.choose` cases
+  for 7 / 8 / 9 / 10 / 100 (caps at 9). Added `:netflix7` / `:eight_grid` /
+  `:nine_grid` `tile_boxes` describe blocks asserting box counts, dimensions,
+  no-gap tiling, and row/column sum invariants. Extended the `.compose`
+  iteration to include the three new layouts. 129 examples, 0 failures.
+- `spec/services/collections/cover_composer_spec.rb` — added 7-, 8-, 9-, 10-game
+  collection scenarios. Asserts the fingerprint payload (cap at 9,
+  alphabetical), that the 10th member does NOT contribute, that renaming a
+  beyond-the-cap game leaves the fingerprint stable, and that renaming the 9th
+  game out of the cap DOES change it. 28 examples, 0 failures.
+- `spec/services/collections/composite_rebuild_queue_spec.rb` (NEW) —
+  orchestrator coverage. Alphabetical sort, case-insensitive, dedupe, empty
+  input, nil entries, single-collection chain head, ActiveRecord relation
+  acceptance; resync delegating to current collection; destroy honoring the
+  `was_in:` set. 16 examples, 0 failures.
+- `spec/jobs/collection_cover_rebuild_job_spec.rb` — rewritten. Stubs the
+  composer, asserts (a) one composer call per job, (b) `lock: :until_executed` +
+  `on_conflict: :log` declared, (c) chain enqueues exactly one follow-up with
+  the popped head + remaining tail, (d) failure breaks the chain (composer raise
+  → no follow-up enqueue), (e) deleted-collection no-op still advances the
+  chain. 13 examples, 0 failures.
+- `spec/models/game_spec.rb` — replaced the old
+  `evict_collection_composite_on_collection_change` describe block with a
+  `Phase 27 v2 spec 02` block. Spies on `Collections::CompositeRebuildQueue#new`
+  and asserts the right orchestrator method gets the right args across add /
+  move / remove / resync / destroy / no-op (other column change). 130 examples,
+  0 failures.
 
 ### Open issues
 
-- The spec's request-spec point (bulk-add to a single collection coalesces to one job) is moot today — there is no bulk-add controller; games attach via `Game#update` and the games_controller only permits local-only attrs (`played_at`, `notes`, `hours_of_footage_manual`, …). The architect spec acknowledges this with a "verify path during implementation" note. The model-level coverage exercises the only existing write paths. If a bulk-add controller lands later, a request spec for it should assert one orchestrator call per saved transaction.
-- The spec's system-spec point (one Capybara scenario for a 7-member collection rendering at `:shelf` size) is deferred — per the per-CI-hiatus note "no full suite run" plus the user-visible payoff is identical to the existing `_collections_shelf` view spec coverage which already exercises the composer output through the 01h pipeline. Layout + composer + job + orchestrator + model coverage gives the full pyramid for the new layouts.
-- Plan checkbox parity — the phase-level `plan.md` has no v2-spec checklist yet; checkbox-tick deferred to the architect's plan-update sweep.
-- Two flakes observed in `spec/requests/games_spec.rb` (the N+1 guard at :201 and a 404 sad-path at :709) when running the full file in a single process; both pass cleanly in isolation. Pre-existing order-dependent state pollution unrelated to this spec.
+- The spec's request-spec point (bulk-add to a single collection coalesces to
+  one job) is moot today — there is no bulk-add controller; games attach via
+  `Game#update` and the games_controller only permits local-only attrs
+  (`played_at`, `notes`, `hours_of_footage_manual`, …). The architect spec
+  acknowledges this with a "verify path during implementation" note. The
+  model-level coverage exercises the only existing write paths. If a bulk-add
+  controller lands later, a request spec for it should assert one orchestrator
+  call per saved transaction.
+- The spec's system-spec point (one Capybara scenario for a 7-member collection
+  rendering at `:shelf` size) is deferred — per the per-CI-hiatus note "no full
+  suite run" plus the user-visible payoff is identical to the existing
+  `_collections_shelf` view spec coverage which already exercises the composer
+  output through the 01h pipeline. Layout + composer + job + orchestrator +
+  model coverage gives the full pyramid for the new layouts.
+- Plan checkbox parity — the phase-level `plan.md` has no v2-spec checklist yet;
+  checkbox-tick deferred to the architect's plan-update sweep.
+- Two flakes observed in `spec/requests/games_spec.rb` (the N+1 guard at :201
+  and a 404 sad-path at :709) when running the full file in a single process;
+  both pass cleanly in isolation. Pre-existing order-dependent state pollution
+  unrelated to this spec.
 
 ### Pipeline design notes
 
-- **Composer call vs eviction.** The v1 job evicted the on-disk file and let the next page render fall through to the synchronous composer. v2 calls the composer eagerly inside the job. Rationale: predictable rebuild order is the load-bearing UX promise; eager rebuild lets the user SEE which composite is being rebuilt next. The synchronous-on-miss path still exists as the fallback when a chain breaks mid-flight.
-- **Sequential chain mechanism.** No Sidekiq Batches, no workflow gems. The orchestrator enqueues only the chain HEAD; each job, on success, enqueues the next head with the popped tail (`Array#first`-then-`rest`). On composer failure the `perform` raises and Sidekiq retries the head — the tail does NOT fire on retry-success (the chain breaks by design per the spec's failure semantics). On a deleted-collection no-op the chain still advances (a missing collection is not a failure mode worth stalling the queue for).
-- **Dedupe.** The orchestrator dedupes by `Collection#id` per batch. Sidekiq OSS uniqueness is a no-op intent declaration (matching `ReindexAllJob`'s pattern); concurrent batches may overlap but the composer is idempotent (fingerprint hit → no-op).
+- **Composer call vs eviction.** The v1 job evicted the on-disk file and let the
+  next page render fall through to the synchronous composer. v2 calls the
+  composer eagerly inside the job. Rationale: predictable rebuild order is the
+  load-bearing UX promise; eager rebuild lets the user SEE which composite is
+  being rebuilt next. The synchronous-on-miss path still exists as the fallback
+  when a chain breaks mid-flight.
+- **Sequential chain mechanism.** No Sidekiq Batches, no workflow gems. The
+  orchestrator enqueues only the chain HEAD; each job, on success, enqueues the
+  next head with the popped tail (`Array#first`-then-`rest`). On composer
+  failure the `perform` raises and Sidekiq retries the head — the tail does NOT
+  fire on retry-success (the chain breaks by design per the spec's failure
+  semantics). On a deleted-collection no-op the chain still advances (a missing
+  collection is not a failure mode worth stalling the queue for).
+- **Dedupe.** The orchestrator dedupes by `Collection#id` per batch. Sidekiq OSS
+  uniqueness is a no-op intent declaration (matching `ReindexAllJob`'s pattern);
+  concurrent batches may overlap but the composer is idempotent (fingerprint hit
+  → no-op).
 
 ### References
 
-- Spec: `docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs-v2/02-collection-cover-art-compositions.md`.
-- Related: `docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs-v2/01-single-main-genre.md` (sibling v2 spec), `app/services/collections/composite_layout.rb` (extended), `app/services/collections/cover_composer.rb` (cap bump only).
-- ReindexAllJob — reference for `lock: :until_executed` as no-op intent declaration in Sidekiq OSS.
+- Spec:
+  `docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs-v2/02-collection-cover-art-compositions.md`.
+- Related:
+  `docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs-v2/01-single-main-genre.md`
+  (sibling v2 spec), `app/services/collections/composite_layout.rb` (extended),
+  `app/services/collections/cover_composer.rb` (cap bump only).
+- ReindexAllJob — reference for `lock: :until_executed` as no-op intent
+  declaration in Sidekiq OSS.
 
 ---
 
 ## [skipci] 2026-05-17 — v2 spec 07 platform logos (pito-rails)
 
-First v2-spec dispatch. Adds platform-logo glyphs to the games-index tile
-footer and the game detail page LEFT pane, sourced from Google's favicon
-service via a one-shot Rake task. Asset pipeline is plain `/public` — no
-runtime network calls, no asset-pipeline digest. The Rake task is the only
-write path; web reads from the static PNGs.
+First v2-spec dispatch. Adds platform-logo glyphs to the games-index tile footer
+and the game detail page LEFT pane, sourced from Google's favicon service via a
+one-shot Rake task. Asset pipeline is plain `/public` — no runtime network
+calls, no asset-pipeline digest. The Rake task is the only write path; web reads
+from the static PNGs.
 
 ### What landed
 
 - `lib/tasks/pito_platform_logos.rake` — new `pito:platform_logos:download`
-  task. Fetches `https://www.google.com/s2/favicons?domain=<domain>&sz=<sz>`
-  for the 5 canonical platforms (PS5, Switch2, Steam, GoG, Epic) at sizes 16
-  and 64, writes to `public/platform_logos/<slug>-<size>.png`. Follows up to
-  3 redirects (Google occasionally 302s through a CDN), logs each save with
-  byte count, warns + skips on non-200 / transport error and continues with
-  the remaining downloads. Idempotent — re-runs overwrite in place.
+  task. Fetches `https://www.google.com/s2/favicons?domain=<domain>&sz=<sz>` for
+  the 5 canonical platforms (PS5, Switch2, Steam, GoG, Epic) at sizes 16 and 64,
+  writes to `public/platform_logos/<slug>-<size>.png`. Follows up to 3 redirects
+  (Google occasionally 302s through a CDN), logs each save with byte count,
+  warns + skips on non-200 / transport error and continues with the remaining
+  downloads. Idempotent — re-runs overwrite in place.
 - `app/helpers/platform_logos_helper.rb` — new helper module with
   `platform_logo_tag(slug, size:)`, `game_index_tile_logo_slug(game)`,
-  `game_detail_logo_slugs(game)`, plus the `KNOWN_LOGOS` /
-  `LOGO_SIZES` / `LOGO_ALT_LABELS` constants. The tile-slug picker walks
-  owned-platforms first, falls back to `platforms_available` + PC-store
-  inferences (`external_steam_app_id` / `external_gog_id` /
-  `external_epic_id`), and returns nil when no canonical slug applies.
-  Xbox is intentionally not in `KNOWN_LOGOS` (no logo asset).
-- `app/views/games/_tile.html.erb` — extends the meta line to render a
-  14-px logo `<img>` after the year when `game_index_tile_logo_slug`
-  returns a slug. The middle-dot separator before the logo is conditional
-  on rating + year presence, so logo-only meta lines stay clean.
-- `app/views/games/show.html.erb` — renders `0..5` 56-px logos in a
-  horizontal flex row after the genres/platforms paragraph. Uses the 64-px
-  asset scaled down to 56 px for high-DPI crispness. Empty list renders
-  nothing (no placeholder).
+  `game_detail_logo_slugs(game)`, plus the `KNOWN_LOGOS` / `LOGO_SIZES` /
+  `LOGO_ALT_LABELS` constants. The tile-slug picker walks owned-platforms first,
+  falls back to `platforms_available` + PC-store inferences
+  (`external_steam_app_id` / `external_gog_id` / `external_epic_id`), and
+  returns nil when no canonical slug applies. Xbox is intentionally not in
+  `KNOWN_LOGOS` (no logo asset).
+- `app/views/games/_tile.html.erb` — extends the meta line to render a 14-px
+  logo `<img>` after the year when `game_index_tile_logo_slug` returns a slug.
+  The middle-dot separator before the logo is conditional on rating + year
+  presence, so logo-only meta lines stay clean.
+- `app/views/games/show.html.erb` — renders `0..5` 56-px logos in a horizontal
+  flex row after the genres/platforms paragraph. Uses the 64-px asset scaled
+  down to 56 px for high-DPI crispness. Empty list renders nothing (no
+  placeholder).
 - `public/platform_logos/` — 10 PNG files (5 platforms × 2 sizes) freshly
-  downloaded for the user's first checkpoint inspection. Bytes range
-  ~300 → ~2.5 KB per file; Switch 2 uses the generic Nintendo corporate
-  favicon (open question 4 in the spec — acceptable per architect lean).
+  downloaded for the user's first checkpoint inspection. Bytes range ~300 → ~2.5
+  KB per file; Switch 2 uses the generic Nintendo corporate favicon (open
+  question 4 in the spec — acceptable per architect lean).
 
 ### Specs added
 
-- `spec/lib/tasks/pito_platform_logos_rake_spec.rb` — 12 examples covering
-  happy path (10 files written from stubbed bytes), partial failure
-  (HTTP 500 logs warning + writes other 9), transport error (Errno raised),
-  idempotency (re-run overwrites stale bytes). `Rails.public_path` is
-  stubbed to a `Dir.mktmpdir` so the spec stays isolated.
+- `spec/lib/tasks/pito_platform_logos_rake_spec.rb` — 12 examples covering happy
+  path (10 files written from stubbed bytes), partial failure (HTTP 500 logs
+  warning + writes other 9), transport error (Errno raised), idempotency (re-run
+  overwrites stale bytes). `Rails.public_path` is stubbed to a `Dir.mktmpdir` so
+  the spec stays isolated.
 - `spec/helpers/platform_logos_helper_spec.rb` — 30 examples covering
   `platform_logo_tag` happy path / nil-on-unknown-slug /
   ArgumentError-on-bad-size, the tile-slug selection rule with full
-  KNOWN_LOGOS-order matrix (owned wins, declaration order, fallbacks),
-  and the detail-page multi-slug renderer.
+  KNOWN_LOGOS-order matrix (owned wins, declaration order, fallbacks), and the
+  detail-page multi-slug renderer.
 - `spec/views/games/_tile.html.erb_spec.rb` — extended with an 8-example
-  "platform logo footer" describe block. Also added
-  `external_steam_app_id: nil` overrides to the pre-existing
-  `:synced`-trait fixtures whose assertions depended on the meta line
-  being exactly `<rating> · <year>` — the `:synced` factory stamps
-  `external_steam_app_id`, which would otherwise add a Steam logo to
-  every existing tile spec.
+  "platform logo footer" describe block. Also added `external_steam_app_id: nil`
+  overrides to the pre-existing `:synced`-trait fixtures whose assertions
+  depended on the meta line being exactly `<rating> · <year>` — the `:synced`
+  factory stamps `external_steam_app_id`, which would otherwise add a Steam logo
+  to every existing tile spec.
 - `spec/views/games/show.html.erb_spec.rb` — NEW (no prior HTML view spec
-  existed for the game show page). 6 examples covering happy paths
-  (one logo, locked KNOWN_LOGOS order, store-only inference, flex layout)
-  and empty state (no container for no-known-platform / xbox-only games).
-- `spec/system/games_index_spec.rb` — appended ONE new scenario class
-  (3 examples) seeding PS5-owned + Steam+GoG-owned + Xbox-only games and
-  asserting each tile's footer markup. Scopes lookups to
-  `section.all-games-grid` since the same game also renders in the shelves
-  at the top of the page (would otherwise yield ambiguous Capybara
-  matches).
+  existed for the game show page). 6 examples covering happy paths (one logo,
+  locked KNOWN_LOGOS order, store-only inference, flex layout) and empty state
+  (no container for no-known-platform / xbox-only games).
+- `spec/system/games_index_spec.rb` — appended ONE new scenario class (3
+  examples) seeding PS5-owned + Steam+GoG-owned + Xbox-only games and asserting
+  each tile's footer markup. Scopes lookups to `section.all-games-grid` since
+  the same game also renders in the shelves at the top of the page (would
+  otherwise yield ambiguous Capybara matches).
 
 ### Verification
 
-- `bin/test spec/lib/tasks/pito_platform_logos_rake_spec.rb
-  spec/helpers/platform_logos_helper_spec.rb
-  spec/views/games/_tile.html.erb_spec.rb
-  spec/views/games/show.html.erb_spec.rb` — 98 examples, 0 failures.
-- `bundle exec rspec spec/system/games_index_spec.rb --tag type:system
-  -e "platform-logo tile footer"` — 3 examples, 0 failures.
-- `bin/rails pito:platform_logos:download` — 10/10 files written
-  successfully. Bytes: ps5 (301 + 828), switch2 (834 + 471), steam (825 +
-  1298), gog (395 + 1212), epic (643 + 2548).
+- `bin/test spec/lib/tasks/pito_platform_logos_rake_spec.rb spec/helpers/platform_logos_helper_spec.rb spec/views/games/_tile.html.erb_spec.rb spec/views/games/show.html.erb_spec.rb`
+  — 98 examples, 0 failures.
+- `bundle exec rspec spec/system/games_index_spec.rb --tag type:system -e "platform-logo tile footer"`
+  — 3 examples, 0 failures.
+- `bin/rails pito:platform_logos:download` — 10/10 files written successfully.
+  Bytes: ps5 (301 + 828), switch2 (834 + 471), steam (825 + 1298), gog (395 +
+  1212), epic (643 + 2548).
 - `bin/brakeman -q -w2` — 0 warnings, 0 errors, 1 ignored.
 
 ### Open follow-ups
@@ -369,13 +946,10 @@ write path; web reads from the static PNGs.
 - Spec 06 (`PLATFORM_LABELS` / `Platform.display_label(canonical_name_for)`)
   hasn't shipped yet. The helper uses a local `LOGO_ALT_LABELS` map mirroring
   `Platform::CANONICAL_SHORT_NAMES` for the 5-slug subset; when spec 06
-  introduces the canonical labels module, the helper can swap in the
-  shared map.
-- `plan.md` does not yet carry a v2-specs checkbox section, so no
-  checkbox is ticked this session. Architect to decide whether to extend
-  `plan.md` with a v2 block or rely on the spec-by-spec log entries.
-
-
+  introduces the canonical labels module, the helper can swap in the shared map.
+- `plan.md` does not yet carry a v2-specs checkbox section, so no checkbox is
+  ticked this session. Architect to decide whether to extend `plan.md` with a v2
+  block or rely on the spec-by-spec log entries.
 
 Closed the loop on sub-spec 01d. The original 01d session landed the migration,
 the `User` enum, the `Users::GamesPreferencesController`, three mode partials
@@ -2183,48 +2757,49 @@ added as the sixth canonical platform.
 
 Tactical fix to `lib/tasks/pito_platform_logos.rake`. The
 `cdn.simpleicons.org/nintendoswitch/000000` source the v2 spec 07 rake task
-relied on now returns HTTP 404 (simpleicons dropped the `nintendoswitch`
-slug). Switched switch2 to `api.iconify.design/mdi:nintendo-switch.svg?color=%23000000`
-— iconify's Material Design Icons set, 24x24 viewBox, fill="#000000", ~570 bytes.
-Audit trail of the 5 candidate URLs (and the wikimedia colored fallback) is
-preserved as a comment block above the switch2 entry so the next source-rot
+relied on now returns HTTP 404 (simpleicons dropped the `nintendoswitch` slug).
+Switched switch2 to `api.iconify.design/mdi:nintendo-switch.svg?color=%23000000`
+— iconify's Material Design Icons set, 24x24 viewBox, fill="#000000", ~570
+bytes. Audit trail of the 5 candidate URLs (and the wikimedia colored fallback)
+is preserved as a comment block above the switch2 entry so the next source-rot
 walk doesn't replay the same dead ends.
 
 ### Source audit (2026-05-17)
 
-| Candidate | Result |
-| --- | --- |
-| `cdn.simpleicons.org/nintendoswitch/000000` | HTTP 404 (slug removed) |
-| `cdn.simpleicons.org/nintendo-switch/000000` | HTTP 404 |
-| `upload.wikimedia.org/.../Nintendo_Switch_2_logo.svg` | HTTP 200 but colored — fails monochrome contract |
-| `api.iconify.design/mdi:nintendo-switch.svg?color=%23000000` | HTTP 200, 24x24, black — WINNER |
-| `api.iconify.design/cib:nintendo-switch.svg?color=%23000000` | HTTP 200, 32x32, black — viable backup |
-| `api.iconify.design/fa-brands:nintendo-switch.svg?color=%23000000` | HTTP 200 but 448x512 — fails square gate |
-| `api.iconify.design/logos:nintendo-switch.svg?color=%23000000` | HTTP 404 |
+| Candidate                                                            | Result                                                                 |
+| -------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `cdn.simpleicons.org/nintendoswitch/000000`                          | HTTP 404 (slug removed)                                                |
+| `cdn.simpleicons.org/nintendo-switch/000000`                         | HTTP 404                                                               |
+| `upload.wikimedia.org/.../Nintendo_Switch_2_logo.svg`                | HTTP 200 but colored — fails monochrome contract                       |
+| `api.iconify.design/mdi:nintendo-switch.svg?color=%23000000`         | HTTP 200, 24x24, black — WINNER                                        |
+| `api.iconify.design/cib:nintendo-switch.svg?color=%23000000`         | HTTP 200, 32x32, black — viable backup                                 |
+| `api.iconify.design/fa-brands:nintendo-switch.svg?color=%23000000`   | HTTP 200 but 448x512 — fails square gate                               |
+| `api.iconify.design/logos:nintendo-switch.svg?color=%23000000`       | HTTP 404                                                               |
 | `api.iconify.design/simple-icons:nintendoswitch.svg?color=%23000000` | HTTP 200, viable backup (iconify mirror still serves the dropped slug) |
 
 ### Files touched
 
-- `lib/tasks/pito_platform_logos.rake` — switch2 entry swapped to iconify
-  mdi; provider label `iconify-mdi`; commented audit trail of rejected URLs;
-  header doc + `source_ext` comment updated to mention both providers.
+- `lib/tasks/pito_platform_logos.rake` — switch2 entry swapped to iconify mdi;
+  provider label `iconify-mdi`; commented audit trail of rejected URLs; header
+  doc + `source_ext` comment updated to mention both providers.
 - `spec/lib/tasks/pito_platform_logos_rake_spec.rb` — `SOURCE_URLS["switch2"]`
   updated; "canonical source" describe block rewritten from "every URL is
   simpleicons + /000000" to "every URL pins fill to black via simpleicons
-  /000000 OR iconify color=%23000000"; switch2 non-square WARN regex updated
-  to `source=iconify-mdi`; added a new test that asserts the rake task
-  preserves the rejected-URL audit comments.
+  /000000 OR iconify color=%23000000"; switch2 non-square WARN regex updated to
+  `source=iconify-mdi`; added a new test that asserts the rake task preserves
+  the rejected-URL audit comments.
 - `public/platform_logos/switch2-{16,64}.png` — regenerated from the iconify
-  source. All 10 platform PNGs re-emitted by `bin/rails pito:platform_logos:download`.
+  source. All 10 platform PNGs re-emitted by
+  `bin/rails pito:platform_logos:download`.
 
 ### Verification
 
-- `bin/test spec/lib/tasks/pito_platform_logos_rake_spec.rb` — 23 examples,
-  0 failures.
+- `bin/test spec/lib/tasks/pito_platform_logos_rake_spec.rb` — 23 examples, 0
+  failures.
 - `bin/rails pito:platform_logos:download` — 5/5 `[OK]`, switch2 reports
   `source=iconify-mdi (570B SVG 24.0x24.0) -> 64.png 3.6KB, 16.png 595B`.
-- ImageMagick pixel histogram on `switch2-64.png`: every visible pixel has
-  RGB `(0,0,0)` (alpha-modulated). Confirmed monochrome black.
+- ImageMagick pixel histogram on `switch2-64.png`: every visible pixel has RGB
+  `(0,0,0)` (alpha-modulated). Confirmed monochrome black.
 - All 10 PNGs verified 16x16 or 64x64 via `identify`.
 - `bin/brakeman -q -w2`: 0 security warnings, 0 errors.
 
@@ -2232,9 +2807,8 @@ walk doesn't replay the same dead ends.
 
 - None for this task. If iconify ever 404s the mdi nintendo-switch icon, the
   audit-trail comment points at `cib:nintendo-switch` (32x32 black) and
-  `simple-icons:nintendoswitch` (iconify mirror of the dropped simpleicons
-  slug) as viable swap-in backups.
-
+  `simple-icons:nintendoswitch` (iconify mirror of the dropped simpleicons slug)
+  as viable swap-in backups.
 
 ## 2026-05-17 — spec 07 v5 platform-logos: luminance-based silhouette rendering
 
@@ -2243,20 +2817,20 @@ walk doesn't replay the same dead ends.
 User reported that the v4 rake task output broke after switching to local
 brand-name source PNGs under `lib/support/platforms/`. Symptoms:
 
-- `ps5-{16,64}.png` and `switch2-{16,64}.png` rendered as SOLID black discs
-  with no visible logo shape (alpha was uniformly ~200, painting the entire
+- `ps5-{16,64}.png` and `switch2-{16,64}.png` rendered as SOLID black discs with
+  no visible logo shape (alpha was uniformly ~200, painting the entire
   filled-alpha disc).
 - `steam-{16,64}.png` was already RGB-zeroed but the user reported it looked
   visually inconsistent in their workflow.
 
 ### Root cause
 
-The v4 pipeline was: `extract source alpha -> bandjoin onto fresh
-solid-black RGB`. That only works when source alpha traces the logo
-SILHOUETTE. The user's real brand PNGs ship with FILLED-disc alpha —
-`playstation.png` alpha avg=200/255, `switch.png` alpha avg=183/255 — so
-"extract source alpha" gave back a disc, not a silhouette, and the bandjoin
-painted the whole disc black.
+The v4 pipeline was:
+`extract source alpha -> bandjoin onto fresh solid-black RGB`. That only works
+when source alpha traces the logo SILHOUETTE. The user's real brand PNGs ship
+with FILLED-disc alpha — `playstation.png` alpha avg=200/255, `switch.png` alpha
+avg=183/255 — so "extract source alpha" gave back a disc, not a silhouette, and
+the bandjoin painted the whole disc black.
 
 ### Fix — luminance-based alpha
 
@@ -2266,40 +2840,40 @@ New pipeline in `render_monochrome_black_png`:
 2. If source has alpha, `flatten(background: [255, 255, 255])` so any
    transparent regions map to white (low-luminance-contribution after invert).
 3. Convert to single-band luminance via `.colourspace(:b_w)`.
-4. Invert via `.invert` — dark source pixels (logo shape) become high
-   alpha; white background pixels become near-zero alpha.
+4. Invert via `.invert` — dark source pixels (logo shape) become high alpha;
+   white background pixels become near-zero alpha.
 5. Build a 3-band pure-black RGB image at source resolution.
 6. `bandjoin(inverted_luminance)` -> RGBA at source resolution.
 7. `thumbnail_image(size, height: size, size: :force)` resizes LAST so
    anti-aliasing operates on the already-correct silhouette mask.
 
-R / G / B output bands are constructed from constant-zero images, so the
-"every pixel pure black" guarantee survives intact. The output alpha is
-derived from the source's visual content, not its alpha channel, which
-handles both filled-background and silhouette-style source PNGs.
+R / G / B output bands are constructed from constant-zero images, so the "every
+pixel pure black" guarantee survives intact. The output alpha is derived from
+the source's visual content, not its alpha channel, which handles both
+filled-background and silhouette-style source PNGs.
 
 ### Fixtures rewritten
 
-`spec/fixtures/files/platforms/{playstation,switch,steam}.png` regenerated
-to mirror the structure of real brand PNGs: 256x256 RGBA, opaque white
-background (alpha == 255 everywhere), with a colored letter shape composited
-on top (P / S / X, in near-black / red / pure-black respectively). The
-fixtures now exercise the same failure mode the real sources triggered —
-filled alpha + dark logo shape against a light background — so the spec
-suite would have caught the v4 regression had these fixtures existed earlier.
+`spec/fixtures/files/platforms/{playstation,switch,steam}.png` regenerated to
+mirror the structure of real brand PNGs: 256x256 RGBA, opaque white background
+(alpha == 255 everywhere), with a colored letter shape composited on top (P / S
+/ X, in near-black / red / pure-black respectively). The fixtures now exercise
+the same failure mode the real sources triggered — filled alpha + dark logo
+shape against a light background — so the spec suite would have caught the v4
+regression had these fixtures existed earlier.
 
 ### Spec additions
 
-Two new assertions in the happy-path describe block guard against the
-"solid disc" regression class:
+Two new assertions in the happy-path describe block guard against the "solid
+disc" regression class:
 
 - `produces a silhouette alpha — not a uniformly opaque disc` — asserts
-  `alpha.deviate > 10` (population stddev). A uniform-opaque disc has
-  deviate close to 0; the threshold is conservative so colored-source
-  silhouettes (e.g. switch2's red logo, alpha_max ≈ 160) still clear it.
-- `has both transparent-background pixels and visible logo pixels` —
-  asserts at least 5% of pixels land in the `alpha < 16` bucket
-  (background) and at least 5% in the `alpha > 64` bucket (logo body).
+  `alpha.deviate > 10` (population stddev). A uniform-opaque disc has deviate
+  close to 0; the threshold is conservative so colored-source silhouettes (e.g.
+  switch2's red logo, alpha_max ≈ 160) still clear it.
+- `has both transparent-background pixels and visible logo pixels` — asserts at
+  least 5% of pixels land in the `alpha < 16` bucket (background) and at least
+  5% in the `alpha > 64` bucket (logo body).
 
 ### Files touched
 
@@ -2310,8 +2884,8 @@ Two new assertions in the happy-path describe block guard against the
   silhouette-structure assertions; updated fixture-folder doc comment to
   describe the new filled-alpha fixture shape; tightened the "raw colored
   fixture" self-check copy.
-- `spec/fixtures/files/platforms/{playstation,switch,steam}.png` —
-  regenerated as filled-alpha white-background + colored-letter PNGs.
+- `spec/fixtures/files/platforms/{playstation,switch,steam}.png` — regenerated
+  as filled-alpha white-background + colored-letter PNGs.
 - `public/platforms/{ps5,switch2,steam}-{16,64}.png` — re-rendered via
   `bin/rails pito:platform_logos:download`.
 
@@ -2319,30 +2893,678 @@ Two new assertions in the happy-path describe block guard against the
 
 Real-source output (post-fix):
 
-| file              | dims    | RGB max     | alpha min | alpha max | alpha avg | alpha deviate | low(<16)% | high(>64)% |
-| ----------------- | ------- | ----------- | --------- | --------- | --------- | ------------- | --------- | ---------- |
-| ps5-16.png        | 16x16   | [0, 0, 0]   | 0         | 242       | 126.9     | 82.8          | 21.5      | 72.3       |
-| ps5-64.png        | 64x64   | [0, 0, 0]   | 0         | 242       | 125.0     | 96.0          | 34.0      | 62.7       |
-| switch2-16.png    | 16x16   | [0, 0, 0]   | 0         | 174       | 81.1      | 58.5          | 25.0      | 59.4       |
-| switch2-64.png    | 64x64   | [0, 0, 0]   | 0         | 162       | 80.4      | 67.7          | 33.9      | 54.6       |
-| steam-16.png      | 16x16   | [0, 0, 0]   | 0         | 255       | 142.6     | 104.2         | 23.8      | 67.2       |
-| steam-64.png      | 64x64   | [0, 0, 0]   | 0         | 255       | 143.1     | 120.5         | 38.2      | 58.9       |
+| file           | dims  | RGB max   | alpha min | alpha max | alpha avg | alpha deviate | low(<16)% | high(>64)% |
+| -------------- | ----- | --------- | --------- | --------- | --------- | ------------- | --------- | ---------- |
+| ps5-16.png     | 16x16 | [0, 0, 0] | 0         | 242       | 126.9     | 82.8          | 21.5      | 72.3       |
+| ps5-64.png     | 64x64 | [0, 0, 0] | 0         | 242       | 125.0     | 96.0          | 34.0      | 62.7       |
+| switch2-16.png | 16x16 | [0, 0, 0] | 0         | 174       | 81.1      | 58.5          | 25.0      | 59.4       |
+| switch2-64.png | 64x64 | [0, 0, 0] | 0         | 162       | 80.4      | 67.7          | 33.9      | 54.6       |
+| steam-16.png   | 16x16 | [0, 0, 0] | 0         | 255       | 142.6     | 104.2         | 23.8      | 67.2       |
+| steam-64.png   | 64x64 | [0, 0, 0] | 0         | 255       | 143.1     | 120.5         | 38.2      | 58.9       |
 
-Compare to the v4 (broken) state: every output had alpha avg ≈ 200, deviate
-near 0, and ps5/switch2 read as solid black discs. The new outputs show
-balanced low/high alpha distributions — confirmed silhouettes.
+Compare to the v4 (broken) state: every output had alpha avg ≈ 200, deviate near
+0, and ps5/switch2 read as solid black discs. The new outputs show balanced
+low/high alpha distributions — confirmed silhouettes.
 
-- `bundle exec rspec spec/lib/tasks/pito_platform_logos_rake_spec.rb` —
-  31 examples, 0 failures (was 29; +2 new assertions).
-- `bundle exec rspec spec/lib/tasks/pito_rake_spec.rb spec/helpers/platform_logos_helper_spec.rb` —
-  77 examples, 0 failures.
+- `bundle exec rspec spec/lib/tasks/pito_platform_logos_rake_spec.rb` — 31
+  examples, 0 failures (was 29; +2 new assertions).
+- `bundle exec rspec spec/lib/tasks/pito_rake_spec.rb spec/helpers/platform_logos_helper_spec.rb`
+  — 77 examples, 0 failures.
 - `bundle exec brakeman -q -w2` — 0 security warnings, 0 errors.
-- `bin/rails pito:platform_logos:download` — all 3 platforms `[OK]`,
-  6 PNGs written, summary line per platform with source dims and file
-  sizes.
+- `bin/rails pito:platform_logos:download` — all 3 platforms `[OK]`, 6 PNGs
+  written, summary line per platform with source dims and file sizes.
 
 ### Open follow-ups
 
-- None for this task. The luminance-based pipeline handles both filled-alpha
-  and silhouette-style sources, so future brand-PNG swaps no longer depend
-  on the upstream provider's alpha convention.
+- None for this task. The luminance-based pipeline handles both filled-alpha and
+  silhouette-style sources, so future brand-PNG swaps no longer depend on the
+  upstream provider's alpha convention.
+
+## 2026-05-17 — waves A + B + C + D: bundle consolidation, text chips, game detail revamp, page-action keybindings
+
+### Context
+
+Four parallel waves landed in a single session against the beta 3 `/games`
+revamp. Wave A finished the long-running bundle consolidation thread (the
+collections → bundles rename). Wave B retired the platform-logo PNG pipeline in
+favor of text chips. Wave C rebuilt the `/games/:id` show page top-to-bottom
+around genres, an ownership row, a rating heat bar, a sync banner, and a
+streamlined right pane. Wave D introduced a `page_actions:` YAML key in
+`config/keybindings.yml` plus the supporting component, controller hooks, and
+the `[TBD]` placeholder for search. All four waves ran in iteration mode —
+code-only, NO new specs, NO spec runs. Drift is captured for the dedicated
+consolidation pass (Wave F).
+
+### Wave A — bundle consolidation (5 slices A1–A5)
+
+Discovery: the working tree was already at the desired end-state. Schema had
+dropped the `collections` table and the `games.collection_id` column. `Game`,
+`Bundle`, and `GameIgdbSync` already pointed at `Bundles::CompositeRebuildQueue`
+instead of `Collections::*`. Live code carried zero stale references. The only
+remaining drift was in spec files (`:collection` factory traits,
+`create(:collection, ...)` calls), which is deferred to Wave F.
+
+A5 smoke test confirmed boot succeeds, `Game` / `Bundle` queries return, and
+routes load clean.
+
+### Wave B — logos → text chips (6 slices B1–B6)
+
+- **B1 — purge logo pipeline.** Deleted `lib/tasks/pito_platform_logos.rake`,
+  its spec, `public/platforms/*.png` (12 files), `lib/support/platforms/*.png`
+  (3 files), `spec/fixtures/files/platforms/*.png` (3 files), and
+  `spec/assets/tailwind/tile_platform_logos_css_spec.rb`.
+- **B2 — `Platforms::ChipComponent`.** New
+  `app/components/platforms/chip_component.{rb,html.erb}` renders text chips in
+  locked brand colors: PS5 `#003791`, Switch `#E60012`, Steam `#00ADEE` — single
+  color set for BOTH themes per the 2026-05-17 user decision. Sizes `:sm` (tile)
+  and `:md` (detail page).
+- **B3 — tile wiring.** `app/views/games/_tile.html.erb` lost the
+  `.tile-cover-platforms` overlay + `<img>` tags. New `.tile-caption-meta`
+  inline row renders chips beneath the title.
+- **B4 — show LEFT pane.** `app/views/games/show.html.erb` LEFT pane lost the
+  large platform-logo `<img>` block; added `.platform-chip-row` with `:md`
+  chips. C3 was absorbed into this slice since the chip row landed in the same
+  slot.
+- **B5 — Tailwind cleanup.** Stripped the dual-color logo CSS block from
+  `app/assets/tailwind/application.css` (`.platform-logo--black` /
+  `.platform-logo--white` theme-swap rules, ~13 lines).
+- **B6 — helper trim.** `app/helpers/platform_logos_helper.rb` shrank from 223
+  to ~137 lines. Dropped `LOGO_SIZES`, `LOGO_COLORS`, `LOGO_ALT_LABELS`,
+  `platform_logo_tag`, and private `platform_logo_img`. Kept `KNOWN_LOGOS`,
+  `PC_STORE_IGDB_IDS`, `pc_store_slugs` (promoted to public),
+  `game_index_tile_logo_slug`, `game_detail_logo_slugs`. Added TODO for the
+  eventual rename to `platform_chips_helper.rb` (deferred to Wave F per the
+  consolidation rule).
+
+### Wave C — game detail revamp (10 slices C1–C11; C3 collapsed into B4)
+
+- **C1 — routes + controller.** `resources :games, except: [:edit, :update]`.
+  `GamesController` lost `#edit`, `#update`, and the orphan `local_only_params`
+  helper. Deleted `app/views/games/edit.html.erb`.
+- **C2 — genres in LEFT pane.** Genres block moved between title and meta line.
+  Primary genre in `<strong>`, up to two alphabetical secondaries appended,
+  capped at three total, `·` separator, em-dash fallback when neither primary
+  nor genres exist. Uses the `genre_short_name` helper. Old RIGHT-pane `genre:`
+  line removed; the `<h2>genre / platforms</h2>` heading retitled to just
+  `platforms`.
+- **C4 — ownership row.** Hairline + `<section class="ownership">` after the
+  heat bar. Platform chips (PS5 / Switch / Steam) toggle via the existing
+  `PlatformOwnershipsController#update` (full-set replace). Single `[played]`
+  and `[recorded]` chips (visual placeholders derived from `@game.played_at` and
+  `@game.video_game_links.exists?`). `[TBD]` for footage. New components:
+  `Games::PlatformOwnershipChipComponent`, `Games::PlayedChipComponent`,
+  `Games::RecordedChipComponent`. Per-platform played/recorded breakdown
+  REJECTED by the user on 2026-05-17.
+- **C5 — `Games::RatingHeatBarComponent`.** 200×14 px bar, vote-weighted average
+  score formula. Tier color via `--color-rating-<tier>` (auto-themes). Wired
+  into the LEFT pane after the meta lines.
+- **C6 — sync banner.** Hairline + "synced ~22m ago" at the LEFT pane bottom via
+  the new `short_synced_ago(timestamp)` helper (s/m/h/d format), OR an inline
+  `=---` dot-loader span when `@game.resyncing?`. Reuses the existing
+  `sync-indicator` Stimulus controller from spec 03.
+- **C7 — RIGHT pane rewrite.** Only `<section class="game-summary">` (uses
+  `simple_format`) + hairline + `<section class="game-ttb">` (3-column main /
+  extras / completionist using the new `ttb_hours(seconds)` helper, em-dash for
+  nil). Stripped: stores section, ratings table, detail time-to-beat table,
+  local-fields table, platforms heading + chip row in RIGHT pane.
+- **C8 — `[resync]` breadcrumb.** Breadcrumb `[edit]` (now 404 after C1)
+  replaced with `[resync]` via `button_to` POST to `resync_game_path(@game)`.
+  Renders muted via `BracketedMutedLinkComponent` while `@game.resyncing?`.
+- **C9 — `[delete]` breadcrumb.** Breadcrumb `[-]` replaced with `[delete]`
+  opening the existing `ConfirmModalComponent` (reused the project's
+  confirm-modal stack with the `modal-trigger` Stimulus controller). Submits
+  DELETE to `game_path(@game)`. No `data-turbo-confirm` per the hard rule.
+- **C10 — linked videos.** Section heading renamed to "videos"; empty-state copy
+  replaced with a `StatusTbdBadgeComponent` render.
+- **C11 — `StatusTbdBadgeComponent`.** New
+  `app/components/status_tbd_badge_component.{rb,html.erb}` renders `[TBD]` in
+  `#ff8800` orange, weight 600, monospace, nowrap. Cross-cutting placeholder.
+
+### Wave D — page-action keybindings (5 slices D1–D5)
+
+- **D1 — YAML.** Added a top-level `page_actions:` key to
+  `config/keybindings.yml` above `menus:`. Defines `games_index` (1 action: `/`
+  search), `games_show` (3: `/`, `s` sync, `-` delete), `bundles_show` (3 same),
+  `default` (1: `/` search).
+- **D2 — `KeybindingsReferenceComponent`.** New
+  `app/components/keybindings_reference_component.{rb,html.erb}` renders two
+  sections — page actions FIRST per the user-confirmed 2026-05-17 §25.3
+  override, hairline, then navigation menus.
+  `NO_PAGE_ACTIONS_PAGES = %w[settings admin]` deny-list ensures `/settings`
+  does not inherit the `default:` action. Helper `keybindings_page_key` added to
+  `app/helpers/keybindings_helper.rb`. Component NOT yet wired into a layout —
+  the existing keybindings UI is the JS leader-menu popup; the new reference
+  component will surface when a long-form reference page lands.
+- **D3 — keyboard controller hooks.** Added `page_sync(event)` and
+  `page_delete(event)` to `app/javascript/controllers/keyboard_controller.js`.
+  `s` case wired to `page_sync` (falls back to the existing `[star]` handler
+  when `<body>` has no `data-page-sync-url`); new `-` case wired to
+  `page_delete`.
+- **D4 — drop bulk leader rows.** Removed 3 rows from `config/keybindings.yml` —
+  `menus.games.items` lost `[- bulk_delete]` + `[r bulk_resync]`;
+  `menus.bundles.items` lost `[r bulk_resync]`. Per spec 09 + user brief item 8.
+- **D5 — `SearchPlaceholderModalComponent`.** New
+  `app/components/search_placeholder_modal_component.{rb,html.erb}` mirrors the
+  project's confirm-modal pattern — native `<dialog>` opened via
+  `modal-trigger`, dismissed via `confirm-modal` controller. Body shows the
+  `[TBD]` badge + "search coming soon" copy.
+
+### Decisions
+
+- Steam brand color locked to `#00ADEE` cyan — chosen over `#1B2838` and
+  `#171A21` for legibility on both themes.
+- Platform-logo PNG pipeline retired entirely. Chips replace logos universally —
+  no dual-rendering, no theme variants.
+- Bundle consolidation discovered already-landed in the working tree. No rework
+  beyond verification + smoke test.
+- C3 absorbed into Wave B4 — the chip row landed in the LEFT-pane slot B4
+  already touched.
+- Per-platform played/recorded breakdown REJECTED. Single chip each, both visual
+  placeholders for now.
+- Page actions render BEFORE navigation in the new reference component —
+  user-confirmed §25.3 override of the original spec 09 draft.
+
+### Iteration-mode discipline
+
+NO specs added in this session — code-only per the new operating contract. Spec
+drift (e.g. `platform_logos_helper_spec.rb` testing the now-deleted
+`platform_logo_tag`) deferred to the consolidation pass (Wave F).
+
+### Follow-ups
+
+- Wave F consolidation pass (on user signal): `build_stubbed` factory sweep, add
+  deferred specs for all new components (`Platforms::ChipComponent`,
+  `Games::RatingHeatBarComponent`, `StatusTbdBadgeComponent`,
+  `SearchPlaceholderModalComponent`, `KeybindingsReferenceComponent`, the three
+  ownership-chip components), fix drift in `platform_logos_helper_spec`, then
+  run `bin/test` followed by `bin/test all`.
+- Rename `app/helpers/platform_logos_helper.rb` → `platform_chips_helper.rb`
+  (and module rename) in Wave F.
+- `KeybindingsReferenceComponent` wiring into a layout / long-form reference
+  page — TBD when a placement is decided.
+- Per-game-platform played/recorded toggle endpoints — the current
+  `PlatformOwnershipsController#update` is full-set replace; per-record toggle
+  endpoints would be a polish slice.
+- `pito-slack` agent `tools:` line fix has been pushed to
+  `gmrdad82/claude-dotfiles` main `4da8083`; takes effect on the NEXT Claude
+  Code session.
+
+### 2026-05-17 validation clarifications
+
+Four rules surfaced during user validation today and were written into
+`docs/design.md` as the canonical reference. Captured here so the session
+context survives:
+
+- **Scrollbar thickness — 6px sitewide, both axes.** User confirmed and declined
+  a 4px proposal. The CSS is already in `app/assets/tailwind/application.css`
+  (~lines 628–647); the rule was missing from
+  `design.md > Horizontal scrollbars` and has now been added with an explicit
+  note that the unsuffixed `::-webkit-scrollbar` rule themes vertical bars too.
+- **Letter shelves AND genre shelves render the rich tile.** Same
+  `_tile.html.erb` partial (cover + title + year + platform chips) drives both
+  shelf kinds. Not a bare cover, not a composite. Added to
+  `design.md > Aesthetic > Shelves`.
+- **Genre shelf semantics — individual rich tiles, alphabetical.** Every game
+  with that `primary_genre` renders as its own rich tile, sorted A–Z by title.
+  Not a single composite, not a Netflix-style merged image. Just a horizontal
+  scroll of N tiles. Added to the same `Shelves` subsection.
+- **Bundle shelf semantics — single row, all bundles, composite cover art.** One
+  row labeled "bundles" with N tiles; each tile is the bundle's compound cover
+  built by `Bundles::CompositeRebuildQueue`. Not per-letter, not per-genre. This
+  is the one shelf kind where the tile art is a composite rather than a per-game
+  cover. Added to the same `Shelves` subsection.
+
+### 2026-05-17 validation clarifications (round 2)
+
+Two rules from the first round-1 capture were wrong on substance; user
+re-clarified during continued validation. Previously captured wrong, fixed here
+(both in `docs/design.md` + this log) for audit trail.
+
+- **Shelves — rich tile is RESERVED for letter shelves only.** Round-1 said
+  genre shelves also use the medium rich tile. WRONG. Correct rule:
+  - Letter shelves: medium-tier rich tile (cover + title + year + platform
+    chips). Unchanged.
+  - Genre shelves: SMALL tier, COVER ONLY. One small bare cover per game with
+    that primary genre, sorted alphabetically. No title, no year, no chips. Not
+    a composite, not a rich tile.
+  - Bundle shelf: SMALL tier, COVER ONLY. One small composite cover per bundle
+    (cover IS the composite art built by `Bundles::CompositeRebuildQueue`). No
+    title, no chips below.
+  - Pattern: rich tile = "game listing" surface (letter shelves only). Genre +
+    bundle shelves are denser, art-only browse surfaces. Size tier is `small`
+    per the existing `### Tile Cover Sizes` table.
+  - Rewrote `docs/design.md > Aesthetic > Shelves` with the corrected
+    per-shelf-kind rules.
+- **Platform Chips — status-badge style, NO visible brackets in DOM.** Round-1
+  (and the original spec language) described chips as bracketed text `[PS5]`,
+  `[Switch]`, `[Steam]` in brand color. WRONG for the rendered output. Correct
+  rule:
+  - Chips render as filled badges: background = brand color, text = contrasting
+    white. NO literal `[ ]` brackets in the rendered HTML.
+  - The `[ ]` notation in chat / spec docs / prose is a STAND-IN for the visual
+    badge — not a render instruction.
+  - Pattern matches the existing `.status-badge` family (e.g.,
+    `StatusTbdBadgeComponent`).
+  - Locked color table unchanged (PS5 `#003791`, Switch `#E60012`, Steam
+    `#00ADEE`). Size variants `:sm` (tile) + `:md` (detail) also unchanged.
+  - Rewrote `docs/design.md > Interactive Elements > Platform Chips` with the
+    corrected render shape; kept the color table + size variants.
+
+Component code (`Platforms::ChipComponent`) and consumer surfaces NOT touched in
+this docs-only pass — the spec correction documents the intent; any visual drift
+between rendered DOM and the new spec is a follow-up for an implementation
+dispatch.
+
+### 2026-05-17 validation clarifications (round 3 — fabricated cover size retracted)
+
+Round-2 capture asserted that genre + bundle shelves use a `small`
+(`64 × 85 px`) cover tier. WRONG — that tier never existed. Master agent
+fabricated the value when rewriting
+`docs/design.md > Aesthetic > Tile Cover Sizes` without checking the canonical
+source.
+
+Truth per `app/components/games/cover_component.rb` DIMENSIONS constant +
+plan.md §"Locked decisions" item 1: only TWO cover variants exist.
+
+- `:shelf` — 98 × 130 px. Used by every horizontal-scroll shelf tile (letter
+  shelves rich `_tile`, genre shelves bare cover, bundle shelves bare composite
+  cover). 65% of `:grid` baseline per the explicit plan.md calculation.
+- `:grid` — 150 × 200 px. The all-games grid baseline. The grid display mode
+  itself was removed in spec 05; the variant lives on for `/games/:id` detail
+  rendering.
+
+The genre / bundle vs letter distinction is chrome around the cover (bare image
+vs rich tile with title + year + chips), NOT a cover-size tier. Code briefly
+added the fabricated `:small` variant and was reverted; `docs/design.md` now
+reflects code + plan truth.
+
+- Renamed `### Tile Cover Sizes` → `### Cover Sizes` (the size is a
+  component-level dimension, not a tile construct) with source-of-truth
+  citations to the DIMENSIONS constant + plan.md.
+- Rewrote the cross-reference at the bottom of `### Shelves` to drop the false
+  `small for genre + bundle, medium for letter` claim. All three shelf kinds
+  share `:shelf` (98 × 130); only the chrome differs.
+
+New discipline `feedback_look_up_never_pick` locks "no invented values" going
+forward — master cites canonical sources for every numeric / token / sizing
+claim before writing it into a canonical doc; when no canonical source exists
+yet, the entry reads `(needs user decision — TBD)` rather than a
+plausible-sounding guess. Captured as a new top-level `## Source of truth`
+section in `CLAUDE.md` covering both the hierarchy and the look-up rule.
+
+### 2026-05-17 validation clarifications (round 4 — badges naming + tile overlay + count badge)
+
+Four more rules surfaced during continued validation. Captured both in
+`docs/design.md` (canonical) and here (session audit trail).
+
+- **Naming convention: "status badge" → "badge".** Going forward the
+  badge-family components drop the `Status` prefix. Canonical taxonomy is
+  **badge** (the primitive) with variants: active badge, muted badge, tbd badge,
+  yes/no badge, tooltip badge, rating badge — plus **chip** for the filled
+  brand-color platform pills (PS5 / Switch / Steam). Existing components that
+  still carry the legacy prefix (`StatusBadgeComponent`,
+  `StatusTbdBadgeComponent`) are NOT renamed in this docs-only pass — that's a
+  project-wide refactor (renames cascade to every caller) deferred to the Wave F
+  consolidation pass. New components going forward use the short name
+  (`BadgeComponent`, `MutedBadgeComponent`, etc.). Rationale: the shorter name
+  reads better in component callsites and matches the way the user has been
+  referring to the family in chat. Added a new `### Badges` subsection under
+  `## Interactive Elements`, placed adjacent to `### Platform Chips` so the two
+  families read as siblings.
+- **Platform chips render as an overlay on the cover, bottom-right corner.** In
+  a tile context, the chip group renders as an absolute-positioned container
+  anchored to the cover's bottom-right corner — touching both the right edge and
+  the bottom edge of the cover border. Container background matches the cover
+  border token (`var(--color-cover-border)`, the same token wrapping the cover
+  image in `Games::CoverComponent`), so the overlay reads as a flush extension
+  of the cover frame rather than a floating element. Inner chip spacing inside
+  the overlay container stays `gap: 2px` per the existing tightness rule.
+  Rationale: chips overlaid on the cover read tighter in the dense shelf layout
+  than a separate chip row below the caption, and free up vertical space in the
+  tile. Updated `### Platform Chips` with a new "Tile overlay placement
+  (2026-05-17)" paragraph.
+- **Release year removed from tile caption row.** The letter-shelf rich tile
+  caption row now contains the title only. Release year and other release info
+  are NOT rendered in the tile — they belong on the game detail page. Combined
+  with the chips-as-overlay change above, the tile is now: cover image with chip
+  overlay on the bottom-right corner, plus a caption row below the cover with
+  the title. Rationale: tile chrome is optimized for scan density; release year
+  is detail-page content. Updated the `### Shelves > Letter shelves` bullet plus
+  the trailing paragraph and the `### Cover Sizes` follow-up note.
+- **Game count next to shelf headings uses a muted badge.** Each shelf heading
+  (letter name, genre name, "bundles") displays the game count as a muted
+  **badge** (`StatusBadgeComponent.new(label: count.to_s, kind: :neutral)`), NOT
+  as parenthesized text `(2)`. The earlier `MutedCountBadgeComponent` built
+  during the same session rendered plain text inside parentheses; it was the
+  wrong shape (text span instead of a filled badge) and is slated for deletion
+  in the next code dispatch in favour of the canonical `StatusBadgeComponent`.
+  Rationale: keeps the count primitive consistent with the rest of the badge
+  family rather than inventing a parallel text-span shape. Added a new "Shelf
+  heading count badge" paragraph in `### Shelves`.
+
+Component code NOT touched in this docs-only pass. Follow-ups for the next code
+dispatch (small slices, per the "agile dispatches" discipline):
+
+- Delete `MutedCountBadgeComponent` and rewire shelf-heading callsites to
+  `StatusBadgeComponent.new(label: count.to_s, kind: :neutral)`.
+- Move platform chips in the letter-shelf `_tile.html.erb` from the caption row
+  into an absolute-positioned overlay container on the cover, anchored
+  bottom-right, background `var(--color-cover-border)`.
+- Remove the release-year fragment from the letter-shelf `_tile.html.erb`
+  caption row.
+
+Wave F consolidation item (when the user signals a consolidation pass):
+
+- Rename `StatusBadgeComponent` → `BadgeComponent` and `StatusTbdBadgeComponent`
+  → `TbdBadgeComponent`. Cascade callers across every view, component, helper,
+  spec, and any string-referenced names. Project-wide rename — kept out of the
+  agile iteration loop intentionally.
+
+### 2026-05-17 spec-vs-code reconciliation (round 5)
+
+Three documentation drifts on `specs-v2/02-collection-cover-art-compositions.md`
+reconciled after today's composite layout restoration. Code was correct; the
+spec needed to better explain the canvas indirection.
+
+- **Render canvas vs display tile dimensions clarified.** The spec previously
+  declared "canvas 98 × 130" on each per-layout pixel decomposition, which
+  conflated the on-disk render target with the shelf display variant. Reality
+  (per `app/services/composite/layout/`): composites are RENDERED at 600 × 800
+  px (high-res JPEG written to disk) and DISPLAYED at the shelf tile size 98 ×
+  130 px (the variant defined in `### Cover Sizes`). The browser downscales at
+  display time; generating at 600×800 then downscaling produces sharper edges
+  than rendering at 98×130 directly. Added a new `### Canvas dimensions`
+  subsection near the top of the "Layout matrix" section explaining the
+  indirection and the 600/98 ≈ 6.12× scale factor. Per-layout pixel breakdowns
+  continue to express positions at the 98×130 display size for readability — the
+  display-size pixels remain the canonical SPEC for visual intent, the
+  render-canvas math is an implementation detail.
+- **`:nine_grid` cell math note added.** Spec says columns 33/33/32 and rows
+  43/43/44 at the 98×130 display size. Code at
+  `app/services/composite/layout/nine_grid.rb` uses uniform 200×267 cells at the
+  600×800 render canvas (cropped to 600×800), which downscales to within ±1px of
+  the display-size decomposition. Appended a render-canvas implementation note
+  clarifying both formulations are correct: the display-size pixels are the
+  canonical visual intent, the render-canvas uniform-cell approach is an
+  implementation choice.
+- **`:netflix5` and `:six_grid` pixel positions captured.** Today's restoration
+  created the missing `:netflix5` and `:six_grid` layout files at the render
+  canvas with proportional cell positions, but the spec only specified pixel
+  positions for `:netflix7`, `:eight_grid`, and `:nine_grid` — leaving
+  `:netflix5` and `:six_grid` as "shape only". Pulled the actual values from
+  `app/services/composite/layout/netflix5.rb` and
+  `app/services/composite/layout/six_grid.rb`, scaled to display size, and
+  inserted matching per-layout decomposition blocks for both: `:netflix5` (left
+  49×130, right 2×2 grid of 24/25 × 65) and `:six_grid` (cols 33/33/32, rows
+  65/65, six cells). Each block also carries a render-canvas implementation note
+  matching the pattern used for `:nine_grid`.
+
+No code touched. No `plan.md`, `design.md`, or `CLAUDE.md` changes. Spec edits
+live solely in
+`docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs-v2/02-collection-cover-art-compositions.md`.
+
+### 2026-05-17 validation clarifications (round 6 — filter token collapse families)
+
+Captured the platform filter token → DB slug collapse rule in
+`docs/design.md ### Platform Chips`: chip tokens (`ps5`, `switch2`, `steam`)
+intentionally map to MULTIPLE underlying IGDB platform slugs at the filter layer
+(`Games::Filter TOKEN_TO_PLATFORM_SLUGS`), mirroring the chip-display PC
+collapse in `app/helpers/platform_logos_helper.rb` — when adding a new chip,
+update both places.
+
+### 2026-05-17 validation clarifications (round 7 — filter semantics rewrite locked)
+
+Round 6 captured the platform token → DB slug collapse. Round 7 nails down the
+broader filter logic that controls how chips combine. User delivered a
+comprehensive rule set after observing
+`?filters=released,scheduled,owned,wishlist,switch2` (no `played`) returning
+zero games instead of the expected five Switch-family games (Pragmata,
+Mandragora, Cyberpunk 2077, Terminator 2D, Ghosts'n Goblins Resurrection).
+
+The locked semantics:
+
+- **Four orthogonal axes** — lifecycle (`released` / `scheduled`), ownership
+  (`owned` / `wishlist`), engagement (`played`), platform (`ps5` / `switch2` /
+  `steam`).
+- **Within-axis OR, cross-axis AND.** Both ownership chips checked = ownership
+  axis inactive (every game passes per rule f). Both lifecycle chips checked =
+  lifecycle axis inactive (per rule e).
+- **Per-platform binding** when the platform axis intersects with ownership or
+  engagement: `owned + <platform>` ≡ owned ON that platform,
+  `played + <platform>` ≡ played ON that platform (via new
+  `games.played_platform_id` FK), `wishlist + <platform>` ≡ not-owned-globally
+  AND game has platform available. Wishlist is ALWAYS global ("doesn't own
+  ANYWHERE") — never per-platform.
+- **Implies / mutex (a–f).** `played → released + owned`, `owned → released`,
+  `wishlist ⊥ played` ONLY when `owned` is absent (CONDITIONAL —
+  `owned + played + wishlist` is VALID), released XOR scheduled per game,
+  ownership universe = `owned ∪ wishlist`.
+- **Bidirectional cascade UI.** Checking a child auto-checks parents; unchecking
+  a parent re-validates and auto-unchecks children whose dependencies are no
+  longer satisfied. Worked walkthrough: start empty → check `played`
+  (auto-checks `released + owned` + platform) → check `wishlist` (`played`
+  stays, `owned` still satisfies it) → uncheck `owned` (`played` auto-unchecks —
+  only `wishlist` left for ownership, mutex with played per rule c).
+- **Recorded chip dropped.** "drop recorded as played and recorded is the same
+  thing" — remove `Games::RecordedChipComponent`, the recorded row on
+  `/games/:id` ownership section (Wave C4 addition), and any `recorded` filter
+  token.
+
+**New ADR** at `docs/decisions/0013-games-filter-semantics.md` carries the full
+rule set, implementation contract (data: `games.played_platform_id` FK; code:
+rewrite `Games::Filter` and the filter Stimulus controller), and a
+decision-table of worked URL examples for the Wave F consolidation spec.
+**`design.md`** gains a one-paragraph `### Filter semantics` subsection under
+`## Interactive Elements` pointing at the ADR.
+
+No code touched. No `plan.md`, spec, or `CLAUDE.md` changes — Wave F will spec
+the rewrite and the comprehensive `Games::Filter` decision-table spec.
+
+### 2026-05-17 validation clarifications (round 8 — bundle cover size sync + docs reconciliation)
+
+Bundle shelf cover changed from 98 × 130 px to 150 × 200 px so it lines up with
+the letter-shelf rich tile cover. The bundle composite continues to be built at
+a 600 × 800 canvas by `Bundles::CompositeRebuildQueue`; only the displayed
+dimensions in `_bundle_for_shelf_tile.html.erb` widened.
+
+While verifying, surfaced a long-standing docs drift:
+`docs/design.md ### Cover Sizes` + `### Shelves` had claimed all three shelf
+kinds use the `:shelf` variant (98 × 130 px). That has never been true for the
+letter shelf — `app/views/games/_tile.html.erb` has always inline-rendered the
+cover at 150 × 200 px with hardcoded `img` dimensions, NOT routed through
+`Games::CoverComponent`. The `:shelf` flag the partial accepts only governs the
+caption font size; the cover itself bypasses `CoverComponent` entirely.
+
+Reconciliation landed in `design.md`:
+
+- `### Cover Sizes` — reworded the table so `:shelf` (98 × 130) is described as
+  the **genre shelf** consumer only, and added a separate paragraph listing the
+  inline 150 × 200 renders (letter shelf via `_tile.html.erb`, bundle shelf via
+  `_bundle_for_shelf_tile.html.erb`) that bypass `CoverComponent`. Flagged the
+  centralization gap.
+- `### Shelves` — rewrote each shelf bullet to lead with the actual cover
+  dimensions: letter shelf 150 × 200 + rich caption + chip overlay; genre shelf
+  98 × 130 bare cover; bundle shelf 150 × 200 composite cover. Dropped the "all
+  three shelf kinds use the same `:shelf` cover variant" closing paragraph.
+
+**Wave F follow-up.** Route the letter + bundle shelf covers through
+`Games::CoverComponent.new(variant: :grid)` so the `DIMENSIONS` constant in
+`app/components/games/cover_component.rb` is the single source of truth for
+every cover-rendering surface. Today's inline hardcoded `img` tags in
+`_tile.html.erb` and `_bundle_for_shelf_tile.html.erb` would be deleted in favor
+of a `render Games::CoverComponent.new(...)` call.
+
+No code touched. No `plan.md`, spec, or `CLAUDE.md` changes — only
+`docs/design.md` and this log.
+
+### 2026-05-17 validation clarifications (round 9 — chip taxonomy expansion)
+
+Platform chip taxonomy expanded from 3 to 5 entries. User asked for "full
+coverage but ignore Xbox" — PS4 + first-gen Switch matter, Xbox generations do
+not. Locked set:
+
+- **5-chip display set:** `ps5`, `ps4`, `switch2`, `switch`, `steam`. Xbox /
+  Xbox 360 / Xbox One / Series X|S deliberately excluded — no Xbox chip will
+  ever render.
+- **Brand-family color sharing.** Chips share brand color within a console
+  family — PS4 + PS5 use the same PlayStation blue (`#003791`); Switch + Switch
+  2 use the same Nintendo red (`#E60012`). The LABEL carries the generational
+  signal (`PS4` vs `PS5`, `Switch` vs `Switch 2`). Steam stays solo (`#00ADEE`).
+- **Display order (newer first per family):**
+  `PS5, PS4, Switch 2, Switch, Steam`. Codified in
+  `KNOWN_LOGOS = %w[ps5 ps4 switch2 switch steam]` at
+  `app/helpers/platform_logos_helper.rb` and in the chip-display collapse
+  helpers.
+- **Filter ↔ display asymmetry locked.** Filter tokens stay at 3 (`ps5` strict,
+  `switch2` covers both Switch gens, `steam` covers the PC family). Display
+  chips at 5. Asymmetry is intentional — filters narrow ownership decisions,
+  display chips enumerate available platforms truthfully on a per-game basis. A
+  PS5 filter shouldn't drag in PS4 games; a tile listing a cross-gen game should
+  still show both PS4 and PS5 chips so the player sees the full picture.
+
+Source-of-truth wiring already in code as of today's chip-component change:
+
+- `app/components/platforms/chip_component.rb` `SLUG_BRAND` — 5 entries (`ps5`,
+  `ps4`, `switch2`, `switch`, `steam`).
+- `app/models/platform.rb` `IGDB_ID_TO_CANONICAL_SLUG` — 5 console mappings plus
+  the PC family collapse to `steam`.
+- `app/helpers/platform_logos_helper.rb` `KNOWN_LOGOS` — fixed display order.
+
+Reconciliation landed in `design.md`:
+
+- `### Platform Chips` table grew from 3 to 5 rows.
+- Added a paragraph BEFORE the table documenting brand-family color sharing +
+  label-distinguishes-gen rule + display order.
+- Added an "Xbox excluded" paragraph AFTER the table.
+- `### Filter semantics` gained a "Filter tokens ≠ display chips" paragraph
+  spelling out the 3-vs-5 asymmetry with pointer back to `### Platform Chips`.
+
+No code touched. No `plan.md`, spec, or `CLAUDE.md` changes — only
+`docs/design.md` and this log.
+
+### 2026-05-17 validation clarifications (round 10 — chip taxonomy re-collapsed)
+
+Round 9's 5-chip expansion (PS5, PS4, Switch 2, Switch, Steam) reverted. User
+clarified the intent of "full coverage but ignore Xbox": the player owns one
+console per family today (PS5, Switch 2), and that current-gen chip is the one
+that should render — back-catalog generations collapse INTO the current-gen chip
+rather than getting their own pill. Final locked set:
+
+- **3-chip display set:** `ps5`, `switch2`, `steam`. Same three slugs as the
+  filter axis — alignment restored.
+- **Generation collapse rule.** The PS5 chip covers BOTH PS5 (IGDB 167) AND PS4
+  (IGDB 48). The Switch 2 chip covers BOTH Switch 2 (IGDB 508) AND Switch gen 1
+  (IGDB 130). The Steam chip continues to absorb the PC family per the existing
+  `PC_STORE_IGDB_IDS` table. The collapse happens at
+  `Platform::IGDB_ID_TO_CANONICAL_SLUG` in `app/models/platform.rb` — the
+  newer-generation chip absorbs older generations of the same brand at the model
+  layer, so by the time the view renders chips there is no PS4 / Switch gen 1
+  slug to display.
+- **Xbox still excluded.** No Xbox chip renders for Xbox / Xbox 360 / Xbox One /
+  Series X|S games (round 9 ruling unchanged).
+- **Naming locked: these are CHIPS, not badges.** Per memory note
+  `feedback_chips_not_badges.md` — the term used in docs, specs, prose, and
+  component naming is "chip" (filled pill with brand color). "Badge" stays
+  reserved for the neutral `StatusBadgeComponent` family. Round 9 prose already
+  used "chip" consistently; reaffirmed here so the next reviewer doesn't drift
+  back to "badge".
+- **Filter ↔ display ASYMMETRY paragraph DROPPED.** Round 9 introduced a "Filter
+  tokens ≠ display chips (intentional asymmetry)" paragraph in
+  `### Filter semantics` documenting a 3-vs-5 split. With the collapse, filter
+  tokens AND display chips are both 3 — there is no asymmetry to document.
+  Paragraph removed entirely.
+
+Reconciliation landed in `design.md`:
+
+- `### Platform Chips` table shrank from 5 rows back to 3 (`ps5`, `switch2`,
+  `steam`).
+- Round 9's "brand-family color sharing" paragraph (introduced to explain why
+  PS4 + PS5 share the same blue) DROPPED — with one chip per family, the rule is
+  moot.
+- Replacement paragraph "Generation collapse" added in its place, documenting
+  the IGDB-ID-to-canonical-slug collapse explicitly so the next contributor
+  understands why a PS4-only game still shows a PS5 chip.
+- `### Filter semantics` "Filter tokens ≠ display chips" paragraph DROPPED.
+- `### Filter semantics` "Filter token → DB slug collapse" table updated: the
+  `ps5` row no longer says "one-to-one" — it now lists `ps5, ps4` to match the
+  collapsed model layer and the rationale column reads "both PlayStation
+  generations — PS5 is the user's current console and covers PS4 back-catalog".
+
+Code-side follow-up (NOT done here, dispatch separately):
+
+- `app/components/platforms/chip_component.rb` `SLUG_BRAND` must shrink back to
+  3 entries.
+- `app/models/platform.rb` `IGDB_ID_TO_CANONICAL_SLUG` must map IGDB 48 (PS4) →
+  `ps5` and IGDB 130 (Switch gen 1) → `switch2`.
+- `app/helpers/platform_logos_helper.rb` `KNOWN_LOGOS` must shrink to
+  `%w[ps5 switch2 steam]`.
+- `Games::Filter` `TOKEN_TO_PLATFORM_SLUGS` `ps5` entry must extend to
+  `%w[ps5 ps4]`.
+
+No code touched. No `plan.md`, spec, or `CLAUDE.md` changes — only
+`docs/design.md` and this log.
+
+### 2026-05-17 round 11 — chip slug rename `ps5`/`switch2` → `ps`/`switch` + ADR 0014
+
+Round 10 locked the 3-chip family collapse but kept the round-9 slug names
+(`ps5`, `switch2`) on the new family chips. Naming drifted from intent: a chip
+that covers BOTH PS5 and PS4 should not itself be named `ps5`, and a chip that
+covers BOTH Switch 2 and Switch gen 1 should not be named `switch2`. Round 11
+renames the slugs + labels to match the family semantics, and promotes the
+collapse rule from session-log decision to a durable ADR.
+
+**Done:**
+
+- Renamed chip slugs across `docs/design.md`:
+  - `### Platform Chips` table: `ps5` → `ps`, `switch2` → `switch` (slug
+    column); `PS5` → `PS`, `Switch 2` → `Switch` (label column).
+  - `### Platform Chips` "Generation collapse" paragraph rewritten in family-
+    token voice ("The PS chip covers BOTH PS5 (IGDB 167) AND PS4 (IGDB 48)",
+    etc.).
+  - `### Filter semantics` "Filter token → DB slug collapse" table: `ps` row
+    matches DB slugs `ps5, ps4--1`; `switch` row matches `switch, switch-2`;
+    `steam` row unchanged.
+  - `### Filter semantics` axis description paragraph: platform tokens listed as
+    `ps / switch / steam`.
+  - Top-of-section prose: "PS / Switch / Steam" chip family identification (was
+    "PS5 / Switch / Steam").
+- Authored `docs/decisions/0014-platform-chip-generation-collapse.md` capturing
+  the family-collapse rule as durable architectural truth: family → IGDB ids
+  table, rationale for collapsing per-generation into a single family chip, code
+  locations to keep in sync, Xbox-exclusion rule with reversal recipe,
+  backward-compat note on stale URL filter tokens.
+- ADR cross-reference: 0014 sits alongside 0013 (filter semantics). The filter
+  token table in `design.md` and ADR 0014's IGDB-ids table now use the same
+  family slugs (`ps`, `switch`, `steam`).
+
+**Decisions:**
+
+- Chip slug names track FAMILY, not current-generation flagship. `ps` (not
+  `ps5`) signals the chip covers the whole PlayStation family; `switch` (not
+  `switch2`) signals the chip covers the whole Switch family. Rationale: a chip
+  whose entire purpose is generation-collapse shouldn't carry a
+  generation-specific name — the slug would mislead the next reader into
+  thinking it's PS5-only.
+- Collapse rule earns an ADR (0014) rather than staying in the session log. Per
+  the project's logging convention, decisions get an ADR when they produce a
+  durable architectural commitment — the family-chip taxonomy is exactly that,
+  and round-10's reversal of round-9 demonstrates how easily the rule drifts
+  without a canonical home.
+- Old IGDB-platform-slug references in the `### Filter semantics` collapse table
+  (`ps5`, `ps4--1`, `switch`, `switch-2`) stay verbatim because those are the
+  DB-side slugs the filter matches against — they are NOT chip tokens. Only the
+  LEFT column of that table (the chip token) was renamed.
+- Backward-compat for old `?filters=ps5,switch2,steam` URL bookmarks: silent
+  fall-through (unknown tokens ignored). Single-user project, no shareable URLs
+  in flight — acceptable. ADR 0014 documents this as a breaking change for the
+  record.
+
+**Next:**
+
+- None for docs. Code-side renames (`SLUG_BRAND` keys, `KNOWN_LOGOS`,
+  `TOKEN_TO_PLATFORM_SLUGS` keys, `IGDB_ID_TO_CANONICAL_SLUG` values) are the
+  implementation agent's lane and were already covered by the rename dispatch
+  that triggered this docs pass.
+
+No code, spec, plan, or `CLAUDE.md` changes — only `docs/design.md`, new ADR
+`docs/decisions/0014-platform-chip-generation-collapse.md`, and this log entry.

@@ -33,8 +33,21 @@ export default class extends Controller {
   }
 
   onWheel(event) {
-    // Only intercept vertical wheel; leave touchpad horizontal swipes alone.
+    // Ignore horizontal-dominant wheel (trackpad horizontal scrolls).
     if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return
+
+    // Compute whether the shelf can absorb the wheel in the requested direction.
+    const wantsRight = event.deltaY > 0
+    const wantsLeft = event.deltaY < 0
+    const canScrollRight =
+      this.row.scrollLeft < this.row.scrollWidth - this.row.clientWidth - 1
+    const canScrollLeft = this.row.scrollLeft > 0
+
+    // If shelf has nowhere to go in the requested direction, let the page
+    // scroll naturally (fixes Brave wheel-debt accumulator bug).
+    if ((wantsRight && !canScrollRight) || (wantsLeft && !canScrollLeft)) return
+
+    // Intercept ONLY when shelf will actually move.
     event.preventDefault()
     this.row.scrollLeft += event.deltaY
   }

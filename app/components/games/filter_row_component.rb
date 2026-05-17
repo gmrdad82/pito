@@ -4,7 +4,7 @@
 # right-slot layout to a single compact band. Left side carries the
 # status + ownership chips; right side carries the platform chips.
 #
-#   [ ] released [ ] scheduled [ ] owned [ ] wishlist [ ] played    [ ] PS5 [ ] Switch2 [ ] Steam
+#   [ ] released [ ] scheduled [ ] owned [ ] wishlist [ ] played    [ ] PS [ ] Switch [ ] Steam
 #
 # Default state — every chip CHECKED, URL `/games` (no `?filters=`
 # param) — communicates "showing the full list, nothing narrowed".
@@ -29,11 +29,12 @@ class Games::FilterRowComponent < ViewComponent::Base
   RIGHT_TOKENS = PLATFORM_TOKENS
 
   # `checked_tokens:` is the SET of currently-checked chips (Array of
-  # canonical token strings). When omitted, defaults to the full
-  # universe (all chips checked, full-list state).
+  # canonical token strings). When omitted, defaults to the
+  # `DEFAULT_CHECKED_TOKENS` set (universe MINUS `played`,
+  # user-locked 2026-05-17) — the bare-`/games` full-list state.
   def initialize(checked_tokens: nil, request_path: "/games", query_string_overrides: {})
     @checked_tokens = if checked_tokens.nil?
-      TOKEN_UNIVERSE.dup
+      DEFAULT_CHECKED_TOKENS.dup
     else
       Array(checked_tokens).map(&:to_s)
     end
@@ -63,8 +64,18 @@ class Games::FilterRowComponent < ViewComponent::Base
   # JSON-encoded universe + request path. Consumed by the
   # `games-filter` Stimulus controller via `data-games-filter-...-value`
   # attributes so the controller can decide when the URL collapses to
-  # `/games` (universe checked) vs `/games?filters=<csv>` (subset).
+  # `/games` (default-checked set, universe minus `played`) vs
+  # `/games?filters=<csv>` (anything else).
   def universe_json
     TOKEN_UNIVERSE.to_json
+  end
+
+  # JSON-encoded default-checked set. The Stimulus controller compares
+  # the current chip state against this set to decide whether to emit
+  # the bare `/games` URL (default match) or `/games?filters=<csv>`
+  # (any other state, including the explicit-universe with `played`
+  # checked).
+  def default_checked_json
+    DEFAULT_CHECKED_TOKENS.to_json
   end
 end

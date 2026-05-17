@@ -1,26 +1,18 @@
-# Phase 14 §2 — Bundle model.
+# Phase 14 §2 / Phase 27 follow-up (2026-05-17) — Bundle model.
 #
-# A curated grouping of Games used as a video-attribution pivot in
-# analytics ("series", "collection", "genre", "custom"). Each Bundle
-# has a composite cover image stitched together from its members'
-# IGDB covers, regenerated whenever membership changes.
+# A curated grouping of Games used as a video-attribution pivot. After
+# the 2026-05-17 simplification the model has exactly one attribute
+# (`name`) plus a composite-cover artifact (`composite_cover_path` +
+# `composite_cover_checksum`) and a name-derived `slug` for URL
+# stability. The `bundle_type` / `igdb_source_*` / `last_error` columns
+# and every IGDB-seeding path are gone. There is no notion of
+# "collection" or "series" — every grouping is just a bundle.
 #
-# Decisions (master-agent locked 2026-05-10):
-#   - `bundle_type` is immutable post-create (the form does not expose
-#     the field on edit; strong params drop it on update).
-#   - Composite cover is built async via Sidekiq (`BundleCoverBuild`).
-#   - `last_error` text column surfaces the most recent build / seed
-#     failure inline on the show page.
-#   - On destroy, the on-disk cover file is removed (`before_destroy`).
-#   - `/composites/:filename.jpg` route is auth-gated.
-#
-# IGDB-source provenance:
-#   - `igdb_source_type` ∈ { franchise, source_collection, source_genre }
-#     (Rails enum prefix `igdb_source` to avoid clashes with Game#genres
-#     etc.; predicates read e.g. `igdb_source_franchise?`).
-#   - `igdb_source_id` is the IGDB-side ID; composite-unique with
-#     `igdb_source_type` (one local bundle per IGDB-source pair).
-#   - For `custom` bundles both columns are NULL.
+# Membership is many-to-many through `bundle_members(position)`.
+# Cover regeneration is async via Sidekiq (`BundleCoverBuild`); the
+# multi-bundle case (a game's cover changes, fanning out to N bundles)
+# goes through `Bundles::CompositeRebuildQueue` so the rebuilds run as
+# a deterministic sequential chain (alphabetical by `Bundle.name`).
 class Bundle < ApplicationRecord
   # Phase 20 — friendly URLs. Name-derived slug + history-on-rename.
   extend FriendlyId
@@ -28,20 +20,8 @@ class Bundle < ApplicationRecord
 
   # Phase 27 §01h — shared composite-cover interface
   # (`composite_cover_url`, `composite_cover_absolute_path`,
-  # `sweep_composite_cover_file`). Extracted into `Compositable` so
-  # `Collection` can reuse the same shape for its sub-shelf composites.
+  # `sweep_composite_cover_file`).
   include Compositable
-
-  # Rails 8.1 — defensive: lock the enum-backing column types.
-  attribute :bundle_type, :integer
-  attribute :igdb_source_type, :integer
-  enum :bundle_type,
-       { series: 0, collection: 1, genre: 2, custom: 3 },
-       prefix: :type
-
-  enum :igdb_source_type,
-       { franchise: 0, source_collection: 1, source_genre: 2 },
-       prefix: :igdb_source
 
   has_many :bundle_members, -> { order(:position) }, dependent: :destroy
   has_many :games, through: :bundle_members
@@ -52,17 +32,9 @@ class Bundle < ApplicationRecord
   has_many :videos, through: :video_game_links
 
   validates :name, presence: true, length: { maximum: 255 }
-  validates :bundle_type, presence: true
-  validates :igdb_source_id,
-            uniqueness: { scope: :igdb_source_type, allow_nil: true }
-  validate  :igdb_source_pair_consistency
 
   after_save :enqueue_cover_build_if_changed
   before_destroy :sweep_composite_cover_file
-
-  # Phase 27 §01h — `composite_cover_url` and
-  # `composite_cover_absolute_path` are provided by the `Compositable`
-  # mixin (shared with Collection).
 
   # True when the cover on disk is stale relative to the current member
   # set. The checksum is computed over the sorted list of member
@@ -126,26 +98,9 @@ class Bundle < ApplicationRecord
     Pito::SlugBuilder.build(name.to_s, limit: slug_limit)
   end
 
-  def igdb_source_pair_consistency
-    if type_custom? && (igdb_source_type.present? || igdb_source_id.present?)
-      errors.add(:igdb_source_type, "must be blank for custom bundles")
-      errors.add(:igdb_source_id,   "must be blank for custom bundles") if igdb_source_id.present?
-    end
-    return if type_custom?
-
-    if igdb_source_type.blank? != igdb_source_id.blank?
-      errors.add(:igdb_source_id, "must be set when igdb_source_type is set")
-    end
-  end
-
   def enqueue_cover_build_if_changed
     return if destroyed?
     return unless saved_change_to_id? || needs_cover_rebuild?
     BundleCoverBuild.perform_async(id)
   end
-
-  # Phase 27 §01h — `sweep_composite_cover_file` is provided by the
-  # `Compositable` mixin (shared with Collection). The reap-orphans
-  # rake task picks up anything that survives the `before_destroy`
-  # hook (e.g. when `composite_cover_path` got blanked before destroy).
 end

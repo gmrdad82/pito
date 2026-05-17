@@ -1,6 +1,6 @@
 # Phase 20 — friendly URLs.
 #
-# Shared specs for the renameable family (Project / Bundle / Collection /
+# Shared specs for the renameable family (Project / Bundle /
 # MilestoneRule). Pass the model class plus a hash of factory + name
 # attribute overrides. The renameable family slugs from `name` and uses
 # the `:history` module.

@@ -208,18 +208,10 @@ RSpec.describe "Deletions", type: :request do
       end
     end
 
-    context "collections" do
-      let!(:collection) { create(:collection) }
-
-      it "creates a bulk operation and destroys the collection on perform" do
-        post deletions_path(type: "collection", ids: collection.id)
-        operation = BulkOperation.last
-
-        expect {
-          BulkDeleteJob.new.perform(operation.id)
-        }.to change(Collection, :count).by(-1)
-      end
-    end
+    # collections context removed 2026-05-17 — model is gone; bundles
+    # take its place. Bundle deletion is covered in the bundle deletion
+    # context above this block (kept under "bundles" / the requests
+    # spec at spec/requests/bundles_spec.rb).
 
     context "games" do
       let!(:game) { create(:game) }

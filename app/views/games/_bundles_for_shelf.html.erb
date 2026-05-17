@@ -1,0 +1,47 @@
+<%# Phase 27 follow-up (2026-05-17) — Bundles outer shelf (formerly
+    `_collections_shelf`). ONE horizontal-scroll row whose entries are
+    tile-per-bundle (NOT one sub-shelf per bundle with game tiles
+    inside). Clicking a tile opens a modal listing the games in that
+    bundle (Turbo Frame fetches `/bundles/<id>/games_pane`); clicking
+    a game in the modal navigates to the game's show page.
+
+    Empty-state policy:
+      - Zero bundles (input is empty) — render NOTHING (parity with
+        the genres shelf empty-state).
+      - Bundle with zero games — never reaches here (the controller
+        narrows the scope to bundles with members).
+
+    Wave F (2026-05-17) — shelf chrome now flows through
+    `Games::ShelfComponent`; per-bundle tile renders through
+    `Games::BundleTileComponent`. The dialog frame partial
+    (`bundles_modal`) is still rendered as a sibling so the modal
+    container exists in the DOM when the user clicks a tile.
+
+    Locals:
+      bundles  ActiveRecord::Relation of Bundle rows, pre-filtered to
+               those that own >= 1 member and pre-ordered alphabetical
+               case-insensitive. Bundle composite covers are async-built
+               (`BundleCoverBuild`); the tile component falls back to the
+               shared placeholder SVG until the job stamps a checksum.
+%>
+<%
+  bundles = local_assigns.fetch(:bundles)
+%>
+<% if bundles.any? %>
+  <%= render(Games::ShelfComponent.new(
+        heading: "bundles",
+        count: bundles.size,
+        heading_level: :h2,
+        extra_classes: "shelf--bundles outer-shelf",
+        shelf_kind: "outer-bundles",
+        row_classes: "bundles-shelf-row",
+        row_gap: "12px",
+        row_align: "flex-start"
+      )) do %>
+    <% bundles.each do |bundle| %>
+      <%= render(Games::BundleTileComponent.new(bundle: bundle)) %>
+    <% end %>
+  <% end %>
+
+  <%= render "games/bundles_modal" %>
+<% end %>

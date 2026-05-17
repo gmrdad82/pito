@@ -167,7 +167,6 @@ module ApplicationHelper
     when "channel"    then channels_path
     when "video"      then videos_path
     when "project"    then projects_path
-    when "collection" then collections_path
     when "game"       then games_path
     # Notes/timelines have no top-level user-facing index — fall back to
     # the projects index, the closest reasonable parent.

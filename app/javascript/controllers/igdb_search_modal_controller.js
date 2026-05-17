@@ -3,11 +3,12 @@ import { Controller } from "@hotwired/stimulus"
 // Phase 14 §1 polish — global IGDB-search modal.
 //
 // Dialog rendered once in `app/views/layouts/application.html.erb`
-// (`shared/_igdb_search_modal`). Opened by the `i` keypress (handled
-// in `keyboard_controller.js#openIgdbSearch`) and by the `[+]` link
-// on `/games`. Submits a debounced query to `GET /games/search` and
-// loads the results inside the modal's Turbo Frame
-// (`<turbo-frame id="igdb_search_results">`).
+// (`shared/_igdb_search_modal`). Opened by the `[+]` bracketed link
+// in the `/games` chrome (2026-05-17 the global `i` keybind was
+// removed in the legacy-keyboard-shortcut sweep — the modal is now
+// reachable only via the `[+]` link). Submits a debounced query to
+// `GET /games/search` and loads the results inside the modal's Turbo
+// Frame (`<turbo-frame id="igdb_search_results">`).
 //
 // Phase 27 spec 04 (2026-05-17) — auto-search behavior:
 //   - The input fires `#search` automatically when the trimmed

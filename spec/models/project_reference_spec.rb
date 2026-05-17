@@ -1,8 +1,8 @@
 require "rails_helper"
 
 # Phase 8 — tenant drop. ProjectReference no longer carries a tenant
-# column or a cross-tenant guard. Project + Game / Project + Collection
-# are install-wide associations.
+# column or a cross-tenant guard. Project + Game is the only allowed
+# branch after the 2026-05-17 Collection→Bundle consolidation.
 RSpec.describe ProjectReference, type: :model do
   describe "associations" do
     subject { build(:project_reference) }
@@ -24,10 +24,14 @@ RSpec.describe ProjectReference, type: :model do
       expect(ref).to be_valid
     end
 
-    it "accepts a Collection referenceable" do
-      collection = create(:collection)
-      ref = ProjectReference.new(project: project, referenceable: collection)
-      expect(ref).to be_valid
+    it "rejects a Collection referenceable (model removed 2026-05-17)" do
+      # Collection rows are gone; even if someone smuggles the string
+      # type the allowlist now rejects it.
+      ref = ProjectReference.new(project: project,
+                                 referenceable_type: "Collection",
+                                 referenceable_id: 1)
+      expect(ref).not_to be_valid
+      expect(ref.errors[:referenceable_type]).to be_present
     end
 
     it "rejects unknown referenceable_type" do

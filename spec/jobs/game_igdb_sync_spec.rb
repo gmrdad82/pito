@@ -82,16 +82,16 @@ RSpec.describe GameIgdbSync, type: :job do
       end
     end
 
-    # Phase 27 v2 spec 03 — collection cover-art fan-out on the
-    # success path. The job calls
-    # `Collections::CompositeRebuildQueue#enqueue_for_game_resync(game)`
+    # Phase 27 v2 spec 03 / Phase 27 follow-up (2026-05-17) — bundle
+    # cover-art fan-out on the success path. The job calls
+    # `Bundles::CompositeRebuildQueue#enqueue_for_game_resync(game)`
     # AFTER `Igdb::SyncGame#call` returns and BEFORE the `resyncing`
     # flag flips back to false in `ensure`.
-    describe "collection cover-art fan-out" do
-      let(:queue) { instance_double(Collections::CompositeRebuildQueue, enqueue_for_game_resync: []) }
+    describe "bundle cover-art fan-out" do
+      let(:queue) { instance_double(Bundles::CompositeRebuildQueue, enqueue_for_game_resync: []) }
 
       before do
-        allow(Collections::CompositeRebuildQueue).to receive(:new).and_return(queue)
+        allow(Bundles::CompositeRebuildQueue).to receive(:new).and_return(queue)
         allow_any_instance_of(Igdb::SyncGame).to receive(:call) { |_, g| g }
       end
 
@@ -219,7 +219,7 @@ RSpec.describe GameIgdbSync, type: :job do
 
         ownership_keys = %w[
           played_at notes hours_of_footage_manual hours_of_footage_cached
-          manual_date_override collection_id version_parent_id version_title
+          manual_date_override version_parent_id version_title
         ]
         before_hash = loaded_game.reload.attributes.slice(*ownership_keys)
         ownership_ids = loaded_game.game_platform_ownerships.pluck(:platform_id).sort

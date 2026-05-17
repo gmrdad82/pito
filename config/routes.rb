@@ -237,20 +237,15 @@ Rails.application.routes.draw do
     resources :notes, only: [ :create ]
     resources :timelines, only: [ :create ]
   end
-  resources :collections do
-    member do
-      # Phase 27 follow-up (2026-05-11) — Collections modal on `/games`.
-      # Returns a Turbo Frame fragment listing the games in this
-      # collection as `Games::CoverComponent`-rendered grid tiles. The
-      # `collections-modal-trigger` Stimulus controller points the
-      # `collections_modal_frame` <turbo-frame> at this URL on click.
-      get :games_pane
-    end
-  end
+  # Phase 27 follow-up (2026-05-17) — `resources :collections` and the
+  # `:games_pane` member action were removed along with the Collection
+  # model. The `/games` page's former "collections shelf" is now a
+  # "bundles shelf"; the modal-pane fragment route lives on `:bundles`
+  # below (`get :games_pane`).
   # Phase 14 §1 — IGDB-backed game model. `:search` (collection) is the
   # type-ahead endpoint that POSTs to IGDB for matches; `:resync` is
   # the per-game IGDB re-sync trigger. Existing CRUD remains.
-  resources :games do
+  resources :games, except: [ :edit, :update ] do
     collection do
       get :search
       # Phase 28 §01a — local primaries typeahead source for the
@@ -272,14 +267,16 @@ Rails.application.routes.draw do
   end
   resources :footages, only: [ :index, :show, :edit, :update, :destroy ]
 
-  # Phase 14 §2 — Bundles + composite covers. Full CRUD plus member
-  # add/remove, plus a `seed_from_igdb` action that hydrates an
-  # IGDB-source bundle from the IGDB API. Member URL shape is
-  # `/bundles/:bundle_id/members/:id` where `:id` is the GAME id (not
-  # the BundleMember id) per spec.
+  # Phase 14 §2 / Phase 27 follow-up (2026-05-17) — Bundles + composite
+  # covers. Full CRUD plus member add / remove. The legacy
+  # `seed_from_igdb` action was removed along with the IGDB-source
+  # provenance columns. The `:games_pane` member action serves the
+  # `/games` bundles-modal Turbo Frame fragment (renders bundle members
+  # as grid tiles). Member URL shape is `/bundles/:bundle_id/members/:id`
+  # where `:id` is the GAME id (not the BundleMember id) per spec.
   resources :bundles do
     member do
-      post :seed_from_igdb
+      get :games_pane
     end
     resources :members, only: [ :create, :destroy ],
                         controller: "bundle_members"

@@ -8,7 +8,7 @@
 # controller never populated `@filter[:platform_owned_slug]`, so the
 # JSON contract always serialised `"platform_owned_slug": null`. The
 # canonical platform-ownership filter has moved to the §01b filter row
-# (`?filters=owned,ps5` / `Games::Filter`); no downstream consumer
+# (`?filters=owned,ps` / `Games::Filter`); no downstream consumer
 # reads `platform_owned_slug` (verified by repo-wide grep). The key
 # is dropped here. Re-introduce it (or a successor) only when a
 # controller-populated field justifies the wire contract addition.

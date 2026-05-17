@@ -22,11 +22,8 @@ RSpec.describe Project, type: :model do
       expect(assoc.options[:source_type]).to eq("Game")
     end
 
-    it "has_many :collections through project_references" do
-      assoc = Project.reflect_on_association(:collections)
-      expect(assoc.macro).to eq(:has_many)
-      expect(assoc.options[:through]).to eq(:project_references)
-      expect(assoc.options[:source_type]).to eq("Collection")
+    it "does NOT declare :collections (model removed 2026-05-17)" do
+      expect(Project.reflect_on_association(:collections)).to be_nil
     end
   end
 
@@ -44,20 +41,15 @@ RSpec.describe Project, type: :model do
 
   describe "polymorphic references" do
     let(:project) { create(:project) }
-    let(:game)       { create(:game) }
-    let(:collection) { create(:collection) }
+    let(:game)    { create(:game) }
 
-    it "collects games and collections via project_references" do
+    it "collects games via project_references" do
       ProjectReference.create!(project: project, referenceable: game)
-      ProjectReference.create!(project: project, referenceable: collection)
-
       expect(project.games).to contain_exactly(game)
-      expect(project.collections).to contain_exactly(collection)
     end
 
     it "supports zero references" do
       expect(project.games).to be_empty
-      expect(project.collections).to be_empty
     end
   end
 

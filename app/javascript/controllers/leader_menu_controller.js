@@ -337,8 +337,26 @@ export default class extends Controller {
     return this.schema.menus[name] || null
   }
 
+  // Resolve a keypress against the active menu. At the ROOT level we
+  // ALSO search the resolved page-actions list — those rows are
+  // rendered into the same popup card (in the top section, above the
+  // nav hairline) by `render()`, so the user expects pressing their
+  // key to fire the matching action. Without this, page-action keys
+  // (`d` for theme_toggle on /games, `s` for page_sync on /games/:id,
+  // `-` for page_delete, `/` for global search) render in the popup
+  // but no-op on press — the bug fixed 2026-05-17 after three failed
+  // attempts trying to route through `keyboard_controller`.
+  //
+  // Search order at root: page-actions FIRST, then menu items. This
+  // matches the visual order in the popup and means a page-action
+  // can shadow a same-letter menu item (intentional — page actions
+  // are page-scoped overrides).
   findItem(key) {
     const name = this.menuStack[this.menuStack.length - 1]
+    if (name === "root") {
+      const pageHit = this.resolvePageActions().find((item) => item.key === key)
+      if (pageHit) return pageHit
+    }
     const menu = this.menuByName(name)
     if (!menu) return null
     return (menu.items || []).find((item) => item.key === key) || null
@@ -365,24 +383,138 @@ export default class extends Controller {
     }
   }
 
-  // Run the action side-effect (navigate or emit CustomEvent) and
-  // optionally close the popup. Navigation prefers `Turbo.visit` when
-  // Turbo is available so the popup (mounted on `<body>`) survives
-  // the page swap; it falls back to `window.location.assign` on
-  // surfaces where Turbo isn't loaded (auth pages set
-  // `:hide_chrome` but those pages have no popup target anyway).
+  // Run the action side-effect and optionally close the popup. The
+  // popup always closes BEFORE the side-effect runs so a navigate /
+  // modal-open never races against an already-mounted popup.
+  //
+  // Dispatch table (locked 2026-05-17 — leader-prefixed action keys):
+  //   navigate     → Turbo.visit(action.path) / window.location.assign
+  //   theme_toggle → flip <html data-theme> + persist localStorage
+  //   page_sync    → POST to <body data-page-sync-url>
+  //   page_delete  → showModal() on <dialog id={data-page-delete-modal-id}>
+  //   open_modal   → opens the layout `global-search-modal` <dialog>
+  //                  when modal_id === "search_placeholder" (the YAML
+  //                  token reserved by `page_actions:` `/` for the
+  //                  global search modal); otherwise emits the
+  //                  CustomEvent fallback so future modal_ids can wire
+  //                  listeners.
+  //   anything else → "leader-menu:action" CustomEvent on `document`;
+  //                   listeners (notifications modal, etc.) react.
+  //
+  // History: the four action-key handlers (theme_toggle / page_sync /
+  // page_delete / openGlobalSearch) previously lived on
+  // `keyboard_controller` and were reached via
+  // `window.Stimulus.getControllerForElementAndIdentifier(<body>,
+  // "keyboard")`. That cross-controller dispatch was fragile — when
+  // the lookup returned null (Stimulus not yet wired, lookup timing,
+  // future layout change), the guarded `if (... && kb)` branches
+  // silently fell through and the action no-op'd with no console
+  // error. The handlers now live inline on this controller so the
+  // dispatch is a direct method call with no lookup. The methods on
+  // `keyboard_controller` remain (unused) as a deprecated holdover —
+  // a follow-up sweep can delete them once we're sure no other caller
+  // resurfaces.
   fireAction(item, action, { closePopup }) {
+    if (closePopup) this.close()
+
     if (action.type === "navigate" && action.path) {
-      if (closePopup) this.close()
       this.navigateTo(action.path)
       return
     }
-    if (closePopup) this.close()
+    if (action.type === "theme_toggle") {
+      this.themeToggle()
+      return
+    }
+    if (action.type === "page_sync") {
+      this.pageSync()
+      return
+    }
+    if (action.type === "page_delete") {
+      this.pageDelete()
+      return
+    }
+    if (action.type === "open_modal" && action.modal_id === "search_placeholder") {
+      this.openGlobalSearch()
+      return
+    }
+
     document.dispatchEvent(
       new CustomEvent("leader-menu:action", {
         detail: { item: item, action: action }
       })
     )
+  }
+
+  // ---- action-key handlers (inlined from keyboard_controller) ----
+
+  // `theme_toggle` — flips dark/light using the same semantics as
+  // `theme_controller.js` (the click handler on the `[theme]` button):
+  // resolve the EFFECTIVE current theme (stored value, or system
+  // preference when storage is empty), flip it, write the explicit
+  // next value to localStorage, and update the `data-theme` attribute
+  // on `<html>`. Writing an explicit value (never removeItem) matches
+  // the click handler exactly so the two surfaces stay in sync.
+  themeToggle() {
+    const stored = localStorage.getItem("pito-theme")
+    const current = (stored === "light" || stored === "dark")
+      ? stored
+      : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+    const next = current === "dark" ? "light" : "dark"
+    localStorage.setItem("pito-theme", next)
+    document.documentElement.setAttribute("data-theme", next)
+    if (window.recolorCharts) setTimeout(window.recolorCharts, 50)
+  }
+
+  // `page_sync` — POSTs to `<body data-page-sync-url>` (e.g.
+  // `/games/:id/resync`). On success the page's existing ActionCable
+  // subscription handles the live update; we don't wait on the
+  // response body. No-op when the body attribute isn't set.
+  pageSync() {
+    const url = document.body?.dataset?.pageSyncUrl
+    if (!url) return
+    const token = document.querySelector('meta[name="csrf-token"]')?.content
+    fetch(url, {
+      method: "POST",
+      headers: {
+        "X-CSRF-Token": token || "",
+        Accept: "text/vnd.turbo-stream.html",
+      },
+    }).catch((err) => console.error("page_sync failed:", err))
+  }
+
+  // `page_delete` — opens the per-page confirm `<dialog>` by id (the
+  // per-game / per-bundle delete modal). No-op when no
+  // `data-page-delete-modal-id` is set or the dialog is absent.
+  pageDelete() {
+    const modalId = document.body?.dataset?.pageDeleteModalId
+    if (!modalId) return
+    const dialog = document.getElementById(modalId)
+    if (dialog && typeof dialog.showModal === "function") {
+      dialog.showModal()
+    }
+  }
+
+  // `open_modal` with `modal_id: search_placeholder` — opens the
+  // layout `global-search-modal` <dialog>. Resolves the dialog's
+  // Stimulus controller (`global-search-modal`) via `window.Stimulus`
+  // and calls `open()`; falls back to a direct `showModal()` if the
+  // controller isn't wired. Cross-controller LOOKUP is OK here
+  // because the dialog element is the controller's host — no body-
+  // mounted timing concerns.
+  openGlobalSearch() {
+    const dialog = document.getElementById("global-search-modal")
+    if (!dialog) return
+    const app = window.Stimulus
+    if (app && typeof app.getControllerForElementAndIdentifier === "function") {
+      const ctrl = app.getControllerForElementAndIdentifier(dialog, "global-search-modal")
+      if (ctrl && typeof ctrl.open === "function") {
+        ctrl.open()
+        return
+      }
+    }
+    if (typeof dialog.showModal === "function") {
+      dialog.showModal()
+    }
   }
 
   navigateTo(path) {
@@ -405,46 +537,63 @@ export default class extends Controller {
     card.setAttribute("role", "menu")
     card.setAttribute("aria-label", `leader menu (${name})`)
 
+    // Two-section render at the ROOT menu (2026-05-17): page-actions
+    // first, hairline, then the navigation menu below. Submenus
+    // (`channels`, `games`, …) render only the navigation list — the
+    // page-actions block is a root-only affordance because that is
+    // where the user looks to discover "what can I do on THIS page".
+    // The page_actions section is omitted entirely (no empty heading,
+    // no orphan hairline) when the resolved list is empty — pages on
+    // the helper-side deny-list (e.g. /settings) ship no
+    // `data-keybindings-page-key` and resolve to []. See
+    // `KeybindingsReferenceComponent` for the Ruby-side equivalent.
+    if (name === "root") {
+      const pageActions = this.resolvePageActions()
+      if (pageActions.length > 0) {
+        const pageSection = document.createElement("section")
+        pageSection.className = "leader-menu-section leader-menu-page-actions"
+
+        const pageTitle = document.createElement("div")
+        pageTitle.className = "leader-menu-title text-muted"
+        pageTitle.textContent = "actions"
+        pageSection.appendChild(pageTitle)
+
+        const pageList = document.createElement("ul")
+        pageList.className = "leader-menu-list"
+        pageActions.forEach((item) => {
+          pageList.appendChild(this.buildItemRow(item))
+        })
+        pageSection.appendChild(pageList)
+
+        card.appendChild(pageSection)
+
+        const hr = document.createElement("hr")
+        hr.className = "hairline leader-menu-hairline"
+        card.appendChild(hr)
+      }
+    }
+
+    const navSection = document.createElement("section")
+    navSection.className = "leader-menu-section leader-menu-navigation"
+
     const title = document.createElement("div")
     title.className = "leader-menu-title text-muted"
-    title.textContent = name
-    card.appendChild(title)
+    // Display-label override map: YAML keys stay stable (a lot of
+    // dispatch logic — openMenu("root"), name === "root" guards above —
+    // still keys off the internal name), but the SECTION HEADER the
+    // user sees gets a friendlier label. Submenu names pass through
+    // unchanged via the `|| name` fallback.
+    const SECTION_LABELS = { root: "navigation" }
+    title.textContent = SECTION_LABELS[name] || name
+    navSection.appendChild(title)
 
     const list = document.createElement("ul")
     list.className = "leader-menu-list"
     ;(menu.items || []).forEach((item) => {
-      const row = document.createElement("li")
-      row.className = "leader-menu-row"
-
-      // Render the key glyph without surrounding brackets. The
-      // `.leader-menu-key` rule pins `min-width: 28px` so single- and
-      // multi-char keys line up across rows; this row reads as
-      // `l   list`, `+   add`, `Q   quit + logout` in the monospace
-      // face. The single text-node gap below keeps the visual gutter
-      // even when the column is empty (defensive — schema items
-      // always have a key today).
-      const keySpan = document.createElement("span")
-      keySpan.className = "leader-menu-key"
-      keySpan.textContent = this.displayKey(item.key)
-      row.appendChild(keySpan)
-
-      row.appendChild(document.createTextNode(" "))
-
-      const labelSpan = document.createElement("span")
-      labelSpan.className = "leader-menu-label"
-      labelSpan.textContent = item.label || ""
-      row.appendChild(labelSpan)
-
-      if (item.submenu) {
-        const arrow = document.createElement("span")
-        arrow.className = "text-muted"
-        arrow.textContent = " →"
-        row.appendChild(arrow)
-      }
-
-      list.appendChild(row)
+      list.appendChild(this.buildItemRow(item))
     })
-    card.appendChild(list)
+    navSection.appendChild(list)
+    card.appendChild(navSection)
 
     const hint = document.createElement("div")
     hint.className = "leader-menu-hint text-muted"
@@ -452,6 +601,61 @@ export default class extends Controller {
     card.appendChild(hint)
 
     this.popupTarget.appendChild(card)
+  }
+
+  // Build a single `<li>` row for either a page-action item or a
+  // menu item. Shared by both sections so the visual treatment
+  // (key gutter + label + optional submenu arrow) stays identical.
+  // Render the key glyph without surrounding brackets. The
+  // `.leader-menu-key` rule pins `min-width: 28px` so single- and
+  // multi-char keys line up across rows; this row reads as
+  // `l   list`, `+   add`, `Q   logout` in the monospace
+  // face. The single text-node gap keeps the visual gutter even when
+  // the column is empty (defensive — schema items always have a key
+  // today).
+  buildItemRow(item) {
+    const row = document.createElement("li")
+    row.className = "leader-menu-row"
+
+    const keySpan = document.createElement("span")
+    keySpan.className = "leader-menu-key"
+    keySpan.textContent = this.displayKey(item.key)
+    row.appendChild(keySpan)
+
+    row.appendChild(document.createTextNode(" "))
+
+    const labelSpan = document.createElement("span")
+    labelSpan.className = "leader-menu-label"
+    labelSpan.textContent = item.label || ""
+    row.appendChild(labelSpan)
+
+    if (item.submenu) {
+      const arrow = document.createElement("span")
+      arrow.className = "text-muted"
+      arrow.textContent = " →"
+      row.appendChild(arrow)
+    }
+    return row
+  }
+
+  // Resolve the page-actions list for the current page. Reads the
+  // YAML key from `<body data-keybindings-page-key>` (rendered by
+  // the layout via `KeybindingsHelper#keybindings_page_key`) and
+  // looks it up in `schema.page_actions`. Returns [] when:
+  //   * the body attribute is missing (deny-listed page like
+  //     /settings, or chrome-stripped layout)
+  //   * the YAML has no entry for that page key AND no `default:`
+  //     fallback exists
+  // The Ruby-side deny-list (NO_PAGE_ACTIONS_PAGES in
+  // `KeybindingsReferenceComponent`) is enforced upstream by
+  // omitting the data attribute entirely, so this method does not
+  // need to re-check it client-side.
+  resolvePageActions() {
+    if (!this.schema || !this.schema.page_actions) return []
+    const pageKey = document.body?.dataset?.keybindingsPageKey
+    if (!pageKey) return []
+    const list = this.schema.page_actions[pageKey] || this.schema.page_actions["default"] || []
+    return Array.isArray(list) ? list : []
   }
 
   displayKey(key) {

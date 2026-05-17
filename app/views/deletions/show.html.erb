@@ -30,13 +30,10 @@
           <th class="num">footage</th>
           <th class="num">notes</th>
           <th class="num">timelines</th>
-        <% when "collection" %>
-          <th>name</th>
-          <th class="num">games</th>
         <% when "game" %>
           <th>title</th>
           <th>publisher</th>
-          <th>collection</th>
+          <th>bundles</th>
         <% when "note" %>
           <th>title</th>
           <th>project</th>
@@ -47,7 +44,6 @@
           <th class="num">state</th>
         <% when "bundle" %>
           <th>name</th>
-          <th>type</th>
           <th class="num">members</th>
         <% when "video_game_link" %>
           <th>video</th>
@@ -86,13 +82,13 @@
             <td class="num"><%= number_with_delimiter(item.footages.count) %></td>
             <td class="num"><%= number_with_delimiter(item.notes.count) %></td>
             <td class="num"><%= number_with_delimiter(item.timelines.count) %></td>
-          <% when "collection" %>
-            <td><%= item.name %></td>
-            <td class="num"><%= number_with_delimiter(item.games.count) %></td>
           <% when "game" %>
             <td><%= item.title %></td>
             <td><%= item.publisher || "—" %></td>
-            <td><%= item.collection&.name || "—" %></td>
+            <td>
+              <% names = item.bundles.order(:name).pluck(:name) %>
+              <%= names.any? ? names.join(", ") : "—" %>
+            </td>
           <% when "note" %>
             <td><%= item.title %></td>
             <td><%= item.project.name %></td>
@@ -103,7 +99,6 @@
             <td class="num"><%= item.state %></td>
           <% when "bundle" %>
             <td><%= item.name %></td>
-            <td><%= item.bundle_type %></td>
             <td class="num"><%= number_with_delimiter(item.bundle_members.count) %></td>
           <% when "video_game_link" %>
             <td>video #<%= item.video_id %></td>

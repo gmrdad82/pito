@@ -24,7 +24,13 @@ module KeybindingsHelper
   # surface (`:web` or `:tui`). Exposed for spec assertions; the
   # layout uses the JSON wrapper above.
   def keybindings_for_surface(surface)
-    schema = Rails.application.config.keybindings
+    # In development the initializer stores a Proc that re-parses
+    # `config/keybindings.yml` on every call so YAML edits show up on
+    # browser refresh without a `bin/dev` restart. In prod / test it
+    # stores the deep-frozen hash itself, so this branch resolves to a
+    # no-op cost on those environments.
+    raw = Rails.application.config.keybindings
+    schema = raw.respond_to?(:call) ? raw.call : raw
     filtered_menus = schema.fetch("menus").transform_values do |menu|
       {
         "items" => menu.fetch("items").select { |item| item_visible?(item, surface) }
@@ -32,8 +38,38 @@ module KeybindingsHelper
     end
     {
       "leader" => schema.fetch("leader"),
-      "menus" => filtered_menus
+      "menus" => filtered_menus,
+      # `page_actions:` is shipped to the web surface intact so the
+      # `leader-menu` Stimulus controller can render the per-page
+      # action rows in the popup's top section (2026-05-17). The TUI
+      # equivalent reads the YAML directly and does not consume this
+      # branch. No `surfaces:` filtering applies here — the
+      # `page_actions:` block contains no per-surface keys today.
+      "page_actions" => schema.fetch("page_actions", {})
     }
+  end
+
+  # Resolves the current controller#action to the YAML key under
+  # `page_actions:` in `config/keybindings.yml`. Used by the layout to
+  # pass `page_key:` into `KeybindingsReferenceComponent`. Returns nil
+  # for pages that should render NO page-actions section (settings,
+  # admin, auth pages); returns `"default"` for pages that have no
+  # explicit mapping but are still "regular" pages and should fall
+  # through to the shared default actions (currently just `/ search`).
+  #
+  # The explicit mappings stay small and obvious — every page that
+  # wants context-specific keys (sync, delete, etc.) registers its
+  # own `<resource>_<action>` key here AND in the YAML.
+  def keybindings_page_key
+    case "#{controller_name}##{action_name}"
+    when "games#index"   then "games_index"
+    when "games#show"    then "games_show"
+    when "bundles#show"  then "bundles_show"
+    else
+      controller_path_root = controller_path.to_s.split("/").first
+      return nil if KeybindingsReferenceComponent::NO_PAGE_ACTIONS_PAGES.include?(controller_path_root)
+      "default"
+    end
   end
 
   private

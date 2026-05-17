@@ -1,23 +1,22 @@
-<%# Phase 14 §2 — Bundle show. Two-pane layout: composite cover +
-    metadata on the left, member list + add-member form on the right.
-    Bracketed-link convention `[ label ]` — except for in-tag inline
-    links which use the no-padding form. The composite cover image
+<%# Phase 14 §2 / Phase 27 follow-up (2026-05-17) — Bundle show.
+
+    Two-pane layout: composite cover + metadata on the left, member
+    list + add-member form on the right. The composite cover image
     falls back to `[no cover]` when the build has not landed yet; the
     "regenerating…" caption surfaces when a `BundleCoverBuild` job is
-    in flight (best-effort detection in fake-Sidekiq mode). %>
+    in flight (best-effort detection in fake-Sidekiq mode).
+
+    2026-05-17 simplification — the `bundle_type` discriminator and
+    the IGDB-source metadata strip are gone; the only remaining
+    metadata line is the member count. The `[ seed from igdb ]` and
+    `last_error` callouts are removed along with the columns that fed
+    them. %>
 <% content_for(:title, @bundle.name) %>
 <% breadcrumb([ "bundles", bundles_path ], @bundle.name) %>
 
 <% content_for(:breadcrumb_actions) do %>
   <div class="dot-list">
     <%= render(BracketedLinkComponent.new(label: "edit", href: edit_bundle_path(@bundle))) %>
-    <% if !@bundle.type_custom? && @bundle.igdb_source_id.present? %>
-      <%= button_to seed_from_igdb_bundle_path(@bundle),
-                    method: :post,
-                    class: "bracketed",
-                    form: { style: "display: inline; margin: 0;",
-                            data: { turbo: false } } do %>[<span class="bl">seed from igdb</span>]<% end %>
-    <% end %>
     <%= render(BracketedLinkComponent.new(
       label: "-",
       href: deletions_path(type: "bundle", ids: @bundle.id),
@@ -40,22 +39,11 @@
 
     <h1 style="margin: 8px 0 4px 0;"><%= @bundle.name %></h1>
     <p class="text-muted" style="margin: 0 0 8px 0;">
-      <%= @bundle.bundle_type %>
-      <% if @bundle.igdb_source_type.present? %>
-        &middot; igdb <%= @bundle.igdb_source_type %>: <%= @bundle.igdb_source_id %>
-      <% end %>
-      &middot; <%= @members.size %> member<%= 's' if @members.size != 1 %>
+      <%= @members.size %> member<%= 's' if @members.size != 1 %>
     </p>
 
     <% if @bundle.cover_rebuild_in_flight? %>
       <p class="text-muted" style="margin: 4px 0;">regenerating…</p>
-    <% end %>
-
-    <% if @bundle.last_error.present? %>
-      <p class="text-danger" style="margin: 8px 0;">
-        couldn't build cover; will retry on next change.
-        <span class="text-muted">(<%= @bundle.last_error %>)</span>
-      </p>
     <% end %>
   </div>
 

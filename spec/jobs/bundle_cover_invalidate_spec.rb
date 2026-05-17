@@ -29,8 +29,8 @@ RSpec.describe BundleCoverInvalidate, type: :job do
     end
 
     it "enqueues BundleCoverBuild once per bundle the game belongs to" do
-      bundle1 = create(:bundle, bundle_type: :custom)
-      bundle2 = create(:bundle, bundle_type: :custom)
+      bundle1 = create(:bundle)
+      bundle2 = create(:bundle)
       bundle1.bundle_members.create!(game: game)
       bundle2.bundle_members.create!(game: game)
 

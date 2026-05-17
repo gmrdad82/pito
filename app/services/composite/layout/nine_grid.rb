@@ -1,14 +1,16 @@
-# Phase 14 §2 — NineGrid layout. 5..9 members; 3×3 grid, each tile
-# 200×267. Empty cells are filled with a flat dark-grey background.
-# (200 × 3 = 600 width; 267 × 3 = 801, rounded to OUTPUT_HEIGHT 800
-# via the final crop.)
+# Phase 14 §2 + Phase 27 §02 — NineGrid layout. Exactly 9 members;
+# 3×3 grid, each tile 100×134. (100 × 3 = 300 width; 134 × 3 = 402,
+# rounded to OUTPUT_HEIGHT 400 via the final crop.) The blank-cell
+# helper survives because `NineGridWithOverflow` reuses this builder
+# and may still pass nils in degenerate cases.
+# Canvas halved 2026-05-17 — see `Composite::Builder` header.
 module Composite
   module Layout
     module NineGrid
-      OUTPUT_WIDTH  = 600
-      OUTPUT_HEIGHT = 800
-      TILE_W = 200
-      TILE_H = 267  # 800 / 3 rounded up; final image cropped to 800
+      OUTPUT_WIDTH  = 300
+      OUTPUT_HEIGHT = 400
+      TILE_W = 100
+      TILE_H = 134  # 400 / 3 rounded up; final image cropped to 400
       ROWS = 3
       COLS = 3
       CELLS = ROWS * COLS
@@ -25,9 +27,7 @@ module Composite
       end
 
       def compose(tiles, total_member_count: nil)
-        if tiles.size < 5 || tiles.size > 9
-          raise ArgumentError, "expected 5..9 tiles, got #{tiles.size}"
-        end
+        raise ArgumentError, "expected 9 tiles, got #{tiles.size}" unless tiles.size == 9
         Composite::Layout::NineGrid::Builder.new(tiles).build
       end
 
@@ -54,7 +54,7 @@ module Composite
           end
 
           stacked = rows.reduce { |acc, row| acc.join(row, :vertical) }
-          # Crop to canonical 600×800 (band-and-format to JPEG-safe RGB).
+          # Crop to canonical 300×400 (band-and-format to JPEG-safe RGB).
           stacked.crop(0, 0, OUTPUT_WIDTH, OUTPUT_HEIGHT)
         end
 

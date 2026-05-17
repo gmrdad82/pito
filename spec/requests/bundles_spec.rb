@@ -1,11 +1,12 @@
 require "rails_helper"
 
+# Phase 14 §3 / Phase 27 follow-up (2026-05-17) — Bundles request spec.
+# After the 2026-05-17 simplification a Bundle has only `name`; the
+# `seed_from_igdb` action + the `bundle_type` / `igdb_source_*` form
+# fields are gone. The `games_pane` member action (replacement for the
+# old Collection games-pane) is new.
 RSpec.describe "Bundles", type: :request do
   describe "GET /bundles" do
-    # Phase 14 §3 — Steam-shelf revamp. The table-shape was replaced
-    # with a wrapping tile grid. Empty-state copy and the existence of
-    # tile rows is what the spec asserts; the grid layout is verified
-    # via the `bundles-grid` class on the wrapping container.
     it "returns 200 and renders the index" do
       get bundles_path
       expect(response).to have_http_status(:ok)
@@ -25,7 +26,7 @@ RSpec.describe "Bundles", type: :request do
       expect(response.body).to include("bundles-grid")
     end
 
-    it "renders [no cover] em-dash fallback when composite_cover_path is blank" do
+    it "renders the em-dash fallback when composite_cover_path is blank" do
       create(:bundle, name: "Untiled")
       get bundles_path
       expect(response.body).to include("Untiled")
@@ -34,7 +35,7 @@ RSpec.describe "Bundles", type: :request do
   end
 
   describe "GET /bundles/:id" do
-    let(:bundle) { create(:bundle, bundle_type: :custom, name: "Test bundle") }
+    let(:bundle) { create(:bundle, name: "Test bundle") }
 
     it "returns 200" do
       get bundle_path(bundle)
@@ -47,9 +48,9 @@ RSpec.describe "Bundles", type: :request do
     end
 
     it "renders the composite cover image when path is present" do
-      bundle.update_columns(composite_cover_path: "composites/custom-#{bundle.id}.jpg")
+      bundle.update_columns(composite_cover_path: "composites/bundle-#{bundle.id}.jpg")
       get bundle_path(bundle)
-      expect(response.body).to include("/composites/custom-#{bundle.id}.jpg")
+      expect(response.body).to include("/composites/bundle-#{bundle.id}.jpg")
     end
 
     it "renders the member list with each game's title" do
@@ -65,10 +66,9 @@ RSpec.describe "Bundles", type: :request do
       expect(response).to have_http_status(:not_found)
     end
 
-    # Layout revamp (2026-05-10) — left pane uses `pane--narrow`
-    # (cover hugs ~280px) and right pane uses `pane--wide` (904px so the
-    # member table + add-member form get breathing room). Mirrors
-    # /games/:id.
+    # Layout — left pane uses `pane--narrow` (cover hugs ~280px) and
+    # right pane uses `pane--wide` (904px so the member table +
+    # add-member form get breathing room). Mirrors /games/:id.
     it "uses the narrow + wide pane modifiers for the cover / members split" do
       get bundle_path(bundle)
       expect(response.body).to include("pane pane--narrow")
@@ -83,8 +83,6 @@ RSpec.describe "Bundles", type: :request do
       expect(response.body).to include("new bundle")
     end
 
-    # 2026-05-11 form-pane sweep — the form sits inside
-    # `.pane.pane--standalone` like every other standalone new page.
     it "wraps the new form in a .pane.pane--standalone" do
       get new_bundle_path
       html = Nokogiri::HTML.fragment(response.body)
@@ -95,55 +93,32 @@ RSpec.describe "Bundles", type: :request do
   end
 
   describe "POST /bundles" do
-    it "creates a custom bundle" do
+    it "creates a bundle from name only" do
       expect {
-        post bundles_path, params: {
-          bundle: { bundle_type: "custom", name: "Soulslikes" }
-        }
+        post bundles_path, params: { bundle: { name: "Soulslikes" } }
       }.to change(Bundle, :count).by(1)
 
       bundle = Bundle.last
       expect(bundle.name).to eq("Soulslikes")
-      expect(bundle.type_custom?).to be(true)
       expect(response).to redirect_to(bundle_path(bundle))
     end
 
-    it "creates an IGDB-seeded series bundle" do
-      expect {
-        post bundles_path, params: {
-          bundle: { bundle_type: "series", name: "Zelda",
-                    igdb_source_type: "franchise", igdb_source_id: "1" }
-        }
-      }.to change(Bundle, :count).by(1)
-
-      bundle = Bundle.last
-      expect(bundle.type_series?).to be(true)
-      expect(bundle.igdb_source_franchise?).to be(true)
-      expect(bundle.igdb_source_id).to eq(1)
-    end
-
-    it "rejects a custom bundle with an igdb_source_type set" do
-      post bundles_path, params: {
-        bundle: { bundle_type: "custom", name: "x",
-                  igdb_source_type: "franchise" }
-      }
+    it "rejects a blank name" do
+      post bundles_path, params: { bundle: { name: "" } }
       expect(response).to have_http_status(:unprocessable_content)
     end
 
-    it "rejects a series bundle missing igdb_source_id" do
+    it "silently drops smuggled non-permitted attributes" do
       post bundles_path, params: {
-        bundle: { bundle_type: "series", name: "x",
-                  igdb_source_type: "franchise" }
+        bundle: { name: "X", composite_cover_path: "../../etc/passwd" }
       }
-      expect(response).to have_http_status(:unprocessable_content)
+      expect(Bundle.last.composite_cover_path).to be_nil
     end
   end
 
   describe "GET /bundles/:id/edit" do
-    let(:bundle) { create(:bundle, bundle_type: :custom, name: "Old") }
+    let(:bundle) { create(:bundle, name: "Old") }
 
-    # 2026-05-11 form-pane sweep — the edit form sits inside
-    # `.pane.pane--standalone` like every other standalone edit page.
     it "wraps the edit form in a .pane.pane--standalone" do
       get edit_bundle_path(bundle)
       expect(response).to have_http_status(:ok)
@@ -155,30 +130,12 @@ RSpec.describe "Bundles", type: :request do
   end
 
   describe "PATCH /bundles/:id" do
-    let(:bundle) { create(:bundle, bundle_type: :custom, name: "Old") }
+    let(:bundle) { create(:bundle, name: "Old") }
 
     it "updates the name" do
       patch bundle_path(bundle), params: { bundle: { name: "New" } }
       expect(bundle.reload.name).to eq("New")
       expect(response).to redirect_to(bundle_path(bundle))
-    end
-
-    it "silently drops smuggled bundle_type changes" do
-      patch bundle_path(bundle), params: {
-        bundle: { name: "x", bundle_type: "series" }
-      }
-      expect(bundle.reload.type_custom?).to be(true)
-    end
-
-    it "silently drops smuggled igdb_source_type / id changes" do
-      patch bundle_path(bundle), params: {
-        bundle: { name: "x",
-                  igdb_source_type: "franchise",
-                  igdb_source_id: "42" }
-      }
-      bundle.reload
-      expect(bundle.igdb_source_type).to be_nil
-      expect(bundle.igdb_source_id).to be_nil
     end
 
     it "silently drops smuggled composite_cover_path" do
@@ -187,18 +144,23 @@ RSpec.describe "Bundles", type: :request do
       }
       expect(bundle.reload.composite_cover_path).to be_nil
     end
+
+    it "rejects a blank name update" do
+      patch bundle_path(bundle), params: { bundle: { name: "" } }
+      expect(response).to have_http_status(:unprocessable_content)
+    end
   end
 
   describe "DELETE /bundles/:id" do
     it "redirects through the action-confirmation screen" do
-      bundle = create(:bundle, bundle_type: :custom)
+      bundle = create(:bundle)
       delete bundle_path(bundle)
       expect(response).to redirect_to(deletions_path(type: "bundle", ids: bundle.id))
     end
   end
 
   describe "deletion-flow integration via /deletions/bundle/:ids" do
-    let!(:bundle) { create(:bundle, bundle_type: :custom, name: "DelMe") }
+    let!(:bundle) { create(:bundle, name: "DelMe") }
 
     it "GET /deletions/bundle/:ids renders the action screen" do
       get deletions_path(type: "bundle", ids: bundle.id)
@@ -213,85 +175,41 @@ RSpec.describe "Bundles", type: :request do
     end
   end
 
-  describe "POST /bundles/:id/seed_from_igdb" do
-    it "rejects custom bundles with no IGDB source" do
-      bundle = create(:bundle, bundle_type: :custom)
-      post seed_from_igdb_bundle_path(bundle)
-      expect(response).to redirect_to(bundle_path(bundle))
-      follow_redirect!
-      expect(response.body).to include("no IGDB source")
+  # Phase 27 follow-up (2026-05-17) — replacement for the old
+  # `Collections#games_pane` modal Turbo Frame.
+  describe "GET /bundles/:id/games_pane" do
+    let(:bundle) { create(:bundle, name: "Soulslikes") }
+
+    it "renders the empty-state copy when the bundle has no members" do
+      get games_pane_bundle_path(bundle)
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include("no games in this bundle yet")
     end
 
-    it "seeds members from IGDB and enqueues GameIgdbSync for newly-created games" do
-      bundle = create(:bundle, :series)
-      client = instance_double(Igdb::Client)
-      allow(Igdb::Client).to receive(:new).and_return(client)
-      allow(client).to receive(:fetch_games_for_franchise)
-        .and_return([
-          { "id" => 7346, "name" => "Zelda BotW" },
-          { "id" => 113112, "name" => "Zelda TotK" }
-        ])
+    it "renders the bundle's member games in alphabetical title order" do
+      gamma = create(:game, :synced, title: "AlphabeticalGamma")
+      alpha = create(:game, :synced, title: "AlphabeticalAlpha")
+      beta  = create(:game, :synced, title: "AlphabeticalBeta")
+      bundle.bundle_members.create!(game: gamma)
+      bundle.bundle_members.create!(game: alpha)
+      bundle.bundle_members.create!(game: beta)
 
-      GameIgdbSync.clear
-      expect {
-        post seed_from_igdb_bundle_path(bundle)
-      }.to change(BundleMember, :count).by(2)
-
-      bundle.reload
-      expect(bundle.games.pluck(:igdb_id)).to contain_exactly(7346, 113112)
-      enqueued = GameIgdbSync.jobs.map { |j| j["args"].first }
-      expect(enqueued.size).to eq(2)
+      get games_pane_bundle_path(bundle)
+      expect(response).to have_http_status(:ok)
+      # Unique title prefixes so substring matches do not collide with
+      # incidental text elsewhere on the page (CSS, alt attributes, etc.).
+      expect(response.body.index("AlphabeticalAlpha")).to be < response.body.index("AlphabeticalBeta")
+      expect(response.body.index("AlphabeticalBeta")).to be < response.body.index("AlphabeticalGamma")
     end
 
-    it "is idempotent — re-running adds only new members" do
-      bundle = create(:bundle, :series)
-      g_existing = create(:game, igdb_id: 7346)
-      bundle.bundle_members.create!(game: g_existing)
-
-      client = instance_double(Igdb::Client)
-      allow(Igdb::Client).to receive(:new).and_return(client)
-      allow(client).to receive(:fetch_games_for_franchise)
-        .and_return([
-          { "id" => 7346, "name" => "Zelda BotW" },
-          { "id" => 113112, "name" => "Zelda TotK" }
-        ])
-
-      expect {
-        post seed_from_igdb_bundle_path(bundle)
-      }.to change(BundleMember, :count).by(1)
+    it "renders inside the `bundles_modal_frame` Turbo Frame" do
+      get games_pane_bundle_path(bundle)
+      expect(response.body).to include('id="bundles_modal_frame"')
     end
 
-    it "handles IGDB API failure gracefully" do
-      bundle = create(:bundle, :series)
-      client = instance_double(Igdb::Client)
-      allow(Igdb::Client).to receive(:new).and_return(client)
-      allow(client).to receive(:fetch_games_for_franchise)
-        .and_raise(Igdb::Client::ServerError.new("500"))
-
-      post seed_from_igdb_bundle_path(bundle)
-      bundle.reload
-      expect(bundle.last_error).to include("seed:")
-      expect(response).to redirect_to(bundle_path(bundle))
-    end
-
-    it "dispatches collection bundles to fetch_games_for_collection" do
-      bundle = create(:bundle, :collection)
-      client = instance_double(Igdb::Client)
-      allow(Igdb::Client).to receive(:new).and_return(client)
-      allow(client).to receive(:fetch_games_for_collection).and_return([])
-
-      post seed_from_igdb_bundle_path(bundle)
-      expect(client).to have_received(:fetch_games_for_collection)
-    end
-
-    it "dispatches genre bundles to fetch_games_for_genre" do
-      bundle = create(:bundle, :genre)
-      client = instance_double(Igdb::Client)
-      allow(Igdb::Client).to receive(:new).and_return(client)
-      allow(client).to receive(:fetch_games_for_genre).and_return([])
-
-      post seed_from_igdb_bundle_path(bundle)
-      expect(client).to have_received(:fetch_games_for_genre)
+    it "returns 404 when the bundle does not exist" do
+      get "/bundles/999999/games_pane"
+      expect(response).to have_http_status(:not_found)
     end
   end
 end

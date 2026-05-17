@@ -1,0 +1,13 @@
+<dialog id="<%= modal_id %>" class="confirm-modal"
+        data-controller="confirm-modal"
+        data-action="click->confirm-modal#clickOutside keydown->confirm-modal#keydown">
+  <div class="confirm-modal-inner">
+    <div class="dialog-title">search</div>
+    <div class="dialog-message">
+      <%= render(StatusTbdBadgeComponent.new) %> search coming soon.
+    </div>
+    <div class="confirm-modal-actions modal-footer">
+      <button type="button" class="bracketed" data-action="confirm-modal#close">[<span class="bl">cancel</span>]</button>
+    </div>
+  </div>
+</dialog>

@@ -4,7 +4,7 @@ require "rails_helper"
 #
 # Seeds spec — covers the dev `ApiToken` idempotency, the new `:owner`
 # credentials shape (`{ username, password }`), and the removal of the
-# sample-data blocks (no Channel / Video / Project / Game / Collection
+# sample-data blocks (no Channel / Video / Project / Game
 # / Note / Timeline rows are seeded).
 RSpec.describe "db/seeds.rb", type: :model do
   before do
@@ -89,13 +89,12 @@ RSpec.describe "db/seeds.rb", type: :model do
       expect { Rails.application.load_seed }.not_to change { User.count }
     end
 
-    it "does not seed any sample Channel / Video / Project / Game / Collection / Note / Timeline rows" do
+    it "does not seed any sample Channel / Video / Project / Game / Note / Timeline rows" do
       Rails.application.load_seed
       expect(Channel.count).to eq(0)
       expect(Video.count).to eq(0)
       expect(Project.count).to eq(0)
       expect(Game.count).to eq(0)
-      expect(Collection.count).to eq(0)
       expect(Note.count).to eq(0)
       expect(Timeline.count).to eq(0)
     end

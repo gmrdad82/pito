@@ -9,5 +9,4 @@
     <circle cx="5" cy="-1.5" r="1.2" fill="#555555" stroke="none"/>
     <circle cx="9" cy="1.5" r="1.2" fill="#555555" stroke="none"/>
   </g>
-  <text x="49" y="88" fill="#555555" font-family="ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace" font-size="9" text-anchor="middle">no cover</text>
 </svg>

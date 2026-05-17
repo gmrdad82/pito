@@ -1,17 +1,31 @@
 require "rails_helper"
 
-# Phase 27 — game tile partial.
+# Phase 27 — game tile partial (2026-05-17 footer-drop redesign).
 #
-# The tile renders two explicit caption lines below the cover art:
+# The tile renders:
 #
-#   line 1: title, truncated with `…` if it exceeds the cover width.
-#           2026-05-11 polish (Fix 6) — rendered BOLD when the game is
-#           not yet released (release_date nil or in the future).
-#   line 2: `<rating-badge> · <YYYY>` — rating second-line metadata.
-#           2026-05-11 polish (Fix 2): the rating segment is now the
-#           colored bold `Games::RatingBadgeComponent` (integer only,
-#           no `/100` suffix). The middle-dot separator and year
-#           remain plain text.
+#   cover:  150x200 IMG. Platform logos sit ABSOLUTE on the cover's
+#           bottom-right corner inside a `.tile-cover-platforms`
+#           container (3 px inset from right/bottom, 2 px gap between
+#           logos). Cover container is `position: relative`.
+#   line 1: title (single line, ellipsis-truncated if it exceeds the
+#           cover width). Rendered BOLD (`.not-released`) when the game
+#           is not yet released (release_date nil or in the future) per
+#           the 2026-05-11 polish pass (Fix 6).
+#
+# That's it — the tile footer is title-only as of the 2026-05-17
+# footer-drop pass. The `.tile-caption-meta` row (release date + any
+# leftover meta segments) is GONE. The platform-logo overlay on
+# `.tile-cover-platforms` is an independent surface and still renders
+# on the cover.
+#
+# Historical context (still enforced below where it stops legacy
+# layouts from creeping back):
+#   - the legacy rating segment is gone (no badge on the tile footer);
+#   - the middle-dot separator is gone (no ` · ` between segments);
+#   - the previous date row (MM-DD-YYYY / bare year fallback) is gone;
+#   - EVERY applicable platform logo renders (multi-logo overlay), not
+#     just the first owned/available one.
 #
 # The :grid variant (default) and :shelf variant share the same
 # layout; the only delta is caption font size.
@@ -19,10 +33,8 @@ RSpec.describe "games/_tile.html.erb", type: :view do
   # `release_date` is in the past so the tile does NOT get the
   # not-released treatment unless a test specifically overrides it.
   # `external_steam_app_id: nil` overrides the `:synced` trait default
-  # so the platform-logo footer segment (Phase 27 v2 spec 07) stays
-  # off — the legacy "rating · year" assertions in this top-level let
-  # depend on the meta line being exactly `<rating> · <year>` with no
-  # trailing logo separator.
+  # so the platform-logo overlay stays off unless a test explicitly
+  # attaches platforms — keeps the default `game` let footer-clean.
   let(:game) do
     create(:game, :synced,
            title: "Red Dead Redemption 2",
@@ -39,39 +51,55 @@ RSpec.describe "games/_tile.html.erb", type: :view do
   end
 
   # ------------------------------------------------------------
-  # Happy path — both lines render at the canonical shape.
+  # Happy path — title-only caption, no meta row anywhere.
   # ------------------------------------------------------------
 
-  describe "happy: full metadata renders the locked two-line layout" do
+  describe "happy: caption renders the title only (no meta row)" do
     before { render_tile(game) }
 
     it "renders the title in `.tile-caption-title`" do
       expect(rendered).to have_css(".tile-caption-title", text: "Red Dead Redemption 2")
     end
 
-    it "renders the metadata line in `.tile-caption-meta` with no /100 suffix" do
-      meta_text = Capybara.string(rendered).find(".tile-caption-meta").text.strip
-      expect(meta_text).to match(%r{\A93\s*·\s*2018\z})
-      expect(rendered).not_to include("93/100")
+    it "does NOT render any `.tile-caption-meta` row" do
+      expect(rendered).not_to have_css(".tile-caption-meta")
+    end
+
+    it "does NOT render any `.tile-caption-meta-date` element" do
+      expect(rendered).not_to have_css(".tile-caption-meta-date")
+    end
+
+    it "does NOT render the release date anywhere in the visible caption" do
+      caption_node = Capybara.string(rendered).find(".tile-caption")
+      expect(caption_node.text).not_to include("10-26-2018")
+      expect(caption_node.text).not_to include("2018")
     end
 
     it "preserves the outer `.tile-caption` wrapper" do
       expect(rendered).to have_css(".tile-caption")
     end
 
-    it "places the rating BEFORE the year (reversed from pre-Phase-27 order)" do
-      meta = Capybara.string(rendered).find(".tile-caption-meta").text
-      expect(meta.index("93")).to be < meta.index("2018")
+    it "does NOT render the rating segment in the visible footer" do
+      # The legacy `game_meta_line` plain-text shape is still carried
+      # by the anchor's `title=` attribute (the hover-tooltip contract
+      # is preserved), but the rendered DOM under `.tile-caption` must
+      # NOT include the rating.
+      caption_node = Capybara.string(rendered).find(".tile-caption")
+      expect(caption_node.text).not_to include("93")
+      expect(rendered).not_to have_css("span.game-rating-badge")
     end
 
-    it "uses the middle-dot separator between rating and year" do
-      expect(rendered).to include("·")
-      meta = Capybara.string(rendered).find(".tile-caption-meta").text
-      expect(meta).to match(%r{93\s*·\s*2018})
+    it "does NOT render the middle-dot separator anywhere in the caption" do
+      caption_text = Capybara.string(rendered).find(".tile-caption").text
+      expect(caption_text).not_to include("·")
     end
 
     it "does NOT render the star glyph (Fix 5 — retired)" do
       expect(rendered).not_to include("★")
+    end
+
+    it "does NOT include the legacy /100 suffix anywhere on the tile" do
+      expect(rendered).not_to include("/100")
     end
   end
 
@@ -121,89 +149,131 @@ RSpec.describe "games/_tile.html.erb", type: :view do
   end
 
   # ------------------------------------------------------------
-  # Fix 2 (2026-05-11) — rating renders as bare colored integer.
-  # The legacy `/100` suffix is gone; the rating segment now carries
-  # the colored bold badge.
+  # 2026-05-17 — `title-tooltip` Stimulus controller wiring on the
+  # title span. The controller activates the native `title=`
+  # attribute ONLY when the rendered text is truncated
+  # (`scrollWidth > clientWidth`); the server-side render only
+  # supplies the connect-time wiring + the full-title value, never
+  # an unconditional `title=`.
   # ------------------------------------------------------------
 
-  describe "happy: rating renders as colored integer (Fix 2)" do
-    it "renders single-digit rating without zero-padding — 5 → '5 · 2021'" do
+  describe "title-tooltip Stimulus controller (tooltip only when truncated)" do
+    it "stamps `data-controller=\"title-tooltip\"` on `.tile-caption-title`" do
+      render_tile(game)
+      title_node = Capybara.string(rendered).find(".tile-caption-title")
+      expect(title_node["data-controller"]).to include("title-tooltip")
+    end
+
+    it "stamps `data-title-tooltip-full-title-value` with the full title text" do
+      render_tile(game)
+      title_node = Capybara.string(rendered).find(".tile-caption-title")
+      expect(title_node["data-title-tooltip-full-title-value"]).to eq("Red Dead Redemption 2")
+    end
+
+    it "does NOT carry an unconditional `title=` attribute on the title span (the controller manages it)" do
+      render_tile(game)
+      title_node = Capybara.string(rendered).find(".tile-caption-title")
+      expect(title_node[:title]).to be_nil
+    end
+
+    it "wires the controller even for long titles (so truncation detection has a hook)" do
+      long_title = "The Legend of Zelda: Tears of the Kingdom — Master Edition"
       g = create(:game, :synced,
-                 title: "Indie Gem",
-                 release_date: Date.new(2021, 6, 1),
-                 release_year: 2021,
-                 igdb_rating: 5,
-                 external_steam_app_id: nil,
-                 igdb_id: 5_000_003,
-                 igdb_slug: "indie-gem")
+                 title: long_title,
+                 release_date: Date.new(2023, 5, 12),
+                 release_year: 2023,
+                 igdb_id: 5_000_050,
+                 igdb_slug: "totk-tooltip")
 
       render_tile(g)
 
-      meta_text = Capybara.string(rendered).find(".tile-caption-meta").text.strip
-      expect(meta_text).to match(%r{\A5\s*·\s*2021\z})
-      expect(rendered).not_to include("★")
-      expect(rendered).not_to include("/100")
+      title_node = Capybara.string(rendered).find(".tile-caption-title")
+      expect(title_node["data-controller"]).to include("title-tooltip")
+      expect(title_node["data-title-tooltip-full-title-value"]).to eq(long_title)
+      expect(title_node[:title]).to be_nil
     end
 
-    it "renders the colored badge inside the meta line" do
-      render_tile(game)
-      meta_node = Capybara.string(rendered).find(".tile-caption-meta")
-      expect(meta_node).to have_css("span.game-rating-badge", text: "93")
-    end
-
-    it "applies the per-tier color to the rating badge" do
-      render_tile(game)
-      badge = Capybara.string(rendered).find(".tile-caption-meta span.game-rating-badge")
-      expect(badge[:class]).to include("game-rating-badge--excellent")
-      expect(badge[:style]).to include("color: var(--color-rating-excellent)")
-      expect(badge[:style]).to include("font-weight: bold")
-    end
-
-    it "does NOT include the legacy /100 suffix anywhere on the tile" do
-      render_tile(game)
-      expect(rendered).not_to include("/100")
+    it "wires the controller under the :shelf variant too" do
+      render_tile(game, variant: :shelf)
+      title_node = Capybara.string(rendered).find(".tile-caption-title")
+      expect(title_node["data-controller"]).to include("title-tooltip")
+      expect(title_node["data-title-tooltip-full-title-value"]).to eq("Red Dead Redemption 2")
     end
   end
 
   # ------------------------------------------------------------
-  # Sad / edge — missing rating, missing year, both missing.
+  # Date suppression — both the precise date and the bare-year
+  # fallback are gone from the caption regardless of what the
+  # record carries.
   # ------------------------------------------------------------
 
-  describe "edge: rating missing" do
-    let(:no_rating) do
+  describe "release date is suppressed in the caption (footer-drop)" do
+    it "does NOT render the MM-DD-YYYY string when a precise release_date exists" do
+      g = create(:game, :synced,
+                 title: "Early-Year Game",
+                 release_date: Date.new(2021, 1, 5),
+                 release_year: 2021,
+                 external_steam_app_id: nil,
+                 igdb_id: 5_000_010,
+                 igdb_slug: "early-year")
+
+      render_tile(g)
+
+      expect(rendered).not_to include("01-05-2021")
+      expect(rendered).not_to have_css(".tile-caption-meta-date")
+    end
+
+    it "does NOT fall back to the bare release_year when release_date is nil" do
+      g = create(:game, :synced,
+                 title: "Year-Only Game",
+                 release_date: nil,
+                 release_year: 2014,
+                 external_steam_app_id: nil,
+                 igdb_id: 5_000_011,
+                 igdb_slug: "year-only")
+
+      render_tile(g)
+
+      caption_node = Capybara.string(rendered).find(".tile-caption")
+      expect(caption_node.text).not_to include("2014")
+      expect(rendered).not_to have_css(".tile-caption-meta-date")
+    end
+  end
+
+  # ------------------------------------------------------------
+  # Sad / edge — missing date, both missing, rating-only.
+  # ------------------------------------------------------------
+
+  describe "edge: release_date and release_year both missing" do
+    let(:no_date) do
       create(:game, :synced,
              title: "Mystery Game",
-             release_date: Date.new(2020, 1, 1),
-             release_year: 2020,
+             release_date: nil,
+             release_year: nil,
              igdb_rating: nil,
              external_steam_app_id: nil,
              igdb_id: 5_001_001,
-             igdb_slug: "mystery-no-rating")
+             igdb_slug: "mystery-no-date")
     end
 
-    it "renders the meta line with year only" do
-      render_tile(no_rating)
-      expect(rendered).to have_css(".tile-caption-meta", text: "2020")
+    it "does NOT render the date span when both fields are nil" do
+      render_tile(no_date)
+      expect(rendered).not_to have_css(".tile-caption-meta-date")
     end
 
-    it "does NOT render the rating badge when rating is missing" do
-      render_tile(no_rating)
-      meta_node = Capybara.string(rendered).find(".tile-caption-meta")
-      expect(meta_node).not_to have_css("span.game-rating-badge--excellent")
-      expect(meta_node).not_to have_css("span.game-rating-badge--missing")
-      expect(meta_node).not_to have_css("span.game-rating-badge")
+    it "still does not produce a meta row" do
+      render_tile(no_date)
+      expect(rendered).not_to have_css(".tile-caption-meta")
     end
 
-    it "does NOT leave a leading dot when rating is missing" do
-      render_tile(no_rating)
-      meta = Capybara.string(rendered).find(".tile-caption-meta").text
-      expect(meta).not_to start_with("·")
-      expect(meta).not_to include("·")
+    it "still renders the title line" do
+      render_tile(no_date)
+      expect(rendered).to have_css(".tile-caption-title", text: "Mystery Game")
     end
   end
 
-  describe "edge: year missing" do
-    let(:no_year) do
+  describe "edge: rating present but ignored on the tile footer" do
+    let(:rating_only) do
       create(:game, :synced,
              title: "Vintage Find",
              release_date: nil,
@@ -211,44 +281,19 @@ RSpec.describe "games/_tile.html.erb", type: :view do
              igdb_rating: 78,
              external_steam_app_id: nil,
              igdb_id: 5_001_002,
-             igdb_slug: "vintage-no-year")
+             igdb_slug: "vintage-rating-only")
     end
 
-    it "renders the meta line with the rating badge only (no /100 suffix)" do
-      render_tile(no_year)
-      meta_node = Capybara.string(rendered).find(".tile-caption-meta")
-      expect(meta_node).to have_css("span.game-rating-badge", text: "78")
-      expect(rendered).not_to include("78/100")
+    it "does NOT render the rating anywhere in the visible caption" do
+      render_tile(rating_only)
+      caption_node = Capybara.string(rendered).find(".tile-caption")
+      expect(caption_node.text).not_to include("78")
+      expect(rendered).not_to have_css("span.game-rating-badge")
     end
 
-    it "does NOT leave a trailing dot when year is missing" do
-      render_tile(no_year)
-      meta = Capybara.string(rendered).find(".tile-caption-meta").text
-      expect(meta).not_to end_with("·")
-      expect(meta).not_to include("·")
-    end
-  end
-
-  describe "edge: rating and year both missing" do
-    let(:naked) do
-      create(:game, :synced,
-             title: "Blank Slate",
-             release_date: nil,
-             release_year: nil,
-             igdb_rating: nil,
-             external_steam_app_id: nil,
-             igdb_id: 5_001_003,
-             igdb_slug: "blank-slate")
-    end
-
-    it "omits the entire meta line" do
-      render_tile(naked)
+    it "produces no meta row when only a rating exists (no date, no logos)" do
+      render_tile(rating_only)
       expect(rendered).not_to have_css(".tile-caption-meta")
-    end
-
-    it "still renders the title line" do
-      render_tile(naked)
-      expect(rendered).to have_css(".tile-caption-title", text: "Blank Slate")
     end
   end
 
@@ -369,27 +414,15 @@ RSpec.describe "games/_tile.html.erb", type: :view do
       expect(caption_node[:style]).to include("font-size: 10px")
     end
 
-    it "shrinks the meta font size to 9px under :shelf" do
-      render_tile(game, variant: :shelf)
-      meta_node = Capybara.string(rendered).find(".tile-caption-meta")
-      expect(meta_node[:style]).to include("font-size: 9px")
-    end
-
     it "keeps the grid variant at 11px for the caption" do
       render_tile(game, variant: :grid)
       caption_node = Capybara.string(rendered).find(".tile-caption")
       expect(caption_node[:style]).to include("font-size: 11px")
     end
-
-    it "keeps the grid variant at 10px for the meta line" do
-      render_tile(game, variant: :grid)
-      meta_node = Capybara.string(rendered).find(".tile-caption-meta")
-      expect(meta_node[:style]).to include("font-size: 10px")
-    end
   end
 
   # ------------------------------------------------------------
-  # Linking + keyboard wiring unchanged.
+  # Linking + keyboard wiring + Turbo Frame escape.
   # ------------------------------------------------------------
 
   describe "tile remains a single anchor wrapping cover + caption" do
@@ -409,21 +442,38 @@ RSpec.describe "games/_tile.html.erb", type: :view do
       expect(rendered).to include("data-keyboard-tile")
     end
 
-    it "sets the native title attribute to title + meta line" do
+    it "does NOT set an always-on `title=` attribute on the anchor (tooltip-only-when-truncated lives on the title span)" do
+      # 2026-05-17 — the legacy always-on `title=` on the anchor
+      # (carrying `title + meta line`) is GONE. The hover tooltip is
+      # now driven by the `title-tooltip` Stimulus controller attached
+      # to `.tile-caption-title`, which only sets `title=` when the
+      # rendered text is actually truncated (`scrollWidth >
+      # clientWidth`). See
+      # `app/javascript/controllers/title_tooltip_controller.js`.
       render_tile(game)
       anchor = Capybara.string(rendered).find("a.tile")
-      expect(anchor[:title]).to include("Red Dead Redemption 2")
-      expect(anchor[:title]).to include("93 · 2018")
-      expect(anchor[:title]).not_to include("93/100")
+      expect(anchor[:title]).to be_nil
+    end
+
+    it "escapes the `games_listing` Turbo Frame via `data-turbo-frame=\"_top\"`" do
+      # Without this attribute, clicking a tile inside the
+      # `<turbo-frame id=\"games_listing\">` on `/games` would try to
+      # match the same frame on `/games/:id` (which has no such
+      # frame) and Turbo would render "Content missing". `_top`
+      # forces a full-page navigation.
+      render_tile(game)
+      anchor = Capybara.string(rendered).find("a.tile")
+      expect(anchor["data-turbo-frame"]).to eq("_top")
     end
   end
 
   # ------------------------------------------------------------
   # Flaw assertions — no legacy single-line caption, no reversed
-  # order remnants.
+  # order remnants, no leftover middle-dot separator, no resurrected
+  # date row.
   # ------------------------------------------------------------
 
-  describe "flaw: pre-Phase-27 single-line caption layout is gone" do
+  describe "flaw: pre-2026-05-17 caption layouts are gone" do
     before { render_tile(game) }
 
     it "does NOT render the legacy `(2018) ★ 93` ordering" do
@@ -431,9 +481,38 @@ RSpec.describe "games/_tile.html.erb", type: :view do
     end
 
     it "does NOT render the year parenthesized in the visible caption" do
-      meta = Capybara.string(rendered).find(".tile-caption-meta").text
-      expect(meta).not_to include("(2018)")
-      expect(meta).not_to include("(")
+      caption_text = Capybara.string(rendered).find(".tile-caption").text
+      expect(caption_text).not_to include("(2018)")
+      expect(caption_text).not_to include("(")
+    end
+
+    it "does NOT render the `<rating> · <year>` shape in the visible caption" do
+      caption_text = Capybara.string(rendered).find(".tile-caption").text
+      expect(caption_text).not_to match(%r{93\s*·\s*2018})
+    end
+  end
+
+  describe "flaw: meta row stays gone even when logos and a date both apply" do
+    it "does NOT resurrect a meta row even when both date and logos are available" do
+      # Defensive: a future change that adds platform exposure (logos)
+      # must NOT trigger any `.tile-caption-meta` resurrection — the
+      # overlay handles all logo rendering, and the date row is gone.
+      ps5 = create(:platform, name: "PS5", igdb_id: 167)
+      ps5.update_column(:slug, "ps5")
+      g = create(:game, :synced,
+                 title: "Date + Logos",
+                 release_date: Date.new(2022, 6, 1),
+                 release_year: 2022,
+                 external_steam_app_id: nil,
+                 igdb_id: 5_004_001,
+                 igdb_slug: "date-logos")
+      g.owned_platforms << ps5
+      render_tile(g)
+
+      expect(rendered).not_to have_css(".tile-caption-meta")
+      expect(rendered).not_to have_css(".tile-caption-meta-date")
+      caption_node = Capybara.string(rendered).find(".tile-caption")
+      expect(caption_node.text).not_to include("06-01-2022")
     end
   end
 
@@ -445,87 +524,114 @@ RSpec.describe "games/_tile.html.erb", type: :view do
     it "renders the same tile when passed via `item:`" do
       render partial: "games/tile", locals: { item: game }
       expect(rendered).to have_css(".tile-caption-title", text: "Red Dead Redemption 2")
-      meta_text = Capybara.string(rendered).find(".tile-caption-meta").text.strip
-      expect(meta_text).to match(%r{\A93\s*·\s*2018\z})
+      expect(rendered).not_to have_css(".tile-caption-meta")
     end
   end
 
   # ------------------------------------------------------------
-  # Phase 27 v2 spec 07 — platform-logo footer segment.
+  # Platform-logo overlay — multi-logo render on the cover's
+  # bottom-right corner (2026-05-17 overlay redesign).
   # ------------------------------------------------------------
 
-  describe "platform logo footer (Phase 27 v2 spec 07)" do
+  describe "platform logo overlay (2026-05-17 multi-logo overlay on cover)" do
     def make_platform(slug:, name: nil, igdb_id: nil)
       record = create(:platform, name: name || "Platform-#{slug}", igdb_id: igdb_id)
       record.update_column(:slug, slug) if slug
       record.reload
     end
 
-    let(:ps5_platform)  { make_platform(slug: "ps5") }
-    let(:xbox_platform) { create(:platform, name: "Xbox One", igdb_id: 49) }
+    let(:ps5_platform)     { make_platform(slug: "ps5") }
+    let(:switch2_platform) { make_platform(slug: "switch2") }
+    let(:xbox_platform)    { create(:platform, name: "Xbox One", igdb_id: 49) }
 
-    it "appends a 14-px PS5 logo when the game is owned on PS5" do
-      g = create(:game, :synced, title: "PS5 Owned", igdb_id: 5_010_001, igdb_slug: "ps5-owned")
+    it "renders the overlay container inside `.tile-cover` (not in `.tile-caption-meta`)" do
+      g = create(:game, :synced, title: "PS5 Overlay",
+                 external_steam_app_id: nil,
+                 igdb_id: 5_010_100, igdb_slug: "ps5-overlay")
       g.owned_platforms << ps5_platform
       render_tile(g)
 
-      meta_node = Capybara.string(rendered).find(".tile-caption-meta")
+      # Overlay lives under the cover container.
+      expect(rendered).to have_css(".tile-cover .tile-cover-platforms")
+      # And does NOT live under any (now non-existent) meta row.
+      expect(rendered).not_to have_css(".tile-caption-meta")
+    end
+
+    it "appends a 14-px PS5 logo when the game is owned on PS5" do
+      g = create(:game, :synced, title: "PS5 Owned",
+                 external_steam_app_id: nil,
+                 igdb_id: 5_010_001, igdb_slug: "ps5-owned")
+      g.owned_platforms << ps5_platform
+      render_tile(g)
+
+      overlay = Capybara.string(rendered).find(".tile-cover-platforms")
       # v7 (theme-aware) — the helper emits BOTH color variants; the
       # black one carries the canonical asset path and the alt text.
-      img = meta_node.find("img.platform-logo--black")
+      img = overlay.find("img.platform-logo--black")
       expect(img[:src]).to eq("/platforms/ps5-16-black.png")
       expect(img[:width]).to eq("14")
       expect(img[:height]).to eq("14")
       expect(img[:alt]).to eq("PS5")
 
       # White-variant img is present for the dark-theme branch.
-      white = meta_node.find("img.platform-logo--white")
+      white = overlay.find("img.platform-logo--white")
       expect(white[:src]).to eq("/platforms/ps5-16-white.png")
     end
 
-    it "renders a middle-dot separator BEFORE the logo when year is present" do
-      g = create(:game, :synced, title: "PS5 Owned 2", igdb_id: 5_010_002, igdb_slug: "ps5-owned-2")
+    it "renders MULTIPLE logos side-by-side when the game spans multiple known platforms" do
+      g = create(:game, :synced, title: "Cross-Platform",
+                 external_steam_app_id: "999",
+                 igdb_id: 5_010_010, igdb_slug: "cross-platform")
       g.owned_platforms << ps5_platform
+      g.platforms_available << switch2_platform
       render_tile(g)
 
-      meta = Capybara.string(rendered).find(".tile-caption-meta").text
-      # Two middle dots: rating·year·<logo>
-      expect(meta.scan("·").count).to eq(2)
+      overlay = Capybara.string(rendered).find(".tile-cover-platforms")
+      logos = overlay.all("img.platform-logo--black")
+      slugs = logos.map { |img| img[:src][%r{/platforms/(.+?)-16-black\.png}, 1] }
+      # KNOWN_LOGOS declaration order: ps5, switch2, steam.
+      expect(slugs).to eq(%w[ps5 switch2 steam])
     end
 
-    it "renders no logo for an Xbox-only game (xbox is NOT in KNOWN_LOGOS)" do
+    it "renders multiple logo wrappers, one per slug (no joining separator)" do
+      g = create(:game, :synced, title: "Two-Platform",
+                 external_steam_app_id: nil,
+                 igdb_id: 5_010_011, igdb_slug: "two-platform")
+      g.owned_platforms << ps5_platform
+      g.platforms_available << switch2_platform
+      render_tile(g)
+
+      overlay = Capybara.string(rendered).find(".tile-cover-platforms")
+      expect(overlay.all(".tile-caption-meta-logo").count).to eq(2)
+      expect(overlay.text).not_to include("·")
+    end
+
+    it "renders no overlay container for an Xbox-only game (xbox is NOT in KNOWN_LOGOS)" do
       g = create(:game, :synced,
                  title: "Xbox Only", external_steam_app_id: nil,
                  igdb_id: 5_010_003, igdb_slug: "xbox-only")
       g.platforms_available << xbox_platform
       render_tile(g)
 
-      meta_node = Capybara.string(rendered).find(".tile-caption-meta")
-      expect(meta_node).to have_no_css("img.platform-logo")
+      expect(rendered).not_to have_css(".tile-cover-platforms")
     end
 
-    it "renders no logo when the game has no platform exposure" do
+    it "renders no overlay container when the game has no platform exposure" do
       # `game` let — no platforms attached.
       render_tile(game)
-      meta_node = Capybara.string(rendered).find(".tile-caption-meta")
-      expect(meta_node).to have_no_css("img.platform-logo")
-    end
-
-    it "still renders the meta line (rating + year) when no logo applies" do
-      render_tile(game)
-      meta_text = Capybara.string(rendered).find(".tile-caption-meta").text.strip
-      expect(meta_text).to match(%r{\A93\s*·\s*2018\z})
+      expect(rendered).not_to have_css(".tile-cover-platforms")
     end
 
     it "falls back to platforms_available (unreleased game on PS5)" do
       g = create(:game,
                  title: "Future PS5", release_date: Date.current + 60.days,
+                 release_year: nil,
                  igdb_id: 5_010_004, igdb_slug: "future-ps5")
       g.platforms_available << ps5_platform
       render_tile(g)
 
-      meta_node = Capybara.string(rendered).find(".tile-caption-meta")
-      img = meta_node.find("img.platform-logo--black")
+      overlay = Capybara.string(rendered).find(".tile-cover-platforms")
+      img = overlay.find("img.platform-logo--black")
       expect(img[:src]).to eq("/platforms/ps5-16-black.png")
     end
 
@@ -535,24 +641,66 @@ RSpec.describe "games/_tile.html.erb", type: :view do
                  igdb_id: 5_010_005, igdb_slug: "steam-only-sale")
       render_tile(g)
 
-      meta_node = Capybara.string(rendered).find(".tile-caption-meta")
-      img = meta_node.find("img.platform-logo--black")
+      overlay = Capybara.string(rendered).find(".tile-cover-platforms")
+      img = overlay.find("img.platform-logo--black")
       expect(img[:src]).to eq("/platforms/steam-16-black.png")
     end
 
-    it "renders the logo segment even when rating + year are both missing (logo-only meta line)" do
+    it "renders the overlay even when the date is missing (overlay-only platform exposure)" do
       g = create(:game, title: "Naked PS5",
                  igdb_rating: nil, release_date: nil, release_year: nil,
                  igdb_id: 5_010_006, igdb_slug: "naked-ps5")
       g.owned_platforms << ps5_platform
       render_tile(g)
 
-      # Meta line is rendered because a logo applies even though rating+year drop out.
-      expect(rendered).to have_css(".tile-caption-meta")
-      meta_node = Capybara.string(rendered).find(".tile-caption-meta")
-      expect(meta_node).to have_css("img.platform-logo")
-      # No stray leading middle-dot when only the logo segment renders.
-      expect(meta_node.text.strip).not_to start_with("·")
+      # Overlay renders on the cover regardless of caption state.
+      expect(rendered).to have_css(".tile-cover-platforms")
+      overlay = Capybara.string(rendered).find(".tile-cover-platforms")
+      expect(overlay).to have_css("img.platform-logo")
+      # Meta row never appears.
+      expect(rendered).not_to have_css(".tile-caption-meta")
+    end
+  end
+
+  # ------------------------------------------------------------
+  # Overlay positioning — `.tile-cover-platforms` is absolute-
+  # positioned inside the relative-positioned cover container.
+  # The geometry (flush to bottom-right, 2 px padding, 2 px gap,
+  # border-coloured background) lives in
+  # `app/assets/tailwind/application.css`; here we assert the
+  # structural relationship so the overlay never regresses back
+  # into the caption.
+  # ------------------------------------------------------------
+
+  describe "overlay positioning relative to the cover container" do
+    def make_platform(slug:, name: nil, igdb_id: nil)
+      record = create(:platform, name: name || "Platform-#{slug}", igdb_id: igdb_id)
+      record.update_column(:slug, slug) if slug
+      record.reload
+    end
+
+    let(:ps5_platform) { make_platform(slug: "ps5") }
+
+    it "wraps the cover container with `position: relative` so the overlay can absolute-position inside it" do
+      g = create(:game, :synced, title: "Overlay Anchor",
+                 external_steam_app_id: nil,
+                 igdb_id: 5_010_200, igdb_slug: "overlay-anchor")
+      g.owned_platforms << ps5_platform
+      render_tile(g)
+
+      cover_style = Capybara.string(rendered).find(".tile-cover")["style"]
+      expect(cover_style).to include("position: relative")
+    end
+
+    it "renders `.tile-cover-platforms` as a DIRECT child of `.tile-cover`" do
+      g = create(:game, :synced, title: "Overlay Child",
+                 external_steam_app_id: nil,
+                 igdb_id: 5_010_201, igdb_slug: "overlay-child")
+      g.owned_platforms << ps5_platform
+      render_tile(g)
+
+      # `> .tile-cover-platforms` ensures direct parent, not nested.
+      expect(rendered).to have_css(".tile-cover > .tile-cover-platforms")
     end
   end
 end

@@ -1,0 +1,11 @@
+<% if (score = synthesized_score) %>
+  <div class="rating-heat-bar" data-score="<%= score %>">
+    <div class="rating-heat-bar-fill" style="width: <%= score %>%; background-color: <%= tier_color(score) %>;"></div>
+    <span class="rating-heat-bar-label"><%= score %></span>
+  </div>
+<% else %>
+  <div class="rating-heat-bar rating-heat-bar--muted">
+    <div class="rating-heat-bar-fill" style="width: 0%;"></div>
+    <span class="rating-heat-bar-label">—</span>
+  </div>
+<% end %>

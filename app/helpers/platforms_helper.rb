@@ -1,6 +1,6 @@
 # Phase 27 follow-up (2026-05-11) — canonical platform display.
 #
-# The project tracks four canonical platforms (`PS5`, `Switch2`,
+# The project tracks four canonical platforms (`PS`, `Switch`,
 # `Steam`, `Xbox`). IGDB returns verbose, generation-specific names
 # ("PlayStation 5", "Xbox Series X|S", "PC (Microsoft Windows)") that
 # don't match the canonical list directly. This helper canonicalises a
@@ -28,7 +28,7 @@
 #     IGDB models PC distribution as external games, not platforms.
 #
 # Output order matches `Platform::CANONICAL_SHORT_NAMES` insertion
-# order (PS5, Switch2, Steam, Xbox). Duplicates are deduplicated.
+# order (PS, Switch, Steam, Xbox). Duplicates are deduplicated.
 module PlatformsHelper
   # Returns the canonical short-name list for `game` as an array of
   # strings. Empty array when no canonical platform applies (caller

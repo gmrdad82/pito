@@ -1,0 +1,69 @@
+<%# Phase 27 Wave F (2026-05-17) — Verbatim port of
+    `app/views/games/_bundle_for_shelf_tile.html.erb`. Keep the two
+    in sync until VC5 swaps the partial's render for this component;
+    the partial is still the live wiring at this dispatch. %>
+<a href="<%= fallback_href %>"
+   class="bundle-tile"
+   data-bundle-id="<%= bundle.id %>"
+   data-controller="bundles-modal-trigger"
+   data-action="click->bundles-modal-trigger#open"
+   data-bundles-modal-trigger-url-value="<%= pane_url %>"
+   data-bundles-modal-trigger-title-value="<%= bundle.name %>"
+   title="<%= bundle.name %>"
+   style="flex: 0 0 auto; display: inline-flex; flex-direction: column; align-items: flex-start; gap: 4px; text-decoration: none; color: inherit; cursor: pointer; width: 150px;">
+  <%# 2026-05-17 — wrap the cover (composite img OR fallback SVGs) in
+      a `position: relative` container so the `+N` overflow overlay
+      below can anchor flush to the bottom-right corner. Mirrors the
+      `.tile-cover` wrapper in `_tile.html.erb`. %>
+  <div class="bundle-cover-wrap" style="position: relative; display: block; width: 150px; height: 200px;">
+    <% if composite_url.present? %>
+      <img src="<%= composite_url %>"
+           width="150"
+           height="200"
+           loading="lazy"
+           alt="<%= bundle.name %>"
+           class="bundle-cover-composite"
+           style="display: block; object-fit: cover;">
+    <% else %>
+      <%# Theme-aware fallback (light + dark SVGs; CSS picks one).
+          Uses the `grid` fallback variant because the bundle tile now
+          renders at 150 × 200 (the rich-tile / grid cover size) to
+          match the letter shelf, not the bare-cover :shelf size. %>
+      <%= image_tag "game_cover_fallback_grid_light.svg",
+                    alt: bundle.name, loading: "lazy",
+                    width: 150, height: 200,
+                    data: { variant: "grid", theme: "light" },
+                    class: "game-cover-img game-cover-fallback game-cover-fallback--light" %>
+      <%= image_tag "game_cover_fallback_grid_dark.svg",
+                    alt: bundle.name, loading: "lazy",
+                    width: 150, height: 200,
+                    data: { variant: "grid", theme: "dark" },
+                    class: "game-cover-img game-cover-fallback game-cover-fallback--dark" %>
+    <% end %>
+    <%# 2026-05-17 — HTML `+N` overflow overlay. Mirrors the
+        `.tile-cover-chip-overlay` pattern from `_tile.html.erb`, but
+        tuned for parity with the `:sm` platform chips: the inner
+        StatusBadge is scoped-stripped of its bordered-pill chrome and
+        renormalised to the `--sm` chip's 11px / `padding: 0 5px`
+        dimensions, and the overlay container itself is offset
+        `-1px` on right + bottom so its edge OVERLAPS the cover's
+        1px border instead of stacking alongside it (the double-line
+        artifact on dark theme). All styling lives in
+        `.bundle-cover-overflow-overlay` in `application.css`. %>
+    <% if has_overflow? %>
+      <div class="bundle-cover-overflow-overlay">
+        <%= render(StatusBadgeComponent.new(label: "+#{overflow_n}", kind: :neutral)) %>
+      </div>
+    <% end %>
+  </div>
+  <%# 2026-05-17 — title styling aligned with the letter shelf rich tile
+      (`_tile.html.erb` `.tile-caption-title`): inherits the default
+      text color (NOT `text-muted`), 11px font-size matching the grid
+      caption, left-aligned, single-line ellipsis-truncated to the
+      150px cover width. Anchor's `align-items: flex-start` (above)
+      keeps the title flush left under the cover. %>
+  <span class="tile-caption-title bundle-tile-name"
+        style="font-size: 11px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left;">
+    <%= bundle.name %>
+  </span>
+</a>

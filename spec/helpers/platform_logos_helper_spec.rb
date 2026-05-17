@@ -27,6 +27,14 @@ RSpec.describe PlatformLogosHelper, type: :helper do
   let(:steam)   { make_platform(slug: "steam") }
   let(:xbox_one) { create(:platform, name: "Xbox One", igdb_id: 49) }
 
+  # PC family rows IGDB returns for the desktop-store collapse.
+  # The slug is whatever IGDB ships ("win" / "linux" / "mac"); none
+  # of these match `KNOWN_LOGOS` directly, so the helper has to
+  # walk `PC_STORE_IGDB_IDS` to reach "steam".
+  let(:pc_windows) { create(:platform, name: "PC (Microsoft Windows)", igdb_id: 6) }
+  let(:pc_linux)   { create(:platform, name: "Linux",                  igdb_id: 3) }
+  let(:pc_mac)     { create(:platform, name: "Mac",                    igdb_id: 14) }
+
   # ---------------------------------------------------------------
   # `platform_logo_tag` — `color: :auto` (default, theme-aware)
   # ---------------------------------------------------------------
@@ -307,6 +315,12 @@ RSpec.describe PlatformLogosHelper, type: :helper do
       expect(helper.game_index_tile_logo_slug(game)).to eq("steam")
     end
 
+    it "falls back to steam when platforms_available carries a PC (Windows) IGDB row, even without external_steam_app_id" do
+      game.platforms_available << pc_windows
+      expect(game.external_steam_app_id).to be_nil
+      expect(helper.game_index_tile_logo_slug(game)).to eq("steam")
+    end
+
     it "returns nil when the game has no known platform exposure (xbox-only)" do
       game.platforms_available << xbox_one
       expect(helper.game_index_tile_logo_slug(game)).to be_nil
@@ -356,6 +370,39 @@ RSpec.describe PlatformLogosHelper, type: :helper do
       expect(helper.game_detail_logo_slugs(game)).to eq([ "steam" ])
     end
 
+    it "infers steam from a PC (Windows) platforms_available row even when external_steam_app_id is nil (Pragmata-shaped data)" do
+      game.platforms_available << pc_windows
+      expect(game.external_steam_app_id).to be_nil
+      expect(helper.game_detail_logo_slugs(game)).to eq([ "steam" ])
+    end
+
+    it "infers steam from a Linux platforms_available row" do
+      game.platforms_available << pc_linux
+      expect(helper.game_detail_logo_slugs(game)).to eq([ "steam" ])
+    end
+
+    it "infers steam from a Mac platforms_available row" do
+      game.platforms_available << pc_mac
+      expect(helper.game_detail_logo_slugs(game)).to eq([ "steam" ])
+    end
+
+    it "renders the full Pragmata slug set (ps5 + switch2 + steam) — PC collapses to steam, xbox dropped" do
+      game.platforms_available << ps5
+      switch2_via_igdb = create(:platform, name: "Nintendo Switch 2", igdb_id: 508)
+      game.platforms_available << switch2_via_igdb
+      game.platforms_available << pc_windows
+      xbox_series = create(:platform, name: "Xbox Series X|S", igdb_id: 169)
+      game.platforms_available << xbox_series
+      expect(game.external_steam_app_id).to be_nil
+      expect(helper.game_detail_logo_slugs(game)).to eq(%w[ps5 switch2 steam])
+    end
+
+    it "does NOT double-render steam when both external_steam_app_id AND a PC row are present" do
+      game.update!(external_steam_app_id: "12345")
+      game.platforms_available << pc_windows
+      expect(helper.game_detail_logo_slugs(game)).to eq([ "steam" ])
+    end
+
     it "decomposes PC presence: returns [ps5, steam] for a ps5 + steam game" do
       game.platforms_available << ps5
       game.update!(external_steam_app_id: "111")
@@ -402,6 +449,26 @@ RSpec.describe PlatformLogosHelper, type: :helper do
     it "does NOT carry alt labels for the dropped gog/epic slugs" do
       expect(PlatformLogosHelper::LOGO_ALT_LABELS).not_to have_key("gog")
       expect(PlatformLogosHelper::LOGO_ALT_LABELS).not_to have_key("epic")
+    end
+
+    it "freezes PC_STORE_IGDB_IDS as the full desktop-store collapse set" do
+      expect(PlatformLogosHelper::PC_STORE_IGDB_IDS).to include(6, 3, 14, 13, 92)
+    end
+
+    it "includes IGDB id 6 (PC / Microsoft Windows) in PC_STORE_IGDB_IDS" do
+      expect(PlatformLogosHelper::PC_STORE_IGDB_IDS).to include(6)
+    end
+
+    it "does NOT include IGDB id 167 (PS5) in PC_STORE_IGDB_IDS" do
+      expect(PlatformLogosHelper::PC_STORE_IGDB_IDS).not_to include(167)
+    end
+
+    it "does NOT include IGDB id 508 (Switch 2) in PC_STORE_IGDB_IDS" do
+      expect(PlatformLogosHelper::PC_STORE_IGDB_IDS).not_to include(508)
+    end
+
+    it "does NOT include IGDB id 169 (Xbox Series X|S) in PC_STORE_IGDB_IDS" do
+      expect(PlatformLogosHelper::PC_STORE_IGDB_IDS).not_to include(169)
     end
   end
 end

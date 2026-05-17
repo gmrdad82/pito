@@ -54,7 +54,7 @@
      `[data-theme="dark"]` block below). Distinct from `--color-border`
      (a same-tone hairline used for tables / inputs / dividers) so the
      two roles can drift independently. Applied via `.game-cover-img`,
-     `.tile-cover img`, and `.collection-cover-composite` further down
+     `.tile-cover img`, and `.bundle-cover-composite` further down
      in this file. */
   --color-cover-border: #1a1a1a;
   --color-success: #2e7d32;
@@ -673,7 +673,8 @@ html {
 .pane-strip,
 .saved-views-list,
 .markdown-preview pre,
-.themed-scroll-x {
+.themed-scroll-x,
+.shelf-row {
   scrollbar-width: thin;
   scrollbar-color: var(--color-muted) var(--color-bg);
 }
@@ -1754,6 +1755,113 @@ hr.hairline {
   margin: 8px 0;
 }
 
+/* Wave C4 (spec 08 §"Ownership chips") — /games/:id LEFT-pane
+   ownership block. One label column + a horizontal chip row per
+   ownership facet (platforms / played / footage). The
+   label width is fixed so the chip rows align vertically; the chips
+   wrap if the row gets long. */
+.ownership-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0;
+  flex-wrap: wrap;
+}
+.ownership-label {
+  min-width: 80px;
+  color: var(--color-muted);
+}
+
+/* Ownership chip toggle button — strips the default <button> chrome so
+   the bracketed `[PS5]` / `[Switch]` / `[Steam]` chip reads as a plain
+   clickable label identical to `Platforms::ChipComponent` plus a pointer
+   cursor. Hover bumps brightness slightly so the toggle affordance
+   reads without changing the color tier. */
+.ownership-chip-button {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  line-height: inherit;
+}
+.ownership-chip-button:hover,
+.ownership-chip-button:focus {
+  filter: brightness(1.15);
+  outline: none;
+}
+
+/* Static chip (played — non-interactive in this slice).
+   Same bracketed shape, no pointer cursor; the `title` attribute
+   carries the contextual hover string. */
+.ownership-chip-static {
+  cursor: default;
+}
+
+/* Wave C6 (spec 08 §"LEFT-pane sections" position 12-13) — sync banner
+   at the bottom of the `/games/:id` LEFT pane. Renders the inline
+   dot-loader while a resync is in flight; otherwise the muted-italic
+   `synced Xm ago` short relative label produced by the
+   `short_synced_ago` GamesHelper. Sits below a `<hr class="hairline">`
+   divider — the small top margin guarantees the banner doesn't kiss
+   the hairline regardless of the hairline's own margins. */
+.sync-banner {
+  color: var(--color-muted);
+  font-style: italic;
+  margin-top: 8px;
+}
+
+/* Wave C7 (spec 08 §"RIGHT-pane sections" line 301 + §"RIGHT pane
+   Time-to-beat" lines 318-333) — RIGHT-pane sections on `/games/:id`.
+   The summary section sits above the hairline divider; the time-to-
+   beat section sits below it. `.summary-body` is the wrapper class
+   applied by `simple_format(@game.summary, class: "summary-body")` —
+   it tints each emitted `<p>` to the canonical body text color and
+   relaxes line-height so multi-paragraph IGDB summaries read
+   comfortably inside the 624 px pane.
+
+   `.ttb-table` is a three-column header-over-value table (main /
+   extras / completionist). Auto width keeps the values from
+   stretching across the full pane; the right-aligned cells +
+   `tabular-nums` give the three hour figures a tidy numeric column
+   feel even when one is missing (em-dash from `ttb_hours`). The
+   muted header tone keeps the values themselves as the visual focus
+   the way the LEFT-pane heat-bar does on the ratings side. */
+.game-summary {
+  margin-bottom: 12px;
+}
+
+.summary-body {
+  color: var(--color-text);
+  line-height: 1.5;
+}
+
+.game-ttb {
+  margin-top: 12px;
+}
+
+.ttb-table {
+  width: auto;
+  border-collapse: collapse;
+  margin-top: 4px;
+}
+
+.ttb-table th,
+.ttb-table td {
+  padding: 4px 12px 4px 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.ttb-table th {
+  font-weight: 600;
+  color: var(--color-muted);
+}
+
+.ttb-table td {
+  color: var(--color-text);
+}
+
 /* Framed block — bordered, tinted container for "save this now" / one-time
    reveal surfaces. Read as visually distinct from the page background so
    users register the contained content as important / capture-now. Used by
@@ -2218,6 +2326,85 @@ textarea.note-editor-source {
   border-color: #cc0000;
   color: #cc0000;
 }
+/* 2026-05-17 — Platform chip primitive. Status-badge sibling: a
+   colored pill painted in the platform brand color as BACKGROUND
+   (PS5 PlayStation blue, Switch Nintendo red, Steam cyan) with white
+   text on top. No literal `[ ]` brackets — the colored surface IS
+   the visual delimiter, mirroring `.status-badge`. One color set for
+   BOTH themes (do not theme-switch); per-slug modifier classes paint
+   `background-color` below. Shape (padding / radius / line-height)
+   matches `.status-badge` so the chips read as a sibling badge
+   primitive rather than a new shape. */
+.platform-chip {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 2px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.4;
+  vertical-align: baseline;
+  color: #ffffff;
+  white-space: nowrap;
+}
+.platform-chip--sm {
+  font-size: 11px;
+  padding: 0 5px;
+}
+.platform-chip--md {
+  font-size: 13px;
+  padding: 2px 8px;
+}
+.platform-chip--ps     { background-color: #003791; color: #ffffff; }
+.platform-chip--switch { background-color: #E60012; color: #ffffff; }
+.platform-chip--steam  { background-color: #00ADEE; color: #ffffff; }
+/* Wave C5 (2026-05-17) — Synthesized rating heat-bar (spec 08
+   §"Rating heat-bar synthesis"). Fixed-width horizontal bar with an
+   absolutely-positioned fill (0..100%) and a right-aligned numeric
+   label that sits ABOVE the fill via z-index + a small `--color-bg`
+   plate so the digits stay legible regardless of the fill color
+   underneath. The muted variant (no contributing rating source)
+   keeps the 0%-fill silhouette so the layout slot does not collapse. */
+.rating-heat-bar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 200px;
+  height: 14px;
+  background-color: var(--color-bg-alt);
+  border: 1px solid var(--color-border);
+}
+.rating-heat-bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  height: 100%;
+}
+.rating-heat-bar-label {
+  position: relative;
+  margin-left: auto;
+  margin-right: 4px;
+  padding-left: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text);
+  background-color: var(--color-bg);
+  z-index: 1;
+}
+.rating-heat-bar--muted {
+  opacity: 0.5;
+}
+/* 2026-05-17 — Cross-cutting placeholder badge. Renders literal `[TBD]`
+   in bright orange to flag surfaces we will get to later (footage rows,
+   videos empty state on /games/:id, search placeholder modal, etc.).
+   Purely informational — NOT a link, default cursor. Color is LOCKED
+   per spec 08 §StatusTbdBadgeComponent (do not theme-switch). Size +
+   font weight inherit from surrounding body text; component carries
+   the color + weight + nowrap only. */
+.status-tbd-badge {
+  color: #ff8800;
+  font-weight: 600;
+  white-space: nowrap;
+}
 /* 2026-05-16 (sessions revamp v2) — generic CSS-only tooltip host.
    Pairs with `TooltipBadgeComponent`. The host element shows a
    positioned `::after` pseudo on hover OR keyboard focus; the same
@@ -2380,6 +2567,25 @@ dialog.wide-modal::backdrop {
   font-size: 11px;
 }
 
+/* Keybindings reference card (two-section layout — page actions on
+   top, hairline, navigation below). Rendered by
+   `KeybindingsReferenceComponent`; reuses the existing `<kbd>` text
+   for key glyphs and the `hr.hairline` divider. Per spec 09 (phase 27
+   v2) §"Two-section UI". */
+.keybindings-section + .keybindings-section {
+  margin-top: 12px;
+}
+.keybindings-section h3 {
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+.keybindings-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 2px 0;
+}
+
 /* Phase 26 §01g — viewer-time heatmap. CSS grid + single-hue
    intensity gradient (no red, per design rules). The grid is
    7 rows (days) x 25 columns (1 row-label + 24 hour cells).
@@ -2533,11 +2739,11 @@ dialog.wide-modal::backdrop {
                                      (`games/_tile.html.erb` for the
                                      letter shelves + recently-played
                                      shelf; `bundles/_tile.html.erb`).
-     `.collection-cover-composite` — leading composite cover tile in
-                                     the collections shelf row. */
+     `.bundle-cover-composite`     — leading composite cover tile in
+                                     the bundles shelf row. */
 .game-cover-img,
 .tile-cover img,
-.collection-cover-composite {
+.bundle-cover-composite {
   border: 1px solid var(--color-cover-border);
 }
 
@@ -2552,91 +2758,122 @@ dialog.wide-modal::backdrop {
 [data-theme="dark"] .game-cover-fallback--light { display: none; }
 [data-theme="dark"] .game-cover-fallback--dark { display: block; }
 
-/* Platform logos — theme-scoped visibility for the two color
-   variants downloaded by `pito:platform_logos:download`. When the
-   helper renders `color: :auto` (the default) it emits BOTH a
-   `.platform-logo--black` and a `.platform-logo--white` `<img>`
-   inside a `.platform-logo-pair` wrapper; this block hides the
-   off-theme one. Default tree shows the black variant (light
-   theme); the `[data-theme="dark"]` scope swaps to the white
-   variant. The pair wrapper carries the sized footprint so layout
-   stays stable when one img is hidden. */
-.platform-logo-pair .platform-logo--white { display: none; }
-[data-theme="dark"] .platform-logo-pair .platform-logo--black { display: none; }
-[data-theme="dark"] .platform-logo-pair .platform-logo--white { display: inline-block; }
-
-/* Phase 27 §01d follow-up — shelves-by-letter row clamp.
-   Each per-letter shelf is rendered through the shared `games/shelf`
-   partial whose row is `display: flex; gap: 8px; overflow-x: auto`.
-   In the default block layout that row stretches to the container
-   width, so a letter bucket with one or two games shows a long
-   empty stripe to the right of the cover art. Clamp the section
-   (and the row inside it) to `width: max-content` so the visible
-   span equals `N × 150 + (N-1) × 8` — never wider than the cover
-   art itself, per the locked direction. The headings (`<h2>` letter
-   label and the bracketed `[see all]` link) sit on the dot-list
-   row and inherit the same content-width clamp because the section
-   is the flex/dot-list root. */
-.games-shelves-by-letter-mode .shelf {
-  width: max-content;
-  max-width: 100%;
+/* 2026-05-17 — Shelf default top margin (Wave F consolidation).
+   The `Games::ShelfComponent` previously emitted inline
+   `style="margin-top: 16px"` on every section, which beat the
+   cascade and prevented the hairline rule below from collapsing
+   the gap between sibling letter / genre shelves to its tighter
+   `margin-top: 8px`. Moving the default into CSS lets the hairline
+   selectors win for sibling shelves while preserving the 16px of
+   breathing room above the first shelf in any group. The component
+   still accepts a `section_style` override (genre sub-shelf uses
+   `margin-top: 12px`) which lands as inline style and beats this
+   rule by specificity. */
+.shelf {
+  margin-top: 16px;
 }
+
+/* Phase 27 §01d follow-up — shelves-by-letter ROW clamp.
+   Each per-letter shelf is rendered through `Games::ShelfComponent`
+   whose row is `display: flex; gap: 6px; overflow-x: auto`. In the
+   default block layout that row stretches to the container width,
+   so a letter bucket with one or two games shows a long empty
+   stripe (and a long empty horizontal scrollbar) to the right of
+   the cover art. Clamp the ROW to `width: max-content` so the
+   visible span equals `N × 150 + (N-1) × 6` — never wider than the
+   cover art itself.
+
+   2026-05-17 (Wave F consolidation) — the clamp moved OFF the
+   outer `.shelf` section onto the inner `.shelf-row`. The section
+   stays full-width so the heading and the hairline (a `border-top`
+   on the section, see selectors further down) span the full
+   container width — matching the genre + bundle shelves below. */
 .games-shelves-by-letter-mode .shelf-row {
   width: max-content;
   max-width: 100%;
 }
 
-/* Phase 27 §01h — Collection tile composite cover.
-   Fixed-pixel sizing matches the `:shelf` cover-art variant
-   (98 × 130) so the composite sits inline with `Games::CoverComponent`
-   tiles without browser-side resizing. No `transform: scale`, no
-   `width: 100%`, no `cursor: pointer` on the image itself — the
-   wrapping `.collection-tile` anchor carries the click affordance
-   (see `_collection_tile.html.erb`). */
-.collection-cover-composite {
-  width: 98px;
-  height: 130px;
+/* Phase 27 §01h / Phase 27 follow-up (2026-05-17) — Bundle tile
+   composite cover. Fixed-pixel sizing matches the letter-shelf rich
+   tile cover (150 × 200) per the 2026-05-17 size sync — bundle tiles
+   align with the game-shelf cover size, not the genre-shelf cover
+   size. The wrapping `.bundle-tile` anchor carries the click
+   affordance (see `_bundle_for_shelf_tile.html.erb`). The composite
+   is built at 600 × 800 via `Composite::Builder`; the browser
+   downsamples to 150 × 200 here (3:4 aspect ratio preserved). */
+.bundle-cover-composite {
+  width: 150px;
+  height: 200px;
   display: block;
   border-radius: 2px;
+  object-fit: cover;
 }
 
-/* 2026-05-11 polish (Fix 4) — migrated inline styles for the games
-   listing partials. Each rule keeps its original selector scope; the
-   partials previously emitted these in `<style>` blocks. */
+/* 2026-05-17 — Bundle cover `+N` overflow overlay. Mirrors the inline
+   `.tile-cover-chip-overlay` rendered in `games/_tile.html.erb`
+   visually (anchored bottom-right of the cover, container background
+   uses the cover-border token so the strip reads as a continuation of
+   the cover edge), but with a single muted `StatusBadge` inside instead
+   of brand-coloured platform chips.
 
-/* games — list display mode. The `<colgroup>` widths source from the
-   `--col-width-*` variables defined at `:root` so widening one column
-   propagates to every listing surface that reuses the variable. */
-.games-list-mode table.list-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-.games-list-mode table.list-table th,
-.games-list-mode table.list-table td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--color-border); vertical-align: middle; }
-.games-list-mode table.list-table th.num,
-.games-list-mode table.list-table td.num { text-align: right; }
-.games-list-mode col.col-select   { width: var(--col-width-select); }
-.games-list-mode col.col-cover    { width: var(--col-width-cover); }
-.games-list-mode col.col-title    { width: auto; }
-.games-list-mode col.col-genre    { width: var(--col-width-genre); }
-.games-list-mode col.col-released { width: var(--col-width-released); }
-.games-list-mode col.col-rating   { width: var(--col-width-rating); }
-.games-list-mode col.col-owned    { width: var(--col-width-owned); }
-.games-list-mode td.cover-cell img { width: 68px; height: auto; object-fit: cover; }
-.games-list-mode td.cover-cell .game-cover-fallback--dark { display: none; }
-[data-theme="dark"] .games-list-mode td.cover-cell .game-cover-fallback--light { display: none; }
-[data-theme="dark"] .games-list-mode td.cover-cell .game-cover-fallback--dark { display: block; }
-.games-list-mode td.title-cell .not-released { font-weight: bold; }
-.games-list-mode .games-bulk-toolbar { margin-bottom: 6px; min-height: 1.4em; }
-.games-list-mode .games-bulk-toolbar .action[hidden] { display: none; }
-.games-list-mode tr.game-row[data-game-job-state="running"] td.job-indicator-cell::after { content: " ="; }
-.games-list-mode tr.game-row[data-game-job-state="done"]    td.job-indicator-cell::after { content: " ok"; color: var(--color-muted, #555); }
-.games-list-mode tr.game-row[data-game-job-state="failed"]  td.job-indicator-cell::after { content: " err"; color: var(--color-danger, #cc0000); }
+   Two deltas vs the chip overlay:
+
+   1. `right: -1px; bottom: -1px` — the overlay edge OVERLAPS the
+      cover's 1px border (defined on `.bundle-cover-composite` above)
+      so the two edges read as one continuous line instead of stacking
+      into a double border on dark theme (where both `--color-border`
+      and `--color-cover-border` are visible neutrals).
+   2. The descendant `.status-badge` override strips the badge's own
+      border + renormalises font-size / line-height / padding to match
+      `.platform-chip--sm` (11px / 1.4 / `padding: 0 5px`), so a `+N`
+      badge sitting next to platform chips on a sibling tile reads as
+      the same shape — not a chunkier bordered pill. */
+.bundle-cover-overflow-overlay {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  display: inline-flex;
+  padding: 1px;
+  background-color: var(--color-cover-border);
+  z-index: 1;
+}
+.bundle-cover-overflow-overlay .status-badge {
+  border: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  padding: 0 5px;
+}
 
 /* games — Genres outer shelf hairline between consecutive sub-shelves.
    Selector kept verbatim so the per-shelf spec assertion still locks
-   the scope. */
+   the scope.
+
+   2026-05-17 (Wave F consolidation) — `padding-top` tightened from
+   `8px` to `4px` so the heading sits closer to the hairline above
+   it. Mirrors the change applied to the letter-shelf hairline rule
+   below for visual parity across all three shelf families. */
 section[data-shelf="outer-genres"] > section.sub-shelf:not(:first-of-type) {
   border-top: 1px solid var(--color-border);
   margin-top: 8px;
-  padding-top: 8px;
+  padding-top: 4px;
+}
+
+/* games — Letter-shelf hairline between consecutive letter shelves on
+   `/games`. Mirrors the bundle / genre sub-shelf treatment so the
+   A..Z..# sequence reads as a clearly separated stack rather than a
+   continuous slab. Scoped via the outer wrapper class emitted by
+   `app/views/games/_letter_shelves.html.erb`.
+
+   2026-05-17 (Wave F consolidation) — the outer `.shelf` width clamp
+   moved to the inner `.shelf-row`, so this `border-top` now spans
+   the full container width (matching genre + bundle shelves above)
+   instead of being clipped to the cover-art content width. Also
+   `padding-top` tightened from `8px` to `4px` so the per-letter
+   heading sits closer to the hairline. */
+.games-shelves-by-letter-mode > section[data-shelf="letter"]:not(:first-of-type) {
+  border-top: 1px solid var(--color-border);
+  margin-top: 8px;
+  padding-top: 4px;
 }
 
 /* 2026-05-11 — /channels/:id detail pane header.
