@@ -23,11 +23,11 @@ module SettingsHelper
   # secrets-in-DOM defense.
   #
   # @param brand [Symbol] :discord or :slack
-  # @return [String] e.g. "https://discord.com/api/webhooks/***"
+  # @return [String] e.g. "https://discord.com/***"
   def webhook_url_mask(brand)
     case brand
-    when :discord then "https://discord.com/api/webhooks/***"
-    when :slack   then "https://hooks.slack.com/services/***"
+    when :discord then "https://discord.com/***"
+    when :slack   then "https://hooks.slack.com/***"
     else raise ArgumentError, "unknown brand: #{brand.inspect}"
     end
   end
