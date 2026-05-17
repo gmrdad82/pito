@@ -8,10 +8,23 @@ module Composite
       TILE_W = 150
       TILE_H = 200
 
+      # Cell positions as 0..1 ratios — see `Composite::CellMap`.
+      # 2×2 grid of 150×200 tiles. Row-major: [0]=TL [1]=TR [2]=BL [3]=BR.
+      CELLS = [
+        { x: 0.0, y: 0.0, w: 0.5, h: 0.5 },
+        { x: 0.5, y: 0.0, w: 0.5, h: 0.5 },
+        { x: 0.0, y: 0.5, w: 0.5, h: 0.5 },
+        { x: 0.5, y: 0.5, w: 0.5, h: 0.5 }
+      ].freeze
+
       module_function
 
       def layout_name
         "quad"
+      end
+
+      def cells
+        CELLS
       end
 
       def compose(tiles, total_member_count: nil)

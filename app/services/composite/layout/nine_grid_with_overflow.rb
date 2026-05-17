@@ -11,10 +11,20 @@ module Composite
       TILE_W = Composite::Layout::NineGrid::TILE_W
       TILE_H = Composite::Layout::NineGrid::TILE_H
 
+      # Cell positions as 0..1 ratios — see `Composite::CellMap`.
+      # Geometry is identical to NineGrid (the +N badge is an HTML
+      # overlay, not a cell). Delegate to the canonical 9-cell array
+      # so a future change to either layout stays in one place.
+      CELLS = Composite::Layout::NineGrid::CELLS
+
       module_function
 
       def layout_name
         "nine_grid_with_overflow"
+      end
+
+      def cells
+        CELLS
       end
 
       def compose(tiles, total_member_count: nil)

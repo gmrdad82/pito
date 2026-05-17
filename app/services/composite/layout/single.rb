@@ -6,10 +6,22 @@ module Composite
       OUTPUT_WIDTH  = 300
       OUTPUT_HEIGHT = 400
 
+      # Cell positions as 0..1 ratios of the canvas. Shared by the
+      # libvips JPEG builder (via OUTPUT_WIDTH × OUTPUT_HEIGHT scaling
+      # — currently still using its own pixel constants) and the
+      # bundle-modal CSS generator. See `Composite::CellMap`.
+      CELLS = [
+        { x: 0.0, y: 0.0, w: 1.0, h: 1.0 }
+      ].freeze
+
       module_function
 
       def layout_name
         "single"
+      end
+
+      def cells
+        CELLS
       end
 
       def compose(tiles, total_member_count: nil)

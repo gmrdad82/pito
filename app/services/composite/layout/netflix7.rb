@@ -25,10 +25,30 @@ module Composite
       CELL_W        = 100
       CELL_H        = 100
 
+      # Cell positions as 0..1 ratios — see `Composite::CellMap`.
+      #   [0] big top    → 300 × 200 → full width, top half
+      #   [1..3] mid row → 100 × 100 each, y 0.5..0.75
+      #   [4..6] bot row → 100 × 100 each, y 0.75..1.0
+      # Vertical band sizing: 0.5 / 0.25 / 0.25 (sums to 1.0).
+      THIRD = 1.0 / 3.0
+      CELLS = [
+        { x: 0.0,         y: 0.0,  w: 1.0,   h: 0.5  },
+        { x: 0.0,         y: 0.5,  w: THIRD, h: 0.25 },
+        { x: THIRD,       y: 0.5,  w: THIRD, h: 0.25 },
+        { x: 2.0 * THIRD, y: 0.5,  w: THIRD, h: 0.25 },
+        { x: 0.0,         y: 0.75, w: THIRD, h: 0.25 },
+        { x: THIRD,       y: 0.75, w: THIRD, h: 0.25 },
+        { x: 2.0 * THIRD, y: 0.75, w: THIRD, h: 0.25 }
+      ].freeze
+
       module_function
 
       def layout_name
         "netflix7"
+      end
+
+      def cells
+        CELLS
       end
 
       def compose(tiles, total_member_count: nil)

@@ -24,10 +24,12 @@
 class KeybindingsReferenceComponent < ViewComponent::Base
   # Pages that intentionally render NO page-actions section. Used to
   # short-circuit before consulting the YAML `default:` fallback so
-  # /settings, /admin and similar utility surfaces stay clean. Per
-  # spec 09 §"Per-page contracts": "/settings is INTENTIONALLY
-  # ABSENT — no page-actions section renders on /settings".
-  NO_PAGE_ACTIONS_PAGES = %w[settings admin].freeze
+  # /admin and similar utility surfaces stay clean.
+  #
+  # /settings was previously on this list but was removed
+  # 2026-05-17: settings now ships its own `settings:` page_actions
+  # group containing ONLY the dark-mode toggle (no `/ search`).
+  NO_PAGE_ACTIONS_PAGES = %w[admin].freeze
 
   def initialize(page_key: nil)
     @page_key = page_key

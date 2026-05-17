@@ -418,6 +418,38 @@ For bulk destructive actions, the action-screen framework
 (`/deletions/:type/:ids`) remains the primary path. The in-page modal is a
 per-record convenience layered on top, not a replacement.
 
+### Modal dismiss labels — `[close]` vs `[cancel]`
+
+The dismiss button copy distinguishes the modal's SEMANTIC PURPOSE. Both use the
+SAME muted styling — only the LABEL differs.
+
+| label      | use when                                                                                                                                               | examples                                                                                                        |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| `[close]`  | Informational / display modal. No decision pending. Dismissing doesn't "decline" anything — the user is just viewing content.                          | Bundle modal (showing games in a bundle), `[help]` for Discord webhook setup, search-placeholder modal          |
+| `[cancel]` | Confirmation / decision dialog. User is being asked to confirm OR back out of a (usually destructive) action. Dismissing = "no, don't do that action". | Delete confirm on `/games/:id`, reindex Meilisearch confirm, session-revoke confirm, any "are you sure?" dialog |
+
+**Quick decision rubric for implementers:**
+
+> "Would dismissing this modal mean the user DECIDED something?"
+>
+> - Yes → `[cancel]`
+> - No (just looking at info) → `[close]`
+
+Both render via the same pattern:
+
+```html
+<button
+  type="button"
+  class="bracketed text-muted"
+  data-action="...modal#close"
+>
+  [<span class="bl">close OR cancel</span>]
+</button>
+```
+
+`ConfirmModalComponent` defaults to `cancel_label: "cancel"`; custom
+informational modals use `[close]`.
+
 ### Bracketed labels: minimum text
 
 Bracketed-link labels carry **the verb only** when context makes the noun

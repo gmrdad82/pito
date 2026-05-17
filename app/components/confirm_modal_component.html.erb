@@ -10,7 +10,7 @@
       <%= form_with url: @confirm_path, method: @confirm_method, authenticity_token: true, data: { turbo: false }, html: { style: "display: inline;" } do %>
         <button type="submit" class="<%= confirm_button_classes %>">[<span class="bl"><%= @confirm_label %></span>]</button>
       <% end %>
-      <button type="button" class="bracketed" data-action="confirm-modal#close">[<span class="bl"><%= @cancel_label %></span>]</button>
+      <button type="button" class="bracketed text-muted" data-action="confirm-modal#close">[<span class="bl"><%= @cancel_label %></span>]</button>
     </div>
   </div>
 </dialog>

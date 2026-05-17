@@ -1584,6 +1584,12 @@ dialog.confirm-modal::backdrop {
 .confirm-modal-actions button.text-danger:hover {
   color: var(--color-danger-hover);
 }
+.confirm-modal-actions button.text-muted {
+  color: var(--color-muted);
+}
+.confirm-modal-actions button.text-muted:hover {
+  color: var(--color-text);
+}
 
 /* 2026-05-11 — Slack-style segmented 6-digit input for the
    layout-level TOTP verification modal (`shared/_totp_verification_modal`).
@@ -2524,17 +2530,38 @@ dialog.wide-modal::backdrop {
 }
 
 /* Leader-menu popup — bottom-right anchored card opened by SPACE
-   or by clicking the bracketed `[_]` footer link. The popup is NOT
-   a <dialog>; it's a positioned floating card so the rest of the
-   page stays interactive while it's open. The Stimulus
-   `leader-menu` controller toggles the `hidden` attribute on
+   or by clicking the bracketed `[_]` footer link. As of 2026-05-17
+   the popup is a `<dialog>` opened via `.showModal()` so the browser
+   puts it in the TOP LAYER and it renders above any other modal
+   `<dialog>`s already open (bundle modal, IGDB add-game, confirm
+   dialogs, etc.). z-index alone cannot beat top-layer content, so
+   the migration was the only correct fix. The Stimulus
+   `leader-menu` controller calls `.showModal()` / `.close()` on
    `#leader-menu-popup` and builds the card via `createElement`.
-   Schema source: `config/keybindings.yml`. */
-.leader-menu-popup {
+   Schema source: `config/keybindings.yml`.
+
+   Override the global `dialog { … }` block (which centers a 400px
+   confirm-modal at the top of the viewport) and suppress the
+   backdrop so the page stays visually undimmed while the popup is
+   open — this preserves the prior "rest of the page looks normal"
+   feel even though `.showModal()` makes the page inert. */
+dialog.leader-menu-popup {
   position: fixed;
   bottom: 56px;
   right: 12px;
-  z-index: 200;
+  top: auto;
+  left: auto;
+  transform: none;
+  max-width: none;
+  width: auto;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border: none;
+  color: inherit;
+}
+dialog.leader-menu-popup::backdrop {
+  background: transparent;
 }
 .leader-menu-card {
   background: var(--color-bg);
@@ -2565,6 +2592,22 @@ dialog.wide-modal::backdrop {
 .leader-menu-hint {
   margin-top: 6px;
   font-size: 11px;
+}
+/* Divider row inside a `.leader-menu-list`. Rendered by
+   `leader_menu_controller#buildItemRow` when a schema item carries
+   `{ divider: true }` (today: /games `f filter` submenu, between the
+   state chips and the platform chips). Tighter margins than the
+   reusable `hr.hairline` (4px vs 8px) because the divider sits
+   between dense single-line rows inside a small popup card. */
+.leader-menu-divider-row {
+  padding: 0;
+  list-style: none;
+}
+.leader-menu-divider {
+  height: 0;
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  margin: 4px 0;
 }
 
 /* Keybindings reference card (two-section layout — page actions on

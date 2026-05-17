@@ -28,10 +28,28 @@ module Composite
       RIGHT_CELL_W  = 75
       RIGHT_CELL_H  = 200
 
+      # Cell positions as 0..1 ratios — see `Composite::CellMap`.
+      #   [0] left big   → 150 × 400 → x 0..0.5, y 0..1
+      #   [1] r0c0       →  75 × 200 → x 0.5..0.75, y 0..0.5
+      #   [2] r0c1       →  75 × 200 → x 0.75..1.0, y 0..0.5
+      #   [3] r1c0       →  75 × 200 → x 0.5..0.75, y 0.5..1.0
+      #   [4] r1c1       →  75 × 200 → x 0.75..1.0, y 0.5..1.0
+      CELLS = [
+        { x: 0.0,  y: 0.0, w: 0.5,  h: 1.0 },
+        { x: 0.5,  y: 0.0, w: 0.25, h: 0.5 },
+        { x: 0.75, y: 0.0, w: 0.25, h: 0.5 },
+        { x: 0.5,  y: 0.5, w: 0.25, h: 0.5 },
+        { x: 0.75, y: 0.5, w: 0.25, h: 0.5 }
+      ].freeze
+
       module_function
 
       def layout_name
         "netflix5"
+      end
+
+      def cells
+        CELLS
       end
 
       def compose(tiles, total_member_count: nil)

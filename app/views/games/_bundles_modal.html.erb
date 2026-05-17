@@ -24,12 +24,13 @@
   <div style="padding: 12px 16px; min-width: 480px; max-width: 900px; max-height: 80vh; overflow-y: auto;">
     <div class="dot-list" style="margin-bottom: 8px;">
       <h2 style="margin: 0;" data-bundles-modal-target="title">bundle</h2>
-      <%= render(BracketedLinkComponent.new(label: "close", href: "#",
-                                            data: { action: "click->confirm-modal#close" })) %>
     </div>
     <%= turbo_frame_tag "bundles_modal_frame",
                         src: nil,
                         loading: "lazy",
                         data: { bundles_modal_target: "frame" } %>
+    <div class="confirm-modal-actions modal-footer">
+      <button type="button" class="bracketed text-muted" data-action="confirm-modal#close">[<span class="bl">close</span>]</button>
+    </div>
   </div>
 </dialog>

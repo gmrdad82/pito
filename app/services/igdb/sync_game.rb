@@ -64,6 +64,21 @@ module Igdb
         game.update!(igdb_synced_at: Time.current, last_sync_error: nil)
       end
 
+      # Phase 27 follow-up (2026-05-17) — generate the normalized
+      # cover master after every IGDB sync. Idempotent — the
+      # Normalizer short-circuits when the master file's mtime is
+      # newer than `igdb_synced_at` (which we just bumped, so this
+      # run always re-normalizes).
+      #
+      # Rescued + logged because IGDB CDN can 404 / network can blip;
+      # a cover-art hiccup must not fail the sync (the IGDB-sourced
+      # row is already committed at this point).
+      begin
+        Games::CoverArt::Normalizer.new(game: game).call
+      rescue StandardError => e
+        Rails.logger.warn "[Igdb::SyncGame] cover normalization failed for game id=#{game.id}: #{e.class}: #{e.message}"
+      end
+
       game
     rescue Igdb::Client::ValidationError => e
       stamp_error(game, e.message)

@@ -78,9 +78,15 @@ class Game < ApplicationRecord
   # source token for the `:shelf` cover-art variant rendered by
   # `Games::CoverComponent`. It downsamples cleanly into the
   # 98 × 130 shelf tile slot (65% of the 150 × 200 grid tile).
+  # `t_cover_big_2x` (~528 × 748 native) is the highest-resolution cover
+  # variant IGDB serves. Added 2026-05-17 for the bundle modal composite
+  # cells which render large enough that the 264 × 374 `t_cover_big`
+  # asset visibly softens. Other surfaces (game show page, /games tile,
+  # shelf rows) stay on their existing tokens — the 2x source is reserved
+  # for the composite cells that need it.
   COVER_SIZES = %w[
-    t_thumb t_cover_small t_cover_small_2x t_cover_big t_screenshot_med
-    t_screenshot_big t_logo_med
+    t_thumb t_cover_small t_cover_small_2x t_cover_big t_cover_big_2x
+    t_screenshot_med t_screenshot_big t_logo_med
   ].freeze
 
   # Phase 4 carryover. The Phase 4 ALLOWED_PLATFORMS allowlist is
