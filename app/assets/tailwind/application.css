@@ -1377,6 +1377,22 @@ button[type="submit"].btn-danger:hover {
      a `rgba(0,0,0,0)` by default but other UAs may differ). */
   overflow: visible;
 }
+/* When promoted into the top layer, the UA applies popover-open defaults
+   (`inset: 0; margin: auto;` → centers the element). Re-pin to top-right
+   with explicit `left: auto` + `margin: 0` + `inset: auto` so the base
+   `right: 8px` wins. `width: auto` prevents a UA full-viewport stretch;
+   `max-width` is a sensible cap for long toast strings. */
+.toast-container[popover]:popover-open {
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  left: auto;
+  bottom: auto;
+  inset: auto;
+  margin: 0;
+  width: auto;
+  max-width: 90vw;
+}
 .toast-container[popover]::backdrop {
   background: transparent;
 }
@@ -1743,16 +1759,19 @@ dialog.confirm-modal::backdrop {
    flex row. The input is narrower than the pre-2026-05-17 inline
    `style="max-width: 420px; width: 100%;"` since it no longer
    carries the real URL (only a masked placeholder) — operators
-   never read the value back from the field. The flex container
-   wraps on narrow viewports so the controls never overflow. */
+   never read the value back from the field. `flex-wrap: nowrap`
+   keeps `[update]` + `[help]` inline with the input even on narrow
+   viewports; the input flex-shrinks via `min-width: 0` if space
+   gets tight. */
 .webhook-url-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 .webhook-url-row input {
-  flex: 0 1 280px;
+  flex: 0 1 220px;
+  min-width: 0;
 }
 
 /* 2026-05-17 — webhook URL hint copy.
