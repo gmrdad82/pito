@@ -2,7 +2,8 @@
     `app/views/games/_bundle_for_shelf_tile.html.erb`. Keep the two
     in sync until VC5 swaps the partial's render for this component;
     the partial is still the live wiring at this dispatch. %>
-<a href="<%= fallback_href %>"
+<a id="bundle-tile-<%= bundle.id %>"
+   href="<%= fallback_href %>"
    class="bundle-tile"
    data-bundle-id="<%= bundle.id %>"
    data-controller="bundles-modal-trigger"
@@ -10,6 +11,7 @@
    data-bundles-modal-trigger-url-value="<%= pane_url %>"
    data-bundles-modal-trigger-title-value="<%= bundle.name %>"
    data-bundles-modal-trigger-update-url-value="<%= update_url %>"
+   data-bundles-modal-trigger-delete-confirm-id-value="<%= delete_confirm_id %>"
    title="<%= bundle.name %>"
    style="flex: 0 0 auto; display: inline-flex; flex-direction: column; align-items: flex-start; gap: 4px; text-decoration: none; color: inherit; cursor: pointer; width: 150px;">
   <%# 2026-05-17 — wrap the cover (composite img OR fallback SVGs) in

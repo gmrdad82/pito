@@ -89,6 +89,21 @@ modal_actions:
         action:
           type: trigger_inline_edit
           target: bundle-modal-title-edit
+  # 2026-05-18 — Per-bundle `[-]` confirm-delete dialog (rendered as a
+  # sibling of each bundle tile in `_bundles_for_shelf`). The dialog
+  # carries a submit form; `submit_confirm_modal` finds the open
+  # dialog and `requestSubmit()`s its form so `d` confirms the delete
+  # the same way `[delete]` does.
+  bundle_delete_confirm:
+    items:
+      - key: l
+        label: dark mode
+        action:
+          type: theme_toggle
+      - key: d
+        label: delete
+        action:
+          type: submit_confirm_modal
   webhook_help:
     items:
       - key: l

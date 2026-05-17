@@ -82,13 +82,34 @@ class BundlesController < ApplicationController
     end
   end
 
-  # `/bundles/:id` DELETE redirects to the action-confirmation screen
-  # rather than destroying immediately, matching the project's
-  # destructive-action posture (no JS confirms; everything goes
-  # through the shared `_action_screen` partial).
+  # 2026-05-18 — `/bundles/:id` DELETE now destroys directly. The
+  # confirmation step is supplied by the per-bundle confirm modal
+  # (`<dialog id="confirm_delete_bundle_<id>">`) rendered as a
+  # sibling of each bundle tile in `_bundles_for_shelf`. That dialog
+  # carries the project's no-JS-confirm posture: the form lives on
+  # the page, the user clicks `[delete]` or presses `d` (via the
+  # `bundle_delete_confirm` modal_actions keybindings) to submit;
+  # there is no `window.confirm` / `data-turbo-confirm` anywhere in
+  # the flow.
+  #
+  # Turbo Stream response (`destroy.turbo_stream.erb`):
+  #   1. Removes the bundle's tile (`#bundle-tile-<id>`) from the
+  #      shelf row.
+  #   2. Replaces the bundles modal partial with the steady-state
+  #      (no `bundle:` local) render so the next tile click starts
+  #      from a clean modal — and the just-deleted bundle's state is
+  #      gone from the DOM.
+  #   3. Appends a flash notice to the toast container.
+  #
+  # HTML fallback (JS-off / direct hit): redirect to `/games` with
+  # the same flash notice.
   def destroy
     @bundle = Bundle.friendly.find(params[:id])
-    redirect_to deletions_path(type: "bundle", ids: @bundle.id)
+    @bundle.destroy
+    respond_to do |format|
+      format.turbo_stream { flash.now[:notice] = "bundle deleted." }
+      format.html { redirect_to games_path, notice: "bundle deleted." }
+    end
   end
 
   # Phase 27 follow-up (2026-05-17) — Bundles modal pane (formerly

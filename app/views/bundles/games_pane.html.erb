@@ -1,20 +1,27 @@
-<%# Phase 27 follow-up (2026-05-17) — Bundle games pane (formerly the
-    Collection games pane).
+<%# Phase 27 follow-up (2026-05-17 + 2026-05-18) — Bundle games pane
+    (formerly the Collection games pane).
 
     Turbo Frame fragment that fills the `/games` bundles modal. Slice 3
-    of the modal revamp (2026-05-17) replaces the flat wrapping grid of
+    of the modal revamp (2026-05-17) replaced the flat wrapping grid of
     cover tiles with a CSS-positioned composite that mirrors the libvips
     composite-cover layout. Up to nine games render as percentage-
     positioned anchors over a 3:4 canvas (cells supplied by
     `Composite::CellMap.for(n)`, the same source of truth the libvips
     renderer uses — so a layout edit propagates to both surfaces for
-    free). When the bundle holds more than nine games an overflow shelf
-    below shows the remainder as bare `Games::CoverComponent :shelf`
-    tiles inside a wheel-guarded `steam-shelf` row.
+    free).
 
     The 1-game case falls out naturally: `Composite::CellMap.for(1)`
     returns a single cell at `(0, 0, 1, 1)` so the lone cover fills the
     canvas without a special branch here.
+
+    2026-05-18 (slice W5) — the +N-more overflow shelf that used to sit
+    below the composite is REPLACED with a flat "all games" table
+    (`Bundles::AllGamesTableComponent`). Fixed copy "all games" (no
+    `+N` count), zebra-striped `.sessions-table`-styled table listing
+    EVERY member game with columns: checkbox, title, primary genre,
+    short release date, rating-score chip. The composite cover grid at
+    the top is intentionally untouched in this slice — only the bottom
+    overflow section changes.
 
     Empty state: a short muted line. No JS confirm / alert / prompt.
 %>
@@ -22,7 +29,6 @@
   <% if @games.any? %>
     <% games = @games.limit(50) %>
     <% first_nine = games.first(9) %>
-    <% overflow = games.drop(9) %>
     <% cells = Composite::CellMap.for(first_nine.size) %>
 
     <%# CSS composite: each game positioned per the cells map. The
@@ -33,31 +39,23 @@
         2026-05-17 — outer border and 2px radius live in the
         `.bundle-modal-composite` CSS rule (theme-aware via
         `--color-cover-border`, matching the shared shelf cover
-        edge). `overflow: hidden` on the wrapper clips per-corner
-        cell radii to the composite outline. Inline style retains
-        only the per-instance positional bits. %>
+        edge). `overflow: hidden` on the wrapper clips per-cell
+        rounded corners to the composite outline. Inline style
+        retains only the per-instance positional bits.
+
+        2026-05-18 — every cell cover-art `<img>` picks up its
+        own 2px radius + theme border via the `.bundle-modal-cell
+        img` CSS rule, matching the shelf cover treatment. The
+        earlier per-corner class hooks (`bundle-modal-cell--corner-*`)
+        were removed alongside the `Composite::CellMap` `:corners`
+        decoration. %>
     <div class="bundle-modal-composite"
          style="width: 100%; aspect-ratio: 3 / 4;">
       <% first_nine.each_with_index do |game, i| %>
         <% cell = cells[i] %>
         <% next unless cell %>
-        <%# 2026-05-17 — per-corner class hooks. Composite::CellMap
-            decorates each cell with a `:corners` array enumerating
-            which OUTSIDE corners of the unit-square composite the
-            cell touches (any of `:top_left`, `:top_right`,
-            `:bottom_left`, `:bottom_right`). Map each to a short
-            class suffix (`tl`/`tr`/`bl`/`br`) so only the four
-            actual corner cells of the grid pick up a 2px radius
-            on their outward-facing corner — edge cells (e.g.
-            top-middle of a 3×3) and the center cell stay square. %>
-        <% corner_classes = (cell[:corners] || []).map { |c|
-             { top_left: "bundle-modal-cell--corner-tl",
-               top_right: "bundle-modal-cell--corner-tr",
-               bottom_left: "bundle-modal-cell--corner-bl",
-               bottom_right: "bundle-modal-cell--corner-br" }[c]
-           }.compact %>
         <a href="<%= game_path(game) %>"
-           class="<%= (["bundle-modal-cell"] + corner_classes).join(" ") %>"
+           class="bundle-modal-cell"
            style="position: absolute; left: <%= cell[:x] * 100 %>%; top: <%= cell[:y] * 100 %>%; width: <%= cell[:w] * 100 %>%; height: <%= cell[:h] * 100 %>%;"
            data-turbo-frame="_top"
            title="<%= game.title %>">
@@ -66,9 +64,7 @@
             <%# 2026-05-17 — prefer the normalized local master at
                 `/covers/games/<id>/master.jpg` (600×800 q95). Falls back to
                 IGDB `t_cover_big_2x` (528×748) for games whose master
-                has not been generated yet. The overflow shelf below
-                stays on `Games::CoverComponent :shelf` which already
-                inherits the master-first behavior via the component. %>
+                has not been generated yet. %>
             <%= image_tag cover_src,
                           alt: game.title,
                           loading: "lazy",
@@ -78,22 +74,7 @@
       <% end %>
     </div>
 
-    <% if overflow.any? %>
-      <div class="bundle-modal-overflow" style="margin-top: 16px;">
-        <h3 style="margin: 0 0 6px;">+<%= pluralize(overflow.size, "more game") %></h3>
-        <hr class="hairline">
-        <div class="shelf-row bundle-modal-overflow-row"
-             data-controller="steam-shelf"
-             data-steam-shelf-target="row"
-             style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; margin-top: 8px;">
-          <% overflow.each do |game| %>
-            <a href="<%= game_path(game) %>" data-turbo-frame="_top">
-              <%= render(Games::CoverComponent.new(game: game, variant: :shelf, link_to_show: false)) %>
-            </a>
-          <% end %>
-        </div>
-      </div>
-    <% end %>
+    <%= render(Bundles::AllGamesTableComponent.new(bundle: @bundle)) %>
   <% else %>
     <p class="text-muted">no games in this bundle yet.</p>
   <% end %>

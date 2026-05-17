@@ -1,0 +1,38 @@
+<section class="all-games" style="margin-top: 16px;">
+  <h3 style="margin: 0 0 6px;">all games</h3>
+  <hr class="hairline">
+  <div class="sessions-table-wrap" style="margin-top: 8px;">
+    <table class="sessions-table all-games-table" style="table-layout: auto;">
+      <thead>
+        <tr>
+          <th class="all-games-col-check">
+            <%= render(CheckboxComponent.new) %>
+          </th>
+          <th>title</th>
+          <th>genre</th>
+          <th class="num">release</th>
+          <th class="num">rating</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% games.each do |game| %>
+          <tr>
+            <td class="all-games-col-check">
+              <%= render(CheckboxComponent.new(value: game.id, name: "game_ids[]")) %>
+            </td>
+            <td>
+              <%= link_to game.title,
+                          game_path(game),
+                          data: { turbo_frame: "_top" } %>
+            </td>
+            <td><%= primary_genre_label(game) %></td>
+            <td class="num"><%= short_release_date(game) %></td>
+            <td class="num">
+              <%= render(Games::RatingScoreChipComponent.new(game: game)) %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+</section>
