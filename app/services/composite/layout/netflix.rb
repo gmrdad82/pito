@@ -1,14 +1,15 @@
-# Phase 14 §2 — Netflix layout. 3 members; left tile 300×800 (large),
-# right column two stacked tiles 300×400 each.
+# Phase 14 §2 — Netflix layout. 3 members; left tile 150×400 (large),
+# right column two stacked tiles 150×200 each.
+# Canvas halved 2026-05-17 — see `Composite::Builder` header.
 module Composite
   module Layout
     module Netflix
-      OUTPUT_WIDTH  = 600
-      OUTPUT_HEIGHT = 800
-      LEFT_W  = 300
-      LEFT_H  = 800
-      RIGHT_W = 300
-      RIGHT_H = 400
+      OUTPUT_WIDTH  = 300
+      OUTPUT_HEIGHT = 400
+      LEFT_W  = 150
+      LEFT_H  = 400
+      RIGHT_W = 150
+      RIGHT_H = 200
 
       module_function
 

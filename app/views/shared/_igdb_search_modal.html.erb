@@ -1,5 +1,8 @@
-<%# Global IGDB-search modal — opened by `i` keypress or by the
-    `[+]` link on `/games`. Submits the typed query to
+<%# Global IGDB-search modal — opened by the `[+]` link on `/games`.
+    2026-05-17 — the global `i` keybind that used to open this modal
+    was removed in the legacy-keyboard-shortcut sweep; the bracketed
+    `[+]` link in the page header is the only entry point now.
+    Submits the typed query to
     `GET /games/search` (existing `GamesController#search`) which
     renders `_search_results.html.erb` inside the
     `<turbo-frame id="igdb_search_results">` below. The results

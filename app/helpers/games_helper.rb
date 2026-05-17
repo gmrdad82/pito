@@ -76,4 +76,39 @@ module GamesHelper
 
     "#{game.igdb_rating.to_i}/100"
   end
+
+  # Wave C7 (spec 08 §"RIGHT pane Time-to-beat" lines 318-333) —
+  # whole-hour formatter for the `/games/:id` RIGHT-pane time-to-beat
+  # cells. Input is an IGDB time-to-beat duration in seconds (Integer
+  # or nil); output is a dense `<N>h` label (no decimals, no minutes).
+  # `nil`, zero, and negative values all render as an em-dash so the
+  # cell stays present (the spec wants the three-column row visible
+  # even when some pillars are unknown) without claiming a fake zero.
+  # The rounding uses `Float#round` (half-up) so values just below a
+  # whole hour still surface — e.g. 3 540s (59m) rounds to `1h`.
+  def ttb_hours(seconds)
+    return "—" if seconds.nil? || seconds.to_i <= 0
+
+    hours = (seconds.to_f / 3600).round
+    "#{hours}h"
+  end
+
+  # Wave C6 (spec 08 §helper `short_synced_ago`) — short relative-time
+  # label for the LEFT-pane sync banner on `/games/:id`. Returns a
+  # dense single-unit suffix (`s` / `m` / `h` / `d`) so the banner
+  # reads as `synced 22m ago` rather than `synced about 22 minutes
+  # ago`. The view template adds the `synced ` prefix and ` ago`
+  # suffix; this helper emits only the bare unit. `nil` returns
+  # `"never"` for the not-yet-synced case.
+  def short_synced_ago(timestamp)
+    return "never" if timestamp.nil?
+
+    seconds = (Time.current - timestamp).to_i
+    case seconds
+    when 0..59       then "#{seconds}s"
+    when 60..3599    then "#{seconds / 60}m"
+    when 3600..86399 then "#{seconds / 3600}h"
+    else                  "#{seconds / 86400}d"
+    end
+  end
 end

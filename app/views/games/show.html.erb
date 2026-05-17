@@ -6,7 +6,10 @@
               while the resync job is in flight, `[resync]` link
               otherwise).
       Row 3 — wide linked-videos pane.
-    The breadcrumb-action strip carries `[edit]` and `[-]` (delete);
+    The breadcrumb-action strip carries `[edit]` and `[delete]`
+    (Wave C9 — the `[delete]` opens an in-page `ConfirmModalComponent`
+    rendered at the bottom of this template; the old action-screen at
+    `/deletions/game/:id` is no longer reached from this surface);
     `[resync]` is NOT in the breadcrumb action strip — it lives
     inside the sync pane so the moving indicator can replace it
     without re-flowing the breadcrumb. The muted re-sync caveat
@@ -35,8 +38,28 @@
 <% end %>
 <% content_for(:breadcrumb_actions) do %>
   <div class="dot-list">
-    <%= render(BracketedLinkComponent.new(label: "edit", href: edit_game_path(@game))) %>
-    <%= render(BracketedLinkComponent.new(label: "-", href: "/deletions/game/#{@game.id}", destructive: true)) %>
+    <% if @game.resyncing? %>
+      <%= render(BracketedMutedLinkComponent.new(label: "sync", href: resync_game_path(@game))) %>
+    <% else %>
+      <%= button_to resync_game_path(@game),
+                    method: :post,
+                    class: "bracketed",
+                    form: { style: "display: inline; margin: 0;", data: { turbo: false } } do %>[<span class="bl">sync</span>]<% end %>
+    <% end %>
+    <%# Wave C9 (spec 08 §"Per-game delete confirm modal") — breadcrumb
+        `[delete]` opens an in-page `ConfirmModalComponent` (native
+        `<dialog>` via `confirm-modal` + `modal-trigger` controllers).
+        The bulk-deletion action-screen at `/deletions/game/:id` is no
+        longer reached from this surface — the modal POSTs directly to
+        `DELETE /games/:id` (Game#destroy + dependent cascades + the
+        `Collections::CompositeRebuildQueue.enqueue_for_game_destroy`
+        hook). The modal markup itself is rendered at the bottom of
+        this template so it sits outside all pane rows. %>
+    <a href="#"
+       class="bracketed text-danger"
+       data-controller="modal-trigger"
+       data-action="click->modal-trigger#open"
+       data-modal-trigger-target-id-value="confirm_delete_game_<%= @game.id %>">[<span class="bl">delete</span>]</a>
   </div>
 <% end %>
 
@@ -70,6 +93,41 @@
     <%= render "shared/igdb_cover", game: @game, size: "t_cover_big" %>
 
     <h1 style="margin: 8px 0 4px 0;"><%= @game.title %></h1>
+
+    <%# Wave C2 (spec 08 §"Genres") — primary-bold + up-to-2 secondaries
+        rendered between the `<h1>` and the `released:` meta line.
+        Primary genre (`@game.primary_genre`) renders in `<strong>`;
+        secondaries are `@game.genres` MINUS the primary, sorted by
+        name, capped at 2 (so 1 + 2 = 3 max). Separator is ` · `
+        (space-dot-space). When no genres at all, the block renders an
+        em-dash `<em>—</em>` for the muted "unknown" signal. Labels
+        flow through `genre_short_name` (GenresHelper) so the dense
+        short forms (RPG, JRPG, Sim, …) match the shelves chrome. %>
+    <% if @game.primary_genre || @game.genres.any? %>
+      <div class="game-genres" style="margin: 0 0 4px 0;">
+        <%
+          primary  = @game.primary_genre
+          secondaries = @game.genres
+                              .where.not(id: primary&.id)
+                              .order(:name)
+                              .limit(2)
+          genres_list = ([primary] + secondaries.to_a).compact
+        %>
+        <% if genres_list.any? %>
+          <% genres_list.each_with_index do |g, i| %>
+            <% if i.zero? %>
+              <strong><%= genre_short_name(g) %></strong>
+            <% else %>
+              <span><%= genre_short_name(g) %></span>
+            <% end %>
+            <% if i < genres_list.length - 1 %> · <% end %>
+          <% end %>
+        <% else %>
+          <em class="text-muted">—</em>
+        <% end %>
+      </div>
+    <% end %>
+
     <%# Meta block: one label per line. Skip lines whose value is
         missing entirely (no `pub: —` placeholder). Uses `<br>`
         between lines inside one `<p class="text-muted">` so the
@@ -93,143 +151,139 @@
         <%= safe_join(meta_lines, tag.br) %>
       </p>
     <% end %>
+
+    <%# Wave C5 (spec 08 §"Rating heat-bar synthesis") — vote-weighted
+        synthesized score across the three IGDB rating triplets,
+        rendered as a 200px horizontal heat-bar tinted by the same
+        `--color-rating-*` tier palette `Games::RatingBadgeComponent`
+        uses. Sits below the meta block (release / dev / pub) so the
+        LEFT pane reads: cover → title → genres → meta → heat-bar →
+        (future C6 sync banner). %>
+    <%= render(Games::RatingHeatBarComponent.new(game: @game)) %>
+
+    <%# Wave C4 (spec 08 §"Ownership chips") — LEFT-pane ownership
+        section. Sits between the heat-bar (Wave C5) and the sync
+        banner (Wave C6, future). Rows:
+          platforms — one per-platform toggle chip per applicable
+                      brand slug (PS5 / Switch / Steam). Each chip
+                      flips ownership via the existing
+                      `Games::PlatformOwnershipsController#update`
+                      endpoint.
+          played    — single chip (user-confirmed 2026-05-17 single
+                      chip override; not per-platform).
+          recorded  — single chip (single override; derived from
+                      linked-video count).
+          footage   — `StatusTbdBadgeComponent` placeholder (Wave C11
+                      shared badge).
+        Hairline `<hr>` above acts as the visual divider between the
+        rating heat-bar and the ownership block. %>
+    <hr class="hairline">
+
+    <section class="ownership">
+      <h2>ownership</h2>
+
+      <%
+        applicable_slugs = Platforms::ChipComponent::SLUG_BRAND.keys.select { |s|
+          game_detail_logo_slugs(@game).include?(s)
+        }
+      %>
+
+      <div class="ownership-row">
+        <span class="ownership-label">platforms</span>
+        <% applicable_slugs.each do |slug| %>
+          <%= render(Games::PlatformOwnershipChipComponent.new(game: @game, slug: slug)) %>
+        <% end %>
+        <% if applicable_slugs.empty? %>
+          <em class="text-muted">—</em>
+        <% end %>
+      </div>
+
+      <div class="ownership-row">
+        <span class="ownership-label">played</span>
+        <%= render(Games::PlayedChipComponent.new(game: @game)) %>
+      </div>
+
+      <div class="ownership-row">
+        <span class="ownership-label">footage</span>
+        <%= render(StatusTbdBadgeComponent.new) %>
+      </div>
+    </section>
+
+    <%# Wave C6 (spec 08 §"LEFT-pane sections" position 12-13) — sync
+        banner at the bottom of the LEFT pane. Renders the inline
+        `=---` dot-loader while a resync is in flight; otherwise the
+        short `synced Xm ago` muted-italic label. The full sync pane
+        (heading + caveat + [resync] button) still lives in Row 2 via
+        the `_sync_status` partial — this banner is a quiet status
+        echo, not a control surface. %>
+    <hr class="hairline">
+
+    <div class="sync-banner">
+      <% if @game.resyncing? %>
+        <span data-controller="sync-indicator"
+              data-sync-indicator-frames-value='["=---","-=--","--=-","---="]'
+              data-sync-indicator-interval-value="200"
+              class="sync-indicator"
+              style="font-family: var(--font-mono); letter-spacing: 0.1em;">=---</span>
+      <% else %>
+        synced <%= short_synced_ago(@game.igdb_synced_at) %> ago
+      <% end %>
+    </div>
   </div>
 
+  <%# Wave C7 (spec 08 §"RIGHT-pane sections" line 301 + §"RIGHT pane
+      Time-to-beat" lines 318-333) — the RIGHT pane collapses to two
+      focused sections: `summary` (skipped entirely when blank — both
+      heading and body) + `time to beat` (always rendered as a single
+      row with three columns; nil/zero cells render an em-dash via
+      `ttb_hours`). The previous ratings / platforms / stores /
+      local-fields stack moved out:
+        ratings   → LEFT-pane heat-bar (Wave C5).
+        platforms → LEFT-pane ownership block (Wave C4).
+        stores    → REMOVED per spec (§"Stores section — REMOVED"
+                    line 343); platform availability is communicated
+                    by the LEFT-pane platforms chips.
+        local fields (owned-on / played-on / notes / footage hours)
+                  → live on `/games/:id/edit` and the dedicated
+                    ownership editor; the show page is read-only +
+                    summary-focused.
+      `pane--game-detail` is preserved so row 1 still totals 904px
+      (narrow 280 + detail 624) and the LEFT-pane multi-wave layout
+      keeps its established width contract with row 2 / row 3 wide
+      panes. %>
   <div class="pane pane--game-detail">
     <% if @game.last_sync_error.present? %>
       <p class="text-danger" style="margin: 0 0 8px 0;">igdb error: <%= @game.last_sync_error %></p>
     <% end %>
 
-    <h2 style="margin-top: 0;">ratings</h2>
-    <%# 2026-05-11 polish (Fix 2) — the `/ 100` literal is gone from
-        every rating cell. Each row renders the colored bold badge
-        followed by the vote count. Missing ratings render the badge's
-        muted em-dash in place of the integer. %>
-    <table class="detail-table">
-      <tr>
-        <td class="text-muted" style="padding-right: 12px;">igdb</td>
-        <td>
-          <%= render(Games::RatingBadgeComponent.new(rating: @game.igdb_rating)) %>
-          <% if @game.igdb_rating %>
-            <span class="text-muted">(<%= @game.igdb_rating_count.to_i %> votes)</span>
-          <% end %>
-        </td>
-      </tr>
-      <tr>
-        <td class="text-muted" style="padding-right: 12px;">aggregated</td>
-        <td>
-          <%= render(Games::RatingBadgeComponent.new(rating: @game.aggregated_rating)) %>
-          <% if @game.aggregated_rating %>
-            <span class="text-muted">(<%= @game.aggregated_rating_count.to_i %> votes)</span>
-          <% end %>
-        </td>
-      </tr>
-      <tr>
-        <td class="text-muted" style="padding-right: 12px;">total</td>
-        <td>
-          <%= render(Games::RatingBadgeComponent.new(rating: @game.total_rating)) %>
-          <% if @game.total_rating %>
-            <span class="text-muted">(<%= @game.total_rating_count.to_i %> votes)</span>
-          <% end %>
-        </td>
-      </tr>
-    </table>
-
-    <h2 style="margin-top: 16px;">time to beat</h2>
-    <table class="detail-table">
-      <tr><td class="text-muted" style="padding-right: 12px;">main</td><td><%= format_seconds(@game.ttb_main_seconds) %></td></tr>
-      <tr><td class="text-muted" style="padding-right: 12px;">extras</td><td><%= format_seconds(@game.ttb_extras_seconds) %></td></tr>
-      <tr><td class="text-muted" style="padding-right: 12px;">completionist</td><td><%= format_seconds(@game.ttb_completionist_seconds) %></td></tr>
-    </table>
-
-    <%# Phase 27 v2 spec 01 — single main genre per Game. The legacy
-        comma-joined `@game.genres.map(&:name)` list is gone; the row
-        renders ONE primary genre (or "—" when none has been picked
-        yet). Spec 08 supersedes this layout entirely with the
-        primary-bold / secondary-normal arrangement; until that ships,
-        this interim guards the spec-01 single-genre rendering rule. %>
-    <h2 style="margin-top: 16px;">genre / platforms</h2>
-    <p>
-      <span class="text-muted">genre:</span> <%= @game.primary_genre&.name.presence || "—" %><br>
-      <span class="text-muted">platforms:</span> <%= display_platforms(@game) %>
-    </p>
-
-    <%# Phase 27 v2 spec 07 — platform logo row. Renders 0..3
-        56-px favicons from the Rake-downloaded asset set, in the
-        locked PS5 / Switch2 / Steam order (GoG + Epic collapsed
-        into Steam per the 2026-05-17 PC store collapse). Empty list
-        renders nothing — no placeholder block.
-
-        v7 (theme-aware) — uses `platform_logo_tag` with `color: :auto`
-        (default) so the helper emits both black + white variants and
-        CSS picks the visible one off `<html data-theme>`. The 64-px
-        asset is downloaded; the helper renders at 56 px via
-        `display_size:` to keep high-DPI displays crisp. %>
-    <% detail_logo_slugs = game_detail_logo_slugs(@game) %>
-    <% if detail_logo_slugs.any? %>
-      <div class="game-detail-platform-logos"
-           style="display: flex; flex-direction: row; gap: 8px; align-items: center; margin: 8px 0 0 0;">
-        <% detail_logo_slugs.each do |slug| %>
-          <%= platform_logo_tag(slug, size: 64, display_size: 56) %>
-        <% end %>
-      </div>
-    <% end %>
-
-    <%# External store links. `[open on igdb]` was retired per spec —
-        only the Steam store link remains (GoG + Epic collapsed into
-        Steam per the 2026-05-17 PC store collapse; the IGDB GoG /
-        Epic external ids are no longer mapped onto local columns).
-        2026-05-16 polish — the component auto-detects external hrefs
-        and applies `target="_blank" rel="noopener noreferrer"`;
-        callers drop the explicit attrs. %>
-    <% if @game.external_steam_app_id.present? %>
-      <h2 style="margin-top: 16px;">stores</h2>
-      <div class="dot-list">
-        <%= render(BracketedLinkComponent.new(label: "steam",
-                                              href: "https://store.steampowered.com/app/#{@game.external_steam_app_id}/")) %>
-      </div>
-    <% end %>
-
     <% if @game.summary.present? %>
-      <h2 style="margin-top: 16px;">summary</h2>
-      <p style="white-space: pre-line;"><%= @game.summary %></p>
+      <section class="game-summary">
+        <h2 style="margin-top: 0;">summary</h2>
+        <%= simple_format(@game.summary, class: "summary-body") %>
+      </section>
+
+      <hr class="hairline">
     <% end %>
 
-    <h2 style="margin-top: 16px;">local fields</h2>
-    <table class="detail-table">
-      <%# Phase 27 §1a + §01f — per-platform ownership chip list +
-          link to the dedicated editor. The chip list renders one
-          bracketed chip per owned platform (alphabetical); each
-          chip links to the filtered `/games?filters=<slug>,owned`
-          URL the 01b filter row consumes. The `[edit ownership]`
-          link routes to the editor page. %>
-      <tr>
-        <td class="text-muted" style="padding-right: 12px;">owned on</td>
-        <td>
-          <%= render(Games::OwnedPlatformsChipListComponent.new(game: @game)) %>
-          &middot;
-          <%= render(BracketedLinkComponent.new(label: "edit ownership",
-                                                href: edit_game_platform_ownerships_path(@game))) %>
-        </td>
-      </tr>
-      <tr>
-        <td class="text-muted" style="padding-right: 12px;">played on</td>
-        <td><%= @game.played_at&.to_fs(:long) || "—" %></td>
-      </tr>
-      <tr>
-        <td class="text-muted" style="padding-right: 12px; vertical-align: top;">notes</td>
-        <td style="white-space: pre-line;"><%= @game.notes.presence || "—" %></td>
-      </tr>
-      <tr>
-        <td class="text-muted" style="padding-right: 12px;">footage hours</td>
-        <td>
-          <%= @game.hours_of_footage.presence || "—" %>
-          <% if @game.hours_of_footage_manual.present? %>
-            <span class="text-muted" style="font-size: 11px;">(manual override)</span>
-          <% end %>
-        </td>
-      </tr>
-    </table>
+    <section class="game-ttb">
+      <h2 style="margin-top: 0;">time to beat</h2>
+      <table class="ttb-table">
+        <thead>
+          <tr>
+            <th>main</th>
+            <th>extras</th>
+            <th>completionist</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><%= ttb_hours(@game.ttb_main_seconds) %></td>
+            <td><%= ttb_hours(@game.ttb_extras_seconds) %></td>
+            <td><%= ttb_hours(@game.ttb_completionist_seconds) %></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
   </div>
 </div>
 
@@ -264,7 +318,7 @@
 %>
 <div class="pane-row">
   <div class="pane pane--wide">
-    <h2 style="margin-top: 0;">linked videos</h2>
+    <h2 style="margin-top: 0;">videos</h2>
     <% game_links = @game.video_game_links.includes(:video).order(:id) %>
     <% if game_links.any? %>
       <ul style="list-style: none; padding: 0; margin: 0;">
@@ -279,7 +333,27 @@
         <% end %>
       </ul>
     <% else %>
-      <p class="text-muted" style="margin: 0;">no linked videos yet.</p>
+      <%= render(StatusTbdBadgeComponent.new) %>
     <% end %>
   </div>
 </div>
+
+<%# Wave C9 (spec 08 §"Per-game delete confirm modal") — page-level
+    `<dialog>` rendered outside all pane rows so it overlays the page
+    when the breadcrumb `[delete]` trigger fires `modal-trigger#open`.
+    The dialog id matches the trigger's
+    `data-modal-trigger-target-id-value`. `ConfirmModalComponent` wires
+    up the native `<dialog>` element, the `confirm-modal` controller
+    (Escape + click-outside close), and a hidden form that POSTs DELETE
+    to `game_path(@game)` — the same endpoint the deprecated
+    `/deletions/game/:id` action-screen used to redirect to. %>
+<%= render(ConfirmModalComponent.new(
+      id: "confirm_delete_game_#{@game.id}",
+      title: "delete #{@game.title}?",
+      body: "linked videos detach and any bundle composites regenerate. this cannot be undone.",
+      confirm_path: game_path(@game),
+      confirm_method: :delete,
+      confirm_label: "delete",
+      cancel_label: "cancel",
+      destructive: true
+    )) %>

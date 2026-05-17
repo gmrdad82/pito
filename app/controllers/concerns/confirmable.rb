@@ -15,10 +15,14 @@ module Confirmable
   extend ActiveSupport::Concern
 
   # Phase B post-validation: extended to cover Project Workspace types so
-  # `[delete]` links from project / collection / game show pages route
-  # cleanly through the deletions framework. Footage stays out — its
-  # delete flow (if any) is owned by the importer surface, not the web UI.
-  TYPES = %w[channel video project collection game note timeline calendar_entry bundle video_game_link].freeze
+  # `[delete]` links from project / game show pages route cleanly through
+  # the deletions framework. Footage stays out — its delete flow (if any)
+  # is owned by the importer surface, not the web UI.
+  #
+  # Phase 27 follow-up (2026-05-17) — the "collection" type was dropped
+  # along with the Collection model; every grouping is now a Bundle and
+  # uses the `bundle` type.
+  TYPES = %w[channel video project game note timeline calendar_entry bundle video_game_link].freeze
 
   private
 
@@ -63,7 +67,6 @@ module Confirmable
     when "channel"    then channels_path
     when "video"      then videos_path
     when "project"    then projects_path
-    when "collection" then collections_path
     when "game"       then games_path
     # Notes and timelines have no top-level user-facing index — they are
     # rendered inside the project show page. Cancel returns to the
@@ -87,7 +90,6 @@ module Confirmable
     when "channel"    then Channel
     when "video"      then Video
     when "project"    then Project
-    when "collection" then Collection
     when "game"       then Game
     when "note"       then Note
     when "timeline"   then Timeline
@@ -123,8 +125,6 @@ module Confirmable
            .order(youtube_video_id: :asc)
     when "project"
       Project.where(id: ids).order(name: :asc)
-    when "collection"
-      Collection.where(id: ids).order(name: :asc)
     when "game"
       Game.where(id: ids).order(title: :asc)
     when "note"
@@ -145,13 +145,12 @@ module Confirmable
 
   # Display label used by JSON preview responses (and mirrored by the HTML
   # views): channel_url for channels, title for videos, name for
-  # projects/collections, title for games/notes/timelines.
+  # projects, title for games/notes/timelines.
   def label_for(item)
     case item
     when Channel    then item.channel_url
     when Video      then item.youtube_video_id
     when Project    then item.name
-    when Collection then item.name
     when Game       then item.title
     when Note       then item.title
     when Timeline   then item.title

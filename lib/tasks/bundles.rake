@@ -3,7 +3,9 @@
 # Walks `<PITO_ASSETS_PATH>/composites/*.jpg` and removes any file
 # that does NOT correspond to an existing Bundle's
 # `composite_cover_path`. The on-disk file naming convention is
-# `<bundle_type>-<bundle_id>.jpg`; orphans typically arise from:
+# `bundle-<bundle_id>.jpg` (formerly `<bundle_type>-<id>.jpg`; the
+# discriminator column was dropped in the 2026-05-17 simplification).
+# Orphans typically arise from:
 #   - failed `before_destroy` sweeps (filesystem write fail or process
 #     crash mid-destroy)
 #   - schema-shape changes that altered the filename pattern.

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_17_024223) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_17_150000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -131,19 +131,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_17_024223) do
   end
 
   create_table "bundles", force: :cascade do |t|
-    t.integer "bundle_type", default: 0, null: false
     t.string "composite_cover_checksum"
     t.string "composite_cover_path"
     t.datetime "created_at", null: false
-    t.bigint "igdb_source_id"
-    t.integer "igdb_source_type"
-    t.text "last_error"
     t.string "name", null: false
     t.string "slug", null: false
     t.datetime "updated_at", null: false
-    t.index ["bundle_type"], name: "index_bundles_on_bundle_type"
-    t.index ["igdb_source_id"], name: "index_bundles_on_igdb_source_id", where: "(igdb_source_id IS NOT NULL)"
-    t.index ["igdb_source_type", "igdb_source_id"], name: "index_bundles_on_igdb_source_pair", unique: true, where: "((igdb_source_type IS NOT NULL) AND (igdb_source_id IS NOT NULL))"
     t.index ["slug"], name: "index_bundles_on_slug", unique: true
   end
 
@@ -318,17 +311,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_17_024223) do
     t.index ["youtube_connection_id"], name: "index_channels_on_youtube_connection_id"
   end
 
-  create_table "collections", force: :cascade do |t|
-    t.string "composite_cover_checksum"
-    t.string "composite_cover_path"
-    t.datetime "created_at", null: false
-    t.string "name", default: "Untitled collection", null: false
-    t.string "slug", null: false
-    t.datetime "updated_at", null: false
-    t.index ["name"], name: "index_collections_on_name"
-    t.index ["slug"], name: "index_collections_on_slug", unique: true
-  end
-
   create_table "companies", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.bigint "igdb_id", null: false
@@ -393,8 +375,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_17_024223) do
     t.datetime "created_at", null: false
     t.bigint "game_id", null: false
     t.bigint "genre_id", null: false
+    t.integer "position"
     t.datetime "updated_at", null: false
     t.index ["game_id", "genre_id"], name: "index_game_genres_on_game_id_and_genre_id", unique: true
+    t.index ["game_id", "position"], name: "index_game_genres_on_game_id_and_position"
     t.index ["game_id"], name: "index_game_genres_on_game_id"
     t.index ["genre_id"], name: "index_game_genres_on_genre_id"
   end
@@ -432,7 +416,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_17_024223) do
   create_table "games", force: :cascade do |t|
     t.decimal "aggregated_rating", precision: 5, scale: 2
     t.integer "aggregated_rating_count"
-    t.bigint "collection_id"
     t.string "cover_image_id"
     t.datetime "created_at", null: false
     t.string "external_steam_app_id"
@@ -449,6 +432,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_17_024223) do
     t.text "notes"
     t.jsonb "platforms", default: [], null: false
     t.date "played_at"
+    t.bigint "played_platform_id"
     t.bigint "primary_genre_id"
     t.string "publisher"
     t.date "release_date"
@@ -464,11 +448,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_17_024223) do
     t.datetime "updated_at", null: false
     t.bigint "version_parent_id"
     t.string "version_title"
-    t.index ["collection_id"], name: "index_games_on_collection_id"
     t.index ["external_steam_app_id"], name: "index_games_on_external_steam_app_id", where: "(external_steam_app_id IS NOT NULL)"
     t.index ["igdb_id"], name: "index_games_on_igdb_id", unique: true, where: "(igdb_id IS NOT NULL)"
     t.index ["igdb_slug"], name: "index_games_on_igdb_slug", unique: true, where: "(igdb_slug IS NOT NULL)"
     t.index ["igdb_synced_at"], name: "index_games_on_igdb_synced_at"
+    t.index ["played_platform_id"], name: "index_games_on_played_platform_id"
     t.index ["primary_genre_id"], name: "index_games_on_primary_genre_id"
     t.index ["release_year"], name: "index_games_on_release_year"
     t.index ["title"], name: "index_games_on_title"
@@ -1201,9 +1185,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_17_024223) do
   add_foreign_key "game_platforms", "platforms", on_delete: :cascade
   add_foreign_key "game_publishers", "companies", on_delete: :cascade
   add_foreign_key "game_publishers", "games", on_delete: :cascade
-  add_foreign_key "games", "collections"
   add_foreign_key "games", "games", column: "version_parent_id", on_delete: :nullify
   add_foreign_key "games", "genres", column: "primary_genre_id", on_delete: :nullify
+  add_foreign_key "games", "platforms", column: "played_platform_id"
   add_foreign_key "import_jobs", "channels", on_delete: :cascade
   add_foreign_key "import_jobs", "users", column: "enqueued_by_id", on_delete: :restrict
   add_foreign_key "milestone_rules", "users", column: "created_by_user_id", on_delete: :nullify

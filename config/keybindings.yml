@@ -28,6 +28,72 @@ leader:
   key: " "
   display: "_"
 
+# Per-page action keys — rendered in the page-actions section of the
+# keybindings popup (shown FIRST, above the nav menus). Each page
+# resolves to a list of { key, label, action } rows for actions that
+# apply to the current page (search, sync, delete, etc.). Pages not
+# listed here fall back to `default:`. The renderer hides the
+# page-actions section entirely when a page resolves to an empty list
+# (e.g. /settings). Per spec 09 in
+# docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs-v2/.
+page_actions:
+  games_index:
+    - key: d
+      label: dark mode
+      action:
+        type: theme_toggle
+    - key: "/"
+      label: search
+      action:
+        type: open_modal
+        modal_id: search_placeholder
+  games_show:
+    - key: d
+      label: dark mode
+      action:
+        type: theme_toggle
+    - key: "/"
+      label: search
+      action:
+        type: open_modal
+        modal_id: search_placeholder
+    - key: s
+      label: sync
+      action:
+        type: page_sync
+    - key: "-"
+      label: delete
+      action:
+        type: page_delete
+  bundles_show:
+    - key: d
+      label: dark mode
+      action:
+        type: theme_toggle
+    - key: "/"
+      label: search
+      action:
+        type: open_modal
+        modal_id: search_placeholder
+    - key: s
+      label: sync
+      action:
+        type: page_sync
+    - key: "-"
+      label: delete
+      action:
+        type: page_delete
+  default:
+    - key: d
+      label: dark mode
+      action:
+        type: theme_toggle
+    - key: "/"
+      label: search
+      action:
+        type: open_modal
+        modal_id: search_placeholder
+
 menus:
   root:
     # 2026-05-10 schema revert: root-menu rows with a submenu DROP the
@@ -51,7 +117,7 @@ menus:
       - { key: "/", label: search,         submenu: search }
       - { key: "|", label: "list ops",     submenu: list_ops }
       - { key: q, label: quit,             action: { type: quit }, surfaces: [tui] }
-      - { key: Q, label: "quit + logout",  action: { type: quit_and_logout } }
+      - { key: Q, label: logout,           action: { type: quit_and_logout } }
 
   calendar:
     items:
@@ -83,15 +149,12 @@ menus:
     items:
       - { key: l, label: list,             action: { type: navigate, path: "/games" } }
       - { key: "+", label: new,            action: { type: open, target: igdb_search } }
-      - { key: "-", label: delete,         action: { type: bulk_delete } }
-      - { key: r, label: resync,           action: { type: bulk_resync } }
       - { key: B, label: bundles,          submenu: bundles }
 
   bundles:
     items:
       - { key: l, label: list,         action: { type: navigate, path: "/bundles" } }
       - { key: "+", label: new,        action: { type: open, target: new_bundle } }
-      - { key: r, label: resync,       action: { type: bulk_resync } }
 
   notifications:
     items:

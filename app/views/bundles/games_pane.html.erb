@@ -1,0 +1,24 @@
+<%# Phase 27 follow-up (2026-05-17) — Bundle games pane (formerly the
+    Collection games pane).
+
+    Turbo Frame fragment that fills the `/games` bundles modal.
+    Renders the bundle's member games as a wrapping grid of
+    `Games::CoverComponent` tiles at the `:grid` variant (150 × 200);
+    each tile is linked to the game's show page (`Games::CoverComponent`
+    wraps the image in an `<a href="<%= game_path %>">` when
+    `link_to_show: true`).
+
+    Empty state: a short muted line. No JS confirm / alert / prompt.
+%>
+<%= turbo_frame_tag "bundles_modal_frame" do %>
+  <% if @games.any? %>
+    <div class="bundle-games-grid"
+         style="display: flex; flex-wrap: wrap; gap: 12px; padding: 4px 0;">
+      <% @games.each do |game| %>
+        <%= render(Games::CoverComponent.new(game: game, variant: :grid)) %>
+      <% end %>
+    </div>
+  <% else %>
+    <p class="text-muted">no games in this bundle yet.</p>
+  <% end %>
+<% end %>

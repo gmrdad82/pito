@@ -1,11 +1,11 @@
 module Mcp
   module Tools
-    # Phase 14 §3 — update Bundle. Only `name` is mutable post-create
-    # (§2 master decision — `bundle_type` and `igdb_source_*` are
-    # immutable).
+    # Phase 14 §3 / Phase 27 follow-up (2026-05-17) — update a Bundle.
+    # `name` is the only mutable attribute (and the only attribute,
+    # period, after the 2026-05-17 simplification).
     class BundleUpdate < MCP::Tool
       tool_name "bundle_update"
-      description "Update a bundle's name. bundle_type and igdb_source_* are immutable."
+      description "Update a bundle's name."
 
       input_schema(
         type: "object",

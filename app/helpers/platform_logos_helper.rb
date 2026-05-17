@@ -1,111 +1,57 @@
-# Phase 27 v2 spec 07 — platform-logo rendering (v7: theme-aware).
+# 2026-05-17 (Wave B6) — file trimmed to slug-collapse logic only.
 #
-# Tiny wrapper around the static PNG assets the
-# `pito:platform_logos:download` Rake task drops into
-# `public/platforms/`. The helper emits raw `<img>` tags pointing
-# at `/platforms/<slug>-<size>-<color>.png` — no asset-pipeline
-# digest, no fingerprint. Re-running the Rake task overwrites the
-# files in place.
+# This module used to emit `<img>` tags for the per-platform PNG
+# assets shipped by the now-deleted `pito:platform_logos:download`
+# rake task. The PNG pipeline was dropped in Wave B1 and the per-
+# surface render swapped to inline text chips (Waves B2-B5). The
+# helper now exists ONLY to expose the canonical-platform-slug
+# computation that the chip ViewComponent consumes:
 #
-# Theme awareness:
+#   - `KNOWN_LOGOS` — the locked canonical slug set (ps, switch,
+#     steam). Name retained for caller-stability across this wave;
+#     a Wave F consolidation pass can rename it to `KNOWN_CHIPS`
+#     and rename the file to `platform_chips_helper.rb` once every
+#     consumer is on the chip surface.
+#   - `PC_STORE_IGDB_IDS` — PC / Linux / Mac / DOS / Web IGDB ids
+#     that collapse to "steam" for chip-display purposes.
+#   - `game_index_tile_logo_slug(game)` — returns the single
+#     owned-or-available slug for the tile-footer chip (one chip
+#     per tile).
+#   - `game_detail_logo_slugs(game)` — returns the full ordered
+#     slug list for the detail-page chip row.
+#   - `pc_store_slugs(game)` — public helper that injects "steam"
+#     when the game is on a PC store (either via
+#     `external_steam_app_id` or via IGDB platform id).
 #
-#   The rake task ships TWO color variants per (platform, size):
-#   `<slug>-<size>-black.png` and `<slug>-<size>-white.png`. The
-#   active theme (`<html data-theme>`) is set client-side by the
-#   layout boot script and the `theme` Stimulus controller, so the
-#   server has no canonical knowledge of which variant the user
-#   will see. The helper handles this by emitting BOTH variants in
-#   parallel `<img>` tags and letting CSS hide the off-theme one
-#   via `.platform-logo--{black,white}` rules. This mirrors the
-#   pattern already used by `Games::CoverComponent` and
-#   `shared/_igdb_cover` for the missing-cover fallback SVGs.
-#
-#   Callers that need an explicit color (e.g. a screenshot fixture
-#   or a forced-theme preview) pass `color: :black` or
-#   `color: :white`, which emits a single `<img>` for that variant.
-#
-# Surfaces:
-#
-#   - Tile footer on `/games`: one 14-px logo per tile, selected by
-#     `game_index_tile_logo_slug(game)` (owned-wins-over-available,
-#     `KNOWN_LOGOS` declaration order).
-#   - Detail page LEFT pane: 0..3 logos at 64 px, returned by
-#     `game_detail_logo_slugs(game)` in the locked PS5 / Switch2 /
-#     Steam order. PC distribution stores (Steam) are inferred from
-#     `external_steam_app_id`, NOT from `platforms_available`.
+# TODO (Wave F consolidation): rename file +
+# module to `platform_chips_helper.rb` / `PlatformChipsHelper`,
+# rename `KNOWN_LOGOS` → `KNOWN_CHIPS`, rename
+# `game_*_logo_slug(s)` → `game_*_chip_slug(s)`. Deferred so the
+# in-flight chip swaps across `/games`, `/games/:id`, `/bundles`,
+# and the tile partial don't churn while the rename lands.
 module PlatformLogosHelper
-  # Locked set of platform slugs that have a downloaded logo asset.
+  # Locked set of canonical platform slugs the chip surface renders.
   # Order matters — `game_index_tile_logo_slug` walks this list and
-  # picks the FIRST applicable slug (so PS5 wins when a game is owned
-  # on both PS5 and Steam).
-  KNOWN_LOGOS = %w[ps5 switch2 steam].freeze
+  # picks the FIRST applicable slug (so PS wins when a game is
+  # owned on both PS and Steam).
+  KNOWN_LOGOS = %w[ps switch steam].freeze
 
-  # The only sizes the Rake task downloads. `platform_logo_tag`
-  # raises `ArgumentError` for sizes outside this list — typos
-  # surface at boot instead of as broken `<img>` tags at runtime.
-  LOGO_SIZES = [ 16, 64 ].freeze
-
-  # The two color variants the Rake task downloads. The helper
-  # accepts `:black`, `:white`, or `:auto` (default) — `:auto`
-  # emits both variants with CSS visibility scoped to the active
-  # theme. Anything else raises `ArgumentError`.
-  LOGO_COLORS = %i[black white].freeze
-
-  # Brand-correct display labels for the alt text. Mirrors
-  # `Platform::CANONICAL_SHORT_NAMES`, scoped to the 3-asset set
-  # (Xbox dropped — no logo shipped; GoG + Epic collapsed into Steam
-  # per the 2026-05-17 PC store collapse).
-  LOGO_ALT_LABELS = {
-    "ps5"     => "PS5",
-    "switch2" => "Switch2",
-    "steam"   => "Steam"
-  }.freeze
-
-  # Render a single platform-logo `<img>` tag (or a `<span>` wrapping
-  # both color variants when `color: :auto`).
+  # IGDB platform ids that represent PC desktop / web — all collapse
+  # to "steam" for chip-display purposes. Rationale: the project's
+  # canonical mapping treats Steam as the umbrella surface for PC
+  # distribution (GoG / Epic were dropped per the 2026-05-17 store
+  # collapse). When IGDB lists a game on PC (Windows / Mac / Linux /
+  # classic Mac / Web), we render the Steam chip to communicate
+  # "PC release" without needing a populated `external_steam_app_id`
+  # column. The per-store external id remains the alternate
+  # inference path (still honored in `pc_store_slugs`).
   #
-  # Returns nil when `slug` is not in `KNOWN_LOGOS` so callers can
-  # `<% if (tag = platform_logo_tag(...)) %><%= tag %><% end %>`
-  # without an extra presence check.
-  #
-  # Raises `ArgumentError` when `size` is not in `LOGO_SIZES` — this
-  # is a typo-catcher, not a runtime error path; the only legal
-  # sizes are 16 and 64. Same for `color`: must be `:auto`, `:black`,
-  # or `:white`.
-  #
-  # `display_size:` overrides the rendered pixel dimensions when the
-  # asset is downloaded at a higher resolution than the on-screen
-  # size (e.g. tile footers download the 16-px variant but render at
-  # 14 px; detail-page logos download the 64-px variant but render
-  # at 56 px). Defaults to `size` when omitted.
-  def platform_logo_tag(slug, size:, color: :auto, display_size: nil)
-    raise ArgumentError, "unknown logo size: #{size.inspect}" unless LOGO_SIZES.include?(size)
-    raise ArgumentError, "unknown logo color: #{color.inspect}" unless color == :auto || LOGO_COLORS.include?(color)
-    return nil unless KNOWN_LOGOS.include?(slug)
-
-    render_size = display_size || size
-
-    if color == :auto
-      # Emit both color variants; CSS picks the visible one based on
-      # `<html data-theme>`. Wrap in a `<span class="platform-logo-pair">`
-      # so a caller's per-element layout (vertical-align, margin) hits
-      # the wrapper, not the off-theme `<img>`. The wrapper itself is
-      # inline-block at the rendered size so it occupies the same
-      # footprint a single `<img>` would.
-      content_tag(
-        :span,
-        class: "platform-logo-pair platform-logo-pair--#{slug}",
-        style: "display: inline-block; width: #{render_size}px; height: #{render_size}px; vertical-align: middle; line-height: 0;"
-      ) do
-        safe_join([
-          platform_logo_img(slug, size: size, color: :black, render_size: render_size),
-          platform_logo_img(slug, size: size, color: :white, render_size: render_size)
-        ])
-      end
-    else
-      platform_logo_img(slug, size: size, color: color, render_size: render_size)
-    end
-  end
+  #   6  -> PC (Microsoft Windows)
+  #   3  -> Linux
+  #   14 -> Mac
+  #   13 -> PC DOS / classic Mac (DOS family)
+  #   92 -> SteamVR (Web umbrella in the IGDB sense)
+  PC_STORE_IGDB_IDS = [ 6, 3, 14, 13, 92 ].freeze
 
   # Pick the ONE platform slug to render in the tile footer. Returns
   # a string slug from `KNOWN_LOGOS` or nil when no known platform
@@ -119,8 +65,8 @@ module PlatformLogosHelper
   #   2. The first slug from `game.platforms_available` (mapped to
   #      canonical) intersected with `KNOWN_LOGOS`, same walk. Also
   #      includes the PC-store inferences (Steam) so an unreleased
-  #      Steam game still shows the Steam logo on its tile.
-  #   3. Nil — no logo segment renders.
+  #      Steam game still shows the Steam chip on its tile.
+  #   3. Nil — no chip segment renders.
   def game_index_tile_logo_slug(game)
     owned     = canonical_logo_slugs(game.owned_platforms)
     available = canonical_logo_slugs(game.platforms_available) | pc_store_slugs(game)
@@ -133,37 +79,50 @@ module PlatformLogosHelper
   # applies to the game, in `KNOWN_LOGOS` declaration order.
   # Inclusion conditions:
   #
-  #   - `ps5` / `switch2` — the canonical Platform row is in
+  #   - `ps` / `switch` — the canonical Platform row is in
   #     `game.platforms_available` (matched by slug OR by
   #     `IGDB_ID_TO_CANONICAL_SLUG`).
-  #   - `steam` — the corresponding `external_steam_app_id` column
-  #     is present.
-  #
-  # PC (Microsoft Windows) `platforms_available` rows are IGNORED —
-  # per the project's canonical mapping, PC distribution is
-  # represented by the per-store external IDs, not the generic PC
-  # platform row.
+  #   - `steam` — EITHER the `external_steam_app_id` column is
+  #     present OR `platforms_available` carries an IGDB id in
+  #     `PC_STORE_IGDB_IDS` (PC / Mac / Linux / DOS / Web). The
+  #     project collapses every PC-desktop store into Steam for
+  #     chip-display purposes.
   def game_detail_logo_slugs(game)
     set = canonical_logo_slugs(game.platforms_available) | pc_store_slugs(game)
     KNOWN_LOGOS.select { |slug| set.include?(slug) }
   end
 
-  private
-
-  # Build a single-variant `<img>` tag. Centralizes the URL shape
-  # and the per-color visibility class so `platform_logo_tag` and
-  # the explicit-color paths stay consistent.
-  def platform_logo_img(slug, size:, color:, render_size:)
-    image_tag(
-      "/platforms/#{slug}-#{size}-#{color}.png",
-      width: render_size,
-      height: render_size,
-      alt: LOGO_ALT_LABELS.fetch(slug),
-      data: { theme: (color == :black ? "light" : "dark") },
-      class: "platform-logo platform-logo--#{slug} platform-logo--#{color}",
-      style: "width: #{render_size}px; height: #{render_size}px; vertical-align: middle;"
-    )
+  # PC-store inference. Steam is the sole PC-umbrella surface; GoG
+  # and Epic collapsed into Steam per the 2026-05-17 PC store collapse
+  # (the underlying `external_gog_id` / `external_epic_id` columns
+  # were dropped from `games`).
+  #
+  # Two independent triggers add "steam" to the slug set:
+  #
+  #   1. `external_steam_app_id` is populated — direct evidence the
+  #      game is on Steam.
+  #   2. Any row in `platforms_available` has an IGDB id in
+  #      `PC_STORE_IGDB_IDS` — IGDB lists the game on PC (Windows /
+  #      Mac / Linux / DOS / Web), which the project collapses to a
+  #      single Steam chip.
+  #
+  # Either trigger is sufficient. The Set wrapper guarantees de-dup
+  # so a game with BOTH triggers (Pragmata-style — IGDB id 6 plus a
+  # populated `external_steam_app_id`) only contributes one Steam
+  # slug to the union.
+  #
+  # Public (not private) so callers outside the helper module — most
+  # notably the chip ViewComponent — can compose the slug set
+  # themselves when they need finer-grained control than
+  # `game_detail_logo_slugs` / `game_index_tile_logo_slug` offer.
+  def pc_store_slugs(game)
+    slugs = Set.new
+    slugs << "steam" if game.external_steam_app_id.present?
+    slugs << "steam" if Array(game.platforms_available).any? { |p| PC_STORE_IGDB_IDS.include?(p.igdb_id) }
+    slugs
   end
+
+  private
 
   # Map a collection of `Platform` records to the set of canonical
   # logo slugs they belong to. A row's `slug` wins when it matches
@@ -180,15 +139,5 @@ module PlatformLogosHelper
     return platform.slug if KNOWN_LOGOS.include?(platform.slug)
 
     Platform::IGDB_ID_TO_CANONICAL_SLUG[platform.igdb_id]
-  end
-
-  # PC-store inference. Steam is the sole PC-umbrella surface; GoG
-  # and Epic collapsed into Steam per the 2026-05-17 PC store collapse
-  # (the underlying `external_gog_id` / `external_epic_id` columns
-  # were dropped from `games`).
-  def pc_store_slugs(game)
-    slugs = Set.new
-    slugs << "steam" if game.external_steam_app_id.present?
-    slugs
   end
 end

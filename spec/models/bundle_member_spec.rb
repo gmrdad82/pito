@@ -7,7 +7,7 @@ RSpec.describe BundleMember, type: :model do
   end
 
   describe "validations" do
-    let(:bundle) { create(:bundle, bundle_type: :custom) }
+    let(:bundle) { create(:bundle) }
     let(:game)   { create(:game) }
 
     it "enforces (bundle_id, game_id) uniqueness" do
@@ -25,7 +25,7 @@ RSpec.describe BundleMember, type: :model do
   end
 
   describe "before_validation :assign_position" do
-    let(:bundle) { create(:bundle, bundle_type: :custom) }
+    let(:bundle) { create(:bundle) }
 
     it "sets position to 0 on the first member" do
       g = create(:game)
@@ -49,7 +49,7 @@ RSpec.describe BundleMember, type: :model do
   end
 
   describe "callbacks" do
-    let(:bundle) { create(:bundle, bundle_type: :custom) }
+    let(:bundle) { create(:bundle) }
     let(:game)   { create(:game) }
 
     it "after_create_commit enqueues BundleCoverBuild" do
@@ -70,7 +70,7 @@ RSpec.describe BundleMember, type: :model do
 
   describe "cascade-on-delete from Bundle" do
     it "removes BundleMember rows but preserves Games" do
-      bundle = create(:bundle, bundle_type: :custom)
+      bundle = create(:bundle)
       g1 = create(:game)
       g2 = create(:game)
       bundle.bundle_members.create!(game: g1)
@@ -84,7 +84,7 @@ RSpec.describe BundleMember, type: :model do
 
   describe "cascade-on-delete from Game" do
     it "removes BundleMember rows but preserves the Bundle" do
-      bundle = create(:bundle, bundle_type: :custom)
+      bundle = create(:bundle)
       g = create(:game)
       bundle.bundle_members.create!(game: g)
 

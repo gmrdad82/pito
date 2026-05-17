@@ -1,12 +1,12 @@
 <%# Phase 27 v2 spec 05 — letter-shelf iteration on `/games`.
 
-    One `<section class="shelf">` per non-empty letter bucket. Buckets
-    arrive in render order from the controller's `build_letter_buckets`
-    (A..Z first, `#` last). The heading is the bucket key uppercased
-    (already done in the controller). Tiles are `Games::CoverComponent`
-    at the `:shelf` variant (98 × 130), wired through the existing
-    `steam-shelf` Stimulus controller for drag-scroll + wheel-to-
-    horizontal scroll.
+    One shelf per non-empty letter bucket. Buckets arrive in render
+    order from the controller's `build_letter_buckets` (A..Z first,
+    `#` last). The heading is the bucket key uppercased (already done
+    in the controller). Tiles render through `Games::GameTileComponent`
+    at the `:shelf` variant; shelf chrome (heading + count badge +
+    horizontal scroll row + `steam-shelf` controller) is emitted by
+    `Games::ShelfComponent`.
 
     Locals:
       buckets  Array of `[letter, [Game, ...]]` tuples. Empty buckets
@@ -16,25 +16,28 @@
   buckets = local_assigns.fetch(:buckets, [])
 %>
 <% if buckets.any? %>
-  <section class="all-games-shelves-by-letter games-shelves-by-letter-mode"
-           style="margin-top: 12px;">
+  <%# 2026-05-17 (Wave F consolidation) — the wrapper no longer sets
+      `margin-top: 12px`; the first letter shelf inside it inherits
+      the shared `.shelf { margin-top: 16px }` default (see
+      `app/assets/tailwind/application.css`) and subsequent shelves
+      are tightened to `8px` by the hairline rule
+      `.games-shelves-by-letter-mode > section[data-shelf="letter"]:not(:first-of-type)`. %>
+  <section class="all-games-shelves-by-letter games-shelves-by-letter-mode">
     <% buckets.each do |(letter, games)| %>
-      <section class="shelf shelf--letter"
-               data-shelf="letter"
-               data-letter="<%= letter %>"
-               data-controller="steam-shelf"
-               style="margin-top: 16px;">
-        <div class="dot-list" style="margin-bottom: 6px;">
-          <h3 style="margin: 0;"><%= letter %></h3>
-        </div>
-
-        <div class="shelf-row letter-shelf-row" data-steam-shelf-target="row"
-             style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px;">
-          <% games.each do |game| %>
-            <%= render(Games::CoverComponent.new(game: game, variant: :shelf)) %>
-          <% end %>
-        </div>
-      </section>
+      <% next if games.empty? %>
+      <%= render(Games::ShelfComponent.new(
+            heading: letter,
+            count: games.size,
+            heading_level: :h3,
+            extra_classes: "shelf--letter",
+            shelf_kind: "letter",
+            data: { letter: letter },
+            row_classes: "letter-shelf-row"
+          )) do %>
+        <% games.each do |game| %>
+          <%= render(Games::GameTileComponent.new(game: game, variant: :shelf)) %>
+        <% end %>
+      <% end %>
     <% end %>
   </section>
 <% end %>

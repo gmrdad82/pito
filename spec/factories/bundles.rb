@@ -1,24 +1,10 @@
 FactoryBot.define do
+  # Phase 27 follow-up (2026-05-17) — after the simplification a Bundle
+  # has only `name` (plus the composite-cover artifact columns, which
+  # the composer writes on its own). The legacy `:series` / `:collection`
+  # / `:genre` traits are gone along with the `bundle_type` /
+  # `igdb_source_*` columns.
   factory :bundle do
     sequence(:name) { |n| "Bundle #{n}" }
-    bundle_type { :custom }
-
-    trait :series do
-      bundle_type { :series }
-      igdb_source_type { :franchise }
-      sequence(:igdb_source_id) { |n| 100_000 + n }
-    end
-
-    trait :collection do
-      bundle_type { :collection }
-      igdb_source_type { :source_collection }
-      sequence(:igdb_source_id) { |n| 200_000 + n }
-    end
-
-    trait :genre do
-      bundle_type { :genre }
-      igdb_source_type { :source_genre }
-      sequence(:igdb_source_id) { |n| 300_000 + n }
-    end
   end
 end

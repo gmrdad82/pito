@@ -1,9 +1,10 @@
-# Phase 14 §2 — Single layout. 1 member; resize to fill 600×800.
+# Phase 14 §2 — Single layout. 1 member; resize to fill 300×400.
+# Canvas halved 2026-05-17 — see `Composite::Builder` header.
 module Composite
   module Layout
     module Single
-      OUTPUT_WIDTH  = 600
-      OUTPUT_HEIGHT = 800
+      OUTPUT_WIDTH  = 300
+      OUTPUT_HEIGHT = 400
 
       module_function
 

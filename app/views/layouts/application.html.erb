@@ -27,14 +27,16 @@
         `!totp_configured?` state, the enrollment modal auto-opens on
         `/settings` and every other route bounces back to it via
         `Sessions::AuthConcern#require_totp_configured!`. While the
-        gate is active, NO global keyboard shortcut should fire — keys
-        are an escape hatch from the gate (theme toggle, IGDB add,
-        leader menu navigation, etc. are all reachable from the
-        document / window keydown listeners mounted by the `keyboard`,
-        `leader-menu`, and `theme` controllers). The keydown handlers
-        read this meta tag LIVE on every keypress and early-return
-        when `content="yes"`. The enrollment form's own keys (typing
-        the 6-digit code, Tab, Enter) are unaffected — they're either
+        gate is active, NO global keyboard shortcut should fire — the
+        leader-menu (SPACE) and the per-page `/`/`s`/`-` shortcuts
+        are all suppressed via the document keydown listeners mounted
+        by the `keyboard` and `leader-menu` controllers. (2026-05-17
+        — the `theme` controller's keydown listener was removed in
+        the legacy-keyboard-shortcut sweep along with the `t` keybind;
+        theme toggling is now click-only.) The keydown handlers read
+        this meta tag LIVE on every keypress and early-return when
+        `content="yes"`. The enrollment form's own keys (typing the
+        6-digit code, Tab, Enter) are unaffected — they're either
         native browser behaviour on a focused `<input>` or already
         gated by the controllers' editable-target guard.
 
@@ -127,11 +129,20 @@
       controller bails immediately. %>
   <%# 2026-05-16 — mandatory-2FA gate signal moved to a `<meta>` tag
       in `<head>` (see the head block above for the full rationale).
-      The keydown handlers in `keyboard`, `leader-menu`, and `theme`
-      read the meta tag live on every keypress, so no per-body
-      script, attribute, or controller `connect()` cache is needed
-      here. %>
+      The keydown handlers in `keyboard` and `leader-menu` (2026-05-17
+      — `theme` no longer mounts a keydown listener) read the meta
+      tag live on every keypress, so no per-body script, attribute,
+      or controller `connect()` cache is needed here. %>
   <body data-controller="keyboard notifications-modal leader-menu timezone-detect webhook-help-modal"
+        <%# `data-keybindings-page-key` exposes the YAML key (e.g.
+            `games_index`, `games_show`, `bundles_show`, `default`,
+            or `nil` for deny-listed pages like /settings) so the
+            `leader-menu` Stimulus controller can render the per-page
+            action rows in the popup's top section. Resolved by
+            `KeybindingsHelper#keybindings_page_key`; the same helper
+            powers `KeybindingsReferenceComponent`. Absent attribute
+            (nil page key) = no page-actions section. %>
+        <% if (kb_page_key = keybindings_page_key) %>data-keybindings-page-key="<%= kb_page_key %>"<% end %>
         <% if Current.user.present? %>data-timezone-detect-stored-value="<%= Current.user.time_zone %>"
         data-timezone-detect-url-value="<%= settings_time_zone_path %>"
         data-timezone-detect-csrf-value="<%= form_authenticity_token %>"<% end %>>
@@ -151,10 +162,12 @@
           visual separator). The inline search input that used to
           sit in the right cluster was retired in favor of a
           `/`-keyed search modal (`shared/_search_modal`); the
-          IGDB-search modal opens on `i`
-          (`shared/_igdb_search_modal`). The previous `n` keycap-theme
-          toggle was retired earlier; the theme keybind now lives on
-          `t` and the on-screen affordance is the Settings page. %>
+          IGDB-search modal is reached via the `[+]` bracketed link
+          in the `/games` chrome (`shared/_igdb_search_modal`).
+          2026-05-17 — the global `i` keybind for the IGDB modal and
+          the global `t` keybind for theme toggle were both removed
+          in the legacy-keyboard-shortcut sweep; the on-screen
+          theme affordance lives on the Settings page. %>
       <div style="display: flex; align-items: center; height: 32px; gap: 4px;">
         <a href="/" style="text-decoration: none; display: flex; align-items: center; line-height: 0;" aria-label="Dashboard">
           <img src="/Pito.png" alt="pito" class="header-logo">
@@ -270,19 +283,20 @@
         `KeyboardShortcutsModalComponent` are gone. %>
 
     <%# Global search modal — opened by `/` keypress (handled by
-        `keyboard_controller#focusSearchInput`) or by any element
+        `keyboard_controller#openGlobalSearch`, driven by
+        `page_actions:` in `config/keybindings.yml`) or by any element
         carrying `data-action="…->global-search-modal#open"`. The
         modal posts to `/search` (existing `SearchController#show`)
         and lives in the layout chrome so any page can trigger it. %>
     <%= render "shared/search_modal" %>
 
-    <%# Global IGDB-search modal — opened by `i` keypress (handled
-        by `keyboard_controller#openIgdbSearch`) or by `[+]` on
-        `/games`. Submits the typed query to
-        `GamesController#search` (existing `/games/search`); the
-        results render inside the modal's Turbo Frame and offer
-        `[add]` (new) or `[update]` (existing-game overwrite via
-        the shared overwrite-confirmation modal). %>
+    <%# Global IGDB-search modal — opened by the `[+]` bracketed link
+        in the `/games` chrome (2026-05-17 the global `i` keybind was
+        removed in the legacy-keyboard-shortcut sweep). Submits the
+        typed query to `GamesController#search` (existing
+        `/games/search`); the results render inside the modal's Turbo
+        Frame and offer `[add]` (new) or `[update]` (existing-game
+        overwrite via the shared overwrite-confirmation modal). %>
     <%= render "shared/igdb_search_modal" %>
 
     <%# Reusable overwrite-confirmation modal — opened by

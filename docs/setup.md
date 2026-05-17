@@ -9,6 +9,40 @@ End-to-end developer setup for pito. Run these once on a fresh machine.
 - Node-free build: Tailwind CLI ships with the gem, so no Node install is
   required.
 
+### Fonts (composite covers)
+
+The bundle composite cover overflow badge (`+N`) bakes text into the JPEG using
+`Cascadia Code Bold 32` via libvips/Pango. The font must be installed on every
+host that runs `BundleCoverBuild` (dev workstations, CI, prod). If the font is
+missing, fontconfig substitutes the nearest monospace match; the badge still
+renders but may not match the web app's primary font.
+
+**Omarchy (Arch / arch-based):**
+
+```bash
+sudo pacman -S ttf-cascadia-code
+```
+
+(Or the AUR `otf-cascadia-code-nerd` if you want the Nerd Font glyphs; the plain
+`ttf-cascadia-code` is in the official repos.)
+
+**Ubuntu (Hetzner production target):**
+
+Cascadia Code isn't in the Ubuntu apt repositories. Install manually:
+
+```bash
+mkdir -p ~/cascadia-tmp && cd ~/cascadia-tmp
+wget https://github.com/microsoft/cascadia-code/releases/latest/download/CascadiaCode.zip
+unzip CascadiaCode.zip
+sudo cp ttf/CascadiaCode.ttf /usr/local/share/fonts/
+sudo fc-cache -fv
+cd && rm -rf ~/cascadia-tmp
+```
+
+Verify: `fc-list | grep -i cascadia` should list the installed faces. After
+install, re-run any existing `BundleCoverBuild` jobs to regen composites with
+the correct font.
+
 ## 1. Clone and bundle
 
 ```bash

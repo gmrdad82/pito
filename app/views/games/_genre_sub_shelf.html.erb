@@ -1,8 +1,14 @@
 <%# Phase 27 §01c-v2 — Genre sub-shelf row.
-    One sub-shelf per non-empty genre. Renders an `<h3>` row with the
-    genre name (left) and a `[see all]` bracketed link (right, only
-    when the bucket exceeds the visible cap). Inside, a horizontally
-    scrolling row of game tiles at the `:shelf` cover variant.
+    One sub-shelf per non-empty genre. Renders the heading + count +
+    optional `[see all]` link via `Games::ShelfComponent`, then a
+    horizontally scrolling row of bare covers rendered through
+    `Games::GenreTileComponent` (a thin wrapper over
+    `Games::CoverComponent(variant: :shelf)`).
+
+    Genre and bundle sub-shelves render bare covers at `:shelf` so
+    the row stays dense and image-driven; the rich `Games::GameTile
+    Component(variant: :shelf)` (title + meta + chips + editions
+    badge) is reserved for the LETTER shelves on `/games`.
 
     Game ordering — alphabetical by `LOWER(games.title)`. Cap — 30
     tiles; beyond that the user is expected to switch to grid / list
@@ -45,18 +51,20 @@
            games_path(genre: genre.id)
          end
 %>
-<section class="shelf sub-shelf sub-shelf--genre" data-shelf="genre-sub" data-genre-id="<%= genre.id %>" data-controller="steam-shelf" style="margin-top: 12px;">
-  <div class="dot-list" style="margin-bottom: 4px;">
-    <h3 style="margin: 0; font-size: 13px;"><%= genre_short_name(genre) %></h3>
-    <% if total_count > cap %>
-      <%= render(BracketedLinkComponent.new(label: "see all", href: href)) %>
-    <% end %>
-  </div>
-
-  <div class="shelf-row sub-shelf-row" data-steam-shelf-target="row"
-       style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px;">
-    <% games.each do |game| %>
-      <%= render(Games::CoverComponent.new(game: game, variant: :shelf)) %>
-    <% end %>
-  </div>
-</section>
+<%= render(Games::ShelfComponent.new(
+      heading: genre_short_name(genre),
+      count: total_count,
+      heading_level: :h3,
+      extra_classes: "sub-shelf sub-shelf--genre",
+      shelf_kind: "genre-sub",
+      data: { genre_id: genre.id },
+      section_style: "margin-top: 12px;",
+      heading_style: "font-size: 13px;",
+      heading_margin: "4px",
+      row_classes: "sub-shelf-row",
+      more_href: (total_count > cap ? href : nil)
+    )) do %>
+  <% games.each do |game| %>
+    <%= render(Games::GenreTileComponent.new(game: game)) %>
+  <% end %>
+<% end %>

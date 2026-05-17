@@ -1,12 +1,12 @@
-# Phase 27 §01h — Compositable mixin.
+# Phase 27 §01h / Phase 27 follow-up (2026-05-17) — Compositable mixin.
 #
 # Shared interface for models that own an on-disk composite cover JPEG
 # fingerprinted by `Composite::Checksum`. Currently mixed into:
-#   - `Bundle`     (Phase 14 §2 — series / collection / genre / custom
-#                  groupings of Games).
-#   - `Collection` (Phase 27 §01h — the new sub-shelf composite covers).
+#   - `Bundle` (Phase 14 §2 — bundle groupings of Games; the only host
+#     after the 2026-05-17 Collection→Bundle consolidation).
 #
-# The mixin captures the three responsibilities that BOTH models share:
+# The mixin captures the three responsibilities a composite-cover host
+# needs:
 #   1. Resolve the absolute on-disk Pathname for the composite cover
 #      from `composite_cover_path` (a relative path under
 #      `<PITO_ASSETS_PATH>/composites/`).
@@ -16,14 +16,11 @@
 #      (best-effort — `Errno::ENOENT` is swallowed).
 #
 # What it does NOT cover:
-#   - Building the composite — each host has its own composer service
-#     (`Composite::Builder` for Bundle, `Collections::CoverComposer` for
-#     Collection). The two composers differ on member ordering,
-#     fingerprint payload, layout matrix, and degradation policy; the
-#     mixin would over-couple them.
+#   - Building the composite — the host's composer service does that
+#     (`Composite::Builder` for Bundle).
 #   - Membership-change hooks — Bundle wires `after_save` into
-#     `BundleCoverBuild`; Collection wires `Game#after_update_commit` so
-#     the eviction fires on the right side of the association.
+#     `BundleCoverBuild`; `BundleMember`'s `after_commit` enqueues
+#     rebuilds when membership changes.
 #
 # Database contract — host model MUST have both columns:
 #   - `composite_cover_path`     :string (nullable) — relative path

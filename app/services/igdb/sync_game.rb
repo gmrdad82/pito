@@ -149,12 +149,31 @@ module Igdb
       game.save!
     end
 
+    # Phase 27 v2 spec 01 follow-up (2026-05-17) — IGDB-order primacy.
+    # IGDB returns the `genres` array in its canonical primacy order
+    # (first entry = primary). The `game_genres.position` column
+    # captures that ordering so `Games::PrimaryGenrePicker` can pick
+    # the IGDB-first genre instead of the alphabetical winner.
+    #
+    # Positions are recorded as the 0-based array index. The picker's
+    # `ORDER BY game_genres.position ASC NULLS LAST` then prefers the
+    # IGDB-first row over any alphabetical winner. Re-syncs overwrite
+    # the position even for rows that survive the delete-and-create
+    # boundary (the `first_or_create!` returns the existing row; the
+    # explicit `update_column` then refreshes its position to match
+    # the new IGDB order).
     def sync_genres(game, genres_json)
       list = Array(genres_json).select { |row| row.is_a?(Hash) }
       genre_records = list.map { |row| upsert_genre(row) }
       game.game_genres.where.not(genre_id: genre_records.map(&:id)).destroy_all
-      genre_records.each do |g|
-        GameGenre.where(game_id: game.id, genre_id: g.id).first_or_create!
+      genre_records.each_with_index do |g, index|
+        join = GameGenre.where(game_id: game.id, genre_id: g.id).first_or_create!
+        # `update_column` skips the `after_save :recompute_primary_genre`
+        # callback so the per-row position update does not trigger a
+        # full picker re-run on every iteration — the caller
+        # (`Igdb::SyncGame#re_assign_primary_genre`) runs the picker
+        # once after every row is in place.
+        join.update_column(:position, index) unless join.position == index
       end
     end
 

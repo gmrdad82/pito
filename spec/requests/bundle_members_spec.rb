@@ -1,7 +1,7 @@
 require "rails_helper"
 
 RSpec.describe "BundleMembers", type: :request do
-  let(:bundle) { create(:bundle, bundle_type: :custom) }
+  let(:bundle) { create(:bundle) }
 
   describe "POST /bundles/:bundle_id/members" do
     let(:game) { create(:game, :synced, title: "Sekiro") }

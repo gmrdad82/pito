@@ -5,7 +5,10 @@ RSpec.describe Game, type: :model do
   subject { build(:game) }
 
   describe "associations" do
-    it { is_expected.to belong_to(:collection).optional }
+    # Phase 27 follow-up (2026-05-17) — `belongs_to :collection` removed
+    # along with the Collection model. Bundle membership is M2M through
+    # `bundle_members`; covered by the bundle composite rebuild hooks
+    # spec block below.
     it { is_expected.to have_many(:footages).dependent(:nullify) }
     it { is_expected.to have_many(:game_genres).dependent(:destroy) }
     it { is_expected.to have_many(:genres).through(:game_genres) }
@@ -542,94 +545,56 @@ RSpec.describe Game, type: :model do
     end
   end
 
-  # Phase 27 v2 spec 02 — collection composite rebuild hooks.
+  # Phase 27 follow-up (2026-05-17) — bundle composite rebuild hooks.
   #
-  # Three hooks cover the trigger surfaces; each routes through the
-  # orchestrator (`Collections::CompositeRebuildQueue`) which sorts
-  # alphabetically by `Collection.name` and enqueues a sequential
-  # chain. We spy on the orchestrator's public API so the tests pin
-  # the contract between Game and the orchestrator without coupling
-  # to Sidekiq's internal job shape.
-  describe "collection composite rebuild hooks (Phase 27 v2 spec 02)" do
-    let!(:game) { create(:game, :synced, title: "g", collection: nil) }
-    let(:c1)    { create(:collection, name: "C1") }
-    let(:c2)    { create(:collection, name: "C2") }
-    let(:queue) { instance_double(Collections::CompositeRebuildQueue) }
+  # Two hooks cover the trigger surfaces this model owns; each routes
+  # through the orchestrator (`Bundles::CompositeRebuildQueue`) which
+  # sorts alphabetically by `Bundle.name` and enqueues a sequential
+  # chain. The add/remove surface is owned by `BundleMember`'s own
+  # `after_commit` (single-bundle rebuilds) — covered in the
+  # `BundleMember` spec instead.
+  describe "bundle composite rebuild hooks (Phase 27 follow-up 2026-05-17)" do
+    let!(:game) { create(:game, :synced, title: "g") }
+    let(:b1)    { create(:bundle, name: "B1") }
+    let(:b2)    { create(:bundle, name: "B2") }
+    let(:queue) { instance_double(Bundles::CompositeRebuildQueue) }
 
     before do
-      allow(Collections::CompositeRebuildQueue).to receive(:new).and_return(queue)
-      allow(queue).to receive(:enqueue_for_collections).and_return([])
+      allow(Bundles::CompositeRebuildQueue).to receive(:new).and_return(queue)
+      allow(queue).to receive(:enqueue_for_bundles).and_return([])
       allow(queue).to receive(:enqueue_for_game_resync).and_return([])
       allow(queue).to receive(:enqueue_for_game_destroy).and_return([])
     end
 
-    describe "after_update_commit :rebuild_collection_composites_on_collection_change" do
-      it "enqueues for [new_collection] when a game is added to a collection" do
-        game.update!(collection: c1)
-        expect(queue).to have_received(:enqueue_for_collections).with([ c1 ])
-      end
-
-      it "enqueues for [old, new] when a game moves between collections" do
-        game.update!(collection: c1)
-        game.update!(collection: c2)
-        expect(queue).to have_received(:enqueue_for_collections).with([ c1, c2 ])
-      end
-
-      it "enqueues for [old] when a game is removed from its collection" do
-        game.update!(collection: c1)
-        game.update!(collection: nil)
-        # Two enqueues total: one when c1 was added, one when c1 was
-        # removed — both pass `[c1]` to the orchestrator.
-        expect(queue).to have_received(:enqueue_for_collections)
-          .with([ c1 ]).exactly(2).times
-      end
-
-      it "does NOT enqueue an EXTRA call when only unrelated columns change" do
-        game.update!(collection: c1)
-        # One call from the collection assignment above; updating notes
-        # must NOT add a second call.
-        game.update!(notes: "untouched by the collection hook")
-        expect(queue).to have_received(:enqueue_for_collections).once
-      end
-
-      it "does NOT enqueue an EXTRA call when cover_image_id changes (collection unchanged)" do
-        game.update!(collection: c1)
-        game.update!(cover_image_id: "new-cid")
-        expect(queue).to have_received(:enqueue_for_collections).once
-      end
-    end
-
-    describe "after_save_commit :rebuild_collection_composites_on_resync" do
-      it "enqueues a resync chain when igdb_synced_at is bumped and the game is in a collection" do
-        game.update!(collection: c1)
+    describe "after_save_commit :rebuild_bundle_composites_on_resync" do
+      it "enqueues a resync chain when igdb_synced_at is bumped" do
+        b1.bundle_members.create!(game: game)
         game.update!(igdb_synced_at: Time.current + 1.day)
         expect(queue).to have_received(:enqueue_for_game_resync).with(game)
       end
 
-      it "does NOT enqueue a resync chain when the game has no collection" do
-        game.update!(collection: nil, igdb_synced_at: Time.current + 1.day)
-        expect(queue).not_to have_received(:enqueue_for_game_resync)
+      it "still calls the orchestrator when the game is in zero bundles (orchestrator no-ops on empty)" do
+        game.update!(igdb_synced_at: Time.current + 1.day)
+        expect(queue).to have_received(:enqueue_for_game_resync).with(game)
       end
 
       it "does NOT enqueue a resync chain when igdb_synced_at is unchanged" do
-        game.update!(collection: c1)
+        b1.bundle_members.create!(game: game)
         game.update!(notes: "touch")
-        # The resync hook fires only on igdb_synced_at saved-change; the
-        # two updates above touch collection_id and notes, neither of
-        # which should reach `enqueue_for_game_resync`.
         expect(queue).not_to have_received(:enqueue_for_game_resync)
       end
     end
 
-    describe "after_destroy_commit :rebuild_collection_composites_on_destroy" do
-      it "captures the pre-destroy collection and enqueues a destroy chain" do
-        game.update!(collection: c1)
+    describe "after_destroy_commit :rebuild_bundle_composites_on_destroy" do
+      it "captures the pre-destroy bundles and enqueues a destroy chain" do
+        b1.bundle_members.create!(game: game)
+        b2.bundle_members.create!(game: game)
         game.destroy!
         expect(queue).to have_received(:enqueue_for_game_destroy)
-          .with(game, was_in: [ c1 ])
+          .with(game, was_in: [ b1, b2 ])
       end
 
-      it "does NOT enqueue a destroy chain when the game had no collection" do
+      it "does NOT enqueue a destroy chain when the game had no bundles" do
         game.destroy!
         expect(queue).not_to have_received(:enqueue_for_game_destroy)
       end

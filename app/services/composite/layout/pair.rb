@@ -1,11 +1,12 @@
-# Phase 14 §2 — Pair layout. 2 members; side by side, each 300×800.
+# Phase 14 §2 — Pair layout. 2 members; side by side, each 150×400.
+# Canvas halved 2026-05-17 — see `Composite::Builder` header.
 module Composite
   module Layout
     module Pair
-      OUTPUT_WIDTH  = 600
-      OUTPUT_HEIGHT = 800
-      TILE_W = 300
-      TILE_H = 800
+      OUTPUT_WIDTH  = 300
+      OUTPUT_HEIGHT = 400
+      TILE_W = 150
+      TILE_H = 400
 
       module_function
 

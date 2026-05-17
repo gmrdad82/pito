@@ -213,6 +213,211 @@ the no-inner-spaces rule. Examples below already reflect the tightened form.
 - **Separator dots:** use `<span class="text-muted">&middot;</span>` between
   adjacent bracketed links
 
+### Badges
+
+Compact inline status / count primitives. Two families:
+
+- **Badges** — bordered pills, neutral / muted / colored variants. Base
+  component: `StatusBadgeComponent` (will rename to `BadgeComponent` in the next
+  consolidation pass — see follow-up). Variants are CSS modifiers on
+  `.status-badge`: `--info`, `--neutral`, `--success`, `--yes`, `--warn`,
+  `--urgent`, `--no`, `--all_day`. The muted family (`--info` / `--neutral` /
+  `--no` / `--all_day`) uses `var(--color-badge-muted-bg)` filled background;
+  active family (`--success` / `--yes`) uses colored border + colored text on
+  transparent background.
+- **Chips** — filled pills with brand color background + white text. Reserved
+  for PS / Switch / Steam platform identification — see `### Platform Chips` for
+  the locked palette.
+
+**Naming convention.** Components in this family drop the `Status` prefix going
+forward (`ActiveBadgeComponent`, `YesNoBadgeComponent`, `TooltipBadgeComponent`
+already do). The base `StatusBadgeComponent` and `StatusTbdBadgeComponent`
+survive their legacy names pending a consolidation rename.
+
+**Choose a badge, never a styled text span.** When you need an inline status /
+count primitive, use `StatusBadgeComponent.new(label:, kind:)` — not an ad-hoc
+`<span class="text-muted">(<count>)</span>`. The component carries the borders,
+padding, and theme-aware tokens; text spans drift from the system.
+
+### Platform Chips
+
+Platform tags render as filled status-badge style pills in the platform's brand
+color — `PS`, `Switch`, `Steam`. They sit in tile footers and on game detail
+pages as a compact at-a-glance signal of where a game ships.
+
+Render shape: background = brand color, text = contrasting white. **NO visible
+`[ ]` brackets in the rendered HTML.** The `[ ]` notation used in chat, spec
+docs, and prose is a stand-in for the visual badge; the DOM output carries no
+literal brackets. Pattern matches the existing `.status-badge` family (see
+`StatusTbdBadgeComponent`).
+
+**Locked colors — single set for BOTH themes.** No theme-scoped overrides; the
+brand color reads on both light and dark backgrounds and is treated as a fixed
+visual token.
+
+| slug     | label    | hex       |
+| -------- | -------- | --------- |
+| `ps`     | `PS`     | `#003791` |
+| `switch` | `Switch` | `#E60012` |
+| `steam`  | `Steam`  | `#00ADEE` |
+
+**Generation collapse.** The PS chip covers BOTH PS5 (IGDB 167) AND PS4 (IGDB
+48). The Switch chip covers BOTH Switch 2 (IGDB 508) AND Switch gen 1 (IGDB
+130). Steam covers the PC family per the filter-token / DB-slug collapse table
+below. This collapse happens at the `Platform::IGDB_ID_TO_CANONICAL_SLUG`
+mapping in `app/models/platform.rb` — the family chip absorbs all generations of
+the same brand at the model layer, so by the time the view renders chips there
+is no per-generation slug to display.
+
+**Xbox excluded.** No Xbox chip renders for Xbox / Xbox 360 / Xbox One / Series
+X|S games. User-locked 2026-05-17.
+
+Two size variants:
+
+- `:sm` — 12px, used in tile footers on shelf surfaces
+- `:md` — 14px, used on the detail-page LEFT pane
+
+When chips iterate, render them as separate badges with a small gap — no extra
+separator (dot, pipe, comma) goes between them.
+
+Layout / spacing:
+
+- Adjacent chips in a horizontal layout: `gap: 2px` (tight).
+- Chip group spacing from preceding text on the same row (e.g., the year prefix
+  in a tile caption row): `gap: 4px` (breath) — slightly more than the
+  inter-chip gap so the group reads as one cluster.
+- Wrap the chips in a `display: inline-flex; gap: 2px` container; apply the
+  `gap: 4px` separation on the parent row (column gap or margin), not on the
+  chip container itself.
+
+Replaces the prior PNG platform-logo pipeline (decommissioned 2026-05-17).
+
+- **Component:** `Platforms::ChipComponent.new(slug:, size:)`
+
+**Tile overlay placement (2026-05-17).** In a tile context, chips render as an
+**absolute overlay on the cover image**, anchored to the cover's bottom-right
+corner — the chip container touches both the right edge and the bottom edge of
+the cover border. The container carries a solid background color matching the
+cover border token (`var(--color-cover-border)`, the same token wrapping the
+cover image in `Games::CoverComponent`) so the overlay reads as a flush
+extension of the cover frame, not a floating element. Inner spacing between
+adjacent chips inside the overlay container stays `gap: 2px` per the tightness
+rule above.
+
+**Filter token → DB slug collapse.** Platform CHIP tokens (`ps`, `switch`,
+`steam`) intentionally map to MORE than one underlying IGDB platform slug at the
+filter layer:
+
+| chip token | matches IGDB platform slugs                  | rationale                                                                                                                                               |
+| ---------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ps`       | `ps5`, `ps4--1`                              | both PlayStation generations — the PS family chip covers PS5 and PS4 back-catalog                                                                       |
+| `switch`   | `switch`, `switch-2`                         | both Switch generations — the Switch family chip covers Switch 2 and Switch gen 1 back-catalog                                                          |
+| `steam`    | `win`, `linux`, `mac`, `dos`, `web`, `steam` | PC family per `PC_STORE_IGDB_IDS` (6/3/14/13/92) plus the dedicated Steam store — same set the chip-display helper collapses for `pc_store_slugs(game)` |
+
+The mapping lives at the FILTER layer (`Games::Filter` `TOKEN_TO_PLATFORM_SLUGS`
+constant) AND mirrors the chip-display collapse at
+`app/helpers/platform_logos_helper.rb`. When adding a new platform chip, update
+BOTH places.
+
+### Filter semantics
+
+The `/games` filter chips combine across **four orthogonal axes** — lifecycle
+(`released` / `scheduled`), ownership (`owned` / `wishlist`), engagement
+(`played`), and platform (`ps` / `switch` / `steam`) — with within-axis OR,
+cross-axis AND, per-platform binding when the platform axis intersects with
+ownership or engagement, and bidirectional cascade in the UI (checking a child
+auto-checks parents; unchecking a parent re-validates and may auto-uncheck
+dependent children). The full rule set (implies / mutex, worked cascade
+walkthrough, per-platform binding, worked URL examples) is captured in ADR 0013
+(`docs/decisions/0013-games-filter-semantics.md`).
+
+### Rating Heat Bar
+
+A 200×14 px horizontal bar visualizing a synthesized 0..100 score for a game.
+
+The score is the vote-weighted average of IGDB's `igdb_rating`,
+`aggregated_rating`, and `total_rating` — sources whose corresponding `*_count`
+is zero are excluded from the average.
+
+Fill color tracks the existing `--color-rating-<tier>` token (`excellent`,
+`good`, `fair`, `meh`, `poor`, `bad`) so the bar auto-themes via Light / Dark
+without per-surface overrides.
+
+The numeric label sits right-aligned over the fill with a `var(--color-bg)`
+plate behind it for legibility against any tier color.
+
+When no score is available, the bar renders at 0% fill, 0.5 opacity, with an
+em-dash label.
+
+- **Component:** `Games::RatingHeatBarComponent.new(game:)`
+
+### Status TBD Badge
+
+A bracketed inline badge — `[TBD]` — in bright orange `#ff8800`, weight 600,
+monospace, `white-space: nowrap`. Marks "we'll get to this later" placeholders
+across the app: footage rows, the videos empty state, the search placeholder
+modal.
+
+Non-interactive — `cursor: default`. The badge is a label, never a link.
+
+- **Component:** `StatusTbdBadgeComponent.new` — takes no arguments
+
+### Composite overflow badge
+
+The `+N` "more games" badge baked into bundle composite covers (visible on
+bundles with more games than the layout can show — e.g., the 9-grid overflow at
+N≥10 cell case).
+
+- Font: `Cascadia Code Bold 32` via libvips/Pango (matches the web app's
+  `## Typography` #1 monospace preference).
+- Size: 32pt — half the original 64pt; sized for the 98×130 px composite tile
+  without overwhelming the artwork.
+- Background: muted gray pill (#dfe2e7 fill, #444 text) — mirrors the
+  `StatusBadgeComponent kind: :neutral` shape from `### Badges`.
+- Padding: 4 px horizontal, 2 px vertical around the text inside the pill.
+- Source: `app/services/composite/layout/nine_grid_with_overflow.rb` `TEXT_FONT`
+  constant.
+
+The badge is BAKED into the JPEG at composite-build time — themes do NOT swap it
+at render time. Light-theme palette is used since covers are heterogeneous and
+light gray reads against most artwork. If a dark-theme variant is needed later,
+the composite job would need to emit a second JPEG and the consumer view would
+switch sources.
+
+### Confirm Modal pattern
+
+For destructive actions where the full action-screen pattern is too heavy — the
+common case being a single-record delete from a detail page — use the in-page
+`<dialog>` confirm modal instead.
+
+The trigger is a `[delete]` bracketed link wired to a Stimulus modal-trigger
+controller; the modal itself is rendered by the existing `ConfirmModalComponent`
+and uses the native `<dialog>` element opened via `.showModal()`. The
+`confirm-modal` Stimulus controller handles Escape and click-outside dismissal.
+
+Trigger anatomy:
+
+```html
+<a
+  data-controller="modal-trigger"
+  data-action="click->modal-trigger#open"
+  data-modal-trigger-target-id-value="confirm-delete-game-42"
+  >[delete]</a
+>
+```
+
+Modal buttons:
+
+- `[delete]` (danger color) — submits a DELETE to the resource
+- `[cancel]` (muted) — closes the dialog via `confirm-modal#close`
+
+**Hard rule.** Never use `data-turbo-confirm`, JS `confirm()`, or `alert()`. The
+native `<dialog>` element IS the confirmation UI.
+
+For bulk destructive actions, the action-screen framework
+(`/deletions/:type/:ids`) remains the primary path. The in-page modal is a
+per-record convenience layered on top, not a replacement.
+
 ### Bracketed labels: minimum text
 
 Bracketed-link labels carry **the verb only** when context makes the noun
@@ -716,11 +921,14 @@ classes; pages that compose saved-views inline must use the same shape.
 pito uses a themed horizontal scrollbar in place of the browser default for any
 container that scrolls horizontally. The convention:
 
-- **Height**: 8px (thinner than the browser default ~16px).
+- **Thickness**: 6px on both axes, sitewide. The unsuffixed
+  `::-webkit-scrollbar` rule applies to vertical scrollbars (body, modals,
+  textareas) as well as horizontal — the OS default vertical bar is themed away
+  too. Firefox uses `scrollbar-width: thin` on `html` for both axes.
 - **Track**: `var(--color-bg)` — blends with the page background.
 - **Thumb**: `var(--color-muted)` — visible but subtle.
 - **Thumb hover**: `var(--color-text)` — clearly indicates interactivity.
-- **Thumb border-radius**: 4px.
+- **Thumb border-radius**: 3px.
 
 Implementation in `app/assets/tailwind/application.css`:
 
@@ -774,3 +982,75 @@ All reusable UI elements are ViewComponents with specs:
 
 Craigslist / 2000s tool aesthetic with modern build. Dense, information-rich, no
 decoration. Every pixel serves a purpose. Dark mode inspired by Dracula theme.
+
+### Cover Sizes
+
+Two `Games::CoverComponent` variants exist at the component level. Source of
+truth: `app/components/games/cover_component.rb` DIMENSIONS constant +
+`docs/plans/beta/27-games-listing-shelves-filters-display-modes/plan.md`
+§"Locked decisions" item 1.
+
+| variant  | dimensions   | usage                                                                                                                                                                                                              |
+| -------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `:shelf` | 98 × 130 px  | used by **genre shelf** via `Games::CoverComponent.new(variant: :shelf)` (see `_genre_sub_shelf.html.erb`). 65% of `:grid` baseline; explicitly calculated per plan.md to balance density vs cover-art legibility. |
+| `:grid`  | 150 × 200 px | the all-games grid baseline. Surface that used to consume it (grid display mode) was removed in spec 05; the variant lives on for `/games/:id` detail rendering.                                                   |
+
+**Inline 150 × 200 renders that bypass `CoverComponent`:**
+
+- **Letter shelf cover** — inline-rendered at 150 × 200 px in
+  `app/views/games/_tile.html.erb` (hardcoded `img` dimensions). The `_tile`
+  partial does accept a `:shelf` variant flag, but that flag only affects the
+  caption font size — the cover itself is 150 × 200, matching the `:grid`
+  variant dimensions.
+- **Bundle shelf cover** — inline-rendered at 150 × 200 px in
+  `_bundle_for_shelf_tile.html.erb`. The composite is built at a 600 × 800
+  canvas by `Bundles::CompositeRebuildQueue` and displayed scaled to 150 × 200.
+
+No `:small` variant. **Inconsistency flagged:** the letter + bundle shelf covers
+render at the `:grid` size (150 × 200) but do not route through
+`Games::CoverComponent.new(variant: :grid)` — they inline the `img` tag with
+hardcoded dimensions. Wave F refactor candidate: centralize through
+`CoverComponent` so the DIMENSIONS constant is the single source of truth for
+every surface.
+
+### Shelves
+
+The `/games` index renders horizontally-scrolling shelves. Three shelf kinds,
+each with its OWN tile size + content tier. The rich tile is reserved for the
+letter shelves; genre and bundle shelves are visually denser, art-only browse
+surfaces.
+
+- **Letter shelves — 150 × 200 cover + rich caption + chip overlay.** One row
+  per starting letter (A–Z, 0–9). Each tile is the medium-tier rich tile
+  (`_tile.html.erb`): cover inline-rendered at 150 × 200 px with platform chips
+  overlaid on the cover's bottom-right corner (per
+  `### Platform Chips > Tile overlay placement`), and a caption row below the
+  cover containing the title only. Release year and other release info are NOT
+  rendered in the tile — they belong on the game detail page, not the shelf.
+  This is the "game listing" surface — the only shelf kind that uses the rich
+  tile.
+- **Genre shelves — 98 × 130 bare cover (no caption, no chips).** One row per
+  primary genre. Every game with that `primary_genre` renders as an individual
+  bare cover via `Games::CoverComponent.new(variant: :shelf)`, sorted
+  alphabetically by title. Not a composite, not a rich tile, not a Netflix-
+  style merged image — just a horizontal scroll of N bare covers at the `:shelf`
+  dimensions.
+- **Bundle shelf — 150 × 200 composite cover (no caption, no chips).** A single
+  row labeled "bundles" containing every bundle. One composite cover per bundle
+  inline-rendered at 150 × 200 px. The cover art IS the bundle's compound
+  (composite) image built by `Bundles::CompositeRebuildQueue` at a 600 × 800
+  canvas and displayed scaled to 150 × 200. No title, no chips below.
+
+The shelf kinds split into two cover-dimension groups: letter + bundle render at
+150 × 200 (matching the `:grid` variant size but inline, not through
+`CoverComponent`); genre renders at 98 × 130 via the `:shelf` variant. See
+`### Cover Sizes` above for the centralization follow-up.
+
+**Shelf heading count badge.** Each shelf heading (letter name, genre name,
+"bundles") displays the game count alongside the heading as a **muted badge** —
+`StatusBadgeComponent.new(label: count.to_s, kind: :neutral)` — not as
+parenthesized text `(2)`. The badge is the filled muted-bg pill from the
+`### Badges` family. An earlier `MutedCountBadgeComponent` built during the same
+session rendered plain text inside parentheses; it was the wrong shape and is
+slated for deletion in the next code dispatch in favour of the canonical
+`StatusBadgeComponent`.

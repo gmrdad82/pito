@@ -12,6 +12,13 @@
 # error) surfaces immediately rather than on first request. In test /
 # CI the same path is exercised — the file is part of the repo and
 # always present.
+#
+# Development override: instead of a frozen hash, we store a Proc that
+# re-parses the YAML on every call. `KeybindingsHelper` invokes the
+# Proc when present so YAML edits become visible on browser refresh
+# without restarting `bin/dev`. Production + test keep the boot-time
+# freeze for perf + immutability — the dev branch is the only one that
+# pays the per-request parse cost.
 require "yaml"
 
 # Recursively deep-freeze a hash / array tree so the config is
@@ -30,5 +37,18 @@ deep_freeze = ->(obj) {
 }
 
 path = Rails.root.join("config", "keybindings.yml")
-schema = YAML.safe_load_file(path, permitted_classes: [ Symbol ])
-Rails.application.config.keybindings = deep_freeze.call(schema)
+
+if Rails.env.development?
+  # Dev: store a fresh-read Proc so each browser refresh sees the
+  # latest YAML on disk. No freeze — the returned hash is a brand-new
+  # parse, so accidental mutation by a caller dies with the request.
+  # Parse once at boot to fail fast on syntax errors; then swap in the
+  # Proc for runtime use.
+  YAML.safe_load_file(path, permitted_classes: [ Symbol ])
+  Rails.application.config.keybindings = -> {
+    YAML.safe_load_file(path, permitted_classes: [ Symbol ])
+  }
+else
+  schema = YAML.safe_load_file(path, permitted_classes: [ Symbol ])
+  Rails.application.config.keybindings = deep_freeze.call(schema)
+end

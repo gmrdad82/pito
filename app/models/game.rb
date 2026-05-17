@@ -34,7 +34,11 @@
 #   played_at, recorded (single boolean per game — NOT per-platform;
 #   spec 08 confirmed defer-permanently), notes, hours_of_footage_manual,
 #   hours_of_footage_cached, manual_date_override, last_sync_error,
-#   collection_id, version_parent_id, version_title.
+#   version_parent_id, version_title.
+#
+# Phase 27 follow-up (2026-05-17) — `collection_id` was dropped along
+# with the entire `Collection` model. Bundle membership (M2M through
+# `bundle_members`) replaces the single-pointer "collection" pattern.
 #
 # Ownership-sourced joins (NEVER touched by sync):
 #   game_platform_ownerships (per-platform ownership join — see
@@ -84,7 +88,10 @@ class Game < ApplicationRecord
   # and no longer validated. Removed entirely (no validator) so the
   # legacy column can hold whatever Phase 4 wrote without raising.
 
-  belongs_to :collection, optional: true
+  # Phase 27 follow-up (2026-05-17) — `belongs_to :collection` removed
+  # along with the Collection model + `games.collection_id` column.
+  # Bundle membership (M2M through `bundle_members`) replaces the
+  # single-pointer "collection" pattern.
   has_many :footages, dependent: :nullify
   # Phase 15 §1 — calendar entries cascade.
   has_many :calendar_entries, dependent: :destroy
@@ -110,6 +117,15 @@ class Game < ApplicationRecord
   # the game.
   belongs_to :primary_genre, class_name: "Genre", optional: true
   before_save :assign_primary_genre_if_blank
+
+  # Played-on platform — single (1:1, not 1:N). Reflects WHERE the user
+  # played the game (single canonical platform), distinct from
+  # `owned_platforms` (where the user owns it, can be many) and
+  # `platforms_available` (where IGDB says it's released, metadata only).
+  # `played_at` remains a global "when did I play it" timestamp; this FK
+  # is the orthogonal "on what" pointer. Most games start nil; user sets
+  # manually. FK is nullable; no backfill.
+  belongs_to :played_platform, class_name: "Platform", optional: true
 
   # Phase 28 §01a — Multi-version game grouping. A `Game` may be either
   # a primary (`version_parent_id IS NULL`) or an edition pointing at a
@@ -172,26 +188,27 @@ class Game < ApplicationRecord
   # every bundle the game belongs to.
   after_update_commit :invalidate_bundle_covers_if_image_changed
 
-  # Phase 27 §01h (v2 spec 02) — fire a rebuild for every collection
-  # touched by a membership / sync / destroy event on this game. The
-  # orchestrator (`Collections::CompositeRebuildQueue`) sorts inputs
-  # alphabetically by `Collection.name` and enqueues a sequential
-  # chain — predictable order is load-bearing for UX (which collection
-  # is rebuilding next) and for tests (deterministic enqueue order).
+  # Phase 27 follow-up (2026-05-17) — fire a rebuild for every bundle
+  # touched by a sync / destroy event on this game. The orchestrator
+  # (`Bundles::CompositeRebuildQueue`) sorts inputs alphabetically by
+  # `Bundle.name` (case-insensitive) and enqueues a sequential
+  # `BundleCoverBuild` chain — predictable order is load-bearing for
+  # UX (which bundle is rebuilding next) and for tests (deterministic
+  # enqueue order).
   #
-  # Three hooks cover the three trigger surfaces:
-  #   - `after_update_commit` — collection_id changes (add / move /
-  #     remove). Rebuilds the OLD and NEW collections.
-  #   - `after_save_commit` — game re-synced from IGDB (
-  #     `igdb_synced_at` changed). Rebuilds every collection the game
-  #     is currently in.
+  # Two hooks cover the two trigger surfaces this model owns:
+  #   - `after_save_commit` — game re-synced from IGDB (`igdb_synced_at`
+  #     changed). Rebuilds every bundle the game is currently in.
   #   - `before_destroy` + `after_destroy_commit` — game deleted.
-  #     Rebuilds every collection the game WAS in (captured pre-destroy
-  #     because the after_destroy hook sees the post-nullify state).
-  after_update_commit  :rebuild_collection_composites_on_collection_change
-  after_save_commit    :rebuild_collection_composites_on_resync
-  before_destroy       :capture_pre_destroy_collection
-  after_destroy_commit :rebuild_collection_composites_on_destroy
+  #     Rebuilds every bundle the game WAS in (captured pre-destroy
+  #     because the after_destroy hook sees the post-cascade state).
+  #
+  # The add / move / remove surface is owned by `BundleMember`'s own
+  # `after_commit` (single-bundle rebuilds — no chain needed) so a
+  # membership change does not need a `Game`-side hook.
+  after_save_commit    :rebuild_bundle_composites_on_resync
+  before_destroy       :capture_pre_destroy_bundles
+  after_destroy_commit :rebuild_bundle_composites_on_destroy
 
   # Phase 4 legacy — kept for one phase, dropped in polish window.
   has_one_attached :cover_art
@@ -262,13 +279,21 @@ class Game < ApplicationRecord
     left_joins(:game_platform_ownerships)
       .where(game_platform_ownerships: { id: nil })
   }
-  scope :owned_on, lambda { |slug|
+  scope :owned_on, lambda { |slug_or_slugs|
     # `where(platforms: { slug: ... })` would conflict with the legacy
     # `games.platforms` jsonb column (ActiveRecord treats the hash key
     # as a column on `games`). The raw `"platforms"."slug"` SQL is
-    # safe — `slug` flows through bind parameters.
+    # safe — slug values flow through bind parameters.
+    #
+    # Accepts a single slug or an Array. The Array form is what the
+    # filter query object (`Games::Filter`) uses when a chip token
+    # like `switch2` maps to multiple DB slugs (`switch` + `switch-2`)
+    # or `steam` collapses the PC family (`win` / `linux` / `mac` /
+    # `dos` / `web` / `steam`). The single-slug form is preserved for
+    # any callers that pass one slug directly.
+    slugs = Array(slug_or_slugs)
     joins(game_platform_ownerships: :platform)
-      .where('"platforms"."slug" = ?', slug)
+      .where('"platforms"."slug" IN (?)', slugs)
       .distinct
   }
 
@@ -297,9 +322,13 @@ class Game < ApplicationRecord
   scope :recorded, -> { where(id: VideoGameLink.select(:game_id).distinct) }
   scope :released, -> { where("release_date <= ?", Date.current) }
   scope :scheduled, -> { where("release_date > ?", Date.current) }
-  scope :on_platform, lambda { |slug|
+  scope :on_platform, lambda { |slug_or_slugs|
+    # Accepts a single slug or an Array. See the parallel comment on
+    # `.owned_on` for the chip-token-to-DB-slug expansion rationale
+    # (`switch2` → %w[switch switch-2], `steam` → the PC family).
+    slugs = Array(slug_or_slugs)
     joins(game_platforms: :platform)
-      .where('"platforms"."slug" = ?', slug)
+      .where('"platforms"."slug" IN (?)', slugs)
       .distinct
   }
   scope :released_on,  ->(slug) { released.on_platform(slug) }
@@ -472,59 +501,39 @@ class Game < ApplicationRecord
     BundleCoverInvalidate.perform_async(id, previous_cover_image_id)
   end
 
-  # Phase 27 v2 spec 02 — collection composite rebuild hook for the
-  # add / move / remove surface. Looks up BOTH the previous and current
-  # collections (skipping nils), hands them to the orchestrator which
-  # sorts alphabetically and enqueues a sequential chain.
-  #
-  # The previous collection is loaded by id (the in-memory association
-  # already points at the new one). The current collection is the
-  # already-attached `collection` association.
-  def rebuild_collection_composites_on_collection_change
-    return unless saved_change_to_collection_id?
-
-    previous_id, current_id = saved_change_to_collection_id
-    targets = []
-    targets << Collection.find_by(id: previous_id) if previous_id.present?
-    targets << Collection.find_by(id: current_id)  if current_id.present?
-
-    Collections::CompositeRebuildQueue.new.enqueue_for_collections(targets.compact)
-  end
-
-  # Phase 27 v2 spec 02 — collection composite rebuild hook for the
-  # re-sync surface. Fires whenever `igdb_synced_at` was just written
-  # (a fresh IGDB sync). Skips when the row has no collection (a
-  # game outside any collection has no composite to rebuild). The
-  # collection_id-change hook already covers the add/move/remove case;
-  # this hook ONLY handles the "membership unchanged but cover bytes
-  # may now point at a new IGDB asset" case.
-  def rebuild_collection_composites_on_resync
+  # Phase 27 follow-up (2026-05-17) — bundle composite rebuild hook for
+  # the re-sync surface. Fires whenever `igdb_synced_at` was just
+  # written (a fresh IGDB sync). Skips when the row belongs to zero
+  # bundles. The `BundleMember`-side `after_commit` already covers the
+  # add/remove case; this hook ONLY handles the "membership unchanged
+  # but cover bytes may now point at a new IGDB asset" case.
+  def rebuild_bundle_composites_on_resync
     return unless saved_change_to_igdb_synced_at?
-    return if collection_id.blank?
 
-    Collections::CompositeRebuildQueue.new.enqueue_for_game_resync(self)
+    Bundles::CompositeRebuildQueue.new.enqueue_for_game_resync(self)
   end
 
-  # Phase 27 v2 spec 02 — capture the game's collection BEFORE destroy
-  # so the after_destroy_commit hook can rebuild composites for the
-  # collections the game WAS in. By the time after_destroy_commit
-  # fires the row is gone and the FK has been nullified — the value
-  # has to be cached during the destroy transaction.
-  def capture_pre_destroy_collection
-    @pre_destroy_collection = collection
+  # Phase 27 follow-up (2026-05-17) — capture the game's bundles BEFORE
+  # destroy so the after_destroy_commit hook can rebuild composites for
+  # the bundles the game WAS in. By the time after_destroy_commit
+  # fires the row is gone and the `bundle_members` rows have CASCADED
+  # away — the bundle set has to be cached during the destroy
+  # transaction.
+  def capture_pre_destroy_bundles
+    @pre_destroy_bundles = bundles.to_a
     true
   end
 
-  # Phase 27 v2 spec 02 — collection composite rebuild hook for the
-  # destroy surface. Reads the captured pre-destroy collection set and
-  # hands it to the orchestrator. A standalone game (no collection
-  # before destroy) is a no-op.
-  def rebuild_collection_composites_on_destroy
-    targets = Array(@pre_destroy_collection).compact
+  # Phase 27 follow-up (2026-05-17) — bundle composite rebuild hook for
+  # the destroy surface. Reads the captured pre-destroy bundle set and
+  # hands it to the orchestrator. A standalone game (no bundles before
+  # destroy) is a no-op.
+  def rebuild_bundle_composites_on_destroy
+    targets = Array(@pre_destroy_bundles).compact
     return if targets.empty?
 
-    Collections::CompositeRebuildQueue.new
-                                      .enqueue_for_game_destroy(self, was_in: targets)
+    Bundles::CompositeRebuildQueue.new
+                                  .enqueue_for_game_destroy(self, was_in: targets)
   end
 
   # Phase 27 v2 spec 01 — set `primary_genre_id` when blank so the

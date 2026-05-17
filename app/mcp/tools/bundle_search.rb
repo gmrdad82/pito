@@ -1,6 +1,8 @@
 module Mcp
   module Tools
-    # Phase 14 §3 — read-only Bundle search by name.
+    # Phase 14 §3 / Phase 27 follow-up (2026-05-17) — read-only Bundle
+    # search by name. The legacy `bundle_type` / `igdb_source_*`
+    # fields in the JSON envelope are gone with the columns.
     class BundleSearch < MCP::Tool
       tool_name "bundle_search"
       description "Search bundles by name (substring, case-insensitive). Limit 25."
@@ -28,9 +30,6 @@ module Mcp
           {
             id: b.id,
             name: b.name,
-            bundle_type: b.bundle_type,
-            igdb_source_type: b.igdb_source_type,
-            igdb_source_id: b.igdb_source_id,
             member_count: b.bundle_members.size
           }
         end

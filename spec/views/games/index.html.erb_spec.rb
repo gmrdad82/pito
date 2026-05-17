@@ -1,20 +1,21 @@
 require "rails_helper"
 
-# Phase 27 v2 spec 05 — `/games` index view structure.
+# Phase 27 v2 spec 05 / Phase 27 follow-up (2026-05-17) — `/games`
+# index view structure.
 #
 # Asserts the top-level rendering order: page title → filter row →
-# bundles (when present) → recently-played (when present) → hairline
-# → genres outer shelf (when populated) → hairline → collections
-# outer shelf (when populated) → hairline → letter shelves (when
-# populated). Empty branches drop out cleanly.
+# recently-played (when present) → hairline → genres outer shelf
+# (when populated) → hairline → bundles outer shelf (when populated)
+# → hairline → letter shelves (when populated). Empty branches drop
+# out cleanly. The legacy top-of-page bundles shelf was merged into
+# the bundles outer shelf in the 2026-05-17 consolidation.
 RSpec.describe "games/index.html.erb", type: :view do
   before do
     # Minimum controller-assigned instance variables. The view reads
     # them directly; nil defaults short-circuit empty branches.
-    assign(:bundles_shelf, Bundle.none)
     assign(:recently_played, Game.none)
     assign(:genres_for_shelf, Genre.none)
-    assign(:collections_for_shelf, Collection.none)
+    assign(:bundles_for_shelf, Bundle.none)
     assign(:genres_shelf_batch, Games::GenreShelfBatch.new(genres: Genre.none))
     # Phase 27 v2 spec 06 — view reads `@checked_tokens` (the set of
     # CHECKED chips). Nil means "every chip checked" (full list).
@@ -178,16 +179,18 @@ RSpec.describe "games/index.html.erb", type: :view do
     end
   end
 
-  describe "happy: bundles + recently-played shelves above the genres" do
-    let!(:bundle)        { create(:bundle, name: "Soulslikes") }
-    let!(:recent_game)   { create(:game, :synced, title: "Recent Game", igdb_id: 5_101, igdb_slug: "recent-idx", played_at: 1.day.ago) }
+  describe "happy: bundles outer shelf + recently-played shelf" do
+    let!(:bundle)      { create(:bundle, name: "Soulslikes") }
+    let!(:member)      { create(:game, :synced, title: "S", igdb_id: 5_200, igdb_slug: "s-idx") }
+    let!(:recent_game) { create(:game, :synced, title: "Recent Game", igdb_id: 5_101, igdb_slug: "recent-idx", played_at: 1.day.ago) }
 
     before do
-      assign(:bundles_shelf,   Bundle.where(id: bundle.id))
+      bundle.bundle_members.create!(game: member)
+      assign(:bundles_for_shelf, Bundle.where(id: bundle.id))
       assign(:recently_played, Game.where(id: recent_game.id))
     end
 
-    it "renders the bundles shelf" do
+    it "renders the bundles outer shelf" do
       render
       expect(rendered).to include(">bundles<")
     end
@@ -197,11 +200,14 @@ RSpec.describe "games/index.html.erb", type: :view do
       expect(rendered).to include(">recently played<")
     end
 
-    it "places bundles BEFORE recently-played in document order" do
+    it "places recently-played BEFORE bundles outer shelf in document order" do
+      # After the 2026-05-17 consolidation the only bundles shelf lives
+      # in the bottom outer-shelf slot; recently-played stays at the
+      # top of the listing partition.
       render
-      b_pos = rendered.index(">bundles<")
       r_pos = rendered.index(">recently played<")
-      expect(b_pos).to be < r_pos
+      b_pos = rendered.index(">bundles<")
+      expect(r_pos).to be < b_pos
     end
   end
 end

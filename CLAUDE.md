@@ -179,6 +179,42 @@ Maximize parallelism: spawn multiple agents when they touch distinct files.
 Canonical reference: `docs/orchestration/agents.md` and
 `.claude-config/agents/`.
 
+### Dispatch sizing (universal — rails, rust, website, mcp, docs, any
+
+agent)
+
+Agents are speed multipliers for **code changes**. Keep every dispatch small,
+focused, and fast.
+
+**Wall-clock ladder per dispatch:**
+
+- **≤ 5 minutes — target.** Default size of every dispatch. Think smallest
+  meaningful unit of code change.
+- **5 – 10 minutes — bad but tolerated.** Treat as a smell.
+- **10 – 20 minutes — needs justification.** Only acceptable for atomic
+  refactors that break the build mid-split.
+- **≥ 20 minutes — hard kill.** No exceptions. Stop, slice, redispatch.
+
+**One concern per dispatch.** Never bundle "do A and B and verify" into one
+agent. Split into A, B, verify — run independently, in parallel where the files
+don't overlap.
+
+### Iteration vs consolidation (universal)
+
+The workflow has two modes that apply across every stack:
+
+- **Iteration mode (default).** Agents write **code only**. No test runs of any
+  kind (no `rspec`, no `cargo test`, no `npm test`/`vitest`/`playwright`). No
+  new test files. The point is **velocity of code change**, not green-ness. If a
+  dispatch prompt says "run tests", strip it.
+- **Consolidation mode (opt-in, on user signal).** A dedicated pass that adds
+  the deferred tests, runs the full suite, and reconciles drift. Triggered by
+  the user saying "consolidate" / "lock this in" / "run specs" / "validate".
+
+Default mode is iteration. Consolidation is explicit. The architect- spec
+mandate and any per-stack "tests must accompany every change" rules are
+SUSPENDED during iteration — they apply only inside the consolidation pass.
+
 ## Role discipline
 
 Every actor in this workspace operates strictly within its declared role. The
@@ -191,25 +227,24 @@ When a task expects output outside an actor's role, the actor STOPs and reports.
 ## Slack notifications
 
 The master agent (and any subagent) sends Slack pings to the user via the
-`pito-slack` agent. **Never call `mcp__claude_ai_Slack__*` MCP tools
-directly** — every Slack notification flows through the agent dispatch so
-the project's message-style governance (in `docs/agents/slack.md`) stays
-in one place.
+`pito-slack` agent. **Never call `mcp__claude_ai_Slack__*` MCP tools directly**
+— every Slack notification flows through the agent dispatch so the project's
+message-style governance (in `docs/agents/slack.md`) stays in one place.
 
-Message style: **git-commit-subject concise**. Status verb + minimal
-context, fits a single short line (`dotfiles green`, `specs running`,
-`/games ready`, `commit pushed`). The chat conversation remains the
-detailed surface; Slack is the heads-up only. See `docs/agents/slack.md`
-for the channel + style contract the agent enforces.
+Message style: **git-commit-subject concise**. Status verb + minimal context,
+fits a single short line (`dotfiles green`, `specs running`, `/games ready`,
+`commit pushed`). The chat conversation remains the detailed surface; Slack is
+the heads-up only. See `docs/agents/slack.md` for the channel + style contract
+the agent enforces.
 
 Use Slack pings sparingly — for long-running processes (full spec sweeps,
-sustained refactors), commit-and-push milestones, or when the user has
-walked away and needs a "ready for next step" signal. Not for routine
-in-chat status (that's the conversation itself).
+sustained refactors), commit-and-push milestones, or when the user has walked
+away and needs a "ready for next step" signal. Not for routine in-chat status
+(that's the conversation itself).
 
-The pito app's own Slack webhook (configured in
-`NotificationDeliveryChannel` and sent by Sidekiq workers) is a SEPARATE
-production surface for end-user digests — never conflate the two.
+The pito app's own Slack webhook (configured in `NotificationDeliveryChannel`
+and sent by Sidekiq workers) is a SEPARATE production surface for end-user
+digests — never conflate the two.
 
 ## Hard rules
 
@@ -243,6 +278,41 @@ production surface for end-user digests — never conflate the two.
   until enrollment is confirmed. The gate is browser-only — API tokens and MCP
   bearer surfaces are exempt by design (a bearer credential cannot complete a
   TOTP enrollment). Allowlist is minimal: TOTP-setup routes plus logout.
+
+## Source of truth
+
+When any numeric / token / sizing / color / behavioral value is needed across
+docs / specs / code, the canonical source hierarchy is:
+
+1. **User decision in chat** — most authoritative; capture immediately to the
+   right doc surface per the "save clarifications to docs" discipline.
+2. **`docs/decisions/*.md` (ADRs)** — durable architectural truth.
+3. **`docs/design.md`** — canonical visual rules + tokens + sizes.
+4. **`docs/plans/beta/<NN>/plan.md`** — phase-locked decisions; must agree with
+   design.md or trigger a propagating update.
+5. **`docs/plans/beta/<NN>/specs-v2/*.md`** — spec text must cite design.md /
+   plan.md for any visual claim. Bare numbers in specs without a citation are a
+   smell.
+6. **Code** (components / CSS / models / configs) — follows the above. Drift
+   between code and the higher surfaces = bug; fix code (not docs, unless the
+   doc is the one wrong, in which case fix the doc + propagate down).
+
+When any two surfaces disagree, the higher-authority surface wins. Lower
+surfaces get updated — never the inverse.
+
+### Look up, never pick
+
+The master agent NEVER invents values into canonical docs. Subagents NEVER pick
+defaults / smallest available / sensible guesses for missing values. Every
+dispatch prompt MUST name the canonical source for every value the agent needs
+(file:section citation). If the canonical source doesn't yet have the answer,
+the master STOPs and asks the user — does not dispatch with an open "use the
+smallest" instruction.
+
+When master adds a new section to design.md / decisions / CLAUDE.md, the same
+dispatch reads the matching code + plan.md + specs FIRST and captures truth. If
+no canonical decision exists yet, the entry reads `(needs user decision — TBD)`
+rather than a fabricated value.
 
 ## Configuration strategy
 

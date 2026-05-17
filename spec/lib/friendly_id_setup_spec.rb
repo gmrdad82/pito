@@ -10,8 +10,8 @@ RSpec.describe "friendly_id setup" do
     end
   end
 
-  describe "renameable resources (Project, Bundle, Collection, MilestoneRule)" do
-    [ Project, Bundle, Collection, MilestoneRule ].each do |klass|
+  describe "renameable resources (Project, Bundle, MilestoneRule)" do
+    [ Project, Bundle, MilestoneRule ].each do |klass|
       describe klass.name do
         it "uses the :history module" do
           expect(klass.friendly_id_config.uses?(:history)).to be true

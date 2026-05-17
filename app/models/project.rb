@@ -1,5 +1,9 @@
-# Phase 4 §3.1, §4 — workspace shell. References zero-or-more Games and
-# Collections via the polymorphic `project_references` join.
+# Phase 4 §3.1, §4 — workspace shell. References zero-or-more Games via
+# the polymorphic `project_references` join.
+#
+# Phase 27 follow-up (2026-05-17) — the Collection model was removed and
+# the polymorphic `Project ↔ Collection` branch is gone. Only the
+# `Project ↔ Game` reference branch remains.
 class Project < ApplicationRecord
   # Phase 20 — friendly URLs. Project URLs use a name-derived slug. The
   # `:history` module redirects old slugs after a rename. Backfilled by
@@ -15,10 +19,6 @@ class Project < ApplicationRecord
            through: :project_references,
            source: :referenceable,
            source_type: "Game"
-  has_many :collections,
-           through: :project_references,
-           source: :referenceable,
-           source_type: "Collection"
 
   has_many :footages, dependent: :destroy
   has_many :notes, dependent: :destroy

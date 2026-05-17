@@ -1,6 +1,6 @@
 # Phase 14 §1 — Games controller.
 #
-# Five action surfaces:
+# Action surfaces:
 #   - `index`   — list view (Phase 14 §3 reskin pending)
 #   - `show`    — full IGDB-backed detail page
 #   - `search`  — `GET /games/search?q=…` (Turbo Frame from `_add_form`)
@@ -10,10 +10,14 @@
 #                  REMOVED the legacy "default create empty game" branch
 #                  — IGDB is the SINGLE entry point to creating a game
 #                  in the library.
-#   - `update`  — STRICTLY local-only fields. IGDB-sourced columns
-#                  smuggled via params are silently dropped.
 #   - `destroy` — Phase 4 carryover.
 #   - `resync`  — `POST /games/:id/resync` enqueues `GameIgdbSync`.
+#
+# Phase 27 spec 08 (Wave C1) — `edit` / `update` were removed; per-
+# platform ownership and resync are the only mutations on the detail
+# page. Local-only fields (`played_at`, `notes`, `hours_of_footage_manual`,
+# `version_parent_id`, `version_title`) no longer have a web edit
+# surface here.
 class GamesController < ApplicationController
   include FriendlyRedirect
   include Games::FiltersHelper
@@ -67,8 +71,52 @@ class GamesController < ApplicationController
   # `/games?genre=<slug>` / `/games?collection=<slug>` which the
   # existing filter codepath narrows.
   def index
-    @bundles_shelf   = Bundle.order(updated_at: :desc).limit(10)
-    @recently_played = Game.where.not(played_at: nil).order(played_at: :desc).limit(SHELF_LIMIT)
+    # Phase 27 v2 spec 06 follow-up (2026-05-17) — filter is built
+    # FIRST so every shelf below consumes the filtered scope. Prior
+    # to this reorder only the letter shelves saw the filter; the
+    # recently-played, genre, and bundle shelves rendered against
+    # the unfiltered library and leaked rows the filter excluded
+    # (e.g. `?filters=switch` still showed PS-only titles in the
+    # alphabetical letter shelves was correct, but PS-only titles
+    # still surfaced through the genre / bundle shelves at the top
+    # of the page).
+    @filter = sanitized_filter
+    # Phase 28 §01a — primaries-only by default across every listing
+    # partition. `?include_editions=yes` flips the listing to a flat
+    # set (every Game row, editions included). Any other value
+    # (including `true` / `1` / nil) defaults to primaries-only per
+    # the yes/no boundary rule.
+    @include_editions = YesNo.from_yes_no(params[:include_editions])
+    scope = @include_editions ? Game.all : Game.primaries
+    scope = scope.joins(:game_genres).where(game_genres: { genre_id: @filter[:genre_id] }) if @filter[:genre_id]
+    if @filter[:bundle_id]
+      scope = scope.joins(:bundle_members).where(bundle_members: { bundle_id: @filter[:bundle_id] }).distinct
+    end
+
+    # Phase 27 v2 spec 06 — filter row state read from a single CSV param.
+    # The query composes AFTER `?genre=` / `?bundle=` narrowing (01c)
+    # and BEFORE the per-letter partitioning (05). Unknown tokens are
+    # dropped silently. v2 has no `not_owned` chip so the 01b
+    # contradiction case can never arise (`Games::Filter#contradiction?`
+    # always returns false), but the ivar survives for the component's
+    # stable signature.
+    @checked_tokens        = parse_checked_tokens(params[:filters])
+    @filter_query          = Games::Filter.new(scope: scope, tokens: @checked_tokens)
+    @dropped_filter_tokens = @filter_query.dropped_tokens
+    @filter_contradiction  = @filter_query.contradiction?
+    filtered_scope         = @filter_query.results
+
+    # Phase 27 follow-up (2026-05-17) — single Bundles shelf. The
+    # legacy `@bundles_shelf` (top-of-page, updated_at DESC, 10 max)
+    # and the former Collections shelf converge: one alphabetical
+    # listing of every bundle with at least one member. Bundles with
+    # zero members never render — empty bundles surface only on the
+    # `/bundles` index page.
+    #
+    # Filter behavior (2026-05-17): recently-played intersects with
+    # the filtered scope so PS-only titles do not appear under a
+    # `?filters=switch` view, etc.
+    @recently_played = filtered_scope.where.not(played_at: nil).order(played_at: :desc).limit(SHELF_LIMIT)
 
     # Phase 27 §01c-v2 — outer nested shelves. The previous flat-tile
     # design (one tile per genre / collection, always rendered with a
@@ -80,24 +128,27 @@ class GamesController < ApplicationController
     #
     # Scope rationale:
     #   - Genres outer-shelf — primary-genre scoping (2026-05-11
-    #     follow-up). `Game.where.not(primary_genre_id: nil)` lists
-    #     only genres that own at least one game pinned to them via
-    #     `Games::PrimaryGenrePicker`. Result: every multi-genre game
-    #     appears in EXACTLY ONE sub-shelf instead of every
-    #     `game_genres` join it touches.
-    #   - Collections outer-shelf — `Collection.joins(:games).distinct`
-    #     remains the source (each game has a single `collection_id`
-    #     pointer, no dedup concern).
+    #     follow-up). `filtered_scope.where.not(primary_genre_id: nil)`
+    #     lists only genres that own at least one game pinned to them
+    #     via `Games::PrimaryGenrePicker` AND that survive the
+    #     current filter. Result: every multi-genre game appears in
+    #     EXACTLY ONE sub-shelf instead of every `game_genres` join
+    #     it touches; filter-excluded games never contribute.
+    #   - Bundles outer-shelf (formerly "collections shelf") — a
+    #     bundle renders if ANY of its games matches the current
+    #     filter (user-confirmed 2026-05-17). Uses `BundleMember`
+    #     to compute the membership intersection.
     #   - Alphabetical case-insensitive ordering with a stable `id`
     #     tiebreak so render order is deterministic across requests.
     # Postgres requires DISTINCT + ORDER BY columns to appear in the
     # SELECT list. Subquery (`where(id: …)`) keeps the outer query
     # clean for ordering.
     @genres_for_shelf = Genre.where(
-      id: Game.where.not(primary_genre_id: nil).distinct.select(:primary_genre_id)
+      id: filtered_scope.where.not(primary_genre_id: nil).distinct.select(:primary_genre_id)
     ).order(Arel.sql("LOWER(genres.name)"), :id)
-    @collections_for_shelf = Collection.where(id: Collection.joins(:games).distinct.select(:id))
-                                       .order(Arel.sql("LOWER(collections.name)"), :id)
+    @bundles_for_shelf = Bundle.where(
+      id: BundleMember.where(game_id: filtered_scope.select(:id)).select(:bundle_id)
+    ).order(Arel.sql("LOWER(bundles.name)"), :id)
 
     # Phase 27 P27 reviewer follow-up (non-blocking concern #2,
     # 2026-05-11) — single-pass batch for the per-genre sub-shelves.
@@ -110,18 +161,17 @@ class GamesController < ApplicationController
     # falls back to the old code path when the local isn't passed
     # (view-spec render-partial calls hit the fallback so isolation
     # tests stay independent).
-    @genres_shelf_batch = Games::GenreShelfBatch.new(genres: @genres_for_shelf)
+    #
+    # Spec 06 (2026-05-17) — pass `filter_scope:` so the per-genre
+    # sub-shelf counts and tile rows reflect the filtered subset.
+    @genres_shelf_batch = Games::GenreShelfBatch.new(genres: @genres_for_shelf, filter_scope: filtered_scope)
 
-    # Phase 27 follow-up (2026-05-11) — composite-cover warm-up. Walk
-    # each collection slated for the outer shelf and ask the composer
-    # to materialize / refresh the on-disk composite (or no-op on a
-    # cache hit / 0-1 member layouts). Running it in the controller —
-    # once per request, in-line, BEFORE the view renders — guarantees
-    # the `_collection_tile.html.erb` partial sees a fresh
-    # `composite_cover_checksum` for 2+ member collections instead of
-    # falling through to the fallback SVG (P27 reviewer BLOCKER:
-    # `Collections::CoverComposer` was built but never invoked).
-    Games::PrepareCollectionsForShelf.new.call(@collections_for_shelf)
+    # Phase 27 follow-up (2026-05-17) — the Collections shelf merged
+    # into the Bundles shelf. The Collection-specific composer ran
+    # synchronously here to keep shelf tiles fresh; Bundle composites
+    # are async-only (`BundleCoverBuild` Sidekiq job) so we skip the
+    # in-line warm-up. Tiles fall through to the fallback SVG until
+    # the job has stamped a `composite_cover_checksum`.
 
     # Phase 27 polish (2026-05-11) — the legacy `@genres_shelves`
     # per-genre iteration was retired. The 01c-v2 nested Genres
@@ -134,30 +184,7 @@ class GamesController < ApplicationController
     # from the page. The platform filter still lives on the 01b
     # filter row's `owned_on=<slug>` token.
 
-    @filter = sanitized_filter
-    # Phase 28 §01a — primaries-only by default across every listing
-    # partition. `?include_editions=yes` flips the listing to a flat
-    # set (every Game row, editions included). Any other value
-    # (including `true` / `1` / nil) defaults to primaries-only per
-    # the yes/no boundary rule.
-    @include_editions = YesNo.from_yes_no(params[:include_editions])
-    scope = @include_editions ? Game.all : Game.primaries
-    scope = scope.joins(:game_genres).where(game_genres: { genre_id: @filter[:genre_id] }) if @filter[:genre_id]
-    scope = scope.where(collection_id: @filter[:collection_id])                            if @filter[:collection_id]
-
-    # Phase 27 §01b — filter row state read from a single CSV param.
-    # The query composes AFTER `?genre=` / `?collection=` narrowing
-    # (01c) and BEFORE the per-mode partitioning (01d). Unknown tokens
-    # are dropped; the contradiction case (`owned, not_owned` together)
-    # short-circuits the listing to `Game.none` and renders a muted
-    # notice in the filter-row component.
-    @filter_tokens         = parse_filter_tokens(params[:filters])
-    @dropped_filter_tokens = parse_dropped_tokens(params[:filters])
-    @filter_query          = Games::Filter.new(scope: scope, tokens: @filter_tokens)
-    @filter_contradiction  = @filter_query.contradiction?
-    scope                  = @filter_query.results
-
-    @all_games = scope.order(Arel.sql("release_year DESC NULLS LAST"))
+    @all_games = filtered_scope.order(Arel.sql("release_year DESC NULLS LAST"))
 
     # Phase 27 v2 spec 05 — letter buckets for the shelves-by-letter
     # layout (now the SOLE listing layout on `/games`).
@@ -196,14 +223,6 @@ class GamesController < ApplicationController
       format.html
       format.json { render :show }
     end
-  end
-
-  # Phase 14 §1 polish (2026-05-10) — show / edit split. The form
-  # that used to live inline on show.html.erb moved to its own
-  # `/games/:id/edit` screen so the show page reads as canonical
-  # read-only metadata.
-  def edit
-    @game = Game.friendly.find(params[:id])
   end
 
   # Phase 28 §01a — local primaries typeahead for the version-parent
@@ -320,15 +339,6 @@ class GamesController < ApplicationController
     end
   end
 
-  def update
-    @game = Game.friendly.find(params[:id])
-    if @game.update(local_only_params)
-      redirect_to game_path(@game), notice: "game updated."
-    else
-      render :edit, status: :unprocessable_content
-    end
-  end
-
   def destroy
     game = Game.friendly.find(params[:id])
     game.destroy!
@@ -365,43 +375,6 @@ class GamesController < ApplicationController
 
   private
 
-  # Phase 14 §1 — strict local-only allowlist. IGDB-sourced columns
-  # smuggled into params are silently dropped (the `params.permit`
-  # call only references local-only attributes).
-  #
-  # Phase 27 §1a — `platform_owned_id` is gone (the column was dropped
-  # and ownership now flows through `game_platform_ownerships`). A
-  # smuggled `game[platform_owned_id]` value is silently dropped because
-  # the permit list no longer references it; the dedicated ownership
-  # editor (lands in 01f) is the canonical surface for editing the join.
-  def local_only_params
-    permitted = params.fetch(:game, {}).permit(
-      :played_at,
-      :notes,
-      :hours_of_footage_manual,
-      :version_parent_id,
-      :version_title
-    )
-
-    # Phase 28 §01a — coerce `version_parent_id` to either an integer
-    # or nil. A blank string ("") submitted by the form's hidden input
-    # when the user clicks `[detach]` lands as nil so the row becomes
-    # a primary again. Non-numeric garbage drops to nil; the model
-    # validator rejects invalid pointers with a friendly error.
-    if permitted.key?("version_parent_id")
-      raw = permitted["version_parent_id"]
-      permitted["version_parent_id"] = raw.to_s.strip.empty? ? nil : raw.to_i
-    end
-
-    # `version_title`: trim to 100 chars; blank → nil.
-    if permitted.key?("version_title")
-      raw = permitted["version_title"].to_s.strip[0, 100]
-      permitted["version_title"] = raw.empty? ? nil : raw
-    end
-
-    permitted
-  end
-
   def sanitized_sort_key
     ALLOWED_SORTS.key?(params[:sort]) ? params[:sort] : DEFAULT_SORT
   end
@@ -423,10 +396,11 @@ class GamesController < ApplicationController
   # reduce to "no filter applied".
   #
   # Phase 27 §01c — extends `?genre` to also accept a slug string and
-  # adds `?collection=<slug>` for the new Collections shelf. Slug
-  # lookups go through ActiveRecord with `find_by`; SQL-unsafe input
-  # never reaches the query because the value is bound, and a missing
-  # match reduces to "no filter applied" (no row leaks).
+  # adds `?bundle=<slug>` for the Bundles shelf (renamed from the
+  # Collections shelf in the 2026-05-17 follow-up). Slug lookups go
+  # through ActiveRecord with `find_by`; SQL-unsafe input never reaches
+  # the query because the value is bound, and a missing match reduces
+  # to "no filter applied" (no row leaks).
   #
   # Phase 27 §1a — the legacy `?platform_owned=<id>` filter is
   # retired here (the `games.platform_owned_id` column it queried is
@@ -435,9 +409,9 @@ class GamesController < ApplicationController
   def sanitized_filter
     filter = {}
     genre_id = resolve_genre_id(params[:genre])
-    collection_id = resolve_collection_id(params[:collection])
+    bundle_id = resolve_bundle_id(params[:bundle])
     filter[:genre_id] = genre_id if genre_id&.positive?
-    filter[:collection_id] = collection_id if collection_id&.positive?
+    filter[:bundle_id] = bundle_id if bundle_id&.positive?
     filter
   end
 
@@ -451,14 +425,14 @@ class GamesController < ApplicationController
     Genre.where(slug: raw.to_s).limit(1).pick(:id)
   end
 
-  # Accepts a string slug for the 01c collection shelf tile. Unknown
-  # / blank inputs return nil. Integer ids are also accepted for
-  # symmetry with `genre` though the canonical tile URL uses the slug.
-  def resolve_collection_id(raw)
+  # Accepts a string slug for the 01c bundles shelf tile. Unknown /
+  # blank inputs return nil. Integer ids are also accepted for symmetry
+  # with `genre` though the canonical tile URL uses the slug.
+  def resolve_bundle_id(raw)
     return nil if raw.blank?
     int = raw.to_i
     return int if int.positive? && raw.to_s == int.to_s
-    Collection.where(slug: raw.to_s).limit(1).pick(:id)
+    Bundle.where(slug: raw.to_s).limit(1).pick(:id)
   end
 
   # Phase 27 v2 spec 05 — build the letter-bucket array.
