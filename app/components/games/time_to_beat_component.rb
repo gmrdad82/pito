@@ -237,50 +237,60 @@ module Games
     end
 
     # Collision threshold (in percent of bar width). When two adjacent
-    # pillar labels sit within this gap on the bar, the later label
-    # bumps down a row so both remain readable. Picked at 10 % so the
-    # Crimson Desert case (main 31h ≈ 4 %, extras 71h ≈ 9 %, both
-    # under the bar's 775h max_x) resolves with extras bumped while
-    # completionist (~95 %) stays in the top row.
+    # pillar labels sit within this gap on the bar, the earlier label
+    # nudges LEFT and the later label nudges RIGHT (both stay on the
+    # same row, just shifted ~12 px apart around their tick midpoints).
+    # Picked at 10 % so the Crimson Desert case (main 31h ≈ 4 %,
+    # extras 71h ≈ 9 %, both under the bar's 775h max_x) resolves
+    # while completionist (~95 %) stays centered.
     BOTTOM_LABEL_COLLISION_THRESHOLD_PCT = 10.0
 
     # Returns the bottom-row pillar labels with per-label collision
-    # metadata so the template can render with `--bumped` applied to
-    # any pillar that crowds its left neighbour.
+    # metadata so the template can render with horizontal nudge
+    # modifiers (`--nudge-left` / `--nudge-right`) applied to any pair
+    # of pillars that crowd each other on the bar.
     #
-    # Each entry: `{ key:, hours:, label:, position:, bumped: }`.
+    # Each entry: `{ key:, hours:, label:, position:, nudge: }`.
     #
     #   key      — `:main` / `:extras` / `:completionist` (in pillar order).
     #   hours    — integer hours (0 / nil pillars are NOT skipped, so the
     #              em-dash label still renders in place).
     #   label    — string from `label_for(key)` ("31h" or "—").
     #   position — percent along the bar (already clamped 0..100).
-    #   bumped   — true when this label's position sits within
-    #              `BOTTOM_LABEL_COLLISION_THRESHOLD_PCT` of the
-    #              previous rendered label's position.
+    #   nudge    — `:left`, `:right`, or `nil`. The earlier label of a
+    #              colliding pair gets `:left`, the later gets `:right`.
+    #              When a label already has `:left` from a prior pair,
+    #              it stays `:left` (does not flip to `:right`) so
+    #              chains of three keep the first label anchored
+    #              outward.
     #
-    # Collision detection runs against the **previous label's**
-    # position only — so a chain of 3 tightly-packed labels gives
-    # `[false, true, true]` (second bumps relative to first, third
-    # bumps relative to second). The bump distance in CSS keeps both
-    # bumped labels on the same lower row; tightly-packed triples
-    # remain rare in practice (the user direction explicitly covers
-    # the 2-collision Crimson Desert case).
+    # Collision detection runs over adjacent pairs (each_cons(2)). For
+    # a tightly-packed triple (a, b, c): a → :left, b → :right (from
+    # the a/b pair), c → :right (from the b/c pair, b keeps its
+    # existing :right). The 3-collision case stays rare in practice —
+    # the user direction explicitly covers the 2-collision Crimson
+    # Desert case and accepts the b/c residual overlap as a tolerable
+    # extreme.
     def pillar_label_data
-      prev_pos = nil
-      PILLAR_KEYS.map do |key|
-        h   = hours[key].to_i
-        pos = position(h)
-        bumped = !prev_pos.nil? && (pos - prev_pos).abs < BOTTOM_LABEL_COLLISION_THRESHOLD_PCT
-        prev_pos = pos
+      ordered = PILLAR_KEYS.map do |key|
+        h = hours[key].to_i
         {
           key:      key,
           hours:    h,
           label:    label_for(key),
-          position: pos,
-          bumped:   bumped
+          position: position(h),
+          nudge:    nil
         }
       end
+
+      ordered.each_cons(2) do |a, b|
+        if (b[:position] - a[:position]).abs < BOTTOM_LABEL_COLLISION_THRESHOLD_PCT
+          a[:nudge] = :left if a[:nudge].nil?
+          b[:nudge] = :right
+        end
+      end
+
+      ordered
     end
 
     private

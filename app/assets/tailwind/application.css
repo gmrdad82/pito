@@ -3888,24 +3888,31 @@ input[type="text"].bundle-title-input:focus-visible {
 
 /* Bottom row sits BELOW the bar, holding the three pillar hour
    labels that used to live above. Slightly more space above so the
-   labels clear the pillar ticks' 3px overshoot. Height grows to 30 px
-   (was 16 px) so a `--bumped` label dropped down a row stays inside
-   the positioned strip without escaping the box and overlapping the
-   legend below. */
+   labels clear the pillar ticks' 3px overshoot. Height stays at the
+   shared 16 px from `.ttb-fuel-gauge__values` — colliding labels now
+   nudge HORIZONTALLY (see `--nudge-left` / `--nudge-right` below)
+   instead of stacking onto a second row, so no extra height is
+   needed. */
 .ttb-fuel-gauge__values--bottom {
   margin-top: 6px;
-  height: 30px;
 }
 
-/* Bumped pillar label — sits ~14 px lower than the default row so a
-   tight neighbour (within `BOTTOM_LABEL_COLLISION_THRESHOLD_PCT` of
-   the previous label) doesn't overlap horizontally. Picked at 14 px
-   to match the 14 px `line-height` on `.ttb-fuel-gauge__value` so the
-   bumped label sits exactly one text-line below the default row.
-   Resolves the Crimson Desert main/extras collision (31h ≈ 4 %, 71h
-   ≈ 9 %) at a 775h max_x without disturbing far-apart pillars. */
-.ttb-fuel-gauge__value--bumped {
-  top: 14px;
+/* Horizontal collision nudges — when two adjacent pillar labels sit
+   within `BOTTOM_LABEL_COLLISION_THRESHOLD_PCT` (10 %) of each other
+   on the bar, the earlier label nudges LEFT and the later nudges
+   RIGHT so both stay readable on the same row. The default
+   `--centered` modifier applies `translateX(-50%)`; these nudges
+   override that with an extra ±12 px so the two labels separate
+   around their tick midpoints. Picked at 12 px so a 3-char "31h" /
+   "71h" pair clears at typical 11 px font-size. Resolves the
+   Crimson Desert main/extras crowding (31h ≈ 4 %, 71h ≈ 9 %) at a
+   775h max_x without disturbing far-apart pillars. */
+.ttb-fuel-gauge__value--nudge-left {
+  transform: translateX(calc(-50% - 12px));
+}
+
+.ttb-fuel-gauge__value--nudge-right {
+  transform: translateX(calc(-50% + 12px));
 }
 
 .ttb-fuel-gauge__value {

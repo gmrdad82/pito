@@ -92,13 +92,19 @@
 
       Collision handling: when two adjacent pillar labels sit within
       `BOTTOM_LABEL_COLLISION_THRESHOLD_PCT` (10 %) of each other on
-      the bar, the later label gets the `--bumped` modifier and drops
-      down a row so both remain readable. This resolves the Crimson
-      Desert case where main (31h, ~4 %) and extras (71h, ~9 %)
-      crowd each other against a 775h max_x. %>
+      the bar, the earlier label gets `--nudge-left` and the later
+      label gets `--nudge-right` — both stay on the same row,
+      shifted ~12 px apart around their tick midpoints. This resolves
+      the Crimson Desert case where main (31h, ~4 %) and extras (71h,
+      ~9 %) crowd each other against a 775h max_x. %>
   <div class="ttb-fuel-gauge__values ttb-fuel-gauge__values--bottom">
     <% pillar_label_data.each do |label_data| %>
-      <span class="ttb-fuel-gauge__value ttb-fuel-gauge__value--pillar <%= pillar_bottom_label_alignment_class %><%= " ttb-fuel-gauge__value--bumped" if label_data[:bumped] %>"
+      <% nudge_class = case label_data[:nudge]
+         when :left  then " ttb-fuel-gauge__value--nudge-left"
+         when :right then " ttb-fuel-gauge__value--nudge-right"
+         else             ""
+         end %>
+      <span class="ttb-fuel-gauge__value ttb-fuel-gauge__value--pillar <%= pillar_bottom_label_alignment_class %><%= nudge_class %>"
             style="left: <%= label_data[:position] %>%;"
             data-pillar="<%= label_data[:key] %>">
         <%= label_data[:label] %>
