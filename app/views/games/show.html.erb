@@ -1,8 +1,14 @@
 <%# Phase 14 §1 polish (2026-05-10) — game show page is a READ-ONLY
-    surface. The inline form lives at `/games/:id/edit`. Layout is two
-    rows of `.pane-row`s:
-      Row 1 — narrow cover pane + wide read-only metadata pane.
-      Row 2 — wide linked-videos pane.
+    surface. The inline form lives at `/games/:id/edit`. Layout is now
+    a single `.pane-row` (Row 1):
+      LEFT pane (narrow) — cover + title + genres + meta kv-table +
+        rating heat-bar + ownership matrix.
+      RIGHT pane (game-detail) — summary + time-to-beat fuel gauge +
+        videos `[TBD]` placeholder.
+    Item 9 of the 2026-05-17 reshape list collapsed the standalone
+    Row 2 (`<div class="pane-row"><div class="pane pane--wide">...`
+    that listed `video_game_links`) into a `[TBD]` heading inside the
+    RIGHT pane; the link table is gone until the surface is re-specd.
     The breadcrumb-action strip carries `[sync]` (Wave C8 — muted
     while a resync is in flight, an active button otherwise) and
     `[delete]` (Wave C9 — opens an in-page `ConfirmModalComponent`
@@ -145,18 +151,23 @@
       meta_rows << ["pub", publisher_names.join(", ")] if publisher_names.any?
     %>
     <% if meta_rows.any? %>
-      <%# 2026-05-17 polish — bottom margin tightened from 16 to 8 so
-          the hairline below provides the visual separation instead of
-          a large empty band. `.kv-table__value` truncates via
+      <%# 2026-05-17 polish — `.kv-table__value` truncates via
           `text-overflow: ellipsis` (white-space: nowrap + overflow:
-          hidden); a `title` attribute on the value `<td>` surfaces
-          the full string as a native browser tooltip on hover, which
-          is the standard truncation affordance (most relevant for
-          long publisher lists such as "Rockstar Games, Take-Two
-          Interactive"). Browsers handle non-truncated values
-          gracefully (they may even suppress the tooltip when the
-          rendered text already shows in full). %>
-      <table class="kv-table" style="margin: 16px 0 8px 0;">
+          hidden + explicit max-width on the value cell); a `title`
+          attribute on the value `<td>` surfaces the full string as a
+          native browser tooltip on hover, which is the standard
+          truncation affordance (most relevant for long publisher lists
+          such as "Rockstar Games, Take-Two Interactive"). Browsers
+          handle non-truncated values gracefully (they may even
+          suppress the tooltip when the rendered text already shows in
+          full).
+          Item 1 polish (2026-05-17) — `margin-top` reduced from 16px
+          to 6px so the title-hairline → kv-table reads as one tight
+          visual cluster (genres / hairline / meta). The hairline that
+          previously sat below the kv-table was removed (item 3) —
+          the heat-bar's own `margin-top: 28px` already provides the
+          vertical break above the bar. %>
+      <table class="kv-table" style="margin: 6px 0 0 0;">
         <tbody>
           <% meta_rows.each do |label, value| %>
             <tr>
@@ -166,14 +177,6 @@
           <% end %>
         </tbody>
       </table>
-
-      <%# 2026-05-17 polish — hairline between the meta kv-table and
-          the rating heat-bar so the LEFT pane reads as three distinct
-          blocks (genres / meta / heat-bar). Combined with the
-          heat-bar's own `margin-top: 28px` (which clears the floating
-          score bubble), this gives the heat-bar clear breathing room
-          below the publisher row. %>
-      <hr class="hairline">
     <% end %>
 
     <%# Wave C5 (spec 08 §"Rating heat-bar synthesis") — vote-weighted
@@ -190,52 +193,26 @@
         → genres → meta → heat-bar → ownership. %>
     <%= render Games::RatingHeatBarComponent.new(game: @game) %>
 
-    <%# Wave C4 (spec 08 §"Ownership chips") — LEFT-pane ownership
-        section. Sits below the heat-bar (Wave C5) as the LEFT pane's
-        terminal block. Rows:
-          platforms — one per-platform toggle chip per applicable
-                      brand slug (PS5 / Switch / Steam). Each chip
-                      flips ownership via the existing
-                      `Games::PlatformOwnershipsController#update`
-                      endpoint.
-          played    — single chip (user-confirmed 2026-05-17 single
-                      chip override; not per-platform).
-          recorded  — single chip (single override; derived from
-                      linked-video count).
-          footage   — `StatusTbdBadgeComponent` placeholder (Wave C11
-                      shared badge).
+    <%# 2026-05-17 BP slice (item 7 of the 10-item /games/:id reshape
+        list) — LEFT-pane ownership section, now a per-platform
+        matrix. One row per applicable platform (PS / Switch / Steam
+        intersected with `game_detail_logo_slugs`); each row carries
+        `[owned]` (bordered green) and / or `[played]` (filled green)
+        chips. Multiple rows can be `[owned]` (boolean per platform);
+        at most one row across the matrix is `[played]` (singular —
+        "I can choose only 1 platform for played").
+        The previous flat `platforms` / `played` / `footage` rows
+        are gone. Footage is REMOVED from the ownership UI (BP slice
+        scope: drop footage from this block); the underlying
+        `Game#footage_*` columns are preserved on the model and will
+        be consumed by the BQ TTB fuel-gauge footage tick.
         Hairline `<hr>` above acts as the visual divider between the
         rating heat-bar and the ownership block. %>
     <hr class="hairline">
 
     <section class="ownership">
       <h2>ownership</h2>
-
-      <%
-        applicable_slugs = Platforms::ChipComponent::SLUG_BRAND.keys.select { |s|
-          game_detail_logo_slugs(@game).include?(s)
-        }
-      %>
-
-      <div class="ownership-row">
-        <span class="ownership-label">platforms</span>
-        <% applicable_slugs.each do |slug| %>
-          <%= render(Games::PlatformOwnershipChipComponent.new(game: @game, slug: slug)) %>
-        <% end %>
-        <% if applicable_slugs.empty? %>
-          <em class="text-muted">—</em>
-        <% end %>
-      </div>
-
-      <div class="ownership-row">
-        <span class="ownership-label">played</span>
-        <%= render(Games::PlayedChipComponent.new(game: @game)) %>
-      </div>
-
-      <div class="ownership-row">
-        <span class="ownership-label">footage</span>
-        <%= render(StatusTbdBadgeComponent.new) %>
-      </div>
+      <%= render(Games::OwnershipMatrixComponent.new(game: @game)) %>
     </section>
 
   </div>
@@ -274,37 +251,32 @@
       <hr class="hairline">
     <% end %>
 
-    <%# 2026-05-17 variants pass — time-to-beat visualization
-        showcase. Renders 10 candidate treatments stacked vertically,
-        separated by full-width hairlines, so the user can pick one
-        visually. Once chosen, this block collapses back to a single
-        `<%= "Games::TimeToBeatComponent.new(game: @game, variant: :X)" %>`
-        call and the showcase scaffolding gets deleted. %>
-    <%
-      ttb_variants = [
-        [ :concentric,       "Variant 1 — concentric arcs (nested rings)" ],
-        [ :discs,            "Variant 2 — sized discs in a row" ],
-        [ :rings,            "Variant 3 — activity rings (donut)" ],
-        [ :bars,             "Variant 4 — horizontal labeled bars" ],
-        [ :columns,          "Variant 5 — vertical bar trio (column chart)" ],
-        [ :pyramid,          "Variant 6 — stepped pyramid / staircase" ],
-        [ :clocks,           "Variant 7 — stopwatch / clock-face metaphor" ],
-        [ :ladder,           "Variant 8 — sparkline / cumulative ladder" ],
-        [ :stacked_timeline, "Variant 9 — stacked timeline (single segmented bar)" ],
-        [ :fuel_gauge,       "Variant 10 — fuel gauge with milestone ticks" ]
-      ]
-    %>
-    <section class="ttb-showcase" aria-label="time to beat variants">
-      <h2 style="margin-top: 0;">time to beat — pick a variant</h2>
-      <% ttb_variants.each_with_index do |(variant_key, label), idx| %>
-        <div class="ttb-showcase__variant">
-          <h4 class="h4-content"><%= label %></h4>
-          <%= render(Games::TimeToBeatComponent.new(game: @game, variant: variant_key)) %>
-        </div>
-        <% unless idx == ttb_variants.length - 1 %>
-          <hr class="ttb-hairline">
-        <% end %>
-      <% end %>
+    <%# 2026-05-17 BQ slice (item 8) — the 10-variant TTB showcase is
+        gone. Variant 10 (fuel gauge) won; the RIGHT pane now renders
+        ONE canonical TTB visualization, full pane width, below the
+        summary hairline. The bar's color zones encode effort weight
+        (low / some / commitment / insanity); a bordered "recorded Nh"
+        footage tick overlays the pillar ticks for the focal "here is
+        where I am" notch. See `time_to_beat_component.rb` for the
+        full rationale. %>
+    <section class="time-to-beat" aria-label="time to beat">
+      <h2 style="margin-top: 0;">time to beat</h2>
+      <%= render(Games::TimeToBeatComponent.new(game: @game)) %>
+    </section>
+
+    <%# 2026-05-17 item 9 of the /games/:id reshape list — videos
+        section is reduced to a TBD placeholder living in the RIGHT
+        pane below the TTB fuel gauge. The old standalone `.pane-row`
+        listing linked videos (with [★] primary marker) is removed
+        entirely; nothing about the videos surface is decided yet, so
+        the heading + `[TBD]` chip stand in until the real surface is
+        spec'd. Hairline above acts as the visual divider between the
+        TTB block and the videos block, mirroring the LEFT pane's
+        rhythm. %>
+    <hr class="hairline">
+
+    <section class="game-videos" aria-label="videos">
+      <h2 style="margin-top: 0;">videos <%= render(StatusTbdBadgeComponent.new) %></h2>
     </section>
   </div>
 </div>
@@ -319,32 +291,6 @@
     </div>
   </div>
 <% end %>
-
-<%# Row 3 — linked videos. Standalone wide pane so each title row
-    can breathe horizontally; this matches the bundle show page's
-    members list rhythm.
-%>
-<div class="pane-row">
-  <div class="pane pane--wide">
-    <h2 style="margin-top: 0;">videos</h2>
-    <% game_links = @game.video_game_links.includes(:video).order(:id) %>
-    <% if game_links.any? %>
-      <ul style="list-style: none; padding: 0; margin: 0;">
-        <% game_links.each do |link| %>
-          <% next unless link.video %>
-          <li style="padding: 2px 0;">
-            <%= link_to link.video.title.presence || link.video.youtube_video_id, video_path(link.video) %>
-            <% if link.is_primary? %>
-              <span class="bracketed-active">[★]</span>
-            <% end %>
-          </li>
-        <% end %>
-      </ul>
-    <% else %>
-      <%= render(StatusTbdBadgeComponent.new) %>
-    <% end %>
-  </div>
-</div>
 
 <%# Wave C9 (spec 08 §"Per-game delete confirm modal") — page-level
     `<dialog>` rendered outside all pane rows so it overlays the page

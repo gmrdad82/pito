@@ -1171,20 +1171,22 @@ table.stack-table tr:hover {
    etc.).
 
    Visual model (2026-05-17 redesign): no outer border, no cell
-   horizontal padding, fixed 80px label column, hairline bottom
-   border on every row (including the last) so rows read as a stack
-   of label/value pairs. The value column truncates with ellipsis so
+   horizontal padding, label column shrink-wraps to the longest
+   label, hairline bottom border on every row (including the last)
+   so rows read as a stack of label/value pairs. The value column
+   truncates with ellipsis (via a `max-width` on the value cell) so
    long publisher / developer lists do not overflow the surrounding
    pane. Label column width matches the sibling `.ownership-label`
    (`min-width: 80px`) so the meta strip and ownership block share a
    visual rhythm in the LEFT pane.
 
-   `table-layout: fixed` + explicit `width: 100%` is the contract
-   that lets `text-overflow: ellipsis` actually clip the value
-   column at the pane's inner edge. */
+   `width: auto` (2026-05-17 item 2 polish) so the table shrink-wraps
+   to its content — values like `12-12-2025` or `Bitmap Bureau` sit
+   right next to their label instead of floating out at the pane
+   edge. Truncation for long values is handled by the `max-width` on
+   `.kv-table__value` below (combined with `text-overflow: ellipsis`). */
 table.kv-table {
   width: 100%;
-  table-layout: fixed;
   border-collapse: collapse;
 }
 table.kv-table th,
@@ -1232,6 +1234,11 @@ table.kv-table td.kv-table__value {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  /* 2026-05-17 item 2 polish — explicit `max-width` cap so long
+     publisher / developer lists ("Rockstar Games, Take-Two
+     Interactive") truncate with ellipsis even though the table
+     itself is `width: auto` and shrink-wraps short values. */
+  max-width: 200px;
 }
 
 /* Sessions-table zebra (2026-05-17 — settings dark polish).
@@ -2158,6 +2165,26 @@ hr.hairline {
   cursor: default;
 }
 
+/* 2026-05-17 BP slice — per-platform ownership matrix on /games/:id.
+   One row per applicable platform (PS / Switch / Steam). Row layout:
+   platform-name label column (fixed min-width so chips align across
+   rows) + horizontal chip row (`[owned]` / `[played]` / em-dash).
+   Matches the visual rhythm of the previous `.ownership-row` block —
+   identical row height + label column width — so the LEFT pane's
+   vertical cadence stays unchanged when the matrix replaces the
+   flat rows. */
+.ownership-matrix__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0;
+  flex-wrap: wrap;
+}
+.ownership-matrix__platform {
+  min-width: 80px;
+  color: var(--color-muted);
+}
+
 /* Wave C7 (spec 08 §"RIGHT-pane sections" line 301 + §"RIGHT pane
    Time-to-beat" lines 318-333) — RIGHT-pane sections on `/games/:id`.
    The summary section sits above the hairline divider; the time-to-
@@ -2787,8 +2814,17 @@ textarea.note-editor-source {
   width: 100%;
   height: 14px;
   /* Bumped from 8px to clear the score bubble that floats above the
-     bar (bubble height ~18px + 6px gap = ~24px; add slack). */
-  margin-top: 28px;
+     bar (bubble height ~18px + 6px gap = ~24px; add slack). Bumped
+     again 2026-05-17 to 44px so the bubble has clear breathing room
+     above it and doesn't crowd the pub row of the kv-table. Trimmed
+     2026-05-17 from 44px to 38px to raise the bar ~6px closer to the
+     kv-table (user direction). */
+  margin-top: 38px;
+  /* 2026-05-17 item 5 polish — explicit bottom breathing room so the
+     hairline that fences the heat-bar from the ownership block below
+     sits clear of the bar instead of crowding it. Hairline + ownership
+     spacing below stays untouched (user-confirmed "perfect"). */
+  margin-bottom: 16px;
   border: 1px solid var(--color-border);
   background-color: var(--color-bg-alt);
   background-image: linear-gradient(
@@ -2819,26 +2855,28 @@ textarea.note-editor-source {
   transform: translateX(-2px); /* center the 4px tick on the score position */
   pointer-events: none;
 }
-/* Score bubble floating above the indicator tick. Theme-aware bg +
-   border + text — reads cleanly against both themes. Centered
-   horizontally on the score position via translateX(-50%). Sits 6px
-   above the bar's top edge. Conditional render in the template means
-   the bubble never appears in the muted (no-score) state. */
+/* Score bubble floating above the indicator tick. LOCKED dark literals
+   for both themes (2026-05-17 user direction item 4): dark indigo-grey
+   bg + white text, identical in light and dark. Distinct from chips
+   (:code #1a1c25, :strong #2e7d32). Centered horizontally on the score
+   position via translateX(-50%). Sits 6px above the bar's top edge.
+   Conditional render in the template means the bubble never appears in
+   the muted (no-score) state. */
 .rating-heat-bar-bubble {
   position: absolute;
   bottom: calc(100% + 6px);
   left: calc(var(--score) * 1%);
   transform: translateX(-50%);
   padding: 1px 6px;
-  background-color: var(--color-bg);
-  border: 1px solid var(--color-text);
+  background-color: #3a3d4e;
+  border: 1px solid #3a3d4e;
   border-radius: 2px;
   font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo,
     Consolas, monospace;
   font-size: 11px;
   font-weight: 700;
   line-height: 14px;
-  color: var(--color-text);
+  color: #ffffff;
   white-space: nowrap;
   pointer-events: none;
   z-index: 1;
@@ -3690,371 +3728,180 @@ input[type="text"].bundle-title-input:focus-visible {
 }
 
 /* ============================================================
-   Time-to-beat showcase (Wave C7 variants pass — 2026-05-17)
+   Time-to-beat fuel gauge (BQ slice — 2026-05-17, item 8 of the
+   /games/:id reshape list)
    ============================================================
-   Multi-variant visualization gallery on /games/:id. Each
-   `.ttb-showcase__variant` renders one candidate treatment;
-   the `<hr class="ttb-hairline">` separators draw a single
-   full-width hairline between variants. Once the user picks
-   one variant, the showcase scaffolding + the unused variant
-   CSS blocks below get deleted.
+   Single canonical visualization on the /games/:id RIGHT pane,
+   below the summary hairline. The 10-variant showcase that
+   briefly lived above has been cut down to variant 10 alone;
+   the other 9 variants' CSS (concentric / discs / rings / bars /
+   columns / pyramid / clocks / ladder / stacked_timeline) plus
+   the `ttb-showcase` scaffold are deleted.
 
-   All variants share:
-     - the canonical chart palette (--color-chart-1..3) for
-       main / extras / completionist
-     - tabular-nums monospace numerals for the value labels
-     - a ~60–110px content height so the page scrolls predictably
+   The bar spans the full pane width. Its x-axis represents
+   HOURS (not percentages) running 0..max_x, where `max_x` is
+   `max(completionist, footage) * 1.05` so over-completionist
+   footage still fits with breathing room.
+
+   Color palette — neutral, single literal hex per zone in both
+   themes (no theme-flip; the gauge reads identically in light
+   and dark). Avoids red / orange / yellow (heat bar) and pure
+   green (status accents). Four zones reading low → some →
+   commitment → insanity:
+
+     0-10h    "low effort"   #4a4d5c  (muted dark grey)
+     10-40h   "some effort"  #5a6a7a  (muted slate)
+     40-100h  "commitment"   #5a7a9a  (steel blue)
+     100h+    "insanity"     #7a5a9a  (muted plum)
+
+   Pillar ticks (main / extras / completionist) are thin (2px),
+   text-colored, NO border — the user said "those handles are
+   perfect without border, keep them minimal". Footage tick is
+   the focal point: 4px wide, theme-aware border, overshoots
+   the bar — mirrors the `.rating-heat-bar-indicator` pattern
+   from BB for the score notch on the heat bar.
+
+   Label rows (top to bottom):
+     - footage label   "recorded Nh"   (above, near footage tick)
+     - pillar values   "31h" / "71h" / "124h"   (above pillar ticks)
+     - the bar         (4 zones + 4 ticks layered)
+     - pillar names    "main" / "extras" / "completionist"  (below)
 */
 
-.ttb-showcase {
-  margin-top: 12px;
+.ttb-fuel-gauge {
+  /* Wide-as-pane. Sits in the RIGHT pane's natural flow under the
+     "time to beat" h2 + summary hairline. */
+  width: 100%;
+  margin-top: 8px;
+  padding-bottom: 4px;
 }
 
-.ttb-showcase__variant {
-  padding: 4px 0 8px 0;
-}
-
-.ttb-showcase__variant h4 {
-  margin: 0 0 6px 0;
-  color: var(--color-muted);
-  font-weight: 400;
-  font-size: 12px;
-}
-
-hr.ttb-hairline {
-  height: 0;
-  border: 0;
-  border-top: 1px solid var(--color-border);
-  margin: 8px 0;
-}
-
-/* Shared legend used by :concentric and :stacked_timeline. */
-.ttb-legend {
-  list-style: none;
-  padding: 0;
-  margin: 4px 0 0 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-size: 12px;
-}
-
-.ttb-legend--inline {
-  flex-direction: row;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.ttb-legend li {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.ttb-legend__swatch {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-}
-
-.ttb-legend__label {
-  color: var(--color-muted);
-}
-
-.ttb-legend__value {
-  color: var(--color-text);
-  font-variant-numeric: tabular-nums;
-  margin-left: auto;
-}
-
-/* Variant 1 — concentric arcs */
-.ttb-viz--concentric .ttb-concentric {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.ttb-viz--concentric .ttb-legend {
-  min-width: 160px;
-}
-
-/* Variant 2 — sized discs */
-.ttb-discs {
-  display: flex;
-  align-items: flex-end;
-  gap: 24px;
-}
-
-.ttb-discs__cell {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-}
-
-.ttb-discs__value {
-  color: var(--color-text);
-  font-variant-numeric: tabular-nums;
-  font-size: 12px;
-}
-
-.ttb-discs__label {
-  color: var(--color-muted);
-  font-size: 12px;
-}
-
-/* Variant 3 — activity rings */
-.ttb-rings {
-  display: flex;
-  align-items: flex-end;
-  gap: 24px;
-}
-
-.ttb-rings__cell {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-}
-
-.ttb-rings__value {
-  color: var(--color-text);
-  font-variant-numeric: tabular-nums;
-  font-size: 12px;
-}
-
-.ttb-rings__label {
-  color: var(--color-muted);
-  font-size: 12px;
-}
-
-/* Variant 4 — horizontal labeled bars */
-.ttb-bars {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  max-width: 420px;
-}
-
-.ttb-bars__row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-}
-
-.ttb-bars__label {
-  width: 90px;
-  color: var(--color-muted);
-}
-
-.ttb-bars__track {
-  flex: 1;
-  height: 12px;
-  background: var(--color-bg-alt);
-  border: 1px solid var(--color-border);
+/* Footage label row. Single line, ~14px tall, the "recorded Nh"
+   tag floats above the gauge anchored to the footage tick. */
+.ttb-fuel-gauge__footage-row {
   position: relative;
+  height: 16px;
+  margin-bottom: 4px;
 }
 
-.ttb-bars__fill {
-  height: 100%;
-}
-
-.ttb-bars__value {
-  width: 44px;
-  text-align: right;
+.ttb-fuel-gauge__footage-label {
+  position: absolute;
+  transform: translateX(-50%);
   color: var(--color-text);
-  font-variant-numeric: tabular-nums;
-}
-
-/* Variant 5 — vertical column chart */
-.ttb-columns {
-  display: flex;
-  align-items: flex-end;
-  gap: 28px;
-}
-
-.ttb-columns__cell {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-}
-
-.ttb-columns__bar {
-  width: 36px;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.ttb-columns__fill {
-  width: 100%;
-}
-
-.ttb-columns__value {
-  color: var(--color-text);
-  font-variant-numeric: tabular-nums;
-  font-size: 12px;
-  margin-top: 2px;
-}
-
-.ttb-columns__label {
-  color: var(--color-muted);
-  font-size: 12px;
-}
-
-/* Variant 6 — stepped pyramid */
-.ttb-pyramid {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  max-width: 420px;
-}
-
-.ttb-pyramid__row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.ttb-pyramid__slab {
-  height: 18px;
-  min-width: 4px;
-}
-
-.ttb-pyramid__caption {
-  color: var(--color-muted);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-/* Variant 7 — clock faces */
-.ttb-clocks {
-  display: flex;
-  align-items: flex-end;
-  gap: 24px;
-}
-
-.ttb-clocks__cell {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-}
-
-.ttb-clocks__value {
-  color: var(--color-text);
-  font-variant-numeric: tabular-nums;
-  font-size: 12px;
-}
-
-.ttb-clocks__label {
-  color: var(--color-muted);
-  font-size: 12px;
-}
-
-/* Variant 8 — sparkline ladder. SVG handles all rendering;
-   only the wrapper is styled here. */
-.ttb-ladder {
-  display: inline-block;
-}
-
-/* Variant 9 — stacked timeline */
-.ttb-stacked-timeline {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-width: 480px;
-}
-
-.ttb-stacked-timeline__bar {
-  display: flex;
-  width: 100%;
-  height: 22px;
-  border: 1px solid var(--color-border);
-  overflow: hidden;
-}
-
-.ttb-stacked-timeline__seg {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  min-width: 0;
-}
-
-.ttb-stacked-timeline__inline-label {
-  color: #ffffff;
   font-size: 11px;
   font-variant-numeric: tabular-nums;
-  text-shadow: 0 0 2px rgba(0, 0, 0, 0.4);
-  padding: 0 4px;
+  font-weight: 600;
   white-space: nowrap;
+  line-height: 14px;
 }
 
-/* Variant 10 — fuel gauge */
-.ttb-fuel-gauge {
-  max-width: 480px;
-  padding-top: 30px;
-}
-
-.ttb-fuel-gauge__ticks {
+/* Pillar VALUE row. Three labels positioned above their respective
+   ticks. Same vertical rhythm as the footage label row. */
+.ttb-fuel-gauge__values {
   position: relative;
-  height: 28px;
+  height: 16px;
   margin-bottom: 2px;
 }
 
-.ttb-fuel-gauge__tick {
+.ttb-fuel-gauge__value {
   position: absolute;
   transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  color: var(--color-text);
   font-size: 11px;
-  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  line-height: 14px;
   white-space: nowrap;
 }
 
-.ttb-fuel-gauge__tick-label {
-  color: var(--color-muted);
-}
-
-.ttb-fuel-gauge__tick-value {
-  color: var(--color-text);
-  font-variant-numeric: tabular-nums;
-}
-
+/* The bar itself. Relative-positioned host for the 4 zone
+   backgrounds and the tick markers. */
 .ttb-fuel-gauge__bar {
   position: relative;
   width: 100%;
-  height: 16px;
+  height: 18px;
   background: var(--color-bg-alt);
   border: 1px solid var(--color-border);
+  overflow: visible;
 }
 
-.ttb-fuel-gauge__fill {
+/* Zone backgrounds — each band is an absolutely-positioned div so
+   the boundaries are crisp (no gradient blur between zones). The
+   bands sit BEHIND the ticks via stacking order. */
+.ttb-fuel-gauge__zone {
   position: absolute;
   top: 0;
-  left: 0;
-  height: 100%;
-  background: linear-gradient(
-    to right,
-    var(--color-chart-1),
-    var(--color-chart-2),
-    var(--color-chart-3)
-  );
-  opacity: 0.35;
+  bottom: 0;
+  pointer-events: none;
 }
 
-.ttb-fuel-gauge__needle {
+.ttb-fuel-gauge__zone--low {
+  background-color: #4a4d5c;  /* muted dark grey */
+  opacity: 0.55;
+}
+
+.ttb-fuel-gauge__zone--some {
+  background-color: #5a6a7a;  /* muted slate */
+  opacity: 0.7;
+}
+
+.ttb-fuel-gauge__zone--commitment {
+  background-color: #5a7a9a;  /* steel blue */
+  opacity: 0.85;
+}
+
+.ttb-fuel-gauge__zone--insanity {
+  background-color: #7a5a9a;  /* muted plum — "insanity" */
+  opacity: 1;
+}
+
+/* Pillar ticks. Thin, text-colored, NO border — the user-confirmed
+   "perfect" handle style. Overshoot the bar by 3px top + bottom so
+   the tick reads as a marker, not a fill stripe. Sits on top of
+   the zones via z-index. */
+.ttb-fuel-gauge__tick {
   position: absolute;
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.ttb-fuel-gauge__tick--pillar {
   top: -3px;
   bottom: -3px;
   width: 2px;
+  background-color: var(--color-text);
+}
+
+/* Footage tick — bigger, bordered, page-bg fill. Mirrors the
+   `.rating-heat-bar-indicator` pattern (BB heat-bar score notch).
+   Sits ABOVE the pillar ticks via higher z-index so even if
+   footage and a pillar collide the footage notch wins visually. */
+.ttb-fuel-gauge__tick--footage {
+  top: -5px;
+  bottom: -5px;
+  width: 4px;
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-text);
+  z-index: 3;
+  /* Account for the 1px border each side so the visible footprint
+     stays centered on the footage position. */
+  margin-left: -1px;
+}
+
+/* Pillar NAME row. Three names positioned below their respective
+   ticks. Muted color so the values above are the dominant labels. */
+.ttb-fuel-gauge__names {
+  position: relative;
+  height: 16px;
+  margin-top: 4px;
+}
+
+.ttb-fuel-gauge__name {
+  position: absolute;
   transform: translateX(-50%);
+  color: var(--color-muted);
+  font-size: 11px;
+  line-height: 14px;
+  white-space: nowrap;
 }
 

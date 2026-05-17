@@ -222,11 +222,19 @@ page_actions:
   # exact match has no longer prefix candidate OR the 1500 ms
   # inactivity timer fires the recorded exact match):
   #
-  #   sr — open the revoke-sessions confirm modal (already mounted
-  #        by `_security_pane.html.erb` as
-  #        `<dialog id="revoke_sessions_modal">`). Once the modal is
-  #        open, the `revoke_confirm` modal_actions take over
-  #        (`l` dark mode + `r` revoke session(s) + Esc close).
+  #   sr — pre-check every session checkbox EXCEPT the current
+  #        (`[this]`) row, then open the revoke-sessions confirm
+  #        modal (mounted by `_security_pane.html.erb` as
+  #        `<dialog id="revoke_sessions_modal">`). The auto-check
+  #        encodes the action label "revoke unused sessions": every
+  #        session other than this one IS the unused set. The
+  #        `open_revoke_unused_modal` action type ticks the checkboxes
+  #        and then delegates to the `sessions-bulk-revoke` controller's
+  #        `open()` so the modal title, conditional warning, and form
+  #        action populate the same way they do on a manual click of
+  #        `[revoke N]`. Once the modal is open, the `revoke_confirm`
+  #        modal_actions take over (`l` dark mode + `r` revoke
+  #        session(s) + Esc close).
   #   vr — open the reindex Meilisearch confirm modal (mounted by
   #        `_stack_pane.html.erb` via `ConfirmModalComponent` as
   #        `<dialog id="reindex_meilisearch_modal">`). Once open,
@@ -258,7 +266,7 @@ page_actions:
     - key: sr
       label: revoke unused sessions
       action:
-        type: open_modal_by_id
+        type: open_revoke_unused_modal
         target: revoke_sessions_modal
     - key: da
       label: Discord every notification

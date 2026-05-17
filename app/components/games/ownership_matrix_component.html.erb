@@ -1,0 +1,27 @@
+<%# 2026-05-17 BP slice — per-platform ownership matrix. One row per
+    applicable platform (PS / Switch / Steam intersected with
+    `game_detail_logo_slugs`). Each row carries the platform label
+    plus `[owned]` (bordered green, `StatusBadgeComponent` kind :success)
+    and / or `[played]` (filled green, `StatusBadgeComponent` kind :strong).
+    Rows with neither chip render a muted em-dash so the matrix shape
+    reads consistently. Read-only — no form, no submit. %>
+<% if applicable_slugs.empty? %>
+  <div class="ownership-matrix__row">
+    <em class="text-muted">—</em>
+  </div>
+<% else %>
+  <% applicable_slugs.each do |slug| %>
+    <div class="ownership-matrix__row">
+      <span class="ownership-matrix__platform"><%= platform_label(slug) %></span>
+      <% if owned?(slug) %>
+        <%= render(StatusBadgeComponent.new(label: "owned", kind: :success)) %>
+      <% end %>
+      <% if played?(slug) %>
+        <%= render(StatusBadgeComponent.new(label: "played", kind: :strong)) %>
+      <% end %>
+      <% if !owned?(slug) && !played?(slug) %>
+        <em class="text-muted">—</em>
+      <% end %>
+    </div>
+  <% end %>
+<% end %>

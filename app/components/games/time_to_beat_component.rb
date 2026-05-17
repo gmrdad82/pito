@@ -1,75 +1,53 @@
-# Wave C7 variants pass (2026-05-17) — Time-to-beat visualization
-# showcase. The /games/:id RIGHT pane previously rendered the three
-# IGDB time-to-beat pillars (main / extras / completionist) as a flat
-# three-column table; we now render a *showcase* of 10 candidate
-# visual treatments stacked vertically so the user can pick one.
+# 2026-05-17 BQ slice (item 8 of the 10-item /games/:id reshape list) —
+# the variant showcase that briefly lived here has been cut down to a
+# single canonical visualization: the **fuel gauge**. Variant 10 won
+# the pick; the other nine variants (concentric / discs / rings / bars /
+# columns / pyramid / clocks / ladder / stacked_timeline) plus the
+# `ttb-showcase` scaffold are deleted from the component, ERB, view,
+# and CSS.
 #
-# Each variant accepts the same input — a `game:` (preferred) or an
-# explicit `hours:` hash `{ main:, extras:, completionist: }`. Game-
-# derived hours come from `Game#ttb_*_seconds`, rounded half-up to
-# whole hours (matches `GamesHelper#ttb_hours`). When a game has no
-# IGDB time-to-beat data at all, the component falls back to a
-# sample triplet so the showcase reads as a visual comparison rather
-# than collapsing to em-dashes.
+# Fuel-gauge layout (single render, full RIGHT-pane width):
 #
-# Variants:
+#   recorded 87h                                    <— footage label
+#   31h          71h               124h             <— pillar values above
+#   ▲             ▲                 ▲           ▮   <— ticks (thin, no border)
+#                                              footage tick: bigger + bordered
+#   main        extras         completionist       <— pillar names below
 #
-#   :concentric       — three nested SVG circles (main ⊂ extras ⊂
-#                       completionist), radii proportional to hours.
-#   :discs            — three filled SVG discs in a row, diameter ∝ hours.
-#   :rings            — three Apple-Watch-style activity rings, each filled
-#                       as a fraction of the completionist max.
-#   :bars             — three horizontal bars stacked, width ∝ hours.
-#   :columns          — three vertical bars side-by-side, height ∝ hours.
-#   :pyramid          — three stacked rectangles widening downward.
-#   :clocks           — three SVG clock faces with a filled wedge for the
-#                       hours-modulo-12 fraction of a full revolution.
-#   :ladder           — sparkline ladder: three notches plotted at
-#                       (1, main), (2, extras), (3, completionist) on an
-#                       implicit y-axis.
-#   :stacked_timeline — single continuous horizontal bar segmented into
-#                       three regions; reads as "main → +extras →
-#                       +completionist" along one effort timeline. The
-#                       extras segment is the *delta* (extras − main); the
-#                       completionist segment is (completionist − extras).
-#                       Bonus invented variant.
-#   :fuel_gauge       — horizontal gauge running 0 → completionist with
-#                       three tick marks at main / extras / completionist.
-#                       The bar is filled to the completionist mark; ticks
-#                       above carry the labels. Bonus invented variant.
+# Hours, not percentages. The bar's x-axis runs `0..max_x`. `max_x` is
+# `max(completionist, footage) * 1.05` (5% breathing room on the right)
+# so even when footage exceeds completionist the over-zone fits with
+# slack. The four background zones are:
 #
-# All variants use design.md tokens — `--color-text`, `--color-muted`,
-# `--color-border`, and the existing `--color-chart-N` palette for the
-# three pillars (main = chart-1 / extras = chart-2 / completionist =
-# chart-3). No new colors are invented.
+#   0-10h    "low effort"   — muted dark grey
+#   10-40h   "some effort"  — muted slate
+#   40-100h  "commitment"   — steel blue
+#   100h+    "insanity"     — muted plum
+#
+# The palette is intentionally neutral (no theme-flip): a single literal
+# hex per zone in both light and dark. It avoids the colors that other
+# components reserve: red / orange / yellow (heat bar gradient), green
+# (status accents), pure blue (`--color-chart-1` link blue). The result
+# reads as "calming weight ramp" — the bar's color tells you how much of
+# a commitment the game's full-effort milestones represent without
+# competing with chips / heat-bar / status.
+#
+# Footage tick is the focal point. It's wider (4px vs 2px for pillar
+# ticks), tall enough to overshoot the bar top + bottom, and carries a
+# theme-aware border (`var(--color-text)`) — exactly the BB pattern
+# used by `.rating-heat-bar-indicator` for the score notch on the heat
+# bar. The label above reads `"recorded Nh"`. When `footage >
+# completionist`, a small trophy glyph `🏆` is appended to the label
+# (visual flourish for "you went past the full-effort milestone").
 module Games
   class TimeToBeatComponent < ViewComponent::Base
-    VARIANTS = %i[
-      concentric
-      discs
-      rings
-      bars
-      columns
-      pyramid
-      clocks
-      ladder
-      stacked_timeline
-      fuel_gauge
-    ].freeze
-
-    # Sample triplet used when no game is provided OR the game has no
-    # IGDB time-to-beat data. Picked to match the user's reference
-    # screenshot (31 / 71 / 124) so the showcase always renders
-    # something compelling.
+    # Sample triplet used when the game has no IGDB time-to-beat data.
+    # Picked to match the user's reference screenshot (31 / 71 / 124)
+    # so the gauge always renders something compelling even on a fresh
+    # / unsynced row.
     SAMPLE_HOURS = { main: 31, extras: 71, completionist: 124 }.freeze
 
-    # Per-pillar color tokens. Reuses the canonical chart palette so
-    # the showcase visuals tie back to the existing design system.
-    PILLAR_COLOR = {
-      main:          "var(--color-chart-1)",
-      extras:        "var(--color-chart-2)",
-      completionist: "var(--color-chart-3)"
-    }.freeze
+    PILLAR_KEYS = %i[main extras completionist].freeze
 
     PILLAR_LABEL = {
       main:          "main",
@@ -77,22 +55,31 @@ module Games
       completionist: "completionist"
     }.freeze
 
-    PILLAR_KEYS = %i[main extras completionist].freeze
+    # Zone boundaries (in hours). Used by the ERB to compute the left+
+    # right edge of each zone as a percentage of `max_x`. Open-ended
+    # top zone (`100..`) extends to `max_x`.
+    ZONE_BOUNDARIES_HOURS = [ 10, 40, 100 ].freeze
 
-    def initialize(game: nil, hours: nil, variant: :concentric)
-      raise ArgumentError, "unknown variant: #{variant.inspect}" unless VARIANTS.include?(variant)
+    # Backwards-compat aliases for any caller / spec that previously
+    # introspected the per-pillar color map. The fuel gauge does not
+    # use per-pillar colors anymore — the bar's zones encode effort,
+    # not pillar identity — but the labels still ride the same
+    # vocabulary so we keep the constant exposed for parity.
+    PILLAR_COLOR = {
+      main:          "var(--color-text)",
+      extras:        "var(--color-text)",
+      completionist: "var(--color-text)"
+    }.freeze
 
-      @game    = game
-      @hours   = hours
-      @variant = variant
+    def initialize(game: nil, hours: nil, footage_hours: nil)
+      @game           = game
+      @hours          = hours
+      @footage_hours  = footage_hours
     end
-
-    attr_reader :variant
 
     # Returns `{ main:, extras:, completionist: }` as Integers (hours).
     # Resolution order:
-    #   1. explicit `hours:` kwarg (used by future showcase callers /
-    #      previews that want a fixed sample).
+    #   1. explicit `hours:` kwarg (used by previews / specs).
     #   2. the game's IGDB ttb_* seconds, converted to whole hours.
     #   3. SAMPLE_HOURS when (2) yields all-zero / nil.
     def hours
@@ -107,26 +94,54 @@ module Games
       from_game.values.all?(&:zero?) ? SAMPLE_HOURS.dup : from_game
     end
 
-    # Whichever pillar carries the largest hour count — used by ratio-
-    # based variants (rings, bars, columns, pyramid, ladder, gauge).
-    # Falls back to 1 to avoid div-by-zero when every pillar is zero.
-    def max_hours
-      [ hours.values.max.to_i, 1 ].max
+    # Hours of footage recorded for this game. Explicit kwarg wins; else
+    # `Game#hours_of_footage` (manual override → cached value); else 0.
+    def footage_hours
+      return @footage_hours.to_i if @footage_hours
+
+      @game&.hours_of_footage.to_i
     end
 
-    # Per-pillar fraction of `max_hours`, clamped to 0.0..1.0. Useful
-    # for any variant that maps hour count to a 0..1 scalar.
-    def fraction_for(key)
-      raw = hours[key].to_f / max_hours
-      raw.clamp(0.0, 1.0)
+    # The bar's x-axis upper bound. 5% slack past
+    # `max(completionist, footage)` so even an over-completionist
+    # footage tick has breathing room on the right edge. Minimum of
+    # 10h so a fresh game with all-zero pillars + zero footage still
+    # renders a meaningful gauge (anchored to the low-effort zone).
+    def max_x
+      ceiling = [ hours[:completionist].to_i, footage_hours, 10 ].max
+      (ceiling * 1.05).round
+    end
+
+    # `(value / max_x) * 100`, clamped to [0, 100]. Used to position
+    # ticks and zone edges along the bar.
+    def position(value)
+      return 0.0 if max_x.zero?
+
+      ((value.to_f / max_x) * 100).clamp(0.0, 100.0).round(3)
     end
 
     # `"31h"` / `"—"` style label for a single pillar. Falls back to
-    # em-dash when the pillar is missing (0 / nil) so the showcase
-    # mirrors the helper's behavior in flat-table mode.
+    # em-dash when the pillar is missing (0 / nil).
     def label_for(key)
       h = hours[key].to_i
       h.positive? ? "#{h}h" : "—"
+    end
+
+    # `"recorded 87h"` for a present footage value; `"recorded 0h"` for
+    # zero (signals "we know it's zero, not unknown"); appends a 🏆
+    # glyph when footage exceeds completionist (the "you went past the
+    # commitment milestone" visual flourish).
+    def footage_label
+      base = "recorded #{footage_hours}h"
+      compl = hours[:completionist].to_i
+      footage_hours.positive? && compl.positive? && footage_hours > compl ? "#{base} 🏆" : base
+    end
+
+    # Returns true when the footage tick should render at all. We
+    # always render it for non-nil values (including 0) so the user
+    # sees the "no footage recorded yet" tick parked at the left edge.
+    def render_footage_tick?
+      true
     end
 
     private

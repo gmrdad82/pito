@@ -746,6 +746,10 @@ export default class extends Controller {
       this.openModalById(action.target)
       return
     }
+    if (action.type === "open_revoke_unused_modal" && action.target) {
+      this.openRevokeUnusedModal(action.target)
+      return
+    }
     if (action.type === "toggle_setting" && action.target) {
       this.toggleSetting(action.target)
       return
@@ -928,6 +932,76 @@ export default class extends Controller {
     if (typeof dlg.showModal !== "function") return
     if (dlg.open) return
     dlg.showModal()
+  }
+
+  // `open_revoke_unused_modal` — purpose-built handler for /settings
+  // `sr` ("revoke unused sessions"). The label encodes the user
+  // intent: every session EXCEPT the current one IS the unused set.
+  // A bare `open_modal_by_id` would only surface the modal with zero
+  // checkboxes ticked, leaving the user to either re-select manually
+  // or submit a no-op revoke.
+  //
+  // Flow:
+  //   1. Find every session row checkbox NOT marked as the current
+  //      session (`[data-current="yes"]`) and flip `checked = true`.
+  //   2. Resolve the `sessions-bulk-revoke` Stimulus controller
+  //      attached to the enclosing fieldset, call `update()` so the
+  //      `[revoke N]` link recomputes (live count, danger styling,
+  //      etc.), then call `open()` to populate the modal title /
+  //      conditional warning / form action and `showModal()` the
+  //      dialog. Delegating to the controller's own `open()` keeps
+  //      one code path for the populate-then-open sequence — the
+  //      manual `[revoke N]` click and the leader-menu sr both run
+  //      through it.
+  //   3. Fallback (controller missing / not resolvable): native
+  //      `dlg.showModal()` so the dialog still appears. The modal
+  //      title would read the placeholder text and the form action
+  //      would carry the literal `0` ids segment, but this branch is
+  //      defensive only — the controller is always wired on
+  //      `_security_pane.html.erb`.
+  //
+  // No-op when the dialog id isn't on the page (e.g. user opens the
+  // leader popup before the security pane mounts, or on a page that
+  // doesn't render this surface at all).
+  //
+  // The current-session checkbox carries `data-current="yes"` via the
+  // `CheckboxComponent` `data:` hash baked at render time (see
+  // `_security_pane.html.erb`); the rest carry `data-current="no"`.
+  // The selector scopes by `[data-sessions-bulk-revoke-target="checkbox"]`
+  // (the existing target hook on every row checkbox) so the auto-check
+  // is bound to the sessions table — cross-fieldset bleed onto unrelated
+  // checkboxes elsewhere on /settings is impossible.
+  openRevokeUnusedModal(targetId) {
+    const checkboxes = document.querySelectorAll(
+      'input[type="checkbox"][data-sessions-bulk-revoke-target~="checkbox"]:not([data-current="yes"])'
+    )
+    checkboxes.forEach((cb) => {
+      if (!cb.disabled) cb.checked = true
+    })
+
+    const dlg = document.getElementById(targetId)
+    if (!dlg) return
+
+    const fieldset = dlg.closest("[data-controller~='sessions-bulk-revoke']")
+    const app = window.Stimulus
+    if (fieldset && app && typeof app.getControllerForElementAndIdentifier === "function") {
+      const ctrl = app.getControllerForElementAndIdentifier(fieldset, "sessions-bulk-revoke")
+      if (ctrl) {
+        if (typeof ctrl.update === "function") ctrl.update()
+        if (typeof ctrl.open === "function") {
+          ctrl.open()
+          return
+        }
+      }
+    }
+
+    // Defensive fallback — open the dialog directly if the controller
+    // isn't resolvable. The pre-checked boxes still drive the bulk
+    // selection, but the modal title / form action stay at their
+    // placeholder values.
+    if (typeof dlg.showModal === "function" && !dlg.open) {
+      dlg.showModal()
+    }
   }
 
   // `toggle_setting` — locate the page element carrying
