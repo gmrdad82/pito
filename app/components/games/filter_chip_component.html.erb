@@ -1,6 +1,7 @@
-<%# Phase 27 §01b — single bracketed-checkbox chip link (2026-05-11).
-    Pure GET-link navigation; no JS, no forms. Mirrors the root
-    `FilterChipComponent` visual shape: `[ ] label` (unchecked) /
-    `[x] label` (checked). The whole anchor is the click target; the
-    `[ ]` / `[x]` indicator is a visual-only span (no real form
-    input). %><%= link_to href, class: css_classes, data: { filter_token: token } do %><span class="md-check-static"><%= active? ? "[x]" : "[ ]" %></span> <span class="md-check-static-label"><%= label %></span><% end %>
+<%# Phase 27 v2 spec 06 — single bracketed-checkbox chip link.
+    JS-off path: clicking the anchor navigates to `href`, which is the
+    canonical URL for the post-toggle state.
+    JS-on path:  the `games-filter` Stimulus controller intercepts the
+    click via `data-action`, flips the checked state, applies the
+    `played` cascade when relevant, and refreshes the Turbo Frame
+    without a full navigation. %><%= link_to href, class: css_classes, data: data_attributes do %><span class="md-check-static"><%= checked? ? "[x]" : "[ ]" %></span> <span class="md-check-static-label"><%= label %></span><% end %>

@@ -16,9 +16,16 @@
 #   release_date, release_year, release_precision, igdb_rating,
 #   igdb_rating_count, aggregated_rating, aggregated_rating_count,
 #   total_rating, total_rating_count, external_steam_app_id,
-#   external_gog_id, external_epic_id, ttb_main_seconds,
-#   ttb_extras_seconds, ttb_completionist_seconds, igdb_synced_at,
-#   primary_genre_id (re-picked from the synced genre set).
+#   ttb_main_seconds, ttb_extras_seconds, ttb_completionist_seconds,
+#   igdb_synced_at, primary_genre_id (re-picked from the synced genre
+#   set).
+#
+#   Phase 27 v2 spec 06 (2026-05-17 collapse) — the legacy
+#   `external_gog_id` and `external_epic_id` columns are GONE. PC
+#   distribution stores are now represented exclusively by the
+#   Steam Platform row + `external_steam_app_id`; IGDB GoG / Epic
+#   external-game rows are dropped by `Igdb::GameMapper` instead of
+#   being mapped onto their own columns.
 #
 # IGDB-sourced joins (replaced wholesale on every re-sync):
 #   game_genres, game_platforms, game_developers, game_publishers.
@@ -297,6 +304,20 @@ class Game < ApplicationRecord
   }
   scope :released_on,  ->(slug) { released.on_platform(slug) }
   scope :scheduled_on, ->(slug) { scheduled.on_platform(slug) }
+
+  # Phase 27 v2 spec 06 — `played` and `wishlist` scopes for the
+  # revamped filter row.
+  #
+  #   .played    → games with `played_at` non-null. The column was
+  #                introduced in Phase 14 §1; the scope is new.
+  #   .wishlist  → games with ZERO ownership rows. Orthogonal to release
+  #                status — a scheduled (future) game the user has added
+  #                to the library but doesn't own anywhere IS in
+  #                wishlist; a released game the user doesn't own
+  #                anywhere IS in wishlist. Aliases the existing
+  #                `.not_owned` scope so both lexicons survive.
+  scope :played,   -> { where.not(played_at: nil) }
+  scope :wishlist, -> { not_owned }
 
   # IGDB cover URL builder. The IGDB CDN serves directly to the
   # browser — pito does not proxy or cache image bytes for the show

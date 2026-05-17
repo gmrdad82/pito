@@ -1,11 +1,19 @@
 require "rails_helper"
 
-# Phase 27 v2 spec 07 — game show page platform-logo row.
+# Phase 27 v2 spec 07 (v7: theme-aware) — game show page
+# platform-logo row.
 #
-# The show page LEFT pane renders 0..5 56-px platform-logo `<img>`
-# tags after the genres / platforms paragraph. Order is the locked
-# PS5 / Switch2 / Steam / GoG / Epic walk. The Rake-downloaded
-# 64-px assets are scaled down to 56 px via inline styling.
+# The show page LEFT pane renders 0..3 56-px platform-logo entries
+# after the genres / platforms paragraph. Order is the locked
+# PS5 / Switch2 / Steam walk (GoG / Epic dropped — PC stores
+# collapsed into Steam). The Rake-downloaded 64-px assets are
+# scaled down to 56 px via the helper's `display_size:` arg.
+#
+# Each entry is a `.platform-logo-pair` wrapper holding BOTH a
+# black and a white `<img>` variant; CSS picks the visible one off
+# `<html data-theme>`. Assertions target the black variant for
+# canonical paths and alt text — the white variant carries the
+# same metadata, just the `-white.png` URL.
 RSpec.describe "games/show.html.erb", type: :view do
   def make_platform(slug:, name: nil, igdb_id: nil)
     record = create(:platform, name: name || "Platform-#{slug}", igdb_id: igdb_id)
@@ -26,43 +34,44 @@ RSpec.describe "games/show.html.erb", type: :view do
   before { assign(:game, game) }
 
   describe "platform-logo row — happy paths" do
-    it "renders one 56-px PS5 logo when the game is on PS5" do
+    it "renders one 56-px PS5 logo pair when the game is on PS5" do
       game.platforms_available << ps5
       render
 
       container = Capybara.string(rendered).find(".game-detail-platform-logos")
-      img = container.find("img.platform-logo--ps5")
-      expect(img[:src]).to eq("/platform_logos/ps5-64.png")
-      expect(img[:width]).to eq("56")
-      expect(img[:height]).to eq("56")
-      expect(img[:alt]).to eq("PS5")
+      pair = container.find(".platform-logo-pair--ps5")
+      black = pair.find("img.platform-logo--black")
+      expect(black[:src]).to eq("/platforms/ps5-64-black.png")
+      expect(black[:width]).to eq("56")
+      expect(black[:height]).to eq("56")
+      expect(black[:alt]).to eq("PS5")
+
+      white = pair.find("img.platform-logo--white")
+      expect(white[:src]).to eq("/platforms/ps5-64-white.png")
     end
 
     it "renders multiple logos in the locked KNOWN_LOGOS order" do
       game.platforms_available << switch2
       game.platforms_available << ps5
-      game.update!(external_steam_app_id: "111", external_gog_id: "222", external_epic_id: "333")
+      game.update!(external_steam_app_id: "111")
       render
 
       container = Capybara.string(rendered).find(".game-detail-platform-logos")
-      slugs_in_order = container.all("img.platform-logo").map { |img| img[:src] }
-      expect(slugs_in_order).to eq([
-        "/platform_logos/ps5-64.png",
-        "/platform_logos/switch2-64.png",
-        "/platform_logos/steam-64.png",
-        "/platform_logos/gog-64.png",
-        "/platform_logos/epic-64.png"
+      black_srcs = container.all("img.platform-logo--black").map { |img| img[:src] }
+      expect(black_srcs).to eq([
+        "/platforms/ps5-64-black.png",
+        "/platforms/switch2-64-black.png",
+        "/platforms/steam-64-black.png"
       ])
     end
 
-    it "renders the steam/gog/epic logos when only the external_* ids are set" do
-      game.update!(external_steam_app_id: "1", external_gog_id: "2", external_epic_id: "3")
+    it "renders the Steam logo pair when only external_steam_app_id is set" do
+      game.update!(external_steam_app_id: "1")
       render
 
       container = Capybara.string(rendered).find(".game-detail-platform-logos")
-      expect(container).to have_css("img.platform-logo--steam")
-      expect(container).to have_css("img.platform-logo--gog")
-      expect(container).to have_css("img.platform-logo--epic")
+      expect(container).to have_css(".platform-logo-pair--steam")
+      expect(container.find("img.platform-logo--black")[:src]).to eq("/platforms/steam-64-black.png")
     end
 
     it "applies the flex/gap layout to the logo row" do

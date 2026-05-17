@@ -74,15 +74,22 @@ RSpec.describe GameDecorator do
     it "adds the detail-only fields" do
       # Phase 27 v2 spec 01 — wire shape collapses multi-genre `:genres`
       # list to a singular `:genre` string. Key set updated.
+      # Phase 27 v2 spec 06 (2026-05-17 PC store collapse) — `external_gog_id`
+      # / `external_epic_id` retired; only `external_steam_app_id` survives.
       expect(json).to include(
         :igdb_id, :summary, :release_date, :igdb_rating_count,
         :aggregated_rating, :total_rating, :total_rating_count,
         :ttb_main_seconds, :ttb_extras_seconds, :ttb_completionist_seconds,
-        :external_steam_app_id, :external_gog_id, :external_epic_id,
+        :external_steam_app_id,
         :notes, :hours_of_footage_manual, :hours_of_footage_cached,
         :manual_date_override, :last_sync_error, :genre,
         :platforms_owning, :updated_at
       )
+    end
+
+    it "does NOT carry the retired external_gog_id / external_epic_id keys (2026-05-17 PC store collapse)" do
+      expect(json).not_to have_key(:external_gog_id)
+      expect(json).not_to have_key(:external_epic_id)
     end
 
     it "does NOT carry the legacy multi-genre :genres list (Phase 27 v2 spec 01)" do

@@ -44,9 +44,10 @@ class GameDecorator < ApplicationDecorator
       ttb_main_seconds: ttb_main_seconds,
       ttb_extras_seconds: ttb_extras_seconds,
       ttb_completionist_seconds: ttb_completionist_seconds,
+      # Phase 27 v2 spec 06 (2026-05-17 PC store collapse) — `external_gog_id`
+      # and `external_epic_id` columns retired. Steam is the sole PC-store
+      # surface here.
       external_steam_app_id: external_steam_app_id,
-      external_gog_id: external_gog_id,
-      external_epic_id: external_epic_id,
       notes: notes,
       hours_of_footage_manual: hours_of_footage_manual&.to_f,
       hours_of_footage_cached: hours_of_footage_cached&.to_f,

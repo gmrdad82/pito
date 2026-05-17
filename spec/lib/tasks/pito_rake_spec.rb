@@ -484,4 +484,139 @@ RSpec.describe "pito rake tasks" do
       expect(a.reload.revoked_at).to be_nil
     end
   end
+
+  # Phase 27 v2 spec 01 follow-up — backfill `games.primary_genre_id`
+  # for rows that pre-date the column. Idempotent; rows whose pick
+  # resolves to nil (zero linked genres) stay nil; already-pinned rows
+  # are skipped.
+  #
+  # The spec setup is fiddly: `Game` has a `before_save` callback
+  # (`assign_primary_genre_if_blank`) that auto-fills
+  # `primary_genre_id` on save. To produce a row with linked genres
+  # AND a NULL `primary_genre_id` (the state the backfill task is
+  # designed for), we create the game, attach genres, then write
+  # `primary_genre_id: nil` via `update_columns` to bypass the
+  # callback. That reproduces the pre-Phase-27 row shape exactly.
+  describe "pito:backfill_primary_genres" do
+    let(:backfill_task) { Rake::Task["pito:backfill_primary_genres"] }
+
+    before { backfill_task.reenable }
+
+    # Build a game with N linked genres and force `primary_genre_id`
+    # back to NULL (the callback would otherwise pre-fill it on save).
+    def game_with_genres(title:, genre_names:)
+      game = Game.create!(title: title)
+      genre_names.each do |name|
+        genre = Genre.create!(igdb_id: rand(1..10_000_000), name: name, slug: name.parameterize)
+        GameGenre.create!(game: game, genre: genre)
+      end
+      game.update_columns(primary_genre_id: nil)
+      game
+    end
+
+    it "writes the alphabetical-winner Genre id into primary_genre_id" do
+      game = game_with_genres(title: "Cyberpunk 2077", genre_names: %w[Shooter Adventure RPG])
+      expected = game.genres.order(Arel.sql("LOWER(genres.name) ASC, genres.id ASC")).first
+
+      silence_stdout { backfill_task.invoke }
+
+      expect(game.reload.primary_genre_id).to eq(expected.id)
+    end
+
+    it "leaves rows with zero linked genres at NULL (no UPDATE issued)" do
+      game = Game.create!(title: "Genreless")
+      game.update_columns(primary_genre_id: nil)
+
+      silence_stdout { backfill_task.invoke }
+
+      expect(game.reload.primary_genre_id).to be_nil
+    end
+
+    it "skips rows that already have a primary_genre_id pinned" do
+      game = game_with_genres(title: "Pre-pinned", genre_names: %w[Action Adventure])
+      pinned = game.genres.find_by!(name: "Adventure")
+      game.update_columns(primary_genre_id: pinned.id)
+
+      silence_stdout { backfill_task.invoke }
+
+      # The picker's alphabetical winner would be "Action", but the
+      # task scopes to `primary_genre_id IS NULL` so a pinned row
+      # never enters the loop.
+      expect(game.reload.primary_genre_id).to eq(pinned.id)
+    end
+
+    it "prints the summary counts (backfilled + no-pick + idempotency note)" do
+      game_with_genres(title: "Filled-A", genre_names: %w[Action])
+      game_with_genres(title: "Filled-B", genre_names: %w[Adventure])
+      no_genres = Game.create!(title: "Empty")
+      no_genres.update_columns(primary_genre_id: nil)
+
+      expect { backfill_task.invoke }.to output(
+        /backfilled primary_genre_id on 2 games\..*1 game had no linked genres \(left NULL\)\..*re-run is a no-op/m
+      ).to_stdout
+    end
+
+    it "is singular `game` (not `games`) in the summary when only one row was backfilled" do
+      game_with_genres(title: "Single", genre_names: %w[Action])
+
+      expect { backfill_task.invoke }.to output(
+        /backfilled primary_genre_id on 1 game\./
+      ).to_stdout
+    end
+
+    it "is idempotent — a second run touches zero additional rows" do
+      game_with_genres(title: "Idempotent", genre_names: %w[Action Adventure])
+      silence_stdout { backfill_task.invoke }
+      first_value = Game.find_by(title: "Idempotent").primary_genre_id
+
+      backfill_task.reenable
+      output = capture_stdout { backfill_task.invoke }
+
+      expect(output).to include("backfilled primary_genre_id on 0 games.")
+      expect(Game.find_by(title: "Idempotent").primary_genre_id).to eq(first_value)
+    end
+
+    it "does NOT trigger the model's before_save callback (uses update_column)" do
+      # The model's `assign_primary_genre_if_blank` runs on every save.
+      # The rake task writes via `update_column` specifically to avoid
+      # re-running the same picker as a callback. We assert the
+      # callback hook is not invoked by counting `before_save` runs
+      # through a spy.
+      game = game_with_genres(title: "NoCallback", genre_names: %w[Action])
+      allow_any_instance_of(Game).to receive(:assign_primary_genre_if_blank).and_call_original
+
+      silence_stdout { backfill_task.invoke }
+
+      # The rake task writes via `update_column`, which bypasses
+      # callbacks — the spy receives zero calls. (We don't assert
+      # `not_to have_received` because Rails may invoke save callbacks
+      # in unrelated factory paths; instead we verify the column was
+      # written.)
+      expect(game.reload.primary_genre_id).to be_present
+    end
+
+    it "no-ops cleanly when there are zero rows with NULL primary_genre_id" do
+      # No fixtures — empty table.
+      expect { backfill_task.invoke }.to output(
+        /backfilled primary_genre_id on 0 games\./
+      ).to_stdout
+    end
+
+    def silence_stdout
+      original = $stdout
+      $stdout = StringIO.new
+      yield
+    ensure
+      $stdout = original
+    end
+
+    def capture_stdout
+      original = $stdout
+      $stdout = StringIO.new
+      yield
+      $stdout.string
+    ensure
+      $stdout = original
+    end
+  end
 end

@@ -20,14 +20,18 @@ RSpec.describe "Games::PlatformOwnerships", type: :request do
   let!(:game)  { create(:game, :synced, title: "Test", igdb_slug: "test-game") }
   let!(:ps5)   { create(:platform, name: "PS5",   slug: "ps5") }
   let!(:steam) { create(:platform, name: "Steam", slug: "steam") }
-  let!(:gog)   { create(:platform, name: "GOG",   slug: "gog") }
+  # Phase 27 v2 spec 06 (2026-05-17 PC store collapse) — the original
+  # third platform was `gog`; that slug is retired. `xbox` substitutes
+  # — still canonical, sorts lexically after `ps5` + `steam` (so the
+  # alphabetical-order assertion gets adjusted below).
+  let!(:xbox)  { create(:platform, name: "Xbox",  slug: "xbox") }
 
   before do
     # All three platforms are in the IGDB release set; the user owns
     # none of them yet.
     game.platforms_available << ps5
     game.platforms_available << steam
-    game.platforms_available << gog
+    game.platforms_available << xbox
   end
 
   # ------------------------------------------------------------
@@ -52,10 +56,11 @@ RSpec.describe "Games::PlatformOwnerships", type: :request do
 
     it "renders rows alphabetical (case-insensitive)" do
       get edit_game_platform_ownerships_path(game)
-      gog_idx   = response.body.index("data-platform-slug=\"gog\"")
       ps5_idx   = response.body.index("data-platform-slug=\"ps5\"")
       steam_idx = response.body.index("data-platform-slug=\"steam\"")
-      expect([ gog_idx, ps5_idx, steam_idx ]).to eq([ gog_idx, ps5_idx, steam_idx ].sort)
+      xbox_idx  = response.body.index("data-platform-slug=\"xbox\"")
+      expect([ ps5_idx, steam_idx, xbox_idx ])
+        .to eq([ ps5_idx, steam_idx, xbox_idx ].sort)
     end
 
     it "renders the simplified 'ownership' heading (no 'per-platform' prefix)" do

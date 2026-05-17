@@ -93,6 +93,49 @@ RSpec.describe Games::GenreShelfBatch do
     end
   end
 
+  # Phase 27 v2 spec 06 — optional `filter_scope:` narrows both the
+  # grouped count AND the per-partition top-N to the filtered Game
+  # subset. When the filter excludes every game in a genre, the
+  # slice is `count: 0, games: []`.
+  describe "filter_scope: argument" do
+    let!(:zelda)   { pin("Zelda BotW", adventure) }
+    let!(:tunic)   { pin("Tunic", adventure) }
+    let!(:persona) { pin("Persona 5", rpg) }
+
+    it "narrows the games to the filter_scope's subset" do
+      filtered = Game.where(id: [ zelda.id, persona.id ])
+      batch = described_class.new(
+        genres: Genre.where(id: [ adventure.id, rpg.id ]),
+        filter_scope: filtered
+      )
+      expect(batch.for(adventure)[:count]).to eq(1)
+      expect(batch.for(adventure)[:games].map(&:title)).to eq([ "Zelda BotW" ])
+      expect(batch.for(rpg)[:count]).to eq(1)
+    end
+
+    it "yields zero count / no games for a genre whose members are filtered out" do
+      filtered = Game.where(id: persona.id)
+      batch = described_class.new(
+        genres: Genre.where(id: [ adventure.id, rpg.id ]),
+        filter_scope: filtered
+      )
+      expect(batch.for(adventure)[:count]).to eq(0)
+      expect(batch.for(adventure)[:games]).to eq([])
+    end
+
+    it "no filter_scope behaves identically to filter_scope: Game.all" do
+      no_scope = described_class.new(
+        genres: Genre.where(id: adventure.id)
+      ).for(adventure)
+      all_scope = described_class.new(
+        genres: Genre.where(id: adventure.id),
+        filter_scope: Game.all
+      ).for(adventure)
+      expect(all_scope[:count]).to eq(no_scope[:count])
+      expect(all_scope[:games].map(&:id)).to eq(no_scope[:games].map(&:id))
+    end
+  end
+
   describe "flaw: single-pass query budget" do
     let!(:zelda)   { pin("Zelda BotW", adventure) }
     let!(:persona) { pin("Persona 5",  rpg) }

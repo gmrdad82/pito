@@ -1,229 +1,129 @@
 require "rails_helper"
 
-# Phase 27 §01b — Filter row component.
+# Phase 27 v2 spec 06 — Filter row (single compact band).
 RSpec.describe Games::FilterRowComponent, type: :component do
-  let(:request_path) { "/games" }
+  let(:universe) { Games::FiltersHelper::TOKEN_UNIVERSE }
 
-  describe "happy: rendering" do
-    before do
-      render_inline(described_class.new(
-        active_tokens: [], request_path: request_path
-      ))
+  describe "happy: default rendering (no checked_tokens passed)" do
+    before { render_inline(described_class.new) }
+
+    it "defaults to every chip CHECKED (the full-list state)" do
+      # All 8 chips render with the `chip--active` modifier (GoG +
+      # Epic were collapsed into Steam in the 2026-05-17 PC store
+      # collapse).
+      expect(page).to have_css("a.filter-chip.chip--active", count: 8)
     end
 
-    # 2026-05-11 polish v2 — the chip set is 11 tokens: the 10 originals
-    # plus xbox (added to the platforms canonical seed list).
-    it "renders all eleven canonical chips" do
-      expect(page).to have_css("a.filter-chip", count: 11)
+    it "renders 8 chips total (5 left + 3 right)" do
+      expect(page).to have_css("a.filter-chip", count: 8)
     end
 
-    # 2026-05-11 polish v2 — chips split across two rows.
-    # Row 1 (status + platforms): released scheduled ps5 switch2 steam gog epic xbox
-    # Row 2 (ownership/recorded): owned not_owned recorded
-    it "renders row 1 chips in the locked order (status + platforms + xbox)" do
-      row_1_tokens = page.all(".games-filter-row__chips--1 a.filter-chip")
+    it "renders left side chips in the locked order (status + ownership)" do
+      left_tokens = page.all(".games-filter-row__left a.filter-chip")
+                        .map { |a| a["data-filter-token"] }
+      expect(left_tokens).to eq(%w[released scheduled owned wishlist played])
+    end
+
+    it "renders right side chips in the locked order (PS5, Switch2, Steam — no xbox, no gog, no epic)" do
+      right_tokens = page.all(".games-filter-row__right a.filter-chip")
                          .map { |a| a["data-filter-token"] }
-      expect(row_1_tokens).to eq(%w[released scheduled ps5 switch2 steam gog epic xbox])
+      expect(right_tokens).to eq(%w[ps5 switch2 steam])
     end
 
-    it "renders row 2 chips in the locked order (ownership + recorded)" do
-      row_2_tokens = page.all(".games-filter-row__chips--2 a.filter-chip")
-                         .map { |a| a["data-filter-token"] }
-      expect(row_2_tokens).to eq(%w[owned not_owned recorded])
+    it "does NOT render an xbox chip" do
+      expect(page).to have_no_css("a[data-filter-token='xbox']")
     end
 
-    it "renders the two rows as distinct `.games-filter-row__row` blocks" do
-      expect(page).to have_css(".games-filter-row__row--1")
-      expect(page).to have_css(".games-filter-row__row--2")
+    it "does NOT render a gog chip (collapsed into steam 2026-05-17)" do
+      expect(page).to have_no_css("a[data-filter-token='gog']")
     end
 
-    it "does NOT render [clear all] when no chip is active" do
-      expect(page).to have_no_css(".games-filter-row__clear-all")
+    it "does NOT render an epic chip (collapsed into steam 2026-05-17)" do
+      expect(page).to have_no_css("a[data-filter-token='epic']")
     end
 
-    it "does NOT render the contradiction notice by default" do
+    it "does NOT render the legacy `[clear all]` link" do
+      expect(page).to have_no_link("clear all")
+    end
+
+    it "does NOT render the legacy contradiction notice" do
       expect(page).to have_no_css(".games-filter-row__contradiction")
     end
+
+    it "does NOT render the recorded chip (retired in v2)" do
+      expect(page).to have_no_css("a[data-filter-token='recorded']")
+    end
+
+    it "does NOT render the not_owned chip (retired in v2 — wishlist replaces)" do
+      expect(page).to have_no_css("a[data-filter-token='not_owned']")
+    end
+
+    it "mounts the games-filter Stimulus controller on the outer wrapper" do
+      expect(page).to have_css("section.games-filter-row[data-controller='games-filter']")
+    end
+
+    it "stamps the universe value so the controller knows when to collapse the URL" do
+      universe_value = page.find("section.games-filter-row")["data-games-filter-universe-value"]
+      expect(JSON.parse(universe_value)).to eq(universe)
+    end
+
+    it "stamps the frame id so the controller knows which Turbo Frame to refresh" do
+      frame_id = page.find("section.games-filter-row")["data-games-filter-frame-id-value"]
+      expect(frame_id).to eq("games_listing")
+    end
   end
 
-  describe "happy: with active chips" do
+  describe "happy: partial-checked set rendering" do
     before do
-      render_inline(described_class.new(
-        active_tokens: [ "ps5" ], request_path: request_path
-      ))
+      render_inline(described_class.new(checked_tokens: %w[ps5 owned released]))
     end
 
-    it "renders [clear all] when at least one chip is active" do
-      expect(page).to have_css(".games-filter-row__clear-all", text: "clear all")
+    it "renders only the 3 specified chips as checked" do
+      expect(page).to have_css("a.filter-chip.chip--active", count: 3)
     end
 
-    it "[clear all] href clears filters= from the URL" do
-      href = page.find(".games-filter-row__clear-all-link")["href"]
-      expect(href).to eq("/games")
-      expect(href).not_to include("filters=")
-    end
-
-    it "applies chip--active on the active chip only" do
-      expect(page).to have_css("a.filter-chip.chip--active[data-filter-token='ps5']")
-      # No other chip is active.
-      expect(page.all("a.filter-chip.chip--active").size).to eq(1)
-    end
-  end
-
-  describe "happy: contradiction notice" do
-    before do
-      render_inline(described_class.new(
-        active_tokens: %w[owned not_owned], request_path: request_path,
-        contradiction: true
-      ))
-    end
-
-    it "renders the contradiction notice" do
-      expect(page).to have_css(".games-filter-row__contradiction",
-                               text: "(owned and not owned together — no matches)")
-    end
-
-    it "uses text-muted class (not danger)" do
-      expect(page).to have_css(".games-filter-row__contradiction.text-muted")
-    end
-
-    it "renders no red / danger styling" do
-      expect(page.native.to_html).not_to include("text-danger")
-    end
-  end
-
-  describe "edge: query_string_overrides preservation" do
-    it "preserves display=list on [clear all] href" do
-      render_inline(described_class.new(
-        active_tokens: %w[ps5], request_path: request_path,
-        query_string_overrides: { display: "list" }
-      ))
-      href = page.find(".games-filter-row__clear-all-link")["href"]
-      expect(href).to eq("/games?display=list")
-    end
-
-    it "preserves display=list on every chip href" do
-      render_inline(described_class.new(
-        active_tokens: [], request_path: request_path,
-        query_string_overrides: { display: "list" }
-      ))
-      page.all("a.filter-chip").each do |a|
-        expect(a["href"]).to include("display=list")
+    it "marks released, owned, and ps5 as checked" do
+      %w[released owned ps5].each do |t|
+        expect(page).to have_css("a.filter-chip.chip--active[data-filter-token='#{t}']")
       end
     end
 
-    it "preserves genre=action on chip hrefs" do
-      render_inline(described_class.new(
-        active_tokens: [], request_path: request_path,
-        query_string_overrides: { genre: "action" }
-      ))
-      ps5_href = page.find("a[data-filter-token='ps5']")["href"]
-      expect(ps5_href).to include("genre=action")
+    it "marks scheduled, wishlist, played, switch2, steam as unchecked" do
+      %w[scheduled wishlist played switch2 steam].each do |t|
+        expect(page).to have_css("a.filter-chip[data-filter-token='#{t}']")
+        expect(page).to have_no_css("a.filter-chip.chip--active[data-filter-token='#{t}']")
+      end
     end
   end
 
-  describe "sad: invalid inputs" do
-    it "does NOT render the contradiction notice when contradiction is false" do
-      render_inline(described_class.new(
-        active_tokens: %w[ps5], request_path: request_path, contradiction: false
-      ))
-      expect(page).to have_no_css(".games-filter-row__contradiction")
+  describe "happy: empty checked-token set" do
+    before { render_inline(described_class.new(checked_tokens: [])) }
+
+    it "renders every chip as unchecked" do
+      expect(page).to have_no_css("a.filter-chip.chip--active")
+      expect(page).to have_css("a.filter-chip", count: 8)
     end
   end
 
-  describe "polish: [ clear all ] inner spaces (2026-05-11)" do
-    # Per the bracketed-link convention, MULTI-word labels carry inner
-    # spaces: `[ clear all ]`. Single-token chip labels above stay
-    # flush against the brackets (`[ps5]`). See
-    # `feedback_bracketed_links.md`.
-    it "renders [ clear all ] with inner spaces around the multi-word label" do
-      render_inline(described_class.new(
-        active_tokens: %w[ps5], request_path: request_path
-      ))
-      html = page.native.to_html
-      # `[<SPACE><span>clear all</span><SPACE>]` — the canonical
-      # multi-word shape from the convention.
-      expect(html).to match(%r{\[ <span class="bl">clear all</span> \]})
-    end
+  describe "PLATFORM_LABELS short-label rendering" do
+    before { render_inline(described_class.new) }
 
-    it "still resolves [clear all]'s text content to the bare label" do
-      render_inline(described_class.new(
-        active_tokens: %w[ps5], request_path: request_path
-      ))
-      expect(page).to have_link("clear all")
-    end
-  end
-
-  describe "polish: right_slot (2026-05-11)" do
-    # The display-mode switcher (Phase 27 §01d) used to sit flush-right
-    # of `<h1>games</h1>`. It now lands in the filter row's optional
-    # right slot via `with_right_slot`. Slot content renders inside
-    # `.games-filter-row__right`, which uses `margin-left: auto` to pin
-    # the slot flush-right regardless of how many chips wrap.
-    it "renders the right_slot inside `.games-filter-row__right` when provided" do
-      render_inline(described_class.new(
-        active_tokens: [], request_path: request_path
-      )) do |row|
-        row.with_right_slot { "<span class=\"switcher-stub\">SWITCHER</span>".html_safe }
+    {
+      "ps5"     => "PS5",
+      "switch2" => "Switch2",
+      "steam"   => "Steam"
+    }.each do |token, label|
+      it "renders the #{token} chip with short label #{label.inspect}" do
+        chip = page.find("a[data-filter-token='#{token}']")
+        expect(chip.text).to include(label)
       end
-
-      expect(page).to have_css(".games-filter-row__right .switcher-stub", text: "SWITCHER")
-    end
-
-    it "pins the right slot flush-right via `margin-left: auto`" do
-      render_inline(described_class.new(
-        active_tokens: [], request_path: request_path
-      )) do |row|
-        row.with_right_slot { "<span class=\"switcher-stub\">SWITCHER</span>".html_safe }
-      end
-
-      style = page.find(".games-filter-row__right")["style"]
-      expect(style).to include("margin-left: auto")
-    end
-
-    it "does NOT render `.games-filter-row__right` when no slot is provided" do
-      render_inline(described_class.new(
-        active_tokens: [], request_path: request_path
-      ))
-      expect(page).to have_no_css(".games-filter-row__right")
-    end
-
-    it "places the right slot AFTER the row-2 chips in document order" do
-      render_inline(described_class.new(
-        active_tokens: [], request_path: request_path
-      )) do |row|
-        row.with_right_slot { "<span class=\"switcher-stub\">SWITCHER</span>".html_safe }
-      end
-
-      html = page.native.to_html
-      chips_idx = html.index("games-filter-row__chips--2")
-      right_idx = html.index('class="games-filter-row__right"')
-      expect(chips_idx).to be < right_idx
-    end
-
-    # 2026-05-11 polish v2 — right slot lives inside row 2 (not row 1),
-    # so the display-mode switcher sits flush-right of the
-    # ownership/recorded chips. `[clear all]` stays attached to row 1.
-    it "renders the right_slot INSIDE row 2 (not row 1)" do
-      render_inline(described_class.new(
-        active_tokens: [], request_path: request_path
-      )) do |row|
-        row.with_right_slot { "<span class=\"switcher-stub\">SWITCHER</span>".html_safe }
-      end
-
-      expect(page).to have_css(".games-filter-row__row--2 .games-filter-row__right .switcher-stub")
-      expect(page).to have_no_css(".games-filter-row__row--1 .games-filter-row__right")
     end
   end
 
   describe "flaw: defensive surface" do
-    before do
-      render_inline(described_class.new(
-        active_tokens: %w[ps5 owned], request_path: request_path
-      ))
-    end
+    before { render_inline(described_class.new(checked_tokens: %w[ps5])) }
 
-    it "never emits data-turbo-confirm anywhere" do
+    it "never emits data-turbo-confirm" do
       expect(page.native.to_html).not_to include("data-turbo-confirm")
     end
 
@@ -231,14 +131,14 @@ RSpec.describe Games::FilterRowComponent, type: :component do
       expect(page.native.to_html).not_to include("<script")
     end
 
-    it "never invokes window.confirm / alert / prompt in rendered HTML" do
+    it "never invokes window.confirm / alert / prompt" do
       html = page.native.to_html
       expect(html).not_to include("window.confirm")
       expect(html).not_to include("alert(")
       expect(html).not_to include("prompt(")
     end
 
-    it "never emits text-danger on chips (red is reserved)" do
+    it "never emits text-danger on chips (red is reserved for destructive)" do
       expect(page).to have_no_css(".filter-chip.text-danger")
     end
   end

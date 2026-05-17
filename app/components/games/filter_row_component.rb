@@ -1,87 +1,70 @@
-# Phase 27 §01b — Filter row.
+# Phase 27 v2 spec 06 — Filter row (single compact row).
 #
-# 2026-05-11 polish — the chip cluster is laid out across TWO rows
-# (split via a fixed boundary index). Display-mode switcher rides the
-# far right of the SECOND row's right slot.
+# Rewritten from the 01b two-row + `[clear all]` link + display-mode
+# right-slot layout to a single compact band. Left side carries the
+# status + ownership chips; right side carries the platform chips.
 #
-#   Row 1 (status + platform): released scheduled ps5 switch2 steam gog epic xbox
-#   Row 2 (ownership/recorded): owned not_owned recorded   ...  [default][grid][list]
+#   [ ] released [ ] scheduled [ ] owned [ ] wishlist [ ] played    [ ] PS5 [ ] Switch2 [ ] Steam
 #
-# Per-platform chip labels are cased canonically (`PS5`, `Switch2`,
-# `Steam`, `GoG`, `Epic`, `Xbox`); URL tokens stay lowercase.
+# Default state — every chip CHECKED, URL `/games` (no `?filters=`
+# param) — communicates "showing the full list, nothing narrowed".
+# Un-checking a chip narrows. Re-checking everything collapses back to
+# `/games`.
 #
-# Plus a `[clear all]` bracketed link to the right of the first row
-# when at least one chip is active. A muted contradiction notice
-# (`(owned and not owned together — no matches)`) renders immediately
-# under the row when `contradiction == true`.
+# Phase 27 v2 spec 06 (2026-05-17 PC store collapse) — `GoG` + `Epic`
+# chips retired; PC = Steam everywhere.
 #
-# The component emits NO JavaScript — chip toggling is pure GET-link
-# navigation. Active chips carry the `chip--active` modifier; the
-# contradiction notice carries `text-muted` (no red).
-module Games
-  class FilterRowComponent < ViewComponent::Base
-    include Games::FiltersHelper
+# `[clear all]` is GONE — the canonical clear action is re-checking
+# every chip via the user. The contradiction notice is also GONE (v2
+# has no `not_owned` chip; the contradiction cannot arise).
+#
+# The component mounts the `games-filter` Stimulus controller on the
+# outer wrapper so a single controller instance manages every chip.
+class Games::FilterRowComponent < ViewComponent::Base
+  include Games::FiltersHelper
 
-    # 2026-05-11 polish — optional right-aligned slot on the SECOND
-    # row. The `/games` index passes the display-mode switcher here so
-    # it renders flush-right on row 2.
-    renders_one :right_slot
+  # Render order — left side first, then right side. Mirrors the
+  # spec's locked layout.
+  LEFT_TOKENS  = (STATUS_TOKENS + OWNERSHIP_TOKENS).freeze
+  RIGHT_TOKENS = PLATFORM_TOKENS
 
-    # 2026-05-11 polish — chips partition into two rows. The boundary
-    # is fixed: row 1 carries status (released, scheduled) + every
-    # platform token; row 2 carries ownership (owned, not_owned) +
-    # `recorded`. The cosmetic split keeps the visual scan compact
-    # without changing token semantics — the underlying query reads
-    # the same `?filters=` CSV regardless of row.
-    ROW_1_TOKENS = %w[released scheduled ps5 switch2 steam gog epic xbox].freeze
-    ROW_2_TOKENS = %w[owned not_owned recorded].freeze
-    CHIP_ORDER = (ROW_1_TOKENS + ROW_2_TOKENS).freeze
-
-    def initialize(active_tokens:, request_path:, dropped_tokens: [], query_string_overrides: {}, contradiction: false)
-      @active_tokens          = Array(active_tokens)
-      @dropped_tokens         = Array(dropped_tokens)
-      @request_path           = request_path
-      @query_string_overrides = (query_string_overrides || {}).to_h
-      @contradiction          = contradiction ? true : false
+  # `checked_tokens:` is the SET of currently-checked chips (Array of
+  # canonical token strings). When omitted, defaults to the full
+  # universe (all chips checked, full-list state).
+  def initialize(checked_tokens: nil, request_path: "/games", query_string_overrides: {})
+    @checked_tokens = if checked_tokens.nil?
+      TOKEN_UNIVERSE.dup
+    else
+      Array(checked_tokens).map(&:to_s)
     end
+    @request_path           = request_path
+    @query_string_overrides = (query_string_overrides || {}).to_h
+  end
 
-    attr_reader :active_tokens, :dropped_tokens, :request_path, :query_string_overrides
+  attr_reader :checked_tokens, :request_path, :query_string_overrides
 
-    def contradiction?
-      @contradiction
-    end
+  def left_tokens
+    LEFT_TOKENS
+  end
 
-    def row_1_tokens
-      ROW_1_TOKENS
-    end
+  def right_tokens
+    RIGHT_TOKENS
+  end
 
-    def row_2_tokens
-      ROW_2_TOKENS
-    end
+  def chip_for(token)
+    Games::FilterChipComponent.new(
+      token:          token,
+      checked:        checked_tokens.include?(token),
+      checked_tokens: checked_tokens,
+      request_path:   request_path
+    )
+  end
 
-    def chip_for(token)
-      Games::FilterChipComponent.new(
-        token:                  token,
-        active:                 active_tokens.include?(token),
-        request_path:           request_path,
-        active_tokens:          active_tokens,
-        query_string_overrides: query_string_overrides
-      )
-    end
-
-    def any_active?
-      active_tokens.any?
-    end
-
-    # The `[clear all]` href clears `filters=` and preserves the
-    # query-string overrides verbatim (display=, genre=, collection=).
-    def clear_all_href
-      query = query_string_overrides.to_query
-      query.empty? ? request_path : "#{request_path}?#{query}"
-    end
-
-    def dev_warning?
-      Rails.env.development? && dropped_tokens.any?
-    end
+  # JSON-encoded universe + request path. Consumed by the
+  # `games-filter` Stimulus controller via `data-games-filter-...-value`
+  # attributes so the controller can decide when the URL collapses to
+  # `/games` (universe checked) vs `/games?filters=<csv>` (subset).
+  def universe_json
+    TOKEN_UNIVERSE.to_json
   end
 end

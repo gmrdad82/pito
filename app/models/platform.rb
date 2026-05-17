@@ -25,23 +25,60 @@ class Platform < ApplicationRecord
 
   # Phase 27 follow-up (2026-05-11) — canonical platform display labels.
   #
-  # The six canonical platforms the project tracks ownership against
+  # The canonical platforms the project tracks ownership against
   # (per user direction, ordered by the project's display preference).
   # Maps the seed `slug` to the canonical short label rendered on the
   # game show page and anywhere else the project renders platform sets.
   #
-  # `GoG` (mixed case) and `Switch2` (no space) are deliberate; both
-  # follow the user-locked spelling.
+  # `Switch2` (no space) is deliberate; follows the user-locked
+  # spelling.
+  #
+  # Phase 27 v2 spec 06 (2026-05-17 PC store collapse) — `gog` and
+  # `epic` were collapsed into `steam`. The three PC stores share the
+  # single `steam` slug + Steam logo; the chip surface, the logo
+  # surface, and the data model all converge on `steam` for PC. `xbox`
+  # is kept as a known canonical short label for any future console
+  # ownership work, but no chip / logo currently surfaces it.
   CANONICAL_SHORT_NAMES = {
     "ps5"     => "PS5",
     "switch2" => "Switch2",
     "steam"   => "Steam",
-    "gog"     => "GoG",
-    "epic"    => "Epic",
     "xbox"    => "Xbox"
   }.freeze
 
   CANONICAL_SLUGS = CANONICAL_SHORT_NAMES.keys.freeze
+
+  # Phase 27 v2 spec 06 — IGDB canonical platform NAMES → display label.
+  #
+  # The filter-row chips, the detail-page platform list, the platform-
+  # logo helper's `alt` attribute, and any other surface that renders a
+  # platform name routes through this map. IGDB ships `"Nintendo Switch
+  # 2"` (with a space) — the project shortens it to `"Switch2"` (no
+  # space) per the user-locked spelling.
+  #
+  # Lookup is name-keyed because the surfaces that render display labels
+  # consume `Platform#name` (the IGDB-imported string) rather than the
+  # slug. The slug map `CANONICAL_SHORT_NAMES` above stays as the slug-
+  # keyed canonical lookup used by the seed rows and `canonical?`.
+  #
+  # The map carries entries for the three short labels rendered on the
+  # filter row and the detail page: `Switch2`, `PS5`, `Steam`. GoG +
+  # Epic were collapsed into Steam in the 2026-05-17 contract change;
+  # any IGDB platform name not in this map falls through to itself per
+  # `display_label`.
+  PLATFORM_LABELS = {
+    "Nintendo Switch 2" => "Switch2",
+    "PlayStation 5"     => "PS5",
+    "Steam"             => "Steam"
+  }.freeze
+
+  # Phase 27 v2 spec 06 — single source of truth for the IGDB name →
+  # display label translation. Returns the short label when the IGDB
+  # name is in `PLATFORM_LABELS`, otherwise returns the input verbatim
+  # (callers may receive an IGDB platform name we don't override).
+  def self.display_label(name)
+    PLATFORM_LABELS[name.to_s] || name.to_s
+  end
 
   # IGDB platform IDs → canonical slug. Used by the display helper to
   # canonicalise an IGDB-imported `Platform` row (which carries a

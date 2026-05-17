@@ -470,11 +470,17 @@ RSpec.describe "games/_tile.html.erb", type: :view do
       render_tile(g)
 
       meta_node = Capybara.string(rendered).find(".tile-caption-meta")
-      img = meta_node.find("img.platform-logo")
-      expect(img[:src]).to eq("/platform_logos/ps5-16.png")
+      # v7 (theme-aware) — the helper emits BOTH color variants; the
+      # black one carries the canonical asset path and the alt text.
+      img = meta_node.find("img.platform-logo--black")
+      expect(img[:src]).to eq("/platforms/ps5-16-black.png")
       expect(img[:width]).to eq("14")
       expect(img[:height]).to eq("14")
       expect(img[:alt]).to eq("PS5")
+
+      # White-variant img is present for the dark-theme branch.
+      white = meta_node.find("img.platform-logo--white")
+      expect(white[:src]).to eq("/platforms/ps5-16-white.png")
     end
 
     it "renders a middle-dot separator BEFORE the logo when year is present" do
@@ -519,8 +525,8 @@ RSpec.describe "games/_tile.html.erb", type: :view do
       render_tile(g)
 
       meta_node = Capybara.string(rendered).find(".tile-caption-meta")
-      img = meta_node.find("img.platform-logo")
-      expect(img[:src]).to eq("/platform_logos/ps5-16.png")
+      img = meta_node.find("img.platform-logo--black")
+      expect(img[:src]).to eq("/platforms/ps5-16-black.png")
     end
 
     it "renders the Steam logo when only external_steam_app_id is present (no platforms_available row)" do
@@ -530,8 +536,8 @@ RSpec.describe "games/_tile.html.erb", type: :view do
       render_tile(g)
 
       meta_node = Capybara.string(rendered).find(".tile-caption-meta")
-      img = meta_node.find("img.platform-logo")
-      expect(img[:src]).to eq("/platform_logos/steam-16.png")
+      img = meta_node.find("img.platform-logo--black")
+      expect(img[:src]).to eq("/platforms/steam-16-black.png")
     end
 
     it "renders the logo segment even when rating + year are both missing (logo-only meta line)" do

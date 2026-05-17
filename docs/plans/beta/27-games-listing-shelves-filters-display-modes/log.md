@@ -2234,3 +2234,115 @@ walk doesn't replay the same dead ends.
   audit-trail comment points at `cib:nintendo-switch` (32x32 black) and
   `simple-icons:nintendoswitch` (iconify mirror of the dropped simpleicons
   slug) as viable swap-in backups.
+
+
+## 2026-05-17 — spec 07 v5 platform-logos: luminance-based silhouette rendering
+
+### Context
+
+User reported that the v4 rake task output broke after switching to local
+brand-name source PNGs under `lib/support/platforms/`. Symptoms:
+
+- `ps5-{16,64}.png` and `switch2-{16,64}.png` rendered as SOLID black discs
+  with no visible logo shape (alpha was uniformly ~200, painting the entire
+  filled-alpha disc).
+- `steam-{16,64}.png` was already RGB-zeroed but the user reported it looked
+  visually inconsistent in their workflow.
+
+### Root cause
+
+The v4 pipeline was: `extract source alpha -> bandjoin onto fresh
+solid-black RGB`. That only works when source alpha traces the logo
+SILHOUETTE. The user's real brand PNGs ship with FILLED-disc alpha —
+`playstation.png` alpha avg=200/255, `switch.png` alpha avg=183/255 — so
+"extract source alpha" gave back a disc, not a silhouette, and the bandjoin
+painted the whole disc black.
+
+### Fix — luminance-based alpha
+
+New pipeline in `render_monochrome_black_png`:
+
+1. Load source, ensure sRGB colourspace.
+2. If source has alpha, `flatten(background: [255, 255, 255])` so any
+   transparent regions map to white (low-luminance-contribution after invert).
+3. Convert to single-band luminance via `.colourspace(:b_w)`.
+4. Invert via `.invert` — dark source pixels (logo shape) become high
+   alpha; white background pixels become near-zero alpha.
+5. Build a 3-band pure-black RGB image at source resolution.
+6. `bandjoin(inverted_luminance)` -> RGBA at source resolution.
+7. `thumbnail_image(size, height: size, size: :force)` resizes LAST so
+   anti-aliasing operates on the already-correct silhouette mask.
+
+R / G / B output bands are constructed from constant-zero images, so the
+"every pixel pure black" guarantee survives intact. The output alpha is
+derived from the source's visual content, not its alpha channel, which
+handles both filled-background and silhouette-style source PNGs.
+
+### Fixtures rewritten
+
+`spec/fixtures/files/platforms/{playstation,switch,steam}.png` regenerated
+to mirror the structure of real brand PNGs: 256x256 RGBA, opaque white
+background (alpha == 255 everywhere), with a colored letter shape composited
+on top (P / S / X, in near-black / red / pure-black respectively). The
+fixtures now exercise the same failure mode the real sources triggered —
+filled alpha + dark logo shape against a light background — so the spec
+suite would have caught the v4 regression had these fixtures existed earlier.
+
+### Spec additions
+
+Two new assertions in the happy-path describe block guard against the
+"solid disc" regression class:
+
+- `produces a silhouette alpha — not a uniformly opaque disc` — asserts
+  `alpha.deviate > 10` (population stddev). A uniform-opaque disc has
+  deviate close to 0; the threshold is conservative so colored-source
+  silhouettes (e.g. switch2's red logo, alpha_max ≈ 160) still clear it.
+- `has both transparent-background pixels and visible logo pixels` —
+  asserts at least 5% of pixels land in the `alpha < 16` bucket
+  (background) and at least 5% in the `alpha > 64` bucket (logo body).
+
+### Files touched
+
+- `lib/tasks/pito_platform_logos.rake` — rewrote `render_monochrome_black_png`
+  to use the luminance-based alpha pipeline; updated the header doc block
+  ("Output rules") to explain why source alpha is no longer reused.
+- `spec/lib/tasks/pito_platform_logos_rake_spec.rb` — added the two
+  silhouette-structure assertions; updated fixture-folder doc comment to
+  describe the new filled-alpha fixture shape; tightened the "raw colored
+  fixture" self-check copy.
+- `spec/fixtures/files/platforms/{playstation,switch,steam}.png` —
+  regenerated as filled-alpha white-background + colored-letter PNGs.
+- `public/platforms/{ps5,switch2,steam}-{16,64}.png` — re-rendered via
+  `bin/rails pito:platform_logos:download`.
+
+### Verification
+
+Real-source output (post-fix):
+
+| file              | dims    | RGB max     | alpha min | alpha max | alpha avg | alpha deviate | low(<16)% | high(>64)% |
+| ----------------- | ------- | ----------- | --------- | --------- | --------- | ------------- | --------- | ---------- |
+| ps5-16.png        | 16x16   | [0, 0, 0]   | 0         | 242       | 126.9     | 82.8          | 21.5      | 72.3       |
+| ps5-64.png        | 64x64   | [0, 0, 0]   | 0         | 242       | 125.0     | 96.0          | 34.0      | 62.7       |
+| switch2-16.png    | 16x16   | [0, 0, 0]   | 0         | 174       | 81.1      | 58.5          | 25.0      | 59.4       |
+| switch2-64.png    | 64x64   | [0, 0, 0]   | 0         | 162       | 80.4      | 67.7          | 33.9      | 54.6       |
+| steam-16.png      | 16x16   | [0, 0, 0]   | 0         | 255       | 142.6     | 104.2         | 23.8      | 67.2       |
+| steam-64.png      | 64x64   | [0, 0, 0]   | 0         | 255       | 143.1     | 120.5         | 38.2      | 58.9       |
+
+Compare to the v4 (broken) state: every output had alpha avg ≈ 200, deviate
+near 0, and ps5/switch2 read as solid black discs. The new outputs show
+balanced low/high alpha distributions — confirmed silhouettes.
+
+- `bundle exec rspec spec/lib/tasks/pito_platform_logos_rake_spec.rb` —
+  31 examples, 0 failures (was 29; +2 new assertions).
+- `bundle exec rspec spec/lib/tasks/pito_rake_spec.rb spec/helpers/platform_logos_helper_spec.rb` —
+  77 examples, 0 failures.
+- `bundle exec brakeman -q -w2` — 0 security warnings, 0 errors.
+- `bin/rails pito:platform_logos:download` — all 3 platforms `[OK]`,
+  6 PNGs written, summary line per platform with source dims and file
+  sizes.
+
+### Open follow-ups
+
+- None for this task. The luminance-based pipeline handles both filled-alpha
+  and silhouette-style sources, so future brand-PNG swaps no longer depend
+  on the upstream provider's alpha convention.

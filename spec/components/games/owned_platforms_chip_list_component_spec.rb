@@ -44,15 +44,19 @@ RSpec.describe Games::OwnedPlatformsChipListComponent, type: :component do
   end
 
   describe "happy: alphabetical case-insensitive ordering" do
-    it "orders 'epic' before 'PS5' before 'Steam'" do
-      epic  = create(:platform, name: "epic",  slug: "epic")
+    # Phase 27 v2 spec 06 (2026-05-17 PC store collapse) — the original
+    # case used `epic` as the lexically-first label; that slug is gone.
+    # `atari` substitutes — any not-canonical Platform name works as a
+    # sort-order probe since the chip list does not filter on slug.
+    it "orders 'atari' before 'PS5' before 'Steam'" do
+      atari = create(:platform, name: "atari", slug: "atari")
       ps5   = create(:platform, name: "PS5",   slug: "ps5")
       steam = create(:platform, name: "Steam", slug: "steam")
-      [ ps5, steam, epic ].each { |p| create(:game_platform_ownership, game: game, platform: p) }
+      [ ps5, steam, atari ].each { |p| create(:game_platform_ownership, game: game, platform: p) }
 
       render_inline(described_class.new(game: game))
       labels = page.all("a.bracketed").map(&:text)
-      expect(labels[0]).to include("epic")
+      expect(labels[0]).to include("atari")
       expect(labels[1]).to include("PS5")
       expect(labels[2]).to include("Steam")
     end

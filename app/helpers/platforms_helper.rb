@@ -1,11 +1,17 @@
 # Phase 27 follow-up (2026-05-11) — canonical platform display.
 #
-# The project tracks six canonical platforms (`PS5`, `Switch2`,
-# `Steam`, `GoG`, `Epic`, `Xbox`). IGDB returns verbose,
-# generation-specific names ("PlayStation 5", "Xbox Series X|S",
-# "PC (Microsoft Windows)") that don't match the canonical list
-# directly. This helper canonicalises a game's platform exposure
-# into the project's locked short labels for display.
+# The project tracks four canonical platforms (`PS5`, `Switch2`,
+# `Steam`, `Xbox`). IGDB returns verbose, generation-specific names
+# ("PlayStation 5", "Xbox Series X|S", "PC (Microsoft Windows)") that
+# don't match the canonical list directly. This helper canonicalises a
+# game's platform exposure into the project's locked short labels for
+# display.
+#
+# Phase 27 v2 spec 06 (2026-05-17 PC store collapse): GoG + Epic were
+# collapsed into Steam. The Steam logo now represents the PC umbrella
+# (Steam-distributed games, GoG-only games, Epic-only games all
+# surface under `Steam`). The `external_gog_id` and `external_epic_id`
+# columns are gone (see `CollapsePcPlatformsIntoSteam` migration).
 #
 # Mapping rules (locked):
 #
@@ -16,17 +22,13 @@
 #   - Verbose IGDB names without a canonical alias (e.g.
 #     `PlayStation 4`, `Nintendo Switch` (OG), `PC (Microsoft Windows)`)
 #     are DROPPED — the project does not track ownership for them and
-#     the six canonical short names are the only labels rendered.
-#   - PC distribution stores (Steam, GoG, Epic) are surfaced from the
-#     game's `external_steam_app_id` / `external_gog_id` /
-#     `external_epic_id` columns, NOT from `platforms_available`.
-#     IGDB models PC distribution as external games, not platforms,
-#     and the project's canonical "Steam / GoG / Epic" platforms are
-#     therefore inferred from those external IDs at display time.
+#     the four canonical short names are the only labels rendered.
+#   - The PC umbrella (Steam) is surfaced from the game's
+#     `external_steam_app_id` column, NOT from `platforms_available`.
+#     IGDB models PC distribution as external games, not platforms.
 #
 # Output order matches `Platform::CANONICAL_SHORT_NAMES` insertion
-# order (PS5, Switch2, Steam, GoG, Epic, Xbox). Duplicates are
-# deduplicated.
+# order (PS5, Switch2, Steam, Xbox). Duplicates are deduplicated.
 module PlatformsHelper
   # Returns the canonical short-name list for `game` as an array of
   # strings. Empty array when no canonical platform applies (caller
@@ -61,8 +63,6 @@ module PlatformsHelper
     end
 
     slugs << "steam" if game.external_steam_app_id.present?
-    slugs << "gog"   if game.external_gog_id.present?
-    slugs << "epic"  if game.external_epic_id.present?
 
     slugs
   end

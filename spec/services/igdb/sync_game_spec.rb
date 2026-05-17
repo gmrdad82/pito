@@ -34,7 +34,12 @@ RSpec.describe Igdb::SyncGame do
       expect(g.release_year).to eq(2017)
       expect(g.igdb_rating).to eq(BigDecimal("95.5"))
       expect(g.external_steam_app_id).to eq("1086940")
-      expect(g.external_gog_id).to eq("gog-app-id-1234")
+      # Phase 27 v2 spec 06 (2026-05-17 PC store collapse) — the
+      # `external_gog_id` / `external_epic_id` columns are gone; only
+      # `external_steam_app_id` survives. The mapper drops categories
+      # 5 (GOG) + 26 (Epic) silently.
+      expect(g.respond_to?(:external_gog_id)).to be(false)
+      expect(g.respond_to?(:external_epic_id)).to be(false)
       expect(g.ttb_main_seconds).to eq(180_000)
     end
 

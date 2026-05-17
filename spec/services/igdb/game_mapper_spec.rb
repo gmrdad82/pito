@@ -51,10 +51,14 @@ RSpec.describe Igdb::GameMapper do
       expect(attrs[:ttb_completionist_seconds]).to eq(720_000)
     end
 
-    it "merges external IDs into the attribute hash" do
+    it "merges the Steam external ID into the attribute hash" do
+      # Phase 27 v2 spec 06 (2026-05-17 PC store collapse) — `external_gog_id`
+      # and `external_epic_id` were retired. The mapper preserves only
+      # `external_steam_app_id`; categories 5 (GOG) and 26 (Epic) are
+      # silently dropped.
       expect(attrs[:external_steam_app_id]).to eq("1086940")
-      expect(attrs[:external_gog_id]).to eq("gog-app-id-1234")
-      expect(attrs[:external_epic_id]).to eq("epic-app-id-5678")
+      expect(attrs).not_to have_key(:external_gog_id)
+      expect(attrs).not_to have_key(:external_epic_id)
     end
 
     it "does NOT include local-only columns" do
@@ -78,30 +82,32 @@ RSpec.describe Igdb::GameMapper do
   end
 
   describe ".map_external_games" do
+    # Phase 27 v2 spec 06 (2026-05-17 PC store collapse) — the mapper
+    # preserves only `external_steam_app_id`. GOG (5) and Epic (26)
+    # external rows surface as the PC umbrella via the Steam Platform
+    # row instead of dedicated columns.
     it "maps Steam = category 1" do
       result = described_class.map_external_games([ { "category" => 1, "uid" => "1086940" } ])
-      expect(result).to eq(external_steam_app_id: "1086940", external_gog_id: nil, external_epic_id: nil)
+      expect(result).to eq(external_steam_app_id: "1086940")
     end
 
-    it "maps GOG = category 5" do
+    it "ignores GOG = category 5 (collapsed into steam 2026-05-17)" do
       result = described_class.map_external_games([ { "category" => 5, "uid" => "gog-1" } ])
-      expect(result[:external_gog_id]).to eq("gog-1")
+      expect(result).to eq(external_steam_app_id: nil)
     end
 
-    it "maps Epic = category 26" do
+    it "ignores Epic = category 26 (collapsed into steam 2026-05-17)" do
       result = described_class.map_external_games([ { "category" => 26, "uid" => "epic-1" } ])
-      expect(result[:external_epic_id]).to eq("epic-1")
+      expect(result).to eq(external_steam_app_id: nil)
     end
 
     it "ignores categories pito does not surface" do
       result = described_class.map_external_games([ { "category" => 11, "uid" => "x" } ])
-      expect(result).to eq(external_steam_app_id: nil, external_gog_id: nil, external_epic_id: nil)
+      expect(result).to eq(external_steam_app_id: nil)
     end
 
     it "handles nil input" do
-      expect(described_class.map_external_games(nil)).to eq(
-        external_steam_app_id: nil, external_gog_id: nil, external_epic_id: nil
-      )
+      expect(described_class.map_external_games(nil)).to eq(external_steam_app_id: nil)
     end
   end
 
