@@ -25,6 +25,10 @@
 class BundlesController < ApplicationController
   include FriendlyRedirect
 
+  # 2026-05-18 — omnisearch query-length cap. Mirrors the value used by
+  # `GamesController` (single-line guard against pathological inputs).
+  MAX_QUERY_LENGTH = 100
+
   def show
     @bundle = Bundle.friendly.find(params[:id])
     return if redirect_to_canonical_slug!(@bundle) { |b| bundle_path(b) }
@@ -124,6 +128,23 @@ class BundlesController < ApplicationController
     # sole ORDER BY clause (otherwise position wins and titles tie-break).
     @games = @bundle.games.reorder(Arel.sql("LOWER(games.title)"))
     render :games_pane, layout: false
+  end
+
+  # 2026-05-18 — omnisearch endpoint for the bundle modal's "all games"
+  # heading `[+]` trigger (`:bundle_add` mode). Runs the unified
+  # `Games::SearchService` with the current bundle as the
+  # `exclude_bundle:` so already-member games drop out of the local
+  # half of the envelope. IGDB hits stay raw — adding from IGDB inside
+  # the bundle modal is a two-step ("first sync IGDB into the library,
+  # then add to the bundle"); the per-row action posts the local game
+  # to `/bundles/:bundle_id/members`. Rendered through the shared
+  # `_omnisearch_results` dispatcher.
+  def search
+    @bundle = Bundle.friendly.find(params[:id])
+    @query  = params[:q].to_s.strip[0, MAX_QUERY_LENGTH]
+    @result = Games::SearchService.call(query: @query, mode: :bundle_add, bundle: @bundle)
+    render partial: "shared/omnisearch_results",
+           locals: { mode: :bundle_add, query: @query, result: @result, bundle: @bundle }
   end
 
   private

@@ -38,7 +38,7 @@
         <% release_year = row["first_release_date"].present? ? Time.at(row["first_release_date"]).utc.year : nil %>
         <% cover_image_id = row.dig("cover", "image_id") %>
         <% existing = existing_games_by_igdb_id[row["id"]] %>
-        <li style="display: flex; gap: 8px; align-items: center; padding: 4px 0; border-bottom: 1px solid #ddd;">
+        <li style="display: flex; gap: 8px; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--color-border);">
           <% if cover_image_id.present? %>
             <%= image_tag "https://images.igdb.com/igdb/image/upload/t_cover_small/#{cover_image_id}.jpg",
                           alt: row["name"], loading: "lazy",

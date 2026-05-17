@@ -248,6 +248,13 @@ Rails.application.routes.draw do
   resources :games, except: [ :edit, :update ] do
     collection do
       get :search
+      # 2026-05-18 — omnisearch endpoint for the `/games` `/`-keyed
+      # search modal (`:games_search` mode). Returns local games +
+      # bundles (Meilisearch) AND IGDB hits as separate sections; the
+      # caller renders `_search_results_combined`. Distinct from the
+      # IGDB-only `:search` route above which still backs the
+      # `:game_index` modal (`[+]` button on `/games` chrome).
+      get :omnisearch
       # Phase 28 §01a — local primaries typeahead source for the
       # version-parent picker on the game edit page. Returns up to 20
       # `{ id, title }` JSON rows matching `LOWER(title) ILIKE` the
@@ -313,6 +320,13 @@ Rails.application.routes.draw do
   resources :bundles, only: [ :show, :create, :update, :destroy ] do
     member do
       get :games_pane
+      # 2026-05-18 — omnisearch endpoint for the bundle modal's
+      # `[+]` "add member" trigger (`:bundle_add` mode). Returns local
+      # games (Meilisearch, with this bundle's existing members
+      # filtered out) AND IGDB hits as separate sections; the result
+      # row's `[add]` action POSTs `/bundles/:id/members` to associate
+      # the chosen game with this bundle.
+      get :search
     end
     resources :members, only: [ :create, :destroy ],
                         controller: "bundle_members"

@@ -1,34 +1,35 @@
 import { Controller } from "@hotwired/stimulus"
 
-// Phase 14 §1 polish — global IGDB-search modal.
+// 2026-05-18 — shared omnisearch modal controller.
 //
-// Dialog rendered once in `app/views/layouts/application.html.erb`
-// (`shared/_igdb_search_modal`). Opened by the `[+]` bracketed link
-// in the `/games` chrome (2026-05-17 the global `i` keybind was
-// removed in the legacy-keyboard-shortcut sweep — the modal is now
-// reachable only via the `[+]` link). Submits a debounced query to
-// `GET /games/search` and loads the results inside the modal's Turbo
-// Frame (`<turbo-frame id="igdb_search_results">`).
+// Backs the `shared/_omnisearch_modal` partial. Mode-agnostic — it
+// only knows about a debounced query → Turbo Frame swap. The
+// per-mode results partial (rendered server-side by
+// `_omnisearch_results`) decides how to display rows and what
+// per-row actions render.
 //
-// Phase 27 spec 04 (2026-05-17) — auto-search behavior:
-//   - The input fires `#search` automatically on every input event,
-//     debounced `debounceValue` ms (default 250).
-//   - Pressing Enter fires `#search` immediately (no debounce).
-//   - The explicit `[search]` button (and its `submit` action) are
-//     gone. The `_fire` path is the only entry point.
+// Values:
+//   url        — string. Backend endpoint that returns the results
+//                partial wrapped in a Turbo Frame whose id matches
+//                `frameIdValue`.
+//   debounce   — number, ms. Default 250.
+//   minChars   — number, default 1. Lengths below this skip the
+//                request silently (avoids an empty-query round-trip
+//                on the first keystroke clearing).
+//   frameId    — string. DOM id of the `<turbo-frame>` inside the
+//                modal that result partials wrap their output in.
 //
-// 2026-05-18 polish: the min-chars gate is dropped — search fires
-// from the first character. `minCharsValue` still exists (default 1)
-// purely so the partial can pass it; lengths < 1 (empty input) are
-// still skipped to avoid a useless empty-query request.
+// Targets:
+//   input      — the `<input type="search">` element.
 //
-// NO `confirm()` / `alert()` / `prompt()` (CLAUDE.md hard rule).
+// NO `confirm()` / `alert()` / `prompt()` — CLAUDE.md hard rule.
 export default class extends Controller {
   static targets = ["input"]
   static values = {
     url: String,
     debounce: { type: Number, default: 250 },
-    minChars: { type: Number, default: 1 }
+    minChars: { type: Number, default: 1 },
+    frameId: String
   }
 
   connect() {
@@ -41,11 +42,17 @@ export default class extends Controller {
 
   open(event) {
     if (event) event.preventDefault()
-    if (typeof this.element.showModal === "function") {
+    if (typeof this.element.showModal === "function" && !this.element.open) {
       this.element.showModal()
     }
     if (this.hasInputTarget) {
-      setTimeout(() => this.inputTarget.focus(), 0)
+      // Pre-select existing text so a repeat open replaces rather than
+      // appends. setTimeout 0 defers until after the dialog promotion
+      // hands focus around.
+      setTimeout(() => {
+        this.inputTarget.focus()
+        this.inputTarget.select()
+      }, 0)
     }
   }
 
@@ -95,7 +102,9 @@ export default class extends Controller {
     const url = new URL(this.urlValue, window.location.origin)
     url.searchParams.set("q", q)
 
-    const frame = document.getElementById("igdb_search_results")
+    const frameId = this.frameIdValue
+    if (!frameId) return
+    const frame = document.getElementById(frameId)
     if (!frame) return
     frame.src = url.toString()
   }

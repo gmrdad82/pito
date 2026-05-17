@@ -160,3 +160,15 @@
     <% end %>
   <% end %>
 </div>
+
+<%# 2026-05-18 — `/`-keyed omnisearch modal (`:games_search` mode).
+    Opened by the `/ search` page action in `config/keybindings.yml`
+    (page_actions.games_index → open_modal_by_id target:
+    "omnisearch-modal-games-search"). Hits /games/omnisearch and
+    returns local games + bundles + IGDB as separate sections. %>
+<%= render "shared/omnisearch_modal",
+      mode: :games_search,
+      dialog_id: "omnisearch-modal-games-search",
+      url: omnisearch_games_path,
+      placeholder: "search games + bundles",
+      results_frame_id: "omnisearch_results_games_search" %>

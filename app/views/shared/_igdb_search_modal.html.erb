@@ -11,14 +11,22 @@
     overwrite-confirmation dialog (`#igdb-overwrite-modal`).
     No JS confirm/alert/prompt anywhere (CLAUDE.md hard rule).
 
+    2026-05-18 polish:
+      - "add a game" title removed (the modal itself is sufficient
+        context — no heading needed).
+      - Min-chars gate dropped: search fires from the first
+        character, still debounced at 250 ms.
+      - The browser-native `::-webkit-search-cancel-button` X is
+        neutralised in CSS (no longer renders with the link/accent
+        blue tint).
+      - Per-row `<li>` hardcoded `border-bottom: 1px solid #ddd` is
+        replaced with `var(--color-border)` so the hairline reads
+        correctly in both themes.
+
     Phase 27 spec 04 (2026-05-17) — copy + control polish:
-      - Title trimmed: "add a game from igdb" → "add a game".
       - Input placeholder trimmed: "search igdb…" → "search…".
-        The "igdb" context is implied by the title now.
       - The explicit `[search]` button is GONE. The input auto-fires
-        a search when the trimmed value reaches the min-chars cutoff
-        (5 by default) OR when the user presses Enter at any length
-        ≥ 1.
+        a search on input (debounced) OR when the user presses Enter.
       - `[cancel]` swaps to BracketedMutedLinkComponent (muted
         secondary affordance — same primitive the session-revoke,
         Slack/Discord help, and Doorkeeper "cancel" surfaces use).
@@ -32,12 +40,12 @@
         class="confirm-modal pane-dialog pane-dialog--wide"
         data-controller="igdb-search-modal"
         data-igdb-search-modal-url-value="<%= search_games_path %>"
-        data-igdb-search-modal-min-chars-value="5"
+        data-igdb-search-modal-min-chars-value="1"
         data-action="click->igdb-search-modal#clickOutside keydown->igdb-search-modal#keydown">
   <div class="confirm-modal-inner">
-    <div class="dialog-title">add a game</div>
     <div>
       <input type="search"
+             class="igdb-search-input"
              placeholder="search…"
              autocomplete="off"
              data-igdb-search-modal-target="input"

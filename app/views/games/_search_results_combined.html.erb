@@ -1,0 +1,113 @@
+<%# 2026-05-18 — `:games_search` omnisearch results partial.
+
+    Locals:
+      result  — Games::SearchService::Result struct
+      query   — sanitized query string
+
+    Three sections (in display order):
+      1. local games — click row navigates to /games/:slug.
+      2. local bundles — click row navigates to /bundles/:slug.
+      3. IGDB games — click row navigates to the IGDB add flow
+         (`/games?new=<igdb_id>` style — actually we surface a
+         small `[add]` action that POSTs `/games` with the igdb_id
+         + title pre-seed, identical to the `:game_index` row
+         contract).
+
+    Each section is its own subgroup with a small `kind` label
+    header. Empty sections are hidden. When the query is blank, the
+    body renders a hint. %>
+<%= turbo_frame_tag "omnisearch_results_games_search" do %>
+  <% if query.blank? %>
+    <p class="text-muted">type to search.</p>
+  <% else %>
+    <% if result.local_games.any? %>
+      <section class="omnisearch-section">
+        <h3 class="omnisearch-section-heading">games</h3>
+        <ul class="omnisearch-list" style="list-style: none; padding: 0; margin: 0;">
+          <% result.local_games.each do |game| %>
+            <li class="omnisearch-row">
+              <%= link_to game_path(game),
+                          data: { turbo_frame: "_top" },
+                          style: "flex: 1; text-decoration: none; color: inherit;" do %>
+                <%= game.title %>
+                <% if game.release_year %>
+                  <span class="text-muted">(<%= game.release_year %>)</span>
+                <% end %>
+              <% end %>
+              <span class="text-muted" style="font-size: 11px;">game</span>
+            </li>
+          <% end %>
+        </ul>
+      </section>
+    <% end %>
+
+    <% if result.local_bundles.any? %>
+      <% if result.local_games.any? %>
+        <hr class="hairline" style="margin: 12px 0;">
+      <% end %>
+      <section class="omnisearch-section">
+        <h3 class="omnisearch-section-heading">bundles</h3>
+        <ul class="omnisearch-list" style="list-style: none; padding: 0; margin: 0;">
+          <% result.local_bundles.each do |bundle| %>
+            <li class="omnisearch-row">
+              <%= link_to bundle_path(bundle),
+                          data: { turbo_frame: "_top" },
+                          style: "flex: 1; text-decoration: none; color: inherit;" do %>
+                <%= bundle.name %>
+              <% end %>
+              <span class="text-muted" style="font-size: 11px;">bundle</span>
+            </li>
+          <% end %>
+        </ul>
+      </section>
+    <% end %>
+
+    <% if result.igdb.any? || result.igdb_error.present? %>
+      <% if result.local_games.any? || result.local_bundles.any? %>
+        <hr class="hairline" style="margin: 12px 0;">
+      <% end %>
+      <section class="omnisearch-section">
+        <h3 class="omnisearch-section-heading">on igdb</h3>
+        <% if result.igdb_error.present? %>
+          <p class="text-danger">igdb error: <%= result.igdb_error[:message] %></p>
+        <% elsif result.igdb.empty? %>
+          <p class="text-muted">no igdb results for '<%= query %>'.</p>
+        <% else %>
+          <%
+            result_igdb_ids = result.igdb.map { |row| row["id"] }.compact
+            existing_games_by_igdb_id = Game.where(igdb_id: result_igdb_ids).index_by(&:igdb_id)
+          %>
+          <ul class="omnisearch-list" style="list-style: none; padding: 0; margin: 0;">
+            <% result.igdb.each do |row| %>
+              <% release_year = row["first_release_date"].present? ? Time.at(row["first_release_date"]).utc.year : nil %>
+              <% existing = existing_games_by_igdb_id[row["id"]] %>
+              <li class="omnisearch-row">
+                <span style="flex: 1;">
+                  <%= row["name"] %>
+                  <% if release_year %>
+                    <span class="text-muted">(<%= release_year %>)</span>
+                  <% end %>
+                </span>
+                <% if existing %>
+                  <%= link_to game_path(existing),
+                              class: "bracketed",
+                              data: { turbo_frame: "_top" } do %>[<span class="bl">open</span>]<% end %>
+                <% else %>
+                  <%= button_to games_path,
+                                params: { game: { igdb_id: row["id"], title: row["name"] } },
+                                method: :post,
+                                class: "bracketed",
+                                form: { style: "display: inline; margin: 0;", data: { turbo: false } } do %>[<span class="bl">add</span>]<% end %>
+                <% end %>
+              </li>
+            <% end %>
+          </ul>
+        <% end %>
+      </section>
+    <% end %>
+
+    <% if result.local_games.empty? && result.local_bundles.empty? && result.igdb.empty? && result.igdb_error.blank? %>
+      <p class="text-muted">no results for '<%= query %>'.</p>
+    <% end %>
+  <% end %>
+<% end %>
