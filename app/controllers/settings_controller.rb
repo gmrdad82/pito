@@ -195,6 +195,14 @@ class SettingsController < ApplicationController
     { path: nil, present: false, writable: false, size_bytes: 0, file_count: 0 }
   end
 
+  # 2026-05-18 (DR) — only the `games` index surfaces on /settings now.
+  # `notes` and `videos` are removed because those product surfaces have
+  # not been revisited in the beta-3 sweep yet; surfacing their indexes
+  # would imply they are first-class. The `games` index hosts both Game
+  # and Bundle documents (planned DH consolidation), so the single row
+  # reads as the "games (games + bundles)" section indicator.
+  SEARCH_INDEX_DISPLAY_ALLOWLIST = %w[games].freeze
+
   def search_per_index_stats_for_settings_pane
     return [] unless Search.engine.respond_to?(:per_index_stats)
 
@@ -202,6 +210,7 @@ class SettingsController < ApplicationController
     rows = stats.map do |index_name, payload|
       next if index_name.to_s.end_with?("_test")
       label = index_name.to_s.sub(/_(development|production)\z/, "")
+      next unless SEARCH_INDEX_DISPLAY_ALLOWLIST.include?(label)
       {
         label: label,
         documents: payload[:documents] || payload["documents"] || 0,
@@ -278,23 +287,53 @@ class SettingsController < ApplicationController
     { size_bytes: 0, file_count: 0 }
   end
 
-  POSTGRES_BREAKDOWN_MODELS = [
-    [ "channels", "Channel", "channels" ],
-    [ "videos", "Video", "videos" ],
-    [ "projects", "Project", "projects" ],
-    [ "games", "Game", "games" ],
-    [ "notifications", "Notification", "notifications" ],
-    [ "calendar_entries", "CalendarEntry", "calendar" ]
-  ].freeze
+  # 2026-05-18 (DR) — Postgres breakdown is trimmed to the single
+  # surface that has been revisited in the beta-3 sweep: games (which
+  # encompasses both `games` and `bundles` tables per the DH model
+  # consolidation). Channels / videos / projects / notifications /
+  # calendar_entries are dropped from the display until those product
+  # areas land in beta-3 — keeping them would falsely advertise them as
+  # first-class.
+  #
+  # The single row aggregates `Game.count + Bundle.count` (when present)
+  # and sums `pg_total_relation_size` across both tables, so the figure
+  # matches the user-facing notion of "the games section in Postgres".
+  POSTGRES_GAMES_TABLES = %w[games bundles].freeze
 
   def postgres_table_breakdown_for_settings_pane
-    rows = POSTGRES_BREAKDOWN_MODELS.map do |table, class_name, display_label|
-      stats = postgres_table_stats(table, class_name)
-      { label: display_label, count: stats[:count], size_bytes: stats[:size_bytes] }
-    end
-    rows.sort_by { |row| -(row[:size_bytes] || 0) }
+    stats = combined_games_postgres_stats
+    [ { label: "games", count: stats[:count], size_bytes: stats[:size_bytes] } ]
   rescue StandardError
     []
+  end
+
+  def combined_games_postgres_stats
+    conn = ActiveRecord::Base.connection
+    total_count = 0
+    total_size = 0
+    any_count = false
+    any_size = false
+
+    POSTGRES_GAMES_TABLES.each do |table|
+      next unless conn.table_exists?(table)
+
+      stats = postgres_table_stats(table, table.classify)
+      if stats[:count]
+        total_count += stats[:count].to_i
+        any_count = true
+      end
+      if stats[:size_bytes]
+        total_size += stats[:size_bytes].to_i
+        any_size = true
+      end
+    end
+
+    {
+      count: any_count ? total_count : nil,
+      size_bytes: any_size ? total_size : nil
+    }
+  rescue StandardError
+    { count: nil, size_bytes: nil }
   end
 
   def postgres_table_stats(table, class_name)
@@ -343,18 +382,22 @@ class SettingsController < ApplicationController
     []
   end
 
+  # 2026-05-18 (DR) — assets breakdown is trimmed to the single
+  # surface revisited so far in the beta-3 sweep: cover arts (the
+  # `composites` directory under `Pito::AssetsRoot`). Thumbnails,
+  # banners, and the catch-all "other" bucket are dropped — the
+  # underlying directories may still exist on disk, but the /settings
+  # pane no longer advertises them as first-class until the matching
+  # product surfaces (footage / channel banners / etc.) are revisited.
   ASSETS_CATEGORY_DIRECTORIES = {
-    "cover arts" => "composites",
-    "thumbnails" => "footage_thumbs",
-    "banners"    => "banners"
+    "cover arts" => "composites"
   }.freeze
-  ASSETS_OTHER_LABEL = "other".freeze
 
   def assets_breakdown_for_settings_pane
     root = Pito::AssetsRoot.root
     return assets_breakdown_empty unless File.directory?(root)
 
-    Rails.cache.fetch([ "settings/assets-breakdown", "v2", root.to_s ], expires_in: 5.minutes) do
+    Rails.cache.fetch([ "settings/assets-breakdown", "v3", root.to_s ], expires_in: 5.minutes) do
       compute_assets_breakdown(root)
     end
   rescue StandardError
@@ -365,29 +408,25 @@ class SettingsController < ApplicationController
     named = ASSETS_CATEGORY_DIRECTORIES.each_with_object({}) do |(label, _dir), acc|
       acc[label] = { label: label, file_count: 0, size_bytes: 0 }
     end
-    other = { label: ASSETS_OTHER_LABEL, file_count: 0, size_bytes: 0 }
 
-    Dir.children(root.to_s).each do |child|
-      child_path = File.join(root.to_s, child)
+    ASSETS_CATEGORY_DIRECTORIES.each do |label, dir|
+      child_path = File.join(root.to_s, dir)
       next unless File.directory?(child_path)
+
       stats = compute_directory_volume_stats(child_path)
-      label = ASSETS_CATEGORY_DIRECTORIES.invert[child]
-      target = label ? named[label] : other
-      target[:file_count] += stats[:file_count].to_i
-      target[:size_bytes] += stats[:size_bytes].to_i
+      named[label][:file_count] += stats[:file_count].to_i
+      named[label][:size_bytes] += stats[:size_bytes].to_i
     end
 
-    named.values + [ other ]
+    named.values
   rescue StandardError
     assets_breakdown_empty
   end
 
   def assets_breakdown_empty
-    rows = ASSETS_CATEGORY_DIRECTORIES.keys.map do |label|
+    ASSETS_CATEGORY_DIRECTORIES.keys.map do |label|
       { label: label, file_count: 0, size_bytes: 0 }
     end
-    rows << { label: ASSETS_OTHER_LABEL, file_count: 0, size_bytes: 0 }
-    rows
   end
 
   NOTES_NAMESPACE_SOURCES = [

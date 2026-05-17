@@ -31,6 +31,13 @@
     request context, with a CSRF token bound to the current
     session. The broadcast only swaps the visual state of the
     trigger affordance. %>
+<%# 2026-05-18 (DR) — Voyage stats line added between the heading and
+    the action row. `Voyage::Stats.call` is a sub-millisecond aggregate
+    read (count + max per target), safe to call on every settings
+    render. Bundle keys come back nil when the `summary_embedding`
+    column is not yet on the bundles table — the view degrades to "—"
+    on those without raising. %>
+<% voyage_stats = Voyage::Stats.call %>
 <div id="voyage_section">
   <div style="margin-bottom: 6px;">
     <span><strong>Voyage AI</strong></span>
@@ -38,6 +45,17 @@
       <span style="color: var(--color-success);">▲ configured</span>
     <% else %>
       <span class="text-danger">▽ not configured</span>
+    <% end %>
+  </div>
+
+  <div class="text-muted" style="margin-bottom: 6px;">
+    <%= number_with_delimiter(voyage_stats[:embedded_games_count].to_i) %>
+    / <%= number_with_delimiter(voyage_stats[:total_games_count].to_i) %>
+    games embedded
+    (<%= voyage_stats[:coverage_pct] %>%)
+    · model <%= voyage_stats[:model] %>
+    <% if voyage_stats[:last_indexed_at] %>
+      · last <%= compact_time_ago(voyage_stats[:last_indexed_at]) %>
     <% end %>
   </div>
 
