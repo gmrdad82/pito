@@ -1366,8 +1366,6 @@ button[type="submit"].btn-danger:hover {
   gap: 6px;
   pointer-events: none;
   max-width: calc(100vw - 16px);
-  /* UA popover defaults reset — keep our top-right pill layout. */
-  inset: auto;
   margin: 0;
   padding: 0;
   border: 0;
@@ -3311,6 +3309,34 @@ section[data-shelf="outer-genres"] > section.sub-shelf:not(:first-of-type) {
 
 .settings-panes > .pane-row > .pane:last-child:not(:only-child) {
   border-radius: 0 2px 2px 0;
+}
+
+/* Settings-scoped padding trim (2026-05-17). The base `.pane` rule sets
+   `padding: 12px` on all sides for the workspace pane background. On
+   /settings the inner content (fieldset, form-row, last muted hint)
+   already carries its own `margin-bottom: 6-8px`, so the pane bottom
+   edge sat ~18-20px below the last element — visibly slack on every
+   row (profile/security, discord/slack, stack). Halve the pane's
+   `padding-bottom` to 6px and zero any trailing `margin-bottom` on the
+   pane's last child so the gap reads as deliberate breathing room
+   rather than empty space. Scoped to `.settings-panes` so channels,
+   videos, projects, notes, games show, bundles show keep the original
+   12px rhythm. */
+.settings-panes > .pane-row > .pane {
+  padding-bottom: 6px;
+}
+
+.settings-panes > .pane-row > .pane > *:last-child {
+  margin-bottom: 0;
+}
+
+.settings-panes > .pane-row > .pane > fieldset:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.settings-panes > .pane-row > .pane > fieldset:last-child > *:last-child {
+  margin-bottom: 0;
 }
 
 /* Bundles modal inline title edit (2026-05-17) — display + edit
