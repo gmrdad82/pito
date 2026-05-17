@@ -134,12 +134,12 @@
         meta_rows << ["released", @game.release_date.strftime("%m-%d-%Y")]
       end
       developer_names = @game.developers.map(&:name)
-      meta_rows << ["dev", developer_names.join(", ")] if developer_names.any?
+      meta_rows << ["developer", developer_names.join(", ")] if developer_names.any?
       publisher_names = @game.publishers.map(&:name)
-      meta_rows << ["pub", publisher_names.join(", ")] if publisher_names.any?
+      meta_rows << ["publisher", publisher_names.join(", ")] if publisher_names.any?
     %>
     <% if meta_rows.any? %>
-      <table class="kv-table" style="margin: 0 0 8px 0;">
+      <table class="kv-table" style="margin: 16px 0 16px 0;">
         <tbody>
           <% meta_rows.each do |label, value| %>
             <tr>
