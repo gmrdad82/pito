@@ -115,7 +115,8 @@
   --color-rating-fair:      #cdb732; /* >= 70 — yellow */
   --color-rating-meh:       #a8740c; /* >= 60 — brownish-yellow */
   --color-rating-poor:      #7a4f24; /* >= 50 — brown */
-  --color-rating-bad:       #cc0000; /* <  50 — clear red */
+  --color-rating-bad:       #cc0000; /* >= 25 — clear red */
+  --color-rating-very-bad:  #5a1010; /* <  25 — dark muddy red (worst-of-worst) */
   /* 2026-05-11 polish (Fix 1) — canonical column widths used by
      listing tables across the app (notifications, channels, projects,
      games, videos). Pulling these into one place keeps the bulk-select
@@ -222,7 +223,8 @@
   --color-rating-fair:      #f1fa8c; /* >= 70 — yellow */
   --color-rating-meh:       #ffb86c; /* >= 60 — brownish-yellow */
   --color-rating-poor:      #c08454; /* >= 50 — brown */
-  --color-rating-bad:       #ff5555; /* <  50 — clear red */
+  --color-rating-bad:       #ff5555; /* >= 25 — clear red */
+  --color-rating-very-bad:  #7a2020; /* <  25 — dark muddy red (worst-of-worst) */
 }
 
 /* Base typography */
@@ -1080,11 +1082,58 @@ table.sessions-table th.sortable > .sortable-label {
   display: block;
   padding: 0;
 }
-/* Stack-table rows don't zebra — they're dense breakdown rows, not
-   browseable lists. The base `table:not(.detail-table)` zebra rule
-   would otherwise apply since `.stack-table` is its own class. */
-table.stack-table tr:nth-child(even) { background-color: transparent; }
-table.stack-table tr:hover { background-color: transparent; }
+/* Stack-table + kv-table shared zebra (2026-05-17).
+   Horizontal alternating-row stripe on tbody rows ONLY — thead is
+   preserved (header keeps its own `--color-bg-header` tint via the
+   `table.stack-table thead th` rule above). Hover stays suppressed
+   for both families: stack tables are dense breakdown rows (no
+   per-row navigation) and kv-tables are read-only meta strips, so
+   a hover highlight would only add noise.
+
+   `--color-bg-alt` (`#fafafa` light / `#21222c` dark) is the project's
+   canonical zebra alt — same token the base `table:not(.detail-table)
+   tr:nth-child(even)` rule uses. On the narrow pane (`#f4f6f8` light)
+   the alt reads as a touch lighter; on the dark pane (`#2f3142`) it
+   reads as a touch darker. Subtle in both modes by design.
+
+   `.kv-table` is the borderless header-less two-column key/value
+   table used for the `released / dev / pub` mini-strip on
+   `/games/:id` (and any future read-only meta surfaces — bundle
+   show, video show, etc.). It carries the same `border: none` +
+   transparent-cell-bg treatment as `.stack-table` so the two share
+   the visual vocabulary the user calls "stack-table style". */
+table.stack-table tbody tr:nth-child(even),
+table.kv-table tbody tr:nth-child(even) {
+  background-color: var(--color-bg-alt);
+}
+table.stack-table tr:hover,
+table.kv-table tr:hover {
+  background-color: transparent;
+}
+
+table.kv-table {
+  width: auto;
+  table-layout: auto;
+  border-collapse: collapse;
+}
+table.kv-table th,
+table.kv-table td {
+  border: none;
+  padding: 1px var(--stack-cell-padding);
+  background: transparent;
+  font-weight: normal;
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: nowrap;
+  vertical-align: top;
+}
+table.kv-table td.kv-table__label {
+  color: var(--color-muted);
+  padding-right: 12px;
+}
+table.kv-table td.kv-table__value {
+  color: var(--color-muted);
+}
 
 /* Rounded sessions-table wrapper (2026-05-17, revised).
 
@@ -1991,19 +2040,6 @@ hr.hairline {
   cursor: default;
 }
 
-/* Wave C6 (spec 08 §"LEFT-pane sections" position 12-13) — sync banner
-   at the bottom of the `/games/:id` LEFT pane. Renders the inline
-   dot-loader while a resync is in flight; otherwise the muted-italic
-   `synced Xm ago` short relative label produced by the
-   `short_synced_ago` GamesHelper. Sits below a `<hr class="hairline">`
-   divider — the small top margin guarantees the banner doesn't kiss
-   the hairline regardless of the hairline's own margins. */
-.sync-banner {
-  color: var(--color-muted);
-  font-style: italic;
-  margin-top: 8px;
-}
-
 /* Wave C7 (spec 08 §"RIGHT-pane sections" line 301 + §"RIGHT pane
    Time-to-beat" lines 318-333) — RIGHT-pane sections on `/games/:id`.
    The summary section sits above the hairline divider; the time-to-
@@ -2585,39 +2621,98 @@ textarea.note-editor-source {
 .platform-chip--switch { background-color: #E60012; color: #ffffff; }
 .platform-chip--steam  { background-color: #00ADEE; color: #ffffff; }
 /* Wave C5 (2026-05-17) — Synthesized rating heat-bar (spec 08
-   §"Rating heat-bar synthesis"). Fixed-width horizontal bar with an
-   absolutely-positioned fill (0..100%) and a right-aligned numeric
-   label that sits ABOVE the fill via z-index + a small `--color-bg`
-   plate so the digits stay legible regardless of the fill color
-   underneath. The muted variant (no contributing rating source)
-   keeps the 0%-fill silhouette so the layout slot does not collapse. */
+   §"Rating heat-bar synthesis").
+   2026-05-17 two-variant compare — the prior 4-variant showcase
+   (A/B/C/D) collapsed to TWO finalists rendered side-by-side on
+   /games/:id so the user can compare and re-lock:
+     red-only — gradient starts at `--color-rating-bad` (red); no
+                `very_bad` dark tone at all.
+     very-bad — gradient starts at `--color-rating-very-bad` (dark
+                muddy red) at 0% then transitions to
+                `--color-rating-bad` at 25%, then climbs through the
+                higher tiers.
+   Score is exposed as a CSS custom property `--score` (unitless
+   0..100) set inline on the host element. The indicator tick reads
+   it as `calc(var(--score) * 1%)` to position itself horizontally.
+   AR carve-out (2026-05-17) — red (`--color-rating-bad`) is the
+   BAD-zone color stop for the rating quality spectrum, and
+   `--color-rating-very-bad` (dark muddy red) anchors the
+   worst-of-worst below 25. See design.md + CLAUDE.md for the scoped
+   exception to the global "red = destructive only" rule. */
+
+/* Shared host + indicator + muted state. `background-image` is set per
+   variant below — this base rule only fixes box, border, and the
+   neutral fallback background. */
 .rating-heat-bar {
   position: relative;
-  display: inline-flex;
-  align-items: center;
-  width: 200px;
+  width: 100%;
   height: 14px;
-  background-color: var(--color-bg-alt);
+  margin-top: 8px;
   border: 1px solid var(--color-border);
+  background-color: var(--color-bg-alt);
 }
-.rating-heat-bar-fill {
+.rating-heat-bar-indicator {
   position: absolute;
-  inset: 0 auto 0 0;
-  height: 100%;
-}
-.rating-heat-bar-label {
-  position: relative;
-  margin-left: auto;
-  margin-right: 4px;
-  padding-left: 6px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--color-text);
-  background-color: var(--color-bg);
-  z-index: 1;
+  top: -4px;
+  bottom: -4px;
+  left: calc(var(--score) * 1%);
+  width: 2px;
+  background-color: var(--color-text);
+  transform: translateX(-1px); /* center the 2px tick on the score position */
+  pointer-events: none;
 }
 .rating-heat-bar--muted {
   opacity: 0.5;
+  background-image: none !important;
+  background-color: var(--color-bg-alt);
+}
+
+/* Variant: red-only worst. The bar starts at `--color-rating-bad`
+   (bright red) at 0% — no `very_bad` dark muddy red tone at all —
+   then climbs through poor → meh → fair → good → excellent. */
+.rating-heat-bar--red-only {
+  background-image: linear-gradient(
+    to right,
+    var(--color-rating-bad)        0%,
+    var(--color-rating-poor)      50%,
+    var(--color-rating-meh)       60%,
+    var(--color-rating-fair)      70%,
+    var(--color-rating-good)      80%,
+    var(--color-rating-excellent) 90%,
+    var(--color-rating-excellent) 100%
+  );
+}
+
+/* Variant: very-bad + red. The bar anchors at `--color-rating-very-bad`
+   (dark muddy red) at 0%, transitions to `--color-rating-bad` (bright
+   red) at 25%, then climbs through the higher tiers. This is the
+   currently locked B from the prior pick-off. */
+.rating-heat-bar--very-bad {
+  background-image: linear-gradient(
+    to right,
+    var(--color-rating-very-bad)   0%,
+    var(--color-rating-bad)       25%,
+    var(--color-rating-poor)      50%,
+    var(--color-rating-meh)       60%,
+    var(--color-rating-fair)      70%,
+    var(--color-rating-good)      80%,
+    var(--color-rating-excellent) 90%,
+    var(--color-rating-excellent) 100%
+  );
+}
+
+/* Compare scaffolding — only rendered on /games/:id during the
+   two-variant pick-off. Removed once the user re-locks. */
+.rating-heat-bar-compare {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+.rating-heat-bar-compare-label {
+  font-size: 11px;
+  color: var(--color-muted);
+  margin-bottom: 4px;
 }
 /* 2026-05-17 — Cross-cutting placeholder badge. Renders literal `[TBD]`
    in bright orange to flag surfaces we will get to later (footage rows,
@@ -3458,5 +3553,374 @@ input[type="text"].bundle-title-input:focus-visible {
   outline: none;
   outline-offset: 0;
   box-shadow: none;
+}
+
+/* ============================================================
+   Time-to-beat showcase (Wave C7 variants pass — 2026-05-17)
+   ============================================================
+   Multi-variant visualization gallery on /games/:id. Each
+   `.ttb-showcase__variant` renders one candidate treatment;
+   the `<hr class="ttb-hairline">` separators draw a single
+   full-width hairline between variants. Once the user picks
+   one variant, the showcase scaffolding + the unused variant
+   CSS blocks below get deleted.
+
+   All variants share:
+     - the canonical chart palette (--color-chart-1..3) for
+       main / extras / completionist
+     - tabular-nums monospace numerals for the value labels
+     - a ~60–110px content height so the page scrolls predictably
+*/
+
+.ttb-showcase {
+  margin-top: 12px;
+}
+
+.ttb-showcase__variant {
+  padding: 4px 0 8px 0;
+}
+
+.ttb-showcase__variant h4 {
+  margin: 0 0 6px 0;
+  color: var(--color-muted);
+  font-weight: 400;
+  font-size: 12px;
+}
+
+hr.ttb-hairline {
+  height: 0;
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  margin: 8px 0;
+}
+
+/* Shared legend used by :concentric and :stacked_timeline. */
+.ttb-legend {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+}
+
+.ttb-legend--inline {
+  flex-direction: row;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ttb-legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ttb-legend__swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.ttb-legend__label {
+  color: var(--color-muted);
+}
+
+.ttb-legend__value {
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+}
+
+/* Variant 1 — concentric arcs */
+.ttb-viz--concentric .ttb-concentric {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.ttb-viz--concentric .ttb-legend {
+  min-width: 160px;
+}
+
+/* Variant 2 — sized discs */
+.ttb-discs {
+  display: flex;
+  align-items: flex-end;
+  gap: 24px;
+}
+
+.ttb-discs__cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.ttb-discs__value {
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+
+.ttb-discs__label {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+/* Variant 3 — activity rings */
+.ttb-rings {
+  display: flex;
+  align-items: flex-end;
+  gap: 24px;
+}
+
+.ttb-rings__cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.ttb-rings__value {
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+
+.ttb-rings__label {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+/* Variant 4 — horizontal labeled bars */
+.ttb-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 420px;
+}
+
+.ttb-bars__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.ttb-bars__label {
+  width: 90px;
+  color: var(--color-muted);
+}
+
+.ttb-bars__track {
+  flex: 1;
+  height: 12px;
+  background: var(--color-bg-alt);
+  border: 1px solid var(--color-border);
+  position: relative;
+}
+
+.ttb-bars__fill {
+  height: 100%;
+}
+
+.ttb-bars__value {
+  width: 44px;
+  text-align: right;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Variant 5 — vertical column chart */
+.ttb-columns {
+  display: flex;
+  align-items: flex-end;
+  gap: 28px;
+}
+
+.ttb-columns__cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.ttb-columns__bar {
+  width: 36px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.ttb-columns__fill {
+  width: 100%;
+}
+
+.ttb-columns__value {
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.ttb-columns__label {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+/* Variant 6 — stepped pyramid */
+.ttb-pyramid {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 420px;
+}
+
+.ttb-pyramid__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ttb-pyramid__slab {
+  height: 18px;
+  min-width: 4px;
+}
+
+.ttb-pyramid__caption {
+  color: var(--color-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Variant 7 — clock faces */
+.ttb-clocks {
+  display: flex;
+  align-items: flex-end;
+  gap: 24px;
+}
+
+.ttb-clocks__cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.ttb-clocks__value {
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+
+.ttb-clocks__label {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+/* Variant 8 — sparkline ladder. SVG handles all rendering;
+   only the wrapper is styled here. */
+.ttb-ladder {
+  display: inline-block;
+}
+
+/* Variant 9 — stacked timeline */
+.ttb-stacked-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 480px;
+}
+
+.ttb-stacked-timeline__bar {
+  display: flex;
+  width: 100%;
+  height: 22px;
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+}
+
+.ttb-stacked-timeline__seg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.ttb-stacked-timeline__inline-label {
+  color: #ffffff;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.4);
+  padding: 0 4px;
+  white-space: nowrap;
+}
+
+/* Variant 10 — fuel gauge */
+.ttb-fuel-gauge {
+  max-width: 480px;
+  padding-top: 30px;
+}
+
+.ttb-fuel-gauge__ticks {
+  position: relative;
+  height: 28px;
+  margin-bottom: 2px;
+}
+
+.ttb-fuel-gauge__tick {
+  position: absolute;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 11px;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.ttb-fuel-gauge__tick-label {
+  color: var(--color-muted);
+}
+
+.ttb-fuel-gauge__tick-value {
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.ttb-fuel-gauge__bar {
+  position: relative;
+  width: 100%;
+  height: 16px;
+  background: var(--color-bg-alt);
+  border: 1px solid var(--color-border);
+}
+
+.ttb-fuel-gauge__fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: linear-gradient(
+    to right,
+    var(--color-chart-1),
+    var(--color-chart-2),
+    var(--color-chart-3)
+  );
+  opacity: 0.35;
+}
+
+.ttb-fuel-gauge__needle {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  transform: translateX(-50%);
 }
 

@@ -8,8 +8,10 @@
       3. Recently-played shelf (only when at least one game has
          `played_at` set).
       4. Hairline.
-      5. Genres outer shelf (one sub-shelf per non-empty genre, short
-         heading labels per `GenresHelper#genre_short_name`).
+      5. Genres outer shelf (one sub-shelf per non-empty genre,
+         heading labels per `GenresHelper#genre_display_name` —
+         IGDB-verbatim except for the cosmetic renames in
+         `GENRE_DISPLAY_RENAMES`).
       6. Hairline.
       7. Bundles outer shelf (one tile per non-empty bundle, alphabetical;
          clicking a tile opens the bundles-modal pane).
@@ -93,6 +95,18 @@
       FilterRowComponent's `data-games-filter-frame-id-value` for the
       controller to target — frame lookup is by id, so the frame may
       live anywhere in the document as long as the id is unique. %>
+  <%# 2026-05-17 — `games_listing` frame ALWAYS renders a visible body.
+      The previous outer `if has_any_content` wrapper let the frame
+      collapse to a comment-only / whitespace-only body when every shelf
+      bucket was empty (e.g. `?filters=` with zero results, or
+      `?filters=...,played` against a library where no game has
+      `played_at` set). Turbo Frame fetches against a body that
+      degenerates to whitespace tripped the "Content missing" fallback
+      in some browsers — the user saw the literal `Content missing`
+      string below the filter row instead of an empty-state message.
+      Explicit empty-state copy inside the frame keeps the frame body
+      non-empty so Turbo's frame-missing detection never fires AND
+      gives the user a useful "no games match this filter" hint. %>
   <%= turbo_frame_tag "games_listing" do %>
     <% has_any_content = @recently_played.any? ||
                          @genres_for_shelf.any? || @bundles_for_shelf.any? ||
@@ -131,6 +145,8 @@
         <hr class="hairline">
         <%= render "games/letter_shelves", buckets: @letter_buckets %>
       <% end %>
+    <% else %>
+      <p class="text-muted" style="margin: 16px 0 0;">no games match this filter.</p>
     <% end %>
   <% end %>
 </div>

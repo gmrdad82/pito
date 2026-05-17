@@ -1,11 +1,20 @@
-<% if (score = synthesized_score) %>
-  <div class="rating-heat-bar" data-score="<%= score %>">
-    <div class="rating-heat-bar-fill" style="width: <%= score %>%; background-color: <%= tier_color(score) %>;"></div>
-    <span class="rating-heat-bar-label"><%= score %></span>
+<%# Heat bar with two finalist variants (red_only / very_bad) selected
+    via the `variant:` kwarg. Default is `:very_bad`. The numeric
+    label is intentionally absent — the gradient + indicator tick
+    encode the score on their own. See
+    `rating_heat_bar_component.rb` for the score-synthesis logic, the
+    `very_bad → bad → poor → meh → fair → good → excellent` tier
+    stops, and the variant catalog. %>
+<% s = score %>
+<% if s %>
+  <div class="rating-heat-bar rating-heat-bar--<%= variant_modifier %>"
+       data-score="<%= s %>"
+       data-tier="<%= tier %>"
+       data-variant="<%= variant %>"
+       style="--score: <%= s %>; --tier-color: var(--color-rating-<%= tier %>);">
+    <div class="rating-heat-bar-indicator"></div>
   </div>
 <% else %>
-  <div class="rating-heat-bar rating-heat-bar--muted">
-    <div class="rating-heat-bar-fill" style="width: 0%;"></div>
-    <span class="rating-heat-bar-label">—</span>
-  </div>
+  <div class="rating-heat-bar rating-heat-bar--muted"
+       data-tier="missing"></div>
 <% end %>

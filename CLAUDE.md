@@ -346,6 +346,12 @@ See `docs/design.md` for the full design system. Key rules:
   `#ddd`
 - **Red (`#cc0000`) is ONLY for destructive / dangerous actions** — never in
   charts, indicators, or decorative elements
+- **Exception — rating quality spectrum.** The `RatingHeatBarComponent` may use
+  red (`var(--color-rating-bad)`, `#cc0000` light / `#ff5555` dark) as the low
+  end of the quality gradient. This is the ONE allowed non-destructive use of
+  red — restricted to the heat bar's bad-zone color stop and the
+  `--color-rating-bad` token's surface area. No other chart, indicator, or
+  decorative element may use red.
 - **Bracketed link convention:** all clickable elements use `[ label ]` — links,
   buttons, chart legends
 - **Cursor:** `cursor: pointer` on all clickable elements (links, buttons,

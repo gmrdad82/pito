@@ -1,0 +1,338 @@
+<%# Variant-aware time-to-beat visualization. See
+    `time_to_beat_component.rb` for the per-variant rationale + the
+    pillar color tokens. All variants are wrapped in a single
+    `.ttb-viz` host so the showcase CSS can target them uniformly. %>
+<%
+  h_main          = hours[:main].to_i
+  h_extras        = hours[:extras].to_i
+  h_completionist = hours[:completionist].to_i
+  max_h           = max_hours
+%>
+
+<div class="ttb-viz ttb-viz--<%= variant %>" data-variant="<%= variant %>">
+  <%- case variant
+      when :concentric -%>
+    <%# Three nested SVG circles: main inside extras inside
+        completionist. Radius is proportional to sqrt(hours) so disc
+        AREA scales with hours, which is the perceptually honest
+        reading. The smallest disc gets a minimum visual radius so a
+        tiny `main` value still reads. %>
+    <%
+      view_size      = 96
+      max_radius     = 44
+      scale          = ->(h) {
+        return 6 if h <= 0
+        ratio = Math.sqrt(h.to_f / max_h)
+        [ ratio * max_radius, 6 ].max
+      }
+      r_completionist = scale.call(h_completionist)
+      r_extras        = scale.call(h_extras)
+      r_main          = scale.call(h_main)
+    %>
+    <div class="ttb-concentric">
+      <svg viewBox="0 0 <%= view_size %> <%= view_size %>" width="<%= view_size %>" height="<%= view_size %>" role="img" aria-label="time to beat concentric arcs">
+        <circle cx="<%= view_size / 2 %>" cy="<%= view_size / 2 %>" r="<%= r_completionist %>"
+                fill="none" stroke="<%= Games::TimeToBeatComponent::PILLAR_COLOR[:completionist] %>" stroke-width="1.5"/>
+        <circle cx="<%= view_size / 2 %>" cy="<%= view_size / 2 %>" r="<%= r_extras %>"
+                fill="none" stroke="<%= Games::TimeToBeatComponent::PILLAR_COLOR[:extras] %>" stroke-width="1.5"/>
+        <circle cx="<%= view_size / 2 %>" cy="<%= view_size / 2 %>" r="<%= r_main %>"
+                fill="<%= Games::TimeToBeatComponent::PILLAR_COLOR[:main] %>" fill-opacity="0.25"
+                stroke="<%= Games::TimeToBeatComponent::PILLAR_COLOR[:main] %>" stroke-width="1.5"/>
+      </svg>
+      <ul class="ttb-legend">
+        <% Games::TimeToBeatComponent::PILLAR_KEYS.each do |key| %>
+          <li>
+            <span class="ttb-legend__swatch" style="background: <%= Games::TimeToBeatComponent::PILLAR_COLOR[key] %>;"></span>
+            <span class="ttb-legend__label"><%= Games::TimeToBeatComponent::PILLAR_LABEL[key] %></span>
+            <span class="ttb-legend__value"><%= label_for(key) %></span>
+          </li>
+        <% end %>
+      </ul>
+    </div>
+
+  <%- when :discs -%>
+    <%# Three SVG discs side-by-side, diameter ∝ sqrt(hours) so area
+        scales linearly with hours. Hours labeled below each disc. %>
+    <%
+      max_diameter = 80
+      scale = ->(h) {
+        return 8 if h <= 0
+        ratio = Math.sqrt(h.to_f / max_h)
+        [ ratio * max_diameter, 8 ].max
+      }
+    %>
+    <div class="ttb-discs">
+      <% Games::TimeToBeatComponent::PILLAR_KEYS.each do |key| %>
+        <% diameter = scale.call(hours[key].to_i) %>
+        <div class="ttb-discs__cell">
+          <svg width="<%= max_diameter %>" height="<%= max_diameter %>" viewBox="0 0 <%= max_diameter %> <%= max_diameter %>" role="img" aria-label="<%= Games::TimeToBeatComponent::PILLAR_LABEL[key] %>">
+            <circle cx="<%= max_diameter / 2 %>" cy="<%= max_diameter / 2 %>" r="<%= diameter / 2.0 %>"
+                    fill="<%= Games::TimeToBeatComponent::PILLAR_COLOR[key] %>" fill-opacity="0.85"/>
+          </svg>
+          <div class="ttb-discs__value"><%= label_for(key) %></div>
+          <div class="ttb-discs__label"><%= Games::TimeToBeatComponent::PILLAR_LABEL[key] %></div>
+        </div>
+      <% end %>
+    </div>
+
+  <%- when :rings -%>
+    <%# Three Apple-Watch-style activity rings in a row. Each ring
+        is a stroked SVG circle whose dash array reveals a fraction
+        of the circumference equal to `fraction_for(key)`. Background
+        ring (full circle, muted) sits underneath. %>
+    <%
+      ring_size     = 72
+      stroke_width  = 8
+      radius        = (ring_size - stroke_width) / 2.0
+      circumference = 2 * Math::PI * radius
+    %>
+    <div class="ttb-rings">
+      <% Games::TimeToBeatComponent::PILLAR_KEYS.each do |key| %>
+        <% frac = fraction_for(key) %>
+        <% dash = (circumference * frac).round(2) %>
+        <div class="ttb-rings__cell">
+          <svg width="<%= ring_size %>" height="<%= ring_size %>" viewBox="0 0 <%= ring_size %> <%= ring_size %>" role="img" aria-label="<%= Games::TimeToBeatComponent::PILLAR_LABEL[key] %> ring">
+            <circle cx="<%= ring_size / 2 %>" cy="<%= ring_size / 2 %>" r="<%= radius %>"
+                    fill="none" stroke="var(--color-border)" stroke-width="<%= stroke_width %>"/>
+            <circle cx="<%= ring_size / 2 %>" cy="<%= ring_size / 2 %>" r="<%= radius %>"
+                    fill="none" stroke="<%= Games::TimeToBeatComponent::PILLAR_COLOR[key] %>" stroke-width="<%= stroke_width %>"
+                    stroke-linecap="round"
+                    stroke-dasharray="<%= dash %> <%= circumference %>"
+                    transform="rotate(-90 <%= ring_size / 2 %> <%= ring_size / 2 %>)"/>
+          </svg>
+          <div class="ttb-rings__value"><%= label_for(key) %></div>
+          <div class="ttb-rings__label"><%= Games::TimeToBeatComponent::PILLAR_LABEL[key] %></div>
+        </div>
+      <% end %>
+    </div>
+
+  <%- when :bars -%>
+    <%# Three horizontal bars stacked, width proportional to hours.
+        Label left + value right; the filled track sits between. %>
+    <div class="ttb-bars">
+      <% Games::TimeToBeatComponent::PILLAR_KEYS.each do |key| %>
+        <% pct = (fraction_for(key) * 100).round(2) %>
+        <div class="ttb-bars__row">
+          <span class="ttb-bars__label"><%= Games::TimeToBeatComponent::PILLAR_LABEL[key] %></span>
+          <div class="ttb-bars__track">
+            <div class="ttb-bars__fill" style="width: <%= pct %>%; background: <%= Games::TimeToBeatComponent::PILLAR_COLOR[key] %>;"></div>
+          </div>
+          <span class="ttb-bars__value"><%= label_for(key) %></span>
+        </div>
+      <% end %>
+    </div>
+
+  <%- when :columns -%>
+    <%# Three vertical bars side-by-side, bottom-aligned. Height ∝
+        hours. Labels under each. Classic column chart. %>
+    <%
+      max_column_height = 80
+    %>
+    <div class="ttb-columns">
+      <% Games::TimeToBeatComponent::PILLAR_KEYS.each do |key| %>
+        <% height = (fraction_for(key) * max_column_height).round(2) %>
+        <div class="ttb-columns__cell">
+          <div class="ttb-columns__bar" style="height: <%= max_column_height %>px;">
+            <div class="ttb-columns__fill" style="height: <%= height %>px; background: <%= Games::TimeToBeatComponent::PILLAR_COLOR[key] %>;"></div>
+          </div>
+          <div class="ttb-columns__value"><%= label_for(key) %></div>
+          <div class="ttb-columns__label"><%= Games::TimeToBeatComponent::PILLAR_LABEL[key] %></div>
+        </div>
+      <% end %>
+    </div>
+
+  <%- when :pyramid -%>
+    <%# Three rectangles stacked vertically. Width grows as hours
+        grow — main is narrowest at the top, completionist is widest
+        at the bottom. Reads as accumulating commitment. %>
+    <%
+      pyramid_keys = Games::TimeToBeatComponent::PILLAR_KEYS # main, extras, completionist
+    %>
+    <div class="ttb-pyramid">
+      <% pyramid_keys.each do |key| %>
+        <% pct = (fraction_for(key) * 100).round(2) %>
+        <div class="ttb-pyramid__row">
+          <div class="ttb-pyramid__slab"
+               style="width: <%= pct %>%; background: <%= Games::TimeToBeatComponent::PILLAR_COLOR[key] %>;">
+          </div>
+          <span class="ttb-pyramid__caption">
+            <%= Games::TimeToBeatComponent::PILLAR_LABEL[key] %> · <%= label_for(key) %>
+          </span>
+        </div>
+      <% end %>
+    </div>
+
+  <%- when :clocks -%>
+    <%# Three small SVG clock faces. Each clock shows a filled wedge
+        (from 12 o'clock, clockwise) covering `hours-mod-12 / 12` of
+        the face. Themed for "time". The wedge math uses a circular
+        path with a Bezier-free arc. %>
+    <%
+      face_size = 60
+      radius    = (face_size / 2.0) - 4
+      cx        = face_size / 2.0
+      cy        = face_size / 2.0
+      wedge_path = ->(h_value) {
+        return nil if h_value <= 0
+        frac = (h_value % 12).to_f / 12.0
+        return nil if frac <= 0
+        angle = 2 * Math::PI * frac
+        # 12 o'clock = (cx, cy - r). Sweep clockwise by `angle`.
+        end_x = cx + radius * Math.sin(angle)
+        end_y = cy - radius * Math.cos(angle)
+        large_arc = frac > 0.5 ? 1 : 0
+        if frac >= 1.0
+          # Full circle — draw two half-arcs to avoid degenerate path.
+          "M #{cx} #{cy - radius} A #{radius} #{radius} 0 1 1 #{cx - 0.01} #{cy - radius} Z"
+        else
+          "M #{cx} #{cy} L #{cx} #{cy - radius} A #{radius} #{radius} 0 #{large_arc} 1 #{end_x.round(3)} #{end_y.round(3)} Z"
+        end
+      }
+    %>
+    <div class="ttb-clocks">
+      <% Games::TimeToBeatComponent::PILLAR_KEYS.each do |key| %>
+        <% h_value = hours[key].to_i %>
+        <% path = wedge_path.call(h_value) %>
+        <div class="ttb-clocks__cell">
+          <svg width="<%= face_size %>" height="<%= face_size %>" viewBox="0 0 <%= face_size %> <%= face_size %>" role="img" aria-label="<%= Games::TimeToBeatComponent::PILLAR_LABEL[key] %> clock">
+            <%# Clock face %>
+            <circle cx="<%= cx %>" cy="<%= cy %>" r="<%= radius %>"
+                    fill="var(--color-bg)" stroke="var(--color-border)" stroke-width="1"/>
+            <%# Hour ticks at 12, 3, 6, 9 %>
+            <% [ [ cx, cy - radius ], [ cx + radius, cy ], [ cx, cy + radius ], [ cx - radius, cy ] ].each do |tx, ty| %>
+              <circle cx="<%= tx %>" cy="<%= ty %>" r="1" fill="var(--color-muted)"/>
+            <% end %>
+            <%# Filled wedge representing hours-mod-12 fraction %>
+            <% if path %>
+              <path d="<%= path %>" fill="<%= Games::TimeToBeatComponent::PILLAR_COLOR[key] %>" fill-opacity="0.55"
+                    stroke="<%= Games::TimeToBeatComponent::PILLAR_COLOR[key] %>" stroke-width="1"/>
+            <% end %>
+            <%# Center pin %>
+            <circle cx="<%= cx %>" cy="<%= cy %>" r="1.5" fill="var(--color-text)"/>
+          </svg>
+          <div class="ttb-clocks__value"><%= label_for(key) %></div>
+          <div class="ttb-clocks__label"><%= Games::TimeToBeatComponent::PILLAR_LABEL[key] %></div>
+        </div>
+      <% end %>
+    </div>
+
+  <%- when :ladder -%>
+    <%# Sparkline ladder. Three notches plotted at x = 1/2/3 across
+        the row, y inversely proportional to hours (higher hour =
+        lower notch, so the line rises as effort grows... actually
+        we render top-down: more hours → notch closer to the top so
+        it reads as "growing"). Connecting polyline between the
+        notches reads as "this is how the effort scales". %>
+    <%
+      ladder_w      = 220
+      ladder_h      = 80
+      pad_x         = 18
+      pad_y         = 10
+      span_x        = ladder_w - 2 * pad_x
+      span_y        = ladder_h - 2 * pad_y
+      points        = Games::TimeToBeatComponent::PILLAR_KEYS.each_with_index.map { |key, i|
+        x = pad_x + (span_x * (i.to_f / 2.0))
+        # Higher hours → smaller y (closer to top).
+        y = pad_y + span_y * (1.0 - fraction_for(key))
+        [ key, x.round(2), y.round(2) ]
+      }
+      polyline = points.map { |_, x, y| "#{x},#{y}" }.join(" ")
+    %>
+    <div class="ttb-ladder">
+      <svg width="<%= ladder_w %>" height="<%= ladder_h %>" viewBox="0 0 <%= ladder_w %> <%= ladder_h %>" role="img" aria-label="time to beat ladder">
+        <%# Axis baseline %>
+        <line x1="<%= pad_x %>" y1="<%= ladder_h - pad_y %>" x2="<%= ladder_w - pad_x %>" y2="<%= ladder_h - pad_y %>"
+              stroke="var(--color-border)" stroke-width="1"/>
+        <%# Connecting polyline %>
+        <polyline points="<%= polyline %>" fill="none" stroke="var(--color-muted)" stroke-width="1" stroke-dasharray="3 3"/>
+        <%# Notch dots %>
+        <% points.each do |key, x, y| %>
+          <circle cx="<%= x %>" cy="<%= y %>" r="4"
+                  fill="<%= Games::TimeToBeatComponent::PILLAR_COLOR[key] %>"
+                  stroke="var(--color-bg)" stroke-width="1.5"/>
+          <text x="<%= x %>" y="<%= y - 8 %>" text-anchor="middle"
+                font-size="10" fill="var(--color-text)" font-family="ui-monospace, monospace">
+            <%= label_for(key) %>
+          </text>
+          <text x="<%= x %>" y="<%= ladder_h - pad_y + 12 %>" text-anchor="middle"
+                font-size="10" fill="var(--color-muted)" font-family="ui-monospace, monospace">
+            <%= Games::TimeToBeatComponent::PILLAR_LABEL[key] %>
+          </text>
+        <% end %>
+      </svg>
+    </div>
+
+  <%- when :stacked_timeline -%>
+    <%# Single continuous horizontal bar segmented into three regions:
+        [0..main] = main, [main..extras] = the extras delta, and
+        [extras..completionist] = the completionist delta. Reads as
+        "main → +extras → +completionist" along one effort timeline.
+        Deltas are clamped to >= 0 so out-of-order inputs do not
+        produce negative widths. %>
+    <%
+      total      = h_completionist > 0 ? h_completionist : [ h_main, h_extras, h_completionist ].max
+      total      = 1 if total <= 0
+      main_pct   = ([ h_main, total ].min.to_f / total * 100).round(2)
+      extras_delta_pct = ([ [ h_extras - h_main, 0 ].max, total ].min.to_f / total * 100).round(2)
+      compl_delta_pct  = ([ [ h_completionist - h_extras, 0 ].max, total ].min.to_f / total * 100).round(2)
+    %>
+    <div class="ttb-stacked-timeline">
+      <div class="ttb-stacked-timeline__bar">
+        <div class="ttb-stacked-timeline__seg" style="width: <%= main_pct %>%; background: <%= Games::TimeToBeatComponent::PILLAR_COLOR[:main] %>;">
+          <span class="ttb-stacked-timeline__inline-label"><%= label_for(:main) %></span>
+        </div>
+        <div class="ttb-stacked-timeline__seg" style="width: <%= extras_delta_pct %>%; background: <%= Games::TimeToBeatComponent::PILLAR_COLOR[:extras] %>;">
+          <span class="ttb-stacked-timeline__inline-label"><%= label_for(:extras) %></span>
+        </div>
+        <div class="ttb-stacked-timeline__seg" style="width: <%= compl_delta_pct %>%; background: <%= Games::TimeToBeatComponent::PILLAR_COLOR[:completionist] %>;">
+          <span class="ttb-stacked-timeline__inline-label"><%= label_for(:completionist) %></span>
+        </div>
+      </div>
+      <ul class="ttb-legend ttb-legend--inline">
+        <% Games::TimeToBeatComponent::PILLAR_KEYS.each do |key| %>
+          <li>
+            <span class="ttb-legend__swatch" style="background: <%= Games::TimeToBeatComponent::PILLAR_COLOR[key] %>;"></span>
+            <span class="ttb-legend__label"><%= Games::TimeToBeatComponent::PILLAR_LABEL[key] %></span>
+          </li>
+        <% end %>
+      </ul>
+    </div>
+
+  <%- when :fuel_gauge -%>
+    <%# Horizontal fuel gauge running 0 → completionist. The bar fills
+        to the completionist mark; three ticks above carry the main /
+        extras / completionist labels at their proportional positions.
+        Reads at a glance as "this is where each milestone sits on the
+        full-effort scale". %>
+    <%
+      ceiling = [ h_completionist, h_extras, h_main, 1 ].max
+      main_pos   = (h_main.to_f          / ceiling * 100).clamp(0, 100).round(2)
+      extras_pos = (h_extras.to_f        / ceiling * 100).clamp(0, 100).round(2)
+      compl_pos  = (h_completionist.to_f / ceiling * 100).clamp(0, 100).round(2)
+      fill_pct   = compl_pos
+    %>
+    <div class="ttb-fuel-gauge">
+      <div class="ttb-fuel-gauge__ticks">
+        <div class="ttb-fuel-gauge__tick" style="left: <%= main_pos %>%;">
+          <span class="ttb-fuel-gauge__tick-label"><%= Games::TimeToBeatComponent::PILLAR_LABEL[:main] %></span>
+          <span class="ttb-fuel-gauge__tick-value"><%= label_for(:main) %></span>
+        </div>
+        <div class="ttb-fuel-gauge__tick" style="left: <%= extras_pos %>%;">
+          <span class="ttb-fuel-gauge__tick-label"><%= Games::TimeToBeatComponent::PILLAR_LABEL[:extras] %></span>
+          <span class="ttb-fuel-gauge__tick-value"><%= label_for(:extras) %></span>
+        </div>
+        <div class="ttb-fuel-gauge__tick" style="left: <%= compl_pos %>%;">
+          <span class="ttb-fuel-gauge__tick-label"><%= Games::TimeToBeatComponent::PILLAR_LABEL[:completionist] %></span>
+          <span class="ttb-fuel-gauge__tick-value"><%= label_for(:completionist) %></span>
+        </div>
+      </div>
+      <div class="ttb-fuel-gauge__bar">
+        <div class="ttb-fuel-gauge__fill" style="width: <%= fill_pct %>%;"></div>
+        <div class="ttb-fuel-gauge__needle" style="left: <%= main_pos %>%; background: <%= Games::TimeToBeatComponent::PILLAR_COLOR[:main] %>;"></div>
+        <div class="ttb-fuel-gauge__needle" style="left: <%= extras_pos %>%; background: <%= Games::TimeToBeatComponent::PILLAR_COLOR[:extras] %>;"></div>
+        <div class="ttb-fuel-gauge__needle" style="left: <%= compl_pos %>%; background: <%= Games::TimeToBeatComponent::PILLAR_COLOR[:completionist] %>;"></div>
+      </div>
+    </div>
+
+  <%- end -%>
+</div>

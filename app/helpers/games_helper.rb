@@ -92,23 +92,4 @@ module GamesHelper
     hours = (seconds.to_f / 3600).round
     "#{hours}h"
   end
-
-  # Wave C6 (spec 08 §helper `short_synced_ago`) — short relative-time
-  # label for the LEFT-pane sync banner on `/games/:id`. Returns a
-  # dense single-unit suffix (`s` / `m` / `h` / `d`) so the banner
-  # reads as `synced 22m ago` rather than `synced about 22 minutes
-  # ago`. The view template adds the `synced ` prefix and ` ago`
-  # suffix; this helper emits only the bare unit. `nil` returns
-  # `"never"` for the not-yet-synced case.
-  def short_synced_ago(timestamp)
-    return "never" if timestamp.nil?
-
-    seconds = (Time.current - timestamp).to_i
-    case seconds
-    when 0..59       then "#{seconds}s"
-    when 60..3599    then "#{seconds / 60}m"
-    when 3600..86399 then "#{seconds / 3600}h"
-    else                  "#{seconds / 86400}d"
-    end
-  end
 end

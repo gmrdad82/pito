@@ -13,26 +13,26 @@
 # an `ensure` block so a crash inside `SyncGame` still releases
 # the lock.
 #
-# Phase 27 v2 spec 03 — three-layer lock + live UI + collection
-# fan-out, mirroring `ReindexAllJob`'s pattern:
+# Phase 27 v2 spec 03 — two-layer lock + collection fan-out, mirroring
+# `ReindexAllJob`'s pattern:
 #
 #   Layer 1 — DB mutex (`games.resyncing` Boolean). Set at start,
 #             cleared in `ensure`. The controller consults the same
 #             flag to short-circuit duplicate enqueues from the
-#             [resync] click.
+#             breadcrumb [sync] click.
 #   Layer 2 — Sidekiq uniqueness lock (`sidekiq_options lock:
 #             :until_executed, on_conflict: :log`). Pito runs on
 #             Sidekiq OSS without `sidekiq-unique-jobs`, so the
 #             option is a NO-OP intent declaration today — the DB
 #             flag (Layer 1) is the real safety net. If the gem is
 #             ever added, the keys are already in place.
-#   Layer 3 — UI gate. The show view renders `games/_sync_status`
-#             — the dot-loader while `resyncing?`, the `[resync]`
-#             button otherwise — and subscribes permanently to the
-#             `"game_resync:<id>"` Turbo-Stream. The broadcast in
-#             `broadcast_resync_state` fires twice per run (success
-#             path before fan-out, and again in `ensure`) so any
-#             open tab swaps to the latest state without a refresh.
+#
+# UI feedback while a resync is in flight is handled entirely on
+# `/games/:id` by the page-level `auto-refresh` controller (reloads
+# every ~5 s while `@game.resyncing?` is true). The dedicated sync
+# pane / banner and the `_sync_status` partial were removed —
+# breadcrumb [sync] (muted-while-syncing per Wave C8) is the only
+# control surface.
 #
 # Bundle cover-art fan-out (success path only) — every bundle the
 # game belongs to gets its composite cover rebuilt via
@@ -96,31 +96,6 @@ class GameIgdbSync
       # other columns; `update_column` works on the persisted record
       # regardless of the in-memory state.
       Game.where(id: game.id).update_all(resyncing: false)
-      broadcast_resync_state(game.id)
     end
-  end
-
-  private
-
-  # Phase 27 v2 spec 03 — re-render the `games/_sync_status` partial
-  # and replace the `game_sync_status_<id>` target on the
-  # `"game_resync:<id>"` Turbo-Stream. The partial reads
-  # `game.resyncing?` fresh, so post-clear it lands in the idle
-  # `[resync]` state. A Redis / Turbo wire failure is swallowed —
-  # the broadcast is a UX nicety, not a correctness requirement,
-  # and a raise here would trip Sidekiq retry on an otherwise
-  # successful run.
-  def broadcast_resync_state(game_id)
-    game = Game.find_by(id: game_id)
-    return unless game
-
-    Turbo::StreamsChannel.broadcast_replace_to(
-      "game_resync:#{game.id}",
-      target: "game_sync_status_#{game.id}",
-      partial: "games/sync_status",
-      locals: { game: game }
-    )
-  rescue StandardError
-    nil
   end
 end

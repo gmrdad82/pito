@@ -52,7 +52,7 @@
          end
 %>
 <%= render(Games::ShelfComponent.new(
-      heading: genre_short_name(genre),
+      heading: genre_display_name(genre),
       count: total_count,
       heading_level: :h3,
       extra_classes: "sub-shelf sub-shelf--genre",

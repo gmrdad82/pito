@@ -1,29 +1,20 @@
-<%# Phase 14 §1 polish (2026-05-10) — game show page revamped to a
-    READ-ONLY surface. The inline form moved to `/games/:id/edit`.
-    Layout is three rows of `.pane-row`s:
+<%# Phase 14 §1 polish (2026-05-10) — game show page is a READ-ONLY
+    surface. The inline form lives at `/games/:id/edit`. Layout is two
+    rows of `.pane-row`s:
       Row 1 — narrow cover pane + wide read-only metadata pane.
-      Row 2 — wide standalone sync pane (status + animated indicator
-              while the resync job is in flight, `[resync]` link
-              otherwise).
-      Row 3 — wide linked-videos pane.
-    The breadcrumb-action strip carries `[edit]` and `[delete]`
-    (Wave C9 — the `[delete]` opens an in-page `ConfirmModalComponent`
+      Row 2 — wide linked-videos pane.
+    The breadcrumb-action strip carries `[sync]` (Wave C8 — muted
+    while a resync is in flight, an active button otherwise) and
+    `[delete]` (Wave C9 — opens an in-page `ConfirmModalComponent`
     rendered at the bottom of this template; the old action-screen at
-    `/deletions/game/:id` is no longer reached from this surface);
-    `[resync]` is NOT in the breadcrumb action strip — it lives
-    inside the sync pane so the moving indicator can replace it
-    without re-flowing the breadcrumb. The muted re-sync caveat
-    reads one sentence per line per the lead-paragraph rule.
+    `/deletions/game/:id` is no longer reached from this surface).
+    The dedicated sync pane and the LEFT-pane sync banner were
+    removed — the breadcrumb [sync] is the single resync control,
+    and the page-level `auto-refresh` div below picks up the cleared
+    `resyncing` flag with a full reload.
 %>
 <% content_for(:title, @game.title) %>
 <% breadcrumb(["games", games_path], @game.title) %>
-
-<%# Phase 27 v2 spec 03 — permanent Turbo-Stream subscription so the
-    sync-status pane swaps live whenever a resync starts / finishes
-    (whether triggered by this tab, the CLI, MCP, or another browser
-    tab). The `GameResyncJob` broadcasts a replace of
-    `game_sync_status_<id>` on the `"game_resync:<id>"` stream. %>
-<%= turbo_stream_from "game_resync:#{@game.id}" %>
 
 <%# Phase 28 §01a — muted parent pointer for editions. Bracketed link
     above the page chrome so the user can hop up to the primary's show
@@ -59,7 +50,7 @@
        class="bracketed text-danger"
        data-controller="modal-trigger"
        data-action="click->modal-trigger#open"
-       data-modal-trigger-target-id-value="confirm_delete_game_<%= @game.id %>">[<span class="bl">delete</span>]</a>
+       data-modal-trigger-target-id-value="confirm_delete_game_<%= @game.id %>">[<span class="bl">-</span>]</a>
   </div>
 <% end %>
 
@@ -84,9 +75,8 @@
     modifier flips this specific row to `flex-wrap: nowrap` so the
     280px cover and 640px details panes stay side-by-side at standard
     workspace widths instead of stacking. Narrower viewports get a
-    horizontal scrollbar instead of wrap. Rows 2 (sync) and 3 (linked
-    videos) keep the default `.pane-row` (single wide pane each, no
-    wrap concern).
+    horizontal scrollbar instead of wrap. Row 2 (linked videos) keeps
+    the default `.pane-row` (single wide pane, no wrap concern).
 %>
 <div class="pane-row pane-row--game-show">
   <div class="pane pane--narrow">
@@ -101,8 +91,9 @@
         name, capped at 2 (so 1 + 2 = 3 max). Separator is ` · `
         (space-dot-space). When no genres at all, the block renders an
         em-dash `<em>—</em>` for the muted "unknown" signal. Labels
-        flow through `genre_short_name` (GenresHelper) so the dense
-        short forms (RPG, JRPG, Sim, …) match the shelves chrome. %>
+        flow through `genre_display_name` (GenresHelper) — IGDB names
+        render verbatim except for the cosmetic renames declared in
+        `GENRE_DISPLAY_RENAMES`. %>
     <% if @game.primary_genre || @game.genres.any? %>
       <div class="game-genres" style="margin: 0 0 4px 0;">
         <%
@@ -116,9 +107,9 @@
         <% if genres_list.any? %>
           <% genres_list.each_with_index do |g, i| %>
             <% if i.zero? %>
-              <strong><%= genre_short_name(g) %></strong>
+              <strong><%= genre_display_name(g) %></strong>
             <% else %>
-              <span><%= genre_short_name(g) %></span>
+              <span><%= genre_display_name(g) %></span>
             <% end %>
             <% if i < genres_list.length - 1 %> · <% end %>
           <% end %>
@@ -128,42 +119,69 @@
       </div>
     <% end %>
 
-    <%# Meta block: one label per line. Skip lines whose value is
-        missing entirely (no `pub: —` placeholder). Uses `<br>`
-        between lines inside one `<p class="text-muted">` so the
-        existing margin / lead-paragraph styling holds. %>
+    <%# Meta block: released / dev / pub rendered as a borderless,
+        header-less two-column `kv-table` (label / value). Rows
+        zebra-stripe horizontally to match the /settings stack-pane
+        treatment (`.kv-table tbody tr:nth-child(even)` shares the
+        same alt-row background with `.stack-table tbody tr:nth-child(even)`
+        — see `application.css`).
+        Skip a row entirely when its value is missing (no `pub: —`
+        placeholder). Date formatted as `MM-DD-YYYY` per 2026-05-11
+        polish (Fix 3). %>
     <%
-      # 2026-05-11 polish (Fix 3) — the `released:` line now renders
-      # the full date in `MM-DD-YYYY` format (was previously the year
-      # only). The label is suppressed entirely when `release_date`
-      # is nil — there is no `released: —` placeholder.
-      meta_lines = []
+      meta_rows = []
       if @game.release_date.present?
-        meta_lines << "released: #{@game.release_date.strftime("%m-%d-%Y")}"
+        meta_rows << ["released", @game.release_date.strftime("%m-%d-%Y")]
       end
       developer_names = @game.developers.map(&:name)
-      meta_lines << "dev: #{developer_names.join(", ")}" if developer_names.any?
+      meta_rows << ["dev", developer_names.join(", ")] if developer_names.any?
       publisher_names = @game.publishers.map(&:name)
-      meta_lines << "pub: #{publisher_names.join(", ")}" if publisher_names.any?
+      meta_rows << ["pub", publisher_names.join(", ")] if publisher_names.any?
     %>
-    <% if meta_lines.any? %>
-      <p class="text-muted" style="margin: 0 0 8px 0;">
-        <%= safe_join(meta_lines, tag.br) %>
-      </p>
+    <% if meta_rows.any? %>
+      <table class="kv-table" style="margin: 0 0 8px 0;">
+        <tbody>
+          <% meta_rows.each do |label, value| %>
+            <tr>
+              <td class="kv-table__label"><%= label %></td>
+              <td class="kv-table__value"><%= value %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
     <% end %>
 
     <%# Wave C5 (spec 08 §"Rating heat-bar synthesis") — vote-weighted
         synthesized score across the three IGDB rating triplets,
-        rendered as a 200px horizontal heat-bar tinted by the same
-        `--color-rating-*` tier palette `Games::RatingBadgeComponent`
-        uses. Sits below the meta block (release / dev / pub) so the
-        LEFT pane reads: cover → title → genres → meta → heat-bar →
-        (future C6 sync banner). %>
-    <%= render(Games::RatingHeatBarComponent.new(game: @game)) %>
+        rendered as a heat-bar. 2026-05-17 two-variant compare —
+        both finalists render stacked so the user can re-lock:
+          red-only — gradient starts at `--color-rating-bad` (bright
+                     red); no dark muddy red tone at all.
+          very-bad — gradient starts at `--color-rating-very-bad`
+                     (dark muddy red) then transitions to
+                     `--color-rating-bad` at 25%, then climbs.
+        AR carve-out: red (`--color-rating-bad`) covers bad (25–49)
+        and the dark muddy red (`--color-rating-very-bad`) anchors
+        the worst-of-worst (<25) in the very-bad variant. The
+        numeric label is gone on purpose — the bar's color encodes
+        the score. Sits below the meta block (release / dev / pub)
+        so the LEFT pane reads: cover → title → genres → meta →
+        heat-bar → ownership. The compare scaffolding collapses
+        back to a single render once the user picks. %>
+    <div class="rating-heat-bar-compare">
+      <div>
+        <div class="rating-heat-bar-compare-label">red-only worst</div>
+        <%= render(Games::RatingHeatBarComponent.new(game: @game, variant: :red_only)) %>
+      </div>
+      <div>
+        <div class="rating-heat-bar-compare-label">very-bad (dark shit) + red</div>
+        <%= render(Games::RatingHeatBarComponent.new(game: @game, variant: :very_bad)) %>
+      </div>
+    </div>
 
     <%# Wave C4 (spec 08 §"Ownership chips") — LEFT-pane ownership
-        section. Sits between the heat-bar (Wave C5) and the sync
-        banner (Wave C6, future). Rows:
+        section. Sits below the heat-bar (Wave C5) as the LEFT pane's
+        terminal block. Rows:
           platforms — one per-platform toggle chip per applicable
                       brand slug (PS5 / Switch / Steam). Each chip
                       flips ownership via the existing
@@ -209,26 +227,6 @@
       </div>
     </section>
 
-    <%# Wave C6 (spec 08 §"LEFT-pane sections" position 12-13) — sync
-        banner at the bottom of the LEFT pane. Renders the inline
-        `=---` dot-loader while a resync is in flight; otherwise the
-        short `synced Xm ago` muted-italic label. The full sync pane
-        (heading + caveat + [resync] button) still lives in Row 2 via
-        the `_sync_status` partial — this banner is a quiet status
-        echo, not a control surface. %>
-    <hr class="hairline">
-
-    <div class="sync-banner">
-      <% if @game.resyncing? %>
-        <span data-controller="sync-indicator"
-              data-sync-indicator-frames-value='["=---","-=--","--=-","---="]'
-              data-sync-indicator-interval-value="200"
-              class="sync-indicator"
-              style="font-family: var(--font-mono); letter-spacing: 0.1em;">=---</span>
-      <% else %>
-        synced <%= short_synced_ago(@game.igdb_synced_at) %> ago
-      <% end %>
-    </div>
   </div>
 
   <%# Wave C7 (spec 08 §"RIGHT-pane sections" line 301 + §"RIGHT pane
@@ -265,39 +263,38 @@
       <hr class="hairline">
     <% end %>
 
-    <section class="game-ttb">
-      <h2 style="margin-top: 0;">time to beat</h2>
-      <table class="ttb-table">
-        <thead>
-          <tr>
-            <th>main</th>
-            <th>extras</th>
-            <th>completionist</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><%= ttb_hours(@game.ttb_main_seconds) %></td>
-            <td><%= ttb_hours(@game.ttb_extras_seconds) %></td>
-            <td><%= ttb_hours(@game.ttb_completionist_seconds) %></td>
-          </tr>
-        </tbody>
-      </table>
+    <%# 2026-05-17 variants pass — time-to-beat visualization
+        showcase. Renders 10 candidate treatments stacked vertically,
+        separated by full-width hairlines, so the user can pick one
+        visually. Once chosen, this block collapses back to a single
+        `<%= "Games::TimeToBeatComponent.new(game: @game, variant: :X)" %>`
+        call and the showcase scaffolding gets deleted. %>
+    <%
+      ttb_variants = [
+        [ :concentric,       "Variant 1 — concentric arcs (nested rings)" ],
+        [ :discs,            "Variant 2 — sized discs in a row" ],
+        [ :rings,            "Variant 3 — activity rings (donut)" ],
+        [ :bars,             "Variant 4 — horizontal labeled bars" ],
+        [ :columns,          "Variant 5 — vertical bar trio (column chart)" ],
+        [ :pyramid,          "Variant 6 — stepped pyramid / staircase" ],
+        [ :clocks,           "Variant 7 — stopwatch / clock-face metaphor" ],
+        [ :ladder,           "Variant 8 — sparkline / cumulative ladder" ],
+        [ :stacked_timeline, "Variant 9 — stacked timeline (single segmented bar)" ],
+        [ :fuel_gauge,       "Variant 10 — fuel gauge with milestone ticks" ]
+      ]
+    %>
+    <section class="ttb-showcase" aria-label="time to beat variants">
+      <h2 style="margin-top: 0;">time to beat — pick a variant</h2>
+      <% ttb_variants.each_with_index do |(variant_key, label), idx| %>
+        <div class="ttb-showcase__variant">
+          <h4 class="h4-content"><%= label %></h4>
+          <%= render(Games::TimeToBeatComponent.new(game: @game, variant: variant_key)) %>
+        </div>
+        <% unless idx == ttb_variants.length - 1 %>
+          <hr class="ttb-hairline">
+        <% end %>
+      <% end %>
     </section>
-  </div>
-</div>
-
-<%# Row 2 — combined sync state pane (heading + last-synced + caveat
-    + [resync] button OR animated indicator). Standalone wide pane
-    so the indicator has breathing room and the caveat keeps its
-    one-sentence-per-line shape. The pane body lives in the
-    `games/_sync_status` partial so the `GameResyncJob` Turbo-Stream
-    broadcast can replace it in place (target id
-    `game_sync_status_<id>` on stream `game_resync:<id>`).
-%>
-<div class="pane-row">
-  <div class="pane pane--wide">
-    <%= render "sync_status", game: @game %>
   </div>
 </div>
 

@@ -12,11 +12,20 @@
     and the `theme` Stimulus controller). See
     `app/components/games/cover_component.rb#fallback_light_path` for
     the per-request rationale. %>
+<%# `data-turbo-frame="_top"` escapes the surrounding `games_listing`
+    Turbo Frame on `/games` (declared in `app/views/games/index.html.erb`)
+    so clicking a shelf cover triggers a full-page navigation to
+    `/games/:id` (whose show view is not wrapped in that frame and would
+    otherwise raise "Content missing"). Mirrors the same attribute on
+    `Games::GameTileComponent`'s rich tile — letter-shelf tiles and
+    genre/bundle bare-cover tiles now share the same navigation
+    semantics. %>
 <% if link_to_show? %>
   <a href="<%= game_path %>"
      class="<%= css_classes %>"
      data-variant="<%= variant %>"
      data-tile-game-id="<%= game.id %>"
+     data-turbo-frame="_top"
      style="width: <%= width %>px; height: <%= height %>px;"
      title="<%= game.title %>">
     <% if cover_present? %>
