@@ -29,9 +29,11 @@
 # styling (bg fill + 1px theme-text border) so the legend reads as a
 # faithful key to the four marks on the bar.
 #
-# "Scream" mechanism for absurd completionist hours: append `🔥` when
-# completionist > 200h, `🔥🔥` when > 500h. Footage trophy `🏆` from
-# BQ is preserved unchanged for footage > completionist.
+# 2026-05-17 emoji strip (user direction — "Drop emoji. It adds too
+# much. Keep it simple with text only."): the completionist scream
+# escalation (🔥 / 🔥🔥) and the footage trophy (🏆 for footage >
+# completionist) have both been removed. Labels are now plain
+# `"<N>h"` strings only.
 module Games
   class TimeToBeatComponent < ViewComponent::Base
     # Sample triplet used when the game has no IGDB time-to-beat data.
@@ -53,6 +55,30 @@ module Games
     # top zone (`100..`) extends to `max_x`.
     ZONE_BOUNDARIES_HOURS = [ 10, 40, 100 ].freeze
 
+    # Heat-map gradient stops, anchored to FIXED HOUR thresholds (not
+    # percentages). Each stop's percentage is computed per-game by
+    # projecting its hour value onto `max_x`. The adaptive gradient
+    # means:
+    #
+    #   - small max_x (e.g. Pragmata ~23h) → thresholds at 40 / 100h
+    #     project past 100% and get clamped, so the bar is mostly green
+    #     /lime with no orange or pink visible.
+    #   - mid max_x (~100h) → all four stops land at 0 / 10 / 40 / 100%
+    #     and the full ramp is visible.
+    #   - large max_x (e.g. Crimson Desert ~775h) → 100h projects to
+    #     ~13%, so green/lime/orange compress into the left ~13% and
+    #     pink dominates the remaining ~87%.
+    #
+    # Pink (#E91E63) stays distinct from destructive red (#cc0000) —
+    # this is "effort intensity" warning, not a destructive-action
+    # signal. Locked 2026-05-17 (user direction — adaptive gradient).
+    HEAT_THRESHOLDS = [
+      [ 0,   "#4CAF50" ],   # low — green
+      [ 10,  "#CDDC39" ],   # some — lime
+      [ 40,  "#FFB74D" ],   # commitment — amber
+      [ 100, "#E91E63" ]    # insanity — pink
+    ].freeze
+
     # Per-pillar literal hex palette (BZ+ restructure). Theme-stable,
     # vivid, distinct against the bar's cool-spectrum gradient. The
     # legend swatches and pillar tick fills both pull from this map so
@@ -62,12 +88,6 @@ module Games
       extras:        "#FFFFFF",
       completionist: "#FF4081"
     }.freeze
-
-    # Thresholds for the "scream" mechanic on the completionist hour
-    # value (appended to the bottom-row label). Two tiers so a 250h
-    # game reads "🔥" while a 700h horror reads "🔥🔥".
-    SCREAM_THRESHOLD_HOURS    = 200
-    SCREAM_X2_THRESHOLD_HOURS = 500
 
     def initialize(game: nil, hours: nil, footage_hours: nil)
       @game           = game
@@ -118,29 +138,40 @@ module Games
       ((value.to_f / max_x) * 100).clamp(0.0, 100.0).round(3)
     end
 
+    # CSS gradient-stops string for the bar's `background-image`,
+    # computed per-game from `HEAT_THRESHOLDS` projected onto `max_x`.
+    # See the constant's docstring for the adaptive behavior across
+    # small / mid / large max_x values. Each threshold's percentage is
+    # clamped to 100% so over-projecting stops don't break the CSS
+    # gradient syntax. A trailing `<last-color> 100%` stop is appended
+    # whenever the last threshold projects below 100%, so the bar
+    # extends fully to its right edge even when the strongest color
+    # never reaches the natural max.
+    def gradient_stops
+      stops = HEAT_THRESHOLDS.map do |hours, color|
+        pct = [ (hours.to_f / max_x * 100).round(2), 100 ].min
+        "#{color} #{pct}%"
+      end
+      stops << "#{HEAT_THRESHOLDS.last[1]} 100%" unless stops.last.end_with?("100%")
+      stops.join(", ")
+    end
+
     # `"31h"` / `"—"` style label for a single pillar. Falls back to
-    # em-dash when the pillar is missing (0 / nil). The completionist
-    # pillar appends a scream emoji (🔥 / 🔥🔥) past the configured
-    # absurdity thresholds so massive completionist projects visually
-    # shout from the gauge.
+    # em-dash when the pillar is missing (0 / nil). Plain text, no
+    # decoration — the emoji escalation was removed per user
+    # direction (2026-05-17).
     def label_for(key)
       h = hours[key].to_i
       return "—" unless h.positive?
 
-      base = "#{h}h"
-      return base unless key == :completionist
-
-      "#{base}#{scream_suffix(h)}"
+      "#{h}h"
     end
 
-    # Top-row label (above the bar): just the footage hours value (with
-    # the BQ trophy preserved for over-completionist sessions). The
-    # caption "recorded" lives in the legend row now — not below the
-    # tick — so the bar's top edge stays uncluttered.
+    # Top-row label (above the bar): just the footage hours value.
+    # Plain text, no trophy — the over-completionist decoration was
+    # removed per user direction (2026-05-17).
     def footage_value_label
-      base = "#{footage_hours}h"
-      compl = hours[:completionist].to_i
-      footage_hours.positive? && compl.positive? && footage_hours > compl ? "#{base} 🏆" : base
+      "#{footage_hours}h"
     end
 
     # Legend caption for the footage swatch. Single word so the legend
@@ -165,9 +196,12 @@ module Games
     #   position > 90  → `--at-end`   (right-aligned, translateX(-100%)).
     #   else           → `--centered` (default translateX(-50%)).
     #
-    # Applied to every tick label (footage number, pillar hours) so no
-    # label ever overflows the bar bounds regardless of the tick
-    # position.
+    # Applied to PILLAR labels only — the footage label uses
+    # `footage_label_alignment_class` below and stays centered on its
+    # tick regardless of position (overflow accepted per user
+    # direction 2026-05-17 "the footage text 150h can be kept aligned
+    # to the tick. there is no need for this one to be right aligned
+    # in this case").
     def label_alignment_class(position_pct)
       pct = position_pct.to_f
       if pct < 10
@@ -179,20 +213,17 @@ module Games
       end
     end
 
-    private
-
-    # Emoji escalation appended to the completionist hour value. Empty
-    # string below SCREAM_THRESHOLD_HOURS; single `🔥` between the two
-    # thresholds; double `🔥🔥` once past SCREAM_X2_THRESHOLD_HOURS.
-    def scream_suffix(completionist_hours)
-      if completionist_hours > SCREAM_X2_THRESHOLD_HOURS
-        " 🔥🔥"
-      elsif completionist_hours > SCREAM_THRESHOLD_HOURS
-        " 🔥"
-      else
-        ""
-      end
+    # Footage value label alignment — ALWAYS centered on its tick. Per
+    # user direction (2026-05-17): "the footage text 150h can be kept
+    # aligned to the tick. there is no need for this one to be right
+    # aligned in this case". Overflow past the bar's right edge is
+    # accepted visually so the number stays visually anchored to the
+    # footage notch even at >90 % position.
+    def footage_label_alignment_class
+      "ttb-fuel-gauge__label--centered"
     end
+
+    private
 
     def seconds_to_hours(seconds)
       return 0 if seconds.nil? || seconds.to_i <= 0

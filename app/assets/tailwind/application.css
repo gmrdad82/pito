@@ -3341,10 +3341,20 @@ dialog.leader-menu-popup::backdrop {
                                      letter shelves + recently-played
                                      shelf; `bundles/_tile.html.erb`).
      `.bundle-cover-composite`     — leading composite cover tile in
-                                     the bundles shelf row. */
+                                     the bundles shelf row.
+     `.pane-row--game-show .pane--narrow > img`
+                                   — IMG rendered by
+                                     `shared/_igdb_cover.html.erb` on
+                                     `/games/:id` (both the real IGDB
+                                     cover and the fallback SVG pair).
+                                     The partial emits a bare `<img>`
+                                     with no class hook, so the rule
+                                     anchors on the surrounding pane
+                                     structure instead. */
 .game-cover-img,
 .tile-cover img,
-.bundle-cover-composite {
+.bundle-cover-composite,
+.pane-row--game-show .pane--narrow > img {
   border: 1px solid var(--color-cover-border);
   border-radius: 2px;
 }
@@ -3902,37 +3912,29 @@ input[type="text"].bundle-title-input:focus-visible {
   z-index: 2;
 }
 
-/* The bar itself. Background is a smooth multi-stop linear gradient
-   that blends the four effort zones (low → some → commitment →
-   insanity) without visible boundaries. Stops are placed along the
-   FULL bar width (0 % - 100 % of max_x); the bar's effort character
-   shifts continuously rather than at crisp 10 / 40 / 100 hour edges.
-   Heat-map ramp: vivid green (low, safe) → yellow-green (some) →
-   warm coral/amber (commitment) → vivid pink (insanity over 100h).
-   Pink stays distinct from destructive red (#cc0000) — this is
+/* The bar itself. The heat-map gradient (low → some → commitment →
+   insanity: green → lime → amber → pink) is set INLINE on the
+   element via `background-image`, computed per-game by
+   `Games::TimeToBeatComponent#gradient_stops` so the visible color
+   spread reflects each game's actual effort scale (Pragmata at ~23h
+   stays green/lime; Crimson Desert at ~775h is mostly pink). Pink
+   (#E91E63) stays distinct from destructive red (#cc0000) — this is
    "effort intensity" warning, not a destructive-action signal.
-   Single literal hex set — identical look in both themes.
-   Locked 2026-05-17 (user direction item 3). */
+   Single literal hex set in the component — identical look in both
+   themes. Adaptive-gradient version locked 2026-05-17. */
 .ttb-fuel-gauge__bar {
   position: relative;
   width: 100%;
   height: 18px;
-  background-image: linear-gradient(
-    to right,
-    #4CAF50   0%,
-    #CDDC39  35%,
-    #FFB74D  65%,
-    #E91E63 100%
-  );
   background-color: var(--color-bg-alt);
   border: 1px solid var(--color-border);
   overflow: visible;
 }
 
-/* Pillar ticks. Thin, text-colored, NO border — the user-confirmed
-   "perfect" handle style. Overshoot the bar by 3px top + bottom so
-   the tick reads as a marker, not a fill stripe. Sits on top of the
-   gradient via z-index. */
+/* Pillar ticks. Colored fill with a 1px black border for visibility
+   against the gradient (locked 2026-05-17 — user direction). Overshoot
+   the bar by 3px top + bottom so the tick reads as a marker, not a fill
+   stripe. Sits on top of the gradient via z-index. */
 .ttb-fuel-gauge__tick {
   position: absolute;
   transform: translateX(-50%);
@@ -3943,12 +3945,15 @@ input[type="text"].bundle-title-input:focus-visible {
 .ttb-fuel-gauge__tick--pillar {
   top: -3px;
   bottom: -3px;
-  width: 2px;
+  width: 4px;
+  border: 1px solid #000000;
   /* Per-pillar fill set by the color modifiers below
      (`--main` / `--extras` / `--completionist`). Each pillar's tick
      color matches its legend swatch + bottom-row label so the visual
      identity reads at a glance. Literal hex (no theme-flip) — same
-     pop against the gradient in both themes. */
+     pop against the gradient in both themes. Width bumped from 2px to
+     4px to accommodate the 1px black border each side, matching the
+     footage tick width for visual consistency. */
 }
 
 .ttb-fuel-gauge__tick--main {
@@ -4008,14 +4013,15 @@ input[type="text"].bundle-title-input:focus-visible {
 
 /* Tick-shaped swatch: narrow vertical pill that mirrors the bar
    tick form so the legend visually maps to the marks on the bar.
-   ~3px wide × 12px tall. No border by default — the pillar
-   swatches match their borderless ticks. The footage modifier
-   below adds the universal black border + white fill for parity
-   with the footage tick. Locked 2026-05-17 (user direction
-   item 2). */
+   6px wide × 12px tall, uniform across all four legend items
+   (main / extras / completionist / recorded). No border by default
+   — the pillar swatches match their borderless ticks. The footage
+   modifier below adds the universal black border + white fill for
+   parity with the footage tick. Locked 2026-05-17 (user direction
+   — unify all four legend swatches to the recorded width). */
 .ttb-fuel-gauge__legend-swatch {
   display: inline-block;
-  width: 3px;
+  width: 6px;
   height: 12px;
   box-sizing: border-box;
 }
@@ -4033,6 +4039,7 @@ input[type="text"].bundle-title-input:focus-visible {
 }
 
 .ttb-fuel-gauge__legend-swatch--footage {
+  width: 6px;
   background-color: #ffffff;
   border: 1px solid #000000;
 }

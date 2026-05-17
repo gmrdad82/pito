@@ -3,7 +3,7 @@
     x-axis. See `time_to_beat_component.rb` for the layout sketch and
     the 4-zone color rationale.
 
-    BZ+ restructure (2026-05-17, user direction "738h should scream"):
+    BZ+ restructure (2026-05-17):
 
       Row 1 — footage value text   (top, positioned over footage tick)
       Row 2 — TTB bar              (3 colored pillar ticks + 1 footage tick)
@@ -36,7 +36,7 @@
       focal "you are here" number reads brighter than the gradient. %>
   <div class="ttb-fuel-gauge__values ttb-fuel-gauge__values--top">
     <% if render_footage_tick? %>
-      <span class="ttb-fuel-gauge__value ttb-fuel-gauge__value--footage <%= label_alignment_class(footage_pos) %>"
+      <span class="ttb-fuel-gauge__value ttb-fuel-gauge__value--footage <%= footage_label_alignment_class %>"
             style="left: <%= footage_pos %>%;">
         <%= footage_value_label %>
       </span>
@@ -44,10 +44,14 @@
   </div>
 
   <%# Row 2 — the bar itself. The 4-zone effort ramp is a smooth
-      multi-stop linear gradient; see `.ttb-fuel-gauge__bar` in CSS.
-      Zone semantic thresholds (10 / 40 / 100 hours) are implicit; no
-      visible vertical guides. %>
-  <div class="ttb-fuel-gauge__bar">
+      multi-stop linear gradient computed per-game by `gradient_stops`
+      (heat thresholds projected onto `max_x`), inlined as
+      `background-image` here so the visible color spread reflects the
+      game's actual effort scale — Pragmata stays mostly green/lime,
+      Crimson Desert is mostly pink. Zone semantic thresholds (10 / 40
+      / 100 hours) are implicit; no visible vertical guides. %>
+  <div class="ttb-fuel-gauge__bar"
+       style="background-image: linear-gradient(to right, <%= gradient_stops %>);">
     <%# Inline "TTB" watermark, vertically centered inside the bar,
         left-aligned with a few px of padding. Carries the section
         identifier so no standalone heading sits above. %>
@@ -80,9 +84,9 @@
 
   <%# Row 3 — pillar hour values, BELOW the bar. Each label sits at
       its tick's x-position, edge-clamped near the bar bounds. Uses
-      --color-muted so the bar + legend stay visually dominant. The
-      completionist label may carry a 🔥 / 🔥🔥 scream suffix when
-      hours pass the configured thresholds. %>
+      --color-muted so the bar + legend stay visually dominant. Plain
+      `"<N>h"` strings only — the previous emoji escalation was
+      removed (2026-05-17 user direction). %>
   <div class="ttb-fuel-gauge__values ttb-fuel-gauge__values--bottom">
     <span class="ttb-fuel-gauge__value ttb-fuel-gauge__value--pillar <%= label_alignment_class(main_pos) %>"
           style="left: <%= main_pos %>%;">
