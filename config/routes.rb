@@ -385,14 +385,10 @@ Rails.application.routes.draw do
     resources :channels, only: %i[index create show update]
   end
 
-  # Phase 27 — 01d. Display mode switcher + three modes on `/games`.
-  # The switcher (top-right of `/games`, above the filter row)
-  # `button_to`-PATCHes this endpoint with `mode=grid|list|shelves_by_letter`.
-  # Routed as a singular `resource` under `:users` so the URL is
-  # `/users/games_preferences` (one preference set per logged-in user).
-  namespace :users do
-    resource :games_preferences, only: :update
-  end
+  # Phase 27 v2 spec 05 — `Users::GamesPreferencesController` retired
+  # alongside the display-mode switcher and per-mode partials. `/games`
+  # is a single shelves-by-letter layout; no per-user persisted display
+  # preference exists anymore.
 
   resources :saved_views, only: [ :index, :create, :destroy ]
 

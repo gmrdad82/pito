@@ -1,21 +1,40 @@
 # Phase 14 §1 — Game model. IGDB-backed metadata + local-only fields.
 #
+# Phase 27 v2 spec 03 — field partition LOCKED. The sync job
+# (`GameIgdbSync` → `Igdb::SyncGame#call`) is last-write-wins on the
+# IGDB-sourced columns / joins; the ownership-sourced columns / joins
+# are NEVER touched by sync. The partition is enforced in two places:
+#   - `Igdb::SyncGame#call` only writes IGDB columns.
+#   - `GamesController#local_only_params` only permits ownership /
+#     notes / footage / version inputs.
+# The model spec `Game spec — sync field partition` runs a sync against
+# a row with every ownership field set and asserts the post-sync
+# attribute hash is unchanged for the ownership set.
+#
 # IGDB-sourced columns (overwritten by every re-sync, last-write-wins):
-#   igdb_id, igdb_slug, igdb_checksum, summary, cover_image_id,
-#   release_date, release_year, igdb_rating, igdb_rating_count,
-#   aggregated_rating, aggregated_rating_count, total_rating,
-#   total_rating_count, external_steam_app_id, external_gog_id,
-#   external_epic_id, ttb_main_seconds, ttb_extras_seconds,
-#   ttb_completionist_seconds, title, igdb_synced_at.
+#   igdb_id, igdb_slug, igdb_checksum, title, summary, cover_image_id,
+#   release_date, release_year, release_precision, igdb_rating,
+#   igdb_rating_count, aggregated_rating, aggregated_rating_count,
+#   total_rating, total_rating_count, external_steam_app_id,
+#   external_gog_id, external_epic_id, ttb_main_seconds,
+#   ttb_extras_seconds, ttb_completionist_seconds, igdb_synced_at,
+#   primary_genre_id (re-picked from the synced genre set).
 #
-# Local-only columns (NEVER touched by sync):
-#   played_at, notes, hours_of_footage_manual, hours_of_footage_cached,
-#   manual_date_override, last_sync_error.
+# IGDB-sourced joins (replaced wholesale on every re-sync):
+#   game_genres, game_platforms, game_developers, game_publishers.
 #
-# Per-platform ownership (Phase 27 §1a) is carried by the
-# `game_platform_ownerships` join table — see `#owned_platforms` and
-# the `.owned` / `.not_owned` / `.owned_on(slug)` scopes. The
-# single-valued `platform_owned_id` column is gone.
+# Ownership-sourced columns (NEVER touched by sync):
+#   played_at, recorded (single boolean per game — NOT per-platform;
+#   spec 08 confirmed defer-permanently), notes, hours_of_footage_manual,
+#   hours_of_footage_cached, manual_date_override, last_sync_error,
+#   collection_id, version_parent_id, version_title.
+#
+# Ownership-sourced joins (NEVER touched by sync):
+#   game_platform_ownerships (per-platform ownership join — see
+#   `#owned_platforms` and the `.owned` / `.not_owned` /
+#   `.owned_on(slug)` scopes), bundle_members, video_game_links.
+#
+# The single-valued `platform_owned_id` column is gone (Phase 27 §1a).
 #
 # Phase 4 legacy columns (DEPRECATED — Phase 14 polish drops them):
 #   `publisher` (string)  — superseded by Company + GamePublisher join.

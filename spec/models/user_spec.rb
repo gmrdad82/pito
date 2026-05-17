@@ -192,57 +192,29 @@ RSpec.describe User, type: :model do
     end
   end
 
-  describe "preferred_games_display_mode enum (Phase 27 — 01d)" do
-    # Happy path — the enum maps to the locked integer values and
-    # exposes the prefixed predicate / bang helpers.
-    it "defaults to grid for a fresh row" do
+  describe "Phase 27 v2 spec 05 — preferred_games_display_mode removed" do
+    # The display-mode switcher retired with the per-mode partials.
+    # The `users.preferred_games_display_mode` column was dropped and
+    # the enum unwired. Any reference to the legacy enum should fail
+    # loudly so regressions surface at test time.
+    it "does not respond to the legacy predicate methods" do
       user = create(:user)
-      expect(user.reload.preferred_games_display_mode).to eq("grid")
+      expect(user).not_to respond_to(:games_display_grid?)
+      expect(user).not_to respond_to(:games_display_list?)
+      expect(user).not_to respond_to(:games_display_shelves_by_letter?)
     end
 
-    it "exposes the three enum keys" do
-      expect(User.preferred_games_display_modes.keys)
-        .to contain_exactly("grid", "list", "shelves_by_letter")
-    end
-
-    # Flaw guard — integer values are load-bearing for production
-    # data. Asserting the mapping explicitly so an accidental
-    # reorder is caught at test time.
-    it "maps enum keys to the stable integers 0/1/2" do
-      expect(User.preferred_games_display_modes).to eq(
-        "grid" => 0,
-        "list" => 1,
-        "shelves_by_letter" => 2
-      )
-    end
-
-    it "exposes prefixed predicate methods" do
-      user = create(:user, preferred_games_display_mode: :list)
-      expect(user).to be_games_display_list
-      expect(user).not_to be_games_display_grid
-      expect(user).not_to be_games_display_shelves_by_letter
-    end
-
-    it "exposes prefixed bang methods" do
+    it "does not respond to the legacy attribute reader" do
       user = create(:user)
-      expect { user.games_display_shelves_by_letter! }
-        .to change { user.reload.preferred_games_display_mode }
-        .from("grid").to("shelves_by_letter")
+      expect(user).not_to respond_to(:preferred_games_display_mode)
     end
 
-    # Sad — assigning an unknown value raises.
-    it "raises ArgumentError on an invalid value" do
-      user = build(:user)
-      expect { user.preferred_games_display_mode = :tilemap }
-        .to raise_error(ArgumentError)
+    it "does not expose the class-level enum mapping" do
+      expect(User).not_to respond_to(:preferred_games_display_modes)
     end
 
-    # Edge — pre-existing rows get `grid` via the column default.
-    it "is NOT NULL at the column level with default 0 (grid)" do
-      column = User.columns_hash["preferred_games_display_mode"]
-      expect(column).to be_present
-      expect(column.null).to be(false)
-      expect(column.default.to_i).to eq(0)
+    it "no longer carries the column on the underlying table" do
+      expect(User.column_names).not_to include("preferred_games_display_mode")
     end
   end
 

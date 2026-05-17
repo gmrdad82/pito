@@ -24,29 +24,26 @@ require "rails_helper"
 RSpec.describe "Keyboard grid / tile navigation markup", type: :system do
   before { driven_by(:rack_test) }
 
-  describe "/games (tile grid)" do
+  describe "/games (shelves-only layout — Phase 27 v2 spec 05)" do
+    # The display-mode switcher and the flat all-games tile grid both
+    # retired with spec 05; `/games` is a single stack of shelves
+    # (genres / collections / per-letter). Shelves use the
+    # `steam-shelf` drag-scroll Stimulus controller, NOT the keyboard
+    # grid surface. These specs confirm the keyboard-grid hooks are
+    # absent from the new layout so the global `keyboard` controller
+    # routes `j` / `k` through the default scroll handler instead of
+    # an opt-in tile grid.
     let!(:game_a) { create(:game, title: "Alpha") }
     let!(:game_b) { create(:game, title: "Bravo") }
 
-    it "tags the all-games grid container with data-keyboard-grid=\"true\"" do
+    it "does NOT declare data-keyboard-grid on any /games surface" do
       visit "/games"
-      expect(page).to have_css("section.all-games-grid div.grid[data-keyboard-grid='true']")
+      expect(page).to have_no_css("[data-keyboard-grid]")
     end
 
-    it "tags each game tile with data-keyboard-tile" do
+    it "does NOT declare data-keyboard-tile on any /games surface" do
       visit "/games"
-      tiles = page.all("section.all-games-grid div.grid > a.tile[data-keyboard-tile]")
-      expect(tiles.size).to eq(2)
-    end
-
-    it "does NOT opt the horizontally-scrolling shelves into grid navigation" do
-      # Shelves use their own `steam-shelf` drag-scroll controller; the
-      # canonical browse surface is the flat all-games grid below.
-      visit "/games"
-      shelves = page.all("section.shelf:not(.all-games-grid)")
-      shelves.each do |shelf|
-        expect(shelf["data-keyboard-grid"]).to be_nil
-      end
+      expect(page).to have_no_css("[data-keyboard-tile]")
     end
   end
 

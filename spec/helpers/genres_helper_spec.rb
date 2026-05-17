@@ -1,141 +1,156 @@
 require "rails_helper"
 
-# Phase 27 follow-up (2026-05-11) — display-label helper for IGDB
-# genre names in `/games` shelves and listing-layer chrome.
-#
-# Convention: pito copy is lowercase EXCEPT brand names and explicit
-# acronyms. So "Adventure" reads "adventure", "Shooter" → "shooter",
-# "Role-playing (RPG)" → "RPG" (acronym preserved). The helper is
-# purely cosmetic: the URL slug and the underlying `Genre` record stay
-# canonical. Game show / edit pages keep the long name.
+# Phase 27 v2 spec 05 — `GenresHelper#genre_short_name` collapses an
+# IGDB-canonical genre name to the short label the spec's locked
+# mapping table assigns (RPG, FPS, JRPG, Sim, MOBA, etc). Unknown /
+# unmapped names fall through to the canonical name unchanged. Nil /
+# blank input returns nil so callers can chain `.presence` or pass the
+# result to view helpers without guarding.
 RSpec.describe GenresHelper, type: :helper do
-  describe "GENRE_SHORT_NAMES constant" do
+  describe "SHORT_NAMES constant" do
     it "is frozen so call sites cannot mutate the table" do
-      expect(GenresHelper::GENRE_SHORT_NAMES).to be_frozen
+      expect(GenresHelper::SHORT_NAMES).to be_frozen
     end
 
-    it "covers the long-form acronym names" do
-      expect(GenresHelper::GENRE_SHORT_NAMES).to include(
-        "Role-playing (RPG)"                 => "RPG",
-        "Real Time Strategy (RTS)"           => "RTS",
-        "Turn-based strategy (TBS)"          => "TBS",
-        "Massively Multiplayer Online"       => "MMO",
-        "Massively Multiplayer Online (MMO)" => "MMO"
+    it "maps the canonical RPG name to the RPG acronym" do
+      expect(GenresHelper::SHORT_NAMES).to include(
+        "Role-playing (RPG)" => "RPG"
       )
     end
 
-    it "drops the legacy 'First-person shooter' → 'FPS' mapping" do
-      # User direction 2026-05-11 — "shooter is shooter actually".
-      # The lowercase rule handles 'Shooter' / 'First-person Shooter'
-      # generically; no per-name mapping needed.
-      expect(GenresHelper::GENRE_SHORT_NAMES).not_to have_key("First-person shooter")
-      expect(GenresHelper::GENRE_SHORT_NAMES).not_to have_key("First-person Shooter")
+    it "maps Japanese RPG to the JRPG acronym" do
+      expect(GenresHelper::SHORT_NAMES).to include(
+        "Japanese Role-Playing Game (JRPG)" => "JRPG"
+      )
+    end
+
+    it "maps Shooter and First-person Shooter to the FPS acronym" do
+      expect(GenresHelper::SHORT_NAMES).to include(
+        "Shooter"              => "FPS",
+        "First-person Shooter" => "FPS"
+      )
+    end
+
+    it "maps Simulator to the Sim short label" do
+      expect(GenresHelper::SHORT_NAMES).to include("Simulator" => "Sim")
+    end
+
+    it "maps MOBA to MOBA (preserving the acronym)" do
+      expect(GenresHelper::SHORT_NAMES).to include("MOBA" => "MOBA")
+    end
+
+    it "maps Platform to Platformer" do
+      expect(GenresHelper::SHORT_NAMES).to include("Platform" => "Platformer")
+    end
+
+    it "maps Visual Novel to the VN acronym" do
+      expect(GenresHelper::SHORT_NAMES).to include("Visual Novel" => "VN")
+    end
+
+    it "maps Card & Board Game to Card" do
+      expect(GenresHelper::SHORT_NAMES).to include("Card & Board Game" => "Card")
+    end
+
+    it "maps Hack and slash/Beat 'em up to Hack/Slash" do
+      expect(GenresHelper::SHORT_NAMES).to include(
+        "Hack and slash/Beat 'em up" => "Hack/Slash"
+      )
+    end
+
+    it "collapses Point-and-click into Adventure" do
+      # Per the spec's locked table — both render as `Adventure` on
+      # the shelf heading.
+      expect(GenresHelper::SHORT_NAMES).to include(
+        "Point-and-click" => "Adventure",
+        "Adventure"       => "Adventure"
+      )
+    end
+
+    it "maps RTS to RTS and TBS to TBS (acronym preservation)" do
+      expect(GenresHelper::SHORT_NAMES).to include(
+        "Real Time Strategy (RTS)"  => "RTS",
+        "Turn-based strategy (TBS)" => "TBS"
+      )
     end
   end
 
-  describe "ACRONYM_LABELS constant" do
-    it "is frozen" do
-      expect(GenresHelper::ACRONYM_LABELS).to be_frozen
+  describe "#genre_short_name with a String input" do
+    it "returns the locked short label for a known IGDB name" do
+      expect(helper.genre_short_name("Role-playing (RPG)")).to eq("RPG")
     end
 
-    it "only contains 'RPG' for now" do
-      expect(GenresHelper::ACRONYM_LABELS).to eq(%w[RPG])
+    it "returns FPS for Shooter (the spec's locked mapping)" do
+      expect(helper.genre_short_name("Shooter")).to eq("FPS")
+    end
+
+    it "returns FPS for First-person Shooter (the spec's locked mapping)" do
+      expect(helper.genre_short_name("First-person Shooter")).to eq("FPS")
+    end
+
+    it "returns JRPG for Japanese Role-Playing Game (JRPG)" do
+      expect(helper.genre_short_name("Japanese Role-Playing Game (JRPG)")).to eq("JRPG")
+    end
+
+    it "returns Sim for Simulator" do
+      expect(helper.genre_short_name("Simulator")).to eq("Sim")
+    end
+
+    it "returns MOBA for MOBA" do
+      expect(helper.genre_short_name("MOBA")).to eq("MOBA")
+    end
+
+    it "returns Platformer for Platform" do
+      expect(helper.genre_short_name("Platform")).to eq("Platformer")
+    end
+
+    it "returns Adventure unchanged for the one-to-one Adventure mapping" do
+      expect(helper.genre_short_name("Adventure")).to eq("Adventure")
+    end
+
+    it "returns the IGDB canonical name unchanged for an unmapped genre" do
+      expect(helper.genre_short_name("Pumpkin Spice Latte"))
+        .to eq("Pumpkin Spice Latte")
     end
   end
 
-  describe "#genre_short_name" do
-    context "with a known long-form name (string)" do
-      it "maps 'Role-playing (RPG)' to 'RPG' (acronym preserved)" do
-        expect(helper.genre_short_name("Role-playing (RPG)")).to eq("RPG")
-      end
-
-      it "maps 'Real Time Strategy (RTS)' to lowercase 'rts'" do
-        # RTS is in the short-name map but NOT in ACRONYM_LABELS, so
-        # the lowercase rule applies (only RPG stays upper per the
-        # locked 2026-05-11 direction). Extending ACRONYM_LABELS later
-        # to include RTS / MMO is a non-breaking change.
-        expect(helper.genre_short_name("Real Time Strategy (RTS)")).to eq("rts")
-      end
-
-      it "maps 'Massively Multiplayer Online' to 'mmo' (lowercase rule)" do
-        expect(helper.genre_short_name("Massively Multiplayer Online")).to eq("mmo")
-      end
-
-      it "maps 'Visual Novel' to 'visual novel' (lowercase rule)" do
-        expect(helper.genre_short_name("Visual Novel")).to eq("visual novel")
-      end
-
-      it "maps 'Hack and slash/Beat \\'em up' to 'hack & slash' (lowercased)" do
-        expect(helper.genre_short_name("Hack and slash/Beat 'em up")).to eq("hack & slash")
-      end
+  describe "#genre_short_name with a Genre instance" do
+    it "reads the genre's name and looks it up in the mapping" do
+      genre = build(:genre, name: "Role-playing (RPG)")
+      expect(helper.genre_short_name(genre)).to eq("RPG")
     end
 
-    context "lowercase rule for unmapped names" do
-      it "downcases 'Adventure' to 'adventure'" do
-        expect(helper.genre_short_name("Adventure")).to eq("adventure")
-      end
-
-      it "downcases 'Shooter' to 'shooter'" do
-        expect(helper.genre_short_name("Shooter")).to eq("shooter")
-      end
-
-      it "downcases 'First-person Shooter' to 'first-person shooter'" do
-        # The legacy FPS mapping was dropped per user direction. The
-        # lowercase rule applies uniformly.
-        expect(helper.genre_short_name("First-person Shooter")).to eq("first-person shooter")
-      end
-
-      it "downcases 'Puzzle' to 'puzzle'" do
-        expect(helper.genre_short_name("Puzzle")).to eq("puzzle")
-      end
-
-      it "leaves an already-lowercase name unchanged" do
-        expect(helper.genre_short_name("indie")).to eq("indie")
-      end
+    it "returns the canonical name when the genre's name is unmapped" do
+      genre = build(:genre, name: "Pumpkin Spice Latte")
+      expect(helper.genre_short_name(genre)).to eq("Pumpkin Spice Latte")
     end
 
-    context "with a Genre model instance" do
-      it "reads the model's #name and applies the rule" do
-        genre = build(:genre, name: "Adventure")
-        expect(helper.genre_short_name(genre)).to eq("adventure")
-      end
+    it "works on a persisted Genre record" do
+      genre = create(:genre, name: "Visual Novel", igdb_id: 9_001)
+      expect(helper.genre_short_name(genre)).to eq("VN")
+    end
+  end
 
-      it "honors the acronym list when the model's name resolves to RPG" do
-        genre = build(:genre, name: "Role-playing (RPG)")
-        expect(helper.genre_short_name(genre)).to eq("RPG")
-      end
-
-      it "works on a persisted Genre record" do
-        genre = create(:genre, name: "Visual Novel", igdb_id: 9_001)
-        expect(helper.genre_short_name(genre)).to eq("visual novel")
-      end
+  describe "#genre_short_name edge cases" do
+    it "returns nil when the input is nil" do
+      expect(helper.genre_short_name(nil)).to be_nil
     end
 
-    context "with nil or blank input" do
-      it "returns nil for nil" do
-        expect(helper.genre_short_name(nil)).to be_nil
-      end
-
-      it "returns nil for an empty string" do
-        expect(helper.genre_short_name("")).to be_nil
-      end
-
-      it "returns nil for a Genre whose #name is nil" do
-        genre = Genre.new(name: nil)
-        expect(helper.genre_short_name(genre)).to be_nil
-      end
-
-      it "returns nil for a Genre whose #name is the empty string" do
-        genre = Genre.new(name: "")
-        expect(helper.genre_short_name(genre)).to be_nil
-      end
+    it "returns nil when the input is an empty string" do
+      expect(helper.genre_short_name("")).to be_nil
     end
 
-    context "with non-string, non-Genre input" do
-      it "coerces via #to_s and looks up the result" do
-        # `:Adventure.to_s` → "Adventure" → lowercase rule → "adventure".
-        expect(helper.genre_short_name(:Adventure)).to eq("adventure")
-      end
+    it "returns nil when the genre's name is blank" do
+      genre = Genre.new(name: "")
+      expect(helper.genre_short_name(genre)).to be_nil
+    end
+
+    it "returns nil when the genre's name is nil" do
+      genre = Genre.new(name: nil)
+      expect(helper.genre_short_name(genre)).to be_nil
+    end
+
+    it "coerces non-string non-Genre input via #to_s and looks up the result" do
+      expect(helper.genre_short_name(:Adventure)).to eq("Adventure")
     end
   end
 end

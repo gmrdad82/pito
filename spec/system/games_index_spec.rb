@@ -37,10 +37,12 @@ RSpec.describe "Games index — nested shelves (01c-v2)", type: :system do
       # 2026-05-11 polish (Fix 1) — the outer `<h2>genres</h2>` heading
       # was retired. Each sub-shelf still carries its own `<h3>`.
       expect(outer).to have_no_css("h2", text: "genres")
-      # Phase 27 follow-up (2026-05-11) — lowercase display labels.
-      # "Adventure" → "adventure"; "rpg" / "platformer" already lower.
+      # Phase 27 v2 spec 05 — display labels follow the locked
+      # `GenresHelper::SHORT_NAMES` table. `Adventure` is mapped
+      # one-to-one; `rpg` and `platformer` aren't IGDB canonical names
+      # so they fall through unchanged.
       headings = outer.all("h3").map(&:text)
-      expect(headings).to eq(%w[adventure platformer rpg])
+      expect(headings).to eq(%w[Adventure platformer rpg])
     end
 
     it "skips empty genres entirely (no sub-shelf rendered for them)" do
@@ -53,8 +55,9 @@ RSpec.describe "Games index — nested shelves (01c-v2)", type: :system do
       visit games_path
       outer = find("section.shelf--genres.outer-shelf")
       headings = outer.all("h3").map(&:text)
-      # Phase 27 follow-up (2026-05-11) — lowercase display label.
-      expect(headings).to eq([ "adventure" ])
+      # Phase 27 v2 spec 05 — `Adventure` is the spec's one-to-one
+      # mapping (canonical name preserved as the short label).
+      expect(headings).to eq([ "Adventure" ])
     end
   end
 
@@ -226,15 +229,17 @@ RSpec.describe "Games index — nested shelves (01c-v2)", type: :system do
       g.genres << rpg
     end
 
-    it "[see all] on the adventure sub-shelf navigates to /games?genre=adventure and narrows the all-games grid" do
+    it "[see all] on the adventure sub-shelf navigates to /games?genre=adventure and narrows the letter shelves" do
       visit games_path
       adventure_shelf = find("section.sub-shelf--genre[data-genre-id='#{adventure.id}']")
       adventure_shelf.click_link("see all")
 
       expect(page).to have_current_path(games_path(genre: "adventure"))
-      # The all-games grid below narrows to adventure games — Elden
+      # Phase 27 v2 spec 05 — the all-games partition retired. The
+      # letter shelves wrapper narrows to adventure-only games; Elden
       # Ring (RPG) is filtered out.
-      expect(page).not_to have_selector(".grid", text: "Elden Ring")
+      listing = find("section.all-games-shelves-by-letter")
+      expect(listing).not_to have_content("Elden Ring")
     end
   end
 end
@@ -266,17 +271,33 @@ RSpec.describe "Games index — filter row (01b)", type: :system do
     g
   end
 
+  # Phase 27 v2 spec 05 — the legacy `section.all-games-grid` partition
+  # retired with the display-mode switcher. The new layout's letter
+  # shelves render games inside `section.all-games-shelves-by-letter`
+  # (the per-letter `<section class="shelf shelf--letter">` rows live
+  # inside that wrapper). Tiles render via `Games::CoverComponent`
+  # which emits only `<img>` (no visible title text); assertions use
+  # the `data-tile-game-id` data attribute to identify games. When
+  # the filter empties `@letter_buckets`, the wrapper is suppressed
+  # entirely (no muted `"no games match"` copy carries over).
   describe "chip toggle navigation" do
+    def listing_has_game?(game)
+      page.has_css?("section.all-games-shelves-by-letter [data-tile-game-id='#{game.id}']")
+    end
+
+    def listing_has_no_game?(game)
+      page.has_no_css?("section.all-games-shelves-by-letter [data-tile-game-id='#{game.id}']")
+    end
+
     it "clicking [ps5] updates the URL and narrows the listing" do
       visit games_path
       within "section.games-filter-row" do
         find("a[data-filter-token='ps5']").click
       end
       expect(page).to have_current_path(games_path(filters: "ps5"))
-      grid = find("section.all-games-grid")
-      expect(grid).to have_content("Owned PS5 Game")
-      expect(grid).to have_content("Other PS5 Game")
-      expect(grid).not_to have_content("Steam Only Game")
+      expect(listing_has_game?(owned_ps5)).to be(true)
+      expect(listing_has_game?(another_owned_ps5)).to be(true)
+      expect(listing_has_no_game?(unowned_steam)).to be(true)
     end
 
     it "clicking [ps5] when already active clears it" do
@@ -286,8 +307,7 @@ RSpec.describe "Games index — filter row (01b)", type: :system do
       end
       # Toggling off the only active chip drops `filters=` entirely.
       expect(page).to have_current_path(games_path)
-      grid = find("section.all-games-grid")
-      expect(grid).to have_content("Steam Only Game")
+      expect(listing_has_game?(unowned_steam)).to be(true)
     end
 
     it "[clear all] appears when at least one chip is active" do
@@ -312,15 +332,14 @@ RSpec.describe "Games index — filter row (01b)", type: :system do
       within "section.games-filter-row" do
         find("a[data-filter-token='owned']").click
       end
-      grid = find("section.all-games-grid")
-      expect(grid).to have_content("Owned PS5 Game")
-      expect(grid).to have_content("Other PS5 Game")
-      expect(grid).not_to have_content("Steam Only Game")
+      expect(listing_has_game?(owned_ps5)).to be(true)
+      expect(listing_has_game?(another_owned_ps5)).to be(true)
+      expect(listing_has_no_game?(unowned_steam)).to be(true)
     end
   end
 
   describe "sad: contradiction" do
-    it "clicking [owned] then [not owned] renders the contradiction notice" do
+    it "clicking [owned] then [not owned] renders the contradiction notice + suppresses the listing" do
       visit games_path
       within "section.games-filter-row" do
         find("a[data-filter-token='owned']").click
@@ -329,22 +348,14 @@ RSpec.describe "Games index — filter row (01b)", type: :system do
         find("a[data-filter-token='not_owned']").click
       end
       expect(page).to have_content("owned and not owned together — no matches")
-      grid = find("section.all-games-grid")
-      expect(grid).to have_content("no games match this filter.")
+      # Phase 27 v2 spec 05 — the contradiction empties `@letter_buckets`,
+      # so the entire letter-shelves wrapper is suppressed (no muted
+      # "no games match this filter." copy carries over).
+      expect(page).to have_no_css("section.all-games-shelves-by-letter")
     end
   end
 
   describe "edge: query param preservation" do
-    it "preserves ?display=list when toggling a chip" do
-      visit games_path(display: "list")
-      within "section.games-filter-row" do
-        find("a[data-filter-token='ps5']").click
-      end
-      # Both keys must be present; order is not asserted.
-      expect(current_url).to include("filters=ps5")
-      expect(current_url).to include("display=list")
-    end
-
     it "preserves ?genre=<slug> when toggling a chip" do
       action = Genre.create!(igdb_id: 8001, name: "Action", slug: "action")
       owned_ps5.genres << action
@@ -363,12 +374,11 @@ RSpec.describe "Games index — filter row (01b)", type: :system do
           find("a[data-filter-token='#{t}']").click
         end
       end
-      grid = find("section.all-games-grid")
       # owned_ps5 + another_owned_ps5 + unowned_steam are all on at
       # least one canonical platform.
-      expect(grid).to have_content("Owned PS5 Game")
-      expect(grid).to have_content("Other PS5 Game")
-      expect(grid).to have_content("Steam Only Game")
+      [ owned_ps5, another_owned_ps5, unowned_steam ].each do |g|
+        expect(page).to have_css("section.all-games-shelves-by-letter [data-tile-game-id='#{g.id}']")
+      end
     end
   end
 
@@ -401,14 +411,20 @@ RSpec.describe "Games index — platform-logo tile footer (v2 spec 07)", type: :
   let!(:platform_gog)   { create(:platform, name: "gog",   slug: "gog") }
   let!(:platform_xbox)  { create(:platform, name: "Xbox One", igdb_id: 49) }
 
-  # `:synced` stamps `external_steam_app_id`, which would force the
-  # Steam logo onto every tile regardless of intent. Each game opts
-  # back to a clean slate so the seeded ownerships are the sole
-  # source of platform exposure on the test tiles.
+  # Phase 27 v2 spec 05 — the legacy all-games grid retired. The
+  # `_tile.html.erb` partial (which carries the platform-logo footer
+  # introduced by spec 07) now renders only in the `bundles` and
+  # `recently played` shelves on `/games`. Each test game opts in by
+  # stamping `played_at`, so each tile lands in the recently-played
+  # shelf where the platform-logo footer renders. `:synced` stamps
+  # `external_steam_app_id` which would force the Steam logo onto
+  # every tile; each game wipes the column back to nil so the seeded
+  # ownerships are the sole source of platform exposure.
   let!(:ps5_game) do
     g = create(:game, :synced,
                title: "Logo PS5 Game",
                external_steam_app_id: nil,
+               played_at: 3.days.ago,
                igdb_id: 5_007_001, igdb_slug: "logo-ps5-game")
     g.game_platform_ownerships.create!(platform: platform_ps5)
     g
@@ -418,6 +434,7 @@ RSpec.describe "Games index — platform-logo tile footer (v2 spec 07)", type: :
     g = create(:game, :synced,
                title: "Logo Steam GoG Game",
                external_steam_app_id: nil,
+               played_at: 2.days.ago,
                igdb_id: 5_007_002, igdb_slug: "logo-steam-gog-game")
     g.game_platform_ownerships.create!(platform: platform_steam)
     g.game_platform_ownerships.create!(platform: platform_gog)
@@ -428,34 +445,38 @@ RSpec.describe "Games index — platform-logo tile footer (v2 spec 07)", type: :
     g = create(:game, :synced,
                title: "Logo Xbox Only Game",
                external_steam_app_id: nil,
+               played_at: 1.day.ago,
                igdb_id: 5_007_003, igdb_slug: "logo-xbox-only")
     g.game_platforms.create!(platform: platform_xbox)
     g
   end
 
-  # Scope all tile lookups to the all-games grid — the same game
-  # renders in the shelves at the top of the page too, which would
-  # otherwise return ambiguous Capybara matches.
-  def tile_in_grid(game)
-    within "section.all-games-grid" do
-      find("a[data-tile-game-id='#{game.id}']")
+  # Scope lookups to the `recently played` shelf — the same game also
+  # renders in the letter shelves below (using `Games::CoverComponent`,
+  # which carries no footer), so unscoped `find` would return
+  # ambiguous matches.
+  def tile_in_recently_played(game)
+    section = page.all("section.shelf").find do |s|
+      s.has_css?("h2", text: "recently played")
     end
+    raise "recently-played shelf not found" unless section
+    within(section) { find("a[data-tile-game-id='#{game.id}']") }
   end
 
   it "renders the PS5 logo on the PS5-owned tile" do
     visit games_path
-    expect(tile_in_grid(ps5_game).native.to_html).to include("/platform_logos/ps5-16.png")
+    expect(tile_in_recently_played(ps5_game).native.to_html).to include("/platform_logos/ps5-16.png")
   end
 
   it "renders the Steam logo (Steam wins over GoG per KNOWN_LOGOS order) on the multi-owned tile" do
     visit games_path
-    html = tile_in_grid(steam_gog_game).native.to_html
+    html = tile_in_recently_played(steam_gog_game).native.to_html
     expect(html).to include("/platform_logos/steam-16.png")
     expect(html).not_to include("/platform_logos/gog-16.png")
   end
 
   it "renders NO platform logo on the Xbox-only tile" do
     visit games_path
-    expect(tile_in_grid(xbox_only_game).native.to_html).not_to include("/platform_logos/")
+    expect(tile_in_recently_played(xbox_only_game).native.to_html).not_to include("/platform_logos/")
   end
 end

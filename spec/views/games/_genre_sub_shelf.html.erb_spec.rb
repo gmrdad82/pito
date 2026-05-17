@@ -21,10 +21,12 @@ RSpec.describe "games/_genre_sub_shelf.html.erb", type: :view do
       [ zelda, tunic, abzu ].each { |g| g.genres << genre }
     end
 
-    it "renders an <h3> with the genre's display label (lowercase rule)" do
-      # Phase 27 follow-up (2026-05-11) — "Adventure" → "adventure".
+    it "renders an <h3> with the genre's short display label (v2 spec 05)" do
+      # Phase 27 v2 spec 05 — `Adventure` is the one-to-one canonical
+      # mapping in `GenresHelper::SHORT_NAMES`, so the heading renders
+      # as `Adventure` (unchanged).
       render_partial(genre)
-      expect(rendered).to match(%r{<h3[^>]*>\s*adventure\s*</h3>})
+      expect(rendered).to match(%r{<h3[^>]*>\s*Adventure\s*</h3>})
     end
 
     it "renders one shelf-variant cover tile per game" do
@@ -108,9 +110,10 @@ RSpec.describe "games/_genre_sub_shelf.html.erb", type: :view do
 
   describe "edge: genre with zero games" do
     it "renders the <h3> heading but no tiles" do
-      # Phase 27 follow-up (2026-05-11) — lowercase display label.
+      # Phase 27 v2 spec 05 — `Adventure` short label is the canonical
+      # one-to-one mapping (unchanged).
       render_partial(genre)
-      expect(rendered).to match(%r{<h3[^>]*>\s*adventure\s*</h3>})
+      expect(rendered).to match(%r{<h3[^>]*>\s*Adventure\s*</h3>})
       expect(rendered).not_to include('game-cover--shelf')
     end
 

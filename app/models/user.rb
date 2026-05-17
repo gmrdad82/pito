@@ -42,17 +42,12 @@ class User < ApplicationRecord
   # channels.
   has_many :youtube_connections, dependent: :destroy
 
-  # Phase 27 — 01d. Display mode switcher + three modes on `/games`.
-  # The user's persisted choice of `/games` view. Default `grid` (0).
-  # Integer values are load-bearing for production data and are
-  # asserted in `spec/models/user_spec.rb` — do not reorder.
-  # Rails 8.1 — defensive: lock the enum-backing column type.
-  attribute :preferred_games_display_mode, :integer
-  enum :preferred_games_display_mode, {
-    grid: 0,
-    list: 1,
-    shelves_by_letter: 2
-  }, prefix: :games_display
+  # Phase 27 v2 spec 05 — display-mode switcher retired. `/games`
+  # collapses to a single shelves-by-letter layout; the persisted
+  # `preferred_games_display_mode` enum (`grid` / `list` /
+  # `shelves_by_letter`) is gone. The column was dropped in
+  # `DropPreferredGamesDisplayModeFromUsers` and the
+  # `Users::GamesPreferencesController` retired alongside it.
 
   # Phase 29 — Unit A2. User auth refactor: username login.
   # Auth-only shape: username + password. No `email`, no `tenant`,

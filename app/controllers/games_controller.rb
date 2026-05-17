@@ -128,18 +128,11 @@ class GamesController < ApplicationController
     # outer shelf at the top of the page (`@genres_for_shelf`) is
     # the single source of truth for genre-grouped tile rows.
 
-    # Phase 27 §1a — `Platform.games_owning` (driven by the now-dropped
-    # `games.platform_owned_id` FK) was retired in favor of the new
-    # `Platform.games` ownership association (through
-    # `:game_platform_ownerships`). The per-platform shelves consume the
-    # new association name; the legacy `platform_owned_id` filter at
-    # `?platform_owned=` is also retired here (the canonical filter for
-    # the platform set lives on the 01b filter row's `owned_on=<slug>`
-    # token). Both edits are minimal-compensating to keep `GET /games`
-    # serving while 01a's controller-side cleanup lands.
-    @platforms_shelves = Platform.joins(:games).distinct.order(:name).map do |p|
-      [ p, p.games.order(Arel.sql("release_year DESC NULLS LAST")).limit(SHELF_LIMIT) ]
-    end
+    # Phase 27 v2 spec 05 — per-platform shelves retired. The new
+    # contract is genres outer shelf → collections outer shelf →
+    # per-letter shelves; the legacy per-platform shelves are gone
+    # from the page. The platform filter still lives on the 01b
+    # filter row's `owned_on=<slug>` token.
 
     @filter = sanitized_filter
     # Phase 28 §01a — primaries-only by default across every listing
@@ -166,12 +159,16 @@ class GamesController < ApplicationController
 
     @all_games = scope.order(Arel.sql("release_year DESC NULLS LAST"))
 
-    # Phase 27 §01d — resolved display mode for the all-games partition.
-    # URL `?display=<mode>` overrides per-request (single-render), falling
-    # back to `Current.user.preferred_games_display_mode`, with a final
-    # `:grid` safety net for the anonymous defensive path. `shelves` is a
-    # URL-friendly alias for the canonical `shelves_by_letter` enum key.
-    @display_mode = resolved_display_mode
+    # Phase 27 v2 spec 05 — letter buckets for the shelves-by-letter
+    # layout (now the SOLE listing layout on `/games`).
+    #
+    # Bucketing rule: first character of `Game.title` uppercased when
+    # in `[A-Z]`, otherwise `'#'`. Empty buckets are hidden — only
+    # letters that own at least one game render a `<section>`. Within
+    # a bucket, games sort by `LOWER(title)`, with `id` as a stable
+    # tiebreak. The `#` (digit / symbol) bucket renders LAST, after
+    # `Z`, per the spec's pinned decision.
+    @letter_buckets = build_letter_buckets(@all_games)
 
     respond_to do |format|
       format.html
@@ -464,31 +461,30 @@ class GamesController < ApplicationController
     Collection.where(slug: raw.to_s).limit(1).pick(:id)
   end
 
-  # Phase 27 §01d — display-mode resolver.
+  # Phase 27 v2 spec 05 — build the letter-bucket array.
   #
-  # Resolution order:
-  #   1. `params[:display]` if it maps to a known mode (single-request
-  #      override; does NOT persist).
-  #   2. `Current.user.preferred_games_display_mode` (the persisted
-  #      preference; default `grid` on a fresh row per migration).
-  #   3. `:grid` as a final defensive fallback for the anonymous path.
-  #
-  # URL aliases (2026-05-11 polish):
-  #   - `default`  → `shelves_by_letter` (canonical nested-shelves view).
-  #   - `shelves`  → `shelves_by_letter` (legacy alias, kept for
-  #                   back-compat with prior bookmarks).
-  #
-  # Returns a Symbol — one of `:grid`, `:list`, `:shelves_by_letter`.
-  def resolved_display_mode
-    case params[:display].to_s
-    when "grid"              then return :grid
-    when "list"              then return :list
-    when "default", "shelves", "shelves_by_letter" then return :shelves_by_letter
+  # Returns an Array of `[letter, [Game, ...]]` tuples in render
+  # order (A..Z first, `#` last). Empty buckets are NOT included.
+  # The grouping happens in Ruby (not SQL) because the bucket key
+  # is a derived value — uppercased first character with a
+  # collapse-to-`#` fallback for digits / symbols — and the
+  # already-filtered `@all_games` relation is bounded in size by
+  # the per-install library cap (spec 05 §"no pagination").
+  def build_letter_buckets(scope)
+    grouped = scope.to_a.group_by do |game|
+      first = game.title.to_s.strip[0]
+      if first && first.match?(/[A-Za-z]/)
+        first.upcase
+      else
+        "#"
+      end
     end
 
-    persisted = Current.user&.preferred_games_display_mode
-    return persisted.to_sym if persisted.present?
+    grouped.each_value do |games|
+      games.sort_by! { |g| [ g.title.to_s.downcase, g.id ] }
+    end
 
-    :grid
+    ordered = grouped.keys.sort_by { |letter| letter == "#" ? "{" : letter }
+    ordered.map { |letter| [ letter, grouped[letter] ] }
   end
 end
