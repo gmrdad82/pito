@@ -31,10 +31,19 @@
 # `webhook_url` is now nullable at the DB level. A nil URL represents
 # "integration cleared" — the row stays on the table (so the panes can
 # render a stable empty form) but no delivery target is configured.
-# The `nilify_blank_webhook_url_and_zero_flags` callback enforces the
-# invariant "URL nil implies both flags false" at the model layer so
-# every surface (web form, MCP tool, console, future CLI) lands on the
-# same state shape without each controller having to special-case it.
+# The `nilify_blank_webhook_url` (before_validation) +
+# `zero_flags_when_webhook_url_blank` (before_save) callback pair
+# enforces the invariant "URL nil implies both flags false" at the
+# model layer so every surface (web form, MCP tool, console, future
+# CLI) lands on the same state shape without each controller having
+# to special-case it.
+#
+# 2026-05-17 — the original combined `nilify_blank_webhook_url_and_zero_flags`
+# `before_validation` callback was split: the flag-zeroing half moved to
+# `before_save` so the `flags_require_webhook_url` validator sees the
+# user-submitted intent (flag-on with blank URL) and fails loudly,
+# instead of silently no-opping after the callback already coerced the
+# flag to false.
 class NotificationDeliveryChannel < ApplicationRecord
   # Active Record Encryption — probabilistic (not deterministic). The
   # URL is never the target of a `where(webhook_url: ...)` lookup; we
@@ -44,21 +53,61 @@ class NotificationDeliveryChannel < ApplicationRecord
 
   KINDS = %w[slack discord].freeze
 
+  # User-facing brand labels for the `kind` enum. The raw `kind` value
+  # is lowercase ("slack" / "discord") for URL routing + DB storage; the
+  # brand-as-proper-noun spelling ("Slack" / "Discord") is what every
+  # user-facing surface (validation error copy, flash messages) MUST
+  # use. Centralized here so every interpolation in this model reads
+  # the same canonical map.
+  BRAND_LABELS = {
+    "slack"   => "Slack",
+    "discord" => "Discord"
+  }.freeze
+
   # Provider-specific URL shape. The pane reuses these constants so the
   # client-side error message matches the server-side validation exactly.
   SLACK_URL_REGEX = %r{\Ahttps://hooks\.slack\.com/services/T[A-Z0-9]+/B[A-Z0-9]+/[A-Za-z0-9]+\z}
   DISCORD_URL_REGEX = %r{\Ahttps://(?:discord\.com|discordapp\.com)/api/webhooks/\d+/[A-Za-z0-9_\-]+\z}
 
+  # 2026-05-17 host-allowlist hardening.
+  #
+  # The per-kind regexes above already pin the host as part of the full
+  # URL shape, but the host check is path-coupled — if a future tweak
+  # loosens the path component, the host pinning could regress silently.
+  # The explicit host allowlist below is a defense-in-depth layer that
+  # validates the parsed URI host against the canonical brand domains
+  # independently of the path regex. Exact host match only (no suffix /
+  # subdomain matching) so `evilhooks.slack.com.attacker.com` cannot
+  # slip through, and HTTPS is required (`URI::HTTPS` instance check).
+  #
+  # Discord ships webhooks under both `discord.com` (canonical) and
+  # `discordapp.com` (legacy) — both are accepted. Slack only ships
+  # under `hooks.slack.com`.
+  ALLOWED_WEBHOOK_HOSTS = {
+    "slack"   => %w[hooks.slack.com].freeze,
+    "discord" => %w[discord.com discordapp.com].freeze
+  }.freeze
+
   # 2026-05-16 webhook-clear UX tweak.
-  # Normalize a blank `webhook_url` to nil and zero both routing flags
-  # in the same save. Runs before validation so the URL-format
-  # validator can short-circuit on `webhook_url.nil?` cleanly. Without
-  # this callback a controller setting `webhook_url: ""` + `everything: true`
-  # could land in the "URL absent, flags on" silent-no-op state.
-  before_validation :nilify_blank_webhook_url_and_zero_flags
+  # Normalize a blank `webhook_url` to nil before validation so the
+  # URL-format validator (and the host-allowlist validator) can
+  # short-circuit on `webhook_url.nil?` cleanly.
+  #
+  # 2026-05-17 — the flag-zeroing half of the original callback moved
+  # to `before_save` (post-validation). Zeroing flags BEFORE validation
+  # silently swallowed the "flag on, URL blank" intent — the
+  # `flags_require_webhook_url` validator returned early because the
+  # flag was already false by the time it ran, so `save` returned true
+  # and the controller flashed "on" even though the DB stored false.
+  # Keeping nilification pre-validation (so URL-format checks bail
+  # cleanly) and deferring flag-zeroing to post-validation lets the
+  # validator see the user's actual intent and fail loudly.
+  before_validation :nilify_blank_webhook_url
+  before_save :zero_flags_when_webhook_url_blank
 
   validates :kind, presence: true, inclusion: { in: KINDS }
   validates :kind, uniqueness: { case_sensitive: false }
+  validate :webhook_url_host_must_match_kind
   validate :webhook_url_must_match_kind
   validate :flags_require_webhook_url
 
@@ -111,33 +160,97 @@ class NotificationDeliveryChannel < ApplicationRecord
     return if kind.blank? || webhook_url.blank?
     return if valid_url?
 
-    errors.add(:webhook_url, "is not a valid #{kind} webhook URL.")
+    errors.add(:webhook_url, "is not a valid #{brand_label} webhook URL.")
   end
 
-  # 2026-05-16 webhook-clear UX tweak.
-  # The callback below zeroes both flags whenever the URL is blank so
-  # this validator is normally a no-op. It still fires as defense in
-  # depth: if a future code path bypasses the callback (e.g. via
-  # `update_columns`-style writes that skip callbacks AND skip
-  # validations together) and somehow lands a flag=true + URL=nil row,
-  # the validator surfaces the contradiction. The same posture also
-  # rejects a wire payload that explicitly sets `everything: "yes"`
-  # alongside a blank URL field — the form-tampered case the spec
-  # call-out names.
+  # 2026-05-17 host-allowlist hardening.
+  #
+  # Defense-in-depth host check. The per-kind regex above already pins
+  # the host as part of the full URL shape; this validator parses the
+  # URL and asserts the host against the explicit per-kind allowlist
+  # independently — so a future change to the path component cannot
+  # regress the host pinning. Also enforces HTTPS via the `URI::HTTPS`
+  # instance check (an `http://hooks.slack.com/...` URL would be a
+  # `URI::HTTP` instance and fail here even if the host matched).
+  def webhook_url_host_must_match_kind
+    return if kind.blank? || webhook_url.blank?
+
+    allowed = ALLOWED_WEBHOOK_HOSTS[kind.to_s]
+    return if allowed.blank?
+
+    uri = URI.parse(webhook_url)
+    return if uri.is_a?(URI::HTTPS) && allowed.include?(uri.host)
+
+    errors.add(
+      :webhook_url,
+      "must be a #{brand_label} webhook URL (https://#{allowed.first}/...)."
+    )
+  rescue URI::InvalidURIError
+    errors.add(:webhook_url, "is not a valid URL.")
+  end
+
+  # 2026-05-17 — the primary user-facing role of this validator is to
+  # block the auto-save toggle's "flag on, URL blank" attempt and
+  # surface a flash alert ("Slack webhook URL not configured.") so the
+  # toggle visibly reverts on the next render.
+  #
+  # Kind-specific copy lets the same message stay accurate whether the
+  # offending toggle is on the Slack pane or the Discord pane. The
+  # `:base` error keeps `errors.full_messages.to_sentence` clean (no
+  # `Base routing flags ...` prefix).
+  #
+  # Only fires on a transition INTO `true` for a flag — i.e. when
+  # `everything_changed?(to: true)` or `daily_digest_changed?(to: true)`.
+  # This is deliberate: a legacy row with a stale `true` flag and a
+  # blank URL must remain togglable OFF without first satisfying the
+  # validator. Without the `_changed?(to: true)` guard, a user trying
+  # to flip `everything` OFF on such a row would be blocked because
+  # the other flag is still `true` in memory.
+  #
+  # The `zero_flags_when_webhook_url_blank` `before_save` callback acts
+  # as a defense-in-depth post-validation guard for code paths that
+  # somehow bypass validation (e.g. `update_columns` skipping both
+  # callbacks and validations together): once validation has run, any
+  # surviving flag-on-with-blank-URL state gets quietly normalized so
+  # the persisted row never violates the invariant.
   def flags_require_webhook_url
     return if webhook_url.present?
-    return unless everything? || daily_digest?
 
-    errors.add(:base, "routing flags require a webhook URL.")
+    turning_on =
+      everything_changed?(to: true) ||
+      daily_digest_changed?(to: true)
+    return unless turning_on
+
+    errors.add(:base, "#{brand_label} webhook URL not configured.")
   end
 
-  # 2026-05-16 webhook-clear UX tweak.
-  # Strip + nilify a blank `webhook_url`, then zero both routing flags
-  # in the same save when the URL ends up nil. Operates idempotently:
-  # a save with a present URL and flags is untouched.
-  def nilify_blank_webhook_url_and_zero_flags
+  # Resolve the lowercase `kind` to the proper-noun brand label. Falls
+  # back to a capitalized form if `kind` is somehow blank or unknown,
+  # so the error message stays grammatical instead of dropping into an
+  # empty string mid-sentence.
+  def brand_label
+    BRAND_LABELS[kind.to_s] || kind.to_s.capitalize.presence || "This"
+  end
+
+  # 2026-05-16 webhook-clear UX tweak / 2026-05-17 split.
+  # Strip + nilify a blank `webhook_url`. Runs pre-validation so the
+  # URL-format + host-allowlist validators can cleanly short-circuit
+  # on `webhook_url.nil?`.
+  def nilify_blank_webhook_url
     self.webhook_url = webhook_url.to_s.strip
     self.webhook_url = nil if webhook_url.blank?
+  end
+
+  # 2026-05-17 — post-validation flag normalization.
+  # If validation passed AND the URL ended up blank, zero both routing
+  # flags so the persisted row is internally consistent. In the normal
+  # "flag on, URL blank" case the `flags_require_webhook_url`
+  # validator already blocked the save, so this callback never runs for
+  # that scenario — it only fires when the URL is being cleared
+  # legitimately (e.g. the webhook controller's `clear` keyword, which
+  # explicitly assigns `everything: false, daily_digest: false`
+  # alongside `webhook_url: nil`).
+  def zero_flags_when_webhook_url_blank
     return if webhook_url.present?
 
     self.everything = false

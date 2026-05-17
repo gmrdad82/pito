@@ -30,10 +30,17 @@
       <div style="margin-bottom: 6px;">
         <label for="slack_webhook_url" class="form-label">webhook URL</label>
         <div class="webhook-url-row">
-          <input type="text" name="slack_webhook_url" id="slack_webhook_url"
-                 value=""
-                 placeholder="<%= webhook_url_mask(:slack) %>"
-                 autocomplete="off">
+          <%# 2026-05-17 — placeholder only renders when a webhook is
+              actually configured. After a `clear`, the ivar's
+              `webhook_url` goes blank and the placeholder disappears,
+              so the empty input visibly signals "nothing here" rather
+              than dangling the mask and misleading the user. %>
+          <%= tag.input type: "text",
+                        name: "slack_webhook_url",
+                        id: "slack_webhook_url",
+                        value: "",
+                        placeholder: (@slack_webhook&.webhook_url.present? ? webhook_url_mask(:slack) : nil),
+                        autocomplete: "off" %>
           <button type="submit">[update]</button>
           <%# Phase 26 — 01d. `[help]` link opens the layout-level
               webhook help modal with the Slack guide. The href is the

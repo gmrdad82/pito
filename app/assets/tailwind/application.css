@@ -1354,9 +1354,22 @@ button[type="submit"].btn-danger:hover {
    `flash-popover` controller's MutationObserver promotes it back into
    the top layer on the next append. */
 .toast-container {
-  position: fixed;
-  top: 8px;
-  right: 8px;
+  /* Each positioning property is marked `!important` and the long-form
+     edges (top/right/bottom/left) are written explicitly so the
+     lightningcss minifier does NOT collapse them into an `inset` shorthand
+     that a subsequent `inset: auto` declaration can then clobber. The
+     2026-05-17 regression that pinned the toast top-LEFT in the build
+     came from exactly that collapse: source had
+     `top:8px;right:8px;left:auto;bottom:auto;inset:auto;` and the
+     minifier emitted `inset:8px 8px auto auto;...inset:auto;` — the
+     trailing `inset:auto` won and re-centered the popover. The
+     `!important` flag prevents the minifier from merging the long-form
+     properties into the shorthand at all. */
+  position: fixed !important;
+  top: 8px !important;
+  right: 8px !important;
+  left: auto !important;
+  bottom: auto !important;
   /* `z-index` is irrelevant once the popover enters the top layer, but
      we leave it as a fallback for UAs that do not support the Popover
      API yet — the container still renders fixed-position there. */
@@ -1365,6 +1378,7 @@ button[type="submit"].btn-danger:hover {
   flex-direction: column;
   gap: 6px;
   pointer-events: none;
+  width: max-content;
   max-width: calc(100vw - 16px);
   margin: 0;
   padding: 0;
@@ -1377,19 +1391,22 @@ button[type="submit"].btn-danger:hover {
 }
 /* When promoted into the top layer, the UA applies popover-open defaults
    (`inset: 0; margin: auto;` → centers the element). Re-pin to top-right
-   with explicit `left: auto` + `margin: 0` + `inset: auto` so the base
-   `right: 8px` wins. `width: auto` prevents a UA full-viewport stretch;
-   `max-width` is a sensible cap for long toast strings. */
+   with explicit long-form edges + `!important` + `margin: 0` so the
+   container stays anchored. `width: max-content` shrink-wraps to the
+   widest toast (the previous `width: auto` resolved to `fit-content` on
+   some UAs which combined with `display: flex` produced unexpected
+   widths). NOTE: do NOT add `inset: auto` here — the lightningcss
+   minifier will append it AFTER any top/right/left/bottom declarations
+   and the late `inset` shorthand wins, re-centering the popover. */
 .toast-container[popover]:popover-open {
-  position: fixed;
-  top: 8px;
-  right: 8px;
-  left: auto;
-  bottom: auto;
-  inset: auto;
-  margin: 0;
-  width: auto;
-  max-width: 90vw;
+  position: fixed !important;
+  top: 8px !important;
+  right: 8px !important;
+  left: auto !important;
+  bottom: auto !important;
+  margin: 0 !important;
+  width: max-content !important;
+  max-width: 90vw !important;
 }
 .toast-container[popover]::backdrop {
   background: transparent;

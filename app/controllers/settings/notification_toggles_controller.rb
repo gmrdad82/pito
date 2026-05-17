@@ -64,10 +64,18 @@ class Settings::NotificationTogglesController < ApplicationController
     else
       # The most common failure here is the
       # `flags_require_webhook_url` validator — flipping a flag on
-      # before the URL is configured. The alert names the precondition
-      # so the operator knows why the toggle reverted.
+      # before the URL is configured. The model's `:base` error already
+      # reads as a complete sentence ("Slack webhook URL not
+      # configured."), so surface it verbatim instead of wrapping it
+      # in a "could not toggle X: Y" prefix that doubles up the brand
+      # name.
+      #
+      # `redirect_to` (302) + Turbo follow re-renders /settings with the
+      # checkbox reflecting the actual persisted state (the save
+      # rolled back), so the visual reverts automatically.
       redirect_to settings_path,
-                  alert: "could not toggle #{BRAND_LABELS.fetch(brand)} #{KIND_LABELS.fetch(kind)}: #{record.errors.full_messages.to_sentence}."
+                  alert: record.errors.full_messages.to_sentence.presence ||
+                         "could not toggle #{BRAND_LABELS.fetch(brand)} #{KIND_LABELS.fetch(kind)}."
     end
   end
 
