@@ -264,6 +264,25 @@ Rails.application.routes.draw do
     # carries the slug because `Game#to_param` returns `igdb_slug`.
     resource :platform_ownerships, only: %i[edit update],
                                    module: :games
+
+    # 2026-05-17 — inline per-platform ownership matrix toggles on
+    # /games/:id. Each cell in the `OwnershipMatrixComponent` is a
+    # checkbox inside a tiny auto-submit form. The form posts to one
+    # of these two endpoints; the controller flips the join row (or
+    # the singular `played_platform_id` pointer) and redirects back
+    # to /games/:id with a flash naming the new state. Same posture
+    # as the `/settings/notification_toggles/:brand/:kind` auto-save
+    # endpoint (Phase D Discord/Slack toggles).
+    #
+    # `:platform` is the canonical slug — `ps`, `switch`, or `steam`
+    # (per `Platforms::ChipComponent::SLUG_BRAND`). Anything else
+    # 404s in the controller's allowlist check.
+    patch "ownership_toggles/:platform",
+          to: "games/ownership_toggles#ownership",
+          as: :ownership_toggle
+    patch "played_toggles/:platform",
+          to: "games/ownership_toggles#played",
+          as: :played_toggle
   end
   resources :footages, only: [ :index, :show, :edit, :update, :destroy ]
 
