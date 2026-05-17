@@ -286,14 +286,25 @@ Rails.application.routes.draw do
   end
   resources :footages, only: [ :index, :show, :edit, :update, :destroy ]
 
-  # Phase 14 §2 / Phase 27 follow-up (2026-05-17) — Bundles + composite
-  # covers. Full CRUD plus member add / remove. The legacy
-  # `seed_from_igdb` action was removed along with the IGDB-source
-  # provenance columns. The `:games_pane` member action serves the
-  # `/games` bundles-modal Turbo Frame fragment (renders bundle members
-  # as grid tiles). Member URL shape is `/bundles/:bundle_id/members/:id`
-  # where `:id` is the GAME id (not the BundleMember id) per spec.
-  resources :bundles do
+  # Phase 14 §2 / Phase 27 follow-up (2026-05-17 + 2026-05-18) — Bundles
+  # + composite covers. The legacy `seed_from_igdb` action was removed
+  # along with the IGDB-source provenance columns. The 2026-05-18
+  # follow-up dropped the standalone `/bundles` index + `/bundles/new`
+  # surfaces: bundles are reachable ONLY via the `/games` bundle shelf
+  # + modal flow, so `index`, `new`, `create`, and `edit` actions are
+  # gone too. What remains:
+  #   - show     : composite cover + member list (the modal links here
+  #                for `[ open ]`).
+  #   - update   : modal inline-title-edit JSON PATCH (used by the
+  #                `inline-title-edit` Stimulus controller from the
+  #                `/games` bundles modal).
+  #   - destroy  : routes through `/deletions/bundle/:ids` per the "no
+  #                JS confirms" rule (called from `/games/:id`'s
+  #                `[delete]`).
+  #   - games_pane: Turbo Frame fragment that backs the `/games`
+  #                bundles modal grid.
+  # Members CRUD stays — used by the modal's add-member form.
+  resources :bundles, only: [ :show, :update, :destroy ] do
     member do
       get :games_pane
     end

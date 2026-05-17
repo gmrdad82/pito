@@ -12,11 +12,14 @@
     `last_error` callouts are removed along with the columns that fed
     them. %>
 <% content_for(:title, @bundle.name) %>
-<% breadcrumb([ "bundles", bundles_path ], @bundle.name) %>
+<%# 2026-05-18 — `/bundles` index is gone; the breadcrumb root points
+    back to `/games` (the only surface from which a bundle is now
+    reachable). The `[edit]` breadcrumb action is gone too — bundle
+    renaming happens via the modal's inline-title-edit on /games. %>
+<% breadcrumb([ "games", games_path ], @bundle.name) %>
 
 <% content_for(:breadcrumb_actions) do %>
   <div class="dot-list">
-    <%= render(BracketedLinkComponent.new(label: "edit", href: edit_bundle_path(@bundle))) %>
     <%= render(BracketedLinkComponent.new(
       label: "-",
       href: deletions_path(type: "bundle", ids: @bundle.id),

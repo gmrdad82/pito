@@ -76,7 +76,10 @@ module Confirmable
     # Phase 15 §2 — calendar entries cancel back to the schedule view
     # (the closest surface that always renders).
     when "calendar_entry" then calendar_schedule_path
-    when "bundle"     then bundles_path
+    # 2026-05-18 — `/bundles` index removed. Bundles are reachable
+    # only via the /games bundle shelf + modal flow; cancel/back
+    # destinations fall back to /games.
+    when "bundle"     then games_path
     # Phase 14 §3 — video_game_link cancel returns to the parent video
     # edit page. The deletion screen is reached from the [remove]
     # button on the video edit form.

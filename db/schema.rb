@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_17_150000) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_17_233347) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -439,6 +439,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_17_150000) do
     t.integer "release_year"
     t.boolean "resyncing", default: false, null: false
     t.text "summary"
+    t.vector "summary_embedding", limit: 1024
     t.string "title", default: "Untitled game", null: false
     t.decimal "total_rating", precision: 5, scale: 2
     t.integer "total_rating_count"
@@ -455,6 +456,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_17_150000) do
     t.index ["played_platform_id"], name: "index_games_on_played_platform_id"
     t.index ["primary_genre_id"], name: "index_games_on_primary_genre_id"
     t.index ["release_year"], name: "index_games_on_release_year"
+    t.index ["summary_embedding"], name: "index_games_on_summary_embedding_hnsw", opclass: :vector_cosine_ops, using: :hnsw
     t.index ["title"], name: "index_games_on_title"
     t.index ["version_parent_id"], name: "index_games_on_version_parent_id"
   end
