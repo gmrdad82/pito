@@ -53,6 +53,35 @@ class BundlesController < ApplicationController
     end
   end
 
+  # 2026-05-18 — `[+]` create flow. The `/games` bundles-shelf heading
+  # carries a bracketed `[+]` button that POSTs `/bundles` with NO body.
+  # The action:
+  #   1. Builds a Bundle with name `"unnamed bundle"` (or
+  #      `"unnamed bundle N"` when collisions exist — see
+  #      `next_unnamed_bundle_name`).
+  #   2. Persists it. Composite cover is intentionally absent — the
+  #      bundle has zero members on create, so `Composite::Builder`
+  #      no-ops (see its early-return on empty `cover_image_ids`); the
+  #      shelf tile + modal both fall back to the theme-aware
+  #      no-cover SVG (the grid-variant fallback the
+  #      `BundleTileComponent` already renders when
+  #      `composite_cover_url` is blank).
+  #   3. Replies via Turbo Stream — appends the new tile to the shelf
+  #      row (`bundles-shelf-row`), replaces the modal partial with
+  #      pre-populated bundle locals + an auto-open Stimulus
+  #      controller so the dialog opens immediately on the next render
+  #      tick, and emits a flash notice via the shared toast region.
+  #   4. The HTML fallback redirects to `/games` so a JS-off POST still
+  #      yields the same created-bundle outcome (visible in the shelf
+  #      on the next page load).
+  def create
+    @bundle = Bundle.create!(name: next_unnamed_bundle_name)
+    respond_to do |format|
+      format.turbo_stream
+      format.html { redirect_to games_path, notice: "bundle created." }
+    end
+  end
+
   # `/bundles/:id` DELETE redirects to the action-confirmation screen
   # rather than destroying immediately, matching the project's
   # destructive-action posture (no JS confirms; everything goes
@@ -80,5 +109,27 @@ class BundlesController < ApplicationController
 
   def bundle_params
     params.require(:bundle).permit(:name)
+  end
+
+  # Returns the next available "unnamed bundle" name. If no bundle with
+  # the base name exists, returns "unnamed bundle"; otherwise probes
+  # "unnamed bundle 2", "unnamed bundle 3", ... and returns the first
+  # un-taken slot. The lookup is case-sensitive against `bundles.name`
+  # — matches the column's storage shape and the inline-title-edit
+  # input's natural casing.
+  #
+  # The loop is bounded by the row count + 1: even when every previous
+  # "unnamed bundle N" slot is taken, the next free index is at most
+  # `Bundle.count + 1`. In practice the first miss returns immediately.
+  def next_unnamed_bundle_name
+    base = "unnamed bundle"
+    return base unless Bundle.exists?(name: base)
+
+    n = 2
+    loop do
+      candidate = "#{base} #{n}"
+      return candidate unless Bundle.exists?(name: candidate)
+      n += 1
+    end
   end
 end

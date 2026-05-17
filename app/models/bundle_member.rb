@@ -23,6 +23,14 @@ class BundleMember < ApplicationRecord
   # impossible "create AND destroy in the same transaction" gate.
   after_commit :enqueue_cover_rebuild, on: %i[create destroy]
 
+  # Phase 34 (2026-05-18) — re-embed the parent Bundle when its
+  # membership changes. The aggregated summary (and the `game_count`
+  # facet on the Meilisearch document) both depend on the join set,
+  # so add / remove triggers a re-index. Same `:create destroy` gate
+  # as the cover-rebuild hook — `update` on the join row (a position
+  # tweak) does not change the searchable text.
+  after_commit :enqueue_bundle_voyage_index, on: %i[create destroy]
+
   private
 
   def assign_position
@@ -33,5 +41,9 @@ class BundleMember < ApplicationRecord
 
   def enqueue_cover_rebuild
     BundleCoverBuild.perform_async(bundle_id) if bundle_id.present?
+  end
+
+  def enqueue_bundle_voyage_index
+    BundleVoyageIndexJob.perform_later(bundle_id) if bundle_id.present?
   end
 end

@@ -44,6 +44,13 @@ class Bundle < ApplicationRecord
   after_save :enqueue_cover_build_if_changed
   before_destroy :sweep_composite_cover_file
 
+  # Phase 34 (2026-05-18) — Bundle records join the unified `/games`
+  # Meilisearch corpus alongside Game records. The hook fires on
+  # create / update so a rename or composite-cover change re-embeds
+  # the bundle. Membership changes are handled by `BundleMember`'s
+  # own `after_commit` hook (it re-enqueues the parent bundle).
+  after_commit :enqueue_voyage_index, on: %i[create update]
+
   # True when the cover on disk is stale relative to the current member
   # set. The checksum is computed over the sorted list of member
   # `cover_image_id` values plus the layout name; reordering the
@@ -110,5 +117,13 @@ class Bundle < ApplicationRecord
     return if destroyed?
     return unless saved_change_to_id? || needs_cover_rebuild?
     BundleCoverBuild.perform_async(id)
+  end
+
+  # Phase 34 (2026-05-18) — enqueue the Voyage + Meilisearch indexer
+  # on the `:search` queue. The job itself guards on a missing record
+  # and on blank input text; this hook stays a one-liner.
+  def enqueue_voyage_index
+    return if destroyed?
+    BundleVoyageIndexJob.perform_later(id)
   end
 end

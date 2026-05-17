@@ -291,10 +291,16 @@ Rails.application.routes.draw do
   # along with the IGDB-source provenance columns. The 2026-05-18
   # follow-up dropped the standalone `/bundles` index + `/bundles/new`
   # surfaces: bundles are reachable ONLY via the `/games` bundle shelf
-  # + modal flow, so `index`, `new`, `create`, and `edit` actions are
-  # gone too. What remains:
+  # + modal flow, so `index`, `new`, and `edit` actions are gone. What
+  # remains:
   #   - show     : composite cover + member list (the modal links here
   #                for `[ open ]`).
+  #   - create   : the `/games` bundles-shelf `[+]` button POSTs here.
+  #                Builds an `unnamed bundle` (auto-incremented when a
+  #                name collision exists) and renders a Turbo Stream
+  #                that appends the new tile to the shelf, swaps the
+  #                modal partial with auto-open wiring, and flashes a
+  #                notice.
   #   - update   : modal inline-title-edit JSON PATCH (used by the
   #                `inline-title-edit` Stimulus controller from the
   #                `/games` bundles modal).
@@ -304,7 +310,7 @@ Rails.application.routes.draw do
   #   - games_pane: Turbo Frame fragment that backs the `/games`
   #                bundles modal grid.
   # Members CRUD stays — used by the modal's add-member form.
-  resources :bundles, only: [ :show, :update, :destroy ] do
+  resources :bundles, only: [ :show, :create, :update, :destroy ] do
     member do
       get :games_pane
     end

@@ -1,0 +1,45 @@
+<%# 2026-05-18 — `BundlesController#create` Turbo Stream response.
+
+    Three streams composed:
+
+      1. Append the new bundle's tile to the `/games` bundles shelf
+         row (`.bundles-shelf-row`). The selector targets the inner
+         row's class because `ShelfComponent` doesn't stamp a DOM id
+         on the row — the `bundles-shelf-row` class is unique on the
+         page (only the bundles outer shelf carries it). Uses the
+         `targets` attribute (Turbo's selector form) rather than
+         `target` (id form) so we can match on the class selector.
+
+      2. Replace the bundles modal partial. The re-rendered partial
+         carries `bundle: @bundle` as a local so the title text,
+         inline-edit PATCH URL, and inner Turbo Frame `src` are pre-
+         populated server-side AND the dialog mounts the
+         `bundles-modal-autoopen` Stimulus controller, which calls
+         `showModal()` on `connect()`. The result: the modal opens
+         directly inside the freshly-created bundle without an extra
+         user click.
+
+      3. Append the flash notice to the toast container. The toast
+         container always renders unconditionally in the layout
+         (`shared/_flash_toasts`), so an `append` is safe even when no
+         flash has fired this page-life. The toast Stimulus controller
+         (mounted via `data-controller="toast"`) self-dismisses the
+         toast after the default delay.
+%>
+<turbo-stream action="append" targets=".bundles-shelf-row">
+  <template>
+    <%= render(Games::BundleTileComponent.new(bundle: @bundle)) %>
+  </template>
+</turbo-stream>
+
+<%= turbo_stream.replace "bundles-modal" do %>
+  <%= render "games/bundles_modal", bundle: @bundle %>
+<% end %>
+
+<turbo-stream action="append" targets=".toast-container">
+  <template>
+    <div class="toast toast-notice" data-controller="toast" role="status">
+      bundle created.
+    </div>
+  </template>
+</turbo-stream>

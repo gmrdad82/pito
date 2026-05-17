@@ -50,7 +50,18 @@ module Games
   #     "flex-start"; the others omit it).
   #   * more_href      — when present, renders a `[see all]` BracketedLink
   #     in the heading row (genre sub-shelf with overflow).
+  #
+  # 2026-05-18 — `heading_extras` slot. ViewComponent slot for arbitrary
+  # additional markup inside the heading `dot-list`, rendered AFTER the
+  # heading + count chip and AFTER the optional `[see all]` link. The
+  # bundles shelf uses it to inject the `[+]` create-bundle button next
+  # to the count chip (the user-direction wording: "after the chip with
+  # the number of bundles"). The slot is intentionally generic so other
+  # shelves can layer in heading-level actions without growing
+  # bespoke kwargs.
   class ShelfComponent < ViewComponent::Base
+    renders_one :heading_extras
+
     def initialize(heading:, count: nil, heading_level: :h2,
                    show_count: true, extra_classes: nil, shelf_kind: nil,
                    data: {}, section_style: nil, heading_style: nil,
