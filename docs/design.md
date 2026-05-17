@@ -152,6 +152,13 @@ Chart grid lines: `--color-chart-grid` (#eeeeee light, #44475a dark) Tooltip:
   This carve-out is intentional and bounded; it does NOT extend to neutral
   status indicators, decorative emphasis, or chart series. Originating decision:
   `docs/plans/beta/07-google-oauth-youtube-foundation/specs/7c-settings-youtube-ui.md`.
+- **Exception — rating quality spectrum.** The `RatingHeatBarComponent` may use
+  red (`var(--color-rating-bad)`, `#cc0000` light / `#ff5555` dark) as the low
+  end of the quality gradient. Red here encodes semantic quality information
+  ("bad" tier), not a destructive-action signal. This carve-out is restricted
+  to the heat bar's bad-zone color stop and the `--color-rating-bad` token's
+  surface area; it does NOT extend to other charts, indicators, or decorative
+  elements. User-approved 2026-05-17.
 - Charts use the `--color-chart-N` palette. If more colors are needed, extend
   with non-red colors.
 - All inline styles must use CSS variables, not hex values, for theme
