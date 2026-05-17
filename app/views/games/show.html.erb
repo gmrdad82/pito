@@ -153,31 +153,17 @@
 
     <%# Wave C5 (spec 08 §"Rating heat-bar synthesis") — vote-weighted
         synthesized score across the three IGDB rating triplets,
-        rendered as a heat-bar. 2026-05-17 two-variant compare —
-        both finalists render stacked so the user can re-lock:
-          red-only — gradient starts at `--color-rating-bad` (bright
-                     red); no dark muddy red tone at all.
-          very-bad — gradient starts at `--color-rating-very-bad`
-                     (dark muddy red) then transitions to
-                     `--color-rating-bad` at 25%, then climbs.
-        AR carve-out: red (`--color-rating-bad`) covers bad (25–49)
-        and the dark muddy red (`--color-rating-very-bad`) anchors
-        the worst-of-worst (<25) in the very-bad variant. The
-        numeric label is gone on purpose — the bar's color encodes
-        the score. Sits below the meta block (release / dev / pub)
-        so the LEFT pane reads: cover → title → genres → meta →
-        heat-bar → ownership. The compare scaffolding collapses
-        back to a single render once the user picks. %>
-    <div class="rating-heat-bar-compare">
-      <div>
-        <div class="rating-heat-bar-compare-label">red-only worst</div>
-        <%= render(Games::RatingHeatBarComponent.new(game: @game, variant: :red_only)) %>
-      </div>
-      <div>
-        <div class="rating-heat-bar-compare-label">very-bad (dark shit) + red</div>
-        <%= render(Games::RatingHeatBarComponent.new(game: @game, variant: :very_bad)) %>
-      </div>
-    </div>
+        rendered as a heat-bar. Three-zone layout: solid dark muddy
+        red 0-25, solid bright red 25-50, gradient transition zone
+        50-90 (poor → meh → fair → good → excellent), solid green
+        90-100 — hard edges at 25/50/90 so the end zones read as
+        unambiguous blocks. AR carve-out: red (`--color-rating-bad`)
+        covers 25-50 and the dark muddy red (`--color-rating-very-bad`)
+        anchors 0-25. The numeric label is gone on purpose — the
+        bar's color encodes the score. Sits below the meta block
+        (release / dev / pub) so the LEFT pane reads: cover → title
+        → genres → meta → heat-bar → ownership. %>
+    <%= render Games::RatingHeatBarComponent.new(game: @game) %>
 
     <%# Wave C4 (spec 08 §"Ownership chips") — LEFT-pane ownership
         section. Sits below the heat-bar (Wave C5) as the LEFT pane's

@@ -1,17 +1,17 @@
-<%# Heat bar with two finalist variants (red_only / very_bad) selected
-    via the `variant:` kwarg. Default is `:very_bad`. The numeric
-    label is intentionally absent — the gradient + indicator tick
-    encode the score on their own. See
-    `rating_heat_bar_component.rb` for the score-synthesis logic, the
-    `very_bad → bad → poor → meh → fair → good → excellent` tier
-    stops, and the variant catalog. %>
+<%# Single canonical heat bar (the two-variant pick-off was collapsed
+    once the user re-locked on the three-zone solid-ends pattern).
+    The numeric label is intentionally absent — the gradient +
+    indicator tick encode the score on their own. See
+    `rating_heat_bar_component.rb` for the score-synthesis logic and
+    the three-zone (solid 0-25 / solid 25-50 / gradient 50-90 /
+    solid 90-100) layout. %>
 <% s = score %>
 <% if s %>
-  <div class="rating-heat-bar rating-heat-bar--<%= variant_modifier %>"
+  <div class="rating-heat-bar"
        data-score="<%= s %>"
        data-tier="<%= tier %>"
-       data-variant="<%= variant %>"
        style="--score: <%= s %>; --tier-color: var(--color-rating-<%= tier %>);">
+    <span class="rating-heat-bar-bubble"><%= s %></span>
     <div class="rating-heat-bar-indicator"></div>
   </div>
 <% else %>

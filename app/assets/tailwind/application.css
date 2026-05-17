@@ -5,6 +5,15 @@
   --color-bg: #ffffff;
   --color-bg-alt: #fafafa;
   --color-bg-hover: #f0f0f0;
+  /* Dedicated zebra surface for `.stack-table` + `.kv-table` tbody
+     alternation (2026-05-17). Split from `--color-bg-alt` so dark mode
+     can dial the contrast WAY down without affecting the muted-badge /
+     swatch / pane-secondary surfaces that still consume `--color-bg-alt`
+     at the higher-contrast value. Light theme keeps the identical
+     `#fafafa` hex the user signed off on as "perfect" — barely-there
+     light gray on white pane. Dark theme below switches to a low-alpha
+     white overlay so the alternation is a hint, not a slap. */
+  --color-zebra-bg: #fafafa;
   /* Table header surface, light theme (2026-05-16).
      Previous value `#f4f4f4` collided with the pane tone band — `--color-pane-bg-a`
      #f4f6f8, `--color-pane-bg-b` #f0f2f5, `--color-pane-bg-wide` #f2f4f7 all sit
@@ -144,6 +153,13 @@
   --color-bg: #282a36;
   --color-bg-alt: #21222c;
   --color-bg-hover: #44475a;
+  /* Dark-mode zebra surface — intentionally subtler than `--color-bg-alt`
+     (#21222c). The alt tone was too contrasty against the #1a1c25 /
+     #2f3142 pane band, reading as a hard switch rather than a hint.
+     2.5% white overlay lifts the even rows just enough to perceive
+     alternation without competing with content. Light theme keeps the
+     literal `#fafafa` hex so the perfect light-mode look is preserved. */
+  --color-zebra-bg: rgba(255, 255, 255, 0.025);
   --color-bg-header: #343746;
   --color-bg-header-hover: #44475a;
   /* Dark-theme table-header bottom-border tone — equals `--color-border` so the
@@ -625,6 +641,24 @@ a.text-danger.bracketed:hover, a.text-danger.bracketed:hover .bl { color: var(--
   overflow-x: auto;
 }
 
+/* `/games/:id` row-1 panes — position-aware border-radius (2026-05-17).
+   Mirrors the `/settings` compound-pill treatment (see
+   `.settings-panes > .pane-row > .pane` rules below): the two row-1
+   panes (cover/meta `.pane--narrow` + details `.pane--game-detail`)
+   sit flush with no gap, so the row reads as a single 904px pill.
+   The outer edges round at the canonical 2px (matching chip / input /
+   cover / settings-panes radius); the shared inside edge stays
+   square so the pair reads as a continuous compound pill rather than
+   two indented cards. Scoped to `.pane-row--game-show` so the wider
+   `.pane` usage on other workspaces (channels, videos, projects,
+   notes) is untouched. */
+.pane-row--game-show > .pane:first-child {
+  border-radius: 2px 0 0 2px;
+}
+.pane-row--game-show > .pane:last-child {
+  border-radius: 0 2px 2px 0;
+}
+
 .pane-strip {
   display: flex;
   flex-wrap: nowrap;
@@ -1082,57 +1116,78 @@ table.sessions-table th.sortable > .sortable-label {
   display: block;
   padding: 0;
 }
-/* Stack-table + kv-table shared zebra (2026-05-17).
+/* Stack-table zebra (2026-05-17).
    Horizontal alternating-row stripe on tbody rows ONLY — thead is
    preserved (header keeps its own `--color-bg-header` tint via the
-   `table.stack-table thead th` rule above). Hover stays suppressed
-   for both families: stack tables are dense breakdown rows (no
-   per-row navigation) and kv-tables are read-only meta strips, so
+   `table.stack-table thead th` rule above). Hover stays suppressed:
+   stack tables are dense breakdown rows (no per-row navigation), so
    a hover highlight would only add noise.
 
-   `--color-bg-alt` (`#fafafa` light / `#21222c` dark) is the project's
-   canonical zebra alt — same token the base `table:not(.detail-table)
-   tr:nth-child(even)` rule uses. On the narrow pane (`#f4f6f8` light)
-   the alt reads as a touch lighter; on the dark pane (`#2f3142`) it
-   reads as a touch darker. Subtle in both modes by design.
+   `--color-zebra-bg` is the project's canonical zebra alt — same
+   token the base `table:not(.detail-table) tr:nth-child(even)` rule
+   uses.
 
-   `.kv-table` is the borderless header-less two-column key/value
-   table used for the `released / dev / pub` mini-strip on
-   `/games/:id` (and any future read-only meta surfaces — bundle
-   show, video show, etc.). It carries the same `border: none` +
-   transparent-cell-bg treatment as `.stack-table` so the two share
-   the visual vocabulary the user calls "stack-table style". */
-table.stack-table tbody tr:nth-child(even),
-table.kv-table tbody tr:nth-child(even) {
-  background-color: var(--color-bg-alt);
+   NOTE: `.kv-table` previously shared this zebra rule (commit history
+   labeled the pair as "stack-table style"). The 2026-05-17 redesign
+   replaced kv-table zebra with hairline row separators, so the
+   shared rule was scoped down to `.stack-table` only — see the
+   dedicated `.kv-table` block below. */
+table.stack-table tbody tr:nth-child(even) {
+  background-color: var(--color-zebra-bg);
 }
-table.stack-table tr:hover,
-table.kv-table tr:hover {
+table.stack-table tr:hover {
   background-color: transparent;
 }
 
+/* `.kv-table` — borderless, header-less two-column key/value table
+   used for the `released / dev / pub` meta strip on `/games/:id`
+   (and any future read-only meta surfaces — bundle show, video show,
+   etc.).
+
+   Visual model (2026-05-17 redesign): no outer border, no cell
+   horizontal padding, fixed 80px label column, hairline bottom
+   border on every row (including the last) so rows read as a stack
+   of label/value pairs. The value column truncates with ellipsis so
+   long publisher / developer lists do not overflow the surrounding
+   pane. Label column width matches the sibling `.ownership-label`
+   (`min-width: 80px`) so the meta strip and ownership block share a
+   visual rhythm in the LEFT pane.
+
+   `table-layout: fixed` + explicit `width: 100%` is the contract
+   that lets `text-overflow: ellipsis` actually clip the value
+   column at the pane's inner edge. */
 table.kv-table {
-  width: auto;
-  table-layout: auto;
+  width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
 }
 table.kv-table th,
 table.kv-table td {
   border: none;
-  padding: 1px var(--stack-cell-padding);
+  padding: 2px 0;
   background: transparent;
   font-weight: normal;
   font-size: 13px;
   line-height: 1.4;
-  white-space: nowrap;
   vertical-align: top;
+}
+table.kv-table tr {
+  border-bottom: 1px solid var(--color-border);
+}
+table.kv-table tr:hover {
+  background-color: transparent;
 }
 table.kv-table td.kv-table__label {
   color: var(--color-muted);
+  width: 80px;
   padding-right: 12px;
+  white-space: nowrap;
 }
 table.kv-table td.kv-table__value {
   color: var(--color-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Rounded sessions-table wrapper (2026-05-17, revised).
@@ -2640,79 +2695,81 @@ textarea.note-editor-source {
    worst-of-worst below 25. See design.md + CLAUDE.md for the scoped
    exception to the global "red = destructive only" rule. */
 
-/* Shared host + indicator + muted state. `background-image` is set per
-   variant below — this base rule only fixes box, border, and the
-   neutral fallback background. */
+/* Single canonical heat bar. Three-zone layout:
+     0-25%   solid `--color-rating-very-bad` (dark muddy red)
+     25-50%  solid `--color-rating-bad` (bright red), hard edge at 25
+     50-90%  smooth gradient through poor → meh → fair → good →
+             excellent (transition zone)
+     90-100% solid `--color-rating-excellent` (green), hard edge at 90
+   The hard edges are zero-distance stops (same percentage repeated).
+   The end zones do not gradient — they read as solid blocks so the
+   visual rule lands unambiguously. */
 .rating-heat-bar {
   position: relative;
   width: 100%;
   height: 14px;
-  margin-top: 8px;
+  /* Bumped from 8px to clear the score bubble that floats above the
+     bar (bubble height ~18px + 6px gap = ~24px; add slack). */
+  margin-top: 28px;
   border: 1px solid var(--color-border);
   background-color: var(--color-bg-alt);
+  background-image: linear-gradient(
+    to right,
+    var(--color-rating-very-bad)    0%,
+    var(--color-rating-very-bad)   25%,
+    var(--color-rating-bad)        25%,
+    var(--color-rating-bad)        50%,
+    var(--color-rating-poor)       50%,
+    var(--color-rating-meh)        65%,
+    var(--color-rating-fair)       75%,
+    var(--color-rating-good)       85%,
+    var(--color-rating-excellent)  90%,
+    var(--color-rating-excellent) 100%
+  );
 }
+/* 4px-wide theme-aware tick. The tick is filled with the page bg
+   (white in light, dark in dark) and outlined with text color so it
+   punches out against any gradient zone underneath. Vertical extends
+   slightly above + below the bar for prominence. */
 .rating-heat-bar-indicator {
   position: absolute;
   top: -4px;
   bottom: -4px;
   left: calc(var(--score) * 1%);
-  width: 2px;
-  background-color: var(--color-text);
-  transform: translateX(-1px); /* center the 2px tick on the score position */
+  width: 4px;
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-text);
+  transform: translateX(-2px); /* center the 4px tick on the score position */
   pointer-events: none;
+}
+/* Score bubble floating above the indicator tick. Theme-aware bg +
+   border + text — reads cleanly against both themes. Centered
+   horizontally on the score position via translateX(-50%). Sits 6px
+   above the bar's top edge. Conditional render in the template means
+   the bubble never appears in the muted (no-score) state. */
+.rating-heat-bar-bubble {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: calc(var(--score) * 1%);
+  transform: translateX(-50%);
+  padding: 1px 6px;
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-text);
+  border-radius: 2px;
+  font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo,
+    Consolas, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 14px;
+  color: var(--color-text);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 1;
 }
 .rating-heat-bar--muted {
   opacity: 0.5;
   background-image: none !important;
   background-color: var(--color-bg-alt);
-}
-
-/* Variant: red-only worst. The bar starts at `--color-rating-bad`
-   (bright red) at 0% — no `very_bad` dark muddy red tone at all —
-   then climbs through poor → meh → fair → good → excellent. */
-.rating-heat-bar--red-only {
-  background-image: linear-gradient(
-    to right,
-    var(--color-rating-bad)        0%,
-    var(--color-rating-poor)      50%,
-    var(--color-rating-meh)       60%,
-    var(--color-rating-fair)      70%,
-    var(--color-rating-good)      80%,
-    var(--color-rating-excellent) 90%,
-    var(--color-rating-excellent) 100%
-  );
-}
-
-/* Variant: very-bad + red. The bar anchors at `--color-rating-very-bad`
-   (dark muddy red) at 0%, transitions to `--color-rating-bad` (bright
-   red) at 25%, then climbs through the higher tiers. This is the
-   currently locked B from the prior pick-off. */
-.rating-heat-bar--very-bad {
-  background-image: linear-gradient(
-    to right,
-    var(--color-rating-very-bad)   0%,
-    var(--color-rating-bad)       25%,
-    var(--color-rating-poor)      50%,
-    var(--color-rating-meh)       60%,
-    var(--color-rating-fair)      70%,
-    var(--color-rating-good)      80%,
-    var(--color-rating-excellent) 90%,
-    var(--color-rating-excellent) 100%
-  );
-}
-
-/* Compare scaffolding — only rendered on /games/:id during the
-   two-variant pick-off. Removed once the user re-locks. */
-.rating-heat-bar-compare {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 12px;
-}
-.rating-heat-bar-compare-label {
-  font-size: 11px;
-  color: var(--color-muted);
-  margin-bottom: 4px;
 }
 /* 2026-05-17 — Cross-cutting placeholder badge. Renders literal `[TBD]`
    in bright orange to flag surfaces we will get to later (footage rows,

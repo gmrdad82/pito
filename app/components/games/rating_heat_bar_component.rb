@@ -1,20 +1,21 @@
 # Wave C5 (2026-05-17) — Synthesized rating heat-bar.
 # 2026-05-17 refresh — true heat-bar (gradient + indicator).
-# 2026-05-17 two-variant compare — the prior 4-variant showcase
-# (A/B/C/D) collapsed to TWO finalists rendered side-by-side on
-# /games/:id so the user can compare and re-lock:
+# 2026-05-17 final lock — single canonical variant. The two-variant
+# compare (`:red_only` / `:very_bad`) was used as a pick-off and is
+# now collapsed back to a single render. The bar uses a three-zone
+# pattern:
 #
-#   :red_only — gradient starts at `--color-rating-bad` (red); no
-#               `very_bad` dark tone at all.
-#   :very_bad — gradient starts at `--color-rating-very-bad` (dark
-#               muddy red) at 0% then transitions to
-#               `--color-rating-bad` at 25%, then climbs through
-#               the higher tiers.
+#   0-25%   solid `--color-rating-very-bad` (dark muddy red)
+#   25-50%  solid `--color-rating-bad` (bright red), hard edge at 25
+#   50-90%  smooth gradient through poor → meh → fair → good →
+#           excellent (transition zone)
+#   90-100% solid `--color-rating-excellent` (green), hard edge at 90
 #
-# Default variant is `:very_bad`. Both kwargs render through the same
-# component; per-variant styling lives on the host element via the
-# `rating-heat-bar--<variant>` modifier class. The variant kwarg + the
-# compare scaffolding on /games/:id come back out once the user re-locks.
+# The hard edges at 25, 50, and 90 are achieved with zero-distance
+# stops (same percentage repeated) in the `linear-gradient`. The two
+# end zones do not gradient at all — they read as solid blocks so
+# the visual rule lands unambiguously: red = bad, green = gold,
+# transition zone = in-between.
 #
 # 2026-05-17 AR carve-out — user approved red (`--color-rating-bad`)
 # as the BAD-zone color stop for the rating quality spectrum AND a
@@ -57,15 +58,9 @@ module Games
       [ 25, "bad"       ]
     ].freeze
 
-    VARIANTS = %i[red_only very_bad].freeze
-    DEFAULT_VARIANT = :very_bad
-
-    attr_reader :variant
-
-    def initialize(game: nil, score: nil, variant: DEFAULT_VARIANT)
+    def initialize(game: nil, score: nil)
       @game     = game
       @override = score
-      @variant  = VARIANTS.include?(variant) ? variant : DEFAULT_VARIANT
     end
 
     # Returns the score this bar renders. When `score:` was passed in
@@ -94,13 +89,6 @@ module Games
       numerator   = contributions.sum { |s, count| s * count }
       denominator = contributions.sum { |_, count| count }
       (numerator / denominator).round
-    end
-
-    # CSS modifier suffix derived from the variant kwarg. Underscores
-    # become hyphens so `:red_only` → `red-only`, matching the CSS
-    # class naming convention used by the rest of the codebase.
-    def variant_modifier
-      variant.to_s.tr("_", "-")
     end
 
     # Tier slug for an arbitrary score. Exposed as a `data-tier`
