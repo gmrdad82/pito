@@ -3902,19 +3902,21 @@ input[type="text"].bundle-title-input:focus-visible {
    on the bar, the earlier label nudges LEFT and the later nudges
    RIGHT so both stay readable on the same row. The default
    `--centered` modifier applies `translateX(-50%)`; these nudges
-   override that with an extra ±20 px so the two labels separate
+   override that with an extra ±32 px so the two labels separate
    around their tick midpoints. Bumped from ±12 px to ±20 px on
    2026-05-17 — 12 px still let 3-char "31h" / "71h" labels overlap
    in the Crimson Desert main/extras pair (31h ≈ 4 %, 71h ≈ 9 %) at
-   a 775h max_x. 20 px gives 40 px of label separation between the
-   two midpoints, clearing the overlap without disturbing far-apart
-   pillars. */
+   a 775h max_x. 20 px gave 40 px of label separation between the
+   two midpoints. Bumped again from ±20 px to ±32 px on 2026-05-17
+   — ±20 px still read as tight in practice; ±32 px yields 64 px of
+   separation between the two midpoints, clearing the overlap with
+   comfortable breathing room without disturbing far-apart pillars. */
 .ttb-fuel-gauge__value--nudge-left {
-  transform: translateX(calc(-50% - 20px));
+  transform: translateX(calc(-50% - 32px));
 }
 
 .ttb-fuel-gauge__value--nudge-right {
-  transform: translateX(calc(-50% + 20px));
+  transform: translateX(calc(-50% + 32px));
 }
 
 .ttb-fuel-gauge__value {
