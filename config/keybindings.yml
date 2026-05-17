@@ -47,6 +47,50 @@ page_actions:
       action:
         type: open_modal
         modal_id: search_placeholder
+    # `f filter` opens a nested submenu of filter-chip toggles. Each
+    # submenu key dispatches `toggle_filter_chip` with the matching
+    # `data-filter-token` on the /games filter row (single source of
+    # truth — the leader menu delegates to the existing chip click
+    # handler via `chip.click()`, no logic duplication). User-locked
+    # 2026-05-17. Only attached to `games_index` because filter chips
+    # only exist on /games — adding it to games_show / bundles_show /
+    # settings would be a non-op.
+    - key: f
+      label: filter
+      action:
+        type: submenu
+        items:
+          - key: r
+            label: released
+            action: { type: toggle_filter_chip, token: released }
+          - key: s
+            label: scheduled
+            action: { type: toggle_filter_chip, token: scheduled }
+          - key: o
+            label: owned
+            action: { type: toggle_filter_chip, token: owned }
+          - key: w
+            label: wishlist
+            action: { type: toggle_filter_chip, token: wishlist }
+          - key: p
+            label: played
+            action: { type: toggle_filter_chip, token: played }
+          # Hairline separator between lifecycle/ownership/engagement
+          # state chips (top group: released/scheduled/owned/wishlist/
+          # played) and platform chips (bottom group: PS/Switch/Steam).
+          # Renderers (`leader_menu_controller.js` web, the TUI
+          # equivalent in `extras/cli/`) skip divider entries during
+          # key dispatch and paint them as visual separators only.
+          - divider: true
+          - key: P
+            label: PlayStation
+            action: { type: toggle_filter_chip, token: ps }
+          - key: N
+            label: Switch
+            action: { type: toggle_filter_chip, token: switch }
+          - key: S
+            label: Steam (PC)
+            action: { type: toggle_filter_chip, token: steam }
   games_show:
     - key: d
       label: dark mode
@@ -83,6 +127,15 @@ page_actions:
       label: delete
       action:
         type: page_delete
+  # /settings intentionally ships ONLY the dark-mode toggle as its
+  # page action — no `/ search` (per user direction 2026-05-17). The
+  # settings page is a utility surface; the only context-specific key
+  # that makes sense is theme toggling.
+  settings:
+    - key: d
+      label: dark mode
+      action:
+        type: theme_toggle
   default:
     - key: d
       label: dark mode
@@ -114,9 +167,15 @@ menus:
       - { key: G, label: games,            submenu: games }
       - { key: N, label: notifications,    submenu: notifications }
       - { key: S, label: settings,         action: { type: navigate, path: "/settings" } }
-      - { key: "/", label: search,         submenu: search }
-      - { key: "|", label: "list ops",     submenu: list_ops }
       - { key: q, label: quit,             action: { type: quit }, surfaces: [tui] }
+      # Hairline separator before the logout row. The `q quit` row
+      # above is TUI-only and filtered out of the web schema at render
+      # time, so on the web surface the divider sits between
+      # `S settings` and `Q logout`. Renderers
+      # (`leader_menu_controller.js` web, the TUI equivalent in
+      # `extras/cli/`) skip divider entries during key dispatch and
+      # paint them as visual separators only.
+      - divider: true
       - { key: Q, label: logout,           action: { type: quit_and_logout } }
 
   calendar:
@@ -162,16 +221,3 @@ menus:
       - { key: u, label: "filter unread",     action: { type: filter_unread } }
       - { key: m, label: "mark all as read",  action: { type: mark_all_read } }
 
-  search:
-    items:
-      - { key: "/", label: "pito search (global)", action: { type: open, target: global_search } }
-      - { key: C, label: channels,                  action: { type: open, target: channels_search } }
-      - { key: V, label: videos,                    action: { type: open, target: videos_search } }
-      - { key: P, label: projects,                  action: { type: open, target: projects_search } }
-      - { key: G, label: games,                     action: { type: open, target: games_search } }
-      - { key: g, label: "igdb search",             action: { type: open, target: igdb_search } }
-
-  list_ops:
-    items:
-      - { key: l, label: "saved views",  action: { type: open, target: saved_views_modal } }
-      - { key: "+", label: "add",        action: { type: contextual_add } }

@@ -43,10 +43,21 @@ const STACK_STORAGE_KEY = "pito:leader-menu:stack"
 //               or emit a custom event (`leader-menu:action`) that
 //               other controllers can react to.
 //
-// The popup is intentionally NOT a `<dialog>` — it's a positioned
-// card so the rest of the page stays interactive while it's open.
-// The controller adds a one-shot outside-click listener while the
-// popup is open so clicks outside it dismiss it.
+// The popup IS a native `<dialog>` opened via `.showModal()` as of
+// 2026-05-17 — this is the only reliable way to render above OTHER
+// `<dialog>`s already opened via `.showModal()` (bundle modal,
+// IGDB add-game, confirm dialogs). The browser puts every
+// `.showModal()`-opened dialog in its TOP LAYER and stacks them in
+// opening order; the leader popup opened LAST therefore wins. z-index
+// alone cannot beat top-layer content, which is why the prior
+// `<div>` + `z-index: 200` approach lost to native modals.
+//
+// Side-effect of `.showModal()`: the rest of the page becomes inert
+// (no clicks, no focus). For a keyboard-driven leader popup this is
+// fine. The backdrop is suppressed in CSS so the page stays visually
+// undimmed. The controller still installs a one-shot outside-click
+// listener — clicks landing on the dialog backdrop (anywhere outside
+// the inner `.leader-menu-card`) dismiss the popup.
 //
 // Form-control pass-through (2026-05-11): the keypress gate that
 // guards the popup-opening SPACE skips every interactive form
@@ -129,6 +140,14 @@ export default class extends Controller {
       return
     }
     this.menuStack = []
+    // Inline submenus declared inside a page-action `action: { type:
+    // submenu, items: [...] }` entry. Pushed onto `menuStack` by a
+    // synthetic name (e.g. `inline:filter:f`) and resolved by
+    // `menuByName` before falling through to `schema.menus`. Used by
+    // the `f filter` submenu on /games (toggle filter chips without
+    // leaving the popup); the schema gets a sub-menu without minting
+    // a new top-level entry under `menus:`.
+    this.inlineMenus = {}
     this.boundKeydown = this.onKeydown.bind(this)
     this.boundOutside = this.onOutsideClick.bind(this)
     this.boundTurboVisit = this.onTurboVisit.bind(this)
@@ -204,19 +223,32 @@ export default class extends Controller {
   }
 
   // Public close. Wired to popup `[close]` link if any.
+  //
+  // The popup is a native `<dialog>` opened via `.showModal()`
+  // (2026-05-17), so closing means calling `.close()` to remove it
+  // from the browser's top layer. Idempotent — safe to call when the
+  // dialog is already closed.
   close(event) {
     if (event) event.preventDefault()
     this.menuStack = []
+    // Inline submenus are scoped to the open popup — wipe on close so
+    // a stale `inline:*` entry can't shadow a future top-level menu
+    // accidentally named the same. The map rebuilds on demand when
+    // `activate()` next encounters a `type: submenu` action.
+    this.inlineMenus = {}
     this.persistStack()
     if (this.hasPopupTarget) {
-      this.popupTarget.hidden = true
+      if (this.popupTarget.open) this.popupTarget.close()
       while (this.popupTarget.firstChild) this.popupTarget.removeChild(this.popupTarget.firstChild)
     }
     document.removeEventListener("click", this.boundOutside, true)
   }
 
   isOpen() {
-    return this.hasPopupTarget && !this.popupTarget.hidden
+    // Native `<dialog>` exposes `open` as a live attribute that
+    // flips with `.showModal()` / `.close()` — read it directly
+    // instead of the prior `hidden` flag.
+    return this.hasPopupTarget && this.popupTarget.open === true
   }
 
   // ---- key handling ----------------------------------------------
@@ -291,7 +323,16 @@ export default class extends Controller {
 
   onOutsideClick(event) {
     if (!this.isOpen()) return
-    if (this.hasPopupTarget && this.popupTarget.contains(event.target)) return
+    // The popup is a `<dialog>` opened via `.showModal()` — the
+    // dialog element itself covers the full viewport (it IS the
+    // backdrop surface), so the prior `popupTarget.contains(event.target)`
+    // guard would treat every click as "inside" and never dismiss.
+    // Test against the inner `.leader-menu-card` instead: clicks
+    // inside the visible card stay; clicks anywhere else (backdrop)
+    // close the popup. The card is the only direct child of the
+    // dialog after `render()`.
+    const card = this.hasPopupTarget ? this.popupTarget.querySelector(".leader-menu-card") : null
+    if (card && card.contains(event.target)) return
     this.close()
   }
 
@@ -314,10 +355,28 @@ export default class extends Controller {
     this.menuStack.push(name)
     this.persistStack()
     this.render(menu, name)
-    if (this.hasPopupTarget) this.popupTarget.hidden = false
+    if (this.hasPopupTarget) this.showPopup()
     // Bind outside-click on the next tick so the click that opened
     // the popup doesn't immediately close it.
     setTimeout(() => document.addEventListener("click", this.boundOutside, true), 0)
+  }
+
+  // Place the popup in the browser top layer via `.showModal()` so
+  // it renders ABOVE any other `<dialog>` already open via the same
+  // call (bundle modal, IGDB add-game, confirm dialogs). The browser
+  // stacks top-layer elements in opening order — calling
+  // `.showModal()` after another dialog opened wins. z-index alone
+  // can't beat top-layer content, which is why the prior `<div>` +
+  // `z-index: 200` approach lost to native modals.
+  //
+  // Guards against double-open (Firefox throws an `InvalidStateError`
+  // if `.showModal()` is called on an already-open dialog).
+  showPopup() {
+    if (!this.hasPopupTarget) return
+    if (this.popupTarget.open) return
+    if (typeof this.popupTarget.showModal === "function") {
+      this.popupTarget.showModal()
+    }
   }
 
   popMenu() {
@@ -333,6 +392,13 @@ export default class extends Controller {
   }
 
   menuByName(name) {
+    // Inline submenus (synthetic names like `inline:filter:f`,
+    // declared on a page-action `action: { type: submenu, items: [] }`
+    // entry) win over the static schema. See `inlineMenus` doc on
+    // `connect()` for the why.
+    if (this.inlineMenus && Object.prototype.hasOwnProperty.call(this.inlineMenus, name)) {
+      return this.inlineMenus[name]
+    }
     if (!this.schema || !this.schema.menus) return null
     return this.schema.menus[name] || null
   }
@@ -354,12 +420,16 @@ export default class extends Controller {
   findItem(key) {
     const name = this.menuStack[this.menuStack.length - 1]
     if (name === "root") {
-      const pageHit = this.resolvePageActions().find((item) => item.key === key)
+      const pageHit = this.resolvePageActions().find((item) => item.key && item.key === key)
       if (pageHit) return pageHit
     }
     const menu = this.menuByName(name)
     if (!menu) return null
-    return (menu.items || []).find((item) => item.key === key) || null
+    // Divider entries (`{ divider: true }`) carry no `key` — skip them
+    // during dispatch so a divider can never absorb a keystroke. The
+    // renderer paints them as visual hairlines only (see `render` /
+    // `buildItemRow`).
+    return (menu.items || []).find((item) => item.key && item.key === key) || null
   }
 
   activate(item) {
@@ -375,6 +445,19 @@ export default class extends Controller {
     // ignored.
     if (hasSubmenu) {
       this.openMenu(item.submenu)
+      return
+    }
+
+    // Inline submenu — page-action item whose action declares its
+    // own nested `items` list (e.g. `f filter` on /games). Synthesize
+    // a name, stash the menu in `inlineMenus`, and drill in via the
+    // same `openMenu` path. Keeping the inline name namespaced under
+    // `inline:` avoids collisions with any future top-level schema
+    // menu of the same name.
+    if (hasAction && action.type === "submenu" && Array.isArray(action.items)) {
+      const inlineName = `inline:${item.key}:${item.label || ""}`
+      this.inlineMenus[inlineName] = { items: action.items }
+      this.openMenu(inlineName)
       return
     }
 
@@ -435,6 +518,10 @@ export default class extends Controller {
     }
     if (action.type === "open_modal" && action.modal_id === "search_placeholder") {
       this.openGlobalSearch()
+      return
+    }
+    if (action.type === "toggle_filter_chip" && action.token) {
+      this.toggleFilterChip(action.token)
       return
     }
 
@@ -515,6 +602,21 @@ export default class extends Controller {
     if (typeof dialog.showModal === "function") {
       dialog.showModal()
     }
+  }
+
+  // `toggle_filter_chip` — delegate to the existing /games
+  // filter-chip click handler so cascade rules + URL canonicalisation
+  // + Turbo Frame reload all run through the one code path
+  // (`games_filter_controller#toggle`). The leader-menu side stays
+  // tiny: look up the chip by `[data-filter-token="<token>"]` and
+  // click it. The popup has already been closed by `fireAction`
+  // (`closePopup: true`), so this just kicks off the chip toggle.
+  // No-op when the chip isn't on the page (token mismatch, chip
+  // pruned from universe, called from a non-/games surface — though
+  // the YAML only attaches `f filter` to `games_index`).
+  toggleFilterChip(token) {
+    const chip = document.querySelector(`[data-filter-token="${token}"]`)
+    if (chip) chip.click()
   }
 
   navigateTo(path) {
@@ -614,6 +716,24 @@ export default class extends Controller {
   // the column is empty (defensive — schema items always have a key
   // today).
   buildItemRow(item) {
+    // Divider entry (`{ divider: true }` in the YAML schema) — paint a
+    // hairline `<hr>` inside an `<li>` so the parent `<ul>` stays valid
+    // markup. Divider rows are non-interactive (no key gutter, no
+    // label, no click handler) and are ignored by `findItem` during
+    // key dispatch. Used today by /games `f filter` to fence the
+    // lifecycle/ownership/engagement chips off from the platform
+    // chips, but any future schema submenu can opt in the same way.
+    if (item && item.divider) {
+      const row = document.createElement("li")
+      row.className = "leader-menu-row leader-menu-divider-row"
+      row.setAttribute("role", "separator")
+      row.setAttribute("aria-hidden", "true")
+      const hr = document.createElement("hr")
+      hr.className = "leader-menu-divider"
+      row.appendChild(hr)
+      return row
+    }
+
     const row = document.createElement("li")
     row.className = "leader-menu-row"
 
@@ -748,7 +868,7 @@ export default class extends Controller {
     const menu = this.menuByName(top)
     if (!menu) return
     this.render(menu, top)
-    if (this.hasPopupTarget) this.popupTarget.hidden = false
+    if (this.hasPopupTarget) this.showPopup()
     setTimeout(() => document.addEventListener("click", this.boundOutside, true), 0)
   }
 }

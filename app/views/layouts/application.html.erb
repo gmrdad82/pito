@@ -352,14 +352,27 @@
         the web surface and serializes it here. The Stimulus
         `leader-menu` controller (mounted on `<body>`) parses the
         JSON on connect, listens for SPACE, and renders the popup
-        in the `#leader-menu-popup` div below. %>
+        in the `#leader-menu-popup` dialog below. %>
     <script type="application/json" id="pito-keybindings"><%= keybindings_as_json %></script>
 
     <%# Leader-menu popup root — empty placeholder; the Stimulus
         controller paints the bottom-right card here when SPACE is
-        pressed (or the `[_]` footer link is clicked). Hidden by
-        default; the controller flips the `hidden` attribute on
-        open/close.
+        pressed (or the `[_]` footer link is clicked). Closed by
+        default; the controller calls `.showModal()` / `.close()` to
+        open and dismiss.
+
+        2026-05-17 — the popup is a `<dialog>` opened via
+        `.showModal()` so the browser places it in the TOP LAYER.
+        That's the only way to render reliably above other
+        `<dialog>`s already opened via `.showModal()` (bundle modal,
+        reindex confirm, IGDB add-game modal, etc.) — z-index alone
+        cannot win against top-layer content. The browser stacks
+        top-layer dialogs in opening order, so the leader popup
+        (opened LAST when the user hits SPACE) renders above any
+        pre-existing modal. The backdrop is suppressed in CSS so the
+        rest of the page stays visually undimmed; native focus
+        trapping is a side-effect of `.showModal()` we accept (the
+        popup is keyboard-driven anyway).
 
         `data-turbo-permanent` keeps this node intact across Turbo
         Drive page swaps so the popup remains visible when a leader
@@ -368,10 +381,9 @@
         submenu). The matching menu-stack state is persisted via
         `sessionStorage` (`pito:leader-menu:stack`) so the
         re-mounted Stimulus controller rehydrates the popup. %>
-    <div id="leader-menu-popup"
-         data-leader-menu-target="popup"
-         data-turbo-permanent
-         class="leader-menu-popup"
-         hidden></div>
+    <dialog id="leader-menu-popup"
+            data-leader-menu-target="popup"
+            data-turbo-permanent
+            class="leader-menu-popup"></dialog>
   </body>
 </html>

@@ -52,14 +52,16 @@ module KeybindingsHelper
   # Resolves the current controller#action to the YAML key under
   # `page_actions:` in `config/keybindings.yml`. Used by the layout to
   # pass `page_key:` into `KeybindingsReferenceComponent`. Returns nil
-  # for pages that should render NO page-actions section (settings,
-  # admin, auth pages); returns `"default"` for pages that have no
-  # explicit mapping but are still "regular" pages and should fall
-  # through to the shared default actions (currently just `/ search`).
+  # for pages that should render NO page-actions section (admin,
+  # auth pages); returns `"default"` for pages that have no explicit
+  # mapping but are still "regular" pages and should fall through to
+  # the shared default actions (currently just `/ search`).
   #
   # The explicit mappings stay small and obvious — every page that
   # wants context-specific keys (sync, delete, etc.) registers its
-  # own `<resource>_<action>` key here AND in the YAML.
+  # own `<resource>_<action>` key here AND in the YAML. Settings
+  # registers a `settings` group containing ONLY the dark-mode toggle
+  # (per user direction 2026-05-17).
   def keybindings_page_key
     case "#{controller_name}##{action_name}"
     when "games#index"   then "games_index"
@@ -67,6 +69,7 @@ module KeybindingsHelper
     when "bundles#show"  then "bundles_show"
     else
       controller_path_root = controller_path.to_s.split("/").first
+      return "settings" if controller_path_root == "settings"
       return nil if KeybindingsReferenceComponent::NO_PAGE_ACTIONS_PAGES.include?(controller_path_root)
       "default"
     end

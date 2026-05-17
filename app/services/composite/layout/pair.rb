@@ -8,10 +8,21 @@ module Composite
       TILE_W = 150
       TILE_H = 400
 
+      # Cell positions as 0..1 ratios — see `Composite::CellMap`.
+      # Two equal halves: 150/300 wide, full 400 tall.
+      CELLS = [
+        { x: 0.0, y: 0.0, w: 0.5, h: 1.0 },
+        { x: 0.5, y: 0.0, w: 0.5, h: 1.0 }
+      ].freeze
+
       module_function
 
       def layout_name
         "pair"
+      end
+
+      def cells
+        CELLS
       end
 
       def compose(tiles, total_member_count: nil)

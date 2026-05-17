@@ -18,10 +18,28 @@ module Composite
       ROWS          = 2
       COLS          = 3
 
+      # Cell positions as 0..1 ratios — see `Composite::CellMap`.
+      # 3 columns × 2 rows of 100×200 tiles. Row-major.
+      # Columns: 0, 1/3, 2/3 with width 1/3 each.
+      # Rows: 0, 0.5 with height 0.5 each.
+      THIRD = 1.0 / 3.0
+      CELLS = [
+        { x: 0.0,         y: 0.0, w: THIRD, h: 0.5 },
+        { x: THIRD,       y: 0.0, w: THIRD, h: 0.5 },
+        { x: 2.0 * THIRD, y: 0.0, w: THIRD, h: 0.5 },
+        { x: 0.0,         y: 0.5, w: THIRD, h: 0.5 },
+        { x: THIRD,       y: 0.5, w: THIRD, h: 0.5 },
+        { x: 2.0 * THIRD, y: 0.5, w: THIRD, h: 0.5 }
+      ].freeze
+
       module_function
 
       def layout_name
         "six_grid"
+      end
+
+      def cells
+        CELLS
       end
 
       def compose(tiles, total_member_count: nil)

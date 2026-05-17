@@ -18,10 +18,29 @@ module Composite
       ROWS          = 4
       COLS          = 2
 
+      # Cell positions as 0..1 ratios — see `Composite::CellMap`.
+      # 2 columns × 4 rows of 150×100 tiles. Row-major.
+      # Columns: 0, 0.5 with width 0.5 each.
+      # Rows: 0, 0.25, 0.5, 0.75 with height 0.25 each.
+      CELLS = [
+        { x: 0.0, y: 0.0,  w: 0.5, h: 0.25 },
+        { x: 0.5, y: 0.0,  w: 0.5, h: 0.25 },
+        { x: 0.0, y: 0.25, w: 0.5, h: 0.25 },
+        { x: 0.5, y: 0.25, w: 0.5, h: 0.25 },
+        { x: 0.0, y: 0.5,  w: 0.5, h: 0.25 },
+        { x: 0.5, y: 0.5,  w: 0.5, h: 0.25 },
+        { x: 0.0, y: 0.75, w: 0.5, h: 0.25 },
+        { x: 0.5, y: 0.75, w: 0.5, h: 0.25 }
+      ].freeze
+
       module_function
 
       def layout_name
         "eight_grid"
+      end
+
+      def cells
+        CELLS
       end
 
       def compose(tiles, total_member_count: nil)

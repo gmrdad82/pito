@@ -31,6 +31,13 @@
 
 /public/assets
 
+# Phase 27 follow-up (2026-05-17) — `public/<sub>` symlinks created by
+# `bin/rails pito:assets:setup_symlinks` that point at the pito-assets
+# volume (covers, thumbnails). Per-install / per-environment — the
+# task is operator-run, the symlinks themselves are NOT source.
+/public/covers
+/public/thumbnails
+
 # Ignore key files for decrypting credentials and more.
 /config/*.key
 

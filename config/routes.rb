@@ -292,6 +292,16 @@ Rails.application.routes.draw do
       constraints: { filename: /[a-z_]+-\d+/ },
       defaults: { format: "jpg" }
 
+  # Phase 27 follow-up (2026-05-17) — cover masters served from
+  # `public/covers/<game_id>/master.jpg` via a `public/covers` →
+  # `<PITO_ASSETS_PATH>/covers` symlink (created by
+  # `bin/rails pito:assets:setup_symlinks`). Rails' built-in static-
+  # file middleware picks up the symlinked path automatically, so no
+  # dedicated controller or route is needed. Covers are non-sensitive
+  # (they ship publicly on the marketing site too) — the symlink
+  # pattern is also prepared for `public/thumbnails` and any future
+  # assets-volume sub-dirs.
+
   # Phase 7.5 §06 — Footage thumbnails experiment.
   #
   # Three public-read endpoints that the scrub UI (web Stimulus controller
