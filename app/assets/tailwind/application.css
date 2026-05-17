@@ -1057,11 +1057,28 @@ table.stack-table td {
 /* Header treatment mirrors the global `thead th` convention (muted
    color, bold weight, header-bg tint) used on the channels / videos
    lists, so Stack pane headers carry the same visual signal as every
-   other data table. */
-table.stack-table thead th {
+   other data table.
+
+   2026-05-17 (settings polish) — explicit `border-bottom` mirrors the
+   global `thead th` rule's `2px solid var(--color-table-header-border)`
+   treatment. Stack-table cells set `border: none` which (at equal
+   class+element specificity vs. the bare `thead th` rule) wins and
+   strips the bottom border on stack-tables only — the sessions table
+   keeps the global rule's border because it carries no per-table
+   override. Adding the rule back explicitly here restores the
+   sessions-style header/body separator on stack-tables so the
+   `--color-bg-header` slab doesn't read as a hard isolated block
+   against the subtle zebra below — same separator semantic as the
+   sessions heading the user signed off on. Token resolves to
+   `--color-border` in dark theme (visual no-op vs. the 1px cell
+   border tone) and to a mid-grey baseline in light theme. */
+table.stack-table thead th,
+table.sessions-table thead th {
   color: var(--color-muted);
   font-weight: 700;
+  font-size: 12px;
   background: var(--color-bg-header);
+  border-bottom: 2px solid var(--color-table-header-border);
 }
 table.stack-table tbody td {
   color: var(--color-muted);
@@ -1197,6 +1214,25 @@ table.kv-table td.kv-table__value {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Sessions-table zebra (2026-05-17 — settings dark polish).
+
+   Overrides the global `table:not(.detail-table) tr:nth-child(even)`
+   rule which paints even rows with `--color-bg-alt`. In dark theme
+   that token resolves to `#21222c`, which sits noticeably darker than
+   the pane band (`#2f3142`) and reads as a hard contrast against the
+   surrounding pane — user feedback was that the dark-mode zebra slap
+   on the sessions table was too harsh.
+
+   `--color-zebra-bg` is the project's canonical low-contrast zebra
+   tone — same token the stack-tables use. Light theme value is the
+   identical `#fafafa` hex as `--color-bg-alt`, so the perfect
+   light-mode rendering is preserved exactly; the dark value is a
+   2.5% white overlay over the pane bg, just enough to perceive row
+   alternation without competing with content. */
+table.sessions-table tbody tr:nth-child(even) {
+  background-color: var(--color-zebra-bg);
 }
 
 /* Rounded sessions-table wrapper (2026-05-17, revised).
@@ -2709,13 +2745,17 @@ textarea.note-editor-source {
    solid block per user direction; the visual gradient no longer
    differentiates 25-49 from 0-24, though `tier_for` still returns
    `:bad` for 25-49 so `data-tier` keeps the semantic info):
-     0-50%   solid `--color-rating-very-bad` (dark muddy red)
-     50-90%  smooth gradient through poor → meh → fair → good →
-             excellent (transition zone), hard edge at 50
+     0-45%   solid `--color-rating-very-bad` (dark muddy red)
+     45-55%  smooth blend from very-bad into `--color-rating-poor`
+             (was a hard edge at 50; softened per 2026-05-17 polish
+             so the transition from the muddy red bad zone into the
+             brown/orange poor zone is not visually jarring)
+     55-90%  smooth gradient through poor → meh → fair → good →
+             excellent
      90-100% solid `--color-rating-excellent` (green), hard edge at 90
-   The hard edges are zero-distance stops (same percentage repeated).
-   The end zones do not gradient — they read as solid blocks so the
-   visual rule lands unambiguously. The `--color-rating-bad` token
+   The 90 boundary is intentionally still hard so the "excellent"
+   green block at the top reads as a clear achievement zone; only
+   the bottom boundary was softened. The `--color-rating-bad` token
    is still used elsewhere; only the gradient stop reference was
    removed here. */
 .rating-heat-bar {
@@ -2730,8 +2770,8 @@ textarea.note-editor-source {
   background-image: linear-gradient(
     to right,
     var(--color-rating-very-bad)    0%,
-    var(--color-rating-very-bad)   50%,
-    var(--color-rating-poor)       50%,
+    var(--color-rating-very-bad)   45%,
+    var(--color-rating-poor)       55%,
     var(--color-rating-meh)        65%,
     var(--color-rating-fair)       75%,
     var(--color-rating-good)       85%,
