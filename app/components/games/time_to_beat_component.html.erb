@@ -92,20 +92,17 @@
 
       Collision handling: when two adjacent pillar labels sit within
       `BOTTOM_LABEL_COLLISION_THRESHOLD_PCT` (10 %) of each other on
-      the bar, the earlier label gets `--nudge-left` and the later
-      label gets `--nudge-right` — both stay on the same row,
-      shifted ~12 px apart around their tick midpoints. This resolves
-      the Crimson Desert case where main (31h, ~4 %) and extras (71h,
-      ~9 %) crowd each other against a 775h max_x. %>
+      the bar, the earlier label's `effective_position` shifts LEFT
+      by `NUDGE_PCT` and the later label's shifts RIGHT by the same
+      amount — both stay on the same row, both keep the shared
+      `--centered` alignment, and the separation is baked straight
+      into the `left:` value (no CSS-side `translateX` override).
+      This resolves the Crimson Desert case where main (31h, ~4 %)
+      and extras (71h, ~9 %) crowd each other against a 775h max_x. %>
   <div class="ttb-fuel-gauge__values ttb-fuel-gauge__values--bottom">
     <% pillar_label_data.each do |label_data| %>
-      <% nudge_class = case label_data[:nudge]
-         when :left  then " ttb-fuel-gauge__value--nudge-left"
-         when :right then " ttb-fuel-gauge__value--nudge-right"
-         else             ""
-         end %>
-      <span class="ttb-fuel-gauge__value ttb-fuel-gauge__value--pillar <%= pillar_bottom_label_alignment_class %><%= nudge_class %>"
-            style="left: <%= label_data[:position] %>%;"
+      <span class="ttb-fuel-gauge__value ttb-fuel-gauge__value--pillar <%= pillar_bottom_label_alignment_class %>"
+            style="left: <%= label_data[:effective_position] %>%;"
             data-pillar="<%= label_data[:key] %>">
         <%= label_data[:label] %>
       </span>

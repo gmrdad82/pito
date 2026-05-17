@@ -239,54 +239,86 @@ module Games
     # Collision threshold (in percent of bar width). When two adjacent
     # pillar labels sit within this gap on the bar, the earlier label
     # nudges LEFT and the later label nudges RIGHT (both stay on the
-    # same row, just shifted ~12 px apart around their tick midpoints).
-    # Picked at 10 % so the Crimson Desert case (main 31h ≈ 4 %,
-    # extras 71h ≈ 9 %, both under the bar's 775h max_x) resolves
-    # while completionist (~95 %) stays centered.
+    # same row, just shifted apart by `NUDGE_PCT` of bar width baked
+    # straight into each label's `left:` value). Picked at 10 % so the
+    # Crimson Desert case (main 31h ≈ 4 %, extras 71h ≈ 9 %, both
+    # under the bar's 775h max_x) resolves while completionist
+    # (~95 %) stays centered.
     BOTTOM_LABEL_COLLISION_THRESHOLD_PCT = 10.0
 
+    # Horizontal separation applied when a pair of pillar labels
+    # collide. Expressed as a percentage of bar width so the nudge
+    # scales with the pane. Baked into `effective_position` in
+    # `pillar_label_data` so the template's `left:` value already
+    # carries the shift — the CSS no longer applies a pixel-based
+    # `translateX` override. Per user direction (2026-05-17,
+    # Crimson-Desert calibration: main 4.0% → 6.7%, extras 9.16% →
+    # 11.86%), BOTH labels in a colliding pair shift in the SAME
+    # direction (RIGHT) — not pull-apart. This matches the user's
+    # reverse-engineered targets when the implementation lands within
+    # ~0.1 % of their numbers. Edges of the bar are clamped to
+    # [0, 100] so a near-zero / near-100 tick can't push its label
+    # off-bar.
+    #
+    # 2026-05-17 recalibration (user direction — "yours have bigger
+    # impact. Try lower by 0.6% from what we have now"): NUDGE_PCT
+    # stepped from 2.7 → 2.1. Crimson Desert effective positions
+    # become main 4.0 → 6.1 %, extras 9.16 → 11.26 % (slightly tighter
+    # than the original 6.74 / 11.71 % targets, matching the user's
+    # "lower by 0.6%" delta).
+    NUDGE_PCT = 2.1
+
     # Returns the bottom-row pillar labels with per-label collision
-    # metadata so the template can render with horizontal nudge
-    # modifiers (`--nudge-left` / `--nudge-right`) applied to any pair
-    # of pillars that crowd each other on the bar.
+    # metadata. The template renders each label with `effective_position`
+    # baked into its `left:` style — the horizontal nudge for a
+    # colliding pair is folded directly into the position percentage
+    # (no CSS-side `translateX` modifier). All labels keep the shared
+    # `--centered` alignment class.
     #
-    # Each entry: `{ key:, hours:, label:, position:, nudge: }`.
+    # Each entry: `{ key:, hours:, label:, position:, nudge_right:, effective_position: }`.
     #
-    #   key      — `:main` / `:extras` / `:completionist` (in pillar order).
-    #   hours    — integer hours (0 / nil pillars are NOT skipped, so the
-    #              em-dash label still renders in place).
-    #   label    — string from `label_for(key)` ("31h" or "—").
-    #   position — percent along the bar (already clamped 0..100).
-    #   nudge    — `:left`, `:right`, or `nil`. The earlier label of a
-    #              colliding pair gets `:left`, the later gets `:right`.
-    #              When a label already has `:left` from a prior pair,
-    #              it stays `:left` (does not flip to `:right`) so
-    #              chains of three keep the first label anchored
-    #              outward.
+    #   key                — `:main` / `:extras` / `:completionist` (in pillar order).
+    #   hours              — integer hours (0 / nil pillars are NOT skipped, so the
+    #                        em-dash label still renders in place).
+    #   label              — string from `label_for(key)` ("31h" or "—").
+    #   position           — raw percent along the bar (already clamped 0..100).
+    #   nudge_right        — `true` when this label is part of a colliding pair,
+    #                        `false` otherwise. Collision detection runs over
+    #                        adjacent pairs (`each_cons(2)`) and flips the flag
+    #                        on BOTH members of any colliding pair.
+    #   effective_position — `position + NUDGE_PCT` (clamped to [0, 100]) when
+    #                        `nudge_right` is set, else raw `position`. This is
+    #                        the value the template puts into `left:`.
     #
-    # Collision detection runs over adjacent pairs (each_cons(2)). For
-    # a tightly-packed triple (a, b, c): a → :left, b → :right (from
-    # the a/b pair), c → :right (from the b/c pair, b keeps its
-    # existing :right). The 3-collision case stays rare in practice —
-    # the user direction explicitly covers the 2-collision Crimson
-    # Desert case and accepts the b/c residual overlap as a tolerable
-    # extreme.
+    # Per user direction (2026-05-17), colliding labels do not pull
+    # apart — both shift right by `NUDGE_PCT`. This matches the
+    # Crimson Desert calibration: main 4.0 → 6.7 %, extras 9.16 →
+    # 11.86 %, completionist (~95 %) stays anchored because the gap
+    # to extras is far above the collision threshold.
     def pillar_label_data
       ordered = PILLAR_KEYS.map do |key|
         h = hours[key].to_i
         {
-          key:      key,
-          hours:    h,
-          label:    label_for(key),
-          position: position(h),
-          nudge:    nil
+          key:         key,
+          hours:       h,
+          label:       label_for(key),
+          position:    position(h),
+          nudge_right: false
         }
       end
 
       ordered.each_cons(2) do |a, b|
         if (b[:position] - a[:position]).abs < BOTTOM_LABEL_COLLISION_THRESHOLD_PCT
-          a[:nudge] = :left if a[:nudge].nil?
-          b[:nudge] = :right
+          a[:nudge_right] = true
+          b[:nudge_right] = true
+        end
+      end
+
+      ordered.each do |entry|
+        entry[:effective_position] = if entry[:nudge_right]
+                                       [ entry[:position] + NUDGE_PCT, 100.0 ].min
+        else
+                                       entry[:position]
         end
       end
 

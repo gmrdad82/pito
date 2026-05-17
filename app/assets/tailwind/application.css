@@ -3890,34 +3890,25 @@ input[type="text"].bundle-title-input:focus-visible {
    labels that used to live above. Slightly more space above so the
    labels clear the pillar ticks' 3px overshoot. Height stays at the
    shared 16 px from `.ttb-fuel-gauge__values` — colliding labels now
-   nudge HORIZONTALLY (see `--nudge-left` / `--nudge-right` below)
-   instead of stacking onto a second row, so no extra height is
-   needed. */
+   nudge HORIZONTALLY via the component-baked `effective_position`
+   value (the `left:` style already carries the shift, so no extra
+   row height is needed). */
 .ttb-fuel-gauge__values--bottom {
   margin-top: 6px;
 }
 
-/* Horizontal collision nudges — when two adjacent pillar labels sit
-   within `BOTTOM_LABEL_COLLISION_THRESHOLD_PCT` (10 %) of each other
-   on the bar, the earlier label nudges LEFT and the later nudges
-   RIGHT so both stay readable on the same row. The default
-   `--centered` modifier applies `translateX(-50%)`; these nudges
-   override that with an extra ±32 px so the two labels separate
-   around their tick midpoints. Bumped from ±12 px to ±20 px on
-   2026-05-17 — 12 px still let 3-char "31h" / "71h" labels overlap
-   in the Crimson Desert main/extras pair (31h ≈ 4 %, 71h ≈ 9 %) at
-   a 775h max_x. 20 px gave 40 px of label separation between the
-   two midpoints. Bumped again from ±20 px to ±32 px on 2026-05-17
-   — ±20 px still read as tight in practice; ±32 px yields 64 px of
-   separation between the two midpoints, clearing the overlap with
-   comfortable breathing room without disturbing far-apart pillars. */
-.ttb-fuel-gauge__value--nudge-left {
-  transform: translateX(calc(-50% - 32px));
-}
-
-.ttb-fuel-gauge__value--nudge-right {
-  transform: translateX(calc(-50% + 32px));
-}
+/* Horizontal collision nudges are NO LONGER a CSS concern — when
+   two adjacent pillar labels sit within
+   `BOTTOM_LABEL_COLLISION_THRESHOLD_PCT` (10 %) of each other on
+   the bar, the Ruby component's `pillar_label_data` shifts each
+   label's `effective_position` by `NUDGE_PCT` (4 % of bar width)
+   outward and the template inlines that shifted value into the
+   `left:` style. Both colliding labels keep the shared
+   `--centered` alignment class — the only thing that changes is
+   the `left:` percentage. The previous `--nudge-left` /
+   `--nudge-right` pixel-based `translateX` modifiers have been
+   removed; the percentage-based approach scales with pane width
+   instead of fighting it. */
 
 .ttb-fuel-gauge__value {
   position: absolute;
