@@ -59,4 +59,23 @@
   <% end %>
 <% end %>
 
+<%# 2026-05-18 — Per-bundle delete-confirm dialogs. Rendered OUTSIDE
+    the shelf component (and outside each bundle's `<a>` tile) so
+    `<dialog>` is not nested inside interactive content. Each
+    confirm modal carries the `bundle_delete_confirm` modal-actions
+    key so the leader popup exposes `l dark mode` + `d delete` while
+    it's open. %>
+<% bundles.each do |bundle| %>
+  <%= render ConfirmModalComponent.new(
+        id: "confirm_delete_bundle_#{bundle.id}",
+        title: "delete #{bundle.name}?",
+        body: "this action cannot be undone.",
+        confirm_label: "delete",
+        cancel_label: "cancel",
+        confirm_path: bundle_path(bundle),
+        confirm_method: :delete,
+        destructive: true,
+        modal_actions_key: "bundle_delete_confirm") %>
+<% end %>
+
 <%= render "games/bundles_modal" %>

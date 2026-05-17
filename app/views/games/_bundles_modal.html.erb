@@ -33,6 +33,14 @@
   prefill_frame    = bundle ? games_pane_bundle_path(bundle) : nil
   prefill_url      = bundle ? bundle_path(bundle) : ""
   autoopen_class   = bundle ? " bundles-modal-autoopen" : ""
+  # Per-bundle delete-confirm modal id. When the modal is rendered with
+  # a `bundle:` local (autoopen / Turbo Stream create flow) the [-]
+  # button's `data-modal-trigger-target-id-value` is pre-populated.
+  # Steady-state (no bundle local) starts blank; the
+  # `bundles-modal-trigger` controller writes the per-bundle id on
+  # click so `[-]` opens the matching confirm modal for the currently-
+  # opened bundle.
+  prefill_delete_confirm_id = bundle ? "confirm_delete_bundle_#{bundle.id}" : ""
 %>
 <%# 2026-05-17 bug fix — `bundles-modal-reset` listens to the
     native `<dialog>` `close` event (which fires for every dismissal
@@ -82,6 +90,18 @@
         <a href="#"
            class="bracketed"
            data-action="click->inline-title-edit#edit">[<span class="bl">change</span>]</a>
+        <%# Per-bundle delete entrypoint. Opens the matching confirm
+            modal (`confirm_delete_bundle_<id>`) — its id is written
+            into `data-modal-trigger-target-id-value` by the
+            `bundles-modal-trigger` controller on the tile click, OR
+            pre-populated server-side when the modal is rendered with
+            a `bundle:` local (create-flow autoopen). %>
+        <a href="#"
+           class="bracketed text-danger"
+           data-controller="modal-trigger"
+           data-action="click->modal-trigger#open"
+           data-modal-trigger-target-id-value="<%= prefill_delete_confirm_id %>"
+           data-bundles-modal-target="deleteButton">[<span class="bl">-</span>]</a>
       </span>
       <span class="bundle-modal-title-editing"
             data-inline-title-edit-target="editing"

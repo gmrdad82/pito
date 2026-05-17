@@ -67,5 +67,13 @@ module Games
     def update_url
       helpers.bundle_path(bundle_slug)
     end
+
+    # 2026-05-18 — DOM id of the per-bundle delete-confirm `<dialog>`
+    # rendered as a sibling in `_bundles_for_shelf`. The bundles-modal
+    # trigger writes this value onto the modal's `[-]` button so it
+    # opens the matching dialog for the currently-opened bundle.
+    def delete_confirm_id
+      "confirm_delete_bundle_#{bundle.id}"
+    end
   end
 end

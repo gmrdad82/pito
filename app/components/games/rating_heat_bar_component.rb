@@ -69,19 +69,22 @@ module Games
     def score
       return @override if @override
 
-      synthesized_score
+      self.class.synthesized_score(@game)
     end
 
-    # Vote-weighted average across the three IGDB rating triplets.
-    # Returns an integer in `0..100` when at least one source has
-    # votes; nil otherwise.
-    def synthesized_score
-      return nil unless @game
+    # Class-method form (2026-05-18) — vote-weighted average across the
+    # three IGDB rating triplets carried on `Game`. Returns an integer
+    # in `0..100` when at least one source has votes; nil otherwise.
+    # Exposed at the class level so sibling components
+    # (e.g. `Games::RatingScoreChipComponent`) can compute the same
+    # canonical synthesized score without instantiating a heat-bar.
+    def self.synthesized_score(game)
+      return nil unless game
 
       contributions = [
-        [ @game.igdb_rating,       @game.igdb_rating_count ],
-        [ @game.aggregated_rating, @game.aggregated_rating_count ],
-        [ @game.total_rating,      @game.total_rating_count ]
+        [ game.igdb_rating,       game.igdb_rating_count ],
+        [ game.aggregated_rating, game.aggregated_rating_count ],
+        [ game.total_rating,      game.total_rating_count ]
       ].select { |s, count| s.present? && count.present? && count > 0 }
 
       return nil if contributions.empty?
@@ -91,10 +94,19 @@ module Games
       (numerator / denominator).round
     end
 
-    # Tier slug for an arbitrary score. Exposed as a `data-tier`
-    # attribute on the host element. Scores below 25 resolve to
-    # `very_bad` (dark muddy red) per the AR carve-out.
-    def tier_for(s)
+    # Instance-form preserved for backwards compatibility with the
+    # existing template / specs that call `synthesized_score` directly
+    # on the heat-bar instance.
+    def synthesized_score
+      self.class.synthesized_score(@game)
+    end
+
+    # Class-method form (2026-05-18) — tier slug for an arbitrary
+    # numeric score (or nil). Scores below 25 resolve to `very_bad`
+    # (dark muddy red) per the AR carve-out. Exposed at the class
+    # level so sibling components can pick the same tier without
+    # constructing a heat-bar instance.
+    def self.tier_for(s)
       return "missing" if s.nil?
 
       TIERS.each do |min, name|
@@ -103,8 +115,13 @@ module Games
       "very_bad"
     end
 
+    # Instance-form preserved for backwards compatibility.
+    def tier_for(s)
+      self.class.tier_for(s)
+    end
+
     def tier
-      tier_for(score)
+      self.class.tier_for(score)
     end
   end
 end

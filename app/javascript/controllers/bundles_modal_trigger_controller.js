@@ -19,12 +19,13 @@ import { Controller } from "@hotwired/stimulus"
 // NO `confirm()` / `alert()` / `prompt()` (CLAUDE.md hard rule).
 export default class extends Controller {
   static values = {
-    url:       String,
-    title:     String,
-    updateUrl: String,  // PATCH /bundles/:id — feeds the inline-title-edit controller
-    dialogId:  { type: String, default: "bundles-modal" },
-    frameId:   { type: String, default: "bundles_modal_frame" },
-    titleId:   { type: String, default: "" },  // optional override
+    url:             String,
+    title:           String,
+    updateUrl:       String,  // PATCH /bundles/:id — feeds the inline-title-edit controller
+    deleteConfirmId: String,  // DOM id of the per-bundle confirm-delete dialog
+    dialogId:        { type: String, default: "bundles-modal" },
+    frameId:         { type: String, default: "bundles_modal_frame" },
+    titleId:         { type: String, default: "" },  // optional override
   }
 
   open(event) {
@@ -53,6 +54,17 @@ export default class extends Controller {
     if (this.updateUrlValue) {
       const holder = dialog.querySelector('[data-bundles-modal-target="urlHolder"]')
       if (holder) holder.setAttribute("data-inline-title-edit-url-value", this.updateUrlValue)
+    }
+
+    // 2026-05-18 — Write the per-bundle delete-confirm dialog id onto
+    // the modal's `[-]` button so `click->modal-trigger#open` opens
+    // the matching `<dialog id="confirm_delete_bundle_<id>">`. The
+    // `modal-trigger` controller re-reads `targetIdValue` from the
+    // attribute on each click, so this assignment binds the next
+    // delete attempt to the currently-opened bundle.
+    if (this.deleteConfirmIdValue) {
+      const deleteBtn = dialog.querySelector('[data-bundles-modal-target="deleteButton"]')
+      if (deleteBtn) deleteBtn.setAttribute("data-modal-trigger-target-id-value", this.deleteConfirmIdValue)
     }
 
     if (typeof dialog.showModal === "function" && !dialog.open) {

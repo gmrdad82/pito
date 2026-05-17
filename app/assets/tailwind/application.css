@@ -3470,28 +3470,28 @@ dialog.leader-menu-popup::backdrop {
 
    The wrapper is the 3:4 canvas; each `.bundle-modal-cell` is
    positioned absolutely via percentage left/top/width/height
-   computed from `Composite::CellMap.for(N)` ratios. The four
-   OUTSIDE corners of the composite get a 2px radius — only the
-   cells that actually touch a corner pick up the matching radius
-   on the outward-facing corner. Edge cells (e.g. top-middle of a
-   3×3) and the center cell stay square.
+   computed from `Composite::CellMap.for(N)` ratios.
 
    `--color-cover-border` is the shared theme-aware token used by
    `.game-cover-img`, `.tile-cover img`, and `.bundle-cover-composite`
    above, so the modal composite edge tracks light/dark theme
    alongside every other cover edge in the app. `overflow: hidden`
-   clips the per-corner radii from cell wrappers to the outer
-   rounded outline. */
+   clips per-cell rounded corners to the wrapper outline.
+
+   2026-05-18 — every cover-art cell now picks up a full 2px
+   radius + theme border (matches the shelf cover treatment),
+   replacing the earlier corner-only system that only rounded the
+   four outer corners of the composite. */
 .bundle-modal-composite {
   position: relative;
   border: 1px solid var(--color-cover-border);
   border-radius: 2px;
   overflow: hidden;
 }
-.bundle-modal-cell--corner-tl { border-top-left-radius: 2px; }
-.bundle-modal-cell--corner-tr { border-top-right-radius: 2px; }
-.bundle-modal-cell--corner-bl { border-bottom-left-radius: 2px; }
-.bundle-modal-cell--corner-br { border-bottom-right-radius: 2px; }
+.bundle-modal-cell img {
+  border: 1px solid var(--color-cover-border);
+  border-radius: 2px;
+}
 
 /* games — Genres outer shelf hairline between consecutive sub-shelves.
    Selector kept verbatim so the per-shelf spec assertion still locks
@@ -4087,5 +4087,51 @@ input[type="text"].bundle-title-input:focus-visible {
 .ttb-fuel-gauge__label--at-end {
   transform: translateX(-100%);
   text-align: right;
+}
+
+/* 2026-05-18 — Bundle modal "all games" table.
+
+   Replaces the prior `+N more game(s)` overflow shelf inside the
+   bundle modal with a flat `.sessions-table`-styled list of every
+   member game. Each row carries: checkbox, title link, primary genre,
+   short release date, rating-score chip.
+
+   `.all-games-col-check` keeps the checkbox column narrow so the
+   row reads title-first. The `.num` modifier on release + rating
+   columns is inherited from the `.sessions-table` family (right-
+   aligned + tabular). No structural overrides needed beyond the
+   checkbox column width — every other dimension comes from the
+   shared `.sessions-table` rules above.
+
+   The `.rating-score-chip` block immediately below paints the
+   colored pill rendered by `Games::RatingScoreChipComponent` —
+   single source of truth for the chip's geometry + edge treatment,
+   used wherever the rating chip surfaces (currently only this
+   table; future surfaces opt in by rendering the component). */
+.all-games-col-check {
+  width: 28px;
+}
+
+table.all-games-table td {
+  vertical-align: middle;
+}
+
+/* Rating-score chip — tier-colored pill rendered by
+   `Games::RatingScoreChipComponent`. Background color is set inline
+   per-instance from the tier map (TIER_BG_COLOR); the per-tier hex
+   intentionally mirrors the dark-theme `--color-rating-*` palette
+   so the chip reads loudly in BOTH themes. Text is white + bold
+   over the vivid bg; the near-black 1px border mirrors the rating
+   heat-bar score tick and the TTB pillar tick treatments for
+   visual parity. */
+.rating-score-chip {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 2px;
+  border: 1px solid #000000;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 1.4;
 }
 
