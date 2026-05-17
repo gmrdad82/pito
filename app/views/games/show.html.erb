@@ -35,13 +35,40 @@
 <% end %>
 <% content_for(:breadcrumb_actions) do %>
   <div class="dot-list">
+    <%# `data-page-action="sync"` is the SPACE-s leader binding hook
+        (see `config/keybindings.yml` `page_actions.games_show` →
+        `s sync` + `leader_menu_controller.js#pageSync`). The leader
+        handler does a direct `.click()` on the matching element. The
+        hook is ONLY attached to the active-state `<button>` — when a
+        resync is already in flight the muted-state branch renders as
+        a non-interactive `<span class="bracketed-muted">` (plain bold
+        muted text, `cursor: default`, no click handler, no href, no
+        hover lift), so SPACE-s becomes a no-op and the cursor / mouse
+        cannot trigger a second resync while one is in flight. The
+        page's `auto-refresh` controller below is the only thing that
+        changes while a resync is in flight — when the flag clears the
+        full reload swaps the `<span>` back to the live `<button>`.
+        2026-05-18 polish — switched from `BracketedMutedLinkComponent`
+        (which renders an `<a href>`, still receives clicks, still
+        shows the link cursor) to the existing non-interactive
+        `.bracketed-muted` primitive so the muted state reads as plain
+        muted text, not a "lesser link". %>
     <% if @game.resyncing? %>
-      <%= render(BracketedMutedLinkComponent.new(label: "sync", href: resync_game_path(@game))) %>
+      <span class="bracketed-muted" aria-disabled="true">[<span class="bl">sync</span>]</span>
     <% else %>
-      <%= button_to resync_game_path(@game),
-                    method: :post,
-                    class: "bracketed",
-                    form: { style: "display: inline; margin: 0;", data: { turbo: false } } do %>[<span class="bl">sync</span>]<% end %>
+      <%# 2026-05-18 — `[sync]` becomes an in-page confirm-modal trigger
+          (red / dangerous) because firing a resync consumes from the
+          IGDB request quota. Mirrors the `[delete]` pattern below: raw
+          `<a href="#">` carrying `modal-trigger` so SPACE-s (the leader
+          handler does a `.click()` on this anchor) opens the same
+          `<dialog>`. The form-submit lives inside the modal — the
+          underlying `POST /games/:id/resync` endpoint is unchanged. %>
+      <a href="#"
+         class="bracketed text-danger"
+         data-controller="modal-trigger"
+         data-action="click->modal-trigger#open"
+         data-page-action="sync"
+         data-modal-trigger-target-id-value="confirm_sync_game_<%= @game.id %>">[<span class="bl">sync</span>]</a>
     <% end %>
     <%# Wave C9 (spec 08 §"Per-game delete confirm modal") — breadcrumb
         `[delete]` opens an in-page `ConfirmModalComponent` (native
@@ -51,11 +78,18 @@
         `DELETE /games/:id` (Game#destroy + dependent cascades + the
         `Collections::CompositeRebuildQueue.enqueue_for_game_destroy`
         hook). The modal markup itself is rendered at the bottom of
-        this template so it sits outside all pane rows. %>
+        this template so it sits outside all pane rows.
+        `data-page-action="delete"` is the SPACE-- leader binding
+        hook (see `config/keybindings.yml` `page_actions.games_show`
+        → `- delete` + `leader_menu_controller.js#pageDelete`). The
+        leader handler does a `.click()` on this anchor, which fires
+        the existing `click->modal-trigger#open` action and opens the
+        same `<dialog>`. %>
     <a href="#"
        class="bracketed text-danger"
        data-controller="modal-trigger"
        data-action="click->modal-trigger#open"
+       data-page-action="delete"
        data-modal-trigger-target-id-value="confirm_delete_game_<%= @game.id %>">[<span class="bl">-</span>]</a>
   </div>
 <% end %>
@@ -149,6 +183,15 @@
       meta_rows << ["dev", developer_names.join(", ")] if developer_names.any?
       publisher_names = @game.publishers.map(&:name)
       meta_rows << ["pub", publisher_names.join(", ")] if publisher_names.any?
+      # 2026-05-18 — sync row sits below dev/pub. While a resync is in
+      # flight (`resyncing?` true) the value renders as `---` so the
+      # row visibly signals "stale, refreshing"; once the job clears
+      # the flag the page's `auto-refresh` controller above reloads
+      # and the cell flips back to a fresh `compact_time_ago` string
+      # off `igdb_synced_at`. `compact_time_ago(nil)` returns
+      # `"never"` so games that have never synced still show the row
+      # rather than dropping it.
+      meta_rows << ["sync", @game.resyncing? ? "---" : compact_time_ago(@game.igdb_synced_at)]
     %>
     <% if meta_rows.any? %>
       <%# 2026-05-17 polish — `.kv-table__value` truncates via
@@ -310,4 +353,25 @@
       confirm_label: "delete",
       cancel_label: "cancel",
       destructive: true
+    )) %>
+
+<%# 2026-05-18 — per-game `[sync]` confirm modal. Sync is a dangerous
+    action because it consumes from the IGDB request quota (rate-limited
+    external API), so the breadcrumb [sync] no longer fires on raw click
+    — it opens this dialog instead. The confirm POSTs to the same
+    `resync_game_path` endpoint the old `button_to` used. Carries
+    `modal_actions_key: "sync_confirm"` so once the dialog is open the
+    leader popup becomes modal-scoped to the matching `modal_actions`
+    list in `config/keybindings.yml` (`l` dark mode + `s` confirm sync).
+%>
+<%= render(ConfirmModalComponent.new(
+      id: "confirm_sync_game_#{@game.id}",
+      title: "resync #{@game.title}?",
+      body: "this will consume from your IGDB request quota.",
+      confirm_path: resync_game_path(@game),
+      confirm_method: :post,
+      confirm_label: "sync",
+      cancel_label: "cancel",
+      destructive: true,
+      modal_actions_key: "sync_confirm"
     )) %>

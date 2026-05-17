@@ -366,6 +366,21 @@ class GamesController < ApplicationController
       end
       return
     end
+    # 2026-05-18 — flip `resyncing` true SYNCHRONOUSLY before enqueuing
+    # so the post-redirect render reads `@game.resyncing? = true`. This
+    # makes the breadcrumb [sync] immediately render as muted (Wave C8)
+    # and mounts the page-level `auto-refresh` div so the page polls for
+    # the cleared flag without manual refresh. Previously the flag flip
+    # happened inside the Sidekiq job, racing the redirect — the user
+    # often saw an unchanged page and assumed [sync] had no effect.
+    # `update_column` skips validations / callbacks, mirroring the job's
+    # own `resyncing` flip. The job's legacy early-bail
+    # `return if game.resyncing?` was retired in lockstep — the
+    # controller now OWNS the duplicate-click gate (the `if @game.resyncing?`
+    # branch above short-circuits with the "already resyncing." flash),
+    # and the job unconditionally flips the flag + proceeds (its own
+    # `update_column` is idempotent against the controller-set flag).
+    @game.update_column(:resyncing, true)
     @enqueued_jid = GameIgdbSync.perform_async(@game.id)
     respond_to do |format|
       format.html { redirect_to game_path(@game), notice: "refreshing from igdb…" }

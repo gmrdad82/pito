@@ -782,33 +782,33 @@ export default class extends Controller {
     if (window.recolorCharts) setTimeout(window.recolorCharts, 50)
   }
 
-  // `page_sync` — POSTs to `<body data-page-sync-url>` (e.g.
-  // `/games/:id/resync`). On success the page's existing ActionCable
-  // subscription handles the live update; we don't wait on the
-  // response body. No-op when the body attribute isn't set.
+  // `page_sync` — locate the page's breadcrumb sync trigger by the
+  // `[data-page-action="sync"]` hook and synthesize a click on it.
+  // 2026-05-18 — switched from the prior `<body data-page-sync-url>` +
+  // direct `fetch()` POST. The hook-based dispatch is simpler and
+  // delegates the actual POST to the breadcrumb's existing surface
+  // (a `button_to`-generated `<button>` inside a form, or a
+  // controller-bound anchor). Clicking the button submits the form,
+  // which goes through the standard `data-turbo="false"` POST path
+  // and lands the server-side redirect — same surface the user gets
+  // from a manual breadcrumb click. No-op when the hook isn't on the
+  // page (e.g. on a non-show surface, or before the breadcrumb-action
+  // block has been rendered).
   pageSync() {
-    const url = document.body?.dataset?.pageSyncUrl
-    if (!url) return
-    const token = document.querySelector('meta[name="csrf-token"]')?.content
-    fetch(url, {
-      method: "POST",
-      headers: {
-        "X-CSRF-Token": token || "",
-        Accept: "text/vnd.turbo-stream.html",
-      },
-    }).catch((err) => console.error("page_sync failed:", err))
+    const el = document.querySelector('[data-page-action="sync"]')
+    if (el && typeof el.click === "function") el.click()
   }
 
-  // `page_delete` — opens the per-page confirm `<dialog>` by id (the
-  // per-game / per-bundle delete modal). No-op when no
-  // `data-page-delete-modal-id` is set or the dialog is absent.
+  // `page_delete` — locate the page's breadcrumb delete trigger by the
+  // `[data-page-action="delete"]` hook and synthesize a click on it.
+  // 2026-05-18 — switched from the prior `<body data-page-delete-modal-id>`
+  // lookup + direct `showModal()`. The hook-based dispatch fires the
+  // breadcrumb anchor's own `click->modal-trigger#open` Stimulus
+  // action, so the modal-open path stays single-sourced through the
+  // `modal-trigger` controller. No-op when the hook isn't on the page.
   pageDelete() {
-    const modalId = document.body?.dataset?.pageDeleteModalId
-    if (!modalId) return
-    const dialog = document.getElementById(modalId)
-    if (dialog && typeof dialog.showModal === "function") {
-      dialog.showModal()
-    }
+    const el = document.querySelector('[data-page-action="delete"]')
+    if (el && typeof el.click === "function") el.click()
   }
 
   // `open_modal` with `modal_id: search_placeholder` — opens the

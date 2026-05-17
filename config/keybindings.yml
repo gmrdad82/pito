@@ -58,6 +58,9 @@ leader:
 #                     Action keys: `l` dark mode, `r` revoke.
 #   reindex_confirm — /settings/stack Meilisearch reindex confirm modal.
 #                     Action keys: `l` dark mode, `r` reindex.
+#   sync_confirm    — /games/:id breadcrumb [sync] confirm modal (dangerous
+#                     action — consumes from the IGDB request quota).
+#                     Action keys: `l` dark mode, `s` confirm sync.
 #
 # Two new action types are introduced in lockstep with this block:
 #
@@ -110,6 +113,16 @@ modal_actions:
           type: theme_toggle
       - key: r
         label: reindex
+        action:
+          type: submit_confirm_modal
+  sync_confirm:
+    items:
+      - key: l
+        label: dark mode
+        action:
+          type: theme_toggle
+      - key: s
+        label: sync
         action:
           type: submit_confirm_modal
 

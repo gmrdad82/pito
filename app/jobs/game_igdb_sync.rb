@@ -56,12 +56,17 @@ class GameIgdbSync
     game = Game.find_by(id: game_id)
     return unless game
 
-    # Mutex guard — bail out if another worker is already syncing
-    # this game. `update_column` skips validations / callbacks so
-    # the local-only column flip never collides with the IGDB
-    # update! inside SyncGame.
-    return if game.resyncing?
-
+    # 2026-05-18 — controller-owned mutex flip. `GamesController#resync`
+    # stamps `resyncing = true` SYNCHRONOUSLY before enqueuing the job
+    # so the post-POST redirect renders the muted breadcrumb + auto-
+    # refresh polling immediately (no race against Sidekiq pickup).
+    # `update_column` skips validations / callbacks so this is safe to
+    # call when the controller already set the flag (idempotent no-op).
+    # The legacy `return if game.resyncing?` early-bail was retired in
+    # lockstep — the controller now owns the gate (it short-circuits
+    # duplicate user clicks with the "already resyncing." flash), and
+    # console / rake callers that bypass the controller still get a
+    # full sync because the job unconditionally flips the flag and runs.
     game.update_column(:resyncing, true)
     success = false
     begin

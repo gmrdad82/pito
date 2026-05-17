@@ -177,7 +177,7 @@ module Games
     # Legend caption for the footage swatch. Single word so the legend
     # row stays compact alongside the three pillar names.
     def footage_caption
-      "recorded"
+      "footage"
     end
 
     # Returns true when the footage tick should render at all. We
@@ -213,14 +213,33 @@ module Games
       end
     end
 
-    # Footage value label alignment — ALWAYS centered on its tick. Per
-    # user direction (2026-05-17): "the footage text 150h can be kept
+    # Footage value label alignment.
+    #
+    # Default (footage_hours > 0): CENTERED on its tick. Per user
+    # direction (2026-05-17): "the footage text 150h can be kept
     # aligned to the tick. there is no need for this one to be right
     # aligned in this case". Overflow past the bar's right edge is
     # accepted visually so the number stays visually anchored to the
     # footage notch even at >90 % position.
+    #
+    # Special case (footage_hours == 0): LEFT-ALIGNED to the tick.
+    # Per user direction (2026-05-18 — "for this case let's nudge the
+    # 0h of footage a bit to the right / aligned in a manner that 0h
+    # starts where the footage pillar / tick starts"). With the footage
+    # tick parked at the bar's left edge (position 0), centering the
+    # "0h" label puts half of it off-pane to the left. The `--at-start`
+    # modifier (translateX(0) + text-align: left) anchors the label so
+    # it begins AT the tick and extends rightward, staying fully visible.
+    #
+    # Wave F spec coverage to add (deferred per iteration mode):
+    #   - footage_hours == 0    → returns "ttb-fuel-gauge__label--at-start"
+    #   - footage_hours  > 0    → returns "ttb-fuel-gauge__label--centered"
     def footage_label_alignment_class
-      "ttb-fuel-gauge__label--centered"
+      if footage_hours.to_i == 0
+        "ttb-fuel-gauge__label--at-start"
+      else
+        "ttb-fuel-gauge__label--centered"
+      end
     end
 
     # Bottom-row pillar label alignment — ALWAYS centered on its tick.
@@ -258,13 +277,13 @@ module Games
     # the earlier label of a colliding pair shifts LEFT by `NUDGE_PCT`,
     # the later label shifts RIGHT by `NUDGE_PCT`. For the Crimson
     # Desert calibration (max_x ≈ 775h), this lands at main
-    # 4.0 → 2.0 % and extras 9.16 → 11.16 %, giving 9.16 % of
+    # 4.0 → 2.7 % and extras 9.16 → 10.46 %, giving 7.76 % of
     # separation — well above the 5.16 % raw gap and clearly readable.
     # Completionist (~95 %) has no collision and stays anchored.
     # Edges of the bar are clamped to [0, 100] so a near-zero /
     # near-100 tick can't push its label off-bar.
-    # Step history: 2.1 → 2.0 (2026-05-18, user direction).
-    NUDGE_PCT = 2.0
+    # Step history: 2.1 → 2.0 → 1.8 → 1.3 (2026-05-18, user direction).
+    NUDGE_PCT = 1.3
 
     # Returns the bottom-row pillar labels with per-label collision
     # metadata. The template renders each label with `effective_position`
