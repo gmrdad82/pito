@@ -1,26 +1,33 @@
-<%# Phase 14 §3 — Steam-shelf rewrite of `/games`.
-    - Bundles shelf at the top (only when Bundle.exists?).
-    - Recently-played shelf (games with `played_at` set).
-    - Per-platform shelves (one per Platform with an active ownership
-      row — see `game_platform_ownerships`, Phase 27 §1a).
-    - All-games grid at the bottom; filterable via
-      `/games?genre=<id-or-slug>` / `/games?platform_owned=<id-or-slug>`.
+<%# Phase 27 v2 spec 05 — `/games` is a single shelves-by-letter
+    layout. The display-mode switcher and the three per-mode partials
+    (`_grid_mode` / `_list_mode` / `_shelves_by_letter_mode`) are gone;
+    the page renders one stack of shelves top-to-bottom:
 
-    Phase 27 polish (2026-05-11) — per-genre shelves are now rendered
-    once, at the top of the page, by the 01c-v2 nested Genres outer
-    shelf (`games/_genres_shelf`). The legacy `@genres_shelves`
-    iteration that produced duplicate genre rows below the all-games
-    partition was retired here.
+      1. Page title `games` + `[+]`.
+      2. Filter row (spec 06 reworks the row's internal layout).
+      3. Bundles shelf (only when at least one bundle exists).
+      4. Recently-played shelf (only when at least one game has
+         `played_at` set).
+      5. Hairline.
+      6. Genres outer shelf (one sub-shelf per non-empty genre, short
+         heading labels per `GenresHelper#genre_short_name`).
+      7. Hairline.
+      8. Collections outer shelf (one tile per non-empty collection;
+         clicking a tile opens the collections-modal pane).
+      9. Hairline.
+      10. Letter shelves (one shelf per non-empty letter A..Z, then
+          `#` bucket at the end if non-empty).
 
-    Each shelf is a `<section class="shelf">` carrying the
-    `steam-shelf` Stimulus controller for drag-scroll +
-    mouse-wheel-to-horizontal scroll.
+    Each shelf carries the `steam-shelf` Stimulus controller for
+    drag-scroll + mouse-wheel-to-horizontal scroll, with the project's
+    themed slim scrollbar (6 px on both axes — see the global
+    `::-webkit-scrollbar` rules in `app/assets/tailwind/application.css`).
 
     Phase 14 §1 polish (2026-05-10) — the inline IGDB type-ahead
-    `_add_form` partial was retired. The H1 now carries a `[+]`
-    bracketed link (`channels` / `videos` parity) that opens the
-    layout-level IGDB-search modal (`shared/_igdb_search_modal`).
-    The same modal is reachable from anywhere via the `i` keypress. %>
+    `_add_form` partial was retired. The H1 carries a `[+]`
+    bracketed link that opens the layout-level IGDB-search modal
+    (`shared/_igdb_search_modal`). The same modal is reachable from
+    anywhere via the `i` keypress. %>
 <% content_for(:title, "games") %>
 
 <div style="max-width: 1100px;">
@@ -39,80 +46,26 @@
     </div>
   </div>
 
-  <%# Phase 27 §01c-v2 — Genres + Custom collections shelves render
-      above everything else (and above the Phase 27 §01b filter row).
-      Both shelves are nested (outer shelf iterates per-genre /
-      per-collection sub-shelves of game-cover tiles). Empty buckets
-      are hidden — the partial only renders when at least one bucket
-      has games. %>
-  <%= render "games/genres_shelf", genres: @genres_for_shelf %>
-  <%# 2026-05-11 polish (Fix 2) — hairline separator between the genres
-      outer shelf and the collections outer shelf. Only renders when
-      BOTH shelves render (i.e. each input relation has at least one
-      row); the per-shelf partials hide themselves when their input is
-      empty so a lone collections shelf does not get a leading rule. %>
-  <% if @genres_for_shelf.any? && @collections_for_shelf.any? %>
-    <hr class="hairline">
-  <% end %>
-  <%= render "games/collections_shelf", collections: @collections_for_shelf %>
-
-  <%# Phase 27 §01b — filter row sits BELOW the shelves and ABOVE the
-      main listing. Chip clicks toggle tokens in the `?filters=` CSV
-      URL param; `[clear all]` clears the set while preserving
-      `?genre=`, `?collection=`, and `?display=` overrides.
-
-      Phase 27 polish (2026-05-11) — the display-mode switcher (01d)
-      now lands in the filter row's right slot (was previously flush
-      right of the `<h1>games</h1>` row). Three bracketed-link
-      `button_to` forms PATCH `/users/games_preferences` to persist
-      the choice; the controller redirects to `/games?display=<mode>`
-      so the same render reflects the chosen mode immediately.
-
-      2026-05-11 polish (Fix 3) — the `all` heading now lives here,
-      ABOVE the filter row, instead of inside each mode partial. The
-      previous order (filter rows → `all` heading → table) read like
-      the chips lived above the heading; the new order (`all` → filter
-      rows → table) anchors the heading first, then the live filter
-      controls scoping it. The heading still only renders when there
-      is at least one shelf to surface — the empty-state branch below
-      handles the "no games on this install" case without a stray
-      `all` heading floating over no content. The `has_any_shelf`
-      local is computed once here so both this heading and the listing
-      branch below share the same boolean. %>
-  <% has_any_shelf = @bundles_shelf.any? || @recently_played.any? ||
-                     @platforms_shelves.any? || @all_games.any? %>
-
-  <% if has_any_shelf %>
-    <h2 style="margin-top: 24px; margin-bottom: 8px;">all</h2>
-  <% end %>
-
+  <%# Phase 27 §01b — filter row sits directly under the page title and
+      above every shelf. Chip clicks toggle tokens in the `?filters=`
+      CSV URL param; `[clear all]` clears the set while preserving
+      `?genre=` / `?collection=` overrides. v2 spec 05 dropped the
+      `?display=` query-string passthrough — the display-mode switcher
+      retired with the per-mode partials. %>
   <%= render Games::FilterRowComponent.new(
         active_tokens:          @filter_tokens,
         dropped_tokens:         @dropped_filter_tokens,
         request_path:           games_path,
         query_string_overrides: { genre:      params[:genre],
-                                  collection: params[:collection],
-                                  display:    params[:display] }.compact_blank,
+                                  collection: params[:collection] }.compact_blank,
         contradiction:          @filter_contradiction
-      ) do |row| %>
-    <% row.with_right_slot do %>
-      <%= render "games/display_mode_switcher", active_mode: @display_mode %>
-    <% end %>
-  <% end %>
+      ) %>
 
-  <%# Phase 27 polish (2026-05-11) — the legacy per-genre shelf
-      iteration (`@genres_shelves`) was retired here. It duplicated
-      the 01c-v2 nested Genres outer shelf at the top of the page.
-      The 01c-v2 nested shelves are now the single source of truth
-      for genre-grouped tile rows; the all-games partition below
-      remains the canonical "all games" surface.
+  <% has_any_content = @bundles_shelf.any? || @recently_played.any? ||
+                       @genres_for_shelf.any? || @collections_for_shelf.any? ||
+                       @letter_buckets.any? %>
 
-      2026-05-11 polish (Fix 3) — `has_any_shelf` is now computed
-      above the filter row so the `all` heading + the listing
-      branch share the same boolean; the duplicate assignment that
-      used to sit here was removed. %>
-
-  <% if has_any_shelf %>
+  <% if has_any_content %>
     <% if @bundles_shelf.any? %>
       <%= render "games/shelf",
                  title: "bundles",
@@ -128,26 +81,24 @@
                  tile_partial: "games/tile" %>
     <% end %>
 
-    <% @platforms_shelves.each do |(platform, games)| %>
-      <%= render "games/shelf",
-                 title: platform.name.downcase,
-                 collection: games,
-                 tile_partial: "games/tile",
-                 more_link: games_path(platform_owned: platform.id) %>
+    <%# Phase 27 §01c-v2 — Genres outer shelf. One sub-shelf per non-
+        empty genre, alphabetical. Empty buckets hidden. %>
+    <% if @genres_for_shelf.any? %>
+      <hr class="hairline">
+      <%= render "games/genres_shelf", genres: @genres_for_shelf %>
     <% end %>
 
-    <%# Phase 27 §01d — display-mode partition for the all-games surface.
-        The resolved mode (`@display_mode`) drives which partial renders.
-        Grid is the legacy / default tile grid; list is the alpha-grouped
-        sortable table; shelves_by_letter is one horizontal shelf per
-        first-letter bucket. The switcher above persists the choice. %>
-    <% case @display_mode %>
-    <% when :list %>
-      <%= render "games/list_mode", games: @all_games %>
-    <% when :shelves_by_letter %>
-      <%= render "games/shelves_by_letter_mode", games: @all_games %>
-    <% else %>
-      <%= render "games/grid_mode", games: @all_games %>
+    <%# Collections outer shelf — one tile per non-empty collection. %>
+    <% if @collections_for_shelf.any? %>
+      <hr class="hairline">
+      <%= render "games/collections_shelf", collections: @collections_for_shelf %>
+    <% end %>
+
+    <%# Phase 27 v2 spec 05 — Letter shelves. One `<section>` per non-
+        empty letter; `#` bucket renders LAST when present. %>
+    <% if @letter_buckets.any? %>
+      <hr class="hairline">
+      <%= render "games/letter_shelves", buckets: @letter_buckets %>
     <% end %>
   <% else %>
     <p class="text-muted">no games yet. press <span class="keycap">i</span> or click [+] to add one from igdb.</p>

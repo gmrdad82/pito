@@ -1,5 +1,141 @@
 # Phase 27 — log
 
+## [skipci] 2026-05-17 — v2 spec 05 Games index shelves-only (pito-rails)
+
+Implements v2 spec 05 — `docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs-v2/05-games-index-shelves-only.md`. Collapses `/games` to a single shelves layout. Drops the three-mode display switcher (grid / list / shelves-by-letter), the per-mode partials, the `Users::GamesPreferencesController`, the `User#preferred_games_display_mode` enum + backing column, and the `?display=` query-param resolver. Replaces them with one stack of shelves: filter row → bundles → recently-played → genres outer shelf → collections outer shelf → per-letter shelves. The genre short-name mapping was rewritten to the spec's locked table (RPG, FPS, JRPG, Sim, MOBA, Platformer, VN, Card, Hack/Slash, etc.) — unknown genres fall through to the IGDB canonical name unchanged.
+
+### What landed
+
+- `app/views/games/index.html.erb` — rewritten to the new contract. Page title + `[+]` → filter row → bundles (when present) → recently-played (when present) → hairline → genres outer shelf (when populated) → hairline → collections outer shelf (when populated) → hairline → letter shelves wrapper. The empty-state path stays a single `<p class="text-muted">no games yet…</p>`. The `display:` query-string passthrough on the filter row's `query_string_overrides:` hash is gone; only `genre:` and `collection:` survive.
+- `app/views/games/_letter_shelves.html.erb` (NEW) — wraps the controller's `@letter_buckets` array. One `<section class="shelf shelf--letter">` per non-empty letter bucket. Heading is the bucket key as `<h3>`. Tiles render through `Games::CoverComponent` at the `:shelf` variant (98 × 130). Every shelf carries `data-controller="steam-shelf"` so the wheel-to-horizontal drag-scroll affordance is inherited. The `<section class="all-games-shelves-by-letter">` wrapper survives as the back-compat hook target (e.g. the `_letter_shelves` width-clamp CSS rule already keyed on the class).
+- `app/controllers/games_controller.rb` — `index` action drops `@display_mode = resolved_display_mode`, drops the per-platform `@platforms_shelves` computation (the per-platform shelves were never carried into the new layout per the spec's render contract), and adds a private `build_letter_buckets(scope)` helper that produces an `Array` of `[letter, [Game, ...]]` tuples in render order (`A..Z` first, `#` bucket last). Buckets fill from `scope.to_a.group_by` with the letter rule (first char uppercased when in `[A-Z]`, else `#`); each bucket sorts by `LOWER(title)` with `id` as a stable tiebreak. The legacy `resolved_display_mode` method retired.
+- `app/models/user.rb` — drops the `attribute :preferred_games_display_mode` + `enum :preferred_games_display_mode {…}` declaration. The column is gone (see migration below); the enum class methods and instance predicates retire with it. A documentary comment block stays in place noting the v2 spec 05 retirement.
+- `app/helpers/genres_helper.rb` — rewrites `SHORT_NAMES` (renamed from `GENRE_SHORT_NAMES`) to match the spec's locked mapping table: `RPG`, `JRPG`, `FPS`, `MOBA`, `RTS`, `TBS`, `Sim`, `Sport`, `Racing`, `Fighting`, `Adventure`, `Platformer`, `Puzzle`, `Strategy`, `Pinball`, `Arcade`, `Music`, `Hack/Slash`, `Quiz`, `Tactical`, `VN`, `Indie`, `Card`. Both `Shooter` and `First-person Shooter` collapse to `FPS`; both `Point-and-click` and `Adventure` collapse to `Adventure`. The legacy `ACRONYM_LABELS` constant + the lowercase-rule fallthrough retired — unmapped genres now return their IGDB canonical name unchanged (the spec's locked semantics).
+- `config/routes.rb` — drops the `namespace :users do resource :games_preferences, only: :update end` block. The endpoint is gone.
+- `db/migrate/20260516232156_drop_preferred_games_display_mode_from_users.rb` (NEW) — `remove_column :users, :preferred_games_display_mode`. Reversible (`down` re-adds the integer column with the historical default `0`).
+
+### Deletions
+
+- `app/views/games/_grid_mode.html.erb` (deleted).
+- `app/views/games/_list_mode.html.erb` (deleted).
+- `app/views/games/_shelves_by_letter_mode.html.erb` (deleted).
+- `app/views/games/_display_mode_switcher.html.erb` (deleted).
+- `app/controllers/users/games_preferences_controller.rb` (deleted; `app/controllers/users/` directory removed because it became empty).
+- `spec/requests/users/games_preferences_spec.rb` (deleted; `spec/requests/users/` directory removed because it became empty).
+- `spec/system/games_display_modes_spec.rb` (deleted — every example asserted display-mode switcher behavior that no longer exists).
+- `spec/system/games_list_mode_bulk_spec.rb` (deleted — same reason; bulk-select scaffold for the list-mode partition retires with the partition).
+- `spec/views/games/_display_mode_switcher.html.erb_spec.rb` (deleted).
+- `spec/views/games/_grid_mode.html.erb_spec.rb` (deleted).
+- `spec/views/games/_list_mode.html.erb_spec.rb` (deleted).
+- `spec/views/games/_shelves_by_letter_mode.html.erb_spec.rb` (deleted).
+
+### Tests added / updated
+
+- `spec/views/games/_letter_shelves.html.erb_spec.rb` (NEW) — 14 examples covering: happy single-bucket render (section + heading + tile + steam-shelf wiring + `data-letter` attribute + outer wrapper class), happy multi-bucket order preservation, digit-titled `#` bucket position (heading present + pinned to end), tile order preservation, edge empty buckets array (renders nothing), edge bucket-with-zero-games defensive fallthrough, no JS confirm / no `<script>` flaw guards.
+- `spec/views/games/index.html.erb_spec.rb` (NEW) — 14 examples covering: empty-install happy path (empty-state copy, title + `[+]`, filter row always present, no letter shelves wrapper, no bundles / genres shelves), happy full library (letter shelves wrapper present, exactly N letter shelves stamped, title-before-filter-row order, filter-row-before-letter-shelves order, no `<h2>all</h2>` heading, no `data-display-mode=` attribute, no display-mode switcher), happy bundles + recently-played order.
+- `spec/helpers/genres_helper_spec.rb` — rewritten end-to-end. 29 examples covering the new `SHORT_NAMES` mapping (frozen, RPG / JRPG / FPS / Sim / MOBA / Platformer / VN / Card / Hack/Slash / Point-and-click / RTS + TBS), string input, Genre instance input (model + persisted), and nil / blank / non-string / non-Genre edge cases.
+- `spec/models/user_spec.rb` — replaces the `preferred_games_display_mode enum (Phase 27 — 01d)` describe with a `Phase 27 v2 spec 05 — preferred_games_display_mode removed` describe (4 examples asserting the absence of the predicate methods, the attribute reader, the class-level enum mapping, and the column on `User.column_names`).
+- `spec/requests/games_spec.rb` — extensive edits: drops the `<h2>all</h2>` heading-order and `data-display-mode=` assertions, drops the per-platform `[see all]` test, drops the entire `display mode resolution (Phase 27 §01d)` describe block (16 examples retired), drops the `display=list` chip-href preservation example, rewrites the contradiction notice assertion (no longer asserts an empty-grid muted copy — the listing wrapper is suppressed instead), updates the genre short-label assertions to the new mapping (`Adventure` stays `Adventure`; `rpg` / `platformer` fall through unchanged), rewrites the hairline ordering assertion to the new "hairline-leads-each-section" contract, marks the `+1 edition` index assertion as a known-gone surface (the badge's canonical surface is the game show page now). Adds a new `Phase 27 v2 spec 05 — shelves-only layout` describe with 8 examples (one section per non-empty letter, hidden letters, `#` bucket at end, `?display=list` / `?display=grid` / `?display=shelves_by_letter` ignored, no `data-display-mode=` anywhere, no switcher rendered).
+- `spec/system/games_index_spec.rb` — updates the v1 nested-shelves describes to the new genre-short-name mapping (`Adventure` stays `Adventure`), replaces `section.all-games-grid` selectors with `section.all-games-shelves-by-letter`, switches text-content assertions to `data-tile-game-id` selectors (the cover-only `Games::CoverComponent` tiles don't render visible title text), updates the contradiction system assertion to "listing wrapper suppressed", updates the `[see all]` navigation assertion to the new letter-shelves wrapper, updates the platform-logo system spec (spec 07 scope) to scope tile lookups to the recently-played shelf (where `_tile.html.erb` still renders the platform-logo footer) and seed each test game with `played_at` so it lands there.
+- `spec/system/games_steam_shelf_spec.rb` — drops the `all-games` heading + `data-display-mode="grid"` assertion (heading + partition retired), adds a negative assertion for both, updates the genre `<h3>` text to `Adventure`.
+- `spec/system/games_multi_version_spec.rb` — switches `have_content("Pragmata")` text assertions on `/games` to `have_css("[data-tile-game-id=...]")` because the new layout's cover tiles emit only `<img>` (no visible title text). The `+1 edition` text assertion is dropped — the badge moved off the index surface.
+- `spec/system/keyboard_grid_navigation_spec.rb` — rewrites the `/games (tile grid)` describe. The flat all-games tile grid retired with the display-mode switcher; the new layout's shelves use the `steam-shelf` Stimulus controller, NOT the keyboard tile-grid surface. The describe now asserts the absence of `data-keyboard-grid` and `data-keyboard-tile` hooks on `/games`.
+- `spec/views/games/_genre_sub_shelf.html.erb_spec.rb` — updates the `<h3>adventure</h3>` assertions to `<h3>Adventure</h3>` (one-to-one mapping per the new short-name table).
+- `spec/views/games/_genres_shelf.html.erb_spec.rb` — same `<h3>adventure</h3>` → `<h3>Adventure</h3>` update; replaces the "lowercase rule" passthrough example with a "unmapped genre returns canonical name unchanged" example.
+
+### Targeted spec result
+
+- `spec/requests/games_spec.rb` — 155 examples, 0 failures.
+- `spec/views/games/` — 174 examples, 0 failures.
+- `spec/components/games/` — 188 examples, 0 failures.
+- `spec/helpers/genres_helper_spec.rb` — 29 examples, 0 failures.
+- `spec/models/user_spec.rb` — 71 examples, 0 failures.
+- `spec/system/games_index_spec.rb` + `spec/system/games_steam_shelf_spec.rb` + `spec/system/keyboard_grid_navigation_spec.rb` — 46 examples, 0 failures (with `--tag type:system`).
+- `spec/system/games_multi_version_spec.rb` + `spec/system/games_platform_ownerships_spec.rb` — 15 examples, 0 failures (with `--tag type:system`).
+- Per the CI hiatus, no full suite run was attempted.
+
+### Static analysis
+
+- `bin/brakeman -q -w2` → 0 security warnings, 0 errors, 1 pre-existing ignored entry. Five obsolete ignore entries surface in the working tree — unrelated to this spec (pre-existing).
+
+### localStorage cleanup verification
+
+- The display-mode switcher was a pure `button_to` form set (no Stimulus controller, no localStorage key, no Turbo data attribute), so no JS state needed cleanup. `grep -rn localStorage /home/catalin/Dev/pito/app/javascript/` returns only the calendar + theme controllers; no games-related localStorage keys exist (and never did). The retirement is one-pass clean.
+
+### Scrollbar CSS scope
+
+- The repo-wide 6 px scrollbar was already in place before this spec dispatched (commit `c630afa` from 2026-05-16 moved every `::-webkit-scrollbar` rule to `width: 6px; height: 6px;` on both axes — globally on the unscoped rule, plus scoped overrides on `dialog`-rooted scrollable surfaces). The audit pass for spec 05 was a no-op: every surface already renders at the locked 6 px size with the themed muted thumb. No CSS was touched in this dispatch.
+
+### Files touched
+
+- Modified: `app/controllers/games_controller.rb`, `app/models/user.rb`, `app/helpers/genres_helper.rb`, `app/views/games/index.html.erb`, `config/routes.rb`, `spec/requests/games_spec.rb`, `spec/views/games/_genre_sub_shelf.html.erb_spec.rb`, `spec/views/games/_genres_shelf.html.erb_spec.rb`, `spec/system/games_index_spec.rb`, `spec/system/games_steam_shelf_spec.rb`, `spec/system/games_multi_version_spec.rb`, `spec/system/keyboard_grid_navigation_spec.rb`, `spec/helpers/genres_helper_spec.rb`, `spec/models/user_spec.rb`, `db/schema.rb` (auto-bumped by `db:migrate`).
+- Added: `app/views/games/_letter_shelves.html.erb`, `db/migrate/20260516232156_drop_preferred_games_display_mode_from_users.rb`, `spec/views/games/_letter_shelves.html.erb_spec.rb`, `spec/views/games/index.html.erb_spec.rb`.
+- Deleted: `app/views/games/_grid_mode.html.erb`, `app/views/games/_list_mode.html.erb`, `app/views/games/_shelves_by_letter_mode.html.erb`, `app/views/games/_display_mode_switcher.html.erb`, `app/controllers/users/games_preferences_controller.rb`, `spec/requests/users/games_preferences_spec.rb`, `spec/system/games_display_modes_spec.rb`, `spec/system/games_list_mode_bulk_spec.rb`, `spec/views/games/_display_mode_switcher.html.erb_spec.rb`, `spec/views/games/_grid_mode.html.erb_spec.rb`, `spec/views/games/_list_mode.html.erb_spec.rb`, `spec/views/games/_shelves_by_letter_mode.html.erb_spec.rb`. Empty parent directories `app/controllers/users/` and `spec/requests/users/` removed.
+
+### Contract decisions for downstream specs (06 will read this)
+
+- **No `?display=` query-string is honored.** The controller dropped the resolver; any saved bookmark to `/games?display=<mode>` 200s but the layout is the single shelves-only render. Filter row's `query_string_overrides:` hash carries only `genre:` and `collection:` keys.
+- **Letter shelves use `Games::CoverComponent` (`:shelf` variant, 98 × 130).** No visible title text on tiles — assertions targeting the listing must use `data-tile-game-id` rather than `have_content`. The `+N editions` badge and the platform-logo footer (spec 07) live on the legacy `_tile.html.erb` partial, which now only renders in the bundles + recently-played shelves. The game show page is the canonical surface for the editions badge.
+- **Per-platform shelves retired.** The `@platforms_shelves` controller assignment is gone; the `owned_on=<slug>` filter-row token is the canonical platform filter.
+- **`<h2>all</h2>` heading retired.** No "all-games partition" sentinel exists in the new layout; the letter shelves wrapper is the whole listing.
+- **Genre short labels follow `GenresHelper::SHORT_NAMES`.** RPG, JRPG, FPS, MOBA, RTS, TBS, Sim, Sport, Racing, Fighting, Adventure, Platformer, Puzzle, Strategy, Pinball, Arcade, Music, Hack/Slash, Quiz, Tactical, VN, Indie, Card. Both `Shooter` and `First-person Shooter` collapse to `FPS`; both `Point-and-click` and `Adventure` collapse to `Adventure`. Unmapped names return the IGDB canonical name unchanged (case preserved).
+
+### Plan-checkbox status
+
+The v2 specs directory (`specs-v2/`) is a polish-dispatch overlay on the original Phase 27 sub-spec checkboxes; `plan.md` does not enumerate a checkbox for spec 05 specifically (the 01a–01g checkboxes track the original phase scope). No checkboxes flipped — the v2 dispatch lands as a log entry per established Phase 27 convention (see prior `v2 spec 01`, `v2 spec 03`, and `v2 spec 04` entries below).
+
+### Open / deferred
+
+- The `[+N editions]` badge no longer renders on the index. The game show page surface still carries it. If a follow-up wants the badge on the index again, options are: (a) extend `Games::CoverComponent` with an optional badge overlay, or (b) bring the legacy `_tile.html.erb` partial back into the letter shelves' tile slot. Out of scope here.
+- The platform-logo tile footer (spec 07) is now only visible in the recently-played + bundles shelves on `/games`. If spec 07 wants the footer on every tile, the same component-extension path applies. Out of scope here.
+- Spec 06 (filters revamp) lands the next slice of work into this surface; the filter row's internal layout is its lane.
+
+## [skipci] 2026-05-17 — v2 spec 03 Game resync job (pito-rails)
+
+Implements v2 spec 03 — `docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs-v2/03-game-resync-job.md`. Hardens the existing `GameIgdbSync` Sidekiq job into the canonical resync surface: Sidekiq uniqueness lock (`lock: :until_executed, on_conflict: :log` — intent declaration; Pito is on Sidekiq OSS so the `games.resyncing` Boolean is the real mutex), live Turbo-Stream broadcast that swaps the show page's sync-status pane from the dot-loader back to the idle `[resync]` button without a refresh, and an explicit collection cover-art fan-out call to `Collections::CompositeRebuildQueue#enqueue_for_game_resync(game)` on the success path. Field partition (IGDB-sourced vs ownership-sourced) is reinforced in the model docstring and asserted by a paranoid job-level spec.
+
+### What landed
+
+- `app/jobs/game_igdb_sync.rb` — added `sidekiq_options lock: :until_executed, on_conflict: :log` alongside the existing `queue: :default, retry: 5`. Introduces a `success` flag that gates the post-sync collection fan-out (only fires on a clean `Igdb::SyncGame#call` return — NOT on `ValidationError` / `RateLimited` / `ServerError`). Calls `Collections::CompositeRebuildQueue.new.enqueue_for_game_resync(game.reload)` BEFORE the `resyncing` flag flips false so the rebuild reads the freshly-resynced row's `cover_image_id`. Both the fan-out call and the broadcast are wrapped in `rescue StandardError → nil` so a Redis hiccup or Collection lookup glitch cannot trip Sidekiq retry on an otherwise-successful sync. Adds a `broadcast_resync_state(game_id)` private helper that mirrors `ReindexAllJob#broadcast_voyage_section` — re-renders the `games/_sync_status` partial and replaces target `game_sync_status_<id>` on stream `"game_resync:<id>"`. The broadcast fires from the `ensure` block so it lands once per run (post-clear), whether the sync succeeded, failed retryably, or failed validation-wise.
+- `app/views/games/_sync_status.html.erb` (NEW) — extracted the show-page Row 2 sync pane into a partial keyed on `game:`. Wrapper `<div id="game_sync_status_<id>">` is the Turbo-Stream replace target. Renders the dot-loader sync-indicator when `game.resyncing?` is true; otherwise renders the `synced X ago.` / `not synced yet.` label + the `[resync]` button (gated on `game.igdb_id.present?`).
+- `app/views/games/show.html.erb` — added `<%= turbo_stream_from "game_resync:#{@game.id}" %>` at the top of the page (permanent subscription, so a CLI / MCP-initiated resync lands in the open browser tab without a refresh). The Row 2 sync pane body is now a single `<%= render "sync_status", game: @game %>` call. The legacy inline `<h2>sync</h2>` + dot-loader / button branches moved into the partial verbatim.
+- `app/models/game.rb` — docstring overhaul. Pins the field partition: IGDB-sourced columns + joins (overwritten by every re-sync, last-write-wins) and ownership-sourced columns + joins (NEVER touched by sync). Notes the enforcement points: `Igdb::SyncGame#call` (writes only IGDB columns) and `GamesController#local_only_params` (allowlists only ownership / notes / footage / version inputs). Adds a pointer to the new model spec assertion that runs a sync and asserts the ownership attribute hash is unchanged.
+
+### Tests
+
+- `spec/jobs/game_igdb_sync_spec.rb` — extended from 12 → 26 examples. New describe blocks: `"collection cover-art fan-out"` (6 examples — success-path enqueue, no-enqueue on `ValidationError` / `RateLimited` / `ServerError`, flag-still-cleared when fan-out raises, no-re-raise when fan-out raises), `"live broadcast"` (4 examples — success / `ValidationError` / retryable failure all broadcast; broadcast errors swallowed without leaking out of `ensure`), `"ownership-sourced field partition"` (1 paranoid example — runs a no-op sync against a row with all ownership fields set, asserts the post-sync attribute hash + `game_platform_ownerships` rows are byte-equal), `"edge cases"` (1 example — deleted game id mid-flight no-ops). Sidekiq-options block extended with `lock: :until_executed` + `on_conflict: :log` assertions (symbol equality — Sidekiq stores option symbols verbatim).
+- `spec/views/games/_sync_status.html.erb_spec.rb` (NEW) — 9 examples. Wrapper id, dot-loader branch (controller + frame attributes present; `[resync]` button absent), idle branch (`[resync]` present; sync-indicator absent; `synced X ago.` label; `not synced yet.` fallback; post-sync caveat copy), local-only-game branch (no `igdb_id` → no `[resync]` button + `not synced yet.` label).
+- `spec/requests/games_spec.rb` — extended the existing `POST /games/:id/resync` describe with a `"JSON variant"` sub-block: 202 Accepted + `enqueued_jid` on the happy path; 409 Conflict + `error: "already_resyncing"` when the mutex is held. The existing HTML paths (3 examples) and 404 path stay.
+
+### Verification
+
+- `bundle exec rspec spec/jobs/game_igdb_sync_spec.rb spec/views/games/_sync_status.html.erb_spec.rb` — 36 examples / 0 failures.
+- `bundle exec rspec spec/views/games/show.html.erb_spec.rb` — 6 / 0 (unchanged; partial extraction is transparent to the show view spec).
+- `bundle exec rspec spec/requests/games_spec.rb -e "GET /games/:id" -e "resync"` — 42 / 0 across the GET show + POST resync surfaces. The two new JSON-variant resync examples pass alongside the existing 3 HTML resync examples.
+- `bundle exec rspec spec/models/game_spec.rb spec/services/collections/composite_rebuild_queue_spec.rb spec/jobs/collection_cover_rebuild_job_spec.rb` — 159 / 0 across the adjacent model + composite-rebuild surfaces (no regression in the model's `after_save_commit` hook nor the orchestrator).
+- `bin/brakeman -q -w2` — 0 warnings / 0 errors (5 obsolete ignore entries surface; carried over from working-tree drift, unrelated to this spec).
+
+### Contract decisions for downstream specs
+
+- **Stream name** `"game_resync:<id>"` and **target id** `game_sync_status_<id>` are LOCKED. Spec 08's detail-page revamp moves the sync pane to the LEFT-column layout but the partial contract (target id, stream name, partial path `games/sync_status`, broadcast format) carries over unchanged.
+- **Permanent `turbo_stream_from` subscription** on the show page — locked per spec architect lean. Cost is one extra WebSocket subscription per open tab; benefit is that CLI / MCP-initiated resyncs land in the user's open browser without a refresh.
+- **Collection fan-out call site** — INSIDE the success branch, AFTER `Igdb::SyncGame#call` returns, BEFORE `ensure` clears `resyncing`. The model's `after_save_commit :rebuild_collection_composites_on_resync` hook ALSO fires (via the `game.update!` inside SyncGame). The explicit job-level call is the canonical spec-03 trigger; the duplicate enqueue is a no-op rebuild (`CollectionCoverRebuildJob` is idempotent on cache hit, per its docstring + the orchestrator's dedup-per-batch design).
+- **Sidekiq uniqueness** is INTENT-ONLY today (Pito is on Sidekiq OSS without `sidekiq-unique-jobs`). The `games.resyncing` Boolean is the real safety net; the controller short-circuits duplicate `[resync]` clicks via the same flag. If the gem is ever added, the keys are already in place.
+
+### Files touched
+
+- Modified: `app/jobs/game_igdb_sync.rb`, `app/views/games/show.html.erb`, `app/models/game.rb`, `spec/jobs/game_igdb_sync_spec.rb`, `spec/requests/games_spec.rb`.
+- Added: `app/views/games/_sync_status.html.erb`, `spec/views/games/_sync_status.html.erb_spec.rb`.
+
+### Plan-checkbox status
+
+The v2 specs directory (`specs-v2/`) is a polish-dispatch overlay on the original Phase 27 sub-spec checkboxes; `plan.md` does not enumerate a checkbox for spec 03 specifically. No checkboxes flipped — the v2 dispatch lands as a log entry per established Phase 27 convention.
+
+### Open / deferred
+
+- Spec 08's detail-page revamp will move the sync pane into the new LEFT-column layout. The partial + stream contract carries over unchanged; the migration is purely visual.
+- The CLI / MCP side of the live resync UI is not in scope; the broadcast targets the browser specifically. CLI / MCP callers POST to `/games/:id/resync` and get the JSON 202 / 409 response and can poll the resyncing flag if needed.
+
 ## [skipci] 2026-05-17 — v2 spec 01 Single main genre per Game (pito-rails)
 
 Implements v2 spec 01 — `docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs-v2/01-single-main-genre.md`. Collapses the multi-genre game model to ONE main genre per game. Every UI surface that previously rendered a comma-joined `genres:` list now renders a single `primary_genre.name` (or `"—"`). The legacy `game_genres` multi-valued join survives as the raw IGDB record so the picker can re-evaluate the choice on each re-sync. JSON wire shape changes from `genres: [{id, name}]` to `genre: "name"` (singular) — breaking change OK per spec; only pito's own surfaces consume it.
@@ -2042,3 +2178,59 @@ added as the sixth canonical platform.
   requires the Rails env. This blocks running `bin/rspec` end-to-end and is
   independent of the canonical-platform work — handed back to the master for the
   auth lane to resolve.
+
+## [skipci] 2026-05-17 — Switch 2 platform logo: simpleicons -> iconify mdi (pito-rails)
+
+Tactical fix to `lib/tasks/pito_platform_logos.rake`. The
+`cdn.simpleicons.org/nintendoswitch/000000` source the v2 spec 07 rake task
+relied on now returns HTTP 404 (simpleicons dropped the `nintendoswitch`
+slug). Switched switch2 to `api.iconify.design/mdi:nintendo-switch.svg?color=%23000000`
+— iconify's Material Design Icons set, 24x24 viewBox, fill="#000000", ~570 bytes.
+Audit trail of the 5 candidate URLs (and the wikimedia colored fallback) is
+preserved as a comment block above the switch2 entry so the next source-rot
+walk doesn't replay the same dead ends.
+
+### Source audit (2026-05-17)
+
+| Candidate | Result |
+| --- | --- |
+| `cdn.simpleicons.org/nintendoswitch/000000` | HTTP 404 (slug removed) |
+| `cdn.simpleicons.org/nintendo-switch/000000` | HTTP 404 |
+| `upload.wikimedia.org/.../Nintendo_Switch_2_logo.svg` | HTTP 200 but colored — fails monochrome contract |
+| `api.iconify.design/mdi:nintendo-switch.svg?color=%23000000` | HTTP 200, 24x24, black — WINNER |
+| `api.iconify.design/cib:nintendo-switch.svg?color=%23000000` | HTTP 200, 32x32, black — viable backup |
+| `api.iconify.design/fa-brands:nintendo-switch.svg?color=%23000000` | HTTP 200 but 448x512 — fails square gate |
+| `api.iconify.design/logos:nintendo-switch.svg?color=%23000000` | HTTP 404 |
+| `api.iconify.design/simple-icons:nintendoswitch.svg?color=%23000000` | HTTP 200, viable backup (iconify mirror still serves the dropped slug) |
+
+### Files touched
+
+- `lib/tasks/pito_platform_logos.rake` — switch2 entry swapped to iconify
+  mdi; provider label `iconify-mdi`; commented audit trail of rejected URLs;
+  header doc + `source_ext` comment updated to mention both providers.
+- `spec/lib/tasks/pito_platform_logos_rake_spec.rb` — `SOURCE_URLS["switch2"]`
+  updated; "canonical source" describe block rewritten from "every URL is
+  simpleicons + /000000" to "every URL pins fill to black via simpleicons
+  /000000 OR iconify color=%23000000"; switch2 non-square WARN regex updated
+  to `source=iconify-mdi`; added a new test that asserts the rake task
+  preserves the rejected-URL audit comments.
+- `public/platform_logos/switch2-{16,64}.png` — regenerated from the iconify
+  source. All 10 platform PNGs re-emitted by `bin/rails pito:platform_logos:download`.
+
+### Verification
+
+- `bin/test spec/lib/tasks/pito_platform_logos_rake_spec.rb` — 23 examples,
+  0 failures.
+- `bin/rails pito:platform_logos:download` — 5/5 `[OK]`, switch2 reports
+  `source=iconify-mdi (570B SVG 24.0x24.0) -> 64.png 3.6KB, 16.png 595B`.
+- ImageMagick pixel histogram on `switch2-64.png`: every visible pixel has
+  RGB `(0,0,0)` (alpha-modulated). Confirmed monochrome black.
+- All 10 PNGs verified 16x16 or 64x64 via `identify`.
+- `bin/brakeman -q -w2`: 0 security warnings, 0 errors.
+
+### Open follow-ups
+
+- None for this task. If iconify ever 404s the mdi nintendo-switch icon, the
+  audit-trail comment points at `cib:nintendo-switch` (32x32 black) and
+  `simple-icons:nintendoswitch` (iconify mirror of the dropped simpleicons
+  slug) as viable swap-in backups.

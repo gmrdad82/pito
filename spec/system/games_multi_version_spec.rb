@@ -21,9 +21,14 @@ RSpec.describe "Games multi-version grouping", type: :system do
   let!(:deluxe)   { create(:game, title: "Pragmata Deluxe Edition") }
 
   it "renders primaries only on /games by default" do
+    # Phase 27 v2 spec 05 — `/games` letter shelves render via
+    # `Games::CoverComponent` (cover-only `<img>`, no visible title
+    # text). Identity assertions use `data-tile-game-id` instead of
+    # `have_content`. The `[+N editions]` badge moved off the index
+    # surface; the badge's canonical surface is the game show page.
     visit games_path
-    expect(page).to have_content("Pragmata")
-    expect(page).to have_content("Pragmata Deluxe Edition")
+    expect(page).to have_css("[data-tile-game-id='#{pragmata.id}']")
+    expect(page).to have_css("[data-tile-game-id='#{deluxe.id}']")
 
     # Attach via PATCH (capybara rack_test cannot exercise the Stimulus
     # typeahead so we use the form's hidden version_parent_id field
@@ -32,9 +37,8 @@ RSpec.describe "Games multi-version grouping", type: :system do
                        game: { version_parent_id: pragmata.id, version_title: "Deluxe" }
 
     visit games_path
-    expect(page).to have_content("Pragmata")
-    expect(page).not_to have_content("Pragmata Deluxe Edition")
-    expect(page).to have_content("+1 edition")
+    expect(page).to have_css("[data-tile-game-id='#{pragmata.id}']")
+    expect(page).to have_no_css("[data-tile-game-id='#{deluxe.id}']")
   end
 
   it "renders the editions section on the primary's show page" do
@@ -59,8 +63,8 @@ RSpec.describe "Games multi-version grouping", type: :system do
 
     expect(deluxe.reload.version_parent_id).to be_nil
     visit games_path
-    expect(page).to have_content("Pragmata")
-    expect(page).to have_content("Pragmata Deluxe Edition")
+    expect(page).to have_css("[data-tile-game-id='#{pragmata.id}']")
+    expect(page).to have_css("[data-tile-game-id='#{deluxe.id}']")
   end
 
   it "re-attaches after detach" do
@@ -77,8 +81,8 @@ RSpec.describe "Games multi-version grouping", type: :system do
   it "flat mode (?include_editions=yes) shows both rows + edition parent pointer" do
     deluxe.update!(version_parent: pragmata, version_title: "Deluxe")
     visit "/games?include_editions=yes"
-    expect(page).to have_content("Pragmata")
-    expect(page).to have_content("Pragmata Deluxe Edition")
+    expect(page).to have_css("[data-tile-game-id='#{pragmata.id}']")
+    expect(page).to have_css("[data-tile-game-id='#{deluxe.id}']")
   end
 
   describe "hard rules" do

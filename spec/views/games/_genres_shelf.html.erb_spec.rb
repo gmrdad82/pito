@@ -43,10 +43,11 @@ RSpec.describe "games/_genres_shelf.html.erb", type: :view do
 
     it "renders an <h3> per sub-shelf with the genre's display label" do
       render_shelf(Genre.where(id: [ adventure.id, rpg.id ]))
-      # Phase 27 follow-up (2026-05-11) — lowercase rule. "Adventure"
-      # downcases; "RPG" stays upper as an acronym.
-      expect(rendered).to match(%r{<h3[^>]*>\s*adventure\s*</h3>})
-      expect(rendered).to match(%r{<h3[^>]*>\s*RPG\s*</h3>})
+      # Phase 27 v2 spec 05 — short labels follow the locked
+      # `GenresHelper::SHORT_NAMES` table. `Adventure` is the
+      # canonical one-to-one mapping (preserved); the unmapped lower-
+      # case `"rpg"` factory name falls through unchanged.
+      expect(rendered).to match(%r{<h3[^>]*>\s*Adventure\s*</h3>})
     end
   end
 
@@ -58,16 +59,16 @@ RSpec.describe "games/_genres_shelf.html.erb", type: :view do
       game.genres << genre
       render_shelf(Genre.where(id: genre.id))
 
-      # Sub-shelf <h3> carries the short-form name.
+      # Sub-shelf <h3> carries the spec's locked short label.
       expect(rendered).to match(%r{<h3[^>]*>\s*RPG\s*</h3>})
     end
 
-    it "passthrough: lowercases the full IGDB name when no short-form is registered" do
-      genre = create(:genre, name: "Adventure", igdb_id: 9_201)
+    it "passthrough: returns the IGDB canonical name unchanged for an unmapped genre" do
+      genre = create(:genre, name: "Pumpkin Spice Latte", igdb_id: 9_201)
       game.genres << genre
       render_shelf(Genre.where(id: genre.id))
 
-      expect(rendered).to match(%r{<h3[^>]*>\s*adventure\s*</h3>})
+      expect(rendered).to match(%r{<h3[^>]*>\s*Pumpkin Spice Latte\s*</h3>})
     end
   end
 

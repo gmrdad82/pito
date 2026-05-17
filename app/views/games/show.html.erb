@@ -15,6 +15,13 @@
 <% content_for(:title, @game.title) %>
 <% breadcrumb(["games", games_path], @game.title) %>
 
+<%# Phase 27 v2 spec 03 — permanent Turbo-Stream subscription so the
+    sync-status pane swaps live whenever a resync starts / finishes
+    (whether triggered by this tab, the CLI, MCP, or another browser
+    tab). The `GameResyncJob` broadcasts a replace of
+    `game_sync_status_<id>` on the `"game_resync:<id>"` stream. %>
+<%= turbo_stream_from "game_resync:#{@game.id}" %>
+
 <%# Phase 28 §01a — muted parent pointer for editions. Bracketed link
     above the page chrome so the user can hop up to the primary's show
     page. Rendered only when the row is an edition AND the pointer
@@ -237,35 +244,14 @@
 <%# Row 2 — combined sync state pane (heading + last-synced + caveat
     + [resync] button OR animated indicator). Standalone wide pane
     so the indicator has breathing room and the caveat keeps its
-    one-sentence-per-line shape.
+    one-sentence-per-line shape. The pane body lives in the
+    `games/_sync_status` partial so the `GameResyncJob` Turbo-Stream
+    broadcast can replace it in place (target id
+    `game_sync_status_<id>` on stream `game_resync:<id>`).
 %>
 <div class="pane-row">
   <div class="pane pane--wide">
-    <h2 style="margin-top: 0;">sync</h2>
-    <p class="text-muted" style="margin: 0 0 8px 0;">
-      <% if @game.igdb_synced_at.present? %>
-        synced <%= time_ago_in_words(@game.igdb_synced_at) %> ago.
-      <% else %>
-        not synced yet.
-      <% end %>
-    </p>
-    <p class="text-muted" style="margin: 0 0 12px 0; font-size: 11px;">
-      re-syncing overwrites igdb-sourced fields.<br>
-      local notes, played-on, footage hours, and platform-owned survive.
-    </p>
-
-    <% if @game.resyncing? %>
-      <span data-controller="sync-indicator"
-            data-sync-indicator-frames-value='["=---","-=--","--=-","---="]'
-            data-sync-indicator-interval-value="200"
-            class="sync-indicator"
-            style="font-family: var(--font-mono); letter-spacing: 0.1em;">=---</span>
-    <% elsif @game.igdb_id.present? %>
-      <%= button_to resync_game_path(@game),
-                    method: :post,
-                    class: "bracketed",
-                    form: { style: "display: inline; margin: 0;", data: { turbo: false } } do %>[<span class="bl">resync</span>]<% end %>
-    <% end %>
+    <%= render "sync_status", game: @game %>
   </div>
 </div>
 

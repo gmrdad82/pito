@@ -78,40 +78,27 @@ RSpec.describe "Games", type: :request do
         expect(response.body.scan(">bundles<").length).to eq(0)
       end
 
-      it "renders the all-games section heading as 'all' (Fix 8, 2026-05-11)" do
+      # Phase 27 v2 spec 05 — the `<h2>all</h2>` heading and the per-mode
+      # partition section (`data-display-mode=...`) are gone. The new
+      # layout is a single stack of shelves: filter row → bundles →
+      # recently-played → genres → collections → per-letter shelves.
+      it "does NOT render an `<h2>all</h2>` heading (display modes retired)" do
         get games_path
-        expect(response.body).to include(">all<")
-        expect(response.body).not_to include(">all games<")
+        expect(response.body).not_to match(%r{<h2[^>]*>\s*all\s*</h2>})
       end
 
-      # 2026-05-11 polish (Fix 3) — the `<h2>all</h2>` heading moved out
-      # of the mode partials (`_list_mode`, `_grid_mode`,
-      # `_shelves_by_letter_mode`) and into `games/index.html.erb` so
-      # it sits ABOVE the filter row. New order on the page is:
-      #   `<h1>games</h1>` → top shelves → `<h2>all</h2>` → filter row
-      #   → mode table / grid / shelves.
-      it "renders the `<h2>all</h2>` heading ABOVE the filter row (Fix 3, 2026-05-11)" do
+      it "does NOT stamp any `data-display-mode=` attribute" do
         get games_path
-        # Both anchors must be present for the ordering check to be
-        # meaningful; the partial-level heading is gone so the `all`
-        # `<h2>` appears exactly once in the page.
-        all_heading_pos = response.body.index(%r{<h2[^>]*>\s*all\s*</h2>})
-        filter_row_pos  = response.body.index('class="games-filter-row')
-        expect(all_heading_pos).not_to be_nil
-        expect(filter_row_pos).not_to be_nil
-        expect(all_heading_pos).to be < filter_row_pos
+        expect(response.body).not_to include("data-display-mode=")
       end
 
-      it "renders the filter row ABOVE the all-games listing section (Fix 3, 2026-05-11)" do
+      it "renders the filter row ABOVE the per-letter shelves block (v2 spec 05)" do
         get games_path
         filter_row_pos = response.body.index('class="games-filter-row')
-        # The listing section carries `data-display-mode=...` regardless
-        # of which mode renders; use it as the anchor for "the table /
-        # grid section starts here".
-        listing_pos = response.body.index('data-display-mode=')
+        letters_pos    = response.body.index('class="all-games-shelves-by-letter')
         expect(filter_row_pos).not_to be_nil
-        expect(listing_pos).not_to be_nil
-        expect(filter_row_pos).to be < listing_pos
+        expect(letters_pos).not_to be_nil
+        expect(filter_row_pos).to be < letters_pos
       end
 
       it "stamps a steam-shelf Stimulus controller on each shelf" do
@@ -120,35 +107,26 @@ RSpec.describe "Games", type: :request do
       end
 
       it "renders one nested genre sub-shelf per genre that owns a game" do
-        # Phase 27 polish (2026-05-11) — the legacy `@genres_shelves`
-        # iteration was retired; the 01c-v2 nested Genres outer shelf
-        # is the single source of truth for genre-grouped tile rows.
-        # `[see all]` no longer renders for small buckets (the nested
-        # sub-shelf only shows `[see all]` when count > 30).
+        # Phase 27 v2 spec 05 — the helper now returns the spec's
+        # locked short label. `Adventure` maps to `Adventure` (one-to-
+        # one). The sub-shelf still carries the `data-shelf="genre-sub"`
+        # hook.
         genre = Genre.create!(igdb_id: 999, name: "Adventure", slug: "adventure")
         zelda.genres << genre
         get games_path
         expect(response.body).to include('data-shelf="genre-sub"')
-        # Phase 27 follow-up (2026-05-11) — lowercase display label.
-        expect(response.body).to match(%r{<h3[^>]*>\s*adventure\s*</h3>})
+        expect(response.body).to match(%r{<h3[^>]*>\s*Adventure\s*</h3>})
       end
 
-      it "does NOT render a duplicate per-genre shelf below the all-games partition" do
+      it "renders exactly one `<h3>Adventure</h3>` heading (no duplicate per-genre row)" do
         # Phase 27 polish (2026-05-11) — the legacy duplicate iteration
-        # is gone. Only one render of each genre name should appear in
-        # the page (the 01c-v2 nested sub-shelf <h3>).
+        # is gone. Phase 27 v2 spec 05 — the all-games partition itself
+        # is gone too. Only one render of each genre name should appear
+        # in the page (the 01c-v2 nested sub-shelf <h3>).
         genre = Genre.create!(igdb_id: 999, name: "Adventure", slug: "adventure")
         zelda.genres << genre
         get games_path
-        # Exactly one `<h3>` heading for this genre — the nested sub-shelf.
-        expect(response.body.scan(%r{<h3[^>]*>\s*adventure\s*</h3>}).length).to eq(1)
-      end
-
-      it "renders [see all] links on per-platform shelves" do
-        platform = Platform.create!(igdb_id: 998, name: "Switch", slug: "switch")
-        zelda.game_platform_ownerships.create!(platform: platform)
-        get games_path
-        expect(response.body).to include("?platform_owned=#{platform.id}")
+        expect(response.body.scan(%r{<h3[^>]*>\s*Adventure\s*</h3>}).length).to eq(1)
       end
     end
 
@@ -283,14 +261,16 @@ RSpec.describe "Games", type: :request do
         expect(response.body).not_to match(%r{<section[^>]*shelf--collections[^>]*outer-shelf})
       end
 
-      it "does NOT render the hairline between genres and collections when one is empty (Fix 2)" do
-        # Only a genre shelf renders here — collections are absent.
+      it "renders the genres outer shelf (Phase 27 v2 spec 05)" do
+        # Phase 27 v2 spec 05 — hairlines now lead each major section
+        # (genres / collections / letter shelves), not just the gap
+        # between two specific shelves. The genres outer shelf still
+        # renders when at least one genre owns a game.
         adventure = Genre.create!(igdb_id: 50, name: "Adventure", slug: "adventure")
         g = create(:game, :synced, title: "Tunic", cover_image_id: "img-tunic")
         g.genres << adventure
         get games_path
         expect(response.body).to include('data-shelf="outer-genres"')
-        expect(response.body).not_to include('<hr class="hairline">')
       end
 
       context "with non-empty genres and collections" do
@@ -319,16 +299,25 @@ RSpec.describe "Games", type: :request do
           expect(response.body).not_to match(%r{<h2[^>]*>\s*genres\s*</h2>})
         end
 
-        it "renders an `<hr class=\"hairline\">` between the genres and collections shelves (Fix 2)" do
+        it "renders a hairline BEFORE each of the genres + collections + letter shelves (Phase 27 v2 spec 05)" do
           get games_path
-          # The hairline lives in `index.html.erb` between the two
-          # outer shelves; assert presence and ordering.
-          expect(response.body).to include('<hr class="hairline">')
-          genres_pos = response.body.index('data-shelf="outer-genres"')
-          hairline_pos = response.body.index('<hr class="hairline">')
-          colls_pos = response.body.index('data-shelf="outer-collections"')
-          expect(genres_pos).to be < hairline_pos
-          expect(hairline_pos).to be < colls_pos
+          # Phase 27 v2 spec 05 — hairlines lead each major section.
+          # The genres outer shelf, collections outer shelf, and the
+          # letter shelves block each get a leading `<hr>`.
+          expect(response.body.scan('<hr class="hairline">').length).to be >= 2
+
+          genres_pos     = response.body.index('data-shelf="outer-genres"')
+          colls_pos      = response.body.index('data-shelf="outer-collections"')
+          first_hairline = response.body.index('<hr class="hairline">')
+
+          # The first hairline appears before the genres shelf — they
+          # both follow the filter row.
+          expect(first_hairline).not_to be_nil
+          expect(genres_pos).not_to be_nil
+          expect(first_hairline).to be < genres_pos
+
+          # Genres come before collections.
+          expect(genres_pos).to be < colls_pos
         end
 
         it "renders the Collections outer-shelf with the 'collections' <h2>" do
@@ -345,10 +334,13 @@ RSpec.describe "Games", type: :request do
           genres_section = response.body[/<section[^>]*shelf--genres[^>]*outer-shelf.*?<\/section>\s*\z/m] ||
                            response.body[/<section[^>]*shelf--genres[^>]*outer-shelf[\s\S]*/]
           expect(genres_section).not_to be_nil
-          # Phase 27 follow-up (2026-05-11) — display labels are
-          # lowercase. SQL ordering is `LOWER(genres.name)` so the
-          # canonical mixed-case names still sort as expected.
-          order_indexes = [ "adventure", "platformer", "rpg" ].map { |n| genres_section.index(">#{n}<") }
+          # Phase 27 v2 spec 05 — display labels follow the locked
+          # `GenresHelper::SHORT_NAMES` table. `Adventure` is mapped
+          # one-to-one, `rpg` and `platformer` aren't in the IGDB
+          # canonical key set so they fall through unchanged. SQL
+          # ordering is `LOWER(genres.name)` so the canonical
+          # mixed-case names still sort alphabetically.
+          order_indexes = [ "Adventure", "platformer", "rpg" ].map { |n| genres_section.index(">#{n}<") }
           expect(order_indexes).to eq(order_indexes.sort)
         end
 
@@ -931,6 +923,32 @@ RSpec.describe "Games", type: :request do
       expect(response).to redirect_to(game_path(game))
       expect(flash[:notice]).to include("already resyncing")
     end
+
+    # Phase 27 v2 spec 03 — JSON variant: 202 Accepted with the
+    # Sidekiq jid on the happy path; 409 Conflict with
+    # `already_resyncing` when the mutex is already held.
+    describe "JSON variant" do
+      it "returns 202 Accepted with the enqueued Sidekiq jid on accept" do
+        post resync_game_path(game), headers: { "Accept" => "application/json" }
+        expect(response).to have_http_status(:accepted)
+        body = JSON.parse(response.body)
+        expect(body["game_id"]).to eq(game.id)
+        expect(body["resyncing"]).to eq("yes")
+        expect(body["enqueued_jid"]).to be_present
+      end
+
+      it "returns 409 Conflict + already_resyncing when mutex is held" do
+        game.update_column(:resyncing, true)
+        expect {
+          post resync_game_path(game), headers: { "Accept" => "application/json" }
+        }.not_to change { GameIgdbSync.jobs.size }
+        expect(response).to have_http_status(:conflict)
+        body = JSON.parse(response.body)
+        expect(body["game_id"]).to eq(game.id)
+        expect(body["resyncing"]).to eq("yes")
+        expect(body["error"]).to eq("already_resyncing")
+      end
+    end
   end
 
   describe "PATCH /games/:id" do
@@ -1085,24 +1103,12 @@ RSpec.describe "Games", type: :request do
       get games_path(filters: "owned,not_owned")
       expect(response).to have_http_status(:ok)
       expect(response.body).to include("owned and not owned together")
-      # The all-games grid sees Game.none — assert by scoping to the
-      # grid section's empty-state copy (shelves above still render
-      # the game; the filter row only narrows `@all_games`).
-      # Phase 27 §01d — the grid section now carries the
-      # `games-grid-mode` class in addition to the legacy
-      # `all-games-grid`; match on the stable `data-display-mode`
-      # hook instead of the exact class string.
-      grid = response.body.match(%r{<section[^>]*data-display-mode="grid".*?</section>}m)
-      expect(grid).not_to be_nil
-      expect(grid[0]).to include("no games match this filter.")
-      expect(grid[0]).not_to include("Owned PS5 Game")
-    end
-
-    it "GET /games?filters=ps5&display=list preserves display in chip hrefs" do
-      get games_path(filters: "ps5", display: "list")
-      expect(response).to have_http_status(:ok)
-      # The clear-all link preserves the display override.
-      expect(response.body).to match(/href="\/games\?display=list"/)
+      # Phase 27 v2 spec 05 — display-mode partition retired. The
+      # contradiction filter zeroes `@all_games`, so the letter
+      # shelves block doesn't render at all (the index view only
+      # mounts it when `@letter_buckets.any?`). Confirm the listing
+      # is empty by asserting the offending game's tile is absent.
+      expect(response.body).not_to include("Owned PS5 Game")
     end
 
     it "GET /games?filters=ps5&genre=action preserves genre in chip hrefs" do
@@ -1148,132 +1154,68 @@ RSpec.describe "Games", type: :request do
     end
   end
 
-  # Phase 27 §01d — display mode resolution.
-  #
-  # `GET /games` reads `params[:display]` (single-request override),
-  # falling back to `Current.user.preferred_games_display_mode`, with
-  # `:grid` as the defensive final fallback. The display mode picks
-  # which "all games" partial renders.
-  describe "GET /games with display mode resolution (Phase 27 §01d)" do
-    let(:password) { "supersecret123" }
-    let(:user) do
-      User.first || create(:user, password: password, password_confirmation: password)
-    end
+  # Phase 27 v2 spec 05 — display-mode switcher retired. `/games`
+  # collapses to a single shelves-by-letter layout. Any `?display=`
+  # value is silently ignored (the controller dropped the resolver and
+  # the `User#preferred_games_display_mode` enum is gone).
+  describe "GET /games (Phase 27 v2 spec 05 — shelves-only layout)" do
+    let!(:alpha_game) { create(:game, :synced, title: "Alpha Game", igdb_id: 4_900_001, igdb_slug: "alpha-display") }
+    let!(:mango_game) { create(:game, :synced, title: "Mango Quest", igdb_id: 4_900_002, igdb_slug: "mango-quest") }
+    let!(:zinc_game)  { create(:game, :synced, title: "Zinc",        igdb_id: 4_900_003, igdb_slug: "zinc") }
+    let!(:digit_game) { create(:game, :synced, title: "7 Days to Die", igdb_id: 4_900_004, igdb_slug: "seven-days") }
 
-    before do
-      user.update!(password: password, password_confirmation: password)
-      sign_in_as(user)
-      # At least one game so the all-games section actually renders.
-      create(:game, :synced, title: "Alpha Game",
-             igdb_id: 4_900_001, igdb_slug: "alpha-display")
-    end
-
-    it "defaults to grid mode when no ?display and no persisted pref deviation" do
+    it "renders one `<section class=\"shelf shelf--letter\">` per non-empty letter bucket" do
       get games_path
       expect(response).to have_http_status(:ok)
-      # Scope to the all-games <section> data-display-mode hook so the
-      # switcher's own `data-display-mode="list"` button attributes do
-      # not contaminate the match.
-      expect(response.body).to match(/<section[^>]*data-display-mode="grid"/)
-      expect(response.body).not_to match(/<section[^>]*data-display-mode="list"/)
-      expect(response.body).not_to match(/<section[^>]*data-display-mode="shelves_by_letter"/)
+      # 4 buckets — A, M, Z, # — one section each.
+      expect(response.body.scan('data-shelf="letter"').length).to eq(4)
     end
 
-    it "GET /games?display=list renders the list partial" do
+    it "hides letters that have no games (no `<h3>` for a missing letter)" do
+      get games_path
+      expect(response.body).not_to match(%r{<h3[^>]*>\s*B\s*</h3>})
+      expect(response.body).not_to match(%r{<h3[^>]*>\s*Q\s*</h3>})
+    end
+
+    it "renders the digit-titled game's bucket as `#` and pins it to the END" do
+      get games_path
+      # The `#` heading comes after `Z` in document order.
+      z_pos    = response.body.index('data-letter="Z"')
+      hash_pos = response.body.index('data-letter="#"')
+      expect(z_pos).not_to be_nil
+      expect(hash_pos).not_to be_nil
+      expect(z_pos).to be < hash_pos
+    end
+
+    it "ignores `?display=list` (the param is dropped from the resolver)" do
       get games_path(display: "list")
       expect(response).to have_http_status(:ok)
-      expect(response.body).to include('data-display-mode="list"')
-      # List partial renders a `<table class="list-table">`.
-      expect(response.body).to include('class="list-table"')
+      expect(response.body).not_to include('data-display-mode=')
+      # Layout is unchanged — still 4 letter shelves.
+      expect(response.body.scan('data-shelf="letter"').length).to eq(4)
     end
 
-    it "GET /games?display=shelves renders the shelves-by-letter partial" do
-      get games_path(display: "shelves")
+    it "ignores `?display=grid` for the same reason" do
+      get games_path(display: "grid")
       expect(response).to have_http_status(:ok)
-      expect(response.body).to include('data-display-mode="shelves_by_letter"')
+      expect(response.body).not_to include('data-display-mode=')
     end
 
-    it "GET /games?display=shelves_by_letter also renders the shelves-by-letter partial" do
+    it "ignores `?display=shelves_by_letter`" do
       get games_path(display: "shelves_by_letter")
       expect(response).to have_http_status(:ok)
-      expect(response.body).to include('data-display-mode="shelves_by_letter"')
+      expect(response.body).not_to include('data-display-mode=')
     end
 
-    it "GET /games?display=grid renders the grid partial" do
-      get games_path(display: "grid")
-      expect(response).to have_http_status(:ok)
-      expect(response.body).to include('data-display-mode="grid"')
-    end
-
-    it "uses the persisted preference when ?display is absent" do
-      user.update!(preferred_games_display_mode: :list)
+    it "does NOT render any `data-display-mode=` attribute anywhere" do
       get games_path
-      expect(response.body).to include('data-display-mode="list"')
+      expect(response.body).not_to include('data-display-mode=')
     end
 
-    it "URL ?display= overrides the persisted preference for this request" do
-      user.update!(preferred_games_display_mode: :list)
-      get games_path(display: "grid")
-      expect(response.body).to match(/<section[^>]*data-display-mode="grid"/)
-      expect(response.body).not_to match(/<section[^>]*data-display-mode="list"/)
-    end
-
-    it "GET /games?display=garbage falls back to the persisted preference" do
-      user.update!(preferred_games_display_mode: :list)
-      get games_path(display: "garbage")
-      expect(response).to have_http_status(:ok)
-      expect(response.body).to include('data-display-mode="list"')
-    end
-
-    it "after PATCHing the preference, GET /games renders the chosen mode" do
-      patch users_games_preferences_path, params: { mode: "shelves_by_letter" }
-      expect(response).to redirect_to(games_path(display: "shelves_by_letter"))
+    it "does NOT render the display-mode switcher" do
       get games_path
-      expect(response.body).to include('data-display-mode="shelves_by_letter"')
-    end
-
-    it "renders the display-mode switcher in the page" do
-      get games_path
-      # The switcher button_to forms PATCH `/users/games_preferences`.
-      # 2026-05-11 polish v2 — the three button labels are now
-      # `[default][grid][list]` (was `[grid][list][shelves]`).
-      expect(response.body).to include('action="/users/games_preferences"')
-      expect(response.body).to include("[<span class=\"bl\">default</span>]")
-      expect(response.body).to include("[<span class=\"bl\">grid</span>]")
-      expect(response.body).to include("[<span class=\"bl\">list</span>]")
-    end
-
-    # Phase 27 polish (2026-05-11) — the switcher moved DOWN from the
-    # H1 row into the filter row's right slot. The slot wrapper
-    # (`.games-filter-row__right`) contains the `.display-mode-switcher`,
-    # and the wrapper sits inside `<section class="games-filter-row">`.
-    it "renders the switcher INSIDE the filter row (not the H1 row)" do
-      get games_path
-      filter_row = response.body.match(%r{<section class="games-filter-row".*?</section>}m)
-      expect(filter_row).not_to be_nil
-      expect(filter_row[0]).to include("games-filter-row__right")
-      expect(filter_row[0]).to include('class="display-mode-switcher"')
-    end
-
-    it "the H1 row no longer hosts the display-mode switcher" do
-      get games_path
-      # Pull just the first <h1>...</h1> wrapper region (the H1 row).
-      h1_row = response.body.match(%r{<div [^>]*display: flex[^>]*>.*?<h1>games</h1>.*?</div>\s*</div>}m)
-      expect(h1_row).not_to be_nil
-      expect(h1_row[0]).not_to include("display-mode-switcher")
-    end
-
-    it "marks the active mode button with the active class" do
-      get games_path(display: "list")
-      expect(response.body).to match(/class="bracketed active"[^>]*>\s*\n?\s*\[<span class="bl">list<\/span>\]/m)
-    end
-
-    it "preserves the ?filters set across a display mode flip" do
-      get games_path(filters: "owned", display: "list")
-      expect(response).to have_http_status(:ok)
-      expect(response.body).to include('data-display-mode="list"')
-      # Clear-all link preserves both filter set departure and display.
-      expect(response.body).to include('href="/games?display=list"')
+      expect(response.body).not_to include('class="display-mode-switcher"')
+      expect(response.body).not_to include('action="/users/games_preferences"')
     end
   end
 
@@ -1305,9 +1247,17 @@ RSpec.describe "Games", type: :request do
       expect(response.body).not_to include("Pragmata Deluxe")
     end
 
-    it "renders the [+N editions] badge on a primary with editions" do
+    it "does NOT render the [+N editions] badge on letter shelves (Phase 27 v2 spec 05)" do
+      # Phase 27 v2 spec 05 — the all-games tile-grid partition retired
+      # with the display-mode switcher. Letter-shelf tiles render via
+      # `Games::CoverComponent` (cover-only); the `+N editions` badge
+      # lives on `_tile.html.erb` which now only renders in the
+      # bundles + recently-played shelves. A primaries-only listing
+      # game with no `played_at` doesn't reach either, so the badge
+      # is absent from the index. The badge still renders on the
+      # game show page (its canonical surface).
       get games_path
-      expect(response.body).to include("+1 edition")
+      expect(response.body).not_to include("+1 edition")
     end
 
     it "does not render the muted parent pointer in primaries-only mode" do

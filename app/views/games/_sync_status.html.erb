@@ -1,0 +1,37 @@
+<%# Phase 27 v2 spec 03 — game sync-status partial.
+    Renders the "Row 2" sync pane in two states:
+      idle — `synced X ago` label + `[resync]` button.
+      in-flight — animated `=---` dot-loader indicator.
+    The wrapper id (`game_sync_status_<id>`) is the target of the
+    `GameResyncJob` Turbo-Stream replace broadcast on stream
+    `"game_resync:<id>"`. The show view subscribes permanently so a
+    CLI / MCP-initiated resync lands in the open browser tab without
+    a refresh.
+%>
+<div id="game_sync_status_<%= game.id %>">
+  <h2 style="margin-top: 0;">sync</h2>
+  <p class="text-muted" style="margin: 0 0 8px 0;">
+    <% if game.igdb_synced_at.present? %>
+      synced <%= time_ago_in_words(game.igdb_synced_at) %> ago.
+    <% else %>
+      not synced yet.
+    <% end %>
+  </p>
+  <p class="text-muted" style="margin: 0 0 12px 0; font-size: 11px;">
+    re-syncing overwrites igdb-sourced fields.<br>
+    local notes, played-on, footage hours, and platform-owned survive.
+  </p>
+
+  <% if game.resyncing? %>
+    <span data-controller="sync-indicator"
+          data-sync-indicator-frames-value='["=---","-=--","--=-","---="]'
+          data-sync-indicator-interval-value="200"
+          class="sync-indicator"
+          style="font-family: var(--font-mono); letter-spacing: 0.1em;">=---</span>
+  <% elsif game.igdb_id.present? %>
+    <%= button_to resync_game_path(game),
+                  method: :post,
+                  class: "bracketed",
+                  form: { style: "display: inline; margin: 0;", data: { turbo: false } } do %>[<span class="bl">resync</span>]<% end %>
+  <% end %>
+</div>

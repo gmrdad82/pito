@@ -1,0 +1,40 @@
+<%# Phase 27 v2 spec 05 — letter-shelf iteration on `/games`.
+
+    One `<section class="shelf">` per non-empty letter bucket. Buckets
+    arrive in render order from the controller's `build_letter_buckets`
+    (A..Z first, `#` last). The heading is the bucket key uppercased
+    (already done in the controller). Tiles are `Games::CoverComponent`
+    at the `:shelf` variant (98 × 130), wired through the existing
+    `steam-shelf` Stimulus controller for drag-scroll + wheel-to-
+    horizontal scroll.
+
+    Locals:
+      buckets  Array of `[letter, [Game, ...]]` tuples. Empty buckets
+               are NOT present (the controller filtered them out).
+%>
+<%
+  buckets = local_assigns.fetch(:buckets, [])
+%>
+<% if buckets.any? %>
+  <section class="all-games-shelves-by-letter games-shelves-by-letter-mode"
+           style="margin-top: 12px;">
+    <% buckets.each do |(letter, games)| %>
+      <section class="shelf shelf--letter"
+               data-shelf="letter"
+               data-letter="<%= letter %>"
+               data-controller="steam-shelf"
+               style="margin-top: 16px;">
+        <div class="dot-list" style="margin-bottom: 6px;">
+          <h3 style="margin: 0;"><%= letter %></h3>
+        </div>
+
+        <div class="shelf-row letter-shelf-row" data-steam-shelf-target="row"
+             style="display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px;">
+          <% games.each do |game| %>
+            <%= render(Games::CoverComponent.new(game: game, variant: :shelf)) %>
+          <% end %>
+        </div>
+      </section>
+    <% end %>
+  </section>
+<% end %>

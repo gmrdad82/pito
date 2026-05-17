@@ -54,25 +54,20 @@ RSpec.describe "Games steam-shelf", type: :system do
       # shelf at the top of the page is the single source of truth
       # for genre-grouped tile rows. `[see all]` now renders only
       # when a sub-shelf exceeds the 30-tile cap.
-      # Phase 27 follow-up (2026-05-11) — display labels are lowercase.
+      # Phase 27 v2 spec 05 — display labels follow the locked
+      # `GenresHelper::SHORT_NAMES` table. `Adventure` is mapped
+      # one-to-one and renders as `<h3>Adventure</h3>`.
       visit games_path
-      expect(page).to have_content("adventure")  # rendered as <h3>adventure</h3>
+      expect(page).to have_content("Adventure")
       expect(page).to have_css("section.sub-shelf--genre[data-genre-id='#{adventure.id}']")
     end
 
-    it "renders the all-games heading as 'all' (Fix 8, 2026-05-11)" do
+    it "does NOT render an `all` heading (Phase 27 v2 spec 05)" do
+      # The all-games partition retired with the display-mode switcher.
       visit games_path
-      # The all-games partition heading was renamed from `all games`
-      # to plain `all` in the 2026-05-11 polish pass. Fix 3 of the same
-      # polish wave hoisted the `<h2>all</h2>` OUT of the per-mode
-      # section (was inside `section[data-display-mode="grid"]`) and
-      # UP to sit ABOVE the filter row in `games/index.html.erb` —
-      # the heading anchors first, then the live filter controls scope
-      # the listing. The grid section is still rendered as a sibling
-      # below the filter row.
-      expect(page).to have_css("h2", text: "all")
+      expect(page).not_to have_css("h2", text: "all")
       expect(page).not_to have_css("h2", text: "all games")
-      expect(page).to have_css('section[data-display-mode="grid"]')
+      expect(page).not_to have_css('[data-display-mode]')
     end
 
     it "tile links land on the game show page" do

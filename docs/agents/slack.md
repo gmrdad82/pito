@@ -32,25 +32,28 @@ directly. All pings flow through this agent: dispatch `pito-slack` with the
 message body, the agent does the send. This keeps Slack message style
 governance in one place (here) and avoids per-call drift in tone or length.
 
-## Incoming convention — `#code` prefix only
+## Incoming convention — `#claude` prefix only
 
 `#dev` carries traffic from other people and other apps too. The agent
-acts ONLY on user messages whose body STARTS with `#code `. Everything
-else is noise — read past, do not act.
+acts ONLY on user messages whose body STARTS with `#claude `. Everything
+else is noise — read past, do not act. (The earlier `#code` prefix was
+deprecated 2026-05-17 — user prefers a single convention.)
 
 Examples that DO count as direct requests to Claude Code:
 
-- `#code status?` — user wants a current-task summary.
-- `#code yes` — affirmative reply to the agent's last pending question.
-- `#code cancel that, try X instead` — direction change.
-- `#code back at laptop` — stop the polling loop; user is back in chat.
+- `#claude status?` — user wants a current-task summary.
+- `#claude yes` — affirmative reply to the agent's last pending question.
+- `#claude cancel that, try X instead` — direction change.
+- `#claude back at laptop` — stop the polling loop; user is back in chat.
+- `#claude all good. Continue...` — go-ahead signal.
 
 Examples that DO NOT count (ignore):
 
 - `ok`, `yes`, plain prose — these may be replying to another person/app
   in the channel, not to Claude Code.
 - `@Claude …` — this tags the Anthropic-built Claude Slack app (a
-  separate brain), not this agent.
+  separate brain), not this agent. The `#claude` prefix is a text marker
+  the agent grep-filters for, NOT a Slack mention.
 
 ## Polling cadence
 
