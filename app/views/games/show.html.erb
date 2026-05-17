@@ -119,6 +119,12 @@
       </div>
     <% end %>
 
+    <%# 2026-05-17 polish — hairline between the genres line and the
+        meta kv-table so the LEFT pane reads as three distinct blocks
+        (genres / meta / heat-bar). Uses the canonical `.hairline`
+        rule (8px top + 8px bottom margin). %>
+    <hr class="hairline">
+
     <%# Meta block: released / dev / pub rendered as a borderless,
         header-less two-column `kv-table` (label / value). Rows
         zebra-stripe horizontally to match the /settings stack-pane
@@ -139,16 +145,35 @@
       meta_rows << ["publisher", publisher_names.join(", ")] if publisher_names.any?
     %>
     <% if meta_rows.any? %>
-      <table class="kv-table" style="margin: 16px 0 16px 0;">
+      <%# 2026-05-17 polish — bottom margin tightened from 16 to 8 so
+          the hairline below provides the visual separation instead of
+          a large empty band. `.kv-table__value` truncates via
+          `text-overflow: ellipsis` (white-space: nowrap + overflow:
+          hidden); a `title` attribute on the value `<td>` surfaces
+          the full string as a native browser tooltip on hover, which
+          is the standard truncation affordance (most relevant for
+          long publisher lists such as "Rockstar Games, Take-Two
+          Interactive"). Browsers handle non-truncated values
+          gracefully (they may even suppress the tooltip when the
+          rendered text already shows in full). %>
+      <table class="kv-table" style="margin: 16px 0 8px 0;">
         <tbody>
           <% meta_rows.each do |label, value| %>
             <tr>
               <td class="kv-table__label"><%= label %></td>
-              <td class="kv-table__value"><%= value %></td>
+              <td class="kv-table__value" title="<%= value %>"><%= value %></td>
             </tr>
           <% end %>
         </tbody>
       </table>
+
+      <%# 2026-05-17 polish — hairline between the meta kv-table and
+          the rating heat-bar so the LEFT pane reads as three distinct
+          blocks (genres / meta / heat-bar). Combined with the
+          heat-bar's own `margin-top: 28px` (which clears the floating
+          score bubble), this gives the heat-bar clear breathing room
+          below the publisher row. %>
+      <hr class="hairline">
     <% end %>
 
     <%# Wave C5 (spec 08 §"Rating heat-bar synthesis") — vote-weighted

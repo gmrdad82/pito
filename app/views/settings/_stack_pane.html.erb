@@ -86,48 +86,66 @@
               acc[row[:label]] = row[:count]
             end
           %>
-          <%# Sidekiq breakdown — two semantic groupings (lifetime
-              counters: successful / failed; queue counters: busy /
-              scheduled / enqueued / retry / dead) rendered as one
-              5-column `.stack-table` so every cell shares the
-              pane's right edge with the other stack tables. The
-              lifetime row uses colspan 3 + 2 to split the 5
-              columns into a 60/40 group; the queue row uses one
-              column each. Numeric headers + cells use `.num`
-              for right alignment + tabular figures. %>
+          <%# Sidekiq breakdown — two semantic groupings rendered as
+              two separate `.stack-table`s (2026-05-17 polish).
+
+              The previous single-table approach stacked two `<thead>`-style
+              rows around an interleaved `<td>` row inside one `<thead>`,
+              which was structurally awkward (a `<td>` inside `<thead>`)
+              and visually read as one block of header chrome. The two
+              groupings carry different column shapes (2 cols vs 5 cols),
+              so a single table forced an artificial colspan split that
+              didn't reflect the actual semantics.
+
+              Two distinct tables now:
+                * lifetime counters (successful / failed) — 2-column table
+                * queue counters (busy / scheduled / enqueued / retry /
+                  dead) — 5-column table
+
+              Both share the `.stack-table` class → same right edge as
+              the other pane tables, same heading + zebra treatment.
+              `.num` on every cell drives right-alignment + tabular
+              figures. The wrapping `<div>` carries the pair so the
+              vertical spacing reads as one Redis-stats block. %>
           <div style="margin-bottom: 8px;">
-          <table class="stack-table">
-            <thead>
-              <tr>
-                <th class="num" colspan="3">successful</th>
-                <th class="num" colspan="2">failed</th>
-              </tr>
-              <tr>
-                <td class="num" colspan="3">
-                  <%= sidekiq_counts["processed"] ? number_with_delimiter(sidekiq_counts["processed"]) : "—" %>
-                </td>
-                <td class="num" colspan="2">
-                  <%= sidekiq_counts["failed"] ? number_with_delimiter(sidekiq_counts["failed"]) : "—" %>
-                </td>
-              </tr>
-              <tr>
-                <th class="num">busy</th>
-                <th class="num">scheduled</th>
-                <th class="num">enqueued</th>
-                <th class="num">retry</th>
-                <th class="num">dead</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <% %w[busy scheduled enqueued retry dead].each do |state| %>
+            <table class="stack-table">
+              <thead>
+                <tr>
+                  <th class="num">successful</th>
+                  <th class="num">failed</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
                   <td class="num">
-                    <%= sidekiq_counts[state] ? number_with_delimiter(sidekiq_counts[state]) : "—" %>
+                    <%= sidekiq_counts["processed"] ? number_with_delimiter(sidekiq_counts["processed"]) : "—" %>
                   </td>
-                <% end %>
-              </tr>
-            </tbody>
-          </table>
+                  <td class="num">
+                    <%= sidekiq_counts["failed"] ? number_with_delimiter(sidekiq_counts["failed"]) : "—" %>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <table class="stack-table" style="margin-top: 6px;">
+              <thead>
+                <tr>
+                  <th class="num">busy</th>
+                  <th class="num">scheduled</th>
+                  <th class="num">enqueued</th>
+                  <th class="num">retry</th>
+                  <th class="num">dead</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <% %w[busy scheduled enqueued retry dead].each do |state| %>
+                    <td class="num">
+                      <%= sidekiq_counts[state] ? number_with_delimiter(sidekiq_counts[state]) : "—" %>
+                    </td>
+                  <% end %>
+                </tr>
+              </tbody>
+            </table>
           </div>
         <% end %>
       </div>
