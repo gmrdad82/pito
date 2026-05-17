@@ -1193,19 +1193,37 @@ table.kv-table td {
   padding: 2px 0;
   background: transparent;
   font-weight: normal;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.4;
   vertical-align: top;
 }
 table.kv-table tr {
   border-bottom: 1px solid var(--color-border);
 }
+/* Suppress hover + zebra on kv-table rows (2026-05-17 user direction —
+   /games/:id LEFT pane meta strip). The global `table:not(.detail-table)
+   tr:hover` rule at the top of this file otherwise tints kv-table rows
+   on pointer hover; the explicit `tbody tr` selectors below outrank it
+   and the keyboard-highlight rule on equal-specificity ties. Zebra was
+   already scoped OUT of kv-table when the shared rule moved to
+   `.stack-table` only, but the defensive `:nth-child(even)` override
+   keeps kv-table immune to any future global zebra fallback. */
+table.kv-table tbody tr:hover,
 table.kv-table tr:hover {
+  background-color: transparent;
+}
+table.kv-table tbody tr:nth-child(even),
+table.kv-table tr:nth-child(even) {
+  background-color: transparent;
+}
+table.kv-table tbody tr.keyboard-highlight,
+table.kv-table tr.keyboard-highlight {
   background-color: transparent;
 }
 table.kv-table td.kv-table__label {
   color: var(--color-muted);
-  width: 80px;
+  width: auto;
+  min-width: 48px;
   padding-right: 12px;
   white-space: nowrap;
 }
@@ -2757,7 +2775,13 @@ textarea.note-editor-source {
    green block at the top reads as a clear achievement zone; only
    the bottom boundary was softened. The `--color-rating-bad` token
    is still used elsewhere; only the gradient stop reference was
-   removed here. */
+   removed here.
+   Locked 2026-05-17 — uses dark-theme hex literals in both themes
+   per user preference (the dark gradient reads as the canonical
+   look; light theme adopts the same vivid stops). The
+   `--color-rating-*` tokens themselves remain theme-aware for other
+   consumers (rating badges, status accents). Only the gradient
+   stops below are locked to the dark-theme values. */
 .rating-heat-bar {
   position: relative;
   width: 100%;
@@ -2769,14 +2793,15 @@ textarea.note-editor-source {
   background-color: var(--color-bg-alt);
   background-image: linear-gradient(
     to right,
-    var(--color-rating-very-bad)    0%,
-    var(--color-rating-very-bad)   45%,
-    var(--color-rating-poor)       55%,
-    var(--color-rating-meh)        65%,
-    var(--color-rating-fair)       75%,
-    var(--color-rating-good)       85%,
-    var(--color-rating-excellent)  90%,
-    var(--color-rating-excellent) 100%
+    #7a2020    0%,   /* dark very-bad */
+    #7a2020   40%,   /* dark very-bad */
+    #c08454   55%,   /* dark poor */
+    #ffb86c   62%,   /* dark meh */
+    #f1fa8c   65%,   /* dark fair */
+    #f1fa8c   85%,   /* dark fair */
+    #a8e063   88%,   /* dark good */
+    #50fa7b   90%,   /* dark excellent */
+    #50fa7b  100%    /* dark excellent */
   );
 }
 /* 4px-wide theme-aware tick. The tick is filled with the page bg

@@ -137,12 +137,12 @@
     <%
       meta_rows = []
       if @game.release_date.present?
-        meta_rows << ["released", @game.release_date.strftime("%m-%d-%Y")]
+        meta_rows << ["date", @game.release_date.strftime("%m-%d-%Y")]
       end
       developer_names = @game.developers.map(&:name)
-      meta_rows << ["developer", developer_names.join(", ")] if developer_names.any?
+      meta_rows << ["dev", developer_names.join(", ")] if developer_names.any?
       publisher_names = @game.publishers.map(&:name)
-      meta_rows << ["publisher", publisher_names.join(", ")] if publisher_names.any?
+      meta_rows << ["pub", publisher_names.join(", ")] if publisher_names.any?
     %>
     <% if meta_rows.any? %>
       <%# 2026-05-17 polish — bottom margin tightened from 16 to 8 so
