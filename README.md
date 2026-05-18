@@ -1,4 +1,4 @@
-# Pito
+# pito
 
 Personal YouTube management tool. Tracks video performance across multiple
 channels, manages workspaces, surfaces "best time to publish" heatmaps, runs a
