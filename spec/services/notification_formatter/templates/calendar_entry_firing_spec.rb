@@ -1,7 +1,7 @@
 require "rails_helper"
 
 RSpec.describe NotificationFormatter::Templates::CalendarEntryFiring do
-  let(:cal_entry) { create(:calendar_entry) }
+  let(:cal_entry) { build_stubbed(:calendar_entry) }
   let(:payload) do
     {
       "entry_id"    => cal_entry.id,
@@ -12,7 +12,7 @@ RSpec.describe NotificationFormatter::Templates::CalendarEntryFiring do
     }
   end
   let(:notification) do
-    create(:notification, :calendar_entry_firing,
+    build_stubbed(:notification, :calendar_entry_firing,
            event_payload: payload,
            source_calendar_entry: cal_entry)
   end
@@ -30,14 +30,14 @@ RSpec.describe NotificationFormatter::Templates::CalendarEntryFiring do
     end
 
     it "falls back to `calendar entry fired.` when description is blank" do
-      n = create(:notification, :calendar_entry_firing,
+      n = build_stubbed(:notification, :calendar_entry_firing,
                  event_payload: payload.merge("description" => ""),
                  source_calendar_entry: cal_entry)
       expect(described_class.new(n).body).to eq("calendar entry fired.")
     end
 
     it "falls back to `calendar entry fired.` when description is nil" do
-      n = create(:notification, :calendar_entry_firing,
+      n = build_stubbed(:notification, :calendar_entry_firing,
                  event_payload: payload.merge("description" => nil),
                  source_calendar_entry: cal_entry)
       expect(described_class.new(n).body).to eq("calendar entry fired.")
@@ -50,7 +50,7 @@ RSpec.describe NotificationFormatter::Templates::CalendarEntryFiring do
     end
 
     it "falls back to source_calendar_entry_id when entry_id is missing" do
-      n = create(:notification, :calendar_entry_firing,
+      n = build_stubbed(:notification, :calendar_entry_firing,
                  event_payload: payload.except("entry_id"),
                  source_calendar_entry: cal_entry)
       expect(described_class.new(n).url).to eq("/calendar/entries/#{cal_entry.id}")

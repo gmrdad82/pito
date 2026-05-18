@@ -9,7 +9,7 @@ RSpec.describe NotificationFormatter::Templates::SyncError do
     }
   end
   let(:notification) do
-    create(:notification, :sync_error, event_payload: payload)
+    build_stubbed(:notification, :sync_error, event_payload: payload)
   end
   let(:template) { described_class.new(notification) }
 

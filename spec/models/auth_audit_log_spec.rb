@@ -52,7 +52,7 @@ RSpec.describe AuthAuditLog do
   describe "source_surface enum" do
     %i[web tui mcp].each do |surface|
       it "accepts #{surface}" do
-        row = create(:auth_audit_log, source_surface: surface)
+        row = build_stubbed(:auth_audit_log, source_surface: surface)
         expect(row.source_surface).to eq(surface.to_s)
       end
     end
@@ -64,7 +64,7 @@ RSpec.describe AuthAuditLog do
     end
 
     it "exposes source_<value>? predicates" do
-      row = create(:auth_audit_log, source_surface: :tui)
+      row = build_stubbed(:auth_audit_log, source_surface: :tui)
       expect(row.source_tui?).to be true
       expect(row.source_web?).to be false
     end
@@ -74,7 +74,7 @@ RSpec.describe AuthAuditLog do
     %i[totp_enroll totp_disable backup_code_regenerate
        voyage_credentials_updated password_reset].each do |action|
       it "accepts #{action}" do
-        row = create(:auth_audit_log, action: action)
+        row = build_stubbed(:auth_audit_log, action: action)
         expect(row.action).to eq(action.to_s)
       end
     end
@@ -94,7 +94,7 @@ RSpec.describe AuthAuditLog do
     end
 
     it "exposes action_<value>? predicates" do
-      row = create(:auth_audit_log, action: :totp_disable)
+      row = build_stubbed(:auth_audit_log, action: :totp_disable)
       expect(row.action_totp_disable?).to be true
       expect(row.action_totp_enroll?).to be false
     end
@@ -158,7 +158,7 @@ RSpec.describe AuthAuditLog do
     end
 
     it "defaults to an empty hash" do
-      row = create(:auth_audit_log)
+      row = build_stubbed(:auth_audit_log)
       expect(row.metadata).to eq({})
     end
   end

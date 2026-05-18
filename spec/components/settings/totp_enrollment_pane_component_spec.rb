@@ -40,17 +40,22 @@ RSpec.describe Settings::TotpEnrollmentPaneComponent, type: :component do
     expect(page).to have_no_css('form[authenticity_token="false"]')
   end
 
-  it "renders the 6-digit code input with the documented constraints" do
-    # The `pattern="\d{6}"` attribute lives on `#code`. Capybara CSS
-    # attribute selectors choke on the backslash in `\d{6}`, so assert
-    # the structural fields (id / name / inputmode / maxlength /
-    # autocomplete) via CSS and the pattern via XPath.
+  it "renders the 6-box segmented code input (TotpCodeInputComponent)" do
+    # The enter-code form embeds `TotpCodeInputComponent` so the user
+    # types the 6-digit code into a Slack-style segmented grid instead
+    # of a single bare text input. Lock down the structural contract
+    # here so a regression in the consuming component is caught at the
+    # pane-level spec too.
     expect(page).to have_css(
-      'input#code[name="code"][inputmode="numeric"][maxlength="6"][autocomplete="one-time-code"]',
-      visible: :all
+      'div[data-controller="totp-code-input"]', visible: :all
     )
-    expect(page).to have_xpath(
-      '//input[@id="code" and @pattern="\d{6}"]', visible: :all
+    expect(page).to have_css(
+      'input[data-totp-code-input-target="digit"]',
+      count: 6, visible: :all
+    )
+    expect(page).to have_css(
+      'input[type="hidden"][name="code"][data-totp-code-input-target="hidden"]',
+      visible: :all
     )
   end
 

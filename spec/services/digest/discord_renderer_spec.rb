@@ -2,7 +2,7 @@ require "rails_helper"
 
 # Phase 26 — 01e. Discord embeds renderer.
 RSpec.describe ::Digest::DiscordRenderer do
-  let(:user) { create(:user, time_zone: "Europe/Bucharest") }
+  let(:user) { build_stubbed(:user, time_zone: "Europe/Bucharest") }
   let(:now) { Time.utc(2026, 6, 15, 12, 0, 0) }
 
   def build_result(sections: {})
@@ -116,7 +116,7 @@ RSpec.describe ::Digest::DiscordRenderer do
   end
 
   describe "tz-aware rendering (Pacific/Kiritimati UTC+14)" do
-    let(:user) { create(:user, time_zone: "Pacific/Kiritimati") }
+    let(:user) { build_stubbed(:user, time_zone: "Pacific/Kiritimati") }
 
     it "renders the window range in the user's local zone" do
       payload = described_class.new(build_result).call
@@ -127,7 +127,7 @@ RSpec.describe ::Digest::DiscordRenderer do
   end
 
   describe "tz-aware rendering (Pacific/Pago_Pago UTC-11)" do
-    let(:user) { create(:user, time_zone: "Pacific/Pago_Pago") }
+    let(:user) { build_stubbed(:user, time_zone: "Pacific/Pago_Pago") }
 
     it "renders the window range in the user's local zone" do
       payload = described_class.new(build_result).call

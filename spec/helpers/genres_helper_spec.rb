@@ -125,7 +125,7 @@ RSpec.describe GenresHelper, type: :helper do
     end
 
     it "works on a persisted Genre record" do
-      genre = create(:genre, name: "Visual Novel", igdb_id: 9_001)
+      genre = build_stubbed(:genre, name: "Visual Novel", igdb_id: 9_001)
       expect(helper.genre_short_name(genre)).to eq("VN")
     end
   end

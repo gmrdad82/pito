@@ -1,7 +1,7 @@
 require "rails_helper"
 
 RSpec.describe NotificationFormatter::Templates::MilestoneReached do
-  let(:cal_entry) { create(:calendar_entry) }
+  let(:cal_entry) { build_stubbed(:calendar_entry) }
   let(:payload) do
     {
       "rule_id"              => 1,
@@ -15,7 +15,7 @@ RSpec.describe NotificationFormatter::Templates::MilestoneReached do
     }
   end
   let(:notification) do
-    create(:notification, :milestone_reached,
+    build_stubbed(:notification, :milestone_reached,
            event_payload: payload,
            source_calendar_entry: cal_entry)
   end
@@ -35,21 +35,21 @@ RSpec.describe NotificationFormatter::Templates::MilestoneReached do
     end
 
     it "uses scope_label when present" do
-      n = create(:notification, :milestone_reached,
+      n = build_stubbed(:notification, :milestone_reached,
                  event_payload: payload.merge("scope_label" => "Bake Lab"),
                  source_calendar_entry: cal_entry)
       expect(described_class.new(n).body).to include("on Bake Lab.")
     end
 
     it "uses `this install` when scope_type is install and scope_label missing" do
-      n = create(:notification, :milestone_reached,
+      n = build_stubbed(:notification, :milestone_reached,
                  event_payload: payload.except("scope_label"),
                  source_calendar_entry: cal_entry)
       expect(described_class.new(n).body).to include("on this install.")
     end
 
     it "falls back to a placeholder for channel scope without scope_label" do
-      n = create(:notification, :milestone_reached,
+      n = build_stubbed(:notification, :milestone_reached,
                  event_payload: payload.merge("scope_type" => "channel").except("scope_label"),
                  source_calendar_entry: cal_entry)
       expect(described_class.new(n).body).to include("(channel unavailable)")
@@ -62,7 +62,7 @@ RSpec.describe NotificationFormatter::Templates::MilestoneReached do
     end
 
     it "is nil when no source_calendar_entry" do
-      n = create(:notification, :milestone_reached,
+      n = build_stubbed(:notification, :milestone_reached,
                  event_payload: payload,
                  with_calendar_entry: false,
                  dedup_key: "milestone-1")

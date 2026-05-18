@@ -2,8 +2,8 @@ require "rails_helper"
 
 # Phase 22 §7.3 — Imports::ProgressIndicatorComponent.
 RSpec.describe Imports::ProgressIndicatorComponent, type: :component do
-  let(:user)    { create(:user) }
-  let(:channel) { create(:channel) }
+  let(:user)    { build_stubbed(:user) }
+  let(:channel) { build_stubbed(:channel) }
 
   def import_job(**overrides)
     ImportJob.new(channel: channel, enqueued_by: user, status: :queued, **overrides)

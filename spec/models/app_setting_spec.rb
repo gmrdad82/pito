@@ -59,7 +59,7 @@ RSpec.describe AppSetting, type: :model do
     end
 
     it "an instance no longer responds to the dropped column accessors" do
-      setting = create(:app_setting)
+      setting = build_stubbed(:app_setting)
       dropped_columns.each do |column|
         expect(setting).not_to respond_to(column)
       end

@@ -8,7 +8,7 @@ RSpec.describe NotificationFormatter::Templates::YoutubeReauthNeeded do
     }
   end
   let(:notification) do
-    create(:notification, :youtube_reauth_needed, event_payload: payload)
+    build_stubbed(:notification, :youtube_reauth_needed, event_payload: payload)
   end
   let(:template) { described_class.new(notification) }
 

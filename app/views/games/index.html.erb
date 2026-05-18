@@ -61,13 +61,23 @@
   <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;">
     <div class="dot-list">
       <h1><%= t("games.index.heading") %></h1>
+      <%# 2026-05-18 — unified omnisearch chrome. The `[+]` button now
+          opens the shared `_omnisearch_modal` in `:game_index` mode
+          (Mac-style big-bold input + `[close]` footer) instead of the
+          old `_igdb_search_modal` partial whose chrome (small input +
+          `[cancel]` link) diverged visually from the other two
+          omnisearch surfaces (`/games SPACE /` and the bundle modal
+          `[+]`). The endpoint and per-row IGDB `[add]` / `[update]`
+          contract are unchanged — `/games/search` still backs the
+          modal and `_search_results` still renders the rows; only the
+          surrounding chrome is unified. %>
       <%= render(BracketedLinkComponent.new(
             label: t("common.actions.add_short"),
             href: "#",
             data: {
               controller: "modal-trigger",
               action: "click->modal-trigger#open",
-              modal_trigger_target_id_value: "igdb-search-modal"
+              modal_trigger_target_id_value: "omnisearch-modal-games-index"
             }
           )) %>
     </div>
@@ -178,3 +188,19 @@
       url: omnisearch_games_path,
       placeholder: t("games.omnisearch.placeholder"),
       results_frame_id: "omnisearch_results_games_search" %>
+
+<%# 2026-05-18 — `[+]` `:game_index` omnisearch modal. IGDB-only
+    add-from-IGDB flow. Hits `/games/search` (the existing endpoint
+    rendering `_search_results`, which already wraps its body in a
+    `<turbo-frame id="igdb_search_results">` so the per-row
+    `[add]` / `[update]` contract is preserved unchanged); only the
+    surrounding chrome is unified with the other two omnisearch
+    surfaces. The frame id MUST match the partial's own
+    `turbo_frame_tag` so the controller-driven `src` swap lands in
+    the right frame. %>
+<%= render "shared/omnisearch_modal",
+      mode: :game_index,
+      dialog_id: "omnisearch-modal-games-index",
+      url: search_games_path,
+      placeholder: t("games.search.placeholder_igdb"),
+      results_frame_id: "igdb_search_results" %>

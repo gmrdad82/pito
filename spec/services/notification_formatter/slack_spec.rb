@@ -52,7 +52,7 @@ RSpec.describe NotificationFormatter::Slack do
     end
 
     it "is truncated to 150 chars" do
-      n = create(:notification, :video_published,
+      n = build_stubbed(:notification, :video_published, with_calendar_entry: false, dedup_key: "sl-tr1",
                  event_payload: { "video_title" => "x" * 300, "video_id" => 1 })
       header_text = described_class.payload_for(n)[:blocks][0][:text][:text]
       expect(header_text.length).to be <= 150
@@ -67,7 +67,7 @@ RSpec.describe NotificationFormatter::Slack do
     end
 
     it "is truncated to 3000 chars" do
-      n = create(:notification, :video_published,
+      n = build_stubbed(:notification, :video_published, with_calendar_entry: false, dedup_key: "sl-tr2",
                  event_payload: {
                    "video_id" => 1, "video_title" => "x" * 5000,
                    "channel_title" => "c"
@@ -78,7 +78,7 @@ RSpec.describe NotificationFormatter::Slack do
     end
 
     it "appends `<url|view in pito>` when notification has a URL" do
-      n = create(:notification, :video_published,
+      n = build_stubbed(:notification, :video_published, with_calendar_entry: false, dedup_key: "sl-url1",
                  event_payload: {
                    "video_id" => 42, "video_title" => "demo",
                    "channel_title" => "lab", "watch_url" => "https://yt.x/v"
@@ -101,7 +101,7 @@ RSpec.describe NotificationFormatter::Slack do
     end
 
     it "rewrites markdown [text](url) into Slack <url|text>" do
-      n = create(:notification, :video_published,
+      n = build_stubbed(:notification, :video_published, with_calendar_entry: false, dedup_key: "sl-rwl",
                  event_payload: {
                    "video_id" => 1, "video_title" => "demo",
                    "channel_title" => "lab", "watch_url" => "https://yt.x/v"
@@ -113,7 +113,7 @@ RSpec.describe NotificationFormatter::Slack do
 
   describe "escaping (Slack mrkdwn)" do
     it "html-encodes < and > in body" do
-      n = create(:notification, :video_published,
+      n = build_stubbed(:notification, :video_published, with_calendar_entry: false, dedup_key: "sl-esc1",
                  event_payload: {
                    "video_id" => 1, "video_title" => "<script>x</script>",
                    "channel_title" => "lab"
@@ -124,7 +124,7 @@ RSpec.describe NotificationFormatter::Slack do
     end
 
     it "html-encodes & in body" do
-      n = create(:notification, :video_published,
+      n = build_stubbed(:notification, :video_published, with_calendar_entry: false, dedup_key: "sl-esc2",
                  event_payload: {
                    "video_id" => 1, "video_title" => "Q&A live",
                    "channel_title" => "lab"
@@ -137,7 +137,7 @@ RSpec.describe NotificationFormatter::Slack do
       # Slack's own mrkdwn handles `*` for bold. Per spec test: a
       # notification with `event_payload[:video_title] = "video *bold*"`
       # produces section text containing `video *bold*` raw.
-      n = create(:notification, :video_published,
+      n = build_stubbed(:notification, :video_published, with_calendar_entry: false, dedup_key: "sl-esc3",
                  event_payload: {
                    "video_id" => 1, "video_title" => "video *bold*",
                    "channel_title" => "lab"
@@ -148,7 +148,7 @@ RSpec.describe NotificationFormatter::Slack do
   end
 
   describe "icon_url" do
-    let(:notification) { create(:notification, :video_published) }
+    let(:notification) { build_stubbed(:notification, :video_published, with_calendar_entry: false, dedup_key: "sl-icon") }
 
     it "is omitted when credentials carry no value" do
       payload = described_class.payload_for(notification)
@@ -166,7 +166,7 @@ RSpec.describe NotificationFormatter::Slack do
 
   describe "context block" do
     it "carries `<event_type> · <fires_at iso>`" do
-      n = create(:notification, :video_published, fires_at: fires_at)
+      n = build_stubbed(:notification, :video_published, with_calendar_entry: false, dedup_key: "sl-ctx", fires_at: fires_at)
       ctx = described_class.payload_for(n)[:blocks][2][:elements].first[:text]
       expect(ctx).to include("video_published")
       expect(ctx).to include("2026-05-10T12:00:00Z")
@@ -175,7 +175,7 @@ RSpec.describe NotificationFormatter::Slack do
 
   describe "smuggle attempts" do
     it "escapes a Slack `<webhook|spoof>` injected via event_payload" do
-      n = create(:notification, :video_published,
+      n = build_stubbed(:notification, :video_published, with_calendar_entry: false, dedup_key: "sl-smug",
                  event_payload: {
                    "video_id" => 1,
                    "video_title" => "<https://evil.x/spoof|click>",
@@ -268,18 +268,18 @@ RSpec.describe NotificationFormatter::Slack do
   def build_notification_for_kind(kind, fires_at)
     case kind
     when :video_published
-      create(:notification, :video_published, fires_at: fires_at,
+      build_stubbed(:notification, :video_published, with_calendar_entry: false, dedup_key: "sl-h-vp", fires_at: fires_at,
              event_payload: { "video_id" => 1, "video_title" => "demo",
                               "channel_title" => "lab",
                               "watch_url" => "https://y.com/v" })
     when :game_release_today
-      create(:notification, :game_release_today, fires_at: fires_at,
+      build_stubbed(:notification, :game_release_today, with_calendar_entry: false, dedup_key: "sl-h-grt", fires_at: fires_at,
              event_payload: { "game_id" => 1, "game_title" => "G",
                               "release_date" => "2026-05-10",
                               "platforms" => [ "PC" ] })
     when :milestone_reached
-      cal = create(:calendar_entry)
-      create(:notification, :milestone_reached, fires_at: fires_at,
+      cal = build_stubbed(:calendar_entry)
+      build_stubbed(:notification, :milestone_reached, fires_at: fires_at,
              source_calendar_entry: cal,
              event_payload: { "rule_name" => "10k", "metric" => "subs",
                               "threshold" => 10_000,
@@ -287,17 +287,17 @@ RSpec.describe NotificationFormatter::Slack do
                               "scope_type" => "install",
                               "scope_label" => "this install" })
     when :calendar_entry_firing
-      cal = create(:calendar_entry)
-      create(:notification, :calendar_entry_firing, fires_at: fires_at,
+      cal = build_stubbed(:calendar_entry)
+      build_stubbed(:notification, :calendar_entry_firing, fires_at: fires_at,
              source_calendar_entry: cal,
              event_payload: { "entry_id" => cal.id, "title" => "x",
                               "description" => "y" })
     when :sync_error
-      create(:notification, :sync_error, fires_at: fires_at,
+      build_stubbed(:notification, :sync_error, fires_at: fires_at,
              event_payload: { "job_class" => "X", "error_class" => "Y",
                               "error_message" => "z" })
     when :youtube_reauth_needed
-      create(:notification, :youtube_reauth_needed, fires_at: fires_at,
+      build_stubbed(:notification, :youtube_reauth_needed, fires_at: fires_at,
              event_payload: { "connection_email" => "a@b.com",
                               "connection_id" => 1 })
     end

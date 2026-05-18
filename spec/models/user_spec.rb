@@ -198,14 +198,14 @@ RSpec.describe User, type: :model do
     # the enum unwired. Any reference to the legacy enum should fail
     # loudly so regressions surface at test time.
     it "does not respond to the legacy predicate methods" do
-      user = create(:user)
+      user = build_stubbed(:user)
       expect(user).not_to respond_to(:games_display_grid?)
       expect(user).not_to respond_to(:games_display_list?)
       expect(user).not_to respond_to(:games_display_shelves_by_letter?)
     end
 
     it "does not respond to the legacy attribute reader" do
-      user = create(:user)
+      user = build_stubbed(:user)
       expect(user).not_to respond_to(:preferred_games_display_mode)
     end
 
@@ -219,7 +219,7 @@ RSpec.describe User, type: :model do
   end
 
   describe "post-Phase-25 rollback" do
-    let(:user) { create(:user) }
+    let(:user) { build_stubbed(:user) }
 
     it "no longer defines #trusted_location?" do
       expect(user).not_to respond_to(:trusted_location?)

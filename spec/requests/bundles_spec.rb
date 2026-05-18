@@ -92,4 +92,67 @@ RSpec.describe "Bundles", type: :request do
       expect(response).to have_http_status(:not_found)
     end
   end
+
+  # 2026-05-18 — `:bundle_add` omnisearch endpoint that backs the
+  # bundle modal's `[+]` "add member" trigger. Returns local games
+  # (Meilisearch / Postgres ILIKE fallback, with this bundle's
+  # existing members filtered out) AND IGDB hits as separate sections.
+  # The local section gives each row an `[add]` POSTing to
+  # `/bundles/:id/members`; the IGDB section gives each row an `[add]`
+  # POSTing to `/bundles/:id/members/from_igdb` (creates a stub Game,
+  # adds to bundle, kicks async sync).
+  describe "GET /bundles/:id/search" do
+    let(:bundle) { create(:bundle, name: "Fighters") }
+
+    before do
+      # Force the Meilisearch HTTP call to fail so the controller path
+      # exercises the Postgres ILIKE fallback in
+      # `Meilisearch::SearchGames`. Mirrors the real-world case the
+      # user reported (empty / stale Meilisearch index).
+      stub_request(:post, %r{/indexes/games_test/search}).to_return(status: 500, body: "boom")
+      # Stub IGDB so we don't hit the live API. Two payload shapes:
+      # one with a hit, one with no hits.
+      allow(Rails.application.credentials).to receive(:igdb).and_return(
+        OpenStruct.new(client_id: "id", client_secret: "secret")
+      )
+      stub_request(:post, %r{id\.twitch\.tv/oauth2/token})
+        .to_return(status: 200, body: { access_token: "T", expires_in: 5_184_000 }.to_json)
+    end
+
+    it "renders local matches with [add] buttons pointing at /bundles/:id/members" do
+      create(:game, title: "Street Fighter 6")
+      stub_request(:post, "https://api.igdb.com/v4/games").to_return(status: 200, body: "[]")
+
+      get search_bundle_path(bundle), params: { q: "street" }
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include("Street Fighter 6")
+      expect(response.body).to include(bundle_members_path(bundle_id: bundle.id))
+    end
+
+    it "renders IGDB hits with [add] buttons pointing at /from_igdb (not muted 'in igdb only' text)" do
+      igdb_payload = [ { "id" => 7346, "name" => "Tekken 8", "first_release_date" => 1704067200 } ]
+      stub_request(:post, "https://api.igdb.com/v4/games")
+        .to_return(status: 200, body: igdb_payload.to_json)
+
+      get search_bundle_path(bundle), params: { q: "tekken" }
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include("Tekken 8")
+      expect(response.body).to include(from_igdb_bundle_members_path(bundle_id: bundle.id))
+      # Per-row IGDB `[add]` button replaces the prior "in igdb only" text.
+      expect(response.body).to match(/\[<span class="bl">add<\/span>\]/)
+      expect(response.body).not_to include("in igdb only")
+    end
+
+    it "filters out local games that already belong to the bundle" do
+      already_in = create(:game, title: "Street Fighter 4")
+      _free      = create(:game, title: "Street Fighter 6")
+      bundle.bundle_members.create!(game_id: already_in.id)
+      stub_request(:post, "https://api.igdb.com/v4/games").to_return(status: 200, body: "[]")
+
+      get search_bundle_path(bundle), params: { q: "street" }
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include("Street Fighter 6")
+      expect(response.body).not_to include("Street Fighter 4")
+    end
+  end
 end

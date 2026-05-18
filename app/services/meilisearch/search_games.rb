@@ -56,10 +56,27 @@ module Meilisearch
       games = resolve_games(hits)
       bundles = @include_bundles ? resolve_bundles(hits) : []
 
+      # 2026-05-18 — Postgres ILIKE fallback. The user-reported bug
+      # (Surface B + C local-results missing) reproduces when the
+      # Meilisearch index is not in sync with the AR rows (a freshly
+      # added game has not been indexed yet, or the install never ran
+      # the reindex rake task). Falling back to a cheap `LOWER(title)
+      # ILIKE %q%` query keeps the omnisearch usable for the common
+      # title-substring case even when Meilisearch returns zero hits.
+      # The fallback runs only when Meilisearch produced no rows of
+      # that kind, so the relevance ranking from Meilisearch still
+      # wins when the index is populated.
+      games = fallback_games if games.empty?
+      bundles = fallback_bundles if @include_bundles && bundles.empty?
+
       { games: games, bundles: bundles }
     rescue StandardError => e
       Rails.logger.warn("[Meilisearch::SearchGames] query failed (#{@query.inspect}): #{e.class}: #{e.message}")
-      { games: [], bundles: [] }
+      # Even on Meilisearch failure, attempt the Postgres fallback so
+      # local games are still findable when the search engine is down.
+      games = fallback_games
+      bundles = @include_bundles ? fallback_bundles : []
+      { games: games, bundles: bundles }
     end
 
     private
@@ -124,6 +141,31 @@ module Meilisearch
 
       bundles_by_id = Bundle.where(id: bundle_ids).index_by(&:id)
       bundle_ids.map { |id| bundles_by_id[id] }.compact.first(@limit)
+    end
+
+    # Postgres `LOWER(title) ILIKE %q%` fallback for the games half of
+    # the envelope. Used when Meilisearch returns zero game hits (the
+    # index is empty / stale, or the network call failed). The result
+    # set is title-ordered so the fallback feels deterministic.
+    # `exclude_bundle` still applies — already-in-bundle games are
+    # filtered out so the `:bundle_add` flow never re-surfaces members.
+    def fallback_games
+      scope = Game.where("LOWER(title) ILIKE ?", "%#{Game.sanitize_sql_like(@query.downcase)}%")
+      if @exclude_bundle
+        member_game_ids = @exclude_bundle.bundle_members.pluck(:game_id)
+        scope = scope.where.not(id: member_game_ids) if member_game_ids.any?
+      end
+      scope.order(:title).limit(@limit).to_a
+    end
+
+    # Postgres `LOWER(name) ILIKE %q%` fallback for the bundles half of
+    # the envelope. Only consulted when `include_bundles: true` (i.e.
+    # `:games_search` mode). Name-ordered for deterministic output.
+    def fallback_bundles
+      Bundle.where("LOWER(name) ILIKE ?", "%#{Bundle.sanitize_sql_like(@query.downcase)}%")
+            .order(:name)
+            .limit(@limit)
+            .to_a
     end
   end
 end

@@ -15,12 +15,16 @@
     Per-row action:
       - Local game: `[add]` POSTs to /bundles/:id/members (member
         creates with that game's id).
-      - IGDB row: NO `[add]` inside this mode. Adding from IGDB
-        inside the bundle modal is a deliberate two-step (sync IGDB
-        into the local library first, then add to the bundle). The
-        IGDB section renders informationally so the user can spot
-        upstream coverage but is not given a direct add-into-bundle
-        affordance. %>
+      - IGDB row: `[add]` POSTs to /bundles/:id/members/from_igdb
+        which creates a Game stub with the IGDB id + title pre-seed,
+        enqueues `GameIgdbSync` to populate the rest of the metadata
+        async, and adds the new game to the bundle in one click.
+        2026-05-18 — replaces the prior "in igdb only" muted-text
+        affordance which forced the user to round-trip through
+        `/games [+]` to add an IGDB game before adding it to the
+        bundle. Defensively: if the IGDB id already maps to an
+        existing local Game, the action behaves like a regular
+        local-add (no duplicate Game row, no new sync). %>
 <%= turbo_frame_tag "omnisearch_results_bundle_add" do %>
   <% if query.blank? %>
     <p class="text-muted"><%= t("games.omnisearch.placeholder_default") %></p>
@@ -69,7 +73,17 @@
                     <span class="text-muted">(<%= release_year %>)</span>
                   <% end %>
                 </span>
-                <span class="text-muted"><%= t("bundles.omnisearch.igdb_only") %></span>
+                <%# 2026-05-18 — `[add]` posts the IGDB row to the
+                    bundle's `from_igdb` endpoint which creates a Game
+                    stub + adds it as a member + kicks off async IGDB
+                    sync. `data: { turbo: false }` skips Turbo Drive so
+                    the post redirects cleanly back to the bundle show
+                    page and the modal goes away with the navigation. %>
+                <%= button_to from_igdb_bundle_members_path(bundle_id: bundle.id),
+                              params: { igdb_id: row["id"], title: row["name"] },
+                              method: :post,
+                              class: "bracketed",
+                              form: { style: "display: inline; margin: 0;", data: { turbo: false } } do %>[<span class="bl"><%= t("common.actions.add") %></span>]<% end %>
               </li>
             <% end %>
           </ul>
