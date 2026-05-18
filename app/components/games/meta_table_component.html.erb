@@ -1,0 +1,10 @@
+<table class="kv-table" style="margin: 6px 0 0 0;">
+  <tbody>
+    <% meta_rows.each do |label, value| %>
+      <tr>
+        <td class="kv-table__label"><%= label %></td>
+        <td class="kv-table__value" title="<%= value %>"><%= value %></td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>

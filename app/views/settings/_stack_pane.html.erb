@@ -40,14 +40,10 @@
     <div style="display: grid; grid-template-columns: 1fr 1px 1fr; gap: 12px; align-items: stretch;">
       <%# Left column: db (Postgres + Redis with hairline) %>
       <div>
-        <div style="margin-bottom: 6px;">
-          <span><strong>Postgres</strong></span>
-          <% if @postgres_status[:connected] %>
-            <span style="color: var(--color-success);">▲ connected</span>
-          <% else %>
-            <span class="text-danger">▽ disconnected</span>
-          <% end %>
-        </div>
+        <%= render Settings::Stack::HealthLineComponent.new(
+          label: "Postgres",
+          state: @postgres_status[:connected] ? :connected : :disconnected
+        ) %>
 
         <% if @postgres_status[:connected] && @postgres_table_breakdown.any? %>
           <div style="margin-bottom: 8px;" data-controller="sortable-table" data-sortable-table-id-value="stack-postgres">
@@ -89,14 +85,10 @@
 
         <hr class="hairline">
 
-        <div style="margin-bottom: 6px;">
-          <span><strong>Redis</strong></span>
-          <% if @redis_status[:connected] %>
-            <span style="color: var(--color-success);">▲ connected</span>
-          <% else %>
-            <span class="text-danger">▽ disconnected</span>
-          <% end %>
-        </div>
+        <%= render Settings::Stack::HealthLineComponent.new(
+          label: "Redis",
+          state: @redis_status[:connected] ? :connected : :disconnected
+        ) %>
 
         <% if @redis_status[:connected] && @sidekiq_breakdown.any? %>
           <%= render Settings::Stack::Sidekiq::CountersComponent.new(breakdown: @sidekiq_breakdown) %>
@@ -107,14 +99,10 @@
 
       <%# Right column: search + storage stacked %>
       <div>
-        <div style="margin-bottom: 6px;">
-          <span><strong>Meilisearch</strong></span>
-          <% if @search_healthy %>
-            <span style="color: var(--color-success);">▲ connected</span>
-          <% else %>
-            <span class="text-danger">▽ disconnected</span>
-          <% end %>
-        </div>
+        <%= render Settings::Stack::HealthLineComponent.new(
+          label: "Meilisearch",
+          state: @search_healthy ? :connected : :disconnected
+        ) %>
 
         <% if @search_per_index_stats.any? %>
           <div style="margin-bottom: 8px;" data-controller="sortable-table" data-sortable-table-id-value="stack-meilisearch">
@@ -205,18 +193,14 @@
 
         <hr class="hairline">
 
-        <div style="margin-bottom: 6px;">
-          <span><strong>assets</strong></span>
-          <% if @storage_status[:present] %>
-            <% if @storage_status[:writable] %>
-              <span style="color: var(--color-success);">▲ writable</span>
-            <% else %>
-              <span class="text-danger">▽ read-only</span>
-            <% end %>
-          <% else %>
-            <span class="text-muted">▽ not present</span>
-          <% end %>
-        </div>
+        <%= render Settings::Stack::HealthLineComponent.new(
+          label: "assets",
+          state: if @storage_status[:present]
+                   @storage_status[:writable] ? :writable : :read_only
+                 else
+                   :absent
+                 end
+        ) %>
 
         <% if @assets_breakdown.any? %>
           <div style="margin-bottom: 8px;" data-controller="sortable-table" data-sortable-table-id-value="stack-assets">
@@ -259,18 +243,14 @@
 
         <hr class="hairline">
 
-        <div style="margin-bottom: 6px;">
-          <span><strong>notes</strong></span>
-          <% if @notes_volume_status[:present] %>
-            <% if @notes_volume_status[:writable] %>
-              <span style="color: var(--color-success);">▲ writable</span>
-            <% else %>
-              <span class="text-danger">▽ read-only</span>
-            <% end %>
-          <% else %>
-            <span class="text-muted">▽ not present</span>
-          <% end %>
-        </div>
+        <%= render Settings::Stack::HealthLineComponent.new(
+          label: "notes",
+          state: if @notes_volume_status[:present]
+                   @notes_volume_status[:writable] ? :writable : :read_only
+                 else
+                   :absent
+                 end
+        ) %>
 
         <% if @notes_breakdown.any? %>
           <div style="margin-bottom: 8px;" data-controller="sortable-table" data-sortable-table-id-value="stack-notes">

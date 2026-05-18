@@ -158,62 +158,14 @@
         rule (8px top + 8px bottom margin). %>
     <hr class="hairline">
 
-    <%# Meta block: released / dev / pub rendered as a borderless,
-        header-less two-column `kv-table` (label / value). Rows
-        zebra-stripe horizontally to match the /settings stack-pane
-        treatment (`.kv-table tbody tr:nth-child(even)` shares the
-        same alt-row background with `.stack-table tbody tr:nth-child(even)`
-        — see `application.css`).
-        Skip a row entirely when its value is missing (no `pub: —`
-        placeholder). Date formatted as `MM-DD-YYYY` per 2026-05-11
-        polish (Fix 3). %>
-    <%
-      meta_rows = []
-      if @game.release_date.present?
-        meta_rows << ["date", @game.release_date.strftime("%m-%d-%Y")]
-      end
-      developer_names = @game.developers.map(&:name)
-      meta_rows << ["dev", developer_names.join(", ")] if developer_names.any?
-      publisher_names = @game.publishers.map(&:name)
-      meta_rows << ["pub", publisher_names.join(", ")] if publisher_names.any?
-      # 2026-05-18 — sync row sits below dev/pub. While a resync is in
-      # flight (`resyncing?` true) the value renders as `---` so the
-      # row visibly signals "stale, refreshing"; once the job clears
-      # the flag the page's `auto-refresh` controller above reloads
-      # and the cell flips back to a fresh `compact_time_ago` string
-      # off `igdb_synced_at`. `compact_time_ago(nil)` returns
-      # `"never"` so games that have never synced still show the row
-      # rather than dropping it.
-      meta_rows << ["sync", @game.resyncing? ? "---" : compact_time_ago(@game.igdb_synced_at)]
-    %>
-    <% if meta_rows.any? %>
-      <%# 2026-05-17 polish — `.kv-table__value` truncates via
-          `text-overflow: ellipsis` (white-space: nowrap + overflow:
-          hidden + explicit max-width on the value cell); a `title`
-          attribute on the value `<td>` surfaces the full string as a
-          native browser tooltip on hover, which is the standard
-          truncation affordance (most relevant for long publisher lists
-          such as "Rockstar Games, Take-Two Interactive"). Browsers
-          handle non-truncated values gracefully (they may even
-          suppress the tooltip when the rendered text already shows in
-          full).
-          Item 1 polish (2026-05-17) — `margin-top` reduced from 16px
-          to 6px so the title-hairline → kv-table reads as one tight
-          visual cluster (genres / hairline / meta). The hairline that
-          previously sat below the kv-table was removed (item 3) —
-          the heat-bar's own `margin-top: 28px` already provides the
-          vertical break above the bar. %>
-      <table class="kv-table" style="margin: 6px 0 0 0;">
-        <tbody>
-          <% meta_rows.each do |label, value| %>
-            <tr>
-              <td class="kv-table__label"><%= label %></td>
-              <td class="kv-table__value" title="<%= value %>"><%= value %></td>
-            </tr>
-          <% end %>
-        </tbody>
-      </table>
-    <% end %>
+    <%# Beta-3 Lane B (B3) — extracted to Games::MetaTableComponent.
+        Owns the meta_rows builder (date / dev / pub / sync conditional
+        pushes, fixed render order, `resyncing? → ---` branch on the
+        sync cell) and the `<table class="kv-table">` markup. The
+        component always renders the sync row, so the `if meta_rows.any?`
+        guard that wrapped the inline version is no longer needed —
+        `meta_rows` is never empty. %>
+    <%= render Games::MetaTableComponent.new(game: @game) %>
 
     <%# Wave C5 (spec 08 §"Rating heat-bar synthesis") — vote-weighted
         synthesized score across the three IGDB rating triplets,
