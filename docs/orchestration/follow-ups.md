@@ -975,6 +975,42 @@ a `[TBD]` placeholder modal (via `StatusTbdBadgeComponent`). The actual search
 experience needs a dedicated spec + dispatch. Once it lands, the placeholder
 modal is replaced everywhere `/` is bound.
 
+### FN3 — IGDB sync preserves user-added platforms (spec coverage required)
+
+**Implementation landed** (2026-05-18 iteration mode): `Igdb::SyncGame#sync_platforms`
+now scopes destroys to `from_igdb` only, and the upsert skips existing rows so
+user-set `source: "user"` rows survive across syncs. Specs deferred per the
+defer-specs-during-iteration discipline; capture here for the consolidation
+pass.
+
+**Canonical example** for tests: Red Dead Redemption (RDR1) — IGDB returns only
+PS3 / Xbox 360. After user clicks `[owned] PS` (FN2 → adds PS5 row with
+`source: "user"`), an IGDB sync must:
+
+1. Re-upsert PS3 / Xbox 360 as `source: "igdb"`.
+2. Leave PS5 (`source: "user"`) UNTOUCHED.
+
+**Spec cases to cover:**
+
+- Game with no IGDB PS platforms + user marks owned PS → after IGDB sync, the
+  `GamePlatform` row for PS5 with `source: "user"` still exists.
+- Game with IGDB PS4 + user marks owned PS → PS4 row stays as `source: "igdb"`,
+  no duplicate row created.
+- IGDB sync removes ONLY rows in the `from_igdb` scope when IGDB no longer
+  returns them — `source: "user"` rows survive.
+- Multiple consecutive IGDB syncs preserve the user-source row.
+- User-source row is also visible in `game.platforms_available` (the join is
+  source-agnostic).
+- Filter `/games?filters=ps` includes a game whose only PS platform is
+  `source: "user"`.
+
+**File targets for the spec consolidation pass:**
+
+- `spec/services/igdb/sync_game_spec.rb` — preservation cases.
+- `spec/controllers/games/ownership_toggles_controller_spec.rb` (or request
+  spec) — upsert with `source: "user"`.
+- `spec/services/games/filter_spec.rb` — filter includes user-source PS games.
+
 ## Done
 
 ### YouTube credentials hot-rotation gap (omniauth boot-time read)

@@ -42,10 +42,12 @@
         <%# Owned toggle. Unchecked checkboxes post no value, which the
             controller's `coerce_boolean` helper treats as `enabled=no`
             — same posture as the /settings notification-toggle forms.
-            The visible "owned" label tints green-success when checked
-            via `.ownership-matrix__toggle--owned` so the row reads
-            like a bracketed status chip when on, and a muted empty
-            checkbox when off. %>
+            2026-05-18 FN2 follow-up — the `[x] owned` / `[x] played`
+            chips render in DEFAULT text color regardless of state; the
+            `--owned` / `--played` modifier classes still emit (kept
+            for the Stimulus cascade controller's class hooks) but no
+            longer carry visual rules. The `[ ]` vs `[x]` indicator is
+            the sole visual signal. %>
         <%= form_with url: game_ownership_toggle_path(game, slug),
                       method: :patch,
                       data: { controller: "auto-submit" } do |f| %>

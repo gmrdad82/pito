@@ -5,9 +5,20 @@
 #   PATCH /games/:game_id/ownership_toggles/:platform  → ownership
 #   PATCH /games/:game_id/played_toggles/:platform     → played
 #
-# `:platform` is the canonical slug (`ps` / `switch` / `steam`) from
+# `:platform` is the chip slug (`ps` / `switch` / `steam`) from
 # `Platforms::ChipComponent::SLUG_BRAND`. The router-side allowlist
-# is reapplied here as defense-in-depth.
+# is reapplied here as defense-in-depth. The chip slug resolves to
+# a canonical `Platform` row via
+# `Platforms::ChipComponent::CANONICAL_PLATFORM_SLUG_BY_CHIP`
+# (`ps` → `ps5`, `switch` → `switch-2`, `steam` → `steam`).
+#
+# 2026-05-18 FN2 — `ownership=yes` ALSO upserts a `game_platforms`
+# join row (`platforms_available`) with `source: "user"` when IGDB
+# has not listed the platform yet, so the chip-availability surfaces
+# (`/games` shelf chips, `?filters=ps|switch|steam` filter, the
+# detail-page platform chip strip) all light up. `ownership=no`
+# tears down the user-added row but leaves any IGDB-sourced row
+# alone (un-marking ownership never erases IGDB's release knowledge).
 #
 # `ownership` flips the `game_platform_ownerships` join for the
 # `(game, platform)` pair — destroy when present, create when absent.
@@ -44,6 +55,17 @@ module Games
 
       if desired && !currently_owned
         @game.game_platform_ownerships.create!(platform_id: @platform.id)
+
+        # 2026-05-18 FN2 — when the user marks the game as owned on a
+        # platform IGDB did not list (`platforms_available` does not
+        # already contain `@platform`), insert a `game_platforms` join
+        # row with `source: "user"` so the chip-availability surfaces
+        # (`/games` shelf chips, `?filters=ps|switch|steam` filter,
+        # detail-page platform chips) all light up. The `source` tag
+        # preserves the user-added origin so a later IGDB sync (FN3)
+        # does not silently drop the row.
+        ensure_user_added_platform_availability!
+
         redirect_to game_path(@game),
                     notice: "Game owned on #{platform_label}."
       elsif !desired && currently_owned
@@ -58,6 +80,14 @@ module Games
         if @game.played_platform_id == @platform.id
           @game.update!(played_platform_id: nil)
         end
+
+        # 2026-05-18 FN2 — drop the matching `game_platforms` row
+        # only when it was user-added (`source: "user"`). IGDB-sourced
+        # rows stay alone: un-marking ownership does not erase IGDB's
+        # knowledge that the game ships on that platform.
+        @game.game_platforms
+             .where(platform_id: @platform.id, source: "user")
+             .destroy_all
 
         redirect_to game_path(@game),
                     notice: "Game no longer owned on #{platform_label}."
@@ -84,6 +114,11 @@ module Games
         unless @game.game_platform_ownerships.exists?(platform_id: @platform.id)
           @game.game_platform_ownerships.create!(platform_id: @platform.id)
         end
+        # 2026-05-18 FN2 cascade — mirror the `ownership` action's
+        # availability backfill. A platform the user is actively
+        # playing on must be available; if IGDB has not listed it,
+        # tag the join row `source: "user"` so FN3 preserves it.
+        ensure_user_added_platform_availability!
         @game.update!(played_platform_id: @platform.id)
         redirect_to game_path(@game),
                     notice: "Playing on #{platform_label}."
@@ -115,11 +150,30 @@ module Games
         return
       end
 
-      @platform = Platform.find_by(slug: slug)
+      # 2026-05-18 FN2 — chip slug → canonical Platform slug. The chip
+      # vocabulary (`ps` / `switch` / `steam`) collapses multiple IGDB
+      # platforms into one user-facing surface; the actual Platform
+      # row is keyed by its FriendlyId slug (`ps5`, `switch-2`, `steam`)
+      # per `Platforms::ChipComponent::CANONICAL_PLATFORM_SLUG_BY_CHIP`.
+      canonical_slug = Platforms::ChipComponent::CANONICAL_PLATFORM_SLUG_BY_CHIP[slug]
+      @platform = Platform.find_by(slug: canonical_slug)
       unless @platform
         redirect_to game_path(@game), alert: "unknown platform."
         nil
       end
+    end
+
+    # 2026-05-18 FN2 — idempotent upsert of the `game_platforms` join
+    # row for the canonical `@platform`. Tags the row `source: "user"`
+    # so the IGDB sync (FN3) can preserve user-added platforms across
+    # subsequent syncs. If a row already exists (e.g. IGDB had already
+    # added the platform), leaves its `source` alone — the row's
+    # provenance keeps the earlier value (conflict rule: first writer
+    # wins, never downgrade `user` to `igdb`).
+    def ensure_user_added_platform_availability!
+      return if @game.game_platforms.exists?(platform_id: @platform.id)
+
+      @game.game_platforms.create!(platform_id: @platform.id, source: "user")
     end
 
     def coerce_boolean(key)
@@ -127,9 +181,15 @@ module Games
       YesNo.yes_no?(raw) && YesNo.from_yes_no(raw)
     end
 
+    # 2026-05-18 FN2 — flash labels stay in the chip vocabulary
+    # (`PS` / `Switch` / `Steam`), NOT the canonical Platform slug
+    # (`ps5` / `switch2` / `steam`). Look up via the inbound chip slug
+    # from `params[:platform]` so the toast copy matches the chip the
+    # user clicked.
     def platform_label
-      Platforms::ChipComponent::SLUG_BRAND.dig(@platform.slug, :label) ||
-        @platform.slug.to_s.upcase
+      chip_slug = params[:platform].to_s
+      Platforms::ChipComponent::SLUG_BRAND.dig(chip_slug, :label) ||
+        chip_slug.upcase
     end
   end
 end
