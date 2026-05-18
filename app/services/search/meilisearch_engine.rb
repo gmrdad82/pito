@@ -118,6 +118,24 @@ module Search
       {}
     end
 
+    # 2026-05-18 — count documents within an index that match a single
+    # equality filter (the unified `games_<env>` index holds both Game
+    # and Bundle documents distinguished by the `kind` field, so this
+    # is how the stack pane splits one physical index into two display
+    # rows). Returns the integer hit estimate, or nil on failure so the
+    # view can render "—" without raising.
+    def documents_count_for(index_name, field:, value:)
+      idx = @client.index(index_name)
+      result = idx.search(
+        "",
+        filter: "#{field} = #{filter_value(value)}",
+        limit: 0
+      )
+      (result["estimatedTotalHits"] || result["totalHits"] || 0).to_i
+    rescue StandardError
+      nil
+    end
+
     private
 
     def searchable_document(record)

@@ -39,6 +39,13 @@ module Search
       {}
     end
 
+    # Optional. Engines that support filtered counts (`field = value`)
+    # within an index override this. Default returns nil so the settings
+    # view renders neutrally on engines that don't.
+    def documents_count_for(index_name, field:, value:)
+      nil
+    end
+
     private
 
     def index_name_for(model_or_record)

@@ -43,18 +43,22 @@ class ReindexAllJob < ApplicationJob
     #
     # `/games` corpus (Game + Bundle) needs the Voyage embedding step
     # BEFORE the Meilisearch document push so each document carries
-    # the freshly-computed `summary_embedding`. The per-row jobs run
-    # both stages (`Games::VoyageIndexer` → embed + push,
-    # `Bundles::VoyageIndexer` → same) so the stats row converges.
-    Game.where.not(summary: nil).find_each do |game|
-      GameVoyageIndexJob.perform_later(game.id)
-    end
-
-    if defined?(Bundle) && Bundle.table_exists?
-      Bundle.find_each do |bundle|
-        BundleVoyageIndexJob.perform_later(bundle.id)
-      end
-    end
+    # the freshly-computed `summary_embedding`.
+    #
+    # 2026-05-18 (follow-up #2) — the prior per-row fan-out
+    # (`Game.find_each { ... perform_later }` + same for Bundle) turned
+    # one [reindex] click into 13 + 18 = 31 Voyage HTTP calls firing
+    # back-to-back, which tripped Voyage's per-minute rate limit and
+    # bombed the run with 429s. `BulkVoyageIndexJob` collapses each
+    # corpus into a single Voyage batch call (Voyage accepts up to
+    # 128 inputs per request — see `Voyage::Client::MAX_BATCH_SIZE`),
+    # so the post-click work is now 2 Sidekiq jobs + 2 Voyage calls,
+    # not 31 of either. The per-row jobs (`GameVoyageIndexJob`,
+    # `BundleVoyageIndexJob`) stay live for the IGDB sync hook +
+    # bundle membership hook — those single-row paths don't need
+    # batching and want the forgiving per-row error contract.
+    BulkVoyageIndexJob.perform_later(corpus: "games")
+    BulkVoyageIndexJob.perform_later(corpus: "bundles") if defined?(Bundle) && Bundle.table_exists?
   ensure
     # Always clear the flag, even on crash, to keep the UI honest and
     # prevent a stuck-flag deadlock. The broadcast lands AFTER the

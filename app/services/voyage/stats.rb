@@ -43,6 +43,12 @@ module Voyage
         last_indexed_at: Game.where.not(summary_embedding: nil).maximum(:updated_at),
         embedded_bundles_count: bundles_embedded,
         total_bundles_count: bundles_total,
+        # 2026-05-18 — bundle coverage percentage mirrors `coverage_pct` for
+        # the games row. Returns nil when the `bundles.summary_embedding`
+        # column is absent (pre-DH installs) so the view can omit the
+        # parenthetical without crashing; the live-stats JSON endpoint
+        # surfaces nil too and the JS setter no-ops.
+        bundle_coverage_pct: bundle_coverage_pct(bundles_embedded, bundles_total),
         storage_kb: compute_storage_kb,
         embeddings_last_24h: compute_recent_count
       }
@@ -98,8 +104,17 @@ module Voyage
     end
 
     def coverage_pct(embedded, total)
-      return 0.0 if total.to_i.zero?
-      (embedded.to_f / total * 100).round(1)
+      return 0 if total.to_i.zero?
+      (embedded.to_f / total * 100).round
+    end
+
+    # Same shape as `coverage_pct`, but returns nil when the bundle
+    # embedding column is absent so the caller / view can distinguish
+    # "the bundles column does not exist yet" from "0% coverage".
+    def bundle_coverage_pct(embedded, total)
+      return nil if embedded.nil? || total.nil?
+      return 0 if total.to_i.zero?
+      (embedded.to_f / total * 100).round
     end
 
     def bundle_counts

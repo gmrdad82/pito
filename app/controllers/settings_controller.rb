@@ -128,11 +128,14 @@ class SettingsController < ApplicationController
 
     render json: {
       redis: stack_stats_redis,
-      voyage: voyage.merge(last_indexed_at_formatted: last_formatted)
+      voyage: voyage.merge(last_indexed_at_formatted: last_formatted),
+      postgres: stack_stats_postgres,
+      meilisearch: stack_stats_meilisearch,
+      assets: stack_stats_assets
     }
   rescue StandardError => e
     Rails.logger.warn("[settings#stack_stats] #{e.class}: #{e.message}")
-    render json: { redis: {}, voyage: {} }, status: :ok
+    render json: { redis: {}, voyage: {}, postgres: {}, meilisearch: {}, assets: {} }, status: :ok
   end
 
   # Phase 32 follow-up (2026-05-16) — three-layer reindex lock.
@@ -221,53 +224,89 @@ class SettingsController < ApplicationController
     { path: nil, present: false, writable: false, size_bytes: 0, file_count: 0 }
   end
 
-  # 2026-05-18 (DR) — only the `games` index surfaces on /settings now.
-  # `notes` and `videos` are removed because those product surfaces have
-  # not been revisited in the beta-3 sweep yet; surfacing their indexes
-  # would imply they are first-class. The `games` index hosts both Game
-  # and Bundle documents (planned DH consolidation), so the single row
-  # reads as the "games (games + bundles)" section indicator.
+  # 2026-05-18 — the unified `games_<env>` Meilisearch index holds both
+  # Game and Bundle documents (distinguished by the `kind` field — see
+  # `Meilisearch::BundleIndexer`). We surface them as TWO rows in the
+  # Stack pane so the operator can see games-vs-bundles indexed counts
+  # at a glance.
+  #
+  # Size-by-kind: Meilisearch reports total index size only; splitting it
+  # cleanly is impossible. The simplest, most-honest rendering is to put
+  # the total index size on the `games` row and `—` on the `bundles` row.
+  # The bundles row carries `size_bytes: nil` + `omit_size: true` so the
+  # view renders a single dash in that column. (The alternative —
+  # apportioning by doc ratio — risks misleading the operator into
+  # thinking the engine actually reports per-kind storage.)
   SEARCH_INDEX_DISPLAY_ALLOWLIST = %w[games].freeze
 
   def search_per_index_stats_for_settings_pane
-    rows = []
+    engine_rows = {}
 
     if Search.engine.respond_to?(:per_index_stats)
       stats = Search.engine.per_index_stats
-      rows = stats.map do |index_name, payload|
+      stats.each do |index_name, payload|
         next if index_name.to_s.end_with?("_test")
         label = index_name.to_s.sub(/_(development|production)\z/, "")
         next unless SEARCH_INDEX_DISPLAY_ALLOWLIST.include?(label)
-        {
-          label: label,
-          documents: payload[:documents] || payload["documents"] || 0,
+        engine_rows[label] = {
+          documents: (payload[:documents] || payload["documents"] || 0).to_i,
           size_bytes: payload[:size_bytes] || payload["size_bytes"],
-          missing: false
+          raw_index_name: index_name.to_s
         }
-      end.compact
+      end
     end
 
-    # 2026-05-18 — backfill placeholder rows for any allowlisted index
-    # the engine didn't return. Covers the "index not yet created" case
-    # (no documents indexed → Meilisearch has no record of the index),
-    # so the Stack pane still surfaces the `games` row instead of going
-    # silent. `missing: true` lets the view render "not yet indexed"
-    # cells in place of doc count + size.
-    SEARCH_INDEX_DISPLAY_ALLOWLIST.each do |required|
-      next if rows.any? { |row| row[:label] == required }
+    rows = []
+
+    games_payload = engine_rows["games"]
+    if games_payload
+      games_docs, bundles_docs = split_games_index_by_kind(games_payload[:raw_index_name], games_payload[:documents])
       rows << {
-        label: required,
-        documents: 0,
-        size_bytes: nil,
-        missing: true
+        label: "games",
+        documents: games_docs.to_i,
+        size_bytes: games_payload[:size_bytes],
+        missing: false
       }
+      rows << {
+        label: "bundles",
+        documents: bundles_docs.to_i,
+        size_bytes: nil,
+        omit_size: true,
+        missing: false
+      }
+    else
+      # Index not yet created. Render both rows as not-yet-indexed so
+      # the Stack pane still surfaces the section instead of going silent.
+      rows << { label: "games", documents: 0, size_bytes: nil, missing: true }
+      rows << { label: "bundles", documents: 0, size_bytes: nil, missing: true, omit_size: true }
     end
 
-    rows.sort_by { |row| -row[:documents].to_i }
+    rows
   rescue StandardError
-    SEARCH_INDEX_DISPLAY_ALLOWLIST.map do |required|
-      { label: required, documents: 0, size_bytes: nil, missing: true }
+    [
+      { label: "games", documents: 0, size_bytes: nil, missing: true },
+      { label: "bundles", documents: 0, size_bytes: nil, missing: true, omit_size: true }
+    ]
+  end
+
+  # Query Meilisearch for `kind = "game"` and `kind = "bundle"` counts
+  # inside the unified index. Falls back to "all games, zero bundles"
+  # when the engine doesn't support filtered counts (or the call fails)
+  # so the row totals still reconcile with the total reported by
+  # `per_index_stats`.
+  def split_games_index_by_kind(raw_index_name, total_documents)
+    return [ total_documents, 0 ] unless Search.engine.respond_to?(:documents_count_for)
+
+    games_count = Search.engine.documents_count_for(raw_index_name, field: "kind", value: "game")
+    bundles_count = Search.engine.documents_count_for(raw_index_name, field: "kind", value: "bundle")
+
+    if games_count.nil? && bundles_count.nil?
+      [ total_documents, 0 ]
+    else
+      [ games_count.to_i, bundles_count.to_i ]
     end
+  rescue StandardError
+    [ total_documents, 0 ]
   end
 
   def redis_status_for_settings_pane
@@ -335,53 +374,32 @@ class SettingsController < ApplicationController
     { size_bytes: 0, file_count: 0 }
   end
 
-  # 2026-05-18 (DR) — Postgres breakdown is trimmed to the single
-  # surface that has been revisited in the beta-3 sweep: games (which
-  # encompasses both `games` and `bundles` tables per the DH model
-  # consolidation). Channels / videos / projects / notifications /
-  # calendar_entries are dropped from the display until those product
-  # areas land in beta-3 — keeping them would falsely advertise them as
-  # first-class.
+  # 2026-05-18 (DR) — Postgres breakdown surfaces the two beta-3-revisited
+  # surfaces as separate rows: `games` and `bundles`. Channels / videos /
+  # projects / notifications / calendar_entries stay dropped from the
+  # display until those product areas land in beta-3 — keeping them would
+  # falsely advertise them as first-class.
   #
-  # The single row aggregates `Game.count + Bundle.count` (when present)
-  # and sums `pg_total_relation_size` across both tables, so the figure
-  # matches the user-facing notion of "the games section in Postgres".
-  POSTGRES_GAMES_TABLES = %w[games bundles].freeze
+  # Each row reads `pg_total_relation_size` for its own table and uses the
+  # corresponding model's `.count` (via `safe_constantize`). Missing tables
+  # render with nil → "—" in the view.
+  POSTGRES_TABLE_ROWS = [
+    { label: "games", table: "games", class_name: "Game" },
+    { label: "bundles", table: "bundles", class_name: "Bundle" }
+  ].freeze
 
   def postgres_table_breakdown_for_settings_pane
-    stats = combined_games_postgres_stats
-    [ { label: "games", count: stats[:count], size_bytes: stats[:size_bytes] } ]
-  rescue StandardError
-    []
-  end
-
-  def combined_games_postgres_stats
     conn = ActiveRecord::Base.connection
-    total_count = 0
-    total_size = 0
-    any_count = false
-    any_size = false
-
-    POSTGRES_GAMES_TABLES.each do |table|
-      next unless conn.table_exists?(table)
-
-      stats = postgres_table_stats(table, table.classify)
-      if stats[:count]
-        total_count += stats[:count].to_i
-        any_count = true
-      end
-      if stats[:size_bytes]
-        total_size += stats[:size_bytes].to_i
-        any_size = true
+    POSTGRES_TABLE_ROWS.map do |row|
+      if conn.table_exists?(row[:table])
+        stats = postgres_table_stats(row[:table], row[:class_name])
+        { label: row[:label], count: stats[:count], size_bytes: stats[:size_bytes] }
+      else
+        { label: row[:label], count: nil, size_bytes: nil }
       end
     end
-
-    {
-      count: any_count ? total_count : nil,
-      size_bytes: any_size ? total_size : nil
-    }
   rescue StandardError
-    { count: nil, size_bytes: nil }
+    []
   end
 
   def postgres_table_stats(table, class_name)
@@ -407,6 +425,51 @@ class SettingsController < ApplicationController
   SIDEKIQ_BREAKDOWN_STATES = %w[
     processed failed busy scheduled enqueued retry dead
   ].freeze
+
+  # 2026-05-18 — live-stats shapers for the per-row Postgres / Meilisearch /
+  # assets cells. Each returns a flat hash the `stack-stats-live` Stimulus
+  # controller can read directly. Errors swallow to `{}` so a transient
+  # blip never blanks the page; the next 3-second poll retries.
+  def stack_stats_postgres
+    rows = postgres_table_breakdown_for_settings_pane
+    flat = {}
+    rows.each do |row|
+      key = row[:label].to_s
+      flat["#{key}_rows".to_sym] = row[:count]
+      flat["#{key}_size_bytes".to_sym] = row[:size_bytes]
+    end
+    flat
+  rescue StandardError
+    {}
+  end
+
+  def stack_stats_meilisearch
+    rows = search_per_index_stats_for_settings_pane
+    flat = {}
+    rows.each do |row|
+      key = row[:label].to_s
+      flat["#{key}_docs".to_sym] = row[:documents]
+      flat["#{key}_size_bytes".to_sym] = row[:size_bytes]
+      flat["#{key}_missing".to_sym] = row[:missing] ? true : false
+      flat["#{key}_omit_size".to_sym] = row[:omit_size] ? true : false
+    end
+    flat
+  rescue StandardError
+    {}
+  end
+
+  def stack_stats_assets
+    rows = assets_breakdown_for_settings_pane
+    flat = {}
+    rows.each do |row|
+      key = row[:label].to_s.tr(" ", "_")
+      flat["#{key}_files".to_sym] = row[:file_count]
+      flat["#{key}_size_bytes".to_sym] = row[:size_bytes]
+    end
+    flat
+  rescue StandardError
+    {}
+  end
 
   # 2026-05-18 (DR) — Redis / Sidekiq counters for the live
   # `/settings/stack_stats` JSON endpoint. Mirrors
@@ -457,22 +520,29 @@ class SettingsController < ApplicationController
     []
   end
 
-  # 2026-05-18 (DR) — assets breakdown is trimmed to the single
-  # surface revisited so far in the beta-3 sweep: cover arts (the
-  # `composites` directory under `Pito::AssetsRoot`). Thumbnails,
-  # banners, and the catch-all "other" bucket are dropped — the
-  # underlying directories may still exist on disk, but the /settings
-  # pane no longer advertises them as first-class until the matching
-  # product surfaces (footage / channel banners / etc.) are revisited.
+  # 2026-05-18 — assets breakdown surfaces the two beta-3 cover-art
+  # categories as separate rows:
+  #
+  #   * cover arts — game master images normalized by
+  #     `Games::CoverArt::Normalizer` to `<root>/covers/games/<id>/master.jpg`
+  #   * composites — bundle composites assembled by `Composite::Builder`
+  #     to `<root>/covers/bundles/<id>/composite.jpg`
+  #
+  # Both rows always render — even when the directories are empty or
+  # missing — so the operator sees the category list at a glance.
+  # Thumbnails, banners, and the catch-all "other" bucket stay dropped
+  # until those product surfaces (footage / channel banners / etc.) are
+  # revisited in the beta-3 sweep.
   ASSETS_CATEGORY_DIRECTORIES = {
-    "cover arts" => "composites"
+    "cover arts" => [ "covers", "games" ],
+    "composites" => [ "covers", "bundles" ]
   }.freeze
 
   def assets_breakdown_for_settings_pane
     root = Pito::AssetsRoot.root
     return assets_breakdown_empty unless File.directory?(root)
 
-    Rails.cache.fetch([ "settings/assets-breakdown", "v3", root.to_s ], expires_in: 5.minutes) do
+    Rails.cache.fetch([ "settings/assets-breakdown", "v4", root.to_s ], expires_in: 5.minutes) do
       compute_assets_breakdown(root)
     end
   rescue StandardError
@@ -480,12 +550,12 @@ class SettingsController < ApplicationController
   end
 
   def compute_assets_breakdown(root)
-    named = ASSETS_CATEGORY_DIRECTORIES.each_with_object({}) do |(label, _dir), acc|
+    named = ASSETS_CATEGORY_DIRECTORIES.each_with_object({}) do |(label, _segments), acc|
       acc[label] = { label: label, file_count: 0, size_bytes: 0 }
     end
 
-    ASSETS_CATEGORY_DIRECTORIES.each do |label, dir|
-      child_path = File.join(root.to_s, dir)
+    ASSETS_CATEGORY_DIRECTORIES.each do |label, segments|
+      child_path = File.join(root.to_s, *segments)
       next unless File.directory?(child_path)
 
       stats = compute_directory_volume_stats(child_path)

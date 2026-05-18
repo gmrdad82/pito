@@ -140,13 +140,19 @@
     <% end %>
 
     <%# Bundles outer shelf — one tile per non-empty bundle.
-        2026-05-18 — rendered UNCONDITIONALLY (even when zero bundles
-        exist) so the heading-row `[+]` create button is always
-        available. The partial renders the shelf chrome + `[+]` +
-        modal in every state; only the tiles row is suppressed when
-        the input is empty. %>
-    <hr class="hairline">
-    <%= render "games/bundles_for_shelf", bundles: @bundles_for_shelf %>
+        2026-05-18 — rendered UNCONDITIONALLY when no filter is active
+        (`params[:filters].nil?`) so the heading-row `[+]` create button
+        is always available from `/games`. When a filter IS active AND
+        the result set is empty, hide the entire bundles section
+        (heading + count chip + `[+]` + shelf row) — otherwise the
+        zero-count heading reads as visual noise next to the
+        "no games match this filter." copy. Matches the same
+        hide-when-empty pattern that the genres + letter shelves use in
+        filtered state (they gate on `.any?` above and below). %>
+    <% if @bundles_for_shelf.any? || params[:filters].nil? %>
+      <hr class="hairline">
+      <%= render "games/bundles_for_shelf", bundles: @bundles_for_shelf %>
+    <% end %>
 
     <%# Phase 27 v2 spec 05 — Letter shelves. One `<section>` per non-
         empty letter; `#` bucket renders LAST when present. %>
