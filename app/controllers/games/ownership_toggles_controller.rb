@@ -48,6 +48,17 @@ module Games
                     notice: "Game owned on #{platform_label}."
       elsif !desired && currently_owned
         @game.game_platform_ownerships.where(platform_id: @platform.id).destroy_all
+
+        # 2026-05-18 cascade — if the un-owned platform was the
+        # singular `played_platform`, clear the pointer too. You
+        # cannot "be playing on" a platform you no longer own; the
+        # client-side Stimulus cascade already unticks the played
+        # checkbox in the same flow, but JS-disabled clients +
+        # racing requests still converge here.
+        if @game.played_platform_id == @platform.id
+          @game.update!(played_platform_id: nil)
+        end
+
         redirect_to game_path(@game),
                     notice: "Game no longer owned on #{platform_label}."
       else
@@ -63,6 +74,16 @@ module Games
       currently_played = @game.played_platform_id == @platform.id
 
       if desired && !currently_played
+        # 2026-05-18 cascade — a "played" platform must also be
+        # "owned". Auto-create the ownership join if it doesn't
+        # already exist, then point `played_platform_id` at this
+        # platform. The Stimulus cascade controller ticks the
+        # `owned` checkbox client-side and submits its own form,
+        # but the server still enforces the invariant so racing
+        # requests + JS-disabled clients land on the same state.
+        unless @game.game_platform_ownerships.exists?(platform_id: @platform.id)
+          @game.game_platform_ownerships.create!(platform_id: @platform.id)
+        end
         @game.update!(played_platform_id: @platform.id)
         redirect_to game_path(@game),
                     notice: "Playing on #{platform_label}."

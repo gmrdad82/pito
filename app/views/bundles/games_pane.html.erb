@@ -23,7 +23,16 @@
     the top is intentionally untouched in this slice — only the bottom
     overflow section changes.
 
-    Empty state: a short muted line. No JS confirm / alert / prompt.
+    2026-05-18 (Bug 1 fix) — the "all games" section now renders
+    UNCONDITIONALLY so the `[+]` add-member trigger is always
+    reachable, even on freshly-created (zero-member) bundles. The
+    composite cover grid is still gated on `@games.any?` because an
+    empty composite would just be blank canvas; the per-bundle
+    fallback in the shelf tile covers the no-cover case there.
+
+    Empty state: the `AllGamesTableComponent` renders a muted single-
+    row "no games yet — click [+] to add" inside the table body when
+    the bundle has no members. No JS confirm / alert / prompt.
 %>
 <%= turbo_frame_tag "bundles_modal_frame" do %>
   <% if @games.any? %>
@@ -73,9 +82,51 @@
         </a>
       <% end %>
     </div>
-
-    <%= render(Bundles::AllGamesTableComponent.new(bundle: @bundle)) %>
   <% else %>
-    <p class="text-muted">no games in this bundle yet.</p>
+    <%# 2026-05-18 (EQ Bug 1 follow-up) — empty-bundle placeholder.
+        Mirrors the populated composite slot above: same `width: 100%`
+        + `aspect-ratio: 3 / 4` outer box, same 1px solid theme-aware
+        border + 2px radius. Reuses the shelf-tile netflix-3 grid
+        markup so the visual reads as "bundle waiting for members"
+        rather than empty whitespace above the [+] add row. The
+        `--modal` modifier lifts the controller-icon max-width caps so
+        the SVGs scale proportionally at the modal's larger size
+        instead of looking lost in oversized cells. %>
+    <div class="bundle-tile__nocover-netflix3 bundle-tile__nocover-netflix3--modal"
+         aria-label="<%= @bundle.name %>"
+         title="<%= @bundle.name %>">
+      <div class="cell cell--main">
+        <%= image_tag image_path("controller_icon_light.svg"),
+                      alt: "", loading: "lazy",
+                      data: { theme: "light" },
+                      class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--large game-cover-fallback--light" %>
+        <%= image_tag image_path("controller_icon_dark.svg"),
+                      alt: "", loading: "lazy",
+                      data: { theme: "dark" },
+                      class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--large game-cover-fallback--dark" %>
+      </div>
+      <div class="cell">
+        <%= image_tag image_path("controller_icon_light.svg"),
+                      alt: "", loading: "lazy",
+                      data: { theme: "light" },
+                      class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--small game-cover-fallback--light" %>
+        <%= image_tag image_path("controller_icon_dark.svg"),
+                      alt: "", loading: "lazy",
+                      data: { theme: "dark" },
+                      class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--small game-cover-fallback--dark" %>
+      </div>
+      <div class="cell">
+        <%= image_tag image_path("controller_icon_light.svg"),
+                      alt: "", loading: "lazy",
+                      data: { theme: "light" },
+                      class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--small game-cover-fallback--light" %>
+        <%= image_tag image_path("controller_icon_dark.svg"),
+                      alt: "", loading: "lazy",
+                      data: { theme: "dark" },
+                      class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--small game-cover-fallback--dark" %>
+      </div>
+    </div>
   <% end %>
+
+  <%= render(Bundles::AllGamesTableComponent.new(bundle: @bundle)) %>
 <% end %>

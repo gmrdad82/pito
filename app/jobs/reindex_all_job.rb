@@ -32,9 +32,28 @@ class ReindexAllJob < ApplicationJob
     # to 0 before production use. See the constant comment above.
     sleep REINDEX_SLEEP_SECONDS if REINDEX_SLEEP_SECONDS.positive?
 
-    engine = Search.engine
-    [ Channel, Video ].each do |model|
-      engine.reindex_all(model)
+    # 2026-05-18 (follow-up) — the prior `[ Channel, Video ].each` loop
+    # raised `NoMethodError: undefined method 'searchable_fields' for
+    # class Channel` because neither model includes `Searchable` in
+    # beta 3 (the YouTube surfaces are legacy / suspended). The raise
+    # killed the job before it ever reached the Game / Bundle enqueue
+    # loop below, so `0 / N games embedded` never moved off zero even
+    # though [reindex] enqueued the parent. Channel/Video corpus
+    # reindex returns when those models rejoin Searchable.
+    #
+    # `/games` corpus (Game + Bundle) needs the Voyage embedding step
+    # BEFORE the Meilisearch document push so each document carries
+    # the freshly-computed `summary_embedding`. The per-row jobs run
+    # both stages (`Games::VoyageIndexer` → embed + push,
+    # `Bundles::VoyageIndexer` → same) so the stats row converges.
+    Game.where.not(summary: nil).find_each do |game|
+      GameVoyageIndexJob.perform_later(game.id)
+    end
+
+    if defined?(Bundle) && Bundle.table_exists?
+      Bundle.find_each do |bundle|
+        BundleVoyageIndexJob.perform_later(bundle.id)
+      end
     end
   ensure
     # Always clear the flag, even on crash, to keep the UI honest and

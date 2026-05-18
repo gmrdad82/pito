@@ -165,50 +165,52 @@ page_actions:
       action:
         type: open_modal_by_id
         target: omnisearch-modal-games-search
-    # `f filter` opens a nested submenu of filter-chip toggles. Each
-    # submenu key dispatches `toggle_filter_chip` with the matching
-    # `data-filter-token` on the /games filter row (single source of
-    # truth — the leader menu delegates to the existing chip click
-    # handler via `chip.click()`, no logic duplication). User-locked
-    # 2026-05-17. Only attached to `games_index` because filter chips
-    # only exist on /games — adding it to games_show / bundles_show /
-    # settings would be a non-op.
-    - key: f
-      label: filter
-      action:
-        type: submenu
-        items:
-          - key: r
-            label: released
-            action: { type: toggle_filter_chip, token: released }
-          - key: s
-            label: scheduled
-            action: { type: toggle_filter_chip, token: scheduled }
-          - key: o
-            label: owned
-            action: { type: toggle_filter_chip, token: owned }
-          - key: w
-            label: wishlist
-            action: { type: toggle_filter_chip, token: wishlist }
-          - key: p
-            label: played
-            action: { type: toggle_filter_chip, token: played }
-          # Hairline separator between lifecycle/ownership/engagement
-          # state chips (top group: released/scheduled/owned/wishlist/
-          # played) and platform chips (bottom group: PS/Switch/Steam).
-          # Renderers (`leader_menu_controller.js` web, the TUI
-          # equivalent in `extras/cli/`) skip divider entries during
-          # key dispatch and paint them as visual separators only.
-          - divider: true
-          - key: P
-            label: PlayStation
-            action: { type: toggle_filter_chip, token: ps }
-          - key: N
-            label: Switch
-            action: { type: toggle_filter_chip, token: switch }
-          - key: S
-            label: Steam (PC)
-            action: { type: toggle_filter_chip, token: steam }
+    # Filter-chip toggles, flat 2-key bindings (2026-05-18 — the
+    # earlier `f filter` nested submenu was dropped now that the prefix
+    # accumulator supports multi-char page_actions keys, same mechanic
+    # the /settings `sr`/`da`/`dd`/`sa`/`sd`/`vr` bindings use). `f` is
+    # a prefix-only key; pressing `f` alone arms the accumulator and
+    # waits for the second key. Each binding dispatches
+    # `toggle_filter_chip` with the matching `data-filter-token` on the
+    # /games filter row (single source of truth — the leader menu
+    # delegates to the existing chip click handler via `chip.click()`,
+    # no logic duplication). Only attached to `games_index` because
+    # filter chips only exist on /games — adding the bindings to
+    # games_show / bundles_show / settings would be a no-op. User-
+    # locked 2026-05-18.
+    - key: fr
+      label: released
+      action: { type: toggle_filter_chip, token: released }
+    - key: fs
+      label: scheduled
+      action: { type: toggle_filter_chip, token: scheduled }
+    - key: fo
+      label: owned
+      action: { type: toggle_filter_chip, token: owned }
+    - key: fw
+      label: wishlist
+      action: { type: toggle_filter_chip, token: wishlist }
+    - key: fp
+      label: played
+      action: { type: toggle_filter_chip, token: played }
+    # Hairline separator between lifecycle/ownership/engagement state
+    # chips (top group: released/scheduled/owned/wishlist/played) and
+    # platform chips (bottom group: PS/Switch/Steam). Renderers
+    # (`leader_menu_controller.js` web, the TUI equivalent in
+    # `extras/cli/`) skip divider entries during key dispatch and
+    # paint them as visual separators only. Divider rendering goes
+    # through the shared `buildItemRow` path so dividers in
+    # `page_actions` paint identically to dividers in `menus.root`.
+    - divider: true
+    - key: fP
+      label: PS
+      action: { type: toggle_filter_chip, token: ps }
+    - key: fN
+      label: Switch
+      action: { type: toggle_filter_chip, token: switch }
+    - key: fS
+      label: Steam
+      action: { type: toggle_filter_chip, token: steam }
   games_show:
     - key: l
       label: dark mode

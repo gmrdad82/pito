@@ -1,18 +1,31 @@
-<%# 2026-05-17 BP slice — per-platform ownership matrix. One row per
-    applicable platform (PS / Switch / Steam intersected with
-    `game_detail_logo_slugs`). Each row carries the platform label
-    plus TWO inline checkboxes — `[ ] owned` and `[ ] played` —
-    rendered as tiny auto-submit forms. Each checkbox flip fires a
-    PATCH to `Games::OwnershipTogglesController` and the controller
-    redirects back to /games/:id with a flash naming the new state.
-    Same posture as the /settings notification toggles (Phase D
-    Discord/Slack auto-save checkboxes).
+<%# 2026-05-17 BP slice / 2026-05-18 cascade — per-platform ownership
+    matrix. One row per applicable platform (PS / Switch / Steam
+    intersected with `game_detail_logo_slugs`). Each row carries the
+    platform label plus TWO inline checkboxes — `[ ] owned` and
+    `[ ] played` — rendered as tiny auto-submit forms. Each checkbox
+    flip fires a PATCH to `Games::OwnershipTogglesController` and the
+    controller redirects back to /games/:id with a flash naming the
+    new state. Same posture as the /settings notification toggles
+    (Phase D Discord/Slack auto-save checkboxes).
 
     Multi-select for `owned` (a game can be owned on multiple
     platforms); singular for `played` (the controller swaps the
     `played_platform_id` pointer so flipping one platform's `played`
     checkbox ON automatically toggles any previously-played platform
     OFF — Turbo re-renders the matrix with the new singular state).
+
+    Cascade UX (`ownership-cascade` Stimulus controller wrapping the
+    whole matrix):
+
+      1. flipping `played` ON for platform X deselects every other
+         platform's `played` checkbox AND auto-checks `owned` for
+         platform X (each side-effect requestSubmits its own form so
+         the DB stays consistent with the visual cascade).
+      2. flipping `owned` OFF for platform X auto-unchecks `played`
+         for platform X if it was the currently-played platform.
+      3. server-side mirrors these rules in
+         `Games::OwnershipTogglesController` so JS-disabled clients
+         + racing requests still converge on the same state.
 
     No submit button. No `data-turbo-confirm`. The form fires on the
     native `change` event the moment the checkbox flips. %>
@@ -21,46 +34,53 @@
     <em class="text-muted">—</em>
   </div>
 <% else %>
-  <% applicable_slugs.each do |slug| %>
-    <div class="ownership-matrix__row">
-      <span class="ownership-matrix__platform"><%= platform_label(slug) %></span>
+  <div data-controller="ownership-cascade">
+    <% applicable_slugs.each do |slug| %>
+      <div class="ownership-matrix__row">
+        <span class="ownership-matrix__platform"><%= platform_label(slug) %></span>
 
-      <%# Owned toggle. Unchecked checkboxes post no value, which the
-          controller's `coerce_boolean` helper treats as `enabled=no`
-          — same posture as the /settings notification-toggle forms.
-          The visible "owned" label tints green-success when checked
-          via `.ownership-matrix__toggle--checked` so the row reads
-          like a bracketed status chip when on, and a muted empty
-          checkbox when off. %>
-      <%= form_with url: game_ownership_toggle_path(game, slug),
-                    method: :patch,
-                    data: { controller: "auto-submit" } do |f| %>
-        <label class="md-check ownership-matrix__toggle <%= 'ownership-matrix__toggle--owned' if owned?(slug) %>">
-          <input type="checkbox" name="enabled" value="yes"
-                 data-action="change->auto-submit#submit"
-                 <%= "checked" if owned?(slug) %>>
-          <span class="md-check-indicator"></span>
-          <span class="md-check-label ownership-matrix__toggle-label">owned</span>
-        </label>
-      <% end %>
+        <%# Owned toggle. Unchecked checkboxes post no value, which the
+            controller's `coerce_boolean` helper treats as `enabled=no`
+            — same posture as the /settings notification-toggle forms.
+            The visible "owned" label tints green-success when checked
+            via `.ownership-matrix__toggle--owned` so the row reads
+            like a bracketed status chip when on, and a muted empty
+            checkbox when off. %>
+        <%= form_with url: game_ownership_toggle_path(game, slug),
+                      method: :patch,
+                      data: { controller: "auto-submit" } do |f| %>
+          <label class="md-check ownership-matrix__toggle <%= 'ownership-matrix__toggle--owned' if owned?(slug) %>">
+            <input type="checkbox" name="enabled" value="yes"
+                   data-ownership-cascade-target="owned"
+                   data-ownership-cascade-platform="<%= slug %>"
+                   data-action="change->ownership-cascade#ownedChanged change->auto-submit#submit"
+                   <%= "checked" if owned?(slug) %>>
+            <span class="md-check-indicator"></span>
+            <span class="md-check-label ownership-matrix__toggle-label">owned</span>
+          </label>
+        <% end %>
 
-      <%# Played toggle. Singular across the matrix — when the user
-          flips a `played` checkbox ON for one platform, the
-          controller clears any previously-played platform pointer in
-          the same request and the redirect-driven page re-render
-          unticks the other rows. Flipping the currently-played
-          platform's checkbox OFF clears the pointer entirely. %>
-      <%= form_with url: game_played_toggle_path(game, slug),
-                    method: :patch,
-                    data: { controller: "auto-submit" } do |f| %>
-        <label class="md-check ownership-matrix__toggle <%= 'ownership-matrix__toggle--played' if played?(slug) %>">
-          <input type="checkbox" name="enabled" value="yes"
-                 data-action="change->auto-submit#submit"
-                 <%= "checked" if played?(slug) %>>
-          <span class="md-check-indicator"></span>
-          <span class="md-check-label ownership-matrix__toggle-label">played</span>
-        </label>
-      <% end %>
-    </div>
-  <% end %>
+        <%# Played toggle. Singular across the matrix — when the user
+            flips a `played` checkbox ON for one platform, the
+            cascade controller unticks every other platform's played
+            checkbox client-side and the server-side controller
+            clears any previously-played platform pointer in the
+            same request. Flipping the currently-played platform's
+            checkbox OFF clears the pointer entirely. %>
+        <%= form_with url: game_played_toggle_path(game, slug),
+                      method: :patch,
+                      data: { controller: "auto-submit" } do |f| %>
+          <label class="md-check ownership-matrix__toggle <%= 'ownership-matrix__toggle--played' if played?(slug) %>">
+            <input type="checkbox" name="enabled" value="yes"
+                   data-ownership-cascade-target="played"
+                   data-ownership-cascade-platform="<%= slug %>"
+                   data-action="change->ownership-cascade#playedChanged change->auto-submit#submit"
+                   <%= "checked" if played?(slug) %>>
+            <span class="md-check-indicator"></span>
+            <span class="md-check-label ownership-matrix__toggle-label">played</span>
+          </label>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
 <% end %>

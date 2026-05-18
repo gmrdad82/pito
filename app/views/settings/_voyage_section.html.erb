@@ -37,6 +37,33 @@
     render. Bundle keys come back nil when the `summary_embedding`
     column is not yet on the bundles table — the view degrades to "—"
     on those without raising. %>
+<%# 2026-05-18 (table polish) — replaced the single-line `<p>` summary
+    with a 2-column `metric / value` table using the shared
+    `.stack-table` class (defined in `tailwind/application.css`). The
+    class gives Voyage the SAME edges, header tint, zebra rows, and
+    cell padding as the Postgres / Meilisearch / assets / notes tables
+    in `_stack_pane.html.erb` — even though Voyage's data is
+    heterogeneous (counts, bytes, time-ago strings) rather than a
+    repeating row shape, the operator sees a consistent slab across
+    every pane.
+
+    Row visibility:
+      * games row             — always shown
+      * bundles row           — only when `total_bundles_count > 0`
+                                (mirrors the original guard; the
+                                `bundles.summary_embedding` column is
+                                absent on fresh installs and
+                                `Voyage::Stats#bundle_counts` returns
+                                nil → 0 in that case)
+      * model row             — always shown
+      * last indexed row      — only when `last_indexed_at` is set
+      * storage row           — only when `storage_kb` is non-nil
+      * last 24h row          — only when count > 0
+
+    Polling targets (`data-stack-stats-live-target`) are preserved on
+    every numeric/text cell so the existing `stack_stats_live`
+    controller can patch values in place every ~3 s without any DOM
+    structure change. %>
 <% voyage_stats = Voyage::Stats.call %>
 <div id="voyage_section">
   <div style="margin-bottom: 6px;">
@@ -48,15 +75,62 @@
     <% end %>
   </div>
 
-  <div class="text-muted" style="margin-bottom: 6px;">
-    <%= number_with_delimiter(voyage_stats[:embedded_games_count].to_i) %>
-    / <%= number_with_delimiter(voyage_stats[:total_games_count].to_i) %>
-    games embedded
-    (<%= voyage_stats[:coverage_pct] %>%)
-    · model <%= voyage_stats[:model] %>
-    <% if voyage_stats[:last_indexed_at] %>
-      · last <%= compact_time_ago(voyage_stats[:last_indexed_at]) %>
-    <% end %>
+  <div style="margin-bottom: 8px;">
+    <table class="stack-table">
+      <thead>
+        <tr>
+          <th>metric</th>
+          <th class="num">value</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>games embedded</td>
+          <td class="num">
+            <span data-stack-stats-live-target="voyageEmbedded"><%= number_with_delimiter(voyage_stats[:embedded_games_count].to_i) %></span>
+            / <span data-stack-stats-live-target="voyageTotal"><%= number_with_delimiter(voyage_stats[:total_games_count].to_i) %></span>
+            (<span data-stack-stats-live-target="voyagePct"><%= voyage_stats[:coverage_pct] %></span>%)
+          </td>
+        </tr>
+        <% if voyage_stats[:total_bundles_count].to_i > 0 %>
+          <tr>
+            <td>bundles embedded</td>
+            <td class="num">
+              <span data-stack-stats-live-target="voyageBundlesEmbedded"><%= number_with_delimiter(voyage_stats[:embedded_bundles_count].to_i) %></span>
+              / <span data-stack-stats-live-target="voyageBundlesTotal"><%= number_with_delimiter(voyage_stats[:total_bundles_count].to_i) %></span>
+            </td>
+          </tr>
+        <% end %>
+        <tr>
+          <td>model</td>
+          <td class="num"><%= voyage_stats[:model] %></td>
+        </tr>
+        <% if voyage_stats[:last_indexed_at] %>
+          <tr>
+            <td>last indexed</td>
+            <td class="num">
+              <span data-stack-stats-live-target="voyageLast"><%= compact_time_ago(voyage_stats[:last_indexed_at]) %></span>
+            </td>
+          </tr>
+        <% end %>
+        <% if voyage_stats[:storage_kb] %>
+          <tr>
+            <td>storage</td>
+            <td class="num">
+              <span data-stack-stats-live-target="voyageStorage"><%= number_with_delimiter(voyage_stats[:storage_kb].to_i) %></span> KB
+            </td>
+          </tr>
+        <% end %>
+        <% if voyage_stats[:embeddings_last_24h].to_i > 0 %>
+          <tr>
+            <td>last 24h</td>
+            <td class="num">
+              <span data-stack-stats-live-target="voyage24h"><%= number_with_delimiter(voyage_stats[:embeddings_last_24h].to_i) %></span> embeddings
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
   </div>
 
   <% if AppSetting.reindex_running? %>

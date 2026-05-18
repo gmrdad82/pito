@@ -33,16 +33,57 @@
              class="bundle-cover-composite"
              style="display: block; object-fit: cover;">
       <% else %>
-        <%= image_tag "game_cover_fallback_#{fallback_variant}_light.svg",
-                      alt: bundle.name, loading: "lazy",
-                      width: width, height: height,
-                      data: { variant: fallback_variant, theme: "light" },
-                      class: "game-cover-img game-cover-fallback game-cover-fallback--light" %>
-        <%= image_tag "game_cover_fallback_#{fallback_variant}_dark.svg",
-                      alt: bundle.name, loading: "lazy",
-                      width: width, height: height,
-                      data: { variant: fallback_variant, theme: "dark" },
-                      class: "game-cover-img game-cover-fallback game-cover-fallback--dark" %>
+        <%# 2026-05-18 (Bug 4) — netflix-3 placeholder for empty
+            bundles. Replaces the generic game-cover fallback SVG
+            (which read as "a single missing game") with a 3-cell
+            grid that visually previews the netflix-style composite
+            layout a 3-member bundle would render. The single large
+            left cell + two stacked right cells mirror
+            `Composite::CellMap.for(3)` so the empty bundle looks
+            like a bundle, not a generic game.
+
+            2026-05-18 (follow-up) — each cell embeds the shared
+            game-cover fallback SVG (the stylised controller icon)
+            so the placeholder reads as "bundle of missing games"
+            instead of three empty boxes. The main left cell uses
+            the `--large` size; the two right cells use `--small`
+            because their 40% × 50% slot is much tighter. Light +
+            dark variants stack and are toggled via the same
+            `[data-theme]` rules as `.game-cover-fallback`. %>
+        <div class="bundle-tile__nocover-netflix3"
+             aria-label="<%= bundle.name %>"
+             title="<%= bundle.name %>">
+          <div class="cell cell--main">
+            <%= image_tag image_path("controller_icon_light.svg"),
+                          alt: "", loading: "lazy",
+                          data: { theme: "light" },
+                          class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--large game-cover-fallback--light" %>
+            <%= image_tag image_path("controller_icon_dark.svg"),
+                          alt: "", loading: "lazy",
+                          data: { theme: "dark" },
+                          class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--large game-cover-fallback--dark" %>
+          </div>
+          <div class="cell">
+            <%= image_tag image_path("controller_icon_light.svg"),
+                          alt: "", loading: "lazy",
+                          data: { theme: "light" },
+                          class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--small game-cover-fallback--light" %>
+            <%= image_tag image_path("controller_icon_dark.svg"),
+                          alt: "", loading: "lazy",
+                          data: { theme: "dark" },
+                          class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--small game-cover-fallback--dark" %>
+          </div>
+          <div class="cell">
+            <%= image_tag image_path("controller_icon_light.svg"),
+                          alt: "", loading: "lazy",
+                          data: { theme: "light" },
+                          class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--small game-cover-fallback--light" %>
+            <%= image_tag image_path("controller_icon_dark.svg"),
+                          alt: "", loading: "lazy",
+                          data: { theme: "dark" },
+                          class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--small game-cover-fallback--dark" %>
+          </div>
+        </div>
       <% end %>
       <% if has_overflow? %>
         <div class="bundle-cover-overflow-overlay">
@@ -84,19 +125,56 @@
              class="bundle-cover-composite"
              style="display: block; object-fit: cover;">
       <% else %>
-        <%# Theme-aware fallback (light + dark SVGs; CSS picks one).
-            Uses the size-appropriate fallback variant (`grid` for
-            150 × 200, `shelf` for 98 × 130). %>
-        <%= image_tag "game_cover_fallback_#{fallback_variant}_light.svg",
-                      alt: bundle.name, loading: "lazy",
-                      width: width, height: height,
-                      data: { variant: fallback_variant, theme: "light" },
-                      class: "game-cover-img game-cover-fallback game-cover-fallback--light" %>
-        <%= image_tag "game_cover_fallback_#{fallback_variant}_dark.svg",
-                      alt: bundle.name, loading: "lazy",
-                      width: width, height: height,
-                      data: { variant: fallback_variant, theme: "dark" },
-                      class: "game-cover-img game-cover-fallback game-cover-fallback--dark" %>
+        <%# 2026-05-18 (Bug 4) — netflix-3 placeholder. See the
+            matching block in the `suggest_mode?` branch above for
+            the design rationale: a 3-cell grid that previews the
+            netflix-style composite layout so an empty bundle reads
+            as a bundle (not a missing single game). The earlier
+            theme-aware single-cover fallback SVG is reserved for
+            actual game tiles; bundles now own a distinct
+            placeholder. The `.cell` border + background pick up
+            theme tokens from `.bundle-tile__nocover-netflix3` in
+            `application.css`.
+
+            2026-05-18 (follow-up) — controller icon embedded in each
+            cell at two sizes: `--large` for the main left cell,
+            `--small` for the two cramped right cells. Light + dark
+            variants stack and toggle via the shared `[data-theme]`
+            rules. %>
+        <div class="bundle-tile__nocover-netflix3"
+             aria-label="<%= bundle.name %>"
+             title="<%= bundle.name %>">
+          <div class="cell cell--main">
+            <%= image_tag image_path("controller_icon_light.svg"),
+                          alt: "", loading: "lazy",
+                          data: { theme: "light" },
+                          class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--large game-cover-fallback--light" %>
+            <%= image_tag image_path("controller_icon_dark.svg"),
+                          alt: "", loading: "lazy",
+                          data: { theme: "dark" },
+                          class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--large game-cover-fallback--dark" %>
+          </div>
+          <div class="cell">
+            <%= image_tag image_path("controller_icon_light.svg"),
+                          alt: "", loading: "lazy",
+                          data: { theme: "light" },
+                          class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--small game-cover-fallback--light" %>
+            <%= image_tag image_path("controller_icon_dark.svg"),
+                          alt: "", loading: "lazy",
+                          data: { theme: "dark" },
+                          class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--small game-cover-fallback--dark" %>
+          </div>
+          <div class="cell">
+            <%= image_tag image_path("controller_icon_light.svg"),
+                          alt: "", loading: "lazy",
+                          data: { theme: "light" },
+                          class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--small game-cover-fallback--light" %>
+            <%= image_tag image_path("controller_icon_dark.svg"),
+                          alt: "", loading: "lazy",
+                          data: { theme: "dark" },
+                          class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--small game-cover-fallback--dark" %>
+          </div>
+        </div>
       <% end %>
       <%# 2026-05-17 — HTML `+N` overflow overlay. Mirrors the
           `.tile-cover-chip-overlay` pattern from `_tile.html.erb`, but

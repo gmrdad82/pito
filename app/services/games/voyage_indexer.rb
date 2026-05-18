@@ -46,7 +46,20 @@ module Games
 
     def embed_and_persist
       vector = Voyage::Client.new.embed([ combined_text ]).first
-      return if vector.nil?
+      if vector.nil?
+        # 2026-05-18 (DR) — surface the silent-failure case. The
+        # Voyage HTTP client (`Voyage::Client#post_embeddings`)
+        # rescues every `StandardError` and returns nil so a
+        # transient network blip or a misconfigured key does not
+        # crash the job; that hides the failure from operators
+        # looking at the `/settings` Voyage stats row (which would
+        # otherwise stay at `0/N games embedded` forever with no
+        # log to explain why). Raise so Sidekiq records a visible
+        # failure + schedules a retry. Operators can also see the
+        # underlying cause in the `[Voyage::Client] embed failed`
+        # log line emitted from the client.
+        raise "Voyage embedding returned nil for game ##{@game.id} (api key configured but call failed — see prior log lines)"
+      end
 
       # `update_column` skips validations + callbacks so this write
       # does not re-trigger `after_save_commit

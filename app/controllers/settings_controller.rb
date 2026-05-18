@@ -109,6 +109,32 @@ class SettingsController < ApplicationController
     redirect_to settings_path, notice: "settings saved."
   end
 
+  # 2026-05-18 (DR) — Live stack-stats JSON for the `/settings` Stack
+  # pane. The page mounts the `stack-stats-live` Stimulus controller
+  # which polls this endpoint every ~3 s and updates the numeric cells
+  # in place (no full-page reload). Returns the subset of stats that
+  # actually change moment to moment: Sidekiq queue counters + Voyage
+  # embedding coverage. Connection-health probes and per-table sizes
+  # stay on the server-side render (rare to flip, expensive to recompute).
+  #
+  # `last_indexed_at_formatted` is pre-rendered server-side via
+  # `compact_time_ago` so the frontend doesn't need a duplicate
+  # JS implementation of the helper.
+  def stack_stats
+    require "sidekiq/api"
+
+    voyage = Voyage::Stats.call
+    last_formatted = voyage[:last_indexed_at] ? helpers.compact_time_ago(voyage[:last_indexed_at]) : nil
+
+    render json: {
+      redis: stack_stats_redis,
+      voyage: voyage.merge(last_indexed_at_formatted: last_formatted)
+    }
+  rescue StandardError => e
+    Rails.logger.warn("[settings#stack_stats] #{e.class}: #{e.message}")
+    render json: { redis: {}, voyage: {} }, status: :ok
+  end
+
   # Phase 32 follow-up (2026-05-16) — three-layer reindex lock.
   # Layer 1 (DB flag) is enforced here BEFORE enqueueing. If the flag
   # is set the controller short-circuits with an alert; no second job
@@ -381,6 +407,33 @@ class SettingsController < ApplicationController
   SIDEKIQ_BREAKDOWN_STATES = %w[
     processed failed busy scheduled enqueued retry dead
   ].freeze
+
+  # 2026-05-18 (DR) — Redis / Sidekiq counters for the live
+  # `/settings/stack_stats` JSON endpoint. Mirrors
+  # `sidekiq_breakdown_for_settings_pane` shape but flat-keyed so the
+  # JS controller can read each value with a single property access.
+  # Errors swallow to `{}` so a transient Redis blip never blanks the
+  # page; the next poll retries.
+  def stack_stats_redis
+    stats = Sidekiq::Stats.new
+    busy =
+      begin
+        Sidekiq::Workers.new.size
+      rescue StandardError
+        0
+      end
+    {
+      busy: busy,
+      scheduled: stats.scheduled_size,
+      enqueued: stats.enqueued,
+      retry: stats.retry_size,
+      dead: stats.dead_size,
+      processed: stats.processed,
+      failed: stats.failed
+    }
+  rescue StandardError
+    {}
+  end
 
   def sidekiq_breakdown_for_settings_pane
     require "sidekiq/api"

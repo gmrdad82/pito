@@ -22,7 +22,18 @@
     padding the header and the value share the same right edge.
     Sizes use `human_filesize_int` for integer-only, KB-minimum
     output. %>
-<div class="pane pane--wide">
+<%# 2026-05-18 (DR) — `data-controller="stack-stats-live"` mounts the
+    polling controller (`app/javascript/controllers/stack_stats_live_controller.js`).
+    It hits `GET /settings/stack_stats` every 3 s and patches the
+    `data-stack-stats-live-target` cells below (Sidekiq counters,
+    Voyage embedded/total/pct/last). Connection-health probes, table
+    sizes, and per-index docs stay on the server-side render — they
+    flip rarely and are expensive to recompute. Polling stops on
+    Turbo navigation away (Stimulus `disconnect()` clears the
+    interval). %>
+<div class="pane pane--wide"
+     data-controller="stack-stats-live"
+     data-stack-stats-live-interval-ms-value="3000">
   <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
     <legend><h2>stack</h2></legend>
 
@@ -134,11 +145,11 @@
                 <tr>
                   <td class="num"></td>
                   <td class="num"></td>
-                  <td class="num">
+                  <td class="num" data-stack-stats-live-target="successful">
                     <%= sidekiq_counts["processed"] ? number_with_delimiter(sidekiq_counts["processed"]) : "—" %>
                   </td>
                   <td class="num"></td>
-                  <td class="num">
+                  <td class="num" data-stack-stats-live-target="failed">
                     <%= sidekiq_counts["failed"] ? number_with_delimiter(sidekiq_counts["failed"]) : "—" %>
                   </td>
                 </tr>
@@ -164,7 +175,7 @@
               <tbody>
                 <tr>
                   <% %w[busy scheduled enqueued retry dead].each do |state| %>
-                    <td class="num">
+                    <td class="num" data-stack-stats-live-target="<%= state %>">
                       <%= sidekiq_counts[state] ? number_with_delimiter(sidekiq_counts[state]) : "—" %>
                     </td>
                   <% end %>
