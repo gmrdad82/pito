@@ -26,13 +26,22 @@
 #
 # Searchable attributes (in priority order — Meilisearch weights the
 # first entry highest):
-#   1. title      — primary search target.
-#   2. summary    — secondary text body.
+#   1. title           — primary search target.
+#   2. summary         — secondary text body.
+#   3. developer_name  — match games when the user types the studio.
+#   4. publisher_name  — match games when the user types the label.
+#   5. genre_names     — IGDB-verbatim genre names, multi-valued.
 #
 # Filterable attributes (for "filter by" support in the search
 # surface):
 #   id, igdb_id, igdb_slug, release_year, primary_genre_id, kind,
-#   bundle_id, game_count.
+#   bundle_id, game_count, developer_id, publisher_id, genre_ids.
+#
+# `developer_id`, `publisher_id`, and `genre_ids` are arrays of ints
+# (a game can have multiple developers / publishers / genres). The
+# `IN` / `=` filter operators in Meilisearch match against any element
+# of the array, which gives the search surface exact-match filtering
+# by Company / Genre id without a SQL roundtrip.
 #
 # Sortable attributes:
 #   release_year, total_rating, igdb_synced_at, game_count.
@@ -49,8 +58,11 @@
 # or a re-enqueue of `GameVoyageIndexJob`.
 module Meilisearch
   class GameIndexer
-    SEARCHABLE_ATTRIBUTES = %w[title summary].freeze
-    FILTERABLE_ATTRIBUTES = %w[id igdb_id igdb_slug release_year primary_genre_id kind bundle_id game_count].freeze
+    SEARCHABLE_ATTRIBUTES = %w[title summary developer_name publisher_name genre_names].freeze
+    FILTERABLE_ATTRIBUTES = %w[
+      id igdb_id igdb_slug release_year primary_genre_id kind bundle_id game_count
+      developer_id publisher_id genre_ids
+    ].freeze
     SORTABLE_ATTRIBUTES   = %w[release_year total_rating igdb_synced_at game_count].freeze
 
     def self.call(game)
@@ -97,6 +109,10 @@ module Meilisearch
     end
 
     def document
+      developer_names = @game.developers.map(&:name).compact
+      publisher_names = @game.publishers.map(&:name).compact
+      genre_names     = @game.genres.map(&:name).compact
+
       doc = {
         id: @game.id,
         kind: "game",
@@ -105,7 +121,21 @@ module Meilisearch
         igdb_id: @game.igdb_id,
         igdb_slug: @game.igdb_slug,
         release_year: @game.release_year,
-        primary_genre_id: @game.primary_genre_id
+        primary_genre_id: @game.primary_genre_id,
+        # Searchable text — joined with spaces so Meilisearch's
+        # tokenizer treats each entry as an independent token. The
+        # multi-valued array would also work, but the joined string
+        # keeps the doc payload small and avoids a per-entry hit on
+        # the tokenizer's per-attribute weighting.
+        developer_name: developer_names.join(" "),
+        publisher_name: publisher_names.join(" "),
+        genre_names: genre_names,
+        # Filterable ids — arrays so the `IN` operator can match any
+        # element. Empty arrays are valid Meilisearch filter targets
+        # (they simply don't match an `IN` query).
+        developer_id: @game.developers.map(&:id),
+        publisher_id: @game.publishers.map(&:id),
+        genre_ids: @game.genres.map(&:id)
       }
 
       # The `summary_embedding` column is added by

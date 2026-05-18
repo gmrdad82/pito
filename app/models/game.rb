@@ -69,6 +69,13 @@ class Game < ApplicationRecord
   extend FriendlyId
   friendly_id :igdb_slug, use: :finders
 
+  # Phase 34 (2026-05-18) — pgvector neighbor lookups on the Voyage
+  # `summary_embedding` column. Powers `Games::SimilarGames` (a game's
+  # nearest neighbours) and `Bundles::SuggestedFor` (bundles whose
+  # centroid sits closest to a given game's vector). Distance is cosine
+  # (matches the `vector_cosine_ops` HNSW index in `db/schema.rb`).
+  has_neighbors :summary_embedding
+
   def to_param
     igdb_slug.presence || id&.to_s
   end
