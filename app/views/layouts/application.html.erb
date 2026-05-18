@@ -180,8 +180,13 @@
             below). %>
         <% unless content_for?(:hide_chrome) %>
           <nav class="nav-row" style="display: flex; align-items: center; flex: 1; gap: 4px;">
-            <span class="nav-group hide-mobile"><%= nav_link "home", root_path %><%= nav_link "calendar", calendar_root_path %></span>
-            <span class="nav-sep hide-mobile" aria-hidden="true">·</span>
+            <%# 2026-05-18 — `.hide-mobile` dropped on the home/calendar
+                group + its trailing separator. Mobile now renders the
+                full bracketed labels for every nav entry, matching
+                desktop. The `nav_link` helper no longer emits the
+                `.show-mobile` short-label span. %>
+            <span class="nav-group"><%= nav_link "home", root_path %><%= nav_link "calendar", calendar_root_path %></span>
+            <span class="nav-sep" aria-hidden="true">·</span>
             <span class="nav-group"><%= nav_link "channels", channels_path, short: "C" %><%= nav_link "videos", videos_path, short: "V" %></span>
             <span class="nav-sep" aria-hidden="true">·</span>
             <span class="nav-group"><%= nav_link "projects", projects_path, short: "P" %><%= nav_link "games", games_path, short: "G" %></span>
@@ -249,8 +254,10 @@
     <footer style="border-top: 1px solid var(--color-border); padding: 8px 12px; margin-top: 24px; font-size: 11px;">
       <% unless content_for?(:hide_chrome) %>
         <nav class="nav-row" style="display: flex; align-items: center; gap: 4px; margin-bottom: 4px;">
-          <span class="nav-group hide-mobile"><%= nav_link "home", root_path %><%= nav_link "calendar", calendar_root_path %></span>
-          <span class="nav-sep hide-mobile" aria-hidden="true">·</span>
+          <%# 2026-05-18 — matches the top nav: `.hide-mobile` dropped
+              so the full bracketed labels render on every viewport. %>
+          <span class="nav-group"><%= nav_link "home", root_path %><%= nav_link "calendar", calendar_root_path %></span>
+          <span class="nav-sep" aria-hidden="true">·</span>
           <span class="nav-group"><%= nav_link "channels", channels_path, short: "C" %><%= nav_link "videos", videos_path, short: "V" %></span>
           <span class="nav-sep" aria-hidden="true">·</span>
           <span class="nav-group"><%= nav_link "projects", projects_path, short: "P" %><%= nav_link "games", games_path, short: "G" %></span>

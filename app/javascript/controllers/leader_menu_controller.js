@@ -22,11 +22,23 @@ const STACK_STORAGE_KEY = "pito:leader-menu:stack"
 // popup card listing the current-menu items as `key  label` rows.
 // The key glyph carries no surrounding brackets — alignment across
 // rows is handled by `.leader-menu-key { min-width: 28px }` in CSS,
-// so single-char (`l`, `+`) and multi-char (e.g. `␣`) keys still
-// line up cleanly in the monospace face.
-// Submenus replace the popup contents in place (no nesting);
-// Backspace clears the pending prefix one char at a time and pops
-// back one menu level when the prefix is empty (A1 + legacy). Space
+// so single-char (`l`, `+`) and multi-char (e.g. `␣`, `Cy`, `Nm`)
+// keys still line up cleanly in the monospace face.
+//
+// 2026-05-18 architectural change — flat 2-key dispatch. The earlier
+// nested-submenu UX (Space → `g` opens "games" submenu → `l` resolves
+// games list) was dropped. The root menu now ships flat 2-key
+// bindings (`Gl games list`, `Cy channels sync`, `cs calendar
+// schedule`, …) resolved through the same prefix accumulator that
+// powers the `page_actions` 2-key bindings (filter chips on /games,
+// /settings sr/vr/da/dd/sa/sd). Direct single-key entries (`h` home,
+// `S` settings, `Q` logout) fire immediately because they have no
+// longer-prefix candidates. Submenus are gone schema-wide; the
+// controller retains a defensive `if (hasSubmenu)` branch in
+// `activate` so any future schema that DOES want a submenu still
+// works, but the YAML no longer ships any.
+//
+// Backspace clears the pending prefix one char at a time (A1). Space
 // toggles the popup (A3). Esc is NOT handled here — it falls through
 // to the parent <dialog>'s native ESC handler (A4); the leader popup
 // auto-closes on any other dialog's `close` event so it never
@@ -112,17 +124,20 @@ const STACK_STORAGE_KEY = "pito:leader-menu:stack"
 //     action types fall through and emit the same event so future
 //     handlers can plug in without touching this file.
 //
-// Schema shape (2026-05-10 revert): root-menu rows that point to a
-// submenu drop the `action` field. Pressing C/V/P/G/c/N at the root
-// drills into the submenu ONLY; the user must press `l` (list) inside
-// the submenu to actually navigate to /<resource>. The previous
-// combined action+submenu pattern (single keystroke both navigated
-// AND drilled) proved surprising and is gone — `S` (settings) and
-// `h` (home) keep direct navigation because they have no submenu.
+// Schema shape (2026-05-18 flat 2-key dispatch): the root menu is a
+// single flat list of items, each carrying a `key` (one or two chars)
+// and an `action`. Multi-char keys (e.g. `Cy`, `Gl`, `cs`, `c+`)
+// resolve through the prefix accumulator the same way the
+// `page_actions` 2-key bindings do. No `submenu` field appears on
+// any shipped schema row — the nested-submenu UX was dropped per
+// the 2026-05-18 architectural change.
 //
-// The controller still defensively handles a hypothetical
-// `action + submenu` item (preferring `submenu` and ignoring the
-// action) so a future schema entry can't accidentally fire both.
+// The controller still defensively handles a hypothetical row with
+// a `submenu` field (preferring `submenu` and ignoring any `action`)
+// so a future schema can opt back in without a code change here.
+// The inline-submenu mechanism on `page_actions` items
+// (`action: { type: submenu, items: [...] }`) is also preserved
+// untouched — only the root nested-submenu flow is gone.
 //
 // Implementation note: all popup contents are built via DOM
 // construction (`createElement` + `textContent`) rather than
@@ -646,12 +661,13 @@ export default class extends Controller {
     const hasAction = action && action.type
     const hasSubmenu = !!item.submenu
 
-    // Submenu takes precedence over action (2026-05-10 revert). A
-    // root-menu row pointing to a submenu drills only; the user
-    // presses `l` inside the submenu to navigate. Schema entries
-    // shouldn't carry both fields any more, but the precedence rule
-    // is defensive — a stray `action` next to a `submenu` is silently
-    // ignored.
+    // Defensive submenu branch (2026-05-18). The shipped schema no
+    // longer carries `submenu` fields on any root row — the
+    // nested-submenu UX was replaced by flat 2-key dispatch. The
+    // branch stays here as a safety net so any future schema entry
+    // that opts back into a submenu still works. When both `submenu`
+    // and `action` appear on the same row, submenu wins and the
+    // action is silently ignored.
     if (hasSubmenu) {
       this.openMenu(item.submenu)
       return

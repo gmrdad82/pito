@@ -31,7 +31,12 @@ en:
     all_games:
       heading: "all games"
       empty: "no games yet — click [+] to add"
-      search_placeholder: "add a game to this bundle"
+      # Placeholder for the `:bundle_add` omnisearch modal (bundle [+] button).
+      # Intentionally distinct from sibling omnisearch placeholders
+      # (`games.search.placeholder_igdb`, `games.omnisearch.placeholder`)
+      # so the three surfaces can diverge independently without retroactive
+      # splits. Change each key on its own.
+      search_placeholder: "search games"
       col:
         title: "title"
         genre: "genre"

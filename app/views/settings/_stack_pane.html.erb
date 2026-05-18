@@ -37,9 +37,9 @@
   <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
     <legend><h2><%= t("settings.stack.heading") %></h2></legend>
 
-    <div style="display: grid; grid-template-columns: 1fr 1px 1fr; gap: 12px; align-items: stretch;">
+    <div class="stack-pane-grid">
       <%# Left column: db (Postgres + Redis with hairline) %>
-      <div>
+      <div class="stack-pane-column">
         <%= render Settings::Stack::HealthLineComponent.new(
           label: t("settings.stack.postgres"),
           state: @postgres_status[:connected] ? :connected : :disconnected
@@ -95,10 +95,10 @@
         <% end %>
       </div>
 
-      <div style="background: var(--color-border); width: 1px;"></div>
+      <div class="stack-pane-divider"></div>
 
       <%# Right column: search + storage stacked %>
-      <div>
+      <div class="stack-pane-column">
         <%= render Settings::Stack::HealthLineComponent.new(
           label: t("settings.stack.meilisearch"),
           state: @search_healthy ? :connected : :disconnected

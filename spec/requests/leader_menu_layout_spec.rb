@@ -31,7 +31,12 @@ RSpec.describe "Leader menu layout integration", type: :request do
       expect(match).not_to be_nil, "expected to find the keybindings <script> tag"
       payload = JSON.parse(match[:json])
       expect(payload).to include("leader", "menus")
-      expect(payload.fetch("menus")).to include("root", "channels", "videos", "list_ops")
+      # 2026-05-18 — flat 2-key dispatch. Submenus (calendar / channels /
+      # videos / projects / games / notifications) were folded into the
+      # root menu as multi-char keys (`cs`, `Cl`, `Gl`, …); only `root`
+      # survives in the `menus:` block.
+      expect(payload.fetch("menus")).to include("root")
+      expect(payload.fetch("menus").keys).to eq([ "root" ])
     end
 
     it "GET #{path} renders the popup placeholder div" do
@@ -84,8 +89,11 @@ RSpec.describe "Leader menu layout integration", type: :request do
     end
 
     it "filters the TUI-only [q] item out of the root menu" do
+      # Divider rows (`{ divider: true }`) carry no `key`; skip them
+      # before mapping so the assertion stays specific to binding rows.
       root_items = payload.fetch("menus").fetch("root").fetch("items")
-      expect(root_items.map { |i| i.fetch("key") }).not_to include("q")
+      keys = root_items.reject { |i| i["divider"] }.map { |i| i.fetch("key") }
+      expect(keys).not_to include("q")
     end
   end
 end

@@ -3,16 +3,27 @@
     at the top; the always-true navigation map follows below. The
     page-actions section + hairline are both OMITTED when
     `page_actions` is empty — see the component class for the
-    deny-list + default-fallback rules. %>
+    deny-list + default-fallback rules.
+
+    2026-05-18 — the navigation map is a flat 2-key dispatch list (no
+    submenus). The earlier nested-submenu UX (root row → opens
+    sub-menu) was dropped in favour of direct 2-key resolution
+    (`Cl` channels list, `Gl` games list, `cs` calendar schedule, …).
+    Divider entries (`{ divider: true }`) split the visual list into
+    logical groups; they are non-interactive hairlines only. %>
 <div class="keybindings-reference">
   <% if page_actions.any? %>
     <section class="keybindings-section keybindings-page-actions">
       <h3>page actions</h3>
       <% page_actions.each do |action| %>
-        <div class="keybindings-row">
-          <kbd><%= action["key"] %></kbd>
-          <span><%= action["label"] %></span>
-        </div>
+        <% if action["divider"] %>
+          <hr class="hairline keybindings-divider">
+        <% else %>
+          <div class="keybindings-row">
+            <kbd><%= action["key"] %></kbd>
+            <span><%= action["label"] %></span>
+          </div>
+        <% end %>
       <% end %>
     </section>
     <hr class="hairline">
@@ -20,19 +31,15 @@
 
   <section class="keybindings-section keybindings-navigation">
     <h3>navigation</h3>
-    <% navigation_menus.each do |menu_key, menu| %>
-      <div class="keybindings-menu" data-menu="<%= menu_key %>">
-        <div class="keybindings-menu-label text-muted"><%= menu_key %></div>
-        <% Array(menu["items"]).each do |item| %>
-          <div class="keybindings-row">
-            <kbd><%= item["key"] %></kbd>
-            <span><%= item["label"] %></span>
-            <% if item["submenu"] %>
-              <span class="text-muted">&rarr; <%= item["submenu"] %></span>
-            <% end %>
-          </div>
-        <% end %>
-      </div>
+    <% navigation_items.each do |item| %>
+      <% if item["divider"] %>
+        <hr class="hairline keybindings-divider">
+      <% else %>
+        <div class="keybindings-row">
+          <kbd><%= item["key"] %></kbd>
+          <span><%= item["label"] %></span>
+        </div>
+      <% end %>
     <% end %>
   </section>
 </div>

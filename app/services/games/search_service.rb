@@ -35,11 +35,11 @@ module Games
       when :game_index
         igdb, igdb_error = call_igdb(query)
       when :bundle_add
-        local = Meilisearch::SearchGames.call(query, exclude_bundle: bundle)
+        local = Search::Omnisearch.call(area: :games, query: query, exclude_bundle: bundle)
         local_games = local[:games]
         igdb, igdb_error = call_igdb(query)
       when :games_search
-        local = Meilisearch::SearchGames.call(query, include_bundles: true)
+        local = Search::Omnisearch.call(area: :games, query: query, include_bundles: true)
         local_games = local[:games]
         local_bundles = local[:bundles]
         igdb, igdb_error = call_igdb(query)

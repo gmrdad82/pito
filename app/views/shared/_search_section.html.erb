@@ -1,0 +1,45 @@
+<%#
+  2026-05-18 — generic chrome for an omnisearch results section.
+
+  Locals:
+    heading     — string, the section label rendered in
+                  h3.omnisearch-section-heading.
+    items       — Enumerable of rows. The block yields once per item.
+    empty_copy  — string, shown in p.text-muted when items.empty?.
+                  Required so empty sections still communicate state.
+    first       — bool (default false). When true the leading hairline
+                  is suppressed (use for the topmost section so the
+                  list does not begin with a separator).
+
+  Block:
+    Receives each item; the caller emits per-row markup (rows differ
+    per surface: games, bundles, IGDB rows, etc.). This partial owns
+    only the chrome (heading + hairline + empty copy + ul/li wrappers)
+    so future omnisearch surfaces (/projects, /videos, /channels)
+    can reuse it.
+
+  Usage (caller side):
+    render "shared/search_section",
+           heading: "games",
+           items: @local_games,
+           empty_copy: t("...no_results", query: query),
+           first: true do |game|
+      # caller markup using game
+    end
+%>
+<% first_section = local_assigns.fetch(:first, false) %>
+<% unless first_section %>
+  <hr class="hairline" style="margin: 12px 0;">
+<% end %>
+<section class="omnisearch-section">
+  <h3 class="omnisearch-section-heading"><%= heading %></h3>
+  <% if items.empty? %>
+    <p class="text-muted"><%= empty_copy %></p>
+  <% else %>
+    <ul class="omnisearch-list" style="list-style: none; padding: 0; margin: 0;">
+      <% items.each do |item| %>
+        <li class="omnisearch-row"><%= yield item %></li>
+      <% end %>
+    </ul>
+  <% end %>
+</section>

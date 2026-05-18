@@ -1,29 +1,21 @@
 module ApplicationHelper
-  # Item 6 — Mobile nav single-char labels.
-  # On desktop, the full word ("channels") renders. On mobile, a short
-  # one-char label ("C") renders instead, toggled via the existing
-  # .hide-mobile / .show-mobile utility classes (768px breakpoint). Drops
-  # `[home]` on mobile entirely (the logo image already routes home) when
-  # `short:` is the empty string — the helper short-circuits and returns
-  # an empty wrapper that lays out only on desktop.
+  # 2026-05-18 — Mobile-nav abbreviated labels dropped per user
+  # decision. Both desktop and mobile now render the full bracketed
+  # label (e.g. `[channels]`). The `short:` kwarg is retained for
+  # call-site backward compatibility but is intentionally unused; the
+  # `.show-mobile` short-label span is no longer emitted. Whole-group
+  # `.hide-mobile` wrappers in the layout were also dropped so
+  # `[home]` / `[calendar]` stay visible on mobile.
   def nav_link(label, path, short: nil, data: nil)
-    short = short.nil? ? label[0].to_s.upcase : short
+    _ = short # retained for backward compatibility; ignored
     prefix = path.chomp("/")
     active = current_page?(path) || (prefix.present? && request.path.start_with?(prefix + "/"))
 
     safe_label = ERB::Util.html_escape(label)
-    safe_short = ERB::Util.html_escape(short)
-    label_html = if short.empty?
-      # Desktop-only label. Wrap full text in .hide-mobile so the entire
-      # nav link disappears on mobile (no empty `[]` flash).
-      %(<span class="hide-mobile">#{safe_label}</span>).html_safe
-    else
-      %(<span class="hide-mobile">#{safe_label}</span><span class="show-mobile">#{safe_short}</span>).html_safe
-    end
 
     if active
       content_tag(:span, class: "bracketed bracketed-active") do
-        ("[" + label_html + "]").html_safe
+        ("[" + safe_label + "]").html_safe
       end
     else
       # `data:` is forwarded to the underlying `link_to` so callers can
@@ -34,7 +26,7 @@ module ApplicationHelper
       opts = { class: "bracketed" }
       opts[:data] = data if data.present?
       link_to(path, opts) do
-        ("[<span class=\"bl\">" + label_html + "</span>]").html_safe
+        ("[<span class=\"bl\">" + safe_label + "</span>]").html_safe
       end
     end
   end

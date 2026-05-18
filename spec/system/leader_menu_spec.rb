@@ -129,124 +129,100 @@ RSpec.describe "Leader menu chrome", type: :system do
     end
   end
 
-  describe "schema-driven menu shape (lock the contract the JS will consume)" do
+  describe "flat 2-key dispatch schema (2026-05-18 — submenus dropped)" do
+    # The nested-submenu UX (Space → `g` opens submenu → `l`
+    # resolves) was replaced by direct 2-key dispatch (`Gl` games
+    # list, `Cy` channels sync, `cs` calendar schedule, …) resolved
+    # through the prefix accumulator the same way `page_actions`
+    # bindings work. The root menu is the entire navigation surface;
+    # no submenu maps remain in the schema.
     def payload_for(path)
       visit path
       script_node = page.find("script#pito-keybindings", visible: :all)
       JSON.parse(script_node.text(:all))
     end
 
-    it "exposes the calendar submenu via the JSON payload" do
-      calendar = payload_for("/").fetch("menus").fetch("calendar").fetch("items")
-      keys = calendar.map { |i| i.fetch("key") }
-      expect(keys).to match_array(%w[s m t +])
+    it "menus block has only the `root` key (no calendar/channels/videos/projects/games/notifications submenus)" do
+      menus = payload_for("/").fetch("menus")
+      expect(menus.keys).to eq([ "root" ])
     end
 
-    it "exposes the channels submenu including the delete + sync keys" do
-      channels = payload_for("/").fetch("menus").fetch("channels").fetch("items")
-      keys = channels.map { |i| i.fetch("key") }
-      expect(keys).to include("l", "+", "-", "y")
+    # Locked flat-binding contract — every 2-key combo + the direct
+    # single-key entries. Indexed by key for table-driven assertions
+    # so the visible list of bindings stays trivially scannable.
+    flat_bindings = {
+      "h"  => { label: "home",                          action: { "type" => "navigate", "path" => "/" } },
+      "cs" => { label: "calendar schedule",             action: { "type" => "navigate", "path" => "/calendar/schedule" } },
+      "cm" => { label: "calendar month",                action: { "type" => "navigate", "path" => "/calendar/month" } },
+      "ct" => { label: "calendar today",                action: { "type" => "today" } },
+      "c+" => { label: "calendar new",                  action: { "type" => "open", "target" => "new_calendar_entry" } },
+      "Cl" => { label: "channels list",                 action: { "type" => "navigate", "path" => "/channels" } },
+      "C+" => { label: "channels add",                  action: { "type" => "navigate", "path" => "/channels" } },
+      "C-" => { label: "channels delete",               action: { "type" => "bulk_delete" } },
+      "Cy" => { label: "channels sync",                 action: { "type" => "bulk_sync" } },
+      "Vl" => { label: "videos list",                   action: { "type" => "navigate", "path" => "/videos" } },
+      "V+" => { label: "videos upload",                 action: { "type" => "open", "target" => "video_upload" } },
+      "V-" => { label: "videos delete",                 action: { "type" => "bulk_delete" } },
+      "Pl" => { label: "projects list",                 action: { "type" => "navigate", "path" => "/projects" } },
+      "P+" => { label: "projects new",                  action: { "type" => "open", "target" => "new_project" } },
+      "P-" => { label: "projects delete",               action: { "type" => "bulk_delete" } },
+      "Gl" => { label: "games list",                    action: { "type" => "navigate", "path" => "/games" } },
+      "G+" => { label: "games new",                     action: { "type" => "open", "target" => "igdb_search" } },
+      "Nl" => { label: "notifications list",            action: { "type" => "open", "target" => "notifications_modal" } },
+      "Nu" => { label: "notifications filter unread",   action: { "type" => "filter_unread" } },
+      "Nm" => { label: "notifications mark all read",   action: { "type" => "mark_all_read" } },
+      "S"  => { label: "settings",                      action: { "type" => "navigate", "path" => "/settings" } },
+      "Q"  => { label: "logout",                        action: { "type" => "logout" } }
+    }.freeze
+
+    flat_bindings.each do |key, expected|
+      it "exposes the [#{key}] #{expected[:label]} binding with the right action" do
+        items = payload_for("/").fetch("menus").fetch("root").fetch("items")
+        row = items.find { |i| i["key"] == key }
+        expect(row).not_to be_nil, "expected a flat binding with key #{key.inspect}"
+        expect(row.fetch("label")).to eq(expected[:label])
+        expect(row.fetch("action")).to eq(expected[:action])
+        # Submenus are gone — no row should carry a `submenu` field.
+        expect(row).not_to have_key("submenu")
+      end
     end
 
-    it "channels submenu uses the cleaned-up labels (delete / sync, no 'bulk')" do
-      channels = payload_for("/").fetch("menus").fetch("channels").fetch("items")
-      labels = channels.map { |i| i.fetch("label") }
-      expect(labels).to include("delete", "sync")
-      expect(labels).not_to include("bulk delete (selection)", "bulk sync (selection)")
+    it "no root row carries a `submenu` field (submenu UX dropped)" do
+      items = payload_for("/").fetch("menus").fetch("root").fetch("items")
+      offenders = items.select { |i| i.is_a?(Hash) && i.key?("submenu") }
+      expect(offenders).to be_empty,
+        "expected no root rows with `submenu`, found #{offenders.inspect}"
     end
 
-    it "channels submenu does NOT include the [b] bulk toggle (legacy) entry" do
-      channels = payload_for("/").fetch("menus").fetch("channels").fetch("items")
-      keys = channels.map { |i| i.fetch("key") }
-      expect(keys).not_to include("b")
+    it "TUI-only [q] quit row is filtered out of the :web payload" do
+      items = payload_for("/").fetch("menus").fetch("root").fetch("items")
+      keys = items.map { |i| i["key"] }
+      expect(keys).not_to include("q")
     end
 
-    # 2026-05-10 revert: root-menu rows that point to a submenu DROP
-    # the `action` field. Pressing C/V/P/G/c/N at the root drills into
-    # the named submenu ONLY; the user must press `l` (list) inside
-    # the submenu to actually navigate.
-    it "root [C] channels row is submenu-only (no action)" do
-      root = payload_for("/").fetch("menus").fetch("root").fetch("items")
-      row = root.find { |i| i.fetch("key") == "C" }
-      expect(row.fetch("submenu")).to eq("channels")
-      expect(row).not_to have_key("action")
-    end
-
-    it "root [V] videos row is submenu-only (no action)" do
-      root = payload_for("/").fetch("menus").fetch("root").fetch("items")
-      row = root.find { |i| i.fetch("key") == "V" }
-      expect(row.fetch("submenu")).to eq("videos")
-      expect(row).not_to have_key("action")
-    end
-
-    it "root [P] projects row is submenu-only (no action)" do
-      root = payload_for("/").fetch("menus").fetch("root").fetch("items")
-      row = root.find { |i| i.fetch("key") == "P" }
-      expect(row.fetch("submenu")).to eq("projects")
-      expect(row).not_to have_key("action")
-    end
-
-    it "root [G] games row is submenu-only (no action)" do
-      root = payload_for("/").fetch("menus").fetch("root").fetch("items")
-      row = root.find { |i| i.fetch("key") == "G" }
-      expect(row.fetch("submenu")).to eq("games")
-      expect(row).not_to have_key("action")
-    end
-
-    it "root [c] calendar row is submenu-only (no action)" do
-      root = payload_for("/").fetch("menus").fetch("root").fetch("items")
-      row = root.find { |i| i.fetch("key") == "c" }
-      expect(row.fetch("submenu")).to eq("calendar")
-      expect(row).not_to have_key("action")
-    end
-
-    it "root [N] notifications row is submenu-only (no action)" do
-      root = payload_for("/").fetch("menus").fetch("root").fetch("items")
-      row = root.find { |i| i.fetch("key") == "N" }
-      expect(row.fetch("submenu")).to eq("notifications")
-      expect(row).not_to have_key("action")
-    end
-
-    it "root [S] settings row keeps direct navigation (no submenu)" do
-      # S is the only capital-letter root row that retains a direct
-      # `action: navigate` — it has no submenu, so pressing S at the
-      # root jumps straight to /settings.
-      root = payload_for("/").fetch("menus").fetch("root").fetch("items")
-      row = root.find { |i| i.fetch("key") == "S" }
-      expect(row.fetch("action")).to eq("type" => "navigate", "path" => "/settings")
-      expect(row).not_to have_key("submenu")
-    end
-
-    it "root [h] home row keeps direct navigation (no submenu)" do
-      root = payload_for("/").fetch("menus").fetch("root").fetch("items")
-      row = root.find { |i| i.fetch("key") == "h" }
-      expect(row.fetch("action")).to eq("type" => "navigate", "path" => "/")
-      expect(row).not_to have_key("submenu")
-    end
-
-    it "channels submenu [l] list still navigates to /channels (muscle memory)" do
-      channels = payload_for("/").fetch("menus").fetch("channels").fetch("items")
-      list_row = channels.find { |i| i.fetch("key") == "l" }
-      expect(list_row.fetch("action")).to eq("type" => "navigate", "path" => "/channels")
-    end
-
-    it "channels submenu [+] add navigates to /channels (Phase 24 — banner-based add)" do
-      channels = payload_for("/").fetch("menus").fetch("channels").fetch("items")
-      add_row = channels.find { |i| i.fetch("key") == "+" }
-      expect(add_row.fetch("action")).to eq(
-        "type" => "navigate", "path" => "/channels"
-      )
+    it "ships divider entries between logical groups so the popup paints visual separators" do
+      items = payload_for("/").fetch("menus").fetch("root").fetch("items")
+      # The exact divider count is the number of group boundaries
+      # (home | calendar | channels | videos | projects | games |
+      # notifications | settings | quit-filtered | logout) → 8 visible
+      # dividers after the TUI-only `q` row was filtered out (the
+      # divider preceding `q` survives; the one after `q` separates
+      # quit from logout). Lock the count so a regression that
+      # accidentally drops dividers fails fast.
+      divider_count = items.count { |i| i.is_a?(Hash) && i["divider"] }
+      expect(divider_count).to be >= 8
     end
   end
 
   describe "leader-menu popup div is permanent across Turbo navigations" do
     # The popup div survives Turbo Drive body swaps via the
-    # `data-turbo-permanent` attribute. After the 2026-05-10 revert
-    # root-menu rows with a submenu drop the navigate action — pressing
-    # `C` at the root only drills into the channels submenu (no
-    # background navigation). The popup is still marked permanent so a
-    # future entry that DOES navigate (e.g. submenu `l list`) can
-    # preserve the popup across the page swap if needed.
+    # `data-turbo-permanent` attribute. With the 2026-05-18 flat
+    # 2-key dispatch every root binding fires a Turbo.visit on the
+    # FIRST character of a multi-char key only after the second key
+    # arrives (e.g. `Cl` → /channels), so the popup may briefly span
+    # the prefix-armed window before the second key resolves. Marking
+    # the popup div `data-turbo-permanent` keeps the chrome (and the
+    # rehydrate path) consistent across navigations.
     it "renders the popup div with data-turbo-permanent" do
       visit "/"
       expect(page).to have_css(
@@ -256,24 +232,26 @@ RSpec.describe "Leader menu chrome", type: :system do
     end
   end
 
-  describe "submenu-only activation logic (2026-05-10 revert source lock)" do
+  describe "flat 2-key activation logic (2026-05-18 — submenu UX dropped)" do
     # rack_test has no JS engine, so we can't simulate keypress
     # SPACE → C → l interactively. The contract we CAN lock is the
-    # source text of the controller's `activate` method: submenu takes
-    # precedence, the combined "fire action AND drill" branch is gone,
-    # and submenu-only rows do NOT navigate as a side effect. Pair
-    # with the schema lock above (root C/V/P/G/c/N rows are
-    # submenu-only) so a regression that re-introduces dual-action
-    # rows OR resurrects the combined branch fails fast.
+    # source text of the controller's `activate` method + header
+    # comment: the defensive `hasSubmenu` branch is preserved (so a
+    # future schema can opt back in), the combined "fire action AND
+    # drill" branch is gone, and the dispatch path resolves multi-char
+    # keys via the prefix accumulator the same way `page_actions`
+    # does. Pair with the schema lock above (root rows ship flat
+    # 2-key bindings, no `submenu` field anywhere) so a regression
+    # that re-introduces nested-submenu rows fails fast on both ends.
     let(:controller_source) do
       File.read(Rails.root.join("app/javascript/controllers/leader_menu_controller.js"))
     end
 
-    it "activate() drills into the submenu without firing the action" do
-      # The submenu branch returns immediately after `openMenu`. If a
-      # future edit re-introduces a `fireAction` call inside the
-      # submenu branch, the order of these two lines (or the `return`)
-      # breaks and this assertion catches it.
+    it "activate() retains the defensive submenu branch (opens the submenu, no action fired)" do
+      # The submenu branch stays as a safety net even though the
+      # shipped YAML carries no `submenu` rows. If a future edit
+      # accidentally drops this branch, opting back into a submenu
+      # via the YAML would silently no-op — lock the shape.
       expect(controller_source).to match(
         /if\s*\(hasSubmenu\)\s*\{\s*this\.openMenu\(item\.submenu\)\s*return\s*\}/m
       )
@@ -282,19 +260,29 @@ RSpec.describe "Leader menu chrome", type: :system do
     it "drops the combined action+submenu branch" do
       # The legacy branch was `if (hasAction && hasSubmenu) { ... }` —
       # it fired the action with `closePopup: false` then drilled. The
-      # revert removes that block entirely so a stray `action` next to
-      # a `submenu` is silently ignored.
+      # 2026-05-10 revert removed that block; the 2026-05-18 flat-
+      # dispatch reorg leaves it gone. A stray `action` next to a
+      # `submenu` is silently ignored by the defensive branch above.
       expect(controller_source).not_to match(/if\s*\(\s*hasAction\s*&&\s*hasSubmenu\s*\)/),
         "expected the combined action+submenu branch to be removed from activate()"
     end
 
-    it "documents the 2026-05-10 revert in the controller header" do
+    it "documents the 2026-05-18 flat 2-key dispatch in the controller header" do
       # Top-of-file comment is the contract Rust-side maintainers read
       # first when keeping the TUI overlay (`extras/cli/src/ui/
       # leader_menu.rs`) aligned. Lock the new description so the docs
       # and code don't drift.
-      expect(controller_source).to include("2026-05-10 revert")
-      expect(controller_source).to include("submenu ONLY")
+      expect(controller_source).to include("2026-05-18 architectural change")
+      expect(controller_source).to include("flat 2-key dispatch")
+      expect(controller_source).to include("Submenus are gone schema-wide")
+    end
+
+    it "schema-shape comment block documents the flat 2-key shape" do
+      # The `Schema shape (…)` block is the second contract Rust-side
+      # maintainers walk through. Lock the updated wording so the YAML
+      # contract and the code description stay in lockstep.
+      expect(controller_source).to include("Schema shape (2026-05-18 flat 2-key dispatch)")
+      expect(controller_source).to include("No `submenu` field appears on")
     end
   end
 

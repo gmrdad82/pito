@@ -340,75 +340,71 @@ page_actions:
         modal_id: search_placeholder
 
 menus:
+  # 2026-05-18 — flat 2-key dispatch. The earlier nested-submenu
+  # architecture (Space → `g` opens the games submenu → user presses
+  # `l` to navigate) was dropped in favour of direct 2-key resolution
+  # (Space → `G` → `l` resolves `Gl games list` via the existing
+  # prefix accumulator). This makes the leader-menu protocol uniform
+  # with the existing `page_actions` 2-key dispatch (filter chips on
+  # /games: `fr`/`fs`/`fo`/`fw`/`fp`/`fP`/`fN`/`fS`, /settings:
+  # `sr`/`vr`/`da`/`dd`/`sa`/`sd`). The intermediate submenu UX is
+  # gone schema-wide.
+  #
+  # Prefix-letter assignments (case-sensitive):
+  #   c → calendar         C → channels       V → videos
+  #   P → projects         G → games          N → notifications
+  # Direct-key entries (no prefix continuation):
+  #   h → home             S → settings       Q → logout
+  #   q → quit (TUI-only)
+  #
+  # No collisions across the flattened bindings — each prefix letter
+  # is unique per case, and the second char namespaces under it.
+  # `c` (calendar prefix) does not conflict with `C` (channels prefix)
+  # because key matching is case-sensitive in
+  # `leader_menu_controller.js#candidatesForPrefix`.
+  #
+  # The prefix accumulator handles multi-char keys natively (see
+  # `handlePrefixKey` + `armPrefixTimer`): pressing the first char
+  # arms the timer; the second char resolves the exact match;
+  # 1500 ms inactivity OR a no-match second char resets the prefix.
+  # Direct single-char entries (h/S/Q/q) fire immediately on press
+  # because they have no longer-prefix candidates.
+  #
+  # Divider entries split the visual list into logical groups (home,
+  # navigation prefixes, settings, logout). Renderers skip dividers
+  # during key dispatch — they are visual hairlines only. The same
+  # divider mechanic is used by /games `f*` filter chips today.
   root:
-    # 2026-05-10 schema revert: root-menu rows with a submenu DROP the
-    # `action` field. Pressing C/V/P/G/c/N from the root popup drills
-    # into the submenu only; the user must press `l` (list) inside the
-    # submenu to actually navigate. The combined action+submenu pattern
-    # (where the popup transitioned AND fired a navigate) proved
-    # surprising — a single keystroke shouldn't both navigate and drill.
-    # S (settings) and h (home) keep direct navigation because they
-    # have no submenu. The leader-menu controller now sees `submenu`
-    # only on these rows and walks into the submenu unconditionally.
     items:
-      - { key: h, label: home,             action: { type: navigate, path: "/" } }
-      - { key: c, label: calendar,         submenu: calendar }
-      - { key: C, label: channels,         submenu: channels }
-      - { key: V, label: videos,           submenu: videos }
-      - { key: P, label: projects,         submenu: projects }
-      - { key: G, label: games,            submenu: games }
-      - { key: N, label: notifications,    submenu: notifications }
-      - { key: S, label: settings,         action: { type: navigate, path: "/settings" } }
-      - { key: q, label: quit,             action: { type: quit }, surfaces: [tui] }
-      # Hairline separator before the logout row. The `q quit` row
-      # above is TUI-only and filtered out of the web schema at render
-      # time, so on the web surface the divider sits between
-      # `S settings` and `Q logout`. Renderers
-      # (`leader_menu_controller.js` web, the TUI equivalent in
-      # `extras/cli/`) skip divider entries during key dispatch and
-      # paint them as visual separators only.
+      - { key: h, label: home, action: { type: navigate, path: "/" } }
       - divider: true
-      - { key: Q, label: logout,           action: { type: logout } }
-
-  calendar:
-    items:
-      - { key: s, label: schedule, action: { type: navigate, path: "/calendar/schedule" } }
-      - { key: m, label: month,    action: { type: navigate, path: "/calendar/month" } }
-      - { key: t, label: today,    action: { type: today } }
-      - { key: "+", label: new,    action: { type: open, target: new_calendar_entry } }
-
-  channels:
-    items:
-      - { key: l, label: list,         action: { type: navigate, path: "/channels" } }
-      - { key: "+", label: add,        action: { type: navigate, path: "/channels" } }
-      - { key: "-", label: delete,     action: { type: bulk_delete } }
-      - { key: y, label: sync,         action: { type: bulk_sync } }
-
-  videos:
-    items:
-      - { key: l, label: list,         action: { type: navigate, path: "/videos" } }
-      - { key: "+", label: upload,     action: { type: open, target: video_upload } }
-      - { key: "-", label: delete,     action: { type: bulk_delete } }
-
-  projects:
-    items:
-      - { key: l, label: list,         action: { type: navigate, path: "/projects" } }
-      - { key: "+", label: new,        action: { type: open, target: new_project } }
-      - { key: "-", label: delete,     action: { type: bulk_delete } }
-
-  games:
-    items:
-      - { key: l, label: list,             action: { type: navigate, path: "/games" } }
-      - { key: "+", label: new,            action: { type: open, target: igdb_search } }
-
-  # 2026-05-18 — the `bundles` submenu was removed alongside the
-  # `B bundles` entry above. Bundles are reachable only via the /games
-  # bundle shelf + modal flow; there is no standalone `/bundles` index
-  # or `/bundles/new` surface for the menu to navigate to.
-
-  notifications:
-    items:
-      - { key: l, label: list,                action: { type: open, target: notifications_modal } }
-      - { key: u, label: "filter unread",     action: { type: filter_unread } }
-      - { key: m, label: "mark all as read",  action: { type: mark_all_read } }
+      - { key: cs, label: "calendar schedule",   action: { type: navigate, path: "/calendar/schedule" } }
+      - { key: cm, label: "calendar month",      action: { type: navigate, path: "/calendar/month" } }
+      - { key: ct, label: "calendar today",      action: { type: today } }
+      - { key: "c+", label: "calendar new",      action: { type: open, target: new_calendar_entry } }
+      - divider: true
+      - { key: Cl, label: "channels list",       action: { type: navigate, path: "/channels" } }
+      - { key: "C+", label: "channels add",      action: { type: navigate, path: "/channels" } }
+      - { key: "C-", label: "channels delete",   action: { type: bulk_delete } }
+      - { key: Cy, label: "channels sync",       action: { type: bulk_sync } }
+      - divider: true
+      - { key: Vl, label: "videos list",         action: { type: navigate, path: "/videos" } }
+      - { key: "V+", label: "videos upload",     action: { type: open, target: video_upload } }
+      - { key: "V-", label: "videos delete",     action: { type: bulk_delete } }
+      - divider: true
+      - { key: Pl, label: "projects list",       action: { type: navigate, path: "/projects" } }
+      - { key: "P+", label: "projects new",      action: { type: open, target: new_project } }
+      - { key: "P-", label: "projects delete",   action: { type: bulk_delete } }
+      - divider: true
+      - { key: Gl, label: "games list",          action: { type: navigate, path: "/games" } }
+      - { key: "G+", label: "games new",         action: { type: open, target: igdb_search } }
+      - divider: true
+      - { key: Nl, label: "notifications list",          action: { type: open, target: notifications_modal } }
+      - { key: Nu, label: "notifications filter unread", action: { type: filter_unread } }
+      - { key: Nm, label: "notifications mark all read", action: { type: mark_all_read } }
+      - divider: true
+      - { key: S, label: settings, action: { type: navigate, path: "/settings" } }
+      - { key: q, label: quit,     action: { type: quit }, surfaces: [tui] }
+      - divider: true
+      - { key: Q, label: logout,   action: { type: logout } }
 

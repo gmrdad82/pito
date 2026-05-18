@@ -82,20 +82,12 @@
       <tbody>
         <tr>
           <td><%= t("settings.voyage.games_embedded") %></td>
-          <td class="num">
-            <span data-stack-stats-live-target="voyageEmbedded"><%= number_with_delimiter(voyage_stats[:embedded_games_count].to_i) %></span>/<span data-stack-stats-live-target="voyageTotal"><%= number_with_delimiter(voyage_stats[:total_games_count].to_i) %></span>
-            (<span data-stack-stats-live-target="voyagePct"><%= voyage_stats[:coverage_pct] %></span>%)
-          </td>
+          <td class="num"><span data-stack-stats-live-target="voyageEmbedded"><%= number_with_delimiter(voyage_stats[:embedded_games_count].to_i) %></span>/<span data-stack-stats-live-target="voyageTotal"><%= number_with_delimiter(voyage_stats[:total_games_count].to_i) %></span> (<span data-stack-stats-live-target="voyagePct"><%= voyage_stats[:coverage_pct] %></span>%)</td>
         </tr>
         <% if voyage_stats[:total_bundles_count].to_i > 0 %>
           <tr>
             <td><%= t("settings.voyage.bundles_embedded") %></td>
-            <td class="num">
-              <span data-stack-stats-live-target="voyageBundlesEmbedded"><%= number_with_delimiter(voyage_stats[:embedded_bundles_count].to_i) %></span>/<span data-stack-stats-live-target="voyageBundlesTotal"><%= number_with_delimiter(voyage_stats[:total_bundles_count].to_i) %></span>
-              <% if voyage_stats[:bundle_coverage_pct] %>
-                (<span data-stack-stats-live-target="voyageBundlesCoveragePct"><%= voyage_stats[:bundle_coverage_pct] %></span>%)
-              <% end %>
-            </td>
+            <td class="num"><span data-stack-stats-live-target="voyageBundlesEmbedded"><%= number_with_delimiter(voyage_stats[:embedded_bundles_count].to_i) %></span>/<span data-stack-stats-live-target="voyageBundlesTotal"><%= number_with_delimiter(voyage_stats[:total_bundles_count].to_i) %></span><% if voyage_stats[:bundle_coverage_pct] %> (<span data-stack-stats-live-target="voyageBundlesCoveragePct"><%= voyage_stats[:bundle_coverage_pct] %></span>%)<% end %></td>
           </tr>
         <% end %>
         <tr>

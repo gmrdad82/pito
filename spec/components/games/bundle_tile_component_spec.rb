@@ -77,6 +77,40 @@ RSpec.describe Games::BundleTileComponent, type: :component do
   end
 
   # ----------------------------------------------------------------
+  # Live cover refresh — dom_id wrapper + Turbo Stream subscription
+  # the `BundleCoverBuild` Sidekiq job broadcasts into.
+  # ----------------------------------------------------------------
+
+  describe "live cover refresh wiring" do
+    let(:bundle) do
+      stub_bundle(name: "Souls Likes", id: 42, slug: "souls-likes",
+                  composite_url: "/covers/bundles/42/composite.jpg",
+                  member_count: 3)
+    end
+
+    it "wraps the cover in id='bundle_cover_<id>' so Turbo Stream replaces land cleanly" do
+      render_inline(described_class.new(bundle: bundle))
+      expect(page).to have_css("#bundle_cover_42")
+    end
+
+    it "subscribes to the per-bundle 'bundle_cover:<id>' stream via turbo_stream_from" do
+      render_inline(described_class.new(bundle: bundle))
+      # `turbo_stream_from` renders a `<turbo-cable-stream-source>`
+      # custom element. The signed-stream-name attribute is encrypted,
+      # so assert structure (element presence) rather than the name.
+      expect(page.native.to_html).to include("turbo-cable-stream-source")
+    end
+
+    it "appends ?v=<bundle.updated_at.to_i> to the composite img src as cache buster" do
+      ts = Time.utc(2026, 5, 18, 12, 0, 0)
+      allow(bundle).to receive(:updated_at).and_return(ts)
+      render_inline(described_class.new(bundle: bundle))
+      img = page.find("img.bundle-cover-composite")
+      expect(img["src"]).to eq("/covers/bundles/42/composite.jpg?v=#{ts.to_i}")
+    end
+  end
+
+  # ----------------------------------------------------------------
   # Default mode — anchor wrapper + bundles-modal-trigger wiring.
   # ----------------------------------------------------------------
 
@@ -160,7 +194,11 @@ RSpec.describe Games::BundleTileComponent, type: :component do
 
     it "renders the composite <img> with the bundle name as alt" do
       img = page.find("img.bundle-cover-composite")
-      expect(img["src"]).to eq("/covers/bundles/7/composite.jpg")
+      # The src is decorated with a `?v=<bundle.updated_at.to_i>`
+      # cache buster (see "live cover refresh wiring" group); assert
+      # the path prefix here so the existing happy-path test stays
+      # focused on the cover render path itself.
+      expect(img["src"]).to start_with("/covers/bundles/7/composite.jpg?v=")
       expect(img["alt"]).to eq(bundle.name)
     end
 
@@ -338,7 +376,7 @@ RSpec.describe Games::BundleTileComponent, type: :component do
 
     it "renders the composite cover inside the suggest form" do
       img = page.find("form img.bundle-cover-composite")
-      expect(img["src"]).to eq("/covers/bundles/88/composite.jpg")
+      expect(img["src"]).to start_with("/covers/bundles/88/composite.jpg?v=")
     end
 
     it "uses the shelf 98x130 dimensions when size: :shelf is passed" do

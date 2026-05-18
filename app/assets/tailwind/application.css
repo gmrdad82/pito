@@ -80,7 +80,7 @@
   --color-flash-error-bg: #fbeeee;
   --color-flash-error-border: #e0b6b6;
   --color-flash-error-text: #7a1f1f;
-  --color-backdrop: rgba(0, 0, 0, 0.3);
+  --color-backdrop: rgba(0, 0, 0, 0.5);
   --color-chart-1: #0000cc;
   --color-chart-2: #2e7d32;
   --color-chart-3: #8b5cf6;
@@ -213,7 +213,7 @@
   --color-flash-error-bg: #282a36;
   --color-flash-error-border: #ff5555;
   --color-flash-error-text: #ff5555;
-  --color-backdrop: rgba(0, 0, 0, 0.6);
+  --color-backdrop: rgba(0, 0, 0, 0.8);
   --color-chart-1: #bd93f9;
   --color-chart-2: #50fa7b;
   --color-chart-3: #ff79c6;
@@ -1018,6 +1018,26 @@ th.col-action, td.col-action {
   font-variant-numeric: tabular-nums;
 }
 
+/* Stack-pane inner layout (`/settings` row 3). Two visible columns with
+   a 1px vertical hairline between them. Hoisted out of inline styles in
+   `_stack_pane.html.erb` (2026-05-18) so the mobile media query can
+   target real classes instead of `[style*="..."]` attribute selectors
+   (which broke silently on any markup reformat). The `.stack-pane-grid`
+   container holds three children: `.stack-pane-column` (left db),
+   `.stack-pane-divider` (vertical hairline), `.stack-pane-column`
+   (right search+storage). The mobile collapse rule lives in the
+   `@media (max-width: 768px)` block lower in this file. */
+.stack-pane-grid {
+  display: grid;
+  grid-template-columns: 1fr 1px 1fr;
+  gap: 12px;
+  align-items: stretch;
+}
+.stack-pane-divider {
+  background: var(--color-border);
+  width: 1px;
+}
+
 /* Stack-pane breakdown tables (`/settings` row 3 — Postgres / Redis /
    Meilisearch / assets / notes) plus the sessions table on the
    security pane. Shared treatment: full pane width, dense look (no
@@ -1525,16 +1545,17 @@ select:focus {
      - dialog padding: 16px.
      - border: 1px solid var(--color-border); 4px radius. */
 dialog.omnisearch-modal {
-  width: 600px;
+  width: 720px;
   max-width: 90vw;
   padding: 16px;
   border: 1px solid var(--color-border);
   border-radius: 4px;
   background: var(--color-bg);
   color: var(--color-text);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
 }
 dialog.omnisearch-modal::backdrop {
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--color-backdrop);
 }
 .omnisearch-modal-inner {
   display: flex;
@@ -1827,6 +1848,23 @@ dialog {
   background: var(--color-bg);
   color: var(--color-text);
 }
+/* Multi-layer backdrop stacking (2026-05-18).
+   Every open `<dialog>` opened via `showModal()` paints its OWN
+   `::backdrop` in the browser's top layer. When dialogs stack (e.g.
+   omnisearch opens over the bundle modal; confirm-modal opens over
+   the bundle modal), backdrops composite naturally — no explicit
+   z-index dance required, no per-level CSS bump.
+   Compositing math at the current `--color-backdrop` values:
+     light theme (0.5 base): 1 - (1 - 0.5)^2 = 0.75 effective on the
+       second layer (+50% deeper than a single layer).
+     dark theme  (0.8 base): 1 - (1 - 0.8)^2 = 0.96 effective on the
+       second layer (near-opaque on stack).
+   Both light and dark already read as clearly stacked, so we keep
+   ONE `--color-backdrop` token and let the browser do the rest. If a
+   future redesign drops the single-layer opacity below ~0.4 the
+   stacked layer may stop reading distinctly — at that point introduce
+   a per-dialog override (e.g. `dialog.omnisearch-modal::backdrop` /
+   `dialog.confirm-modal::backdrop`) rather than altering the base. */
 dialog::backdrop {
   background: var(--color-backdrop);
 }
@@ -2863,6 +2901,29 @@ textarea.note-editor-source {
   /* Dashboard charts: full width stack */
   div[style*="display: flex"][style*="flex-wrap: wrap"] > div {
     min-width: 100% !important;
+  }
+
+  /* 2026-05-18 — /settings stack pane (Postgres+Redis on left, Meili+
+     Voyage+assets+notes on right) is a 3-column grid (`1fr 1px 1fr`)
+     defined by `.stack-pane-grid` with a `.stack-pane-divider` hairline
+     in the middle and `.stack-pane-column` left/right halves (see the
+     desktop rules earlier in this file + `_stack_pane.html.erb`). On
+     mobile the 3-col grid overflows; collapse to a single column, hide
+     the vertical hairline, and reintroduce the boundary as a 1px bottom
+     border on the LEFT column. No `!important` needed — these rules
+     come later in source order than the desktop classes at equal
+     specificity, so the cascade naturally favors them inside the media
+     query. */
+  .stack-pane-grid {
+    grid-template-columns: 1fr;
+  }
+  .stack-pane-divider {
+    display: none;
+  }
+  .stack-pane-grid > .stack-pane-column:first-child {
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 12px;
+    margin-bottom: 4px;
   }
 
   /* Reduce main padding */

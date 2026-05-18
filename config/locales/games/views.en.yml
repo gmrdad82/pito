@@ -17,7 +17,12 @@ en:
       recently_played_heading: "recently played"
       no_matches: "no games match this filter."
     omnisearch:
-      placeholder: "search games + bundles"
+      # Placeholder for the `:games_search` omnisearch modal (/games SPACE /).
+      # Intentionally distinct from sibling omnisearch placeholders
+      # (`games.search.placeholder_igdb`, `bundles.all_games.search_placeholder`)
+      # so the three surfaces can diverge independently without retroactive
+      # splits. Change each key on its own.
+      placeholder: "search games and bundles"
     show:
       ownership_heading: "ownership"
       summary_heading: "summary"

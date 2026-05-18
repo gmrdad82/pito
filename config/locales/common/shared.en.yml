@@ -42,7 +42,12 @@ en:
       refreshing: "refreshing from igdb…"
 
     search:
-      placeholder_igdb: "type to search igdb."
+      # Placeholder for the `:game_index` omnisearch modal (the [+] on /games).
+      # Intentionally distinct from sibling omnisearch placeholders
+      # (`games.omnisearch.placeholder`, `bundles.all_games.search_placeholder`)
+      # so the three surfaces can diverge independently without retroactive
+      # splits. Change each key on its own.
+      placeholder_igdb: "search games"
       no_results: "no results for '%{query}'."
       no_cover: "[?]"
 

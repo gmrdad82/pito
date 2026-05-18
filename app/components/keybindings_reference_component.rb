@@ -51,11 +51,20 @@ class KeybindingsReferenceComponent < ViewComponent::Base
       []
   end
 
-  # The leader-menu navigation hierarchy (root + submenus). Unchanged
-  # by this spec — the existing `menus:` block in
-  # `config/keybindings.yml` is the source.
-  def navigation_menus
-    config.fetch("menus", {})
+  # The leader-menu navigation list — flat 2-key bindings (2026-05-18).
+  # The earlier nested-submenu structure (root row → opens sub-menu →
+  # second key resolves the action) was dropped in favour of direct
+  # 2-key resolution. The root menu's `items` array is now the entire
+  # navigation surface; each item carries a `key` (one or two chars),
+  # a `label`, and an `action`. Divider entries (`{ divider: true }`)
+  # split the visual list into logical groups.
+  #
+  # The legacy `navigation_menus` accessor (returning the full `menus:`
+  # hash keyed by menu name) is gone — only `root` remains in the
+  # schema today, and callers that walked the menu hierarchy have no
+  # work to do.
+  def navigation_items
+    config.fetch("menus", {}).fetch("root", {}).fetch("items", [])
   end
 
   private

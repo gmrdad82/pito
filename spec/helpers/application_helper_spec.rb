@@ -12,20 +12,26 @@ RSpec.describe ApplicationHelper, type: :helper do
       expect(result).to include("bracketed")
     end
 
-    # Item 6 — On desktop, the full word renders inside .hide-mobile;
-    # on mobile, the short label renders inside .show-mobile. Both
-    # variants always live in the DOM so the toggle is pure CSS.
-    it "renders both desktop full label and mobile short label spans" do
+    # 2026-05-18 — Mobile-nav abbreviated labels were dropped per user
+    # decision. Both desktop and mobile now render the full bracketed
+    # label inside a single `.bl` span; the `.hide-mobile` /
+    # `.show-mobile` short-label markup is gone. The `short:` kwarg is
+    # retained on the helper signature for call-site backward
+    # compatibility but is ignored.
+    it "renders the full label inside the .bl span on both desktop and mobile (no .hide-mobile / .show-mobile)" do
       allow(helper).to receive(:current_page?).with("/channels").and_return(false)
-      result = helper.nav_link("channels", "/channels", short: "C")
-      expect(result).to include('<span class="hide-mobile">channels</span>')
-      expect(result).to include('<span class="show-mobile">C</span>')
+      result = helper.nav_link("channels", "/channels")
+      expect(result).to include('[<span class="bl">channels</span>]')
+      expect(result).not_to include("hide-mobile")
+      expect(result).not_to include("show-mobile")
     end
 
-    it "defaults the short label to the uppercased first character of the full label" do
+    it "ignores the `short:` kwarg (backward-compat shim — same markup as without it)" do
       allow(helper).to receive(:current_page?).with("/projects").and_return(false)
-      result = helper.nav_link("projects", "/projects")
-      expect(result).to include('<span class="show-mobile">P</span>')
+      with_short = helper.nav_link("projects", "/projects", short: "P")
+      without_short = helper.nav_link("projects", "/projects")
+      expect(with_short).to eq(without_short)
+      expect(with_short).not_to include("show-mobile")
     end
 
     it "returns a bracketed bold span when on the current page" do
@@ -34,16 +40,6 @@ RSpec.describe ApplicationHelper, type: :helper do
       expect(result).to include("bracketed-active")
       expect(result).to include("home")
       expect(result).not_to include("<a")
-    end
-
-    it "treats short: '' as desktop-only — no mobile label rendered" do
-      # Used for the [home] nav link: the logo image already routes
-      # home, so on mobile we omit the bracketed label entirely. The
-      # helper still emits the desktop label inside .hide-mobile.
-      allow(helper).to receive(:current_page?).with("/").and_return(false)
-      result = helper.nav_link("home", "/", short: "")
-      expect(result).to include('<span class="hide-mobile">home</span>')
-      expect(result).not_to include('class="show-mobile"')
     end
 
     # The notifications navbar entry passes a `data: { action: ... }`
