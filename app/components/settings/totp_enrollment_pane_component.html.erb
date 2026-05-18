@@ -1,0 +1,32 @@
+<h2 style="margin-top: 0;">scan</h2>
+<%# QR codes need black-on-white contrast to scan reliably. The
+    dark theme renders the page on a dark background which makes
+    the SVG (black modules on transparent) unreadable. Wrap the
+    SVG in a white-bg inline-block so the QR is always readable
+    regardless of theme. %>
+<div style="margin: 8px 0;">
+  <div style="background: #ffffff; padding: 8px; display: inline-block;">
+    <%= qr_svg %>
+  </div>
+</div>
+
+<p class="text-muted" style="margin-top: 8px;">
+  or paste this seed manually:
+</p>
+<pre style="font-size: 14px; padding: 8px; white-space: pre-wrap; word-break: break-all;"><%= @seed %></pre>
+
+<hr class="hairline">
+
+<h2 style="margin-top: 0;">enter code</h2>
+<%= form_with url: settings_security_totp_path, method: :post, data: { turbo: false } do %>
+  <div style="margin-bottom: 8px;">
+    <%= label_tag :code, "6-digit code from your authenticator app" %><br>
+    <%= text_field_tag :code, nil,
+                       autocomplete: "one-time-code",
+                       inputmode: "numeric",
+                       pattern: "\\d{6}",
+                       maxlength: 6,
+                       autofocus: true %>
+  </div>
+  <button type="submit" class="bracketed" style="cursor: pointer;">[<span class="bl">enable 2FA</span>]</button>
+<% end %>

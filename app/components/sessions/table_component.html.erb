@@ -1,0 +1,67 @@
+<% if sessions.any? %>
+  <%# Idle bulk-revoke toolbar — `[revoke]` muted/non-clickable
+      until at least one checkbox is ticked. The
+      `sessions-bulk-revoke` Stimulus controller mutates the
+      anchor's text + classes in place as the selection changes.
+      Clicking the live `[revoke N]` link opens the in-page
+      `<dialog>` confirm modal mounted at the bottom of this
+      pane (no navigation — the old action-screen page is gone). %>
+  <div class="bulk-toolbar" style="margin-bottom: 6px;">
+    <span class="action">
+      <a data-sessions-bulk-revoke-target="link" class="bracketed-muted">[revoke]</a>
+    </span>
+  </div>
+
+  <%# Tight table — mirrors the `/channels` density. Columns:
+      checkbox / user-agent / pinged.
+
+      2026-05-16 (sessions revamp v2 polish): the standalone `ip`
+      column is gone. The IP value is now an inline
+      `TooltipBadgeComponent` rendered at the END of the
+      user-agent cell — `[ip]` reveals the address on hover.
+      The current-row `(this session)` muted text is replaced by
+      a `[this]` neutral status badge sitting after the `[ip]`
+      badge. The `sessions.ip` database column is UNTOUCHED —
+      only the rendered column is dropped.
+
+      The `active` column was dropped earlier (the visible set is
+      filtered to active-only) and the `remember` column was
+      dropped along with the `sessions.remember` database column.
+      Sortable headers drive `?sessions_sort=<key>&sessions_dir=
+      <asc|desc>` on `/settings` itself. %>
+  <div class="sessions-table-wrap">
+  <table class="sessions-table" style="table-layout: auto;">
+    <thead>
+      <tr>
+        <th class="col-action">
+          <%= render(CheckboxComponent.new(data: { sessions_bulk_revoke_target: "headerCheckbox", action: "change->sessions-bulk-revoke#toggleAll" })) %>
+        </th>
+        <th class="sortable"><%= helpers.sort_link_to("user-agent", "user_agent", current_sort: sessions_sort, current_dir: sessions_dir, sort_param: "sessions_sort", dir_param: "sessions_dir") %></th>
+        <th class="sortable num"><%= helpers.sort_link_to("pinged", "last_activity", current_sort: sessions_sort, current_dir: sessions_dir, sort_param: "sessions_sort", dir_param: "sessions_dir") %></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% sessions.each do |s| %>
+        <tr>
+          <td class="col-action">
+            <%= render(CheckboxComponent.new(
+              value: s.id,
+              data: {
+                sessions_bulk_revoke_target: "checkbox",
+                action: "change->sessions-bulk-revoke#toggle",
+                current: current_flag(s)
+              }
+            )) %>
+          </td>
+          <td style="max-width: 360px; white-space: normal;">
+            <code><%= s.user_agent.presence || "—" %></code><%= render(TooltipBadgeComponent.new(label: "ip", tooltip: s.ip || "—", variant: :code)) %><% if current?(s) %><%= render(StatusBadgeComponent.new(label: "this", kind: :strong)) %><% end %>
+          </td>
+          <td class="num"><%= helpers.compact_time_ago(s.last_activity_at) %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+  </div>
+<% else %>
+  <p class="text-muted" style="margin: 0;">no active sessions.</p>
+<% end %>

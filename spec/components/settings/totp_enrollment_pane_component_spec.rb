@@ -1,0 +1,60 @@
+require "rails_helper"
+
+RSpec.describe Settings::TotpEnrollmentPaneComponent, type: :component do
+  let(:totp_uri) { "otpauth://totp/pito:alice?secret=JBSWY3DPEHPK3PXP&issuer=pito" }
+  let(:seed) { "JBSWY3DPEHPK3PXP" }
+
+  before { render_inline(described_class.new(totp_uri: totp_uri, seed: seed)) }
+
+  it "wraps the QR in a white-bg inline-block (dark-mode contrast invariant)" do
+    expect(page).to have_css(
+      'div[style*="background: #ffffff"][style*="display: inline-block"]'
+    )
+  end
+
+  it "renders an <svg> inside the QR wrapper (proxy that RQRCode rendered)" do
+    expect(page).to have_css(
+      'div[style*="background: #ffffff"] svg', visible: :all
+    )
+  end
+
+  it "renders the seed verbatim inside the <pre> fallback block" do
+    expect(page).to have_css("pre", text: seed)
+  end
+
+  it "posts the enter-code form to settings_security_totp_path (/settings/security/totp)" do
+    expect(page).to have_css('form[action="/settings/security/totp"][method="post"]')
+  end
+
+  it "uses form_with so Rails CSRF protection is engaged (no opt-out)" do
+    # `render_inline` does not engage the controller's
+    # `protect_against_forgery` instrumentation, so the rendered HTML
+    # does NOT contain the authenticity_token <input> the live page
+    # emits. What we CAN lock down here is that the form is not
+    # opting out of CSRF — i.e. there is no `authenticity_token=false`
+    # render path and no `data-turbo` Turbo-Stream submission that
+    # would route around the token check. The form_with above sets
+    # `data-turbo="false"`, so a real submission goes through the
+    # standard Rails CSRF-protected POST.
+    expect(page).to have_css('form[action="/settings/security/totp"][data-turbo="false"]')
+    expect(page).to have_no_css('form[authenticity_token="false"]')
+  end
+
+  it "renders the 6-digit code input with the documented constraints" do
+    # The `pattern="\d{6}"` attribute lives on `#code`. Capybara CSS
+    # attribute selectors choke on the backslash in `\d{6}`, so assert
+    # the structural fields (id / name / inputmode / maxlength /
+    # autocomplete) via CSS and the pattern via XPath.
+    expect(page).to have_css(
+      'input#code[name="code"][inputmode="numeric"][maxlength="6"][autocomplete="one-time-code"]',
+      visible: :all
+    )
+    expect(page).to have_xpath(
+      '//input[@id="code" and @pattern="\d{6}"]', visible: :all
+    )
+  end
+
+  it "renders the [enable 2FA] submit button" do
+    expect(page).to have_css('button[type="submit"].bracketed', text: "enable 2FA")
+  end
+end

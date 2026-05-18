@@ -1,0 +1,38 @@
+<%# CSS composite: each game positioned per the cells map. The
+    wrapper holds the 3:4 canvas (matches the libvips render
+    proportions); each cell anchors to a percentage rect so the
+    composite scales fluidly with the modal width.
+
+    Outer border + 2px radius live in the `.bundle-modal-composite`
+    CSS rule (theme-aware via `--color-cover-border`, matching the
+    shared shelf cover edge). `overflow: hidden` on the wrapper
+    clips per-cell rounded corners to the composite outline. Inline
+    style retains only the per-instance positional bits.
+
+    Every cell cover-art `<img>` picks up its own 2px radius + theme
+    border via the `.bundle-modal-cell img` CSS rule, matching the
+    shelf cover treatment. %>
+<div class="bundle-modal-composite"
+     style="width: 100%; aspect-ratio: 3 / 4;">
+  <% first_nine.each_with_index do |game, i| %>
+    <% cell = cells[i] %>
+    <% next unless cell %>
+    <a href="<%= game_path(game) %>"
+       class="bundle-modal-cell"
+       style="position: absolute; left: <%= cell[:x] * 100 %>%; top: <%= cell[:y] * 100 %>%; width: <%= cell[:w] * 100 %>%; height: <%= cell[:h] * 100 %>%;"
+       data-turbo-frame="_top"
+       title="<%= game.title %>">
+      <% cover_src = cover_url_for(game) %>
+      <% if cover_src %>
+        <%# Prefer the normalized local master at
+            `/covers/games/<id>/master.jpg` (600×800 q95). Falls back
+            to IGDB `t_cover_big_2x` (528×748) for games whose master
+            has not been generated yet. %>
+        <%= image_tag cover_src,
+                      alt: game.title,
+                      loading: "lazy",
+                      style: "width: 100%; height: 100%; object-fit: cover; display: block;" %>
+      <% end %>
+    </a>
+  <% end %>
+</div>
