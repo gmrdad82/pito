@@ -3546,11 +3546,24 @@ dialog.leader-menu-popup::backdrop {
                                      The partial emits a bare `<img>`
                                      with no class hook, so the rule
                                      anchors on the surrounding pane
-                                     structure instead. */
+                                     structure instead.
+     `.pane-row--game-show .pane--narrow .game-cover-detail > img`
+                                   — same IGDB cover IMG when wrapped
+                                     in the `.game-cover-detail`
+                                     container introduced by the
+                                     `/games/:id` show template (FN4).
+                                     The wrapper broke the original
+                                     direct-child combinator; this
+                                     selector re-applies the border to
+                                     the wrapped IMG. The bare-IMG
+                                     selector above is kept as a
+                                     defensive fallback for any future
+                                     un-wrapped cover render. */
 .game-cover-img,
 .tile-cover img,
 .bundle-cover-composite,
-.pane-row--game-show .pane--narrow > img {
+.pane-row--game-show .pane--narrow > img,
+.pane-row--game-show .pane--narrow .game-cover-detail > img {
   border: 1px solid var(--color-cover-border);
   border-radius: 2px;
 }
