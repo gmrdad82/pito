@@ -252,55 +252,19 @@
       <%= render(Games::TimeToBeatComponent.new(game: @game)) %>
     </section>
 
-    <%# 2026-05-18 — `bundles` section (DW slice). Two halves on a
-        single horizontal shelf row:
-          LEFT  — bundles the game is a MEMBER OF (`game.bundles`).
-                  Each tile opens the layout-level `<dialog
-                  id="bundles-modal">` (same trigger as `/games`).
-          RIGHT — up to 3 `Bundles::SuggestedFor` recommendations
-                  (nearest-neighbor cosine on the bundle centroid).
-                  Each tile is a `button_to` POSTing
-                  `/bundles/:slug/members?game_id=…&source=games_show`,
-                  adding the game and flashing
-                  "added to <bundle name>." on the next render.
-        Vertical hairline divider (`.bundles-section-divider`) sits
-        between halves ONLY when both halves render. If neither half
-        has rows the whole section (heading + hairline + shelf) is
-        skipped — no empty "bundles" heading. Tiles use the bare 98×130
-        cover (`size: :shelf`) matching the genre / similar shelves on
-        this page. The bundles modal partial + per-bundle confirm-delete
-        dialogs for the LEFT bundles are rendered as siblings at the
-        bottom of the page so the LEFT tiles' Stimulus trigger has the
-        dialog ids it needs. %>
-    <%
-      bundles_in   = @game.bundles.order(Arel.sql("LOWER(name)")).to_a
-      bundles_suggested_raw = Bundles::SuggestedFor.call(@game, limit: 3).to_a
-      bundles_suggested = bundles_suggested_raw - bundles_in
-    %>
+    <%# 2026-05-18 — `bundles` section (DW slice), extracted to
+        `Games::BundlesSectionComponent` (Beta-3 Lane B / B4). The
+        component owns the two upstream queries (`game.bundles` +
+        `Bundles::SuggestedFor.call(game, limit: 3)`), the subtraction
+        (`suggested - in`), the three render branches (both-empty
+        empty-tile, LEFT-only, RIGHT-only, both-with-divider), and the
+        per-half `Games::BundleTileComponent` mode selection (default
+        for LEFT, `mode: :suggest, target_game: game` for RIGHT). The
+        bundles modal partial + per-bundle confirm-delete `<dialog>`s
+        are rendered as SIBLINGS below the pane row so the native
+        `<dialog>` does not nest inside interactive content. %>
     <hr class="hairline">
-    <section class="game-bundles" aria-label="bundles">
-      <h2>bundles</h2>
-      <div class="shelf-row" data-controller="steam-shelf">
-        <% if bundles_in.any? || bundles_suggested.any? %>
-          <% bundles_in.each do |bundle| %>
-            <%= render(Games::BundleTileComponent.new(bundle: bundle)) %>
-          <% end %>
-          <% if bundles_in.any? && bundles_suggested.any? %>
-            <div class="bundles-section-divider" aria-hidden="true"></div>
-          <% end %>
-          <% bundles_suggested.each do |bundle| %>
-            <%= render(Games::BundleTileComponent.new(
-                  bundle: bundle,
-                  mode: :suggest, target_game: @game)) %>
-          <% end %>
-        <% else %>
-          <div class="shelf-empty-tile" aria-label="nothing yet">
-            <span>nothing</span>
-            <span>yet</span>
-          </div>
-        <% end %>
-      </div>
-    </section>
+    <%= render Games::BundlesSectionComponent.new(game: @game) %>
 
     <%# 2026-05-18 — `similar` section. Single shelf of up to 10
         pgvector-cosine-nearest games via `Games::SimilarGames`. The

@@ -1,0 +1,23 @@
+<section class="game-bundles" aria-label="bundles">
+  <h2>bundles</h2>
+  <div class="shelf-row" data-controller="steam-shelf">
+    <% if both_empty? %>
+      <div class="shelf-empty-tile" aria-label="nothing yet">
+        <span>nothing</span>
+        <span>yet</span>
+      </div>
+    <% else %>
+      <% bundles_in.each do |bundle| %>
+        <%= render(Games::BundleTileComponent.new(bundle: bundle)) %>
+      <% end %>
+      <% if render_divider? %>
+        <div class="bundles-section-divider" aria-hidden="true"></div>
+      <% end %>
+      <% bundles_suggested.each do |bundle| %>
+        <%= render(Games::BundleTileComponent.new(
+              bundle: bundle,
+              mode: :suggest, target_game: @game)) %>
+      <% end %>
+    <% end %>
+  </div>
+</section>
