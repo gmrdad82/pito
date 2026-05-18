@@ -60,21 +60,44 @@ module Igdb
     #   4 standalone_expansion | 5 mod | 6 episode | 7 season |
     #   8 remake | 9 remaster | 10 expanded_game | 11 port |
     #   12 fork | 13 pack | 14 update.
-    # `search_games` filters by the "main entries" subset by default
-    # so duplicates like "Pragmata Deluxe Edition" or
-    # "Red Dead Redemption II Ultimate Edition" don't clutter
-    # results. Callers can pass `include_editions: true` to disable
-    # the filter and receive every IGDB hit.
-    GAME_CATEGORY_MAIN     = 0
-    GAME_CATEGORY_REMAKE   = 8
-    GAME_CATEGORY_REMASTER = 9
-    GAME_CATEGORY_PORT     = 11
-    DEFAULT_SEARCH_CATEGORIES = [
-      GAME_CATEGORY_MAIN,
-      GAME_CATEGORY_REMAKE,
-      GAME_CATEGORY_REMASTER,
-      GAME_CATEGORY_PORT
-    ].freeze
+    #
+    # 2026-05-18 follow-up (per user direction) — the filter now
+    # reads `game_type` instead of `category`. IGDB introduced
+    # `game_type` as a successor to `category`; on the `search`
+    # endpoint, `category` hydrates as null for nearly every row
+    # (including bundles, DLC, packs, costumes — which is why the
+    # previous 2-pass filter was forced to fall back to "keep nulls"
+    # and bundles still leaked through). `game_type` is populated
+    # reliably on the same search-endpoint payload, with the same
+    # enum semantics — verified live for SF6 ids 191692 (main, 0),
+    # 239146 (bundle, 3), 256097 (bundle, 3) and the full
+    # search-endpoint result set. One pass against `game_type` now
+    # drops every non-primary entry cleanly.
+    #
+    # The constants are kept (and renamed) for documentation /
+    # future reuse. `DEFAULT_SEARCH_GAME_TYPES` is the single source
+    # of truth for the "main entries only" subset.
+    GAME_TYPE_MAIN_GAME      = 0
+    GAME_TYPE_DLC_ADDON      = 1
+    GAME_TYPE_EXPANSION      = 2
+    GAME_TYPE_BUNDLE         = 3
+    GAME_TYPE_REMAKE         = 8
+    GAME_TYPE_REMASTER       = 9
+    GAME_TYPE_EXPANDED_GAME  = 10
+    GAME_TYPE_PORT           = 11
+    GAME_TYPE_PACK           = 13
+    DEFAULT_SEARCH_GAME_TYPES = [ GAME_TYPE_MAIN_GAME ].freeze
+
+    # Back-compat aliases for any callers / specs referencing the
+    # old constant names. The values match the new `game_type` enum
+    # (same semantics — IGDB documents `game_type` as the successor
+    # to `category` with identical numeric assignments for the
+    # values we care about).
+    GAME_CATEGORY_MAIN     = GAME_TYPE_MAIN_GAME
+    GAME_CATEGORY_REMAKE   = GAME_TYPE_REMAKE
+    GAME_CATEGORY_REMASTER = GAME_TYPE_REMASTER
+    GAME_CATEGORY_PORT     = GAME_TYPE_PORT
+    DEFAULT_SEARCH_CATEGORIES = DEFAULT_SEARCH_GAME_TYPES
 
     GAME_FIELDS = %w[
       id name slug summary checksum first_release_date
@@ -107,25 +130,27 @@ module Igdb
 
       builder = Apicalypse.new
         .search(query)
-        .fields("id", "name", "slug", "cover.image_id", "first_release_date", "category")
+        .fields("id", "name", "slug", "cover.image_id", "first_release_date", "game_type")
         .limit(limit)
 
       unless include_editions
-        # Restrict to main entries + remakes / remasters / ports so
-        # "Deluxe Edition" / "Ultimate Edition" / "Definitive Edition"
-        # bundles, expansions, packs, etc. drop out of the result set.
+        # 2026-05-18 — single-pass `game_type` filter. IGDB's search
+        # endpoint hydrates `game_type` reliably for every row
+        # (unlike `category`, which is null for almost every search
+        # hit). `game_type = (0)` keeps only main games; bundles
+        # (3), DLC (1), packs (13), costumes / pack subtypes, ports
+        # (11), expanded-game variants (10), etc. drop out at the
+        # API layer. No second pass needed.
         #
-        # Null-tolerant: IGDB's `search` endpoint returns `category` as
-        # null for many top-level results (including main entries like
-        # Ghost of Tsushima id=75235). A strict `WHERE category = (…)`
-        # silently wipes every row that has a null category, so even
-        # the main-game hit disappears. The `| category = null` branch
-        # keeps those rows. Rows with an explicit non-matching category
-        # (bundles=3, packs=13, etc.) still drop out.
-        builder = builder.where("category = (#{DEFAULT_SEARCH_CATEGORIES.join(",")}) | category = null")
+        # Null-tolerant just in case IGDB ever ships a freshly
+        # indexed row before `game_type` is populated.
+        builder = builder.where("game_type = (#{DEFAULT_SEARCH_GAME_TYPES.join(",")}) | game_type = null")
       end
 
-      post("games", builder.to_s)
+      hits = post("games", builder.to_s)
+      return hits if include_editions || hits.empty?
+
+      denoise_by_name(hits)
     end
 
     def fetch_game(igdb_id)
@@ -229,6 +254,30 @@ module Igdb
     # fetchers are gone with it.
 
     private
+
+    # 2026-05-18 — secondary safety net on top of the IGDB `game_type`
+    # filter. Drops any non-top-result row whose name starts with the
+    # top result's name + ":". Catches edition / pack / DLC noise that
+    # IGDB occasionally mis-tags as `game_type = 0` (or that slips
+    # through with a null `game_type`).
+    #
+    # Example — search "street fighter 6":
+    #   top hit:           "Street Fighter 6"
+    #   drop:              "Street Fighter 6: Mad Gear Box"
+    #   drop:              "Street Fighter 6: Year 2 Character Pass"
+    #   keep:              "Street Fighter VI 12 Peoples"  (different prefix)
+    #
+    # Explicit edition searches (e.g. "street fighter 6: collector's
+    # edition") naturally bypass this: the top hit IS the edition, so
+    # the prefix doesn't match anything below it.
+    def denoise_by_name(rows)
+      return rows if rows.size <= 1
+      top = rows.first
+      top_name = top["name"].to_s
+      return rows if top_name.empty?
+      prefix = "#{top_name}:"
+      rows.reject { |row| !row.equal?(top) && row["name"].to_s.start_with?(prefix) }
+    end
 
     def valid_igdb_id?(value)
       value.is_a?(Integer) && value.positive?

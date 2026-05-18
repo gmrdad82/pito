@@ -2,15 +2,19 @@ import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
   static targets = ["table"]
-  static values = { id: String }
+  static values = { id: String, noUrl: { type: String, default: "no" } }
 
   connect() {
-    this._restoreFromHash()
-    window.addEventListener("hashchange", this._onHashChange)
+    if (!this._noUrl()) {
+      this._restoreFromHash()
+      window.addEventListener("hashchange", this._onHashChange)
+    }
   }
 
   disconnect() {
-    window.removeEventListener("hashchange", this._onHashChange)
+    if (!this._noUrl()) {
+      window.removeEventListener("hashchange", this._onHashChange)
+    }
   }
 
   _onHashChange = () => {
@@ -24,7 +28,17 @@ export default class extends Controller {
     const direction = wasAsc ? "desc" : "asc"
 
     this._sortByTh(th, direction)
-    this._updateHash(column, direction)
+    if (!this._noUrl()) this._updateHash(column, direction)
+  }
+
+  // 2026-05-18 — `data-sortable-table-no-url-value="yes"` opts a table
+  // out of the URL-hash sort persistence. Used by tables that live
+  // inside a modal (e.g. `Bundles::AllGamesTableComponent`) where
+  // mirroring sort state into the page URL is wrong: the modal opens
+  // and closes, but the URL would survive both. Honors the project's
+  // "yes / no for external booleans" convention.
+  _noUrl() {
+    return this.noUrlValue === "yes"
   }
 
   _sortByTh(th, direction) {

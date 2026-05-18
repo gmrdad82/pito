@@ -32,17 +32,29 @@ class BundleMembersController < ApplicationController
       return
     end
 
+    # 2026-05-18 — `source=games_show` opt-in: callers on /games/:id
+    # (the "suggested bundles" right-half tiles, via the suggest-mode
+    # `BundleTileComponent`'s `button_to`) want the redirect to land
+    # back on the game show page with "added to <bundle name>." in
+    # the flash, NOT on the bundle show page with "added <game title>."
+    # (the steady-state behavior the bundle-show add-member form
+    # depends on). Branch in one place; keep the existing flow intact
+    # for every caller that does not opt in.
+    from_games_show = params[:source].to_s == "games_show"
+    redirect_target = from_games_show ? game_path(game) : bundle_path(@bundle)
+
     if @bundle.bundle_members.exists?(game_id: game.id)
-      redirect_to bundle_path(@bundle), alert: "already a member.",
-                  status: :see_other
+      message = from_games_show ? "already in #{@bundle.name}." : "already a member."
+      redirect_to redirect_target, alert: message, status: :see_other
       return
     end
 
     member = @bundle.bundle_members.build(game_id: game.id)
     if member.save
-      redirect_to bundle_path(@bundle), notice: "added #{game.title}."
+      message = from_games_show ? "added to #{@bundle.name}." : "added #{game.title}."
+      redirect_to redirect_target, notice: message
     else
-      redirect_to bundle_path(@bundle),
+      redirect_to redirect_target,
                   alert: member.errors.full_messages.to_sentence,
                   status: :see_other
     end

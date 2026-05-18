@@ -17,9 +17,11 @@
 #
 # `TIER_BG_COLOR` is intentionally hard-coded to the project's vivid
 # dark-theme palette in both themes. The chip carries the bg color as
-# its only signal and the white text on a vivid background is the
-# canonical readable form regardless of page theme. Tier semantics
-# stay identical to the heat-bar; only the rendering surface differs.
+# its only signal and the black text on a vivid background is the
+# canonical readable form regardless of page theme — black gives
+# much higher contrast than white on the bright tier colors (yellow
+# / light green / orange). Tier semantics stay identical to the
+# heat-bar; only the rendering surface differs.
 #
 # Returns nothing when the game has no synthesized score (no IGDB
 # rating triplet with a positive vote count). The template branches on
@@ -29,9 +31,10 @@ module Games
   class RatingScoreChipComponent < ViewComponent::Base
     # Tier → background hex. Mirrors the dark-theme `--color-rating-*`
     # tokens (vivid pop) so the chip reads loudly in both light and
-    # dark themes. White chip text + a near-black 1px border (matches
+    # dark themes. Black chip text + a near-black 1px border (matches
     # the heat-bar score tick and the TTB pillar ticks for visual
-    # parity).
+    # parity); black on the bright tier colors reads much better
+    # than white.
     TIER_BG_COLOR = {
       "very_bad"  => "#7a2020",
       "bad"       => "#c08454",

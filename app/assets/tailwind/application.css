@@ -1610,6 +1610,25 @@ li.omnisearch-row:last-child {
   border-bottom: none;
 }
 
+/* 2026-05-18 — `:bundle_add` recommendations shelf.
+   Sits above the modal's search input. Reuses the shared
+   `.shelf-row` flex + horizontal-scroll behavior (with `steam-shelf`
+   for wheel-to-horizontal scroll) so the row scrolls within the
+   600px modal width when 10 tiles overflow. The heading reuses
+   `.omnisearch-section-heading` styling defined above; the wrapper
+   here only carries the bottom margin so the input stays visually
+   anchored beneath. */
+.omnisearch-recommendations {
+  margin-bottom: 12px;
+}
+.omnisearch-recommendations .shelf-row {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 6px;
+}
+
 /* 2026-05-18 — IGDB-search modal input clear (X) button.
    The browser-native `::-webkit-search-cancel-button` inherits the
    page's accent / link blue by default, which clashes with our
@@ -3571,16 +3590,19 @@ dialog.leader-menu-popup::backdrop {
 }
 
 /* Phase 27 §01h / Phase 27 follow-up (2026-05-17) — Bundle tile
-   composite cover. Fixed-pixel sizing matches the letter-shelf rich
-   tile cover (150 × 200) per the 2026-05-17 size sync — bundle tiles
-   align with the game-shelf cover size, not the genre-shelf cover
-   size. The wrapping `.bundle-tile` anchor carries the click
-   affordance (see `_bundle_for_shelf_tile.html.erb`). The composite
-   is built at 600 × 800 via `Composite::Builder`; the browser
-   downsamples to 150 × 200 here (3:4 aspect ratio preserved). */
+   composite cover. Sized to the WRAPPER (`.bundle-cover-wrap`) which
+   carries the inline `width: <N>px; height: <N>px` from
+   `Games::BundleTileComponent` — 150 × 200 for `size: :grid` (the
+   /games shelf), 98 × 130 for `size: :shelf` (the /games/:id bundles
+   section). The composite is built at 600 × 800 via
+   `Composite::Builder`; the browser downsamples to whichever physical
+   size the wrapper declares (3:4 aspect ratio preserved). Prior to
+   2026-05-18 this rule hardcoded 150 × 200 which forced every shelf
+   variant back to grid size — drop the fixed dimensions and let the
+   wrapper drive sizing. */
 .bundle-cover-composite {
-  width: 150px;
-  height: 200px;
+  width: 100%;
+  height: 100%;
   display: block;
   border-radius: 2px;
   object-fit: cover;
@@ -3619,6 +3641,105 @@ dialog.leader-menu-popup::backdrop {
   font-size: 11px;
   line-height: 1.4;
   padding: 0 5px;
+}
+
+/* 2026-05-18 — /games/:id bundles + similar shelves horizontal-scroll
+   restore. Both sections (`.game-bundles .shelf-row` and
+   `.game-similar .shelf-row`) are rendered as raw
+   `<div class="shelf-row" data-controller="steam-shelf">` in
+   `app/views/games/show.html.erb` — NOT through `Games::ShelfComponent`,
+   which is where the inline `display: flex; gap: ...; overflow-x: auto;
+   padding-bottom: 6px;` style normally comes from. Without that style
+   the bundle / similar tiles wrap onto multiple rows instead of
+   flowing into a single horizontal-scroll row like the /games shelves
+   above. Reapply the same flex chrome here scoped to these two
+   sections so the markup keeps its raw form (no spec churn on
+   `Games::ShelfComponent`) while the layout matches the rest of the
+   shelf family. `flex-wrap: nowrap` is explicit defense against any
+   future cascade that might re-enable wrap. */
+.game-bundles .shelf-row,
+.game-similar .shelf-row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+.game-bundles .shelf-row {
+  gap: 12px;
+  align-items: flex-start;
+}
+.game-bundles .shelf-row > * {
+  flex-shrink: 0;
+}
+.game-similar .shelf-row > * {
+  flex-shrink: 0;
+}
+
+/* 2026-05-18 — Vertical hairline divider between the two halves of
+   the /games/:id bundles section (`.game-bundles .shelf-row`). LEFT
+   half = bundles the game is a member of; RIGHT half = suggested
+   bundles. Theme-aware border via `--color-border`; sized to match
+   the bare 98×130 covers either side so it reads as a column rule,
+   not a horizontal line. `flex-shrink: 0` keeps it from collapsing
+   when the shelf row is tight. */
+.bundles-section-divider {
+  display: inline-block;
+  flex-shrink: 0;
+  align-self: center;
+  width: 1px;
+  height: 130px;
+  background-color: var(--color-border);
+  margin: 0 12px;
+}
+
+/* 2026-05-18 — Empty-state placeholder tile for the /games/:id
+   `bundles` and `similar` shelves. When neither half of `bundles`
+   has rows, or when `Games::SimilarGames` returns nothing (no
+   embedding yet / nothing comparable), the shelf still renders so
+   the page rhythm stays consistent — a single dashed-border tile
+   sits in place of real cover tiles, carrying muted copy like
+   "no bundles yet" / "nothing similar yet". Dimensions match the
+   bare 98×130 cover used by the populated tiles so the shelf-row
+   height does not collapse between empty and populated states. */
+.shelf-empty-tile {
+  width: 98px;
+  height: 130px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border: 1px dashed var(--color-border);
+  border-radius: 2px;
+  background-color: transparent;
+  color: var(--color-muted);
+  font-size: 11px;
+  padding: 8px;
+  flex-shrink: 0;
+  gap: 2px;
+}
+.shelf-empty-tile span {
+  display: block;
+  line-height: 1.3;
+}
+
+/* 2026-05-18 — Suggested-bundle tile (`mode: :suggest` branch of
+   `Games::BundleTileComponent`) renders as a `button_to` form whose
+   inner button carries `.bundle-tile-suggest-button`. Strip the
+   default browser button chrome so the form reads as a bare cover
+   matching the LEFT-half anchors. */
+.bundle-tile-suggest-button {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  display: block;
+  text-align: left;
 }
 
 /* 2026-05-17 — Bundle MODAL composite (CSS-positioned per-cell
@@ -4265,8 +4386,45 @@ input[type="text"].bundle-title-input:focus-visible {
    single source of truth for the chip's geometry + edge treatment,
    used wherever the rating chip surfaces (currently only this
    table; future surfaces opt in by rendering the component). */
-.all-games-col-check {
+/* 2026-05-18 — Fixed table layout so the title column fills all
+   remaining horizontal space inside the bundle modal. With
+   `table-layout: fixed` + `width: 100%`, the four non-title columns
+   take their declared widths and the title column absorbs the rest;
+   ellipsis only kicks in when the title is genuinely longer than
+   the absorbed space (replaces the prior 200px max-width cap that
+   left the title artificially narrow). Full title still accessible
+   via the cell's `title=""` hover tooltip set in the component
+   template. */
+table.all-games-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+table.all-games-table th.all-games-col-check,
+table.all-games-table td.all-games-col-check {
   width: 28px;
+}
+
+table.all-games-table th.all-games-col-genre,
+table.all-games-table td.all-games-col-genre {
+  width: 110px;
+}
+
+table.all-games-table th.all-games-col-release,
+table.all-games-table td.all-games-col-release {
+  width: 90px;
+}
+
+table.all-games-table th.all-games-col-score,
+table.all-games-table td.all-games-col-score {
+  width: 70px;
+}
+
+table.all-games-table td.all-games-col-title,
+table.all-games-table th.all-games-col-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 table.all-games-table td {
@@ -4277,16 +4435,19 @@ table.all-games-table td {
    `Games::RatingScoreChipComponent`. Background color is set inline
    per-instance from the tier map (TIER_BG_COLOR); the per-tier hex
    intentionally mirrors the dark-theme `--color-rating-*` palette
-   so the chip reads loudly in BOTH themes. Text is white + bold
-   over the vivid bg; the near-black 1px border mirrors the rating
-   heat-bar score tick and the TTB pillar tick treatments for
-   visual parity. */
+   so the chip reads loudly in BOTH themes. Text is black + bold
+   over the vivid bg (much higher contrast on bright tier colors
+   like yellow / light green / orange than white); the near-black
+   1px border mirrors the rating heat-bar score tick and the TTB
+   pillar tick treatments for visual parity. The darkest tier
+   (very_bad #7a2020) trades some legibility for palette
+   consistency — very_bad scores are rare. */
 .rating-score-chip {
   display: inline-block;
   padding: 1px 6px;
   border-radius: 2px;
   border: 1px solid #000000;
-  color: #ffffff;
+  color: #000000;
   font-weight: 700;
   font-size: 11px;
   line-height: 1.4;

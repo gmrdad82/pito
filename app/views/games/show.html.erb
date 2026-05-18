@@ -307,6 +307,86 @@
       <%= render(Games::TimeToBeatComponent.new(game: @game)) %>
     </section>
 
+    <%# 2026-05-18 — `bundles` section (DW slice). Two halves on a
+        single horizontal shelf row:
+          LEFT  — bundles the game is a MEMBER OF (`game.bundles`).
+                  Each tile opens the layout-level `<dialog
+                  id="bundles-modal">` (same trigger as `/games`).
+          RIGHT — up to 3 `Bundles::SuggestedFor` recommendations
+                  (nearest-neighbor cosine on the bundle centroid).
+                  Each tile is a `button_to` POSTing
+                  `/bundles/:slug/members?game_id=…&source=games_show`,
+                  adding the game and flashing
+                  "added to <bundle name>." on the next render.
+        Vertical hairline divider (`.bundles-section-divider`) sits
+        between halves ONLY when both halves render. If neither half
+        has rows the whole section (heading + hairline + shelf) is
+        skipped — no empty "bundles" heading. Tiles use the bare 98×130
+        cover (`size: :shelf`) matching the genre / similar shelves on
+        this page. The bundles modal partial + per-bundle confirm-delete
+        dialogs for the LEFT bundles are rendered as siblings at the
+        bottom of the page so the LEFT tiles' Stimulus trigger has the
+        dialog ids it needs. %>
+    <%
+      bundles_in   = @game.bundles.order(Arel.sql("LOWER(name)")).to_a
+      bundles_suggested_raw = Bundles::SuggestedFor.call(@game, limit: 3).to_a
+      bundles_suggested = bundles_suggested_raw - bundles_in
+    %>
+    <hr class="hairline">
+    <section class="game-bundles" aria-label="bundles">
+      <h2>bundles</h2>
+      <div class="shelf-row" data-controller="steam-shelf">
+        <% if bundles_in.any? || bundles_suggested.any? %>
+          <% bundles_in.each do |bundle| %>
+            <%= render(Games::BundleTileComponent.new(bundle: bundle)) %>
+          <% end %>
+          <% if bundles_in.any? && bundles_suggested.any? %>
+            <div class="bundles-section-divider" aria-hidden="true"></div>
+          <% end %>
+          <% bundles_suggested.each do |bundle| %>
+            <%= render(Games::BundleTileComponent.new(
+                  bundle: bundle,
+                  mode: :suggest, target_game: @game)) %>
+          <% end %>
+        <% else %>
+          <div class="shelf-empty-tile" aria-label="nothing yet">
+            <span>nothing</span>
+            <span>yet</span>
+          </div>
+        <% end %>
+      </div>
+    </section>
+
+    <%# 2026-05-18 — `similar` section. Single shelf of up to 10
+        pgvector-cosine-nearest games via `Games::SimilarGames`. The
+        whole section (heading + hairline + shelf) is skipped when the
+        service returns an empty list (e.g., game has no embedding yet
+        or no other embedded rows to compare against), so the page
+        does not display an empty "similar" heading. Tiles render via
+        `Games::GenreTileComponent` — the bare-cover style used in
+        genre sub-shelves (98×130). Click navigates to `/games/:slug`
+        via the CoverComponent's `_top` turbo-frame escape. Sits below
+        the (future) bundles section and above videos so the
+        right-pane order reads: summary → TTB → bundles → similar →
+        videos. %>
+    <% similar = Games::SimilarGames.call(@game, limit: 10) %>
+    <hr class="hairline">
+    <section class="game-similar" aria-label="similar games">
+      <h2>similar</h2>
+      <div class="shelf-row" data-controller="steam-shelf">
+        <% if similar.any? %>
+          <% similar.each do |game| %>
+            <%= render Games::GenreTileComponent.new(game: game) %>
+          <% end %>
+        <% else %>
+          <div class="shelf-empty-tile" aria-label="nothing yet">
+            <span>nothing</span>
+            <span>yet</span>
+          </div>
+        <% end %>
+      </div>
+    </section>
+
     <%# 2026-05-17 item 9 of the /games/:id reshape list — videos
         section is reduced to a TBD placeholder living in the RIGHT
         pane below the TTB fuel gauge. The old standalone `.pane-row`
@@ -375,3 +455,26 @@
       destructive: true,
       modal_actions_key: "sync_confirm"
     )) %>
+
+<%# 2026-05-18 — bundles modal + per-bundle confirm-delete dialogs for
+    the bundles section above (DW slice). Rendered only when the game
+    is in at least one bundle (the LEFT-half tiles are the only ones
+    that open the modal; the RIGHT-half suggested tiles POST directly).
+    The modal partial is a no-op when no tile opens it; rendering the
+    per-bundle confirm-delete dialogs gives the modal's `[-]` button a
+    matching `<dialog id="confirm_delete_bundle_<id>">` target. %>
+<% if @game.bundles.exists? %>
+  <% @game.bundles.each do |bundle| %>
+    <%= render(ConfirmModalComponent.new(
+          id: "confirm_delete_bundle_#{bundle.id}",
+          title: "delete #{bundle.name}?",
+          body: "this action cannot be undone.",
+          confirm_label: "delete",
+          cancel_label: "cancel",
+          confirm_path: bundle_path(bundle),
+          confirm_method: :delete,
+          destructive: true,
+          modal_actions_key: "bundle_delete_confirm")) %>
+  <% end %>
+  <%= render "games/bundles_modal" %>
+<% end %>

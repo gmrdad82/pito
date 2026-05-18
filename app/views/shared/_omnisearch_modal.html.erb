@@ -53,6 +53,39 @@
         data-omnisearch-modal-frame-id-value="<%= results_frame_id %>"
         data-action="click->omnisearch-modal#clickOutside keydown->omnisearch-modal#keydown">
   <div class="omnisearch-modal-inner">
+    <%# 2026-05-18 — `:bundle_add` recommendations shelf.
+        Sits ABOVE the search input so opening the modal already
+        surfaces 10 semantically-similar games (centroid of bundle
+        members' Voyage embeddings → cosine nearest neighbors via
+        `Bundles::Recommender`). Click a cover to POST the game to
+        /bundles/:bundle_id/members through the `bundle-add-trigger`
+        Stimulus controller — no navigation, the modal stays open
+        and the page reloads on success.
+
+        Empty / zero-embedded-members bundles skip the shelf
+        entirely (Recommender returns `Game.none`, the `.any?` guard
+        prevents an empty section from rendering). %>
+    <% _mode_value = local_assigns[:mode] %>
+    <% _bundle_value = local_assigns[:bundle] %>
+    <% if _mode_value == :bundle_add && _bundle_value && (recommended = Bundles::Recommender.call(_bundle_value, limit: 10)).any? %>
+      <section class="omnisearch-recommendations" aria-label="similar to this bundle">
+        <h3 class="omnisearch-section-heading">similar to your bundle</h3>
+        <div class="shelf-row" data-controller="steam-shelf">
+          <% recommended.each do |game| %>
+            <%= render Games::GenreTileComponent.new(
+                  game: game,
+                  link_to: nil,
+                  data: {
+                    controller: "bundle-add-trigger",
+                    "bundle-add-trigger-bundle-id-value": _bundle_value.id,
+                    "bundle-add-trigger-game-id-value": game.id,
+                    action: "click->bundle-add-trigger#add"
+                  }
+                ) %>
+          <% end %>
+        </div>
+      </section>
+    <% end %>
     <input type="search"
            class="omnisearch-input"
            placeholder="<%= placeholder %>"

@@ -19,15 +19,68 @@
 # id="bundles-modal">` and points its Turbo Frame `src` at
 # `/bundles/<id>/games_pane`. The href fallback (`/bundles/<slug>`)
 # keeps the link meaningful for JS-off users and screen readers.
+#
+# 2026-05-18 — `size:` + `mode:` extension for the /games/:id bundles
+# section:
+#   * `size: :grid` (default) — 150 × 200 composite with caption beneath
+#     (existing /games shelf treatment).
+#   * `size: :shelf` — 98 × 130 bare composite, no caption (genre-shelf
+#     parity for the /games/:id row of "bundles this game is in" and
+#     "suggested bundles").
+#   * `mode: :default` (existing) — anchor opens the layout-level
+#     bundles modal.
+#   * `mode: :suggest` — button_to POST `/bundles/:id/members?game_id=…`
+#     so clicking adds the supplied `target_game:` to the bundle. Used
+#     by the right-half of the /games/:id bundles section.
 module Games
   class BundleTileComponent < ViewComponent::Base
-    def initialize(bundle:)
+    SIZES = {
+      grid:  { width: 150, height: 200, fallback_variant: "grid",  show_caption: true },
+      shelf: { width: 98,  height: 130, fallback_variant: "shelf", show_caption: false }
+    }.freeze
+
+    def initialize(bundle:, size: :grid, mode: :default, target_game: nil)
       @bundle = bundle
+      @size = size.to_sym
+      unless SIZES.key?(@size)
+        raise ArgumentError,
+              "Unknown bundle tile size #{size.inspect} (expected one of #{SIZES.keys.inspect})"
+      end
+      @mode = mode.to_sym
+      unless %i[default suggest].include?(@mode)
+        raise ArgumentError,
+              "Unknown bundle tile mode #{mode.inspect} (expected :default or :suggest)"
+      end
+      if @mode == :suggest && target_game.nil?
+        raise ArgumentError, "bundle tile mode :suggest requires target_game:"
+      end
+      @target_game = target_game
+      @dims = SIZES.fetch(@size)
     end
 
     private
 
-    attr_reader :bundle
+    attr_reader :bundle, :size, :mode, :target_game
+
+    def width
+      @dims[:width]
+    end
+
+    def height
+      @dims[:height]
+    end
+
+    def fallback_variant
+      @dims[:fallback_variant]
+    end
+
+    def show_caption?
+      @dims[:show_caption]
+    end
+
+    def suggest_mode?
+      @mode == :suggest
+    end
 
     # Number of bundle members HIDDEN behind the 9-grid composite.
     # A 10-member bundle reads `+1`, an 11-member bundle reads `+2`,
@@ -74,6 +127,18 @@ module Games
     # opens the matching dialog for the currently-opened bundle.
     def delete_confirm_id
       "confirm_delete_bundle_#{bundle.id}"
+    end
+
+    # POST endpoint for `mode: :suggest`. Adds the supplied
+    # `target_game:` to this bundle. The controller branches on the
+    # `source` param so the post-create redirect lands back on
+    # /games/:id (vs the steady-state bundle_path redirect).
+    def add_member_url
+      helpers.bundle_members_path(bundle_slug)
+    end
+
+    def aria_label
+      suggest_mode? ? "add to #{bundle.name}" : bundle.name
     end
   end
 end
