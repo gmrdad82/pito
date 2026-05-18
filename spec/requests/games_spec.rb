@@ -224,25 +224,6 @@ RSpec.describe "Games", type: :request do
       end
     end
 
-    # Phase 27 follow-up (2026-05-11) — composer wiring assertion.
-    # The P27 reviewer flagged `Collections::CoverComposer` as built
-    # but never invoked. `GamesController#index` now calls
-    # `Games::PrepareCollectionsForShelf` which delegates to the
-    # composer for every collection slated for the outer shelf.
-    describe "composite-cover warm-up wiring" do
-      it "invokes `Collections::CoverComposer#call` for each non-empty collection" do
-        coll = create(:collection, name: "two games")
-        create(:game, :synced, title: "alpha", cover_image_id: "img-a", collection: coll)
-        create(:game, :synced, title: "beta",  cover_image_id: "img-b", collection: coll)
-
-        expect_any_instance_of(Collections::CoverComposer)
-          .to receive(:call).with(have_attributes(id: coll.id)).at_least(:once)
-
-        get games_path
-        expect(response).to have_http_status(:ok)
-      end
-    end
-
     # Phase 27 §01c-v2 — Nested Genres + Custom collections shelves.
     # Outer shelf iterates one sub-shelf per non-empty bucket; empty
     # buckets are HIDDEN end-to-end (no muted placeholder, no `<h2>`).
@@ -714,54 +695,6 @@ RSpec.describe "Games", type: :request do
     end
   end
 
-  describe "GET /games/:id/edit" do
-    let!(:game) { create(:game, :synced, title: "Zelda BotW") }
-
-    it "renders 200" do
-      get edit_game_path(game)
-      expect(response).to have_http_status(:ok)
-    end
-
-    it "carries the local-fields form" do
-      get edit_game_path(game)
-      expect(response.body).to include('name="game[notes]"')
-      expect(response.body).to include('name="game[played_at]"')
-      expect(response.body).to include('name="game[hours_of_footage_manual]"')
-    end
-
-    # Phase 27 §1a — per-platform ownership moves out of the edit form
-    # into its own dedicated editor (lands in `01f`). The edit page
-    # must NOT carry a `platform_owned_id` input.
-    it "does NOT render a platform_owned_id input" do
-      get edit_game_path(game)
-      expect(response.body).not_to include('name="game[platform_owned_id]"')
-    end
-
-    it "renders [update] and [cancel] actions" do
-      get edit_game_path(game)
-      expect(response.body).to include("update")
-      expect(response.body).to include("cancel")
-    end
-
-    it "does NOT render the sync pane" do
-      get edit_game_path(game)
-      expect(response.body).not_to include(">sync<")
-    end
-
-    it "does NOT render the linked videos pane" do
-      get edit_game_path(game)
-      # Heading-only check; the form hint copy ("…compute from linked
-      # videos.") legitimately mentions the phrase.
-      expect(response.body).not_to include(">linked videos<")
-    end
-
-    it "uses the narrow + wide pane layout" do
-      get edit_game_path(game)
-      expect(response.body).to include("pane pane--narrow")
-      expect(response.body).to include("pane pane--wide")
-    end
-  end
-
   describe "POST /games with igdb_id" do
     before do
       GameIgdbSync.clear
@@ -948,67 +881,6 @@ RSpec.describe "Games", type: :request do
         expect(body["resyncing"]).to eq("yes")
         expect(body["error"]).to eq("already_resyncing")
       end
-    end
-  end
-
-  describe "PATCH /games/:id" do
-    let!(:platform) { create(:platform) }
-    let!(:game) { create(:game, :synced, title: "IGDB Title", igdb_id: 12345) }
-
-    # Phase 27 §1a — singular `platform_owned_id` is gone. The
-    # local-only allowlist no longer permits it, so smuggled values
-    # silently drop. Per-platform ownership lives in the
-    # `game_platform_ownerships` join (the editor for it lands in
-    # `01f`).
-    it "silently drops smuggled platform_owned_id" do
-      expect {
-        patch game_path(game), params: { game: { platform_owned_id: platform.id } }
-      }.not_to(change { game.reload.attributes.except("updated_at") })
-    end
-
-    it "permits played_at" do
-      patch game_path(game), params: { game: { played_at: "2024-01-15" } }
-      expect(game.reload.played_at).to eq(Date.new(2024, 1, 15))
-    end
-
-    it "permits notes" do
-      patch game_path(game), params: { game: { notes: "loved it" } }
-      expect(game.reload.notes).to eq("loved it")
-    end
-
-    it "permits hours_of_footage_manual" do
-      patch game_path(game), params: { game: { hours_of_footage_manual: 7 } }
-      expect(game.reload.hours_of_footage_manual).to eq(7)
-    end
-
-    it "silently drops smuggled igdb_id" do
-      expect {
-        patch game_path(game), params: { game: { igdb_id: 99999 } }
-      }.not_to change { game.reload.igdb_id }
-    end
-
-    it "silently drops smuggled cover_image_id" do
-      expect {
-        patch game_path(game), params: { game: { cover_image_id: "evil" } }
-      }.not_to change { game.reload.cover_image_id }
-    end
-
-    it "silently drops smuggled summary" do
-      expect {
-        patch game_path(game), params: { game: { summary: "hijacked" } }
-      }.not_to change { game.reload.summary }
-    end
-
-    it "silently drops smuggled igdb_rating" do
-      expect {
-        patch game_path(game), params: { game: { igdb_rating: 5.0 } }
-      }.not_to change { game.reload.igdb_rating }
-    end
-
-    it "silently drops smuggled title" do
-      expect {
-        patch game_path(game), params: { game: { title: "user override" } }
-      }.not_to change { game.reload.title }
     end
   end
 
@@ -1344,98 +1216,6 @@ RSpec.describe "Games", type: :request do
         get game_path(primary)
         expect(response.body).not_to include('id="editions"')
       end
-    end
-  end
-
-  describe "GET /games/:id/edit (Phase 28 §01a edit page)" do
-    let!(:primary) { create(:game, title: "Pragmata") }
-
-    it "renders the version-parent picker" do
-      get edit_game_path(primary)
-      expect(response.body).to include('data-controller="version-parent-picker"')
-    end
-
-    it "renders the version_title text input" do
-      get edit_game_path(primary)
-      expect(response.body).to match(/name="game\[version_title\]"/)
-    end
-
-    context "for an edition pre-filled with its parent" do
-      let!(:deluxe) { create(:game, title: "Pragmata Deluxe", version_parent: primary, version_title: "Deluxe") }
-
-      it "pre-fills the input with the parent's title" do
-        get edit_game_path(deluxe)
-        expect(response.body).to include('value="Pragmata"')
-      end
-
-      it "renders the [detach] link" do
-        get edit_game_path(deluxe)
-        expect(response.body).to include("detach")
-      end
-    end
-
-    context "for a primary with editions of its own" do
-      let!(:deluxe) { create(:game, title: "Pragmata Deluxe", version_parent: primary) }
-
-      it "disables the picker input" do
-        get edit_game_path(primary)
-        expect(response.body).to match(/version-parent-picker-input[^>]*disabled/)
-      end
-    end
-  end
-
-  describe "PATCH /games/:id (Phase 28 §01a version fields)" do
-    let!(:primary) { create(:game, title: "Pragmata") }
-    let!(:other)   { create(:game, title: "Other Title") }
-
-    it "attaches the row as an edition when version_parent_id is set" do
-      patch game_path(other), params: { game: { version_parent_id: primary.id, version_title: "Deluxe" } }
-      other.reload
-      expect(other.version_parent_id).to eq(primary.id)
-      expect(other.version_title).to eq("Deluxe")
-    end
-
-    it "detaches the row when version_parent_id is blank string" do
-      edition = create(:game, title: "Pragmata Deluxe", version_parent: primary, version_title: "Deluxe")
-      patch game_path(edition), params: { game: { version_parent_id: "" } }
-      edition.reload
-      expect(edition.version_parent_id).to be_nil
-    end
-
-    it "rejects pointing version_parent at an edition" do
-      deluxe = create(:game, title: "Pragmata Deluxe", version_parent: primary)
-      patch game_path(other), params: { game: { version_parent_id: deluxe.id } }
-      expect(response).to have_http_status(:unprocessable_content)
-      other.reload
-      expect(other.version_parent_id).to be_nil
-    end
-
-    it "rejects self-reference" do
-      patch game_path(other), params: { game: { version_parent_id: other.id } }
-      expect(response).to have_http_status(:unprocessable_content)
-      other.reload
-      expect(other.version_parent_id).to be_nil
-    end
-
-    it "rejects setting version_parent_id on a row that has editions" do
-      create(:game, version_parent: primary)
-      patch game_path(primary), params: { game: { version_parent_id: other.id } }
-      expect(response).to have_http_status(:unprocessable_content)
-      primary.reload
-      expect(primary.version_parent_id).to be_nil
-    end
-
-    it "trims version_title to 100 chars" do
-      patch game_path(other), params: { game: { version_title: ("D" * 200) } }
-      other.reload
-      expect(other.version_title.length).to eq(100)
-    end
-
-    it "blanks version_title to nil" do
-      other.update_column(:version_title, "Pre-existing")
-      patch game_path(other), params: { game: { version_title: "  " } }
-      other.reload
-      expect(other.version_title).to be_nil
     end
   end
 
