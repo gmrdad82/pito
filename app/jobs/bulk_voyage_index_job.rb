@@ -53,7 +53,16 @@ class BulkVoyageIndexJob < ApplicationJob
     # snapshot to every open `/settings` tab. One broadcast per corpus
     # (NOT per record) — the prior per-row fan-out reasoning above
     # applies in reverse: 128 records → 1 broadcast, not 128.
+    #
+    # Two-broadcast pattern (see `StackStatsBroadcastJob`):
+    # - Immediate: captures the DB-state cells (Voyage embeddings,
+    #   Meilisearch counts) that are already final by the time the
+    #   bulk indexer returned.
+    # - Delayed 1s: captures the Sidekiq `busy` counter AFTER this
+    #   worker thread releases its slot (the immediate broadcast
+    #   still counts this worker as busy).
     StackStats::Broadcaster.broadcast!
+    StackStatsBroadcastJob.set(wait: 1.second).perform_later
   end
 
   private

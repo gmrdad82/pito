@@ -12,7 +12,7 @@
 # layer. The two record types are distinguished by the `kind`
 # discriminator (`"game"` vs `"bundle"`). Game docs keep their raw
 # numeric `id` as the primary key; Bundle docs use a namespaced
-# `"bundle:<id>"` to avoid collisions.
+# `"bundle_<id>"` (underscore — Meilisearch rejects `:` in doc ids).
 #
 # First-write self-configures the index: on every call we update the
 # searchable + filterable + sortable attribute lists. Meilisearch's
@@ -99,7 +99,24 @@ module Meilisearch
     end
 
     def push_document(url)
-      uri = URI.parse("#{url}/indexes/#{index_name}/documents")
+      # 2026-05-18 (DR follow-up #2) — explicit `?primaryKey=id` is
+      # MANDATORY. The document carries multiple `*_id` fields
+      # (`id`, `igdb_id`, `bundle_id`, `developer_id`, `publisher_id`,
+      # `primary_genre_id`); when no primary key is configured on the
+      # index, Meilisearch tries to infer one from the field names,
+      # sees the ambiguity, and rejects the ENTIRE batch with
+      # `index_primary_key_multiple_candidates_found`. The result was
+      # 0 documents indexed even though every push returned 202 — the
+      # failure surfaces only when polling the task status, which the
+      # indexer does not do.
+      #
+      # The `?primaryKey=id` query param is idempotent: on the first
+      # write it locks the index's primary key to `id`; subsequent
+      # writes pass the same value, which Meilisearch accepts as a
+      # no-op. The same query param is also documented as the safe
+      # way to bootstrap an empty index that will later receive docs
+      # with non-trivial field shapes.
+      uri = URI.parse("#{url}/indexes/#{index_name}/documents?primaryKey=id")
 
       request = Net::HTTP::Post.new(uri)
       request["Content-Type"] = "application/json"

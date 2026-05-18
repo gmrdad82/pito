@@ -42,13 +42,17 @@ module Games
 
     attr_reader :game
 
-    # Applicable platform slugs for this game — intersection of the
-    # canonical brand list (PS / Switch / Steam) and the IGDB-reported
-    # applicable set. Mirrors the filter the previous ownership block
-    # used so the matrix surfaces exactly the platforms IGDB lists.
+    # Applicable platform slugs for this game — the full canonical
+    # brand list (PS / Switch / Steam). The matrix ALWAYS renders all
+    # three rows regardless of `game_detail_logo_slugs` (IGDB-reported
+    # applicable set), so the user can mark ownership on any platform
+    # — IGDB is incomplete for Switch ports / late-port titles and
+    # the matrix must not gate on it. The user's manual ownership
+    # toggle is the source of truth for the ownership matrix; IGDB's
+    # `platforms_available` only drives the read-only chip surface
+    # elsewhere on the page.
     def applicable_slugs
-      detail_slugs = game_detail_logo_slugs(game)
-      Platforms::ChipComponent::SLUG_BRAND.keys.select { |s| detail_slugs.include?(s) }
+      Platforms::ChipComponent::SLUG_BRAND.keys
     end
 
     def platform_for(slug)

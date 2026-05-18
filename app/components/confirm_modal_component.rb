@@ -7,10 +7,18 @@ class ConfirmModalComponent < ViewComponent::Base
   # reindex-confirm modal passes `"reindex_confirm"`; a future
   # generic confirm modal can pass its own key without forking the
   # component.
+  # `turbo:` — optional. Defaults to `false` so every existing caller
+  # keeps its current full-page submission semantics (per-game delete,
+  # sync confirm, revoke, reindex, ...). Callers that want the form
+  # to submit as a Turbo Stream (so the controller's
+  # `format.turbo_stream` branch fires and the page does NOT navigate
+  # away) pass `turbo: true`. This flips the `<form>`'s
+  # `data-turbo` attribute on; the Accept header negotiation handles
+  # the rest.
   def initialize(id:, title:, confirm_path:, confirm_method: :delete,
                  body: nil, confirm_label: "-",
                  cancel_label: "cancel", destructive: true,
-                 modal_actions_key: nil)
+                 modal_actions_key: nil, turbo: false)
     @id = id
     @title = title
     @body = body
@@ -20,6 +28,7 @@ class ConfirmModalComponent < ViewComponent::Base
     @cancel_label = cancel_label
     @destructive = destructive
     @modal_actions_key = modal_actions_key
+    @turbo = turbo
   end
 
   def confirm_button_classes
