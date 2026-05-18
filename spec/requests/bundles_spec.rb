@@ -1,4 +1,5 @@
 require "rails_helper"
+require "ostruct"
 
 # Phase 14 §3 / Phase 27 follow-up (2026-05-17) — Bundles request spec.
 # After the 2026-05-17 simplification a Bundle has only `name`; the

@@ -26,10 +26,23 @@ RSpec.describe "Games", type: :request do
     # Phase 14 §1 polish (2026-05-10) — `[+]` next to the H1 opens the
     # layout-level IGDB-search modal via the existing `modal-trigger`
     # Stimulus controller.
-    it "renders a [+] bracketed link wired to the IGDB-search modal" do
+    #
+    # 2026-05-18 — visual unification of the three omnisearch surfaces.
+    # The `[+]` now opens the shared `_omnisearch_modal` (`:game_index`
+    # mode, dialog id `omnisearch-modal-games-index`) instead of the
+    # standalone `_igdb_search_modal` so the chrome (big-bold input +
+    # `[close]` footer) matches the other two surfaces. The per-row
+    # `[add]` / `[update]` contract is unchanged — `/games/search`
+    # still backs the modal and `_search_results` still renders the
+    # rows.
+    it "renders a [+] bracketed link wired to the unified omnisearch modal" do
       get games_path
       expect(response.body).to match(/\[<span class="bl">\+<\/span>\]/)
-      expect(response.body).to include('data-modal-trigger-target-id-value="igdb-search-modal"')
+      expect(response.body).to include('data-modal-trigger-target-id-value="omnisearch-modal-games-index"')
+      # The shared `_omnisearch_modal` partial mounts the dialog and
+      # the `omnisearch-modal` Stimulus controller.
+      expect(response.body).to include('id="omnisearch-modal-games-index"')
+      expect(response.body).to include('data-controller="omnisearch-modal"')
     end
 
     it "does NOT render the retired inline igdb-search type-ahead form" do
