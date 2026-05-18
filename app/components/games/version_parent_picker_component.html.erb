@@ -15,7 +15,7 @@
                         data: { version_parent_picker_target: "hiddenId" } %>
   <input type="text"
          class="version-parent-picker-input"
-         placeholder="<%= disabled? ? 'cannot attach — this row has editions' : 'type to search primaries…' %>"
+         placeholder="<%= disabled? ? t("games.version_parent.disabled_placeholder") : t("games.version_parent.placeholder") %>"
          value="<%= current_parent_title %>"
          <%= 'disabled' if disabled? %>
          autocomplete="off"
@@ -29,7 +29,7 @@
       <a href="#"
          class="bracketed"
          data-action="click->version-parent-picker#detach"
-         data-version-parent-picker-target="detachLink">[<span class="bl">detach</span>]</a>
+         data-version-parent-picker-target="detachLink">[<span class="bl"><%= t("games.version_parent.detach") %></span>]</a>
     </span>
   <% end %>
 </div>

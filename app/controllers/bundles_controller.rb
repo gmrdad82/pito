@@ -46,7 +46,7 @@ class BundlesController < ApplicationController
     @bundle = Bundle.friendly.find(params[:id])
     if @bundle.update(bundle_params)
       respond_to do |format|
-        format.html { redirect_to bundle_path(@bundle), notice: "bundle updated." }
+        format.html { redirect_to bundle_path(@bundle), notice: t("bundles.flash.updated") }
         format.json { render json: { id: @bundle.id, name: @bundle.name } }
       end
     else
@@ -82,7 +82,7 @@ class BundlesController < ApplicationController
     @bundle = Bundle.create!(name: next_unnamed_bundle_name)
     respond_to do |format|
       format.turbo_stream
-      format.html { redirect_to games_path, notice: "bundle created." }
+      format.html { redirect_to games_path, notice: t("bundles.flash.created") }
     end
   end
 
@@ -111,8 +111,8 @@ class BundlesController < ApplicationController
     @bundle = Bundle.friendly.find(params[:id])
     @bundle.destroy
     respond_to do |format|
-      format.turbo_stream { flash.now[:notice] = "bundle deleted." }
-      format.html { redirect_to games_path, notice: "bundle deleted." }
+      format.turbo_stream { flash.now[:notice] = t("bundles.flash.deleted") }
+      format.html { redirect_to games_path, notice: t("bundles.flash.deleted") }
     end
   end
 
@@ -164,7 +164,7 @@ class BundlesController < ApplicationController
   # "unnamed bundle N" slot is taken, the next free index is at most
   # `Bundle.count + 1`. In practice the first miss returns immediately.
   def next_unnamed_bundle_name
-    base = "unnamed bundle"
+    base = I18n.t("bundles.default_name")
     return base unless Bundle.exists?(name: base)
 
     n = 2

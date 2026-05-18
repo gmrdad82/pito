@@ -338,7 +338,7 @@ class GamesController < ApplicationController
     igdb_id_param = create_params[:igdb_id]
 
     if igdb_id_param.blank?
-      flash[:alert] = "games can only be added via the IGDB search modal."
+      flash[:alert] = t("games.flash.igdb_only")
       respond_to do |format|
         format.html { redirect_to games_path, status: :see_other }
         format.json { render json: { error: "igdb_id_required" }, status: :unprocessable_content }
@@ -348,12 +348,12 @@ class GamesController < ApplicationController
 
     igdb_id = igdb_id_param.to_i
     if igdb_id <= 0
-      redirect_to games_path, alert: "igdb id must be a positive integer." and return
+      redirect_to games_path, alert: t("games.flash.invalid_igdb_id") and return
     end
 
     existing = Game.find_by(igdb_id: igdb_id)
     if existing
-      redirect_to game_path(existing), alert: "already in your library."
+      redirect_to game_path(existing), alert: t("games.flash.already_in_library")
       return
     end
 
@@ -370,16 +370,16 @@ class GamesController < ApplicationController
     game = Game.new(new_attrs)
     if game.save
       GameIgdbSync.perform_async(game.id)
-      redirect_to game_path(game), notice: "added; metadata loading in background."
+      redirect_to game_path(game), notice: t("games.flash.added")
     else
-      redirect_to games_path, alert: "could not add game."
+      redirect_to games_path, alert: t("games.flash.create_failed")
     end
   end
 
   def destroy
     game = Game.friendly.find(params[:id])
     game.destroy!
-    redirect_to games_path, notice: "game deleted."
+    redirect_to games_path, notice: t("games.flash.deleted")
   end
 
   # Phase 14 §1 polish (2026-05-10) — `[resync]` is async-and-locked.
@@ -392,7 +392,7 @@ class GamesController < ApplicationController
     @game = Game.friendly.find(params[:id])
     if @game.resyncing?
       respond_to do |format|
-        format.html { redirect_to game_path(@game), notice: "already resyncing." }
+        format.html { redirect_to game_path(@game), notice: t("games.flash.already_resyncing") }
         format.json do
           render json: {
             game_id: @game.id,
@@ -420,7 +420,7 @@ class GamesController < ApplicationController
     @game.update_column(:resyncing, true)
     @enqueued_jid = GameIgdbSync.perform_async(@game.id)
     respond_to do |format|
-      format.html { redirect_to game_path(@game), notice: "refreshing from igdb…" }
+      format.html { redirect_to game_path(@game), notice: t("games.flash.refreshing") }
       format.json { render :resync, status: :accepted }
     end
   end

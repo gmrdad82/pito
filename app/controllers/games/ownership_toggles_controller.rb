@@ -67,7 +67,7 @@ module Games
         ensure_user_added_platform_availability!
 
         redirect_to game_path(@game),
-                    notice: "Game owned on #{platform_label}."
+                    notice: t("games.ownership_toggle.flash.owned_on", platform: platform_label)
       elsif !desired && currently_owned
         @game.game_platform_ownerships.where(platform_id: @platform.id).destroy_all
 
@@ -90,7 +90,7 @@ module Games
              .destroy_all
 
         redirect_to game_path(@game),
-                    notice: "Game no longer owned on #{platform_label}."
+                    notice: t("games.ownership_toggle.flash.no_longer_owned", platform: platform_label)
       else
         # No-op (state already matches desired). Re-render with no
         # flash so a duplicate / racing POST does not stack a misleading
@@ -121,11 +121,11 @@ module Games
         ensure_user_added_platform_availability!
         @game.update!(played_platform_id: @platform.id)
         redirect_to game_path(@game),
-                    notice: "Playing on #{platform_label}."
+                    notice: t("games.ownership_toggle.flash.playing_on", platform: platform_label)
       elsif !desired && currently_played
         @game.update!(played_platform_id: nil)
         redirect_to game_path(@game),
-                    notice: "No longer playing on #{platform_label}."
+                    notice: t("games.ownership_toggle.flash.no_longer_playing", platform: platform_label)
       else
         # No-op (state already matches desired). Same idempotent posture
         # as `ownership` above.
@@ -134,7 +134,7 @@ module Games
     rescue ActiveRecord::RecordInvalid => e
       redirect_to game_path(@game),
                   alert: e.record.errors.full_messages.to_sentence.presence ||
-                         "could not update played platform."
+                         t("games.ownership_toggle.flash.played_failed")
     end
 
     private
@@ -146,7 +146,7 @@ module Games
     def load_platform
       slug = params[:platform].to_s
       unless PLATFORM_SLUGS.include?(slug)
-        redirect_to game_path(@game), alert: "unknown platform."
+        redirect_to game_path(@game), alert: t("games.ownership_toggle.flash.unknown_platform")
         return
       end
 
@@ -158,7 +158,7 @@ module Games
       canonical_slug = Platforms::ChipComponent::CANONICAL_PLATFORM_SLUG_BY_CHIP[slug]
       @platform = Platform.find_by(slug: canonical_slug)
       unless @platform
-        redirect_to game_path(@game), alert: "unknown platform."
+        redirect_to game_path(@game), alert: t("games.ownership_toggle.flash.unknown_platform")
         nil
       end
     end

@@ -55,7 +55,7 @@
     <%# Inline "TTB" watermark, vertically centered inside the bar,
         left-aligned with a few px of padding. Carries the section
         identifier so no standalone heading sits above. %>
-    <span class="ttb-fuel-gauge__title">TTB</span>
+    <span class="ttb-fuel-gauge__title"><%= t("games.ttb.watermark") %></span>
 
     <%# Pillar ticks — thin (2px), no border, FILLED with the per-
         pillar literal hex from `PILLAR_COLOR`. Color identity is
@@ -116,15 +116,15 @@
   <div class="ttb-fuel-gauge__legend">
     <span class="ttb-fuel-gauge__legend-item">
       <span class="ttb-fuel-gauge__legend-swatch ttb-fuel-gauge__legend-swatch--main"></span>
-      <%= PILLAR_LABEL[:main] %>
+      <%= self.class.pillar_label[:main] %>
     </span>
     <span class="ttb-fuel-gauge__legend-item">
       <span class="ttb-fuel-gauge__legend-swatch ttb-fuel-gauge__legend-swatch--extras"></span>
-      <%= PILLAR_LABEL[:extras] %>
+      <%= self.class.pillar_label[:extras] %>
     </span>
     <span class="ttb-fuel-gauge__legend-item">
       <span class="ttb-fuel-gauge__legend-swatch ttb-fuel-gauge__legend-swatch--completionist"></span>
-      <%= PILLAR_LABEL[:completionist] %>
+      <%= self.class.pillar_label[:completionist] %>
     </span>
     <% if render_footage_tick? %>
       <span class="ttb-fuel-gauge__legend-item">

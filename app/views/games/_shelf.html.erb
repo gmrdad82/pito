@@ -18,7 +18,7 @@
   <div class="dot-list" style="margin-bottom: 6px;">
     <h2 style="margin: 0;"><%= title %></h2>
     <% if more_link.present? %>
-      <%= render(BracketedLinkComponent.new(label: "see all", href: more_link)) %>
+      <%= render(BracketedLinkComponent.new(label: t("common.actions.see_all"), href: more_link)) %>
     <% end %>
   </div>
 

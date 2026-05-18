@@ -24,7 +24,7 @@ module Games
     end
 
     def heading
-      "editions (#{editions_count})"
+      I18n.t("games.editions_section.heading", count: editions_count)
     end
   end
 end

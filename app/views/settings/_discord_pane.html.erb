@@ -27,11 +27,11 @@
     pops the TOTP-code modal is the profile pane. %>
 <div class="pane">
   <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
-    <legend><h2>Discord</h2></legend>
+    <legend><h2><%= t("settings.discord.heading") %></h2></legend>
 
     <%= form_with url: settings_discord_webhook_path, method: :patch, local: true do |_f| %>
       <div style="margin-bottom: 6px;">
-        <label for="discord_webhook_url" class="form-label">webhook URL</label>
+        <label for="discord_webhook_url" class="form-label"><%= t("settings.discord.webhook_url_label") %></label>
         <div class="webhook-url-row">
           <%# 2026-05-17 — placeholder only renders when a webhook is
               actually configured. After a `clear`, the ivar's
@@ -44,7 +44,7 @@
                         value: "",
                         placeholder: (@discord_webhook&.webhook_url.present? ? webhook_url_mask(:discord) : nil),
                         autocomplete: "off" %>
-          <button type="submit">[update]</button>
+          <button type="submit">[<%= t("common.actions.update") %>]</button>
           <%# Phase 26 — 01d. `[help]` link opens the layout-level
               webhook help modal with the Discord guide. The href is
               the full Markdown fragment URL so JS-off users still
@@ -62,7 +62,7 @@
               visual hierarchy of loud-vs-muted carries the grouping
               on its own). %>
           <%= render(BracketedMutedLinkComponent.new(
-                label: "help",
+                label: t("common.actions.help"),
                 href: settings_webhooks_help_path(provider: "discord"),
                 data: {
                   action: "click->webhook-help-modal#open",
@@ -70,7 +70,7 @@
                 }
               )) %>
         </div>
-        <p class="webhook-url-hint">type <strong>"clear"</strong> to remove</p>
+        <p class="webhook-url-hint"><%= t("settings.webhook.clear_hint_html").html_safe %></p>
       </div>
     <% end %>
 
@@ -94,7 +94,7 @@
                  data-action="change->auto-submit#submit"
                  <%= "checked" if @discord_webhook&.everything %>>
           <span class="md-check-indicator"></span>
-          <span class="md-check-label">every notification</span>
+          <span class="md-check-label"><%= t("settings.notification_toggle.everything") %></span>
         </label>
       <% end %>
     </div>
@@ -109,10 +109,10 @@
                  data-action="change->auto-submit#submit"
                  <%= "checked" if @discord_webhook&.daily_digest %>>
           <span class="md-check-indicator"></span>
-          <span class="md-check-label">daily digest</span>
+          <span class="md-check-label"><%= t("settings.notification_toggle.daily_digest") %></span>
         </label>
       <% end %>
-      <span class="form-hint" style="display: block;">sent daily at 09:00 in your time zone.</span>
+      <span class="form-hint" style="display: block;"><%= t("settings.notification_toggle.daily_digest_hint") %></span>
     </div>
   </fieldset>
 </div>

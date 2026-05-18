@@ -40,13 +40,13 @@
           dual-stacked artefact (two fallback SVGs rendering on top of
           each other) is gone. %>
       <%= image_tag image_path("game_cover_fallback_grid_light.svg"),
-                    alt: "no cover available", loading: "lazy",
+                    alt: t("games.cover.no_cover_alt"), loading: "lazy",
                     width: 150, height: 200,
                     data: { theme: "light" },
                     class: "game-cover-fallback game-cover-fallback--light",
                     style: "position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;" %>
       <%= image_tag image_path("game_cover_fallback_grid_dark.svg"),
-                    alt: "no cover available", loading: "lazy",
+                    alt: t("games.cover.no_cover_alt"), loading: "lazy",
                     width: 150, height: 200,
                     data: { theme: "dark" },
                     class: "game-cover-fallback game-cover-fallback--dark",

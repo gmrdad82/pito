@@ -35,13 +35,13 @@
      data-controller="stack-stats-live"
      data-stack-stats-live-interval-ms-value="3000">
   <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
-    <legend><h2>stack</h2></legend>
+    <legend><h2><%= t("settings.stack.heading") %></h2></legend>
 
     <div style="display: grid; grid-template-columns: 1fr 1px 1fr; gap: 12px; align-items: stretch;">
       <%# Left column: db (Postgres + Redis with hairline) %>
       <div>
         <%= render Settings::Stack::HealthLineComponent.new(
-          label: "Postgres",
+          label: t("settings.stack.postgres"),
           state: @postgres_status[:connected] ? :connected : :disconnected
         ) %>
 
@@ -50,9 +50,9 @@
             <table class="stack-table" data-sortable-table-target="table">
               <thead>
                 <tr>
-                  <%= render(SortableHeaderComponent.new(label: "model", sort_type: "string")) %>
-                  <%= render(SortableHeaderComponent.new(label: "rows", sort_type: "number", numeric: true)) %>
-                  <%= render(SortableHeaderComponent.new(label: "size", sort_type: "number", numeric: true)) %>
+                  <%= render(SortableHeaderComponent.new(label: t("settings.stack.col_model"), sort_type: "string")) %>
+                  <%= render(SortableHeaderComponent.new(label: t("settings.stack.col_rows"), sort_type: "number", numeric: true)) %>
+                  <%= render(SortableHeaderComponent.new(label: t("settings.stack.col_size"), sort_type: "number", numeric: true)) %>
                 </tr>
               </thead>
               <tbody>
@@ -86,7 +86,7 @@
         <hr class="hairline">
 
         <%= render Settings::Stack::HealthLineComponent.new(
-          label: "Redis",
+          label: t("settings.stack.redis"),
           state: @redis_status[:connected] ? :connected : :disconnected
         ) %>
 
@@ -100,7 +100,7 @@
       <%# Right column: search + storage stacked %>
       <div>
         <%= render Settings::Stack::HealthLineComponent.new(
-          label: "Meilisearch",
+          label: t("settings.stack.meilisearch"),
           state: @search_healthy ? :connected : :disconnected
         ) %>
 
@@ -109,9 +109,9 @@
             <table class="stack-table" data-sortable-table-target="table">
               <thead>
                 <tr>
-                  <%= render(SortableHeaderComponent.new(label: "index", sort_type: "string")) %>
-                  <%= render(SortableHeaderComponent.new(label: "docs", sort_type: "number", numeric: true)) %>
-                  <%= render(SortableHeaderComponent.new(label: "size", sort_type: "number", numeric: true)) %>
+                  <%= render(SortableHeaderComponent.new(label: t("settings.stack.col_index"), sort_type: "string")) %>
+                  <%= render(SortableHeaderComponent.new(label: t("settings.stack.col_docs"), sort_type: "number", numeric: true)) %>
+                  <%= render(SortableHeaderComponent.new(label: t("settings.stack.col_size"), sort_type: "number", numeric: true)) %>
                 </tr>
               </thead>
               <tbody>
@@ -127,7 +127,7 @@
                     <td><%= row[:label] %></td>
                     <% if row[:missing] %>
                       <td class="num text-muted" colspan="2">
-                        <span data-sort-value="-1">not yet indexed</span>
+                        <span data-sort-value="-1"><%= t("settings.stack.not_yet_indexed") %></span>
                       </td>
                     <% else %>
                       <td class="num">
@@ -181,12 +181,12 @@
         <%= render "voyage_section" %>
         <%= render(ConfirmModalComponent.new(
           id: "reindex_meilisearch_modal",
-          title: "reindex Meilisearch?",
-          body: "this re-indexes all configured targets.",
+          title: t("settings.stack.reindex_confirm_title"),
+          body: t("settings.stack.reindex_confirm_body"),
           confirm_path: settings_reindex_path,
           confirm_method: :post,
-          confirm_label: "reindex",
-          cancel_label: "cancel",
+          confirm_label: t("settings.stack.reindex"),
+          cancel_label: t("common.actions.cancel"),
           destructive: true,
           modal_actions_key: "reindex_confirm"
         )) %>
@@ -194,7 +194,7 @@
         <hr class="hairline">
 
         <%= render Settings::Stack::HealthLineComponent.new(
-          label: "assets",
+          label: t("settings.stack.assets"),
           state: if @storage_status[:present]
                    @storage_status[:writable] ? :writable : :read_only
                  else
@@ -207,9 +207,9 @@
             <table class="stack-table stack-table--3col-aligned" data-sortable-table-target="table">
               <thead>
                 <tr>
-                  <%= render(SortableHeaderComponent.new(label: "category", sort_type: "string")) %>
-                  <%= render(SortableHeaderComponent.new(label: "files", sort_type: "number", numeric: true)) %>
-                  <%= render(SortableHeaderComponent.new(label: "size", sort_type: "number", numeric: true)) %>
+                  <%= render(SortableHeaderComponent.new(label: t("settings.stack.col_category"), sort_type: "string")) %>
+                  <%= render(SortableHeaderComponent.new(label: t("settings.stack.col_files"), sort_type: "number", numeric: true)) %>
+                  <%= render(SortableHeaderComponent.new(label: t("settings.stack.col_size"), sort_type: "number", numeric: true)) %>
                 </tr>
               </thead>
               <tbody>
@@ -244,7 +244,7 @@
         <hr class="hairline">
 
         <%= render Settings::Stack::HealthLineComponent.new(
-          label: "notes",
+          label: t("settings.stack.notes"),
           state: if @notes_volume_status[:present]
                    @notes_volume_status[:writable] ? :writable : :read_only
                  else
@@ -257,9 +257,9 @@
             <table class="stack-table stack-table--3col-aligned" data-sortable-table-target="table">
               <thead>
                 <tr>
-                  <%= render(SortableHeaderComponent.new(label: "namespace", sort_type: "string")) %>
-                  <%= render(SortableHeaderComponent.new(label: "count", sort_type: "number", numeric: true)) %>
-                  <%= render(SortableHeaderComponent.new(label: "size", sort_type: "number", numeric: true)) %>
+                  <%= render(SortableHeaderComponent.new(label: t("settings.stack.col_namespace"), sort_type: "string")) %>
+                  <%= render(SortableHeaderComponent.new(label: t("settings.stack.col_count"), sort_type: "number", numeric: true)) %>
+                  <%= render(SortableHeaderComponent.new(label: t("settings.stack.col_size"), sort_type: "number", numeric: true)) %>
                 </tr>
               </thead>
               <tbody>

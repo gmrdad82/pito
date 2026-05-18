@@ -43,7 +43,6 @@
 #   * else          → treat as a new URL, run the regex + test-ping
 #                     validation flow, persist on success.
 class Settings::DiscordWebhooksController < ApplicationController
-  TEST_PING_TEXT = "Pito test ping — Discord webhook configured."
   CLEAR_KEYWORD = "clear"
 
   def update
@@ -52,7 +51,7 @@ class Settings::DiscordWebhooksController < ApplicationController
     if webhook_url.blank?
       # Masked input → empty submission on every page-level save
       # would otherwise wipe the URL. Treat blank as "leave alone".
-      redirect_to settings_path, notice: "Discord webhook unchanged."
+      redirect_to settings_path, notice: t("settings.discord.flash.unchanged")
       return
     end
 
@@ -62,15 +61,15 @@ class Settings::DiscordWebhooksController < ApplicationController
     end
 
     unless NotificationDeliveryChannel::DISCORD_URL_REGEX.match?(webhook_url)
-      redirect_to settings_path, alert: "invalid Discord webhook URL."
+      redirect_to settings_path, alert: t("settings.discord.flash.invalid_url")
       return
     end
 
-    ping_result = Webhooks::DiscordClient.new(webhook_url).ping(TEST_PING_TEXT)
+    ping_result = Webhooks::DiscordClient.new(webhook_url).ping(t("settings.discord.test_ping_text"))
 
     unless ping_result.success?
       redirect_to settings_path,
-                  alert: "Discord test ping failed: #{ping_result.error}."
+                  alert: t("settings.discord.flash.ping_failed", error: ping_result.error)
       return
     end
 
@@ -81,10 +80,10 @@ class Settings::DiscordWebhooksController < ApplicationController
     )
 
     if record.save
-      redirect_to settings_path, notice: "Discord webhook updated."
+      redirect_to settings_path, notice: t("settings.discord.flash.updated")
     else
       redirect_to settings_path,
-                  alert: "could not save Discord webhook: #{record.errors.full_messages.to_sentence}."
+                  alert: t("settings.discord.flash.save_failed", errors: record.errors.full_messages.to_sentence)
     end
   end
 
@@ -101,10 +100,10 @@ class Settings::DiscordWebhooksController < ApplicationController
     record.assign_attributes(webhook_url: nil, everything: false, daily_digest: false)
 
     if record.save
-      redirect_to settings_path, notice: "Discord webhook cleared."
+      redirect_to settings_path, notice: t("settings.discord.flash.cleared")
     else
       redirect_to settings_path,
-                  alert: "could not clear Discord webhook: #{record.errors.full_messages.to_sentence}."
+                  alert: t("settings.discord.flash.clear_failed", errors: record.errors.full_messages.to_sentence)
     end
   end
 end

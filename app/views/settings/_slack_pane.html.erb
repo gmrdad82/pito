@@ -24,11 +24,11 @@
     pops the TOTP-code modal is the profile pane. %>
 <div class="pane">
   <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
-    <legend><h2>Slack</h2></legend>
+    <legend><h2><%= t("settings.slack.heading") %></h2></legend>
 
     <%= form_with url: settings_slack_webhook_path, method: :patch, local: true do |_f| %>
       <div style="margin-bottom: 6px;">
-        <label for="slack_webhook_url" class="form-label">webhook URL</label>
+        <label for="slack_webhook_url" class="form-label"><%= t("settings.slack.webhook_url_label") %></label>
         <div class="webhook-url-row">
           <%# 2026-05-17 — placeholder only renders when a webhook is
               actually configured. After a `clear`, the ivar's
@@ -41,7 +41,7 @@
                         value: "",
                         placeholder: (@slack_webhook&.webhook_url.present? ? webhook_url_mask(:slack) : nil),
                         autocomplete: "off" %>
-          <button type="submit">[update]</button>
+          <button type="submit">[<%= t("common.actions.update") %>]</button>
           <%# Phase 26 — 01d. `[help]` link opens the layout-level
               webhook help modal with the Slack guide. The href is the
               full Markdown fragment URL so JS-off users still land on
@@ -59,7 +59,7 @@
               visual hierarchy of loud-vs-muted carries the grouping
               on its own). %>
           <%= render(BracketedMutedLinkComponent.new(
-                label: "help",
+                label: t("common.actions.help"),
                 href: settings_webhooks_help_path(provider: "slack"),
                 data: {
                   action: "click->webhook-help-modal#open",
@@ -67,7 +67,7 @@
                 }
               )) %>
         </div>
-        <p class="webhook-url-hint">type <strong>"clear"</strong> to remove</p>
+        <p class="webhook-url-hint"><%= t("settings.webhook.clear_hint_html").html_safe %></p>
       </div>
     <% end %>
 
@@ -88,7 +88,7 @@
                  data-action="change->auto-submit#submit"
                  <%= "checked" if @slack_webhook&.everything %>>
           <span class="md-check-indicator"></span>
-          <span class="md-check-label">every notification</span>
+          <span class="md-check-label"><%= t("settings.notification_toggle.everything") %></span>
         </label>
       <% end %>
     </div>
@@ -103,10 +103,10 @@
                  data-action="change->auto-submit#submit"
                  <%= "checked" if @slack_webhook&.daily_digest %>>
           <span class="md-check-indicator"></span>
-          <span class="md-check-label">daily digest</span>
+          <span class="md-check-label"><%= t("settings.notification_toggle.daily_digest") %></span>
         </label>
       <% end %>
-      <span class="form-hint" style="display: block;">sent daily at 09:00 in your time zone.</span>
+      <span class="form-hint" style="display: block;"><%= t("settings.notification_toggle.daily_digest_hint") %></span>
     </div>
   </fieldset>
 </div>

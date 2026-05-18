@@ -20,13 +20,13 @@
 
 <div id="sync-content">
   <div style="margin-bottom: 8px;">
-    <h1>sync <%= number_with_delimiter(@items.length) %> <%= @type %><%= 's' if @items.length != 1 %></h1>
+    <h1><%= t("syncs.show.heading", count: @items.length, type: @type) %></h1>
     <% if intent == "diff_check" %>
       <p class="text-muted" style="margin-top: 2px;">
         sync from youtube? pito will compare and present any differences for review.
       </p>
     <% else %>
-      <p class="text-muted" style="margin-top: 2px;">just kicking off the sync — won't take long.</p>
+      <p class="text-muted" style="margin-top: 2px;"><%= t("syncs.show.body_overwrite") %></p>
     <% end %>
   </div>
 
@@ -66,7 +66,7 @@
         <% when "project", "collection" %>
           <th>name</th>
         <% when "game", "note", "timeline" %>
-          <th>title</th>
+          <th><%= t("syncs.show.col.title") %></th>
         <% end %>
       </tr>
     </thead>
@@ -102,7 +102,7 @@
 
   <div id="action-footer">
     <%= render "shared/action_screen",
-      submit_label: "[sync]",
+      submit_label: "[#{t('common.actions.sync')}]",
       cancel_path: @cancel_path,
       form_url: form_url,
       destructive: false %>

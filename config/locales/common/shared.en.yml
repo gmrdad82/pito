@@ -1,0 +1,104 @@
+# Canonical owner for all `common.*` keys.
+#
+# Beta-3 Lane A consolidation (Agent A9, 2026-05-18) merged the duplicated
+# `common.*` definitions that slices A1–A7 had each placed in their own
+# files. All `common.*` keys live here exclusively; area slices own only
+# their area-specific keys (settings.*, games.*, bundles.*, etc.).
+#
+# Bracket convention: values are bare words (e.g. `update`, `cancel`).
+# Call sites wrap with literal `[…]` per the project's `[label]`
+# bracketed-link convention. `BracketedLinkComponent` adds the brackets
+# automatically when invoked via `label:`; raw ERB anchors wrap manually
+# as `[<span class="bl"><%= t("common.actions.X") %></span>]`.
+en:
+  common:
+    em_dash: "—"
+    tbd: "[TBD]"
+    primary_star: "★"
+    delete_irreversible: "this action cannot be undone."
+    actions:
+      add: "add"
+      add_short: "+"
+      cancel: "cancel"
+      close: "close"
+      delete: "delete"
+      delete_short: "-"
+      help: "help"
+      open: "open"
+      revoke: "revoke"
+      save: "save"
+      see_all: "see all"
+      sync: "sync"
+      update: "update"
+
+  games:
+    flash:
+      igdb_only: "games can only be added via the IGDB search modal."
+      invalid_igdb_id: "igdb id must be a positive integer."
+      already_in_library: "already in your library."
+      added: "added; metadata loading in background."
+      create_failed: "could not add game."
+      deleted: "game deleted."
+      already_resyncing: "already resyncing."
+      refreshing: "refreshing from igdb…"
+
+    search:
+      placeholder_igdb: "type to search igdb."
+      no_results: "no results for '%{query}'."
+      no_cover: "[?]"
+
+    omnisearch:
+      placeholder_default: "type to search."
+      section_games: "games"
+      section_bundles: "bundles"
+      section_igdb: "on igdb"
+      row_kind_game: "game"
+      row_kind_bundle: "bundle"
+      igdb_error: "igdb error: %{msg}"
+      no_igdb_results: "no igdb results for '%{query}'."
+      no_results: "no results for '%{query}'."
+
+    platform_ownerships:
+      edit_title: "edit ownership: %{title}"
+      breadcrumb: "edit ownership"
+      heading: "ownership"
+
+    platform_ownership:
+      flash:
+        updated: "ownership updated."
+      errors:
+        duplicate: "duplicate platform submitted."
+        unknown_platform: "unknown platform."
+
+    ownership_toggle:
+      flash:
+        owned_on: "Game owned on %{platform}."
+        no_longer_owned: "Game no longer owned on %{platform}."
+        playing_on: "Playing on %{platform}."
+        no_longer_playing: "No longer playing on %{platform}."
+        played_failed: "could not update played platform."
+        unknown_platform: "unknown platform."
+
+  deletions:
+    show:
+      heading:
+        one: "delete %{count} %{type}"
+        other: "delete %{count} %{type}s"
+      body:
+        one: "this will permanently remove this %{type} and all associated data."
+        other: "this will permanently remove these %{type}s and all associated data."
+      col:
+        title: "title"
+        publisher: "publisher"
+        bundles: "bundles"
+        name: "name"
+        members: "members"
+
+  syncs:
+    show:
+      heading:
+        one: "sync %{count} %{type}"
+        other: "sync %{count} %{type}s"
+      body_overwrite: "just kicking off the sync — won't take long."
+      col:
+        title: "title"

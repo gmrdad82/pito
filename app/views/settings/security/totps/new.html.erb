@@ -1,4 +1,4 @@
-<% content_for(:title, "enroll 2FA") %>
+<% content_for(:title, t("settings.security.totp.title")) %>
 <%
   # Phase 32 follow-up (2026-05-16). 2FA / TOTP cleanup.
   #
@@ -49,13 +49,13 @@
 <%= turbo_frame_tag "settings_modal_frame" do %>
   <div style="max-width: 928px; margin: <%= body_wrapper_margin %>; overflow-wrap: break-word;">
     <div style="margin-bottom: 8px;">
-      <h1>two-factor setup required</h1>
+      <h1><%= t("settings.security.totp.heading") %></h1>
       <p class="text-danger" style="margin-top: 2px;">
-        pito requires 2FA.<br>
-        nothing else is reachable until 2FA is enabled.
+        <%= t("settings.security.totp.requires_line1") %><br>
+        <%= t("settings.security.totp.requires_line2") %>
       </p>
       <p class="text-muted" style="margin-top: 8px;">
-        scan with 1Password (or any authenticator app).
+        <%= t("settings.security.totp.scan_hint") %>
       </p>
     </div>
 
@@ -66,13 +66,13 @@
       </div>
 
       <div class="pane">
-        <h2 style="margin-top: 0;">backup codes</h2>
+        <h2 style="margin-top: 0;"><%= t("settings.security.totp.backup_codes_heading") %></h2>
         <pre style="font-size: 14px; padding: 8px;">
 <% @codes.each do |code| %><%= code %>
 <% end %></pre>
         <p class="text-muted" style="margin-top: 8px;">
-          each code works once.<br>
-          store them somewhere safe &mdash; outside the device that holds your authenticator.
+          <%= t("settings.security.totp.backup_codes_hint_line1") %><br>
+          <%= t("settings.security.totp.backup_codes_hint_line2_html").html_safe %>
         </p>
       </div>
     </div>

@@ -1,0 +1,61 @@
+# Beta-3 Lane A — i18n extraction, slice A5.
+# Source catalog: docs/orchestration/playbooks/beta3-A-i18n-catalog.md
+# Scope: app/components/games/*.{rb,erb}
+#        app/components/platforms/chip_component.{rb,erb}
+#
+# Out of scope (Lane B owns these — already extracted):
+#   - games/detail_cover_component
+#   - games/genres_line_component
+#   - games/meta_table_component
+#   - games/bundles_section_component
+#
+# Also out of scope per Agent A5 prompt:
+#   - games/ownership_matrix_component (deferred — still literal)
+#
+# Brand-name literals (PS, Switch, Steam) stay capitalized per
+# feedback_brand_names_always_capitalized.md.
+#
+# `common.*` keys live in config/locales/common/shared.en.yml after the
+# Agent A9 consolidation (2026-05-18).
+en:
+  games:
+    cover:
+      no_cover_alt: "no cover available"
+    editions_badge:
+      noun:
+        one: "edition"
+        other: "editions"
+      label: "+%{count} %{noun}"
+    editions_section:
+      heading: "editions (%{count})"
+    owned_platforms:
+      empty: "(not owned on any platform)"
+    platform_ownership_chip:
+      owned_title: "owned on %{label} — click to remove"
+      not_owned_title: "not owned on %{label} — click to add"
+    platform_ownership_editor:
+      no_platforms: "(no platforms available)"
+    played_chip:
+      label: "[played]"
+      played_title: "played on %{date}"
+      not_played_title: "not yet played"
+    ttb:
+      main: "main"
+      extras: "extras"
+      completionist: "completionist"
+      hours_short: "%{n}h"
+      footage: "footage"
+      watermark: "TTB"
+    version_parent:
+      disabled_placeholder: "cannot attach — this row has editions"
+      placeholder: "type to search primaries…"
+      detach: "detach"
+  bundles:
+    tile:
+      add_aria: "add to %{bundle}"
+  platforms:
+    chip:
+      label:
+        ps: "PS"
+        switch: "Switch"
+        steam: "Steam"

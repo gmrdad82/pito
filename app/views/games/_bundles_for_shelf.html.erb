@@ -33,7 +33,7 @@
   bundles = local_assigns.fetch(:bundles)
 %>
 <%= render(Games::ShelfComponent.new(
-      heading: "bundles",
+      heading: t("games.bundles_shelf.heading"),
       count: bundles.size,
       heading_level: :h2,
       extra_classes: "shelf--bundles outer-shelf",
@@ -52,7 +52,7 @@
     <%= button_to bundles_path, method: :post,
                   form: { style: "display: inline-flex; margin: 0;" },
                   class: "bracketed",
-                  aria: { label: "create bundle" } do %>[<span class="bl">+</span>]<% end %>
+                  aria: { label: t("games.bundles_shelf.create_aria") } do %>[<span class="bl"><%= t("common.actions.add_short") %></span>]<% end %>
   <% end %>
   <% bundles.each do |bundle| %>
     <%= render(Games::BundleTileComponent.new(bundle: bundle)) %>
@@ -68,10 +68,10 @@
 <% bundles.each do |bundle| %>
   <%= render ConfirmModalComponent.new(
         id: "confirm_delete_bundle_#{bundle.id}",
-        title: "delete #{bundle.name}?",
-        body: "this action cannot be undone.",
-        confirm_label: "delete",
-        cancel_label: "cancel",
+        title: t("bundles.delete_confirm_title", bundle: bundle.name),
+        body: t("common.delete_irreversible"),
+        confirm_label: t("common.actions.delete"),
+        cancel_label: t("common.actions.cancel"),
         confirm_path: bundle_path(bundle),
         confirm_method: :delete,
         destructive: true,

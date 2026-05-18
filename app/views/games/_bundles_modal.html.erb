@@ -86,10 +86,10 @@
             data-inline-title-edit-target="display">
         <h2 class="bundle-modal-title-text"
             style="margin: 0;"
-            data-bundles-modal-target="title"><%= prefill_title.presence || "bundle" %></h2>
+            data-bundles-modal-target="title"><%= prefill_title.presence || t("bundles.modal.default_title") %></h2>
         <a href="#"
            class="bracketed"
-           data-action="click->inline-title-edit#edit">[<span class="bl">change</span>]</a>
+           data-action="click->inline-title-edit#edit">[<span class="bl"><%= t("bundles.modal.change_action") %></span>]</a>
         <%# Per-bundle delete entrypoint. Opens the matching confirm
             modal (`confirm_delete_bundle_<id>`) — its id is written
             into `data-modal-trigger-target-id-value` by the
@@ -101,7 +101,7 @@
            data-controller="modal-trigger"
            data-action="click->modal-trigger#open"
            data-modal-trigger-target-id-value="<%= prefill_delete_confirm_id %>"
-           data-bundles-modal-target="deleteButton">[<span class="bl">-</span>]</a>
+           data-bundles-modal-target="deleteButton">[<span class="bl"><%= t("common.actions.delete_short") %></span>]</a>
       </span>
       <span class="bundle-modal-title-editing"
             data-inline-title-edit-target="editing"
@@ -114,9 +114,9 @@
         <span class="bundle-modal-title-actions">
           <a href="#"
              class="bracketed"
-             data-action="click->inline-title-edit#save">[<span class="bl">update</span>]</a>
+             data-action="click->inline-title-edit#save">[<span class="bl"><%= t("common.actions.update") %></span>]</a>
           <%= render(BracketedMutedLinkComponent.new(
-            label: "cancel",
+            label: t("common.actions.cancel"),
             href: "#",
             data: { action: "click->inline-title-edit#cancel" }
           )) %>
@@ -128,7 +128,7 @@
                         loading: "lazy",
                         data: { bundles_modal_target: "frame" } %>
     <div class="confirm-modal-actions modal-footer">
-      <button type="button" class="bracketed text-muted" data-action="confirm-modal#close">[<span class="bl">close</span>]</button>
+      <button type="button" class="bracketed text-muted" data-action="confirm-modal#close">[<span class="bl"><%= t("common.actions.close") %></span>]</button>
     </div>
   </div>
 </dialog>

@@ -18,11 +18,11 @@
     body renders a hint. %>
 <%= turbo_frame_tag "omnisearch_results_games_search" do %>
   <% if query.blank? %>
-    <p class="text-muted">type to search.</p>
+    <p class="text-muted"><%= t("games.omnisearch.placeholder_default") %></p>
   <% else %>
     <% if result.local_games.any? %>
       <section class="omnisearch-section">
-        <h3 class="omnisearch-section-heading">games</h3>
+        <h3 class="omnisearch-section-heading"><%= t("games.omnisearch.section_games") %></h3>
         <ul class="omnisearch-list" style="list-style: none; padding: 0; margin: 0;">
           <% result.local_games.each do |game| %>
             <li class="omnisearch-row">
@@ -34,7 +34,7 @@
                   <span class="text-muted">(<%= game.release_year %>)</span>
                 <% end %>
               <% end %>
-              <span class="text-muted" style="font-size: 11px;">game</span>
+              <span class="text-muted" style="font-size: 11px;"><%= t("games.omnisearch.row_kind_game") %></span>
             </li>
           <% end %>
         </ul>
@@ -46,7 +46,7 @@
         <hr class="hairline" style="margin: 12px 0;">
       <% end %>
       <section class="omnisearch-section">
-        <h3 class="omnisearch-section-heading">bundles</h3>
+        <h3 class="omnisearch-section-heading"><%= t("games.omnisearch.section_bundles") %></h3>
         <ul class="omnisearch-list" style="list-style: none; padding: 0; margin: 0;">
           <% result.local_bundles.each do |bundle| %>
             <li class="omnisearch-row">
@@ -55,7 +55,7 @@
                           style: "flex: 1; text-decoration: none; color: inherit;" do %>
                 <%= bundle.name %>
               <% end %>
-              <span class="text-muted" style="font-size: 11px;">bundle</span>
+              <span class="text-muted" style="font-size: 11px;"><%= t("games.omnisearch.row_kind_bundle") %></span>
             </li>
           <% end %>
         </ul>
@@ -67,11 +67,11 @@
         <hr class="hairline" style="margin: 12px 0;">
       <% end %>
       <section class="omnisearch-section">
-        <h3 class="omnisearch-section-heading">on igdb</h3>
+        <h3 class="omnisearch-section-heading"><%= t("games.omnisearch.section_igdb") %></h3>
         <% if result.igdb_error.present? %>
-          <p class="text-danger">igdb error: <%= result.igdb_error[:message] %></p>
+          <p class="text-danger"><%= t("games.omnisearch.igdb_error", msg: result.igdb_error[:message]) %></p>
         <% elsif result.igdb.empty? %>
-          <p class="text-muted">no igdb results for '<%= query %>'.</p>
+          <p class="text-muted"><%= t("games.omnisearch.no_igdb_results", query: query) %></p>
         <% else %>
           <%
             result_igdb_ids = result.igdb.map { |row| row["id"] }.compact
@@ -91,13 +91,13 @@
                 <% if existing %>
                   <%= link_to game_path(existing),
                               class: "bracketed",
-                              data: { turbo_frame: "_top" } do %>[<span class="bl">open</span>]<% end %>
+                              data: { turbo_frame: "_top" } do %>[<span class="bl"><%= t("common.actions.open") %></span>]<% end %>
                 <% else %>
                   <%= button_to games_path,
                                 params: { game: { igdb_id: row["id"], title: row["name"] } },
                                 method: :post,
                                 class: "bracketed",
-                                form: { style: "display: inline; margin: 0;", data: { turbo: false } } do %>[<span class="bl">add</span>]<% end %>
+                                form: { style: "display: inline; margin: 0;", data: { turbo: false } } do %>[<span class="bl"><%= t("common.actions.add") %></span>]<% end %>
                 <% end %>
               </li>
             <% end %>
@@ -107,7 +107,7 @@
     <% end %>
 
     <% if result.local_games.empty? && result.local_bundles.empty? && result.igdb.empty? && result.igdb_error.blank? %>
-      <p class="text-muted">no results for '<%= query %>'.</p>
+      <p class="text-muted"><%= t("games.omnisearch.no_results", query: query) %></p>
     <% end %>
   <% end %>
 <% end %>

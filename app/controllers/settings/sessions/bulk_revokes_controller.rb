@@ -41,13 +41,13 @@ class Settings::Sessions::BulkRevokesController < ApplicationController
   # POST /settings/sessions/revokes/:ids
   def create
     unless params[:confirm].to_s == "yes"
-      redirect_to settings_path, alert: "revoke cancelled."
+      redirect_to settings_path, alert: t("settings.sessions.flash.cancelled")
       return
     end
 
     sessions = scoped_targets
     if sessions.empty?
-      redirect_to settings_path, alert: "nothing to revoke."
+      redirect_to settings_path, alert: t("settings.sessions.flash.nothing")
       return
     end
 
@@ -71,9 +71,9 @@ class Settings::Sessions::BulkRevokesController < ApplicationController
 
     notice =
       if revoked_count == 1
-        "session revoked"
+        t("settings.sessions.flash.revoked_one")
       else
-        "#{revoked_count} sessions revoked"
+        t("settings.sessions.flash.revoked_many", count: revoked_count)
       end
     redirect_to settings_path, notice: notice
   end

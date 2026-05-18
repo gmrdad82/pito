@@ -7,9 +7,9 @@
       `/bundles/:id/search` and renders Local + IGDB results; per-row
       `[add]` POSTs `/bundles/:id/members`. %>
   <div style="display: flex; align-items: baseline; gap: 8px; margin: 0 0 6px;">
-    <h3 style="margin: 0;">all games</h3>
+    <h3 style="margin: 0;"><%= t("bundles.all_games.heading") %></h3>
     <%= render(BracketedLinkComponent.new(
-          label: "+",
+          label: t("common.actions.add_short"),
           href: "#",
           data: {
             controller: "modal-trigger",
@@ -42,10 +42,10 @@
           <th class="all-games-col-check">
             <%= render(CheckboxComponent.new) %>
           </th>
-          <%= render(SortableHeaderComponent.new(label: "title", sort_type: "string", extra_class: "all-games-col-title")) %>
-          <%= render(SortableHeaderComponent.new(label: "genre", sort_type: "string", extra_class: "all-games-col-genre")) %>
-          <%= render(SortableHeaderComponent.new(label: "release", sort_type: "date", numeric: true, extra_class: "all-games-col-release")) %>
-          <%= render(SortableHeaderComponent.new(label: "score", sort_type: "number", numeric: true, extra_class: "all-games-col-score")) %>
+          <%= render(SortableHeaderComponent.new(label: t("bundles.all_games.col.title"), sort_type: "string", extra_class: "all-games-col-title")) %>
+          <%= render(SortableHeaderComponent.new(label: t("bundles.all_games.col.genre"), sort_type: "string", extra_class: "all-games-col-genre")) %>
+          <%= render(SortableHeaderComponent.new(label: t("bundles.all_games.col.release"), sort_type: "date", numeric: true, extra_class: "all-games-col-release")) %>
+          <%= render(SortableHeaderComponent.new(label: t("bundles.all_games.col.score"), sort_type: "number", numeric: true, extra_class: "all-games-col-score")) %>
         </tr>
       </thead>
       <tbody>
@@ -78,7 +78,7 @@
               user toward the `[+]` button to add the first member. %>
           <tr>
             <td colspan="5" class="text-muted" style="text-align: center; padding: 12px;">
-              no games yet — click [+] to add
+              <%= t("bundles.all_games.empty") %>
             </td>
           </tr>
         <% end %>
@@ -93,7 +93,7 @@
         mode: :bundle_add,
         dialog_id: omnisearch_dialog_id,
         url: search_bundle_path(bundle),
-        placeholder: "add a game to this bundle",
+        placeholder: t("bundles.all_games.search_placeholder"),
         results_frame_id: omnisearch_frame_id,
         bundle: bundle %>
 </section>

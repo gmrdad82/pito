@@ -41,7 +41,7 @@
     (`shared/_igdb_search_modal`). 2026-05-17 — the previous global
     `i` keybind was removed in the legacy-keyboard-shortcut sweep;
     the `[+]` link is now the only entry point. %>
-<% content_for(:title, "games") %>
+<% content_for(:title, t("games.index.title")) %>
 
 <%# 2026-05-17 polish (revised) — `/games` shares one horizontal column
     with the rest of the page. The chrome wrapper (`<main>`) in
@@ -60,9 +60,9 @@
 <div>
   <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;">
     <div class="dot-list">
-      <h1>games</h1>
+      <h1><%= t("games.index.heading") %></h1>
       <%= render(BracketedLinkComponent.new(
-            label: "+",
+            label: t("common.actions.add_short"),
             href: "#",
             data: {
               controller: "modal-trigger",
@@ -121,7 +121,7 @@
 
     <% if @recently_played.any? %>
       <%= render(Games::ShelfComponent.new(
-            heading: "recently played",
+            heading: t("games.index.recently_played_heading"),
             show_count: false,
             heading_level: :h2,
             row_gap: "8px"
@@ -162,7 +162,7 @@
     <% end %>
 
     <% unless has_any_listing_content %>
-      <p class="text-muted" style="margin: 16px 0 0;">no games match this filter.</p>
+      <p class="text-muted" style="margin: 16px 0 0;"><%= t("games.index.no_matches") %></p>
     <% end %>
   <% end %>
 </div>
@@ -176,5 +176,5 @@
       mode: :games_search,
       dialog_id: "omnisearch-modal-games-search",
       url: omnisearch_games_path,
-      placeholder: "search games + bundles",
+      placeholder: t("games.omnisearch.placeholder"),
       results_frame_id: "omnisearch_results_games_search" %>

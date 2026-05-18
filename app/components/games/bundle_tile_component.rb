@@ -138,7 +138,7 @@ module Games
     end
 
     def aria_label
-      suggest_mode? ? "add to #{bundle.name}" : bundle.name
+      suggest_mode? ? I18n.t("bundles.tile.add_aria", bundle: bundle.name) : bundle.name
     end
   end
 end

@@ -30,7 +30,7 @@ class Settings::UserController < ApplicationController
 
     current_password = params.dig(:user, :current_password).to_s
     if current_password.blank? || !@user.authenticate(current_password)
-      @user.errors.add(:current_password, "is incorrect.")
+      @user.errors.add(:current_password, t("settings.user.errors.current_password_incorrect"))
       render :show, status: :unprocessable_content
       return
     end
@@ -44,7 +44,7 @@ class Settings::UserController < ApplicationController
 
     if new_password.present?
       if new_password != new_password_confirmation
-        @user.errors.add(:password_confirmation, "does not match.")
+        @user.errors.add(:password_confirmation, t("settings.user.errors.password_mismatch"))
         render :show, status: :unprocessable_content
         return
       end
@@ -53,12 +53,12 @@ class Settings::UserController < ApplicationController
     end
 
     if attrs.empty?
-      redirect_to settings_path, notice: "no changes."
+      redirect_to settings_path, notice: t("settings.user.flash.no_changes")
       return
     end
 
     if @user.update(attrs)
-      redirect_to settings_path, notice: "account updated."
+      redirect_to settings_path, notice: t("settings.user.flash.updated")
     else
       render :show, status: :unprocessable_content
     end

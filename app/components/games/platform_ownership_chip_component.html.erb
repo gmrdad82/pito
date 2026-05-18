@@ -20,5 +20,5 @@
   <button type="submit"
           class="platform-chip platform-chip--md ownership-chip-button"
           style="color: <%= chip_color %>;"
-          title="<%= owned? ? "owned on #{label} — click to remove" : "not owned on #{label} — click to add" %>">[<%= label %>]</button>
+          title="<%= owned? ? t("games.platform_ownership_chip.owned_title", label: label) : t("games.platform_ownership_chip.not_owned_title", label: label) %>">[<%= label %>]</button>
 <% end %>

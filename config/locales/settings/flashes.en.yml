@@ -1,0 +1,60 @@
+en:
+  settings:
+    flash:
+      saved: "settings saved."
+      reindex_in_progress: "reindex already in progress."
+      reindex_started: "reindex started."
+    time_zone:
+      flash:
+        saved: "time zone saved."
+        invalid: "invalid time zone"
+    user:
+      errors:
+        current_password_incorrect: "is incorrect."
+        password_mismatch: "does not match."
+      flash:
+        no_changes: "no changes."
+        updated: "account updated."
+    discord:
+      test_ping_text: "Pito test ping — Discord webhook configured."
+      flash:
+        unchanged: "Discord webhook unchanged."
+        invalid_url: "invalid Discord webhook URL."
+        ping_failed: "Discord test ping failed: %{error}."
+        updated: "Discord webhook updated."
+        save_failed: "could not save Discord webhook: %{errors}."
+        cleared: "Discord webhook cleared."
+        clear_failed: "could not clear Discord webhook: %{errors}."
+    slack:
+      test_ping_text: "Pito test ping — Slack webhook configured."
+      flash:
+        unchanged: "Slack webhook unchanged."
+        invalid_url: "invalid Slack webhook URL."
+        ping_failed: "Slack test ping failed: %{error}."
+        updated: "Slack webhook updated."
+        save_failed: "could not save Slack webhook: %{errors}."
+        cleared: "Slack webhook cleared."
+        clear_failed: "could not clear Slack webhook: %{errors}."
+    notification_toggle:
+      brand:
+        discord: "Discord"
+        slack: "Slack"
+      kind:
+        everything: "every notification"
+        daily_digest: "daily digest"
+      flash:
+        unknown: "unknown notification toggle."
+        toggled: "%{brand} %{kind} %{state}."
+        toggle_failed: "could not toggle %{brand} %{kind}."
+    totp:
+      flash:
+        already_on: "2FA is already on."
+        expired: "enrollment expired. start again."
+        enrolled: "2FA enrolled."
+        login_failed: "login failed."
+    sessions:
+      flash:
+        cancelled: "revoke cancelled."
+        nothing: "nothing to revoke."
+        revoked_one: "session revoked"
+        revoked_many: "%{count} sessions revoked"

@@ -42,7 +42,7 @@ module Games
 
       sync_ownerships(submitted_ids)
 
-      redirect_to game_path(@game), notice: "ownership updated."
+      redirect_to game_path(@game), notice: t("games.platform_ownership.flash.updated")
     rescue ActiveRecord::RecordInvalid => e
       @platforms = platforms_for_editor
       @owned_platform_ids = owned_platform_ids
@@ -73,10 +73,10 @@ module Games
     def validate_ids(ids)
       return nil if ids.empty?
       if ids.size != ids.uniq.size
-        return "duplicate platform submitted."
+        return I18n.t("games.platform_ownership.errors.duplicate")
       end
       missing = ids.reject { |pid| Platform.exists?(pid) }
-      return "unknown platform." if missing.any?
+      return I18n.t("games.platform_ownership.errors.unknown_platform") if missing.any?
       nil
     end
 

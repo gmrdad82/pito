@@ -38,14 +38,13 @@
 #   * else          → treat as a new URL, run the regex + test-ping
 #                     validation flow, persist on success.
 class Settings::SlackWebhooksController < ApplicationController
-  TEST_PING_TEXT = "Pito test ping — Slack webhook configured."
   CLEAR_KEYWORD = "clear"
 
   def update
     webhook_url = params[:slack_webhook_url].to_s.strip
 
     if webhook_url.blank?
-      redirect_to settings_path, notice: "Slack webhook unchanged."
+      redirect_to settings_path, notice: t("settings.slack.flash.unchanged")
       return
     end
 
@@ -55,15 +54,15 @@ class Settings::SlackWebhooksController < ApplicationController
     end
 
     unless NotificationDeliveryChannel::SLACK_URL_REGEX.match?(webhook_url)
-      redirect_to settings_path, alert: "invalid Slack webhook URL."
+      redirect_to settings_path, alert: t("settings.slack.flash.invalid_url")
       return
     end
 
-    ping_result = Webhooks::SlackClient.new(webhook_url).ping(TEST_PING_TEXT)
+    ping_result = Webhooks::SlackClient.new(webhook_url).ping(t("settings.slack.test_ping_text"))
 
     unless ping_result.success?
       redirect_to settings_path,
-                  alert: "Slack test ping failed: #{ping_result.error}."
+                  alert: t("settings.slack.flash.ping_failed", error: ping_result.error)
       return
     end
 
@@ -74,10 +73,10 @@ class Settings::SlackWebhooksController < ApplicationController
     )
 
     if record.save
-      redirect_to settings_path, notice: "Slack webhook updated."
+      redirect_to settings_path, notice: t("settings.slack.flash.updated")
     else
       redirect_to settings_path,
-                  alert: "could not save Slack webhook: #{record.errors.full_messages.to_sentence}."
+                  alert: t("settings.slack.flash.save_failed", errors: record.errors.full_messages.to_sentence)
     end
   end
 
@@ -94,10 +93,10 @@ class Settings::SlackWebhooksController < ApplicationController
     record.assign_attributes(webhook_url: nil, everything: false, daily_digest: false)
 
     if record.save
-      redirect_to settings_path, notice: "Slack webhook cleared."
+      redirect_to settings_path, notice: t("settings.slack.flash.cleared")
     else
       redirect_to settings_path,
-                  alert: "could not clear Slack webhook: #{record.errors.full_messages.to_sentence}."
+                  alert: t("settings.slack.flash.clear_failed", errors: record.errors.full_messages.to_sentence)
     end
   end
 end

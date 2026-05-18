@@ -34,11 +34,11 @@
                     data: { variant: variant },
                     class: "game-cover-img" %>
     <% else %>
-      <%= image_tag fallback_light_path, alt: "no cover available", loading: "lazy",
+      <%= image_tag fallback_light_path, alt: t("games.cover.no_cover_alt"), loading: "lazy",
                     width: width, height: height,
                     data: { variant: variant, theme: "light" },
                     class: "game-cover-img game-cover-fallback game-cover-fallback--light" %>
-      <%= image_tag fallback_dark_path, alt: "no cover available", loading: "lazy",
+      <%= image_tag fallback_dark_path, alt: t("games.cover.no_cover_alt"), loading: "lazy",
                     width: width, height: height,
                     data: { variant: variant, theme: "dark" },
                     class: "game-cover-img game-cover-fallback game-cover-fallback--dark" %>
@@ -56,11 +56,11 @@
                     data: { variant: variant },
                     class: "game-cover-img" %>
     <% else %>
-      <%= image_tag fallback_light_path, alt: "no cover available", loading: "lazy",
+      <%= image_tag fallback_light_path, alt: t("games.cover.no_cover_alt"), loading: "lazy",
                     width: width, height: height,
                     data: { variant: variant, theme: "light" },
                     class: "game-cover-img game-cover-fallback game-cover-fallback--light" %>
-      <%= image_tag fallback_dark_path, alt: "no cover available", loading: "lazy",
+      <%= image_tag fallback_dark_path, alt: t("games.cover.no_cover_alt"), loading: "lazy",
                     width: width, height: height,
                     data: { variant: variant, theme: "dark" },
                     class: "game-cover-img game-cover-fallback game-cover-fallback--dark" %>

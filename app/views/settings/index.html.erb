@@ -1,4 +1,4 @@
-<% content_for(:title, "settings") %>
+<% content_for(:title, t("settings.index.title")) %>
 <%
   # Phase 32 (settings refactor polish — Concern 2). Mandatory-2FA
   # enrollment gate auto-opens the security modal on /settings and
@@ -9,7 +9,7 @@
   # owns the redirect, this is the renderer's contract).
   enroll_totp_gate_active = Current.user.present? && !Current.user.totp_configured?
 %>
-<h1>settings</h1>
+<h1><%= t("settings.index.heading") %></h1>
 
 <%# Phase 29 (settings refactor) — 3-row layout.
     Phase 32 follow-up (2026-05-16) — Row 2 simplification.

@@ -54,7 +54,7 @@ class Settings::Security::TotpsController < ApplicationController
   # is no web-side disable / manage surface anymore.
   def new
     if Current.user.totp_enabled?
-      redirect_to root_path, notice: "2FA is already on."
+      redirect_to root_path, notice: t("settings.totp.flash.already_on")
       return
     end
 
@@ -73,7 +73,7 @@ class Settings::Security::TotpsController < ApplicationController
   # 10 backup-code digest rows in a single transaction.
   def create
     if Current.user.totp_enabled?
-      redirect_to root_path, notice: "2FA is already on."
+      redirect_to root_path, notice: t("settings.totp.flash.already_on")
       return
     end
 
@@ -83,7 +83,7 @@ class Settings::Security::TotpsController < ApplicationController
     if draft.blank? || draft[:seed].blank?
       # Draft TTL'd or cleared — start over from the GET path.
       redirect_to settings_security_totp_path,
-                  alert: "enrollment expired. start again."
+                  alert: t("settings.totp.flash.expired")
       return
     end
 
@@ -125,7 +125,7 @@ class Settings::Security::TotpsController < ApplicationController
       # Drop the cache draft now that the user has confirmed.
       Rails.cache.delete(cache_key)
 
-      redirect_to root_path, notice: "2FA enrolled."
+      redirect_to root_path, notice: t("settings.totp.flash.enrolled")
     else
       # Wrong code → 422 re-render with the SAME draft (so the QR +
       # codes on screen stay valid for the retry). The cache entry is
@@ -134,7 +134,7 @@ class Settings::Security::TotpsController < ApplicationController
       @codes = plaintext_codes
       @totp_uri = ROTP::TOTP.new(@seed, issuer: TotpHelper::TOTP_ISSUER)
                             .provisioning_uri(Current.user.username)
-      flash.now[:alert] = "login failed."
+      flash.now[:alert] = t("settings.totp.flash.login_failed")
       render :new, status: :unprocessable_content
     end
   end

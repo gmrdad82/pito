@@ -16,12 +16,12 @@
     back to `/games` (the only surface from which a bundle is now
     reachable). The `[edit]` breadcrumb action is gone too — bundle
     renaming happens via the modal's inline-title-edit on /games. %>
-<% breadcrumb([ "games", games_path ], @bundle.name) %>
+<% breadcrumb([ t("games.breadcrumb_root"), games_path ], @bundle.name) %>
 
 <% content_for(:breadcrumb_actions) do %>
   <div class="dot-list">
     <%= render(BracketedLinkComponent.new(
-      label: "-",
+      label: t("common.actions.delete_short"),
       href: deletions_path(type: "bundle", ids: @bundle.id),
       destructive: true)) %>
   </div>
@@ -42,11 +42,11 @@
 
     <h1 style="margin: 8px 0 4px 0;"><%= @bundle.name %></h1>
     <p class="text-muted" style="margin: 0 0 8px 0;">
-      <%= @members.size %> member<%= 's' if @members.size != 1 %>
+      <%= t("bundles.show.member_count", count: @members.size) %>
     </p>
 
     <% if @bundle.cover_rebuild_in_flight? %>
-      <p class="text-muted" style="margin: 4px 0;">regenerating…</p>
+      <p class="text-muted" style="margin: 4px 0;"><%= t("bundles.show.regenerating") %></p>
     <% end %>
   </div>
 
@@ -54,14 +54,14 @@
       keeps the search input, the picker dropdown, and the add-member
       table visible together without horizontal scroll. %>
   <div class="pane pane--wide">
-    <h2 style="margin-top: 0;">members</h2>
+    <h2 style="margin-top: 0;"><%= t("bundles.show.members_heading") %></h2>
 
     <% if @members.any? %>
       <table>
         <thead>
           <tr>
-            <th>game</th>
-            <th>release</th>
+            <th><%= t("bundles.show.col_game") %></th>
+            <th><%= t("bundles.show.col_release") %></th>
             <th></th>
           </tr>
         </thead>
@@ -72,12 +72,12 @@
         </tbody>
       </table>
     <% else %>
-      <p class="text-muted">no members yet.</p>
+      <p class="text-muted"><%= t("bundles.show.empty_members") %></p>
     <% end %>
 
-    <h2 style="margin-top: 16px;">add member</h2>
+    <h2 style="margin-top: 16px;"><%= t("bundles.show.add_member_heading") %></h2>
     <p class="text-muted" style="margin: 0 0 4px 0; font-size: 11px;">
-      pick a game from your library.
+      <%= t("bundles.show.pick_hint") %>
     </p>
     <%= form_with url: bundle_members_path(@bundle), method: :post, local: true,
                   data: { controller: "bundle-member-picker" } do |f| %>
@@ -85,23 +85,23 @@
              autocomplete="off"
              data-bundle-member-picker-target="input"
              data-action="input->bundle-member-picker#filter"
-             placeholder="search your games…"
+             placeholder="<%= t("bundles.show.search_placeholder") %>"
              style="width: 280px; padding: 4px 6px;
                     font-family: ui-monospace, monospace; font-size: 13px;" />
       <%= f.select :game_id,
                    options_for_select(member_picker_options(@bundle)),
-                   { prompt: "—" },
+                   { prompt: t("common.em_dash") },
                    data: { bundle_member_picker_target: "select" } %>
-      <button type="submit" class="bracketed">[<span class="bl">add</span>]</button>
+      <button type="submit" class="bracketed">[<span class="bl"><%= t("common.actions.add") %></span>]</button>
       <p data-bundle-member-picker-target="empty" hidden
          class="text-muted" style="margin-top: 4px; font-size: 11px;">
-        no games match
+        <%= t("bundles.show.no_games_match") %>
       </p>
     <% end %>
 
     <%# Phase 14 §3 — linked videos. Lists every Video tied to this
         Bundle via `video_game_links`. %>
-    <h2 style="margin-top: 16px;">linked videos</h2>
+    <h2 style="margin-top: 16px;"><%= t("bundles.show.linked_videos_heading") %></h2>
     <% bundle_links = @bundle.video_game_links.includes(:video).order(:id) %>
     <% if bundle_links.any? %>
       <ul style="list-style: none; padding: 0; margin: 0;">
@@ -110,13 +110,13 @@
           <li style="padding: 2px 0;">
             <%= link_to link.video.title.presence || link.video.youtube_video_id, video_path(link.video) %>
             <% if link.is_primary? %>
-              <span class="bracketed-active">[★]</span>
+              <span class="bracketed-active">[<%= t("common.primary_star") %>]</span>
             <% end %>
           </li>
         <% end %>
       </ul>
     <% else %>
-      <p class="text-muted" style="margin: 0;">no linked videos yet.</p>
+      <p class="text-muted" style="margin: 0;"><%= t("bundles.show.no_linked_videos") %></p>
     <% end %>
   </div>
 </div>

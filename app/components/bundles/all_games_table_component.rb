@@ -48,7 +48,7 @@ module Bundles
     # from the secondary-genre list shown on the game-show page; this
     # column shows the single canonical primary genre per row.
     def primary_genre_label(game)
-      genre_display_name(game.primary_genre).presence || "—"
+      genre_display_name(game.primary_genre).presence || I18n.t("common.em_dash")
     end
 
     # Short, no-time release date for the table column. Matches the
@@ -57,7 +57,7 @@ module Bundles
     # values so the column reads quiet.
     def short_release_date(game)
       date = game.release_date
-      return "—" if date.blank?
+      return I18n.t("common.em_dash") if date.blank?
 
       date.strftime("%m-%d-%Y")
     end

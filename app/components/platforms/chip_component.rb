@@ -40,7 +40,12 @@ class Platforms::ChipComponent < ViewComponent::Base
   end
 
   def label
-    SLUG_BRAND.dig(@slug, :label)
+    # I18n is the canonical label surface. SLUG_BRAND.dig(:label)
+    # remains the fallback so direct constant readers
+    # (Games::OwnershipMatrixComponent, OwnershipTogglesController,
+    # Games::PlatformOwnershipChipComponent) keep working until they
+    # route through this method.
+    I18n.t("platforms.chip.label.#{@slug}", default: SLUG_BRAND.dig(@slug, :label))
   end
 
   def color

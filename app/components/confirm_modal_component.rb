@@ -16,16 +16,16 @@ class ConfirmModalComponent < ViewComponent::Base
   # `data-turbo` attribute on; the Accept header negotiation handles
   # the rest.
   def initialize(id:, title:, confirm_path:, confirm_method: :delete,
-                 body: nil, confirm_label: "-",
-                 cancel_label: "cancel", destructive: true,
+                 body: nil, confirm_label: nil,
+                 cancel_label: nil, destructive: true,
                  modal_actions_key: nil, turbo: false)
     @id = id
     @title = title
     @body = body
-    @confirm_label = confirm_label
+    @confirm_label = confirm_label || I18n.t("common.actions.delete_short")
     @confirm_path = confirm_path
     @confirm_method = confirm_method
-    @cancel_label = cancel_label
+    @cancel_label = cancel_label || I18n.t("common.actions.cancel")
     @destructive = destructive
     @modal_actions_key = modal_actions_key
     @turbo = turbo

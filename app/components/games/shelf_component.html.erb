@@ -10,7 +10,7 @@
       <h3 style="<%= heading_inline_style %>"><%= heading %><% if show_count %> <%= render(StatusBadgeComponent.new(label: count.to_s, kind: :neutral)) %><% end %></h3>
     <% end %>
     <% if more_href.present? %>
-      <%= render(BracketedLinkComponent.new(label: "see all", href: more_href)) %>
+      <%= render(BracketedLinkComponent.new(label: t("common.actions.see_all"), href: more_href)) %>
     <% end %>
     <% if heading_extras? %>
       <%= heading_extras %>

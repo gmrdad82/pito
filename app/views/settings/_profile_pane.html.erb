@@ -10,7 +10,7 @@
     uses). %>
 <div class="pane">
   <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
-    <legend><h2>profile</h2></legend>
+    <legend><h2><%= t("settings.profile.heading") %></h2></legend>
 
     <%= form_with url: settings_user_path, method: :patch, scope: :user, local: true,
                   data: {
@@ -28,7 +28,7 @@
       <% end %>
 
       <div style="margin-bottom: 8px;">
-        <label for="user_username" class="form-label">username</label>
+        <label for="user_username" class="form-label"><%= t("settings.profile.username_label") %></label>
         <input type="text" name="user[username]" id="user_username"
                value="<%= @user&.username %>" required autocomplete="username"
                style="max-width: 360px; width: 100%;">
@@ -37,29 +37,29 @@
       <hr class="hairline">
 
       <div style="margin-bottom: 8px;">
-        <label for="user_current_password" class="form-label">current password</label>
+        <label for="user_current_password" class="form-label"><%= t("settings.profile.current_password_label") %></label>
         <input type="password" name="user[current_password]" id="user_current_password"
                value="" required autocomplete="current-password"
                style="max-width: 360px; width: 100%;">
-        <span class="form-hint" style="display: block;">required to authorize the change.</span>
+        <span class="form-hint" style="display: block;"><%= t("settings.profile.current_password_hint") %></span>
       </div>
 
       <div style="margin-bottom: 8px;">
-        <label for="user_password" class="form-label">new password</label>
+        <label for="user_password" class="form-label"><%= t("settings.profile.new_password_label") %></label>
         <input type="password" name="user[password]" id="user_password"
                value="" autocomplete="new-password"
                style="max-width: 360px; width: 100%;">
-        <span class="form-hint" style="display: block;">leave blank to keep current password.</span>
+        <span class="form-hint" style="display: block;"><%= t("settings.profile.new_password_hint") %></span>
       </div>
 
       <div style="margin-bottom: 8px;">
-        <label for="user_password_confirmation" class="form-label">confirm new password</label>
+        <label for="user_password_confirmation" class="form-label"><%= t("settings.profile.confirm_password_label") %></label>
         <input type="password" name="user[password_confirmation]" id="user_password_confirmation"
                value="" autocomplete="new-password"
                style="max-width: 360px; width: 100%;">
       </div>
 
-      <button type="submit">[update]</button>
+      <button type="submit">[<%= t("common.actions.update") %>]</button>
     <% end %>
   </fieldset>
 </div>

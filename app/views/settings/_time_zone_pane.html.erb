@@ -8,10 +8,10 @@
 <div class="pane">
   <%= form_with url: settings_time_zone_path, method: :patch, local: true do |_f| %>
     <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
-      <legend><h2>time zone</h2></legend>
+      <legend><h2><%= t("settings.time_zone.heading") %></h2></legend>
 
       <div style="margin-bottom: 6px;">
-        <label for="settings_time_zone" class="form-label">your time zone</label>
+        <label for="settings_time_zone" class="form-label"><%= t("settings.time_zone.label") %></label>
         <%# IANA canonical name goes on the wire (the `value` of each
             option). The label is the friendly Rails name so the user
             sees `(GMT+02:00) Bucharest` rather than `Europe/Bucharest`
@@ -33,14 +33,14 @@
         <% friendly_iana_names = ActiveSupport::TimeZone.all.map { |z| z.tzinfo.name }.to_set %>
         <select name="time_zone" id="settings_time_zone" autocomplete="off"
                 style="max-width: 420px; width: 100%;">
-          <optgroup label="common">
+          <optgroup label="<%= t("settings.time_zone.optgroup_common") %>">
             <% ActiveSupport::TimeZone.all.each do |zone| %>
               <option value="<%= zone.tzinfo.name %>" <%= "selected" if zone.tzinfo.name == current_iana %>>
                 <%= zone.to_s %>
               </option>
             <% end %>
           </optgroup>
-          <optgroup label="all IANA">
+          <optgroup label="<%= t("settings.time_zone.optgroup_all_iana") %>">
             <% TZInfo::Timezone.all_identifiers.sort.each do |iana| %>
               <% next if friendly_iana_names.include?(iana) %>
               <option value="<%= iana %>" <%= "selected" if iana == current_iana %>>
@@ -49,10 +49,10 @@
             <% end %>
           </optgroup>
         </select>
-        <span class="form-hint" style="display: block;">affects how every time is rendered across pito.</span>
+        <span class="form-hint" style="display: block;"><%= t("settings.time_zone.hint") %></span>
       </div>
 
-      <button type="submit">[update]</button>
+      <button type="submit">[<%= t("common.actions.update") %>]</button>
     </fieldset>
   <% end %>
 </div>

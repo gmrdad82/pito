@@ -53,7 +53,7 @@ module Games
     # Used to render an em-dash when the rating is missing. Public so
     # the template can branch without leaking `@rating` directly.
     def missing_glyph
-      "—"
+      I18n.t("common.em_dash")
     end
 
     def tier

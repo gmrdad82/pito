@@ -1,0 +1,43 @@
+en:
+  settings:
+    breadcrumb_root: settings
+    discord:
+      heading: Discord
+      webhook_url_label: webhook URL
+    slack:
+      heading: Slack
+      webhook_url_label: webhook URL
+    webhook:
+      clear_hint_html: type <strong>"clear"</strong> to remove
+    notification_toggle:
+      everything: every notification
+      daily_digest: daily digest
+      daily_digest_hint: sent daily at 09:00 in your time zone.
+    security:
+      title: security
+      breadcrumb: security
+      heading: security
+      twofa_label: 2FA
+      status_prefix: "status:"
+      status_on: "on"
+      status_off: "off"
+      totp:
+        title: enroll 2FA
+        heading: two-factor setup required
+        requires_line1: pito requires 2FA.
+        requires_line2: nothing else is reachable until 2FA is enabled.
+        scan_hint: scan with 1Password (or any authenticator app).
+        scan_heading: scan
+        seed_hint: "or paste this seed manually:"
+        enter_code_heading: enter code
+        code_label: 6-digit code from your authenticator app
+        submit: enable 2FA
+        backup_codes_heading: backup codes
+        backup_codes_hint_line1: each code works once.
+        backup_codes_hint_line2_html: store them somewhere safe &mdash; outside the device that holds your authenticator.
+    user:
+      title: user
+      breadcrumb: user
+      heading: user
+      hint_line1: change your username or password.
+      hint_line2: current password is required to authorize the change.
