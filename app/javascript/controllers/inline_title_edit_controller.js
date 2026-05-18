@@ -83,11 +83,31 @@ export default class extends Controller {
           this._flashToast(message, "toast-error")
           return
         }
-        // Update the modal title text inline. Other surfaces (bundle
-        // shelf tile, /bundles index, etc.) still show the old name
-        // until the next page reload — intentional per spec.
+        // Update the modal title text inline.
         this.titleTextEl().textContent = newName
         this.swapToDisplay()
+        // 2026-05-18 (Bug 2 fix) — propagate the rename to the bundle
+        // tile in the /games shelf so the cover-strip caption updates
+        // without a page reload. The PATCH response carries the
+        // canonical `{ id, name }` payload; resolve the matching
+        // `#bundle-tile-<id>` anchor (rendered by
+        // `Games::BundleTileComponent`) and rewrite its
+        // `.bundle-tile-name` caption + the anchor's `title` attribute
+        // (hover tooltip) + `aria-label` if present. Other surfaces
+        // (the bundles modal header, the per-bundle delete-confirm
+        // dialog title, /bundles/:id show page) still resolve their
+        // labels server-side; those would need a Turbo Stream
+        // round-trip to stay in lockstep but are out of scope for
+        // this bug.
+        if (payload && payload.id != null) {
+          const tile = document.getElementById(`bundle-tile-${payload.id}`)
+          if (tile) {
+            const captionEl = tile.querySelector(".bundle-tile-name")
+            if (captionEl) captionEl.textContent = newName
+            tile.setAttribute("title", newName)
+            tile.setAttribute("data-bundles-modal-trigger-title-value", newName)
+          }
+        }
         this._flashToast("bundle updated.", "toast-notice")
       })
       .catch((err) => {

@@ -49,23 +49,36 @@
         </tr>
       </thead>
       <tbody>
-        <% games.each do |game| %>
-          <% chip = Games::RatingScoreChipComponent.new(game: game) %>
+        <% if games.any? %>
+          <% games.each do |game| %>
+            <% chip = Games::RatingScoreChipComponent.new(game: game) %>
+            <tr>
+              <td class="all-games-col-check">
+                <%= render(CheckboxComponent.new(value: game.id, name: "game_ids[]")) %>
+              </td>
+              <td class="all-games-col-title" title="<%= game.title %>">
+                <%= link_to game.title,
+                            game_path(game),
+                            data: { turbo_frame: "_top" } %>
+              </td>
+              <td class="all-games-col-genre"><%= primary_genre_label(game) %></td>
+              <td class="num all-games-col-release" data-sort-value="<%= game.release_date&.iso8601 %>">
+                <%= short_release_date(game) %>
+              </td>
+              <td class="num all-games-col-score" data-sort-value="<%= chip.score || -1 %>">
+                <%= render(chip) %>
+              </td>
+            </tr>
+          <% end %>
+        <% else %>
+          <%# 2026-05-18 (Bug 1 fix) — empty-state row. Rendered when the
+              bundle has no members so the `all games [+]` heading +
+              `[+]` add trigger above remain reachable. Single muted
+              row spanning all five columns; copy explicitly nudges the
+              user toward the `[+]` button to add the first member. %>
           <tr>
-            <td class="all-games-col-check">
-              <%= render(CheckboxComponent.new(value: game.id, name: "game_ids[]")) %>
-            </td>
-            <td class="all-games-col-title" title="<%= game.title %>">
-              <%= link_to game.title,
-                          game_path(game),
-                          data: { turbo_frame: "_top" } %>
-            </td>
-            <td class="all-games-col-genre"><%= primary_genre_label(game) %></td>
-            <td class="num all-games-col-release" data-sort-value="<%= game.release_date&.iso8601 %>">
-              <%= short_release_date(game) %>
-            </td>
-            <td class="num all-games-col-score" data-sort-value="<%= chip.score || -1 %>">
-              <%= render(chip) %>
+            <td colspan="5" class="text-muted" style="text-align: center; padding: 12px;">
+              no games yet — click [+] to add
             </td>
           </tr>
         <% end %>

@@ -146,9 +146,20 @@ class GamesController < ApplicationController
     @genres_for_shelf = Genre.where(
       id: filtered_scope.where.not(primary_genre_id: nil).distinct.select(:primary_genre_id)
     ).order(Arel.sql("LOWER(genres.name)"), :id)
-    @bundles_for_shelf = Bundle.where(
-      id: BundleMember.where(game_id: filtered_scope.select(:id)).select(:bundle_id)
-    ).order(Arel.sql("LOWER(bundles.name)"), :id)
+    # 2026-05-18 (Bug 3 fix) — list ALL bundles in the /games bundles
+    # shelf, including empty (zero-member) ones. The prior
+    # `BundleMember.where(game_id: filtered_scope.select(:id))`
+    # subquery excluded any bundle without at least one member
+    # game in the filtered scope — which silently swallowed
+    # freshly-created `[+]` bundles (they sit at zero members until
+    # the user adds the first game via the modal's `[+]` trigger),
+    # so a page refresh appeared to "lose" them. The shelf is now
+    # always a complete alphabetical listing of every Bundle row;
+    # the per-bundle tile's no-cover fallback covers the empty
+    # composite case. Filter narrowing on `/games?filters=...` no
+    # longer prunes the bundles shelf — the listing reflects the
+    # full bundle catalog, not the filter-intersected subset.
+    @bundles_for_shelf = Bundle.order(Arel.sql("LOWER(bundles.name)"), :id)
 
     # Phase 27 P27 reviewer follow-up (non-blocking concern #2,
     # 2026-05-11) — single-pass batch for the per-genre sub-shelves.

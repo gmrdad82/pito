@@ -2349,24 +2349,31 @@ hr.hairline {
   cursor: default;
 }
 
-/* 2026-05-17 BP slice — per-platform ownership matrix on /games/:id.
-   One row per applicable platform (PS / Switch / Steam). Row layout:
-   platform-name label column (fixed min-width so chips align across
-   rows) + horizontal chip row (`[owned]` / `[played]` / em-dash).
-   Matches the visual rhythm of the previous `.ownership-row` block —
-   identical row height + label column width — so the LEFT pane's
-   vertical cadence stays unchanged when the matrix replaces the
-   flat rows. */
+/* 2026-05-17 BP slice / 2026-05-18 dual-checkbox — per-platform
+   ownership matrix on /games/:id. One row per applicable platform
+   (PS / Switch / Steam). Row layout: platform-name label column
+   (fixed min-width so chips align across rows) + two inline
+   auto-submit checkboxes (`[ ] owned` / `[ ] played`) rendered as
+   `.ownership-matrix__toggle` cells. Matches the visual rhythm of
+   the previous `.ownership-row` block — identical row height +
+   label column width — so the LEFT pane's vertical cadence stays
+   unchanged when the matrix replaces the flat rows. */
 .ownership-matrix__row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 16px;
   margin: 4px 0;
   flex-wrap: wrap;
 }
 .ownership-matrix__platform {
   min-width: 80px;
   color: var(--color-muted);
+}
+.ownership-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
 }
 
 /* 2026-05-17 — inline-editable ownership matrix toggles. Each cell is
@@ -3641,6 +3648,143 @@ dialog.leader-menu-popup::backdrop {
   font-size: 11px;
   line-height: 1.4;
   padding: 0 5px;
+}
+
+/* 2026-05-18 (Bug 4) — Empty-bundle netflix-3 placeholder.
+
+   When a bundle has no composite cover yet (no members, or the async
+   `BundleCoverBuild` job has not landed), the tile renders a 3-cell
+   grid that previews the netflix-style composite layout a
+   3-member bundle would resolve to. The single large left cell +
+   two stacked right cells mirror `Composite::CellMap.for(3)` so
+   the placeholder reads as "bundle waiting for members" rather than
+   "missing single game cover".
+
+   Sized to the wrapper (`.bundle-cover-wrap` — `100%` of the
+   surrounding 150 × 200 or 98 × 130 box). The grid layout is fixed
+   at 60% / 40% columns with two equal-height rows; the main cell
+   spans both rows on the left. `gap: 2px` keeps cell separators
+   subtle. Each cell carries a 1px dashed border + the secondary
+   surface background so both light and dark themes show the
+   placeholder against the surrounding cover wrapper without
+   competing for the eye. */
+.bundle-tile__nocover-netflix3 {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-columns: 60% 40%;
+  grid-template-rows: 50% 50%;
+  gap: 2px;
+  background-color: transparent;
+  /* 2026-05-18 (follow-up 3) — adopt the standard cover-art outer
+     chrome (1px solid theme-aware border + 2px radius) so the
+     empty-bundle placeholder reads as the same shape as a real
+     `.bundle-cover-composite` tile. The dashed inner cells stay
+     INSIDE this outer solid border. */
+  border: 1px solid var(--color-cover-border);
+  border-radius: 2px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.bundle-tile__nocover-netflix3 .cell {
+  border: 1px dashed var(--color-border);
+  background-color: var(--color-bg-alt);
+  border-radius: 2px;
+  /* 2026-05-18 (follow-up) — center the embedded controller icon
+     inside each cell. Without flex centering the icon defaults to
+     top-left of the cell and reads as off-balance. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  /* 2026-05-18 (follow-up 2) — draw the 1px dashed border INSIDE the
+     cell's allocated grid track. Without `border-box`, the border
+     sits OUTSIDE the track and the rightmost / bottommost cell edges
+     get clipped by the parent wrapper's `overflow: hidden` (the
+     cover-radius clip on `.bundle-cover-wrap`), so the right + bottom
+     dashed strokes disappear. */
+  box-sizing: border-box;
+}
+.bundle-tile__nocover-netflix3 .cell--main {
+  /* Large left cell spans both rows. */
+  grid-row: span 2;
+}
+/* 2026-05-18 (follow-up) — controller icon embedded in each cell of
+   the netflix-3 placeholder. Two sizes: `--large` for the main left
+   cell (90% wide of a 60% × 100% slot — fills the cell), `--small`
+   for the two right cells (90% wide of a 40% × 50% slot — fills the
+   cell). Opacity keeps the icon muted so the dashed-border cells
+   still read as "missing", not "decorated". The light/dark variant
+   toggle is inherited from the shared `.game-cover-fallback--light
+   / --dark` rules above.
+
+   2026-05-18 (follow-up 3) — bumped from `width: 50%` + tight pixel
+   caps (60 / 24) to `width: 90%` + generous caps (90 / 50) so the
+   embedded controller properly fills each cell instead of looking
+   lost in dead whitespace. `height: auto` keeps the SVG aspect ratio
+   so the icon scales by width and never overflows the cell's
+   vertical track. */
+.bundle-tile__nocover-icon {
+  opacity: 0.4;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+/* 2026-05-18 (bug fix) — theme gating for the embedded controller
+   icons. The shared `.game-cover-fallback--light / --dark` rules
+   above (`display: none` vs `display: block`) collide with the
+   `.bundle-tile__nocover-icon` rule because of cascade order: the
+   icon rule comes later in the file and `display: block` previously
+   beat `display: none` from the equally-specific fallback rules, so
+   BOTH variants rendered in light theme (overlapping inside the
+   flex-centered cell). The icon rule no longer emits `display`;
+   the cell parent (`display: flex`) lays out whichever child is
+   visible, and the explicit `display: none` on the hidden variant
+   below wins because nothing further down sets `display` on these
+   classes. Specificity-tied gates scoped to the netflix-3
+   placeholder keep light hidden in dark and vice versa. */
+.bundle-tile__nocover-icon.game-cover-fallback--dark { display: none; }
+[data-theme="dark"] .bundle-tile__nocover-icon.game-cover-fallback--light { display: none; }
+[data-theme="dark"] .bundle-tile__nocover-icon.game-cover-fallback--dark { display: block; }
+.bundle-tile__nocover-icon--large {
+  width: 90%;
+  max-width: 90px;
+  height: auto;
+}
+.bundle-tile__nocover-icon--small {
+  width: 90%;
+  max-width: 50px;
+  height: auto;
+}
+
+/* 2026-05-18 (EQ Bug 1 follow-up) — netflix-3 placeholder rendered in
+   the /games bundles modal when the bundle has zero members. Lives in
+   the same slot the populated `.bundle-modal-composite` would occupy,
+   so it must match the populated composite's outer geometry: fluid
+   width spanning the modal body + `aspect-ratio: 3 / 4` (NOT
+   `height: 100%`, which collapses to 0 without a fixed parent — the
+   shelf-tile variant gets its height from the surrounding
+   `.bundle-cover-wrap` box, which the modal slot does not have).
+
+   The outer border + radius come from the base
+   `.bundle-tile__nocover-netflix3` rule (1px solid
+   `var(--color-cover-border)` + 2px radius), matching the
+   `.bundle-modal-composite` chrome exactly.
+
+   At the modal's larger pixel footprint (~450 – 870px wide), the
+   shelf-sized icon caps (`max-width: 90px / 50px`) leave the
+   controller SVGs floating in dead space. Generous caps
+   (`200px` main / `100px` small) let the icons scale proportionally
+   into the much-larger cells. */
+.bundle-tile__nocover-netflix3--modal {
+  height: auto;
+  aspect-ratio: 3 / 4;
+}
+.bundle-tile__nocover-netflix3--modal .bundle-tile__nocover-icon--large {
+  max-width: 200px;
+}
+.bundle-tile__nocover-netflix3--modal .bundle-tile__nocover-icon--small {
+  max-width: 100px;
 }
 
 /* 2026-05-18 — /games/:id bundles + similar shelves horizontal-scroll
