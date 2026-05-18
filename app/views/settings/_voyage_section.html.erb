@@ -66,14 +66,10 @@
     structure change. %>
 <% voyage_stats = Voyage::Stats.call %>
 <div id="voyage_section">
-  <div style="margin-bottom: 6px;">
-    <span><strong>Voyage AI</strong></span>
-    <% if AppSetting.voyage_configured? %>
-      <span style="color: var(--color-success);">▲ configured</span>
-    <% else %>
-      <span class="text-danger">▽ not configured</span>
-    <% end %>
-  </div>
+  <%= render Settings::Stack::HealthLineComponent.new(
+    label: "Voyage AI",
+    state: AppSetting.voyage_configured? ? :configured : :not_configured
+  ) %>
 
   <div style="margin-bottom: 8px;">
     <table class="stack-table">

@@ -1,0 +1,9 @@
+<%# Tri-state health line for the stack pane. Extracted from
+    `app/views/settings/_stack_pane.html.erb` +
+    `app/views/settings/_voyage_section.html.erb` per Beta-3 lane B
+    candidate B10. Wrapping `<div style="margin-bottom: 6px;">` is
+    preserved verbatim so vertical spacing in the pane is unchanged. %>
+<div style="margin-bottom: 6px;">
+  <span><strong><%= label %></strong></span>
+  <span<%= status_attrs.map { |k, v| %( #{k}="#{v}") }.join.html_safe %>><%= glyph %> <%= copy %></span>
+</div>
