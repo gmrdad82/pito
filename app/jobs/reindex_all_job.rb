@@ -28,6 +28,12 @@ class ReindexAllJob < ApplicationJob
   sidekiq_options lock: :until_executed, on_conflict: :log
 
   def perform
+    # 2026-05-18 (DR follow-up) — Announce job start so any open
+    # `/settings` tab swaps to the "reindexing…" Stack-pane state via
+    # the cable subscription (in addition to the Voyage-section Turbo
+    # partial swap below).
+    StackStats::Broadcaster.broadcast!
+
     # FOR LOCAL TESTING VISIBILITY — remove or set REINDEX_SLEEP_SECONDS
     # to 0 before production use. See the constant comment above.
     sleep REINDEX_SLEEP_SECONDS if REINDEX_SLEEP_SECONDS.positive?
@@ -65,6 +71,12 @@ class ReindexAllJob < ApplicationJob
     # clear so any subscribed `/settings` tab swaps to the idle state.
     AppSetting.clear_reindex_lock!
     broadcast_voyage_section
+    # 2026-05-18 (DR follow-up) — Push the post-reindex Stack-pane
+    # snapshot to every subscribed tab via `StackStatsChannel`. The
+    # Turbo replacement above swaps the Voyage-section partial markup;
+    # this broadcast updates the per-row numeric cells inside it (and
+    # the Postgres / Meilisearch / assets sections).
+    StackStats::Broadcaster.broadcast!
   end
 
   private

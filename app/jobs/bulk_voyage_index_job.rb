@@ -48,6 +48,12 @@ class BulkVoyageIndexJob < ApplicationJob
     else
       raise ArgumentError, "Unknown corpus: #{corpus.inspect} (expected 'games' or 'bundles')"
     end
+  ensure
+    # 2026-05-18 (DR follow-up) — push the post-batch Stack-pane
+    # snapshot to every open `/settings` tab. One broadcast per corpus
+    # (NOT per record) — the prior per-row fan-out reasoning above
+    # applies in reverse: 128 records → 1 broadcast, not 128.
+    StackStats::Broadcaster.broadcast!
   end
 
   private

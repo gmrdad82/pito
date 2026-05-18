@@ -109,30 +109,19 @@ class SettingsController < ApplicationController
     redirect_to settings_path, notice: "settings saved."
   end
 
-  # 2026-05-18 (DR) — Live stack-stats JSON for the `/settings` Stack
-  # pane. The page mounts the `stack-stats-live` Stimulus controller
-  # which polls this endpoint every ~3 s and updates the numeric cells
-  # in place (no full-page reload). Returns the subset of stats that
-  # actually change moment to moment: Sidekiq queue counters + Voyage
-  # embedding coverage. Connection-health probes and per-table sizes
-  # stay on the server-side render (rare to flip, expensive to recompute).
+  # 2026-05-18 (DR follow-up) — KEPT as a fallback / diagnostics
+  # endpoint after the live `/settings` pane moved from HTTP polling to
+  # ActionCable push (see `StackStatsChannel` + `StackStats::Broadcaster`).
+  # The Stimulus controller no longer hits this URL on a timer, but
+  # leaving the route + action live is cheap and useful for one-shot
+  # `curl /settings/stack_stats` debugging and any future automation
+  # that wants a synchronous snapshot.
   #
-  # `last_indexed_at_formatted` is pre-rendered server-side via
-  # `compact_time_ago` so the frontend doesn't need a duplicate
-  # JS implementation of the helper.
+  # Both this action and the cable broadcaster call the same shared
+  # builder (`StackStats::Payload`) so the wire shape is identical
+  # regardless of transport.
   def stack_stats
-    require "sidekiq/api"
-
-    voyage = Voyage::Stats.call
-    last_formatted = voyage[:last_indexed_at] ? helpers.compact_time_ago(voyage[:last_indexed_at]) : nil
-
-    render json: {
-      redis: stack_stats_redis,
-      voyage: voyage.merge(last_indexed_at_formatted: last_formatted),
-      postgres: stack_stats_postgres,
-      meilisearch: stack_stats_meilisearch,
-      assets: stack_stats_assets
-    }
+    render json: StackStats::Payload.call
   rescue StandardError => e
     Rails.logger.warn("[settings#stack_stats] #{e.class}: #{e.message}")
     render json: { redis: {}, voyage: {}, postgres: {}, meilisearch: {}, assets: {} }, status: :ok

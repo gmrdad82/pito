@@ -21,5 +21,10 @@ class GameVoyageIndexJob < ApplicationJob
     return unless game
 
     Games::VoyageIndexer.call(game)
+  ensure
+    # 2026-05-18 (DR follow-up) — push the post-index Stack-pane
+    # snapshot so any open `/settings` tab sees the updated Voyage
+    # coverage + Sidekiq counters without polling.
+    StackStats::Broadcaster.broadcast!
   end
 end
