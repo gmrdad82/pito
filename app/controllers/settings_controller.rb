@@ -106,7 +106,7 @@ class SettingsController < ApplicationController
   # / `update_voyage`). Scripted PATCH callers still hitting `/settings`
   # get a clean redirect + notice — no 500s, no silent writes.
   def update
-    redirect_to settings_path, notice: "settings saved."
+    redirect_to settings_path, notice: t("settings.flash.saved")
   end
 
   # 2026-05-18 (DR follow-up) — KEPT as a fallback / diagnostics
@@ -135,13 +135,13 @@ class SettingsController < ApplicationController
   # job's `ensure` block clears the flag (Layer 3 ties the UI to it).
   def reindex
     if AppSetting.reindex_running?
-      redirect_to settings_path, alert: "reindex already in progress."
+      redirect_to settings_path, alert: t("settings.flash.reindex_in_progress")
       return
     end
 
     AppSetting.start_reindex!
     ReindexAllJob.perform_later
-    redirect_to settings_path, notice: "reindex started."
+    redirect_to settings_path, notice: t("settings.flash.reindex_started")
   end
 
   private

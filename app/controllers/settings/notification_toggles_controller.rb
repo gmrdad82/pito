@@ -34,22 +34,12 @@ class Settings::NotificationTogglesController < ApplicationController
   BRANDS = %w[discord slack].freeze
   KINDS = %w[everything daily_digest].freeze
 
-  BRAND_LABELS = {
-    "discord" => "Discord",
-    "slack"   => "Slack"
-  }.freeze
-
-  KIND_LABELS = {
-    "everything"   => "every notification",
-    "daily_digest" => "daily digest"
-  }.freeze
-
   def update
     brand = params[:brand].to_s
     kind = params[:kind].to_s
 
     unless BRANDS.include?(brand) && KINDS.include?(kind)
-      redirect_to settings_path, alert: "unknown notification toggle."
+      redirect_to settings_path, alert: t("settings.notification_toggle.flash.unknown")
       return
     end
 
@@ -60,7 +50,12 @@ class Settings::NotificationTogglesController < ApplicationController
 
     if record.save
       redirect_to settings_path,
-                  notice: "#{BRAND_LABELS.fetch(brand)} #{KIND_LABELS.fetch(kind)} #{enabled ? "on" : "off"}."
+                  notice: t(
+                    "settings.notification_toggle.flash.toggled",
+                    brand: t("settings.notification_toggle.brand.#{brand}"),
+                    kind: t("settings.notification_toggle.kind.#{kind}"),
+                    state: enabled ? "on" : "off"
+                  )
     else
       # The most common failure here is the
       # `flags_require_webhook_url` validator — flipping a flag on
@@ -75,7 +70,11 @@ class Settings::NotificationTogglesController < ApplicationController
       # rolled back), so the visual reverts automatically.
       redirect_to settings_path,
                   alert: record.errors.full_messages.to_sentence.presence ||
-                         "could not toggle #{BRAND_LABELS.fetch(brand)} #{KIND_LABELS.fetch(kind)}."
+                         t(
+                           "settings.notification_toggle.flash.toggle_failed",
+                           brand: t("settings.notification_toggle.brand.#{brand}"),
+                           kind: t("settings.notification_toggle.kind.#{kind}")
+                         )
     end
   end
 

@@ -20,7 +20,7 @@
     `resyncing` flag with a full reload.
 %>
 <% content_for(:title, @game.title) %>
-<% breadcrumb(["games", games_path], @game.title) %>
+<% breadcrumb([t("games.breadcrumb_root"), games_path], @game.title) %>
 
 <%# Phase 28 §01a — muted parent pointer for editions. Bracketed link
     above the page chrome so the user can hop up to the primary's show
@@ -54,7 +54,7 @@
         `.bracketed-muted` primitive so the muted state reads as plain
         muted text, not a "lesser link". %>
     <% if @game.resyncing? %>
-      <span class="bracketed-muted" aria-disabled="true">[<span class="bl">sync</span>]</span>
+      <span class="bracketed-muted" aria-disabled="true">[<span class="bl"><%= t("common.actions.sync") %></span>]</span>
     <% else %>
       <%# 2026-05-18 — `[sync]` becomes an in-page confirm-modal trigger
           (red / dangerous) because firing a resync consumes from the
@@ -68,7 +68,7 @@
          data-controller="modal-trigger"
          data-action="click->modal-trigger#open"
          data-page-action="sync"
-         data-modal-trigger-target-id-value="confirm_sync_game_<%= @game.id %>">[<span class="bl">sync</span>]</a>
+         data-modal-trigger-target-id-value="confirm_sync_game_<%= @game.id %>">[<span class="bl"><%= t("common.actions.sync") %></span>]</a>
     <% end %>
     <%# Wave C9 (spec 08 §"Per-game delete confirm modal") — breadcrumb
         `[delete]` opens an in-page `ConfirmModalComponent` (native
@@ -90,7 +90,7 @@
        data-controller="modal-trigger"
        data-action="click->modal-trigger#open"
        data-page-action="delete"
-       data-modal-trigger-target-id-value="confirm_delete_game_<%= @game.id %>">[<span class="bl">-</span>]</a>
+       data-modal-trigger-target-id-value="confirm_delete_game_<%= @game.id %>">[<span class="bl"><%= t("common.actions.delete_short") %></span>]</a>
   </div>
 <% end %>
 
@@ -199,7 +199,7 @@
     <hr class="hairline">
 
     <section class="ownership">
-      <h2>ownership</h2>
+      <h2><%= t("games.show.ownership_heading") %></h2>
       <%= render(Games::OwnershipMatrixComponent.new(game: @game)) %>
     </section>
 
@@ -227,12 +227,12 @@
       panes. %>
   <div class="pane pane--game-detail">
     <% if @game.last_sync_error.present? %>
-      <p class="text-danger" style="margin: 0 0 8px 0;">igdb error: <%= @game.last_sync_error %></p>
+      <p class="text-danger" style="margin: 0 0 8px 0;"><%= t("games.show.igdb_error", msg: @game.last_sync_error) %></p>
     <% end %>
 
     <% if @game.summary.present? %>
       <section class="game-summary">
-        <h2 style="margin-top: 0;">summary</h2>
+        <h2 style="margin-top: 0;"><%= t("games.show.summary_heading") %></h2>
         <%= simple_format(@game.summary, class: "summary-body") %>
       </section>
     <% end %>
@@ -248,7 +248,7 @@
         bordered footage tick overlays the pillar ticks for the focal
         "here is where I am" notch. See `time_to_beat_component.rb`
         for the full rationale. %>
-    <section class="time-to-beat" aria-label="time to beat">
+    <section class="time-to-beat" aria-label="<%= t("games.show.ttb_aria") %>">
       <%= render(Games::TimeToBeatComponent.new(game: @game)) %>
     </section>
 
@@ -280,17 +280,17 @@
         videos. %>
     <% similar = Games::SimilarGames.call(@game, limit: 10) %>
     <hr class="hairline">
-    <section class="game-similar" aria-label="similar games">
-      <h2>similar</h2>
+    <section class="game-similar" aria-label="<%= t("games.show.similar_aria") %>">
+      <h2><%= t("games.show.similar_heading") %></h2>
       <div class="shelf-row" data-controller="steam-shelf">
         <% if similar.any? %>
           <% similar.each do |game| %>
             <%= render Games::GenreTileComponent.new(game: game) %>
           <% end %>
         <% else %>
-          <div class="shelf-empty-tile" aria-label="nothing yet">
-            <span>nothing</span>
-            <span>yet</span>
+          <div class="shelf-empty-tile" aria-label="<%= t("games.show.shelf_empty_aria") %>">
+            <span><%= t("games.show.empty_word_nothing") %></span>
+            <span><%= t("games.show.empty_word_yet") %></span>
           </div>
         <% end %>
       </div>
@@ -307,8 +307,8 @@
         rhythm. %>
     <hr class="hairline">
 
-    <section class="game-videos" aria-label="videos">
-      <h2 style="margin-top: 0;">videos <%= render(StatusTbdBadgeComponent.new) %></h2>
+    <section class="game-videos" aria-label="<%= t("games.show.videos_aria") %>">
+      <h2 style="margin-top: 0;"><%= t("games.show.videos_heading") %> <%= render(StatusTbdBadgeComponent.new) %></h2>
     </section>
   </div>
 </div>
@@ -335,12 +335,12 @@
     `/deletions/game/:id` action-screen used to redirect to. %>
 <%= render(ConfirmModalComponent.new(
       id: "confirm_delete_game_#{@game.id}",
-      title: "delete #{@game.title}?",
-      body: "linked videos detach and any bundle composites regenerate. this cannot be undone.",
+      title: t("games.show.delete_confirm_title", title: @game.title),
+      body: t("games.show.delete_confirm_body"),
       confirm_path: game_path(@game),
       confirm_method: :delete,
-      confirm_label: "delete",
-      cancel_label: "cancel",
+      confirm_label: t("common.actions.delete"),
+      cancel_label: t("common.actions.cancel"),
       destructive: true
     )) %>
 
@@ -355,12 +355,12 @@
 %>
 <%= render(ConfirmModalComponent.new(
       id: "confirm_sync_game_#{@game.id}",
-      title: "resync #{@game.title}?",
-      body: "this will consume from your IGDB request quota.",
+      title: t("games.show.sync_confirm_title", title: @game.title),
+      body: t("games.show.sync_confirm_body"),
       confirm_path: resync_game_path(@game),
       confirm_method: :post,
-      confirm_label: "sync",
-      cancel_label: "cancel",
+      confirm_label: t("common.actions.sync"),
+      cancel_label: t("common.actions.cancel"),
       destructive: true,
       modal_actions_key: "sync_confirm"
     )) %>
@@ -376,10 +376,10 @@
   <% @game.bundles.each do |bundle| %>
     <%= render(ConfirmModalComponent.new(
           id: "confirm_delete_bundle_#{bundle.id}",
-          title: "delete #{bundle.name}?",
-          body: "this action cannot be undone.",
-          confirm_label: "delete",
-          cancel_label: "cancel",
+          title: t("games.show.delete_bundle_confirm_title", bundle: bundle.name),
+          body: t("common.delete_irreversible"),
+          confirm_label: t("common.actions.delete"),
+          cancel_label: t("common.actions.cancel"),
           confirm_path: bundle_path(bundle),
           confirm_method: :delete,
           destructive: true,

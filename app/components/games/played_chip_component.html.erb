@@ -3,4 +3,4 @@
     page until a dedicated toggle slice ships. %>
 <span class="platform-chip platform-chip--md ownership-chip-static"
       style="color: <%= chip_color %>;"
-      title="<%= played? ? "played on #{game.played_at.to_fs(:long)}" : "not yet played" %>">[played]</span>
+      title="<%= played? ? t("games.played_chip.played_title", date: game.played_at.to_fs(:long)) : t("games.played_chip.not_played_title") %>"><%= t("games.played_chip.label") %></span>

@@ -1,0 +1,48 @@
+en:
+  bundles:
+    default_name: "unnamed bundle"
+    delete_confirm_title: "delete %{bundle}?"
+
+    flash:
+      created: "bundle created."
+      deleted: "bundle deleted."
+      updated: "bundle updated."
+
+    show:
+      member_count:
+        one: "%{count} member"
+        other: "%{count} members"
+      regenerating: "regenerating…"
+      members_heading: "members"
+      col_game: "game"
+      col_release: "release"
+      empty_members: "no members yet."
+      add_member_heading: "add member"
+      pick_hint: "pick a game from your library."
+      search_placeholder: "search your games…"
+      no_games_match: "no games match"
+      linked_videos_heading: "linked videos"
+      no_linked_videos: "no linked videos yet."
+
+    modal:
+      default_title: "bundle"
+      change_action: "change"
+
+    all_games:
+      heading: "all games"
+      empty: "no games yet — click [+] to add"
+      search_placeholder: "add a game to this bundle"
+      col:
+        title: "title"
+        genre: "genre"
+        release: "release"
+        score: "score"
+
+    omnisearch:
+      section_local: "in your library"
+      igdb_only: "in igdb only"
+
+  games:
+    bundles_shelf:
+      heading: "bundles"
+      create_aria: "create bundle"

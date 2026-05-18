@@ -25,8 +25,8 @@ class BracketedMutedLinkComponent < ViewComponent::Base
   # different class names.
   #
   # Default label is "cancel"; override via `label:` for any other surface.
-  def initialize(href:, label: "cancel", method: nil, data: {}, target: nil, rel: nil)
-    @label = label
+  def initialize(href:, label: nil, method: nil, data: {}, target: nil, rel: nil)
+    @label = label || I18n.t("common.actions.cancel")
     @href = href
     @method = method
     @data = data

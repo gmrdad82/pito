@@ -44,11 +44,18 @@ module Games
 
     PILLAR_KEYS = %i[main extras completionist].freeze
 
-    PILLAR_LABEL = {
-      main:          "main",
-      extras:        "extras",
-      completionist: "completionist"
-    }.freeze
+    # Pillar legend labels. Resolved through I18n so locale switches
+    # cascade into the chart legend without code edits. Returned as a
+    # frozen hash so the template's `pillar_label[:main]` lookup
+    # pattern stays unchanged from the prior `PILLAR_LABEL[:main]`
+    # constant form.
+    def self.pillar_label
+      {
+        main:          I18n.t("games.ttb.main"),
+        extras:        I18n.t("games.ttb.extras"),
+        completionist: I18n.t("games.ttb.completionist")
+      }.freeze
+    end
 
     # Zone boundaries (in hours). Used by the ERB to compute the left+
     # right edge of each zone as a percentage of `max_x`. Open-ended
@@ -162,22 +169,22 @@ module Games
     # direction (2026-05-17).
     def label_for(key)
       h = hours[key].to_i
-      return "—" unless h.positive?
+      return I18n.t("common.em_dash") unless h.positive?
 
-      "#{h}h"
+      I18n.t("games.ttb.hours_short", n: h)
     end
 
     # Top-row label (above the bar): just the footage hours value.
     # Plain text, no trophy — the over-completionist decoration was
     # removed per user direction (2026-05-17).
     def footage_value_label
-      "#{footage_hours}h"
+      I18n.t("games.ttb.hours_short", n: footage_hours)
     end
 
     # Legend caption for the footage swatch. Single word so the legend
     # row stays compact alongside the three pillar names.
     def footage_caption
-      "footage"
+      I18n.t("games.ttb.footage")
     end
 
     # Returns true when the footage tick should render at all. We

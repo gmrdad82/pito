@@ -21,9 +21,9 @@
   <% if search_error.present? %>
     <p class="text-danger"><%= search_error %></p>
   <% elsif query.blank? %>
-    <p class="text-muted">type to search igdb.</p>
+    <p class="text-muted"><%= t("games.search.placeholder_igdb") %></p>
   <% elsif results.empty? %>
-    <p class="text-muted">no results for '<%= query %>'.</p>
+    <p class="text-muted"><%= t("games.search.no_results", query: query) %></p>
   <% else %>
     <%
       # Bulk lookup: every IGDB id in the result set, mapped to its
@@ -44,7 +44,7 @@
                           alt: row["name"], loading: "lazy",
                           style: "width: 45px; height: auto;" %>
           <% else %>
-            <span class="text-muted" style="display: inline-block; width: 45px; text-align: center;">[?]</span>
+            <span class="text-muted" style="display: inline-block; width: 45px; text-align: center;"><%= t("games.search.no_cover") %></span>
           <% end %>
           <span style="flex: 1;"><%= row["name"] %><% if release_year %> <span class="text-muted">(<%= release_year %>)</span><% end %></span>
           <% if existing %>
@@ -56,7 +56,7 @@
                class="bracketed"
                data-controller="igdb-overwrite-trigger"
                data-igdb-overwrite-trigger-path-value="<%= resync_game_path(existing) %>"
-               data-action="click->igdb-overwrite-trigger#open">[<span class="bl">update</span>]</a>
+               data-action="click->igdb-overwrite-trigger#open">[<span class="bl"><%= t("common.actions.update") %></span>]</a>
           <% else %>
             <%# Phase 27 spec 04 (2026-05-17) — eager title pre-seed.
                 The IGDB result row's `name` is forwarded as a hidden
@@ -71,7 +71,7 @@
                           params: { game: { igdb_id: row["id"], title: row["name"] } },
                           method: :post,
                           class: "bracketed",
-                          form: { style: "display: inline; margin: 0;", data: { turbo: false } } do %>[<span class="bl">add</span>]<% end %>
+                          form: { style: "display: inline; margin: 0;", data: { turbo: false } } do %>[<span class="bl"><%= t("common.actions.add") %></span>]<% end %>
           <% end %>
         </li>
       <% end %>

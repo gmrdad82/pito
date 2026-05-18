@@ -29,8 +29,8 @@ module Games
     end
 
     def label
-      noun = editions_count == 1 ? "edition" : "editions"
-      "+#{editions_count} #{noun}"
+      noun = I18n.t("games.editions_badge.noun", count: editions_count)
+      I18n.t("games.editions_badge.label", count: editions_count, noun: noun)
     end
 
     def href

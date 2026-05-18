@@ -112,7 +112,7 @@
     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
       <h2 data-settings-modal-target="title" style="margin: 0;"><%= default_title || raw("&nbsp;") %></h2>
       <% unless non_dismissible %>
-        <%= render(BracketedLinkComponent.new(label: "close", href: "#",
+        <%= render(BracketedLinkComponent.new(label: t("common.actions.close"), href: "#",
             data: { action: "click->settings-modal#close" })) %>
       <% end %>
     </div>

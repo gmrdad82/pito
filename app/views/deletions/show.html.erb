@@ -3,8 +3,8 @@
 
 <div id="delete-content">
   <div style="margin-bottom: 8px;">
-    <h1>delete <%= number_with_delimiter(@items.length) %> <%= @type %><%= 's' if @items.length != 1 %></h1>
-    <p class="text-muted" style="margin-top: 2px;">this will permanently remove <%= @items.length == 1 ? 'this' : 'these' %> <%= @type %><%= 's' if @items.length != 1 %> and all associated data.</p>
+    <h1><%= t("deletions.show.heading", count: @items.length, type: @type) %></h1>
+    <p class="text-muted" style="margin-top: 2px;"><%= t("deletions.show.body", count: @items.length, type: @type) %></p>
   </div>
 
   <table>
@@ -31,9 +31,9 @@
           <th class="num">notes</th>
           <th class="num">timelines</th>
         <% when "game" %>
-          <th>title</th>
-          <th>publisher</th>
-          <th>bundles</th>
+          <th><%= t("deletions.show.col.title") %></th>
+          <th><%= t("deletions.show.col.publisher") %></th>
+          <th><%= t("deletions.show.col.bundles") %></th>
         <% when "note" %>
           <th>title</th>
           <th>project</th>
@@ -43,8 +43,8 @@
           <th>project</th>
           <th class="num">state</th>
         <% when "bundle" %>
-          <th>name</th>
-          <th class="num">members</th>
+          <th><%= t("deletions.show.col.name") %></th>
+          <th class="num"><%= t("deletions.show.col.members") %></th>
         <% when "video_game_link" %>
           <th>video</th>
           <th>kind</th>
@@ -84,10 +84,10 @@
             <td class="num"><%= number_with_delimiter(item.timelines.count) %></td>
           <% when "game" %>
             <td><%= item.title %></td>
-            <td><%= item.publisher || "—" %></td>
+            <td><%= item.publisher || t("common.em_dash") %></td>
             <td>
               <% names = item.bundles.order(:name).pluck(:name) %>
-              <%= names.any? ? names.join(", ") : "—" %>
+              <%= names.any? ? names.join(", ") : t("common.em_dash") %>
             </td>
           <% when "note" %>
             <td><%= item.title %></td>
@@ -122,7 +122,7 @@
 
   <div id="action-footer">
     <%= render "shared/action_screen",
-      submit_label: "[-]",
+      submit_label: "[#{t('common.actions.delete_short')}]",
       cancel_path: @cancel_path,
       form_url: "/deletions/#{@type}/#{@items.map(&:id).join(",")}",
       destructive: true %>

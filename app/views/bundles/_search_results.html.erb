@@ -23,11 +23,11 @@
         affordance. %>
 <%= turbo_frame_tag "omnisearch_results_bundle_add" do %>
   <% if query.blank? %>
-    <p class="text-muted">type to search.</p>
+    <p class="text-muted"><%= t("games.omnisearch.placeholder_default") %></p>
   <% else %>
     <% if result.local_games.any? %>
       <section class="omnisearch-section">
-        <h3 class="omnisearch-section-heading">in your library</h3>
+        <h3 class="omnisearch-section-heading"><%= t("bundles.omnisearch.section_local") %></h3>
         <ul class="omnisearch-list" style="list-style: none; padding: 0; margin: 0;">
           <% result.local_games.each do |game| %>
             <li class="omnisearch-row">
@@ -41,7 +41,7 @@
                             params: { game_id: game.id },
                             method: :post,
                             class: "bracketed",
-                            form: { style: "display: inline; margin: 0;", data: { turbo: false } } do %>[<span class="bl">add</span>]<% end %>
+                            form: { style: "display: inline; margin: 0;", data: { turbo: false } } do %>[<span class="bl"><%= t("common.actions.add") %></span>]<% end %>
             </li>
           <% end %>
         </ul>
@@ -53,11 +53,11 @@
         <hr class="hairline" style="margin: 12px 0;">
       <% end %>
       <section class="omnisearch-section">
-        <h3 class="omnisearch-section-heading">on igdb</h3>
+        <h3 class="omnisearch-section-heading"><%= t("games.omnisearch.section_igdb") %></h3>
         <% if result.igdb_error.present? %>
-          <p class="text-danger">igdb error: <%= result.igdb_error[:message] %></p>
+          <p class="text-danger"><%= t("games.omnisearch.igdb_error", msg: result.igdb_error[:message]) %></p>
         <% elsif result.igdb.empty? %>
-          <p class="text-muted">no igdb results for '<%= query %>'.</p>
+          <p class="text-muted"><%= t("games.omnisearch.no_igdb_results", query: query) %></p>
         <% else %>
           <ul class="omnisearch-list" style="list-style: none; padding: 0; margin: 0;">
             <% result.igdb.each do |row| %>
@@ -69,7 +69,7 @@
                     <span class="text-muted">(<%= release_year %>)</span>
                   <% end %>
                 </span>
-                <span class="text-muted">in igdb only</span>
+                <span class="text-muted"><%= t("bundles.omnisearch.igdb_only") %></span>
               </li>
             <% end %>
           </ul>
@@ -78,7 +78,7 @@
     <% end %>
 
     <% if result.local_games.empty? && result.igdb.empty? && result.igdb_error.blank? %>
-      <p class="text-muted">no results for '<%= query %>'.</p>
+      <p class="text-muted"><%= t("games.omnisearch.no_results", query: query) %></p>
     <% end %>
   <% end %>
 <% end %>

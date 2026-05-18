@@ -25,11 +25,11 @@ class Settings::TimeZoneController < ApplicationController
 
     if Current.user.update(time_zone: new_tz)
       respond_to do |format|
-        format.html { redirect_to settings_path, notice: "time zone saved." }
+        format.html { redirect_to settings_path, notice: t("settings.time_zone.flash.saved") }
         format.any  { head :no_content }
       end
     else
-      message = Current.user.errors[:time_zone].first || "invalid time zone"
+      message = Current.user.errors[:time_zone].first || t("settings.time_zone.flash.invalid")
       respond_to do |format|
         format.html { redirect_to settings_path, alert: message }
         format.any  { render plain: message, status: :unprocessable_content }

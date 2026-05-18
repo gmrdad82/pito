@@ -1,0 +1,37 @@
+# Beta-3 Lane A — i18n extraction, slice A4.
+# Source catalog: docs/orchestration/playbooks/beta3-A-i18n-catalog.md
+# Scope: app/views/games/{index, show, _shelf, _letter_shelves,
+#        _genres_shelf, _genre_sub_shelf}.html.erb
+#
+# Brand-name literals (IGDB, etc.) stay capitalized per
+# feedback_brand_names_always_capitalized.md.
+#
+# `common.*` keys live in config/locales/common/shared.en.yml after the
+# Agent A9 consolidation (2026-05-18).
+en:
+  games:
+    breadcrumb_root: "games"
+    index:
+      title: "games"
+      heading: "games"
+      recently_played_heading: "recently played"
+      no_matches: "no games match this filter."
+    omnisearch:
+      placeholder: "search games + bundles"
+    show:
+      ownership_heading: "ownership"
+      summary_heading: "summary"
+      igdb_error: "igdb error: %{msg}"
+      ttb_aria: "time to beat"
+      similar_aria: "similar games"
+      similar_heading: "similar"
+      shelf_empty_aria: "nothing yet"
+      empty_word_nothing: "nothing"
+      empty_word_yet: "yet"
+      videos_aria: "videos"
+      videos_heading: "videos"
+      delete_confirm_title: "delete %{title}?"
+      delete_confirm_body: "linked videos detach and any bundle composites regenerate. this cannot be undone."
+      sync_confirm_title: "resync %{title}?"
+      sync_confirm_body: "this will consume from your IGDB request quota."
+      delete_bundle_confirm_title: "delete %{bundle}?"
