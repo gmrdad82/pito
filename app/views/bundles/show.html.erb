@@ -110,7 +110,7 @@
           <li style="padding: 2px 0;">
             <%= link_to link.video.title.presence || link.video.youtube_video_id, video_path(link.video) %>
             <% if link.is_primary? %>
-              <span class="bracketed-active">[<%= t("common.primary_star") %>]</span>
+              <span class="bracketed-active">[★]</span>
             <% end %>
           </li>
         <% end %>

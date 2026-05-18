@@ -114,6 +114,36 @@ Note: Phase 29 Unit A2 left the suite far above baseline (mandatory-2FA gate
 fallout, ~88 specs over the documented baseline) — that is tracked as an A2 open
 issue, not part of this standing baseline.
 
+## External API stubs
+
+Specs MUST NEVER hit real external endpoints. WebMock raises
+`NetConnectNotAllowedError` for any unstubbed external request — that is the
+safety net, not a fallback to plug after the fact. Three surfaces require
+explicit stubbing whenever a code path can reach them:
+
+- **IGDB HTTP** — stub `Igdb::Client` methods (`fetch_game`,
+  `fetch_time_to_beat`, `fetch_external_games`, etc.) via `instance_double` +
+  `allow(...).to receive(...)`. Never let the real client construct an HTTP
+  call in a spec.
+- **IGDB image CDN** (`https://images.igdb.com/igdb/image/upload/...`) — the
+  `Games::CoverArt::Normalizer` issues live GETs to this host from
+  `Igdb::SyncGame#call`'s post-commit block. Prefer the short-circuit
+  `allow_any_instance_of(Games::CoverArt::Normalizer).to receive(:call)` when
+  the spec is not testing the Normalizer path. Use a WebMock `stub_request` on
+  the CDN URL only when the spec is exercising the Normalizer itself.
+- **Voyage embed API** — `GameVoyageIndexJob.perform_later` and
+  `BundleVoyageIndexJob.perform_later` are enqueued from sync orchestrators.
+  Under the default `:test` queue adapter the jobs only enqueue (no inline
+  embed call), but stub `allow(GameVoyageIndexJob).to receive(:perform_later)`
+  and the bundle equivalent defensively so a downstream switch to `:inline`
+  cannot leak a Voyage HTTP request. When a spec is exercising the indexer
+  itself, stub `Voyage::Client#embed` directly (see `spec/support/voyage.rb`).
+
+Canonical example: the top-level `before` block in
+`spec/services/igdb/sync_game_spec.rb` stubs Normalizer + Voyage job for every
+example in the file — a one-time setup that prevents the WebMock disconnect
+from re-surfacing as the IGDB sync orchestrator grows new side effects.
+
 ## Verify-vs-implement task discipline
 
 - **Verification / baseline tasks are read-only.** The agent runs specs and

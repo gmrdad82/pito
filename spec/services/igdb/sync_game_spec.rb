@@ -13,6 +13,27 @@ RSpec.describe Igdb::SyncGame do
     allow(client).to receive(:fetch_game).with(7346).and_return(game_payload)
     allow(client).to receive(:fetch_time_to_beat).with(7346).and_return(ttb_payload)
     allow(client).to receive(:fetch_external_games).with(7346).and_return(ext_payload)
+
+    # Universal rule (2026-05-18) — specs MUST NEVER hit real IGDB or
+    # Voyage endpoints. `Igdb::SyncGame#call` invokes two side effects
+    # AFTER the main transaction commits:
+    #
+    #   1. `Games::CoverArt::Normalizer#call` — issues a live GET to
+    #      `https://images.igdb.com/igdb/image/upload/t_cover_big_2x/<hash>.jpg`
+    #      which WebMock rejects as an unregistered external request.
+    #   2. `GameVoyageIndexJob.perform_later` — under the default
+    #      `:test` queue adapter the job is only enqueued (no inline
+    #      embed call), but the Voyage indexer would fire an unstubbed
+    #      Voyage HTTP request if any downstream test ever switched the
+    #      adapter to `:inline`. Stub defensively so the rule holds.
+    #
+    # The short-circuit is preferred over WebMock-stubbing the CDN URL
+    # because nothing in this spec file exercises the Normalizer path —
+    # it's purely a side effect of the sync orchestrator, and faking
+    # the call is faster and more isolated than feeding a real JPEG
+    # body through libvips on every example.
+    allow_any_instance_of(Games::CoverArt::Normalizer).to receive(:call)
+    allow(GameVoyageIndexJob).to receive(:perform_later)
   end
 
   describe "#call" do

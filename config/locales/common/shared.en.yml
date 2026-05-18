@@ -14,7 +14,6 @@ en:
   common:
     em_dash: "—"
     tbd: "[TBD]"
-    primary_star: "★"
     delete_irreversible: "this action cannot be undone."
     actions:
       add: "add"

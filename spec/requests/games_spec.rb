@@ -81,7 +81,7 @@ RSpec.describe "Games", type: :request do
       # Phase 27 v2 spec 05 — the `<h2>all</h2>` heading and the per-mode
       # partition section (`data-display-mode=...`) are gone. The new
       # layout is a single stack of shelves: filter row → bundles →
-      # recently-played → genres → collections → per-letter shelves.
+      # recently-played → genres → bundles → per-letter shelves.
       it "does NOT render an `<h2>all</h2>` heading (display modes retired)" do
         get games_path
         expect(response.body).not_to match(%r{<h2[^>]*>\s*all\s*</h2>})
@@ -224,9 +224,12 @@ RSpec.describe "Games", type: :request do
       end
     end
 
-    # Phase 27 §01c-v2 — Nested Genres + Custom collections shelves.
+    # Phase 27 §01c-v2 — Nested Genres + Bundles shelves.
     # Outer shelf iterates one sub-shelf per non-empty bucket; empty
-    # buckets are HIDDEN end-to-end (no muted placeholder, no `<h2>`).
+    # genre buckets are HIDDEN end-to-end (no muted placeholder, no
+    # `<h2>`). The bundles shelf, after the Wave A consolidation
+    # (2026-05-17), renders its chrome (heading + count + [+]) even
+    # when empty so first-bundle seeding is possible from /games.
     describe "Phase 27 §01c-v2 — nested top-of-page shelves" do
       it "HIDES the Genres outer shelf entirely when no genre owns any game" do
         get games_path
@@ -235,16 +238,9 @@ RSpec.describe "Games", type: :request do
         expect(response.body).not_to match(%r{<section[^>]*shelf--genres[^>]*outer-shelf})
       end
 
-      it "HIDES the Custom collections outer shelf entirely when no collection owns any game" do
-        create(:collection, name: "Empty bin")  # zero games
-        get games_path
-        expect(response.body).not_to include("(no collections yet)")
-        expect(response.body).not_to match(%r{<section[^>]*shelf--collections[^>]*outer-shelf})
-      end
-
       it "renders the genres outer shelf (Phase 27 v2 spec 05)" do
         # Phase 27 v2 spec 05 — hairlines now lead each major section
-        # (genres / collections / letter shelves), not just the gap
+        # (genres / bundles / letter shelves), not just the gap
         # between two specific shelves. The genres outer shelf still
         # renders when at least one genre owns a game.
         adventure = Genre.create!(igdb_id: 50, name: "Adventure", slug: "adventure")
@@ -254,18 +250,20 @@ RSpec.describe "Games", type: :request do
         expect(response.body).to include('data-shelf="outer-genres"')
       end
 
-      context "with non-empty genres and collections" do
+      context "with non-empty genres and bundles" do
         let!(:adventure)  { Genre.create!(igdb_id: 1, name: "Adventure",  slug: "adventure") }
         let!(:rpg)        { Genre.create!(igdb_id: 2, name: "rpg",        slug: "rpg") }
         let!(:platformer) { Genre.create!(igdb_id: 3, name: "platformer", slug: "platformer") }
-        let!(:retro)      { create(:collection, name: "Retro") }
-        let!(:replay)     { create(:collection, name: "Replay queue") }
+        let!(:retro)      { create(:bundle, name: "Retro") }
+        let!(:replay)     { create(:bundle, name: "Replay queue") }
 
         before do
-          zelda = create(:game, :synced, title: "Zelda BotW", cover_image_id: "img-zelda", collection: retro)
+          zelda = create(:game, :synced, title: "Zelda BotW", cover_image_id: "img-zelda")
           zelda.genres << adventure
-          persona = create(:game, :synced, title: "Persona 5", cover_image_id: "img-persona", collection: replay)
+          retro.games << zelda
+          persona = create(:game, :synced, title: "Persona 5", cover_image_id: "img-persona")
           persona.genres << rpg
+          replay.games << persona
           celeste = create(:game, :synced, title: "Celeste", cover_image_id: "img-celeste")
           celeste.genres << platformer
         end
@@ -280,15 +278,15 @@ RSpec.describe "Games", type: :request do
           expect(response.body).not_to match(%r{<h2[^>]*>\s*genres\s*</h2>})
         end
 
-        it "renders a hairline BEFORE each of the genres + collections + letter shelves (Phase 27 v2 spec 05)" do
+        it "renders a hairline BEFORE each of the genres + bundles + letter shelves (Phase 27 v2 spec 05)" do
           get games_path
           # Phase 27 v2 spec 05 — hairlines lead each major section.
-          # The genres outer shelf, collections outer shelf, and the
+          # The genres outer shelf, bundles outer shelf, and the
           # letter shelves block each get a leading `<hr>`.
           expect(response.body.scan('<hr class="hairline">').length).to be >= 2
 
           genres_pos     = response.body.index('data-shelf="outer-genres"')
-          colls_pos      = response.body.index('data-shelf="outer-collections"')
+          bundles_pos    = response.body.index('data-shelf="outer-bundles"')
           first_hairline = response.body.index('<hr class="hairline">')
 
           # The first hairline appears before the genres shelf — they
@@ -297,17 +295,22 @@ RSpec.describe "Games", type: :request do
           expect(genres_pos).not_to be_nil
           expect(first_hairline).to be < genres_pos
 
-          # Genres come before collections.
-          expect(genres_pos).to be < colls_pos
+          # Genres come before bundles.
+          expect(genres_pos).to be < bundles_pos
         end
 
-        it "renders the Collections outer-shelf with the 'collections' <h2>" do
-          # Phase 27 follow-up (2026-05-11) — renamed from
-          # "custom collections" to plain "collections".
+        it "renders the Bundles outer-shelf with the 'bundles' <h2>" do
+          # Wave A consolidation (2026-05-17) — the Collections outer
+          # shelf was replaced by the Bundles outer shelf. The heading
+          # is `bundles` (i18n key `games.bundles_shelf.heading`). The
+          # ShelfComponent's `<h2>` carries trailing siblings (count
+          # status-badge + `[+]` create button), so we anchor on the
+          # opening tag + label rather than a strict `<h2>bundles</h2>`
+          # exact match.
           get games_path
-          expect(response.body).to include('data-shelf="outer-collections"')
-          expect(response.body).to match(%r{<h2[^>]*>\s*collections\s*</h2>})
-          expect(response.body).not_to match(%r{<h2[^>]*>\s*custom collections\s*</h2>})
+          expect(response.body).to include('data-shelf="outer-bundles"')
+          expect(response.body).to match(%r{<h2[^>]*>\s*bundles\s})
+          expect(response.body).not_to match(%r{<h2[^>]*>\s*collections\s*</h2>})
         end
 
         it "renders one sub-shelf per non-empty genre, alphabetical" do
@@ -325,13 +328,14 @@ RSpec.describe "Games", type: :request do
           expect(order_indexes).to eq(order_indexes.sort)
         end
 
-        it "renders one collection tile per non-empty collection, alphabetical" do
-          # Phase 27 follow-up (2026-05-11) — collections restructured
-          # from sub-shelves into a single row of tile-per-collection.
+        it "renders one bundle tile per non-empty bundle, alphabetical" do
+          # Wave A consolidation (2026-05-17) — bundles outer shelf
+          # is a single row of tile-per-bundle (one tile per bundle
+          # with >= 1 member), sorted alphabetical case-insensitive.
           get games_path
-          colls_section = response.body[/<section[^>]*shelf--collections[^>]*outer-shelf[\s\S]*/]
-          expect(colls_section).not_to be_nil
-          order_indexes = [ "Replay queue", "Retro" ].map { |n| colls_section.index(">#{n}<") }
+          bundles_section = response.body[/<section[^>]*shelf--bundles[^>]*outer-shelf[\s\S]*/]
+          expect(bundles_section).not_to be_nil
+          order_indexes = [ "Replay queue", "Retro" ].map { |n| bundles_section.index(">#{n}<") }
           expect(order_indexes).to eq(order_indexes.sort)
         end
 
@@ -340,14 +344,19 @@ RSpec.describe "Games", type: :request do
           expect(response.body.scan('data-shelf="genre-sub"').length).to eq(3)
         end
 
-        it "renders one `.collection-tile` anchor per collection" do
+        it "renders one `.bundle-tile` anchor per bundle" do
           get games_path
-          expect(response.body.scan('class="collection-tile"').length).to eq(2)
+          # Each tile renders an `<a class="bundle-tile" ...>`. The
+          # component also emits `bundle-tile--suggest` variants and
+          # `bundle-tile-name`/`bundle-tile__nocover-*` modifier
+          # classes, so we anchor the assertion on the bare
+          # `class="bundle-tile"` form (the link wrapper).
+          expect(response.body.scan('class="bundle-tile"').length).to eq(2)
         end
 
         it "stamps the steam-shelf Stimulus controller on each shelf row" do
           get games_path
-          # 3 genre sub-shelves + 1 collections row + legacy Phase 14
+          # 3 genre sub-shelves + 1 bundles row + legacy Phase 14
           # shelves (per-genre, all-games) also stamp the controller, so
           # we assert a floor not an exact count.
           expect(response.body.scan('data-controller="steam-shelf"').length).to be >= 4
@@ -382,10 +391,15 @@ RSpec.describe "Games", type: :request do
       end
     end
 
-    # Phase 27 §01c — slug-based filter contract for both `?genre`
-    # and `?collection`. The integer-id form keeps working (asserted
-    # in the "filter routes" describe above); these specs cover the
-    # slug form the new shelf tiles emit.
+    # Phase 27 §01c — slug-based filter contract for `?genre`. The
+    # integer-id form keeps working (asserted in the "filter routes"
+    # describe above); these specs cover the slug form the new shelf
+    # tiles emit.
+    #
+    # Wave A consolidation (2026-05-17) — the `?collection=<slug>`
+    # branch was retired alongside the Collection model. Bundles are
+    # not surfaced via a `/games?<param>=<slug>` filter; they live
+    # in the bundles modal pane (`/bundles/:id/games_pane`).
     describe "Phase 27 §01c — slug filter routes" do
       let!(:zelda)    { create(:game, :synced, title: "Zelda",      release_year: 2017) }
       let!(:elden)    { create(:game, :synced, title: "Elden Ring", release_year: 2022) }
@@ -405,22 +419,6 @@ RSpec.describe "Games", type: :request do
 
       it "drops an unknown genre slug silently (no filter applied)" do
         get games_path, params: { genre: "nonexistent" }
-        expect(response).to have_http_status(:ok)
-        expect(response.body).to include("Zelda")
-        expect(response.body).to include("Elden Ring")
-      end
-
-      it "filters /games?collection=<slug> to games in that collection" do
-        retro = create(:collection, name: "Retro")
-        zelda.update!(collection: retro)
-
-        get games_path, params: { collection: retro.slug }
-        expect(response.body).to include("Zelda")
-        expect(response.body).not_to include(">Elden Ring<")
-      end
-
-      it "drops an unknown collection slug silently (no filter applied)" do
-        get games_path, params: { collection: "nope-no-collection" }
         expect(response).to have_http_status(:ok)
         expect(response.body).to include("Zelda")
         expect(response.body).to include("Elden Ring")
@@ -897,9 +895,11 @@ RSpec.describe "Games", type: :request do
   end
 
   # Phase 27 §01b — Filter row request integration. The controller
-  # composes the filter AFTER `?genre=` / `?collection=` narrowing
-  # (01c) and BEFORE per-mode partitioning (01d). Chip hrefs preserve
-  # those overrides; unknown tokens are dropped silently.
+  # composes the filter AFTER `?genre=` slug-narrowing (01c) and
+  # BEFORE per-mode partitioning (01d). Chip hrefs preserve those
+  # overrides; unknown tokens are dropped silently. (The legacy
+  # `?collection=<slug>` branch was retired with the Collection model
+  # in Wave A consolidation, 2026-05-17.)
   describe "GET /games with ?filters= (Phase 27 §01b)" do
     let!(:platform_ps5)     { create(:platform, name: "ps5",     slug: "ps5") }
     let!(:platform_switch2) { create(:platform, name: "switch2", slug: "switch2") }

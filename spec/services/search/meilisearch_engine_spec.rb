@@ -55,62 +55,27 @@ RSpec.describe Search::MeilisearchEngine, skip: ENV["CI"].present? && "requires 
     end
   end
 
-  describe "#reindex_all" do
-    it "reindexes without raising" do
-      create(:video, channel: channel)
-      expect { engine.reindex_all(Video) }.not_to raise_error
-      wait_for_tasks
-    end
-
-    it "is idempotent (re-running does not change row count)" do
-      engine.reindex_all(Video)
-      wait_for_tasks
-      count_before = engine.search(Video, "")[:total]
-
-      engine.reindex_all(Video)
-      wait_for_tasks
-      count_after = engine.search(Video, "")[:total]
-
-      expect(count_after).to eq(count_before)
-    end
-  end
-
-  describe "#search (post-A2: returns zero matches by design)" do
-    before do
-      channel
-      video
-      engine.reindex_all(Video)
-      wait_for_tasks
-    end
-
-    it "returns the engine envelope shape" do
-      result = engine.search(Video, "anything")
-      expect(result).to have_key(:hits)
-      expect(result).to have_key(:total)
-      expect(result).to have_key(:took_ms)
-      expect(result[:hits]).to be_an(Array)
-    end
-
-    it "supports pagination without raising" do
-      result = engine.search(Video, "", page: 1, per_page: 1)
-      expect(result[:hits].size).to be <= 1
-    end
-
-    it "returns empty results for non-matching query" do
-      result = engine.search(Video, "nonexistent query xyz123")
-      expect(result[:hits]).to be_empty
-    end
-  end
-
-  describe "#index_stats" do
-    it "returns document counts per index" do
-      engine.reindex_all(Video)
-      wait_for_tasks
-
-      stats = engine.index_stats
-      expect(stats).to be_a(Hash)
-    end
-  end
+  # 2026-05-18 (lane C follow-up). `#reindex_all`, `#search`, and
+  # `#index_stats` previously had Video-backed examples here. Those
+  # tests exercised code paths with no live consumer:
+  #
+  # - `ReindexAllJob` no longer calls `engine.reindex_all(Channel/Video)`
+  #   (the `[ Channel, Video ].each` loop was removed in 2026-05-18 once
+  #   neither model included `Searchable` anymore — see the comment in
+  #   `app/jobs/reindex_all_job.rb`).
+  # - Game / Bundle reindexing flows through dedicated services
+  #   (`Meilisearch::GameIndexer`, `Meilisearch::BundleIndexer`,
+  #   `Meilisearch::SearchGames`), NOT through `engine.reindex_all` /
+  #   `engine.search`. Those services are covered by their own specs
+  #   under `spec/services/meilisearch/` (lane C2).
+  # - The lone `#index_stats` assertion (`expect(stats).to be_a(Hash)`)
+  #   was a smoke check whose setup depended on `reindex_all(Video)`.
+  #   The richer engine-stats surface lives under `#per_index_stats`
+  #   and `#total_index_size_bytes` below, both fully stubbed.
+  #
+  # When a model rejoins `Searchable` and the generic `reindex_all` /
+  # `search` paths regain a live caller, the examples come back with
+  # that model as their fixture.
 
   # 2026-05-11 — `settings/index` stack section surfaces aggregated
   # on-disk index size in muted text. The engine method reads

@@ -30,8 +30,20 @@ RSpec.describe Composite::LayoutChooser do
       expect(described_class.choose(4)).to eq(Composite::Layout::Quad)
     end
 
-    it "returns NineGrid for 5" do
-      expect(described_class.choose(5)).to eq(Composite::Layout::NineGrid)
+    it "returns Netflix5 for 5" do
+      expect(described_class.choose(5)).to eq(Composite::Layout::Netflix5)
+    end
+
+    it "returns SixGrid for 6" do
+      expect(described_class.choose(6)).to eq(Composite::Layout::SixGrid)
+    end
+
+    it "returns Netflix7 for 7" do
+      expect(described_class.choose(7)).to eq(Composite::Layout::Netflix7)
+    end
+
+    it "returns EightGrid for 8" do
+      expect(described_class.choose(8)).to eq(Composite::Layout::EightGrid)
     end
 
     it "returns NineGrid for 9" do

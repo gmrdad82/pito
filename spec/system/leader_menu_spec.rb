@@ -459,6 +459,89 @@ RSpec.describe "Leader menu chrome", type: :system do
     end
   end
 
+  describe "controller wiring structural lock (static-source)" do
+    # Static-source counterparts to the runtime invariants that rack_test
+    # cannot exercise. Each assertion locks ONE structural contract the
+    # controller depends on so a rename / drop / refactor surfaces fast.
+    # The runtime assertions in the prior describe blocks already cover
+    # ancillary behaviors (turbo:visit, dialog-close cascade, etc.); the
+    # asserts below are the foundational `connect()` wiring.
+    let(:controller_source) do
+      File.read(Rails.root.join("app/javascript/controllers/leader_menu_controller.js"))
+    end
+
+    it "registers a document-level keydown listener inside connect()" do
+      # The leader popup's entire dispatch pivots on this single
+      # listener. Lock the addEventListener call shape so a refactor
+      # that moves the binding (or drops it) fails fast.
+      expect(controller_source).to match(
+        /document\.addEventListener\(\s*"keydown"\s*,\s*this\.boundKeydown\s*\)/
+      )
+    end
+
+    it "binds the keydown handler reference in connect() for symmetric teardown" do
+      # Stimulus controllers can be connected/disconnected many times
+      # during a session (Turbo body swaps). The bound reference must
+      # be cached so `removeEventListener` in disconnect() finds the
+      # same function identity.
+      expect(controller_source).to match(
+        /this\.boundKeydown\s*=\s*this\.onKeydown\.bind\(this\)/
+      )
+    end
+
+    it "loads the keybindings schema from the `pito-keybindings` JSON script tag" do
+      # The schema is embedded as `<script id="pito-keybindings" type="application/json">`
+      # by the layout (the runtime-side mount audit above asserts the
+      # presence of the tag on every page). The controller parses it
+      # via `JSON.parse` of the script node's textContent in connect().
+      expect(controller_source).to match(
+        /document\.getElementById\(\s*"pito-keybindings"\s*\)/
+      )
+      expect(controller_source).to match(/JSON\.parse\(\s*node\.textContent/)
+    end
+
+    it "implements the SPACE-prefix accumulator pattern" do
+      # 2-key sequence support (A1) lives in `pendingPrefix` +
+      # `handlePrefixKey`. Lock the existence of the state variable
+      # and the dispatch entry point so a refactor that drops 2-key
+      # sequences catches.
+      expect(controller_source).to match(/this\.pendingPrefix\s*=\s*""/)
+      expect(controller_source).to match(/handlePrefixKey\s*\(\s*key\s*\)\s*\{/)
+      expect(controller_source).to match(/this\.pendingPrefix\s*\+=\s*key/)
+    end
+
+    it "exposes candidatesForPrefix so the 2-key matcher routes through one helper" do
+      # The matcher must read the active menu's items AND any
+      # page-actions / inline submenu so a single source of truth feeds
+      # the exact-match / longer-prefix branches.
+      expect(controller_source).to match(/candidatesForPrefix\s*\(\s*prefix\s*\)\s*\{/)
+    end
+
+    it "treats Escape as an intentional fall-through (no preventDefault, no close)" do
+      # A4 (2026-05-17): Esc must NOT be handled by the controller while
+      # the popup is open — it falls through to the parent <dialog>'s
+      # native Esc handler. The controller's keydown branch for Esc is
+      # an explicit `return` with no `preventDefault` and no `close()`
+      # in between. Lock the literal `return` so a future "ergonomics"
+      # tweak that adds `this.close()` here regresses A4 immediately.
+      expect(controller_source).to match(
+        /if\s*\(\s*event\.key\s*===\s*"Escape"\s*\)\s*return/
+      )
+    end
+
+    it "closes the popup when ANY other <dialog> on the page closes" do
+      # A4 cascade: when a parent dialog (bundle modal / IGDB add-game /
+      # confirm dialog) is dismissed, the leader popup tears down too
+      # so it never orphan-renders above a dismissed parent. The `close`
+      # event listener is installed in capture phase because `close`
+      # does not bubble on `<dialog>`.
+      expect(controller_source).to match(
+        /document\.addEventListener\(\s*"close"\s*,\s*this\.boundDialogClose\s*,\s*true\s*\)/
+      )
+      expect(controller_source).to match(/onDialogClose\s*\(\s*event\s*\)\s*\{/)
+    end
+  end
+
   describe "popup row rendering — keys are rendered without surrounding brackets" do
     # rack_test has no JS engine, so the popup card is never built at
     # runtime in this suite; the contract we CAN lock is the source
