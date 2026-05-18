@@ -6,34 +6,6 @@ require "rails_helper"
 # fields are gone. The `games_pane` member action (replacement for the
 # old Collection games-pane) is new.
 RSpec.describe "Bundles", type: :request do
-  describe "GET /bundles" do
-    it "returns 200 and renders the index" do
-      get bundles_path
-      expect(response).to have_http_status(:ok)
-      expect(response.body).to include("bundles")
-    end
-
-    it "shows the empty state copy when no bundles exist" do
-      get bundles_path
-      expect(response.body).to include("no bundles yet")
-      expect(response.body).to include("[ add bundle ]")
-    end
-
-    it "lists existing bundles as tiles" do
-      create(:bundle, name: "Soulslikes")
-      get bundles_path
-      expect(response.body).to include("Soulslikes")
-      expect(response.body).to include("bundles-grid")
-    end
-
-    it "renders the em-dash fallback when composite_cover_path is blank" do
-      create(:bundle, name: "Untiled")
-      get bundles_path
-      expect(response.body).to include("Untiled")
-      expect(response.body).to include("—")
-    end
-  end
-
   describe "GET /bundles/:id" do
     let(:bundle) { create(:bundle, name: "Test bundle") }
 
@@ -76,104 +48,12 @@ RSpec.describe "Bundles", type: :request do
     end
   end
 
-  describe "GET /bundles/new" do
-    it "renders the new form" do
-      get new_bundle_path
-      expect(response).to have_http_status(:ok)
-      expect(response.body).to include("new bundle")
-    end
-
-    it "wraps the new form in a .pane.pane--standalone" do
-      get new_bundle_path
-      html = Nokogiri::HTML.fragment(response.body)
-      pane = html.at_css("div.pane.pane--standalone")
-      expect(pane).not_to be_nil
-      expect(pane.at_css('input[name="bundle[name]"]')).not_to be_nil
-    end
-  end
-
-  describe "POST /bundles" do
-    it "creates a bundle from name only" do
-      expect {
-        post bundles_path, params: { bundle: { name: "Soulslikes" } }
-      }.to change(Bundle, :count).by(1)
-
-      bundle = Bundle.last
-      expect(bundle.name).to eq("Soulslikes")
-      expect(response).to redirect_to(bundle_path(bundle))
-    end
-
-    it "rejects a blank name" do
-      post bundles_path, params: { bundle: { name: "" } }
-      expect(response).to have_http_status(:unprocessable_content)
-    end
-
-    it "silently drops smuggled non-permitted attributes" do
-      post bundles_path, params: {
-        bundle: { name: "X", composite_cover_path: "../../etc/passwd" }
-      }
-      expect(Bundle.last.composite_cover_path).to be_nil
-    end
-  end
-
-  describe "GET /bundles/:id/edit" do
-    let(:bundle) { create(:bundle, name: "Old") }
-
-    it "wraps the edit form in a .pane.pane--standalone" do
-      get edit_bundle_path(bundle)
-      expect(response).to have_http_status(:ok)
-      html = Nokogiri::HTML.fragment(response.body)
-      pane = html.at_css("div.pane.pane--standalone")
-      expect(pane).not_to be_nil
-      expect(pane.at_css('input[name="bundle[name]"]')).not_to be_nil
-    end
-  end
-
-  describe "PATCH /bundles/:id" do
-    let(:bundle) { create(:bundle, name: "Old") }
-
-    it "updates the name" do
-      patch bundle_path(bundle), params: { bundle: { name: "New" } }
-      expect(bundle.reload.name).to eq("New")
-      expect(response).to redirect_to(bundle_path(bundle))
-    end
-
-    it "silently drops smuggled composite_cover_path" do
-      patch bundle_path(bundle), params: {
-        bundle: { name: "x", composite_cover_path: "../../etc/passwd" }
-      }
-      expect(bundle.reload.composite_cover_path).to be_nil
-    end
-
-    it "rejects a blank name update" do
-      patch bundle_path(bundle), params: { bundle: { name: "" } }
-      expect(response).to have_http_status(:unprocessable_content)
-    end
-  end
-
-  describe "DELETE /bundles/:id" do
-    it "redirects through the action-confirmation screen" do
-      bundle = create(:bundle)
-      delete bundle_path(bundle)
-      expect(response).to redirect_to(deletions_path(type: "bundle", ids: bundle.id))
-    end
-  end
-
-  describe "deletion-flow integration via /deletions/bundle/:ids" do
-    let!(:bundle) { create(:bundle, name: "DelMe") }
-
-    it "GET /deletions/bundle/:ids renders the action screen" do
-      get deletions_path(type: "bundle", ids: bundle.id)
-      expect(response).to have_http_status(:ok)
-      expect(response.body).to include("DelMe")
-    end
-
-    it "POST /deletions/bundle/:ids enqueues the bulk delete and cleans up" do
-      post deletions_path(type: "bundle", ids: bundle.id)
-      expect(response).to have_http_status(:ok).or have_http_status(:found)
-      expect(BulkOperation.count).to eq(1)
-    end
-  end
+  # DELETE /bundles/:id — covered in `spec/requests/bundles_destroy_spec.rb`.
+  # The legacy `/deletions/bundle/:ids` action-confirmation flow was
+  # retired on 2026-05-18 in favor of the per-bundle on-page
+  # `ConfirmModalComponent` + direct `DELETE /bundles/:id` (Turbo
+  # Stream branch tears down the tile + modal, HTML branch redirects
+  # back to /games for the JS-off fallback).
 
   # Phase 27 follow-up (2026-05-17) — replacement for the old
   # `Collections#games_pane` modal Turbo Frame.
