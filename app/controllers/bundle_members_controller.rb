@@ -60,6 +60,62 @@ class BundleMembersController < ApplicationController
     end
   end
 
+  # 2026-05-18 — `[add]` for IGDB rows in the bundle modal `:bundle_add`
+  # omnisearch. The IGDB result is not yet in the library; this action
+  # collapses the two-step (sync IGDB into the library, then add to
+  # the bundle) into one click:
+  #
+  #   1. If a Game with the supplied `igdb_id` already exists, just
+  #      add it to the bundle (idempotent against re-adding).
+  #   2. Otherwise create a Game stub with `igdb_id` + optional title
+  #      pre-seed (mirrors `GamesController#create`'s pattern), enqueue
+  #      `GameIgdbSync` to populate the rest of the metadata, and add
+  #      the new game to the bundle as a new `BundleMember`.
+  #
+  # Redirects back to the bundle's show page on success so the user
+  # sees the new member row appear.
+  def from_igdb
+    igdb_id = params[:igdb_id].to_i
+    if igdb_id <= 0
+      redirect_to bundle_path(@bundle),
+                  alert: I18n.t("games.flash.invalid_igdb_id"),
+                  status: :see_other
+      return
+    end
+
+    game = Game.find_by(igdb_id: igdb_id)
+    if game.nil?
+      title_seed = params[:title].to_s.strip[0, 255]
+      attrs = { igdb_id: igdb_id }
+      attrs[:title] = title_seed if title_seed.present?
+      game = Game.new(attrs)
+      unless game.save
+        redirect_to bundle_path(@bundle),
+                    alert: I18n.t("games.flash.create_failed"),
+                    status: :see_other
+        return
+      end
+      GameIgdbSync.perform_async(game.id)
+    end
+
+    if @bundle.bundle_members.exists?(game_id: game.id)
+      redirect_to bundle_path(@bundle),
+                  alert: "already a member.",
+                  status: :see_other
+      return
+    end
+
+    member = @bundle.bundle_members.build(game_id: game.id)
+    if member.save
+      redirect_to bundle_path(@bundle),
+                  notice: "added #{game.title}."
+    else
+      redirect_to bundle_path(@bundle),
+                  alert: member.errors.full_messages.to_sentence,
+                  status: :see_other
+    end
+  end
+
   def destroy
     # Phase 20 — friendly URLs. `params[:id]` is the GAME identifier and
     # may arrive as either an integer id or a slug (`igdb_slug`).

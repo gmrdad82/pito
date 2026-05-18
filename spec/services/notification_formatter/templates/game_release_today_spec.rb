@@ -11,7 +11,7 @@ RSpec.describe NotificationFormatter::Templates::GameReleaseToday do
     }
   end
   let(:notification) do
-    create(:notification, :game_release_today, event_payload: payload)
+    build_stubbed(:notification, :game_release_today, with_calendar_entry: false, dedup_key: "grt-base", event_payload: payload)
   end
   let(:template) { described_class.new(notification) }
 
@@ -31,7 +31,7 @@ RSpec.describe NotificationFormatter::Templates::GameReleaseToday do
     end
 
     it "omits the IGDB link when nil" do
-      n = create(:notification, :game_release_today,
+      n = build_stubbed(:notification, :game_release_today, with_calendar_entry: false, dedup_key: "grt1",
                  event_payload: payload.merge("igdb_url" => nil))
       expect(described_class.new(n).body).not_to include("igdb")
     end

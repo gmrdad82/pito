@@ -5,7 +5,7 @@ RSpec.describe NotificationFormatter::InApp do
 
   describe "shape" do
     let(:notification) do
-      create(:notification, :video_published, fires_at: fires_at,
+      build_stubbed(:notification, :video_published, with_calendar_entry: false, dedup_key: "ia-base", fires_at: fires_at,
              event_payload: {
                "video_id" => 1, "video_title" => "demo",
                "channel_title" => "lab", "watch_url" => "https://y/v"
@@ -51,46 +51,46 @@ RSpec.describe NotificationFormatter::InApp do
 
   describe "severity_class" do
     it "info → notification-info" do
-      n = create(:notification, severity: :info)
+      n = build_stubbed(:notification, with_calendar_entry: false, dedup_key: "sev-info", severity: :info)
       expect(described_class.payload_for(n)[:severity_class]).to eq("notification-info")
     end
 
     it "success → notification-success" do
-      n = create(:notification, severity: :success)
+      n = build_stubbed(:notification, with_calendar_entry: false, dedup_key: "sev-suc", severity: :success)
       expect(described_class.payload_for(n)[:severity_class]).to eq("notification-success")
     end
 
     it "warn → notification-warn" do
-      n = create(:notification, severity: :warn)
+      n = build_stubbed(:notification, with_calendar_entry: false, dedup_key: "sev-warn", severity: :warn)
       expect(described_class.payload_for(n)[:severity_class]).to eq("notification-warn")
     end
 
     it "urgent → notification-urgent" do
-      n = create(:notification, severity: :urgent)
+      n = build_stubbed(:notification, with_calendar_entry: false, dedup_key: "sev-urg", severity: :urgent)
       expect(described_class.payload_for(n)[:severity_class]).to eq("notification-urgent")
     end
   end
 
   describe "severity" do
     it "is the string severity name" do
-      n = create(:notification, severity: :urgent)
+      n = build_stubbed(:notification, with_calendar_entry: false, dedup_key: "sev-str", severity: :urgent)
       expect(described_class.payload_for(n)[:severity]).to eq("urgent")
     end
   end
 
   describe "read flag (in-app is internal — Boolean)" do
     it "is false for unread rows" do
-      n = create(:notification, :unread)
+      n = build_stubbed(:notification, :unread, with_calendar_entry: false, dedup_key: "rd-un")
       expect(described_class.payload_for(n)[:read]).to be(false)
     end
 
     it "is true for read rows" do
-      n = create(:notification, :read)
+      n = build_stubbed(:notification, :read, with_calendar_entry: false, dedup_key: "rd-r1")
       expect(described_class.payload_for(n)[:read]).to be(true)
     end
 
     it "is a Boolean (NOT a string)" do
-      n = create(:notification, :read)
+      n = build_stubbed(:notification, :read, with_calendar_entry: false, dedup_key: "rd-r2")
       payload = described_class.payload_for(n)
       expect(payload[:read]).to be_in([ true, false ])
       expect(payload[:read]).not_to be_a(String)
@@ -99,7 +99,7 @@ RSpec.describe NotificationFormatter::InApp do
 
   describe "body_html" do
     let(:notification) do
-      create(:notification, :video_published,
+      build_stubbed(:notification, :video_published, with_calendar_entry: false, dedup_key: "bh-base",
              event_payload: {
                "video_id" => 1, "video_title" => "demo",
                "channel_title" => "Lab",
@@ -117,7 +117,7 @@ RSpec.describe NotificationFormatter::InApp do
     end
 
     it "strips <script> injected via event_payload" do
-      n = create(:notification, :video_published,
+      n = build_stubbed(:notification, :video_published, with_calendar_entry: false, dedup_key: "bh-xss",
                  event_payload: {
                    "video_id" => 1,
                    "video_title" => "<script>alert(1)</script>",
@@ -133,7 +133,7 @@ RSpec.describe NotificationFormatter::InApp do
     end
 
     it "html-escapes special chars in user-supplied content" do
-      n = create(:notification, :video_published,
+      n = build_stubbed(:notification, :video_published, with_calendar_entry: false, dedup_key: "bh-qa",
                  event_payload: {
                    "video_id" => 1, "video_title" => "Q&A <live>",
                    "channel_title" => "Lab"

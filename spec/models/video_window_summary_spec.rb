@@ -7,7 +7,7 @@ RSpec.describe VideoWindowSummary, type: :model do
 
   describe "window enum" do
     it "casts window to one of the analytics_window values" do
-      record = create(:video_window_summary, :seven_d)
+      record = build_stubbed(:video_window_summary, :seven_d)
       expect(record.window).to eq("7d")
     end
 

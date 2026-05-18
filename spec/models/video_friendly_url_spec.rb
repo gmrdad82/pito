@@ -7,12 +7,12 @@ RSpec.describe Video, type: :model do
 
   describe "#to_param" do
     it "returns youtube_video_id" do
-      video = create(:video, youtube_video_id: "abc123XYZ-_")
+      video = build_stubbed(:video, youtube_video_id: "abc123XYZ-_")
       expect(video.to_param).to eq("abc123XYZ-_")
     end
 
     it "falls back to id when youtube_video_id is unexpectedly blank" do
-      video = create(:video)
+      video = build_stubbed(:video)
       video.youtube_video_id = ""
       expect(video.to_param).to eq(video.id.to_s)
     end

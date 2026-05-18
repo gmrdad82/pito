@@ -329,7 +329,18 @@ Rails.application.routes.draw do
       get :search
     end
     resources :members, only: [ :create, :destroy ],
-                        controller: "bundle_members"
+                        controller: "bundle_members" do
+      collection do
+        # 2026-05-18 — `[add]` action for IGDB rows in the bundle modal
+        # `:bundle_add` omnisearch. The IGDB result is not in the
+        # library; this endpoint creates a Game stub (igdb_id + title
+        # pre-seed), associates it with the bundle as a new
+        # BundleMember, and enqueues `GameIgdbSync` to populate the
+        # rest of the metadata async. The two-step (sync IGDB into
+        # the library THEN add) is collapsed into one click.
+        post :from_igdb
+      end
+    end
   end
 
   # Phase 27 follow-up (2026-05-17) — every cover-art asset is served

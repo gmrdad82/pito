@@ -12,7 +12,7 @@ RSpec.describe NotificationFormatter::Templates::VideoPublished do
     }
   end
   let(:notification) do
-    create(:notification, :video_published, event_payload: payload)
+    build_stubbed(:notification, :video_published, with_calendar_entry: false, dedup_key: "vp-base", event_payload: payload)
   end
   let(:template) { described_class.new(notification) }
 
@@ -22,7 +22,7 @@ RSpec.describe NotificationFormatter::Templates::VideoPublished do
     end
 
     it "uses a placeholder when video_title is missing" do
-      n = create(:notification, :video_published, event_payload: {})
+      n = build_stubbed(:notification, :video_published, with_calendar_entry: false, dedup_key: "vp1", event_payload: {})
       expect(described_class.new(n).title).to include("(video title unavailable)")
     end
   end
@@ -36,7 +36,7 @@ RSpec.describe NotificationFormatter::Templates::VideoPublished do
     end
 
     it "omits the watch link when watch_url is missing" do
-      n = create(:notification, :video_published, event_payload: payload.except("watch_url"))
+      n = build_stubbed(:notification, :video_published, with_calendar_entry: false, dedup_key: "vp2", event_payload: payload.except("watch_url"))
       expect(described_class.new(n).body).not_to include("[watch on youtube]")
     end
   end
@@ -47,7 +47,7 @@ RSpec.describe NotificationFormatter::Templates::VideoPublished do
     end
 
     it "is nil when video_id is missing" do
-      n = create(:notification, :video_published, event_payload: payload.except("video_id"))
+      n = build_stubbed(:notification, :video_published, with_calendar_entry: false, dedup_key: "vp3", event_payload: payload.except("video_id"))
       expect(described_class.new(n).url).to be_nil
     end
   end
@@ -61,7 +61,7 @@ RSpec.describe NotificationFormatter::Templates::VideoPublished do
   end
 
   it "preserves Unicode in titles" do
-    n = create(:notification, :video_published,
+    n = build_stubbed(:notification, :video_published, with_calendar_entry: false, dedup_key: "vp4",
                event_payload: payload.merge("video_title" => "日本語 ✨ تجربة"))
     expect(described_class.new(n).title).to include("日本語 ✨ تجربة")
   end

@@ -1,7 +1,7 @@
 require "rails_helper"
 
 RSpec.describe NotificationFormatter::Templates::Base do
-  let(:notification) { create(:notification) }
+  let(:notification) { build_stubbed(:notification, with_calendar_entry: false, dedup_key: "base-spec") }
   let(:template) { described_class.new(notification) }
 
   it "stashes the notification" do
@@ -22,7 +22,7 @@ RSpec.describe NotificationFormatter::Templates::Base do
 
   describe "#payload (private)" do
     it "returns the event_payload as HashWithIndifferentAccess" do
-      n = create(:notification, event_payload: { "video_title" => "demo" })
+      n = build_stubbed(:notification, with_calendar_entry: false, dedup_key: "p1", event_payload: { "video_title" => "demo" })
       t = described_class.new(n)
       payload = t.send(:payload)
       expect(payload[:video_title]).to eq("demo")
@@ -33,7 +33,7 @@ RSpec.describe NotificationFormatter::Templates::Base do
       # The DB enforces NOT NULL on event_payload, but the formatter
       # should still degrade gracefully if some pathway hands it a row
       # whose `event_payload` reads nil (e.g., a stub / partial double).
-      n = create(:notification)
+      n = build_stubbed(:notification, with_calendar_entry: false, dedup_key: "p2")
       allow(n).to receive(:event_payload).and_return(nil)
       t = described_class.new(n)
       expect(t.send(:payload)).to be_empty
@@ -42,19 +42,19 @@ RSpec.describe NotificationFormatter::Templates::Base do
 
   describe "#fetch (private)" do
     it "returns the value when present" do
-      n = create(:notification, event_payload: { "video_title" => "demo" })
+      n = build_stubbed(:notification, with_calendar_entry: false, dedup_key: "f1", event_payload: { "video_title" => "demo" })
       t = described_class.new(n)
       expect(t.send(:fetch, :video_title)).to eq("demo")
     end
 
     it "returns the fallback when missing" do
-      n = create(:notification, event_payload: {})
+      n = build_stubbed(:notification, with_calendar_entry: false, dedup_key: "f2", event_payload: {})
       t = described_class.new(n)
       expect(t.send(:fetch, :video_title, "fallback")).to eq("fallback")
     end
 
     it "returns nil by default for missing keys" do
-      n = create(:notification, event_payload: {})
+      n = build_stubbed(:notification, with_calendar_entry: false, dedup_key: "f3", event_payload: {})
       t = described_class.new(n)
       expect(t.send(:fetch, :missing)).to be_nil
     end

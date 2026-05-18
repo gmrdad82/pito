@@ -1,0 +1,26 @@
+<%# Six segmented boxes + a hidden concatenation field. The Stimulus
+    controller `totp-code-input` wires per-box paste / keydown / input
+    handlers and writes the concatenated 6-digit string into the
+    hidden field on every change so the parent <form> submits
+    `params[<field>] = "123456"` just like a legacy single-bare-input
+    would. %>
+<div class="totp-modal-boxes"
+     data-controller="totp-code-input"
+     data-totp-code-input-field-value="<%= @field %>">
+  <% 6.times do |i| %>
+    <input type="text"
+           maxlength="1"
+           inputmode="numeric"
+           pattern="\d{1}"
+           autocomplete="<%= i.zero? ? "one-time-code" : "off" %>"
+           <% if i.zero? && autofocus? %>autofocus<% end %>
+           aria-label="digit <%= i + 1 %>"
+           class="totp-modal-box"
+           data-totp-code-input-target="digit"
+           data-action="input->totp-code-input#onInput keydown->totp-code-input#onKeydown paste->totp-code-input#onPaste">
+  <% end %>
+  <input type="hidden"
+         name="<%= @field %>"
+         value=""
+         data-totp-code-input-target="hidden">
+</div>

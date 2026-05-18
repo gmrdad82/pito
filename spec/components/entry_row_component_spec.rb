@@ -12,35 +12,35 @@ RSpec.describe EntryRowComponent, type: :component do
     # straight to the related resource.
 
     it "renders a `<month> <dom> <weekday>` date label by default" do
-      entry = create(:calendar_entry, :custom, starts_at: Time.zone.parse("2026-05-14 10:00:00 UTC"))
+      entry = build_stubbed(:calendar_entry, :custom, starts_at: Time.zone.parse("2026-05-14 10:00:00 UTC"))
       render_inline(described_class.new(entry: entry))
       # `may 14 thu` — calendar refactor 2026-05-11 format.
       expect(page).to have_content("may 14 thu")
     end
 
     it "renders the typed label in the type column" do
-      entry = create(:calendar_entry, :milestone_manual, title: "podcast")
+      entry = build_stubbed(:calendar_entry, :milestone_manual, title: "podcast")
       render_inline(described_class.new(entry: entry))
       expect(page).to have_content("milestone")
       expect(page).to have_content("podcast")
     end
 
     it "does NOT render the legacy single-letter glyph prefix" do
-      entry = create(:calendar_entry, :milestone_manual, title: "podcast")
+      entry = build_stubbed(:calendar_entry, :milestone_manual, title: "podcast")
       render_inline(described_class.new(entry: entry))
       expect(page).not_to have_content(/(?:\A|\s)m:(?:\s|\z)/)
     end
 
     it "shows time for timed entries" do
-      entry = create(:calendar_entry, :custom,
-                     all_day: false,
-                     starts_at: Time.zone.parse("2026-05-14 14:30:00 UTC"))
+      entry = build_stubbed(:calendar_entry, :custom,
+                            all_day: false,
+                            starts_at: Time.zone.parse("2026-05-14 14:30:00 UTC"))
       render_inline(described_class.new(entry: entry))
       expect(page).to have_content("14:30")
     end
 
     it "renders an `all day` badge for all-day entries (not a `—`)" do
-      entry = create(:calendar_entry, :game_release, all_day: true)
+      entry = build_stubbed(:calendar_entry, :game_release, all_day: true)
       render_inline(described_class.new(entry: entry))
       # Calendar polish 2026-05-11 — the badge text is plain `all day`
       # (no bracketed-text decoration); the surrounding bordered span
@@ -53,7 +53,7 @@ RSpec.describe EntryRowComponent, type: :component do
     end
 
     it "does NOT render a trailing state column (no `scheduled` / `occurred` cell)" do
-      entry = create(:calendar_entry, :custom, :scheduled, title: "x")
+      entry = build_stubbed(:calendar_entry, :custom, :scheduled, title: "x")
       render_inline(described_class.new(entry: entry))
       # The state class still rides on the <tr> for styling, but no
       # explicit text cell exists.
@@ -63,7 +63,7 @@ RSpec.describe EntryRowComponent, type: :component do
     end
 
     it "leaves the date cell blank when `show_date: false` (group-by-day)" do
-      entry = create(:calendar_entry, :custom, starts_at: Time.zone.parse("2026-05-14 10:00:00 UTC"))
+      entry = build_stubbed(:calendar_entry, :custom, starts_at: Time.zone.parse("2026-05-14 10:00:00 UTC"))
       render_inline(described_class.new(entry: entry, show_date: false))
       # The CSS class anchors the cell; assert it carries no text.
       expect(page).to have_css(".calendar-row__date", text: "")
@@ -71,32 +71,32 @@ RSpec.describe EntryRowComponent, type: :component do
     end
 
     it "renders ↳ continuation glyph when indented" do
-      entry = create(:calendar_entry, :purchase_planned)
+      entry = build_stubbed(:calendar_entry, :purchase_planned)
       render_inline(described_class.new(entry: entry, indent: true))
       expect(page).to have_content("↳")
     end
 
     it "renders an `[open]` link in the trailing action column" do
-      entry = create(:calendar_entry, :milestone_manual)
+      entry = build_stubbed(:calendar_entry, :milestone_manual)
       render_inline(described_class.new(entry: entry))
       expect(page).to have_css(".calendar-row__open a", text: "open")
     end
 
     it "the `[open]` action targets the related resource for derived entries" do
-      v = create(:video)
-      entry = create(:calendar_entry, :video_published, video_record: v)
+      v = build_stubbed(:video)
+      entry = build_stubbed(:calendar_entry, :video_published, video: v, video_id: v.id)
       render_inline(described_class.new(entry: entry))
       expect(page).to have_css(".calendar-row__open a[href='/videos/#{v.id}']")
     end
 
     it "the `[open]` action falls back to the entry show page for free-form types" do
-      entry = create(:calendar_entry, :milestone_manual)
+      entry = build_stubbed(:calendar_entry, :milestone_manual)
       render_inline(described_class.new(entry: entry))
       expect(page).to have_css(".calendar-row__open a[href='/calendar/entries/#{entry.id}']")
     end
 
     it "the title link wires the modal-open action with the details_pane URL" do
-      entry = create(:calendar_entry, :milestone_manual)
+      entry = build_stubbed(:calendar_entry, :milestone_manual)
       render_inline(described_class.new(entry: entry))
       expect(page).to have_css(".calendar-row__title a[data-action*='calendar-entry-modal#open']")
       expect(page).to have_css(".calendar-row__title a[data-calendar-entry-modal-url-param='/calendar/entries/#{entry.id}/details_pane']")
@@ -106,7 +106,7 @@ RSpec.describe EntryRowComponent, type: :component do
     # bordered-box badge (same shape as the notification-severity-badge)
     # rather than the legacy `[ all day ]` bracketed-text literal.
     it "the `all day` badge does NOT carry the legacy `[ ... ]` bracket characters" do
-      entry = create(:calendar_entry, :game_release, all_day: true)
+      entry = build_stubbed(:calendar_entry, :game_release, all_day: true)
       render_inline(described_class.new(entry: entry))
       badge = page.find(".status-badge--all_day")
       expect(badge.text.strip).to eq("all day")
@@ -119,9 +119,9 @@ RSpec.describe EntryRowComponent, type: :component do
     # kind per user direction. `show_reminder` is kept as an init kwarg
     # for call-site compatibility but is now a no-op.
     it "does NOT render reminder copy on game_release entries (kind dropped)" do
-      entry = create(:calendar_entry, :game_release,
-                     starts_at: 30.days.from_now,
-                     release_precision: :day)
+      entry = build_stubbed(:calendar_entry, :game_release,
+                            starts_at: 30.days.from_now,
+                            release_precision: :day)
       render_inline(described_class.new(entry: entry, show_reminder: true))
       expect(page).not_to have_content("remind:")
     end

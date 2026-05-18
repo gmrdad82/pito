@@ -47,7 +47,7 @@ RSpec.describe VideoDiff, type: :model do
 
   describe "#fields / #field_diff / pito_value / youtube_value" do
     let(:diff) do
-      create(:video_diff, payload: {
+      build_stubbed(:video_diff, payload: {
         "title" => { "pito" => "p", "youtube" => "y" },
         "tags"  => { "pito" => [ "a" ], "youtube" => [ "b" ] }
       })

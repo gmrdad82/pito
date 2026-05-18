@@ -170,5 +170,80 @@ RSpec.describe Meilisearch::SearchGames do
         expect(result[:games].size).to eq(5)
       end
     end
+
+    # 2026-05-18 — Postgres ILIKE fallback. When Meilisearch returns no
+    # game / bundle hits (the index is empty / stale / unreachable), the
+    # service falls back to `LOWER(title) ILIKE %q%` so local-typed
+    # title substrings stay findable. Reproduces the user-reported bug
+    # where "street" returned zero local rows for a library that
+    # contained Street Fighter 6 because the Meilisearch index had not
+    # been (re)populated after a fresh sync.
+    context "Postgres ILIKE fallback when Meilisearch returns no game hits" do
+      it "returns matching local games via ILIKE on Game#title" do
+        create(:game, title: "Street Fighter 6")
+        create(:game, title: "Hollow Knight")
+        stub_meili_hits([])
+
+        result = described_class.call("street")
+        expect(result[:games].map(&:title)).to eq([ "Street Fighter 6" ])
+      end
+
+      it "is case-insensitive" do
+        create(:game, title: "Pragmata")
+        stub_meili_hits([])
+
+        result = described_class.call("PRAG")
+        expect(result[:games].map(&:title)).to eq([ "Pragmata" ])
+      end
+
+      it "honors `exclude_bundle` and drops games already in the bundle" do
+        in_bundle = create(:game, title: "Street Fighter 6")
+        free = create(:game, title: "Street Fighter 4")
+        bundle = create(:bundle, name: "Fighters")
+        bundle.bundle_members.create!(game_id: in_bundle.id)
+        stub_meili_hits([])
+
+        result = described_class.call("street", exclude_bundle: bundle)
+        expect(result[:games].map(&:id)).to eq([ free.id ])
+      end
+
+      it "does NOT fire the fallback when Meilisearch returns at least one game hit" do
+        create(:game, title: "Street Fighter 6")
+        meili_game = create(:game, title: "Stardew Valley")
+        stub_meili_hits([ { "id" => meili_game.id, "kind" => "game" } ])
+
+        result = described_class.call("st")
+        # Only the Meilisearch-ranked hit should appear; ILIKE fallback skipped.
+        expect(result[:games].map(&:id)).to eq([ meili_game.id ])
+      end
+
+      it "returns local bundles via ILIKE on Bundle#name when include_bundles is true" do
+        create(:bundle, name: "Street Fighter Series")
+        create(:bundle, name: "Roguelikes")
+        stub_meili_hits([])
+
+        result = described_class.call("street", include_bundles: true)
+        expect(result[:bundles].map(&:name)).to eq([ "Street Fighter Series" ])
+      end
+
+      it "still runs the fallback when the Meilisearch network call raises" do
+        create(:game, title: "Street Fighter 6")
+        stub_request(:post, search_url).to_raise(StandardError.new("net down"))
+        allow(Rails.logger).to receive(:warn)
+
+        result = described_class.call("street")
+        expect(result[:games].map(&:title)).to eq([ "Street Fighter 6" ])
+      end
+
+      it "escapes LIKE metacharacters in the query" do
+        create(:game, title: "Plain Title")
+        stub_meili_hits([])
+
+        result = described_class.call("%plain%")
+        # `%` is sanitized so the LIKE pattern is `%\%plain\%%` — matches
+        # only a literal `%plain%` substring (none in the fixture).
+        expect(result[:games]).to eq([])
+      end
+    end
   end
 end

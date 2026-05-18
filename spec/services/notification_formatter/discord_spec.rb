@@ -75,7 +75,8 @@ RSpec.describe NotificationFormatter::Discord do
       }
     }.each do |kind, spec|
       it "produces a valid Discord payload for #{kind}" do
-        n = create(:notification, kind, event_payload: spec[:payload],
+        n = build_stubbed(:notification, kind, with_calendar_entry: false, dedup_key: "dc-#{kind}",
+                   event_payload: spec[:payload],
                    severity: spec[:severity], event_type: spec[:event_type],
                    fires_at: fires_at)
         payload = described_class.payload_for(n)
@@ -101,7 +102,7 @@ RSpec.describe NotificationFormatter::Discord do
 
   describe "payload shape" do
     let(:notification) do
-      create(:notification, :video_published,
+      build_stubbed(:notification, :video_published, with_calendar_entry: false, dedup_key: "dc-shape",
              event_payload: {
                "video_id" => 1, "video_title" => "demo",
                "channel_title" => "Lab",
@@ -134,7 +135,7 @@ RSpec.describe NotificationFormatter::Discord do
   # ── avatar URL ────────────────────────────────────────────────
 
   describe "avatar URL handling" do
-    let(:notification) { create(:notification, :video_published) }
+    let(:notification) { build_stubbed(:notification, :video_published, with_calendar_entry: false, dedup_key: "dc-avatar") }
 
     it "omits :avatar_url when credentials carry no value" do
       payload = described_class.payload_for(notification)
@@ -154,12 +155,12 @@ RSpec.describe NotificationFormatter::Discord do
 
   describe "severity → color" do
     it "warn maps to amber" do
-      n = create(:notification, severity: :warn)
+      n = build_stubbed(:notification, with_calendar_entry: false, dedup_key: "dc-warn", severity: :warn)
       expect(described_class.payload_for(n)[:embeds].first[:color]).to eq(16_705_372)
     end
 
     it "urgent maps to red" do
-      n = create(:notification, severity: :urgent)
+      n = build_stubbed(:notification, with_calendar_entry: false, dedup_key: "dc-urg", severity: :urgent)
       expect(described_class.payload_for(n)[:embeds].first[:color]).to eq(15_548_997)
     end
   end
@@ -168,7 +169,7 @@ RSpec.describe NotificationFormatter::Discord do
 
   describe "truncation" do
     it "truncates a 300-char title to 256 chars with trailing ellipsis" do
-      n = create(:notification, :video_published,
+      n = build_stubbed(:notification, :video_published, with_calendar_entry: false, dedup_key: "dc-tr1",
                  event_payload: { "video_title" => "x" * 300, "video_id" => 1 })
       title = described_class.payload_for(n)[:embeds].first[:title]
       expect(title.length).to eq(256)
@@ -176,7 +177,7 @@ RSpec.describe NotificationFormatter::Discord do
     end
 
     it "truncates a 5000-char body to 4096 chars" do
-      n = create(:notification, :video_published,
+      n = build_stubbed(:notification, :video_published, with_calendar_entry: false, dedup_key: "dc-tr2",
                  event_payload: { "video_title" => "x" * 5000, "video_id" => 1, "channel_title" => "c" })
       desc = described_class.payload_for(n)[:embeds].first[:description]
       expect(desc.length).to be <= 4096
@@ -188,7 +189,7 @@ RSpec.describe NotificationFormatter::Discord do
 
   describe "escaping" do
     it "backslash-escapes asterisks in user-supplied titles" do
-      n = create(:notification, :video_published,
+      n = build_stubbed(:notification, :video_published, with_calendar_entry: false, dedup_key: "dc-esc1",
                  event_payload: {
                    "video_title" => "video *bold*", "video_id" => 1,
                    "channel_title" => "lab"
@@ -198,7 +199,7 @@ RSpec.describe NotificationFormatter::Discord do
     end
 
     it "leaves the formatter's own [text](url) markdown intact" do
-      n = create(:notification, :video_published,
+      n = build_stubbed(:notification, :video_published, with_calendar_entry: false, dedup_key: "dc-esc2",
                  event_payload: {
                    "video_title" => "demo", "video_id" => 1,
                    "channel_title" => "lab",
@@ -209,7 +210,7 @@ RSpec.describe NotificationFormatter::Discord do
     end
 
     it "escapes <script> in user-supplied content" do
-      n = create(:notification, :video_published,
+      n = build_stubbed(:notification, :video_published, with_calendar_entry: false, dedup_key: "dc-esc3",
                  event_payload: {
                    "video_title" => "<script>alert(1)</script>", "video_id" => 1,
                    "channel_title" => "lab"
@@ -246,7 +247,7 @@ RSpec.describe NotificationFormatter::Discord do
   # ── localization safety ──────────────────────────────────────
 
   it "preserves Unicode glyphs in title / body" do
-    n = create(:notification, :video_published,
+    n = build_stubbed(:notification, :video_published, with_calendar_entry: false, dedup_key: "dc-uni",
                event_payload: {
                  "video_id" => 1,
                  "video_title" => "日本語 ✨", "channel_title" => "تجربة"
@@ -259,7 +260,7 @@ RSpec.describe NotificationFormatter::Discord do
   # ── idempotency ──────────────────────────────────────────────
 
   it "is idempotent — same input produces same output" do
-    n = create(:notification, :video_published,
+    n = build_stubbed(:notification, :video_published, with_calendar_entry: false, dedup_key: "dc-idem",
                event_payload: {
                  "video_id" => 1, "video_title" => "x",
                  "channel_title" => "c"

@@ -5,12 +5,12 @@ require "rails_helper"
 RSpec.describe Game, type: :model do
   describe "#to_param" do
     it "returns igdb_slug when present" do
-      game = create(:game, :synced)
+      game = build_stubbed(:game, :synced)
       expect(game.to_param).to eq(game.igdb_slug)
     end
 
     it "falls back to id.to_s when igdb_slug is blank" do
-      game = create(:game)
+      game = build_stubbed(:game)
       expect(game.igdb_slug).to be_blank
       expect(game.to_param).to eq(game.id.to_s)
     end

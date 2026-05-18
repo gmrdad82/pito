@@ -3,7 +3,7 @@ require "rails_helper"
 RSpec.describe NotificationFormatter::Mcp do
   let(:fires_at) { Time.utc(2026, 5, 10, 12, 0, 0) }
   let(:notification) do
-    create(:notification, :video_published, fires_at: fires_at,
+    build_stubbed(:notification, :video_published, with_calendar_entry: false, dedup_key: "mcp-base", fires_at: fires_at,
            event_payload: {
              "video_id" => 42, "video_title" => "demo",
              "channel_title" => "Lab", "watch_url" => "https://yt.x/v"
@@ -56,7 +56,7 @@ RSpec.describe NotificationFormatter::Mcp do
     end
 
     it "backslash-escapes the same set as Discord" do
-      n = create(:notification, :video_published,
+      n = build_stubbed(:notification, :video_published, with_calendar_entry: false, dedup_key: "mcp-bs",
                  event_payload: {
                    "video_id" => 1, "video_title" => "video *bold*",
                    "channel_title" => "lab"
@@ -67,17 +67,17 @@ RSpec.describe NotificationFormatter::Mcp do
 
   describe "read (yes/no per CLAUDE.md boundary rule)" do
     it "is `\"no\"` for unread" do
-      n = create(:notification, :video_published, :unread)
+      n = build_stubbed(:notification, :video_published, :unread, with_calendar_entry: false, dedup_key: "mcp-rd1")
       expect(described_class.payload_for(n)[:read]).to eq("no")
     end
 
     it "is `\"yes\"` for read" do
-      n = create(:notification, :video_published, :read)
+      n = build_stubbed(:notification, :video_published, :read, with_calendar_entry: false, dedup_key: "mcp-rd2")
       expect(described_class.payload_for(n)[:read]).to eq("yes")
     end
 
     it "is a String (NEVER a Boolean) at the boundary" do
-      n = create(:notification, :video_published, :read)
+      n = build_stubbed(:notification, :video_published, :read, with_calendar_entry: false, dedup_key: "mcp-rd3")
       val = described_class.payload_for(n)[:read]
       expect(val).to be_a(String)
       expect(val).not_to be_in([ true, false ])
@@ -86,7 +86,7 @@ RSpec.describe NotificationFormatter::Mcp do
 
   describe "smuggle attempts" do
     it "backslash-escapes <script> injected via event_payload" do
-      n = create(:notification, :video_published,
+      n = build_stubbed(:notification, :video_published, with_calendar_entry: false, dedup_key: "mcp-xss",
                  event_payload: {
                    "video_id" => 1,
                    "video_title" => "<script>alert(1)</script>",

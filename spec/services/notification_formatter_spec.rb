@@ -246,7 +246,7 @@ RSpec.describe NotificationFormatter do
 
   describe ".template_for" do
     it "resolves the right class via the registry" do
-      n = create(:notification, :video_published)
+      n = build_stubbed(:notification, :video_published, with_calendar_entry: false, dedup_key: "tpl-vp")
       expect(described_class.template_for(n))
         .to be_a(NotificationFormatter::Templates::VideoPublished)
     end

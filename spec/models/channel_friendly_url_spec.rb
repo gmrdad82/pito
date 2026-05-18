@@ -8,7 +8,7 @@ require "rails_helper"
 RSpec.describe Channel, type: :model do
   describe "#url_slug" do
     it "extracts the UC-id from a canonical channel URL" do
-      channel = create(:channel, channel_url: "https://www.youtube.com/channel/UCAAAAAAAAAAAAAAAAAAAAAA")
+      channel = build_stubbed(:channel, channel_url: "https://www.youtube.com/channel/UCAAAAAAAAAAAAAAAAAAAAAA")
       expect(channel.url_slug).to eq("UCAAAAAAAAAAAAAAAAAAAAAA")
     end
 
@@ -21,7 +21,7 @@ RSpec.describe Channel, type: :model do
 
   describe "#to_param" do
     it "returns the URL slug" do
-      channel = create(:channel)
+      channel = build_stubbed(:channel)
       expect(channel.to_param).to eq(channel.url_slug)
       expect(channel.to_param).not_to eq(channel.id.to_s)
     end

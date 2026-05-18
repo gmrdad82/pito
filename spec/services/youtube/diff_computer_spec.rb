@@ -2,7 +2,7 @@ require "rails_helper"
 
 RSpec.describe Youtube::DiffComputer do
   let(:video) do
-    create(:video,
+    build_stubbed(:video,
            title: "local",
            description: "local body",
            tags: %w[a b c],
@@ -111,8 +111,8 @@ RSpec.describe Youtube::DiffComputer do
 
   describe "nil-vs-blank collapse" do
     it "treats nil and empty-string as equivalent (no phantom diff)" do
-      video.update_columns(description: nil)
-      diff = described_class.call(video, payload(snippet: { description: "" }))
+      v = build_stubbed(:video, title: "local", description: nil)
+      diff = described_class.call(v, payload(snippet: { title: "local", description: "" }))
       expect(diff.keys).not_to include("description")
     end
   end
