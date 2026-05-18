@@ -46,48 +46,135 @@ RSpec.describe Igdb::Client do
       expect(stub).to have_been_requested
     end
 
-    # Phase 14 §1 polish (2026-05-10) — default search filters to the
-    # "main entries" category set so cluttery deluxe / ultimate edition
-    # rows drop out (Pragmata Deluxe Edition, Red Dead Redemption II
-    # Ultimate Edition, etc.). The filter is opt-out via
-    # `include_editions: true`.
-    it "filters to main + remake + remaster + port categories by default" do
-      expected_set = Igdb::Client::DEFAULT_SEARCH_CATEGORIES.join(",")
+    # 2026-05-18 — default search filters to `game_type = 0` (Main Game)
+    # so bundles, DLC, packs, costumes, ports, expansions, etc. drop out
+    # at the IGDB API layer. Filter is null-tolerant on `game_type` to
+    # cover the rare freshly-indexed row IGDB has not yet typed. Opt out
+    # via `include_editions: true`.
+    it "filters to game_type = 0 (Main Game) by default" do
+      expected_set = Igdb::Client::DEFAULT_SEARCH_GAME_TYPES.join(",")
       stub = stub_request(:post, "https://api.igdb.com/v4/games")
-        .with(body: /where category = \(#{Regexp.escape(expected_set)}\) \| category = null/)
+        .with(body: /where game_type = \(#{Regexp.escape(expected_set)}\) \| game_type = null/)
         .to_return(status: 200, body: "[]")
       client.search_games("zelda")
       expect(stub).to have_been_requested
     end
 
-    # Regression — IGDB's `search` endpoint returns rows with a null
-    # `category` even for main entries (e.g. Ghost of Tsushima id 75235).
-    # A strict `WHERE category = (0,8,9,11)` filter wiped every such
-    # result, so searching "Ghost of" returned an empty list in the UI.
-    # The default search must be null-tolerant on category.
-    it "is null-tolerant on category so search hits with null category survive" do
+    it "is null-tolerant on game_type so search hits with null game_type survive" do
       stub = stub_request(:post, "https://api.igdb.com/v4/games")
-        .with { |req| req.body.include?("| category = null") }
-        .to_return(status: 200, body: [ { "id" => 75235, "name" => "Ghost of Tsushima", "category" => nil } ].to_json)
+        .with { |req| req.body.include?("| game_type = null") }
+        .to_return(status: 200, body: [ { "id" => 75235, "name" => "Ghost of Tsushima", "game_type" => nil } ].to_json)
       results = client.search_games("Ghost of")
       expect(stub).to have_been_requested
       expect(results.map { |r| r["id"] }).to include(75235)
     end
 
-    it "drops the category filter when include_editions: true" do
+    it "drops the game_type filter when include_editions: true" do
       stub = stub_request(:post, "https://api.igdb.com/v4/games")
-        .with { |req| !req.body.include?("where category") }
+        .with { |req| !req.body.include?("where game_type") }
         .to_return(status: 200, body: "[]")
       client.search_games("zelda", include_editions: true)
       expect(stub).to have_been_requested
     end
 
-    it "asks IGDB for the `category` field so callers can inspect it" do
+    it "asks IGDB for the `game_type` field so callers can inspect it" do
       stub = stub_request(:post, "https://api.igdb.com/v4/games")
-        .with(body: /fields[^;]*\bcategory\b/)
+        .with(body: /fields[^;]*\bgame_type\b/)
         .to_return(status: 200, body: "[]")
       client.search_games("zelda")
       expect(stub).to have_been_requested
+    end
+
+    it "exposes the back-compat DEFAULT_SEARCH_CATEGORIES alias" do
+      expect(Igdb::Client::DEFAULT_SEARCH_CATEGORIES)
+        .to eq(Igdb::Client::DEFAULT_SEARCH_GAME_TYPES)
+    end
+
+    it "exposes back-compat GAME_CATEGORY_* aliases (main/remake/remaster/port)" do
+      expect(Igdb::Client::GAME_CATEGORY_MAIN).to     eq(Igdb::Client::GAME_TYPE_MAIN_GAME)
+      expect(Igdb::Client::GAME_CATEGORY_REMAKE).to   eq(Igdb::Client::GAME_TYPE_REMAKE)
+      expect(Igdb::Client::GAME_CATEGORY_REMASTER).to eq(Igdb::Client::GAME_TYPE_REMASTER)
+      expect(Igdb::Client::GAME_CATEGORY_PORT).to     eq(Igdb::Client::GAME_TYPE_PORT)
+    end
+
+    # 2026-05-18 — secondary safety net on top of the API-side
+    # `game_type` filter. After the API returns N rows, the client
+    # drops any non-top-result row whose name starts with the top
+    # result's name + ":". Catches edition / pack / DLC noise that
+    # IGDB occasionally mis-tags as `game_type = 0`.
+    describe "name-based de-noise" do
+      it "drops rows whose name starts with `<top>:` (edition / pack suffix)" do
+        payload = [
+          { "id" => 1, "name" => "Street Fighter 6",                          "game_type" => 0 },
+          { "id" => 2, "name" => "Street Fighter 6: Mad Gear Box",            "game_type" => 0 },
+          { "id" => 3, "name" => "Street Fighter 6: Year 2 Character Pass",   "game_type" => 0 },
+          { "id" => 4, "name" => "Street Fighter VI 12 Peoples",              "game_type" => 0 }
+        ]
+        stub_request(:post, "https://api.igdb.com/v4/games")
+          .to_return(status: 200, body: payload.to_json)
+
+        results = client.search_games("street fighter 6")
+        expect(results.map { |r| r["id"] }).to eq([ 1, 4 ])
+      end
+
+      it "preserves rows that share a different prefix from the top result" do
+        payload = [
+          { "id" => 10, "name" => "Final Fantasy XVI",      "game_type" => 0 },
+          { "id" => 11, "name" => "Final Fantasy XV",       "game_type" => 0 },
+          { "id" => 12, "name" => "Final Fantasy XVI: DLC", "game_type" => 0 }
+        ]
+        stub_request(:post, "https://api.igdb.com/v4/games")
+          .to_return(status: 200, body: payload.to_json)
+
+        results = client.search_games("final fantasy")
+        # Only id 12 starts with "Final Fantasy XVI:" — id 11 has a
+        # different prefix and survives.
+        expect(results.map { |r| r["id"] }).to match_array([ 10, 11 ])
+      end
+
+      it "is a no-op when IGDB returns one or zero rows" do
+        stub_request(:post, "https://api.igdb.com/v4/games")
+          .to_return(status: 200, body: [ { "id" => 1, "name" => "Solo Hit" } ].to_json)
+        expect(client.search_games("solo")).to eq([ { "id" => 1, "name" => "Solo Hit" } ])
+      end
+
+      it "is a no-op when the top result has a blank name (defensive)" do
+        payload = [
+          { "id" => 1, "name" => "",                          "game_type" => 0 },
+          { "id" => 2, "name" => ": leading colon weirdness", "game_type" => 0 }
+        ]
+        stub_request(:post, "https://api.igdb.com/v4/games")
+          .to_return(status: 200, body: payload.to_json)
+        results = client.search_games("anything")
+        expect(results.size).to eq(2)
+      end
+
+      it "explicit edition search keeps the matching edition as top result + cousins" do
+        # When the user explicitly searches for the edition, the top hit
+        # IS the edition; the prefix-drop does not match anything below.
+        payload = [
+          { "id" => 1, "name" => "Street Fighter 6: Year 1",      "game_type" => 0 },
+          { "id" => 2, "name" => "Street Fighter 6: Year 1 Pass", "game_type" => 0 }
+        ]
+        stub_request(:post, "https://api.igdb.com/v4/games")
+          .to_return(status: 200, body: payload.to_json)
+        results = client.search_games("street fighter 6: year 1")
+        # Top hit "Street Fighter 6: Year 1" — `Street Fighter 6: Year 1:`
+        # does NOT prefix "Street Fighter 6: Year 1 Pass" (no colon
+        # between "1" and "Pass"). Both survive.
+        expect(results.map { |r| r["id"] }).to match_array([ 1, 2 ])
+      end
+
+      it "skips de-noise entirely when include_editions: true" do
+        payload = [
+          { "id" => 1, "name" => "Street Fighter 6",                "game_type" => 0 },
+          { "id" => 2, "name" => "Street Fighter 6: Mad Gear Box",  "game_type" => 0 }
+        ]
+        stub_request(:post, "https://api.igdb.com/v4/games")
+          .to_return(status: 200, body: payload.to_json)
+        results = client.search_games("street fighter 6", include_editions: true)
+        expect(results.size).to eq(2)
+      end
     end
   end
 

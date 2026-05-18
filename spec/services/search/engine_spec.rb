@@ -43,5 +43,14 @@ RSpec.describe Search::Engine do
     it "returns {} from #per_index_stats by default" do
       expect(subject.per_index_stats).to eq({})
     end
+
+    # 2026-05-18 — `documents_count_for(index, field:, value:)` is the
+    # filtered-count surface used by the settings stack pane to split a
+    # single physical index (`games_<env>`) into Game vs Bundle rows by
+    # the `kind` discriminator. Engines that don't support filtered
+    # counts inherit `nil` so the view renders neutrally.
+    it "returns nil from #documents_count_for by default" do
+      expect(subject.documents_count_for("games_test", field: :kind, value: "game")).to be_nil
+    end
   end
 end
