@@ -6,9 +6,11 @@
 # The two record types are distinguished by the `kind` discriminator
 # field (`"game"` vs `"bundle"`).
 #
-# Document id is namespaced (`"bundle:<id>"`) to avoid colliding with
+# Document id is namespaced (`"bundle_<id>"`) to avoid colliding with
 # Game ids in the shared index. Game docs continue to use the raw
-# numeric id as their primary key; Bundle docs prefix.
+# numeric id as their primary key; Bundle docs prefix. The underscore
+# separator is mandated by Meilisearch's document-id charset rule
+# (`[a-zA-Z0-9_-]` only); see `composite_id` comment for context.
 #
 # Vector payload: when an embedding is supplied (from
 # `Bundles::VoyageIndexer` via `Voyage::Client`), it is attached as
@@ -52,11 +54,27 @@ module Meilisearch
     end
 
     def composite_id
-      "bundle:#{@bundle.id}"
+      # 2026-05-18 (DR follow-up #2) — separator MUST be `_` (or `-`),
+      # NOT `:`. Meilisearch rejects document identifiers containing
+      # any character outside `[a-zA-Z0-9_-]` (max 511 bytes), so the
+      # previous `"bundle:#{id}"` shape failed every insert with
+      # `Document identifier "bundle:3" is invalid`. The underscore
+      # variant still namespaces the bundle id away from raw integer
+      # Game ids in the shared `games_<env>` index, and remains
+      # trivially parseable on the way out (`split("_", 2)`).
+      "bundle_#{@bundle.id}"
     end
 
     def push_document(url)
-      uri = URI.parse("#{url}/indexes/#{index_name}/documents")
+      # 2026-05-18 (DR follow-up #2) — explicit `?primaryKey=id` is
+      # MANDATORY. The bundle document also carries multiple `*_id`
+      # fields (`id`, `bundle_id`), and without an explicit primary
+      # key Meilisearch rejects the entire batch with
+      # `index_primary_key_multiple_candidates_found`. See the longer
+      # comment in `Meilisearch::GameIndexer#push_document` — both
+      # indexers write to the same `games_<env>` physical index, so
+      # the primary key MUST match (`id`) across both.
+      uri = URI.parse("#{url}/indexes/#{index_name}/documents?primaryKey=id")
 
       request = Net::HTTP::Post.new(uri)
       request["Content-Type"] = "application/json"

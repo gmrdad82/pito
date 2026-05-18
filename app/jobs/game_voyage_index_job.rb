@@ -25,6 +25,15 @@ class GameVoyageIndexJob < ApplicationJob
     # 2026-05-18 (DR follow-up) — push the post-index Stack-pane
     # snapshot so any open `/settings` tab sees the updated Voyage
     # coverage + Sidekiq counters without polling.
+    #
+    # Two-broadcast pattern (see `StackStatsBroadcastJob`):
+    # - Immediate: captures the DB-state cells (Voyage embeddings,
+    #   Meilisearch counts) that are already final by the time the
+    #   indexer returned.
+    # - Delayed 1s: captures the Sidekiq `busy` counter AFTER this
+    #   worker thread releases its slot (the immediate broadcast
+    #   still counts this worker as busy).
     StackStats::Broadcaster.broadcast!
+    StackStatsBroadcastJob.set(wait: 1.second).perform_later
   end
 end

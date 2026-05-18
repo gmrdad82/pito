@@ -109,12 +109,16 @@ module Meilisearch
     end
 
     # Pulls Bundle rows in Meilisearch hit order. Bundle doc ids are
-    # namespaced `"bundle:<id>"` to coexist with raw game ids in the
-    # shared index — strip the prefix to get the AR id.
+    # namespaced `"bundle_<id>"` to coexist with raw game ids in the
+    # shared index — strip the prefix to get the AR id. The legacy
+    # `"bundle:<id>"` shape is also accepted defensively in case any
+    # stale documents survived from the pre-2026-05-18 broken-insert
+    # era (those inserts failed entirely, so in practice this branch
+    # is dead — but stripping both is cheaper than worrying about it).
     def resolve_bundles(hits)
       bundle_ids = hits
         .select { |h| h["kind"] == "bundle" }
-        .map { |h| h["id"].to_s.delete_prefix("bundle:").to_i }
+        .map { |h| h["id"].to_s.delete_prefix("bundle_").delete_prefix("bundle:").to_i }
         .reject(&:zero?)
       return [] if bundle_ids.empty?
 

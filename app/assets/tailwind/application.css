@@ -2361,13 +2361,22 @@ hr.hairline {
 .ownership-matrix__row {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 8px;
   margin: 4px 0;
-  flex-wrap: wrap;
+  /* `nowrap` keeps the platform label + both `[owned]` / `[played]`
+     toggles on a single line inside the 272px LEFT pane (≈248px
+     content width). Wrapping was the prior failure mode: the second
+     toggle stacked under the first, breaking the matrix shape. The
+     gap was tightened from 16 → 8 and the toggle horizontal padding
+     from 6 → 4 (see `.ownership-matrix__toggle` below) so the
+     three items fit. `min-width` on the platform label was dropped
+     since "Switch" (the widest label) measures ~45px and the fixed
+     80px column was burning width budget the row no longer has. */
+  flex-wrap: nowrap;
 }
 .ownership-matrix__platform {
-  min-width: 80px;
   color: var(--color-muted);
+  white-space: nowrap;
 }
 .ownership-checkbox {
   display: inline-flex;
@@ -2389,9 +2398,10 @@ hr.hairline {
    Two visually distinct states keep the matrix legible at a glance:
    bordered green = "owned here too", filled green = "playing here". */
 .ownership-matrix__toggle {
-  padding: 2px 6px;
+  padding: 2px 4px;
   border-radius: 3px;
   transition: background-color 80ms ease;
+  white-space: nowrap;
 }
 .ownership-matrix__toggle:hover,
 .ownership-matrix__toggle:focus-within {

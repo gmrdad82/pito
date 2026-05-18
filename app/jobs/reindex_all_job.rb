@@ -32,6 +32,11 @@ class ReindexAllJob < ApplicationJob
     # `/settings` tab swaps to the "reindexing…" Stack-pane state via
     # the cable subscription (in addition to the Voyage-section Turbo
     # partial swap below).
+    #
+    # Start-of-job needs only the immediate broadcast (no trailing
+    # delayed companion) — the trailing-edge concern is the worker
+    # releasing its `busy` slot at job END, not at job START. The
+    # delayed broadcast for that case is scheduled in `ensure` below.
     StackStats::Broadcaster.broadcast!
 
     # FOR LOCAL TESTING VISIBILITY — remove or set REINDEX_SLEEP_SECONDS
@@ -76,7 +81,18 @@ class ReindexAllJob < ApplicationJob
     # Turbo replacement above swaps the Voyage-section partial markup;
     # this broadcast updates the per-row numeric cells inside it (and
     # the Postgres / Meilisearch / assets sections).
+    #
+    # Two-broadcast pattern (see `StackStatsBroadcastJob`):
+    # - Immediate: captures the DB-state cells already final at this
+    #   point (Voyage embeddings written by the bulk jobs above,
+    #   Meilisearch document counts).
+    # - Delayed 1s: captures the Sidekiq `busy` counter AFTER this
+    #   reindex worker releases its slot. Without this, the Redis
+    #   pane stays stuck at the `busy=1+N` snapshot from inside the
+    #   worker (the reindex job still counted itself + any bulk jobs
+    #   that were in flight at broadcast time).
     StackStats::Broadcaster.broadcast!
+    StackStatsBroadcastJob.set(wait: 1.second).perform_later
   end
 
   private
