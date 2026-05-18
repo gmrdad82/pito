@@ -51,41 +51,15 @@
         rather than empty whitespace above the [+] add row. The
         `--modal` modifier lifts the controller-icon max-width caps so
         the SVGs scale proportionally at the modal's larger size
-        instead of looking lost in oversized cells. %>
-    <div class="bundle-tile__nocover-netflix3 bundle-tile__nocover-netflix3--modal"
-         aria-label="<%= @bundle.name %>"
-         title="<%= @bundle.name %>">
-      <div class="cell cell--main">
-        <%= image_tag image_path("controller_icon_light.svg"),
-                      alt: "", loading: "lazy",
-                      data: { theme: "light" },
-                      class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--large game-cover-fallback--light" %>
-        <%= image_tag image_path("controller_icon_dark.svg"),
-                      alt: "", loading: "lazy",
-                      data: { theme: "dark" },
-                      class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--large game-cover-fallback--dark" %>
-      </div>
-      <div class="cell">
-        <%= image_tag image_path("controller_icon_light.svg"),
-                      alt: "", loading: "lazy",
-                      data: { theme: "light" },
-                      class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--small game-cover-fallback--light" %>
-        <%= image_tag image_path("controller_icon_dark.svg"),
-                      alt: "", loading: "lazy",
-                      data: { theme: "dark" },
-                      class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--small game-cover-fallback--dark" %>
-      </div>
-      <div class="cell">
-        <%= image_tag image_path("controller_icon_light.svg"),
-                      alt: "", loading: "lazy",
-                      data: { theme: "light" },
-                      class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--small game-cover-fallback--light" %>
-        <%= image_tag image_path("controller_icon_dark.svg"),
-                      alt: "", loading: "lazy",
-                      data: { theme: "dark" },
-                      class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--small game-cover-fallback--dark" %>
-      </div>
-    </div>
+        instead of looking lost in oversized cells.
+
+        2026-05-18 (B6 extract) — markup now lives in
+        `Bundles::EmptyCoverPlaceholderComponent`. The shelf-tile
+        inline copy in `Games::BundleTileComponent` is deliberately
+        left untouched in this dispatch (B6 step 1); the future
+        followup swaps it to render the same component with
+        `modifier: nil`. %>
+    <%= render Bundles::EmptyCoverPlaceholderComponent.new(bundle: @bundle, modifier: :modal) %>
   <% end %>
 
   <%= render(Bundles::AllGamesTableComponent.new(bundle: @bundle)) %>

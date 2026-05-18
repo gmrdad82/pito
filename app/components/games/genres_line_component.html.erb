@@ -1,0 +1,14 @@
+<div class="game-genres" style="margin: 0 0 4px 0;">
+  <% if genres_list.any? %>
+    <% genres_list.each_with_index do |g, i| %>
+      <% if i.zero? %>
+        <strong><%= helpers.genre_display_name(g) %></strong>
+      <% else %>
+        <span><%= helpers.genre_display_name(g) %></span>
+      <% end %>
+      <% if i < genres_list.length - 1 %> · <% end %>
+    <% end %>
+  <% else %>
+    <em class="text-muted">—</em>
+  <% end %>
+</div>

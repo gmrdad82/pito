@@ -142,28 +142,14 @@
         render verbatim except for the cosmetic renames declared in
         `GENRE_DISPLAY_RENAMES`. %>
     <% if @game.primary_genre || @game.genres.any? %>
-      <div class="game-genres" style="margin: 0 0 4px 0;">
-        <%
-          primary  = @game.primary_genre
-          secondaries = @game.genres
-                              .where.not(id: primary&.id)
-                              .order(:name)
-                              .limit(2)
-          genres_list = ([primary] + secondaries.to_a).compact
-        %>
-        <% if genres_list.any? %>
-          <% genres_list.each_with_index do |g, i| %>
-            <% if i.zero? %>
-              <strong><%= genre_display_name(g) %></strong>
-            <% else %>
-              <span><%= genre_display_name(g) %></span>
-            <% end %>
-            <% if i < genres_list.length - 1 %> · <% end %>
-          <% end %>
-        <% else %>
-          <em class="text-muted">—</em>
-        <% end %>
-      </div>
+      <%# Beta-3 Lane B (B2) — extracted to Games::GenresLineComponent.
+          Outer guard preserved verbatim so the WHOLE block is omitted
+          when there is neither a primary genre nor any secondaries
+          (parity with the pre-extraction behavior). The component's
+          internal `<em>—</em>` fallback is therefore unreachable from
+          this call site — it remains in the component for callers /
+          tests that exercise the empty-genres path directly. %>
+      <%= render Games::GenresLineComponent.new(game: @game) %>
     <% end %>
 
     <%# 2026-05-17 polish — hairline between the genres line and the

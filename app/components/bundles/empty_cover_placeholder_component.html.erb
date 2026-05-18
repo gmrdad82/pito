@@ -1,0 +1,41 @@
+<%# Verbatim transplant of the netflix-3 placeholder previously
+    inline in `app/views/bundles/games_pane.html.erb`. Three cells
+    (one `--main` + two regular) with two stacked controller-icon
+    image variants per cell (light + dark, toggled via
+    `[data-theme]`). The `--modal` modifier on the wrapper lifts
+    the icon max-width caps for the larger modal cover; absent
+    modifier renders shelf-tile sizing. %>
+<div class="<%= wrapper_classes %>"
+     aria-label="<%= label %>"
+     title="<%= label %>">
+  <div class="cell cell--main">
+    <%= image_tag image_path("controller_icon_light.svg"),
+                  alt: "", loading: "lazy",
+                  data: { theme: "light" },
+                  class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--large game-cover-fallback--light" %>
+    <%= image_tag image_path("controller_icon_dark.svg"),
+                  alt: "", loading: "lazy",
+                  data: { theme: "dark" },
+                  class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--large game-cover-fallback--dark" %>
+  </div>
+  <div class="cell">
+    <%= image_tag image_path("controller_icon_light.svg"),
+                  alt: "", loading: "lazy",
+                  data: { theme: "light" },
+                  class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--small game-cover-fallback--light" %>
+    <%= image_tag image_path("controller_icon_dark.svg"),
+                  alt: "", loading: "lazy",
+                  data: { theme: "dark" },
+                  class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--small game-cover-fallback--dark" %>
+  </div>
+  <div class="cell">
+    <%= image_tag image_path("controller_icon_light.svg"),
+                  alt: "", loading: "lazy",
+                  data: { theme: "light" },
+                  class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--small game-cover-fallback--light" %>
+    <%= image_tag image_path("controller_icon_dark.svg"),
+                  alt: "", loading: "lazy",
+                  data: { theme: "dark" },
+                  class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--small game-cover-fallback--dark" %>
+  </div>
+</div>
