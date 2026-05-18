@@ -226,12 +226,31 @@ module Igdb
       game.update_column(:primary_genre_id, pick&.id)
     end
 
+    # FN3 (2026-05-18) — preserve user-added platform rows across IGDB
+    # syncs. The `source` column on `game_platforms` (FN2) distinguishes
+    # IGDB-imported rows (`"igdb"`) from rows the user added by clicking
+    # `[owned] PS` etc. on `/games/:id` (`"user"`).
+    #
+    # Two preservation rules:
+    #
+    #   1. Destroy only `from_igdb`-scoped rows when IGDB stops returning
+    #      a platform. User rows (`source: "user"`) survive even if IGDB
+    #      never lists that platform (canonical example: RDR1 — IGDB has
+    #      PS3 / Xbox 360 only, but the user marked owned PS → PS5 row
+    #      with `source: "user"` must persist across syncs).
+    #
+    #   2. On upsert, if a row already exists for `(game, platform)`,
+    #      LEAVE its `source` untouched. A user-added row that IGDB also
+    #      reports must NOT be downgraded from `"user"` to `"igdb"`. New
+    #      rows that IGDB introduces are created with `source: "igdb"`.
     def sync_platforms(game, platforms_json)
       list = Array(platforms_json).select { |row| row.is_a?(Hash) }
       platform_records = list.map { |row| upsert_platform(row) }
-      game.game_platforms.where.not(platform_id: platform_records.map(&:id)).destroy_all
+      game.game_platforms.from_igdb.where.not(platform_id: platform_records.map(&:id)).destroy_all
       platform_records.each do |p|
-        GamePlatform.where(game_id: game.id, platform_id: p.id).first_or_create!
+        existing = game.game_platforms.find_by(platform_id: p.id)
+        next if existing # preserve existing source (FN3 rule 2)
+        game.game_platforms.create!(platform_id: p.id, source: "igdb")
       end
     end
 

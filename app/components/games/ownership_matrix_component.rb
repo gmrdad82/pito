@@ -80,10 +80,24 @@ module Games
 
     private
 
+    # 2026-05-18 FN2 — resolve chip slugs (`ps` / `switch` / `steam`)
+    # to canonical Platform rows via
+    # `Platforms::ChipComponent::CANONICAL_PLATFORM_SLUG_BY_CHIP`.
+    # The chip vocabulary does not match `platforms.slug` 1:1
+    # (e.g. `ps` chip → `ps5` platform row, `switch` chip → `switch-2`
+    # platform row); the lookup goes through the canonical map so the
+    # matrix and the toggle controller agree on which Platform row
+    # backs each chip.
     def platforms_by_slug
-      @platforms_by_slug ||= Platform
-        .where(slug: Platforms::ChipComponent::SLUG_BRAND.keys)
-        .index_by(&:slug)
+      @platforms_by_slug ||= begin
+        canonical_to_chip = Platforms::ChipComponent::CANONICAL_PLATFORM_SLUG_BY_CHIP.invert
+        Platform
+          .where(slug: Platforms::ChipComponent::CANONICAL_PLATFORM_SLUG_BY_CHIP.values)
+          .each_with_object({}) do |platform, h|
+            chip = canonical_to_chip[platform.slug]
+            h[chip] = platform if chip
+          end
+      end
     end
 
     def owned_platform_ids

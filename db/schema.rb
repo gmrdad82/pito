@@ -399,10 +399,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_18_100000) do
     t.datetime "created_at", null: false
     t.bigint "game_id", null: false
     t.bigint "platform_id", null: false
+    t.string "source", default: "igdb", null: false
     t.datetime "updated_at", null: false
     t.index ["game_id", "platform_id"], name: "index_game_platforms_on_game_id_and_platform_id", unique: true
     t.index ["game_id"], name: "index_game_platforms_on_game_id"
     t.index ["platform_id"], name: "index_game_platforms_on_platform_id"
+    t.index ["source"], name: "index_game_platforms_on_source"
   end
 
   create_table "game_publishers", force: :cascade do |t|

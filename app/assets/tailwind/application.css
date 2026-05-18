@@ -2377,6 +2377,8 @@ hr.hairline {
 .ownership-matrix__platform {
   color: var(--color-muted);
   white-space: nowrap;
+  width: 56px;
+  flex-shrink: 0;
 }
 .ownership-checkbox {
   display: inline-flex;
@@ -2391,12 +2393,16 @@ hr.hairline {
    re-renders /games/:id with a flash naming the new state. The hover
    affordance is a subtle bg tint (matches the existing
    `.ownership-chip-button:hover` rule) so the cell reads as
-   clickable. When checked, the bracketed checkbox indicator + label
-   tint green — `:success` (canonical-green border + text from
-   `.status-badge--success`) for `owned`, and `:strong` (filled
-   canonical-green pill from `.status-badge--strong`) for `played`.
-   Two visually distinct states keep the matrix legible at a glance:
-   bordered green = "owned here too", filled green = "playing here". */
+   clickable.
+
+   2026-05-18 FN2 follow-up — the previous variant tinted the
+   `--owned` / `--played` cells green (bordered + filled
+   respectively). User feedback: drop the colorization so checked
+   chips render in the same default text color as unchecked ones.
+   The bracket + label stay neutral regardless of state; the `[x]`
+   indicator alone signals on/off. The `--owned` / `--played`
+   modifier classes still ship on the wrapping `<label>` (the
+   template branches on them) but no longer carry visual rules. */
 .ownership-matrix__toggle {
   padding: 2px 4px;
   border-radius: 3px;
@@ -2406,17 +2412,6 @@ hr.hairline {
 .ownership-matrix__toggle:hover,
 .ownership-matrix__toggle:focus-within {
   background-color: var(--color-row-hover, rgba(0, 0, 0, 0.04));
-}
-.ownership-matrix__toggle--owned .md-check-indicator,
-.ownership-matrix__toggle--owned .ownership-matrix__toggle-label {
-  color: #2e7d32;
-}
-.ownership-matrix__toggle--played .md-check-indicator,
-.ownership-matrix__toggle--played .ownership-matrix__toggle-label {
-  color: #ffffff;
-  background-color: #2e7d32;
-  padding: 0 4px;
-  border-radius: 2px;
 }
 
 /* Wave C7 (spec 08 §"RIGHT-pane sections" line 301 + §"RIGHT pane
