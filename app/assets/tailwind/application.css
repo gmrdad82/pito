@@ -1174,6 +1174,35 @@ table.stack-table tr:hover {
   background-color: transparent;
 }
 
+/* `.stack-table--3col-aligned` (2026-05-18 settings polish).
+   Shared column widths for the assets (category / files / size) +
+   notes (namespace / count / size) tables on /settings. Both are
+   3-column breakdowns with a string label + two numeric columns,
+   but `table-layout: auto` on `.stack-table` lets each one size
+   columns independently from its own content — which made the two
+   stacked tables read as visually unrelated even though they share
+   the same semantic shape.
+
+   Fixed widths (50% / 25% / 25%) lock the geometry so the label
+   column and the two numeric columns line up across both tables.
+   `.num` cells already carry right-alignment + tabular figures via
+   the global `.num` rule, so this modifier is width-only. */
+table.stack-table--3col-aligned {
+  table-layout: fixed;
+}
+table.stack-table--3col-aligned th:nth-child(1),
+table.stack-table--3col-aligned td:nth-child(1) {
+  width: 50%;
+}
+table.stack-table--3col-aligned th:nth-child(2),
+table.stack-table--3col-aligned td:nth-child(2) {
+  width: 25%;
+}
+table.stack-table--3col-aligned th:nth-child(3),
+table.stack-table--3col-aligned td:nth-child(3) {
+  width: 25%;
+}
+
 /* `.kv-table` — borderless, header-less two-column key/value table
    used for the `released / dev / pub` meta strip on `/games/:id`
    (and any future read-only meta surfaces — bundle show, video show,

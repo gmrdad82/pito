@@ -31,6 +31,13 @@ class Bundle < ApplicationRecord
   # `sweep_composite_cover_file`).
   include Compositable
 
+  # Phase 34 (2026-05-18) — pgvector neighbor lookups on the Voyage
+  # `summary_embedding` column. Powers `Bundles::SuggestedFor` (bundles
+  # whose centroid sits closest to a given game's vector). Distance is
+  # cosine (matches the `vector_cosine_ops` HNSW index in
+  # `db/schema.rb`).
+  has_neighbors :summary_embedding
+
   has_many :bundle_members, -> { order(:position) }, dependent: :destroy
   has_many :games, through: :bundle_members
 

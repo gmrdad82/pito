@@ -204,22 +204,44 @@ class SettingsController < ApplicationController
   SEARCH_INDEX_DISPLAY_ALLOWLIST = %w[games].freeze
 
   def search_per_index_stats_for_settings_pane
-    return [] unless Search.engine.respond_to?(:per_index_stats)
+    rows = []
 
-    stats = Search.engine.per_index_stats
-    rows = stats.map do |index_name, payload|
-      next if index_name.to_s.end_with?("_test")
-      label = index_name.to_s.sub(/_(development|production)\z/, "")
-      next unless SEARCH_INDEX_DISPLAY_ALLOWLIST.include?(label)
-      {
-        label: label,
-        documents: payload[:documents] || payload["documents"] || 0,
-        size_bytes: payload[:size_bytes] || payload["size_bytes"]
+    if Search.engine.respond_to?(:per_index_stats)
+      stats = Search.engine.per_index_stats
+      rows = stats.map do |index_name, payload|
+        next if index_name.to_s.end_with?("_test")
+        label = index_name.to_s.sub(/_(development|production)\z/, "")
+        next unless SEARCH_INDEX_DISPLAY_ALLOWLIST.include?(label)
+        {
+          label: label,
+          documents: payload[:documents] || payload["documents"] || 0,
+          size_bytes: payload[:size_bytes] || payload["size_bytes"],
+          missing: false
+        }
+      end.compact
+    end
+
+    # 2026-05-18 — backfill placeholder rows for any allowlisted index
+    # the engine didn't return. Covers the "index not yet created" case
+    # (no documents indexed → Meilisearch has no record of the index),
+    # so the Stack pane still surfaces the `games` row instead of going
+    # silent. `missing: true` lets the view render "not yet indexed"
+    # cells in place of doc count + size.
+    SEARCH_INDEX_DISPLAY_ALLOWLIST.each do |required|
+      next if rows.any? { |row| row[:label] == required }
+      rows << {
+        label: required,
+        documents: 0,
+        size_bytes: nil,
+        missing: true
       }
-    end.compact
+    end
+
     rows.sort_by { |row| -row[:documents].to_i }
   rescue StandardError
-    []
+    SEARCH_INDEX_DISPLAY_ALLOWLIST.map do |required|
+      { label: required, documents: 0, size_bytes: nil, missing: true }
+    end
   end
 
   def redis_status_for_settings_pane
