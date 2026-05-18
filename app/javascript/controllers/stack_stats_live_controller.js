@@ -1,28 +1,30 @@
 import { Controller } from "@hotwired/stimulus"
+import { createConsumer } from "@rails/actioncable"
 
-// 2026-05-18 (DR) — Live updates for the /settings Stack pane.
+// 2026-05-18 (DR follow-up) — Live updates for the /settings Stack pane.
 //
-// User direction (verbatim): "[reindex] on Voyage AI for sure it queued
-// a Sidekiq job so the Redis in stack should account for this and
-// updates it's numbers. Sidekiq jobs should send through websocket /
-// action cable / whatever magic way pings so if I'm on the /settings
-// page the Redis stack gets updated."
+// User direction (verbatim): "no polling, have all the jobs publishing
+// on websocket / action cable / magically".
 //
-// Implementation choice: simple polling (no ActionCable). Solo-user
-// scale + tiny payload + 3 s cadence keeps the cost negligible.
-// Stimulus `disconnect()` clears the interval when the user navigates
-// away — Turbo's drive triggers it on every page transition.
+// Architecture: this controller subscribes to `StackStatsChannel`
+// (broadcasting `stack_stats`). Sidekiq jobs at the producer side
+// (`BulkVoyageIndexJob`, `GameVoyageIndexJob`, `BundleVoyageIndexJob`,
+// `ReindexAllJob`) call `StackStats::Broadcaster.broadcast!` in their
+// ensure blocks, which pushes the same payload the old JSON endpoint
+// returned. The wire shape is identical — only the transport changed
+// (HTTP poll → WebSocket push) — so every `updateXxx` helper below is
+// unchanged.
+//
+// Initial state comes from the server-rendered ERB (already there);
+// no fetch() on connect. The JSON endpoint at `/settings/stack_stats`
+// stays live as a fallback / diagnostics surface but is not called by
+// this controller.
 //
 // Targets are the individual numeric cells in `_stack_pane.html.erb`
 // + `_voyage_section.html.erb`. Each `hasXxxTarget` guard keeps the
 // controller resilient to partial markup (e.g. when only Voyage cells
 // exist on a future variant of the pane).
 export default class extends Controller {
-  static values = {
-    intervalMs: { type: Number, default: 3000 },
-    url: { type: String, default: "/settings/stack_stats" }
-  }
-
   static targets = [
     // Sidekiq / Redis counters
     "busy",
@@ -63,34 +65,31 @@ export default class extends Controller {
   ]
 
   connect() {
-    this.timer = setInterval(() => this.refresh(), this.intervalMsValue)
+    this.consumer = createConsumer()
+    this.subscription = this.consumer.subscriptions.create(
+      { channel: "StackStatsChannel" },
+      { received: (data) => this.applyPayload(data) }
+    )
   }
 
   disconnect() {
-    if (this.timer) {
-      clearInterval(this.timer)
-      this.timer = null
+    if (this.subscription) {
+      this.subscription.unsubscribe()
+      this.subscription = null
+    }
+    if (this.consumer) {
+      this.consumer.disconnect()
+      this.consumer = null
     }
   }
 
-  async refresh() {
-    try {
-      const response = await fetch(this.urlValue, {
-        headers: { Accept: "application/json" },
-        credentials: "same-origin"
-      })
-      if (!response.ok) return
-      const data = await response.json()
-      if (data.redis) this.updateRedis(data.redis)
-      if (data.voyage) this.updateVoyage(data.voyage)
-      if (data.postgres) this.updatePostgres(data.postgres)
-      if (data.meilisearch) this.updateMeilisearch(data.meilisearch)
-      if (data.assets) this.updateAssets(data.assets)
-    } catch (_e) {
-      // Swallow — the next interval tick retries. A persistent network
-      // failure surfaces nowhere noisy; users get stale numbers, not
-      // a broken UI.
-    }
+  applyPayload(data) {
+    if (!data) return
+    if (data.redis) this.updateRedis(data.redis)
+    if (data.voyage) this.updateVoyage(data.voyage)
+    if (data.postgres) this.updatePostgres(data.postgres)
+    if (data.meilisearch) this.updateMeilisearch(data.meilisearch)
+    if (data.assets) this.updateAssets(data.assets)
   }
 
   updateRedis(redis) {

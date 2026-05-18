@@ -23,5 +23,10 @@ class BundleVoyageIndexJob < ApplicationJob
     return unless bundle
 
     Bundles::VoyageIndexer.call(bundle)
+  ensure
+    # 2026-05-18 (DR follow-up) — push the post-index Stack-pane
+    # snapshot so any open `/settings` tab sees the updated Voyage
+    # coverage + Sidekiq counters without polling.
+    StackStats::Broadcaster.broadcast!
   end
 end
