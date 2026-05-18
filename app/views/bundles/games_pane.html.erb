@@ -36,52 +36,12 @@
 %>
 <%= turbo_frame_tag "bundles_modal_frame" do %>
   <% if @games.any? %>
-    <% games = @games.limit(50) %>
-    <% first_nine = games.first(9) %>
-    <% cells = Composite::CellMap.for(first_nine.size) %>
-
-    <%# CSS composite: each game positioned per the cells map. The
-        wrapper holds the 3:4 canvas (matches the libvips render
-        proportions); each cell anchors to a percentage rect so the
-        composite scales fluidly with the modal width.
-
-        2026-05-17 — outer border and 2px radius live in the
-        `.bundle-modal-composite` CSS rule (theme-aware via
-        `--color-cover-border`, matching the shared shelf cover
-        edge). `overflow: hidden` on the wrapper clips per-cell
-        rounded corners to the composite outline. Inline style
-        retains only the per-instance positional bits.
-
-        2026-05-18 — every cell cover-art `<img>` picks up its
-        own 2px radius + theme border via the `.bundle-modal-cell
-        img` CSS rule, matching the shelf cover treatment. The
-        earlier per-corner class hooks (`bundle-modal-cell--corner-*`)
-        were removed alongside the `Composite::CellMap` `:corners`
-        decoration. %>
-    <div class="bundle-modal-composite"
-         style="width: 100%; aspect-ratio: 3 / 4;">
-      <% first_nine.each_with_index do |game, i| %>
-        <% cell = cells[i] %>
-        <% next unless cell %>
-        <a href="<%= game_path(game) %>"
-           class="bundle-modal-cell"
-           style="position: absolute; left: <%= cell[:x] * 100 %>%; top: <%= cell[:y] * 100 %>%; width: <%= cell[:w] * 100 %>%; height: <%= cell[:h] * 100 %>%;"
-           data-turbo-frame="_top"
-           title="<%= game.title %>">
-          <% cover_src = game.cover_master_url(fallback_size: "t_cover_big_2x") %>
-          <% if cover_src %>
-            <%# 2026-05-17 — prefer the normalized local master at
-                `/covers/games/<id>/master.jpg` (600×800 q95). Falls back to
-                IGDB `t_cover_big_2x` (528×748) for games whose master
-                has not been generated yet. %>
-            <%= image_tag cover_src,
-                          alt: game.title,
-                          loading: "lazy",
-                          style: "width: 100%; height: 100%; object-fit: cover; display: block;" %>
-          <% end %>
-        </a>
-      <% end %>
-    </div>
+    <%# 2026-05-18 — CSS-positioned composite cover grid is now owned
+        by `Bundles::ModalCompositeComponent`. The component pulls
+        `bundle.games.first(9)` and renders each cell over a 3:4 canvas
+        using `Composite::CellMap.for(n)` — the same source of truth
+        the libvips JPEG builder uses. %>
+    <%= render Bundles::ModalCompositeComponent.new(bundle: @bundle) %>
   <% else %>
     <%# 2026-05-18 (EQ Bug 1 follow-up) — empty-bundle placeholder.
         Mirrors the populated composite slot above: same `width: 100%`

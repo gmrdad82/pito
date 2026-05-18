@@ -1,0 +1,11 @@
+<div id="<%= wrapper_dom_id %>" class="game-cover-detail" style="position: relative; display: inline-block; max-width: 100%;">
+  <%= helpers.render "shared/igdb_cover", game: @game, size: "t_cover_big" %>
+  <% if detail_chip_slugs.any? %>
+    <div class="tile-cover-chip-overlay"
+         style="position: absolute; right: 0; bottom: 0; display: inline-flex; gap: 2px; padding: 1px; background-color: var(--color-cover-border);">
+      <% detail_chip_slugs.each do |slug| %>
+        <%= render(Platforms::ChipComponent.new(slug: slug, size: :sm)) %>
+      <% end %>
+    </div>
+  <% end %>
+</div>

@@ -120,34 +120,14 @@
 %>
 <div class="pane-row pane-row--game-show">
   <div class="pane pane--narrow">
-    <%# 2026-05-18 — platform chips overlay on the detail-page cover,
-        mirroring the shelf-tile bottom-right strip
-        (`Games::GameTileComponent` `.tile-cover-chip-overlay`). The
-        wrapper sits ONLY around the cover image (not the title /
-        genres / meta below) so absolute positioning anchors to the
-        cover's own box. Slug computation reuses
-        `PlatformLogosHelper#game_detail_logo_slugs` — the canonical
-        helper for "every chip that applies to this game" on the
-        detail surface — and the same `KNOWN_LOGOS` walk the shelf
-        tile uses, so render order matches.
-        The shared `_igdb_cover` partial stays untouched (it has other
-        consumers) — the wrapper + overlay live here in the show view. %>
-    <div class="game-cover-detail" style="position: relative; display: inline-block; max-width: 100%;">
-      <%= render "shared/igdb_cover", game: @game, size: "t_cover_big" %>
-      <%
-        detail_chip_slugs = PlatformLogosHelper::KNOWN_LOGOS.select do |slug|
-          (game_detail_logo_slugs(@game) + Array(game_index_tile_logo_slug(@game))).include?(slug)
-        end
-      %>
-      <% if detail_chip_slugs.any? %>
-        <div class="tile-cover-chip-overlay"
-             style="position: absolute; right: 0; bottom: 0; display: inline-flex; gap: 2px; padding: 1px; background-color: var(--color-cover-border);">
-          <% detail_chip_slugs.each do |slug| %>
-            <%= render(Platforms::ChipComponent.new(slug: slug, size: :sm)) %>
-          <% end %>
-        </div>
-      <% end %>
-    </div>
+    <%# 2026-05-18 (Beta-3 Lane B / B1) — cover + platform-chip overlay
+        extracted to `Games::DetailCoverComponent`. The component owns
+        the outer wrapper, the `shared/_igdb_cover` render, the
+        `KNOWN_LOGOS` slug computation, and the bottom-right chip
+        overlay strip. Stable DOM id (`game_detail_cover_<id>`) lives
+        on the component's outer wrapper — the planned ownership-
+        toggle Turbo Stream broadcast replaces that one element. %>
+    <%= render Games::DetailCoverComponent.new(game: @game) %>
 
     <h1 style="margin: 8px 0 4px 0;"><%= @game.title %></h1>
 

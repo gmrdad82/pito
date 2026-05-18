@@ -1011,6 +1011,17 @@ PS3 / Xbox 360. After user clicks `[owned] PS` (FN2 → adds PS5 row with
   spec) — upsert with `source: "user"`.
 - `spec/services/games/filter_spec.rb` — filter includes user-source PS games.
 
+### /projects ownership matrix — revisit during /projects revamp
+
+Item #19 in `docs/plans/beta/27-games-listing-shelves-filters-display-modes/notes/games-polish.md`
+(ownership section layout — platforms / played / recorded / footage). User
+accepted the current state on /games (PS/Switch/Steam × owned/played matrix,
+`recorded` dropped per filter rewrite, `footage` TBD). Outstanding work on the
+ownership UX folds into the future /projects revamp — when that lands, revisit
+the matrix surface + the footage status badge in the same pass.
+
+Locked 2026-05-18.
+
 ## Done
 
 ### YouTube credentials hot-rotation gap (omniauth boot-time read)
