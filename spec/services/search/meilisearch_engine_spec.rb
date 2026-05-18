@@ -212,6 +212,51 @@ RSpec.describe Search::MeilisearchEngine, skip: ENV["CI"].present? && "requires 
     end
   end
 
+  # 2026-05-18 — `documents_count_for` issues a Meilisearch search with
+  # an empty query, a single `<field> = "<value>"` filter and `limit: 0`,
+  # returning `estimatedTotalHits` as the integer count. The settings
+  # stack pane uses this to split the shared `games_<env>` index into
+  # Game vs Bundle rows by the `kind` discriminator.
+  describe "#documents_count_for" do
+    let(:stub_engine) { described_class.new }
+    let(:client) { stub_engine.instance_variable_get(:@client) }
+    let(:idx) { double("meili-index") }
+
+    before do
+      allow(client).to receive(:index).with("games_test").and_return(idx)
+    end
+
+    it "issues a search with `<field> = \"<value>\"` filter and `limit: 0`" do
+      expect(idx).to receive(:search).with(
+        "",
+        filter: 'kind = "game"',
+        limit: 0
+      ).and_return("estimatedTotalHits" => 5)
+
+      stub_engine.documents_count_for("games_test", field: :kind, value: "game")
+    end
+
+    it "returns the estimatedTotalHits count as an integer" do
+      allow(idx).to receive(:search).and_return("estimatedTotalHits" => 17)
+      expect(stub_engine.documents_count_for("games_test", field: :kind, value: "game")).to eq(17)
+    end
+
+    it "falls back to totalHits when estimatedTotalHits is absent" do
+      allow(idx).to receive(:search).and_return("totalHits" => 9)
+      expect(stub_engine.documents_count_for("games_test", field: :kind, value: "game")).to eq(9)
+    end
+
+    it "returns 0 when neither hit-count key is present" do
+      allow(idx).to receive(:search).and_return({})
+      expect(stub_engine.documents_count_for("games_test", field: :kind, value: "game")).to eq(0)
+    end
+
+    it "returns nil on engine failure (defensive rescue)" do
+      allow(idx).to receive(:search).and_raise(StandardError.new("boom"))
+      expect(stub_engine.documents_count_for("games_test", field: :kind, value: "game")).to be_nil
+    end
+  end
+
   private
 
   def wait_for_tasks

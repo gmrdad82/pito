@@ -287,4 +287,183 @@ RSpec.describe Igdb::SyncGame do
       expect(edition.reload.version_parent_id).to eq(root.id)
     end
   end
+
+  # ------------------------------------------------------------
+  # FN3 (2026-05-18) — `sync_platforms` preserves user-added rows.
+  #
+  # The `source` column on `game_platforms` distinguishes IGDB-imported
+  # rows (`"igdb"`) from user-added rows (`"user"`). Two preservation
+  # rules:
+  #
+  #   1. Destroy only `from_igdb`-scoped rows when IGDB stops returning
+  #      a platform. User rows survive even if IGDB never lists that
+  #      platform (RDR1 canonical example — user owns PS5 even though
+  #      IGDB ships PS3 / Xbox 360 only).
+  #
+  #   2. On upsert, if a row already exists for `(game, platform)`,
+  #      LEAVE its `source` untouched. A user-added row that IGDB also
+  #      reports must NOT be downgraded from `"user"` to `"igdb"`.
+  #
+  # Side-effect stubs:
+  #   - `Games::CoverArt::Normalizer` makes a live HTTP fetch to
+  #     images.igdb.com — stubbed to avoid the WebMock disconnect.
+  #   - `GameVoyageIndexJob` enqueues async indexing — stubbed off
+  #     because we are not exercising it here.
+  # ------------------------------------------------------------
+  describe "FN3 — sync_platforms preserves user-added rows" do
+    let(:fixture_root) { Rails.root.join("spec/fixtures/igdb") }
+    let(:base_payload) { JSON.parse(File.read(fixture_root.join("7346_game.json"))).first }
+    let(:client) { instance_double(Igdb::Client) }
+    let(:syncer) { described_class.new(client: client) }
+
+    # IGDB platforms IDs used in this section:
+    #   167 = PlayStation 5  (chip family "ps")
+    #   48  = PlayStation 4  (chip family "ps")
+    #   130 = Nintendo Switch
+    let(:igdb_platforms_ps4_only) do
+      [ { "id" => 48, "name" => "PlayStation 4", "abbreviation" => "PS4", "slug" => "ps4--1" } ]
+    end
+
+    let(:igdb_platforms_switch_only) do
+      [ { "id" => 130, "name" => "Nintendo Switch", "abbreviation" => "Switch", "slug" => "switch" } ]
+    end
+
+    let(:igdb_platforms_none) { [] }
+
+    let(:ps5_local) do
+      # Pre-existing canonical PS5 row, name-derived slug `playstation-5`
+      # would clobber a passed-in slug, so we update_column after create.
+      p = Platform.create!(igdb_id: 167, name: "PlayStation 5")
+      p.update_column(:slug, "ps5")
+      p
+    end
+
+    let(:ps4_local) do
+      p = Platform.create!(igdb_id: 48, name: "PlayStation 4")
+      p.update_column(:slug, "ps4--1")
+      p
+    end
+
+    before do
+      allow(client).to receive(:fetch_time_to_beat).and_return([])
+      allow(client).to receive(:fetch_external_games).and_return([])
+      # Suppress unrelated post-sync side effects.
+      allow_any_instance_of(Games::CoverArt::Normalizer).to receive(:call)
+      allow(GameVoyageIndexJob).to receive(:perform_later)
+    end
+
+    it "preserves a user-added PS5 row when IGDB returns no platforms" do
+      payload = base_payload.merge("id" => 9100, "name" => "RDR1", "slug" => "rdr1",
+                                    "platforms" => igdb_platforms_none)
+      allow(client).to receive(:fetch_game).with(9100).and_return([ payload ])
+
+      game = create(:game, igdb_id: 9100, title: "placeholder")
+      ps5 = ps5_local
+      game.game_platforms.create!(platform: ps5, source: "user")
+
+      syncer.call(game)
+
+      remaining = game.reload.game_platforms.includes(:platform).to_a
+      expect(remaining.size).to eq(1)
+      expect(remaining.first.platform_id).to eq(ps5.id)
+      expect(remaining.first.source).to eq("user")
+    end
+
+    it "preserves a user-added row when IGDB returns DIFFERENT platforms" do
+      payload = base_payload.merge("id" => 9101, "name" => "RDR1 v2", "slug" => "rdr1-v2",
+                                    "platforms" => igdb_platforms_switch_only)
+      allow(client).to receive(:fetch_game).with(9101).and_return([ payload ])
+
+      game = create(:game, igdb_id: 9101, title: "placeholder")
+      ps5 = ps5_local
+      game.game_platforms.create!(platform: ps5, source: "user")
+
+      syncer.call(game)
+
+      rows = game.reload.game_platforms.includes(:platform).to_a
+      # Two rows: the user-added PS5 row stays put; IGDB adds a Switch
+      # row keyed by its IGDB id 130. The Switch platform slug is
+      # FriendlyId-derived from "Nintendo Switch" → "nintendo-switch".
+      expect(rows.size).to eq(2)
+      ps5_row = rows.find { |r| r.platform_id == ps5.id }
+      switch_row = rows.find { |r| r.platform.igdb_id == 130 }
+      expect(ps5_row.source).to eq("user")
+      expect(switch_row).not_to be_nil
+      expect(switch_row.source).to eq("igdb")
+    end
+
+    it "does NOT downgrade a user-added row when IGDB lists the same platform" do
+      payload = base_payload.merge("id" => 9102, "name" => "RDR1 v3", "slug" => "rdr1-v3",
+                                    "platforms" => igdb_platforms_ps4_only)
+      allow(client).to receive(:fetch_game).with(9102).and_return([ payload ])
+
+      game = create(:game, igdb_id: 9102, title: "placeholder")
+      ps4 = ps4_local
+      game.game_platforms.create!(platform: ps4, source: "user")
+
+      syncer.call(game)
+
+      rows = game.reload.game_platforms.includes(:platform).to_a
+      expect(rows.size).to eq(1)
+      expect(rows.first.platform_id).to eq(ps4.id)
+      expect(rows.first.source).to eq("user")
+    end
+
+    it "destroys ONLY from_igdb rows when IGDB drops a platform" do
+      # Seed an IGDB-source PS5 row (stale — IGDB will return only
+      # Switch on the next sync). Also seed a user-source row that must
+      # survive.
+      payload = base_payload.merge("id" => 9103, "name" => "RDR1 v4", "slug" => "rdr1-v4",
+                                    "platforms" => igdb_platforms_switch_only)
+      allow(client).to receive(:fetch_game).with(9103).and_return([ payload ])
+
+      game = create(:game, igdb_id: 9103, title: "placeholder")
+      ps5 = ps5_local
+      ps4 = ps4_local
+      game.game_platforms.create!(platform: ps5, source: "igdb")
+      game.game_platforms.create!(platform: ps4, source: "user")
+
+      syncer.call(game)
+
+      rows = game.reload.game_platforms.includes(:platform).to_a
+      # Two rows survive: PS4 (user) survives, Switch (igdb id 130)
+      # replaces PS5 (the dropped igdb row). PS5 igdb row is gone.
+      expect(rows.size).to eq(2)
+      expect(rows.map(&:platform_id)).to match_array([ ps4.id, Platform.find_by!(igdb_id: 130).id ])
+      ps4_row = rows.find { |r| r.platform_id == ps4.id }
+      switch_row = rows.find { |r| r.platform.igdb_id == 130 }
+      expect(ps4_row.source).to eq("user")
+      expect(switch_row.source).to eq("igdb")
+      expect(rows.map(&:platform_id)).not_to include(ps5.id)
+    end
+
+    it "does not create a duplicate row when IGDB lists a platform the user already added" do
+      payload = base_payload.merge("id" => 9104, "name" => "RDR1 v5", "slug" => "rdr1-v5",
+                                    "platforms" => igdb_platforms_ps4_only)
+      allow(client).to receive(:fetch_game).with(9104).and_return([ payload ])
+
+      game = create(:game, igdb_id: 9104, title: "placeholder")
+      ps4 = ps4_local
+      game.game_platforms.create!(platform: ps4, source: "user")
+
+      expect { syncer.call(game) }
+        .not_to change { game.reload.game_platforms.where(platform_id: ps4.id).count }
+    end
+
+    it "multiple consecutive syncs leave the user-source row in place" do
+      payload = base_payload.merge("id" => 9105, "name" => "RDR1 v6", "slug" => "rdr1-v6",
+                                    "platforms" => igdb_platforms_switch_only)
+      allow(client).to receive(:fetch_game).with(9105).and_return([ payload ])
+
+      game = create(:game, igdb_id: 9105, title: "placeholder")
+      ps5 = ps5_local
+      game.game_platforms.create!(platform: ps5, source: "user")
+
+      3.times { syncer.call(game) }
+
+      user_rows = game.reload.game_platforms.from_user.to_a
+      expect(user_rows.size).to eq(1)
+      expect(user_rows.first.platform_id).to eq(ps5.id)
+    end
+  end
 end
