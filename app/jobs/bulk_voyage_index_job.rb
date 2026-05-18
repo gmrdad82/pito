@@ -74,17 +74,26 @@ class BulkVoyageIndexJob < ApplicationJob
   # filter (`Game.where.not(summary: nil)`) so the bulk job indexes
   # exactly the same set the old fan-out did.
   #
-  # Re-embed-everything semantics: this targets ALL games with a
-  # summary, NOT only `summary_embedding: nil`. A `[reindex]` click
-  # is the user's explicit "rebuild the search corpus" signal — we
-  # want every row's vector refreshed, not just the unembedded ones.
+  # Reindex semantics (2026-05-18 follow-up #3):
+  # - Records that DO NOT yet have a Voyage embedding → Voyage embed +
+  #   write + Meilisearch push.
+  # - Records that ALREADY have a Voyage embedding → SKIP the Voyage
+  #   API call, but STILL push to Meilisearch. The Meilisearch upsert
+  #   via `?primaryKey=id` is idempotent, so re-pushing the same doc
+  #   simply refreshes it in place. This is the only way to repair a
+  #   Meilisearch index that drifted from the Voyage / PG side (which
+  #   is exactly the scenario `[reindex]` is meant to fix).
+  #
+  # This trades the older "re-embed everything" semantics for "make
+  # Meilisearch agree with PG" — the user signal is "rebuild the
+  # search corpus", and the search corpus IS Meilisearch. We avoid
+  # gratuitous Voyage 429s by not re-embedding rows whose vectors are
+  # already on disk and good.
   def embed_games
     records = Game.where.not(summary: nil).where("summary <> ''").order(:id).to_a
     return if records.empty?
 
-    inputs = records.map { |g| game_text(g) }
-    persist_in_batches(records, inputs) do |record, embedding|
-      record.update_column(:summary_embedding, embedding)
+    sync_to_search(records, text_for: ->(g) { game_text(g) }) do |record|
       Meilisearch::GameIndexer.call(record.reload)
     end
   end
@@ -98,23 +107,40 @@ class BulkVoyageIndexJob < ApplicationJob
     records = Bundle.order(:id).to_a.reject { |b| bundle_text(b).blank? }
     return if records.empty?
 
-    inputs = records.map { |b| bundle_text(b) }
-    persist_in_batches(records, inputs) do |record, embedding|
-      record.update_column(:summary_embedding, embedding)
-      Meilisearch::BundleIndexer.call(record.reload, embedding: embedding)
+    sync_to_search(records, text_for: ->(b) { bundle_text(b) }) do |record|
+      Meilisearch::BundleIndexer.call(record.reload, embedding: record.summary_embedding)
     end
   end
 
-  # Slice in MAX_BATCH_SIZE-sized groups and call Voyage once per
-  # chunk. For pito's current corpus (≪128 of each) this loops once.
-  # The chunking is future-proof for when the catalogue grows past
-  # the per-request limit.
-  def persist_in_batches(records, inputs)
+  # Partition `records` into needs-embedding vs already-embedded,
+  # run Voyage only on the missing ones (slicing in MAX_BATCH_SIZE
+  # chunks to fit the per-request limit), persist the new vectors,
+  # and finally push EVERY record into Meilisearch so the search
+  # index ends up in lockstep with PG.
+  #
+  # `text_for:` is a callable that builds the Voyage input string for
+  # a single record (only invoked for needs-embedding rows). The
+  # block (`push_to_search`) is the Meilisearch-side push — called
+  # once per record, regardless of whether that record was just
+  # embedded or had a vector already.
+  def sync_to_search(records, text_for:, &push_to_search)
+    needs_embed, _already_embedded = records.partition { |r| r.summary_embedding.nil? }
+
+    embed_missing(needs_embed, text_for) if needs_embed.any?
+
+    records.each { |record| push_to_search.call(record) }
+  end
+
+  # Voyage embed + write for records that have no vector yet. Slices
+  # in MAX_BATCH_SIZE-sized groups; for pito's current corpus (≪128
+  # of each) this loops once.
+  def embed_missing(records, text_for)
+    inputs = records.map { |r| text_for.call(r) }
     records.each_slice(Voyage::Client::MAX_BATCH_SIZE).zip(inputs.each_slice(Voyage::Client::MAX_BATCH_SIZE)).each do |batch_records, batch_inputs|
       embeddings = Voyage::Client.new.embed_batch(inputs: batch_inputs)
       batch_records.zip(embeddings).each do |record, embedding|
         next if embedding.nil? # embed_batch raises rather than nil-ing slots, but belt-and-braces
-        yield(record, embedding)
+        record.update_column(:summary_embedding, embedding)
       end
     end
   end
