@@ -223,6 +223,21 @@ class Game < ApplicationRecord
   before_destroy       :capture_pre_destroy_bundles
   after_destroy_commit :rebuild_bundle_composites_on_destroy
 
+  # 2026-05-19 — /games index live refresh. Every Game create / update /
+  # destroy broadcasts a Turbo `refresh` signal to the `"games"` stream
+  # so the /games shelves (recently-played + genres + bundles + letter
+  # buckets) re-render without a manual page reload. The index view
+  # subscribes via `<%= turbo_stream_from "games" %>`. Update is needed
+  # in addition to create because the "add a game" flow stores a near-
+  # empty row first, then `Igdb::SyncGame#call` populates title /
+  # genres / cover_image_id / primary_genre_id asynchronously — those
+  # writes are `update!` / `save!` and must trigger a refresh too.
+  # `turbo-refresh-method=morph` + `turbo-refresh-scroll=preserve` in
+  # the layout make this a scroll-preserving in-place morph.
+  after_create_commit  -> { broadcast_refresh_later_to("games") }
+  after_update_commit  -> { broadcast_refresh_later_to("games") }
+  after_destroy_commit -> { broadcast_refresh_to("games") }
+
   # Phase 4 legacy — kept for one phase, dropped in polish window.
   has_one_attached :cover_art
 

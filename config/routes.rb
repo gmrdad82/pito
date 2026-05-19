@@ -37,16 +37,6 @@ Rails.application.routes.draw do
       as: :oauth_protected_resource_metadata_mcp,
       defaults: { format: "json" }
 
-  # Phase 7.5 — MCP custom-connector icon discovery. Some clients
-  # (and OS-level icon scrapers) ONLY check `/favicon.ico`. Pito ships
-  # the brand mark as `public/Pito.png` and intentionally does NOT
-  # carry a `.ico` binary in the repo — a 301 redirect to `/Pito.png`
-  # is enough for clients that follow redirects, and the modern PNG
-  # asset stays the single source of truth. `ActionDispatch::Static`
-  # runs before the router, so this route only fires when no
-  # `public/favicon.ico` file exists (which is the steady state).
-  get "/favicon.ico", to: redirect("/Pito.png", status: 301)
-
   # Phase 12 — Step A (6a-sessions-and-login-ui.md) — login + logout.
   # `/login` is the user-facing convention; `DELETE /session` is the
   # singleton current-session endpoint. The plural management surface
@@ -566,6 +556,16 @@ Rails.application.routes.draw do
     end
   end
   get "search", to: "search#show"
+  # Phase 37 (2026-05-19) — "Everywhere" omnisearch endpoint. Searches
+  # games + bundles + channels with context-aware section ordering
+  # driven by the caller's `current_path` (or `context`) param. Backed
+  # by `Search::Everywhere` (three-source orchestrator) and rendered
+  # via `Search::EverywhereResultsComponent`. DISTINCT from the
+  # video-only `SearchController#show` route above — built fresh per
+  # the strict-independence rule (no shared controller, no shared
+  # partials). See `app/services/search/everywhere.rb`.
+  get "/search/everywhere", to: "everywhere_search#show",
+                            as: :everywhere_search
   get "settings", to: "settings#index"
   patch "settings", to: "settings#update"
   # Phase 29 (settings refactor) — `PATCH /settings/theme` removed.

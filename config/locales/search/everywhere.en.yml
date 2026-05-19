@@ -1,0 +1,24 @@
+# Phase 37 — "everywhere" omnisearch modal i18n.
+#
+# Strict isolation: this key tree is OWNED by the new
+# `Search::EverywhereModalComponent` family. It is intentionally
+# separate from `games.omnisearch.*` (the locked /games modal's i18n,
+# at `config/locales/games/views.en.yml`) so the two surfaces can
+# diverge without retroactive splits.
+#
+# 2026-05-19 flat-list refactor: `section_headings.*` and
+# `empty.{games,bundles,channels}` keys are gone — the modal renders
+# rows in a single flat list with a per-row right-edge type label
+# (`kind_label.*`). Only the all-empty fallback retains a copy line
+# (`empty.all`).
+en:
+  search:
+    everywhere:
+      placeholder: "search anything"
+      kind_label:
+        game: "game"
+        bundle: "bundle"
+        channel: "channel"
+      empty:
+        all: "no results"
+      blank_query: "type to search games, bundles, and channels"

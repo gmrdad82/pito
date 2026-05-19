@@ -1,0 +1,166 @@
+<%# Phase 37 Wave A1 (landscape redesign, 2026-05-19) — channel ID card.
+    2026-05-19 follow-up — card resized to 226 × 358 px and five
+    visual enhancements applied (see `id_card_component.rb` class
+    comment): name padding all sides, avatar spacing + larger size,
+    handle centered under avatar, footer + lower hairline now scoped
+    to the right column only (left column extends full body height,
+    avatar grows to 150 px), stat grid column order flipped so the
+    trend arrow lives at the right edge. The outer card stays a
+    vertical flex container; the bottom area is no longer
+    full-width — it's nested inside the right column instead. %>
+<article class="channels-id-card"
+         data-channel-id="<%= channel[:id] %>"
+         style="display: flex; flex-direction: column;
+                width: <%= card_width_px %>; height: <%= card_height_px %>;
+                flex: 0 0 <%= card_width_px %>;
+                border: 1px solid var(--color-cover-border);
+                border-radius: 2px;
+                background: var(--color-channel-id-card-bg);">
+
+  <%# Row 1 — name, full width across the top. Bold weight at body 13 px. 2026-05-19 follow-up: padding bumped to 6 px vertical / 8 px horizontal so the title has visible breathing room from the top + bottom hairline and from the left/right card borders (was 2 px uniform — too tight per user screenshot). %>
+  <div class="channels-id-card__name"
+       style="padding: 6px 8px;
+              font-weight: 700;
+              max-width: 100%;
+              white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+    <%= channel[:display_name] %>
+  </div>
+
+  <%# Horizontal hairline between name and body. Spans the full card
+      width (this is the only horizontal hairline that still does so;
+      the lower hairline below the stats is right-column-only per
+      Enhancement 4). %>
+  <div class="channels-id-card__hairline"
+       style="border-top: 1px solid var(--color-border); width: 100%;"></div>
+
+  <%# Row 2 — body. Two columns split by a vertical hairline. Left
+      column now extends through the full body height (no in-column
+      bottom hairline, no full-width footer underneath it). Right
+      column stacks the stat grid on top + a hairline + the footer
+      below. Body fills the remaining vertical space via `flex: 1`. %>
+  <div class="channels-id-card__body"
+       style="display: flex; flex: 1; min-height: 0;">
+
+    <%# Left column — avatar (centered) + handle below (centered under
+        the avatar per Enhancement 3). `align-items: center` centers
+        both children horizontally inside the column; the bracketed
+        `[handle]` link inherits that centering. `padding: 6px 4px`
+        gives the avatar extra breathing room from the top hairline
+        and the card's bottom edge (Enhancement 2: "more spacing in
+        the avatar and the hairlines that surround it"). `padding-
+        left: 10px` adds the requested extra left margin (4 px base
+        + 6 px extra). `gap: 8px` between avatar and handle is the
+        same Enhancement-2 breathing increment. %>
+    <div class="channels-id-card__left"
+         style="display: flex; flex-direction: column; gap: 8px;
+                padding: 6px 4px 6px 10px;
+                align-items: center;
+                width: 125px; flex-shrink: 0;
+                box-sizing: border-box;">
+      <%# Avatar — circular per design.md §"Channel avatars". `margin-
+          top: 3px` nudges the avatar ~3 px lower so it visually centers
+          within its bound area (avatar tile + 8 px gap + handle row)
+          instead of hugging the top hairline (user screenshot 2026-05-
+          19 — top of avatar was sitting too high). %>
+      <% if channel[:avatar_url].present? %>
+        <img src="<%= channel[:avatar_url] %>"
+             alt="<%= channel[:display_name] %>"
+             class="channels-id-card__avatar"
+             style="width: <%= avatar_dimension_px %>; height: <%= avatar_dimension_px %>;
+                    flex-shrink: 0;
+                    margin-top: 3px;
+                    aspect-ratio: 1 / 1;
+                    object-fit: cover;
+                    border: 1px solid var(--color-cover-border);
+                    border-radius: 50%;
+                    display: block;">
+      <% else %>
+        <span class="channels-id-card__avatar"
+              aria-label="<%= channel[:display_name] %>"
+              style="width: <%= avatar_dimension_px %>; height: <%= avatar_dimension_px %>;
+                     flex-shrink: 0;
+                     margin-top: 3px;
+                     aspect-ratio: 1 / 1;
+                     border: 1px solid var(--color-cover-border);
+                     border-radius: 50%;
+                     display: block;"></span>
+      <% end %>
+
+      <%# Handle — centered under the avatar (parent column has
+          align-items: center, so this wrapper is auto-centered). The
+          ellipsis fallback stays in case the handle is unusually
+          wide. %>
+      <div class="channels-id-card__handle"
+           style="max-width: 100%; text-align: center;
+                  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+        <%= render(BracketedLinkComponent.new(label: channel[:handle], href: handle_url)) %>
+      </div>
+    </div>
+
+    <%# Right column — stacked: stat grid on top (fills remaining
+        space) + hairline + footer at the bottom. The hairline + footer
+        are scoped to this column only (Enhancement 4). The vertical
+        hairline between left/right columns is a `border-left` on this
+        wrapper so it spans the full body height. %>
+    <div class="channels-id-card__right"
+         style="display: flex; flex-direction: column;
+                border-left: 1px solid var(--color-border);
+                flex: 1; min-width: 0;">
+
+      <%# Stat grid — three rows × three columns. Enhancement 5
+          column order: `1fr auto auto` → number / unit / arrow. The
+          number cell uses `justify-self: end` so the three number
+          right edges align at the same x against the unit label.
+          The unit cell uses `justify-self: start` so the three unit
+          left edges align. The arrow cell uses `justify-self: end`
+          so the three arrows align at the right edge. `padding-
+          right: 6px` keeps the arrows ~6 px clear of the card border
+          (the requested right-margin breathing room). %>
+      <div class="channels-id-card__stats"
+           style="flex: 1;
+                  display: grid;
+                  grid-template-columns: 1fr auto auto;
+                  column-gap: 6px;
+                  row-gap: 4px;
+                  align-content: center;
+                  padding: 4px 6px 4px 4px;
+                  min-width: 0;">
+
+        <% glyph, css_var = trend(channel[:subscriber_count_trend]) %>
+        <span class="channels-id-card__value"
+              style="font-size: <%= stat_value_font_size %>; justify-self: end; align-self: center; font-variant-numeric: tabular-nums;"><%= subscriber_count_formatted %></span>
+        <span class="channels-id-card__label"
+              style="color: var(--color-muted); justify-self: start; align-self: center;">subs</span>
+        <span class="channels-id-card__trend"
+              style="display: inline-block; width: 1em; justify-self: end; align-self: center; color: var(<%= css_var %>);"><%= glyph %></span>
+
+        <% glyph, css_var = trend(channel[:view_count_trend]) %>
+        <span class="channels-id-card__value"
+              style="font-size: <%= stat_value_font_size %>; justify-self: end; align-self: center; font-variant-numeric: tabular-nums;"><%= view_count_formatted %></span>
+        <span class="channels-id-card__label"
+              style="color: var(--color-muted); justify-self: start; align-self: center;">views</span>
+        <span class="channels-id-card__trend"
+              style="display: inline-block; width: 1em; justify-self: end; align-self: center; color: var(<%= css_var %>);"><%= glyph %></span>
+
+        <% glyph, css_var = trend(channel[:watch_hours_trend]) %>
+        <span class="channels-id-card__value"
+              style="font-size: <%= stat_value_font_size %>; justify-self: end; align-self: center; font-variant-numeric: tabular-nums;"><%= watch_hours_formatted %></span>
+        <span class="channels-id-card__label"
+              style="color: var(--color-muted); justify-self: start; align-self: center;">hours</span>
+        <span class="channels-id-card__trend"
+              style="display: inline-block; width: 1em; justify-self: end; align-self: center; color: var(<%= css_var %>);"><%= glyph %></span>
+      </div>
+
+      <%# Footer — Enhancement 4: scoped to the right column only.
+          The hairline above the footer is a `border-top` on this
+          element so it sits inside the right column and does not
+          extend across the left column. Copy is `[ YouTube Studio ]`
+          per the locked rename (brand names always capitalized). %>
+      <div class="channels-id-card__studio"
+           style="border-top: 1px solid var(--color-border);
+                  padding: 2px 6px 2px 4px; text-align: right;">
+        <%= render(BracketedLinkComponent.new(label: "YouTube Studio", href: studio_url)) %>
+      </div>
+    </div>
+  </div>
+</article>

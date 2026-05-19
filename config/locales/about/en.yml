@@ -1,0 +1,14 @@
+# About modal i18n (2026-05-19).
+#
+# Owned by `AboutModalComponent`. Strings live under `about.modal.*` so
+# the surface can evolve independently of `common.*` and area locales.
+# `close` deliberately is NOT re-defined here — the modal reuses
+# `common.actions.close` for cross-app consistency.
+en:
+  about:
+    modal:
+      title: "about"
+      project_name: "pito"
+      subtitle: "best YouTube tool"
+      version_label: "version"
+      revision_label: "revision"

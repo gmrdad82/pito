@@ -42,6 +42,10 @@ commits where neither RSpec nor cargo nor prettier coverage adds signal.
 > begins. As items resolve during 5.5, they move to "## Done" with the resolving
 > commit hash. New entries continue to be added throughout Phase 5.
 
+- **favicon_spec.rb redirect target update** — assert `/favicon.ico`
+  redirects to `/favicon-32x32.png` instead of `/Pito.png`. Pito.png
+  retired 2026-05-19. Needs spec consolidation phase.
+
 ### Phase 11 sub-spec 01b–01f implementation queue
 
 **Trigger:** in flight. 01a (video edit page polish) shipped on 2026-05-11; the
@@ -977,11 +981,11 @@ modal is replaced everywhere `/` is bound.
 
 ### FN3 — IGDB sync preserves user-added platforms (spec coverage required)
 
-**Implementation landed** (2026-05-18 iteration mode): `Igdb::SyncGame#sync_platforms`
-now scopes destroys to `from_igdb` only, and the upsert skips existing rows so
-user-set `source: "user"` rows survive across syncs. Specs deferred per the
-defer-specs-during-iteration discipline; capture here for the consolidation
-pass.
+**Implementation landed** (2026-05-18 iteration mode):
+`Igdb::SyncGame#sync_platforms` now scopes destroys to `from_igdb` only, and the
+upsert skips existing rows so user-set `source: "user"` rows survive across
+syncs. Specs deferred per the defer-specs-during-iteration discipline; capture
+here for the consolidation pass.
 
 **Canonical example** for tests: Red Dead Redemption (RDR1) — IGDB returns only
 PS3 / Xbox 360. After user clicks `[owned] PS` (FN2 → adds PS5 row with
@@ -1013,7 +1017,8 @@ PS3 / Xbox 360. After user clicks `[owned] PS` (FN2 → adds PS5 row with
 
 ### /projects ownership matrix — revisit during /projects revamp
 
-Item #19 in `docs/plans/beta/27-games-listing-shelves-filters-display-modes/notes/games-polish.md`
+Item #19 in
+`docs/plans/beta/27-games-listing-shelves-filters-display-modes/notes/games-polish.md`
 (ownership section layout — platforms / played / recorded / footage). User
 accepted the current state on /games (PS/Switch/Steam × owned/played matrix,
 `recorded` dropped per filter rewrite, `footage` TBD). Outstanding work on the
@@ -1047,12 +1052,12 @@ bundle-cover live broadcast.
    involvement. Implementation: a Stimulus controller wrapping every element
    carrying `data-relative-time="<iso8601>"`, with a cadence-aware downshift as
    the gap grows.
-2. **Sessions table push.** New sessions, revoked sessions, and
-   `last_pinged_at` updates appear via ActionCable. Hook points:
-   `Session#after_create_commit`, `after_update_commit` (last_pinged_at),
-   `after_destroy_commit` (revoke). Pattern: `<turbo-cable-stream-source>`
-   against a stable DOM id (same pattern as the existing bundle-cover live
-   broadcast on `BundleCoverBuild` completion).
+2. **Sessions table push.** New sessions, revoked sessions, and `last_pinged_at`
+   updates appear via ActionCable. Hook points: `Session#after_create_commit`,
+   `after_update_commit` (last_pinged_at), `after_destroy_commit` (revoke).
+   Pattern: `<turbo-cable-stream-source>` against a stable DOM id (same pattern
+   as the existing bundle-cover live broadcast on `BundleCoverBuild`
+   completion).
 3. **Stack tables push** (Postgres / Meilisearch / Voyage AI / assets / notes).
    Each surface broadcasts on real state change:
    - Postgres: Game/Bundle `after_*_commit` → rows + size.
@@ -1079,9 +1084,9 @@ bundle-cover live broadcast.
 - Redis pubsub config — ActionCable is already wired.
 
 **Action:** spec + dispatch when the user signals. The dispatch begins with the
-verification pre-work above, then converts any poll surfaces to push, then
-adds the ticker controller, then wires the broadcasts on Sessions and the five
-stack surfaces.
+verification pre-work above, then converts any poll surfaces to push, then adds
+the ticker controller, then wires the broadcasts on Sessions and the five stack
+surfaces.
 
 ### `/channels` next-phase scope — locked 2026-05-19
 
@@ -1114,9 +1119,16 @@ heatmaps, and video-derived counts wait for the paired follow-up.
   Per-video metrics are explicitly out.
 - **SavedViews multi-pane.** Same pattern as `/games` — ≥2-pane side-by-side,
   persisted view URLs.
-- **Keybindings + navbar.** Reactivate `/channels` in the leader-menu
-  navigation realm AND in the header / footer navbar. Both are currently muted
-  per the paused-zone discipline and the 2026-05-19 navbar-mute commit.
+- **Keybindings + navbar.** Reactivate `/channels` in the leader-menu navigation
+  realm AND in the header / footer navbar. Both are currently muted per the
+  paused-zone discipline and the 2026-05-19 navbar-mute commit.
+- **Schema retention — `description` and `keywords` columns** (locked
+  2026-05-19, user reversal). Both stay on the `channels` table as index-only
+  fields feeding `Meilisearch::ChannelIndexer`. The Wave B schema-drop in the
+  channels handoff doc has been amended to keep them. Populated from the YouTube
+  Data API (`snippet.description` + `brandingSettings.channel.keywords`). Never
+  displayed in the app surface. See handoff doc §"OUT — schema columns to drop
+  in migration" for the retention note.
 
 **Out of scope (this phase):**
 
@@ -1135,9 +1147,49 @@ heatmaps, and video-derived counts wait for the paired follow-up.
 **Action:** dispatch `pito-architect-spec` against the locked scope when the
 user signals the phase start. Spec the OAuth add, the bulk-foundation remove,
 the public + private detail views, the channel-only stat set, the multi-pane
-SavedViews surface, and the navbar / leader-menu reactivation as one phase.
-File the paired video-coupling revisit as a follow-up against the eventual
-`/videos` phase rather than rolling it into this one.
+SavedViews surface, and the navbar / leader-menu reactivation as one phase. File
+the paired video-coupling revisit as a follow-up against the eventual `/videos`
+phase rather than rolling it into this one.
+
+### Channel recommendations on the game detail page (future)
+
+**Trigger:** after Phase B Omnisearch channels expansion lands AND the /videos
+surface returns to active scope.
+
+**Source:** User-locked 2026-05-19 during the /channels Wave A session.
+
+**Summary:**
+
+The game detail page (`/games/:id`) grows a new section recommending channels
+that might suit the game. Initial mechanism (V1): query the channel Meilisearch
+index with the game's `title` + genre names + developer/publisher names as the
+query, take top N hits, render as a channel-card mini-shelf on the game page.
+Channel-indexed data (title, handle, description, keywords) drives the recall.
+
+V2 (after /videos returns + per-video indexing lands): augment the channel index
+with video-derived signals — video titles, video tags, top-performing video
+genres — so a channel that covers Game X via a dedicated review series ranks
+higher than a channel that merely mentions Game X once in a description.
+
+V3 (after Voyage AI for channels lands): replace the bag-of-words Meilisearch
+query with a Voyage embedding query against a channel-embedding index.
+Embeddings derived from channel + its videos.
+
+**Out of scope this batch:** V1 implementation. Captured here so the Phase B
+Meilisearch indexer schema choices (keeping description + keywords) are anchored
+to the eventual feature.
+
+### Deferred specs (spec consolidation phase)
+
+Behavior fixes shipped during iteration without accompanying RSpec coverage, per
+the defer-specs-during-iteration discipline. Each entry names the surface, the
+fix file/date, and the behavior contract the spec must lock in.
+
+- **Compact-mode leader-menu prefix filtering + dead-end dismiss** — needs spec
+  coverage in spec consolidation phase. Fixed in `leader_menu_controller.js`
+  2026-05-19. Behavior: compact-mode hides rows whose `data-key` doesn't start
+  with the accumulated prefix; closes popup when prefix accumulates to
+  zero-match dead-end. Non-compact mode unchanged.
 
 ## Done
 

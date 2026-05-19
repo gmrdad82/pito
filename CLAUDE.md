@@ -224,6 +224,78 @@ do not cross into other agents' work.
 
 When a task expects output outside an actor's role, the actor STOPs and reports.
 
+### Master recon discipline — dispatch Explore, never grep/Read directly
+
+When the master agent needs to look up canonical values, file paths, component
+shapes, CSS tokens, schema columns, or any project-tree fact before dispatching,
+the master DISPATCHES the Explore agent. The master does NOT run
+bash/grep/Read/Edit against the project's `app/`, `lib/`, `config/` (except
+`CLAUDE.md`), `db/`, `spec/`, `extras/` trees directly — even for "quick recon"
+before a dispatch. Even one-line greps count. Direct project-tree reading by the
+master leaks responsibility, expands the master's context window, and bypasses
+the role discipline that the rest of the workspace enforces.
+
+**Allowed direct reads for the master:**
+
+- `docs/orchestration/*` (handoffs, follow-ups, playbooks)
+- `docs/plans/*` (phase plans, logs, additions, dropped)
+- `docs/decisions/*` (ADRs)
+- `docs/design.md`, `docs/architecture.md`, `docs/mcp.md`, `docs/setup.md`
+- `CLAUDE.md`
+- Subagent reports returned by Agent tool
+
+**Disallowed (always dispatch Explore):**
+
+- `grep`/`find`/`bash` against the project tree
+- `Read` on any `app/`, `lib/`, `db/`, `spec/`, `extras/`, `config/*` (except
+  `CLAUDE.md`) file
+- "Let me check"/"let me verify"/"quick recon" workflows that involve opening
+  project source files
+
+## Surface boundaries (locked vs open)
+
+Closed milestones that agents may NOT modify without explicit user confirmation
+(locked 2026-05-19):
+
+- **/games** — closed beta-3 milestone. Includes `app/views/games/**`,
+  `app/controllers/games_controller.rb`, `app/components/games/**` (except where
+  Omnisearch needs to read them as reference; see below). Read-only for
+  inspection. No visual changes, no controller changes, no spec changes. Bug
+  fixes user-confirmed first.
+- **/settings** — closed beta-3 milestone. Includes `app/views/settings/**`,
+  `app/controllers/settings_controller.rb`, `app/components/settings/**`. Same
+  read-only rule.
+
+Open surfaces under active development:
+
+- **/channels** — current beta-3 iteration. Free to modify
+  `app/views/channels/**`, `app/controllers/channels_controller.rb`,
+  `app/components/channels/**`, `app/services/channels/**`.
+- **Omnisearch** — independent surface. The search modal that searches games +
+  bundles + channels evolves freely even though individual indexers and the
+  search controller sit in files alongside game-related code. Components under
+  `app/components/search/everywhere_*` are owned by Omnisearch;
+  `app/components/search/omnisearch_*` (the /games modal modes) are LOCKED with
+  /games unless user explicitly authorizes a touch.
+- **Astro website** (`extras/website/**`) — open for marketing page iteration.
+- **Layout chrome** — `app/views/layouts/application.html.erb`, footer/header
+  partials, sticky-header CSS, About modal, Everywhere modal mount — open.
+  Changes here implicitly affect every page (including locked /games and
+  /settings), but the user has authorized chrome-level work.
+- **Other surfaces** (`/projects`, `/calendar`, `/notifications`, `/videos`,
+  etc.) — paused but not formally locked. Incidental bug fixes acceptable.
+
+**Dispatch boundary rule:** every implementation dispatch prompt that the master
+sends MUST include an explicit "DO NOT touch" list that names the locked
+surfaces (/games + /settings) plus any other files the dispatch shouldn't reach.
+Subagents that report touching a locked surface trigger a master-level rollback.
+
+**Exceptions** — bug fixes inside a locked surface require:
+
+1. User explicit confirmation in chat for the specific fix
+2. Master dispatch prompt cites the user's confirmation
+3. Subagent applies ONLY the agreed scope, nothing else
+
 ## Slack notifications
 
 The master agent (and any subagent) sends Slack pings to the user via the
@@ -274,10 +346,10 @@ digests — never conflate the two.
   nested structure (mirror the `:postgres` block).
 - **Mandatory-2FA gate.** After session creation, a post-session `before_action`
   in `Sessions::AuthConcern` redirects any authenticated user who has not
-  configured TOTP to `/settings/security/totp`, blocking every other route
-  until enrollment is confirmed. The gate is browser-only — API tokens and MCP
-  bearer surfaces are exempt by design (a bearer credential cannot complete a
-  TOTP enrollment). Allowlist is minimal: TOTP-setup routes plus logout.
+  configured TOTP to `/settings/security/totp`, blocking every other route until
+  enrollment is confirmed. The gate is browser-only — API tokens and MCP bearer
+  surfaces are exempt by design (a bearer credential cannot complete a TOTP
+  enrollment). Allowlist is minimal: TOTP-setup routes plus logout.
 
 ## Source of truth
 
@@ -386,18 +458,45 @@ Examples of `Formatting::*`:
 - `Formatting::WebhookUrlMask.call(url, brand:)` — Discord/Slack URL mask
 - `Formatting::TimeAgoCompact.call(time)` — "5m ago" / "—"
 
-**Helpers = single-purpose pure logic only.** If a helper survives this rule,
-it does ONE thing AND that one thing is pure logic (not formatting).
-Acceptable: `keyboard_navigation_enabled?`, `current_user_admin?`,
-`body_classes_for(controller)`. If a helper file has > 3 methods, it's a smell
-— likely there's a `Formatting::*` service hiding inside.
+**Helpers = single-purpose pure logic only.** If a helper survives this rule, it
+does ONE thing AND that one thing is pure logic (not formatting). Acceptable:
+`keyboard_navigation_enabled?`, `current_user_admin?`,
+`body_classes_for(controller)`. If a helper file has > 3 methods, it's a smell —
+likely there's a `Formatting::*` service hiding inside.
 
 **Partials = ultra-trivial standalone fragments only.** A partial is acceptable
 ONLY if BOTH: ≤ 5 lines of ERB AND standalone (no `local:` parameter that
 branches behavior, no per-call configuration). Examples of legitimate partials:
-`shared/_version.html.erb` (VERSION + last SHA), `shared/_csrf_meta_tags.html.erb`.
-If a partial takes a parameter that changes its render, it's a ViewComponent in
-disguise — convert.
+`shared/_version.html.erb` (VERSION + last SHA),
+`shared/_csrf_meta_tags.html.erb`. If a partial takes a parameter that changes
+its render, it's a ViewComponent in disguise — convert.
+
+### Component reuse — refactor the shared primitive, never fork
+
+When a new use case needs a component the project already has (chip, shelf,
+badge, bracketed link, modal, table, form field), the new use case REUSES the
+canonical component. If the canonical component doesn't yet support the new use
+case (a missing kwarg, a required arg that should be optional, a missing render
+mode), the dispatch FIRST refactors the canonical (add a default, extract a
+headless variant, support a new mode) THEN uses it. **Never fork into a parallel
+`<Domain>::FooComponent` that reimplements the shared shape.** Forking is a
+process failure and the master rejects agent reports that ship a parallel
+component.
+
+**Examples of canonical primitives (do not fork):**
+
+- `FilterChipComponent` — every chip in the app
+- `ShelfComponent` (top-level) — every horizontal-scroll tile row
+- `BracketedLinkComponent` — every bracketed link / action
+- `StatusBadgeComponent`, `RatingBadgeComponent` — every badge
+- `Formatting::*` services — every data-to-string transformation; if a new
+  formatter is needed (e.g., truncation, number shorthand, compact hours),
+  DISPATCH an agent to add a new `Formatting::*` service rather than inlining
+  the logic in a view or component
+
+If a value or transform needs to live somewhere, the priority is:
+`Formatting::*` service > ViewComponent constructor arg > inline literal.
+Inlining is the last resort and a smell.
 
 ## Architecture notes
 

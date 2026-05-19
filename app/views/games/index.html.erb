@@ -43,6 +43,16 @@
     the `[+]` link is now the only entry point. %>
 <% content_for(:title, t("games.index.title")) %>
 
+<%# 2026-05-19 — Live refresh subscription. Every Game create / update /
+    destroy broadcasts a Turbo `refresh` signal to the `"games"` stream
+    (see `after_*_commit` hooks on `Game`). On receipt, Turbo morph-
+    refreshes the page in place so the shelves below (recently-played +
+    genres + bundles + letter buckets) reflect newly-added rows AND
+    `Igdb::SyncGame#call`'s async backfill of title / genres / cover.
+    Layout meta `turbo-refresh-method=morph` + `turbo-refresh-scroll=
+    preserve` keep scroll position. %>
+<%= turbo_stream_from "games" %>
+
 <%# 2026-05-17 polish (revised) — `/games` shares one horizontal column
     with the rest of the page. The chrome wrapper (`<main>`) in
     `application.html.erb` already carries the canonical 12 px

@@ -1,0 +1,44 @@
+<% case kind %>
+<% when :game %>
+  <%= link_to game_path(record),
+              data: { turbo_frame: "_top" },
+              style: "flex: 1; text-decoration: none; color: inherit;" do %>
+    <%= record.title %>
+    <% if record.respond_to?(:release_year) && record.release_year %>
+      <span class="text-muted">(<%= record.release_year %>)</span>
+    <% end %>
+  <% end %>
+  <span class="text-muted" style="font-size: 11px;"><%= t("search.everywhere.kind_label.game") %></span>
+
+<% when :bundle %>
+  <%= link_to bundle_path(record),
+              data: { turbo_frame: "_top" },
+              style: "flex: 1; text-decoration: none; color: inherit;" do %>
+    <%= record.name %>
+    <% if (count = bundle_member_count) && count.positive? %>
+      <span class="text-muted">(<%= count %>)</span>
+    <% end %>
+  <% end %>
+  <span class="text-muted" style="font-size: 11px;"><%= t("search.everywhere.kind_label.bundle") %></span>
+
+<% when :channel %>
+  <%# Circular per design.md §"Channel avatars" — same sizing rule as
+      `Channels::AvatarChipComponent` so the chrome stays consistent. %>
+  <%= link_to "/channels",
+              data: { turbo_frame: "_top" },
+              style: "flex: 1; display: flex; align-items: center; gap: 8px; text-decoration: none; color: inherit;" do %>
+    <% if record[:avatar_url].present? %>
+      <img src="<%= record[:avatar_url] %>"
+           alt="<%= record[:display_name] %>"
+           style="width: <%= channel_avatar_dimension_css %>; height: <%= channel_avatar_dimension_css %>; object-fit: cover; border: 1px solid var(--color-border); border-radius: 50%; display: block;">
+    <% else %>
+      <span aria-label="<%= record[:display_name] %>"
+            style="width: <%= channel_avatar_dimension_css %>; height: <%= channel_avatar_dimension_css %>; border: 1px solid var(--color-border); border-radius: 50%; display: block;"></span>
+    <% end %>
+    <span style="font-weight: bold;"><%= record[:display_name] %></span>
+    <% if record[:handle].present? %>
+      <span class="text-muted">@<%= record[:handle].to_s.delete_prefix("@") %></span>
+    <% end %>
+  <% end %>
+  <span class="text-muted" style="font-size: 11px;"><%= t("search.everywhere.kind_label.channel") %></span>
+<% end %>

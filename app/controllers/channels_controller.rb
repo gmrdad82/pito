@@ -32,21 +32,26 @@ class ChannelsController < ApplicationController
   DEFAULT_SORT = "created_at"
   DEFAULT_DIR = "desc"
 
+  # Phase 37 Wave A1 — mocked `/channels` dashboard shell.
+  #
+  # The legacy pane workspace (saved views, sort/dir, star filter,
+  # picker prefetch) is dropped FROM THIS ACTION ONLY. Real data
+  # wiring returns in Wave B once the layout is signed off.
+  # `Channels::MockData.channels` feeds the avatar shelf via
+  # `@channels`. JSON branch is preserved for CLI / MCP callers and
+  # still serves the real DB rows decorated by `ChannelDecorator` so
+  # downstream surfaces don't regress on the layout-iteration phase.
+  # See `docs/orchestration/handoff-2026-05-19-channels-and-live-updates.md`
+  # §"Implementation plan" → Wave A1.
   def index
-    @max_panes = max_panes
-    @saved_views = SavedView.channels.ordered
-
-    scope = Channel.all
-    scope = scope.where(star: true) if filter_on?(:star)
-
-    @channels = scope.order(sort_clause)
-    @filters = active_filters
-    @sort = sanitized_sort_key
-    @dir = sanitized_dir
-
     respond_to do |format|
-      format.html
-      format.json { render json: @channels.map { |c| ChannelDecorator.new(c).as_summary_json } }
+      format.html do
+        @channels = Channels::MockData.channels
+      end
+      format.json do
+        records = Channel.all.order(sort_clause)
+        render json: records.map { |c| ChannelDecorator.new(c).as_summary_json }
+      end
     end
   end
 
@@ -194,17 +199,6 @@ class ChannelsController < ApplicationController
   def pane_title_length
     # Phase 29 (settings refactor) — see `max_panes` above.
     Rails.application.config.x.pito.pane_title_length
-  end
-
-  # URL filter params use the "yes"/"no" convention strictly. Only the
-  # literal string "yes" enables a filter; anything else (including "1",
-  # "true", "on") is treated as no filter.
-  def filter_on?(key)
-    YesNo.from_yes_no(params[key])
-  end
-
-  def active_filters
-    %i[star].select { |k| filter_on?(k) }
   end
 
   def sanitized_sort_key
