@@ -108,11 +108,14 @@ RSpec.describe "API: Footage frames bulk upload", type: :request do
     end
 
     it "returns 403 when the token lacks the app scope" do
-      ro_pair = ApiToken.generate!(
+      # Phase 29 (MCP cut, 2026-05-19) — the catalog collapsed to a
+      # single scope, `app`. Bypass the validator via `update_columns`
+      # to simulate a token whose scope list lost `app`.
+      record, ro_token = ApiToken.generate!(
         user: auth_user, name: "frames-ro",
-        scopes: [ Scopes::DEV ]
+        scopes: [ Scopes::APP ]
       )
-      ro_token = ro_pair.last
+      record.update_columns(scopes: [])
 
       patch frames_api_footage_path(footage),
             params: { frames: { "00-01-00" => { master: upload(jpeg_bytes) } } },

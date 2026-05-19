@@ -44,6 +44,10 @@ class AboutModalComponent < ViewComponent::Base
     "#{GITHUB_COMMIT_BASE}#{sha}"
   end
 
+  def env
+    Rails.env
+  end
+
   # Mirrors the footer copy in `layouts/application.html.erb` so the two
   # surfaces stay in lockstep. `Date.current.year` matches the footer's
   # dynamic year.

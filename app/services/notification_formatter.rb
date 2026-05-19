@@ -9,9 +9,10 @@
 # - `NotificationFormatter::Slack` — JSON for the Slack incoming-webhook
 #   endpoint. Block Kit (header + section + context).
 # - `NotificationFormatter::InApp` — structured hash for §3's ERB views.
-# - `NotificationFormatter::Mcp` — markdown + metadata for §3's MCP
-#   tools. `read` is the string `"yes"` / `"no"` per the CLAUDE.md
-#   external-boundary rule.
+#
+# Phase 29 (MCP cut, 2026-05-19) — the `NotificationFormatter::Mcp`
+# variant was dropped alongside the MCP surface. The `:mcp` channel
+# symbol is no longer accepted by `link` or `escape_for`.
 #
 # Each formatter delegates per-event-type strings (title / body / url) to
 # a `Templates::<Kind>` PORO. Templates read ONLY from
@@ -90,7 +91,7 @@ module NotificationFormatter
   # caring which channel they end up on.
   def link(text, url, channel:)
     case channel.to_sym
-    when :discord, :mcp, :in_app
+    when :discord, :in_app
       "[#{text}](#{url})"
     when :slack
       "<#{url}|#{text}>"
@@ -103,7 +104,6 @@ module NotificationFormatter
   #
   # - Discord: backslash-escape the markdown control characters.
   # - Slack: HTML-encode `&`, `<`, `>` per Slack mrkdwn.
-  # - MCP: same set as Discord.
   # - In-app: no escape at this layer; ERB auto-escapes downstream.
   DISCORD_ESCAPE_PATTERN = /([*_~`|<>\[\]()\\])/
   SLACK_ESCAPE_REPLACEMENTS = { "&" => "&amp;", "<" => "&lt;", ">" => "&gt;" }.freeze
@@ -113,7 +113,7 @@ module NotificationFormatter
     return "" if text.nil?
 
     case channel.to_sym
-    when :discord, :mcp
+    when :discord
       text.to_s.gsub(DISCORD_ESCAPE_PATTERN) { |c| "\\#{c}" }
     when :slack
       text.to_s.gsub(SLACK_ESCAPE_PATTERN, SLACK_ESCAPE_REPLACEMENTS)

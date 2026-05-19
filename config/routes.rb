@@ -11,30 +11,15 @@ Rails.application.routes.draw do
   end
   mount Sidekiq::Web => "/sidekiq"
 
-  # Phase 7.5 — MCP OAuth discovery metadata. Two public, unauthenticated
-  # JSON endpoints Claude.ai's MCP custom connector probes:
-  #   - RFC 8414 — `/.well-known/oauth-authorization-server`
-  #   - RFC 9728 — `/.well-known/oauth-protected-resource`
-  # See `app/controllers/well_known_controller.rb`. Both are routed on
-  # the same Rails app served by `app.pitomd.com` AND `mcp.pitomd.com`,
-  # so a probe to either subdomain reaches the same controller. The
-  # JSON `issuer` / `resource` values are hardcoded from
-  # `Pito::PublicHosts`, NOT derived from `request.host`.
+  # RFC 8414 — OAuth authorization server discovery metadata. Public,
+  # unauthenticated JSON endpoint. Pito's Doorkeeper-issued OAuth tokens
+  # (web sign-in surface) live at `/oauth/*`; this endpoint advertises
+  # them. The matching `/.well-known/oauth-protected-resource` route
+  # (RFC 9728) was retired with the MCP cut — Pito no longer publishes
+  # an MCP-protected resource surface.
   get "/.well-known/oauth-authorization-server",
       to: "well_known#oauth_authorization_server",
       as: :oauth_authorization_server_metadata,
-      defaults: { format: "json" }
-  get "/.well-known/oauth-protected-resource",
-      to: "well_known#oauth_protected_resource",
-      as: :oauth_protected_resource_metadata,
-      defaults: { format: "json" }
-  # RFC 9728 §3.1 — per-resource metadata path mirrors the resource path.
-  # Claude.ai's MCP connector probes `/.well-known/oauth-protected-resource/mcp`
-  # after token exchange to verify the MCP resource is properly configured.
-  # Returns the same metadata as the un-suffixed endpoint above.
-  get "/.well-known/oauth-protected-resource/mcp",
-      to: "well_known#oauth_protected_resource",
-      as: :oauth_protected_resource_metadata_mcp,
       defaults: { format: "json" }
 
   # Phase 12 — Step A (6a-sessions-and-login-ui.md) — login + logout.
@@ -568,9 +553,9 @@ Rails.application.routes.draw do
                             as: :everywhere_search
   get "settings", to: "settings#index"
   patch "settings", to: "settings#update"
-  # Phase 29 (settings refactor) — `PATCH /settings/theme` removed.
-  # Theme persistence moved to localStorage only; the Stimulus
-  # `theme_controller` no longer hits the server.
+  # Theme system removed entirely 2026-05-19 — pito is single-theme
+  # now, no server-side preference, no client-side toggle. The legacy
+  # `PATCH /settings/theme` route is gone for good.
   post "settings/reindex", to: "settings#reindex"
   # 2026-05-18 (DR) — live JSON polled by the `stack-stats-live`
   # Stimulus controller mounted on the Stack pane. Returns the
@@ -724,30 +709,6 @@ Rails.application.routes.draw do
   # `POST /channels/connect_google` (see the `:channels` resources
   # block above).
   get "/settings/youtube", to: redirect("/channels", status: 301)
-
-  # MCP HTTP transport (served by dedicated Puma on port 3028).
-  #
-  # A single `Mcp::RackApp` instance is reused across mount points so
-  # the in-memory transport state (session IDs etc.) is consistent
-  # regardless of which path a client lands on. Two routes target it:
-  #
-  #   1. `POST /mcp` on any host — the canonical endpoint advertised
-  #      in `/.well-known/oauth-protected-resource`'s `resource` field
-  #      and pinned by `extras/cli/tests/`.
-  #   2. `POST /` on `mcp.pitomd.com` — root-path alias for clients
-  #      (Claude.ai's MCP custom connector being the motivating one)
-  #      that POST directly to the connector URL the user typed,
-  #      ignoring the metadata's `resource` value. Without this alias
-  #      such clients get 404s. Constrained to the MCP host so the
-  #      web app's `root "dashboard#index"` (GET /) is unaffected and
-  #      `app.pitomd.com` does NOT leak the MCP endpoint at /.
-  require_relative "../app/mcp/rack_app"
-  mcp_rack_app = Mcp::RackApp.new
-  mount mcp_rack_app => "/mcp"
-
-  constraints host: "mcp.pitomd.com" do
-    match "/", to: mcp_rack_app, via: :post, as: :mcp_root
-  end
 
   get "up" => "rails/health#show", as: :rails_health_check
 end

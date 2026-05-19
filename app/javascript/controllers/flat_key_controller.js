@@ -1,8 +1,8 @@
 import { Controller } from "@hotwired/stimulus"
 
 // Module-level live read of the mandatory-2FA enrollment gate. Mirror
-// of the helper in `leader_menu_controller.js` / `keyboard_controller.js`
-// / `theme_controller.js`; kept duplicated rather than extracted to a
+// of the helper in `leader_menu_controller.js` /
+// `keyboard_controller.js`; kept duplicated rather than extracted to a
 // shared module so each controller stays self-contained for importmap
 // simplicity.
 function enrollTotpGateActive() {

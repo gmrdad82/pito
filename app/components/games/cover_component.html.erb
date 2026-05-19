@@ -6,12 +6,8 @@
 
     Missing-cover path: render a static SVG fallback at the variant's
     exact dimensions instead of the plain-text "[no cover]" sentinel.
-    Both light and dark theme assets are emitted; the
-    `.game-cover-fallback--{light,dark}` CSS rules pick the visible one
-    based on `<html data-theme>` (set by the layout's head boot script
-    and the `theme` Stimulus controller). See
-    `app/components/games/cover_component.rb#fallback_light_path` for
-    the per-request rationale. %>
+    Pito is single-theme (dark) — only the dark fallback variant is
+    emitted. %>
 <%# `data-turbo-frame="_top"` escapes the surrounding `games_listing`
     Turbo Frame on `/games` (declared in `app/views/games/index.html.erb`)
     so clicking a shelf cover triggers a full-page navigation to
@@ -34,14 +30,10 @@
                     data: { variant: variant },
                     class: "game-cover-img" %>
     <% else %>
-      <%= image_tag fallback_light_path, alt: t("games.cover.no_cover_alt"), loading: "lazy",
+      <%= image_tag fallback_path, alt: t("games.cover.no_cover_alt"), loading: "lazy",
                     width: width, height: height,
-                    data: { variant: variant, theme: "light" },
-                    class: "game-cover-img game-cover-fallback game-cover-fallback--light" %>
-      <%= image_tag fallback_dark_path, alt: t("games.cover.no_cover_alt"), loading: "lazy",
-                    width: width, height: height,
-                    data: { variant: variant, theme: "dark" },
-                    class: "game-cover-img game-cover-fallback game-cover-fallback--dark" %>
+                    data: { variant: variant },
+                    class: "game-cover-img game-cover-fallback" %>
     <% end %>
   </a>
 <% else %>
@@ -56,14 +48,10 @@
                     data: { variant: variant },
                     class: "game-cover-img" %>
     <% else %>
-      <%= image_tag fallback_light_path, alt: t("games.cover.no_cover_alt"), loading: "lazy",
+      <%= image_tag fallback_path, alt: t("games.cover.no_cover_alt"), loading: "lazy",
                     width: width, height: height,
-                    data: { variant: variant, theme: "light" },
-                    class: "game-cover-img game-cover-fallback game-cover-fallback--light" %>
-      <%= image_tag fallback_dark_path, alt: t("games.cover.no_cover_alt"), loading: "lazy",
-                    width: width, height: height,
-                    data: { variant: variant, theme: "dark" },
-                    class: "game-cover-img game-cover-fallback game-cover-fallback--dark" %>
+                    data: { variant: variant },
+                    class: "game-cover-img game-cover-fallback" %>
     <% end %>
   </div>
 <% end %>

@@ -12,9 +12,9 @@
 # committed `.env.example`) is anchored to `Rails.root` so dev runs stay
 # inside the repo tree without root permissions.
 #
-# Mirrors the path-safety semantics of `DevDocPath`: validation is purely
-# lexical (`Pathname#cleanpath`) and traversal is rejected before any
-# filesystem touch. Active Storage manages its own internal layout under
+# Validation is purely lexical (`Pathname#cleanpath`) and traversal is
+# rejected before any filesystem touch. Active Storage manages its own
+# internal layout under
 # `<root>/active_storage/...`; future per-install asset trees use
 # `path(...)` directly with domain-specific top-level segments
 # (`composites/`, `thumbnails/`, `exports/`, `footage_thumbs/`).

@@ -7,10 +7,10 @@ require "rails_helper"
 # Phase 8 — tenant drop. Tokens own a User, not a tenant; the
 # defense-in-depth cross-tenant check is gone.
 #
-# Phase 10 — MCP scope simplification (ADR 0004). The 9-scope catalog
-# collapses to `dev` + `app`; the previous read-vs-write reject matrix
-# (project:read vs project:write) becomes a `dev`-only-token vs
-# `app`-token matrix.
+# Phase 29 (MCP cut, 2026-05-19) — the catalog collapsed to a single
+# scope, `app`. Token-shape rejections are now exercised by simulating
+# the failure modes (empty scopes via `update_columns`) rather than by
+# minting a token in a "missing app" scope.
 RSpec.describe "Api::AuthConcern", type: :request do
   let(:user) { User.first || create(:user) }
   let!(:project) { create(:project) }
@@ -76,7 +76,15 @@ RSpec.describe "Api::AuthConcern", type: :request do
 
     context "with a token that lacks the app scope" do
       it "returns 403 with {error: insufficient_scope, required: app}" do
-        plaintext = with_token(scopes: [ Scopes::DEV ])
+        # Phase 29 (MCP cut, 2026-05-19) — the catalog collapsed to a
+        # single scope, `app`. A valid token always carries `app`, so
+        # we have to bypass `scopes_subset_of_catalog` via
+        # `update_columns` to simulate a row that lacks the required
+        # scope (which is the production failure mode if a future
+        # scope is reintroduced or if a row was rolled forward from
+        # the legacy 9-scope catalog without the migration).
+        plaintext = with_token(scopes: [ Scopes::APP ])
+        ApiToken.find_by(name: "test").update_columns(scopes: [])
 
         get api_project_footages_path(project), headers: auth_headers(plaintext)
 
@@ -134,9 +142,12 @@ RSpec.describe "Api::AuthConcern", type: :request do
       }
     end
 
-    context "with a dev-only token" do
+    context "with a token that lacks the app scope" do
       it "returns 403 with {error: insufficient_scope, required: app}" do
-        plaintext = with_token(scopes: [ Scopes::DEV ])
+        # Phase 29 (MCP cut, 2026-05-19) — see the GET context above
+        # for why we have to bypass the validator to simulate this.
+        plaintext = with_token(scopes: [ Scopes::APP ])
+        ApiToken.find_by(name: "test").update_columns(scopes: [])
 
         post api_project_footages_path(project),
              params: create_attrs.to_json,

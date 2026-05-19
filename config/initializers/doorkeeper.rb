@@ -12,10 +12,10 @@ require Rails.root.join("app/lib/scopes.rb")
 #     Implicit, ROPC, AND Client Credentials are explicitly disabled.
 #   - 2h access token TTL, 14d refresh token TTL.
 #   - PKCE forced for public clients (the seeded `pito-cli` is public).
-#   - `Scopes::ALL` is the single source of truth. Catalog: `dev` + `app`.
-#     `dev` is stripped from the catalog when
-#     `Rails.application.config.x.mcp.expose_dev_scope == false`
-#     (production). Per ADR 0004.
+#   - `Scopes::ALL` is the single source of truth. Catalog: `app`.
+#     Phase 29 (MCP cut, 2026-05-19) collapsed the catalog to a single
+#     scope after the dev / auth MCP surfaces were removed. Per ADR 0004
+#     (with the Phase 29 update).
 #   - Resource owner = the cookie-resolved current user (Phase 12 Step A).
 #     `/oauth/authorize` redirects to `/login` if there is no session.
 #
@@ -94,13 +94,10 @@ Doorkeeper.configure do
   # is created.
   use_refresh_token
 
-  # Scopes — sourced from `Scopes::ALL`. Both `dev` and `app` are
-  # advertised as defaults so a client requesting no explicit scope
-  # parameter receives every scope the application is whitelisted for
-  # (still clipped by the soft-clip monkey-patch). With only two
-  # entries there is no fine-grained read/write opt-in to represent;
-  # treating both as defaults matches the new catalog's intent.
-  # `Scopes::ALL` already reflects the strip-on-release flag.
+  # Scopes — sourced from `Scopes::ALL`. With the Phase 29 MCP cut the
+  # catalog collapsed to a single scope (`app`), which is advertised as
+  # the default. Clients requesting no explicit `scope` parameter
+  # receive `app` (still clipped by the soft-clip monkey-patch).
   default_scopes(*Scopes::ALL)
   optional_scopes
 

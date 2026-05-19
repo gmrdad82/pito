@@ -66,10 +66,9 @@ class BundlesController < ApplicationController
   #   2. Persists it. Composite cover is intentionally absent — the
   #      bundle has zero members on create, so `Composite::Builder`
   #      no-ops (see its early-return on empty `cover_image_ids`); the
-  #      shelf tile + modal both fall back to the theme-aware
-  #      no-cover SVG (the grid-variant fallback the
-  #      `BundleTileComponent` already renders when
-  #      `composite_cover_url` is blank).
+  #      shelf tile + modal both fall back to the no-cover SVG (the
+  #      grid-variant fallback the `BundleTileComponent` already
+  #      renders when `composite_cover_url` is blank).
   #   3. Replies via Turbo Stream — appends the new tile to the shelf
   #      row (`bundles-shelf-row`), replaces the modal partial with
   #      pre-populated bundle locals + an auto-open Stimulus

@@ -58,11 +58,6 @@ RSpec.describe NotificationFormatter do
         .to eq("<https://example.com|watch>")
     end
 
-    it "returns markdown link form for :mcp" do
-      expect(described_class.link("watch", "https://example.com", channel: :mcp))
-        .to eq("[watch](https://example.com)")
-    end
-
     it "returns markdown link form for :in_app" do
       # In-app's consumer is ERB; the in_app formatter's markdown → HTML
       # stage handles conversion. The helper itself returns markdown.
@@ -110,12 +105,6 @@ RSpec.describe NotificationFormatter do
     it "html-encodes > for :slack" do
       expect(described_class.escape_for("a > b", channel: :slack))
         .to eq("a &gt; b")
-    end
-
-    it "uses the same set as Discord for :mcp" do
-      d = described_class.escape_for("a *b* [c](d)", channel: :discord)
-      m = described_class.escape_for("a *b* [c](d)", channel: :mcp)
-      expect(m).to eq(d)
     end
 
     it "passes text through verbatim for :in_app" do

@@ -182,7 +182,12 @@ document.addEventListener("DOMContentLoaded", () => {
   Chart.defaults.interaction.intersect = false
   Chart.defaults.plugins.tooltip.position = "nearest"
 
-  // Theme-aware chart recoloring — reads --color-chart-N CSS vars
+  // Initial-paint chart styling — reads --color-chart-N CSS vars and
+  // applies the design-system palette to every Chartkick chart on the
+  // page. 2026-05-19 — the legacy dark/light theme toggle was removed,
+  // so this runs ONCE at first paint (no theme-change re-invocation).
+  // The function is no longer exported on `window` because there are
+  // no remaining external callers.
   function getChartColors() {
     const style = getComputedStyle(document.documentElement)
     return [1, 2, 3, 4, 5].map(n => style.getPropertyValue(`--color-chart-${n}`).trim()).filter(Boolean)
@@ -234,7 +239,4 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Recolor after Chartkick finishes rendering
   setTimeout(recolorCharts, 100)
-
-  // Expose for theme controller to call on toggle
-  window.recolorCharts = recolorCharts
 })

@@ -1,0 +1,28 @@
+<%# Variant 1 — single inline row.
+
+    Compact `value label` pairs separated by generous gaps (32px) so the
+    four metrics read as one continuous line. Number is body 13px bold,
+    label is muted 11px. `font-variant-numeric: tabular-nums` keeps
+    digits aligned across visits as totals change.
+
+    Hairline emitted after the row matches the inter-shelf hairline
+    convention used on `/games` (and the ID-card shelf above). %>
+<section class="channels-basics channels-basics--inline"
+         style="margin: 12px 0 0;">
+  <div style="display: flex; flex-wrap: wrap; gap: 32px; align-items: baseline;">
+    <% stats.each do |stat| %>
+      <div class="channels-basics__pair"
+           style="display: flex; align-items: baseline; gap: 6px;">
+        <span class="channels-basics__value"
+              style="font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums;">
+          <%= stat[:formatter].call(stat[:value]) %>
+        </span>
+        <span class="channels-basics__label"
+              style="font-size: 11px; color: var(--color-muted);">
+          <%= stat[:label] %>
+        </span>
+      </div>
+    <% end %>
+  </div>
+</section>
+<hr class="hairline">

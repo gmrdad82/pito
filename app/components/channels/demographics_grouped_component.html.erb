@@ -1,0 +1,92 @@
+<%# Phase 37 Wave A (demographics A-slice, 2026-05-19) — V2 grouped
+    bars render. One row per age bucket; each row contains two stacked
+    horizontal bars (male above, female below) left-anchored at a
+    shared axis. Percentage labels sit at each bar's right end. %>
+<section class="channels-demographics-grouped"
+         style="display: flex; flex-direction: column; gap: 8px;
+                margin: 8px 0;">
+
+  <%# Section heading — bold 13 px, matches the rest of the page. %>
+  <div class="channels-demographics-grouped__title"
+       style="font-weight: 700; padding: 0 4px;">
+    <%= title %>
+  </div>
+
+  <%# Bucket rows — one CSS grid row per age bucket. The grid template
+      is [age label | gender + bar + pct]. The gender + bar + pct
+      cell stacks the two bars vertically inside it so age labels
+      line up cleanly. `row-gap: 8px` between buckets; bars within a
+      bucket use a tighter 2 px gap so the pair reads as a group. %>
+  <div class="channels-demographics-grouped__grid"
+       style="display: grid;
+              grid-template-columns: 56px 1fr;
+              column-gap: 8px; row-gap: 8px;
+              align-items: center;
+              padding: 0 4px;
+              font-variant-numeric: tabular-nums;">
+
+    <% buckets.each do |bucket| %>
+      <% male_pct   = profile.dig(:male, bucket)   || 0 %>
+      <% female_pct = profile.dig(:female, bucket) || 0 %>
+
+      <%# Age bucket label — right-aligned against the axis so the
+          axis reads as a clean vertical line. Muted text matches
+          the rest of the page's secondary copy. %>
+      <div class="channels-demographics-grouped__label"
+           style="text-align: right; color: var(--color-muted);"><%= bucket %></div>
+
+      <%# Bar pair — stacked vertically inside the second column.
+          The `border-left` on this wrapper renders the shared left
+          axis hairline so it spans both bars (one continuous line
+          per row). `padding-left: 6px` separates the bars from the
+          axis without breaking the visual anchor. %>
+      <div class="channels-demographics-grouped__bars"
+           style="display: flex; flex-direction: column; gap: 2px;
+                  border-left: 1px solid var(--color-border);
+                  padding-left: 6px; min-width: 0;">
+
+        <%# Male bar row. The gender label sits to the LEFT of the
+            bar so the user can identify the bar without relying on
+            color alone. The percentage label sits at the right end
+            of the bar. %>
+        <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
+          <span style="color: var(--color-muted); width: 44px;">male</span>
+          <span style="display: inline-block;
+                       width: <%= bar_width_px(male_pct) %>px;
+                       height: 10px;
+                       background: <%= male_color %>;
+                       border-radius: 1px;"></span>
+          <span style="color: var(--color-muted);"><%= format_pct(male_pct) %></span>
+        </div>
+
+        <%# Female bar row — identical structure to the male row;
+            only the color + gender label differ. %>
+        <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
+          <span style="color: var(--color-muted); width: 44px;">female</span>
+          <span style="display: inline-block;
+                       width: <%= bar_width_px(female_pct) %>px;
+                       height: 10px;
+                       background: <%= female_color %>;
+                       border-radius: 1px;"></span>
+          <span style="color: var(--color-muted);"><%= format_pct(female_pct) %></span>
+        </div>
+      </div>
+    <% end %>
+  </div>
+
+  <%# Legend — non-clickable color key, mirrors V1's bottom legend. %>
+  <div class="channels-demographics-grouped__legend"
+       style="display: inline-flex; gap: 16px; padding: 0 4px;
+              color: var(--color-muted);">
+    <span style="display: inline-flex; align-items: center; gap: 6px;">
+      <span style="display: inline-block; width: 10px; height: 10px;
+                   background: <%= male_color %>; border-radius: 1px;"></span>
+      male
+    </span>
+    <span style="display: inline-flex; align-items: center; gap: 6px;">
+      <span style="display: inline-block; width: 10px; height: 10px;
+                   background: <%= female_color %>; border-radius: 1px;"></span>
+      female
+    </span>
+  </div>
+</section>

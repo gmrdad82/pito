@@ -1,0 +1,42 @@
+<%# Variant 1 — ranked top-10 country list with percentage bars.
+
+    Rows are a CSS grid:
+      [ 24px flag ][ 30px ISO code ][ 1fr country name ][ 180px bar ][ 56px % ]
+
+    The bar fill uses `var(--color-link)` so it reads as a neutral chart
+    accent (red is reserved for destructive actions per CLAUDE.md). The
+    track behind the fill is `--color-border` so a sub-1% slice still
+    has visible context.
+
+    Empty-state branch renders an em-dash placeholder. %>
+<section class="channels-geography channels-geography--list"
+         style="margin: 12px 0 0;">
+  <h3 style="font-size: 13px; font-weight: 700; margin: 0 0 8px;">
+    Audience geography
+    <span style="font-size: 11px; color: var(--color-muted); font-weight: 400;">
+      &mdash; variant 1 (ranked list)
+    </span>
+  </h3>
+
+  <% if has_data? %>
+    <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; max-width: 560px;">
+      <% aggregated.each do |row| %>
+        <li style="display: grid; grid-template-columns: 24px 30px 1fr 180px 56px; align-items: center; gap: 10px; font-size: 13px;">
+          <span aria-hidden="true" style="font-size: 14px; line-height: 1;"><%= flag_for(row[:country_code]) %></span>
+          <span style="color: var(--color-muted); font-variant-numeric: tabular-nums;"><%= row[:country_code] %></span>
+          <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><%= row[:country_name] %></span>
+          <span style="position: relative; height: 10px; background: var(--color-border); display: block;">
+            <span aria-hidden="true"
+                  style="position: absolute; inset: 0 auto 0 0; width: <%= row[:percent] %>%; background: var(--color-link); display: block;"></span>
+          </span>
+          <span style="text-align: right; font-variant-numeric: tabular-nums;">
+            <%= row[:percent] %>%
+          </span>
+        </li>
+      <% end %>
+    </ul>
+  <% else %>
+    <div style="font-size: 13px; color: var(--color-muted);">&mdash;</div>
+  <% end %>
+</section>
+<hr class="hairline">

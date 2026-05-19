@@ -32,25 +32,18 @@ en:
         about: "about"
     modal_actions:
       bundle:
-        dark_mode: "dark mode"
         rename: "rename bundle"
       bundle_delete_confirm:
-        dark_mode: "dark mode"
         delete: "delete"
-      webhook_help:
-        dark_mode: "dark mode"
+      webhook_help: {}
       revoke_confirm:
-        dark_mode: "dark mode"
         revoke: "revoke session(s)"
       reindex_confirm:
-        dark_mode: "dark mode"
         reindex: "reindex"
       sync_confirm:
-        dark_mode: "dark mode"
         sync: "sync"
     page_actions:
       games_index:
-        dark_mode_toggle: "dark mode toggle"
         search: "search"
         released: "released"
         scheduled: "scheduled"
@@ -63,17 +56,14 @@ en:
         add_game: "add game"
         add_bundle: "add bundle"
       games_show:
-        dark_mode: "dark mode"
         search: "search"
         sync: "sync"
         delete: "delete"
       bundles_show:
-        dark_mode: "dark mode"
         search: "search"
         sync: "sync"
         delete: "delete"
       settings:
-        dark_mode: "dark mode"
         revoke_unused_sessions: "revoke unused sessions"
         discord_all: "Discord all"
         discord_daily_digest: "Discord daily digest"
@@ -81,5 +71,4 @@ en:
         slack_daily_digest: "Slack daily digest"
         voyage_reindex: "Voyage reindex"
       default:
-        dark_mode: "dark mode"
         search: "search"

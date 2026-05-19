@@ -28,28 +28,12 @@
                     alt: game.title, loading: "lazy",
                     style: "width: 100%; height: 100%; object-fit: cover; display: block;" %>
     <% else %>
-      <%# 2026-05-11 polish (Fix 7) — theme-aware fallback. Both SVGs
-          are absolutely positioned to occupy the same 150x200 slot,
-          and inline `display` is omitted on the fallback `<img>`
-          tags so the `.game-cover-fallback--{light,dark}` class
-          rules in `application.css` win the cascade (no inline-style
-          override). The off-theme variant is hidden via
-          `display: none`; the active variant inherits the default
-          `display: inline` of `<img>`, which is enough since
-          `position: absolute; inset: 0;` sizes it to the slot. The
-          dual-stacked artefact (two fallback SVGs rendering on top of
-          each other) is gone. %>
-      <%= image_tag image_path("game_cover_fallback_grid_light.svg"),
-                    alt: t("games.cover.no_cover_alt"), loading: "lazy",
-                    width: 150, height: 200,
-                    data: { theme: "light" },
-                    class: "game-cover-fallback game-cover-fallback--light",
-                    style: "position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;" %>
+      <%# Single-theme (dark) fallback. The SVG fills the 150x200 slot
+          via absolute positioning. %>
       <%= image_tag image_path("game_cover_fallback_grid_dark.svg"),
                     alt: t("games.cover.no_cover_alt"), loading: "lazy",
                     width: 150, height: 200,
-                    data: { theme: "dark" },
-                    class: "game-cover-fallback game-cover-fallback--dark",
+                    class: "game-cover-fallback",
                     style: "position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;" %>
     <% end %>
     <%# 2026-05-17 (Wave B3b) — platform chips overlay returns to the

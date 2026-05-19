@@ -4,13 +4,10 @@
       size:       one of Game::COVER_SIZES; defaults to t_cover_big
       alt:        optional alt text (defaults to game.title)
 
-    Missing-cover path: render the theme-aware SVG fallback pair
-    (light + dark) the way `Games::CoverComponent` and the all-games
-    tile partial do. The `.game-cover-fallback--{light,dark}` CSS
-    rules pick the visible one based on `<html data-theme>` (set
-    client-side by the theme Stimulus controller). The grid-variant
-    asset is the larger of the two and downscales cleanly into the
-    flexible `max-width: 100%` slot used on show / edit pages.
+    Missing-cover path: render the single-dark SVG fallback. The
+    light variant was removed in the THEME-REMOVE-COMPONENTS phase 1
+    sweep — the app is single-dark and the dual light/dark emission
+    pattern is gone.
 %>
 <% size_token = local_assigns.fetch(:size, "t_cover_big") %>
 <% alt_text   = local_assigns.fetch(:alt, game.title) %>
@@ -19,21 +16,8 @@
   <%= image_tag url, alt: alt_text, loading: "lazy",
                 style: "max-width: 100%; height: auto; display: block;" %>
 <% else %>
-  <%# 2026-05-11 polish (Fix 7) — inline `display: block` was removed
-      from the fallback `<img>` tags so the
-      `.game-cover-fallback--{light,dark}` class rules in
-      `application.css` can hide the off-theme variant. Without this
-      change BOTH SVGs rendered stacked because inline-style
-      `display: block` won the cascade over the class-level
-      `display: none` rule. %>
-  <%= image_tag image_path("game_cover_fallback_grid_light.svg"),
-                alt: "no cover available", loading: "lazy",
-                data: { theme: "light" },
-                class: "game-cover-fallback game-cover-fallback--light",
-                style: "max-width: 100%; height: auto;" %>
   <%= image_tag image_path("game_cover_fallback_grid_dark.svg"),
                 alt: "no cover available", loading: "lazy",
-                data: { theme: "dark" },
-                class: "game-cover-fallback game-cover-fallback--dark",
+                class: "game-cover-fallback",
                 style: "max-width: 100%; height: auto;" %>
 <% end %>

@@ -1,0 +1,28 @@
+<%# Variant 3 — stat row separated by vertical hairlines.
+
+    Equal-width grid of four cells. Each cell after the first picks up
+    a `border-left` of `var(--color-border)` so the separators read as
+    the same hairline tone used elsewhere on the page. Cells have left/
+    right padding so the rules sit visually centered between values. %>
+<section class="channels-basics channels-basics--separator"
+         style="margin: 12px 0 0;">
+  <div style="display: grid; grid-template-columns: repeat(4, 1fr);">
+    <% stats.each_with_index do |stat, idx| %>
+      <div class="channels-basics__cell"
+           style="display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+                  padding: 4px 16px;
+                  <%= "border-left: 1px solid var(--color-border);" if idx.positive? %>">
+        <span class="channels-basics__value"
+              style="font-size: 22px; font-weight: 700; line-height: 1.2;
+                     font-variant-numeric: tabular-nums; color: var(--color-text);">
+          <%= stat[:formatter].call(stat[:value]) %>
+        </span>
+        <span class="channels-basics__label"
+              style="font-size: 11px; color: var(--color-muted);">
+          <%= stat[:label] %>
+        </span>
+      </div>
+    <% end %>
+  </div>
+</section>
+<hr class="hairline">

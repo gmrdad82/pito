@@ -32,8 +32,12 @@ function enrollTotpGateActive() {
 //   page_sync(event)        — POSTs to `<body data-page-sync-url>`
 //   page_delete(event)      — opens `<dialog id=...>` per
 //                             `<body data-page-delete-modal-id>`
-//   theme_toggle(event)     — flips dark/light, persists to localStorage
 //   openGlobalSearch()      — opens the layout `global-search-modal`
+//
+// What was removed 2026-05-19 (single-theme cleanup):
+//   theme_toggle(event)     — the localStorage-driven dark/light toggle
+//                             was retired along with `theme_controller.js`.
+//                             CSS now ships a single (dark) palette.
 //
 // What was removed 2026-05-17 (legacy sweep — not in YAML):
 //   `i`           → IGDB add modal. Replaced by the `[+]` bracketed link
@@ -62,7 +66,8 @@ function enrollTotpGateActive() {
 //         modal_id `search_placeholder`).
 //   `s`   page_sync — was `case "s"` here.
 //   `-`   page_delete — was `case "-"` here.
-//   `d`   theme_toggle — was `case "d"` here.
+//   (2026-05-19 — the leader-prefixed `theme_toggle` action key was
+//   deleted with the rest of the theme machinery.)
 //
 // Bindings are gated when focus sits inside `<input>`, `<textarea>`,
 // `<select>`, or `[contenteditable]`.
@@ -105,12 +110,12 @@ export default class extends Controller {
       return
     }
 
-    // No direct action dispatch. All `page_actions` (theme_toggle,
-    // page_sync, page_delete, open_modal/search) and `menus` items
-    // resolve through the leader popup — see
-    // `leader_menu_controller.fireAction`, which reaches back into the
-    // handlers defined below via the Stimulus app. Esc-on-confirmation
-    // (above) is the only direct keypress this controller still owns.
+    // No direct action dispatch. All `page_actions` (page_sync,
+    // page_delete, open_modal/search) and `menus` items resolve through
+    // the leader popup — see `leader_menu_controller.fireAction`, which
+    // reaches back into the handlers defined below via the Stimulus app.
+    // Esc-on-confirmation (above) is the only direct keypress this
+    // controller still owns.
   }
 
   // ---------- page_actions handlers (YAML-driven) ----------
@@ -149,25 +154,6 @@ export default class extends Controller {
       return true
     }
     return false
-  }
-
-  // `theme_toggle` — flips dark/light using the same semantics as
-  // `theme_controller.js` (the click handler on the `[theme]` button):
-  // resolve the EFFECTIVE current theme (stored value, or system
-  // preference when storage is empty), flip it, write the explicit
-  // next value to localStorage, and update the `data-theme` attribute
-  // on `<html>`. Writing an explicit value (never removeItem) matches
-  // the click handler exactly so the two surfaces stay in sync.
-  theme_toggle(event) {
-    event?.preventDefault?.()
-    const stored = localStorage.getItem("pito-theme")
-    const current = (stored === "light" || stored === "dark")
-      ? stored
-      : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
-    const next = current === "dark" ? "light" : "dark"
-    localStorage.setItem("pito-theme", next)
-    document.documentElement.setAttribute("data-theme", next)
-    if (window.recolorCharts) setTimeout(window.recolorCharts, 50)
   }
 
   // ---------- helpers ----------

@@ -1,161 +1,170 @@
 @import "tailwindcss";
 
-/* Color tokens */
+/* Color tokens — dark-only as of 2026-05-19.
+   The previous two-theme system (:root light + [data-theme="dark"]
+   overrides) was collapsed into a single unconditional :root block.
+   The current values are the former dark-theme (Dracula-leaning)
+   palette; the light-theme tokens were removed wholesale along with
+   the [data-theme] selector. No data-theme switching remains in the
+   stylesheet. */
 :root {
-  --color-bg: #ffffff;
-  --color-bg-alt: #fafafa;
-  --color-bg-hover: #f0f0f0;
-  /* Dedicated zebra surface for `.stack-table` + `.kv-table` tbody
-     alternation (2026-05-17). Split from `--color-bg-alt` so dark mode
-     can dial the contrast WAY down without affecting the muted-badge /
-     swatch / pane-secondary surfaces that still consume `--color-bg-alt`
-     at the higher-contrast value. Light theme keeps the identical
-     `#fafafa` hex the user signed off on as "perfect" — barely-there
-     light gray on white pane. Dark theme below switches to a low-alpha
-     white overlay so the alternation is a hint, not a slap. */
-  --color-zebra-bg: #fafafa;
-  /* Table header surface, light theme (2026-05-16).
-     Previous value `#f4f4f4` collided with the pane tone band — `--color-pane-bg-a`
-     #f4f6f8, `--color-pane-bg-b` #f0f2f5, `--color-pane-bg-wide` #f2f4f7 all sit
-     within a 2–4 unit luminance window of the old header, so `thead th` dissolved
-     into whichever pane it was rendered inside (and was nearly indistinguishable
-     from `--color-bg-hover` #f0f0f0 too). Bumped well below every pane tone so
-     the header lifts visibly against every surface variant: vs `--color-bg`
-     #ffffff Δ~29, vs `--color-bg-alt` #fafafa Δ~24, vs `--color-bg-hover` #f0f0f0
-     Δ~14, vs `--color-pane-bg-a` #f4f6f8 Δ~16, vs `--color-pane-bg-b` #f0f2f5
-     Δ~12, vs `--color-pane-bg-wide` #f2f4f7 Δ~14. Pairs with the bolder
-     `--color-table-header-border` bottom rule on `thead th` for a double-strength
-     separator that holds across every pane tone. Hover bumped in step so hover
-     still reads as darker than rest. Dark theme tokens unchanged — the existing
-     #343746 already lifts against the #2f3142/#34364a/#313346 pane band. */
-  --color-bg-header: #e2e6eb;
-  --color-bg-header-hover: #d4d9e0;
-  /* Table-header bottom-border tone. Light theme: a mid-grey that draws a clear
-     baseline regardless of which surface the header sits on. Dark theme below
-     keeps the existing `--color-border` tone so the dark treatment is unchanged. */
-  --color-table-header-border: #9aa3ad;
+  /* 2026-05-19 — Dracula section-variant theme system.
+     Per-section accent + 4% page-bg tint signals "you are in section X"
+     without leaving the Dracula-pale aesthetic. The body carries
+     `data-section="<key>"` (set by ApplicationHelper#current_section);
+     four section selectors below override `--color-section-accent`.
+     `--color-bg` and `--color-link` are derived from the accent via
+     `color-mix(...)` so every section flips both surfaces at once.
+
+     Modals (the `dialog { ... }` block further down) re-pin
+     `--color-section-accent` back to Dracula Purple (#bd93f9) so the
+     entire `<dialog>` family — About modal, Everywhere omnisearch,
+     leader-menu popup, confirm modals, settings modals, bundles
+     modal, IGDB modal, etc. — reads identically regardless of which
+     section opened them. The page bg behind/around the modal still
+     shows the section tint; only the modal interior flips back to
+     Purple.
+
+     `--color-bg-base` is the unchanging Dracula anchor (#282a36); the
+     active page background sits 4% toward the accent so the surface
+     reads warm / cool / orange / purple per section but never strays
+     into a saturated tint. */
+  --color-bg-base: #282a36;
+  --color-section-accent: #bd93f9;
+  --color-bg: color-mix(in srgb, var(--color-section-accent) 4%, var(--color-bg-base));
+  --color-bg-alt: #21222c;
+  --color-bg-hover: #44475a;
+  /* Zebra surface — intentionally subtler than `--color-bg-alt`
+     (#21222c). The alt tone was too contrasty against the #1a1c25 /
+     #2f3142 pane band, reading as a hard switch rather than a hint.
+     2.5% white overlay lifts the even rows just enough to perceive
+     alternation without competing with content. */
+  --color-zebra-bg: rgba(255, 255, 255, 0.025);
+  /* 2026-05-17 — bumped darker (was #343746 / hover #44475a) so the header
+     lifts against the dark pane band (#2f3142 / #34364a / #313346) and the
+     subtle white-overlay zebra on top of it. #343746 sat within ~1 luminance
+     unit of pane-bg-b (#34364a), so once the zebra landed the header
+     dissolved into the alternating rows on stack-tables. New values give
+     a clear three-step hierarchy: header (darkest) → data row (pane tone)
+     → zebra row (pane tone + 2.5% white overlay). Hover stays lighter than
+     rest to preserve the "hover lifts toward foreground" semantic the
+     previous pair encoded. */
+  --color-bg-header: #1f2130;
+  --color-bg-header-hover: #2a2d3c;
+  /* Table-header bottom-border tone — equals `--color-border` so the
+     bottom rule on `thead th` matches the existing 1px cell border tone
+     without visually adding extra weight. */
+  --color-table-header-border: #44475a;
   /* Pane background tokens — Phase B revamp (2026-05-05).
-     Three-tone system: A and B alternate inside paired-pane layouts (zebra
-     rhythm), `-wide` is reserved for full-width / standalone panes so a
-     pane that stands alone reads as visually distinct from the alternating
-     pair. `-pane-bg` stays as an alias for `-pane-bg-a` for back-compat
-     with any inline-styled cell that hasn't migrated to the new tokens.
-     Tightened 2026-05-05 — the three tones sit much closer together so
-     `-wide` reads as a sibling of A/B (subtle cool tint, between A and B
-     in luminance) rather than a noticeably different hue. */
-  --color-pane-bg-a: #f4f6f8;
-  --color-pane-bg-b: #f0f2f5;
-  --color-pane-bg-wide: #f2f4f7;
+     Three-tone system: A and B alternate inside paired-pane layouts
+     (zebra rhythm), `-wide` is reserved for full-width / standalone
+     panes so a pane that stands alone reads as visually distinct from
+     the alternating pair. `-pane-bg` stays as an alias for `-pane-bg-a`
+     for back-compat with any inline-styled cell that hasn't migrated
+     to the new tokens. Tightened 2026-05-05 — A keeps the existing
+     pane bg; B nudges slightly lighter (zebra distinction); `-wide`
+     sits between A and B with a faint cool tint so a standalone pane
+     reads as distinct without going darker than A or competing for
+     attention. */
+  --color-pane-bg-a: #2f3142;
+  --color-pane-bg-b: #34364a;
+  --color-pane-bg-wide: #313346;
   --color-pane-bg: var(--color-pane-bg-a);
-  --color-text: #1a1a1a;
-  --color-text-bold: #1a1a1a;
-  --color-link: #0000cc;
-  --color-link-hover: #4d4dff;
-  --color-danger: #cc0000;
-  --color-danger-hover: #990000;
-  --color-muted: #555555;
-  --color-border: #dddddd;
-  --color-input-border: #999999;
+  --color-text: #f8f8f2;
+  --color-text-bold: #f8f8f2;
+  /* 2026-05-19 — link color follows `--color-section-accent`. Default
+     resolves to Dracula Purple (#bd93f9) on Home/Dashboard; per-section
+     overrides further down flip both the accent and the link palette
+     together via the var-cascade. Hover lifts the accent 20% toward
+     white, matching the previous `#d4b8ff` derived feel without
+     hard-coding a per-color hover value. */
+  --color-link: var(--color-section-accent);
+  --color-link-hover: color-mix(in srgb, var(--color-section-accent) 80%, #ffffff);
+  --color-danger: #ff5555;
+  --color-danger-hover: #ff6e6e;
+  --color-muted: #6272a4;
+  --color-border: #44475a;
+  --color-input-border: #6272a4;
   /* 2026-05-17 polish — game cover thumbnail border.
-     Deliberately opposite-tone to the page background so the cover art
-     reads as a framed thumbnail at every shelf size: dark hairline on
-     the light theme, light hairline on the dark theme (see the
-     `[data-theme="dark"]` block below). Distinct from `--color-border`
-     (a same-tone hairline used for tables / inputs / dividers) so the
-     two roles can drift independently. Applied via `.game-cover-img`,
+     Light hairline that frames the cover art against the near-black
+     page background. Distinct from `--color-border` (a same-tone
+     hairline used for tables / inputs / dividers) so the two roles
+     can drift independently. Applied via `.game-cover-img`,
      `.tile-cover img`, and `.bundle-cover-composite` further down
      in this file. */
-  --color-cover-border: #1a1a1a;
+  --color-cover-border: #aaaaaa;
   /* 2026-05-19 — no-cover placeholder background. Wraps the
-     `Games::CoverComponent` fallback SVG (`.game-cover-fallback`) when a
-     game has no IGDB cover art. Sits between `--color-bg` (#ffffff) and
-     `--color-border` (#dddddd) so the placeholder reads as a subtle
-     inset surface, never pure white. */
-  --color-cover-placeholder-bg: #d8dde3;
+     `Games::CoverComponent` fallback SVG (`.game-cover-fallback`)
+     when a game has no IGDB cover art. Equals `--color-bg` (#282a36)
+     to preserve the existing placeholder look. Independent token so
+     future tuning stays local. */
+  --color-cover-placeholder-bg: #282a36;
   /* 2026-05-19 — suggested-bundles separator tile background. Used by
-     `Games::BundlesSuggestedSeparatorComponent` so the tile reads a
-     half-step darker than its container (`--color-bg` #ffffff). Same
-     light off-tone as `--color-cover-placeholder-bg` for visual
-     consistency across the two soft surfaces; future drift between
-     them stays token-local. */
-  --color-suggested-bundles-bg: #d8dde3;
-  --color-success: #2e7d32;
-  --color-fail: #cc0000;
+     `Games::BundlesSuggestedSeparatorComponent`. Sits slightly darker
+     than `--color-bg` (#282a36) by reusing `--color-bg-alt` (#21222c)
+     so the tile reads a half-step below its container. */
+  --color-suggested-bundles-bg: #21222c;
+  --color-success: #50fa7b;
+  --color-fail: #ff5555;
   /* 2026-05-19 (Phase 37 Wave A1 next-slice) — trend glyph color tokens.
      Used by `Channels::IdCardComponent` metric rows (subs / views /
      hours) for the `↑` / `–` / `↓` glyph. `--color-trend-up` is a
      dedicated green slightly cooler than `--color-success`
-     (`#2e7d32` light vs `#5cb85c` dark — user-spec'd) so trend signals
-     read as distinct from "OK" green-ticks elsewhere. `-steady` and
-     `-down` alias existing tokens so destructive-red usage in trends
-     is a deliberate, user-authorized exception (2026-05-19 chat) and
-     the muted gray is reused unchanged. */
-  --color-trend-up: #2e7d32;
+     (Dracula `#50fa7b`) so trend signals read as distinct from "OK"
+     green-ticks elsewhere. `-steady` and `-down` alias existing
+     tokens so destructive-red usage in trends is a deliberate,
+     user-authorized exception (2026-05-19 chat). */
+  --color-trend-up: #5cb85c;
   --color-trend-steady: var(--color-muted);
   --color-trend-down: var(--color-danger);
-  /* 2026-05-19 — channel ID card background. Value copied (not aliased) from
-     the /settings Discord pane's `--color-pane-bg-a` tone (line 46) so the
-     two surfaces visually rhyme today without coupling — future tweaks to
-     either pane tone or this card tone stay independent. */
-  --color-channel-id-card-bg: #f4f6f8;
-  --color-flash-notice-bg: #eef4fb;
-  --color-flash-notice-border: #b6cce4;
-  --color-flash-notice-text: #1a3a5a;
-  --color-flash-success-bg: #eef7ee;
-  --color-flash-success-border: #bcd9bc;
-  --color-flash-success-text: #1f5a1f;
-  --color-flash-warning-bg: #fdf6e3;
-  --color-flash-warning-border: #e0c97a;
-  --color-flash-warning-text: #6a5210;
-  --color-flash-error-bg: #fbeeee;
-  --color-flash-error-border: #e0b6b6;
-  --color-flash-error-text: #7a1f1f;
-  --color-backdrop: rgba(0, 0, 0, 0.5);
-  --color-chart-1: #0000cc;
-  --color-chart-2: #2e7d32;
-  --color-chart-3: #8b5cf6;
-  --color-chart-4: #d97706;
-  --color-chart-5: #0891b2;
-  --color-chart-grid: #eeeeee;
-  /* Tooltip surface — deliberately inverse of the page so a floating popover
-     reads as "elevated UI" regardless of which row/pane it overlays. Must
-     differ from `--color-bg`, `--color-bg-alt`, `--color-bg-hover`, and the
-     three pane tones in BOTH themes (a tooltip can sit over a hovered row
-     in any table). Light: near-black popover with white text. Dark: see the
-     `[data-theme="dark"]` override below — picks a value below every neutral
-     surface (`--color-bg`, `--color-bg-hover`, pane-bg-{a,b,wide}). */
-  --color-tooltip-bg: rgba(0, 0, 0, 0.85);
-  --color-tooltip-text: #ffffff;
-  --color-tooltip-border: rgba(0, 0, 0, 0.9);
-  /* 2026-05-16 — Muted status-badge surface. The `:info` / `:neutral` /
-     `:no` / `:all_day` `.status-badge` variants (and the `TooltipBadgeComponent`
-     `:neutral` default — the `[ip]` chip in the sessions table) previously
-     rendered as transparent + `--color-muted` text + `--color-border` edge.
-     That collapsed to invisible on a hovered row in dark theme where
-     `--color-muted` (#6272a4) and `--color-bg-hover` (#44475a) are the
-     classic Dracula low-contrast pair, and the badge border matched the
-     hover bg identically — chip dissolved into the row. These tokens give
-     the muted badge an explicit self-contained surface that contrasts
-     against `--color-bg`, `--color-bg-alt`, `--color-bg-hover`, and every
-     `--color-pane-bg-*` tone in both themes. Other status-badge kinds
-     (`:success`, `:warn`, `:urgent`, `:yes`) carry strong border + text
-     colors already and are left untouched. */
-  /* Item 7 — keycap color tokens. Distinct from --color-link so keyboard
-     shortcut indicators (`(n)`, `(/)`, `(?)`) don't compete visually with
-     blue action links. Purple reads on light bg, contrasts against blue. */
-  --color-keycap: #6f42c1;
-  --color-keycap-hover: #553098;
+  /* 2026-05-19 — channel ID card background. Value copied (not aliased)
+     from the /settings Discord pane's `--color-pane-bg-a` tone so the
+     two surfaces visually rhyme today without coupling — future tweaks
+     to either pane tone or this card tone stay independent. */
+  --color-channel-id-card-bg: #2f3142;
+  --color-flash-notice-bg: #282a36;
+  --color-flash-notice-border: #6272a4;
+  --color-flash-notice-text: #8be9fd;
+  --color-flash-success-bg: #282a36;
+  --color-flash-success-border: #50fa7b;
+  --color-flash-success-text: #50fa7b;
+  --color-flash-warning-bg: #282a36;
+  --color-flash-warning-border: #ffb86c;
+  --color-flash-warning-text: #ffb86c;
+  --color-flash-error-bg: #282a36;
+  --color-flash-error-border: #ff5555;
+  --color-flash-error-text: #ff5555;
+  --color-backdrop: rgba(0, 0, 0, 0.8);
+  --color-chart-1: #bd93f9;
+  --color-chart-2: #50fa7b;
+  --color-chart-3: #ff79c6;
+  --color-chart-4: #ffb86c;
+  --color-chart-5: #8be9fd;
+  --color-chart-grid: #44475a;
+  /* Tooltip surface — deliberately inverse of the page so a floating
+     popover reads as "elevated UI" regardless of which row/pane it
+     overlays. Sits BELOW every neutral surface so it doesn't merge
+     into a hovered row or pane. `--color-bg` is #282a36, pane tones
+     are #2f3142 / #34364a / #313346, and `--color-bg-hover` /
+     `--color-border` are both #44475a; this near-black value
+     (#0f1018) is darker than any of them and pairs with Dracula
+     foreground text. */
+  --color-tooltip-bg: rgba(15, 16, 24, 0.95);
+  --color-tooltip-text: #f8f8f2;
+  --color-tooltip-border: #000000;
+  /* Item 7 — Dracula purple for keycaps. Hover lifts to a brighter
+     tint in line with the existing --color-link-hover treatment. */
+  --color-keycap: #bd93f9;
+  --color-keycap-hover: #d4b8ff;
   /* 2026-05-11 polish (Fix 2) — six-tier rating palette. Used by
-     `Games::RatingBadgeComponent` to color IGDB ratings inline. Light
-     mode values; the dark scope below overrides each with a contrast-
-     adjusted variant so the same component reads at every backdrop. */
-  --color-rating-excellent: #2e7d32; /* >= 90 — green */
-  --color-rating-good:      #7cb342; /* >= 80 — olive green */
-  --color-rating-fair:      #cdb732; /* >= 70 — yellow */
-  --color-rating-meh:       #a8740c; /* >= 60 — brownish-yellow */
-  --color-rating-poor:      #7a4f24; /* >= 50 — brown */
-  --color-rating-bad:       #cc0000; /* >= 25 — clear red */
-  --color-rating-very-bad:  #5a1010; /* <  25 — dark muddy red (worst-of-worst) */
+     `Games::RatingBadgeComponent` to color IGDB ratings inline. */
+  --color-rating-excellent: #50fa7b; /* >= 90 — green */
+  --color-rating-good:      #a8e063; /* >= 80 — olive green */
+  --color-rating-fair:      #f1fa8c; /* >= 70 — yellow */
+  --color-rating-meh:       #ffb86c; /* >= 60 — brownish-yellow */
+  --color-rating-poor:      #c08454; /* >= 50 — brown */
+  --color-rating-bad:       #ff5555; /* >= 25 — clear red */
+  --color-rating-very-bad:  #7a2020; /* <  25 — dark muddy red (worst-of-worst) */
   /* 2026-05-11 polish (Fix 1) — canonical column widths used by
      listing tables across the app (notifications, channels, projects,
      games, videos). Pulling these into one place keeps the bulk-select
@@ -179,126 +188,38 @@
   --stack-arrow-right:  0;
 }
 
-[data-theme="dark"] {
-  --color-bg: #282a36;
-  --color-bg-alt: #21222c;
-  --color-bg-hover: #44475a;
-  /* Dark-mode zebra surface — intentionally subtler than `--color-bg-alt`
-     (#21222c). The alt tone was too contrasty against the #1a1c25 /
-     #2f3142 pane band, reading as a hard switch rather than a hint.
-     2.5% white overlay lifts the even rows just enough to perceive
-     alternation without competing with content. Light theme keeps the
-     literal `#fafafa` hex so the perfect light-mode look is preserved. */
-  --color-zebra-bg: rgba(255, 255, 255, 0.025);
-  /* 2026-05-17 — bumped darker (was #343746 / hover #44475a) so the header
-     lifts against the dark pane band (#2f3142 / #34364a / #313346) and the
-     subtle white-overlay zebra on top of it. #343746 sat within ~1 luminance
-     unit of pane-bg-b (#34364a), so once the zebra landed the header
-     dissolved into the alternating rows on stack-tables. New values give
-     a clear three-step hierarchy: header (darkest) → data row (pane tone)
-     → zebra row (pane tone + 2.5% white overlay). Hover stays lighter than
-     rest to preserve the "hover lifts toward foreground" semantic the
-     previous pair encoded. */
-  --color-bg-header: #1f2130;
-  --color-bg-header-hover: #2a2d3c;
-  /* Dark-theme table-header bottom-border tone — equals `--color-border` so the
-     bolder bottom rule introduced for light theme is a no-op visually in dark
-     (matches the existing 1px cell border tone, preserving the dark treatment
-     that already works). */
-  --color-table-header-border: #44475a;
-  /* Dark-mode pane tokens — same three-tone system as light. A keeps the
-     existing pane bg; B nudges slightly lighter (zebra distinction);
-     `-wide` sits between A and B with a faint cool tint so a standalone
-     pane reads as distinct without going darker than A or competing for
-     attention. Tightened 2026-05-05 — earlier values had `-wide` darker
-     than `-a`, which read as a hierarchy switch rather than a sibling. */
-  --color-pane-bg-a: #2f3142;
-  --color-pane-bg-b: #34364a;
-  --color-pane-bg-wide: #313346;
-  --color-pane-bg: var(--color-pane-bg-a);
-  --color-text: #f8f8f2;
-  --color-text-bold: #f8f8f2;
-  --color-link: #bd93f9;
-  --color-link-hover: #d4b8ff;
-  --color-danger: #ff5555;
-  --color-danger-hover: #ff6e6e;
-  --color-muted: #6272a4;
-  --color-border: #44475a;
-  --color-input-border: #6272a4;
-  /* Opposite-tone cover-thumbnail border on the dark theme — see the
-     `:root` block above for the rationale. Light hairline that frames
-     the artwork against the near-black page background. */
-  --color-cover-border: #aaaaaa;
-  /* Dark-theme no-cover placeholder bg — equals `--color-bg` (#282a36)
-     to preserve the existing dark placeholder look (per spec: don't
-     break dark). Independent token so future dark tuning stays local. */
-  --color-cover-placeholder-bg: #282a36;
-  /* Dark-theme suggested-bundles tile bg — sits slightly darker than
-     `--color-bg` (#282a36) by reusing `--color-bg-alt` (#21222c), so
-     the tile reads a half-step below its container in dark mode,
-     mirroring the light-theme direction-of-contrast. */
-  --color-suggested-bundles-bg: #21222c;
-  --color-success: #50fa7b;
-  --color-fail: #ff5555;
-  /* Dark-theme trend glyph tokens — see the `:root` block for the
-     rationale. `#5cb85c` lifts the green for the dark backdrop without
-     reusing `--color-success` (Dracula `#50fa7b`); the muted + danger
-     aliases mirror the light variant. */
-  --color-trend-up: #5cb85c;
-  --color-trend-steady: var(--color-muted);
-  --color-trend-down: var(--color-danger);
-  /* Dark-theme channel ID card bg — value copied from the dark Discord pane
-     `--color-pane-bg-a` (#2f3142, line 197); independent token, see :root. */
-  --color-channel-id-card-bg: #2f3142;
-  --color-flash-notice-bg: #282a36;
-  --color-flash-notice-border: #6272a4;
-  --color-flash-notice-text: #8be9fd;
-  --color-flash-success-bg: #282a36;
-  --color-flash-success-border: #50fa7b;
-  --color-flash-success-text: #50fa7b;
-  --color-flash-warning-bg: #282a36;
-  --color-flash-warning-border: #ffb86c;
-  --color-flash-warning-text: #ffb86c;
-  --color-flash-error-bg: #282a36;
-  --color-flash-error-border: #ff5555;
-  --color-flash-error-text: #ff5555;
-  --color-backdrop: rgba(0, 0, 0, 0.8);
-  --color-chart-1: #bd93f9;
-  --color-chart-2: #50fa7b;
-  --color-chart-3: #ff79c6;
-  --color-chart-4: #ffb86c;
-  --color-chart-5: #8be9fd;
-  --color-chart-grid: #44475a;
-  /* Dark-mode tooltip — sits BELOW every neutral surface so it doesn't merge
-     into a hovered row or pane. `--color-bg` is #282a36, pane tones are
-     #2f3142 / #34364a / #313346, and `--color-bg-hover` / `--color-border`
-     are both #44475a; this near-black value (#0f1018) is darker than any of
-     them and pairs with Dracula foreground text. */
-  --color-tooltip-bg: rgba(15, 16, 24, 0.95);
-  --color-tooltip-text: #f8f8f2;
-  --color-tooltip-border: #000000;
-  /* Muted status-badge surface, dark variant. Sits below every neutral
-     surface (`--color-bg` #282a36, `--color-bg-alt` #21222c, pane tones
-     #2f3142 / #34364a / #313346, `--color-bg-hover` #44475a) so the chip
-     reads as a small inset element regardless of which row state it overlays.
-     Text lifts to a brighter Dracula-foreground-leaning tint so it does NOT
-     reuse `--color-muted` (#6272a4) — that was half of the disappearing
-     pair. Border uses the page border tone so the chip edge stays defined
-     against the lighter surfaces above it. */
-  /* Item 7 — Dracula purple for keycaps in dark mode. Hover lifts to a
-     brighter tint in line with the existing --color-link-hover treatment. */
-  --color-keycap: #bd93f9;
-  --color-keycap-hover: #d4b8ff;
-  /* 2026-05-11 polish (Fix 2) — six-tier rating palette, dark variant.
-     Lifted luminance vs. light mode so each tier reads on the dark
-     backdrop without bleeding into muted/border tones. */
-  --color-rating-excellent: #50fa7b; /* >= 90 — green */
-  --color-rating-good:      #a8e063; /* >= 80 — olive green */
-  --color-rating-fair:      #f1fa8c; /* >= 70 — yellow */
-  --color-rating-meh:       #ffb86c; /* >= 60 — brownish-yellow */
-  --color-rating-poor:      #c08454; /* >= 50 — brown */
-  --color-rating-bad:       #ff5555; /* >= 25 — clear red */
-  --color-rating-very-bad:  #7a2020; /* <  25 — dark muddy red (worst-of-worst) */
+/* 2026-05-19 — Section-variant accent overrides.
+   The `<body>` carries `data-section="<key>"` (set server-side by
+   ApplicationHelper#current_section). Four section buckets each pin
+   their own `--color-section-accent`; the derived `--color-bg`
+   (4% accent tint over #282a36) and `--color-link` / hover surfaces
+   in `:root` follow automatically via the var cascade.
+
+   Mapping (locked 2026-05-19):
+     home/dashboard (default) -> Dracula Purple   #bd93f9
+     channels + videos         -> Dracula Red      #ff5555
+     projects + games          -> Pale Cobalt      #7eb6ff
+     settings                  -> Dracula Orange   #ffb86c
+
+   Modals INHERIT this section accent by default — a confirm modal,
+   the bundles modal, the /games-bound omnisearch modal, settings
+   modals, etc., all wear the page's section color. Only three
+   global-utility modals (About, Everywhere omnisearch, leader-menu
+   popup) re-pin to Dracula Purple via a narrow override next to the
+   base `dialog { ... }` block further down, since their chrome is
+   invariant across sections by design. */
+body[data-section="channels"],
+body[data-section="videos"] {
+  --color-section-accent: #ff5555;
+}
+
+body[data-section="games"],
+body[data-section="projects"] {
+  --color-section-accent: #7eb6ff;
+}
+
+body[data-section="settings"] {
+  --color-section-accent: #ffb86c;
 }
 
 /* Base typography */
@@ -437,16 +358,11 @@ a.bracketed.text-muted:visited .bl {
      after a user review of the bracketed-link family weight. */
   font-weight: 700;
 }
+/* Hover softens to a lifted blue-gray — full --color-text (#f8f8f2)
+   would read as an overshoot from the muted resting state. An
+   intermediate tint keeps the hover perceptible but subtle. */
 a.bracketed.bracketed-muted-link:hover,
 a.bracketed.bracketed-muted-link:hover .bl {
-  color: var(--color-text);
-}
-/* Dark theme softens the hover — full --color-text (#f8f8f2) reads
-   as an overshoot from the muted resting state. An intermediate lifted
-   blue-gray keeps the hover perceptible but subtle. Light theme stays on
-   --color-text. */
-[data-theme="dark"] a.bracketed.bracketed-muted-link:hover,
-[data-theme="dark"] a.bracketed.bracketed-muted-link:hover .bl {
   color: #a4b1d4;
 }
 
@@ -813,10 +729,11 @@ body[data-modal-open] {
    (top-level since 2026-05-19; was `Games::ShelfComponent`). Mirrors the
    app-wide slim-scrollbar tokens but encapsulates the rule to the shelf
    so future global-scrollbar changes don't drift the shelf's appearance.
-   Tokens — `--color-muted`, `--color-bg`, `--color-text` — come from the
-   light/dark `:root` blocks at top-of-file. Widths (6px) and radius (3px)
-   match the sitewide `::-webkit-scrollbar` rules at L722-L738 so the
-   appearance is identical today; the encapsulation is forward-looking. */
+   Tokens — `--color-muted`, `--color-bg`, `--color-text` — come from
+   the single `:root` block at top-of-file. Widths (6px) and radius
+   (3px) match the sitewide `::-webkit-scrollbar` rules at L722-L738 so
+   the appearance is identical today; the encapsulation is
+   forward-looking. */
 .shelf-row {
   scrollbar-width: thin;
   scrollbar-color: var(--color-muted) var(--color-bg);
@@ -1065,15 +982,20 @@ th.sortable > .sortable-label {
   color: inherit;
 }
 th.sortable::after {
-  content: "\25B2\A\25BC";
-  white-space: pre;
+  /* Inactive headers render no arrow (2026-05-19). The slot is still
+     reserved (absolute box + 14px width + matching font-size) so the
+     active asc/desc overrides below can swap a single directional glyph
+     in without any layout shift — the label's right-padding reserve and
+     the cell's column geometry are unchanged whether the column is
+     active or not. */
+  content: "";
   position: absolute;
   right: 1px;
   top: 50%;
   transform: translateY(-50%);
   width: 14px;
-  font-size: 10px;
-  line-height: 0.8;
+  font-size: 13px;
+  line-height: 1;
   text-align: center;
   color: var(--color-link);
   font-weight: bold;
@@ -1621,6 +1543,52 @@ table.footage-table {
 .indicator-down { color: var(--color-danger); }
 .indicator-flat { color: var(--color-muted); }
 
+/* 2026-05-19 — Auto-focus ring discipline.
+   When a <dialog> opens via showModal(), the browser auto-focuses the
+   first focusable descendant (often a link / button — e.g., the SHA
+   anchor inside the About modal, the first action button inside a
+   confirm modal). The UA default :focus outline then paints a ring on
+   that element even though the user never asked for it — which reads
+   as visual noise on every modal open.
+
+   Rule: ring is reserved for keyboard discoverability. The browser
+   already encodes that signal via :focus-visible (Tab / arrow keys
+   set it; programmatic .focus() and mouse clicks generally do not).
+   So we strip the UA :focus outline on interactive non-input
+   primitives, and let any element-specific :focus-visible rule (or
+   the UA's own :focus-visible ring) take over when the user actually
+   Tab-navigates.
+
+   Scope is deliberately narrow — form fields (input, textarea, select)
+   are excluded because their :focus outline IS the "you are typing
+   here" indicator and must survive both auto-focus (e.g., omnisearch
+   input) and click-focus. Their indication is already governed by the
+   `input:focus, textarea:focus, select:focus` rule below. */
+a:focus:not(:focus-visible),
+button:focus:not(:focus-visible),
+summary:focus:not(:focus-visible),
+[role="button"]:focus:not(:focus-visible),
+[role="link"]:focus:not(:focus-visible),
+[tabindex]:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Keyboard Tab navigation — paint a consistent ring on the focused
+   interactive primitive so the next-focus target is unmistakable.
+   Uses the section accent (resolves to Dracula Purple inside modals
+   per the dialog block) for visual cohesion with the rest of the
+   chrome. 1px outline + 1px offset matches the input focus ring
+   weight without over-painting. */
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible,
+[role="button"]:focus-visible,
+[role="link"]:focus-visible,
+[tabindex]:focus-visible {
+  outline: 1px solid var(--color-link);
+  outline-offset: 1px;
+}
+
 /* Forms */
 form {
   display: block;
@@ -1959,6 +1927,18 @@ button[type="submit"].btn-danger:hover {
    Every `<dialog>` (confirm-modal, settings-modal, omnisearch-modal,
    wide-modal, about-modal) inherits this unless it overrides explicitly. */
 dialog {
+  /* 2026-05-19 — Section-variant pin. Every `<dialog>` resets the
+     section accent to Dracula Purple (#bd93f9) so modal chrome —
+     [close] / [cancel] / [confirm] buttons, About-modal SHA link,
+     omnisearch result links, leader-menu popup, etc. — reads
+     identically regardless of which section opened it. The page bg
+     behind/around the modal still shows the section tint (the
+     `::backdrop` is rendered against the page surface); only the
+     modal's interior chrome flips back to Purple. Destructive
+     surfaces (delete buttons, errors) continue to use
+     `--color-danger` directly, NOT `--color-section-accent`, so they
+     stay red inside purple-pinned chrome too. */
+  --color-section-accent: #bd93f9;
   border: 1px solid var(--color-input-border);
   border-radius: 2px;
   padding: 12px 16px;
@@ -3085,15 +3065,12 @@ textarea.note-editor-source {
   color: #ffffff;
 }
 /* 2026-05-17 — `:code` variant. High-visibility filled chip for raw /
-   encoded values (IP, user-agent, hash, hex). White text on the dark-
-   theme muted-badge surface (`#1a1c25`, the literal value of
-   `--color-badge-muted-bg` in `[data-theme="dark"]`). Same hex in BOTH
-   themes (do not theme-flip) so the chip reads identically light + dark
-   — the user wants a single dark filled background everywhere. Border
-   matches the background so the chip reads as a solid pill (same
-   approach as `:strong`). Currently powers the `[ip]` chip on each row
-   of the /settings sessions table; reuse for any future chip that labels
-   a raw value to inspect. */
+   encoded values (IP, user-agent, hash, hex). White text on a dark
+   muted-badge surface (`#1a1c25`). Border matches the background so
+   the chip reads as a solid pill (same approach as `:strong`).
+   Currently powers the `[ip]` chip on each row of the /settings
+   sessions table; reuse for any future chip that labels a raw value
+   to inspect. */
 .status-badge--code {
   background-color: #1a1c25;
   border-color: #1a1c25;
@@ -3141,138 +3118,113 @@ textarea.note-editor-source {
 .platform-chip--ps     { background-color: #003791; color: #ffffff; }
 .platform-chip--switch { background-color: #E60012; color: #ffffff; }
 .platform-chip--steam  { background-color: #00ADEE; color: #ffffff; }
-/* Wave C5 (2026-05-17) — Synthesized rating heat-bar (spec 08
-   §"Rating heat-bar synthesis").
-   2026-05-17 two-variant compare — the prior 4-variant showcase
-   (A/B/C/D) collapsed to TWO finalists rendered side-by-side on
-   /games/:id so the user can compare and re-lock:
-     red-only — gradient starts at `--color-rating-bad` (red); no
-                `very_bad` dark tone at all.
-     very-bad — gradient starts at `--color-rating-very-bad` (dark
-                muddy red) at 0% then transitions to
-                `--color-rating-bad` at 25%, then climbs through the
-                higher tiers.
-   Score is exposed as a CSS custom property `--score` (unitless
-   0..100) set inline on the host element. The indicator tick reads
-   it as `calc(var(--score) * 1%)` to position itself horizontally.
-   AR carve-out (2026-05-17) — red (`--color-rating-bad`) is the
-   BAD-zone color stop for the rating quality spectrum, and
-   `--color-rating-very-bad` (dark muddy red) anchors the
-   worst-of-worst below 25. See design.md + CLAUDE.md for the scoped
-   exception to the global "red = destructive only" rule. */
+/* Rating heat-bar — text-glyph bar (2026-05-19 v4).
+   The bar is ONE continuous run of `=` characters between `[` `]`
+   brackets. The full bad→excellent gradient paints across every `=`
+   glyph in a single pass via `background-clip: text;
+   color: transparent;` — no per-segment splits, no tick inserted into
+   the string. Continuity of the underlying bar is preserved.
 
-/* Single canonical heat bar. Two-zone layout (2026-05-17 collapse —
-   the 0-25 / 25-50 split was consolidated into a single very-bad
-   solid block per user direction; the visual gradient no longer
-   differentiates 25-49 from 0-24, though `tier_for` still returns
-   `:bad` for 25-49 so `data-tier` keeps the semantic info):
-     0-45%   solid `--color-rating-very-bad` (dark muddy red)
-     45-55%  smooth blend from very-bad into `--color-rating-poor`
-             (was a hard edge at 50; softened per 2026-05-17 polish
-             so the transition from the muddy red bad zone into the
-             brown/orange poor zone is not visually jarring)
-     55-90%  smooth gradient through poor → meh → fair → good →
-             excellent
-     90-100% solid `--color-rating-excellent` (green), hard edge at 90
-   The 90 boundary is intentionally still hard so the "excellent"
-   green block at the top reads as a clear achievement zone; only
-   the bottom boundary was softened. The `--color-rating-bad` token
-   is still used elsewhere; only the gradient stop reference was
-   removed here.
-   Locked 2026-05-17 — uses dark-theme hex literals in both themes
-   per user preference (the dark gradient reads as the canonical
-   look; light theme adopts the same vivid stops). The
-   `--color-rating-*` tokens themselves remain theme-aware for other
-   consumers (rating badges, status accents). Only the gradient
-   stops below are locked to the dark-theme values. */
+   A `|` tick + a numeric score "bubble" are absolutely positioned on
+   top of the bar at `left: <score>%`. They use `var(--color-text)`
+   so they remain visible regardless of which gradient stop the tick
+   lands on. The score bubble sits above the bar; a small `▼` glyph
+   points down from the bubble to the tick.
+
+   Inside the host span:
+     - `__track`  — flex/inline-block row holding `[`, the `=` fill,
+                    and `]`. Stretches to `width: 100%` of the pane.
+     - `__bracket` — `[` and `]` in theme-text color.
+     - `__fill`    — single span holding the whole `=` run. The
+                     gradient paints onto its glyphs.
+     - `__tick`    — absolutely positioned `|` overlay at `left:
+                     <score>%`, centered with `translateX(-50%)`.
+     - `__bubble`  — absolutely positioned score label above the bar
+                     at the same x. Holds the numeric score plus a
+                     small downward pointer glyph.
+   AR carve-out: `--color-rating-bad` (red) is the bad-zone stop of the
+   quality spectrum (per design.md + CLAUDE.md). */
 .rating-heat-bar {
   position: relative;
+  display: block;
   width: 100%;
-  height: 14px;
-  /* Bumped from 8px to clear the score bubble that floats above the
-     bar (bubble height ~18px + 6px gap = ~24px; add slack). Bumped
-     again 2026-05-17 to 44px so the bubble has clear breathing room
-     above it and doesn't crowd the pub row of the kv-table. Trimmed
-     2026-05-17 from 44px to 38px to raise the bar ~6px closer to the
-     kv-table (user direction). */
-  margin-top: 38px;
-  /* 2026-05-17 item 5 polish — explicit bottom breathing room so the
-     hairline that fences the heat-bar from the ownership block below
-     sits clear of the bar instead of crowding it. Hairline + ownership
-     spacing below stays untouched (user-confirmed "perfect"). */
-  margin-bottom: 16px;
-  border: 1px solid var(--color-border);
-  background-color: var(--color-bg-alt);
-  background-image: linear-gradient(
-    to right,
-    #7a2020    0%,   /* dark very-bad */
-    #7a2020   40%,   /* dark very-bad */
-    #c08454   55%,   /* dark poor */
-    #ffb86c   62%,   /* dark meh */
-    #f1fa8c   65%,   /* dark fair */
-    #f1fa8c   85%,   /* dark fair */
-    #a8e063   88%,   /* dark good */
-    #50fa7b   90%,   /* dark excellent */
-    #50fa7b  100%    /* dark excellent */
-  );
-}
-/* 4px-wide tick. Theme-independent: white fill + black border so the
-   score notch reads identically in light and dark, and remains the
-   universal "current value" visual primitive shared with the TTB
-   footage tick. Vertical extends slightly above + below the bar for
-   prominence. Locked 2026-05-17 (user direction item 1). */
-.rating-heat-bar-indicator {
-  position: absolute;
-  top: -4px;
-  bottom: -4px;
-  left: calc(var(--score) * 1%);
-  width: 4px;
-  background-color: #ffffff;
-  border: 1px solid #000000;
-  transform: translateX(-2px); /* center the 4px tick on the score position */
-  pointer-events: none;
-  /* Wave C reveal (2026-05-19) — while `game.resyncing?` the host
-     renders with `--score: 0` so the tick parks at the bar's left
-     edge; the Turbo morph swap on sync complete bumps `--score` to
-     the real value and the `transition: left 600ms ease-in-out` rule
-     slides the tick rightward. Matched in duration + easing with the
-     TTB component so both visualizations animate as one motion. */
-  transition: left 600ms ease-in-out;
-}
-/* Score bubble floating above the indicator tick. LOCKED dark literals
-   for both themes (2026-05-17 user direction item 4): dark indigo-grey
-   bg + white text, identical in light and dark. Distinct from chips
-   (:code #1a1c25, :strong #2e7d32). Centered horizontally on the score
-   position via translateX(-50%). Sits 6px above the bar's top edge.
-   Conditional render in the template means the bubble never appears in
-   the muted (no-score) state. */
-.rating-heat-bar-bubble {
-  position: absolute;
-  bottom: calc(100% + 6px);
-  left: calc(var(--score) * 1%);
-  transform: translateX(-50%);
-  padding: 1px 6px;
-  background-color: #3a3d4e;
-  border: 1px solid #3a3d4e;
-  border-radius: 2px;
   font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo,
     Consolas, monospace;
-  font-size: 11px;
+  font-size: 14px;
+  line-height: 1.4;
+  letter-spacing: 0;
+  user-select: none;
+  padding-top: 22px; /* room for the bubble above the bar */
+  /* 2026-05-19 RHM-V5 fix 1 — top gap so the score bubble has breathing
+     room from the KV meta-table row above. Without this the `78` bubble
+     sat flush against the previous row's bottom border. */
+  margin-top: 6px;
+}
+/* 2026-05-19 RHM-V5 fix 2 — flexbox track so the right `]` snaps to the
+   parent's right edge regardless of viewport width. Previously the
+   `__fill` was a fixed 60-char `=` run that either overflowed (clipping
+   the `]`) or left blank space after it. With flex, `[` and `]` are
+   end-anchored and the `__fill` grows/clips between them. The KV
+   meta-table above uses `width: 100%`, so the RHM and KV table now
+   share the same right edge by inheriting the same parent width. */
+.rating-heat-bar__track {
+  display: flex;
+  align-items: baseline;
+  white-space: pre;
+  overflow: hidden;
+}
+.rating-heat-bar__bracket {
+  color: var(--color-text);
+  flex: 0 0 auto;
+}
+.rating-heat-bar__fill {
+  flex: 1 1 auto;
+  overflow: hidden;
+  background-image: linear-gradient(
+    to right,
+    var(--color-rating-bad),
+    var(--color-rating-poor),
+    var(--color-rating-meh),
+    var(--color-rating-fair),
+    var(--color-rating-good),
+    var(--color-rating-excellent)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.rating-heat-bar__tick {
+  position: absolute;
+  top: 22px; /* aligns with the `=` row (after the bubble padding) */
+  transform: translateX(-50%);
+  color: var(--color-text);
   font-weight: 700;
-  line-height: 14px;
-  color: #ffffff;
-  white-space: nowrap;
   pointer-events: none;
-  z-index: 1;
-  /* Wave C reveal (2026-05-19) — bubble slides alongside the
-     indicator tick on Turbo morph. Same duration / easing as the
-     indicator so they read as one unit. */
-  transition: left 600ms ease-in-out;
+  white-space: pre;
+}
+.rating-heat-bar__bubble {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.rating-heat-bar__bubble-num {
+  font-weight: 700;
+  font-size: 12px;
+}
+.rating-heat-bar__bubble-arrow {
+  font-size: 10px;
+  line-height: 1;
+  margin-top: 1px;
 }
 .rating-heat-bar--muted {
   opacity: 0.5;
-  background-image: none !important;
-  background-color: var(--color-bg-alt);
 }
 /* 2026-05-17 — Cross-cutting placeholder badge. Renders literal `[TBD]`
    in bright orange to flag surfaces we will get to later (footage rows,
@@ -3770,26 +3722,21 @@ dialog.leader-menu-popup::backdrop {
   border-radius: 2px;
 }
 
-/* Missing-cover fallback SVGs. Two `<img>` tags are emitted per
-   missing cover (light + dark theme variants); the visible one is
-   toggled here via `[data-theme]` on `<html>`. The default tree
-   (no `[data-theme="dark"]` ancestor) shows the light variant; the
-   dark scope swaps to the dark variant. Both sit inside an
-   already-sized `.game-cover` wrapper, so `width: 100%; height: 100%`
-   comes from `.game-cover-img` above.
+/* Missing-cover fallback SVG. Sits inside an already-sized
+   `.game-cover` wrapper, so `width: 100%; height: 100%` comes from
+   `.game-cover-img` above.
 
-   2026-05-19 — the fallback SVGs no longer paint their own solid
-   background rect (was `#ffffff` light / `#282a36` dark, now `fill:none`
-   on the outer rect). The placeholder surface now comes from the
+   2026-05-19 — the fallback SVG no longer paints its own solid
+   background rect (was `fill: #282a36` on the outer rect, now
+   `fill:none`). The placeholder surface comes from the
    `--color-cover-placeholder-bg` token applied here so the bg can be
-   theme-tuned from a single CSS source rather than baked into each
-   per-size, per-theme SVG asset. */
+   tuned from a single CSS source rather than baked into the SVG
+   asset itself. Dark-only as of 2026-05-19 — only one SVG variant
+   ships; no theme-toggle rules. */
 .game-cover-fallback {
   background-color: var(--color-cover-placeholder-bg);
+  display: block;
 }
-.game-cover-fallback--dark { display: none; }
-[data-theme="dark"] .game-cover-fallback--light { display: none; }
-[data-theme="dark"] .game-cover-fallback--dark { display: block; }
 
 /* 2026-05-17 — Shelf default top margin (Wave F consolidation).
    The `ShelfComponent` (renamed top-level 2026-05-19; was `Games::ShelfComponent`) previously emitted inline
@@ -3944,38 +3891,24 @@ dialog.leader-menu-popup::backdrop {
    cell (90% wide of a 60% × 100% slot — fills the cell), `--small`
    for the two right cells (90% wide of a 40% × 50% slot — fills the
    cell). Opacity keeps the icon muted so the dashed-border cells
-   still read as "missing", not "decorated". The light/dark variant
-   toggle is inherited from the shared `.game-cover-fallback--light
-   / --dark` rules above.
+   still read as "missing", not "decorated".
 
    2026-05-18 (follow-up 3) — bumped from `width: 50%` + tight pixel
    caps (60 / 24) to `width: 90%` + generous caps (90 / 50) so the
    embedded controller properly fills each cell instead of looking
    lost in dead whitespace. `height: auto` keeps the SVG aspect ratio
    so the icon scales by width and never overflows the cell's
-   vertical track. */
+   vertical track.
+
+   2026-05-19 — dark-only: only one SVG variant ships; the previous
+   `.game-cover-fallback--light` / `--dark` toggle was removed with
+   the theme system collapse. */
 .bundle-tile__nocover-icon {
   opacity: 0.4;
   width: auto;
   height: auto;
   object-fit: contain;
 }
-/* 2026-05-18 (bug fix) — theme gating for the embedded controller
-   icons. The shared `.game-cover-fallback--light / --dark` rules
-   above (`display: none` vs `display: block`) collide with the
-   `.bundle-tile__nocover-icon` rule because of cascade order: the
-   icon rule comes later in the file and `display: block` previously
-   beat `display: none` from the equally-specific fallback rules, so
-   BOTH variants rendered in light theme (overlapping inside the
-   flex-centered cell). The icon rule no longer emits `display`;
-   the cell parent (`display: flex`) lays out whichever child is
-   visible, and the explicit `display: none` on the hidden variant
-   below wins because nothing further down sets `display` on these
-   classes. Specificity-tied gates scoped to the netflix-3
-   placeholder keep light hidden in dark and vice versa. */
-.bundle-tile__nocover-icon.game-cover-fallback--dark { display: none; }
-[data-theme="dark"] .bundle-tile__nocover-icon.game-cover-fallback--light { display: none; }
-[data-theme="dark"] .bundle-tile__nocover-icon.game-cover-fallback--dark { display: block; }
 .bundle-tile__nocover-icon--large {
   width: 90%;
   max-width: 90px;
@@ -4542,122 +4475,51 @@ input[type="text"].bundle-title-input:focus-visible {
 }
 
 /* ============================================================
-   Time-to-beat fuel gauge (BQ slice — 2026-05-17, item 8 of the
-   /games/:id reshape list; BZ+ restructure 2026-05-17)
+   Time-to-beat gauge — text-bar (2026-05-19 v3)
    ============================================================
    Single canonical visualization on the /games/:id RIGHT pane,
-   below the summary hairline. The 10-variant showcase that
-   briefly lived above has been cut down to variant 10 alone;
-   the other 9 variants' CSS (concentric / discs / rings / bars /
-   columns / pyramid / clocks / ladder / stacked_timeline) plus
-   the `ttb-showcase` scaffold are deleted.
+   below the summary hairline.
 
-   The bar spans the full pane width. Its x-axis represents
-   HOURS (not percentages) running 0..max_x, where `max_x` is
-   `max(completionist, footage) * 1.05` so over-completionist
-   footage still fits with breathing room.
+   The bar renders as monospace text:
 
-   Bar gradient — vivid cool-spectrum ramp, theme-stable: soft
-   periwinkle (low) → vivid cyan (some) → vivid indigo
-   (commitment) → vivid magenta-purple (insanity). Avoids
-   red / orange / yellow (heat-bar palette) and pure green
-   (status accents); the magenta-purple at 100% reads as "past
-   sane effort levels" without colliding with destructive red.
+     [=======|==|==========|=================|]
 
-   Pillar ticks (main / extras / completionist) — thin (2px), no
-   border, FILLED with vivid per-pillar literal hex so each tick's
-   color identity links it 1:1 to its legend swatch + bottom-row
-   hour value:
+   Where:
+     - `[` / `]` carry the `__bracket` class and render in
+       `var(--color-text)`.
+     - The bar shape is ALWAYS `[===…===]` (N=40 cells). The cool-
+       spectrum gradient (green → lime → amber → pink) paints on
+       every `=` glyph via `background-clip: text; color:
+       transparent;` on the `__fill` spans.
+     - Four `|` ticks (footage + main + extras + completionist) each
+       live in their own `__tick-char` span and render in
+       `var(--color-text)` so the marker is visible regardless of
+       which gradient stop the cell falls on. Each tick replaces one
+       `=` at the value's projected cell index.
 
-     main          #FFE74C  bright yellow
-     extras        #FFFFFF  pure white
-     completionist #FF4081  vivid pink/magenta
-
-   Footage tick — UNCHANGED from BB/BV: 4px wide, theme-aware
-   page-bg fill + text-color border, overshoots the bar. Mirrors
-   the `.rating-heat-bar-indicator` pattern (BB heat-bar score
-   notch). The footage swatch in the legend mirrors this
-   styling (bg fill + 1px text-color border).
-
-   Rows (top to bottom):
-     - row 1: footage hours value      (above bar, over footage tick)
-     - row 2: the bar                  (gradient + 4 ticks + watermark)
-     - row 3: pillar hour values       (below bar, under pillar ticks)
-     - row 4: legend                   (4 swatches + names, single line)
+   Surrounding rows (footage value label, pillar hour labels below
+   the bar, legend) are positioned-percent strips driven by the
+   bar's conceptual 0..100 axis (max_x scale).
 */
 
 .ttb-fuel-gauge {
-  /* Wide-as-pane. Sits in the RIGHT pane's natural flow directly
-     under the summary block — the bar carries its own inline "TTB"
-     watermark (`.ttb-fuel-gauge__title`) so no standalone heading is
-     rendered above the gauge. */
   width: 100%;
   margin-top: 8px;
   padding-bottom: 4px;
 }
 
-/* Inline "TTB" watermark label rendered INSIDE the bar (not above
-   it). Vertically centered on the bar's height, left-aligned with a
-   few px of padding from the bar's left edge so it reads as a
-   contained identifier rather than a heading. White text + a subtle
-   dark text-shadow keep the label legible against any zone of the
-   multi-stop gradient. Pointer-events disabled so the watermark never
-   intercepts hover/click on the bar itself. z-index sits above the
-   pillar ticks (z-index 2) and the footage tick (z-index 2) so the
-   "TTB" letters always read on top, even when a tick lands at the
-   bar's far-left edge. */
-.ttb-fuel-gauge__title {
-  position: absolute;
-  top: 50%;
-  left: 6px;
-  transform: translateY(calc(-50% + 1px));
-  font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  color: #ffffff;
-  text-shadow: 0 0 3px rgba(0, 0, 0, 0.7);
-  pointer-events: none;
-  z-index: 3;
-}
-
-/* Label rows — shared base for the top row (footage value) and the
-   bottom row (pillar hour values). Each row is a positioned strip
-   with `position: relative` so the per-label `left: N%;` inline
-   styles position correctly against the bar's full width. */
 .ttb-fuel-gauge__values {
   position: relative;
   height: 16px;
 }
 
-/* Top row sits ABOVE the bar — small gap before the gauge. */
 .ttb-fuel-gauge__values--top {
   margin-bottom: 2px;
 }
 
-/* Bottom row sits BELOW the bar, holding the three pillar hour
-   labels that used to live above. Slightly more space above so the
-   labels clear the pillar ticks' 3px overshoot. Height stays at the
-   shared 16 px from `.ttb-fuel-gauge__values` — colliding labels now
-   nudge HORIZONTALLY via the component-baked `effective_position`
-   value (the `left:` style already carries the shift, so no extra
-   row height is needed). */
 .ttb-fuel-gauge__values--bottom {
   margin-top: 6px;
 }
-
-/* Horizontal collision nudges are NO LONGER a CSS concern — when
-   two adjacent pillar labels sit within
-   `BOTTOM_LABEL_COLLISION_THRESHOLD_PCT` (10 %) of each other on
-   the bar, the Ruby component's `pillar_label_data` shifts each
-   label's `effective_position` by `NUDGE_PCT` (4 % of bar width)
-   outward and the template inlines that shifted value into the
-   `left:` style. Both colliding labels keep the shared
-   `--centered` alignment class — the only thing that changes is
-   the `left:` percentage. The previous `--nudge-left` /
-   `--nudge-right` pixel-based `translateX` modifiers have been
-   removed; the percentage-based approach scales with pane width
-   instead of fighting it. */
 
 .ttb-fuel-gauge__value {
   position: absolute;
@@ -4665,11 +4527,6 @@ input[type="text"].bundle-title-input:focus-visible {
   font-variant-numeric: tabular-nums;
   line-height: 14px;
   white-space: nowrap;
-  /* Wave C reveal (2026-05-19) — labels slide alongside their ticks
-     when the Turbo morph swaps `left:` from the stubbed 0 % to the
-     real percent. Same easing / duration as the ticks above so the
-     bar reads as a single coordinated reveal. */
-  transition: left 600ms ease-in-out;
 }
 
 .ttb-fuel-gauge__value--pillar {
@@ -4683,132 +4540,54 @@ input[type="text"].bundle-title-input:focus-visible {
   z-index: 2;
 }
 
-/* The bar itself. The heat-map gradient (low → some → commitment →
-   insanity: green → lime → amber → pink) is set INLINE on the
-   element via `background-image`, computed per-game by
-   `Games::TimeToBeatComponent#gradient_stops` so the visible color
-   spread reflects each game's actual effort scale (Pragmata at ~23h
-   stays green/lime; Crimson Desert at ~775h is mostly pink). Pink
-   (#E91E63) stays distinct from destructive red (#cc0000) — this is
-   "effort intensity" warning, not a destructive-action signal.
-   Single literal hex set in the component — identical look in both
-   themes. Adaptive-gradient version locked 2026-05-17. */
-.ttb-fuel-gauge__bar {
-  position: relative;
+/* The bar row — pure monospace text. The bar shape is fixed at N
+   cells (`[===…===]`) and the host container width drives the
+   visual length: at the current font-size the 40 monospace cells
+   fill the pane. White-space:pre preserves the in-line cell text
+   verbatim. */
+.ttb-fuel-gauge__bar-row {
   width: 100%;
-  height: 18px;
-  background-color: var(--color-bg-alt);
-  border: 1px solid var(--color-border);
-  overflow: visible;
 }
 
-/* Wave C reveal (2026-05-19) — stacked gradient layers. The bar's
-   visible color comes from TWO absolutely-positioned children stacked
-   inside `.ttb-fuel-gauge__bar`, not from a single inline
-   `background-image` on the bar itself:
-
-     .ttb-fuel-gauge__bar-layer--stub  — painted always (bottom z),
-       carries the bland STUB_GRADIENT (solid `--color-rating-good`
-       green). Acts as the resting bed.
-     .ttb-fuel-gauge__bar-layer--real  — painted always (top z),
-       carries the per-game adaptive gradient. Opacity is set inline
-       from `real_layer_opacity` (0 while `game.resyncing?`, 1
-       otherwise). When the Turbo morph swaps that inline value the
-       transition rule below crossfades the layer in over 600ms.
-
-   Browsers do not interpolate `background-image` smoothly between two
-   gradient values; an opacity crossfade between stacked layers is the
-   reliable equivalent. Both layers carry `pointer-events: none` so
-   the bar itself stays the hover/click surface (currently none — the
-   bar is pure visualization). */
-.ttb-fuel-gauge__bar-layer {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
+.ttb-fuel-gauge__bar {
+  display: block;
+  width: 100%;
+  font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo,
+    Consolas, monospace;
+  font-size: 14px;
+  line-height: 1.4;
+  letter-spacing: 0;
+  white-space: pre;
+  user-select: none;
 }
 
-.ttb-fuel-gauge__bar-layer--stub {
-  z-index: 0;
+.ttb-fuel-gauge__bracket {
+  color: var(--color-text);
 }
 
-.ttb-fuel-gauge__bar-layer--real {
-  z-index: 1;
-  transition: opacity 600ms ease-in-out;
+/* The `=` glyphs carry the gradient via background-clip:text.
+   Cool-spectrum ramp green → lime → amber → pink (effort intensity);
+   distinct from destructive red and from the rating heat-bar ramp. */
+.ttb-fuel-gauge__fill {
+  background-image: linear-gradient(
+    to right,
+    #4CAF50,
+    #CDDC39,
+    #FFB74D,
+    #E91E63
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
-/* Pillar ticks. Colored fill with a 1px black border for visibility
-   against the gradient (locked 2026-05-17 — user direction). Overshoot
-   the bar by 3px top + bottom so the tick reads as a marker, not a fill
-   stripe. Sits on top of the gradient via z-index.
-
-   Wave C reveal (2026-05-19) — `transition: left 600ms ease-in-out`
-   animates each tick from its stubbed `left: 0%` position (rendered
-   while `game.resyncing?`) to its real percent on Turbo morph. The
-   `transform: translateX(-50%)` stays static, so the tick centers on
-   the animated `left:` value. Footage tick inherits the transition via
-   its own override that re-declares only the layout properties (see
-   `.ttb-fuel-gauge__tick--footage`). */
-.ttb-fuel-gauge__tick {
-  position: absolute;
-  transform: translateX(-50%);
-  pointer-events: none;
-  z-index: 2;
-  transition: left 600ms ease-in-out;
+/* `|` ticks render in solid theme-text color so they stay visible
+   on any gradient stop. */
+.ttb-fuel-gauge__tick-char {
+  color: var(--color-text);
+  font-weight: 700;
 }
 
-.ttb-fuel-gauge__tick--pillar {
-  top: -3px;
-  bottom: -3px;
-  width: 4px;
-  border: 1px solid #000000;
-  /* Per-pillar fill set by the color modifiers below
-     (`--main` / `--extras` / `--completionist`). Each pillar's tick
-     color matches its legend swatch + bottom-row label so the visual
-     identity reads at a glance. Literal hex (no theme-flip) — same
-     pop against the gradient in both themes. Width bumped from 2px to
-     4px to accommodate the 1px black border each side, matching the
-     footage tick width for visual consistency. */
-}
-
-.ttb-fuel-gauge__tick--main {
-  background-color: #2196F3;
-}
-
-.ttb-fuel-gauge__tick--extras {
-  background-color: #9C27B0;
-}
-
-.ttb-fuel-gauge__tick--completionist {
-  background-color: #E91E63;
-}
-
-/* Footage tick — bigger, bordered, white fill. Mirrors the
-   `.rating-heat-bar-indicator` pattern (BB heat-bar score notch)
-   exactly: theme-independent white fill + black border so the
-   "current value" notch reads identically in light and dark, and
-   shares the universal visual primitive with the heatbar score
-   tick. Sits ABOVE the pillar ticks via higher z-index so even
-   if footage and a pillar collide the footage notch wins
-   visually. Locked 2026-05-17 (user direction item 1). */
-.ttb-fuel-gauge__tick--footage {
-  top: -5px;
-  bottom: -5px;
-  width: 4px;
-  background-color: #ffffff;
-  border: 1px solid #000000;
-  z-index: 3;
-  /* Account for the 1px border each side so the visible footprint
-     stays centered on the footage position. */
-  margin-left: -1px;
-}
-
-/* Legend row — single horizontal flex line below the bottom-row
-   pillar hour labels. Holds the 4 swatch + name pairs (3 pillars +
-   recorded). The swatch fills use the same vivid hex as their
-   corresponding ticks on the bar, so the legend acts as the color
-   key for the visible marks. The "recorded" swatch mirrors the
-   footage tick's styling (bg fill + 1px text-color border) so it
-   reads identical to the focal notch on the bar. */
 .ttb-fuel-gauge__legend {
   display: flex;
   flex-wrap: wrap;
@@ -4825,32 +4604,20 @@ input[type="text"].bundle-title-input:focus-visible {
   white-space: nowrap;
 }
 
-/* Tick-shaped swatch: narrow vertical pill that mirrors the bar
-   tick form so the legend visually maps to the marks on the bar.
-   6px wide × 12px tall, uniform across all four legend items
-   (main / extras / completionist / recorded). No border by default
-   — the pillar swatches match their borderless ticks. The footage
-   modifier below adds the universal black border + white fill for
-   parity with the footage tick. Locked 2026-05-17 (user direction
-   — unify all four legend swatches to the recorded width). */
+/* Legend swatches: pillar swatches mirror the `|` tick character
+   (theme-text vertical bar); the footage swatch keeps the white-fill
+   bordered look from v1 to mirror the standalone footage marker
+   (rendered in the row 1 value above the bar). */
 .ttb-fuel-gauge__legend-swatch {
   display: inline-block;
   width: 6px;
   height: 12px;
   box-sizing: border-box;
-  border: 1px solid #000000;
 }
 
-.ttb-fuel-gauge__legend-swatch--main {
-  background-color: #2196F3;
-}
-
-.ttb-fuel-gauge__legend-swatch--extras {
-  background-color: #9C27B0;
-}
-
-.ttb-fuel-gauge__legend-swatch--completionist {
-  background-color: #E91E63;
+.ttb-fuel-gauge__legend-swatch--pillar {
+  width: 2px;
+  background-color: var(--color-text);
 }
 
 .ttb-fuel-gauge__legend-swatch--footage {
@@ -4859,11 +4626,9 @@ input[type="text"].bundle-title-input:focus-visible {
   border: 1px solid #000000;
 }
 
-/* Edge-label clamping modifiers. Applied per-label based on the
-   tick position so labels near 0 % or 100 % of the bar shift inward
-   instead of overflowing the pane. See
-   `TimeToBeatComponent#label_alignment_class` for the position
-   thresholds (< 10 % → at-start, > 90 % → at-end, else centered). */
+/* Edge-label clamping modifiers — applied per-label based on tick
+   position so labels near 0 % or 100 % of the bar shift inward
+   instead of overflowing the pane. */
 .ttb-fuel-gauge__label--centered {
   transform: translateX(-50%);
 }
@@ -4962,5 +4727,30 @@ table.all-games-table td {
   font-weight: 700;
   font-size: 11px;
   line-height: 1.4;
+}
+
+/* Channels::IdCardComponent optional score badge — top-right corner
+   overlay. Only rendered when the component receives `score:` (e.g.
+   recommended-channels shelf on /games/:id). The card's outer
+   <article> sets `position: relative` so the badge anchors cleanly
+   inside the card's name row. Bracketed plain `[NN]`, bold +
+   tabular-nums for consistent digit widths across cards. Color
+   inherits `var(--color-text)` so the badge reads as neutral
+   metadata, not as a destructive or trend signal. A subtle bg tint
+   matching the card background (with slight transparency) lifts the
+   badge from the name-row text behind it without competing visually
+   with the channel name. */
+.channels-id-card__score-badge {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+  background: var(--color-channel-id-card-bg);
+  padding: 0 2px;
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 1;
 }
 

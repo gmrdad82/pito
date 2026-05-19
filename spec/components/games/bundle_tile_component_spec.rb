@@ -236,16 +236,17 @@ RSpec.describe Games::BundleTileComponent, type: :component do
       expect(page).to have_css(".bundle-tile__nocover-netflix3 > .cell--main", count: 1)
     end
 
-    it "embeds six controller-icon imgs (light + dark per cell)" do
-      expect(page).to have_css(".bundle-tile__nocover-netflix3 img", count: 6)
-      expect(page).to have_css(".bundle-tile__nocover-netflix3 img[data-theme='light']", count: 3)
-      expect(page).to have_css(".bundle-tile__nocover-netflix3 img[data-theme='dark']", count: 3)
+    it "embeds three controller-icon imgs (single-dark, one per cell)" do
+      # 2026-05-19 — theme system removed; the dual light/dark image
+      # pair collapsed to a single _dark.svg image per cell.
+      expect(page).to have_css(".bundle-tile__nocover-netflix3 img", count: 3)
+      expect(page).to have_no_css(".bundle-tile__nocover-netflix3 img[data-theme='light']")
+      expect(page).to have_no_css(".bundle-tile__nocover-netflix3 img[data-theme='dark']")
     end
 
     it "uses the --large size in the main cell and --small in the other two" do
-      expect(page).to have_css(".cell--main img.bundle-tile__nocover-icon--large", count: 2)
-      # The two non-main cells each carry a light+dark pair at --small.
-      expect(page).to have_css(".bundle-tile__nocover-netflix3 img.bundle-tile__nocover-icon--small", count: 4)
+      expect(page).to have_css(".cell--main img.bundle-tile__nocover-icon--large", count: 1)
+      expect(page).to have_css(".bundle-tile__nocover-netflix3 img.bundle-tile__nocover-icon--small", count: 2)
     end
 
     it "tags the container with aria-label + title set to the bundle name" do

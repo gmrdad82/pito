@@ -1,11 +1,14 @@
 require "rails_helper"
 
 # Bundles::EmptyCoverPlaceholderComponent — netflix-3 controller-
-# icon placeholder for empty bundles. Pins the theme-pair invariant
-# (each of the 3 cells stacks BOTH a light + dark image variant,
-# toggled at runtime by `[data-theme]` CSS rules) and the optional
-# `:modal` modifier that lifts the icon size caps for the bundles
+# icon placeholder for empty bundles. Three cells (one `--main` +
+# two regular) each rendering a single-dark controller-icon SVG.
+# The `:modal` modifier lifts the icon size caps for the bundles
 # modal cover slot.
+#
+# 2026-05-19 — pito is single-theme (dark). The previous dual
+# light/dark image pair was collapsed to a single image per cell
+# alongside the theme system removal.
 RSpec.describe Bundles::EmptyCoverPlaceholderComponent, type: :component do
   describe "happy: cell + image structure" do
     it "renders exactly 3 cells (one --main + two regular)" do
@@ -14,33 +17,35 @@ RSpec.describe Bundles::EmptyCoverPlaceholderComponent, type: :component do
       expect(page).to have_css(".bundle-tile__nocover-netflix3 > .cell.cell--main", count: 1)
     end
 
-    it "renders 6 controller-icon imgs (3 cells x 2 theme variants)" do
+    it "renders 3 controller-icon imgs (one per cell, single-dark)" do
       render_inline(described_class.new)
-      expect(page).to have_css("img.bundle-tile__nocover-icon", count: 6)
+      expect(page).to have_css("img.bundle-tile__nocover-icon", count: 3)
     end
 
-    it "stacks a light + dark variant inside every cell" do
+    it "places exactly one img inside every cell (no theme pair)" do
       render_inline(described_class.new)
       page.all(".bundle-tile__nocover-netflix3 > .cell").each do |cell|
-        expect(cell).to have_css('img[data-theme="light"]', count: 1)
-        expect(cell).to have_css('img[data-theme="dark"]', count: 1)
+        expect(cell).to have_css("img.bundle-tile__nocover-icon", count: 1)
       end
     end
 
-    it "tags exactly 3 imgs with data-theme=light" do
+    it "does NOT emit data-theme attributes on the icon imgs (theme system removed)" do
       render_inline(described_class.new)
-      expect(page).to have_css('img[data-theme="light"]', count: 3)
+      expect(page).to have_no_css('img[data-theme="light"]')
+      expect(page).to have_no_css('img[data-theme="dark"]')
     end
 
-    it "tags exactly 3 imgs with data-theme=dark" do
+    it "references only the controller_icon_dark.svg asset" do
       render_inline(described_class.new)
-      expect(page).to have_css('img[data-theme="dark"]', count: 3)
+      html = page.native.to_html
+      expect(html).to match(/controller_icon_dark(-[a-f0-9]+)?\.svg/)
+      expect(html).not_to match(/controller_icon_light/)
     end
 
     it "uses --large icons in the main cell and --small in the two side cells" do
       render_inline(described_class.new)
-      expect(page).to have_css(".cell.cell--main img.bundle-tile__nocover-icon--large", count: 2)
-      expect(page).to have_css(".bundle-tile__nocover-netflix3 img.bundle-tile__nocover-icon--small", count: 4)
+      expect(page).to have_css(".cell.cell--main img.bundle-tile__nocover-icon--large", count: 1)
+      expect(page).to have_css(".bundle-tile__nocover-netflix3 img.bundle-tile__nocover-icon--small", count: 2)
     end
   end
 

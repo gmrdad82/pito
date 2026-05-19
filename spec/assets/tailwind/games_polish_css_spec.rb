@@ -29,10 +29,11 @@ RSpec.describe "application.css — 2026-05-11 games polish", type: :asset do
       --color-rating-poor
       --color-rating-bad
     ].each do |token|
-      it "declares `#{token}` for light mode" do
-        # Token appears at least once in the light-mode scope (`:root`)
-        # and once in the dark-mode scope (`[data-theme="dark"]`).
-        expect(css.scan(/^\s*#{Regexp.escape(token)}:/m).length).to be >= 2
+      it "declares `#{token}`" do
+        # 2026-05-19 — the theme system was removed; tokens are now
+        # declared once (under `:root`) instead of once per theme
+        # scope.
+        expect(css.scan(/^\s*#{Regexp.escape(token)}:/m).length).to be >= 1
       end
     end
   end

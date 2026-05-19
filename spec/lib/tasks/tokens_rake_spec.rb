@@ -50,17 +50,20 @@ RSpec.describe "tokens rake tasks" do
       expect(token.user_id).to eq(owner.id)
     end
 
-    it "defaults name to `default` and scopes to `dev+app` when args are omitted" do
+    it "defaults name to `default` and scopes to `app` when args are omitted" do
       capture_stdout { create_task.invoke }
       token = ApiToken.order(:created_at).last
       expect(token.name).to eq("default")
-      expect(token.scopes).to match_array([ Scopes::DEV, Scopes::APP ])
+      expect(token.scopes).to match_array([ Scopes::APP ])
     end
 
     it "splits a `+`-separated scope list into multiple scopes" do
-      capture_stdout { create_task.invoke("multi", "dev+app") }
+      # The single-scope catalog means there's no "second" valid scope
+      # to test multi-split with. Use a duplicate `app+app` to verify
+      # the splitter behavior — the model accepts duplicate entries.
+      capture_stdout { create_task.invoke("multi", "app+app") }
       token = ApiToken.find_by(name: "multi")
-      expect(token.scopes).to match_array([ Scopes::DEV, Scopes::APP ])
+      expect(token.scopes).to match_array([ Scopes::APP, Scopes::APP ])
     end
 
     it "prints the token name, scopes, preview, and the one-time plaintext line" do
@@ -74,10 +77,12 @@ RSpec.describe "tokens rake tasks" do
     end
 
     it "prints a curl example with the freshly minted plaintext" do
+      # Phase 29 (MCP cut, 2026-05-19) — the example switched from the
+      # retired `/mcp` JSON-RPC endpoint to the generic Rails JSON API
+      # path the token now gates.
       output = capture_stdout { create_task.invoke("curlable", "app") }
-      expect(output).to include("curl -X POST http://localhost:3028/mcp")
-      expect(output).to include("Authorization: Bearer ")
-      expect(output).to include('"jsonrpc":"2.0"')
+      expect(output).to include("curl -H 'Authorization: Bearer ")
+      expect(output).to include("http://localhost:3027/api/")
     end
 
     it "exits non-zero with a stderr message when no User is seeded" do

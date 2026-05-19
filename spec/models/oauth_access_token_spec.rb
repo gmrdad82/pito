@@ -23,7 +23,7 @@ RSpec.describe OauthAccessToken, type: :model do
       token = OauthAccessToken.create!(
         application: application,
         resource_owner_id: user.id,
-        scopes: Scopes::DEV,
+        scopes: Scopes::APP,
         expires_in: 7200
       )
       expect(token.user).to eq(user)
@@ -38,7 +38,7 @@ RSpec.describe OauthAccessToken, type: :model do
       token = OauthAccessToken.create!(
         application: application,
         resource_owner_id: user.id,
-        scopes: Scopes::DEV,
+        scopes: Scopes::APP,
         expires_in: 7200
       )
       user.destroy

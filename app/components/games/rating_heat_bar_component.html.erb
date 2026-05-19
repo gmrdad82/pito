@@ -1,36 +1,24 @@
-<%# Single canonical heat bar (the two-variant pick-off was collapsed
-    once the user re-locked on the three-zone solid-ends pattern).
-    The numeric label is intentionally absent — the gradient +
-    indicator tick encode the score on their own. See
-    `rating_heat_bar_component.rb` for the score-synthesis logic and
-    the three-zone (solid 0-25 / solid 25-50 / gradient 50-90 /
-    solid 90-100) layout.
-
-    Wave C reveal — when `game.resyncing?` is true we render the FULL
-    bar (not the muted variant) with `--score: 0` and the bubble text
-    forced to em-dash. The indicator tick + bubble both park at the
-    left edge; on Turbo morph after sync complete the rendered DOM
-    carries the real `--score`, and the CSS `transition: left 600ms
-    ease-in-out` rule animates the tick + bubble rightward to their
-    final position. %>
+<%# 2026-05-19 v4 — continuous-gradient text bar + absolute tick overlay
+    + absolute score bubble. The `=` run between the brackets is ONE
+    span (no mid-string tick). The `|` tick and the numeric score
+    bubble float on top at `left: <score>%`. When the score is nil or
+    the game is resyncing the bar renders muted with no overlay. %>
 <% s = score %>
-<% if resyncing? %>
-  <div class="rating-heat-bar"
-       data-resyncing="yes"
-       data-tier="missing"
-       style="--score: <%= score_var %>; --tier-color: var(--color-muted);">
-    <span class="rating-heat-bar-bubble"><%= bubble_text %></span>
-    <div class="rating-heat-bar-indicator"></div>
-  </div>
-<% elsif s %>
-  <div class="rating-heat-bar"
-       data-score="<%= s %>"
-       data-tier="<%= tier %>"
-       style="--score: <%= s %>; --tier-color: var(--color-rating-<%= tier %>);">
-    <span class="rating-heat-bar-bubble"><%= s %></span>
-    <div class="rating-heat-bar-indicator"></div>
-  </div>
+<% if s.nil? && !resyncing? %>
+  <span class="rating-heat-bar rating-heat-bar--muted"
+        data-tier="missing">
+    <span class="rating-heat-bar__track"><span class="rating-heat-bar__bracket">[</span><span class="rating-heat-bar__fill"><%= fill_text %></span><span class="rating-heat-bar__bracket">]</span></span>
+  </span>
 <% else %>
-  <div class="rating-heat-bar rating-heat-bar--muted"
-       data-tier="missing"></div>
+  <span class="rating-heat-bar"
+        data-score="<%= s %>"
+        data-tier="<%= tier %>"
+        data-resyncing="<%= resyncing? ? "yes" : "no" %>">
+    <span class="rating-heat-bar__track"><span class="rating-heat-bar__bracket">[</span><span class="rating-heat-bar__fill"><%= fill_text %></span><span class="rating-heat-bar__bracket">]</span></span>
+    <% if overlay? %>
+      <% pct = overlay_left_percent %>
+      <span class="rating-heat-bar__bubble" style="left: <%= pct %>%;"><span class="rating-heat-bar__bubble-num"><%= s %></span><span class="rating-heat-bar__bubble-arrow">&#9660;</span></span>
+      <span class="rating-heat-bar__tick" style="left: <%= pct %>%;">|</span>
+    <% end %>
+  </span>
 <% end %>

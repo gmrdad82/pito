@@ -11,11 +11,10 @@ require "rails_helper"
 #   * The dropped surfaces (UI/UX, Workspaces, Voyage.ai, install
 #     timezone) are absent.
 #
-# Theme keybind / localStorage behavior is a JS-only concern (the
-# Stimulus controller writes `pito-theme` on `t` press); rack_test
-# cannot drive that. The Stimulus controller has its own dedicated
-# spec coverage; here we assert the inline bootstrap script is in
-# place.
+# 2026-05-19 — the theme system was removed alongside the single-theme
+# cleanup; the inline bootstrap script + `pito-theme` localStorage key
+# no longer exist in the layout. Negative guards below assert their
+# absence.
 RSpec.describe "Settings refactor — system shell", type: :system do
   before { driven_by(:rack_test) }
 
@@ -97,13 +96,13 @@ RSpec.describe "Settings refactor — system shell", type: :system do
     expect(page.body).not_to include('name="settings[keyboard_navigation_enabled]"')
   end
 
-  it "renders the inline theme bootstrap script in the layout" do
+  it "does NOT render the dropped inline theme bootstrap script (removed 2026-05-19)" do
     visit settings_path
-    # The bootstrap script reads `pito-theme` from localStorage and
-    # sets `data-theme` on the root. We assert the script is present
-    # and references the localStorage key by literal.
-    expect(page.body).to include("localStorage.getItem")
-    expect(page.body).to include("pito-theme")
+    # The localStorage-driven `pito-theme` bootstrap and the `theme`
+    # Stimulus controller were removed alongside the single-theme
+    # cleanup. The layout now ships `<html data-theme="dark">` as a
+    # static literal; no script reads or writes the key.
+    expect(page.body).not_to include("pito-theme")
   end
 
   it "does NOT render the dropped data-theme-preference attribute on <html>" do

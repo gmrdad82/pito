@@ -44,7 +44,7 @@ RSpec.describe Api::TokenAuthenticator do
 
     it "returns failure with reason 'revoked_token' when the token is revoked" do
       record, plaintext = ApiToken.generate!(
-        user: user, name: "rv", scopes: [ Scopes::DEV ]
+        user: user, name: "rv", scopes: [ Scopes::APP ]
       )
       record.revoke!
 
@@ -56,7 +56,7 @@ RSpec.describe Api::TokenAuthenticator do
 
     it "returns failure with reason 'expired_token' when the token has expired" do
       _record, plaintext = ApiToken.generate!(
-        user: user, name: "ex", scopes: [ Scopes::DEV ],
+        user: user, name: "ex", scopes: [ Scopes::APP ],
         expires_at: 1.minute.ago
       )
 
@@ -68,7 +68,7 @@ RSpec.describe Api::TokenAuthenticator do
 
     it "returns success and the token on a valid, usable Bearer header" do
       record, plaintext = ApiToken.generate!(
-        user: user, name: "ok", scopes: [ Scopes::DEV ]
+        user: user, name: "ok", scopes: [ Scopes::APP ]
       )
 
       result = described_class.call(env_for(authorization: "Bearer #{plaintext}"))
@@ -79,7 +79,7 @@ RSpec.describe Api::TokenAuthenticator do
 
     it "updates last_used_at on the token on success" do
       record, plaintext = ApiToken.generate!(
-        user: user, name: "u", scopes: [ Scopes::DEV ]
+        user: user, name: "u", scopes: [ Scopes::APP ]
       )
 
       expect { described_class.call(env_for(authorization: "Bearer #{plaintext}")) }
@@ -99,7 +99,7 @@ RSpec.describe Api::TokenAuthenticator do
     it "does not set env['pito.auth_failed'] on success" do
       _record, plaintext = ApiToken.generate!(
         user: user, name: "success-no-flag",
-        scopes: [ Scopes::DEV ]
+        scopes: [ Scopes::APP ]
       )
 
       env = env_for(authorization: "Bearer #{plaintext}")
@@ -127,7 +127,7 @@ RSpec.describe Api::TokenAuthenticator do
 
       _record, plaintext = ApiToken.generate!(
         user: user, name: "audit",
-        scopes: [ Scopes::DEV ]
+        scopes: [ Scopes::APP ]
       )
 
       described_class.call(env_for(authorization: "Bearer #{plaintext}"))

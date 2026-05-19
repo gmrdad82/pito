@@ -12,3 +12,4 @@ en:
       subtitle: "best YouTube tool"
       version_label: "version"
       revision_label: "revision"
+      env_label: "env"

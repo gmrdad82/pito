@@ -157,9 +157,9 @@ module Igdb
       # the `[+]` add-from-IGDB modal and is almost always noise (IGDB
       # stubs, regional duplicates, draft entries). Filter at the
       # client boundary so every caller (GamesController#search,
-      # Games::SearchService, Search::Everywhere, Mcp::Tools::IgdbSearch)
-      # gets the same clean payload. `include_editions: true` callers
-      # bypass this — same discipline as `denoise_by_name`.
+      # Games::SearchService, Search::Everywhere) gets the same clean
+      # payload. `include_editions: true` callers bypass this — same
+      # discipline as `denoise_by_name`.
       denoise_by_name(reject_coverless(hits))
     end
 

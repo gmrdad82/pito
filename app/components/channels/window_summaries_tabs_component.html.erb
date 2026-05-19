@@ -1,0 +1,58 @@
+<%# Phase 37 Wave A (window-summaries A-slice, 2026-05-19) — V1 tab strip.
+    Inert this slice — no JS, no URL wiring. Default active = 28d.
+
+    Layout:
+      Recent activity
+      [ 7d ] [ 28d ] [ 3m ] [ 365d ] [ alltime ]        ← tab row, active bold
+      ───────────────────────────────────────────       ← hairline under tabs
+      ┌───────────────┬───────────────┬───────────────┐
+      │  subs Δ       │  views Δ      │  hours Δ      │
+      │  +18K         │  +3.5M        │  18.000h      │
+      └───────────────┴───────────────┴───────────────┘ %>
+<section class="channels-window-summaries channels-window-summaries--tabs">
+  <h3 style="font-size: 13px; font-weight: 700; margin: 0 0 6px 0;"><%= heading %></h3>
+
+  <%# Tab strip — 5 windows side by side. Active = bold + bracketed
+      label rendered statically (no link this slice). Inactive = muted
+      bracketed link to `?window=<value>` so the URL state visibly
+      toggles even though the controller doesn't yet read it (same UX
+      pattern the chip row uses). %>
+  <div class="channels-window-summaries__tabs"
+       style="display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline;">
+    <% windows.each do |window| %>
+      <% if active?(window) %>
+        <span class="channels-window-summaries__tab channels-window-summaries__tab--active"
+              style="font-weight: 700;">[ <%= window %> ]</span>
+      <% else %>
+        <span class="channels-window-summaries__tab"
+              style="color: var(--color-muted);">[ <%= window %> ]</span>
+      <% end %>
+    <% end %>
+  </div>
+
+  <hr class="hairline" style="margin: 6px 0;">
+
+  <%# Three stat cards in a row. Each card: small muted label on top,
+      compact-formatted value below in bold tabular-nums. Cards split
+      evenly with a thin hairline divider between them. %>
+  <div class="channels-window-summaries__stats"
+       style="display: flex; gap: 0; align-items: stretch;">
+    <div class="channels-window-summaries__stat"
+         style="flex: 1; padding: 8px 12px; display: flex; flex-direction: column; gap: 4px;">
+      <span style="color: var(--color-muted); font-size: 13px;">subs Δ</span>
+      <span style="font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums;"><%= subs_delta_formatted %></span>
+    </div>
+    <div style="border-left: 1px solid var(--color-border);"></div>
+    <div class="channels-window-summaries__stat"
+         style="flex: 1; padding: 8px 12px; display: flex; flex-direction: column; gap: 4px;">
+      <span style="color: var(--color-muted); font-size: 13px;">views Δ</span>
+      <span style="font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums;"><%= views_delta_formatted %></span>
+    </div>
+    <div style="border-left: 1px solid var(--color-border);"></div>
+    <div class="channels-window-summaries__stat"
+         style="flex: 1; padding: 8px 12px; display: flex; flex-direction: column; gap: 4px;">
+      <span style="color: var(--color-muted); font-size: 13px;">hours Δ</span>
+      <span style="font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums;"><%= watch_hours_delta_formatted %></span>
+    </div>
+  </div>
+</section>

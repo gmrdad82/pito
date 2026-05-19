@@ -43,10 +43,46 @@ class ChannelsController < ApplicationController
   # downstream surfaces don't regress on the layout-iteration phase.
   # See `docs/orchestration/handoff-2026-05-19-channels-and-live-updates.md`
   # §"Implementation plan" → Wave A1.
+  #
+  # Phase 37 Wave A2 — chip URL wiring + Basics totals plumbing.
+  #
+  # The HTML branch now READS the three filter params the chip row
+  # already toggles via `FilterChipComponent` (csv mode):
+  #
+  #   * `?channels=` — comma-separated channel ids. Drives which
+  #     `Channels::MockData.channels` entries land in `@channels` and,
+  #     transitively, in the ID-card shelf + the Basics row. Sentinel
+  #     handling per the spec:
+  #       - param missing entirely        → render ALL channels
+  #       - param present-but-empty (`?channels=`) → render ZERO
+  #         channels (user unchecked everything; matches the chip
+  #         visual state "0 of 6 checked")
+  #       - unknown id (e.g. `?channels=999`) → silently dropped
+  #   * `?windows=` — time-window selection (`7d`, `28d`, `3m`,
+  #     `365d`, `alltime`). Parsed and exposed as
+  #     `@selected_windows` for downstream waves; no render code
+  #     consumes it yet.
+  #   * `?calendar=` — year/month selection. Parsed and exposed as
+  #     `@selected_calendar` for downstream waves; no render code
+  #     consumes it yet.
+  #
+  # Spec: `docs/plans/beta/37-channels-revamp/specs/02-wave-a2-chip-wiring-basics.md`.
+  ALLOWED_WINDOW_VALUES = %w[7d 28d 3m 365d alltime].freeze
+
   def index
     respond_to do |format|
       format.html do
-        @channels = Channels::MockData.channels
+        @selected_windows = parse_csv_filter_param(params[:windows])
+          &.select { |v| ALLOWED_WINDOW_VALUES.include?(v) } || []
+        @selected_calendar = parse_csv_filter_param(params[:calendar]) || []
+
+        selected_channel_ids = parse_csv_filter_param(params[:channels])
+        all_channels = Channels::MockData.channels
+        @channels = if selected_channel_ids.nil?
+          all_channels
+        else
+          all_channels.select { |c| selected_channel_ids.include?(c[:id].to_s) }
+        end
       end
       format.json do
         records = Channel.all.order(sort_clause)
@@ -188,6 +224,20 @@ class ChannelsController < ApplicationController
   end
 
   private
+
+  # Phase 37 Wave A2 — shared CSV filter param parser for `?channels=`,
+  # `?windows=`, `?calendar=`.
+  #
+  # Returns `nil` for missing params (sentinel: "no filter applied,
+  # render default"). Returns an Array<String> otherwise — empty array
+  # for present-but-empty (`?channels=`), populated array for csv
+  # values. The two states differ so `?channels=` can render zero
+  # cards instead of falling back to "render all".
+  def parse_csv_filter_param(raw)
+    return nil if raw.nil?
+
+    raw.to_s.split(",").map(&:strip).reject(&:blank?)
+  end
 
   def max_panes
     # Phase 29 (settings refactor) — read from `config/pito.yml` via

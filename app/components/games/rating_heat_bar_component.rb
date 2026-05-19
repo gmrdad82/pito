@@ -1,27 +1,33 @@
 # Wave C5 (2026-05-17) — Synthesized rating heat-bar.
-# 2026-05-17 refresh — true heat-bar (gradient + indicator).
-# 2026-05-17 final lock — single canonical variant. The two-variant
-# compare (`:red_only` / `:very_bad`) was used as a pick-off and is
-# now collapsed back to a single render. The bar uses a three-zone
-# pattern:
+# 2026-05-19 v4 refactor — TEXT BAR with CONTINUOUS gradient + absolute-
+# positioned tick overlay + absolute-positioned score bubble.
 #
-#   0-25%   solid `--color-rating-very-bad` (dark muddy red)
-#   25-50%  solid `--color-rating-bad` (bright red), hard edge at 25
-#   50-90%  smooth gradient through poor → meh → fair → good →
-#           excellent (transition zone)
-#   90-100% solid `--color-rating-excellent` (green), hard edge at 90
+# Visual model:
 #
-# The hard edges at 25, 50, and 90 are achieved with zero-distance
-# stops (same percentage repeated) in the `linear-gradient`. The two
-# end zones do not gradient at all — they read as solid blocks so
-# the visual rule lands unambiguously: red = bad, green = gold,
-# transition zone = in-between.
+#       87
+#        v
+#   [============|=========]
 #
-# 2026-05-17 AR carve-out — user approved red (`--color-rating-bad`)
-# as the BAD-zone color stop for the rating quality spectrum AND a
-# darker tone (`--color-rating-very-bad`, dark muddy red) as the
-# worst-of-worst stop for scores below 25. See design.md + CLAUDE.md
-# for the scoped exception to the global "red = destructive only" rule.
+# Where:
+#   - `[` and `]` are literal bracket characters (theme-text color).
+#   - The full run of `=` characters between the brackets is ONE
+#     continuous string. The full red→green gradient paints onto every
+#     `=` glyph in a single pass via `background-clip: text;
+#     color: transparent;` — no per-segment splits, no tick inserted
+#     mid-string. Continuity of the underlying bar is preserved.
+#   - When a score is present a single `|` tick is rendered as an
+#     ABSOLUTE OVERLAY on top of the bar at `left: <score>%`. The tick
+#     uses `var(--color-text)` so it remains visible regardless of
+#     which gradient stop it lands on.
+#   - The numeric score floats above the tick as a small bubble label,
+#     also absolutely positioned at `left: <score>%`. A tiny pointer
+#     glyph (`▼`) connects the bubble to the tick.
+#   - With `score: nil` (or while resyncing) the bar still renders at
+#     reduced opacity but the tick + bubble are omitted.
+#
+# AR carve-out (2026-05-17) — red (`--color-rating-bad`) is the BAD-zone
+# color stop for the rating quality spectrum (per design.md + CLAUDE.md
+# scoped exception).
 #
 # The score is the vote-weighted average of the three IGDB rating
 # triplets carried on `Game`:
@@ -30,25 +36,18 @@
 #   - `aggregated_rating` + `aggregated_rating_count`
 #   - `total_rating`      + `total_rating_count`
 #
-# Formula (LOCKED — spec 08 §"Rating heat-bar synthesis"):
-#
-#   contributions = each (score, count) pair where both are present
-#                    and count > 0
-#   score = round( sum(score * count) / sum(count) )
-#
 # Returns `nil` when no source contributes. A nil score renders the
-# muted variant of the bar (`rating-heat-bar--muted`, no indicator)
-# so the visual slot is preserved.
-#
-# Score override — pass `score:` directly to bypass the game-derived
-# computation. Useful for tests / fixtures.
+# muted variant (continuous `=` cells, dimmed, no tick, no bubble).
 module Games
   class RatingHeatBarComponent < ViewComponent::Base
-    # Tier thresholds shared with `Games::RatingBadgeComponent`. Inclusive
-    # lower bound → tier slug. The slug feeds the `--color-rating-<slug>`
-    # CSS variable. Scores below 25 fall through to `very_bad` (dark muddy
-    # red); scores 25–49 resolve to `bad` (red — allowed here by the AR
-    # carve-out; see header comment + design.md).
+    # Cell count of the continuous `=` run between the brackets. 60
+    # cells × ~7-8px monospace ≈ 420-480px which comfortably fills the
+    # /games/:id left pane. The container has `width: 100%` and
+    # `overflow: hidden` so on narrower viewports the right edge clips
+    # gracefully against the closing bracket.
+    BAR_CELLS = 60
+
+    # Tier thresholds shared with `Games::RatingBadgeComponent`.
     TIERS = [
       [ 90, "excellent" ],
       [ 80, "good"      ],
@@ -63,21 +62,12 @@ module Games
       @override = score
     end
 
-    # Returns the score this bar renders. When `score:` was passed in
-    # (override) it wins; otherwise we compute from the game's IGDB
-    # rating triplets.
     def score
       return @override if @override
 
       self.class.synthesized_score(@game)
     end
 
-    # Class-method form (2026-05-18) — vote-weighted average across the
-    # three IGDB rating triplets carried on `Game`. Returns an integer
-    # in `0..100` when at least one source has votes; nil otherwise.
-    # Exposed at the class level so sibling components
-    # (e.g. `Games::RatingScoreChipComponent`) can compute the same
-    # canonical synthesized score without instantiating a heat-bar.
     def self.synthesized_score(game)
       return nil unless game
 
@@ -94,18 +84,10 @@ module Games
       numerator.fdiv(denominator).round
     end
 
-    # Instance-form preserved for backwards compatibility with the
-    # existing template / specs that call `synthesized_score` directly
-    # on the heat-bar instance.
     def synthesized_score
       self.class.synthesized_score(@game)
     end
 
-    # Class-method form (2026-05-18) — tier slug for an arbitrary
-    # numeric score (or nil). Scores below 25 resolve to `very_bad`
-    # (dark muddy red) per the AR carve-out. Exposed at the class
-    # level so sibling components can pick the same tier without
-    # constructing a heat-bar instance.
     def self.tier_for(s)
       return "missing" if s.nil?
 
@@ -115,7 +97,6 @@ module Games
       "very_bad"
     end
 
-    # Instance-form preserved for backwards compatibility.
     def tier_for(s)
       self.class.tier_for(s)
     end
@@ -124,44 +105,29 @@ module Games
       self.class.tier_for(score)
     end
 
-    # Wave C reveal — true while the upstream game is mid-resync. The
-    # template branches on this to:
-    #
-    #   - paint the bubble text as an em-dash (`—`) instead of the
-    #     numeric score
-    #   - drive `--score: 0` so the indicator tick and the bubble both
-    #     park at the bar's left edge
-    #
-    # When the Turbo morph fires on sync complete the rendered DOM
-    # carries the real `--score` value; the CSS `transition: left
-    # 600ms ease-in-out` rule on `.rating-heat-bar-indicator` /
-    # `.rating-heat-bar-bubble` animates the tick + bubble from left:0
-    # to their final positions. The bar's gradient is fixed (not
-    # adaptive), so no crossfade layer is needed here — only the
-    # indicator / bubble motion. Falls back to false when no game is
-    # attached (preview / spec contexts).
     def resyncing?
       @game&.resyncing? == true
     end
 
-    # Wave C reveal — bubble text. Em-dash while `resyncing?` (matches
-    # the convention used by the meta-table sync row); the rendered
-    # numeric score otherwise.
-    def bubble_text
-      return I18n.t("common.em_dash") if resyncing?
-
-      score
+    # Returns true when a tick + bubble overlay should be rendered. The
+    # bar is always drawn; only the overlay is conditional.
+    def overlay?
+      !resyncing? && !score.nil?
     end
 
-    # Wave C reveal — `--score` CSS variable value. 0 while `resyncing?`
-    # so the indicator and bubble park at the bar's left edge; the real
-    # score otherwise. The bubble + tick `left:` rules both read this
-    # variable via `calc(var(--score) * 1%)`, so a single inline value
-    # drives both.
-    def score_var
-      return 0 if resyncing?
+    # The `left:` percentage for the tick + bubble overlays. Clamped to
+    # the visible range so a hypothetical score outside 0..100 still
+    # parks the overlay on the bar.
+    def overlay_left_percent
+      return nil if score.nil?
 
-      score
+      score.to_f.clamp(0.0, 100.0)
+    end
+
+    # Pre-built `=` run for the template. One continuous string — no
+    # tick inserted mid-flow.
+    def fill_text
+      "=" * BAR_CELLS
     end
   end
 end

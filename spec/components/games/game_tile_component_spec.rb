@@ -6,8 +6,8 @@ require "rails_helper"
 # now the canonical rendering surface for `/games` (grid + letter
 # shelves) and `/bundles/:id` (grid). Coverage focus:
 #
-#   * Cover render path (IGDB `t_cover_big` when present, theme-aware
-#     SVG fallback when absent).
+#   * Cover render path (IGDB `t_cover_big` when present, single-dark
+#     SVG fallback when absent — theme system removed 2026-05-19).
 #   * Variant typography (caption font sizes; `data-variant` data-attr).
 #   * Platform chip overlay (`tile_chip_slugs` walk + slugs rendered
 #     via `Platforms::ChipComponent`).
@@ -108,8 +108,10 @@ RSpec.describe Games::GameTileComponent, type: :component do
   end
 
   # ----------------------------------------------------------------
-  # Cover rendering — IGDB url when cover_image_id, theme-aware
-  # fallback otherwise.
+  # Cover rendering — IGDB url when cover_image_id, single-dark
+  # fallback otherwise. The theme system was removed 2026-05-19;
+  # pito ships a single (dark) palette and only the dark fallback
+  # asset is referenced.
   # ----------------------------------------------------------------
 
   describe "happy: game with cover_image_id" do
@@ -130,7 +132,7 @@ RSpec.describe Games::GameTileComponent, type: :component do
       expect(img["loading"]).to eq("lazy")
     end
 
-    it "does NOT emit the theme-aware SVG fallback" do
+    it "does NOT emit the SVG fallback" do
       expect(page).to have_no_css("img.game-cover-fallback")
     end
   end
@@ -147,17 +149,29 @@ RSpec.describe Games::GameTileComponent, type: :component do
       expect(page.native.to_html).not_to include("images.igdb.com")
     end
 
-    it "emits both theme-variant fallback SVGs" do
-      expect(page).to have_css("img.game-cover-fallback--light", count: 1)
-      expect(page).to have_css("img.game-cover-fallback--dark", count: 1)
+    it "emits exactly one single-dark fallback SVG" do
+      expect(page).to have_css("img.game-cover-fallback", count: 1)
     end
 
-    it "tags fallback images with data-theme" do
-      expect(page).to have_css('img[data-theme="light"]')
-      expect(page).to have_css('img[data-theme="dark"]')
+    it "references the _dark fallback asset" do
+      img = page.find("img.game-cover-fallback")
+      expect(img["src"]).to match(%r{game_cover_fallback_grid_dark(-[a-f0-9]+)?\.svg})
     end
 
-    it "lazy-loads the fallback images" do
+    it "does NOT emit the dropped theme-variant fallback classes" do
+      expect(page).to have_no_css("img.game-cover-fallback--light")
+      expect(page).to have_no_css("img.game-cover-fallback--dark")
+    end
+
+    it "does NOT emit data-theme on the fallback image (theme system removed)" do
+      expect(page).to have_no_css('img.game-cover-fallback[data-theme]')
+    end
+
+    it "does NOT reference a _light.svg fallback asset" do
+      expect(page.native.to_html).not_to match(/game_cover_fallback_[a-z]+_light/)
+    end
+
+    it "lazy-loads the fallback image" do
       page.all("img.game-cover-fallback").each do |img|
         expect(img["loading"]).to eq("lazy")
       end

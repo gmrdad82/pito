@@ -59,12 +59,36 @@ namespace :pito do
            "for progress."
     end
 
+    # Phase 35 (2026-05-19) — Channel backfill. Mirrors
+    # `reindex_games` / `reindex_bundles` for the Channel half of the
+    # Voyage corpus. No filter on `Channel.summary_embedding` — every
+    # channel goes through the indexer; the indexer itself no-ops on
+    # blank composite text (rows before the first YouTube sync land
+    # populates title / description / keywords).
+    desc "Re-enqueue Voyage embedding for every Channel. Async — " \
+         "returns once jobs are enqueued."
+    task reindex_channels: :environment do
+      total = Channel.count
+      enqueued = 0
+
+      Channel.find_each do |channel|
+        ChannelVoyageIndexJob.perform_later(channel.id)
+        enqueued += 1
+      end
+
+      puts "enqueued #{enqueued} ChannelVoyageIndexJob#{'s' unless enqueued == 1} " \
+           "(of #{total} channels). Watch Sidekiq's :search queue " \
+           "for progress."
+    end
+
     # Phase 34 (2026-05-18) — full-corpus backfill convenience. Runs
-    # both `reindex_games` and `reindex_bundles` in one shot so a
-    # single operator command refreshes the entire unified `/games`
-    # Meilisearch index.
+    # `reindex_games`, `reindex_bundles`, and `reindex_channels` in
+    # one shot so a single operator command refreshes the entire
+    # Voyage embedding corpus (Games + Bundles power the unified
+    # `/games` Meilisearch index; Channels power the pgvector
+    # neighbor lookups via `has_neighbors :summary_embedding`).
     desc "Re-enqueue Voyage embedding + Meilisearch indexing for every " \
-         "Game + Bundle (unified /games corpus). Async."
-    task reindex_all: %i[reindex_games reindex_bundles]
+         "Game + Bundle + Channel. Async."
+    task reindex_all: %i[reindex_games reindex_bundles reindex_channels]
   end
 end
