@@ -37,7 +37,7 @@
             <td><%= number_with_delimiter(diff.fields.size) %></td>
             <td><%= compact_time_ago(diff.detected_at) %></td>
             <td>
-              <%= link_to "[ view diff ]", diff_video_path(v), class: "bracketed" %>
+              <%= link_to "[view diff]", diff_video_path(v), class: "bracketed" %>
             </td>
           </tr>
         <% end %>
@@ -47,10 +47,10 @@
     <% if @total_pages > 1 %>
       <p style="margin-top: 12px;">
         <% if @page > 1 %>
-          <%= link_to "[ prev ]", diffs_videos_path(page: @page - 1), class: "bracketed" %>
+          <%= link_to "[prev]", diffs_videos_path(page: @page - 1), class: "bracketed" %>
         <% end %>
         <% if @page < @total_pages %>
-          <%= link_to "[ next ]", diffs_videos_path(page: @page + 1), class: "bracketed" %>
+          <%= link_to "[next]", diffs_videos_path(page: @page + 1), class: "bracketed" %>
         <% end %>
       </p>
     <% end %>

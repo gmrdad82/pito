@@ -46,6 +46,6 @@ class Channels::TopContentListComponent < ViewComponent::Base
   # land in Wave B. 16:9 aspect ratio so the placeholder matches the
   # eventual YouTube thumbnail shape.
   def thumbnail_box_style
-    "width: 80px; height: 45px; flex-shrink: 0; background: var(--color-channel-id-card-bg); border: 1px solid var(--color-border); border-radius: 2px;"
+    "width: 80px; height: 45px; flex-shrink: 0; border: 1px solid var(--color-border); border-radius: 2px;"
   end
 end

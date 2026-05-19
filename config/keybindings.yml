@@ -56,14 +56,25 @@ leader:
 # flat-key surface).
 flat:
   items:
-    # Phase 37 (2026-05-19) — `/` flat-key now opens the new
-    # layout-mounted everywhere modal (games + bundles + channels) on
-    # every page. The legacy games-search modal at
-    # `omnisearch-modal-games-search` (mounted only on `/games`) is
-    # unchanged; it stays reachable via the `/` entry under
-    # `page_actions.games_index` for the games page itself.
+    # Phase 37 (2026-05-19) — `/` flat-key is context-aware: it opens
+    # the section-specific Omnisearch modal when the current page has
+    # one, and falls back to the layout-mounted everywhere modal
+    # otherwise. The section→modal-id map is resolved at runtime by
+    # `flat_key_controller.js#openSectionModalOrFallback` against
+    # `document.body.dataset.section` (set by ApplicationHelper#current_section).
+    # Current map:
+    #   games    -> omnisearch-modal-games-search   (local games + bundles + IGDB)
+    #   channels -> (no section omnisearch yet)     -> fallback
+    #   settings -> (no section omnisearch)         -> fallback
+    #   home     -> (no section omnisearch)         -> fallback
+    # The fallback is always `omnisearch-modal-everywhere` (games +
+    # bundles + channels), mounted in `application.html.erb`.
+    # `SPACE /` keeps working identically — it dispatches through the
+    # leader popup's `page_actions.games_index` / `bundles_show` /
+    # `default` rows, which target the section modal explicitly.
     - { key: "/", label_i18n: keybindings.flat.search,
-        action: { type: open_modal, modal_id: omnisearch-modal-everywhere } }
+        action: { type: open_section_modal_or_fallback,
+                  fallback_modal_id: omnisearch-modal-everywhere } }
     - { key: "?", label_i18n: keybindings.flat.about,
         action: { type: open_modal, modal_id: about-modal } }
     - { key: g,   label_i18n: keybindings.flat.global_prefix,

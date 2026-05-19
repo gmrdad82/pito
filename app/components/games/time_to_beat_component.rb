@@ -1,43 +1,38 @@
-# 2026-05-19 v3 refactor — TEXT BAR with full-width gradient + four
-# `|` ticks (footage + main + extras + completionist).
+# 2026-05-19 v4 refactor — RHM-V5-shaped text bar.
 #
-# Bar shape (BAR_CELLS = 40):
+# Bar shape (flexbox `__track` like RHM-V5):
 #
-#   [=======|==|==========|=================|]
+#   [ ──────────────────────────────────────── ]
+#    │     │            │                    │
+#    main  extras   completionist          footage
 #
 # Where:
-#   - `[` / `]` are bracket characters (theme-text color).
-#   - The `=` characters fill EVERY cell between the brackets — the bar
-#     shape is ALWAYS `[===…===]`. The cool-spectrum gradient
-#     (green → lime → amber → pink) is painted on the `=` glyphs via
-#     `background-clip: text; color: transparent;` on the `__fill`
-#     spans.
-#   - Four `|` ticks mark the positions of:
-#       1. `footage_hours` — the user's recorded footage
-#       2. main           — TTB main-story estimate
-#       3. extras         — TTB main + extras estimate
-#       4. completionist  — TTB completionist estimate
-#     Each tick replaces one `=` at index `(value / max_x * N).round`.
-#   - Ticks render in `var(--color-text)` (non-gradient) so the marker
-#     stays visible regardless of which gradient stop it falls on.
+#   - `[` and `]` are bracket characters with `flex: 0 0 auto` so they
+#     snap to the parent container's left/right edges.
+#   - The fill (run of `─` glyphs) uses `flex: 1 1 auto` + `overflow:
+#     hidden` so it expands to fill the available width regardless of
+#     viewport.
+#   - The fill carries a continuous Dracula ramp Green → Cyan → Yellow
+#     → Pink via `background-clip: text; color: transparent;` on the
+#     `__fill` span — coherent with the 4 Dracula tick colors below.
+#   - Four `|` ticks (main, extras, completionist, footage) are
+#     **absolutely positioned** over the bar at `left: <position>%`
+#     with `transform: translateX(-50%)`. Each tick paints in its
+#     category token color (`--color-ttb-main` / `--color-ttb-extras`
+#     / `--color-ttb-completionist` / `--color-ttb-footage`).
 #
-# When two ticks land in the same cell, only one `|` is rendered there
-# (the cell can only show one character). Pillar bottom labels keep the
-# existing collision-nudge logic so the hour labels read clearly.
-#
-# The score-bubble, watermark, footage label, legend swatches, and
-# below-bar pillar-hour labels are retained as row-level renderings
-# around the text bar.
+# Rows around the bar (footage value above, pillar hour labels below,
+# legend) retain their absolute-percent positioning model so they
+# align with the same conceptual 0..100 axis as the ticks.
 module Games
   class TimeToBeatComponent < ViewComponent::Base
     SAMPLE_HOURS = { main: 31, extras: 71, completionist: 124 }.freeze
 
     PILLAR_KEYS = %i[main extras completionist].freeze
 
-    # Total cell count of the bar. Locked at 40 for monospace density
-    # at the /games/:id pane width — wider than the rating heat bar's
-    # 20 cells so the four ticks have room to separate.
-    BAR_CELLS = 40
+    # Bottom-label collision model (kept verbatim from v3).
+    BOTTOM_LABEL_COLLISION_THRESHOLD_PCT = 10.0
+    NUDGE_PCT = 1.3
 
     def self.pillar_label
       {
@@ -86,58 +81,6 @@ module Games
       ((value.to_f / max_x) * 100).clamp(0.0, 100.0).round(3)
     end
 
-    # ------------------------------------------------------------------
-    # Text-bar cell modeling.
-    # ------------------------------------------------------------------
-
-    # Cell index for a single tick value (hours). Returns the integer
-    # cell whose left edge contains the value's projected percentage.
-    # Clamped to [0, BAR_CELLS - 1]. Returns nil for non-positive values
-    # so we don't drop a tick on cell 0 when the data is missing.
-    def tick_index_for(value)
-      h = value.to_i
-      return nil unless h.positive?
-
-      pct = position(h)
-      idx = ((pct / 100.0) * BAR_CELLS).round
-      idx.clamp(0, BAR_CELLS - 1)
-    end
-
-    # Cell indices currently occupied by a tick. Resyncing renders no
-    # ticks (the bar reads as a flat gradient). The footage tick is
-    # included alongside the three pillar ticks. Multiple ticks landing
-    # on the same cell collapse to one `|`.
-    def tick_cell_indices
-      return [].to_set if resyncing?
-
-      candidates = PILLAR_KEYS.map { |key| tick_index_for(hours[key]) }
-      candidates << tick_index_for(footage_hours)
-      candidates.compact.to_set
-    end
-
-    # Returns an array of `{ kind:, text: }` groups for rendering.
-    # Adjacent cells of the same kind are merged so the gradient on
-    # the `:fill` spans paints as a continuous strip.
-    #
-    # Every cell is either `:fill` (gradient `=`) or `:tick` (theme-text
-    # `|`). No `:space` cells in v3 — the bar shape is always
-    # `[===…===]` with ticks overriding individual cells.
-    def cell_groups
-      ticks = tick_cell_indices
-
-      cells = (0...BAR_CELLS).map do |i|
-        if ticks.include?(i)
-          { kind: :tick, char: "|" }
-        else
-          { kind: :fill, char: "=" }
-        end
-      end
-
-      cells.chunk_while { |a, b| a[:kind] == b[:kind] }.map do |group|
-        { kind: group.first[:kind], text: group.map { |c| c[:char] }.join }
-      end
-    end
-
     def label_for(key)
       h = hours[key].to_i
       return I18n.t("common.em_dash") unless h.positive?
@@ -146,7 +89,10 @@ module Games
     end
 
     def footage_value_label
-      I18n.t("games.ttb.hours_short", n: footage_hours)
+      h = footage_hours.to_i
+      return I18n.t("common.em_dash") unless h.positive?
+
+      I18n.t("games.ttb.hours_short", n: h)
     end
 
     def footage_caption
@@ -157,13 +103,44 @@ module Games
       true
     end
 
-    # Below-bar pillar label data. The pillar label sits at the same
-    # percent-along-the-bar as its tick character. Uses the existing
-    # collision-resolution model (pull-apart) so labels at the bar's
-    # left edge for main/extras don't overlap. `nudge` shifts each
-    # colliding label outward by NUDGE_PCT.
-    BOTTOM_LABEL_COLLISION_THRESHOLD_PCT = 10.0
-    NUDGE_PCT = 1.3
+    # Tick overlay data — one entry per category for the absolutely-
+    # positioned `|` overlays. Each tick carries its CSS color-token
+    # class so the template can paint it without per-template branches.
+    # Ticks are suppressed while the game is resyncing; the bar
+    # collapses to a flat gradient with no markers in that state.
+    TICK_TOKEN_CLASS = {
+      main:          "ttb-fuel-gauge__tick--main",
+      extras:        "ttb-fuel-gauge__tick--extras",
+      completionist: "ttb-fuel-gauge__tick--completionist",
+      footage:       "ttb-fuel-gauge__tick--footage"
+    }.freeze
+
+    def tick_overlays
+      return [] if resyncing?
+
+      pillar_ticks = PILLAR_KEYS.map do |key|
+        h = hours[key].to_i
+        {
+          key:         key,
+          position:    position(h),
+          token_class: TICK_TOKEN_CLASS[key]
+        }
+      end
+
+      # 2026-05-20 — Always render the footage tick regardless of
+      # measured hours. Missing data emits an em-dash bubble via
+      # `footage_value_label` and positions at 0% (left edge); mirrors
+      # the always-render policy applied to the 3 pillar ticks/labels.
+      if render_footage_tick?
+        pillar_ticks << {
+          key:         :footage,
+          position:    position(footage_hours),
+          token_class: TICK_TOKEN_CLASS[:footage]
+        }
+      end
+
+      pillar_ticks
+    end
 
     def label_alignment_class(position_pct)
       pct = position_pct.to_f
@@ -202,6 +179,10 @@ module Games
         end
       end
 
+      # 2026-05-20 — Always render all 3 pillar labels regardless of
+      # measured hours. Missing data emits an em-dash label via
+      # `label_for(key)` and positions at 0% (left edge); the tick is
+      # likewise always rendered by `tick_overlays`.
       ordered = PILLAR_KEYS.map do |key|
         h = hours[key].to_i
         {
@@ -238,6 +219,45 @@ module Games
       return 0.0 if resyncing?
 
       position(footage_hours)
+    end
+
+    # 2026-05-20 v4 — 14-stop hard-band gradient break positions.
+    # Returns the six CSS percent strings (`p1`..`p6`) marking band
+    # boundaries inside the three pillar segments on
+    # `.ttb-fuel-gauge__fill`:
+    #
+    #   Main segment       (0 → p2)   : excellent (0..p1) / good (p1..p2)
+    #   Extras segment     (p2 → p4)  : fair      (p2..p3) / meh  (p3..p4)
+    #   Completionist seg. (p4 → 100) : poor (p4..p5) / bad (p5..p6) /
+    #                                   very-bad (p6..100)
+    #
+    # Where:
+    #   p2 = main_p, p4 = extras_p (from per-game pillar positions),
+    #   p1 = mid of main segment, p3 = mid of extras segment,
+    #   p5 = 1/3 into completionist, p6 = 2/3 into completionist.
+    #
+    # Used by the template to inject the values as inline CSS custom
+    # properties (`--ttb-p1`..`--ttb-p6`) on the `__fill` element.
+    #
+    # Returns `nil` during resyncing — the stub layer renders flat
+    # with even fallback distribution from the CSS defaults.
+    def gradient_break_positions
+      return nil if resyncing?
+
+      main_p   = position(hours[:main].to_i)
+      extras_p = position(hours[:extras].to_i)
+
+      half_extras = (extras_p - main_p) / 2.0
+      comp_third  = (100 - extras_p) / 3.0
+
+      {
+        p1: format("%.2f%%", main_p / 2.0),
+        p2: format("%.2f%%", main_p),
+        p3: format("%.2f%%", main_p + half_extras),
+        p4: format("%.2f%%", extras_p),
+        p5: format("%.2f%%", extras_p + comp_third),
+        p6: format("%.2f%%", extras_p + 2 * comp_third)
+      }
     end
 
     private

@@ -23,6 +23,26 @@
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
 
+    <%# 2026-05-20 — section-accent meta tag. The `<body data-section>`
+        attribute below is the canonical signal for the Dracula section-
+        variant accent CSS cascade, but Turbo Drive replaces body
+        CONTENT on navigation without re-applying body element
+        ATTRIBUTES — meaning `data-section` stayed at the first
+        page's value across all subsequent Turbo navigations. Same
+        head-merge rationale as `pito-enroll-totp-gate` and the
+        keybindings JSON: Turbo's `mergeProvisionalElements` diffs
+        head children and swaps mismatched meta tags, so this tag's
+        `content` reliably reflects the freshly-loaded page. A tiny
+        JS shim in `application.js` listens for `turbo:load` /
+        `turbo:render` / `DOMContentLoaded` and copies the meta
+        value to `document.body.dataset.section` after each
+        navigation. The server-side `<body data-section="...">`
+        below is preserved so the initial paint still carries the
+        correct accent before any JS runs. The `pito:` prefix
+        avoids collision with any HTML standard `<meta name="section">`
+        semantic. %>
+    <meta name="pito:section" content="<%= current_section %>">
+
     <%# 2026-05-16 — mandatory-2FA gate signal for global keydown
         controllers. When an authenticated user is in the
         `!totp_configured?` state, the enrollment modal auto-opens on

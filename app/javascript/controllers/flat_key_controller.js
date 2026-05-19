@@ -13,7 +13,7 @@ function enrollTotpGateActive() {
 // Flat-key (leader-less) entry-point controller. Reads the `flat:`
 // block of the unified keybindings schema embedded in
 // `<script id="pito-keybindings">`, listens for keydown at document
-// level, and dispatches the matching action verbatim. Two action
+// level, and dispatches the matching action verbatim. Three action
 // types are supported:
 //
 //   open_modal { modal_id: <dom-id> }
@@ -22,6 +22,18 @@ function enrollTotpGateActive() {
 //     omnisearch modal exposes `open()` so state is reset + input
 //     focused); falls back to a bare `.showModal()` so any future
 //     consumer that mounts a plain dialog still works.
+//
+//   open_section_modal_or_fallback { fallback_modal_id: <dom-id> }
+//     Resolves the section→modal-id map at runtime against
+//     `document.body.dataset.section` (set by
+//     ApplicationHelper#current_section). If the current section has
+//     a section-specific Omnisearch modal AND it's mounted on the
+//     page, open it; otherwise open `fallback_modal_id`. The map is
+//     intentionally hardcoded in JS (not config-driven) because
+//     sections gain / lose section-specific modals over time as
+//     features land. Today only `games` maps to a section modal;
+//     `channels`, `settings`, and `home` fall through to the
+//     fallback.
 //
 //   open_leader_with_prefix { prefix: <string> }
 //     Dispatches a `flat-key:open-leader-with-prefix` CustomEvent on
@@ -135,8 +147,8 @@ export default class extends Controller {
   // Dispatch the matched binding's action. Each branch is the flat
   // surface's equivalent of the leader controller's `fireAction`
   // pipeline — no CustomEvent fallback here because the flat block
-  // ships exactly two action types today and any future type lives
-  // in the YAML alongside an explicit handler.
+  // ships a small fixed set of action types today and any future
+  // type lives in the YAML alongside an explicit handler.
   fire(item) {
     const action = item.action
     if (!action || !action.type) return
@@ -145,10 +157,50 @@ export default class extends Controller {
       this.openModal(action.modal_id)
       return
     }
+    if (action.type === "open_section_modal_or_fallback" && action.fallback_modal_id) {
+      this.openSectionModalOrFallback(action.fallback_modal_id)
+      return
+    }
     if (action.type === "open_leader_with_prefix" && action.prefix) {
       this.openLeaderWithPrefix(action.prefix)
       return
     }
+  }
+
+  // Section → section-specific Omnisearch modal-id map. Resolved at
+  // runtime against `document.body.dataset.section` (set by
+  // ApplicationHelper#current_section). When the current section has
+  // an entry AND the matching dialog is mounted on the page, the
+  // section modal is opened. Otherwise the fallback modal is opened.
+  //
+  // Today only `games` has a section modal — `omnisearch-modal-games-search`
+  // (local games + bundles + IGDB), mounted at the bottom of
+  // `app/views/games/index.html.erb`. Other sections (`channels`,
+  // `settings`, `home`) have no section-specific surface and pass
+  // through to the layout-mounted everywhere modal.
+  //
+  // To add a section-specific modal in the future:
+  //   1. Mount `<dialog id="omnisearch-modal-<section>">` on that
+  //      section's view (or in a partial reachable from it).
+  //   2. Add an entry below mapping the section name to the dialog id.
+  // No keybindings.yml change required.
+  get sectionModalMap() {
+    return {
+      games: "omnisearch-modal-games-search"
+    }
+  }
+
+  openSectionModalOrFallback(fallbackModalId) {
+    const section = document.body.dataset.section || ""
+    const sectionModalId = this.sectionModalMap[section]
+    if (sectionModalId) {
+      const sectionDlg = document.getElementById(sectionModalId)
+      if (sectionDlg) {
+        this.openModal(sectionModalId)
+        return
+      }
+    }
+    this.openModal(fallbackModalId)
   }
 
   // Locate the `<dialog id=action.modal_id>` and open it. Prefers the

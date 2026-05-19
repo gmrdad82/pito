@@ -77,11 +77,12 @@ class ViewerTimeHeatmapComponent < ViewComponent::Base
 
   # CSS rgba string for the cell. Link-blue (#0000cc) with alpha
   # proportional to the cell's normalized intensity. The "no data"
-  # baseline reuses the pane background so empty cells blend in.
+  # baseline reuses the body bg-tint so empty cells blend into the
+  # surrounding surface (pane backgrounds were dropped 2026-05-20).
   def background_for(dow, hod)
     intensity = intensity_at(dow, hod)
     if intensity.zero?
-      "var(--color-pane-bg-a, #fafafa)"
+      "var(--color-bg-tint, #fafafa)"
     else
       "rgba(0, 0, 204, #{intensity.round(4)})"
     end

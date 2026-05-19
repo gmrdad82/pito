@@ -166,12 +166,13 @@
       chartkick coupling on the show page).
 
       2026-05-11 (later) — each pane uses the plain `.pane` class
-      (NOT `.pane--standalone`) so the workspace zebra rhythm kicks
-      in: odd → `--color-pane-bg-a`, even → `--color-pane-bg-b`.
-      The two adjacent siblings render with alternating backgrounds,
-      matching the /settings layout. The detail pane in row 1
-      keeps `pane--standalone` because it stands alone (single
-      pane spanning the row). %>
+      (NOT `.pane--standalone`) so the workspace's vertical hairline
+      kicks in between the two adjacent siblings. The detail pane in
+      row 1 keeps `pane--standalone` because it stands alone (single
+      pane spanning the row). (Pane backgrounds were dropped
+      2026-05-20; the previous `--color-pane-bg-a/b` zebra rhythm
+      is gone — adjacent panes are now separated by a single
+      hairline.) %>
   <div class="pane-row">
     <div class="pane">
       <h2 style="margin: 0 0 8px 0;">analytics</h2>
