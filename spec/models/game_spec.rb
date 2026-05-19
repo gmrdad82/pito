@@ -520,7 +520,10 @@ RSpec.describe Game, type: :model do
 
     it "returns the bundles it is a member of" do
       game = create(:game)
-      bundle = create(:bundle, bundle_type: :custom)
+      # Phase 27 follow-up (2026-05-17) — Bundle simplification dropped
+      # `bundle_type` along with the :custom / :series / :collection /
+      # :genre traits. A bundle is just a `name` now.
+      bundle = create(:bundle)
       bundle.bundle_members.create!(game: game)
       expect(game.reload.bundles).to include(bundle)
     end
@@ -589,9 +592,23 @@ RSpec.describe Game, type: :model do
       it "captures the pre-destroy bundles and enqueues a destroy chain" do
         b1.bundle_members.create!(game: game)
         b2.bundle_members.create!(game: game)
+        game.reload
+        # Prime the `bundles` association cache BEFORE destroy. The
+        # `has_many :bundle_members, dependent: :destroy` declaration
+        # (line ~189 in `app/models/game.rb`) is registered BEFORE the
+        # explicit `before_destroy :capture_pre_destroy_bundles` (line
+        # ~223), so the cascade clears the join rows BEFORE capture
+        # runs. Calling `bundles.to_a` here populates the AR association
+        # cache; `capture_pre_destroy_bundles` then reuses that cache
+        # instead of re-querying the now-empty DB. The sanity-check
+        # assertion doubles as the prime — `contain_exactly` because
+        # `bundle_members` orders by `position` so ascending insertion
+        # gives us [b1, b2], but we don't want the test to break if
+        # Rails ever reorders the through-load.
+        expect(game.bundles.to_a).to contain_exactly(b1, b2)
         game.destroy!
         expect(queue).to have_received(:enqueue_for_game_destroy)
-          .with(game, was_in: [ b1, b2 ])
+          .with(game, hash_including(was_in: contain_exactly(b1, b2)))
       end
 
       it "does NOT enqueue a destroy chain when the game had no bundles" do

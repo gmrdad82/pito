@@ -1,120 +1,48 @@
 require "rails_helper"
 
-# Phase 27 v2 spec 05 — `GenresHelper#genre_short_name` collapses an
-# IGDB-canonical genre name to the short label the spec's locked
-# mapping table assigns (RPG, FPS, JRPG, Sim, MOBA, etc). Unknown /
-# unmapped names fall through to the canonical name unchanged. Nil /
-# blank input returns nil so callers can chain `.presence` or pass the
+# Phase 27 task #260 — `GenresHelper` renders IGDB-canonical genre
+# names VERBATIM. The cosmetic-rename map shrank to a single entry
+# (`"Role-playing (RPG)" => "RPG"`). All other IGDB genre names pass
+# through unchanged; distinct IGDB genres stay distinct. Nil / blank
+# input returns nil so callers can chain `.presence` or pass the
 # result to view helpers without guarding.
+#
+# `genre_short_name` is kept as a backwards-compatible alias of
+# `genre_display_name`.
 RSpec.describe GenresHelper, type: :helper do
-  describe "SHORT_NAMES constant" do
+  describe "GENRE_DISPLAY_RENAMES constant" do
     it "is frozen so call sites cannot mutate the table" do
-      expect(GenresHelper::SHORT_NAMES).to be_frozen
+      expect(GenresHelper::GENRE_DISPLAY_RENAMES).to be_frozen
     end
 
-    it "maps the canonical RPG name to the RPG acronym" do
-      expect(GenresHelper::SHORT_NAMES).to include(
+    it "maps the canonical Role-playing (RPG) name to the RPG acronym" do
+      expect(GenresHelper::GENRE_DISPLAY_RENAMES).to include(
         "Role-playing (RPG)" => "RPG"
       )
     end
 
-    it "maps Japanese RPG to the JRPG acronym" do
-      expect(GenresHelper::SHORT_NAMES).to include(
-        "Japanese Role-Playing Game (JRPG)" => "JRPG"
-      )
-    end
-
-    it "maps Shooter and First-person Shooter to the FPS acronym" do
-      expect(GenresHelper::SHORT_NAMES).to include(
-        "Shooter"              => "FPS",
-        "First-person Shooter" => "FPS"
-      )
-    end
-
-    it "maps Simulator to the Sim short label" do
-      expect(GenresHelper::SHORT_NAMES).to include("Simulator" => "Sim")
-    end
-
-    it "maps MOBA to MOBA (preserving the acronym)" do
-      expect(GenresHelper::SHORT_NAMES).to include("MOBA" => "MOBA")
-    end
-
-    it "maps Platform to Platformer" do
-      expect(GenresHelper::SHORT_NAMES).to include("Platform" => "Platformer")
-    end
-
-    it "maps Visual Novel to the VN acronym" do
-      expect(GenresHelper::SHORT_NAMES).to include("Visual Novel" => "VN")
-    end
-
-    it "maps Card & Board Game to Card" do
-      expect(GenresHelper::SHORT_NAMES).to include("Card & Board Game" => "Card")
-    end
-
-    it "maps Hack and slash/Beat 'em up to Hack/Slash" do
-      expect(GenresHelper::SHORT_NAMES).to include(
-        "Hack and slash/Beat 'em up" => "Hack/Slash"
-      )
-    end
-
-    it "collapses Point-and-click into Adventure" do
-      # Per the spec's locked table — both render as `Adventure` on
-      # the shelf heading.
-      expect(GenresHelper::SHORT_NAMES).to include(
-        "Point-and-click" => "Adventure",
-        "Adventure"       => "Adventure"
-      )
-    end
-
-    it "maps RTS to RTS and TBS to TBS (acronym preservation)" do
-      expect(GenresHelper::SHORT_NAMES).to include(
-        "Real Time Strategy (RTS)"  => "RTS",
-        "Turn-based strategy (TBS)" => "TBS"
-      )
+    it "holds exactly one cosmetic rename (verbatim is the default)" do
+      expect(GenresHelper::GENRE_DISPLAY_RENAMES.size).to eq(1)
     end
   end
 
   describe "#genre_short_name with a String input" do
-    it "returns the locked short label for a known IGDB name" do
+    it "returns the locked short label for the one mapped IGDB name" do
       expect(helper.genre_short_name("Role-playing (RPG)")).to eq("RPG")
-    end
-
-    it "returns FPS for Shooter (the spec's locked mapping)" do
-      expect(helper.genre_short_name("Shooter")).to eq("FPS")
-    end
-
-    it "returns FPS for First-person Shooter (the spec's locked mapping)" do
-      expect(helper.genre_short_name("First-person Shooter")).to eq("FPS")
-    end
-
-    it "returns JRPG for Japanese Role-Playing Game (JRPG)" do
-      expect(helper.genre_short_name("Japanese Role-Playing Game (JRPG)")).to eq("JRPG")
-    end
-
-    it "returns Sim for Simulator" do
-      expect(helper.genre_short_name("Simulator")).to eq("Sim")
-    end
-
-    it "returns MOBA for MOBA" do
-      expect(helper.genre_short_name("MOBA")).to eq("MOBA")
-    end
-
-    it "returns Platformer for Platform" do
-      expect(helper.genre_short_name("Platform")).to eq("Platformer")
-    end
-
-    it "returns Adventure unchanged for the one-to-one Adventure mapping" do
-      expect(helper.genre_short_name("Adventure")).to eq("Adventure")
     end
 
     it "returns the IGDB canonical name unchanged for an unmapped genre" do
       expect(helper.genre_short_name("Pumpkin Spice Latte"))
         .to eq("Pumpkin Spice Latte")
     end
+
+    it "returns Shooter unchanged (proves the rename map shrank — no FPS collapse)" do
+      expect(helper.genre_short_name("Shooter")).to eq("Shooter")
+    end
   end
 
   describe "#genre_short_name with a Genre instance" do
-    it "reads the genre's name and looks it up in the mapping" do
+    it "reads the genre's name and looks it up in the rename map" do
       genre = build(:genre, name: "Role-playing (RPG)")
       expect(helper.genre_short_name(genre)).to eq("RPG")
     end
@@ -124,9 +52,9 @@ RSpec.describe GenresHelper, type: :helper do
       expect(helper.genre_short_name(genre)).to eq("Pumpkin Spice Latte")
     end
 
-    it "works on a persisted Genre record" do
+    it "works on a persisted Genre record (verbatim passthrough)" do
       genre = build_stubbed(:genre, name: "Visual Novel", igdb_id: 9_001)
-      expect(helper.genre_short_name(genre)).to eq("VN")
+      expect(helper.genre_short_name(genre)).to eq("Visual Novel")
     end
   end
 

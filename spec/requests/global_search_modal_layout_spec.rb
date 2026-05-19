@@ -66,23 +66,32 @@ RSpec.describe "Global search modal layout integration", type: :request do
   describe "IGDB search modal copy" do
     it "renders an autocomplete-off search input wired to the modal controller" do
       get "/"
+      expect(response.body).to include('autocomplete="off"')
       expect(response.body).to include('data-igdb-search-modal-target="input"')
-      expect(response.body).to include('data-action="input->igdb-search-modal#search"')
+      # 2026-05-18 (Phase 27 spec 04) — the input also auto-fires on
+      # Enter, so the `data-action` carries two handlers, not one. We
+      # match on the input-driven handler being present rather than the
+      # full attribute (which now includes ` keydown.enter->...`).
+      expect(response.body).to include("input->igdb-search-modal#search")
     end
 
-    # 2026-05-11 — the dialog inherited a 420px max-width from
-    # `.confirm-modal`, which clipped the `[search]` button and produced
-    # a horizontal scrollbar. The partial now sets an inline max-width
-    # on the <dialog> and uses `width: min(...)` on the inner so the
-    # layout stays roomy on desktop and fluid on narrow viewports.
+    # 2026-05-18 (Phase 27 spec 04 copy + control polish) — the inline
+    # `style="max-width: 720px;"` band-aid is gone. The wide modal now
+    # opts into the `.pane-dialog--wide` CSS modifier so other
+    # `.confirm-modal.pane-dialog` dialogs keep their 420px cap. The
+    # inner wrapper's redundant `width: min(720px, 92vw)` is also dropped
+    # now that the outer `<dialog>` sizes correctly via the class.
     it "widens the dialog past the default confirm-modal 420px cap" do
       get "/"
-      expect(response.body).to match(/id="igdb-search-modal"[^>]*style="max-width:\s*720px;?"/)
+      expect(response.body).to match(/id="igdb-search-modal"[^>]*class="[^"]*pane-dialog--wide[^"]*"/)
     end
 
-    it "lets the inner container scale fluidly on narrow viewports" do
+    it "uses the wide pane-dialog modifier class instead of an inline width" do
       get "/"
-      expect(response.body).to include('style="width: min(720px, 92vw);"')
+      # The shared `.pane-dialog--wide` modifier sizes the dialog
+      # responsively; no inline width / max-width style is needed.
+      expect(response.body).to include("pane-dialog--wide")
+      expect(response.body).not_to match(/id="igdb-search-modal"[^>]*style="max-width/)
     end
   end
 

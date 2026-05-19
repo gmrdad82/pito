@@ -28,16 +28,24 @@ RSpec.describe BundleCoverInvalidate, type: :job do
       expect(cache).not_to have_received(:evict)
     end
 
-    it "enqueues BundleCoverBuild once per bundle the game belongs to" do
-      bundle1 = create(:bundle)
-      bundle2 = create(:bundle)
+    it "enqueues a BundleCoverBuild sequential chain covering every bundle the game belongs to" do
+      # Names chosen so alphabetical sort matches creation order.
+      bundle1 = create(:bundle, name: "A bundle")
+      bundle2 = create(:bundle, name: "B bundle")
       bundle1.bundle_members.create!(game: game)
       bundle2.bundle_members.create!(game: game)
 
       BundleCoverBuild.clear
       described_class.new.perform(game.id, "old456")
-      enqueued_ids = BundleCoverBuild.jobs.map { |j| j["args"].first }
-      expect(enqueued_ids).to contain_exactly(bundle1.id, bundle2.id)
+
+      # `Bundles::CompositeRebuildQueue` enqueues a single head job whose
+      # tail carries the remaining bundle ids — the chain unspools as
+      # each `BundleCoverBuild` finishes. So the only job enqueued
+      # synchronously here is the head: `(bundle1.id, [bundle2.id])`.
+      expect(BundleCoverBuild.jobs.size).to eq(1)
+      head_args = BundleCoverBuild.jobs.last["args"]
+      expect(head_args[0]).to eq(bundle1.id)
+      expect(head_args[1]).to eq([ bundle2.id ])
     end
 
     it "no-ops on missing game" do

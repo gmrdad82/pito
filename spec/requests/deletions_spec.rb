@@ -92,16 +92,10 @@ RSpec.describe "Deletions", type: :request do
       end
     end
 
-    context "collections" do
-      let!(:collection) { create(:collection, name: "Action games") }
-
-      it "returns 200 with valid collection IDs and renders the preview" do
-        get deletions_path(type: "collection", ids: collection.id)
-        expect(response).to have_http_status(:ok)
-        expect(response.body).to include("Action games")
-        expect(response.body).to include("delete 1 collection")
-      end
-    end
+    # `context "collections"` removed 2026-05-19 — Collection model is
+    # gone (Wave A task #68 dropped `belongs_to :collection` from Game).
+    # Bundle deletion takes its place and is covered in
+    # `spec/requests/bundles_spec.rb`.
 
     context "games" do
       let!(:game) { create(:game, title: "Elden Ring") }

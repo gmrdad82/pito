@@ -11,14 +11,16 @@ RSpec.describe Games::FilterChipComponent, type: :component do
   let(:universe) { Games::FiltersHelper::TOKEN_UNIVERSE }
 
   describe "happy: rendering" do
-    it "renders an unchecked chip with the post-toggle href (universe minus self when self is unchecked)" do
-      # universe minus ps ⇒ checked_tokens is the universe currently,
-      # ps chip is unchecked; toggling it adds ps → universe again → /games.
+    it "renders an unchecked chip with the post-toggle href (DEFAULT set when toggling lands on default)" do
+      # DEFAULT_CHECKED_TOKENS = universe MINUS `played` (user-locked
+      # 2026-05-17 — engagement axis opt-in). Start from DEFAULT minus
+      # `ps` (so 6 chips checked: every default token except ps).
+      # Toggling the unchecked `ps` chip adds it back → set equals
+      # DEFAULT_CHECKED_TOKENS → helper emits the canonical bare `/games`.
       render_inline(described_class.new(
         token: "ps", checked: false,
-        checked_tokens: universe - [ "ps" ]
+        checked_tokens: Games::FiltersHelper::DEFAULT_CHECKED_TOKENS - [ "ps" ]
       ))
-      # Toggling ps brings the set to the full universe → /games.
       expect(page).to have_css("a.filter-chip[href='/games']")
     end
 

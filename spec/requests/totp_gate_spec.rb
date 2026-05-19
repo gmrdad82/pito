@@ -25,26 +25,44 @@ RSpec.describe "Mandatory-2FA gate", type: :request do
   describe "an authenticated user WITHOUT TOTP configured", :unauthenticated do
     before { sign_in_as(unconfigured_user) }
 
-    # Phase 32 (settings refactor polish — Concern 2). The gate now
-    # bounces every non-allowlisted route to `/settings?enroll_totp=1`
-    # (the hub renders the auto-open modal on top of muted panes).
-    # `/settings` itself is allowlisted so the redirect can land
-    # without looping; `/settings/security` (and other settings
-    # sub-pages) stay gated.
+    # 2026-05-19 (FA8) — the gate's redirect target is the canonical
+    # `/settings/security/totp` enrollment page (NOT `/settings`).
+    # The allowlist is now minimal: ONLY the TOTP-setup routes
+    # (`GET` / `POST /settings/security/totp`) plus `DELETE /session`.
+    # `/settings` is NO LONGER allowlisted — visiting it without TOTP
+    # configured redirects to the enrollment page like every other
+    # gated route. `/settings/security` (and other settings sub-pages)
+    # stay gated as well.
+    #
+    # 2026-05-19 — `/bundles` was dropped from the parameterized
+    # `each` list because the standalone `/bundles` index route no
+    # longer exists (bundles are reachable only via `/games`
+    # shelves + per-id show pages). The gate contract for bundle
+    # surfaces is locked separately below against the canonical
+    # CLAUDE.md target `/settings/security/totp`.
     %w[
       /
       /channels
       /videos
       /projects
       /games
-      /bundles
       /calendar
       /settings/security
     ].each do |path|
-      it "is redirected from #{path} to /settings?enroll_totp=1" do
+      it "is redirected from #{path} to /settings/security/totp" do
         get path
-        expect(response).to redirect_to(settings_path(enroll_totp: 1))
+        expect(response).to redirect_to(settings_security_totp_path)
       end
+    end
+
+    # Bundle surface — per CLAUDE.md "Mandatory-2FA gate" the
+    # canonical redirect target is `/settings/security/totp`.
+    # A standalone `/bundles` index route does not exist; exercise
+    # the gate against an existing bundle's show page instead.
+    it "is redirected from a bundle show page to /settings/security/totp" do
+      bundle = create(:bundle)
+      get bundle_path(bundle)
+      expect(response).to redirect_to(settings_security_totp_path)
     end
 
     it "carries the enrollment alert on the redirect" do
@@ -52,9 +70,14 @@ RSpec.describe "Mandatory-2FA gate", type: :request do
       expect(flash[:alert]).to match(/two-factor/i)
     end
 
-    it "renders /settings 200 (it is the gate's destination, not a redirect target)" do
+    # 2026-05-19 (FA8) — `/settings` is NOT allowlisted post-FA8.
+    # Visiting it without a configured TOTP redirects to the canonical
+    # enrollment page (`/settings/security/totp`) like every other
+    # non-allowlisted route. Previously `/settings` was the gate's
+    # destination and rendered 200; that contract no longer holds.
+    it "/settings is NOT allowlisted post-FA8 — visit without TOTP redirects to enrollment" do
       get settings_path
-      expect(response).to have_http_status(:ok)
+      expect(response).to redirect_to(settings_security_totp_path)
     end
   end
 
@@ -129,7 +152,7 @@ RSpec.describe "Mandatory-2FA gate", type: :request do
     it "allows GET /settings/security/totp (the enrollment view)" do
       get settings_security_totp_path
       expect(response).to have_http_status(:ok)
-      expect(response).not_to redirect_to(settings_path(enroll_totp: 1))
+      expect(response).not_to redirect_to(settings_security_totp_path)
     end
 
     it "allows POST /settings/security/totp (atomic finalize, wrong-code 422 path)" do
@@ -151,7 +174,7 @@ RSpec.describe "Mandatory-2FA gate", type: :request do
       sign_in_as(unconfigured_user)
 
       get channels_path
-      expect(response).to redirect_to(settings_path(enroll_totp: 1))
+      expect(response).to redirect_to(settings_security_totp_path)
 
       # Simulate a confirmed enrollment.
       unconfigured_user.update!(
@@ -162,7 +185,7 @@ RSpec.describe "Mandatory-2FA gate", type: :request do
 
       get channels_path
       expect(response).to have_http_status(:ok)
-      expect(response).not_to redirect_to(settings_path(enroll_totp: 1))
+      expect(response).not_to redirect_to(settings_security_totp_path)
     end
   end
 

@@ -72,13 +72,23 @@ RSpec.describe GameIgdbSync, type: :job do
         expect(game.reload.resyncing?).to eq(false)
       end
 
-      it "is a no-op when resyncing is already true (duplicate enqueue guard)" do
+      # 2026-05-18 — controller-owned mutex flip. `GamesController#resync`
+      # now stamps `resyncing = true` SYNCHRONOUSLY before enqueuing and
+      # short-circuits duplicate clicks with the "already resyncing."
+      # flash. The legacy `return if game.resyncing?` early-bail inside
+      # the job was retired so console / rake callers that bypass the
+      # controller still get a full sync. This test pins the new shape:
+      # the job runs SyncGame even when the flag was already true on
+      # entry, and clears the flag in `ensure` as usual.
+      it "runs SyncGame even when resyncing is already true on entry" do
         game.update_column(:resyncing, true)
-        expect_any_instance_of(Igdb::SyncGame).not_to receive(:call)
+        syncer = instance_double(Igdb::SyncGame, call: game)
+        allow(Igdb::SyncGame).to receive(:new).and_return(syncer)
+
         described_class.new.perform(game.id)
-        # Lock NOT released by an early-return — only the running job
-        # releases the lock when it finishes.
-        expect(game.reload.resyncing?).to eq(true)
+
+        expect(syncer).to have_received(:call).with(game)
+        expect(game.reload.resyncing?).to eq(false)
       end
     end
 
@@ -140,55 +150,38 @@ RSpec.describe GameIgdbSync, type: :job do
       end
     end
 
-    # Phase 27 v2 spec 03 — live broadcast. The job broadcasts a
-    # Turbo-Stream replace of the `games/_sync_status` partial to the
-    # `"game_resync:<id>"` stream in the `ensure` block (so the show
-    # page swaps from the dot-loader back to the idle state without
-    # a refresh).
-    describe "live broadcast" do
+    # Wave A (2026-05-18) — the dedicated sync pane / banner and the
+    # `_sync_status` partial were REMOVED from `/games/:id`. UI feedback
+    # while a resync is in flight is now handled entirely on the show
+    # page by the page-level `auto-refresh` Stimulus controller (polls
+    # every ~5 s while `@game.resyncing?` is true). The job therefore
+    # no longer broadcasts a Turbo-Stream replace — the polling refresh
+    # picks up the cleared flag and re-renders the breadcrumb idle state.
+    describe "live broadcast (removed in Wave A)" do
       before do
         allow(Turbo::StreamsChannel).to receive(:broadcast_replace_to)
         allow_any_instance_of(Igdb::SyncGame).to receive(:call) { |_, g| g }
       end
 
-      it "broadcasts a replace of the sync_status partial on success" do
+      it "does NOT broadcast on success (auto-refresh polling replaces this surface)" do
         described_class.new.perform(game.id)
-        expect(Turbo::StreamsChannel).to have_received(:broadcast_replace_to)
-          .with(
-            "game_resync:#{game.id}",
-            hash_including(
-              target: "game_sync_status_#{game.id}",
-              partial: "games/sync_status",
-              locals: hash_including(:game)
-            )
-          )
+        expect(Turbo::StreamsChannel).not_to have_received(:broadcast_replace_to)
       end
 
-      it "broadcasts on ValidationError so the dot-loader stops" do
+      it "does NOT broadcast on ValidationError" do
         allow_any_instance_of(Igdb::SyncGame).to receive(:call)
           .and_raise(Igdb::Client::ValidationError.new("not found"))
 
         described_class.new.perform(game.id)
-        expect(Turbo::StreamsChannel).to have_received(:broadcast_replace_to)
-          .with("game_resync:#{game.id}", hash_including(target: "game_sync_status_#{game.id}"))
+        expect(Turbo::StreamsChannel).not_to have_received(:broadcast_replace_to)
       end
 
-      it "broadcasts on retryable failure (in ensure) so the open tab keeps state honest" do
+      it "does NOT broadcast on retryable failure" do
         allow_any_instance_of(Igdb::SyncGame).to receive(:call)
           .and_raise(Igdb::Client::ServerError.new("500"))
 
         expect { described_class.new.perform(game.id) }.to raise_error(Igdb::Client::ServerError)
-        expect(Turbo::StreamsChannel).to have_received(:broadcast_replace_to)
-          .with("game_resync:#{game.id}", hash_including(target: "game_sync_status_#{game.id}"))
-      end
-
-      it "swallows broadcast errors (does not leak out of ensure)" do
-        allow(Turbo::StreamsChannel).to receive(:broadcast_replace_to)
-          .and_raise(StandardError.new("redis down"))
-
-        expect { described_class.new.perform(game.id) }.not_to raise_error
-        # The flag still cleared even though the broadcast threw.
-        expect(game.reload.resyncing?).to eq(false)
+        expect(Turbo::StreamsChannel).not_to have_received(:broadcast_replace_to)
       end
     end
 
@@ -196,13 +189,18 @@ RSpec.describe GameIgdbSync, type: :job do
     # be untouched by the sync. The actual partition is enforced by
     # `Igdb::SyncGame#call` (it only writes IGDB columns); this test
     # is paranoid coverage at the job's entry surface.
+    # 2026-05-17 — `Collection` model + `games.collection_id` column
+    # were dropped along with the `belongs_to :collection`. The Bundle
+    # + bundle_members many-to-many replaces the single-pointer pattern.
+    # The partition spec still verifies the ownership-sourced columns
+    # plus the platform-ownership join survive a no-op SyncGame call;
+    # bundle membership is exercised in dedicated specs and not needed
+    # here (no field on `games` to mirror it).
     describe "ownership-sourced field partition" do
-      let!(:collection) { create(:collection, name: "shelf") }
       let!(:platform) { create(:platform, name: "PS5", igdb_id: 167) }
       let!(:loaded_game) do
         g = create(:game,
                    :synced,
-                   collection: collection,
                    played_at: Time.zone.local(2024, 1, 15),
                    notes: "loved it",
                    hours_of_footage_manual: 12,

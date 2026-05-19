@@ -85,7 +85,8 @@ RSpec.describe "BundleMembers", type: :request do
       }.not_to change { Game.count }
 
       follow_redirect!
-      expect(response.body).to include("igdb id must be a positive integer")
+      # Copy lives in `games.flash.invalid_igdb_id` (config/locales/common/shared.en.yml).
+      expect(response.body).to include("invalid igdb id.")
     end
   end
 

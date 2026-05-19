@@ -75,7 +75,11 @@ RSpec.describe NotificationDeliveryChannel, type: :model do
     it "rejects a Slack webhook URL that does not match the regex" do
       record = described_class.new(kind: "slack", webhook_url: "https://hooks.slack.com/foo")
       expect(record).not_to be_valid
-      expect(record.errors[:webhook_url].first).to include("slack")
+      # 2026-05-17 — the kind-specific error copy reads "is not a valid
+      # Slack webhook URL." (brand label is the proper-noun spelling
+      # via `BRAND_LABELS`). The previous lowercase assertion no longer
+      # matches.
+      expect(record.errors[:webhook_url].first).to include("Slack")
     end
 
     it "rejects an http (non-TLS) Slack URL" do
@@ -178,26 +182,28 @@ RSpec.describe NotificationDeliveryChannel, type: :model do
   end
 
   describe "flags_require_webhook_url validator" do
+    # 2026-05-17 — the original combined `nilify_blank_webhook_url_and_zero_flags`
+    # `before_validation` callback was split (see model header): the
+    # flag-zeroing half moved to `before_save` so the validator sees the
+    # user-submitted intent (flag-on with blank URL) and fails LOUDLY
+    # instead of silently no-opping after the callback already coerced
+    # the flag to false. The validator is now the primary user-facing
+    # gate; the `before_save` callback is defense-in-depth.
     it "rejects `everything: true` with a nil URL (form-tampered combination)" do
       record = described_class.new(kind: "slack", webhook_url: nil, everything: true)
-      # The callback zeroes the flag back to false, so the record is
-      # valid by the time `valid?` finishes. Pin the post-callback shape
-      # AND the rejection path that fires when callbacks are skipped.
-      record.valid?
-      expect(record.everything).to be(false)
+      expect(record).not_to be_valid
+      expect(record.errors[:base].join).to match(/Slack webhook URL not configured/i)
+      # The post-validation `before_save` flag-zeroing callback only
+      # fires inside `save` — `valid?` alone leaves the flag at the
+      # caller-submitted value so the validator can see it.
+      expect(record.everything).to be(true)
     end
 
-    it "rejects `daily_digest: true` with a nil URL when callbacks are skipped" do
-      # Defense-in-depth: a code path that skips the `before_validation`
-      # callback (e.g. an `assign_attributes` followed by a `valid?`
-      # check on a record built outside the normal flow) lands on the
-      # validator. We can't easily skip a single `before_validation` in
-      # AR — so reach into the callback chain and stub it out for the
-      # duration of this check.
+    it "rejects `daily_digest: true` with a nil URL" do
       record = described_class.new(kind: "slack", webhook_url: nil, daily_digest: true)
-      allow(record).to receive(:nilify_blank_webhook_url_and_zero_flags) # no-op
       expect(record).not_to be_valid
-      expect(record.errors[:base].join).to match(/routing flags require a webhook URL/i)
+      # Kind-specific copy — proper-noun brand label via `BRAND_LABELS`.
+      expect(record.errors[:base].join).to match(/Slack webhook URL not configured/i)
     end
 
     it "accepts both flags true with a present URL" do

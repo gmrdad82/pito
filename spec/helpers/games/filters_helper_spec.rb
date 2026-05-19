@@ -25,8 +25,9 @@ RSpec.describe Games::FiltersHelper, type: :helper do
   end
 
   describe "#parse_checked_tokens" do
-    it "returns the FULL universe for nil (param ABSENT means every chip checked)" do
-      expect(helper.parse_checked_tokens(nil)).to eq(universe)
+    it "returns DEFAULT_CHECKED_TOKENS for nil (param ABSENT means default-checked set — universe MINUS played, user-locked 2026-05-17)" do
+      expect(helper.parse_checked_tokens(nil))
+        .to eq(Games::FiltersHelper::DEFAULT_CHECKED_TOKENS)
     end
 
     it "returns an empty array for an empty string (every chip off — edge state)" do
@@ -106,8 +107,16 @@ RSpec.describe Games::FiltersHelper, type: :helper do
   end
 
   describe "#games_path_with_checked" do
-    it "emits /games when every chip is checked (the canonical full-list URL)" do
-      expect(helper.games_path_with_checked(universe)).to eq("/games")
+    it "emits /games when DEFAULT_CHECKED_TOKENS is the set (universe MINUS played — the canonical full-list URL, user-locked 2026-05-17)" do
+      expect(helper.games_path_with_checked(Games::FiltersHelper::DEFAULT_CHECKED_TOKENS))
+        .to eq("/games")
+    end
+
+    it "emits /games?filters=<csv> for the explicit-universe (played included is a meaningful, user-visible state)" do
+      # Adding `played` is NOT canonicalised to bare `/games` — the
+      # canonical full-list URL is universe MINUS played.
+      expect(helper.games_path_with_checked(universe))
+        .to eq("/games?filters=#{universe.join(',')}")
     end
 
     it "emits /games?filters=<csv> for a subset" do
@@ -124,8 +133,11 @@ RSpec.describe Games::FiltersHelper, type: :helper do
     end
 
     it "drops unknown tokens before deciding whether to emit /games" do
-      # Universe + 1 unknown still equals "universe checked" → /games.
-      result = helper.games_path_with_checked(universe + [ "bogus" ])
+      # DEFAULT_CHECKED_TOKENS + 1 unknown still equals "default-checked
+      # set" → /games. The unknown token never reaches the comparison.
+      result = helper.games_path_with_checked(
+        Games::FiltersHelper::DEFAULT_CHECKED_TOKENS + [ "bogus" ]
+      )
       expect(result).to eq("/games")
     end
   end

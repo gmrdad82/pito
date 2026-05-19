@@ -6,12 +6,19 @@
     (newly-added game with zero in-bundles).
 
     Two-column inner layout: LEFT column stacks the "suggested" /
-    "bundles" rows; RIGHT column renders a tight chevron cluster
-    cueing the transition into the suggested half. %>
+    "bundles" rows; RIGHT column stacks a vertical run of `>` glyphs
+    hugging the right edge of the tile. The chevron count (20) is an
+    intentional over-render — the CSS clips the surplus via
+    `overflow: hidden` on the column so the visible stack always fills
+    the available height regardless of font-size drift. %>
 <div class="bundles-suggested-separator" aria-hidden="true">
   <span class="bundles-suggested-separator__label">
     <span class="bundles-suggested-separator__label-row"><%= label_row_1 %></span>
     <span class="bundles-suggested-separator__label-row"><%= label_row_2 %></span>
   </span>
-  <span class="bundles-suggested-separator__chevrons">&gt;&gt;&gt;</span>
+  <span class="bundles-suggested-separator__chevrons">
+    <% chevrons.each do |glyph| %>
+      <span class="bundles-suggested-separator__chevron"><%= glyph %></span>
+    <% end %>
+  </span>
 </div>

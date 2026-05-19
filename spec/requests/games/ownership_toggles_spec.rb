@@ -66,7 +66,7 @@ RSpec.describe "Games::OwnershipToggles", type: :request do
     it "flashes the per-chip label on owned (`PS`)" do
       patch game_ownership_toggle_path(game_id: game.to_param, platform: "ps"),
             params: { enabled: "yes" }
-      expect(flash[:notice]).to eq("Game owned on PS.")
+      expect(flash[:notice]).to eq("owned on PS.")
     end
 
     # ------------------------------------------------------------
@@ -139,7 +139,7 @@ RSpec.describe "Games::OwnershipToggles", type: :request do
       it "flashes `no longer owned` with the chip label" do
         patch game_ownership_toggle_path(game_id: game.to_param, platform: "ps"),
               params: { enabled: "no" }
-        expect(flash[:notice]).to eq("Game no longer owned on PS.")
+        expect(flash[:notice]).to eq("removed PS.")
       end
 
       it "clears the played_platform_id pointer when the un-owned platform was the played one" do
@@ -219,7 +219,7 @@ RSpec.describe "Games::OwnershipToggles", type: :request do
     it "flashes `playing_on` with the chip label" do
       patch game_played_toggle_path(game_id: game.to_param, platform: "ps"),
             params: { enabled: "yes" }
-      expect(flash[:notice]).to eq("Playing on PS.")
+      expect(flash[:notice]).to eq("playing on PS.")
     end
 
     it "is singular — switching played to a different platform replaces the pointer" do
@@ -246,7 +246,7 @@ RSpec.describe "Games::OwnershipToggles", type: :request do
 
       patch game_played_toggle_path(game_id: game.to_param, platform: "ps"),
             params: { enabled: "no" }
-      expect(flash[:notice]).to eq("No longer playing on PS.")
+      expect(flash[:notice]).to eq("stopped PS.")
     end
 
     it "is a no-op when not playing on this platform and submits enabled=no" do
