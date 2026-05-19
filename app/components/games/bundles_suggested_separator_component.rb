@@ -27,13 +27,29 @@ module Games
   # branch.
   class BundlesSuggestedSeparatorComponent < ViewComponent::Base
     # 2026-05-19 — Two-column tile layout. LEFT column stacks the label
-    # over two rows ("suggested" / "bundles"); RIGHT column is a tight
-    # cluster of chevrons cueing the transition into the suggested half.
-    # The chevron run is a single text node (one `>` repeated) so the
-    # column stays a single inline-block flex child.
+    # over two rows ("suggested" / "bundles"); RIGHT column stacks a
+    # vertical column of `>` glyphs hugging the right edge of the tile,
+    # cueing the transition into the suggested half.
+    #
+    # CHEVRONS is an array of single-glyph strings (one per stacked
+    # row) rather than a single concatenated run so the template can
+    # iterate and emit one `<span>` per glyph — each glyph becomes its
+    # own block-level row inside the chevrons column.
+    #
+    # Soft-count pattern (2026-05-19 refinement): 12 is a comfortable
+    # rendered count that leaves a small buffer over the visible fit
+    # at the current `font-size: 16px` + `line-height: 1` on a 200px
+    # tile. The CSS column uses `justify-content: center` + parent
+    # `justify-content: space-between` + `overflow: hidden`, so the
+    # column hugs the right border without negative margins and any
+    # surplus glyphs clip symmetrically top + bottom. The count is no
+    # longer a fit-ceiling — bumping it up or down a couple of glyphs
+    # only changes how aggressively the top/bottom clip kicks in; it
+    # doesn't break the layout the way the previous magic-margin
+    # arrangement would have.
     LABEL_ROW_1 = "suggested".freeze
     LABEL_ROW_2 = "bundles".freeze
-    CHEVRONS = ">>>".freeze
+    CHEVRONS = ([ ">" ] * 12).freeze
 
     def label_row_1
       LABEL_ROW_1

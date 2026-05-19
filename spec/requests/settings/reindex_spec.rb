@@ -74,10 +74,14 @@ RSpec.describe "Settings::Reindex", type: :request do
         expect(response).to redirect_to(settings_path)
       end
 
-      it "sets the `reindex already in progress.` alert (i18n key resolves)" do
+      it "sets the `reindex in progress.` alert (i18n key resolves)" do
         post settings_reindex_path
         expect(flash[:alert]).to eq(I18n.t("settings.flash.reindex_in_progress"))
-        expect(flash[:alert]).to eq("reindex already in progress.")
+        # 2026-05-18 (/settings copy sweep) — the alert copy was
+        # tightened from `reindex already in progress.` to the
+        # shorter `reindex in progress.` per
+        # `config/locales/settings/flashes.en.yml`.
+        expect(flash[:alert]).to eq("reindex in progress.")
       end
 
       it "does not set a notice on the short-circuit path" do

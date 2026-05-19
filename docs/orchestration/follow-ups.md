@@ -1022,6 +1022,67 @@ the matrix surface + the footage status badge in the same pass.
 
 Locked 2026-05-18.
 
+### Live Updates — relative-time ticker + sessions/stack push (never polling)
+
+**Trigger:** dedicated dispatch when the user signals "live updates" / "kill the
+polling" / similar. Verification pre-work below precedes any implementation
+dispatch.
+
+**Source:** User-locked rule on 2026-05-19. Every time-sensitive UI surface must
+update without user reload, with a strict ban on polling. ActionCable push is
+the only allowed transport, with one client-side exception for the local
+relative-time ticker (no server involvement). The locked rule supersedes any
+prior "poll endpoint" affordance still on disk.
+
+**Summary:**
+
+Three sub-features compose the surface. All three obey the no-polling rule; the
+ticker is client-only by design, the two table surfaces push via ActionCable
+using the existing `<turbo-cable-stream-source>` pattern already proven by the
+bundle-cover live broadcast.
+
+1. **Relative-time ticker (client-side only).** Every `~Xs ago` / `~Xm ago` /
+   `~Xh ago` label ticks on a wall-clock interval. Cadence: per-second under 1
+   minute, per-minute under 1 hour, per-hour beyond. Pure client — no server
+   involvement. Implementation: a Stimulus controller wrapping every element
+   carrying `data-relative-time="<iso8601>"`, with a cadence-aware downshift as
+   the gap grows.
+2. **Sessions table push.** New sessions, revoked sessions, and
+   `last_pinged_at` updates appear via ActionCable. Hook points:
+   `Session#after_create_commit`, `after_update_commit` (last_pinged_at),
+   `after_destroy_commit` (revoke). Pattern: `<turbo-cable-stream-source>`
+   against a stable DOM id (same pattern as the existing bundle-cover live
+   broadcast on `BundleCoverBuild` completion).
+3. **Stack tables push** (Postgres / Meilisearch / Voyage AI / assets / notes).
+   Each surface broadcasts on real state change:
+   - Postgres: Game/Bundle `after_*_commit` → rows + size.
+   - Meilisearch: after `GameIndexer` / bundle indexer → docs + size.
+   - Voyage AI: after `BulkVoyageIndexJob` / `VoyageIndexJob` → counts +
+     `last_indexed_at` + 24h activity.
+   - Assets: after `Games::CoverArt::Normalizer` write + `BundleCoverBuild`
+     write → files + size.
+   - Notes: after `Note` create/destroy → count + size.
+
+**Verification needed before implementation dispatch:**
+
+- Confirm whether `app/channels/stack_stats_channel.rb` is push-driven or
+  poll-driven. Task #366 doc read "poll endpoint (or ActionCable)" — ambiguous.
+  If poll, convert to push in the same dispatch.
+- Confirm whether the Sidekiq / Redis surface is push-driven. If yes, use it as
+  the template for the new broadcasts. If no, fix it in the same pass so the
+  no-polling rule is uniform across the page.
+
+**Out of scope:**
+
+- Loading dot animations (Wave B, already shipped).
+- SSE fallback — cable only.
+- Redis pubsub config — ActionCable is already wired.
+
+**Action:** spec + dispatch when the user signals. The dispatch begins with the
+verification pre-work above, then converts any poll surfaces to push, then
+adds the ticker controller, then wires the broadcasts on Sessions and the five
+stack surfaces.
+
 ## Done
 
 ### YouTube credentials hot-rotation gap (omniauth boot-time read)

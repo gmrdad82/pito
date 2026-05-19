@@ -3992,28 +3992,77 @@ dialog.leader-menu-popup::backdrop {
   display: flex;
   flex-direction: row;
   align-items: center;
-  justify-content: space-around;
+  /* `space-between` — label column flush against the left padding
+     (8px in) and chevron column flush against the right padding (0px
+     in, so against the dashed border's inner edge). Surplus space
+     distributes BETWEEN the two children, not outside them — that's
+     what eliminates the prior `margin-right: -23px` correction on the
+     chevrons column that `space-around` made necessary. */
+  justify-content: space-between;
   border: 1px dashed var(--color-border);
   border-radius: 2px;
   background-color: transparent;
   color: var(--color-muted);
   font-size: 11px;
-  padding: 8px;
+  /* Asymmetric padding — keep the 8px breathing room on top / left /
+     bottom for the label column, but drop right padding to zero so
+     the chevron column can hug the dashed right border of the tile
+     (the chevron rows themselves become the right inner edge). */
+  padding: 8px 0 8px 8px;
 }
 .bundles-suggested-separator__label {
+  /* 2026-05-19 — `flex: 1` grows the label column to consume all the
+     space between the parent's left padding (8px) and the chevron
+     column's intrinsic right-flush position. Without this the column
+     shrinks to its longest label row's width and sits flush-left,
+     making `text-align: center` a visual no-op. With `flex: 1` the
+     column claims the available width and the centered text lands
+     mid-tile, between the left padding edge and the chevron column. */
+  flex: 1;
   display: flex;
   flex-direction: column;
-  text-align: left;
+  text-align: center;
   line-height: 1.3;
 }
 .bundles-suggested-separator__label-row {
   display: block;
 }
+/* 2026-05-19 — RIGHT column of the separator tile. Stacks a vertical
+   run of `>` glyphs hugging the right edge of the tile with ZERO
+   gap between consecutive rows (line-height: 1 on each glyph,
+   no flex spacing on the column).
+
+   Architecture (no magic numbers):
+     - Parent `.bundles-suggested-separator` uses `space-between`, so
+       the chevron column naturally lands flush against the inner
+       right edge of the tile (no negative right margin needed).
+     - `justify-content: center` distributes surplus column height
+       symmetrically top + bottom. Combined with `overflow: hidden`,
+       any glyph that doesn't fit gets clipped at BOTH edges in a
+       visually balanced way — looks intentional rather than "ran out
+       of room at the bottom" (no negative top margin needed).
+     - `align-self: stretch` makes the column claim the full tile
+       height so the center-justify + clip math works against the
+       tile, not the intrinsic glyph stack height.
+     - `align-items: flex-end` pins each glyph to the right edge
+       (against the inner-right edge of the tile since the outer
+       padding is asymmetric — see `.bundles-suggested-separator`).
+     - `CHEVRONS.size` (12) in the component is now a SOFT count
+       rather than a fit-ceiling — center + clip handles drift in
+       either direction. */
 .bundles-suggested-separator__chevrons {
-  display: inline-block;
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  align-items: flex-end;
+  justify-content: center;
+  overflow: hidden;
   font-size: 16px;
-  letter-spacing: -2px;
   color: var(--color-muted);
+}
+.bundles-suggested-separator__chevron {
+  display: block;
+  line-height: 1;
 }
 .game-bundles .shelf-row:has(.bundles-suggested-separator:first-child) {
   padding-left: 0;

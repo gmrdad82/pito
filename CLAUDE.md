@@ -274,7 +274,7 @@ digests — never conflate the two.
   nested structure (mirror the `:postgres` block).
 - **Mandatory-2FA gate.** After session creation, a post-session `before_action`
   in `Sessions::AuthConcern` redirects any authenticated user who has not
-  configured TOTP to `/settings/security/totp/new`, blocking every other route
+  configured TOTP to `/settings/security/totp`, blocking every other route
   until enrollment is confirmed. The gate is browser-only — API tokens and MCP
   bearer surfaces are exempt by design (a bearer credential cannot complete a
   TOTP enrollment). Allowlist is minimal: TOTP-setup routes plus logout.

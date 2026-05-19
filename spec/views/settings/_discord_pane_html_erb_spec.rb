@@ -22,12 +22,22 @@ RSpec.describe "settings/_discord_pane.html.erb", type: :view do
       expect(rendered).to match(%r{<input[^>]*name="discord_webhook_url"[^>]*value=""})
     end
 
+    # 2026-05-17 — the pane was restructured into one URL form plus two
+    # tiny auto-save toggle forms, one checkbox per form. Both checkboxes
+    # share the field name `enabled` (the `:kind` is in the form's PATCH
+    # path, not the field name). The Stimulus / leader-menu hook
+    # `data-leader-toggle=` is the stable selector for each individual
+    # checkbox.
     it "renders the everything checkbox unchecked" do
-      expect(rendered).to match(%r{<input[^>]*name="everything"[^>]*value="yes"(?![^>]*\schecked)})
+      expect(rendered).to have_css(
+        'input[type="checkbox"][value="yes"][data-leader-toggle="discord_every_notification"]:not([checked])'
+      )
     end
 
     it "renders the daily_digest checkbox unchecked" do
-      expect(rendered).to match(%r{<input[^>]*name="daily_digest"[^>]*value="yes"(?![^>]*\schecked)})
+      expect(rendered).to have_css(
+        'input[type="checkbox"][value="yes"][data-leader-toggle="discord_daily_digest"]:not([checked])'
+      )
     end
 
     it "renders the [update] submit button" do
@@ -69,16 +79,32 @@ RSpec.describe "settings/_discord_pane.html.erb", type: :view do
       render partial: "settings/discord_pane"
     end
 
-    it "pre-fills the URL input from the AR row" do
-      expect(rendered).to include(%(value="#{valid_url}"))
+    # 2026-05-17 secrets-in-DOM hardening — the URL input NEVER renders
+    # the real webhook URL as its `value=""`. When a row is configured,
+    # the input ships with `value=""` and shows the masked prefix
+    # (`https://discord.com/***`) as a `placeholder=""` so users see
+    # "something is set here" without leaking the secret into HTML view
+    # source. Encryption at rest + filtered logs + masked DOM = three
+    # legs of the secret defense.
+    it "does NOT render the raw URL in the input value (encrypted-at-rest secret)" do
+      expect(rendered).not_to include(%(value="#{valid_url}"))
+      expect(rendered).to match(%r{<input[^>]*name="discord_webhook_url"[^>]*value=""})
+    end
+
+    it "renders the masked URL as the input placeholder" do
+      expect(rendered).to include('placeholder="https://discord.com/***"')
     end
 
     it "pre-checks the everything checkbox" do
-      expect(rendered).to match(%r{<input[^>]*name="everything"[^>]*value="yes"[^>]*\schecked})
+      expect(rendered).to have_css(
+        'input[type="checkbox"][value="yes"][data-leader-toggle="discord_every_notification"][checked]'
+      )
     end
 
     it "pre-checks the daily_digest checkbox" do
-      expect(rendered).to match(%r{<input[^>]*name="daily_digest"[^>]*value="yes"[^>]*\schecked})
+      expect(rendered).to have_css(
+        'input[type="checkbox"][value="yes"][data-leader-toggle="discord_daily_digest"][checked]'
+      )
     end
   end
 
@@ -93,8 +119,12 @@ RSpec.describe "settings/_discord_pane.html.erb", type: :view do
     end
 
     it "pre-checks `everything` only" do
-      expect(rendered).to match(%r{<input[^>]*name="everything"[^>]*value="yes"[^>]*\schecked})
-      expect(rendered).to match(%r{<input[^>]*name="daily_digest"[^>]*value="yes"(?![^>]*\schecked)})
+      expect(rendered).to have_css(
+        'input[type="checkbox"][value="yes"][data-leader-toggle="discord_every_notification"][checked]'
+      )
+      expect(rendered).to have_css(
+        'input[type="checkbox"][value="yes"][data-leader-toggle="discord_daily_digest"]:not([checked])'
+      )
     end
   end
 
@@ -104,14 +134,26 @@ RSpec.describe "settings/_discord_pane.html.erb", type: :view do
       render partial: "settings/discord_pane"
     end
 
-    it "uses `yes` as the checkbox value for `everything` (yes/no boundary)" do
-      expect(rendered).to match(%r{<input[^>]*name="everything"[^>]*value="yes"})
-      expect(rendered).not_to match(%r{<input[^>]*name="everything"[^>]*value="(?:true|1|on)"})
+    # The auto-save toggle forms post a single `enabled` field per form;
+    # the `:kind` ("everything" / "daily_digest") is in the form's PATCH
+    # URL, not the field name. The yes/no contract still applies: the
+    # checkbox's `value=""` MUST be the literal string `yes`.
+    it "uses `yes` as the checkbox value for the everything toggle (yes/no boundary)" do
+      expect(rendered).to match(
+        %r{<input[^>]*value="yes"[^>]*data-leader-toggle="discord_every_notification"}
+      )
+      expect(rendered).not_to match(
+        %r{<input[^>]*value="(?:true|1|on)"[^>]*data-leader-toggle="discord_every_notification"}
+      )
     end
 
-    it "uses `yes` as the checkbox value for `daily_digest`" do
-      expect(rendered).to match(%r{<input[^>]*name="daily_digest"[^>]*value="yes"})
-      expect(rendered).not_to match(%r{<input[^>]*name="daily_digest"[^>]*value="(?:true|1|on)"})
+    it "uses `yes` as the checkbox value for the daily_digest toggle" do
+      expect(rendered).to match(
+        %r{<input[^>]*value="yes"[^>]*data-leader-toggle="discord_daily_digest"}
+      )
+      expect(rendered).not_to match(
+        %r{<input[^>]*value="(?:true|1|on)"[^>]*data-leader-toggle="discord_daily_digest"}
+      )
     end
   end
 

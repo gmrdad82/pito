@@ -34,10 +34,15 @@ RSpec.describe "settings/_stack_pane.html.erb", type: :view do
   end
 
   it "renders all six surface labels" do
+    # 2026-05-19 — Voyage's section heading is sourced from
+    # `settings.voyage.heading` ("Voyage AI"), not the older
+    # "Voyage embeddings" copy. All six stack surfaces still render:
+    # Postgres + Redis (db column), Meilisearch + Voyage AI + assets +
+    # notes (search/storage column).
     expect(rendered).to include("Postgres")
     expect(rendered).to include("Redis")
     expect(rendered).to include("Meilisearch")
-    expect(rendered).to include("Voyage embeddings")
+    expect(rendered).to include("Voyage AI")
     expect(rendered).to include("assets")
     expect(rendered).to include("notes")
   end

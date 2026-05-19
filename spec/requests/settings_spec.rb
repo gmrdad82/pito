@@ -133,12 +133,17 @@ RSpec.describe "Settings", type: :request do
         # 2026-05-16 (sessions revamp v2 polish). Inline trailing
         # badges replace the dropped `ip` column + the `(this
         # session)` muted text.
+        #
+        # Task #223 (2026-05-18) — the `[ip]` chip switched to the
+        # filled-dark `:code` variant (white text on the dark muted-
+        # badge surface, single color across both themes). The chip's
+        # tooltip-host structure is unchanged.
         it "renders an inline `[ip]` tooltip badge for every session row" do
           get settings_path
           # The seeded user lands with at least the current session
           # row (authenticator-helper-driven). Each row carries an
-          # `[ip]` tooltip-host badge.
-          expect(response.body).to match(/class="status-badge status-badge--neutral tooltip-host"[^>]*data-tooltip="[^"]*"[^>]*>ip/)
+          # `[ip]` tooltip-host badge with the `:code` variant.
+          expect(response.body).to match(/class="status-badge status-badge--code tooltip-host"[^>]*data-tooltip="[^"]*"[^>]*>ip/)
         end
 
         it "renders a `[this]` neutral status badge for the current-session row instead of `(this session)` muted text" do
@@ -364,12 +369,17 @@ RSpec.describe "Settings", type: :request do
         expect(response.body).to include("pane--wide")
       end
 
-      it "lists Postgres, Redis, Meilisearch, Voyage embeddings, assets, notes" do
+      it "lists Postgres, Redis, Meilisearch, Voyage AI, assets, notes" do
         get settings_path
+        # Task #236 / Phase 32 (2026-05-16) — the embeddings provider
+        # label is `Voyage AI` everywhere in the UI; the older "Voyage
+        # embeddings" wording was retired with the stack-pane surface
+        # cut. Labels resolve via `t("settings.stack.*")` and
+        # `t("settings.voyage.heading")` (`config/locales/settings/core.en.yml`).
         expect(response.body).to include("Postgres")
         expect(response.body).to include("Redis")
         expect(response.body).to include("Meilisearch")
-        expect(response.body).to include("Voyage embeddings")
+        expect(response.body).to include("Voyage AI")
         expect(response.body).to include("assets")
         expect(response.body).to include("notes")
       end

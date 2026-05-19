@@ -7,11 +7,14 @@ RSpec.describe Games::FilterRowComponent, type: :component do
   describe "happy: default rendering (no checked_tokens passed)" do
     before { render_inline(described_class.new) }
 
-    it "defaults to every chip CHECKED (the full-list state)" do
-      # All 8 chips render with the `chip--active` modifier (GoG +
-      # Epic were collapsed into Steam in the 2026-05-17 PC store
-      # collapse).
-      expect(page).to have_css("a.filter-chip.chip--active", count: 8)
+    it "defaults to DEFAULT_CHECKED_TOKENS (universe MINUS played — user-locked 2026-05-17)" do
+      # `played` chip is OFF by default — the engagement axis is opt-in.
+      # 7 chips render with `chip--active`; the `played` chip renders
+      # but without the active modifier. GoG + Epic were collapsed into
+      # Steam in the 2026-05-17 PC store collapse.
+      expect(page).to have_css("a.filter-chip.chip--active", count: 7)
+      expect(page).to have_no_css("a.filter-chip.chip--active[data-filter-token='played']")
+      expect(page).to have_css("a.filter-chip[data-filter-token='played']")
     end
 
     it "renders 8 chips total (5 left + 3 right)" do

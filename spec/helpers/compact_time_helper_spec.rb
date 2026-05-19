@@ -14,12 +14,16 @@ RSpec.describe CompactTimeHelper, type: :helper do
       expect(helper.compact_time_ago(nil)).to eq("never")
     end
 
-    it "returns ~60s ago for anything under one minute (30 seconds ago)" do
-      expect(helper.compact_time_ago(30.seconds.ago)).to eq("~60s ago")
+    # Task #365 (2026-05-18) — the under-one-minute bucket switched
+    # from the hardcoded `~60s ago` ceiling to round-down `~Xs ago`
+    # emission so a just-finished event reads `~0s ago` instead of
+    # the misleading `~60s ago`. See `app/helpers/compact_time_helper.rb`.
+    it "returns the rounded-down seconds for anything under one minute (30 seconds ago)" do
+      expect(helper.compact_time_ago(30.seconds.ago)).to eq("~30s ago")
     end
 
-    it "returns ~60s ago for anything under one minute (just under 60s)" do
-      expect(helper.compact_time_ago(59.seconds.ago)).to eq("~60s ago")
+    it "returns the rounded-down seconds for anything under one minute (just under 60s)" do
+      expect(helper.compact_time_ago(59.seconds.ago)).to eq("~59s ago")
     end
 
     it "returns minute-level format for 5 minutes ago" do

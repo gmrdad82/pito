@@ -32,14 +32,11 @@ module Sessions
     # `"METHOD path"` string against `request.method` + `request.path`.
     # `/up` (health) is outside this concern entirely and not listed.
     #
-    # Phase 32 (settings refactor polish — Concern 2). `GET /settings`
-    # is also allowlisted: the gate's redirect target IS `/settings`
-    # (with `?enroll_totp=1`), where the enrollment modal auto-opens
-    # on top of the muted dashboard. Without this entry the gate would
-    # loop on its own destination. The other settings sub-pages stay
-    # gated — only the hub renders the modal harness.
+    # Per CLAUDE.md "Hard rules" — the allowlist is minimal: TOTP-setup
+    # routes plus logout. The redirect target is the enrollment view
+    # itself (`/settings/security/totp`); every other route, including
+    # the `/settings` hub, stays gated until enrollment is confirmed.
     TOTP_SETUP_ALLOWLIST = [
-      "GET /settings",                # hub renders the auto-open modal
       "GET /settings/security/totp",  # totps#new — enrollment view (QR + codes + confirm)
       "POST /settings/security/totp", # totps#create — atomic finalize
       "DELETE /session"               # sessions#destroy — log out
@@ -94,19 +91,11 @@ module Sessions
 
     # Phase 29 — Unit A2. The mandatory-2FA gate. Runs immediately
     # after `authenticate_session!`. An authenticated user who has not
-    # configured TOTP is redirected to the settings hub
-    # (`/settings?enroll_totp=1`) where the enrollment modal
-    # auto-opens on top of the muted dashboard. They cannot reach any
-    # other screen until enrollment is confirmed (`totp_enabled_at`
-    # stamped, `totp_disabled_at` nil).
-    #
-    # Phase 32 (settings refactor polish — Concern 2). The redirect
-    # target moved from `settings_security_totp_path` to
-    # `settings_path(enroll_totp: 1)`. `GET /settings` is allowlisted
-    # (see `TOTP_SETUP_ALLOWLIST`) so it renders the page with the
-    # auto-open modal; the modal's `<turbo-frame>` loads the
-    # enrollment view from `settings_security_totp_path`, which is
-    # also allowlisted as before.
+    # configured TOTP is redirected to the enrollment view
+    # (`/settings/security/totp`) per the CLAUDE.md "Hard rules"
+    # contract. They cannot reach any other screen — including the
+    # `/settings` hub — until enrollment is confirmed
+    # (`totp_enabled_at` stamped, `totp_disabled_at` nil).
     #
     # Browser-only (R3): this concern is included by
     # `ApplicationController`; `Api::AuthConcern` and `Mcp::RackApp`
@@ -125,7 +114,7 @@ module Sessions
       return if Current.user.totp_configured?
       return if totp_setup_allowlisted?
 
-      redirect_to settings_path(enroll_totp: 1),
+      redirect_to settings_security_totp_path,
                   alert: "set up two-factor authentication to continue."
     end
 

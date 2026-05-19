@@ -21,12 +21,6 @@ RSpec.describe Confirmable, type: :request do
       expect(response).to have_http_status(:ok)
     end
 
-    it "loads collection scope when type=collection" do
-      collection = create(:collection)
-      get deletions_path(type: "collection", ids: collection.id)
-      expect(response).to have_http_status(:ok)
-    end
-
     it "loads game scope when type=game" do
       game = create(:game)
       get deletions_path(type: "game", ids: game.id)

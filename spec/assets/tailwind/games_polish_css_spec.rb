@@ -7,8 +7,11 @@ require "rails_helper"
 #
 #   * `--color-rating-*`     six-tier rating palette (Fix 2)
 #   * `--col-width-*`        canonical column widths (Fix 1)
-#   * `.games-list-mode`     migrated inline `<style>` rules (Fix 4)
 #   * outer-genres hairline  migrated from `_genres_shelf.html.erb` (Fix 4)
+#
+# (The `.games-list-mode` list/grid display-mode rules were retired
+# alongside task #166 — 22 CSS rules deleted when /games dropped its
+# list-mode toggle.)
 #
 # A blunt source-string check is enough — these are intentional
 # tokens; a future rename should update both the spec and the
@@ -58,18 +61,6 @@ RSpec.describe "application.css — 2026-05-11 games polish", type: :asset do
   end
 
   describe "Fix 4 — migrated inline styles" do
-    it "carries the games list-mode table.list-table rule" do
-      expect(css).to match(/\.games-list-mode\s+table\.list-table\s*\{/)
-    end
-
-    it "carries the games list-mode `col.col-select` rule sourcing --col-width-select" do
-      expect(css).to match(/\.games-list-mode\s+col\.col-select\s*\{\s*width:\s*var\(--col-width-select\)\s*;\s*\}/)
-    end
-
-    it "carries the games list-mode bulk-toolbar rule" do
-      expect(css).to match(/\.games-list-mode\s+\.games-bulk-toolbar\s*\{/)
-    end
-
     it "carries the outer-genres sub-shelf hairline rule" do
       expect(css).to include('section[data-shelf="outer-genres"] > section.sub-shelf:not(:first-of-type)')
       expect(css).to match(/border-top:\s*1px solid var\(--color-border\)/)
